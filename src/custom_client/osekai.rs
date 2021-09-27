@@ -1,7 +1,7 @@
 use groups::*;
 
 use super::deserialize::{str_to_f32, str_to_u32};
-use crate::{util::CountryCode, Name};
+use crate::{embeds::RankingKindData, util::CountryCode, Name};
 
 use rosu_v2::model::{GameMode, GameMods};
 use serde::{
@@ -13,6 +13,7 @@ use std::{cmp::Ordering, fmt, marker::PhantomData, str::FromStr};
 pub trait OsekaiRanking {
     const FORM: &'static str;
     const REQUEST: &'static str;
+    const RANKING: RankingKindData;
     type Entry: for<'de> Deserialize<'de>;
 }
 
@@ -28,48 +29,56 @@ pub struct LovedMapsets;
 impl OsekaiRanking for Rarity {
     const FORM: &'static str = "Rarity";
     const REQUEST: &'static str = "osekai rarity";
+    const RANKING: RankingKindData = RankingKindData::OsekaiRarity;
     type Entry = OsekaiRarityEntry;
 }
 
 impl OsekaiRanking for MedalCount {
     const FORM: &'static str = "Users";
     const REQUEST: &'static str = "osekai users";
+    const RANKING: RankingKindData = RankingKindData::OsekaiMedalCount;
     type Entry = OsekaiUserEntry;
 }
 
 impl OsekaiRanking for Replays {
     const FORM: &'static str = "Replays";
     const REQUEST: &'static str = "osekai replays";
+    const RANKING: RankingKindData = RankingKindData::OsekaiReplays;
     type Entry = OsekaiRankingEntry<usize>;
 }
 
 impl OsekaiRanking for TotalPp {
     const FORM: &'static str = "Total pp";
     const REQUEST: &'static str = "osekai total pp";
+    const RANKING: RankingKindData = RankingKindData::OsekaiTotalPp;
     type Entry = OsekaiRankingEntry<u32>;
 }
 
 impl OsekaiRanking for StandardDeviation {
     const FORM: &'static str = "Standard Deviation";
     const REQUEST: &'static str = "osekai standard deviation";
+    const RANKING: RankingKindData = RankingKindData::OsekaiStandardDeviation;
     type Entry = OsekaiRankingEntry<u32>;
 }
 
 impl OsekaiRanking for Badges {
     const FORM: &'static str = "Badges";
     const REQUEST: &'static str = "osekai badges";
+    const RANKING: RankingKindData = RankingKindData::OsekaiBadges;
     type Entry = OsekaiRankingEntry<usize>;
 }
 
 impl OsekaiRanking for RankedMapsets {
     const FORM: &'static str = "Ranked Mapsets";
     const REQUEST: &'static str = "osekai ranked mapsets";
+    const RANKING: RankingKindData = RankingKindData::OsekaiRankedMapsets;
     type Entry = OsekaiRankingEntry<usize>;
 }
 
 impl OsekaiRanking for LovedMapsets {
     const FORM: &'static str = "Loved Mapsets";
     const REQUEST: &'static str = "osekai loved mapsets";
+    const RANKING: RankingKindData = RankingKindData::OsekaiLovedMapsets;
     type Entry = OsekaiRankingEntry<usize>;
 }
 
@@ -269,12 +278,12 @@ impl<'de> Visitor<'de> for OsekaiModeVisitor {
             "NULL" => return Ok(None),
             "0" | "osu" | "osu!" => GameMode::STD,
             "1" | "taiko" | "tko" => GameMode::TKO,
-            "2" | "ctb" | "fruits" => GameMode::CTB,
+            "2" | "catch" | "ctb" | "fruits" => GameMode::CTB,
             "3" | "mania" | "mna" => GameMode::MNA,
             _ => {
                 return Err(Error::invalid_value(
                     Unexpected::Str(v),
-                    &r#""NULL", "0", "osu", "osu!", "1", "taiko", "tko", "2", "ctb", "fruits", "3", "mania", or "mna""#,
+                    &r#""NULL", "0", "osu", "osu!", "1", "taiko", "tko", "2", "catch", "ctb", "fruits", "3", "mania", or "mna""#,
                 ))
             }
         };

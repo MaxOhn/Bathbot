@@ -96,7 +96,7 @@ pub(super) async fn _medalrecent(
             Err(why) => {
                 let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(why.into());
+                return Err(why);
             }
         },
         None => {

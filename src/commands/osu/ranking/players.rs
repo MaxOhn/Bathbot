@@ -1,15 +1,16 @@
 use crate::{
-    embeds::{EmbedData, RankingEmbed},
+    embeds::{EmbedData, RankingEmbed, RankingEntry, RankingKindData},
     pagination::{Pagination, RankingPagination},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        numbers, CountryCode, CowUtils, MessageExt,
+        numbers::{self, with_comma_uint},
+        CountryCode, CowUtils, MessageExt,
     },
     BotResult, CommandData, Context,
 };
 
 use rosu_v2::prelude::{GameMode, OsuResult, Rankings};
-use std::{borrow::Cow, collections::BTreeMap, fmt, sync::Arc};
+use std::{collections::BTreeMap, fmt, mem, sync::Arc};
 
 fn country_code_(arg: &str) -> Result<CountryCode, &'static str> {
     if arg.len() == 2 && arg.is_ascii() {
@@ -82,7 +83,7 @@ async fn _ranking(
     kind: RankingKind,
     result: OsuResult<Rankings>,
 ) -> BotResult<()> {
-    let ranking = match result {
+    let mut ranking = match result {
         Ok(ranking) => ranking,
         Err(why) => {
             let _ = data.error(&ctx, OSU_API_ISSUE).await;
@@ -91,16 +92,15 @@ async fn _ranking(
         }
     };
 
-    let country_name = country_code.as_ref().map(|_| {
-        ranking
+    let country = country_code.map(|code| {
+        let name = ranking
             .ranking
-            .get(0)
-            .and_then(|user| user.country.as_deref())
-            .unwrap_or("XX")
-    });
+            .get_mut(0)
+            .and_then(|user| mem::take(&mut user.country))
+            .unwrap_or_else(|| code.to_string());
 
-    let url_type = kind.url_type();
-    let title = kind.title(country_name);
+        (name, code)
+    });
 
     let total = ranking.total as usize;
     let pages = numbers::div_euclid(20, total);
@@ -111,24 +111,33 @@ async fn _ranking(
         .map(|user| {
             let stats = user.statistics.as_ref().unwrap();
 
-            let key = match kind {
+            let value = match kind {
                 RankingKind::Performance => UserValue::Pp(stats.pp.round() as u32),
                 RankingKind::Score => UserValue::Score(stats.ranked_score),
             };
 
-            (key, user.username)
+            RankingEntry {
+                value,
+                name: user.username.into(),
+                country: user.country_code.into(),
+            }
         })
         .enumerate()
         .collect();
 
-    let embed_data = RankingEmbed::new(
-        mode,
-        &users,
-        &title,
-        url_type,
-        country_code.as_ref(),
-        (1, pages),
-    );
+    let ranking_kind_data = if let Some((name, code)) = country {
+        RankingKindData::PpCountry {
+            mode,
+            country_code: code,
+            country: name,
+        }
+    } else if kind == RankingKind::Performance {
+        RankingKindData::PpGlobal { mode }
+    } else {
+        RankingKindData::RankedScore { mode }
+    };
+
+    let embed_data = RankingEmbed::new(&users, &ranking_kind_data, None, (1, pages));
 
     // Creating the embed
     let builder = embed_data.into_builder().build().into();
@@ -136,14 +145,12 @@ async fn _ranking(
 
     // Pagination
     let pagination = RankingPagination::new(
-        mode,
+        response,
         Arc::clone(&ctx),
         total,
         users,
-        title,
-        url_type,
-        country_code,
-        kind,
+        None,
+        ranking_kind_data,
     );
 
     let owner = data.author()?.id;
@@ -303,32 +310,10 @@ pub async fn rankedscorerankingctb(ctx: Arc<Context>, data: CommandData) -> BotR
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Eq, PartialEq)]
 pub enum RankingKind {
     Performance,
     Score,
-}
-
-impl RankingKind {
-    fn url_type(self) -> &'static str {
-        match self {
-            RankingKind::Performance => "performance",
-            RankingKind::Score => "score",
-        }
-    }
-
-    fn title(self, country: Option<&str>) -> Cow<'static, str> {
-        match (self, country) {
-            (RankingKind::Performance, None) => "Performance".into(),
-            (RankingKind::Performance, Some(country)) => format!(
-                "{name}'{plural} Performance",
-                name = country,
-                plural = if country.ends_with('s') { "" } else { "s" }
-            )
-            .into(),
-            (RankingKind::Score, _) => "Ranked Score".into(),
-        }
-    }
 }
 
 #[derive(Copy, Clone)]
@@ -343,7 +328,7 @@ impl fmt::Display for UserValue {
             UserValue::Pp(pp) => write!(f, "{}pp", numbers::with_comma_uint(pp)),
             UserValue::Score(score) => {
                 if score < 1_000_000 {
-                    write!(f, "{}", score)
+                    write!(f, "{}", with_comma_uint(score))
                 } else if score < 1_000_000_000 {
                     let score = (score / 10_000) as f32 / 100.0;
 

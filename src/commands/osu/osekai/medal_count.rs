@@ -1,8 +1,8 @@
 use crate::{
     custom_client::MedalCount,
     embeds::{EmbedData, MedalCountEmbed},
-    util::constants::OSEKAI_ISSUE,
-    util::{ApplicationCommandExt, MessageExt},
+    pagination::{MedalCountPagination, Pagination},
+    util::{constants::OSEKAI_ISSUE, numbers, ApplicationCommandExt, MessageExt},
     BotResult, Context,
 };
 
@@ -38,11 +38,18 @@ pub(super) async fn medal_count(ctx: Arc<Context>, command: ApplicationCommand) 
             .position(|entry| entry.username.as_str() == name)
     });
 
-    let embed_data = MedalCountEmbed::new(&ranking[..10], 0, author_idx);
+    let pages = numbers::div_euclid(10, ranking.len());
+    let embed_data = MedalCountEmbed::new(&ranking[..10], 0, author_idx, (1, pages));
     let builder = embed_data.into_builder().build().into();
-    let response = command.create_message(&ctx, builder).await?;
+    let response = command.create_message(&ctx, builder).await?.model().await?;
+    let owner = command.user_id()?;
+    let pagination = MedalCountPagination::new(response, ranking, author_idx);
 
-    // TODO: Pagination
+    tokio::spawn(async move {
+        if let Err(why) = pagination.start(&ctx, owner, 60).await {
+            unwind_error!(warn, why, "Pagination error (medal count): {}")
+        }
+    });
 
     Ok(())
 }

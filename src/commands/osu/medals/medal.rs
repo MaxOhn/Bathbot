@@ -41,7 +41,7 @@ pub(super) async fn _medal(ctx: Arc<Context>, data: CommandData<'_>, name: &str)
         Err(why) => {
             let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(why.into());
+            return Err(why);
         }
     };
 

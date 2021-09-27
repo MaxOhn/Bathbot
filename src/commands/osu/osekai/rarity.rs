@@ -1,8 +1,8 @@
 use crate::{
     custom_client::Rarity,
     embeds::{EmbedData, MedalRarityEmbed},
-    util::constants::OSEKAI_ISSUE,
-    util::MessageExt,
+    pagination::{MedalRarityPagination, Pagination},
+    util::{constants::OSEKAI_ISSUE, numbers, ApplicationCommandExt, MessageExt},
     BotResult, Context,
 };
 
@@ -21,11 +21,18 @@ pub(super) async fn rarity(ctx: Arc<Context>, command: ApplicationCommand) -> Bo
         }
     };
 
-    let embed_data = MedalRarityEmbed::new(&ranking[..10], 0);
+    let pages = numbers::div_euclid(10, ranking.len());
+    let embed_data = MedalRarityEmbed::new(&ranking[..10], 0, (1, pages));
     let builder = embed_data.into_builder().build().into();
-    let response = command.create_message(&ctx, builder).await?;
+    let response = command.create_message(&ctx, builder).await?.model().await?;
+    let owner = command.user_id()?;
+    let pagination = MedalRarityPagination::new(response, ranking);
 
-    // TODO: Pagination
+    tokio::spawn(async move {
+        if let Err(why) = pagination.start(&ctx, owner, 60).await {
+            unwind_error!(warn, why, "Pagination error (medal rarity): {}")
+        }
+    });
 
     Ok(())
 }

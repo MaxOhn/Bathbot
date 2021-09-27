@@ -252,7 +252,7 @@ impl MedalRecentPagination {
                             (medal, achieved.achieved_at)
                         }
                         Ok(None) => bail!("No medal with id `{}` in DB", achieved.medal_id),
-                        Err(why) => return Err(why.into()),
+                        Err(why) => return Err(why),
                     },
                 },
                 None => bail!(

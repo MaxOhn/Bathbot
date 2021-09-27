@@ -1,55 +1,43 @@
 use super::{Pages, Pagination, ReactionVec};
 
 use crate::{
-    commands::osu::{RankingKind, UserValue},
-    embeds::RankingEmbed,
-    util::CountryCode,
+    commands::osu::UserValue,
+    embeds::{RankingEmbed, RankingEntry, RankingKindData},
     BotResult, Context,
 };
 
-use rosu_v2::prelude::GameMode;
-use std::{borrow::Cow, collections::BTreeMap, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc};
 use twilight_model::channel::Message;
 
-type Users = BTreeMap<usize, (UserValue, String)>;
+type Users = BTreeMap<usize, RankingEntry>;
 
 pub struct RankingPagination {
     msg: Message,
     pages: Pages,
     ctx: Arc<Context>,
-    mode: GameMode,
     users: Users,
-    title: Cow<'static, str>,
-    url_type: &'static str,
-    country_code: Option<CountryCode>,
     total: usize,
-    ranking_type: RankingKind,
+    author_idx: Option<usize>,
+    ranking_kind_data: RankingKindData,
 }
 
 impl RankingPagination {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         msg: Message,
-        mode: GameMode,
         ctx: Arc<Context>,
         total: usize,
         users: Users,
-        title: Cow<'static, str>,
-        url_type: &'static str,
-        country_code: Option<CountryCode>,
-        ranking_type: RankingKind,
+        author_idx: Option<usize>,
+        ranking_kind_data: RankingKindData,
     ) -> Self {
         Self {
             pages: Pages::new(20, total),
             msg,
             ctx,
-            mode,
             users,
-            title,
-            url_type,
-            country_code,
             total,
-            ranking_type,
+            author_idx,
+            ranking_kind_data,
         }
     }
 
@@ -63,44 +51,53 @@ impl RankingPagination {
             let offset = page - 1;
             let page = page as u32;
 
-            let ranking = match (self.ranking_type, &self.country_code) {
-                (RankingKind::Performance, Some(country)) => {
+            let ranking = match &self.ranking_kind_data {
+                RankingKindData::PpCountry {
+                    mode,
+                    country_code: country,
+                    ..
+                } => {
                     self.ctx
                         .osu()
-                        .performance_rankings(self.mode)
+                        .performance_rankings(*mode)
                         .country(country.as_str())
                         .page(page)
                         .await?
                 }
-                (RankingKind::Performance, None) => {
+                RankingKindData::PpGlobal { mode } => {
                     self.ctx
                         .osu()
-                        .performance_rankings(self.mode)
+                        .performance_rankings(*mode)
                         .page(page)
                         .await?
                 }
-                (RankingKind::Score, _) => {
-                    self.ctx.osu().score_rankings(self.mode).page(page).await?
+                RankingKindData::RankedScore { mode } => {
+                    self.ctx.osu().score_rankings(*mode).page(page).await?
                 }
+                _ => return Ok(()), // osekai data does not come paginated
             };
 
-            let ranking_type = self.ranking_type;
+            let kind = &self.ranking_kind_data;
 
-            let iter = ranking
-                .ranking
-                .into_iter()
-                .map(|user| match ranking_type {
-                    RankingKind::Performance => (
-                        UserValue::Pp(user.statistics.as_ref().unwrap().pp.round() as u32),
-                        user.username,
-                    ),
-                    RankingKind::Score => (
-                        UserValue::Score(user.statistics.as_ref().unwrap().ranked_score),
-                        user.username,
-                    ),
-                })
-                .enumerate()
-                .map(|(i, tuple)| (offset * 50 + i, tuple));
+            let iter = ranking.ranking.into_iter().enumerate().map(|(i, user)| {
+                let stats = user.statistics.as_ref().unwrap();
+
+                let value = match kind {
+                    RankingKindData::PpCountry { .. } | RankingKindData::PpGlobal { .. } => {
+                        UserValue::Pp(stats.pp.round() as u32)
+                    }
+                    RankingKindData::RankedScore { .. } => UserValue::Score(stats.ranked_score),
+                    _ => unreachable!(),
+                };
+
+                let entry = RankingEntry {
+                    value,
+                    name: user.username.into(),
+                    country: user.country_code.into(),
+                };
+
+                (offset * 50 + i, entry)
+            });
 
             self.users.extend(iter);
         }
@@ -147,13 +144,13 @@ impl Pagination for RankingPagination {
         // Handle edge cases like idx=140;total=151 where two pages have to be requested at once
         self.assure_present_users(page + 1).await?;
 
+        let pages = (self.page(), self.pages.total_pages);
+
         Ok(RankingEmbed::new(
-            self.mode,
             &self.users,
-            &self.title,
-            self.url_type,
-            self.country_code.as_ref(),
-            (self.page(), self.pages.total_pages),
+            &self.ranking_kind_data,
+            self.author_idx,
+            pages,
         ))
     }
 }

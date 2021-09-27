@@ -349,7 +349,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
     ]
 }
 
-pub fn slash_commands() -> [Command; 38] {
+pub fn slash_commands() -> [Command; 39] {
     [
         help::slash_help_command(),
         slash_recent_command(),

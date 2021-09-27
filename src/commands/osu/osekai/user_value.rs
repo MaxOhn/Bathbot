@@ -1,9 +1,10 @@
 use super::UserValue;
 use crate::{
     custom_client::{OsekaiRanking, OsekaiRankingEntry},
-    embeds::{EmbedData, MedalRarityEmbed},
-    util::constants::OSEKAI_ISSUE,
-    util::MessageExt,
+    database::UserConfig,
+    embeds::{EmbedData, RankingEmbed, RankingEntry, RankingKindData},
+    pagination::{Pagination, RankingPagination},
+    util::{constants::OSEKAI_ISSUE, numbers, ApplicationCommandExt, MessageExt},
     BotResult, Context,
 };
 
@@ -19,8 +20,11 @@ where
     R: OsekaiRanking<Entry = OsekaiRankingEntry<usize>>,
 {
     let osekai_fut = ctx.clients.custom.get_osekai_ranking(kind);
+    let config_fut = ctx.user_config(command.user_id()?);
 
-    let ranking = match osekai_fut.await {
+    let (osekai_result, config_result) = tokio::join!(osekai_fut, config_fut);
+
+    let ranking = match osekai_result {
         Ok(ranking) => ranking,
         Err(why) => {
             let _ = command.error(&ctx, OSEKAI_ISSUE).await;
@@ -29,34 +33,40 @@ where
         }
     };
 
-    let ranking: BTreeMap<_, _> = ranking
+    let users: BTreeMap<_, _> = ranking
         .into_iter()
-        .map(|entry| {
+        .enumerate()
+        .map(|(i, entry)| {
             let value = entry.value() as u64;
             let country = entry.country_code;
-            let rank = entry.rank;
             let name = entry.username;
 
-            (rank, (UserValue::Score(value), name, country))
+            let entry = RankingEntry {
+                value: UserValue::Score(value),
+                name,
+                country,
+            };
+
+            (i, entry)
         })
         .collect();
 
-    // let embed_data = MedalRarityEmbed::new(&ranking, kind);
-    // let builder = embed_data.into_builder().build().into();
-    // let response = command.create_message(&ctx, builder).await?;
+    let data = <R as OsekaiRanking>::RANKING;
 
-    // TODO: Pagination
-
-    Ok(())
+    send_response(ctx, command, users, data, config_result).await
 }
 
 pub(super) async fn pp<R>(ctx: Arc<Context>, command: ApplicationCommand, kind: R) -> BotResult<()>
 where
     R: OsekaiRanking<Entry = OsekaiRankingEntry<u32>>,
 {
+    let owner = command.user_id()?;
     let osekai_fut = ctx.clients.custom.get_osekai_ranking(kind);
+    let config_fut = ctx.user_config(owner);
 
-    let ranking = match osekai_fut.await {
+    let (osekai_result, config_result) = tokio::join!(osekai_fut, config_fut);
+
+    let ranking = match osekai_result {
         Ok(ranking) => ranking,
         Err(why) => {
             let _ = command.error(&ctx, OSEKAI_ISSUE).await;
@@ -65,23 +75,66 @@ where
         }
     };
 
-    let ranking: BTreeMap<_, _> = ranking
+    let users: BTreeMap<_, _> = ranking
         .into_iter()
-        .map(|entry| {
+        .enumerate()
+        .map(|(i, entry)| {
             let value = entry.value();
             let country = entry.country_code;
-            let rank = entry.rank;
             let name = entry.username;
 
-            (rank, (UserValue::Pp(value), name, country))
+            let entry = RankingEntry {
+                value: UserValue::Pp(value),
+                name,
+                country,
+            };
+
+            (i, entry)
         })
         .collect();
 
-    // let embed_data = MedalRarityEmbed::new(&ranking, kind);
-    // let builder = embed_data.into_builder().build().into();
-    // let response = command.create_message(&ctx, builder).await?;
+    let data = <R as OsekaiRanking>::RANKING;
 
-    // TODO: Pagination
+    send_response(ctx, command, users, data, config_result).await
+}
+
+async fn send_response(
+    ctx: Arc<Context>,
+    command: ApplicationCommand,
+    users: BTreeMap<usize, RankingEntry>,
+    data: RankingKindData,
+    config_result: BotResult<UserConfig>,
+) -> BotResult<()> {
+    let username = match config_result {
+        Ok(config) => config.osu_username,
+        Err(why) => {
+            unwind_error!(warn, why, "Failed to retrieve user config: {}");
+
+            None
+        }
+    };
+
+    let author_idx = username
+        .as_deref()
+        .and_then(|name| users.values().position(|entry| entry.name == name));
+
+    let total = users.len();
+    let pages = numbers::div_euclid(20, total);
+    let embed_data = RankingEmbed::new(&users, &data, author_idx, (1, pages));
+    let builder = embed_data.into_builder().build().into();
+    let response = command.create_message(&ctx, builder).await?.model().await?;
+
+    // Pagination
+    let pagination =
+        RankingPagination::new(response, Arc::clone(&ctx), total, users, author_idx, data);
+
+    let owner = command.user_id()?;
+
+    tokio::spawn(async move {
+        if let Err(why) = pagination.start(&ctx, owner, 60).await {
+            unwind_error!(warn, why, "Pagination error (ranking): {}")
+        }
+    });
 
     Ok(())
 }

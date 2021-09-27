@@ -81,7 +81,7 @@ impl<'de> Deserialize<'de> for ScraperScore {
         #[derive(Deserialize)]
         pub struct ScraperUser {
             username: String,
-            country_code: String,
+            country_code: CountryCode,
         }
 
         let helper = Outer::deserialize(deserializer)?;
