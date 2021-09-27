@@ -34,7 +34,7 @@ pub(super) async fn _nochokes(
 ) -> BotResult<()> {
     let NochokeArgs { config, miss_limit } = args;
 
-    let name = match config.name {
+    let name = match config.osu_username {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
@@ -313,7 +313,7 @@ async fn nochokes(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         CommandData::Message { msg, mut args, num } => {
             match NochokeArgs::args(&ctx, &mut args, msg.author.id).await {
                 Ok(Ok(mut nochoke_args)) => {
-                    nochoke_args.config.mode = Some(nochoke_args.config.mode(GameMode::STD));
+                    nochoke_args.config.mode.get_or_insert(GameMode::STD);
 
                     _nochokes(ctx, CommandData::Message { msg, args, num }, nochoke_args).await
                 }
@@ -408,7 +408,7 @@ impl NochokeArgs {
 
         if let Some(arg) = args.next() {
             match Args::check_user_mention(ctx, arg).await? {
-                Ok(name) => config.name = Some(name),
+                Ok(name) => config.osu_username = Some(name),
                 Err(content) => return Ok(Err(content)),
             }
         }
@@ -438,9 +438,9 @@ impl NochokeArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => config.name = Some(value.into()),
+                    "name" => config.osu_username = Some(value.into()),
                     "mode" => config.mode = parse_mode_option!(value, "top nochoke"),
-                    "discord" => config.name = parse_discord_option!(ctx, value, "top nochoke"),
+                    "discord" => config.osu_username = parse_discord_option!(ctx, value, "top nochoke"),
                     _ => bail_cmd_option!("top nochoke", string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {

@@ -59,6 +59,17 @@ impl<'de> Deserialize<'de> for ProfileSize {
     }
 }
 
+impl From<i16> for ProfileSize {
+    fn from(size: i16) -> Self {
+        match size {
+            0 => Self::Compact,
+            1 => Self::Medium,
+            2 => Self::Full,
+            _ => Self::Compact,
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct ProfileEmbedMap {
     compact: Option<ProfileEmbed>,

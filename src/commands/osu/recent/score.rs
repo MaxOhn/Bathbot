@@ -3,20 +3,24 @@ use crate::{
     database::UserConfig,
     embeds::{EmbedData, RecentEmbed},
     tracking::process_tracking,
+    twitch::TwitchVideo,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        MessageExt,
+        CowUtils, MessageExt,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder,
+    Args, BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
 use rosu_v2::prelude::{
-    GameMode, Grade, OsuError,
+    Beatmap, GameMode, GameMods, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
+    Score,
 };
-use std::{borrow::Cow, mem, sync::Arc};
+use std::{borrow::Cow, fmt::Write, mem, sync::Arc};
 use tokio::time::{sleep, Duration};
-use twilight_model::id::UserId;
+use twilight_model::{
+    application::interaction::application_command::CommandDataOption, id::UserId,
+};
 
 pub(super) async fn _recent(
     ctx: Arc<Context>,
@@ -25,13 +29,33 @@ pub(super) async fn _recent(
 ) -> BotResult<()> {
     let RecentArgs {
         config,
+        input_name,
         index,
         grade,
     } = args;
 
-    let name = match config.name {
-        Some(ref name) => name.as_str(),
-        None => return super::require_link(&ctx, &data).await,
+    let mut twitch_id = None;
+
+    let name = match (&config.osu_username, &input_name) {
+        (Some(name), None) => {
+            twitch_id = Some(config.twitch_id);
+
+            name.as_str()
+        }
+        (Some(name_config), Some(name_input)) => {
+            let name_config_lower = name_config.cow_to_ascii_lowercase();
+            let name_input_lower = name_input.cow_to_ascii_lowercase();
+
+            if name_config_lower == name_input_lower {
+                twitch_id = Some(config.twitch_id);
+
+                name_config.as_str()
+            } else {
+                name_input.as_str()
+            }
+        }
+        (None, Some(name)) => name.as_str(),
+        (None, None) => return super::require_link(&ctx, &data).await,
     };
 
     let mode = config.mode.unwrap_or(GameMode::STD);
@@ -152,8 +176,38 @@ pub(super) async fn _recent(
         }
     };
 
+    let twitch_fut = async {
+        let twitch_id = if let Some(id) = twitch_id {
+            id
+        } else {
+            match ctx.psql().get_user_config_by_osu(&user.username).await {
+                Ok(Some(config)) => config.twitch_id,
+                Ok(None) => None,
+                Err(why) => {
+                    unwind_error!(warn, why, "Failed to get config of input name: {}");
+
+                    None
+                }
+            }
+        };
+
+        if let Some(user_id) = twitch_id {
+            retrieve_vod(&ctx, user_id, &*score, map).await
+        } else {
+            None
+        }
+    };
+
+    let config_update_fut = async {
+        if twitch_id.is_some() {
+            // `user` corresponds to the config instead of the input name
+            config.update_osu(&ctx, &user).await
+        }
+    };
+
     // Retrieve and parse response
-    let (map_score_result, best_result) = tokio::join!(map_score_fut, best_fut);
+    let (map_score_result, best_result, twitch_vod, _) =
+        tokio::join!(map_score_fut, best_fut, twitch_fut, config_update_fut);
 
     let map_score = match map_score_result {
         None | Some(Err(OsuError::NotFound)) => None,
@@ -175,7 +229,13 @@ pub(super) async fn _recent(
         }
     };
 
-    let data_fut = RecentEmbed::new(&user, score, best.as_deref(), map_score.as_ref(), false);
+    let data_fut = RecentEmbed::new(
+        &user,
+        score,
+        best.as_deref(),
+        map_score.as_ref(),
+        twitch_vod,
+    );
 
     let embed_data = match data_fut.await {
         Ok(data) => data,
@@ -264,6 +324,71 @@ pub(super) async fn _recent(
     Ok(())
 }
 
+async fn retrieve_vod(
+    ctx: &Context,
+    user_id: u64,
+    score: &Score,
+    map: &Beatmap,
+) -> Option<TwitchVideo> {
+    match ctx.clients.twitch.get_last_vod(user_id).await {
+        Ok(Some(mut vod)) => {
+            let vod_start = vod.created_at.timestamp();
+            let vod_end = vod_start + vod.duration as i64;
+
+            // Adjust map length with mods
+            let mut map_length = if score.mods.contains(GameMods::DoubleTime) {
+                map.seconds_drain as f32 * 2.0 / 3.0
+            } else if score.mods.contains(GameMods::HalfTime) {
+                map.seconds_drain as f32 * 4.0 / 3.0
+            } else {
+                map.seconds_drain as f32
+            };
+
+            // Adjust map length with passed objects in case of fail
+            if score.grade == Grade::F {
+                let passed = score.total_hits() as f32;
+                let total = map.count_objects() as f32;
+
+                map_length *= passed / total;
+            }
+
+            // 3 seconds early just to be sure
+            let map_start = score.created_at.timestamp() - map_length as i64 - 3;
+
+            if vod_start > map_start || vod_end < map_start {
+                return None;
+            }
+
+            let mut offset = map_start - vod_start;
+
+            // Add timestamp
+            vod.url.push_str("?t=");
+
+            if offset >= 3600 {
+                let _ = write!(vod.url, "{}h", offset / 3600);
+                offset %= 3600;
+            }
+
+            if offset >= 60 {
+                let _ = write!(vod.url, "{}m", offset / 60);
+                offset %= 60;
+            }
+
+            if offset > 0 {
+                let _ = write!(vod.url, "{}s", offset);
+            }
+
+            Some(vod)
+        }
+        Ok(None) => None,
+        Err(why) => {
+            unwind_error!(warn, why, "Failed to get twitch vod: {}");
+
+            None
+        }
+    }
+}
+
 #[command]
 #[short_desc("Display a user's most recent play")]
 #[long_desc(
@@ -278,8 +403,8 @@ pub(super) async fn _recent(
     - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
     - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
     Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`.\n\n\
-    If you want the embed to be minimized immediately or if the retry count shouldn't be shown \
-    you can check out the `config` command."
+    With the `config` command you can set the embed as minimized immediately, \
+    hide the retry count, and show your twitch stream and live VOD."
 )]
 #[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
 #[example("badewanne3 pass=true", "grade=a", "whitecat grade=B..sh")]
@@ -289,7 +414,7 @@ pub async fn recent(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         CommandData::Message { msg, mut args, num } => {
             match RecentArgs::args(&ctx, &mut args, msg.author.id, num).await {
                 Ok(Ok(mut recent_args)) => {
-                    recent_args.config.mode = Some(recent_args.config.mode(GameMode::STD));
+                    recent_args.config.mode.get_or_insert(GameMode::STD);
 
                     _recent(ctx, CommandData::Message { msg, args, num }, recent_args).await
                 }
@@ -319,8 +444,8 @@ pub async fn recent(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
     - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
     Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`.\n\n\
-    If you want the embed to be minimized immediately or if the retry count shouldn't be shown \
-    you can check out the `config` command."
+    With the `config` command you can set the embed as minimized immediately, \
+    hide the retry count, and show your twitch stream and live VOD."
 )]
 #[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
 #[example("badewanne3 pass=true", "grade=a", "whitecat grade=B..sh")]
@@ -360,8 +485,8 @@ pub async fn recentmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
     - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
     - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
     Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`.\n\n\
-    If you want the embed to be minimized immediately or if the retry count shouldn't be shown \
-    you can check out the `config` command."
+    With the `config` command you can set the embed as minimized immediately, \
+    hide the retry count, and show your twitch stream and live VOD."
 )]
 #[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
 #[example("badewanne3 pass=true", "grade=a", "whitecat grade=B..sh")]
@@ -401,8 +526,8 @@ pub async fn recenttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
     - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
     - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
     Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`.\n\n\
-    If you want the embed to be minimized immediately or if the retry count shouldn't be shown \
-    you can check out the `config` command."
+    With the `config` command you can set the embed as minimized immediately, \
+    hide the retry count, and show your twitch stream and live VOD."
 )]
 #[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
 #[example("badewanne3 pass=true", "grade=a", "whitecat grade=B..sh")]
@@ -429,9 +554,10 @@ pub async fn recentctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 pub(super) struct RecentArgs {
-    pub config: UserConfig,
-    pub index: Option<usize>,
-    pub grade: Option<GradeArg>,
+    config: UserConfig,
+    input_name: Option<Name>,
+    index: Option<usize>,
+    grade: Option<GradeArg>,
 }
 
 impl RecentArgs {
@@ -445,7 +571,8 @@ impl RecentArgs {
         author_id: UserId,
         index: Option<usize>,
     ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut config = ctx.user_config(author_id).await?;
+        let config = ctx.user_config(author_id).await?;
+        let mut input_name = None;
         let mut grade = None;
         let mut passes = None;
 
@@ -518,7 +645,7 @@ impl RecentArgs {
                 }
             } else {
                 match Args::check_user_mention(ctx, arg).await? {
-                    Ok(name) => config.name = Some(name),
+                    Ok(name) => input_name = Some(name),
                     Err(content) => return Ok(Err(content.into())),
                 }
             }
@@ -548,6 +675,83 @@ impl RecentArgs {
 
         let args = Self {
             config,
+            input_name,
+            index,
+            grade,
+        };
+
+        Ok(Ok(args))
+    }
+
+    pub(super) async fn slash(
+        ctx: &Context,
+        options: Vec<CommandDataOption>,
+        author_id: UserId,
+    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+        let mut config = ctx.user_config(author_id).await?;
+        let mut input_name = None;
+        let mut index = None;
+        let mut grade = None;
+
+        for option in options {
+            match option {
+                CommandDataOption::String { name, value } => match name.as_str() {
+                    "name" => input_name = Some(value.into()),
+                    "discord" => input_name = parse_discord_option!(ctx, value, "recent score"),
+                    "mode" => config.mode = parse_mode_option!(value, "recent score"),
+                    "grade" => match value.as_str() {
+                        "SS" => {
+                            grade = Some(GradeArg::Range {
+                                bot: Grade::X,
+                                top: Grade::XH,
+                            })
+                        }
+                        "S" => {
+                            grade = Some(GradeArg::Range {
+                                bot: Grade::S,
+                                top: Grade::SH,
+                            })
+                        }
+                        "A" => grade = Some(GradeArg::Single(Grade::A)),
+                        "B" => grade = Some(GradeArg::Single(Grade::B)),
+                        "C" => grade = Some(GradeArg::Single(Grade::C)),
+                        "D" => grade = Some(GradeArg::Single(Grade::D)),
+                        "F" => grade = Some(GradeArg::Single(Grade::F)),
+                        _ => bail_cmd_option!("recent score grade", string, value),
+                    },
+                    _ => bail_cmd_option!("recent score", string, name),
+                },
+                CommandDataOption::Integer { name, value } => match name.as_str() {
+                    "index" => index = Some(value.max(1).min(50) as usize),
+                    _ => bail_cmd_option!("recent score", integer, name),
+                },
+                CommandDataOption::Boolean { name, value } => match name.as_str() {
+                    "passes" => {
+                        if value {
+                            grade = match grade {
+                                Some(GradeArg::Single(Grade::F)) => None,
+                                Some(GradeArg::Single(_)) => grade,
+                                Some(GradeArg::Range { .. }) => grade,
+                                None => Some(GradeArg::Range {
+                                    bot: Grade::D,
+                                    top: Grade::XH,
+                                }),
+                            }
+                        } else {
+                            grade = Some(GradeArg::Single(Grade::F));
+                        }
+                    }
+                    _ => bail_cmd_option!("recent score", boolean, name),
+                },
+                CommandDataOption::SubCommand { name, .. } => {
+                    bail_cmd_option!("recent score", subcommand, name)
+                }
+            }
+        }
+
+        let args = Self {
+            config,
+            input_name,
             index,
             grade,
         };

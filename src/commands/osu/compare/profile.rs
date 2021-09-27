@@ -333,11 +333,14 @@ impl ProfileArgs {
         mut mode: GameMode,
     ) -> BotResult<Result<Self, Cow<'static, str>>> {
         let config = ctx.user_config(author_id).await?;
-        mode = config.mode(mode);
+
+        if mode == GameMode::STD {
+            mode = config.mode.unwrap_or(GameMode::STD);
+        }
 
         let name2 = match args.next() {
             Some(arg) => match matcher::get_mention_user(arg) {
-                Some(id) => match ctx.user_config(UserId(id)).await?.name {
+                Some(id) => match ctx.user_config(UserId(id)).await?.osu_username {
                     Some(name) => name,
                     None => {
                         let content = format!("<@{}> is not linked to an osu profile", id);
@@ -352,7 +355,7 @@ impl ProfileArgs {
 
         let args = match args.next() {
             Some(arg) => match matcher::get_mention_user(arg) {
-                Some(id) => match ctx.user_config(UserId(id)).await?.name {
+                Some(id) => match ctx.user_config(UserId(id)).await?.osu_username {
                     Some(name) => Self {
                         name1: Some(name2),
                         name2: name,
@@ -371,7 +374,7 @@ impl ProfileArgs {
                 },
             },
             None => Self {
-                name1: config.name,
+                name1: config.osu_username,
                 name2,
                 mode,
             },
@@ -396,7 +399,7 @@ impl ProfileArgs {
                     "name1" => name1 = Some(value.into()),
                     "name2" => name2 = Some(value.into()),
                     "discord1" => match value.parse() {
-                        Ok(id) => match ctx.user_config(UserId(id)).await?.name {
+                        Ok(id) => match ctx.user_config(UserId(id)).await?.osu_username {
                             Some(name) => name1 = Some(name),
                             None => {
                                 let content = format!("<@{}> is not linked to an osu profile", id);
@@ -407,7 +410,7 @@ impl ProfileArgs {
                         Err(_) => bail_cmd_option!("compare profile discord1", string, value),
                     },
                     "discord2" => match value.parse() {
-                        Ok(id) => match ctx.user_config(UserId(id)).await?.name {
+                        Ok(id) => match ctx.user_config(UserId(id)).await?.osu_username {
                             Some(name) => name2 = Some(name),
                             None => {
                                 let content = format!("<@{}> is not linked to an osu profile", id);
@@ -439,7 +442,7 @@ impl ProfileArgs {
 
         let name1 = match name1 {
             Some(name) => Some(name),
-            None => ctx.user_config(author_id).await?.name,
+            None => ctx.user_config(author_id).await?.osu_username,
         };
 
         let mode = mode.unwrap_or(GameMode::STD);

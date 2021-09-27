@@ -5,6 +5,7 @@ use std::sync::Arc;
 #[command]
 #[short_desc("https://youtu.be/DT6tpUbWOms?t=47")]
 #[bucket("songs")]
+#[no_typing()]
 async fn tijdmachine(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let (lyrics, delay) = _tijdmachine();
 

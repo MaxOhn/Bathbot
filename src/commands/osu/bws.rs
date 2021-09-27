@@ -1,4 +1,5 @@
 use crate::{
+    commands::SlashCommandBuilder,
     database::UserConfig,
     embeds::{BWSEmbed, EmbedData},
     util::{
@@ -9,7 +10,7 @@ use crate::{
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
-use std::{borrow::Cow, cmp::Ordering, sync::Arc};
+use std::{borrow::Cow, mem, sync::Arc};
 use twilight_model::{
     application::{
         command::{BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption},
@@ -58,9 +59,9 @@ async fn _bws(ctx: Arc<Context>, data: CommandData<'_>, args: BwsArgs) -> BotRes
         badges,
     } = args;
 
-    let mode = config.mode(GameMode::STD);
+    let mode = config.mode.unwrap_or(GameMode::STD);
 
-    let name = match config.name {
+    let name = match config.osu_username {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
@@ -88,17 +89,18 @@ async fn _bws(ctx: Arc<Context>, data: CommandData<'_>, args: BwsArgs) -> BotRes
         .count();
 
     let (badges_min, badges_max) = match badges {
-        Some(num) => match num.cmp(&badges_curr) {
-            Ordering::Less => {
-                if badges_curr >= MIN_BADGES_OFFSET {
-                    (num, badges_curr)
-                } else {
-                    (0, MIN_BADGES_OFFSET)
-                }
+        Some(num) => {
+            let mut min = num;
+            let mut max = badges_curr;
+
+            if min > max {
+                mem::swap(&mut min, &mut max);
             }
-            Ordering::Equal => (badges_curr, badges_curr + MIN_BADGES_OFFSET),
-            Ordering::Greater => (badges_curr, num.max(badges_curr + MIN_BADGES_OFFSET)),
-        },
+
+            max += MIN_BADGES_OFFSET.saturating_sub(max - min);
+
+            (min, max)
+        }
         None => (badges_curr, badges_curr + MIN_BADGES_OFFSET),
     };
 
@@ -159,7 +161,7 @@ impl BwsArgs {
                 }
             } else {
                 match Args::check_user_mention(ctx, arg).await? {
-                    Ok(name) => config.name = Some(name),
+                    Ok(name) => config.osu_username = Some(name),
                     Err(content) => return Ok(Err(content.into())),
                 }
             }
@@ -185,8 +187,8 @@ impl BwsArgs {
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => config.name = Some(value.into()),
-                    "discord" => config.name = parse_discord_option!(ctx, value, "bws"),
+                    "name" => config.osu_username = Some(value.into()),
+                    "discord" => config.osu_username = parse_discord_option!(ctx, value, "bws"),
                     _ => bail_cmd_option!("bws", string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {
@@ -221,37 +223,35 @@ pub async fn slash_bws(ctx: Arc<Context>, mut command: ApplicationCommand) -> Bo
 }
 
 pub fn slash_bws_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "bws".to_owned(),
-        default_permission: None,
-        description: "Show the badge weighted seeding for an osu!standard player".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a username".to_owned(),
-                name: "name".to_owned(),
-                required: false,
-            }),
-            CommandOption::Integer(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a target rank to reach".to_owned(),
-                name: "rank".to_owned(),
-                required: false,
-            }),
-            CommandOption::Integer(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify an amount of badges to reach".to_owned(),
-                name: "badges".to_owned(),
-                required: false,
-            }),
-            CommandOption::User(BaseCommandOptionData {
-                description: "Specify a linked discord user".to_owned(),
-                name: "discord".to_owned(),
-                required: false,
-            }),
-        ],
-    }
+    let description = "Show the badge weighted seeding for an osu!standard player";
+
+    let options = vec![
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a username".to_owned(),
+            name: "name".to_owned(),
+            required: false,
+        }),
+        CommandOption::Integer(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a target rank to reach".to_owned(),
+            name: "rank".to_owned(),
+            required: false,
+        }),
+        CommandOption::Integer(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify an amount of badges to reach".to_owned(),
+            name: "badges".to_owned(),
+            required: false,
+        }),
+        CommandOption::User(BaseCommandOptionData {
+            description: "Specify a linked discord user".to_owned(),
+            name: "discord".to_owned(),
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("bws", description)
+        .options(options)
+        .build()
 }

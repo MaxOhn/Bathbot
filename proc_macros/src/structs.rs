@@ -184,5 +184,6 @@ pub struct Options {
     pub owner: bool,
     pub only_guilds: bool,
     pub bucket: AsOption<String>,
+    pub no_typing: bool,
     pub sub_commands: Vec<Ident>,
 }

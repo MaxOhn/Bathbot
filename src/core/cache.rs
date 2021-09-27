@@ -5,7 +5,7 @@ use std::{collections::HashMap, ops::Deref};
 use twilight_cache_inmemory::{InMemoryCache, ResourceType};
 use twilight_gateway::shard::ResumeSession;
 use twilight_model::{
-    channel::{permission_overwrite::PermissionOverwriteType, GuildChannel},
+    channel::{permission_overwrite::PermissionOverwriteType, GuildChannel, TextChannel},
     guild::Permissions,
     id::{ChannelId, GuildId, UserId},
 };
@@ -108,52 +108,83 @@ impl Cache {
                 | Permissions::READ_MESSAGE_HISTORY;
         };
 
-        let mut permissions = Permissions::empty();
+        let permissions = self.get_guild_permissions_for(user_id, Some(guild_id));
 
-        if let Some(GuildChannel::Text(channel)) = self.guild_channel(channel_id) {
-            permissions = self.get_guild_permissions_for(user_id, Some(guild_id));
+        if permissions.contains(Permissions::ADMINISTRATOR) {
+            return Permissions::all();
+        }
 
-            if permissions.contains(Permissions::ADMINISTRATOR) {
-                return Permissions::all();
-            }
+        let channel = match self.guild_channel(channel_id) {
+            Some(GuildChannel::Text(channel)) => Some(channel),
+            Some(GuildChannel::PrivateThread(thread)) => thread.parent_id.and_then(|id| {
+                self.guild_channel(id).and_then(|channel| {
+                    if let GuildChannel::Text(channel) = channel {
+                        Some(channel)
+                    } else {
+                        None
+                    }
+                })
+            }),
+            Some(GuildChannel::PublicThread(thread)) => thread.parent_id.and_then(|id| {
+                self.guild_channel(id).and_then(|channel| {
+                    if let GuildChannel::Text(channel) = channel {
+                        Some(channel)
+                    } else {
+                        None
+                    }
+                })
+            }),
+            _ => None,
+        };
 
-            if let Some(member) = self.member(guild_id, user_id) {
-                let mut everyone_allowed = Permissions::empty();
-                let mut everyone_denied = Permissions::empty();
-                let mut user_allowed = Permissions::empty();
-                let mut user_denied = Permissions::empty();
-                let mut role_allowed = Permissions::empty();
-                let mut role_denied = Permissions::empty();
+        channel.map_or(permissions, |channel| {
+            self._text_channel_permissions(permissions, user_id, guild_id, &channel)
+        })
+    }
 
-                for overwrite in &channel.permission_overwrites {
-                    match overwrite.kind {
-                        PermissionOverwriteType::Member(member_id) => {
-                            if member_id == user_id {
-                                user_allowed |= overwrite.allow;
-                                user_denied |= overwrite.deny;
-                            }
+    fn _text_channel_permissions(
+        &self,
+        mut permissions: Permissions,
+        user_id: UserId,
+        guild_id: GuildId,
+        channel: &TextChannel,
+    ) -> Permissions {
+        if let Some(member) = self.member(guild_id, user_id) {
+            let mut everyone_allowed = Permissions::empty();
+            let mut everyone_denied = Permissions::empty();
+            let mut user_allowed = Permissions::empty();
+            let mut user_denied = Permissions::empty();
+            let mut role_allowed = Permissions::empty();
+            let mut role_denied = Permissions::empty();
+
+            for overwrite in &channel.permission_overwrites {
+                match overwrite.kind {
+                    PermissionOverwriteType::Member(member_id) => {
+                        if member_id == user_id {
+                            user_allowed |= overwrite.allow;
+                            user_denied |= overwrite.deny;
                         }
-                        PermissionOverwriteType::Role(role_id) => {
-                            if role_id.0 == channel.guild_id.unwrap().0 {
-                                everyone_allowed |= overwrite.allow;
-                                everyone_denied |= overwrite.deny
-                            } else if member.roles.contains(&role_id) {
-                                role_allowed |= overwrite.allow;
-                                role_denied |= overwrite.deny;
-                            }
+                    }
+                    PermissionOverwriteType::Role(role_id) => {
+                        if role_id.0 == guild_id.0 {
+                            everyone_allowed |= overwrite.allow;
+                            everyone_denied |= overwrite.deny
+                        } else if member.roles.contains(&role_id) {
+                            role_allowed |= overwrite.allow;
+                            role_denied |= overwrite.deny;
                         }
                     }
                 }
-
-                permissions &= !everyone_denied;
-                permissions |= everyone_allowed;
-
-                permissions &= !role_denied;
-                permissions |= role_allowed;
-
-                permissions &= !user_denied;
-                permissions |= user_allowed;
             }
+
+            permissions &= !everyone_denied;
+            permissions |= everyone_allowed;
+
+            permissions &= !role_denied;
+            permissions |= role_allowed;
+
+            permissions &= !user_denied;
+            permissions |= user_allowed;
         }
 
         permissions

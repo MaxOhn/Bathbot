@@ -47,6 +47,7 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
             "authority" => options.authority = true,
             "owner" => options.owner = true,
             "only_guilds" => options.only_guilds = true,
+            "no_typing" => options.no_typing = true,
             _ => {
                 match_options!(name, values, options, span => [
                     short_desc;
@@ -70,6 +71,7 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
         authority,
         owner,
         bucket,
+        no_typing,
         sub_commands,
     } = options;
 
@@ -103,6 +105,7 @@ pub fn command(attr: TokenStream, input: TokenStream) -> TokenStream {
             authority: #authority,
             owner: #owner,
             bucket: #bucket,
+            typing: !#no_typing,
             sub_commands: &[#(&#sub_commands),*],
             fun: #fun_name,
         };

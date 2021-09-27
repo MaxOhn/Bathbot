@@ -1,4 +1,5 @@
 use crate::{
+    commands::SlashCommandBuilder,
     embeds::{EmbedData, InviteEmbed},
     util::{constants::BATHBOT_WORKSHOP, MessageExt},
     BotResult, CommandData, Context, MessageBuilder,
@@ -10,6 +11,7 @@ use twilight_model::application::{command::Command, interaction::ApplicationComm
 #[command]
 #[short_desc("Invite me to your server")]
 #[aliases("inv")]
+#[no_typing()]
 async fn invite(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let embed = InviteEmbed::new().into_builder().build();
     let builder = MessageBuilder::new().content(BATHBOT_WORKSHOP).embed(embed);
@@ -23,13 +25,5 @@ pub async fn slash_invite(ctx: Arc<Context>, command: ApplicationCommand) -> Bot
 }
 
 pub fn slash_invite_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "invite".to_owned(),
-        default_permission: None,
-        description: "Invite me to your server".to_owned(),
-        id: None,
-        options: Vec::new(),
-    }
+    SlashCommandBuilder::new("invite", "Invite me to your server").build()
 }

@@ -1,4 +1,5 @@
 use crate::{
+    commands::SlashCommandBuilder,
     embeds::{EmbedData, MatchCostEmbed},
     util::{constants::OSU_API_ISSUE, matcher, ApplicationCommandExt, MessageExt},
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
@@ -21,9 +22,10 @@ const TOO_MANY_PLAYERS_TEXT: &str = "Too many players, cannot display message :(
 #[short_desc("Display performance ratings for a multiplayer match")]
 #[long_desc(
     "Calculate a performance rating for each player \
-     in the given multiplayer match. The optional second \
+     in the given multiplayer match.\nThe optional second \
      argument is the amount of played warmups, defaults to 2.\n\
      Here's the current [formula](https://i.imgur.com/7KFwcUS.png).\n\
+     Additionally, scores with the EZ mod are multiplied by 1.7 beforehand.\n\
      Keep in mind that all bots use different formulas so comparing \
      with values from other bots makes no sense."
 )]
@@ -199,8 +201,14 @@ pub fn process_match(
 
     // Calculate point scores for each score in each game
     for game in games.iter() {
-        let score_sum: u32 = game.scores.iter().map(|s| s.score).sum();
-        let avg = score_sum as f32 / game.scores.iter().filter(|s| s.score > 0).count() as f32;
+        let score_sum: f32 = game
+            .scores
+            .iter()
+            .map(|s| (s.mods.contains(GameMods::Easy), s.score as f32))
+            .map(|(ez, score)| if ez { score * 1.7 } else { score })
+            .sum();
+
+        let avg = score_sum / game.scores.iter().filter(|s| s.score > 0).count() as f32;
         let mut team_scores = HashMap::with_capacity(team_vs as usize + 1);
 
         for score in game.scores.iter().filter(|s| s.score > 0) {
@@ -208,7 +216,13 @@ pub fn process_match(
                 .or_insert_with(HashSet::new)
                 .insert(score.mods - GameMods::NoFail);
 
-            let point_cost = score.score as f32 / avg + FLAT_PARTICIPATION_BONUS;
+            let mut point_cost = score.score as f32 / avg;
+
+            if score.mods.contains(GameMods::Easy) {
+                point_cost *= 1.7;
+            }
+
+            point_cost += FLAT_PARTICIPATION_BONUS;
 
             point_costs
                 .entry(score.user_id)
@@ -232,14 +246,18 @@ pub fn process_match(
     }
 
     // Tiebreaker bonus
-    if finished && games.len() > 2 && match_scores.difference() == 1 {
+    if finished && games.len() > 4 && match_scores.difference() == 1 {
         let game = games.last().unwrap();
 
         point_costs
             .iter_mut()
             .filter(|(&user_id, _)| game.scores.iter().any(|score| score.user_id == user_id))
             .map(|(_, costs)| costs.last_mut().unwrap())
-            .for_each(|value| *value = (*value * TIEBREAKER_BONUS) - FLAT_PARTICIPATION_BONUS);
+            .for_each(|value| {
+                *value -= FLAT_PARTICIPATION_BONUS;
+                *value *= TIEBREAKER_BONUS;
+                *value += FLAT_PARTICIPATION_BONUS;
+            });
     }
 
     // Mod combinations bonus
@@ -453,26 +471,24 @@ pub async fn slash_matchcost(ctx: Arc<Context>, mut command: ApplicationCommand)
 }
 
 pub fn slash_matchcost_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "matchcost".to_owned(),
-        default_permission: None,
-        description: "Display performance ratings for a multiplayer match".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a match url or match id".to_owned(),
-                name: "match_url".to_owned(),
-                required: true,
-            }),
-            CommandOption::Integer(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify the amount of warmups to ignore".to_owned(),
-                name: "warmups".to_owned(),
-                required: false,
-            }),
-        ],
-    }
+    let description = "Display performance ratings for a multiplayer match";
+
+    let options = vec![
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a match url or match id".to_owned(),
+            name: "match_url".to_owned(),
+            required: true,
+        }),
+        CommandOption::Integer(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify the amount of warmups to ignore".to_owned(),
+            name: "warmups".to_owned(),
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("matchcost", description)
+        .options(options)
+        .build()
 }

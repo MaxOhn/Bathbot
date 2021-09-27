@@ -3,7 +3,6 @@ use crate::{
     Context, MessageBuilder,
 };
 
-use async_trait::async_trait;
 use std::{borrow::Cow, slice};
 use twilight_http::Response;
 use twilight_model::{
@@ -48,6 +47,10 @@ impl MessageExt for (MessageId, ChannelId) {
 
         if let Some(ref embed) = builder.embed {
             req = req.embeds(slice::from_ref(embed))?;
+        }
+
+        if let Some(components) = builder.components {
+            req = req.components(components)?;
         }
 
         match builder.file {
@@ -116,7 +119,8 @@ impl<'s> MessageExt for (InteractionId, &'s str) {
             .http
             .update_interaction_original(self.1)?
             .content(builder.content.as_ref().map(Cow::as_ref))?
-            .embeds(builder.embed.as_ref().map(slice::from_ref))?;
+            .embeds(builder.embed.as_ref().map(slice::from_ref))?
+            .components(builder.components)?;
 
         match builder.file {
             Some(tuple) => Ok(req.files(&[tuple]).exec().await?),

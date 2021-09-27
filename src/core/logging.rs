@@ -1,44 +1,50 @@
-use crate::Error;
+use crate::{BotResult, Error};
 
 use flexi_logger::{
-    Age, Cleanup, Criterion, DeferredNow, Duplicate, FileSpec, Logger, LoggerHandle, Naming,
+    writers::FileLogWriter, Age, Cleanup, Criterion, DeferredNow, Duplicate, FileSpec, Logger,
+    LoggerHandle, Naming,
 };
 use log::Record;
 use once_cell::sync::OnceCell;
+use std::io::{Result as IoResult, Write};
 
 static LOGGER: OnceCell<LoggerHandle> = OnceCell::new();
 
-pub fn initialize() -> Result<(), Error> {
-    let file = FileSpec::default().directory("logs");
+pub fn initialize() -> BotResult<()> {
+    let file_spec = FileSpec::default().directory("logs");
+    let tracking_file_spec = FileSpec::default().directory("logs/tracking/");
 
-    let log_init_status = LOGGER.set(
-        Logger::try_with_str("bathbot_twilight")
-            .unwrap()
-            .log_to_file(file)
-            .format(log_format)
-            .format_for_files(log_format_files)
-            .rotate(
-                Criterion::Age(Age::Day),
-                Naming::Timestamps,
-                Cleanup::KeepLogAndCompressedFiles(10, 20),
-            )
-            .duplicate_to_stdout(Duplicate::Info)
-            .start_with_specfile("logconfig.toml")
-            .map_err(|_| Error::NoLoggingSpec)?,
-    );
+    let tracking_log_writer = FileLogWriter::builder(tracking_file_spec)
+        .format(log_format_files)
+        .rotate(
+            Criterion::Age(Age::Day),
+            Naming::Timestamps,
+            Cleanup::KeepLogAndCompressedFiles(5, 20),
+        )
+        .try_build()
+        .expect("failed to build tracking_log_writer");
 
-    if log_init_status.is_err() {
-        error!("LOGGER was already set");
-    }
+    let logger_handle = Logger::try_with_str("bathbot_twilight")
+        .unwrap()
+        .log_to_file(file_spec)
+        .add_writer("tracking", Box::new(tracking_log_writer))
+        .format(log_format)
+        .format_for_files(log_format_files)
+        .rotate(
+            Criterion::Age(Age::Day),
+            Naming::Timestamps,
+            Cleanup::KeepLogAndCompressedFiles(5, 20),
+        )
+        .duplicate_to_stdout(Duplicate::Info)
+        .start_with_specfile("logconfig.toml")
+        .map_err(|_| Error::NoLoggingSpec)?;
+
+    let _ = LOGGER.set(logger_handle);
 
     Ok(())
 }
 
-pub fn log_format(
-    w: &mut dyn std::io::Write,
-    now: &mut DeferredNow,
-    record: &Record,
-) -> Result<(), std::io::Error> {
+pub fn log_format(w: &mut dyn Write, now: &mut DeferredNow, record: &Record) -> IoResult<()> {
     write!(
         w,
         "[{}] {} {}",
@@ -48,11 +54,7 @@ pub fn log_format(
     )
 }
 
-pub fn log_format_files(
-    w: &mut dyn std::io::Write,
-    now: &mut DeferredNow,
-    record: &Record,
-) -> Result<(), std::io::Error> {
+pub fn log_format_files(w: &mut dyn Write, now: &mut DeferredNow, record: &Record) -> IoResult<()> {
     write!(
         w,
         "[{}] {:^5} [{}:{}] {}",

@@ -6,6 +6,7 @@ use std::sync::Arc;
 #[short_desc("https://youtu.be/hjGZLnja1o8?t=41")]
 #[bucket("songs")]
 #[aliases("1273")]
+#[no_typing()]
 pub async fn rockefeller(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let (lyrics, delay) = _rockefeller();
 

@@ -2,7 +2,6 @@ use super::{Pages, Pagination};
 
 use crate::{embeds::RankingCountriesEmbed, BotResult, Context};
 
-use async_trait::async_trait;
 use rosu_v2::prelude::{CountryRanking, GameMode};
 use std::{collections::BTreeMap, sync::Arc};
 use twilight_model::channel::Message;

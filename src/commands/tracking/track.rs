@@ -117,18 +117,18 @@ pub(super) async fn _track(
 #[long_desc(
     "Track osu!standard user(s') top scores and notify a channel \
     about new plays in their top100.\n\
-    You can specify up to ten usernames per command invocation.\n\
+    You can specify __up to ten usernames__ per command invocation.\n\
     To provide a limit, specify a number right after the command, \
     e.g. `track42 badewanne3` to only notify if `badewanne3` got \
     a new score in his top 42.\n\
-    Alternatively, you can provide a limit by specifying `-limit` \
-    followed by a number, e.g. `track -limit 42 badewanne3`.\n\
+    Alternatively, you can provide a limit by specifying `limit=number`, \
+    e.g. `track limit=42 badewanne3`.\n\
     The limit must be between 1 and 100, **defaults to 50** if none is given."
 )]
-#[usage("[-limit number] [username1] [username2] ...")]
+#[usage("[limit=number] [username1] [username2] ...")]
 #[example(
-    "badewanne3 \"freddie benson\" peppy -limit 23",
-    "-limit 45 cookiezi whitecat",
+    "badewanne3 \"freddie benson\" peppy limit=23",
+    "limit=45 cookiezi whitecat",
     "\"freddie benson\""
 )]
 pub async fn track(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
@@ -161,14 +161,14 @@ pub async fn track(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     To provide a limit, specify a number right after the command, \
     e.g. `trackmania42 badewanne3` to only notify if `badewanne3` got \
     a new score in his top 42.\n\
-    Alternatively, you can provide a limit by specifying `-limit` \
-    followed by a number, e.g. `trackmania -limit 42 badewanne3`.\n\
+    Alternatively, you can provide a limit by specifying `limit=number`, \
+    e.g. `trackmania limit=42 badewanne3`.\n\
     The limit must be between 1 and 100, **defaults to 50** if none is given."
 )]
-#[usage("[-limit number] [username1] [username2] ...")]
+#[usage("[limit=number] [username1] [username2] ...")]
 #[example(
-    "badewanne3 \"freddie benson\" peppy -limit 23",
-    "-limit 45 cookiezi whitecat",
+    "badewanne3 \"freddie benson\" peppy limit=23",
+    "limit=45 cookiezi whitecat",
     "\"freddie benson\""
 )]
 pub async fn trackmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
@@ -201,14 +201,14 @@ pub async fn trackmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     To provide a limit, specify a number right after the command, \
     e.g. `tracktaiko42 badewanne3` to only notify if `badewanne3` got \
     a new score in his top 42.\n\
-    Alternatively, you can provide a limit by specifying `-limit` \
-    followed by a number, e.g. `tracktaiko -limit 42 badewanne3`.\n\
+    Alternatively, you can provide a limit by specifying `limit=number`, \
+    e.g. `tracktaiko limit=42 badewanne3`.\n\
     The limit must be between 1 and 100, **defaults to 50** if none is given."
 )]
-#[usage("[-limit number] [username1] [username2] ...")]
+#[usage("[limit=number] [username1] [username2] ...")]
 #[example(
-    "badewanne3 \"freddie benson\" peppy -limit 23",
-    "-limit 45 cookiezi whitecat",
+    "badewanne3 \"freddie benson\" peppy limit=23",
+    "limit=45 cookiezi whitecat",
     "\"freddie benson\""
 )]
 pub async fn tracktaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
@@ -241,14 +241,14 @@ pub async fn tracktaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     To provide a limit, specify a number right after the command, \
     e.g. `trackctb42 badewanne3` to only notify if `badewanne3` got \
     a new score in his top 42.\n\
-    Alternatively, you can provide a limit by specifying `-limit` \
-    followed by a number, e.g. `trackctb -limit 42 badewanne3`.\n\
+    Alternatively, you can provide a limit by specifying `limit=number`, \
+    e.g. `trackctb limit=42 badewanne3`.\n\
     The limit must be between 1 and 100, **defaults to 50** if none is given."
 )]
-#[usage("[-limit number] [username1] [username2] ...")]
+#[usage("[limit=number] [username1] [username2] ...")]
 #[example(
-    "badewanne3 \"freddie benson\" peppy -limit 23",
-    "-limit 45 cookiezi whitecat",
+    "badewanne3 \"freddie benson\" peppy limit=23",
+    "limit=45 cookiezi whitecat",
     "\"freddie benson\""
 )]
 pub async fn trackctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {

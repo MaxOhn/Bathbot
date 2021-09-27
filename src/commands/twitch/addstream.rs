@@ -1,5 +1,8 @@
 use crate::{
-    util::{constants::GENERAL_ISSUE, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, TWITCH_API_ISSUE},
+        MessageExt,
+    },
     BotResult, CommandData, Context, MessageBuilder,
 };
 
@@ -32,11 +35,16 @@ pub async fn _addstream(ctx: Arc<Context>, data: CommandData<'_>, name: &'_ str)
     let twitch = &ctx.clients.twitch;
 
     let twitch_id = match twitch.get_user(name).await {
-        Ok(user) => user.user_id,
-        Err(_) => {
+        Ok(Some(user)) => user.user_id,
+        Ok(None) => {
             let content = format!("Twitch user `{}` was not found", name);
 
             return data.error(&ctx, content).await;
+        }
+        Err(why) => {
+            let _ = data.error(&ctx, TWITCH_API_ISSUE).await;
+
+            return Err(why.into());
         }
     };
 

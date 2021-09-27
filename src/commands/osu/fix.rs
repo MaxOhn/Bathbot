@@ -1,4 +1,5 @@
 use crate::{
+    commands::SlashCommandBuilder,
     database::UserConfig,
     embeds::{EmbedData, FixScoreEmbed},
     tracking::process_tracking,
@@ -74,7 +75,7 @@ async fn fix(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotResult<()> {
     let FixArgs { config, map, mods } = args;
 
-    let name = match config.name {
+    let name = match config.osu_username {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
@@ -449,7 +450,7 @@ impl FixArgs {
                 mods = Some(mods_);
             } else {
                 match Args::check_user_mention(ctx, arg).await? {
-                    Ok(name) => config.name = Some(name),
+                    Ok(name) => config.osu_username = Some(name),
                     Err(content) => return Ok(Err(content)),
                 }
             }
@@ -469,8 +470,8 @@ impl FixArgs {
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => config.name = Some(value.into()),
-                    "discord" => config.name = parse_discord_option!(ctx, value, "fix"),
+                    "name" => config.osu_username = Some(value.into()),
+                    "discord" => config.osu_username = parse_discord_option!(ctx, value, "fix"),
                     "map" => match matcher::get_osu_map_id(&value)
                         .or_else(|| matcher::get_osu_mapset_id(&value))
                     {
@@ -510,37 +511,35 @@ pub async fn slash_fix(ctx: Arc<Context>, mut command: ApplicationCommand) -> Bo
 }
 
 pub fn slash_fix_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "fix".to_owned(),
-        default_permission: None,
-        description: "Display a user's pp after unchoking their score on a map".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a username".to_owned(),
-                name: "name".to_owned(),
-                required: false,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a map url or map id".to_owned(),
-                name: "map".to_owned(),
-                required: false,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify mods".to_owned(),
-                name: "mods".to_owned(),
-                required: false,
-            }),
-            CommandOption::User(BaseCommandOptionData {
-                description: "Specify a linked discord user".to_owned(),
-                name: "discord".to_owned(),
-                required: false,
-            }),
-        ],
-    }
+    let description = "Display a user's pp after unchoking their score on a map";
+
+    let options = vec![
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a username".to_owned(),
+            name: "name".to_owned(),
+            required: false,
+        }),
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a map url or map id".to_owned(),
+            name: "map".to_owned(),
+            required: false,
+        }),
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify mods".to_owned(),
+            name: "mods".to_owned(),
+            required: false,
+        }),
+        CommandOption::User(BaseCommandOptionData {
+            description: "Specify a linked discord user".to_owned(),
+            name: "discord".to_owned(),
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("fix", description)
+        .options(options)
+        .build()
 }

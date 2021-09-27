@@ -5,6 +5,7 @@ use std::sync::Arc;
 #[command]
 #[short_desc("https://youtu.be/xpkkakkDhN4?t=65")]
 #[bucket("songs")]
+#[no_typing()]
 pub async fn bombsaway(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let (lyrics, delay) = _bombsaway();
 

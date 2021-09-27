@@ -10,11 +10,12 @@ pub use osu_daily::*;
 pub use osu_stats::*;
 use score::ScraperScores;
 pub use score::{ScraperBeatmap, ScraperScore};
+use serde::Serialize;
 pub use snipe::*;
 
 use crate::{
     util::{
-        constants::{AVATAR_URL, HUISMETBENEN, OSEKAI_MEDAL_API, OSU_BASE, OSU_DAILY_API},
+        constants::{AVATAR_URL, HUISMETBENEN, OSU_BASE, OSU_DAILY_API},
         error::CustomClientError,
         numbers::round,
         osu::ModSelection,
@@ -72,10 +73,10 @@ impl CustomClient {
         self.ratelimiter.until_key_ready(&site).await
     }
 
-    async fn make_request(&self, url: impl AsRef<str>, site: Site) -> ClientResult<Response> {
+    async fn make_get_request(&self, url: impl AsRef<str>, site: Site) -> ClientResult<Response> {
         let url = url.as_ref();
 
-        debug!("Requesting url {}", url);
+        debug!("GET request of url {}", url);
         let mut req = self.client.get(url);
 
         if let Site::OsuHiddenApi = site {
@@ -90,28 +91,87 @@ impl CustomClient {
         Ok(req.send().await?.error_for_status()?)
     }
 
-    pub async fn get_osekai_medal(&self, medal_name: &str) -> ClientResult<Option<OsekaiMedal>> {
-        let url = format!("{}get_medal?medal={}", OSEKAI_MEDAL_API, medal_name);
-        let response = self.make_request(url, Site::Osekai).await?;
+    async fn make_post_request<F: Serialize + ?Sized>(
+        &self,
+        url: impl AsRef<str>,
+        site: Site,
+        form: &F,
+    ) -> ClientResult<Response> {
+        let url = url.as_ref();
+
+        debug!("POST request of url {}", url);
+        let req = self.client.post(url).form(form);
+        self.ratelimit(site).await;
+
+        Ok(req.send().await?.error_for_status()?)
+    }
+
+    pub async fn get_osekai_medals(&self) -> ClientResult<Vec<OsekaiMedal>> {
+        let url = "https://osekai.net/medals/api/medals.php";
+        let form = &[("strSearch", "")];
+
+        let response = self.make_post_request(url, Site::Osekai, form).await?;
         let bytes = response.bytes().await?;
 
-        let medal: Option<OsekaiMedal> = match serde_json::from_slice(&bytes) {
-            Ok(medal) => Some(medal),
-            Err(source) => match serde_json::from_slice::<Value>(&bytes)
-                .map(|mut v| v.get_mut("error").map(Value::take))
-            {
-                Ok(Some(Value::String(msg))) if msg == "Medal could not be found" => None,
-                _ => {
-                    return Err(CustomClientError::Parsing {
-                        body: String::from_utf8_lossy(&bytes).into_owned(),
-                        source,
-                        request: "osekai medal",
-                    })
-                }
-            },
-        };
+        let medals: OsekaiMedals =
+            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
+                body: String::from_utf8_lossy(&bytes).into_owned(),
+                source,
+                request: "osekai medals",
+            })?;
 
-        Ok(medal)
+        Ok(medals.0)
+    }
+
+    pub async fn get_osekai_beatmaps(&self, medal_name: &str) -> ClientResult<Vec<OsekaiMap>> {
+        let url = "https://osekai.net/medals/api/beatmaps.php";
+        let form = &[("strSearch", medal_name)];
+
+        let response = self.make_post_request(url, Site::Osekai, form).await?;
+        let bytes = response.bytes().await?;
+
+        let maps: Vec<OsekaiMap> =
+            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
+                body: String::from_utf8_lossy(&bytes).into_owned(),
+                source,
+                request: "osekai maps",
+            })?;
+
+        Ok(maps)
+    }
+
+    pub async fn get_osekai_comments(&self, medal_name: &str) -> ClientResult<Vec<OsekaiComment>> {
+        let url = "https://osekai.net/global/api/comment_system.php";
+        let form = &[("strMedalName", medal_name), ("bGetComments", "true")];
+
+        let response = self.make_post_request(url, Site::Osekai, form).await?;
+        let bytes = response.bytes().await?;
+
+        let comments: OsekaiComments =
+            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
+                body: String::from_utf8_lossy(&bytes).into_owned(),
+                source,
+                request: "osekai comments",
+            })?;
+
+        Ok(comments.0.unwrap_or_default())
+    }
+
+    pub async fn get_osekai_ranking<R: OsekaiRanking>(&self, _: R) -> ClientResult<Vec<R::Entry>> {
+        let url = "https://osekai.net/rankings/api/api.php";
+        let form = &[("App", R::FORM)];
+
+        let response = self.make_post_request(url, Site::Osekai, form).await?;
+        let bytes = response.bytes().await?;
+
+        let ranking =
+            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
+                body: String::from_utf8_lossy(&bytes).into_owned(),
+                source,
+                request: R::REQUEST,
+            })?;
+
+        Ok(ranking)
     }
 
     pub async fn get_snipe_player(&self, country: &str, user_id: u32) -> ClientResult<SnipePlayer> {
@@ -122,7 +182,7 @@ impl CustomClient {
             user_id
         );
 
-        let response = self.make_request(url, Site::OsuSnipe).await?;
+        let response = self.make_get_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
 
         let player: SnipePlayer =
@@ -142,7 +202,7 @@ impl CustomClient {
             country.to_lowercase()
         );
 
-        let response = self.make_request(url, Site::OsuSnipe).await?;
+        let response = self.make_get_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
 
         let country_players: Vec<SnipeCountryPlayer> =
@@ -162,7 +222,7 @@ impl CustomClient {
         let country = country.to_lowercase();
         let url = format!("{}rankings/{}/statistics", HUISMETBENEN, country);
 
-        let response = self.make_request(url, Site::OsuSnipe).await?;
+        let response = self.make_get_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
 
         let statistics =
@@ -193,7 +253,7 @@ impl CustomClient {
             until.format(date_format)
         );
 
-        let response = self.make_request(url, Site::OsuSnipe).await?;
+        let response = self.make_get_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
 
         let snipes: Vec<SnipeRecent> =
@@ -231,7 +291,7 @@ impl CustomClient {
             }
         }
 
-        let response = self.make_request(url, Site::OsuSnipe).await?;
+        let response = self.make_get_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
 
         let scores: Vec<SnipeScore> =
@@ -266,7 +326,7 @@ impl CustomClient {
             }
         }
 
-        let response = self.make_request(url, Site::OsuSnipe).await?;
+        let response = self.make_get_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
 
         let count: usize =
@@ -472,7 +532,7 @@ impl CustomClient {
             }
         }
 
-        let response = self.make_request(url, Site::OsuHiddenApi).await?;
+        let response = self.make_get_request(url, Site::OsuHiddenApi).await?;
         let bytes = response.bytes().await?;
 
         let scores: ScraperScores =
@@ -493,7 +553,7 @@ impl CustomClient {
     }
 
     pub async fn get_avatar(&self, url: impl AsRef<str>) -> ClientResult<Vec<u8>> {
-        let response = self.make_request(url, Site::OsuAvatar).await?;
+        let response = self.make_get_request(url, Site::OsuAvatar).await?;
 
         Ok(response.bytes().await?.to_vec())
     }
@@ -510,7 +570,7 @@ impl CustomClient {
         const SECOND: Duration = Duration::from_secs(1);
 
         let response = loop {
-            let response = self.make_request(&url, Site::OsuDaily).await?;
+            let response = self.make_get_request(&url, Site::OsuDaily).await?;
 
             if response.status() != StatusCode::TOO_MANY_REQUESTS {
                 break response;

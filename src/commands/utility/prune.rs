@@ -1,4 +1,5 @@
 use crate::{
+    commands::SlashCommandBuilder,
     util::{constants::GENERAL_ISSUE, ApplicationCommandExt, MessageExt},
     BotResult, CommandData, Context, Error, MessageBuilder,
 };
@@ -130,18 +131,16 @@ pub async fn slash_prune(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
 }
 
 pub fn slash_prune_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "prune".to_owned(),
-        default_permission: None,
-        description: "Delete the last few messages in a channel".to_owned(),
-        id: None,
-        options: vec![CommandOption::Integer(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Choose the amount of messages to delete".to_owned(),
-            name: "amount".to_owned(),
-            required: true,
-        })],
-    }
+    let description = "Delete the last few messages in a channel";
+
+    let options = vec![CommandOption::Integer(ChoiceCommandOptionData {
+        choices: vec![],
+        description: "Choose the amount of messages to delete".to_owned(),
+        name: "amount".to_owned(),
+        required: true,
+    })];
+
+    SlashCommandBuilder::new("prune", description)
+        .options(options)
+        .build()
 }

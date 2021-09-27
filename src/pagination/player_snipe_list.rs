@@ -5,7 +5,6 @@ use crate::{
     BotResult, Context,
 };
 
-use async_trait::async_trait;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmap, User};
 use std::{collections::BTreeMap, iter::Extend, sync::Arc};

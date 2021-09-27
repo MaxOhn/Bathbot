@@ -2,6 +2,8 @@ mod impls;
 
 pub use impls::{MatchLiveChannels, MatchTrackResult};
 
+use super::server::AuthenticationStandby;
+
 use crate::{
     bg_game::GameWrapper,
     core::{
@@ -35,6 +37,7 @@ pub struct Context {
     pub stats: Arc<BotStats>,
     pub http: HttpClient,
     pub standby: Standby,
+    pub auth_standby: AuthenticationStandby,
     pub buckets: Buckets,
     pub cluster: Cluster,
     pub clients: Clients,
@@ -81,6 +84,7 @@ impl Context {
             stats,
             http,
             standby: Standby::new(),
+            auth_standby: AuthenticationStandby::default(),
             clients,
             cluster,
             data,

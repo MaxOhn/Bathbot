@@ -1,4 +1,5 @@
 use crate::{
+    commands::SlashCommandBuilder,
     core::{commands::CommandDataCompact, Command, CMD_GROUPS},
     embeds::{Author, EmbedBuilder, Footer},
     util::{
@@ -47,14 +48,14 @@ async fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
         |p| format!("Server prefix: {}\nDM prefix: `<` or none at all", p),
     );
 
-    format!(":fire: **Slash commands now supported!** Type `/` to test them out :fire:\n\n\
+    format!(":fire: **Slash commands now supported!** Type `/` to check them out :fire:\n\n\
         {prefix_desc}\n\
         __**General**__\n\
         - To find out more about a command like what arguments you can give or which shorter aliases it has, \
         use __**`{prefix}help [command]`**__, e.g. `{prefix}help simulate`.
         - If you want to specify an argument, e.g. a username, that contains \
         spaces, you must encapsulate it with `\"` i.e. `\"nathan on osu\"`.\n\
-        - If you've used `{prefix}link \"osu! username\"`, you can omit the username for any command that needs one.\n\
+        - If you've used the `/link` command to connect to an osu! account, you can omit the username for any command that needs one.\n\
         - With the arrow reactions you can scroll through pages e.g. check an earlier play than the most recent one. \
         Note that generally only reactions of the response invoker (user who used command) will be processed.\n\
         - ~~`Strikethrough`~~ commands indicate that either you can't use them in DMs or \
@@ -74,8 +75,8 @@ async fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
 pub async fn help(ctx: &Context, data: CommandData<'_>, is_authority: bool) -> BotResult<()> {
     let owner = data.author()?.id;
 
-    let channel = if let Some(channel) = ctx.cache.private_channel(owner) {
-        channel
+    let channel_id = if let Some(channel) = ctx.cache.private_channel(owner) {
+        channel.id
     } else {
         let channel = match ctx.http.create_private_channel(owner).exec().await {
             Ok(channel_res) => match channel_res.model().await {
@@ -95,9 +96,10 @@ pub async fn help(ctx: &Context, data: CommandData<'_>, is_authority: bool) -> B
             }
         };
 
-        ctx.cache.cache_private_channel(channel.clone());
+        let id = channel.id;
+        ctx.cache.cache_private_channel(channel);
 
-        channel
+        id
     };
 
     let guild_id = data.guild_id();
@@ -132,7 +134,7 @@ pub async fn help(ctx: &Context, data: CommandData<'_>, is_authority: bool) -> B
 
         if size + next_size > DESCRIPTION_SIZE {
             let embed = &[EmbedBuilder::new().description(buf).build()];
-            let msg_fut = ctx.http.create_message(channel.id).embeds(embed)?;
+            let msg_fut = ctx.http.create_message(channel_id).embeds(embed)?;
 
             if let Err(why) = msg_fut.exec().await {
                 unwind_error!(warn, why, "Error while sending help chunk: {}");
@@ -155,7 +157,7 @@ pub async fn help(ctx: &Context, data: CommandData<'_>, is_authority: bool) -> B
 
             if size + next_size > DESCRIPTION_SIZE {
                 let embed = &[EmbedBuilder::new().description(buf).build()];
-                let msg_fut = ctx.http.create_message(channel.id).embeds(embed)?;
+                let msg_fut = ctx.http.create_message(channel_id).embeds(embed)?;
 
                 if let Err(why) = msg_fut.exec().await {
                     unwind_error!(warn, why, "Error while sending help chunk: {}");
@@ -187,7 +189,7 @@ pub async fn help(ctx: &Context, data: CommandData<'_>, is_authority: bool) -> B
 
     if !buf.is_empty() {
         let embed = &[EmbedBuilder::new().description(buf).build()];
-        let msg_fut = ctx.http.create_message(channel.id).embeds(embed)?;
+        let msg_fut = ctx.http.create_message(channel_id).embeds(embed)?;
 
         if let Err(why) = msg_fut.exec().await {
             unwind_error!(warn, why, "Error while sending help chunk: {}");
@@ -399,18 +401,16 @@ pub async fn slash_help(
 }
 
 pub fn slash_help_command() -> SlashCommand {
-    SlashCommand {
-        application_id: None,
-        guild_id: None,
-        name: "help".to_owned(),
-        default_permission: None,
-        description: "Display general help or help for a specific command".to_owned(),
-        id: None,
-        options: vec![CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify a command name".to_owned(),
-            name: "command".to_owned(),
-            required: false,
-        })],
-    }
+    let description = "Display general help or help for a specific command";
+
+    let options = vec![CommandOption::String(ChoiceCommandOptionData {
+        choices: vec![],
+        description: "Specify a command name".to_owned(),
+        name: "command".to_owned(),
+        required: false,
+    })];
+
+    SlashCommandBuilder::new("help", description)
+        .options(options)
+        .build()
 }

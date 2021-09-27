@@ -8,7 +8,6 @@ use crate::{
     BotResult,
 };
 
-use async_trait::async_trait;
 use twilight_model::channel::Message;
 
 pub struct CountrySnipeListPagination {

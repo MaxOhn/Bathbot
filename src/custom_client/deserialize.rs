@@ -1,3 +1,5 @@
+use crate::util::constants::DATE_FORMAT;
+
 use chrono::{offset::TimeZone, DateTime, Utc};
 use rosu_v2::model::GameMods;
 use serde::{
@@ -10,8 +12,8 @@ pub fn str_to_maybe_datetime<'de, D>(d: D) -> Result<Option<DateTime<Utc>>, D::E
 where
     D: Deserializer<'de>,
 {
-    match <Option<String> as Deserialize>::deserialize(d)? {
-        Some(s) => match Utc.datetime_from_str(s.as_str(), "%F %T") {
+    match <Option<&str> as Deserialize>::deserialize(d)? {
+        Some(s) => match Utc.datetime_from_str(s, DATE_FORMAT) {
             Ok(date) => Ok(Some(date)),
             Err(_) => Ok(None),
         },
@@ -24,11 +26,11 @@ pub fn str_to_datetime<'de, D: Deserializer<'de>>(d: D) -> Result<DateTime<Utc>,
 }
 
 pub fn str_to_maybe_f32<'de, D: Deserializer<'de>>(d: D) -> Result<Option<f32>, D::Error> {
-    let s: Option<String> = Deserialize::deserialize(d)?;
+    let s: Option<&str> = Deserialize::deserialize(d)?;
 
-    s.map(|s| f32::from_str(s.as_str()).map_err(|_| s))
+    s.map(|s| s.parse().map_err(|_| s))
         .transpose()
-        .map_err(|s| Error::invalid_value(Unexpected::Str(s.as_str()), &"f32 or null"))
+        .map_err(|s| Error::invalid_value(Unexpected::Str(s), &"f32 or null"))
 }
 
 pub fn str_to_f32<'de, D: Deserializer<'de>>(d: D) -> Result<f32, D::Error> {
@@ -36,10 +38,11 @@ pub fn str_to_f32<'de, D: Deserializer<'de>>(d: D) -> Result<f32, D::Error> {
 }
 
 pub fn str_to_maybe_u32<'de, D: Deserializer<'de>>(d: D) -> Result<Option<u32>, D::Error> {
-    let s: Option<String> = Deserialize::deserialize(d)?;
-    s.map(|s| u32::from_str(s.as_str()).map_err(|_| s))
+    let s: Option<&str> = Deserialize::deserialize(d)?;
+
+    s.map(|s| s.parse().map_err(|_| s))
         .transpose()
-        .map_err(|s| Error::invalid_value(Unexpected::Str(s.as_str()), &"u32 or null"))
+        .map_err(|s| Error::invalid_value(Unexpected::Str(s), &"u32 or null"))
 }
 
 pub fn str_to_u32<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
@@ -47,9 +50,9 @@ pub fn str_to_u32<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
 }
 
 pub fn adjust_mods_maybe<'de, D: Deserializer<'de>>(d: D) -> Result<Option<GameMods>, D::Error> {
-    let s: Option<String> = Deserialize::deserialize(d)?;
+    let s: Option<&str> = Deserialize::deserialize(d)?;
 
-    let mods = match s.as_deref() {
+    let mods = match s {
         None => return Ok(None),
         Some("None") => GameMods::NoMod,
         Some(s) => {
@@ -75,5 +78,6 @@ pub fn adjust_mods<'de, D: Deserializer<'de>>(d: D) -> Result<GameMods, D::Error
 
 pub fn expect_negative_u32<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
     let i: i64 = Deserialize::deserialize(d)?;
+
     Ok(i.max(0) as u32)
 }

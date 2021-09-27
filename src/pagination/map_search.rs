@@ -1,7 +1,6 @@
 use super::{Pages, Pagination};
 use crate::{commands::osu::MapSearchArgs, embeds::MapSearchEmbed, BotResult, Context};
 
-use async_trait::async_trait;
 use rosu_v2::prelude::{Beatmapset, BeatmapsetSearchResult};
 use std::{collections::BTreeMap, iter::Extend, sync::Arc};
 use twilight_model::channel::Message;

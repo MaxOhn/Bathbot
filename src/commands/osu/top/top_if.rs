@@ -40,7 +40,7 @@ pub(super) async fn _topif(
 ) -> BotResult<()> {
     let IfArgs { config, mods } = args;
 
-    let name = match config.name {
+    let name = match config.osu_username {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
@@ -328,7 +328,7 @@ pub async fn topif(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         CommandData::Message { msg, mut args, num } => {
             match IfArgs::args(&ctx, &mut args, msg.author.id).await {
                 Ok(Ok(mut if_args)) => {
-                    if_args.config.mode = Some(if_args.config.mode(GameMode::STD));
+                    if_args.config.mode.get_or_insert(GameMode::STD);
 
                     _topif(ctx, CommandData::Message { msg, args, num }, if_args).await
                 }
@@ -449,7 +449,7 @@ impl IfArgs {
             match matcher::get_mods(arg) {
                 Some(mods_) => mods = Some(mods_),
                 None => match Args::check_user_mention(ctx, arg).await? {
-                    Ok(name) => config.name = Some(name),
+                    Ok(name) => config.osu_username = Some(name),
                     Err(content) => return Ok(Err(content)),
                 },
             }
@@ -474,13 +474,13 @@ impl IfArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => config.name = Some(value.into()),
+                    "name" => config.osu_username = Some(value.into()),
                     "mods" => match matcher::get_mods(&value) {
                         Some(mods_) => mods = Some(mods_),
                         None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
                     },
                     "mode" => config.mode = parse_mode_option!(value, "top if"),
-                    "discord" => config.name = parse_discord_option!(ctx, value, "top if"),
+                    "discord" => config.osu_username = parse_discord_option!(ctx, value, "top if"),
                     _ => bail_cmd_option!("top if", string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {

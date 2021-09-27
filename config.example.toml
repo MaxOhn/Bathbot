@@ -1,7 +1,10 @@
 bg_path = "path/to/bg/folder"
 map_path = "path/to/folder/containing/.osu/files"
-metric_server_ip = [127, 0, 0, 1]
-metric_server_port = 9091
+
+[server]
+internal_ip = [127, 0, 0, 1]
+internal_port = 7277
+external_url = "https://www.example.com"
 
 [tokens]
 discord = ""

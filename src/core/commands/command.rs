@@ -16,6 +16,7 @@ pub struct Command {
     pub owner: bool,
     pub only_guilds: bool,
     pub bucket: Option<&'static str>,
+    pub typing: bool,
     pub sub_commands: &'static [&'static Command],
     pub fun:
         for<'fut> fn(Arc<Context>, &'fut Message, Args<'fut>, Option<usize>) -> BoxResult<'fut>,

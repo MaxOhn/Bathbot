@@ -1,4 +1,5 @@
 use crate::{
+    commands::SlashCommandBuilder,
     embeds::{AboutEmbed, EmbedData},
     util::{constants::GENERAL_ISSUE, MessageExt},
     BotResult, CommandData, Context,
@@ -10,6 +11,7 @@ use twilight_model::application::{command::Command, interaction::ApplicationComm
 #[command]
 #[short_desc("Displaying some information about this bot")]
 #[aliases("info")]
+#[no_typing()]
 async fn about(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let embed_data = match AboutEmbed::new(&ctx).await {
         Ok(data) => data,
@@ -31,13 +33,7 @@ pub async fn slash_about(ctx: Arc<Context>, command: ApplicationCommand) -> BotR
 }
 
 pub fn slash_about_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "about".to_owned(),
-        default_permission: None,
-        description: "Displaying some information about this bot".to_owned(),
-        id: None,
-        options: Vec::new(),
-    }
+    let description = "Displaying some information about this bot";
+
+    SlashCommandBuilder::new("about", description).build()
 }

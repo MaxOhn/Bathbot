@@ -1,5 +1,5 @@
 use crate::{
-    database::{MedalGroup, OsuMedal},
+    custom_client::{groups::*, OsekaiMedal},
     embeds::{attachment, Author, EmbedFields, Footer},
     util::{constants::OSU_BASE, numbers::round, osu::flag_url},
 };
@@ -16,7 +16,7 @@ pub struct MedalStatsEmbed {
 }
 
 impl MedalStatsEmbed {
-    pub fn new(mut user: User, medals: HashMap<u32, OsuMedal>, with_graph: bool) -> Self {
+    pub fn new(mut user: User, medals: HashMap<u32, OsekaiMedal>, with_graph: bool) -> Self {
         let mut fields = Vec::with_capacity(5);
 
         // Be sure owned medals are sorted by date
@@ -55,7 +55,7 @@ impl MedalStatsEmbed {
 
             // Count groups for all medals
             for medal in medals.values() {
-                let (total, _) = counts.entry(medal.grouping).or_insert((0, 0));
+                let (total, _) = counts.entry(medal.grouping.as_str()).or_insert((0, 0));
                 *total += 1;
             }
 
@@ -63,7 +63,7 @@ impl MedalStatsEmbed {
             for medal in owned.iter() {
                 let entry = medals
                     .get(&medal.medal_id)
-                    .and_then(|medal| counts.get_mut(&medal.grouping));
+                    .and_then(|medal| counts.get_mut(medal.grouping.as_str()));
 
                 if let Some((_, owned)) = entry {
                     *owned += 1;
@@ -71,8 +71,8 @@ impl MedalStatsEmbed {
             }
 
             // Add to fields
-            let mut add_group_field = |group: MedalGroup| {
-                if let Some((total, owned)) = counts.get(&group) {
+            let mut add_group_field = |group: &str| {
+                if let Some((total, owned)) = counts.get(group) {
                     fields.push(field!(
                         group.to_string(),
                         format!("{} / {}", owned, total),
@@ -81,14 +81,14 @@ impl MedalStatsEmbed {
                 }
             };
 
-            add_group_field(MedalGroup::Skill);
-            add_group_field(MedalGroup::Dedication);
-            add_group_field(MedalGroup::HushHush);
-            add_group_field(MedalGroup::BeatmapPacks);
-            add_group_field(MedalGroup::BeatmapChallengePacks);
-            add_group_field(MedalGroup::SeasonalSpotlights);
-            add_group_field(MedalGroup::BeatmapSpotlights);
-            add_group_field(MedalGroup::ModIntroduction);
+            add_group_field(SKILL);
+            add_group_field(DEDICATION);
+            add_group_field(HUSH_HUSH);
+            add_group_field(BEATMAP_PACKS);
+            add_group_field(BEATMAP_CHALLENGE_PACKS);
+            add_group_field(SEASONAL_SPOTLIGHTS);
+            add_group_field(BEATMAP_SPOTLIGHTS);
+            add_group_field(MOD_INTRODUCTION);
         }
 
         let author = Author::new(user.username)

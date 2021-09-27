@@ -5,6 +5,7 @@ pub use countries::*;
 pub use players::*;
 
 use crate::{
+    commands::SlashCommandBuilder,
     util::{ApplicationCommandExt, CountryCode, MessageExt},
     BotResult, Context, Error,
 };
@@ -160,55 +161,53 @@ pub async fn slash_ranking(ctx: Arc<Context>, mut command: ApplicationCommand) -
 }
 
 pub fn slash_ranking_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "ranking".to_owned(),
-        default_permission: None,
-        description: "Show the pp, ranked score, or country ranking".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Show the pp ranking".to_owned(),
-                name: "pp".to_owned(),
-                options: vec![
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: super::mode_choices(),
-                        description: "Specify the gamemode".to_owned(),
-                        name: "mode".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify a country (code)".to_owned(),
-                        name: "country".to_owned(),
-                        required: false,
-                    }),
-                ],
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Show the ranked score ranking".to_owned(),
-                name: "score".to_owned(),
-                options: vec![CommandOption::String(ChoiceCommandOptionData {
+    let description = "Show the pp, ranked score, or country ranking";
+
+    let options = vec![
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Show the pp ranking".to_owned(),
+            name: "pp".to_owned(),
+            options: vec![
+                CommandOption::String(ChoiceCommandOptionData {
                     choices: super::mode_choices(),
                     description: "Specify the gamemode".to_owned(),
                     name: "mode".to_owned(),
                     required: false,
-                })],
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Show the country ranking".to_owned(),
-                name: "country".to_owned(),
-                options: vec![CommandOption::String(ChoiceCommandOptionData {
-                    choices: super::mode_choices(),
-                    description: "Specify the gamemode".to_owned(),
-                    name: "mode".to_owned(),
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Specify a country (code)".to_owned(),
+                    name: "country".to_owned(),
                     required: false,
-                })],
+                }),
+            ],
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Show the ranked score ranking".to_owned(),
+            name: "score".to_owned(),
+            options: vec![CommandOption::String(ChoiceCommandOptionData {
+                choices: super::mode_choices(),
+                description: "Specify the gamemode".to_owned(),
+                name: "mode".to_owned(),
                 required: false,
-            }),
-        ],
-    }
+            })],
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Show the country ranking".to_owned(),
+            name: "country".to_owned(),
+            options: vec![CommandOption::String(ChoiceCommandOptionData {
+                choices: super::mode_choices(),
+                description: "Specify the gamemode".to_owned(),
+                name: "mode".to_owned(),
+                required: false,
+            })],
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("ranking", description)
+        .options(options)
+        .build()
 }

@@ -21,7 +21,7 @@ pub(super) async fn _count(
 ) -> BotResult<()> {
     let CountArgs { config } = args;
 
-    let name = match config.name {
+    let name = match config.osu_username {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
@@ -77,7 +77,7 @@ pub async fn osustatscount(ctx: Arc<Context>, data: CommandData) -> BotResult<()
         CommandData::Message { msg, mut args, num } => {
             match CountArgs::args(&ctx, &mut args, msg.author.id).await {
                 Ok(Ok(mut count_args)) => {
-                    count_args.config.mode = Some(count_args.config.mode(GameMode::STD));
+                    count_args.config.mode.get_or_insert(GameMode::STD);
 
                     _count(ctx, CommandData::Message { msg, args, num }, count_args).await
                 }
@@ -203,7 +203,7 @@ impl CountArgs {
 
         if let Some(arg) = args.next() {
             match Args::check_user_mention(ctx, arg).await? {
-                Ok(name) => config.name = Some(name),
+                Ok(name) => config.osu_username = Some(name),
                 Err(content) => return Ok(Err(content)),
             }
         }
@@ -221,8 +221,10 @@ impl CountArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => config.name = Some(value.into()),
-                    "discord" => config.name = parse_discord_option!(ctx, value, "osustats count"),
+                    "name" => config.osu_username = Some(value.into()),
+                    "discord" => {
+                        config.osu_username = parse_discord_option!(ctx, value, "osustats count")
+                    }
                     "mode" => config.mode = parse_mode_option!(value, "osustats count"),
                     _ => bail_cmd_option!("osustats count", string, name),
                 },

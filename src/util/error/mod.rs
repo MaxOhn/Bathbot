@@ -8,6 +8,7 @@ pub use bg_game::BgGameError;
 pub use custom_client::CustomClientError;
 pub use map_download::MapDownloadError;
 pub use pp::PPError;
+use twilight_model::application::interaction::ApplicationCommand;
 pub use twitch::TwitchError;
 
 use chrono::format::ParseError as ChronoParseError;
@@ -27,7 +28,9 @@ use toml::de::Error as TomlError;
 use twilight_gateway::cluster::ClusterCommandError;
 use twilight_http::{
     request::{
-        application::{InteractionError, UpdateOriginalResponseError},
+        application::{
+            interaction::update_original_response::UpdateOriginalResponseError, InteractionError,
+        },
         channel::message::{
             create_message::CreateMessageError, update_message::UpdateMessageError,
         },
@@ -86,7 +89,10 @@ pub enum Error {
         kind: &'static str,
         name: String,
     },
-    UnknownSlashCommand(String),
+    UnknownSlashCommand {
+        name: String,
+        command: Box<ApplicationCommand>,
+    },
     UpdateMessage(UpdateMessageError),
     UpdateOriginalResponse(UpdateOriginalResponseError),
 }
@@ -124,7 +130,7 @@ impl StdError for Error {
             Self::TwilightHttp(e) => Some(e),
             Self::Twitch(e) => Some(e),
             Self::UnexpectedCommandOption { .. } => None,
-            Self::UnknownSlashCommand(_) => None,
+            Self::UnknownSlashCommand { .. } => None,
             Self::UpdateMessage(e) => Some(e),
             Self::UpdateOriginalResponse(e) => Some(e),
         }
@@ -170,7 +176,9 @@ impl Display for Error {
                 "unexpected {} option for slash command `{}`: `{}`",
                 kind, cmd, name
             ),
-            Self::UnknownSlashCommand(name) => write!(f, "unknown slash command `{}`", name),
+            Self::UnknownSlashCommand { name, command } => {
+                write!(f, "unknown slash command `{}`: {:#?}", name, command)
+            }
             Self::UpdateMessage(_) => f.write_str("error while updating message"),
             Self::UpdateOriginalResponse(_) => f.write_str("update original response error"),
         }

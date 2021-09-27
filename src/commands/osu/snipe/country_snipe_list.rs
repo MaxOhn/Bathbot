@@ -53,7 +53,11 @@ pub(super) async fn _countrysnipelist(
     let author_id = data.author()?.id;
 
     // Retrieve author's osu user to check if they're in the list
-    let osu_user = match ctx.user_config(author_id).await.map(|config| config.name) {
+    let osu_user = match ctx
+        .user_config(author_id)
+        .await
+        .map(|config| config.osu_username)
+    {
         Ok(Some(name)) => match super::request_user(&ctx, &name, Some(GameMode::STD)).await {
             Ok(user) => Some(user),
             Err(OsuError::NotFound) => {

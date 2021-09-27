@@ -1,4 +1,5 @@
 use crate::{
+    commands::SlashCommandBuilder,
     embeds::{EmbedData, MapSearchEmbed},
     pagination::{MapSearchPagination, Pagination},
     util::{constants::OSU_API_ISSUE, ApplicationCommandExt, MessageExt},
@@ -570,250 +571,246 @@ pub async fn slash_mapsearch(ctx: Arc<Context>, mut command: ApplicationCommand)
 
 // TODO: Add user search
 pub fn slash_mapsearch_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "search".to_owned(),
-        default_permission: None,
-        description: "Search for mapsets".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a search query".to_owned(),
-                name: "query".to_owned(),
-                required: false,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: super::mode_choices(),
-                description: "Specify a mode".to_owned(),
-                name: "mode".to_owned(),
-                required: false,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![
-                    CommandOptionChoice::String {
-                        name: "any".to_owned(),
-                        value: "any".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "leaderboard".to_owned(),
-                        value: "leaderboard".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "ranked".to_owned(),
-                        value: "ranked".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "loved".to_owned(),
-                        value: "loved".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "qualified".to_owned(),
-                        value: "qualified".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "pending".to_owned(),
-                        value: "pending".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "graveyard".to_owned(),
-                        value: "graveyard".to_owned(),
-                    },
-                ],
-                description: "Specify a ranking status".to_owned(),
-                name: "status".to_owned(),
-                required: false,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![
-                    CommandOptionChoice::String {
-                        name: "any".to_owned(),
-                        value: "any".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "anime".to_owned(),
-                        value: "anime".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "classical".to_owned(),
-                        value: "classical".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "electronic".to_owned(),
-                        value: "electronic".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "folk".to_owned(),
-                        value: "folk".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "hiphop".to_owned(),
-                        value: "hiphop".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "jazz".to_owned(),
-                        value: "jazz".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "metal".to_owned(),
-                        value: "metal".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "novelty".to_owned(),
-                        value: "novelty".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "other".to_owned(),
-                        value: "other".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "pop".to_owned(),
-                        value: "pop".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "rock".to_owned(),
-                        value: "rock".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "unspecified".to_owned(),
-                        value: "unspecified".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "videogame".to_owned(),
-                        value: "videogame".to_owned(),
-                    },
-                ],
-                description: "Specify a genre".to_owned(),
-                name: "genre".to_owned(),
-                required: false,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![
-                    CommandOptionChoice::String {
-                        name: "any".to_owned(),
-                        value: "any".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "chinese".to_owned(),
-                        value: "chinese".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "english".to_owned(),
-                        value: "english".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "french".to_owned(),
-                        value: "french".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "german".to_owned(),
-                        value: "german".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "instrumental".to_owned(),
-                        value: "instrumental".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "italian".to_owned(),
-                        value: "italian".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "japanese".to_owned(),
-                        value: "japanese".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "korean".to_owned(),
-                        value: "korean".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "other".to_owned(),
-                        value: "other".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "polish".to_owned(),
-                        value: "polish".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "russian".to_owned(),
-                        value: "russian".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "spanish".to_owned(),
-                        value: "spanish".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "swedish".to_owned(),
-                        value: "swedish".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "unspecified".to_owned(),
-                        value: "unspecified".to_owned(),
-                    },
-                ],
-                description: "Specify a language".to_owned(),
-                name: "language".to_owned(),
-                required: false,
-            }),
-            CommandOption::Boolean(BaseCommandOptionData {
-                description: "Specify if the mapset should have a video".to_owned(),
-                name: "video".to_owned(),
-                required: false,
-            }),
-            CommandOption::Boolean(BaseCommandOptionData {
-                description: "Specify if the mapset should have a video".to_owned(),
-                name: "storyboard".to_owned(),
-                required: false,
-            }),
-            CommandOption::Boolean(BaseCommandOptionData {
-                description: "Specify whether the mapset can be NSFW".to_owned(),
-                name: "nsfw".to_owned(),
-                required: false,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![
-                    CommandOptionChoice::String {
-                        name: "artist".to_owned(),
-                        value: "artist".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "favourites".to_owned(),
-                        value: "favourites".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "playcount".to_owned(),
-                        value: "playcount".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "rankeddata".to_owned(),
-                        value: "rankeddata".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "rating".to_owned(),
-                        value: "rating".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "relevance".to_owned(),
-                        value: "relevance".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "stars".to_owned(),
-                        value: "stars".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "title".to_owned(),
-                        value: "title".to_owned(),
-                    },
-                ],
-                description: "Specify the order of mapsets".to_owned(),
-                name: "sort".to_owned(),
-                required: false,
-            }),
-            CommandOption::Boolean(BaseCommandOptionData {
-                description: "Specify whether the resulting list should be reversed".to_owned(),
-                name: "reverse".to_owned(),
-                required: false,
-            }),
-        ],
-    }
+    let options = vec![
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a search query".to_owned(),
+            name: "query".to_owned(),
+            required: false,
+        }),
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: super::mode_choices(),
+            description: "Specify a mode".to_owned(),
+            name: "mode".to_owned(),
+            required: false,
+        }),
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![
+                CommandOptionChoice::String {
+                    name: "any".to_owned(),
+                    value: "any".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "leaderboard".to_owned(),
+                    value: "leaderboard".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "ranked".to_owned(),
+                    value: "ranked".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "loved".to_owned(),
+                    value: "loved".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "qualified".to_owned(),
+                    value: "qualified".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "pending".to_owned(),
+                    value: "pending".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "graveyard".to_owned(),
+                    value: "graveyard".to_owned(),
+                },
+            ],
+            description: "Specify a ranking status".to_owned(),
+            name: "status".to_owned(),
+            required: false,
+        }),
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![
+                CommandOptionChoice::String {
+                    name: "any".to_owned(),
+                    value: "any".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "anime".to_owned(),
+                    value: "anime".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "classical".to_owned(),
+                    value: "classical".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "electronic".to_owned(),
+                    value: "electronic".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "folk".to_owned(),
+                    value: "folk".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "hiphop".to_owned(),
+                    value: "hiphop".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "jazz".to_owned(),
+                    value: "jazz".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "metal".to_owned(),
+                    value: "metal".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "novelty".to_owned(),
+                    value: "novelty".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "other".to_owned(),
+                    value: "other".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "pop".to_owned(),
+                    value: "pop".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "rock".to_owned(),
+                    value: "rock".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "unspecified".to_owned(),
+                    value: "unspecified".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "videogame".to_owned(),
+                    value: "videogame".to_owned(),
+                },
+            ],
+            description: "Specify a genre".to_owned(),
+            name: "genre".to_owned(),
+            required: false,
+        }),
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![
+                CommandOptionChoice::String {
+                    name: "any".to_owned(),
+                    value: "any".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "chinese".to_owned(),
+                    value: "chinese".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "english".to_owned(),
+                    value: "english".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "french".to_owned(),
+                    value: "french".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "german".to_owned(),
+                    value: "german".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "instrumental".to_owned(),
+                    value: "instrumental".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "italian".to_owned(),
+                    value: "italian".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "japanese".to_owned(),
+                    value: "japanese".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "korean".to_owned(),
+                    value: "korean".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "other".to_owned(),
+                    value: "other".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "polish".to_owned(),
+                    value: "polish".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "russian".to_owned(),
+                    value: "russian".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "spanish".to_owned(),
+                    value: "spanish".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "swedish".to_owned(),
+                    value: "swedish".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "unspecified".to_owned(),
+                    value: "unspecified".to_owned(),
+                },
+            ],
+            description: "Specify a language".to_owned(),
+            name: "language".to_owned(),
+            required: false,
+        }),
+        CommandOption::Boolean(BaseCommandOptionData {
+            description: "Specify if the mapset should have a video".to_owned(),
+            name: "video".to_owned(),
+            required: false,
+        }),
+        CommandOption::Boolean(BaseCommandOptionData {
+            description: "Specify if the mapset should have a video".to_owned(),
+            name: "storyboard".to_owned(),
+            required: false,
+        }),
+        CommandOption::Boolean(BaseCommandOptionData {
+            description: "Specify whether the mapset can be NSFW".to_owned(),
+            name: "nsfw".to_owned(),
+            required: false,
+        }),
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![
+                CommandOptionChoice::String {
+                    name: "artist".to_owned(),
+                    value: "artist".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "favourites".to_owned(),
+                    value: "favourites".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "playcount".to_owned(),
+                    value: "playcount".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "rankeddata".to_owned(),
+                    value: "rankeddata".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "rating".to_owned(),
+                    value: "rating".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "relevance".to_owned(),
+                    value: "relevance".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "stars".to_owned(),
+                    value: "stars".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "title".to_owned(),
+                    value: "title".to_owned(),
+                },
+            ],
+            description: "Specify the order of mapsets".to_owned(),
+            name: "sort".to_owned(),
+            required: false,
+        }),
+        CommandOption::Boolean(BaseCommandOptionData {
+            description: "Specify whether the resulting list should be reversed".to_owned(),
+            name: "reverse".to_owned(),
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("search", "Search for mapsets")
+        .options(options)
+        .build()
 }

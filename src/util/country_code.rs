@@ -1,6 +1,7 @@
 use crate::{util::CowUtils, Context};
 
 use hashbrown::HashMap;
+use serde::Deserialize;
 use smallstr::SmallString;
 use std::{borrow::Borrow, fmt, ops::Deref};
 
@@ -278,7 +279,7 @@ lazy_static! {
     };
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Hash)]
 pub struct CountryCode(SmallString<[u8; 2]>);
 
 impl CountryCode {

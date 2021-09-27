@@ -9,6 +9,7 @@ use graph::graphs;
 pub use size::{ProfileEmbedMap, ProfileSize};
 
 use crate::{
+    commands::SlashCommandBuilder,
     embeds::{EmbedData, ProfileEmbed},
     pagination::ProfilePagination,
     tracking::process_tracking,
@@ -31,7 +32,7 @@ use twilight_model::application::{
 async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -> BotResult<()> {
     let ProfileArgs { config } = args;
 
-    let name = match config.name {
+    let name = match config.osu_username {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
@@ -209,7 +210,7 @@ async fn osu(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         CommandData::Message { msg, mut args, num } => {
             match ProfileArgs::args(&ctx, &mut args, msg.author.id).await {
                 Ok(Ok(mut profile_args)) => {
-                    profile_args.config.mode = Some(profile_args.config.mode(GameMode::STD));
+                    profile_args.config.mode.get_or_insert(GameMode::STD);
 
                     _profile(ctx, CommandData::Message { msg, args, num }, profile_args).await
                 }
@@ -329,50 +330,46 @@ pub async fn slash_profile(ctx: Arc<Context>, mut command: ApplicationCommand) -
 }
 
 pub fn slash_profile_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "profile".to_owned(),
-        default_permission: None,
-        description: "Display statistics of a user".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: super::mode_choices(),
-                description: "Specify a gamemode".to_owned(),
-                name: "mode".to_owned(),
-                required: false,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![
-                    CommandOptionChoice::String {
-                        name: "compact".to_owned(),
-                        value: "compact".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "medium".to_owned(),
-                        value: "medium".to_owned(),
-                    },
-                    CommandOptionChoice::String {
-                        name: "full".to_owned(),
-                        value: "full".to_owned(),
-                    },
-                ],
-                description: "Choose an embed size".to_owned(),
-                name: "size".to_owned(),
-                required: false,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a username".to_owned(),
-                name: "name".to_owned(),
-                required: false,
-            }),
-            CommandOption::User(BaseCommandOptionData {
-                description: "Specify a linked discord user".to_owned(),
-                name: "discord".to_owned(),
-                required: false,
-            }),
-        ],
-    }
+    let options = vec![
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: super::mode_choices(),
+            description: "Specify a gamemode".to_owned(),
+            name: "mode".to_owned(),
+            required: false,
+        }),
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![
+                CommandOptionChoice::String {
+                    name: "compact".to_owned(),
+                    value: "compact".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "medium".to_owned(),
+                    value: "medium".to_owned(),
+                },
+                CommandOptionChoice::String {
+                    name: "full".to_owned(),
+                    value: "full".to_owned(),
+                },
+            ],
+            description: "Choose an embed size".to_owned(),
+            name: "size".to_owned(),
+            required: false,
+        }),
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a username".to_owned(),
+            name: "name".to_owned(),
+            required: false,
+        }),
+        CommandOption::User(BaseCommandOptionData {
+            description: "Specify a linked discord user".to_owned(),
+            name: "discord".to_owned(),
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("profile", "Display statistics of a user")
+        .options(options)
+        .build()
 }

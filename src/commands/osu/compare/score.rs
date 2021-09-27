@@ -69,7 +69,7 @@ pub(super) async fn _compare(
 ) -> BotResult<()> {
     let ScoreArgs { config, mods, map } = args;
 
-    let name = match config.name {
+    let name = match config.osu_username {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
@@ -338,7 +338,7 @@ impl ScoreArgs {
                 map = Some(id);
             } else {
                 match Args::check_user_mention(ctx, arg).await? {
-                    Ok(name) => config.name = Some(name),
+                    Ok(name) => config.osu_username = Some(name),
                     Err(content) => return Ok(Err(content)),
                 }
             }
@@ -359,8 +359,10 @@ impl ScoreArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => config.name = Some(value.into()),
-                    "discord" => config.name = parse_discord_option!(ctx, value, "compare score"),
+                    "name" => config.osu_username = Some(value.into()),
+                    "discord" => {
+                        config.osu_username = parse_discord_option!(ctx, value, "compare score")
+                    }
                     "map" => match matcher::get_osu_map_id(&value)
                         .or_else(|| matcher::get_osu_mapset_id(&value))
                     {

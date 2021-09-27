@@ -7,6 +7,7 @@ pub use removestream::*;
 pub use tracked::*;
 
 use crate::{
+    commands::SlashCommandBuilder,
     util::{ApplicationCommandExt, CowUtils},
     Args, BotResult, Context, Error,
 };
@@ -108,43 +109,40 @@ pub async fn slash_trackstream(
 }
 
 pub fn slash_trackstream_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "trackstream".to_owned(),
-        default_permission: None,
-        description: "(Un)track a twitch stream or list all tracked streams in this channel"
-            .to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Track a twitch stream in this channel".to_owned(),
-                name: "add".to_owned(),
-                options: vec![CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Name of the twitch channel".to_owned(),
-                    name: "name".to_owned(),
-                    required: false,
-                })],
+    let description = "(Un)track a twitch stream or list all tracked streams in this channel";
+
+    let options = vec![
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Track a twitch stream in this channel".to_owned(),
+            name: "add".to_owned(),
+            options: vec![CommandOption::String(ChoiceCommandOptionData {
+                choices: vec![],
+                description: "Name of the twitch channel".to_owned(),
+                name: "name".to_owned(),
                 required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Untrack a twitch stream in this channel".to_owned(),
-                name: "remove".to_owned(),
-                options: vec![CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Name of the twitch channel".to_owned(),
-                    name: "name".to_owned(),
-                    required: false,
-                })],
+            })],
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Untrack a twitch stream in this channel".to_owned(),
+            name: "remove".to_owned(),
+            options: vec![CommandOption::String(ChoiceCommandOptionData {
+                choices: vec![],
+                description: "Name of the twitch channel".to_owned(),
+                name: "name".to_owned(),
                 required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "List all tracked twitch stream in this channel".to_owned(),
-                name: "list".to_owned(),
-                options: vec![],
-                required: false,
-            }),
-        ],
-    }
+            })],
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "List all tracked twitch stream in this channel".to_owned(),
+            name: "list".to_owned(),
+            options: vec![],
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("trackstream", description)
+        .options(options)
+        .build()
 }

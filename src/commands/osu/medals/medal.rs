@@ -35,9 +35,21 @@ async fn medal(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 pub(super) async fn _medal(ctx: Arc<Context>, data: CommandData<'_>, name: &str) -> BotResult<()> {
-    let medal = match ctx.clients.custom.get_osekai_medal(name).await {
+    let medal = match ctx.psql().get_medal_by_name(name).await {
         Ok(Some(medal)) => medal,
         Ok(None) => return no_medal(&ctx, &data, name).await,
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+    };
+
+    let map_fut = ctx.clients.custom.get_osekai_beatmaps(&medal.name);
+    let comment_fut = ctx.clients.custom.get_osekai_comments(&medal.name);
+
+    let (maps, comments) = match tokio::try_join!(map_fut, comment_fut) {
+        Ok((maps, comments)) => (maps, comments),
         Err(why) => {
             let _ = data.error(&ctx, OSEKAI_ISSUE).await;
 
@@ -45,14 +57,14 @@ pub(super) async fn _medal(ctx: Arc<Context>, data: CommandData<'_>, name: &str)
         }
     };
 
-    let embed_data = MedalEmbed::new(medal, None, true);
+    let embed_data = MedalEmbed::new(medal, None, maps, comments);
     let builder = embed_data.into_builder().build().into();
     data.create_message(&ctx, builder).await?;
 
     Ok(())
 }
 
-const SIMILARITY_THRESHOLD: f32 = 0.8;
+const SIMILARITY_THRESHOLD: f32 = 0.75;
 
 async fn no_medal(ctx: &Context, data: &CommandData<'_>, name: &str) -> BotResult<()> {
     let medals = match ctx.psql().get_medals().await {

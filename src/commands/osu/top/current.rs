@@ -31,7 +31,7 @@ use twilight_model::{
     application::interaction::application_command::CommandDataOption, id::UserId,
 };
 
-pub(super) async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> BotResult<()> {
+pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> BotResult<()> {
     if args.index.filter(|n| *n > 100).is_some() {
         let content = "Can't have more than 100 top scores.";
 
@@ -81,7 +81,7 @@ pub(super) async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs
         return data.error(&ctx, content).await;
     }
 
-    let name = match args.config.name {
+    let name = match args.config.osu_username {
         Some(ref name) => name.as_str(),
         None => return super::require_link(&ctx, &data).await,
     };
@@ -178,7 +178,7 @@ async fn top(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         CommandData::Message { msg, mut args, num } => {
             match TopArgs::args(&ctx, &mut args, msg.author.id, num).await {
                 Ok(Ok(mut top_args)) => {
-                    top_args.config.mode = Some(top_args.config.mode(GameMode::STD));
+                    top_args.config.mode.get_or_insert(GameMode::STD);
 
                     _top(ctx, CommandData::Message { msg, args, num }, top_args).await
                 }
@@ -366,7 +366,7 @@ async fn recentbest(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 Ok(Ok(mut top_args)) => {
                     let data = CommandData::Message { msg, args, num };
                     top_args.sort_by = TopOrder::Date;
-                    top_args.config.mode = Some(top_args.config.mode(GameMode::STD));
+                    top_args.config.mode.get_or_insert(GameMode::STD);
 
                     _top(ctx, data, top_args).await
                 }
@@ -742,7 +742,7 @@ impl Default for TopOrder {
     }
 }
 
-pub(super) struct TopArgs {
+pub struct TopArgs {
     config: UserConfig,
     mods: Option<ModSelection>,
     acc_min: Option<f32>,
@@ -750,7 +750,7 @@ pub(super) struct TopArgs {
     combo_min: Option<u32>,
     combo_max: Option<u32>,
     grade: Option<GradeArg>,
-    sort_by: TopOrder,
+    pub sort_by: TopOrder,
     reverse: bool,
     index: Option<usize>,
     has_dash_r: bool,
@@ -938,7 +938,7 @@ impl TopArgs {
                 mods = Some(mods_);
             } else {
                 match Args::check_user_mention(ctx, arg.as_ref()).await? {
-                    Ok(name) => config.name = Some(name),
+                    Ok(name) => config.osu_username = Some(name),
                     Err(content) => return Ok(Err(content.into())),
                 }
             }
@@ -962,7 +962,7 @@ impl TopArgs {
         Ok(Ok(args))
     }
 
-    pub(super) async fn slash(
+    pub async fn slash(
         ctx: &Context,
         options: Vec<CommandDataOption>,
         author_id: UserId,
@@ -977,8 +977,10 @@ impl TopArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => config.name = Some(value.into()),
-                    "discord" => config.name = parse_discord_option!(ctx, value, "top current"),
+                    "name" => config.osu_username = Some(value.into()),
+                    "discord" => {
+                        config.osu_username = parse_discord_option!(ctx, value, "top current")
+                    }
                     "mode" => config.mode = parse_mode_option!(value, "top current"),
                     "mods" => match matcher::get_mods(&value) {
                         Some(mods_) => mods = Some(mods_),

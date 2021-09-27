@@ -1,4 +1,5 @@
 use crate::{
+    commands::SlashCommandBuilder,
     embeds::{EmbedData, SimulateEmbed},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -363,69 +364,65 @@ pub async fn slash_simulate(ctx: Arc<Context>, mut command: ApplicationCommand) 
 }
 
 pub fn slash_simulate_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "simulate".to_owned(),
-        default_permission: None,
-        description: "Simulate a score on a map".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a map url or map id".to_owned(),
-                name: "map".to_owned(),
-                required: false,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify mods e.g. hdhr or nm".to_owned(),
-                name: "mods".to_owned(),
-                required: false,
-            }),
-            CommandOption::Integer(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify the amount of 300s".to_owned(),
-                name: "n300".to_owned(),
-                required: false,
-            }),
-            CommandOption::Integer(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify the amount of 100s".to_owned(),
-                name: "n100".to_owned(),
-                required: false,
-            }),
-            CommandOption::Integer(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify the amount of 50s".to_owned(),
-                name: "n50".to_owned(),
-                required: false,
-            }),
-            CommandOption::Integer(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify the amount of misses".to_owned(),
-                name: "misses".to_owned(),
-                required: false,
-            }),
-            // TODO: Number
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify the accuracy".to_owned(),
-                name: "acc".to_owned(),
-                required: false,
-            }),
-            CommandOption::Integer(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify the combo".to_owned(),
-                name: "combo".to_owned(),
-                required: false,
-            }),
-            CommandOption::Integer(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify the score (only relevant for mania)".to_owned(),
-                name: "score".to_owned(),
-                required: false,
-            }),
-        ],
-    }
+    let options = vec![
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a map url or map id".to_owned(),
+            name: "map".to_owned(),
+            required: false,
+        }),
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify mods e.g. hdhr or nm".to_owned(),
+            name: "mods".to_owned(),
+            required: false,
+        }),
+        CommandOption::Integer(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify the amount of 300s".to_owned(),
+            name: "n300".to_owned(),
+            required: false,
+        }),
+        CommandOption::Integer(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify the amount of 100s".to_owned(),
+            name: "n100".to_owned(),
+            required: false,
+        }),
+        CommandOption::Integer(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify the amount of 50s".to_owned(),
+            name: "n50".to_owned(),
+            required: false,
+        }),
+        CommandOption::Integer(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify the amount of misses".to_owned(),
+            name: "misses".to_owned(),
+            required: false,
+        }),
+        // TODO: Number
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify the accuracy".to_owned(),
+            name: "acc".to_owned(),
+            required: false,
+        }),
+        CommandOption::Integer(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify the combo".to_owned(),
+            name: "combo".to_owned(),
+            required: false,
+        }),
+        CommandOption::Integer(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify the score (only relevant for mania)".to_owned(),
+            name: "score".to_owned(),
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("simulate", "Simulate a score on a map")
+        .options(options)
+        .build()
 }

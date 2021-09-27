@@ -1,4 +1,5 @@
 use crate::{
+    commands::SlashCommandBuilder,
     util::{ApplicationCommandExt, MessageExt},
     BotResult, CommandData, Context, MessageBuilder,
 };
@@ -19,6 +20,7 @@ const DEFAULT_LIMIT: u64 = 100;
     If no upper limit is specified, it defaults to 100."
 )]
 #[usage("[upper limit]")]
+#[no_typing()]
 async fn roll(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
@@ -75,18 +77,14 @@ pub async fn slash_roll(ctx: Arc<Context>, mut command: ApplicationCommand) -> B
 }
 
 pub fn slash_roll_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "roll".to_owned(),
-        default_permission: None,
-        description: "Roll a random number".to_owned(),
-        id: None,
-        options: vec![CommandOption::Integer(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify an upper limit, defaults to 100".to_owned(),
-            name: "limit".to_owned(),
-            required: false,
-        })],
-    }
+    let options = vec![CommandOption::Integer(ChoiceCommandOptionData {
+        choices: vec![],
+        description: "Specify an upper limit, defaults to 100".to_owned(),
+        name: "limit".to_owned(),
+        required: false,
+    })];
+
+    SlashCommandBuilder::new("roll", "Roll a random number")
+        .options(options)
+        .build()
 }

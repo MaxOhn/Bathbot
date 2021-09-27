@@ -1,4 +1,5 @@
 use crate::{
+    commands::SlashCommandBuilder,
     util::{constants::GENERAL_ISSUE, ApplicationCommandExt, MessageExt},
     BotResult, CommandData, Context, Error, MessageBuilder,
 };
@@ -83,17 +84,15 @@ pub async fn slash_togglesongs(
 }
 
 pub fn slash_togglesongs_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "togglesongs".to_owned(),
-        default_permission: None,
-        description: "Toggle availability of song commands in a server".to_owned(),
-        id: None,
-        options: vec![CommandOption::Boolean(BaseCommandOptionData {
-            description: "Choose whether song commands can be used or not".to_owned(),
-            name: "enable".to_owned(),
-            required: true,
-        })],
-    }
+    let description = "Toggle availability of song commands in a server";
+
+    let options = vec![CommandOption::Boolean(BaseCommandOptionData {
+        description: "Choose whether song commands can be used or not".to_owned(),
+        name: "enable".to_owned(),
+        required: true,
+    })];
+
+    SlashCommandBuilder::new("togglesongs", description)
+        .options(options)
+        .build()
 }

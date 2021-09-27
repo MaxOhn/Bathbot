@@ -9,6 +9,7 @@ pub use untrack::*;
 pub use untrack_all::*;
 
 use crate::{
+    commands::SlashCommandBuilder,
     util::{ApplicationCommandExt, CowUtils},
     Args, BotResult, Context, Error, Name,
 };
@@ -295,210 +296,122 @@ impl TrackArgs {
 }
 
 pub fn slash_track_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "track".to_owned(),
-        default_permission: None,
-        description: "(Un)track top score updates for an osu player".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Track a player in a channel".to_owned(),
-                name: "add".to_owned(),
-                options: vec![
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Choose a username to be tracked".to_owned(),
-                        name: "name".to_owned(),
-                        required: true,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![
-                            CommandOptionChoice::String {
-                                name: "osu".to_owned(),
-                                value: "osu".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "taiko".to_owned(),
-                                value: "taiko".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "catch".to_owned(),
-                                value: "catch".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "mania".to_owned(),
-                                value: "mania".to_owned(),
-                            },
-                        ],
-                        description: "Specify a mode for the tracked user(s)".to_owned(),
-                        name: "mode".to_owned(),
-                        required: true,
-                    }),
-                    CommandOption::Integer(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description:
-                            "Between 1-100, default 50, notify on updates of the users top X scores"
-                                .to_owned(),
-                        name: "limit".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Choose a second username to be tracked".to_owned(),
-                        name: "name2".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Choose a third username to be tracked".to_owned(),
-                        name: "name3".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Choose a fourth username to be tracked".to_owned(),
-                        name: "name4".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Choose a fifth username to be tracked".to_owned(),
-                        name: "name5".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Choose a sixth username to be tracked".to_owned(),
-                        name: "name6".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Choose a seventh username to be tracked".to_owned(),
-                        name: "name7".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Choose an eighth username to be tracked".to_owned(),
-                        name: "name8".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Choose a ninth username to be tracked".to_owned(),
-                        name: "name9".to_owned(),
-                        required: false,
-                    }),
-                    CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Choose a tenth username to be tracked".to_owned(),
-                        name: "name10".to_owned(),
-                        required: false,
-                    }),
-                ],
-                required: false,
-            }),
-            CommandOption::SubCommandGroup(OptionsCommandOptionData {
-                description: "Untrack a player in a channel".to_owned(),
-                name: "remove".to_owned(),
-                options: vec![
-                    CommandOption::SubCommand(OptionsCommandOptionData {
-                        description: "Untrack specific players in a channel".to_owned(),
-                        name: "user".to_owned(),
-                        options: vec![
-                            CommandOption::String(ChoiceCommandOptionData {
-                                choices: vec![],
-                                description: "Choose a username to be untracked".to_owned(),
-                                name: "name".to_owned(),
-                                required: true,
-                            }),
-                            CommandOption::String(ChoiceCommandOptionData {
-                                choices: vec![
-                                    CommandOptionChoice::String {
-                                        name: "osu".to_owned(),
-                                        value: "osu".to_owned(),
-                                    },
-                                    CommandOptionChoice::String {
-                                        name: "taiko".to_owned(),
-                                        value: "taiko".to_owned(),
-                                    },
-                                    CommandOptionChoice::String {
-                                        name: "catch".to_owned(),
-                                        value: "catch".to_owned(),
-                                    },
-                                    CommandOptionChoice::String {
-                                        name: "mania".to_owned(),
-                                        value: "mania".to_owned(),
-                                    },
-                                ],
-                                description: "Specify a mode for the tracked user(s)".to_owned(),
-                                name: "mode".to_owned(),
-                                required: false,
-                            }),
-                            CommandOption::String(ChoiceCommandOptionData {
-                                choices: vec![],
-                                description: "Choose a second username to be untracked".to_owned(),
-                                name: "name2".to_owned(),
-                                required: false,
-                            }),
-                            CommandOption::String(ChoiceCommandOptionData {
-                                choices: vec![],
-                                description: "Choose a third username to be untracked".to_owned(),
-                                name: "name3".to_owned(),
-                                required: false,
-                            }),
-                            CommandOption::String(ChoiceCommandOptionData {
-                                choices: vec![],
-                                description: "Choose a fourth username to be untracked".to_owned(),
-                                name: "name4".to_owned(),
-                                required: false,
-                            }),
-                            CommandOption::String(ChoiceCommandOptionData {
-                                choices: vec![],
-                                description: "Choose a fifth username to be untracked".to_owned(),
-                                name: "name5".to_owned(),
-                                required: false,
-                            }),
-                            CommandOption::String(ChoiceCommandOptionData {
-                                choices: vec![],
-                                description: "Choose a sixth username to be untracked".to_owned(),
-                                name: "name6".to_owned(),
-                                required: false,
-                            }),
-                            CommandOption::String(ChoiceCommandOptionData {
-                                choices: vec![],
-                                description: "Choose a seventh username to be untracked".to_owned(),
-                                name: "name7".to_owned(),
-                                required: false,
-                            }),
-                            CommandOption::String(ChoiceCommandOptionData {
-                                choices: vec![],
-                                description: "Choose an eighth username to be untracked".to_owned(),
-                                name: "name8".to_owned(),
-                                required: false,
-                            }),
-                            CommandOption::String(ChoiceCommandOptionData {
-                                choices: vec![],
-                                description: "Choose a ninth username to be untracked".to_owned(),
-                                name: "name9".to_owned(),
-                                required: false,
-                            }),
-                            CommandOption::String(ChoiceCommandOptionData {
-                                choices: vec![],
-                                description: "Choose a tenth username to be untracked".to_owned(),
-                                name: "name10".to_owned(),
-                                required: false,
-                            }),
-                        ],
-                        required: false,
-                    }),
-                    CommandOption::SubCommand(OptionsCommandOptionData {
-                        description: "Untrack all players in a channel".to_owned(),
-                        name: "all".to_owned(),
-                        options: vec![CommandOption::String(ChoiceCommandOptionData {
+    let description = "(Un)track top score updates for an osu player";
+
+    let options = vec![
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Track a player in a channel".to_owned(),
+            name: "add".to_owned(),
+            options: vec![
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Choose a username to be tracked".to_owned(),
+                    name: "name".to_owned(),
+                    required: true,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![
+                        CommandOptionChoice::String {
+                            name: "osu".to_owned(),
+                            value: "osu".to_owned(),
+                        },
+                        CommandOptionChoice::String {
+                            name: "taiko".to_owned(),
+                            value: "taiko".to_owned(),
+                        },
+                        CommandOptionChoice::String {
+                            name: "catch".to_owned(),
+                            value: "catch".to_owned(),
+                        },
+                        CommandOptionChoice::String {
+                            name: "mania".to_owned(),
+                            value: "mania".to_owned(),
+                        },
+                    ],
+                    description: "Specify a mode for the tracked user(s)".to_owned(),
+                    name: "mode".to_owned(),
+                    required: true,
+                }),
+                CommandOption::Integer(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description:
+                        "Between 1-100, default 50, notify on updates of the users top X scores"
+                            .to_owned(),
+                    name: "limit".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Choose a second username to be tracked".to_owned(),
+                    name: "name2".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Choose a third username to be tracked".to_owned(),
+                    name: "name3".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Choose a fourth username to be tracked".to_owned(),
+                    name: "name4".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Choose a fifth username to be tracked".to_owned(),
+                    name: "name5".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Choose a sixth username to be tracked".to_owned(),
+                    name: "name6".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Choose a seventh username to be tracked".to_owned(),
+                    name: "name7".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Choose an eighth username to be tracked".to_owned(),
+                    name: "name8".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Choose a ninth username to be tracked".to_owned(),
+                    name: "name9".to_owned(),
+                    required: false,
+                }),
+                CommandOption::String(ChoiceCommandOptionData {
+                    choices: vec![],
+                    description: "Choose a tenth username to be tracked".to_owned(),
+                    name: "name10".to_owned(),
+                    required: false,
+                }),
+            ],
+            required: false,
+        }),
+        CommandOption::SubCommandGroup(OptionsCommandOptionData {
+            description: "Untrack a player in a channel".to_owned(),
+            name: "remove".to_owned(),
+            options: vec![
+                CommandOption::SubCommand(OptionsCommandOptionData {
+                    description: "Untrack specific players in a channel".to_owned(),
+                    name: "user".to_owned(),
+                    options: vec![
+                        CommandOption::String(ChoiceCommandOptionData {
+                            choices: vec![],
+                            description: "Choose a username to be untracked".to_owned(),
+                            name: "name".to_owned(),
+                            required: true,
+                        }),
+                        CommandOption::String(ChoiceCommandOptionData {
                             choices: vec![
                                 CommandOptionChoice::String {
                                     name: "osu".to_owned(),
@@ -517,21 +430,107 @@ pub fn slash_track_command() -> Command {
                                     value: "mania".to_owned(),
                                 },
                             ],
-                            description: "Specify a mode for the tracked users".to_owned(),
+                            description: "Specify a mode for the tracked user(s)".to_owned(),
                             name: "mode".to_owned(),
                             required: false,
-                        })],
+                        }),
+                        CommandOption::String(ChoiceCommandOptionData {
+                            choices: vec![],
+                            description: "Choose a second username to be untracked".to_owned(),
+                            name: "name2".to_owned(),
+                            required: false,
+                        }),
+                        CommandOption::String(ChoiceCommandOptionData {
+                            choices: vec![],
+                            description: "Choose a third username to be untracked".to_owned(),
+                            name: "name3".to_owned(),
+                            required: false,
+                        }),
+                        CommandOption::String(ChoiceCommandOptionData {
+                            choices: vec![],
+                            description: "Choose a fourth username to be untracked".to_owned(),
+                            name: "name4".to_owned(),
+                            required: false,
+                        }),
+                        CommandOption::String(ChoiceCommandOptionData {
+                            choices: vec![],
+                            description: "Choose a fifth username to be untracked".to_owned(),
+                            name: "name5".to_owned(),
+                            required: false,
+                        }),
+                        CommandOption::String(ChoiceCommandOptionData {
+                            choices: vec![],
+                            description: "Choose a sixth username to be untracked".to_owned(),
+                            name: "name6".to_owned(),
+                            required: false,
+                        }),
+                        CommandOption::String(ChoiceCommandOptionData {
+                            choices: vec![],
+                            description: "Choose a seventh username to be untracked".to_owned(),
+                            name: "name7".to_owned(),
+                            required: false,
+                        }),
+                        CommandOption::String(ChoiceCommandOptionData {
+                            choices: vec![],
+                            description: "Choose an eighth username to be untracked".to_owned(),
+                            name: "name8".to_owned(),
+                            required: false,
+                        }),
+                        CommandOption::String(ChoiceCommandOptionData {
+                            choices: vec![],
+                            description: "Choose a ninth username to be untracked".to_owned(),
+                            name: "name9".to_owned(),
+                            required: false,
+                        }),
+                        CommandOption::String(ChoiceCommandOptionData {
+                            choices: vec![],
+                            description: "Choose a tenth username to be untracked".to_owned(),
+                            name: "name10".to_owned(),
+                            required: false,
+                        }),
+                    ],
+                    required: false,
+                }),
+                CommandOption::SubCommand(OptionsCommandOptionData {
+                    description: "Untrack all players in a channel".to_owned(),
+                    name: "all".to_owned(),
+                    options: vec![CommandOption::String(ChoiceCommandOptionData {
+                        choices: vec![
+                            CommandOptionChoice::String {
+                                name: "osu".to_owned(),
+                                value: "osu".to_owned(),
+                            },
+                            CommandOptionChoice::String {
+                                name: "taiko".to_owned(),
+                                value: "taiko".to_owned(),
+                            },
+                            CommandOptionChoice::String {
+                                name: "catch".to_owned(),
+                                value: "catch".to_owned(),
+                            },
+                            CommandOptionChoice::String {
+                                name: "mania".to_owned(),
+                                value: "mania".to_owned(),
+                            },
+                        ],
+                        description: "Specify a mode for the tracked users".to_owned(),
+                        name: "mode".to_owned(),
                         required: false,
-                    }),
-                ],
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "List all tracked player in this channel".to_owned(),
-                name: "list".to_owned(),
-                options: vec![],
-                required: false,
-            }),
-        ],
-    }
+                    })],
+                    required: false,
+                }),
+            ],
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "List all tracked player in this channel".to_owned(),
+            name: "list".to_owned(),
+            options: vec![],
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("track", description)
+        .options(options)
+        .build()
 }

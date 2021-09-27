@@ -53,7 +53,7 @@ impl RebalanceArgs {
 
         if let Some(arg) = args.next() {
             match Args::check_user_mention(ctx, arg).await? {
-                Ok(name) => config.name = Some(name),
+                Ok(name) => config.osu_username = Some(name),
                 Err(content) => return Ok(Err(content)),
             }
         }
@@ -72,8 +72,10 @@ impl RebalanceArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => config.name = Some(value.into()),
-                    "discord" => config.name = parse_discord_option!(ctx, value, "top rebalance"),
+                    "name" => config.osu_username = Some(value.into()),
+                    "discord" => {
+                        config.osu_username = parse_discord_option!(ctx, value, "top rebalance")
+                    }
                     "version" => match value.as_str() {
                         "delta_t" => version = Some(RebalanceVersion::Delta),
                         "sotarks" => version = Some(RebalanceVersion::Sotarks),
@@ -119,7 +121,7 @@ pub(super) async fn _rebalance(
 ) -> BotResult<()> {
     let RebalanceArgs { config, version } = args;
 
-    let name = match config.name {
+    let name = match config.osu_username {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
@@ -279,7 +281,7 @@ pub async fn rebalance(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         CommandData::Message { msg, mut args, num } => {
             match RebalanceArgs::args(&ctx, &mut args, msg.author.id).await {
                 Ok(Ok(mut rebalance_args)) => {
-                    rebalance_args.config.mode = Some(rebalance_args.config.mode(GameMode::STD));
+                    rebalance_args.config.mode.get_or_insert(GameMode::STD);
 
                     _rebalance(ctx, CommandData::Message { msg, args, num }, rebalance_args).await
                 }

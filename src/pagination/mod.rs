@@ -11,6 +11,8 @@ mod medals_missing;
 mod most_played;
 mod most_played_common;
 mod nochoke;
+mod osekai_medal_count;
+mod osekai_medal_rarity;
 mod osustats_globals;
 mod osustats_list;
 mod player_snipe_list;
@@ -35,6 +37,8 @@ pub use medals_missing::MedalsMissingPagination;
 pub use most_played::MostPlayedPagination;
 pub use most_played_common::MostPlayedCommonPagination;
 pub use nochoke::NoChokePagination;
+pub use osekai_medal_count::MedalCountPagination;
+pub use osekai_medal_rarity::MedalRarityPagination;
 pub use osustats_globals::OsuStatsGlobalsPagination;
 pub use osustats_list::OsuStatsListPagination;
 pub use player_snipe_list::PlayerSnipeListPagination;
@@ -52,7 +56,6 @@ use crate::{
     BotResult, Context,
 };
 
-use async_trait::async_trait;
 use smallvec::SmallVec;
 use std::{borrow::Cow, time::Duration};
 use tokio::time::sleep;
@@ -170,7 +173,7 @@ pub trait Pagination: Sync + Sized {
                 sleep(Duration::from_millis(100)).await;
 
                 for emote in &reactions {
-                    let request_reaction = emote.request_reaction();
+                    let request_reaction = emote.request_reaction_type();
 
                     ctx.http
                         .delete_current_user_reaction(msg.channel_id, msg.id, &request_reaction)

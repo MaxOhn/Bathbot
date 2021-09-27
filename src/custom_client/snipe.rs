@@ -1,5 +1,8 @@
 use super::deserialize::{expect_negative_u32, str_to_maybe_datetime};
-use crate::{util::osu::ModSelection, Name};
+use crate::{
+    util::{constants::DATE_FORMAT, osu::ModSelection, CountryCode},
+    Name,
+};
 
 use chrono::{offset::TimeZone, Date, DateTime, NaiveDate, Utc};
 use rosu_v2::model::{GameMode, GameMods};
@@ -49,7 +52,7 @@ impl fmt::Display for SnipeScoreOrder {
 #[derive(Debug)]
 pub struct SnipeScoreParams {
     pub user_id: u32,
-    pub country: String,
+    pub country: CountryCode,
     pub page: u8,
     pub mode: GameMode,
     pub order: SnipeScoreOrder,
@@ -58,10 +61,10 @@ pub struct SnipeScoreParams {
 }
 
 impl SnipeScoreParams {
-    pub fn new(user_id: u32, country_code: impl Into<String>) -> Self {
+    pub fn new(user_id: u32, country_code: impl AsRef<str>) -> Self {
         Self {
             user_id,
-            country: country_code.into().to_lowercase(),
+            country: country_code.as_ref().to_ascii_lowercase().into(),
             page: 0,
             mode: GameMode::STD,
             order: SnipeScoreOrder::Pp,
@@ -198,17 +201,14 @@ pub struct SnipeRecent {
 }
 
 impl<'de> Deserialize<'de> for SnipeRecent {
-    fn deserialize<D>(d: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         struct SnipeRecentVisitor;
 
         impl<'de> Visitor<'de> for SnipeRecentVisitor {
             type Value = SnipeRecent;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("struct SnipeRecent")
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("struct SnipeRecent")
             }
 
             fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
@@ -267,7 +267,7 @@ impl<'de> Deserialize<'de> for SnipeRecent {
                 let beatmap_id = beatmap_id.ok_or_else(|| Error::missing_field("beatmap_id"))?;
                 let date = date.ok_or_else(|| Error::missing_field("date"))?;
 
-                let date = Utc.datetime_from_str(&date, "%F %T").map_err(|_| {
+                let date = Utc.datetime_from_str(&date, DATE_FORMAT).map_err(|_| {
                     Error::invalid_value(Unexpected::Str(&date), &"a date of the form `%F %T`")
                 })?;
 
@@ -354,17 +354,14 @@ struct InnerScore<'s> {
 }
 
 impl<'de> Deserialize<'de> for SnipeScore {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         struct SnipeScoreVisitor;
 
         impl<'de> Visitor<'de> for SnipeScoreVisitor {
             type Value = SnipeScore;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("struct SnipeScore")
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("struct SnipeScore")
             }
 
             fn visit_map<V>(self, mut map: V) -> Result<SnipeScore, V::Error>
@@ -439,7 +436,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
                 let mods = inner_score.mods;
 
                 let date = Utc
-                    .datetime_from_str(inner_score.date_set, "%F %T")
+                    .datetime_from_str(inner_score.date_set, DATE_FORMAT)
                     .unwrap_or_else(|why| {
                         warn!("Couldn't parse date `{}`: {}", inner_score.date_set, why);
 
@@ -515,7 +512,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
             // "seconds_total",
         ];
 
-        deserializer.deserialize_struct("SnipeScore", FIELDS, SnipeScoreVisitor)
+        d.deserialize_struct("SnipeScore", FIELDS, SnipeScoreVisitor)
     }
 }
 
@@ -536,8 +533,8 @@ struct SnipePlayerModVisitor;
 impl<'de> Visitor<'de> for SnipePlayerModVisitor {
     type Value = Vec<(GameMods, u32)>;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a map")
+    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("a map")
     }
 
     fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>

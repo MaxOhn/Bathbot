@@ -25,7 +25,7 @@ pub(super) async fn _mapper(
 ) -> BotResult<()> {
     let MapperArgs { config, mapper } = args;
 
-    let user = match config.name {
+    let user = match config.osu_username {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
@@ -192,7 +192,7 @@ pub async fn mapper(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         CommandData::Message { msg, mut args, num } => {
             match MapperArgs::args(&ctx, &mut args, msg.author.id, None).await {
                 Ok(Ok(mut mapper_args)) => {
-                    mapper_args.config.mode = Some(mapper_args.config.mode(GameMode::STD));
+                    mapper_args.config.mode.get_or_insert(GameMode::STD);
 
                     _mapper(ctx, CommandData::Message { msg, args, num }, mapper_args).await
                 }
@@ -324,7 +324,7 @@ pub async fn sotarks(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         CommandData::Message { msg, mut args, num } => {
             match MapperArgs::args(&ctx, &mut args, msg.author.id, Some("sotarks")).await {
                 Ok(Ok(mut mapper_args)) => {
-                    mapper_args.config.mode = Some(mapper_args.config.mode(GameMode::STD));
+                    mapper_args.config.mode.get_or_insert(GameMode::STD);
 
                     _mapper(ctx, CommandData::Message { msg, args, num }, mapper_args).await
                 }
@@ -375,7 +375,7 @@ impl MapperArgs {
 
         if let Some(name) = name {
             match Args::check_user_mention(ctx, name).await? {
-                Ok(name) => config.name = Some(name),
+                Ok(name) => config.osu_username = Some(name),
                 Err(content) => return Ok(Err(content)),
             }
         }
@@ -399,9 +399,11 @@ impl MapperArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => config.name = Some(value.into()),
+                    "name" => config.osu_username = Some(value.into()),
                     "mapper" => mapper = Some(value.into()),
-                    "discord" => config.name = parse_discord_option!(ctx, value, "top mapper"),
+                    "discord" => {
+                        config.osu_username = parse_discord_option!(ctx, value, "top mapper")
+                    }
                     "mode" => config.mode = parse_mode_option!(value, "top mapper"),
                     _ => bail_cmd_option!("top mapper", string, name),
                 },

@@ -42,7 +42,11 @@ macro_rules! parse_mode_option {
 macro_rules! parse_discord_option {
     ($ctx:ident, $value:ident, $location:literal) => {
         match $value.parse() {
-            Ok(id) => match $ctx.user_config(twilight_model::id::UserId(id)).await?.name {
+            Ok(id) => match $ctx
+                .user_config(twilight_model::id::UserId(id))
+                .await?
+                .osu_username
+            {
                 Some(name) => Some(name),
                 None => {
                     let content = format!("<@{}> is not linked to an osu profile", id);
@@ -74,7 +78,42 @@ use utility::*;
 
 use crate::{core::CommandGroup, util::Emote};
 
-use twilight_model::application::command::Command;
+use twilight_model::application::command::{Command, CommandOption, CommandType};
+
+struct SlashCommandBuilder {
+    name: String,
+    description: String,
+    options: Option<Vec<CommandOption>>,
+}
+
+impl SlashCommandBuilder {
+    fn new(name: &str, description: &str) -> Self {
+        Self {
+            name: name.to_owned(),
+            description: description.to_owned(),
+            options: None,
+        }
+    }
+
+    fn options(mut self, options: Vec<CommandOption>) -> Self {
+        self.options = Some(options);
+
+        self
+    }
+
+    fn build(self) -> Command {
+        Command {
+            application_id: None,
+            guild_id: None,
+            name: self.name,
+            default_permission: None,
+            description: self.description,
+            id: None,
+            kind: CommandType::ChatInput,
+            options: self.options.unwrap_or_default(),
+        }
+    }
+}
 
 pub fn command_groups() -> [CommandGroup; 11] {
     [
@@ -310,7 +349,7 @@ pub fn command_groups() -> [CommandGroup; 11] {
     ]
 }
 
-pub fn slash_commands() -> [Command; 38] {
+pub fn slash_commands() -> [Command; 39] {
     [
         help::slash_help_command(),
         slash_recent_command(),
@@ -328,6 +367,7 @@ pub fn slash_commands() -> [Command; 38] {
         slash_map_command(),
         slash_bws_command(),
         slash_medal_command(),
+        slash_osekai_command(),
         slash_track_command(),
         slash_mostplayed_command(),
         slash_ranking_command(),

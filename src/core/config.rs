@@ -9,18 +9,24 @@ use tokio::fs;
 
 pub static CONFIG: OnceCell<BotConfig> = OnceCell::new();
 
-#[derive(Deserialize, Debug)]
+#[derive(Debug, Deserialize)]
 pub struct BotConfig {
     pub tokens: Tokens,
     pub bg_path: PathBuf,
     pub map_path: PathBuf,
-    pub metric_server_ip: [u8; 4],
-    pub metric_server_port: u16,
+    pub server: Server,
     grades: HashMap<Grade, String>,
     pub emotes: HashMap<Emote, String>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Debug, Deserialize)]
+pub struct Server {
+    pub internal_ip: [u8; 4],
+    pub internal_port: u16,
+    pub external_url: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct Tokens {
     pub discord: String,
     pub osu_client_id: u64,

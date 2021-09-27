@@ -289,6 +289,8 @@ fn footer_text(user: &User) -> String {
 }
 
 fn main_fields(user: &User, stats: &UserStatistics, bonus_pp: f32) -> Vec<EmbedField> {
+    let level = stats.level.current as f32 + stats.level.progress as f32 / 100.0;
+
     vec![
         field!(
             "Ranked score",
@@ -306,7 +308,7 @@ fn main_fields(user: &User, stats: &UserStatistics, bonus_pp: f32) -> Vec<EmbedF
             with_comma_uint(stats.total_score).to_string(),
             true
         ),
-        field!("Level", format!("{:.2}", stats.level.current), true),
+        field!("Level", format!("{:.2}", level), true),
         field!(
             "Medals",
             format!("{}", user.medals.as_ref().unwrap().len()),

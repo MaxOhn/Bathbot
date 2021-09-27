@@ -21,7 +21,7 @@ pub(super) async fn _rankscore(
 ) -> BotResult<()> {
     let RankScoreArgs { config, rank } = args;
 
-    let name = match config.name {
+    let name = match config.osu_username {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
@@ -89,7 +89,7 @@ pub async fn rankrankedscore(ctx: Arc<Context>, data: CommandData) -> BotResult<
         CommandData::Message { msg, mut args, num } => {
             match RankScoreArgs::args(&ctx, &mut args, msg.author.id).await {
                 Ok(Ok(mut rank_args)) => {
-                    rank_args.config.mode = Some(rank_args.config.mode(GameMode::STD));
+                    rank_args.config.mode.get_or_insert(GameMode::STD);
 
                     _rankscore(ctx, CommandData::Message { msg, args, num }, rank_args).await
                 }
@@ -213,7 +213,7 @@ impl RankScoreArgs {
             match arg.parse() {
                 Ok(num) => rank = Some(num),
                 Err(_) => match Args::check_user_mention(ctx, arg).await? {
-                    Ok(name) => config.name = Some(name),
+                    Ok(name) => config.osu_username = Some(name),
                     Err(content) => return Ok(Err(content)),
                 },
             }
@@ -239,8 +239,8 @@ impl RankScoreArgs {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
                     "mode" => config.mode = parse_mode_option!(value, "reach rank score"),
-                    "name" => config.name = Some(value.into()),
-                    "discord" => config.name = parse_discord_option!(ctx, value, "rank pp"),
+                    "name" => config.osu_username = Some(value.into()),
+                    "discord" => config.osu_username = parse_discord_option!(ctx, value, "rank pp"),
                     _ => bail_cmd_option!("reach rank score", string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {

@@ -163,7 +163,7 @@ pub(super) async fn _topold(
         return Ok(());
     }
 
-    let name = match config.name {
+    let name = match config.osu_username {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
@@ -571,12 +571,17 @@ impl OldArgs {
 
         if let Some(name) = name {
             match Args::check_user_mention(ctx, name).await? {
-                Ok(name) => config.name = Some(name),
+                Ok(name) => config.osu_username = Some(name),
                 Err(content) => return Ok(Err(content)),
             }
         }
 
-        config.mode = Some(config.mode(mode));
+        if mode == GameMode::STD {
+            config.mode.get_or_insert(GameMode::STD);
+        } else {
+            config.mode = Some(mode);
+        }
+
         let version = OldVersion::get(mode, year);
 
         Ok(Ok(Self { config, version }))
@@ -608,9 +613,9 @@ impl OldArgs {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => config.name = Some(value.into()),
+                                    "name" => config.osu_username = Some(value.into()),
                                     "discord" => {
-                                        config.name =
+                                        config.osu_username =
                                             parse_discord_option!(ctx, value, "top old osu")
                                     }
                                     "version" => match value.as_str() {
@@ -648,9 +653,9 @@ impl OldArgs {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => config.name = Some(value.into()),
+                                    "name" => config.osu_username = Some(value.into()),
                                     "discord" => {
-                                        config.name =
+                                        config.osu_username =
                                             parse_discord_option!(ctx, value, "top old taiko")
                                     }
                                     "version" => match value.as_str() {
@@ -681,9 +686,9 @@ impl OldArgs {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => config.name = Some(value.into()),
+                                    "name" => config.osu_username = Some(value.into()),
                                     "discord" => {
-                                        config.name =
+                                        config.osu_username =
                                             parse_discord_option!(ctx, value, "top old catch")
                                     }
                                     "version" => match value.as_str() {
@@ -714,9 +719,9 @@ impl OldArgs {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => config.name = Some(value.into()),
+                                    "name" => config.osu_username = Some(value.into()),
                                     "discord" => {
-                                        config.name =
+                                        config.osu_username =
                                             parse_discord_option!(ctx, value, "top old mania")
                                     }
                                     "version" => match value.as_str() {

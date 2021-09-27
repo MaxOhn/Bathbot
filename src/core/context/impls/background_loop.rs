@@ -1,4 +1,4 @@
-use crate::{Context, CONFIG};
+use crate::{BotResult, Context, CONFIG};
 
 use futures::stream::{FuturesUnordered, StreamExt};
 use rosu_v2::prelude::{
@@ -66,6 +66,7 @@ impl Context {
 
     // Current tasks per iteration:
     //   - Deleting .osu files of unranked maps
+    //   - Retrieve all medals from osekai and store them in DB
     #[cold]
     pub async fn background_loop(ctx: Arc<Context>) {
         if cfg!(debug_assertions) {
@@ -82,10 +83,22 @@ impl Context {
             interval.tick().await;
             debug!("[BG] Background iteration...");
 
+            match update_medals(&ctx).await {
+                Ok(count) => debug!("[BG] Updated {} medals", count),
+                Err(why) => unwind_error!(warn, why, "[BG] Failed to update medals: {}"),
+            }
+
             let count = ctx.garbage_collect_all_maps().await;
             debug!("[BG] Garbage collected {} maps", count);
         }
     }
+}
+
+async fn update_medals(ctx: &Context) -> BotResult<usize> {
+    let medals = ctx.clients.custom.get_osekai_medals().await?;
+    ctx.psql().store_medals(&medals).await?;
+
+    Ok(medals.len())
 }
 
 pub struct GarbageCollectMap(Option<u32>);

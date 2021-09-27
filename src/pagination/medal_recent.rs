@@ -2,7 +2,7 @@ use super::{PageChange, Pages};
 use crate::{
     bail,
     commands::osu::MedalAchieved,
-    database::OsuMedal,
+    custom_client::{OsekaiComment, OsekaiMap, OsekaiMedal},
     embeds::MedalEmbed,
     util::{send_reaction, Emote},
     BotResult, Context,
@@ -20,40 +20,61 @@ use twilight_model::{
     id::UserId,
 };
 
+struct CachedMedal {
+    medal: OsekaiMedal,
+    map_comments: Option<(Vec<OsekaiMap>, Vec<OsekaiComment>)>,
+}
+
+impl CachedMedal {
+    fn new(medal: OsekaiMedal) -> Self {
+        Self {
+            medal,
+            map_comments: None,
+        }
+    }
+}
+
+impl From<OsekaiMedal> for CachedMedal {
+    fn from(medal: OsekaiMedal) -> Self {
+        Self::new(medal)
+    }
+}
+
 pub struct MedalRecentPagination {
     msg: Message,
     pages: Pages,
     ctx: Arc<Context>,
     user: User,
-    all_medals: HashMap<u32, OsuMedal>,
+    cached_medals: HashMap<u32, CachedMedal>,
     achieved_medals: Vec<MedalCompact>,
-    embeds: HashMap<usize, MedalEmbed>,
+    embeds: HashMap<(usize, bool), MedalEmbed>,
     maximized: bool,
 }
 
 impl MedalRecentPagination {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         ctx: Arc<Context>,
         msg: Message,
         user: User,
-        all_medals: HashMap<u32, OsuMedal>,
+        initial_medal: OsekaiMedal,
         achieved_medals: Vec<MedalCompact>,
         index: usize,
         embed_data: MedalEmbed,
-        maximized: bool,
     ) -> Self {
+        let maximized = false;
         let mut embeds = HashMap::new();
-        embeds.insert(index, embed_data);
+        embeds.insert((index, maximized), embed_data);
         let mut pages = Pages::new(1, achieved_medals.len());
         pages.index = index.saturating_sub(1);
+        let mut cached_medals = HashMap::new();
+        cached_medals.insert(initial_medal.medal_id, CachedMedal::new(initial_medal));
 
         Self {
             msg,
             pages,
             ctx,
             user,
-            all_medals,
+            cached_medals,
             achieved_medals,
             embeds,
             maximized,
@@ -106,7 +127,7 @@ impl MedalRecentPagination {
                 sleep(Duration::from_millis(100)).await;
 
                 for emote in &reactions {
-                    let reaction_reaction = emote.request_reaction();
+                    let reaction_reaction = emote.request_reaction_type();
 
                     ctx.http
                         .delete_current_user_reaction(msg.channel_id, msg.id, &reaction_reaction)
@@ -217,20 +238,23 @@ impl MedalRecentPagination {
     async fn build_page(&mut self) -> BotResult<MedalEmbed> {
         let idx = self.pages.index + 1;
 
-        if !self.embeds.contains_key(&idx) {
+        if !self.embeds.contains_key(&(idx, self.maximized)) {
             let (medal, achieved_at) = match self.achieved_medals.get(idx - 1) {
-                Some(achieved) => {
-                    let medal = match self.all_medals.get(&achieved.medal_id) {
-                        Some(medal) => medal,
-                        None => bail!("Missing medal id {} in DB medals", achieved.medal_id),
-                    };
+                Some(achieved) => match self.cached_medals.get_mut(&achieved.medal_id) {
+                    Some(medal) => (medal, achieved.achieved_at),
+                    None => match self.ctx.psql().get_medal_by_id(achieved.medal_id).await {
+                        Ok(Some(medal)) => {
+                            let medal = self
+                                .cached_medals
+                                .entry(medal.medal_id)
+                                .or_insert(medal.into());
 
-                    match self.ctx.clients.custom.get_osekai_medal(&medal.name).await {
-                        Ok(Some(medal)) => (medal, achieved.achieved_at),
-                        Ok(None) => bail!("No osekai medal for DB medal `{}`", medal.name),
-                        Err(why) => return Err(why.into()),
-                    }
-                }
+                            (medal, achieved.achieved_at)
+                        }
+                        Ok(None) => bail!("No medal with id `{}` in DB", achieved.medal_id),
+                        Err(why) => return Err(why),
+                    },
+                },
                 None => bail!(
                     "Medal index out of bounds: {}/{}",
                     idx,
@@ -245,11 +269,42 @@ impl MedalRecentPagination {
                 medal_count: self.achieved_medals.len(),
             };
 
-            let embed_data = MedalEmbed::new(medal, Some(achieved), false);
-            self.embeds.insert(idx, embed_data);
+            let (maps, comments) = if self.maximized {
+                match medal.map_comments {
+                    Some(ref tuple) => tuple.to_owned(),
+                    None => {
+                        let name = &medal.medal.name;
+                        let map_fut = self.ctx.clients.custom.get_osekai_beatmaps(name);
+                        let comment_fut = self.ctx.clients.custom.get_osekai_comments(name);
+
+                        let (maps, comments) = match tokio::try_join!(map_fut, comment_fut) {
+                            Ok(tuple) => tuple,
+                            Err(why) => {
+                                unwind_error!(
+                                    warn,
+                                    why,
+                                    "Failed to retrieve osekai maps or comments for medal {}: {}",
+                                    name
+                                );
+
+                                (Vec::new(), Vec::new())
+                            }
+                        };
+
+                        medal.map_comments.insert((maps, comments)).to_owned()
+                    }
+                }
+            } else {
+                (Vec::new(), Vec::new())
+            };
+
+            let medal = medal.medal.to_owned();
+
+            let embed_data = MedalEmbed::new(medal, Some(achieved), maps, comments);
+            self.embeds.insert((idx, self.maximized), embed_data);
         }
 
-        Ok(self.embeds.get(&idx).cloned().unwrap())
+        Ok(self.embeds.get(&(idx, self.maximized)).cloned().unwrap())
     }
 
     fn index(&self) -> usize {

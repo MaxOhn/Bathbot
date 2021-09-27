@@ -3,7 +3,6 @@ use crate::{
     commands::osu::Difference, custom_client::SnipeRecent, embeds::SnipedDiffEmbed, BotResult,
 };
 
-use async_trait::async_trait;
 use hashbrown::HashMap;
 use rosu_pp::Beatmap;
 use rosu_v2::model::user::User;

@@ -45,6 +45,7 @@ fn get_mention(mention_type: MentionType, msg: &str) -> Option<u64> {
         .and_then(|c| c.as_str().parse().ok())
 }
 
+#[allow(dead_code)]
 pub fn get_osu_user_id(msg: &str) -> Option<u32> {
     OSU_URL_USER_MATCHER
         .captures(msg)

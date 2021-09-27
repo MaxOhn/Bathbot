@@ -2,7 +2,6 @@ use super::{Pages, Pagination};
 
 use crate::{embeds::MostPlayedEmbed, BotResult};
 
-use async_trait::async_trait;
 use rosu_v2::prelude::{MostPlayedMap, User};
 use twilight_model::channel::Message;
 

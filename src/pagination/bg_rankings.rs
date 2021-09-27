@@ -1,7 +1,6 @@
 use super::{Pages, Pagination, ReactionVec};
 use crate::{embeds::BGRankingEmbed, util::Emote, BotResult, Context};
 
-use async_trait::async_trait;
 use hashbrown::HashMap;
 use std::sync::Arc;
 use twilight_model::{channel::Message, id::UserId};

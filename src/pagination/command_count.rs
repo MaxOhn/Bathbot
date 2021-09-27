@@ -2,7 +2,6 @@ use super::{Pages, Pagination};
 
 use crate::{embeds::CommandCounterEmbed, BotResult, Context};
 
-use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use twilight_model::channel::Message;
 

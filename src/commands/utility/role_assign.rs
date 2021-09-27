@@ -1,4 +1,5 @@
 use crate::{
+    commands::SlashCommandBuilder,
     embeds::{EmbedData, RoleAssignEmbed},
     util::{constants::GENERAL_ISSUE, matcher, ApplicationCommandExt, MessageExt},
     Args, BotResult, CommandData, Context, Error,
@@ -196,30 +197,26 @@ pub async fn slash_roleassign(ctx: Arc<Context>, mut command: ApplicationCommand
 }
 
 pub fn slash_roleassign_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "roleassign".to_owned(),
-        default_permission: None,
-        description: "Managing roles with reactions".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::Channel(BaseCommandOptionData {
-                description: "Specify the channel that contains the message".to_owned(),
-                name: "channel".to_owned(),
-                required: true,
-            }),
-            CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a message id".to_owned(),
-                name: "message".to_owned(),
-                required: true,
-            }),
-            CommandOption::Role(BaseCommandOptionData {
-                description: "Specify a role that should be assigned".to_owned(),
-                name: "role".to_owned(),
-                required: true,
-            }),
-        ],
-    }
+    let options = vec![
+        CommandOption::Channel(BaseCommandOptionData {
+            description: "Specify the channel that contains the message".to_owned(),
+            name: "channel".to_owned(),
+            required: true,
+        }),
+        CommandOption::String(ChoiceCommandOptionData {
+            choices: vec![],
+            description: "Specify a message id".to_owned(),
+            name: "message".to_owned(),
+            required: true,
+        }),
+        CommandOption::Role(BaseCommandOptionData {
+            description: "Specify a role that should be assigned".to_owned(),
+            name: "role".to_owned(),
+            required: true,
+        }),
+    ];
+
+    SlashCommandBuilder::new("roleassign", "Managing roles with reactions")
+        .options(options)
+        .build()
 }

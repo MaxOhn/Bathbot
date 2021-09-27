@@ -15,6 +15,7 @@ pub use top_old::*;
 use super::{prepare_scores, request_user, require_link, ErrorType, GradeArg};
 
 use crate::{
+    commands::SlashCommandBuilder,
     util::{ApplicationCommandExt, MessageExt},
     BotResult, Context, Error,
 };
@@ -486,53 +487,50 @@ fn _slash_top_rebalance() -> Vec<CommandOption> {
 }
 
 pub fn slash_top_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "top".to_owned(),
-        default_permission: None,
-        description: "Display a user's top plays through various modifications".to_owned(),
-        id: None,
-        options: vec![
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Display the user's current top100".to_owned(),
-                name: "current".to_owned(),
-                options: _slash_top_current(),
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "How the top plays would look like with different mods".to_owned(),
-                name: "if".to_owned(),
-                options: _slash_top_if(),
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "Count the top plays on maps of the given mapper".to_owned(),
-                name: "mapper".to_owned(),
-                options: _slash_top_mapper(),
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description: "How the top plays would look like with only full combos".to_owned(),
-                name: "nochoke".to_owned(),
-                options: _slash_top_nochoke(),
-                required: false,
-            }),
-            CommandOption::SubCommandGroup(OptionsCommandOptionData {
-                description: "How the current top plays would look like on a previous pp system"
-                    .to_owned(),
-                name: "old".to_owned(),
-                options: _slash_top_old(),
-                required: false,
-            }),
-            CommandOption::SubCommand(OptionsCommandOptionData {
-                description:
-                    "How the current top plays would look like on an alternative pp system"
-                        .to_owned(),
-                name: "rebalance".to_owned(),
-                options: _slash_top_rebalance(),
-                required: false,
-            }),
-        ],
-    }
+    let description = "Display a user's top plays through various modifications";
+
+    let options = vec![
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Display the user's current top100".to_owned(),
+            name: "current".to_owned(),
+            options: _slash_top_current(),
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "How the top plays would look like with different mods".to_owned(),
+            name: "if".to_owned(),
+            options: _slash_top_if(),
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "Count the top plays on maps of the given mapper".to_owned(),
+            name: "mapper".to_owned(),
+            options: _slash_top_mapper(),
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "How the top plays would look like with only full combos".to_owned(),
+            name: "nochoke".to_owned(),
+            options: _slash_top_nochoke(),
+            required: false,
+        }),
+        CommandOption::SubCommandGroup(OptionsCommandOptionData {
+            description: "How the current top plays would look like on a previous pp system"
+                .to_owned(),
+            name: "old".to_owned(),
+            options: _slash_top_old(),
+            required: false,
+        }),
+        CommandOption::SubCommand(OptionsCommandOptionData {
+            description: "How the current top plays would look like on an alternative pp system"
+                .to_owned(),
+            name: "rebalance".to_owned(),
+            options: _slash_top_rebalance(),
+            required: false,
+        }),
+    ];
+
+    SlashCommandBuilder::new("top", description)
+        .options(options)
+        .build()
 }

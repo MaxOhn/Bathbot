@@ -5,8 +5,8 @@ use crate::{
 };
 
 use hashbrown::{HashMap, HashSet};
-use std::{collections::HashMap as StdHashMap, sync::Arc};
-use strfmt::strfmt;
+use rand::Rng;
+use std::{fmt::Write, sync::Arc};
 use tokio::time::{interval, Duration};
 use twilight_http::{
     api_error::{ApiError, ErrorCode, GeneralApiError},
@@ -20,11 +20,6 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
 
         return;
     }
-
-    // Formatting of the embed image
-    let mut fmt_data = StdHashMap::new();
-    fmt_data.insert(String::from("width"), String::from("360"));
-    fmt_data.insert(String::from("height"), String::from("180"));
 
     let mut online_streams = HashSet::new();
     let mut interval = interval(Duration::from_secs(10 * 60));
@@ -58,6 +53,14 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
         // Filter streams whether its already known they're live
         streams.retain(|stream| !online_streams.contains(&stream.user_id));
 
+        // Nothing to do if streams is empty
+        // (i.e. the change was that streamers went offline)
+        if streams.is_empty() {
+            online_streams = now_online;
+
+            continue;
+        }
+
         let ids: Vec<_> = streams.iter().map(|s| s.user_id).collect();
         let users: HashMap<_, _> = match ctx.clients.twitch.get_users(&ids).await {
             Ok(users) => users.into_iter().map(|u| (u.user_id, u)).collect(),
@@ -68,24 +71,27 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
             }
         };
 
-        // Put streams into a more suitable data type and process the thumbnail url
-        let streams: Vec<(u64, TwitchStream)> = streams
-            .into_iter()
-            .map(|mut stream| {
-                if let Ok(thumbnail) = strfmt(&stream.thumbnail_url, &fmt_data) {
-                    stream.thumbnail_url = thumbnail;
-                }
+        // Generate random width and height to avoid discord caching the thumbnail url
+        let (width, height) = {
+            let mut rng = rand::thread_rng();
 
-                (stream.user_id, stream)
-            })
-            .collect();
+            let width = rng.gen_range(350..=370);
+            let height = rng.gen_range(175..=185);
+
+            (width, height)
+        };
 
         // Process each stream by notifying all corresponding channels
-        for (user, stream) in streams {
-            let channels = match ctx.tracked_channels_for(user) {
+        for mut stream in streams {
+            let channels = match ctx.tracked_channels_for(stream.user_id) {
                 Some(channels) => channels,
                 None => continue,
             };
+
+            // Adjust streams' thumbnail url
+            let url_len = stream.thumbnail_url.len();
+            stream.thumbnail_url.truncate(url_len - 20); // cut off "{width}x{height}.jpg"
+            let _ = write!(stream.thumbnail_url, "{}x{}.jpg", width, height);
 
             let data = TwitchNotifEmbed::new(&stream, &users[&stream.user_id]);
 

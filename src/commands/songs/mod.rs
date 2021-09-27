@@ -23,6 +23,7 @@ pub use startagain::*;
 pub use tijdmachine::*;
 
 use crate::{
+    commands::SlashCommandBuilder,
     util::{ApplicationCommandExt, MessageExt},
     BotResult, CommandData, Context, Error, MessageBuilder,
 };
@@ -118,63 +119,59 @@ pub async fn slash_song(ctx: Arc<Context>, mut command: ApplicationCommand) -> B
 }
 
 pub fn slash_song_command() -> Command {
-    Command {
-        application_id: None,
-        guild_id: None,
-        name: "song".to_owned(),
-        default_permission: None,
-        description: "Let me sing a song for you".to_owned(),
-        id: None,
-        options: vec![CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![
-                CommandOptionChoice::String {
-                    name: "Bombs away".to_owned(),
-                    value: "bombsaway".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "Catchit".to_owned(),
-                    value: "catchit".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "Ding".to_owned(),
-                    value: "ding".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "Fireflies".to_owned(),
-                    value: "fireflies".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "Flamingo".to_owned(),
-                    value: "flamingo".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "Pretender".to_owned(),
-                    value: "pretender".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "Rockefeller Street".to_owned(),
-                    value: "rockefeller".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "Say Goodbye".to_owned(),
-                    value: "saygoodbye".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "Start Again".to_owned(),
-                    value: "startagain".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "Tijdmachine".to_owned(),
-                    value: "tijdmachine".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "Through the Fire and Flames".to_owned(),
-                    value: "fireandflames".to_owned(),
-                },
-            ],
-            description: "Choose the song title".to_owned(),
-            name: "title".to_owned(),
-            required: true,
-        })],
-    }
+    let options = vec![CommandOption::String(ChoiceCommandOptionData {
+        choices: vec![
+            CommandOptionChoice::String {
+                name: "Bombs away".to_owned(),
+                value: "bombsaway".to_owned(),
+            },
+            CommandOptionChoice::String {
+                name: "Catchit".to_owned(),
+                value: "catchit".to_owned(),
+            },
+            CommandOptionChoice::String {
+                name: "Ding".to_owned(),
+                value: "ding".to_owned(),
+            },
+            CommandOptionChoice::String {
+                name: "Fireflies".to_owned(),
+                value: "fireflies".to_owned(),
+            },
+            CommandOptionChoice::String {
+                name: "Flamingo".to_owned(),
+                value: "flamingo".to_owned(),
+            },
+            CommandOptionChoice::String {
+                name: "Pretender".to_owned(),
+                value: "pretender".to_owned(),
+            },
+            CommandOptionChoice::String {
+                name: "Rockefeller Street".to_owned(),
+                value: "rockefeller".to_owned(),
+            },
+            CommandOptionChoice::String {
+                name: "Say Goodbye".to_owned(),
+                value: "saygoodbye".to_owned(),
+            },
+            CommandOptionChoice::String {
+                name: "Start Again".to_owned(),
+                value: "startagain".to_owned(),
+            },
+            CommandOptionChoice::String {
+                name: "Tijdmachine".to_owned(),
+                value: "tijdmachine".to_owned(),
+            },
+            CommandOptionChoice::String {
+                name: "Through the Fire and Flames".to_owned(),
+                value: "fireandflames".to_owned(),
+            },
+        ],
+        description: "Choose the song title".to_owned(),
+        name: "title".to_owned(),
+        required: true,
+    })];
+
+    SlashCommandBuilder::new("song", "Let me sing a song for you")
+        .options(options)
+        .build()
 }

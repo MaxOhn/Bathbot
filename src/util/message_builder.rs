@@ -1,13 +1,14 @@
 use crate::embeds::EmbedBuilder;
 
 use std::borrow::Cow;
-use twilight_model::channel::embed::Embed;
+use twilight_model::{application::component::Component, channel::embed::Embed};
 
 #[derive(Default)]
 pub struct MessageBuilder<'c> {
     pub content: Option<Cow<'c, str>>,
     pub embed: Option<Embed>,
     pub file: Option<(&'static str, &'c [u8])>,
+    pub components: Option<&'c [Component]>,
 }
 
 impl<'c> MessageBuilder<'c> {
@@ -32,6 +33,13 @@ impl<'c> MessageBuilder<'c> {
 
         self
     }
+
+    #[allow(dead_code)]
+    pub fn components(mut self, components: &'c [Component]) -> Self {
+        self.components.replace(components);
+
+        self
+    }
 }
 
 impl<'c> From<Embed> for MessageBuilder<'c> {
@@ -40,6 +48,7 @@ impl<'c> From<Embed> for MessageBuilder<'c> {
             content: None,
             embed: Some(embed),
             file: None,
+            components: None,
         }
     }
 }

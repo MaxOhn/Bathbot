@@ -41,6 +41,9 @@ use crate::{
 };
 
 #[macro_use]
+extern crate async_trait;
+
+#[macro_use]
 extern crate lazy_static;
 
 #[macro_use]
@@ -55,16 +58,10 @@ extern crate smallvec;
 use dashmap::{DashMap, DashSet};
 use deadpool_redis::{Config as RedisConfig, PoolConfig as RedisPoolConfig};
 use hashbrown::HashSet;
-use hyper::{
-    service::{make_service_fn, service_fn},
-    Body, Response,
-};
 use parking_lot::Mutex;
-use prometheus::{Encoder, TextEncoder};
 use rosu_v2::Osu;
 use smallstr::SmallString;
 use std::{
-    convert::Infallible,
     env, process,
     sync::{atomic::Ordering, Arc},
     time::Duration,
@@ -92,7 +89,7 @@ fn main() {
         .build()
         .expect("Could not build runtime");
 
-    if let Err(why) = runtime.block_on(async move { async_main().await }) {
+    if let Err(why) = runtime.block_on(async_main()) {
         unwind_error!(error, why, "Critical error in main: {}");
     }
 }
@@ -155,33 +152,20 @@ async fn async_main() -> BotResult<()> {
     // Log custom client into osu!
     let custom = CustomClient::new().await?;
 
-    let clients = crate::core::Clients {
-        psql,
-        redis,
-        osu,
-        custom,
-        twitch,
-    };
-
-    // Boot everything up
-    run(http, clients).await
-}
-
-async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     // Guild configs
-    let guilds = clients.psql.get_guilds().await?;
+    let guilds = psql.get_guilds().await?;
 
     // Tracked streams
-    let tracked_streams = clients.psql.get_stream_tracks().await?;
+    let tracked_streams = psql.get_stream_tracks().await?;
 
     // Reaction-role-assign
-    let role_assigns = clients.psql.get_role_assigns().await?;
+    let role_assigns = psql.get_role_assigns().await?;
 
     // osu! top score tracking
-    let osu_tracking = OsuTracking::new(&clients.psql).await?;
+    let osu_tracking = OsuTracking::new(&psql).await?;
 
     // snipe countries
-    let snipe_countries = clients.psql.get_snipe_countries().await?;
+    let snipe_countries = psql.get_snipe_countries().await?;
 
     let data = crate::core::ContextData {
         guilds,
@@ -230,7 +214,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         .shard_scheme(ShardScheme::Auto);
 
     // Check for resume data, pass to builder if present
-    let (cache, resume_map) = Cache::new(&clients.redis).await;
+    let (cache, resume_map) = Cache::new(&redis).await;
     let resumed = if let Some(map) = resume_map {
         cb = cb.resume_sessions(map);
         info!("Cold resume successful");
@@ -242,17 +226,7 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         false
     };
 
-    let stats = Arc::new(BotStats::new(clients.osu.metrics(), cache.metrics()));
-
-    // Provide stats to locale address
-    let (tx, rx) = oneshot::channel();
-
-    if cfg!(debug_assertions) {
-        info!("Skip metrics server on debug");
-    } else {
-        let metrics_stats = Arc::clone(&stats);
-        tokio::spawn(run_metrics_server(metrics_stats, rx));
-    }
+    let stats = Arc::new(BotStats::new(osu.metrics(), cache.metrics()));
 
     // Build cluster
     let (cluster, mut event_stream) = cb
@@ -272,10 +246,19 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         http.set_global_commands(&slash_commands)?.exec().await?;
     }
 
+    let clients = crate::core::Clients {
+        psql,
+        redis,
+        osu,
+        custom,
+        twitch,
+    };
+
     // Final context
     let ctx = Arc::new(Context::new(cache, stats, http, clients, cluster, data).await);
 
     // Setup graceful shutdown
+    let (tx, rx) = oneshot::channel();
     let shutdown_ctx = Arc::clone(&ctx);
 
     tokio::spawn(async move {
@@ -314,6 +297,10 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
         info!("Shutting down");
         process::exit(0);
     });
+
+    // Spawn server worker
+    let server_ctx = Arc::clone(&ctx);
+    tokio::spawn(core::server::run_server(server_ctx, rx));
 
     // Spawn twitch worker
     let twitch_ctx = Arc::clone(&ctx);
@@ -368,39 +355,6 @@ async fn run(http: HttpClient, clients: crate::core::Clients) -> BotResult<()> {
     time::sleep(Duration::from_secs(300)).await;
 
     Ok(())
-}
-
-async fn run_metrics_server(stats: Arc<BotStats>, shutdown_rx: oneshot::Receiver<()>) {
-    let metric_service = make_service_fn(move |_| {
-        let stats = Arc::clone(&stats);
-
-        async move {
-            Ok::<_, Infallible>(service_fn(move |_req| {
-                let mut buffer = Vec::new();
-                let encoder = TextEncoder::new();
-                let metric_families = stats.registry.gather();
-                encoder.encode(&metric_families, &mut buffer).unwrap();
-
-                async move { Ok::<_, Infallible>(Response::new(Body::from(buffer))) }
-            }))
-        }
-    });
-
-    let ip = CONFIG.get().unwrap().metric_server_ip;
-    let port = CONFIG.get().unwrap().metric_server_port;
-    let addr = std::net::SocketAddr::from((ip, port));
-
-    let server = hyper::Server::bind(&addr)
-        .serve(metric_service)
-        .with_graceful_shutdown(async {
-            let _ = shutdown_rx.await;
-        });
-
-    info!("Running metrics server...");
-
-    if let Err(why) = server.await {
-        unwind_error!(error, why, "Metrics server failed: {}");
-    }
 }
 
 async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResult<()> {
@@ -544,6 +498,12 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
         Event::StageInstanceCreate(_) => {}
         Event::StageInstanceDelete(_) => {}
         Event::StageInstanceUpdate(_) => {}
+        Event::ThreadCreate(_) => {}
+        Event::ThreadDelete(_) => {}
+        Event::ThreadListSync(_) => {}
+        Event::ThreadMemberUpdate(_) => {}
+        Event::ThreadMembersUpdate(_) => {}
+        Event::ThreadUpdate(_) => {}
         Event::TypingStart(_) => {}
         Event::UnavailableGuild(_) => ctx.stats.event_counts.unavailable_guild.inc(),
         Event::UserUpdate(_) => ctx.stats.event_counts.user_update.inc(),

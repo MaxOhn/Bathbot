@@ -77,7 +77,7 @@ pub(super) async fn _countrysnipestats(
 
     let country_code = match country_code {
         Some(code) => code,
-        None => match ctx.user_config(author_id).await.map(|config| config.name) {
+        None => match ctx.user_config(author_id).await.map(|config| config.osu_username) {
             Ok(Some(name)) => {
                 let user = match super::request_user(&ctx, &name, Some(GameMode::STD)).await {
                     Ok(user) => user,
