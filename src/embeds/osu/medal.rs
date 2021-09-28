@@ -53,8 +53,8 @@ impl MedalEmbed {
 
             for map in maps {
                 let m = format!(
-                    " - [{} [{}]]({}b/{})\n",
-                    map.title, map.version, OSU_BASE, map.map_id
+                    " - [{} [{}]]({}b/{}) (+{})\n",
+                    map.title, map.version, OSU_BASE, map.map_id, map.vote_sum
                 );
 
                 if m.len() + map_value.len() + 7 >= FIELD_VALUE_SIZE {
@@ -75,7 +75,7 @@ impl MedalEmbed {
 
             let comment_iter = comments
                 .into_iter()
-                .filter(|comment| comment.parent_id.is_none());
+                .filter(|comment| comment.parent_id == 0);
 
             for comment in comment_iter {
                 let mut c =

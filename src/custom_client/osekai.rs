@@ -107,6 +107,8 @@ pub struct OsekaiMap {
     pub title: String,
     #[serde(rename = "DifficultyName")]
     pub version: String,
+    #[serde(rename = "VoteSum", deserialize_with = "str_to_u32")]
+    pub vote_sum: u32,
 }
 
 #[derive(Deserialize)]
@@ -118,8 +120,8 @@ pub struct OsekaiComment {
     pub comment_id: u32,
     #[serde(rename = "PostText")]
     pub content: String,
-    #[serde(rename = "ParentComment")]
-    pub parent_id: Option<u32>,
+    #[serde(rename = "Parent")]
+    pub parent_id: u32,
     #[serde(rename = "UserID")]
     pub user_id: u32,
     #[serde(rename = "Username")]
