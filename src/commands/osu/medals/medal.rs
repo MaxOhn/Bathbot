@@ -67,7 +67,7 @@ pub(super) async fn _medal(ctx: Arc<Context>, data: CommandData<'_>, name: &str)
 const SIMILARITY_THRESHOLD: f32 = 0.75;
 
 async fn no_medal(ctx: &Context, data: &CommandData<'_>, name: &str) -> BotResult<()> {
-    let medals = match ctx.psql().get_medals().await {
+    let medals = match ctx.psql().get_medal_names().await {
         Ok(medals) => medals,
         Err(why) => {
             let _ = data.error(ctx, GENERAL_ISSUE).await;
@@ -78,8 +78,8 @@ async fn no_medal(ctx: &Context, data: &CommandData<'_>, name: &str) -> BotResul
 
     let mut medals: Vec<_> = medals
         .into_iter()
-        .map(|(_, medal)| {
-            let medal = medal.name.to_ascii_lowercase();
+        .map(|medal| {
+            let medal = medal.to_ascii_lowercase();
 
             (levenshtein_similarity(name, &medal), medal)
         })

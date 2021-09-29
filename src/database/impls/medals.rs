@@ -109,7 +109,7 @@ impl Database {
 
     pub async fn get_medals(&self) -> BotResult<HashMap<u32, OsekaiMedal>> {
         let mut stream = sqlx::query!("SELECT * FROM osekai_medals").fetch(&self.pool);
-        let mut medals = HashMap::with_capacity(256);
+        let mut medals = HashMap::with_capacity(257);
 
         while let Some(entry) = stream.next().await.transpose()? {
             let medal = OsekaiMedal {
@@ -129,5 +129,16 @@ impl Database {
         }
 
         Ok(medals)
+    }
+
+    pub async fn get_medal_names(&self) -> BotResult<Vec<String>> {
+        let mut stream = sqlx::query!("SELECT name FROM osekai_medals").fetch(&self.pool);
+        let mut names = Vec::with_capacity(257);
+
+        while let Some(entry) = stream.next().await.transpose()? {
+            names.push(entry.name);
+        }
+
+        Ok(names)
     }
 }
