@@ -46,7 +46,7 @@ impl Pagination for MedalCountPagination {
     }
 
     fn multi_step(&self) -> usize {
-        self.pages.per_page * 5
+        self.pages.per_page * 10
     }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {

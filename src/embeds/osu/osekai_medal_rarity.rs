@@ -1,15 +1,16 @@
+use std::fmt::Write;
+
 use crate::{
     custom_client::OsekaiRarityEntry,
-    embeds::{Author, Footer},
+    embeds::Footer,
     util::{numbers::round, CowUtils},
 };
 
-use std::fmt::Write;
-
 pub struct MedalRarityEmbed {
-    author: Author,
     description: String,
     footer: Footer,
+    title: &'static str,
+    url: &'static str,
 }
 
 impl MedalRarityEmbed {
@@ -32,8 +33,8 @@ impl MedalRarityEmbed {
             );
         }
 
-        let author_text = "Medal Ranking based on rarity";
-        let author_url = "https://osekai.net/rankings/?ranking=Medals&type=Rarity";
+        let title = "Medal Ranking based on rarity";
+        let url = "https://osekai.net/rankings/?ranking=Medals&type=Rarity";
 
         let footer_text = format!(
             "Page {}/{} • Check out osekai.net for more info",
@@ -41,15 +42,17 @@ impl MedalRarityEmbed {
         );
 
         Self {
-            author: Author::new(author_text).url(author_url),
             description,
             footer: Footer::new(footer_text),
+            title,
+            url,
         }
     }
 }
 
 impl_builder!(MedalRarityEmbed {
-    author,
     description,
     footer,
+    title,
+    url,
 });

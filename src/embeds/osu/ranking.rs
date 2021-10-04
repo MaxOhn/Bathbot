@@ -1,18 +1,19 @@
-use crate::{
-    commands::osu::UserValue,
-    embeds::{Author, Footer},
-    util::{
-        constants::common_literals::{CTB, MANIA, TAIKO},
-        osu::flag_url,
-        CountryCode,
-    },
-    Name,
+use std::{
+    borrow::Cow,
+    collections::{btree_map::Range, BTreeMap},
+    fmt::Write,
 };
 
 use rosu_v2::prelude::GameMode;
-use std::{
-    collections::{btree_map::Range, BTreeMap},
-    fmt::Write,
+
+use crate::{
+    commands::osu::UserValue,
+    embeds::Footer,
+    util::{
+        constants::common_literals::{CTB, MANIA, TAIKO},
+        CountryCode,
+    },
+    Name,
 };
 
 pub struct RankingEntry {
@@ -44,55 +45,55 @@ pub enum RankingKindData {
 }
 
 impl RankingKindData {
-    fn author(&self) -> Author {
+    fn title_url(&self) -> (Cow<'static, str>, Cow<'static, str>) {
         match self {
             RankingKindData::OsekaiRarity => {
                 let text = "Medal Ranking based on rarity";
                 let url = "https://osekai.net/rankings/?ranking=Medals&type=Rarity";
 
-                Author::new(text).url(url)
+                (text.into(), url.into())
             }
             RankingKindData::OsekaiMedalCount => {
                 let text = "User Ranking based on amount of owned medals";
                 let url = "https://osekai.net/rankings/?ranking=Medals&type=Users";
 
-                Author::new(text).url(url)
+                (text.into(), url.into())
             }
             RankingKindData::OsekaiReplays => {
                 let text = "User Ranking based on watched replays";
                 let url = "https://osekai.net/rankings/?ranking=All+Mode&type=Replays";
 
-                Author::new(text).url(url)
+                (text.into(), url.into())
             }
             RankingKindData::OsekaiTotalPp => {
                 let text = "User Ranking based on total pp across all modes";
                 let url = "https://osekai.net/rankings/?ranking=All+Mode&type=Total+pp";
 
-                Author::new(text).url(url)
+                (text.into(), url.into())
             }
             RankingKindData::OsekaiStandardDeviation => {
                 let text = "User Ranking based on pp standard deviation of all modes";
                 let url = "https://osekai.net/rankings/?ranking=All+Mode&type=Standard+Deviation";
 
-                Author::new(text).url(url)
+                (text.into(), url.into())
             }
             RankingKindData::OsekaiBadges => {
                 let text = "User Ranking based on amount of badges";
                 let url = "https://osekai.net/rankings/?ranking=Badges&type=Badges";
 
-                Author::new(text).url(url)
+                (text.into(), url.into())
             }
             RankingKindData::OsekaiRankedMapsets => {
                 let text = "User Ranking based on created ranked mapsets";
                 let url = "https://osekai.net/rankings/?ranking=Mappers&type=Ranked+Mapsets";
 
-                Author::new(text).url(url)
+                (text.into(), url.into())
             }
             RankingKindData::OsekaiLovedMapsets => {
                 let text = "User Ranking based on created loved mapsets";
                 let url = "https://osekai.net/rankings/?ranking=Mappers&type=Loved+Mapsets";
 
-                Author::new(text).url(url)
+                (text.into(), url.into())
             }
             Self::PpCountry {
                 country,
@@ -112,9 +113,7 @@ impl RankingKindData {
                     country = country_code
                 );
 
-                let icon_url = flag_url(country_code.as_str());
-
-                Author::new(text).url(url).icon_url(icon_url)
+                (text.into(), url.into())
             }
             Self::PpGlobal { mode } => {
                 let text = format!("Performance Ranking for osu!{mode}", mode = mode_str(*mode));
@@ -124,7 +123,7 @@ impl RankingKindData {
                     mode = mode,
                 );
 
-                Author::new(text).url(url)
+                (text.into(), url.into())
             }
             Self::RankedScore { mode } => {
                 let text = format!(
@@ -134,7 +133,7 @@ impl RankingKindData {
 
                 let url = format!("https://osu.ppy.sh/rankings/{mode}/score", mode = mode);
 
-                Author::new(text).url(url)
+                (text.into(), url.into())
             }
         }
     }
@@ -166,8 +165,9 @@ impl RankingKindData {
 
 pub struct RankingEmbed {
     description: String,
-    author: Author,
     footer: Footer,
+    title: Cow<'static, str>,
+    url: Cow<'static, str>,
 }
 
 type RankingMap = BTreeMap<usize, RankingEntry>;
@@ -231,10 +231,13 @@ impl RankingEmbed {
             description.push('\n');
         }
 
+        let (title, url) = data.title_url();
+
         Self {
-            author: data.author(),
             description,
             footer: data.footer(pages.0, pages.1, author_idx),
+            title,
+            url,
         }
     }
 }
@@ -242,7 +245,8 @@ impl RankingEmbed {
 impl_builder!(RankingEmbed {
     description,
     footer,
-    author,
+    title,
+    url,
 });
 
 fn mode_str(mode: GameMode) -> &'static str {

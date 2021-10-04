@@ -1,15 +1,16 @@
+use std::fmt::Write;
+
 use crate::{
     custom_client::OsekaiUserEntry,
-    embeds::{Author, Footer},
+    embeds::Footer,
     util::{constants::OSU_BASE, numbers::round, CowUtils},
 };
 
-use std::fmt::Write;
-
 pub struct MedalCountEmbed {
-    author: Author,
     description: String,
     footer: Footer,
+    title: &'static str,
+    url: &'static str,
 }
 
 impl MedalCountEmbed {
@@ -45,8 +46,8 @@ impl MedalCountEmbed {
             );
         }
 
-        let author_text = "User Ranking based on amount of owned medals";
-        let author_url = "https://osekai.net/rankings/?ranking=Medals&type=Users";
+        let title = "User Ranking based on amount of owned medals";
+        let url = "https://osekai.net/rankings/?ranking=Medals&type=Users";
 
         let mut footer_text = format!("Page {}/{} • ", pages.0, pages.1);
 
@@ -57,15 +58,17 @@ impl MedalCountEmbed {
         footer_text.push_str("Check out osekai.net for more info");
 
         Self {
-            author: Author::new(author_text).url(author_url),
             description,
             footer: Footer::new(footer_text),
+            title,
+            url,
         }
     }
 }
 
 impl_builder!(MedalCountEmbed {
-    author,
     description,
     footer,
+    title,
+    url,
 });
