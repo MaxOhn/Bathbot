@@ -281,13 +281,13 @@ async fn async_main() -> BotResult<()> {
             .stop_tracking
             .store(true, Ordering::SeqCst);
 
-        // Prevent non-minimized msgs to get minimized
+        // Prevent non-minimized msgs from getting minimized
         shutdown_ctx.clear_msgs_to_process();
 
         shutdown_ctx.initiate_cold_resume().await;
 
-        let count = shutdown_ctx.garbage_collect_all_maps().await;
-        info!("Garbage collected {} maps", count);
+        let (count, total) = shutdown_ctx.garbage_collect_all_maps().await;
+        info!("Garbage collected {}/{} maps", count, total);
 
         let count = shutdown_ctx.stop_all_games().await;
         info!("Stopped {} bg games", count);

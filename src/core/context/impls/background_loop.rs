@@ -1,67 +1,51 @@
-use crate::{BotResult, Context, CONFIG};
+use std::{mem, sync::Arc};
 
-use futures::stream::{FuturesUnordered, StreamExt};
 use rosu_v2::prelude::{
     Beatmap,
     RankStatus::{Approved, Loved, Ranked},
 };
-use std::sync::Arc;
 use tokio::{
     fs::remove_file,
     time::{self, Duration},
 };
+
+use crate::{BotResult, Context, CONFIG};
 
 impl Context {
     pub fn map_garbage_collector(&self, map: &Beatmap) -> GarbageCollectMap {
         GarbageCollectMap::new(map)
     }
 
-    pub async fn garbage_collect_all_maps(&self) -> usize {
-        let five_seconds = Duration::from_secs(5);
+    pub async fn garbage_collect_all_maps(&self) -> (usize, usize) {
+        let maps_to_delete = {
+            let mut garbage_collection = self.data.map_garbage_collection.lock();
 
-        let mut garbage_collection = self.data.map_garbage_collection.lock();
+            if garbage_collection.is_empty() {
+                return (0, 0);
+            }
 
-        if garbage_collection.is_empty() {
-            return 0;
-        }
+            mem::take(&mut *garbage_collection)
+        };
 
         let config = CONFIG.get().unwrap();
-        let total = garbage_collection.len();
+        let total = maps_to_delete.len();
+        let five_seconds = Duration::from_secs(5);
+        let mut success = 0;
 
-        let tasks = garbage_collection.drain().map(|map_id| async move {
+        for map_id in maps_to_delete {
             let mut map_path = config.map_path.clone();
             map_path.push(format!("{}.osu", map_id));
 
             match time::timeout(five_seconds, remove_file(map_path)).await {
-                Ok(Ok(_)) => None,
-                Ok(Err(_)) | Err(_) => Some(map_id),
-            }
-        });
-
-        let (count, failed) = tasks
-            .collect::<FuturesUnordered<_>>()
-            .fold((0, Vec::new()), |(count, mut failed), res| async move {
-                match res {
-                    None => (count + 1, failed),
-                    Some(map_id) => {
-                        failed.push(map_id);
-
-                        (count, failed)
-                    }
+                Ok(Ok(_)) => success += 1,
+                Ok(Err(why)) => {
+                    unwind_error!(warn, why, "[BG] Failed to delete map {}: {}", map_id)
                 }
-            })
-            .await;
-
-        if !failed.is_empty() {
-            warn!(
-                "Failed to garbage collect {}/{} maps: {:?}",
-                failed.len(),
-                total,
-                failed,
-            );
+                Err(_) => warn!("[BG] Timed out while deleting map {}", map_id),
+            }
         }
 
-        count
+        (success, total)
     }
 
     // Current tasks per iteration:
@@ -88,8 +72,8 @@ impl Context {
                 Err(why) => unwind_error!(warn, why, "[BG] Failed to update medals: {}"),
             }
 
-            let count = ctx.garbage_collect_all_maps().await;
-            debug!("[BG] Garbage collected {} maps", count);
+            let (success, total) = ctx.garbage_collect_all_maps().await;
+            debug!("[BG] Garbage collected {}/{} maps", success, total);
         }
     }
 }
