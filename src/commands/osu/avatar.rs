@@ -1,10 +1,13 @@
 use crate::{
     arguments::Args,
-    commands::SlashCommandBuilder,
+    commands::MyCommand,
     embeds::{AvatarEmbed, EmbedData},
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        ApplicationCommandExt, MessageExt,
+        constants::{
+            common_literals::{DISCORD, NAME},
+            GENERAL_ISSUE, OSU_API_ISSUE,
+        },
+        ApplicationCommandExt, InteractionExt, MessageExt,
     },
     BotResult, CommandData, Context, Name,
 };
@@ -12,12 +15,11 @@ use crate::{
 use rosu_v2::error::OsuError;
 use std::sync::Arc;
 use twilight_model::{
-    application::{
-        command::{BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption},
-        interaction::{application_command::CommandDataOption, ApplicationCommand},
-    },
+    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
     id::UserId,
 };
+
+use super::{option_discord, option_name};
 
 #[command]
 #[short_desc("Display someone's osu! profile picture")]
@@ -79,14 +81,16 @@ async fn _avatar(ctx: Arc<Context>, data: CommandData<'_>, name: Option<Name>) -
     Ok(())
 }
 
+const AVATAR: &str = "avatar";
+
 pub async fn slash_avatar(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
     let mut username = None;
 
     for option in command.yoink_options() {
         match option {
             CommandDataOption::String { name, value } => match name.as_str() {
-                "name" => username = Some(value.into()),
-                "discord" => match value.parse() {
+                NAME => username = Some(value.into()),
+                DISCORD => match value.parse() {
                     Ok(id) => match ctx.user_config(UserId(id)).await?.osu_username {
                         Some(name) => username = Some(name),
                         None => {
@@ -98,12 +102,12 @@ pub async fn slash_avatar(ctx: Arc<Context>, mut command: ApplicationCommand) ->
                     },
                     Err(_) => bail_cmd_option!("avatar discord", string, value),
                 },
-                _ => bail_cmd_option!("avatar", string, name),
+                _ => bail_cmd_option!(AVATAR, string, name),
             },
-            CommandDataOption::Integer { name, .. } => bail_cmd_option!("avatar", integer, name),
-            CommandDataOption::Boolean { name, .. } => bail_cmd_option!("avatar", boolean, name),
+            CommandDataOption::Integer { name, .. } => bail_cmd_option!(AVATAR, integer, name),
+            CommandDataOption::Boolean { name, .. } => bail_cmd_option!(AVATAR, boolean, name),
             CommandDataOption::SubCommand { name, .. } => {
-                bail_cmd_option!("avatar", subcommand, name)
+                bail_cmd_option!(AVATAR, subcommand, name)
             }
         }
     }
@@ -116,22 +120,9 @@ pub async fn slash_avatar(ctx: Arc<Context>, mut command: ApplicationCommand) ->
     _avatar(ctx, command.into(), name).await
 }
 
-pub fn slash_avatar_command() -> Command {
-    let options = vec![
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify a username".to_owned(),
-            name: "name".to_owned(),
-            required: false,
-        }),
-        CommandOption::User(BaseCommandOptionData {
-            description: "Specify a linked discord user".to_owned(),
-            name: "discord".to_owned(),
-            required: false,
-        }),
-    ];
+pub fn define_avatar() -> MyCommand {
+    let name = option_name();
+    let discord = option_discord();
 
-    SlashCommandBuilder::new("avatar", "Display someone's osu! profile picture")
-        .options(options)
-        .build()
+    MyCommand::new(AVATAR, "Display someone's osu! profile picture").options(vec![name, discord])
 }

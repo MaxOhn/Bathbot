@@ -10,21 +10,25 @@ pub use missing::*;
 pub use recent::*;
 pub use stats::*;
 
-use super::{request_user, require_link};
+use std::{borrow::Cow, sync::Arc};
+
+use twilight_model::application::interaction::{
+    application_command::CommandDataOption, ApplicationCommand,
+};
+
 use crate::{
-    commands::SlashCommandBuilder,
-    util::{ApplicationCommandExt, MessageExt},
+    commands::{
+        osu::{option_discord, option_name},
+        MyCommand, MyCommandOption,
+    },
+    util::{
+        constants::common_literals::{DISCORD, INDEX, NAME},
+        ApplicationCommandExt, InteractionExt, MessageExt,
+    },
     BotResult, Context, Error, Name,
 };
 
-use std::{borrow::Cow, sync::Arc};
-use twilight_model::application::{
-    command::{
-        BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption,
-        OptionsCommandOptionData,
-    },
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
-};
+use super::{request_user, require_link};
 
 enum MedalCommandKind {
     Common(CommonArgs),
@@ -33,6 +37,11 @@ enum MedalCommandKind {
     Recent(RecentArgs),
     Stats(Option<Name>),
 }
+
+const MEDAL: &str = "medal";
+const MEDAL_INFO: &str = "medal info";
+const MEDAL_STATS: &str = "medal stats";
+const MEDAL_MISSING: &str = "medal missing";
 
 impl MedalCommandKind {
     async fn slash(
@@ -44,9 +53,9 @@ impl MedalCommandKind {
 
         for option in command.yoink_options() {
             match option {
-                CommandDataOption::String { name, .. } => bail_cmd_option!("medal", string, name),
-                CommandDataOption::Integer { name, .. } => bail_cmd_option!("medal", integer, name),
-                CommandDataOption::Boolean { name, .. } => bail_cmd_option!("medal", boolean, name),
+                CommandDataOption::String { name, .. } => bail_cmd_option!(MEDAL, string, name),
+                CommandDataOption::Integer { name, .. } => bail_cmd_option!(MEDAL, integer, name),
+                CommandDataOption::Boolean { name, .. } => bail_cmd_option!(MEDAL, boolean, name),
                 CommandDataOption::SubCommand { name, options } => match name.as_str() {
                     "common" => match CommonArgs::slash(ctx, options, author_id).await? {
                         Ok(args) => kind = Some(Self::Common(args)),
@@ -58,17 +67,17 @@ impl MedalCommandKind {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => medal_name = Some(value),
-                                    _ => bail_cmd_option!("medal info", string, name),
+                                    NAME => medal_name = Some(value),
+                                    _ => bail_cmd_option!(MEDAL_INFO, string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("medal info", integer, name)
+                                    bail_cmd_option!(MEDAL_INFO, integer, name)
                                 }
                                 CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("medal info", boolean, name)
+                                    bail_cmd_option!(MEDAL_INFO, boolean, name)
                                 }
                                 CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!("medal info", subcommand, name)
+                                    bail_cmd_option!(MEDAL_INFO, subcommand, name)
                                 }
                             }
                         }
@@ -82,20 +91,20 @@ impl MedalCommandKind {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => username = Some(value.into()),
-                                    "discord" => {
+                                    NAME => username = Some(value.into()),
+                                    DISCORD => {
                                         username = parse_discord_option!(ctx, value, "medal stats")
                                     }
-                                    _ => bail_cmd_option!("medal stats", string, name),
+                                    _ => bail_cmd_option!(MEDAL_STATS, string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("medal stats", integer, name)
+                                    bail_cmd_option!(MEDAL_STATS, integer, name)
                                 }
                                 CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("medal stats", boolean, name)
+                                    bail_cmd_option!(MEDAL_STATS, boolean, name)
                                 }
                                 CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!("medal stats", subcommand, name)
+                                    bail_cmd_option!(MEDAL_STATS, subcommand, name)
                                 }
                             }
                         }
@@ -113,21 +122,21 @@ impl MedalCommandKind {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => username = Some(value.into()),
-                                    "discord" => {
+                                    NAME => username = Some(value.into()),
+                                    DISCORD => {
                                         username =
                                             parse_discord_option!(ctx, value, "medal missing")
                                     }
-                                    _ => bail_cmd_option!("medal missing", string, name),
+                                    _ => bail_cmd_option!(MEDAL_MISSING, string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("medal missing", integer, name)
+                                    bail_cmd_option!(MEDAL_MISSING, integer, name)
                                 }
                                 CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("medal missing", boolean, name)
+                                    bail_cmd_option!(MEDAL_MISSING, boolean, name)
                                 }
                                 CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!("medal missing", subcommand, name)
+                                    bail_cmd_option!(MEDAL_MISSING, subcommand, name)
                                 }
                             }
                         }
@@ -143,7 +152,7 @@ impl MedalCommandKind {
                         Ok(args) => kind = Some(Self::Recent(args)),
                         Err(content) => return Ok(Err(content.into())),
                     },
-                    _ => bail_cmd_option!("medal", subcommand, name),
+                    _ => bail_cmd_option!(MEDAL, subcommand, name),
                 },
             }
         }
@@ -163,113 +172,96 @@ pub async fn slash_medal(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
     }
 }
 
-pub fn slash_medal_command() -> Command {
-    let description = "Info about a medal or users' medal progress";
+fn option_name_(n: u8) -> MyCommandOption {
+    let mut name = option_name();
 
-    let options = vec![
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Compare which of the given users achieved medals first".to_owned(),
-            name: "common".to_owned(),
-            options: vec![
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Specify a username".to_owned(),
-                    name: "name1".to_owned(),
-                    required: false,
-                }),
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Specify a username".to_owned(),
-                    name: "name2".to_owned(),
-                    required: false,
-                }),
-                CommandOption::User(BaseCommandOptionData {
-                    description: "Specify a linked discord user".to_owned(),
-                    name: "discord1".to_owned(),
-                    required: false,
-                }),
-                CommandOption::User(BaseCommandOptionData {
-                    description: "Specify a linked discord user".to_owned(),
-                    name: "discord2".to_owned(),
-                    required: false,
-                }),
-            ],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Display info about an osu! medal".to_owned(),
-            name: "info".to_owned(),
-            options: vec![CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify the name of the medal".to_owned(),
-                name: "name".to_owned(),
-                required: true,
-            })],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Display info about an osu! medal".to_owned(),
-            name: "missing".to_owned(),
-            options: vec![
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Specify a username".to_owned(),
-                    name: "name".to_owned(),
-                    required: false,
-                }),
-                CommandOption::User(BaseCommandOptionData {
-                    description: "Specify a linked discord user".to_owned(),
-                    name: "discord".to_owned(),
-                    required: false,
-                }),
-            ],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Display a recently acquired medal of a user".to_owned(),
-            name: "recent".to_owned(),
-            options: vec![
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Specify a username".to_owned(),
-                    name: "name".to_owned(),
-                    required: false,
-                }),
-                CommandOption::Integer(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Specify an index e.g. 1 = most recent".to_owned(),
-                    name: "index".to_owned(),
-                    required: false,
-                }),
-                CommandOption::User(BaseCommandOptionData {
-                    description: "Specify a linked discord user".to_owned(),
-                    name: "discord".to_owned(),
-                    required: false,
-                }),
-            ],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Display medal stats for a user".to_owned(),
-            name: "stats".to_owned(),
-            options: vec![
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Specify a username".to_owned(),
-                    name: "name".to_owned(),
-                    required: false,
-                }),
-                CommandOption::User(BaseCommandOptionData {
-                    description: "Specify a linked discord user".to_owned(),
-                    name: "discord".to_owned(),
-                    required: false,
-                }),
-            ],
-            required: false,
-        }),
-    ];
+    name.name = match n {
+        1 => "name1",
+        2 => "name2",
+        _ => unreachable!(),
+    };
 
-    SlashCommandBuilder::new("medal", description)
-        .options(options)
-        .build()
+    name
+}
+
+fn option_discord_(n: u8) -> MyCommandOption {
+    let mut discord = option_discord();
+
+    discord.name = match n {
+        1 => "discord1",
+        2 => "discord2",
+        _ => unreachable!(),
+    };
+
+    discord.help = if n == 1 {
+        Some(
+            "Instead of specifying an osu! username with the `name1` option, \
+            you can use this `discord1` option to choose a discord user.\n\
+            For it to work, the user must be linked to an osu! account i.e. they must have used \
+            the `/link` or `/config` command to verify their account.",
+        )
+    } else {
+        None
+    };
+
+    discord
+}
+
+pub fn define_medal() -> MyCommand {
+    let name1 = option_name_(1);
+    let name2 = option_name_(2);
+    let discord1 = option_discord_(1);
+    let discord2 = option_discord_(2);
+
+    let common_description = "Compare which of the given users achieved medals first";
+
+    let common = MyCommandOption::builder("common", common_description)
+        .subcommand(vec![name1, name2, discord1, discord2]);
+
+    let name_help = "Specify the name of a medal.\n\
+        Upper- and lowercase does not matter but punctuation is important.";
+
+    let name = MyCommandOption::builder(NAME, "Specify the name of a medal")
+        .help(name_help)
+        .string(Vec::new(), true);
+
+    let info_help = "Display info about an osu! medal.\n\
+        The solution, beatmaps, and comments are provided by [osekai](https://osekai.net/).";
+
+    let info = MyCommandOption::builder("info", "Display info about an osu! medal")
+        .help(info_help)
+        .subcommand(vec![name]);
+
+    let name = option_name();
+    let discord = option_discord();
+
+    let missing =
+        MyCommandOption::builder("missing", "Display a list of medals that a user is missing")
+            .subcommand(vec![name, discord]);
+
+    let name = option_name();
+    let discord = option_discord();
+
+    let index = MyCommandOption::builder(INDEX, "Specify an index e.g. 1 = most recent")
+        .integer(Vec::new(), false);
+
+    let recent_help = "Display a recently acquired medal of a user.\n\
+        The solution, beatmaps, and comments are provided by [osekai](https://osekai.net/).";
+
+    let recent = MyCommandOption::builder("recent", "Display a recently acquired medal of a user")
+        .help(recent_help)
+        .subcommand(vec![name, index, discord]);
+
+    let name = option_name();
+    let discord = option_discord();
+
+    let stats = MyCommandOption::builder("stats", "Display medal stats for a user")
+        .subcommand(vec![name, discord]);
+
+    let help = "Info about a medal or users' medal progress.\n\
+        Check out [osekai](https://osekai.net/) for more info on medals.";
+
+    MyCommand::new(MEDAL, "Info about a medal or users' medal progress")
+        .help(help)
+        .options(vec![common, info, missing, recent, stats])
 }

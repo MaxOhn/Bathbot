@@ -3,7 +3,10 @@ use crate::{
     embeds::{EmbedData, OsuStatsListEmbed},
     pagination::{OsuStatsListPagination, Pagination},
     util::{
-        constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE},
+        constants::{
+            common_literals::{COUNTRY, MODE, RANK},
+            GENERAL_ISSUE, OSUSTATS_API_ISSUE,
+        },
         numbers, CountryCode, MessageExt,
     },
     Args, BotResult, CommandData, Context, MessageBuilder,
@@ -322,6 +325,8 @@ pub async fn osustatslistctb(ctx: Arc<Context>, data: CommandData) -> BotResult<
     }
 }
 
+const OSUSTATS_PLAYERS: &str = "osustats players";
+
 impl OsuStatsListParams {
     const MIN_RANK: usize = 1;
     const MAX_RANK: usize = 100;
@@ -341,7 +346,7 @@ impl OsuStatsListParams {
                 let value = arg[idx + 1..].trim_end();
 
                 match key {
-                    "rank" | "r" => match value.find("..") {
+                    RANK | "r" => match value.find("..") {
                         Some(idx) => {
                             let bot = &value[..idx];
                             let top = &value[idx + 2..];
@@ -413,8 +418,8 @@ impl OsuStatsListParams {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "mode" => mode = parse_mode_option!(value, "osustats players"),
-                    "country" => {
+                    MODE => mode = parse_mode_option!(value, "osustats players"),
+                    COUNTRY => {
                         if value.len() == 2 && value.is_ascii() {
                             country = Some(value.into())
                         } else if let Some(code) = CountryCode::from_name(value.as_str()) {
@@ -429,7 +434,7 @@ impl OsuStatsListParams {
                             return Ok(Err(content));
                         }
                     }
-                    _ => bail_cmd_option!("osustats players", string, name),
+                    _ => bail_cmd_option!(OSUSTATS_PLAYERS, string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {
                     "min_rank" => {
@@ -440,13 +445,13 @@ impl OsuStatsListParams {
                         rank_max =
                             Some((value.max(Self::MIN_RANK as i64) as usize).min(Self::MAX_RANK))
                     }
-                    _ => bail_cmd_option!("osustats players", integer, name),
+                    _ => bail_cmd_option!(OSUSTATS_PLAYERS, integer, name),
                 },
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("osustats players", boolean, name)
+                    bail_cmd_option!(OSUSTATS_PLAYERS, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("osustats players", subcommand, name)
+                    bail_cmd_option!(OSUSTATS_PLAYERS, subcommand, name)
                 }
             }
         }

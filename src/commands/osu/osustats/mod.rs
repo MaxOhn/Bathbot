@@ -9,18 +9,21 @@ pub use list::*;
 use super::{get_globals_count, request_user, require_link};
 
 use crate::{
-    commands::SlashCommandBuilder,
+    commands::{
+        osu::{option_country, option_discord, option_mode, option_mods_explicit, option_name},
+        MyCommand, MyCommandOption,
+    },
     custom_client::OsuStatsListParams,
-    util::{ApplicationCommandExt, MessageExt},
+    util::{
+        constants::common_literals::{ACC, ACCURACY, COMBO, MISSES, RANK, REVERSE, SCORE, SORT},
+        ApplicationCommandExt, InteractionExt, MessageExt,
+    },
     BotResult, Context, Error,
 };
 
 use std::{borrow::Cow, sync::Arc};
 use twilight_model::application::{
-    command::{
-        BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption,
-        CommandOptionChoice, OptionsCommandOptionData,
-    },
+    command::CommandOptionChoice,
     interaction::{application_command::CommandDataOption, ApplicationCommand},
 };
 
@@ -29,6 +32,8 @@ enum OsustatsCommandKind {
     Players(OsuStatsListParams),
     Scores(ScoresArgs),
 }
+
+const OSUSTATS: &str = "osustats";
 
 impl OsustatsCommandKind {
     async fn slash(
@@ -41,13 +46,13 @@ impl OsustatsCommandKind {
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, .. } => {
-                    bail_cmd_option!("osustats", string, name)
+                    bail_cmd_option!(OSUSTATS, string, name)
                 }
                 CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("osustats", integer, name)
+                    bail_cmd_option!(OSUSTATS, integer, name)
                 }
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("osustats", boolean, name)
+                    bail_cmd_option!(OSUSTATS, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, options } => match name.as_str() {
                     "count" => match CountArgs::slash(ctx, options, author_id).await? {
@@ -62,7 +67,7 @@ impl OsustatsCommandKind {
                         Ok(args) => kind = Some(Self::Scores(args)),
                         Err(content) => return Ok(Err(content)),
                     },
-                    _ => bail_cmd_option!("osustats", subcommand, name),
+                    _ => bail_cmd_option!(OSUSTATS, subcommand, name),
                 },
             }
         }
@@ -80,170 +85,110 @@ pub async fn slash_osustats(ctx: Arc<Context>, mut command: ApplicationCommand) 
     }
 }
 
-fn _slash_osustats_scores() -> Vec<CommandOption> {
-    vec![
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: super::mode_choices(),
-            description: "Specify a gamemode".to_owned(),
-            name: "mode".to_owned(),
-            required: false,
-        }),
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify a username".to_owned(),
-            name: "name".to_owned(),
-            required: false,
-        }),
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![
-                CommandOptionChoice::String {
-                    name: "accuracy".to_owned(),
-                    value: "acc".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "combo".to_owned(),
-                    value: "combo".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "misses".to_owned(),
-                    value: "misses".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "pp".to_owned(),
-                    value: "pp".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "rank".to_owned(),
-                    value: "rank".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "score".to_owned(),
-                    value: "score".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "score date".to_owned(),
-                    value: "date".to_owned(),
-                },
-            ],
-            description: "Choose how the scores should be ordered".to_owned(),
-            name: "sort".to_owned(),
-            required: false,
-        }),
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![],
-            description:
-                "Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)"
-                    .to_owned(),
-            name: "mods".to_owned(),
-            required: false,
-        }),
-        CommandOption::Integer(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify a min rank between 1 and 100".to_owned(),
-            name: "min_rank".to_owned(),
-            required: false,
-        }),
-        CommandOption::Integer(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify a max rank between 1 and 100".to_owned(),
-            name: "max_rank".to_owned(),
-            required: false,
-        }),
-        // TODO: Number
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify a min accuracy".to_owned(),
-            name: "min_acc".to_owned(),
-            required: false,
-        }),
-        // TODO: Number
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify a max accuracy".to_owned(),
-            name: "max_acc".to_owned(),
-            required: false,
-        }),
-        CommandOption::Boolean(BaseCommandOptionData {
-            description: "Reverse the resulting score list".to_owned(),
-            name: "reverse".to_owned(),
-            required: false,
-        }),
-        CommandOption::User(BaseCommandOptionData {
-            description: "Specify a linked discord user".to_owned(),
-            name: "discord".to_owned(),
-            required: false,
-        }),
-    ]
+fn option_min_rank() -> MyCommandOption {
+    MyCommandOption::builder("min_rank", "Specify a min rank between 1 and 100")
+        .integer(Vec::new(), false)
 }
 
-pub fn slash_osustats_command() -> Command {
-    let description = "Stats about players' appearances in maps' leaderboards";
+fn option_max_rank() -> MyCommandOption {
+    MyCommandOption::builder("max_rank", "Specify a max rank between 1 and 100")
+        .integer(Vec::new(), false)
+}
 
-    let options = vec![
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Count how often a user appears on top of maps' leaderboards".to_owned(),
-            name: "count".to_owned(),
-            options: vec![
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: super::mode_choices(),
-                    description: "Specify a gamemode".to_owned(),
-                    name: "mode".to_owned(),
-                    required: false,
-                }),
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Specify a username".to_owned(),
-                    name: "name".to_owned(),
-                    required: false,
-                }),
-                CommandOption::User(BaseCommandOptionData {
-                    description: "Specify a linked discord user".to_owned(),
-                    name: "discord".to_owned(),
-                    required: false,
-                }),
-            ],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "National player leaderboard of global leaderboard counts".to_owned(),
-            name: "players".to_owned(),
-            options: vec![
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: super::mode_choices(),
-                    description: "Specify a gamemode".to_owned(),
-                    name: "mode".to_owned(),
-                    required: false,
-                }),
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Specify a country (code)".to_owned(),
-                    name: "country".to_owned(),
-                    required: false,
-                }),
-                CommandOption::Integer(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Specify a min rank between 1 and 100".to_owned(),
-                    name: "min_rank".to_owned(),
-                    required: false,
-                }),
-                CommandOption::Integer(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Specify a max rank between 1 and 100".to_owned(),
-                    name: "max_rank".to_owned(),
-                    required: false,
-                }),
-            ],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "All scores of a player that are on a map's global leaderboard".to_owned(),
-            name: "scores".to_owned(),
-            options: _slash_osustats_scores(),
-            required: false,
-        }),
+pub fn define_osustats() -> MyCommand {
+    let mode = option_mode();
+    let name = option_name();
+    let discord = option_discord();
+
+    let count_description = "Count how often a user appears on top of maps' leaderboards";
+
+    let count =
+        MyCommandOption::builder("count", count_description).subcommand(vec![mode, name, discord]);
+
+    let mode = option_mode();
+    let country = option_country();
+    let min_rank = option_min_rank();
+    let max_rank = option_max_rank();
+
+    let players_description = "National player leaderboard of global leaderboard counts";
+
+    let players = MyCommandOption::builder("players", players_description)
+        .help("List players of a country and how often they appear on global map leaderboards.")
+        .subcommand(vec![mode, country, min_rank, max_rank]);
+
+    let mode = option_mode();
+    let name = option_name();
+
+    let sort_choices = vec![
+        CommandOptionChoice::String {
+            name: ACCURACY.to_owned(),
+            value: ACC.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: COMBO.to_owned(),
+            value: COMBO.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: MISSES.to_owned(),
+            value: MISSES.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "pp".to_owned(),
+            value: "pp".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: RANK.to_owned(),
+            value: RANK.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: SCORE.to_owned(),
+            value: SCORE.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "score date".to_owned(),
+            value: "date".to_owned(),
+        },
     ];
 
-    SlashCommandBuilder::new("osustats", description)
-        .options(options)
-        .build()
+    let sort_help = "Choose how the scores should be ordered.\n\
+        If not specified, it orders them by score date.";
+
+    let sort = MyCommandOption::builder(SORT, "Choose how the scores should be ordered")
+        .help(sort_help)
+        .string(sort_choices, false);
+
+    let mods = option_mods_explicit();
+    let min_rank = option_min_rank();
+    let max_rank = option_max_rank();
+
+    // TODO: Number variant
+    let min_acc =
+        MyCommandOption::builder("min_acc", "Specify a min accuracy between 0.0 and 100.0")
+            .string(Vec::new(), false);
+
+    // TODO: Number variant
+    let max_acc =
+        MyCommandOption::builder("max_acc", "Specify a max accuracy between 0.0 and 100.0")
+            .string(Vec::new(), false);
+
+    let reverse =
+        MyCommandOption::builder(REVERSE, "Reverse the resulting score list").boolean(false);
+
+    let discord = option_discord();
+
+    let scores_description = "All scores of a player that are on a map's global leaderboard";
+
+    let scores = MyCommandOption::builder("scores", scores_description).subcommand(vec![
+        mode, name, sort, mods, min_rank, max_rank, min_acc, max_acc, reverse, discord,
+    ]);
+
+    let description = "Stats about players' appearances in maps' leaderboards";
+
+    let help = "Stats about scores that players have on maps' global leaderboards.\n\
+        All data is provided by [osustats](https://osustats.ppy.sh/).\n\
+        Note that the data usually __updates once per day__.";
+
+    MyCommand::new(OSUSTATS, description)
+        .help(help)
+        .options(vec![count, players, scores])
 }

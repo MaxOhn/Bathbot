@@ -1,7 +1,14 @@
 use groups::*;
 
 use super::deserialize::{str_to_f32, str_to_u32};
-use crate::{embeds::RankingKindData, util::CountryCode, Name};
+use crate::{
+    embeds::RankingKindData,
+    util::{
+        constants::common_literals::{COUNTRY, CTB, MANIA, OSU, RANK, TAIKO},
+        CountryCode,
+    },
+    Name,
+};
 
 use rosu_v2::model::{GameMode, GameMods};
 use serde::{
@@ -281,10 +288,10 @@ impl<'de> Visitor<'de> for OsekaiModeVisitor {
     fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
         let mode = match v {
             "NULL" => return Ok(None),
-            "0" | "osu" | "osu!" => GameMode::STD,
-            "1" | "taiko" | "tko" => GameMode::TKO,
-            "2" | "catch" | "ctb" | "fruits" => GameMode::CTB,
-            "3" | "mania" | "mna" => GameMode::MNA,
+            "0" | OSU | "osu!" => GameMode::STD,
+            "1" | TAIKO | "tko" => GameMode::TKO,
+            "2" | "catch" | CTB | "fruits" => GameMode::CTB,
+            "3" | MANIA | "mna" => GameMode::MNA,
             _ => {
                 return Err(Error::invalid_value(
                     Unexpected::Str(v),
@@ -446,22 +453,22 @@ impl<'de, T: Deserialize<'de> + FromStr> Visitor<'de> for OsekaiRankingEntryVisi
 
         while let Some(key) = map.next_key()? {
             match key {
-                "rank" => rank = Some(map.next_value()?),
+                RANK => rank = Some(map.next_value()?),
                 "countrycode" => country_code = Some(map.next_value()?),
-                "country" => country = Some(map.next_value()?),
+                COUNTRY => country = Some(map.next_value()?),
                 "username" => username = Some(map.next_value()?),
                 "userid" => user_id = Some(map.next_value()?),
                 _ => value = Some(map.next_value()?),
             }
         }
 
-        let rank: &str = rank.ok_or_else(|| Error::missing_field("rank"))?;
+        let rank: &str = rank.ok_or_else(|| Error::missing_field(RANK))?;
         let rank = rank.parse().map_err(|_| {
             Error::invalid_value(Unexpected::Str(rank), &"a string containing a u32")
         })?;
 
         let country_code = country_code.ok_or_else(|| Error::missing_field("countrycode"))?;
-        let country = country.ok_or_else(|| Error::missing_field("country"))?;
+        let country = country.ok_or_else(|| Error::missing_field(COUNTRY))?;
         let username = username.ok_or_else(|| Error::missing_field("username"))?;
 
         let user_id: &str = user_id.ok_or_else(|| Error::missing_field("userid"))?;

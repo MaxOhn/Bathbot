@@ -1,12 +1,4 @@
-use crate::{
-    database::UserConfig,
-    embeds::{EmbedData, RankRankedScoreEmbed},
-    util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        MessageExt,
-    },
-    Args, BotResult, CommandData, Context, Error,
-};
+use crate::{Args, BotResult, CommandData, Context, Error, database::UserConfig, embeds::{EmbedData, RankRankedScoreEmbed}, util::{MessageExt, constants::{GENERAL_ISSUE, OSU_API_ISSUE, common_literals::{DISCORD, MODE, NAME, RANK}}}};
 
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::sync::Arc;
@@ -200,6 +192,8 @@ pub(super) struct RankScoreArgs {
     pub rank: usize,
 }
 
+const RANK_REACH_SCORE: &str = "reach rank score";
+
 impl RankScoreArgs {
     async fn args(
         ctx: &Context,
@@ -238,20 +232,20 @@ impl RankScoreArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "mode" => config.mode = parse_mode_option!(value, "reach rank score"),
-                    "name" => config.osu_username = Some(value.into()),
-                    "discord" => config.osu_username = parse_discord_option!(ctx, value, "rank pp"),
-                    _ => bail_cmd_option!("reach rank score", string, name),
+                    MODE => config.mode = parse_mode_option!(value, "reach rank score"),
+                    NAME => config.osu_username = Some(value.into()),
+                    DISCORD => config.osu_username = parse_discord_option!(ctx, value, "rank pp"),
+                    _ => bail_cmd_option!(RANK_REACH_SCORE, string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {
-                    "rank" => rank = Some(value.max(0) as usize),
-                    _ => bail_cmd_option!("reach rank score", integer, name),
+                    RANK => rank = Some(value.max(0) as usize),
+                    _ => bail_cmd_option!(RANK_REACH_SCORE, integer, name),
                 },
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("reach rank score", boolean, name)
+                    bail_cmd_option!(RANK_REACH_SCORE, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("reach rank score", subcommand, name)
+                    bail_cmd_option!(RANK_REACH_SCORE, subcommand, name)
                 }
             }
         }

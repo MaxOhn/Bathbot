@@ -1,8 +1,14 @@
 use crate::{
-    commands::SlashCommandBuilder,
+    commands::{MyCommand, MyCommandOption},
     embeds::{EmbedData, MapSearchEmbed},
     pagination::{MapSearchPagination, Pagination},
-    util::{constants::OSU_API_ISSUE, ApplicationCommandExt, MessageExt},
+    util::{
+        constants::{
+            common_literals::{CTB, MANIA, MODE, OSU, REVERSE, SORT, TAIKO},
+            OSU_API_ISSUE,
+        },
+        ApplicationCommandExt, MessageExt,
+    },
     Args, BotResult, CommandData, Context,
 };
 
@@ -12,11 +18,11 @@ use rosu_v2::prelude::{
 };
 use std::{collections::BTreeMap, sync::Arc};
 use twilight_model::application::{
-    command::{
-        BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption, CommandOptionChoice,
-    },
+    command::CommandOptionChoice,
     interaction::{application_command::CommandDataOption, ApplicationCommand},
 };
+
+use super::option_mode;
 
 #[command]
 #[short_desc("Search for mapsets")]
@@ -142,10 +148,10 @@ impl MapSearchArgs {
                 }
 
                 let mode = match &query[start + "mode=".len()..end] {
-                    "0" | "osu" | "std" | "standard" => GameMode::STD,
-                    "1" | "tko" | "taiko" => GameMode::TKO,
-                    "2" | "ctb" | "fruits" | "catch" => GameMode::CTB,
-                    "3" | "mna" | "mania" => GameMode::MNA,
+                    "0" | OSU | "std" | "standard" => GameMode::STD,
+                    "1" | "tko" | TAIKO => GameMode::TKO,
+                    "2" | CTB | "fruits" | "catch" => GameMode::CTB,
+                    "3" | "mna" | MANIA => GameMode::MNA,
                     _ => {
                         let msg = "Failed to parse `mode`. After `mode=` you must \
                         specify the mode either by its name or by its number i.e. \
@@ -464,6 +470,8 @@ impl MapSearchArgs {
     }
 }
 
+const SEARCH: &str = "search";
+
 pub async fn slash_mapsearch(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
     let mut query = None;
     let mut mode = None;
@@ -480,7 +488,7 @@ pub async fn slash_mapsearch(ctx: Arc<Context>, mut command: ApplicationCommand)
         match option {
             CommandDataOption::String { name, value } => match name.as_str() {
                 "query" => query = Some(value),
-                "mode" => mode = parse_mode_option!(value, "search"),
+                MODE => mode = parse_mode_option!(value, "search"),
                 "status" => match value.as_str() {
                     "any" => status = Some(SearchRankStatus(None)),
                     "leaderboard" => status = None,
@@ -526,7 +534,7 @@ pub async fn slash_mapsearch(ctx: Arc<Context>, mut command: ApplicationCommand)
                     "unspecified" => language = Some(Language::Unspecified),
                     _ => bail_cmd_option!("search language", string, value),
                 },
-                "sort" => match value.as_str() {
+                SORT => match value.as_str() {
                     "artist" => sort = Some(BeatmapsetSearchSort::Artist),
                     "favourites" => sort = Some(BeatmapsetSearchSort::Favourites),
                     "playcount" => sort = Some(BeatmapsetSearchSort::Playcount),
@@ -537,18 +545,18 @@ pub async fn slash_mapsearch(ctx: Arc<Context>, mut command: ApplicationCommand)
                     "title" => sort = Some(BeatmapsetSearchSort::Title),
                     _ => bail_cmd_option!("search sort", string, value),
                 },
-                _ => bail_cmd_option!("search", string, name),
+                _ => bail_cmd_option!(SEARCH, string, name),
             },
-            CommandDataOption::Integer { name, .. } => bail_cmd_option!("search", integer, name),
+            CommandDataOption::Integer { name, .. } => bail_cmd_option!(SEARCH, integer, name),
             CommandDataOption::Boolean { name, value } => match name.as_str() {
                 "video" => video = Some(value),
                 "storyboard" => storyboard = Some(value),
                 "nsfw" => nsfw = Some(value),
-                "reverse" => descending = Some(!value),
-                _ => bail_cmd_option!("search", boolean, name),
+                REVERSE => descending = Some(!value),
+                _ => bail_cmd_option!(SEARCH, boolean, name),
             },
             CommandDataOption::SubCommand { name, .. } => {
-                bail_cmd_option!("search", subcommand, name)
+                bail_cmd_option!(SEARCH, subcommand, name)
             }
         }
     }
@@ -569,248 +577,227 @@ pub async fn slash_mapsearch(ctx: Arc<Context>, mut command: ApplicationCommand)
     _search(ctx, command.into(), args).await
 }
 
-// TODO: Add user search
-pub fn slash_mapsearch_command() -> Command {
-    let options = vec![
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify a search query".to_owned(),
-            name: "query".to_owned(),
-            required: false,
-        }),
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: super::mode_choices(),
-            description: "Specify a mode".to_owned(),
-            name: "mode".to_owned(),
-            required: false,
-        }),
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![
-                CommandOptionChoice::String {
-                    name: "any".to_owned(),
-                    value: "any".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "leaderboard".to_owned(),
-                    value: "leaderboard".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "ranked".to_owned(),
-                    value: "ranked".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "loved".to_owned(),
-                    value: "loved".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "qualified".to_owned(),
-                    value: "qualified".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "pending".to_owned(),
-                    value: "pending".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "graveyard".to_owned(),
-                    value: "graveyard".to_owned(),
-                },
-            ],
-            description: "Specify a ranking status".to_owned(),
-            name: "status".to_owned(),
-            required: false,
-        }),
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![
-                CommandOptionChoice::String {
-                    name: "any".to_owned(),
-                    value: "any".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "anime".to_owned(),
-                    value: "anime".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "classical".to_owned(),
-                    value: "classical".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "electronic".to_owned(),
-                    value: "electronic".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "folk".to_owned(),
-                    value: "folk".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "hiphop".to_owned(),
-                    value: "hiphop".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "jazz".to_owned(),
-                    value: "jazz".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "metal".to_owned(),
-                    value: "metal".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "novelty".to_owned(),
-                    value: "novelty".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "other".to_owned(),
-                    value: "other".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "pop".to_owned(),
-                    value: "pop".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "rock".to_owned(),
-                    value: "rock".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "unspecified".to_owned(),
-                    value: "unspecified".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "videogame".to_owned(),
-                    value: "videogame".to_owned(),
-                },
-            ],
-            description: "Specify a genre".to_owned(),
-            name: "genre".to_owned(),
-            required: false,
-        }),
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![
-                CommandOptionChoice::String {
-                    name: "any".to_owned(),
-                    value: "any".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "chinese".to_owned(),
-                    value: "chinese".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "english".to_owned(),
-                    value: "english".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "french".to_owned(),
-                    value: "french".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "german".to_owned(),
-                    value: "german".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "instrumental".to_owned(),
-                    value: "instrumental".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "italian".to_owned(),
-                    value: "italian".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "japanese".to_owned(),
-                    value: "japanese".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "korean".to_owned(),
-                    value: "korean".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "other".to_owned(),
-                    value: "other".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "polish".to_owned(),
-                    value: "polish".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "russian".to_owned(),
-                    value: "russian".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "spanish".to_owned(),
-                    value: "spanish".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "swedish".to_owned(),
-                    value: "swedish".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "unspecified".to_owned(),
-                    value: "unspecified".to_owned(),
-                },
-            ],
-            description: "Specify a language".to_owned(),
-            name: "language".to_owned(),
-            required: false,
-        }),
-        CommandOption::Boolean(BaseCommandOptionData {
-            description: "Specify if the mapset should have a video".to_owned(),
-            name: "video".to_owned(),
-            required: false,
-        }),
-        CommandOption::Boolean(BaseCommandOptionData {
-            description: "Specify if the mapset should have a video".to_owned(),
-            name: "storyboard".to_owned(),
-            required: false,
-        }),
-        CommandOption::Boolean(BaseCommandOptionData {
-            description: "Specify whether the mapset can be NSFW".to_owned(),
-            name: "nsfw".to_owned(),
-            required: false,
-        }),
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![
-                CommandOptionChoice::String {
-                    name: "artist".to_owned(),
-                    value: "artist".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "favourites".to_owned(),
-                    value: "favourites".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "playcount".to_owned(),
-                    value: "playcount".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "rankeddata".to_owned(),
-                    value: "rankeddata".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "rating".to_owned(),
-                    value: "rating".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "relevance".to_owned(),
-                    value: "relevance".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "stars".to_owned(),
-                    value: "stars".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "title".to_owned(),
-                    value: "title".to_owned(),
-                },
-            ],
-            description: "Specify the order of mapsets".to_owned(),
-            name: "sort".to_owned(),
-            required: false,
-        }),
-        CommandOption::Boolean(BaseCommandOptionData {
-            description: "Specify whether the resulting list should be reversed".to_owned(),
-            name: "reverse".to_owned(),
-            required: false,
-        }),
+pub fn define_mapsearch() -> MyCommand {
+    let query =
+        MyCommandOption::builder("query", "Specify a search query").string(Vec::new(), false);
+    let mode = option_mode();
+
+    let status_choices = vec![
+        CommandOptionChoice::String {
+            name: "any".to_owned(),
+            value: "any".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "leaderboard".to_owned(),
+            value: "leaderboard".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "ranked".to_owned(),
+            value: "ranked".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "loved".to_owned(),
+            value: "loved".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "qualified".to_owned(),
+            value: "qualified".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "pending".to_owned(),
+            value: "pending".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "graveyard".to_owned(),
+            value: "graveyard".to_owned(),
+        },
     ];
 
-    SlashCommandBuilder::new("search", "Search for mapsets")
-        .options(options)
-        .build()
+    let status = MyCommandOption::builder("status", "Specify a ranking status")
+        .string(status_choices, false);
+
+    let genre_choices = vec![
+        CommandOptionChoice::String {
+            name: "any".to_owned(),
+            value: "any".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "anime".to_owned(),
+            value: "anime".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "classical".to_owned(),
+            value: "classical".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "electronic".to_owned(),
+            value: "electronic".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "folk".to_owned(),
+            value: "folk".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "hiphop".to_owned(),
+            value: "hiphop".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "jazz".to_owned(),
+            value: "jazz".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "metal".to_owned(),
+            value: "metal".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "novelty".to_owned(),
+            value: "novelty".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "other".to_owned(),
+            value: "other".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "pop".to_owned(),
+            value: "pop".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "rock".to_owned(),
+            value: "rock".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "unspecified".to_owned(),
+            value: "unspecified".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "videogame".to_owned(),
+            value: "videogame".to_owned(),
+        },
+    ];
+
+    let genre = MyCommandOption::builder("genre", "Specify a genre").string(genre_choices, false);
+
+    let language_choices = vec![
+        CommandOptionChoice::String {
+            name: "any".to_owned(),
+            value: "any".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "chinese".to_owned(),
+            value: "chinese".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "english".to_owned(),
+            value: "english".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "french".to_owned(),
+            value: "french".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "german".to_owned(),
+            value: "german".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "instrumental".to_owned(),
+            value: "instrumental".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "italian".to_owned(),
+            value: "italian".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "japanese".to_owned(),
+            value: "japanese".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "korean".to_owned(),
+            value: "korean".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "other".to_owned(),
+            value: "other".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "polish".to_owned(),
+            value: "polish".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "russian".to_owned(),
+            value: "russian".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "spanish".to_owned(),
+            value: "spanish".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "swedish".to_owned(),
+            value: "swedish".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "unspecified".to_owned(),
+            value: "unspecified".to_owned(),
+        },
+    ];
+
+    let language =
+        MyCommandOption::builder("language", "Specify a language").string(language_choices, false);
+
+    let video = MyCommandOption::builder("video", "Specify if the mapset should have a video")
+        .boolean(false);
+
+    let storyboard = MyCommandOption::builder(
+        "storyboard",
+        "Specify if the mapset should have a storyboard",
+    )
+    .boolean(false);
+
+    let nsfw =
+        MyCommandOption::builder("nsfw", "Specify whether the mapset can be NSFW").boolean(false);
+
+    let sort_choices = vec![
+        CommandOptionChoice::String {
+            name: "artist".to_owned(),
+            value: "artist".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "favourites".to_owned(),
+            value: "favourites".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "playcount".to_owned(),
+            value: "playcount".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "rankeddata".to_owned(),
+            value: "rankeddata".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "rating".to_owned(),
+            value: "rating".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "relevance".to_owned(),
+            value: "relevance".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "stars".to_owned(),
+            value: "stars".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "title".to_owned(),
+            value: "title".to_owned(),
+        },
+    ];
+
+    let sort =
+        MyCommandOption::builder(SORT, "Specify the order of mapsets").string(sort_choices, false);
+
+    let reverse_description = "Specify whether the resulting list should be reversed";
+
+    let reverse = MyCommandOption::builder(REVERSE, reverse_description).boolean(false);
+
+    MyCommand::new(SEARCH, "Search for mapsets").options(vec![
+        query, mode, status, sort, genre, language, video, storyboard, nsfw, reverse,
+    ])
 }

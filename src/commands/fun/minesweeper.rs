@@ -1,5 +1,5 @@
 use crate::{
-    commands::SlashCommandBuilder,
+    commands::{MyCommand, MyCommandOption},
     util::{ApplicationCommandExt, CowUtils, Matrix, MessageExt},
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
@@ -10,7 +10,7 @@ use std::{
     sync::Arc,
 };
 use twilight_model::application::{
-    command::{ChoiceCommandOptionData, Command, CommandOption, CommandOptionChoice},
+    command::CommandOptionChoice,
     interaction::{application_command::CommandDataOption, ApplicationCommand},
 };
 
@@ -198,28 +198,29 @@ pub async fn slash_minesweeper(ctx: Arc<Context>, command: ApplicationCommand) -
     minesweeper(ctx, command.into()).await
 }
 
-pub fn slash_minesweeper_command() -> Command {
-    let options = vec![CommandOption::String(ChoiceCommandOptionData {
-        choices: vec![
-            CommandOptionChoice::String {
-                name: "Easy".to_owned(),
-                value: "Easy".to_owned(),
-            },
-            CommandOptionChoice::String {
-                name: "Medium".to_owned(),
-                value: "Medium".to_owned(),
-            },
-            CommandOptionChoice::String {
-                name: "Hard".to_owned(),
-                value: "Hard".to_owned(),
-            },
-        ],
-        description: "Choose a difficulty".to_owned(),
-        name: "difficulty".to_owned(),
-        required: true,
-    })];
+pub fn define_minesweeper() -> MyCommand {
+    let choices = vec![
+        CommandOptionChoice::String {
+            name: "Easy".to_owned(),
+            value: "Easy".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Medium".to_owned(),
+            value: "Medium".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Hard".to_owned(),
+            value: "Hard".to_owned(),
+        },
+    ];
 
-    SlashCommandBuilder::new("minesweeper", "Play a game of minesweeper")
-        .options(options)
-        .build()
+    let difficulty =
+        MyCommandOption::builder("difficulty", "Choose a difficulty").string(choices, true);
+
+    let help = "Play a game of minesweeper.\n\
+        In case you don't know how it works: Each number indicates the amount of neighboring bombs.";
+
+    MyCommand::new("minesweeper", "Play a game of minesweeper")
+        .help(help)
+        .options(vec![difficulty])
 }

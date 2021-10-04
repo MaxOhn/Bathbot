@@ -4,8 +4,11 @@ use crate::{
     core::buckets::BucketName,
     embeds::EmbedBuilder,
     util::{
-        constants::{OWNER_USER_ID, RED},
-        ApplicationCommandExt, Authored,
+        constants::{
+            common_literals::{HELP, MAP},
+            OWNER_USER_ID, RED,
+        },
+        Authored, InteractionExt,
     },
     BotResult, Context, Error,
 };
@@ -14,7 +17,7 @@ use std::{future::Future, mem, sync::Arc};
 use twilight_model::{
     application::{
         callback::{CallbackData, InteractionResponse},
-        interaction::ApplicationCommand,
+        interaction::{ApplicationCommand, MessageComponentInteraction},
     },
     channel::message::MessageFlags,
     guild::Permissions,
@@ -42,18 +45,28 @@ impl Default for CommandArgs {
     }
 }
 
-pub async fn handle_interaction(
+pub async fn handle_component(
     ctx: Arc<Context>,
-    mut command: ApplicationCommand,
+    component: Box<MessageComponentInteraction>,
 ) -> BotResult<()> {
+    let name = component.data.custom_id.as_str();
+    log_interaction(&ctx, &*component, name);
+    ctx.stats.increment_component(name);
+
+    match name {
+        "help_menu" | "help_back" => help::handle_menu_select(&ctx, *component).await,
+        _ => Err(Error::UnknownMessageComponent { component }),
+    }
+}
+
+pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
     let name = mem::take(&mut command.data.name);
-    log_slash(&ctx, &command, &name);
+    log_interaction(&ctx, &command, &name);
     ctx.stats.increment_slash_command(&name);
 
     let mut args = CommandArgs::default();
 
     let command_result = match name.as_str() {
-        "about" => process_command(ctx, command, args, utility::slash_about).await,
         "authorities" => {
             args.authority = true;
             args.only_guilds = true;
@@ -70,16 +83,11 @@ pub async fn handle_interaction(
             process_command(ctx, command, args, utility::slash_config).await
         }
         "fix" => process_command(ctx, command, args, osu::slash_fix).await,
-        "help" => {
+        HELP => {
             // Necessary to be able to use data.create_message later on
             start_thinking(&ctx, &command).await?;
 
-            let is_authority = super::check_authority(&ctx, &command)
-                .await
-                .transpose()
-                .is_none();
-
-            help::slash_help(ctx, command, is_authority)
+            help::slash_help(ctx, command)
                 .await
                 .map(|_| ProcessResult::Success)
         }
@@ -90,7 +98,7 @@ pub async fn handle_interaction(
 
             process_command(ctx, command, args, osu::slash_link).await
         }
-        "map" => process_command(ctx, command, args, osu::slash_map).await,
+        MAP => process_command(ctx, command, args, osu::slash_map).await,
         "matchcost" => process_command(ctx, command, args, osu::slash_matchcost).await,
         "matchlive" => {
             args.authority = true;
@@ -162,7 +170,7 @@ pub async fn handle_interaction(
             return Err(Error::UnknownSlashCommand {
                 name,
                 command: Box::new(command),
-            })
+            });
         }
     };
 
@@ -281,7 +289,7 @@ async fn pre_process_command(
         return Ok(Some(ProcessResult::NoDM));
     }
 
-    let author_id = command.author().ok_or(Error::MissingSlashAuthor)?.id;
+    let author_id = command.author().ok_or(Error::MissingInteractionAuthor)?.id;
 
     // Only for owner?
     if args.only_owner && author_id.0 != OWNER_USER_ID {
@@ -355,16 +363,16 @@ async fn pre_process_command(
     Ok(None)
 }
 
-fn log_slash(ctx: &Context, command: &ApplicationCommand, cmd_name: &str) {
-    let username = command.username().unwrap_or("<unknown user>");
+fn log_interaction(ctx: &Context, interaction: &dyn InteractionExt, name: &str) {
+    let username = interaction.username().unwrap_or("<unknown user>");
     let mut location = String::with_capacity(31);
 
-    match command.guild_id.and_then(|id| ctx.cache.guild(id)) {
+    match interaction.guild_id().and_then(|id| ctx.cache.guild(id)) {
         Some(guild) => {
             location.push_str(guild.name.as_str());
             location.push(':');
 
-            match ctx.cache.guild_channel(command.channel_id) {
+            match ctx.cache.guild_channel(interaction.channel_id()) {
                 Some(channel) => location.push_str(channel.name()),
                 None => location.push_str("<uncached channel>"),
             }
@@ -372,5 +380,5 @@ fn log_slash(ctx: &Context, command: &ApplicationCommand, cmd_name: &str) {
         None => location.push_str("Private"),
     }
 
-    info!("[{}] {}: /{}", location, username, cmd_name);
+    info!("[{}] {} used `{}` interaction", location, username, name);
 }

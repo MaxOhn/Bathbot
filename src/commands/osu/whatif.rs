@@ -1,12 +1,15 @@
 use crate::{
-    commands::SlashCommandBuilder,
+    commands::{MyCommand, MyCommandOption},
     custom_client::RankParam,
     database::UserConfig,
     embeds::{EmbedData, WhatIfEmbed},
     tracking::process_tracking,
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        ApplicationCommandExt, MessageExt,
+        constants::{
+            common_literals::{DISCORD, MODE, NAME},
+            GENERAL_ISSUE, OSU_API_ISSUE,
+        },
+        ApplicationCommandExt, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, Error,
 };
@@ -14,12 +17,11 @@ use crate::{
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{borrow::Cow, sync::Arc};
 use twilight_model::{
-    application::{
-        command::{BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption},
-        interaction::{application_command::CommandDataOption, ApplicationCommand},
-    },
+    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
     id::UserId,
 };
+
+use super::{option_discord, option_mode, option_name};
 
 async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> BotResult<()> {
     let WhatIfArgs { config, pp } = args;
@@ -297,6 +299,8 @@ struct WhatIfArgs {
     pp: f32,
 }
 
+const WHATIF: &str = "whatif";
+
 impl WhatIfArgs {
     async fn args(
         ctx: &Context,
@@ -334,9 +338,9 @@ impl WhatIfArgs {
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "mode" => config.mode = parse_mode_option!(value, "whatif"),
-                    "name" => config.osu_username = Some(value.into()),
-                    "discord" => config.osu_username = parse_discord_option!(ctx, value, "whatif"),
+                    MODE => config.mode = parse_mode_option!(value, "whatif"),
+                    NAME => config.osu_username = Some(value.into()),
+                    DISCORD => config.osu_username = parse_discord_option!(ctx, value, "whatif"),
                     "pp" => match value.parse() {
                         Ok(num) => pp = Some(num),
                         Err(_) => {
@@ -345,16 +349,16 @@ impl WhatIfArgs {
                             return Ok(Err(content.into()));
                         }
                     },
-                    _ => bail_cmd_option!("whatif", string, name),
+                    _ => bail_cmd_option!(WHATIF, string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("whatif", integer, name)
+                    bail_cmd_option!(WHATIF, integer, name)
                 }
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("whatif", boolean, name)
+                    bail_cmd_option!(WHATIF, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("whatif", subcommand, name)
+                    bail_cmd_option!(WHATIF, subcommand, name)
                 }
             }
         }
@@ -375,37 +379,14 @@ pub async fn slash_whatif(ctx: Arc<Context>, mut command: ApplicationCommand) ->
     }
 }
 
-pub fn slash_whatif_command() -> Command {
+pub fn define_whatif() -> MyCommand {
+    // TODO: Number variant
+    let pp = MyCommandOption::builder("pp", "Specify a pp amount").string(Vec::new(), true);
+    let mode = option_mode();
+    let name = option_name();
+    let discord = option_discord();
+
     let description = "Display the impact of a new X pp score for a user";
 
-    let options = vec![
-        // TODO: Number
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify a pp amount".to_owned(),
-            name: "pp".to_owned(),
-            required: true,
-        }),
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: super::mode_choices(),
-            description: "Specify the gamemode".to_owned(),
-            name: "mode".to_owned(),
-            required: false,
-        }),
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify a username".to_owned(),
-            name: "name".to_owned(),
-            required: false,
-        }),
-        CommandOption::User(BaseCommandOptionData {
-            description: "Specify a linked discord user".to_owned(),
-            name: "discord".to_owned(),
-            required: false,
-        }),
-    ];
-
-    SlashCommandBuilder::new("whatif", description)
-        .options(options)
-        .build()
+    MyCommand::new(WHATIF, description).options(vec![pp, mode, name, discord])
 }

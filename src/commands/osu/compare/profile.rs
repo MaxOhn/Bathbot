@@ -3,7 +3,7 @@ use crate::{
     embeds::{EmbedData, ProfileCompareEmbed},
     tracking::process_tracking,
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::{common_literals::MODE, GENERAL_ISSUE, OSU_API_ISSUE},
         matcher,
         osu::BonusPP,
         MessageExt,
@@ -325,6 +325,8 @@ pub(super) struct ProfileArgs {
     mode: GameMode,
 }
 
+const COMPARE_PROFILE: &str = "compare profile";
+
 impl ProfileArgs {
     async fn args(
         ctx: &Context,
@@ -395,7 +397,7 @@ impl ProfileArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "mode" => mode = parse_mode_option!(value, "compare profile"),
+                    MODE => mode = parse_mode_option!(value, "compare profile"),
                     "name1" => name1 = Some(value.into()),
                     "name2" => name2 = Some(value.into()),
                     "discord1" => match value.parse() {
@@ -420,16 +422,16 @@ impl ProfileArgs {
                         },
                         Err(_) => bail_cmd_option!("compare profile discord2", string, value),
                     },
-                    _ => bail_cmd_option!("compare profile", string, name),
+                    _ => bail_cmd_option!(COMPARE_PROFILE, string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("compare profile", integer, name)
+                    bail_cmd_option!(COMPARE_PROFILE, integer, name)
                 }
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("compare profile", boolean, name)
+                    bail_cmd_option!(COMPARE_PROFILE, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("compare profile", subcommand, name)
+                    bail_cmd_option!(COMPARE_PROFILE, subcommand, name)
                 }
             }
         }

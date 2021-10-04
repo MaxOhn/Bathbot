@@ -1,17 +1,5 @@
 use super::{ErrorType, GradeArg};
-use crate::{
-    database::UserConfig,
-    embeds::{EmbedData, TopEmbed, TopSingleEmbed},
-    pagination::{Pagination, TopPagination},
-    tracking::process_tracking,
-    util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        matcher, numbers,
-        osu::ModSelection,
-        CowUtils, MessageExt,
-    },
-    Args, BotResult, CommandData, Context, MessageBuilder,
-};
+use crate::{Args, BotResult, CommandData, Context, MessageBuilder, database::UserConfig, embeds::{EmbedData, TopEmbed, TopSingleEmbed}, pagination::{Pagination, TopPagination}, tracking::process_tracking, util::{CowUtils, MessageExt, constants::{GENERAL_ISSUE, OSU_API_ISSUE, common_literals::{ACC, ACCURACY, COMBO, CTB, DISCORD, GRADE, INDEX, MANIA, MODE, MODS, NAME, REVERSE, SORT, TAIKO}}, matcher, numbers, osu::ModSelection}};
 
 use futures::future::TryFutureExt;
 use rosu_v2::prelude::{
@@ -623,9 +611,9 @@ fn filter_scores(scores: Vec<Score>, args: &TopArgs) -> Vec<(usize, Score)> {
 fn mode_long(mode: GameMode) -> &'static str {
     match mode {
         GameMode::STD => "",
-        GameMode::MNA => "mania",
-        GameMode::TKO => "taiko",
-        GameMode::CTB => "ctb",
+        GameMode::MNA => MANIA,
+        GameMode::TKO => TAIKO,
+        GameMode::CTB => CTB,
     }
 }
 
@@ -757,6 +745,8 @@ pub struct TopArgs {
     has_dash_p_or_i: bool,
 }
 
+const TOP_CURRENT: &str = "top current";
+
 impl TopArgs {
     const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
         If you want included mods, specify it e.g. as `+hrdt`.\n\
@@ -803,7 +793,7 @@ impl TopArgs {
                 let value = arg[idx + 1..].trim_end();
 
                 match key {
-                    "acc" | "accuracy" | "a" => match value.find("..") {
+                    ACC | ACCURACY | "a" => match value.find("..") {
                         Some(idx) => {
                             let bot = &value[..idx];
                             let top = &value[idx + 2..];
@@ -836,7 +826,7 @@ impl TopArgs {
                             Err(_) => return Ok(Err(Self::ERR_PARSE_ACC.into())),
                         },
                     },
-                    "combo" | "c" => match value.find("..") {
+                    COMBO | "c" => match value.find("..") {
                         Some(idx) => {
                             let bot = &value[..idx];
                             let top = &value[idx + 2..];
@@ -865,7 +855,7 @@ impl TopArgs {
                             Err(_) => return Ok(Err(Self::ERR_PARSE_COMBO.into())),
                         },
                     },
-                    "grade" | "g" => match value.find("..") {
+                    GRADE | "g" => match value.find("..") {
                         Some(idx) => {
                             let bot = &value[..idx];
                             let top = &value[idx + 2..];
@@ -897,24 +887,24 @@ impl TopArgs {
                             None => return Ok(Err(Self::ERR_PARSE_GRADE.into())),
                         },
                     },
-                    "sort" | "s" | "order" | "ordering" => match value {
-                        "acc" | "a" | "accuracy" => sort_by = Some(TopOrder::Acc),
-                        "combo" | "c" => sort_by = Some(TopOrder::Combo),
+                    SORT | "s" | "order" | "ordering" => match value {
+                        ACC | "a" | ACCURACY => sort_by = Some(TopOrder::Acc),
+                        COMBO | "c" => sort_by = Some(TopOrder::Combo),
                         "date" | "d" | "recent" | "r" => sort_by = Some(TopOrder::Date),
                         "length" | "len" | "l" => sort_by = Some(TopOrder::Length),
-                        "position" | "p" => sort_by = Some(TopOrder::Position),
+                        "pp" | "p" => sort_by = Some(TopOrder::Position),
                         _ => {
                             let content = "Failed to parse `sort`.\n\
-                            Must be either `acc`, `combo`, `date`, `length`, or `position`";
+                            Must be either `acc`, `combo`, `date`, `length`, or `pp`";
 
                             return Ok(Err(content.into()));
                         }
                     },
-                    "mods" => match matcher::get_mods(value) {
+                    MODS => match matcher::get_mods(value) {
                         Some(mods_) => mods = Some(mods_),
                         None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
                     },
-                    "reverse" | "r" => match value {
+                    REVERSE | "r" => match value {
                         "true" | "1" => reverse = Some(true),
                         "false" | "0" => reverse = Some(false),
                         _ => {
@@ -977,24 +967,24 @@ impl TopArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => config.osu_username = Some(value.into()),
-                    "discord" => {
+                    NAME => config.osu_username = Some(value.into()),
+                    DISCORD => {
                         config.osu_username = parse_discord_option!(ctx, value, "top current")
                     }
-                    "mode" => config.mode = parse_mode_option!(value, "top current"),
-                    "mods" => match matcher::get_mods(&value) {
+                    MODE => config.mode = parse_mode_option!(value, "top current"),
+                    MODS => match matcher::get_mods(&value) {
                         Some(mods_) => mods = Some(mods_),
                         None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
                     },
-                    "sort" => match value.as_str() {
-                        "acc" => order = Some(TopOrder::Acc),
-                        "combo" => order = Some(TopOrder::Combo),
+                    SORT => match value.as_str() {
+                        ACC => order = Some(TopOrder::Acc),
+                        COMBO => order = Some(TopOrder::Combo),
                         "date" => order = Some(TopOrder::Date),
                         "len" => order = Some(TopOrder::Length),
-                        "pos" => order = Some(TopOrder::Position),
+                        "pp" => order = Some(TopOrder::Position),
                         _ => bail_cmd_option!("top current sort", string, value),
                     },
-                    "grade" => match value.as_str() {
+                    GRADE => match value.as_str() {
                         "SS" => {
                             grade = Some(GradeArg::Range {
                                 bot: Grade::X,
@@ -1013,18 +1003,18 @@ impl TopArgs {
                         "D" => grade = Some(GradeArg::Single(Grade::D)),
                         _ => bail_cmd_option!("top current grade", string, value),
                     },
-                    _ => bail_cmd_option!("top current", string, name),
+                    _ => bail_cmd_option!(TOP_CURRENT, string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {
-                    "index" => index = Some(value.max(0) as usize),
-                    _ => bail_cmd_option!("top current", integer, name),
+                    INDEX => index = Some(value.max(0) as usize),
+                    _ => bail_cmd_option!(TOP_CURRENT, integer, name),
                 },
                 CommandDataOption::Boolean { name, value } => match name.as_str() {
-                    "reverse" => reverse = Some(value),
-                    _ => bail_cmd_option!("top current", boolean, name),
+                    REVERSE => reverse = Some(value),
+                    _ => bail_cmd_option!(TOP_CURRENT, boolean, name),
                 },
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("top current", subcommand, name)
+                    bail_cmd_option!(TOP_CURRENT, subcommand, name)
                 }
             }
         }

@@ -16,10 +16,10 @@ macro_rules! author {
             crate::util::constants::OSU_BASE,
             $user.user_id,
             match $user.mode {
-                rosu_v2::prelude::GameMode::STD => "osu",
-                rosu_v2::prelude::GameMode::TKO => "taiko",
+                rosu_v2::prelude::GameMode::STD => crate::util::constants::common_literals::OSU,
+                rosu_v2::prelude::GameMode::TKO => crate::util::constants::common_literals::TAIKO,
                 rosu_v2::prelude::GameMode::CTB => "fruits",
-                rosu_v2::prelude::GameMode::MNA => "mania",
+                rosu_v2::prelude::GameMode::MNA => crate::util::constants::common_literals::MANIA,
             }
         );
 

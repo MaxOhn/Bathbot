@@ -9,20 +9,21 @@ pub use untrack::*;
 pub use untrack_all::*;
 
 use crate::{
-    commands::SlashCommandBuilder,
-    util::{ApplicationCommandExt, CowUtils},
+    util::{
+        constants::common_literals::{CTB, MANIA, MODE, NAME, OSU, TAIKO},
+        ApplicationCommandExt, CowUtils,
+    },
     Args, BotResult, Context, Error, Name,
 };
 
 use rosu_v2::prelude::GameMode;
 use std::{borrow::Cow, sync::Arc};
 use twilight_model::application::{
-    command::{
-        ChoiceCommandOptionData, Command, CommandOption, CommandOptionChoice,
-        OptionsCommandOptionData,
-    },
+    command::CommandOptionChoice,
     interaction::{application_command::CommandDataOption, ApplicationCommand},
 };
+
+use super::{MyCommand, MyCommandOption};
 
 pub async fn slash_track(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
     match TrackArgs::slash(&mut command)? {
@@ -110,6 +111,86 @@ impl TrackArgs {
         Ok(Ok(args))
     }
 
+    fn slash_remove(options: Vec<CommandDataOption>) -> BotResult<TrackCommandKind> {
+        let mut kind = None;
+
+        for option in options {
+            match option {
+                CommandDataOption::String { name, .. } => {
+                    bail_cmd_option!("track remove", string, name)
+                }
+                CommandDataOption::Integer { name, .. } => {
+                    bail_cmd_option!("track remove", integer, name)
+                }
+                CommandDataOption::Boolean { name, .. } => {
+                    bail_cmd_option!("track remove", boolean, name)
+                }
+                CommandDataOption::SubCommand { name, options } => match name.as_str() {
+                    "user" => {
+                        let mut mode = None;
+                        let mut username = None;
+                        let mut more_names = Vec::new();
+
+                        for option in options {
+                            match option {
+                                CommandDataOption::String { name, value } => match name.as_str() {
+                                    MODE => mode = parse_mode_option!(value, "track remove user"),
+                                    NAME => username = Some(value.into()),
+                                    _ if name.starts_with(NAME) => more_names.push(value.into()),
+                                    _ => bail_cmd_option!("track remove user", string, name),
+                                },
+                                CommandDataOption::Integer { name, .. } => {
+                                    bail_cmd_option!("track remove user", integer, name)
+                                }
+                                CommandDataOption::Boolean { name, .. } => {
+                                    bail_cmd_option!("track remove user", boolean, name)
+                                }
+                                CommandDataOption::SubCommand { name, .. } => {
+                                    bail_cmd_option!("track remove user", subcommand, name)
+                                }
+                            }
+                        }
+
+                        let args = TrackArgs {
+                            name: username.ok_or(Error::InvalidCommandOptions)?,
+                            mode,
+                            more_names,
+                            limit: None,
+                        };
+
+                        kind = Some(TrackCommandKind::RemoveSpecific(args));
+                    }
+                    "all" => {
+                        let mut mode = None;
+
+                        for option in options {
+                            match option {
+                                CommandDataOption::String { name, value } => match name.as_str() {
+                                    MODE => mode = parse_mode_option!(value, "track remove all"),
+                                    _ => bail_cmd_option!("track remove all", string, name),
+                                },
+                                CommandDataOption::Integer { name, .. } => {
+                                    bail_cmd_option!("track remove all", integer, name)
+                                }
+                                CommandDataOption::Boolean { name, .. } => {
+                                    bail_cmd_option!("track remove all", boolean, name)
+                                }
+                                CommandDataOption::SubCommand { name, .. } => {
+                                    bail_cmd_option!("track remove all", subcommand, name)
+                                }
+                            }
+                        }
+
+                        kind = Some(TrackCommandKind::RemoveAll(mode));
+                    }
+                    _ => bail_cmd_option!("track remove", subcommand, name),
+                },
+            }
+        }
+
+        kind.ok_or(Error::InvalidCommandOptions)
+    }
+
     fn slash(command: &mut ApplicationCommand) -> BotResult<TrackCommandKind> {
         let mut kind = None;
 
@@ -128,9 +209,9 @@ impl TrackArgs {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "mode" => mode = parse_mode_option!(value, "track add"),
-                                    "name" => username = Some(value.into()),
-                                    _ if name.starts_with("name") => more_names.push(value.into()),
+                                    MODE => mode = parse_mode_option!(value, "track add"),
+                                    NAME => username = Some(value.into()),
+                                    _ if name.starts_with(NAME) => more_names.push(value.into()),
                                     _ => bail_cmd_option!("track add", string, name),
                                 },
                                 CommandDataOption::Integer { name, value } => match name.as_str() {
@@ -155,136 +236,7 @@ impl TrackArgs {
 
                         kind = Some(TrackCommandKind::Add(args));
                     }
-                    "remove" => {
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, .. } => {
-                                    bail_cmd_option!("track remove", string, name)
-                                }
-                                CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("track remove", integer, name)
-                                }
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("track remove", boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, options } => {
-                                    match name.as_str() {
-                                        "user" => {
-                                            let mut mode = None;
-                                            let mut username = None;
-                                            let mut more_names = Vec::new();
-
-                                            for option in options {
-                                                match option {
-                                                    CommandDataOption::String { name, value } => {
-                                                        match name.as_str() {
-                                                            "mode" => {
-                                                                mode = parse_mode_option!(
-                                                                    value,
-                                                                    "track remove user"
-                                                                )
-                                                            }
-                                                            "name" => username = Some(value.into()),
-                                                            _ if name.starts_with("name") => {
-                                                                more_names.push(value.into())
-                                                            }
-                                                            _ => bail_cmd_option!(
-                                                                "track remove user",
-                                                                string,
-                                                                name
-                                                            ),
-                                                        }
-                                                    }
-                                                    CommandDataOption::Integer { name, .. } => {
-                                                        bail_cmd_option!(
-                                                            "track remove user",
-                                                            integer,
-                                                            name
-                                                        )
-                                                    }
-                                                    CommandDataOption::Boolean { name, .. } => {
-                                                        bail_cmd_option!(
-                                                            "track remove user",
-                                                            boolean,
-                                                            name
-                                                        )
-                                                    }
-                                                    CommandDataOption::SubCommand {
-                                                        name, ..
-                                                    } => {
-                                                        bail_cmd_option!(
-                                                            "track remove user",
-                                                            subcommand,
-                                                            name
-                                                        )
-                                                    }
-                                                }
-                                            }
-
-                                            let args = TrackArgs {
-                                                name: username
-                                                    .ok_or(Error::InvalidCommandOptions)?,
-                                                mode,
-                                                more_names,
-                                                limit: None,
-                                            };
-
-                                            kind = Some(TrackCommandKind::RemoveSpecific(args));
-                                        }
-                                        "all" => {
-                                            let mut mode = None;
-
-                                            for option in options {
-                                                match option {
-                                                    CommandDataOption::String { name, value } => {
-                                                        match name.as_str() {
-                                                            "mode" => {
-                                                                mode = parse_mode_option!(
-                                                                    value,
-                                                                    "track remove all"
-                                                                )
-                                                            }
-                                                            _ => bail_cmd_option!(
-                                                                "track remove all",
-                                                                string,
-                                                                name
-                                                            ),
-                                                        }
-                                                    }
-                                                    CommandDataOption::Integer { name, .. } => {
-                                                        bail_cmd_option!(
-                                                            "track remove all",
-                                                            integer,
-                                                            name
-                                                        )
-                                                    }
-                                                    CommandDataOption::Boolean { name, .. } => {
-                                                        bail_cmd_option!(
-                                                            "track remove all",
-                                                            boolean,
-                                                            name
-                                                        )
-                                                    }
-                                                    CommandDataOption::SubCommand {
-                                                        name, ..
-                                                    } => {
-                                                        bail_cmd_option!(
-                                                            "track remove all",
-                                                            subcommand,
-                                                            name
-                                                        )
-                                                    }
-                                                }
-                                            }
-
-                                            kind = Some(TrackCommandKind::RemoveAll(mode));
-                                        }
-                                        _ => bail_cmd_option!("track remove", subcommand, name),
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    "remove" => kind = Some(Self::slash_remove(options)?),
                     "list" => kind = Some(TrackCommandKind::List),
                     _ => bail_cmd_option!("track", subcommand, name),
                 },
@@ -295,242 +247,124 @@ impl TrackArgs {
     }
 }
 
-pub fn slash_track_command() -> Command {
-    let description = "(Un)track top score updates for an osu player";
+fn option_names() -> Vec<MyCommandOption> {
+    let name2 =
+        MyCommandOption::builder("name2", "Specify a second username").string(Vec::new(), false);
 
-    let options = vec![
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Track a player in a channel".to_owned(),
-            name: "add".to_owned(),
-            options: vec![
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Choose a username to be tracked".to_owned(),
-                    name: "name".to_owned(),
-                    required: true,
-                }),
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![
-                        CommandOptionChoice::String {
-                            name: "osu".to_owned(),
-                            value: "osu".to_owned(),
-                        },
-                        CommandOptionChoice::String {
-                            name: "taiko".to_owned(),
-                            value: "taiko".to_owned(),
-                        },
-                        CommandOptionChoice::String {
-                            name: "catch".to_owned(),
-                            value: "catch".to_owned(),
-                        },
-                        CommandOptionChoice::String {
-                            name: "mania".to_owned(),
-                            value: "mania".to_owned(),
-                        },
-                    ],
-                    description: "Specify a mode for the tracked user(s)".to_owned(),
-                    name: "mode".to_owned(),
-                    required: true,
-                }),
-                CommandOption::Integer(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description:
-                        "Between 1-100, default 50, notify on updates of the users top X scores"
-                            .to_owned(),
-                    name: "limit".to_owned(),
-                    required: false,
-                }),
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Choose a second username to be tracked".to_owned(),
-                    name: "name2".to_owned(),
-                    required: false,
-                }),
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Choose a third username to be tracked".to_owned(),
-                    name: "name3".to_owned(),
-                    required: false,
-                }),
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Choose a fourth username to be tracked".to_owned(),
-                    name: "name4".to_owned(),
-                    required: false,
-                }),
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Choose a fifth username to be tracked".to_owned(),
-                    name: "name5".to_owned(),
-                    required: false,
-                }),
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Choose a sixth username to be tracked".to_owned(),
-                    name: "name6".to_owned(),
-                    required: false,
-                }),
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Choose a seventh username to be tracked".to_owned(),
-                    name: "name7".to_owned(),
-                    required: false,
-                }),
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Choose an eighth username to be tracked".to_owned(),
-                    name: "name8".to_owned(),
-                    required: false,
-                }),
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Choose a ninth username to be tracked".to_owned(),
-                    name: "name9".to_owned(),
-                    required: false,
-                }),
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Choose a tenth username to be tracked".to_owned(),
-                    name: "name10".to_owned(),
-                    required: false,
-                }),
-            ],
-            required: false,
-        }),
-        CommandOption::SubCommandGroup(OptionsCommandOptionData {
-            description: "Untrack a player in a channel".to_owned(),
-            name: "remove".to_owned(),
-            options: vec![
-                CommandOption::SubCommand(OptionsCommandOptionData {
-                    description: "Untrack specific players in a channel".to_owned(),
-                    name: "user".to_owned(),
-                    options: vec![
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Choose a username to be untracked".to_owned(),
-                            name: "name".to_owned(),
-                            required: true,
-                        }),
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![
-                                CommandOptionChoice::String {
-                                    name: "osu".to_owned(),
-                                    value: "osu".to_owned(),
-                                },
-                                CommandOptionChoice::String {
-                                    name: "taiko".to_owned(),
-                                    value: "taiko".to_owned(),
-                                },
-                                CommandOptionChoice::String {
-                                    name: "catch".to_owned(),
-                                    value: "catch".to_owned(),
-                                },
-                                CommandOptionChoice::String {
-                                    name: "mania".to_owned(),
-                                    value: "mania".to_owned(),
-                                },
-                            ],
-                            description: "Specify a mode for the tracked user(s)".to_owned(),
-                            name: "mode".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Choose a second username to be untracked".to_owned(),
-                            name: "name2".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Choose a third username to be untracked".to_owned(),
-                            name: "name3".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Choose a fourth username to be untracked".to_owned(),
-                            name: "name4".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Choose a fifth username to be untracked".to_owned(),
-                            name: "name5".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Choose a sixth username to be untracked".to_owned(),
-                            name: "name6".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Choose a seventh username to be untracked".to_owned(),
-                            name: "name7".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Choose an eighth username to be untracked".to_owned(),
-                            name: "name8".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Choose a ninth username to be untracked".to_owned(),
-                            name: "name9".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Choose a tenth username to be untracked".to_owned(),
-                            name: "name10".to_owned(),
-                            required: false,
-                        }),
-                    ],
-                    required: false,
-                }),
-                CommandOption::SubCommand(OptionsCommandOptionData {
-                    description: "Untrack all players in a channel".to_owned(),
-                    name: "all".to_owned(),
-                    options: vec![CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![
-                            CommandOptionChoice::String {
-                                name: "osu".to_owned(),
-                                value: "osu".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "taiko".to_owned(),
-                                value: "taiko".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "catch".to_owned(),
-                                value: "catch".to_owned(),
-                            },
-                            CommandOptionChoice::String {
-                                name: "mania".to_owned(),
-                                value: "mania".to_owned(),
-                            },
-                        ],
-                        description: "Specify a mode for the tracked users".to_owned(),
-                        name: "mode".to_owned(),
-                        required: false,
-                    })],
-                    required: false,
-                }),
-            ],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "List all tracked player in this channel".to_owned(),
-            name: "list".to_owned(),
-            options: vec![],
-            required: false,
-        }),
-    ];
+    let name3 =
+        MyCommandOption::builder("name3", "Specify a third username").string(Vec::new(), false);
 
-    SlashCommandBuilder::new("track", description)
+    let name4 =
+        MyCommandOption::builder("name4", "Specify a fourth username").string(Vec::new(), false);
+
+    let name5 =
+        MyCommandOption::builder("name5", "Specify a fifth username").string(Vec::new(), false);
+
+    let name6 =
+        MyCommandOption::builder("name6", "Specify a sixth username").string(Vec::new(), false);
+
+    let name7 =
+        MyCommandOption::builder("name7", "Specify a seventh username").string(Vec::new(), false);
+
+    let name8 =
+        MyCommandOption::builder("name8", "Specify a eighth username").string(Vec::new(), false);
+
+    let name9 =
+        MyCommandOption::builder("name9", "Specify a ninth username").string(Vec::new(), false);
+
+    let name10 =
+        MyCommandOption::builder("name10", "Specify a tenth username").string(Vec::new(), false);
+
+    vec![
+        name2, name3, name4, name5, name6, name7, name8, name9, name10,
+    ]
+}
+
+fn option_mode() -> MyCommandOption {
+    MyCommandOption::builder("mode", "Specify a mode for the tracked users").string(
+        vec![
+            CommandOptionChoice::String {
+                name: OSU.to_owned(),
+                value: OSU.to_owned(),
+            },
+            CommandOptionChoice::String {
+                name: TAIKO.to_owned(),
+                value: TAIKO.to_owned(),
+            },
+            CommandOptionChoice::String {
+                name: CTB.to_owned(),
+                value: CTB.to_owned(),
+            },
+            CommandOptionChoice::String {
+                name: MANIA.to_owned(),
+                value: MANIA.to_owned(),
+            },
+        ],
+        false,
+    )
+}
+
+fn subcommand_add() -> MyCommandOption {
+    let name =
+        MyCommandOption::builder(NAME, "Choose a username to be tracked").string(Vec::new(), true);
+
+    let mode = option_mode();
+
+    let limit_description =
+        "Between 1-100, default 50, notify on updates of the user's top X scores";
+
+    let limit_help =
+        "If not specified, updates in the user's top50 will trigger notification messages.\n\
+        Instead of the top50, this `limit` option allows to adjust the maximum index within \
+        the top scores.\nThe value must be between 1 and 100.";
+
+    let limit = MyCommandOption::builder("limit", limit_description)
+        .help(limit_help)
+        .integer(Vec::new(), false);
+
+    let mut options = vec![name, mode, limit];
+    options.append(&mut option_names());
+
+    let help = "Add users to the tracking list for this channel.\n\
+        If a tracked user gets a new top score, this channel will be notified about it.";
+
+    MyCommandOption::builder("add", "Track top scores of a player")
+        .help(help)
+        .subcommand(options)
+}
+
+fn subcommand_remove() -> MyCommandOption {
+    let name = MyCommandOption::builder(NAME, "Choose a username to be untracked")
+        .string(Vec::new(), true);
+
+    let mode = option_mode();
+    let mut options = vec![name, mode];
+    options.append(&mut option_names());
+
+    let user =
+        MyCommandOption::builder("user", "Untrack specific users in a channel").subcommand(options);
+
+    let mode = option_mode();
+    let all =
+        MyCommandOption::builder("all", "Untrack all users in a channel").subcommand(vec![mode]);
+
+    let help =
+        "Untrack players in a channel i.e. stop sending notifications when they get new top scores";
+
+    MyCommandOption::builder("remove", "Untrack players in a channel")
+        .help(help)
+        .subcommandgroup(vec![user, all])
+}
+
+fn subcommand_list() -> MyCommandOption {
+    MyCommandOption::builder("list", "List all players that are tracked in this channel")
+        .subcommand(Vec::new())
+}
+
+pub fn define_track() -> MyCommand {
+    let options = vec![subcommand_add(), subcommand_remove(), subcommand_list()];
+
+    MyCommand::new("track", "(Un)track top score updates for an osu! player")
         .options(options)
-        .build()
+        .authority()
 }

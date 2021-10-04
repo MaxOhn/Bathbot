@@ -197,6 +197,8 @@ pub(super) struct CommonArgs {
     name2: Name,
 }
 
+const MEDAL_COMMON: &str = "medal common";
+
 impl CommonArgs {
     const AT_LEAST_ONE: &'static str = "You need to specify at least one osu username. \
         If you're not linked, you must specify two names.";
@@ -285,16 +287,16 @@ impl CommonArgs {
                         },
                         Err(_) => bail_cmd_option!("medal common discord2", string, value),
                     },
-                    _ => bail_cmd_option!("medal common", string, name),
+                    _ => bail_cmd_option!(MEDAL_COMMON, string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("medal common", integer, name)
+                    bail_cmd_option!(MEDAL_COMMON, integer, name)
                 }
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("medal common", boolean, name)
+                    bail_cmd_option!(MEDAL_COMMON, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("medal common", subcommand, name)
+                    bail_cmd_option!(MEDAL_COMMON, subcommand, name)
                 }
             }
         }

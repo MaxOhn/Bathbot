@@ -1,10 +1,9 @@
 use crate::{
-    commands::SlashCommandBuilder, util::MessageExt, BotResult, CommandData, Context,
-    MessageBuilder,
+    commands::MyCommand, util::MessageExt, BotResult, CommandData, Context, MessageBuilder,
 };
 
 use std::{sync::Arc, time::Instant};
-use twilight_model::application::{command::Command, interaction::ApplicationCommand};
+use twilight_model::application::interaction::ApplicationCommand;
 
 #[command]
 #[short_desc("Check if I'm online")]
@@ -31,6 +30,10 @@ pub async fn slash_ping(ctx: Arc<Context>, command: ApplicationCommand) -> BotRe
     ping(ctx, command.into()).await
 }
 
-pub fn slash_ping_command() -> Command {
-    SlashCommandBuilder::new("ping", "Check if I'm online").build()
+pub fn define_ping() -> MyCommand {
+    let help = "Most basic command, generally used to check if the bot is online.\n\
+        The displayed latency is the time it takes for the bot \
+        to receive a response from discord after sending a message.";
+
+    MyCommand::new("ping", "Check if I'm online").help(help)
 }

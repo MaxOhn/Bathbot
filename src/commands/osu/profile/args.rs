@@ -1,7 +1,10 @@
 use super::ProfileSize;
 use crate::{
     database::UserConfig,
-    util::{ApplicationCommandExt, CowUtils},
+    util::{
+        constants::common_literals::{DISCORD, MODE, NAME},
+        ApplicationCommandExt, CowUtils, InteractionExt,
+    },
     Args, BotResult, Context,
 };
 
@@ -72,15 +75,15 @@ impl ProfileArgs {
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "mode" => config.mode = parse_mode_option!(value, "profile"),
+                    MODE => config.mode = parse_mode_option!(value, "profile"),
                     "size" => match value.as_str() {
                         "compact" => config.profile_size = Some(ProfileSize::Compact),
                         "medium" => config.profile_size = Some(ProfileSize::Medium),
                         "full" => config.profile_size = Some(ProfileSize::Full),
                         _ => bail_cmd_option!("profile size", string, value),
                     },
-                    "name" => config.osu_username = Some(value.into()),
-                    "discord" => config.osu_username = parse_discord_option!(ctx, value, "profile"),
+                    NAME => config.osu_username = Some(value.into()),
+                    DISCORD => config.osu_username = parse_discord_option!(ctx, value, "profile"),
                     _ => bail_cmd_option!("profile", string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {

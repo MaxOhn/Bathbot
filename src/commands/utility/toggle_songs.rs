@@ -1,13 +1,12 @@
 use crate::{
-    commands::SlashCommandBuilder,
+    commands::{MyCommand, MyCommandOption},
     util::{constants::GENERAL_ISSUE, ApplicationCommandExt, MessageExt},
     BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
 use std::sync::Arc;
-use twilight_model::application::{
-    command::{BaseCommandOptionData, Command, CommandOption},
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+use twilight_model::application::interaction::{
+    application_command::CommandDataOption, ApplicationCommand,
 };
 
 #[command]
@@ -83,16 +82,14 @@ pub async fn slash_togglesongs(
     _togglesongs(ctx, command.into(), Some(available)).await
 }
 
-pub fn slash_togglesongs_command() -> Command {
+pub fn define_togglesongs() -> MyCommand {
+    let enable =
+        MyCommandOption::builder("enable", "Choose whether song commands can be used or not")
+            .boolean(true);
+
     let description = "Toggle availability of song commands in a server";
 
-    let options = vec![CommandOption::Boolean(BaseCommandOptionData {
-        description: "Choose whether song commands can be used or not".to_owned(),
-        name: "enable".to_owned(),
-        required: true,
-    })];
-
-    SlashCommandBuilder::new("togglesongs", description)
-        .options(options)
-        .build()
+    MyCommand::new("togglesongs", description)
+        .options(vec![enable])
+        .authority()
 }

@@ -3,6 +3,8 @@ use prometheus::{IntCounter, IntCounterVec, Opts, Registry};
 use std::sync::Arc;
 use twilight_cache_inmemory::Metrics;
 
+use crate::util::constants::common_literals::NAME;
+
 pub struct EventStats {
     pub channel_create: IntCounter,
     pub channel_delete: IntCounter,
@@ -46,6 +48,7 @@ pub struct OsuCounters {
 pub struct CommandCounters {
     pub message_commands: IntCounterVec,
     pub slash_commands: IntCounterVec,
+    pub components: IntCounterVec,
 }
 
 pub struct BotStats {
@@ -59,11 +62,11 @@ pub struct BotStats {
 }
 
 macro_rules! metric_vec {
-    (counter: $opt:literal, $help:literal, $label:literal) => {
+    (counter: $opt:literal, $help:literal, $label:expr) => {
         IntCounterVec::new(Opts::new($opt, $help), &[$label]).unwrap();
     };
 
-    (gauge: $opt:literal, $help:literal, $label:literal) => {
+    (gauge: $opt:literal, $help:literal, $label:expr) => {
         IntGaugeVec::new(Opts::new($opt, $help), &[$label]).unwrap();
     };
 }
@@ -73,9 +76,11 @@ impl BotStats {
         let event_counter = metric_vec!(counter: "gateway_events", "Gateway events", "events");
         let msg_counter = metric_vec!(counter: "messages", "Received messages", "sender_type");
         let message_commands =
-            metric_vec!(counter: "message_commands", "Executed message commands", "name");
+            metric_vec!(counter: "message_commands", "Executed message commands", NAME);
         let slash_commands =
-            metric_vec!(counter: "slash_commands", "Executed slash commands", "name");
+            metric_vec!(counter: "slash_commands", "Executed slash commands", NAME);
+        let components =
+            metric_vec!(counter: "components", "Executed interaction components", NAME);
 
         let registry = Registry::new_custom(Some(String::from("bathbot")), None).unwrap();
         registry.register(Box::new(event_counter.clone())).unwrap();
@@ -128,6 +133,7 @@ impl BotStats {
             command_counts: CommandCounters {
                 message_commands,
                 slash_commands,
+                components,
             },
             osu_metrics: OsuCounters {
                 user_cached: osu_metrics.with_label_values(&["User cached"]),
@@ -148,6 +154,13 @@ impl BotStats {
         self.command_counts
             .slash_commands
             .with_label_values(&[cmd])
+            .inc();
+    }
+
+    pub fn increment_component(&self, component: &str) {
+        self.command_counts
+            .components
+            .with_label_values(&[component])
             .inc();
     }
 

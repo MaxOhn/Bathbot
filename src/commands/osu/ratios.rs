@@ -1,19 +1,15 @@
-use crate::{
-    commands::SlashCommandBuilder,
-    embeds::{EmbedData, RatioEmbed},
-    tracking::process_tracking,
-    util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        ApplicationCommandExt, MessageExt,
-    },
-    Args, BotResult, CommandData, Context, MessageBuilder, Name,
-};
+use crate::{Args, BotResult, CommandData, Context, MessageBuilder, Name, commands::{
+        osu::{option_discord, option_name},
+        MyCommand,
+    }, embeds::{EmbedData, RatioEmbed}, tracking::process_tracking, util::{ApplicationCommandExt, InteractionExt, MessageExt, constants::{
+            common_literals::{DISCORD, NAME},
+            GENERAL_ISSUE, OSU_API_ISSUE,
+        }}};
 
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::sync::Arc;
-use twilight_model::application::{
-    command::{BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption},
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+use twilight_model::application::interaction::{
+    application_command::CommandDataOption, ApplicationCommand,
 };
 
 #[command]
@@ -104,6 +100,8 @@ async fn _ratios(ctx: Arc<Context>, data: CommandData<'_>, name: Option<Name>) -
     Ok(())
 }
 
+const RATIOS: &str = "ratios";
+
 async fn parse_username(
     ctx: &Context,
     command: &mut ApplicationCommand,
@@ -113,14 +111,14 @@ async fn parse_username(
     for option in command.yoink_options() {
         match option {
             CommandDataOption::String { name, value } => match name.as_str() {
-                "name" => username = Some(value.into()),
-                "discord" => username = parse_discord_option!(ctx, value, "ratios"),
-                _ => bail_cmd_option!("ratios", string, name),
+                NAME => username = Some(value.into()),
+                DISCORD => username = parse_discord_option!(ctx, value, "ratios"),
+                _ => bail_cmd_option!(RATIOS, string, name),
             },
-            CommandDataOption::Integer { name, .. } => bail_cmd_option!("ratios", integer, name),
-            CommandDataOption::Boolean { name, .. } => bail_cmd_option!("ratios", boolean, name),
+            CommandDataOption::Integer { name, .. } => bail_cmd_option!(RATIOS, integer, name),
+            CommandDataOption::Boolean { name, .. } => bail_cmd_option!(RATIOS, boolean, name),
             CommandDataOption::SubCommand { name, .. } => {
-                bail_cmd_option!("ratios", subcommand, name)
+                bail_cmd_option!(RATIOS, subcommand, name)
             }
         }
     }
@@ -140,22 +138,20 @@ pub async fn slash_ratio(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
     }
 }
 
-pub fn slash_ratio_command() -> Command {
-    let options = vec![
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify a username".to_owned(),
-            name: "name".to_owned(),
-            required: false,
-        }),
-        CommandOption::User(BaseCommandOptionData {
-            description: "Specify a linked discord user".to_owned(),
-            name: "discord".to_owned(),
-            required: false,
-        }),
-    ];
+pub fn define_ratios() -> MyCommand {
+    let name = option_name();
+    let discord = option_discord();
 
-    SlashCommandBuilder::new("ratios", "Ratio related stats about a user's mania top100")
-        .options(options)
-        .build()
+    let help = "The \"ratio\" of a mania score is generally considered to be `n320/n300` \
+        (or sometimes `n320/everything else`).\n\n\
+        How to read the embed:\n\
+        The first column defines how the top scores are split up based on their accuracy.\n\
+        E.g. `>90%` will only include top scores that have more than 90% accuracy.\n\
+        The second column tells how many scores are in the corresponding accuracy row.\n\
+        For the third column, it calculates the ratio of all scores in that row and displays their average.\n\
+        The fourth column shows the average percentual miss amount for scores in the corresponding row.";
+
+    MyCommand::new(RATIOS, "Ratio related stats about a user's mania top100")
+        .help(help)
+        .options(vec![name, discord])
 }

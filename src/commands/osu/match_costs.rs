@@ -1,7 +1,10 @@
 use crate::{
-    commands::SlashCommandBuilder,
+    commands::{MyCommand, MyCommandOption},
     embeds::{EmbedData, MatchCostEmbed},
-    util::{constants::OSU_API_ISSUE, matcher, ApplicationCommandExt, MessageExt},
+    util::{
+        constants::{common_literals::MAP, OSU_API_ISSUE},
+        matcher, ApplicationCommandExt, MessageExt,
+    },
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
@@ -10,9 +13,8 @@ use rosu_v2::prelude::{
     GameMods, MatchGame, Osu, OsuError, OsuMatch, OsuResult, Team, TeamType, UserCompact,
 };
 use std::{cmp::Ordering, collections::HashMap as StdHashMap, fmt::Write, mem, sync::Arc};
-use twilight_model::application::{
-    command::{ChoiceCommandOptionData, Command, CommandOption},
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+use twilight_model::application::interaction::{
+    application_command::CommandDataOption, ApplicationCommand,
 };
 
 const USER_LIMIT: usize = 50;
@@ -113,7 +115,7 @@ async fn _matchcosts(
         let mut content = "Ignoring the first ".to_owned();
 
         if warmups == 1 {
-            content.push_str("map");
+            content.push_str(MAP);
         } else {
             let _ = write!(content, "{} maps", warmups);
         }
@@ -408,6 +410,8 @@ struct MatchCostArgs {
     warmups: usize,
 }
 
+const MATCHCOST: &str = "matchcost";
+
 impl MatchCostArgs {
     fn args(args: &mut Args) -> Result<Self, &'static str> {
         let match_id = match args.next().and_then(|arg| matcher::get_osu_match_id(arg)) {
@@ -439,17 +443,17 @@ impl MatchCostArgs {
                             return Ok(Err(content));
                         }
                     },
-                    _ => bail_cmd_option!("matchcost", string, name),
+                    _ => bail_cmd_option!(MATCHCOST, string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {
                     "warmups" => warmups = Some(value.max(0) as usize),
-                    _ => bail_cmd_option!("matchcost", integer, name),
+                    _ => bail_cmd_option!(MATCHCOST, integer, name),
                 },
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("matchcost", boolean, name)
+                    bail_cmd_option!(MATCHCOST, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("matchcost", subcommand, name)
+                    bail_cmd_option!(MATCHCOST, subcommand, name)
                 }
             }
         }
@@ -470,25 +474,30 @@ pub async fn slash_matchcost(ctx: Arc<Context>, mut command: ApplicationCommand)
     }
 }
 
-pub fn slash_matchcost_command() -> Command {
+pub fn define_matchcost() -> MyCommand {
+    let match_url = MyCommandOption::builder("match_url", "Specify a match url or match id")
+        .string(Vec::new(), true);
+
+    let warmup_description = "Specify the amount of warmups to ignore (defaults to 2)";
+
+    let warmup_help =
+        "Since warmup maps commonly want to be ignored for performance calculations, \
+        this option allows you to specify how many maps should be ignored in the beginning.\n\
+        If no value is specified, it defaults to 2.";
+
+    let warmups = MyCommandOption::builder("warmups", warmup_description)
+        .help(warmup_help)
+        .integer(Vec::new(), false);
+
     let description = "Display performance ratings for a multiplayer match";
 
-    let options = vec![
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify a match url or match id".to_owned(),
-            name: "match_url".to_owned(),
-            required: true,
-        }),
-        CommandOption::Integer(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify the amount of warmups to ignore".to_owned(),
-            name: "warmups".to_owned(),
-            required: false,
-        }),
-    ];
+    let help = "Calculate a performance rating for each player in the given multiplayer match.\n\
+        Here's the current [formula](https://i.imgur.com/7KFwcUS.png).\n\
+        Additionally, scores with the EZ mod are multiplied by 1.7 beforehand.\n\n\
+        Keep in mind that all bots use different formulas \
+        so comparing with values from other bots makes no sense.";
 
-    SlashCommandBuilder::new("matchcost", description)
-        .options(options)
-        .build()
+    MyCommand::new(MATCHCOST, description)
+        .help(help)
+        .options(vec![match_url, warmups])
 }

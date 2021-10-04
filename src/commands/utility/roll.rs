@@ -1,14 +1,13 @@
 use crate::{
-    commands::SlashCommandBuilder,
+    commands::{MyCommand, MyCommandOption},
     util::{ApplicationCommandExt, MessageExt},
     BotResult, CommandData, Context, MessageBuilder,
 };
 
 use rand::Rng;
 use std::sync::Arc;
-use twilight_model::application::{
-    command::{ChoiceCommandOptionData, Command, CommandOption},
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+use twilight_model::application::interaction::{
+    application_command::CommandDataOption, ApplicationCommand,
 };
 
 const DEFAULT_LIMIT: u64 = 100;
@@ -44,7 +43,7 @@ async fn _roll(ctx: Arc<Context>, data: CommandData<'_>, limit: u64) -> BotResul
     let author_id = data.author()?.id;
 
     let description = format!(
-        "<@{}> rolls {} point{}",
+        "<@{}> rolls {} point{} :game_die:",
         author_id,
         num,
         if num == 1 { "" } else { "s" }
@@ -76,15 +75,9 @@ pub async fn slash_roll(ctx: Arc<Context>, mut command: ApplicationCommand) -> B
     _roll(ctx, command.into(), limit.unwrap_or(DEFAULT_LIMIT)).await
 }
 
-pub fn slash_roll_command() -> Command {
-    let options = vec![CommandOption::Integer(ChoiceCommandOptionData {
-        choices: vec![],
-        description: "Specify an upper limit, defaults to 100".to_owned(),
-        name: "limit".to_owned(),
-        required: false,
-    })];
+pub fn define_roll() -> MyCommand {
+    let limit = MyCommandOption::builder("limit", "Specify an upper limit, defaults to 100")
+        .integer(Vec::new(), false);
 
-    SlashCommandBuilder::new("roll", "Roll a random number")
-        .options(options)
-        .build()
+    MyCommand::new("roll", "Roll a random number").options(vec![limit])
 }

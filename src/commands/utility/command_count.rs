@@ -1,5 +1,5 @@
 use crate::{
-    commands::SlashCommandBuilder,
+    commands::MyCommand,
     embeds::{CommandCounterEmbed, EmbedData},
     pagination::{CommandCountPagination, Pagination},
     util::{numbers, MessageExt},
@@ -8,7 +8,7 @@ use crate::{
 
 use prometheus::core::Collector;
 use std::sync::Arc;
-use twilight_model::application::{command::Command, interaction::ApplicationCommand};
+use twilight_model::application::interaction::ApplicationCommand;
 
 #[command]
 #[short_desc("List of popular commands")]
@@ -60,8 +60,6 @@ pub async fn slash_commands(ctx: Arc<Context>, command: ApplicationCommand) -> B
     commands(ctx, command.into()).await
 }
 
-pub fn slash_commands_command() -> Command {
-    let description = "Display a list of popular commands";
-
-    SlashCommandBuilder::new("commands", description).build()
+pub fn define_commands() -> MyCommand {
+    MyCommand::new("commands", "Display a list of popular commands")
 }

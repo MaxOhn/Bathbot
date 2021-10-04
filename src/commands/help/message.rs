@@ -1,26 +1,22 @@
+use std::{collections::BTreeMap, fmt::Write, time::Duration};
+
+use tokio::time::sleep;
+use twilight_model::{channel::embed::EmbedField, id::GuildId};
+
 use crate::{
-    commands::SlashCommandBuilder,
-    core::{commands::CommandDataCompact, Command, CMD_GROUPS},
+    core::{
+        commands::{CommandData, CommandDataCompact, CMD_GROUPS},
+        Command as CoreCommand, Context,
+    },
     embeds::{Author, EmbedBuilder, Footer},
     util::{
-        constants::{
-            BATHBOT_WORKSHOP, DARK_GREEN, DESCRIPTION_SIZE, GENERAL_ISSUE, OWNER_USER_ID, RED,
-        },
-        levenshtein_distance, ApplicationCommandExt, MessageExt,
+        constants::{BATHBOT_WORKSHOP, DESCRIPTION_SIZE, GENERAL_ISSUE, OWNER_USER_ID},
+        levenshtein_distance, MessageBuilder, MessageExt,
     },
-    BotResult, CommandData, Context, MessageBuilder,
+    BotResult,
 };
 
-use std::{collections::BTreeMap, fmt::Write, sync::Arc};
-use tokio::time::{sleep, Duration};
-use twilight_model::{
-    application::{
-        command::{ChoiceCommandOptionData, Command as SlashCommand, CommandOption},
-        interaction::{application_command::CommandDataOption, ApplicationCommand},
-    },
-    channel::embed::EmbedField,
-    id::GuildId,
-};
+use super::failed_message_;
 
 async fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
     let (custom_prefix, first_prefix) = if let Some(guild_id) = guild_id {
@@ -204,7 +200,7 @@ pub async fn help(ctx: &Context, data: CommandData<'_>, is_authority: bool) -> B
 
 pub async fn help_command(
     ctx: &Context,
-    cmd: &Command,
+    cmd: &CoreCommand,
     guild_id: Option<GuildId>,
     data: CommandDataCompact,
 ) -> BotResult<()> {
@@ -334,83 +330,10 @@ pub async fn failed_help(ctx: &Context, arg: &str, data: CommandDataCompact) -> 
         .groups
         .iter()
         .flat_map(|group| group.commands.iter().flat_map(|&cmd| cmd.names))
+        .copied()
         .map(|name| (levenshtein_distance(arg, name).0, name))
         .filter(|(dist, _)| *dist < 3)
         .collect();
 
-    let (content, color) = if dists.is_empty() {
-        ("There is no such command".to_owned(), RED)
-    } else {
-        let mut names = dists.iter().take(5).map(|(_, &name)| name);
-        let count = dists.len().min(5);
-        let mut content = String::with_capacity(14 + count * (4 + 2) + (count - 1) * 2);
-        content.push_str("Did you mean ");
-        write!(content, "`{}`", names.next().unwrap())?;
-
-        for name in names {
-            write!(content, ", `{}`", name)?;
-        }
-
-        content.push('?');
-
-        (content, DARK_GREEN)
-    };
-
-    let embed = EmbedBuilder::new()
-        .description(content)
-        .color(color)
-        .build();
-
-    let builder = MessageBuilder::new().embed(embed);
-    data.create_message(ctx, builder).await?;
-
-    Ok(())
-}
-
-pub async fn slash_help(
-    ctx: Arc<Context>,
-    mut command: ApplicationCommand,
-    is_authority: bool,
-) -> BotResult<()> {
-    let mut cmd_name = None;
-
-    for option in command.yoink_options() {
-        match option {
-            CommandDataOption::String { name, value } => match name.as_str() {
-                "command" => cmd_name = Some(value),
-                _ => bail_cmd_option!("help", string, name),
-            },
-            CommandDataOption::Integer { name, .. } => bail_cmd_option!("help", integer, name),
-            CommandDataOption::Boolean { name, .. } => bail_cmd_option!("help", boolean, name),
-            CommandDataOption::SubCommand { name, .. } => {
-                bail_cmd_option!("help", subcommand, name)
-            }
-        }
-    }
-
-    match cmd_name {
-        Some(name) => {
-            if let Some(cmd) = CMD_GROUPS.get(name.as_str()) {
-                help_command(&ctx, cmd, command.guild_id, command.into()).await
-            } else {
-                failed_help(&ctx, &name, command.into()).await
-            }
-        }
-        None => help(&ctx, command.into(), is_authority).await,
-    }
-}
-
-pub fn slash_help_command() -> SlashCommand {
-    let description = "Display general help or help for a specific command";
-
-    let options = vec![CommandOption::String(ChoiceCommandOptionData {
-        choices: vec![],
-        description: "Specify a command name".to_owned(),
-        name: "command".to_owned(),
-        required: false,
-    })];
-
-    SlashCommandBuilder::new("help", description)
-        .options(options)
-        .build()
+    failed_message_(ctx, data, dists).await
 }

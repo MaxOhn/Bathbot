@@ -6,30 +6,33 @@ use medal_count::medal_count;
 use rarity::rarity;
 use user_value::{count, pp};
 
-use super::UserValue;
+use std::sync::Arc;
+
+use twilight_model::application::interaction::{
+    application_command::CommandDataOption, ApplicationCommand,
+};
+
 use crate::{
-    commands::SlashCommandBuilder,
+    commands::{MyCommand, MyCommandOption},
     custom_client::{Badges, LovedMapsets, RankedMapsets, Replays, StandardDeviation, TotalPp},
     util::ApplicationCommandExt,
     BotResult, Context, Error,
 };
 
-use std::sync::Arc;
-use twilight_model::application::{
-    command::{Command, CommandOption, OptionsCommandOptionData},
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
-};
+use super::UserValue;
 
 enum OsekaiCommandKind {
-    Badges,       // country - user - count
-    LovedMapsets, // country - user - count
+    Badges,
+    LovedMapsets,
     MedalCount,
-    RankedMapsets, // country - user - count
+    RankedMapsets,
     Rarity,
-    Replays,           // country - user - count
-    StandardDeviation, // country - user - value
-    TotalPp,           // country - user - value
+    Replays,
+    StandardDeviation,
+    TotalPp,
 }
+
+const OSEKAI: &str = "osekai";
 
 impl OsekaiCommandKind {
     async fn slash(command: &mut ApplicationCommand) -> BotResult<Self> {
@@ -38,13 +41,13 @@ impl OsekaiCommandKind {
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, .. } => {
-                    bail_cmd_option!("osekai", string, name)
+                    bail_cmd_option!(OSEKAI, string, name)
                 }
                 CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("osekai", integer, name)
+                    bail_cmd_option!(OSEKAI, integer, name)
                 }
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("osekai", boolean, name)
+                    bail_cmd_option!(OSEKAI, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, .. } => match name.as_str() {
                     "badges" => kind = Some(OsekaiCommandKind::Badges),
@@ -55,7 +58,7 @@ impl OsekaiCommandKind {
                     "replays" => kind = Some(OsekaiCommandKind::Replays),
                     "standard_deviation" => kind = Some(OsekaiCommandKind::StandardDeviation),
                     "total_pp" => kind = Some(OsekaiCommandKind::TotalPp),
-                    _ => bail_cmd_option!("osekai", subcommand, name),
+                    _ => bail_cmd_option!(OSEKAI, subcommand, name),
                 },
             }
         }
@@ -77,61 +80,57 @@ pub async fn slash_osekai(ctx: Arc<Context>, mut command: ApplicationCommand) ->
     }
 }
 
-pub fn slash_osekai_command() -> Command {
-    let description = "Various leaderboards provided by osekai";
+pub fn define_osekai() -> MyCommand {
+    let badges = MyCommandOption::builder("badges", "Who has the most profile badges?")
+        .subcommand(Vec::new());
+
+    let loved_mapsets =
+        MyCommandOption::builder("loved_mapsets", "Who created the most loved mapsets?")
+            .subcommand(Vec::new());
+
+    let medal_count =
+        MyCommandOption::builder("medal_count", "Who has the most medals?").subcommand(Vec::new());
+
+    let ranked_mapsets =
+        MyCommandOption::builder("ranked_mapsets", "Who created the most ranked mapsets?")
+            .subcommand(Vec::new());
+
+    let rarity =
+        MyCommandOption::builder("rarity", "What are the rarest medals?").subcommand(Vec::new());
+
+    let replays = MyCommandOption::builder("replays", "Who has the most replays watched?")
+        .subcommand(Vec::new());
+
+    let standard_deviation_description =
+        "Who has the highest pp standard deviation across all modes?";
+
+    let standard_deviation_help = "Who has the highest pp [standard deviation](https://en.wikipedia.org/wiki/Standard_deviation) across all modes?";
+
+    let standard_deviation =
+        MyCommandOption::builder("standard_deviation", standard_deviation_description)
+            .help(standard_deviation_help)
+            .subcommand(Vec::new());
+
+    let total_pp_description = "Who has the highest total pp in all modes combined?";
+
+    let total_pp =
+        MyCommandOption::builder("total_pp", total_pp_description).subcommand(Vec::new());
 
     let options = vec![
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Who has the most profile badges?".to_owned(),
-            name: "badges".to_owned(),
-            options: vec![],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Who created to most loved mapsets?".to_owned(),
-            name: "loved_mapsets".to_owned(),
-            options: vec![],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Who has the most medals?".to_owned(),
-            name: "medal_count".to_owned(),
-            options: vec![],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Who created to most ranked mapsets?".to_owned(),
-            name: "ranked_mapsets".to_owned(),
-            options: vec![],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "What are the rarest medals?".to_owned(),
-            name: "rarity".to_owned(),
-            options: vec![],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Who has the most replays watched?".to_owned(),
-            name: "replays".to_owned(),
-            options: vec![],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Who has the highest pp standard deviation across all modes?".to_owned(),
-            name: "standard_deviation".to_owned(),
-            options: vec![],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Who has the highest total pp in all modes combined?".to_owned(),
-            name: "total_pp".to_owned(),
-            options: vec![],
-            required: false,
-        }),
+        badges,
+        loved_mapsets,
+        medal_count,
+        ranked_mapsets,
+        rarity,
+        replays,
+        standard_deviation,
+        total_pp,
     ];
 
-    SlashCommandBuilder::new("osekai", description)
+    let help = "Various leaderboard stats. \
+        All data is provided by [osekai](https://osekai.net/).";
+
+    MyCommand::new(OSEKAI, "Various leaderboards provided by osekai")
+        .help(help)
         .options(options)
-        .build()
 }

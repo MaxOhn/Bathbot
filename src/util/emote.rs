@@ -8,6 +8,8 @@ use std::{borrow::Cow, str::FromStr};
 use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::{channel::ReactionType, id::EmojiId};
 
+use super::constants::common_literals::OSU;
+
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub enum Emote {
     Std,
@@ -105,7 +107,7 @@ impl<'de> Deserialize<'de> for Emote {
         let s: &str = Deserialize::deserialize(d)?;
 
         let other = match s {
-            "osu" => Self::Osu,
+            OSU => Self::Osu,
             "osu_std" => Self::Std,
             "osu_taiko" => Self::Tko,
             "osu_ctb" => Self::Ctb,

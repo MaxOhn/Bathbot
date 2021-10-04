@@ -7,16 +7,16 @@ pub use removestream::*;
 pub use tracked::*;
 
 use crate::{
-    commands::SlashCommandBuilder,
-    util::{ApplicationCommandExt, CowUtils},
+    util::{constants::common_literals::NAME, ApplicationCommandExt, CowUtils},
     Args, BotResult, Context, Error,
 };
 
 use std::{borrow::Cow, sync::Arc};
-use twilight_model::application::{
-    command::{ChoiceCommandOptionData, Command, CommandOption, OptionsCommandOptionData},
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+use twilight_model::application::interaction::{
+    application_command::CommandDataOption, ApplicationCommand,
 };
+
+use super::{MyCommand, MyCommandOption};
 
 enum StreamCommandKind {
     Add(String),
@@ -53,7 +53,7 @@ impl StreamArgs {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => kind = Some(StreamCommandKind::Add(value)),
+                                    NAME => kind = Some(StreamCommandKind::Add(value)),
                                     _ => bail_cmd_option!("trackstream add", string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
@@ -72,7 +72,7 @@ impl StreamArgs {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => kind = Some(StreamCommandKind::Remove(value)),
+                                    NAME => kind = Some(StreamCommandKind::Remove(value)),
                                     _ => bail_cmd_option!("trackstream remove", string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
@@ -108,41 +108,34 @@ pub async fn slash_trackstream(
     }
 }
 
-pub fn slash_trackstream_command() -> Command {
+fn option_name() -> MyCommandOption {
+    MyCommandOption::builder(NAME, "Name of the twitch channel").string(Vec::new(), true)
+}
+
+fn subcommand_add() -> MyCommandOption {
+    let help = "Track a twitch stream in this channel.\n\
+        When the stream goes online, a notification will be send to this channel within a few minutes.";
+
+    MyCommandOption::builder("add", "Track a twitch stream in this channel")
+        .help(help)
+        .subcommand(vec![option_name()])
+}
+
+fn subcommand_remove() -> MyCommandOption {
+    MyCommandOption::builder("remove", "Untrack a twitch stream in this channel")
+        .subcommand(vec![option_name()])
+}
+
+fn subcommand_list() -> MyCommandOption {
+    MyCommandOption::builder("list", "List all tracked twitch stream in this channel")
+        .subcommand(Vec::new())
+}
+
+pub fn define_trackstream() -> MyCommand {
+    let options = vec![subcommand_add(), subcommand_remove(), subcommand_list()];
     let description = "(Un)track a twitch stream or list all tracked streams in this channel";
 
-    let options = vec![
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Track a twitch stream in this channel".to_owned(),
-            name: "add".to_owned(),
-            options: vec![CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Name of the twitch channel".to_owned(),
-                name: "name".to_owned(),
-                required: false,
-            })],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Untrack a twitch stream in this channel".to_owned(),
-            name: "remove".to_owned(),
-            options: vec![CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Name of the twitch channel".to_owned(),
-                name: "name".to_owned(),
-                required: false,
-            })],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "List all tracked twitch stream in this channel".to_owned(),
-            name: "list".to_owned(),
-            options: vec![],
-            required: false,
-        }),
-    ];
-
-    SlashCommandBuilder::new("trackstream", description)
+    MyCommand::new("trackstream", description)
         .options(options)
-        .build()
+        .authority()
 }

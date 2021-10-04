@@ -15,19 +15,26 @@ pub use sniped_difference::*;
 use super::{prepare_score, request_user, require_link};
 
 use crate::{
-    commands::SlashCommandBuilder,
+    commands::{
+        osu::{option_discord, option_mods, option_name},
+        MyCommand, MyCommandOption,
+    },
     custom_client::SnipeScoreOrder,
-    util::{matcher, osu::ModSelection, ApplicationCommandExt, CountryCode, MessageExt},
+    util::{
+        constants::common_literals::{
+            ACC, ACCURACY, COUNTRY, DISCORD, MISSES, MODS, MODS_PARSE_FAIL, NAME, REVERSE, SORT,
+        },
+        matcher,
+        osu::ModSelection,
+        ApplicationCommandExt, CountryCode, InteractionExt, MessageExt,
+    },
     BotResult, Context, Error, Name,
 };
 
 use std::sync::Arc;
 use twilight_model::{
     application::{
-        command::{
-            BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption,
-            CommandOptionChoice, OptionsCommandOptionData,
-        },
+        command::CommandOptionChoice,
         interaction::{application_command::CommandDataOption, ApplicationCommand},
     },
     id::UserId,
@@ -50,8 +57,8 @@ macro_rules! parse_username {
         for option in $options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => username = Some(value.into()),
-                    "discord" => username = parse_discord_option!($ctx, value, $location),
+                    NAME => username = Some(value.into()),
+                    DISCORD => username = parse_discord_option!($ctx, value, $location),
                     _ => bail_cmd_option!($location, string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
@@ -95,7 +102,7 @@ impl SnipeCommandKind {
                     bail_cmd_option!("snipe", boolean, name)
                 }
                 CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    "country" => match Self::parse_country(ctx, options)? {
+                    COUNTRY => match Self::parse_country(ctx, options)? {
                         Ok(kind_) => kind = Some(kind_),
                         Err(content) => return Ok(Err(content)),
                     },
@@ -218,11 +225,11 @@ fn parse_country_list(
     for option in options {
         match option {
             CommandDataOption::String { name, value } => match name.as_str() {
-                "country" => match parse_country_code(ctx, value) {
+                COUNTRY => match parse_country_code(ctx, value) {
                     Ok(country_) => country = Some(country_),
                     Err(content) => return Ok(Err(content)),
                 },
-                "sort" => match value.as_str() {
+                SORT => match value.as_str() {
                     "count" => sort = Some(SnipeOrder::Count),
                     "pp" => sort = Some(SnipeOrder::Pp),
                     "stars" => sort = Some(SnipeOrder::Stars),
@@ -257,7 +264,7 @@ fn parse_country_stats(
     for option in options {
         match option {
             CommandDataOption::String { name, value } => match name.as_str() {
-                "country" => match parse_country_code(ctx, value) {
+                COUNTRY => match parse_country_code(ctx, value) {
                     Ok(country_) => country = Some(country_),
                     Err(content) => return Ok(Err(content)),
                 },
@@ -322,29 +329,25 @@ async fn parse_player_list(
     for option in options {
         match option {
             CommandDataOption::String { name, value } => match name.as_str() {
-                "name" => config.osu_username = Some(value.into()),
-                "discord" => {
+                NAME => config.osu_username = Some(value.into()),
+                DISCORD => {
                     config.osu_username = parse_discord_option!(ctx, value, "snipe player list")
                 }
-                "sort" => match value.as_str() {
-                    "acc" => order = Some(SnipeScoreOrder::Accuracy),
+                SORT => match value.as_str() {
+                    ACC => order = Some(SnipeScoreOrder::Accuracy),
                     "len" => order = Some(SnipeScoreOrder::Length),
                     "map_date" => order = Some(SnipeScoreOrder::MapApprovalDate),
-                    "misses" => order = Some(SnipeScoreOrder::Misses),
+                    MISSES => order = Some(SnipeScoreOrder::Misses),
+                    "pp" => order = Some(SnipeScoreOrder::Pp),
                     "score_date" => order = Some(SnipeScoreOrder::ScoreDate),
                     "stars" => order = Some(SnipeScoreOrder::Stars),
                     _ => bail_cmd_option!("snipe player list sort", string, value),
                 },
-                "mods" => match matcher::get_mods(&value) {
+                MODS => match matcher::get_mods(&value) {
                     Some(mods_) => mods = Some(mods_),
                     None => match value.parse() {
                         Ok(mods_) => mods = Some(ModSelection::Include(mods_)),
-                        Err(_) => {
-                            let content = "Failed to parse mods.\n\
-                            Be sure it's a valid mod abbreviation e.g. `hdhr`.";
-
-                            return Ok(Err(content.into()));
-                        }
+                        Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
                     },
                 },
                 _ => bail_cmd_option!("snipe player list", string, name),
@@ -353,7 +356,7 @@ async fn parse_player_list(
                 bail_cmd_option!("snipe player list", integer, name)
             }
             CommandDataOption::Boolean { name, value } => match name.as_str() {
-                "reverse" => descending = Some(!value),
+                REVERSE => descending = Some(!value),
                 _ => bail_cmd_option!("snipe player list", boolean, name),
             },
             CommandDataOption::SubCommand { name, .. } => {
@@ -395,205 +398,129 @@ pub async fn slash_snipe(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
     }
 }
 
-pub fn slash_snipe_command() -> Command {
-    let options = vec![
-        CommandOption::SubCommandGroup(OptionsCommandOptionData {
-            description: "Country related snipe stats".to_owned(),
-            name: "country".to_owned(),
-            options: vec![
-                CommandOption::SubCommand(OptionsCommandOptionData {
-                    description: "Sort the country's #1 leaderboard".to_owned(),
-                    name: "list".to_owned(),
-                    options: vec![
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Specify a country".to_owned(),
-                            name: "country".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![
-                                CommandOptionChoice::String {
-                                    name: "count".to_owned(),
-                                    value: "count".to_owned(),
-                                },
-                                CommandOptionChoice::String {
-                                    name: "pp".to_owned(),
-                                    value: "pp".to_owned(),
-                                },
-                                CommandOptionChoice::String {
-                                    name: "stars".to_owned(),
-                                    value: "stars".to_owned(),
-                                },
-                                CommandOptionChoice::String {
-                                    name: "weighted pp".to_owned(),
-                                    value: "weighted_pp".to_owned(),
-                                },
-                            ],
-                            description: "Specify the order of players".to_owned(),
-                            name: "sort".to_owned(),
-                            required: false,
-                        }),
-                    ],
-                    required: false,
-                }),
-                CommandOption::SubCommand(OptionsCommandOptionData {
-                    description: "#1-count related stats for a country".to_owned(),
-                    name: "stats".to_owned(),
-                    options: vec![CommandOption::String(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify a country (code)".to_owned(),
-                        name: "country".to_owned(),
-                        required: false,
-                    })],
-                    required: false,
-                }),
-            ],
-            required: false,
-        }),
-        CommandOption::SubCommandGroup(OptionsCommandOptionData {
-            description: "Player related snipe stats".to_owned(),
-            name: "player".to_owned(),
-            options: vec![
-                CommandOption::SubCommand(OptionsCommandOptionData {
-                    description: "Display a user's recently acquired national #1 scores".to_owned(),
-                    name: "gain".to_owned(),
-                    options: vec![
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Specify a username".to_owned(),
-                            name: "name".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::User(BaseCommandOptionData {
-                            description: "Specify a linked discord user".to_owned(),
-                            name: "discord".to_owned(),
-                            required: false,
-                        }),
-                    ],
-                    required: false,
-                }),
-                CommandOption::SubCommand(OptionsCommandOptionData {
-                    description: "List all national #1 scores of a player".to_owned(),
-                    name: "list".to_owned(),
-                    options: vec![
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Specify a username".to_owned(),
-                            name: "name".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Specify a mods".to_owned(),
-                            name: "mods".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![
-                                CommandOptionChoice::String {
-                                    name: "accuracy".to_owned(),
-                                    value: "acc".to_owned(),
-                                },
-                                CommandOptionChoice::String {
-                                    name: "length".to_owned(),
-                                    value: "len".to_owned(),
-                                },
-                                CommandOptionChoice::String {
-                                    name: "map approval date".to_owned(),
-                                    value: "map_date".to_owned(),
-                                },
-                                CommandOptionChoice::String {
-                                    name: "misses".to_owned(),
-                                    value: "misses".to_owned(),
-                                },
-                                CommandOptionChoice::String {
-                                    name: "score date".to_owned(),
-                                    value: "score_date".to_owned(),
-                                },
-                                CommandOptionChoice::String {
-                                    name: "stars".to_owned(),
-                                    value: "stars".to_owned(),
-                                },
-                            ],
-                            description: "Specify the order of scores".to_owned(),
-                            name: "sort".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::Boolean(BaseCommandOptionData {
-                            description: "Choose whether the list should be reversed".to_owned(),
-                            name: "reverse".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::User(BaseCommandOptionData {
-                            description: "Specify a linked discord user".to_owned(),
-                            name: "discord".to_owned(),
-                            required: false,
-                        }),
-                    ],
-                    required: false,
-                }),
-                CommandOption::SubCommand(OptionsCommandOptionData {
-                    description: "Display a user's recently lost national #1 scores".to_owned(),
-                    name: "loss".to_owned(),
-                    options: vec![
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Specify a username".to_owned(),
-                            name: "name".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::User(BaseCommandOptionData {
-                            description: "Specify a linked discord user".to_owned(),
-                            name: "discord".to_owned(),
-                            required: false,
-                        }),
-                    ],
-                    required: false,
-                }),
-                CommandOption::SubCommand(OptionsCommandOptionData {
-                    description: "Stats about a user's #1 scores in their country leaderboards"
-                        .to_owned(),
-                    name: "stats".to_owned(),
-                    options: vec![
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Specify a username".to_owned(),
-                            name: "name".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::User(BaseCommandOptionData {
-                            description: "Specify a linked discord user".to_owned(),
-                            name: "discord".to_owned(),
-                            required: false,
-                        }),
-                    ],
-                    required: false,
-                }),
-                CommandOption::SubCommand(OptionsCommandOptionData {
-                    description: "Sniped users of the last 8 weeks".to_owned(),
-                    name: "targets".to_owned(),
-                    options: vec![
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Specify a username".to_owned(),
-                            name: "name".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::User(BaseCommandOptionData {
-                            description: "Specify a linked discord user".to_owned(),
-                            name: "discord".to_owned(),
-                            required: false,
-                        }),
-                    ],
-                    required: false,
-                }),
-            ],
-            required: false,
-        }),
+fn option_country() -> MyCommandOption {
+    MyCommandOption::builder(COUNTRY, "Specify a country (code)").string(Vec::new(), false)
+}
+
+fn subcommand_country() -> MyCommandOption {
+    let country = option_country();
+
+    let sort_choices = vec![
+        CommandOptionChoice::String {
+            name: "count".to_owned(),
+            value: "count".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "pp".to_owned(),
+            value: "pp".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "stars".to_owned(),
+            value: "stars".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "weighted pp".to_owned(),
+            value: "weighted_pp".to_owned(),
+        },
     ];
 
-    SlashCommandBuilder::new("snipe", "National #1 related data provided by huismetbenen")
-        .options(options)
-        .build()
+    let sort_help = "Specify the order of players.\n\
+        Available orderings are `count` for amount of #1 scores, `pp` for average pp of #1 scores, \
+        `stars` for average star rating of #1 scores, and `weighted_pp` for the total pp a user \
+        would have if only their #1s would count towards it.";
+
+    let sort = MyCommandOption::builder(SORT, "Specify the order of players")
+        .help(sort_help)
+        .string(sort_choices, false);
+
+    let list = MyCommandOption::builder("list", "Sort the country's #1 leaderboard")
+        .help("List all players of a country with a specific order based around #1 stats")
+        .subcommand(vec![country, sort]);
+
+    let stats = MyCommandOption::builder("stats", "#1-count related stats for a country")
+        .subcommand(vec![option_country()]);
+
+    MyCommandOption::builder(COUNTRY, "Country related snipe stats")
+        .subcommandgroup(vec![list, stats])
+}
+
+fn subcommand_player() -> MyCommandOption {
+    let gain_description = "Display a user's recently acquired national #1 scores";
+
+    let gain = MyCommandOption::builder("gain", gain_description)
+        .help("Display all national #1 scores that a user acquired within the last week")
+        .subcommand(vec![option_name(), option_discord()]);
+
+    let name = option_name();
+    let discord = option_discord();
+    let mods = option_mods(false);
+
+    let sort_choices = vec![
+        CommandOptionChoice::String {
+            name: ACCURACY.to_owned(),
+            value: ACC.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "length".to_owned(),
+            value: "len".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "map approval date".to_owned(),
+            value: "map_date".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: MISSES.to_owned(),
+            value: MISSES.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "pp".to_owned(),
+            value: "pp".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "score date".to_owned(),
+            value: "score_date".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "stars".to_owned(),
+            value: "stars".to_owned(),
+        },
+    ];
+
+    let sort = MyCommandOption::builder(SORT, "Specify the order of scores")
+        .help("Specify the order of scores. Defaults to `pp`.")
+        .string(sort_choices, false);
+
+    let reverse = MyCommandOption::builder(REVERSE, "Choose whether the list should be reversed")
+        .boolean(false);
+
+    let list = MyCommandOption::builder("list", "List all national #1 scores of a player")
+        .subcommand(vec![name, mods, sort, reverse, discord]);
+
+    let loss_description = "Display a user's recently lost national #1 scores";
+
+    let loss = MyCommandOption::builder("loss", loss_description)
+        .help("Display all national #1 scores that a user lost within the last week")
+        .subcommand(vec![option_name(), option_discord()]);
+
+    let stats = MyCommandOption::builder("stats", "Stats about a user's national #1 scores")
+        .subcommand(vec![option_name(), option_discord()]);
+
+    let targets_help = "Display who sniped and was sniped the most by a user in last 8 weeks";
+
+    let targets = MyCommandOption::builder("targets", "Sniped users of the last 8 weeks")
+        .help(targets_help)
+        .subcommand(vec![option_name(), option_discord()]);
+
+    MyCommandOption::builder("player", "Player related snipe stats")
+        .subcommandgroup(vec![gain, list, loss, stats, targets])
+}
+
+pub fn define_snipe() -> MyCommand {
+    let help = "National #1 related stats. \
+        All data is provided by [huismetbenen](https://snipe.huismetbenen.nl).\n\
+        Note that the data usually __updates once per week__.";
+
+    MyCommand::new("snipe", "National #1 related data provided by huismetbenen")
+        .help(help)
+        .options(vec![subcommand_country(), subcommand_player()])
 }

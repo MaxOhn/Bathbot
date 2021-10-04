@@ -4,7 +4,10 @@ use crate::{
     embeds::{EmbedData, RecentListEmbed},
     pagination::{Pagination, RecentListPagination},
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::{
+            common_literals::{DISCORD, GRADE, MODE, NAME},
+            GENERAL_ISSUE, OSU_API_ISSUE,
+        },
         numbers, MessageExt,
     },
     Args, BotResult, CommandData, Context,
@@ -13,7 +16,9 @@ use crate::{
 use futures::future::TryFutureExt;
 use rosu_v2::prelude::{GameMode, Grade, OsuError};
 use std::{borrow::Cow, sync::Arc};
-use twilight_model::id::UserId;
+use twilight_model::{
+    application::interaction::application_command::CommandDataOption, id::UserId,
+};
 
 pub(super) async fn _recentlist(
     ctx: Arc<Context>,
@@ -315,7 +320,7 @@ impl RecentListArgs {
                             return Ok(Err(content.into()));
                         }
                     },
-                    "grade" | "g" => match value.find("..") {
+                    GRADE | "g" => match value.find("..") {
                         Some(idx) => {
                             let bot = &value[..idx];
                             let top = &value[idx + 2..];
@@ -385,6 +390,74 @@ impl RecentListArgs {
             Some(false) => Some(GradeArg::Single(Grade::F)),
             None => grade,
         };
+
+        Ok(Ok(Self { config, grade }))
+    }
+
+    pub(super) async fn slash(
+        ctx: &Context,
+        options: Vec<CommandDataOption>,
+        author_id: UserId,
+    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+        let mut config = ctx.user_config(author_id).await?;
+        let mut grade = None;
+
+        for option in options {
+            match option {
+                CommandDataOption::String { name, value } => match name.as_str() {
+                    NAME => config.osu_username = Some(value.into()),
+                    DISCORD => {
+                        config.osu_username = parse_discord_option!(ctx, value, "recent list")
+                    }
+                    MODE => config.mode = parse_mode_option!(value, "recent list"),
+                    GRADE => match value.as_str() {
+                        "SS" => {
+                            grade = Some(GradeArg::Range {
+                                bot: Grade::X,
+                                top: Grade::XH,
+                            })
+                        }
+                        "S" => {
+                            grade = Some(GradeArg::Range {
+                                bot: Grade::S,
+                                top: Grade::SH,
+                            })
+                        }
+                        "A" => grade = Some(GradeArg::Single(Grade::A)),
+                        "B" => grade = Some(GradeArg::Single(Grade::B)),
+                        "C" => grade = Some(GradeArg::Single(Grade::C)),
+                        "D" => grade = Some(GradeArg::Single(Grade::D)),
+                        "F" => grade = Some(GradeArg::Single(Grade::F)),
+                        _ => bail_cmd_option!("recent list grade", string, value),
+                    },
+                    _ => bail_cmd_option!("recent list", string, name),
+                },
+                CommandDataOption::Integer { name, .. } => {
+                    bail_cmd_option!("recent list", integer, name)
+                }
+                CommandDataOption::Boolean { name, value } => match name.as_str() {
+                    "passes" => {
+                        if value {
+                            grade = match grade {
+                                Some(GradeArg::Single(Grade::F)) => None,
+                                Some(GradeArg::Single(_)) => grade,
+                                Some(GradeArg::Range { .. }) => grade,
+                                None => Some(GradeArg::Range {
+                                    bot: Grade::D,
+                                    top: Grade::XH,
+                                }),
+                            }
+                        } else {
+                            grade = Some(GradeArg::Single(Grade::F));
+                        }
+                    }
+                    _ => bail_cmd_option!("recent list", boolean, name),
+                },
+                CommandDataOption::SubCommand { name, .. } => {
+                    bail_cmd_option!("recent list", subcommand, name)
+                }
+            }
+        }
 
         Ok(Ok(Self { config, grade }))
     }

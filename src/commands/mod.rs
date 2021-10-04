@@ -29,10 +29,10 @@ macro_rules! bail_cmd_option {
 macro_rules! parse_mode_option {
     ($value:ident, $location:literal) => {
         match $value.as_str() {
-            "osu" => Some(GameMode::STD),
-            "taiko" => Some(GameMode::TKO),
-            "catch" => Some(GameMode::CTB),
-            "mania" => Some(GameMode::MNA),
+            crate::util::constants::common_literals::OSU => Some(GameMode::STD),
+            crate::util::constants::common_literals::TAIKO => Some(GameMode::TKO),
+            crate::util::constants::common_literals::CTB => Some(GameMode::CTB),
+            crate::util::constants::common_literals::MANIA => Some(GameMode::MNA),
             _ => bail_cmd_option!(concat!($location, " mode"), string, $value),
         }
     };
@@ -76,44 +76,14 @@ use tracking::*;
 use twitch::*;
 use utility::*;
 
+use std::collections::BTreeMap;
+
+use twilight_model::application::command::{
+    BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption, CommandOptionChoice,
+    CommandType, OptionsCommandOptionData,
+};
+
 use crate::{core::CommandGroup, util::Emote};
-
-use twilight_model::application::command::{Command, CommandOption, CommandType};
-
-struct SlashCommandBuilder {
-    name: String,
-    description: String,
-    options: Option<Vec<CommandOption>>,
-}
-
-impl SlashCommandBuilder {
-    fn new(name: &str, description: &str) -> Self {
-        Self {
-            name: name.to_owned(),
-            description: description.to_owned(),
-            options: None,
-        }
-    }
-
-    fn options(mut self, options: Vec<CommandOption>) -> Self {
-        self.options = Some(options);
-
-        self
-    }
-
-    fn build(self) -> Command {
-        Command {
-            application_id: None,
-            guild_id: None,
-            name: self.name,
-            default_permission: None,
-            description: self.description,
-            id: None,
-            kind: CommandType::ChatInput,
-            options: self.options.unwrap_or_default(),
-        }
-    }
-}
 
 pub fn command_groups() -> [CommandGroup; 11] {
     [
@@ -301,7 +271,6 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &PING_CMD,
                 &ROLL_CMD,
                 &CONFIG_CMD,
-                &ABOUT_CMD,
                 &COMMANDS_CMD,
                 &INVITE_CMD,
                 &PRUNE_CMD,
@@ -336,7 +305,6 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &ADDBG_CMD,
                 &ADDCOUNTRY_CMD,
                 &CACHE_CMD,
-                &ACTIVEBG_CMD,
                 &BGTAGS_CMD,
                 &BGTAGSMANUAL_CMD,
                 &CHANGEGAME_CMD,
@@ -349,46 +317,366 @@ pub fn command_groups() -> [CommandGroup; 11] {
     ]
 }
 
-pub fn slash_commands() -> [Command; 39] {
-    [
-        help::slash_help_command(),
-        slash_recent_command(),
-        slash_compare_command(),
-        slash_link_command(),
-        slash_top_command(),
-        slash_osustats_command(),
-        slash_profile_command(),
-        slash_snipe_command(),
-        slash_matchcost_command(),
-        slash_roll_command(),
-        slash_leaderboard_command(),
-        slash_reach_command(),
-        slash_whatif_command(),
-        slash_map_command(),
-        slash_bws_command(),
-        slash_medal_command(),
-        slash_osekai_command(),
-        slash_track_command(),
-        slash_mostplayed_command(),
-        slash_ranking_command(),
-        slash_ping_command(),
-        slash_simulate_command(),
-        slash_fix_command(),
-        slash_config_command(),
-        slash_mapsearch_command(),
-        slash_ratio_command(),
-        slash_trackstream_command(),
-        slash_matchlive_command(),
-        slash_invite_command(),
-        slash_about_command(),
-        slash_commands_command(),
-        slash_avatar_command(),
-        slash_song_command(),
-        slash_minesweeper_command(),
-        slash_prune_command(),
-        slash_authorities_command(),
-        slash_togglesongs_command(),
-        slash_roleassign_command(),
-        slash_owner_command(),
-    ]
+pub struct MyCommandOption {
+    pub name: &'static str,
+    pub description: &'static str,
+    pub help: Option<&'static str>,
+    pub kind: MyCommandOptionKind,
+}
+
+pub struct MyCommandOptionBuilder {
+    name: &'static str,
+    description: &'static str,
+    help: Option<&'static str>,
+}
+
+impl MyCommandOptionBuilder {
+    pub fn help(mut self, help: &'static str) -> Self {
+        self.help = Some(help);
+
+        self
+    }
+
+    pub fn subcommand(self, options: Vec<MyCommandOption>) -> MyCommandOption {
+        MyCommandOption {
+            name: self.name,
+            description: self.description,
+            help: self.help,
+            kind: MyCommandOptionKind::SubCommand { options },
+        }
+    }
+
+    pub fn subcommandgroup(self, options: Vec<MyCommandOption>) -> MyCommandOption {
+        MyCommandOption {
+            name: self.name,
+            description: self.description,
+            help: self.help,
+            kind: MyCommandOptionKind::SubCommandGroup { options },
+        }
+    }
+
+    pub fn string(self, choices: Vec<CommandOptionChoice>, required: bool) -> MyCommandOption {
+        MyCommandOption {
+            name: self.name,
+            description: self.description,
+            help: self.help,
+            kind: MyCommandOptionKind::String { choices, required },
+        }
+    }
+
+    pub fn integer(self, choices: Vec<CommandOptionChoice>, required: bool) -> MyCommandOption {
+        MyCommandOption {
+            name: self.name,
+            description: self.description,
+            help: self.help,
+            kind: MyCommandOptionKind::Integer { choices, required },
+        }
+    }
+
+    pub fn boolean(self, required: bool) -> MyCommandOption {
+        MyCommandOption {
+            name: self.name,
+            description: self.description,
+            help: self.help,
+            kind: MyCommandOptionKind::Boolean { required },
+        }
+    }
+
+    pub fn user(self, required: bool) -> MyCommandOption {
+        MyCommandOption {
+            name: self.name,
+            description: self.description,
+            help: self.help,
+            kind: MyCommandOptionKind::User { required },
+        }
+    }
+
+    pub fn channel(self, required: bool) -> MyCommandOption {
+        MyCommandOption {
+            name: self.name,
+            description: self.description,
+            help: self.help,
+            kind: MyCommandOptionKind::Channel { required },
+        }
+    }
+
+    pub fn role(self, required: bool) -> MyCommandOption {
+        MyCommandOption {
+            name: self.name,
+            description: self.description,
+            help: self.help,
+            kind: MyCommandOptionKind::Role { required },
+        }
+    }
+
+    pub fn mentionable(self, required: bool) -> MyCommandOption {
+        MyCommandOption {
+            name: self.name,
+            description: self.description,
+            help: self.help,
+            kind: MyCommandOptionKind::Mentionable { required },
+        }
+    }
+}
+
+impl MyCommandOption {
+    pub fn builder(name: &'static str, description: &'static str) -> MyCommandOptionBuilder {
+        MyCommandOptionBuilder {
+            name,
+            description,
+            help: None,
+        }
+    }
+
+    pub fn help(mut self, help: &'static str) -> Self {
+        self.help = Some(help);
+
+        self
+    }
+}
+
+pub enum MyCommandOptionKind {
+    SubCommand {
+        options: Vec<MyCommandOption>,
+    },
+    SubCommandGroup {
+        options: Vec<MyCommandOption>,
+    },
+    String {
+        choices: Vec<CommandOptionChoice>,
+        required: bool,
+    },
+    Integer {
+        choices: Vec<CommandOptionChoice>,
+        required: bool,
+    },
+    Boolean {
+        required: bool,
+    },
+    User {
+        required: bool,
+    },
+    Channel {
+        required: bool,
+    },
+    Role {
+        required: bool,
+    },
+    Mentionable {
+        required: bool,
+    },
+}
+
+impl From<MyCommandOption> for CommandOption {
+    fn from(option: MyCommandOption) -> Self {
+        match option.kind {
+            MyCommandOptionKind::SubCommand { options } => {
+                let options = options.into_iter().map(Into::into).collect();
+
+                let inner = OptionsCommandOptionData {
+                    options,
+                    description: option.description.to_owned(),
+                    name: option.name.to_owned(),
+                    required: false,
+                };
+
+                Self::SubCommand(inner)
+            }
+            MyCommandOptionKind::SubCommandGroup { options } => {
+                let options = options.into_iter().map(Into::into).collect();
+
+                let inner = OptionsCommandOptionData {
+                    options,
+                    description: option.description.to_owned(),
+                    name: option.name.to_owned(),
+                    required: false,
+                };
+
+                Self::SubCommandGroup(inner)
+            }
+            MyCommandOptionKind::String { choices, required } => {
+                let inner = ChoiceCommandOptionData {
+                    choices,
+                    description: option.description.to_owned(),
+                    name: option.name.to_owned(),
+                    required,
+                };
+
+                Self::String(inner)
+            }
+            MyCommandOptionKind::Integer { choices, required } => {
+                let inner = ChoiceCommandOptionData {
+                    choices,
+                    description: option.description.to_owned(),
+                    name: option.name.to_owned(),
+                    required,
+                };
+
+                Self::Integer(inner)
+            }
+            MyCommandOptionKind::Boolean { required } => {
+                let inner = BaseCommandOptionData {
+                    description: option.description.to_owned(),
+                    name: option.name.to_owned(),
+                    required,
+                };
+
+                Self::Boolean(inner)
+            }
+            MyCommandOptionKind::User { required } => {
+                let inner = BaseCommandOptionData {
+                    description: option.description.to_owned(),
+                    name: option.name.to_owned(),
+                    required,
+                };
+
+                Self::User(inner)
+            }
+            MyCommandOptionKind::Channel { required } => {
+                let inner = BaseCommandOptionData {
+                    description: option.description.to_owned(),
+                    name: option.name.to_owned(),
+                    required,
+                };
+
+                Self::Channel(inner)
+            }
+            MyCommandOptionKind::Role { required } => {
+                let inner = BaseCommandOptionData {
+                    description: option.description.to_owned(),
+                    name: option.name.to_owned(),
+                    required,
+                };
+
+                Self::Role(inner)
+            }
+            MyCommandOptionKind::Mentionable { required } => {
+                let inner = BaseCommandOptionData {
+                    description: option.description.to_owned(),
+                    name: option.name.to_owned(),
+                    required,
+                };
+
+                Self::Mentionable(inner)
+            }
+        }
+    }
+}
+
+pub struct MyCommand {
+    name: &'static str,
+    description: &'static str,
+    help: Option<&'static str>,
+    authority: bool,
+    options: Vec<MyCommandOption>,
+}
+
+impl MyCommand {
+    pub fn new(name: &'static str, description: &'static str) -> Self {
+        Self {
+            name,
+            description,
+            help: None,
+            authority: false,
+            options: Vec::new(),
+        }
+    }
+
+    pub fn help(mut self, help: &'static str) -> Self {
+        self.help = Some(help);
+
+        self
+    }
+
+    pub fn authority(mut self) -> Self {
+        self.authority = true;
+
+        self
+    }
+
+    pub fn options(mut self, options: Vec<MyCommandOption>) -> Self {
+        self.options = options;
+
+        self
+    }
+}
+
+impl From<MyCommand> for Command {
+    fn from(command: MyCommand) -> Self {
+        Self {
+            application_id: None,
+            guild_id: None,
+            name: command.name.to_owned(),
+            default_permission: None,
+            description: command.description.to_owned(),
+            id: None,
+            kind: CommandType::ChatInput,
+            options: command.options.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+// BTreeMap to have a stable order
+pub struct SlashCommands(BTreeMap<&'static str, fn() -> MyCommand>);
+
+impl SlashCommands {
+    pub fn command(&self, command: &str) -> Option<MyCommand> {
+        self.0.get(command).map(|f| (f)())
+    }
+
+    pub fn collect(&self) -> Vec<Command> {
+        self.0.values().map(|f| (f)().into()).collect()
+    }
+
+    pub fn names(&self) -> impl Iterator<Item = &'static str> + '_ {
+        self.0.keys().copied()
+    }
+}
+
+lazy_static! {
+    pub static ref SLASH_COMMANDS: SlashCommands = {
+        let mut map = BTreeMap::new();
+        let mut insert = |name: &'static str, f: fn() -> MyCommand| map.insert(name, f);
+
+        insert("help", help::define_help);
+        insert("recent", define_recent);
+        insert("track", define_track);
+        insert("owner", define_owner);
+        insert("song", define_song);
+        insert("trackstream", define_trackstream);
+        insert("minesweeper", define_minesweeper);
+        insert("invite", define_invite);
+        insert("roll", define_roll);
+        insert("togglesongs", define_togglesongs);
+        insert("commands", define_commands);
+        insert("authorities", define_authorities);
+        insert("prune", define_prune);
+        insert("config", define_config);
+        insert("roleassign", define_roleassign);
+        insert("ping", define_ping);
+        insert("ratios", define_ratios);
+        insert("mostplayed", define_mostplayed);
+        insert("matchcost", define_matchcost);
+        insert("link", define_link);
+        insert("bws", define_bws);
+        insert("avatar", define_avatar);
+        insert("map", define_map);
+        insert("matchlive", define_matchlive);
+        insert("fix", define_fix);
+        insert("whatif", define_whatif);
+        insert("simulate", define_simulate);
+        insert("search", define_mapsearch);
+        insert("leaderboard", define_leaderboard);
+        insert("profile", define_profile);
+        insert("reach", define_reach);
+        insert("compare", define_compare);
+        insert("medal", define_medal);
+        insert("osekai", define_osekai);
+        insert("ranking", define_ranking);
+        insert("osustats", define_osustats);
+        insert("top", define_top);
+        insert("snipe", define_snipe);
+
+        SlashCommands(map)
+    };
 }

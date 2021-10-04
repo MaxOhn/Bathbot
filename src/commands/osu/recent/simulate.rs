@@ -2,7 +2,13 @@ use crate::{
     database::UserConfig,
     embeds::{EmbedData, SimulateEmbed},
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::{
+            common_literals::{
+                ACC, ACCURACY, COMBO, CTB, DISCORD, INDEX, MANIA, MISSES, MODE, MODS,
+                MODS_PARSE_FAIL, NAME, OSU, SCORE, TAIKO,
+            },
+            GENERAL_ISSUE, OSU_API_ISSUE,
+        },
         matcher,
         osu::ModSelection,
         MessageExt,
@@ -13,7 +19,9 @@ use crate::{
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{borrow::Cow, sync::Arc};
 use tokio::time::{sleep, Duration};
-use twilight_model::id::UserId;
+use twilight_model::{
+    application::interaction::application_command::CommandDataOption, id::UserId,
+};
 
 pub(super) async fn _recentsimulate(
     ctx: Arc<Context>,
@@ -28,8 +36,8 @@ pub(super) async fn _recentsimulate(
     let mode = args.config.mode.unwrap_or(GameMode::STD);
     let limit = args.index.map_or(1, |n| n + (n == 0) as usize);
 
-    if limit > 50 {
-        let content = "Recent history goes only 50 scores back.";
+    if limit > 100 {
+        let content = "Recent history goes only 100 scores back.";
 
         return data.error(&ctx, content).await;
     }
@@ -322,6 +330,9 @@ macro_rules! parse_fail {
     };
 }
 
+const RECENT_SIMULATE: &str = "recent simulate";
+const RECENT_SIMULATE_MODE: &str = "recent simulate mode_";
+
 impl RecentSimulateArgs {
     async fn args(
         ctx: &Context,
@@ -342,7 +353,7 @@ impl RecentSimulateArgs {
         for arg in args {
             if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
                 let key = &arg[..idx];
-                let value = &arg[idx + 1..];
+                let value = arg[idx + 1..].trim_end();
 
                 match key {
                     "n300" => match value.parse() {
@@ -357,25 +368,25 @@ impl RecentSimulateArgs {
                         Ok(value) => n50 = Some(value),
                         Err(_) => parse_fail!(key, "a positive integer"),
                     },
-                    "misses" | "miss" | "m" => match value.parse() {
+                    MISSES | "miss" | "m" => match value.parse() {
                         Ok(value) => misses = Some(value),
                         Err(_) => parse_fail!(key, "a positive integer"),
                     },
-                    "acc" | "a" | "accuracy" => match value.parse() {
+                    ACC | "a" | ACCURACY => match value.parse() {
                         Ok(value) => acc = Some(value),
                         Err(_) => parse_fail!(key, "a number"),
                     },
-                    "combo" | "c" => match value.parse() {
+                    COMBO | "c" => match value.parse() {
                         Ok(value) => combo = Some(value),
                         Err(_) => parse_fail!(key, "a positive integer"),
                     },
-                    "score" | "s" => match value.parse() {
+                    SCORE | "s" => match value.parse() {
                         Ok(value) => score = Some(value),
                         Err(_) => parse_fail!(key, "a positive integer"),
                     },
-                    "mods" => match value.parse() {
+                    MODS => match value.parse() {
                         Ok(m) => mods = Some(ModSelection::Exact(m)),
-                        Err(_) => parse_fail!(key, "a valid mod abbreviation"),
+                        Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
                     },
                     _ => {
                         let content = format!(
@@ -402,6 +413,105 @@ impl RecentSimulateArgs {
             config,
             index,
             mods,
+            n300,
+            n100,
+            n50,
+            misses,
+            acc,
+            combo,
+            score,
+        };
+
+        Ok(Ok(args))
+    }
+
+    pub(super) async fn slash(
+        ctx: &Context,
+        options: Vec<CommandDataOption>,
+        author_id: UserId,
+    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+        let mut config = ctx.user_config(author_id).await?;
+        let mut mods = None;
+        let mut index = None;
+        let mut n300 = None;
+        let mut n100 = None;
+        let mut n50 = None;
+        let mut misses = None;
+        let mut acc = None;
+        let mut combo = None;
+        let mut score = None;
+
+        for option in options {
+            match option {
+                CommandDataOption::String { name, .. } => {
+                    bail_cmd_option!(RECENT_SIMULATE, string, name)
+                }
+                CommandDataOption::Integer { name, .. } => {
+                    bail_cmd_option!(RECENT_SIMULATE, integer, name)
+                }
+                CommandDataOption::Boolean { name, .. } => {
+                    bail_cmd_option!(RECENT_SIMULATE, boolean, name)
+                }
+                CommandDataOption::SubCommand { name, options } => match name.as_str() {
+                    OSU | TAIKO | CTB | MANIA => {
+                        for option in options {
+                            match option {
+                                CommandDataOption::String { name, value } => match name.as_str() {
+                                    NAME => config.osu_username = Some(value.into()),
+                                    MODS => match matcher::get_mods(&value) {
+                                        Some(mods_) => mods = Some(mods_),
+                                        None => match value.parse() {
+                                            Ok(mods_) => mods = Some(ModSelection::Exact(mods_)),
+                                            Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
+                                        },
+                                    },
+                                    DISCORD => {
+                                        config.osu_username =
+                                            parse_discord_option!(ctx, value, "recent simulate")
+                                    }
+                                    MODE => {
+                                        config.mode = parse_mode_option!(value, "recent simulate")
+                                    }
+                                    ACC => {
+                                        if let Ok(num) = value.parse::<f32>() {
+                                            acc = Some(num.max(0.0).min(100.0))
+                                        } else {
+                                            let content =
+                                                "Failed to parse `acc`. Must be a number.";
+
+                                            return Ok(Err(content.into()));
+                                        }
+                                    }
+                                    _ => bail_cmd_option!(RECENT_SIMULATE_MODE, string, name),
+                                },
+                                CommandDataOption::Integer { name, value } => match name.as_str() {
+                                    INDEX => index = Some(value.max(1).min(50) as usize),
+                                    "n300" | "fruits" => n300 = Some(value.max(0) as usize),
+                                    "n100" | "droplets" => n100 = Some(value.max(0) as usize),
+                                    "n50" | "tiny_droplets" => n50 = Some(value.max(0) as usize),
+                                    MISSES => misses = Some(value.max(0) as usize),
+                                    COMBO => combo = Some(value.max(0) as usize),
+                                    SCORE => score = Some(value.max(0) as u32),
+                                    _ => bail_cmd_option!("recent simulate mode", integer, name),
+                                },
+                                CommandDataOption::Boolean { name, .. } => {
+                                    bail_cmd_option!(RECENT_SIMULATE_MODE, boolean, name)
+                                }
+                                CommandDataOption::SubCommand { name, .. } => {
+                                    bail_cmd_option!(RECENT_SIMULATE_MODE, subcommand, name)
+                                }
+                            }
+                        }
+                    }
+                    _ => bail_cmd_option!(RECENT_SIMULATE, subcommand, name),
+                },
+            }
+        }
+
+        let args = Self {
+            config,
+            mods,
+            index,
             n300,
             n100,
             n50,

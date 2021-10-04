@@ -4,7 +4,10 @@ use crate::{
     embeds::{EmbedData, PPMissingEmbed},
     tracking::process_tracking,
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::{
+            common_literals::{DISCORD, MODE, NAME},
+            GENERAL_ISSUE, OSU_API_ISSUE,
+        },
         MessageExt,
     },
     Args, BotResult, CommandData, Context, Error,
@@ -217,6 +220,8 @@ pub(super) struct PpArgs {
     pub pp: f32,
 }
 
+const REACH_PP: &str = "reach pp";
+
 impl PpArgs {
     async fn args(
         ctx: &Context,
@@ -255,11 +260,9 @@ impl PpArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "mode" => config.mode = parse_mode_option!(value, "reach pp"),
-                    "name" => config.osu_username = Some(value.into()),
-                    "discord" => {
-                        config.osu_username = parse_discord_option!(ctx, value, "reach pp")
-                    }
+                    MODE => config.mode = parse_mode_option!(value, "reach pp"),
+                    NAME => config.osu_username = Some(value.into()),
+                    DISCORD => config.osu_username = parse_discord_option!(ctx, value, "reach pp"),
                     "pp" => match value.parse() {
                         Ok(num) => pp = Some(num),
                         Err(_) => {
@@ -268,16 +271,16 @@ impl PpArgs {
                             return Ok(Err(content.into()));
                         }
                     },
-                    _ => bail_cmd_option!("reach pp", string, name),
+                    _ => bail_cmd_option!(REACH_PP, string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("reach pp", integer, name)
+                    bail_cmd_option!(REACH_PP, integer, name)
                 }
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("reach pp", boolean, name)
+                    bail_cmd_option!(REACH_PP, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("reach pp", subcommand, name)
+                    bail_cmd_option!(REACH_PP, subcommand, name)
                 }
             }
         }

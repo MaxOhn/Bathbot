@@ -29,6 +29,7 @@ mod util;
 
 use crate::{
     arguments::Args,
+    commands::SLASH_COMMANDS,
     core::{
         commands::{self as cmds, CommandData, CommandDataCompact},
         logging, BotStats, Cache, Context, MatchLiveChannels, CONFIG,
@@ -235,7 +236,7 @@ async fn async_main() -> BotResult<()> {
         .map_err(|why| format_err!("Could not start cluster: {}", why))?;
 
     // Slash commands
-    let slash_commands = commands::slash_commands();
+    let slash_commands = SLASH_COMMANDS.collect();
     info!("Setting {} slash commands...", slash_commands.len());
 
     if cfg!(debug_assertions) {
@@ -394,9 +395,16 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
         Event::IntegrationDelete(_) => {}
         Event::IntegrationUpdate(_) => {}
         Event::InteractionCreate(e) => {
-            if let Interaction::ApplicationCommand(cmd) = e.0 {
-                ctx.stats.event_counts.interaction_create.inc();
-                cmds::handle_interaction(ctx, *cmd).await?;
+            ctx.stats.event_counts.interaction_create.inc();
+
+            match e.0 {
+                Interaction::ApplicationCommand(cmd) => {
+                    cmds::handle_command(ctx, *cmd).await?;
+                }
+                Interaction::MessageComponent(component) => {
+                    cmds::handle_component(ctx, component).await?;
+                }
+                _ => {}
             }
         }
         Event::InviteCreate(_) => {}

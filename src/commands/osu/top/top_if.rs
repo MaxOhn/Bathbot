@@ -6,7 +6,10 @@ use crate::{
     pp::{Calculations, PPCalculator},
     tracking::process_tracking,
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::{
+            common_literals::{DISCORD, MODE, MODS, NAME},
+            GENERAL_ISSUE, OSU_API_ISSUE,
+        },
         matcher, numbers,
         osu::ModSelection,
         MessageExt,
@@ -431,6 +434,8 @@ pub(super) struct IfArgs {
     mods: ModSelection,
 }
 
+const TOP_IF: &str = "top if";
+
 impl IfArgs {
     const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
         If you want to insert mods everywhere, specify it e.g. as `+hrdt`.\n\
@@ -474,23 +479,23 @@ impl IfArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => config.osu_username = Some(value.into()),
-                    "mods" => match matcher::get_mods(&value) {
+                    NAME => config.osu_username = Some(value.into()),
+                    MODS => match matcher::get_mods(&value) {
                         Some(mods_) => mods = Some(mods_),
                         None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
                     },
-                    "mode" => config.mode = parse_mode_option!(value, "top if"),
-                    "discord" => config.osu_username = parse_discord_option!(ctx, value, "top if"),
-                    _ => bail_cmd_option!("top if", string, name),
+                    MODE => config.mode = parse_mode_option!(value, "top if"),
+                    DISCORD => config.osu_username = parse_discord_option!(ctx, value, "top if"),
+                    _ => bail_cmd_option!(TOP_IF, string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("top if", integer, name)
+                    bail_cmd_option!(TOP_IF, integer, name)
                 }
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("top if", boolean, name)
+                    bail_cmd_option!(TOP_IF, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("top if", subcommand, name)
+                    bail_cmd_option!(TOP_IF, subcommand, name)
                 }
             }
         }

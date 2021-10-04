@@ -28,7 +28,7 @@ impl CommandData<'_> {
     }
 
     pub fn author(&self) -> BotResult<&User> {
-        util::Authored::author(self).ok_or(Error::MissingSlashAuthor)
+        util::Authored::author(self).ok_or(Error::MissingInteractionAuthor)
     }
 
     #[allow(dead_code)]

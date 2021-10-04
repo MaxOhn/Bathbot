@@ -1,9 +1,12 @@
 use crate::{
-    commands::SlashCommandBuilder,
+    commands::{osu::option_mods, MyCommand},
     embeds::{EmbedData, LeaderboardEmbed},
     pagination::{LeaderboardPagination, Pagination},
     util::{
-        constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE},
+        constants::{
+            common_literals::{MAP, MAP_PARSE_FAIL, MODS, MODS_PARSE_FAIL},
+            AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE,
+        },
         matcher,
         osu::{map_id_from_history, map_id_from_msg, MapIdType, ModSelection},
         ApplicationCommandExt, MessageExt,
@@ -14,12 +17,11 @@ use crate::{
 use rosu_v2::error::OsuError;
 use std::{borrow::Cow, sync::Arc};
 use twilight_model::{
-    application::{
-        command::{ChoiceCommandOptionData, Command, CommandOption},
-        interaction::{application_command::CommandDataOption, ApplicationCommand},
-    },
+    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
     channel::message::MessageType,
 };
+
+use super::option_map;
 
 async fn _leaderboard(
     national: bool,
@@ -262,13 +264,9 @@ struct LeaderboardArgs {
     mods: Option<ModSelection>,
 }
 
+const LEADERBOARD: &str = "leaderboard";
+
 impl LeaderboardArgs {
-    const ERR_PARSE_MAP: &'static str = "Failed to parse map url.\n\
-        Be sure you specify a valid map id or url to a map.";
-
-    const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
-            Be sure it's a valid mod abbreviation e.g. `hdhr`.";
-
     fn args(args: &mut Args) -> Result<Self, String> {
         let mut map = None;
         let mut mods = None;
@@ -301,29 +299,29 @@ impl LeaderboardArgs {
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "map" => match matcher::get_osu_map_id(&value)
+                    MAP => match matcher::get_osu_map_id(&value)
                         .or_else(|| matcher::get_osu_mapset_id(&value))
                     {
                         Some(id) => map = Some(id),
-                        None => return Ok(Err(Self::ERR_PARSE_MAP.into())),
+                        None => return Ok(Err(MAP_PARSE_FAIL.into())),
                     },
-                    "mods" => match matcher::get_mods(&value) {
+                    MODS => match matcher::get_mods(&value) {
                         Some(mods_) => mods = Some(mods_),
                         None => match value.parse() {
                             Ok(mods_) => mods = Some(ModSelection::Exact(mods_)),
-                            Err(_) => return Ok(Err(Self::ERR_PARSE_MODS.into())),
+                            Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
                         },
                     },
-                    _ => bail_cmd_option!("leaderboard", string, name),
+                    _ => bail_cmd_option!(LEADERBOARD, string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("leaderboard", integer, name)
+                    bail_cmd_option!(LEADERBOARD, integer, name)
                 }
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("leaderboard", boolean, name)
+                    bail_cmd_option!(LEADERBOARD, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("leaderboard", subcommand, name)
+                    bail_cmd_option!(LEADERBOARD, subcommand, name)
                 }
             }
         }
@@ -344,23 +342,9 @@ pub async fn slash_leaderboard(
     }
 }
 
-pub fn slash_leaderboard_command() -> Command {
-    let options = vec![
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify a map url or map id".to_owned(),
-            name: "map".to_owned(),
-            required: false,
-        }),
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify mods".to_owned(),
-            name: "mods".to_owned(),
-            required: false,
-        }),
-    ];
+pub fn define_leaderboard() -> MyCommand {
+    let map = option_map();
+    let mods = option_mods(true);
 
-    SlashCommandBuilder::new("leaderboard", "Display the global leaderboard of a map")
-        .options(options)
-        .build()
+    MyCommand::new(LEADERBOARD, "Display the global leaderboard of a map").options(vec![map, mods])
 }

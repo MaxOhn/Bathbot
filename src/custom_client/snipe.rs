@@ -1,6 +1,13 @@
 use super::deserialize::{expect_negative_u32, str_to_maybe_datetime};
 use crate::{
-    util::{constants::DATE_FORMAT, osu::ModSelection, CountryCode},
+    util::{
+        constants::{
+            common_literals::{ACCURACY, MAP, MODS, SCORE},
+            DATE_FORMAT,
+        },
+        osu::ModSelection,
+        CountryCode,
+    },
     Name,
 };
 
@@ -36,7 +43,7 @@ impl Default for SnipeScoreOrder {
 impl fmt::Display for SnipeScoreOrder {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let name = match self {
-            Self::Accuracy => "accuracy",
+            Self::Accuracy => ACCURACY,
             Self::Length => "length",
             Self::MapApprovalDate => "date_ranked",
             Self::Misses => "count_miss",
@@ -234,9 +241,9 @@ impl<'de> Deserialize<'de> for SnipeRecent {
                         "sniped_id" => sniped_id = Some(map.next_value()?),
                         "sniper" => sniper = Some(map.next_value()?),
                         "sniper_id" => sniper_id = Some(map.next_value()?),
-                        "mods" => mods = Some(map.next_value()?),
-                        "accuracy" => accuracy = Some(map.next_value()?),
-                        "map" => beatmap = Some(map.next_value()?),
+                        MODS => mods = Some(map.next_value()?),
+                        ACCURACY => accuracy = Some(map.next_value()?),
+                        MAP => beatmap = Some(map.next_value()?),
                         "sr" => sr_map = Some(map.next_value()?),
                         _ => {
                             let _ = map.next_value::<IgnoredAny>();
@@ -244,7 +251,7 @@ impl<'de> Deserialize<'de> for SnipeRecent {
                     }
                 }
 
-                let mods = mods.ok_or_else(|| Error::missing_field("mods"))?;
+                let mods = mods.ok_or_else(|| Error::missing_field(MODS))?;
                 let stars = sr_map.ok_or_else(|| Error::missing_field("sr"))?;
 
                 let (_, stars) =
@@ -271,8 +278,8 @@ impl<'de> Deserialize<'de> for SnipeRecent {
                     Error::invalid_value(Unexpected::Str(&date), &"a date of the form `%F %T`")
                 })?;
 
-                let accuracy = accuracy.ok_or_else(|| Error::missing_field("accuracy"))?;
-                let beatmap = beatmap.ok_or_else(|| Error::missing_field("map"))?;
+                let accuracy = accuracy.ok_or_else(|| Error::missing_field(ACCURACY))?;
+                let beatmap = beatmap.ok_or_else(|| Error::missing_field(MAP))?;
 
                 let snipe = SnipeRecent {
                     sniped: sniped.map(From::from),
@@ -296,11 +303,11 @@ impl<'de> Deserialize<'de> for SnipeRecent {
             "sniped_id",
             "sniper",
             "sniper_id",
-            "mods",
+            MODS,
             "beatmap_id",
-            "map",
+            MAP,
             "date",
-            "accuracy",
+            ACCURACY,
             "stars",
         ];
 
@@ -493,11 +500,11 @@ impl<'de> Deserialize<'de> for SnipeScore {
             // "version",
             "user_id",
             // "username",
-            "score",
+            SCORE,
             "pp",
-            "mods",
+            MODS,
             // "tie",
-            "accuracy",
+            ACCURACY,
             "count_100",
             "count_50",
             "count_miss",

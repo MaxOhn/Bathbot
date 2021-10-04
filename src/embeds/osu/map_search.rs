@@ -1,7 +1,13 @@
 use crate::{
     commands::osu::MapSearchArgs,
     embeds::Footer,
-    util::{constants::OSU_BASE, numbers::round},
+    util::{
+        constants::{
+            common_literals::{CTB, MANIA, TAIKO},
+            OSU_BASE,
+        },
+        numbers::round,
+    },
 };
 
 use rosu_v2::prelude::{Beatmapset, BeatmapsetSearchSort, GameMode};
@@ -151,7 +157,7 @@ impl MapSearchEmbed {
                     mode.push_str(", ");
                 }
 
-                mode.push_str("mania");
+                mode.push_str(MANIA);
             }
 
             if maps.iter().any(|map| map.mode == GameMode::TKO) {
@@ -159,7 +165,7 @@ impl MapSearchEmbed {
                     mode.push_str(", ");
                 }
 
-                mode.push_str("taiko");
+                mode.push_str(TAIKO);
             }
 
             if maps.iter().any(|map| map.mode == GameMode::CTB) {
@@ -167,7 +173,7 @@ impl MapSearchEmbed {
                     mode.push_str(", ");
                 }
 
-                mode.push_str("ctb");
+                mode.push_str(CTB);
             }
 
             let _ = writeln!(

@@ -67,7 +67,8 @@ impl MessageExt for (MessageId, ChannelId) {
         let mut req = ctx
             .http
             .update_message(self.1, self.0)
-            .content(builder.content.as_ref().map(Cow::as_ref))?;
+            .content(builder.content.as_deref())?
+            .components(builder.components)?;
 
         if let Some(ref embed) = builder.embed {
             req = req.embeds(slice::from_ref(embed))?;
@@ -136,8 +137,9 @@ impl<'s> MessageExt for (InteractionId, &'s str) {
         let req = ctx
             .http
             .update_interaction_original(self.1)?
-            .content(builder.content.as_ref().map(Cow::as_ref))?
-            .embeds(builder.embed.as_ref().map(slice::from_ref))?;
+            .content(builder.content.as_deref())?
+            .embeds(builder.embed.as_ref().map(slice::from_ref))?
+            .components(builder.components)?;
 
         Ok(req.exec().await?)
     }

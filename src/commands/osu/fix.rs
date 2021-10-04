@@ -1,32 +1,21 @@
-use crate::{
-    commands::SlashCommandBuilder,
-    database::UserConfig,
-    embeds::{EmbedData, FixScoreEmbed},
-    tracking::process_tracking,
-    util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        error::PPError,
-        matcher,
-        osu::{
-            map_id_from_history, map_id_from_msg, prepare_beatmap_file, MapIdType, ModSelection,
-        },
-        ApplicationCommandExt, MessageExt,
-    },
-    Args, BotResult, CommandData, Context,
-};
+use std::{borrow::Cow, sync::Arc};
 
 use rosu_pp::{fruits::stars, Beatmap as Map, FruitsPP, ManiaPP, OsuPP, StarResult, TaikoPP};
 use rosu_v2::prelude::{Beatmap, GameMode, OsuError, RankStatus, Score};
-use std::{borrow::Cow, sync::Arc};
 use tokio::fs::File;
 use twilight_model::{
-    application::{
-        command::{BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption},
-        interaction::{application_command::CommandDataOption, ApplicationCommand},
-    },
+    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
     channel::message::MessageType,
     id::UserId,
 };
+
+use super::{option_discord, option_map, option_mods, option_name};
+use crate::{Args, BotResult, CommandData, Context, commands::MyCommand, database::UserConfig, embeds::{EmbedData, FixScoreEmbed}, tracking::process_tracking, util::{ApplicationCommandExt, InteractionExt, MessageExt, constants::{
+            common_literals::{DISCORD, MAP, MAP_PARSE_FAIL, MODS, MODS_PARSE_FAIL, NAME},
+            GENERAL_ISSUE, OSU_API_ISSUE,
+        }, error::PPError, matcher, osu::{
+            map_id_from_history, map_id_from_msg, prepare_beatmap_file, MapIdType, ModSelection,
+        }}};
 
 #[command]
 #[short_desc("Display a user's pp after unchoking their score on a map")]
@@ -426,12 +415,6 @@ struct FixArgs {
 }
 
 impl FixArgs {
-    const ERR_PARSE_MAP: &'static str = "Failed to parse map url.\n\
-        Be sure you specify a valid map id or url to a map.";
-
-    const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
-            Be sure it's a valid mod abbreviation e.g. `hdhr`.";
-
     async fn args(
         ctx: &Context,
         args: &mut Args<'_>,
@@ -470,19 +453,19 @@ impl FixArgs {
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => config.osu_username = Some(value.into()),
-                    "discord" => config.osu_username = parse_discord_option!(ctx, value, "fix"),
-                    "map" => match matcher::get_osu_map_id(&value)
+                    NAME => config.osu_username = Some(value.into()),
+                    DISCORD => config.osu_username = parse_discord_option!(ctx, value, "fix"),
+                    MAP => match matcher::get_osu_map_id(&value)
                         .or_else(|| matcher::get_osu_mapset_id(&value))
                     {
                         Some(id) => map = Some(id),
-                        None => return Ok(Err(Self::ERR_PARSE_MAP.into())),
+                        None => return Ok(Err(MAP_PARSE_FAIL.into())),
                     },
-                    "mods" => match matcher::get_mods(&value) {
+                    MODS => match matcher::get_mods(&value) {
                         Some(mods_) => mods = Some(mods_),
                         None => match value.parse() {
                             Ok(mods_) => mods = Some(ModSelection::Exact(mods_)),
-                            Err(_) => return Ok(Err(Self::ERR_PARSE_MODS.into())),
+                            Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
                         },
                     },
                     _ => bail_cmd_option!("fix", string, name),
@@ -510,36 +493,13 @@ pub async fn slash_fix(ctx: Arc<Context>, mut command: ApplicationCommand) -> Bo
     }
 }
 
-pub fn slash_fix_command() -> Command {
+pub fn define_fix() -> MyCommand {
+    let name = option_name();
+    let map = option_map();
+    let mods = option_mods(false);
+    let discord = option_discord();
+
     let description = "Display a user's pp after unchoking their score on a map";
 
-    let options = vec![
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify a username".to_owned(),
-            name: "name".to_owned(),
-            required: false,
-        }),
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify a map url or map id".to_owned(),
-            name: "map".to_owned(),
-            required: false,
-        }),
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify mods".to_owned(),
-            name: "mods".to_owned(),
-            required: false,
-        }),
-        CommandOption::User(BaseCommandOptionData {
-            description: "Specify a linked discord user".to_owned(),
-            name: "discord".to_owned(),
-            required: false,
-        }),
-    ];
-
-    SlashCommandBuilder::new("fix", description)
-        .options(options)
-        .build()
+    MyCommand::new("fix", description).options(vec![name, map, mods, discord])
 }

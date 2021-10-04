@@ -1,4 +1,4 @@
-use crate::{commands::osu::ProfileSize, Context, Name};
+use crate::{commands::osu::ProfileSize, util::constants::common_literals::MODE, Context, Name};
 
 use rosu_v2::prelude::{GameMode, User};
 use serde::{Deserialize, Serialize};
@@ -70,7 +70,7 @@ impl UserConfig {
 impl<'c> FromRow<'c, PgRow> for UserConfig {
     fn from_row(row: &'c PgRow) -> Result<Self, Error> {
         let embeds_maximized = row.try_get("embeds_maximized")?;
-        let mode = row.try_get::<Option<i16>, _>("mode")?;
+        let mode = row.try_get::<Option<i16>, _>(MODE)?;
         let osu_username = row.try_get::<Option<&'c str>, _>("osu_user_name")?;
         let profile_size = row.try_get::<Option<i16>, _>("profile_size")?;
         let show_retries = row.try_get("show_retries")?;

@@ -6,7 +6,8 @@ pub use notif_loop::twitch_loop;
 
 use crate::util::{
     constants::{
-        TWITCH_OAUTH, TWITCH_STREAM_ENDPOINT, TWITCH_USERS_ENDPOINT, TWITCH_VIDEOS_ENDPOINT,
+        common_literals::SORT, TWITCH_OAUTH, TWITCH_STREAM_ENDPOINT, TWITCH_USERS_ENDPOINT,
+        TWITCH_VIDEOS_ENDPOINT,
     },
     error::TwitchError,
 };
@@ -167,7 +168,7 @@ impl Twitch {
         let data = [
             ("user_id", Cow::Owned(user_id.to_string())),
             ("first", "1".into()),
-            ("sort", "time".into()),
+            (SORT, "time".into()),
         ];
 
         let response = self.send_request(TWITCH_VIDEOS_ENDPOINT, &data).await?;

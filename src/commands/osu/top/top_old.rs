@@ -5,7 +5,10 @@ use crate::{
     pagination::{Pagination, TopIfPagination},
     tracking::process_tracking,
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::{
+            common_literals::{DISCORD, MANIA, NAME, OSU, TAIKO},
+            GENERAL_ISSUE, OSU_API_ISSUE,
+        },
         error::PPError,
         numbers,
         osu::prepare_beatmap_file,
@@ -541,6 +544,12 @@ pub(super) struct OldArgs {
     version: Option<OldVersion>,
 }
 
+const TOP_OLD: &str = "top old";
+const TOP_OLD_OSU: &str = "top old osu";
+const TOP_OLD_TAIKO: &str = "top old taiko";
+const TOP_OLD_CTB: &str = "top old ctb";
+const TOP_OLD_MANIA: &str = "top old mania";
+
 impl OldArgs {
     async fn args(
         ctx: &Context,
@@ -598,23 +607,23 @@ impl OldArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, .. } => {
-                    bail_cmd_option!("top old", string, name)
+                    bail_cmd_option!(TOP_OLD, string, name)
                 }
                 CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("top old", integer, name)
+                    bail_cmd_option!(TOP_OLD, integer, name)
                 }
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("top old", boolean, name)
+                    bail_cmd_option!(TOP_OLD, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    "osu" => {
+                    OSU => {
                         config.mode = Some(GameMode::STD);
 
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => config.osu_username = Some(value.into()),
-                                    "discord" => {
+                                    NAME => config.osu_username = Some(value.into()),
+                                    DISCORD => {
                                         config.osu_username =
                                             parse_discord_option!(ctx, value, "top old osu")
                                     }
@@ -633,28 +642,28 @@ impl OldArgs {
                                         }
                                         _ => bail_cmd_option!("top old osu version", string, value),
                                     },
-                                    _ => bail_cmd_option!("top old osu", string, name),
+                                    _ => bail_cmd_option!(TOP_OLD_OSU, string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("top old osu", integer, name)
+                                    bail_cmd_option!(TOP_OLD_OSU, integer, name)
                                 }
                                 CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("top old osu", boolean, name)
+                                    bail_cmd_option!(TOP_OLD_OSU, boolean, name)
                                 }
                                 CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!("top old osu", subcommand, name)
+                                    bail_cmd_option!(TOP_OLD_OSU, subcommand, name)
                                 }
                             }
                         }
                     }
-                    "taiko" => {
+                    TAIKO => {
                         config.mode = Some(GameMode::TKO);
 
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => config.osu_username = Some(value.into()),
-                                    "discord" => {
+                                    NAME => config.osu_username = Some(value.into()),
+                                    DISCORD => {
                                         config.osu_username =
                                             parse_discord_option!(ctx, value, "top old taiko")
                                     }
@@ -666,16 +675,16 @@ impl OldArgs {
                                             bail_cmd_option!("top old taiko version", string, value)
                                         }
                                     },
-                                    _ => bail_cmd_option!("top old taiko", string, name),
+                                    _ => bail_cmd_option!(TOP_OLD_TAIKO, string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("top old taiko", integer, name)
+                                    bail_cmd_option!(TOP_OLD_TAIKO, integer, name)
                                 }
                                 CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("top old taiko", boolean, name)
+                                    bail_cmd_option!(TOP_OLD_TAIKO, boolean, name)
                                 }
                                 CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!("top old taiko", subcommand, name)
+                                    bail_cmd_option!(TOP_OLD_TAIKO, subcommand, name)
                                 }
                             }
                         }
@@ -686,8 +695,8 @@ impl OldArgs {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => config.osu_username = Some(value.into()),
-                                    "discord" => {
+                                    NAME => config.osu_username = Some(value.into()),
+                                    DISCORD => {
                                         config.osu_username =
                                             parse_discord_option!(ctx, value, "top old catch")
                                     }
@@ -699,28 +708,28 @@ impl OldArgs {
                                             bail_cmd_option!("top old catch version", string, value)
                                         }
                                     },
-                                    _ => bail_cmd_option!("top old catch", string, name),
+                                    _ => bail_cmd_option!(TOP_OLD_CTB, string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("top old catch", integer, name)
+                                    bail_cmd_option!(TOP_OLD_CTB, integer, name)
                                 }
                                 CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("top old catch", boolean, name)
+                                    bail_cmd_option!(TOP_OLD_CTB, boolean, name)
                                 }
                                 CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!("top old catch", subcommand, name)
+                                    bail_cmd_option!(TOP_OLD_CTB, subcommand, name)
                                 }
                             }
                         }
                     }
-                    "mania" => {
+                    MANIA => {
                         config.mode = Some(GameMode::MNA);
 
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "name" => config.osu_username = Some(value.into()),
-                                    "discord" => {
+                                    NAME => config.osu_username = Some(value.into()),
+                                    DISCORD => {
                                         config.osu_username =
                                             parse_discord_option!(ctx, value, "top old mania")
                                     }
@@ -732,21 +741,21 @@ impl OldArgs {
                                             bail_cmd_option!("top old mania version", string, value)
                                         }
                                     },
-                                    _ => bail_cmd_option!("top old mania", string, name),
+                                    _ => bail_cmd_option!(TOP_OLD_MANIA, string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("top old mania", integer, name)
+                                    bail_cmd_option!(TOP_OLD_MANIA, integer, name)
                                 }
                                 CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("top old mania", boolean, name)
+                                    bail_cmd_option!(TOP_OLD_MANIA, boolean, name)
                                 }
                                 CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!("top old mania", subcommand, name)
+                                    bail_cmd_option!(TOP_OLD_MANIA, subcommand, name)
                                 }
                             }
                         }
                     }
-                    _ => bail_cmd_option!("top old", subcommand, name),
+                    _ => bail_cmd_option!(TOP_OLD, subcommand, name),
                 },
             }
         }

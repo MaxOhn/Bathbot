@@ -4,7 +4,12 @@ use crate::{
     embeds::{EmbedData, OsuStatsGlobalsEmbed},
     pagination::{OsuStatsGlobalsPagination, Pagination},
     util::{
-        constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE, OSU_API_ISSUE},
+        constants::{
+            common_literals::{
+                ACC, ACCURACY, COMBO, DISCORD, MISSES, MODE, MODS, NAME, RANK, REVERSE, SCORE, SORT,
+            },
+            GENERAL_ISSUE, OSUSTATS_API_ISSUE, OSU_API_ISSUE,
+        },
         matcher, numbers,
         osu::ModSelection,
         MessageExt,
@@ -303,6 +308,8 @@ pub(super) struct ScoresArgs {
     pub descending: bool,
 }
 
+const OSUSTATS_SCORES: &str = "osustats scores";
+
 impl ScoresArgs {
     const MIN_RANK: usize = 1;
     const MAX_RANK: usize = 100;
@@ -355,7 +362,7 @@ impl ScoresArgs {
                 let value = arg[idx + 1..].trim_end();
 
                 match key {
-                    "acc" | "accuracy" | "a" => match value.find("..") {
+                    ACC | ACCURACY | "a" => match value.find("..") {
                         Some(idx) => {
                             let bot = &value[..idx];
                             let top = &value[idx + 2..];
@@ -384,7 +391,7 @@ impl ScoresArgs {
                             Err(_) => return Ok(Err(Self::ERR_PARSE_ACC.into())),
                         },
                     },
-                    "rank" | "r" => match value.find("..") {
+                    RANK | "r" => match value.find("..") {
                         Some(idx) => {
                             let bot = &value[..idx];
                             let top = &value[idx + 2..];
@@ -413,14 +420,14 @@ impl ScoresArgs {
                             Err(_) => return Ok(Err(Self::ERR_PARSE_RANK.into())),
                         },
                     },
-                    "sort" | "s" | "order" | "ordering" => match value {
+                    SORT | "s" | "order" | "ordering" => match value {
                         "date" | "d" | "scoredate" => order = Some(OsuStatsOrder::PlayDate),
                         "pp" => order = Some(OsuStatsOrder::Pp),
-                        "rank" | "r" => order = Some(OsuStatsOrder::Rank),
-                        "acc" | "accuracy" | "a" => order = Some(OsuStatsOrder::Accuracy),
-                        "combo" | "c" => order = Some(OsuStatsOrder::Combo),
-                        "score" | "s" => order = Some(OsuStatsOrder::Score),
-                        "misses" | "miss" | "m" => order = Some(OsuStatsOrder::Misses),
+                        RANK | "r" => order = Some(OsuStatsOrder::Rank),
+                        ACC | ACCURACY | "a" => order = Some(OsuStatsOrder::Accuracy),
+                        COMBO | "c" => order = Some(OsuStatsOrder::Combo),
+                        SCORE | "s" => order = Some(OsuStatsOrder::Score),
+                        MISSES | "miss" | "m" => order = Some(OsuStatsOrder::Misses),
                         _ => {
                             let content = "Failed to parse `sort`.\n\
                                 Must be either `acc`, `combo`, `date`, `misses`, `pp`, `rank`, or `score`.";
@@ -428,7 +435,7 @@ impl ScoresArgs {
                             return Ok(Err(content.into()));
                         }
                     },
-                    "reverse" => match value {
+                    REVERSE => match value {
                         "true" | "1" => descending = Some(false),
                         "false" | "0" => descending = Some(true),
                         _ => {
@@ -438,7 +445,7 @@ impl ScoresArgs {
                             return Ok(Err(content.into()));
                         }
                     },
-                    "mods" => match matcher::get_mods(value) {
+                    MODS => match matcher::get_mods(value) {
                         Some(mods_) => mods = Some(mods_),
                         None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
                     },
@@ -493,23 +500,23 @@ impl ScoresArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "mode" => config.mode = parse_mode_option!(value, "osustats scores"),
-                    "mods" => match matcher::get_mods(&value) {
+                    MODE => config.mode = parse_mode_option!(value, "osustats scores"),
+                    MODS => match matcher::get_mods(&value) {
                         Some(mods_) => mods = Some(mods_),
                         None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
                     },
-                    "sort" => match value.as_str() {
-                        "acc" => order = Some(OsuStatsOrder::Accuracy),
-                        "combo" => order = Some(OsuStatsOrder::Combo),
-                        "misses" => order = Some(OsuStatsOrder::Misses),
+                    SORT => match value.as_str() {
+                        ACC => order = Some(OsuStatsOrder::Accuracy),
+                        COMBO => order = Some(OsuStatsOrder::Combo),
+                        MISSES => order = Some(OsuStatsOrder::Misses),
                         "pp" => order = Some(OsuStatsOrder::Pp),
-                        "rank" => order = Some(OsuStatsOrder::Rank),
-                        "score" => order = Some(OsuStatsOrder::Score),
+                        RANK => order = Some(OsuStatsOrder::Rank),
+                        SCORE => order = Some(OsuStatsOrder::Score),
                         "date" => order = Some(OsuStatsOrder::PlayDate),
                         _ => bail_cmd_option!("osustats scores sort", string, value),
                     },
-                    "name" => config.osu_username = Some(value.into()),
-                    "discord" => {
+                    NAME => config.osu_username = Some(value.into()),
+                    DISCORD => {
                         config.osu_username = parse_discord_option!(ctx, value, "osustats scores")
                     }
                     "min_acc" => match value.parse::<f32>() {
@@ -528,7 +535,7 @@ impl ScoresArgs {
                             return Ok(Err(content.into()));
                         }
                     },
-                    _ => bail_cmd_option!("osustats scores", string, name),
+                    _ => bail_cmd_option!(OSUSTATS_SCORES, string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {
                     "min_rank" => {
@@ -539,14 +546,14 @@ impl ScoresArgs {
                         rank_max =
                             Some((value.max(Self::MIN_RANK as i64) as usize).min(Self::MAX_RANK))
                     }
-                    _ => bail_cmd_option!("osustats scores", integer, name),
+                    _ => bail_cmd_option!(OSUSTATS_SCORES, integer, name),
                 },
                 CommandDataOption::Boolean { name, value } => match name.as_str() {
-                    "reverse" => descending = Some(!value),
-                    _ => bail_cmd_option!("osustats scores", boolean, name),
+                    REVERSE => descending = Some(!value),
+                    _ => bail_cmd_option!(OSUSTATS_SCORES, boolean, name),
                 },
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("osustats scores", subcommand, name)
+                    bail_cmd_option!(OSUSTATS_SCORES, subcommand, name)
                 }
             }
         }

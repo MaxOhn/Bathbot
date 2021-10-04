@@ -3,7 +3,7 @@ use crate::{
     embeds::{CountrySnipeListEmbed, EmbedData},
     pagination::{CountrySnipeListPagination, Pagination},
     util::{
-        constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
+        constants::{common_literals::SORT, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         numbers, CountryCode, CowUtils, MessageExt,
     },
     Args, BotResult, CommandData, Context,
@@ -204,7 +204,7 @@ impl CountryListArgs {
                 let value = arg[idx + 1..].trim_end();
 
                 match key {
-                    "sort" => {
+                    SORT => {
                         sort = match value {
                             "count" => Some(SnipeOrder::Count),
                             "pp" => Some(SnipeOrder::Pp),

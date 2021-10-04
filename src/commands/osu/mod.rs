@@ -54,7 +54,14 @@ pub use whatif::*;
 
 use crate::{
     custom_client::OsuStatsParams,
-    util::{numbers::with_comma_uint, MessageExt},
+    util::{
+        constants::common_literals::{
+            COUNTRY, CTB, DISCORD, MANIA, MAP, MODE, MODS, NAME, OSU, SPECIFY_COUNTRY,
+            SPECIFY_MODE, TAIKO,
+        },
+        numbers::with_comma_uint,
+        MessageExt,
+    },
     BotResult, CommandData, Context, Error,
 };
 
@@ -73,6 +80,8 @@ use std::{
     ops::{AddAssign, Div},
 };
 use twilight_model::application::command::CommandOptionChoice;
+
+use super::MyCommandOption;
 
 enum ErrorType {
     Bot(Error),
@@ -443,20 +452,84 @@ impl Inc for u32 {
 fn mode_choices() -> Vec<CommandOptionChoice> {
     vec![
         CommandOptionChoice::String {
-            name: "osu".to_owned(),
-            value: "osu".to_owned(),
+            name: OSU.to_owned(),
+            value: OSU.to_owned(),
         },
         CommandOptionChoice::String {
-            name: "taiko".to_owned(),
-            value: "taiko".to_owned(),
+            name: TAIKO.to_owned(),
+            value: TAIKO.to_owned(),
         },
         CommandOptionChoice::String {
-            name: "catch".to_owned(),
-            value: "catch".to_owned(),
+            name: CTB.to_owned(),
+            value: CTB.to_owned(),
         },
         CommandOptionChoice::String {
-            name: "mania".to_owned(),
-            value: "mania".to_owned(),
+            name: MANIA.to_owned(),
+            value: MANIA.to_owned(),
         },
     ]
+}
+
+fn option_mode() -> MyCommandOption {
+    MyCommandOption::builder(MODE, SPECIFY_MODE).string(mode_choices(), false)
+}
+
+fn option_name() -> MyCommandOption {
+    MyCommandOption::builder(NAME, "Specify a username").string(Vec::new(), false)
+}
+
+fn option_discord() -> MyCommandOption {
+    let help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this `discord` option to choose a discord user.\n\
+        For it to work, the user must be linked to an osu! account i.e. they must have used \
+        the `/link` or `/config` command to verify their account.";
+
+    MyCommandOption::builder(DISCORD, "Specify a linked discord user")
+        .help(help)
+        .user(false)
+}
+
+fn option_mods_explicit() -> MyCommandOption {
+    let description =
+        "Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)";
+
+    let help = "Filter out all scores that don't match the specified mods.\n\
+        Mods must be given as `+mods` for included mods, `+mods!` for exact mods, \
+        or `-mods!` for excluded mods.\n\
+        Examples:\n\
+        - `+hd`: Scores must have at least `HD` but can also have more other mods\n\
+        - `+hdhr!`: Scores must have exactly `HDHR`\n\
+        - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
+        - `-nm!`: Scores can not be nomod so there must be any other mod";
+
+    MyCommandOption::builder(MODS, description)
+        .help(help)
+        .string(Vec::new(), false)
+}
+
+fn option_country() -> MyCommandOption {
+    MyCommandOption::builder(COUNTRY, SPECIFY_COUNTRY).string(Vec::new(), false)
+}
+
+fn option_mods(filter: bool) -> MyCommandOption {
+    let help = if filter {
+        "Specify mods either directly or through the explicit `+_!` / `+_` syntax, \
+        e.g. `hdhr` or `+hdhr!`, and filter out all scores that don't match those mods."
+    } else {
+        "Specify mods either directly or through the explicit `+_!` / `+_` syntax e.g. `hdhr` or `+hdhr!`"
+    };
+
+    MyCommandOption::builder(MODS, "Specify mods e.g. hdhr or nm")
+        .help(help)
+        .string(Vec::new(), false)
+}
+
+fn option_map() -> MyCommandOption {
+    let help = "Specify a map either by map url or map id.\n\
+        If none is specified, it will search in the recent channel history \
+        and pick the first map it can find.";
+
+    MyCommandOption::builder(MAP, "Specify a map url or map id")
+        .help(help)
+        .string(Vec::new(), false)
 }

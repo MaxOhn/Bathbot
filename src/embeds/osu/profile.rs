@@ -2,6 +2,7 @@ use crate::{
     commands::osu::{MinMaxAvgBasic, ProfileResult},
     embeds::{attachment, Author, EmbedBuilder, EmbedData, EmbedFields, Footer},
     util::{
+        constants::common_literals::{MANIA, TAIKO},
         datetime::{date_to_string, how_long_ago_text, sec_to_minsec},
         numbers::{round, with_comma_uint},
         osu::grade_emote,
@@ -40,9 +41,9 @@ impl ProfileEmbed {
             max_pp,
             match user.mode {
                 GameMode::STD => "osu!",
-                GameMode::TKO => "taiko",
+                GameMode::TKO => TAIKO,
                 GameMode::CTB => "catch",
-                GameMode::MNA => "mania",
+                GameMode::MNA => MANIA,
             }
         );
 

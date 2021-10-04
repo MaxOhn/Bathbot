@@ -1,6 +1,6 @@
 use crate::{
     bail,
-    commands::SlashCommandBuilder,
+    commands::{MyCommand, MyCommandOption},
     util::{
         constants::{GENERAL_ISSUE, OWNER_USER_ID},
         matcher, ApplicationCommandExt, MessageExt,
@@ -10,10 +10,7 @@ use crate::{
 
 use std::{fmt::Write, sync::Arc};
 use twilight_model::{
-    application::{
-        command::{BaseCommandOptionData, Command, CommandOption, OptionsCommandOptionData},
-        interaction::{application_command::CommandDataOption, ApplicationCommand},
-    },
+    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
     guild::{Permissions, Role},
     id::RoleId,
 };
@@ -328,39 +325,35 @@ pub async fn slash_authorities(
     _authorities(ctx, command.into(), args).await
 }
 
-pub fn slash_authorities_command() -> Command {
-    let description = "Adjust authority roles for a server";
+pub fn define_authorities() -> MyCommand {
+    let role = MyCommandOption::builder("role", "Specify the role that should gain authority status")
+        .role(true);
 
-    let options = vec![
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Add authority status to a role".to_owned(),
-            name: "add".to_owned(),
-            options: vec![CommandOption::Role(BaseCommandOptionData {
-                description: "Specify the role that should gain authority status".to_owned(),
-                name: "role".to_owned(),
-                required: true,
-            })],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Display all current authority roles".to_owned(),
-            name: "list".to_owned(),
-            options: vec![],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Remove authority status for a role".to_owned(),
-            name: "remove".to_owned(),
-            options: vec![CommandOption::Role(BaseCommandOptionData {
-                description: "Specify the role that should lose authority status".to_owned(),
-                name: "role".to_owned(),
-                required: true,
-            })],
-            required: false,
-        }),
-    ];
+    let add = MyCommandOption::builder("add", "Add authority status to a role")
+        .help("Add authority status to a role.\nServers can have at most 10 authority roles.")
+        .subcommand(vec![role]);
 
-    SlashCommandBuilder::new("authorities", description)
-        .options(options)
-        .build()
+    let list =
+        MyCommandOption::builder("list", "Display all current authority roles").subcommand(Vec::new());
+
+    let role = MyCommandOption::builder("role", "Specify the role that should lose authority status")
+        .role(true);
+
+    let remove_help = "Remove authority status from a role.\n\
+        You can only use this if the removed role would __not__ make you lose authority status yourself.";
+
+    let remove = MyCommandOption::builder("remove", "Remove authority status from a role")
+        .help(remove_help)
+        .subcommand(vec![role]);
+
+    let help = "To use certain commands, users require a special status.\n\
+        This command adjusts the authority status of roles.\n\
+        Any member with an authority role can use these higher commands.\n\n\
+        Authority commands: `authorities`, `matchlive`, `prune`, `roleassign`, \
+        `togglesongs`, `track`, `trackstream`.";
+
+    MyCommand::new("authorities", "Adjust authority roles for a server")
+        .help(help)
+        .options(vec![add, list, remove])
+        .authority()
 }

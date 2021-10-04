@@ -1,4 +1,3 @@
-mod about;
 mod authorities;
 mod command_count;
 mod config;
@@ -11,7 +10,6 @@ mod role_assign;
 mod roll;
 mod toggle_songs;
 
-pub use about::*;
 pub use authorities::*;
 pub use command_count::*;
 pub use config::*;

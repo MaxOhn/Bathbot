@@ -1,4 +1,3 @@
-mod active_bg;
 mod add_bg;
 mod add_country;
 mod cache;
@@ -8,7 +7,6 @@ mod tracking_interval;
 mod tracking_stats;
 mod tracking_toggle;
 
-pub use active_bg::*;
 pub use add_bg::*;
 pub use add_country::*;
 pub use cache::*;
@@ -19,19 +17,18 @@ pub use tracking_stats::*;
 pub use tracking_toggle::*;
 
 use crate::{
-    commands::SlashCommandBuilder,
-    util::{ApplicationCommandExt, CountryCode},
+    util::{constants::common_literals::NAME, ApplicationCommandExt, CountryCode},
     BotResult, Context, Error,
 };
 
 use std::sync::Arc;
-use twilight_model::application::{
-    command::{ChoiceCommandOptionData, Command, CommandOption, OptionsCommandOptionData},
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+use twilight_model::application::interaction::{
+    application_command::CommandDataOption, ApplicationCommand,
 };
 
+use super::{MyCommand, MyCommandOption};
+
 enum OwnerCommandKind {
-    ActiveBg,
     AddCountry { code: CountryCode, country: String },
     Cache,
     ChangeGame(String),
@@ -41,6 +38,13 @@ enum OwnerCommandKind {
     TrackingToggle,
 }
 
+const OWNER: &str = "owner";
+const OWNER_ADD_COUNTRY: &str = "owner add_country";
+const OWNER_CHANGE_GAME: &str = "owner change_game";
+const OWNER_TRACKING: &str = "owner tracking";
+const OWNER_TRACKING_COOLDOWN: &str = "owner tracking cooldown";
+const OWNER_TRACKING_INTERVAL: &str = "owner tracking interval";
+
 impl OwnerCommandKind {
     fn slash(command: &mut ApplicationCommand) -> BotResult<Self> {
         let mut kind = None;
@@ -48,16 +52,15 @@ impl OwnerCommandKind {
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, .. } => {
-                    bail_cmd_option!("owner", string, name)
+                    bail_cmd_option!(OWNER, string, name)
                 }
                 CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("owner", integer, name)
+                    bail_cmd_option!(OWNER, integer, name)
                 }
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("owner", boolean, name)
+                    bail_cmd_option!(OWNER, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    "active_bg" => kind = Some(Self::ActiveBg),
                     "add_country" => {
                         let mut code = None;
                         let mut country = None;
@@ -70,18 +73,18 @@ impl OwnerCommandKind {
                                             value.make_ascii_uppercase();
                                             code = Some(value.into());
                                         }
-                                        "name" => country = Some(value),
-                                        _ => bail_cmd_option!("owner add_country", string, name),
+                                        NAME => country = Some(value),
+                                        _ => bail_cmd_option!(OWNER_ADD_COUNTRY, string, name),
                                     }
                                 }
                                 CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("owner add_country", integer, name)
+                                    bail_cmd_option!(OWNER_ADD_COUNTRY, integer, name)
                                 }
                                 CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("owner add_country", boolean, name)
+                                    bail_cmd_option!(OWNER_ADD_COUNTRY, boolean, name)
                                 }
                                 CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!("owner add_country", subcommand, name)
+                                    bail_cmd_option!(OWNER_ADD_COUNTRY, subcommand, name)
                                 }
                             }
                         }
@@ -98,16 +101,16 @@ impl OwnerCommandKind {
                             match option {
                                 CommandDataOption::String { name, value } => match value.as_str() {
                                     "game" => game = Some(value),
-                                    _ => bail_cmd_option!("owner change_game", string, name),
+                                    _ => bail_cmd_option!(OWNER_CHANGE_GAME, string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("owner change_game", integer, name)
+                                    bail_cmd_option!(OWNER_CHANGE_GAME, integer, name)
                                 }
                                 CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("owner change_game", boolean, name)
+                                    bail_cmd_option!(OWNER_CHANGE_GAME, boolean, name)
                                 }
                                 CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!("owner change_game", subcommand, name)
+                                    bail_cmd_option!(OWNER_CHANGE_GAME, subcommand, name)
                                 }
                             }
                         }
@@ -119,13 +122,13 @@ impl OwnerCommandKind {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, .. } => {
-                                    bail_cmd_option!("owner tracking", string, name)
+                                    bail_cmd_option!(OWNER_TRACKING, string, name)
                                 }
                                 CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("owner tracking", integer, name)
+                                    bail_cmd_option!(OWNER_TRACKING, integer, name)
                                 }
                                 CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("owner tracking", boolean, name)
+                                    bail_cmd_option!(OWNER_TRACKING, boolean, name)
                                 }
                                 CommandDataOption::SubCommand { name, options } => {
                                     match name.as_str() {
@@ -138,7 +141,7 @@ impl OwnerCommandKind {
                                                         match name.as_str() {
                                                             "number" => number = value.parse().ok(),
                                                             _ => bail_cmd_option!(
-                                                                "owner tracking cooldown",
+                                                                OWNER_TRACKING_COOLDOWN,
                                                                 string,
                                                                 name
                                                             ),
@@ -146,14 +149,14 @@ impl OwnerCommandKind {
                                                     }
                                                     CommandDataOption::Integer { name, .. } => {
                                                         bail_cmd_option!(
-                                                            "owner tracking cooldown",
+                                                            OWNER_TRACKING_COOLDOWN,
                                                             integer,
                                                             name
                                                         )
                                                     }
                                                     CommandDataOption::Boolean { name, .. } => {
                                                         bail_cmd_option!(
-                                                            "owner tracking cooldown",
+                                                            OWNER_TRACKING_COOLDOWN,
                                                             boolean,
                                                             name
                                                         )
@@ -161,7 +164,7 @@ impl OwnerCommandKind {
                                                     CommandDataOption::SubCommand {
                                                         name, ..
                                                     } => bail_cmd_option!(
-                                                        "owner tracking cooldown",
+                                                        OWNER_TRACKING_COOLDOWN,
                                                         subcommand,
                                                         name
                                                     ),
@@ -179,7 +182,7 @@ impl OwnerCommandKind {
                                                 match option {
                                                     CommandDataOption::String { name, .. } => {
                                                         bail_cmd_option!(
-                                                            "owner tracking interval",
+                                                            OWNER_TRACKING_INTERVAL,
                                                             string,
                                                             name
                                                         )
@@ -188,7 +191,7 @@ impl OwnerCommandKind {
                                                         match name.as_str() {
                                                             "number" => number = Some(value.max(0)),
                                                             _ => bail_cmd_option!(
-                                                                "owner tracking interval",
+                                                                OWNER_TRACKING_INTERVAL,
                                                                 integer,
                                                                 name
                                                             ),
@@ -196,7 +199,7 @@ impl OwnerCommandKind {
                                                     }
                                                     CommandDataOption::Boolean { name, .. } => {
                                                         bail_cmd_option!(
-                                                            "owner tracking interval",
+                                                            OWNER_TRACKING_INTERVAL,
                                                             boolean,
                                                             name
                                                         )
@@ -204,7 +207,7 @@ impl OwnerCommandKind {
                                                     CommandDataOption::SubCommand {
                                                         name, ..
                                                     } => bail_cmd_option!(
-                                                        "owner tracking interval",
+                                                        OWNER_TRACKING_INTERVAL,
                                                         subcommand,
                                                         name
                                                     ),
@@ -217,13 +220,13 @@ impl OwnerCommandKind {
                                         }
                                         "stats" => kind = Some(Self::TrackingStats),
                                         "toggle" => kind = Some(Self::TrackingToggle),
-                                        _ => bail_cmd_option!("owner tracking", subcommand, name),
+                                        _ => bail_cmd_option!(OWNER_TRACKING, subcommand, name),
                                     }
                                 }
                             }
                         }
                     }
-                    _ => bail_cmd_option!("owner", subcommand, name),
+                    _ => bail_cmd_option!(OWNER, subcommand, name),
                 },
             }
         }
@@ -234,7 +237,6 @@ impl OwnerCommandKind {
 
 pub async fn slash_owner(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
     match OwnerCommandKind::slash(&mut command)? {
-        OwnerCommandKind::ActiveBg => activebg(ctx, command.into()).await,
         OwnerCommandKind::AddCountry { code, country } => {
             _addcountry(ctx, command.into(), code, country).await
         }
@@ -249,98 +251,59 @@ pub async fn slash_owner(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
     }
 }
 
-pub fn slash_owner_command() -> Command {
+fn subcommand_addcountry() -> MyCommandOption {
+    let code =
+        MyCommandOption::builder("code", "Specify the country code").string(Vec::new(), true);
+    let name = MyCommandOption::builder(NAME, "Specify the country name").string(Vec::new(), true);
+
+    MyCommandOption::builder("add_country", "Add a country for snipe commands")
+        .subcommand(vec![code, name])
+}
+
+fn subcommand_cache() -> MyCommandOption {
+    MyCommandOption::builder("cache", "Display stats about the internal cache")
+        .subcommand(Vec::new())
+}
+
+fn subcommand_changegame() -> MyCommandOption {
+    let game = MyCommandOption::builder("game", "Specify the game name").string(Vec::new(), true);
+
+    MyCommandOption::builder("change_game", "Change the game the bot is playing")
+        .subcommand(vec![game])
+}
+
+fn subcommand_tracking() -> MyCommandOption {
+    let number_description = "Specify the cooldown milliseconds, defaults to 5000.0";
+
+    // TODO: Number variant
+    let number = MyCommandOption::builder("number", number_description).integer(Vec::new(), false);
+
+    let cooldown = MyCommandOption::builder("cooldown", "Adjust the tracking cooldown")
+        .subcommand(vec![number]);
+
+    let number =
+        MyCommandOption::builder("number", "Specify the interval seconds, defaults to 7200")
+            .integer(Vec::new(), false);
+
+    let interval = MyCommandOption::builder("interval", "Adjust the tracking interval")
+        .subcommand(vec![number]);
+
+    let stats = MyCommandOption::builder("stats", "Display tracking stats").subcommand(Vec::new());
+
+    let toggle =
+        MyCommandOption::builder("toggle", "Enable or disable tracking").subcommand(Vec::new());
+
+    MyCommandOption::builder("tracking", "Stuff about osu! tracking")
+        .subcommandgroup(vec![cooldown, interval, stats, toggle])
+}
+
+pub fn define_owner() -> MyCommand {
     let options = vec![
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Display which channels are currently playing the bg game".to_owned(),
-            name: "active_bg".to_owned(),
-            options: vec![],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Add a country for snipe commands".to_owned(),
-            name: "add_country".to_owned(),
-            options: vec![
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Specify the country code".to_owned(),
-                    name: "code".to_owned(),
-                    required: true,
-                }),
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Specify the country name".to_owned(),
-                    name: "name".to_owned(),
-                    required: true,
-                }),
-            ],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Display stats about the internal cache".to_owned(),
-            name: "cache".to_owned(),
-            options: vec![],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Change the game the bot is playing".to_owned(),
-            name: "change_game".to_owned(),
-            options: vec![CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify the game name, defaults to osu!".to_owned(),
-                name: "game".to_owned(),
-                required: true,
-            })],
-            required: false,
-        }),
-        CommandOption::SubCommandGroup(OptionsCommandOptionData {
-            description: "Stuff about osu! tracking".to_owned(),
-            name: "tracking".to_owned(),
-            options: vec![
-                CommandOption::SubCommand(OptionsCommandOptionData {
-                    description: "Adjust the tracking cooldown".to_owned(),
-                    name: "cooldown".to_owned(),
-                    options: vec![
-                        // TODO: Number
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Specify the cooldown milliseconds, defaults to 5000.0"
-                                .to_owned(),
-                            name: "number".to_owned(),
-                            required: true,
-                        }),
-                    ],
-                    required: false,
-                }),
-                CommandOption::SubCommand(OptionsCommandOptionData {
-                    description: "Adjust the tracking interval".to_owned(),
-                    name: "interval".to_owned(),
-                    options: vec![CommandOption::Integer(ChoiceCommandOptionData {
-                        choices: vec![],
-                        description: "Specify the interval seconds, defaults to 7200".to_owned(),
-                        name: "number".to_owned(),
-                        required: true,
-                    })],
-                    required: false,
-                }),
-                CommandOption::SubCommand(OptionsCommandOptionData {
-                    description: "Display tracking stats".to_owned(),
-                    name: "stats".to_owned(),
-                    options: vec![],
-                    required: false,
-                }),
-                CommandOption::SubCommand(OptionsCommandOptionData {
-                    description: "Enable or disable tracking".to_owned(),
-                    name: "toggle".to_owned(),
-                    options: vec![],
-                    required: false,
-                }),
-            ],
-            required: false,
-        }),
+        subcommand_addcountry(),
+        subcommand_cache(),
+        subcommand_changegame(),
+        subcommand_tracking(),
     ];
 
-    SlashCommandBuilder::new("owner", "You won't be able to use this :^)")
-        .options(options)
-        .build()
+    MyCommand::new(OWNER, "You won't be able to use this :^)").options(options)
 }

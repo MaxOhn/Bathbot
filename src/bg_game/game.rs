@@ -2,8 +2,12 @@ use super::{util, GameResult, Hints, ImageReveal};
 use crate::{
     database::MapsetTagWrapper,
     util::{
-        constants::OSU_BASE, error::BgGameError, gestalt_pattern_matching, levenshtein_similarity,
-        CowUtils,
+        constants::{
+            common_literals::{MANIA, OSU},
+            OSU_BASE,
+        },
+        error::BgGameError,
+        gestalt_pattern_matching, levenshtein_similarity, CowUtils,
     },
     BotResult, Context, CONFIG,
 };
@@ -60,8 +64,8 @@ impl Game {
         let mut path = CONFIG.get().unwrap().bg_path.clone();
 
         match mapsets[0].mode {
-            GameMode::STD => path.push("osu"),
-            GameMode::MNA => path.push("mania"),
+            GameMode::STD => path.push(OSU),
+            GameMode::MNA => path.push(MANIA),
             _ => return Err(BgGameError::Mode(mapsets[0].mode)),
         }
 

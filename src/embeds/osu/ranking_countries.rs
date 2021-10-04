@@ -1,4 +1,10 @@
-use crate::{embeds::Footer, util::numbers::with_comma_uint};
+use crate::{
+    embeds::Footer,
+    util::{
+        constants::common_literals::{CTB, MANIA, TAIKO},
+        numbers::with_comma_uint,
+    },
+};
 
 use rosu_v2::prelude::{CountryRanking, GameMode};
 use std::{collections::BTreeMap, fmt::Write};
@@ -97,8 +103,8 @@ impl_builder!(RankingCountriesEmbed {
 fn mode_str(mode: GameMode) -> &'static str {
     match mode {
         GameMode::STD => "",
-        GameMode::TKO => "taiko",
-        GameMode::CTB => "ctb",
-        GameMode::MNA => "mania",
+        GameMode::TKO => TAIKO,
+        GameMode::CTB => CTB,
+        GameMode::MNA => MANIA,
     }
 }

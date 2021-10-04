@@ -1,16 +1,18 @@
 use crate::{
     commands::{
         utility::{config_, ConfigArgs},
-        SlashCommandBuilder,
+        MyCommand, MyCommandOption,
     },
-    util::{constants::INVITE_LINK, ApplicationCommandExt, MessageExt},
+    util::{
+        constants::{common_literals::OSU, INVITE_LINK},
+        ApplicationCommandExt, MessageExt,
+    },
     BotResult, CommandData, Context,
 };
 
 use std::sync::Arc;
-use twilight_model::application::{
-    command::{BaseCommandOptionData, Command, CommandOption},
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+use twilight_model::application::interaction::{
+    application_command::CommandDataOption, ApplicationCommand,
 };
 
 #[command]
@@ -45,7 +47,7 @@ pub async fn slash_link(ctx: Arc<Context>, mut command: ApplicationCommand) -> B
                 bail_cmd_option!("config", integer, name)
             }
             CommandDataOption::Boolean { name, value } => match name.as_str() {
-                "osu" => osu = Some(value),
+                OSU => osu = Some(value),
                 "twitch" => twitch = Some(value),
                 _ => bail_cmd_option!("config", boolean, name),
             },
@@ -62,27 +64,40 @@ pub async fn slash_link(ctx: Arc<Context>, mut command: ApplicationCommand) -> B
     config_(ctx, command, args).await
 }
 
-pub fn slash_link_command() -> Command {
+pub fn define_link() -> MyCommand {
+    let osu_description =
+        "Specify whether you want to link to an osu! profile (choose `false` to unlink)";
+
+    let osu_help = "Most osu! commands require a specified username to work.\n\
+        Since using a command is most commonly intended for your own profile, you can link \
+        your discord with an osu! profile so that when no username is specified in commands, \
+        it will choose the linked username.\n\
+        If the value is set to `True`, it will prompt you to authorize your account.\n\
+        If `False` is selected, you will be unlinked from the osu! profile.";
+
+    let osu = MyCommandOption::builder(OSU, osu_description)
+        .help(osu_help)
+        .boolean(false);
+
+    let twitch_description =
+        "Specify whether you want to link to a twitch profile (choose `false` to unlink)";
+
+    let twitch_help = "With this option you can link to a twitch channel.\n\
+        When you have both your osu! and twitch linked, are currently streaming, and anyone uses \
+        the `recent score` command on your osu! username, it will try to retrieve the last VOD from your \
+        twitch channel and link to a timestamp for the score.\n\
+        If the value is set to `True`, it will prompt you to authorize your account.\n\
+        If `False` is selected, you will be unlinked from the twitch channel.";
+
+    let twitch = MyCommandOption::builder("twitch", twitch_description)
+        .help(twitch_help)
+        .boolean(false);
+
     let description = "(Un)link your discord to an osu! or twitch account";
 
-    let options = vec![
-        CommandOption::Boolean(BaseCommandOptionData {
-            description:
-                "Specify whether you want to link to an osu! profile (choose `false` to unlink)"
-                    .to_owned(),
-            name: "osu".to_owned(),
-            required: false,
-        }),
-        CommandOption::Boolean(BaseCommandOptionData {
-            description:
-                "Specify whether you want to link to a twitch channel (choose `false` to unlink)"
-                    .to_owned(),
-            name: "twitch".to_owned(),
-            required: false,
-        }),
-    ];
+    let help = "This command allows you to link or unlink to an osu! or twitch account.";
 
-    SlashCommandBuilder::new("link", description)
-        .options(options)
-        .build()
+    MyCommand::new("link", description)
+        .help(help)
+        .options(vec![osu, twitch])
 }

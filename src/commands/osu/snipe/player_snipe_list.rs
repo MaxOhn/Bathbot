@@ -1,16 +1,4 @@
-use crate::{
-    custom_client::{SnipeScoreOrder, SnipeScoreParams},
-    database::UserConfig,
-    embeds::{EmbedData, PlayerSnipeListEmbed},
-    pagination::{Pagination, PlayerSnipeListPagination},
-    util::{
-        constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
-        matcher, numbers,
-        osu::ModSelection,
-        CowUtils, MessageExt,
-    },
-    Args, BotResult, CommandData, Context, MessageBuilder,
-};
+use crate::{Args, BotResult, CommandData, Context, MessageBuilder, custom_client::{SnipeScoreOrder, SnipeScoreParams}, database::UserConfig, embeds::{EmbedData, PlayerSnipeListEmbed}, pagination::{Pagination, PlayerSnipeListPagination}, util::{CowUtils, MessageExt, constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE, common_literals::{ACC, ACCURACY, MISSES, REVERSE, SORT}}, matcher, numbers, osu::ModSelection}};
 
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError};
@@ -233,11 +221,11 @@ impl PlayerListArgs {
                 let value = arg[idx + 1..].trim_end();
 
                 match key {
-                    "sort" => {
+                    SORT => {
                         order = match value {
-                            "acc" | "accuracy" | "a" => Some(SnipeScoreOrder::Accuracy),
+                            ACC | ACCURACY | "a" => Some(SnipeScoreOrder::Accuracy),
                             "mapdate" | "md" => Some(SnipeScoreOrder::MapApprovalDate),
-                            "misses" | "miss" | "m" => Some(SnipeScoreOrder::Misses),
+                            MISSES | "miss" | "m" => Some(SnipeScoreOrder::Misses),
                             "scoredate" | "sd" => Some(SnipeScoreOrder::ScoreDate),
                             "stars" | "s" => Some(SnipeScoreOrder::Stars),
                             "length" | "len" | "l" => Some(SnipeScoreOrder::Length),
@@ -249,7 +237,7 @@ impl PlayerListArgs {
                             }
                         }
                     }
-                    "reverse" => match value {
+                    REVERSE => match value {
                         "true" | "1" => descending = Some(false),
                         "false" | "0" => descending = Some(true),
                         _ => {

@@ -1,7 +1,11 @@
 use crate::{
     commands::osu::UserValue,
     embeds::{Author, Footer},
-    util::{osu::flag_url, CountryCode},
+    util::{
+        constants::common_literals::{CTB, MANIA, TAIKO},
+        osu::flag_url,
+        CountryCode,
+    },
     Name,
 };
 
@@ -244,9 +248,9 @@ impl_builder!(RankingEmbed {
 fn mode_str(mode: GameMode) -> &'static str {
     match mode {
         GameMode::STD => "",
-        GameMode::TKO => "taiko",
-        GameMode::CTB => "ctb",
-        GameMode::MNA => "mania",
+        GameMode::TKO => TAIKO,
+        GameMode::CTB => CTB,
+        GameMode::MNA => MANIA,
     }
 }
 

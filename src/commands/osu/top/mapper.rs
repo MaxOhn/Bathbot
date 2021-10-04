@@ -5,7 +5,10 @@ use crate::{
     pagination::{Pagination, TopPagination},
     tracking::process_tracking,
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::{
+            common_literals::{DISCORD, MODE, NAME},
+            GENERAL_ISSUE, OSU_API_ISSUE,
+        },
         matcher, numbers, CowUtils, MessageExt,
     },
     Args, BotResult, CommandData, Context, Error, MessageBuilder, Name,
@@ -345,6 +348,8 @@ pub(super) struct MapperArgs {
     mapper: Name,
 }
 
+const TOP_MAPPER: &str = "top mapper";
+
 impl MapperArgs {
     async fn args(
         ctx: &Context,
@@ -399,22 +404,22 @@ impl MapperArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => config.osu_username = Some(value.into()),
+                    NAME => config.osu_username = Some(value.into()),
                     "mapper" => mapper = Some(value.into()),
-                    "discord" => {
+                    DISCORD => {
                         config.osu_username = parse_discord_option!(ctx, value, "top mapper")
                     }
-                    "mode" => config.mode = parse_mode_option!(value, "top mapper"),
-                    _ => bail_cmd_option!("top mapper", string, name),
+                    MODE => config.mode = parse_mode_option!(value, "top mapper"),
+                    _ => bail_cmd_option!(TOP_MAPPER, string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("top mapper", integer, name)
+                    bail_cmd_option!(TOP_MAPPER, integer, name)
                 }
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("top mapper", boolean, name)
+                    bail_cmd_option!(TOP_MAPPER, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("top mapper", subcommand, name)
+                    bail_cmd_option!(TOP_MAPPER, subcommand, name)
                 }
             }
         }

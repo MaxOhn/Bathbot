@@ -6,7 +6,10 @@ use crate::{
     pagination::{NoChokePagination, Pagination},
     tracking::process_tracking,
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::{
+            common_literals::{DISCORD, MODE, NAME},
+            GENERAL_ISSUE, OSU_API_ISSUE,
+        },
         error::PPError,
         numbers,
         osu::prepare_beatmap_file,
@@ -398,6 +401,8 @@ pub(super) struct NochokeArgs {
     miss_limit: Option<u32>,
 }
 
+const TOP_NOCHOKE: &str = "top nochoke";
+
 impl NochokeArgs {
     async fn args(
         ctx: &Context,
@@ -438,20 +443,22 @@ impl NochokeArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => config.osu_username = Some(value.into()),
-                    "mode" => config.mode = parse_mode_option!(value, "top nochoke"),
-                    "discord" => config.osu_username = parse_discord_option!(ctx, value, "top nochoke"),
-                    _ => bail_cmd_option!("top nochoke", string, name),
+                    NAME => config.osu_username = Some(value.into()),
+                    MODE => config.mode = parse_mode_option!(value, "top nochoke"),
+                    DISCORD => {
+                        config.osu_username = parse_discord_option!(ctx, value, "top nochoke")
+                    }
+                    _ => bail_cmd_option!(TOP_NOCHOKE, string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {
                     "miss_limit" => miss_limit = Some(value.max(0) as u32),
-                    _ => bail_cmd_option!("top nochoke", integer, name),
+                    _ => bail_cmd_option!(TOP_NOCHOKE, integer, name),
                 },
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("top nochoke", boolean, name)
+                    bail_cmd_option!(TOP_NOCHOKE, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("top nochoke", subcommand, name)
+                    bail_cmd_option!(TOP_NOCHOKE, subcommand, name)
                 }
             }
         }

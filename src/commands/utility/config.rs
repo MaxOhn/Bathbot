@@ -1,10 +1,13 @@
 use crate::{
-    commands::{osu::ProfileSize, SlashCommandBuilder},
+    commands::{osu::ProfileSize, MyCommand, MyCommandOption},
     core::{server::AuthenticationStandbyError, CONFIG},
     database::UserConfig,
     embeds::{ConfigEmbed, EmbedBuilder, EmbedData},
     util::{
-        constants::{GENERAL_ISSUE, RED, TWITCH_API_ISSUE},
+        constants::{
+            common_literals::{CTB, MANIA, MODE, OSU, TAIKO},
+            GENERAL_ISSUE, RED, TWITCH_API_ISSUE,
+        },
         ApplicationCommandExt, Authored, Emote, MessageBuilder, MessageExt,
     },
     BotResult, CommandData, Context, Error,
@@ -13,9 +16,7 @@ use crate::{
 use rosu_v2::prelude::GameMode;
 use std::{future::Future, sync::Arc};
 use twilight_model::application::{
-    command::{
-        BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption, CommandOptionChoice,
-    },
+    command::CommandOptionChoice,
     interaction::{application_command::CommandDataOption, ApplicationCommand},
 };
 
@@ -38,7 +39,7 @@ pub async fn config_(
     command: ApplicationCommand,
     args: ConfigArgs,
 ) -> BotResult<()> {
-    let author = command.author().ok_or(Error::MissingSlashAuthor)?;
+    let author = command.author().ok_or(Error::MissingInteractionAuthor)?;
 
     let ConfigArgs {
         mode,
@@ -147,7 +148,7 @@ async fn handle_both_links(
         None => return Ok(()),
     }
 
-    let author = command.author().ok_or(Error::MissingSlashAuthor)?;
+    let author = command.author().ok_or(Error::MissingInteractionAuthor)?;
 
     if let Err(why) = ctx.psql().insert_user_config(author.id, &config).await {
         let _ = command.error(ctx, GENERAL_ISSUE).await;
@@ -180,7 +181,7 @@ async fn handle_twitch_link(
         None => return Ok(()),
     }
 
-    let author = command.author().ok_or(Error::MissingSlashAuthor)?;
+    let author = command.author().ok_or(Error::MissingInteractionAuthor)?;
 
     if let Err(why) = ctx.psql().insert_user_config(author.id, &config).await {
         let _ = command.error(ctx, GENERAL_ISSUE).await;
@@ -209,7 +210,7 @@ async fn handle_osu_link(
         None => return Ok(()),
     }
 
-    let author = command.author().ok_or(Error::MissingSlashAuthor)?;
+    let author = command.author().ok_or(Error::MissingInteractionAuthor)?;
     let mut twitch_name = None;
 
     if let Some(user_id) = config.twitch_id {
@@ -271,7 +272,7 @@ async fn handle_no_links(
     command: ApplicationCommand,
     mut config: UserConfig,
 ) -> BotResult<()> {
-    let author = command.author().ok_or(Error::MissingSlashAuthor)?;
+    let author = command.author().ok_or(Error::MissingInteractionAuthor)?;
     let mut twitch_name = None;
 
     if let Some(user_id) = config.twitch_id {
@@ -324,13 +325,13 @@ impl ConfigArgs {
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "mode" => {
+                    MODE => {
                         mode = match value.as_str() {
                             "none" => Some(None),
-                            "osu" => Some(Some(GameMode::STD)),
-                            "taiko" => Some(Some(GameMode::TKO)),
-                            "catch" => Some(Some(GameMode::CTB)),
-                            "mania" => Some(Some(GameMode::MNA)),
+                            OSU => Some(Some(GameMode::STD)),
+                            TAIKO => Some(Some(GameMode::TKO)),
+                            CTB => Some(Some(GameMode::CTB)),
+                            MANIA => Some(Some(GameMode::MNA)),
                             _ => bail_cmd_option!("config mode", string, value),
                         }
                     }
@@ -356,7 +357,7 @@ impl ConfigArgs {
                     bail_cmd_option!("config", integer, name)
                 }
                 CommandDataOption::Boolean { name, value } => match name.as_str() {
-                    "osu" => osu = Some(value),
+                    OSU => osu = Some(value),
                     "twitch" => twitch = Some(value),
                     _ => bail_cmd_option!("config", boolean, name),
                 },
@@ -385,99 +386,128 @@ pub async fn slash_config(ctx: Arc<Context>, mut command: ApplicationCommand) ->
     config_(ctx, command, args).await
 }
 
-pub fn slash_config_command() -> Command {
-    let description = "Adjust your default configuration for commands";
+pub fn define_config() -> MyCommand {
+    let osu_description =
+        "Specify whether you want to link to an osu! profile (choose `false` to unlink)";
 
-    let options = vec![
-        CommandOption::Boolean(BaseCommandOptionData {
-            description: "Specify whether you want to link to an osu! profile (choose `false` to unlink)".to_owned(),
-            name: "osu".to_owned(),
-            required: false,
-        }),
-        CommandOption::Boolean(BaseCommandOptionData {
-            description: "Specify whether you want to link to a twitch channel (choose `false` to unlink)".to_owned(),
-            name: "twitch".to_owned(),
-            required: false,
-        }),
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![
-                CommandOptionChoice::String {
-                    name: "none".to_owned(),
-                    value: "none".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "osu".to_owned(),
-                    value: "osu".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "taiko".to_owned(),
-                    value: "taiko".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "catch".to_owned(),
-                    value: "catch".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "mania".to_owned(),
-                    value: "mania".to_owned(),
-                },
-            ],
-            description: "Specify a gamemode (NOTE: Only use for non-std modes if you NEVER use std commands)".to_owned(),
-            name: "mode".to_owned(),
-            required: false,
-        }),
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![
-                CommandOptionChoice::String {
-                    name: "compact".to_owned(),
-                    value: "compact".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "medium".to_owned(),
-                    value: "medium".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "full".to_owned(),
-                    value: "full".to_owned(),
-                },
-            ],
-            description: "What initial size should the profile command be?".to_owned(),
-            name: "profile".to_owned(),
-            required: false,
-        }),
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![
-                CommandOptionChoice::String {
-                    name: "maximized".to_owned(),
-                    value: "maximized".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "minimized".to_owned(),
-                    value: "minimized".to_owned(),
-                },
-            ],
-            description: "What initial size should the recent, compare, simulate, ... commands be?".to_owned(),
-            name: "embeds".to_owned(),
-            required: false,
-        }),
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![
-                CommandOptionChoice::String {
-                    name: "show".to_owned(),
-                    value: "show".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "hide".to_owned(),
-                    value: "hide".to_owned(),
-                },
-            ],
-            description: "Should the amount of retries be shown for the `recent` command?".to_owned(),
-            name: "retries".to_owned(),
-            required: false,
-        }),
+    let osu_help = "Most osu! commands require a specified username to work.\n\
+        Since using a command is most commonly intended for your own profile, you can link \
+        your discord with an osu! profile so that when no username is specified in commands, \
+        it will choose the linked username.\n\
+        If the value is set to `True`, it will prompt you to authorize your account.\n\
+        If `False` is selected, you will be unlinked from the osu! profile.";
+
+    let osu = MyCommandOption::builder(OSU, osu_description)
+        .help(osu_help)
+        .boolean(false);
+
+    let twitch_description =
+        "Specify whether you want to link to a twitch profile (choose `false` to unlink)";
+
+    let twitch_help = "With this option you can link to a twitch channel.\n\
+        When you have both your osu! and twitch linked, are currently streaming, and anyone uses \
+        the `recent score` command on your osu! username, it will try to retrieve the last VOD from your \
+        twitch channel and link to a timestamp for the score.\n\
+        If the value is set to `True`, it will prompt you to authorize your account.\n\
+        If `False` is selected, you will be unlinked from the twitch channel.";
+
+    let twitch = MyCommandOption::builder("twitch", twitch_description)
+        .help(twitch_help)
+        .boolean(false);
+
+    let mode_description =
+        "Specify a gamemode (NOTE: Only use for non-std modes if you NEVER use std commands)";
+
+    let mode_help = "Always having to specify the `mode` option for any non-std \
+        command can be pretty tedious.\nTo get around that, you can configure a mode here so \
+        that when the `mode` option is not specified in commands, it will choose your config mode.";
+
+    let mode_choices = vec![
+        CommandOptionChoice::String {
+            name: "none".to_owned(),
+            value: "none".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: OSU.to_owned(),
+            value: OSU.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: TAIKO.to_owned(),
+            value: TAIKO.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: CTB.to_owned(),
+            value: CTB.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: MANIA.to_owned(),
+            value: MANIA.to_owned(),
+        },
     ];
 
-    SlashCommandBuilder::new("config", description)
-        .options(options)
-        .build()
+    let mode = MyCommandOption::builder(MODE, mode_description)
+        .help(mode_help)
+        .string(mode_choices, false);
+
+    let profile_description = "What initial size should the profile command be?";
+
+    let profile_choices = vec![
+        CommandOptionChoice::String {
+            name: "compact".to_owned(),
+            value: "compact".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "medium".to_owned(),
+            value: "medium".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "full".to_owned(),
+            value: "full".to_owned(),
+        },
+    ];
+
+    let profile =
+        MyCommandOption::builder("profile", profile_description).string(profile_choices, false);
+
+    let embeds_description =
+        "What initial size should the recent, compare, simulate, ... commands be?";
+
+    let embeds_help = "Some embeds are pretty chunky and show too much data.\n\
+        With this option you can make those embeds minimized by default.\n\
+        Affected commands are: `compare score`, `recent score`, `recent simulate`, \
+        and any command showing top scores when the `index` option is specified.";
+
+    let embeds_choices = vec![
+        CommandOptionChoice::String {
+            name: "maximized".to_owned(),
+            value: "maximized".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "minimized".to_owned(),
+            value: "minimized".to_owned(),
+        },
+    ];
+
+    let embeds = MyCommandOption::builder("embeds", embeds_description)
+        .help(embeds_help)
+        .string(embeds_choices, false);
+
+    let retries_description = "Should the amount of retries be shown for the `recent` command?";
+
+    let retries_choices = vec![
+        CommandOptionChoice::String {
+            name: "show".to_owned(),
+            value: "show".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "hide".to_owned(),
+            value: "hide".to_owned(),
+        },
+    ];
+
+    let retries =
+        MyCommandOption::builder("retries", retries_description).string(retries_choices, false);
+
+    MyCommand::new("config", "Adjust your default configuration for commands")
+        .options(vec![osu, twitch, mode, profile, embeds, retries])
 }

@@ -5,16 +5,21 @@ pub use countries::*;
 pub use players::*;
 
 use crate::{
-    commands::SlashCommandBuilder,
-    util::{ApplicationCommandExt, CountryCode, MessageExt},
+    commands::{
+        osu::{option_country, option_mode},
+        MyCommand, MyCommandOption,
+    },
+    util::{
+        constants::common_literals::{COUNTRY, MODE, SCORE},
+        ApplicationCommandExt, CountryCode, MessageExt,
+    },
     BotResult, Context, Error,
 };
 
 use rosu_v2::prelude::GameMode;
 use std::sync::Arc;
-use twilight_model::application::{
-    command::{ChoiceCommandOptionData, Command, CommandOption, OptionsCommandOptionData},
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+use twilight_model::application::interaction::{
+    application_command::CommandDataOption, ApplicationCommand,
 };
 
 enum RankingCommandKind {
@@ -30,6 +35,11 @@ enum RankingCommandKind {
     },
 }
 
+const RANKING: &str = "ranking";
+const RANKING_PP: &str = "ranking pp";
+const RANKING_SCORE: &str = "ranking score";
+const RANKING_COUNTRY: &str = "ranking country";
+
 impl RankingCommandKind {
     fn slash(command: &mut ApplicationCommand) -> BotResult<Result<Self, String>> {
         let mut kind = None;
@@ -37,13 +47,13 @@ impl RankingCommandKind {
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, .. } => {
-                    bail_cmd_option!("ranking", string, name)
+                    bail_cmd_option!(RANKING, string, name)
                 }
                 CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("ranking", integer, name)
+                    bail_cmd_option!(RANKING, integer, name)
                 }
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("ranking", boolean, name)
+                    bail_cmd_option!(RANKING, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, options } => match name.as_str() {
                     "pp" => {
@@ -53,8 +63,8 @@ impl RankingCommandKind {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "mode" => mode = parse_mode_option!(value, "ranking pp"),
-                                    "country" => {
+                                    MODE => mode = parse_mode_option!(value, "ranking pp"),
+                                    COUNTRY => {
                                         if value.len() == 2 && value.is_ascii() {
                                             country = Some(value.into())
                                         } else if let Some(code) =
@@ -71,16 +81,16 @@ impl RankingCommandKind {
                                             return Ok(Err(content));
                                         }
                                     }
-                                    _ => bail_cmd_option!("ranking pp", string, name),
+                                    _ => bail_cmd_option!(RANKING_PP, string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("ranking pp", integer, name)
+                                    bail_cmd_option!(RANKING_PP, integer, name)
                                 }
                                 CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("ranking pp", boolean, name)
+                                    bail_cmd_option!(RANKING_PP, boolean, name)
                                 }
                                 CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!("ranking pp", subcommand, name)
+                                    bail_cmd_option!(RANKING_PP, subcommand, name)
                                 }
                             }
                         }
@@ -88,23 +98,23 @@ impl RankingCommandKind {
                         let mode = mode.unwrap_or(GameMode::STD);
                         kind = Some(RankingCommandKind::Performance { country, mode });
                     }
-                    "score" => {
+                    SCORE => {
                         let mut mode = None;
 
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "mode" => mode = parse_mode_option!(value, "ranking score"),
-                                    _ => bail_cmd_option!("ranking score", string, name),
+                                    MODE => mode = parse_mode_option!(value, "ranking score"),
+                                    _ => bail_cmd_option!(RANKING_SCORE, string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("ranking score", integer, name)
+                                    bail_cmd_option!(RANKING_SCORE, integer, name)
                                 }
                                 CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("ranking score", boolean, name)
+                                    bail_cmd_option!(RANKING_SCORE, boolean, name)
                                 }
                                 CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!("ranking score", subcommand, name)
+                                    bail_cmd_option!(RANKING_SCORE, subcommand, name)
                                 }
                             }
                         }
@@ -112,23 +122,23 @@ impl RankingCommandKind {
                         let mode = mode.unwrap_or(GameMode::STD);
                         kind = Some(RankingCommandKind::RankedScore { mode });
                     }
-                    "country" => {
+                    COUNTRY => {
                         let mut mode = None;
 
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    "mode" => mode = parse_mode_option!(value, "ranking country"),
-                                    _ => bail_cmd_option!("ranking country", string, name),
+                                    MODE => mode = parse_mode_option!(value, "ranking country"),
+                                    _ => bail_cmd_option!(RANKING_COUNTRY, string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("ranking country", integer, name)
+                                    bail_cmd_option!(RANKING_COUNTRY, integer, name)
                                 }
                                 CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("ranking country", boolean, name)
+                                    bail_cmd_option!(RANKING_COUNTRY, boolean, name)
                                 }
                                 CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!("ranking country", subcommand, name)
+                                    bail_cmd_option!(RANKING_COUNTRY, subcommand, name)
                                 }
                             }
                         }
@@ -136,7 +146,7 @@ impl RankingCommandKind {
                         let mode = mode.unwrap_or(GameMode::STD);
                         kind = Some(RankingCommandKind::Country { mode });
                     }
-                    _ => bail_cmd_option!("ranking", subcommand, name),
+                    _ => bail_cmd_option!(RANKING, subcommand, name),
                 },
             }
         }
@@ -160,54 +170,33 @@ pub async fn slash_ranking(ctx: Arc<Context>, mut command: ApplicationCommand) -
     }
 }
 
-pub fn slash_ranking_command() -> Command {
-    let description = "Show the pp, ranked score, or country ranking";
+pub fn define_ranking() -> MyCommand {
+    let mode = option_mode();
 
-    let options = vec![
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Show the pp ranking".to_owned(),
-            name: "pp".to_owned(),
-            options: vec![
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: super::mode_choices(),
-                    description: "Specify the gamemode".to_owned(),
-                    name: "mode".to_owned(),
-                    required: false,
-                }),
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Specify a country (code)".to_owned(),
-                    name: "country".to_owned(),
-                    required: false,
-                }),
-            ],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Show the ranked score ranking".to_owned(),
-            name: "score".to_owned(),
-            options: vec![CommandOption::String(ChoiceCommandOptionData {
-                choices: super::mode_choices(),
-                description: "Specify the gamemode".to_owned(),
-                name: "mode".to_owned(),
-                required: false,
-            })],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Show the country ranking".to_owned(),
-            name: "country".to_owned(),
-            options: vec![CommandOption::String(ChoiceCommandOptionData {
-                choices: super::mode_choices(),
-                description: "Specify the gamemode".to_owned(),
-                name: "mode".to_owned(),
-                required: false,
-            })],
-            required: false,
-        }),
-    ];
+    let country = option_country();
 
-    SlashCommandBuilder::new("ranking", description)
-        .options(options)
-        .build()
+    let pp_help = "Display the global or country based performance points leaderboard";
+
+    let pp = MyCommandOption::builder("pp", "Show the pp ranking")
+        .help(pp_help)
+        .subcommand(vec![mode, country]);
+
+    let mode = option_mode();
+
+    let score_help = "Display the global ranked score leaderboard";
+
+    let score = MyCommandOption::builder(SCORE, "Show the ranked score ranking")
+        .help(score_help)
+        .subcommand(vec![mode]);
+
+    let mode = option_mode();
+
+    let country_help = "Display the country leaderboard based on accumulated pp";
+
+    let country = MyCommandOption::builder(COUNTRY, "Show the country ranking")
+        .help(country_help)
+        .subcommand(vec![mode]);
+
+    MyCommand::new("ranking", "Show the pp, ranked score, or country ranking")
+        .options(vec![pp, score, country])
 }

@@ -14,7 +14,6 @@ pub mod osu;
 mod safe_content;
 
 pub use authored::Authored;
-use constants::DISCORD_CDN;
 pub use country_code::CountryCode;
 pub use cow::CowUtils;
 pub use emote::Emote;
@@ -38,8 +37,12 @@ use twilight_model::{
     id::{GuildId, UserId},
 };
 
+#[allow(dead_code)]
 pub fn discord_avatar(user_id: UserId, hash: &str) -> String {
-    format!("{}avatars/{}/{}.webp?size=1024", DISCORD_CDN, user_id, hash)
+    format!(
+        "https://cdn.discordapp.com/avatars/{}/{}.webp?size=1024",
+        user_id, hash
+    )
 }
 
 macro_rules! get {

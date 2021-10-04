@@ -4,7 +4,10 @@ use crate::{
     bg_game::MapsetTags,
     database::MapsetTagWrapper,
     embeds::{BGStartEmbed, BGTagsEmbed, EmbedData},
-    util::{constants::GENERAL_ISSUE, send_reaction, Emote, MessageExt},
+    util::{
+        constants::{common_literals::MANIA, GENERAL_ISSUE},
+        send_reaction, Emote, MessageExt,
+    },
     BotResult, CommandData, Context, MessageBuilder,
 };
 
@@ -32,7 +35,7 @@ async fn start(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
             let mode = match args.next() {
-                Some("m") | Some("mania") => GameMode::MNA,
+                Some("m") | Some(MANIA) => GameMode::MNA,
                 _ => GameMode::STD,
             };
 

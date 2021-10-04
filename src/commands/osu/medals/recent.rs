@@ -3,7 +3,10 @@ use crate::{
     embeds::MedalEmbed,
     pagination::MedalRecentPagination,
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::{
+            common_literals::{DISCORD, INDEX, NAME},
+            GENERAL_ISSUE, OSU_API_ISSUE,
+        },
         MessageExt,
     },
     Args, BotResult, CommandData, Context, MessageBuilder, Name,
@@ -156,6 +159,8 @@ pub(super) struct RecentArgs {
     pub index: Option<usize>,
 }
 
+const MEDAL_RECENT: &str = "medal recent";
+
 impl RecentArgs {
     async fn args(
         ctx: &Context,
@@ -185,19 +190,19 @@ impl RecentArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => username = Some(value.into()),
-                    "discord" => username = parse_discord_option!(ctx, value, "medal recent"),
-                    _ => bail_cmd_option!("medal recent", string, name),
+                    NAME => username = Some(value.into()),
+                    DISCORD => username = parse_discord_option!(ctx, value, "medal recent"),
+                    _ => bail_cmd_option!(MEDAL_RECENT, string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {
-                    "index" => index = Some(value.max(1) as usize),
-                    _ => bail_cmd_option!("medal recent", integer, name),
+                    INDEX => index = Some(value.max(1) as usize),
+                    _ => bail_cmd_option!(MEDAL_RECENT, integer, name),
                 },
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("medal recent", boolean, name)
+                    bail_cmd_option!(MEDAL_RECENT, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("medal recent", subcommand, name)
+                    bail_cmd_option!(MEDAL_RECENT, subcommand, name)
                 }
             }
         }

@@ -1,13 +1,5 @@
 use super::ReactionWrapper;
-use crate::{
-    bg_game::MapsetTags,
-    database::MapsetTagWrapper,
-    util::{
-        constants::{GENERAL_ISSUE, OSU_BASE, OWNER_USER_ID},
-        send_reaction, CowUtils, Emote, MessageExt,
-    },
-    BotResult, CommandData, Context, MessageBuilder, CONFIG,
-};
+use crate::{BotResult, CONFIG, CommandData, Context, MessageBuilder, bg_game::MapsetTags, database::MapsetTagWrapper, util::{CowUtils, Emote, MessageExt, constants::{GENERAL_ISSUE, OSU_BASE, OWNER_USER_ID, common_literals::{MANIA, OSU}}, send_reaction}};
 
 use rand::RngCore;
 use rosu_v2::model::GameMode;
@@ -155,8 +147,8 @@ async fn bgtags(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     // Parse arguments as mode
     let mode = match args.next() {
         Some(arg) => match arg.cow_to_ascii_lowercase().as_ref() {
-            "mna" | "mania" | "m" => GameMode::MNA,
-            "osu" | "std" | "standard" | "o" => GameMode::STD,
+            "mna" | MANIA | "m" => GameMode::MNA,
+            OSU | "std" | "standard" | "o" => GameMode::STD,
             _ => {
                 let content = "Could not parse first argument as mode. \
                 Provide either `mna`, or `std`";
@@ -384,8 +376,8 @@ async fn get_random_image(mut mapsets: Vec<MapsetTagWrapper>, mode: GameMode) ->
     let mut path = CONFIG.get().unwrap().bg_path.clone();
 
     match mode {
-        GameMode::STD => path.push("osu"),
-        GameMode::MNA => path.push("mania"),
+        GameMode::STD => path.push(OSU),
+        GameMode::MNA => path.push(MANIA),
         _ => unreachable!(),
     }
 

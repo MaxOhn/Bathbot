@@ -1,15 +1,15 @@
 mod command;
 mod data;
 mod group;
+mod handle_interaction;
 mod handle_message;
-mod handle_slash;
 pub mod parse;
 
 pub use command::Command;
 pub use data::{CommandData, CommandDataCompact};
 pub use group::{CommandGroup, CommandGroups, CMD_GROUPS};
+pub use handle_interaction::{handle_command, handle_component};
 pub use handle_message::handle_message;
-pub use handle_slash::handle_interaction;
 pub use parse::Invoke;
 
 use crate::{bail, core::buckets::BucketName, util::Authored, BotResult, Context, Error};
@@ -49,7 +49,7 @@ impl Display for ProcessResult {
 // No authority -> Ok(Some(message to user))
 // Couldn't figure out -> Err()
 async fn check_authority(ctx: &Context, authored: &impl Authored) -> BotResult<Option<String>> {
-    let author_id = authored.author().ok_or(Error::MissingSlashAuthor)?.id;
+    let author_id = authored.author().ok_or(Error::MissingInteractionAuthor)?.id;
     let guild_id = authored.guild_id();
 
     _check_authority(ctx, author_id, guild_id).await

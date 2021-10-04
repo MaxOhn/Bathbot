@@ -38,7 +38,7 @@ impl FixScoreEmbed {
 
             let mut description = format!(
                 "An FC would have improved the score from {} to **{}pp**. ",
-                round(score.pp.unwrap_or(0.0)),
+                score.pp.map_or(0.0, round),
                 round(pp),
             );
 
@@ -76,7 +76,8 @@ impl FixScoreEmbed {
                         )
                     }
                 } else {
-                    let lowest_pp_required = best.last().and_then(|score| score.pp).unwrap_or(0.0);
+                    let lowest_pp_required =
+                        best.last().and_then(|score| score.pp).map_or(0.0, round);
 
                     write!(
                         description,
@@ -98,7 +99,7 @@ impl FixScoreEmbed {
                 )
             // Map not ranked and not in top100
             } else {
-                let lowest_pp_required = best.last().and_then(|score| score.pp).unwrap_or(0.0);
+                let lowest_pp_required = best.last().and_then(|score| score.pp).map_or(0.0, round);
 
                 write!(
                     description,
@@ -110,7 +111,7 @@ impl FixScoreEmbed {
             description
         // The score is already an FC
         } else if let Some((score, best)) = scores {
-            let mut description = format!("Already got a {}pp FC", round(score.pp.unwrap_or(0.0)));
+            let mut description = format!("Already got a {}pp FC", score.pp.map_or(0.0, round));
 
             // Map is not ranked
             if !matches!(map.status, RankStatus::Ranked | RankStatus::Approved) {
@@ -126,7 +127,8 @@ impl FixScoreEmbed {
                         with_comma_float(new_pp)
                     );
                 } else {
-                    let lowest_pp_required = best.last().and_then(|score| score.pp).unwrap_or(0.0);
+                    let lowest_pp_required =
+                        best.last().and_then(|score| score.pp).map_or(0.0, round);
 
                     let _ = write!(
                         description,

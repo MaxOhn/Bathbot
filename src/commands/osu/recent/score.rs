@@ -5,7 +5,10 @@ use crate::{
     tracking::process_tracking,
     twitch::TwitchVideo,
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::{
+            common_literals::{DISCORD, GRADE, INDEX, MODE, NAME},
+            GENERAL_ISSUE, OSU_API_ISSUE,
+        },
         CowUtils, MessageExt,
     },
     Args, BotResult, CommandData, Context, MessageBuilder, Name,
@@ -602,7 +605,7 @@ impl RecentArgs {
                             return Ok(Err(content.into()));
                         }
                     },
-                    "grade" | "g" => match value.find("..") {
+                    GRADE | "g" => match value.find("..") {
                         Some(idx) => {
                             let bot = &value[..idx];
                             let top = &value[idx + 2..];
@@ -696,10 +699,10 @@ impl RecentArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => input_name = Some(value.into()),
-                    "discord" => input_name = parse_discord_option!(ctx, value, "recent score"),
-                    "mode" => config.mode = parse_mode_option!(value, "recent score"),
-                    "grade" => match value.as_str() {
+                    NAME => input_name = Some(value.into()),
+                    DISCORD => input_name = parse_discord_option!(ctx, value, "recent score"),
+                    MODE => config.mode = parse_mode_option!(value, "recent score"),
+                    GRADE => match value.as_str() {
                         "SS" => {
                             grade = Some(GradeArg::Range {
                                 bot: Grade::X,
@@ -722,7 +725,7 @@ impl RecentArgs {
                     _ => bail_cmd_option!("recent score", string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {
-                    "index" => index = Some(value.max(1).min(50) as usize),
+                    INDEX => index = Some(value.max(1).min(50) as usize),
                     _ => bail_cmd_option!("recent score", integer, name),
                 },
                 CommandDataOption::Boolean { name, value } => match name.as_str() {

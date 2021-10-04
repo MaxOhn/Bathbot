@@ -5,7 +5,10 @@ use crate::{
     pagination::{Pagination, TopIfPagination},
     tracking::process_tracking,
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::{
+            common_literals::{DISCORD, NAME},
+            GENERAL_ISSUE, OSU_API_ISSUE,
+        },
         error::PPError,
         numbers,
         osu::prepare_beatmap_file,
@@ -30,6 +33,8 @@ pub(super) struct RebalanceArgs {
     pub config: UserConfig,
     pub version: RebalanceVersion,
 }
+
+const TOP_REBALANCE: &str = "top rebalance";
 
 impl RebalanceArgs {
     async fn args(
@@ -72,8 +77,8 @@ impl RebalanceArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => config.osu_username = Some(value.into()),
-                    "discord" => {
+                    NAME => config.osu_username = Some(value.into()),
+                    DISCORD => {
                         config.osu_username = parse_discord_option!(ctx, value, "top rebalance")
                     }
                     "version" => match value.as_str() {
@@ -84,16 +89,16 @@ impl RebalanceArgs {
                             bail_cmd_option!("top rebalance version", string, value)
                         }
                     },
-                    _ => bail_cmd_option!("top rebalance", string, name),
+                    _ => bail_cmd_option!(TOP_REBALANCE, string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("top rebalance", integer, name)
+                    bail_cmd_option!(TOP_REBALANCE, integer, name)
                 }
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("top rebalance", boolean, name)
+                    bail_cmd_option!(TOP_REBALANCE, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("top rebalance", subcommand, name)
+                    bail_cmd_option!(TOP_REBALANCE, subcommand, name)
                 }
             }
         }

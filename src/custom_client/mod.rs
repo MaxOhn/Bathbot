@@ -15,7 +15,10 @@ pub use snipe::*;
 
 use crate::{
     util::{
-        constants::{AVATAR_URL, HUISMETBENEN, OSU_BASE, OSU_DAILY_API},
+        constants::{
+            common_literals::{COUNTRY, MODS},
+            AVATAR_URL, HUISMETBENEN, OSU_BASE, OSU_DAILY_API,
+        },
         error::CustomClientError,
         numbers::round,
         osu::ModSelection,
@@ -350,7 +353,7 @@ impl CustomClient {
             .text("page", params.page.to_string());
 
         if let Some(ref country) = params.country {
-            form = form.text("country", country.to_string());
+            form = form.text(COUNTRY, country.to_string());
         }
 
         let url = "https://osustats.ppy.sh/api/getScoreRanking";
@@ -400,7 +403,7 @@ impl CustomClient {
                 ModSelection::Exact(mods) => write!(mod_str, "!{}", mods),
             };
 
-            form = form.text("mods", mod_str);
+            form = form.text(MODS, mod_str);
         }
 
         let url = "https://osustats.ppy.sh/api/getScores";

@@ -1,5 +1,5 @@
 use crate::{
-    commands::SlashCommandBuilder,
+    commands::{MyCommand, MyCommandOption},
     embeds::{EmbedData, RoleAssignEmbed},
     util::{constants::GENERAL_ISSUE, matcher, ApplicationCommandExt, MessageExt},
     Args, BotResult, CommandData, Context, Error,
@@ -7,10 +7,7 @@ use crate::{
 
 use std::sync::Arc;
 use twilight_model::{
-    application::{
-        command::{BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption},
-        interaction::{application_command::CommandDataOption, ApplicationCommand},
-    },
+    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
     id::{ChannelId, MessageId, RoleId},
 };
 
@@ -196,27 +193,26 @@ pub async fn slash_roleassign(ctx: Arc<Context>, mut command: ApplicationCommand
     }
 }
 
-pub fn slash_roleassign_command() -> Command {
-    let options = vec![
-        CommandOption::Channel(BaseCommandOptionData {
-            description: "Specify the channel that contains the message".to_owned(),
-            name: "channel".to_owned(),
-            required: true,
-        }),
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify a message id".to_owned(),
-            name: "message".to_owned(),
-            required: true,
-        }),
-        CommandOption::Role(BaseCommandOptionData {
-            description: "Specify a role that should be assigned".to_owned(),
-            name: "role".to_owned(),
-            required: true,
-        }),
-    ];
+pub fn define_roleassign() -> MyCommand {
+    let channel = MyCommandOption::builder("channel", "Specify the channel that contains the message")
+        .channel(true);
 
-    SlashCommandBuilder::new("roleassign", "Managing roles with reactions")
-        .options(options)
-        .build()
+    let message_help = "Specify the message by providing its ID.\n\
+        You can find the ID by rightclicking the message and clicking on `Copy ID`.\n\
+        To see the `Copy ID` option, you must have `Settings > Advanced > Developer Mode` enabled.";
+
+    let message = MyCommandOption::builder("message", "Specify a message id")
+        .help(message_help)
+        .string(Vec::new(), true);
+
+    let role = MyCommandOption::builder("role", "Specify a role that should be assigned").role(true);
+
+    let help = "With this command you can link a message to a role.\n\
+        Whenever anyone reacts with any reaction to that message, they will gain that role.\n\
+        If they remove a reaction from the message, they will lose the role.\n\
+        __**Note**__: Roles can only be assigned if they are lower than some role of the assigner i.e. the bot.";
+
+    MyCommand::new("roleassign", "Managing roles with reactions")
+        .help(help)
+        .options(vec![channel, message, role])
 }

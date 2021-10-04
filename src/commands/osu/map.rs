@@ -1,10 +1,16 @@
 use crate::{
     bail,
-    commands::SlashCommandBuilder,
+    commands::{
+        osu::{option_map, option_mods},
+        MyCommand,
+    },
     embeds::{EmbedData, MapEmbed},
     pagination::{MapPagination, Pagination},
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::{
+            common_literals::{MAP, MAP_PARSE_FAIL, MODS, MODS_PARSE_FAIL},
+            GENERAL_ISSUE, OSU_API_ISSUE,
+        },
         error::PPError,
         matcher,
         osu::{
@@ -23,10 +29,7 @@ use rosu_v2::prelude::{GameMode, GameMods, OsuError};
 use std::{cmp::Ordering, sync::Arc};
 use tokio::fs::File;
 use twilight_model::{
-    application::{
-        command::{ChoiceCommandOptionData, Command, CommandOption},
-        interaction::{application_command::CommandDataOption, ApplicationCommand},
-    },
+    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
     channel::message::MessageType,
 };
 
@@ -391,12 +394,6 @@ struct MapArgs {
 }
 
 impl MapArgs {
-    const ERR_PARSE_MAP: &'static str = "Failed to parse map url.\n\
-        Be sure you specify a valid map id or url to a map.";
-
-    const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
-        Be sure it's a valid mod abbreviation e.g. `hdhr`.";
-
     fn args(args: &mut Args) -> Result<Self, String> {
         let mut map = None;
         let mut mods = None;
@@ -429,29 +426,29 @@ impl MapArgs {
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "map" => match matcher::get_osu_map_id(&value)
+                    MAP => match matcher::get_osu_map_id(&value)
                         .or_else(|| matcher::get_osu_mapset_id(&value))
                     {
                         Some(id) => map = Some(id),
-                        None => return Ok(Err(Self::ERR_PARSE_MAP)),
+                        None => return Ok(Err(MAP_PARSE_FAIL)),
                     },
-                    "mods" => match matcher::get_mods(&value) {
+                    MODS => match matcher::get_mods(&value) {
                         Some(mods_) => mods = Some(mods_),
                         None => match value.parse() {
                             Ok(mods_) => mods = Some(ModSelection::Exact(mods_)),
-                            Err(_) => return Ok(Err(Self::ERR_PARSE_MODS)),
+                            Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
                         },
                     },
-                    _ => bail_cmd_option!("map", string, name),
+                    _ => bail_cmd_option!(MAP, string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("map", integer, name)
+                    bail_cmd_option!(MAP, integer, name)
                 }
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("map", boolean, name)
+                    bail_cmd_option!(MAP, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("map", subcommand, name)
+                    bail_cmd_option!(MAP, subcommand, name)
                 }
             }
         }
@@ -467,23 +464,17 @@ pub async fn slash_map(ctx: Arc<Context>, mut command: ApplicationCommand) -> Bo
     }
 }
 
-pub fn slash_map_command() -> Command {
-    let options = vec![
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify a map url or map id".to_owned(),
-            name: "map".to_owned(),
-            required: false,
-        }),
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify mods".to_owned(),
-            name: "mods".to_owned(),
-            required: false,
-        }),
-    ];
+pub fn define_map() -> MyCommand {
+    let map = option_map();
+    let mods = option_mods(false);
 
-    SlashCommandBuilder::new("map", "Display a bunch of stats about a map(set)")
-        .options(options)
-        .build()
+    let help = "Display a bunch of stats about a map(set).\n\
+        The values in the map info will be adjusted to mods.\n\
+        Since discord does not allow images to be adjusted when editing messages, \
+        the strain graph always belongs to the initial map, even after moving to \
+        other maps of the set through the arrow reactions.";
+
+    MyCommand::new(MAP, "Display a bunch of stats about map(set)")
+        .help(help)
+        .options(vec![map, mods])
 }

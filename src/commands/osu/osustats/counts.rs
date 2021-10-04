@@ -2,7 +2,10 @@ use crate::{
     database::UserConfig,
     embeds::{EmbedData, OsuStatsCountsEmbed},
     util::{
-        constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE, OSU_API_ISSUE},
+        constants::{
+            common_literals::{DISCORD, MODE, NAME},
+            GENERAL_ISSUE, OSUSTATS_API_ISSUE, OSU_API_ISSUE,
+        },
         MessageExt,
     },
     Args, BotResult, CommandData, Context,
@@ -193,6 +196,8 @@ pub(super) struct CountArgs {
     config: UserConfig,
 }
 
+const OSUSTATS_COUNT: &str = "osustats count";
+
 impl CountArgs {
     async fn args(
         ctx: &Context,
@@ -221,21 +226,21 @@ impl CountArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "name" => config.osu_username = Some(value.into()),
-                    "discord" => {
+                    NAME => config.osu_username = Some(value.into()),
+                    DISCORD => {
                         config.osu_username = parse_discord_option!(ctx, value, "osustats count")
                     }
-                    "mode" => config.mode = parse_mode_option!(value, "osustats count"),
-                    _ => bail_cmd_option!("osustats count", string, name),
+                    MODE => config.mode = parse_mode_option!(value, "osustats count"),
+                    _ => bail_cmd_option!(OSUSTATS_COUNT, string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("osustats count", integer, name)
+                    bail_cmd_option!(OSUSTATS_COUNT, integer, name)
                 }
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("osustats count", boolean, name)
+                    bail_cmd_option!(OSUSTATS_COUNT, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("osustats count", subcommand, name)
+                    bail_cmd_option!(OSUSTATS_COUNT, subcommand, name)
                 }
             }
         }

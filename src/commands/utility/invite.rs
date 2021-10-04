@@ -1,12 +1,12 @@
 use crate::{
-    commands::SlashCommandBuilder,
+    commands::MyCommand,
     embeds::{EmbedData, InviteEmbed},
     util::{constants::BATHBOT_WORKSHOP, MessageExt},
     BotResult, CommandData, Context, MessageBuilder,
 };
 
 use std::sync::Arc;
-use twilight_model::application::{command::Command, interaction::ApplicationCommand};
+use twilight_model::application::interaction::ApplicationCommand;
 
 #[command]
 #[short_desc("Invite me to your server")]
@@ -24,6 +24,6 @@ pub async fn slash_invite(ctx: Arc<Context>, command: ApplicationCommand) -> Bot
     invite(ctx, command.into()).await
 }
 
-pub fn slash_invite_command() -> Command {
-    SlashCommandBuilder::new("invite", "Invite me to your server").build()
+pub fn define_invite() -> MyCommand {
+    MyCommand::new("invite", "Invite me to your server")
 }

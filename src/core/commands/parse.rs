@@ -1,5 +1,9 @@
 use super::{Command, CMD_GROUPS};
-use crate::{arguments::Stream, database::Prefix, util::CowUtils};
+use crate::{
+    arguments::Stream,
+    database::Prefix,
+    util::{constants::common_literals::HELP, CowUtils},
+};
 
 use std::borrow::Cow;
 
@@ -25,7 +29,7 @@ impl Invoke {
             Invoke::SubCommand { main, sub } => {
                 Cow::Owned(format!("{}-{}", main.names[0], sub.names[0]))
             }
-            Invoke::Help(_) | Invoke::FailedHelp(_) => Cow::Borrowed("help"),
+            Invoke::Help(_) | Invoke::FailedHelp(_) => Cow::Borrowed(HELP),
             Invoke::None => Cow::default(),
         }
     }
@@ -67,7 +71,7 @@ pub fn parse_invoke(stream: &mut Stream<'_>) -> Invoke {
     stream.take_while_char(char::is_whitespace);
 
     match name.as_ref() {
-        "h" | "help" => {
+        "h" | HELP => {
             let name = stream
                 .take_until_char(char::is_whitespace)
                 .cow_to_ascii_lowercase();

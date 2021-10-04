@@ -6,28 +6,26 @@ pub use pp::*;
 pub use rank_pp::*;
 pub use rank_score::*;
 
-use super::{request_user, require_link};
-
-use crate::{
-    commands::SlashCommandBuilder,
-    util::{ApplicationCommandExt, MessageExt},
-    BotResult, Context, Error,
-};
-
 use std::{borrow::Cow, sync::Arc};
-use twilight_model::application::{
-    command::{
-        BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption,
-        OptionsCommandOptionData,
-    },
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+
+use twilight_model::application::interaction::{
+    application_command::CommandDataOption, ApplicationCommand,
 };
+
+use crate::{BotResult, Context, Error, commands::{
+        osu::{option_country, option_discord, option_mode, option_name},
+        MyCommand, MyCommandOption,
+    }, util::{ApplicationCommandExt, InteractionExt, MessageExt, constants::common_literals::{RANK, SCORE}}};
+
+use super::{request_user, require_link};
 
 enum ReachCommandKind {
     Performance(PpArgs),
     RankPerformance(RankPpArgs),
     RankScore(RankScoreArgs),
 }
+
+const REACH_RANK: &str = "reach rank";
 
 impl ReachCommandKind {
     async fn slash(
@@ -47,17 +45,17 @@ impl ReachCommandKind {
                         Ok(args) => kind = Some(Self::Performance(args)),
                         Err(content) => return Ok(Err(content)),
                     },
-                    "rank" => {
+                    RANK => {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, .. } => {
-                                    bail_cmd_option!("reach rank", string, name)
+                                    bail_cmd_option!(REACH_RANK, string, name)
                                 }
                                 CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("reach rank", integer, name)
+                                    bail_cmd_option!(REACH_RANK, integer, name)
                                 }
                                 CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("reach rank", boolean, name)
+                                    bail_cmd_option!(REACH_RANK, boolean, name)
                                 }
                                 CommandDataOption::SubCommand { name, options } => {
                                     match name.as_str() {
@@ -67,7 +65,7 @@ impl ReachCommandKind {
                                             Ok(args) => kind = Some(Self::RankPerformance(args)),
                                             Err(content) => return Ok(Err(content.into())),
                                         },
-                                        "score" => {
+                                        SCORE => {
                                             match RankScoreArgs::slash(ctx, options, author_id)
                                                 .await?
                                             {
@@ -75,13 +73,13 @@ impl ReachCommandKind {
                                                 Err(content) => return Ok(Err(content.into())),
                                             }
                                         }
-                                        _ => bail_cmd_option!("reach rank", subcommand, name),
+                                        _ => bail_cmd_option!(REACH_RANK, subcommand, name),
                                     }
                                 }
                             }
                         }
                     }
-                    _ => bail_cmd_option!("rank", subcommand, name),
+                    _ => bail_cmd_option!("reach", subcommand, name),
                 },
             }
         }
@@ -99,119 +97,40 @@ pub async fn slash_reach(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
     }
 }
 
-pub fn slash_reach_command() -> Command {
+pub fn define_reach() -> MyCommand {
+    let rank = MyCommandOption::builder(RANK, "Specify the target rank").integer(Vec::new(), true);
+    let mode = option_mode();
+    let name = option_name();
+    let country = option_country();
+    let discord = option_discord();
+
+    let pp = MyCommandOption::builder("pp", "How many pp are missing to reach the given rank?")
+        .subcommand(vec![rank, mode, name, country, discord]);
+
+    let rank = MyCommandOption::builder(RANK, "Specify the target rank").integer(Vec::new(), true);
+    let mode = option_mode();
+    let name = option_name();
+    let discord = option_discord();
+
+    let score_description = "How much ranked score is missing to reach the given rank?";
+
+    let score = MyCommandOption::builder(SCORE, score_description)
+        .subcommand(vec![rank, mode, name, discord]);
+
+    let rank = MyCommandOption::builder(RANK, "How much is missing to reach the given rank?")
+        .subcommandgroup(vec![pp, score]);
+
+    // TODO: Number variant
+    let pp = MyCommandOption::builder("pp", "Specify a target pp amount").string(Vec::new(), true);
+    let mode = option_mode();
+    let name = option_name();
+    let discord = option_discord();
+    let pp_description = "How many pp is a user missing to reach the given amount?";
+
+    let pp =
+        MyCommandOption::builder("pp", pp_description).subcommand(vec![pp, mode, name, discord]);
+
     let description = "How much is a user missing to reach the given pp or rank?";
 
-    let options = vec![
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "How many pp is a user missing to reach the given amount?".to_owned(),
-            name: "pp".to_owned(),
-            options: vec![
-                // TODO: Number
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Specify a target pp amount".to_owned(),
-                    name: "pp".to_owned(),
-                    required: true,
-                }),
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: super::mode_choices(),
-                    description: "Specify the gamemode".to_owned(),
-                    name: "mode".to_owned(),
-                    required: false,
-                }),
-                CommandOption::String(ChoiceCommandOptionData {
-                    choices: vec![],
-                    description: "Specify a username".to_owned(),
-                    name: "name".to_owned(),
-                    required: false,
-                }),
-                CommandOption::User(BaseCommandOptionData {
-                    description: "Specify a linked discord user".to_owned(),
-                    name: "discord".to_owned(),
-                    required: false,
-                }),
-            ],
-            required: false,
-        }),
-        CommandOption::SubCommandGroup(OptionsCommandOptionData {
-            description: "How many pp are missing to reach the given rank?".to_owned(),
-            name: "rank".to_owned(),
-            options: vec![
-                CommandOption::SubCommand(OptionsCommandOptionData {
-                    description: "How many pp is a user missing to reach the given rank?"
-                        .to_owned(),
-                    name: "pp".to_owned(),
-                    options: vec![
-                        CommandOption::Integer(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Specify the target rank".to_owned(),
-                            name: "rank".to_owned(),
-                            required: true,
-                        }),
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: super::mode_choices(),
-                            description: "Specify a gamemode".to_owned(),
-                            name: "mode".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Specify a username".to_owned(),
-                            name: "name".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Specify a country (code)".to_owned(),
-                            name: "country".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::User(BaseCommandOptionData {
-                            description: "Specify a linked discord user".to_owned(),
-                            name: "discord".to_owned(),
-                            required: false,
-                        }),
-                    ],
-                    required: false,
-                }),
-                CommandOption::SubCommand(OptionsCommandOptionData {
-                    description: "How much ranked score is a user missing to reach the given rank?"
-                        .to_owned(),
-                    name: "score".to_owned(),
-                    options: vec![
-                        CommandOption::Integer(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Specify the target rank".to_owned(),
-                            name: "rank".to_owned(),
-                            required: true,
-                        }),
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: super::mode_choices(),
-                            description: "Specify a gamemode".to_owned(),
-                            name: "mode".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::String(ChoiceCommandOptionData {
-                            choices: vec![],
-                            description: "Specify a username".to_owned(),
-                            name: "name".to_owned(),
-                            required: false,
-                        }),
-                        CommandOption::User(BaseCommandOptionData {
-                            description: "Specify a linked discord user".to_owned(),
-                            name: "discord".to_owned(),
-                            required: false,
-                        }),
-                    ],
-                    required: false,
-                }),
-            ],
-            required: false,
-        }),
-    ];
-
-    SlashCommandBuilder::new("reach", description)
-        .options(options)
-        .build()
+    MyCommand::new("reach", description).options(vec![pp, rank])
 }

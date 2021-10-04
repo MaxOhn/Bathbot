@@ -14,7 +14,7 @@ pub use tags::*;
 
 use crate::{
     embeds::{BGHelpEmbed, EmbedData},
-    util::MessageExt,
+    util::{constants::common_literals::HELP, MessageExt},
     BotResult, CommandData, Context,
 };
 
@@ -32,7 +32,7 @@ use twilight_model::channel::Reaction;
 pub async fn backgroundgame(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, .. } => match args.next() {
-            None | Some("help") => {
+            None | Some(HELP) => {
                 let builder = BGHelpEmbed::new().into_builder().build().into();
                 msg.create_message(&ctx, builder).await?;
 

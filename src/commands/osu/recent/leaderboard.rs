@@ -3,7 +3,10 @@ use crate::{
     embeds::{EmbedData, LeaderboardEmbed},
     pagination::{LeaderboardPagination, Pagination},
     util::{
-        constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE},
+        constants::{
+            common_literals::{DISCORD, INDEX, MODE, MODS, MODS_PARSE_FAIL, NAME},
+            AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE,
+        },
         matcher,
         osu::ModSelection,
         MessageExt,
@@ -12,8 +15,10 @@ use crate::{
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
-use std::sync::Arc;
-use twilight_model::id::UserId;
+use std::{borrow::Cow, sync::Arc};
+use twilight_model::{
+    application::interaction::application_command::CommandDataOption, id::UserId,
+};
 
 pub(super) async fn _recentleaderboard(
     ctx: Arc<Context>,
@@ -37,8 +42,8 @@ pub(super) async fn _recentleaderboard(
 
     let limit = index.map_or(1, |n| n + (n == 0) as usize);
 
-    if limit > 50 {
-        let content = "Recent history goes only 50 scores back.";
+    if limit > 100 {
+        let content = "Recent history goes only 100 scores back.";
 
         return data.error(&ctx, content).await;
     }
@@ -490,6 +495,54 @@ impl RecentLeaderboardArgs {
             name,
             index,
             mods,
+        };
+
+        Ok(Ok(args))
+    }
+
+    pub(super) async fn slash(
+        ctx: &Context,
+        options: Vec<CommandDataOption>,
+        author_id: UserId,
+    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+        let mut config = ctx.user_config(author_id).await?;
+        let mut username = None;
+        let mut mods = None;
+        let mut index = None;
+
+        for option in options {
+            match option {
+                CommandDataOption::String { name, value } => match name.as_str() {
+                    NAME => username = Some(value.into()),
+                    MODS => match matcher::get_mods(&value) {
+                        Some(mods_) => mods = Some(mods_),
+                        None => match value.parse() {
+                            Ok(mods_) => mods = Some(ModSelection::Exact(mods_)),
+                            Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
+                        },
+                    },
+                    DISCORD => username = parse_discord_option!(ctx, value, "recent leaderboard"),
+                    MODE => config.mode = parse_mode_option!(value, "recent leaderboard"),
+                    _ => bail_cmd_option!("recent leaderboard", string, name),
+                },
+                CommandDataOption::Integer { name, value } => match name.as_str() {
+                    INDEX => index = Some(value.max(1).min(50) as usize),
+                    _ => bail_cmd_option!("recent leaderboard", integer, name),
+                },
+                CommandDataOption::Boolean { name, .. } => {
+                    bail_cmd_option!("recent leaderboard", boolean, name)
+                }
+                CommandDataOption::SubCommand { name, .. } => {
+                    bail_cmd_option!("recent leaderboard", subcommand, name)
+                }
+            }
+        }
+
+        let args = Self {
+            config,
+            name: username,
+            mods,
+            index,
         };
 
         Ok(Ok(args))

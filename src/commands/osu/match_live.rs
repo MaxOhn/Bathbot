@@ -1,10 +1,11 @@
-use twilight_model::application::{
-    command::{ChoiceCommandOptionData, Command, CommandOption, OptionsCommandOptionData},
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+use std::sync::Arc;
+
+use twilight_model::application::interaction::{
+    application_command::CommandDataOption, ApplicationCommand,
 };
 
 use crate::{
-    commands::SlashCommandBuilder,
+    commands::{MyCommand, MyCommandOption},
     core::MatchTrackResult,
     util::{
         constants::{OSU_API_ISSUE, OSU_BASE},
@@ -12,8 +13,6 @@ use crate::{
     },
     BotResult, CommandData, Context, Error,
 };
-
-use std::sync::Arc;
 
 #[command]
 #[authority()]
@@ -124,6 +123,8 @@ enum MatchLiveKind {
     Remove(u32),
 }
 
+const MATCHLIVE_TRACK: &str = "matchlive (un)track";
+
 fn parse_match_id(options: Vec<CommandDataOption>) -> BotResult<Result<u32, &'static str>> {
     let mut match_id = None;
 
@@ -139,22 +140,24 @@ fn parse_match_id(options: Vec<CommandDataOption>) -> BotResult<Result<u32, &'st
                         return Ok(Err(content));
                     }
                 },
-                _ => bail_cmd_option!("matchlive track", string, name),
+                _ => bail_cmd_option!(MATCHLIVE_TRACK, string, name),
             },
             CommandDataOption::Integer { name, .. } => {
-                bail_cmd_option!("matchlive track", integer, name)
+                bail_cmd_option!(MATCHLIVE_TRACK, integer, name)
             }
             CommandDataOption::Boolean { name, .. } => {
-                bail_cmd_option!("matchlive track", boolean, name)
+                bail_cmd_option!(MATCHLIVE_TRACK, boolean, name)
             }
             CommandDataOption::SubCommand { name, .. } => {
-                bail_cmd_option!("matchlive track", subcommand, name)
+                bail_cmd_option!(MATCHLIVE_TRACK, subcommand, name)
             }
         }
     }
 
     match_id.ok_or(Error::InvalidCommandOptions).map(Ok)
 }
+
+const MATCHLIVE: &str = "matchlive";
 
 impl MatchLiveKind {
     fn slash(command: &mut ApplicationCommand) -> BotResult<Result<Self, &'static str>> {
@@ -163,13 +166,13 @@ impl MatchLiveKind {
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, .. } => {
-                    bail_cmd_option!("matchlive", string, name)
+                    bail_cmd_option!(MATCHLIVE, string, name)
                 }
                 CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("matchlive", integer, name)
+                    bail_cmd_option!(MATCHLIVE, integer, name)
                 }
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("matchlive", boolean, name)
+                    bail_cmd_option!(MATCHLIVE, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, options } => match name.as_str() {
                     "track" => match parse_match_id(options)? {
@@ -180,7 +183,7 @@ impl MatchLiveKind {
                         Ok(match_id) => kind = Some(MatchLiveKind::Remove(match_id)),
                         Err(content) => return Ok(Err(content)),
                     },
-                    _ => bail_cmd_option!("matchlive", subcommand, name),
+                    _ => bail_cmd_option!(MATCHLIVE, subcommand, name),
                 },
             }
         }
@@ -197,33 +200,22 @@ pub async fn slash_matchlive(ctx: Arc<Context>, mut command: ApplicationCommand)
     }
 }
 
-pub fn slash_matchlive_command() -> Command {
-    let options = vec![
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Start tracking a match".to_owned(),
-            name: "track".to_owned(),
-            options: vec![CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a match url or match id".to_owned(),
-                name: "match_url".to_owned(),
-                required: true,
-            })],
-            required: false,
-        }),
-        CommandOption::SubCommand(OptionsCommandOptionData {
-            description: "Untrack a match".to_owned(),
-            name: "untrack".to_owned(),
-            options: vec![CommandOption::String(ChoiceCommandOptionData {
-                choices: vec![],
-                description: "Specify a match url or match id".to_owned(),
-                name: "match_url".to_owned(),
-                required: true,
-            })],
-            required: false,
-        }),
-    ];
+fn option_match_url() -> MyCommandOption {
+    MyCommandOption::builder("match_url", "Specify a match url or match id").string(Vec::new(), true)
+}
 
-    SlashCommandBuilder::new("matchlive", "Live track a multiplayer match")
-        .options(options)
-        .build()
+pub fn define_matchlive() -> MyCommand {
+    let track = MyCommandOption::builder("track", "Start tracking a match")
+        .subcommand(vec![option_match_url()]);
+
+    let untrack =
+        MyCommandOption::builder("untrack", "Untrack a match").subcommand(vec![option_match_url()]);
+
+    let help = "Similar to what an mp link does, this command will \
+        keep a channel up to date about events in a multiplayer match.";
+
+    MyCommand::new(MATCHLIVE, "Live track a multiplayer match")
+        .help(help)
+        .options(vec![track, untrack])
+        .authority()
 }

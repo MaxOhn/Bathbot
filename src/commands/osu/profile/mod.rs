@@ -9,7 +9,10 @@ use graph::graphs;
 pub use size::{ProfileEmbedMap, ProfileSize};
 
 use crate::{
-    commands::SlashCommandBuilder,
+    commands::{
+        osu::{option_discord, option_name},
+        MyCommand, MyCommandOption,
+    },
     embeds::{EmbedData, ProfileEmbed},
     pagination::ProfilePagination,
     tracking::process_tracking,
@@ -22,12 +25,9 @@ use crate::{
 
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{collections::BTreeMap, sync::Arc};
-use twilight_model::application::{
-    command::{
-        BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption, CommandOptionChoice,
-    },
-    interaction::ApplicationCommand,
-};
+use twilight_model::application::{command::CommandOptionChoice, interaction::ApplicationCommand};
+
+use super::option_mode;
 
 async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -> BotResult<()> {
     let ProfileArgs { config } = args;
@@ -329,47 +329,35 @@ pub async fn slash_profile(ctx: Arc<Context>, mut command: ApplicationCommand) -
     }
 }
 
-pub fn slash_profile_command() -> Command {
-    let options = vec![
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: super::mode_choices(),
-            description: "Specify a gamemode".to_owned(),
-            name: "mode".to_owned(),
-            required: false,
-        }),
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![
-                CommandOptionChoice::String {
-                    name: "compact".to_owned(),
-                    value: "compact".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "medium".to_owned(),
-                    value: "medium".to_owned(),
-                },
-                CommandOptionChoice::String {
-                    name: "full".to_owned(),
-                    value: "full".to_owned(),
-                },
-            ],
-            description: "Choose an embed size".to_owned(),
-            name: "size".to_owned(),
-            required: false,
-        }),
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify a username".to_owned(),
-            name: "name".to_owned(),
-            required: false,
-        }),
-        CommandOption::User(BaseCommandOptionData {
-            description: "Specify a linked discord user".to_owned(),
-            name: "discord".to_owned(),
-            required: false,
-        }),
+pub fn define_profile() -> MyCommand {
+    let mode = option_mode();
+
+    let size_choices = vec![
+        CommandOptionChoice::String {
+            name: "compact".to_owned(),
+            value: "compact".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "medium".to_owned(),
+            value: "medium".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "full".to_owned(),
+            value: "full".to_owned(),
+        },
     ];
 
-    SlashCommandBuilder::new("profile", "Display statistics of a user")
-        .options(options)
-        .build()
+    let size_help = "Specify the initial size of the embed.\n\
+        If none is specified, it will pick the size as configured with the `/config` command.\n\
+        If none is configured, it defaults to `compact`.";
+
+    let size = MyCommandOption::builder("size", "Choose an embed size")
+        .help(size_help)
+        .string(size_choices, false);
+
+    let name = option_name();
+    let discord = option_discord();
+
+    MyCommand::new("profile", "Display statistics of a user")
+        .options(vec![mode, name, size, discord])
 }

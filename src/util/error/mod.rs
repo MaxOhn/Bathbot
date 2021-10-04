@@ -8,7 +8,7 @@ pub use bg_game::BgGameError;
 pub use custom_client::CustomClientError;
 pub use map_download::MapDownloadError;
 pub use pp::PPError;
-use twilight_model::application::interaction::ApplicationCommand;
+use twilight_model::application::interaction::{ApplicationCommand, MessageComponentInteraction};
 pub use twitch::TwitchError;
 
 use chrono::format::ParseError as ChronoParseError;
@@ -54,6 +54,25 @@ macro_rules! format_err {
 }
 
 #[derive(Debug)]
+pub enum InvalidHelpState {
+    UnknownCommand,
+    MissingEmbed,
+    MissingTitle,
+}
+
+impl Display for InvalidHelpState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self {
+            Self::UnknownCommand => f.write_str("unknown command"),
+            Self::MissingEmbed => f.write_str("missing embed"),
+            Self::MissingTitle => f.write_str("missing embed title"),
+        }
+    }
+}
+
+impl StdError for InvalidHelpState {}
+
+#[derive(Debug)]
 pub enum Error {
     Authority(Box<Error>),
     BgGame(BgGameError),
@@ -68,10 +87,11 @@ pub enum Error {
     Image(ImageError),
     Interaction(InteractionError),
     InvalidCommandOptions,
+    InvalidHelpState(InvalidHelpState),
     InvalidConfig(TomlError),
     IO(IOError),
     MapDownload(MapDownloadError),
-    MissingSlashAuthor,
+    MissingInteractionAuthor,
     NoConfig,
     NoLoggingSpec,
     Osu(OsuError),
@@ -88,6 +108,9 @@ pub enum Error {
         cmd: &'static str,
         kind: &'static str,
         name: String,
+    },
+    UnknownMessageComponent {
+        component: Box<MessageComponentInteraction>,
     },
     UnknownSlashCommand {
         name: String,
@@ -114,9 +137,10 @@ impl StdError for Error {
             Self::Interaction(e) => Some(e),
             Self::InvalidCommandOptions => None,
             Self::InvalidConfig(e) => Some(e),
+            Self::InvalidHelpState(e) => Some(e),
             Self::IO(e) => Some(e),
             Self::MapDownload(e) => Some(e),
-            Self::MissingSlashAuthor => None,
+            Self::MissingInteractionAuthor => None,
             Self::NoConfig => None,
             Self::NoLoggingSpec => None,
             Self::Osu(e) => Some(e),
@@ -130,6 +154,7 @@ impl StdError for Error {
             Self::TwilightHttp(e) => Some(e),
             Self::Twitch(e) => Some(e),
             Self::UnexpectedCommandOption { .. } => None,
+            Self::UnknownMessageComponent { .. } => None,
             Self::UnknownSlashCommand { .. } => None,
             Self::UpdateMessage(e) => Some(e),
             Self::UpdateOriginalResponse(e) => Some(e),
@@ -154,9 +179,10 @@ impl Display for Error {
             Self::Interaction(_) => f.write_str("interaction error"),
             Self::InvalidCommandOptions => f.write_str("received invalid options for command"),
             Self::InvalidConfig(_) => f.write_str("config file was not in correct format"),
+            Self::InvalidHelpState(_) => f.write_str("invalid help state"),
             Self::IO(_) => f.write_str("io error"),
             Self::MapDownload(_) => f.write_str("error while downloading new map"),
-            Self::MissingSlashAuthor => {
+            Self::MissingInteractionAuthor => {
                 f.write_str("interaction contained neither member nor user")
             }
             Self::NoConfig => f.write_str("config file was not found"),
@@ -176,6 +202,9 @@ impl Display for Error {
                 "unexpected {} option for slash command `{}`: `{}`",
                 kind, cmd, name
             ),
+            Self::UnknownMessageComponent { component } => {
+                write!(f, "unknown message component: {:#?}", component)
+            }
             Self::UnknownSlashCommand { name, command } => {
                 write!(f, "unknown slash command `{}`: {:#?}", name, command)
             }
@@ -260,6 +289,12 @@ impl From<ImageError> for Error {
 impl From<InteractionError> for Error {
     fn from(e: InteractionError) -> Self {
         Error::Interaction(e)
+    }
+}
+
+impl From<InvalidHelpState> for Error {
+    fn from(e: InvalidHelpState) -> Self {
+        Error::InvalidHelpState(e)
     }
 }
 

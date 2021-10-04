@@ -4,7 +4,7 @@ use crate::{
     database::UserConfig,
     embeds::{EmbedData, RankingEmbed, RankingEntry, RankingKindData},
     pagination::{Pagination, RankingPagination},
-    util::{constants::OSEKAI_ISSUE, numbers, ApplicationCommandExt, MessageExt},
+    util::{constants::OSEKAI_ISSUE, numbers, InteractionExt, MessageExt},
     BotResult, Context,
 };
 

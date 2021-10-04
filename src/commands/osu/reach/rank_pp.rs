@@ -1,14 +1,4 @@
-use crate::{
-    custom_client::RankParam,
-    database::UserConfig,
-    embeds::{EmbedData, RankEmbed},
-    tracking::process_tracking,
-    util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE, OSU_DAILY_ISSUE},
-        CountryCode, MessageExt,
-    },
-    Args, BotResult, CommandData, Context, Error,
-};
+use crate::{Args, BotResult, CommandData, Context, Error, custom_client::RankParam, database::UserConfig, embeds::{EmbedData, RankEmbed}, tracking::process_tracking, util::{CountryCode, MessageExt, constants::{GENERAL_ISSUE, OSU_API_ISSUE, OSU_DAILY_ISSUE, common_literals::{COUNTRY, DISCORD, MODE, NAME, RANK}}}};
 
 use rosu_v2::prelude::{GameMode, OsuError, User, UserCompact};
 use std::sync::Arc;
@@ -326,6 +316,8 @@ pub(super) struct RankPpArgs {
     pub rank: usize,
 }
 
+const REACH_RANK_PP: &str = "reach rank pp";
+
 impl RankPpArgs {
     const ERR_PARSE_COUNTRY: &'static str =
         "Failed to parse `rank`. Provide it either as positive number \
@@ -394,12 +386,12 @@ impl RankPpArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    "mode" => config.mode = parse_mode_option!(value, "reach rank pp"),
-                    "name" => config.osu_username = Some(value.into()),
-                    "discord" => {
+                    MODE => config.mode = parse_mode_option!(value, "reach rank pp"),
+                    NAME => config.osu_username = Some(value.into()),
+                    DISCORD => {
                         config.osu_username = parse_discord_option!(ctx, value, "reach rank pp")
                     }
-                    "country" => {
+                    COUNTRY => {
                         if value.len() == 2 && value.is_ascii() {
                             country = Some(value.into())
                         } else if let Some(code) = CountryCode::from_name(value.as_str()) {
@@ -414,17 +406,17 @@ impl RankPpArgs {
                             return Ok(Err(content));
                         }
                     }
-                    _ => bail_cmd_option!("reach rank pp", string, name),
+                    _ => bail_cmd_option!(REACH_RANK_PP, string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {
-                    "rank" => rank = Some(value.max(0) as usize),
-                    _ => bail_cmd_option!("reach rank pp", integer, name),
+                    RANK => rank = Some(value.max(0) as usize),
+                    _ => bail_cmd_option!(REACH_RANK_PP, integer, name),
                 },
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("reach rank pp", boolean, name)
+                    bail_cmd_option!(REACH_RANK_PP, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("reach rank pp", subcommand, name)
+                    bail_cmd_option!(REACH_RANK_PP, subcommand, name)
                 }
             }
         }

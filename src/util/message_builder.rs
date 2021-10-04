@@ -63,6 +63,12 @@ impl IntoEmbed for Embed {
     }
 }
 
+impl IntoEmbed for EmbedBuilder {
+    fn into_embed(self) -> Embed {
+        self.build()
+    }
+}
+
 impl IntoEmbed for String {
     fn into_embed(self) -> Embed {
         EmbedBuilder::new().description(self).build()

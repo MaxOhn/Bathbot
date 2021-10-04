@@ -1,5 +1,5 @@
 use crate::{
-    commands::SlashCommandBuilder,
+    commands::{MyCommand, MyCommandOption},
     util::{constants::GENERAL_ISSUE, ApplicationCommandExt, MessageExt},
     BotResult, CommandData, Context, Error, MessageBuilder,
 };
@@ -10,9 +10,8 @@ use twilight_http::{
     api_error::{ApiError, ErrorCode::MessageTooOldToBulkDelete},
     error::ErrorType,
 };
-use twilight_model::application::{
-    command::{ChoiceCommandOptionData, Command, CommandOption},
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+use twilight_model::application::interaction::{
+    application_command::CommandDataOption, ApplicationCommand,
 };
 
 #[command]
@@ -130,17 +129,17 @@ pub async fn slash_prune(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
     _prune(ctx, command.into(), amount).await
 }
 
-pub fn slash_prune_command() -> Command {
-    let description = "Delete the last few messages in a channel";
+pub fn define_prune() -> MyCommand {
+    let amount_help = "Choose the amount of messages to delete. Should be between 1 and 99.";
 
-    let options = vec![CommandOption::Integer(ChoiceCommandOptionData {
-        choices: vec![],
-        description: "Choose the amount of messages to delete".to_owned(),
-        name: "amount".to_owned(),
-        required: true,
-    })];
+    let amount = MyCommandOption::builder("amount", "Choose the amount of messages to delete")
+        .help(amount_help)
+        .integer(Vec::new(), true);
 
-    SlashCommandBuilder::new("prune", description)
-        .options(options)
-        .build()
+    let help = "Delete the last few messages in a channel.\n\
+        Messages older than two weeks __cannot__ be deleted with this command.";
+
+    MyCommand::new("prune", "Delete the last few messages in a channel")
+        .help(help)
+        .options(vec![amount])
 }

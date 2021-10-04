@@ -1,19 +1,24 @@
 use crate::{
-    commands::SlashCommandBuilder,
+    commands::{
+        osu::{option_discord, option_name},
+        MyCommand,
+    },
     embeds::{EmbedData, MostPlayedEmbed},
     pagination::{MostPlayedPagination, Pagination},
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        numbers, ApplicationCommandExt, MessageExt,
+        constants::{
+            common_literals::{DISCORD, NAME},
+            GENERAL_ISSUE, OSU_API_ISSUE,
+        },
+        numbers, ApplicationCommandExt, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, Name,
 };
 
 use rosu_v2::prelude::OsuError;
 use std::sync::Arc;
-use twilight_model::application::{
-    command::{BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption},
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+use twilight_model::application::interaction::{
+    application_command::CommandDataOption, ApplicationCommand,
 };
 
 #[command]
@@ -115,6 +120,8 @@ async fn _mostplayed(
     Ok(())
 }
 
+const MOSTPLAYED: &str = "mostplayed";
+
 async fn parse_username(
     ctx: &Context,
     command: &mut ApplicationCommand,
@@ -124,18 +131,18 @@ async fn parse_username(
     for option in command.yoink_options() {
         match option {
             CommandDataOption::String { name, value } => match name.as_str() {
-                "name" => username = Some(value.into()),
-                "discord" => username = parse_discord_option!(ctx, value, "mostplayed"),
-                _ => bail_cmd_option!("mostplayed", string, name),
+                NAME => username = Some(value.into()),
+                DISCORD => username = parse_discord_option!(ctx, value, "mostplayed"),
+                _ => bail_cmd_option!(MOSTPLAYED, string, name),
             },
             CommandDataOption::Integer { name, .. } => {
-                bail_cmd_option!("mostplayed", integer, name)
+                bail_cmd_option!(MOSTPLAYED, integer, name)
             }
             CommandDataOption::Boolean { name, .. } => {
-                bail_cmd_option!("mostplayed", boolean, name)
+                bail_cmd_option!(MOSTPLAYED, boolean, name)
             }
             CommandDataOption::SubCommand { name, .. } => {
-                bail_cmd_option!("mostplayed", subcommand, name)
+                bail_cmd_option!(MOSTPLAYED, subcommand, name)
             }
         }
     }
@@ -160,22 +167,10 @@ pub async fn slash_mostplayed(ctx: Arc<Context>, mut command: ApplicationCommand
     }
 }
 
-pub fn slash_mostplayed_command() -> Command {
-    let options = vec![
-        CommandOption::String(ChoiceCommandOptionData {
-            choices: vec![],
-            description: "Specify a username".to_owned(),
-            name: "name".to_owned(),
-            required: false,
-        }),
-        CommandOption::User(BaseCommandOptionData {
-            description: "Specify a linked discord user".to_owned(),
-            name: "discord".to_owned(),
-            required: false,
-        }),
-    ];
+pub fn define_mostplayed() -> MyCommand {
+    let name = option_name();
+    let discord = option_discord();
 
-    SlashCommandBuilder::new("mostplayed", "Display the most played maps of a user")
-        .options(options)
-        .build()
+    MyCommand::new(MOSTPLAYED, "Display the most played maps of a user")
+        .options(vec![name, discord])
 }
