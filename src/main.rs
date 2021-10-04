@@ -63,7 +63,7 @@ use parking_lot::Mutex;
 use rosu_v2::Osu;
 use smallstr::SmallString;
 use std::{
-    env, process,
+    env,
     sync::{atomic::Ordering, Arc},
     time::Duration,
 };
@@ -258,49 +258,9 @@ async fn async_main() -> BotResult<()> {
     // Final context
     let ctx = Arc::new(Context::new(cache, stats, http, clients, cluster, data).await);
 
-    // Setup graceful shutdown
-    let (tx, rx) = oneshot::channel();
-    let shutdown_ctx = Arc::clone(&ctx);
-
-    tokio::spawn(async move {
-        if let Err(err) = signal::ctrl_c().await {
-            unwind_error!(error, err, "Error while waiting for ctrlc: {}");
-
-            return;
-        }
-
-        info!("Received Ctrl+C");
-
-        if tx.send(()).is_err() {
-            error!("Failed to send shutdown message to metric loop");
-        }
-
-        // Disable tracking while preparing shutdown
-        shutdown_ctx
-            .tracking()
-            .stop_tracking
-            .store(true, Ordering::SeqCst);
-
-        // Prevent non-minimized msgs from getting minimized
-        shutdown_ctx.clear_msgs_to_process();
-
-        shutdown_ctx.initiate_cold_resume().await;
-
-        let (count, total) = shutdown_ctx.garbage_collect_all_maps().await;
-        info!("Garbage collected {}/{} maps", count, total);
-
-        let count = shutdown_ctx.stop_all_games().await;
-        info!("Stopped {} bg games", count);
-
-        let count = shutdown_ctx.notify_match_live_shutdown().await;
-        info!("Stopped match tracking in {} channels", count);
-
-        info!("Shutting down");
-        process::exit(0);
-    });
-
     // Spawn server worker
     let server_ctx = Arc::clone(&ctx);
+    let (tx, rx) = oneshot::channel();
     tokio::spawn(core::server::run_server(server_ctx, rx));
 
     // Spawn twitch worker
@@ -338,22 +298,51 @@ async fn async_main() -> BotResult<()> {
         }
     });
 
-    while let Some((shard_id, event)) = event_stream.next().await {
-        ctx.cache.update(&event);
-        ctx.standby.process(&event);
-        let ctx = Arc::clone(&ctx);
+    let event_loop = async {
+        while let Some((shard_id, event)) = event_stream.next().await {
+            ctx.cache.update(&event);
+            ctx.standby.process(&event);
+            let ctx = Arc::clone(&ctx);
 
-        tokio::spawn(async move {
-            if let Err(why) = handle_event(ctx, event, shard_id).await {
-                unwind_error!(error, why, "Error while handling event: {}");
-            }
-        });
+            tokio::spawn(async move {
+                if let Err(why) = handle_event(ctx, event, shard_id).await {
+                    unwind_error!(error, why, "Error while handling event: {}");
+                }
+            });
+        }
+    };
+
+    tokio::select! {
+        _ = event_loop => error!("Event loop ended"),
+        res = signal::ctrl_c() => if let Err(why) = res {
+            unwind_error!(error, why, "Error while waiting for ctrlc: {}");
+        } else {
+            info!("Received Ctrl+C");
+        },
     }
 
-    info!("Exited event loop");
+    if tx.send(()).is_err() {
+        error!("Failed to send shutdown message to server");
+    }
 
-    // Give the ctrlc handler time to finish
-    time::sleep(Duration::from_secs(300)).await;
+    // Disable tracking while preparing shutdown
+    ctx.tracking().stop_tracking.store(true, Ordering::SeqCst);
+
+    // Prevent non-minimized msgs from getting minimized
+    ctx.clear_msgs_to_process();
+
+    ctx.initiate_cold_resume().await;
+
+    let (count, total) = ctx.garbage_collect_all_maps().await;
+    info!("Garbage collected {}/{} maps", count, total);
+
+    let count = ctx.stop_all_games().await;
+    info!("Stopped {} bg games", count);
+
+    let count = ctx.notify_match_live_shutdown().await;
+    info!("Stopped match tracking in {} channels", count);
+
+    info!("Shutting down");
 
     Ok(())
 }
