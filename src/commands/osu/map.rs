@@ -436,7 +436,7 @@ impl MapArgs {
                         Some(mods_) => mods = Some(mods_),
                         None => match value.parse() {
                             Ok(mods_) => mods = Some(ModSelection::Exact(mods_)),
-                            Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
+                            Err(_) => return Ok(Err(MODS_PARSE_FAIL)),
                         },
                     },
                     _ => bail_cmd_option!(MAP, string, name),
