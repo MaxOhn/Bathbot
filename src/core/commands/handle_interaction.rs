@@ -85,7 +85,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         "fix" => process_command(ctx, command, args, osu::slash_fix).await,
         HELP => {
             // Necessary to be able to use data.create_message later on
-            start_thinking(&ctx, &command).await?;
+            start_thinking_ephemeral(&ctx, &command).await?;
 
             help::slash_help(ctx, command)
                 .await
