@@ -52,10 +52,12 @@ async fn prune(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 async fn _prune(ctx: Arc<Context>, data: CommandData<'_>, amount: u64) -> BotResult<()> {
     let channel_id = data.channel_id();
 
+    let slash = matches!(data, CommandData::Interaction { .. });
+
     let msgs_fut = ctx
         .http
         .channel_messages(channel_id)
-        .limit(amount)
+        .limit(amount + slash as u64)
         .unwrap()
         .exec();
 
@@ -64,6 +66,7 @@ async fn _prune(ctx: Arc<Context>, data: CommandData<'_>, amount: u64) -> BotRes
             .models()
             .await?
             .into_iter()
+            .skip(slash as usize)
             .take(amount as usize)
             .map(|msg| msg.id)
             .collect(),
@@ -98,7 +101,7 @@ async fn _prune(ctx: Arc<Context>, data: CommandData<'_>, amount: u64) -> BotRes
         }
     }
 
-    let content = format!("Deleted the last {} messages", amount);
+    let content = format!("Deleted the last {} messages", amount - 1 + slash as u64);
     let builder = MessageBuilder::new().content(content);
     let response = data.create_message(&ctx, builder).await?.model().await?;
     time::sleep(Duration::from_secs(6)).await;
