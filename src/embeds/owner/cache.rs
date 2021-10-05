@@ -39,13 +39,21 @@ impl CacheEmbed {
         let _ = writeln!(
             description,
             "Unavailable guilds: {}",
-            stats.unavailable_guilds()
+            with_comma_uint(stats.unavailable_guilds())
         );
 
-        let _ = writeln!(description, "Users: {}", stats.users());
+        let _ = writeln!(description, "Users: {}", with_comma_uint(stats.users()));
         let _ = writeln!(description, "Groups: {}", with_comma_uint(stats.groups()));
-        let _ = writeln!(description, "Presences: {}", stats.presences());
-        let _ = writeln!(description, "Voice states: {}", stats.voice_states());
+        let _ = writeln!(
+            description,
+            "Presences: {}",
+            with_comma_uint(stats.presences())
+        );
+        let _ = writeln!(
+            description,
+            "Voice states: {}",
+            with_comma_uint(stats.voice_states())
+        );
 
         Self {
             description,

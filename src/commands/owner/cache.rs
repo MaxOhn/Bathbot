@@ -11,11 +11,7 @@ use std::sync::Arc;
 #[owner()]
 pub(super) async fn cache(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let stats = ctx.cache.stats();
-
-    let embed = CacheEmbed::new(stats, ctx.stats.start_time)
-        .into_builder()
-        .build();
-
+    let embed = CacheEmbed::new(stats, ctx.stats.start_time).into_builder();
     let builder = MessageBuilder::new().embed(embed);
     data.create_message(&ctx, builder).await?;
 

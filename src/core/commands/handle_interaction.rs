@@ -112,6 +112,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         "osustats" => process_command(ctx, command, args, osu::slash_osustats).await,
         "owner" => {
             args.only_owner = true;
+            args.ephemeral = true;
 
             process_command(ctx, command, args, owner::slash_owner).await
         }
