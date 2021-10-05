@@ -75,6 +75,7 @@ use twilight_model::{
     application::interaction::Interaction,
     channel::message::allowed_mentions::AllowedMentionsBuilder,
     gateway::{
+        payload::RequestGuildMembers,
         presence::{ActivityType, Status},
         Intents,
     },
@@ -375,7 +376,12 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
             ctx.stats.event_counts.gateway_reconnect.inc();
         }
         Event::GiftCodeUpdate => {}
-        Event::GuildCreate(_) => ctx.stats.event_counts.guild_create.inc(),
+        Event::GuildCreate(e) => {
+            ctx.stats.event_counts.guild_create.inc();
+
+            let req = RequestGuildMembers::builder(e.id).query("", None);
+            ctx.cluster.command(shard_id, &req).await?;
+        }
         Event::GuildDelete(_) => ctx.stats.event_counts.guild_delete.inc(),
         Event::GuildEmojisUpdate(_) => {}
         Event::GuildIntegrationsUpdate(_) => {}
