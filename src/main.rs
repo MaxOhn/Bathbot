@@ -67,12 +67,7 @@ use std::{
     sync::{atomic::Ordering, Arc},
     time::Duration,
 };
-use tokio::{
-    runtime::Builder as RuntimeBuilder,
-    signal,
-    sync::{mpsc, oneshot},
-    time,
-};
+use tokio::{runtime::Builder as RuntimeBuilder, signal, sync::oneshot, time};
 use tokio_stream::StreamExt;
 use twilight_gateway::{cluster::ShardScheme, Cluster, Event, EventTypeFlags};
 use twilight_http::Client as HttpClient;
@@ -80,7 +75,6 @@ use twilight_model::{
     application::interaction::Interaction,
     channel::message::allowed_mentions::AllowedMentionsBuilder,
     gateway::{
-        payload::RequestGuildMembers,
         presence::{ActivityType, Status},
         Intents,
     },
@@ -261,10 +255,8 @@ async fn async_main() -> BotResult<()> {
         twitch,
     };
 
-    let (member_tx, mut member_rx) = mpsc::unbounded_channel();
-
     // Final context
-    let ctx = Arc::new(Context::new(cache, stats, http, clients, cluster, data, member_tx).await);
+    let ctx = Arc::new(Context::new(cache, stats, http, clients, cluster, data).await);
 
     // Spawn server worker
     let server_ctx = Arc::clone(&ctx);
@@ -302,30 +294,6 @@ async fn async_main() -> BotResult<()> {
 
             if let Err(why) = activity_result {
                 unwind_error!(warn, why, "Error while setting activity: {}");
-            }
-        }
-    });
-
-    // Request members
-    let member_ctx = Arc::clone(&ctx);
-
-    tokio::spawn(async move {
-        let mut interval = time::interval(Duration::from_millis(100));
-        interval.tick().await;
-        info!("Start requesting members...");
-
-        while let Some((guild_id, shard_id)) = member_rx.recv().await {
-            info!("Received guild id {}", guild_id);
-            interval.tick().await;
-            let req = RequestGuildMembers::builder(guild_id).query("", None);
-
-            if let Err(why) = member_ctx.cluster.command(shard_id, &req).await {
-                unwind_error!(
-                    warn,
-                    why,
-                    "Failed to request members for guild {}: {}",
-                    guild_id
-                );
             }
         }
     });
@@ -407,10 +375,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
             ctx.stats.event_counts.gateway_reconnect.inc();
         }
         Event::GiftCodeUpdate => {}
-        Event::GuildCreate(e) => {
-            ctx.stats.event_counts.guild_create.inc();
-            let _ = ctx.member_tx.send((e.id, shard_id));
-        }
+        Event::GuildCreate(_) => ctx.stats.event_counts.guild_create.inc(),
         Event::GuildDelete(_) => ctx.stats.event_counts.guild_delete.inc(),
         Event::GuildEmojisUpdate(_) => {}
         Event::GuildIntegrationsUpdate(_) => {}

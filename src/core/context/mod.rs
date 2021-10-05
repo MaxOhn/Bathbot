@@ -1,7 +1,6 @@
 mod impls;
 
 pub use impls::{MatchLiveChannels, MatchTrackResult};
-use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     bg_game::GameWrapper,
@@ -42,7 +41,6 @@ pub struct Context {
     pub buckets: Buckets,
     pub cluster: Cluster,
     pub clients: Clients,
-    pub member_tx: UnboundedSender<(GuildId, u64)>,
     // private to avoid deadlocks by messing up references
     data: ContextData,
 }
@@ -80,7 +78,6 @@ impl Context {
         clients: Clients,
         cluster: Cluster,
         data: ContextData,
-        member_tx: UnboundedSender<(GuildId, u64)>,
     ) -> Self {
         Context {
             cache,
@@ -92,7 +89,6 @@ impl Context {
             cluster,
             data,
             buckets: buckets(),
-            member_tx,
         }
     }
 
