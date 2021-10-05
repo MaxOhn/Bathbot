@@ -48,6 +48,12 @@ enum TrackCommandKind {
     List,
 }
 
+const TRACK: &str = "track";
+const TRACK_ADD: &str = "track add";
+const TRACK_REMOVE: &str = "track remove";
+const TRACK_REMOVE_USER: &str = "track remove user";
+const TRACK_REMOVE_ALL: &str = "track remove all";
+
 impl TrackArgs {
     async fn args(
         ctx: &Context,
@@ -117,13 +123,13 @@ impl TrackArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, .. } => {
-                    bail_cmd_option!("track remove", string, name)
+                    bail_cmd_option!(TRACK_REMOVE, string, name)
                 }
                 CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("track remove", integer, name)
+                    bail_cmd_option!(TRACK_REMOVE, integer, name)
                 }
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("track remove", boolean, name)
+                    bail_cmd_option!(TRACK_REMOVE, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, options } => match name.as_str() {
                     "user" => {
@@ -137,16 +143,16 @@ impl TrackArgs {
                                     MODE => mode = parse_mode_option!(value, "track remove user"),
                                     NAME => username = Some(value.into()),
                                     _ if name.starts_with(NAME) => more_names.push(value.into()),
-                                    _ => bail_cmd_option!("track remove user", string, name),
+                                    _ => bail_cmd_option!(TRACK_REMOVE_USER, string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("track remove user", integer, name)
+                                    bail_cmd_option!(TRACK_REMOVE_USER, integer, name)
                                 }
                                 CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("track remove user", boolean, name)
+                                    bail_cmd_option!(TRACK_REMOVE_USER, boolean, name)
                                 }
                                 CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!("track remove user", subcommand, name)
+                                    bail_cmd_option!(TRACK_REMOVE_USER, subcommand, name)
                                 }
                             }
                         }
@@ -167,23 +173,23 @@ impl TrackArgs {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
                                     MODE => mode = parse_mode_option!(value, "track remove all"),
-                                    _ => bail_cmd_option!("track remove all", string, name),
+                                    _ => bail_cmd_option!(TRACK_REMOVE_ALL, string, name),
                                 },
                                 CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("track remove all", integer, name)
+                                    bail_cmd_option!(TRACK_REMOVE_ALL, integer, name)
                                 }
                                 CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("track remove all", boolean, name)
+                                    bail_cmd_option!(TRACK_REMOVE_ALL, boolean, name)
                                 }
                                 CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!("track remove all", subcommand, name)
+                                    bail_cmd_option!(TRACK_REMOVE_ALL, subcommand, name)
                                 }
                             }
                         }
 
                         kind = Some(TrackCommandKind::RemoveAll(mode));
                     }
-                    _ => bail_cmd_option!("track remove", subcommand, name),
+                    _ => bail_cmd_option!(TRACK_REMOVE, subcommand, name),
                 },
             }
         }
@@ -196,9 +202,9 @@ impl TrackArgs {
 
         for option in command.yoink_options() {
             match option {
-                CommandDataOption::String { name, .. } => bail_cmd_option!("track", string, name),
-                CommandDataOption::Integer { name, .. } => bail_cmd_option!("track", integer, name),
-                CommandDataOption::Boolean { name, .. } => bail_cmd_option!("track", boolean, name),
+                CommandDataOption::String { name, .. } => bail_cmd_option!(TRACK, string, name),
+                CommandDataOption::Integer { name, .. } => bail_cmd_option!(TRACK, integer, name),
+                CommandDataOption::Boolean { name, .. } => bail_cmd_option!(TRACK, boolean, name),
                 CommandDataOption::SubCommand { name, options } => match name.as_str() {
                     "add" => {
                         let mut mode = None;
@@ -212,17 +218,17 @@ impl TrackArgs {
                                     MODE => mode = parse_mode_option!(value, "track add"),
                                     NAME => username = Some(value.into()),
                                     _ if name.starts_with(NAME) => more_names.push(value.into()),
-                                    _ => bail_cmd_option!("track add", string, name),
+                                    _ => bail_cmd_option!(TRACK_ADD, string, name),
                                 },
                                 CommandDataOption::Integer { name, value } => match name.as_str() {
                                     "limit" => limit = Some(value.max(1).min(100) as usize),
-                                    _ => bail_cmd_option!("track add", integer, name),
+                                    _ => bail_cmd_option!(TRACK_ADD, integer, name),
                                 },
                                 CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("track add", boolean, name)
+                                    bail_cmd_option!(TRACK_ADD, boolean, name)
                                 }
                                 CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!("track add", subcommand, name)
+                                    bail_cmd_option!(TRACK_ADD, subcommand, name)
                                 }
                             }
                         }
@@ -238,7 +244,7 @@ impl TrackArgs {
                     }
                     "remove" => kind = Some(Self::slash_remove(options)?),
                     "list" => kind = Some(TrackCommandKind::List),
-                    _ => bail_cmd_option!("track", subcommand, name),
+                    _ => bail_cmd_option!(TRACK, subcommand, name),
                 },
             }
         }
@@ -280,8 +286,8 @@ fn option_names() -> Vec<MyCommandOption> {
     ]
 }
 
-fn option_mode() -> MyCommandOption {
-    MyCommandOption::builder("mode", "Specify a mode for the tracked users").string(
+fn option_mode(required: bool) -> MyCommandOption {
+    MyCommandOption::builder(MODE, "Specify a mode for the tracked users").string(
         vec![
             CommandOptionChoice::String {
                 name: OSU.to_owned(),
@@ -300,7 +306,7 @@ fn option_mode() -> MyCommandOption {
                 value: MANIA.to_owned(),
             },
         ],
-        false,
+        required,
     )
 }
 
@@ -308,7 +314,7 @@ fn subcommand_add() -> MyCommandOption {
     let name =
         MyCommandOption::builder(NAME, "Choose a username to be tracked").string(Vec::new(), true);
 
-    let mode = option_mode();
+    let mode = option_mode(true);
 
     let limit_description =
         "Between 1-100, default 50, notify on updates of the user's top X scores";
@@ -337,22 +343,19 @@ fn subcommand_remove() -> MyCommandOption {
     let name = MyCommandOption::builder(NAME, "Choose a username to be untracked")
         .string(Vec::new(), true);
 
-    let mode = option_mode();
+    let mode = option_mode(false);
     let mut options = vec![name, mode];
     options.append(&mut option_names());
 
     let user =
         MyCommandOption::builder("user", "Untrack specific users in a channel").subcommand(options);
 
-    let mode = option_mode();
+    let mode = option_mode(false);
     let all =
         MyCommandOption::builder("all", "Untrack all users in a channel").subcommand(vec![mode]);
 
-    let help =
-        "Untrack players in a channel i.e. stop sending notifications when they get new top scores";
-
     MyCommandOption::builder("remove", "Untrack players in a channel")
-        .help(help)
+        .help("Untrack players in a channel i.e. stop sending notifications when they get new top scores")
         .subcommandgroup(vec![user, all])
 }
 
@@ -364,7 +367,7 @@ fn subcommand_list() -> MyCommandOption {
 pub fn define_track() -> MyCommand {
     let options = vec![subcommand_add(), subcommand_remove(), subcommand_list()];
 
-    MyCommand::new("track", "(Un)track top score updates for an osu! player")
+    MyCommand::new(TRACK, "(Un)track top score updates for an osu! player")
         .options(options)
         .authority()
 }
