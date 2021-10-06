@@ -1,6 +1,6 @@
-use crate::util::constants::OWNER_USER_ID;
-
 use std::{collections::HashMap, ops::Deref};
+
+use deadpool_redis::Pool;
 use twilight_cache_inmemory::{ColdResumeFlags, InMemoryCache, ResourceType};
 use twilight_gateway::shard::ResumeSession;
 use twilight_model::{
@@ -9,10 +9,12 @@ use twilight_model::{
     id::{ChannelId, GuildId, UserId},
 };
 
+use crate::util::constants::OWNER_USER_ID;
+
 pub struct Cache(InMemoryCache);
 
 impl Cache {
-    pub fn new() -> (Self, Option<HashMap<u64, ResumeSession>>) {
+    pub async fn new(redis: &Pool) -> (Self, Option<HashMap<u64, ResumeSession>>) {
         let resource_types = ResourceType::CHANNEL
             | ResourceType::GUILD
             | ResourceType::MEMBER
@@ -30,7 +32,7 @@ impl Cache {
             .build()
             .config();
 
-        let (cache, resume_map) = InMemoryCache::from_redis(config);
+        let (cache, resume_map) = InMemoryCache::from_redis(redis, config).await;
 
         let resume_map = resume_map.map(|resume_map| {
             resume_map

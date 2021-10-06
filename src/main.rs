@@ -216,7 +216,7 @@ async fn async_main() -> BotResult<()> {
         .shard_scheme(ShardScheme::Auto);
 
     // Check for resume data, pass to builder if present
-    let (cache, resume_map) = Cache::new();
+    let (cache, resume_map) = Cache::new(&redis).await;
     let resumed = if let Some(map) = resume_map {
         cb = cb.resume_sessions(map);
         info!("Cold resume successful");
