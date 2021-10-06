@@ -6,3 +6,4 @@ config.toml
 logs
 /.vscode
 tracking
+/resume_data

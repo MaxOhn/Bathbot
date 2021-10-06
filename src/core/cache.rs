@@ -1,8 +1,7 @@
 use crate::util::constants::OWNER_USER_ID;
 
-use deadpool_redis::Pool;
 use std::{collections::HashMap, ops::Deref};
-use twilight_cache_inmemory::{InMemoryCache, ResourceType};
+use twilight_cache_inmemory::{ColdResumeFlags, InMemoryCache, ResourceType};
 use twilight_gateway::shard::ResumeSession;
 use twilight_model::{
     channel::{permission_overwrite::PermissionOverwriteType, GuildChannel, TextChannel},
@@ -13,7 +12,7 @@ use twilight_model::{
 pub struct Cache(InMemoryCache);
 
 impl Cache {
-    pub async fn new(redis: &Pool) -> (Self, Option<HashMap<u64, ResumeSession>>) {
+    pub fn new() -> (Self, Option<HashMap<u64, ResumeSession>>) {
         let resource_types = ResourceType::CHANNEL
             | ResourceType::GUILD
             | ResourceType::MEMBER
@@ -22,12 +21,16 @@ impl Cache {
             | ResourceType::USER_CURRENT
             | ResourceType::USER;
 
+        let resume_flags =
+            ColdResumeFlags::GUILDS | ColdResumeFlags::CHANNELS | ColdResumeFlags::ROLES;
+
         let config = InMemoryCache::builder()
             .resource_types(resource_types)
+            .resume_flags(resume_flags)
             .build()
             .config();
 
-        let (cache, resume_map) = InMemoryCache::from_redis(redis, config).await;
+        let (cache, resume_map) = InMemoryCache::from_redis(config);
 
         let resume_map = resume_map.map(|resume_map| {
             resume_map
