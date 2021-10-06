@@ -110,6 +110,7 @@ async fn async_main() -> BotResult<()> {
     // Connect to the discord http client
     let http = HttpClient::builder()
         .token(config.tokens.discord.to_owned())
+        .remember_invalid_token(false)
         .default_allowed_mentions(
             AllowedMentionsBuilder::new()
                 .replied_user()
