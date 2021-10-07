@@ -14,7 +14,9 @@ use twilight_model::application::interaction::{
 
 use crate::{
     commands::{MyCommand, MyCommandOption},
-    custom_client::{Badges, LovedMapsets, RankedMapsets, Replays, StandardDeviation, TotalPp},
+    custom_client::{
+        Badges, LovedMapsets, RankedMapsets, Replays, StandardDeviation, Subscribers, TotalPp,
+    },
     util::ApplicationCommandExt,
     BotResult, Context, Error,
 };
@@ -29,6 +31,7 @@ enum OsekaiCommandKind {
     Rarity,
     Replays,
     StandardDeviation,
+    Subscribers,
     TotalPp,
 }
 
@@ -57,6 +60,7 @@ impl OsekaiCommandKind {
                     "rarity" => kind = Some(OsekaiCommandKind::Rarity),
                     "replays" => kind = Some(OsekaiCommandKind::Replays),
                     "standard_deviation" => kind = Some(OsekaiCommandKind::StandardDeviation),
+                    "subscribers" => kind = Some(OsekaiCommandKind::Subscribers),
                     "total_pp" => kind = Some(OsekaiCommandKind::TotalPp),
                     _ => bail_cmd_option!(OSEKAI, subcommand, name),
                 },
@@ -76,6 +80,7 @@ pub async fn slash_osekai(ctx: Arc<Context>, mut command: ApplicationCommand) ->
         OsekaiCommandKind::Rarity => rarity(ctx, command).await,
         OsekaiCommandKind::Replays => count(ctx, command, Replays).await,
         OsekaiCommandKind::StandardDeviation => pp(ctx, command, StandardDeviation).await,
+        OsekaiCommandKind::Subscribers => count(ctx, command, Subscribers).await,
         OsekaiCommandKind::TotalPp => pp(ctx, command, TotalPp).await,
     }
 }
@@ -111,6 +116,11 @@ pub fn define_osekai() -> MyCommand {
             .help(standard_deviation_help)
             .subcommand(Vec::new());
 
+    let subscribers_description = "Which mapper has the most subscribers?";
+
+    let subscribers =
+        MyCommandOption::builder("subscribers", subscribers_description).subcommand(Vec::new());
+
     let total_pp_description = "Who has the highest total pp in all modes combined?";
 
     let total_pp =
@@ -124,6 +134,7 @@ pub fn define_osekai() -> MyCommand {
         rarity,
         replays,
         standard_deviation,
+        subscribers,
         total_pp,
     ];
 

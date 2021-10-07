@@ -31,6 +31,7 @@ pub enum RankingKindData {
     OsekaiBadges,
     OsekaiRankedMapsets,
     OsekaiLovedMapsets,
+    OsekaiSubscribers,
     PpCountry {
         country: String,
         country_code: CountryCode,
@@ -95,6 +96,12 @@ impl RankingKindData {
 
                 (text.into(), url.into())
             }
+            RankingKindData::OsekaiSubscribers => {
+                let text = "User Ranking based on amount of mapping subscribers";
+                let url = "https://osekai.net/rankings/?ranking=Mappers&type=Subscribers";
+
+                (text.into(), url.into())
+            }
             Self::PpCountry {
                 country,
                 country_code,
@@ -153,7 +160,8 @@ impl RankingKindData {
             | RankingKindData::OsekaiStandardDeviation
             | RankingKindData::OsekaiBadges
             | RankingKindData::OsekaiRankedMapsets
-            | RankingKindData::OsekaiLovedMapsets => {
+            | RankingKindData::OsekaiLovedMapsets
+            | RankingKindData::OsekaiSubscribers => {
                 text.push_str(" • Check out osekai.net for more info")
             }
             Self::PpCountry { .. } | Self::PpGlobal { .. } | Self::RankedScore { .. } => {}

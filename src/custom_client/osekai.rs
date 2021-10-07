@@ -32,6 +32,7 @@ pub struct StandardDeviation;
 pub struct Badges;
 pub struct RankedMapsets;
 pub struct LovedMapsets;
+pub struct Subscribers;
 
 impl OsekaiRanking for Rarity {
     const FORM: &'static str = "Rarity";
@@ -86,6 +87,13 @@ impl OsekaiRanking for LovedMapsets {
     const FORM: &'static str = "Loved Mapsets";
     const REQUEST: &'static str = "osekai loved mapsets";
     const RANKING: RankingKindData = RankingKindData::OsekaiLovedMapsets;
+    type Entry = OsekaiRankingEntry<usize>;
+}
+
+impl OsekaiRanking for Subscribers {
+    const FORM: &'static str = "Subscribers";
+    const REQUEST: &'static str = "osekai subscribers";
+    const RANKING: RankingKindData = RankingKindData::OsekaiSubscribers;
     type Entry = OsekaiRankingEntry<usize>;
 }
 
