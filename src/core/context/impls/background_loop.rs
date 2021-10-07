@@ -1,4 +1,4 @@
-use std::{mem, sync::Arc};
+use std::{io::ErrorKind, mem, sync::Arc};
 
 use rosu_v2::prelude::{
     Beatmap,
@@ -31,6 +31,7 @@ impl Context {
         let total = maps_to_delete.len();
         let five_seconds = Duration::from_secs(5);
         let mut success = 0;
+        let mut file_not_found = 0;
 
         for map_id in maps_to_delete {
             let mut map_path = config.map_path.clone();
@@ -38,11 +39,19 @@ impl Context {
 
             match time::timeout(five_seconds, remove_file(map_path)).await {
                 Ok(Ok(_)) => success += 1,
-                Ok(Err(why)) => {
-                    unwind_error!(warn, why, "[BG] Failed to delete map {}: {}", map_id)
-                }
+                Ok(Err(why)) => match why.kind() {
+                    ErrorKind::NotFound => file_not_found += 1,
+                    _ => unwind_error!(warn, why, "[BG] Failed to delete map {}: {}", map_id),
+                },
                 Err(_) => warn!("[BG] Timed out while deleting map {}", map_id),
             }
+        }
+
+        if file_not_found > 0 {
+            warn!(
+                "[BG] Failed to delete {} maps due to missing file",
+                file_not_found
+            );
         }
 
         (success, total)
