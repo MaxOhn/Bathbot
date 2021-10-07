@@ -9,9 +9,10 @@ use crate::{
 };
 
 use std::{fmt::Write, sync::Arc};
+use twilight_cache_inmemory::model::CachedRole;
 use twilight_model::{
     application::interaction::{application_command::CommandDataOption, ApplicationCommand},
-    guild::{Permissions, Role},
+    guild::Permissions,
     id::RoleId,
 };
 
@@ -199,10 +200,10 @@ enum AuthorityCommandKind {
     Add(u64),
     List,
     Remove(u64),
-    Replace(Vec<Role>),
+    Replace(Vec<CachedRole>),
 }
 
-fn parse_role(ctx: &Context, arg: &str) -> Result<Role, String> {
+fn parse_role(ctx: &Context, arg: &str) -> Result<CachedRole, String> {
     let role_id = match matcher::get_mention_role(arg) {
         Some(id) => RoleId(id),
         None => return Err(format!("Expected role mention or role id, got `{}`", arg)),
@@ -326,18 +327,20 @@ pub async fn slash_authorities(
 }
 
 pub fn define_authorities() -> MyCommand {
-    let role = MyCommandOption::builder("role", "Specify the role that should gain authority status")
-        .role(true);
+    let role =
+        MyCommandOption::builder("role", "Specify the role that should gain authority status")
+            .role(true);
 
     let add = MyCommandOption::builder("add", "Add authority status to a role")
         .help("Add authority status to a role.\nServers can have at most 10 authority roles.")
         .subcommand(vec![role]);
 
-    let list =
-        MyCommandOption::builder("list", "Display all current authority roles").subcommand(Vec::new());
+    let list = MyCommandOption::builder("list", "Display all current authority roles")
+        .subcommand(Vec::new());
 
-    let role = MyCommandOption::builder("role", "Specify the role that should lose authority status")
-        .role(true);
+    let role =
+        MyCommandOption::builder("role", "Specify the role that should lose authority status")
+            .role(true);
 
     let remove_help = "Remove authority status from a role.\n\
         You can only use this if the removed role would __not__ make you lose authority status yourself.";

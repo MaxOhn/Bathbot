@@ -1,10 +1,13 @@
 use std::{collections::HashMap, ops::Deref};
 
 use deadpool_redis::Pool;
-use twilight_cache_inmemory::{ColdResumeFlags, InMemoryCache, ResourceType};
+use twilight_cache_inmemory::{
+    model::{CachedGuildChannel, CachedTextChannel},
+    ColdResumeFlags, InMemoryCache, ResourceType,
+};
 use twilight_gateway::shard::ResumeSession;
 use twilight_model::{
-    channel::{permission_overwrite::PermissionOverwriteType, GuildChannel, TextChannel},
+    channel::permission_overwrite::PermissionOverwriteType,
     guild::Permissions,
     id::{ChannelId, GuildId, UserId},
 };
@@ -23,8 +26,7 @@ impl Cache {
             | ResourceType::USER_CURRENT
             | ResourceType::USER;
 
-        let resume_flags =
-            ColdResumeFlags::GUILDS | ColdResumeFlags::CHANNELS | ColdResumeFlags::ROLES;
+        let resume_flags = ColdResumeFlags::all();
 
         let config = InMemoryCache::builder()
             .resource_types(resource_types)
@@ -120,19 +122,19 @@ impl Cache {
         }
 
         let channel = match self.guild_channel(channel_id) {
-            Some(GuildChannel::Text(channel)) => Some(channel),
-            Some(GuildChannel::PrivateThread(thread)) => thread.parent_id.and_then(|id| {
+            Some(CachedGuildChannel::Text(channel)) => Some(channel),
+            Some(CachedGuildChannel::PrivateThread(thread)) => thread.parent_id.and_then(|id| {
                 self.guild_channel(id).and_then(|channel| {
-                    if let GuildChannel::Text(channel) = channel {
+                    if let CachedGuildChannel::Text(channel) = channel {
                         Some(channel)
                     } else {
                         None
                     }
                 })
             }),
-            Some(GuildChannel::PublicThread(thread)) => thread.parent_id.and_then(|id| {
+            Some(CachedGuildChannel::PublicThread(thread)) => thread.parent_id.and_then(|id| {
                 self.guild_channel(id).and_then(|channel| {
-                    if let GuildChannel::Text(channel) = channel {
+                    if let CachedGuildChannel::Text(channel) = channel {
                         Some(channel)
                     } else {
                         None
@@ -152,7 +154,7 @@ impl Cache {
         mut permissions: Permissions,
         user_id: UserId,
         guild_id: GuildId,
-        channel: &TextChannel,
+        channel: &CachedTextChannel,
     ) -> Permissions {
         if let Some(member) = self.member(guild_id, user_id) {
             let mut everyone_allowed = Permissions::empty();
