@@ -71,7 +71,7 @@ use tokio::{
     runtime::Builder as RuntimeBuilder,
     signal,
     sync::{mpsc, oneshot},
-    time,
+    time::{self, MissedTickBehavior},
 };
 use tokio_stream::StreamExt;
 use twilight_gateway::{cluster::ShardScheme, Cluster, Event, EventTypeFlags};
@@ -312,6 +312,7 @@ async fn async_main() -> BotResult<()> {
 
     tokio::spawn(async move {
         let mut interval = time::interval(Duration::from_millis(100));
+        interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
         interval.tick().await;
         info!("Start requesting members...");
 
