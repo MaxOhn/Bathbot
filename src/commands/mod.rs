@@ -79,8 +79,8 @@ use utility::*;
 use std::collections::BTreeMap;
 
 use twilight_model::application::command::{
-    BaseCommandOptionData, ChannelCommandOptionData, ChoiceCommandOptionData, Command,
-    CommandOption, CommandOptionChoice, CommandType, OptionsCommandOptionData,
+    BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption, CommandOptionChoice,
+    CommandType, OptionsCommandOptionData,
 };
 
 use crate::{core::CommandGroup, util::Emote};
@@ -533,8 +533,7 @@ impl From<MyCommandOption> for CommandOption {
                 Self::User(inner)
             }
             MyCommandOptionKind::Channel { required } => {
-                let inner = ChannelCommandOptionData {
-                    channel_types: Vec::new(), // TODO: Make adjustable
+                let inner = BaseCommandOptionData {
                     description: option.description.to_owned(),
                     name: option.name.to_owned(),
                     required,

@@ -138,30 +138,35 @@ default_features = false
 
 [dependencies.twilight-cache-inmemory]
 # path = "../twilight/cache/in-memory"
-branch = "with_redis"
+branch = "pre-update"
+# branch = "with_redis"
 git = "https://github.com/MaxOhn/twilight"
 
 [dependencies.twilight-gateway]
 # path = "../twilight/gateway"
-branch = "with_redis"
+branch = "pre-update"
+# branch = "with_redis"
 git = "https://github.com/MaxOhn/twilight"
 
 [dependencies.twilight-http]
 # path = "../twilight/http"
-branch = "with_redis"
+branch = "pre-update"
+# branch = "with_redis"
 git = "https://github.com/MaxOhn/twilight"
 default_features = false
 features = ["rustls"]
 
 [dependencies.twilight-model]
 # path = "../twilight/model"
-branch = "with_redis"
+branch = "pre-update"
+# branch = "with_redis"
 git = "https://github.com/MaxOhn/twilight"
 default_features = false
 
 [dependencies.twilight-standby]
 # path = "../twilight/standby"
-branch = "with_redis"
+branch = "pre-update"
+# branch = "with_redis"
 git = "https://github.com/MaxOhn/twilight"
 default_features = false
 

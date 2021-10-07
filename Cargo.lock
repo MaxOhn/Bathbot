@@ -2971,7 +2971,7 @@ dependencies = [
 [[package]]
 name = "twilight-cache-inmemory"
 version = "0.6.3"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#64e5e651eb4e0f7af64252ddbd7b0e304881db8a"
+source = "git+https://github.com/MaxOhn/twilight?branch=pre-update#c356fd63b3e2e66e2b07a6aa9eb2eecaa87c7163"
 dependencies = [
  "bitflags",
  "dashmap",
@@ -2987,7 +2987,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway"
 version = "0.6.4"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#64e5e651eb4e0f7af64252ddbd7b0e304881db8a"
+source = "git+https://github.com/MaxOhn/twilight?branch=pre-update#c356fd63b3e2e66e2b07a6aa9eb2eecaa87c7163"
 dependencies = [
  "bitflags",
  "flate2",
@@ -3007,7 +3007,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway-queue"
 version = "0.6.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#64e5e651eb4e0f7af64252ddbd7b0e304881db8a"
+source = "git+https://github.com/MaxOhn/twilight?branch=pre-update#c356fd63b3e2e66e2b07a6aa9eb2eecaa87c7163"
 dependencies = [
  "tokio",
  "tracing",
@@ -3017,7 +3017,7 @@ dependencies = [
 [[package]]
 name = "twilight-http"
 version = "0.6.5"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#64e5e651eb4e0f7af64252ddbd7b0e304881db8a"
+source = "git+https://github.com/MaxOhn/twilight?branch=pre-update#c356fd63b3e2e66e2b07a6aa9eb2eecaa87c7163"
 dependencies = [
  "hyper",
  "hyper-rustls",
@@ -3032,7 +3032,7 @@ dependencies = [
 [[package]]
 name = "twilight-model"
 version = "0.6.4"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#64e5e651eb4e0f7af64252ddbd7b0e304881db8a"
+source = "git+https://github.com/MaxOhn/twilight?branch=pre-update#c356fd63b3e2e66e2b07a6aa9eb2eecaa87c7163"
 dependencies = [
  "bitflags",
  "serde",
@@ -3044,7 +3044,7 @@ dependencies = [
 [[package]]
 name = "twilight-standby"
 version = "0.6.2"
-source = "git+https://github.com/MaxOhn/twilight?branch=with_redis#64e5e651eb4e0f7af64252ddbd7b0e304881db8a"
+source = "git+https://github.com/MaxOhn/twilight?branch=pre-update#c356fd63b3e2e66e2b07a6aa9eb2eecaa87c7163"
 dependencies = [
  "dashmap",
  "futures-util",
