@@ -20,6 +20,7 @@ use crate::{
         MyCommand, MyCommandOption,
     },
     custom_client::SnipeScoreOrder,
+    database::OsuData,
     util::{
         constants::common_literals::{
             ACC, ACCURACY, COUNTRY, DISCORD, MISSES, MODS, MODS_PARSE_FAIL, NAME, REVERSE, SORT,
@@ -58,7 +59,10 @@ macro_rules! parse_username {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
                     NAME => username = Some(value.into()),
-                    DISCORD => username = parse_discord_option!($ctx, value, $location),
+                    DISCORD => {
+                        username =
+                            Some(parse_discord_option!($ctx, value, $location).into_username())
+                    }
                     _ => bail_cmd_option!($location, string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
@@ -75,7 +79,11 @@ macro_rules! parse_username {
 
         let name = match username {
             Some(name) => Some(name),
-            None => $ctx.user_config($author_id).await?.osu_username,
+            None => $ctx
+                .psql()
+                .get_user_osu($author_id)
+                .await?
+                .map(OsuData::into_username),
         };
 
         Some(SnipeCommandKind::$variant(name))
@@ -321,7 +329,7 @@ async fn parse_player_list(
     options: Vec<CommandDataOption>,
     author_id: UserId,
 ) -> BotResult<Result<PlayerListArgs, String>> {
-    let mut config = ctx.user_config(author_id).await?;
+    let mut osu = ctx.psql().get_user_osu(author_id).await?;
     let mut order = None;
     let mut mods = None;
     let mut descending = None;
@@ -329,10 +337,8 @@ async fn parse_player_list(
     for option in options {
         match option {
             CommandDataOption::String { name, value } => match name.as_str() {
-                NAME => config.osu_username = Some(value.into()),
-                DISCORD => {
-                    config.osu_username = parse_discord_option!(ctx, value, "snipe player list")
-                }
+                NAME => osu = Some(value.into()),
+                DISCORD => osu = Some(parse_discord_option!(ctx, value, "snipe player list")),
                 SORT => match value.as_str() {
                     ACC => order = Some(SnipeScoreOrder::Accuracy),
                     "len" => order = Some(SnipeScoreOrder::Length),
@@ -366,7 +372,7 @@ async fn parse_player_list(
     }
 
     let args = PlayerListArgs {
-        config,
+        osu,
         order: order.unwrap_or_default(),
         mods,
         descending: descending.unwrap_or(true),

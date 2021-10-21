@@ -1,4 +1,19 @@
-use crate::{Args, BotResult, CommandData, Context, MessageBuilder, custom_client::{SnipeScoreOrder, SnipeScoreParams}, database::UserConfig, embeds::{EmbedData, PlayerSnipeListEmbed}, pagination::{Pagination, PlayerSnipeListPagination}, util::{CowUtils, MessageExt, constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE, common_literals::{ACC, ACCURACY, MISSES, REVERSE, SORT}}, matcher, numbers, osu::ModSelection}};
+use crate::{
+    custom_client::{SnipeScoreOrder, SnipeScoreParams},
+    database::OsuData,
+    embeds::{EmbedData, PlayerSnipeListEmbed},
+    pagination::{Pagination, PlayerSnipeListPagination},
+    util::{
+        constants::{
+            common_literals::{ACC, ACCURACY, MISSES, REVERSE, SORT},
+            GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE,
+        },
+        matcher, numbers,
+        osu::ModSelection,
+        CowUtils, MessageExt,
+    },
+    Args, BotResult, CommandData, Context, MessageBuilder,
+};
 
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError};
@@ -51,13 +66,13 @@ pub(super) async fn _playersnipelist(
     args: PlayerListArgs,
 ) -> BotResult<()> {
     let PlayerListArgs {
-        config,
+        osu,
         order,
         mods,
         descending,
     } = args;
 
-    let name = match config.osu_username {
+    let name = match osu.map(OsuData::into_username) {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
@@ -198,7 +213,7 @@ pub(super) async fn _playersnipelist(
 }
 
 pub(super) struct PlayerListArgs {
-    pub config: UserConfig,
+    pub osu: Option<OsuData>,
     pub order: SnipeScoreOrder,
     pub mods: Option<ModSelection>,
     pub descending: bool,
@@ -210,7 +225,7 @@ impl PlayerListArgs {
         args: &mut Args<'_>,
         author_id: UserId,
     ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut config = ctx.user_config(author_id).await?;
+        let mut osu = ctx.psql().get_user_osu(author_id).await?;
         let mut order = None;
         let mut mods = None;
         let mut descending = None;
@@ -261,14 +276,14 @@ impl PlayerListArgs {
                 mods = Some(mods_);
             } else {
                 match Args::check_user_mention(ctx, arg.as_ref()).await? {
-                    Ok(name) => config.osu_username = Some(name),
+                    Ok(osu_) => osu = Some(osu_),
                     Err(content) => return Ok(Err(content.into())),
                 }
             }
         }
 
         let args = Self {
-            config,
+            osu,
             order: order.unwrap_or_default(),
             mods,
             descending: descending.unwrap_or(true),

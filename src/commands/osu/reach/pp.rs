@@ -21,13 +21,12 @@ use twilight_model::{
 
 pub(super) async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) -> BotResult<()> {
     let PpArgs { config, pp } = args;
+    let mode = config.mode.unwrap_or(GameMode::STD);
 
-    let name = match config.osu_username {
+    let name = match config.into_username() {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
-
-    let mode = config.mode.unwrap_or(GameMode::STD);
 
     if pp < 0.0 {
         return data.error(&ctx, "The pp number must be non-negative").await;
@@ -235,7 +234,7 @@ impl PpArgs {
             match arg.parse() {
                 Ok(num) => pp = Some(num),
                 Err(_) => match Args::check_user_mention(ctx, arg).await? {
-                    Ok(name) => config.osu_username = Some(name),
+                    Ok(osu) => config.osu = Some(osu),
                     Err(content) => return Ok(Err(content)),
                 },
             }
@@ -261,8 +260,8 @@ impl PpArgs {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
                     MODE => config.mode = parse_mode_option!(value, "reach pp"),
-                    NAME => config.osu_username = Some(value.into()),
-                    DISCORD => config.osu_username = parse_discord_option!(ctx, value, "reach pp"),
+                    NAME => config.osu = Some(value.into()),
+                    DISCORD => config.osu = Some(parse_discord_option!(ctx, value, "reach pp")),
                     "pp" => match value.parse() {
                         Ok(num) => pp = Some(num),
                         Err(_) => {

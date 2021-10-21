@@ -71,8 +71,9 @@ pub(super) async fn _compare(
     args: ScoreArgs,
 ) -> BotResult<()> {
     let ScoreArgs { config, mods, map } = args;
+    let embeds_maximized = config.embeds_maximized();
 
-    let name = match config.osu_username {
+    let name = match config.into_username() {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
@@ -212,7 +213,7 @@ pub(super) async fn _compare(
         };
 
     // Only maximize if config allows it
-    if config.embeds_maximized {
+    if embeds_maximized {
         let builder = embed_data.as_builder().build().into();
         let response = data.create_message(&ctx, builder).await?.model().await?;
 
@@ -337,7 +338,7 @@ impl ScoreArgs {
                 map = Some(id);
             } else {
                 match Args::check_user_mention(ctx, arg).await? {
-                    Ok(name) => config.osu_username = Some(name),
+                    Ok(osu) => config.osu = Some(osu),
                     Err(content) => return Ok(Err(content)),
                 }
             }
@@ -358,9 +359,9 @@ impl ScoreArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    NAME => config.osu_username = Some(value.into()),
+                    NAME => config.osu = Some(value.into()),
                     DISCORD => {
-                        config.osu_username = parse_discord_option!(ctx, value, "compare score")
+                        config.osu = Some(parse_discord_option!(ctx, value, "compare score"))
                     }
                     MAP => match matcher::get_osu_map_id(&value)
                         .or_else(|| matcher::get_osu_mapset_id(&value))

@@ -31,8 +31,13 @@ async fn _togglesongs(
     let mut with_lyrics = false;
 
     let update_fut = ctx.update_guild_config(guild_id, |config| {
-        config.with_lyrics = value.unwrap_or_else(|| !config.with_lyrics);
-        with_lyrics = config.with_lyrics;
+        config.with_lyrics = if value.is_some() {
+            value
+        } else {
+            Some(!config.with_lyrics())
+        };
+
+        with_lyrics = config.with_lyrics();
     });
 
     if let Err(why) = update_fut.await {
@@ -53,6 +58,8 @@ async fn _togglesongs(
     Ok(())
 }
 
+const TOGGLESONGS: &str = "togglesongs";
+
 pub async fn slash_togglesongs(
     ctx: Arc<Context>,
     mut command: ApplicationCommand,
@@ -62,17 +69,17 @@ pub async fn slash_togglesongs(
     for option in command.yoink_options() {
         match option {
             CommandDataOption::String { name, .. } => {
-                bail_cmd_option!("togglesongs", string, name)
+                bail_cmd_option!(TOGGLESONGS, string, name)
             }
             CommandDataOption::Integer { name, .. } => {
-                bail_cmd_option!("togglesongs", integer, name)
+                bail_cmd_option!(TOGGLESONGS, integer, name)
             }
             CommandDataOption::Boolean { name, value } => match name.as_str() {
                 "enable" => available = Some(value),
-                _ => bail_cmd_option!("togglesongs", boolean, name),
+                _ => bail_cmd_option!(TOGGLESONGS, boolean, name),
             },
             CommandDataOption::SubCommand { name, .. } => {
-                bail_cmd_option!("togglesongs", subcommand, name)
+                bail_cmd_option!(TOGGLESONGS, subcommand, name)
             }
         }
     }
@@ -89,7 +96,7 @@ pub fn define_togglesongs() -> MyCommand {
 
     let description = "Toggle availability of song commands in a server";
 
-    MyCommand::new("togglesongs", description)
+    MyCommand::new(TOGGLESONGS, description)
         .options(vec![enable])
         .authority()
 }

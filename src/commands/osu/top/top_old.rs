@@ -166,7 +166,7 @@ pub(super) async fn _topold(
 
     let version = version.unwrap();
 
-    let name = match config.osu_username {
+    let name = match config.into_username() {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
@@ -580,7 +580,7 @@ impl OldArgs {
 
         if let Some(name) = name {
             match Args::check_user_mention(ctx, name).await? {
-                Ok(name) => config.osu_username = Some(name),
+                Ok(osu) => config.osu = Some(osu),
                 Err(content) => return Ok(Err(content)),
             }
         }
@@ -622,10 +622,10 @@ impl OldArgs {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    NAME => config.osu_username = Some(value.into()),
+                                    NAME => config.osu = Some(value.into()),
                                     DISCORD => {
-                                        config.osu_username =
-                                            parse_discord_option!(ctx, value, "top old osu")
+                                        config.osu =
+                                            Some(parse_discord_option!(ctx, value, "top old osu"))
                                     }
                                     "version" => match value.as_str() {
                                         "april15_may18" => {
@@ -662,10 +662,10 @@ impl OldArgs {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    NAME => config.osu_username = Some(value.into()),
+                                    NAME => config.osu = Some(value.into()),
                                     DISCORD => {
-                                        config.osu_username =
-                                            parse_discord_option!(ctx, value, "top old taiko")
+                                        config.osu =
+                                            Some(parse_discord_option!(ctx, value, "top old taiko"))
                                     }
                                     "version" => match value.as_str() {
                                         "march14_september20" => {
@@ -695,10 +695,10 @@ impl OldArgs {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    NAME => config.osu_username = Some(value.into()),
+                                    NAME => config.osu = Some(value.into()),
                                     DISCORD => {
-                                        config.osu_username =
-                                            parse_discord_option!(ctx, value, "top old catch")
+                                        config.osu =
+                                            Some(parse_discord_option!(ctx, value, "top old catch"))
                                     }
                                     "version" => match value.as_str() {
                                         "march14_may20" => {
@@ -728,10 +728,10 @@ impl OldArgs {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    NAME => config.osu_username = Some(value.into()),
+                                    NAME => config.osu = Some(value.into()),
                                     DISCORD => {
-                                        config.osu_username =
-                                            parse_discord_option!(ctx, value, "top old mania")
+                                        config.osu =
+                                            Some(parse_discord_option!(ctx, value, "top old mania"))
                                     }
                                     "version" => match value.as_str() {
                                         "march14_may18" => {

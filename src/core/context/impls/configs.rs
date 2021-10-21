@@ -25,7 +25,7 @@ impl Context {
             Entry::Vacant(entry) => {
                 let config = GuildConfig::default();
 
-                if let Err(why) = self.psql().insert_guild_config(guild_id, &config).await {
+                if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
                     unwind_error!(
                         warn,
                         why,
@@ -50,7 +50,7 @@ impl Context {
             Entry::Vacant(entry) => {
                 let config = GuildConfig::default();
 
-                if let Err(why) = self.psql().insert_guild_config(guild_id, &config).await {
+                if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
                     unwind_error!(
                         warn,
                         why,
@@ -72,7 +72,7 @@ impl Context {
             Entry::Vacant(entry) => {
                 let config = GuildConfig::default();
 
-                if let Err(why) = self.psql().insert_guild_config(guild_id, &config).await {
+                if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
                     unwind_error!(
                         warn,
                         why,
@@ -96,7 +96,7 @@ impl Context {
                     Entry::Vacant(entry) => {
                         let config = GuildConfig::default();
 
-                        if let Err(why) = self.psql().insert_guild_config(guild_id, &config).await {
+                        if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
                             unwind_error!(
                                 warn,
                                 why,
@@ -121,7 +121,7 @@ impl Context {
             Entry::Vacant(entry) => {
                 let config = GuildConfig::default();
 
-                if let Err(why) = self.psql().insert_guild_config(guild_id, &config).await {
+                if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
                     unwind_error!(
                         warn,
                         why,
@@ -134,7 +134,7 @@ impl Context {
             }
         };
 
-        config.with_lyrics
+        config.with_lyrics()
     }
 
     pub async fn update_guild_config<F>(&self, guild_id: GuildId, f: F) -> BotResult<()>
@@ -144,6 +144,6 @@ impl Context {
         let mut config = self.data.guilds.entry(guild_id).or_default();
         f(config.value_mut());
 
-        self.psql().insert_guild_config(guild_id, &config).await
+        self.psql().upsert_guild_config(guild_id, &config).await
     }
 }

@@ -1,5 +1,23 @@
 use super::{ErrorType, GradeArg};
-use crate::{Args, BotResult, CommandData, Context, MessageBuilder, database::UserConfig, embeds::{EmbedData, TopEmbed, TopSingleEmbed}, pagination::{Pagination, TopPagination}, tracking::process_tracking, util::{CowUtils, MessageExt, constants::{GENERAL_ISSUE, OSU_API_ISSUE, common_literals::{ACC, ACCURACY, COMBO, CTB, DISCORD, GRADE, INDEX, MANIA, MODE, MODS, NAME, REVERSE, SORT, TAIKO}}, matcher, numbers, osu::ModSelection}};
+use crate::{
+    database::UserConfig,
+    embeds::{EmbedData, TopEmbed, TopSingleEmbed},
+    pagination::{Pagination, TopPagination},
+    tracking::process_tracking,
+    util::{
+        constants::{
+            common_literals::{
+                ACC, ACCURACY, COMBO, CTB, DISCORD, GRADE, INDEX, MANIA, MODE, MODS, NAME, REVERSE,
+                SORT, TAIKO,
+            },
+            GENERAL_ISSUE, OSU_API_ISSUE,
+        },
+        matcher, numbers,
+        osu::ModSelection,
+        CowUtils, MessageExt,
+    },
+    Args, BotResult, CommandData, Context, MessageBuilder,
+};
 
 use futures::future::TryFutureExt;
 use rosu_v2::prelude::{
@@ -69,8 +87,8 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
         return data.error(&ctx, content).await;
     }
 
-    let name = match args.config.osu_username {
-        Some(ref name) => name.as_str(),
+    let name = match args.config.username() {
+        Some(name) => name.as_str(),
         None => return super::require_link(&ctx, &data).await,
     };
 
@@ -125,7 +143,7 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
     }
 
     if let Some(num) = args.index {
-        let maximize = args.config.embeds_maximized;
+        let maximize = args.config.embeds_maximized();
         single_embed(ctx, data, user, scores, num.saturating_sub(1), maximize).await?;
     } else {
         let content = write_content(name, &args, scores.len());
@@ -928,7 +946,7 @@ impl TopArgs {
                 mods = Some(mods_);
             } else {
                 match Args::check_user_mention(ctx, arg.as_ref()).await? {
-                    Ok(name) => config.osu_username = Some(name),
+                    Ok(osu) => config.osu = Some(osu),
                     Err(content) => return Ok(Err(content.into())),
                 }
             }
@@ -967,10 +985,8 @@ impl TopArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    NAME => config.osu_username = Some(value.into()),
-                    DISCORD => {
-                        config.osu_username = parse_discord_option!(ctx, value, "top current")
-                    }
+                    NAME => config.osu = Some(value.into()),
+                    DISCORD => config.osu = Some(parse_discord_option!(ctx, value, "top current")),
                     MODE => config.mode = parse_mode_option!(value, "top current"),
                     MODS => match matcher::get_mods(&value) {
                         Some(mods_) => mods = Some(mods_),

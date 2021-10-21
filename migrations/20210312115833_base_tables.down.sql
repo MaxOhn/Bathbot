@@ -1,9 +1,0 @@
-DROP TABLE maps;
-DROP TABLE mapsets;
-DROP TABLE discord_user_links;
-DROP TABLE role_assigns;
-DROP TABLE stream_tracks;
-DROP TABLE bggame_scores;
-DROP TABLE map_tags;
-DROP TABLE guild_configs;
-DROP TABLE osu_trackings;

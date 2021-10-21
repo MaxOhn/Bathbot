@@ -63,11 +63,11 @@ pub struct BotStats {
 
 macro_rules! metric_vec {
     (counter: $opt:literal, $help:literal, $label:expr) => {
-        IntCounterVec::new(Opts::new($opt, $help), &[$label]).unwrap();
+        IntCounterVec::new(Opts::new($opt, $help), &[$label]).unwrap()
     };
 
     (gauge: $opt:literal, $help:literal, $label:expr) => {
-        IntGaugeVec::new(Opts::new($opt, $help), &[$label]).unwrap();
+        IntGaugeVec::new(Opts::new($opt, $help), &[$label]).unwrap()
     };
 }
 

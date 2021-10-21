@@ -10,12 +10,25 @@ use twilight_model::{
 };
 
 use super::{option_discord, option_map, option_mods, option_name};
-use crate::{Args, BotResult, CommandData, Context, commands::MyCommand, database::UserConfig, embeds::{EmbedData, FixScoreEmbed}, tracking::process_tracking, util::{ApplicationCommandExt, InteractionExt, MessageExt, constants::{
+use crate::{
+    commands::MyCommand,
+    database::OsuData,
+    embeds::{EmbedData, FixScoreEmbed},
+    tracking::process_tracking,
+    util::{
+        constants::{
             common_literals::{DISCORD, MAP, MAP_PARSE_FAIL, MODS, MODS_PARSE_FAIL, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
-        }, error::PPError, matcher, osu::{
+        },
+        error::PPError,
+        matcher,
+        osu::{
             map_id_from_history, map_id_from_msg, prepare_beatmap_file, MapIdType, ModSelection,
-        }}};
+        },
+        ApplicationCommandExt, InteractionExt, MessageExt,
+    },
+    Args, BotResult, CommandData, Context,
+};
 
 #[command]
 #[short_desc("Display a user's pp after unchoking their score on a map")]
@@ -62,9 +75,9 @@ async fn fix(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotResult<()> {
-    let FixArgs { config, map, mods } = args;
+    let FixArgs { osu, map, mods } = args;
 
-    let name = match config.osu_username {
+    let name = match osu.map(OsuData::into_username) {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
@@ -409,7 +422,7 @@ fn needs_unchoking(score: &Score, map: &Beatmap) -> bool {
 }
 
 struct FixArgs {
-    config: UserConfig,
+    osu: Option<OsuData>,
     map: Option<MapIdType>,
     mods: Option<ModSelection>,
 }
@@ -420,7 +433,7 @@ impl FixArgs {
         args: &mut Args<'_>,
         author_id: UserId,
     ) -> BotResult<Result<Self, &'static str>> {
-        let mut config = ctx.user_config(author_id).await?;
+        let mut osu = ctx.psql().get_user_osu(author_id).await?;
         let mut map = None;
         let mut mods = None;
 
@@ -433,28 +446,28 @@ impl FixArgs {
                 mods = Some(mods_);
             } else {
                 match Args::check_user_mention(ctx, arg).await? {
-                    Ok(name) => config.osu_username = Some(name),
+                    Ok(osu_) => osu = Some(osu_),
                     Err(content) => return Ok(Err(content)),
                 }
             }
         }
 
-        Ok(Ok(Self { config, map, mods }))
+        Ok(Ok(Self { osu, map, mods }))
     }
 
     async fn slash(
         ctx: &Context,
         command: &mut ApplicationCommand,
     ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut config = ctx.user_config(command.user_id()?).await?;
+        let mut osu = ctx.psql().get_user_osu(command.user_id()?).await?;
         let mut map = None;
         let mut mods = None;
 
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    NAME => config.osu_username = Some(value.into()),
-                    DISCORD => config.osu_username = parse_discord_option!(ctx, value, "fix"),
+                    NAME => osu = Some(value.into()),
+                    DISCORD => osu = Some(parse_discord_option!(ctx, value, "fix")),
                     MAP => match matcher::get_osu_map_id(&value)
                         .or_else(|| matcher::get_osu_mapset_id(&value))
                     {
@@ -482,7 +495,7 @@ impl FixArgs {
             }
         }
 
-        Ok(Ok(Self { config, map, mods }))
+        Ok(Ok(Self { osu, map, mods }))
     }
 }
 

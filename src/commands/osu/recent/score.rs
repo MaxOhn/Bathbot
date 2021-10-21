@@ -39,7 +39,7 @@ pub(super) async fn _recent(
 
     let mut twitch_id = None;
 
-    let name = match (&config.osu_username, &input_name) {
+    let name = match (config.username(), &input_name) {
         (Some(name), None) => {
             twitch_id = Some(config.twitch_id);
 
@@ -250,10 +250,10 @@ pub(super) async fn _recent(
     };
 
     // Creating the embed
-    let content = config.show_retries.then(|| format!("Try #{}", tries));
+    let content = config.show_retries().then(|| format!("Try #{}", tries));
 
     // Only maximize if config allows it
-    if config.embeds_maximized {
+    if config.embeds_maximized() {
         let embed = embed_data.as_builder().build();
         let mut builder = MessageBuilder::new().embed(embed);
 
@@ -648,7 +648,7 @@ impl RecentArgs {
                 }
             } else {
                 match Args::check_user_mention(ctx, arg).await? {
-                    Ok(name) => input_name = Some(name),
+                    Ok(osu) => input_name = Some(osu.into_username()),
                     Err(content) => return Ok(Err(content.into())),
                 }
             }
@@ -700,7 +700,10 @@ impl RecentArgs {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
                     NAME => input_name = Some(value.into()),
-                    DISCORD => input_name = parse_discord_option!(ctx, value, "recent score"),
+                    DISCORD => {
+                        input_name =
+                            Some(parse_discord_option!(ctx, value, "recent score").into_username())
+                    }
                     MODE => config.mode = parse_mode_option!(value, "recent score"),
                     GRADE => match value.as_str() {
                         "SS" => {

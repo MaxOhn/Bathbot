@@ -1,4 +1,17 @@
-use crate::{Args, BotResult, CommandData, Context, Error, custom_client::RankParam, database::UserConfig, embeds::{EmbedData, RankEmbed}, tracking::process_tracking, util::{CountryCode, MessageExt, constants::{GENERAL_ISSUE, OSU_API_ISSUE, OSU_DAILY_ISSUE, common_literals::{COUNTRY, DISCORD, MODE, NAME, RANK}}}};
+use crate::{
+    custom_client::RankParam,
+    database::UserConfig,
+    embeds::{EmbedData, RankEmbed},
+    tracking::process_tracking,
+    util::{
+        constants::{
+            common_literals::{COUNTRY, DISCORD, MODE, NAME, RANK},
+            GENERAL_ISSUE, OSU_API_ISSUE, OSU_DAILY_ISSUE,
+        },
+        CountryCode, MessageExt,
+    },
+    Args, BotResult, CommandData, Context, Error,
+};
 
 use rosu_v2::prelude::{GameMode, OsuError, User, UserCompact};
 use std::sync::Arc;
@@ -17,12 +30,12 @@ pub(super) async fn _rank(
         rank,
     } = args;
 
-    let name = match config.osu_username {
+    let mode = config.mode.unwrap_or(GameMode::STD);
+
+    let name = match config.into_username() {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
-
-    let mode = config.mode.unwrap_or(GameMode::STD);
 
     if rank == 0 {
         return data.error(&ctx, "Rank can't be zero :clown:").await;
@@ -346,13 +359,13 @@ impl RankPpArgs {
                             rank = Some(num);
                         } else {
                             match Args::check_user_mention(ctx, arg).await? {
-                                Ok(name) => config.osu_username = Some(name),
+                                Ok(osu) => config.osu = Some(osu),
                                 Err(content) => return Ok(Err(content)),
                             }
                         }
                     } else {
                         match Args::check_user_mention(ctx, arg).await? {
-                            Ok(name) => config.osu_username = Some(name),
+                            Ok(osu) => config.osu = Some(osu),
                             Err(content) => return Ok(Err(content)),
                         }
                     }
@@ -387,9 +400,9 @@ impl RankPpArgs {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
                     MODE => config.mode = parse_mode_option!(value, "reach rank pp"),
-                    NAME => config.osu_username = Some(value.into()),
+                    NAME => config.osu = Some(value.into()),
                     DISCORD => {
-                        config.osu_username = parse_discord_option!(ctx, value, "reach rank pp")
+                        config.osu = Some(parse_discord_option!(ctx, value, "reach rank pp"))
                     }
                     COUNTRY => {
                         if value.len() == 2 && value.is_ascii() {

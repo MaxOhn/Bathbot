@@ -1,5 +1,6 @@
 use crate::{
     commands::{osu::option_mods, MyCommand},
+    database::OsuData,
     embeds::{EmbedData, LeaderboardEmbed},
     pagination::{LeaderboardPagination, Pagination},
     util::{
@@ -64,8 +65,8 @@ async fn _leaderboard(
         }
     };
 
-    let author_name = match ctx.user_config(author_id).await {
-        Ok(config) => config.osu_username,
+    let author_name = match ctx.psql().get_user_osu(author_id).await {
+        Ok(osu) => osu.map(OsuData::into_username),
         Err(why) => {
             unwind_error!(
                 warn,

@@ -1,5 +1,6 @@
 use crate::{
     bail,
+    database::OsuData,
     embeds::MedalEmbed,
     pagination::MedalRecentPagination,
     util::{
@@ -170,10 +171,14 @@ impl RecentArgs {
     ) -> BotResult<Result<Self, &'static str>> {
         let name = match args.next() {
             Some(arg) => match Args::check_user_mention(ctx, arg).await? {
-                Ok(name) => Some(name),
+                Ok(osu) => Some(osu.into_username()),
                 Err(content) => return Ok(Err(content)),
             },
-            None => ctx.user_config(author_id).await?.osu_username,
+            None => ctx
+                .psql()
+                .get_user_osu(author_id)
+                .await?
+                .map(OsuData::into_username),
         };
 
         Ok(Ok(Self { name, index }))
@@ -191,7 +196,7 @@ impl RecentArgs {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
                     NAME => username = Some(value.into()),
-                    DISCORD => username = parse_discord_option!(ctx, value, "medal recent"),
+                    DISCORD => username = Some(parse_discord_option!(ctx, value, "medal recent")),
                     _ => bail_cmd_option!(MEDAL_RECENT, string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {
@@ -208,8 +213,12 @@ impl RecentArgs {
         }
 
         let name = match username {
-            Some(name) => Some(name),
-            None => ctx.user_config(author_id).await?.osu_username,
+            Some(osu) => Some(osu.into_username()),
+            None => ctx
+                .psql()
+                .get_user_osu(author_id)
+                .await?
+                .map(OsuData::into_username),
         };
 
         Ok(Ok(RecentArgs { name, index }))

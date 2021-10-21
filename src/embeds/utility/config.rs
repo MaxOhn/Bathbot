@@ -41,10 +41,10 @@ impl ConfigEmbed {
 
         description.push_str("```\nosu!: ");
 
-        if let Some(name) = config.osu_username {
+        if let Some(name) = config.username() {
             let _ = writeln!(description, "{}", name);
         } else {
-            description.push_str("- (set osu:True to link to your account)\n");
+            description.push_str("- (set osu:True to link to your account)\n"); // TODO: Update when bool option is replaced
         }
 
         description.push_str("Twitch: ");
@@ -74,7 +74,7 @@ impl ConfigEmbed {
 
         description.push_str("compact | ");
 
-        if config.embeds_maximized {
+        if config.embeds_maximized() {
             description.push(' ');
         } else {
             description.push('>');
@@ -98,7 +98,7 @@ impl ConfigEmbed {
 
         description.push_str("medium  | ");
 
-        if config.embeds_maximized {
+        if config.embeds_maximized() {
             description.push('>');
         } else {
             description.push(' ');
@@ -138,7 +138,7 @@ impl ConfigEmbed {
 
         description.push_str("mania |          | ");
 
-        if config.show_retries {
+        if config.show_retries() {
             description.push('>');
         } else {
             description.push(' ');
@@ -146,7 +146,7 @@ impl ConfigEmbed {
 
         description.push_str("show\n       |          | ");
 
-        if config.show_retries {
+        if config.show_retries() {
             description.push(' ');
         } else {
             description.push('>');

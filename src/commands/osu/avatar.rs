@@ -1,6 +1,7 @@
 use crate::{
     arguments::Args,
     commands::MyCommand,
+    database::OsuData,
     embeds::{AvatarEmbed, EmbedData},
     util::{
         constants::{
@@ -31,7 +32,7 @@ async fn avatar(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         CommandData::Message { msg, mut args, num } => {
             let name = match args.next() {
                 Some(arg) => match Args::check_user_mention(&ctx, arg).await {
-                    Ok(Ok(name)) => Some(name),
+                    Ok(Ok(osu)) => Some(osu.into_username()),
                     Ok(Err(content)) => return msg.error(&ctx, content).await,
                     Err(why) => {
                         let _ = msg.error(&ctx, GENERAL_ISSUE).await;
@@ -39,8 +40,8 @@ async fn avatar(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                         return Err(why);
                     }
                 },
-                None => match ctx.user_config(msg.author.id).await {
-                    Ok(config) => config.osu_username,
+                None => match ctx.psql().get_user_osu(msg.author.id).await {
+                    Ok(osu) => osu.map(OsuData::into_username),
                     Err(why) => {
                         let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
@@ -91,7 +92,12 @@ pub async fn slash_avatar(ctx: Arc<Context>, mut command: ApplicationCommand) ->
             CommandDataOption::String { name, value } => match name.as_str() {
                 NAME => username = Some(value.into()),
                 DISCORD => match value.parse() {
-                    Ok(id) => match ctx.user_config(UserId(id)).await?.osu_username {
+                    Ok(id) => match ctx
+                        .psql()
+                        .get_user_osu(UserId(id))
+                        .await?
+                        .map(OsuData::into_username)
+                    {
                         Some(name) => username = Some(name),
                         None => {
                             let content = format!("<@{}> is not linked to an osu profile", id);
@@ -114,7 +120,11 @@ pub async fn slash_avatar(ctx: Arc<Context>, mut command: ApplicationCommand) ->
 
     let name = match username {
         Some(name) => Some(name),
-        None => ctx.user_config(command.user_id()?).await?.osu_username,
+        None => ctx
+            .psql()
+            .get_user_osu(command.user_id()?)
+            .await?
+            .map(OsuData::into_username),
     };
 
     _avatar(ctx, command.into(), name).await

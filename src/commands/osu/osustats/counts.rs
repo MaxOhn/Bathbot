@@ -23,13 +23,12 @@ pub(super) async fn _count(
     args: CountArgs,
 ) -> BotResult<()> {
     let CountArgs { config } = args;
+    let mode = config.mode.unwrap_or(GameMode::STD);
 
-    let name = match config.osu_username {
+    let name = match config.into_username() {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
-
-    let mode = config.mode.unwrap_or(GameMode::STD);
 
     let mut user = match super::request_user(&ctx, &name, Some(mode)).await {
         Ok(user) => user,
@@ -208,7 +207,7 @@ impl CountArgs {
 
         if let Some(arg) = args.next() {
             match Args::check_user_mention(ctx, arg).await? {
-                Ok(name) => config.osu_username = Some(name),
+                Ok(osu) => config.osu = Some(osu),
                 Err(content) => return Ok(Err(content)),
             }
         }
@@ -226,9 +225,9 @@ impl CountArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    NAME => config.osu_username = Some(value.into()),
+                    NAME => config.osu = Some(value.into()),
                     DISCORD => {
-                        config.osu_username = parse_discord_option!(ctx, value, "osustats count")
+                        config.osu = Some(parse_discord_option!(ctx, value, "osustats count"))
                     }
                     MODE => config.mode = parse_mode_option!(value, "osustats count"),
                     _ => bail_cmd_option!(OSUSTATS_COUNT, string, name),

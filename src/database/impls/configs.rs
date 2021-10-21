@@ -1,12 +1,12 @@
 use crate::{
     commands::osu::ProfileSize,
-    database::{GuildConfig, UserConfig},
-    BotResult, Database, Name,
+    database::{models::OsuData, GuildConfig, UserConfig},
+    BotResult, Database,
 };
 
 use dashmap::DashMap;
 use futures::stream::StreamExt;
-use rosu_v2::prelude::GameMode;
+use rosu_v2::prelude::{GameMode, User};
 use twilight_model::id::{GuildId, UserId};
 
 impl Database {
@@ -16,25 +16,34 @@ impl Database {
         let guilds = DashMap::with_capacity(10_000);
 
         while let Some(entry) = stream.next().await.transpose()? {
-            let guild_id: i64 = entry.guild_id;
-            let config = serde_json::from_value(entry.config)?;
+            let config = GuildConfig {
+                authorities: serde_cbor::from_slice(&entry.authorities)?,
+                prefixes: serde_cbor::from_slice(&entry.prefixes)?,
+                with_lyrics: entry.with_lyrics,
+            };
 
-            guilds.insert(GuildId(guild_id as u64), config);
+            guilds.insert(GuildId(entry.guild_id as u64), config);
         }
 
         Ok(guilds)
     }
 
-    pub async fn insert_guild_config(
+    pub async fn upsert_guild_config(
         &self,
         guild_id: GuildId,
         config: &GuildConfig,
     ) -> BotResult<()> {
         let query = sqlx::query!(
-            "INSERT INTO guild_configs VALUES ($1,$2) 
-            ON CONFLICT (guild_id) DO UPDATE SET config=$2",
+            "INSERT INTO guild_configs (guild_id,authorities,prefixes,with_lyrics)\
+            VALUES ($1,$2,$3,$4) ON CONFLICT (guild_id) DO \
+            UPDATE \
+            SET authorities=$2,\
+                prefixes=$3,\
+                with_lyrics=$4",
             guild_id.0 as i64,
-            serde_json::to_value(config)?
+            serde_cbor::to_vec(&config.authorities)?,
+            serde_cbor::to_vec(&config.prefixes)?,
+            config.with_lyrics,
         );
 
         query.execute(&self.pool).await?;
@@ -43,18 +52,52 @@ impl Database {
         Ok(())
     }
 
-    pub async fn get_user_config(&self, user_id: UserId) -> BotResult<Option<UserConfig>> {
+    pub async fn get_user_osu(&self, user_id: UserId) -> BotResult<Option<OsuData>> {
         let query = sqlx::query!(
-            "SELECT * FROM user_config WHERE discord_id=$1",
+            "SELECT user_id,username \
+            FROM\
+                (SELECT osu_id \
+                FROM user_configs \
+                WHERE discord_id=$1) AS config \
+            JOIN osu_user_names AS names ON config.osu_id=names.user_id",
             user_id.0 as i64
         );
 
         match query.fetch_optional(&self.pool).await? {
             Some(entry) => {
+                let osu = OsuData::User {
+                    user_id: entry.user_id as u32,
+                    username: entry.username.into(),
+                };
+
+                Ok(Some(osu))
+            }
+            None => Ok(None),
+        }
+    }
+
+    pub async fn get_user_config(&self, user_id: UserId) -> BotResult<Option<UserConfig>> {
+        let query = sqlx::query!(
+            "SELECT * \
+            FROM\
+              (SELECT * \
+               FROM user_configs \
+               WHERE discord_id=$1) AS config \
+            JOIN osu_user_names AS names ON config.osu_id=names.user_id",
+            user_id.0 as i64
+        );
+
+        match query.fetch_optional(&self.pool).await? {
+            Some(entry) => {
+                let osu = OsuData::User {
+                    user_id: entry.user_id as u32,
+                    username: entry.username.into(),
+                };
+
                 let config = UserConfig {
                     embeds_maximized: entry.embeds_maximized,
                     mode: entry.mode.map(|mode| mode as u8).map(GameMode::from),
-                    osu_username: entry.osu_username.map(Name::from),
+                    osu: Some(osu),
                     profile_size: entry.profile_size.map(ProfileSize::from),
                     show_retries: entry.show_retries,
                     twitch_id: entry.twitch_id.map(|id| id as u64),
@@ -67,14 +110,27 @@ impl Database {
     }
 
     pub async fn get_user_config_by_osu(&self, username: &str) -> BotResult<Option<UserConfig>> {
-        let query = sqlx::query!("SELECT * FROM user_config WHERE osu_username=$1", username);
+        let query = sqlx::query!(
+            "SELECT * \
+            FROM\
+              (SELECT user_id \
+               FROM osu_user_names \
+               WHERE username=$1) AS user_ids \
+            JOIN user_configs ON user_ids.user_id=user_configs.osu_id",
+            username
+        );
 
         match query.fetch_optional(&self.pool).await? {
             Some(entry) => {
+                let osu = OsuData::User {
+                    user_id: entry.user_id as u32,
+                    username: username.into(),
+                };
+
                 let config = UserConfig {
                     embeds_maximized: entry.embeds_maximized,
                     mode: entry.mode.map(|mode| mode as u8).map(GameMode::from),
-                    osu_username: entry.osu_username.map(Name::from),
+                    osu: Some(osu),
                     profile_size: entry.profile_size.map(ProfileSize::from),
                     show_retries: entry.show_retries,
                     twitch_id: entry.twitch_id.map(|id| id as u64),
@@ -88,13 +144,31 @@ impl Database {
 
     pub async fn insert_user_config(&self, user_id: UserId, config: &UserConfig) -> BotResult<()> {
         let query = sqlx::query!(
-            "INSERT INTO user_config (discord_id,embeds_maximized,mode,osu_username,profile_size,show_retries,twitch_id)
-            VALUES ($1,$2,$3,$4,$5,$6,$7)
-            ON CONFLICT (discord_id) DO UPDATE SET embeds_maximized=$2,mode=$3,osu_username=$4,profile_size=$5,show_retries=$6,twitch_id=$7",
+            "INSERT INTO user_configs (\
+                discord_id,\
+                embeds_maximized,\
+                mode,\
+                osu_id,\
+                profile_size,\
+                show_retries,\
+                twitch_id\
+            )\
+            VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (discord_id) DO \
+            UPDATE \
+            SET embeds_maximized=$2,\
+                mode=$3,\
+                osu_id=$4,\
+                profile_size=$5,\
+                show_retries=$6,\
+                twitch_id=$7",
             user_id.0 as i64,
             config.embeds_maximized,
             config.mode.map(|m| m as i16),
-            config.osu_username.as_deref(),
+            config
+                .osu
+                .as_ref()
+                .and_then(OsuData::user_id)
+                .map(|id| id as i32),
             config.profile_size.map(|size| size as i16),
             config.show_retries,
             config.twitch_id.map(|id| id as i64)
@@ -106,15 +180,17 @@ impl Database {
         Ok(())
     }
 
-    pub async fn update_user_config_osu(&self, old: &str, new: &str) -> BotResult<()> {
+    pub async fn update_osu_name(&self, user: &User) -> BotResult<()> {
         let query = sqlx::query!(
-            "UPDATE user_config SET osu_username=$1 WHERE osu_username=$2",
-            new,
-            old
+            "INSERT INTO osu_user_names (user_id,username)\
+            VALUES ($1,$2) ON CONFLICT (user_id) DO \
+            UPDATE \
+            SET username=$2",
+            user.user_id as i32,
+            user.username,
         );
 
         query.execute(&self.pool).await?;
-        debug!("Replaced osu_username `{}` with `{}` in DB", old, new);
 
         Ok(())
     }

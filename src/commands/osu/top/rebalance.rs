@@ -58,7 +58,7 @@ impl RebalanceArgs {
 
         if let Some(arg) = args.next() {
             match Args::check_user_mention(ctx, arg).await? {
-                Ok(name) => config.osu_username = Some(name),
+                Ok(osu) => config.osu = Some(osu),
                 Err(content) => return Ok(Err(content)),
             }
         }
@@ -77,9 +77,9 @@ impl RebalanceArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    NAME => config.osu_username = Some(value.into()),
+                    NAME => config.osu = Some(value.into()),
                     DISCORD => {
-                        config.osu_username = parse_discord_option!(ctx, value, "top rebalance")
+                        config.osu = Some(parse_discord_option!(ctx, value, "top rebalance"))
                     }
                     "version" => match value.as_str() {
                         "delta_t" => version = Some(RebalanceVersion::Delta),
@@ -125,13 +125,12 @@ pub(super) async fn _rebalance(
     args: RebalanceArgs,
 ) -> BotResult<()> {
     let RebalanceArgs { config, version } = args;
+    let mode = config.mode.unwrap_or(GameMode::STD);
 
-    let name = match config.osu_username {
+    let name = match config.into_username() {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
-
-    let mode = config.mode.unwrap_or(GameMode::STD);
 
     // Retrieve the user and their top scores
     let user_fut = super::request_user(&ctx, &name, Some(mode)).map_err(From::from);

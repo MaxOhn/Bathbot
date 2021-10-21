@@ -3,6 +3,7 @@ use crate::{
         osu::{option_discord, option_name},
         MyCommand,
     },
+    database::OsuData,
     embeds::{EmbedData, MostPlayedEmbed},
     pagination::{MostPlayedPagination, Pagination},
     util::{
@@ -31,7 +32,7 @@ async fn mostplayed(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         CommandData::Message { msg, mut args, num } => {
             let name = match args.next() {
                 Some(arg) => match Args::check_user_mention(&ctx, arg).await {
-                    Ok(Ok(name)) => Some(name),
+                    Ok(Ok(osu)) => Some(osu.into_username()),
                     Ok(Err(content)) => return msg.error(&ctx, content).await,
                     Err(why) => {
                         let _ = msg.error(&ctx, GENERAL_ISSUE).await;
@@ -39,8 +40,8 @@ async fn mostplayed(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                         return Err(why);
                     }
                 },
-                None => match ctx.user_config(msg.author.id).await {
-                    Ok(config) => config.osu_username,
+                None => match ctx.psql().get_user_osu(msg.author.id).await {
+                    Ok(osu) => osu.map(OsuData::into_username),
                     Err(why) => {
                         let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
@@ -132,7 +133,9 @@ async fn parse_username(
         match option {
             CommandDataOption::String { name, value } => match name.as_str() {
                 NAME => username = Some(value.into()),
-                DISCORD => username = parse_discord_option!(ctx, value, "mostplayed"),
+                DISCORD => {
+                    username = Some(parse_discord_option!(ctx, value, "mostplayed").into_username())
+                }
                 _ => bail_cmd_option!(MOSTPLAYED, string, name),
             },
             CommandDataOption::Integer { name, .. } => {
@@ -149,7 +152,11 @@ async fn parse_username(
 
     let name = match username {
         Some(name) => Some(name),
-        None => ctx.user_config(command.user_id()?).await?.osu_username,
+        None => ctx
+            .psql()
+            .get_user_osu(command.user_id()?)
+            .await?
+            .map(OsuData::into_username),
     };
 
     Ok(Ok(name))

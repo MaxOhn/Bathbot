@@ -64,7 +64,7 @@ async fn _bws(ctx: Arc<Context>, data: CommandData<'_>, args: BwsArgs) -> BotRes
 
     let mode = config.mode.unwrap_or(GameMode::STD);
 
-    let name = match config.osu_username {
+    let name = match config.into_username() {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
@@ -164,7 +164,7 @@ impl BwsArgs {
                 }
             } else {
                 match Args::check_user_mention(ctx, arg).await? {
-                    Ok(name) => config.osu_username = Some(name),
+                    Ok(osu) => config.osu = Some(osu),
                     Err(content) => return Ok(Err(content.into())),
                 }
             }
@@ -190,8 +190,8 @@ impl BwsArgs {
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    NAME => config.osu_username = Some(value.into()),
-                    DISCORD => config.osu_username = parse_discord_option!(ctx, value, "bws"),
+                    NAME => config.osu = Some(value.into()),
+                    DISCORD => config.osu = Some(parse_discord_option!(ctx, value, "bws")),
                     _ => bail_cmd_option!("bws", string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {

@@ -188,7 +188,7 @@ macro_rules! parse_fail {
         return Err(format!(
             concat!("Failed to parse `{}`. Must be ", $ty, "."),
             $key
-        ));
+        ))
     };
 }
 

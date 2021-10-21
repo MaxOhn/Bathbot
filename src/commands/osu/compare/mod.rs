@@ -17,6 +17,7 @@ use crate::{
         osu::{option_discord, option_map, option_mode, option_mods, option_name},
         MyCommand, MyCommandOption,
     },
+    database::OsuData,
     util::{
         constants::common_literals::{MODE, SCORE},
         matcher, ApplicationCommandExt, InteractionExt, MessageExt,
@@ -50,8 +51,8 @@ impl TripleArgs {
     ) -> BotResult<Result<Self, Cow<'static, str>>> {
         let name1 = match args.next() {
             Some(arg) => match matcher::get_mention_user(arg) {
-                Some(id) => match ctx.user_config(UserId(id)).await?.osu_username {
-                    Some(name) => name,
+                Some(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
+                    Some(osu) => osu.into_username(),
                     None => {
                         let content = format!("<@{}> is not linked to an osu profile", id);
 
@@ -67,8 +68,8 @@ impl TripleArgs {
 
         let name2 = match args.next() {
             Some(arg) => match matcher::get_mention_user(arg) {
-                Some(id) => match ctx.user_config(UserId(id)).await?.osu_username {
-                    Some(name) => name,
+                Some(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
+                    Some(osu) => osu.into_username(),
                     None => {
                         let content = format!("<@{}> is not linked to an osu profile", id);
 
@@ -79,7 +80,11 @@ impl TripleArgs {
             },
             None => {
                 return Ok(Ok(Self {
-                    name1: ctx.user_config(author_id).await?.osu_username,
+                    name1: ctx
+                        .psql()
+                        .get_user_osu(author_id)
+                        .await?
+                        .map(OsuData::into_username),
                     name2: name1,
                     name3: None,
                     mode,
@@ -89,8 +94,8 @@ impl TripleArgs {
 
         let name3 = match args.next() {
             Some(arg) => match matcher::get_mention_user(arg) {
-                Some(id) => match ctx.user_config(UserId(id)).await?.osu_username {
-                    Some(name) => Some(name),
+                Some(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
+                    Some(osu) => Some(osu.into_username()),
                     None => {
                         let content = format!("<@{}> is not linked to an osu profile", id);
 
@@ -130,8 +135,8 @@ impl TripleArgs {
                     "name2" => name2 = Some(value.into()),
                     "name3" => name3 = Some(value.into()),
                     "discord1" => match value.parse() {
-                        Ok(id) => match ctx.user_config(UserId(id)).await?.osu_username {
-                            Some(name) => name1 = Some(name),
+                        Ok(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
+                            Some(osu) => name1 = Some(osu.into_username()),
                             None => {
                                 let content = format!("<@{}> is not linked to an osu profile", id);
 
@@ -143,8 +148,8 @@ impl TripleArgs {
                         }
                     },
                     "discord2" => match value.parse() {
-                        Ok(id) => match ctx.user_config(UserId(id)).await?.osu_username {
-                            Some(name) => name2 = Some(name),
+                        Ok(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
+                            Some(osu) => name2 = Some(osu.into_username()),
                             None => {
                                 let content = format!("<@{}> is not linked to an osu profile", id);
 
@@ -156,8 +161,8 @@ impl TripleArgs {
                         }
                     },
                     "discord3" => match value.parse() {
-                        Ok(id) => match ctx.user_config(UserId(id)).await?.osu_username {
-                            Some(name) => name3 = Some(name),
+                        Ok(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
+                            Some(osu) => name3 = Some(osu.into_username()),
                             None => {
                                 let content = format!("<@{}> is not linked to an osu profile", id);
 
@@ -193,7 +198,11 @@ impl TripleArgs {
 
         let name1 = match name1 {
             Some(name) => Some(name),
-            None => ctx.user_config(author_id).await?.osu_username,
+            None => ctx
+                .psql()
+                .get_user_osu(author_id)
+                .await?
+                .map(OsuData::into_username),
         };
 
         let args = TripleArgs {

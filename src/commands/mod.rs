@@ -1,19 +1,19 @@
 /// E.g: `bail_cmd_option!("link", subcommand, name)`
 macro_rules! bail_cmd_option {
     ($cmd:expr, string, $name:ident) => {
-        bail_cmd_option!(@ $cmd, "string", $name);
+        bail_cmd_option!(@ $cmd, "string", $name)
     };
     ($cmd:expr, integer, $name:ident) => {
-        bail_cmd_option!(@ $cmd, "integer", $name);
+        bail_cmd_option!(@ $cmd, "integer", $name)
     };
     ($cmd:expr, boolean, $name:ident) => {
-        bail_cmd_option!(@ $cmd, "boolean", $name);
+        bail_cmd_option!(@ $cmd, "boolean", $name)
     };
     ($cmd:expr, subcommand, $name:ident) => {
-        bail_cmd_option!(@ $cmd, "subcommand", $name);
+        bail_cmd_option!(@ $cmd, "subcommand", $name)
     };
     ($cmd:expr, $any:tt, $name:ident) => {
-       compile_error!("expected `string`, `integer`, `boolean`, or `subcommand` as second argument");
+       compile_error!("expected `string`, `integer`, `boolean`, or `subcommand` as second argument")
     };
 
     (@ $cmd:expr, $kind:literal, $name:ident) => {
@@ -43,11 +43,11 @@ macro_rules! parse_discord_option {
     ($ctx:ident, $value:ident, $location:literal) => {
         match $value.parse() {
             Ok(id) => match $ctx
-                .user_config(twilight_model::id::UserId(id))
+                .psql()
+                .get_user_osu(twilight_model::id::UserId(id))
                 .await?
-                .osu_username
             {
-                Some(name) => Some(name),
+                Some(osu) => osu,
                 None => {
                     let content = format!("<@{}> is not linked to an osu profile", id);
 

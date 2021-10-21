@@ -33,7 +33,9 @@ pub(super) async fn _recentleaderboard(
         mods,
     } = args;
 
-    let author_name = config.osu_username;
+    let mode = config.mode.unwrap_or(GameMode::STD);
+
+    let author_name = config.into_username();
 
     let name = match name.as_ref().or_else(|| author_name.as_ref()) {
         Some(name) => name.as_str(),
@@ -47,8 +49,6 @@ pub(super) async fn _recentleaderboard(
 
         return data.error(&ctx, content).await;
     }
-
-    let mode = config.mode.unwrap_or(GameMode::STD);
 
     // Retrieve the recent scores
     let scores_fut = ctx
@@ -484,7 +484,7 @@ impl RecentLeaderboardArgs {
                 mods.replace(mods_);
             } else {
                 match Args::check_user_mention(ctx, arg).await? {
-                    Ok(name_) => name = Some(name_),
+                    Ok(osu) => name = Some(osu.into_username()),
                     Err(content) => return Ok(Err(content)),
                 }
             }
@@ -521,7 +521,10 @@ impl RecentLeaderboardArgs {
                             Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
                         },
                     },
-                    DISCORD => username = parse_discord_option!(ctx, value, "recent leaderboard"),
+                    DISCORD => {
+                        let osu = parse_discord_option!(ctx, value, "recent leaderboard");
+                        username = Some(osu.into_username())
+                    }
                     MODE => config.mode = parse_mode_option!(value, "recent leaderboard"),
                     _ => bail_cmd_option!("recent leaderboard", string, name),
                 },

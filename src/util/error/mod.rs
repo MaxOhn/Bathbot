@@ -17,6 +17,7 @@ use image::ImageError;
 use plotters::drawing::DrawingAreaErrorKind as DrawingError;
 use reqwest::Error as ReqwestError;
 use rosu_v2::error::OsuError;
+use serde_cbor::Error as CborError;
 use serde_json::Error as SerdeJsonError;
 use sqlx::Error as DBError;
 use std::{
@@ -76,6 +77,7 @@ impl StdError for InvalidHelpState {}
 pub enum Error {
     Authority(Box<Error>),
     BgGame(BgGameError),
+    Cbor(CborError),
     CreateMessage(CreateMessageError),
     ChronoParse(ChronoParseError),
     Command(Box<Error>, String),
@@ -99,7 +101,7 @@ pub enum Error {
     PP(PPError),
     Redis(RedisError),
     Reqwest(ReqwestError),
-    Serde(SerdeJsonError),
+    Json(SerdeJsonError),
     TwilightCluster(ClusterCommandError),
     TwilightDeserialize(DeserializeBodyError),
     TwilightHttp(HttpError),
@@ -125,6 +127,7 @@ impl StdError for Error {
         match self {
             Self::Authority(e) => Some(e),
             Self::BgGame(e) => Some(e),
+            Self::Cbor(e) => Some(e),
             Self::CreateMessage(e) => Some(e),
             Self::ChronoParse(e) => Some(e),
             Self::Command(e, _) => Some(e),
@@ -148,7 +151,7 @@ impl StdError for Error {
             Self::PP(e) => Some(e),
             Self::Redis(e) => Some(e),
             Self::Reqwest(e) => Some(e),
-            Self::Serde(e) => Some(e),
+            Self::Json(e) => Some(e),
             Self::TwilightCluster(e) => Some(e),
             Self::TwilightDeserialize(e) => Some(e),
             Self::TwilightHttp(e) => Some(e),
@@ -167,6 +170,7 @@ impl Display for Error {
         match self {
             Self::Authority(_) => f.write_str("error while checking authorty status"),
             Self::BgGame(_) => f.write_str("background game error"),
+            Self::Cbor(_) => f.write_str("serde cbor error"),
             Self::CreateMessage(_) => f.write_str("error while creating message"),
             Self::ChronoParse(_) => f.write_str("chrono parse error"),
             Self::Command(_, cmd) => write!(f, "command error: {}", cmd),
@@ -192,7 +196,7 @@ impl Display for Error {
             Self::PP(_) => f.write_str("error while using PPCalculator"),
             Self::Redis(_) => f.write_str("error while communicating with redis cache"),
             Self::Reqwest(_) => f.write_str("reqwest error"),
-            Self::Serde(_) => f.write_str("serde error"),
+            Self::Json(_) => f.write_str("serde json error"),
             Self::TwilightCluster(_) => f.write_str("error occurred on cluster request"),
             Self::TwilightDeserialize(_) => f.write_str("twilight failed to deserialize response"),
             Self::TwilightHttp(_) => f.write_str("error while making discord request"),
@@ -217,6 +221,12 @@ impl Display for Error {
 impl From<BgGameError> for Error {
     fn from(e: BgGameError) -> Self {
         Error::BgGame(e)
+    }
+}
+
+impl From<CborError> for Error {
+    fn from(e: CborError) -> Self {
+        Error::Cbor(e)
     }
 }
 
@@ -336,7 +346,7 @@ impl From<ReqwestError> for Error {
 
 impl From<SerdeJsonError> for Error {
     fn from(e: SerdeJsonError) -> Self {
-        Error::Serde(e)
+        Error::Json(e)
     }
 }
 

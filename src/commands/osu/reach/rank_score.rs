@@ -1,4 +1,15 @@
-use crate::{Args, BotResult, CommandData, Context, Error, database::UserConfig, embeds::{EmbedData, RankRankedScoreEmbed}, util::{MessageExt, constants::{GENERAL_ISSUE, OSU_API_ISSUE, common_literals::{DISCORD, MODE, NAME, RANK}}}};
+use crate::{
+    database::UserConfig,
+    embeds::{EmbedData, RankRankedScoreEmbed},
+    util::{
+        constants::{
+            common_literals::{DISCORD, MODE, NAME, RANK},
+            GENERAL_ISSUE, OSU_API_ISSUE,
+        },
+        MessageExt,
+    },
+    Args, BotResult, CommandData, Context, Error,
+};
 
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::sync::Arc;
@@ -12,13 +23,12 @@ pub(super) async fn _rankscore(
     args: RankScoreArgs,
 ) -> BotResult<()> {
     let RankScoreArgs { config, rank } = args;
+    let mode = config.mode.unwrap_or(GameMode::STD);
 
-    let name = match config.osu_username {
+    let name = match config.into_username() {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
-
-    let mode = config.mode.unwrap_or(GameMode::STD);
 
     if rank == 0 {
         let content = "Rank number must be between 1 and 10,000";
@@ -207,7 +217,7 @@ impl RankScoreArgs {
             match arg.parse() {
                 Ok(num) => rank = Some(num),
                 Err(_) => match Args::check_user_mention(ctx, arg).await? {
-                    Ok(name) => config.osu_username = Some(name),
+                    Ok(osu) => config.osu = Some(osu),
                     Err(content) => return Ok(Err(content)),
                 },
             }
@@ -233,8 +243,8 @@ impl RankScoreArgs {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
                     MODE => config.mode = parse_mode_option!(value, "reach rank score"),
-                    NAME => config.osu_username = Some(value.into()),
-                    DISCORD => config.osu_username = parse_discord_option!(ctx, value, "rank pp"),
+                    NAME => config.osu = Some(value.into()),
+                    DISCORD => config.osu = Some(parse_discord_option!(ctx, value, "rank pp")),
                     _ => bail_cmd_option!(RANK_REACH_SCORE, string, name),
                 },
                 CommandDataOption::Integer { name, value } => match name.as_str() {

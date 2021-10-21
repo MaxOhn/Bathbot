@@ -28,8 +28,8 @@ pub(super) async fn _recentsimulate(
     data: CommandData<'_>,
     args: RecentSimulateArgs,
 ) -> BotResult<()> {
-    let name = match args.config.osu_username {
-        Some(ref name) => name.as_str(),
+    let name = match args.config.username() {
+        Some(name) => name.as_str(),
         None => return super::require_link(&ctx, &data).await,
     };
 
@@ -105,7 +105,7 @@ pub(super) async fn _recentsimulate(
 
     let map = score.map.take().unwrap();
     let mapset = score.mapset.take().unwrap();
-    let maximize = args.config.embeds_maximized;
+    let maximize = args.config.embeds_maximized();
 
     // Accumulate all necessary data
     let embed_data = match SimulateEmbed::new(Some(score), &map, &mapset, args.into()).await {
@@ -326,7 +326,7 @@ macro_rules! parse_fail {
             concat!("Failed to parse `{}`. Must be ", $ty, "."),
             $key
         )
-        .into()));
+        .into()))
     };
 }
 
@@ -403,7 +403,7 @@ impl RecentSimulateArgs {
                 mods.replace(mods_);
             } else {
                 match Args::check_user_mention(ctx, arg).await? {
-                    Ok(name) => config.osu_username = Some(name),
+                    Ok(osu) => config.osu = Some(osu),
                     Err(content) => return Ok(Err(content.into())),
                 }
             }
@@ -457,7 +457,7 @@ impl RecentSimulateArgs {
                         for option in options {
                             match option {
                                 CommandDataOption::String { name, value } => match name.as_str() {
-                                    NAME => config.osu_username = Some(value.into()),
+                                    NAME => config.osu = Some(value.into()),
                                     MODS => match matcher::get_mods(&value) {
                                         Some(mods_) => mods = Some(mods_),
                                         None => match value.parse() {
@@ -466,8 +466,11 @@ impl RecentSimulateArgs {
                                         },
                                     },
                                     DISCORD => {
-                                        config.osu_username =
-                                            parse_discord_option!(ctx, value, "recent simulate")
+                                        config.osu = Some(parse_discord_option!(
+                                            ctx,
+                                            value,
+                                            "recent simulate"
+                                        ))
                                     }
                                     MODE => {
                                         config.mode = parse_mode_option!(value, "recent simulate")

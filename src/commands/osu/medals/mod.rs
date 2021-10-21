@@ -21,6 +21,7 @@ use crate::{
         osu::{option_discord, option_name},
         MyCommand, MyCommandOption,
     },
+    database::OsuData,
     util::{
         constants::common_literals::{DISCORD, INDEX, NAME},
         ApplicationCommandExt, InteractionExt, MessageExt,
@@ -93,7 +94,8 @@ impl MedalCommandKind {
                                 CommandDataOption::String { name, value } => match name.as_str() {
                                     NAME => username = Some(value.into()),
                                     DISCORD => {
-                                        username = parse_discord_option!(ctx, value, "medal stats")
+                                        username =
+                                            Some(parse_discord_option!(ctx, value, "medal stats"))
                                     }
                                     _ => bail_cmd_option!(MEDAL_STATS, string, name),
                                 },
@@ -109,12 +111,12 @@ impl MedalCommandKind {
                             }
                         }
 
-                        let name = match username {
-                            Some(name) => Some(name),
-                            None => ctx.user_config(author_id).await?.osu_username,
+                        let osu = match username {
+                            Some(osu) => Some(osu),
+                            None => ctx.psql().get_user_osu(author_id).await?,
                         };
 
-                        kind = Some(MedalCommandKind::Stats(name));
+                        kind = Some(MedalCommandKind::Stats(osu.map(OsuData::into_username)));
                     }
                     "missing" => {
                         let mut username = None;
@@ -125,7 +127,7 @@ impl MedalCommandKind {
                                     NAME => username = Some(value.into()),
                                     DISCORD => {
                                         username =
-                                            parse_discord_option!(ctx, value, "medal missing")
+                                            Some(parse_discord_option!(ctx, value, "medal missing"))
                                     }
                                     _ => bail_cmd_option!(MEDAL_MISSING, string, name),
                                 },
@@ -141,12 +143,12 @@ impl MedalCommandKind {
                             }
                         }
 
-                        let name = match username {
-                            Some(name) => Some(name),
-                            None => ctx.user_config(author_id).await?.osu_username,
+                        let osu = match username {
+                            Some(osu) => Some(osu),
+                            None => ctx.psql().get_user_osu(author_id).await?,
                         };
 
-                        kind = Some(MedalCommandKind::Missing(name));
+                        kind = Some(MedalCommandKind::Missing(osu.map(OsuData::into_username)));
                     }
                     "recent" => match RecentArgs::slash(ctx, options, author_id).await? {
                         Ok(args) => kind = Some(Self::Recent(args)),

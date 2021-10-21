@@ -1,4 +1,5 @@
 use crate::{
+    database::OsuData,
     embeds::{EmbedData, PlayerSnipeStatsEmbed},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -29,7 +30,7 @@ async fn playersnipestats(ctx: Arc<Context>, data: CommandData) -> BotResult<()>
         CommandData::Message { msg, mut args, num } => {
             let name = match args.next() {
                 Some(arg) => match Args::check_user_mention(&ctx, arg).await {
-                    Ok(Ok(name)) => Some(name),
+                    Ok(Ok(osu)) => Some(osu.into_username()),
                     Ok(Err(content)) => return msg.error(&ctx, content).await,
                     Err(why) => {
                         let _ = msg.error(&ctx, GENERAL_ISSUE).await;
@@ -37,8 +38,8 @@ async fn playersnipestats(ctx: Arc<Context>, data: CommandData) -> BotResult<()>
                         return Err(why);
                     }
                 },
-                None => match ctx.user_config(msg.author.id).await {
-                    Ok(config) => config.osu_username,
+                None => match ctx.psql().get_user_osu(msg.author.id).await {
+                    Ok(osu) => osu.map(OsuData::into_username),
                     Err(why) => {
                         let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 

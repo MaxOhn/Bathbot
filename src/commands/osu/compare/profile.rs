@@ -1,5 +1,6 @@
 use super::{MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32, AT_LEAST_ONE};
 use crate::{
+    database::OsuData,
     embeds::{EmbedData, ProfileCompareEmbed},
     tracking::process_tracking,
     util::{
@@ -342,8 +343,8 @@ impl ProfileArgs {
 
         let name2 = match args.next() {
             Some(arg) => match matcher::get_mention_user(arg) {
-                Some(id) => match ctx.user_config(UserId(id)).await?.osu_username {
-                    Some(name) => name,
+                Some(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
+                    Some(osu) => osu.into_username(),
                     None => {
                         let content = format!("<@{}> is not linked to an osu profile", id);
 
@@ -357,10 +358,10 @@ impl ProfileArgs {
 
         let args = match args.next() {
             Some(arg) => match matcher::get_mention_user(arg) {
-                Some(id) => match ctx.user_config(UserId(id)).await?.osu_username {
-                    Some(name) => Self {
+                Some(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
+                    Some(osu) => Self {
                         name1: Some(name2),
-                        name2: name,
+                        name2: osu.into_username(),
                         mode,
                     },
                     None => {
@@ -376,7 +377,7 @@ impl ProfileArgs {
                 },
             },
             None => Self {
-                name1: config.osu_username,
+                name1: config.into_username(),
                 name2,
                 mode,
             },
@@ -401,8 +402,8 @@ impl ProfileArgs {
                     "name1" => name1 = Some(value.into()),
                     "name2" => name2 = Some(value.into()),
                     "discord1" => match value.parse() {
-                        Ok(id) => match ctx.user_config(UserId(id)).await?.osu_username {
-                            Some(name) => name1 = Some(name),
+                        Ok(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
+                            Some(osu) => name1 = Some(osu.into_username()),
                             None => {
                                 let content = format!("<@{}> is not linked to an osu profile", id);
 
@@ -412,8 +413,8 @@ impl ProfileArgs {
                         Err(_) => bail_cmd_option!("compare profile discord1", string, value),
                     },
                     "discord2" => match value.parse() {
-                        Ok(id) => match ctx.user_config(UserId(id)).await?.osu_username {
-                            Some(name) => name2 = Some(name),
+                        Ok(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
+                            Some(osu) => name2 = Some(osu.into_username()),
                             None => {
                                 let content = format!("<@{}> is not linked to an osu profile", id);
 
@@ -444,7 +445,11 @@ impl ProfileArgs {
 
         let name1 = match name1 {
             Some(name) => Some(name),
-            None => ctx.user_config(author_id).await?.osu_username,
+            None => ctx
+                .psql()
+                .get_user_osu(author_id)
+                .await?
+                .map(OsuData::into_username),
         };
 
         let mode = mode.unwrap_or(GameMode::STD);

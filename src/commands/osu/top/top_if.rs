@@ -42,13 +42,13 @@ pub(super) async fn _topif(
     args: IfArgs,
 ) -> BotResult<()> {
     let IfArgs { config, mods } = args;
+    let mode = config.mode.unwrap_or(GameMode::STD);
 
-    let name = match config.osu_username {
+    let name = match config.into_username() {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
 
-    let mode = config.mode.unwrap_or(GameMode::STD);
 
     if let ModSelection::Exact(mods) | ModSelection::Include(mods) = mods {
         let mut content = None;
@@ -454,7 +454,7 @@ impl IfArgs {
             match matcher::get_mods(arg) {
                 Some(mods_) => mods = Some(mods_),
                 None => match Args::check_user_mention(ctx, arg).await? {
-                    Ok(name) => config.osu_username = Some(name),
+                    Ok(osu) => config.osu = Some(osu),
                     Err(content) => return Ok(Err(content)),
                 },
             }
@@ -479,13 +479,13 @@ impl IfArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    NAME => config.osu_username = Some(value.into()),
+                    NAME => config.osu = Some(value.into()),
                     MODS => match matcher::get_mods(&value) {
                         Some(mods_) => mods = Some(mods_),
                         None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
                     },
                     MODE => config.mode = parse_mode_option!(value, "top if"),
-                    DISCORD => config.osu_username = parse_discord_option!(ctx, value, "top if"),
+                    DISCORD => config.osu = Some(parse_discord_option!(ctx, value, "top if")),
                     _ => bail_cmd_option!(TOP_IF, string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {

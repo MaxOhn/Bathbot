@@ -1,5 +1,5 @@
 use super::Stream;
-use crate::{util::matcher, BotResult, Context, Name};
+use crate::{database::OsuData, util::matcher, BotResult, Context, Name};
 
 use std::{error::Error, fmt};
 use twilight_model::id::UserId;
@@ -79,13 +79,13 @@ impl<'m> Args<'m> {
     pub async fn check_user_mention(
         ctx: &Context,
         arg: &str,
-    ) -> BotResult<Result<Name, &'static str>> {
+    ) -> BotResult<Result<OsuData, &'static str>> {
         match matcher::get_mention_user(arg) {
-            Some(id) => match ctx.user_config(UserId(id)).await?.osu_username {
-                Some(name) => Ok(Ok(name)),
+            Some(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
+                Some(osu) => Ok(Ok(osu)),
                 None => Ok(Err("The specified user is not linked to an osu profile")),
             },
-            None => Ok(Ok(arg.into())),
+            None => Ok(Ok(Name::from(arg).into())),
         }
     }
 }

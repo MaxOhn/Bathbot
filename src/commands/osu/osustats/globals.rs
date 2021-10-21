@@ -28,8 +28,8 @@ pub(super) async fn _scores(
     data: CommandData<'_>,
     args: ScoresArgs,
 ) -> BotResult<()> {
-    let name = match args.config.osu_username {
-        Some(ref name) => name.as_str(),
+    let name = match args.config.username() {
+        Some(name) => name.as_str(),
         None => return super::require_link(&ctx, &data).await,
     };
 
@@ -463,7 +463,7 @@ impl ScoresArgs {
                 mods = Some(mods_);
             } else {
                 match Args::check_user_mention(ctx, arg).await? {
-                    Ok(name) => config.osu_username = Some(name),
+                    Ok(osu) => config.osu = Some(osu),
                     Err(content) => return Ok(Err(content.into())),
                 }
             }
@@ -515,9 +515,9 @@ impl ScoresArgs {
                         "date" => order = Some(OsuStatsOrder::PlayDate),
                         _ => bail_cmd_option!("osustats scores sort", string, value),
                     },
-                    NAME => config.osu_username = Some(value.into()),
+                    NAME => config.osu = Some(value.into()),
                     DISCORD => {
-                        config.osu_username = parse_discord_option!(ctx, value, "osustats scores")
+                        config.osu = Some(parse_discord_option!(ctx, value, "osustats scores"))
                     }
                     "min_acc" => match value.parse::<f32>() {
                         Ok(num) => acc_min = Some(num.max(0.0).min(100.0)),

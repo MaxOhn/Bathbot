@@ -1,5 +1,6 @@
 use crate::{
     custom_client::OsekaiMedal,
+    database::OsuData,
     embeds::{EmbedData, MedalsCommonEmbed, MedalsCommonUser},
     pagination::{MedalsCommonPagination, Pagination},
     util::{
@@ -208,12 +209,12 @@ impl CommonArgs {
         args: &mut Args<'_>,
         author_id: UserId,
     ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let config = ctx.user_config(author_id).await?;
+        let osu = ctx.psql().get_user_osu(author_id).await?;
 
         let name2 = match args.next() {
             Some(arg) => match matcher::get_mention_user(arg) {
-                Some(id) => match ctx.user_config(UserId(id)).await?.osu_username {
-                    Some(name) => name,
+                Some(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
+                    Some(osu) => osu.into_username(),
                     None => {
                         let content = format!("<@{}> is not linked to an osu profile", id);
 
@@ -227,10 +228,10 @@ impl CommonArgs {
 
         let args = match args.next() {
             Some(arg) => match matcher::get_mention_user(arg) {
-                Some(id) => match ctx.user_config(UserId(id)).await?.osu_username {
-                    Some(name) => Self {
+                Some(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
+                    Some(osu) => Self {
                         name1: Some(name2),
-                        name2: name,
+                        name2: osu.into_username(),
                     },
                     None => {
                         let content = format!("<@{}> is not linked to an osu profile", id);
@@ -244,7 +245,7 @@ impl CommonArgs {
                 },
             },
             None => Self {
-                name1: config.osu_username,
+                name1: osu.map(OsuData::into_username),
                 name2,
             },
         };
@@ -266,8 +267,8 @@ impl CommonArgs {
                     "name1" => name1 = Some(value.into()),
                     "name2" => name2 = Some(value.into()),
                     "discord1" => match value.parse() {
-                        Ok(id) => match ctx.user_config(UserId(id)).await?.osu_username {
-                            Some(name) => name1 = Some(name),
+                        Ok(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
+                            Some(osu) => name1 = Some(osu.into_username()),
                             None => {
                                 let content = format!("<@{}> is not linked to an osu profile", id);
 
@@ -277,8 +278,8 @@ impl CommonArgs {
                         Err(_) => bail_cmd_option!("medal common discord1", string, value),
                     },
                     "discord2" => match value.parse() {
-                        Ok(id) => match ctx.user_config(UserId(id)).await?.osu_username {
-                            Some(name) => name2 = Some(name),
+                        Ok(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
+                            Some(osu) => name2 = Some(osu.into_username()),
                             None => {
                                 let content = format!("<@{}> is not linked to an osu profile", id);
 
@@ -309,7 +310,11 @@ impl CommonArgs {
 
         let name1 = match name1 {
             Some(name) => Some(name),
-            None => ctx.user_config(author_id).await?.osu_username,
+            None => ctx
+                .psql()
+                .get_user_osu(author_id)
+                .await?
+                .map(OsuData::into_username),
         };
 
         Ok(Ok(CommonArgs { name1, name2 }))

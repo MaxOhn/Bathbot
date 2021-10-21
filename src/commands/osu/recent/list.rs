@@ -26,13 +26,12 @@ pub(super) async fn _recentlist(
     args: RecentListArgs,
 ) -> BotResult<()> {
     let RecentListArgs { config, grade } = args;
+    let mode = config.mode.unwrap_or(GameMode::STD);
 
-    let name = match config.osu_username {
+    let name = match config.into_username() {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
-
-    let mode = config.mode.unwrap_or(GameMode::STD);
 
     // Retrieve the user and their recent scores
     let user_fut = super::request_user(&ctx, &name, Some(mode)).map_err(From::from);
@@ -363,7 +362,7 @@ impl RecentListArgs {
                 }
             } else {
                 match Args::check_user_mention(ctx, arg).await? {
-                    Ok(name) => config.osu_username = Some(name),
+                    Ok(osu) => config.osu = Some(osu),
                     Err(content) => return Ok(Err(content.into())),
                 }
             }
@@ -405,10 +404,8 @@ impl RecentListArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    NAME => config.osu_username = Some(value.into()),
-                    DISCORD => {
-                        config.osu_username = parse_discord_option!(ctx, value, "recent list")
-                    }
+                    NAME => config.osu = Some(value.into()),
+                    DISCORD => config.osu = Some(parse_discord_option!(ctx, value, "recent list")),
                     MODE => config.mode = parse_mode_option!(value, "recent list"),
                     GRADE => match value.as_str() {
                         "SS" => {

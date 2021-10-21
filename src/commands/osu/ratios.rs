@@ -1,10 +1,20 @@
-use crate::{Args, BotResult, CommandData, Context, MessageBuilder, Name, commands::{
+use crate::{
+    commands::{
         osu::{option_discord, option_name},
         MyCommand,
-    }, embeds::{EmbedData, RatioEmbed}, tracking::process_tracking, util::{ApplicationCommandExt, InteractionExt, MessageExt, constants::{
+    },
+    database::OsuData,
+    embeds::{EmbedData, RatioEmbed},
+    tracking::process_tracking,
+    util::{
+        constants::{
             common_literals::{DISCORD, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
-        }}};
+        },
+        ApplicationCommandExt, InteractionExt, MessageExt,
+    },
+    Args, BotResult, CommandData, Context, MessageBuilder, Name,
+};
 
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::sync::Arc;
@@ -28,7 +38,7 @@ async fn ratios(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         CommandData::Message { msg, mut args, num } => {
             let name = match args.next() {
                 Some(arg) => match Args::check_user_mention(&ctx, arg).await {
-                    Ok(Ok(name)) => Some(name),
+                    Ok(Ok(osu)) => Some(osu.into_username()),
                     Ok(Err(content)) => return msg.error(&ctx, content).await,
                     Err(why) => {
                         let _ = msg.error(&ctx, GENERAL_ISSUE).await;
@@ -36,8 +46,8 @@ async fn ratios(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                         return Err(why);
                     }
                 },
-                None => match ctx.user_config(msg.author.id).await {
-                    Ok(config) => config.osu_username,
+                None => match ctx.psql().get_user_osu(msg.author.id).await {
+                    Ok(osu) => osu.map(OsuData::into_username),
                     Err(why) => {
                         let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
@@ -106,13 +116,13 @@ async fn parse_username(
     ctx: &Context,
     command: &mut ApplicationCommand,
 ) -> BotResult<Result<Option<Name>, String>> {
-    let mut username = None;
+    let mut osu = None;
 
     for option in command.yoink_options() {
         match option {
             CommandDataOption::String { name, value } => match name.as_str() {
-                NAME => username = Some(value.into()),
-                DISCORD => username = parse_discord_option!(ctx, value, "ratios"),
+                NAME => osu = Some(value.into()),
+                DISCORD => osu = Some(parse_discord_option!(ctx, value, "ratios")),
                 _ => bail_cmd_option!(RATIOS, string, name),
             },
             CommandDataOption::Integer { name, .. } => bail_cmd_option!(RATIOS, integer, name),
@@ -123,12 +133,12 @@ async fn parse_username(
         }
     }
 
-    let name = match username {
-        Some(name) => Some(name),
-        None => ctx.user_config(command.user_id()?).await?.osu_username,
+    let osu = match osu {
+        Some(osu) => Some(osu),
+        None => ctx.psql().get_user_osu(command.user_id()?).await?,
     };
 
-    Ok(Ok(name))
+    Ok(Ok(osu.map(OsuData::into_username)))
 }
 
 pub async fn slash_ratio(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {

@@ -31,14 +31,13 @@ use super::option_mode;
 
 async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -> BotResult<()> {
     let ProfileArgs { config } = args;
+    let kind = config.profile_size.unwrap_or_default();
+    let mode = config.mode.unwrap_or(GameMode::STD);
 
-    let name = match config.osu_username {
+    let name = match config.into_username() {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
-
-    let kind = config.profile_size.unwrap_or_default();
-    let mode = config.mode.unwrap_or(GameMode::STD);
 
     // Retrieve the user and their top scores
     let user_fut = super::request_user(&ctx, &name, Some(mode));

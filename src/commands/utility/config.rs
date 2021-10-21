@@ -1,7 +1,7 @@
 use crate::{
     commands::{osu::ProfileSize, MyCommand, MyCommandOption},
     core::{server::AuthenticationStandbyError, CONFIG},
-    database::UserConfig,
+    database::{OsuData, UserConfig},
     embeds::{ConfigEmbed, EmbedBuilder, EmbedData},
     util::{
         constants::{
@@ -69,15 +69,15 @@ pub async fn config_(
     }
 
     if let Some(maximize) = embeds_maximized {
-        config.embeds_maximized = maximize;
+        config.embeds_maximized = Some(maximize);
     }
 
     if let Some(retries) = show_retries {
-        config.show_retries = retries;
+        config.show_retries = Some(retries);
     }
 
     if let Some(false) = osu {
-        config.osu_username.take();
+        config.osu.take();
     }
 
     if let Some(false) = twitch {
@@ -140,7 +140,11 @@ async fn handle_both_links(
 
     match handle_ephemeral(ctx, &command, builder, fut).await {
         Some(Ok((osu, twitch))) => {
-            config.osu_username = Some(osu.username.into());
+            config.osu = Some(OsuData::User {
+                user_id: osu.user_id,
+                username: osu.username.into(),
+            });
+
             config.twitch_id = Some(twitch.user_id);
             twitch_name = Some(twitch.display_name);
         }
@@ -204,11 +208,14 @@ async fn handle_osu_link(
     let fut = ctx.auth_standby.wait_for_osu();
     let builder = MessageBuilder::new().embed(osu_content(fut.state));
 
-    match handle_ephemeral(ctx, &command, builder, fut).await {
-        Some(Ok(user)) => config.osu_username = Some(user.username.into()),
+    config.osu = match handle_ephemeral(ctx, &command, builder, fut).await {
+        Some(Ok(user)) => Some(OsuData::User {
+            user_id: user.user_id,
+            username: user.username.into(),
+        }),
         Some(Err(why)) => return Err(why),
         None => return Ok(()),
-    }
+    };
 
     let author = command.author().ok_or(Error::MissingInteractionAuthor)?;
     let mut twitch_name = None;

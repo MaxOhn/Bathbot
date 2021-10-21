@@ -90,7 +90,7 @@ impl TrackArgs {
                 }
             } else {
                 let name_ = match Args::check_user_mention(ctx, arg.as_ref()).await? {
-                    Ok(name) => name,
+                    Ok(osu) => osu.into_username(),
                     Err(content) => return Ok(Err(content.into())),
                 };
 

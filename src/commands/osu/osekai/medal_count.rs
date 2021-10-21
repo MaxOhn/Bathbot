@@ -1,5 +1,6 @@
 use crate::{
     custom_client::MedalCount,
+    database::OsuData,
     embeds::{EmbedData, MedalCountEmbed},
     pagination::{MedalCountPagination, Pagination},
     util::{constants::OSEKAI_ISSUE, numbers, InteractionExt, MessageExt},
@@ -10,16 +11,12 @@ use std::sync::Arc;
 use twilight_model::application::interaction::ApplicationCommand;
 
 pub(super) async fn medal_count(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
-    let config_fut = async {
-        let user_id = command.user_id()?;
-
-        ctx.user_config(user_id).await
-    };
-
+    let owner = command.user_id()?;
+    let osu_fut = ctx.psql().get_user_osu(owner);
     let osekai_fut = ctx.clients.custom.get_osekai_ranking(MedalCount);
 
-    let (ranking, author_name) = match tokio::join!(osekai_fut, config_fut) {
-        (Ok(ranking), Ok(config)) => (ranking, config.osu_username),
+    let (ranking, author_name) = match tokio::join!(osekai_fut, osu_fut) {
+        (Ok(ranking), Ok(osu)) => (ranking, osu.map(OsuData::into_username)),
         (Ok(ranking), Err(why)) => {
             unwind_error!(warn, why, "Failed to retrieve user config: {}");
 
@@ -42,7 +39,6 @@ pub(super) async fn medal_count(ctx: Arc<Context>, command: ApplicationCommand) 
     let embed_data = MedalCountEmbed::new(&ranking[..10], 0, author_idx, (1, pages));
     let builder = embed_data.into_builder().build().into();
     let response = command.create_message(&ctx, builder).await?.model().await?;
-    let owner = command.user_id()?;
     let pagination = MedalCountPagination::new(response, ranking, author_idx);
 
     tokio::spawn(async move {

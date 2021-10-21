@@ -1,7 +1,7 @@
 use super::UserValue;
 use crate::{
     custom_client::{OsekaiRanking, OsekaiRankingEntry},
-    database::UserConfig,
+    database::OsuData,
     embeds::{EmbedData, RankingEmbed, RankingEntry, RankingKindData},
     pagination::{Pagination, RankingPagination},
     util::{constants::OSEKAI_ISSUE, numbers, InteractionExt, MessageExt},
@@ -20,9 +20,9 @@ where
     R: OsekaiRanking<Entry = OsekaiRankingEntry<usize>>,
 {
     let osekai_fut = ctx.clients.custom.get_osekai_ranking(kind);
-    let config_fut = ctx.user_config(command.user_id()?);
+    let osu_fut = ctx.psql().get_user_osu(command.user_id()?);
 
-    let (osekai_result, config_result) = tokio::join!(osekai_fut, config_fut);
+    let (osekai_result, osu_result) = tokio::join!(osekai_fut, osu_fut);
 
     let ranking = match osekai_result {
         Ok(ranking) => ranking,
@@ -53,7 +53,7 @@ where
 
     let data = <R as OsekaiRanking>::RANKING;
 
-    send_response(ctx, command, users, data, config_result).await
+    send_response(ctx, command, users, data, osu_result).await
 }
 
 pub(super) async fn pp<R>(ctx: Arc<Context>, command: ApplicationCommand, kind: R) -> BotResult<()>
@@ -62,9 +62,9 @@ where
 {
     let owner = command.user_id()?;
     let osekai_fut = ctx.clients.custom.get_osekai_ranking(kind);
-    let config_fut = ctx.user_config(owner);
+    let osu_fut = ctx.psql().get_user_osu(owner);
 
-    let (osekai_result, config_result) = tokio::join!(osekai_fut, config_fut);
+    let (osekai_result, osu_result) = tokio::join!(osekai_fut, osu_fut);
 
     let ranking = match osekai_result {
         Ok(ranking) => ranking,
@@ -95,7 +95,7 @@ where
 
     let data = <R as OsekaiRanking>::RANKING;
 
-    send_response(ctx, command, users, data, config_result).await
+    send_response(ctx, command, users, data, osu_result).await
 }
 
 async fn send_response(
@@ -103,10 +103,10 @@ async fn send_response(
     command: ApplicationCommand,
     users: BTreeMap<usize, RankingEntry>,
     data: RankingKindData,
-    config_result: BotResult<UserConfig>,
+    osu_result: BotResult<Option<OsuData>>,
 ) -> BotResult<()> {
-    let username = match config_result {
-        Ok(config) => config.osu_username,
+    let username = match osu_result {
+        Ok(osu) => osu.map(OsuData::into_username),
         Err(why) => {
             unwind_error!(warn, why, "Failed to retrieve user config: {}");
 

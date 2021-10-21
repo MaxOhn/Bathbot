@@ -27,13 +27,13 @@ pub(super) async fn _mapper(
     args: MapperArgs,
 ) -> BotResult<()> {
     let MapperArgs { config, mapper } = args;
+    let mode = config.mode.unwrap_or(GameMode::STD);
 
-    let user = match config.osu_username {
+    let user = match config.into_username() {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
 
-    let mode = config.mode.unwrap_or(GameMode::STD);
     let mapper = mapper.cow_to_ascii_lowercase();
 
     // Retrieve the user and their top scores
@@ -380,13 +380,13 @@ impl MapperArgs {
 
         if let Some(name) = name {
             match Args::check_user_mention(ctx, name).await? {
-                Ok(name) => config.osu_username = Some(name),
+                Ok(osu) => config.osu = Some(osu),
                 Err(content) => return Ok(Err(content)),
             }
         }
 
         let mapper = match Args::check_user_mention(ctx, mapper).await? {
-            Ok(name_) => name_,
+            Ok(osu) => osu.into_username(),
             Err(content) => return Ok(Err(content)),
         };
 
@@ -404,11 +404,9 @@ impl MapperArgs {
         for option in options {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
-                    NAME => config.osu_username = Some(value.into()),
+                    NAME => config.osu = Some(value.into()),
                     "mapper" => mapper = Some(value.into()),
-                    DISCORD => {
-                        config.osu_username = parse_discord_option!(ctx, value, "top mapper")
-                    }
+                    DISCORD => config.osu = Some(parse_discord_option!(ctx, value, "top mapper")),
                     MODE => config.mode = parse_mode_option!(value, "top mapper"),
                     _ => bail_cmd_option!(TOP_MAPPER, string, name),
                 },
