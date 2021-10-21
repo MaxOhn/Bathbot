@@ -408,9 +408,12 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
             ctx.stats.event_counts.gateway_reconnect.inc();
         }
         Event::GiftCodeUpdate => {}
-        Event::GuildCreate(e) => {
+        Event::GuildCreate(_) => {
             ctx.stats.event_counts.guild_create.inc();
-            let _ = ctx.member_tx.send((e.id, shard_id));
+
+            // if let Err(why) = ctx.member_tx.send((e.id, shard_id)) {
+            //     warn!("Failed to forward member request: {}", why);
+            // }
         }
         Event::GuildDelete(_) => ctx.stats.event_counts.guild_delete.inc(),
         Event::GuildEmojisUpdate(_) => {}
