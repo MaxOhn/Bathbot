@@ -143,6 +143,19 @@ impl Database {
     }
 
     pub async fn insert_user_config(&self, user_id: UserId, config: &UserConfig) -> BotResult<()> {
+        if let Some(OsuData::User { user_id, username }) = &config.osu {
+            let query = sqlx::query!(
+                "INSERT INTO osu_user_names (user_id, username)
+                VALUES ($1,$2) ON CONFLICT (user_id) DO
+                UPDATE
+                SET username=$2",
+                *user_id as i32,
+                username.as_str()
+            );
+
+            query.execute(&self.pool).await?;
+        }
+
         let query = sqlx::query!(
             "INSERT INTO user_configs (\
                 discord_id,\
