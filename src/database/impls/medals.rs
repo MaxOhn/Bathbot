@@ -15,10 +15,33 @@ impl Database {
 
     async fn _store_medal(&self, medal: &OsekaiMedal) -> BotResult<()> {
         let query = sqlx::query!(
-            "INSERT INTO osekai_medals\
-            (medal_id,name,icon_url,description,restriction,grouping,solution,mods,mode_order,ordering) VALUES\
-            ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (medal_id) DO UPDATE SET medal_id=$1,name=$2,icon_url=$3,\
-            description=$4,restriction=$5,grouping=$6,solution=$7,mods=$8,mode_order=$9,ordering=$10",
+            "INSERT INTO osekai_medals (\
+                medal_id,\
+                name,\
+                icon_url,\
+                description,\
+                restriction,\
+                grouping,\
+                solution,\
+                mods,\
+                mode_order,\
+                ordering\
+            )\
+            VALUES\
+            ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)\
+            ON CONFLICT (medal_id) DO \
+            UPDATE \
+            SET \
+                medal_id=$1,\
+                name=$2,\
+                icon_url=$3,\
+                description=$4,\
+                restriction=$5,\
+                grouping=$6,\
+                solution=$7,\
+                mods=$8,\
+                mode_order=$9,\
+                ordering=$10",
             medal.medal_id as i32,
             medal.name,
             medal.icon_url,

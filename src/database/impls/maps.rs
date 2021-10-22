@@ -67,6 +67,7 @@ impl Database {
         Ok(mapset.into())
     }
 
+    // TODO: Return vec of (map id, max combo)?
     pub async fn get_beatmap_combo(&self, map_id: u32) -> BotResult<Option<u32>> {
         let row = sqlx::query!("SELECT max_combo FROM maps WHERE map_id=$1", map_id as i32)
             .fetch_one(&self.pool)
@@ -210,10 +211,30 @@ impl Database {
 
 async fn _insert_map(conn: &mut PgConnection, map: &Beatmap) -> BotResult<()> {
     sqlx::query!(
-        "INSERT INTO maps (map_id,mapset_id,user_id,checksum,version,seconds_total,
-        seconds_drain,count_circles,count_sliders,count_spinners,hp,cs,od,ar,mode,
-        status,last_update,stars,bpm,max_combo) VALUES
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+        "INSERT INTO maps (\
+            map_id,\
+            mapset_id,\
+            user_id,\
+            checksum,\
+            version,\
+            seconds_total,\
+            seconds_drain,\
+            count_circles,\
+            count_sliders,\
+            count_spinners,\
+            hp,\
+            cs,\
+            od,\
+            ar,\
+            mode,\
+            status,\
+            last_update,\
+            stars,\
+            bpm,\
+            max_combo\
+        )\
+        VALUES\
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)\
         ON CONFLICT (map_id) DO NOTHING",
         map.map_id as i32,
         map.mapset_id as i32,
@@ -252,9 +273,21 @@ fn _insert_mapset<'a>(
 ) -> BoxFuture<'a, BotResult<()>> {
     let fut = async move {
         sqlx::query!(
-            "INSERT INTO mapsets (mapset_id,user_id,artist,title,creator,
-            status,ranked_date,genre,language,bpm) VALUES
-            ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (mapset_id) DO NOTHING",
+            "INSERT INTO mapsets (\
+                mapset_id,\
+                user_id,\
+                artist,\
+                title,\
+                creator,\
+                status,\
+                ranked_date,\
+                genre,\
+                language,\
+                bpm\
+            )\
+            VALUES\
+            ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)\
+            ON CONFLICT (mapset_id) DO NOTHING",
             mapset.mapset_id as i32,
             mapset.creator_id as i32,
             mapset.artist,
@@ -288,9 +321,20 @@ fn _insert_mapset_compact<'a>(
 ) -> BoxFuture<'a, BotResult<()>> {
     let fut = async move {
         sqlx::query!(
-            "INSERT INTO mapsets (mapset_id,user_id,artist,title,creator,
-            status,ranked_date,genre,language) VALUES
-            ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (mapset_id) DO NOTHING",
+            "INSERT INTO mapsets (\
+                mapset_id,\
+                user_id,\
+                artist,\
+                title,\
+                creator,\
+                status,\
+                ranked_date,\
+                genre,\
+                language\
+            )\
+            VALUES\
+            ($1,$2,$3,$4,$5,$6,$7,$8,$9)\
+            ON CONFLICT (mapset_id) DO NOTHING",
             mapset.mapset_id as i32,
             mapset.creator_id as i32,
             mapset.artist,

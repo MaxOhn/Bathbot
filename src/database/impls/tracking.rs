@@ -41,7 +41,9 @@ impl Database {
         channels: &HashMap<ChannelId, usize>,
     ) -> BotResult<()> {
         sqlx::query!(
-            "UPDATE osu_trackings SET last_top_score=$3, channels=$4 WHERE user_id=$1 AND mode=$2",
+            "UPDATE osu_trackings \
+            SET last_top_score=$3,channels=$4 \
+            WHERE user_id=$1 AND mode=$2",
             user_id as i32,
             mode as i16,
             last_top_score,
@@ -77,8 +79,12 @@ impl Database {
         set.insert(channel, limit);
 
         let row = sqlx::query!(
-            "INSERT INTO osu_trackings VALUES ($1,$2,$3,$4) ON CONFLICT
-            (user_id,mode) DO UPDATE SET last_top_score=$3 RETURNING channels",
+            "INSERT INTO osu_trackings \
+            VALUES ($1,$2,$3,$4)\
+            ON CONFLICT (user_id,mode) DO \
+            UPDATE \
+            SET last_top_score=$3 \
+            RETURNING channels",
             user_id as i32,
             mode as i16,
             last_top_score,
