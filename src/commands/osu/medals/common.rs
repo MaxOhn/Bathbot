@@ -11,7 +11,7 @@ use crate::{
 };
 
 use hashbrown::HashMap;
-use rosu_v2::prelude::User;
+use rosu_v2::prelude::{GameMode, User};
 use std::{borrow::Cow, sync::Arc};
 use twilight_model::{
     application::interaction::application_command::CommandDataOption, id::UserId,
@@ -39,8 +39,8 @@ pub(super) async fn _common(
     }
 
     // Retrieve all users and their scores
-    let user_fut1 = super::request_user(&ctx, &name1, None);
-    let user_fut2 = super::request_user(&ctx, &name2, None);
+    let user_fut1 = super::request_user(&ctx, &name1, GameMode::STD);
+    let user_fut2 = super::request_user(&ctx, &name2, GameMode::STD);
     let medals_fut = ctx.psql().get_medals();
 
     let (user1, user2, mut medals_map) = match tokio::join!(user_fut1, user_fut2, medals_fut) {

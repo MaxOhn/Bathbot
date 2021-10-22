@@ -79,7 +79,7 @@ pub(super) async fn _sniped(
         None => return super::require_link(&ctx, &data).await,
     };
 
-    let mut user = match super::request_user(&ctx, &name, Some(GameMode::STD)).await {
+    let mut user = match super::request_user(&ctx, &name, GameMode::STD).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{}`", name);

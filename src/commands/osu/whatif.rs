@@ -39,7 +39,7 @@ async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> 
     }
 
     // Retrieve the user and their top scores
-    let user_fut = super::request_user(&ctx, &name, Some(mode));
+    let user_fut = super::request_user(&ctx, &name, mode);
 
     let scores_fut = ctx
         .osu()

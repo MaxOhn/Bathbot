@@ -43,7 +43,7 @@ pub(super) async fn _rankscore(
     // Retrieve the user and the user thats holding the given rank
     let page = (rank / 50) + (rank % 50 != 0) as usize;
     let rank_holder_fut = ctx.osu().score_rankings(mode).page(page as u32);
-    let user_fut = super::request_user(&ctx, &name, Some(mode));
+    let user_fut = super::request_user(&ctx, &name, mode);
 
     let (mut user, rank_holder) = match tokio::try_join!(user_fut, rank_holder_fut) {
         Ok((user, mut rankings)) => {

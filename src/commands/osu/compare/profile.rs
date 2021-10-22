@@ -46,8 +46,8 @@ pub(super) async fn _profilecompare(
     }
 
     // Retrieve all users and their scores
-    let user_fut1 = super::request_user(&ctx, &name1, Some(mode));
-    let user_fut2 = super::request_user(&ctx, &name2, Some(mode));
+    let user_fut1 = super::request_user(&ctx, &name1, mode);
+    let user_fut2 = super::request_user(&ctx, &name2, mode);
 
     let scores_fut_u1 = ctx
         .osu()

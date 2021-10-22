@@ -14,7 +14,7 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
-use rosu_v2::prelude::{OsuError, User};
+use rosu_v2::prelude::{GameMode, OsuError, User};
 use std::{cmp::Reverse, sync::Arc};
 use twilight_model::{
     application::interaction::application_command::CommandDataOption, id::UserId,
@@ -60,7 +60,7 @@ pub(super) async fn _medalrecent(
         None => return super::require_link(&ctx, &data).await,
     };
 
-    let user_fut = super::request_user(&ctx, &name, None);
+    let user_fut = super::request_user(&ctx, &name, GameMode::STD);
 
     let mut user = match user_fut.await {
         Ok(user) => user,

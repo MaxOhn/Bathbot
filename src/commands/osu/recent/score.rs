@@ -64,7 +64,7 @@ pub(super) async fn _recent(
     let mode = config.mode.unwrap_or(GameMode::STD);
 
     // Retrieve the user and their recent scores
-    let user_fut = super::request_user(&ctx, name, Some(mode));
+    let user_fut = super::request_user(&ctx, name, mode);
 
     let scores_fut = ctx
         .osu()

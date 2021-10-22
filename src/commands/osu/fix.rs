@@ -202,7 +202,7 @@ async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotRes
                 },
             };
 
-            let user = match super::request_user(&ctx, name.as_str(), Some(map.mode)).await {
+            let user = match super::request_user(&ctx, name.as_str(), map.mode).await {
                 Ok(user) => user,
                 Err(OsuError::NotFound) => {
                     let content = format!("Could not find user `{}`", name);

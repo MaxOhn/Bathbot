@@ -60,7 +60,7 @@ pub(super) async fn _countrysnipelist(
         .await
         .map(|osu| osu.map(OsuData::into_username))
     {
-        Ok(Some(name)) => match super::request_user(&ctx, &name, Some(GameMode::STD)).await {
+        Ok(Some(name)) => match super::request_user(&ctx, &name, GameMode::STD).await {
             Ok(user) => Some(user),
             Err(OsuError::NotFound) => {
                 let content = format!("User `{}` was not found", name);

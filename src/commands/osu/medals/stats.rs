@@ -11,7 +11,7 @@ use crate::{
 use chrono::Datelike;
 use image::{png::PngEncoder, ColorType};
 use plotters::prelude::*;
-use rosu_v2::prelude::{MedalCompact, OsuError};
+use rosu_v2::prelude::{GameMode, MedalCompact, OsuError};
 use std::sync::Arc;
 
 #[command]
@@ -58,7 +58,7 @@ pub(super) async fn _medalstats(
         None => return super::require_link(&ctx, &data).await,
     };
 
-    let user_fut = super::request_user(&ctx, &name, None);
+    let user_fut = super::request_user(&ctx, &name, GameMode::STD);
     let medals_fut = ctx.psql().get_medals();
 
     let (mut user, all_medals) = match tokio::join!(user_fut, medals_fut) {

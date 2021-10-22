@@ -35,7 +35,7 @@ pub(super) async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) 
     }
 
     // Retrieve the user and their top scores
-    let user_fut = super::request_user(&ctx, &name, Some(mode));
+    let user_fut = super::request_user(&ctx, &name, mode);
     let scores_fut = ctx
         .osu()
         .user_scores(name.as_str())

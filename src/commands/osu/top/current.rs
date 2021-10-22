@@ -93,7 +93,7 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
     };
 
     // Retrieve the user and their top scores
-    let user_fut = super::request_user(&ctx, name, Some(mode)).map_err(From::from);
+    let user_fut = super::request_user(&ctx, name, mode).map_err(From::from);
     let scores_fut = ctx.osu().user_scores(name).best().mode(mode).limit(100);
     let scores_fut = super::prepare_scores(&ctx, scores_fut);
 

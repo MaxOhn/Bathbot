@@ -69,7 +69,7 @@ async fn _bws(ctx: Arc<Context>, data: CommandData<'_>, args: BwsArgs) -> BotRes
         None => return super::require_link(&ctx, &data).await,
     };
 
-    let user = match super::request_user(&ctx, &name, Some(mode)).await {
+    let user = match super::request_user(&ctx, &name, mode).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);

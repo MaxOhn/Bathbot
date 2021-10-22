@@ -16,7 +16,7 @@ use crate::{
     Args, BotResult, CommandData, Context, Name,
 };
 
-use rosu_v2::prelude::OsuError;
+use rosu_v2::prelude::{GameMode, OsuError};
 use std::sync::Arc;
 use twilight_model::application::interaction::{
     application_command::CommandDataOption, ApplicationCommand,
@@ -67,7 +67,7 @@ async fn _mostplayed(
     };
 
     // Retrieve the user and their most played maps
-    let user_fut = super::request_user(&ctx, &name, None);
+    let user_fut = super::request_user(&ctx, &name, GameMode::STD);
     let maps_fut_1 = ctx.osu().user_most_played(name.as_str()).limit(50);
     let maps_fut_2 = ctx
         .osu()

@@ -13,7 +13,7 @@ use crate::{
     BotResult, CommandData, Context, Name,
 };
 
-use rosu_v2::error::OsuError;
+use rosu_v2::prelude::{GameMode, OsuError};
 use std::sync::Arc;
 use twilight_model::{
     application::interaction::{application_command::CommandDataOption, ApplicationCommand},
@@ -62,7 +62,7 @@ async fn _avatar(ctx: Arc<Context>, data: CommandData<'_>, name: Option<Name>) -
         None => return super::require_link(&ctx, &data).await,
     };
 
-    let user = match super::request_user(&ctx, &name, None).await {
+    let user = match super::request_user(&ctx, &name, GameMode::STD).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);

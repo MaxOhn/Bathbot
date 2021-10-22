@@ -69,7 +69,7 @@ async fn _ratios(ctx: Arc<Context>, data: CommandData<'_>, name: Option<Name>) -
     };
 
     // Retrieve the user and their top scores
-    let user_fut = super::request_user(&ctx, &name, Some(GameMode::MNA));
+    let user_fut = super::request_user(&ctx, &name, GameMode::MNA);
 
     let scores_fut = ctx
         .osu()

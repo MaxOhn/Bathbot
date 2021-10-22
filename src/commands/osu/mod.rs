@@ -102,13 +102,8 @@ impl From<OsuError> for ErrorType {
 
 const USER_CACHE_SECONDS: usize = 600;
 
-pub async fn request_user(ctx: &Context, name: &str, mode: Option<GameMode>) -> OsuResult<User> {
-    let mut key = String::with_capacity(2 + name.len() + 2 * mode.is_some() as usize);
-    let _ = write!(key, "__{}", name);
-
-    if let Some(mode) = mode {
-        let _ = write!(key, "_{}", mode as u8);
-    }
+pub async fn request_user(ctx: &Context, name: &str, mode: GameMode) -> OsuResult<User> {
+    let key = format!("__{}_{}", name, mode as u8);
 
     let mut conn = match ctx.clients.redis.get().await {
         Ok(mut conn) => {
@@ -127,21 +122,12 @@ pub async fn request_user(ctx: &Context, name: &str, mode: Option<GameMode>) -> 
         }
         Err(why) => {
             unwind_error!(warn, why, "Failed to get redis connection for user: {}");
-            let user_fut = ctx.osu().user(name);
 
-            return match mode {
-                Some(mode) => user_fut.mode(mode).await,
-                None => user_fut.await,
-            };
+            return ctx.osu().user(name).mode(mode).await;
         }
     };
 
-    let user_fut = ctx.osu().user(name);
-
-    let mut user = match mode {
-        Some(mode) => user_fut.mode(mode).await?,
-        None => user_fut.await?,
-    };
+    let mut user = ctx.osu().user(name).mode(mode).await?;
 
     // Remove html user page to reduce overhead
     user.page.take();

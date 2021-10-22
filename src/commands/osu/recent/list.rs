@@ -34,7 +34,7 @@ pub(super) async fn _recentlist(
     };
 
     // Retrieve the user and their recent scores
-    let user_fut = super::request_user(&ctx, &name, Some(mode)).map_err(From::from);
+    let user_fut = super::request_user(&ctx, &name, mode).map_err(From::from);
 
     let scores_fut = ctx
         .osu()

@@ -55,7 +55,7 @@ pub(super) async fn _rank(
             rank_holder_fut = rank_holder_fut.country(country.as_str());
         }
 
-        let user_fut = super::request_user(&ctx, &name, Some(mode));
+        let user_fut = super::request_user(&ctx, &name, mode);
 
         let (mut user, rank_holder) = match tokio::try_join!(user_fut, rank_holder_fut) {
             Ok((user, mut rankings)) => {
@@ -91,7 +91,7 @@ pub(super) async fn _rank(
             .custom
             .get_rank_data(mode, RankParam::Rank(rank));
 
-        let user_fut = super::request_user(&ctx, &name, Some(mode));
+        let user_fut = super::request_user(&ctx, &name, mode);
         let (pp_result, user_result) = tokio::join!(pp_fut, user_fut);
 
         let required_pp = match pp_result {

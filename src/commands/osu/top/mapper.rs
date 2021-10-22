@@ -37,7 +37,7 @@ pub(super) async fn _mapper(
     let mapper = mapper.cow_to_ascii_lowercase();
 
     // Retrieve the user and their top scores
-    let user_fut = super::request_user(&ctx, &user, Some(mode)).map_err(From::from);
+    let user_fut = super::request_user(&ctx, &user, mode).map_err(From::from);
     let scores_fut = ctx
         .osu()
         .user_scores(user.as_str())

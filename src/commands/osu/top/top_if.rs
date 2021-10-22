@@ -49,7 +49,6 @@ pub(super) async fn _topif(
         None => return super::require_link(&ctx, &data).await,
     };
 
-
     if let ModSelection::Exact(mods) | ModSelection::Include(mods) = mods {
         let mut content = None;
         let ezhr = EZ | HR;
@@ -69,7 +68,7 @@ pub(super) async fn _topif(
     }
 
     // Retrieve the user and their top scores
-    let user_fut = super::request_user(&ctx, &name, Some(mode)).map_err(From::from);
+    let user_fut = super::request_user(&ctx, &name, mode).map_err(From::from);
     let scores_fut = ctx
         .osu()
         .user_scores(name.as_str())
