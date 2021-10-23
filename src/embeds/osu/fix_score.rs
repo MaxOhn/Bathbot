@@ -61,7 +61,7 @@ impl FixScoreEmbed {
                         write!(
                             description,
                             "The score would have moved from personal #{} to #{}, \
-                            pushing the total pp to **{}pp**.",
+                            pushing their total pp to **{}pp**.",
                             old_idx,
                             new_idx,
                             with_comma_float(new_pp)
@@ -70,7 +70,7 @@ impl FixScoreEmbed {
                         write!(
                             description,
                             "It would have been a personal top #{}, \
-                            pushing the total pp to **{}pp**.",
+                            pushing their total pp to **{}pp**.",
                             new_idx,
                             with_comma_float(new_pp),
                         )
@@ -92,7 +92,7 @@ impl FixScoreEmbed {
                 write!(
                     description,
                     "If the map wasn't {:?}, an FC would have \
-                    been a personal #{}, pushing the total pp to **{}pp**.",
+                    been a personal #{}, pushing their total pp to **{}pp**.",
                     map.status,
                     idx,
                     with_comma_float(new_pp)
@@ -121,7 +121,7 @@ impl FixScoreEmbed {
                     let _ = write!(
                         description,
                         ". If the map wasn't {:?} the score would have \
-                        been a personal #{}, pushing the total pp to **{}pp**.",
+                        been a personal #{}, pushing their total pp to **{}pp**.",
                         map.status,
                         idx,
                         with_comma_float(new_pp)
