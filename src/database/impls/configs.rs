@@ -144,16 +144,7 @@ impl Database {
 
     pub async fn insert_user_config(&self, user_id: UserId, config: &UserConfig) -> BotResult<()> {
         if let Some(OsuData::User { user_id, username }) = &config.osu {
-            let query = sqlx::query!(
-                "INSERT INTO osu_user_names (user_id, username)
-                VALUES ($1,$2) ON CONFLICT (user_id) DO
-                UPDATE
-                SET username=$2",
-                *user_id as i32,
-                username.as_str()
-            );
-
-            query.execute(&self.pool).await?;
+            self.upsert_osu_name(*user_id, username).await?;
         }
 
         let query = sqlx::query!(
@@ -193,14 +184,14 @@ impl Database {
         Ok(())
     }
 
-    pub async fn update_osu_name(&self, user: &User) -> BotResult<()> {
+    pub async fn upsert_osu_name(&self, user_id: u32, username: &str) -> BotResult<()> {
         let query = sqlx::query!(
             "INSERT INTO osu_user_names (user_id,username)\
             VALUES ($1,$2) ON CONFLICT (user_id) DO \
             UPDATE \
             SET username=$2",
-            user.user_id as i32,
-            user.username,
+            user_id as i32,
+            username,
         );
 
         query.execute(&self.pool).await?;
