@@ -5,7 +5,7 @@ use crate::{
         datetime::{how_long_ago_dynamic, HowLongAgoFormatterDynamic},
         error::PPError,
         matcher::highlight_funny_numeral,
-        numbers::{round, with_comma_float, with_comma_uint},
+        numbers::{round, with_comma_float, with_comma_int},
         osu::{grade_completion_mods, prepare_beatmap_file},
         ScoreExt,
     },
@@ -212,7 +212,7 @@ impl CompareEmbed {
         let ago = how_long_ago_dynamic(&score.created_at);
         let timestamp = score.created_at;
         let mods = score.mods;
-        let score = with_comma_uint(score.score).to_string();
+        let score = with_comma_int(score.score).to_string();
 
         Ok(Self {
             description,
@@ -327,7 +327,7 @@ impl NoScoresEmbed {
             "{name}: {pp}pp (#{global} {country}{national})",
             name = user.username,
             pp = with_comma_float(stats.pp),
-            global = with_comma_uint(stats.global_rank.unwrap_or(0)),
+            global = with_comma_int(stats.global_rank.unwrap_or(0)),
             country = user.country_code,
             national = stats.country_rank.unwrap_or(0),
         );

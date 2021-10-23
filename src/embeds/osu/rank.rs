@@ -2,7 +2,7 @@ use crate::{
     commands::osu::RankData,
     embeds::Author,
     util::{
-        numbers::{with_comma_float, with_comma_uint},
+        numbers::{with_comma_float, with_comma_int},
         osu::pp_missing,
     },
 };
@@ -88,14 +88,14 @@ impl RankEmbed {
                 let title = format!(
                     "How many pp is {name} missing to reach rank #{rank}?",
                     name = user.username,
-                    rank = with_comma_uint(*rank),
+                    rank = with_comma_int(*rank),
                 );
 
                 let description = if user_pp > *required_pp {
                     format!(
                         "Rank #{rank} currently requires **{required_pp}pp**, \
                         so {name} is already above that with **{pp}pp**.",
-                        rank = with_comma_uint(*rank),
+                        rank = with_comma_int(*rank),
                         required_pp = with_comma_float(*required_pp),
                         name = user.username,
                         pp = with_comma_float(user_pp)
@@ -107,7 +107,7 @@ impl RankEmbed {
                         "Rank #{rank} currently requires **{required_pp}pp**, \
                         so {name} is missing **{missing}** raw pp, \
                         achievable with a single score worth **{pp}pp**.",
-                        rank = with_comma_uint(*rank),
+                        rank = with_comma_int(*rank),
                         required_pp = with_comma_float(*required_pp),
                         name = user.username,
                         missing = with_comma_float(required_pp - user_pp),
@@ -118,7 +118,7 @@ impl RankEmbed {
                         "Rank #{rank} currently requires **{required_pp}pp**, \
                         so {name} is missing **{required_pp}** raw pp, \
                         achievable with a single score worth **{required_pp}pp**.",
-                        rank = with_comma_uint(*rank),
+                        rank = with_comma_int(*rank),
                         required_pp = with_comma_float(*required_pp),
                         name = user.username,
                     )

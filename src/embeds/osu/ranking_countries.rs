@@ -2,7 +2,7 @@ use crate::{
     embeds::Footer,
     util::{
         constants::common_literals::{CTB, MANIA, TAIKO},
-        numbers::with_comma_uint,
+        numbers::with_comma_int,
     },
 };
 
@@ -45,11 +45,11 @@ impl RankingCountriesEmbed {
             name_len = name_len.max(country.country.len());
 
             buf.clear();
-            let _ = write!(buf, "{}", with_comma_uint(country.pp as u64));
+            let _ = write!(buf, "{}", with_comma_int(country.pp as u64));
             pp_len = pp_len.max(buf.len());
 
             buf.clear();
-            let _ = write!(buf, "{}", with_comma_uint(country.active_users));
+            let _ = write!(buf, "{}", with_comma_int(country.active_users));
             users_len = users_len.max(buf.len());
         }
 
@@ -59,7 +59,7 @@ impl RankingCountriesEmbed {
             let idx = i + 1;
 
             buf.clear();
-            let _ = write!(buf, "{}", with_comma_uint(country.pp as u64));
+            let _ = write!(buf, "{}", with_comma_int(country.pp as u64));
 
             let _ = write!(
                 description,
@@ -74,7 +74,7 @@ impl RankingCountriesEmbed {
             );
 
             buf.clear();
-            let _ = write!(buf, "{}", with_comma_uint(country.active_users));
+            let _ = write!(buf, "{}", with_comma_int(country.active_users));
 
             let _ = writeln!(
                 description,

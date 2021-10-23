@@ -1,7 +1,7 @@
 use crate::{
     commands::osu::WhatIfData,
     embeds::Author,
-    util::numbers::{round, with_comma_float, with_comma_uint},
+    util::numbers::{round, with_comma_float, with_comma_int},
 };
 
 use rosu_v2::model::user::User;
@@ -45,7 +45,7 @@ impl WhatIfEmbed {
                     let _ = write!(
                         d,
                         "\nand they would reach rank #{}.",
-                        with_comma_uint(rank.min(stats.global_rank.unwrap_or(0)))
+                        with_comma_int(rank.min(stats.global_rank.unwrap_or(0)))
                     );
                 } else {
                     d.push('.');
@@ -74,7 +74,7 @@ impl WhatIfEmbed {
                     let _ = write!(
                         d,
                         "\nand they would reach rank #{}.",
-                        with_comma_uint(rank.min(stats.global_rank.unwrap_or(0)))
+                        with_comma_int(rank.min(stats.global_rank.unwrap_or(0)))
                     );
                 } else {
                     d.push('.');

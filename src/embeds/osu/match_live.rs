@@ -3,7 +3,7 @@ use crate::{
     util::{
         constants::{DESCRIPTION_SIZE, OSU_BASE},
         datetime::sec_to_minsec,
-        numbers::{round, with_comma_uint},
+        numbers::{round, with_comma_int},
         osu::grade_emote,
         ScoreExt,
     },
@@ -66,7 +66,7 @@ macro_rules! team {
             $buf.push_str(":blue_circle: **Blue Team** :blue_circle:");
 
             if let Some((score, _)) = $scores {
-                let _ = write!($buf, " | {}", with_comma_uint(score));
+                let _ = write!($buf, " | {}", with_comma_int(score));
             }
 
             $buf.push('\n');
@@ -74,7 +74,7 @@ macro_rules! team {
             $buf.push_str(":red_circle: **Red Team** :red_circle:");
 
             if let Some((_, score)) = $scores {
-                let _ = write!($buf, " | {}", with_comma_uint(score));
+                let _ = write!($buf, " | {}", with_comma_int(score));
             }
 
             $buf.push('\n');
@@ -526,10 +526,10 @@ fn game_content(lobby: &OsuMatch, game: &MatchGame) -> (String, Option<String>, 
 
                 let footer = match blue.cmp(&red) {
                     Ordering::Greater => {
-                        format!("Blue Team wins by {}", with_comma_uint(difference as u64))
+                        format!("Blue Team wins by {}", with_comma_int(difference as u64))
                     }
                     Ordering::Less => {
-                        format!("Red Team wins by {}", with_comma_uint(difference as u64))
+                        format!("Red Team wins by {}", with_comma_int(difference as u64))
                     }
                     Ordering::Equal => "Team scores are tied".to_owned(),
                 };
@@ -662,8 +662,8 @@ fn prepare_scores(
             None => format!("`User id {}`", score.user_id).into(),
         };
 
-        let score_str = with_comma_uint(score.score).to_string();
-        let combo = with_comma_uint(score.max_combo).to_string();
+        let score_str = with_comma_int(score.score).to_string();
+        let combo = with_comma_int(score.max_combo).to_string();
         let mods = score.mods.to_string();
         let team = score.team as usize;
         let grade = score.grade(mode);

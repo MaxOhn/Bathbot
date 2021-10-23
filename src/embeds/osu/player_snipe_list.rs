@@ -5,7 +5,7 @@ use crate::{
     util::{
         constants::OSU_BASE,
         datetime::how_long_ago_dynamic,
-        numbers::{round, with_comma_uint},
+        numbers::{round, with_comma_int},
     },
 };
 
@@ -70,7 +70,7 @@ impl PlayerSnipeListEmbed {
                 stars = osu::get_stars(score.stars),
                 pp = pp,
                 acc = round(score.accuracy),
-                score = with_comma_uint(score.score),
+                score = with_comma_int(score.score),
                 n300 = count_300,
                 n100 = score.count_100,
                 n50 = score.count_50,

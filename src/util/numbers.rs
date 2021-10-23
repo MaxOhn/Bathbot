@@ -5,13 +5,23 @@ pub fn round(n: f32) -> f32 {
     (100.0 * n).round() / 100.0
 }
 
+pub fn with_comma_float(n: f32) -> FormatF32 {
+    FormatF32(n)
+}
+
 pub struct FormatF32(f32);
 
 impl fmt::Display for FormatF32 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut int = self.0.trunc() as i64;
-        debug_assert!(int >= 0, "cannot round negative f32");
+        let n = if self.0 < 0.0 {
+            f.write_str("-")?;
 
+            -self.0
+        } else {
+            self.0
+        };
+
+        let mut int = n.trunc() as i64;
         let mut rev = 0;
         let mut triples = 0;
 
@@ -28,7 +38,7 @@ impl fmt::Display for FormatF32 {
             write!(f, ",{:0>3}", rev % 1000)?;
         }
 
-        let mut dec = (100.0 * self.0.fract()).round() as u32;
+        let mut dec = (100.0 * n.fract()).round() as u32;
 
         if dec > 0 {
             if dec % 10 == 0 {
@@ -42,15 +52,21 @@ impl fmt::Display for FormatF32 {
     }
 }
 
-pub fn with_comma_float(n: f32) -> FormatF32 {
-    FormatF32(n)
+pub fn with_comma_int<T: Int>(n: T) -> FormatInt {
+    FormatInt(n.into_i64())
 }
 
-pub struct FormatUint(u64);
+pub struct FormatInt(i64);
 
-impl fmt::Display for FormatUint {
+impl fmt::Display for FormatInt {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut n = self.0;
+        let mut n = if self.0 < 0 {
+            f.write_str("-")?;
+
+            -self.0
+        } else {
+            self.0
+        };
 
         let mut rev = 0;
         let mut triples = 0;
@@ -72,29 +88,31 @@ impl fmt::Display for FormatUint {
     }
 }
 
-pub trait Uint {
-    fn into_u64(self) -> u64;
+pub trait Int {
+    fn into_i64(self) -> i64;
 }
 
-macro_rules! into_uint {
+macro_rules! into_int {
     ($ty:ty) => {
-        impl Uint for $ty {
-            fn into_u64(self) -> u64 {
-                self as u64
+        impl Int for $ty {
+            fn into_i64(self) -> i64 {
+                self as i64
             }
         }
     };
 }
 
-into_uint!(u8);
-into_uint!(u16);
-into_uint!(u32);
-into_uint!(u64);
-into_uint!(usize);
+into_int!(u8);
+into_int!(u16);
+into_int!(u32);
+into_int!(u64);
+into_int!(usize);
 
-pub fn with_comma_uint<T: Uint>(n: T) -> FormatUint {
-    FormatUint(n.into_u64())
-}
+into_int!(i8);
+into_int!(i16);
+into_int!(i32);
+into_int!(i64);
+into_int!(isize);
 
 pub fn div_euclid(group: usize, total: usize) -> usize {
     if total % group == 0 && total > 0 {
@@ -127,9 +145,9 @@ mod tests {
     }
 
     #[test]
-    fn test_with_comma_u64() {
+    fn test_with_comma_int() {
         assert_eq!(
-            with_comma_uint(31_415_926_u32).to_string(),
+            with_comma_int(31_415_926_u32).to_string(),
             "31,415,926".to_owned()
         );
     }

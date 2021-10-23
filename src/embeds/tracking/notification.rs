@@ -4,7 +4,7 @@ use crate::{
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago_text,
-        numbers::{round, with_comma_uint},
+        numbers::{round, with_comma_int},
         osu::{grade_completion_mods, mode_emote},
         ScoreExt,
     },
@@ -58,7 +58,7 @@ impl TrackNotificationEmbed {
         let name = format!(
             "{}\t{}\t({}%)",
             grade_completion_mods(score, map),
-            with_comma_uint(score.score),
+            with_comma_int(score.score),
             round(score.accuracy)
         );
 

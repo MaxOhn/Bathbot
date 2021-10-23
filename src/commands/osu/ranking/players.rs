@@ -3,8 +3,7 @@ use crate::{
     pagination::{Pagination, RankingPagination},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        numbers::{self, with_comma_uint},
-        CountryCode, CowUtils, MessageExt,
+        numbers, CountryCode, CowUtils, MessageExt,
     },
     BotResult, CommandData, Context,
 };
@@ -325,10 +324,10 @@ pub enum UserValue {
 impl fmt::Display for UserValue {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            UserValue::Pp(pp) => write!(f, "{}pp", numbers::with_comma_uint(pp)),
+            UserValue::Pp(pp) => write!(f, "{}pp", numbers::with_comma_int(pp)),
             UserValue::Score(score) => {
                 if score < 1_000_000 {
-                    write!(f, "{}", with_comma_uint(score))
+                    write!(f, "{}", numbers::with_comma_int(score))
                 } else if score < 1_000_000_000 {
                     let score = (score / 10_000) as f32 / 100.0;
 

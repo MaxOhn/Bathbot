@@ -5,7 +5,7 @@ use crate::{
     util::{
         constants::OSU_BASE,
         datetime::how_long_ago_dynamic,
-        numbers::{with_comma_float, with_comma_uint},
+        numbers::{with_comma_float, with_comma_int},
         osu::grade_completion_mods,
         ScoreExt,
     },
@@ -93,7 +93,7 @@ impl PlayerSnipeStatsEmbed {
                     id = map.map_id,
                     grade = grade_completion_mods(&score, map),
                     stars = stars,
-                    score = with_comma_uint(score.score),
+                    score = with_comma_int(score.score),
                     acc = score.acc_string(GameMode::STD),
                     pp = pp,
                     combo = osu::get_combo(&score, map),

@@ -4,7 +4,7 @@ use crate::{
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL},
         error::PPError,
-        numbers::{round, with_comma_uint},
+        numbers::{round, with_comma_int},
         osu::{grade_completion_mods, prepare_beatmap_file, ModSelection},
         ScoreExt,
     },
@@ -256,7 +256,7 @@ impl EmbedData for SimulateEmbed {
         if self.mode == GameMode::MNA {
             fields.push(field!(
                 "Score",
-                with_comma_uint(self.score).to_string(),
+                with_comma_int(self.score).to_string(),
                 true
             ));
         } else {
@@ -298,7 +298,7 @@ impl EmbedData for SimulateEmbed {
         let _ = write!(name, "{} ", self.grade_completion_mods);
 
         if self.mode == GameMode::MNA {
-            let _ = write!(name, "{} ", with_comma_uint(self.score));
+            let _ = write!(name, "{} ", with_comma_int(self.score));
             let _ = write!(name, "({}%)", self.acc);
         } else {
             let _ = write!(name, "({}%)", self.acc);

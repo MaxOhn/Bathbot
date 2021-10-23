@@ -4,7 +4,7 @@ use crate::{
     embeds::Footer,
     util::{
         constants::OSU_BASE,
-        numbers::{with_comma_float, with_comma_uint},
+        numbers::{with_comma_float, with_comma_int},
         osu::flag_url,
         CountryCode,
     },
@@ -75,7 +75,7 @@ impl CountrySnipeListEmbed {
                 } else {
                     ""
                 },
-                count = with_comma_uint(player.count_first),
+                count = with_comma_int(player.count_first),
                 pp = with_comma_float(player.avg_pp),
                 stars = player.avg_sr,
                 weighted = with_comma_float(player.pp),

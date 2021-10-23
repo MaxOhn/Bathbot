@@ -1,6 +1,6 @@
 use crate::{
     embeds::{EmbedBuilder, EmbedData, Footer},
-    util::numbers::with_comma_uint,
+    util::numbers::with_comma_int,
 };
 
 use chrono::{DateTime, Utc};
@@ -22,37 +22,37 @@ impl CacheEmbed {
         let _ = writeln!(
             description,
             "Guild channels: {}",
-            with_comma_uint(metrics.channels_guild.get() as u64)
+            with_comma_int(metrics.channels_guild.get() as u64)
         );
 
         let _ = writeln!(
             description,
             "Private channels: {}",
-            with_comma_uint(stats.private_channels())
+            with_comma_int(stats.private_channels())
         );
 
-        let _ = writeln!(description, "Emojis: {}", with_comma_uint(stats.emojis()));
-        let _ = writeln!(description, "Guilds: {}", with_comma_uint(stats.guilds()));
-        let _ = writeln!(description, "Members: {}", with_comma_uint(stats.members()));
-        let _ = writeln!(description, "Roles: {}", with_comma_uint(stats.roles()));
+        let _ = writeln!(description, "Emojis: {}", with_comma_int(stats.emojis()));
+        let _ = writeln!(description, "Guilds: {}", with_comma_int(stats.guilds()));
+        let _ = writeln!(description, "Members: {}", with_comma_int(stats.members()));
+        let _ = writeln!(description, "Roles: {}", with_comma_int(stats.roles()));
 
         let _ = writeln!(
             description,
             "Unavailable guilds: {}",
-            with_comma_uint(stats.unavailable_guilds())
+            with_comma_int(stats.unavailable_guilds())
         );
 
-        let _ = writeln!(description, "Users: {}", with_comma_uint(stats.users()));
-        let _ = writeln!(description, "Groups: {}", with_comma_uint(stats.groups()));
+        let _ = writeln!(description, "Users: {}", with_comma_int(stats.users()));
+        let _ = writeln!(description, "Groups: {}", with_comma_int(stats.groups()));
         let _ = writeln!(
             description,
             "Presences: {}",
-            with_comma_uint(stats.presences())
+            with_comma_int(stats.presences())
         );
         let _ = writeln!(
             description,
             "Voice states: {}",
-            with_comma_uint(stats.voice_states())
+            with_comma_int(stats.voice_states())
         );
 
         Self {

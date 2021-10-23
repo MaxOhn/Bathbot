@@ -3,7 +3,7 @@ use crate::{
     embeds::{Author, Footer},
     util::{
         constants::{AVATAR_URL, OSU_BASE},
-        numbers::with_comma_uint,
+        numbers::with_comma_int,
         osu::flag_url,
         CountryCode,
     },
@@ -41,7 +41,7 @@ impl OsuStatsListEmbed {
                 player.username,
                 OSU_BASE,
                 player.user_id,
-                with_comma_uint(player.count)
+                with_comma_int(player.count)
             );
         }
 

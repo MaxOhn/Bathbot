@@ -5,7 +5,7 @@ use crate::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago_dynamic,
         error::PPError,
-        numbers::with_comma_uint,
+        numbers::with_comma_int,
         osu::prepare_beatmap_file,
         CowUtils, ScoreExt,
     },
@@ -100,7 +100,7 @@ impl LeaderboardEmbed {
                     idx = idx + i + 1,
                     grade = score.grade_emote(map.mode),
                     name = username,
-                    score = with_comma_uint(score.score),
+                    score = with_comma_int(score.score),
                     combo = get_combo(score, map),
                     mods = if score.mods.is_empty() {
                         String::new()

@@ -1,4 +1,4 @@
-use crate::{embeds::Author, util::numbers::with_comma_uint};
+use crate::{embeds::Author, util::numbers::with_comma_int};
 
 use rosu_v2::model::user::{User, UserCompact};
 
@@ -26,9 +26,9 @@ impl RankRankedScoreEmbed {
                 ranked score**, so {name} is already above that with **{score} ranked score**.",
                 rank = rank,
                 holder_name = rank_holder.username,
-                holder_score = with_comma_uint(rank_holder_score),
+                holder_score = with_comma_int(rank_holder_score),
                 name = user.username,
-                score = with_comma_uint(user_score)
+                score = with_comma_int(user_score)
             )
         } else {
             format!(
@@ -36,9 +36,9 @@ impl RankRankedScoreEmbed {
                  ranked score**, so {name} is missing **{missing}** score.",
                 rank = rank,
                 holder_name = rank_holder.username,
-                holder_score = with_comma_uint(rank_holder_score),
+                holder_score = with_comma_int(rank_holder_score),
                 name = user.username,
-                missing = with_comma_uint(rank_holder_score - user_score),
+                missing = with_comma_int(rank_holder_score - user_score),
             )
         };
 

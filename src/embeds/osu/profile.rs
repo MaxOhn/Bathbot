@@ -4,7 +4,7 @@ use crate::{
     util::{
         constants::common_literals::{MANIA, TAIKO},
         datetime::{date_to_string, how_long_ago_text, sec_to_minsec},
-        numbers::{round, with_comma_uint},
+        numbers::{round, with_comma_int},
         osu::grade_emote,
     },
 };
@@ -36,7 +36,7 @@ impl ProfileEmbed {
             Max pp play: `{:.2}pp` • Mode: `{}`",
             stats.accuracy,
             level,
-            with_comma_uint(stats.playcount),
+            with_comma_int(stats.playcount),
             playtime,
             max_pp,
             match user.mode {
@@ -295,18 +295,18 @@ fn main_fields(user: &User, stats: &UserStatistics, bonus_pp: f32) -> Vec<EmbedF
     vec![
         field!(
             "Ranked score",
-            with_comma_uint(stats.ranked_score).to_string(),
+            with_comma_int(stats.ranked_score).to_string(),
             true
         ),
         field!("Accuracy", format!("{:.2}%", stats.accuracy), true),
         field!(
             "Max combo",
-            with_comma_uint(stats.max_combo).to_string(),
+            with_comma_int(stats.max_combo).to_string(),
             true
         ),
         field!(
             "Total score",
-            with_comma_uint(stats.total_score).to_string(),
+            with_comma_int(stats.total_score).to_string(),
             true
         ),
         field!("Level", format!("{:.2}", level), true),
@@ -317,13 +317,13 @@ fn main_fields(user: &User, stats: &UserStatistics, bonus_pp: f32) -> Vec<EmbedF
         ),
         field!(
             "Total hits",
-            with_comma_uint(stats.total_hits).to_string(),
+            with_comma_int(stats.total_hits).to_string(),
             true
         ),
         field!("Bonus PP", format!("{}pp", bonus_pp), true),
         field!(
             "Followers",
-            with_comma_uint(user.follower_count.unwrap_or(0)).to_string(),
+            with_comma_int(user.follower_count.unwrap_or(0)).to_string(),
             true
         ),
         field!(
@@ -347,14 +347,14 @@ fn main_fields(user: &User, stats: &UserStatistics, bonus_pp: f32) -> Vec<EmbedF
             "Play count / time",
             format!(
                 "{} / {} hrs",
-                with_comma_uint(stats.playcount).to_string(),
+                with_comma_int(stats.playcount).to_string(),
                 stats.playtime / 60 / 60
             ),
             true
         ),
         field!(
             "Replays watched",
-            with_comma_uint(stats.replays_watched).to_string(),
+            with_comma_int(stats.replays_watched).to_string(),
             true
         ),
     ]

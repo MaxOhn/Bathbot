@@ -2,7 +2,7 @@ use crate::{
     custom_client::SnipeCountryStatistics,
     embeds::{attachment, EmbedFields, Footer},
     util::{
-        numbers::{round, with_comma_uint},
+        numbers::{round, with_comma_int},
         osu::flag_url,
         CountryCode,
     },
@@ -55,8 +55,8 @@ impl CountrySnipeStatsEmbed {
 
         let footer = Footer::new(format!(
             "Unplayed maps: {}/{} ({}%)",
-            with_comma_uint(statistics.unplayed_maps),
-            with_comma_uint(statistics.total_maps),
+            with_comma_int(statistics.unplayed_maps),
+            with_comma_int(statistics.total_maps),
             percent
         ));
 

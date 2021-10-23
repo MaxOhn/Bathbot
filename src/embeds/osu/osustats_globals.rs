@@ -3,7 +3,7 @@ use crate::{
     embeds::{osu, Author, Footer},
     pp::{Calculations, PPCalculator},
     util::{
-        constants::OSU_BASE, datetime::how_long_ago_dynamic, numbers::with_comma_uint,
+        constants::OSU_BASE, datetime::how_long_ago_dynamic, numbers::with_comma_int,
         osu::grade_emote, ScoreExt,
     },
 };
@@ -73,7 +73,7 @@ impl OsuStatsGlobalsEmbed {
                 grade = grade,
                 pp = pp,
                 acc = score.accuracy,
-                score = with_comma_uint(score.score),
+                score = with_comma_int(score.score),
                 combo = combo,
                 hits = score.hits_string(score.map.mode),
                 ago = how_long_ago_dynamic(&score.date)

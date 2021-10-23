@@ -1,7 +1,7 @@
 use crate::{
     embeds::{Author, EmbedBuilder, EmbedData, Footer},
     util::{
-        numbers::{with_comma_float, with_comma_uint},
+        numbers::{with_comma_float, with_comma_int},
         osu::pp_missing,
     },
 };
@@ -57,7 +57,7 @@ impl PPMissingEmbed {
             Footer::new(format!(
                 "The current rank for {pp}pp is #{rank}",
                 pp = with_comma_float(pp),
-                rank = with_comma_uint(rank),
+                rank = with_comma_int(rank),
             ))
         });
 

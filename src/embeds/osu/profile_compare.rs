@@ -3,7 +3,7 @@ use crate::{
     embeds::attachment,
     util::{
         datetime::sec_to_minsec,
-        numbers::{with_comma_float, with_comma_uint},
+        numbers::{with_comma_float, with_comma_int},
     },
 };
 
@@ -143,8 +143,8 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "PC peak",
-            with_comma_uint(left_peak).to_string(),
-            with_comma_uint(right_peak).to_string(),
+            with_comma_int(left_peak).to_string(),
+            with_comma_int(right_peak).to_string(),
             left_peak,
             right_peak,
             max_left,
@@ -220,8 +220,8 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Max Combo",
-            with_comma_uint(stats1.max_combo).to_string(),
-            with_comma_uint(stats2.max_combo).to_string(),
+            with_comma_int(stats1.max_combo).to_string(),
+            with_comma_int(stats2.max_combo).to_string(),
             stats1.max_combo,
             stats2.max_combo,
             max_left,
@@ -311,8 +311,8 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Followers",
-            with_comma_uint(user1.follower_count.unwrap_or(0)).to_string(),
-            with_comma_uint(user2.follower_count.unwrap_or(0)).to_string(),
+            with_comma_int(user1.follower_count.unwrap_or(0)).to_string(),
+            with_comma_int(user2.follower_count.unwrap_or(0)).to_string(),
             user1.follower_count.unwrap(),
             user2.follower_count.unwrap(),
             max_left,
@@ -322,8 +322,8 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Replays seen",
-            with_comma_uint(stats1.replays_watched).to_string(),
-            with_comma_uint(stats2.replays_watched).to_string(),
+            with_comma_int(stats1.replays_watched).to_string(),
+            with_comma_int(stats2.replays_watched).to_string(),
             stats1.replays_watched,
             stats2.replays_watched,
             max_left,
@@ -397,12 +397,12 @@ impl CompareStrings {
 
         Self {
             pp: with_comma_float(stats.pp).to_string() + "pp",
-            rank: format!("#{}", with_comma_uint(stats.global_rank.unwrap_or(0))),
-            ranked_score: with_comma_uint(stats.ranked_score).to_string(),
-            total_score: with_comma_uint(stats.total_score).to_string(),
-            total_hits: with_comma_uint(stats.total_hits).to_string(),
-            play_count: with_comma_uint(stats.playcount).to_string(),
-            play_time: with_comma_uint(stats.playtime / 3600).to_string() + "hrs",
+            rank: format!("#{}", with_comma_int(stats.global_rank.unwrap_or(0))),
+            ranked_score: with_comma_int(stats.ranked_score).to_string(),
+            total_score: with_comma_int(stats.total_score).to_string(),
+            total_hits: with_comma_int(stats.total_hits).to_string(),
+            play_count: with_comma_int(stats.playcount).to_string(),
+            play_time: with_comma_int(stats.playtime / 3600).to_string() + "hrs",
             level: format!("{:.2}", stats.level.current),
             bonus_pp: format!("{:.2}pp", result.bonus_pp),
             bonus_pp_num: result.bonus_pp,

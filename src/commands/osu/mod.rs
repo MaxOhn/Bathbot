@@ -59,7 +59,7 @@ use crate::{
             COUNTRY, CTB, DISCORD, MANIA, MAP, MODE, MODS, NAME, OSU, SPECIFY_COUNTRY,
             SPECIFY_MODE, TAIKO,
         },
-        numbers::with_comma_uint,
+        numbers::with_comma_int,
         MessageExt,
     },
     BotResult, CommandData, Context, Error,
@@ -265,7 +265,7 @@ async fn get_globals_count(
 
         params.rank_max = rank;
         let (_, count) = ctx.clients.custom.get_global_scores(&params).await?;
-        counts.insert(rank, Cow::Owned(with_comma_uint(count).to_string()));
+        counts.insert(rank, Cow::Owned(with_comma_int(count).to_string()));
 
         if count == 0 {
             get_amount = false;
@@ -273,12 +273,12 @@ async fn get_globals_count(
     }
 
     let firsts = if let Some(firsts) = user.scores_first_count {
-        Cow::Owned(with_comma_uint(firsts).to_string())
+        Cow::Owned(with_comma_int(firsts).to_string())
     } else if get_amount {
         params.rank_max = 1;
         let (_, count) = ctx.clients.custom.get_global_scores(&params).await?;
 
-        Cow::Owned(with_comma_uint(count).to_string())
+        Cow::Owned(with_comma_int(count).to_string())
     } else {
         Cow::Borrowed("0")
     };

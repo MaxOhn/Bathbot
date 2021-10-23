@@ -2,7 +2,7 @@ use crate::{
     embeds::{osu, Author, Footer},
     pp::{Calculations, PPCalculator},
     util::{
-        constants::OSU_BASE, datetime::how_long_ago_dynamic, numbers::with_comma_uint, ScoreExt,
+        constants::OSU_BASE, datetime::how_long_ago_dynamic, numbers::with_comma_int, ScoreExt,
     },
 };
 
@@ -55,7 +55,7 @@ impl TopEmbed {
                 grade = score.grade_emote(score.mode),
                 pp = pp,
                 acc = score.acc_string(score.mode),
-                score = with_comma_uint(score.score),
+                score = with_comma_int(score.score),
                 combo = osu::get_combo(score, map),
                 hits = score.hits_string(score.mode),
                 ago = how_long_ago_dynamic(&score.created_at)

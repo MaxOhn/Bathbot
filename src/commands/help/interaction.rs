@@ -24,7 +24,7 @@ use crate::{
         datetime::how_long_ago_dynamic,
         error::InvalidHelpState,
         levenshtein_distance,
-        numbers::with_comma_uint,
+        numbers::with_comma_int,
         ApplicationCommandExt, CowUtils, MessageBuilder, MessageExt,
     },
     BotResult,
@@ -469,7 +469,7 @@ async fn basic_help(ctx: &Context, command: ApplicationCommand) -> BotResult<()>
     let servers = EmbedField {
         inline: true,
         name: "Servers".to_owned(),
-        value: with_comma_uint(server_count as u64).to_string(),
+        value: with_comma_int(server_count as u64).to_string(),
     };
 
     let boot_up = EmbedField {
@@ -499,13 +499,13 @@ async fn basic_help(ctx: &Context, command: ApplicationCommand) -> BotResult<()>
     let commands_used = EmbedField {
         inline: true,
         name: "Commands used".to_owned(),
-        value: with_comma_uint(commands_used).to_string(),
+        value: with_comma_int(commands_used).to_string(),
     };
 
     let osu_requests = EmbedField {
         inline: true,
         name: "osu!api requests".to_owned(),
-        value: with_comma_uint(osu_requests).to_string(),
+        value: with_comma_int(osu_requests).to_string(),
     };
 
     let fields = vec![

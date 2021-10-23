@@ -1,4 +1,4 @@
-use crate::{embeds::Author, util::numbers::with_comma_uint};
+use crate::{embeds::Author, util::numbers::with_comma_int};
 
 use itertools::Itertools;
 use rosu_v2::model::user::User;
@@ -28,7 +28,7 @@ impl BWSEmbed {
             .step_by(dist_badges / step_dist)
             .take(step_dist)
             .chain(iter::once(badges_max))
-            .map(|badges| (badges, with_comma_uint(badges).to_string().len()))
+            .map(|badges| (badges, with_comma_int(badges).to_string().len()))
             .collect();
 
         let description = match rank {
@@ -57,7 +57,7 @@ impl BWSEmbed {
                         let bwss: Vec<_> = badges
                             .iter()
                             .map(move |(badges, _)| {
-                                with_comma_uint(bws(Some(rank), *badges)).to_string()
+                                with_comma_int(bws(Some(rank), *badges)).to_string()
                             })
                             .collect();
 
@@ -125,9 +125,9 @@ impl BWSEmbed {
                 content
             }
             None => {
-                let bws1 = with_comma_uint(bws(stats.global_rank, badges[0].0)).to_string();
-                let bws2 = with_comma_uint(bws(stats.global_rank, badges[1].0)).to_string();
-                let bws3 = with_comma_uint(bws(stats.global_rank, badges[2].0)).to_string();
+                let bws1 = with_comma_int(bws(stats.global_rank, badges[0].0)).to_string();
+                let bws2 = with_comma_int(bws(stats.global_rank, badges[1].0)).to_string();
+                let bws3 = with_comma_int(bws(stats.global_rank, badges[2].0)).to_string();
                 let len1 = bws1.len().max(2).max(badges[0].1);
                 let len2 = bws2.len().max(2).max(badges[1].1);
                 let len3 = bws3.len().max(2).max(badges[2].1);
@@ -177,7 +177,7 @@ impl BWSEmbed {
             "Current BWS for {} badge{}: {}",
             badges_curr,
             if badges_curr == 1 { "" } else { "s" },
-            with_comma_uint(bws(stats.global_rank, badges_curr))
+            with_comma_int(bws(stats.global_rank, badges_curr))
         );
 
         Self {
