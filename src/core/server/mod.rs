@@ -218,6 +218,12 @@ async fn auth_osu_handler_(req: &Request<Body>) -> HandlerResult {
         None | Some(Err(_)) => return invalid_auth_query(req),
     };
 
+    let Context_(ctx) = req.data().unwrap();
+
+    if ctx.auth_standby.is_osu_empty() {
+        return unexpected_auth(req);
+    }
+
     let OsuClientId(client_id) = req.data().unwrap();
     let OsuClientSecret(client_secret) = req.data().unwrap();
     let OsuRedirect(redirect) = req.data().unwrap();
@@ -242,7 +248,6 @@ async fn auth_osu_handler_(req: &Request<Body>) -> HandlerResult {
 
     info!(target: "{server,_Default}", "Successful osu! authorization for `{}`", user.username);
 
-    let Context_(ctx) = req.data().unwrap();
     ctx.auth_standby.process_osu(user, id);
 
     Ok(Response::new(Body::from(page)))
@@ -289,6 +294,12 @@ async fn auth_twitch_handler_(req: &Request<Body>) -> HandlerResult {
         Some(Ok(state)) => state,
         None | Some(Err(_)) => return invalid_auth_query(req),
     };
+
+    let Context_(ctx) = req.data().unwrap();
+
+    if ctx.auth_standby.is_osu_empty() {
+        return unexpected_auth(req);
+    }
 
     let TwitchClientId(client_id) = req.data().unwrap();
     let TwitchClientSecret(client_secret) = req.data().unwrap();
@@ -355,7 +366,6 @@ async fn auth_twitch_handler_(req: &Request<Body>) -> HandlerResult {
         user.display_name
     );
 
-    let Context_(ctx) = req.data().unwrap();
     ctx.auth_standby.process_twitch(user, id);
 
     Ok(Response::new(Body::from(page)))
@@ -418,6 +428,22 @@ fn invalid_auth_query(req: &Request<Body>) -> HandlerResult {
 
     let response = Response::builder()
         .status(StatusCode::BAD_REQUEST)
+        .body(Body::from(page))?;
+
+    Ok(response)
+}
+
+fn unexpected_auth(req: &Request<Body>) -> HandlerResult {
+    let render_data = json!({
+        "body_id": "error",
+        "error": "Did not expect authentication. Be sure you use the bot command first.",
+    });
+
+    let Handlebars_(handlebars) = req.data().unwrap();
+    let page = handlebars.render("auth", &render_data)?;
+
+    let response = Response::builder()
+        .status(StatusCode::PRECONDITION_FAILED)
         .body(Body::from(page))?;
 
     Ok(response)

@@ -41,6 +41,10 @@ impl AuthenticationStandby {
         WaitForOsuAuth { state, fut }
     }
 
+    pub fn is_osu_empty(&self) -> bool {
+        self.osu.is_empty()
+    }
+
     /// Wait for a twitch channel name to be authenticated.
     pub fn wait_for_twitch(&self) -> WaitForTwitchAuth {
         let (tx, rx) = oneshot::channel();
@@ -49,6 +53,10 @@ impl AuthenticationStandby {
         self.twitch.insert(state, tx);
 
         WaitForTwitchAuth { state, fut }
+    }
+
+    pub fn is_twitch_empty(&self) -> bool {
+        self.twitch.is_empty()
     }
 
     fn generate_state(&self) -> u8 {
