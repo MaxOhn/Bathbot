@@ -4,6 +4,7 @@ use hashbrown::HashMap;
 use parking_lot::Mutex;
 use std::{hash::Hash, str::FromStr};
 
+// TODO: Remove Mutex?
 pub type Buckets = DashMap<BucketName, Mutex<Bucket>>;
 
 pub struct Ratelimit {
@@ -64,12 +65,12 @@ impl Bucket {
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash)]
 pub enum BucketName {
     All,
-    Songs,
-    BgStart,
     BgBigger,
     BgHint,
+    BgStart,
     MatchLive,
     Snipe,
+    Songs,
 }
 
 impl FromStr for BucketName {
@@ -78,12 +79,12 @@ impl FromStr for BucketName {
     fn from_str(name: &str) -> Result<Self, Self::Err> {
         let bucket = match name {
             "all" => BucketName::All,
-            "songs" => BucketName::Songs,
-            "bg_start" => BucketName::BgStart,
             "bg_bigger" => BucketName::BgBigger,
             "bg_hint" => BucketName::BgHint,
+            "bg_start" => BucketName::BgStart,
             "match_live" => BucketName::MatchLive,
             "snipe" => BucketName::Snipe,
+            "songs" => BucketName::Songs,
             _ => return Err("Unknown bucket name"),
         };
 
@@ -104,12 +105,12 @@ pub fn buckets() -> Buckets {
     };
 
     insert_bucket(BucketName::All, 0, 9, 4);
-    insert_bucket(BucketName::Songs, 20, 0, 1);
-    insert_bucket(BucketName::BgStart, 2, 20, 3);
     insert_bucket(BucketName::BgBigger, 1, 8, 2);
     insert_bucket(BucketName::BgHint, 0, 10, 4);
+    insert_bucket(BucketName::BgStart, 2, 20, 3);
     insert_bucket(BucketName::MatchLive, 5, 900, 3);
     insert_bucket(BucketName::Snipe, 0, 60, 10);
+    insert_bucket(BucketName::Songs, 20, 0, 1);
 
     buckets
 }

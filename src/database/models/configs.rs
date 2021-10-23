@@ -83,22 +83,6 @@ pub struct UserConfig {
 }
 
 impl UserConfig {
-    // * TODO: Call this in retrieve_osu_user or something
-    /// Update the `UserConfig`'s DB entry's osu_username to fit `user.username`.
-    ///
-    /// Note that the `self.osu_username` won't be updated.
-    pub async fn update_osu(&self, ctx: &Context, user: &User) {
-        if let Some(name) = self.osu.as_ref().map(|data| data.username()) {
-            if name.as_str() == user.username.as_str() {
-                return;
-            }
-
-            if let Err(why) = ctx.psql().update_osu_name(user).await {
-                return unwind_error!(warn, why, "Failed to update osu! username: {}");
-            }
-        }
-    }
-
     pub fn username(&self) -> Option<&Name> {
         self.osu.as_ref().map(OsuData::username)
     }

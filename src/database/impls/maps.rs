@@ -67,7 +67,6 @@ impl Database {
         Ok(mapset.into())
     }
 
-    // TODO: Return vec of (map id, max combo)?
     pub async fn get_beatmap_combo(&self, map_id: u32) -> BotResult<Option<u32>> {
         let row = sqlx::query!("SELECT max_combo FROM maps WHERE map_id=$1", map_id as i32)
             .fetch_one(&self.pool)

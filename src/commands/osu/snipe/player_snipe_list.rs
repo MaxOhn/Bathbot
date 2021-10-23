@@ -117,7 +117,7 @@ pub(super) async fn _playersnipelist(
         Ok((scores, mut count)) => {
             let scores = scores.into_iter().enumerate().collect::<BTreeMap<_, _>>();
 
-            // * TODO: Remove this when it's fixed on huismetbenen
+            // TODO: Remove this when it's fixed on huismetbenen
             if params.order != SnipeScoreOrder::Pp {
                 count = count.min(1000);
             }

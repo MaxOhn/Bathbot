@@ -68,14 +68,13 @@ use crate::{
 use deadpool_redis::redis::AsyncCommands;
 use futures::{
     future::FutureExt,
-    stream::{FuturesUnordered, StreamExt},
+    stream::{FuturesUnordered, TryStreamExt},
 };
 use rosu_v2::prelude::{GameMode, Grade, OsuError, OsuResult, Score, User};
 use std::{
     borrow::Cow,
     cmp::PartialOrd,
     collections::BTreeMap,
-    fmt::Write,
     future::Future,
     ops::{AddAssign, Div},
 };
@@ -133,11 +132,19 @@ pub async fn request_user(ctx: &Context, name: &str, mode: GameMode) -> OsuResul
     user.page.take();
 
     let bytes = serde_cbor::to_vec(&user).expect("failed to serialize user");
-    let set_fut = conn.set_ex::<_, _, ()>(key, bytes, USER_CACHE_SECONDS);
 
-    // Cache users for 10 minutes
-    if let Err(why) = set_fut.await {
-        unwind_error!(debug, why, "Failed to insert bytes into cache: {}");
+    // Cache users for 10 minutes and update username in DB
+    let set_fut = conn.set_ex::<_, _, ()>(key, bytes, USER_CACHE_SECONDS);
+    let name_update_fut = ctx.psql().upsert_osu_name(user.user_id, &user.username);
+
+    let (set_result, name_update_result) = tokio::join!(set_fut, name_update_fut);
+
+    if let Err(why) = set_result {
+        unwind_error!(warn, why, "Failed to insert bytes into cache: {}");
+    }
+
+    if let Err(why) = name_update_result {
+        unwind_error!(warn, why, "Failed to update osu username: {}");
     }
 
     Ok(user)
@@ -200,7 +207,7 @@ where
 
         let combos = ctx.psql().get_beatmaps_combo(&map_ids).await?;
 
-        let mut iter = scores
+        scores
             .iter_mut()
             .map(|score| (combos.get(&score.map.as_ref().unwrap().map_id), score))
             .map(|(entry, score)| async move {
@@ -223,11 +230,9 @@ where
 
                 Ok::<_, Error>(())
             })
-            .collect::<FuturesUnordered<_>>();
-
-        while iter.next().await.transpose()?.is_some() {}
-
-        drop(iter);
+            .collect::<FuturesUnordered<_>>()
+            .try_collect()
+            .await?;
 
         Ok(scores)
     })
@@ -242,7 +247,6 @@ async fn require_link(ctx: &Context, data: &CommandData<'_>) -> BotResult<()> {
     data.error(ctx, content).await
 }
 
-/// Be sure the whitespaces in the given name are __not__ replaced
 async fn get_globals_count(
     ctx: &Context,
     user: &User,
@@ -252,7 +256,7 @@ async fn get_globals_count(
     let mut params = OsuStatsParams::new(user.username.as_str()).mode(mode);
     let mut get_amount = true;
 
-    for &rank in [50, 25, 15, 8].iter() {
+    for rank in [50, 25, 15, 8] {
         if !get_amount {
             counts.insert(rank, Cow::Borrowed("0"));
 

@@ -649,7 +649,7 @@ async fn single_embed(
     // Prepare retrieval of the map's global top 50 and the user's top 100
     let globals = match map.status {
         Ranked | Loved | Qualified | Approved => {
-            // * TODO: Add .limit(50) when supported by osu!api
+            // TODO: Add .limit(50) when supported by osu!api
             match ctx.osu().beatmap_scores(map.map_id).await {
                 Ok(scores) => Some(scores),
                 Err(why) => {
