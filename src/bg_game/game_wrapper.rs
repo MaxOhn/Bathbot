@@ -1,7 +1,8 @@
 use super::{game_loop, Game, GameResult, LoopResult};
 use crate::{
     database::MapsetTagWrapper,
-    util::{constants::OSU_BASE, error::BgGameError, MessageExt},
+    error::BgGameError,
+    util::{constants::OSU_BASE, MessageExt},
     Context, MessageBuilder,
 };
 

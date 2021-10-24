@@ -2,8 +2,9 @@ use crate::{
     commands::osu::Difference,
     custom_client::SnipeRecent,
     embeds::{osu, Author, Footer},
+    error::PPError,
     util::{
-        constants::OSU_BASE, datetime::how_long_ago_dynamic, error::PPError, numbers::round,
+        constants::OSU_BASE, datetime::how_long_ago_dynamic, numbers::round,
         osu::prepare_beatmap_file,
     },
     BotResult,

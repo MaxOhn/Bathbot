@@ -1,9 +1,9 @@
 use crate::{
     embeds::{osu, Author, EmbedBuilder, EmbedData, Footer},
+    error::PPError,
     util::{
         constants::AVATAR_URL,
         datetime::{how_long_ago_dynamic, HowLongAgoFormatterDynamic},
-        error::PPError,
         numbers::{round, with_comma_int},
         osu::{grade_completion_mods, prepare_beatmap_file},
         ScoreExt,

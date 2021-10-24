@@ -1,10 +1,10 @@
 use crate::{
     embeds::{osu, Author, EmbedBuilder, EmbedData, Footer},
+    error::PPError,
     twitch::TwitchVideo,
     util::{
         constants::{AVATAR_URL, TWITCH_BASE},
         datetime::{how_long_ago_dynamic, HowLongAgoFormatterDynamic},
-        error::PPError,
         matcher::highlight_funny_numeral,
         numbers::{round, with_comma_int},
         osu::{grade_completion_mods, prepare_beatmap_file},

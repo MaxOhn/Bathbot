@@ -6,7 +6,7 @@ use crate::{
 
 use dashmap::DashMap;
 use futures::stream::StreamExt;
-use rosu_v2::prelude::{GameMode, User};
+use rosu_v2::prelude::{GameMode};
 use twilight_model::id::{GuildId, UserId};
 
 impl Database {

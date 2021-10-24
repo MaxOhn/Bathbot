@@ -19,10 +19,10 @@ use crate::{
     commands::{MyCommand, MyCommandOption, MyCommandOptionKind, SLASH_COMMANDS},
     core::Context,
     embeds::{EmbedBuilder, Footer},
+    error::InvalidHelpState,
     util::{
         constants::{common_literals::HELP, BATHBOT_GITHUB, BATHBOT_WORKSHOP, INVITE_LINK},
         datetime::how_long_ago_dynamic,
-        error::InvalidHelpState,
         levenshtein_distance,
         numbers::with_comma_int,
         ApplicationCommandExt, CowUtils, MessageBuilder, MessageExt,

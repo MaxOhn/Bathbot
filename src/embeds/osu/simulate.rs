@@ -1,9 +1,9 @@
 use crate::{
     embeds::{osu, EmbedBuilder, EmbedData, Footer},
+    error::PPError,
     pp::{Calculations, PPCalculator},
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL},
-        error::PPError,
         numbers::{round, with_comma_int},
         osu::{grade_completion_mods, prepare_beatmap_file, ModSelection},
         ScoreExt,

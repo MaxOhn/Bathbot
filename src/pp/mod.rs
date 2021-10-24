@@ -1,5 +1,6 @@
 use crate::{
-    util::{error::PPError, osu::prepare_beatmap_file, BeatmapExt, ScoreExt},
+    error::PPError,
+    util::{osu::prepare_beatmap_file, BeatmapExt, ScoreExt},
     BotResult,
 };
 

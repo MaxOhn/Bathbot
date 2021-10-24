@@ -11,6 +11,6 @@ use hints::Hints;
 use img_reveal::ImageReveal;
 pub use tags::MapsetTags;
 
-use crate::util::error::BgGameError;
+use crate::error::BgGameError;
 
 type GameResult<T> = Result<T, BgGameError>;

@@ -26,11 +26,9 @@ pub use error::ServerError;
 use handlebars::Handlebars;
 
 use crate::{
+    error::TwitchError,
     twitch::{OAuthToken, TwitchData, TwitchUser},
-    util::{
-        constants::{GENERAL_ISSUE, TWITCH_OAUTH, TWITCH_USERS_ENDPOINT},
-        error::TwitchError,
-    },
+    util::constants::{GENERAL_ISSUE, TWITCH_OAUTH, TWITCH_USERS_ENDPOINT},
     Context, CONFIG,
 };
 
@@ -297,7 +295,7 @@ async fn auth_twitch_handler_(req: &Request<Body>) -> HandlerResult {
 
     let Context_(ctx) = req.data().unwrap();
 
-    if ctx.auth_standby.is_osu_empty() {
+    if ctx.auth_standby.is_twitch_empty() {
         return unexpected_auth(req);
     }
 

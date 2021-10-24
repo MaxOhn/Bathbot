@@ -14,12 +14,12 @@ use serde::Serialize;
 pub use snipe::*;
 
 use crate::{
+    error::CustomClientError,
     util::{
         constants::{
             common_literals::{COUNTRY, MODS},
             AVATAR_URL, HUISMETBENEN, OSU_BASE, OSU_DAILY_API,
         },
-        error::CustomClientError,
         numbers::round,
         osu::ModSelection,
     },

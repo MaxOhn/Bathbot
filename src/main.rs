@@ -14,6 +14,7 @@ macro_rules! unwind_error {
     };
 }
 
+mod error;
 mod arguments;
 mod bg_game;
 mod commands;
@@ -38,7 +39,8 @@ use crate::{
     database::Database,
     tracking::OsuTracking,
     twitch::Twitch,
-    util::{constants::BATHBOT_WORKSHOP_ID, error::Error, MessageBuilder},
+    error::Error,
+    util::{constants::BATHBOT_WORKSHOP_ID,  MessageBuilder},
 };
 
 #[macro_use]

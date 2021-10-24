@@ -127,6 +127,9 @@ version = "0.5"
 default-features = false
 features = ["chrono", "json", "macros", "migrate", "postgres", "runtime-tokio-native-tls"]
 
+[dependencies.thiserror]
+version = "1.0"
+
 [dependencies.tokio]
 version = "1.6"
 default_features = false

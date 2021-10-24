@@ -142,6 +142,7 @@ dependencies = [
  "smallstr",
  "smallvec",
  "sqlx",
+ "thiserror",
  "tokio",
  "tokio-stream",
  "toml",

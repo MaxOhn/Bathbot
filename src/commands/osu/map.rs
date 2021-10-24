@@ -5,13 +5,13 @@ use crate::{
         MyCommand,
     },
     embeds::{EmbedData, MapEmbed},
+    error::PPError,
     pagination::{MapPagination, Pagination},
     util::{
         constants::{
             common_literals::{MAP, MAP_PARSE_FAIL, MODS, MODS_PARSE_FAIL},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
-        error::PPError,
         matcher,
         osu::{
             map_id_from_history, map_id_from_msg, prepare_beatmap_file, MapIdType, ModSelection,

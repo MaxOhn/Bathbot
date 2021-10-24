@@ -1,6 +1,6 @@
-use crate::{commands::osu::ProfileSize, Context, Name};
+use crate::{commands::osu::ProfileSize, Name};
 
-use rosu_v2::prelude::{GameMode, User};
+use rosu_v2::prelude::GameMode;
 use smallstr::SmallString;
 use smallvec::SmallVec;
 

@@ -4,12 +4,12 @@ mod notif_loop;
 pub use models::*;
 pub use notif_loop::twitch_loop;
 
-use crate::util::{
-    constants::{
+use crate::{
+    error::TwitchError,
+    util::constants::{
         common_literals::SORT, TWITCH_OAUTH, TWITCH_STREAM_ENDPOINT, TWITCH_USERS_ENDPOINT,
         TWITCH_VIDEOS_ENDPOINT,
     },
-    error::TwitchError,
 };
 
 use governor::{

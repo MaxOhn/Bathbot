@@ -1,5 +1,5 @@
 use crate::{
-    bg_game::GameWrapper, database::MapsetTagWrapper, util::error::BgGameError, BotResult, Context,
+    bg_game::GameWrapper, database::MapsetTagWrapper, error::BgGameError, BotResult, Context,
 };
 
 use std::sync::Arc;

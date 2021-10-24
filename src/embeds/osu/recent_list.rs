@@ -1,8 +1,8 @@
 use crate::{
     embeds::{osu, Author, Footer},
+    error::PPError,
     util::{
         datetime::how_long_ago_dynamic,
-        error::PPError,
         osu::{grade_completion_mods, prepare_beatmap_file},
         ScoreExt,
     },

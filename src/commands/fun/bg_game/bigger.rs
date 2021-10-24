@@ -1,5 +1,6 @@
 use crate::{
-    util::{constants::GENERAL_ISSUE, error::BgGameError, MessageExt},
+    error::BgGameError,
+    util::{constants::GENERAL_ISSUE, MessageExt},
     BotResult, CommandData, Context, MessageBuilder,
 };
 

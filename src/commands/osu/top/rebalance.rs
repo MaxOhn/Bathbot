@@ -2,6 +2,7 @@ use super::ErrorType;
 use crate::{
     database::UserConfig,
     embeds::{EmbedData, TopIfEmbed},
+    error::PPError,
     pagination::{Pagination, TopIfPagination},
     tracking::process_tracking,
     util::{
@@ -9,7 +10,6 @@ use crate::{
             common_literals::{DISCORD, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
-        error::PPError,
         numbers,
         osu::prepare_beatmap_file,
         CowUtils, MessageExt,

@@ -1,5 +1,5 @@
 use super::GameResult;
-use crate::{database::MapsetTagWrapper, util::error::BgGameError, Context};
+use crate::{Context, database::MapsetTagWrapper, error::BgGameError};
 
 use rand::RngCore;
 use rosu_v2::model::beatmap::BeatmapsetCompact;

@@ -2,10 +2,10 @@ use super::calculate_od;
 use crate::{
     core::CONFIG,
     embeds::{attachment, Author, EmbedFields, Footer},
+    error::PPError,
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         datetime::sec_to_minsec,
-        error::PPError,
         numbers::{round, with_comma_int},
         osu::{mode_emote, prepare_beatmap_file},
     },

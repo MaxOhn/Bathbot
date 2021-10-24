@@ -1,16 +1,10 @@
-use crate::{
-    custom_client::ScraperScore,
-    embeds::{Author, Footer},
-    util::{
+use crate::{BotResult, custom_client::ScraperScore, embeds::{Author, Footer}, error::PPError, util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago_dynamic,
-        error::PPError,
         numbers::with_comma_int,
         osu::prepare_beatmap_file,
         CowUtils, ScoreExt,
-    },
-    BotResult,
-};
+    }};
 
 use hashbrown::HashMap;
 use rosu_pp::{

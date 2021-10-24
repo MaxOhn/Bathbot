@@ -4,7 +4,6 @@ mod country_code;
 mod cow;
 pub mod datetime;
 mod emote;
-pub mod error;
 pub mod exts;
 pub mod matcher;
 pub mod matrix;
@@ -294,6 +293,7 @@ pub async fn get_member_ids(ctx: &Context, guild_id: GuildId) -> BotResult<HashS
     if members.len() == 1000 {
         let delay = Duration::from_millis(500);
 
+        #[allow(clippy::blocks_in_if_conditions)]
         while {
             sleep(delay).await;
 

@@ -1,12 +1,13 @@
 use super::{util, GameResult, Hints, ImageReveal};
+
 use crate::{
     database::MapsetTagWrapper,
+    error::BgGameError,
     util::{
         constants::{
             common_literals::{MANIA, OSU},
             OSU_BASE,
         },
-        error::BgGameError,
         gestalt_pattern_matching, levenshtein_similarity, CowUtils,
     },
     BotResult, Context, CONFIG,
@@ -75,7 +76,7 @@ impl Game {
         path.push(&mapset.filename);
 
         let img_fut = fs::read(path)
-            .map_err(|err| BgGameError::IO(err, mapset_id))
+            .map_err(|source| BgGameError::Io { source, mapset_id })
             .and_then(|img_vec| {
                 async move { image::load_from_memory(&img_vec) }
                     .map_ok(|img| {

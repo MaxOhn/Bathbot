@@ -3,6 +3,7 @@ use crate::{
     bail,
     database::UserConfig,
     embeds::{EmbedData, NoChokeEmbed},
+    error::PPError,
     pagination::{NoChokePagination, Pagination},
     tracking::process_tracking,
     util::{
@@ -10,7 +11,6 @@ use crate::{
             common_literals::{DISCORD, MODE, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
-        error::PPError,
         numbers,
         osu::prepare_beatmap_file,
         MessageExt,
