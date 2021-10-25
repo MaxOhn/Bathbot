@@ -1,6 +1,5 @@
 use super::ErrorType;
 use crate::{
-    bail,
     database::UserConfig,
     embeds::{EmbedData, NoChokeEmbed},
     error::PPError,
@@ -18,6 +17,7 @@ use crate::{
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
+use eyre::Report;
 use futures::{
     future::TryFutureExt,
     stream::{FuturesUnordered, TryStreamExt},
@@ -278,7 +278,8 @@ pub(super) async fn _nochokes(
     let scores_iter = scores_data.iter().map(|(_, score, _)| score);
 
     if let Err(why) = ctx.psql().store_scores_maps(scores_iter).await {
-        unwind_error!(warn, why, "Error while adding score maps to DB: {}")
+        let report = Report::new(why).wrap_err("error while adding score maps to DB");
+        warn!("{:?}", report);
     }
 
     // Skip pagination if too few entries
@@ -294,7 +295,8 @@ pub(super) async fn _nochokes(
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 90).await {
-            unwind_error!(warn, why, "Pagination error (nochokes): {}")
+            let report = Report::new(why).wrap_err("pagination error");
+            warn!("{:?}", report);
         }
     });
 

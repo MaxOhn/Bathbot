@@ -12,6 +12,7 @@ use crate::{
     Args, BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
+use eyre::Report;
 use image::{
     imageops::{overlay, FilterType},
     DynamicImage, ImageBuffer,
@@ -111,7 +112,8 @@ pub(super) async fn _profilecompare(
         {
             Ok(thumbnail) => Some(thumbnail),
             Err(why) => {
-                unwind_error!(warn, why, "Error while combining avatars: {}");
+                let report = Report::new(why).wrap_err("failed to combine avatars");
+                warn!("{:?}", report);
 
                 None
             }

@@ -1,15 +1,16 @@
-use crate::{
-    embeds::{EmbedData, MatchLiveEmbed, MatchLiveEmbeds},
-    Context,
-};
-
 use dashmap::{mapref::entry::Entry, DashMap};
+use eyre::Report;
 use parking_lot::Mutex;
 use rosu_v2::prelude::{MatchEvent, OsuMatch};
 use smallvec::SmallVec;
 use std::sync::Arc;
 use tokio::time::{interval, sleep, Duration};
 use twilight_model::id::{ChannelId, MessageId};
+
+use crate::{
+    embeds::{EmbedData, MatchLiveEmbed, MatchLiveEmbeds},
+    Context,
+};
 
 // Not a DashSet as the list is expected to be
 // very short and thus cheap to iterate over.
@@ -126,7 +127,8 @@ impl Context {
                     MatchTrackResult::Added
                 }
                 Err(why) => {
-                    unwind_error!(warn, why, "Failed to request initial match: {}");
+                    let report = Report::new(why).wrap_err("failed to request initial match");
+                    warn!("{:?}", report);
 
                     MatchTrackResult::Error
                 }
@@ -199,7 +201,9 @@ impl Context {
                 let next_match = match tracked_match.osu_match.get_next(ctx.osu()).await {
                     Ok(next_match) => next_match,
                     Err(why) => {
-                        unwind_error!(warn, why, "Failed to request match for live ticker: {}");
+                        let report =
+                            Report::new(why).wrap_err("failed to request match for live ticker");
+                        warn!("{:?}", report);
 
                         continue;
                     }
@@ -228,18 +232,18 @@ impl Context {
                         let update_fut = match update_result {
                             Ok(update_fut) => update_fut.exec(),
                             Err(why) => {
-                                unwind_error!(
-                                    warn,
-                                    why,
-                                    "Failed to build msg update for live match: {}"
-                                );
+                                let report = Report::new(why)
+                                    .wrap_err("failed to build msg update for live match");
+                                warn!("{:?}", report);
 
                                 continue;
                             }
                         };
 
                         if let Err(why) = update_fut.await {
-                            unwind_error!(warn, why, "Failed to update match live msg: {}");
+                            let report =
+                                Report::new(why).wrap_err("failed to update match live msg");
+                            warn!("{:?}", report);
                         }
                     }
                 }
@@ -327,11 +331,14 @@ async fn send_match_messages(
             match ctx.http.create_message(channel).embeds(&[embed]) {
                 Ok(msg_fut) => {
                     if let Err(why) = msg_fut.exec().await {
-                        unwind_error!(warn, why, "Error while sending match live embed: {}");
+                        let report =
+                            Report::new(why).wrap_err("error while sending match live embed");
+                        warn!("{:?}", report);
                     }
                 }
                 Err(why) => {
-                    unwind_error!(warn, why, "Error while creating match live msg: {}");
+                    let report = Report::new(why).wrap_err("error while creating match live msg");
+                    warn!("{:?}", report);
                 }
             }
 
@@ -359,24 +366,24 @@ async fn send_match_messages(
                 Ok(msg_res) => match msg_res.model().await {
                     Ok(msg) => Some(msg.id),
                     Err(why) => {
-                        unwind_error!(
-                            error,
-                            why,
-                            "Failed to desserialize last match live embed response: {}"
-                        );
+                        let report = Report::new(why)
+                            .wrap_err("failed to deserialize last match live embed response");
+                        error!("{:?}", report);
 
                         None
                     }
                 },
                 Err(why) => {
-                    unwind_error!(error, why, "Failed to send last match live embed: {}");
+                    let report = Report::new(why).wrap_err("failed to send last match live embed");
+                    error!("{:?}", report);
 
                     None
                 }
             }
         }
         Err(why) => {
-            unwind_error!(error, why, "Failed to create last match live msg: {}");
+            let report = Report::new(why).wrap_err("failed to create last match live msg");
+            error!("{:?}", report);
 
             None
         }

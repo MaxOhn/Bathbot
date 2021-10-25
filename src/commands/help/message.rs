@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, fmt::Write, time::Duration};
 
+use eyre::Report;
 use tokio::time::sleep;
 use twilight_model::{channel::embed::EmbedField, id::GuildId};
 
@@ -133,7 +134,8 @@ pub async fn help(ctx: &Context, data: CommandData<'_>, is_authority: bool) -> B
             let msg_fut = ctx.http.create_message(channel_id).embeds(embed)?;
 
             if let Err(why) = msg_fut.exec().await {
-                unwind_error!(warn, why, "Error while sending help chunk: {}");
+                let report = Report::new(why).wrap_err("error while sending help chunk");
+                warn!("{:?}", report);
                 let content = "Could not DM you, perhaps you disabled it?";
 
                 return data.error(ctx, content).await;
@@ -156,7 +158,8 @@ pub async fn help(ctx: &Context, data: CommandData<'_>, is_authority: bool) -> B
                 let msg_fut = ctx.http.create_message(channel_id).embeds(embed)?;
 
                 if let Err(why) = msg_fut.exec().await {
-                    unwind_error!(warn, why, "Error while sending help chunk: {}");
+                    let report = Report::new(why).wrap_err("error while sending help chunk");
+                    warn!("{:?}", report);
                     let content = "Could not DM you, perhaps you disabled it?";
 
                     return data.error(ctx, content).await;
@@ -188,7 +191,8 @@ pub async fn help(ctx: &Context, data: CommandData<'_>, is_authority: bool) -> B
         let msg_fut = ctx.http.create_message(channel_id).embeds(embed)?;
 
         if let Err(why) = msg_fut.exec().await {
-            unwind_error!(warn, why, "Error while sending help chunk: {}");
+            let report = Report::new(why).wrap_err("error while sending help chunk");
+            warn!("{:?}", report);
             let content = "Could not DM you, perhaps you disabled it?";
 
             return data.error(ctx, content).await;

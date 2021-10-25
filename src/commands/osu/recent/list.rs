@@ -13,6 +13,7 @@ use crate::{
     Args, BotResult, CommandData, Context,
 };
 
+use eyre::Report;
 use futures::future::TryFutureExt;
 use rosu_v2::prelude::{GameMode, Grade, OsuError};
 use std::{borrow::Cow, sync::Arc};
@@ -119,7 +120,8 @@ pub(super) async fn _recentlist(
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (recentlist): {}")
+            let report = Report::new(why).wrap_err("pagination error");
+            warn!("{:?}", report);
         }
     });
 

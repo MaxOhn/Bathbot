@@ -23,15 +23,9 @@ pub use auth::{
     AuthenticationStandby, AuthenticationStandbyError, WaitForOsuAuth, WaitForTwitchAuth,
 };
 pub use error::ServerError;
+
+use eyre::Report;
 use handlebars::Handlebars;
-
-use crate::{
-    error::TwitchError,
-    twitch::{OAuthToken, TwitchData, TwitchUser},
-    util::constants::{GENERAL_ISSUE, TWITCH_OAUTH, TWITCH_USERS_ENDPOINT},
-    Context, CONFIG,
-};
-
 use hyper::{
     client::{connect::dns::GaiResolver, HttpConnector},
     header::{AUTHORIZATION, CONTENT_TYPE, LOCATION},
@@ -43,8 +37,15 @@ use prometheus::{Encoder, TextEncoder};
 use rosu_v2::Osu;
 use routerify::{ext::RequestExt, Middleware, RouteError, Router, RouterService};
 use serde_json::json;
-use std::{env, net::SocketAddr, path::PathBuf, sync::Arc};
+use std::{env, fmt, net::SocketAddr, path::PathBuf, sync::Arc};
 use tokio::{fs::File, io::AsyncReadExt, sync::oneshot};
+
+use crate::{
+    error::TwitchError,
+    twitch::{OAuthToken, TwitchData, TwitchUser},
+    util::constants::{GENERAL_ISSUE, TWITCH_OAUTH, TWITCH_USERS_ENDPOINT},
+    Context, CONFIG,
+};
 
 pub async fn run_server(ctx: Arc<Context>, shutdown_rx: oneshot::Receiver<()>) {
     if cfg!(debug_assertions) {
@@ -69,7 +70,7 @@ pub async fn run_server(ctx: Arc<Context>, shutdown_rx: oneshot::Receiver<()>) {
     info!("Running server...");
 
     if let Err(why) = server.await {
-        unwind_error!(error, why, "Server failed: {}");
+        error!("{:?}", Report::new(why).wrap_err("server failed"));
     }
 }
 
@@ -144,9 +145,25 @@ async fn logger(req: Request<Body>) -> Result<Request<Body>, ServerError> {
     Ok(req)
 }
 
+// Required to pass RouteError to Report
+#[derive(Debug)]
+struct ErrorWrapper(RouteError);
+
+impl std::error::Error for ErrorWrapper {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.0.source()
+    }
+}
+
+impl fmt::Display for ErrorWrapper {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 async fn error_handler(err: RouteError) -> Response<Body> {
-    let err = &*err;
-    unwind_error!(server_error, err, "Error while handling server request: {}");
+    let report = Report::new(ErrorWrapper(err)).wrap_err("error while handling server request");
+    server_error!("{:?}", report);
 
     Response::builder()
         .status(StatusCode::INTERNAL_SERVER_ERROR)
@@ -178,7 +195,7 @@ async fn auth_osu_handler(req: Request<Body>) -> HandlerResult {
     match auth_osu_handler_(&req).await {
         Ok(response) => Ok(response),
         Err(why) => {
-            unwind_error!(server_warn, why, "osu! authentication failed: {}");
+            server_warn!("{:?}", Report::new(why).wrap_err("osu! auth failed"));
 
             let render_data = json!({
                 "body_id": "error",
@@ -255,7 +272,7 @@ async fn auth_twitch_handler(req: Request<Body>) -> HandlerResult {
     match auth_twitch_handler_(&req).await {
         Ok(response) => Ok(response),
         Err(why) => {
-            unwind_error!(server_warn, why, "twitch authentication failed: {}");
+            server_warn!("{:?}", Report::new(why).wrap_err("twitch auth failed"));
 
             let render_data = json!({
                 "body_id": "error",

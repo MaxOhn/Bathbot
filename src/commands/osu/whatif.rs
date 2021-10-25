@@ -14,6 +14,7 @@ use crate::{
     Args, BotResult, CommandData, Context, Error,
 };
 
+use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{borrow::Cow, sync::Arc};
 use twilight_model::{
@@ -78,7 +79,8 @@ async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> 
         let rank = match rank_result {
             Ok(rank_pp) => Some(rank_pp.rank),
             Err(why) => {
-                unwind_error!(warn, why, "Error while getting rank pp: {}");
+                let report = Report::new(why).wrap_err("error while getting rank pp");
+                warn!("{:?}", report);
 
                 None
             }
@@ -134,7 +136,9 @@ async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> 
         let rank = match rank_result {
             Ok(rank_pp) => Some(rank_pp.rank),
             Err(why) => {
-                unwind_error!(warn, why, "Error while getting rank pp: {}");
+                let report = Report::new(why).wrap_err("error while getting rank pp");
+                warn!("{:?}", report);
+
                 None
             }
         };

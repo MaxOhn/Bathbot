@@ -1,10 +1,11 @@
+use dashmap::mapref::entry::Entry;
+use eyre::Report;
+use twilight_model::id::{GuildId, UserId};
+
 use crate::{
     database::{Authorities, GuildConfig, Prefix, Prefixes, UserConfig},
     BotResult, Context,
 };
-
-use dashmap::mapref::entry::Entry;
-use twilight_model::id::{GuildId, UserId};
 
 impl Context {
     pub async fn user_config(&self, user_id: UserId) -> BotResult<UserConfig> {
@@ -26,12 +27,9 @@ impl Context {
                 let config = GuildConfig::default();
 
                 if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
-                    unwind_error!(
-                        warn,
-                        why,
-                        "Failed to insert guild {} in config_authorities: {}",
-                        guild_id
-                    );
+                    let wrap = format!("failed to insert guild {} in config_authorities", guild_id);
+                    let report = Report::new(why).wrap_err(wrap);
+                    warn!("{:?}", report);
                 }
 
                 entry.insert(config)
@@ -51,12 +49,12 @@ impl Context {
                 let config = GuildConfig::default();
 
                 if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
-                    unwind_error!(
-                        warn,
-                        why,
-                        "Failed to insert guild {} in config_authorities_collect: {}",
+                    let wrap = format!(
+                        "failed to insert guild {} in config_authorities_collect",
                         guild_id
                     );
+                    let report = Report::new(why).wrap_err(wrap);
+                    warn!("{:?}", report);
                 }
 
                 entry.insert(config)
@@ -73,12 +71,9 @@ impl Context {
                 let config = GuildConfig::default();
 
                 if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
-                    unwind_error!(
-                        warn,
-                        why,
-                        "Failed to insert guild {} in config_prefixes: {}",
-                        guild_id
-                    );
+                    let wrap = format!("failed to insert guild {} in config_prefixes", guild_id);
+                    let report = Report::new(why).wrap_err(wrap);
+                    warn!("{:?}", report);
                 }
 
                 entry.insert(config)
@@ -97,12 +92,12 @@ impl Context {
                         let config = GuildConfig::default();
 
                         if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
-                            unwind_error!(
-                                warn,
-                                why,
-                                "Failed to insert guild {} in config_first_prefix: {}",
+                            let wrap = format!(
+                                "failed to insert guild {} in config_first_prefix",
                                 guild_id
                             );
+                            let report = Report::new(why).wrap_err(wrap);
+                            warn!("{:?}", report);
                         }
 
                         entry.insert(config)
@@ -122,12 +117,9 @@ impl Context {
                 let config = GuildConfig::default();
 
                 if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
-                    unwind_error!(
-                        warn,
-                        why,
-                        "Failed to insert guild {} in config_lyrics: {}",
-                        guild_id
-                    );
+                    let wrap = format!("failed to insert guild {} in config_lyrics", guild_id);
+                    let report = Report::new(why).wrap_err(wrap);
+                    warn!("{:?}", report);
                 }
 
                 entry.insert(config)

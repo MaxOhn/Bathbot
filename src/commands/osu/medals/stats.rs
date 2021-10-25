@@ -9,6 +9,7 @@ use crate::{
 };
 
 use chrono::Datelike;
+use eyre::Report;
 use image::{png::PngEncoder, ColorType};
 use plotters::prelude::*;
 use rosu_v2::prelude::{GameMode, MedalCompact, OsuError};
@@ -87,7 +88,8 @@ pub(super) async fn _medalstats(
     let graph = match graph(user.medals.as_ref().unwrap()) {
         Ok(bytes_option) => bytes_option,
         Err(why) => {
-            unwind_error!(warn, why, "Error while calculating medal graph: {}");
+            let report = Report::new(why).wrap_err("failed to create graph");
+            warn!("{:?}", report);
 
             None
         }

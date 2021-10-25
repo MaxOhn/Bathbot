@@ -9,6 +9,7 @@ use crate::{
 };
 
 use chrono::Utc;
+use eyre::Report;
 use futures::{
     future::FutureExt,
     stream::{FuturesUnordered, StreamExt},
@@ -89,7 +90,8 @@ pub(super) async fn _track(
             Ok(true) => success.push(username),
             Ok(false) => failure.push(username),
             Err(why) => {
-                unwind_error!(warn, why, "Error while adding tracked entry: {}");
+                let report = Report::new(why).wrap_err("error while adding tracked entry");
+                warn!("{:?}", report);
 
                 let embed = TrackEmbed::new(mode, success, failure, Some(username), limit)
                     .into_builder()

@@ -8,6 +8,7 @@ use crate::{
     BotResult, Context,
 };
 
+use eyre::Report;
 use std::{collections::BTreeMap, sync::Arc};
 use twilight_model::application::interaction::ApplicationCommand;
 
@@ -108,7 +109,8 @@ async fn send_response(
     let username = match osu_result {
         Ok(osu) => osu.map(OsuData::into_username),
         Err(why) => {
-            unwind_error!(warn, why, "Failed to retrieve user config: {}");
+            let report = Report::new(why).wrap_err("failed to retrieve user config");
+            warn!("{:?}", report);
 
             None
         }
@@ -132,7 +134,8 @@ async fn send_response(
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (ranking): {}")
+            let report = Report::new(why).wrap_err("pagination error");
+            warn!("{:?}", report);
         }
     });
 

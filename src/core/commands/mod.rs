@@ -12,7 +12,7 @@ pub use handle_interaction::{handle_command, handle_component};
 pub use handle_message::handle_message;
 pub use parse::Invoke;
 
-use crate::{bail, core::buckets::BucketName, util::Authored, BotResult, Context, Error};
+use crate::{core::buckets::BucketName, util::Authored, BotResult, Context, Error};
 
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 use twilight_model::{

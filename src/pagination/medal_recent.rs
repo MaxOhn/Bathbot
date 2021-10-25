@@ -1,6 +1,5 @@
 use super::{PageChange, Pages};
 use crate::{
-    bail,
     commands::osu::MedalAchieved,
     custom_client::{OsekaiComment, OsekaiMap, OsekaiMedal},
     embeds::MedalEmbed,
@@ -8,6 +7,7 @@ use crate::{
     BotResult, Context,
 };
 
+use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{MedalCompact, User};
 use std::{borrow::Cow, sync::Arc};
@@ -110,7 +110,8 @@ impl MedalRecentPagination {
 
         while let Some(Ok(reaction)) = reaction_stream.next().await {
             if let Err(why) = self.next_page(reaction.0, ctx).await {
-                unwind_error!(warn, why, "Error while paginating medalrecent: {}");
+                let report = Report::new(why).wrap_err("error while paginating medalrecent");
+                warn!("{:?}", report);
             }
         }
 
@@ -280,12 +281,12 @@ impl MedalRecentPagination {
                         let (maps, comments) = match tokio::try_join!(map_fut, comment_fut) {
                             Ok(tuple) => tuple,
                             Err(why) => {
-                                unwind_error!(
-                                    warn,
-                                    why,
-                                    "Failed to retrieve osekai maps or comments for medal {}: {}",
+                                let wrap = format!(
+                                    "failed to retrieve osekai maps or comments for medal {}",
                                     name
                                 );
+                                let report = Report::new(why).wrap_err(wrap);
+                                warn!("{:?}", report);
 
                                 (Vec::new(), Vec::new())
                             }

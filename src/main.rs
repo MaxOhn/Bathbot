@@ -1,20 +1,23 @@
 #![allow(clippy::upper_case_acronyms)]
 
-macro_rules! unwind_error {
-    ($log:ident, $err:ident, $($arg:tt)+) => {
-        {
-            $log!($($arg)+, $err);
-            let mut err: &dyn ::std::error::Error = &$err;
+#[macro_use]
+extern crate async_trait;
 
-            while let Some(source) = err.source() {
-                $log!("  - caused by: {}", source);
-                err = source;
-            }
-        }
-    };
-}
+#[macro_use]
+extern crate lazy_static;
 
+#[macro_use]
+extern crate log;
+
+#[macro_use]
+extern crate proc_macros;
+
+#[macro_use]
+extern crate smallvec;
+
+#[macro_use]
 mod error;
+
 mod arguments;
 mod bg_game;
 mod commands;
@@ -37,29 +40,15 @@ use crate::{
     },
     custom_client::CustomClient,
     database::Database,
+    error::Error,
     tracking::OsuTracking,
     twitch::Twitch,
-    error::Error,
-    util::{constants::BATHBOT_WORKSHOP_ID,  MessageBuilder},
+    util::{constants::BATHBOT_WORKSHOP_ID, MessageBuilder},
 };
-
-#[macro_use]
-extern crate async_trait;
-
-#[macro_use]
-extern crate lazy_static;
-
-#[macro_use]
-extern crate log;
-
-#[macro_use]
-extern crate proc_macros;
-
-#[macro_use]
-extern crate smallvec;
 
 use dashmap::{DashMap, DashSet};
 use deadpool_redis::{Config as RedisConfig, PoolConfig as RedisPoolConfig};
+use eyre::{Result, WrapErr};
 use hashbrown::HashSet;
 use parking_lot::Mutex;
 use rosu_v2::Osu;
@@ -98,14 +87,14 @@ fn main() {
         .build()
         .expect("Could not build runtime");
 
-    if let Err(why) = runtime.block_on(async_main()) {
-        unwind_error!(error, why, "Critical error in main: {}");
+    if let Err(report) = runtime.block_on(async_main()) {
+        error!("{:?}", report.wrap_err("critical error in main"));
     }
 }
 
-async fn async_main() -> BotResult<()> {
+async fn async_main() -> Result<()> {
     logging::initialize()?;
-    dotenv::dotenv().expect("failed to load .env");
+    dotenv::dotenv()?;
 
     // Load config file
     core::BotConfig::init("config.toml").await?;
@@ -139,11 +128,11 @@ async fn async_main() -> BotResult<()> {
     http.set_application_id(application_id);
 
     // Connect to psql database
-    let db_uri = env::var("DATABASE_URL").expect("missing DATABASE_URL in .env");
+    let db_uri = env::var("DATABASE_URL").wrap_err("missing DATABASE_URL in .env")?;
     let psql = Database::new(&db_uri)?;
 
     // Connect to redis
-    let redis_uri = env::var("REDIS_URL").expect("missing REDIS_URL in .env");
+    let redis_uri = env::var("REDIS_URL").wrap_err("missing REDIS_URL in .env")?;
 
     let redis_config = RedisConfig {
         connection: None,
@@ -239,10 +228,7 @@ async fn async_main() -> BotResult<()> {
     let stats = Arc::new(BotStats::new(osu.metrics(), cache.metrics()));
 
     // Build cluster
-    let (cluster, mut event_stream) = cb
-        .build()
-        .await
-        .map_err(|why| format_err!("Could not start cluster: {}", why))?;
+    let (cluster, mut event_stream) = cb.build().await?;
 
     // Slash commands
     let slash_commands = SLASH_COMMANDS.collect();
@@ -299,12 +285,13 @@ async fn async_main() -> BotResult<()> {
 
         if resumed {
             time::sleep(Duration::from_secs(5)).await;
+
             let activity_result = cluster_ctx
                 .set_cluster_activity(Status::Online, ActivityType::Playing, "osu!")
                 .await;
 
-            if let Err(why) = activity_result {
-                unwind_error!(warn, why, "Error while setting activity: {}");
+            if let Err(report) = activity_result.wrap_err("error while setting activity") {
+                warn!("{:?}", report);
             }
         }
     });
@@ -322,13 +309,14 @@ async fn async_main() -> BotResult<()> {
             interval.tick().await;
             let req = RequestGuildMembers::builder(guild_id).query("", None);
 
-            if let Err(why) = member_ctx.cluster.command(shard_id, &req).await {
-                unwind_error!(
-                    warn,
-                    why,
-                    "Failed to request members for guild {}: {}",
-                    guild_id
-                );
+            let command_result = member_ctx
+                .cluster
+                .command(shard_id, &req)
+                .await
+                .wrap_err_with(|| format!("failed to request members for guild {}", guild_id));
+
+            if let Err(report) = command_result {
+                warn!("{:?}", report);
             }
         }
     });
@@ -340,8 +328,10 @@ async fn async_main() -> BotResult<()> {
             let ctx = Arc::clone(&ctx);
 
             tokio::spawn(async move {
-                if let Err(why) = handle_event(ctx, event, shard_id).await {
-                    unwind_error!(error, why, "Error while handling event: {}");
+                let handle_fut = handle_event(ctx, event, shard_id);
+
+                if let Err(report) = handle_fut.await.wrap_err("error while handling event") {
+                    error!("{:?}", report);
                 }
             });
         }
@@ -349,8 +339,8 @@ async fn async_main() -> BotResult<()> {
 
     tokio::select! {
         _ = event_loop => error!("Event loop ended"),
-        res = signal::ctrl_c() => if let Err(why) = res {
-            unwind_error!(error, why, "Error while waiting for ctrlc: {}");
+        res = signal::ctrl_c() => if let Err(report) = res.wrap_err("error while awaiting ctrl+c") {
+            error!("{:?}", report);
         } else {
             info!("Received Ctrl+C");
         },
@@ -509,17 +499,15 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
         Event::Ready(_) => {
             info!("Shard {} is ready", shard_id);
 
-            let fut =
-                ctx.set_shard_activity(shard_id, Status::Online, ActivityType::Playing, "osu!");
+            let result = ctx
+                .set_shard_activity(shard_id, Status::Online, ActivityType::Playing, "osu!")
+                .await
+                .wrap_err_with(|| format!("failed to set activity for shard {}", shard_id));
 
-            match fut.await {
-                Ok(_) => info!("Game is set for shard {}", shard_id),
-                Err(why) => unwind_error!(
-                    error,
-                    why,
-                    "Failed to set shard activity at ready event for shard {}: {}",
-                    shard_id
-                ),
+            if let Err(report) = result {
+                error!("{:?}", report);
+            } else {
+                info!("Game is set for shard {}", shard_id);
             }
         }
         Event::Resumed => info!("Shard {} is resumed", shard_id),

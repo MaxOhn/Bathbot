@@ -5,6 +5,7 @@ use crate::{
     BotResult, Context,
 };
 
+use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmap, User};
 use std::{collections::BTreeMap, iter::Extend, sync::Arc};
@@ -112,7 +113,8 @@ impl Pagination for PlayerSnipeListPagination {
             let mut maps = match self.ctx.psql().get_beatmaps(&map_ids, true).await {
                 Ok(maps) => maps,
                 Err(why) => {
-                    unwind_error!(warn, why, "Error while getting maps from DB: {}");
+                    let report = Report::new(why).wrap_err("error while getting maps from DB");
+                    warn!("{:?}", report);
 
                     HashMap::default()
                 }
@@ -152,7 +154,10 @@ impl Pagination for PlayerSnipeListPagination {
 
         match ctx.psql().insert_beatmaps(&maps).await {
             Ok(n) => debug!("Added up to {} maps to DB", n),
-            Err(why) => unwind_error!(warn, why, "Error while adding maps to DB: {}"),
+            Err(why) => {
+                let report = Report::new(why).wrap_err("error while adding maps to DB");
+                warn!("{:?}", report);
+            }
         }
 
         Ok(())

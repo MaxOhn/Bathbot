@@ -14,6 +14,7 @@ use crate::{
     Args, BotResult, CommandData, Context, Error, MessageBuilder, Name,
 };
 
+use eyre::Report;
 use futures::future::TryFutureExt;
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{borrow::Cow, sync::Arc};
@@ -157,7 +158,8 @@ pub(super) async fn _mapper(
     let scores_iter = scores.iter().map(|(_, score)| score);
 
     if let Err(why) = ctx.psql().store_scores_maps(scores_iter).await {
-        unwind_error!(warn, why, "Error while adding score maps to DB: {}")
+        let report = Report::new(why).wrap_err("error while adding score maps to DB");
+        warn!("{:?}", report);
     }
 
     // Skip pagination if too few entries
@@ -173,7 +175,8 @@ pub(super) async fn _mapper(
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (mapper): {}")
+            let report = Report::new(why).wrap_err("pagination error");
+            warn!("{:?}", report);
         }
     });
 

@@ -9,6 +9,7 @@ use crate::{
 };
 
 use chrono::{Date, Datelike, Utc};
+use eyre::Report;
 use image::{png::PngEncoder, ColorType};
 use plotters::prelude::*;
 use rosu_v2::prelude::{GameMode, OsuError};
@@ -97,7 +98,8 @@ pub(super) async fn _playersnipestats(
     let player = match player_fut.await {
         Ok(counts) => counts,
         Err(why) => {
-            unwind_error!(warn, why, "Error for command `playersnipestats`: {}");
+            let report = Report::new(why).wrap_err("failed to retrieve snipe player");
+            warn!("{:?}", report);
             let content = format!("`{}` has never had any national #1s", name);
             let builder = MessageBuilder::new().embed(content);
             data.create_message(&ctx, builder).await?;
@@ -126,7 +128,8 @@ pub(super) async fn _playersnipestats(
                     Err(why) => Err(why),
                 },
                 Err(why) => {
-                    unwind_error!(warn, why, "Error while retrieving oldest data: {}");
+                    let report = Report::new(why).wrap_err("faield to retrieve oldest data");
+                    warn!("{:?}", report);
 
                     Ok(None)
                 }
@@ -141,7 +144,8 @@ pub(super) async fn _playersnipestats(
     let graph = match graph_result {
         Ok(graph_option) => graph_option,
         Err(why) => {
-            unwind_error!(warn, why, "Error while creating snipe player graph: {}");
+            let report = Report::new(why).wrap_err("failed to create graph");
+            warn!("{:?}", report);
 
             None
         }

@@ -66,6 +66,7 @@ use crate::{
 };
 
 use deadpool_redis::redis::AsyncCommands;
+use eyre::Report;
 use futures::{
     future::FutureExt,
     stream::{FuturesUnordered, TryStreamExt},
@@ -120,7 +121,8 @@ pub async fn request_user(ctx: &Context, name: &str, mode: GameMode) -> OsuResul
             conn
         }
         Err(why) => {
-            unwind_error!(warn, why, "Failed to get redis connection for user: {}");
+            let report = Report::new(why).wrap_err("failed to get redis connection");
+            warn!("{:?}", report);
 
             return ctx.osu().user(name).mode(mode).await;
         }
@@ -140,11 +142,13 @@ pub async fn request_user(ctx: &Context, name: &str, mode: GameMode) -> OsuResul
     let (set_result, name_update_result) = tokio::join!(set_fut, name_update_fut);
 
     if let Err(why) = set_result {
-        unwind_error!(warn, why, "Failed to insert bytes into cache: {}");
+        let report = Report::new(why).wrap_err("failed to insert bytes into cache");
+        warn!("{:?}", report);
     }
 
     if let Err(why) = name_update_result {
-        unwind_error!(warn, why, "Failed to update osu username: {}");
+        let report = Report::new(why).wrap_err("failed to update osu!username");
+        warn!("{:?}", report);
     }
 
     Ok(user)
@@ -167,7 +171,8 @@ pub async fn prepare_score(ctx: &Context, score: &mut Score) -> OsuResult<()> {
             let beatmap = ctx.osu().beatmap().map_id(map.map_id).await?;
 
             if let Err(why) = ctx.psql().insert_beatmap(&beatmap).await {
-                unwind_error!(warn, why, "Failed to insert beatmap: {}");
+                let report = Report::new(why).wrap_err("failed to insert beatmap");
+                warn!("{:?}", report);
             }
 
             map.max_combo = beatmap.max_combo;
@@ -221,7 +226,8 @@ where
                         let map = ctx.osu().beatmap().map_id(score_map.map_id).await?;
 
                         if let Err(why) = ctx.psql().insert_beatmap(&map).await {
-                            unwind_error!(warn, why, "Failed to insert beatmap: {}");
+                            let report = Report::new(why).wrap_err("failed to insert beatmap");
+                            warn!("{:?}", report);
                         }
 
                         score_map.max_combo = map.max_combo;

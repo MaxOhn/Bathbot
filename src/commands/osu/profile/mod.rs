@@ -23,6 +23,7 @@ use crate::{
     BotResult, CommandData, Context, MessageBuilder,
 };
 
+use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{collections::BTreeMap, sync::Arc};
 use twilight_model::application::{command::CommandOptionChoice, interaction::ApplicationCommand};
@@ -71,7 +72,8 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
 
     // Store maps in DB
     if let Err(why) = ctx.psql().store_scores_maps(scores.iter()).await {
-        unwind_error!(warn, why, "Error while storing profile maps in DB: {}");
+        let report = Report::new(why).wrap_err("failed to store maps in DB");
+        warn!("{:?}", report);
     }
 
     let mut profile_data = ProfileData::new(user, scores);
@@ -80,7 +82,8 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
     let graph = match graphs(&mut profile_data.user).await {
         Ok(graph_option) => graph_option,
         Err(why) => {
-            unwind_error!(warn, why, "Error while creating profile graph: {}");
+            let report = Report::new(why).wrap_err("failed to create graph");
+            warn!("{:?}", report);
 
             None
         }
@@ -105,7 +108,8 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (profile): {}")
+            let report = Report::new(why).wrap_err("pagination error");
+            warn!("{:?}", report);
         }
     });
 
@@ -159,11 +163,8 @@ impl ProfileEmbed {
                         None => match super::get_globals_count(ctx, user, mode).await {
                             Ok(globals_count) => profile_data.globals_count.insert(globals_count),
                             Err(why) => {
-                                unwind_error!(
-                                    error,
-                                    why,
-                                    "Error while requesting globals count: {}"
-                                );
+                                let report = Report::new(why).wrap_err("failed to request globals count");
+                                warn!("{:?}", report);
 
                                 profile_data.globals_count.insert(BTreeMap::new())
                             }

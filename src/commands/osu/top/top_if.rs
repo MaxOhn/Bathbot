@@ -17,6 +17,7 @@ use crate::{
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
+use eyre::Report;
 use futures::{
     future::TryFutureExt,
     stream::{FuturesUnordered, TryStreamExt},
@@ -306,7 +307,8 @@ pub(super) async fn _topif(
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (topif): {}")
+            let report = Report::new(why).wrap_err("pagination error");
+            warn!("{:?}", report);
         }
     });
 

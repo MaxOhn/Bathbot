@@ -8,6 +8,7 @@ use crate::{
     BotResult, CommandData, Context,
 };
 
+use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuResult, Rankings};
 use std::{collections::BTreeMap, fmt, mem, sync::Arc};
 
@@ -156,7 +157,8 @@ async fn _ranking(
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (ranking): {}")
+            let report = Report::new(why).wrap_err("pagination error");
+            warn!("{:?}", report);
         }
     });
 

@@ -8,6 +8,7 @@ use crate::{
     },
 };
 
+use eyre::Report;
 use rosu_v2::model::user::User;
 use std::{collections::BTreeMap, fmt::Write};
 
@@ -44,7 +45,8 @@ impl OsuStatsGlobalsEmbed {
             let mut calculator = PPCalculator::new().score(score).map(&score.map);
 
             if let Err(why) = calculator.calculate(calculations).await {
-                unwind_error!(warn, why, "Error while calculating pp for osg: {}");
+                let report = Report::new(why).wrap_err("error while calcualting pp for osg");
+                warn!("{:?}", report);
             }
 
             let stars = osu::get_stars(calculator.stars().unwrap_or(0.0));

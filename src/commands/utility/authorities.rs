@@ -1,19 +1,19 @@
+use std::{fmt::Write, sync::Arc};
+
+use twilight_cache_inmemory::model::CachedRole;
+use twilight_model::{
+    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
+    guild::Permissions,
+    id::RoleId,
+};
+
 use crate::{
-    bail,
     commands::{MyCommand, MyCommandOption},
     util::{
         constants::{GENERAL_ISSUE, OWNER_USER_ID},
         matcher, ApplicationCommandExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
-};
-
-use std::{fmt::Write, sync::Arc};
-use twilight_cache_inmemory::model::CachedRole;
-use twilight_model::{
-    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
-    guild::Permissions,
-    id::RoleId,
 };
 
 #[command]

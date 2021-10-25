@@ -13,6 +13,7 @@ use crate::{
     BotResult, Context, CONFIG,
 };
 
+use eyre::Report;
 use futures::future::TryFutureExt;
 use image::GenericImageView;
 use parking_lot::RwLock;
@@ -44,15 +45,20 @@ impl Game {
 
                     match sub_image_result {
                         Ok(img) => return (game, img),
-                        Err(why) => unwind_error!(
-                            warn,
-                            why,
-                            "Could not create initial bg image for id {}: {}",
-                            game.mapset_id
-                        ),
+                        Err(why) => {
+                            let wrap = format!(
+                                "failed to create initial bg image for id {}",
+                                game.mapset_id
+                            );
+                            let report = Report::new(why).wrap_err(wrap);
+                            warn!("{:?}", report);
+                        }
                     }
                 }
-                Err(why) => unwind_error!(warn, why, "Error creating bg game: {}"),
+                Err(why) => {
+                    let report = Report::new(why).wrap_err("error while creating bg game");
+                    warn!("{:?}", report);
+                }
             }
         }
     }
@@ -130,12 +136,9 @@ impl Game {
                     .await?;
             }
             Err(why) => {
-                unwind_error!(
-                    warn,
-                    why,
-                    "Could not get full reveal of mapset id {}: {}",
-                    self.mapset_id
-                );
+                let wrap = format!("failed to get full reveal of mapset id {}", self.mapset_id);
+                let report = Report::new(why).wrap_err(wrap);
+                warn!("{:?}", report);
 
                 ctx.http
                     .create_message(channel)
@@ -212,7 +215,9 @@ pub async fn game_loop(
 
                     // Send message
                     if let Err(why) = game.resolve(ctx, channel, &content).await {
-                        unwind_error!(warn, why, "Error while sending msg for winner: {}");
+                        let report =
+                            Report::new(why).wrap_err("error while sending msg for winner");
+                        warn!("{:?}", report);
                     }
 
                     return LoopResult::Winner(msg.author.id.0);
@@ -241,7 +246,9 @@ pub async fn game_loop(
                     let msg_fut = ctx.http.create_message(channel).content(&content).unwrap();
 
                     if let Err(why) = msg_fut.exec().await {
-                        unwind_error!(warn, why, "Error while sending msg for correct artist: {}");
+                        let report =
+                            Report::new(why).wrap_err("error while sending msg for correct artist");
+                        warn!("{:?}", report);
                     }
                 }
                 ContentResult::None => {}

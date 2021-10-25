@@ -10,6 +10,7 @@ use crate::{
     Args, BotResult, CommandData, Context,
 };
 
+use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{borrow::Cow, cmp::Ordering::Equal, sync::Arc};
 
@@ -75,12 +76,8 @@ pub(super) async fn _countrysnipelist(
         },
         Ok(None) => None,
         Err(why) => {
-            unwind_error!(
-                warn,
-                why,
-                "Failed to get UserConfig for user {}: {}",
-                author_id
-            );
+            let wrap = format!("failed to get UserConfig for user {}", author_id);
+            warn!("{:?}", Report::new(why).wrap_err(wrap));
 
             None
         }
@@ -169,7 +166,8 @@ pub(super) async fn _countrysnipelist(
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (countrysnipelist): {}")
+            let report = Report::new(why).wrap_err("pagination error");
+            warn!("{:?}", report);
         }
     });
 

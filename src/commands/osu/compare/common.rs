@@ -10,6 +10,7 @@ use crate::{
     BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
+use eyre::Report;
 use futures::stream::{FuturesOrdered, StreamExt};
 use hashbrown::HashSet;
 use itertools::Itertools;
@@ -273,7 +274,8 @@ pub(super) async fn _common(
     let thumbnail = match thumbnail_result {
         Ok(thumbnail) => Some(thumbnail),
         Err(why) => {
-            unwind_error!(warn, why, "Error while combining avatars: {}");
+            let report = Report::new(why).wrap_err("failed to combine avatars");
+            warn!("{:?}", report);
 
             None
         }
@@ -296,7 +298,8 @@ pub(super) async fn _common(
         .map(|(_, _, score)| score);
 
     if let Err(why) = ctx.psql().store_scores_maps(map_iter).await {
-        unwind_error!(warn, why, "Error while adding score maps to DB: {}")
+        let report = Report::new(why).wrap_err("failed to add score maps to DB");
+        warn!("{:?}", report);
     }
 
     // Skip pagination if too few entries
@@ -312,7 +315,8 @@ pub(super) async fn _common(
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (common): {}")
+            let report = Report::new(why).wrap_err("pagination error");
+            warn!("{:?}", report);
         }
     });
 

@@ -11,6 +11,7 @@ use crate::{
     },
 };
 
+use eyre::Report;
 use rosu_v2::prelude::{GameMode, Score, User};
 use std::fmt::Write;
 
@@ -75,7 +76,9 @@ impl PlayerSnipeStatsEmbed {
                         calculator.stars().unwrap_or(0.0),
                     ),
                     Err(why) => {
-                        unwind_error!(warn, why, "Error while calculating pp: {}");
+                        let report =
+                            Report::new(why).wrap_err("error while calculating pp for pss");
+                        warn!("{:?}", report);
 
                         (None, None, map.stars)
                     }

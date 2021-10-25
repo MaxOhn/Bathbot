@@ -8,6 +8,7 @@ use crate::{
     BotResult, CommandData, Context,
 };
 
+use eyre::Report;
 use rosu_v2::prelude::GameMode;
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -58,7 +59,8 @@ pub(super) async fn _countryranking(
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (countryranking): {}")
+            let report = Report::new(why).wrap_err("pagination error");
+            warn!("{:?}", report);
         }
     });
 

@@ -1,5 +1,4 @@
 use crate::{
-    bail,
     commands::{
         osu::{option_map, option_mods},
         MyCommand,
@@ -22,6 +21,7 @@ use crate::{
 };
 
 use chrono::Duration;
+use eyre::Report;
 use image::{png::PngEncoder, ColorType, DynamicImage, GenericImage, GenericImageView, Pixel};
 use plotters::prelude::*;
 use rosu_pp::{Beatmap, BeatmapExt};
@@ -186,18 +186,21 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
         (Ok(strain_values), Ok(img)) => match graph(strain_values, img) {
             Ok(graph) => Some(graph),
             Err(why) => {
-                unwind_error!(warn, why, "Error creating graph: {}");
+                let report = Report::new(why).wrap_err("failed to create graph");
+                warn!("{:?}", report);
 
                 None
             }
         },
         (Err(why), _) => {
-            unwind_error!(warn, why, "Error while creating oppai_values: {}");
+            let report = Report::new(why).wrap_err("failed to create oppai values");
+            warn!("{:?}", report);
 
             None
         }
         (_, Err(why)) => {
-            unwind_error!(warn, why, "Error retrieving graph background: {}");
+            let report = Report::new(why).wrap_err("failed to retrieve graph background");
+            warn!("{:?}", report);
 
             None
         }
@@ -238,11 +241,13 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
     );
 
     if let Err(why) = mapset_result {
-        unwind_error!(warn, why, "Error while adding mapset to DB: {}");
+        let report = Report::new(why).wrap_err("error while adding mapset to DB");
+        warn!("{:?}", report);
     }
 
     if let Err(why) = maps_result {
-        unwind_error!(warn, why, "Error while adding maps to DB: {}");
+        let report = Report::new(why).wrap_err("error while adding maps to DB");
+        warn!("{:?}", report);
     }
 
     // Skip pagination if too few entries
@@ -258,7 +263,8 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (map): {}")
+            let report = Report::new(why).wrap_err("pagination error (map)");
+            warn!("{:?}", report);
         }
     });
 

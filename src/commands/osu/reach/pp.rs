@@ -13,6 +13,7 @@ use crate::{
     Args, BotResult, CommandData, Context, Error,
 };
 
+use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{borrow::Cow, sync::Arc};
 use twilight_model::{
@@ -76,7 +77,8 @@ pub(super) async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) 
     let rank = match rank_result {
         Ok(rank_pp) => Some(rank_pp.rank as usize),
         Err(why) => {
-            unwind_error!(warn, why, "Error while getting rank pp: {}");
+            let report = Report::new(why).wrap_err("failed to get rank pp");
+            warn!("{:?}", report);
 
             None
         }

@@ -10,6 +10,7 @@ use crate::{
     Args, BotResult, CommandData, Context, Name,
 };
 
+use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, User};
 use std::{borrow::Cow, sync::Arc};
@@ -119,7 +120,8 @@ pub(super) async fn _common(
     let thumbnail = match get_combined_thumbnail(&ctx, urls, 2).await {
         Ok(thumbnail) => Some(thumbnail),
         Err(why) => {
-            unwind_error!(warn, why, "Error while combining avatars: {}");
+            let report = Report::new(why).wrap_err("failed to combine avatars");
+            warn!("{:?}", report);
 
             None
         }
@@ -151,7 +153,8 @@ pub(super) async fn _common(
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (medalscommon): {}")
+            let report = Report::new(why).wrap_err("pagination error");
+            warn!("{:?}", report);
         }
     });
 

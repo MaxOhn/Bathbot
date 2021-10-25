@@ -1,5 +1,6 @@
 use std::{borrow::Cow, sync::Arc};
 
+use eyre::Report;
 use rosu_pp::{fruits::stars, Beatmap as Map, FruitsPP, ManiaPP, OsuPP, StarResult, TaikoPP};
 use rosu_v2::prelude::{Beatmap, GameMode, OsuError, RankStatus, Score};
 use tokio::fs::File;
@@ -184,7 +185,9 @@ async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotRes
                 Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
                     Ok(map) => {
                         if let Err(why) = ctx.psql().insert_beatmap(&map).await {
-                            unwind_error!(warn, why, "Error while inserting compare map: {}");
+                            let report =
+                                Report::new(why).wrap_err("error while inserting map into DB");
+                            warn!("{:?}", report);
                         }
 
                         map

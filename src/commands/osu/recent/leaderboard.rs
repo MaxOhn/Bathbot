@@ -14,6 +14,7 @@ use crate::{
     Args, BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
+use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{borrow::Cow, sync::Arc};
 use twilight_model::{
@@ -162,7 +163,8 @@ pub(super) async fn _recentleaderboard(
 
     // Store map in DB
     if let Err(why) = ctx.psql().insert_beatmap(&map).await {
-        unwind_error!(warn, why, "Error while storing recent lb map in DB: {}");
+        let report = Report::new(why).wrap_err("failed to store map in DB");
+        warn!("{:?}", report);
     }
 
     // Set map on garbage collection list if unranked
@@ -190,7 +192,8 @@ pub(super) async fn _recentleaderboard(
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (recentleaderboard): {}")
+            let report = Report::new(why).wrap_err("pagination error");
+            warn!("{:?}", report);
         }
     });
 

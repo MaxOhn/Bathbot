@@ -4,6 +4,7 @@ use crate::{
     Context,
 };
 
+use eyre::Report;
 use hashbrown::{HashMap, HashSet};
 use rand::Rng;
 use std::{fmt::Write, sync::Arc};
@@ -12,6 +13,7 @@ use twilight_http::{
     api_error::{ApiError, ErrorCode, GeneralApiError},
     error::ErrorType,
 };
+use twilight_model::id::ChannelId;
 
 #[cold]
 pub async fn twitch_loop(ctx: Arc<Context>) {
@@ -34,8 +36,9 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
         // Get stream data about all streams that need to be tracked
         let mut streams = match ctx.clients.twitch.get_streams(&user_ids).await {
             Ok(streams) => streams,
-            Err(why) => {
-                unwind_error!(warn, why, "Error while retrieving streams: {}");
+            Err(err) => {
+                let report = Report::new(err);
+                warn!("{:?}", report.wrap_err("error while retrieving streams"));
 
                 continue;
             }
@@ -62,10 +65,12 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
         }
 
         let ids: Vec<_> = streams.iter().map(|s| s.user_id).collect();
+
         let users: HashMap<_, _> = match ctx.clients.twitch.get_users(&ids).await {
             Ok(users) => users.into_iter().map(|u| (u.user_id, u)).collect(),
-            Err(why) => {
-                unwind_error!(warn, why, "Error while retrieving twitch users: {}");
+            Err(err) => {
+                let report = Report::new(err).wrap_err("error while retrieving twitch users");
+                warn!("{:?}", report);
 
                 continue;
             }
@@ -96,54 +101,55 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
             let data = TwitchNotifEmbed::new(&stream, &users[&stream.user_id]);
 
             for channel in channels {
-                let embed = data.as_builder().build();
-
-                match ctx.http.create_message(channel).embeds(&[embed]) {
-                    Ok(msg_fut) => {
-                        let result = msg_fut.exec().await;
-
-                        if let Err(why) = result {
-                            if let ErrorType::Response { error, .. } = why.kind() {
-                                match error {
-                                    ApiError::General(GeneralApiError {
-                                        code: ErrorCode::UnknownChannel,
-                                        ..
-                                    }) => {
-                                        if let Err(why) =
-                                            ctx.psql().remove_channel_tracks(channel.0).await
-                                        {
-                                            unwind_error!(
-                                            warn, why,
-                                                "Could not remove stream tracks from unknown channel {}: {}",
-                                                channel
-                                            );
-                                        } else {
-                                            debug!(
-                                                "Removed twitch tracking of unknown channel {}",
-                                                channel
-                                            );
-                                        }
-                                    }
-                                    why => warn!(
-                                    "Error from API while sending twitch notif (channel {}): {}",
-                                    channel, why
-                                ),
-                                }
-                            } else {
-                                unwind_error!(
-                                    warn,
-                                    why,
-                                    "Error while sending twitch notif (channel {}): {}",
-                                    channel
-                                );
-                            }
-                        }
-                    }
-                    Err(why) => unwind_error!(warn, why, "Invalid embed for twitch notif: {}"),
-                }
+                send_notif(&ctx, &data, channel).await;
             }
         }
 
         online_streams = now_online;
+    }
+}
+
+async fn send_notif(ctx: &Context, data: &TwitchNotifEmbed, channel: ChannelId) {
+    let embed = data.as_builder().build();
+
+    match ctx.http.create_message(channel).embeds(&[embed]) {
+        Ok(msg_fut) => {
+            let result = msg_fut.exec().await;
+
+            if let Err(why) = result {
+                if let ErrorType::Response { error, .. } = why.kind() {
+                    match error {
+                        ApiError::General(GeneralApiError {
+                            code: ErrorCode::UnknownChannel,
+                            ..
+                        }) => {
+                            if let Err(err) = ctx.psql().remove_channel_tracks(channel.0).await {
+                                let wrap = format!(
+                                    "could not remove stream tracks from unknown channel {}",
+                                    channel
+                                );
+
+                                let report = Report::new(err).wrap_err(wrap);
+                                warn!("{:?}", report);
+                            } else {
+                                debug!("Removed twitch tracking of unknown channel {}", channel);
+                            }
+                        }
+                        why => warn!(
+                            "Error from API while sending twitch notif (channel {}): {}",
+                            channel, why
+                        ),
+                    }
+                } else {
+                    let wrap = format!("error while sending twitch notif (channel {})", channel);
+                    let report = Report::new(why).wrap_err(wrap);
+                    warn!("{:?}", report);
+                }
+            }
+        }
+        Err(err) => {
+            let report = Report::new(err).wrap_err("invalid embed for twitch notif");
+            warn!("{:?}", report);
+        }
     }
 }

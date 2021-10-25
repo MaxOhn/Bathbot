@@ -1,13 +1,15 @@
+use std::sync::Arc;
+
+use eyre::Report;
+use hashbrown::HashMap;
+use twilight_model::id::UserId;
+
 use crate::{
     embeds::{BGRankingEmbed, EmbedData},
     pagination::{BGRankingPagination, Pagination},
     util::{constants::GENERAL_ISSUE, get_member_ids, numbers, CowUtils, MessageExt},
     BotResult, CommandData, Context,
 };
-
-use hashbrown::HashMap;
-use std::sync::Arc;
-use twilight_model::id::UserId;
 
 #[command]
 #[short_desc("Show the user rankings for the game")]
@@ -116,7 +118,8 @@ pub(super) async fn _rankings(
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (bgranking): {}")
+            let report = Report::new(why).wrap_err("pagination error (bgranking)");
+            warn!("{:?}", report);
         }
     });
 

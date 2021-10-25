@@ -26,13 +26,6 @@ macro_rules! bail {
     };
 }
 
-#[macro_export]
-macro_rules! format_err {
-    ($($arg:tt)*) => {
-        $crate::Error::Custom(format!("{}", format_args!($($arg)*)))
-    };
-}
-
 #[derive(Debug, thiserror::Error)]
 pub enum InvalidHelpState {
     #[error("unknown command")]
@@ -51,6 +44,10 @@ pub enum Error {
     BgGame(#[from] bg_game::BgGameError),
     #[error("serde cbor error")]
     Cbor(#[from] serde_cbor::Error),
+    #[error("error occured on cluster request")]
+    ClusterCommand(#[from] twilight_gateway::cluster::ClusterCommandError),
+    #[error("failed to start cluster")]
+    ClusterStart(#[from] twilight_gateway::cluster::ClusterStartError),
     #[error("error while creating message")]
     CreateMessage(#[from] CreateMessageError),
     #[error("chrono parse error")]
@@ -99,8 +96,6 @@ pub enum Error {
     Reqwest(#[from] reqwest::Error),
     #[error("serde json error")]
     Json(#[from] serde_json::Error),
-    #[error("error occured on cluster request")]
-    TwilightCluster(#[from] twilight_gateway::cluster::ClusterCommandError),
     #[error("twilight failed to deserialize response")]
     TwilightDeserialize(#[from] twilight_http::response::DeserializeBodyError),
     #[error("error while making discord request")]

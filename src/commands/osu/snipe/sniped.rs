@@ -10,6 +10,7 @@ use crate::{
 };
 
 use chrono::{Date, DateTime, Duration, Utc};
+use eyre::Report;
 use image::{png::PngEncoder, ColorType};
 use itertools::Itertools;
 use plotters::{
@@ -127,7 +128,8 @@ pub(super) async fn _sniped(
     let graph = match graphs(user.username.as_str(), &sniper, &snipee) {
         Ok(graph_option) => graph_option,
         Err(why) => {
-            unwind_error!(warn, why, "Error while creating sniped graph: {}");
+            let report = Report::new(why).wrap_err("failed to create graph");
+            warn!("{:?}", report);
 
             None
         }

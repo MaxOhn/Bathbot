@@ -15,6 +15,7 @@ use crate::{
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
+use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write, sync::Arc};
@@ -141,7 +142,8 @@ pub(super) async fn _playersnipelist(
     let mut maps = match ctx.psql().get_beatmaps(&map_ids, true).await {
         Ok(maps) => maps,
         Err(why) => {
-            unwind_error!(warn, why, "Error while getting maps from DB: {}");
+            let report = Report::new(why).wrap_err("failed to get maps from DB");
+            warn!("{:?}", report);
 
             HashMap::default()
         }
@@ -205,7 +207,8 @@ pub(super) async fn _playersnipelist(
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (playersnipelist): {}")
+            let report = Report::new(why).wrap_err("pagination error");
+            warn!("{:?}", report);
         }
     });
 

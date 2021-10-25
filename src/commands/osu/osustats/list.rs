@@ -12,6 +12,7 @@ use crate::{
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
+use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::model::GameMode;
 use std::sync::Arc;
@@ -92,7 +93,8 @@ pub(super) async fn _players(
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (osustatslist): {}")
+            let report = Report::new(why).wrap_err("pagination error");
+            warn!("{:?}", report);
         }
     });
 

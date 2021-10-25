@@ -15,6 +15,7 @@ use crate::{
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
+use eyre::Report;
 use rosu_v2::prelude::{BeatmapsetCompact, OsuError};
 use std::{borrow::Cow, sync::Arc};
 use tokio::time::{self, Duration};
@@ -145,7 +146,8 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
 
     // Add map to database if its not in already
     if let Err(why) = ctx.psql().insert_beatmap(&map).await {
-        unwind_error!(warn, why, "Could not add map to DB: {}");
+        let report = Report::new(why).wrap_err("failed to add map to DB");
+        warn!("{:?}", report);
     }
 
     // Set map on garbage collection list if unranked
@@ -164,7 +166,8 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
         let builder = MessageBuilder::new().content(content).embed(embed);
 
         if let Err(why) = response.update_message(&ctx, builder).await {
-            unwind_error!(warn, why, "Error minimizing simulate msg: {}");
+            let report = Report::new(why).wrap_err("failed to minimize simulate msg");
+            warn!("{:?}", report);
         }
     });
 

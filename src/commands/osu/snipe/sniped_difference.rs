@@ -10,6 +10,7 @@ use crate::{
 };
 
 use chrono::{Duration, Utc};
+use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{cmp::Reverse, sync::Arc};
@@ -120,7 +121,8 @@ pub(super) async fn _sniped_diff(
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (sniped_difference): {}")
+            let report = Report::new(why).wrap_err("pagination error");
+            warn!("{:?}", report);
         }
     });
 

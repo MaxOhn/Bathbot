@@ -14,6 +14,7 @@ use crate::{
     Args, BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
+use eyre::Report;
 use rosu_v2::prelude::{GameMods, OsuError, RankStatus::Ranked};
 use std::{borrow::Cow, sync::Arc};
 use tokio::time::{sleep, Duration};
@@ -193,7 +194,8 @@ pub(super) async fn _compare(
         Some(Ok(scores)) => Some(scores),
         None => None,
         Some(Err(why)) => {
-            unwind_error!(warn, why, "Failed to get top scores for compare: {}");
+            let report = Report::new(why).wrap_err("failed to get top scores");
+            warn!("{:?}", report);
 
             None
         }
@@ -222,7 +224,8 @@ pub(super) async fn _compare(
         // Process user and their top scores for tracking
         if let Some(ref mut scores) = best {
             if let Err(why) = ctx.psql().store_scores_maps(scores.iter()).await {
-                unwind_error!(warn, why, "Error while storing best maps in DB: {}");
+                let report = Report::new(why).wrap_err("failed to store maps in DB");
+                warn!("{:?}", report);
             }
 
             process_tracking(&ctx, mode, scores, Some(&user)).await;
@@ -239,7 +242,8 @@ pub(super) async fn _compare(
             let builder = embed_data.into_builder().build().into();
 
             if let Err(why) = response.update_message(&ctx, builder).await {
-                unwind_error!(warn, why, "Error minimizing compare msg: {}");
+                let report = Report::new(why).wrap_err("failed to minimize message");
+                warn!("{:?}", report);
             }
         });
     } else {
@@ -249,7 +253,8 @@ pub(super) async fn _compare(
         // Process user and their top scores for tracking
         if let Some(ref mut scores) = best {
             if let Err(why) = ctx.psql().store_scores_maps(scores.iter()).await {
-                unwind_error!(warn, why, "Error while storing best maps in DB: {}");
+                let report = Report::new(why).wrap_err("failed to store maps in DB");
+                warn!("{:?}", report);
             }
 
             process_tracking(&ctx, mode, scores, Some(&user)).await;
@@ -271,7 +276,8 @@ async fn no_scores(
         Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
             Ok(map) => {
                 if let Err(why) = ctx.psql().insert_beatmap(&map).await {
-                    unwind_error!(warn, why, "Error while inserting compare map: {}");
+                    let report = Report::new(why).wrap_err("failed to insert map in DB");
+                    warn!("{:?}", report);
                 }
 
                 map

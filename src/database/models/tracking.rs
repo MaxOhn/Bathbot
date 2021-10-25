@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::model::GameMode;
 use serde_json::Value;
@@ -63,13 +64,12 @@ where
                 .map(|(id, limit)| (ChannelId(u64::from_str(&id).unwrap()), limit))
                 .collect(),
             Err(why) => {
-                unwind_error!(
-                    warn,
-                    why,
-                    "Could not deserialize tracking channels value for ({},{}): {}",
-                    user_id,
-                    mode
+                let wrap = format!(
+                    "failed to deserialize tracking channels value for ({},{})",
+                    user_id, mode
                 );
+                let report = Report::new(why).wrap_err(wrap);
+                warn!("{:?}", report);
 
                 HashMap::new()
             }

@@ -19,6 +19,7 @@ use crate::{
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
+use eyre::Report;
 use futures::future::TryFutureExt;
 use rosu_v2::prelude::{
     GameMode, Grade, OsuError,
@@ -139,7 +140,8 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
     let scores_iter = scores.iter().map(|(_, score)| score);
 
     if let Err(why) = ctx.psql().store_scores_maps(scores_iter).await {
-        unwind_error!(warn, why, "Error while adding score maps to DB: {}")
+        let report = Report::new(why).wrap_err("failed to add scores maps to DB");
+        warn!("{:?}", report);
     }
 
     if let Some(num) = args.index {
@@ -653,7 +655,8 @@ async fn single_embed(
             match ctx.osu().beatmap_scores(map.map_id).await {
                 Ok(scores) => Some(scores),
                 Err(why) => {
-                    unwind_error!(warn, why, "Error while getting global scores: {}");
+                    let report = Report::new(why).wrap_err("failed to get global scores");
+                    warn!("{:?}", report);
 
                     None
                 }
@@ -682,7 +685,8 @@ async fn single_embed(
             let builder = embed_data.into_builder().build().into();
 
             if let Err(why) = response.update_message(&ctx, builder).await {
-                unwind_error!(warn, why, "Error minimizing top msg: {}");
+                let report = Report::new(why).wrap_err("failed to minimize top message");
+                warn!("{:?}", report);
             }
         });
     } else {
@@ -726,7 +730,8 @@ async fn paginated_embed(
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (top): {}")
+            let report = Report::new(why).wrap_err("pagination error");
+            warn!("{:?}", report);
         }
     });
 

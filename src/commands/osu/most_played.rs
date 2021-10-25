@@ -16,6 +16,7 @@ use crate::{
     Args, BotResult, CommandData, Context, Name,
 };
 
+use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::sync::Arc;
 use twilight_model::application::interaction::{
@@ -114,7 +115,8 @@ async fn _mostplayed(
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (mostplayed): {}")
+            let report = Report::new(why).wrap_err("pagination error (mostplayed)");
+            warn!("{:?}", report);
         }
     });
 

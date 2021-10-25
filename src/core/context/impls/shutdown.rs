@@ -1,6 +1,7 @@
-use crate::Context;
-
+use eyre::Report;
 use twilight_model::gateway::presence::{ActivityType, Status};
+
+use crate::Context;
 
 impl Context {
     #[cold]
@@ -35,7 +36,8 @@ impl Context {
             .prepare_cold_resume(&self.clients.redis, resume_data);
 
         if let Err(why) = cold_resume_fut.await {
-            unwind_error!(error, why, "Failed to prepare cold resume: {}");
+            let report = Report::new(why).wrap_err("failed to prepare cold resume");
+            error!("{:?}", report);
         }
     }
 
@@ -66,12 +68,11 @@ impl Context {
                     count += 1;
                 }
                 Ok(false) => {}
-                Err(why) => unwind_error!(
-                    warn,
-                    why,
-                    "Error while stopping bg game in channel {}: {}",
-                    channel
-                ),
+                Err(why) => {
+                    let wrap = format!("error while stopping bg game in channel {}", channel);
+                    let report = Report::new(why).wrap_err(wrap);
+                    warn!("{:?}", report);
+                }
             }
         }
 

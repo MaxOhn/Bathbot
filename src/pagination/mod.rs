@@ -56,6 +56,7 @@ use crate::{
     BotResult, Context,
 };
 
+use eyre::Report;
 use smallvec::SmallVec;
 use std::{borrow::Cow, time::Duration};
 use tokio::time::sleep;
@@ -156,7 +157,7 @@ pub trait Pagination: Sync + Sized {
 
         while let Some(Ok(reaction)) = reaction_stream.next().await {
             if let Err(why) = self.next_page(reaction.0, ctx).await {
-                unwind_error!(warn, why, "Error while paginating: {}")
+                warn!("{:?}", Report::new(why).wrap_err("error while paginating"));
             }
         }
 

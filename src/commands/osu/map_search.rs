@@ -12,6 +12,7 @@ use crate::{
     Args, BotResult, CommandData, Context,
 };
 
+use eyre::Report;
 use rosu_v2::prelude::{
     Beatmapset, BeatmapsetSearchResult, BeatmapsetSearchSort, GameMode, Genre, Language, Osu,
     OsuResult, RankStatus,
@@ -99,7 +100,8 @@ async fn _search(ctx: Arc<Context>, data: CommandData<'_>, args: MapSearchArgs) 
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (mapsearch): {}")
+            let report = Report::new(why).wrap_err("pagination error (mapsearch)");
+            warn!("{:?}", report);
         }
     });
 

@@ -16,6 +16,7 @@ use crate::{
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
+use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{borrow::Cow, sync::Arc};
 use tokio::time::{sleep, Duration};
@@ -129,11 +130,8 @@ pub(super) async fn _recentsimulate(
 
         // Store map in DB
         if let Err(why) = ctx.psql().insert_beatmap(&map).await {
-            unwind_error!(
-                warn,
-                why,
-                "Error while storing simulate recent map in DB: {}"
-            )
+            let report = Report::new(why).wrap_err("failed to store map in DB");
+            warn!("{:?}", report);
         }
 
         // Set map on garbage collection list if unranked
@@ -152,7 +150,8 @@ pub(super) async fn _recentsimulate(
             let builder = MessageBuilder::new().content(content).embed(embed);
 
             if let Err(why) = response.update_message(&ctx, builder).await {
-                unwind_error!(warn, why, "Error minimizing simulaterecent msg: {}");
+                let report = Report::new(why).wrap_err("failed to minimize message");
+                warn!("{:?}", report);
             }
         });
     } else {
@@ -162,11 +161,8 @@ pub(super) async fn _recentsimulate(
 
         // Store map in DB
         if let Err(why) = ctx.psql().insert_beatmap(&map).await {
-            unwind_error!(
-                warn,
-                why,
-                "Error while storing simulate recent map in DB: {}"
-            )
+            let report = Report::new(why).wrap_err("failed to store map in DB");
+            warn!("{:?}", report);
         }
 
         // Set map on garbage collection list if unranked

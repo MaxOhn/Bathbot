@@ -1,6 +1,7 @@
 use super::GameResult;
-use crate::{Context, database::MapsetTagWrapper, error::BgGameError};
+use crate::{database::MapsetTagWrapper, error::BgGameError, Context};
 
+use eyre::Report;
 use rand::RngCore;
 use rosu_v2::model::beatmap::BeatmapsetCompact;
 use std::collections::VecDeque;
@@ -39,11 +40,9 @@ pub async fn get_title_artist(ctx: &Context, mapset_id: u32) -> GameResult<(Stri
             match ctx.osu().beatmapset(mapset_id).await {
                 Ok(mapset) => {
                     if let Err(why) = ctx.psql().insert_beatmapset(&mapset).await {
-                        unwind_error!(
-                            warn,
-                            why,
-                            "Error while inserting bg game mapset into DB: {}"
-                        );
+                        let report = Report::new(why)
+                            .wrap_err("error while inserting bg game mapset into DB");
+                        warn!("{:?}", report);
                     }
 
                     (mapset.title.to_lowercase(), mapset.artist)

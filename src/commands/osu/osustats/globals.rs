@@ -17,6 +17,7 @@ use crate::{
     Args, BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
+use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write, mem, sync::Arc};
 use twilight_model::{
@@ -118,7 +119,8 @@ pub(super) async fn _scores(
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (osustatsglobals): {}")
+            let report = Report::new(why).wrap_err("pagination error");
+            warn!("{:?}", report);
         }
     });
 

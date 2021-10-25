@@ -6,6 +6,7 @@ use crate::{
     BotResult, Context,
 };
 
+use eyre::Report;
 use std::sync::Arc;
 use twilight_model::application::interaction::ApplicationCommand;
 
@@ -30,7 +31,8 @@ pub(super) async fn rarity(ctx: Arc<Context>, command: ApplicationCommand) -> Bo
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (medal rarity): {}")
+            let report = Report::new(why).wrap_err("pagination error");
+            warn!("{:?}", report);
         }
     });
 

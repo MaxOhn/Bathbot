@@ -2,6 +2,7 @@ use super::{Pages, Pagination};
 
 use crate::{embeds::RecentListEmbed, BotResult, Context};
 
+use eyre::Report;
 use rosu_v2::prelude::{Score, User};
 use std::sync::Arc;
 use twilight_model::channel::Message;
@@ -53,7 +54,8 @@ impl Pagination for RecentListPagination {
         }
 
         if let Err(why) = self.ctx.psql().store_scores_maps(self.scores.iter()).await {
-            unwind_error!(warn, why, "Error while storing recent list maps in DB: {}");
+            let report = Report::new(why).wrap_err("error while storing recent list maps in DB");
+            warn!("{:?}", report);
         }
 
         Ok(())

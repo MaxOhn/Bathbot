@@ -6,6 +6,7 @@ use crate::{
     Context, MessageBuilder,
 };
 
+use eyre::Report;
 use hashbrown::HashMap;
 use parking_lot::{Mutex, RwLock};
 use std::{collections::VecDeque, sync::Arc};
@@ -96,7 +97,9 @@ impl GameWrapper {
                     .file("bg_img.png", &img);
 
                 if let Err(why) = (MessageId(0), channel).create_message(&ctx, builder).await {
-                    unwind_error!(warn, why, "Error while sending initial bg game msg: {}");
+                    let report =
+                        Report::new(why).wrap_err("error while sending initial bg game msg");
+                    warn!("{:?}", report);
                 }
 
                 let rx_fut = async {
@@ -127,11 +130,9 @@ impl GameWrapper {
                             );
 
                             if let Err(why) = game.resolve(&ctx, channel, &content).await {
-                                unwind_error!(
-                                    warn,
-                                    why,
-                                    "Error while showing resolve for bg game restart: {}"
-                                );
+                                let report = Report::new(why)
+                                    .wrap_err("error while showing resolve for bg game restart");
+                                warn!("{:?}", report);
                             }
                         } else {
                             debug!("Trying to restart on None");
@@ -149,11 +150,9 @@ impl GameWrapper {
                             );
 
                             if let Err(why) = game.resolve(&ctx, channel, &content).await {
-                                unwind_error!(
-                                    warn,
-                                    why,
-                                    "Error while showing resolve for bg game stop: {}"
-                                );
+                                let report = Report::new(why)
+                                    .wrap_err("error while showing resolve for bg game stop");
+                                warn!("{:?}", report);
                             }
                         } else {
                             debug!("Trying to stop on None");
@@ -162,11 +161,9 @@ impl GameWrapper {
                         // Store score for winners
                         for (user, score) in scores {
                             if let Err(why) = ctx.psql().increment_bggame_score(user, score).await {
-                                unwind_error!(
-                                    error,
-                                    why,
-                                    "Error while incrementing bggame score: {}"
-                                );
+                                let report = Report::new(why)
+                                    .wrap_err("error while incrementing bg game score");
+                                warn!("{:?}", report);
                             }
                         }
 

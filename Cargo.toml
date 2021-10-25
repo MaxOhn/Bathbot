@@ -39,6 +39,9 @@ features = ["rt_tokio_1"]
 [dependencies.dotenv]
 version = "0.15"
 
+[dependencies.eyre]
+version = "0.6"
+
 [dependencies.flexi_logger]
 version = "0.19"
 default_features = false

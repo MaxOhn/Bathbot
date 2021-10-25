@@ -10,6 +10,7 @@ use crate::{
     Args, BotResult, CommandData, Context, Name,
 };
 
+use eyre::Report;
 use hashbrown::HashSet;
 use rosu_v2::prelude::{GameMode, OsuError};
 use std::{cmp::Ordering, sync::Arc};
@@ -121,7 +122,8 @@ pub(super) async fn _medalsmissing(
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (medals missing): {}")
+            let report = Report::new(why).wrap_err("pagination error");
+            warn!("{:?}", report);
         }
     });
 

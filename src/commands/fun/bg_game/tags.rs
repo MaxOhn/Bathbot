@@ -1,12 +1,25 @@
-use super::ReactionWrapper;
-use crate::{BotResult, CONFIG, CommandData, Context, MessageBuilder, bg_game::MapsetTags, database::MapsetTagWrapper, util::{CowUtils, Emote, MessageExt, constants::{GENERAL_ISSUE, OSU_BASE, OWNER_USER_ID, common_literals::{MANIA, OSU}}, send_reaction}};
+use std::{str::FromStr, sync::Arc, time::Duration};
 
+use eyre::Report;
 use rand::RngCore;
 use rosu_v2::model::GameMode;
-use std::{str::FromStr, sync::Arc, time::Duration};
 use tokio::fs;
 use tokio_stream::StreamExt;
 use twilight_model::{channel::ReactionType, gateway::event::Event};
+
+use super::ReactionWrapper;
+use crate::{
+    bg_game::MapsetTags,
+    database::MapsetTagWrapper,
+    util::{
+        constants::{
+            common_literals::{MANIA, OSU},
+            GENERAL_ISSUE, OSU_BASE, OWNER_USER_ID,
+        },
+        send_reaction, CowUtils, Emote, MessageExt,
+    },
+    BotResult, CommandData, Context, MessageBuilder, CONFIG,
+};
 
 #[command]
 #[short_desc("Help tagging backgrounds by tagging them manually")]
@@ -331,13 +344,15 @@ async fn bgtags(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
         if !add_tags.is_empty() {
             if let Err(why) = ctx.psql().add_tags_mapset(mapset_id, add_tags).await {
-                unwind_error!(warn, why, "Failed to add tags: {}");
+                let report = Report::new(why).wrap_err("failed to add tags");
+                warn!("{:?}", report);
             }
         }
 
         if !remove_tags.is_empty() {
             if let Err(why) = ctx.psql().remove_tags_mapset(mapset_id, remove_tags).await {
-                unwind_error!(warn, why, "Failed to remove tags: {}");
+                let report = Report::new(why).wrap_err("failed to remove tags");
+                warn!("{:?}", report);
             }
         }
 
@@ -393,7 +408,9 @@ async fn get_random_image(mut mapsets: Vec<MapsetTagWrapper>, mode: GameMode) ->
         match fs::read(&path).await {
             Ok(bytes) => return (mapset.mapset_id, bytes),
             Err(why) => {
-                unwind_error!(warn, why, "Error while reading file {}: {}", path.display());
+                let wrap = format!("error while reading file {}", path.display());
+                let report = Report::new(why).wrap_err(wrap);
+                warn!("{:?}", report);
                 path.pop();
             }
         }

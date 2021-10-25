@@ -15,6 +15,7 @@ use crate::{
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
+use eyre::Report;
 use rosu_v2::error::OsuError;
 use std::{borrow::Cow, sync::Arc};
 use twilight_model::{
@@ -68,12 +69,8 @@ async fn _leaderboard(
     let author_name = match ctx.psql().get_user_osu(author_id).await {
         Ok(osu) => osu.map(OsuData::into_username),
         Err(why) => {
-            unwind_error!(
-                warn,
-                why,
-                "Failed to get UserConfig of user {}: {}",
-                author_id
-            );
+            let wrap = format!("failed to get UserConfig of user {}", author_id);
+            warn!("{:?}", Report::new(why).wrap_err(wrap));
 
             None
         }
@@ -162,7 +159,8 @@ async fn _leaderboard(
 
     // Add map to database if its not in already
     if let Err(why) = ctx.psql().insert_beatmap(&map).await {
-        unwind_error!(warn, why, "Could not add map to DB: {}");
+        let report = Report::new(why).wrap_err("failed to add map to DB");
+        warn!("{:?}", report);
     }
 
     // Set map on garbage collection list if unranked
@@ -185,7 +183,8 @@ async fn _leaderboard(
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (leaderboard): {}")
+            let report = Report::new(why).wrap_err("pagination error (leaderboard)");
+            warn!("{:?}", report);
         }
     });
 

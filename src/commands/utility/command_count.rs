@@ -1,3 +1,9 @@
+use std::sync::Arc;
+
+use eyre::Report;
+use prometheus::core::Collector;
+use twilight_model::application::interaction::ApplicationCommand;
+
 use crate::{
     commands::MyCommand,
     embeds::{CommandCounterEmbed, EmbedData},
@@ -5,10 +11,6 @@ use crate::{
     util::{numbers, MessageExt},
     BotResult, CommandData, Context,
 };
-
-use prometheus::core::Collector;
-use std::sync::Arc;
-use twilight_model::application::interaction::ApplicationCommand;
 
 #[command]
 #[short_desc("List of popular commands")]
@@ -49,7 +51,8 @@ async fn commands(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 90).await {
-            unwind_error!(warn, why, "Pagination error (command count): {}")
+            let report = Report::new(why).wrap_err("pagination error (command count)");
+            warn!("{:?}", report);
         }
     });
 

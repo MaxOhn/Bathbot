@@ -1,6 +1,5 @@
 use super::ReactionWrapper;
 use crate::{
-    bail,
     bg_game::MapsetTags,
     database::MapsetTagWrapper,
     embeds::{BGStartEmbed, BGTagsEmbed, EmbedData},

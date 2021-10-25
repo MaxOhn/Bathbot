@@ -1,14 +1,16 @@
+use std::sync::Arc;
+
+use eyre::Report;
+use twilight_model::{
+    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
+    id::{ChannelId, MessageId, RoleId},
+};
+
 use crate::{
     commands::{MyCommand, MyCommandOption},
     embeds::{EmbedData, RoleAssignEmbed},
     util::{constants::GENERAL_ISSUE, matcher, ApplicationCommandExt, MessageExt},
     Args, BotResult, CommandData, Context, Error,
-};
-
-use std::sync::Arc;
-use twilight_model::{
-    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
-    id::{ChannelId, MessageId, RoleId},
 };
 
 #[command]
@@ -66,13 +68,13 @@ async fn _roleassign(
         Err(why) => {
             let _ = data.error(&ctx, "No message found with this id").await;
 
-            unwind_error!(
-                warn,
-                why,
-                "(Channel,Message) ({},{}) for roleassign was not found: {}",
-                channel_id,
-                msg_id
+            let wrap = format!(
+                "(Channel,Message) ({},{}) for roleassign was not found",
+                channel_id, msg_id
             );
+
+            let report = Report::new(why).wrap_err(wrap);
+            warn!("{:?}", report);
 
             return Ok(());
         }
@@ -194,8 +196,9 @@ pub async fn slash_roleassign(ctx: Arc<Context>, mut command: ApplicationCommand
 }
 
 pub fn define_roleassign() -> MyCommand {
-    let channel = MyCommandOption::builder("channel", "Specify the channel that contains the message")
-        .channel(true);
+    let channel =
+        MyCommandOption::builder("channel", "Specify the channel that contains the message")
+            .channel(true);
 
     let message_help = "Specify the message by providing its ID.\n\
         You can find the ID by rightclicking the message and clicking on `Copy ID`.\n\
@@ -205,7 +208,8 @@ pub fn define_roleassign() -> MyCommand {
         .help(message_help)
         .string(Vec::new(), true);
 
-    let role = MyCommandOption::builder("role", "Specify a role that should be assigned").role(true);
+    let role =
+        MyCommandOption::builder("role", "Specify a role that should be assigned").role(true);
 
     let help = "With this command you can link a message to a role.\n\
         Whenever anyone reacts with any reaction to that message, they will gain that role.\n\

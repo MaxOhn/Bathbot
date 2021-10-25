@@ -1,12 +1,23 @@
-use crate::{BotResult, CONFIG, CommandData, Context, MessageBuilder, util::{CowUtils, MessageExt, constants::{GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE, common_literals::{MANIA, OSU}}}};
-
-use rosu_v2::prelude::{BeatmapsetCompact, GameMode, OsuError};
 use std::{str::FromStr, sync::Arc};
+
+use eyre::Report;
+use rosu_v2::prelude::{BeatmapsetCompact, GameMode, OsuError};
 use tokio::{
     fs::{remove_file, File},
     io::AsyncWriteExt,
 };
 use twilight_model::channel::Attachment;
+
+use crate::{
+    util::{
+        constants::{
+            common_literals::{MANIA, OSU},
+            GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE,
+        },
+        CowUtils, MessageExt,
+    },
+    BotResult, CommandData, Context, MessageBuilder, CONFIG,
+};
 
 #[command]
 #[short_desc("Add background for the background game")]
@@ -141,7 +152,8 @@ async fn prepare_mapset(
         Err(_) => match ctx.osu().beatmapset(mapset_id).await {
             Ok(mapset) => {
                 if let Err(why) = ctx.psql().insert_beatmapset(&mapset).await {
-                    unwind_error!(warn, why, "Failed to insert mapset in DB: {}");
+                    let report = Report::new(why).wrap_err("failed to isnert mapset in DB");
+                    warn!("{:?}", report);
                 }
 
                 mapset.into()
@@ -150,7 +162,8 @@ async fn prepare_mapset(
                 return Err("No mapset found with the name of the given file as id")
             }
             Err(why) => {
-                unwind_error!(error, why, "Failed to request mapset: {}");
+                let report = Report::new(why).wrap_err("failed to request mapset");
+                error!("{:?}", report);
 
                 return Err(OSU_API_ISSUE);
             }
@@ -158,7 +171,8 @@ async fn prepare_mapset(
     };
 
     if let Err(why) = ctx.psql().add_tag_mapset(mapset_id, filename, mode).await {
-        unwind_error!(warn, why, "Error while adding mapset to tags table: {}");
+        let report = Report::new(why).wrap_err("error while adding mapset to tags table");
+        warn!("{:?}", report);
 
         return Err("There is already an entry with this mapset id");
     }

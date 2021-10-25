@@ -9,6 +9,7 @@ use crate::{
     BotResult, CommandData, Context, MessageBuilder,
 };
 
+use eyre::Report;
 use image::{png::PngEncoder, ColorType};
 use plotters::prelude::*;
 use rosu_v2::prelude::{GameMode, OsuError};
@@ -143,7 +144,8 @@ pub(super) async fn _countrysnipestats(
     let graph = match graphs(&players) {
         Ok(graph_option) => Some(graph_option),
         Err(why) => {
-            unwind_error!(warn, why, "Error while creating snipe country graph: {}");
+            let report = Report::new(why).wrap_err("failed to create graph");
+            warn!("{:?}", report);
 
             None
         }

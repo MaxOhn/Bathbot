@@ -9,6 +9,7 @@ use crate::{
     },
 };
 
+use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmap, User};
 use std::{collections::BTreeMap, fmt::Write};
@@ -50,7 +51,8 @@ impl PlayerSnipeListEmbed {
             let mut calculator = PPCalculator::new().map(map).mods(score.mods);
 
             if let Err(why) = calculator.calculate(calculations).await {
-                unwind_error!(warn, why, "Error while calculating pp for psl: {}");
+                let report = Report::new(why).wrap_err("error while calculating pp for psql");
+                warn!("{:?}", report);
             }
 
             let pp = osu::get_pp(score.pp, calculator.max_pp());

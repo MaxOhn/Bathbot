@@ -9,6 +9,7 @@ use crate::{
     BotResult, CommandData, Context, MessageBuilder,
 };
 
+use eyre::Report;
 use futures::stream::{FuturesOrdered, StreamExt};
 use hashbrown::{HashMap, HashSet};
 use rosu_v2::prelude::OsuError;
@@ -225,7 +226,8 @@ pub(super) async fn _mostplayedcommon(
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (mostplayedcommon): {}")
+            let report = Report::new(why).wrap_err("pagination error");
+            warn!("{:?}", report);
         }
     });
 

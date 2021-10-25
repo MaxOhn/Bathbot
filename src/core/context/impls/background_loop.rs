@@ -1,5 +1,6 @@
 use std::{io::ErrorKind, mem, sync::Arc};
 
+use eyre::Report;
 use rosu_v2::prelude::{
     Beatmap,
     RankStatus::{Approved, Loved, Ranked},
@@ -41,7 +42,11 @@ impl Context {
                 Ok(Ok(_)) => success += 1,
                 Ok(Err(why)) => match why.kind() {
                     ErrorKind::NotFound => file_not_found += 1,
-                    _ => unwind_error!(warn, why, "[BG] Failed to delete map {}: {}", map_id),
+                    _ => {
+                        let wrap = format!("[BG] Failed to delete map {}", map_id);
+                        let report = Report::new(why).wrap_err(wrap);
+                        warn!("{:?}", report);
+                    }
                 },
                 Err(_) => warn!("[BG] Timed out while deleting map {}", map_id),
             }
@@ -78,7 +83,10 @@ impl Context {
 
             match update_medals(&ctx).await {
                 Ok(count) => debug!("[BG] Updated {} medals", count),
-                Err(why) => unwind_error!(warn, why, "[BG] Failed to update medals: {}"),
+                Err(why) => {
+                    let report = Report::new(why).wrap_err("[BG] failed to update medals");
+                    warn!("{:?}", report);
+                }
             }
 
             let (success, total) = ctx.garbage_collect_all_maps().await;

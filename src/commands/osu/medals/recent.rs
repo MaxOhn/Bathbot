@@ -1,5 +1,4 @@
 use crate::{
-    bail,
     database::OsuData,
     embeds::MedalEmbed,
     pagination::MedalRecentPagination,
@@ -14,6 +13,7 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
+use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError, User};
 use std::{cmp::Reverse, sync::Arc};
 use twilight_model::{
@@ -148,7 +148,8 @@ pub(super) async fn _medalrecent(
 
     tokio::spawn(async move {
         if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            unwind_error!(warn, why, "Pagination error (medalrecent): {}")
+            let report = Report::new(why).wrap_err("pagination error");
+            warn!("{:?}", report);
         }
     });
 

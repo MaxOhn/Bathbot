@@ -7,6 +7,7 @@ use crate::{
     BotResult, Context,
 };
 
+use eyre::Report;
 use std::time::Duration;
 use tokio::time::sleep;
 use tokio_stream::StreamExt;
@@ -54,7 +55,8 @@ impl ProfilePagination {
 
         while let Some(Ok(reaction)) = reaction_stream.next().await {
             if let Err(why) = self.next_page(reaction.0, ctx).await {
-                unwind_error!(warn, why, "Error while paginating profile: {}");
+                let report = Report::new(why).wrap_err("error while paginating profile");
+                warn!("{:?}", report);
             }
         }
 

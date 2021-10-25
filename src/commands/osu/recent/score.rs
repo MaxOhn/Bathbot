@@ -14,6 +14,7 @@ use crate::{
     Args, BotResult, CommandData, Context, MessageBuilder, Name,
 };
 
+use eyre::Report;
 use rosu_v2::prelude::{
     Beatmap, GameMode, GameMods, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
@@ -187,7 +188,8 @@ pub(super) async fn _recent(
                 Ok(Some(config)) => config.twitch_id,
                 Ok(None) => None,
                 Err(why) => {
-                    unwind_error!(warn, why, "Failed to get config of input name: {}");
+                    let report = Report::new(why).wrap_err("failed to get config of input name");
+                    warn!("{:?}", report);
 
                     None
                 }
@@ -209,7 +211,8 @@ pub(super) async fn _recent(
         None | Some(Err(OsuError::NotFound)) => None,
         Some(Ok(score)) => Some(score),
         Some(Err(why)) => {
-            unwind_error!(warn, why, "Error while getting global scores: {}");
+            let report = Report::new(why).wrap_err("failed to get global scores");
+            warn!("{:?}", report);
 
             None
         }
@@ -219,7 +222,8 @@ pub(super) async fn _recent(
         None => None,
         Some(Ok(scores)) => Some(scores),
         Some(Err(why)) => {
-            unwind_error!(warn, why, "Error while getting top scores: {}");
+            let report = Report::new(why).wrap_err("failed to get top scores");
+            warn!("{:?}", report);
 
             None
         }
@@ -265,7 +269,8 @@ pub(super) async fn _recent(
         // Process user and their top scores for tracking
         if let Some(ref mut scores) = best {
             if let Err(why) = ctx.psql().store_scores_maps(scores.iter()).await {
-                unwind_error!(warn, why, "Error while storing best maps in DB: {}");
+                let report = Report::new(why).wrap_err("failed to store maps in DB");
+                warn!("{:?}", report);
             }
 
             process_tracking(&ctx, mode, scores, Some(&user)).await;
@@ -288,7 +293,8 @@ pub(super) async fn _recent(
             }
 
             if let Err(why) = response.update_message(&ctx, builder).await {
-                unwind_error!(warn, why, "Error minimizing recent msg: {}");
+                let report = Report::new(why).wrap_err("failed to minimize message");
+                warn!("{:?}", report);
             }
         });
     } else {
@@ -310,7 +316,8 @@ pub(super) async fn _recent(
         // Process user and their top scores for tracking
         if let Some(ref mut scores) = best {
             if let Err(why) = ctx.psql().store_scores_maps(scores.iter()).await {
-                unwind_error!(warn, why, "Error while storing best maps in DB: {}");
+                let report = Report::new(why).wrap_err("failed to store maps in DB");
+                warn!("{:?}", report);
             }
 
             process_tracking(&ctx, mode, scores, Some(&user)).await;
@@ -378,7 +385,8 @@ async fn retrieve_vod(
         }
         Ok(None) => None,
         Err(why) => {
-            unwind_error!(warn, why, "Failed to get twitch vod: {}");
+            let report = Report::new(why).wrap_err("failed to get twitch vod");
+            warn!("{:?}", report);
 
             None
         }
