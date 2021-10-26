@@ -17,10 +17,7 @@ use rosu_pp::{
     Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, StarResult, TaikoPP,
 };
 use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, GameMode};
-use std::{
-    borrow::Cow,
-    fmt::{self, Write},
-};
+use std::fmt::{self, Write};
 use tokio::fs::File;
 
 pub struct LeaderboardEmbed {
@@ -32,7 +29,7 @@ pub struct LeaderboardEmbed {
 
 impl LeaderboardEmbed {
     pub async fn new<'i, S>(
-        init_name: Option<&str>,
+        author_name: Option<&str>,
         map: &Beatmap,
         mapset: Option<&BeatmapsetCompact>,
         scores: Option<S>,
@@ -70,11 +67,10 @@ impl LeaderboardEmbed {
 
             let mut mod_map = HashMap::new();
             let mut description = String::with_capacity(256);
-            let author_name =
-                init_name.map_or_else(|| Cow::Borrowed(""), CowUtils::cow_to_ascii_lowercase);
+            let author_name = author_name.unwrap_or_default();
 
             for (i, score) in scores.enumerate() {
-                let found_author = author_name == score.username.cow_to_ascii_lowercase();
+                let found_author = author_name == score.username;
                 let mut username = String::with_capacity(32);
 
                 if found_author {
