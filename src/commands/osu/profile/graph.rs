@@ -1,4 +1,4 @@
-use crate::BotResult;
+use crate::error::GraphError;
 
 use chrono::Datelike;
 use futures::{
@@ -14,7 +14,7 @@ use std::mem;
 const W: u32 = 1350;
 const H: u32 = 350;
 
-pub(super) async fn graphs(user: &mut User) -> BotResult<Option<Vec<u8>>> {
+pub(super) async fn graphs(user: &mut User) -> Result<Option<Vec<u8>>, GraphError> {
     let mut monthly_playcount = mem::replace(&mut user.monthly_playcounts, None).unwrap();
     let badges = mem::replace(&mut user.badges, None).unwrap();
 

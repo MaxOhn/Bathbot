@@ -1,6 +1,7 @@
 use crate::{
     database::OsuData,
     embeds::{EmbedData, PlayerSnipeStatsEmbed},
+    error::GraphError,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
@@ -143,9 +144,8 @@ pub(super) async fn _playersnipestats(
 
     let graph = match graph_result {
         Ok(graph_option) => graph_option,
-        Err(why) => {
-            let report = Report::new(why).wrap_err("failed to create graph");
-            warn!("{:?}", report);
+        Err(err) => {
+            warn!("{:?}", Report::new(err));
 
             None
         }
@@ -181,7 +181,7 @@ const H: u32 = 350;
 fn graphs(
     history: &BTreeMap<Date<Utc>, u32>,
     stars: &BTreeMap<u8, u32>,
-) -> BotResult<Option<Vec<u8>>> {
+) -> Result<Option<Vec<u8>>, GraphError> {
     static LEN: usize = W as usize * H as usize;
     let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3
 

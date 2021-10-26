@@ -99,9 +99,8 @@ async fn _search(ctx: Arc<Context>, data: CommandData<'_>, args: MapSearchArgs) 
         MapSearchPagination::new(Arc::clone(&ctx), response, maps, search_result, args);
 
     tokio::spawn(async move {
-        if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            let report = Report::new(why).wrap_err("pagination error (mapsearch)");
-            warn!("{:?}", report);
+        if let Err(err) = pagination.start(&ctx, owner, 60).await {
+            warn!("{:?}", Report::new(err));
         }
     });
 

@@ -27,19 +27,9 @@ macro_rules! bail {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum InvalidHelpState {
-    #[error("unknown command")]
-    UnknownCommand,
-    #[error("missing embed")]
-    MissingEmbed,
-    #[error("missing embed title")]
-    MissingTitle,
-}
-
-#[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("error while checking authority status")]
-    Authority(#[source] Box<Error>),
+    Authority(#[source] Box<Error>), // TODO
     #[error("background game error")]
     BgGame(#[from] bg_game::BgGameError),
     #[error("serde cbor error")]
@@ -86,8 +76,6 @@ pub enum Error {
     NoLoggingSpec,
     #[error("osu error")]
     Osu(#[from] rosu_v2::error::OsuError),
-    #[error("plotter error: {0}")]
-    Plotter(String),
     #[error("error while calculating pp")]
     Pp(#[from] pp::PPError),
     #[error("error while communicating with redis cache")]
@@ -123,8 +111,29 @@ pub enum Error {
     UpdateOriginalResponse(#[from] UpdateOriginalResponseError),
 }
 
-impl<T: std::error::Error + Send + Sync> From<DrawingAreaErrorKind<T>> for Error {
-    fn from(e: DrawingAreaErrorKind<T>) -> Self {
-        Error::Plotter(e.to_string())
+#[derive(Debug, thiserror::Error)]
+#[error("failed to create graph")]
+pub enum GraphError {
+    Image(#[from] image::ImageError),
+    #[error("failed to create graph: no non-zero strain point")]
+    InvalidStrainPoints,
+    #[error("failed to create graph: {0}")]
+    Plotter(String),
+    Reqwest(#[from] reqwest::Error),
+}
+
+impl<E: std::error::Error + Send + Sync> From<DrawingAreaErrorKind<E>> for GraphError {
+    fn from(err: DrawingAreaErrorKind<E>) -> Self {
+        Self::Plotter(err.to_string())
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum InvalidHelpState {
+    #[error("unknown command")]
+    UnknownCommand,
+    #[error("missing embed")]
+    MissingEmbed,
+    #[error("missing embed title")]
+    MissingTitle,
 }

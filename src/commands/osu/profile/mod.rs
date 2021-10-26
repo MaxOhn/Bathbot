@@ -81,9 +81,8 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
     // Draw the graph
     let graph = match graphs(&mut profile_data.user).await {
         Ok(graph_option) => graph_option,
-        Err(why) => {
-            let report = Report::new(why).wrap_err("failed to create graph");
-            warn!("{:?}", report);
+        Err(err) => {
+            warn!("{:?}", Report::new(err));
 
             None
         }
@@ -107,9 +106,8 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
     let owner = data.author()?.id;
 
     tokio::spawn(async move {
-        if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            let report = Report::new(why).wrap_err("pagination error");
-            warn!("{:?}", report);
+        if let Err(err) = pagination.start(&ctx, owner, 60).await {
+            warn!("{:?}", Report::new(err));
         }
     });
 
@@ -163,7 +161,8 @@ impl ProfileEmbed {
                         None => match super::get_globals_count(ctx, user, mode).await {
                             Ok(globals_count) => profile_data.globals_count.insert(globals_count),
                             Err(why) => {
-                                let report = Report::new(why).wrap_err("failed to request globals count");
+                                let report =
+                                    Report::new(why).wrap_err("failed to request globals count");
                                 warn!("{:?}", report);
 
                                 profile_data.globals_count.insert(BTreeMap::new())

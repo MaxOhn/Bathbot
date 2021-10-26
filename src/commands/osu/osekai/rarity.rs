@@ -30,9 +30,8 @@ pub(super) async fn rarity(ctx: Arc<Context>, command: ApplicationCommand) -> Bo
     let pagination = MedalRarityPagination::new(response, ranking);
 
     tokio::spawn(async move {
-        if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            let report = Report::new(why).wrap_err("pagination error");
-            warn!("{:?}", report);
+        if let Err(err) = pagination.start(&ctx, owner, 60).await {
+            warn!("{:?}", Report::new(err));
         }
     });
 

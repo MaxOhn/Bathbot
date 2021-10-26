@@ -32,6 +32,8 @@ use crate::{
 
 use super::failed_message_;
 
+type PartResult = Result<(Parts, bool), InvalidHelpState>;
+
 struct Parts {
     name: &'static str,
     help: &'static str,
@@ -143,7 +145,7 @@ impl CommandIter {
 
 const AUTHORITY_STATUS: &str = "Requires authority status (check the /authorities command)";
 
-fn continue_subcommand(title: &mut String, name: &str) -> BotResult<(Parts, bool)> {
+fn continue_subcommand(title: &mut String, name: &str) -> PartResult {
     let mut names = title.split(' ');
     let base = names.next().ok_or(InvalidHelpState::MissingTitle)?;
 
@@ -156,12 +158,12 @@ fn continue_subcommand(title: &mut String, name: &str) -> BotResult<(Parts, bool
 
     for name in names {
         if iter.next(name) {
-            return Err(InvalidHelpState::UnknownCommand.into());
+            return Err(InvalidHelpState::UnknownCommand);
         }
     }
 
     if iter.next(name) {
-        return Err(InvalidHelpState::UnknownCommand.into());
+        return Err(InvalidHelpState::UnknownCommand);
     }
 
     let command = Parts::from(iter);
@@ -170,7 +172,7 @@ fn continue_subcommand(title: &mut String, name: &str) -> BotResult<(Parts, bool
     Ok((command, authority))
 }
 
-fn backtrack_subcommand(title: &mut String) -> BotResult<(Parts, bool)> {
+fn backtrack_subcommand(title: &mut String) -> PartResult {
     let index = title.chars().filter(char::is_ascii_whitespace).count();
     let mut names = title.split(' ').take(index);
     let base = names.next().ok_or(InvalidHelpState::MissingTitle)?;
@@ -184,7 +186,7 @@ fn backtrack_subcommand(title: &mut String) -> BotResult<(Parts, bool)> {
 
     for name in names {
         if iter.next(name) {
-            return Err(InvalidHelpState::UnknownCommand.into());
+            return Err(InvalidHelpState::UnknownCommand);
         }
     }
 

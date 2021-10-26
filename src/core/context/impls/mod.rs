@@ -52,7 +52,7 @@ impl Context {
         self.data.msgs_to_process.insert(msg);
     }
 
-    /// Returns false is either `store_msg` was not called for the message id
+    /// Returns false if either `store_msg` was not called for the message id
     /// or if the message was deleted between the `store_msg` call and this call.
     pub fn remove_msg(&self, msg: MessageId) -> bool {
         self.data.msgs_to_process.remove(&msg).is_some()

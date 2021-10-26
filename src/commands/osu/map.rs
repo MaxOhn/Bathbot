@@ -4,7 +4,7 @@ use crate::{
         MyCommand,
     },
     embeds::{EmbedData, MapEmbed},
-    error::PPError,
+    error::{GraphError, PPError},
     pagination::{MapPagination, Pagination},
     util::{
         constants::{
@@ -185,9 +185,8 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
     let graph = match tokio::join!(strain_values(map.map_id, mods), bg_fut) {
         (Ok(strain_values), Ok(img)) => match graph(strain_values, img) {
             Ok(graph) => Some(graph),
-            Err(why) => {
-                let report = Report::new(why).wrap_err("failed to create graph");
-                warn!("{:?}", report);
+            Err(err) => {
+                warn!("{:?}", Report::new(err));
 
                 None
             }
@@ -262,9 +261,8 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
     let owner = author_id;
 
     tokio::spawn(async move {
-        if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            let report = Report::new(why).wrap_err("pagination error (map)");
-            warn!("{:?}", report);
+        if let Err(err) = pagination.start(&ctx, owner, 60).await {
+            warn!("{:?}", Report::new(err));
         }
     });
 
@@ -291,7 +289,7 @@ async fn strain_values(map_id: u32, mods: GameMods) -> BotResult<Vec<(f32, f32)>
     Ok(strains)
 }
 
-fn graph(strains: Vec<(f32, f32)>, mut background: DynamicImage) -> BotResult<Vec<u8>> {
+fn graph(strains: Vec<(f32, f32)>, mut background: DynamicImage) -> Result<Vec<u8>, GraphError> {
     static LEN: usize = W as usize * H as usize;
 
     let max_strain = strains
@@ -301,7 +299,7 @@ fn graph(strains: Vec<(f32, f32)>, mut background: DynamicImage) -> BotResult<Ve
         .map_or(0.0, |(_, s)| s);
 
     if max_strain <= std::f32::EPSILON {
-        bail!("no non-zero strain point");
+        return Err(GraphError::InvalidStrainPoints);
     }
 
     let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3

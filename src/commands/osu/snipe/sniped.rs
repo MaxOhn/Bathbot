@@ -2,6 +2,7 @@ use crate::{
     custom_client::SnipeRecent,
     database::OsuData,
     embeds::{EmbedData, SnipedEmbed},
+    error::GraphError,
     util::{
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         MessageExt,
@@ -127,9 +128,8 @@ pub(super) async fn _sniped(
 
     let graph = match graphs(user.username.as_str(), &sniper, &snipee) {
         Ok(graph_option) => graph_option,
-        Err(why) => {
-            let report = Report::new(why).wrap_err("failed to create graph");
-            warn!("{:?}", report);
+        Err(err) => {
+            warn!("{:?}", Report::new(err));
 
             None
         }
@@ -157,7 +157,7 @@ fn graphs(
     name: &str,
     sniper: &[SnipeRecent],
     snipee: &[SnipeRecent],
-) -> BotResult<Option<Vec<u8>>> {
+) -> Result<Option<Vec<u8>>, GraphError> {
     if sniper.is_empty() && snipee.is_empty() {
         return Ok(None);
     }

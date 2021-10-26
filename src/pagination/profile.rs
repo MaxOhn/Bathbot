@@ -1,4 +1,4 @@
-use super::{PageChange, ReactionVec};
+use super::{PageChange, PaginationResult, ReactionVec};
 
 use crate::{
     commands::osu::{ProfileData, ProfileSize},
@@ -37,7 +37,7 @@ impl ProfilePagination {
         smallvec![Emote::Expand, Emote::Minimize]
     }
 
-    pub async fn start(mut self, ctx: &Context, owner: UserId, duration: u64) -> BotResult<()> {
+    pub async fn start(mut self, ctx: &Context, owner: UserId, duration: u64) -> PaginationResult {
         ctx.store_msg(self.msg.id);
         let reactions = Self::reactions();
 
@@ -55,8 +55,7 @@ impl ProfilePagination {
 
         while let Some(Ok(reaction)) = reaction_stream.next().await {
             if let Err(why) = self.next_page(reaction.0, ctx).await {
-                let report = Report::new(why).wrap_err("error while paginating profile");
-                warn!("{:?}", report);
+                warn!("{:?}", Report::new(why).wrap_err("error while paginating"));
             }
         }
 

@@ -133,9 +133,8 @@ async fn send_response(
     let owner = command.user_id()?;
 
     tokio::spawn(async move {
-        if let Err(why) = pagination.start(&ctx, owner, 60).await {
-            let report = Report::new(why).wrap_err("pagination error");
-            warn!("{:?}", report);
+        if let Err(err) = pagination.start(&ctx, owner, 60).await {
+            warn!("{:?}", Report::new(err));
         }
     });
 

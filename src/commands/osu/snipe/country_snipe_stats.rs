@@ -2,6 +2,7 @@ use crate::{
     custom_client::SnipeCountryPlayer,
     database::OsuData,
     embeds::{CountrySnipeStatsEmbed, EmbedData},
+    error::GraphError,
     util::{
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         CountryCode, MessageExt,
@@ -143,9 +144,8 @@ pub(super) async fn _countrysnipestats(
 
     let graph = match graphs(&players) {
         Ok(graph_option) => Some(graph_option),
-        Err(why) => {
-            let report = Report::new(why).wrap_err("failed to create graph");
-            warn!("{:?}", report);
+        Err(err) => {
+            warn!("{:?}", Report::new(err));
 
             None
         }
@@ -172,7 +172,7 @@ pub(super) async fn _countrysnipestats(
 const W: u32 = 1350;
 const H: u32 = 350;
 
-fn graphs(players: &[SnipeCountryPlayer]) -> BotResult<Vec<u8>> {
+fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>, GraphError> {
     static LEN: usize = W as usize * H as usize;
     let mut pp: Vec<_> = players
         .iter()

@@ -52,6 +52,7 @@ pub use top_if::TopIfPagination;
 
 use crate::{
     embeds::EmbedData,
+    error::Error,
     util::{numbers, send_reaction, Emote},
     BotResult, Context,
 };
@@ -69,6 +70,14 @@ use twilight_model::{
 };
 
 type ReactionVec = SmallVec<[Emote; 7]>;
+type PaginationResult = Result<(), PaginationError>;
+
+#[derive(Debug, thiserror::Error)]
+#[error("pagination error")]
+pub enum PaginationError {
+    Bot(#[from] Error),
+    Http(#[from] twilight_http::Error),
+}
 
 #[async_trait]
 pub trait Pagination: Sync + Sized {
@@ -136,7 +145,7 @@ pub trait Pagination: Sync + Sized {
     }
 
     // Don't implement anything else
-    async fn start(mut self, ctx: &Context, owner: UserId, duration: u64) -> BotResult<()> {
+    async fn start(mut self, ctx: &Context, owner: UserId, duration: u64) -> PaginationResult {
         ctx.store_msg(self.msg().id);
 
         let reactions = Self::reactions();
@@ -186,7 +195,7 @@ pub trait Pagination: Sync + Sized {
             }
         }
 
-        self.final_processing(ctx).await
+        self.final_processing(ctx).await.map_err(From::from)
     }
 
     async fn next_page(&mut self, reaction: Reaction, ctx: &Context) -> BotResult<()> {

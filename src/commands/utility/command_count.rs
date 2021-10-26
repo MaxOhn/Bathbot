@@ -50,9 +50,8 @@ async fn commands(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let pagination = CommandCountPagination::new(&ctx, response, cmds);
 
     tokio::spawn(async move {
-        if let Err(why) = pagination.start(&ctx, owner, 90).await {
-            let report = Report::new(why).wrap_err("pagination error (command count)");
-            warn!("{:?}", report);
+        if let Err(err) = pagination.start(&ctx, owner, 90).await {
+            warn!("{:?}", Report::new(err));
         }
     });
 

@@ -1,6 +1,7 @@
 use crate::{
     database::OsuData,
     embeds::{EmbedData, MedalStatsEmbed},
+    error::GraphError,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
@@ -87,9 +88,8 @@ pub(super) async fn _medalstats(
 
     let graph = match graph(user.medals.as_ref().unwrap()) {
         Ok(bytes_option) => bytes_option,
-        Err(why) => {
-            let report = Report::new(why).wrap_err("failed to create graph");
-            warn!("{:?}", report);
+        Err(err) => {
+            warn!("{:?}", Report::new(err));
 
             None
         }
@@ -113,7 +113,7 @@ pub(super) async fn _medalstats(
 const W: u32 = 1350;
 const H: u32 = 350;
 
-fn graph(medals: &[MedalCompact]) -> BotResult<Option<Vec<u8>>> {
+fn graph(medals: &[MedalCompact]) -> Result<Option<Vec<u8>>, GraphError> {
     static LEN: usize = W as usize * H as usize;
     let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3
     {
