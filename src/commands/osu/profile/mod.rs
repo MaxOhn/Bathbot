@@ -17,7 +17,7 @@ use crate::{
     pagination::ProfilePagination,
     tracking::process_tracking,
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::{common_literals::PROFILE, GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
     },
     BotResult, CommandData, Context, MessageBuilder,
@@ -356,6 +356,5 @@ pub fn define_profile() -> MyCommand {
     let name = option_name();
     let discord = option_discord();
 
-    MyCommand::new("profile", "Display statistics of a user")
-        .options(vec![mode, name, size, discord])
+    MyCommand::new(PROFILE, "Display statistics of a user").options(vec![mode, name, size, discord])
 }

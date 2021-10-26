@@ -57,6 +57,7 @@ pub mod common_literals {
     pub const ACC: &str = "acc";
     pub const ACCURACY: &str = "accuracy";
     pub const MISSES: &str = "misses";
+    pub const PROFILE: &str = "profile";
 
     pub const OSU: &str = "osu";
     pub const TAIKO: &str = "taiko";

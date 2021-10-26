@@ -19,7 +19,7 @@ use crate::{
     },
     database::OsuData,
     util::{
-        constants::common_literals::{MODE, SCORE},
+        constants::common_literals::{MODE, PROFILE, SCORE},
         matcher, ApplicationCommandExt, InteractionExt, MessageExt,
     },
     Args, BotResult, Context, Error, Name,
@@ -247,7 +247,7 @@ impl CompareCommandKind {
                         Ok(args) => kind = Some(Self::Score(args)),
                         Err(content) => return Ok(Err(content)),
                     },
-                    "profile" => match ProfileArgs::slash(ctx, options, author_id).await? {
+                    PROFILE => match ProfileArgs::slash(ctx, options, author_id).await? {
                         Ok(args) => kind = Some(CompareCommandKind::Profile(args)),
                         Err(content) => return Ok(Err(content)),
                     },
@@ -341,7 +341,7 @@ pub fn define_compare() -> MyCommand {
         - PC peak = Monthly playcount peak\n\
         - PP spread = PP difference between the top score and the 100th score";
 
-    let profile = MyCommandOption::builder("profile", "Compare two profiles")
+    let profile = MyCommandOption::builder(PROFILE, "Compare two profiles")
         .help(profile_help)
         .subcommand(vec![mode, name1, name2, discord1, discord2]);
 

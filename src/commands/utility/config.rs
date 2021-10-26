@@ -5,7 +5,7 @@ use crate::{
     embeds::{ConfigEmbed, EmbedBuilder, EmbedData},
     util::{
         constants::{
-            common_literals::{CTB, MANIA, MODE, OSU, TAIKO},
+            common_literals::{CTB, MANIA, MODE, OSU, PROFILE, TAIKO},
             GENERAL_ISSUE, RED, TWITCH_API_ISSUE,
         },
         ApplicationCommandExt, Authored, Emote, MessageBuilder, MessageExt,
@@ -320,6 +320,8 @@ pub struct ConfigArgs {
     pub twitch: Option<bool>,
 }
 
+const CONFIG_: &str = "config";
+
 impl ConfigArgs {
     fn slash(command: &mut ApplicationCommand) -> BotResult<Self> {
         let mut mode = None;
@@ -332,6 +334,8 @@ impl ConfigArgs {
         for option in command.yoink_options() {
             match option {
                 CommandDataOption::String { name, value } => match name.as_str() {
+                    OSU => osu = Some(value == "link"),
+                    "twitch" => twitch = Some(value == "link"),
                     MODE => {
                         mode = match value.as_str() {
                             "none" => Some(None),
@@ -342,7 +346,7 @@ impl ConfigArgs {
                             _ => bail_cmd_option!("config mode", string, value),
                         }
                     }
-                    "profile" => match value.as_str() {
+                    PROFILE => match value.as_str() {
                         "compact" => profile_size = Some(ProfileSize::Compact),
                         "medium" => profile_size = Some(ProfileSize::Medium),
                         "full" => profile_size = Some(ProfileSize::Full),
@@ -358,18 +362,16 @@ impl ConfigArgs {
                         "hide" => show_retries = Some(false),
                         _ => bail_cmd_option!("config retries", string, value),
                     },
-                    _ => bail_cmd_option!("config", string, name),
+                    _ => bail_cmd_option!(CONFIG_, string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("config", integer, name)
+                    bail_cmd_option!(CONFIG_, integer, name)
                 }
-                CommandDataOption::Boolean { name, value } => match name.as_str() {
-                    OSU => osu = Some(value),
-                    "twitch" => twitch = Some(value),
-                    _ => bail_cmd_option!("config", boolean, name),
-                },
+                CommandDataOption::Boolean { name, .. } => {
+                    bail_cmd_option!(CONFIG_, boolean, name)
+                }
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("config", subcommand, name)
+                    bail_cmd_option!(CONFIG_, subcommand, name)
                 }
             }
         }
@@ -393,34 +395,46 @@ pub async fn slash_config(ctx: Arc<Context>, mut command: ApplicationCommand) ->
     config_(ctx, command, args).await
 }
 
+fn link_options() -> Vec<CommandOptionChoice> {
+    let link = CommandOptionChoice::String {
+        name: "Link".to_owned(),
+        value: "link".to_owned(),
+    };
+
+    let unlink = CommandOptionChoice::String {
+        name: "Unlink".to_owned(),
+        value: "unlink".to_owned(),
+    };
+
+    vec![link, unlink]
+}
+
 pub fn define_config() -> MyCommand {
-    let osu_description =
-        "Specify whether you want to link to an osu! profile (choose `false` to unlink)";
+    let osu_description = "Specify whether you want to link to an osu! profile";
 
     let osu_help = "Most osu! commands require a specified username to work.\n\
         Since using a command is most commonly intended for your own profile, you can link \
         your discord with an osu! profile so that when no username is specified in commands, \
         it will choose the linked username.\n\
-        If the value is set to `True`, it will prompt you to authorize your account.\n\
-        If `False` is selected, you will be unlinked from the osu! profile.";
+        If the value is set to `Link`, it will prompt you to authorize your account.\n\
+        If `Unlink` is selected, you will be unlinked from the osu! profile.";
 
     let osu = MyCommandOption::builder(OSU, osu_description)
         .help(osu_help)
-        .boolean(false);
+        .string(link_options(), false);
 
-    let twitch_description =
-        "Specify whether you want to link to a twitch profile (choose `false` to unlink)";
+    let twitch_description = "Specify whether you want to link to a twitch profile";
 
     let twitch_help = "With this option you can link to a twitch channel.\n\
         When you have both your osu! and twitch linked, are currently streaming, and anyone uses \
         the `recent score` command on your osu! username, it will try to retrieve the last VOD from your \
         twitch channel and link to a timestamp for the score.\n\
-        If the value is set to `True`, it will prompt you to authorize your account.\n\
-        If `False` is selected, you will be unlinked from the twitch channel.";
+        If the value is set to `Link`, it will prompt you to authorize your account.\n\
+        If `Unlink` is selected, you will be unlinked from the twitch channel.";
 
     let twitch = MyCommandOption::builder("twitch", twitch_description)
         .help(twitch_help)
-        .boolean(false);
+        .string(link_options(), false);
 
     let mode_description =
         "Specify a gamemode (NOTE: Only use for non-std modes if you NEVER use std commands)";
@@ -474,7 +488,7 @@ pub fn define_config() -> MyCommand {
     ];
 
     let profile =
-        MyCommandOption::builder("profile", profile_description).string(profile_choices, false);
+        MyCommandOption::builder(PROFILE, profile_description).string(profile_choices, false);
 
     let embeds_description =
         "What initial size should the recent, compare, simulate, ... commands be?";
@@ -515,6 +529,6 @@ pub fn define_config() -> MyCommand {
     let retries =
         MyCommandOption::builder("retries", retries_description).string(retries_choices, false);
 
-    MyCommand::new("config", "Adjust your default configuration for commands")
+    MyCommand::new(CONFIG_, "Adjust your default configuration for commands")
         .options(vec![osu, twitch, mode, profile, embeds, retries])
 }

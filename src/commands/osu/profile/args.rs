@@ -2,7 +2,7 @@ use super::ProfileSize;
 use crate::{
     database::UserConfig,
     util::{
-        constants::common_literals::{DISCORD, MODE, NAME},
+        constants::common_literals::{DISCORD, MODE, NAME, PROFILE},
         ApplicationCommandExt, CowUtils, InteractionExt,
     },
     Args, BotResult, Context,
@@ -84,16 +84,16 @@ impl ProfileArgs {
                     },
                     NAME => config.osu = Some(value.into()),
                     DISCORD => config.osu = Some(parse_discord_option!(ctx, value, "profile")),
-                    _ => bail_cmd_option!("profile", string, name),
+                    _ => bail_cmd_option!(PROFILE, string, name),
                 },
                 CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("profile", integer, name)
+                    bail_cmd_option!(PROFILE, integer, name)
                 }
                 CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("profile", boolean, name)
+                    bail_cmd_option!(PROFILE, boolean, name)
                 }
                 CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("profile", subcommand, name)
+                    bail_cmd_option!(PROFILE, subcommand, name)
                 }
             }
         }

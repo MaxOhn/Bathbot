@@ -83,7 +83,13 @@ use twilight_model::application::command::{
     CommandType, OptionsCommandOptionData,
 };
 
-use crate::{core::CommandGroup, util::Emote};
+use crate::{
+    core::CommandGroup,
+    util::{
+        constants::common_literals::{HELP, PROFILE},
+        Emote,
+    },
+};
 
 pub fn command_groups() -> [CommandGroup; 11] {
     [
@@ -638,7 +644,7 @@ lazy_static! {
         let mut map = BTreeMap::new();
         let mut insert = |name: &'static str, f: fn() -> MyCommand| map.insert(name, f);
 
-        insert("help", help::define_help);
+        insert(HELP, help::define_help);
         insert("recent", define_recent);
         insert("track", define_track);
         insert("owner", define_owner);
@@ -667,7 +673,7 @@ lazy_static! {
         insert("simulate", define_simulate);
         insert("search", define_mapsearch);
         insert("leaderboard", define_leaderboard);
-        insert("profile", define_profile);
+        insert(PROFILE, define_profile);
         insert("reach", define_reach);
         insert("compare", define_compare);
         insert("medal", define_medal);

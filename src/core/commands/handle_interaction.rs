@@ -5,7 +5,7 @@ use crate::{
     embeds::EmbedBuilder,
     util::{
         constants::{
-            common_literals::{HELP, MAP},
+            common_literals::{HELP, MAP, PROFILE},
             OWNER_USER_ID, RED,
         },
         Authored, InteractionExt,
@@ -117,7 +117,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
             process_command(ctx, command, args, owner::slash_owner).await
         }
         "ping" => process_command(ctx, command, args, utility::slash_ping).await,
-        "profile" => process_command(ctx, command, args, osu::slash_profile).await,
+        PROFILE => process_command(ctx, command, args, osu::slash_profile).await,
         "prune" => {
             args.authority = true;
             args.only_guilds = true;
