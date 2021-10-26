@@ -72,15 +72,10 @@ async fn _check_authority(
     let auth_roles = ctx.config_authorities_collect(guild_id, RoleId).await;
 
     if auth_roles.is_empty() {
-        let prefix = ctx.config_first_prefix(Some(guild_id)).await;
+        let content = "You need admin permissions to use this command.\n\
+            (`/authorities` to adjust authority status for this server)";
 
-        let content = format!(
-            "You need admin permissions to use this command.\n\
-            (`{}help authorities` to adjust authority status for this server)",
-            prefix
-        );
-
-        return Ok(Some(content));
+        return Ok(Some(content.to_owned()));
     } else if let Some(member) = ctx.cache.member(guild_id, author_id) {
         if !member.roles.iter().any(|role| auth_roles.contains(role)) {
             let mut content = String::from(
@@ -99,13 +94,7 @@ async fn _check_authority(
                 }
             }
 
-            let prefix = ctx.config_first_prefix(Some(guild_id)).await;
-
-            let _ = write!(
-                content,
-                "\n(`{}help authorities` to adjust authority status for this server)",
-                prefix
-            );
+            content.push_str("\n(`/authorities` to adjust authority status for this server)");
 
             return Ok(Some(content));
         }
@@ -121,7 +110,7 @@ async fn check_ratelimit(
     authored: &impl Authored,
     bucket: impl AsRef<str>,
 ) -> Option<(i64, BucketName)> {
-    // * Note: Dangerous `?` if author is None but ratelimit should apply.
+    // * Note: Dangerous `?` if author is None and ratelimit should apply.
     // * Should be caught elsewhere though so this is likely fine
     let author_id = authored.author()?.id;
     let guild_id = authored.guild_id();

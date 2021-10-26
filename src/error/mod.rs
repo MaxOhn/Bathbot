@@ -29,7 +29,7 @@ macro_rules! bail {
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("error while checking authority status")]
-    Authority(#[source] Box<Error>), // TODO
+    Authority(#[source] Box<Error>),
     #[error("background game error")]
     BgGame(#[from] bg_game::BgGameError),
     #[error("serde cbor error")]
