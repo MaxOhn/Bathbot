@@ -213,9 +213,11 @@ impl Database {
         _insert_map(&mut conn, map).await.map(|_| true)
     }
 
-    pub async fn insert_beatmaps(&self, maps: &[Beatmap]) -> InsertMapResult<usize> {
+    pub async fn insert_beatmaps(
+        &self,
+        maps: impl Iterator<Item = &Beatmap>,
+    ) -> InsertMapResult<usize> {
         let mut conn = self.pool.acquire().await?;
-
         let mut count = 0;
 
         for map in maps {

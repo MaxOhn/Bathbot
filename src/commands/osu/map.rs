@@ -236,7 +236,7 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
     // Add mapset and maps to database
     let (mapset_result, maps_result) = tokio::join!(
         ctx.clients.psql.insert_beatmapset(&mapset),
-        ctx.clients.psql.insert_beatmaps(&maps),
+        ctx.clients.psql.insert_beatmaps(maps.iter()),
     );
 
     if let Err(err) = mapset_result {

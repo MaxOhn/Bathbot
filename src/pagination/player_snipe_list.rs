@@ -149,11 +149,8 @@ impl Pagination for PlayerSnipeListPagination {
     }
 
     async fn final_processing(mut self, ctx: &Context) -> BotResult<()> {
-        // Put maps into DB
-        let maps: Vec<_> = self.maps.into_iter().map(|(_, map)| map).collect();
-
-        match ctx.psql().insert_beatmaps(&maps).await {
-            Ok(n) => debug!("Added up to {} maps to DB", n),
+        match ctx.psql().insert_beatmaps(self.maps.values()).await {
+            Ok(n) => debug!("Added {} maps to DB", n),
             Err(err) => warn!("{:?}", Report::new(err)),
         }
 
