@@ -39,10 +39,8 @@ pub async fn get_title_artist(ctx: &Context, mapset_id: u32) -> GameResult<(Stri
         } else {
             match ctx.osu().beatmapset(mapset_id).await {
                 Ok(mapset) => {
-                    if let Err(why) = ctx.psql().insert_beatmapset(&mapset).await {
-                        let report = Report::new(why)
-                            .wrap_err("error while inserting bg game mapset into DB");
-                        warn!("{:?}", report);
+                    if let Err(err) = ctx.psql().insert_beatmapset(&mapset).await {
+                        warn!("{:?}", Report::new(err));
                     }
 
                     (mapset.title.to_lowercase(), mapset.artist)

@@ -154,10 +154,7 @@ impl Pagination for PlayerSnipeListPagination {
 
         match ctx.psql().insert_beatmaps(&maps).await {
             Ok(n) => debug!("Added up to {} maps to DB", n),
-            Err(why) => {
-                let report = Report::new(why).wrap_err("error while adding maps to DB");
-                warn!("{:?}", report);
-            }
+            Err(err) => warn!("{:?}", Report::new(err)),
         }
 
         Ok(())

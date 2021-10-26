@@ -145,9 +145,8 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
     ctx.store_msg(response.id);
 
     // Add map to database if its not in already
-    if let Err(why) = ctx.psql().insert_beatmap(&map).await {
-        let report = Report::new(why).wrap_err("failed to add map to DB");
-        warn!("{:?}", report);
+    if let Err(err) = ctx.psql().insert_beatmap(&map).await {
+        warn!("{:?}", Report::new(err));
     }
 
     // Set map on garbage collection list if unranked

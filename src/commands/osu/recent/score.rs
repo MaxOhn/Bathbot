@@ -268,9 +268,8 @@ pub(super) async fn _recent(
 
         // Process user and their top scores for tracking
         if let Some(ref mut scores) = best {
-            if let Err(why) = ctx.psql().store_scores_maps(scores.iter()).await {
-                let report = Report::new(why).wrap_err("failed to store maps in DB");
-                warn!("{:?}", report);
+            if let Err(err) = ctx.psql().store_scores_maps(scores.iter()).await {
+                warn!("{:?}", Report::new(err));
             }
 
             process_tracking(&ctx, mode, scores, Some(&user)).await;
@@ -315,9 +314,8 @@ pub(super) async fn _recent(
 
         // Process user and their top scores for tracking
         if let Some(ref mut scores) = best {
-            if let Err(why) = ctx.psql().store_scores_maps(scores.iter()).await {
-                let report = Report::new(why).wrap_err("failed to store maps in DB");
-                warn!("{:?}", report);
+            if let Err(err) = ctx.psql().store_scores_maps(scores.iter()).await {
+                warn!("{:?}", Report::new(err));
             }
 
             process_tracking(&ctx, mode, scores, Some(&user)).await;

@@ -157,9 +157,8 @@ pub(super) async fn _mapper(
     // Add maps of scores to DB
     let scores_iter = scores.iter().map(|(_, score)| score);
 
-    if let Err(why) = ctx.psql().store_scores_maps(scores_iter).await {
-        let report = Report::new(why).wrap_err("error while adding score maps to DB");
-        warn!("{:?}", report);
+    if let Err(err) = ctx.psql().store_scores_maps(scores_iter).await {
+        warn!("{:?}", Report::new(err));
     }
 
     // Skip pagination if too few entries

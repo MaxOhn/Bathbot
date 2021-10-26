@@ -184,10 +184,8 @@ async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotRes
                 Ok(map) => map,
                 Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
                     Ok(map) => {
-                        if let Err(why) = ctx.psql().insert_beatmap(&map).await {
-                            let report =
-                                Report::new(why).wrap_err("error while inserting map into DB");
-                            warn!("{:?}", report);
+                        if let Err(err) = ctx.psql().insert_beatmap(&map).await {
+                            warn!("{:?}", Report::new(err));
                         }
 
                         map

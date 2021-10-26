@@ -139,9 +139,8 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
     // Add maps of scores to DB
     let scores_iter = scores.iter().map(|(_, score)| score);
 
-    if let Err(why) = ctx.psql().store_scores_maps(scores_iter).await {
-        let report = Report::new(why).wrap_err("failed to add scores maps to DB");
-        warn!("{:?}", report);
+    if let Err(err) = ctx.psql().store_scores_maps(scores_iter).await {
+        warn!("{:?}", Report::new(err));
     }
 
     if let Some(num) = args.index {

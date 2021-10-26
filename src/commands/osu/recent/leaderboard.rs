@@ -162,9 +162,8 @@ pub(super) async fn _recentleaderboard(
     let response_raw = data.create_message(&ctx, builder).await?;
 
     // Store map in DB
-    if let Err(why) = ctx.psql().insert_beatmap(&map).await {
-        let report = Report::new(why).wrap_err("failed to store map in DB");
-        warn!("{:?}", report);
+    if let Err(err) = ctx.psql().insert_beatmap(&map).await {
+        warn!("{:?}", Report::new(err));
     }
 
     // Set map on garbage collection list if unranked

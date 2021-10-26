@@ -151,9 +151,8 @@ async fn prepare_mapset(
         Ok(mapset) => mapset,
         Err(_) => match ctx.osu().beatmapset(mapset_id).await {
             Ok(mapset) => {
-                if let Err(why) = ctx.psql().insert_beatmapset(&mapset).await {
-                    let report = Report::new(why).wrap_err("failed to isnert mapset in DB");
-                    warn!("{:?}", report);
+                if let Err(err) = ctx.psql().insert_beatmapset(&mapset).await {
+                    warn!("{:?}", Report::new(err));
                 }
 
                 mapset.into()

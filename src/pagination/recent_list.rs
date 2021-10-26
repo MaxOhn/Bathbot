@@ -53,9 +53,8 @@ impl Pagination for RecentListPagination {
             ctx.map_garbage_collector(map).execute(ctx).await;
         }
 
-        if let Err(why) = self.ctx.psql().store_scores_maps(self.scores.iter()).await {
-            let report = Report::new(why).wrap_err("error while storing recent list maps in DB");
-            warn!("{:?}", report);
+        if let Err(err) = self.ctx.psql().store_scores_maps(self.scores.iter()).await {
+            warn!("{:?}", Report::new(err));
         }
 
         Ok(())

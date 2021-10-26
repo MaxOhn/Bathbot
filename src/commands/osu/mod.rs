@@ -170,9 +170,8 @@ pub async fn prepare_score(ctx: &Context, score: &mut Score) -> OsuResult<()> {
         } else {
             let beatmap = ctx.osu().beatmap().map_id(map.map_id).await?;
 
-            if let Err(why) = ctx.psql().insert_beatmap(&beatmap).await {
-                let report = Report::new(why).wrap_err("failed to insert beatmap");
-                warn!("{:?}", report);
+            if let Err(err) = ctx.psql().insert_beatmap(&beatmap).await {
+                warn!("{:?}", Report::new(err));
             }
 
             map.max_combo = beatmap.max_combo;
@@ -225,9 +224,8 @@ where
                     None | Some(None) => {
                         let map = ctx.osu().beatmap().map_id(score_map.map_id).await?;
 
-                        if let Err(why) = ctx.psql().insert_beatmap(&map).await {
-                            let report = Report::new(why).wrap_err("failed to insert beatmap");
-                            warn!("{:?}", report);
+                        if let Err(err) = ctx.psql().insert_beatmap(&map).await {
+                            warn!("{:?}", Report::new(err));
                         }
 
                         score_map.max_combo = map.max_combo;

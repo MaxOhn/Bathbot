@@ -239,14 +239,12 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
         ctx.clients.psql.insert_beatmaps(&maps),
     );
 
-    if let Err(why) = mapset_result {
-        let report = Report::new(why).wrap_err("error while adding mapset to DB");
-        warn!("{:?}", report);
+    if let Err(err) = mapset_result {
+        warn!("{:?}", Report::new(err));
     }
 
-    if let Err(why) = maps_result {
-        let report = Report::new(why).wrap_err("error while adding maps to DB");
-        warn!("{:?}", report);
+    if let Err(err) = maps_result {
+        warn!("{:?}", Report::new(err));
     }
 
     // Skip pagination if too few entries

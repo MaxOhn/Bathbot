@@ -71,9 +71,8 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
     process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
 
     // Store maps in DB
-    if let Err(why) = ctx.psql().store_scores_maps(scores.iter()).await {
-        let report = Report::new(why).wrap_err("failed to store maps in DB");
-        warn!("{:?}", report);
+    if let Err(err) = ctx.psql().store_scores_maps(scores.iter()).await {
+        warn!("{:?}", Report::new(err));
     }
 
     let mut profile_data = ProfileData::new(user, scores);

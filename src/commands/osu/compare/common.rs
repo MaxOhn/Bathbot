@@ -297,9 +297,8 @@ pub(super) async fn _common(
         .filter_map(|scores| scores.first())
         .map(|(_, _, score)| score);
 
-    if let Err(why) = ctx.psql().store_scores_maps(map_iter).await {
-        let report = Report::new(why).wrap_err("failed to add score maps to DB");
-        warn!("{:?}", report);
+    if let Err(err) = ctx.psql().store_scores_maps(map_iter).await {
+        warn!("{:?}", Report::new(err));
     }
 
     // Skip pagination if too few entries
