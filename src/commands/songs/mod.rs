@@ -9,6 +9,7 @@ mod rockefeller;
 mod saygoodbye;
 mod startagain;
 mod tijdmachine;
+mod wordsneversaid;
 
 pub use bombsaway::*;
 pub use catchit::*;
@@ -21,6 +22,7 @@ pub use rockefeller::*;
 pub use saygoodbye::*;
 pub use startagain::*;
 pub use tijdmachine::*;
+pub use wordsneversaid::*;
 
 use crate::{
     util::{ApplicationCommandExt, MessageExt},
@@ -82,6 +84,8 @@ async fn song_send(
     Ok(())
 }
 
+const SONG: &str = "song";
+
 pub async fn slash_song(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
     let mut song = None;
 
@@ -101,15 +105,16 @@ pub async fn slash_song(ctx: Arc<Context>, mut command: ApplicationCommand) -> B
                         "saygoodbye" => Some(_saygoodbye()),
                         "startagain" => Some(_startagain()),
                         "tijdmachine" => Some(_tijdmachine()),
+                        "wordsneversaid" => Some(_wordsneversaid()),
                         _ => bail_cmd_option!("song title", string, value),
                     };
                 }
-                _ => bail_cmd_option!("song", string, value),
+                _ => bail_cmd_option!(SONG, string, value),
             },
-            CommandDataOption::Integer { name, .. } => bail_cmd_option!("song", integer, name),
-            CommandDataOption::Boolean { name, .. } => bail_cmd_option!("song", boolean, name),
+            CommandDataOption::Integer { name, .. } => bail_cmd_option!(SONG, integer, name),
+            CommandDataOption::Boolean { name, .. } => bail_cmd_option!(SONG, boolean, name),
             CommandDataOption::SubCommand { name, .. } => {
-                bail_cmd_option!("song", subcommand, name)
+                bail_cmd_option!(SONG, subcommand, name)
             }
         }
     }
@@ -162,6 +167,10 @@ pub fn define_song() -> MyCommand {
             value: "tijdmachine".to_owned(),
         },
         CommandOptionChoice::String {
+            name: "The words I never said".to_owned(),
+            value: "wordsneversaid".to_owned(),
+        },
+        CommandOptionChoice::String {
             name: "Through the Fire and Flames".to_owned(),
             value: "fireandflames".to_owned(),
         },
@@ -178,11 +187,12 @@ pub fn define_song() -> MyCommand {
         [Say Goodbye](https://youtu.be/SyJMQg3spck?t=43), \
         [Start Again](https://youtu.be/g7VNvg_QTMw&t=29), \
         [Tijdmachine](https://youtu.be/DT6tpUbWOms?t=47), \
+        [The words I never said](https://youtu.be/8er4CQCxPRQ?t=65s), \
         [Through the Fire and Flames](https://youtu.be/0jgrCKhxE1s?t=77)";
 
     let title = MyCommandOption::builder("title", "Choose a song title")
         .help(help)
         .string(choices, true);
 
-    MyCommand::new("song", "Let me sing a song for you").options(vec![title])
+    MyCommand::new(SONG, "Let me sing a song for you").options(vec![title])
 }
