@@ -63,7 +63,7 @@ impl StdError for InsertMapOrMapsetError {
 }
 
 impl fmt::Display for InsertMapOrMapsetError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Map(err) => write!(f, "{}", err),
             Self::Mapset(err) => write!(f, "{}", err),

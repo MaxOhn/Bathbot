@@ -265,7 +265,7 @@ struct LeaderboardArgs {
 const LEADERBOARD: &str = "leaderboard";
 
 impl LeaderboardArgs {
-    fn args(args: &mut Args) -> Result<Self, String> {
+    fn args(args: &mut Args<'_>) -> Result<Self, String> {
         let mut map = None;
         let mut mods = None;
 

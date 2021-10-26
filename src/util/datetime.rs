@@ -22,20 +22,20 @@ pub struct SecToMinSecFormatter {
 }
 
 impl fmt::Display for SecToMinSecFormatter {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}:{:02}", self.secs / 60, self.secs % 60)
     }
 }
 
 // thx saki :)
-pub fn how_long_ago_text(date: &DateTime<Utc>) -> HowLongAgoFormatterText {
+pub fn how_long_ago_text(date: &DateTime<Utc>) -> HowLongAgoFormatterText<'_> {
     HowLongAgoFormatterText(date)
 }
 
 pub struct HowLongAgoFormatterText<'a>(&'a DateTime<Utc>);
 
 impl<'a> fmt::Display for HowLongAgoFormatterText<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let now = Utc::now();
         let diff_sec = now.timestamp() - self.0.timestamp();
         debug_assert!(diff_sec >= 0);
@@ -93,7 +93,7 @@ pub fn how_long_ago_dynamic(date: &DateTime<Utc>) -> HowLongAgoFormatterDynamic 
 pub struct HowLongAgoFormatterDynamic(i64);
 
 impl fmt::Display for HowLongAgoFormatterDynamic {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // https://discord.com/developers/docs/reference#message-formatting-timestamp-styles
         write!(f, "<t:{}:R>", self.0)
     }

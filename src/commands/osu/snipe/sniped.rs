@@ -285,7 +285,9 @@ fn draw_snipee<DB: DrawingBackend>(
     Ok(())
 }
 
-fn draw_mesh<DB: DrawingBackend>(chart: &mut ChartContext<DB, ContextType>) -> DrawingError<DB> {
+fn draw_mesh<DB: DrawingBackend>(
+    chart: &mut ChartContext<'_, DB, ContextType<'_>>,
+) -> DrawingError<DB> {
     chart
         .configure_mesh()
         .disable_x_mesh()
@@ -300,7 +302,7 @@ fn draw_mesh<DB: DrawingBackend>(chart: &mut ChartContext<DB, ContextType>) -> D
 }
 
 fn draw_legend<'a, DB: DrawingBackend + 'a>(
-    chart: &mut ChartContext<'a, DB, ContextType>,
+    chart: &mut ChartContext<'a, DB, ContextType<'_>>,
 ) -> DrawingError<DB> {
     chart
         .configure_series_labels()
@@ -314,7 +316,7 @@ fn draw_legend<'a, DB: DrawingBackend + 'a>(
     Ok(())
 }
 
-fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult {
+fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult<'_> {
     let total = scores.iter().fold(HashMap::new(), |mut map, score| {
         *map.entry(score.sniper.as_str()).or_insert(0) += 1;
 
@@ -348,7 +350,7 @@ fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult {
     finish_preparing(names, categorized)
 }
 
-fn prepare_sniper(scores: &[SnipeRecent]) -> PrepareResult {
+fn prepare_sniper(scores: &[SnipeRecent]) -> PrepareResult<'_> {
     let total = scores.iter().filter(|score| score.sniped.is_some()).fold(
         HashMap::new(),
         |mut map, score| {

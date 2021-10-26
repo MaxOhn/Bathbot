@@ -197,7 +197,7 @@ macro_rules! parse_fail {
 const SIMULATE: &str = "simulate";
 
 impl SimulateArgs {
-    fn args(args: &mut Args) -> Result<Self, String> {
+    fn args(args: &mut Args<'_>) -> Result<Self, String> {
         let mut map = None;
         let mut mods = None;
         let mut n300 = None;

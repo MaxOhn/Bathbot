@@ -59,7 +59,7 @@ pub enum MedalGroup {
 }
 
 impl fmt::Display for MedalGroup {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Skill => f.write_str("Skill"),
             Self::Dedication => f.write_str("Dedication"),

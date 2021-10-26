@@ -1,10 +1,16 @@
-use crate::{BotResult, custom_client::ScraperScore, embeds::{Author, Footer}, error::PPError, util::{
+use crate::{
+    custom_client::ScraperScore,
+    embeds::{Author, Footer},
+    error::PPError,
+    util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago_dynamic,
         numbers::with_comma_int,
         osu::prepare_beatmap_file,
         CowUtils, ScoreExt,
-    }};
+    },
+    BotResult,
+};
 
 use hashbrown::HashMap;
 use rosu_pp::{
@@ -220,7 +226,7 @@ async fn get_pp(
 struct PPFormatter(f32, f32);
 
 impl fmt::Display for PPFormatter {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "**{:.2}**/{:.2}PP", self.0, self.1)
     }
 }
@@ -232,7 +238,7 @@ fn get_combo<'a>(score: &'a ScraperScore, map: &'a Beatmap) -> ComboFormatter<'a
 struct ComboFormatter<'a>(&'a ScraperScore, &'a Beatmap);
 
 impl<'a> fmt::Display for ComboFormatter<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "**{}x**/", self.0.max_combo)?;
 
         if let Some(amount) = self.1.max_combo {

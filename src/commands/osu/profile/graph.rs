@@ -93,7 +93,7 @@ pub(super) async fn graphs(user: &mut User) -> Result<Option<Vec<u8>>, GraphErro
 
                     let x = x_offset + idx as u32 * badge_width + idx as u32 * inner_margin;
                     let y = badge_height;
-                    let elem: BitMapElement<_> = ((x, y), badge_img).into();
+                    let elem: BitMapElement<'_, _> = ((x, y), badge_img).into();
                     chart_row.draw_series(std::iter::once(elem))?;
                 }
             }

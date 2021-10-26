@@ -129,7 +129,7 @@ pub struct MapSearchArgs {
 }
 
 impl MapSearchArgs {
-    pub fn args(args: &mut Args) -> Result<Self, &'static str> {
+    pub fn args(args: &mut Args<'_>) -> Result<Self, &'static str> {
         let mut query = String::with_capacity(args.rest().len());
 
         let chars = args

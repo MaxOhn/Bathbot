@@ -109,7 +109,7 @@ struct RoleAssignArgs {
 }
 
 impl RoleAssignArgs {
-    fn args(args: &mut Args) -> Result<Self, &'static str> {
+    fn args(args: &mut Args<'_>) -> Result<Self, &'static str> {
         let channel = match args.next() {
             Some(arg) => match matcher::get_mention_channel(arg) {
                 Some(id) => ChannelId(id),

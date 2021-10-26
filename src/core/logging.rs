@@ -56,7 +56,7 @@ pub fn initialize() -> BotResult<()> {
     Ok(())
 }
 
-pub fn log_format(w: &mut dyn Write, now: &mut DeferredNow, record: &Record) -> IoResult<()> {
+pub fn log_format(w: &mut dyn Write, now: &mut DeferredNow, record: &Record<'_>) -> IoResult<()> {
     write!(
         w,
         "[{}] {} {}",
@@ -66,7 +66,11 @@ pub fn log_format(w: &mut dyn Write, now: &mut DeferredNow, record: &Record) -> 
     )
 }
 
-pub fn log_format_files(w: &mut dyn Write, now: &mut DeferredNow, record: &Record) -> IoResult<()> {
+pub fn log_format_files(
+    w: &mut dyn Write,
+    now: &mut DeferredNow,
+    record: &Record<'_>,
+) -> IoResult<()> {
     write!(
         w,
         "[{}] {:^5} [{}:{}] {}",

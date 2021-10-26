@@ -266,7 +266,7 @@ fn mode_str(mode: GameMode) -> &'static str {
     }
 }
 
-fn lengths(buf: &mut String, iter: Range<usize, RankingEntry>) -> Lengths {
+fn lengths(buf: &mut String, iter: Range<'_, usize, RankingEntry>) -> Lengths {
     let mut idx_len = 0;
     let mut name_len = 0;
     let mut value_len = 0;

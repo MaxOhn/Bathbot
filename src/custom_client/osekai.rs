@@ -158,7 +158,7 @@ struct OsekaiGroupingVisitor;
 impl<'de> Visitor<'de> for OsekaiGroupingVisitor {
     type Value = Vec<OsekaiMedal>;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("an object containing fields mapping to a list of osekai medals")
     }
 
@@ -224,7 +224,7 @@ impl<'s> OsekaiGrouping<'s> {
 }
 
 impl<'s> fmt::Display for OsekaiGrouping<'s> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.0)
     }
 }
@@ -241,7 +241,7 @@ impl<'s> PartialOrd for OsekaiGrouping<'s> {
     }
 }
 
-pub const MEDAL_GROUPS: [OsekaiGrouping; 8] = [
+pub const MEDAL_GROUPS: [OsekaiGrouping<'_>; 8] = [
     OsekaiGrouping(SKILL),
     OsekaiGrouping(DEDICATION),
     OsekaiGrouping(HUSH_HUSH),
@@ -289,7 +289,7 @@ struct OsekaiModeVisitor;
 impl<'de> Visitor<'de> for OsekaiModeVisitor {
     type Value = Option<GameMode>;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("a u8 or a string")
     }
 
@@ -342,7 +342,7 @@ struct OsekaiModsVisitor;
 impl<'de> Visitor<'de> for OsekaiModsVisitor {
     type Value = Option<GameMods>;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("a u8 or a string")
     }
 
@@ -405,13 +405,13 @@ impl<T: Copy> OsekaiRankingEntry<T> {
 struct ValueWrapper<T>(T);
 
 impl<T: fmt::Debug> fmt::Debug for ValueWrapper<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self.0)
     }
 }
 
 impl<T: fmt::Display> fmt::Display for ValueWrapper<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
@@ -447,7 +447,7 @@ impl<T> OsekaiRankingEntryVisitor<T> {
 impl<'de, T: Deserialize<'de> + FromStr> Visitor<'de> for OsekaiRankingEntryVisitor<T> {
     type Value = OsekaiRankingEntry<T>;
 
-    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("an osekai ranking entry")
     }
 

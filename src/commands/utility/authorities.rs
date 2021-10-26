@@ -216,7 +216,7 @@ fn parse_role(ctx: &Context, arg: &str) -> Result<CachedRole, String> {
 }
 
 impl AuthorityCommandKind {
-    fn args(ctx: &Context, args: &mut Args) -> Result<Self, String> {
+    fn args(ctx: &Context, args: &mut Args<'_>) -> Result<Self, String> {
         let mut roles = match args.next() {
             Some("-show") | Some("show") => return Ok(Self::List),
             Some(arg) => vec![parse_role(ctx, arg)?],

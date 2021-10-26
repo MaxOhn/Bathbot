@@ -20,7 +20,7 @@ struct MaybeDateTimeString;
 impl<'de> Visitor<'de> for MaybeDateTimeString {
     type Value = Option<DateTime<Utc>>;
 
-    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("a string containing a datetime")
     }
 
@@ -53,7 +53,7 @@ struct MaybeF32String;
 impl<'de> Visitor<'de> for MaybeF32String {
     type Value = Option<f32>;
 
-    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("a string containing an f32")
     }
 
@@ -85,7 +85,7 @@ struct MaybeU32String;
 impl<'de> Visitor<'de> for MaybeU32String {
     type Value = Option<u32>;
 
-    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("a string containing an u32")
     }
 
@@ -117,7 +117,7 @@ struct MaybeModsString;
 impl<'de> Visitor<'de> for MaybeModsString {
     type Value = Option<GameMods>;
 
-    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("a string containing gamemods")
     }
 

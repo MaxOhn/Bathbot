@@ -339,7 +339,7 @@ fn graph(strains: Vec<(f32, f32)>, mut background: DynamicImage) -> Result<Vec<u
         };
 
         // Add background
-        let elem: BitMapElement<_> = ((0.0, max_strain), background).into();
+        let elem: BitMapElement<'_, _> = ((0.0, max_strain), background).into();
         chart.draw_series(std::iter::once(elem))?;
 
         // Mesh and labels
@@ -396,7 +396,7 @@ struct MapArgs {
 }
 
 impl MapArgs {
-    fn args(args: &mut Args) -> Result<Self, String> {
+    fn args(args: &mut Args<'_>) -> Result<Self, String> {
         let mut map = None;
         let mut mods = None;
 

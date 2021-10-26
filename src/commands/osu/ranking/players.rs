@@ -323,7 +323,7 @@ pub enum UserValue {
 }
 
 impl fmt::Display for UserValue {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             UserValue::Pp(pp) => write!(f, "{}pp", numbers::with_comma_int(pp)),
             UserValue::Score(score) => {

@@ -413,7 +413,7 @@ struct MatchCostArgs {
 const MATCHCOST: &str = "matchcost";
 
 impl MatchCostArgs {
-    fn args(args: &mut Args) -> Result<Self, &'static str> {
+    fn args(args: &mut Args<'_>) -> Result<Self, &'static str> {
         let match_id = match args.next().and_then(|arg| matcher::get_osu_match_id(arg)) {
             Some(id) => id,
             None => {

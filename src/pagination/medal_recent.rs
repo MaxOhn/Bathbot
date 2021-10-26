@@ -221,7 +221,7 @@ impl MedalRecentPagination {
         }
     }
 
-    fn content(&self) -> Option<Cow<str>> {
+    fn content(&self) -> Option<Cow<'_, str>> {
         let idx = self.pages.index + 1;
 
         let content = match idx % 10 {

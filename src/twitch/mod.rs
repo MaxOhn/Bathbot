@@ -191,7 +191,7 @@ pub struct OAuthToken {
 }
 
 impl fmt::Display for OAuthToken {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.access_token)
     }
 }

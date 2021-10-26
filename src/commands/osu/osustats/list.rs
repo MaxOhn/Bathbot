@@ -336,7 +336,7 @@ impl OsuStatsListParams {
         Must be either a positive integer \
         or two positive integers of the form `a..b` e.g. `2..45`.";
 
-    fn args(args: &mut Args, mode: GameMode) -> Result<Self, String> {
+    fn args(args: &mut Args<'_>, mode: GameMode) -> Result<Self, String> {
         let mut country = None;
         let mut rank_min = None;
         let mut rank_max = None;

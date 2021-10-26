@@ -72,7 +72,7 @@ enum Difficulty {
 }
 
 impl Difficulty {
-    fn args(args: &mut Args) -> Result<Self, &'static str> {
+    fn args(args: &mut Args<'_>) -> Result<Self, &'static str> {
         match args.next().map(CowUtils::cow_to_ascii_lowercase).as_deref() {
             None | Some("easy") => Ok(Self::Easy),
             Some("medium") => Ok(Self::Medium),
@@ -171,7 +171,7 @@ enum Cell {
 }
 
 impl fmt::Display for Cell {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Num(0) => f.write_str("zero"),
             Self::Num(1) => f.write_str("one"),

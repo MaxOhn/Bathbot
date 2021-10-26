@@ -135,7 +135,7 @@ pub enum MedalType {
 }
 
 impl MedalType {
-    fn group(&self) -> OsekaiGrouping {
+    fn group(&self) -> OsekaiGrouping<'_> {
         match self {
             Self::Group(g) => *g,
             Self::Medal(m) => OsekaiGrouping(&m.grouping),

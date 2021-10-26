@@ -322,7 +322,7 @@ impl Borrow<str> for CountryCode {
 }
 
 impl fmt::Display for CountryCode {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }

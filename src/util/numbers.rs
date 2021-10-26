@@ -12,7 +12,7 @@ pub fn with_comma_float(n: f32) -> FormatF32 {
 pub struct FormatF32(f32);
 
 impl fmt::Display for FormatF32 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let n = if self.0 < 0.0 {
             f.write_str("-")?;
 
@@ -59,7 +59,7 @@ pub fn with_comma_int<T: Int>(n: T) -> FormatInt {
 pub struct FormatInt(i64);
 
 impl fmt::Display for FormatInt {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut n = if self.0 < 0 {
             f.write_str("-")?;
 

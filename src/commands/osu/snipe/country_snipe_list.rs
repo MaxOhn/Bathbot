@@ -193,7 +193,7 @@ pub(super) struct CountryListArgs {
 }
 
 impl CountryListArgs {
-    fn args(ctx: &Context, args: &mut Args) -> Result<Self, Cow<'static, str>> {
+    fn args(ctx: &Context, args: &mut Args<'_>) -> Result<Self, Cow<'static, str>> {
         let mut country = None;
         let mut sort = None;
 

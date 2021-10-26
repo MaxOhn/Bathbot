@@ -37,7 +37,7 @@ impl ProcessResult {
 }
 
 impl Display for ProcessResult {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
             Self::Ratelimited(bucket) => write!(f, "Ratelimited ({:?})", bucket),
             _ => write!(f, "{:?}", self),

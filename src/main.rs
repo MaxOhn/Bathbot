@@ -1,4 +1,4 @@
-#![allow(clippy::upper_case_acronyms)]
+#![deny(clippy::all, nonstandard_style, rust_2018_idioms, unused, warnings)]
 
 #[macro_use]
 extern crate async_trait;

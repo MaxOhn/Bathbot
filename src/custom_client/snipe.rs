@@ -41,7 +41,7 @@ impl Default for SnipeScoreOrder {
 }
 
 impl fmt::Display for SnipeScoreOrder {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name = match self {
             Self::Accuracy => ACCURACY,
             Self::Length => "length",
@@ -214,7 +214,7 @@ impl<'de> Deserialize<'de> for SnipeRecent {
         impl<'de> Visitor<'de> for SnipeRecentVisitor {
             type Value = SnipeRecent;
 
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("struct SnipeRecent")
             }
 
@@ -367,7 +367,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
         impl<'de> Visitor<'de> for SnipeScoreVisitor {
             type Value = SnipeScore;
 
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("struct SnipeScore")
             }
 
@@ -375,7 +375,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
             where
                 V: MapAccess<'de>,
             {
-                let mut inner_score: Option<InnerScore> = None;
+                let mut inner_score: Option<InnerScore<'_>> = None;
                 let mut map_id = None;
                 let mut mapset_id = None;
                 // Don't parse mods just yet since it might be unnecessary
@@ -540,7 +540,7 @@ struct SnipePlayerModVisitor;
 impl<'de> Visitor<'de> for SnipePlayerModVisitor {
     type Value = Vec<(GameMods, u32)>;
 
-    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("a map")
     }
 
@@ -570,7 +570,7 @@ struct SnipePlayerHistoryVisitor;
 impl<'de> Visitor<'de> for SnipePlayerHistoryVisitor {
     type Value = BTreeMap<Date<Utc>, u32>;
 
-    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("a map")
     }
 

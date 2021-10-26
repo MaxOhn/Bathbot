@@ -44,7 +44,7 @@ impl Emote {
         }
     }
 
-    pub fn request_reaction_type(&self) -> RequestReactionType {
+    pub fn request_reaction_type(&self) -> RequestReactionType<'_> {
         let emotes = &CONFIG.get().unwrap().emotes;
 
         let emote = if let Self::Custom(name) = self {

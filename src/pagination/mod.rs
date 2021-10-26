@@ -134,7 +134,7 @@ pub trait Pagination: Sync + Sized {
         None
     }
 
-    fn content(&self) -> Option<Cow<str>> {
+    fn content(&self) -> Option<Cow<'_, str>> {
         None
     }
 

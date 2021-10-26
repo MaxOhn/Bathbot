@@ -132,7 +132,7 @@ pub fn tourney_badge(description: &str) -> bool {
     !IGNORE_BADGE_MATCHER.is_match_at(description, 0)
 }
 
-pub fn highlight_funny_numeral(content: &str) -> Cow<str> {
+pub fn highlight_funny_numeral(content: &str) -> Cow<'_, str> {
     SEVEN_TWO_SEVEN.replace_all(content, "__${num}__")
 }
 
