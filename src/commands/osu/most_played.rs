@@ -13,11 +13,11 @@ use crate::{
         },
         numbers, ApplicationCommandExt, InteractionExt, MessageExt,
     },
-    Args, BotResult, CommandData, Context, Name,
+    Args, BotResult, CommandData, Context,
 };
 
 use eyre::Report;
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::prelude::{GameMode, OsuError, Username};
 use std::sync::Arc;
 use twilight_model::application::interaction::{
     application_command::CommandDataOption, ApplicationCommand,
@@ -60,7 +60,7 @@ async fn mostplayed(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 async fn _mostplayed(
     ctx: Arc<Context>,
     data: CommandData<'_>,
-    name: Option<Name>,
+    name: Option<Username>,
 ) -> BotResult<()> {
     let name = match name {
         Some(name) => name,
@@ -127,7 +127,7 @@ const MOSTPLAYED: &str = "mostplayed";
 async fn parse_username(
     ctx: &Context,
     command: &mut ApplicationCommand,
-) -> BotResult<Result<Option<Name>, String>> {
+) -> BotResult<Result<Option<Username>, String>> {
     let mut username = None;
 
     for option in command.yoink_options() {

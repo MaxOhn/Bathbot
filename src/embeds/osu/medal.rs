@@ -109,7 +109,7 @@ impl MedalEmbed {
         let achieved = achieved.map(|achieved| {
             let user = achieved.user;
 
-            let author = Author::new(&user.username)
+            let author = Author::new(user.username.as_str())
                 .url(format!("{}u/{}", OSU_BASE, user.user_id))
                 .icon_url(flag_url(user.country_code.as_str()));
 

@@ -280,7 +280,7 @@ lazy_static! {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Hash)]
-pub struct CountryCode(SmallString<[u8; 2]>);
+pub struct CountryCode(rosu_v2::prelude::CountryCode);
 
 impl CountryCode {
     pub fn from_name(name: &str) -> Option<Self> {
@@ -300,6 +300,12 @@ impl Deref for CountryCode {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl From<rosu_v2::prelude::CountryCode> for CountryCode {
+    fn from(country_code: rosu_v2::prelude::CountryCode) -> Self {
+        Self(country_code)
     }
 }
 

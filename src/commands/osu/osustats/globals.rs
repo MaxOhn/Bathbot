@@ -14,11 +14,11 @@ use crate::{
         osu::ModSelection,
         MessageExt,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder, Name,
+    Args, BotResult, CommandData, Context, MessageBuilder, 
 };
 
 use eyre::Report;
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::prelude::{GameMode, OsuError, Username};
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write, mem, sync::Arc};
 use twilight_model::{
     application::interaction::application_command::CommandDataOption, id::UserId,
@@ -328,7 +328,7 @@ impl ScoresArgs {
         If you want exact mods, specify it e.g. as `+hdhr!`.\n\
         And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
 
-    fn into_params(self, username: Name, mode: GameMode) -> OsuStatsParams {
+    fn into_params(self, username: Username, mode: GameMode) -> OsuStatsParams {
         OsuStatsParams {
             username,
             mode,

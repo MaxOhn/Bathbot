@@ -9,7 +9,7 @@ use crate::{
         osu::BonusPP,
         MessageExt,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder, Name,
+    Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
 use eyre::Report;
@@ -19,7 +19,7 @@ use image::{
     ImageOutputFormat::Png,
     Rgba,
 };
-use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score, UserStatistics};
+use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score, UserStatistics, Username};
 use std::{borrow::Cow, sync::Arc};
 use twilight_model::{
     application::interaction::application_command::CommandDataOption, id::UserId,
@@ -323,8 +323,8 @@ async fn get_combined_thumbnail(
 }
 
 pub(super) struct ProfileArgs {
-    name1: Option<Name>,
-    name2: Name,
+    name1: Option<Username>,
+    name2: Username,
     mode: GameMode,
 }
 

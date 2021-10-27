@@ -13,10 +13,10 @@ use crate::{
         constants::common_literals::{CTB, MANIA, MODE, NAME, OSU, TAIKO},
         ApplicationCommandExt, CowUtils,
     },
-    Args, BotResult, Context, Error, Name,
+    Args, BotResult, Context, Error, 
 };
 
-use rosu_v2::prelude::GameMode;
+use rosu_v2::prelude::{GameMode, Username};
 use std::{borrow::Cow, sync::Arc};
 use twilight_model::application::{
     command::CommandOptionChoice,
@@ -36,9 +36,9 @@ pub async fn slash_track(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
 
 struct TrackArgs {
     mode: Option<GameMode>,
-    name: Name,
+    name: Username,
     limit: Option<usize>,
-    more_names: Vec<Name>,
+    more_names: Vec<Username>,
 }
 
 enum TrackCommandKind {

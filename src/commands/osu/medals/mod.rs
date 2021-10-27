@@ -8,6 +8,7 @@ pub use common::*;
 pub use medal::*;
 pub use missing::*;
 pub use recent::*;
+use rosu_v2::prelude::Username;
 pub use stats::*;
 
 use std::{borrow::Cow, sync::Arc};
@@ -26,7 +27,7 @@ use crate::{
         constants::common_literals::{DISCORD, INDEX, NAME},
         ApplicationCommandExt, InteractionExt, MessageExt,
     },
-    BotResult, Context, Error, Name,
+    BotResult, Context, Error, 
 };
 
 use super::{request_user, require_link};
@@ -34,9 +35,9 @@ use super::{request_user, require_link};
 enum MedalCommandKind {
     Common(CommonArgs),
     Medal(String),
-    Missing(Option<Name>),
+    Missing(Option<Username>),
     Recent(RecentArgs),
-    Stats(Option<Name>),
+    Stats(Option<Username>),
 }
 
 const MEDAL: &str = "medal";

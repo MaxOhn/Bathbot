@@ -11,15 +11,11 @@ use crate::{
         },
         CowUtils, MessageExt,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder, Name,
+    Args, BotResult, CommandData, Context, MessageBuilder, 
 };
 
 use eyre::Report;
-use rosu_v2::prelude::{
-    Beatmap, GameMode, GameMods, Grade, OsuError,
-    RankStatus::{Approved, Loved, Qualified, Ranked},
-    Score,
-};
+use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, OsuError, RankStatus::{Approved, Loved, Qualified, Ranked}, Score, Username};
 use std::{borrow::Cow, fmt::Write, mem, sync::Arc};
 use tokio::time::{sleep, Duration};
 use twilight_model::{
@@ -557,7 +553,7 @@ pub async fn recentctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
 pub(super) struct RecentArgs {
     config: UserConfig,
-    input_name: Option<Name>,
+    input_name: Option<Username>,
     index: Option<usize>,
     grade: Option<GradeArg>,
 }

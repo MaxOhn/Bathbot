@@ -6,20 +6,20 @@ use crate::{
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         numbers, MessageExt,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder, Name,
+    Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
 use chrono::{Duration, Utc};
 use eyre::Report;
 use hashbrown::HashMap;
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::prelude::{GameMode, OsuError, Username};
 use std::{cmp::Reverse, sync::Arc};
 
 pub(super) async fn _sniped_diff(
     ctx: Arc<Context>,
     data: CommandData<'_>,
     diff: Difference,
-    name: Option<Name>,
+    name: Option<Username>,
 ) -> BotResult<()> {
     let name = match name {
         Some(name) => name,

@@ -92,7 +92,7 @@ impl RankingPagination {
 
                 let entry = RankingEntry {
                     value,
-                    name: user.username.into(),
+                    name: user.username,
                     country: user.country_code.into(),
                 };
 

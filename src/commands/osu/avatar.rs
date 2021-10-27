@@ -10,10 +10,10 @@ use crate::{
         },
         ApplicationCommandExt, InteractionExt, MessageExt,
     },
-    BotResult, CommandData, Context, Name,
+    BotResult, CommandData, Context,
 };
 
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::prelude::{GameMode, OsuError, Username};
 use std::sync::Arc;
 use twilight_model::{
     application::interaction::{application_command::CommandDataOption, ApplicationCommand},
@@ -56,7 +56,7 @@ async fn avatar(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     }
 }
 
-async fn _avatar(ctx: Arc<Context>, data: CommandData<'_>, name: Option<Name>) -> BotResult<()> {
+async fn _avatar(ctx: Arc<Context>, data: CommandData<'_>, name: Option<Username>) -> BotResult<()> {
     let name = match name {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,

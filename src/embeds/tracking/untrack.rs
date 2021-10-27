@@ -1,3 +1,5 @@
+use rosu_v2::prelude::Username;
+
 use crate::embeds::EmbedFields;
 
 use std::{collections::HashSet, fmt::Write};
@@ -8,7 +10,7 @@ pub struct UntrackEmbed {
 }
 
 impl UntrackEmbed {
-    pub fn new(success: HashSet<String>, failed: Option<&String>) -> Self {
+    pub fn new(success: HashSet<Username>, failed: Option<&Username>) -> Self {
         let title = "Top score tracking";
         let mut fields = EmbedFields::new();
         let mut iter = success.iter();

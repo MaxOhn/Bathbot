@@ -4,11 +4,10 @@ use super::deserialize::{
 
 use crate::{
     util::{osu::ModSelection, CountryCode},
-    Name,
 };
 
 use chrono::{DateTime, Utc};
-use rosu_v2::prelude::{GameMode, GameMods, Grade, RankStatus};
+use rosu_v2::prelude::{GameMode, GameMods, Grade, RankStatus, Username};
 use serde::{de::Error, Deserialize, Deserializer};
 use std::{fmt, str::FromStr};
 
@@ -16,7 +15,7 @@ use std::{fmt, str::FromStr};
 pub struct OsuStatsPlayer {
     pub user_id: u32,
     pub count: u32,
-    pub username: Name,
+    pub username: Username,
 }
 
 #[derive(Deserialize)]
@@ -31,7 +30,7 @@ struct Outer {
 #[derive(serde::Deserialize)]
 pub struct Inner {
     #[serde(rename = "userName")]
-    username: Name,
+    username: Username,
 }
 
 impl<'de> Deserialize<'de> for OsuStatsPlayer {
@@ -97,7 +96,7 @@ pub struct OsuStatsMap {
     pub version: String,
     pub artist: String,
     pub title: String,
-    pub creator: Name,
+    pub creator: Username,
     pub bpm: f32,
     pub source: String,
     #[serde(rename = "diffRating", deserialize_with = "str_to_maybe_f32")]
@@ -139,7 +138,7 @@ impl fmt::Display for OsuStatsOrder {
 
 #[derive(Debug)]
 pub struct OsuStatsParams {
-    pub username: Name,
+    pub username: Username,
     pub mode: GameMode,
     pub page: usize,
     pub rank_min: usize,
@@ -152,7 +151,7 @@ pub struct OsuStatsParams {
 }
 
 impl OsuStatsParams {
-    pub fn new(username: impl Into<Name>) -> Self {
+    pub fn new(username: impl Into<Username>) -> Self {
         Self {
             username: username.into(),
             mode: GameMode::STD,

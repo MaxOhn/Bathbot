@@ -9,6 +9,7 @@ pub use country_snipe_list::*;
 pub use country_snipe_stats::*;
 pub use player_snipe_list::*;
 pub use player_snipe_stats::*;
+use rosu_v2::prelude::Username;
 pub use sniped::*;
 pub use sniped_difference::*;
 
@@ -29,7 +30,7 @@ use crate::{
         osu::ModSelection,
         ApplicationCommandExt, CountryCode, InteractionExt, MessageExt,
     },
-    BotResult, Context, Error, Name,
+    BotResult, Context, Error, 
 };
 
 use std::sync::Arc;
@@ -45,10 +46,10 @@ enum SnipeCommandKind {
     CountryList(CountryListArgs),
     CountryStats(Option<CountryCode>),
     PlayerList(PlayerListArgs),
-    PlayerStats(Option<Name>),
-    Sniped(Option<Name>),
-    SnipeGain(Option<Name>),
-    SnipeLoss(Option<Name>),
+    PlayerStats(Option<Username>),
+    Sniped(Option<Username>),
+    SnipeGain(Option<Username>),
+    SnipeLoss(Option<Username>),
 }
 
 macro_rules! parse_username {

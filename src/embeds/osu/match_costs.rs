@@ -51,7 +51,7 @@ impl MatchCostEmbed {
 
                     for (i, (id, cost)) in blue.into_iter().enumerate() {
                         let name = match osu_match.users.get(&id) {
-                            Some(user) => Cow::Borrowed(&user.username),
+                            Some(user) => Cow::Borrowed(user.username.as_str()),
                             None => Cow::Owned(format!("User id {}", id)),
                         };
 
@@ -92,7 +92,7 @@ impl MatchCostEmbed {
 
                     for (i, (id, cost)) in red.into_iter().enumerate() {
                         let name = match osu_match.users.get(&id) {
-                            Some(user) => Cow::Borrowed(&user.username),
+                            Some(user) => Cow::Borrowed(user.username.as_str()),
                             None => Cow::Owned(format!("User id {}", id)),
                         };
 
@@ -122,7 +122,7 @@ impl MatchCostEmbed {
                 }) => {
                     for (i, (id, cost)) in players.into_iter().enumerate() {
                         let name = match osu_match.users.get(&id) {
-                            Some(user) => Cow::Borrowed(&user.username),
+                            Some(user) => Cow::Borrowed(user.username.as_str()),
                             None => Cow::Owned(format!("User id {}", id)),
                         };
 

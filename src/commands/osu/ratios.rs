@@ -13,10 +13,10 @@ use crate::{
         },
         ApplicationCommandExt, InteractionExt, MessageExt,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder, Name,
+    Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::prelude::{GameMode, OsuError, Username};
 use std::sync::Arc;
 use twilight_model::application::interaction::{
     application_command::CommandDataOption, ApplicationCommand,
@@ -62,7 +62,11 @@ async fn ratios(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     }
 }
 
-async fn _ratios(ctx: Arc<Context>, data: CommandData<'_>, name: Option<Name>) -> BotResult<()> {
+async fn _ratios(
+    ctx: Arc<Context>,
+    data: CommandData<'_>,
+    name: Option<Username>,
+) -> BotResult<()> {
     let name = match name {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
@@ -115,7 +119,7 @@ const RATIOS: &str = "ratios";
 async fn parse_username(
     ctx: &Context,
     command: &mut ApplicationCommand,
-) -> BotResult<Result<Option<Name>, String>> {
+) -> BotResult<Result<Option<Username>, String>> {
     let mut osu = None;
 
     for option in command.yoink_options() {

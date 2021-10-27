@@ -7,12 +7,11 @@ use crate::{
         osu::grade_emote,
         ScoreExt,
     },
-    Name,
 };
 
 use rosu_v2::prelude::{
     GameMode, Grade, MatchEvent, MatchGame, MatchScore, OsuMatch, ScoringType, TeamType,
-    UserCompact,
+    UserCompact, Username,
 };
 use smallvec::SmallVec;
 use std::{borrow::Cow, cmp::Ordering, collections::HashMap, fmt::Write};
@@ -45,7 +44,7 @@ macro_rules! push {
 macro_rules! username {
     ($lobby:ident[$user_id:ident]) => {
         match $lobby.users.get(&$user_id) {
-            Some(user) => Cow::Borrowed(&user.username),
+            Some(user) => Cow::Borrowed(user.username.as_str()),
             None => Cow::Owned(format!("User id {}", $user_id)),
         }
     };
@@ -657,7 +656,7 @@ fn prepare_scores(
     let mut team_scores = TeamLeads::new(scoring);
 
     let iter = scores.iter().filter(|score| score.score > 0).map(|score| {
-        let name: Name = match users.get(&score.user_id) {
+        let name: Username = match users.get(&score.user_id) {
             Some(user) => user.username.as_str().into(),
             None => format!("`User id {}`", score.user_id).into(),
         };
@@ -715,7 +714,7 @@ fn prepare_scores(
 }
 
 struct EmbedScore {
-    username: Name,
+    username: Username,
     mods: String,
     accuracy: f32,
     team: usize,

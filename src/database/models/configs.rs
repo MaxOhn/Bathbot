@@ -1,6 +1,6 @@
-use crate::{commands::osu::ProfileSize, Name};
+use crate::commands::osu::ProfileSize;
 
-use rosu_v2::prelude::GameMode;
+use rosu_v2::prelude::{GameMode, Username};
 use smallstr::SmallString;
 use smallvec::SmallVec;
 
@@ -33,19 +33,19 @@ impl Default for GuildConfig {
 
 #[derive(Clone, Debug)]
 pub enum OsuData {
-    Name(Name),
-    User { user_id: u32, username: Name },
+    Name(Username),
+    User { user_id: u32, username: Username },
 }
 
 impl OsuData {
-    pub fn username(&self) -> &Name {
+    pub fn username(&self) -> &Username {
         match self {
             Self::Name(username) => username,
             Self::User { username, .. } => username,
         }
     }
 
-    pub fn into_username(self) -> Name {
+    pub fn into_username(self) -> Username {
         match self {
             Self::Name(username) => username,
             Self::User { username, .. } => username,
@@ -60,8 +60,8 @@ impl OsuData {
     }
 }
 
-impl From<Name> for OsuData {
-    fn from(name: Name) -> Self {
+impl From<Username> for OsuData {
+    fn from(name: Username) -> Self {
         Self::Name(name)
     }
 }
@@ -83,11 +83,11 @@ pub struct UserConfig {
 }
 
 impl UserConfig {
-    pub fn username(&self) -> Option<&Name> {
+    pub fn username(&self) -> Option<&Username> {
         self.osu.as_ref().map(OsuData::username)
     }
 
-    pub fn into_username(self) -> Option<Name> {
+    pub fn into_username(self) -> Option<Username> {
         self.osu.map(OsuData::into_username)
     }
 

@@ -52,7 +52,6 @@ use eyre::{Result, WrapErr};
 use hashbrown::HashSet;
 use parking_lot::Mutex;
 use rosu_v2::Osu;
-use smallstr::SmallString;
 use std::{
     env,
     sync::{atomic::Ordering, Arc},
@@ -77,7 +76,6 @@ use twilight_model::{
     },
 };
 
-type Name = SmallString<[u8; 15]>;
 type BotResult<T> = std::result::Result<T, Error>;
 
 fn main() {

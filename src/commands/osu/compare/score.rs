@@ -11,11 +11,11 @@ use crate::{
         osu::{map_id_from_history, map_id_from_msg, MapIdType, ModSelection},
         MessageExt,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder, Name,
+    Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
 use eyre::Report;
-use rosu_v2::prelude::{GameMods, OsuError, RankStatus::Ranked};
+use rosu_v2::prelude::{GameMods, OsuError, RankStatus::Ranked, Username};
 use std::{borrow::Cow, sync::Arc};
 use tokio::time::{sleep, Duration};
 use twilight_model::{
@@ -267,7 +267,7 @@ pub(super) async fn _compare(
 async fn no_scores(
     ctx: Arc<Context>,
     data: &CommandData<'_>,
-    name: Name,
+    name: Username,
     map_id: u32,
     mods: Option<GameMods>,
 ) -> BotResult<()> {

@@ -7,14 +7,14 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         get_combined_thumbnail, MessageExt,
     },
-    BotResult, CommandData, Context, MessageBuilder, Name,
+    BotResult, CommandData, Context, MessageBuilder,
 };
 
 use eyre::Report;
 use futures::stream::{FuturesOrdered, StreamExt};
 use hashbrown::HashSet;
 use itertools::Itertools;
-use rosu_v2::prelude::{GameMode, OsuError, Score};
+use rosu_v2::prelude::{GameMode, OsuError, Score, Username};
 use smallvec::SmallVec;
 use std::{cmp::Ordering, fmt::Write, sync::Arc};
 
@@ -441,14 +441,14 @@ pub async fn commonctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 pub struct CommonUser {
-    name: Name,
+    name: Username,
     avatar_url: String,
     user_id: u32,
     pub first_count: usize,
 }
 
 impl CommonUser {
-    fn new(name: Name, avatar_url: String, user_id: u32) -> Self {
+    fn new(name: Username, avatar_url: String, user_id: u32) -> Self {
         Self {
             name,
             avatar_url,

@@ -1,7 +1,10 @@
 use super::{Pages, Pagination};
-use crate::{custom_client::ScraperScore, embeds::LeaderboardEmbed, BotResult, Name};
+use crate::{custom_client::ScraperScore, embeds::LeaderboardEmbed, BotResult};
 
-use rosu_v2::model::beatmap::{Beatmap, BeatmapsetCompact};
+use rosu_v2::{
+    model::beatmap::{Beatmap, BeatmapsetCompact},
+    prelude::Username,
+};
 use twilight_model::channel::Message;
 
 pub struct LeaderboardPagination {
@@ -10,7 +13,7 @@ pub struct LeaderboardPagination {
     map: Beatmap,
     mapset: Option<BeatmapsetCompact>,
     scores: Vec<ScraperScore>,
-    author_name: Option<Name>,
+    author_name: Option<Username>,
     first_place_icon: Option<String>,
 }
 
@@ -20,7 +23,7 @@ impl LeaderboardPagination {
         map: Beatmap,
         mapset: Option<BeatmapsetCompact>,
         scores: Vec<ScraperScore>,
-        author_name: Option<Name>,
+        author_name: Option<Username>,
         first_place_icon: Option<String>,
     ) -> Self {
         Self {

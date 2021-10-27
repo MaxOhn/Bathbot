@@ -152,7 +152,7 @@ pub fn pp_missing(start: f32, goal: f32, scores: &[Score]) -> (f32, usize) {
     let mut factor: f32 = 0.95_f32.powi(idx as i32);
     let mut top: f32 = start;
     let mut bot: f32 = 0.0;
-    let mut current: f32 = scores.last().and_then(|s| s.pp).unwrap_or(0.0);
+    let mut current: f32 = pp!(scores[idx]);
 
     while top + bot < goal {
         top -= current * factor;

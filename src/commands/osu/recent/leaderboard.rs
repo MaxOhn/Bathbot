@@ -11,11 +11,11 @@ use crate::{
         osu::ModSelection,
         MessageExt,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder, Name,
+    Args, BotResult, CommandData, Context, MessageBuilder, 
 };
 
 use eyre::Report;
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::prelude::{GameMode, OsuError, Username};
 use std::{borrow::Cow, sync::Arc};
 use twilight_model::{
     application::interaction::application_command::CommandDataOption, id::UserId,
@@ -464,7 +464,7 @@ pub async fn recentctbleaderboard(ctx: Arc<Context>, data: CommandData) -> BotRe
 
 pub(super) struct RecentLeaderboardArgs {
     pub config: UserConfig,
-    pub name: Option<Name>,
+    pub name: Option<Username>,
     pub index: Option<usize>,
     pub mods: Option<ModSelection>,
 }

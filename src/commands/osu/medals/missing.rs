@@ -7,12 +7,12 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         numbers, MessageExt,
     },
-    Args, BotResult, CommandData, Context, Name,
+    Args, BotResult, CommandData, Context, 
 };
 
 use eyre::Report;
 use hashbrown::HashSet;
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::prelude::{GameMode, OsuError, Username};
 use std::{cmp::Ordering, sync::Arc};
 
 #[command]
@@ -52,7 +52,7 @@ async fn medalsmissing(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 pub(super) async fn _medalsmissing(
     ctx: Arc<Context>,
     data: CommandData<'_>,
-    name: Option<Name>,
+    name: Option<Username>,
 ) -> BotResult<()> {
     let name = match name {
         Some(name) => name,

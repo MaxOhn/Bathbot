@@ -118,7 +118,7 @@ async fn _ranking(
 
             RankingEntry {
                 value,
-                name: user.username.into(),
+                name: user.username,
                 country: user.country_code.into(),
             }
         })

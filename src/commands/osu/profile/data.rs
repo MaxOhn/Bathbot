@@ -5,7 +5,7 @@ use super::{
 use crate::util::osu::BonusPP;
 
 use hashbrown::HashMap;
-use rosu_v2::prelude::{GameMode, GameMods, Score, User, UserStatistics};
+use rosu_v2::prelude::{GameMode, GameMods, Score, User, UserStatistics, Username};
 use std::{
     borrow::Cow,
     cmp::{Ordering::Equal, PartialOrd},
@@ -57,7 +57,7 @@ pub struct ProfileResult {
     pub combo: MinMaxAvgU32,
     pub map_len: MinMaxAvgU32,
 
-    pub mappers: Vec<(String, u32, f32)>,
+    pub mappers: Vec<(Username, u32, f32)>,
     pub mod_combs_count: Option<Vec<(GameMods, u32)>>,
     pub mod_combs_pp: Vec<(GameMods, f32)>,
     pub mods_count: Vec<(GameMods, u32)>,

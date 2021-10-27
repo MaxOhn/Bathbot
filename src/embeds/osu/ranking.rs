@@ -4,7 +4,7 @@ use std::{
     fmt::Write,
 };
 
-use rosu_v2::prelude::GameMode;
+use rosu_v2::prelude::{GameMode, Username};
 
 use crate::{
     commands::osu::UserValue,
@@ -13,12 +13,11 @@ use crate::{
         constants::common_literals::{CTB, MANIA, TAIKO},
         CountryCode,
     },
-    Name,
 };
 
 pub struct RankingEntry {
     pub value: UserValue,
-    pub name: Name,
+    pub name: Username,
     pub country: CountryCode,
 }
 

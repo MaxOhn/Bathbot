@@ -1,7 +1,7 @@
-use crate::{embeds::osu, util::constants::OSU_BASE, Name};
+use crate::{embeds::osu, util::constants::OSU_BASE};
 
 use hashbrown::HashMap;
-use rosu_v2::prelude::MostPlayedMap;
+use rosu_v2::prelude::{MostPlayedMap, Username};
 use std::fmt::Write;
 
 pub struct MostPlayedCommonEmbed {
@@ -10,7 +10,7 @@ pub struct MostPlayedCommonEmbed {
 
 impl MostPlayedCommonEmbed {
     pub fn new(
-        names: &[Name],
+        names: &[Username],
         maps: &[MostPlayedMap],
         users_count: &[HashMap<u32, usize>],
         index: usize,

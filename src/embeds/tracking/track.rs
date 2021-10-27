@@ -1,6 +1,6 @@
 use crate::embeds::EmbedFields;
 
-use rosu_v2::model::GameMode;
+use rosu_v2::{model::GameMode, prelude::Username};
 use std::fmt::Write;
 
 pub struct TrackEmbed {
@@ -11,9 +11,9 @@ pub struct TrackEmbed {
 impl TrackEmbed {
     pub fn new(
         mode: GameMode,
-        success: Vec<String>,
-        failure: Vec<String>,
-        failed: Option<String>,
+        success: Vec<Username>,
+        failure: Vec<Username>,
+        failed: Option<Username>,
         limit: usize,
     ) -> Self {
         let title = format!("Top score tracking | mode={} | limit={}", mode, limit);

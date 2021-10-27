@@ -11,12 +11,12 @@ use crate::{
         },
         matcher, numbers, CowUtils, MessageExt,
     },
-    Args, BotResult, CommandData, Context, Error, MessageBuilder, Name,
+    Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
 use eyre::Report;
 use futures::future::TryFutureExt;
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::prelude::{GameMode, OsuError, Username};
 use std::{borrow::Cow, sync::Arc};
 use twilight_model::{
     application::interaction::application_command::CommandDataOption, id::UserId,
@@ -346,7 +346,7 @@ pub async fn sotarks(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
 pub(super) struct MapperArgs {
     config: UserConfig,
-    mapper: Name,
+    mapper: Username,
 }
 
 const TOP_MAPPER: &str = "top mapper";

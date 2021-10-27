@@ -22,10 +22,10 @@ use crate::{
         constants::common_literals::{MODE, PROFILE, SCORE},
         matcher, ApplicationCommandExt, InteractionExt, MessageExt,
     },
-    Args, BotResult, Context, Error, Name,
+    Args, BotResult, Context, Error,
 };
 
-use rosu_v2::prelude::GameMode;
+use rosu_v2::prelude::{GameMode, Username};
 use std::{borrow::Cow, sync::Arc};
 use twilight_model::{
     application::interaction::{application_command::CommandDataOption, ApplicationCommand},
@@ -36,9 +36,9 @@ const AT_LEAST_ONE: &str = "You need to specify at least one osu username. \
     If you're not linked, you must specify two names.";
 
 struct TripleArgs {
-    name1: Option<Name>,
-    name2: Name,
-    name3: Option<Name>,
+    name1: Option<Username>,
+    name2: Username,
+    name3: Option<Username>,
     mode: GameMode,
 }
 

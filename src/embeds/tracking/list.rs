@@ -1,7 +1,7 @@
 use crate::util::constants::DESCRIPTION_SIZE;
 
 use itertools::Itertools;
-use rosu_v2::model::GameMode;
+use rosu_v2::{model::GameMode, prelude::Username};
 use std::fmt::Write;
 
 pub struct TrackListEmbed {
@@ -10,7 +10,7 @@ pub struct TrackListEmbed {
 }
 
 impl TrackListEmbed {
-    pub fn new(users: Vec<(String, GameMode, usize)>) -> Vec<Self> {
+    pub fn new(users: Vec<(Username, GameMode, usize)>) -> Vec<Self> {
         let mut embeds = Vec::new();
         let title = "Tracked osu! users in this channel (limit)";
         let mut description = String::with_capacity(256);

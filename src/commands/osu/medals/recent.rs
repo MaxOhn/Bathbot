@@ -9,12 +9,12 @@ use crate::{
         },
         MessageExt,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder, Name,
+    Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
 use chrono::{DateTime, Utc};
 use eyre::Report;
-use rosu_v2::prelude::{GameMode, OsuError, User};
+use rosu_v2::prelude::{GameMode, OsuError, User, Username};
 use std::{cmp::Reverse, sync::Arc};
 use twilight_model::{
     application::interaction::application_command::CommandDataOption, id::UserId,
@@ -156,7 +156,7 @@ pub(super) async fn _medalrecent(
 }
 
 pub(super) struct RecentArgs {
-    pub name: Option<Name>,
+    pub name: Option<Username>,
     pub index: Option<usize>,
 }
 

@@ -1,6 +1,7 @@
 use super::Stream;
-use crate::{database::OsuData, util::matcher, BotResult, Context, Name};
+use crate::{database::OsuData, util::matcher, BotResult, Context};
 
+use rosu_v2::prelude::Username;
 use std::{error::Error, fmt};
 use twilight_model::id::UserId;
 
@@ -85,7 +86,7 @@ impl<'m> Args<'m> {
                 Some(osu) => Ok(Ok(osu)),
                 None => Ok(Err("The specified user is not linked to an osu profile")),
             },
-            None => Ok(Ok(Name::from(arg).into())),
+            None => Ok(Ok(Username::from(arg).into())),
         }
     }
 }

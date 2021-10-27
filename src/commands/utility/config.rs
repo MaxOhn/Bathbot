@@ -142,7 +142,7 @@ async fn handle_both_links(
         Some(Ok((osu, twitch))) => {
             config.osu = Some(OsuData::User {
                 user_id: osu.user_id,
-                username: osu.username.into(),
+                username: osu.username,
             });
 
             config.twitch_id = Some(twitch.user_id);
@@ -211,7 +211,7 @@ async fn handle_osu_link(
     config.osu = match handle_ephemeral(ctx, &command, builder, fut).await {
         Some(Ok(user)) => Some(OsuData::User {
             user_id: user.user_id,
-            username: user.username.into(),
+            username: user.username,
         }),
         Some(Err(why)) => return Err(why),
         None => return Ok(()),

@@ -7,10 +7,9 @@ use crate::{
         constants::common_literals::{COUNTRY, CTB, MANIA, OSU, RANK, TAIKO},
         CountryCode,
     },
-    Name,
 };
 
-use rosu_v2::model::{GameMode, GameMods};
+use rosu_v2::{model::{GameMode, GameMods}, prelude::Username};
 use serde::{
     de::{Error, MapAccess, Unexpected, Visitor},
     Deserialize, Deserializer,
@@ -391,7 +390,7 @@ pub struct OsekaiRankingEntry<T> {
     pub country_code: CountryCode,
     pub rank: u32,
     pub user_id: u32,
-    pub username: Name,
+    pub username: Username,
     value: ValueWrapper<T>,
 }
 
@@ -504,7 +503,7 @@ pub struct OsekaiUserEntry {
     #[serde(rename = "countrycode")]
     pub country_code: CountryCode,
     pub country: String,
-    pub username: Name,
+    pub username: Username,
     #[serde(rename = "medalCount", deserialize_with = "str_to_u32")]
     pub medal_count: u32,
     #[serde(rename = "rarestmedal")]

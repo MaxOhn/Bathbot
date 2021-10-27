@@ -5,16 +5,17 @@ use crate::{
 };
 
 use hashbrown::HashMap;
+use rosu_v2::prelude::Username;
 use std::{borrow::Cow, fmt::Write};
 
 pub struct MedalsCommonUser {
-    name: String,
+    name: Username,
     medals: HashMap<u32, i64>,
     winner: usize,
 }
 
 impl MedalsCommonUser {
-    pub fn new(name: String, medals: HashMap<u32, i64>, winner: usize) -> Self {
+    pub fn new(name: Username, medals: HashMap<u32, i64>, winner: usize) -> Self {
         Self {
             name,
             medals,

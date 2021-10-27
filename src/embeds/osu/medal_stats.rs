@@ -91,7 +91,7 @@ impl MedalStatsEmbed {
             add_group_field(MOD_INTRODUCTION);
         }
 
-        let author = Author::new(user.username)
+        let author = Author::new(user.username.into_string())
             .url(format!("{}u/{}", OSU_BASE, user.user_id))
             .icon_url(flag_url(user.country_code.as_str()));
 

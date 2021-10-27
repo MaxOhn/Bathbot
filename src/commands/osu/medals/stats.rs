@@ -6,14 +6,14 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder, Name,
+    Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
 use chrono::Datelike;
 use eyre::Report;
 use image::{png::PngEncoder, ColorType};
 use plotters::prelude::*;
-use rosu_v2::prelude::{GameMode, MedalCompact, OsuError};
+use rosu_v2::prelude::{GameMode, MedalCompact, OsuError, Username};
 use std::sync::Arc;
 
 #[command]
@@ -53,7 +53,7 @@ async fn medalstats(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 pub(super) async fn _medalstats(
     ctx: Arc<Context>,
     data: CommandData<'_>,
-    name: Option<Name>,
+    name: Option<Username>,
 ) -> BotResult<()> {
     let name = match name {
         Some(name) => name,

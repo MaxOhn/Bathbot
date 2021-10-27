@@ -1,15 +1,15 @@
 use super::{Pages, Pagination};
-use crate::{embeds::MostPlayedCommonEmbed, BotResult, Name};
+use crate::{embeds::MostPlayedCommonEmbed, BotResult};
 
 use hashbrown::HashMap;
-use rosu_v2::prelude::MostPlayedMap;
+use rosu_v2::prelude::{MostPlayedMap, Username};
 use smallvec::SmallVec;
 use twilight_model::channel::Message;
 
 pub struct MostPlayedCommonPagination {
     msg: Message,
     pages: Pages,
-    names: Vec<Name>,
+    names: Vec<Username>,
     users_count: SmallVec<[HashMap<u32, usize>; 3]>,
     maps: Vec<MostPlayedMap>,
 }
@@ -17,7 +17,7 @@ pub struct MostPlayedCommonPagination {
 impl MostPlayedCommonPagination {
     pub fn new(
         msg: Message,
-        names: Vec<Name>,
+        names: Vec<Username>,
         users_count: SmallVec<[HashMap<u32, usize>; 3]>,
         maps: Vec<MostPlayedMap>,
     ) -> Self {

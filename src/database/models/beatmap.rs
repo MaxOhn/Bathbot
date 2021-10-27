@@ -1,7 +1,8 @@
+use std::convert::TryInto;
+
 use chrono::{DateTime, Utc};
 use rosu_v2::model::beatmap::*;
 use sqlx::FromRow;
-use std::convert::TryInto;
 
 #[derive(Debug, FromRow)]
 #[sqlx(type_name = "maps")]
@@ -109,7 +110,7 @@ impl From<DBBeatmapset> for BeatmapsetCompact {
                 slim_cover: String::new(),
                 slim_cover_2x: String::new(),
             },
-            creator_name: mapset.creator,
+            creator_name: mapset.creator.into(),
             creator_id: mapset.user_id as u32,
             favourite_count: 0,
             genre: Some((mapset.genre as u8).try_into().unwrap()),
@@ -151,7 +152,7 @@ impl From<DBBeatmapset> for Beatmapset {
                 slim_cover_2x: String::new(),
             },
             creator: None,
-            creator_name: mapset.creator,
+            creator_name: mapset.creator.into(),
             creator_id: mapset.user_id as u32,
             description: None,
             discussion_enabled: false,

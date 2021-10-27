@@ -6,14 +6,14 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder, Name,
+    Args, BotResult, CommandData, Context, MessageBuilder, 
 };
 
 use chrono::{Date, Datelike, Utc};
 use eyre::Report;
 use image::{png::PngEncoder, ColorType};
 use plotters::prelude::*;
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::prelude::{GameMode, OsuError, Username};
 use std::{collections::BTreeMap, sync::Arc};
 
 #[command]
@@ -59,7 +59,7 @@ async fn playersnipestats(ctx: Arc<Context>, data: CommandData) -> BotResult<()>
 pub(super) async fn _playersnipestats(
     ctx: Arc<Context>,
     data: CommandData<'_>,
-    name: Option<Name>,
+    name: Option<Username>,
 ) -> BotResult<()> {
     let name = match name {
         Some(name) => name,

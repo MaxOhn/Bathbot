@@ -8,11 +8,10 @@ use crate::{
         osu::ModSelection,
         CountryCode,
     },
-    Name,
 };
 
 use chrono::{offset::TimeZone, Date, DateTime, NaiveDate, Utc};
-use rosu_v2::model::{GameMode, GameMods};
+use rosu_v2::{model::{GameMode, GameMods}, prelude::Username};
 use serde::{
     de::{Deserializer, Error, IgnoredAny, MapAccess, Unexpected, Visitor},
     Deserialize,
@@ -127,7 +126,7 @@ pub struct SnipeTopNationalDifference {
     #[serde(rename = "most_recent_top_national")]
     pub top_national: Option<usize>,
     #[serde(rename = "name")]
-    pub username: Name,
+    pub username: Username,
     #[serde(rename = "total_top_national_difference")]
     pub difference: i32,
 }
@@ -135,7 +134,7 @@ pub struct SnipeTopNationalDifference {
 #[derive(Debug, Deserialize)]
 pub struct SnipePlayer {
     #[serde(rename = "name")]
-    pub username: Name,
+    pub username: Username,
     pub user_id: u32,
     #[serde(rename = "average_pp")]
     pub avg_pp: f32,
@@ -172,7 +171,7 @@ pub struct SnipePlayer {
 #[derive(Debug, Deserialize)]
 pub struct SnipeCountryPlayer {
     #[serde(rename = "name")]
-    pub username: Name,
+    pub username: Username,
     pub user_id: u32,
     #[serde(rename = "average_pp")]
     pub avg_pp: f32,
@@ -195,9 +194,9 @@ pub struct SnipePlayerOldest {
 
 #[derive(Debug)]
 pub struct SnipeRecent {
-    pub sniped: Option<Name>,
+    pub sniped: Option<Username>,
     pub sniped_id: Option<u32>,
-    pub sniper: Name,
+    pub sniper: Username,
     pub sniper_id: u32,
     pub mods: GameMods,
     pub beatmap_id: u32,

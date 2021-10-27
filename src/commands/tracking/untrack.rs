@@ -13,7 +13,7 @@ use futures::{
     stream::{FuturesUnordered, StreamExt},
 };
 use hashbrown::HashSet;
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::prelude::{GameMode, OsuError, Username};
 use std::sync::Arc;
 
 #[command]
@@ -121,8 +121,8 @@ pub(super) async fn _untrack(
 async fn send_message(
     ctx: &Context,
     data: CommandData<'_>,
-    name: Option<&String>,
-    success: HashSet<String>,
+    name: Option<&Username>,
+    success: HashSet<Username>,
 ) -> BotResult<()> {
     let success = success.into_iter().collect();
     let embed = UntrackEmbed::new(success, name).into_builder().build();

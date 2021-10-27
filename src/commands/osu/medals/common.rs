@@ -7,12 +7,12 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         get_combined_thumbnail, matcher, MessageBuilder, MessageExt,
     },
-    Args, BotResult, CommandData, Context, Name,
+    Args, BotResult, CommandData, Context, 
 };
 
 use eyre::Report;
 use hashbrown::HashMap;
-use rosu_v2::prelude::{GameMode, User};
+use rosu_v2::prelude::{GameMode, User, Username};
 use std::{borrow::Cow, sync::Arc};
 use twilight_model::{
     application::interaction::application_command::CommandDataOption, id::UserId,
@@ -196,8 +196,8 @@ pub async fn medalscommon(ctx: Arc<Context>, data: CommandData) -> BotResult<()>
 }
 
 pub(super) struct CommonArgs {
-    name1: Option<Name>,
-    name2: Name,
+    name1: Option<Username>,
+    name2: Username,
 }
 
 const MEDAL_COMMON: &str = "medal common";
