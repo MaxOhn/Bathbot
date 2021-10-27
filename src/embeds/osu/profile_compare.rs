@@ -88,8 +88,8 @@ impl ProfileCompareEmbed {
             max_right,
         );
 
-        let level_left = stats1.level.current as f32 + (stats1.level.progress as f32 / 100.0);
-        let level_right = stats2.level.current as f32 + (stats2.level.progress as f32 / 100.0);
+        let level_left = stats1.level.float();
+        let level_right = stats2.level.float();
 
         write_line(
             &mut d,
@@ -403,7 +403,7 @@ impl CompareStrings {
             total_hits: with_comma_int(stats.total_hits).to_string(),
             play_count: with_comma_int(stats.playcount).to_string(),
             play_time: with_comma_int(stats.playtime / 3600).to_string() + "hrs",
-            level: format!("{:.2}", stats.level.current),
+            level: format!("{:.2}", stats.level.float()),
             bonus_pp: format!("{:.2}pp", result.bonus_pp),
             bonus_pp_num: result.bonus_pp,
             avg_map_len: sec_to_minsec(result.map_len.avg()).to_string(),

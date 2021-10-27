@@ -27,7 +27,7 @@ pub struct ProfileEmbed {
 impl ProfileEmbed {
     pub fn compact(user: &User, max_pp: f32) -> Self {
         let stats = user.statistics.as_ref().unwrap();
-        let level = stats.level.current as f32 + stats.level.progress as f32 / 100.0;
+        let level = stats.level.float();
         let playtime = stats.playtime / 60 / 60;
 
         let description = format!(
@@ -290,7 +290,7 @@ fn footer_text(user: &User) -> String {
 }
 
 fn main_fields(user: &User, stats: &UserStatistics, bonus_pp: f32) -> Vec<EmbedField> {
-    let level = stats.level.current as f32 + stats.level.progress as f32 / 100.0;
+    let level = stats.level.float();
 
     vec![
         field!(

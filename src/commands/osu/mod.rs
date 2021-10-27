@@ -243,10 +243,7 @@ where
 }
 
 async fn require_link(ctx: &Context, data: &CommandData<'_>) -> BotResult<()> {
-    // TODO: Remove temporary message again
-    // let content = "Either specify an osu! username or link yourself to an osu! profile via `/link`";
-    let content = "Due to a recent authorization update all links to osu! profiles were undone.\n\
-        Use the `/link` command to link yourself to an osu! profile.";
+    let content = "Either specify an osu! username or link yourself to an osu! profile via `/link`";
 
     data.error(ctx, content).await
 }
