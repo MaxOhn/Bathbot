@@ -1,13 +1,15 @@
 use super::{MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32, AT_LEAST_ONE};
 use crate::{
+    commands::{parse_discord, parse_mode_option, DoubleResultCow},
     database::OsuData,
     embeds::{EmbedData, ProfileCompareEmbed},
+    error::Error,
     tracking::process_tracking,
     util::{
         constants::{common_literals::MODE, GENERAL_ISSUE, OSU_API_ISSUE},
         matcher,
         osu::BonusPP,
-        MessageExt,
+        InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
@@ -20,9 +22,13 @@ use image::{
     Rgba,
 };
 use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score, UserStatistics, Username};
-use std::{borrow::Cow, sync::Arc};
+use std::sync::Arc;
 use twilight_model::{
-    application::interaction::application_command::CommandDataOption, id::UserId,
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+    id::UserId,
 };
 
 pub(super) async fn _profilecompare(
@@ -328,15 +334,13 @@ pub(super) struct ProfileArgs {
     mode: GameMode,
 }
 
-const COMPARE_PROFILE: &str = "compare profile";
-
 impl ProfileArgs {
     async fn args(
         ctx: &Context,
         args: &mut Args<'_>,
         author_id: UserId,
         mut mode: GameMode,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+    ) -> DoubleResultCow<Self> {
         let config = ctx.user_config(author_id).await?;
 
         if mode == GameMode::STD {
@@ -345,13 +349,9 @@ impl ProfileArgs {
 
         let name2 = match args.next() {
             Some(arg) => match matcher::get_mention_user(arg) {
-                Some(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
-                    Some(osu) => osu.into_username(),
-                    None => {
-                        let content = format!("<@{}> is not linked to an osu profile", id);
-
-                        return Ok(Err(content.into()));
-                    }
+                Some(user_id) => match parse_discord(ctx, user_id).await? {
+                    Ok(osu) => osu.into_username(),
+                    Err(content) => return Ok(Err(content)),
                 },
                 None => arg.into(),
             },
@@ -360,17 +360,13 @@ impl ProfileArgs {
 
         let args = match args.next() {
             Some(arg) => match matcher::get_mention_user(arg) {
-                Some(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
-                    Some(osu) => Self {
+                Some(user_id) => match parse_discord(ctx, user_id).await? {
+                    Ok(osu) => Self {
                         name1: Some(name2),
                         name2: osu.into_username(),
                         mode,
                     },
-                    None => {
-                        let content = format!("<@{}> is not linked to an osu profile", id);
-
-                        return Ok(Err(content.into()));
-                    }
+                    Err(content) => return Ok(Err(content)),
                 },
                 None => Self {
                     name1: Some(name2),
@@ -390,52 +386,33 @@ impl ProfileArgs {
 
     pub(super) async fn slash(
         ctx: &Context,
+        command: &ApplicationCommand,
         options: Vec<CommandDataOption>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+    ) -> DoubleResultCow<Self> {
         let mut name1 = None;
         let mut name2 = None;
         let mut mode = None;
 
         for option in options {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
-                    MODE => mode = parse_mode_option!(value, "compare profile"),
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
+                    MODE => mode = parse_mode_option(&value),
                     "name1" => name1 = Some(value.into()),
                     "name2" => name2 = Some(value.into()),
-                    "discord1" => match value.parse() {
-                        Ok(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
-                            Some(osu) => name1 = Some(osu.into_username()),
-                            None => {
-                                let content = format!("<@{}> is not linked to an osu profile", id);
-
-                                return Ok(Err(content.into()));
-                            }
-                        },
-                        Err(_) => bail_cmd_option!("compare profile discord1", string, value),
-                    },
-                    "discord2" => match value.parse() {
-                        Ok(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
-                            Some(osu) => name2 = Some(osu.into_username()),
-                            None => {
-                                let content = format!("<@{}> is not linked to an osu profile", id);
-
-                                return Ok(Err(content.into()));
-                            }
-                        },
-                        Err(_) => bail_cmd_option!("compare profile discord2", string, value),
-                    },
-                    _ => bail_cmd_option!(COMPARE_PROFILE, string, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!(COMPARE_PROFILE, integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(COMPARE_PROFILE, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!(COMPARE_PROFILE, subcommand, name)
-                }
+                CommandOptionValue::User(value) => match option.name.as_str() {
+                    "discord1" => match parse_discord(ctx, value).await? {
+                        Ok(osu) => name1 = Some(osu.into_username()),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    "discord2" => match parse_discord(ctx, value).await? {
+                        Ok(osu) => name2 = Some(osu.into_username()),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 
@@ -449,7 +426,7 @@ impl ProfileArgs {
             Some(name) => Some(name),
             None => ctx
                 .psql()
-                .get_user_osu(author_id)
+                .get_user_osu(command.user_id()?)
                 .await?
                 .map(OsuData::into_username),
         };

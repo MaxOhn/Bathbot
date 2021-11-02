@@ -17,13 +17,7 @@ impl CacheEmbed {
     pub fn new(stats: InMemoryCacheStats<'_>, start_time: DateTime<Utc>) -> Self {
         let mut description = String::with_capacity(256);
 
-        let metrics = stats.cache_ref().metrics();
-
-        let _ = writeln!(
-            description,
-            "Guild channels: {}",
-            with_comma_int(metrics.channels_guild.get() as u64)
-        );
+        let _ = writeln!(description, "Guild channels: {}", with_comma_int(0));
 
         let _ = writeln!(
             description,

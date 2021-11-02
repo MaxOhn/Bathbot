@@ -29,7 +29,7 @@ use rosu_v2::prelude::{GameMode, GameMods, OsuError};
 use std::{cmp::Ordering, sync::Arc};
 use tokio::fs::File;
 use twilight_model::{
-    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
+    application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
     channel::message::MessageType,
 };
 
@@ -305,9 +305,11 @@ fn graph(strains: Vec<(f32, f32)>, mut background: DynamicImage) -> Result<Vec<u
     {
         let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
         root.fill(&WHITE)?;
+        let last_strain = strains.last().map_or(0.0, |(s, _)| *s);
+
         let mut chart = ChartBuilder::on(&root)
             .x_label_area_size(17)
-            .build_cartesian_2d(0.0..strains.last().unwrap().0, 0.0..max_strain)?;
+            .build_cartesian_2d(0.0..last_strain, 0.0..max_strain)?;
 
         // Make background darker and sum up rgb values to find minimum
         let (width, height) = background.dimensions();
@@ -426,8 +428,8 @@ impl MapArgs {
         let mut mods = None;
 
         for option in command.yoink_options() {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
                     MAP => match matcher::get_osu_map_id(&value)
                         .or_else(|| matcher::get_osu_mapset_id(&value))
                     {
@@ -441,17 +443,9 @@ impl MapArgs {
                             Err(_) => return Ok(Err(MODS_PARSE_FAIL)),
                         },
                     },
-                    _ => bail_cmd_option!(MAP, string, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!(MAP, integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(MAP, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!(MAP, subcommand, name)
-                }
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 

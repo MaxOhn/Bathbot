@@ -1,4 +1,5 @@
 use crate::{
+    commands::check_user_mention,
     database::OsuData,
     embeds::{EmbedData, MedalStatsEmbed},
     error::GraphError,
@@ -6,7 +7,7 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder,
+    BotResult, CommandData, Context, MessageBuilder,
 };
 
 use chrono::Datelike;
@@ -25,7 +26,7 @@ async fn medalstats(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
             let name = match args.next() {
-                Some(arg) => match Args::check_user_mention(&ctx, arg).await {
+                Some(arg) => match check_user_mention(&ctx, arg).await {
                     Ok(Ok(osu)) => Some(osu.into_username()),
                     Ok(Err(content)) => return msg.error(&ctx, content).await,
                     Err(why) => {

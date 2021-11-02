@@ -8,25 +8,32 @@ pub use list::*;
 pub use score::*;
 pub use simulate::*;
 
-use super::{ErrorType, GradeArg, _top, prepare_score, prepare_scores, request_user, require_link};
-use crate::{BotResult, Context, Error, commands::{
+use std::sync::Arc;
+
+use twilight_model::application::{
+    command::CommandOptionChoice,
+    interaction::{application_command::CommandOptionValue, ApplicationCommand},
+};
+
+use crate::{
+    commands::{
         osu::{
             option_discord, option_mode, option_mods, option_mods_explicit, option_name, TopArgs,
             TopOrder,
         },
-        {MyCommand, MyCommandOption},
-    }, util::{ApplicationCommandExt, InteractionExt, MessageExt, constants::common_literals::{
+        DoubleResultCow, {MyCommand, MyCommandOption},
+    },
+    util::{
+        constants::common_literals::{
             ACC, COMBO, CONSIDER_GRADE, CTB, GRADE, INDEX, MANIA, MISSES, MODE, OSU, REVERSE,
             SCORE, SPECIFY_MODE, TAIKO,
-        }}};
-
-use std::{borrow::Cow, sync::Arc};
-use twilight_model::application::{
-    command::CommandOptionChoice,
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+        },
+        MessageExt,
+    },
+    BotResult, Context, Error,
 };
 
-const RECENT: &str = "recent";
+use super::{ErrorType, GradeArg, _top, prepare_score, prepare_scores, request_user, require_link};
 
 enum RecentCommandKind {
     Best(TopArgs),
@@ -37,54 +44,46 @@ enum RecentCommandKind {
 }
 
 impl RecentCommandKind {
-    async fn slash(
-        ctx: &Context,
-        command: &mut ApplicationCommand,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let author_id = command.user_id()?;
-        let mut kind = None;
+    async fn slash(ctx: &Context, command: &mut ApplicationCommand) -> DoubleResultCow<Self> {
+        let option = command
+            .data
+            .options
+            .pop()
+            .ok_or(Error::InvalidCommandOptions)?;
 
-        for option in command.yoink_options() {
-            match option {
-                CommandDataOption::String { name, .. } => bail_cmd_option!(RECENT, string, name),
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!(RECENT, integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(RECENT, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    SCORE => match RecentArgs::slash(ctx, options, author_id).await? {
-                        Ok(args) => kind = Some(RecentCommandKind::Score(args)),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    "best" => match TopArgs::slash(ctx, options, author_id).await? {
-                        Ok(mut args) => {
-                            args.sort_by = TopOrder::Date;
-                            kind = Some(RecentCommandKind::Best(args));
-                        }
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    "leaderboard" => {
-                        match RecentLeaderboardArgs::slash(ctx, options, author_id).await? {
-                            Ok(args) => kind = Some(RecentCommandKind::Leaderboard(args)),
-                            Err(content) => return Ok(Err(content)),
-                        }
-                    }
-                    "list" => match RecentListArgs::slash(ctx, options, author_id).await? {
-                        Ok(args) => kind = Some(RecentCommandKind::List(args)),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    "simulate" => match RecentSimulateArgs::slash(ctx, options, author_id).await? {
-                        Ok(args) => kind = Some(RecentCommandKind::Simulate(args)),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => bail_cmd_option!(RECENT, subcommand, name),
+        match option.value {
+            CommandOptionValue::SubCommand(options) => match option.name.as_str() {
+                SCORE => match RecentArgs::slash(ctx, command, options).await? {
+                    Ok(args) => Ok(Ok(RecentCommandKind::Score(args))),
+                    Err(content) => Ok(Err(content)),
                 },
-            }
-        }
+                "best" => match TopArgs::slash(ctx, command, options).await? {
+                    Ok(mut args) => {
+                        args.sort_by = TopOrder::Date;
 
-        kind.ok_or(Error::InvalidCommandOptions).map(Ok)
+                        Ok(Ok(RecentCommandKind::Best(args)))
+                    }
+                    Err(content) => Ok(Err(content)),
+                },
+                "leaderboard" => match RecentLeaderboardArgs::slash(ctx, command, options).await? {
+                    Ok(args) => Ok(Ok(RecentCommandKind::Leaderboard(args))),
+                    Err(content) => Ok(Err(content)),
+                },
+                "list" => match RecentListArgs::slash(ctx, command, options).await? {
+                    Ok(args) => Ok(Ok(RecentCommandKind::List(args))),
+                    Err(content) => Ok(Err(content)),
+                },
+                _ => Err(Error::InvalidCommandOptions),
+            },
+            CommandOptionValue::SubCommandGroup(options) => match option.name.as_str() {
+                "simulate" => match RecentSimulateArgs::slash(ctx, command, options).await? {
+                    Ok(args) => Ok(Ok(RecentCommandKind::Simulate(args))),
+                    Err(content) => Ok(Err(content)),
+                },
+                _ => Err(Error::InvalidCommandOptions),
+            },
+            _ => Err(Error::InvalidCommandOptions),
+        }
     }
 }
 
@@ -155,8 +154,9 @@ fn subcommand_score() -> MyCommandOption {
         false,
     );
 
-    let passes = MyCommandOption::builder("passes", "Specify whether only passes should be considered")
-        .boolean(false);
+    let passes =
+        MyCommandOption::builder("passes", "Specify whether only passes should be considered")
+            .boolean(false);
 
     let discord = option_discord();
 
@@ -181,7 +181,8 @@ fn subcommand_best() -> MyCommandOption {
         .integer(Vec::new(), false);
 
     let discord = option_discord();
-    let reverse = MyCommandOption::builder(REVERSE, "Reverse the resulting score list").boolean(false);
+    let reverse =
+        MyCommandOption::builder(REVERSE, "Reverse the resulting score list").boolean(false);
 
     let grade = MyCommandOption::builder(GRADE, CONSIDER_GRADE).string(
         vec![
@@ -277,8 +278,9 @@ fn subcommand_list() -> MyCommandOption {
         false,
     );
 
-    let passes = MyCommandOption::builder("passes", "Specify whether only passes should be considered")
-        .boolean(false);
+    let passes =
+        MyCommandOption::builder("passes", "Specify whether only passes should be considered")
+            .boolean(false);
 
     let discord = option_discord();
 
@@ -308,15 +310,15 @@ fn subcommand_simulate() -> MyCommandOption {
     let n100 =
         MyCommandOption::builder("n100", "Specify the amount of 100s").integer(Vec::new(), false);
 
-    let n50 = MyCommandOption::builder("n50", "Specify the amount of 50s").integer(Vec::new(), false);
+    let n50 =
+        MyCommandOption::builder("n50", "Specify the amount of 50s").integer(Vec::new(), false);
 
     let misses =
         MyCommandOption::builder(MISSES, "Specify the amount of misses").integer(Vec::new(), false);
 
-    // TODO: Number variant
     let acc = MyCommandOption::builder(ACC, "Specify the accuracy")
         .help("Specify the accuracy. Should be between 0.0 and 100.0")
-        .string(Vec::new(), false);
+        .number(Vec::new(), false);
 
     let combo = MyCommandOption::builder(COMBO, "Specify the combo").integer(Vec::new(), false);
 
@@ -430,7 +432,8 @@ fn subcommand_simulate() -> MyCommandOption {
 
     let description = "Unchoke a user's recent score or simulate a perfect play on its map";
 
-    MyCommandOption::builder("simulate", description).subcommandgroup(vec![osu, taiko, catch, mania])
+    MyCommandOption::builder("simulate", description)
+        .subcommandgroup(vec![osu, taiko, catch, mania])
 }
 
 pub fn define_recent() -> MyCommand {
@@ -445,7 +448,7 @@ pub fn define_recent() -> MyCommand {
         subcommand_simulate(),
     ];
 
-    MyCommand::new(RECENT, "Display info about a user's recent plays")
+    MyCommand::new("recent", "Display info about a user's recent plays")
         .help(help)
         .options(options)
 }

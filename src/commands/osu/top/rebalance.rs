@@ -1,5 +1,23 @@
-use super::ErrorType;
+use std::{cmp::Ordering, sync::Arc};
+
+use eyre::Report;
+use futures::{
+    future::TryFutureExt,
+    stream::{FuturesUnordered, TryStreamExt},
+};
+use rosu_pp_newer::{osu_delta, osu_sotarks, osu_xexxar};
+use rosu_v2::prelude::{GameMode, OsuError, Score};
+use tokio::fs::File;
+use twilight_model::{
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+    id::UserId,
+};
+
 use crate::{
+    commands::{check_user_mention, parse_discord, DoubleResultCow},
     database::UserConfig,
     embeds::{EmbedData, TopIfEmbed},
     error::PPError,
@@ -12,37 +30,20 @@ use crate::{
         },
         numbers,
         osu::prepare_beatmap_file,
-        CowUtils, MessageExt,
+        CowUtils, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
-use eyre::Report;
-use futures::{
-    future::TryFutureExt,
-    stream::{FuturesUnordered, TryStreamExt},
-};
-use rosu_pp_newer::{osu_delta, osu_sotarks, osu_xexxar};
-use rosu_v2::prelude::{GameMode, OsuError, Score};
-use std::{borrow::Cow, cmp::Ordering, sync::Arc};
-use tokio::fs::File;
-use twilight_model::{
-    application::interaction::application_command::CommandDataOption, id::UserId,
-};
+use super::ErrorType;
 
 pub(super) struct RebalanceArgs {
     pub config: UserConfig,
     pub version: RebalanceVersion,
 }
 
-const TOP_REBALANCE: &str = "top rebalance";
-
 impl RebalanceArgs {
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, &'static str>> {
+    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
 
         let version = match args.next().map(CowUtils::cow_to_ascii_lowercase).as_deref() {
@@ -53,12 +54,12 @@ impl RebalanceArgs {
                 let content = "The first argument must be the version name so either \
                     `xexxar`, `delta`, or `sotarks`.";
 
-                return Ok(Err(content));
+                return Ok(Err(content.into()));
             }
         };
 
         if let Some(arg) = args.next() {
-            match Args::check_user_mention(ctx, arg).await? {
+            match check_user_mention(ctx, arg).await? {
                 Ok(osu) => config.osu = Some(osu),
                 Err(content) => return Ok(Err(content)),
             }
@@ -69,38 +70,32 @@ impl RebalanceArgs {
 
     pub(super) async fn slash(
         ctx: &Context,
+        command: &ApplicationCommand,
         options: Vec<CommandDataOption>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut config = ctx.user_config(author_id).await?;
+    ) -> DoubleResultCow<Self> {
+        let mut config = ctx.user_config(command.user_id()?).await?;
         let mut version = None;
 
         for option in options {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
                     NAME => config.osu = Some(value.into()),
-                    DISCORD => {
-                        config.osu = Some(parse_discord_option!(ctx, value, "top rebalance"))
-                    }
                     "version" => match value.as_str() {
                         "delta_t" => version = Some(RebalanceVersion::Delta),
                         "sotarks" => version = Some(RebalanceVersion::Sotarks),
                         "xexxar" => version = Some(RebalanceVersion::Xexxar),
-                        _ => {
-                            bail_cmd_option!("top rebalance version", string, value)
-                        }
+                        _ => return Err(Error::InvalidCommandOptions),
                     },
-                    _ => bail_cmd_option!(TOP_REBALANCE, string, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!(TOP_REBALANCE, integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(TOP_REBALANCE, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!(TOP_REBALANCE, subcommand, name)
-                }
+                CommandOptionValue::User(value) => match option.name.as_str() {
+                    DISCORD => match parse_discord(ctx, value).await? {
+                        Ok(osu) => config.osu = Some(osu),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 

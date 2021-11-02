@@ -17,13 +17,14 @@ pub use tracking_stats::*;
 pub use tracking_toggle::*;
 
 use crate::{
-    util::{constants::common_literals::NAME, ApplicationCommandExt, CountryCode},
+    util::{constants::common_literals::NAME, CountryCode},
     BotResult, Context, Error,
 };
 
 use std::sync::Arc;
 use twilight_model::application::interaction::{
-    application_command::CommandDataOption, ApplicationCommand,
+    application_command::{CommandDataOption, CommandOptionValue},
+    ApplicationCommand,
 };
 
 use super::{MyCommand, MyCommandOption};
@@ -38,200 +39,89 @@ enum OwnerCommandKind {
     TrackingToggle,
 }
 
-const OWNER: &str = "owner";
-const OWNER_ADD_COUNTRY: &str = "owner add_country";
-const OWNER_CHANGE_GAME: &str = "owner change_game";
-const OWNER_TRACKING: &str = "owner tracking";
-const OWNER_TRACKING_COOLDOWN: &str = "owner tracking cooldown";
-const OWNER_TRACKING_INTERVAL: &str = "owner tracking interval";
-
 impl OwnerCommandKind {
     fn slash(command: &mut ApplicationCommand) -> BotResult<Self> {
-        let mut kind = None;
-
-        for option in command.yoink_options() {
-            match option {
-                CommandDataOption::String { name, .. } => {
-                    bail_cmd_option!(OWNER, string, name)
-                }
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!(OWNER, integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(OWNER, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    "add_country" => {
-                        let mut code = None;
-                        let mut country = None;
-
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, mut value } => {
-                                    match name.as_str() {
-                                        "code" => {
-                                            value.make_ascii_uppercase();
-                                            code = Some(value.into());
-                                        }
-                                        NAME => country = Some(value),
-                                        _ => bail_cmd_option!(OWNER_ADD_COUNTRY, string, name),
-                                    }
-                                }
-                                CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!(OWNER_ADD_COUNTRY, integer, name)
-                                }
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!(OWNER_ADD_COUNTRY, boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!(OWNER_ADD_COUNTRY, subcommand, name)
-                                }
-                            }
-                        }
-
-                        let code = code.ok_or(Error::InvalidCommandOptions)?;
-                        let country = country.ok_or(Error::InvalidCommandOptions)?;
-                        kind = Some(Self::AddCountry { code, country });
-                    }
-                    "cache" => kind = Some(Self::Cache),
-                    "change_game" => {
-                        let mut game = None;
-
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, value } => match value.as_str() {
-                                    "game" => game = Some(value),
-                                    _ => bail_cmd_option!(OWNER_CHANGE_GAME, string, name),
-                                },
-                                CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!(OWNER_CHANGE_GAME, integer, name)
-                                }
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!(OWNER_CHANGE_GAME, boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!(OWNER_CHANGE_GAME, subcommand, name)
-                                }
-                            }
-                        }
-
-                        let game = game.ok_or(Error::InvalidCommandOptions)?;
-                        kind = Some(Self::ChangeGame(game));
-                    }
-                    "tracking" => {
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, .. } => {
-                                    bail_cmd_option!(OWNER_TRACKING, string, name)
-                                }
-                                CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!(OWNER_TRACKING, integer, name)
-                                }
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!(OWNER_TRACKING, boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, options } => {
-                                    match name.as_str() {
-                                        "cooldown" => {
-                                            let mut number = None;
-
-                                            for option in options {
-                                                match option {
-                                                    CommandDataOption::String { name, value } => {
-                                                        match name.as_str() {
-                                                            "number" => number = value.parse().ok(),
-                                                            _ => bail_cmd_option!(
-                                                                OWNER_TRACKING_COOLDOWN,
-                                                                string,
-                                                                name
-                                                            ),
-                                                        }
-                                                    }
-                                                    CommandDataOption::Integer { name, .. } => {
-                                                        bail_cmd_option!(
-                                                            OWNER_TRACKING_COOLDOWN,
-                                                            integer,
-                                                            name
-                                                        )
-                                                    }
-                                                    CommandDataOption::Boolean { name, .. } => {
-                                                        bail_cmd_option!(
-                                                            OWNER_TRACKING_COOLDOWN,
-                                                            boolean,
-                                                            name
-                                                        )
-                                                    }
-                                                    CommandDataOption::SubCommand {
-                                                        name, ..
-                                                    } => bail_cmd_option!(
-                                                        OWNER_TRACKING_COOLDOWN,
-                                                        subcommand,
-                                                        name
-                                                    ),
-                                                }
-                                            }
-
-                                            let number =
-                                                number.ok_or(Error::InvalidCommandOptions)?;
-                                            kind = Some(Self::TrackingCooldown(number));
-                                        }
-                                        "interval" => {
-                                            let mut number = None;
-
-                                            for option in options {
-                                                match option {
-                                                    CommandDataOption::String { name, .. } => {
-                                                        bail_cmd_option!(
-                                                            OWNER_TRACKING_INTERVAL,
-                                                            string,
-                                                            name
-                                                        )
-                                                    }
-                                                    CommandDataOption::Integer { name, value } => {
-                                                        match name.as_str() {
-                                                            "number" => number = Some(value.max(0)),
-                                                            _ => bail_cmd_option!(
-                                                                OWNER_TRACKING_INTERVAL,
-                                                                integer,
-                                                                name
-                                                            ),
-                                                        }
-                                                    }
-                                                    CommandDataOption::Boolean { name, .. } => {
-                                                        bail_cmd_option!(
-                                                            OWNER_TRACKING_INTERVAL,
-                                                            boolean,
-                                                            name
-                                                        )
-                                                    }
-                                                    CommandDataOption::SubCommand {
-                                                        name, ..
-                                                    } => bail_cmd_option!(
-                                                        OWNER_TRACKING_INTERVAL,
-                                                        subcommand,
-                                                        name
-                                                    ),
-                                                }
-                                            }
-
-                                            let number =
-                                                number.ok_or(Error::InvalidCommandOptions)?;
-                                            kind = Some(Self::TrackingInterval(number));
-                                        }
-                                        "stats" => kind = Some(Self::TrackingStats),
-                                        "toggle" => kind = Some(Self::TrackingToggle),
-                                        _ => bail_cmd_option!(OWNER_TRACKING, subcommand, name),
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    _ => bail_cmd_option!(OWNER, subcommand, name),
+        command
+            .data
+            .options
+            .pop()
+            .and_then(|option| match option.value {
+                CommandOptionValue::SubCommand(options) => match option.name.as_str() {
+                    "add_country" => Self::slash_add_country(options),
+                    "cache" => Some(Self::Cache),
+                    "change_game" => command
+                        .data
+                        .options
+                        .pop()
+                        .and_then(|option| {
+                            (option.name == "game").then(|| match option.value {
+                                CommandOptionValue::String(value) => Some(value),
+                                _ => None,
+                            })
+                        })
+                        .flatten()
+                        .map(Self::ChangeGame),
+                    "tracking" => Self::slash_tracking(options),
+                    _ => None,
                 },
+                _ => None,
+            })
+            .ok_or(Error::InvalidCommandOptions)
+    }
+
+    fn slash_add_country(options: Vec<CommandDataOption>) -> Option<Self> {
+        let mut code = None;
+        let mut country = None;
+
+        for option in options {
+            match option.value {
+                CommandOptionValue::String(mut value) => match option.name.as_str() {
+                    "code" => {
+                        value.make_ascii_uppercase();
+                        code = Some(value.into());
+                    }
+                    NAME => country = Some(value),
+                    _ => return None,
+                },
+                _ => return None,
             }
         }
 
-        kind.ok_or(Error::InvalidCommandOptions)
+        let code = code?;
+        let country = country?;
+
+        Some(Self::AddCountry { code, country })
+    }
+
+    fn slash_tracking(options: Vec<CommandDataOption>) -> Option<Self> {
+        options.first().and_then(|option| match &option.value {
+            CommandOptionValue::SubCommand(options) => match option.name.as_str() {
+                "cooldown" => options
+                    .first()
+                    .and_then(|option| {
+                        (option.name == "number").then(|| match option.value {
+                            CommandOptionValue::Number(value) => Some(value.0 as f32),
+                            _ => None,
+                        })
+                    })
+                    .flatten()
+                    .map(Self::TrackingCooldown),
+                "interval" => options
+                    .first()
+                    .and_then(|option| {
+                        (option.name == "number").then(|| match option.value {
+                            CommandOptionValue::Integer(value) => Some(value.max(0)),
+                            _ => None,
+                        })
+                    })
+                    .flatten()
+                    .map(Self::TrackingInterval),
+                "stats" => Some(Self::TrackingStats),
+                "toggle" => Some(Self::TrackingToggle),
+                _ => None,
+            },
+            _ => None,
+        })
     }
 }
 
@@ -274,9 +164,7 @@ fn subcommand_changegame() -> MyCommandOption {
 
 fn subcommand_tracking() -> MyCommandOption {
     let number_description = "Specify the cooldown milliseconds, defaults to 5000.0";
-
-    // TODO: Number variant
-    let number = MyCommandOption::builder("number", number_description).integer(Vec::new(), false);
+    let number = MyCommandOption::builder("number", number_description).number(Vec::new(), false);
 
     let cooldown = MyCommandOption::builder("cooldown", "Adjust the tracking cooldown")
         .subcommand(vec![number]);
@@ -305,5 +193,5 @@ pub fn define_owner() -> MyCommand {
         subcommand_tracking(),
     ];
 
-    MyCommand::new(OWNER, "You won't be able to use this :^)").options(options)
+    MyCommand::new("owner", "You won't be able to use this :^)").options(options)
 }

@@ -1,6 +1,6 @@
 use crate::{
     commands::{MyCommand, MyCommandOption},
-    util::{constants::GENERAL_ISSUE, ApplicationCommandExt, MessageExt},
+    util::{constants::GENERAL_ISSUE, MessageExt},
     BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
@@ -11,7 +11,7 @@ use twilight_http::{
     error::ErrorType,
 };
 use twilight_model::application::interaction::{
-    application_command::CommandDataOption, ApplicationCommand,
+    application_command::CommandOptionValue, ApplicationCommand,
 };
 
 #[command]
@@ -110,24 +110,18 @@ async fn _prune(ctx: Arc<Context>, data: CommandData<'_>, amount: u64) -> BotRes
     Ok(())
 }
 
-pub async fn slash_prune(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    let mut amount = None;
+pub async fn slash_prune(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
+    let option = command.data.options.first().and_then(|option| {
+        (option.name == "amount").then(|| match option.value {
+            CommandOptionValue::Integer(value) => Some(value),
+            _ => None,
+        })
+    });
 
-    for option in command.yoink_options() {
-        match option {
-            CommandDataOption::String { name, .. } => bail_cmd_option!("prune", string, name),
-            CommandDataOption::Integer { name, value } => match name.as_str() {
-                "amount" => amount = Some(value.max(1).min(100) as u64),
-                _ => bail_cmd_option!("prune", integer, name),
-            },
-            CommandDataOption::Boolean { name, .. } => bail_cmd_option!("prune", boolean, name),
-            CommandDataOption::SubCommand { name, .. } => {
-                bail_cmd_option!("prune", subcommand, name)
-            }
-        }
-    }
-
-    let amount = amount.ok_or(Error::InvalidCommandOptions)?;
+    let amount = match option.flatten() {
+        Some(value) => value.max(1).min(100) as u64,
+        None => return Err(Error::InvalidCommandOptions),
+    };
 
     _prune(ctx, command.into(), amount).await
 }

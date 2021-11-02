@@ -26,8 +26,8 @@ impl Context {
     pub fn get_role_assign(&self, reaction: &Reaction) -> Option<RoleId> {
         self.data
             .role_assigns
-            .get(&(reaction.channel_id.0, reaction.message_id.0))
-            .map(|guard| RoleId(*guard.value()))
+            .get(&(reaction.channel_id.get(), reaction.message_id.get()))
+            .map(|guard| RoleId::new(*guard.value()).unwrap())
     }
 
     pub fn tracking(&self) -> &OsuTracking {
@@ -82,6 +82,6 @@ impl Context {
     pub fn add_role_assign(&self, channel_id: ChannelId, msg_id: MessageId, role_id: RoleId) {
         self.data
             .role_assigns
-            .insert((channel_id.0, msg_id.0), role_id.0);
+            .insert((channel_id.get(), msg_id.get()), role_id.get());
     }
 }

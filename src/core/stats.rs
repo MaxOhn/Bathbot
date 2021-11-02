@@ -1,7 +1,5 @@
 use chrono::{DateTime, Utc};
 use prometheus::{IntCounter, IntCounterVec, Opts, Registry};
-use std::sync::Arc;
-use twilight_cache_inmemory::Metrics;
 
 use crate::util::constants::common_literals::NAME;
 
@@ -58,7 +56,6 @@ pub struct BotStats {
     pub message_counts: MessageCounters,
     pub command_counts: CommandCounters,
     pub osu_metrics: OsuCounters,
-    pub cache_metrics: Arc<Metrics>,
 }
 
 macro_rules! metric_vec {
@@ -72,7 +69,7 @@ macro_rules! metric_vec {
 }
 
 impl BotStats {
-    pub fn new(osu_metrics: IntCounterVec, cache_metrics: Arc<Metrics>) -> Self {
+    pub fn new(osu_metrics: IntCounterVec) -> Self {
         let event_counter = metric_vec!(counter: "gateway_events", "Gateway events", "events");
         let msg_counter = metric_vec!(counter: "messages", "Received messages", "sender_type");
         let message_commands =
@@ -85,9 +82,6 @@ impl BotStats {
         let registry = Registry::new_custom(Some(String::from("bathbot")), None).unwrap();
         registry.register(Box::new(event_counter.clone())).unwrap();
         registry.register(Box::new(msg_counter.clone())).unwrap();
-        registry
-            .register(Box::new(cache_metrics.metrics.clone()))
-            .unwrap();
         registry
             .register(Box::new(message_commands.clone()))
             .unwrap();
@@ -139,7 +133,6 @@ impl BotStats {
                 user_cached: osu_metrics.with_label_values(&["User cached"]),
                 rosu: osu_metrics,
             },
-            cache_metrics,
         }
     }
 

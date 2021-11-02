@@ -36,7 +36,9 @@ pub async fn tracklist(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         match result {
             Ok(user) => users.push((user.username, mode, limit)),
             Err(OsuError::NotFound) => {
-                let remove_fut = ctx.tracking().remove_user(user_id, channel_id, ctx.psql());
+                let remove_fut = ctx
+                    .tracking()
+                    .remove_user(user_id, None, channel_id, ctx.psql());
 
                 if let Err(why) = remove_fut.await {
                     warn!(

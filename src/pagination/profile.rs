@@ -12,11 +12,7 @@ use std::time::Duration;
 use tokio::time::sleep;
 use tokio_stream::StreamExt;
 use twilight_http::error::ErrorType;
-use twilight_model::{
-    channel::{Message, Reaction, ReactionType},
-    gateway::payload::ReactionAdd,
-    id::UserId,
-};
+use twilight_model::{channel::{Message, Reaction, ReactionType}, gateway::payload::incoming::ReactionAdd, id::UserId};
 
 pub struct ProfilePagination {
     msg: Message,

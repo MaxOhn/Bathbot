@@ -1,26 +1,19 @@
-use crate::{
-    commands::{MyCommand, MyCommandOption},
-    custom_client::RankParam,
-    database::UserConfig,
-    embeds::{EmbedData, WhatIfEmbed},
-    tracking::process_tracking,
-    util::{
+use std::sync::Arc;
+
+use eyre::Report;
+use rosu_v2::prelude::{GameMode, OsuError};
+use twilight_model::{
+    application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
+    id::UserId,
+};
+
+use crate::{Args, BotResult, CommandData, Context, Error, commands::{DoubleResultCow, MyCommand, MyCommandOption, check_user_mention, parse_discord, parse_mode_option}, custom_client::RankParam, database::UserConfig, embeds::{EmbedData, WhatIfEmbed}, tracking::process_tracking, util::{
         constants::{
             common_literals::{DISCORD, MODE, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
         ApplicationCommandExt, InteractionExt, MessageExt,
-    },
-    Args, BotResult, CommandData, Context, Error,
-};
-
-use eyre::Report;
-use rosu_v2::prelude::{GameMode, OsuError};
-use std::{borrow::Cow, sync::Arc};
-use twilight_model::{
-    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
-    id::UserId,
-};
+    }};
 
 use super::{option_discord, option_mode, option_name};
 
@@ -96,7 +89,7 @@ async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> 
             .map(|weight| weight.pp)
             .sum();
 
-        let bonus_pp = user.statistics.as_ref().unwrap().pp - actual;
+        let bonus_pp = user.statistics.as_ref().map_or(0.0, |stats| stats.pp) - actual;
         let mut potential = 0.0;
         let mut used = false;
         let mut new_pos = scores.len();
@@ -302,21 +295,19 @@ struct WhatIfArgs {
     pp: f32,
 }
 
-const WHATIF: &str = "whatif";
-
 impl WhatIfArgs {
     async fn args(
         ctx: &Context,
         args: &mut Args<'_>,
         author_id: UserId,
-    ) -> BotResult<Result<Self, &'static str>> {
+    ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
         let mut pp = None;
 
         for arg in args.take(2) {
             match arg.parse() {
                 Ok(num) => pp = Some(num),
-                Err(_) => match Args::check_user_mention(ctx, arg).await? {
+                Err(_) => match check_user_mention(ctx, arg).await? {
                     Ok(osu) => config.osu = Some(osu),
                     Err(content) => return Ok(Err(content)),
                 },
@@ -325,44 +316,38 @@ impl WhatIfArgs {
 
         let pp = match pp {
             Some(pp) => pp,
-            None => return Ok(Err("You need to provide a decimal number")),
+            None => return Ok(Err("You need to provide a decimal number".into())),
         };
 
         Ok(Ok(Self { config, pp }))
     }
 
-    async fn slash(
-        ctx: &Context,
-        command: &mut ApplicationCommand,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+    async fn slash(ctx: &Context, command: &mut ApplicationCommand) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(command.user_id()?).await?;
         let mut pp = None;
 
         for option in command.yoink_options() {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
-                    MODE => config.mode = parse_mode_option!(value, "whatif"),
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
+                    MODE => config.mode = parse_mode_option(&value),
                     NAME => config.osu = Some(value.into()),
-                    DISCORD => config.osu = Some(parse_discord_option!(ctx, value, "whatif")),
-                    "pp" => match value.parse() {
-                        Ok(num) => pp = Some(num),
-                        Err(_) => {
-                            let content = "Failed to parse `pp`. Must be a number.";
-
-                            return Ok(Err(content.into()));
-                        }
-                    },
-                    _ => bail_cmd_option!(WHATIF, string, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!(WHATIF, integer, name)
+                CommandOptionValue::Number(value) => {
+                    let number = (option.name == "pp")
+                        .then(|| value.0 as f32)
+                        .ok_or(Error::InvalidCommandOptions)?;
+
+                    pp = Some(number);
                 }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(WHATIF, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!(WHATIF, subcommand, name)
-                }
+                CommandOptionValue::User(value) => match option.name.as_str() {
+                    DISCORD => match parse_discord(ctx, value).await? {
+                        Ok(osu) => config.osu = Some(osu),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 
@@ -383,13 +368,12 @@ pub async fn slash_whatif(ctx: Arc<Context>, mut command: ApplicationCommand) ->
 }
 
 pub fn define_whatif() -> MyCommand {
-    // TODO: Number variant
-    let pp = MyCommandOption::builder("pp", "Specify a pp amount").string(Vec::new(), true);
+    let pp = MyCommandOption::builder("pp", "Specify a pp amount").number(Vec::new(), true);
     let mode = option_mode();
     let name = option_name();
     let discord = option_discord();
 
     let description = "Display the impact of a new X pp score for a user";
 
-    MyCommand::new(WHATIF, description).options(vec![pp, mode, name, discord])
+    MyCommand::new("whatif", description).options(vec![pp, mode, name, discord])
 }

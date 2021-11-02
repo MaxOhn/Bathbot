@@ -1,25 +1,32 @@
-use super::{ErrorType, GradeArg};
+use std::{ sync::Arc};
+
 use crate::{
+    commands::{check_user_mention, parse_discord, parse_mode_option, DoubleResultCow},
     database::UserConfig,
     embeds::{EmbedData, RecentListEmbed},
+    error::Error,
     pagination::{Pagination, RecentListPagination},
     util::{
         constants::{
             common_literals::{DISCORD, GRADE, MODE, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
-        numbers, MessageExt,
+        numbers, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context,
 };
-
 use eyre::Report;
 use futures::future::TryFutureExt;
 use rosu_v2::prelude::{GameMode, Grade, OsuError};
-use std::{borrow::Cow, sync::Arc};
 use twilight_model::{
-    application::interaction::application_command::CommandDataOption, id::UserId,
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+    id::UserId,
 };
+
+use super::{ErrorType, GradeArg};
 
 pub(super) async fn _recentlist(
     ctx: Arc<Context>,
@@ -285,11 +292,7 @@ impl RecentListArgs {
         Must be either a single grade or two grades of the form `a..b` e.g. `C..S`.\n\
         Valid grades are: `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`";
 
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
         let mut grade = None;
         let mut passes = None;
@@ -362,9 +365,9 @@ impl RecentListArgs {
                     }
                 }
             } else {
-                match Args::check_user_mention(ctx, arg).await? {
+                match check_user_mention(ctx, arg).await? {
                     Ok(osu) => config.osu = Some(osu),
-                    Err(content) => return Ok(Err(content.into())),
+                    Err(content) => return Ok(Err(content)),
                 }
             }
         }
@@ -396,18 +399,17 @@ impl RecentListArgs {
 
     pub(super) async fn slash(
         ctx: &Context,
+        command: &ApplicationCommand,
         options: Vec<CommandDataOption>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut config = ctx.user_config(author_id).await?;
+    ) -> DoubleResultCow<Self> {
+        let mut config = ctx.user_config(command.user_id()?).await?;
         let mut grade = None;
 
         for option in options {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
                     NAME => config.osu = Some(value.into()),
-                    DISCORD => config.osu = Some(parse_discord_option!(ctx, value, "recent list")),
-                    MODE => config.mode = parse_mode_option!(value, "recent list"),
+                    MODE => config.mode = parse_mode_option(&value),
                     GRADE => match value.as_str() {
                         "SS" => {
                             grade = Some(GradeArg::Range {
@@ -426,34 +428,37 @@ impl RecentListArgs {
                         "C" => grade = Some(GradeArg::Single(Grade::C)),
                         "D" => grade = Some(GradeArg::Single(Grade::D)),
                         "F" => grade = Some(GradeArg::Single(Grade::F)),
-                        _ => bail_cmd_option!("recent list grade", string, value),
+                        _ => return Err(Error::InvalidCommandOptions),
                     },
-                    _ => bail_cmd_option!("recent list", string, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("recent list", integer, name)
-                }
-                CommandDataOption::Boolean { name, value } => match name.as_str() {
-                    "passes" => {
-                        if value {
-                            grade = match grade {
-                                Some(GradeArg::Single(Grade::F)) => None,
-                                Some(GradeArg::Single(_)) => grade,
-                                Some(GradeArg::Range { .. }) => grade,
-                                None => Some(GradeArg::Range {
-                                    bot: Grade::D,
-                                    top: Grade::XH,
-                                }),
-                            }
-                        } else {
-                            grade = Some(GradeArg::Single(Grade::F));
+                CommandOptionValue::Boolean(value) => {
+                    let value = (option.name == "passes")
+                        .then(|| value)
+                        .ok_or(Error::InvalidCommandOptions)?;
+
+                    if value {
+                        grade = match grade {
+                            Some(GradeArg::Single(Grade::F)) => None,
+                            Some(GradeArg::Single(_)) => grade,
+                            Some(GradeArg::Range { .. }) => grade,
+                            None => Some(GradeArg::Range {
+                                bot: Grade::D,
+                                top: Grade::XH,
+                            }),
                         }
+                    } else {
+                        grade = Some(GradeArg::Single(Grade::F));
                     }
-                    _ => bail_cmd_option!("recent list", boolean, name),
-                },
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("recent list", subcommand, name)
                 }
+                CommandOptionValue::User(value) => match option.name.as_str() {
+                    DISCORD => match parse_discord(ctx, value).await? {
+                        Ok(osu) => config.osu = Some(osu),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 

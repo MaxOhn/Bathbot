@@ -26,7 +26,7 @@ use twilight_gateway::Cluster;
 use twilight_http::Client as HttpClient;
 use twilight_model::{
     gateway::{
-        payload::UpdatePresence,
+        payload::outgoing::UpdatePresence,
         presence::{Activity, ActivityType, Status},
     },
     id::{ChannelId, GuildId, MessageId},
@@ -36,7 +36,7 @@ use twilight_standby::Standby;
 pub struct Context {
     pub cache: Cache,
     pub stats: Arc<BotStats>,
-    pub http: HttpClient,
+    pub http: Arc<HttpClient>,
     pub standby: Standby,
     pub auth_standby: AuthenticationStandby,
     pub buckets: Buckets,
@@ -76,7 +76,7 @@ impl Context {
     pub async fn new(
         cache: Cache,
         stats: Arc<BotStats>,
-        http: HttpClient,
+        http: Arc<HttpClient>,
         clients: Clients,
         cluster: Cluster,
         data: ContextData,
@@ -105,19 +105,28 @@ impl Context {
     where
         M: Into<String> + Clone,
     {
-        let [_, total_shards] = self.cluster.config().shard_config().shard();
+        let mut shards = self.cluster.shards();
 
-        for shard_id in 1..total_shards {
-            debug!("Setting activity for shard {}", shard_id);
+        if let Some(shard) = shards.next() {
+            for shard in shards {
+                match shard.info() {
+                    Ok(info) => debug!("Setting activity for shard {}", info.id()),
+                    Err(_) => continue,
+                }
 
-            self.set_shard_activity(shard_id, status, activity_type, message.clone())
-                .await?;
+                let activities = vec![generate_activity(activity_type, message.clone().into())];
+                let status = UpdatePresence::new(activities, false, None, status).unwrap();
+                shard.command(&status).await?;
+            }
+
+            // Handle last shard separately so the message is not cloned
+            if let Ok(info) = shard.info() {
+                debug!("Setting activity for shard {}", info.id());
+                let activities = vec![generate_activity(activity_type, message.into())];
+                let status = UpdatePresence::new(activities, false, None, status).unwrap();
+                shard.command(&status).await?;
+            }
         }
-
-        debug!("Setting activity for shard 0");
-
-        self.set_shard_activity(0, status, activity_type, message)
-            .await?;
 
         Ok(())
     }

@@ -1,17 +1,15 @@
 use std::{fmt::Write, sync::Arc};
 
-use twilight_cache_inmemory::model::CachedRole;
 use twilight_model::{
-    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
-    guild::Permissions,
-    id::RoleId,
+    application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
+    guild::{Permissions, Role},
 };
 
 use crate::{
     commands::{MyCommand, MyCommandOption},
     util::{
         constants::{GENERAL_ISSUE, OWNER_USER_ID},
-        matcher, ApplicationCommandExt, MessageExt,
+        matcher, MessageExt,
     },
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
@@ -88,16 +86,19 @@ async fn _authorities(
             }
 
             // Make sure the author is still an authority after applying new roles
-            if !(ctx.cache.is_guild_owner(guild_id, author_id) || author_id.0 == OWNER_USER_ID) {
+            if !(ctx.cache.is_guild_owner(guild_id, author_id) || author_id.get() == OWNER_USER_ID)
+            {
                 match ctx.cache.member(guild_id, author_id) {
                     Some(member) => {
                         let still_authority = member
-                            .roles
+                            .roles()
                             .iter()
                             .filter_map(|&role_id| ctx.cache.role(role_id))
                             .any(|role| {
                                 role.permissions.contains(Permissions::ADMINISTRATOR)
-                                    || roles.iter().any(|&new| new == role.id.0 && new != role_id)
+                                    || roles
+                                        .iter()
+                                        .any(|&new| new == role.id.get() && new != role_id)
                             });
 
                         if !still_authority {
@@ -131,11 +132,12 @@ async fn _authorities(
             let author_id = data.author()?.id;
 
             // Make sure the author is still an authority after applying new roles
-            if !(ctx.cache.is_guild_owner(guild_id, author_id) || author_id.0 == OWNER_USER_ID) {
+            if !(ctx.cache.is_guild_owner(guild_id, author_id) || author_id.get() == OWNER_USER_ID)
+            {
                 match ctx.cache.member(guild_id, author_id) {
                     Some(member) => {
                         let still_authority = member
-                            .roles
+                            .roles()
                             .iter()
                             .filter_map(|&role_id| ctx.cache.role(role_id))
                             .any(|role| {
@@ -159,7 +161,7 @@ async fn _authorities(
             }
 
             let update_fut = ctx.update_guild_config(guild_id, move |config| {
-                config.authorities = roles.into_iter().map(|role| role.id.0).collect();
+                config.authorities = roles.into_iter().map(|role| role.id.get()).collect();
             });
 
             if let Err(why) = update_fut.await {
@@ -200,17 +202,17 @@ enum AuthorityCommandKind {
     Add(u64),
     List,
     Remove(u64),
-    Replace(Vec<CachedRole>),
+    Replace(Vec<Role>),
 }
 
-fn parse_role(ctx: &Context, arg: &str) -> Result<CachedRole, String> {
+fn parse_role(ctx: &Context, arg: &str) -> Result<Role, String> {
     let role_id = match matcher::get_mention_role(arg) {
-        Some(id) => RoleId(id),
+        Some(role_id) => role_id,
         None => return Err(format!("Expected role mention or role id, got `{}`", arg)),
     };
 
     match ctx.cache.role(role_id) {
-        Some(role) => Ok(role),
+        Some(role) => Ok(role.resource().to_owned()),
         None => Err(format!("No role with id {} found in this guild", role_id)),
     }
 }
@@ -230,98 +232,40 @@ impl AuthorityCommandKind {
         Ok(Self::Replace(roles))
     }
 
-    fn slash(command: &mut ApplicationCommand) -> BotResult<Self> {
-        let mut kind = None;
-
-        for option in command.yoink_options() {
-            match option {
-                CommandDataOption::String { name, .. } => {
-                    bail_cmd_option!("authorites", string, name)
-                }
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("authorites", integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("authorites", boolean, name)
-                }
-                CommandDataOption::SubCommand { name, options } => match name.as_str() {
+    fn slash(command: &ApplicationCommand) -> BotResult<Self> {
+        command
+            .data
+            .options
+            .first()
+            .and_then(|option| match &option.value {
+                CommandOptionValue::SubCommand(options) => match option.name.as_str() {
                     "add" => {
-                        let mut role = None;
+                        let role = options.first().and_then(|option| match option.value {
+                            CommandOptionValue::Role(value) => Some(value),
+                            _ => None,
+                        })?;
 
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, value } => match name.as_str() {
-                                    "role" => match value.parse() {
-                                        Ok(num) => role = Some(num),
-                                        Err(_) => {
-                                            bail_cmd_option!("authorities add role", string, value)
-                                        }
-                                    },
-                                    _ => bail_cmd_option!("authorities add", string, name),
-                                },
-                                CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("authorities add", integer, name)
-                                }
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("authorities add", boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!("authorities add", subcommand, name)
-                                }
-                            }
-                        }
-
-                        let role = role.ok_or(Error::InvalidCommandOptions)?;
-                        kind = Some(AuthorityCommandKind::Add(role));
+                        Some(AuthorityCommandKind::Add(role.get()))
                     }
-                    "list" => kind = Some(AuthorityCommandKind::List),
+                    "list" => Some(AuthorityCommandKind::List),
                     "remove" => {
-                        let mut role = None;
+                        let role = options.first().and_then(|option| match option.value {
+                            CommandOptionValue::Role(value) => Some(value),
+                            _ => None,
+                        })?;
 
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, value } => match name.as_str() {
-                                    "role" => match value.parse() {
-                                        Ok(num) => role = Some(num),
-                                        Err(_) => {
-                                            bail_cmd_option!(
-                                                "authorities remove role",
-                                                string,
-                                                value
-                                            )
-                                        }
-                                    },
-                                    _ => bail_cmd_option!("authorities remove", string, name),
-                                },
-                                CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("authorities remove", integer, name)
-                                }
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("authorities remove", boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!("authorities remove", subcommand, name)
-                                }
-                            }
-                        }
-
-                        let role = role.ok_or(Error::InvalidCommandOptions)?;
-                        kind = Some(AuthorityCommandKind::Remove(role));
+                        Some(AuthorityCommandKind::Remove(role.get()))
                     }
-                    _ => bail_cmd_option!("authorites", subcommand, name),
+                    _ => None,
                 },
-            }
-        }
-
-        kind.ok_or(Error::InvalidCommandOptions)
+                _ => None,
+            })
+            .ok_or(Error::InvalidCommandOptions)
     }
 }
 
-pub async fn slash_authorities(
-    ctx: Arc<Context>,
-    mut command: ApplicationCommand,
-) -> BotResult<()> {
-    let args = AuthorityCommandKind::slash(&mut command)?;
+pub async fn slash_authorities(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
+    let args = AuthorityCommandKind::slash(&command)?;
 
     _authorities(ctx, command.into(), args).await
 }

@@ -180,7 +180,7 @@ pub(super) async fn _common(
 
             let mut scores: SmallVec<[(usize, f32, Score); 3]> = scores
                 .into_iter()
-                .map(|score| (0, score.pp.unwrap(), score))
+                .map(|score| (0, score.pp.unwrap_or_default(), score))
                 .collect();
 
             // Calculate the index of the pp ordered by their values

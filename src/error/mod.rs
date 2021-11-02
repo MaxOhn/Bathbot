@@ -84,18 +84,14 @@ pub enum Error {
     Reqwest(#[from] reqwest::Error),
     #[error("serde json error")]
     Json(#[from] serde_json::Error),
+    #[error("shard command error")]
+    ShardCommand(#[from] twilight_gateway::shard::CommandError),
     #[error("twilight failed to deserialize response")]
     TwilightDeserialize(#[from] twilight_http::response::DeserializeBodyError),
     #[error("error while making discord request")]
     TwilightHttp(#[from] twilight_http::Error),
     #[error("twitch error")]
     Twitch(#[from] twitch::TwitchError),
-    #[error("unexpected {kind} option for slash command `{cmd}`: `{name}`")]
-    UnexpectedCommandOption {
-        cmd: &'static str,
-        kind: &'static str,
-        name: String,
-    },
     #[error("unknown message component: {component:#?}")]
     UnknownMessageComponent {
         component: Box<MessageComponentInteraction>,

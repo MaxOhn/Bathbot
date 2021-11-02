@@ -1,13 +1,7 @@
-use crate::{
-    database::OsuData,
-    embeds::{EmbedData, SnipedDiffEmbed},
-    pagination::{Pagination, SnipedDiffPagination},
-    util::{
+use crate::{BotResult, CommandData, Context, MessageBuilder, commands::check_user_mention, database::OsuData, embeds::{EmbedData, SnipedDiffEmbed}, pagination::{Pagination, SnipedDiffPagination}, util::{
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         numbers, MessageExt,
-    },
-    Args, BotResult, CommandData, Context, MessageBuilder,
-};
+    }};
 
 use chrono::{Duration, Utc};
 use eyre::Report;
@@ -143,7 +137,7 @@ async fn snipedgain(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
             let name = match args.next() {
-                Some(arg) => match Args::check_user_mention(&ctx, arg).await {
+                Some(arg) => match check_user_mention(&ctx, arg).await {
                     Ok(Ok(osu)) => Some(osu.into_username()),
                     Ok(Err(content)) => return msg.error(&ctx, content).await,
                     Err(why) => {
@@ -192,7 +186,7 @@ async fn snipedloss(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
             let name = match args.next() {
-                Some(arg) => match Args::check_user_mention(&ctx, arg).await {
+                Some(arg) => match check_user_mention(&ctx, arg).await {
                     Ok(Ok(osu)) => Some(osu.into_username()),
                     Ok(Err(content)) => return msg.error(&ctx, content).await,
                     Err(why) => {

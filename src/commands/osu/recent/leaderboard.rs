@@ -1,25 +1,24 @@
-use crate::{
-    database::UserConfig,
-    embeds::{EmbedData, LeaderboardEmbed},
-    pagination::{LeaderboardPagination, Pagination},
-    util::{
+use std::sync::Arc;
+
+use eyre::Report;
+use rosu_v2::prelude::{GameMode, OsuError, Username};
+use twilight_model::{
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+    id::UserId,
+};
+
+use crate::{Args, BotResult, CommandData, Context, MessageBuilder, commands::{DoubleResultCow, check_user_mention, parse_discord, parse_mode_option}, database::UserConfig, embeds::{EmbedData, LeaderboardEmbed}, error::Error, pagination::{LeaderboardPagination, Pagination}, util::{
         constants::{
             common_literals::{DISCORD, INDEX, MODE, MODS, MODS_PARSE_FAIL, NAME},
             AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE,
         },
         matcher,
         osu::ModSelection,
-        MessageExt,
-    },
-    Args, BotResult, CommandData, Context, MessageBuilder, 
-};
-
-use eyre::Report;
-use rosu_v2::prelude::{GameMode, OsuError, Username};
-use std::{borrow::Cow, sync::Arc};
-use twilight_model::{
-    application::interaction::application_command::CommandDataOption, id::UserId,
-};
+        InteractionExt, MessageExt,
+    }};
 
 pub(super) async fn _recentleaderboard(
     ctx: Arc<Context>,
@@ -475,7 +474,7 @@ impl RecentLeaderboardArgs {
         args: &mut Args<'_>,
         author_id: UserId,
         index: Option<usize>,
-    ) -> BotResult<Result<Self, &'static str>> {
+    ) -> DoubleResultCow<Self> {
         let config = ctx.user_config(author_id).await?;
         let mut name = None;
         let mut mods = None;
@@ -484,7 +483,7 @@ impl RecentLeaderboardArgs {
             if let Some(mods_) = matcher::get_mods(arg) {
                 mods.replace(mods_);
             } else {
-                match Args::check_user_mention(ctx, arg).await? {
+                match check_user_mention(ctx, arg).await? {
                     Ok(osu) => name = Some(osu.into_username()),
                     Err(content) => return Ok(Err(content)),
                 }
@@ -503,17 +502,17 @@ impl RecentLeaderboardArgs {
 
     pub(super) async fn slash(
         ctx: &Context,
+        command: &ApplicationCommand,
         options: Vec<CommandDataOption>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut config = ctx.user_config(author_id).await?;
+    ) -> DoubleResultCow<Self> {
+        let mut config = ctx.user_config(command.user_id()?).await?;
         let mut username = None;
         let mut mods = None;
         let mut index = None;
 
         for option in options {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
                     NAME => username = Some(value.into()),
                     MODS => match matcher::get_mods(&value) {
                         Some(mods_) => mods = Some(mods_),
@@ -522,23 +521,24 @@ impl RecentLeaderboardArgs {
                             Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
                         },
                     },
-                    DISCORD => {
-                        let osu = parse_discord_option!(ctx, value, "recent leaderboard");
-                        username = Some(osu.into_username())
-                    }
-                    MODE => config.mode = parse_mode_option!(value, "recent leaderboard"),
-                    _ => bail_cmd_option!("recent leaderboard", string, name),
+                    MODE => config.mode = parse_mode_option(&value),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, value } => match name.as_str() {
-                    INDEX => index = Some(value.max(1).min(50) as usize),
-                    _ => bail_cmd_option!("recent leaderboard", integer, name),
+                CommandOptionValue::Integer(value) => {
+                    let number = (option.name == INDEX)
+                        .then(|| value)
+                        .ok_or(Error::InvalidCommandOptions)?;
+
+                    index = Some(number.max(1).min(50) as usize);
+                }
+                CommandOptionValue::User(value) => match option.name.as_str() {
+                    DISCORD => match parse_discord(ctx,  value).await? {
+                        Ok(osu) => username = Some(osu.into_username()),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("recent leaderboard", boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("recent leaderboard", subcommand, name)
-                }
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 

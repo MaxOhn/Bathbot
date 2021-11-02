@@ -61,15 +61,18 @@ async fn _check_authority(
     guild_id: Option<GuildId>,
 ) -> BotResult<Option<String>> {
     let (guild_id, permissions) = match guild_id {
-        Some(id) => (id, ctx.cache.get_guild_permissions_for(author_id, guild_id)),
+        Some(id) => (id, ctx.cache.permissions().root(author_id, id)),
         None => return Ok(Some(String::new())),
     };
+
+    let permissions = permissions.ok().unwrap_or_else(Permissions::empty);
 
     if permissions.contains(Permissions::ADMINISTRATOR) {
         return Ok(None);
     }
 
-    let auth_roles = ctx.config_authorities_collect(guild_id, RoleId).await;
+    let to_role = |role_id| RoleId::new(role_id).unwrap();
+    let auth_roles = ctx.config_authorities_collect(guild_id, to_role).await;
 
     if auth_roles.is_empty() {
         let content = "You need admin permissions to use this command.\n\
@@ -77,7 +80,7 @@ async fn _check_authority(
 
         return Ok(Some(content.to_owned()));
     } else if let Some(member) = ctx.cache.member(guild_id, author_id) {
-        if !member.roles.iter().any(|role| auth_roles.contains(role)) {
+        if !member.roles().iter().any(|role| auth_roles.contains(role)) {
             let mut content = String::from(
                 "You need either admin permissions or \
                 any of these roles to use this command:\n",
@@ -132,11 +135,11 @@ async fn _check_ratelimit(
         match bucket {
             BucketName::Snipe => (bucket_elem.take(0), bucket), // same bucket for everyone
             BucketName::Songs => {
-                let id = guild_id.map_or_else(|| author_id.0, |guild_id| guild_id.0); // same bucket for guilds
+                let id = guild_id.map_or_else(|| author_id.get(), |guild_id| guild_id.get()); // same bucket for guilds
 
                 (bucket_elem.take(id), bucket)
             }
-            _ => (bucket_elem.take(author_id.0), bucket),
+            _ => (bucket_elem.take(author_id.get()), bucket),
         }
     };
 

@@ -58,7 +58,7 @@ impl Emote {
             .split_emote();
 
         RequestReactionType::Custom {
-            id: EmojiId(id),
+            id: EmojiId::new(id).unwrap(),
             name: Some(name),
         }
     }
@@ -81,7 +81,7 @@ impl Emote {
 
         ReactionType::Custom {
             animated: false,
-            id: EmojiId(id),
+            id: EmojiId::new(id).unwrap(),
             name: Some(name.to_owned()),
         }
     }

@@ -1,6 +1,8 @@
 use crate::{
+    commands::{check_user_mention, parse_discord, DoubleResultCow},
     database::UserConfig,
     embeds::{CompareEmbed, EmbedData, NoScoresEmbed},
+    error::Error,
     tracking::process_tracking,
     util::{
         constants::{
@@ -9,18 +11,22 @@ use crate::{
         },
         matcher,
         osu::{map_id_from_history, map_id_from_msg, MapIdType, ModSelection},
-        MessageExt,
+        InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
 use eyre::Report;
 use rosu_v2::prelude::{GameMods, OsuError, RankStatus::Ranked, Username};
-use std::{borrow::Cow, sync::Arc};
+use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use twilight_model::{
-    application::interaction::application_command::CommandDataOption,
-    channel::message::MessageType, id::UserId,
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+    channel::message::MessageType,
+    id::UserId,
 };
 
 #[command]
@@ -322,14 +328,8 @@ pub(super) struct ScoreArgs {
     map: Option<MapIdType>,
 }
 
-const COMPARE_SCORE: &str = "compare score";
-
 impl ScoreArgs {
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, &'static str>> {
+    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
         let mut map = None;
         let mut mods = None;
@@ -342,7 +342,7 @@ impl ScoreArgs {
             {
                 map = Some(id);
             } else {
-                match Args::check_user_mention(ctx, arg).await? {
+                match check_user_mention(ctx, arg).await? {
                     Ok(osu) => config.osu = Some(osu),
                     Err(content) => return Ok(Err(content)),
                 }
@@ -354,20 +354,17 @@ impl ScoreArgs {
 
     pub(super) async fn slash(
         ctx: &Context,
+        command: &ApplicationCommand,
         options: Vec<CommandDataOption>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut config = ctx.user_config(author_id).await?;
+    ) -> DoubleResultCow<Self> {
+        let mut config = ctx.user_config(command.user_id()?).await?;
         let mut map = None;
         let mut mods = None;
 
         for option in options {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
                     NAME => config.osu = Some(value.into()),
-                    DISCORD => {
-                        config.osu = Some(parse_discord_option!(ctx, value, "compare score"))
-                    }
                     MAP => match matcher::get_osu_map_id(&value)
                         .or_else(|| matcher::get_osu_mapset_id(&value))
                     {
@@ -381,17 +378,16 @@ impl ScoreArgs {
                             Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
                         },
                     },
-                    _ => bail_cmd_option!(COMPARE_SCORE, string, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!(COMPARE_SCORE, integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(COMPARE_SCORE, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!(COMPARE_SCORE, subcommand, name)
-                }
+                CommandOptionValue::User(value) => match option.name.as_str() {
+                    DISCORD => match parse_discord(ctx, value).await? {
+                        Ok(osu) => config.osu = Some(osu),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 

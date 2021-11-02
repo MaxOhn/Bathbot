@@ -63,11 +63,7 @@ use std::{borrow::Cow, time::Duration};
 use tokio::time::sleep;
 use tokio_stream::StreamExt;
 use twilight_http::error::ErrorType;
-use twilight_model::{
-    channel::{Message, Reaction, ReactionType},
-    gateway::payload::ReactionAdd,
-    id::UserId,
-};
+use twilight_model::{channel::{Message, Reaction, ReactionType}, gateway::payload::incoming::ReactionAdd, id::UserId};
 
 type ReactionVec = SmallVec<[Emote; 7]>;
 type PaginationResult = Result<(), PaginationError>;

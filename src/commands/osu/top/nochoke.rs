@@ -1,5 +1,23 @@
-use super::ErrorType;
+use std::{cmp::Ordering, sync::Arc};
+
+use eyre::Report;
+use futures::{
+    future::TryFutureExt,
+    stream::{FuturesUnordered, TryStreamExt},
+};
+use rosu_pp::{Beatmap as Map, FruitsPP, OsuPP, StarResult, TaikoPP};
+use rosu_v2::prelude::{GameMode, OsuError};
+use tokio::fs::File;
+use twilight_model::{
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+    id::UserId,
+};
+
 use crate::{
+    commands::{check_user_mention, parse_discord, parse_mode_option, DoubleResultCow},
     database::UserConfig,
     embeds::{EmbedData, NoChokeEmbed},
     error::PPError,
@@ -12,23 +30,12 @@ use crate::{
         },
         numbers,
         osu::prepare_beatmap_file,
-        MessageExt,
+        InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
-use eyre::Report;
-use futures::{
-    future::TryFutureExt,
-    stream::{FuturesUnordered, TryStreamExt},
-};
-use rosu_pp::{Beatmap as Map, FruitsPP, OsuPP, StarResult, TaikoPP};
-use rosu_v2::prelude::{GameMode, OsuError};
-use std::{borrow::Cow, cmp::Ordering, sync::Arc};
-use tokio::fs::File;
-use twilight_model::{
-    application::interaction::application_command::CommandDataOption, id::UserId,
-};
+use super::ErrorType;
 
 pub(super) async fn _nochokes(
     ctx: Arc<Context>,
@@ -400,18 +407,12 @@ pub(super) struct NochokeArgs {
     miss_limit: Option<u32>,
 }
 
-const TOP_NOCHOKE: &str = "top nochoke";
-
 impl NochokeArgs {
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, &'static str>> {
+    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
 
         if let Some(arg) = args.next() {
-            match Args::check_user_mention(ctx, arg).await? {
+            match check_user_mention(ctx, arg).await? {
                 Ok(osu) => config.osu = Some(osu),
                 Err(content) => return Ok(Err(content)),
             }
@@ -423,7 +424,7 @@ impl NochokeArgs {
                 let content = "Failed to parse second argument as miss limit.\n\
                     Be sure you specify it as a positive integer.";
 
-                return Ok(Err(content));
+                return Ok(Err(content.into()));
             }
             None => None,
         };
@@ -433,30 +434,34 @@ impl NochokeArgs {
 
     pub(super) async fn slash(
         ctx: &Context,
+        command: &ApplicationCommand,
         options: Vec<CommandDataOption>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut config = ctx.user_config(author_id).await?;
+    ) -> DoubleResultCow<Self> {
+        let mut config = ctx.user_config(command.user_id()?).await?;
         let mut miss_limit = None;
 
         for option in options {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
                     NAME => config.osu = Some(value.into()),
-                    MODE => config.mode = parse_mode_option!(value, "top nochoke"),
-                    DISCORD => config.osu = Some(parse_discord_option!(ctx, value, "top nochoke")),
-                    _ => bail_cmd_option!(TOP_NOCHOKE, string, name),
+                    MODE => config.mode = parse_mode_option(&value),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, value } => match name.as_str() {
-                    "miss_limit" => miss_limit = Some(value.max(0) as u32),
-                    _ => bail_cmd_option!(TOP_NOCHOKE, integer, name),
+                CommandOptionValue::Integer(value) => {
+                    let number = (option.name == "miss_limit")
+                        .then(|| value)
+                        .ok_or(Error::InvalidCommandOptions)?;
+
+                    miss_limit = Some(number.max(0) as u32);
+                }
+                CommandOptionValue::User(value) => match option.name.as_str() {
+                    DISCORD => match parse_discord(ctx, value).await? {
+                        Ok(osu) => config.osu = Some(osu),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(TOP_NOCHOKE, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!(TOP_NOCHOKE, subcommand, name)
-                }
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 

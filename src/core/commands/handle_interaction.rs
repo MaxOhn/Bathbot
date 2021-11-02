@@ -293,7 +293,7 @@ async fn pre_process_command(
     let author_id = command.author().ok_or(Error::MissingInteractionAuthor)?.id;
 
     // Only for owner?
-    if args.only_owner && author_id.0 != OWNER_USER_ID {
+    if args.only_owner && author_id.get() != OWNER_USER_ID {
         let content = "That command can only be used by the bot owner";
         premature_error(ctx, command, content).await?;
 
@@ -305,9 +305,12 @@ async fn pre_process_command(
     // Does bot have sufficient permissions to send response?
     match ctx.cache.current_user() {
         Some(bot_user) => {
-            let permissions =
-                ctx.cache
-                    .get_channel_permissions_for(bot_user.id, channel_id, guild_id);
+            let permissions = ctx
+                .cache
+                .permissions()
+                .in_channel(bot_user.id, channel_id)
+                .ok()
+                .unwrap_or_else(Permissions::empty);
 
             if !permissions.contains(Permissions::SEND_MESSAGES) {
                 return Ok(Some(ProcessResult::NoSendPermission));
@@ -321,7 +324,7 @@ async fn pre_process_command(
         let guard = ctx.buckets.get(&BucketName::All).unwrap();
         let mutex = guard.value();
         let mut bucket = mutex.lock();
-        let ratelimit = bucket.take(author_id.0);
+        let ratelimit = bucket.take(author_id.get());
 
         if ratelimit > 0 {
             debug!("Ratelimiting user {} for {} seconds", author_id, ratelimit,);
@@ -370,7 +373,7 @@ fn log_interaction(ctx: &Context, interaction: &dyn InteractionExt, name: &str) 
 
     match interaction.guild_id().and_then(|id| ctx.cache.guild(id)) {
         Some(guild) => {
-            location.push_str(guild.name.as_str());
+            location.push_str(guild.name());
             location.push(':');
 
             match ctx.cache.guild_channel(interaction.channel_id()) {

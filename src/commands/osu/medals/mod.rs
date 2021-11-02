@@ -11,23 +11,24 @@ pub use recent::*;
 use rosu_v2::prelude::Username;
 pub use stats::*;
 
-use std::{borrow::Cow, sync::Arc};
+use std::{ sync::Arc};
 
 use twilight_model::application::interaction::{
-    application_command::CommandDataOption, ApplicationCommand,
+    application_command::{CommandDataOption, CommandOptionValue},
+    ApplicationCommand,
 };
 
 use crate::{
     commands::{
         osu::{option_discord, option_name},
-        MyCommand, MyCommandOption,
+        parse_discord, DoubleResultCow, MyCommand, MyCommandOption,
     },
     database::OsuData,
     util::{
         constants::common_literals::{DISCORD, INDEX, NAME},
-        ApplicationCommandExt, InteractionExt, MessageExt,
+        InteractionExt, MessageExt,
     },
-    BotResult, Context, Error, 
+    BotResult, Context, Error,
 };
 
 use super::{request_user, require_link};
@@ -40,127 +41,84 @@ enum MedalCommandKind {
     Stats(Option<Username>),
 }
 
-const MEDAL: &str = "medal";
-const MEDAL_INFO: &str = "medal info";
-const MEDAL_STATS: &str = "medal stats";
-const MEDAL_MISSING: &str = "medal missing";
+async fn parse_username(
+    ctx: &Context,
+    command: &ApplicationCommand,
+    options: Vec<CommandDataOption>,
+) -> DoubleResultCow<Option<Username>> {
+    let mut osu = None;
+
+    for option in options {
+        match option.value {
+            CommandOptionValue::String(value) => match option.name.as_str() {
+                NAME => osu = Some(value.into()),
+                _ => return Err(Error::InvalidCommandOptions),
+            },
+            CommandOptionValue::User(value) => match option.name.as_str() {
+                DISCORD => match parse_discord(ctx, value).await? {
+                    Ok(osu_) => osu = Some(osu_),
+                    Err(content) => return Ok(Err(content)),
+                },
+                _ => return Err(Error::InvalidCommandOptions),
+            },
+            _ => return Err(Error::InvalidCommandOptions),
+        }
+    }
+
+    let osu = match osu {
+        Some(osu) => Some(osu),
+        None => ctx.psql().get_user_osu(command.user_id()?).await?,
+    };
+
+    Ok(Ok(osu.map(OsuData::into_username)))
+}
 
 impl MedalCommandKind {
+    fn slash_info(mut options: Vec<CommandDataOption>) -> BotResult<Self> {
+        options
+            .pop()
+            .and_then(|option| (option.name == NAME).then(|| option.value))
+            .and_then(|value| match value {
+                CommandOptionValue::String(value) => Some(value),
+                _ => None,
+            })
+            .map(Self::Medal)
+            .ok_or(Error::InvalidCommandOptions)
+    }
+
     async fn slash(
         ctx: &Context,
         command: &mut ApplicationCommand,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let author_id = command.user_id()?;
-        let mut kind = None;
+    ) -> DoubleResultCow<Self> {
+        let option = command
+            .data
+            .options
+            .pop()
+            .ok_or(Error::InvalidCommandOptions)?;
 
-        for option in command.yoink_options() {
-            match option {
-                CommandDataOption::String { name, .. } => bail_cmd_option!(MEDAL, string, name),
-                CommandDataOption::Integer { name, .. } => bail_cmd_option!(MEDAL, integer, name),
-                CommandDataOption::Boolean { name, .. } => bail_cmd_option!(MEDAL, boolean, name),
-                CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    "common" => match CommonArgs::slash(ctx, options, author_id).await? {
-                        Ok(args) => kind = Some(Self::Common(args)),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    "info" => {
-                        let mut medal_name = None;
-
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, value } => match name.as_str() {
-                                    NAME => medal_name = Some(value),
-                                    _ => bail_cmd_option!(MEDAL_INFO, string, name),
-                                },
-                                CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!(MEDAL_INFO, integer, name)
-                                }
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!(MEDAL_INFO, boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!(MEDAL_INFO, subcommand, name)
-                                }
-                            }
-                        }
-
-                        let name = medal_name.ok_or(Error::InvalidCommandOptions)?;
-                        kind = Some(MedalCommandKind::Medal(name));
-                    }
-                    "stats" => {
-                        let mut username = None;
-
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, value } => match name.as_str() {
-                                    NAME => username = Some(value.into()),
-                                    DISCORD => {
-                                        username =
-                                            Some(parse_discord_option!(ctx, value, "medal stats"))
-                                    }
-                                    _ => bail_cmd_option!(MEDAL_STATS, string, name),
-                                },
-                                CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!(MEDAL_STATS, integer, name)
-                                }
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!(MEDAL_STATS, boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!(MEDAL_STATS, subcommand, name)
-                                }
-                            }
-                        }
-
-                        let osu = match username {
-                            Some(osu) => Some(osu),
-                            None => ctx.psql().get_user_osu(author_id).await?,
-                        };
-
-                        kind = Some(MedalCommandKind::Stats(osu.map(OsuData::into_username)));
-                    }
-                    "missing" => {
-                        let mut username = None;
-
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, value } => match name.as_str() {
-                                    NAME => username = Some(value.into()),
-                                    DISCORD => {
-                                        username =
-                                            Some(parse_discord_option!(ctx, value, "medal missing"))
-                                    }
-                                    _ => bail_cmd_option!(MEDAL_MISSING, string, name),
-                                },
-                                CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!(MEDAL_MISSING, integer, name)
-                                }
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!(MEDAL_MISSING, boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!(MEDAL_MISSING, subcommand, name)
-                                }
-                            }
-                        }
-
-                        let osu = match username {
-                            Some(osu) => Some(osu),
-                            None => ctx.psql().get_user_osu(author_id).await?,
-                        };
-
-                        kind = Some(MedalCommandKind::Missing(osu.map(OsuData::into_username)));
-                    }
-                    "recent" => match RecentArgs::slash(ctx, options, author_id).await? {
-                        Ok(args) => kind = Some(Self::Recent(args)),
-                        Err(content) => return Ok(Err(content.into())),
-                    },
-                    _ => bail_cmd_option!(MEDAL, subcommand, name),
+        match option.value {
+            CommandOptionValue::SubCommand(options) => match option.name.as_str() {
+                "common" => match CommonArgs::slash(ctx, command, options).await? {
+                    Ok(args) => Ok(Ok(Self::Common(args))),
+                    Err(content) => Ok(Err(content)),
                 },
-            }
+                "info" => Self::slash_info(options).map(Ok),
+                "stats" => match parse_username(ctx, command, options).await? {
+                    Ok(name) => Ok(Ok(Self::Stats(name))),
+                    Err(content) => Ok(Err(content)),
+                },
+                "missing" => match parse_username(ctx, command, options).await? {
+                    Ok(name) => Ok(Ok(Self::Missing(name))),
+                    Err(content) => Ok(Err(content)),
+                },
+                "recent" => match RecentArgs::slash(ctx, command, options).await? {
+                    Ok(args) => Ok(Ok(Self::Recent(args))),
+                    Err(content) => Ok(Err(content)),
+                },
+                _ => Err(Error::InvalidCommandOptions),
+            },
+            _ => Err(Error::InvalidCommandOptions),
         }
-
-        kind.ok_or(Error::InvalidCommandOptions).map(Ok)
     }
 }
 
@@ -264,7 +222,7 @@ pub fn define_medal() -> MyCommand {
     let help = "Info about a medal or users' medal progress.\n\
         Check out [osekai](https://osekai.net/) for more info on medals.";
 
-    MyCommand::new(MEDAL, "Info about a medal or users' medal progress")
+    MyCommand::new("medal", "Info about a medal or users' medal progress")
         .help(help)
         .options(vec![common, info, missing, recent, stats])
 }

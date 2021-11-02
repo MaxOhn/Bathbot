@@ -1,6 +1,8 @@
 use crate::{
+    commands::parse_mode_option,
     custom_client::{OsuStatsListParams, OsuStatsPlayer},
     embeds::{EmbedData, OsuStatsListEmbed},
+    error::Error,
     pagination::{OsuStatsListPagination, Pagination},
     util::{
         constants::{
@@ -16,7 +18,9 @@ use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::model::GameMode;
 use std::sync::Arc;
-use twilight_model::application::interaction::application_command::CommandDataOption;
+use twilight_model::application::interaction::application_command::{
+    CommandDataOption, CommandOptionValue,
+};
 
 pub(super) async fn _players(
     ctx: Arc<Context>,
@@ -326,8 +330,6 @@ pub async fn osustatslistctb(ctx: Arc<Context>, data: CommandData) -> BotResult<
     }
 }
 
-const OSUSTATS_PLAYERS: &str = "osustats players";
-
 impl OsuStatsListParams {
     const MIN_RANK: usize = 1;
     const MAX_RANK: usize = 100;
@@ -417,9 +419,9 @@ impl OsuStatsListParams {
         let mut rank_max = None;
 
         for option in options {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
-                    MODE => mode = parse_mode_option!(value, "osustats players"),
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
+                    MODE => mode = parse_mode_option(&value),
                     COUNTRY => {
                         if value.len() == 2 && value.is_ascii() {
                             country = Some(value.into())
@@ -435,9 +437,9 @@ impl OsuStatsListParams {
                             return Ok(Err(content));
                         }
                     }
-                    _ => bail_cmd_option!(OSUSTATS_PLAYERS, string, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, value } => match name.as_str() {
+                CommandOptionValue::Integer(value) => match option.name.as_str() {
                     "min_rank" => {
                         rank_min =
                             Some((value.max(Self::MIN_RANK as i64) as usize).min(Self::MAX_RANK))
@@ -446,14 +448,9 @@ impl OsuStatsListParams {
                         rank_max =
                             Some((value.max(Self::MIN_RANK as i64) as usize).min(Self::MAX_RANK))
                     }
-                    _ => bail_cmd_option!(OSUSTATS_PLAYERS, integer, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(OSUSTATS_PLAYERS, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!(OSUSTATS_PLAYERS, subcommand, name)
-                }
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 

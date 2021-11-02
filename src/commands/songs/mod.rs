@@ -24,16 +24,13 @@ pub use startagain::*;
 pub use tijdmachine::*;
 pub use wordsneversaid::*;
 
-use crate::{
-    util::{ApplicationCommandExt, MessageExt},
-    BotResult, CommandData, Context, Error, MessageBuilder,
-};
+use crate::{util::MessageExt, BotResult, CommandData, Context, Error, MessageBuilder};
 
 use std::{fmt::Write, sync::Arc};
 use tokio::time::{interval, Duration};
 use twilight_model::application::{
     command::CommandOptionChoice,
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+    interaction::{application_command::CommandOptionValue, ApplicationCommand},
 };
 
 use super::{MyCommand, MyCommandOption};
@@ -84,42 +81,32 @@ async fn song_send(
     Ok(())
 }
 
-const SONG: &str = "song";
-
-pub async fn slash_song(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    let mut song = None;
-
-    for option in command.yoink_options() {
-        match option {
-            CommandDataOption::String { name, value } => match name.as_str() {
-                "title" => {
-                    song = match value.as_str() {
-                        "bombsaway" => Some(_bombsaway()),
-                        "catchit" => Some(_catchit()),
-                        "ding" => Some(_ding()),
-                        "fireandflames" => Some(_fireandflames()),
-                        "fireflies" => Some(_fireflies()),
-                        "flamingo" => Some(_flamingo()),
-                        "pretender" => Some(_pretender()),
-                        "rockefeller" => Some(_rockefeller()),
-                        "saygoodbye" => Some(_saygoodbye()),
-                        "startagain" => Some(_startagain()),
-                        "tijdmachine" => Some(_tijdmachine()),
-                        "wordsneversaid" => Some(_wordsneversaid()),
-                        _ => bail_cmd_option!("song title", string, value),
-                    };
-                }
-                _ => bail_cmd_option!(SONG, string, value),
+pub async fn slash_song(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
+    let option = command.data.options.first().and_then(|option| {
+        (option.name == "title").then(|| match &option.value {
+            CommandOptionValue::String(value) => match value.as_str() {
+                "bombsaway" => Some(_bombsaway()),
+                "catchit" => Some(_catchit()),
+                "ding" => Some(_ding()),
+                "fireandflames" => Some(_fireandflames()),
+                "fireflies" => Some(_fireflies()),
+                "flamingo" => Some(_flamingo()),
+                "pretender" => Some(_pretender()),
+                "rockefeller" => Some(_rockefeller()),
+                "saygoodbye" => Some(_saygoodbye()),
+                "startagain" => Some(_startagain()),
+                "tijdmachine" => Some(_tijdmachine()),
+                "wordsneversaid" => Some(_wordsneversaid()),
+                _ => None,
             },
-            CommandDataOption::Integer { name, .. } => bail_cmd_option!(SONG, integer, name),
-            CommandDataOption::Boolean { name, .. } => bail_cmd_option!(SONG, boolean, name),
-            CommandDataOption::SubCommand { name, .. } => {
-                bail_cmd_option!(SONG, subcommand, name)
-            }
-        }
-    }
+            _ => None,
+        })
+    });
 
-    let (lyrics, delay) = song.ok_or(Error::InvalidCommandOptions)?;
+    let (lyrics, delay) = match option.flatten() {
+        Some(tuple) => tuple,
+        None => return Err(Error::InvalidCommandOptions),
+    };
 
     song_send(lyrics, delay, ctx, command.into()).await
 }
@@ -194,5 +181,5 @@ pub fn define_song() -> MyCommand {
         .help(help)
         .string(choices, true);
 
-    MyCommand::new(SONG, "Let me sing a song for you").options(vec![title])
+    MyCommand::new("song", "Let me sing a song for you").options(vec![title])
 }

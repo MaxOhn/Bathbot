@@ -46,9 +46,7 @@ pub(super) async fn _rankings(
 
     let guild_id = data.guild_id();
 
-    if !global {
-        let guild_id = guild_id.unwrap();
-
+    if let Some(guild_id) = guild_id.filter(|_| !global) {
         // TODO: Use MemberChunk event instead
         let members = match get_member_ids(&ctx, guild_id).await {
             Ok(members) => members,
@@ -59,25 +57,23 @@ pub(super) async fn _rankings(
             }
         };
 
-        // if let Some(msg) = wait_msg {
-        //     let _ = ctx.http.delete_message(msg.channel_id, msg.id).exec().await;
-        // }
-
         scores.retain(|(id, _)| members.contains(id));
     }
 
     let author_id = data.author()?.id;
 
     scores.sort_unstable_by(|(_, a), (_, b)| b.cmp(a));
-    let author_idx = scores.iter().position(|(user, _)| *user == author_id.0);
+    let author_idx = scores.iter().position(|(user, _)| *user == author_id.get());
 
     // Gather usernames for initial page
     let mut usernames = HashMap::with_capacity(15);
 
     for &id in scores.iter().take(15).map(|(id, _)| id) {
-        let name = match ctx.cache.user(UserId(id)) {
+        let user_id = UserId::new(id).unwrap();
+
+        let name = match ctx.cache.user(user_id) {
             Some(user) => user.name.to_owned(),
-            None => match ctx.http.user(UserId(id)).exec().await {
+            None => match ctx.http.user(user_id).exec().await {
                 Ok(user_res) => match user_res.model().await {
                     Ok(user) => user.name,
                     Err(_) => String::from("Unknown user"),

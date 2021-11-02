@@ -210,16 +210,15 @@ where
             .collect();
 
         let combos = ctx.psql().get_beatmaps_combo(&map_ids).await?;
+        let combos_ref = &combos;
 
         scores
             .iter_mut()
-            .map(|score| (combos.get(&score.map.as_ref().unwrap().map_id), score))
-            .map(|(entry, score)| async move {
-                let score_map = score.map.as_mut().unwrap();
-
-                match entry {
+            .filter_map(|score| score.map.as_mut())
+            .map(|score_map| async move {
+                match combos_ref.get(&score_map.map_id) {
                     Some(Some(combo)) => {
-                        score_map.max_combo.replace(*combo);
+                        score_map.max_combo = Some(*combo);
                     }
                     None | Some(None) => {
                         let map = ctx.osu().beatmap().map_id(score_map.map_id).await?;

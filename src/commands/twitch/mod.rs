@@ -7,13 +7,13 @@ pub use removestream::*;
 pub use tracked::*;
 
 use crate::{
-    util::{constants::common_literals::NAME, ApplicationCommandExt, CowUtils},
+    util::{constants::common_literals::NAME, CowUtils},
     Args, BotResult, Context, Error,
 };
 
 use std::{borrow::Cow, sync::Arc};
 use twilight_model::application::interaction::{
-    application_command::CommandDataOption, ApplicationCommand,
+    application_command::CommandOptionValue, ApplicationCommand,
 };
 
 use super::{MyCommand, MyCommandOption};
@@ -35,65 +35,34 @@ impl StreamArgs {
     }
 
     fn slash(command: &mut ApplicationCommand) -> BotResult<StreamCommandKind> {
-        let mut kind = None;
-
-        for option in command.yoink_options() {
-            match option {
-                CommandDataOption::String { name, .. } => {
-                    bail_cmd_option!("trackstream", string, name)
-                }
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("trackstream", integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("trackstream", boolean, name)
-                }
-                CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    "add" => {
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, value } => match name.as_str() {
-                                    NAME => kind = Some(StreamCommandKind::Add(value)),
-                                    _ => bail_cmd_option!("trackstream add", string, name),
-                                },
-                                CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("trackstream add", integer, name)
-                                }
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("trackstream add", boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!("trackstream add", subcommand, name)
-                                }
-                            }
-                        }
-                    }
-                    "remove" => {
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, value } => match name.as_str() {
-                                    NAME => kind = Some(StreamCommandKind::Remove(value)),
-                                    _ => bail_cmd_option!("trackstream remove", string, name),
-                                },
-                                CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!("trackstream remove", integer, name)
-                                }
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!("trackstream remove", boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!("trackstream remove", subcommand, name)
-                                }
-                            }
-                        }
-                    }
-                    "list" => kind = Some(StreamCommandKind::List),
-                    _ => bail_cmd_option!("trackstream", subcommand, name),
+        command
+            .data
+            .options
+            .pop()
+            .and_then(|option| match option.value {
+                CommandOptionValue::SubCommand(mut options) => match option.name.as_str() {
+                    "add" => options
+                        .pop()
+                        .filter(|option| option.name == NAME)
+                        .and_then(|option| match option.value {
+                            CommandOptionValue::String(value) => Some(value),
+                            _ => None,
+                        })
+                        .map(StreamCommandKind::Add),
+                    "list" => Some(StreamCommandKind::List),
+                    "remove" => options
+                        .pop()
+                        .filter(|option| option.name == NAME)
+                        .and_then(|option| match option.value {
+                            CommandOptionValue::String(value) => Some(value),
+                            _ => None,
+                        })
+                        .map(StreamCommandKind::Remove),
+                    _ => None,
                 },
-            }
-        }
-
-        kind.ok_or(Error::InvalidCommandOptions)
+                _ => None,
+            })
+            .ok_or(Error::InvalidCommandOptions)
     }
 }
 

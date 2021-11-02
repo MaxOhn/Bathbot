@@ -22,7 +22,7 @@ use std::{collections::VecDeque, sync::Arc};
 use tokio::fs;
 use tokio_stream::StreamExt;
 use twilight_model::id::ChannelId;
-use twilight_standby::WaitForMessageStream;
+use twilight_standby::future::WaitForMessageStream;
 
 pub struct Game {
     pub title: String,
@@ -220,7 +220,7 @@ pub async fn game_loop(
                         warn!("{:?}", report);
                     }
 
-                    return LoopResult::Winner(msg.author.id.0);
+                    return LoopResult::Winner(msg.author.id.get());
                 }
                 // Artist correct?
                 ContentResult::Artist(exact) => {

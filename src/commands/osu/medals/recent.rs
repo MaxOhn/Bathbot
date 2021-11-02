@@ -1,13 +1,15 @@
 use crate::{
+    commands::{check_user_mention, parse_discord, DoubleResultCow},
     database::OsuData,
     embeds::MedalEmbed,
+    error::Error,
     pagination::MedalRecentPagination,
     util::{
         constants::{
             common_literals::{DISCORD, INDEX, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
-        MessageExt,
+        InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
@@ -17,7 +19,11 @@ use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError, User, Username};
 use std::{cmp::Reverse, sync::Arc};
 use twilight_model::{
-    application::interaction::application_command::CommandDataOption, id::UserId,
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+    id::UserId,
 };
 
 #[command]
@@ -160,17 +166,15 @@ pub(super) struct RecentArgs {
     pub index: Option<usize>,
 }
 
-const MEDAL_RECENT: &str = "medal recent";
-
 impl RecentArgs {
     async fn args(
         ctx: &Context,
         args: &mut Args<'_>,
         author_id: UserId,
         index: Option<usize>,
-    ) -> BotResult<Result<Self, &'static str>> {
+    ) -> DoubleResultCow<Self> {
         let name = match args.next() {
-            Some(arg) => match Args::check_user_mention(ctx, arg).await? {
+            Some(arg) => match check_user_mention(ctx, arg).await? {
                 Ok(osu) => Some(osu.into_username()),
                 Err(content) => return Ok(Err(content)),
             },
@@ -186,37 +190,41 @@ impl RecentArgs {
 
     pub(super) async fn slash(
         ctx: &Context,
+        command: &ApplicationCommand,
         options: Vec<CommandDataOption>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, String>> {
+    ) -> DoubleResultCow<Self> {
         let mut username = None;
         let mut index = None;
 
         for option in options {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
                     NAME => username = Some(value.into()),
-                    DISCORD => username = Some(parse_discord_option!(ctx, value, "medal recent")),
-                    _ => bail_cmd_option!(MEDAL_RECENT, string, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, value } => match name.as_str() {
-                    INDEX => index = Some(value.max(1) as usize),
-                    _ => bail_cmd_option!(MEDAL_RECENT, integer, name),
+                CommandOptionValue::Integer(value) => {
+                    let number = (option.name == INDEX)
+                        .then(|| value)
+                        .ok_or(Error::InvalidCommandOptions)?;
+
+                    index = Some(number.max(1) as usize)
+                }
+                CommandOptionValue::User(value) => match option.name.as_str() {
+                    DISCORD => match parse_discord(ctx, value).await? {
+                        Ok(osu) => username = Some(osu.into_username()),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(MEDAL_RECENT, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!(MEDAL_RECENT, subcommand, name)
-                }
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 
         let name = match username {
-            Some(osu) => Some(osu.into_username()),
+            Some(name) => Some(name),
             None => ctx
                 .psql()
-                .get_user_osu(author_id)
+                .get_user_osu(command.user_id()?)
                 .await?
                 .map(OsuData::into_username),
         };

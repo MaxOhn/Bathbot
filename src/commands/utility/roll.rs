@@ -1,13 +1,14 @@
 use crate::{
     commands::{MyCommand, MyCommandOption},
-    util::{ApplicationCommandExt, MessageExt},
+    error::Error,
+    util::MessageExt,
     BotResult, CommandData, Context, MessageBuilder,
 };
 
 use rand::Rng;
 use std::sync::Arc;
 use twilight_model::application::interaction::{
-    application_command::CommandDataOption, ApplicationCommand,
+    application_command::CommandOptionValue, ApplicationCommand,
 };
 
 const DEFAULT_LIMIT: u64 = 100;
@@ -55,20 +56,18 @@ async fn _roll(ctx: Arc<Context>, data: CommandData<'_>, limit: u64) -> BotResul
     Ok(())
 }
 
-pub async fn slash_roll(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+pub async fn slash_roll(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
     let mut limit = None;
 
-    for option in command.yoink_options() {
-        match option {
-            CommandDataOption::String { name, .. } => bail_cmd_option!("roll", string, name),
-            CommandDataOption::Integer { name, value } => match name.as_str() {
-                "limit" => limit = Some(value.max(0) as u64),
-                _ => bail_cmd_option!("roll", integer, name),
-            },
-            CommandDataOption::Boolean { name, .. } => bail_cmd_option!("roll", boolean, name),
-            CommandDataOption::SubCommand { name, .. } => {
-                bail_cmd_option!("roll", subcommand, name)
-            }
+    if let Some(option) = command.data.options.first() {
+        let option = (option.name == "limit").then(|| match option.value {
+            CommandOptionValue::Integer(value) => Some(value),
+            _ => None,
+        });
+
+        match option.flatten() {
+            Some(value) => limit = Some(value.max(0) as u64),
+            None => return Err(Error::InvalidCommandOptions),
         }
     }
 

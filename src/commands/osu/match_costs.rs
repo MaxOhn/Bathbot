@@ -14,7 +14,7 @@ use rosu_v2::prelude::{
 };
 use std::{cmp::Ordering, collections::HashMap as StdHashMap, fmt::Write, mem, sync::Arc};
 use twilight_model::application::interaction::{
-    application_command::CommandDataOption, ApplicationCommand,
+    application_command::CommandOptionValue, ApplicationCommand,
 };
 
 const USER_LIMIT: usize = 50;
@@ -248,13 +248,14 @@ pub fn process_match(
     }
 
     // Tiebreaker bonus
-    if finished && games.len() > 4 && match_scores.difference() == 1 {
-        let game = games.last().unwrap();
-
+    if let Some(game) = games
+        .last()
+        .filter(|_| finished && games.len() > 4 && match_scores.difference() == 1)
+    {
         point_costs
             .iter_mut()
             .filter(|(&user_id, _)| game.scores.iter().any(|score| score.user_id == user_id))
-            .map(|(_, costs)| costs.last_mut().unwrap())
+            .filter_map(|(_, costs)| costs.last_mut())
             .for_each(|value| {
                 *value -= FLAT_PARTICIPATION_BONUS;
                 *value *= TIEBREAKER_BONUS;
@@ -410,8 +411,6 @@ struct MatchCostArgs {
     warmups: usize,
 }
 
-const MATCHCOST: &str = "matchcost";
-
 impl MatchCostArgs {
     fn args(args: &mut Args<'_>) -> Result<Self, &'static str> {
         let match_id = match args.next().and_then(|arg| matcher::get_osu_match_id(arg)) {
@@ -432,9 +431,13 @@ impl MatchCostArgs {
         let mut warmups = None;
 
         for option in command.yoink_options() {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
-                    "match_url" => match matcher::get_osu_match_id(value.as_str()) {
+            match option.value {
+                CommandOptionValue::String(value) => {
+                    if option.name != "match_url" {
+                        return Err(Error::InvalidCommandOptions);
+                    }
+
+                    match matcher::get_osu_match_id(value.as_str()) {
                         Some(id) => match_id = Some(id),
                         None => {
                             let content = "Failed to parse `match_url`.\n\
@@ -442,19 +445,16 @@ impl MatchCostArgs {
 
                             return Ok(Err(content));
                         }
-                    },
-                    _ => bail_cmd_option!(MATCHCOST, string, name),
-                },
-                CommandDataOption::Integer { name, value } => match name.as_str() {
-                    "warmups" => warmups = Some(value.max(0) as usize),
-                    _ => bail_cmd_option!(MATCHCOST, integer, name),
-                },
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(MATCHCOST, boolean, name)
+                    }
                 }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!(MATCHCOST, subcommand, name)
+                CommandOptionValue::Integer(value) => {
+                    let number = (option.name == "warmups")
+                        .then(|| value.max(0) as usize)
+                        .ok_or(Error::InvalidCommandOptions)?;
+
+                    warmups = Some(number);
                 }
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 
@@ -497,7 +497,7 @@ pub fn define_matchcost() -> MyCommand {
         Keep in mind that all bots use different formulas \
         so comparing with values from other bots makes no sense.";
 
-    MyCommand::new(MATCHCOST, description)
+    MyCommand::new("matchcost", description)
         .help(help)
         .options(vec![match_url, warmups])
 }

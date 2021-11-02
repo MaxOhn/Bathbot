@@ -52,7 +52,7 @@ pub async fn _removestream(
         }
     };
 
-    let channel = data.channel_id().0;
+    let channel = data.channel_id().get();
     ctx.remove_tracking(twitch_id, channel);
 
     match ctx.psql().remove_stream_track(channel, twitch_id).await {

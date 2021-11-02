@@ -1,64 +1,3 @@
-/// E.g: `bail_cmd_option!("link", subcommand, name)`
-macro_rules! bail_cmd_option {
-    ($cmd:expr, string, $name:ident) => {
-        bail_cmd_option!(@ $cmd, "string", $name)
-    };
-    ($cmd:expr, integer, $name:ident) => {
-        bail_cmd_option!(@ $cmd, "integer", $name)
-    };
-    ($cmd:expr, boolean, $name:ident) => {
-        bail_cmd_option!(@ $cmd, "boolean", $name)
-    };
-    ($cmd:expr, subcommand, $name:ident) => {
-        bail_cmd_option!(@ $cmd, "subcommand", $name)
-    };
-    ($cmd:expr, $any:tt, $name:ident) => {
-       compile_error!("expected `string`, `integer`, `boolean`, or `subcommand` as second argument")
-    };
-
-    (@ $cmd:expr, $kind:literal, $name:ident) => {
-        return Err(crate::Error::UnexpectedCommandOption {
-            cmd: $cmd,
-            kind: $kind,
-            name: $name,
-        })
-    };
-}
-
-/// E.g: `parse_mode_option!(value, "recent score")`
-macro_rules! parse_mode_option {
-    ($value:ident, $location:literal) => {
-        match $value.as_str() {
-            crate::util::constants::common_literals::OSU => Some(GameMode::STD),
-            crate::util::constants::common_literals::TAIKO => Some(GameMode::TKO),
-            crate::util::constants::common_literals::CTB => Some(GameMode::CTB),
-            crate::util::constants::common_literals::MANIA => Some(GameMode::MNA),
-            _ => bail_cmd_option!(concat!($location, " mode"), string, $value),
-        }
-    };
-}
-
-/// E.g: `parse_discord_option!(ctx, value, "top rebalance")`
-macro_rules! parse_discord_option {
-    ($ctx:ident, $value:ident, $location:literal) => {
-        match $value.parse() {
-            Ok(id) => match $ctx
-                .psql()
-                .get_user_osu(twilight_model::id::UserId(id))
-                .await?
-            {
-                Some(osu) => osu,
-                None => {
-                    let content = format!("<@{}> is not linked to an osu profile", id);
-
-                    return Ok(Err(content.into()));
-                }
-            },
-            Err(_) => bail_cmd_option!(concat!($location, " discord"), string, $value),
-        }
-    };
-}
-
 pub mod fun;
 pub mod help;
 pub mod osu;
@@ -76,20 +15,61 @@ use tracking::*;
 use twitch::*;
 use utility::*;
 
-use std::collections::BTreeMap;
+use std::{borrow::Cow, collections::BTreeMap};
 
-use twilight_model::application::command::{
-    BaseCommandOptionData, ChoiceCommandOptionData, Command, CommandOption, CommandOptionChoice,
-    CommandType, OptionsCommandOptionData,
-};
-
-use crate::{
-    core::CommandGroup,
-    util::{
-        constants::common_literals::{HELP, PROFILE},
-        Emote,
+use eyre::Report;
+use rosu_v2::prelude::{GameMode, Username};
+use twilight_model::{
+    application::command::{
+        BaseCommandOptionData, ChannelCommandOptionData, ChoiceCommandOptionData, Command,
+        CommandOption, CommandOptionChoice, CommandType, OptionsCommandOptionData,
     },
+    id::UserId,
 };
+
+use crate::{BotResult, core::{CommandGroup, Context}, database::OsuData, util::{Emote, constants::{
+            common_literals::{CTB, HELP, MANIA, OSU, PROFILE, TAIKO},
+            GENERAL_ISSUE,
+        }, matcher}};
+
+fn parse_mode_option(value: &str) -> Option<GameMode> {
+    match value {
+        OSU => Some(GameMode::STD),
+        TAIKO => Some(GameMode::TKO),
+        CTB => Some(GameMode::CTB),
+        MANIA => Some(GameMode::MNA),
+        _ => None,
+    }
+}
+
+/// Checks if the resolved data contains a user and tries to get the user's `OsuData`
+async fn parse_discord(ctx: &Context, user_id: UserId) -> DoubleResultCow<OsuData> {
+    match ctx.psql().get_user_osu(user_id).await {
+        Ok(Some(osu)) => Ok(Ok(osu)),
+        Ok(None) => {
+            let content = format!("<@{}> is not linked to an osu profile", user_id);
+
+            Ok(Err(content.into()))
+        }
+        Err(why) => {
+            warn!("{:?}", Report::new(why).wrap_err("failed to get osu data"));
+
+            Ok(Err(GENERAL_ISSUE.into()))
+        }
+    }
+}
+
+async fn check_user_mention(ctx: &Context, arg: &str) -> DoubleResultCow<OsuData> {
+    match matcher::get_mention_user(arg) {
+        Some(user_id) => match parse_discord(ctx, user_id).await? {
+            Ok(osu) => Ok(Ok(osu)),
+            Err(content) => Ok(Err(content)),
+        },
+        None => Ok(Ok(Username::from(arg).into())),
+    }
+}
+
+type DoubleResultCow<T> = BotResult<Result<T, Cow<'static, str>>>;
 
 pub fn command_groups() -> [CommandGroup; 11] {
     [
@@ -379,6 +359,15 @@ impl MyCommandOptionBuilder {
         }
     }
 
+    pub fn number(self, choices: Vec<CommandOptionChoice>, required: bool) -> MyCommandOption {
+        MyCommandOption {
+            name: self.name,
+            description: self.description,
+            help: self.help,
+            kind: MyCommandOptionKind::Number { choices, required },
+        }
+    }
+
     pub fn boolean(self, required: bool) -> MyCommandOption {
         MyCommandOption {
             name: self.name,
@@ -456,6 +445,10 @@ pub enum MyCommandOptionKind {
         choices: Vec<CommandOptionChoice>,
         required: bool,
     },
+    Number {
+        choices: Vec<CommandOptionChoice>,
+        required: bool,
+    },
     Boolean {
         required: bool,
     },
@@ -483,7 +476,6 @@ impl From<MyCommandOption> for CommandOption {
                     options,
                     description: option.description.to_owned(),
                     name: option.name.to_owned(),
-                    required: false,
                 };
 
                 Self::SubCommand(inner)
@@ -495,7 +487,6 @@ impl From<MyCommandOption> for CommandOption {
                     options,
                     description: option.description.to_owned(),
                     name: option.name.to_owned(),
-                    required: false,
                 };
 
                 Self::SubCommandGroup(inner)
@@ -520,6 +511,16 @@ impl From<MyCommandOption> for CommandOption {
 
                 Self::Integer(inner)
             }
+            MyCommandOptionKind::Number { choices, required } => {
+                let inner = ChoiceCommandOptionData {
+                    choices,
+                    description: option.description.to_owned(),
+                    name: option.name.to_owned(),
+                    required,
+                };
+
+                Self::Number(inner)
+            }
             MyCommandOptionKind::Boolean { required } => {
                 let inner = BaseCommandOptionData {
                     description: option.description.to_owned(),
@@ -539,7 +540,8 @@ impl From<MyCommandOption> for CommandOption {
                 Self::User(inner)
             }
             MyCommandOptionKind::Channel { required } => {
-                let inner = BaseCommandOptionData {
+                let inner = ChannelCommandOptionData {
+                    channel_types: Vec::new(), // TODO: Make customizable
                     description: option.description.to_owned(),
                     name: option.name.to_owned(),
                     required,

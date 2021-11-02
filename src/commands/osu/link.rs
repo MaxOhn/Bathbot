@@ -3,9 +3,10 @@ use crate::{
         utility::{config_, ConfigArgs},
         MyCommand, MyCommandOption,
     },
+    error::Error,
     util::{
         constants::{common_literals::OSU, INVITE_LINK},
-        ApplicationCommandExt, MessageExt,
+        MessageExt,
     },
     BotResult, CommandData, Context,
 };
@@ -13,7 +14,7 @@ use crate::{
 use std::sync::Arc;
 use twilight_model::application::{
     command::CommandOptionChoice,
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+    interaction::{application_command::CommandOptionValue, ApplicationCommand},
 };
 
 #[command]
@@ -37,26 +38,18 @@ async fn link(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
 const LINK: &str = "link";
 
-pub async fn slash_link(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+pub async fn slash_link(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
     let mut osu = None;
     let mut twitch = None;
 
-    for option in command.yoink_options() {
-        match option {
-            CommandDataOption::String { name, value } => match name.as_str() {
+    for option in &command.data.options {
+        match &option.value {
+            CommandOptionValue::String(value) => match option.name.as_str() {
                 OSU => osu = Some(value == LINK),
                 "twitch" => twitch = Some(value == LINK),
-                _ => bail_cmd_option!(LINK, string, name),
+                _ => return Err(Error::InvalidCommandOptions),
             },
-            CommandDataOption::Integer { name, .. } => {
-                bail_cmd_option!(LINK, integer, name)
-            }
-            CommandDataOption::Boolean { name, .. } => {
-                bail_cmd_option!(LINK, boolean, name)
-            }
-            CommandDataOption::SubCommand { name, .. } => {
-                bail_cmd_option!(LINK, subcommand, name)
-            }
+            _ => return Err(Error::InvalidCommandOptions),
         }
     }
 

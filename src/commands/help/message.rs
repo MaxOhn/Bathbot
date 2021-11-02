@@ -23,18 +23,24 @@ async fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
     let (custom_prefix, first_prefix) = if let Some(guild_id) = guild_id {
         let mut prefixes = ctx.config_prefixes(guild_id).await;
 
-        if !prefixes.is_empty() && &prefixes[0] == "<" {
-            (None, prefixes.swap_remove(0))
-        } else {
-            let mut prefix_iter = prefixes.iter();
-            let mut prefixes_str = String::with_capacity(9);
-            let _ = write!(prefixes_str, "`{}`", prefix_iter.next().unwrap());
+        if !prefixes.is_empty() {
+            let prefix = prefixes.swap_remove(0);
 
-            for prefix in prefix_iter {
-                let _ = write!(prefixes_str, ", `{}`", prefix);
+            if prefix == "<" && prefixes.len() == 1 {
+                (None, prefix)
+            } else {
+                let prefix_iter = prefixes.iter();
+                let mut prefixes_str = String::with_capacity(9);
+                let _ = write!(prefixes_str, "`{}`", prefix);
+
+                for prefix in prefix_iter {
+                    let _ = write!(prefixes_str, ", `{}`", prefix);
+                }
+
+                (Some(prefixes_str), prefix)
             }
-
-            (Some(prefixes_str), prefixes.swap_remove(0))
+        } else {
+            (None, "<".into())
         }
     } else {
         (None, "<".into())
@@ -72,31 +78,22 @@ async fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
 pub async fn help(ctx: &Context, data: CommandData<'_>, is_authority: bool) -> BotResult<()> {
     let owner = data.author()?.id;
 
-    let channel_id = if let Some(channel) = ctx.cache.private_channel(owner) {
-        channel.id
-    } else {
-        let channel = match ctx.http.create_private_channel(owner).exec().await {
-            Ok(channel_res) => match channel_res.model().await {
-                Ok(channel) => channel,
-                Err(why) => {
-                    let _ = data.error(ctx, GENERAL_ISSUE).await;
-
-                    return Err(why.into());
-                }
-            },
+    let channel_id = match ctx.http.create_private_channel(owner).exec().await {
+        Ok(channel_res) => match channel_res.model().await {
+            Ok(channel) => channel.id,
             Err(why) => {
-                let content = "Your DMs seem blocked :(\n\
-                   Did you disable messages from other server members?";
-                debug!("Error while creating DM channel: {}", why);
+                let _ = data.error(ctx, GENERAL_ISSUE).await;
 
-                return data.error(ctx, content).await;
+                return Err(why.into());
             }
-        };
+        },
+        Err(why) => {
+            let content = "Your DMs seem blocked :(\n\
+                   Did you disable messages from other server members?";
+            debug!("Error while creating DM channel: {}", why);
 
-        let id = channel.id;
-        ctx.cache.cache_private_channel(channel);
-
-        id
+            return data.error(ctx, content).await;
+        }
     };
 
     let guild_id = data.guild_id();
@@ -120,7 +117,7 @@ pub async fn help(ctx: &Context, data: CommandData<'_>, is_authority: bool) -> B
     let groups = CMD_GROUPS
         .groups
         .iter()
-        .filter(|g| owner.0 == OWNER_USER_ID || g.name != "owner");
+        .filter(|g| owner.get() == OWNER_USER_ID || g.name != "owner");
 
     let mut next_size;
 

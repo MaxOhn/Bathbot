@@ -1,13 +1,7 @@
-use crate::{
-    database::OsuData,
-    embeds::{EmbedData, PlayerSnipeStatsEmbed},
-    error::GraphError,
-    util::{
+use crate::{BotResult, CommandData, Context, MessageBuilder, commands::check_user_mention, database::OsuData, embeds::{EmbedData, PlayerSnipeStatsEmbed}, error::GraphError, util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
-    },
-    Args, BotResult, CommandData, Context, MessageBuilder, 
-};
+    }};
 
 use chrono::{Date, Datelike, Utc};
 use eyre::Report;
@@ -31,7 +25,7 @@ async fn playersnipestats(ctx: Arc<Context>, data: CommandData) -> BotResult<()>
     match data {
         CommandData::Message { msg, mut args, num } => {
             let name = match args.next() {
-                Some(arg) => match Args::check_user_mention(&ctx, arg).await {
+                Some(arg) => match check_user_mention(&ctx, arg).await {
                     Ok(Ok(osu)) => Some(osu.into_username()),
                     Ok(Err(content)) => return msg.error(&ctx, content).await,
                     Err(why) => {

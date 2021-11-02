@@ -6,6 +6,7 @@ use super::{
 use regex::Regex;
 use rosu_v2::model::GameMods;
 use std::{borrow::Cow, str::FromStr};
+use twilight_model::id::{ChannelId, RoleId, UserId};
 
 pub fn is_custom_emote(msg: &str) -> bool {
     EMOJI_MATCHER.is_match(msg)
@@ -17,16 +18,16 @@ enum MentionType {
     User,
 }
 
-pub fn get_mention_channel(msg: &str) -> Option<u64> {
-    get_mention(MentionType::Channel, msg)
+pub fn get_mention_channel(msg: &str) -> Option<ChannelId> {
+    get_mention(MentionType::Channel, msg).and_then(ChannelId::new)
 }
 
-pub fn get_mention_role(msg: &str) -> Option<u64> {
-    get_mention(MentionType::Role, msg)
+pub fn get_mention_role(msg: &str) -> Option<RoleId> {
+    get_mention(MentionType::Role, msg).and_then(RoleId::new)
 }
 
-pub fn get_mention_user(msg: &str) -> Option<u64> {
-    get_mention(MentionType::User, msg)
+pub fn get_mention_user(msg: &str) -> Option<UserId> {
+    get_mention(MentionType::User, msg).and_then(UserId::new)
 }
 
 fn get_mention(mention_type: MentionType, msg: &str) -> Option<u64> {

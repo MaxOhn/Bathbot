@@ -2,14 +2,14 @@ use std::sync::Arc;
 
 use eyre::Report;
 use twilight_model::{
-    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
+    application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
     id::{ChannelId, MessageId, RoleId},
 };
 
 use crate::{
     commands::{MyCommand, MyCommandOption},
     embeds::{EmbedData, RoleAssignEmbed},
-    util::{constants::GENERAL_ISSUE, matcher, ApplicationCommandExt, MessageExt},
+    util::{constants::GENERAL_ISSUE, matcher, MessageExt},
     Args, BotResult, CommandData, Context, Error,
 };
 
@@ -82,7 +82,7 @@ async fn _roleassign(
 
     let add_fut = ctx
         .psql()
-        .add_role_assign(channel_id.0, msg_id.0, role_id.0);
+        .add_role_assign(channel_id.get(), msg_id.get(), role_id.get());
 
     match add_fut.await {
         Ok(_) => debug!("Inserted into role_assign table"),
@@ -112,7 +112,7 @@ impl RoleAssignArgs {
     fn args(args: &mut Args<'_>) -> Result<Self, &'static str> {
         let channel = match args.next() {
             Some(arg) => match matcher::get_mention_channel(arg) {
-                Some(id) => ChannelId(id),
+                Some(channel_id) => channel_id,
                 None => return Err("The first argument must be a channel id."),
             },
             None => return Err("You must provide a channel, a message, and a role."),
@@ -128,7 +128,7 @@ impl RoleAssignArgs {
 
         let role = match args.next() {
             Some(arg) => match matcher::get_mention_role(arg) {
-                Some(id) => RoleId(id),
+                Some(role_id) => role_id,
                 None => return Err("The third argument must be a role id."),
             },
             None => return Err("You must provide a channel, a message, and a role."),
@@ -139,20 +139,19 @@ impl RoleAssignArgs {
 
     fn slash(command: &mut ApplicationCommand) -> BotResult<Result<Self, &'static str>> {
         let mut channel = None;
-        let mut msg = None;
         let mut role = None;
+        let mut msg = None;
 
-        let options = command.yoink_options();
-
-        for option in options {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
-                    "channel" => match value.parse() {
-                        Ok(num) => channel = Some(ChannelId(num)),
-                        Err(_) => bail_cmd_option!("roleassign channel", string, value),
-                    },
+        for option in &command.data.options {
+            match &option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
                     "message" => match value.parse() {
-                        Ok(num) => msg = Some(MessageId(num)),
+                        Ok(0) => {
+                            let content = "Message id can't be `0`.";
+
+                            return Ok(Err(content));
+                        }
+                        Ok(num) => msg = Some(MessageId::new(num).unwrap()),
                         Err(_) => {
                             let content =
                                 "Failed to parse message id. Be sure its a valid integer.";
@@ -160,21 +159,11 @@ impl RoleAssignArgs {
                             return Ok(Err(content));
                         }
                     },
-                    "role" => match value.parse() {
-                        Ok(num) => role = Some(RoleId(num)),
-                        Err(_) => bail_cmd_option!("roleassign role", string, value),
-                    },
-                    _ => bail_cmd_option!("roleassign", string, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("roleassign", integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("roleassign", boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("roleassign", subcommand, name)
-                }
+                CommandOptionValue::Channel(value) => channel = Some(*value),
+                CommandOptionValue::Role(value) => role = Some(*value),
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 

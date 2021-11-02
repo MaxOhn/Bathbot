@@ -236,13 +236,18 @@ impl OsuTracking {
     pub async fn remove_user(
         &self,
         user_id: u32,
+        mode: Option<GameMode>,
         channel: ChannelId,
         psql: &Database,
     ) -> BotResult<()> {
         let removed: SmallVec<[_; 4]> = self
             .users
             .iter_mut()
-            .filter(|guard| guard.key().0 == user_id)
+            .filter(|guard| {
+                let key = guard.key();
+
+                key.0 == user_id && mode.map_or(true, |m| key.1 == m)
+            })
             .filter_map(
                 |mut guard| match guard.value_mut().remove_channel(channel) {
                     true => Some(guard.key().1),

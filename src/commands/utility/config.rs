@@ -17,7 +17,7 @@ use rosu_v2::prelude::GameMode;
 use std::{future::Future, sync::Arc};
 use twilight_model::application::{
     command::CommandOptionChoice,
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+    interaction::{application_command::CommandOptionValue, ApplicationCommand},
 };
 
 #[command]
@@ -320,8 +320,6 @@ pub struct ConfigArgs {
     pub twitch: Option<bool>,
 }
 
-const CONFIG_: &str = "config";
-
 impl ConfigArgs {
     fn slash(command: &mut ApplicationCommand) -> BotResult<Self> {
         let mut mode = None;
@@ -332,8 +330,8 @@ impl ConfigArgs {
         let mut twitch = None;
 
         for option in command.yoink_options() {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
+            if let CommandOptionValue::String(value) = option.value {
+                match option.name.as_str() {
                     OSU => osu = Some(value == "link"),
                     "twitch" => twitch = Some(value == "link"),
                     MODE => {
@@ -343,36 +341,29 @@ impl ConfigArgs {
                             TAIKO => Some(Some(GameMode::TKO)),
                             CTB => Some(Some(GameMode::CTB)),
                             MANIA => Some(Some(GameMode::MNA)),
-                            _ => bail_cmd_option!("config mode", string, value),
+                            _ => return Err(Error::InvalidCommandOptions),
                         }
                     }
                     PROFILE => match value.as_str() {
                         "compact" => profile_size = Some(ProfileSize::Compact),
                         "medium" => profile_size = Some(ProfileSize::Medium),
                         "full" => profile_size = Some(ProfileSize::Full),
-                        _ => bail_cmd_option!("config profile", string, value),
+                        _ => return Err(Error::InvalidCommandOptions),
                     },
                     "embeds" => match value.as_str() {
                         "maximized" => embeds_maximized = Some(true),
                         "minimized" => embeds_maximized = Some(false),
-                        _ => bail_cmd_option!("config embeds", string, value),
+                        _ => return Err(Error::InvalidCommandOptions),
                     },
                     "retries" => match value.as_str() {
                         "show" => show_retries = Some(true),
                         "hide" => show_retries = Some(false),
-                        _ => bail_cmd_option!("config retries", string, value),
+                        _ => return Err(Error::InvalidCommandOptions),
                     },
-                    _ => bail_cmd_option!(CONFIG_, string, name),
-                },
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!(CONFIG_, integer, name)
+                    _ => return Err(Error::InvalidCommandOptions),
                 }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(CONFIG_, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!(CONFIG_, subcommand, name)
-                }
+            } else {
+                return Err(Error::InvalidCommandOptions);
             }
         }
 
@@ -529,6 +520,6 @@ pub fn define_config() -> MyCommand {
     let retries =
         MyCommandOption::builder("retries", retries_description).string(retries_choices, false);
 
-    MyCommand::new(CONFIG_, "Adjust your default configuration for commands")
+    MyCommand::new("config", "Adjust your default configuration for commands")
         .options(vec![osu, twitch, mode, profile, embeds, retries])
 }

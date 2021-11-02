@@ -1,6 +1,7 @@
 use crate::{
-    commands::{MyCommand, MyCommandOption},
+    commands::{DoubleResultCow, MyCommand, MyCommandOption},
     embeds::{EmbedData, SimulateEmbed},
+    error::Error,
     util::{
         constants::{
             common_literals::{
@@ -10,17 +11,17 @@ use crate::{
         },
         matcher,
         osu::{map_id_from_history, map_id_from_msg, MapIdType, ModSelection},
-        ApplicationCommandExt, MessageExt,
+        MessageExt,
     },
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
 use eyre::Report;
 use rosu_v2::prelude::{BeatmapsetCompact, OsuError};
-use std::{borrow::Cow, sync::Arc};
+use std::sync::Arc;
 use tokio::time::{self, Duration};
 use twilight_model::{
-    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
+    application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
     channel::message::MessageType,
 };
 
@@ -194,8 +195,6 @@ macro_rules! parse_fail {
     };
 }
 
-const SIMULATE: &str = "simulate";
-
 impl SimulateArgs {
     fn args(args: &mut Args<'_>) -> Result<Self, String> {
         let mut map = None;
@@ -290,7 +289,7 @@ impl SimulateArgs {
         Ok(args)
     }
 
-    fn slash(command: &mut ApplicationCommand) -> BotResult<Result<Self, Cow<'static, str>>> {
+    fn slash(command: &ApplicationCommand) -> DoubleResultCow<Self> {
         let mut map = None;
         let mut mods = None;
         let mut n300 = None;
@@ -301,47 +300,41 @@ impl SimulateArgs {
         let mut combo = None;
         let mut score = None;
 
-        for option in command.yoink_options() {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
-                    MAP => match matcher::get_osu_map_id(&value)
-                        .or_else(|| matcher::get_osu_mapset_id(&value))
+        for option in &command.data.options {
+            match &option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
+                    MAP => match matcher::get_osu_map_id(value)
+                        .or_else(|| matcher::get_osu_mapset_id(value))
                     {
                         Some(id) => map = Some(id),
                         None => return Ok(Err(MAP_PARSE_FAIL.into())),
                     },
-                    MODS => match matcher::get_mods(&value) {
+                    MODS => match matcher::get_mods(value) {
                         Some(mods_) => mods = Some(mods_),
                         None => match value.parse() {
                             Ok(mods_) => mods = Some(ModSelection::Exact(mods_)),
                             Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
                         },
                     },
-                    ACC => match value.parse::<f32>() {
-                        Ok(num) => acc = Some(num.max(0.0).min(100.0)),
-                        Err(_) => {
-                            let content = "Failed to parse `acc`. Must be a number.";
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                CommandOptionValue::Integer(value) => match option.name.as_str() {
+                    "n300" => n300 = Some(*value.max(&0) as usize),
+                    "n100" => n100 = Some(*value.max(&0) as usize),
+                    "n50" => n50 = Some(*value.max(&0) as usize),
+                    MISSES => misses = Some(*value.max(&0) as usize),
+                    COMBO => combo = Some(*value.max(&0) as usize),
+                    SCORE => score = Some(*value.max(&0) as u32),
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                CommandOptionValue::Number(value) => {
+                    let number = (option.name == ACC)
+                        .then(|| value.0 as f32)
+                        .ok_or(Error::InvalidCommandOptions)?;
 
-                            return Ok(Err(content.into()));
-                        }
-                    },
-                    _ => bail_cmd_option!(SIMULATE, string, name),
-                },
-                CommandDataOption::Integer { name, value } => match name.as_str() {
-                    "n300" => n300 = Some(value.max(0) as usize),
-                    "n100" => n100 = Some(value.max(0) as usize),
-                    "n50" => n50 = Some(value.max(0) as usize),
-                    MISSES => misses = Some(value.max(0) as usize),
-                    COMBO => combo = Some(value.max(0) as usize),
-                    SCORE => score = Some(value.max(0) as u32),
-                    _ => bail_cmd_option!(SIMULATE, integer, name),
-                },
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(SIMULATE, boolean, name)
+                    acc = Some(number.max(0.0).min(100.0));
                 }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!(SIMULATE, subcommand, name)
-                }
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 
@@ -361,8 +354,8 @@ impl SimulateArgs {
     }
 }
 
-pub async fn slash_simulate(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match SimulateArgs::slash(&mut command)? {
+pub async fn slash_simulate(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
+    match SimulateArgs::slash(&command)? {
         Ok(args) => _simulate(ctx, command.into(), args).await,
         Err(content) => command.error(&ctx, content).await,
     }
@@ -384,10 +377,9 @@ pub fn define_simulate() -> MyCommand {
     let misses =
         MyCommandOption::builder(MISSES, "Specify the amount of misses").integer(Vec::new(), false);
 
-    // TODO: Number variant
     let acc = MyCommandOption::builder(ACC, "Specify the accuracy")
         .help("Specify the accuracy. Should be between 0.0 and 100.0")
-        .string(Vec::new(), false);
+        .number(Vec::new(), false);
 
     let combo = MyCommandOption::builder(COMBO, "Specify the combo").integer(Vec::new(), false);
 
@@ -402,7 +394,7 @@ pub fn define_simulate() -> MyCommand {
     let help = "Simulate a score on a map.\n\
         Note that hitresults, combo, and accuracy are ignored in mania; only score is important.";
 
-    MyCommand::new(SIMULATE, "Simulate a score on a map")
+    MyCommand::new("simulate", "Simulate a score on a map")
         .help(help)
         .options(vec![map, mods, n300, n100, n50, misses, combo, acc, score])
 }

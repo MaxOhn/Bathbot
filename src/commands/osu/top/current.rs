@@ -1,7 +1,31 @@
-use super::{ErrorType, GradeArg};
+use std::{
+    cmp::{Ordering, Reverse},
+    fmt::Write,
+    mem,
+    sync::Arc,
+};
+
+use eyre::Report;
+use futures::future::TryFutureExt;
+use rosu_v2::prelude::{
+    GameMode, Grade, OsuError,
+    RankStatus::{Approved, Loved, Qualified, Ranked},
+    Score, User,
+};
+use tokio::time::{sleep, Duration};
+use twilight_model::{
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+    id::UserId,
+};
+
 use crate::{
+    commands::{check_user_mention, parse_discord, parse_mode_option, DoubleResultCow},
     database::UserConfig,
     embeds::{EmbedData, TopEmbed, TopSingleEmbed},
+    error::Error,
     pagination::{Pagination, TopPagination},
     tracking::process_tracking,
     util::{
@@ -14,29 +38,12 @@ use crate::{
         },
         matcher, numbers,
         osu::ModSelection,
-        CowUtils, MessageExt,
+        CowUtils, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
-use eyre::Report;
-use futures::future::TryFutureExt;
-use rosu_v2::prelude::{
-    GameMode, Grade, OsuError,
-    RankStatus::{Approved, Loved, Qualified, Ranked},
-    Score, User,
-};
-use std::{
-    borrow::Cow,
-    cmp::{Ordering, Reverse},
-    fmt::Write,
-    mem,
-    sync::Arc,
-};
-use tokio::time::{sleep, Duration};
-use twilight_model::{
-    application::interaction::application_command::CommandDataOption, id::UserId,
-};
+use super::{ErrorType, GradeArg};
 
 pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> BotResult<()> {
     if args.index.filter(|n| *n > 100).is_some() {
@@ -766,8 +773,6 @@ pub struct TopArgs {
     has_dash_p_or_i: bool,
 }
 
-const TOP_CURRENT: &str = "top current";
-
 impl TopArgs {
     const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
         If you want included mods, specify it e.g. as `+hrdt`.\n\
@@ -791,7 +796,7 @@ impl TopArgs {
         args: &mut Args<'_>,
         author_id: UserId,
         index: Option<usize>,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+    ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
         let mut mods = None;
         let mut acc_min = None;
@@ -948,9 +953,9 @@ impl TopArgs {
             } else if let Some(mods_) = matcher::get_mods(arg.as_ref()) {
                 mods = Some(mods_);
             } else {
-                match Args::check_user_mention(ctx, arg.as_ref()).await? {
+                match check_user_mention(ctx, arg.as_ref()).await? {
                     Ok(osu) => config.osu = Some(osu),
-                    Err(content) => return Ok(Err(content.into())),
+                    Err(content) => return Ok(Err(content)),
                 }
             }
         }
@@ -975,10 +980,10 @@ impl TopArgs {
 
     pub async fn slash(
         ctx: &Context,
+        command: &ApplicationCommand,
         options: Vec<CommandDataOption>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut config = ctx.user_config(author_id).await?;
+    ) -> DoubleResultCow<Self> {
+        let mut config = ctx.user_config(command.user_id()?).await?;
         let mut mods = None;
         let mut grade = None;
         let mut order = None;
@@ -986,11 +991,10 @@ impl TopArgs {
         let mut index = None;
 
         for option in options {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
                     NAME => config.osu = Some(value.into()),
-                    DISCORD => config.osu = Some(parse_discord_option!(ctx, value, "top current")),
-                    MODE => config.mode = parse_mode_option!(value, "top current"),
+                    MODE => config.mode = parse_mode_option(&value),
                     MODS => match matcher::get_mods(&value) {
                         Some(mods_) => mods = Some(mods_),
                         None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
@@ -1001,7 +1005,7 @@ impl TopArgs {
                         "date" => order = Some(TopOrder::Date),
                         "len" => order = Some(TopOrder::Length),
                         "pp" => order = Some(TopOrder::Position),
-                        _ => bail_cmd_option!("top current sort", string, value),
+                        _ => return Err(Error::InvalidCommandOptions),
                     },
                     GRADE => match value.as_str() {
                         "SS" => {
@@ -1020,21 +1024,32 @@ impl TopArgs {
                         "B" => grade = Some(GradeArg::Single(Grade::B)),
                         "C" => grade = Some(GradeArg::Single(Grade::C)),
                         "D" => grade = Some(GradeArg::Single(Grade::D)),
-                        _ => bail_cmd_option!("top current grade", string, value),
+                        _ => return Err(Error::InvalidCommandOptions),
                     },
-                    _ => bail_cmd_option!(TOP_CURRENT, string, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, value } => match name.as_str() {
-                    INDEX => index = Some(value.max(0) as usize),
-                    _ => bail_cmd_option!(TOP_CURRENT, integer, name),
-                },
-                CommandDataOption::Boolean { name, value } => match name.as_str() {
-                    REVERSE => reverse = Some(value),
-                    _ => bail_cmd_option!(TOP_CURRENT, boolean, name),
-                },
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!(TOP_CURRENT, subcommand, name)
+                CommandOptionValue::Integer(value) => {
+                    let number = (option.name == INDEX)
+                        .then(|| value)
+                        .ok_or(Error::InvalidCommandOptions)?;
+
+                    index = Some(number.max(0) as usize);
                 }
+                CommandOptionValue::Boolean(value) => {
+                    let value = (option.name == REVERSE)
+                        .then(|| value)
+                        .ok_or(Error::InvalidCommandOptions)?;
+
+                    reverse = Some(value);
+                }
+                CommandOptionValue::User(value) => match option.name.as_str() {
+                    DISCORD => match parse_discord(ctx, value).await? {
+                        Ok(osu) => config.osu = Some(osu),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 

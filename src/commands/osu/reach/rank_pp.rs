@@ -1,4 +1,16 @@
+use std::sync::Arc;
+
+use rosu_v2::prelude::{GameMode, OsuError, User, UserCompact};
+use twilight_model::{
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+    id::UserId,
+};
+
 use crate::{
+    commands::{check_user_mention, parse_discord, parse_mode_option, DoubleResultCow},
     custom_client::RankParam,
     database::UserConfig,
     embeds::{EmbedData, RankEmbed},
@@ -8,15 +20,9 @@ use crate::{
             common_literals::{COUNTRY, DISCORD, MODE, NAME, RANK},
             GENERAL_ISSUE, OSU_API_ISSUE, OSU_DAILY_ISSUE,
         },
-        CountryCode, MessageExt,
+        CountryCode, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, Error,
-};
-
-use rosu_v2::prelude::{GameMode, OsuError, User, UserCompact};
-use std::sync::Arc;
-use twilight_model::{
-    application::interaction::application_command::CommandDataOption, id::UserId,
 };
 
 pub(super) async fn _rank(
@@ -329,19 +335,13 @@ pub(super) struct RankPpArgs {
     pub rank: usize,
 }
 
-const REACH_RANK_PP: &str = "reach rank pp";
-
 impl RankPpArgs {
     const ERR_PARSE_COUNTRY: &'static str =
         "Failed to parse `rank`. Provide it either as positive number \
         or as country acronym followed by a positive number e.g. `be10` \
         as one of the first two arguments.";
 
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, &'static str>> {
+    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
         let mut country = None;
         let mut rank = None;
@@ -358,13 +358,13 @@ impl RankPpArgs {
                             country = Some(prefix.to_ascii_uppercase().into());
                             rank = Some(num);
                         } else {
-                            match Args::check_user_mention(ctx, arg).await? {
+                            match check_user_mention(ctx, arg).await? {
                                 Ok(osu) => config.osu = Some(osu),
                                 Err(content) => return Ok(Err(content)),
                             }
                         }
                     } else {
-                        match Args::check_user_mention(ctx, arg).await? {
+                        match check_user_mention(ctx, arg).await? {
                             Ok(osu) => config.osu = Some(osu),
                             Err(content) => return Ok(Err(content)),
                         }
@@ -375,7 +375,7 @@ impl RankPpArgs {
 
         let rank = match rank {
             Some(rank) => rank,
-            None => return Ok(Err(Self::ERR_PARSE_COUNTRY)),
+            None => return Ok(Err(Self::ERR_PARSE_COUNTRY.into())),
         };
 
         let args = Self {
@@ -389,21 +389,18 @@ impl RankPpArgs {
 
     pub(super) async fn slash(
         ctx: &Context,
+        command: &ApplicationCommand,
         options: Vec<CommandDataOption>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, String>> {
-        let mut config = ctx.user_config(author_id).await?;
+    ) -> DoubleResultCow<Self> {
+        let mut config = ctx.user_config(command.user_id()?).await?;
         let mut country = None;
         let mut rank = None;
 
         for option in options {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
-                    MODE => config.mode = parse_mode_option!(value, "reach rank pp"),
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
+                    MODE => config.mode = parse_mode_option(&value),
                     NAME => config.osu = Some(value.into()),
-                    DISCORD => {
-                        config.osu = Some(parse_discord_option!(ctx, value, "reach rank pp"))
-                    }
                     COUNTRY => {
                         if value.len() == 2 && value.is_ascii() {
                             country = Some(value.into())
@@ -416,21 +413,26 @@ impl RankPpArgs {
                                 value
                             );
 
-                            return Ok(Err(content));
+                            return Ok(Err(content.into()));
                         }
                     }
-                    _ => bail_cmd_option!(REACH_RANK_PP, string, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, value } => match name.as_str() {
-                    RANK => rank = Some(value.max(0) as usize),
-                    _ => bail_cmd_option!(REACH_RANK_PP, integer, name),
+                CommandOptionValue::Integer(value) => {
+                    let number = (option.name == RANK)
+                        .then(|| value)
+                        .ok_or(Error::InvalidCommandOptions)?;
+
+                    rank = Some(number.max(0) as usize);
+                }
+                CommandOptionValue::User(value) => match option.name.as_str() {
+                    DISCORD => match parse_discord(ctx, value).await? {
+                        Ok(osu) => config.osu = Some(osu),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(REACH_RANK_PP, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!(REACH_RANK_PP, subcommand, name)
-                }
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 

@@ -9,16 +9,24 @@ pub use country_snipe_list::*;
 pub use country_snipe_stats::*;
 pub use player_snipe_list::*;
 pub use player_snipe_stats::*;
-use rosu_v2::prelude::Username;
 pub use sniped::*;
 pub use sniped_difference::*;
 
-use super::{prepare_score, request_user, require_link};
+use std::sync::Arc;
+
+use rosu_v2::prelude::Username;
+use twilight_model::application::{
+    command::CommandOptionChoice,
+    interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+};
 
 use crate::{
     commands::{
         osu::{option_discord, option_mods, option_name},
-        MyCommand, MyCommandOption,
+        parse_discord, DoubleResultCow, MyCommand, MyCommandOption,
     },
     custom_client::SnipeScoreOrder,
     database::OsuData,
@@ -28,19 +36,12 @@ use crate::{
         },
         matcher,
         osu::ModSelection,
-        ApplicationCommandExt, CountryCode, InteractionExt, MessageExt,
+        CountryCode, InteractionExt, MessageExt,
     },
-    BotResult, Context, Error, 
+    BotResult, Context, Error,
 };
 
-use std::sync::Arc;
-use twilight_model::{
-    application::{
-        command::CommandOptionChoice,
-        interaction::{application_command::CommandDataOption, ApplicationCommand},
-    },
-    id::UserId,
-};
+use super::{prepare_score, request_user, require_link};
 
 enum SnipeCommandKind {
     CountryList(CountryListArgs),
@@ -52,246 +53,236 @@ enum SnipeCommandKind {
     SnipeLoss(Option<Username>),
 }
 
-macro_rules! parse_username {
-    ($location:literal, $variant:ident, $options:ident, $ctx:ident, $author_id:ident) => {{
-        let mut username = None;
-
-        for option in $options {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
-                    NAME => username = Some(value.into()),
-                    DISCORD => {
-                        username =
-                            Some(parse_discord_option!($ctx, value, $location).into_username())
-                    }
-                    _ => bail_cmd_option!($location, string, name),
-                },
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!($location, integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!($location, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!($location, subcommand, name)
-                }
-            }
-        }
-
-        let name = match username {
-            Some(name) => Some(name),
-            None => $ctx
-                .psql()
-                .get_user_osu($author_id)
-                .await?
-                .map(OsuData::into_username),
-        };
-
-        Some(SnipeCommandKind::$variant(name))
-    }};
-}
-
 impl SnipeCommandKind {
-    async fn slash(
-        ctx: &Context,
-        command: &mut ApplicationCommand,
-    ) -> BotResult<Result<Self, String>> {
-        let author_id = command.user_id()?;
-        let mut kind = None;
+    async fn slash(ctx: &Context, command: &mut ApplicationCommand) -> DoubleResultCow<Self> {
+        let option = command
+            .data
+            .options
+            .pop()
+            .ok_or(Error::InvalidCommandOptions)?;
 
-        for option in command.yoink_options() {
-            match option {
-                CommandDataOption::String { name, .. } => {
-                    bail_cmd_option!("snipe", string, name)
-                }
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("snipe", integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("snipe", boolean, name)
-                }
-                CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    COUNTRY => match Self::parse_country(ctx, options)? {
-                        Ok(kind_) => kind = Some(kind_),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    "player" => match Self::parse_player(ctx, options, author_id).await? {
-                        Ok(kind_) => kind = Some(kind_),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => bail_cmd_option!("snipe", subcommand, name),
-                },
-            }
+        match option.value {
+            CommandOptionValue::SubCommandGroup(options) => match option.name.as_str() {
+                COUNTRY => Self::parse_country(ctx, options),
+                "player" => Self::parse_player(ctx, command, options).await,
+                _ => Err(Error::InvalidCommandOptions),
+            },
+            _ => Err(Error::InvalidCommandOptions),
         }
-
-        kind.ok_or(Error::InvalidCommandOptions).map(Ok)
     }
 
-    fn parse_country(
-        ctx: &Context,
-        options: Vec<CommandDataOption>,
-    ) -> BotResult<Result<Self, String>> {
-        let mut kind = None;
+    fn parse_country(ctx: &Context, mut options: Vec<CommandDataOption>) -> DoubleResultCow<Self> {
+        let option = options.pop().ok_or(Error::InvalidCommandOptions)?;
 
-        for option in options {
-            match option {
-                CommandDataOption::String { name, .. } => {
-                    bail_cmd_option!("snipe country", string, name)
-                }
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("snipe country", integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("snipe country", boolean, name)
-                }
-                CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    "list" => match parse_country_list(ctx, options)? {
-                        Ok(args) => kind = Some(Self::CountryList(args)),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    "stats" => match parse_country_stats(ctx, options)? {
-                        Ok(country) => kind = Some(Self::CountryStats(country)),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => bail_cmd_option!("snipe country", subcommand, name),
-                },
-            }
+        match option.value {
+            CommandOptionValue::SubCommand(options) => match option.name.as_str() {
+                "list" => Self::parse_country_list(ctx, options),
+                "stats" => Self::parse_country_stats(ctx, options),
+                _ => Err(Error::InvalidCommandOptions),
+            },
+            _ => Err(Error::InvalidCommandOptions),
         }
-
-        kind.ok_or(Error::InvalidCommandOptions).map(Ok)
     }
 
     async fn parse_player(
         ctx: &Context,
-        options: Vec<CommandDataOption>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, String>> {
-        let mut kind = None;
+        command: &ApplicationCommand,
+        mut options: Vec<CommandDataOption>,
+    ) -> DoubleResultCow<Self> {
+        let option = options.pop().ok_or(Error::InvalidCommandOptions)?;
+
+        match option.value {
+            CommandOptionValue::SubCommand(options) => match option.name.as_str() {
+                "gain" => {
+                    let name = match parse_username(ctx, command, options).await? {
+                        Ok(name) => name,
+                        Err(content) => return Ok(Err(content)),
+                    };
+
+                    Ok(Ok(Self::SnipeGain(name)))
+                }
+                "list" => Self::parse_player_list(ctx, command, options).await,
+                "loss" => {
+                    let name = match parse_username(ctx, command, options).await? {
+                        Ok(name) => name,
+                        Err(content) => return Ok(Err(content)),
+                    };
+
+                    Ok(Ok(Self::SnipeLoss(name)))
+                }
+                "stats" => {
+                    let name = match parse_username(ctx, command, options).await? {
+                        Ok(name) => name,
+                        Err(content) => return Ok(Err(content)),
+                    };
+
+                    Ok(Ok(Self::PlayerStats(name)))
+                }
+                "targets" => {
+                    let name = match parse_username(ctx, command, options).await? {
+                        Ok(name) => name,
+                        Err(content) => return Ok(Err(content)),
+                    };
+
+                    Ok(Ok(Self::Sniped(name)))
+                }
+                _ => Err(Error::InvalidCommandOptions),
+            },
+            _ => Err(Error::InvalidCommandOptions),
+        }
+    }
+
+    fn parse_country_list(ctx: &Context, options: Vec<CommandDataOption>) -> DoubleResultCow<Self> {
+        let mut country = None;
+        let mut sort = None;
 
         for option in options {
-            match option {
-                CommandDataOption::String { name, .. } => {
-                    bail_cmd_option!("snipe player", string, name)
-                }
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("snipe player", integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("snipe player", boolean, name)
-                }
-                CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    "gain" => {
-                        kind = parse_username!(
-                            "snipe player gain",
-                            SnipeGain,
-                            options,
-                            ctx,
-                            author_id
-                        );
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
+                    COUNTRY => match parse_country_code(ctx, value) {
+                        Ok(country_) => country = Some(country_),
+                        Err(content) => return Ok(Err(content.into())),
+                    },
+                    SORT => match value.as_str() {
+                        "count" => sort = Some(SnipeOrder::Count),
+                        "pp" => sort = Some(SnipeOrder::Pp),
+                        "stars" => sort = Some(SnipeOrder::Stars),
+                        "weighted_pp" => sort = Some(SnipeOrder::WeightedPp),
+                        _ => return Err(Error::InvalidCommandOptions),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                _ => return Err(Error::InvalidCommandOptions),
+            }
+        }
+
+        let sort = sort.unwrap_or_default();
+
+        Ok(Ok(Self::CountryList(CountryListArgs { country, sort })))
+    }
+
+    fn parse_country_stats(
+        ctx: &Context,
+        mut options: Vec<CommandDataOption>,
+    ) -> DoubleResultCow<Self> {
+        let mut country = None;
+
+        if let Some(option) = options.pop() {
+            match option.value {
+                CommandOptionValue::String(value) => {
+                    let value = (option.name == COUNTRY)
+                        .then(|| parse_country_code(ctx, value))
+                        .ok_or(Error::InvalidCommandOptions)?;
+
+                    match value {
+                        Ok(country_) => country = Some(country_),
+                        Err(content) => return Ok(Err(content.into())),
                     }
-                    "list" => match parse_player_list(ctx, options, author_id).await? {
-                        Ok(args) => kind = Some(Self::PlayerList(args)),
+                }
+                _ => return Err(Error::InvalidCommandOptions),
+            }
+        }
+
+        Ok(Ok(Self::CountryStats(country)))
+    }
+
+    async fn parse_player_list(
+        ctx: &Context,
+        command: &ApplicationCommand,
+        options: Vec<CommandDataOption>,
+    ) -> DoubleResultCow<Self> {
+        let mut osu = ctx.psql().get_user_osu(command.user_id()?).await?;
+        let mut order = None;
+        let mut mods = None;
+        let mut descending = None;
+
+        for option in options {
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
+                    NAME => osu = Some(value.into()),
+                    SORT => match value.as_str() {
+                        ACC => order = Some(SnipeScoreOrder::Accuracy),
+                        "len" => order = Some(SnipeScoreOrder::Length),
+                        "map_date" => order = Some(SnipeScoreOrder::MapApprovalDate),
+                        MISSES => order = Some(SnipeScoreOrder::Misses),
+                        "pp" => order = Some(SnipeScoreOrder::Pp),
+                        "score_date" => order = Some(SnipeScoreOrder::ScoreDate),
+                        "stars" => order = Some(SnipeScoreOrder::Stars),
+                        _ => return Err(Error::InvalidCommandOptions),
+                    },
+                    MODS => match matcher::get_mods(&value) {
+                        Some(mods_) => mods = Some(mods_),
+                        None => match value.parse() {
+                            Ok(mods_) => mods = Some(ModSelection::Include(mods_)),
+                            Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
+                        },
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                CommandOptionValue::Boolean(value) => {
+                    let value = (option.name == REVERSE)
+                        .then(|| value)
+                        .ok_or(Error::InvalidCommandOptions)?;
+
+                    descending = Some(!value);
+                }
+                CommandOptionValue::User(value) => match option.name.as_str() {
+                    DISCORD => match parse_discord(ctx, value).await? {
+                        Ok(osu_) => osu = Some(osu_),
                         Err(content) => return Ok(Err(content)),
                     },
-                    "loss" => {
-                        kind = parse_username!(
-                            "snipe player loss",
-                            SnipeLoss,
-                            options,
-                            ctx,
-                            author_id
-                        );
-                    }
-                    "stats" => {
-                        kind = parse_username!(
-                            "snipe player stats",
-                            PlayerStats,
-                            options,
-                            ctx,
-                            author_id
-                        );
-                    }
-                    "targets" => {
-                        kind =
-                            parse_username!("snipe player targets", Sniped, options, ctx, author_id)
-                    }
-                    _ => bail_cmd_option!("snipe player", subcommand, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 
-        kind.ok_or(Error::InvalidCommandOptions).map(Ok)
+        let args = PlayerListArgs {
+            osu,
+            order: order.unwrap_or_default(),
+            mods,
+            descending: descending.unwrap_or(true),
+        };
+
+        Ok(Ok(Self::PlayerList(args)))
     }
 }
 
-fn parse_country_list(
+async fn parse_username(
     ctx: &Context,
+    command: &ApplicationCommand,
     options: Vec<CommandDataOption>,
-) -> BotResult<Result<CountryListArgs, String>> {
-    let mut country = None;
-    let mut sort = None;
+) -> DoubleResultCow<Option<Username>> {
+    let mut username = None;
 
     for option in options {
-        match option {
-            CommandDataOption::String { name, value } => match name.as_str() {
-                COUNTRY => match parse_country_code(ctx, value) {
-                    Ok(country_) => country = Some(country_),
+        match option.value {
+            CommandOptionValue::String(value) => match option.name.as_str() {
+                NAME => username = Some(value.into()),
+                _ => return Err(Error::InvalidCommandOptions),
+            },
+            CommandOptionValue::User(value) => match option.name.as_str() {
+                DISCORD => match parse_discord(ctx,  value).await? {
+                    Ok(osu) => username = Some(osu.into_username()),
                     Err(content) => return Ok(Err(content)),
                 },
-                SORT => match value.as_str() {
-                    "count" => sort = Some(SnipeOrder::Count),
-                    "pp" => sort = Some(SnipeOrder::Pp),
-                    "stars" => sort = Some(SnipeOrder::Stars),
-                    "weighted_pp" => sort = Some(SnipeOrder::WeightedPp),
-                    _ => bail_cmd_option!("snipe country list sort", string, value),
-                },
-                _ => bail_cmd_option!("snipe country list", string, name),
+                _ => return Err(Error::InvalidCommandOptions),
             },
-            CommandDataOption::Integer { name, .. } => {
-                bail_cmd_option!("snipe country list", integer, name)
-            }
-            CommandDataOption::Boolean { name, .. } => {
-                bail_cmd_option!("snipe country list", boolean, name)
-            }
-            CommandDataOption::SubCommand { name, .. } => {
-                bail_cmd_option!("snipe country list", subcommand, name)
-            }
+            _ => return Err(Error::InvalidCommandOptions),
         }
     }
 
-    let sort = sort.unwrap_or_default();
-
-    Ok(Ok(CountryListArgs { country, sort }))
-}
-
-fn parse_country_stats(
-    ctx: &Context,
-    options: Vec<CommandDataOption>,
-) -> BotResult<Result<Option<CountryCode>, String>> {
-    let mut country = None;
-
-    for option in options {
-        match option {
-            CommandDataOption::String { name, value } => match name.as_str() {
-                COUNTRY => match parse_country_code(ctx, value) {
-                    Ok(country_) => country = Some(country_),
-                    Err(content) => return Ok(Err(content)),
-                },
-                _ => bail_cmd_option!("snipe country stats", string, name),
-            },
-            CommandDataOption::Integer { name, .. } => {
-                bail_cmd_option!("snipe country stats", integer, name)
-            }
-            CommandDataOption::Boolean { name, .. } => {
-                bail_cmd_option!("snipe country stats", boolean, name)
-            }
-            CommandDataOption::SubCommand { name, .. } => {
-                bail_cmd_option!("snipe country stats", subcommand, name)
-            }
-        }
+    match username {
+        Some(name) => Ok(Ok(Some(name))),
+        None => ctx
+            .psql()
+            .get_user_osu(command.user_id()?)
+            .await?
+            .map(OsuData::into_username)
+            .map(Ok)
+            .transpose()
+            .map(Ok),
     }
-
-    Ok(Ok(country))
 }
 
 fn parse_country_code(ctx: &Context, mut country: String) -> Result<CountryCode, String> {
@@ -323,63 +314,6 @@ fn parse_country_code(ctx: &Context, mut country: String) -> Result<CountryCode,
             Ok(country)
         }
     }
-}
-
-async fn parse_player_list(
-    ctx: &Context,
-    options: Vec<CommandDataOption>,
-    author_id: UserId,
-) -> BotResult<Result<PlayerListArgs, String>> {
-    let mut osu = ctx.psql().get_user_osu(author_id).await?;
-    let mut order = None;
-    let mut mods = None;
-    let mut descending = None;
-
-    for option in options {
-        match option {
-            CommandDataOption::String { name, value } => match name.as_str() {
-                NAME => osu = Some(value.into()),
-                DISCORD => osu = Some(parse_discord_option!(ctx, value, "snipe player list")),
-                SORT => match value.as_str() {
-                    ACC => order = Some(SnipeScoreOrder::Accuracy),
-                    "len" => order = Some(SnipeScoreOrder::Length),
-                    "map_date" => order = Some(SnipeScoreOrder::MapApprovalDate),
-                    MISSES => order = Some(SnipeScoreOrder::Misses),
-                    "pp" => order = Some(SnipeScoreOrder::Pp),
-                    "score_date" => order = Some(SnipeScoreOrder::ScoreDate),
-                    "stars" => order = Some(SnipeScoreOrder::Stars),
-                    _ => bail_cmd_option!("snipe player list sort", string, value),
-                },
-                MODS => match matcher::get_mods(&value) {
-                    Some(mods_) => mods = Some(mods_),
-                    None => match value.parse() {
-                        Ok(mods_) => mods = Some(ModSelection::Include(mods_)),
-                        Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
-                    },
-                },
-                _ => bail_cmd_option!("snipe player list", string, name),
-            },
-            CommandDataOption::Integer { name, .. } => {
-                bail_cmd_option!("snipe player list", integer, name)
-            }
-            CommandDataOption::Boolean { name, value } => match name.as_str() {
-                REVERSE => descending = Some(!value),
-                _ => bail_cmd_option!("snipe player list", boolean, name),
-            },
-            CommandDataOption::SubCommand { name, .. } => {
-                bail_cmd_option!("snipe player list", subcommand, name)
-            }
-        }
-    }
-
-    let args = PlayerListArgs {
-        osu,
-        order: order.unwrap_or_default(),
-        mods,
-        descending: descending.unwrap_or(true),
-    };
-
-    Ok(Ok(args))
 }
 
 pub async fn slash_snipe(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {

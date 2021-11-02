@@ -1,9 +1,4 @@
 use super::Stream;
-use crate::{database::OsuData, util::matcher, BotResult, Context};
-
-use rosu_v2::prelude::Username;
-use std::{error::Error, fmt};
-use twilight_model::id::UserId;
 
 pub struct Args<'m> {
     msg: &'m str,
@@ -16,7 +11,7 @@ impl<'m> Iterator for Args<'m> {
     fn next(&mut self) -> Option<Self::Item> {
         let (start, end) = self.lex()?;
 
-        Some(&self.msg[start..end])
+        self.msg.get(start..end)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -76,34 +71,4 @@ impl<'m> Args<'m> {
 
         Some((start, end))
     }
-
-    pub async fn check_user_mention(
-        ctx: &Context,
-        arg: &str,
-    ) -> BotResult<Result<OsuData, &'static str>> {
-        match matcher::get_mention_user(arg) {
-            Some(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
-                Some(osu) => Ok(Ok(osu)),
-                None => Ok(Err("The specified user is not linked to an osu profile")),
-            },
-            None => Ok(Ok(Username::from(arg).into())),
-        }
-    }
 }
-
-#[derive(Debug)]
-pub struct ArgError<E>(E);
-
-impl<E> From<E> for ArgError<E> {
-    fn from(e: E) -> Self {
-        Self(e)
-    }
-}
-
-impl<E: fmt::Display> fmt::Display for ArgError<E> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl<E: fmt::Debug + fmt::Display> Error for ArgError<E> {}

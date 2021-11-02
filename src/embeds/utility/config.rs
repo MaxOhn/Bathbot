@@ -23,14 +23,7 @@ impl ConfigEmbed {
             ),
             None => format!(
                 "https://cdn.discordapp.com/embed/avatars/{}.png",
-                author
-                    .discriminator
-                    .chars()
-                    .last()
-                    .unwrap()
-                    .to_digit(10)
-                    .unwrap()
-                    % 5
+                author.discriminator()
             ),
         };
 

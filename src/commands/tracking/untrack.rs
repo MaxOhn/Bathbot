@@ -63,6 +63,7 @@ pub(super) async fn _untrack(
 
     let count = names.len();
 
+    // TODO: Try to use DB
     // Retrieve all users
     let mut user_futs: FuturesUnordered<_> = names
         .into_iter()
@@ -99,11 +100,11 @@ pub(super) async fn _untrack(
     let mut success = HashSet::with_capacity(users.len());
 
     for (user_id, username) in users.into_iter() {
-        match ctx
+        let remove_fut = ctx
             .tracking()
-            .remove_user(user_id, channel, ctx.psql())
-            .await
-        {
+            .remove_user(user_id, Some(mode), channel, ctx.psql());
+
+        match remove_fut.await {
             Ok(_) => success.insert(username),
             Err(why) => {
                 warn!("Error while adding tracked entry: {}", why);

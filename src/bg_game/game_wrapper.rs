@@ -15,7 +15,7 @@ use tokio::{
     time::{sleep, Duration},
 };
 use twilight_model::{
-    gateway::payload::MessageCreate,
+    gateway::payload::incoming::MessageCreate,
     id::{ChannelId, MessageId},
 };
 
@@ -96,7 +96,10 @@ impl GameWrapper {
                     .content("Here's the next one:")
                     .file("bg_img.png", &img);
 
-                if let Err(why) = (MessageId(0), channel).create_message(&ctx, builder).await {
+                let tmp_msg = (MessageId::new(1).unwrap(), channel);
+                let create_fut = tmp_msg.create_message(&ctx, builder);
+
+                if let Err(why) = create_fut.await {
                     let report =
                         Report::new(why).wrap_err("error while sending initial bg game msg");
                     warn!("{:?}", report);

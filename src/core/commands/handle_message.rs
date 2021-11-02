@@ -87,7 +87,7 @@ fn log_invoke(ctx: &Context, msg: &Message) {
 
     match msg.guild_id.and_then(|id| ctx.cache.guild(id)) {
         Some(guild) => {
-            location.push_str(guild.name.as_str());
+            location.push_str(guild.name());
             location.push(':');
 
             match ctx.cache.guild_channel(msg.channel_id) {
@@ -117,7 +117,7 @@ async fn process_command(
     }
 
     // Only for owner?
-    if cmd.owner && msg.author.id.0 != OWNER_USER_ID {
+    if cmd.owner && msg.author.id.get() != OWNER_USER_ID {
         let content = "That command can only be used by the bot owner";
         msg.error(&ctx, content).await?;
 
@@ -127,9 +127,12 @@ async fn process_command(
     // Does bot have sufficient permissions to send response?
     match ctx.cache.current_user() {
         Some(bot_user) => {
-            let permissions =
-                ctx.cache
-                    .get_channel_permissions_for(bot_user.id, msg.channel_id, msg.guild_id);
+            let permissions = ctx
+                .cache
+                .permissions()
+                .in_channel(bot_user.id, msg.channel_id)
+                .ok()
+                .unwrap_or_else(Permissions::empty);
 
             if !permissions.contains(Permissions::SEND_MESSAGES) {
                 debug!("No SEND_MESSAGE permission, can not respond");
@@ -145,7 +148,7 @@ async fn process_command(
         let guard = ctx.buckets.get(&BucketName::All).unwrap();
         let mutex = guard.value();
         let mut bucket = mutex.lock();
-        let ratelimit = bucket.take(msg.author.id.0);
+        let ratelimit = bucket.take(msg.author.id.get());
 
         if ratelimit > 0 {
             debug!(

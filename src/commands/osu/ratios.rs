@@ -1,26 +1,17 @@
-use crate::{
-    commands::{
-        osu::{option_discord, option_name},
-        MyCommand,
-    },
-    database::OsuData,
-    embeds::{EmbedData, RatioEmbed},
-    tracking::process_tracking,
-    util::{
+use std::sync::Arc;
+
+use rosu_v2::prelude::{GameMode, OsuError, Username};
+use twilight_model::application::interaction::{
+    application_command::CommandOptionValue, ApplicationCommand,
+};
+
+use crate::{ BotResult, CommandData, Context, MessageBuilder, commands::{DoubleResultCow, MyCommand, check_user_mention, osu::{option_discord, option_name}, parse_discord}, database::OsuData, embeds::{EmbedData, RatioEmbed}, error::Error, tracking::process_tracking, util::{
         constants::{
             common_literals::{DISCORD, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
         ApplicationCommandExt, InteractionExt, MessageExt,
-    },
-    Args, BotResult, CommandData, Context, MessageBuilder,
-};
-
-use rosu_v2::prelude::{GameMode, OsuError, Username};
-use std::sync::Arc;
-use twilight_model::application::interaction::{
-    application_command::CommandDataOption, ApplicationCommand,
-};
+    }};
 
 #[command]
 #[short_desc("Ratio related stats about a user's top100")]
@@ -37,7 +28,7 @@ async fn ratios(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
             let name = match args.next() {
-                Some(arg) => match Args::check_user_mention(&ctx, arg).await {
+                Some(arg) => match check_user_mention(&ctx, arg).await {
                     Ok(Ok(osu)) => Some(osu.into_username()),
                     Ok(Err(content)) => return msg.error(&ctx, content).await,
                     Err(why) => {
@@ -114,26 +105,26 @@ async fn _ratios(
     Ok(())
 }
 
-const RATIOS: &str = "ratios";
-
 async fn parse_username(
     ctx: &Context,
     command: &mut ApplicationCommand,
-) -> BotResult<Result<Option<Username>, String>> {
+) -> DoubleResultCow<Option<Username>> {
     let mut osu = None;
 
     for option in command.yoink_options() {
-        match option {
-            CommandDataOption::String { name, value } => match name.as_str() {
+        match option.value {
+            CommandOptionValue::String(value) => match option.name.as_str() {
                 NAME => osu = Some(value.into()),
-                DISCORD => osu = Some(parse_discord_option!(ctx, value, "ratios")),
-                _ => bail_cmd_option!(RATIOS, string, name),
+                _ => return Err(Error::InvalidCommandOptions),
             },
-            CommandDataOption::Integer { name, .. } => bail_cmd_option!(RATIOS, integer, name),
-            CommandDataOption::Boolean { name, .. } => bail_cmd_option!(RATIOS, boolean, name),
-            CommandDataOption::SubCommand { name, .. } => {
-                bail_cmd_option!(RATIOS, subcommand, name)
-            }
+            CommandOptionValue::User(value) => match option.name.as_str() {
+                DISCORD => match parse_discord(ctx, value).await? {
+                    Ok(osu_) => osu = Some(osu_),
+                    Err(content) => return Ok(Err(content)),
+                },
+                _ => return Err(Error::InvalidCommandOptions),
+            },
+            _ => return Err(Error::InvalidCommandOptions),
         }
     }
 
@@ -165,7 +156,7 @@ pub fn define_ratios() -> MyCommand {
         For the third column, it calculates the ratio of all scores in that row and displays their average.\n\
         The fourth column shows the average percentual miss amount for scores in the corresponding row.";
 
-    MyCommand::new(RATIOS, "Ratio related stats about a user's mania top100")
+    MyCommand::new("ratios", "Ratio related stats about a user's mania top100")
         .help(help)
         .options(vec![name, discord])
 }

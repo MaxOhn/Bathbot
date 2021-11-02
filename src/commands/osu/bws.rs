@@ -1,10 +1,12 @@
 use crate::{
     commands::{
+        check_user_mention,
         osu::{option_discord, option_name},
-        MyCommand, MyCommandOption,
+        parse_discord, DoubleResultCow, MyCommand, MyCommandOption,
     },
     database::UserConfig,
     embeds::{BWSEmbed, EmbedData},
+    error::Error,
     util::{
         constants::{
             common_literals::{DISCORD, NAME, RANK},
@@ -16,9 +18,9 @@ use crate::{
 };
 
 use rosu_v2::prelude::{GameMode, OsuError};
-use std::{borrow::Cow, mem, sync::Arc};
+use std::{mem, sync::Arc};
 use twilight_model::{
-    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
+    application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
     id::UserId,
 };
 
@@ -83,13 +85,12 @@ async fn _bws(ctx: Arc<Context>, data: CommandData<'_>, args: BwsArgs) -> BotRes
         }
     };
 
-    let badges_curr = user
-        .badges
-        .as_ref()
-        .unwrap()
-        .iter()
-        .filter(|badge| matcher::tourney_badge(badge.description.as_str()))
-        .count();
+    let badges_curr = user.badges.as_ref().map_or(0, |badges| {
+        badges
+            .iter()
+            .filter(|badge| matcher::tourney_badge(badge.description.as_str()))
+            .count()
+    });
 
     let (badges_min, badges_max) = match badges {
         Some(num) => {
@@ -121,11 +122,7 @@ struct BwsArgs {
 }
 
 impl BwsArgs {
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
         let mut rank = None;
         let mut badges = None;
@@ -163,9 +160,9 @@ impl BwsArgs {
                     }
                 }
             } else {
-                match Args::check_user_mention(ctx, arg).await? {
+                match check_user_mention(ctx, arg).await? {
                     Ok(osu) => config.osu = Some(osu),
-                    Err(content) => return Ok(Err(content.into())),
+                    Err(content) => return Ok(Err(content)),
                 }
             }
         }
@@ -179,32 +176,30 @@ impl BwsArgs {
         Ok(Ok(args))
     }
 
-    async fn slash(
-        ctx: &Context,
-        command: &mut ApplicationCommand,
-    ) -> BotResult<Result<Self, String>> {
+    async fn slash(ctx: &Context, command: &mut ApplicationCommand) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(command.user_id()?).await?;
         let mut rank = None;
         let mut badges = None;
 
         for option in command.yoink_options() {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
                     NAME => config.osu = Some(value.into()),
-                    DISCORD => config.osu = Some(parse_discord_option!(ctx, value, "bws")),
-                    _ => bail_cmd_option!("bws", string, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, value } => match name.as_str() {
+                CommandOptionValue::Integer(value) => match option.name.as_str() {
                     RANK => rank = Some(value.max(1) as u32),
                     "badges" => badges = Some(value.max(0) as usize),
-                    _ => bail_cmd_option!("bws", integer, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("bws", boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("bws", subcommand, name)
-                }
+                CommandOptionValue::User(value) => match option.name.as_str() {
+                    DISCORD => match parse_discord(ctx, value).await? {
+                        Ok(osu) => config.osu = Some(osu),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 

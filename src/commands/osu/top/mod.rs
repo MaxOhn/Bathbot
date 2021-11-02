@@ -12,23 +12,29 @@ pub use rebalance::*;
 pub use top_if::*;
 pub use top_old::*;
 
-use super::{prepare_scores, request_user, require_link, ErrorType, GradeArg};
+use std::sync::Arc;
 
-use crate::{BotResult, Context, Error, commands::{
-        osu::{option_discord, option_mode, option_mods_explicit, option_name},
-        MyCommand, MyCommandOption,
-    }, util::{ApplicationCommandExt, InteractionExt, MessageExt, constants::common_literals::{
-            ACC, ACCURACY, COMBO, CONSIDER_GRADE, CTB, GRADE, INDEX, MANIA, MODE, MODS, OSU,
-            REVERSE, SORT, SPECIFY_MODE, TAIKO,
-        }}};
-
-use std::{borrow::Cow, sync::Arc};
 use twilight_model::application::{
     command::CommandOptionChoice,
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+    interaction::{application_command::CommandOptionValue, ApplicationCommand},
 };
 
-const TOP: &str = "top";
+use crate::{
+    commands::{
+        osu::{option_discord, option_mode, option_mods_explicit, option_name},
+        DoubleResultCow, MyCommand, MyCommandOption,
+    },
+    util::{
+        constants::common_literals::{
+            ACC, ACCURACY, COMBO, CONSIDER_GRADE, CTB, GRADE, INDEX, MANIA, MODE, MODS, OSU,
+            REVERSE, SORT, SPECIFY_MODE, TAIKO,
+        },
+        MessageExt,
+    },
+    BotResult, Context, Error,
+};
+
+use super::{prepare_scores, request_user, require_link, ErrorType, GradeArg};
 
 enum TopCommandKind {
     If(IfArgs),
@@ -40,53 +46,46 @@ enum TopCommandKind {
 }
 
 impl TopCommandKind {
-    async fn slash(
-        ctx: &Context,
-        command: &mut ApplicationCommand,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let author_id = command.user_id()?;
-        let mut kind = None;
+    async fn slash(ctx: &Context, command: &mut ApplicationCommand) -> DoubleResultCow<Self> {
+        let option = command
+            .data
+            .options
+            .pop()
+            .ok_or(Error::InvalidCommandOptions)?;
 
-        for option in command.yoink_options() {
-            match option {
-                CommandDataOption::String { name, .. } => bail_cmd_option!(TOP, string, name),
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!(TOP, integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(TOP, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    "current" => match TopArgs::slash(ctx, options, author_id).await? {
-                        Ok(args) => kind = Some(TopCommandKind::Top(args)),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    "if" => match IfArgs::slash(ctx, options, author_id).await? {
-                        Ok(args) => kind = Some(TopCommandKind::If(args)),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    "mapper" => match MapperArgs::slash(ctx, options, author_id).await? {
-                        Ok(args) => kind = Some(TopCommandKind::Mapper(args)),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    "nochoke" => match NochokeArgs::slash(ctx, options, author_id).await? {
-                        Ok(args) => kind = Some(TopCommandKind::Nochoke(args)),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    "old" => match OldArgs::slash(ctx, options, author_id).await? {
-                        Ok(args) => kind = Some(TopCommandKind::Old(args)),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    "rebalance" => match RebalanceArgs::slash(ctx, options, author_id).await? {
-                        Ok(args) => kind = Some(TopCommandKind::Rebalance(args)),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => bail_cmd_option!(TOP, subcommand, name),
+        match option.value {
+            CommandOptionValue::SubCommand(options) => match option.name.as_str() {
+                "current" => match TopArgs::slash(ctx, command, options).await? {
+                    Ok(args) => Ok(Ok(TopCommandKind::Top(args))),
+                    Err(content) => Ok(Err(content)),
                 },
-            }
+                "if" => match IfArgs::slash(ctx, command, options).await? {
+                    Ok(args) => Ok(Ok(TopCommandKind::If(args))),
+                    Err(content) => Ok(Err(content)),
+                },
+                "mapper" => match MapperArgs::slash(ctx, command, options).await? {
+                    Ok(args) => Ok(Ok(TopCommandKind::Mapper(args))),
+                    Err(content) => Ok(Err(content)),
+                },
+                "nochoke" => match NochokeArgs::slash(ctx, command, options).await? {
+                    Ok(args) => Ok(Ok(TopCommandKind::Nochoke(args))),
+                    Err(content) => Ok(Err(content)),
+                },
+                "rebalance" => match RebalanceArgs::slash(ctx, command, options).await? {
+                    Ok(args) => Ok(Ok(TopCommandKind::Rebalance(args))),
+                    Err(content) => Ok(Err(content)),
+                },
+                _ => Err(Error::InvalidCommandOptions),
+            },
+            CommandOptionValue::SubCommandGroup(options) => match option.name.as_str() {
+                "old" => match OldArgs::slash(ctx, command, options).await? {
+                    Ok(args) => Ok(Ok(TopCommandKind::Old(args))),
+                    Err(content) => Ok(Err(content)),
+                },
+                _ => Err(Error::InvalidCommandOptions),
+            },
+            _ => Err(Error::InvalidCommandOptions),
         }
-
-        kind.ok_or(Error::InvalidCommandOptions).map(Ok)
     }
 }
 
@@ -140,7 +139,8 @@ fn subcommand_current() -> MyCommandOption {
 
     let discord = option_discord();
 
-    let reverse = MyCommandOption::builder(REVERSE, "Reverse the resulting score list").boolean(false);
+    let reverse =
+        MyCommandOption::builder(REVERSE, "Reverse the resulting score list").boolean(false);
 
     let grade_choices = vec![
         CommandOptionChoice::String {
@@ -285,7 +285,8 @@ fn subcommand_old() -> MyCommandOption {
         },
     ];
 
-    let version = MyCommandOption::builder(VERSION, VERSION_DESCRIPTION).string(version_choices, true);
+    let version =
+        MyCommandOption::builder(VERSION, VERSION_DESCRIPTION).string(version_choices, true);
     let name = option_name();
     let discord = option_discord();
 
@@ -310,7 +311,8 @@ fn subcommand_old() -> MyCommandOption {
         value: "march14_september20".to_owned(),
     }];
 
-    let version = MyCommandOption::builder(VERSION, VERSION_DESCRIPTION).string(version_choices, true);
+    let version =
+        MyCommandOption::builder(VERSION, VERSION_DESCRIPTION).string(version_choices, true);
     let name = option_name();
     let discord = option_discord();
 
@@ -330,7 +332,8 @@ fn subcommand_old() -> MyCommandOption {
         value: "march14_may20".to_owned(),
     }];
 
-    let version = MyCommandOption::builder(VERSION, VERSION_DESCRIPTION).string(version_choices, true);
+    let version =
+        MyCommandOption::builder(VERSION, VERSION_DESCRIPTION).string(version_choices, true);
     let name = option_name();
     let discord = option_discord();
 
@@ -350,7 +353,8 @@ fn subcommand_old() -> MyCommandOption {
         value: "march14_may18".to_owned(),
     }];
 
-    let version = MyCommandOption::builder(VERSION, VERSION_DESCRIPTION).string(version_choices, true);
+    let version =
+        MyCommandOption::builder(VERSION, VERSION_DESCRIPTION).string(version_choices, true);
     let name = option_name();
     let discord = option_discord();
 
@@ -425,5 +429,5 @@ pub fn define_top() -> MyCommand {
         subcommand_rebalance(),
     ];
 
-    MyCommand::new(TOP, description).options(options)
+    MyCommand::new("top", description).options(options)
 }

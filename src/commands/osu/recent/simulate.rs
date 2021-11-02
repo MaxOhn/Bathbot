@@ -1,27 +1,33 @@
+use std::{ sync::Arc};
+
+use eyre::Report;
+use rosu_v2::prelude::{GameMode, OsuError};
+use tokio::time::{sleep, Duration};
+use twilight_model::{
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+    id::UserId,
+};
+
 use crate::{
+    commands::{check_user_mention, parse_discord, parse_mode_option, DoubleResultCow},
     database::UserConfig,
     embeds::{EmbedData, SimulateEmbed},
+    error::Error,
     util::{
         constants::{
             common_literals::{
-                ACC, ACCURACY, COMBO, CTB, DISCORD, INDEX, MANIA, MISSES, MODE, MODS,
-                MODS_PARSE_FAIL, NAME, OSU, SCORE, TAIKO,
+                ACC, ACCURACY, COMBO, DISCORD, INDEX, MISSES, MODS, MODS_PARSE_FAIL, NAME, SCORE,
             },
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
         matcher,
         osu::ModSelection,
-        MessageExt,
+        InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, MessageBuilder,
-};
-
-use eyre::Report;
-use rosu_v2::prelude::{GameMode, OsuError};
-use std::{borrow::Cow, sync::Arc};
-use tokio::time::{sleep, Duration};
-use twilight_model::{
-    application::interaction::application_command::CommandDataOption, id::UserId,
 };
 
 pub(super) async fn _recentsimulate(
@@ -324,16 +330,13 @@ macro_rules! parse_fail {
     };
 }
 
-const RECENT_SIMULATE: &str = "recent simulate";
-const RECENT_SIMULATE_MODE: &str = "recent simulate mode_";
-
 impl RecentSimulateArgs {
     async fn args(
         ctx: &Context,
         args: &mut Args<'_>,
         author_id: UserId,
         index: Option<usize>,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+    ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
         let mut mods = None;
         let mut n300 = None;
@@ -396,9 +399,9 @@ impl RecentSimulateArgs {
             } else if let Some(mods_) = matcher::get_mods(arg) {
                 mods.replace(mods_);
             } else {
-                match Args::check_user_mention(ctx, arg).await? {
+                match check_user_mention(ctx, arg).await? {
                     Ok(osu) => config.osu = Some(osu),
-                    Err(content) => return Ok(Err(content.into())),
+                    Err(content) => return Ok(Err(content)),
                 }
             }
         }
@@ -421,10 +424,10 @@ impl RecentSimulateArgs {
 
     pub(super) async fn slash(
         ctx: &Context,
-        options: Vec<CommandDataOption>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut config = ctx.user_config(author_id).await?;
+        command: &ApplicationCommand,
+        mut options: Vec<CommandDataOption>,
+    ) -> DoubleResultCow<Self> {
+        let mut config = ctx.user_config(command.user_id()?).await?;
         let mut mods = None;
         let mut index = None;
         let mut n300 = None;
@@ -435,74 +438,54 @@ impl RecentSimulateArgs {
         let mut combo = None;
         let mut score = None;
 
-        for option in options {
-            match option {
-                CommandDataOption::String { name, .. } => {
-                    bail_cmd_option!(RECENT_SIMULATE, string, name)
-                }
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!(RECENT_SIMULATE, integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(RECENT_SIMULATE, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    OSU | TAIKO | CTB | MANIA => {
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, value } => match name.as_str() {
-                                    NAME => config.osu = Some(value.into()),
-                                    MODS => match matcher::get_mods(&value) {
-                                        Some(mods_) => mods = Some(mods_),
-                                        None => match value.parse() {
-                                            Ok(mods_) => mods = Some(ModSelection::Exact(mods_)),
-                                            Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
-                                        },
-                                    },
-                                    DISCORD => {
-                                        config.osu = Some(parse_discord_option!(
-                                            ctx,
-                                            value,
-                                            "recent simulate"
-                                        ))
-                                    }
-                                    MODE => {
-                                        config.mode = parse_mode_option!(value, "recent simulate")
-                                    }
-                                    ACC => {
-                                        if let Ok(num) = value.parse::<f32>() {
-                                            acc = Some(num.max(0.0).min(100.0))
-                                        } else {
-                                            let content =
-                                                "Failed to parse `acc`. Must be a number.";
+        let option = options.pop().ok_or(Error::InvalidCommandOptions)?;
 
-                                            return Ok(Err(content.into()));
-                                        }
-                                    }
-                                    _ => bail_cmd_option!(RECENT_SIMULATE_MODE, string, name),
+        match option.value {
+            CommandOptionValue::SubCommand(options) => {
+                for option in options {
+                    match option.value {
+                        CommandOptionValue::String(value) => match option.name.as_str() {
+                            NAME => config.osu = Some(value.into()),
+                            MODS => match matcher::get_mods(&value) {
+                                Some(mods_) => mods = Some(mods_),
+                                None => match value.parse() {
+                                    Ok(mods_) => mods = Some(ModSelection::Exact(mods_)),
+                                    Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
                                 },
-                                CommandDataOption::Integer { name, value } => match name.as_str() {
-                                    INDEX => index = Some(value.max(1).min(50) as usize),
-                                    "n300" | "fruits" => n300 = Some(value.max(0) as usize),
-                                    "n100" | "droplets" => n100 = Some(value.max(0) as usize),
-                                    "n50" | "tiny_droplets" => n50 = Some(value.max(0) as usize),
-                                    MISSES => misses = Some(value.max(0) as usize),
-                                    COMBO => combo = Some(value.max(0) as usize),
-                                    SCORE => score = Some(value.max(0) as u32),
-                                    _ => bail_cmd_option!("recent simulate mode", integer, name),
-                                },
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!(RECENT_SIMULATE_MODE, boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!(RECENT_SIMULATE_MODE, subcommand, name)
-                                }
-                            }
+                            },
+                            _ => return Err(Error::InvalidCommandOptions),
+                        },
+                        CommandOptionValue::Integer(value) => match option.name.as_str() {
+                            INDEX => index = Some(value.max(1).min(50) as usize),
+                            "n300" | "fruits" => n300 = Some(value.max(0) as usize),
+                            "n100" | "droplets" => n100 = Some(value.max(0) as usize),
+                            "n50" | "tiny_droplets" => n50 = Some(value.max(0) as usize),
+                            MISSES => misses = Some(value.max(0) as usize),
+                            COMBO => combo = Some(value.max(0) as usize),
+                            SCORE => score = Some(value.max(0) as u32),
+                            _ => return Err(Error::InvalidCommandOptions),
+                        },
+                        CommandOptionValue::Number(value) => {
+                            let number = (option.name == ACC)
+                                .then(|| value.0 as f32)
+                                .ok_or(Error::InvalidCommandOptions)?;
+
+                            acc = Some(number.max(0.0).min(100.0));
                         }
+                        CommandOptionValue::User(value) => match option.name.as_str() {
+                            DISCORD => match parse_discord(ctx, value).await? {
+                                Ok(osu) => config.osu = Some(osu),
+                                Err(content) => return Ok(Err(content)),
+                            },
+                            _ => return Err(Error::InvalidCommandOptions),
+                        },
+                        _ => return Err(Error::InvalidCommandOptions),
                     }
-                    _ => bail_cmd_option!(RECENT_SIMULATE, subcommand, name),
-                },
+                }
+
+                config.mode = parse_mode_option(&option.name);
             }
+            _ => return Err(Error::InvalidCommandOptions),
         }
 
         let args = Self {

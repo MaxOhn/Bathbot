@@ -1,12 +1,12 @@
 use crate::{
     commands::{MyCommand, MyCommandOption},
-    util::{constants::GENERAL_ISSUE, ApplicationCommandExt, MessageExt},
+    util::{constants::GENERAL_ISSUE, MessageExt},
     BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
 use std::sync::Arc;
 use twilight_model::application::interaction::{
-    application_command::CommandDataOption, ApplicationCommand,
+    application_command::CommandOptionValue, ApplicationCommand,
 };
 
 #[command]
@@ -58,33 +58,18 @@ async fn _togglesongs(
     Ok(())
 }
 
-const TOGGLESONGS: &str = "togglesongs";
+pub async fn slash_togglesongs(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
+    let option = command.data.options.first().and_then(|option| {
+        (option.name == "enable").then(|| match option.value {
+            CommandOptionValue::Boolean(value) => Some(value),
+            _ => None,
+        })
+    });
 
-pub async fn slash_togglesongs(
-    ctx: Arc<Context>,
-    mut command: ApplicationCommand,
-) -> BotResult<()> {
-    let mut available = None;
-
-    for option in command.yoink_options() {
-        match option {
-            CommandDataOption::String { name, .. } => {
-                bail_cmd_option!(TOGGLESONGS, string, name)
-            }
-            CommandDataOption::Integer { name, .. } => {
-                bail_cmd_option!(TOGGLESONGS, integer, name)
-            }
-            CommandDataOption::Boolean { name, value } => match name.as_str() {
-                "enable" => available = Some(value),
-                _ => bail_cmd_option!(TOGGLESONGS, boolean, name),
-            },
-            CommandDataOption::SubCommand { name, .. } => {
-                bail_cmd_option!(TOGGLESONGS, subcommand, name)
-            }
-        }
-    }
-
-    let available = available.ok_or(Error::InvalidCommandOptions)?;
+    let available = match option.flatten() {
+        Some(value) => value,
+        None => return Err(Error::InvalidCommandOptions),
+    };
 
     _togglesongs(ctx, command.into(), Some(available)).await
 }
@@ -96,7 +81,7 @@ pub fn define_togglesongs() -> MyCommand {
 
     let description = "Toggle availability of song commands in a server";
 
-    MyCommand::new(TOGGLESONGS, description)
+    MyCommand::new("togglesongs", description)
         .options(vec![enable])
         .authority()
 }

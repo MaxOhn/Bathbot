@@ -14,11 +14,7 @@ use std::{borrow::Cow, sync::Arc};
 use tokio::time::{sleep, Duration};
 use tokio_stream::StreamExt;
 use twilight_http::error::ErrorType;
-use twilight_model::{
-    channel::{Message, Reaction, ReactionType},
-    gateway::payload::ReactionAdd,
-    id::UserId,
-};
+use twilight_model::{channel::{Message, Reaction, ReactionType}, gateway::payload::incoming::ReactionAdd, id::UserId};
 
 struct CachedMedal {
     medal: OsekaiMedal,

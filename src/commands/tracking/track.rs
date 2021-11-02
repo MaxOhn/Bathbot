@@ -45,6 +45,7 @@ pub(super) async fn _track(
     let count = names.len();
     let mode = args.mode.unwrap_or(GameMode::STD);
 
+    // TODO: Try to use DB
     // Retrieve all users
     let mut user_futs: FuturesUnordered<_> = names
         .into_iter()
@@ -96,6 +97,7 @@ pub(super) async fn _track(
                 let embed = TrackEmbed::new(mode, success, failure, Some(username), limit)
                     .into_builder()
                     .build();
+
                 let builder = MessageBuilder::new().embed(embed);
                 data.create_message(&ctx, builder).await?;
 

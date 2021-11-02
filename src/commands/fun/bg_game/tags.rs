@@ -257,10 +257,10 @@ async fn bgtags(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
             .standby
             .wait_for_event_stream(move |event: &Event| match event {
                 Event::ReactionAdd(event) => {
-                    event.message_id == msg_id && event.user_id.0 == OWNER_USER_ID
+                    event.message_id == msg_id && event.user_id.get() == OWNER_USER_ID
                 }
                 Event::ReactionRemove(event) => {
-                    event.message_id == msg_id && event.user_id.0 == OWNER_USER_ID
+                    event.message_id == msg_id && event.user_id.get() == OWNER_USER_ID
                 }
                 _ => false,
             })

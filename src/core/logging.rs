@@ -7,6 +7,12 @@ use flexi_logger::{
 use log::Record;
 use once_cell::sync::OnceCell;
 use std::io::{Result as IoResult, Write};
+use time::{format_description::FormatItem, macros::format_description};
+
+lazy_static! {
+    static ref LOG_DATE_FORMAT: &'static [FormatItem<'static>] =
+        format_description!("[year]-[month]-[day] [hour]:[minute]:[second]");
+}
 
 static LOGGER: OnceCell<LoggerHandle> = OnceCell::new();
 
@@ -60,7 +66,7 @@ pub fn log_format(w: &mut dyn Write, now: &mut DeferredNow, record: &Record<'_>)
     write!(
         w,
         "[{}] {} {}",
-        now.now().format("%y-%m-%d %H:%M:%S"),
+        now.format(&LOG_DATE_FORMAT),
         record.level(),
         &record.args()
     )
@@ -74,7 +80,7 @@ pub fn log_format_files(
     write!(
         w,
         "[{}] {:^5} [{}:{}] {}",
-        now.now().format("%y-%m-%d %H:%M:%S"),
+        now.format(&LOG_DATE_FORMAT),
         record.level(),
         record.file_static().unwrap_or_else(|| record.target()),
         record.line().unwrap_or(0),

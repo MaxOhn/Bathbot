@@ -1,6 +1,6 @@
 use crate::{
     commands::{MyCommand, MyCommandOption},
-    util::{ApplicationCommandExt, CowUtils, Matrix, MessageExt},
+    util::{CowUtils, Matrix, MessageExt},
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
@@ -11,7 +11,7 @@ use std::{
 };
 use twilight_model::application::{
     command::CommandOptionChoice,
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+    interaction::{application_command::CommandOptionValue, ApplicationCommand},
 };
 
 #[command]
@@ -82,34 +82,24 @@ impl Difficulty {
         }
     }
 
-    fn slash(command: &mut ApplicationCommand) -> BotResult<Self> {
-        let mut difficulty = None;
-
-        for option in command.yoink_options() {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
-                    "difficulty" => match value.as_str() {
-                        "Easy" => difficulty = Some(Self::Easy),
-                        "Medium" => difficulty = Some(Self::Medium),
-                        "Hard" => difficulty = Some(Self::Hard),
-                        "Expert" => difficulty = Some(Self::Expert),
-                        _ => bail_cmd_option!("minesweeper", string, value),
-                    },
-                    _ => bail_cmd_option!("minesweeper", string, name),
+    fn slash(command: &ApplicationCommand) -> BotResult<Self> {
+        let option = command.data.options.first().and_then(|option| {
+            (option.name == "difficulty").then(|| match &option.value {
+                CommandOptionValue::String(value) => match value.as_str() {
+                    "Easy" => Some(Self::Easy),
+                    "Medium" => Some(Self::Medium),
+                    "Hard" => Some(Self::Hard),
+                    "Expert" => Some(Self::Expert),
+                    _ => None,
                 },
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("minesweeper", integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("minesweeper", boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("minesweeper", subcommand, name)
-                }
-            }
-        }
+                _ => None,
+            })
+        });
 
-        difficulty.ok_or(Error::InvalidCommandOptions)
+        match option.flatten() {
+            Some(value) => Ok(value),
+            None => Err(Error::InvalidCommandOptions),
+        }
     }
 
     fn create(&self) -> Minesweeper {

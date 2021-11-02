@@ -1,21 +1,4 @@
-use super::ErrorType;
-use crate::{
-    database::UserConfig,
-    embeds::{EmbedData, TopIfEmbed},
-    error::PPError,
-    pagination::{Pagination, TopIfPagination},
-    tracking::process_tracking,
-    util::{
-        constants::{
-            common_literals::{DISCORD, MANIA, NAME, OSU, TAIKO},
-            GENERAL_ISSUE, OSU_API_ISSUE,
-        },
-        numbers,
-        osu::prepare_beatmap_file,
-        MessageExt,
-    },
-    Args, BotResult, CommandData, Context, Error, MessageBuilder,
-};
+use std::{cmp::Ordering, sync::Arc};
 
 use chrono::{Datelike, Utc};
 use eyre::Report;
@@ -26,11 +9,26 @@ use futures::{
 use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_pp_older::*;
 use rosu_v2::prelude::{GameMode, OsuError, Score};
-use std::{borrow::Cow, cmp::Ordering, sync::Arc};
 use tokio::fs::File;
 use twilight_model::{
-    application::interaction::application_command::CommandDataOption, id::UserId,
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+    id::UserId,
 };
+
+use crate::{Args, BotResult, CommandData, Context, Error, MessageBuilder, commands::{DoubleResultCow, check_user_mention, parse_discord}, database::UserConfig, embeds::{EmbedData, TopIfEmbed}, error::PPError, pagination::{Pagination, TopIfPagination}, tracking::process_tracking, util::{
+        constants::{
+            common_literals::{CTB, DISCORD, MANIA, NAME, OSU, TAIKO},
+            GENERAL_ISSUE, OSU_API_ISSUE,
+        },
+        numbers,
+        osu::prepare_beatmap_file,
+        InteractionExt, MessageExt,
+    }};
+
+use super::ErrorType;
 
 macro_rules! pp_std {
     ($version:ident, $rosu_map:ident, $score:ident, $mods:ident) => {{
@@ -546,19 +544,13 @@ pub(super) struct OldArgs {
     version: Option<OldVersion>,
 }
 
-const TOP_OLD: &str = "top old";
-const TOP_OLD_OSU: &str = "top old osu";
-const TOP_OLD_TAIKO: &str = "top old taiko";
-const TOP_OLD_CTB: &str = "top old ctb";
-const TOP_OLD_MANIA: &str = "top old mania";
-
 impl OldArgs {
     async fn args(
         ctx: &Context,
         args: &mut Args<'_>,
         author_id: UserId,
         mode: GameMode,
-    ) -> BotResult<Result<Self, &'static str>> {
+    ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
 
         let first = args.next();
@@ -569,7 +561,7 @@ impl OldArgs {
         let (name, year) = match second {
             Some(second) => match second.parse() {
                 Ok(num) => (first, num),
-                Err(_) => return Ok(Err(ERR_PARSE_YEAR)),
+                Err(_) => return Ok(Err(ERR_PARSE_YEAR.into())),
             },
             None => match first {
                 Some(first) => match first.parse() {
@@ -581,7 +573,7 @@ impl OldArgs {
         };
 
         if let Some(name) = name {
-            match Args::check_user_mention(ctx, name).await? {
+            match check_user_mention(ctx, name).await? {
                 Ok(osu) => config.osu = Some(osu),
                 Err(content) => return Ok(Err(content)),
             }
@@ -600,169 +592,61 @@ impl OldArgs {
 
     pub(super) async fn slash(
         ctx: &Context,
-        options: Vec<CommandDataOption>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut config = ctx.user_config(author_id).await?;
-        let mut version = None;
+        command: &ApplicationCommand,
+        mut options: Vec<CommandDataOption>,
+    ) -> DoubleResultCow<Self> {
+        let mut config = ctx.user_config(command.user_id()?).await?;
+        let option = options.pop().ok_or(Error::InvalidCommandOptions)?;
 
-        for option in options {
-            match option {
-                CommandDataOption::String { name, .. } => {
-                    bail_cmd_option!(TOP_OLD, string, name)
+        let version = match option.value {
+            CommandOptionValue::SubCommand(options) => {
+                let mut version = None;
+
+                for option in options {
+                    match option.value {
+                        CommandOptionValue::String(value) => match option.name.as_str() {
+                            NAME => config.osu = Some(value.into()),
+                            "version" => version = Some(value),
+                            _ => return Err(Error::InvalidCommandOptions),
+                        },
+                        CommandOptionValue::User(value) => match option.name.as_str() {
+                            DISCORD => match parse_discord(ctx, value).await? {
+                                Ok(osu) => config.osu = Some(osu),
+                                Err(content) => return Ok(Err(content)),
+                            },
+                            _ => return Err(Error::InvalidCommandOptions),
+                        },
+                        _ => return Err(Error::InvalidCommandOptions),
+                    }
                 }
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!(TOP_OLD, integer, name)
+
+                let version = version.ok_or(Error::InvalidCommandOptions)?;
+
+                match option.name.as_str() {
+                    OSU => match version.as_str() {
+                        "april15_may18" => Some(OldVersion::OsuApr15May18),
+                        "may18_february19" => Some(OldVersion::OsuMay18Feb19),
+                        "february19_january21" => Some(OldVersion::OsuFeb19Jan21),
+                        "january21_july21" => Some(OldVersion::OsuJan21Jul21),
+                        _ => return Err(Error::InvalidCommandOptions),
+                    },
+                    TAIKO => match version.as_str() {
+                        "march14_september20" => Some(OldVersion::TaikoMar14Sep20),
+                        _ => return Err(Error::InvalidCommandOptions),
+                    },
+                    CTB => match version.as_str() {
+                        "march14_may20" => Some(OldVersion::CatchMar14May20),
+                        _ => return Err(Error::InvalidCommandOptions),
+                    },
+                    MANIA => match version.as_str() {
+                        "march14_may18" => Some(OldVersion::ManiaMar14May18),
+                        _ => return Err(Error::InvalidCommandOptions),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
                 }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(TOP_OLD, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    OSU => {
-                        config.mode = Some(GameMode::STD);
-
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, value } => match name.as_str() {
-                                    NAME => config.osu = Some(value.into()),
-                                    DISCORD => {
-                                        config.osu =
-                                            Some(parse_discord_option!(ctx, value, "top old osu"))
-                                    }
-                                    "version" => match value.as_str() {
-                                        "april15_may18" => {
-                                            version = Some(OldVersion::OsuApr15May18)
-                                        }
-                                        "may18_february19" => {
-                                            version = Some(OldVersion::OsuMay18Feb19)
-                                        }
-                                        "february19_january21" => {
-                                            version = Some(OldVersion::OsuFeb19Jan21)
-                                        }
-                                        "january21_july21" => {
-                                            version = Some(OldVersion::OsuJan21Jul21)
-                                        }
-                                        _ => bail_cmd_option!("top old osu version", string, value),
-                                    },
-                                    _ => bail_cmd_option!(TOP_OLD_OSU, string, name),
-                                },
-                                CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!(TOP_OLD_OSU, integer, name)
-                                }
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!(TOP_OLD_OSU, boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!(TOP_OLD_OSU, subcommand, name)
-                                }
-                            }
-                        }
-                    }
-                    TAIKO => {
-                        config.mode = Some(GameMode::TKO);
-
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, value } => match name.as_str() {
-                                    NAME => config.osu = Some(value.into()),
-                                    DISCORD => {
-                                        config.osu =
-                                            Some(parse_discord_option!(ctx, value, "top old taiko"))
-                                    }
-                                    "version" => match value.as_str() {
-                                        "march14_september20" => {
-                                            version = Some(OldVersion::TaikoMar14Sep20)
-                                        }
-                                        _ => {
-                                            bail_cmd_option!("top old taiko version", string, value)
-                                        }
-                                    },
-                                    _ => bail_cmd_option!(TOP_OLD_TAIKO, string, name),
-                                },
-                                CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!(TOP_OLD_TAIKO, integer, name)
-                                }
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!(TOP_OLD_TAIKO, boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!(TOP_OLD_TAIKO, subcommand, name)
-                                }
-                            }
-                        }
-                    }
-                    "catch" => {
-                        config.mode = Some(GameMode::CTB);
-
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, value } => match name.as_str() {
-                                    NAME => config.osu = Some(value.into()),
-                                    DISCORD => {
-                                        config.osu =
-                                            Some(parse_discord_option!(ctx, value, "top old catch"))
-                                    }
-                                    "version" => match value.as_str() {
-                                        "march14_may20" => {
-                                            version = Some(OldVersion::CatchMar14May20)
-                                        }
-                                        _ => {
-                                            bail_cmd_option!("top old catch version", string, value)
-                                        }
-                                    },
-                                    _ => bail_cmd_option!(TOP_OLD_CTB, string, name),
-                                },
-                                CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!(TOP_OLD_CTB, integer, name)
-                                }
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!(TOP_OLD_CTB, boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!(TOP_OLD_CTB, subcommand, name)
-                                }
-                            }
-                        }
-                    }
-                    MANIA => {
-                        config.mode = Some(GameMode::MNA);
-
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, value } => match name.as_str() {
-                                    NAME => config.osu = Some(value.into()),
-                                    DISCORD => {
-                                        config.osu =
-                                            Some(parse_discord_option!(ctx, value, "top old mania"))
-                                    }
-                                    "version" => match value.as_str() {
-                                        "march14_may18" => {
-                                            version = Some(OldVersion::ManiaMar14May18)
-                                        }
-                                        _ => {
-                                            bail_cmd_option!("top old mania version", string, value)
-                                        }
-                                    },
-                                    _ => bail_cmd_option!(TOP_OLD_MANIA, string, name),
-                                },
-                                CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!(TOP_OLD_MANIA, integer, name)
-                                }
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!(TOP_OLD_MANIA, boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!(TOP_OLD_MANIA, subcommand, name)
-                                }
-                            }
-                        }
-                    }
-                    _ => bail_cmd_option!(TOP_OLD, subcommand, name),
-                },
             }
-        }
-
-        let version = Some(version.ok_or(Error::InvalidCommandOptions)?);
+            _ => return Err(Error::InvalidCommandOptions),
+        };
 
         Ok(Ok(Self { config, version }))
     }

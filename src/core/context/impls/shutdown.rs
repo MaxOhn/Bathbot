@@ -1,4 +1,5 @@
 use eyre::Report;
+use hashbrown::HashMap;
 use twilight_model::gateway::presence::{ActivityType, Status};
 
 use crate::Context;
@@ -22,7 +23,7 @@ impl Context {
 
         // Kill the shards and get their resume info
         // DANGER: WE WILL NOT BE GETTING EVENTS FROM THIS POINT ONWARDS, REBOOT REQUIRED
-        let resume_data = self
+        let _resume_data: HashMap<_, _> = self
             .cluster
             .down_resumable()
             .into_iter()
@@ -31,14 +32,16 @@ impl Context {
 
         debug!("Received resume data");
 
-        let cold_resume_fut = self
-            .cache
-            .prepare_cold_resume(&self.clients.redis, resume_data);
+        // TODO
 
-        if let Err(why) = cold_resume_fut.await {
-            let report = Report::new(why).wrap_err("failed to prepare cold resume");
-            error!("{:?}", report);
-        }
+        // let cold_resume_fut = self
+        //     .cache
+        //     .prepare_cold_resume(&self.clients.redis, resume_data);
+
+        // if let Err(why) = cold_resume_fut.await {
+        //     let report = Report::new(why).wrap_err("failed to prepare cold resume");
+        //     error!("{:?}", report);
+        // }
     }
 
     #[cold]

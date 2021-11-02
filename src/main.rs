@@ -70,10 +70,11 @@ use twilight_model::{
     application::interaction::Interaction,
     channel::message::allowed_mentions::AllowedMentionsBuilder,
     gateway::{
-        payload::RequestGuildMembers,
+        payload::outgoing::RequestGuildMembers,
         presence::{ActivityType, Status},
         Intents,
     },
+    id::GuildId,
 };
 
 type BotResult<T> = std::result::Result<T, Error>;
@@ -91,8 +92,8 @@ fn main() {
 }
 
 async fn async_main() -> Result<()> {
-    logging::initialize()?;
     dotenv::dotenv()?;
+    logging::initialize()?;
 
     // Load config file
     core::BotConfig::init("config.toml").await?;
@@ -114,6 +115,8 @@ async fn async_main() -> Result<()> {
                 .build(),
         )
         .build();
+
+    let http = Arc::new(http);
 
     let current_user = http.current_user().exec().await?.model().await?;
     let application_id = current_user.id.0.into();
@@ -211,7 +214,7 @@ async fn async_main() -> Result<()> {
         .shard_scheme(ShardScheme::Auto);
 
     // Check for resume data, pass to builder if present
-    let (cache, resume_map) = Cache::new(&redis).await;
+    let (cache, resume_map) = Cache::new().await;
     let resumed = if let Some(map) = resume_map {
         cb = cb.resume_sessions(map);
         info!("Cold resume successful");
@@ -223,7 +226,7 @@ async fn async_main() -> Result<()> {
         false
     };
 
-    let stats = Arc::new(BotStats::new(osu.metrics(), cache.metrics()));
+    let stats = Arc::new(BotStats::new(osu.metrics()));
 
     // Build cluster
     let (cluster, mut event_stream) = cb.build().await?;
@@ -233,7 +236,7 @@ async fn async_main() -> Result<()> {
     info!("Setting {} slash commands...", slash_commands.len());
 
     if cfg!(debug_assertions) {
-        http.set_guild_commands(BATHBOT_WORKSHOP_ID.into(), &slash_commands)?
+        http.set_guild_commands(GuildId::new(BATHBOT_WORKSHOP_ID).unwrap(), &slash_commands)?
             .exec()
             .await?;
     } else {

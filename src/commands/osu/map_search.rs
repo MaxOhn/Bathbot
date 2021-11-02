@@ -1,6 +1,7 @@
 use crate::{
-    commands::{MyCommand, MyCommandOption},
+    commands::{parse_mode_option, MyCommand, MyCommandOption},
     embeds::{EmbedData, MapSearchEmbed},
+    error::Error,
     pagination::{MapSearchPagination, Pagination},
     util::{
         constants::{
@@ -20,7 +21,7 @@ use rosu_v2::prelude::{
 use std::{collections::BTreeMap, sync::Arc};
 use twilight_model::application::{
     command::CommandOptionChoice,
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+    interaction::{application_command::CommandOptionValue, ApplicationCommand},
 };
 
 use super::option_mode;
@@ -471,8 +472,6 @@ impl MapSearchArgs {
     }
 }
 
-const SEARCH: &str = "search";
-
 pub async fn slash_mapsearch(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
     let mut query = None;
     let mut mode = None;
@@ -486,10 +485,10 @@ pub async fn slash_mapsearch(ctx: Arc<Context>, mut command: ApplicationCommand)
     let mut descending = None;
 
     for option in command.yoink_options() {
-        match option {
-            CommandDataOption::String { name, value } => match name.as_str() {
+        match option.value {
+            CommandOptionValue::String(value) => match option.name.as_str() {
                 "query" => query = Some(value),
-                MODE => mode = parse_mode_option!(value, "search"),
+                MODE => mode = parse_mode_option(&value),
                 "status" => match value.as_str() {
                     "any" => status = Some(SearchRankStatus(None)),
                     "leaderboard" => status = None,
@@ -498,7 +497,7 @@ pub async fn slash_mapsearch(ctx: Arc<Context>, mut command: ApplicationCommand)
                     "qualified" => status = Some(SearchRankStatus(Some(RankStatus::Qualified))),
                     "pending" => status = Some(SearchRankStatus(Some(RankStatus::Pending))),
                     "graveyard" => status = Some(SearchRankStatus(Some(RankStatus::Graveyard))),
-                    _ => bail_cmd_option!("search status", string, value),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
                 "genre" => match value.as_str() {
                     "any" => genre = Some(Genre::Any),
@@ -515,7 +514,7 @@ pub async fn slash_mapsearch(ctx: Arc<Context>, mut command: ApplicationCommand)
                     "rock" => genre = Some(Genre::Rock),
                     "unspecified" => genre = Some(Genre::Unspecified),
                     "videogame" => genre = Some(Genre::VideoGame),
-                    _ => bail_cmd_option!("search genre", string, value),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
                 "language" => match value.as_str() {
                     "any" => language = Some(Language::Any),
@@ -533,7 +532,7 @@ pub async fn slash_mapsearch(ctx: Arc<Context>, mut command: ApplicationCommand)
                     "spanish" => language = Some(Language::Spanish),
                     "swedish" => language = Some(Language::Swedish),
                     "unspecified" => language = Some(Language::Unspecified),
-                    _ => bail_cmd_option!("search language", string, value),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
                 SORT => match value.as_str() {
                     "artist" => sort = Some(BeatmapsetSearchSort::Artist),
@@ -544,21 +543,18 @@ pub async fn slash_mapsearch(ctx: Arc<Context>, mut command: ApplicationCommand)
                     "relevance" => sort = Some(BeatmapsetSearchSort::Relevance),
                     "stars" => sort = Some(BeatmapsetSearchSort::Stars),
                     "title" => sort = Some(BeatmapsetSearchSort::Title),
-                    _ => bail_cmd_option!("search sort", string, value),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                _ => bail_cmd_option!(SEARCH, string, name),
+                _ => return Err(Error::InvalidCommandOptions),
             },
-            CommandDataOption::Integer { name, .. } => bail_cmd_option!(SEARCH, integer, name),
-            CommandDataOption::Boolean { name, value } => match name.as_str() {
+            CommandOptionValue::Boolean(value) => match option.name.as_str() {
                 "video" => video = Some(value),
                 "storyboard" => storyboard = Some(value),
                 "nsfw" => nsfw = Some(value),
                 REVERSE => descending = Some(!value),
-                _ => bail_cmd_option!(SEARCH, boolean, name),
+                _ => return Err(Error::InvalidCommandOptions),
             },
-            CommandDataOption::SubCommand { name, .. } => {
-                bail_cmd_option!(SEARCH, subcommand, name)
-            }
+            _ => return Err(Error::InvalidCommandOptions),
         }
     }
 
@@ -798,7 +794,7 @@ pub fn define_mapsearch() -> MyCommand {
 
     let reverse = MyCommandOption::builder(REVERSE, reverse_description).boolean(false);
 
-    MyCommand::new(SEARCH, "Search for mapsets").options(vec![
+    MyCommand::new("search", "Search for mapsets").options(vec![
         query, mode, status, sort, genre, language, video, storyboard, nsfw, reverse,
     ])
 }

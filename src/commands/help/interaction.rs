@@ -9,7 +9,8 @@ use twilight_model::{
             SelectMenu,
         },
         interaction::{
-            application_command::CommandDataOption, ApplicationCommand, MessageComponentInteraction,
+            application_command::CommandOptionValue, ApplicationCommand,
+            MessageComponentInteraction,
         },
     },
     channel::embed::EmbedField,
@@ -19,13 +20,13 @@ use crate::{
     commands::{MyCommand, MyCommandOption, MyCommandOptionKind, SLASH_COMMANDS},
     core::Context,
     embeds::{EmbedBuilder, Footer},
-    error::InvalidHelpState,
+    error::{Error, InvalidHelpState},
     util::{
         constants::{common_literals::HELP, BATHBOT_GITHUB, BATHBOT_WORKSHOP, INVITE_LINK},
         datetime::how_long_ago_dynamic,
         levenshtein_distance,
         numbers::with_comma_int,
-        ApplicationCommandExt, CowUtils, MessageBuilder, MessageExt,
+        CowUtils, MessageBuilder, MessageExt,
     },
     BotResult,
 };
@@ -59,6 +60,7 @@ impl From<MyCommandOption> for Parts {
             | MyCommandOptionKind::SubCommandGroup { options } => options,
             MyCommandOptionKind::String { .. }
             | MyCommandOptionKind::Integer { .. }
+            | MyCommandOptionKind::Number { .. }
             | MyCommandOptionKind::Boolean { .. }
             | MyCommandOptionKind::User { .. }
             | MyCommandOptionKind::Channel { .. }
@@ -273,6 +275,7 @@ fn option_fields(children: &[MyCommandOption]) -> Vec<EmbedField> {
             | MyCommandOptionKind::SubCommandGroup { .. } => None,
             MyCommandOptionKind::String { required, .. }
             | MyCommandOptionKind::Integer { required, .. }
+            | MyCommandOptionKind::Number { required, .. }
             | MyCommandOptionKind::Boolean { required }
             | MyCommandOptionKind::User { required }
             | MyCommandOptionKind::Channel { required }
@@ -389,24 +392,22 @@ async fn help_slash_command(
     Ok(())
 }
 
-pub async fn slash_help(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+pub async fn slash_help(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
     let mut cmd_name = None;
 
-    for option in command.yoink_options() {
-        match option {
-            CommandDataOption::String { name, value } => match name.as_str() {
-                "command" => cmd_name = Some(value),
-                _ => bail_cmd_option!(HELP, string, name),
-            },
-            CommandDataOption::Integer { name, .. } => bail_cmd_option!(HELP, integer, name),
-            CommandDataOption::Boolean { name, .. } => bail_cmd_option!(HELP, boolean, name),
-            CommandDataOption::SubCommand { name, .. } => {
-                bail_cmd_option!(HELP, subcommand, name)
-            }
+    if let Some(option) = command.data.options.first() {
+        let option = (option.name == "command").then(|| match &option.value {
+            CommandOptionValue::String(value) => Some(value),
+            _ => None,
+        });
+
+        match option.flatten() {
+            Some(value) => cmd_name = Some(value),
+            None => return Err(Error::InvalidCommandOptions),
         }
     }
 
-    let name = cmd_name.as_ref().map(|name| name.cow_to_ascii_lowercase());
+    let name = cmd_name.map(|name| name.cow_to_ascii_lowercase());
 
     match name {
         Some(name) => {
@@ -466,12 +467,12 @@ async fn basic_help(ctx: &Context, command: ApplicationCommand) -> BotResult<()>
     };
 
     let boot_time = ctx.stats.start_time;
-    let server_count = ctx.stats.cache_metrics.guilds.get();
+    let server_count = ctx.cache.stats().guilds();
 
     let servers = EmbedField {
         inline: true,
         name: "Servers".to_owned(),
-        value: with_comma_int(server_count as u64).to_string(),
+        value: with_comma_int(server_count).to_string(),
     };
 
     let boot_up = EmbedField {

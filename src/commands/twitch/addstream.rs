@@ -48,7 +48,7 @@ pub async fn _addstream(ctx: Arc<Context>, data: CommandData<'_>, name: &'_ str)
         }
     };
 
-    let channel = data.channel_id().0;
+    let channel = data.channel_id().get();
     ctx.add_tracking(twitch_id, channel);
 
     match ctx.psql().add_stream_track(channel, twitch_id).await {

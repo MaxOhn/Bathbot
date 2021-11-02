@@ -6,7 +6,7 @@ use crate::{
 
 use dashmap::DashMap;
 use futures::stream::StreamExt;
-use rosu_v2::prelude::{GameMode};
+use rosu_v2::prelude::GameMode;
 use twilight_model::id::{GuildId, UserId};
 
 impl Database {
@@ -22,7 +22,7 @@ impl Database {
                 with_lyrics: entry.with_lyrics,
             };
 
-            guilds.insert(GuildId(entry.guild_id as u64), config);
+            guilds.insert(GuildId::new(entry.guild_id as u64).unwrap(), config);
         }
 
         Ok(guilds)
@@ -40,7 +40,7 @@ impl Database {
             SET authorities=$2,\
                 prefixes=$3,\
                 with_lyrics=$4",
-            guild_id.0 as i64,
+            guild_id.get() as i64,
             serde_cbor::to_vec(&config.authorities)?,
             serde_cbor::to_vec(&config.prefixes)?,
             config.with_lyrics,
@@ -60,7 +60,7 @@ impl Database {
                 FROM user_configs \
                 WHERE discord_id=$1) AS config \
             JOIN osu_user_names AS names ON config.osu_id=names.user_id",
-            user_id.0 as i64
+            user_id.get() as i64
         );
 
         match query.fetch_optional(&self.pool).await? {
@@ -84,7 +84,7 @@ impl Database {
                FROM user_configs \
                WHERE discord_id=$1) AS config \
             JOIN osu_user_names AS names ON config.osu_id=names.user_id",
-            user_id.0 as i64
+            user_id.get() as i64
         );
 
         match query.fetch_optional(&self.pool).await? {
@@ -165,7 +165,7 @@ impl Database {
                 profile_size=$5,\
                 show_retries=$6,\
                 twitch_id=$7",
-            user_id.0 as i64,
+            user_id.get() as i64,
             config.embeds_maximized,
             config.mode.map(|m| m as i16),
             config

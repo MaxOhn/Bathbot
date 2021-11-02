@@ -1,9 +1,4 @@
-use crate::{
-    custom_client::{SnipeScoreOrder, SnipeScoreParams},
-    database::OsuData,
-    embeds::{EmbedData, PlayerSnipeListEmbed},
-    pagination::{Pagination, PlayerSnipeListPagination},
-    util::{
+use crate::{Args, BotResult, CommandData, Context, MessageBuilder, commands::{DoubleResultCow, check_user_mention}, custom_client::{SnipeScoreOrder, SnipeScoreParams}, database::OsuData, embeds::{EmbedData, PlayerSnipeListEmbed}, pagination::{Pagination, PlayerSnipeListPagination}, util::{
         constants::{
             common_literals::{ACC, ACCURACY, MISSES, REVERSE, SORT},
             GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE,
@@ -11,14 +6,12 @@ use crate::{
         matcher, numbers,
         osu::ModSelection,
         CowUtils, MessageExt,
-    },
-    Args, BotResult, CommandData, Context, MessageBuilder,
-};
+    }};
 
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError};
-use std::{borrow::Cow, collections::BTreeMap, fmt::Write, sync::Arc};
+use std::{ collections::BTreeMap, fmt::Write, sync::Arc};
 use twilight_model::id::UserId;
 
 #[command]
@@ -222,11 +215,7 @@ pub(super) struct PlayerListArgs {
 }
 
 impl PlayerListArgs {
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
         let mut osu = ctx.psql().get_user_osu(author_id).await?;
         let mut order = None;
         let mut mods = None;
@@ -277,9 +266,9 @@ impl PlayerListArgs {
             } else if let Some(mods_) = matcher::get_mods(arg.as_ref()) {
                 mods = Some(mods_);
             } else {
-                match Args::check_user_mention(ctx, arg.as_ref()).await? {
+                match check_user_mention(ctx, arg.as_ref()).await? {
                     Ok(osu_) => osu = Some(osu_),
-                    Err(content) => return Ok(Err(content.into())),
+                    Err(content) => return Ok(Err(content)),
                 }
             }
         }

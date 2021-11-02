@@ -1,4 +1,17 @@
+use std::{ sync::Arc};
+
+use eyre::Report;
+use rosu_v2::prelude::{GameMode, OsuError};
+use twilight_model::{
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+    id::UserId,
+};
+
 use crate::{
+    commands::{check_user_mention, parse_discord, parse_mode_option, DoubleResultCow},
     custom_client::RankParam,
     database::UserConfig,
     embeds::{EmbedData, PPMissingEmbed},
@@ -8,16 +21,9 @@ use crate::{
             common_literals::{DISCORD, MODE, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
-        MessageExt,
+        InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, Error,
-};
-
-use eyre::Report;
-use rosu_v2::prelude::{GameMode, OsuError};
-use std::{borrow::Cow, sync::Arc};
-use twilight_model::{
-    application::interaction::application_command::CommandDataOption, id::UserId,
 };
 
 pub(super) async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) -> BotResult<()> {
@@ -221,21 +227,15 @@ pub(super) struct PpArgs {
     pub pp: f32,
 }
 
-const REACH_PP: &str = "reach pp";
-
 impl PpArgs {
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, &'static str>> {
+    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
         let mut pp = None;
 
         for arg in args.take(2) {
             match arg.parse() {
                 Ok(num) => pp = Some(num),
-                Err(_) => match Args::check_user_mention(ctx, arg).await? {
+                Err(_) => match check_user_mention(ctx, arg).await? {
                     Ok(osu) => config.osu = Some(osu),
                     Err(content) => return Ok(Err(content)),
                 },
@@ -244,7 +244,7 @@ impl PpArgs {
 
         let pp = match pp {
             Some(pp) => pp,
-            None => return Ok(Err("You need to provide a decimal number")),
+            None => return Ok(Err("You need to provide a decimal number".into())),
         };
 
         Ok(Ok(Self { config, pp }))
@@ -252,37 +252,34 @@ impl PpArgs {
 
     pub(super) async fn slash(
         ctx: &Context,
+        command: &ApplicationCommand,
         options: Vec<CommandDataOption>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut config = ctx.user_config(author_id).await?;
+    ) -> DoubleResultCow<Self> {
+        let mut config = ctx.user_config(command.user_id()?).await?;
         let mut pp = None;
 
         for option in options {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
-                    MODE => config.mode = parse_mode_option!(value, "reach pp"),
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
+                    MODE => config.mode = parse_mode_option(&value),
                     NAME => config.osu = Some(value.into()),
-                    DISCORD => config.osu = Some(parse_discord_option!(ctx, value, "reach pp")),
-                    "pp" => match value.parse() {
-                        Ok(num) => pp = Some(num),
-                        Err(_) => {
-                            let content = "Failed to parse `pp`. Must be a number.";
-
-                            return Ok(Err(content.into()));
-                        }
-                    },
-                    _ => bail_cmd_option!(REACH_PP, string, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!(REACH_PP, integer, name)
+                CommandOptionValue::Number(value) => {
+                    let number = (option.name == "pp")
+                        .then(|| value.0 as f32)
+                        .ok_or(Error::InvalidCommandOptions)?;
+
+                    pp = Some(number);
                 }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(REACH_PP, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!(REACH_PP, subcommand, name)
-                }
+                CommandOptionValue::User(value) => match option.name.as_str() {
+                    DISCORD => match parse_discord(ctx, value).await? {
+                        Ok(osu) => config.osu = Some(osu),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 

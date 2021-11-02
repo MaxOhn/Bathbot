@@ -1,26 +1,16 @@
-use crate::{
-    commands::{
-        osu::{option_discord, option_name},
-        MyCommand,
-    },
-    database::OsuData,
-    embeds::{EmbedData, MostPlayedEmbed},
-    pagination::{MostPlayedPagination, Pagination},
-    util::{
+use crate::{ BotResult, CommandData, Context, commands::{DoubleResultCow, MyCommand, check_user_mention, osu::{option_discord, option_name}, parse_discord}, database::OsuData, embeds::{EmbedData, MostPlayedEmbed}, error::Error, pagination::{MostPlayedPagination, Pagination}, util::{
         constants::{
             common_literals::{DISCORD, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
         numbers, ApplicationCommandExt, InteractionExt, MessageExt,
-    },
-    Args, BotResult, CommandData, Context,
-};
+    }};
 
 use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError, Username};
 use std::sync::Arc;
 use twilight_model::application::interaction::{
-    application_command::CommandDataOption, ApplicationCommand,
+    application_command::CommandOptionValue, ApplicationCommand,
 };
 
 #[command]
@@ -32,7 +22,7 @@ async fn mostplayed(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
             let name = match args.next() {
-                Some(arg) => match Args::check_user_mention(&ctx, arg).await {
+                Some(arg) => match check_user_mention(&ctx, arg).await {
                     Ok(Ok(osu)) => Some(osu.into_username()),
                     Ok(Err(content)) => return msg.error(&ctx, content).await,
                     Err(why) => {
@@ -122,32 +112,26 @@ async fn _mostplayed(
     Ok(())
 }
 
-const MOSTPLAYED: &str = "mostplayed";
-
 async fn parse_username(
     ctx: &Context,
     command: &mut ApplicationCommand,
-) -> BotResult<Result<Option<Username>, String>> {
+) -> DoubleResultCow<Option<Username>> {
     let mut username = None;
 
     for option in command.yoink_options() {
-        match option {
-            CommandDataOption::String { name, value } => match name.as_str() {
+        match option.value {
+            CommandOptionValue::String(value) => match option.name.as_str() {
                 NAME => username = Some(value.into()),
-                DISCORD => {
-                    username = Some(parse_discord_option!(ctx, value, "mostplayed").into_username())
-                }
-                _ => bail_cmd_option!(MOSTPLAYED, string, name),
+                _ => return Err(Error::InvalidCommandOptions),
             },
-            CommandDataOption::Integer { name, .. } => {
-                bail_cmd_option!(MOSTPLAYED, integer, name)
-            }
-            CommandDataOption::Boolean { name, .. } => {
-                bail_cmd_option!(MOSTPLAYED, boolean, name)
-            }
-            CommandDataOption::SubCommand { name, .. } => {
-                bail_cmd_option!(MOSTPLAYED, subcommand, name)
-            }
+            CommandOptionValue::User(value) => match option.name.as_str() {
+                DISCORD => match parse_discord(ctx, value).await? {
+                    Ok(osu) => username = Some(osu.into_username()),
+                    Err(content) => return Ok(Err(content)),
+                },
+                _ => return Err(Error::InvalidCommandOptions),
+            },
+            _ => return Err(Error::InvalidCommandOptions),
         }
     }
 
@@ -179,6 +163,6 @@ pub fn define_mostplayed() -> MyCommand {
     let name = option_name();
     let discord = option_discord();
 
-    MyCommand::new(MOSTPLAYED, "Display the most played maps of a user")
+    MyCommand::new("mostplayed", "Display the most played maps of a user")
         .options(vec![name, discord])
 }

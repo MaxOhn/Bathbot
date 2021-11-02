@@ -1,7 +1,8 @@
 use crate::{
-    commands::{osu::option_mods, MyCommand},
+    commands::{osu::option_mods, DoubleResultCow, MyCommand},
     database::OsuData,
     embeds::{EmbedData, LeaderboardEmbed},
+    error::Error,
     pagination::{LeaderboardPagination, Pagination},
     util::{
         constants::{
@@ -17,9 +18,9 @@ use crate::{
 
 use eyre::Report;
 use rosu_v2::error::OsuError;
-use std::{borrow::Cow, sync::Arc};
+use std::sync::Arc;
 use twilight_model::{
-    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
+    application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
     channel::message::MessageType,
 };
 
@@ -262,8 +263,6 @@ struct LeaderboardArgs {
     mods: Option<ModSelection>,
 }
 
-const LEADERBOARD: &str = "leaderboard";
-
 impl LeaderboardArgs {
     fn args(args: &mut Args<'_>) -> Result<Self, String> {
         let mut map = None;
@@ -290,13 +289,13 @@ impl LeaderboardArgs {
         Ok(Self { map, mods })
     }
 
-    fn slash(command: &mut ApplicationCommand) -> BotResult<Result<Self, Cow<'static, str>>> {
+    fn slash(command: &mut ApplicationCommand) -> DoubleResultCow<Self> {
         let mut map = None;
         let mut mods = None;
 
         for option in command.yoink_options() {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
                     MAP => match matcher::get_osu_map_id(&value)
                         .or_else(|| matcher::get_osu_mapset_id(&value))
                     {
@@ -310,17 +309,9 @@ impl LeaderboardArgs {
                             Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
                         },
                     },
-                    _ => bail_cmd_option!(LEADERBOARD, string, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!(LEADERBOARD, integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(LEADERBOARD, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!(LEADERBOARD, subcommand, name)
-                }
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 
@@ -344,5 +335,6 @@ pub fn define_leaderboard() -> MyCommand {
     let map = option_map();
     let mods = option_mods(true);
 
-    MyCommand::new(LEADERBOARD, "Display the global leaderboard of a map").options(vec![map, mods])
+    MyCommand::new("leaderboard", "Display the global leaderboard of a map")
+        .options(vec![map, mods])
 }

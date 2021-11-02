@@ -15,20 +15,23 @@ use super::{
 use crate::{
     commands::{
         osu::{option_discord, option_map, option_mode, option_mods, option_name},
-        MyCommand, MyCommandOption,
+        parse_discord, parse_mode_option, DoubleResultCow, MyCommand, MyCommandOption,
     },
     database::OsuData,
     util::{
         constants::common_literals::{MODE, PROFILE, SCORE},
-        matcher, ApplicationCommandExt, InteractionExt, MessageExt,
+        matcher, InteractionExt, MessageExt,
     },
     Args, BotResult, Context, Error,
 };
 
 use rosu_v2::prelude::{GameMode, Username};
-use std::{borrow::Cow, sync::Arc};
+use std::sync::Arc;
 use twilight_model::{
-    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
     id::UserId,
 };
 
@@ -48,16 +51,12 @@ impl TripleArgs {
         args: &mut Args<'_>,
         author_id: UserId,
         mode: Option<GameMode>,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+    ) -> DoubleResultCow<Self> {
         let name1 = match args.next() {
             Some(arg) => match matcher::get_mention_user(arg) {
-                Some(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
-                    Some(osu) => osu.into_username(),
-                    None => {
-                        let content = format!("<@{}> is not linked to an osu profile", id);
-
-                        return Ok(Err(content.into()));
-                    }
+                Some(user_id) => match parse_discord(ctx, user_id).await? {
+                    Ok(osu) => osu.into_username(),
+                    Err(content) => return Ok(Err(content)),
                 },
                 None => arg.into(),
             },
@@ -68,13 +67,9 @@ impl TripleArgs {
 
         let name2 = match args.next() {
             Some(arg) => match matcher::get_mention_user(arg) {
-                Some(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
-                    Some(osu) => osu.into_username(),
-                    None => {
-                        let content = format!("<@{}> is not linked to an osu profile", id);
-
-                        return Ok(Err(content.into()));
-                    }
+                Some(user_id) => match parse_discord(ctx, user_id).await? {
+                    Ok(osu) => osu.into_username(),
+                    Err(content) => return Ok(Err(content)),
                 },
                 None => arg.into(),
             },
@@ -94,13 +89,9 @@ impl TripleArgs {
 
         let name3 = match args.next() {
             Some(arg) => match matcher::get_mention_user(arg) {
-                Some(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
-                    Some(osu) => Some(osu.into_username()),
-                    None => {
-                        let content = format!("<@{}> is not linked to an osu profile", id);
-
-                        return Ok(Err(content.into()));
-                    }
+                Some(user_id) => match parse_discord(ctx, user_id).await? {
+                    Ok(osu) => Some(osu.into_username()),
+                    Err(content) => return Ok(Err(content)),
                 },
                 None => Some(arg.into()),
             },
@@ -119,71 +110,39 @@ impl TripleArgs {
 
     async fn slash(
         ctx: &Context,
+        command: &ApplicationCommand,
         options: Vec<CommandDataOption>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+    ) -> DoubleResultCow<Self> {
         let mut name1 = None;
         let mut name2 = None;
         let mut name3 = None;
         let mut mode = None;
 
         for option in options {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
-                    MODE => mode = parse_mode_option!(value, "compare top/mostplayed"),
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
+                    MODE => mode = parse_mode_option(&value),
                     "name1" => name1 = Some(value.into()),
                     "name2" => name2 = Some(value.into()),
                     "name3" => name3 = Some(value.into()),
-                    "discord1" => match value.parse() {
-                        Ok(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
-                            Some(osu) => name1 = Some(osu.into_username()),
-                            None => {
-                                let content = format!("<@{}> is not linked to an osu profile", id);
-
-                                return Ok(Err(content.into()));
-                            }
-                        },
-                        Err(_) => {
-                            bail_cmd_option!("compare top/mostplayed discord1", string, value)
-                        }
-                    },
-                    "discord2" => match value.parse() {
-                        Ok(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
-                            Some(osu) => name2 = Some(osu.into_username()),
-                            None => {
-                                let content = format!("<@{}> is not linked to an osu profile", id);
-
-                                return Ok(Err(content.into()));
-                            }
-                        },
-                        Err(_) => {
-                            bail_cmd_option!("compare top/mostplayed discord2", string, value)
-                        }
-                    },
-                    "discord3" => match value.parse() {
-                        Ok(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
-                            Some(osu) => name3 = Some(osu.into_username()),
-                            None => {
-                                let content = format!("<@{}> is not linked to an osu profile", id);
-
-                                return Ok(Err(content.into()));
-                            }
-                        },
-                        Err(_) => {
-                            bail_cmd_option!("compare top/mostplayed discord3", string, value)
-                        }
-                    },
-                    _ => bail_cmd_option!("compare top/mostplayed", string, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("compare top/mostplayed", integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("compare top/mostplayed", boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("compare top/mostplayed", subcommand, name)
-                }
+                CommandOptionValue::User(value) => match option.name.as_str() {
+                    "discord1" => match parse_discord(ctx, value).await? {
+                        Ok(osu) => name1 = Some(osu.into_username()),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    "discord2" => match parse_discord(ctx, value).await? {
+                        Ok(osu) => name2 = Some(osu.into_username()),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    "discord3" => match parse_discord(ctx, value).await? {
+                        Ok(osu) => name3 = Some(osu.into_username()),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 
@@ -200,7 +159,7 @@ impl TripleArgs {
             Some(name) => Some(name),
             None => ctx
                 .psql()
-                .get_user_osu(author_id)
+                .get_user_osu(command.user_id()?)
                 .await?
                 .map(OsuData::into_username),
         };
@@ -223,48 +182,36 @@ enum CompareCommandKind {
     Mostplayed(TripleArgs),
 }
 
-const COMPARE: &str = "compare";
-
 impl CompareCommandKind {
-    async fn slash(
-        ctx: &Context,
-        command: &mut ApplicationCommand,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let author_id = command.user_id()?;
-        let mut kind = None;
+    async fn slash(ctx: &Context, command: &mut ApplicationCommand) -> DoubleResultCow<Self> {
+        let option = command
+            .data
+            .options
+            .pop()
+            .ok_or(Error::InvalidCommandOptions)?;
 
-        for option in command.yoink_options() {
-            match option {
-                CommandDataOption::String { name, .. } => bail_cmd_option!(COMPARE, string, name),
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!(COMPARE, integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(COMPARE, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    SCORE => match ScoreArgs::slash(ctx, options, author_id).await? {
-                        Ok(args) => kind = Some(Self::Score(args)),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    PROFILE => match ProfileArgs::slash(ctx, options, author_id).await? {
-                        Ok(args) => kind = Some(CompareCommandKind::Profile(args)),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    "top" => match TripleArgs::slash(ctx, options, author_id).await? {
-                        Ok(args) => kind = Some(CompareCommandKind::Top(args)),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    "mostplayed" => match TripleArgs::slash(ctx, options, author_id).await? {
-                        Ok(args) => kind = Some(CompareCommandKind::Mostplayed(args)),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => bail_cmd_option!(COMPARE, subcommand, name),
+        match option.value {
+            CommandOptionValue::SubCommand(options) => match option.name.as_str() {
+                SCORE => match ScoreArgs::slash(ctx, command, options).await? {
+                    Ok(args) => Ok(Ok(Self::Score(args))),
+                    Err(content) => Ok(Err(content)),
                 },
-            }
+                PROFILE => match ProfileArgs::slash(ctx, command, options).await? {
+                    Ok(args) => Ok(Ok(CompareCommandKind::Profile(args))),
+                    Err(content) => Ok(Err(content)),
+                },
+                "top" => match TripleArgs::slash(ctx, command, options).await? {
+                    Ok(args) => Ok(Ok(CompareCommandKind::Top(args))),
+                    Err(content) => Ok(Err(content)),
+                },
+                "mostplayed" => match TripleArgs::slash(ctx, command, options).await? {
+                    Ok(args) => Ok(Ok(CompareCommandKind::Mostplayed(args))),
+                    Err(content) => Ok(Err(content)),
+                },
+                _ => Err(Error::InvalidCommandOptions),
+            },
+            _ => Err(Error::InvalidCommandOptions),
         }
-
-        kind.ok_or(Error::InvalidCommandOptions).map(Ok)
     }
 }
 
@@ -377,6 +324,6 @@ pub fn define_compare() -> MyCommand {
             mode, name1, name2, name3, discord1, discord2, discord3,
         ]);
 
-    MyCommand::new(COMPARE, "Compare a score, top scores, or profiles")
+    MyCommand::new("compare", "Compare a score, top scores, or profiles")
         .options(vec![score, profile, top, mostplayed])
 }

@@ -288,7 +288,10 @@ pub async fn get_member_ids(ctx: &Context, guild_id: GuildId) -> BotResult<HashS
         .await?;
 
     let mut last = members.last().unwrap().user.id;
-    let mut members: HashSet<_> = members.into_iter().map(|member| member.user.id.0).collect();
+    let mut members: HashSet<_> = members
+        .into_iter()
+        .map(|member| member.user.id.get())
+        .collect();
 
     if members.len() == 1000 {
         let delay = Duration::from_millis(500);
@@ -310,7 +313,7 @@ pub async fn get_member_ids(ctx: &Context, guild_id: GuildId) -> BotResult<HashS
 
             last = new_members.last().unwrap().user.id;
             let more_iterations = new_members.len() == 1000;
-            members.extend(new_members.into_iter().map(|member| member.user.id.0));
+            members.extend(new_members.into_iter().map(|member| member.user.id.get()));
 
             more_iterations
         } {}

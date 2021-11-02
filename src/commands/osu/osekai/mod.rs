@@ -9,7 +9,7 @@ use user_value::{count, pp};
 use std::sync::Arc;
 
 use twilight_model::application::interaction::{
-    application_command::CommandDataOption, ApplicationCommand,
+    application_command::CommandOptionValue, ApplicationCommand,
 };
 
 use crate::{
@@ -17,7 +17,6 @@ use crate::{
     custom_client::{
         Badges, LovedMapsets, RankedMapsets, Replays, StandardDeviation, Subscribers, TotalPp,
     },
-    util::ApplicationCommandExt,
     BotResult, Context, Error,
 };
 
@@ -35,39 +34,28 @@ enum OsekaiCommandKind {
     TotalPp,
 }
 
-const OSEKAI: &str = "osekai";
-
 impl OsekaiCommandKind {
     async fn slash(command: &mut ApplicationCommand) -> BotResult<Self> {
-        let mut kind = None;
-
-        for option in command.yoink_options() {
-            match option {
-                CommandDataOption::String { name, .. } => {
-                    bail_cmd_option!(OSEKAI, string, name)
-                }
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!(OSEKAI, integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(OSEKAI, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => match name.as_str() {
-                    "badges" => kind = Some(OsekaiCommandKind::Badges),
-                    "loved_mapsets" => kind = Some(OsekaiCommandKind::LovedMapsets),
-                    "medal_count" => kind = Some(OsekaiCommandKind::MedalCount),
-                    "ranked_mapsets" => kind = Some(OsekaiCommandKind::RankedMapsets),
-                    "rarity" => kind = Some(OsekaiCommandKind::Rarity),
-                    "replays" => kind = Some(OsekaiCommandKind::Replays),
-                    "standard_deviation" => kind = Some(OsekaiCommandKind::StandardDeviation),
-                    "subscribers" => kind = Some(OsekaiCommandKind::Subscribers),
-                    "total_pp" => kind = Some(OsekaiCommandKind::TotalPp),
-                    _ => bail_cmd_option!(OSEKAI, subcommand, name),
+        command
+            .data
+            .options
+            .pop()
+            .and_then(|option| match option.value {
+                CommandOptionValue::SubCommand(_) => match option.name.as_str() {
+                    "badges" => Some(OsekaiCommandKind::Badges),
+                    "loved_mapsets" => Some(OsekaiCommandKind::LovedMapsets),
+                    "medal_count" => Some(OsekaiCommandKind::MedalCount),
+                    "ranked_mapsets" => Some(OsekaiCommandKind::RankedMapsets),
+                    "rarity" => Some(OsekaiCommandKind::Rarity),
+                    "replays" => Some(OsekaiCommandKind::Replays),
+                    "standard_deviation" => Some(OsekaiCommandKind::StandardDeviation),
+                    "subscribers" => Some(OsekaiCommandKind::Subscribers),
+                    "total_pp" => Some(OsekaiCommandKind::TotalPp),
+                    _ => None,
                 },
-            }
-        }
-
-        kind.ok_or(Error::InvalidCommandOptions)
+                _ => None,
+            })
+            .ok_or(Error::InvalidCommandOptions)
     }
 }
 
@@ -141,7 +129,7 @@ pub fn define_osekai() -> MyCommand {
     let help = "Various leaderboard stats. \
         All data is provided by [osekai](https://osekai.net/).";
 
-    MyCommand::new(OSEKAI, "Various leaderboards provided by osekai")
+    MyCommand::new("osekai", "Various leaderboards provided by osekai")
         .help(help)
         .options(options)
 }

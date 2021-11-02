@@ -1,17 +1,17 @@
 use super::ProfileSize;
 use crate::{
+    commands::{check_user_mention, parse_discord, parse_mode_option, DoubleResultCow},
     database::UserConfig,
+    error::Error,
     util::{
-        constants::common_literals::{DISCORD, MODE, NAME, PROFILE},
+        constants::common_literals::{DISCORD, MODE, NAME},
         ApplicationCommandExt, CowUtils, InteractionExt,
     },
-    Args, BotResult, Context,
+    Args,  Context,
 };
 
-use rosu_v2::prelude::GameMode;
-use std::borrow::Cow;
 use twilight_model::{
-    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
+    application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
     id::UserId,
 };
 
@@ -24,7 +24,7 @@ impl ProfileArgs {
         ctx: &Context,
         args: &mut Args<'_>,
         author_id: UserId,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+    ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
 
         for arg in args.take(2).map(CowUtils::cow_to_ascii_lowercase) {
@@ -56,9 +56,9 @@ impl ProfileArgs {
                     }
                 }
             } else {
-                match Args::check_user_mention(ctx, arg.as_ref()).await? {
+                match check_user_mention(ctx, arg.as_ref()).await? {
                     Ok(osu) => config.osu = Some(osu),
-                    Err(content) => return Ok(Err(content.into())),
+                    Err(content) => return Ok(Err(content)),
                 }
             }
         }
@@ -69,32 +69,30 @@ impl ProfileArgs {
     pub(super) async fn slash(
         ctx: &Context,
         command: &mut ApplicationCommand,
-    ) -> BotResult<Result<Self, String>> {
+    ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(command.user_id()?).await?;
 
         for option in command.yoink_options() {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
-                    MODE => config.mode = parse_mode_option!(value, "profile"),
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
+                    MODE => config.mode = parse_mode_option(&value),
                     "size" => match value.as_str() {
                         "compact" => config.profile_size = Some(ProfileSize::Compact),
                         "medium" => config.profile_size = Some(ProfileSize::Medium),
                         "full" => config.profile_size = Some(ProfileSize::Full),
-                        _ => bail_cmd_option!("profile size", string, value),
+                        _ => return Err(Error::InvalidCommandOptions),
                     },
                     NAME => config.osu = Some(value.into()),
-                    DISCORD => config.osu = Some(parse_discord_option!(ctx, value, "profile")),
-                    _ => bail_cmd_option!(PROFILE, string, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!(PROFILE, integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(PROFILE, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!(PROFILE, subcommand, name)
-                }
+                CommandOptionValue::User(value) => match option.name.as_str() {
+                    DISCORD => match parse_discord(ctx, value).await? {
+                        Ok(osu) => config.osu = Some(osu),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 

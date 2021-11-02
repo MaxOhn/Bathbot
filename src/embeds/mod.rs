@@ -101,11 +101,12 @@ pub use tracking::*;
 pub use twitch::*;
 pub use utility::*;
 
-use crate::util::{constants::DARK_GREEN, datetime};
+use crate::util::constants::DARK_GREEN;
 
 use chrono::{DateTime, Utc};
-use twilight_model::channel::embed::{
-    Embed, EmbedAuthor, EmbedField, EmbedFooter, EmbedImage, EmbedThumbnail,
+use twilight_model::{
+    channel::embed::{Embed, EmbedAuthor, EmbedField, EmbedFooter, EmbedImage, EmbedThumbnail},
+    datetime::Timestamp,
 };
 
 type EmbedFields = Vec<EmbedField>;
@@ -224,8 +225,7 @@ impl EmbedBuilder {
     }
 
     pub fn timestamp(mut self, timestamp: DateTime<Utc>) -> Self {
-        let timestamp = datetime::date_to_string(&timestamp);
-        self.0.timestamp.replace(timestamp);
+        self.0.timestamp = Timestamp::from_secs(timestamp.timestamp() as u64);
 
         self
     }

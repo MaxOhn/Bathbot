@@ -1,21 +1,18 @@
-use crate::{
-    custom_client::OsekaiMedal,
-    database::OsuData,
-    embeds::{EmbedData, MedalsCommonEmbed, MedalsCommonUser},
-    pagination::{MedalsCommonPagination, Pagination},
-    util::{
+use crate::{Args, BotResult, CommandData, Context, commands::{DoubleResultCow, parse_discord}, custom_client::OsekaiMedal, database::OsuData, embeds::{EmbedData, MedalsCommonEmbed, MedalsCommonUser}, error::Error, pagination::{MedalsCommonPagination, Pagination}, util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        get_combined_thumbnail, matcher, MessageBuilder, MessageExt,
-    },
-    Args, BotResult, CommandData, Context, 
-};
+        get_combined_thumbnail, matcher, InteractionExt, MessageBuilder, MessageExt,
+    }};
 
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, User, Username};
-use std::{borrow::Cow, sync::Arc};
+use std::{ sync::Arc};
 use twilight_model::{
-    application::interaction::application_command::CommandDataOption, id::UserId,
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+    id::UserId,
 };
 
 pub(super) async fn _common(
@@ -200,8 +197,6 @@ pub(super) struct CommonArgs {
     name2: Username,
 }
 
-const MEDAL_COMMON: &str = "medal common";
-
 impl CommonArgs {
     const AT_LEAST_ONE: &'static str = "You need to specify at least one osu username. \
         If you're not linked, you must specify two names.";
@@ -210,18 +205,14 @@ impl CommonArgs {
         ctx: &Context,
         args: &mut Args<'_>,
         author_id: UserId,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+    ) -> DoubleResultCow<Self> {
         let osu = ctx.psql().get_user_osu(author_id).await?;
 
         let name2 = match args.next() {
             Some(arg) => match matcher::get_mention_user(arg) {
-                Some(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
-                    Some(osu) => osu.into_username(),
-                    None => {
-                        let content = format!("<@{}> is not linked to an osu profile", id);
-
-                        return Ok(Err(content.into()));
-                    }
+                Some(user_id) => match parse_discord(ctx, user_id).await? {
+                    Ok(osu) => osu.into_username(),
+                    Err(content) => return Ok(Err(content)),
                 },
                 None => arg.into(),
             },
@@ -230,16 +221,12 @@ impl CommonArgs {
 
         let args = match args.next() {
             Some(arg) => match matcher::get_mention_user(arg) {
-                Some(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
-                    Some(osu) => Self {
+                Some(user_id) => match parse_discord(ctx, user_id).await? {
+                    Ok(osu) => Self {
                         name1: Some(name2),
                         name2: osu.into_username(),
                     },
-                    None => {
-                        let content = format!("<@{}> is not linked to an osu profile", id);
-
-                        return Ok(Err(content.into()));
-                    }
+                    Err(content) => return Ok(Err(content)),
                 },
                 None => Self {
                     name1: Some(name2),
@@ -257,50 +244,31 @@ impl CommonArgs {
 
     pub(super) async fn slash(
         ctx: &Context,
+        command: &ApplicationCommand,
         options: Vec<CommandDataOption>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+    ) -> DoubleResultCow<Self> {
         let mut name1 = None;
         let mut name2 = None;
 
         for option in options {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
                     "name1" => name1 = Some(value.into()),
                     "name2" => name2 = Some(value.into()),
-                    "discord1" => match value.parse() {
-                        Ok(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
-                            Some(osu) => name1 = Some(osu.into_username()),
-                            None => {
-                                let content = format!("<@{}> is not linked to an osu profile", id);
-
-                                return Ok(Err(content.into()));
-                            }
-                        },
-                        Err(_) => bail_cmd_option!("medal common discord1", string, value),
-                    },
-                    "discord2" => match value.parse() {
-                        Ok(id) => match ctx.psql().get_user_osu(UserId(id)).await? {
-                            Some(osu) => name2 = Some(osu.into_username()),
-                            None => {
-                                let content = format!("<@{}> is not linked to an osu profile", id);
-
-                                return Ok(Err(content.into()));
-                            }
-                        },
-                        Err(_) => bail_cmd_option!("medal common discord2", string, value),
-                    },
-                    _ => bail_cmd_option!(MEDAL_COMMON, string, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!(MEDAL_COMMON, integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(MEDAL_COMMON, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!(MEDAL_COMMON, subcommand, name)
-                }
+                CommandOptionValue::User(value) => match option.name.as_str() {
+                    "discord1" => match parse_discord(ctx, value).await? {
+                        Ok(osu) => name1 = Some(osu.into_username()),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    "discord2" => match parse_discord(ctx, value).await? {
+                        Ok(osu) => name2 = Some(osu.into_username()),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 
@@ -314,7 +282,7 @@ impl CommonArgs {
             Some(name) => Some(name),
             None => ctx
                 .psql()
-                .get_user_osu(author_id)
+                .get_user_osu(command.user_id()?)
                 .await?
                 .map(OsuData::into_username),
         };

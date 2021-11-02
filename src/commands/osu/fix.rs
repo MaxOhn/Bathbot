@@ -1,21 +1,21 @@
-use std::{borrow::Cow, sync::Arc};
+use std::sync::Arc;
 
 use eyre::Report;
 use rosu_pp::{fruits::stars, Beatmap as Map, FruitsPP, ManiaPP, OsuPP, StarResult, TaikoPP};
 use rosu_v2::prelude::{Beatmap, GameMode, OsuError, RankStatus, Score};
 use tokio::fs::File;
 use twilight_model::{
-    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
+    application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
     channel::message::MessageType,
     id::UserId,
 };
 
 use super::{option_discord, option_map, option_mods, option_name};
 use crate::{
-    commands::MyCommand,
+    commands::{check_user_mention, parse_discord, DoubleResultCow, MyCommand},
     database::OsuData,
     embeds::{EmbedData, FixScoreEmbed},
-    error::PPError,
+    error::{Error, PPError},
     tracking::process_tracking,
     util::{
         constants::{
@@ -136,6 +136,7 @@ async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotRes
                 // First try to just get the mapset from the DB
                 let mapset_fut = ctx.psql().get_beatmapset(map.mapset_id);
                 let user_fut = ctx.osu().user(score.score.user_id).mode(score.score.mode);
+
                 let best_fut = ctx
                     .osu()
                     .user_scores(score.score.user_id)
@@ -429,11 +430,7 @@ struct FixArgs {
 }
 
 impl FixArgs {
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, &'static str>> {
+    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
         let mut osu = ctx.psql().get_user_osu(author_id).await?;
         let mut map = None;
         let mut mods = None;
@@ -446,7 +443,7 @@ impl FixArgs {
             } else if let Some(mods_) = matcher::get_mods(arg) {
                 mods = Some(mods_);
             } else {
-                match Args::check_user_mention(ctx, arg).await? {
+                match check_user_mention(ctx, arg).await? {
                     Ok(osu_) => osu = Some(osu_),
                     Err(content) => return Ok(Err(content)),
                 }
@@ -456,19 +453,15 @@ impl FixArgs {
         Ok(Ok(Self { osu, map, mods }))
     }
 
-    async fn slash(
-        ctx: &Context,
-        command: &mut ApplicationCommand,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+    async fn slash(ctx: &Context, command: &mut ApplicationCommand) -> DoubleResultCow<Self> {
         let mut osu = ctx.psql().get_user_osu(command.user_id()?).await?;
         let mut map = None;
         let mut mods = None;
 
         for option in command.yoink_options() {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
                     NAME => osu = Some(value.into()),
-                    DISCORD => osu = Some(parse_discord_option!(ctx, value, "fix")),
                     MAP => match matcher::get_osu_map_id(&value)
                         .or_else(|| matcher::get_osu_mapset_id(&value))
                     {
@@ -482,17 +475,16 @@ impl FixArgs {
                             Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
                         },
                     },
-                    _ => bail_cmd_option!("fix", string, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!("fix", integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!("fix", boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("fix", subcommand, name)
-                }
+                CommandOptionValue::User(value) => match option.name.as_str() {
+                    DISCORD => match parse_discord(ctx, value).await? {
+                        Ok(osu_) => osu = Some(osu_),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 

@@ -7,11 +7,11 @@ pub use players::*;
 use crate::{
     commands::{
         osu::{option_country, option_mode},
-        MyCommand, MyCommandOption,
+        parse_mode_option, MyCommand, MyCommandOption,
     },
     util::{
         constants::common_literals::{COUNTRY, MODE, SCORE},
-        ApplicationCommandExt, CountryCode, MessageExt,
+        CountryCode, MessageExt,
     },
     BotResult, Context, Error,
 };
@@ -19,7 +19,8 @@ use crate::{
 use rosu_v2::prelude::GameMode;
 use std::sync::Arc;
 use twilight_model::application::interaction::{
-    application_command::CommandDataOption, ApplicationCommand,
+    application_command::{CommandDataOption, CommandOptionValue},
+    ApplicationCommand,
 };
 
 enum RankingCommandKind {
@@ -35,123 +36,76 @@ enum RankingCommandKind {
     },
 }
 
-const RANKING: &str = "ranking";
-const RANKING_PP: &str = "ranking pp";
-const RANKING_SCORE: &str = "ranking score";
-const RANKING_COUNTRY: &str = "ranking country";
-
 impl RankingCommandKind {
-    fn slash(command: &mut ApplicationCommand) -> BotResult<Result<Self, String>> {
-        let mut kind = None;
+    fn slash_pp(options: &[CommandDataOption]) -> BotResult<Result<Self, String>> {
+        let mut mode = None;
+        let mut country = None;
 
-        for option in command.yoink_options() {
-            match option {
-                CommandDataOption::String { name, .. } => {
-                    bail_cmd_option!(RANKING, string, name)
-                }
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!(RANKING, integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(RANKING, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    "pp" => {
-                        let mut mode = None;
-                        let mut country = None;
-
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, value } => match name.as_str() {
-                                    MODE => mode = parse_mode_option!(value, "ranking pp"),
-                                    COUNTRY => {
-                                        if value.len() == 2 && value.is_ascii() {
-                                            country = Some(value.into())
-                                        } else if let Some(code) =
-                                            CountryCode::from_name(value.as_str())
-                                        {
-                                            country = Some(code)
-                                        } else {
-                                            let content = format!(
-                                                "Failed to parse `{}` as country.\n\
-                                                Be sure to specify a valid country or two ASCII letter country code.",
-                                                value
-                                            );
-
-                                            return Ok(Err(content));
-                                        }
-                                    }
-                                    _ => bail_cmd_option!(RANKING_PP, string, name),
-                                },
-                                CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!(RANKING_PP, integer, name)
-                                }
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!(RANKING_PP, boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!(RANKING_PP, subcommand, name)
-                                }
-                            }
-                        }
-
-                        let mode = mode.unwrap_or(GameMode::STD);
-                        kind = Some(RankingCommandKind::Performance { country, mode });
-                    }
-                    SCORE => {
-                        let mut mode = None;
-
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, value } => match name.as_str() {
-                                    MODE => mode = parse_mode_option!(value, "ranking score"),
-                                    _ => bail_cmd_option!(RANKING_SCORE, string, name),
-                                },
-                                CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!(RANKING_SCORE, integer, name)
-                                }
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!(RANKING_SCORE, boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!(RANKING_SCORE, subcommand, name)
-                                }
-                            }
-                        }
-
-                        let mode = mode.unwrap_or(GameMode::STD);
-                        kind = Some(RankingCommandKind::RankedScore { mode });
-                    }
+        for option in options {
+            match &option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
+                    MODE => mode = parse_mode_option(value),
                     COUNTRY => {
-                        let mut mode = None;
+                        if value.len() == 2 && value.is_ascii() {
+                            country = Some(value.as_str().into())
+                        } else if let Some(code) = CountryCode::from_name(value.as_str()) {
+                            country = Some(code)
+                        } else {
+                            let content = format!(
+                                "Failed to parse `{}` as country.\n\
+                                Be sure to specify a valid country or two ASCII letter country code.",
+                                value
+                            );
 
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, value } => match name.as_str() {
-                                    MODE => mode = parse_mode_option!(value, "ranking country"),
-                                    _ => bail_cmd_option!(RANKING_COUNTRY, string, name),
-                                },
-                                CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!(RANKING_COUNTRY, integer, name)
-                                }
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!(RANKING_COUNTRY, boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!(RANKING_COUNTRY, subcommand, name)
-                                }
-                            }
+                            return Ok(Err(content));
                         }
-
-                        let mode = mode.unwrap_or(GameMode::STD);
-                        kind = Some(RankingCommandKind::Country { mode });
                     }
-                    _ => bail_cmd_option!(RANKING, subcommand, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 
-        kind.ok_or(Error::InvalidCommandOptions).map(Ok)
+        let mode = mode.unwrap_or(GameMode::STD);
+
+        Ok(Ok(RankingCommandKind::Performance { country, mode }))
+    }
+
+    fn parse_mode(options: &[CommandDataOption]) -> BotResult<GameMode> {
+        let mode = match options.first() {
+            Some(option) => match &option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
+                    MODE => parse_mode_option(value),
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                _ => return Err(Error::InvalidCommandOptions),
+            },
+            None => None,
+        };
+
+        Ok(mode.unwrap_or(GameMode::STD))
+    }
+
+    fn slash(command: &mut ApplicationCommand) -> BotResult<Result<Self, String>> {
+        let option = command
+            .data
+            .options
+            .first()
+            .ok_or(Error::InvalidCommandOptions)?;
+
+        match &option.value {
+            CommandOptionValue::SubCommand(options) => match option.name.as_str() {
+                "pp" => Self::slash_pp(options),
+                SCORE => Ok(Ok(RankingCommandKind::RankedScore {
+                    mode: Self::parse_mode(options)?,
+                })),
+                COUNTRY => Ok(Ok(RankingCommandKind::Country {
+                    mode: Self::parse_mode(options)?,
+                })),
+                _ => Err(Error::InvalidCommandOptions),
+            },
+            _ => Err(Error::InvalidCommandOptions),
+        }
     }
 }
 

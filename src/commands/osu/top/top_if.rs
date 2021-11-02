@@ -1,5 +1,21 @@
-use super::ErrorType;
+use std::{cmp::Ordering, fmt::Write, sync::Arc};
+
+use eyre::Report;
+use futures::{
+    future::TryFutureExt,
+    stream::{FuturesUnordered, TryStreamExt},
+};
+use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score};
+use twilight_model::{
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+    id::UserId,
+};
+
 use crate::{
+    commands::{check_user_mention, parse_discord, parse_mode_option, DoubleResultCow},
     database::UserConfig,
     embeds::{EmbedData, TopIfEmbed},
     pagination::{Pagination, TopIfPagination},
@@ -12,21 +28,12 @@ use crate::{
         },
         matcher, numbers,
         osu::ModSelection,
-        MessageExt,
+        InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
-use eyre::Report;
-use futures::{
-    future::TryFutureExt,
-    stream::{FuturesUnordered, TryStreamExt},
-};
-use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score};
-use std::{borrow::Cow, cmp::Ordering, fmt::Write, sync::Arc};
-use twilight_model::{
-    application::interaction::application_command::CommandDataOption, id::UserId,
-};
+use super::ErrorType;
 
 const NM: GameMods = GameMods::NoMod;
 const DT: GameMods = GameMods::DoubleTime;
@@ -434,26 +441,20 @@ pub(super) struct IfArgs {
     mods: ModSelection,
 }
 
-const TOP_IF: &str = "top if";
-
 impl IfArgs {
     const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
         If you want to insert mods everywhere, specify it e.g. as `+hrdt`.\n\
         If you want to replace mods everywhere, specify it e.g. as `+hdhr!`.\n\
         And if you want to remote mods everywhere, specify it e.g. as `-hdnf!`.";
 
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, &'static str>> {
+    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
         let mut mods = None;
 
         for arg in args.take(2) {
             match matcher::get_mods(arg) {
                 Some(mods_) => mods = Some(mods_),
-                None => match Args::check_user_mention(ctx, arg).await? {
+                None => match check_user_mention(ctx, arg).await? {
                     Ok(osu) => config.osu = Some(osu),
                     Err(content) => return Ok(Err(content)),
                 },
@@ -462,7 +463,7 @@ impl IfArgs {
 
         let mods = match mods {
             Some(mods_) => mods_,
-            None => return Ok(Err(Self::ERR_PARSE_MODS)),
+            None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
         };
 
         Ok(Ok(Self { config, mods }))
@@ -470,33 +471,31 @@ impl IfArgs {
 
     pub(super) async fn slash(
         ctx: &Context,
+        command: &ApplicationCommand,
         options: Vec<CommandDataOption>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut config = ctx.user_config(author_id).await?;
+    ) -> DoubleResultCow<Self> {
+        let mut config = ctx.user_config(command.user_id()?).await?;
         let mut mods = None;
 
         for option in options {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
                     NAME => config.osu = Some(value.into()),
                     MODS => match matcher::get_mods(&value) {
                         Some(mods_) => mods = Some(mods_),
                         None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
                     },
-                    MODE => config.mode = parse_mode_option!(value, "top if"),
-                    DISCORD => config.osu = Some(parse_discord_option!(ctx, value, "top if")),
-                    _ => bail_cmd_option!(TOP_IF, string, name),
+                    MODE => config.mode = parse_mode_option(&value),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!(TOP_IF, integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(TOP_IF, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!(TOP_IF, subcommand, name)
-                }
+                CommandOptionValue::User(value) => match option.name.as_str() {
+                    DISCORD => match parse_discord(ctx, value).await? {
+                        Ok(osu) => config.osu = Some(osu),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 

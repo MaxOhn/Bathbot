@@ -1,7 +1,26 @@
+use std::{ fmt::Write, mem, sync::Arc};
+
+use eyre::Report;
+use rosu_v2::prelude::{
+    Beatmap, GameMode, GameMods, Grade, OsuError,
+    RankStatus::{Approved, Loved, Qualified, Ranked},
+    Score, Username,
+};
+use tokio::time::{sleep, Duration};
+use twilight_model::{
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+    id::UserId,
+};
+
 use super::GradeArg;
 use crate::{
+    commands::{check_user_mention, parse_discord, parse_mode_option, DoubleResultCow},
     database::UserConfig,
     embeds::{EmbedData, RecentEmbed},
+    error::Error,
     tracking::process_tracking,
     twitch::TwitchVideo,
     util::{
@@ -9,17 +28,9 @@ use crate::{
             common_literals::{DISCORD, GRADE, INDEX, MODE, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
-        CowUtils, MessageExt,
+        CowUtils, InteractionExt, MessageExt,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder, 
-};
-
-use eyre::Report;
-use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, OsuError, RankStatus::{Approved, Loved, Qualified, Ranked}, Score, Username};
-use std::{borrow::Cow, fmt::Write, mem, sync::Arc};
-use tokio::time::{sleep, Duration};
-use twilight_model::{
-    application::interaction::application_command::CommandDataOption, id::UserId,
+    Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
 pub(super) async fn _recent(
@@ -568,7 +579,7 @@ impl RecentArgs {
         args: &mut Args<'_>,
         author_id: UserId,
         index: Option<usize>,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+    ) -> DoubleResultCow<Self> {
         let config = ctx.user_config(author_id).await?;
         let mut input_name = None;
         let mut grade = None;
@@ -642,9 +653,9 @@ impl RecentArgs {
                     }
                 }
             } else {
-                match Args::check_user_mention(ctx, arg).await? {
+                match check_user_mention(ctx, arg).await? {
                     Ok(osu) => input_name = Some(osu.into_username()),
-                    Err(content) => return Ok(Err(content.into())),
+                    Err(content) => return Ok(Err(content)),
                 }
             }
         }
@@ -683,23 +694,19 @@ impl RecentArgs {
 
     pub(super) async fn slash(
         ctx: &Context,
+        command: &ApplicationCommand,
         options: Vec<CommandDataOption>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut config = ctx.user_config(author_id).await?;
+    ) -> DoubleResultCow<Self> {
+        let mut config = ctx.user_config(command.user_id()?).await?;
         let mut input_name = None;
         let mut index = None;
         let mut grade = None;
 
         for option in options {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
                     NAME => input_name = Some(value.into()),
-                    DISCORD => {
-                        input_name =
-                            Some(parse_discord_option!(ctx, value, "recent score").into_username())
-                    }
-                    MODE => config.mode = parse_mode_option!(value, "recent score"),
+                    MODE => config.mode = parse_mode_option(&value),
                     GRADE => match value.as_str() {
                         "SS" => {
                             grade = Some(GradeArg::Range {
@@ -718,35 +725,44 @@ impl RecentArgs {
                         "C" => grade = Some(GradeArg::Single(Grade::C)),
                         "D" => grade = Some(GradeArg::Single(Grade::D)),
                         "F" => grade = Some(GradeArg::Single(Grade::F)),
-                        _ => bail_cmd_option!("recent score grade", string, value),
+                        _ => return Err(Error::InvalidCommandOptions),
                     },
-                    _ => bail_cmd_option!("recent score", string, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, value } => match name.as_str() {
-                    INDEX => index = Some(value.max(1).min(50) as usize),
-                    _ => bail_cmd_option!("recent score", integer, name),
-                },
-                CommandDataOption::Boolean { name, value } => match name.as_str() {
-                    "passes" => {
-                        if value {
-                            grade = match grade {
-                                Some(GradeArg::Single(Grade::F)) => None,
-                                Some(GradeArg::Single(_)) => grade,
-                                Some(GradeArg::Range { .. }) => grade,
-                                None => Some(GradeArg::Range {
-                                    bot: Grade::D,
-                                    top: Grade::XH,
-                                }),
-                            }
-                        } else {
-                            grade = Some(GradeArg::Single(Grade::F));
-                        }
-                    }
-                    _ => bail_cmd_option!("recent score", boolean, name),
-                },
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!("recent score", subcommand, name)
+                CommandOptionValue::Integer(value) => {
+                    let number = (option.name == INDEX)
+                        .then(|| value)
+                        .ok_or(Error::InvalidCommandOptions)?;
+
+                    index = Some(number.max(1).min(50) as usize);
                 }
+                CommandOptionValue::Boolean(value) => {
+                    let value = (option.name == "passes")
+                        .then(|| value)
+                        .ok_or(Error::InvalidCommandOptions)?;
+
+                    if value {
+                        grade = match grade {
+                            Some(GradeArg::Single(Grade::F)) => None,
+                            Some(GradeArg::Single(_)) => grade,
+                            Some(GradeArg::Range { .. }) => grade,
+                            None => Some(GradeArg::Range {
+                                bot: Grade::D,
+                                top: Grade::XH,
+                            }),
+                        }
+                    } else {
+                        grade = Some(GradeArg::Single(Grade::F));
+                    }
+                }
+                CommandOptionValue::User(value) => match option.name.as_str() {
+                    DISCORD => match parse_discord(ctx, value).await? {
+                        Ok(osu) => input_name = Some(osu.into_username()),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 

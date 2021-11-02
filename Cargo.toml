@@ -133,6 +133,10 @@ features = ["chrono", "json", "macros", "migrate", "postgres", "runtime-tokio-na
 [dependencies.thiserror]
 version = "1.0"
 
+[dependencies.time]
+version = "0.3"
+features = ["macros", "parsing"]
+
 [dependencies.tokio]
 version = "1.6"
 default_features = false
@@ -143,37 +147,23 @@ version = "0.1.2"
 default_features = false
 
 [dependencies.twilight-cache-inmemory]
-# path = "../twilight/cache/in-memory"
-branch = "pre-update"
-# branch = "with_redis"
-git = "https://github.com/MaxOhn/twilight"
+version = "0.7"
+features = ["permission-calculator"]
 
 [dependencies.twilight-gateway]
-# path = "../twilight/gateway"
-branch = "pre-update"
-# branch = "with_redis"
-git = "https://github.com/MaxOhn/twilight"
+version = "0.7"
 
 [dependencies.twilight-http]
-# path = "../twilight/http"
-branch = "pre-update"
-# branch = "with_redis"
-git = "https://github.com/MaxOhn/twilight"
+version = "0.7"
 default_features = false
 features = ["rustls"]
 
 [dependencies.twilight-model]
-# path = "../twilight/model"
-branch = "pre-update"
-# branch = "with_redis"
-git = "https://github.com/MaxOhn/twilight"
+version = "0.7"
 default_features = false
 
 [dependencies.twilight-standby]
-# path = "../twilight/standby"
-branch = "pre-update"
-# branch = "with_redis"
-git = "https://github.com/MaxOhn/twilight"
+version = "0.7"
 default_features = false
 
 [features]

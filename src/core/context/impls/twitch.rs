@@ -35,7 +35,7 @@ impl Context {
             guard
                 .value()
                 .iter()
-                .map(|&channel| ChannelId(channel))
+                .map(|&channel| ChannelId::new(channel).unwrap())
                 .collect()
         })
     }
@@ -44,7 +44,7 @@ impl Context {
         self.data
             .tracked_streams
             .iter()
-            .filter_map(|guard| guard.value().contains(&channel.0).then(|| *guard.key()))
+            .filter_map(|guard| guard.value().contains(&channel.get()).then(|| *guard.key()))
             .collect()
     }
 }

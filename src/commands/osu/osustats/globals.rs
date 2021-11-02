@@ -1,7 +1,9 @@
 use crate::{
+    commands::{check_user_mention, parse_discord, parse_mode_option, DoubleResultCow},
     custom_client::{OsuStatsOrder, OsuStatsParams, OsuStatsScore},
     database::UserConfig,
     embeds::{EmbedData, OsuStatsGlobalsEmbed},
+    error::Error,
     pagination::{OsuStatsGlobalsPagination, Pagination},
     util::{
         constants::{
@@ -12,16 +14,20 @@ use crate::{
         },
         matcher, numbers,
         osu::ModSelection,
-        MessageExt,
+        InteractionExt, MessageExt,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder, 
+    Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
 use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError, Username};
-use std::{borrow::Cow, collections::BTreeMap, fmt::Write, mem, sync::Arc};
+use std::{collections::BTreeMap, fmt::Write, mem, sync::Arc};
 use twilight_model::{
-    application::interaction::application_command::CommandDataOption, id::UserId,
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+    id::UserId,
 };
 
 pub(super) async fn _scores(
@@ -309,8 +315,6 @@ pub(super) struct ScoresArgs {
     pub descending: bool,
 }
 
-const OSUSTATS_SCORES: &str = "osustats scores";
-
 impl ScoresArgs {
     const MIN_RANK: usize = 1;
     const MAX_RANK: usize = 100;
@@ -347,7 +351,7 @@ impl ScoresArgs {
         ctx: &Context,
         args: &mut Args<'_>,
         author_id: UserId,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+    ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
         let mut rank_min = None;
         let mut rank_max = None;
@@ -463,9 +467,9 @@ impl ScoresArgs {
             } else if let Some(mods_) = matcher::get_mods(arg) {
                 mods = Some(mods_);
             } else {
-                match Args::check_user_mention(ctx, arg).await? {
+                match check_user_mention(ctx, arg).await? {
                     Ok(osu) => config.osu = Some(osu),
-                    Err(content) => return Ok(Err(content.into())),
+                    Err(content) => return Ok(Err(content)),
                 }
             }
         }
@@ -486,10 +490,10 @@ impl ScoresArgs {
 
     pub(super) async fn slash(
         ctx: &Context,
+        command: &ApplicationCommand,
         options: Vec<CommandDataOption>,
-        author_id: UserId,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let mut config = ctx.user_config(author_id).await?;
+    ) -> DoubleResultCow<Self> {
+        let mut config = ctx.user_config(command.user_id()?).await?;
         let mut rank_min = None;
         let mut rank_max = None;
         let mut acc_min = None;
@@ -499,9 +503,9 @@ impl ScoresArgs {
         let mut descending = None;
 
         for option in options {
-            match option {
-                CommandDataOption::String { name, value } => match name.as_str() {
-                    MODE => config.mode = parse_mode_option!(value, "osustats scores"),
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
+                    MODE => config.mode = parse_mode_option(&value),
                     MODS => match matcher::get_mods(&value) {
                         Some(mods_) => mods = Some(mods_),
                         None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
@@ -514,31 +518,12 @@ impl ScoresArgs {
                         RANK => order = Some(OsuStatsOrder::Rank),
                         SCORE => order = Some(OsuStatsOrder::Score),
                         "date" => order = Some(OsuStatsOrder::PlayDate),
-                        _ => bail_cmd_option!("osustats scores sort", string, value),
+                        _ => return Err(Error::InvalidCommandOptions),
                     },
                     NAME => config.osu = Some(value.into()),
-                    DISCORD => {
-                        config.osu = Some(parse_discord_option!(ctx, value, "osustats scores"))
-                    }
-                    "min_acc" => match value.parse::<f32>() {
-                        Ok(num) => acc_min = Some(num.max(0.0).min(100.0)),
-                        Err(_) => {
-                            let content = "Failed to parse `min_acc`. Must be a number.";
-
-                            return Ok(Err(content.into()));
-                        }
-                    },
-                    "max_acc" => match value.parse::<f32>() {
-                        Ok(num) => acc_max = Some(num.max(0.0).min(100.0)),
-                        Err(_) => {
-                            let content = "Failed to parse `max_acc`. Must be a number.";
-
-                            return Ok(Err(content.into()));
-                        }
-                    },
-                    _ => bail_cmd_option!(OSUSTATS_SCORES, string, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Integer { name, value } => match name.as_str() {
+                CommandOptionValue::Integer(value) => match option.name.as_str() {
                     "min_rank" => {
                         rank_min =
                             Some((value.max(Self::MIN_RANK as i64) as usize).min(Self::MAX_RANK))
@@ -547,15 +532,28 @@ impl ScoresArgs {
                         rank_max =
                             Some((value.max(Self::MIN_RANK as i64) as usize).min(Self::MAX_RANK))
                     }
-                    _ => bail_cmd_option!(OSUSTATS_SCORES, integer, name),
+                    _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandDataOption::Boolean { name, value } => match name.as_str() {
-                    REVERSE => descending = Some(!value),
-                    _ => bail_cmd_option!(OSUSTATS_SCORES, boolean, name),
-                },
-                CommandDataOption::SubCommand { name, .. } => {
-                    bail_cmd_option!(OSUSTATS_SCORES, subcommand, name)
+                CommandOptionValue::Boolean(value) => {
+                    let value = (option.name == REVERSE)
+                        .then(|| value)
+                        .ok_or(Error::InvalidCommandOptions)?;
+
+                    descending = Some(!value);
                 }
+                CommandOptionValue::Number(value) => match option.name.as_str() {
+                    "min_acc" => acc_min = Some(value.0.max(0.0).min(100.0) as f32),
+                    "max_acc" => acc_max = Some(value.0.max(0.0).min(100.0) as f32),
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                CommandOptionValue::User(value) => match option.name.as_str() {
+                    DISCORD => match parse_discord(ctx, value).await? {
+                        Ok(osu) => config.osu = Some(osu),
+                        Err(content) => return Ok(Err(content)),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                _ => return Err(Error::InvalidCommandOptions),
             }
         }
 

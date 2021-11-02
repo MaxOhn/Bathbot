@@ -1,23 +1,15 @@
-use crate::{
-    arguments::Args,
-    commands::MyCommand,
-    database::OsuData,
-    embeds::{AvatarEmbed, EmbedData},
-    util::{
+use crate::{BotResult, CommandData, Context, commands::{MyCommand, check_user_mention, parse_discord}, database::OsuData, embeds::{AvatarEmbed, EmbedData}, error::Error, util::{
         constants::{
             common_literals::{DISCORD, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
         ApplicationCommandExt, InteractionExt, MessageExt,
-    },
-    BotResult, CommandData, Context,
-};
+    }};
 
 use rosu_v2::prelude::{GameMode, OsuError, Username};
 use std::sync::Arc;
-use twilight_model::{
-    application::interaction::{application_command::CommandDataOption, ApplicationCommand},
-    id::UserId,
+use twilight_model::application::interaction::{
+    application_command::CommandOptionValue, ApplicationCommand,
 };
 
 use super::{option_discord, option_name};
@@ -31,7 +23,7 @@ async fn avatar(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
             let name = match args.next() {
-                Some(arg) => match Args::check_user_mention(&ctx, arg).await {
+                Some(arg) => match check_user_mention(&ctx, arg).await {
                     Ok(Ok(osu)) => Some(osu.into_username()),
                     Ok(Err(content)) => return msg.error(&ctx, content).await,
                     Err(why) => {
@@ -56,7 +48,11 @@ async fn avatar(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     }
 }
 
-async fn _avatar(ctx: Arc<Context>, data: CommandData<'_>, name: Option<Username>) -> BotResult<()> {
+async fn _avatar(
+    ctx: Arc<Context>,
+    data: CommandData<'_>,
+    name: Option<Username>,
+) -> BotResult<()> {
     let name = match name {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
@@ -82,44 +78,28 @@ async fn _avatar(ctx: Arc<Context>, data: CommandData<'_>, name: Option<Username
     Ok(())
 }
 
-const AVATAR: &str = "avatar";
-
 pub async fn slash_avatar(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    let mut username = None;
+    let mut osu = None;
 
     for option in command.yoink_options() {
-        match option {
-            CommandDataOption::String { name, value } => match name.as_str() {
-                NAME => username = Some(value.into()),
-                DISCORD => match value.parse() {
-                    Ok(id) => match ctx
-                        .psql()
-                        .get_user_osu(UserId(id))
-                        .await?
-                        .map(OsuData::into_username)
-                    {
-                        Some(name) => username = Some(name),
-                        None => {
-                            let content = format!("<@{}> is not linked to an osu profile", id);
-                            command.error(&ctx, content).await?;
-
-                            return Ok(());
-                        }
-                    },
-                    Err(_) => bail_cmd_option!("avatar discord", string, value),
-                },
-                _ => bail_cmd_option!(AVATAR, string, name),
+        match option.value {
+            CommandOptionValue::String(value) => match option.name.as_str() {
+                NAME => osu = Some(value.into()),
+                _ => return Err(Error::InvalidCommandOptions),
             },
-            CommandDataOption::Integer { name, .. } => bail_cmd_option!(AVATAR, integer, name),
-            CommandDataOption::Boolean { name, .. } => bail_cmd_option!(AVATAR, boolean, name),
-            CommandDataOption::SubCommand { name, .. } => {
-                bail_cmd_option!(AVATAR, subcommand, name)
-            }
+            CommandOptionValue::User(value) => match option.name.as_str() {
+                DISCORD => match parse_discord(&ctx, value).await? {
+                    Ok(osu_) => osu = Some(osu_),
+                    Err(content) => return command.error(&ctx, content).await,
+                },
+                _ => return Err(Error::InvalidCommandOptions),
+            },
+            _ => return Err(Error::InvalidCommandOptions),
         }
     }
 
-    let name = match username {
-        Some(name) => Some(name),
+    let name = match osu {
+        Some(osu) => Some(osu.into_username()),
         None => ctx
             .psql()
             .get_user_osu(command.user_id()?)
@@ -134,5 +114,5 @@ pub fn define_avatar() -> MyCommand {
     let name = option_name();
     let discord = option_discord();
 
-    MyCommand::new(AVATAR, "Display someone's osu! profile picture").options(vec![name, discord])
+    MyCommand::new("avatar", "Display someone's osu! profile picture").options(vec![name, discord])
 }

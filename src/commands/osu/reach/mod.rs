@@ -6,16 +6,24 @@ pub use pp::*;
 pub use rank_pp::*;
 pub use rank_score::*;
 
-use std::{borrow::Cow, sync::Arc};
+use std::sync::Arc;
 
 use twilight_model::application::interaction::{
-    application_command::CommandDataOption, ApplicationCommand,
+    application_command::{CommandDataOption, CommandOptionValue},
+    ApplicationCommand,
 };
 
-use crate::{BotResult, Context, Error, commands::{
+use crate::{
+    commands::{
         osu::{option_country, option_discord, option_mode, option_name},
-        MyCommand, MyCommandOption,
-    }, util::{ApplicationCommandExt, InteractionExt, MessageExt, constants::common_literals::{RANK, SCORE}}};
+        DoubleResultCow, MyCommand, MyCommandOption,
+    },
+    util::{
+        constants::common_literals::{RANK, SCORE},
+        MessageExt,
+    },
+    BotResult, Context, Error,
+};
 
 use super::{request_user, require_link};
 
@@ -25,66 +33,51 @@ enum ReachCommandKind {
     RankScore(RankScoreArgs),
 }
 
-const REACH_RANK: &str = "reach rank";
-
 impl ReachCommandKind {
-    async fn slash(
+    async fn slash_rank(
         ctx: &Context,
-        command: &mut ApplicationCommand,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
-        let author_id = command.user_id()?;
-        let mut kind = None;
+        command: &ApplicationCommand,
+        mut options: Vec<CommandDataOption>,
+    ) -> DoubleResultCow<Self> {
+        let option = options.pop().ok_or(Error::InvalidCommandOptions)?;
 
-        for option in command.yoink_options() {
-            match option {
-                CommandDataOption::String { name, .. } => bail_cmd_option!("reach", string, name),
-                CommandDataOption::Integer { name, .. } => bail_cmd_option!("reach", integer, name),
-                CommandDataOption::Boolean { name, .. } => bail_cmd_option!("reach", boolean, name),
-                CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    "pp" => match PpArgs::slash(ctx, options, author_id).await? {
-                        Ok(args) => kind = Some(Self::Performance(args)),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    RANK => {
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, .. } => {
-                                    bail_cmd_option!(REACH_RANK, string, name)
-                                }
-                                CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!(REACH_RANK, integer, name)
-                                }
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!(REACH_RANK, boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, options } => {
-                                    match name.as_str() {
-                                        "pp" => match RankPpArgs::slash(ctx, options, author_id)
-                                            .await?
-                                        {
-                                            Ok(args) => kind = Some(Self::RankPerformance(args)),
-                                            Err(content) => return Ok(Err(content.into())),
-                                        },
-                                        SCORE => {
-                                            match RankScoreArgs::slash(ctx, options, author_id)
-                                                .await?
-                                            {
-                                                Ok(args) => kind = Some(Self::RankScore(args)),
-                                                Err(content) => return Ok(Err(content.into())),
-                                            }
-                                        }
-                                        _ => bail_cmd_option!(REACH_RANK, subcommand, name),
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    _ => bail_cmd_option!("reach", subcommand, name),
+        match option.value {
+            CommandOptionValue::SubCommand(options) => match option.name.as_str() {
+                "pp" => match RankPpArgs::slash(ctx, command, options).await? {
+                    Ok(args) => Ok(Ok(Self::RankPerformance(args))),
+                    Err(content) => Ok(Err(content)),
                 },
-            }
+                SCORE => match RankScoreArgs::slash(ctx, command, options).await? {
+                    Ok(args) => Ok(Ok(Self::RankScore(args))),
+                    Err(content) => Ok(Err(content)),
+                },
+                _ => Err(Error::InvalidCommandOptions),
+            },
+            _ => Err(Error::InvalidCommandOptions),
         }
+    }
 
-        kind.ok_or(Error::InvalidCommandOptions).map(Ok)
+    async fn slash(ctx: &Context, command: &mut ApplicationCommand) -> DoubleResultCow<Self> {
+        let option = command
+            .data
+            .options
+            .pop()
+            .ok_or(Error::InvalidCommandOptions)?;
+
+        match option.value {
+            CommandOptionValue::SubCommand(options) => match option.name.as_str() {
+                "pp" => match PpArgs::slash(ctx, command, options).await? {
+                    Ok(args) => Ok(Ok(Self::Performance(args))),
+                    Err(content) => Ok(Err(content)),
+                },
+                _ => Err(Error::InvalidCommandOptions),
+            },
+            CommandOptionValue::SubCommandGroup(options) => match option.name.as_str() {
+                RANK => Self::slash_rank(ctx, command, options).await,
+                _ => Err(Error::InvalidCommandOptions),
+            },
+            _ => Err(Error::InvalidCommandOptions),
+        }
     }
 }
 
@@ -120,8 +113,7 @@ pub fn define_reach() -> MyCommand {
     let rank = MyCommandOption::builder(RANK, "How much is missing to reach the given rank?")
         .subcommandgroup(vec![pp, score]);
 
-    // TODO: Number variant
-    let pp = MyCommandOption::builder("pp", "Specify a target pp amount").string(Vec::new(), true);
+    let pp = MyCommandOption::builder("pp", "Specify a target pp amount").number(Vec::new(), true);
     let mode = option_mode();
     let name = option_name();
     let discord = option_discord();

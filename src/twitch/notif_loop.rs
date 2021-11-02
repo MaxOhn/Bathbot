@@ -123,7 +123,8 @@ async fn send_notif(ctx: &Context, data: &TwitchNotifEmbed, channel: ChannelId) 
                             code: ErrorCode::UnknownChannel,
                             ..
                         }) => {
-                            if let Err(err) = ctx.psql().remove_channel_tracks(channel.0).await {
+                            if let Err(err) = ctx.psql().remove_channel_tracks(channel.get()).await
+                            {
                                 let wrap = format!(
                                     "could not remove stream tracks from unknown channel {}",
                                     channel

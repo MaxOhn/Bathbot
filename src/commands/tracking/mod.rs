@@ -11,19 +11,22 @@ pub use untrack_all::*;
 use crate::{
     util::{
         constants::common_literals::{CTB, MANIA, MODE, NAME, OSU, TAIKO},
-        ApplicationCommandExt, CowUtils,
+        CowUtils,
     },
-    Args, BotResult, Context, Error, 
+    Args, BotResult, Context, Error,
 };
 
 use rosu_v2::prelude::{GameMode, Username};
 use std::{borrow::Cow, sync::Arc};
 use twilight_model::application::{
     command::CommandOptionChoice,
-    interaction::{application_command::CommandDataOption, ApplicationCommand},
+    interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
 };
 
-use super::{MyCommand, MyCommandOption};
+use super::{MyCommand, MyCommandOption, check_user_mention, parse_mode_option};
 
 pub async fn slash_track(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
     match TrackArgs::slash(&mut command)? {
@@ -47,12 +50,6 @@ enum TrackCommandKind {
     RemoveSpecific(TrackArgs),
     List,
 }
-
-const TRACK: &str = "track";
-const TRACK_ADD: &str = "track add";
-const TRACK_REMOVE: &str = "track remove";
-const TRACK_REMOVE_USER: &str = "track remove user";
-const TRACK_REMOVE_ALL: &str = "track remove all";
 
 impl TrackArgs {
     async fn args(
@@ -89,9 +86,9 @@ impl TrackArgs {
                     }
                 }
             } else {
-                let name_ = match Args::check_user_mention(ctx, arg.as_ref()).await? {
+                let name_ = match check_user_mention(ctx, arg.as_ref()).await? {
                     Ok(osu) => osu.into_username(),
-                    Err(content) => return Ok(Err(content.into())),
+                    Err(content) => return Ok(Err(content)),
                 };
 
                 if name.is_none() {
@@ -117,139 +114,104 @@ impl TrackArgs {
         Ok(Ok(args))
     }
 
-    fn slash_remove(options: Vec<CommandDataOption>) -> BotResult<TrackCommandKind> {
-        let mut kind = None;
-
-        for option in options {
-            match option {
-                CommandDataOption::String { name, .. } => {
-                    bail_cmd_option!(TRACK_REMOVE, string, name)
-                }
-                CommandDataOption::Integer { name, .. } => {
-                    bail_cmd_option!(TRACK_REMOVE, integer, name)
-                }
-                CommandDataOption::Boolean { name, .. } => {
-                    bail_cmd_option!(TRACK_REMOVE, boolean, name)
-                }
-                CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    "user" => {
-                        let mut mode = None;
-                        let mut username = None;
-                        let mut more_names = Vec::new();
-
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, value } => match name.as_str() {
-                                    MODE => mode = parse_mode_option!(value, "track remove user"),
-                                    NAME => username = Some(value.into()),
-                                    _ if name.starts_with(NAME) => more_names.push(value.into()),
-                                    _ => bail_cmd_option!(TRACK_REMOVE_USER, string, name),
-                                },
-                                CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!(TRACK_REMOVE_USER, integer, name)
-                                }
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!(TRACK_REMOVE_USER, boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!(TRACK_REMOVE_USER, subcommand, name)
-                                }
-                            }
-                        }
-
-                        let args = TrackArgs {
-                            name: username.ok_or(Error::InvalidCommandOptions)?,
-                            mode,
-                            more_names,
-                            limit: None,
-                        };
-
-                        kind = Some(TrackCommandKind::RemoveSpecific(args));
-                    }
-                    "all" => {
-                        let mut mode = None;
-
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, value } => match name.as_str() {
-                                    MODE => mode = parse_mode_option!(value, "track remove all"),
-                                    _ => bail_cmd_option!(TRACK_REMOVE_ALL, string, name),
-                                },
-                                CommandDataOption::Integer { name, .. } => {
-                                    bail_cmd_option!(TRACK_REMOVE_ALL, integer, name)
-                                }
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!(TRACK_REMOVE_ALL, boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!(TRACK_REMOVE_ALL, subcommand, name)
-                                }
-                            }
-                        }
-
-                        kind = Some(TrackCommandKind::RemoveAll(mode));
-                    }
-                    _ => bail_cmd_option!(TRACK_REMOVE, subcommand, name),
+    fn slash(command: &mut ApplicationCommand) -> BotResult<TrackCommandKind> {
+        command
+            .data
+            .options
+            .pop()
+            .and_then(|option| match option.value {
+                CommandOptionValue::SubCommand(options) => match option.name.as_str() {
+                    "add" => Self::slash_add(options),
+                    "list" => Some(TrackCommandKind::List),
+                    _ => None,
                 },
-            }
-        }
-
-        kind.ok_or(Error::InvalidCommandOptions)
+                CommandOptionValue::SubCommandGroup(options) => (option.name == "remove")
+                    .then(|| Self::slash_remove(options))
+                    .flatten(),
+                _ => None,
+            })
+            .ok_or(Error::InvalidCommandOptions)
     }
 
-    fn slash(command: &mut ApplicationCommand) -> BotResult<TrackCommandKind> {
-        let mut kind = None;
+    fn slash_add(options: Vec<CommandDataOption>) -> Option<TrackCommandKind> {
+        let mut mode = None;
+        let mut username = None;
+        let mut limit = None;
+        let mut more_names = Vec::new();
 
-        for option in command.yoink_options() {
-            match option {
-                CommandDataOption::String { name, .. } => bail_cmd_option!(TRACK, string, name),
-                CommandDataOption::Integer { name, .. } => bail_cmd_option!(TRACK, integer, name),
-                CommandDataOption::Boolean { name, .. } => bail_cmd_option!(TRACK, boolean, name),
-                CommandDataOption::SubCommand { name, options } => match name.as_str() {
-                    "add" => {
-                        let mut mode = None;
-                        let mut username = None;
-                        let mut limit = None;
-                        let mut more_names = Vec::new();
-
-                        for option in options {
-                            match option {
-                                CommandDataOption::String { name, value } => match name.as_str() {
-                                    MODE => mode = parse_mode_option!(value, "track add"),
-                                    NAME => username = Some(value.into()),
-                                    _ if name.starts_with(NAME) => more_names.push(value.into()),
-                                    _ => bail_cmd_option!(TRACK_ADD, string, name),
-                                },
-                                CommandDataOption::Integer { name, value } => match name.as_str() {
-                                    "limit" => limit = Some(value.max(1).min(100) as usize),
-                                    _ => bail_cmd_option!(TRACK_ADD, integer, name),
-                                },
-                                CommandDataOption::Boolean { name, .. } => {
-                                    bail_cmd_option!(TRACK_ADD, boolean, name)
-                                }
-                                CommandDataOption::SubCommand { name, .. } => {
-                                    bail_cmd_option!(TRACK_ADD, subcommand, name)
-                                }
-                            }
-                        }
-
-                        let args = TrackArgs {
-                            name: username.ok_or(Error::InvalidCommandOptions)?,
-                            mode: Some(mode.ok_or(Error::InvalidCommandOptions)?),
-                            more_names,
-                            limit,
-                        };
-
-                        kind = Some(TrackCommandKind::Add(args));
-                    }
-                    "remove" => kind = Some(Self::slash_remove(options)?),
-                    "list" => kind = Some(TrackCommandKind::List),
-                    _ => bail_cmd_option!(TRACK, subcommand, name),
+        for option in options {
+            match option.value {
+                CommandOptionValue::String(value) => match option.name.as_str() {
+                    MODE => mode = parse_mode_option(&value),
+                    NAME => username = Some(value.into()),
+                    _ if option.name.starts_with(NAME) => more_names.push(value.into()),
+                    _ => return None,
                 },
+                CommandOptionValue::Integer(value) => {
+                    if option.name != "limit" {
+                        return None;
+                    }
+
+                    limit = Some(value.max(1).min(100) as usize);
+                }
+                _ => return None,
             }
         }
 
-        kind.ok_or(Error::InvalidCommandOptions)
+        let args = TrackArgs {
+            name: username?,
+            mode: Some(mode?),
+            more_names,
+            limit,
+        };
+
+        Some(TrackCommandKind::Add(args))
+    }
+
+    fn slash_remove(mut options: Vec<CommandDataOption>) -> Option<TrackCommandKind> {
+        options.pop().and_then(|option| match option.value {
+            CommandOptionValue::SubCommand(mut options) => match option.name.as_str() {
+                "user" => {
+                    let mut mode = None;
+                    let mut username = None;
+                    let mut more_names = Vec::new();
+
+                    for option in options {
+                        match option.value {
+                            CommandOptionValue::String(value) => match option.name.as_str() {
+                                MODE => mode = parse_mode_option(&value),
+                                NAME => username = Some(value.into()),
+                                _ if option.name.starts_with(NAME) => more_names.push(value.into()),
+                                _ => return None,
+                            },
+                            _ => return None,
+                        }
+                    }
+
+                    let args = TrackArgs {
+                        name: username?,
+                        mode,
+                        more_names,
+                        limit: None,
+                    };
+
+                    Some(TrackCommandKind::RemoveSpecific(args))
+                }
+                "all" => {
+                    let mode = match options.pop() {
+                        Some(option) => match option.value {
+                            CommandOptionValue::String(value) => parse_mode_option(&value),
+                            _ => return None,
+                        },
+                        None => None,
+                    };
+
+                    Some(TrackCommandKind::RemoveAll(mode))
+                }
+                _ => None,
+            },
+            _ => None,
+        })
     }
 }
 
@@ -367,7 +329,7 @@ fn subcommand_list() -> MyCommandOption {
 pub fn define_track() -> MyCommand {
     let options = vec![subcommand_add(), subcommand_remove(), subcommand_list()];
 
-    MyCommand::new(TRACK, "(Un)track top score updates for an osu! player")
+    MyCommand::new("track", "(Un)track top score updates for an osu! player")
         .options(options)
         .authority()
 }
