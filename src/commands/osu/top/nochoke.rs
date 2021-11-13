@@ -5,7 +5,7 @@ use futures::{
     future::TryFutureExt,
     stream::{FuturesUnordered, TryStreamExt},
 };
-use rosu_pp::{Beatmap as Map, FruitsPP, OsuPP, StarResult, TaikoPP};
+use rosu_pp::{Beatmap as Map, FruitsPP, OsuPP, TaikoPP};
 use rosu_v2::prelude::{GameMode, OsuError};
 use tokio::fs::File;
 use twilight_model::{
@@ -137,15 +137,12 @@ pub(super) async fn _nochokes(
                     unchoked.statistics.count_100 = count100 as u32;
                     unchoked.max_combo = map.max_combo.unwrap_or(0);
                     unchoked.statistics.count_miss = 0;
-                    unchoked.pp = Some(pp_result.pp);
+                    unchoked.pp = Some(pp_result.pp as f32);
                     unchoked.grade = unchoked.grade(None);
                     unchoked.accuracy = unchoked.accuracy();
                 }
                 GameMode::CTB if score.max_combo != map.max_combo.unwrap_or(0) => {
-                    let attributes = match rosu_pp::fruits::stars(&rosu_map, mods, None) {
-                        StarResult::Fruits(attributes) => attributes,
-                        _ => bail!("no ctb attributes after calculating stars for ctb map"),
-                    };
+                    let attributes = rosu_pp::fruits::stars(&rosu_map, mods, None);
 
                     let total_objects = attributes.max_combo;
                     let passed_objects = (score.statistics.count_300
@@ -190,7 +187,7 @@ pub(super) async fn _nochokes(
                     unchoked.statistics.count_50 = n_tiny_droplets as u32;
                     unchoked.max_combo = total_objects as u32;
                     unchoked.statistics.count_miss = 0;
-                    unchoked.pp = Some(pp_result.pp);
+                    unchoked.pp = Some(pp_result.pp as f32);
                     unchoked.grade = unchoked.grade(Some(acc));
                     unchoked.accuracy = unchoked.accuracy();
                 }
@@ -210,12 +207,15 @@ pub(super) async fn _nochokes(
 
                     let acc = 100.0 * (2 * count300 + count100) as f32 / (2 * total_objects) as f32;
 
-                    let pp_result = TaikoPP::new(&rosu_map).mods(mods).accuracy(acc).calculate();
+                    let pp_result = TaikoPP::new(&rosu_map)
+                        .mods(mods)
+                        .accuracy(acc as f64)
+                        .calculate();
 
                     unchoked.statistics.count_300 = count300 as u32;
                     unchoked.statistics.count_100 = count100 as u32;
                     unchoked.statistics.count_miss = 0;
-                    unchoked.pp = Some(pp_result.pp);
+                    unchoked.pp = Some(pp_result.pp as f32);
                     unchoked.grade = unchoked.grade(Some(acc));
                     unchoked.accuracy = unchoked.accuracy();
                 }

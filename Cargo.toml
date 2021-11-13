@@ -94,19 +94,15 @@ features = ["cache", "metrics"]
 version = "2.2"
 
 [dependencies.rosu-pp]
-git = "https://github.com/MaxOhn/rosu-pp"
-branch = "next"
+path = "../rosu-pp"
+# git = "https://github.com/MaxOhn/rosu-pp"
+# branch = "next"
 features = ["async_tokio"]
 
-[dependencies.rosu-pp-newer]
-# path = "../rosu_v2-pp-newer"
-git = "https://github.com/MaxOhn/rosu-pp-newer.git"
-branch = "main"
-
 [dependencies.rosu-pp-older]
-# path = "../rosu_v2-pp-older"
-git = "https://github.com/MaxOhn/rosu-pp-older.git"
-branch = "main"
+path = "../rosu-pp-older"
+# git = "https://github.com/MaxOhn/rosu-pp-older.git"
+# branch = "main"
 
 [dependencies.serde]
 version = "1.0"

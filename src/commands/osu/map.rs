@@ -267,7 +267,7 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
     Ok(())
 }
 
-async fn strain_values(map_id: u32, mods: GameMods) -> BotResult<Vec<(f32, f32)>> {
+async fn strain_values(map_id: u32, mods: GameMods) -> BotResult<Vec<(f64, f64)>> {
     let map_path = prepare_beatmap_file(map_id).await?;
     let file = File::open(map_path).await.map_err(PPError::from)?;
     let map = Beatmap::parse(file).await.map_err(PPError::from)?;
@@ -287,7 +287,7 @@ async fn strain_values(map_id: u32, mods: GameMods) -> BotResult<Vec<(f32, f32)>
     Ok(strains)
 }
 
-fn graph(strains: Vec<(f32, f32)>, mut background: DynamicImage) -> Result<Vec<u8>, GraphError> {
+fn graph(strains: Vec<(f64, f64)>, mut background: DynamicImage) -> Result<Vec<u8>, GraphError> {
     static LEN: usize = W as usize * H as usize;
 
     let max_strain = strains
@@ -296,7 +296,7 @@ fn graph(strains: Vec<(f32, f32)>, mut background: DynamicImage) -> Result<Vec<u
         .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(Ordering::Equal))
         .map_or(0.0, |(_, s)| s);
 
-    if max_strain <= std::f32::EPSILON {
+    if max_strain <= std::f64::EPSILON {
         return Err(GraphError::InvalidStrainPoints);
     }
 
@@ -355,7 +355,7 @@ fn graph(strains: Vec<(f32, f32)>, mut background: DynamicImage) -> Result<Vec<u
             .x_labels(10)
             .x_label_style(text_style)
             .x_label_formatter(&|timestamp| {
-                if timestamp.abs() < f32::EPSILON {
+                if timestamp.abs() <= f64::EPSILON {
                     return String::new();
                 }
 

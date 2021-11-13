@@ -27,10 +27,18 @@ use twilight_model::{
     id::UserId,
 };
 
-use crate::{BotResult, core::{CommandGroup, Context}, database::OsuData, util::{Emote, constants::{
+use crate::{
+    core::{CommandGroup, Context},
+    database::OsuData,
+    util::{
+        constants::{
             common_literals::{CTB, HELP, MANIA, OSU, PROFILE, TAIKO},
             GENERAL_ISSUE,
-        }, matcher}};
+        },
+        matcher, Emote,
+    },
+    BotResult,
+};
 
 fn parse_mode_option(value: &str) -> Option<GameMode> {
     match value {
@@ -124,7 +132,6 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &MAPPER_CMD,
                 &TOPIF_CMD,
                 &TOPOLD_CMD,
-                &REBALANCE_CMD,
                 &SNIPED_CMD,
                 &SNIPEDGAIN_CMD,
                 &SNIPEDLOSS_CMD,

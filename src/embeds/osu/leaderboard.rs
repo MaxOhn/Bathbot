@@ -14,7 +14,8 @@ use crate::{
 
 use hashbrown::HashMap;
 use rosu_pp::{
-    Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, StarResult, TaikoPP,
+    Beatmap as Map, BeatmapExt, DifficultyAttributes, FruitsPP, GameMode as Mode, ManiaPP, OsuPP,
+    PerformanceAttributes, TaikoPP,
 };
 use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, GameMode};
 use std::fmt::{self, Write};
@@ -140,7 +141,7 @@ impl_builder!(LeaderboardEmbed {
 });
 
 async fn get_pp(
-    mod_map: &mut HashMap<u32, (StarResult, f32)>,
+    mod_map: &mut HashMap<u32, (DifficultyAttributes, f32)>,
     score: &ScraperScore,
     map: &Map,
 ) -> PPFormatter {
@@ -156,30 +157,34 @@ async fn get_pp(
     );
 
     if max_pp.is_none() {
-        let result = match map.mode {
+        let result: PerformanceAttributes = match map.mode {
             Mode::STD => OsuPP::new(map)
                 .mods(bits)
                 .attributes(attributes)
-                .calculate(),
+                .calculate()
+                .into(),
             Mode::MNA => ManiaPP::new(map)
                 .mods(bits)
                 .attributes(attributes)
-                .calculate(),
+                .calculate()
+                .into(),
             Mode::CTB => FruitsPP::new(map)
                 .mods(bits)
                 .attributes(attributes)
-                .calculate(),
+                .calculate()
+                .into(),
             Mode::TKO => TaikoPP::new(map)
                 .mods(bits)
                 .attributes(attributes)
-                .calculate(),
+                .calculate()
+                .into(),
         };
 
-        max_pp.replace(result.pp());
-        attributes = result.attributes;
+        max_pp.replace(result.pp() as f32);
+        attributes = result.into();
     }
 
-    let result = match map.mode {
+    let result: PerformanceAttributes = match map.mode {
         Mode::STD => OsuPP::new(map)
             .mods(bits)
             .attributes(attributes)
@@ -188,31 +193,35 @@ async fn get_pp(
             .n100(score.count100 as usize)
             .n50(score.count50 as usize)
             .combo(score.max_combo as usize)
-            .calculate(),
+            .calculate()
+            .into(),
         Mode::MNA => ManiaPP::new(map)
             .mods(bits)
             .attributes(attributes)
             .score(score.score)
-            .calculate(),
+            .calculate()
+            .into(),
         Mode::CTB => FruitsPP::new(map)
             .mods(bits)
             .attributes(attributes)
             .misses(score.count_miss as usize)
             .combo(score.max_combo as usize)
-            .accuracy(score.accuracy)
-            .calculate(),
+            .accuracy(score.accuracy as f64)
+            .calculate()
+            .into(),
         Mode::TKO => TaikoPP::new(map)
             .mods(bits)
             .attributes(attributes)
             .misses(score.count_miss as usize)
             .combo(score.max_combo as usize)
-            .accuracy(score.accuracy)
-            .calculate(),
+            .accuracy(score.accuracy as f64)
+            .calculate()
+            .into(),
     };
 
     let max_pp = max_pp.unwrap();
-    let pp = result.pp();
-    let attributes = result.attributes;
+    let pp = result.pp() as f32;
+    let attributes = result.into();
 
     mod_map.insert(bits, (attributes, max_pp));
 

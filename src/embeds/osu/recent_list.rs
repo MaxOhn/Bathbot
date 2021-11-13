@@ -11,7 +11,8 @@ use crate::{
 
 use hashbrown::HashMap;
 use rosu_pp::{
-    Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, StarResult, TaikoPP,
+    Beatmap as Map, BeatmapExt, DifficultyAttributes, FruitsPP, GameMode as Mode, ManiaPP, OsuPP,
+    PerformanceAttributes, TaikoPP,
 };
 use rosu_v2::prelude::{GameMode, Grade, Score, User};
 use std::fmt::Write;
@@ -104,7 +105,7 @@ impl_builder!(RecentListEmbed {
 });
 
 fn get_pp_stars(
-    mod_map: &mut HashMap<(u32, u32), (StarResult, f32)>,
+    mod_map: &mut HashMap<(u32, u32), (DifficultyAttributes, f32)>,
     score: &Score,
     map_id: u32,
     map: &Map,
@@ -122,27 +123,31 @@ fn get_pp_stars(
     );
 
     if max_pp.is_none() {
-        let result = match map.mode {
+        let result: PerformanceAttributes = match map.mode {
             Mode::STD => OsuPP::new(map)
                 .mods(bits)
                 .attributes(attributes)
-                .calculate(),
+                .calculate()
+                .into(),
             Mode::MNA => ManiaPP::new(map)
                 .mods(bits)
                 .attributes(attributes)
-                .calculate(),
+                .calculate()
+                .into(),
             Mode::CTB => FruitsPP::new(map)
                 .mods(bits)
                 .attributes(attributes)
-                .calculate(),
+                .calculate()
+                .into(),
             Mode::TKO => TaikoPP::new(map)
                 .mods(bits)
                 .attributes(attributes)
-                .calculate(),
+                .calculate()
+                .into(),
         };
 
-        max_pp.replace(result.pp());
-        attributes = result.attributes;
+        max_pp.replace(result.pp() as f32);
+        attributes = result.into();
     }
 
     let max_pp = max_pp.unwrap();
@@ -154,7 +159,7 @@ fn get_pp_stars(
     } else if score.grade == Grade::F {
         let passed = score.total_hits() as usize;
 
-        let result = match map.mode {
+        pp = match map.mode {
             Mode::STD => OsuPP::new(map)
                 .mods(bits)
                 .misses(score.statistics.count_miss as usize)
@@ -163,12 +168,14 @@ fn get_pp_stars(
                 .n50(score.statistics.count_50 as usize)
                 .combo(score.max_combo as usize)
                 .passed_objects(passed)
-                .calculate(),
+                .calculate()
+                .pp() as f32,
             Mode::MNA => ManiaPP::new(map)
                 .mods(bits)
                 .score(score.score)
                 .passed_objects(passed)
-                .calculate(),
+                .calculate()
+                .pp() as f32,
             Mode::CTB => FruitsPP::new(map)
                 .mods(bits)
                 .misses(score.statistics.count_miss as usize)
@@ -178,7 +185,8 @@ fn get_pp_stars(
                 .tiny_droplets(score.statistics.count_50 as usize)
                 .tiny_droplet_misses(score.statistics.count_katu as usize)
                 .passed_objects(passed - score.statistics.count_katu as usize)
-                .calculate(),
+                .calculate()
+                .pp() as f32,
             Mode::TKO => TaikoPP::new(map)
                 .mods(bits)
                 .misses(score.statistics.count_miss as usize)
@@ -186,12 +194,11 @@ fn get_pp_stars(
                 .n300(score.statistics.count_300 as usize)
                 .n100(score.statistics.count_100 as usize)
                 .passed_objects(passed)
-                .calculate(),
+                .calculate()
+                .pp() as f32,
         };
-
-        pp = result.pp();
     } else {
-        let result = match map.mode {
+        let result: PerformanceAttributes = match map.mode {
             Mode::STD => OsuPP::new(map)
                 .mods(bits)
                 .attributes(attributes)
@@ -200,12 +207,14 @@ fn get_pp_stars(
                 .n100(score.statistics.count_100 as usize)
                 .n50(score.statistics.count_50 as usize)
                 .combo(score.max_combo as usize)
-                .calculate(),
+                .calculate()
+                .into(),
             Mode::MNA => ManiaPP::new(map)
                 .mods(bits)
                 .attributes(attributes)
                 .score(score.score)
-                .calculate(),
+                .calculate()
+                .into(),
             Mode::CTB => FruitsPP::new(map)
                 .mods(bits)
                 .attributes(attributes)
@@ -215,7 +224,8 @@ fn get_pp_stars(
                 .droplets(score.statistics.count_100 as usize)
                 .tiny_droplets(score.statistics.count_50 as usize)
                 .tiny_droplet_misses(score.statistics.count_katu as usize)
-                .calculate(),
+                .calculate()
+                .into(),
             Mode::TKO => TaikoPP::new(map)
                 .mods(bits)
                 .attributes(attributes)
@@ -223,17 +233,18 @@ fn get_pp_stars(
                 .combo(score.max_combo as usize)
                 .n300(score.statistics.count_300 as usize)
                 .n100(score.statistics.count_100 as usize)
-                .calculate(),
+                .calculate()
+                .into(),
         };
 
-        pp = result.pp();
-        attributes = result.attributes;
+        pp = result.pp() as f32;
+        attributes = result.into();
     }
 
     mod_map.insert(key, (attributes, max_pp));
 
     let pp = format!("**{:.2}**/{:.2}PP", pp, max_pp.max(pp));
-    let stars = osu::get_stars(stars);
+    let stars = osu::get_stars(stars as f32);
 
     (pp, stars)
 }

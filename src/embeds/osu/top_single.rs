@@ -12,7 +12,7 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
-use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, OsuPP, StarResult, TaikoPP};
+use rosu_pp::{Beatmap as Map, BeatmapExt, DifficultyAttributes, FruitsPP, OsuPP, TaikoPP};
 use rosu_v2::prelude::{GameMode, Grade, Score, User};
 use std::{borrow::Cow, fmt::Write};
 use tokio::fs::File;
@@ -55,16 +55,16 @@ impl TopSingleEmbed {
         let rosu_map = Map::parse(file).await.map_err(PPError::from)?;
         let mods = score.mods.bits();
         let max_result = rosu_map.max_pp(mods);
-        let attributes = max_result.attributes;
+        let attributes = max_result.difficulty_attributes();
 
         let max_pp = score
             .pp
             .filter(|pp| {
                 score.grade.eq_letter(Grade::X) && score.mode != GameMode::MNA && *pp > 0.0
             })
-            .unwrap_or(max_result.pp);
+            .unwrap_or(max_result.pp() as f32);
 
-        let stars = round(attributes.stars());
+        let stars = round(attributes.stars() as f32);
 
         let if_fc = if_fc_struct(score, &rosu_map, attributes, mods);
 
@@ -224,9 +224,14 @@ struct IfFC {
     acc: f32,
 }
 
-fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> Option<IfFC> {
+fn if_fc_struct(
+    score: &Score,
+    map: &Map,
+    attributes: DifficultyAttributes,
+    mods: u32,
+) -> Option<IfFC> {
     match attributes {
-        StarResult::Osu(attributes)
+        DifficultyAttributes::Osu(attributes)
             if score.statistics.count_miss > 0
                 || score.max_combo < attributes.max_combo as u32 - 5 =>
         {
@@ -262,11 +267,13 @@ fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> 
                 n300: count300,
                 n100: count100,
                 n50: Some(count50),
-                pp: pp_result.pp,
+                pp: pp_result.pp as f32,
                 acc,
             })
         }
-        StarResult::Fruits(attributes) if score.max_combo != attributes.max_combo as u32 => {
+        DifficultyAttributes::Fruits(attributes)
+            if score.max_combo != attributes.max_combo as u32 =>
+        {
             let total_objects = attributes.max_combo;
             let passed_objects = (score.statistics.count_300
                 + score.statistics.count_100
@@ -310,11 +317,11 @@ fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> 
                 n300: n_fruits,
                 n100: n_droplets,
                 n50: Some(n_tiny_droplets),
-                pp: pp_result.pp,
+                pp: pp_result.pp as f32,
                 acc,
             })
         }
-        StarResult::Taiko(attributes) if score.statistics.count_miss > 0 => {
+        DifficultyAttributes::Taiko(attributes) if score.statistics.count_miss > 0 => {
             let total_objects = map.n_circles as usize;
             let passed_objects = score.total_hits() as usize;
 
@@ -333,14 +340,14 @@ fn if_fc_struct(score: &Score, map: &Map, attributes: StarResult, mods: u32) -> 
             let pp_result = TaikoPP::new(map)
                 .attributes(attributes)
                 .mods(mods)
-                .accuracy(acc)
+                .accuracy(acc as f64)
                 .calculate();
 
             Some(IfFC {
                 n300: count300,
                 n100: count100,
                 n50: None,
-                pp: pp_result.pp,
+                pp: pp_result.pp as f32,
                 acc,
             })
         }

@@ -13,7 +13,10 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
-use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, TaikoPP};
+use rosu_pp::{
+    Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, PerformanceAttributes,
+    TaikoPP,
+};
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods};
 use std::fmt::Write;
 use tokio::fs::File;
@@ -88,38 +91,42 @@ impl MapEmbed {
         let ar = attributes.ar;
         let hp = attributes.hp;
         let cs = attributes.cs;
-        let od = calculate_od(attributes.od, attributes.clock_rate);
+        let od = calculate_od(attributes.od as f32, attributes.clock_rate as f32);
 
         let mut attributes = rosu_map.stars(mod_bits, None);
         let stars = attributes.stars();
         let mut pps = Vec::with_capacity(4);
 
         for acc in [95.0, 97.0, 99.0, 100.0].iter().copied() {
-            let pp_result = match rosu_map.mode {
+            let pp_result: PerformanceAttributes = match rosu_map.mode {
                 Mode::STD => OsuPP::new(&rosu_map)
                     .mods(mod_bits)
                     .attributes(attributes)
                     .accuracy(acc)
-                    .calculate(),
+                    .calculate()
+                    .into(),
                 Mode::MNA => ManiaPP::new(&rosu_map)
                     .mods(mod_bits)
                     .attributes(attributes)
-                    .score(acc_to_score(mod_mult, acc) as u32)
-                    .calculate(),
+                    .score(acc_to_score(mod_mult, acc as f32) as u32)
+                    .calculate()
+                    .into(),
                 Mode::CTB => FruitsPP::new(&rosu_map)
                     .mods(mod_bits)
                     .attributes(attributes)
                     .accuracy(acc)
-                    .calculate(),
+                    .calculate()
+                    .into(),
                 Mode::TKO => TaikoPP::new(&rosu_map)
                     .mods(mod_bits)
                     .attributes(attributes)
                     .accuracy(acc)
-                    .calculate(),
+                    .calculate()
+                    .into(),
             };
 
-            pps.push(pp_result.pp());
-            attributes = pp_result.attributes;
+            pps.push(pp_result.pp() as f32);
+            attributes = pp_result.into();
         }
 
         let mut pp_values = String::with_capacity(128);
@@ -192,10 +199,10 @@ impl MapEmbed {
             sec_to_minsec(seconds_drain),
             round(bpm),
             map.count_objects(),
-            round(cs),
-            round(ar),
+            round(cs as f32),
+            round(ar as f32),
             round(od),
-            round(hp),
+            round(hp as f32),
             map.count_spinners,
         );
 

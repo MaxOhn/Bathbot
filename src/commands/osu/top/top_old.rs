@@ -6,7 +6,7 @@ use futures::{
     future::TryFutureExt,
     stream::{FuturesUnordered, TryStreamExt},
 };
-use rosu_pp::{Beatmap, BeatmapExt};
+use rosu_pp::{Beatmap, BeatmapExt, PerformanceAttributes};
 use rosu_pp_older::*;
 use rosu_v2::prelude::{GameMode, OsuError, Score};
 use tokio::fs::File;
@@ -18,7 +18,14 @@ use twilight_model::{
     id::UserId,
 };
 
-use crate::{Args, BotResult, CommandData, Context, Error, MessageBuilder, commands::{DoubleResultCow, check_user_mention, parse_discord}, database::UserConfig, embeds::{EmbedData, TopIfEmbed}, error::PPError, pagination::{Pagination, TopIfPagination}, tracking::process_tracking, util::{
+use crate::{
+    commands::{check_user_mention, parse_discord, DoubleResultCow},
+    database::UserConfig,
+    embeds::{EmbedData, TopIfEmbed},
+    error::PPError,
+    pagination::{Pagination, TopIfPagination},
+    tracking::process_tracking,
+    util::{
         constants::{
             common_literals::{CTB, DISCORD, MANIA, NAME, OSU, TAIKO},
             GENERAL_ISSUE, OSU_API_ISSUE,
@@ -26,7 +33,9 @@ use crate::{Args, BotResult, CommandData, Context, Error, MessageBuilder, comman
         numbers,
         osu::prepare_beatmap_file,
         InteractionExt, MessageExt,
-    }};
+    },
+    Args, BotResult, CommandData, Context, Error, MessageBuilder,
+};
 
 use super::ErrorType;
 
@@ -35,11 +44,11 @@ macro_rules! pp_std {
         let max_pp_result = $version::OsuPP::new(&$rosu_map).mods($mods).calculate();
 
         let max_pp = max_pp_result.pp();
-        $score.map.as_mut().unwrap().stars = max_pp_result.stars();
+        $score.map.as_mut().unwrap().stars = max_pp_result.stars() as f32;
 
         let pp_result = $version::OsuPP::new(&$rosu_map)
             .mods($mods)
-            .attributes(max_pp_result)
+            .attributes(PerformanceAttributes::from(max_pp_result))
             .n300($score.statistics.count_300 as usize)
             .n100($score.statistics.count_100 as usize)
             .n50($score.statistics.count_50 as usize)
@@ -47,7 +56,7 @@ macro_rules! pp_std {
             .combo($score.max_combo as usize)
             .calculate();
 
-        $score.pp.replace(pp_result.pp());
+        $score.pp.replace(pp_result.pp() as f32);
 
         max_pp
     }};
@@ -58,16 +67,16 @@ macro_rules! pp_mna {
         let max_pp_result = $version::ManiaPP::new(&$rosu_map).mods($mods).calculate();
 
         let max_pp = max_pp_result.pp();
-        $score.map.as_mut().unwrap().stars = max_pp_result.stars();
+        $score.map.as_mut().unwrap().stars = max_pp_result.stars() as f32;
 
         let pp_result = $version::ManiaPP::new(&$rosu_map)
             .mods($mods)
-            .attributes(max_pp_result)
+            .attributes(PerformanceAttributes::from(max_pp_result))
             .score($score.score)
             .accuracy($score.accuracy)
             .calculate();
 
-        $score.pp.replace(pp_result.pp());
+        $score.pp.replace(pp_result.pp() as f32);
 
         max_pp
     }};
@@ -78,11 +87,11 @@ macro_rules! pp_ctb {
         let max_pp_result = $version::FruitsPP::new(&$rosu_map).mods($mods).calculate();
 
         let max_pp = max_pp_result.pp();
-        $score.map.as_mut().unwrap().stars = max_pp_result.stars();
+        $score.map.as_mut().unwrap().stars = max_pp_result.stars() as f32;
 
         let pp_result = $version::FruitsPP::new(&$rosu_map)
             .mods($mods)
-            .attributes(max_pp_result)
+            .attributes(PerformanceAttributes::from(max_pp_result))
             .fruits($score.statistics.count_300 as usize)
             .droplets($score.statistics.count_100 as usize)
             .tiny_droplets($score.statistics.count_50 as usize)
@@ -91,7 +100,7 @@ macro_rules! pp_ctb {
             .combo($score.max_combo as usize)
             .calculate();
 
-        $score.pp.replace(pp_result.pp());
+        $score.pp.replace(pp_result.pp() as f32);
 
         max_pp
     }};
@@ -102,18 +111,18 @@ macro_rules! pp_tko {
         let max_pp_result = $version::TaikoPP::new(&$rosu_map).mods($mods).calculate();
 
         let max_pp = max_pp_result.pp();
-        $score.map.as_mut().unwrap().stars = max_pp_result.stars();
+        $score.map.as_mut().unwrap().stars = max_pp_result.stars() as f32;
 
         let pp_result = $version::TaikoPP::new(&$rosu_map)
             .mods($mods)
-            .attributes(max_pp_result)
+            .attributes(PerformanceAttributes::from(max_pp_result))
             .n300($score.statistics.count_300 as usize)
             .n100($score.statistics.count_100 as usize)
             .misses($score.statistics.count_miss as usize)
             .combo($score.max_combo as usize)
             .calculate();
 
-        $score.pp.replace(pp_result.pp());
+        $score.pp.replace(pp_result.pp() as f32);
 
         max_pp
     }};
@@ -241,10 +250,10 @@ pub(super) async fn _topold(
                 OldVersion::ManiaMar14May18 => pp_mna!(mania_ppv1, rosu_map, score, mods),
                 OldVersion::TaikoMar14Sep20 => pp_tko!(taiko_ppv1, rosu_map, score, mods),
                 OldVersion::CatchMar14May20 => pp_ctb!(fruits_ppv1, rosu_map, score, mods),
-                _ => return Ok((i, score, Some(rosu_map.max_pp(mods).pp()))),
+                _ => return Ok((i, score, Some(rosu_map.max_pp(mods).pp() as f32))),
             };
 
-            Ok((i, score, Some(max_pp)))
+            Ok((i, score, Some(max_pp as f32)))
         })
         .collect::<FuturesUnordered<_>>()
         .try_collect::<Vec<_>>();

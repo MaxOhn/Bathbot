@@ -13,8 +13,8 @@ use crate::{
 
 use chrono::Utc;
 use rosu_pp::{
-    Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, PpResult, StarResult,
-    TaikoPP,
+    Beatmap as Map, BeatmapExt, DifficultyAttributes, FruitsPP, GameMode as Mode, ManiaPP, OsuPP,
+    PerformanceAttributes, TaikoPP,
 };
 use rosu_v2::prelude::{
     Beatmap, BeatmapsetCompact, GameMode, GameMods, Grade, Score, ScoreStatistics,
@@ -152,12 +152,11 @@ impl SimulateEmbed {
             unchoked_score.mods = mods;
         }
 
-        let PpResult {
-            pp: max_pp,
-            attributes,
-        } = rosu_map.max_pp(unchoked_score.mods.bits());
+        let performance_attributes = rosu_map.max_pp(unchoked_score.mods.bits());
+        let attributes = performance_attributes.difficulty_attributes();
+        let max_pp = performance_attributes.pp() as f32;
 
-        let stars = round(attributes.stars());
+        let stars = round(attributes.stars() as f32);
 
         let attributes = if is_some {
             simulate_score(&mut unchoked_score, map, args, attributes)
@@ -165,7 +164,7 @@ impl SimulateEmbed {
             unchoke_score(&mut unchoked_score, map, attributes)
         };
 
-        let PpResult { pp, .. } = pp(&unchoked_score, &rosu_map, attributes);
+        let pp = calculate_pp(&unchoked_score, &rosu_map, attributes).pp() as f32;
 
         let grade_completion_mods = grade_completion_mods(&unchoked_score, map);
         let pp = osu::get_pp(Some(pp), Some(max_pp));
@@ -325,10 +324,10 @@ fn simulate_score(
     score: &mut Score,
     map: &Beatmap,
     args: SimulateArgs,
-    mut attributes: StarResult,
-) -> StarResult {
+    mut attributes: DifficultyAttributes,
+) -> DifficultyAttributes {
     match attributes {
-        StarResult::Osu(diff_attributes) => {
+        DifficultyAttributes::Osu(diff_attributes) => {
             let acc = args.acc.map_or(1.0, |a| a / 100.0);
             let mut n50 = args.n50.unwrap_or(0);
             let mut n100 = args.n100.unwrap_or(0);
@@ -395,9 +394,9 @@ fn simulate_score(
             score.accuracy = score.accuracy();
             score.grade = score.grade(None);
 
-            attributes = StarResult::Osu(diff_attributes);
+            attributes = DifficultyAttributes::Osu(diff_attributes);
         }
-        StarResult::Mania(diff_attributes) => {
+        DifficultyAttributes::Mania(diff_attributes) => {
             let mut max_score = 1_000_000;
 
             let mods = score.mods;
@@ -437,9 +436,9 @@ fn simulate_score(
                 Grade::S
             };
 
-            attributes = StarResult::Mania(diff_attributes);
+            attributes = DifficultyAttributes::Mania(diff_attributes);
         }
-        StarResult::Taiko(diff_attributes) => {
+        DifficultyAttributes::Taiko(diff_attributes) => {
             let n100 = args.n100.unwrap_or(0);
             let n300 = args.n300.unwrap_or(0);
             let miss = args.misses.unwrap_or(0);
@@ -484,9 +483,9 @@ fn simulate_score(
             score.accuracy = acc * 100.0;
             score.grade = score.grade(Some(score.accuracy));
 
-            attributes = StarResult::Taiko(diff_attributes);
+            attributes = DifficultyAttributes::Taiko(diff_attributes);
         }
-        StarResult::Fruits(diff_attributes) => {
+        DifficultyAttributes::Fruits(diff_attributes) => {
             let n_tiny_droplets;
             let n_tiny_droplet_misses;
             let mut n_droplets;
@@ -558,16 +557,20 @@ fn simulate_score(
             score.accuracy = score.accuracy();
             score.grade = score.grade(Some(score.accuracy));
 
-            attributes = StarResult::Fruits(diff_attributes);
+            attributes = DifficultyAttributes::Fruits(diff_attributes);
         }
     }
 
     attributes
 }
 
-fn unchoke_score(score: &mut Score, map: &Beatmap, attributes: StarResult) -> StarResult {
+fn unchoke_score(
+    score: &mut Score,
+    map: &Beatmap,
+    attributes: DifficultyAttributes,
+) -> DifficultyAttributes {
     match attributes {
-        StarResult::Osu(ref attribs)
+        DifficultyAttributes::Osu(ref attribs)
             if score.statistics.count_miss > 0
                 || score.max_combo < map.max_combo.unwrap_or(attribs.max_combo as u32) - 5 =>
         {
@@ -588,7 +591,7 @@ fn unchoke_score(score: &mut Score, map: &Beatmap, attributes: StarResult) -> St
             score.statistics.count_100 = count100 as u32;
             score.max_combo = map.max_combo.unwrap_or(attribs.max_combo as u32);
         }
-        StarResult::Mania(_) => {
+        DifficultyAttributes::Mania(_) => {
             score.score = 1_000_000;
 
             score.grade = if score
@@ -602,7 +605,7 @@ fn unchoke_score(score: &mut Score, map: &Beatmap, attributes: StarResult) -> St
 
             return attributes;
         }
-        StarResult::Fruits(ref attribs)
+        DifficultyAttributes::Fruits(ref attribs)
             if score.max_combo != map.max_combo.unwrap_or(attribs.max_combo as u32) =>
         {
             let total_objects = attribs.max_combo;
@@ -629,7 +632,9 @@ fn unchoke_score(score: &mut Score, map: &Beatmap, attributes: StarResult) -> St
             score.statistics.count_50 = n_tiny_droplets as u32;
             score.max_combo = attribs.max_combo as u32;
         }
-        StarResult::Taiko(_) if score.grade == Grade::F || score.statistics.count_miss > 0 => {
+        DifficultyAttributes::Taiko(_)
+            if score.grade == Grade::F || score.statistics.count_miss > 0 =>
+        {
             let total_objects = map.count_circles as usize;
             let passed_objects = score.total_hits() as usize;
 
@@ -656,7 +661,11 @@ fn unchoke_score(score: &mut Score, map: &Beatmap, attributes: StarResult) -> St
     attributes
 }
 
-fn pp(score: &Score, map: &Map, attributes: StarResult) -> PpResult {
+fn calculate_pp(
+    score: &Score,
+    map: &Map,
+    attributes: DifficultyAttributes,
+) -> PerformanceAttributes {
     let mods = score.mods.bits();
 
     match map.mode {
@@ -668,12 +677,14 @@ fn pp(score: &Score, map: &Map, attributes: StarResult) -> PpResult {
             .n100(score.statistics.count_100 as usize)
             .n50(score.statistics.count_50 as usize)
             .misses(score.statistics.count_miss as usize)
-            .calculate(),
+            .calculate()
+            .into(),
         Mode::MNA => ManiaPP::new(map)
             .attributes(attributes)
             .mods(mods)
             .score(score.score)
-            .calculate(),
+            .calculate()
+            .into(),
         Mode::CTB => FruitsPP::new(map)
             .attributes(attributes)
             .mods(mods)
@@ -681,14 +692,16 @@ fn pp(score: &Score, map: &Map, attributes: StarResult) -> PpResult {
             .fruits(score.statistics.count_300 as usize)
             .droplets(score.statistics.count_100 as usize)
             .misses(score.statistics.count_miss as usize)
-            .accuracy(score.accuracy)
-            .calculate(),
+            .accuracy(score.accuracy as f64)
+            .calculate()
+            .into(),
         Mode::TKO => TaikoPP::new(map)
             .attributes(attributes)
             .combo(score.max_combo as usize)
             .mods(mods)
-            .accuracy(score.accuracy)
-            .calculate(),
+            .accuracy(score.accuracy as f64)
+            .calculate()
+            .into(),
     }
 }
 

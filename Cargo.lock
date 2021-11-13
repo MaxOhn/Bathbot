@@ -133,7 +133,6 @@ dependencies = [
  "regex",
  "reqwest",
  "rosu-pp",
- "rosu-pp-newer",
  "rosu-pp-older",
  "rosu-v2",
  "routerify",
@@ -2145,25 +2144,13 @@ dependencies = [
 [[package]]
 name = "rosu-pp"
 version = "0.2.3"
-source = "git+https://github.com/MaxOhn/rosu-pp?branch=next#a6f35e7985a7f4fd3920bad90d731d861c7429b5"
 dependencies = [
- "tokio",
-]
-
-[[package]]
-name = "rosu-pp-newer"
-version = "0.1.0"
-source = "git+https://github.com/MaxOhn/rosu-pp-newer.git?branch=main#096c9295e32249a340aeba12dd6bba78033d21e1"
-dependencies = [
- "lazy_static",
- "rosu-pp",
  "tokio",
 ]
 
 [[package]]
 name = "rosu-pp-older"
 version = "0.1.0"
-source = "git+https://github.com/MaxOhn/rosu-pp-older.git?branch=main#349eb25b8f2e38d4888d376b7f534efac8ae9152"
 dependencies = [
  "rosu-pp",
 ]

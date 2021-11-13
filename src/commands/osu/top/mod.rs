@@ -1,14 +1,12 @@
 mod current;
 mod mapper;
 mod nochoke;
-mod rebalance;
 mod top_if;
 mod top_old;
 
 pub use current::*;
 pub use mapper::*;
 pub use nochoke::*;
-pub use rebalance::*;
 pub use top_if::*;
 pub use top_old::*;
 
@@ -41,7 +39,6 @@ enum TopCommandKind {
     Mapper(MapperArgs),
     Nochoke(NochokeArgs),
     Old(OldArgs),
-    Rebalance(RebalanceArgs),
     Top(TopArgs),
 }
 
@@ -71,10 +68,6 @@ impl TopCommandKind {
                     Ok(args) => Ok(Ok(TopCommandKind::Nochoke(args))),
                     Err(content) => Ok(Err(content)),
                 },
-                "rebalance" => match RebalanceArgs::slash(ctx, command, options).await? {
-                    Ok(args) => Ok(Ok(TopCommandKind::Rebalance(args))),
-                    Err(content) => Ok(Err(content)),
-                },
                 _ => Err(Error::InvalidCommandOptions),
             },
             CommandOptionValue::SubCommandGroup(options) => match option.name.as_str() {
@@ -95,7 +88,6 @@ pub async fn slash_top(ctx: Arc<Context>, mut command: ApplicationCommand) -> Bo
         Ok(TopCommandKind::Mapper(args)) => _mapper(ctx, command.into(), args).await,
         Ok(TopCommandKind::Nochoke(args)) => _nochokes(ctx, command.into(), args).await,
         Ok(TopCommandKind::Old(args)) => _topold(ctx, command.into(), args).await,
-        Ok(TopCommandKind::Rebalance(args)) => _rebalance(ctx, command.into(), args).await,
         Ok(TopCommandKind::Top(args)) => _top(ctx, command.into(), args).await,
         Err(content) => command.error(&ctx, content).await,
     }
@@ -376,47 +368,6 @@ fn subcommand_old() -> MyCommandOption {
         .subcommandgroup(vec![osu, taiko, ctb, mania])
 }
 
-fn subcommand_rebalance() -> MyCommandOption {
-    let version_choices = vec![
-        CommandOptionChoice::String {
-            name: "delta_t".to_owned(),
-            value: "delta_t".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "sotars".to_owned(),
-            value: "sotarks".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "xexxar".to_owned(),
-            value: "xexxar".to_owned(),
-        },
-    ];
-
-    let version_description = "Choose which version to replace the current pp system";
-
-    let version_help = "Replace the current pp system with an alternative version.\n\
-        Note that the command will **not** change scores, just recalculate their pp.\n\
-        Available versions are:\n  \
-        - [xexxar](https://github.com/emu1337/osu) (commit 5b80bdb)\n  \
-        - [delta](https://github.com/HeBuwei/osu) (commit 422d74e)\n  \
-        - [sotarks](https://sotarks.stanr.info/)\n\
-        The translations are not exactly accurate so expect a few differences in the results.
-        There are also __no guarantees__ that the implemented versions are up-to-date.";
-
-    let version = MyCommandOption::builder("version", version_description)
-        .help(version_help)
-        .string(version_choices, true);
-
-    let name = option_name();
-    let discord = option_discord();
-
-    let rebalance_description =
-        "How the current top plays would look like on an alternative pp system";
-
-    MyCommandOption::builder("rebalance", rebalance_description)
-        .subcommand(vec![version, name, discord])
-}
-
 pub fn define_top() -> MyCommand {
     let description = "Display a user's top plays through various modifications";
 
@@ -426,7 +377,6 @@ pub fn define_top() -> MyCommand {
         subcommand_mapper(),
         subcommand_nochoke(),
         subcommand_old(),
-        subcommand_rebalance(),
     ];
 
     MyCommand::new("top", description).options(options)

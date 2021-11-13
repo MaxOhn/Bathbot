@@ -6,7 +6,8 @@ use crate::{
 
 use bitflags::bitflags;
 use rosu_pp::{
-    Beatmap, BeatmapExt as rosu_v2BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, TaikoPP,
+    Beatmap, BeatmapExt as rosu_v2BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, 
+    TaikoPP, PerformanceAttributes,
 };
 use rosu_v2::model::{GameMode, GameMods, Grade};
 use tokio::fs::File;
@@ -116,9 +117,9 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
                     if let Some(result) = max_pp_result
                         .filter(|_| score.map_or(true, |s| s.grade(GameMode::STD) != Grade::F))
                     {
-                        calculator.attributes(result).calculate()
+                        PerformanceAttributes::Osu(calculator.attributes(result).calculate())
                     } else {
-                        calculator.calculate()
+                        PerformanceAttributes::Osu(calculator.calculate())
                     }
                 }
                 Mode::MNA => {
@@ -127,9 +128,9 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
                     let calculator = ManiaPP::new(&map).mods(mods).score(score);
 
                     if let Some(result) = max_pp_result {
-                        calculator.attributes(result).calculate()
+                        PerformanceAttributes::Mania(calculator.attributes(result).calculate())
                     } else {
-                        calculator.calculate()
+                        PerformanceAttributes::Mania(calculator.calculate())
                     }
                 }
                 Mode::CTB => {
@@ -163,7 +164,7 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
                         calculator = calculator.passed_objects(hits as usize);
                     }
 
-                    calculator.accuracy(acc).calculate()
+                    PerformanceAttributes::Fruits(calculator.accuracy(acc as f64).calculate())
                 }
                 Mode::TKO => {
                     let (misses, acc, combo, hits) = match score {
@@ -176,7 +177,10 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
                         None => (0, 100.0, None, None),
                     };
 
-                    let mut calculator = TaikoPP::new(&map).mods(mods).misses(misses).accuracy(acc);
+                    let mut calculator = TaikoPP::new(&map)
+                        .mods(mods)
+                        .misses(misses)
+                        .accuracy(acc as f64);
 
                     if let Some(combo) = combo {
                         calculator = calculator.combo(combo as usize);
@@ -190,9 +194,9 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
                     if let Some(result) = max_pp_result
                         .filter(|_| score.map_or(true, |s| s.grade(GameMode::TKO) != Grade::F))
                     {
-                        calculator.attributes(result).calculate()
+                        PerformanceAttributes::Taiko(calculator.attributes(result).calculate())
                     } else {
-                        calculator.calculate()
+                        PerformanceAttributes::Taiko(calculator.calculate())
                     }
                 }
             };
@@ -218,15 +222,15 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
         }
 
         if let Some(pp) = pp {
-            self.pp.replace(pp);
+            self.pp.replace(pp as f32);
         }
 
         if let Some(pp) = max_pp {
-            self.max_pp.replace(pp);
+            self.max_pp.replace(pp as f32);
         }
 
         if let Some(stars) = stars {
-            self.stars.replace(stars);
+            self.stars.replace(stars as f32);
         }
 
         Ok(())

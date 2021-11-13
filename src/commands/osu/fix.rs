@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use eyre::Report;
-use rosu_pp::{fruits::stars, Beatmap as Map, FruitsPP, ManiaPP, OsuPP, StarResult, TaikoPP};
+use rosu_pp::{
+    fruits::stars, Beatmap as Map, FruitsPP, ManiaPP, OsuPP, PerformanceAttributes, TaikoPP,
+};
 use rosu_v2::prelude::{Beatmap, GameMode, OsuError, RankStatus, Score};
 use tokio::fs::File;
 use twilight_model::{
@@ -278,7 +280,7 @@ async fn unchoke_pp(score: &mut Score, map: &Beatmap) -> BotResult<Option<f32>> 
     let attributes = if score.pp.is_some() {
         None
     } else {
-        let pp_result = match map.mode {
+        let pp_result: PerformanceAttributes = match map.mode {
             GameMode::STD => OsuPP::new(&rosu_map)
                 .mods(mods)
                 .combo(score.max_combo as usize)
@@ -286,34 +288,38 @@ async fn unchoke_pp(score: &mut Score, map: &Beatmap) -> BotResult<Option<f32>> 
                 .n100(score.statistics.count_100 as usize)
                 .n50(score.statistics.count_50 as usize)
                 .misses(score.statistics.count_miss as usize)
-                .calculate(),
+                .calculate()
+                .into(),
             GameMode::MNA => ManiaPP::new(&rosu_map)
                 .mods(mods)
                 .score(score.score)
-                .calculate(),
+                .calculate()
+                .into(),
             GameMode::CTB => FruitsPP::new(&rosu_map)
                 .mods(mods)
                 .combo(score.max_combo as usize)
                 .fruits(score.statistics.count_300 as usize)
                 .droplets(score.statistics.count_100 as usize)
                 .misses(score.statistics.count_miss as usize)
-                .accuracy(score.accuracy)
-                .calculate(),
+                .accuracy(score.accuracy as f64)
+                .calculate()
+                .into(),
             GameMode::TKO => TaikoPP::new(&rosu_map)
                 .combo(score.max_combo as usize)
                 .mods(mods)
                 .misses(score.statistics.count_miss as usize)
-                .accuracy(score.accuracy)
-                .calculate(),
+                .accuracy(score.accuracy as f64)
+                .calculate()
+                .into(),
         };
 
-        score.pp.replace(pp_result.pp);
+        score.pp.replace(pp_result.pp() as f32);
 
         if !needs_unchoking(score, map) {
             return Ok(None);
         }
 
-        Some(pp_result.attributes)
+        Some(pp_result)
     };
 
     let unchoked_pp = match map.mode {
@@ -345,12 +351,10 @@ async fn unchoke_pp(score: &mut Score, map: &Beatmap) -> BotResult<Option<f32>> 
                 .pp
         }
         GameMode::CTB => {
-            let attributes = attributes.unwrap_or_else(|| stars(&rosu_map, mods, None));
-
-            let attributes = if let StarResult::Fruits(attributes) = attributes {
-                attributes
-            } else {
-                panic!("no ctb attributes after calculating stars for ctb map");
+            let attributes = match attributes {
+                Some(PerformanceAttributes::Fruits(attrs)) => attrs.attributes,
+                Some(_) => panic!("no ctb attributes after calculating stars for ctb map"),
+                None => stars(&rosu_map, mods, None),
             };
 
             let total_objects = attributes.max_combo;
@@ -403,12 +407,12 @@ async fn unchoke_pp(score: &mut Score, map: &Beatmap) -> BotResult<Option<f32>> 
                 calculator = calculator.attributes(attributes);
             }
 
-            calculator.mods(mods).accuracy(acc).calculate().pp
+            calculator.mods(mods).accuracy(acc as f64).calculate().pp
         }
         GameMode::MNA => panic!("can not unchoke mania scores"),
     };
 
-    Ok(Some(unchoked_pp))
+    Ok(Some(unchoked_pp as f32))
 }
 
 fn needs_unchoking(score: &Score, map: &Beatmap) -> bool {
