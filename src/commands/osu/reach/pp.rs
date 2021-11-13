@@ -1,4 +1,4 @@
-use std::{ sync::Arc};
+use std::sync::Arc;
 
 use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError};
@@ -263,6 +263,16 @@ impl PpArgs {
                 CommandOptionValue::String(value) => match option.name.as_str() {
                     MODE => config.mode = parse_mode_option(&value),
                     NAME => config.osu = Some(value.into()),
+                    // TODO: Remove
+                    "pp" => match value.parse::<f32>() {
+                        Ok(number) => pp = Some(number.max(0.0)),
+                        Err(_) => {
+                            let content = "Failed to parse pp. \
+                                Be sure you specify a valid number";
+
+                            return Ok(Err(content.into()));
+                        }
+                    },
                     _ => return Err(Error::InvalidCommandOptions),
                 },
                 CommandOptionValue::Number(value) => {

@@ -7,13 +7,24 @@ use twilight_model::{
     id::UserId,
 };
 
-use crate::{Args, BotResult, CommandData, Context, Error, commands::{DoubleResultCow, MyCommand, MyCommandOption, check_user_mention, parse_discord, parse_mode_option}, custom_client::RankParam, database::UserConfig, embeds::{EmbedData, WhatIfEmbed}, tracking::process_tracking, util::{
+use crate::{
+    commands::{
+        check_user_mention, parse_discord, parse_mode_option, DoubleResultCow, MyCommand,
+        MyCommandOption,
+    },
+    custom_client::RankParam,
+    database::UserConfig,
+    embeds::{EmbedData, WhatIfEmbed},
+    tracking::process_tracking,
+    util::{
         constants::{
             common_literals::{DISCORD, MODE, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
         ApplicationCommandExt, InteractionExt, MessageExt,
-    }};
+    },
+    Args, BotResult, CommandData, Context, Error,
+};
 
 use super::{option_discord, option_mode, option_name};
 
@@ -296,11 +307,7 @@ struct WhatIfArgs {
 }
 
 impl WhatIfArgs {
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: UserId,
-    ) -> DoubleResultCow<Self> {
+    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
         let mut pp = None;
 
@@ -331,6 +338,16 @@ impl WhatIfArgs {
                 CommandOptionValue::String(value) => match option.name.as_str() {
                     MODE => config.mode = parse_mode_option(&value),
                     NAME => config.osu = Some(value.into()),
+                    // TODO: Remove
+                    "pp" => match value.parse::<f32>() {
+                        Ok(number) => pp = Some(number.max(0.0)),
+                        Err(_) => {
+                            let content =
+                                "Failed to parse pp value. Be sure to specify a valid number.";
+
+                            return Ok(Err(content.into()));
+                        }
+                    },
                     _ => return Err(Error::InvalidCommandOptions),
                 },
                 CommandOptionValue::Number(value) => {
@@ -368,7 +385,9 @@ pub async fn slash_whatif(ctx: Arc<Context>, mut command: ApplicationCommand) ->
 }
 
 pub fn define_whatif() -> MyCommand {
-    let pp = MyCommandOption::builder("pp", "Specify a pp amount").number(Vec::new(), true);
+    // TODO
+    // let pp = MyCommandOption::builder("pp", "Specify a pp amount").number(Vec::new(), true);
+    let pp = MyCommandOption::builder("pp", "Specify a pp amount").string(Vec::new(), true);
     let mode = option_mode();
     let name = option_name();
     let discord = option_discord();

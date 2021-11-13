@@ -316,6 +316,16 @@ impl SimulateArgs {
                             Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
                         },
                     },
+                    // TODO: Remove
+                    ACC => match value.parse::<f32>() {
+                        Ok(number) => acc = Some(number.clamp(0.0, 100.0)),
+                        Err(_) => {
+                            let content = "Failed to parse accuracy. \
+                                Be sure you specify a valid number between 0 and 100.";
+
+                            return Ok(Err(content.into()));
+                        }
+                    },
                     _ => return Err(Error::InvalidCommandOptions),
                 },
                 CommandOptionValue::Integer(value) => match option.name.as_str() {
@@ -332,7 +342,7 @@ impl SimulateArgs {
                         .then(|| value.0 as f32)
                         .ok_or(Error::InvalidCommandOptions)?;
 
-                    acc = Some(number.max(0.0).min(100.0));
+                    acc = Some(number.clamp(0.0, 100.0));
                 }
                 _ => return Err(Error::InvalidCommandOptions),
             }
@@ -377,9 +387,14 @@ pub fn define_simulate() -> MyCommand {
     let misses =
         MyCommandOption::builder(MISSES, "Specify the amount of misses").integer(Vec::new(), false);
 
+    // TODO
+    // let acc = MyCommandOption::builder(ACC, "Specify the accuracy")
+    //     .help("Specify the accuracy. Should be between 0.0 and 100.0")
+    //     .number(Vec::new(), false);
+
     let acc = MyCommandOption::builder(ACC, "Specify the accuracy")
         .help("Specify the accuracy. Should be between 0.0 and 100.0")
-        .number(Vec::new(), false);
+        .string(Vec::new(), false);
 
     let combo = MyCommandOption::builder(COMBO, "Specify the combo").integer(Vec::new(), false);
 

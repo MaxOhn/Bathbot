@@ -113,7 +113,9 @@ pub fn define_reach() -> MyCommand {
     let rank = MyCommandOption::builder(RANK, "How much is missing to reach the given rank?")
         .subcommandgroup(vec![pp, score]);
 
-    let pp = MyCommandOption::builder("pp", "Specify a target pp amount").number(Vec::new(), true);
+    // TODO
+    // let pp = MyCommandOption::builder("pp", "Specify a target pp amount").number(Vec::new(), true);
+    let pp = MyCommandOption::builder("pp", "Specify a target pp amount").string(Vec::new(), true);
     let mode = option_mode();
     let name = option_name();
     let discord = option_discord();

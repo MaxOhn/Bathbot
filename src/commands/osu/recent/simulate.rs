@@ -1,4 +1,4 @@
-use std::{ sync::Arc};
+use std::sync::Arc;
 
 use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError};
@@ -452,6 +452,16 @@ impl RecentSimulateArgs {
                                     Ok(mods_) => mods = Some(ModSelection::Exact(mods_)),
                                     Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
                                 },
+                            },
+                            // TODO: Remove
+                            ACC => match value.parse::<f32>() {
+                                Ok(number) => acc = Some(number.clamp(0.0, 100.0)),
+                                Err(_) => {
+                                    let content = "Failed to parse accuracy. \
+                                        Be sure you specify a valid number between 0 and 100.";
+
+                                    return Ok(Err(content.into()));
+                                }
                             },
                             _ => return Err(Error::InvalidCommandOptions),
                         },

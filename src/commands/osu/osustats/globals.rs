@@ -347,11 +347,7 @@ impl ScoresArgs {
         }
     }
 
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: UserId,
-    ) -> DoubleResultCow<Self> {
+    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
         let mut rank_min = None;
         let mut rank_max = None;
@@ -521,6 +517,26 @@ impl ScoresArgs {
                         _ => return Err(Error::InvalidCommandOptions),
                     },
                     NAME => config.osu = Some(value.into()),
+                    // TODO: remove
+                    "min_acc" => match value.parse::<f32>() {
+                        Ok(number) => acc_min = Some(number.clamp(0.0, 100.0)),
+                        Err(_) => {
+                            let content = "Failed to parse min accuracy. \
+                            Be sure you specify a valid number between 0 and 100.";
+
+                            return Ok(Err(content.into()));
+                        }
+                    },
+                    // TODO: remove
+                    "max_acc" => match value.parse::<f32>() {
+                        Ok(number) => acc_max = Some(number.clamp(0.0, 100.0)),
+                        Err(_) => {
+                            let content = "Failed to parse max accuracy. \
+                                Be sure you specify a valid number between 0 and 100.";
+
+                            return Ok(Err(content.into()));
+                        }
+                    },
                     _ => return Err(Error::InvalidCommandOptions),
                 },
                 CommandOptionValue::Integer(value) => match option.name.as_str() {
@@ -542,8 +558,8 @@ impl ScoresArgs {
                     descending = Some(!value);
                 }
                 CommandOptionValue::Number(value) => match option.name.as_str() {
-                    "min_acc" => acc_min = Some(value.0.max(0.0).min(100.0) as f32),
-                    "max_acc" => acc_max = Some(value.0.max(0.0).min(100.0) as f32),
+                    "min_acc" => acc_min = Some(value.0.clamp(0.0, 100.0) as f32),
+                    "max_acc" => acc_max = Some(value.0.clamp(0.0, 100.0) as f32),
                     _ => return Err(Error::InvalidCommandOptions),
                 },
                 CommandOptionValue::User(value) => match option.name.as_str() {
