@@ -275,6 +275,10 @@ fn subcommand_old() -> MyCommandOption {
             name: "january 2021 - july 2021".to_owned(),
             value: "january21_july21".to_owned(),
         },
+        CommandOptionChoice::String {
+            name: "july 2021 - november 2021".to_owned(),
+            value: "july21_november21".to_owned(),
+        },
     ];
 
     let version =
@@ -292,7 +296,8 @@ fn subcommand_old() -> MyCommandOption {
         - 2018: [HD adjustment](https://osu.ppy.sh/home/news/2018-05-16-performance-updates)\n\
         - 2019: [Angles, speed, spaced streams](https://osu.ppy.sh/home/news/2019-02-05-new-changes-to-star-rating-performance-points)\n\
         - 2021: [High AR nerf, NF & SO buff, speed & acc adjustment](https://osu.ppy.sh/home/news/2021-01-14-performance-points-updates)\n\
-        - 2021: [Diff spike nerf, AR buff, FL-AR adjust](https://osu.ppy.sh/home/news/2021-07-27-performance-points-star-rating-updates)";
+        - 2021: [Diff spike nerf, AR buff, FL-AR adjust](https://osu.ppy.sh/home/news/2021-07-27-performance-points-star-rating-updates)\n\
+        - 2021: [Rhythm buff, slider buff, FL skill](https://osu.ppy.sh/home/news/2021-11-09-performance-points-star-rating-updates)";
 
     let osu = MyCommandOption::builder(OSU, osu_description)
         .help(osu_help)

@@ -1,3 +1,5 @@
+#![allow(unused)] // TODO: Remove
+
 use std::{cmp::Ordering, sync::Arc};
 
 use chrono::{Datelike, Utc};
@@ -172,6 +174,13 @@ pub(super) async fn _topold(
         return Ok(());
     }
 
+    // TODO: Fix rosu-pp-older
+    let content = "The current implementation of previous pp systems is \
+        pretty messed up so the command is disabled for now.\n\
+        Will be fixed eventually :fingers_crossed:";
+    let _ = data.error(&ctx, content).await?;
+    return Ok(());
+
     let version = version.unwrap();
 
     let name = match config.into_username() {
@@ -246,7 +255,8 @@ pub(super) async fn _topold(
                 OldVersion::OsuApr15May18 => pp_std!(osu_2015, rosu_map, score, mods),
                 OldVersion::OsuMay18Feb19 => pp_std!(osu_2018, rosu_map, score, mods),
                 OldVersion::OsuFeb19Jan21 => pp_std!(osu_2019, rosu_map, score, mods),
-                OldVersion::OsuJan21Jul21 => pp_std!(osu_2021, rosu_map, score, mods),
+                OldVersion::OsuJan21Jul21 => pp_std!(osu_2021_january, rosu_map, score, mods),
+                OldVersion::OsuJul21Nov21 => pp_std!(osu_2021_july, rosu_map, score, mods),
                 OldVersion::ManiaMar14May18 => pp_mna!(mania_ppv1, rosu_map, score, mods),
                 OldVersion::TaikoMar14Sep20 => pp_tko!(taiko_ppv1, rosu_map, score, mods),
                 OldVersion::CatchMar14May20 => pp_ctb!(fruits_ppv1, rosu_map, score, mods),
@@ -327,16 +337,15 @@ pub(super) async fn _topold(
     "Display how the user's **current** top100 would have looked like \
     in a previous year.\n\
     Note that the command will **not** change scores, just recalculate their pp.\n\
-    The osu!standard pp history looks roughly like this:\n  \
-    - 2012: ppv1 (unavailable)\n  \
-    - 2014: ppv2 (unavailable)\n  \
-    - 2015: High CS nerf(?)\n  \
-    - 2018: HD adjustment\n    \
-    => https://osu.ppy.sh/home/news/2018-05-16-performance-updates\n  \
-    - 2019: Angles, speed, spaced streams\n    \
-    => https://osu.ppy.sh/home/news/2019-02-05-new-changes-to-star-rating-performance-points\n  \
-    - 2021: High AR nerf, NF & SO buff, speed & acc adjustment\n    \
-    => https://osu.ppy.sh/home/news/2021-01-14-performance-points-updates"
+    The osu!standard pp history looks roughly like this:\n\
+    - 2012: ppv1 (unavailable)\n\
+    - 2014: ppv2 (unavailable)\n\
+    - 2015: High CS nerf(?)\n\
+    - 2018: [HD adjustment](https://osu.ppy.sh/home/news/2018-05-16-performance-updates)\n\
+    - 2019: [Angles, speed, spaced streams](https://osu.ppy.sh/home/news/2019-02-05-new-changes-to-star-rating-performance-points)\n\
+    - 2021: [High AR nerf, NF & SO buff, speed & acc adjustment](https://osu.ppy.sh/home/news/2021-01-14-performance-points-updates)\n\
+    - 2021: [Diff spike nerf, AR buff, FL-AR adjust](https://osu.ppy.sh/home/news/2021-07-27-performance-points-star-rating-updates)\n\
+    - 2021: [Rhythm buff, slider buff, FL skill](https://osu.ppy.sh/home/news/2021-11-09-performance-points-star-rating-updates)"
 )]
 #[usage("[username] [year]")]
 #[example("badewanne3 2018", "\"freddie benson\" 2015")]
@@ -366,10 +375,9 @@ async fn topold(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     "Display how the user's **current** top100 would have looked like \
     in a previous year.\n\
     Note that the command will **not** change scores, just recalculate their pp.\n\
-    The osu!mania pp history looks roughly like this:\n  \
-    - 2014: ppv1\n  \
-    - 2018: ppv2\n    \
-    => https://osu.ppy.sh/home/news/2018-05-16-performance-updates"
+    The osu!mania pp history looks roughly like this:\n\
+    - 2014: ppv1\n\
+    - 2018: [ppv2](https://osu.ppy.sh/home/news/2018-05-16-performance-updates)"
 )]
 #[usage("[username] [year]")]
 #[example("\"freddie benson\" 2015")]
@@ -399,10 +407,9 @@ async fn topoldmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     "Display how the user's **current** top100 would have looked like \
     in a previous year.\n\
     Note that the command will **not** change scores, just recalculate their pp.\n\
-    The osu!taiko pp history looks roughly like this:\n  \
-    - 2014: ppv1\n  \
-    - 2020: Revamp\n    \
-    => https://osu.ppy.sh/home/news/2020-09-15-changes-to-osutaiko-star-rating"
+    The osu!taiko pp history looks roughly like this:\n\
+    - 2014: ppv1\n\
+    - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-09-15-changes-to-osutaiko-star-rating)"
 )]
 #[usage("[username] [year]")]
 #[example("\"freddie benson\" 2015")]
@@ -432,10 +439,9 @@ async fn topoldtaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     "Display how the user's **current** top100 would have looked like \
     in a previous year.\n\
     Note that the command will **not** change scores, just recalculate their pp.\n\
-    The osu!ctb pp history looks roughly like this:\n  \
-    - 2014: ppv1\n  \
-    - 2020: Revamp\n    \
-    => https://osu.ppy.sh/home/news/2020-05-14-osucatch-scoring-updates"
+    The osu!ctb pp history looks roughly like this:\n\
+    - 2014: ppv1\n\
+    - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-05-14-osucatch-scoring-updates)"
 )]
 #[usage("[username] [year]")]
 #[example("\"freddie benson\" 2019")]
@@ -484,7 +490,8 @@ pub(super) enum OldVersion {
     OsuMay18Feb19,
     OsuFeb19Jan21,
     OsuJan21Jul21,
-    OsuJul21,
+    OsuJul21Nov21,
+    OsuNov21,
     ManiaMar14May18,
     ManiaMay18,
     TaikoMar14Sep20,
@@ -505,7 +512,7 @@ impl OldVersion {
                 2018 => Some(Self::OsuMay18Feb19),
                 2019..=2020 => Some(Self::OsuFeb19Jan21),
                 2021 => Some(Self::OsuJan21Jul21),
-                _ => Some(Self::OsuJul21),
+                _ => Some(Self::OsuNov21),
             },
             GameMode::TKO => match year {
                 0..=2013 => None,
@@ -534,7 +541,8 @@ impl OldVersion {
             OldVersion::OsuMay18Feb19 => "between may 2018 and february 2019",
             OldVersion::OsuFeb19Jan21 => "between february 2019 and january 2021",
             OldVersion::OsuJan21Jul21 => "between january 2021 and july 2021",
-            OldVersion::OsuJul21 => "since july 2021",
+            OldVersion::OsuJul21Nov21 => "between july 2021 and november 2021",
+            OldVersion::OsuNov21 => "since november 2021",
 
             OldVersion::ManiaMar14May18 => "between march 2014 and may 2018",
             OldVersion::ManiaMay18 => "since may 2018",
@@ -637,6 +645,7 @@ impl OldArgs {
                         "may18_february19" => Some(OldVersion::OsuMay18Feb19),
                         "february19_january21" => Some(OldVersion::OsuFeb19Jan21),
                         "january21_july21" => Some(OldVersion::OsuJan21Jul21),
+                        "july21_november21" => Some(OldVersion::OsuJul21Nov21),
                         _ => return Err(Error::InvalidCommandOptions),
                     },
                     TAIKO => match version.as_str() {
