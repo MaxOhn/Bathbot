@@ -30,7 +30,6 @@ pub struct ScraperScore {
     pub date: DateTime<Utc>,
     pub mode: GameMode,
     pub replay: bool,
-    pub beatmap: ScraperBeatmap,
     pub count50: u32,
     pub count100: u32,
     pub count300: u32,
@@ -58,7 +57,6 @@ impl<'de> Deserialize<'de> for ScraperScore {
             created_at: DateTime<Utc>,
             mode_int: GameMode,
             replay: bool,
-            beatmap: ScraperBeatmap,
             user: ScraperUser,
         }
 
@@ -101,7 +99,6 @@ impl<'de> Deserialize<'de> for ScraperScore {
             date: helper.created_at,
             mode: helper.mode_int,
             replay: helper.replay,
-            beatmap: helper.beatmap,
             count50: helper.statistics.count_50,
             count100: helper.statistics.count_100,
             count300: helper.statistics.count_300,
