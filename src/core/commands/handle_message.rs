@@ -124,24 +124,26 @@ async fn process_command(
         return Ok(ProcessResult::NoOwner);
     }
 
-    // Does bot have sufficient permissions to send response?
-    match ctx.cache.current_user() {
-        Some(bot_user) => {
-            let permissions = ctx
-                .cache
-                .permissions()
-                .in_channel(bot_user.id, msg.channel_id)
-                .ok()
-                .unwrap_or_else(Permissions::empty);
+    // Does bot have sufficient permissions to send response in a guild?
+    if msg.guild_id.is_some() {
+        match ctx.cache.current_user() {
+            Some(bot_user) => {
+                let permissions = ctx
+                    .cache
+                    .permissions()
+                    .in_channel(bot_user.id, msg.channel_id)
+                    .ok()
+                    .unwrap_or_else(Permissions::empty);
 
-            if !permissions.contains(Permissions::SEND_MESSAGES) {
-                debug!("No SEND_MESSAGE permission, can not respond");
+                if !permissions.contains(Permissions::SEND_MESSAGES) {
+                    debug!("No SEND_MESSAGE permission, can not respond");
 
-                return Ok(ProcessResult::NoSendPermission);
+                    return Ok(ProcessResult::NoSendPermission);
+                }
             }
-        }
-        None => error!("No CurrentUser in cache for permission check"),
-    };
+            None => error!("No CurrentUser in cache for permission check"),
+        };
+    }
 
     // Ratelimited?
     {

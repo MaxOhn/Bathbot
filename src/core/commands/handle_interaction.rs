@@ -302,22 +302,24 @@ async fn pre_process_command(
 
     let channel_id = command.channel_id;
 
-    // Does bot have sufficient permissions to send response?
-    match ctx.cache.current_user() {
-        Some(bot_user) => {
-            let permissions = ctx
-                .cache
-                .permissions()
-                .in_channel(bot_user.id, channel_id)
-                .ok()
-                .unwrap_or_else(Permissions::empty);
+    // Does bot have sufficient permissions to send response in guild?
+    if command.guild_id.is_some() {
+        match ctx.cache.current_user() {
+            Some(bot_user) => {
+                let permissions = ctx
+                    .cache
+                    .permissions()
+                    .in_channel(bot_user.id, channel_id)
+                    .ok()
+                    .unwrap_or_else(Permissions::empty);
 
-            if !permissions.contains(Permissions::SEND_MESSAGES) {
-                return Ok(Some(ProcessResult::NoSendPermission));
+                if !permissions.contains(Permissions::SEND_MESSAGES) {
+                    return Ok(Some(ProcessResult::NoSendPermission));
+                }
             }
+            None => error!("No CurrentUser in cache for permission check"),
         }
-        None => error!("No CurrentUser in cache for permission check"),
-    };
+    }
 
     // Ratelimited?
     {
