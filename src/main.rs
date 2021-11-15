@@ -152,7 +152,7 @@ async fn async_main() -> Result<()> {
         url: Some(redis_uri),
     };
 
-    let redis = redis_config.create_pool()?;
+    let redis = redis_config.create_pool(None)?;
 
     // Connect to osu! API
     let osu_client_id = config.tokens.osu_client_id;
