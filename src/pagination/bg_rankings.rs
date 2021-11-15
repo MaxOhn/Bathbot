@@ -76,15 +76,12 @@ impl Pagination for BGRankingPagination {
             .map(|(id, _)| id)
         {
             if !self.usernames.contains_key(id) {
-                let name = match self.ctx.cache.user(UserId::new(*id).unwrap()) {
-                    Some(user) => user.name.to_owned(),
-                    None => match self.ctx.http.user(UserId::new(*id).unwrap()).exec().await {
-                        Ok(user_res) => match user_res.model().await {
-                            Ok(user) => user.name,
-                            Err(_) => String::from("Unknown user"),
-                        },
+                let name = match self.ctx.http.user(UserId::new(*id).unwrap()).exec().await {
+                    Ok(user_res) => match user_res.model().await {
+                        Ok(user) => user.name,
                         Err(_) => String::from("Unknown user"),
                     },
+                    Err(_) => String::from("Unknown user"),
                 };
 
                 self.usernames.insert(*id, name);

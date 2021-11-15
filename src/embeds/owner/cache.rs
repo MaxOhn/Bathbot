@@ -3,9 +3,9 @@ use crate::{
     util::numbers::with_comma_int,
 };
 
+use bathbot_cache::model::CacheStats;
 use chrono::{DateTime, Utc};
 use std::fmt::Write;
-use twilight_cache_inmemory::InMemoryCacheStats;
 
 pub struct CacheEmbed {
     description: String,
@@ -14,40 +14,13 @@ pub struct CacheEmbed {
 }
 
 impl CacheEmbed {
-    pub fn new(stats: InMemoryCacheStats<'_>, start_time: DateTime<Utc>) -> Self {
+    pub fn new(stats: CacheStats, start_time: DateTime<Utc>) -> Self {
         let mut description = String::with_capacity(256);
 
-        let _ = writeln!(description, "Guild channels: {}", with_comma_int(0));
-
-        let _ = writeln!(
-            description,
-            "Private channels: {}",
-            with_comma_int(stats.private_channels())
-        );
-
-        let _ = writeln!(description, "Emojis: {}", with_comma_int(stats.emojis()));
-        let _ = writeln!(description, "Guilds: {}", with_comma_int(stats.guilds()));
-        let _ = writeln!(description, "Members: {}", with_comma_int(stats.members()));
-        let _ = writeln!(description, "Roles: {}", with_comma_int(stats.roles()));
-
-        let _ = writeln!(
-            description,
-            "Unavailable guilds: {}",
-            with_comma_int(stats.unavailable_guilds())
-        );
-
-        let _ = writeln!(description, "Users: {}", with_comma_int(stats.users()));
-        let _ = writeln!(description, "Groups: {}", with_comma_int(stats.groups()));
-        let _ = writeln!(
-            description,
-            "Presences: {}",
-            with_comma_int(stats.presences())
-        );
-        let _ = writeln!(
-            description,
-            "Voice states: {}",
-            with_comma_int(stats.voice_states())
-        );
+        let _ = writeln!(description, "Channels: {}", with_comma_int(stats.channels));
+        let _ = writeln!(description, "Guilds: {}", with_comma_int(stats.guilds));
+        let _ = writeln!(description, "Members: {}", with_comma_int(stats.members));
+        let _ = writeln!(description, "Roles: {}", with_comma_int(stats.roles));
 
         Self {
             description,

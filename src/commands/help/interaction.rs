@@ -1,5 +1,6 @@
-use std::{borrow::Cow, fmt::Write, sync::Arc};
+use std::{fmt::Write, sync::Arc};
 
+use eyre::Report;
 use prometheus::core::Collector;
 use twilight_model::{
     application::{
@@ -431,10 +432,7 @@ pub async fn slash_help(ctx: Arc<Context>, command: ApplicationCommand) -> BotRe
 }
 
 async fn basic_help(ctx: &Context, command: ApplicationCommand) -> BotResult<()> {
-    let mention = ctx.cache.current_user().map_or_else(
-        || Cow::Borrowed("Bathbot"),
-        |user| format!("<@{}>", user.id).into(),
-    );
+    let mention = format!("<@{}>", ctx.current_user.read().id);
 
     let description = format!(
         "{self} is a discord bot written by [Badewanne3](https://osu.ppy.sh/u/2211396) all around osu!",
@@ -467,12 +465,24 @@ async fn basic_help(ctx: &Context, command: ApplicationCommand) -> BotResult<()>
     };
 
     let boot_time = ctx.stats.start_time;
-    let server_count = ctx.cache.stats().guilds();
 
-    let servers = EmbedField {
-        inline: true,
-        name: "Servers".to_owned(),
-        value: with_comma_int(server_count).to_string(),
+    let mut fields = vec![join_server, command_help, invite];
+
+    match ctx.cache.stats().await {
+        Ok(stats) => {
+            let servers = EmbedField {
+                inline: true,
+                name: "Servers".to_owned(),
+                value: with_comma_int(stats.guilds).to_string(),
+            };
+
+            fields.push(servers);
+        }
+        Err(err) => {
+            let report = Report::new(err).wrap_err("failed to get cache stats");
+
+            warn!("{:?}", report);
+        }
     };
 
     let boot_up = EmbedField {
@@ -511,16 +521,10 @@ async fn basic_help(ctx: &Context, command: ApplicationCommand) -> BotResult<()>
         value: with_comma_int(osu_requests).to_string(),
     };
 
-    let fields = vec![
-        join_server,
-        command_help,
-        invite,
-        servers,
-        boot_up,
-        github,
-        commands_used,
-        osu_requests,
-    ];
+    fields.push(boot_up);
+    fields.push(github);
+    fields.push(commands_used);
+    fields.push(osu_requests);
 
     let builder = EmbedBuilder::new()
         .description(description)

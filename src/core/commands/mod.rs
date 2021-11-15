@@ -12,13 +12,21 @@ pub use handle_interaction::{handle_command, handle_component};
 pub use handle_message::handle_message;
 pub use parse::Invoke;
 
-use crate::{core::buckets::BucketName, util::Authored, BotResult, Context, Error};
-
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
+
+use bathbot_cache::model::{ChannelOrId, GuildOrId, MemberLookup};
 use twilight_model::{
+    channel::Message,
     guild::Permissions,
     id::{GuildId, RoleId, UserId},
 };
+
+use crate::{core::buckets::BucketName, util::Authored, BotResult, Context};
+
+struct RetrievedCacheData {
+    guild: Option<GuildOrId>,
+    channel: Option<ChannelOrId>,
+}
 
 #[derive(Debug)]
 enum ProcessResult {
@@ -48,24 +56,28 @@ impl Display for ProcessResult {
 // Is authority -> Ok(None)
 // No authority -> Ok(Some(message to user))
 // Couldn't figure out -> Err()
-async fn check_authority(ctx: &Context, authored: &impl Authored) -> BotResult<Option<String>> {
-    let author_id = authored.author().ok_or(Error::MissingInteractionAuthor)?.id;
-    let guild_id = authored.guild_id();
+async fn check_authority(
+    ctx: &Context,
+    msg: &Message,
+    guild: Option<&GuildOrId>,
+) -> BotResult<Option<String>> {
+    let author_id = msg.author.id;
 
-    _check_authority(ctx, author_id, guild_id).await
+    _check_authority(ctx, author_id, guild).await
 }
 
 async fn _check_authority(
     ctx: &Context,
     author_id: UserId,
-    guild_id: Option<GuildId>,
+    guild: Option<&GuildOrId>,
 ) -> BotResult<Option<String>> {
-    let (guild_id, permissions) = match guild_id {
-        Some(id) => (id, ctx.cache.permissions().root(author_id, id)),
+    let (guild_id, (permissions, member)) = match guild {
+        Some(guild) => (
+            guild.id(),
+            ctx.cache.get_guild_permissions(author_id, guild).await?,
+        ),
         None => return Ok(Some(String::new())),
     };
-
-    let permissions = permissions.ok().unwrap_or_else(Permissions::empty);
 
     if permissions.contains(Permissions::ADMINISTRATOR) {
         return Ok(None);
@@ -79,30 +91,39 @@ async fn _check_authority(
             (`/authorities` to adjust authority status for this server)";
 
         return Ok(Some(content.to_owned()));
-    } else if let Some(member) = ctx.cache.member(guild_id, author_id) {
-        if !member.roles().iter().any(|role| auth_roles.contains(role)) {
-            let mut content = String::from(
-                "You need either admin permissions or \
-                any of these roles to use this command:\n",
-            );
+    }
 
-            content.reserve(auth_roles.len() * 5);
-            let mut roles = auth_roles.into_iter();
+    let member = match member {
+        MemberLookup::Found(member) => Some(member),
+        MemberLookup::NotChecked => ctx.cache.member(guild_id, author_id).await?,
+        MemberLookup::NotFound => None,
+    };
 
-            if let Some(first) = roles.next() {
-                let _ = write!(content, "<@&{}>", first);
+    match member {
+        Some(member) => {
+            if !member.roles.iter().any(|role| auth_roles.contains(role)) {
+                let mut content = String::from(
+                    "You need either admin permissions or \
+                    any of these roles to use this command:\n",
+                );
 
-                for role in roles {
-                    let _ = write!(content, ", <@&{}>", role);
+                content.reserve(auth_roles.len() * 5);
+                let mut roles = auth_roles.into_iter();
+
+                if let Some(first) = roles.next() {
+                    let _ = write!(content, "<@&{}>", first);
+
+                    for role in roles {
+                        let _ = write!(content, ", <@&{}>", role);
+                    }
                 }
+
+                content.push_str("\n(`/authorities` to adjust authority status for this server)");
+
+                return Ok(Some(content));
             }
-
-            content.push_str("\n(`/authorities` to adjust authority status for this server)");
-
-            return Ok(Some(content));
         }
-    } else {
-        bail!("member {} not cached for guild {}", author_id, guild_id);
+        None => bail!("member {} not cached for guild {}", author_id, guild_id),
     }
 
     Ok(None)

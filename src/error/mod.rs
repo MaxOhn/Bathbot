@@ -32,6 +32,8 @@ pub enum Error {
     Authority(#[source] Box<Error>),
     #[error("background game error")]
     BgGame(#[from] bg_game::BgGameError),
+    #[error("cache error")]
+    Cache(#[from] bathbot_cache::CacheError),
     #[error("serde cbor error")]
     Cbor(#[from] serde_cbor::Error),
     #[error("error occured on cluster request")]

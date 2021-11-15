@@ -10,7 +10,6 @@ pub mod matrix;
 mod message_builder;
 pub mod numbers;
 pub mod osu;
-mod safe_content;
 
 pub use authored::Authored;
 pub use country_code::CountryCode;
@@ -19,7 +18,6 @@ pub use emote::Emote;
 pub use exts::*;
 pub use matrix::Matrix;
 pub use message_builder::MessageBuilder;
-pub use safe_content::content_safe;
 
 use crate::{BotResult, Context};
 

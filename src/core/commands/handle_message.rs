@@ -1,4 +1,4 @@
-use super::{parse, Command, Invoke, ProcessResult};
+use super::{parse, Command, Invoke, ProcessResult, RetrievedCacheData};
 use crate::{
     arguments::{Args, Stream},
     commands::help::{failed_help, help, help_command},
@@ -7,6 +7,7 @@ use crate::{
     BotResult, CommandData, Context, Error,
 };
 
+use bathbot_cache::model::{ChannelOrId, GuildOrId};
 use std::sync::Arc;
 use twilight_model::{channel::Message, guild::Permissions};
 
@@ -38,15 +39,19 @@ pub async fn handle_message(ctx: Arc<Context>, msg: Message) -> BotResult<()> {
     }
 
     // Process invoke
-    log_invoke(&ctx, &msg);
+    let cache_data = log_invoke(&ctx, &msg).await;
     let name = invoke.name();
     ctx.stats.increment_message_command(name.as_ref());
 
     let command_result = match &invoke {
-        Invoke::Command { cmd, num } => process_command(cmd, ctx, &msg, stream, *num).await,
-        Invoke::SubCommand { sub, .. } => process_command(sub, ctx, &msg, stream, None).await,
+        Invoke::Command { cmd, num } => {
+            process_command(cmd, ctx, &msg, stream, *num, cache_data).await
+        }
+        Invoke::SubCommand { sub, .. } => {
+            process_command(sub, ctx, &msg, stream, None, cache_data).await
+        }
         Invoke::Help(None) => {
-            let is_authority = super::check_authority(&ctx, &msg)
+            let is_authority = super::check_authority(&ctx, &msg, cache_data.guild.as_ref())
                 .await
                 .transpose()
                 .is_none();
@@ -82,23 +87,44 @@ pub async fn handle_message(ctx: Arc<Context>, msg: Message) -> BotResult<()> {
     Ok(())
 }
 
-fn log_invoke(ctx: &Context, msg: &Message) {
+async fn log_invoke(ctx: &Context, msg: &Message) -> RetrievedCacheData {
     let mut location = String::with_capacity(31);
 
-    match msg.guild_id.and_then(|id| ctx.cache.guild(id)) {
-        Some(guild) => {
-            location.push_str(guild.name());
+    let guild = match msg.guild_id {
+        Some(guild) => ctx.cache.guild(guild).await.ok().flatten(),
+        None => None,
+    };
+
+    let channel = match guild {
+        Some(ref guild) => {
+            location.push_str(guild.name.as_str());
             location.push(':');
 
-            match ctx.cache.guild_channel(msg.channel_id) {
-                Some(channel) => location.push_str(channel.name()),
-                None => location.push_str("<uncached channel>"),
+            match ctx.cache.channel(msg.channel_id).await {
+                Ok(Some(channel)) => {
+                    location.push_str(channel.name());
+
+                    Some(channel)
+                }
+                _ => {
+                    location.push_str("<uncached channel>");
+
+                    None
+                }
             }
         }
-        None => location.push_str("Private"),
-    }
+        None => {
+            location.push_str("Private");
+            None
+        }
+    };
 
     info!("[{}] {}: {}", location, msg.author.name, msg.content);
+
+    let guild = guild.map(GuildOrId::Guild);
+    let channel = channel.map(ChannelOrId::Channel);
+
+    RetrievedCacheData { guild, channel }
 }
 
 async fn process_command(
@@ -107,6 +133,7 @@ async fn process_command(
     msg: &Message,
     stream: Stream<'_>,
     num: Option<usize>,
+    cache_data: RetrievedCacheData,
 ) -> BotResult<ProcessResult> {
     // Only in guilds?
     if (cmd.authority || cmd.only_guilds) && msg.guild_id.is_none() {
@@ -124,25 +151,27 @@ async fn process_command(
         return Ok(ProcessResult::NoOwner);
     }
 
+    let guild = match cache_data.guild {
+        Some(guild) => Some(guild),
+        None => msg.guild_id.map(From::from),
+    };
+
+    let channel = cache_data.channel.unwrap_or_else(|| msg.channel_id.into());
+
     // Does bot have sufficient permissions to send response in a guild?
     if msg.guild_id.is_some() {
-        match ctx.cache.current_user() {
-            Some(bot_user) => {
-                let permissions = ctx
-                    .cache
-                    .permissions()
-                    .in_channel(bot_user.id, msg.channel_id)
-                    .ok()
-                    .unwrap_or_else(Permissions::empty);
+        let user_id = ctx.current_user.read().id;
 
-                if !permissions.contains(Permissions::SEND_MESSAGES) {
-                    debug!("No SEND_MESSAGE permission, can not respond");
+        let permissions = ctx
+            .cache
+            .get_channel_permissions(user_id, &channel, guild.as_ref())
+            .await?;
 
-                    return Ok(ProcessResult::NoSendPermission);
-                }
-            }
-            None => error!("No CurrentUser in cache for permission check"),
-        };
+        if !permissions.contains(Permissions::SEND_MESSAGES) {
+            debug!("No SEND_MESSAGE permission, can not respond");
+
+            return Ok(ProcessResult::NoSendPermission);
+        }
     }
 
     // Ratelimited?
@@ -180,7 +209,7 @@ async fn process_command(
 
     // Only for authorities?
     if cmd.authority {
-        match super::check_authority(&ctx, msg).await {
+        match super::check_authority(&ctx, msg, guild.as_ref()).await {
             Ok(None) => {}
             Ok(Some(content)) => {
                 debug!(

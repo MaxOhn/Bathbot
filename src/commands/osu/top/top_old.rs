@@ -1,4 +1,4 @@
-#![allow(unused)] // TODO: Remove
+#![allow(unused)] // TODO: Remove once rosu-pp-older is fixed
 
 use std::{cmp::Ordering, sync::Arc};
 

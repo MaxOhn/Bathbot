@@ -83,10 +83,7 @@ async fn get_mapsets(
     let response_raw = data.create_message(ctx, builder).await?;
 
     // Prepare the reaction stream
-    let self_id = match ctx.cache.current_user() {
-        Some(user) => user.id,
-        None => bail!("No CurrentUser in cache"),
-    };
+    let self_id = ctx.current_user.read().id;
 
     let response = response_raw.model().await?;
     let response_id = response.id;

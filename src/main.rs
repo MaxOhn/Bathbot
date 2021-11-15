@@ -36,7 +36,7 @@ use crate::{
     commands::SLASH_COMMANDS,
     core::{
         commands::{self as cmds, CommandData, CommandDataCompact},
-        logging, BotStats, Cache, Context, MatchLiveChannels, CONFIG,
+        logging, BotStats, Context, MatchLiveChannels, CONFIG,
     },
     custom_client::CustomClient,
     database::Database,
@@ -46,9 +46,15 @@ use crate::{
     util::{constants::BATHBOT_WORKSHOP_ID, MessageBuilder},
 };
 
+use bathbot_cache::{
+    model::{CacheConfig, SessionInfo},
+    Cache,
+};
 use dashmap::{DashMap, DashSet};
 use deadpool_redis::{Config as RedisConfig, PoolConfig as RedisPoolConfig};
+use eyre::Report;
 use eyre::{Result, WrapErr};
+use futures::StreamExt;
 use hashbrown::HashSet;
 use parking_lot::Mutex;
 use rosu_v2::Osu;
@@ -63,8 +69,11 @@ use tokio::{
     sync::{mpsc, oneshot},
     time::{self, MissedTickBehavior},
 };
-use tokio_stream::StreamExt;
-use twilight_gateway::{cluster::ShardScheme, Cluster, Event, EventTypeFlags};
+use twilight_gateway::{
+    cluster::{Events, ShardScheme},
+    shard::ResumeSession,
+    Cluster, Event, EventTypeFlags,
+};
 use twilight_http::Client as HttpClient;
 use twilight_model::{
     application::interaction::Interaction,
@@ -133,7 +142,9 @@ async fn async_main() -> Result<()> {
     let psql = Database::new(&db_uri)?;
 
     // Connect to redis
-    let redis_uri = env::var("REDIS_URL").wrap_err("missing REDIS_URL in .env")?;
+    let redis_host = &config.redis_host;
+    let redis_port = config.redis_port;
+    let redis_uri = format!("redis://{}:{}", redis_host, redis_port);
 
     let redis_config = RedisConfig {
         connection: None,
@@ -207,29 +218,41 @@ async fn async_main() -> Result<()> {
         | EventTypeFlags::VOICE_STATE_UPDATE
         | EventTypeFlags::WEBHOOKS_UPDATE;
 
-    // Prepare cluster builder
-    let mut cb = Cluster::builder(&CONFIG.get().unwrap().tokens.discord, intents)
-        .event_types(EventTypeFlags::all() - ignore_flags)
-        .http_client(http.clone())
-        .shard_scheme(ShardScheme::Auto);
-
-    // Check for resume data, pass to builder if present
-    let (cache, resume_map) = Cache::new().await;
-    let resumed = if let Some(map) = resume_map {
-        cb = cb.resume_sessions(map);
-        info!("Cold resume successful");
-
-        true
-    } else {
-        info!("Boot without cold resume");
-
-        false
+    let cache_config = CacheConfig {
+        member_ttl: Some(60), // TODO
     };
 
+    let cache = Cache::with_config(redis_host, redis_port, current_user.id, cache_config)?;
+    let sessions = cache.sessions().await?;
     let stats = Arc::new(BotStats::new(osu.metrics()));
 
+    let sessions: std::collections::HashMap<_, _> = sessions
+        .map(|map| {
+            map.into_iter()
+                .map(|(shard, info)| {
+                    let resume = ResumeSession {
+                        session_id: info.session_id,
+                        sequence: info.sequence,
+                    };
+
+                    (shard, resume)
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    if !sessions.is_empty() {
+        info!("Found resume data, attempting cold resume...");
+    }
+
     // Build cluster
-    let (cluster, mut event_stream) = cb.build().await?;
+    let (cluster, events) = Cluster::builder(&CONFIG.get().unwrap().tokens.discord, intents)
+        .event_types(EventTypeFlags::all() - ignore_flags)
+        .http_client(http.clone())
+        .shard_scheme(ShardScheme::Auto)
+        .resume_sessions(sessions)
+        .build()
+        .await?;
 
     // Slash commands
     let slash_commands = SLASH_COMMANDS.collect();
@@ -254,7 +277,19 @@ async fn async_main() -> Result<()> {
     let (member_tx, mut member_rx) = mpsc::unbounded_channel();
 
     // Final context
-    let ctx = Arc::new(Context::new(cache, stats, http, clients, cluster, data, member_tx).await);
+    let ctx = Arc::new(
+        Context::new(
+            cache,
+            stats,
+            http,
+            clients,
+            cluster,
+            data,
+            member_tx,
+            current_user,
+        )
+        .await,
+    );
 
     // Spawn server worker
     let server_ctx = Arc::clone(&ctx);
@@ -283,17 +318,14 @@ async fn async_main() -> Result<()> {
     tokio::spawn(async move {
         time::sleep(Duration::from_secs(1)).await;
         cluster_ctx.cluster.up().await;
+        time::sleep(Duration::from_secs(5)).await;
 
-        if resumed {
-            time::sleep(Duration::from_secs(5)).await;
+        let activity_result = cluster_ctx
+            .set_cluster_activity(Status::Online, ActivityType::Playing, "osu!")
+            .await;
 
-            let activity_result = cluster_ctx
-                .set_cluster_activity(Status::Online, ActivityType::Playing, "osu!")
-                .await;
-
-            if let Err(report) = activity_result.wrap_err("error while setting activity") {
-                warn!("{:?}", report);
-            }
+        if let Err(report) = activity_result.wrap_err("error while setting activity") {
+            warn!("{:?}", report);
         }
     });
 
@@ -304,7 +336,7 @@ async fn async_main() -> Result<()> {
         let mut interval = time::interval(Duration::from_millis(100));
         interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
         interval.tick().await;
-        info!("Start requesting members...");
+        info!("Processing member request queue...");
 
         while let Some((guild_id, shard_id)) = member_rx.recv().await {
             interval.tick().await;
@@ -322,24 +354,10 @@ async fn async_main() -> Result<()> {
         }
     });
 
-    let event_loop = async {
-        while let Some((shard_id, event)) = event_stream.next().await {
-            ctx.cache.update(&event);
-            ctx.standby.process(&event);
-            let ctx = Arc::clone(&ctx);
-
-            tokio::spawn(async move {
-                let handle_fut = handle_event(ctx, event, shard_id);
-
-                if let Err(report) = handle_fut.await.wrap_err("error while handling event") {
-                    error!("{:?}", report);
-                }
-            });
-        }
-    };
+    let event_ctx = Arc::clone(&ctx);
 
     tokio::select! {
-        _ = event_loop => error!("Event loop ended"),
+        _ = event_loop(event_ctx, events) => error!("Event loop ended"),
         res = signal::ctrl_c() => if let Err(report) = res.wrap_err("error while awaiting ctrl+c") {
             error!("{:?}", report);
         } else {
@@ -357,7 +375,26 @@ async fn async_main() -> Result<()> {
     // Prevent non-minimized msgs from getting minimized
     ctx.clear_msgs_to_process();
 
-    ctx.initiate_cold_resume().await;
+    // Store sessions for later resume
+    let sessions = ctx
+        .cluster
+        .down_resumable()
+        .into_iter()
+        .map(|(shard, session)| {
+            let info = SessionInfo {
+                session_id: session.session_id,
+                sequence: session.sequence,
+            };
+
+            (shard, info)
+        })
+        .collect();
+
+    if let Err(err) = ctx.cache.cache_sessions(&sessions).await {
+        let report = Report::new(err).wrap_err("failed to store sessions");
+
+        error!("{:?}", report,);
+    }
 
     let (count, total) = ctx.garbage_collect_all_maps().await;
     info!("Garbage collected {}/{} maps", count, total);
@@ -371,6 +408,27 @@ async fn async_main() -> Result<()> {
     info!("Shutting down");
 
     Ok(())
+}
+
+async fn event_loop(ctx: Arc<Context>, mut events: Events) {
+    while let Some((shard_id, event)) = events.next().await {
+        if let Err(err) = ctx.cache.update(&event).await {
+            let report = Report::new(err).wrap_err("failed to update cache on event");
+
+            error!("{:?}", report);
+        }
+
+        ctx.standby.process(&event);
+        let ctx = Arc::clone(&ctx);
+
+        tokio::spawn(async move {
+            let handle_fut = handle_event(ctx, event, shard_id);
+
+            if let Err(report) = handle_fut.await.wrap_err("error while handling event") {
+                error!("{:?}", report);
+            }
+        });
+    }
 }
 
 async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResult<()> {
@@ -497,8 +555,10 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
         }
         Event::ReactionRemoveAll(_) => ctx.stats.event_counts.reaction_remove_all.inc(),
         Event::ReactionRemoveEmoji(_) => ctx.stats.event_counts.reaction_remove_emoji.inc(),
-        Event::Ready(_) => {
+        Event::Ready(ready) => {
             info!("Shard {} is ready", shard_id);
+
+            *ctx.current_user.write() = ready.user;
 
             let result = ctx
                 .set_shard_activity(shard_id, Status::Online, ActivityType::Playing, "osu!")
@@ -533,7 +593,10 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
         Event::ThreadUpdate(_) => {}
         Event::TypingStart(_) => {}
         Event::UnavailableGuild(_) => ctx.stats.event_counts.unavailable_guild.inc(),
-        Event::UserUpdate(_) => ctx.stats.event_counts.user_update.inc(),
+        Event::UserUpdate(update) => {
+            *ctx.current_user.write() = update.0;
+            ctx.stats.event_counts.user_update.inc()
+        }
         Event::VoiceServerUpdate(_) => {}
         Event::VoiceStateUpdate(_) => {}
         Event::WebhooksUpdate(_) => {}

@@ -53,13 +53,11 @@ async fn _roleassign(
         role: role_id,
     } = args;
 
-    if ctx.cache.role(role_id).is_none() {
+    if !matches!(ctx.cache.contains(role_id).await, Ok(true)) {
         return data.error(&ctx, "Role not found in this guild").await;
     }
 
-    // TODO: Check if bot has sufficient permissions to assign the role
-
-    if ctx.cache.guild_channel(channel_id).is_none() {
+    if !matches!(ctx.cache.contains(channel_id).await, Ok(true)) {
         return data.error(&ctx, "Channel not found in this guild").await;
     }
 
@@ -95,7 +93,7 @@ async fn _roleassign(
 
     ctx.add_role_assign(channel_id, msg_id, role_id);
     let guild_id = data.guild_id().unwrap();
-    let embed_data = RoleAssignEmbed::new(&ctx, msg, guild_id, role_id).await;
+    let embed_data = RoleAssignEmbed::new(msg, guild_id, role_id).await;
     let builder = embed_data.into_builder().build().into();
     data.create_message(&ctx, builder).await?;
 

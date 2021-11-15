@@ -1,5 +1,3 @@
-use crate::{util::content_safe, Context};
-
 use twilight_model::{
     channel::Message,
     id::{GuildId, RoleId},
@@ -10,9 +8,8 @@ pub struct RoleAssignEmbed {
 }
 
 impl RoleAssignEmbed {
-    pub async fn new(ctx: &Context, msg: Message, guild: GuildId, role: RoleId) -> Self {
-        let mut content = msg.content.clone();
-        content_safe(ctx, &mut content, Some(guild));
+    pub async fn new(msg: Message, guild: GuildId, role: RoleId) -> Self {
+        let content = msg.content.clone();
 
         let description = format!(
             "Whoever reacts to <@{author}>'s [message]\

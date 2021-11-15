@@ -17,6 +17,8 @@ pub struct BotConfig {
     pub server: Server,
     grades: HashMap<Grade, String>,
     pub emotes: HashMap<Emote, String>,
+    pub redis_host: String,
+    pub redis_port: u16,
 }
 
 #[derive(Debug, Deserialize)]

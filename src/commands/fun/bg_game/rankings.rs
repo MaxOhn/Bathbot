@@ -17,14 +17,14 @@ use crate::{
 async fn rankings(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            let global = !args
+            let non_global = args
                 .next()
                 .filter(|_| msg.guild_id.is_some())
                 .map(CowUtils::cow_to_ascii_lowercase)
                 .filter(|arg| arg == "server" || arg == "s")
                 .is_some();
 
-            _rankings(ctx, CommandData::Message { msg, args, num }, global).await
+            _rankings(ctx, CommandData::Message { msg, args, num }, non_global).await
         }
         CommandData::Interaction { .. } => unreachable!(),
     }
@@ -33,7 +33,7 @@ async fn rankings(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 pub(super) async fn _rankings(
     ctx: Arc<Context>,
     data: CommandData<'_>,
-    global: bool,
+    non_global: bool,
 ) -> BotResult<()> {
     let mut scores = match ctx.psql().all_bggame_scores().await {
         Ok(scores) => scores,
@@ -46,8 +46,8 @@ pub(super) async fn _rankings(
 
     let guild_id = data.guild_id();
 
-    if let Some(guild_id) = guild_id.filter(|_| !global) {
-        // TODO: Use MemberChunk event instead
+    if let Some(guild_id) = guild_id.filter(|_| non_global) {
+        // TODO: Use cache event instead
         let members = match get_member_ids(&ctx, guild_id).await {
             Ok(members) => members,
             Err(why) => {
@@ -71,15 +71,12 @@ pub(super) async fn _rankings(
     for &id in scores.iter().take(15).map(|(id, _)| id) {
         let user_id = UserId::new(id).unwrap();
 
-        let name = match ctx.cache.user(user_id) {
-            Some(user) => user.name.to_owned(),
-            None => match ctx.http.user(user_id).exec().await {
-                Ok(user_res) => match user_res.model().await {
-                    Ok(user) => user.name,
-                    Err(_) => String::from("Unknown user"),
-                },
+        let name = match ctx.http.user(user_id).exec().await {
+            Ok(user_res) => match user_res.model().await {
+                Ok(user) => user.name,
                 Err(_) => String::from("Unknown user"),
             },
+            Err(_) => String::from("Unknown user"),
         };
 
         usernames.insert(id, name);

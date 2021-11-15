@@ -1,13 +1,15 @@
 mod impls;
 
 pub use impls::{MatchLiveChannels, MatchTrackResult};
+
+use bathbot_cache::Cache;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     bg_game::GameWrapper,
     core::{
         buckets::{buckets, Buckets},
-        BotStats, Cache,
+        BotStats,
     },
     database::{Database, GuildConfig},
     util::CountryCode,
@@ -19,7 +21,7 @@ use super::server::AuthenticationStandby;
 use dashmap::{DashMap, DashSet};
 use deadpool_redis::Pool as RedisPool;
 use hashbrown::HashSet;
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use rosu_v2::Osu;
 use std::sync::Arc;
 use twilight_gateway::Cluster;
@@ -30,6 +32,7 @@ use twilight_model::{
         presence::{Activity, ActivityType, Status},
     },
     id::{ChannelId, GuildId, MessageId},
+    user::CurrentUser,
 };
 use twilight_standby::Standby;
 
@@ -43,6 +46,7 @@ pub struct Context {
     pub cluster: Cluster,
     pub clients: Clients,
     pub member_tx: UnboundedSender<(GuildId, u64)>,
+    pub current_user: RwLock<CurrentUser>,
     // private to avoid deadlocks by messing up references
     data: ContextData,
 }
@@ -72,6 +76,7 @@ pub struct ContextData {
 }
 
 impl Context {
+    #[allow(clippy::too_many_arguments)]
     #[cold]
     pub async fn new(
         cache: Cache,
@@ -81,6 +86,7 @@ impl Context {
         cluster: Cluster,
         data: ContextData,
         member_tx: UnboundedSender<(GuildId, u64)>,
+        current_user: CurrentUser,
     ) -> Self {
         Context {
             cache,
@@ -93,6 +99,7 @@ impl Context {
             data,
             buckets: buckets(),
             member_tx,
+            current_user: RwLock::new(current_user),
         }
     }
 

@@ -268,7 +268,6 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &INVITE_CMD,
                 &PRUNE_CMD,
                 &PREFIX_CMD,
-                &ECHO_CMD,
                 &AUTHORITIES_CMD,
                 &ROLEASSIGN_CMD,
                 &TOGGLESONGS_CMD,

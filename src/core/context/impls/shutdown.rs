@@ -1,49 +1,8 @@
 use eyre::Report;
-use hashbrown::HashMap;
-use twilight_model::gateway::presence::{ActivityType, Status};
 
 use crate::Context;
 
 impl Context {
-    #[cold]
-    pub async fn initiate_cold_resume(&self) {
-        info!("Preparing for cold resume");
-
-        let activity_result = self
-            .set_cluster_activity(
-                Status::Idle,
-                ActivityType::Watching,
-                String::from("an update being deployed, replies might be delayed"),
-            )
-            .await;
-
-        if let Err(why) = activity_result {
-            debug!("Error while updating activity for cold resume: {}", why);
-        }
-
-        // Kill the shards and get their resume info
-        // DANGER: WE WILL NOT BE GETTING EVENTS FROM THIS POINT ONWARDS, REBOOT REQUIRED
-        let _resume_data: HashMap<_, _> = self
-            .cluster
-            .down_resumable()
-            .into_iter()
-            .map(|(key, value)| (key, (value.session_id, value.sequence)))
-            .collect();
-
-        debug!("Received resume data");
-
-        // TODO
-
-        // let cold_resume_fut = self
-        //     .cache
-        //     .prepare_cold_resume(&self.clients.redis, resume_data);
-
-        // if let Err(why) = cold_resume_fut.await {
-        //     let report = Report::new(why).wrap_err("failed to prepare cold resume");
-        //     error!("{:?}", report);
-        // }
-    }
-
     #[cold]
     pub async fn stop_all_games(&self) -> usize {
         let active_games = self.game_channels();

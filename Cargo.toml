@@ -23,6 +23,11 @@ regex        = "1.5"
 serde_json   = "1.0"
 toml         = "0.5"
 
+[dependencies.bathbot-cache]
+# path = "../bathbot-cache"
+git = "https://github.com/MaxOhn/bathbot-cache"
+branch = "main"
+
 [dependencies.chrono]
 version = "0.4"
 features = ["serde"]
@@ -141,10 +146,6 @@ features = ["fs", "io-util", "macros", "rt-multi-thread", "signal", "sync", "tim
 [dependencies.tokio-stream]
 version = "0.1.2"
 default_features = false
-
-[dependencies.twilight-cache-inmemory]
-version = "0.7"
-features = ["permission-calculator"]
 
 [dependencies.twilight-gateway]
 version = "0.7"

@@ -99,15 +99,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
+name = "bathbot-cache"
+version = "0.2.0"
+source = "git+https://github.com/MaxOhn/bathbot-cache?branch=main#2ab2bde31a3f555a1dbbbcf949f613cc46ef16df"
+dependencies = [
+ "deadpool-redis 0.10.0",
+ "hashbrown 0.11.2",
+ "serde",
+ "serde_cbor",
+ "thiserror",
+ "twilight-model",
+]
+
+[[package]]
 name = "bathbot-twilight"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "bathbot-cache",
  "bitflags",
  "bytes",
  "chrono",
  "dashmap",
- "deadpool-redis",
+ "deadpool-redis 0.9.0",
  "dotenv",
  "eyre",
  "flexi_logger",
@@ -147,7 +161,6 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "toml",
- "twilight-cache-inmemory",
  "twilight-gateway",
  "twilight-http",
  "twilight-model",
@@ -472,15 +485,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "deadpool"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "51dc1e92ba8164da131a4753a26cb1e7ebcfe617e56bb3c2b6136049c8ee5730"
+dependencies = [
+ "async-trait",
+ "deadpool-runtime",
+ "num_cpus",
+ "tokio",
+]
+
+[[package]]
 name = "deadpool-redis"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "58f31ab753d882c470926de2b34f42ed03e6e0661b609586825391f6560113db"
 dependencies = [
  "async-trait",
- "deadpool",
+ "deadpool 0.8.2",
  "log",
  "redis",
+]
+
+[[package]]
+name = "deadpool-redis"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9af95b44f3bbc1ab2ef8dc54ce81510f486e4bd05ed93ffa60ec5b2b5290a8ba"
+dependencies = [
+ "deadpool 0.9.1",
+ "redis",
+]
+
+[[package]]
+name = "deadpool-runtime"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eaa37046cc0f6c3cc6090fbdbf73ef0b8ef4cfcc37f6befc0020f63e8cf121e1"
+dependencies = [
+ "tokio",
 ]
 
 [[package]]
@@ -3012,19 +3056,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "twilight-cache-inmemory"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55146a5da6d67ff1b8ed403a9da1d57ec57ebf29ee1d72c70fb11fe62132cb75"
-dependencies = [
- "bitflags",
- "dashmap",
- "serde",
- "twilight-model",
- "twilight-util",
-]
-
-[[package]]
 name = "twilight-gateway"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3094,15 +3125,6 @@ dependencies = [
  "dashmap",
  "futures-util",
  "tokio",
- "twilight-model",
-]
-
-[[package]]
-name = "twilight-util"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6dbb2151d979abc81e43d4c7747047c4884eef5a8400b43f3bb265dbe5b503ea"
-dependencies = [
  "twilight-model",
 ]
 

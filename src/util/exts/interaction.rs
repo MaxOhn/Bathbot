@@ -5,7 +5,7 @@ use twilight_model::{
 
 use crate::{BotResult, Error};
 
-pub trait InteractionExt {
+pub trait InteractionExt: Send + Sync {
     fn channel_id(&self) -> ChannelId;
     fn guild_id(&self) -> Option<GuildId>;
     fn user_id(&self) -> BotResult<UserId>;
