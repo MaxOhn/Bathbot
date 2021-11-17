@@ -7,7 +7,6 @@ use futures::{
 };
 use rosu_pp::{Beatmap as Map, FruitsPP, OsuPP, TaikoPP};
 use rosu_v2::prelude::{GameMode, OsuError};
-use tokio::fs::File;
 use twilight_model::{
     application::interaction::{
         application_command::{CommandDataOption, CommandOptionValue},
@@ -105,8 +104,7 @@ pub(super) async fn _nochokes(
             }
 
             let map_path = prepare_beatmap_file(map.map_id).await?;
-            let file = File::open(map_path).await.map_err(PPError::from)?;
-            let rosu_map = Map::parse(file).await.map_err(PPError::from)?;
+            let rosu_map = Map::from_path(map_path).await.map_err(PPError::from)?;
             let mods = score.mods.bits();
 
             match map.mode {

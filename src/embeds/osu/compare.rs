@@ -16,7 +16,6 @@ use chrono::{DateTime, Utc};
 use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, ManiaPP, OsuPP, TaikoPP};
 use rosu_v2::prelude::{Beatmap, BeatmapUserScore, GameMode, GameMods, Grade, Score, User};
 use std::{borrow::Cow, fmt::Write};
-use tokio::fs::File;
 
 const GLOBAL_IDX_THRESHOLD: usize = 500;
 
@@ -53,8 +52,7 @@ impl CompareEmbed {
         let mapset = score.mapset.as_ref().unwrap();
 
         let map_path = prepare_beatmap_file(map.map_id).await?;
-        let file = File::open(map_path).await.map_err(PPError::from)?;
-        let rosu_map = Map::parse(file).await.map_err(PPError::from)?;
+        let rosu_map = Map::from_path(map_path).await.map_err(PPError::from)?;
         let mods = score.mods.bits();
         let max_result = rosu_map.max_pp(mods);
 

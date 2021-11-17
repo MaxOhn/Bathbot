@@ -14,10 +14,12 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
-use rosu_pp::{Beatmap as Map, BeatmapExt, DifficultyAttributes, FruitsPP, ManiaPP, OsuPP, PerformanceAttributes, TaikoPP};
+use rosu_pp::{
+    Beatmap as Map, BeatmapExt, DifficultyAttributes, FruitsPP, ManiaPP, OsuPP,
+    PerformanceAttributes, TaikoPP,
+};
 use rosu_v2::prelude::{BeatmapUserScore, GameMode, Grade, Score, User};
 use std::{borrow::Cow, fmt::Write};
-use tokio::fs::File;
 
 pub struct RecentEmbed {
     description: String,
@@ -54,8 +56,7 @@ impl RecentEmbed {
         let mapset = score.mapset.as_ref().unwrap();
 
         let map_path = prepare_beatmap_file(map.map_id).await?;
-        let file = File::open(map_path).await.map_err(PPError::from)?;
-        let rosu_map = Map::parse(file).await.map_err(PPError::from)?;
+        let rosu_map = Map::from_path(map_path).await.map_err(PPError::from)?;
         let mods = score.mods.bits();
         let max_result = rosu_map.max_pp(mods);
         let mut attributes = max_result.difficulty_attributes();
@@ -74,36 +75,48 @@ impl RecentEmbed {
         } else if score.grade == Grade::F {
             let hits = score.total_hits() as usize;
 
-             match map.mode {
-                GameMode::STD => OsuPP::new(&rosu_map)
-                    .mods(mods)
-                    .combo(score.max_combo as usize)
-                    .n300(score.statistics.count_300 as usize)
-                    .n100(score.statistics.count_100 as usize)
-                    .n50(score.statistics.count_50 as usize)
-                    .misses(score.statistics.count_miss as usize)
-                    .passed_objects(hits)
-                    .calculate().pp as f32,
-                GameMode::MNA => ManiaPP::new(&rosu_map)
-                    .mods(mods)
-                    .score(score.score)
-                    .passed_objects(hits)
-                    .calculate().pp as f32,
-                GameMode::CTB => FruitsPP::new(&rosu_map)
-                    .mods(mods)
-                    .combo(score.max_combo as usize)
-                    .fruits(score.statistics.count_300 as usize)
-                    .droplets(score.statistics.count_100 as usize)
-                    .misses(score.statistics.count_miss as usize)
-                    .passed_objects(hits - score.statistics.count_katu as usize)
-                    .accuracy(score.accuracy as f64)
-                    .calculate().pp as f32,
-                GameMode::TKO => TaikoPP::new(&rosu_map)
-                    .combo(score.max_combo as usize)
-                    .mods(mods)
-                    .passed_objects(hits)
-                    .accuracy(score.accuracy as f64)
-                    .calculate().pp as f32
+            match map.mode {
+                GameMode::STD => {
+                    OsuPP::new(&rosu_map)
+                        .mods(mods)
+                        .combo(score.max_combo as usize)
+                        .n300(score.statistics.count_300 as usize)
+                        .n100(score.statistics.count_100 as usize)
+                        .n50(score.statistics.count_50 as usize)
+                        .misses(score.statistics.count_miss as usize)
+                        .passed_objects(hits)
+                        .calculate()
+                        .pp as f32
+                }
+                GameMode::MNA => {
+                    ManiaPP::new(&rosu_map)
+                        .mods(mods)
+                        .score(score.score)
+                        .passed_objects(hits)
+                        .calculate()
+                        .pp as f32
+                }
+                GameMode::CTB => {
+                    FruitsPP::new(&rosu_map)
+                        .mods(mods)
+                        .combo(score.max_combo as usize)
+                        .fruits(score.statistics.count_300 as usize)
+                        .droplets(score.statistics.count_100 as usize)
+                        .misses(score.statistics.count_miss as usize)
+                        .passed_objects(hits - score.statistics.count_katu as usize)
+                        .accuracy(score.accuracy as f64)
+                        .calculate()
+                        .pp as f32
+                }
+                GameMode::TKO => {
+                    TaikoPP::new(&rosu_map)
+                        .combo(score.max_combo as usize)
+                        .mods(mods)
+                        .passed_objects(hits)
+                        .accuracy(score.accuracy as f64)
+                        .calculate()
+                        .pp as f32
+                }
             }
         } else {
             let pp_result: PerformanceAttributes = match map.mode {
@@ -115,12 +128,14 @@ impl RecentEmbed {
                     .n100(score.statistics.count_100 as usize)
                     .n50(score.statistics.count_50 as usize)
                     .misses(score.statistics.count_miss as usize)
-                    .calculate().into(),
+                    .calculate()
+                    .into(),
                 GameMode::MNA => ManiaPP::new(&rosu_map)
                     .attributes(attributes)
                     .mods(mods)
                     .score(score.score)
-                    .calculate().into(),
+                    .calculate()
+                    .into(),
                 GameMode::CTB => FruitsPP::new(&rosu_map)
                     .attributes(attributes)
                     .mods(mods)
@@ -129,14 +144,16 @@ impl RecentEmbed {
                     .droplets(score.statistics.count_100 as usize)
                     .misses(score.statistics.count_miss as usize)
                     .accuracy(score.accuracy as f64)
-                    .calculate().into(),
+                    .calculate()
+                    .into(),
                 GameMode::TKO => TaikoPP::new(&rosu_map)
                     .attributes(attributes)
                     .combo(score.max_combo as usize)
                     .mods(mods)
                     .misses(score.statistics.count_miss as usize)
                     .accuracy(score.accuracy as f64)
-                    .calculate().into(),
+                    .calculate()
+                    .into(),
             };
 
             let pp = pp_result.pp();
@@ -357,7 +374,12 @@ struct IfFC {
     acc: f32,
 }
 
-fn if_fc_struct(score: &Score, map: &Map, attributes: DifficultyAttributes, mods: u32) -> Option<IfFC> {
+fn if_fc_struct(
+    score: &Score,
+    map: &Map,
+    attributes: DifficultyAttributes,
+    mods: u32,
+) -> Option<IfFC> {
     match attributes {
         DifficultyAttributes::Osu(attributes)
             if score.statistics.count_miss > 0
@@ -399,7 +421,9 @@ fn if_fc_struct(score: &Score, map: &Map, attributes: DifficultyAttributes, mods
                 acc,
             })
         }
-        DifficultyAttributes::Fruits(attributes) if score.max_combo != attributes.max_combo as u32 => {
+        DifficultyAttributes::Fruits(attributes)
+            if score.max_combo != attributes.max_combo as u32 =>
+        {
             let total_objects = attributes.max_combo;
             let passed_objects = (score.statistics.count_300
                 + score.statistics.count_100

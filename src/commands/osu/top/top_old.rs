@@ -11,7 +11,6 @@ use futures::{
 use rosu_pp::{Beatmap, BeatmapExt, PerformanceAttributes};
 use rosu_pp_older::*;
 use rosu_v2::prelude::{GameMode, OsuError, Score};
-use tokio::fs::File;
 use twilight_model::{
     application::interaction::{
         application_command::{CommandDataOption, CommandOptionValue},
@@ -246,8 +245,7 @@ pub(super) async fn _topold(
             }
 
             let map_path = prepare_beatmap_file(map.map_id).await?;
-            let file = File::open(map_path).await.map_err(PPError::from)?;
-            let rosu_map = Beatmap::parse(file).await.map_err(PPError::from)?;
+            let rosu_map = Beatmap::from_path(map_path).await.map_err(PPError::from)?;
             let mods = score.mods.bits();
 
             // Calculate pp values

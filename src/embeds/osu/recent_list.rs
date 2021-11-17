@@ -16,7 +16,6 @@ use rosu_pp::{
 };
 use rosu_v2::prelude::{GameMode, Grade, Score, User};
 use std::fmt::Write;
-use tokio::fs::File;
 
 pub struct RecentListEmbed {
     description: String,
@@ -45,8 +44,7 @@ impl RecentListEmbed {
             #[allow(clippy::map_entry)]
             if !rosu_maps.contains_key(&map.map_id) {
                 let map_path = prepare_beatmap_file(map.map_id).await?;
-                let file = File::open(map_path).await.map_err(PPError::from)?;
-                let rosu_map = Map::parse(file).await.map_err(PPError::from)?;
+                let rosu_map = Map::from_path(map_path).await.map_err(PPError::from)?;
 
                 rosu_maps.insert(map.map_id, rosu_map);
             };

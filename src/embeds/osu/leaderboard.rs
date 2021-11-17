@@ -19,7 +19,6 @@ use rosu_pp::{
 };
 use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, GameMode};
 use std::fmt::{self, Write};
-use tokio::fs::File;
 
 pub struct LeaderboardEmbed {
     description: String,
@@ -63,8 +62,7 @@ impl LeaderboardEmbed {
 
         let description = if let Some(scores) = scores {
             let map_path = prepare_beatmap_file(map.map_id).await?;
-            let file = File::open(map_path).await.map_err(PPError::from)?;
-            let rosu_map = Map::parse(file).await.map_err(PPError::from)?;
+            let rosu_map = Map::from_path(map_path).await.map_err(PPError::from)?;
 
             let mut mod_map = HashMap::new();
             let mut description = String::with_capacity(256);

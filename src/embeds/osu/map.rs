@@ -19,7 +19,6 @@ use rosu_pp::{
 };
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods};
 use std::fmt::Write;
-use tokio::fs::File;
 
 pub struct MapEmbed {
     title: String,
@@ -77,8 +76,7 @@ impl MapEmbed {
         let mut fields = Vec::with_capacity(3);
 
         let map_path = prepare_beatmap_file(map.map_id).await?;
-        let file = File::open(map_path).await.map_err(PPError::from)?;
-        let rosu_map = Map::parse(file).await.map_err(PPError::from)?;
+        let rosu_map = Map::from_path(map_path).await.map_err(PPError::from)?;
         let mod_bits = mods.bits();
 
         let mod_mult = 0.5_f32.powi(

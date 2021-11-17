@@ -5,14 +5,12 @@ use rosu_pp::{
     fruits::stars, Beatmap as Map, FruitsPP, ManiaPP, OsuPP, PerformanceAttributes, TaikoPP,
 };
 use rosu_v2::prelude::{Beatmap, GameMode, OsuError, RankStatus, Score};
-use tokio::fs::File;
 use twilight_model::{
     application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
     channel::message::MessageType,
     id::UserId,
 };
 
-use super::{option_discord, option_map, option_mods, option_name};
 use crate::{
     commands::{check_user_mention, parse_discord, DoubleResultCow, MyCommand},
     database::OsuData,
@@ -32,6 +30,8 @@ use crate::{
     },
     Args, BotResult, CommandData, Context,
 };
+
+use super::{option_discord, option_map, option_mods, option_name};
 
 #[command]
 #[short_desc("Display a user's pp after unchoking their score on a map")]
@@ -273,8 +273,7 @@ async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotRes
 /// Returns (actual pp, unchoked pp) tuple
 async fn unchoke_pp(score: &mut Score, map: &Beatmap) -> BotResult<Option<f32>> {
     let map_path = prepare_beatmap_file(map.map_id).await?;
-    let file = File::open(map_path).await.map_err(PPError::from)?;
-    let rosu_map = Map::parse(file).await.map_err(PPError::from)?;
+    let rosu_map = Map::from_path(map_path).await.map_err(PPError::from)?;
     let mods = score.mods.bits();
 
     let attributes = if score.pp.is_some() {

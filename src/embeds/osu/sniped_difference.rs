@@ -14,7 +14,6 @@ use hashbrown::HashMap;
 use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_v2::model::user::User;
 use std::fmt::Write;
-use tokio::fs::File;
 
 pub struct SnipedDiffEmbed {
     description: String,
@@ -45,8 +44,7 @@ impl SnipedDiffEmbed {
                     #[allow(clippy::map_entry)]
                     if !maps.contains_key(&score.beatmap_id) {
                         let map_path = prepare_beatmap_file(score.beatmap_id).await?;
-                        let file = File::open(map_path).await.map_err(PPError::from)?;
-                        let map = Beatmap::parse(file).await.map_err(PPError::from)?;
+                        let map = Beatmap::from_path(map_path).await.map_err(PPError::from)?;
 
                         maps.insert(score.beatmap_id, map);
                     }

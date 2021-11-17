@@ -6,11 +6,10 @@ use crate::{
 
 use bitflags::bitflags;
 use rosu_pp::{
-    Beatmap, BeatmapExt as rosu_v2BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, 
-    TaikoPP, PerformanceAttributes,
+    Beatmap, BeatmapExt as rosu_v2BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP,
+    PerformanceAttributes, TaikoPP,
 };
 use rosu_v2::model::{GameMode, GameMods, Grade};
-use tokio::fs::File;
 
 bitflags! {
     pub struct Calculations: u8 {
@@ -61,9 +60,8 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
         let map = match self.map.as_deref() {
             Some(map) => {
                 let map_path = prepare_beatmap_file(map.map_id()).await?;
-                let file = File::open(map_path).await.map_err(PPError::from)?;
 
-                Beatmap::parse(file).await.map_err(PPError::from)?
+                Beatmap::from_path(map_path).await.map_err(PPError::from)?
             }
             None => return Err(PPError::NoMapId.into()),
         };

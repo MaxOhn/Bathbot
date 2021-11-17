@@ -219,7 +219,7 @@ async fn async_main() -> Result<()> {
         | EventTypeFlags::WEBHOOKS_UPDATE;
 
     let cache_config = CacheConfig {
-        member_ttl: Some(60), // TODO
+        member_ttl: Some(180),
     };
 
     let cache = Cache::with_config(redis_host, redis_port, current_user.id, cache_config)?;

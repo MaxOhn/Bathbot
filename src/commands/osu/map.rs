@@ -27,7 +27,6 @@ use plotters::prelude::*;
 use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_v2::prelude::{GameMode, GameMods, OsuError};
 use std::{cmp::Ordering, sync::Arc};
-use tokio::fs::File;
 use twilight_model::{
     application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
     channel::message::MessageType,
@@ -269,8 +268,7 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
 
 async fn strain_values(map_id: u32, mods: GameMods) -> BotResult<Vec<(f64, f64)>> {
     let map_path = prepare_beatmap_file(map_id).await?;
-    let file = File::open(map_path).await.map_err(PPError::from)?;
-    let map = Beatmap::parse(file).await.map_err(PPError::from)?;
+    let map = Beatmap::from_path(map_path).await.map_err(PPError::from)?;
     let strains = map.strains(mods.bits());
     let section_len = strains.section_length;
 

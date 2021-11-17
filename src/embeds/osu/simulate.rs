@@ -20,7 +20,6 @@ use rosu_v2::prelude::{
     Beatmap, BeatmapsetCompact, GameMode, GameMods, Grade, Score, ScoreStatistics,
 };
 use std::{borrow::Cow, fmt::Write};
-use tokio::fs::File;
 
 pub struct SimulateArgs {
     mods: Option<ModSelection>,
@@ -145,8 +144,7 @@ impl SimulateEmbed {
 
         let mut unchoked_score = score.unwrap_or_else(default_score);
         let map_path = prepare_beatmap_file(map.map_id).await?;
-        let file = File::open(map_path).await.map_err(PPError::from)?;
-        let rosu_map = Map::parse(file).await.map_err(PPError::from)?;
+        let rosu_map = Map::from_path(map_path).await.map_err(PPError::from)?;
 
         if let Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) = args.mods {
             unchoked_score.mods = mods;
