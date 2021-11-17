@@ -545,6 +545,17 @@ fn filter_scores(scores: Vec<Score>, args: &TopArgs) -> Vec<(usize, Score)> {
         .into_iter()
         .enumerate()
         .filter(|(_, s)| {
+            if let Some(perfect_combo) = args.perfect_combo {
+                let map_combo = match s.map.as_ref().and_then(|m| m.max_combo) {
+                    Some(combo) => combo,
+                    None => return false,
+                };
+
+                if perfect_combo ^ (map_combo == s.max_combo) {
+                    return false;
+                }
+            }
+
             match grade {
                 Some(GradeArg::Single(grade)) => {
                     if !s.grade.eq_letter(grade) {
@@ -768,6 +779,7 @@ pub struct TopArgs {
     grade: Option<GradeArg>,
     pub sort_by: TopOrder,
     reverse: bool,
+    perfect_combo: Option<bool>,
     index: Option<usize>,
     has_dash_r: bool,
     has_dash_p_or_i: bool,
@@ -970,6 +982,7 @@ impl TopArgs {
             grade,
             sort_by: sort_by.unwrap_or_default(),
             reverse: reverse.unwrap_or(false),
+            perfect_combo: None,
             index,
             has_dash_r: has_dash_r.unwrap_or(false),
             has_dash_p_or_i: has_dash_p_or_i.unwrap_or(false),
@@ -988,6 +1001,7 @@ impl TopArgs {
         let mut grade = None;
         let mut order = None;
         let mut reverse = None;
+        let mut perfect_combo = None;
         let mut index = None;
 
         for option in options {
@@ -1035,13 +1049,11 @@ impl TopArgs {
 
                     index = Some(number.max(0) as usize);
                 }
-                CommandOptionValue::Boolean(value) => {
-                    let value = (option.name == REVERSE)
-                        .then(|| value)
-                        .ok_or(Error::InvalidCommandOptions)?;
-
-                    reverse = Some(value);
-                }
+                CommandOptionValue::Boolean(value) => match option.name.as_str() {
+                    REVERSE => reverse = Some(value),
+                    "perfect_combo" => perfect_combo = Some(value),
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
                 CommandOptionValue::User(value) => match option.name.as_str() {
                     DISCORD => match parse_discord(ctx, value).await? {
                         Ok(osu) => config.osu = Some(osu),
@@ -1063,6 +1075,7 @@ impl TopArgs {
             grade,
             sort_by: order.unwrap_or_default(),
             reverse: reverse.unwrap_or(false),
+            perfect_combo,
             index,
             has_dash_r: false,
             has_dash_p_or_i: false,
@@ -1092,7 +1105,8 @@ fn write_content(name: &str, args: &TopArgs, amount: usize) -> Option<String> {
         || args.combo_min.is_some()
         || args.combo_max.is_some()
         || args.grade.is_some()
-        || args.mods.is_some();
+        || args.mods.is_some()
+        || args.perfect_combo.is_some();
 
     if condition {
         Some(content_with_condition(args, amount))
@@ -1179,6 +1193,10 @@ fn content_with_condition(args: &TopArgs, amount: usize) -> String {
                 ModSelection::Include(mods) => format!("Include {}", mods),
             },
         );
+    }
+
+    if let Some(perfect_combo) = args.perfect_combo {
+        let _ = write!(content, " ~ `Perfect combo: {}`", perfect_combo);
     }
 
     let _ = write!(content, "\nFound {} matching top scores:", amount);

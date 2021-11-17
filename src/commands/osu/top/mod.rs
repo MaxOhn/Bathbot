@@ -163,8 +163,22 @@ fn subcommand_current() -> MyCommandOption {
 
     let grade = MyCommandOption::builder(GRADE, CONSIDER_GRADE).string(grade_choices, false);
 
-    MyCommandOption::builder("current", "Display the user's current top100")
-        .subcommand(vec![mode, name, sort, mods, index, discord, reverse, grade])
+    let perfect_combo_description = "Filter out all scores that don't have a perfect combo";
+
+    let perfect_combo =
+        MyCommandOption::builder("perfect_combo", perfect_combo_description).boolean(false);
+
+    MyCommandOption::builder("current", "Display the user's current top100").subcommand(vec![
+        mode,
+        name,
+        sort,
+        mods,
+        index,
+        discord,
+        reverse,
+        grade,
+        perfect_combo,
+    ])
 }
 
 fn subcommand_if() -> MyCommandOption {
