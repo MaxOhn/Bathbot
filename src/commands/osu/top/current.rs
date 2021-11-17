@@ -633,7 +633,11 @@ fn filter_scores(scores: Vec<Score>, args: &TopArgs) -> Vec<(usize, Score)> {
                 .as_ref()
                 .map_or(Reverse(0), |map| Reverse(map.seconds_drain))
         }),
-        TopOrder::Position => {}
+        TopOrder::Position => {
+            scores_indices.sort_unstable_by(|(_, a), (_, b)| {
+                b.pp.partial_cmp(&a.pp).unwrap_or(Ordering::Equal)
+            });
+        }
     }
 
     if args.reverse {
