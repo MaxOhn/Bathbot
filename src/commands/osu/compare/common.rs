@@ -161,7 +161,7 @@ pub(super) async fn _common(
     let mut all_scores: Vec<Score> = all_scores.into_iter().flatten().collect();
     all_scores.sort_unstable_by_key(|score| map_id!(score));
 
-    let mut scores_per_map: Vec<SmallVec<[(usize, f32, Score); 3]>> = all_scores
+    let mut scores_per_map: Vec<SmallVec<[CommonScoreEntry; 3]>> = all_scores
         .into_iter()
         .group_by(|score| map_id!(score))
         .into_iter()
@@ -178,35 +178,51 @@ pub(super) async fn _common(
                 scores.swap(1, 2);
             }
 
-            let mut scores: SmallVec<[(usize, f32, Score); 3]> = scores
-                .into_iter()
-                .map(|score| (0, score.pp.unwrap_or_default(), score))
-                .collect();
+            let mut scores: SmallVec<[CommonScoreEntry; 3]> =
+                scores.into_iter().map(CommonScoreEntry::new).collect();
 
             // Calculate the index of the pp ordered by their values
-            if scores[0].1 > scores[1].1 {
-                scores[1].0 += 1;
+            if (scores[0].pp - scores[1].pp).abs() <= f32::EPSILON {
+                match scores[0].score.created_at.cmp(&scores[1].score.created_at) {
+                    Ordering::Less => scores[1].pos += 1,
+                    Ordering::Equal => {}
+                    Ordering::Greater => scores[0].pos += 1,
+                }
+            } else if scores[0].pp > scores[1].pp {
+                scores[1].pos += 1;
             } else {
-                scores[0].0 += 1;
+                scores[0].pos += 1;
             }
 
             if scores.len() == 3 {
-                if scores[0].1 > scores[2].1 {
-                    scores[2].0 += 1;
+                if (scores[0].pp - scores[2].pp).abs() <= f32::EPSILON {
+                    match scores[0].score.created_at.cmp(&scores[2].score.created_at) {
+                        Ordering::Less => scores[2].pos += 1,
+                        Ordering::Equal => {}
+                        Ordering::Greater => scores[0].pos += 1,
+                    }
+                } else if scores[0].pp > scores[2].pp {
+                    scores[2].pos += 1;
                 } else {
-                    scores[0].0 += 1;
+                    scores[0].pos += 1;
                 }
 
-                if scores[1].1 > scores[2].1 {
-                    scores[2].0 += 1;
+                if (scores[1].pp - scores[2].pp).abs() <= f32::EPSILON {
+                    match scores[1].score.created_at.cmp(&scores[2].score.created_at) {
+                        Ordering::Less => scores[2].pos += 1,
+                        Ordering::Equal => {}
+                        Ordering::Greater => scores[1].pos += 1,
+                    }
+                } else if scores[1].pp > scores[2].pp {
+                    scores[2].pos += 1;
                 } else {
-                    scores[1].0 += 1;
+                    scores[1].pos += 1;
                 }
             }
 
-            if scores[0].0 == 0 {
+            if scores[0].pos == 0 {
                 users[0].first_count += 1;
-            } else if scores[1].0 == 0 {
+            } else if scores[1].pos == 0 {
                 users[1].first_count += 1;
             } else {
                 users[2].first_count += 1;
@@ -218,8 +234,8 @@ pub(super) async fn _common(
 
     // Sort the maps by their score's avg pp values
     scores_per_map.sort_unstable_by(|s1, s2| {
-        let s1 = s1.iter().map(|(_, pp, _)| *pp).sum::<f32>();
-        let s2 = s2.iter().map(|(_, pp, _)| *pp).sum::<f32>();
+        let s1 = s1.iter().map(|entry| entry.pp).sum::<f32>() / s1.len() as f32;
+        let s2 = s2.iter().map(|entry| entry.pp).sum::<f32>() / s2.len() as f32;
 
         s2.partial_cmp(&s1).unwrap_or(Ordering::Equal)
     });
@@ -295,7 +311,7 @@ pub(super) async fn _common(
     let map_iter = scores_per_map
         .iter()
         .filter_map(|scores| scores.first())
-        .map(|(_, _, score)| score);
+        .map(|entry| &entry.score);
 
     if let Err(err) = ctx.psql().store_scores_maps(map_iter).await {
         warn!("{:?}", Report::new(err));
@@ -437,6 +453,22 @@ pub async fn commonctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
             }
         }
         CommandData::Interaction { command } => super::slash_compare(ctx, *command).await,
+    }
+}
+
+pub struct CommonScoreEntry {
+    pub pos: usize,
+    pub pp: f32,
+    pub score: Score,
+}
+
+impl CommonScoreEntry {
+    fn new(score: Score) -> Self {
+        Self {
+            pos: 0,
+            pp: score.pp.unwrap_or_default(),
+            score,
+        }
     }
 }
 

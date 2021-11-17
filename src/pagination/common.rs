@@ -1,8 +1,11 @@
 use super::{Pages, Pagination};
 
-use crate::{commands::osu::CommonUser, embeds::CommonEmbed, BotResult};
+use crate::{
+    commands::osu::{CommonScoreEntry, CommonUser},
+    embeds::CommonEmbed,
+    BotResult,
+};
 
-use rosu_v2::model::score::Score;
 use smallvec::SmallVec;
 use twilight_model::channel::Message;
 
@@ -10,14 +13,14 @@ pub struct CommonPagination {
     msg: Message,
     pages: Pages,
     users: SmallVec<[CommonUser; 3]>,
-    scores_per_map: Vec<SmallVec<[(usize, f32, Score); 3]>>,
+    scores_per_map: Vec<SmallVec<[CommonScoreEntry; 3]>>,
 }
 
 impl CommonPagination {
     pub fn new(
         msg: Message,
         users: SmallVec<[CommonUser; 3]>,
-        scores_per_map: Vec<SmallVec<[(usize, f32, Score); 3]>>,
+        scores_per_map: Vec<SmallVec<[CommonScoreEntry; 3]>>,
     ) -> Self {
         Self {
             pages: Pages::new(10, scores_per_map.len()),

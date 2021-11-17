@@ -1,10 +1,9 @@
 use crate::{
-    commands::osu::CommonUser,
+    commands::osu::{CommonScoreEntry, CommonUser},
     embeds::{attachment, Footer},
     util::constants::OSU_BASE,
 };
 
-use rosu_v2::model::score::Score;
 use smallvec::SmallVec;
 use std::fmt::Write;
 
@@ -14,7 +13,7 @@ pub struct CommonEmbed {
     footer: Footer,
 }
 
-type CommonScore = SmallVec<[(usize, f32, Score); 3]>;
+type CommonScore = SmallVec<[CommonScoreEntry; 3]>;
 
 impl CommonEmbed {
     pub fn new(users: &[CommonUser], scores: &[CommonScore], index: usize) -> Self {
@@ -22,11 +21,11 @@ impl CommonEmbed {
 
         for (i, scores) in scores.iter().enumerate() {
             let (title, version, map_id) = {
-                let (_, _, first) = scores.first().unwrap();
-                let map = first.map.as_ref().unwrap();
+                let first = scores.first().unwrap();
+                let map = first.score.map.as_ref().unwrap();
 
                 (
-                    &first.mapset.as_ref().unwrap().title,
+                    &first.score.mapset.as_ref().unwrap().title,
                     &map.version,
                     map.map_id,
                 )
@@ -44,7 +43,7 @@ impl CommonEmbed {
 
             description.push('-');
 
-            for (pos, pp, score) in scores.iter() {
+            for CommonScoreEntry { pos, pp, score } in scores.iter() {
                 let _ = write!(
                     description,
                     " :{medal}_place: `{name}`: {pp:.2}pp",
