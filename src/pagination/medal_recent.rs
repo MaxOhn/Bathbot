@@ -3,6 +3,7 @@ use crate::{
     commands::osu::MedalAchieved,
     custom_client::{OsekaiComment, OsekaiMap, OsekaiMedal},
     embeds::MedalEmbed,
+    pagination::ReactionWrapper,
     util::{send_reaction, Emote},
     BotResult, Context,
 };
@@ -13,8 +14,12 @@ use rosu_v2::prelude::{MedalCompact, User};
 use std::{borrow::Cow, sync::Arc};
 use tokio::time::{sleep, Duration};
 use tokio_stream::StreamExt;
+use twilight_gateway::Event;
 use twilight_http::error::ErrorType;
-use twilight_model::{channel::{Message, Reaction, ReactionType}, gateway::payload::incoming::ReactionAdd, id::UserId};
+use twilight_model::{
+    channel::{Message, Reaction, ReactionType},
+    id::UserId,
+};
 
 struct CachedMedal {
     medal: OsekaiMedal,
@@ -89,7 +94,8 @@ impl MedalRecentPagination {
     }
 
     pub async fn start(mut self, ctx: &Context, owner: UserId, duration: u64) -> PaginationResult {
-        ctx.store_msg(self.msg.id);
+        let msg_id = self.msg.id;
+        ctx.store_msg(msg_id);
         let reactions = Self::reactions();
 
         let reaction_stream = {
@@ -98,14 +104,27 @@ impl MedalRecentPagination {
             }
 
             ctx.standby
-                .wait_for_reaction_stream(self.msg.id, move |r: &ReactionAdd| r.user_id == owner)
+                .wait_for_event_stream(move |event: &Event| match event {
+                    Event::ReactionAdd(event) => {
+                        event.message_id == msg_id && event.user_id == owner
+                    }
+                    Event::ReactionRemove(event) => {
+                        event.message_id == msg_id && event.user_id == owner
+                    }
+                    _ => false,
+                })
+                .map(|event| match event {
+                    Event::ReactionAdd(add) => ReactionWrapper::Add(add.0),
+                    Event::ReactionRemove(remove) => ReactionWrapper::Remove(remove.0),
+                    _ => unreachable!(),
+                })
                 .timeout(Duration::from_secs(duration))
         };
 
         tokio::pin!(reaction_stream);
 
         while let Some(Ok(reaction)) = reaction_stream.next().await {
-            if let Err(why) = self.next_page(reaction.0, ctx).await {
+            if let Err(why) = self.next_page(reaction.into_inner(), ctx).await {
                 warn!("{:?}", Report::new(why).wrap_err("error while paginating"));
             }
         }

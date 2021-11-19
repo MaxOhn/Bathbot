@@ -49,6 +49,7 @@ pub use recent_list::RecentListPagination;
 pub use sniped_difference::SnipedDiffPagination;
 pub use top::TopPagination;
 pub use top_if::TopIfPagination;
+use twilight_gateway::Event;
 
 use crate::{
     embeds::EmbedData,
@@ -63,7 +64,10 @@ use std::{borrow::Cow, time::Duration};
 use tokio::time::sleep;
 use tokio_stream::StreamExt;
 use twilight_http::error::ErrorType;
-use twilight_model::{channel::{Message, Reaction, ReactionType}, gateway::payload::incoming::ReactionAdd, id::UserId};
+use twilight_model::{
+    channel::{Message, Reaction, ReactionType},
+    id::UserId,
+};
 
 type ReactionVec = SmallVec<[Emote; 7]>;
 type PaginationResult = Result<(), PaginationError>;
@@ -148,20 +152,34 @@ pub trait Pagination: Sync + Sized {
 
         let reaction_stream = {
             let msg = self.msg();
+            let msg_id = msg.id;
 
             for emote in &reactions {
                 send_reaction(ctx, msg, *emote).await?;
             }
 
             ctx.standby
-                .wait_for_reaction_stream(msg.id, move |r: &ReactionAdd| r.user_id == owner)
+                .wait_for_event_stream(move |event: &Event| match event {
+                    Event::ReactionAdd(event) => {
+                        event.message_id == msg_id && event.user_id == owner
+                    }
+                    Event::ReactionRemove(event) => {
+                        event.message_id == msg_id && event.user_id == owner
+                    }
+                    _ => false,
+                })
+                .map(|event| match event {
+                    Event::ReactionAdd(add) => ReactionWrapper::Add(add.0),
+                    Event::ReactionRemove(remove) => ReactionWrapper::Remove(remove.0),
+                    _ => unreachable!(),
+                })
                 .timeout(Duration::from_secs(duration))
         };
 
         tokio::pin!(reaction_stream);
 
         while let Some(Ok(reaction)) = reaction_stream.next().await {
-            if let Err(why) = self.next_page(reaction.0, ctx).await {
+            if let Err(why) = self.next_page(reaction.into_inner(), ctx).await {
                 warn!("{:?}", Report::new(why).wrap_err("error while paginating"));
             }
         }
@@ -321,6 +339,19 @@ impl Pages {
             per_page,
             total_pages: numbers::div_euclid(per_page, amount),
             last_index: numbers::last_multiple(per_page, amount),
+        }
+    }
+}
+
+enum ReactionWrapper {
+    Add(Reaction),
+    Remove(Reaction),
+}
+
+impl ReactionWrapper {
+    fn into_inner(self) -> Reaction {
+        match self {
+            Self::Add(r) | Self::Remove(r) => r,
         }
     }
 }
