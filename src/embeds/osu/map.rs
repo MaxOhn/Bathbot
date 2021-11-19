@@ -188,13 +188,15 @@ impl MapEmbed {
         }
 
         let _ = writeln!(info_value, " Stars: `{:.2}★`", stars);
+        let _ = write!(info_value, "Length: `{}` ", sec_to_minsec(seconds_total));
+
+        if seconds_drain != seconds_total {
+            let _ = write!(info_value, "(`{}`) ", sec_to_minsec(seconds_drain));
+        }
 
         let _ = write!(
             info_value,
-            "Length: `{}` (`{}`) BPM: `{}` Objects: `{}`\n\
-            CS: `{}` AR: `{}` OD: `{}` HP: `{}` Spinners: `{}`",
-            sec_to_minsec(seconds_total),
-            sec_to_minsec(seconds_drain),
+            "BPM: `{}` Objects: `{}`\nCS: `{}` AR: `{}` OD: `{}` HP: `{}` Spinners: `{}`",
             round(bpm),
             map.count_objects(),
             round(cs as f32),

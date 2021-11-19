@@ -208,7 +208,7 @@ pub fn get_map_info(map: &Beatmap, mods: GameMods, stars: f32) -> String {
 
     if (clock_rate - 1.0).abs() > f64::EPSILON {
         let clock_rate = clock_rate as f32;
-        
+
         bpm *= clock_rate;
         sec_total = (sec_total as f32 / clock_rate) as u32;
         sec_drain = (sec_drain as f32 / clock_rate) as u32;
@@ -217,11 +217,17 @@ pub fn get_map_info(map: &Beatmap, mods: GameMods, stars: f32) -> String {
         ar = calculate_ar(ar, clock_rate);
     }
 
+    let mut map_info = String::with_capacity(128);
+
+    let _ = write!(map_info, "Length: `{}` ", sec_to_minsec(sec_total));
+
+    if sec_drain != sec_total {
+        let _ = write!(map_info, "(`{}`) ", sec_to_minsec(sec_drain));
+    }
+
     format!(
-        "Length: `{}` (`{}`) BPM: `{}` Objects: `{}`\n\
+        "BPM: `{}` Objects: `{}`\n\
         CS: `{}` AR: `{}` OD: `{}` HP: `{}` Stars: `{}`",
-        sec_to_minsec(sec_total),
-        sec_to_minsec(sec_drain),
         round(bpm),
         map.count_objects(),
         round(cs),
