@@ -1,4 +1,4 @@
-use std::{ sync::Arc};
+use std::sync::Arc;
 
 use crate::{
     commands::{check_user_mention, parse_discord, parse_mode_option, DoubleResultCow},
@@ -122,7 +122,7 @@ pub(super) async fn _recentlist(
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = RecentListPagination::new(Arc::clone(&ctx), response, user, scores);
+    let pagination = RecentListPagination::new(response, user, scores);
     let owner = data.author()?.id;
 
     tokio::spawn(async move {

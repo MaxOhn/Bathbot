@@ -282,6 +282,7 @@ pub(super) async fn _nochokes(
     // Add maps of scores to DB
     let scores_iter = scores_data.iter().map(|(_, score, _)| score);
 
+    // Store maps of scores in DB; combo was inserted earlier
     if let Err(err) = ctx.psql().store_scores_maps(scores_iter).await {
         warn!("{:?}", Report::new(err));
     }

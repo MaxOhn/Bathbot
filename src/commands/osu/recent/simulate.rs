@@ -164,7 +164,7 @@ pub(super) async fn _recentsimulate(
         let builder = MessageBuilder::new().content(content).embed(embed);
         data.create_message(&ctx, builder).await?;
 
-        // Store map in DB
+        // Store map in DB, combo was inserted earlier
         if let Err(err) = ctx.psql().insert_beatmap(&map).await {
             warn!("{:?}", Report::new(err));
         }

@@ -161,9 +161,9 @@ pub(super) async fn _mapper(
 
     let response_raw = data.create_message(&ctx, builder).await?;
 
-    // Add maps of scores to DB
     let scores_iter = scores.iter().map(|(_, score)| score);
 
+    // Store maps of scores in DB; combo was inserted earlier
     if let Err(err) = ctx.psql().store_scores_maps(scores_iter).await {
         warn!("{:?}", Report::new(err));
     }

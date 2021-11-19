@@ -70,11 +70,6 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
     // Process user and their top scores for tracking
     process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
 
-    // Store maps in DB
-    if let Err(err) = ctx.psql().store_scores_maps(scores.iter()).await {
-        warn!("{:?}", Report::new(err));
-    }
-
     let mut profile_data = ProfileData::new(user, scores);
 
     // Draw the graph

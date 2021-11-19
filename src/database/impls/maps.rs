@@ -193,6 +193,7 @@ impl Database {
         Ok(beatmaps)
     }
 
+    /// Be mindful that the score's maps have max combos!
     pub async fn insert_beatmapset(&self, mapset: &Beatmapset) -> InsertMapResult<bool> {
         if invalid_status!(mapset) {
             return Ok(false);
@@ -200,9 +201,16 @@ impl Database {
 
         let mut conn = self.pool.acquire().await?;
 
+        if let Some(ref maps) = mapset.maps {
+            for map in maps {
+                _insert_map(&mut conn, map).await?;
+            }
+        }
+
         _insert_mapset(&mut conn, mapset).await.map(|_| true)
     }
 
+    /// Be mindful that the score's maps have max combos!
     pub async fn insert_beatmap(&self, map: &Beatmap) -> InsertMapResult<bool> {
         if should_not_be_stored(map) {
             return Ok(false);
@@ -213,6 +221,7 @@ impl Database {
         _insert_map(&mut conn, map).await.map(|_| true)
     }
 
+    /// Be mindful that the score's maps have max combos!
     pub async fn insert_beatmaps(
         &self,
         maps: impl Iterator<Item = &Beatmap>,
@@ -232,6 +241,7 @@ impl Database {
         Ok(count)
     }
 
+    /// Be mindful that the score's maps have max combos!
     pub async fn store_scores_maps<'s>(
         &self,
         scores: impl Iterator<Item = &'s Score>,
@@ -256,7 +266,7 @@ impl Database {
                         continue;
                     }
 
-                    _insert_mapset_compact(&mut conn, mapset, map.last_updated).await?;
+                    _insert_mapset_compact(&mut conn, mapset, map.bpm, map.last_updated).await?;
 
                     mapsets += 1;
                 }
@@ -377,6 +387,7 @@ fn _insert_mapset<'a>(
 fn _insert_mapset_compact<'a>(
     conn: &'a mut PgConnection,
     mapset: &'a BeatmapsetCompact,
+    bpm: f32,
     ranked_date: DateTime<Utc>,
 ) -> BoxFuture<'a, Result<(), InsertMapsetError>> {
     let fut = async move {
@@ -390,10 +401,11 @@ fn _insert_mapset_compact<'a>(
                 status,\
                 ranked_date,\
                 genre,\
-                language\
+                language,\
+                bpm\
             )\
             VALUES\
-            ($1,$2,$3,$4,$5,$6,$7,$8,$9)\
+            ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)\
             ON CONFLICT (mapset_id) DO NOTHING",
             mapset.mapset_id as i32,
             mapset.creator_id as i32,
@@ -404,6 +416,7 @@ fn _insert_mapset_compact<'a>(
             ranked_date,
             mapset.genre.map_or(1, |g| g as i16),
             mapset.language.map_or(1, |l| l as i16),
+            bpm
         )
         .execute(&mut *conn)
         .await?;

@@ -2,13 +2,10 @@ use super::{Pages, Pagination};
 
 use crate::{embeds::RecentListEmbed, BotResult, Context};
 
-use eyre::Report;
 use rosu_v2::prelude::{Score, User};
-use std::sync::Arc;
 use twilight_model::channel::Message;
 
 pub struct RecentListPagination {
-    ctx: Arc<Context>,
     msg: Message,
     pages: Pages,
     user: User,
@@ -16,9 +13,8 @@ pub struct RecentListPagination {
 }
 
 impl RecentListPagination {
-    pub fn new(ctx: Arc<Context>, msg: Message, user: User, scores: Vec<Score>) -> Self {
+    pub fn new(msg: Message, user: User, scores: Vec<Score>) -> Self {
         Self {
-            ctx,
             msg,
             user,
             pages: Pages::new(10, scores.len()),
@@ -51,10 +47,6 @@ impl Pagination for RecentListPagination {
         // Set maps on garbage collection list if unranked
         for map in self.scores.iter().filter_map(|s| s.map.as_ref()) {
             ctx.map_garbage_collector(map).execute(ctx).await;
-        }
-
-        if let Err(err) = self.ctx.psql().store_scores_maps(self.scores.iter()).await {
-            warn!("{:?}", Report::new(err));
         }
 
         Ok(())

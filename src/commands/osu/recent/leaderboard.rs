@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use eyre::Report;
-use rosu_v2::prelude::{GameMode, OsuError, Username};
+use rosu_v2::prelude::{GameMode, OsuError, Score, Username};
 use twilight_model::{
     application::interaction::{
         application_command::{CommandDataOption, CommandOptionValue},
@@ -10,7 +10,13 @@ use twilight_model::{
     id::UserId,
 };
 
-use crate::{Args, BotResult, CommandData, Context, MessageBuilder, commands::{DoubleResultCow, check_user_mention, parse_discord, parse_mode_option}, database::UserConfig, embeds::{EmbedData, LeaderboardEmbed}, error::Error, pagination::{LeaderboardPagination, Pagination}, util::{
+use crate::{
+    commands::{check_user_mention, parse_discord, parse_mode_option, DoubleResultCow},
+    database::UserConfig,
+    embeds::{EmbedData, LeaderboardEmbed},
+    error::Error,
+    pagination::{LeaderboardPagination, Pagination},
+    util::{
         constants::{
             common_literals::{DISCORD, INDEX, MODE, MODS, MODS_PARSE_FAIL, NAME},
             AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE,
@@ -18,7 +24,9 @@ use crate::{Args, BotResult, CommandData, Context, MessageBuilder, commands::{Do
         matcher,
         osu::ModSelection,
         InteractionExt, MessageExt,
-    }};
+    },
+    Args, BotResult, CommandData, Context, MessageBuilder,
+};
 
 pub(super) async fn _recentleaderboard(
     ctx: Arc<Context>,
@@ -71,12 +79,12 @@ pub(super) async fn _recentleaderboard(
             return data.error(&ctx, content).await;
         }
         Ok(mut scores) => match scores.pop() {
-            Some(mut score) => {
-                let map = score.map.take().unwrap();
-                let mapset = score.mapset.take().unwrap();
-                let user = score.user.take().unwrap();
+            Some(score) => {
+                let Score {
+                    map, mapset, user, ..
+                } = score;
 
-                (map, mapset, user)
+                (map.unwrap(), mapset.unwrap(), user.unwrap())
             }
             None => {
                 let content = format!(
@@ -159,11 +167,6 @@ pub(super) async fn _recentleaderboard(
     let embed = embed_data.into_builder().build();
     let builder = MessageBuilder::new().content(content).embed(embed);
     let response_raw = data.create_message(&ctx, builder).await?;
-
-    // Store map in DB
-    if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-        warn!("{:?}", Report::new(err));
-    }
 
     // Set map on garbage collection list if unranked
     let gb = ctx.map_garbage_collector(&map);
@@ -532,7 +535,7 @@ impl RecentLeaderboardArgs {
                     index = Some(number.max(1).min(50) as usize);
                 }
                 CommandOptionValue::User(value) => match option.name.as_str() {
-                    DISCORD => match parse_discord(ctx,  value).await? {
+                    DISCORD => match parse_discord(ctx, value).await? {
                         Ok(osu) => username = Some(osu.into_username()),
                         Err(content) => return Ok(Err(content)),
                     },

@@ -307,16 +307,6 @@ pub(super) async fn _common(
 
     let response_raw = data.create_message(&ctx, builder).await?;
 
-    // Add maps of scores to DB
-    let map_iter = scores_per_map
-        .iter()
-        .filter_map(|scores| scores.first())
-        .map(|entry| &entry.score);
-
-    if let Err(err) = ctx.psql().store_scores_maps(map_iter).await {
-        warn!("{:?}", Report::new(err));
-    }
-
     // Skip pagination if too few entries
     if scores_per_map.len() <= 10 {
         return Ok(());

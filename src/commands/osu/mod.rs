@@ -166,7 +166,7 @@ pub async fn prepare_score(ctx: &Context, score: &mut Score) -> OsuResult<()> {
 
     if let Some(map) = valid_score {
         if let Ok(Some(combo)) = ctx.psql().get_beatmap_combo(map.map_id).await {
-            map.max_combo.replace(combo);
+            map.max_combo = Some(combo);
         } else {
             let beatmap = ctx.osu().beatmap().map_id(map.map_id).await?;
 
