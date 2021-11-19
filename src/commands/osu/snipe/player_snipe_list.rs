@@ -1,4 +1,10 @@
-use crate::{Args, BotResult, CommandData, Context, MessageBuilder, commands::{DoubleResultCow, check_user_mention}, custom_client::{SnipeScoreOrder, SnipeScoreParams}, database::OsuData, embeds::{EmbedData, PlayerSnipeListEmbed}, pagination::{Pagination, PlayerSnipeListPagination}, util::{
+use crate::{
+    commands::{check_user_mention, DoubleResultCow},
+    custom_client::{SnipeScoreOrder, SnipeScoreParams},
+    database::OsuData,
+    embeds::{EmbedData, PlayerSnipeListEmbed},
+    pagination::{Pagination, PlayerSnipeListPagination},
+    util::{
         constants::{
             common_literals::{ACC, ACCURACY, MISSES, REVERSE, SORT},
             GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE,
@@ -6,12 +12,14 @@ use crate::{Args, BotResult, CommandData, Context, MessageBuilder, commands::{Do
         matcher, numbers,
         osu::ModSelection,
         CowUtils, MessageExt,
-    }};
+    },
+    Args, BotResult, CommandData, Context, MessageBuilder,
+};
 
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError};
-use std::{ collections::BTreeMap, fmt::Write, sync::Arc};
+use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 use twilight_model::id::UserId;
 
 #[command]
@@ -244,8 +252,8 @@ impl PlayerListArgs {
                         }
                     }
                     REVERSE => match value {
-                        "true" | "1" => descending = Some(false),
-                        "false" | "0" => descending = Some(true),
+                        "true" | "t" | "1" => descending = Some(false),
+                        "false" | "f" | "0" => descending = Some(true),
                         _ => {
                             let content =
                                 "Failed to parse `reverse`. Must be either `true` or `false`.";

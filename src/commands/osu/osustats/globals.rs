@@ -437,8 +437,8 @@ impl ScoresArgs {
                         }
                     },
                     REVERSE => match value {
-                        "true" | "1" => descending = Some(false),
-                        "false" | "0" => descending = Some(true),
+                        "true" | "t" | "1" => descending = Some(false),
+                        "false" | "f" | "0" => descending = Some(true),
                         _ => {
                             let content =
                                 "Failed to parse `reverse`. Must be either `true` or `false`.";

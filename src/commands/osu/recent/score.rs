@@ -584,8 +584,8 @@ impl RecentArgs {
 
                 match key {
                     "pass" | "p" | "passes" => match value {
-                        "true" | "1" => passes = Some(true),
-                        "false" | "0" => passes = Some(false),
+                        "true" | "t" | "1" => passes = Some(true),
+                        "false" | "f" | "0" => passes = Some(false),
                         _ => {
                             let content =
                                 "Failed to parse `pass`. Must be either `true` or `false`.";
@@ -594,8 +594,8 @@ impl RecentArgs {
                         }
                     },
                     "fail" | "fails" | "f" => match value {
-                        "true" | "1" => passes = Some(false),
-                        "false" | "0" => passes = Some(true),
+                        "true" | "t" | "1" => passes = Some(false),
+                        "false" | "f" | "0" => passes = Some(true),
                         _ => {
                             let content =
                                 "Failed to parse `fail`. Must be either `true` or `false`.";

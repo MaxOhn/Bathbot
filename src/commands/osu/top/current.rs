@@ -948,8 +948,8 @@ impl TopArgs {
                         None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
                     },
                     REVERSE | "r" => match value {
-                        "true" | "1" => reverse = Some(true),
-                        "false" | "0" => reverse = Some(false),
+                        "true" | "t" | "1" => reverse = Some(true),
+                        "false" | "f" | "0" => reverse = Some(false),
                         _ => {
                             let content =
                                 "Failed to parse `reverse`. Must be either `true` or `false`.";
