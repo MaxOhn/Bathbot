@@ -56,6 +56,7 @@ async fn _matchlive(ctx: Arc<Context>, data: CommandData<'_>, match_id: u32) -> 
         MatchTrackResult::Capped => "Channels can track at most three games at a time",
         MatchTrackResult::Duplicate => "That match is already being tracking in this channel",
         MatchTrackResult::Error => OSU_API_ISSUE,
+        MatchTrackResult::Private => "The match can't be tracked because it is private",
     };
 
     data.error(&ctx, content).await

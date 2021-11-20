@@ -1,7 +1,7 @@
 use dashmap::{mapref::entry::Entry, DashMap};
 use eyre::Report;
 use parking_lot::Mutex;
-use rosu_v2::prelude::{MatchEvent, OsuMatch};
+use rosu_v2::prelude::{MatchEvent, OsuError, OsuMatch};
 use smallvec::SmallVec;
 use std::sync::Arc;
 use tokio::time::{interval, sleep, Duration};
@@ -44,6 +44,8 @@ pub enum MatchTrackResult {
     Duplicate,
     /// Failed to request match or send the embed messages
     Error,
+    /// The match is private
+    Private,
 }
 
 const EMBED_LIMIT: usize = 15;
@@ -125,6 +127,9 @@ impl Context {
                     }
 
                     MatchTrackResult::Added
+                }
+                Err(OsuError::Response { status, .. }) if status.as_u16() == 401 => {
+                    MatchTrackResult::Private
                 }
                 Err(why) => {
                     let report = Report::new(why).wrap_err("failed to request initial match");
