@@ -143,7 +143,10 @@ impl ProfileEmbed {
                         .as_ref()
                         .map_or(0.0, |result| result.bonus_pp);
 
-                    ProfileEmbed::medium(user, bonus_pp)
+                    // TODO: Use when all members are permanently in the cache
+                    let discord_id = None;
+
+                    ProfileEmbed::medium(user, bonus_pp, discord_id)
                 }
                 ProfileSize::Full => {
                     let scores = &profile_data.scores;
@@ -173,7 +176,16 @@ impl ProfileEmbed {
 
                     let profile_result = profile_data.profile_result.as_ref();
 
-                    ProfileEmbed::full(user, profile_result, globals_count, own_top_scores)
+                    // TODO: Use when all members are permanently in the cache
+                    let discord_id = None;
+
+                    ProfileEmbed::full(
+                        user,
+                        profile_result,
+                        globals_count,
+                        own_top_scores,
+                        discord_id,
+                    )
                 }
             };
 

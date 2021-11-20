@@ -11,11 +11,13 @@ use std::{
     cmp::{Ordering::Equal, PartialOrd},
     collections::BTreeMap,
 };
+use twilight_model::id::UserId;
 
 pub struct ProfileData {
     pub user: User,
     pub scores: Vec<Score>,
     pub embeds: ProfileEmbedMap,
+    pub discord_id: Option<Option<UserId>>,
     pub profile_result: Option<ProfileResult>,
     pub globals_count: Option<BTreeMap<usize, Cow<'static, str>>>,
 }
@@ -26,12 +28,13 @@ impl ProfileData {
             user,
             scores,
             embeds: ProfileEmbedMap::default(),
+            discord_id: None,
             profile_result: None,
             globals_count: None,
         }
     }
 
-    /// Check if user has top scores on their own maps
+    /// Check how many of a user's top scores are on their own maps
     pub fn own_top_scores(&self) -> usize {
         let ranked_maps_count =
             self.user.ranked_mapset_count.unwrap() + self.user.loved_mapset_count.unwrap();

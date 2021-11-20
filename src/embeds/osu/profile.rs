@@ -11,7 +11,7 @@ use crate::{
 
 use rosu_v2::prelude::{GameMode, Grade, User, UserStatistics};
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
-use twilight_model::channel::embed::EmbedField;
+use twilight_model::{channel::embed::EmbedField, id::UserId};
 
 #[derive(Clone)]
 pub struct ProfileEmbed {
@@ -58,9 +58,9 @@ impl ProfileEmbed {
         }
     }
 
-    pub fn medium(user: &User, bonus_pp: f32) -> Self {
-        let title = format!(
-            "{} statistics:",
+    pub fn medium(user: &User, bonus_pp: f32, discord_id: Option<UserId>) -> Self {
+        let mut title = format!(
+            "{} statistics",
             match user.mode {
                 GameMode::STD => "osu!",
                 GameMode::TKO => "Taiko",
@@ -68,6 +68,12 @@ impl ProfileEmbed {
                 GameMode::MNA => "Mania",
             }
         );
+
+        if let Some(user_id) = discord_id {
+            let _ = write!(title, " for <@{}>", user_id);
+        }
+
+        title.push(':');
 
         let footer_text = footer_text(user);
         let stats = user.statistics.as_ref().unwrap();
@@ -89,9 +95,10 @@ impl ProfileEmbed {
         profile_result: Option<&ProfileResult>,
         globals_count: &BTreeMap<usize, Cow<'static, str>>,
         own_top_scores: usize,
+        discord_id: Option<UserId>,
     ) -> Self {
-        let title = format!(
-            "{} statistics:",
+        let mut title = format!(
+            "{} statistics",
             match user.mode {
                 GameMode::STD => "osu!",
                 GameMode::TKO => "Taiko",
@@ -99,6 +106,12 @@ impl ProfileEmbed {
                 GameMode::MNA => "Mania",
             }
         );
+
+        if let Some(user_id) = discord_id {
+            let _ = write!(title, " for <@{}>", user_id);
+        }
+
+        title.push(':');
 
         let footer_text = footer_text(user);
         let stats = user.statistics.as_ref().unwrap();
