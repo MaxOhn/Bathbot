@@ -22,9 +22,10 @@ use rosu_v2::prelude::{GameMode, Username};
 use twilight_model::{
     application::command::{
         BaseCommandOptionData, ChannelCommandOptionData, ChoiceCommandOptionData, Command,
-        CommandOption, CommandOptionChoice, CommandType, OptionsCommandOptionData,
+        CommandOption, CommandOptionChoice, CommandType, NumberCommandOptionData,
+        OptionsCommandOptionData,
     },
-    id::UserId,
+    id::{CommandVersionId, UserId},
 };
 
 use crate::{
@@ -499,6 +500,7 @@ impl From<MyCommandOption> for CommandOption {
             }
             MyCommandOptionKind::String { choices, required } => {
                 let inner = ChoiceCommandOptionData {
+                    autocomplete: false,
                     choices,
                     description: option.description.to_owned(),
                     name: option.name.to_owned(),
@@ -508,9 +510,12 @@ impl From<MyCommandOption> for CommandOption {
                 Self::String(inner)
             }
             MyCommandOptionKind::Integer { choices, required } => {
-                let inner = ChoiceCommandOptionData {
+                let inner = NumberCommandOptionData {
+                    autocomplete: false,
                     choices,
                     description: option.description.to_owned(),
+                    max_value: None, // TODO: Make customizable
+                    min_value: None,
                     name: option.name.to_owned(),
                     required,
                 };
@@ -518,9 +523,12 @@ impl From<MyCommandOption> for CommandOption {
                 Self::Integer(inner)
             }
             MyCommandOptionKind::Number { choices, required } => {
-                let inner = ChoiceCommandOptionData {
+                let inner = NumberCommandOptionData {
+                    autocomplete: false,
                     choices,
                     description: option.description.to_owned(),
+                    max_value: None, // TODO: Make customizable
+                    min_value: None,
                     name: option.name.to_owned(),
                     required,
                 };
@@ -626,6 +634,7 @@ impl From<MyCommand> for Command {
             id: None,
             kind: CommandType::ChatInput,
             options: command.options.into_iter().map(Into::into).collect(),
+            version: CommandVersionId::new(1).unwrap(),
         }
     }
 }

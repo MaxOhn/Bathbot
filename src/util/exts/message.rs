@@ -4,7 +4,7 @@ use crate::{
 };
 
 use std::{borrow::Cow, slice};
-use twilight_http::Response;
+use twilight_http::{request::AttachmentFile, Response};
 use twilight_model::{
     application::interaction::ApplicationCommand,
     channel::Message,
@@ -53,8 +53,12 @@ impl MessageExt for (MessageId, ChannelId) {
             req = req.components(components)?;
         }
 
-        match builder.file {
-            Some(tuple) => Ok(req.files(&[tuple]).exec().await?),
+        let attachment = builder
+            .file
+            .map(|(name, bytes)| AttachmentFile::from_bytes(name, bytes));
+
+        match attachment {
+            Some(attachment) => Ok(req.attach(&[attachment]).exec().await?),
             None => Ok(req.exec().await?),
         }
     }
@@ -123,8 +127,12 @@ impl<'s> MessageExt for (InteractionId, &'s str) {
             .embeds(builder.embed.as_ref().map(slice::from_ref))?
             .components(builder.components)?;
 
-        match builder.file {
-            Some(tuple) => Ok(req.files(&[tuple]).exec().await?),
+        let attachment = builder
+            .file
+            .map(|(name, bytes)| AttachmentFile::from_bytes(name, bytes));
+
+        match attachment {
+            Some(attachment) => Ok(req.attach(&[attachment]).exec().await?),
             None => Ok(req.exec().await?),
         }
     }

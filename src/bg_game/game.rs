@@ -21,6 +21,7 @@ use rosu_v2::model::GameMode;
 use std::{collections::VecDeque, sync::Arc};
 use tokio::fs;
 use tokio_stream::StreamExt;
+use twilight_http::request::AttachmentFile;
 use twilight_model::id::ChannelId;
 use twilight_standby::future::WaitForMessageStream;
 
@@ -128,10 +129,12 @@ impl Game {
 
         match reveal_result {
             Ok(bytes) => {
+                let img = AttachmentFile::from_bytes("bg_img.png", &bytes);
+
                 ctx.http
                     .create_message(channel)
                     .content(content)?
-                    .files(&[("bg_img.png", &bytes)])
+                    .attach(&[img])
                     .exec()
                     .await?;
             }

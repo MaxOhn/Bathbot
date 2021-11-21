@@ -351,7 +351,7 @@ async fn unchoke_pp(score: &mut Score, map: &Beatmap) -> BotResult<Option<f32>> 
         }
         GameMode::CTB => {
             let attributes = match attributes {
-                Some(PerformanceAttributes::Fruits(attrs)) => attrs.attributes,
+                Some(PerformanceAttributes::Fruits(attrs)) => attrs.difficulty,
                 Some(_) => panic!("no ctb attributes after calculating stars for ctb map"),
                 None => stars(&rosu_map, mods, None),
             };
