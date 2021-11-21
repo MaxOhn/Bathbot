@@ -11,7 +11,7 @@ use crate::{
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{MedalCompact, User};
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, cmp::Reverse, sync::Arc};
 use tokio::time::{sleep, Duration};
 use tokio_stream::StreamExt;
 use twilight_gateway::Event;
@@ -284,7 +284,7 @@ impl MedalRecentPagination {
                 medal_count: self.achieved_medals.len(),
             };
 
-            let (maps, comments) = if self.maximized {
+            let (maps, mut comments) = if self.maximized {
                 match medal.map_comments {
                     Some(ref tuple) => tuple.to_owned(),
                     None => {
@@ -312,6 +312,9 @@ impl MedalRecentPagination {
             } else {
                 (Vec::new(), Vec::new())
             };
+
+            comments.retain(|comment| comment.parent_id == 0);
+            comments.sort_unstable_by_key(|comment| Reverse(comment.vote_sum));
 
             let medal = medal.medal.to_owned();
 

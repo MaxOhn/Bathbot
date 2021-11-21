@@ -73,11 +73,7 @@ impl MedalEmbed {
         if !comments.is_empty() {
             let mut comment_value = String::with_capacity(256);
 
-            let comment_iter = comments
-                .into_iter()
-                .filter(|comment| comment.parent_id == 0);
-
-            for comment in comment_iter {
+            for comment in comments {
                 let mut c =
                     String::with_capacity(16 + comment.content.len() + comment.username.len());
 

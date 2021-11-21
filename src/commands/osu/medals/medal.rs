@@ -7,7 +7,11 @@ use crate::{
     BotResult, CommandData, Context,
 };
 
-use std::{cmp::Ordering, fmt::Write, sync::Arc};
+use std::{
+    cmp::{Ordering, Reverse},
+    fmt::Write,
+    sync::Arc,
+};
 
 #[command]
 #[short_desc("Display info about an osu! medal")]
@@ -48,7 +52,7 @@ pub(super) async fn _medal(ctx: Arc<Context>, data: CommandData<'_>, name: &str)
     let map_fut = ctx.clients.custom.get_osekai_beatmaps(&medal.name);
     let comment_fut = ctx.clients.custom.get_osekai_comments(&medal.name);
 
-    let (maps, comments) = match tokio::try_join!(map_fut, comment_fut) {
+    let (maps, mut comments) = match tokio::try_join!(map_fut, comment_fut) {
         Ok((maps, comments)) => (maps, comments),
         Err(why) => {
             let _ = data.error(&ctx, OSEKAI_ISSUE).await;
@@ -56,6 +60,9 @@ pub(super) async fn _medal(ctx: Arc<Context>, data: CommandData<'_>, name: &str)
             return Err(why.into());
         }
     };
+
+    comments.retain(|comment| comment.parent_id == 0);
+    comments.sort_unstable_by_key(|comment| Reverse(comment.vote_sum));
 
     let embed_data = MedalEmbed::new(medal, None, maps, comments);
     let builder = embed_data.into_builder().build().into();
