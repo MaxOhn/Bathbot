@@ -225,7 +225,8 @@ pub fn get_map_info(map: &Beatmap, mods: GameMods, stars: f32) -> String {
         let _ = write!(map_info, "(`{}`) ", sec_to_minsec(sec_drain));
     }
 
-    format!(
+    let _ = write!(
+        map_info,
         "BPM: `{}` Objects: `{}`\n\
         CS: `{}` AR: `{}` OD: `{}` HP: `{}` Stars: `{}`",
         round(bpm),
@@ -235,5 +236,7 @@ pub fn get_map_info(map: &Beatmap, mods: GameMods, stars: f32) -> String {
         round(od),
         round(hp),
         round(stars)
-    )
+    );
+
+    map_info
 }
