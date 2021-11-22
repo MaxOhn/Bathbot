@@ -74,8 +74,6 @@ pub enum Error {
     MissingInteractionAuthor,
     #[error("config file was not found")]
     NoConfig,
-    #[error("logging config was not found")]
-    NoLoggingSpec,
     #[error("osu error")]
     Osu(#[from] rosu_v2::error::OsuError),
     #[error("error while calculating pp")]

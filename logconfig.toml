@@ -1,8 +1,0 @@
-### Optional: Default log level
-global_level = 'info'
-
-### Specific log levels per module are optionally defined in this section
-[modules]
-'bathbot_twilight' = 'debug'
-'rosu_v2' = 'debug'
-'sqlx' = 'warn'

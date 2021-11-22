@@ -7,13 +7,13 @@ extern crate async_trait;
 extern crate lazy_static;
 
 #[macro_use]
-extern crate log;
-
-#[macro_use]
 extern crate proc_macros;
 
 #[macro_use]
 extern crate smallvec;
+
+#[macro_use]
+extern crate tracing;
 
 #[macro_use]
 mod error;
@@ -102,7 +102,7 @@ fn main() {
 
 async fn async_main() -> Result<()> {
     dotenv::dotenv()?;
-    logging::initialize()?;
+    let _log_worker_guard = logging::initialize();
 
     // Load config file
     core::BotConfig::init("config.toml").await?;

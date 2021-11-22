@@ -1,89 +1,80 @@
-use crate::{BotResult, Error};
+use std::fmt;
 
-use flexi_logger::{
-    writers::FileLogWriter, Age, Cleanup, Criterion, DeferredNow, Duplicate, FileSpec, Logger,
-    LoggerHandle, Naming,
-};
-use log::Record;
-use once_cell::sync::OnceCell;
-use std::io::{Result as IoResult, Write};
 use time::{format_description::FormatItem, macros::format_description};
+use tracing::{Event, Subscriber};
+use tracing_appender::{
+    non_blocking::{NonBlocking, WorkerGuard},
+    rolling,
+};
+use tracing_subscriber::{
+    fmt::{
+        format::Writer,
+        time::{FormatTime, UtcTime},
+        FmtContext, FormatEvent, FormatFields, Layer,
+    },
+    layer::SubscriberExt,
+    registry::LookupSpan,
+    EnvFilter, FmtSubscriber,
+};
 
-lazy_static! {
-    static ref LOG_DATE_FORMAT: &'static [FormatItem<'static>] =
-        format_description!("[year]-[month]-[day] [hour]:[minute]:[second]");
+pub fn initialize() -> WorkerGuard {
+    let formatter = format_description!("[year]-[month]-[day] [hour]:[minute]:[second]");
+
+    let file_appender = rolling::daily("./logs", "bathbot.log");
+    let (file_writer, guard) = NonBlocking::new(file_appender);
+
+    let file_layer = Layer::default()
+        .event_format(FileEventFormat::new(formatter))
+        .with_writer(file_writer);
+
+    let subscriber = FmtSubscriber::builder()
+        .with_env_filter(EnvFilter::from_default_env())
+        .with_target(false)
+        .with_timer(UtcTime::new(formatter))
+        .finish()
+        .with(file_layer);
+
+    tracing::subscriber::set_global_default(subscriber).expect("failed to set global subscriber");
+
+    guard
 }
 
-static LOGGER: OnceCell<LoggerHandle> = OnceCell::new();
-
-pub fn initialize() -> BotResult<()> {
-    let file_spec = FileSpec::default().directory("logs");
-    let tracking_file_spec = FileSpec::default().directory("logs/tracking/");
-    let server_file_spec = FileSpec::default().directory("logs/server/");
-
-    let tracking_log_writer = FileLogWriter::builder(tracking_file_spec)
-        .format(log_format_files)
-        .rotate(
-            Criterion::Age(Age::Day),
-            Naming::Timestamps,
-            Cleanup::KeepLogAndCompressedFiles(5, 20),
-        )
-        .try_build()
-        .expect("failed to build tracking_log_writer");
-
-    let server_log_writer = FileLogWriter::builder(server_file_spec)
-        .format(log_format_files)
-        .rotate(
-            Criterion::Age(Age::Day),
-            Naming::Timestamps,
-            Cleanup::KeepLogAndCompressedFiles(5, 20),
-        )
-        .try_build()
-        .expect("failed to build server_log_writer");
-
-    let logger_handle = Logger::try_with_str("bathbot_twilight")
-        .unwrap()
-        .log_to_file(file_spec)
-        .add_writer("tracking", Box::new(tracking_log_writer))
-        .add_writer("server", Box::new(server_log_writer))
-        .format(log_format)
-        .format_for_files(log_format_files)
-        .rotate(
-            Criterion::Age(Age::Day),
-            Naming::Timestamps,
-            Cleanup::KeepLogAndCompressedFiles(5, 20),
-        )
-        .duplicate_to_stdout(Duplicate::Info)
-        .start_with_specfile("logconfig.toml")
-        .map_err(|_| Error::NoLoggingSpec)?;
-
-    let _ = LOGGER.set(logger_handle);
-
-    Ok(())
+struct FileEventFormat<'f> {
+    timer: UtcTime<&'f [FormatItem<'f>]>,
 }
 
-pub fn log_format(w: &mut dyn Write, now: &mut DeferredNow, record: &Record<'_>) -> IoResult<()> {
-    write!(
-        w,
-        "[{}] {} {}",
-        now.format(&LOG_DATE_FORMAT),
-        record.level(),
-        &record.args()
-    )
+impl<'f> FileEventFormat<'f> {
+    fn new(formatter: &'f [FormatItem<'f>]) -> Self {
+        Self {
+            timer: UtcTime::new(formatter),
+        }
+    }
 }
 
-pub fn log_format_files(
-    w: &mut dyn Write,
-    now: &mut DeferredNow,
-    record: &Record<'_>,
-) -> IoResult<()> {
-    write!(
-        w,
-        "[{}] {:^5} [{}:{}] {}",
-        now.format(&LOG_DATE_FORMAT),
-        record.level(),
-        record.file_static().unwrap_or_else(|| record.target()),
-        record.line().unwrap_or(0),
-        &record.args()
-    )
+impl<S, N> FormatEvent<S, N> for FileEventFormat<'_>
+where
+    S: Subscriber + for<'a> LookupSpan<'a>,
+    N: for<'a> FormatFields<'a> + 'static,
+{
+    fn format_event(
+        &self,
+        ctx: &FmtContext<'_, S, N>,
+        mut writer: Writer<'_>,
+        event: &Event<'_>,
+    ) -> fmt::Result {
+        self.timer.format_time(&mut writer)?;
+        let metadata = event.metadata();
+
+        write!(
+            writer,
+            " {:>5} [{}:{}] ",
+            metadata.level(),
+            metadata.file().unwrap_or_else(|| metadata.target()),
+            metadata.line().unwrap_or(0),
+        )?;
+
+        ctx.field_format().format_fields(writer.by_ref(), event)?;
+
+        writeln!(writer)
+    }
 }
