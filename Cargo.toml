@@ -89,9 +89,6 @@ branch = "next"
 # path = "../rosu-v2"
 features = ["cache", "metrics"]
 
-[dependencies.routerify]
-version = "2.2"
-
 [dependencies.rosu-pp]
 # path = "../rosu-pp"
 git = "https://github.com/MaxOhn/rosu-pp"
@@ -102,6 +99,9 @@ features = ["async_tokio"]
 # path = "../rosu-pp-older"
 git = "https://github.com/MaxOhn/rosu-pp-older.git"
 branch = "main"
+
+[dependencies.routerify]
+version = "2.2"
 
 [dependencies.serde]
 version = "1.0"

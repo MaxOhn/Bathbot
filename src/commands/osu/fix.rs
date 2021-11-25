@@ -356,7 +356,7 @@ async fn unchoke_pp(score: &mut Score, map: &Beatmap) -> BotResult<Option<f32>> 
                 None => stars(&rosu_map, mods, None),
             };
 
-            let total_objects = attributes.max_combo;
+            let total_objects = attributes.max_combo();
             let passed_objects = (score.statistics.count_300
                 + score.statistics.count_100
                 + score.statistics.count_miss) as usize;

@@ -142,7 +142,7 @@ pub(super) async fn _nochokes(
                 GameMode::CTB if score.max_combo != map.max_combo.unwrap_or(0) => {
                     let attributes = rosu_pp::fruits::stars(&rosu_map, mods, None);
 
-                    let total_objects = attributes.max_combo;
+                    let total_objects = attributes.max_combo();
                     let passed_objects = (score.statistics.count_300
                         + score.statistics.count_100
                         + score.statistics.count_miss)

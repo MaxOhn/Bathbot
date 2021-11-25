@@ -270,9 +270,9 @@ fn if_fc_struct(
             })
         }
         DifficultyAttributes::Fruits(attributes)
-            if score.max_combo != attributes.max_combo as u32 =>
+            if score.max_combo != attributes.max_combo() as u32 =>
         {
-            let total_objects = attributes.max_combo;
+            let total_objects = attributes.max_combo();
             let passed_objects = (score.statistics.count_300
                 + score.statistics.count_100
                 + score.statistics.count_miss) as usize;

@@ -1966,8 +1966,8 @@ dependencies = [
 
 [[package]]
 name = "rosu-pp"
-version = "0.3.0"
-source = "git+https://github.com/MaxOhn/rosu-pp?branch=next#701e8682311ce1c32684d727ac742939e9211000"
+version = "0.4.0"
+source = "git+https://github.com/MaxOhn/rosu-pp?branch=next#8251196c3918209948f17dd9c25c014833be0eae"
 dependencies = [
  "tokio",
 ]
@@ -1975,7 +1975,7 @@ dependencies = [
 [[package]]
 name = "rosu-pp-older"
 version = "0.1.0"
-source = "git+https://github.com/MaxOhn/rosu-pp-older.git?branch=main#e46a103482ac9734bf44b18a17b9bd699ee39f46"
+source = "git+https://github.com/MaxOhn/rosu-pp-older.git?branch=main#22357e722a21be562e909650cd9cd95841c5d96d"
 dependencies = [
  "rosu-pp",
 ]

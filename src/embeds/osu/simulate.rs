@@ -489,7 +489,7 @@ fn simulate_score(
             let mut n_droplets;
             let mut n_fruits;
 
-            let miss = diff_attributes.max_combo.min(args.misses.unwrap_or(0));
+            let miss = diff_attributes.max_combo().min(args.misses.unwrap_or(0));
 
             match args.acc {
                 Some(acc) => {
@@ -505,7 +505,8 @@ fn simulate_score(
                     n_tiny_droplets = match args.n50 {
                         Some(n50) => diff_attributes.n_tiny_droplets.min(n50),
                         None => ((acc / 100.0
-                            * (diff_attributes.max_combo + diff_attributes.n_tiny_droplets) as f32)
+                            * (diff_attributes.max_combo() + diff_attributes.n_tiny_droplets)
+                                as f32)
                             .round() as usize)
                             .saturating_sub(n_fruits)
                             .saturating_sub(n_droplets),
@@ -549,8 +550,8 @@ fn simulate_score(
 
             score.max_combo = args
                 .combo
-                .unwrap_or(diff_attributes.max_combo)
-                .min(diff_attributes.max_combo - miss) as u32;
+                .unwrap_or_else(|| diff_attributes.max_combo())
+                .min(diff_attributes.max_combo() - miss) as u32;
 
             score.accuracy = score.accuracy();
             score.grade = score.grade(Some(score.accuracy));
@@ -604,9 +605,9 @@ fn unchoke_score(
             return attributes;
         }
         DifficultyAttributes::Fruits(ref attribs)
-            if score.max_combo != map.max_combo.unwrap_or(attribs.max_combo as u32) =>
+            if score.max_combo != map.max_combo.unwrap_or_else(|| attribs.max_combo() as u32) =>
         {
-            let total_objects = attribs.max_combo;
+            let total_objects = attribs.max_combo();
             let passed_objects = score.total_hits() as usize;
 
             let missing = total_objects - passed_objects;
@@ -628,7 +629,7 @@ fn unchoke_score(
             score.statistics.count_100 = n_droplets as u32;
             score.statistics.count_katu = n_tiny_droplet_misses as u32;
             score.statistics.count_50 = n_tiny_droplets as u32;
-            score.max_combo = attribs.max_combo as u32;
+            score.max_combo = total_objects as u32;
         }
         DifficultyAttributes::Taiko(_)
             if score.grade == Grade::F || score.statistics.count_miss > 0 =>
