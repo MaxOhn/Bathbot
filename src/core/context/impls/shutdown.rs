@@ -17,7 +17,7 @@ impl Context {
             you can start a new game again in just a moment...";
 
         for channel in active_games {
-            match self.stop_game(channel).await {
+            match self.stop_game(channel) {
                 Ok(true) => {
                     let _ = self
                         .http

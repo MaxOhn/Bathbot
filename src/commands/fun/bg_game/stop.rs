@@ -6,7 +6,7 @@ use std::sync::Arc;
 #[short_desc("Stop the bg game")]
 #[aliases("end", "quit")]
 pub(super) async fn stop(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match ctx.stop_game(data.channel_id()).await {
+    match ctx.stop_game(data.channel_id()) {
         Ok(true) => {
             if let CommandData::Interaction { command } = data {
                 let _ = command.delete_message(&ctx).await;

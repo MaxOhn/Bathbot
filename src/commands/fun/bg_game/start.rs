@@ -16,7 +16,7 @@ use tokio_stream::StreamExt;
 use twilight_model::{channel::ReactionType, gateway::event::Event};
 
 pub(super) async fn restart(ctx: &Context, data: &CommandData<'_>) -> BotResult<bool> {
-    match ctx.restart_game(data.channel_id()).await {
+    match ctx.restart_game(data.channel_id()) {
         Ok(restarted) => Ok(restarted),
         Err(why) => {
             let _ = data.error(ctx, GENERAL_ISSUE).await;

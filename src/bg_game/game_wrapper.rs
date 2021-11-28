@@ -8,10 +8,10 @@ use crate::{
 
 use eyre::Report;
 use hashbrown::HashMap;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
 use std::{collections::VecDeque, sync::Arc};
 use tokio::{
-    sync::mpsc::{self, Receiver, Sender},
+    sync::broadcast::{self, Receiver, Sender},
     time::{sleep, Duration},
 };
 use twilight_model::{
@@ -23,34 +23,32 @@ const GAME_LEN: Duration = Duration::from_secs(180);
 
 pub struct GameWrapper {
     pub game: Arc<RwLock<Option<Game>>>,
-    tx: Arc<Mutex<Sender<LoopResult>>>,
-    rx: Option<Arc<Mutex<Receiver<LoopResult>>>>,
+    tx: Sender<LoopResult>,
+    _rx: Receiver<LoopResult>,
 }
 
 impl GameWrapper {
     pub fn new() -> Self {
-        let (tx, rx) = mpsc::channel(5);
+        let (tx, _rx) = broadcast::channel(10);
 
         Self {
             game: Arc::new(RwLock::new(None)),
-            tx: Arc::new(Mutex::new(tx)),
-            rx: Some(Arc::new(Mutex::new(rx))),
+            tx,
+            _rx,
         }
     }
 
-    pub async fn stop(&self) -> GameResult<()> {
-        let tx = self.tx.lock();
-
-        tx.send(LoopResult::Stop)
-            .await
+    pub fn stop(&self) -> GameResult<()> {
+        self.tx
+            .send(LoopResult::Stop)
+            .map(|_| ())
             .map_err(|_| BgGameError::StopToken)
     }
 
-    pub async fn restart(&self) -> GameResult<()> {
-        let tx = self.tx.lock();
-
-        tx.send(LoopResult::Restart)
-            .await
+    pub fn restart(&self) -> GameResult<()> {
+        self.tx
+            .send(LoopResult::Restart)
+            .map(|_| ())
             .map_err(|_| BgGameError::RestartToken)
     }
 
@@ -74,11 +72,7 @@ impl GameWrapper {
             .wait_for_message_stream(channel, |event: &MessageCreate| !event.author.bot);
 
         let game_lock = Arc::clone(&self.game);
-
-        let rx = match self.rx.take() {
-            Some(rx) => rx,
-            None => return warn!("No rx left for bg game"),
-        };
+        let rx = self.tx.subscribe();
 
         let mut previous_ids = VecDeque::with_capacity(50);
         let mut scores = HashMap::new();
@@ -105,11 +99,7 @@ impl GameWrapper {
                     warn!("{:?}", report);
                 }
 
-                let rx_fut = async {
-                    let mut rx = rx.lock();
-
-                    rx.recv().await
-                };
+                let rx_fut = rx.recv();
 
                 let result = tokio::select! {
                     // Listen for stop or restart invokes

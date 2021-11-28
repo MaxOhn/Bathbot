@@ -37,17 +37,17 @@ impl Context {
             .collect()
     }
 
-    pub async fn restart_game(&self, channel: ChannelId) -> BotResult<bool> {
+    pub fn restart_game(&self, channel: ChannelId) -> BotResult<bool> {
         match self.data.bg_games.get(&channel) {
-            Some(game) => Ok(game.restart().await.map(|_| true)?),
+            Some(game) => Ok(game.restart().map(|_| true)?),
             None => Ok(false),
         }
     }
 
-    pub async fn stop_game(&self, channel: ChannelId) -> BotResult<bool> {
+    pub fn stop_game(&self, channel: ChannelId) -> BotResult<bool> {
         if self.data.bg_games.contains_key(&channel) {
             if let Some(game) = self.data.bg_games.get(&channel) {
-                game.stop().await?;
+                game.stop()?;
             }
 
             Ok(true)
