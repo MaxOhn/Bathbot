@@ -1,10 +1,10 @@
+use std::sync::Arc;
+
 use crate::{
     error::BgGameError,
     util::{constants::GENERAL_ISSUE, MessageExt},
     BotResult, CommandData, Context, MessageBuilder,
 };
-
-use std::sync::Arc;
 
 #[command]
 #[short_desc("Get a hint for the current background")]
@@ -16,11 +16,6 @@ pub(super) async fn hint(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
         Ok(hint) => {
             let builder = MessageBuilder::new().content(hint);
             data.create_message(&ctx, builder).await?;
-
-            Ok(())
-        }
-        Err(BgGameError::NotStarted) => {
-            debug!("Could not get hint because game didn't start yet");
 
             Ok(())
         }

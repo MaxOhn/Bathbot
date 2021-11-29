@@ -1,12 +1,15 @@
+use std::sync::Arc;
+
+use dashmap::mapref::entry::Entry;
+use eyre::Report;
+use twilight_model::id::ChannelId;
+
 use crate::{
     bg_game::GameWrapper, database::MapsetTagWrapper, error::BgGameError, BotResult, Context,
 };
 
-use std::sync::Arc;
-use twilight_model::id::ChannelId;
-
 impl Context {
-    pub fn add_game_and_start(
+    pub async fn add_game_and_start(
         this: Arc<Context>,
         channel: ChannelId,
         mapsets: Vec<MapsetTagWrapper>,
@@ -15,11 +18,22 @@ impl Context {
             this.data.bg_games.remove(&channel);
         }
 
-        this.data
-            .bg_games
-            .entry(channel)
-            .or_insert_with(GameWrapper::new)
-            .start(Arc::clone(&this), channel, mapsets);
+        let game = GameWrapper::new(Arc::clone(&this), channel, mapsets).await;
+
+        match this.data.bg_games.entry(channel) {
+            Entry::Occupied(mut e) => {
+                if let Err(err) = e.get().stop() {
+                    let report = Report::new(err)
+                        .wrap_err("failed to stop existing game that's about to be overwritten");
+                    warn!("{:?}", report);
+                }
+
+                e.insert(game);
+            }
+            Entry::Vacant(e) => {
+                e.insert(game);
+            }
+        }
     }
 
     pub fn has_running_game(&self, channel: ChannelId) -> bool {
@@ -62,20 +76,14 @@ impl Context {
 
     pub fn game_hint(&self, channel: ChannelId) -> Result<String, BgGameError> {
         match self.data.bg_games.get(&channel) {
-            Some(game) => match game.hint()? {
-                Some(hint) => Ok(hint),
-                None => Err(BgGameError::NotStarted),
-            },
+            Some(game) => Ok(game.hint()),
             None => Err(BgGameError::NoGame),
         }
     }
 
     pub fn game_bigger(&self, channel: ChannelId) -> Result<Vec<u8>, BgGameError> {
         match self.data.bg_games.get(&channel) {
-            Some(game) => match game.sub_image()? {
-                Some(img) => Ok(img),
-                None => Err(BgGameError::NotStarted),
-            },
+            Some(game) => game.sub_image(),
             None => Err(BgGameError::NoGame),
         }
     }

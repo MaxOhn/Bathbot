@@ -1,4 +1,15 @@
-use super::{util, GameResult, Hints, ImageReveal};
+use std::{collections::VecDeque, sync::Arc};
+
+use eyre::Report;
+use futures::future::TryFutureExt;
+use image::GenericImageView;
+use parking_lot::RwLock;
+use rosu_v2::model::GameMode;
+use tokio::fs;
+use tokio_stream::StreamExt;
+use twilight_http::request::AttachmentFile;
+use twilight_model::id::ChannelId;
+use twilight_standby::future::WaitForMessageStream;
 
 use crate::{
     database::MapsetTagWrapper,
@@ -13,17 +24,7 @@ use crate::{
     BotResult, Context, CONFIG,
 };
 
-use eyre::Report;
-use futures::future::TryFutureExt;
-use image::GenericImageView;
-use parking_lot::RwLock;
-use rosu_v2::model::GameMode;
-use std::{collections::VecDeque, sync::Arc};
-use tokio::fs;
-use tokio_stream::StreamExt;
-use twilight_http::request::AttachmentFile;
-use twilight_model::id::ChannelId;
-use twilight_standby::future::WaitForMessageStream;
+use super::{util, GameResult, Hints, ImageReveal};
 
 pub struct Game {
     pub title: String,
@@ -192,72 +193,66 @@ pub enum LoopResult {
 pub async fn game_loop(
     msg_stream: &mut WaitForMessageStream,
     ctx: &Context,
-    game_lock: &RwLock<Option<Game>>,
+    game_locked: &RwLock<Game>,
     channel: ChannelId,
 ) -> LoopResult {
     // Collect and evaluate messages
     while let Some(msg) = msg_stream.next().await {
-        let game = game_lock.read();
+        let game = game_locked.read();
+        let content = msg.content.cow_to_ascii_lowercase();
 
-        if let Some(game) = game.as_ref() {
-            let content = msg.content.cow_to_ascii_lowercase();
-
-            match game.check_msg_content(content.as_ref()) {
-                // Title correct?
-                ContentResult::Title(exact) => {
-                    let content = format!(
-                        "{} \\:)\nMapset: {}beatmapsets/{}",
-                        if exact {
-                            format!("Gratz {}, you guessed it", msg.author.name)
-                        } else {
-                            format!("You were close enough {}, gratz", msg.author.name)
-                        },
-                        OSU_BASE,
-                        game.mapset_id
-                    );
-
-                    // Send message
-                    if let Err(why) = game.resolve(ctx, channel, &content).await {
-                        let report =
-                            Report::new(why).wrap_err("error while sending msg for winner");
-                        warn!("{:?}", report);
-                    }
-
-                    return LoopResult::Winner(msg.author.id.get());
-                }
-                // Artist correct?
-                ContentResult::Artist(exact) => {
-                    {
-                        let mut hints = game.hints.write();
-                        hints.artist_guessed = true;
-                    }
-
-                    let content = if exact {
-                        format!(
-                            "That's the correct artist `{}`, can you get the title too?",
-                            msg.author.name
-                        )
+        match game.check_msg_content(content.as_ref()) {
+            // Title correct?
+            ContentResult::Title(exact) => {
+                let content = format!(
+                    "{} \\:)\nMapset: {}beatmapsets/{}",
+                    if exact {
+                        format!("Gratz {}, you guessed it", msg.author.name)
                     } else {
-                        format!(
-                            "`{}` got the artist almost correct, \
-                            it's actually `{}` but can you get the title?",
-                            msg.author.name, game.artist
-                        )
-                    };
+                        format!("You were close enough {}, gratz", msg.author.name)
+                    },
+                    OSU_BASE,
+                    game.mapset_id
+                );
 
-                    // Send message
-                    let msg_fut = ctx.http.create_message(channel).content(&content).unwrap();
-
-                    if let Err(why) = msg_fut.exec().await {
-                        let report =
-                            Report::new(why).wrap_err("error while sending msg for correct artist");
-                        warn!("{:?}", report);
-                    }
+                // Send message
+                if let Err(why) = game.resolve(ctx, channel, &content).await {
+                    let report = Report::new(why).wrap_err("error while sending msg for winner");
+                    warn!("{:?}", report);
                 }
-                ContentResult::None => {}
+
+                return LoopResult::Winner(msg.author.id.get());
             }
-        } else {
-            return LoopResult::Stop;
+            // Artist correct?
+            ContentResult::Artist(exact) => {
+                {
+                    let mut hints = game.hints.write();
+                    hints.artist_guessed = true;
+                }
+
+                let content = if exact {
+                    format!(
+                        "That's the correct artist `{}`, can you get the title too?",
+                        msg.author.name
+                    )
+                } else {
+                    format!(
+                        "`{}` got the artist almost correct, \
+                            it's actually `{}` but can you get the title?",
+                        msg.author.name, game.artist
+                    )
+                };
+
+                // Send message
+                let msg_fut = ctx.http.create_message(channel).content(&content).unwrap();
+
+                if let Err(why) = msg_fut.exec().await {
+                    let report =
+                        Report::new(why).wrap_err("error while sending msg for correct artist");
+                    warn!("{:?}", report);
+                }
+            }
+            ContentResult::None => {}
         }
     }
 

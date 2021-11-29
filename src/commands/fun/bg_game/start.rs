@@ -61,7 +61,7 @@ pub async fn _start(ctx: Arc<Context>, data: CommandData<'_>, mode: GameMode) ->
     let channel_id = data.channel_id();
 
     if !(mapsets.is_empty() || ctx.has_running_game(channel_id)) {
-        Context::add_game_and_start(ctx, channel_id, mapsets);
+        Context::add_game_and_start(ctx, channel_id, mapsets).await;
     }
 
     Ok(())

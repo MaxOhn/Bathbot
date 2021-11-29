@@ -16,8 +16,6 @@ pub enum BgGameError {
     Mode(GameMode),
     #[error("no running game in the channel")]
     NoGame,
-    #[error("the game in this channel has not started")]
-    NotStarted,
     #[error("osu error")]
     Osu(#[from] OsuError),
     #[error("could not send restart token")]
