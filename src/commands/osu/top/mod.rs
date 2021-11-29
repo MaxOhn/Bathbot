@@ -118,6 +118,10 @@ fn subcommand_current() -> MyCommandOption {
             name: "length".to_owned(),
             value: "len".to_owned(),
         },
+        CommandOptionChoice::String {
+            name: "misses".to_owned(),
+            value: "miss".to_owned(),
+        },
     ];
 
     let sort = MyCommandOption::builder(SORT, "Choose how the scores should be ordered")

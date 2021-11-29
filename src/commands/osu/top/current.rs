@@ -634,6 +634,23 @@ fn filter_scores(scores: Vec<Score>, args: &TopArgs) -> Vec<(usize, Score)> {
                 .as_ref()
                 .map_or(Reverse(0), |map| Reverse(map.seconds_drain))
         }),
+        TopOrder::Misses => scores_indices.sort_unstable_by(|(_, a), (_, b)| {
+            b.statistics
+                .count_miss
+                .cmp(&a.statistics.count_miss)
+                .then_with(|| {
+                    let hits_a = a.total_hits();
+                    let hits_b = b.total_hits();
+
+                    let ratio_a = a.statistics.count_miss as f32 / hits_a as f32;
+                    let ratio_b = b.statistics.count_miss as f32 / hits_b as f32;
+
+                    ratio_b
+                        .partial_cmp(&ratio_a)
+                        .unwrap_or(Ordering::Equal)
+                        .then_with(|| hits_b.cmp(&hits_a))
+                })
+        }),
         TopOrder::Position => {
             scores_indices.sort_unstable_by(|(_, a), (_, b)| {
                 b.pp.partial_cmp(&a.pp).unwrap_or(Ordering::Equal)
@@ -764,6 +781,7 @@ pub enum TopOrder {
     Acc,
     Combo,
     Date,
+    Misses,
     Length,
     Position,
 }
@@ -1023,6 +1041,7 @@ impl TopArgs {
                         COMBO => order = Some(TopOrder::Combo),
                         "date" => order = Some(TopOrder::Date),
                         "len" => order = Some(TopOrder::Length),
+                        "miss" => order = Some(TopOrder::Misses),
                         "pp" => order = Some(TopOrder::Position),
                         _ => return Err(Error::InvalidCommandOptions),
                     },
@@ -1123,6 +1142,7 @@ fn write_content(name: &str, args: &TopArgs, amount: usize) -> Option<String> {
             TopOrder::Combo => format!("`{}`'{} top100 sorted by combo:", name, genitive),
             TopOrder::Date => format!("Most recent scores in `{}`'{} top100:", name, genitive),
             TopOrder::Length => format!("`{}`'{} top100 sorted by length:", name, genitive),
+            TopOrder::Misses => format!("`{}`'{} top100 sorted by miss count:", name, genitive),
             TopOrder::Position => return None,
         };
 
@@ -1138,6 +1158,7 @@ fn content_with_condition(args: &TopArgs, amount: usize) -> String {
         TopOrder::Combo => content.push_str("`Order: Combo"),
         TopOrder::Date => content.push_str("`Order: Date"),
         TopOrder::Length => content.push_str("`Order: Length"),
+        TopOrder::Misses => content.push_str("`Order: Misscount`"),
         TopOrder::Position => content.push_str("`Order: Pp"),
     }
 
