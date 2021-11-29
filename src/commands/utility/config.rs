@@ -20,6 +20,8 @@ use twilight_model::application::{
     interaction::{application_command::CommandOptionValue, ApplicationCommand},
 };
 
+const MSG_BADE: &str = "Contact Badewanne3 if you encounter issues with the website";
+
 #[command]
 #[short_desc("Deprecated command, use the slash command `/config` instead")]
 async fn config(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
@@ -134,7 +136,8 @@ async fn handle_both_links(
         twitch_content(twitch_fut.state)
     );
 
-    let builder = MessageBuilder::new().embed(content);
+    let embed = EmbedBuilder::new().description(content).footer(MSG_BADE);
+    let builder = MessageBuilder::new().embed(embed);
     let fut = async { tokio::try_join!(osu_fut, twitch_fut) };
     let twitch_name;
 
@@ -173,17 +176,22 @@ async fn handle_twitch_link(
     mut config: UserConfig,
 ) -> BotResult<()> {
     let fut = ctx.auth_standby.wait_for_twitch();
-    let builder = MessageBuilder::new().embed(twitch_content(fut.state));
-    let twitch_name;
 
-    match handle_ephemeral(ctx, &command, builder, fut).await {
+    let embed = EmbedBuilder::new()
+        .description(twitch_content(fut.state))
+        .footer(MSG_BADE);
+
+    let builder = MessageBuilder::new().embed(embed);
+
+    let twitch_name = match handle_ephemeral(ctx, &command, builder, fut).await {
         Some(Ok(user)) => {
             config.twitch_id = Some(user.user_id);
-            twitch_name = Some(user.display_name);
+
+            Some(user.display_name)
         }
         Some(Err(why)) => return Err(why),
         None => return Ok(()),
-    }
+    };
 
     let author = command.author().ok_or(Error::MissingInteractionAuthor)?;
 
@@ -206,7 +214,12 @@ async fn handle_osu_link(
     mut config: UserConfig,
 ) -> BotResult<()> {
     let fut = ctx.auth_standby.wait_for_osu();
-    let builder = MessageBuilder::new().embed(osu_content(fut.state));
+
+    let embed = EmbedBuilder::new()
+        .description(osu_content(fut.state))
+        .footer(MSG_BADE);
+
+    let builder = MessageBuilder::new().embed(embed);
 
     config.osu = match handle_ephemeral(ctx, &command, builder, fut).await {
         Some(Ok(user)) => Some(OsuData::User {

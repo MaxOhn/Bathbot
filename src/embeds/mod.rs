@@ -201,7 +201,7 @@ impl EmbedBuilder {
         self
     }
 
-    pub fn footer(mut self, footer: impl Into<EmbedFooter>) -> Self {
+    pub fn footer(mut self, footer: impl IntoEmbedFooter) -> Self {
         self.0.footer.replace(footer.into());
 
         self
@@ -289,15 +289,50 @@ impl Footer {
     }
 }
 
-impl From<Footer> for EmbedFooter {
-    fn from(footer: Footer) -> Self {
-        footer.into_footer()
+pub trait IntoEmbedFooter {
+    fn into(self) -> EmbedFooter;
+}
+
+impl IntoEmbedFooter for EmbedFooter {
+    #[inline]
+    fn into(self) -> EmbedFooter {
+        self
     }
 }
 
-impl From<&Footer> for EmbedFooter {
-    fn from(footer: &Footer) -> Self {
-        footer.as_footer().to_owned()
+impl IntoEmbedFooter for &str {
+    #[inline]
+    fn into(self) -> EmbedFooter {
+        EmbedFooter {
+            icon_url: None,
+            proxy_icon_url: None,
+            text: self.to_owned(),
+        }
+    }
+}
+
+impl IntoEmbedFooter for String {
+    #[inline]
+    fn into(self) -> EmbedFooter {
+        EmbedFooter {
+            icon_url: None,
+            proxy_icon_url: None,
+            text: self,
+        }
+    }
+}
+
+impl IntoEmbedFooter for Footer {
+    #[inline]
+    fn into(self) -> EmbedFooter {
+        self.into_footer()
+    }
+}
+
+impl IntoEmbedFooter for &Footer {
+    #[inline]
+    fn into(self) -> EmbedFooter {
+        self.as_footer().to_owned()
     }
 }
 
@@ -338,12 +373,14 @@ impl Author {
 }
 
 impl From<Author> for EmbedAuthor {
+    #[inline]
     fn from(author: Author) -> Self {
         author.into_author()
     }
 }
 
 impl From<&Author> for EmbedAuthor {
+    #[inline]
     fn from(author: &Author) -> Self {
         author.as_author().to_owned()
     }

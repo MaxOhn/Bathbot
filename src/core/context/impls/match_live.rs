@@ -48,7 +48,7 @@ pub enum MatchTrackResult {
     Private,
 }
 
-const EMBED_LIMIT: usize = 15;
+const EMBED_LIMIT: usize = 10;
 
 impl Context {
     /// In case the channel tracks exactly one match, returns the match's id
