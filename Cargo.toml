@@ -59,9 +59,9 @@ default_features = false
 features = ["server"]
 
 [dependencies.hyper-rustls]
-version = "0.22"
+version = "0.23"
 default-features = false
-features = ["native-tokio"]
+features = ["http1", "tokio-runtime", "webpki-tokio"]
 
 [dependencies.image]
 version = "0.23"
@@ -81,7 +81,7 @@ features = ["bitmap_backend", "image", "line_series", "datetime", "area_series",
 [dependencies.reqwest]
 version = "0.11"
 default_features = false
-features = ["cookies", "multipart", "rustls-tls-native-roots"]
+features = ["cookies", "multipart", "rustls-tls"]
 
 [dependencies.rosu-v2]
 git = "https://github.com/MaxOhn/rosu-v2"
@@ -123,7 +123,7 @@ features = ["serde"]
 [dependencies.sqlx]
 version = "0.5"
 default-features = false
-features = ["chrono", "json", "macros", "migrate", "postgres", "runtime-tokio-native-tls"]
+features = ["chrono", "json", "macros", "migrate", "postgres", "runtime-tokio-rustls"]
 
 [dependencies.thiserror]
 version = "1.0"
@@ -167,10 +167,3 @@ default_features = false
 [dependencies.twilight-standby]
 version = "0.7"
 default_features = false
-
-[features]
-vendored-openssl = ["openssl/vendored"]
-
-[dependencies.openssl]
-version = "0.10"
-optional = true

@@ -14,7 +14,7 @@ use hyper::{
     server::Server,
     Body, Client as HyperClient, Request, Response, StatusCode,
 };
-use hyper_rustls::HttpsConnector;
+use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use prometheus::{Encoder, TextEncoder};
 use rosu_v2::Osu;
 use routerify::{ext::RequestExt, RouteError, Router, RouterService};
@@ -70,7 +70,12 @@ struct TwitchClientSecret(String);
 struct TwitchRedirect(String);
 
 fn router(ctx: Arc<Context>) -> Router<Body, ServerError> {
-    let connector = HttpsConnector::with_native_roots();
+    let connector = HttpsConnectorBuilder::new()
+        .with_webpki_roots()
+        .https_or_http()
+        .enable_http1()
+        .build();
+
     let client = HyperClient::builder().build(connector);
     let config = CONFIG.get().unwrap();
 
