@@ -168,8 +168,6 @@ async fn process_command(
             .await?;
 
         if !permissions.contains(Permissions::SEND_MESSAGES) {
-            debug!("No SEND_MESSAGE permission, can not respond");
-
             return Ok(ProcessResult::NoSendPermission);
         }
     }
@@ -182,9 +180,10 @@ async fn process_command(
         let ratelimit = bucket.take(msg.author.id.get());
 
         if ratelimit > 0 {
-            debug!(
+            trace!(
                 "Ratelimiting user {} for {} seconds",
-                msg.author.id, ratelimit,
+                msg.author.id,
+                ratelimit,
             );
 
             return Ok(ProcessResult::Ratelimited(BucketName::All));
@@ -193,9 +192,11 @@ async fn process_command(
 
     if let Some(bucket) = cmd.bucket {
         if let Some((cooldown, bucket)) = super::check_ratelimit(&ctx, msg, bucket).await {
-            debug!(
+            trace!(
                 "Ratelimiting user {} on command `{}` for {} seconds",
-                msg.author.id, cmd.names[0], cooldown,
+                msg.author.id,
+                cmd.names[0],
+                cooldown,
             );
 
             if !matches!(bucket, BucketName::BgHint) {
@@ -212,11 +213,7 @@ async fn process_command(
         match super::check_authority(&ctx, msg, guild.as_ref()).await {
             Ok(None) => {}
             Ok(Some(content)) => {
-                debug!(
-                    "Non-authority user {} tried using command `{}`",
-                    msg.author.id, cmd.names[0]
-                );
-                msg.error(&ctx, content).await?;
+                let _ = msg.error(&ctx, content).await;
 
                 return Ok(ProcessResult::NoAuthority);
             }

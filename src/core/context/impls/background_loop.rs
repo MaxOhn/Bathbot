@@ -79,10 +79,10 @@ impl Context {
 
         loop {
             interval.tick().await;
-            debug!("[BG] Background iteration...");
+            info!("[BG] Background iteration...");
 
             match update_medals(&ctx).await {
-                Ok(count) => debug!("[BG] Updated {} medals", count),
+                Ok(count) => info!("[BG] Updated {} medals", count),
                 Err(why) => {
                     let report = Report::new(why).wrap_err("[BG] failed to update medals");
                     warn!("{:?}", report);
@@ -90,7 +90,7 @@ impl Context {
             }
 
             let (success, total) = ctx.garbage_collect_all_maps().await;
-            debug!("[BG] Garbage collected {}/{} maps", success, total);
+            info!("[BG] Garbage collected {}/{} maps", success, total);
         }
     }
 }

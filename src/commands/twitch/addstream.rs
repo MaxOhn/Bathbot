@@ -60,9 +60,10 @@ pub async fn _addstream(ctx: Arc<Context>, data: CommandData<'_>, name: &'_ str)
 
             let builder = MessageBuilder::new().content(content);
 
-            debug!(
+            trace!(
                 "Now tracking twitch stream {} for channel {}",
-                name, channel
+                name,
+                channel
             );
 
             data.create_message(&ctx, builder).await?;

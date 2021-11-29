@@ -57,9 +57,10 @@ pub async fn _removestream(
 
     match ctx.psql().remove_stream_track(channel, twitch_id).await {
         Ok(true) => {
-            debug!(
+            trace!(
                 "No longer tracking {}'s twitch for channel {}",
-                name, channel
+                name,
+                channel
             );
 
             let content = format!(

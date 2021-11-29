@@ -336,7 +336,11 @@ pub async fn send_reaction(ctx: &Context, msg: &Message, emote: Emote) -> BotRes
 
     // 100ms - 400ms - 1600ms
     for (i, duration) in ExponentialBackoff::new(4).factor(25).take(3).enumerate() {
-        debug!("Retry attempt #{} | Backoff {:?}", i + 1, duration);
+        debug!(
+            "Send reaction retry attempt #{} | Backoff {:?}",
+            i + 1,
+            duration
+        );
         sleep(duration).await;
         let emoji = emote.request_reaction_type();
 

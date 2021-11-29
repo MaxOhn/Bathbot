@@ -321,7 +321,7 @@ async fn pre_process_command(
         let ratelimit = bucket.take(author_id.get());
 
         if ratelimit > 0 {
-            debug!("Ratelimiting user {} for {} seconds", author_id, ratelimit,);
+            trace!("Ratelimiting user {} for {} seconds", author_id, ratelimit);
 
             return Ok(Some(ProcessResult::Ratelimited(BucketName::All)));
         }

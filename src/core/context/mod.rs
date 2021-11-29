@@ -117,7 +117,7 @@ impl Context {
         if let Some(shard) = shards.next() {
             for shard in shards {
                 match shard.info() {
-                    Ok(info) => debug!("Setting activity for shard {}", info.id()),
+                    Ok(info) => info!("Setting activity for shard {}", info.id()),
                     Err(_) => continue,
                 }
 
@@ -128,7 +128,7 @@ impl Context {
 
             // Handle last shard separately so the message is not cloned
             if let Ok(info) = shard.info() {
-                debug!("Setting activity for shard {}", info.id());
+                info!("Setting activity for shard {}", info.id());
                 let activities = vec![generate_activity(activity_type, message.into())];
                 let status = UpdatePresence::new(activities, false, None, status).unwrap();
                 shard.command(&status).await?;

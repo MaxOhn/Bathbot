@@ -89,8 +89,8 @@ pub async fn help(ctx: &Context, data: CommandData<'_>, is_authority: bool) -> B
         },
         Err(why) => {
             let content = "Your DMs seem blocked :(\n\
-                   Did you disable messages from other server members?";
-            debug!("Error while creating DM channel: {}", why);
+            Did you disable messages from other server members?";
+            warn!("Error while creating DM channel: {}", why);
 
             return data.error(ctx, content).await;
         }

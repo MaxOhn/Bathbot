@@ -79,7 +79,7 @@ impl CustomClient {
     async fn make_get_request(&self, url: impl AsRef<str>, site: Site) -> ClientResult<Response> {
         let url = url.as_ref();
 
-        debug!("GET request of url {}", url);
+        trace!("GET request of url {}", url);
         let mut req = self.client.get(url);
 
         if let Site::OsuHiddenApi = site {
@@ -102,7 +102,7 @@ impl CustomClient {
     ) -> ClientResult<Response> {
         let url = url.as_ref();
 
-        debug!("POST request of url {}", url);
+        trace!("POST request of url {}", url);
         let req = self.client.post(url).form(form);
         self.ratelimit(site).await;
 
@@ -357,7 +357,7 @@ impl CustomClient {
         }
 
         let url = "https://osustats.ppy.sh/api/getScoreRanking";
-        debug!("Requesting POST from url {} [page {}]", url, params.page);
+        trace!("Requesting POST from url {} [page {}]", url, params.page);
         let request = self.client.post(url).multipart(form);
         self.ratelimit(Site::OsuStats).await;
 
@@ -407,7 +407,7 @@ impl CustomClient {
         }
 
         let url = "https://osustats.ppy.sh/api/getScores";
-        debug!("Requesting POST from url {}", url);
+        trace!("Requesting POST from url {}", url);
         let request = self.client.post(url).multipart(form);
         self.ratelimit(Site::OsuStats).await;
 

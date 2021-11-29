@@ -122,7 +122,11 @@ async fn request_beatmap_file(map_id: u32) -> Result<Bytes, MapDownloadError> {
     let backoff = ExponentialBackoff::new(2).factor(250).max_delay(10_000);
 
     for (i, duration) in backoff.take(10).enumerate() {
-        debug!("Retry attempt #{} | Backoff {:?}", i + 1, duration);
+        debug!(
+            "Request beatmap retry attempt #{} | Backoff {:?}",
+            i + 1,
+            duration
+        );
         sleep(duration).await;
 
         content = reqwest::get(&url).await?.bytes().await?;

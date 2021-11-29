@@ -112,7 +112,7 @@ pub async fn request_user(ctx: &Context, name: &str, mode: GameMode) -> OsuResul
                     ctx.stats.inc_cached_user();
                     let user =
                         serde_cbor::from_slice(&bytes).expect("failed to deserialize redis user");
-                    debug!("Found user `{}` in cache", name);
+                    trace!("Found user `{}` in cache", name);
 
                     return Ok(user);
                 }
