@@ -7,10 +7,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     bg_game::GameWrapper,
-    core::{
-        buckets::{buckets, Buckets},
-        BotStats,
-    },
+    core::{buckets::Buckets, BotStats},
     database::{Database, GuildConfig},
     util::CountryCode,
     BotResult, CustomClient, OsuTracking, Twitch,
@@ -97,7 +94,7 @@ impl Context {
             clients,
             cluster,
             data,
-            buckets: buckets(),
+            buckets: Buckets::new(),
             member_tx,
             current_user: RwLock::new(current_user),
         }

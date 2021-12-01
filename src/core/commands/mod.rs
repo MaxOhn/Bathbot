@@ -149,8 +149,7 @@ async fn _check_ratelimit(
     bucket: BucketName,
 ) -> Option<(i64, BucketName)> {
     let (ratelimit, bucket) = {
-        let guard = ctx.buckets.get(&bucket).unwrap();
-        let mutex = guard.value();
+        let mutex = ctx.buckets.get(bucket);
         let mut bucket_elem = mutex.lock();
 
         match bucket {

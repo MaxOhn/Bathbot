@@ -1,11 +1,44 @@
 use chrono::Utc;
-use dashmap::DashMap;
 use hashbrown::HashMap;
 use parking_lot::Mutex;
 use std::{hash::Hash, str::FromStr};
 
-// TODO: Remove Mutex?
-pub type Buckets = DashMap<BucketName, Mutex<Bucket>>;
+pub struct Buckets([Mutex<Bucket>; 7]);
+
+impl Buckets {
+    pub fn new() -> Self {
+        let make_bucket = |delay, time_span, limit| {
+            let ratelimit = Ratelimit {
+                delay,
+                limit: Some((time_span, limit)),
+            };
+
+            Mutex::new(Bucket::new(ratelimit))
+        };
+
+        Self([
+            make_bucket(0, 9, 4),   // All
+            make_bucket(1, 8, 2),   // BgBigger
+            make_bucket(0, 10, 4),  // BgHint
+            make_bucket(2, 20, 3),  // BgStart
+            make_bucket(5, 900, 3), // MatchLive
+            make_bucket(0, 60, 10), // Snipe
+            make_bucket(20, 0, 1),  // Songs
+        ])
+    }
+
+    pub fn get(&self, bucket: BucketName) -> &Mutex<Bucket> {
+        match bucket {
+            BucketName::All => &self.0[0],
+            BucketName::BgBigger => &self.0[1],
+            BucketName::BgHint => &self.0[2],
+            BucketName::BgStart => &self.0[3],
+            BucketName::MatchLive => &self.0[4],
+            BucketName::Snipe => &self.0[5],
+            BucketName::Songs => &self.0[6],
+        }
+    }
+}
 
 pub struct Ratelimit {
     pub delay: i64,
@@ -90,27 +123,4 @@ impl FromStr for BucketName {
 
         Ok(bucket)
     }
-}
-
-pub fn buckets() -> Buckets {
-    let buckets = DashMap::new();
-
-    let insert_bucket = |name, delay, time_span, limit| {
-        let ratelimit = Ratelimit {
-            delay,
-            limit: Some((time_span, limit)),
-        };
-
-        buckets.insert(name, Mutex::new(Bucket::new(ratelimit)));
-    };
-
-    insert_bucket(BucketName::All, 0, 9, 4);
-    insert_bucket(BucketName::BgBigger, 1, 8, 2);
-    insert_bucket(BucketName::BgHint, 0, 10, 4);
-    insert_bucket(BucketName::BgStart, 2, 20, 3);
-    insert_bucket(BucketName::MatchLive, 5, 900, 3);
-    insert_bucket(BucketName::Snipe, 0, 60, 10);
-    insert_bucket(BucketName::Songs, 20, 0, 1);
-
-    buckets
 }
