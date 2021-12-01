@@ -44,12 +44,4 @@ impl ImageReveal {
 
         Ok(png_bytes)
     }
-
-    pub fn full(&self) -> GameResult<Vec<u8>> {
-        let (w, h) = self.dim;
-        let mut png_bytes: Vec<u8> = Vec::with_capacity((w * h) as usize);
-        self.original.write_to(&mut png_bytes, Png)?;
-
-        Ok(png_bytes)
-    }
 }

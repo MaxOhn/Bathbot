@@ -79,8 +79,9 @@ impl GameWrapper {
 
                         // Send message
                         let content = format!(
-                            "Full background: {}beatmapsets/{}",
-                            OSU_BASE, game.mapset_id
+                            "Mapset: {}beatmapsets/{mapset_id}\n\
+                            Full background: https://assets.ppy.sh/beatmaps/{mapset_id}/covers/raw.jpg",
+                            OSU_BASE, mapset_id = game.mapset_id
                         );
 
                         if let Err(why) = game.resolve(&ctx, channel, &content).await {
@@ -94,9 +95,10 @@ impl GameWrapper {
 
                         // Send message
                         let content = format!(
-                            "Full background: {}beatmapsets/{}\n\
-                                End of game, see you next time o/",
-                            OSU_BASE, game.mapset_id
+                            "Mapset: {}beatmapsets/{mapset_id}\n\
+                            Full background: https://assets.ppy.sh/beatmaps/{mapset_id}/covers/raw.jpg\n\
+                            End of game, see you next time o/",
+                            OSU_BASE, mapset_id = game.mapset_id
                         );
 
                         if let Err(why) = game.resolve(&ctx, channel, &content).await {

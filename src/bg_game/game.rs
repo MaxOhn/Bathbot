@@ -7,7 +7,6 @@ use parking_lot::RwLock;
 use rosu_v2::model::GameMode;
 use tokio::fs;
 use tokio_stream::StreamExt;
-use twilight_http::request::AttachmentFile;
 use twilight_model::id::ChannelId;
 use twilight_standby::future::WaitForMessageStream;
 
@@ -126,31 +125,11 @@ impl Game {
     }
 
     pub async fn resolve(&self, ctx: &Context, channel: ChannelId, content: &str) -> BotResult<()> {
-        let reveal_result = { self.reveal.read().full() };
-
-        match reveal_result {
-            Ok(bytes) => {
-                let img = AttachmentFile::from_bytes("bg_img.png", &bytes);
-
-                ctx.http
-                    .create_message(channel)
-                    .content(content)?
-                    .attach(&[img])
-                    .exec()
-                    .await?;
-            }
-            Err(why) => {
-                let wrap = format!("failed to get full reveal of mapset id {}", self.mapset_id);
-                let report = Report::new(why).wrap_err(wrap);
-                warn!("{:?}", report);
-
-                ctx.http
-                    .create_message(channel)
-                    .content(content)?
-                    .exec()
-                    .await?;
-            }
-        }
+        ctx.http
+            .create_message(channel)
+            .content(content)?
+            .exec()
+            .await?;
 
         Ok(())
     }
@@ -205,14 +184,16 @@ pub async fn game_loop(
             // Title correct?
             ContentResult::Title(exact) => {
                 let content = format!(
-                    "{} \\:)\nMapset: {}beatmapsets/{}",
+                    "{} \\:)\n\
+                    Mapset: {}beatmapsets/{mapset_id}\n\
+                    Full background: https://assets.ppy.sh/beatmaps/{mapset_id}/covers/raw.jpg",
                     if exact {
                         format!("Gratz {}, you guessed it", msg.author.name)
                     } else {
                         format!("You were close enough {}, gratz", msg.author.name)
                     },
                     OSU_BASE,
-                    game.mapset_id
+                    mapset_id = game.mapset_id
                 );
 
                 // Send message
