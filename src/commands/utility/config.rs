@@ -1,8 +1,9 @@
 use crate::{
     commands::{osu::ProfileSize, MyCommand, MyCommandOption},
-    core::{server::AuthenticationStandbyError, CONFIG},
+    core::CONFIG,
     database::{OsuData, UserConfig},
     embeds::{ConfigEmbed, EmbedBuilder, EmbedData},
+    server::AuthenticationStandbyError,
     util::{
         constants::{
             common_literals::{CTB, MANIA, MODE, OSU, PROFILE, TAIKO},

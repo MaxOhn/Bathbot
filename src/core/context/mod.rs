@@ -9,11 +9,10 @@ use crate::{
     bg_game::GameWrapper,
     core::{buckets::Buckets, BotStats},
     database::{Database, GuildConfig},
+    server::AuthenticationStandby,
     util::CountryCode,
     BotResult, CustomClient, OsuTracking, Twitch,
 };
-
-use super::server::AuthenticationStandby;
 
 use dashmap::{DashMap, DashSet};
 use deadpool_redis::Pool as RedisPool;

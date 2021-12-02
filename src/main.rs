@@ -27,6 +27,7 @@ mod database;
 mod embeds;
 mod pagination;
 mod pp;
+mod server;
 mod tracking;
 mod twitch;
 mod util;
@@ -294,7 +295,7 @@ async fn async_main() -> Result<()> {
     // Spawn server worker
     let server_ctx = Arc::clone(&ctx);
     let (tx, rx) = oneshot::channel();
-    tokio::spawn(core::server::run_server(server_ctx, rx));
+    tokio::spawn(server::run_server(server_ctx, rx));
 
     // Spawn twitch worker
     let twitch_ctx = Arc::clone(&ctx);

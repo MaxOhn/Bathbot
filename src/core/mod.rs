@@ -3,7 +3,6 @@ pub mod commands;
 mod config;
 mod context;
 pub mod logging;
-pub mod server;
 mod stats;
 
 pub use commands::{Command, CommandGroup, CommandGroups, CMD_GROUPS};
