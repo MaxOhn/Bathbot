@@ -61,7 +61,7 @@ features = ["server"]
 [dependencies.hyper-rustls]
 version = "0.23"
 default-features = false
-features = ["http1", "tokio-runtime", "webpki-tokio"]
+features = ["http1", "tls12", "tokio-runtime", "webpki-tokio"]
 
 [dependencies.image]
 version = "0.23"
