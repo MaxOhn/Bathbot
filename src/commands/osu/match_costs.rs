@@ -413,7 +413,7 @@ struct MatchCostArgs {
 
 impl MatchCostArgs {
     fn args(args: &mut Args<'_>) -> Result<Self, &'static str> {
-        let match_id = match args.next().and_then(|arg| matcher::get_osu_match_id(arg)) {
+        let match_id = match args.next().and_then(matcher::get_osu_match_id) {
             Some(id) => id,
             None => {
                 return Err("The first argument must be either a match \

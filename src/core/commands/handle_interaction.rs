@@ -23,6 +23,7 @@ use twilight_model::{
     channel::message::MessageFlags,
 };
 
+#[derive(Default)]
 struct CommandArgs {
     authority: bool,
     bucket: Option<BucketName>,
@@ -30,19 +31,6 @@ struct CommandArgs {
     ephemeral: bool,
     only_guilds: bool,
     only_owner: bool,
-}
-
-impl Default for CommandArgs {
-    fn default() -> Self {
-        Self {
-            authority: false,
-            bucket: None,
-            // defer_msg: true,
-            ephemeral: false,
-            only_guilds: false,
-            only_owner: false,
-        }
-    }
 }
 
 pub async fn handle_component(

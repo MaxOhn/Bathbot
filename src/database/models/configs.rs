@@ -72,7 +72,7 @@ impl From<String> for OsuData {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct UserConfig {
     pub embeds_maximized: Option<bool>,
     pub mode: Option<GameMode>,
@@ -97,18 +97,5 @@ impl UserConfig {
 
     pub fn show_retries(&self) -> bool {
         self.show_retries.unwrap_or(true)
-    }
-}
-
-impl Default for UserConfig {
-    fn default() -> Self {
-        UserConfig {
-            embeds_maximized: None,
-            mode: None,
-            osu: None,
-            profile_size: None,
-            show_retries: None,
-            twitch_id: None,
-        }
     }
 }

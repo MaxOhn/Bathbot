@@ -89,7 +89,7 @@ pub(super) async fn _rank(
             user,
             rank,
             country,
-            rank_holder,
+            rank_holder: Box::new(rank_holder),
         }
     } else {
         let pp_fut = ctx
@@ -293,7 +293,7 @@ pub enum RankData {
         user: User,
         rank: usize,
         country: Option<CountryCode>,
-        rank_holder: UserCompact,
+        rank_holder: Box<UserCompact>,
     },
     Over10k {
         user: User,

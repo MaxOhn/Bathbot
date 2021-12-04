@@ -57,7 +57,7 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
     pub async fn calculate(&mut self, calcs: Calculations) -> BotResult<()> {
         assert_ne!(calcs.bits, 0);
 
-        let map = match self.map.as_deref() {
+        let map = match self.map {
             Some(map) => {
                 let map_path = prepare_beatmap_file(map.map_id()).await?;
 
@@ -66,7 +66,7 @@ impl<'s, 'm> PPCalculator<'s, 'm> {
             None => return Err(PPError::NoMapId.into()),
         };
 
-        let score = self.score.as_deref();
+        let score = self.score;
 
         let mods = score
             .map_or_else(|| self.mods.unwrap_or(GameMods::NoMod), |s| s.mods())

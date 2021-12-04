@@ -215,7 +215,7 @@ impl EmbedBuilder {
                 height: None,
                 width: None,
                 proxy_url: None,
-                url: Some(url),
+                url,
             };
 
             self.0.image.replace(image);
@@ -225,7 +225,7 @@ impl EmbedBuilder {
     }
 
     pub fn timestamp(mut self, timestamp: DateTime<Utc>) -> Self {
-        self.0.timestamp = Timestamp::from_secs(timestamp.timestamp() as u64);
+        self.0.timestamp = Timestamp::from_secs(timestamp.timestamp() as i64).ok();
 
         self
     }
@@ -244,7 +244,7 @@ impl EmbedBuilder {
                 height: None,
                 width: None,
                 proxy_url: None,
-                url: Some(url),
+                url,
             };
 
             self.0.thumbnail.replace(thumbnail);
@@ -342,7 +342,7 @@ pub struct Author(EmbedAuthor);
 impl Author {
     pub fn new(name: impl Into<String>) -> Self {
         Self(EmbedAuthor {
-            name: Some(name.into()),
+            name: name.into(),
             url: None,
             icon_url: None,
             proxy_icon_url: None,
