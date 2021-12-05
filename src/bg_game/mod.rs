@@ -10,7 +10,18 @@ pub use game_wrapper::GameWrapper;
 use hints::Hints;
 use img_reveal::ImageReveal;
 pub use tags::MapsetTags;
+use twilight_model::id::ChannelId;
 
-use crate::error::BgGameError;
+use crate::{core::Context, error::BgGameError, BotResult};
 
 type GameResult<T> = Result<T, BgGameError>;
+
+async fn send_msg(ctx: &Context, channel: ChannelId, content: &str) -> BotResult<()> {
+    ctx.http
+        .create_message(channel)
+        .content(content)?
+        .exec()
+        .await?;
+
+    Ok(())
+}

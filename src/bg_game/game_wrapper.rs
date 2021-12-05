@@ -84,7 +84,7 @@ impl GameWrapper {
                             OSU_BASE, mapset_id = game.mapset_id
                         );
 
-                        if let Err(why) = game.resolve(&ctx, channel, &content).await {
+                        if let Err(why) = super::send_msg(&ctx, channel, &content).await {
                             let report = Report::new(why)
                                 .wrap_err("error while showing resolve for bg game restart");
                             warn!("{:?}", report);
@@ -101,7 +101,7 @@ impl GameWrapper {
                             OSU_BASE, mapset_id = game.mapset_id
                         );
 
-                        if let Err(why) = game.resolve(&ctx, channel, &content).await {
+                        if let Err(why) = super::send_msg(&ctx, channel, &content).await {
                             let report = Report::new(why)
                                 .wrap_err("error while showing resolve for bg game stop");
                             warn!("{:?}", report);

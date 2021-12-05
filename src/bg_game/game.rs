@@ -20,7 +20,7 @@ use crate::{
         },
         gestalt_pattern_matching, levenshtein_similarity, CowUtils,
     },
-    BotResult, Context, CONFIG,
+    Context, CONFIG,
 };
 
 use super::{util, GameResult, Hints, ImageReveal};
@@ -124,16 +124,6 @@ impl Game {
         hints.get(&self.title, &self.artist)
     }
 
-    pub async fn resolve(&self, ctx: &Context, channel: ChannelId, content: &str) -> BotResult<()> {
-        ctx.http
-            .create_message(channel)
-            .content(content)?
-            .exec()
-            .await?;
-
-        Ok(())
-    }
-
     fn check_msg_content(&self, content: &str) -> ContentResult {
         // Guessed the title exactly?
         if content == self.title {
@@ -197,7 +187,7 @@ pub async fn game_loop(
                 );
 
                 // Send message
-                if let Err(why) = game.resolve(ctx, channel, &content).await {
+                if let Err(why) = super::send_msg(ctx, channel, &content).await {
                     let report = Report::new(why).wrap_err("error while sending msg for winner");
                     warn!("{:?}", report);
                 }

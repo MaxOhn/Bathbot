@@ -109,7 +109,7 @@ dependencies = [
  "handlebars",
  "hashbrown 0.11.2",
  "hyper",
- "hyper-rustls 0.23.0",
+ "hyper-rustls",
  "image",
  "itertools",
  "lazy_static",
@@ -425,15 +425,6 @@ checksum = "b1d1a86f49236c215f271d40892d5fc950490551400b02ef360692c29815c714"
 dependencies = [
  "generic-array 0.14.4",
  "subtle",
-]
-
-[[package]]
-name = "ct-logs"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1a816186fa68d9e426e3cb4ae4dff1fcd8e4a2c34b781bf7a822574a0d0aac8"
-dependencies = [
- "sct 0.6.1",
 ]
 
 [[package]]
@@ -1045,23 +1036,6 @@ dependencies = [
 
 [[package]]
 name = "hyper-rustls"
-version = "0.22.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f9f7a97316d44c0af9b0301e65010573a853a9fc97046d7331d7f6bc0fd5a64"
-dependencies = [
- "ct-logs",
- "futures-util",
- "hyper",
- "log",
- "rustls 0.19.1",
- "rustls-native-certs 0.5.0",
- "tokio",
- "tokio-rustls 0.22.0",
- "webpki 0.21.4",
-]
-
-[[package]]
-name = "hyper-rustls"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d87c48c02e0dc5e3b849a2041db3029fd066650f8f717c07bf8ed78ccb895cac"
@@ -1069,7 +1043,7 @@ dependencies = [
  "http",
  "hyper",
  "rustls 0.20.2",
- "rustls-native-certs 0.6.1",
+ "rustls-native-certs",
  "tokio",
  "tokio-rustls 0.23.1",
  "webpki-roots 0.22.1",
@@ -1181,9 +1155,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.108"
+version = "0.2.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8521a1b57e76b1ec69af7599e75e38e7b7fad6610f037db8c79b127201b5d119"
+checksum = "f98a04dce437184842841303488f70d0188c5f51437d2a834dc097eafa909a01"
 
 [[package]]
 name = "libz-sys"
@@ -1643,9 +1617,9 @@ dependencies = [
 
 [[package]]
 name = "prometheus"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5986aa8d62380092d2f50f8b1cdba9cb9b6731ffd4b25b51fd126b6c3e05b99c"
+checksum = "b7f64969ffd5dd8f39bd57a68ac53c163a095ed9d0fb707146da1b27025a3504"
 dependencies = [
  "cfg-if",
  "fnv",
@@ -1835,7 +1809,7 @@ dependencies = [
  "http",
  "http-body",
  "hyper",
- "hyper-rustls 0.23.0",
+ "hyper-rustls",
  "ipnet",
  "js-sys",
  "lazy_static",
@@ -1894,7 +1868,7 @@ dependencies = [
 [[package]]
 name = "rosu-v2"
 version = "0.3.0"
-source = "git+https://github.com/MaxOhn/rosu-v2?branch=next#d7e19c568ceb276652fca008102387ba1fab78a7"
+source = "git+https://github.com/MaxOhn/rosu-v2?branch=next#e3b4508b180deaaa271074d04b5dcea18d27ac0f"
 dependencies = [
  "bitflags",
  "bytes",
@@ -1902,7 +1876,7 @@ dependencies = [
  "dashmap",
  "futures",
  "hyper",
- "hyper-rustls 0.22.1",
+ "hyper-rustls",
  "log",
  "prometheus",
  "serde",
@@ -1966,18 +1940,6 @@ dependencies = [
  "ring",
  "sct 0.7.0",
  "webpki 0.22.0",
-]
-
-[[package]]
-name = "rustls-native-certs"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a07b7c1885bd8ed3831c289b7870b13ef46fe0e856d288c30d9cc17d75a2092"
-dependencies = [
- "openssl-probe",
- "rustls 0.19.1",
- "schannel",
- "security-framework",
 ]
 
 [[package]]
@@ -2685,7 +2647,7 @@ dependencies = [
  "futures-util",
  "log",
  "rustls 0.20.2",
- "rustls-native-certs 0.6.1",
+ "rustls-native-certs",
  "tokio",
  "tokio-rustls 0.23.1",
  "tungstenite",
@@ -2864,7 +2826,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9bf5b89606ec28c09950ccfe13f659d189c5e7a1e3c232bdb15b766bc1b00663"
 dependencies = [
  "hyper",
- "hyper-rustls 0.23.0",
+ "hyper-rustls",
  "percent-encoding",
  "rand",
  "serde",

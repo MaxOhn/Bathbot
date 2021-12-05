@@ -5,165 +5,57 @@ authors = ["MaxOhn <ohn.m@hotmail.de>"]
 edition = "2018"
 
 [dependencies]
-async-trait  = "0.1"
-bitflags     = "1.2"
-bytes        = "1.0"
-futures      = "0.3"
-governor     = "0.3"
-itertools    = "0.10"
-lazy_static  = "1.4"
-once_cell    = "1.4"
-priority-queue = "1.0"
+async-trait = { version = "0.1" }
+bathbot-cache = { git = "https://github.com/MaxOhn/bathbot-cache", branch = "main" }
+# bathbot-cache = { path = "../bathbot-cache" }
+bitflags = { version = "1.0" }
+bytes = { version = "1.0" }
+chrono = { version = "0.4", features = ["serde"] }
+dashmap = { version = "4.0", features = ["serde"] }
+deadpool-redis = { version = "0.10", default-features = false, features = ["rt_tokio_1"] }
+dotenv = { version = "0.15" }
+eyre = { version = "0.6" }
+futures = { version = "0.3" }
+governor = { version = "0.3" }
+handlebars = { version = "4.0" }
+hashbrown = { version = "0.11", features = ["serde"] }
+hyper = { version = "0.14", default-features = false, features = ["server"] }
+hyper-rustls = { version = "0.23", default-features = false, features = ["http1", "tls12", "tokio-runtime", "webpki-tokio"] }
+image = { version = "0.23", default-features = false, features = ["png", "gif"] }
+itertools = { version = "0.10" }
+lazy_static = { version = "1.0" }
+once_cell = { version = "1.0" }
+parking_lot = { version = "0.11", default-features = false, features = ["send_guard"] }
+plotters = { version = "0.3", default-features = false, features = ["bitmap_backend", "image", "line_series", "datetime", "area_series", "histogram"] }
+priority-queue = { version = "1.0" }
 proc_macros  = { path = "./proc_macros" }
-prometheus   = "0.12"
-radix_trie   = "0.2"
-rand         = "0.8"
-regex        = "1.5"
-serde_json   = "1.0"
-toml         = "0.5"
-
-[dependencies.bathbot-cache]
-# path = "../bathbot-cache"
-git = "https://github.com/MaxOhn/bathbot-cache"
-branch = "main"
-
-[dependencies.chrono]
-version = "0.4"
-features = ["serde"]
-
-[dependencies.dashmap]
-version = "4.0"
-features = ["serde"]
-
-[dependencies.deadpool-redis]
-version = "0.10"
-default-features = false
-features = ["rt_tokio_1"]
-
-[dependencies.dotenv]
-version = "0.15"
-
-[dependencies.eyre]
-version = "0.6"
-
-[dependencies.handlebars]
-version = "4.1"
-
-[dependencies.hashbrown]
-version = "0.11"
-features = ["serde"]
-
-[dependencies.hyper]
-version = "0.14"
-default_features = false
-features = ["server"]
-
-[dependencies.hyper-rustls]
-version = "0.23"
-default-features = false
-features = ["http1", "tls12", "tokio-runtime", "webpki-tokio"]
-
-[dependencies.image]
-version = "0.23"
-default-features = false
-features = ["png", "gif"]
-
-[dependencies.parking_lot]
-version = "0.11"
-default-features = false
-features = ["send_guard"]
-
-[dependencies.plotters]
-version = "0.3"
-default-features = false
-features = ["bitmap_backend", "image", "line_series", "datetime", "area_series", "histogram"]
-
-[dependencies.reqwest]
-version = "0.11"
-default_features = false
-features = ["cookies", "multipart", "rustls-tls"]
-
-[dependencies.rosu-v2]
-git = "https://github.com/MaxOhn/rosu-v2"
-branch = "next"
-# path = "../rosu-v2"
-features = ["cache", "metrics"]
-
-[dependencies.rosu-pp]
-# path = "../rosu-pp"
-git = "https://github.com/MaxOhn/rosu-pp"
-branch = "next"
-features = ["async_tokio"]
-
-[dependencies.rosu-pp-older]
-# path = "../rosu-pp-older"
-git = "https://github.com/MaxOhn/rosu-pp-older.git"
-branch = "main"
-
-[dependencies.routerify]
-version = "2.2"
-
-[dependencies.serde]
-version = "1.0"
-features = ["derive", "rc"]
-
-[dependencies.serde_cbor]
-version = "0.11"
-default_features = false
-features = ["std"]
-
-[dependencies.smallstr]
-version = "0.2"
-features = ["serde"]
-
-[dependencies.smallvec]
-version = "1.6"
-features = ["serde"]
-
-[dependencies.sqlx]
-version = "0.5"
-default-features = false
-features = ["chrono", "json", "macros", "migrate", "postgres", "runtime-tokio-rustls"]
-
-[dependencies.thiserror]
-version = "1.0"
-
-[dependencies.time]
-version = "0.3"
-features = ["macros", "parsing"]
-
-[dependencies.tokio]
-version = "1.6"
-default_features = false
-features = ["fs", "io-util", "macros", "rt-multi-thread", "signal", "sync", "time"]
-
-[dependencies.tokio-stream]
-version = "0.1.2"
-default_features = false
-
-[dependencies.tracing]
-version = "0.1"
-
-[dependencies.tracing-appender]
-version = "0.2"
-
-[dependencies.tracing-subscriber]
-version = "0.3"
-default-features = false
-features = ["env-filter", "fmt", "smallvec", "std", "time", "tracing-log"]
-
-[dependencies.twilight-gateway]
-version = "0.8"
-
-[dependencies.twilight-http]
-version = "0.8"
-default_features = false
-features = ["rustls"]
-
-[dependencies.twilight-model]
-version = "0.8"
-default_features = false
-
-[dependencies.twilight-standby]
-version = "0.8"
-default_features = false
+prometheus = { version = "0.13" }
+radix_trie = { version = "0.2" }
+rand = { version = "0.8" }
+regex = { version = "1.0" }
+reqwest = { version = "0.11", default-features = false, features = ["cookies", "multipart", "rustls-tls"] }
+rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "next", features = ["cache", "metrics"] }
+# rosu-v2 = { path = "../rosu-v2" }
+rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp", branch = "next", features = ["async_tokio"] }
+# rosu-pp = { path = "../rosu-pp" }
+rosu-pp-older = { git = "https://github.com/MaxOhn/rosu-pp-older.git", branch = "main" }
+# rosu-pp-older = { path = "../rosu-pp-older" }
+routerify = { version = "2.0" }
+serde = { version = "1.0", features = ["derive", "rc"] }
+serde_cbor = { version = "0.11", default-features = false, features = ["std"] }
+serde_json = { version = "1.0" }
+smallstr = { version = "0.2", features = ["serde"] }
+smallvec = { version = "1.0", features = ["serde"] }
+sqlx = { version = "0.5", default-features = false, features = ["chrono", "json", "macros", "migrate", "postgres", "runtime-tokio-rustls"] }
+thiserror = { version = "1.0" }
+time = { version = "0.3", features = ["macros", "parsing"] }
+tokio = { version = "1.0", default-features = false, features = ["fs", "io-util", "macros", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-stream = { version = "0.1", default-features = false }
+toml = { version = "0.5" }
+tracing = { version = "0.1" }
+tracing-appender = { version = "0.2" }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt", "smallvec", "std", "time", "tracing-log"] }
+twilight-gateway = { version = "0.8" }
+twilight-http = { version = "0.8", default-features = false, features = ["rustls"] }
+twilight-model = { version = "0.8", default-features = false }
+twilight-standby = { version = "0.8", default-features = false }
