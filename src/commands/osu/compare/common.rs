@@ -1,4 +1,12 @@
-use super::TripleArgs;
+use std::{cmp::Ordering, fmt::Write, sync::Arc};
+
+use eyre::Report;
+use futures::stream::{FuturesOrdered, StreamExt};
+use hashbrown::{HashMap, HashSet};
+use itertools::Itertools;
+use rosu_v2::prelude::{GameMode, OsuError, Score, Username};
+use smallvec::SmallVec;
+
 use crate::{
     embeds::{CommonEmbed, EmbedData},
     pagination::{CommonPagination, Pagination},
@@ -10,13 +18,7 @@ use crate::{
     BotResult, CommandData, Context, MessageBuilder,
 };
 
-use eyre::Report;
-use futures::stream::{FuturesOrdered, StreamExt};
-use hashbrown::HashSet;
-use itertools::Itertools;
-use rosu_v2::prelude::{GameMode, OsuError, Score, Username};
-use smallvec::SmallVec;
-use std::{cmp::Ordering, fmt::Write, sync::Arc};
+use super::TripleArgs;
 
 macro_rules! user_id {
     ($scores:ident[$idx:literal]) => {
@@ -57,16 +59,16 @@ pub(super) async fn _common(
     }
 
     {
-        let unique: HashSet<_> = names.iter().collect();
+        let mut unique = HashMap::with_capacity(names.len());
+
+        for name in names.iter() {
+            *unique.entry(name.as_str()).or_insert(0) += 1;
+        }
 
         if unique.len() == 1 {
             let content = "Give at least two different names";
 
             return data.error(&ctx, content).await;
-        } else if unique.len() < names.len() {
-            drop(unique);
-
-            names.dedup(); // * Note: Doesn't consider [a, b, a] but whatever
         }
     }
 
@@ -126,10 +128,14 @@ pub(super) async fn _common(
     drop(scores_futs);
 
     // Check if different names that both belong to the same user were given
-    if users.iter().unique_by(|user| user.id()).count() == 1 {
-        let content = "Give at least two different users";
+    {
+        let unique: HashSet<_> = users.iter().map(CommonUser::id).collect();
 
-        return data.error(&ctx, content).await;
+        if unique.len() == 1 {
+            let content = "Give at least two different users";
+
+            return data.error(&ctx, content).await;
+        }
     }
 
     // Process users and their top scores for tracking

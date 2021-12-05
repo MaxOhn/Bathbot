@@ -1,6 +1,6 @@
 use crate::{embeds::Author, util::numbers::with_comma_int};
 
-use itertools::Itertools;
+use hashbrown::HashSet;
 use rosu_v2::model::user::User;
 use std::{collections::BTreeMap, fmt::Write, iter, mem};
 
@@ -48,22 +48,26 @@ impl BWSEmbed {
                 let dist_rank = (max - min) as usize;
                 let step_rank = 3;
 
-                let bwss: BTreeMap<_, _> = (min..max)
-                    .step_by((dist_rank / step_rank).max(1))
-                    .take(step_rank)
-                    .chain(iter::once(max))
-                    .unique()
-                    .map(|rank| {
-                        let bwss: Vec<_> = badges
-                            .iter()
-                            .map(move |(badges, _)| {
-                                with_comma_int(bws(Some(rank), *badges)).to_string()
-                            })
-                            .collect();
+                let bwss: BTreeMap<_, _> = {
+                    let mut values = HashSet::new();
 
-                        (rank, bwss)
-                    })
-                    .collect();
+                    (min..max)
+                        .step_by((dist_rank / step_rank).max(1))
+                        .take(step_rank)
+                        .chain(iter::once(max))
+                        .filter(|&n| values.insert(n))
+                        .map(|rank| {
+                            let bwss: Vec<_> = badges
+                                .iter()
+                                .map(move |(badges, _)| {
+                                    with_comma_int(bws(Some(rank), *badges)).to_string()
+                                })
+                                .collect();
+
+                            (rank, bwss)
+                        })
+                        .collect()
+                };
 
                 // Calculate the widths for each column
                 let max: Vec<_> = (0..=2)

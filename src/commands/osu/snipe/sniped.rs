@@ -1,7 +1,15 @@
-use crate::{BotResult, CommandData, Context, MessageBuilder, commands::check_user_mention, custom_client::SnipeRecent, database::OsuData, embeds::{EmbedData, SnipedEmbed}, error::GraphError, util::{
+use crate::{
+    commands::check_user_mention,
+    custom_client::SnipeRecent,
+    database::OsuData,
+    embeds::{EmbedData, SnipedEmbed},
+    error::GraphError,
+    util::{
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         MessageExt,
-    }};
+    },
+    BotResult, CommandData, Context, MessageBuilder,
+};
 
 use chrono::{Date, DateTime, Duration, Utc};
 use eyre::Report;
@@ -310,11 +318,11 @@ fn draw_legend<'a, DB: DrawingBackend + 'a>(
 }
 
 fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult<'_> {
-    let total = scores.iter().fold(HashMap::new(), |mut map, score| {
-        *map.entry(score.sniper.as_str()).or_insert(0) += 1;
+    let mut total = HashMap::new();
 
-        map
-    });
+    for score in scores {
+        *total.entry(score.sniper.as_str()).or_insert(0) += 1;
+    }
 
     let mut final_order: Vec<_> = total.into_iter().collect();
     final_order.sort_unstable_by_key(|(_, c)| Reverse(*c));
@@ -344,13 +352,11 @@ fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult<'_> {
 }
 
 fn prepare_sniper(scores: &[SnipeRecent]) -> PrepareResult<'_> {
-    let total = scores.iter().filter(|score| score.sniped.is_some()).fold(
-        HashMap::new(),
-        |mut map, score| {
-            *map.entry(score.sniped.as_deref().unwrap()).or_insert(0) += 1;
-            map
-        },
-    );
+    let mut total = HashMap::new();
+
+    for sniped in scores.iter().filter_map(|score| score.sniped.as_deref()) {
+        *total.entry(sniped).or_insert(0) += 1;
+    }
 
     let mut final_order: Vec<_> = total.into_iter().collect();
     final_order.sort_unstable_by_key(|(_, c)| Reverse(*c));
@@ -389,15 +395,11 @@ fn finish_preparing<'a>(
         .group_by(|(_, date)| *date)
         .into_iter()
         .map(|(date, group)| {
-            let counts =
-                group
-                    .into_iter()
-                    .map(|(name, _)| name)
-                    .fold(HashMap::new(), |mut map, name| {
-                        *map.entry(name).or_insert(0) += 1;
+            let mut counts = HashMap::new();
 
-                        map
-                    });
+            for (name, _) in group {
+                *counts.entry(name).or_insert(0) += 1;
+            }
 
             (date.date(), counts)
         })
@@ -405,7 +407,7 @@ fn finish_preparing<'a>(
 
     let mut total: HashMap<_, _> = names.into_iter().map(|name| (name, Vec::new())).collect();
 
-    for counts in counts.into_iter() {
+    for counts in counts {
         for (name, values) in total.iter_mut() {
             values.push(counts.get(name).copied().unwrap_or(0));
         }
