@@ -160,7 +160,7 @@ async fn process_command(
 
     // Does bot have sufficient permissions to send response in a guild?
     if msg.guild_id.is_some() {
-        let user_id = ctx.current_user.read().id;
+        let user_id = ctx.current_user.read().await.id;
 
         let permissions = ctx
             .cache

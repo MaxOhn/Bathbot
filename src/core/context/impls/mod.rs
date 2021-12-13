@@ -17,8 +17,8 @@ use twilight_model::{
 
 impl Context {
     /// Returns whether a message was sent by us
-    pub fn is_own(&self, other: &Message) -> bool {
-        self.current_user.read().id == other.author.id
+    pub async fn is_own(&self, other: &Message) -> bool {
+        self.current_user.read().await.id == other.author.id
     }
 
     pub fn get_role_assign(&self, reaction: &Reaction) -> Option<RoleId> {

@@ -498,7 +498,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
 
             if !msg.author.bot {
                 ctx.stats.message_counts.user_messages.inc()
-            } else if ctx.is_own(&*msg) {
+            } else if ctx.is_own(&*msg).await {
                 ctx.stats.message_counts.own_messages.inc()
             } else {
                 ctx.stats.message_counts.other_bot_messages.inc()
@@ -559,7 +559,10 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
         Event::Ready(ready) => {
             info!("Shard {} is ready", shard_id);
 
-            *ctx.current_user.write() = ready.user;
+            match time::timeout(Duration::from_secs(5), ctx.current_user.write()).await {
+                Ok(mut unlocked) => *unlocked = ready.user,
+                Err(_) => warn!("Failed to acquire write lock for CurrentUser at Ready event"),
+            }
 
             let result = ctx
                 .set_shard_activity(shard_id, Status::Online, ActivityType::Playing, "osu!")
@@ -595,7 +598,11 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
         Event::TypingStart(_) => {}
         Event::UnavailableGuild(_) => ctx.stats.event_counts.unavailable_guild.inc(),
         Event::UserUpdate(update) => {
-            *ctx.current_user.write() = update.0;
+            match time::timeout(Duration::from_secs(5), ctx.current_user.write()).await {
+                Ok(mut unlocked) => *unlocked = update.0,
+                Err(_) => warn!("Failed to acquire write lock for CurrentUser at UserUpdate event"),
+            }
+
             ctx.stats.event_counts.user_update.inc()
         }
         Event::VoiceServerUpdate(_) => {}

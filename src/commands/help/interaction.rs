@@ -432,7 +432,7 @@ pub async fn slash_help(ctx: Arc<Context>, command: ApplicationCommand) -> BotRe
 }
 
 async fn basic_help(ctx: &Context, command: ApplicationCommand) -> BotResult<()> {
-    let mention = format!("<@{}>", ctx.current_user.read().id);
+    let mention = format!("<@{}>", ctx.current_user.read().await.id);
 
     let description = format!(
         "{self} is a discord bot written by [Badewanne3](https://osu.ppy.sh/u/2211396) all around osu!",

@@ -2,9 +2,6 @@ mod impls;
 
 pub use impls::{MatchLiveChannels, MatchTrackResult};
 
-use bathbot_cache::Cache;
-use tokio::sync::mpsc::UnboundedSender;
-
 use crate::{
     bg_game::GameWrapper,
     core::{buckets::Buckets, BotStats},
@@ -14,12 +11,14 @@ use crate::{
     BotResult, CustomClient, OsuTracking, Twitch,
 };
 
+use bathbot_cache::Cache;
 use dashmap::{DashMap, DashSet};
 use deadpool_redis::Pool as RedisPool;
 use hashbrown::HashSet;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::Mutex;
 use rosu_v2::Osu;
 use std::sync::Arc;
+use tokio::sync::{mpsc::UnboundedSender, RwLock};
 use twilight_gateway::Cluster;
 use twilight_http::Client as HttpClient;
 use twilight_model::{
