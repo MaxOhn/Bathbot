@@ -1,11 +1,9 @@
 use std::{borrow::Cow, fmt::Write, sync::Arc};
 
-use bathbot_cache::model::{CachedRole, GuildOrId};
-use eyre::Report;
-use futures::{future, stream::FuturesUnordered, StreamExt};
 use twilight_model::{
     application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
     guild::Permissions,
+    id::RoleId,
 };
 
 use crate::{
@@ -35,7 +33,7 @@ use crate::{
 async fn authorities(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            match AuthorityCommandKind::args(&ctx, &mut args).await {
+            match AuthorityCommandKind::args(&mut args) {
                 Ok(authority_args) => {
                     _authorities(ctx, CommandData::Message { msg, args, num }, authority_args).await
                 }
@@ -64,7 +62,9 @@ async fn _authorities(
             }
 
             let update_fut = ctx.update_guild_config(guild_id, move |config| {
-                config.authorities.push(role_id);
+                if !config.authorities.contains(&role_id) {
+                    config.authorities.push(role_id);
+                }
             });
 
             if let Err(why) = update_fut.await {
@@ -88,30 +88,30 @@ async fn _authorities(
                 return Ok(());
             }
 
-            let guild_id_ = GuildOrId::Id(guild_id);
-            let is_owner_fut = ctx.cache.is_guild_owner(&guild_id_, author_id);
-
             // Make sure the author is still an authority after applying new roles
-            if !(author_id.get() == OWNER_USER_ID || matches!(is_owner_fut.await, Ok(true))) {
-                match ctx.cache.member(guild_id, author_id).await {
-                    Ok(Some(member)) => {
-                        let still_authority = member
-                            .roles
-                            .iter()
-                            .map(|&role| ctx.cache.role(role))
-                            .collect::<FuturesUnordered<_>>()
-                            .any(|role_result| {
-                                let result = match role_result {
-                                    Ok(Some(role)) => {
-                                        role.permissions.contains(Permissions::ADMINISTRATOR)
-                                            || roles.iter().any(|&new| new == role.id.get())
-                                    }
-                                    _ => false,
-                                };
-
-                                future::ready(result)
-                            })
-                            .await;
+            if !(author_id.get() == OWNER_USER_ID
+                || ctx
+                    .cache
+                    .is_guild_owner(guild_id, author_id)
+                    .unwrap_or(false))
+            {
+                match ctx
+                    .cache
+                    .member(guild_id, author_id, |member| member.roles().to_owned())
+                {
+                    Ok(member_roles) => {
+                        let still_authority = member_roles
+                            .into_iter()
+                            .map(|role| ctx.cache.role(role, |role| (role.id, role.permissions)))
+                            .any(|role_result| match role_result {
+                                Ok((id, permissions)) => {
+                                    permissions.contains(Permissions::ADMINISTRATOR)
+                                        || roles
+                                            .iter()
+                                            .any(|&new| new == id.get() && new != role_id)
+                                }
+                                _ => false,
+                            });
 
                         if !still_authority {
                             let content = "You cannot set authority roles to something \
@@ -120,15 +120,10 @@ async fn _authorities(
                             return data.error(&ctx, content).await;
                         }
                     }
-                    Ok(None) => {
+                    Err(err) => {
                         let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
-                        bail!("member {} not cached for guild {}", author_id, guild_id);
-                    }
-                    Err(why) => {
-                        let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-                        return Err(why.into());
+                        return Err(err.into());
                     }
                 }
             }
@@ -147,30 +142,29 @@ async fn _authorities(
         }
         AuthorityCommandKind::Replace(roles) => {
             let author_id = data.author()?.id;
-            let guild_id_ = GuildOrId::Id(guild_id);
-            let is_owner_fut = ctx.cache.is_guild_owner(&guild_id_, author_id);
 
             // Make sure the author is still an authority after applying new roles
-            if !(author_id.get() == OWNER_USER_ID || matches!(is_owner_fut.await, Ok(true))) {
-                match ctx.cache.member(guild_id, author_id).await {
-                    Ok(Some(member)) => {
-                        let still_authority = member
-                            .roles
-                            .iter()
-                            .map(|&role| ctx.cache.role(role))
-                            .collect::<FuturesUnordered<_>>()
-                            .any(|role_result| {
-                                let result = match role_result {
-                                    Ok(Some(role)) => {
-                                        role.permissions.contains(Permissions::ADMINISTRATOR)
-                                            || roles.iter().any(|new| new.id == role.id)
-                                    }
-                                    _ => false,
-                                };
-
-                                future::ready(result)
-                            })
-                            .await;
+            if !(author_id.get() == OWNER_USER_ID
+                || ctx
+                    .cache
+                    .is_guild_owner(guild_id, author_id)
+                    .unwrap_or(false))
+            {
+                match ctx
+                    .cache
+                    .member(guild_id, author_id, |member| member.roles().to_owned())
+                {
+                    Ok(member_roles) => {
+                        let still_authority = member_roles
+                            .into_iter()
+                            .map(|role| ctx.cache.role(role, |role| (role.id, role.permissions)))
+                            .any(|role_result| match role_result {
+                                Ok((id, permissions)) => {
+                                    permissions.contains(Permissions::ADMINISTRATOR)
+                                        || roles.iter().any(|&new| new == id)
+                                }
+                                _ => false,
+                            });
 
                         if !still_authority {
                             let content = "You cannot set authority roles to something \
@@ -179,22 +173,16 @@ async fn _authorities(
                             return data.error(&ctx, content).await;
                         }
                     }
-                    Ok(None) => {
+                    Err(err) => {
                         let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
-                        bail!("member {} not cached for guild {}", author_id, guild_id);
-                    }
-
-                    Err(why) => {
-                        let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-                        return Err(why.into());
+                        return Err(err.into());
                     }
                 }
             }
 
             let update_fut = ctx.update_guild_config(guild_id, move |config| {
-                config.authorities = roles.into_iter().map(|role| role.id.get()).collect();
+                config.authorities = roles.into_iter().map(|role| role.get()).collect();
             });
 
             if let Err(why) = update_fut.await {
@@ -235,37 +223,24 @@ enum AuthorityCommandKind {
     Add(u64),
     List,
     Remove(u64),
-    Replace(Vec<CachedRole>),
+    Replace(Vec<RoleId>),
 }
 
-async fn parse_role(ctx: &Context, arg: &str) -> Result<CachedRole, Cow<'static, str>> {
-    let role_id = match matcher::get_mention_role(arg) {
-        Some(id) => id,
-        None => return Err(format!("Expected role mention or role id, got `{}`", arg).into()),
-    };
-
-    match ctx.cache.role(role_id).await {
-        Ok(Some(role)) => Ok(role),
-        Ok(None) => Err(format!("No role with id {} found in this guild", role_id).into()),
-        Err(err) => {
-            let report = Report::new(err).wrap_err("failed to retrieve role from cache");
-            warn!("{:?}", report);
-
-            Err(GENERAL_ISSUE.into())
-        }
-    }
+fn parse_role(arg: &str) -> Result<RoleId, Cow<'static, str>> {
+    matcher::get_mention_role(arg)
+        .ok_or_else(|| format!("Expected role mention or role id, got `{}`", arg).into())
 }
 
 impl AuthorityCommandKind {
-    async fn args(ctx: &Context, args: &mut Args<'_>) -> Result<Self, String> {
+    fn args(args: &mut Args<'_>) -> Result<Self, String> {
         let mut roles = match args.next() {
             Some("-show") | Some("show") => return Ok(Self::List),
-            Some(arg) => vec![parse_role(ctx, arg).await?],
+            Some(arg) => vec![parse_role(arg)?],
             None => return Ok(Self::Replace(Vec::new())),
         };
 
         for arg in args.take(9) {
-            roles.push(parse_role(ctx, arg).await?);
+            roles.push(parse_role(arg)?);
         }
 
         Ok(Self::Replace(roles))

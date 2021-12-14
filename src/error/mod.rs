@@ -19,6 +19,8 @@ use twilight_http::request::{
 };
 use twilight_model::application::interaction::{ApplicationCommand, MessageComponentInteraction};
 
+use crate::core::CacheMiss;
+
 #[macro_export]
 macro_rules! bail {
     ($($arg:tt)*) => {
@@ -32,8 +34,8 @@ pub enum Error {
     Authority(#[source] Box<Error>),
     #[error("background game error")]
     BgGame(#[from] bg_game::BgGameError),
-    #[error("cache error")]
-    Cache(#[from] bathbot_cache::CacheError),
+    #[error("missing value in cache")]
+    Cache(#[from] CacheMiss),
     #[error("serde cbor error")]
     Cbor(#[from] serde_cbor::Error),
     #[error("error occured on cluster request")]

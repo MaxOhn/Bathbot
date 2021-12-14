@@ -14,19 +14,14 @@ pub use parse::Invoke;
 
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
-use bathbot_cache::model::{ChannelOrId, GuildOrId, MemberLookup};
 use twilight_model::{
-    channel::Message,
     guild::Permissions,
     id::{GuildId, RoleId, UserId},
 };
 
 use crate::{core::buckets::BucketName, util::Authored, BotResult, Context};
 
-struct RetrievedCacheData {
-    guild: Option<GuildOrId>,
-    channel: Option<ChannelOrId>,
-}
+use super::cache::RolesLookup;
 
 #[derive(Debug)]
 enum ProcessResult {
@@ -58,24 +53,11 @@ impl Display for ProcessResult {
 // Couldn't figure out -> Err()
 async fn check_authority(
     ctx: &Context,
-    msg: &Message,
-    guild: Option<&GuildOrId>,
+    author: UserId,
+    guild: Option<GuildId>,
 ) -> BotResult<Option<String>> {
-    let author_id = msg.author.id;
-
-    _check_authority(ctx, author_id, guild).await
-}
-
-async fn _check_authority(
-    ctx: &Context,
-    author_id: UserId,
-    guild: Option<&GuildOrId>,
-) -> BotResult<Option<String>> {
-    let (guild_id, (permissions, member)) = match guild {
-        Some(guild) => (
-            guild.id(),
-            ctx.cache.get_guild_permissions(author_id, guild).await?,
-        ),
+    let (guild_id, (permissions, roles)) = match guild {
+        Some(guild) => (guild, ctx.cache.get_guild_permissions(author, guild)),
         None => return Ok(Some(String::new())),
     };
 
@@ -93,37 +75,36 @@ async fn _check_authority(
         return Ok(Some(content.to_owned()));
     }
 
-    let member = match member {
-        MemberLookup::Found(member) => Some(member),
-        MemberLookup::NotChecked => ctx.cache.member(guild_id, author_id).await?,
-        MemberLookup::NotFound => None,
+    let member_roles = match roles {
+        RolesLookup::Found(roles) => roles,
+        RolesLookup::NotChecked => ctx
+            .cache
+            .member(guild_id, author, |member| member.roles().to_owned())?,
+        RolesLookup::NotFound => {
+            bail!("missing user {} of guild {} in cache", author, guild_id)
+        }
     };
 
-    match member {
-        Some(member) => {
-            if !member.roles.iter().any(|role| auth_roles.contains(role)) {
-                let mut content = String::from(
-                    "You need either admin permissions or \
-                    any of these roles to use this command:\n",
-                );
+    if !member_roles.iter().any(|role| auth_roles.contains(role)) {
+        let mut content = String::from(
+            "You need either admin permissions or \
+            any of these roles to use this command:\n",
+        );
 
-                content.reserve(auth_roles.len() * 5);
-                let mut roles = auth_roles.into_iter();
+        content.reserve(auth_roles.len() * 5);
+        let mut roles = auth_roles.into_iter();
 
-                if let Some(first) = roles.next() {
-                    let _ = write!(content, "<@&{}>", first);
+        if let Some(first) = roles.next() {
+            let _ = write!(content, "<@&{}>", first);
 
-                    for role in roles {
-                        let _ = write!(content, ", <@&{}>", role);
-                    }
-                }
-
-                content.push_str("\n(`/authorities` to adjust authority status for this server)");
-
-                return Ok(Some(content));
+            for role in roles {
+                let _ = write!(content, ", <@&{}>", role);
             }
         }
-        None => bail!("member {} not cached for guild {}", author_id, guild_id),
+
+        content.push_str("\n(`/authorities` to adjust authority status for this server)");
+
+        return Ok(Some(content));
     }
 
     Ok(None)

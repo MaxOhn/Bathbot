@@ -53,11 +53,11 @@ async fn _roleassign(
         role: role_id,
     } = args;
 
-    if !matches!(ctx.cache.contains(role_id).await, Ok(true)) {
+    if ctx.cache.role(role_id, |_| ()).is_err() {
         return data.error(&ctx, "Role not found in this guild").await;
     }
 
-    if !matches!(ctx.cache.contains(channel_id).await, Ok(true)) {
+    if ctx.cache.channel(channel_id, |_| ()).is_err() {
         return data.error(&ctx, "Channel not found in this guild").await;
     }
 

@@ -37,7 +37,7 @@ use crate::{
     commands::SLASH_COMMANDS,
     core::{
         commands::{self as cmds, CommandData, CommandDataCompact},
-        logging, BotStats, Context, MatchLiveChannels, CONFIG,
+        logging, BotStats, Cache, Context, MatchLiveChannels, CONFIG,
     },
     custom_client::CustomClient,
     database::Database,
@@ -47,13 +47,8 @@ use crate::{
     util::{constants::BATHBOT_WORKSHOP_ID, MessageBuilder},
 };
 
-use bathbot_cache::{
-    model::{CacheConfig, SessionInfo},
-    Cache,
-};
 use dashmap::{DashMap, DashSet};
 use deadpool_redis::{Config as RedisConfig, PoolConfig as RedisPoolConfig};
-use eyre::Report;
 use eyre::{Result, WrapErr};
 use futures::StreamExt;
 use hashbrown::HashSet;
@@ -72,7 +67,6 @@ use tokio::{
 };
 use twilight_gateway::{
     cluster::{Events, ShardScheme},
-    shard::ResumeSession,
     Cluster, Event, EventTypeFlags,
 };
 use twilight_http::Client as HttpClient;
@@ -219,39 +213,16 @@ async fn async_main() -> Result<()> {
         | EventTypeFlags::VOICE_STATE_UPDATE
         | EventTypeFlags::WEBHOOKS_UPDATE;
 
-    let cache_config = CacheConfig {
-        member_ttl: Some(180),
-    };
+    let cache = Cache::new();
 
-    let cache = Cache::with_config(redis_host, redis_port, current_user.id, cache_config)?;
-    let sessions = cache.sessions().await?;
     let stats = Arc::new(BotStats::new(osu.metrics()));
-
-    let sessions: std::collections::HashMap<_, _> = sessions
-        .map(|map| {
-            map.into_iter()
-                .map(|(shard, info)| {
-                    let resume = ResumeSession {
-                        session_id: info.session_id,
-                        sequence: info.sequence,
-                    };
-
-                    (shard, resume)
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-
-    if !sessions.is_empty() {
-        info!("Found resume data, attempting cold resume...");
-    }
 
     // Build cluster
     let (cluster, events) = Cluster::builder(&CONFIG.get().unwrap().tokens.discord, intents)
         .event_types(EventTypeFlags::all() - ignore_flags)
         .http_client(http.clone())
         .shard_scheme(ShardScheme::Auto)
-        .resume_sessions(sessions)
+        // .resume_sessions(sessions)
         .build()
         .await?;
 
@@ -278,19 +249,7 @@ async fn async_main() -> Result<()> {
     let (member_tx, mut member_rx) = mpsc::unbounded_channel();
 
     // Final context
-    let ctx = Arc::new(
-        Context::new(
-            cache,
-            stats,
-            http,
-            clients,
-            cluster,
-            data,
-            member_tx,
-            current_user,
-        )
-        .await,
-    );
+    let ctx = Arc::new(Context::new(cache, stats, http, clients, cluster, data, member_tx).await);
 
     // Spawn server worker
     let server_ctx = Arc::clone(&ctx);
@@ -376,26 +335,27 @@ async fn async_main() -> Result<()> {
     // Prevent non-minimized msgs from getting minimized
     ctx.clear_msgs_to_process();
 
+    // TODO: Cold resume
     // Store sessions for later resume
-    let sessions = ctx
-        .cluster
-        .down_resumable()
-        .into_iter()
-        .map(|(shard, session)| {
-            let info = SessionInfo {
-                session_id: session.session_id,
-                sequence: session.sequence,
-            };
+    // let sessions = ctx
+    //     .cluster
+    //     .down_resumable()
+    //     .into_iter()
+    //     .map(|(shard, session)| {
+    //         let info = SessionInfo {
+    //             session_id: session.session_id,
+    //             sequence: session.sequence,
+    //         };
 
-            (shard, info)
-        })
-        .collect();
+    //         (shard, info)
+    //     })
+    //     .collect();
 
-    if let Err(err) = ctx.cache.cache_sessions(&sessions).await {
-        let report = Report::new(err).wrap_err("failed to store sessions");
+    // if let Err(err) = ctx.cache.cache_sessions(&sessions).await {
+    //     let report = Report::new(err).wrap_err("failed to store sessions");
 
-        error!("{:?}", report,);
-    }
+    //     error!("{:?}", report,);
+    // }
 
     let (count, total) = ctx.garbage_collect_all_maps().await;
     info!("Garbage collected {}/{} maps", count, total);
@@ -413,12 +373,7 @@ async fn async_main() -> Result<()> {
 
 async fn event_loop(ctx: Arc<Context>, mut events: Events) {
     while let Some((shard_id, event)) = events.next().await {
-        if let Err(err) = ctx.cache.update(&event).await {
-            let report = Report::new(err).wrap_err("failed to update cache on event");
-
-            error!("{:?}", report);
-        }
-
+        ctx.cache.update(&event);
         ctx.standby.process(&event);
         let ctx = Arc::clone(&ctx);
 
@@ -556,13 +511,8 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
         }
         Event::ReactionRemoveAll(_) => ctx.stats.event_counts.reaction_remove_all.inc(),
         Event::ReactionRemoveEmoji(_) => ctx.stats.event_counts.reaction_remove_emoji.inc(),
-        Event::Ready(ready) => {
+        Event::Ready(_) => {
             info!("Shard {} is ready", shard_id);
-
-            match time::timeout(Duration::from_secs(5), ctx.current_user.write()).await {
-                Ok(mut unlocked) => *unlocked = ready.user,
-                Err(_) => warn!("Failed to acquire write lock for CurrentUser at Ready event"),
-            }
 
             let result = ctx
                 .set_shard_activity(shard_id, Status::Online, ActivityType::Playing, "osu!")
@@ -597,14 +547,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
         Event::ThreadUpdate(_) => {}
         Event::TypingStart(_) => {}
         Event::UnavailableGuild(_) => ctx.stats.event_counts.unavailable_guild.inc(),
-        Event::UserUpdate(update) => {
-            match time::timeout(Duration::from_secs(5), ctx.current_user.write()).await {
-                Ok(mut unlocked) => *unlocked = update.0,
-                Err(_) => warn!("Failed to acquire write lock for CurrentUser at UserUpdate event"),
-            }
-
-            ctx.stats.event_counts.user_update.inc()
-        }
+        Event::UserUpdate(_) => ctx.stats.event_counts.user_update.inc(),
         Event::VoiceServerUpdate(_) => {}
         Event::VoiceStateUpdate(_) => {}
         Event::WebhooksUpdate(_) => {}

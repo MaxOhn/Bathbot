@@ -1,6 +1,5 @@
 use std::{fmt::Write, sync::Arc};
 
-use eyre::Report;
 use prometheus::core::Collector;
 use twilight_model::{
     application::{
@@ -432,7 +431,12 @@ pub async fn slash_help(ctx: Arc<Context>, command: ApplicationCommand) -> BotRe
 }
 
 async fn basic_help(ctx: &Context, command: ApplicationCommand) -> BotResult<()> {
-    let mention = format!("<@{}>", ctx.current_user.read().await.id);
+    let id = ctx
+        .cache
+        .current_user()
+        .expect("missing CurrentUser in cache")
+        .id;
+    let mention = format!("<@{}>", id);
 
     let description = format!(
         "{self} is a discord bot written by [Badewanne3](https://osu.ppy.sh/u/2211396) all around osu!",
@@ -465,25 +469,15 @@ async fn basic_help(ctx: &Context, command: ApplicationCommand) -> BotResult<()>
     };
 
     let boot_time = ctx.stats.start_time;
-
     let mut fields = vec![join_server, command_help, invite];
 
-    match ctx.cache.stats().await {
-        Ok(stats) => {
-            let servers = EmbedField {
-                inline: true,
-                name: "Servers".to_owned(),
-                value: with_comma_int(stats.guilds).to_string(),
-            };
-
-            fields.push(servers);
-        }
-        Err(err) => {
-            let report = Report::new(err).wrap_err("failed to get cache stats");
-
-            warn!("{:?}", report);
-        }
+    let servers = EmbedField {
+        inline: true,
+        name: "Servers".to_owned(),
+        value: with_comma_int(ctx.cache.stats().guilds()).to_string(),
     };
+
+    fields.push(servers);
 
     let boot_up = EmbedField {
         inline: true,

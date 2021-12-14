@@ -11,14 +11,13 @@ use crate::{
     BotResult, CustomClient, OsuTracking, Twitch,
 };
 
-use bathbot_cache::Cache;
 use dashmap::{DashMap, DashSet};
 use deadpool_redis::Pool as RedisPool;
 use hashbrown::HashSet;
 use parking_lot::Mutex;
 use rosu_v2::Osu;
 use std::sync::Arc;
-use tokio::sync::{mpsc::UnboundedSender, RwLock};
+use tokio::sync::mpsc::UnboundedSender;
 use twilight_gateway::Cluster;
 use twilight_http::Client as HttpClient;
 use twilight_model::{
@@ -27,9 +26,10 @@ use twilight_model::{
         presence::{Activity, ActivityType, Status},
     },
     id::{ChannelId, GuildId, MessageId},
-    user::CurrentUser,
 };
 use twilight_standby::Standby;
+
+use super::Cache;
 
 pub struct Context {
     pub cache: Cache,
@@ -41,7 +41,6 @@ pub struct Context {
     pub cluster: Cluster,
     pub clients: Clients,
     pub member_tx: UnboundedSender<(GuildId, u64)>,
-    pub current_user: RwLock<CurrentUser>,
     // private to avoid deadlocks by messing up references
     data: ContextData,
 }
@@ -81,7 +80,6 @@ impl Context {
         cluster: Cluster,
         data: ContextData,
         member_tx: UnboundedSender<(GuildId, u64)>,
-        current_user: CurrentUser,
     ) -> Self {
         Context {
             cache,
@@ -94,7 +92,6 @@ impl Context {
             data,
             buckets: Buckets::new(),
             member_tx,
-            current_user: RwLock::new(current_user),
         }
     }
 
