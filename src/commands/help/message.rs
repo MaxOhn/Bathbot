@@ -87,10 +87,11 @@ pub async fn help(ctx: &Context, data: CommandData<'_>, is_authority: bool) -> B
                 return Err(why.into());
             }
         },
-        Err(why) => {
+        Err(err) => {
             let content = "Your DMs seem blocked :(\n\
-            Did you disable messages from other server members?";
-            warn!("Error while creating DM channel: {}", why);
+            Perhaps you disabled incoming messages from other server members?";
+            let report = Report::new(err).wrap_err("error while creating DM channel");
+            warn!("{:?}", report);
 
             return data.error(ctx, content).await;
         }
