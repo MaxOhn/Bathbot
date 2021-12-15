@@ -22,13 +22,13 @@ type CacheResult<T> = Result<T, CacheMiss>;
 
 pub struct Cache(InMemoryCache);
 
+// TODO: Cold resume when fields on CachedGuild & co are pub
 impl Cache {
     pub fn new() -> Self {
         let resource_types = ResourceType::CHANNEL
             | ResourceType::GUILD
             | ResourceType::MEMBER
             | ResourceType::ROLE
-            // | ResourceType::USER
             | ResourceType::USER_CURRENT;
 
         let cache = InMemoryCache::builder()
@@ -136,22 +136,8 @@ impl Cache {
         &self,
         user: UserId,
         channel: ChannelId,
-        guild: Option<GuildId>,
+        guild: GuildId,
     ) -> Permissions {
-        let guild = if let Some(guild) = guild {
-            guild
-        } else {
-            // Private channel
-            let permissions = Permissions::SEND_MESSAGES
-                | Permissions::EMBED_LINKS
-                | Permissions::ATTACH_FILES
-                | Permissions::USE_EXTERNAL_EMOJIS
-                | Permissions::ADD_REACTIONS
-                | Permissions::READ_MESSAGE_HISTORY;
-
-            return permissions;
-        };
-
         let (mut permissions, roles) = self.get_guild_permissions(user, guild);
 
         if permissions.contains(Permissions::ADMINISTRATOR) {

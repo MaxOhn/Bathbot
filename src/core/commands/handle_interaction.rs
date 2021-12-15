@@ -20,6 +20,7 @@ use twilight_model::{
         interaction::{ApplicationCommand, MessageComponentInteraction},
     },
     channel::message::MessageFlags,
+    guild::Permissions,
 };
 
 #[derive(Default)]
@@ -241,15 +242,17 @@ async fn premature_error(
     ctx: &Context,
     command: &ApplicationCommand,
     content: impl Into<String>,
+    ephemeral: bool,
 ) -> BotResult<()> {
     let embed = EmbedBuilder::new().color(RED).description(content).build();
+    let flags = ephemeral.then(|| MessageFlags::EPHEMERAL);
 
     let response = InteractionResponse::ChannelMessageWithSource(CallbackData {
         allowed_mentions: None,
         components: None,
         content: None,
         embeds: vec![embed],
-        flags: None,
+        flags,
         tts: None,
     });
 
@@ -272,7 +275,7 @@ async fn pre_process_command(
     // Only in guilds?
     if args.only_guilds && guild_id.is_none() {
         let content = "That command is only available in guilds";
-        premature_error(ctx, command, content).await?;
+        premature_error(ctx, command, content, false).await?;
 
         return Ok(Some(ProcessResult::NoDM));
     }
@@ -282,13 +285,26 @@ async fn pre_process_command(
     // Only for owner?
     if args.only_owner && author_id.get() != OWNER_USER_ID {
         let content = "That command can only be used by the bot owner";
-        premature_error(ctx, command, content).await?;
+        premature_error(ctx, command, content, true).await?;
 
         return Ok(Some(ProcessResult::NoOwner));
     }
 
-    // * Not checking for send permission since discord
-    // * does that for us for slash commands (?)
+    // Does bot have sufficient permissions to send response in a guild?
+    // Technically not necessary but there is currently no other way for
+    // users to disable slash commands in certain channels.
+    if let Some(guild) = command.guild_id {
+        let user = ctx.cache.current_user()?.id;
+        let channel = command.channel_id;
+        let permissions = ctx.cache.get_channel_permissions(user, channel, guild);
+
+        if !permissions.contains(Permissions::SEND_MESSAGES) {
+            let content = "I have no send permission in this channel so I won't process commands";
+            premature_error(ctx, command, content, true).await?;
+
+            return Ok(Some(ProcessResult::NoSendPermission));
+        }
+    }
 
     // Ratelimited?
     {
@@ -309,7 +325,7 @@ async fn pre_process_command(
         {
             if !matches!(bucket, BucketName::BgHint) {
                 let content = format!("Command on cooldown, try again in {} seconds", cooldown);
-                premature_error(ctx, command, content).await?;
+                premature_error(ctx, command, content, true).await?;
             }
 
             return Ok(Some(ProcessResult::Ratelimited(bucket)));
@@ -321,13 +337,13 @@ async fn pre_process_command(
         match super::check_authority(ctx, author_id, command.guild_id).await {
             Ok(None) => {}
             Ok(Some(content)) => {
-                premature_error(ctx, command, content).await?;
+                premature_error(ctx, command, content, true).await?;
 
                 return Ok(Some(ProcessResult::NoAuthority));
             }
             Err(why) => {
                 let content = "Error while checking authority status";
-                let _ = premature_error(ctx, command, content).await;
+                let _ = premature_error(ctx, command, content, true).await;
 
                 return Err(Error::Authority(Box::new(why)));
             }

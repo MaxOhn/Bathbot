@@ -130,11 +130,10 @@ async fn process_command(
         return Ok(ProcessResult::NoOwner);
     }
 
-    let guild = msg.guild_id;
     let channel = msg.channel_id;
 
     // Does bot have sufficient permissions to send response in a guild?
-    if msg.guild_id.is_some() {
+    if let Some(guild) = msg.guild_id {
         let user = ctx.cache.current_user()?.id;
         let permissions = ctx.cache.get_channel_permissions(user, channel, guild);
 
@@ -180,7 +179,7 @@ async fn process_command(
 
     // Only for authorities?
     if cmd.authority {
-        match super::check_authority(&ctx, msg.author.id, guild).await {
+        match super::check_authority(&ctx, msg.author.id, msg.guild_id).await {
             Ok(None) => {}
             Ok(Some(content)) => {
                 let _ = msg.error(&ctx, content).await;
@@ -201,7 +200,7 @@ async fn process_command(
 
     // Broadcast typing event
     if cmd.typing {
-        let _ = ctx.http.create_typing_trigger(msg.channel_id).exec().await;
+        let _ = ctx.http.create_typing_trigger(channel).exec().await;
     }
 
     // Call command function
