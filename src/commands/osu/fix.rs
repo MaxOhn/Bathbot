@@ -4,7 +4,7 @@ use eyre::Report;
 use rosu_pp::{
     fruits::stars, Beatmap as Map, FruitsPP, ManiaPP, OsuPP, PerformanceAttributes, TaikoPP,
 };
-use rosu_v2::prelude::{Beatmap, GameMode, OsuError, RankStatus, Score};
+use rosu_v2::prelude::{Beatmap, GameMode, GameMods, OsuError, RankStatus, Score, User};
 use twilight_model::{
     application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
     channel::message::MessageType,
@@ -60,7 +60,11 @@ async fn fix(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                         .filter(|_| msg.kind == MessageType::Reply);
 
                     if let Some(id) = reply.and_then(|msg| map_id_from_msg(msg)) {
-                        fix_args.map = Some(id);
+                        fix_args.id = Some(MapOrScore::Map(id));
+                    } else if let Some((mode, id)) =
+                        reply.and_then(|msg| matcher::get_osu_score_id(&msg.content))
+                    {
+                        fix_args.id = Some(MapOrScore::Score { id, mode });
                     }
 
                     _fix(ctx, CommandData::Message { msg, args, num }, fix_args).await
@@ -78,155 +82,68 @@ async fn fix(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotResult<()> {
-    let FixArgs { osu, map, mods } = args;
+    let FixArgs { osu, id, mods } = args;
 
     let name = match osu.map(OsuData::into_username) {
         Some(name) => name,
         None => return super::require_link(&ctx, &data).await,
     };
 
-    let map_id = if let Some(id) = map {
-        id
-    } else {
-        let msgs = match ctx.retrieve_channel_history(data.channel_id()).await {
-            Ok(msgs) => msgs,
-            Err(why) => {
-                let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-                return Err(why);
-            }
-        };
-
-        match map_id_from_history(&msgs) {
-            Some(id) => id,
-            None => {
-                let content = "No beatmap specified and none found in recent channel history. \
-                    Try specifying a map either by url to the map, or just by map id.";
-
-                return data.error(&ctx, content).await;
-            }
-        }
-    };
-
-    let map_id = match map_id {
-        MapIdType::Map(id) => id,
-        MapIdType::Set(_) => {
-            let content = "Looks like you gave me a mapset id, I need a map id though";
-
-            return data.error(&ctx, content).await;
-        }
-    };
-
-    let arg_mods = match mods {
+    let mods = match mods {
         None | Some(ModSelection::Exclude(_)) => None,
         Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) => Some(mods),
     };
 
-    let score_fut = ctx.osu().beatmap_user_score(map_id, name.as_str());
+    let data_result = match id {
+        Some(MapOrScore::Score { id, mode }) => {
+            request_by_score(&ctx, &data, id, mode, name.as_str()).await
+        }
+        Some(MapOrScore::Map(MapIdType::Map(id))) => {
+            request_by_map(&ctx, &data, id, name.as_str(), mods).await
+        }
+        Some(MapOrScore::Map(MapIdType::Set(_))) => {
+            let content = "Looks like you gave me a mapset id, I need a map id though";
 
-    let score_fut = match arg_mods {
-        None => score_fut,
-        Some(mods) => score_fut.mods(mods),
-    };
+            return data.error(&ctx, content).await;
+        }
+        None => {
+            let msgs = match ctx.retrieve_channel_history(data.channel_id()).await {
+                Ok(msgs) => msgs,
+                Err(why) => {
+                    let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
-    // Retrieve user's score on the map, the user itself, and the map including mapset
-    let (user, map, mut scores) = match score_fut.await {
-        Ok(mut score) => match super::prepare_score(&ctx, &mut score.score).await {
-            Ok(_) => {
-                let mut map = score.score.map.take().unwrap();
-
-                // First try to just get the mapset from the DB
-                let mapset_fut = ctx.psql().get_beatmapset(map.mapset_id);
-                let user_fut = ctx.osu().user(score.score.user_id).mode(score.score.mode);
-
-                let best_fut = ctx
-                    .osu()
-                    .user_scores(score.score.user_id)
-                    .mode(score.score.mode)
-                    .limit(100)
-                    .best();
-
-                let (user, best) = match tokio::join!(mapset_fut, user_fut, best_fut) {
-                    (_, Err(why), _) | (_, _, Err(why)) => {
-                        let _ = data.error(&ctx, OSU_API_ISSUE).await;
-
-                        return Err(why.into());
-                    }
-                    (Ok(mapset), Ok(user), Ok(best)) => {
-                        map.mapset.replace(mapset);
-
-                        (user, best)
-                    }
-                    (Err(_), Ok(user), Ok(best)) => {
-                        let mapset = match ctx.osu().beatmapset(map.mapset_id).await {
-                            Ok(mapset) => mapset,
-                            Err(why) => {
-                                let _ = data.error(&ctx, OSU_API_ISSUE).await;
-
-                                return Err(why.into());
-                            }
-                        };
-
-                        map.mapset.replace(mapset);
-
-                        (user, best)
-                    }
-                };
-
-                (user, map, Some((Box::new(score.score), best)))
-            }
-            Err(why) => {
-                let _ = data.error(&ctx, OSU_API_ISSUE).await;
-
-                return Err(why.into());
-            }
-        },
-        // Either the user, map, or user score on the map don't exist
-        Err(OsuError::NotFound) => {
-            let map = match ctx.psql().get_beatmap(map_id, true).await {
-                Ok(map) => map,
-                Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
-                    Ok(map) => {
-                        if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-                            warn!("{:?}", Report::new(err));
-                        }
-
-                        map
-                    }
-                    Err(OsuError::NotFound) => {
-                        let content = format!("There is no map with id {}", map_id);
-
-                        return data.error(&ctx, content).await;
-                    }
-                    Err(why) => {
-                        let _ = data.error(&ctx, OSU_API_ISSUE).await;
-
-                        return Err(why.into());
-                    }
-                },
+                    return Err(why);
+                }
             };
 
-            let user = match super::request_user(&ctx, name.as_str(), map.mode).await {
-                Ok(user) => user,
-                Err(OsuError::NotFound) => {
-                    let content = format!("Could not find user `{}`", name);
+            match map_id_from_history(&msgs) {
+                Some(MapIdType::Map(id)) => {
+                    request_by_map(&ctx, &data, id, name.as_str(), mods).await
+                }
+                Some(MapIdType::Set(_)) => {
+                    let content = "I found a mapset in the channel history but I need a map. \
+                    Try specifying a map either by url to the map, or just by map id.";
 
                     return data.error(&ctx, content).await;
                 }
-                Err(why) => {
-                    let _ = data.error(&ctx, OSU_API_ISSUE).await;
+                None => {
+                    let content = "No beatmap specified and none found in recent channel history. \
+                    Try specifying a map either by url to the map, or just by map id.";
 
-                    return Err(why.into());
+                    return data.error(&ctx, content).await;
                 }
-            };
-
-            (user, map, None)
+            }
         }
-        Err(why) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+    };
 
-            return Err(why.into());
-        }
+    let ScoreData {
+        user,
+        map,
+        mut scores,
+    } = match data_result {
+        ScoreResult::Data(data) => data,
+        ScoreResult::Done => return Ok(()),
+        ScoreResult::Error(err) => return Err(err),
     };
 
     if map.mode == GameMode::MNA {
@@ -260,7 +177,7 @@ async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotRes
 
     let gb = ctx.map_garbage_collector(&map);
 
-    let embed_data = FixScoreEmbed::new(user, map, scores, unchoked_pp, arg_mods);
+    let embed_data = FixScoreEmbed::new(user, map, scores, unchoked_pp, mods);
     let builder = embed_data.into_builder().build().into();
     data.create_message(&ctx, builder).await?;
 
@@ -268,6 +185,219 @@ async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotRes
     gb.execute(&ctx).await;
 
     Ok(())
+}
+
+#[allow(clippy::large_enum_variant)]
+enum ScoreResult {
+    Data(ScoreData),
+    Done,
+    Error(Error),
+}
+
+struct ScoreData {
+    user: User,
+    map: Beatmap,
+    scores: Option<(Score, Vec<Score>)>,
+}
+
+// Retrieve user's score on the map, the user itself, and the map including mapset
+async fn request_by_map(
+    ctx: &Context,
+    data: &CommandData<'_>,
+    map_id: u32,
+    name: &str,
+    mods: Option<GameMods>,
+) -> ScoreResult {
+    let score_fut = ctx.osu().beatmap_user_score(map_id, name);
+
+    let score_fut = match mods {
+        Some(mods) => score_fut.mods(mods),
+        None => score_fut,
+    };
+
+    match score_fut.await {
+        Ok(mut score) => match super::prepare_score(ctx, &mut score.score).await {
+            Ok(_) => {
+                let mut map = score.score.map.take().unwrap();
+
+                // First try to just get the mapset from the DB
+                let mapset_fut = ctx.psql().get_beatmapset(map.mapset_id);
+                let user_fut = ctx.osu().user(score.score.user_id).mode(score.score.mode);
+
+                let best_fut = ctx
+                    .osu()
+                    .user_scores(score.score.user_id)
+                    .mode(score.score.mode)
+                    .limit(100)
+                    .best();
+
+                let (user, best) = match tokio::join!(mapset_fut, user_fut, best_fut) {
+                    (_, Err(why), _) | (_, _, Err(why)) => {
+                        let _ = data.error(ctx, OSU_API_ISSUE).await;
+
+                        return ScoreResult::Error(why.into());
+                    }
+                    (Ok(mapset), Ok(user), Ok(best)) => {
+                        map.mapset = Some(mapset);
+
+                        (user, best)
+                    }
+                    (Err(_), Ok(user), Ok(best)) => {
+                        let mapset = match ctx.osu().beatmapset(map.mapset_id).await {
+                            Ok(mapset) => mapset,
+                            Err(why) => {
+                                let _ = data.error(ctx, OSU_API_ISSUE).await;
+
+                                return ScoreResult::Error(why.into());
+                            }
+                        };
+
+                        map.mapset = Some(mapset);
+
+                        (user, best)
+                    }
+                };
+
+                let data = ScoreData {
+                    user,
+                    map,
+                    scores: Some((score.score, best)),
+                };
+
+                ScoreResult::Data(data)
+            }
+            Err(why) => {
+                let _ = data.error(ctx, OSU_API_ISSUE).await;
+
+                ScoreResult::Error(why.into())
+            }
+        },
+        // Either the user, map, or user score on the map don't exist
+        Err(OsuError::NotFound) => {
+            let map = match ctx.psql().get_beatmap(map_id, true).await {
+                Ok(map) => map,
+                Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
+                    Ok(map) => {
+                        if let Err(err) = ctx.psql().insert_beatmap(&map).await {
+                            warn!("{:?}", Report::new(err));
+                        }
+
+                        map
+                    }
+                    Err(OsuError::NotFound) => {
+                        let content = format!("There is no map with id {}", map_id);
+
+                        return match data.error(ctx, content).await {
+                            Ok(_) => ScoreResult::Done,
+                            Err(err) => ScoreResult::Error(err),
+                        };
+                    }
+                    Err(why) => {
+                        let _ = data.error(ctx, OSU_API_ISSUE).await;
+
+                        return ScoreResult::Error(why.into());
+                    }
+                },
+            };
+
+            let user = match super::request_user(ctx, name, map.mode).await {
+                Ok(user) => user,
+                Err(OsuError::NotFound) => {
+                    let content = format!("Could not find user `{}`", name);
+
+                    return match data.error(ctx, content).await {
+                        Ok(_) => ScoreResult::Done,
+                        Err(err) => ScoreResult::Error(err),
+                    };
+                }
+                Err(why) => {
+                    let _ = data.error(ctx, OSU_API_ISSUE).await;
+
+                    return ScoreResult::Error(why.into());
+                }
+            };
+
+            let data = ScoreData {
+                user,
+                map,
+                scores: None,
+            };
+
+            ScoreResult::Data(data)
+        }
+        Err(why) => {
+            let _ = data.error(ctx, OSU_API_ISSUE).await;
+
+            ScoreResult::Error(why.into())
+        }
+    }
+}
+
+async fn request_by_score(
+    ctx: &Context,
+    data: &CommandData<'_>,
+    score_id: u64,
+    mode: GameMode,
+    name: &str,
+) -> ScoreResult {
+    let score_fut = ctx.osu().score(score_id, mode);
+    let user_fut = ctx.osu().user(name).mode(mode);
+
+    let (user, mut score) = match tokio::try_join!(user_fut, score_fut) {
+        Ok((user, score)) => (user, score),
+        Err(err) => {
+            let _ = data.error(ctx, OSU_API_ISSUE).await;
+
+            return ScoreResult::Error(err.into());
+        }
+    };
+
+    let mut map = score.map.take().unwrap();
+
+    // First try to just get the mapset from the DB
+    let mapset_fut = ctx.psql().get_beatmapset(map.mapset_id);
+
+    let best_fut = ctx
+        .osu()
+        .user_scores(score.user_id)
+        .mode(score.mode)
+        .limit(100)
+        .best();
+
+    let best = match tokio::join!(mapset_fut, best_fut) {
+        (_, Err(why)) => {
+            let _ = data.error(ctx, OSU_API_ISSUE).await;
+
+            return ScoreResult::Error(why.into());
+        }
+        (Ok(mapset), Ok(best)) => {
+            map.mapset = Some(mapset);
+
+            best
+        }
+        (Err(_), Ok(best)) => {
+            let mapset = match ctx.osu().beatmapset(map.mapset_id).await {
+                Ok(mapset) => mapset,
+                Err(why) => {
+                    let _ = data.error(ctx, OSU_API_ISSUE).await;
+
+                    return ScoreResult::Error(why.into());
+                }
+            };
+
+            map.mapset = Some(mapset);
+
+            best
+        }
+    };
+
+    let data = ScoreData {
+        user,
+        map,
+        scores: Some((score, best)),
+    };
+
+    ScoreResult::Data(data)
 }
 
 /// Returns (actual pp, unchoked pp) tuple
@@ -426,23 +556,30 @@ fn needs_unchoking(score: &Score, map: &Beatmap) -> bool {
     }
 }
 
+enum MapOrScore {
+    Map(MapIdType),
+    Score { id: u64, mode: GameMode },
+}
+
 struct FixArgs {
     osu: Option<OsuData>,
-    map: Option<MapIdType>,
+    id: Option<MapOrScore>,
     mods: Option<ModSelection>,
 }
 
 impl FixArgs {
     async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
         let mut osu = ctx.psql().get_user_osu(author_id).await?;
-        let mut map = None;
+        let mut id = None;
         let mut mods = None;
 
         for arg in args.take(3) {
-            if let Some(id) =
+            if let Some(id_) =
                 matcher::get_osu_map_id(arg).or_else(|| matcher::get_osu_mapset_id(arg))
             {
-                map = Some(id);
+                id = Some(MapOrScore::Map(id_));
+            } else if let Some((mode, id_)) = matcher::get_osu_score_id(arg) {
+                id = Some(MapOrScore::Score { mode, id: id_ })
             } else if let Some(mods_) = matcher::get_mods(arg) {
                 mods = Some(mods_);
             } else {
@@ -453,12 +590,12 @@ impl FixArgs {
             }
         }
 
-        Ok(Ok(Self { osu, map, mods }))
+        Ok(Ok(Self { osu, id, mods }))
     }
 
     async fn slash(ctx: &Context, command: &mut ApplicationCommand) -> DoubleResultCow<Self> {
         let mut osu = ctx.psql().get_user_osu(command.user_id()?).await?;
-        let mut map = None;
+        let mut id = None;
         let mut mods = None;
 
         for option in command.yoink_options() {
@@ -468,8 +605,11 @@ impl FixArgs {
                     MAP => match matcher::get_osu_map_id(&value)
                         .or_else(|| matcher::get_osu_mapset_id(&value))
                     {
-                        Some(id) => map = Some(id),
-                        None => return Ok(Err(MAP_PARSE_FAIL.into())),
+                        Some(id_) => id = Some(MapOrScore::Map(id_)),
+                        None => match matcher::get_osu_score_id(&value) {
+                            Some((mode, id_)) => id = Some(MapOrScore::Score { mode, id: id_ }),
+                            None => return Ok(Err(MAP_PARSE_FAIL.into())),
+                        },
                     },
                     MODS => match matcher::get_mods(&value) {
                         Some(mods_) => mods = Some(mods_),
@@ -491,7 +631,7 @@ impl FixArgs {
             }
         }
 
-        Ok(Ok(Self { osu, map, mods }))
+        Ok(Ok(Self { osu, id, mods }))
     }
 }
 

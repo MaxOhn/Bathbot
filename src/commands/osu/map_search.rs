@@ -5,7 +5,7 @@ use crate::{
     pagination::{MapSearchPagination, Pagination},
     util::{
         constants::{
-            common_literals::{CTB, MANIA, MODE, OSU, REVERSE, SORT, TAIKO},
+            common_literals::{CTB, FRUITS, MANIA, MODE, OSU, REVERSE, SORT, TAIKO},
             OSU_API_ISSUE,
         },
         ApplicationCommandExt, MessageExt,
@@ -152,7 +152,7 @@ impl MapSearchArgs {
                 let mode = match &query[start + "mode=".len()..end] {
                     "0" | OSU | "std" | "standard" => GameMode::STD,
                     "1" | "tko" | TAIKO => GameMode::TKO,
-                    "2" | CTB | "fruits" | "catch" => GameMode::CTB,
+                    "2" | CTB | FRUITS | "catch" => GameMode::CTB,
                     "3" | "mna" | MANIA => GameMode::MNA,
                     _ => {
                         let msg = "Failed to parse `mode`. After `mode=` you must \

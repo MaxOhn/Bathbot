@@ -25,8 +25,8 @@ use crate::{
     },
     util::{
         constants::common_literals::{
-            ACC, COMBO, CONSIDER_GRADE, CTB, GRADE, INDEX, MANIA, MISSES, MODE, OSU, REVERSE,
-            SCORE, SPECIFY_MODE, TAIKO,
+            ACC, COMBO, CONSIDER_GRADE, CTB, FRUITS, GRADE, INDEX, MANIA, MISSES, MODE, OSU,
+            REVERSE, SCORE, SPECIFY_MODE, TAIKO,
         },
         MessageExt,
     },
@@ -372,7 +372,7 @@ fn subcommand_simulate() -> MyCommandOption {
     let mods = option_mods(false);
     let index = simulate_index();
 
-    let fruits = MyCommandOption::builder("fruits", "Specify the amount of fruit hits")
+    let fruits = MyCommandOption::builder(FRUITS, "Specify the amount of fruit hits")
         .integer(Vec::new(), false);
 
     let droplets = MyCommandOption::builder("droplets", "Specify the amount of droplet hits")

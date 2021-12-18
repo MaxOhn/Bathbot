@@ -19,7 +19,8 @@ use crate::{
     util::{
         constants::{
             common_literals::{
-                ACC, ACCURACY, COMBO, DISCORD, INDEX, MISSES, MODS, MODS_PARSE_FAIL, NAME, SCORE,
+                ACC, ACCURACY, COMBO, DISCORD, FRUITS, INDEX, MISSES, MODS, MODS_PARSE_FAIL, NAME,
+                SCORE,
             },
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
@@ -467,7 +468,7 @@ impl RecentSimulateArgs {
                         },
                         CommandOptionValue::Integer(value) => match option.name.as_str() {
                             INDEX => index = Some(value.max(1).min(50) as usize),
-                            "n300" | "fruits" => n300 = Some(value.max(0) as usize),
+                            "n300" | FRUITS => n300 = Some(value.max(0) as usize),
                             "n100" | "droplets" => n100 = Some(value.max(0) as usize),
                             "n50" | "tiny_droplets" => n50 = Some(value.max(0) as usize),
                             MISSES => misses = Some(value.max(0) as usize),

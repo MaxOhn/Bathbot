@@ -21,7 +21,7 @@ impl FixScoreEmbed {
     pub fn new(
         user: User,
         map: Beatmap,
-        scores: Option<(Box<Score>, Vec<Score>)>,
+        scores: Option<(Score, Vec<Score>)>,
         unchoked_pp: Option<f32>,
         mods: Option<GameMods>,
     ) -> Self {
@@ -50,7 +50,7 @@ impl FixScoreEmbed {
                     let mut old_idx = None;
                     let mut actual_offset = 0.0;
 
-                    if let Some(idx) = best.iter().position(|s| s == &*score) {
+                    if let Some(idx) = best.iter().position(|s| s == &score) {
                         actual_offset = best.remove(idx).weight.unwrap().pp;
                         old_idx.replace(idx + 1);
                     }

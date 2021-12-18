@@ -5,8 +5,8 @@ use crate::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::{how_long_ago_dynamic, HowLongAgoFormatterDynamic},
         matcher::highlight_funny_numeral,
-        numbers::{round, with_comma_float, with_comma_int},
-        osu::{grade_completion_mods, prepare_beatmap_file},
+        numbers::{self, round, with_comma_float, with_comma_int},
+        osu::{flag_url, grade_completion_mods, prepare_beatmap_file},
         ScoreExt,
     },
     BotResult,
@@ -14,7 +14,7 @@ use crate::{
 
 use chrono::{DateTime, Utc};
 use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, ManiaPP, OsuPP, TaikoPP};
-use rosu_v2::prelude::{Beatmap, BeatmapUserScore, GameMode, GameMods, Grade, Score, User};
+use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, Score, User};
 use std::{borrow::Cow, fmt::Write};
 
 const GLOBAL_IDX_THRESHOLD: usize = 500;
@@ -42,12 +42,12 @@ pub struct CompareEmbed {
 
 impl CompareEmbed {
     pub async fn new(
-        user: &User,
         personal: Option<&[Score]>,
-        map_score: BeatmapUserScore,
+        score: Score,
         with_mods: bool,
+        global_idx: usize,
     ) -> BotResult<Self> {
-        let score = &map_score.score;
+        let user = score.user.as_ref().unwrap();
         let map = score.map.as_ref().unwrap();
         let mapset = score.mapset.as_ref().unwrap();
 
@@ -156,7 +156,7 @@ impl CompareEmbed {
 
         let pp = osu::get_pp(Some(pp), Some(max_pp as f32));
         let hits = score.hits_string(map.mode);
-        let grade_completion_mods = grade_completion_mods(score, map);
+        let grade_completion_mods = grade_completion_mods(&score, map);
 
         let (combo, title) = if map.mode == GameMode::MNA {
             let mut ratio = score.statistics.count_geki as f32;
@@ -178,7 +178,7 @@ impl CompareEmbed {
             (combo, title)
         } else {
             (
-                osu::get_combo(score, map),
+                osu::get_combo(&score, map),
                 format!("{} - {} [{}]", mapset.artist, mapset.title, map.version),
             )
         };
@@ -189,8 +189,7 @@ impl CompareEmbed {
         ))
         .icon_url(format!("{}{}", AVATAR_URL, mapset.creator_id));
 
-        let personal_idx = personal.and_then(|personal| personal.iter().position(|s| s == score));
-        let global_idx = map_score.pos;
+        let personal_idx = personal.and_then(|personal| personal.iter().position(|s| s == &score));
 
         let description = if personal_idx.is_some() || global_idx <= GLOBAL_IDX_THRESHOLD {
             let mut description = String::with_capacity(25);
@@ -225,6 +224,24 @@ impl CompareEmbed {
             String::new()
         };
 
+        let author = {
+            let stats = user.statistics.as_ref().expect("no statistics on user");
+
+            let text = format!(
+                "{name}: {pp}pp (#{global} {country}{national})",
+                name = user.username,
+                pp = numbers::with_comma_float(stats.pp),
+                global = numbers::with_comma_int(stats.global_rank.unwrap_or(0)),
+                country = user.country_code,
+                national = stats.country_rank.unwrap_or(0)
+            );
+
+            let url = format!("{}users/{}/{}", OSU_BASE, user.user_id, score.mode);
+            let icon = flag_url(user.country_code.as_str());
+
+            Author::new(text).url(url).icon_url(icon)
+        };
+
         let acc = round(score.accuracy);
         let ago = how_long_ago_dynamic(&score.created_at);
         let timestamp = score.created_at;
@@ -235,7 +252,7 @@ impl CompareEmbed {
             description,
             title,
             url: map.url.to_owned(),
-            author: author!(user),
+            author,
             footer,
             timestamp,
             thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id), // mapset.covers is empty :(

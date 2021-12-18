@@ -1,10 +1,13 @@
 use super::{
-    constants::OSU_BASE,
+    constants::{
+        common_literals::{FRUITS, MANIA, OSU, TAIKO},
+        OSU_BASE,
+    },
     osu::{MapIdType, ModSelection},
 };
 
 use regex::Regex;
-use rosu_v2::model::GameMods;
+use rosu_v2::{model::GameMods, prelude::GameMode};
 use std::{borrow::Cow, str::FromStr};
 use twilight_model::id::{ChannelId, RoleId, UserId};
 
@@ -87,6 +90,25 @@ pub fn get_osu_mapset_id(msg: &str) -> Option<MapIdType> {
         .and_then(|c| c.get(1))
         .and_then(|c| c.as_str().parse::<u32>().ok())
         .map(MapIdType::Set)
+}
+
+pub fn get_osu_score_id(msg: &str) -> Option<(GameMode, u64)> {
+    OSU_SCORE_URL_MATCHER
+        .captures(msg)
+        .and_then(|c| c.get(1).zip(c.get(2)))
+        .and_then(|(mode, id)| {
+            let mode = match mode.as_str() {
+                OSU => GameMode::STD,
+                TAIKO => GameMode::TKO,
+                FRUITS => GameMode::CTB,
+                MANIA => GameMode::MNA,
+                _ => return None,
+            };
+
+            let id = id.as_str().parse().ok()?;
+
+            Some((mode, id))
+        })
 }
 
 pub fn get_osu_match_id(msg: &str) -> Option<u32> {
@@ -173,4 +195,6 @@ lazy_static! {
     static ref IGNORE_BADGE_MATCHER: Regex = Regex::new(r"^((?i)contrib|nomination|assessment|global|moderation|beatmap|spotlight|map|pending|aspire|elite|monthly|exemplary|outstanding|longstanding|idol[^@]+)").unwrap();
 
     static ref SEVEN_TWO_SEVEN: Regex = Regex::new("(?P<num>7[.,]?2[.,]?7)").unwrap();
+
+    static ref OSU_SCORE_URL_MATCHER: Regex = Regex::new(r"https://osu.ppy.sh/scores/(osu|taiko|mania|fruits)/(\d+)").unwrap();
 }

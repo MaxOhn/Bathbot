@@ -62,6 +62,7 @@ pub mod common_literals {
     pub const OSU: &str = "osu";
     pub const TAIKO: &str = "taiko";
     pub const CTB: &str = "ctb";
+    pub const FRUITS: &str = "fruits";
     pub const MANIA: &str = "mania";
 
     pub const SPECIFY_MODE: &str = "Specify a gamemode";

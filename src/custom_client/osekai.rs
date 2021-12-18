@@ -4,12 +4,15 @@ use super::deserialize::{str_to_f32, str_to_u32};
 use crate::{
     embeds::RankingKindData,
     util::{
-        constants::common_literals::{COUNTRY, CTB, MANIA, OSU, RANK, TAIKO},
+        constants::common_literals::{COUNTRY, CTB, FRUITS, MANIA, OSU, RANK, TAIKO},
         CountryCode,
     },
 };
 
-use rosu_v2::{model::{GameMode, GameMods}, prelude::Username};
+use rosu_v2::{
+    model::{GameMode, GameMods},
+    prelude::Username,
+};
 use serde::{
     de::{Error, MapAccess, Unexpected, Visitor},
     Deserialize, Deserializer,
@@ -297,7 +300,7 @@ impl<'de> Visitor<'de> for OsekaiModeVisitor {
             "NULL" => return Ok(None),
             "0" | OSU | "osu!" => GameMode::STD,
             "1" | TAIKO | "tko" => GameMode::TKO,
-            "2" | "catch" | CTB | "fruits" => GameMode::CTB,
+            "2" | "catch" | CTB | FRUITS => GameMode::CTB,
             "3" | MANIA | "mna" => GameMode::MNA,
             _ => {
                 return Err(Error::invalid_value(
