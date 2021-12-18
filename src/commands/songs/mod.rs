@@ -12,6 +12,7 @@ mod saygoodbye;
 mod startagain;
 mod tijdmachine;
 mod wordsneversaid;
+mod zenzenzense;
 
 pub use bombsaway::*;
 pub use catchit::*;
@@ -27,6 +28,7 @@ pub use saygoodbye::*;
 pub use startagain::*;
 pub use tijdmachine::*;
 pub use wordsneversaid::*;
+pub use zenzenzense::*;
 
 use crate::{util::MessageExt, BotResult, CommandData, Context, Error, MessageBuilder};
 
@@ -103,6 +105,7 @@ pub async fn slash_song(ctx: Arc<Context>, command: ApplicationCommand) -> BotRe
                 "startagain" => Some(_startagain()),
                 "tijdmachine" => Some(_tijdmachine()),
                 "wordsneversaid" => Some(_wordsneversaid()),
+                "zenzenzense" => Some(_zenzenzense()),
                 _ => None,
             },
             _ => None,
@@ -175,6 +178,10 @@ pub fn define_song() -> MyCommand {
             name: "Through the Fire and Flames".to_owned(),
             value: "fireandflames".to_owned(),
         },
+        CommandOptionChoice::String {
+            name: "Zen Zen Zense".to_owned(),
+            value: "zenzenzense".to_owned(),
+        },
     ];
 
     let help = "Currently available: \
@@ -191,7 +198,8 @@ pub fn define_song() -> MyCommand {
         [Start Again](https://youtu.be/g7VNvg_QTMw&t=29), \
         [Tijdmachine](https://youtu.be/DT6tpUbWOms?t=47), \
         [The words I never said](https://youtu.be/8er4CQCxPRQ?t=65s), \
-        [Through the Fire and Flames](https://youtu.be/0jgrCKhxE1s?t=77)";
+        [Through the Fire and Flames](https://youtu.be/0jgrCKhxE1s?t=77), \
+        [Zen Zen Zense](https://www.youtube.com/watch?v=607QsB38hn8&t=71s)";
 
     let title = MyCommandOption::builder("title", "Choose a song title")
         .help(help)
