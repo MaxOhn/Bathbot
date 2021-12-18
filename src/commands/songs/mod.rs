@@ -4,6 +4,7 @@ mod ding;
 mod fireandflames;
 mod fireflies;
 mod flamingo;
+mod mylove;
 mod padoru;
 mod pretender;
 mod rockefeller;
@@ -18,6 +19,7 @@ pub use ding::*;
 pub use fireandflames::*;
 pub use fireflies::*;
 pub use flamingo::*;
+pub use mylove::*;
 pub use padoru::*;
 pub use pretender::*;
 pub use rockefeller::*;
@@ -93,6 +95,7 @@ pub async fn slash_song(ctx: Arc<Context>, command: ApplicationCommand) -> BotRe
                 "fireandflames" => Some(_fireandflames()),
                 "fireflies" => Some(_fireflies()),
                 "flamingo" => Some(_flamingo()),
+                "mylove" => Some(_mylove()),
                 "padoru" => Some(_padoru()),
                 "pretender" => Some(_pretender()),
                 "rockefeller" => Some(_rockefeller()),
@@ -137,6 +140,10 @@ pub fn define_song() -> MyCommand {
             value: "flamingo".to_owned(),
         },
         CommandOptionChoice::String {
+            name: "My Love".to_owned(),
+            value: "mylove".to_owned(),
+        },
+        CommandOptionChoice::String {
             name: "Padoru".to_owned(),
             value: "padoru".to_owned(),
         },
@@ -176,6 +183,7 @@ pub fn define_song() -> MyCommand {
         [Ding](https://youtu.be/_yWU0lFghxU?t=54), \
         [Fireflies](https://youtu.be/psuRGfAaju4?t=25), \
         [Flamingo](https://youtu.be/la9C0n7jSsI), \
+        [My Love](https://www.youtube.com/watch?v=V3OPDTwH9os&t=53s), \
         [Padoru](https://youtu.be/u3kRzdSnsTA), \
         [Pretender](https://youtu.be/SBjQ9tuuTJQ?t=83), \
         [Rockefeller Street](https://youtu.be/hjGZLnja1o8?t=41), \
