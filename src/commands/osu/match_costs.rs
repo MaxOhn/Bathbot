@@ -51,14 +51,21 @@ async fn _matchcosts(
     data: CommandData<'_>,
     args: MatchCostArgs,
 ) -> BotResult<()> {
-    let match_id = args.match_id;
-    let warmups = args.warmups;
+    let MatchCostArgs {
+        match_id,
+        warmups,
+        skip_last,
+    } = args;
 
     // Retrieve the match
     let (mut osu_match, games) = match ctx.osu().osu_match(match_id).await {
         Ok(mut osu_match) => {
             retrieve_previous(&mut osu_match, ctx.osu()).await?;
-            let games: Vec<_> = osu_match.drain_games().skip(warmups).collect();
+            let mut games: Vec<_> = osu_match.drain_games().skip(warmups).collect();
+
+            if skip_last > 0 {
+                games.truncate(games.len() - skip_last);
+            }
 
             (osu_match, games)
         }
@@ -409,6 +416,7 @@ impl MatchScores {
 struct MatchCostArgs {
     match_id: u32,
     warmups: usize,
+    skip_last: usize,
 }
 
 impl MatchCostArgs {
@@ -423,12 +431,17 @@ impl MatchCostArgs {
 
         let warmups = args.next().and_then(|num| num.parse().ok()).unwrap_or(2);
 
-        Ok(Self { match_id, warmups })
+        Ok(Self {
+            match_id,
+            warmups,
+            skip_last: 0,
+        })
     }
 
     fn slash(command: &mut ApplicationCommand) -> BotResult<Result<Self, &'static str>> {
         let mut match_id = None;
         let mut warmups = None;
+        let mut skip_last = None;
 
         for option in command.yoink_options() {
             match option.value {
@@ -447,13 +460,11 @@ impl MatchCostArgs {
                         }
                     }
                 }
-                CommandOptionValue::Integer(value) => {
-                    let number = (option.name == "warmups")
-                        .then(|| value.max(0) as usize)
-                        .ok_or(Error::InvalidCommandOptions)?;
-
-                    warmups = Some(number);
-                }
+                CommandOptionValue::Integer(value) => match option.name.as_str() {
+                    "warmups" => warmups = Some(value.max(0) as usize),
+                    "skip_last" => skip_last = Some(value.max(0) as usize),
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
                 _ => return Err(Error::InvalidCommandOptions),
             }
         }
@@ -461,6 +472,7 @@ impl MatchCostArgs {
         let args = MatchCostArgs {
             match_id: match_id.ok_or(Error::InvalidCommandOptions)?,
             warmups: warmups.unwrap_or(2),
+            skip_last: skip_last.unwrap_or(0),
         };
 
         Ok(Ok(args))
@@ -481,12 +493,24 @@ pub fn define_matchcost() -> MyCommand {
     let warmup_description = "Specify the amount of warmups to ignore (defaults to 2)";
 
     let warmup_help =
-        "Since warmup maps commonly want to be ignored for performance calculations, \
+        "Since warmup maps commonly want to be skipped for performance calculations, \
         this option allows you to specify how many maps should be ignored in the beginning.\n\
         If no value is specified, it defaults to 2.";
 
     let warmups = MyCommandOption::builder("warmups", warmup_description)
         .help(warmup_help)
+        .integer(Vec::new(), false);
+
+    let skip_last_description = "Specify the amount of maps to ignore at the end (defaults to 0)";
+
+    let skip_last_help = "In case the last few maps were just for fun, \
+        this options allows to ignore them for the performance rating.\n\
+        Alternatively, in combination with the `warmups` option, \
+        you can check the rating for specific maps.\n\
+        If no value is specified, it defaults to 0.";
+
+    let skip_last = MyCommandOption::builder("skip_last", skip_last_description)
+        .help(skip_last_help)
         .integer(Vec::new(), false);
 
     let description = "Display performance ratings for a multiplayer match";
@@ -499,5 +523,5 @@ pub fn define_matchcost() -> MyCommand {
 
     MyCommand::new("matchcost", description)
         .help(help)
-        .options(vec![match_url, warmups])
+        .options(vec![match_url, warmups, skip_last])
 }
