@@ -86,10 +86,17 @@ impl MapEmbed {
         );
 
         let attributes = rosu_map.attributes().mods(mod_bits);
-        let ar = attributes.ar;
         let hp = attributes.hp;
         let cs = attributes.cs;
-        let od = calculate_od(attributes.od as f32, attributes.clock_rate as f32);
+
+        let (ar, od) = if map.mode == GameMode::MNA {
+            (rosu_map.ar as f64, rosu_map.od)
+        } else {
+            (
+                attributes.ar,
+                calculate_od(attributes.od as f32, attributes.clock_rate as f32),
+            )
+        };
 
         let mut attributes = rosu_map.stars(mod_bits, None);
         let stars = attributes.stars();

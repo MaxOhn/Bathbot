@@ -89,7 +89,7 @@ pub use whatif::WhatIfEmbed;
 use crate::util::{datetime::sec_to_minsec, numbers::round, BeatmapExt, ScoreExt};
 
 use rosu_pp::Mods;
-use rosu_v2::prelude::{Beatmap, GameMods};
+use rosu_v2::prelude::{Beatmap, GameMode, GameMods};
 use std::fmt::Write;
 
 pub fn get_stars(stars: f32) -> String {
@@ -215,6 +215,11 @@ pub fn get_map_info(map: &Beatmap, mods: GameMods, stars: f32) -> String {
 
         od = calculate_od(od, clock_rate);
         ar = calculate_ar(ar, clock_rate);
+    }
+
+    if map.mode == GameMode::MNA {
+        ar = map.ar;
+        od = map.od;
     }
 
     let mut map_info = String::with_capacity(128);
