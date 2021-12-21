@@ -1,5 +1,3 @@
-#![allow(unused)] // TODO: Remove once rosu-pp-older is fixed
-
 use std::{cmp::Ordering, sync::Arc};
 
 use chrono::{Datelike, Utc};
@@ -172,13 +170,6 @@ pub(super) async fn _topold(
 
         return Ok(());
     }
-
-    // TODO: Fix rosu-pp-older
-    let content = "The current implementation of previous pp systems is \
-        pretty messed up so the command is disabled for now.\n\
-        Will be fixed eventually :fingers_crossed:";
-    let _ = data.error(&ctx, content).await?;
-    return Ok(());
 
     let version = version.unwrap();
 
