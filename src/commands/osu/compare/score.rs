@@ -108,21 +108,23 @@ pub(super) async fn _compare(
             return data.error(&ctx, content).await;
         }
         Some(MapOrScore::Score { id, mode }) => {
-            let score_fut = ctx.osu().score(id, mode);
-            let user_fut = ctx.osu().user(name.as_str());
-
-            let score = match tokio::try_join!(score_fut, user_fut) {
-                Ok((mut score, user)) => {
-                    score.user = Some(user.into());
-
-                    score
-                }
+            let mut score = match ctx.osu().score(id, mode).await {
+                Ok(score) => score,
                 Err(err) => {
                     let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
                     return Err(err.into());
                 }
             };
+
+            match ctx.osu().user(score.user_id).mode(mode).await {
+                Ok(user) => score.user = Some(user.into()),
+                Err(err) => {
+                    let _ = data.error(&ctx, OSU_API_ISSUE).await;
+
+                    return Err(err.into());
+                }
+            }
 
             let map = score.map.as_ref().unwrap();
 
