@@ -19,6 +19,7 @@ pub struct PlayerSnipeStatsEmbed {
     description: String,
     thumbnail: String,
     title: &'static str,
+    url: String,
     author: Author,
     footer: Footer,
     image: String,
@@ -135,7 +136,13 @@ impl PlayerSnipeStatsEmbed {
             (description, fields)
         };
 
+        let url = format!(
+            "https://snipe.huismetbenen.nl/player/be/osu/{}",
+            user.user_id
+        );
+
         Self {
+            url,
             fields,
             description,
             footer: Footer::new(footer_text),
@@ -155,4 +162,5 @@ impl_builder!(PlayerSnipeStatsEmbed {
     image,
     thumbnail,
     title,
+    url,
 });
