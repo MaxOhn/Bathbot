@@ -1,3 +1,8 @@
+use regex::Regex;
+use rosu_v2::prelude::{GameMode, GameMods, UserId as OsuUserId};
+use std::{borrow::Cow, str::FromStr};
+use twilight_model::id::{ChannelId, RoleId, UserId};
+
 use super::{
     constants::{
         common_literals::{FRUITS, MANIA, OSU, TAIKO},
@@ -5,11 +10,6 @@ use super::{
     },
     osu::{MapIdType, ModSelection},
 };
-
-use regex::Regex;
-use rosu_v2::{model::GameMods, prelude::GameMode};
-use std::{borrow::Cow, str::FromStr};
-use twilight_model::id::{ChannelId, RoleId, UserId};
 
 pub fn is_custom_emote(msg: &str) -> bool {
     EMOJI_MATCHER.is_match(msg)
@@ -50,11 +50,13 @@ fn get_mention(mention_type: MentionType, msg: &str) -> Option<u64> {
 }
 
 #[allow(dead_code)]
-pub fn get_osu_user_id(msg: &str) -> Option<u32> {
-    OSU_URL_USER_MATCHER
-        .captures(msg)
-        .and_then(|c| c.get(1))
-        .and_then(|c| c.as_str().parse::<u32>().ok())
+pub fn get_osu_user_id(msg: &str) -> Option<OsuUserId> {
+    OSU_URL_USER_MATCHER.captures(msg).and_then(|c| {
+        c.get(1)
+            .and_then(|m| m.as_str().parse().ok())
+            .map(OsuUserId::Id)
+            .or_else(|| c.get(2).map(|m| OsuUserId::Name(m.as_str().into())))
+    })
 }
 
 pub fn get_osu_map_id(msg: &str) -> Option<MapIdType> {
@@ -166,7 +168,7 @@ lazy_static! {
 
     static ref MENTION_MATCHER: Regex = Regex::new(r"<@!?(\d+)>").unwrap();
 
-    static ref OSU_URL_USER_MATCHER: Regex = Regex::new(r"https://osu.ppy.sh/users/(\d+)").unwrap();
+    static ref OSU_URL_USER_MATCHER: Regex = Regex::new(r"^https://osu.ppy.sh/u(?:sers)?/(?:(\d+)|(\w+))$").unwrap();
 
     static ref OSU_URL_MAP_NEW_MATCHER: Regex = Regex::new(
         r"https://osu.ppy.sh/beatmapsets/(\d+)(?:(?:#(?:osu|mania|taiko|fruits)|<#\d+>)/(\d+))?"
