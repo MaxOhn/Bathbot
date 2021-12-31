@@ -50,7 +50,7 @@ async fn song_send(
     debug_assert!(lyrics.len() > 1);
 
     let allow = match data.guild_id() {
-        Some(id) => ctx.config_lyrics(id).await,
+        Some(id) => ctx.guild_with_lyrics(id).await,
         None => true,
     };
 
@@ -79,7 +79,7 @@ async fn song_send(
         }
     } else {
         let content = "The server's big boys disabled song commands. \
-            Server authorities can re-enable them with the `togglesongs` command";
+            Server authorities can re-enable them with the `serverconfig` command";
 
         data.error(&ctx, content).await?;
     }

@@ -32,7 +32,13 @@ use super::option_mode;
 
 async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -> BotResult<()> {
     let ProfileArgs { config } = args;
-    let kind = config.profile_size.unwrap_or_default();
+
+    let kind = match (config.profile_size, data.guild_id()) {
+        (Some(kind), _) => kind,
+        (None, Some(guild)) => ctx.guild_profile_size(guild).await,
+        (None, None) => ProfileSize::default(),
+    };
+
     let mode = config.mode.unwrap_or(GameMode::STD);
 
     let name = match config.into_username() {

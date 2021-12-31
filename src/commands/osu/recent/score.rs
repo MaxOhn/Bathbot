@@ -254,10 +254,24 @@ pub(super) async fn _recent(
     };
 
     // Creating the embed
-    let content = config.show_retries().then(|| format!("Try #{}", tries));
+    let guild_id = data.guild_id();
+
+    let show_retries = match (config.show_retries, guild_id) {
+        (Some(show_retries), _) => show_retries,
+        (None, Some(guild)) => ctx.guild_show_retries(guild).await,
+        (None, None) => true,
+    };
+
+    let content = show_retries.then(|| format!("Try #{}", tries));
+
+    let embeds_maximized = match (config.embeds_maximized, guild_id) {
+        (Some(embeds_maximized), _) => embeds_maximized,
+        (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
+        (None, None) => true,
+    };
 
     // Only maximize if config allows it
-    if config.embeds_maximized() {
+    if embeds_maximized {
         let embed = embed_data.as_builder().build();
         let mut builder = MessageBuilder::new().embed(embed);
 

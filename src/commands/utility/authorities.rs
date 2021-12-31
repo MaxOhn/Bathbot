@@ -1,18 +1,13 @@
 use std::{borrow::Cow, fmt::Write, sync::Arc};
 
-use twilight_model::{
-    application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
-    guild::Permissions,
-    id::RoleId,
-};
+use twilight_model::{guild::Permissions, id::RoleId};
 
 use crate::{
-    commands::{MyCommand, MyCommandOption},
     util::{
         constants::{GENERAL_ISSUE, OWNER_USER_ID},
         matcher, MessageExt,
     },
-    Args, BotResult, CommandData, Context, Error, MessageBuilder,
+    Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
 #[command]
@@ -40,11 +35,11 @@ async fn authorities(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 Err(content) => msg.error(&ctx, content).await,
             }
         }
-        CommandData::Interaction { command } => slash_authorities(ctx, *command).await,
+        CommandData::Interaction { .. } => unreachable!(),
     }
 }
 
-async fn _authorities(
+pub(super) async fn _authorities(
     ctx: Arc<Context>,
     data: CommandData<'_>,
     args: AuthorityCommandKind,
@@ -53,7 +48,7 @@ async fn _authorities(
 
     let mut content = match args {
         AuthorityCommandKind::Add(role_id) => {
-            let roles = ctx.config_authorities(guild_id).await;
+            let roles = ctx.guild_authorities(guild_id).await;
 
             if roles.len() >= 10 {
                 let content = "You can have at most 10 roles per server setup as authorities.";
@@ -78,7 +73,7 @@ async fn _authorities(
         AuthorityCommandKind::List => "Current authority roles for this server: ".to_owned(),
         AuthorityCommandKind::Remove(role_id) => {
             let author_id = data.author()?.id;
-            let roles = ctx.config_authorities(guild_id).await;
+            let roles = ctx.guild_authorities(guild_id).await;
 
             if roles.iter().all(|&id| id != role_id) {
                 let content = "The role was no authority role anyway";
@@ -196,7 +191,7 @@ async fn _authorities(
     };
 
     // Send the message
-    let roles = ctx.config_authorities(guild_id).await;
+    let roles = ctx.guild_authorities(guild_id).await;
     role_string(&roles, &mut content);
     let builder = MessageBuilder::new().embed(content);
     data.create_message(&ctx, builder).await?;
@@ -219,7 +214,7 @@ fn role_string(roles: &[u64], content: &mut String) {
     }
 }
 
-enum AuthorityCommandKind {
+pub(super) enum AuthorityCommandKind {
     Add(u64),
     List,
     Remove(u64),
@@ -245,76 +240,4 @@ impl AuthorityCommandKind {
 
         Ok(Self::Replace(roles))
     }
-
-    fn slash(command: &ApplicationCommand) -> BotResult<Self> {
-        command
-            .data
-            .options
-            .first()
-            .and_then(|option| match &option.value {
-                CommandOptionValue::SubCommand(options) => match option.name.as_str() {
-                    "add" => {
-                        let role = options.first().and_then(|option| match option.value {
-                            CommandOptionValue::Role(value) => Some(value),
-                            _ => None,
-                        })?;
-
-                        Some(AuthorityCommandKind::Add(role.get()))
-                    }
-                    "list" => Some(AuthorityCommandKind::List),
-                    "remove" => {
-                        let role = options.first().and_then(|option| match option.value {
-                            CommandOptionValue::Role(value) => Some(value),
-                            _ => None,
-                        })?;
-
-                        Some(AuthorityCommandKind::Remove(role.get()))
-                    }
-                    _ => None,
-                },
-                _ => None,
-            })
-            .ok_or(Error::InvalidCommandOptions)
-    }
-}
-
-pub async fn slash_authorities(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
-    let args = AuthorityCommandKind::slash(&command)?;
-
-    _authorities(ctx, command.into(), args).await
-}
-
-pub fn define_authorities() -> MyCommand {
-    let role =
-        MyCommandOption::builder("role", "Specify the role that should gain authority status")
-            .role(true);
-
-    let add = MyCommandOption::builder("add", "Add authority status to a role")
-        .help("Add authority status to a role.\nServers can have at most 10 authority roles.")
-        .subcommand(vec![role]);
-
-    let list = MyCommandOption::builder("list", "Display all current authority roles")
-        .subcommand(Vec::new());
-
-    let role =
-        MyCommandOption::builder("role", "Specify the role that should lose authority status")
-            .role(true);
-
-    let remove_help = "Remove authority status from a role.\n\
-        You can only use this if the removed role would __not__ make you lose authority status yourself.";
-
-    let remove = MyCommandOption::builder("remove", "Remove authority status from a role")
-        .help(remove_help)
-        .subcommand(vec![role]);
-
-    let help = "To use certain commands, users require a special status.\n\
-        This command adjusts the authority status of roles.\n\
-        Any member with an authority role can use these higher commands.\n\n\
-        Authority commands: `authorities`, `matchlive`, `prune`, `roleassign`, \
-        `togglesongs`, `track`, `trackstream`.";
-
-    MyCommand::new("authorities", "Adjust authority roles for a server")
-        .help(help)
-        .options(vec![add, list, remove])
-        .authority()
 }

@@ -43,7 +43,7 @@ async fn prefix(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
             return msg.error(&ctx, content).await;
         }
         None => {
-            let prefixes = ctx.config_prefixes(guild_id).await;
+            let prefixes = ctx.guild_prefixes(guild_id).await;
             let mut content = String::new();
             current_prefixes(&mut content, &prefixes);
             let builder = MessageBuilder::new().embed(content);
@@ -104,7 +104,7 @@ async fn prefix(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     }
 
     let mut content = "Prefixes updated!\n".to_owned();
-    let prefixes = ctx.config_prefixes(guild_id).await;
+    let prefixes = ctx.guild_prefixes(guild_id).await;
     current_prefixes(&mut content, &prefixes);
     let builder = MessageBuilder::new().embed(content);
     msg.create_message(&ctx, builder).await?;

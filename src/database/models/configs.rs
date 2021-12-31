@@ -11,7 +11,10 @@ pub type Authorities = SmallVec<[u64; 4]>;
 #[derive(Debug, Clone)]
 pub struct GuildConfig {
     pub authorities: Authorities,
+    pub embeds_maximized: Option<bool>,
     pub prefixes: Prefixes,
+    pub profile_size: Option<ProfileSize>,
+    pub show_retries: Option<bool>,
     pub with_lyrics: Option<bool>,
 }
 
@@ -19,13 +22,24 @@ impl GuildConfig {
     pub fn with_lyrics(&self) -> bool {
         self.with_lyrics.unwrap_or(true)
     }
+
+    pub fn embeds_maximized(&self) -> bool {
+        self.embeds_maximized.unwrap_or(true)
+    }
+
+    pub fn show_retries(&self) -> bool {
+        self.show_retries.unwrap_or(true)
+    }
 }
 
 impl Default for GuildConfig {
     fn default() -> Self {
         GuildConfig {
             authorities: SmallVec::new(),
+            embeds_maximized: None,
             prefixes: smallvec!["<".into()],
+            profile_size: None,
+            show_retries: None,
             with_lyrics: None,
         }
     }
@@ -89,13 +103,5 @@ impl UserConfig {
 
     pub fn into_username(self) -> Option<Username> {
         self.osu.map(OsuData::into_username)
-    }
-
-    pub fn embeds_maximized(&self) -> bool {
-        self.embeds_maximized.unwrap_or(true)
-    }
-
-    pub fn show_retries(&self) -> bool {
-        self.show_retries.unwrap_or(true)
     }
 }

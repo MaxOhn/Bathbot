@@ -16,7 +16,7 @@ use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use twilight_model::{
     guild::Permissions,
-    id::{GuildId, RoleId, UserId},
+    id::{GuildId, UserId},
 };
 
 use crate::{core::buckets::BucketName, util::Authored, BotResult, Context};
@@ -65,8 +65,7 @@ async fn check_authority(
         return Ok(None);
     }
 
-    let to_role = |role_id| RoleId::new(role_id).unwrap();
-    let auth_roles = ctx.config_authorities_collect(guild_id, to_role).await;
+    let auth_roles = ctx.guild_authorities(guild_id).await;
 
     if auth_roles.is_empty() {
         let content = "You need admin permissions to use this command.\n\
@@ -85,7 +84,10 @@ async fn check_authority(
         }
     };
 
-    if !member_roles.iter().any(|role| auth_roles.contains(role)) {
+    if !member_roles
+        .iter()
+        .any(|role| auth_roles.contains(&role.get()))
+    {
         let mut content = String::from(
             "You need either admin permissions or \
             any of these roles to use this command:\n",

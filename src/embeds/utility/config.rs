@@ -67,7 +67,7 @@ impl ConfigEmbed {
 
         description.push_str("compact | ");
 
-        if config.embeds_maximized() {
+        if config.embeds_maximized.unwrap_or(true) {
             description.push(' ');
         } else {
             description.push('>');
@@ -91,7 +91,7 @@ impl ConfigEmbed {
 
         description.push_str("medium  | ");
 
-        if config.embeds_maximized() {
+        if config.embeds_maximized.unwrap_or(true) {
             description.push('>');
         } else {
             description.push(' ');
@@ -131,7 +131,7 @@ impl ConfigEmbed {
 
         description.push_str("mania |          | ");
 
-        if config.show_retries() {
+        if config.show_retries.unwrap_or(true) {
             description.push('>');
         } else {
             description.push(' ');
@@ -139,7 +139,7 @@ impl ConfigEmbed {
 
         description.push_str("show\n       |          | ");
 
-        if config.show_retries() {
+        if config.show_retries.unwrap_or(true) {
             description.push(' ');
         } else {
             description.push('>');

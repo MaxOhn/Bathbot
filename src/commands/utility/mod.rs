@@ -7,6 +7,7 @@ mod prefix;
 mod prune;
 mod role_assign;
 mod roll;
+mod server_config;
 mod toggle_songs;
 
 pub use authorities::*;
@@ -18,4 +19,5 @@ pub use prefix::*;
 pub use prune::*;
 pub use role_assign::*;
 pub use roll::*;
+pub use server_config::*;
 pub use toggle_songs::*;

@@ -670,9 +670,7 @@ lazy_static! {
         insert("minesweeper", define_minesweeper);
         insert("invite", define_invite);
         insert("roll", define_roll);
-        insert("togglesongs", define_togglesongs);
         insert("commands", define_commands);
-        insert("authorities", define_authorities);
         insert("prune", define_prune);
         insert("config", define_config);
         insert("roleassign", define_roleassign);
@@ -699,6 +697,7 @@ lazy_static! {
         insert("osustats", define_osustats);
         insert("top", define_top);
         insert("snipe", define_snipe);
+        insert("serverconfig", define_serverconfig);
 
         SlashCommands(map)
     };

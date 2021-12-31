@@ -18,7 +18,10 @@ impl Database {
         while let Some(entry) = stream.next().await.transpose()? {
             let config = GuildConfig {
                 authorities: serde_cbor::from_slice(&entry.authorities)?,
+                embeds_maximized: entry.embeds_maximized,
                 prefixes: serde_cbor::from_slice(&entry.prefixes)?,
+                profile_size: entry.profile_size.map(ProfileSize::from),
+                show_retries: entry.show_retries,
                 with_lyrics: entry.with_lyrics,
             };
 
@@ -34,15 +37,29 @@ impl Database {
         config: &GuildConfig,
     ) -> BotResult<()> {
         let query = sqlx::query!(
-            "INSERT INTO guild_configs (guild_id,authorities,prefixes,with_lyrics)\
-            VALUES ($1,$2,$3,$4) ON CONFLICT (guild_id) DO \
+            "INSERT INTO guild_configs (\
+                guild_id,\
+                authorities,\
+                embeds_maximized,\
+                prefixes,\
+                profile_size,\
+                show_retries,\
+                with_lyrics\
+            )\
+            VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (guild_id) DO \
             UPDATE \
             SET authorities=$2,\
-                prefixes=$3,\
-                with_lyrics=$4",
+                embeds_maximized=$3,\
+                prefixes=$4,\
+                profile_size=$5,\
+                show_retries=$6,\
+                with_lyrics=$7",
             guild_id.get() as i64,
             serde_cbor::to_vec(&config.authorities)?,
+            config.embeds_maximized,
             serde_cbor::to_vec(&config.prefixes)?,
+            config.profile_size.map(|size| size as i16),
+            config.show_retries,
             config.with_lyrics,
         );
 

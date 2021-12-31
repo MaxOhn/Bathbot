@@ -18,7 +18,7 @@ pub async fn handle_message(ctx: Arc<Context>, msg: Message) -> BotResult<()> {
 
     // Get guild / default prefixes
     let prefixes = match msg.guild_id {
-        Some(guild_id) => ctx.config_prefixes(guild_id).await,
+        Some(guild_id) => ctx.guild_prefixes(guild_id).await,
         None => smallvec!["<".into()],
     };
 

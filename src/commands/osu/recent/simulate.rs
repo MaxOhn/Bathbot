@@ -113,7 +113,12 @@ pub(super) async fn _recentsimulate(
 
     let map = score.map.take().unwrap();
     let mapset = score.mapset.take().unwrap();
-    let maximize = args.config.embeds_maximized();
+
+    let maximize = match (args.config.embeds_maximized, data.guild_id()) {
+        (Some(embeds_maximized), _) => embeds_maximized,
+        (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
+        (None, None) => true,
+    };
 
     // Accumulate all necessary data
     let embed_data = match SimulateEmbed::new(Some(score), &map, &mapset, args.into()).await {

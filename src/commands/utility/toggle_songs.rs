@@ -1,13 +1,9 @@
 use crate::{
-    commands::{MyCommand, MyCommandOption},
     util::{constants::GENERAL_ISSUE, MessageExt},
-    BotResult, CommandData, Context, Error, MessageBuilder,
+    BotResult, CommandData, Context, MessageBuilder,
 };
 
 use std::sync::Arc;
-use twilight_model::application::interaction::{
-    application_command::CommandOptionValue, ApplicationCommand,
-};
 
 #[command]
 #[only_guilds()]
@@ -56,32 +52,4 @@ async fn _togglesongs(
     data.create_message(&ctx, builder).await?;
 
     Ok(())
-}
-
-pub async fn slash_togglesongs(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
-    let option = command.data.options.first().and_then(|option| {
-        (option.name == "enable").then(|| match option.value {
-            CommandOptionValue::Boolean(value) => Some(value),
-            _ => None,
-        })
-    });
-
-    let available = match option.flatten() {
-        Some(value) => value,
-        None => return Err(Error::InvalidCommandOptions),
-    };
-
-    _togglesongs(ctx, command.into(), Some(available)).await
-}
-
-pub fn define_togglesongs() -> MyCommand {
-    let enable =
-        MyCommandOption::builder("enable", "Choose whether song commands can be used or not")
-            .boolean(true);
-
-    let description = "Toggle availability of song commands in a server";
-
-    MyCommand::new("togglesongs", description)
-        .options(vec![enable])
-        .authority()
 }

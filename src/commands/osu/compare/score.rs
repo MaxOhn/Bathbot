@@ -87,7 +87,12 @@ pub(super) async fn _compare(
     args: ScoreArgs,
 ) -> BotResult<()> {
     let ScoreArgs { config, mods, id } = args;
-    let embeds_maximized = config.embeds_maximized();
+
+    let embeds_maximized = match (config.embeds_maximized, data.guild_id()) {
+        (Some(embeds_maximized), _) => embeds_maximized,
+        (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
+        (None, None) => true,
+    };
 
     let name = match config.into_username() {
         Some(name) => name,

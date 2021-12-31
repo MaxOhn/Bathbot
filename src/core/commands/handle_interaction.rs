@@ -55,12 +55,6 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
     let mut args = CommandArgs::default();
 
     let command_result = match name.as_str() {
-        "authorities" => {
-            args.authority = true;
-            args.only_guilds = true;
-
-            process_command(ctx, command, args, utility::slash_authorities).await
-        }
         "avatar" => process_command(ctx, command, args, osu::slash_avatar).await,
         "bws" => process_command(ctx, command, args, osu::slash_bws).await,
         "commands" => process_command(ctx, command, args, utility::slash_commands).await,
@@ -124,6 +118,12 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         }
         "roll" => process_command(ctx, command, args, utility::slash_roll).await,
         "search" => process_command(ctx, command, args, osu::slash_mapsearch).await,
+        "serverconfig" => {
+            args.authority = true;
+            args.only_guilds = true;
+
+            process_command(ctx, command, args, utility::slash_serverconfig).await
+        }
         "simulate" => process_command(ctx, command, args, osu::slash_simulate).await,
         "snipe" => {
             args.bucket = Some(BucketName::Snipe);
@@ -134,12 +134,6 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
             args.bucket = Some(BucketName::Songs);
 
             process_command(ctx, command, args, songs::slash_song).await
-        }
-        "togglesongs" => {
-            args.authority = true;
-            args.only_guilds = true;
-
-            process_command(ctx, command, args, utility::slash_togglesongs).await
         }
         "top" => process_command(ctx, command, args, osu::slash_top).await,
         "track" => {

@@ -56,7 +56,7 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
 
     if args.sort_by == TopOrder::Position && args.has_dash_r {
         let mode_long = mode_long(mode);
-        let prefix = ctx.config_first_prefix(data.guild_id()).await;
+        let prefix = ctx.guild_first_prefix(data.guild_id()).await;
 
         let mode_short = match mode {
             GameMode::STD => "",
@@ -82,7 +82,7 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
         };
 
         let mode_long = mode_long(mode);
-        let prefix = ctx.config_first_prefix(data.guild_id()).await;
+        let prefix = ctx.guild_first_prefix(data.guild_id()).await;
 
         let content = format!(
             "`{prefix}{cmd}{mode} -i / -p`? \
@@ -152,7 +152,12 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
     }
 
     if let Some(num) = args.index {
-        let maximize = args.config.embeds_maximized();
+        let maximize = match (args.config.embeds_maximized, data.guild_id()) {
+            (Some(embeds_maximized), _) => embeds_maximized,
+            (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
+            (None, None) => true,
+        };
+
         single_embed(ctx, data, user, scores, num.saturating_sub(1), maximize).await?;
     } else {
         let content = write_content(name, &args, scores.len());

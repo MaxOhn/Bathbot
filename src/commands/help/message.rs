@@ -21,7 +21,7 @@ use super::failed_message_;
 
 async fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
     let (custom_prefix, first_prefix) = if let Some(guild_id) = guild_id {
-        let mut prefixes = ctx.config_prefixes(guild_id).await;
+        let mut prefixes = ctx.guild_prefixes(guild_id).await;
 
         if !prefixes.is_empty() {
             let prefix = prefixes.swap_remove(0);
@@ -207,7 +207,7 @@ pub async fn help_command(
     data: CommandDataCompact,
 ) -> BotResult<()> {
     let name = cmd.names[0];
-    let prefix = ctx.config_first_prefix(guild_id).await;
+    let prefix = ctx.guild_first_prefix(guild_id).await;
     let mut fields = Vec::new();
 
     let mut eb = EmbedBuilder::new()
@@ -278,7 +278,7 @@ pub async fn help_command(
 
     if cmd.authority {
         let value = if let Some(guild_id) = guild_id {
-            let authorities = ctx.config_authorities(guild_id).await;
+            let authorities = ctx.guild_authorities(guild_id).await;
             let mut value = "You need admin permission".to_owned();
             let mut iter = authorities.iter();
 
