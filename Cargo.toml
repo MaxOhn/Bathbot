@@ -6,8 +6,6 @@ edition = "2018"
 
 [dependencies]
 async-trait = { version = "0.1" }
-bathbot-cache = { git = "https://github.com/MaxOhn/bathbot-cache", branch = "main" }
-# bathbot-cache = { path = "../bathbot-cache" }
 bitflags = { version = "1.0" }
 bytes = { version = "1.0" }
 chrono = { version = "0.4", features = ["serde"] }
