@@ -8,8 +8,7 @@ use twilight_model::{
 
 use crate::{
     commands::{MyCommand, MyCommandOption},
-    embeds::{EmbedData, RoleAssignEmbed},
-    util::{constants::GENERAL_ISSUE, matcher, MessageExt},
+    util::{constants::GENERAL_ISSUE, matcher, MessageBuilder, MessageExt},
     Args, BotResult, CommandData, Context, Error,
 };
 
@@ -48,6 +47,7 @@ async fn _roleassign(
     args: RoleAssignArgs,
 ) -> BotResult<()> {
     let RoleAssignArgs {
+        kind,
         channel: channel_id,
         msg: msg_id,
         role: role_id,
@@ -78,29 +78,100 @@ async fn _roleassign(
         }
     };
 
-    let add_fut = ctx
-        .psql()
-        .add_role_assign(channel_id.get(), msg_id.get(), role_id.get());
+    let guild_id = data.guild_id().unwrap();
 
-    match add_fut.await {
-        Ok(_) => debug!("Inserted into role_assign table"),
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+    match kind {
+        Kind::Add => {
+            let add_fut = ctx
+                .psql()
+                .add_role_assign(channel_id.get(), msg_id.get(), role_id.get());
 
-            return Err(why);
+            match add_fut.await {
+                Ok(_) => debug!("Inserted into role_assign table"),
+                Err(err) => {
+                    let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+                    return Err(err);
+                }
+            }
+
+            ctx.add_role_assign(channel_id, msg_id, role_id);
+
+            let description = format!(
+                "Whoever reacts to <@{author}>'s [message]\
+                (https://discordapp.com/channels/{guild}/{channel}/{msg})\n\
+                ```\n{content}\n```\n\
+                in <#{channel_mention}> will be assigned the <@&{role_mention}> role!",
+                author = msg.author.id,
+                guild = guild_id,
+                channel = msg.channel_id,
+                msg = msg.id,
+                content = msg.content,
+                channel_mention = msg.channel_id,
+                role_mention = role_id,
+            );
+
+            let builder = MessageBuilder::new().embed(description);
+            data.create_message(&ctx, builder).await?;
+        }
+        Kind::Remove => {
+            let remove_fut =
+                ctx.psql()
+                    .remove_role_assign(channel_id.get(), msg_id.get(), role_id.get());
+
+            match remove_fut.await {
+                Ok(true) => {
+                    let description = format!(
+                        "Reactions for <@{author}>'s [message]\
+                        (https://discordapp.com/channels/{guild}/{channel}/{msg}) \
+                        in <#{channel_mention}> will no longer assign the <@&{role_mention}> role.",
+                        author = msg.author.id,
+                        guild = guild_id,
+                        channel = msg.channel_id,
+                        msg = msg.id,
+                        channel_mention = msg.channel_id,
+                        role_mention = role_id,
+                    );
+
+                    debug!("Removed from role_assign table");
+                    ctx.remove_role_assign(channel_id, msg_id, role_id);
+                    let builder = MessageBuilder::new().embed(description);
+                    data.create_message(&ctx, builder).await?;
+                }
+                Ok(false) => {
+                    let description = format!(
+                        "<@{author}>'s [message]\
+                        (https://discordapp.com/channels/{guild}/{channel}/{msg}) \
+                        in <#{channel_mention}> was not linked to the <@&{role_mention}> role to begin with.",
+                        author = msg.author.id,
+                        guild = guild_id,
+                        channel = msg.channel_id,
+                        msg = msg.id,
+                        channel_mention = msg.channel_id,
+                        role_mention = role_id,
+                    );
+
+                    data.error(&ctx, description).await?;
+                }
+                Err(err) => {
+                    let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+                    return Err(err);
+                }
+            }
         }
     }
-
-    ctx.add_role_assign(channel_id, msg_id, role_id);
-    let guild_id = data.guild_id().unwrap();
-    let embed_data = RoleAssignEmbed::new(msg, guild_id, role_id).await;
-    let builder = embed_data.into_builder().build().into();
-    data.create_message(&ctx, builder).await?;
 
     Ok(())
 }
 
+enum Kind {
+    Add,
+    Remove,
+}
+
 struct RoleAssignArgs {
+    kind: Kind,
     channel: ChannelId,
     msg: MessageId,
     role: RoleId,
@@ -132,7 +203,12 @@ impl RoleAssignArgs {
             None => return Err("You must provide a channel, a message, and a role."),
         };
 
-        Ok(Self { channel, msg, role })
+        Ok(Self {
+            kind: Kind::Add,
+            channel,
+            msg,
+            role,
+        })
     }
 
     fn slash(command: &mut ApplicationCommand) -> BotResult<Result<Self, &'static str>> {
@@ -140,32 +216,50 @@ impl RoleAssignArgs {
         let mut role = None;
         let mut msg = None;
 
-        for option in &command.data.options {
-            match &option.value {
-                CommandOptionValue::String(value) => match option.name.as_str() {
-                    "message" => match value.parse() {
-                        Ok(0) => {
-                            let content = "Message id can't be `0`.";
+        let option = command
+            .data
+            .options
+            .first()
+            .ok_or(Error::InvalidCommandOptions)?;
 
-                            return Ok(Err(content));
-                        }
-                        Ok(num) => msg = Some(MessageId::new(num).unwrap()),
-                        Err(_) => {
-                            let content =
-                                "Failed to parse message id. Be sure its a valid integer.";
+        let kind = match &option.value {
+            CommandOptionValue::SubCommand(options) => {
+                for option in options {
+                    match &option.value {
+                        CommandOptionValue::String(value) => match option.name.as_str() {
+                            "message" => match value.parse() {
+                                Ok(0) => {
+                                    let content = "Message id can't be `0`.";
 
-                            return Ok(Err(content));
-                        }
-                    },
+                                    return Ok(Err(content));
+                                }
+                                Ok(num) => msg = Some(MessageId::new(num).unwrap()),
+                                Err(_) => {
+                                    let content =
+                                        "Failed to parse message id. Be sure its a valid integer.";
+
+                                    return Ok(Err(content));
+                                }
+                            },
+                            _ => return Err(Error::InvalidCommandOptions),
+                        },
+                        CommandOptionValue::Channel(value) => channel = Some(*value),
+                        CommandOptionValue::Role(value) => role = Some(*value),
+                        _ => return Err(Error::InvalidCommandOptions),
+                    }
+                }
+
+                match option.name.as_str() {
+                    "add" => Kind::Add,
+                    "remove" => Kind::Remove,
                     _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::Channel(value) => channel = Some(*value),
-                CommandOptionValue::Role(value) => role = Some(*value),
-                _ => return Err(Error::InvalidCommandOptions),
+                }
             }
-        }
+            _ => return Err(Error::InvalidCommandOptions),
+        };
 
         let args = Self {
+            kind,
             channel: channel.ok_or(Error::InvalidCommandOptions)?,
             msg: msg.ok_or(Error::InvalidCommandOptions)?,
             role: role.ok_or(Error::InvalidCommandOptions)?,
@@ -198,12 +292,42 @@ pub fn define_roleassign() -> MyCommand {
     let role =
         MyCommandOption::builder("role", "Specify a role that should be assigned").role(true);
 
+    let add_help = "Add role-assigning upon reaction on a message \
+        i.e. make me add or remove a member's role when they (un)react to a message.";
+
+    let add = MyCommandOption::builder("add", "Add role-assigning upon reaction on a message")
+        .help(add_help)
+        .subcommand(vec![channel, message, role]);
+
+    let channel =
+        MyCommandOption::builder("channel", "Specify the channel that contains the message")
+            .channel(true);
+
+    let message_help = "Specify the message by providing its ID.\n\
+            You can find the ID by rightclicking the message and clicking on `Copy ID`.\n\
+            To see the `Copy ID` option, you must have `Settings > Advanced > Developer Mode` enabled.";
+
+    let message = MyCommandOption::builder("message", "Specify a message id")
+        .help(message_help)
+        .string(Vec::new(), true);
+
+    let role = MyCommandOption::builder("role", "Specify a role that was assigned for the message")
+        .role(true);
+
+    let remove_help = "Remove role-assigning upon reaction on a message \
+        i.e. I will no longer add or remove a member's role when they (un)react to a message.";
+
+    let remove =
+        MyCommandOption::builder("remove", "Remove role-assigning upon reaction on a message")
+            .help(remove_help)
+            .subcommand(vec![channel, message, role]);
+
     let help = "With this command you can link a message to a role.\n\
-        Whenever anyone reacts with any reaction to that message, they will gain that role.\n\
+        Whenever anyone reacts with __any__ reaction to that message, they will gain that role.\n\
         If they remove a reaction from the message, they will lose the role.\n\
         __**Note**__: Roles can only be assigned if they are lower than some role of the assigner i.e. the bot.";
 
     MyCommand::new("roleassign", "Managing roles with reactions")
         .help(help)
-        .options(vec![channel, message, role])
+        .options(vec![add, remove])
 }

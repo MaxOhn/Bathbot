@@ -6,6 +6,7 @@ mod shutdown;
 mod twitch;
 
 pub use background_loop::GarbageCollectMap;
+use dashmap::mapref::entry::Entry;
 pub use match_live::{MatchLiveChannels, MatchTrackResult};
 
 use crate::{util::CountryCode, BotResult, Context, OsuTracking};
@@ -14,6 +15,8 @@ use twilight_model::{
     channel::{Message, Reaction},
     id::{ChannelId, MessageId, RoleId},
 };
+
+use super::AssignRoles;
 
 impl Context {
     /// Returns whether a message was sent by us
@@ -24,11 +27,11 @@ impl Context {
         }
     }
 
-    pub fn get_role_assign(&self, reaction: &Reaction) -> Option<RoleId> {
+    pub fn get_role_assigns(&self, reaction: &Reaction) -> Option<AssignRoles> {
         self.data
             .role_assigns
             .get(&(reaction.channel_id.get(), reaction.message_id.get()))
-            .map(|guard| RoleId::new(*guard.value()).unwrap())
+            .map(|guard| guard.value().to_owned())
     }
 
     pub fn tracking(&self) -> &OsuTracking {
@@ -81,8 +84,33 @@ impl Context {
 
     #[cold]
     pub fn add_role_assign(&self, channel_id: ChannelId, msg_id: MessageId, role_id: RoleId) {
-        self.data
+        let role_id = role_id.get();
+
+        let mut roles = self
+            .data
             .role_assigns
-            .insert((channel_id.get(), msg_id.get()), role_id.get());
+            .entry((channel_id.get(), msg_id.get()))
+            .or_default();
+
+        if !roles.contains(&role_id) {
+            roles.push(role_id);
+        }
+    }
+
+    #[cold]
+    pub fn remove_role_assign(&self, channel_id: ChannelId, msg_id: MessageId, role_id: RoleId) {
+        let entry = self
+            .data
+            .role_assigns
+            .entry((channel_id.get(), msg_id.get()));
+
+        if let Entry::Occupied(mut e) = entry {
+            let role_id = role_id.get();
+            e.get_mut().retain(|r| *r != role_id);
+
+            if e.get().is_empty() {
+                e.remove();
+            }
+        }
     }
 }

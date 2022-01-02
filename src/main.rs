@@ -78,7 +78,7 @@ use twilight_model::{
         presence::{ActivityType, Status},
         Intents,
     },
-    id::GuildId,
+    id::{GuildId, RoleId},
 };
 
 type BotResult<T> = std::result::Result<T, Error>;
@@ -480,14 +480,21 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
             let reaction = &reaction_add.0;
 
             if let Some(guild_id) = reaction.guild_id {
-                if let Some(role_id) = ctx.get_role_assign(reaction) {
-                    let add_role_fut =
-                        ctx.http
-                            .add_guild_member_role(guild_id, reaction.user_id, role_id);
+                if let Some(roles) = ctx.get_role_assigns(reaction) {
+                    for id in roles {
+                        let role_id = match RoleId::new(id) {
+                            Some(id) => id,
+                            None => continue,
+                        };
 
-                    match add_role_fut.exec().await {
-                        Ok(_) => debug!("Assigned react-role to user"),
-                        Err(why) => error!("Error while assigning react-role to user: {}", why),
+                        let add_role_fut =
+                            ctx.http
+                                .add_guild_member_role(guild_id, reaction.user_id, role_id);
+
+                        match add_role_fut.exec().await {
+                            Ok(_) => debug!("Assigned react-role to user"),
+                            Err(why) => error!("Error while assigning react-role to user: {}", why),
+                        }
                     }
                 }
             }
@@ -497,14 +504,23 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
             let reaction = &reaction_remove.0;
 
             if let Some(guild_id) = reaction.guild_id {
-                if let Some(role_id) = ctx.get_role_assign(reaction) {
-                    let remove_role_fut =
-                        ctx.http
-                            .remove_guild_member_role(guild_id, reaction.user_id, role_id);
+                if let Some(roles) = ctx.get_role_assigns(reaction) {
+                    for id in roles {
+                        let role_id = match RoleId::new(id) {
+                            Some(id) => id,
+                            None => continue,
+                        };
 
-                    match remove_role_fut.exec().await {
-                        Ok(_) => debug!("Removed react-role from user"),
-                        Err(why) => error!("Error while removing react-role from user: {}", why),
+                        let remove_role_fut =
+                            ctx.http
+                                .remove_guild_member_role(guild_id, reaction.user_id, role_id);
+
+                        match remove_role_fut.exec().await {
+                            Ok(_) => debug!("Removed react-role from user"),
+                            Err(why) => {
+                                error!("Error while removing react-role from user: {}", why)
+                            }
+                        }
                     }
                 }
             }

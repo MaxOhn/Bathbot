@@ -1,6 +1,7 @@
 mod impls;
 
 pub use impls::{MatchLiveChannels, MatchTrackResult};
+use smallvec::SmallVec;
 
 use crate::{
     bg_game::GameWrapper,
@@ -53,6 +54,8 @@ pub struct Clients {
     pub twitch: Twitch,
 }
 
+pub type AssignRoles = SmallVec<[u64; 1]>;
+
 pub struct ContextData {
     // ! CAREFUL: When entries are added or modified
     // ! don't forget to update the DB entry aswell
@@ -60,7 +63,7 @@ pub struct ContextData {
     // Mapping twitch user ids to vec of discord channel ids
     pub tracked_streams: DashMap<u64, Vec<u64>>,
     // Mapping (channel id, message id) to role id
-    pub role_assigns: DashMap<(u64, u64), u64>,
+    pub role_assigns: DashMap<(u64, u64), AssignRoles>,
     pub bg_games: DashMap<ChannelId, GameWrapper>,
     pub osu_tracking: OsuTracking,
     pub msgs_to_process: DashSet<MessageId>,
