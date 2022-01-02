@@ -69,7 +69,7 @@ async fn check_authority(
 
     if auth_roles.is_empty() {
         let content = "You need admin permissions to use this command.\n\
-            (`/authorities` to adjust authority status for this server)";
+            (`/serverconfig` to adjust authority status for this server)";
 
         return Ok(Some(content.to_owned()));
     }
@@ -104,7 +104,7 @@ async fn check_authority(
             }
         }
 
-        content.push_str("\n(`/authorities` to adjust authority status for this server)");
+        content.push_str("\n(`/serverconfig` to adjust authority status for this server)");
 
         return Ok(Some(content));
     }
