@@ -1,6 +1,7 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use eyre::Report;
+use tokio::time::timeout;
 use twilight_model::{
     application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
     id::{ChannelId, MessageId, RoleId},
@@ -53,9 +54,10 @@ async fn _roleassign(
         role: role_id,
     } = args;
 
-    if ctx.cache.role(role_id, |_| ()).is_err() {
-        return data.error(&ctx, "Role not found in this guild").await;
-    }
+    let role_pos = match ctx.cache.role(role_id, |role| role.position) {
+        Ok(pos) => pos,
+        Err(_) => return data.error(&ctx, "Role not found in this guild").await,
+    };
 
     if ctx.cache.channel(channel_id, |_| ()).is_err() {
         return data.error(&ctx, "Channel not found in this guild").await;
@@ -82,6 +84,57 @@ async fn _roleassign(
 
     match kind {
         Kind::Add => {
+            let user = match ctx.cache.current_user() {
+                Ok(user) => user,
+                Err(_) => {
+                    let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+                    bail!("CurrentUser not in cache");
+                }
+            };
+
+            let has_permission_fut = async {
+                ctx.cache.member(guild_id, user.id, |m| {
+                    m.roles()
+                        .iter()
+                        .any(|&r| match ctx.cache.role(r, |r| r.position > role_pos) {
+                            Ok(b) => b,
+                            Err(_) => {
+                                warn!("CurrentUser role {} not in cache", r);
+
+                                false
+                            }
+                        })
+                })
+            };
+
+            match timeout(Duration::from_secs(5), has_permission_fut).await {
+                Ok(Ok(true)) => {}
+                Ok(Ok(false)) => {
+                    let description = format!(
+                        "To assign a role, one must have a role that is \
+                        higher than the role to assign.\n\
+                        The role <@&{}> is higher than all my roles so I can't assign it.",
+                        role_id
+                    );
+
+                    return data.error(&ctx, description).await;
+                }
+                Ok(Err(_)) => {
+                    let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+                    bail!(
+                        "no member data in guild {} for CurrentUser in cache",
+                        guild_id
+                    );
+                }
+                Err(_) => {
+                    let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+                    bail!("timed out while checking role permissions");
+                }
+            }
+
             let add_fut = ctx
                 .psql()
                 .add_role_assign(channel_id.get(), msg_id.get(), role_id.get());
