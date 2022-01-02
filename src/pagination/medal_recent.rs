@@ -284,7 +284,7 @@ impl MedalRecentPagination {
                 medal_count: self.achieved_medals.len(),
             };
 
-            let (maps, mut comments) = if self.maximized {
+            let (mut maps, mut comments) = if self.maximized {
                 match medal.map_comments {
                     Some(ref tuple) => tuple.to_owned(),
                     None => {
@@ -315,6 +315,7 @@ impl MedalRecentPagination {
 
             comments.retain(|comment| comment.parent_id == 0);
             comments.sort_unstable_by_key(|comment| Reverse(comment.vote_sum));
+            maps.sort_unstable_by_key(|map| Reverse(map.vote_sum));
 
             let medal = medal.medal.to_owned();
 

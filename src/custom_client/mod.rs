@@ -134,7 +134,7 @@ impl CustomClient {
         let bytes = response.bytes().await?;
 
         let maps: OsekaiMaps =
-            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
+            serde_json::from_slice(&bytes[4..]).map_err(|source| CustomClientError::Parsing {
                 body: String::from_utf8_lossy(&bytes).into_owned(),
                 source,
                 request: "osekai maps",
@@ -151,7 +151,7 @@ impl CustomClient {
         let bytes = response.bytes().await?;
 
         let comments: OsekaiComments =
-            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
+            serde_json::from_slice(&bytes[4..]).map_err(|source| CustomClientError::Parsing {
                 body: String::from_utf8_lossy(&bytes).into_owned(),
                 source,
                 request: "osekai comments",

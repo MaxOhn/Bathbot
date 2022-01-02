@@ -52,7 +52,7 @@ pub(super) async fn _medal(ctx: Arc<Context>, data: CommandData<'_>, name: &str)
     let map_fut = ctx.clients.custom.get_osekai_beatmaps(&medal.name);
     let comment_fut = ctx.clients.custom.get_osekai_comments(&medal.name);
 
-    let (maps, mut comments) = match tokio::try_join!(map_fut, comment_fut) {
+    let (mut maps, mut comments) = match tokio::try_join!(map_fut, comment_fut) {
         Ok((maps, comments)) => (maps, comments),
         Err(why) => {
             let _ = data.error(&ctx, OSEKAI_ISSUE).await;
@@ -63,6 +63,7 @@ pub(super) async fn _medal(ctx: Arc<Context>, data: CommandData<'_>, name: &str)
 
     comments.retain(|comment| comment.parent_id == 0);
     comments.sort_unstable_by_key(|comment| Reverse(comment.vote_sum));
+    maps.sort_unstable_by_key(|map| Reverse(map.vote_sum));
 
     let embed_data = MedalEmbed::new(medal, None, maps, comments);
     let builder = embed_data.into_builder().build().into();
