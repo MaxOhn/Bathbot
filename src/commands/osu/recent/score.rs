@@ -364,8 +364,8 @@ async fn retrieve_vod(
                 map_length *= passed / total;
             }
 
-            // 4 seconds early to offset potential breaks mid-song
-            let map_start = score.created_at.timestamp() - map_length as i64 - 4;
+            // 5 seconds early to offset potential breaks mid-song
+            let map_start = score.created_at.timestamp() - map_length as i64 - 5;
 
             if vod_start > map_start || vod_end < map_start {
                 return None;
