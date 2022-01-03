@@ -1,4 +1,11 @@
-use super::TripleArgs;
+use std::{cmp::Reverse, fmt::Write, sync::Arc};
+
+use eyre::Report;
+use futures::stream::{FuturesOrdered, StreamExt};
+use hashbrown::{HashMap, HashSet};
+use rosu_v2::prelude::OsuError;
+use smallvec::SmallVec;
+
 use crate::{
     embeds::{EmbedData, MostPlayedCommonEmbed},
     pagination::{MostPlayedCommonPagination, Pagination},
@@ -9,12 +16,7 @@ use crate::{
     BotResult, CommandData, Context, MessageBuilder,
 };
 
-use eyre::Report;
-use futures::stream::{FuturesOrdered, StreamExt};
-use hashbrown::{HashMap, HashSet};
-use rosu_v2::prelude::OsuError;
-use smallvec::SmallVec;
-use std::{cmp::Reverse, fmt::Write, sync::Arc};
+use super::TripleArgs;
 
 #[command]
 #[short_desc("Compare the 100 most played maps of multiple users")]
@@ -97,14 +99,9 @@ pub(super) async fn _mostplayedcommon(
         .iter()
         .cloned()
         .map(|name| async {
-            let fut_1 = ctx.osu().user_most_played(name.as_str()).limit(50);
-            let fut_2 = ctx
-                .osu()
-                .user_most_played(name.as_str())
-                .limit(50)
-                .offset(50);
+            let fut = ctx.osu().user_most_played(name.as_str()).limit(100);
 
-            (name, tokio::try_join!(fut_1, fut_2))
+            (name, fut.await)
         })
         .collect::<FuturesOrdered<_>>();
 

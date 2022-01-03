@@ -1,16 +1,29 @@
-use crate::{ BotResult, CommandData, Context, commands::{DoubleResultCow, MyCommand, check_user_mention, osu::{option_discord, option_name}, parse_discord}, database::OsuData, embeds::{EmbedData, MostPlayedEmbed}, error::Error, pagination::{MostPlayedPagination, Pagination}, util::{
+use std::sync::Arc;
+
+use eyre::Report;
+use rosu_v2::prelude::{GameMode, OsuError, Username};
+use twilight_model::application::interaction::{
+    application_command::CommandOptionValue, ApplicationCommand,
+};
+
+use crate::{
+    commands::{
+        check_user_mention,
+        osu::{option_discord, option_name},
+        parse_discord, DoubleResultCow, MyCommand,
+    },
+    database::OsuData,
+    embeds::{EmbedData, MostPlayedEmbed},
+    error::Error,
+    pagination::{MostPlayedPagination, Pagination},
+    util::{
         constants::{
             common_literals::{DISCORD, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
         numbers, ApplicationCommandExt, InteractionExt, MessageExt,
-    }};
-
-use eyre::Report;
-use rosu_v2::prelude::{GameMode, OsuError, Username};
-use std::sync::Arc;
-use twilight_model::application::interaction::{
-    application_command::CommandOptionValue, ApplicationCommand,
+    },
+    BotResult, CommandData, Context,
 };
 
 #[command]
@@ -59,19 +72,10 @@ async fn _mostplayed(
 
     // Retrieve the user and their most played maps
     let user_fut = super::request_user(&ctx, &name, GameMode::STD);
-    let maps_fut_1 = ctx.osu().user_most_played(name.as_str()).limit(50);
-    let maps_fut_2 = ctx
-        .osu()
-        .user_most_played(name.as_str())
-        .limit(50)
-        .offset(50);
+    let maps_fut = ctx.osu().user_most_played(name.as_str()).limit(100);
 
-    let (user, maps) = match tokio::try_join!(user_fut, maps_fut_1, maps_fut_2) {
-        Ok((user, mut maps, mut maps_2)) => {
-            maps.append(&mut maps_2);
-
-            (user, maps)
-        }
+    let (user, maps) = match tokio::try_join!(user_fut, maps_fut) {
+        Ok((user, maps)) => (user, maps),
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
 
