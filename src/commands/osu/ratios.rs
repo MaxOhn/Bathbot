@@ -5,13 +5,27 @@ use twilight_model::application::interaction::{
     application_command::CommandOptionValue, ApplicationCommand,
 };
 
-use crate::{ BotResult, CommandData, Context, MessageBuilder, commands::{DoubleResultCow, MyCommand, check_user_mention, osu::{option_discord, option_name}, parse_discord}, database::OsuData, embeds::{EmbedData, RatioEmbed}, error::Error, tracking::process_tracking, util::{
+use crate::{
+    commands::{
+        check_user_mention,
+        osu::{option_discord, option_name},
+        parse_discord, DoubleResultCow, MyCommand,
+    },
+    database::OsuData,
+    embeds::{EmbedData, RatioEmbed},
+    error::Error,
+    tracking::process_tracking,
+    util::{
         constants::{
             common_literals::{DISCORD, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
         ApplicationCommandExt, InteractionExt, MessageExt,
-    }};
+    },
+    BotResult, CommandData, Context, MessageBuilder,
+};
+
+use super::{ScoreArgs, UserArgs};
 
 #[command]
 #[short_desc("Ratio related stats about a user's top100")]
@@ -64,16 +78,11 @@ async fn _ratios(
     };
 
     // Retrieve the user and their top scores
-    let user_fut = super::request_user(&ctx, &name, GameMode::MNA);
+    let user_args = UserArgs::new(name.as_str(), GameMode::MNA);
+    let score_args = ScoreArgs::top(100);
 
-    let scores_fut = ctx
-        .osu()
-        .user_scores(name.as_str())
-        .best()
-        .mode(GameMode::MNA)
-        .limit(100);
-
-    let (mut user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
+    let (mut user, mut scores) = match super::get_user_and_scores(&ctx, user_args, &score_args).await
+    {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);

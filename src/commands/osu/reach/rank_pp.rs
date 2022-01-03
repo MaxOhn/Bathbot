@@ -10,7 +10,11 @@ use twilight_model::{
 };
 
 use crate::{
-    commands::{check_user_mention, parse_discord, parse_mode_option, DoubleResultCow},
+    commands::{
+        check_user_mention,
+        osu::{get_user, UserArgs},
+        parse_discord, parse_mode_option, DoubleResultCow,
+    },
     custom_client::RankParam,
     database::UserConfig,
     embeds::{EmbedData, RankEmbed},
@@ -61,7 +65,8 @@ pub(super) async fn _rank(
             rank_holder_fut = rank_holder_fut.country(country.as_str());
         }
 
-        let user_fut = super::request_user(&ctx, &name, mode);
+        let user_args = UserArgs::new(name.as_str(), mode);
+        let user_fut = get_user(&ctx, &user_args);
 
         let (mut user, rank_holder) = match tokio::try_join!(user_fut, rank_holder_fut) {
             Ok((user, mut rankings)) => {
@@ -97,7 +102,8 @@ pub(super) async fn _rank(
             .custom
             .get_rank_data(mode, RankParam::Rank(rank));
 
-        let user_fut = super::request_user(&ctx, &name, mode);
+        let user_args = UserArgs::new(name.as_str(), mode);
+        let user_fut = get_user(&ctx, &user_args);
         let (pp_result, user_result) = tokio::join!(pp_fut, user_fut);
 
         let required_pp = match pp_result {

@@ -1,5 +1,20 @@
+use std::sync::Arc;
+
+use rosu_v2::prelude::{GameMode, OsuError};
+use twilight_model::{
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+    id::UserId,
+};
+
 use crate::{
-    commands::{check_user_mention, parse_discord, parse_mode_option, DoubleResultCow},
+    commands::{
+        check_user_mention,
+        osu::{get_user, UserArgs},
+        parse_discord, parse_mode_option, DoubleResultCow,
+    },
     database::UserConfig,
     embeds::{EmbedData, OsuStatsCountsEmbed},
     error::Error,
@@ -11,16 +26,6 @@ use crate::{
         InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context,
-};
-
-use rosu_v2::prelude::{GameMode, OsuError};
-use std::sync::Arc;
-use twilight_model::{
-    application::interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
-    },
-    id::UserId,
 };
 
 pub(super) async fn _count(
@@ -36,7 +41,9 @@ pub(super) async fn _count(
         None => return super::require_link(&ctx, &data).await,
     };
 
-    let mut user = match super::request_user(&ctx, &name, mode).await {
+    let user_args = UserArgs::new(name.as_str(), mode);
+
+    let mut user = match get_user(&ctx, &user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);

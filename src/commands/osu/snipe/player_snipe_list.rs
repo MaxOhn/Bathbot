@@ -1,5 +1,16 @@
+use std::{collections::BTreeMap, fmt::Write, sync::Arc};
+
+use eyre::Report;
+use hashbrown::HashMap;
+use rosu_v2::prelude::{GameMode, OsuError};
+use twilight_model::id::UserId;
+
 use crate::{
-    commands::{check_user_mention, DoubleResultCow},
+    commands::{
+        check_user_mention,
+        osu::{get_user, UserArgs},
+        DoubleResultCow,
+    },
     custom_client::{SnipeScoreOrder, SnipeScoreParams},
     database::OsuData,
     embeds::{EmbedData, PlayerSnipeListEmbed},
@@ -15,12 +26,6 @@ use crate::{
     },
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
-
-use eyre::Report;
-use hashbrown::HashMap;
-use rosu_v2::prelude::{GameMode, OsuError};
-use std::{collections::BTreeMap, fmt::Write, sync::Arc};
-use twilight_model::id::UserId;
 
 #[command]
 #[bucket("snipe")]
@@ -79,7 +84,9 @@ pub(super) async fn _playersnipelist(
         None => return super::require_link(&ctx, &data).await,
     };
 
-    let mut user = match super::request_user(&ctx, &name, GameMode::STD).await {
+    let user_args = UserArgs::new(name.as_str(), GameMode::STD);
+
+    let mut user = match get_user(&ctx, &user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);

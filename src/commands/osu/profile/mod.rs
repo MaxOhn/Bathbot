@@ -28,7 +28,7 @@ use rosu_v2::prelude::{GameMode, OsuError};
 use std::{collections::BTreeMap, sync::Arc};
 use twilight_model::application::{command::CommandOptionChoice, interaction::ApplicationCommand};
 
-use super::option_mode;
+use super::{get_user_and_scores, option_mode, ScoreArgs, UserArgs};
 
 async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -> BotResult<()> {
     let ProfileArgs { config } = args;
@@ -47,15 +47,10 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
     };
 
     // Retrieve the user and their top scores
-    let user_fut = super::request_user(&ctx, &name, mode);
-    let scores_fut = ctx
-        .osu()
-        .user_scores(name.as_str())
-        .best()
-        .mode(mode)
-        .limit(100);
+    let user_args = UserArgs::new(name.as_str(), mode);
+    let score_args = ScoreArgs::top(100);
 
-    let (user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
+    let (user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
         Ok((mut user, scores)) => {
             user.mode = mode;
 

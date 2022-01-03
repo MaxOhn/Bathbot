@@ -1,14 +1,7 @@
-use crate::{
-    commands::check_user_mention,
-    custom_client::SnipeRecent,
-    database::OsuData,
-    embeds::{EmbedData, SnipedEmbed},
-    error::GraphError,
-    util::{
-        constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
-        MessageExt,
-    },
-    BotResult, CommandData, Context, MessageBuilder,
+use std::{
+    cmp::Reverse,
+    collections::{HashMap, HashSet},
+    sync::Arc,
 };
 
 use chrono::{Date, DateTime, Duration, Utc};
@@ -24,10 +17,21 @@ use plotters::{
     prelude::*,
 };
 use rosu_v2::prelude::{GameMode, OsuError, Username};
-use std::{
-    cmp::Reverse,
-    collections::{HashMap, HashSet},
-    sync::Arc,
+
+use crate::{
+    commands::{
+        check_user_mention,
+        osu::{get_user, UserArgs},
+    },
+    custom_client::SnipeRecent,
+    database::OsuData,
+    embeds::{EmbedData, SnipedEmbed},
+    error::GraphError,
+    util::{
+        constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
+        MessageExt,
+    },
+    BotResult, CommandData, Context, MessageBuilder,
 };
 
 #[command]
@@ -82,7 +86,9 @@ pub(super) async fn _sniped(
         None => return super::require_link(&ctx, &data).await,
     };
 
-    let mut user = match super::request_user(&ctx, &name, GameMode::STD).await {
+    let user_args = UserArgs::new(name.as_str(), GameMode::STD);
+
+    let mut user = match get_user(&ctx, &user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{}`", name);

@@ -6,7 +6,6 @@ use std::{
 };
 
 use eyre::Report;
-use futures::future::TryFutureExt;
 use rosu_v2::prelude::{
     GameMode, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
@@ -22,7 +21,11 @@ use twilight_model::{
 };
 
 use crate::{
-    commands::{check_user_mention, parse_discord, parse_mode_option, DoubleResultCow},
+    commands::{
+        check_user_mention,
+        osu::{get_user_and_scores,  ScoreArgs, UserArgs},
+        parse_discord, parse_mode_option, DoubleResultCow,
+    },
     database::UserConfig,
     embeds::{EmbedData, TopEmbed, TopSingleEmbed},
     error::Error,
@@ -43,7 +46,7 @@ use crate::{
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
-use super::{ErrorType, GradeArg};
+use super::{ GradeArg};
 
 pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> BotResult<()> {
     if args.index.filter(|n| *n > 100).is_some() {
@@ -101,26 +104,20 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
     };
 
     // Retrieve the user and their top scores
-    let user_fut = super::request_user(&ctx, name, mode).map_err(From::from);
-    let scores_fut = ctx.osu().user_scores(name).best().mode(mode).limit(100);
-    let scores_fut = super::prepare_scores(&ctx, scores_fut);
+    let user_args = UserArgs::new(name, mode);
+    let score_args = ScoreArgs::top(100).with_combo();
 
-    let (mut user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
+    let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
         Ok((user, scores)) => (user, scores),
-        Err(ErrorType::Osu(OsuError::NotFound)) => {
+        Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
 
             return data.error(&ctx, content).await;
         }
-        Err(ErrorType::Osu(why)) => {
+        Err(err) => {
             let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
-        }
-        Err(ErrorType::Bot(why)) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
+            return Err(err.into());
         }
     };
 

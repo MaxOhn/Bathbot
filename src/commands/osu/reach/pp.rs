@@ -11,7 +11,11 @@ use twilight_model::{
 };
 
 use crate::{
-    commands::{check_user_mention, parse_discord, parse_mode_option, DoubleResultCow},
+    commands::{
+        check_user_mention,
+        osu::{get_user_and_scores, ScoreArgs, UserArgs},
+        parse_discord, parse_mode_option, DoubleResultCow,
+    },
     custom_client::RankParam,
     database::UserConfig,
     embeds::{EmbedData, PPMissingEmbed},
@@ -42,20 +46,15 @@ pub(super) async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) 
     }
 
     // Retrieve the user and their top scores
-    let user_fut = super::request_user(&ctx, &name, mode);
-    let scores_fut = ctx
-        .osu()
-        .user_scores(name.as_str())
-        .best()
-        .mode(mode)
-        .limit(100);
-
+    let user_args = UserArgs::new(name.as_str(), mode);
+    let score_args = ScoreArgs::top(100);
+    let user_scores_fut = get_user_and_scores(&ctx, user_args, &score_args);
     let rank_fut = ctx.clients.custom.get_rank_data(mode, RankParam::Pp(pp));
 
-    let (user_result, scores_result, rank_result) = tokio::join!(user_fut, scores_fut, rank_fut);
+    let (user_scores_result, rank_result) = tokio::join!(user_scores_fut, rank_fut);
 
-    let mut user = match user_result {
-        Ok(user) => user,
+    let (mut user, mut scores) = match user_scores_result {
+        Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
 
@@ -70,15 +69,6 @@ pub(super) async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) 
 
     // Overwrite default mode
     user.mode = mode;
-
-    let mut scores = match scores_result {
-        Ok(scores) => scores,
-        Err(why) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
-
-            return Err(why.into());
-        }
-    };
 
     let rank = match rank_result {
         Ok(rank_pp) => Some(rank_pp.rank as usize),

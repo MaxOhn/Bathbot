@@ -1,5 +1,22 @@
+use std::{cmp::Reverse, sync::Arc};
+
+use chrono::{DateTime, Utc};
+use eyre::Report;
+use rosu_v2::prelude::{GameMode, OsuError, User, Username};
+use twilight_model::{
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+    id::UserId,
+};
+
 use crate::{
-    commands::{check_user_mention, parse_discord, DoubleResultCow},
+    commands::{
+        check_user_mention,
+        osu::{get_user, UserArgs},
+        parse_discord, DoubleResultCow,
+    },
     database::OsuData,
     embeds::MedalEmbed,
     error::Error,
@@ -12,18 +29,6 @@ use crate::{
         InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, MessageBuilder,
-};
-
-use chrono::{DateTime, Utc};
-use eyre::Report;
-use rosu_v2::prelude::{GameMode, OsuError, User, Username};
-use std::{cmp::Reverse, sync::Arc};
-use twilight_model::{
-    application::interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
-    },
-    id::UserId,
 };
 
 #[command]
@@ -66,7 +71,8 @@ pub(super) async fn _medalrecent(
         None => return super::require_link(&ctx, &data).await,
     };
 
-    let user_fut = super::request_user(&ctx, &name, GameMode::STD);
+    let user_args = UserArgs::new(name.as_str(), GameMode::STD);
+    let user_fut = get_user(&ctx, &user_args);
 
     let mut user = match user_fut.await {
         Ok(user) => user,

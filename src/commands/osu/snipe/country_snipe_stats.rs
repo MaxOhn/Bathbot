@@ -1,4 +1,12 @@
+use std::{cmp::Ordering::Equal, sync::Arc};
+
+use eyre::Report;
+use image::{png::PngEncoder, ColorType};
+use plotters::prelude::*;
+use rosu_v2::prelude::{GameMode, OsuError};
+
 use crate::{
+    commands::osu::{get_user_cached, UserArgs},
     custom_client::SnipeCountryPlayer,
     database::OsuData,
     embeds::{CountrySnipeStatsEmbed, EmbedData},
@@ -9,12 +17,6 @@ use crate::{
     },
     BotResult, CommandData, Context, MessageBuilder,
 };
-
-use eyre::Report;
-use image::{png::PngEncoder, ColorType};
-use plotters::prelude::*;
-use rosu_v2::prelude::{GameMode, OsuError};
-use std::{cmp::Ordering::Equal, sync::Arc};
 
 #[command]
 #[short_desc("Snipe / #1 count related stats for a country")]
@@ -87,7 +89,9 @@ pub(super) async fn _countrysnipestats(
             .map(|osu| osu.map(OsuData::into_username))
         {
             Ok(Some(name)) => {
-                let user = match super::request_user(&ctx, &name, GameMode::STD).await {
+                let user_args = UserArgs::new(name.as_str(), GameMode::STD);
+
+                let user = match get_user_cached(&ctx, &user_args).await {
                     Ok(user) => user,
                     Err(OsuError::NotFound) => {
                         let content = format!("User `{}` was not found", name);

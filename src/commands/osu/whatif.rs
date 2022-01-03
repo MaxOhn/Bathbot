@@ -26,7 +26,7 @@ use crate::{
     Args, BotResult, CommandData, Context, Error,
 };
 
-use super::{option_discord, option_mode, option_name};
+use super::{get_user_and_scores, option_discord, option_mode, option_name, ScoreArgs, UserArgs};
 
 async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> BotResult<()> {
     let WhatIfArgs { config, pp } = args;
@@ -44,16 +44,10 @@ async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> 
     }
 
     // Retrieve the user and their top scores
-    let user_fut = super::request_user(&ctx, &name, mode);
+    let user_args = UserArgs::new(name.as_str(), mode);
+    let score_args = ScoreArgs::top(100);
 
-    let scores_fut = ctx
-        .osu()
-        .user_scores(name.as_str())
-        .best()
-        .mode(mode)
-        .limit(100);
-
-    let (mut user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
+    let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);

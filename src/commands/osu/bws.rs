@@ -1,3 +1,11 @@
+use std::{mem, sync::Arc};
+
+use rosu_v2::prelude::{GameMode, OsuError};
+use twilight_model::{
+    application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
+    id::UserId,
+};
+
 use crate::{
     commands::{
         check_user_mention,
@@ -17,12 +25,7 @@ use crate::{
     Args, BotResult, CommandData, Context,
 };
 
-use rosu_v2::prelude::{GameMode, OsuError};
-use std::{mem, sync::Arc};
-use twilight_model::{
-    application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
-    id::UserId,
-};
+use super::{get_user, UserArgs};
 
 const MIN_BADGES_OFFSET: usize = 2;
 
@@ -71,7 +74,9 @@ async fn _bws(ctx: Arc<Context>, data: CommandData<'_>, args: BwsArgs) -> BotRes
         None => return super::require_link(&ctx, &data).await,
     };
 
-    let user = match super::request_user(&ctx, &name, mode).await {
+    let user_args = UserArgs::new(name.as_str(), mode);
+
+    let user = match get_user(&ctx, &user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);

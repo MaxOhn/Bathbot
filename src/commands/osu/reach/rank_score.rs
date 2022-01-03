@@ -10,7 +10,11 @@ use twilight_model::{
 };
 
 use crate::{
-    commands::{check_user_mention, parse_discord, parse_mode_option, DoubleResultCow},
+    commands::{
+        check_user_mention,
+        osu::{get_user, UserArgs},
+        parse_discord, parse_mode_option, DoubleResultCow,
+    },
     database::UserConfig,
     embeds::{EmbedData, RankRankedScoreEmbed},
     util::{
@@ -49,7 +53,8 @@ pub(super) async fn _rankscore(
     // Retrieve the user and the user thats holding the given rank
     let page = (rank / 50) + (rank % 50 != 0) as usize;
     let rank_holder_fut = ctx.osu().score_rankings(mode).page(page as u32);
-    let user_fut = super::request_user(&ctx, &name, mode);
+    let user_args = UserArgs::new(name.as_str(), mode);
+    let user_fut = get_user(&ctx, &user_args);
 
     let (mut user, rank_holder) = match tokio::try_join!(user_fut, rank_holder_fut) {
         Ok((user, mut rankings)) => {

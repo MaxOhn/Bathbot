@@ -32,7 +32,7 @@ use crate::{
     BotResult, Context, Error,
 };
 
-use super::{prepare_scores, request_user, require_link, ErrorType, GradeArg};
+use super::{require_link, GradeArg};
 
 enum TopCommandKind {
     If(IfArgs),

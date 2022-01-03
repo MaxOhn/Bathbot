@@ -1,14 +1,25 @@
-use crate::{BotResult, CommandData, Context, MessageBuilder, commands::check_user_mention, database::OsuData, embeds::{EmbedData, PlayerSnipeStatsEmbed}, error::GraphError, util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        MessageExt,
-    }};
+use std::{collections::BTreeMap, sync::Arc};
 
 use chrono::{Date, Datelike, Utc};
 use eyre::Report;
 use image::{png::PngEncoder, ColorType};
 use plotters::prelude::*;
 use rosu_v2::prelude::{GameMode, OsuError, Username};
-use std::{collections::BTreeMap, sync::Arc};
+
+use crate::{
+    commands::{
+        check_user_mention,
+        osu::{get_user, UserArgs},
+    },
+    database::OsuData,
+    embeds::{EmbedData, PlayerSnipeStatsEmbed},
+    error::GraphError,
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        MessageExt,
+    },
+    BotResult, CommandData, Context, MessageBuilder,
+};
 
 #[command]
 #[short_desc("Stats about a user's #1 scores in their country leaderboards")]
@@ -60,7 +71,9 @@ pub(super) async fn _playersnipestats(
         None => return super::require_link(&ctx, &data).await,
     };
 
-    let mut user = match super::request_user(&ctx, &name, GameMode::STD).await {
+    let user_args = UserArgs::new(name.as_str(), GameMode::STD);
+
+    let mut user = match get_user(&ctx, &user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);

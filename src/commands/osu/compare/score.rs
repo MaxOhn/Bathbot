@@ -17,7 +17,11 @@ use twilight_model::{
 };
 
 use crate::{
-    commands::{check_user_mention, parse_discord, DoubleResultCow},
+    commands::{
+        check_user_mention,
+        osu::{get_user, UserArgs},
+        parse_discord, DoubleResultCow,
+    },
     database::UserConfig,
     embeds::{CompareEmbed, EmbedData, NoScoresEmbed},
     error::Error,
@@ -376,7 +380,9 @@ async fn no_scores(
         },
     };
 
-    let user = match super::request_user(ctx, name, map.mode).await {
+    let user_args = UserArgs::new(name, map.mode);
+
+    let user = match get_user(ctx, &user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{}`", name);

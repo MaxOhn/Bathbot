@@ -1,5 +1,16 @@
+use std::sync::Arc;
+
+use chrono::Datelike;
+use eyre::Report;
+use image::{png::PngEncoder, ColorType};
+use plotters::prelude::*;
+use rosu_v2::prelude::{GameMode, MedalCompact, OsuError, Username};
+
 use crate::{
-    commands::check_user_mention,
+    commands::{
+        check_user_mention,
+        osu::{get_user, UserArgs},
+    },
     database::OsuData,
     embeds::{EmbedData, MedalStatsEmbed},
     error::GraphError,
@@ -9,13 +20,6 @@ use crate::{
     },
     BotResult, CommandData, Context, MessageBuilder,
 };
-
-use chrono::Datelike;
-use eyre::Report;
-use image::{png::PngEncoder, ColorType};
-use plotters::prelude::*;
-use rosu_v2::prelude::{GameMode, MedalCompact, OsuError, Username};
-use std::sync::Arc;
 
 #[command]
 #[short_desc("Display medal stats for a user")]
@@ -61,7 +65,8 @@ pub(super) async fn _medalstats(
         None => return super::require_link(&ctx, &data).await,
     };
 
-    let user_fut = super::request_user(&ctx, &name, GameMode::STD);
+    let user_args = UserArgs::new(name.as_str(), GameMode::STD);
+    let user_fut = get_user(&ctx, &user_args);
     let medals_fut = ctx.psql().get_medals();
 
     let (mut user, all_medals) = match tokio::join!(user_fut, medals_fut) {

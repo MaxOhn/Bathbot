@@ -1,5 +1,21 @@
+use std::{collections::BTreeMap, fmt::Write, mem, sync::Arc};
+
+use eyre::Report;
+use rosu_v2::prelude::{GameMode, OsuError, Username};
+use twilight_model::{
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+    id::UserId,
+};
+
 use crate::{
-    commands::{check_user_mention, parse_discord, parse_mode_option, DoubleResultCow},
+    commands::{
+        check_user_mention,
+        osu::{get_user, UserArgs},
+        parse_discord, parse_mode_option, DoubleResultCow,
+    },
     custom_client::{OsuStatsOrder, OsuStatsParams, OsuStatsScore},
     database::UserConfig,
     embeds::{EmbedData, OsuStatsGlobalsEmbed},
@@ -19,17 +35,6 @@ use crate::{
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
-use eyre::Report;
-use rosu_v2::prelude::{GameMode, OsuError, Username};
-use std::{collections::BTreeMap, fmt::Write, mem, sync::Arc};
-use twilight_model::{
-    application::interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
-    },
-    id::UserId,
-};
-
 pub(super) async fn _scores(
     ctx: Arc<Context>,
     data: CommandData<'_>,
@@ -41,9 +46,10 @@ pub(super) async fn _scores(
     };
 
     let mode = args.config.mode.unwrap_or(GameMode::STD);
+    let user_args = UserArgs::new(name, mode);
 
     // Retrieve user
-    let mut user = match super::request_user(&ctx, name, mode).await {
+    let mut user = match get_user(&ctx, &user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);

@@ -1,6 +1,26 @@
-use super::{MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32, AT_LEAST_ONE};
+use std::sync::Arc;
+
+use eyre::Report;
+use image::{
+    imageops::{overlay, FilterType},
+    DynamicImage, ImageBuffer,
+    ImageOutputFormat::Png,
+    Rgba,
+};
+use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score, UserStatistics, Username};
+use twilight_model::{
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+    id::UserId,
+};
+
 use crate::{
-    commands::{parse_discord, parse_mode_option, DoubleResultCow},
+    commands::{
+        osu::{get_user_and_scores, ScoreArgs, UserArgs},
+        parse_discord, parse_mode_option, DoubleResultCow,
+    },
     database::OsuData,
     embeds::{EmbedData, ProfileCompareEmbed},
     error::Error,
@@ -14,22 +34,7 @@ use crate::{
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
-use eyre::Report;
-use image::{
-    imageops::{overlay, FilterType},
-    DynamicImage, ImageBuffer,
-    ImageOutputFormat::Png,
-    Rgba,
-};
-use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score, UserStatistics, Username};
-use std::sync::Arc;
-use twilight_model::{
-    application::interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
-    },
-    id::UserId,
-};
+use super::{MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32, AT_LEAST_ONE};
 
 pub(super) async fn _profilecompare(
     ctx: Arc<Context>,
@@ -53,27 +58,15 @@ pub(super) async fn _profilecompare(
     }
 
     // Retrieve all users and their scores
-    let user_fut1 = super::request_user(&ctx, &name1, mode);
-    let user_fut2 = super::request_user(&ctx, &name2, mode);
+    let user_args1 = UserArgs::new(name1.as_str(), mode);
+    let user_args2 = UserArgs::new(name2.as_str(), mode);
+    let score_args = ScoreArgs::top(100);
 
-    let scores_fut_u1 = ctx
-        .osu()
-        .user_scores(name1.as_str())
-        .mode(mode)
-        .best()
-        .limit(100);
+    let fut1 = get_user_and_scores(&ctx, user_args1, &score_args);
+    let fut2 = get_user_and_scores(&ctx, user_args2, &score_args);
 
-    let scores_fut_u2 = ctx
-        .osu()
-        .user_scores(name2.as_str())
-        .mode(mode)
-        .best()
-        .limit(100);
-
-    let fut_result = tokio::try_join!(user_fut1, user_fut2, scores_fut_u1, scores_fut_u2,);
-
-    let (user1, user2, mut scores1, mut scores2) = match fut_result {
-        Ok((user1, user2, scores1, scores2)) => (user1, user2, scores1, scores2),
+    let (user1, user2, mut scores1, mut scores2) = match tokio::try_join!(fut1, fut2) {
+        Ok(((user1, scores1), (user2, scores2))) => (user1, user2, scores1, scores2),
         Err(OsuError::NotFound) => {
             let content = "At least one of the players was not found";
 

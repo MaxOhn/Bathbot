@@ -32,6 +32,7 @@ pub use avatar::*;
 pub use bws::*;
 pub use compare::*;
 pub use fix::*;
+use hashbrown::HashMap;
 pub use leaderboard::*;
 pub use link::*;
 pub use map::*;
@@ -60,18 +61,18 @@ use crate::{
             SPECIFY_MODE, TAIKO,
         },
         numbers::with_comma_int,
-        MessageExt,
+        CowUtils, MessageExt,
     },
     BotResult, CommandData, Context, Error,
 };
 
 use deadpool_redis::redis::AsyncCommands;
 use eyre::Report;
-use futures::{
-    future::FutureExt,
-    stream::{FuturesUnordered, TryStreamExt},
+use futures::future::FutureExt;
+use rosu_v2::{
+    prelude::{GameMode, Grade, OsuError, OsuResult, Score, User},
+    request::GetUserScores,
 };
-use rosu_v2::prelude::{GameMode, Grade, OsuError, OsuResult, Score, User};
 use std::{
     borrow::Cow,
     cmp::PartialOrd,
@@ -102,17 +103,33 @@ impl From<OsuError> for ErrorType {
 
 const USER_CACHE_SECONDS: usize = 600;
 
-pub async fn request_user(ctx: &Context, name: &str, mode: GameMode) -> OsuResult<User> {
-    let key = format!("__{}_{}", name, mode as u8);
+async fn get_user(ctx: &Context, user: &UserArgs<'_>) -> OsuResult<User> {
+    if let Some(alt_name) = user.whitespaced_name() {
+        match get_user_cached(ctx, user).await {
+            Ok(user) => Ok(user),
+            Err(OsuError::NotFound) => {
+                let user = UserArgs::new(&alt_name, user.mode);
+
+                get_user_cached(ctx, &user).await
+            }
+            Err(err) => Err(err),
+        }
+    } else {
+        get_user_cached(ctx, user).await
+    }
+}
+
+async fn get_user_cached(ctx: &Context, user: &UserArgs<'_>) -> OsuResult<User> {
+    let key = format!("__{}_{}", user.name, user.mode as u8);
 
     let mut conn = match ctx.clients.redis.get().await {
         Ok(mut conn) => {
             if let Ok(bytes) = conn.get::<_, Vec<u8>>(&key).await {
                 if !bytes.is_empty() {
                     ctx.stats.inc_cached_user();
+                    trace!("Found user `{}` in cache", user.name);
                     let user =
                         serde_cbor::from_slice(&bytes).expect("failed to deserialize redis user");
-                    trace!("Found user `{}` in cache", name);
 
                     return Ok(user);
                 }
@@ -124,11 +141,11 @@ pub async fn request_user(ctx: &Context, name: &str, mode: GameMode) -> OsuResul
             let report = Report::new(why).wrap_err("failed to get redis connection");
             warn!("{:?}", report);
 
-            return ctx.osu().user(name).mode(mode).await;
+            return ctx.osu().user(user.name).mode(user.mode).await;
         }
     };
 
-    let mut user = ctx.osu().user(name).mode(mode).await?;
+    let mut user = ctx.osu().user(user.name).mode(user.mode).await?;
 
     // Remove html user page to reduce overhead
     user.page.take();
@@ -147,11 +164,125 @@ pub async fn request_user(ctx: &Context, name: &str, mode: GameMode) -> OsuResul
     }
 
     if let Err(why) = name_update_result {
-        let report = Report::new(why).wrap_err("failed to update osu!username");
+        let report = Report::new(why).wrap_err("failed to update osu! username");
         warn!("{:?}", report);
     }
 
     Ok(user)
+}
+
+async fn get_user_and_scores<'c>(
+    ctx: &'c Context,
+    mut user: UserArgs<'_>,
+    scores: &ScoreArgs<'c>,
+) -> OsuResult<(User, Vec<Score>)> {
+    if let Some(alt_name) = user.whitespaced_name() {
+        match get_user_cached(ctx, &user).await {
+            Ok(u) => Ok((u, get_scores(ctx, &user, scores).await?)),
+            Err(OsuError::NotFound) => {
+                user.name = &alt_name;
+
+                let user_fut = get_user_cached(ctx, &user);
+                let scores_fut = get_scores(ctx, &user, scores);
+
+                tokio::try_join!(user_fut, scores_fut)
+            }
+            Err(err) => return Err(err),
+        }
+    } else {
+        let user_fut = get_user_cached(ctx, &user);
+        let scores_fut = get_scores(ctx, &user, scores);
+
+        tokio::try_join!(user_fut, scores_fut)
+    }
+}
+
+async fn get_scores<'c>(
+    ctx: &'c Context,
+    user: &UserArgs<'_>,
+    scores: &ScoreArgs<'c>,
+) -> OsuResult<Vec<Score>> {
+    let scores_fut = {
+        let mut fut = ctx
+            .osu()
+            .user_scores(user.name)
+            .mode(user.mode)
+            .limit(scores.limit);
+
+        if let Some(include_fails) = scores.include_fails {
+            fut = fut.include_fails(include_fails)
+        }
+
+        (scores.fun)(fut)
+    };
+
+    if scores.with_combo {
+        prepare_scores(ctx, scores_fut).await
+    } else {
+        scores_fut.await
+    }
+}
+
+struct UserArgs<'n> {
+    name: &'n str,
+    mode: GameMode,
+}
+
+impl<'n> UserArgs<'n> {
+    fn new(name: &'n str, mode: GameMode) -> Self {
+        Self { name, mode }
+    }
+
+    /// Try to replace underscores with whitespace.
+    fn whitespaced_name(&self) -> Option<String> {
+        if self.name.starts_with('_') || self.name.ends_with('_') {
+            return None;
+        }
+
+        match self.name.cow_replace('_', " ") {
+            Cow::Borrowed(_) => None,
+            Cow::Owned(name) => Some(name),
+        }
+    }
+}
+
+struct ScoreArgs<'o> {
+    fun: fn(GetUserScores<'o>) -> GetUserScores<'o>,
+    include_fails: Option<bool>,
+    limit: usize,
+    with_combo: bool,
+}
+
+impl<'o> ScoreArgs<'o> {
+    fn top(limit: usize) -> Self {
+        Self {
+            fun: GetUserScores::best,
+            include_fails: None,
+            limit,
+            with_combo: false,
+        }
+    }
+
+    fn recent(limit: usize) -> Self {
+        Self {
+            fun: GetUserScores::recent,
+            include_fails: None,
+            limit,
+            with_combo: false,
+        }
+    }
+
+    fn include_fails(mut self, include_fails: bool) -> Self {
+        self.include_fails = Some(include_fails);
+
+        self
+    }
+
+    fn with_combo(mut self) -> Self {
+        self.with_combo = true;
+
+        self
+    }
 }
 
 /// Insert the max combo of the score's map
@@ -185,57 +316,74 @@ pub async fn prepare_score(ctx: &Context, score: &mut Score) -> OsuResult<()> {
 fn prepare_scores<'c, F>(
     ctx: &'c Context,
     fut: F,
-) -> impl 'c + Future<Output = Result<Vec<Score>, ErrorType>>
+) -> impl 'c + Future<Output = OsuResult<Vec<Score>>>
 where
     F: 'c + Future<Output = OsuResult<Vec<Score>>>,
 {
     fut.then(move |result| async move {
         let mut scores = result?;
 
-        // If there's no score or its mania scores, return early
-        let invalid_scores = scores
-            .first()
-            .filter(|s| s.map.is_some() && matches!(s.mode, GameMode::STD | GameMode::CTB))
-            .is_none();
-
-        if invalid_scores {
-            return Ok(scores);
-        }
-
+        // Gather combos from DB
         let map_ids: Vec<_> = scores
             .iter()
             .filter_map(|s| s.map.as_ref())
-            .filter(|map| map.max_combo.is_none())
+            .filter(|map| map.max_combo.is_none() && map.mode != GameMode::MNA)
             .map(|map| map.map_id as i32)
             .collect();
 
-        let combos = ctx.psql().get_beatmaps_combo(&map_ids).await?;
-        let combos_ref = &combos;
+        if map_ids.is_empty() {
+            return Ok(scores);
+        }
 
-        scores
+        let combos = match ctx.psql().get_beatmaps_combo(&map_ids).await {
+            Ok(map) => map,
+            Err(err) => {
+                let report = Report::new(err).wrap_err("failed to get map combos");
+                warn!("{:?}", report);
+
+                HashMap::default()
+            }
+        };
+
+        // Insert all combos from the database and collect remaining map ids
+        let mut map_ids = Vec::with_capacity(map_ids.len() - combos.len());
+
+        let map_ids_iter = scores
             .iter_mut()
             .filter_map(|score| score.map.as_mut())
-            .map(|score_map| async move {
-                match combos_ref.get(&score_map.map_id) {
-                    Some(Some(combo)) => {
-                        score_map.max_combo = Some(*combo);
-                    }
-                    None | Some(None) => {
-                        let map = ctx.osu().beatmap().map_id(score_map.map_id).await?;
+            .filter(|map| map.max_combo.is_none() && map.mode != GameMode::MNA)
+            .filter_map(|map| match combos.get(&map.map_id) {
+                Some(Some(combo)) => {
+                    map.max_combo = Some(*combo);
 
-                        if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-                            warn!("{:?}", Report::new(err));
-                        }
+                    None
+                }
+                None | Some(None) => Some(map.map_id),
+            });
 
-                        score_map.max_combo = map.max_combo;
+        map_ids.extend(map_ids_iter);
+
+        if map_ids.is_empty() {
+            return Ok(scores);
+        }
+
+        // Request remaining maps and insert their combos
+        for map in ctx.osu().beatmaps(map_ids).await? {
+            if let Some(combo) = map.max_combo {
+                if let Some(map) = scores
+                    .iter_mut()
+                    .filter_map(|s| s.map.as_mut())
+                    .find(|m| m.map_id == map.map_id)
+                {
+                    map.max_combo = Some(combo);
+
+                    if let Err(err) = ctx.psql().insert_beatmap(map).await {
+                        let report = Report::new(err).wrap_err("failed to insert map into DB");
+                        warn!("{:?}", report);
                     }
                 }
-
-                Ok::<_, Error>(())
-            })
-            .collect::<FuturesUnordered<_>>()
-            .try_collect()
-            .await?;
+            }
+        }
 
         Ok(scores)
     })

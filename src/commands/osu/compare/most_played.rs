@@ -3,10 +3,11 @@ use std::{cmp::Reverse, fmt::Write, sync::Arc};
 use eyre::Report;
 use futures::stream::{FuturesOrdered, StreamExt};
 use hashbrown::{HashMap, HashSet};
-use rosu_v2::prelude::OsuError;
+use rosu_v2::prelude::{GameMode, OsuError};
 use smallvec::SmallVec;
 
 use crate::{
+    commands::osu::UserArgs,
     embeds::{EmbedData, MostPlayedCommonEmbed},
     pagination::{MostPlayedCommonPagination, Pagination},
     util::{
@@ -99,9 +100,28 @@ pub(super) async fn _mostplayedcommon(
         .iter()
         .cloned()
         .map(|name| async {
-            let fut = ctx.osu().user_most_played(name.as_str()).limit(100);
+            let user_args = UserArgs::new(name.as_str(), GameMode::STD);
+            let scores_fut = ctx.osu().user_most_played(name.as_str()).limit(100);
 
-            (name, fut.await)
+            if let Some(alt_name) = user_args.whitespaced_name() {
+                match scores_fut.await {
+                    Ok(maps) => (name, Ok(maps)),
+                    Err(OsuError::NotFound) => {
+                        let scores_result = ctx
+                            .osu()
+                            .user_most_played(alt_name.as_str())
+                            .limit(100)
+                            .await;
+
+                        (alt_name.into(), scores_result)
+                    }
+                    Err(err) => (name, Err(err)),
+                }
+            } else {
+                let scores_result = scores_fut.await;
+
+                (name, scores_result)
+            }
         })
         .collect::<FuturesOrdered<_>>();
 
@@ -110,9 +130,7 @@ pub(super) async fn _mostplayedcommon(
 
     while let Some((name, map_result)) = map_futs.next().await {
         match map_result {
-            Ok((mut maps, mut maps_2)) => {
-                maps.append(&mut maps_2);
-
+            Ok(maps) => {
                 let map_counts = maps.iter().map(|map| (map.map.map_id, map.count)).collect();
                 users_count.push(map_counts);
                 all_maps.extend(maps.into_iter().map(|map| (map.map.map_id, map)));

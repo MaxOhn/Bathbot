@@ -41,7 +41,7 @@ use crate::{
     BotResult, Context, Error,
 };
 
-use super::{prepare_score, request_user, require_link};
+use super::{prepare_score, require_link};
 
 enum SnipeCommandKind {
     CountryList(CountryListArgs),
@@ -262,7 +262,7 @@ async fn parse_username(
                 _ => return Err(Error::InvalidCommandOptions),
             },
             CommandOptionValue::User(value) => match option.name.as_str() {
-                DISCORD => match parse_discord(ctx,  value).await? {
+                DISCORD => match parse_discord(ctx, value).await? {
                     Ok(osu) => username = Some(osu.into_username()),
                     Err(content) => return Ok(Err(content)),
                 },

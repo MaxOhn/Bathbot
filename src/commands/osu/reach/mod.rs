@@ -25,7 +25,7 @@ use crate::{
     BotResult, Context, Error,
 };
 
-use super::{request_user, require_link};
+use super::require_link;
 
 enum ReachCommandKind {
     Performance(PpArgs),

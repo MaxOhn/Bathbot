@@ -6,7 +6,7 @@ pub use counts::*;
 pub use globals::*;
 pub use list::*;
 
-use super::{get_globals_count, request_user, require_link};
+use super::{get_globals_count, require_link};
 
 use crate::{
     commands::{

@@ -1,4 +1,10 @@
+use std::{borrow::Cow, cmp::Ordering::Equal, sync::Arc};
+
+use eyre::Report;
+use rosu_v2::prelude::{GameMode, OsuError};
+
 use crate::{
+    commands::osu::{get_user_cached, UserArgs},
     custom_client::SnipeCountryPlayer as SCP,
     database::OsuData,
     embeds::{CountrySnipeListEmbed, EmbedData},
@@ -9,10 +15,6 @@ use crate::{
     },
     Args, BotResult, CommandData, Context,
 };
-
-use eyre::Report;
-use rosu_v2::prelude::{GameMode, OsuError};
-use std::{borrow::Cow, cmp::Ordering::Equal, sync::Arc};
 
 #[command]
 #[short_desc("Sort the country's #1 leaderboard")]
@@ -61,19 +63,23 @@ pub(super) async fn _countrysnipelist(
         .await
         .map(|osu| osu.map(OsuData::into_username))
     {
-        Ok(Some(name)) => match super::request_user(&ctx, &name, GameMode::STD).await {
-            Ok(user) => Some(user),
-            Err(OsuError::NotFound) => {
-                let content = format!("User `{}` was not found", name);
+        Ok(Some(name)) => {
+            let user_args = UserArgs::new(name.as_str(), GameMode::STD);
 
-                return data.error(&ctx, content).await;
-            }
-            Err(why) => {
-                let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            match get_user_cached(&ctx, &user_args).await {
+                Ok(user) => Some(user),
+                Err(OsuError::NotFound) => {
+                    let content = format!("User `{}` was not found", name);
 
-                return Err(why.into());
+                    return data.error(&ctx, content).await;
+                }
+                Err(why) => {
+                    let _ = data.error(&ctx, OSU_API_ISSUE).await;
+
+                    return Err(why.into());
+                }
             }
-        },
+        }
         Ok(None) => None,
         Err(why) => {
             let wrap = format!("failed to get UserConfig for user {}", author_id);

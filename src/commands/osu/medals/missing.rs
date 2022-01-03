@@ -1,5 +1,14 @@
+use std::{cmp::Ordering, sync::Arc};
+
+use eyre::Report;
+use hashbrown::HashSet;
+use rosu_v2::prelude::{GameMode, OsuError, Username};
+
 use crate::{
-    commands::check_user_mention,
+    commands::{
+        check_user_mention,
+        osu::{get_user, UserArgs},
+    },
     custom_client::{OsekaiGrouping, OsekaiMedal, MEDAL_GROUPS},
     database::OsuData,
     embeds::{EmbedData, MedalsMissingEmbed},
@@ -10,11 +19,6 @@ use crate::{
     },
     BotResult, CommandData, Context,
 };
-
-use eyre::Report;
-use hashbrown::HashSet;
-use rosu_v2::prelude::{GameMode, OsuError, Username};
-use std::{cmp::Ordering, sync::Arc};
 
 #[command]
 #[short_desc("Display a list of medals that a user is missing")]
@@ -60,7 +64,8 @@ pub(super) async fn _medalsmissing(
         None => return super::require_link(&ctx, &data).await,
     };
 
-    let user_fut = super::request_user(&ctx, &name, GameMode::STD);
+    let user_args = UserArgs::new(name.as_str(), GameMode::STD);
+    let user_fut = get_user(&ctx, &user_args);
     let medals_fut = ctx.psql().get_medals();
 
     let (user, all_medals) = match tokio::join!(user_fut, medals_fut) {

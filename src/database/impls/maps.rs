@@ -7,7 +7,7 @@ use futures::{
 };
 use hashbrown::HashMap;
 use rosu_v2::prelude::{
-    Beatmap, Beatmapset, BeatmapsetCompact,
+    Beatmap, Beatmapset, BeatmapsetCompact, GameMode,
     RankStatus::{Approved, Loved, Ranked},
     Score,
 };
@@ -81,7 +81,7 @@ pub struct InsertMapError(#[from] SqlxError);
 pub struct InsertMapsetError(#[from] SqlxError);
 
 fn should_not_be_stored(map: &Beatmap) -> bool {
-    invalid_status!(map) || map.convert
+    invalid_status!(map) || map.convert || (map.mode != GameMode::MNA && map.max_combo.is_none())
 }
 
 impl Database {

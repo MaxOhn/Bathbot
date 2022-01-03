@@ -17,7 +17,11 @@ use twilight_model::{
 
 use super::GradeArg;
 use crate::{
-    commands::{check_user_mention, parse_discord, parse_mode_option, DoubleResultCow},
+    commands::{
+        check_user_mention,
+        osu::{get_user_and_scores, ScoreArgs, UserArgs},
+        parse_discord, parse_mode_option, DoubleResultCow,
+    },
     database::UserConfig,
     embeds::{EmbedData, RecentEmbed},
     error::Error,
@@ -72,17 +76,11 @@ pub(super) async fn _recent(
     let mode = config.mode.unwrap_or(GameMode::STD);
 
     // Retrieve the user and their recent scores
-    let user_fut = super::request_user(&ctx, name, mode);
+    let user_args = UserArgs::new(name, mode);
+    let score_args =
+        ScoreArgs::recent(100).include_fails(grade.map_or(true, |g| g.include_fails()));
 
-    let scores_fut = ctx
-        .osu()
-        .user_scores(name)
-        .recent()
-        .mode(mode)
-        .limit(100)
-        .include_fails(grade.map_or(true, |g| g.include_fails()));
-
-    let (mut user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
+    let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
         Ok((_, scores)) if scores.is_empty() => {
             let content = format!(
                 "No recent {}plays found for user `{}`",

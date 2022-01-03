@@ -31,7 +31,7 @@ use crate::{
     Args, BotResult, CommandData, Context,
 };
 
-use super::{option_discord, option_map, option_mods, option_name};
+use super::{get_user, option_discord, option_map, option_mods, option_name, UserArgs};
 
 #[command]
 #[short_desc("Display a user's pp after unchoking their score on a map")]
@@ -300,7 +300,9 @@ async fn request_by_map(
                 },
             };
 
-            let user = match super::request_user(ctx, name, map.mode).await {
+            let user_args = UserArgs::new(name, map.mode);
+
+            let user = match get_user(ctx, &user_args).await {
                 Ok(user) => user,
                 Err(OsuError::NotFound) => {
                     let content = format!("Could not find user `{}`", name);

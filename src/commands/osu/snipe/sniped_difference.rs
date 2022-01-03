@@ -1,13 +1,24 @@
-use crate::{BotResult, CommandData, Context, MessageBuilder, commands::check_user_mention, database::OsuData, embeds::{EmbedData, SnipedDiffEmbed}, pagination::{Pagination, SnipedDiffPagination}, util::{
-        constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
-        numbers, MessageExt,
-    }};
+use std::{cmp::Reverse, sync::Arc};
 
 use chrono::{Duration, Utc};
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError, Username};
-use std::{cmp::Reverse, sync::Arc};
+
+use crate::{
+    commands::{
+        check_user_mention,
+        osu::{get_user, UserArgs},
+    },
+    database::OsuData,
+    embeds::{EmbedData, SnipedDiffEmbed},
+    pagination::{Pagination, SnipedDiffPagination},
+    util::{
+        constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
+        numbers, MessageExt,
+    },
+    BotResult, CommandData, Context, MessageBuilder,
+};
 
 pub(super) async fn _sniped_diff(
     ctx: Arc<Context>,
@@ -21,7 +32,9 @@ pub(super) async fn _sniped_diff(
     };
 
     // Request the user
-    let mut user = match super::request_user(&ctx, &name, GameMode::STD).await {
+    let user_args = UserArgs::new(name.as_str(), GameMode::STD);
+
+    let mut user = match get_user(&ctx, &user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{}`", name);

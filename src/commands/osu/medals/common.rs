@@ -1,18 +1,31 @@
-use crate::{Args, BotResult, CommandData, Context, commands::{DoubleResultCow, parse_discord}, custom_client::OsekaiMedal, database::OsuData, embeds::{EmbedData, MedalsCommonEmbed, MedalsCommonUser}, error::Error, pagination::{MedalsCommonPagination, Pagination}, util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        get_combined_thumbnail, matcher, InteractionExt, MessageBuilder, MessageExt,
-    }};
+use std::sync::Arc;
 
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, User, Username};
-use std::{ sync::Arc};
 use twilight_model::{
     application::interaction::{
         application_command::{CommandDataOption, CommandOptionValue},
         ApplicationCommand,
     },
     id::UserId,
+};
+
+use crate::{
+    commands::{
+        osu::{get_user, UserArgs},
+        parse_discord, DoubleResultCow,
+    },
+    custom_client::OsekaiMedal,
+    database::OsuData,
+    embeds::{EmbedData, MedalsCommonEmbed, MedalsCommonUser},
+    error::Error,
+    pagination::{MedalsCommonPagination, Pagination},
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        get_combined_thumbnail, matcher, InteractionExt, MessageBuilder, MessageExt,
+    },
+    Args, BotResult, CommandData, Context,
 };
 
 pub(super) async fn _common(
@@ -37,8 +50,12 @@ pub(super) async fn _common(
     }
 
     // Retrieve all users and their scores
-    let user_fut1 = super::request_user(&ctx, &name1, GameMode::STD);
-    let user_fut2 = super::request_user(&ctx, &name2, GameMode::STD);
+    let user_args1 = UserArgs::new(name1.as_str(), GameMode::STD);
+    let user_fut1 = get_user(&ctx, &user_args1);
+
+    let user_args2 = UserArgs::new(name2.as_str(), GameMode::STD);
+    let user_fut2 = get_user(&ctx, &user_args2);
+
     let medals_fut = ctx.psql().get_medals();
 
     let (user1, user2, mut medals_map) = match tokio::join!(user_fut1, user_fut2, medals_fut) {
@@ -201,11 +218,7 @@ impl CommonArgs {
     const AT_LEAST_ONE: &'static str = "You need to specify at least one osu username. \
         If you're not linked, you must specify two names.";
 
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: UserId,
-    ) -> DoubleResultCow<Self> {
+    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
         let osu = ctx.psql().get_user_osu(author_id).await?;
 
         let name2 = match args.next() {

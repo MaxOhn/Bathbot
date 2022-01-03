@@ -1,10 +1,17 @@
-use crate::{BotResult, CommandData, Context, commands::{MyCommand, check_user_mention, parse_discord}, database::OsuData, embeds::{AvatarEmbed, EmbedData}, error::Error, util::{
+use crate::{
+    commands::{check_user_mention, parse_discord, MyCommand},
+    database::OsuData,
+    embeds::{AvatarEmbed, EmbedData},
+    error::Error,
+    util::{
         constants::{
             common_literals::{DISCORD, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
         ApplicationCommandExt, InteractionExt, MessageExt,
-    }};
+    },
+    BotResult, CommandData, Context,
+};
 
 use rosu_v2::prelude::{GameMode, OsuError, Username};
 use std::sync::Arc;
@@ -12,7 +19,7 @@ use twilight_model::application::interaction::{
     application_command::CommandOptionValue, ApplicationCommand,
 };
 
-use super::{option_discord, option_name};
+use super::{get_user, option_discord, option_name, UserArgs};
 
 #[command]
 #[short_desc("Display someone's osu! profile picture")]
@@ -58,7 +65,9 @@ async fn _avatar(
         None => return super::require_link(&ctx, &data).await,
     };
 
-    let user = match super::request_user(&ctx, &name, GameMode::STD).await {
+    let user_args = UserArgs::new(name.as_str(), GameMode::STD);
+
+    let user = match get_user(&ctx, &user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);

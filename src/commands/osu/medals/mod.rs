@@ -11,7 +11,7 @@ pub use recent::*;
 use rosu_v2::prelude::Username;
 pub use stats::*;
 
-use std::{ sync::Arc};
+use std::sync::Arc;
 
 use twilight_model::application::interaction::{
     application_command::{CommandDataOption, CommandOptionValue},
@@ -31,7 +31,7 @@ use crate::{
     BotResult, Context, Error,
 };
 
-use super::{request_user, require_link};
+use super::require_link;
 
 enum MedalCommandKind {
     Common(CommonArgs),
@@ -86,10 +86,7 @@ impl MedalCommandKind {
             .ok_or(Error::InvalidCommandOptions)
     }
 
-    async fn slash(
-        ctx: &Context,
-        command: &mut ApplicationCommand,
-    ) -> DoubleResultCow<Self> {
+    async fn slash(ctx: &Context, command: &mut ApplicationCommand) -> DoubleResultCow<Self> {
         let option = command
             .data
             .options

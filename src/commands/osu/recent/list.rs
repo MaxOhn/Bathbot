@@ -1,7 +1,21 @@
 use std::sync::Arc;
 
+use eyre::Report;
+use rosu_v2::prelude::{GameMode, Grade, OsuError};
+use twilight_model::{
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+    id::UserId,
+};
+
 use crate::{
-    commands::{check_user_mention, parse_discord, parse_mode_option, DoubleResultCow},
+    commands::{
+        check_user_mention,
+        osu::{get_user_and_scores, ScoreArgs, UserArgs},
+        parse_discord, parse_mode_option, DoubleResultCow,
+    },
     database::UserConfig,
     embeds::{EmbedData, RecentListEmbed},
     error::Error,
@@ -15,18 +29,8 @@ use crate::{
     },
     Args, BotResult, CommandData, Context,
 };
-use eyre::Report;
-use futures::future::TryFutureExt;
-use rosu_v2::prelude::{GameMode, Grade, OsuError};
-use twilight_model::{
-    application::interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
-    },
-    id::UserId,
-};
 
-use super::{ErrorType, GradeArg};
+use super::GradeArg;
 
 pub(super) async fn _recentlist(
     ctx: Arc<Context>,
@@ -42,19 +46,13 @@ pub(super) async fn _recentlist(
     };
 
     // Retrieve the user and their recent scores
-    let user_fut = super::request_user(&ctx, &name, mode).map_err(From::from);
+    let user_args = UserArgs::new(name.as_str(), mode);
 
-    let scores_fut = ctx
-        .osu()
-        .user_scores(name.as_str())
-        .recent()
-        .mode(mode)
-        .limit(100)
-        .include_fails(grade.map_or(true, |g| g.include_fails()));
+    let score_args = ScoreArgs::recent(100)
+        .include_fails(grade.map_or(true, |g| g.include_fails()))
+        .with_combo();
 
-    let scores_fut = super::prepare_scores(&ctx, scores_fut);
-
-    let (mut user, mut scores) = match tokio::try_join!(user_fut, scores_fut) {
+    let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
         Ok((_, scores)) if scores.is_empty() => {
             let content = format!(
                 "No recent {}plays found for user `{}`",
@@ -70,20 +68,15 @@ pub(super) async fn _recentlist(
             return data.error(&ctx, content).await;
         }
         Ok((user, scores)) => (user, scores),
-        Err(ErrorType::Osu(OsuError::NotFound)) => {
+        Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
 
             return data.error(&ctx, content).await;
         }
-        Err(ErrorType::Osu(why)) => {
+        Err(err) => {
             let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
-        }
-        Err(ErrorType::Bot(why)) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
+            return Err(err.into());
         }
     };
 

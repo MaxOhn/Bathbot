@@ -8,6 +8,7 @@ use rosu_v2::prelude::{GameMode, OsuError, Score, Username};
 use smallvec::SmallVec;
 
 use crate::{
+    commands::osu::{get_scores, ScoreArgs, UserArgs},
     embeds::{CommonEmbed, EmbedData},
     pagination::{CommonPagination, Pagination},
     tracking::process_tracking,
@@ -78,15 +79,26 @@ pub(super) async fn _common(
     let mut scores_futs: FuturesOrdered<_> = names
         .into_iter()
         .map(|name| async {
-            let scores_fut = ctx
-                .osu()
-                .user_scores(name.as_str())
-                .limit(100)
-                .mode(mode)
-                .best()
-                .await;
+            let mut user_args = UserArgs::new(name.as_str(), mode);
+            let score_args = ScoreArgs::top(100);
+            let scores_fut = get_scores(&ctx, &user_args, &score_args);
 
-            (name, scores_fut)
+            if let Some(alt_name) = user_args.whitespaced_name() {
+                match scores_fut.await {
+                    Ok(scores) => (name, Ok(scores)),
+                    Err(OsuError::NotFound) => {
+                        user_args.name = &alt_name;
+                        let scores_result = get_scores(&ctx, &user_args, &score_args).await;
+
+                        (alt_name.into(), scores_result)
+                    }
+                    Err(err) => (name, Err(err)),
+                }
+            } else {
+                let scores_result = scores_fut.await;
+
+                (name, scores_result)
+            }
         })
         .collect();
 

@@ -33,7 +33,7 @@ use crate::{
     BotResult, Context, Error,
 };
 
-use super::{ErrorType, GradeArg, _top, prepare_score, prepare_scores, request_user, require_link};
+use super::{GradeArg, _top, prepare_score, require_link};
 
 enum RecentCommandKind {
     Best(TopArgs),

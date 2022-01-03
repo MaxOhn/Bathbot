@@ -8,9 +8,7 @@ pub use most_played::*;
 pub use profile::*;
 pub use score::*;
 
-use super::{
-    prepare_score, request_user, require_link, MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32,
-};
+use super::{prepare_score, require_link, MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32};
 
 use crate::{
     commands::{

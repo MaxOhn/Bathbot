@@ -9,7 +9,7 @@ use twilight_model::application::interaction::{
 use crate::{
     commands::{
         check_user_mention,
-        osu::{option_discord, option_name},
+        osu::{get_user_cached, option_discord, option_name},
         parse_discord, DoubleResultCow, MyCommand,
     },
     database::OsuData,
@@ -25,6 +25,8 @@ use crate::{
     },
     BotResult, CommandData, Context,
 };
+
+use super::UserArgs;
 
 #[command]
 #[short_desc("Display the most played maps of a user")]
@@ -71,10 +73,34 @@ async fn _mostplayed(
     };
 
     // Retrieve the user and their most played maps
-    let user_fut = super::request_user(&ctx, &name, GameMode::STD);
-    let maps_fut = ctx.osu().user_most_played(name.as_str()).limit(100);
+    let mut user_args = UserArgs::new(name.as_str(), GameMode::STD);
 
-    let (user, maps) = match tokio::try_join!(user_fut, maps_fut) {
+    let result = if let Some(alt_name) = user_args.whitespaced_name() {
+        match get_user_cached(&ctx, &user_args).await {
+            Ok(user) => ctx
+                .osu()
+                .user_most_played(user_args.name)
+                .limit(100)
+                .await
+                .map(|maps| (user, maps)),
+            Err(OsuError::NotFound) => {
+                user_args.name = &alt_name;
+
+                let user_fut = get_user_cached(&ctx, &user_args);
+                let maps_fut = ctx.osu().user_most_played(user_args.name).limit(100);
+
+                tokio::try_join!(user_fut, maps_fut)
+            }
+            Err(err) => Err(err),
+        }
+    } else {
+        let user_fut = get_user_cached(&ctx, &user_args);
+        let maps_fut = ctx.osu().user_most_played(user_args.name).limit(100);
+
+        tokio::try_join!(user_fut, maps_fut)
+    };
+
+    let (user, maps) = match result {
         Ok((user, maps)) => (user, maps),
         Err(OsuError::NotFound) => {
             let content = format!("User `{}` was not found", name);
