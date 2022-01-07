@@ -16,15 +16,16 @@ pub use tracking_interval::*;
 pub use tracking_stats::*;
 pub use tracking_toggle::*;
 
-use crate::{
-    util::{constants::common_literals::NAME, CountryCode},
-    BotResult, Context, Error,
-};
-
 use std::sync::Arc;
+
 use twilight_model::application::interaction::{
     application_command::{CommandDataOption, CommandOptionValue},
     ApplicationCommand,
+};
+
+use crate::{
+    util::{constants::common_literals::NAME, CountryCode},
+    BotResult, Context, Error,
 };
 
 use super::{MyCommand, MyCommandOption};
@@ -46,24 +47,22 @@ impl OwnerCommandKind {
             .options
             .pop()
             .and_then(|option| match option.value {
-                CommandOptionValue::SubCommand(options) => match option.name.as_str() {
+                CommandOptionValue::SubCommand(mut options) => match option.name.as_str() {
                     "add_country" => Self::slash_add_country(options),
                     "cache" => Some(Self::Cache),
-                    "change_game" => command
-                        .data
-                        .options
-                        .pop()
-                        .and_then(|option| {
-                            (option.name == "game").then(|| match option.value {
-                                CommandOptionValue::String(value) => Some(value),
-                                _ => None,
-                            })
-                        })
-                        .flatten()
-                        .map(Self::ChangeGame),
-                    "tracking" => Self::slash_tracking(options),
+                    "change_game" => {
+                        let option = options.pop()?;
+
+                        match (option.value, option.name.as_str()) {
+                            (CommandOptionValue::String(value), "game") => {
+                                Some(Self::ChangeGame(value))
+                            }
+                            _ => None,
+                        }
+                    }
                     _ => None,
                 },
+                CommandOptionValue::SubCommandGroup(options) => Self::slash_tracking(options),
                 _ => None,
             })
             .ok_or(Error::InvalidCommandOptions)
