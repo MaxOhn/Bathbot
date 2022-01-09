@@ -102,7 +102,8 @@ pub fn define_link() -> MyCommand {
         .string(link_options(), false);
 
     let description = "(Un)link your discord to an osu! or twitch account";
-    let help = "This command allows you to link or unlink to an osu! or twitch account.";
+    let help = "This command allows you to link or unlink to an osu! or twitch account.\n\
+        If you don't understand how the command works, [here](https://streamable.com/j56k6n) is a tutorial video.";
 
     MyCommand::new(LINK, description)
         .help(help)
