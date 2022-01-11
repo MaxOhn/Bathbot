@@ -1,9 +1,3 @@
-// macro_rules! tracking_debug {
-//     ($($arg:tt)+) => {
-//         debug!(target: "{tracking}", $($arg)+)
-//     }
-// }
-
 mod tracking_loop;
 
 pub use tracking_loop::{process_tracking, tracking_loop};

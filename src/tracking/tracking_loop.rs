@@ -11,7 +11,10 @@ use futures::{
     stream::{FuturesUnordered, StreamExt},
 };
 use hashbrown::HashMap;
-use rosu_v2::prelude::{GameMode, OsuError, Score, User};
+use rosu_v2::{
+    prelude::{GameMode, OsuError, Score, User},
+    OsuResult,
+};
 use std::sync::Arc;
 use tokio::time;
 use twilight_http::{
@@ -118,48 +121,8 @@ pub async fn process_tracking(
         None => return,
     };
 
-    // tracking_debug!(
-    //     "[Tracking] ({},{}): last {} | curr {}",
-    //     user_id,
-    //     mode,
-    //     last,
-    //     new_last
-    // );
-
-    let mut user = TrackUser::new(user_id, mode, user);
-
-    // Process scores
-    match score_loop(ctx, &mut user, max, last, scores, &channels).await {
-        Ok(_) => {}
-        Err(ErrorType::NotFound) => {
-            if let Err(why) = ctx.tracking().remove_user_all(user_id, ctx.psql()).await {
-                let report =
-                    Report::new(why).wrap_err("failed to remove unknow user from tracking");
-                warn!("{:?}", report);
-            }
-
-            return;
-        }
-        Err(ErrorType::Osu(why)) => {
-            let report = Report::new(why).wrap_err("osu!api error while tracking");
-            warn!("{:?}", report);
-            ctx.tracking().reset(user_id, mode);
-            // tracking_debug!("[Tracking] Reset ({},{})", user_id, mode);
-
-            return;
-        }
-    }
-
     // If new top score, update the date
     if new_last > last {
-        // tracking_debug!(
-        //     "[Tracking] Updating for ({},{}): {} -> {}",
-        //     user_id,
-        //     mode,
-        //     last,
-        //     new_last
-        // );
-
         let update_fut = ctx
             .tracking()
             .update_last_date(user_id, mode, new_last, ctx.psql());
@@ -169,13 +132,32 @@ pub async fn process_tracking(
                 "error while updating tracking date for user ({},{})",
                 user_id, mode
             );
+
             let report = Report::new(why).wrap_err(wrap);
             warn!("{:?}", report);
         }
     }
 
     ctx.tracking().reset(user_id, mode);
-    // tracking_debug!("[Tracking] Reset ({},{})", user_id, mode);
+
+    let mut user = TrackUser::new(user_id, mode, user);
+
+    // Process scores
+    match score_loop(ctx, &mut user, max, last, scores, &channels).await {
+        Ok(_) => {}
+        Err(OsuError::NotFound) => {
+            if let Err(err) = ctx.tracking().remove_user_all(user_id, ctx.psql()).await {
+                let report =
+                    Report::new(err).wrap_err("failed to remove unknow user from tracking");
+                warn!("{:?}", report);
+            }
+        }
+        Err(err) => {
+            let report = Report::new(err).wrap_err("osu!api error while tracking");
+            warn!("{:?}", report);
+            ctx.tracking().reset(user_id, mode);
+        }
+    }
 }
 
 async fn score_loop(
@@ -185,7 +167,7 @@ async fn score_loop(
     last: DateTime<Utc>,
     scores: &mut [Score],
     channels: &HashMap<ChannelId, usize>,
-) -> Result<(), ErrorType> {
+) -> OsuResult<()> {
     for (idx, score) in (1..).zip(scores.iter_mut()).take(max) {
         // Skip if its an older score
         if score.created_at <= last {
@@ -204,14 +186,6 @@ async fn score_loop(
                 continue;
             }
         }
-
-        // tracking_debug!(
-        //     "[New top score] ({},{}): new {} | old {}",
-        //     user.user_id,
-        //     user.mode,
-        //     score.created_at,
-        //     last
-        // );
 
         // Send the embed to each tracking channel
         for (&channel, &limit) in channels.iter() {
@@ -242,12 +216,6 @@ async fn score_loop(
                                     let report = Report::new(why).wrap_err(wrap);
                                     warn!("{:?}", report);
                                 }
-                                // else {
-                                //     tracking_debug!(
-                                //         "Removed osu tracking of unknown channel {}",
-                                //         channel
-                                //     );
-                                // }
                             } else {
                                 warn!(
                                     "Error from API while sending osu notif (channel {}): {}",
@@ -268,8 +236,6 @@ async fn score_loop(
                     warn!("{:?}", report);
                 }
             }
-
-            user.clear();
         }
     }
 
@@ -296,17 +262,7 @@ impl<'u> TrackUser<'u> {
         }
     }
 
-    #[inline]
-    fn clear(&mut self) {
-        self.embed.take();
-    }
-
-    async fn embed(
-        &mut self,
-        ctx: &Context,
-        score: &Score,
-        idx: usize,
-    ) -> Result<Embed, ErrorType> {
+    async fn embed(&mut self, ctx: &Context, score: &Score, idx: usize) -> OsuResult<Embed> {
         if let Some(ref embed) = self.embed {
             return Ok(embed.to_owned());
         }
@@ -316,12 +272,7 @@ impl<'u> TrackUser<'u> {
         } else if let Some(ref user) = self.user {
             TrackNotificationEmbed::new(user, score, idx).await
         } else {
-            let user = match ctx.osu().user(self.user_id).mode(self.mode).await {
-                Ok(user) => user,
-                Err(OsuError::NotFound) => return Err(ErrorType::NotFound),
-                Err(why) => return Err(ErrorType::Osu(why)),
-            };
-
+            let user = ctx.osu().user(self.user_id).mode(self.mode).await?;
             let user = self.user.get_or_insert(user);
 
             TrackNotificationEmbed::new(user, score, idx).await
@@ -331,9 +282,4 @@ impl<'u> TrackUser<'u> {
 
         Ok(self.embed.get_or_insert(embed).to_owned())
     }
-}
-
-enum ErrorType {
-    NotFound,
-    Osu(OsuError),
 }

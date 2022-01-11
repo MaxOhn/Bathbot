@@ -187,7 +187,7 @@ async fn get_user_and_scores<'c>(
 
                 tokio::try_join!(user_fut, scores_fut)
             }
-            Err(err) => return Err(err),
+            Err(err) => Err(err),
         }
     } else {
         let user_fut = get_user_cached(ctx, &user);
