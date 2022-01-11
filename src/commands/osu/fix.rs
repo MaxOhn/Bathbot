@@ -31,7 +31,10 @@ use crate::{
     Args, BotResult, CommandData, Context,
 };
 
-use super::{get_user, option_discord, option_map, option_mods, option_name, UserArgs};
+use super::{
+    get_beatmap_user_score, get_user, option_discord, option_map, option_mods, option_name,
+    UserArgs,
+};
 
 #[command]
 #[short_desc("Display a user's pp after unchoking their score on a map")]
@@ -208,14 +211,9 @@ async fn request_by_map(
     name: &str,
     mods: Option<GameMods>,
 ) -> ScoreResult {
-    let score_fut = ctx.osu().beatmap_user_score(map_id, name);
+    let user_args = UserArgs::new(name, GameMode::STD);
 
-    let score_fut = match mods {
-        Some(mods) => score_fut.mods(mods),
-        None => score_fut,
-    };
-
-    match score_fut.await {
+    match get_beatmap_user_score(ctx.osu(), map_id, &user_args, mods).await {
         Ok(mut score) => match super::prepare_score(ctx, &mut score.score).await {
             Ok(_) => {
                 let mut map = score.score.map.take().unwrap();

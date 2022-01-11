@@ -70,8 +70,9 @@ use deadpool_redis::redis::AsyncCommands;
 use eyre::Report;
 use futures::future::FutureExt;
 use rosu_v2::{
-    prelude::{GameMode, Grade, OsuError, OsuResult, Score, User},
+    prelude::{BeatmapUserScore, GameMode, GameMods, Grade, OsuError, OsuResult, Score, User},
     request::GetUserScores,
+    Osu,
 };
 use std::{
     borrow::Cow,
@@ -106,16 +107,49 @@ const USER_CACHE_SECONDS: usize = 600;
 async fn get_user(ctx: &Context, user: &UserArgs<'_>) -> OsuResult<User> {
     if let Some(alt_name) = user.whitespaced_name() {
         match get_user_cached(ctx, user).await {
-            Ok(user) => Ok(user),
             Err(OsuError::NotFound) => {
                 let user = UserArgs::new(&alt_name, user.mode);
 
                 get_user_cached(ctx, &user).await
             }
-            Err(err) => Err(err),
+            result => result,
         }
     } else {
         get_user_cached(ctx, user).await
+    }
+}
+
+async fn get_beatmap_user_score(
+    osu: &Osu,
+    map_id: u32,
+    user: &UserArgs<'_>,
+    mods: Option<GameMods>,
+) -> OsuResult<BeatmapUserScore> {
+    //* Note: GameMode is not specified
+    let mut fut = osu.beatmap_user_score(map_id, user.name);
+
+    if let Some(mods) = mods {
+        fut = fut.mods(mods);
+    }
+
+    if let Some(alt_name) = user.whitespaced_name() {
+        match fut.await {
+            // * Note: Could also occure due to an incorrect map id
+            // *       or the user not having a score on the map
+            Err(OsuError::NotFound) => {
+                let user = UserArgs::new(&alt_name, user.mode);
+                let mut fut = osu.beatmap_user_score(map_id, user.name);
+
+                if let Some(mods) = mods {
+                    fut = fut.mods(mods);
+                }
+
+                fut.await
+            }
+            result => result,
+        }
+    } else {
+        fut.await
     }
 }
 

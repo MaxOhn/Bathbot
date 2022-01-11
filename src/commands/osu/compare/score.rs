@@ -19,7 +19,7 @@ use twilight_model::{
 use crate::{
     commands::{
         check_user_mention,
-        osu::{get_user, UserArgs},
+        osu::{get_beatmap_user_score, get_user, UserArgs},
         parse_discord, DoubleResultCow,
     },
     database::UserConfig,
@@ -275,17 +275,16 @@ async fn retrieve_data(
     map_id: u32,
     mods: Option<ModSelection>,
 ) -> ScoreResult {
-    let score_fut = ctx.osu().beatmap_user_score(map_id, name);
-
-    let score_result = match mods {
-        None | Some(ModSelection::Exclude(_)) => score_fut.await,
-        Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) => {
-            score_fut.mods(mods).await
-        }
+    let mods = match mods {
+        None | Some(ModSelection::Exclude(_)) => None,
+        Some(ModSelection::Exact(mods) | ModSelection::Include(mods)) => Some(mods),
     };
 
+    let user_args = UserArgs::new(name, GameMode::STD);
+    let score_fut = get_beatmap_user_score(ctx.osu(), map_id, &user_args, mods);
+
     // Retrieve user's score on the map
-    let (mut score, global_idx) = match score_result {
+    let (mut score, global_idx) = match score_fut.await {
         Ok(mut score) => match super::prepare_score(ctx, &mut score.score).await {
             Ok(_) => (score.score, score.pos),
             Err(why) => {
@@ -295,15 +294,10 @@ async fn retrieve_data(
             }
         },
         Err(OsuError::NotFound) => {
-            let mods = match mods {
-                None | Some(ModSelection::Exclude(_)) => None,
-                Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) => Some(mods),
-            };
-
             return match no_scores(ctx, data, name, map_id, mods).await {
                 Ok(_) => ScoreResult::Done,
                 Err(err) => ScoreResult::Error(err),
-            };
+            }
         }
         Err(why) => {
             let _ = data.error(ctx, OSU_API_ISSUE).await;
