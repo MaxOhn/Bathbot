@@ -7,7 +7,6 @@ use rosu_v2::{
     prelude::{GameMode, OsuError, Score, User},
     OsuResult,
 };
-use tokio::sync::mpsc::Receiver;
 use twilight_http::{
     api_error::{ApiError, ErrorCode, GeneralApiError},
     error::ErrorType as TwilightErrorType,
@@ -23,19 +22,25 @@ use crate::{
 use super::TrackingEntry;
 
 #[cold]
-pub async fn tracking_loop(ctx: Arc<Context>, mut rx: Receiver<TrackingEntry>) {
+pub async fn tracking_loop(ctx: Arc<Context>) {
     if cfg!(debug_assertions) {
         info!("Skip osu! tracking on debug");
 
         return;
     }
 
-    loop {
-        ctx.tracking().pop().await;
+    let mut entries = Vec::new();
 
-        while let Some(TrackingEntry { user_id, mode }) = rx.recv().await {
-            // TODO: Max limit of any channel(?)
-            let scores_fut = ctx.osu().user_scores(user_id).best().mode(mode).limit(50);
+    loop {
+        ctx.tracking().pop(&mut entries).await;
+
+        for (TrackingEntry { user_id, mode }, amount) in entries.drain(..) {
+            let scores_fut = ctx
+                .osu()
+                .user_scores(user_id)
+                .best()
+                .mode(mode)
+                .limit(amount);
 
             match scores_fut.await {
                 Ok(mut scores) => {

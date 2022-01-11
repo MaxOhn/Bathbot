@@ -14,10 +14,7 @@ use parking_lot::RwLock;
 use priority_queue::PriorityQueue;
 use rosu_v2::model::GameMode;
 use smallvec::SmallVec;
-use tokio::{
-    sync::mpsc::{channel, Receiver, Sender},
-    time,
-};
+use tokio::time;
 use twilight_model::id::ChannelId;
 
 use crate::{database::TrackingUser, BotResult, Database};
@@ -66,12 +63,11 @@ pub struct OsuTracking {
     cooldown: RwLock<f32>,
     pub interval: RwLock<Duration>,
     pub stop_tracking: AtomicBool,
-    tx: Sender<TrackingEntry>,
 }
 
 impl OsuTracking {
     #[cold]
-    pub async fn new(psql: &Database) -> BotResult<(Self, Receiver<TrackingEntry>)> {
+    pub async fn new(psql: &Database) -> BotResult<Self> {
         let users = psql.get_osu_trackings().await?;
 
         let queue = users
@@ -79,19 +75,14 @@ impl OsuTracking {
             .map(|guard| (*guard.key(), Reverse(Utc::now())))
             .collect();
 
-        let (tx, rx) = channel(128);
-
-        let this = Self {
+        Ok(Self {
             queue: RwLock::new(queue),
             users,
             last_date: RwLock::new(Utc::now()),
             cooldown: RwLock::new(*OSU_TRACKING_COOLDOWN),
             interval: RwLock::new(*OSU_TRACKING_INTERVAL),
             stop_tracking: AtomicBool::new(false),
-            tx,
-        };
-
-        Ok((this, rx))
+        })
     }
 
     pub fn stats(&self) -> TrackingStats {
@@ -174,7 +165,7 @@ impl OsuTracking {
             .map(|user| (user.last_top_score, user.channels.to_owned()))
     }
 
-    pub async fn pop(&self) {
+    pub async fn pop(&self, entries: &mut Vec<(TrackingEntry, usize)>) {
         let len = self.queue.read().len();
 
         if len == 0 || self.stop_tracking.load(Ordering::Acquire) {
@@ -198,8 +189,11 @@ impl OsuTracking {
 
         for _ in 0..amount as usize {
             if let Some(entry) = queue.pop().map(|(entry, _)| entry) {
-                if let Err(err) = self.tx.try_send(entry) {
-                    warn!("failed to send tracking entry: {}", err);
+                let guard = self.users.get(&entry);
+
+                if let Some(amount) = guard.and_then(|g| g.value().channels.values().max().copied())
+                {
+                    entries.push((entry, amount));
                 }
             }
         }
@@ -239,18 +233,12 @@ impl OsuTracking {
 
                 key.user_id == user_id && mode.map_or(true, |m| key.mode == m)
             })
-            .filter_map(
-                // |mut guard| match guard.value_mut().remove_channel(channel) {
-                //     true => Some(guard.key().mode),
-                //     false => None,
-                // },
-                |mut guard| {
-                    guard
-                        .value_mut()
-                        .remove_channel(channel)
-                        .then(|| guard.key().mode)
-                },
-            )
+            .filter_map(|mut guard| {
+                guard
+                    .value_mut()
+                    .remove_channel(channel)
+                    .then(|| guard.key().mode)
+            })
             .collect();
 
         for mode in removed {
