@@ -14,7 +14,7 @@ pub struct TrackingStatsEmbed {
 
 impl TrackingStatsEmbed {
     pub fn new(stats: TrackingStats) -> Self {
-        let (user_id, mode) = stats.next_pop;
+        let entry = stats.next_pop;
 
         let fields = vec![
             field!("Currently tracking", stats.tracking.to_string(), true),
@@ -27,7 +27,11 @@ impl TrackingStatsEmbed {
                 format!("{}ms", stats.ms_per_track),
                 true
             ),
-            field!("Next pop", format!("{} | {}", user_id, mode), true),
+            field!(
+                "Next pop",
+                format!("{} | {}", entry.user_id, entry.mode),
+                true
+            ),
             field!("Next pop amount", stats.amount.to_string(), true),
         ];
 

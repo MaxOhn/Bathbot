@@ -1,74 +1,52 @@
-use crate::{
-    commands::osu::prepare_score,
-    embeds::{EmbedData, TrackNotificationEmbed},
-    Context,
-};
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use eyre::Report;
-use futures::{
-    future::FutureExt,
-    stream::{FuturesUnordered, StreamExt},
-};
 use hashbrown::HashMap;
 use rosu_v2::{
     prelude::{GameMode, OsuError, Score, User},
     OsuResult,
 };
-use std::sync::Arc;
-use tokio::time;
+use tokio::sync::mpsc::Receiver;
 use twilight_http::{
     api_error::{ApiError, ErrorCode, GeneralApiError},
     error::ErrorType as TwilightErrorType,
 };
 use twilight_model::{channel::embed::Embed, id::ChannelId};
 
+use crate::{
+    commands::osu::prepare_score,
+    embeds::{EmbedData, TrackNotificationEmbed},
+    Context,
+};
+
+use super::TrackingEntry;
+
 #[cold]
-pub async fn tracking_loop(ctx: Arc<Context>) {
+pub async fn tracking_loop(ctx: Arc<Context>, mut rx: Receiver<TrackingEntry>) {
     if cfg!(debug_assertions) {
         info!("Skip osu! tracking on debug");
 
         return;
     }
 
-    let delay = time::Duration::from_secs(60);
-
     loop {
-        // Get all users that should be tracked in this iteration
-        let tracked = match ctx.tracking().pop().await {
-            Some(tracked) => tracked,
-            None => {
-                time::sleep(delay).await;
+        ctx.tracking().pop().await;
 
-                continue;
-            }
-        };
+        while let Some(TrackingEntry { user_id, mode }) = rx.recv().await {
+            // TODO: Max limit of any channel(?)
+            let scores_fut = ctx.osu().user_scores(user_id).best().mode(mode).limit(50);
 
-        // Build top score requests for each
-        let mut scores_futs: FuturesUnordered<_> = tracked
-            .iter()
-            .map(|&(user_id, mode)| {
-                ctx.osu()
-                    .user_scores(user_id)
-                    .best()
-                    .mode(mode)
-                    .limit(50)
-                    .map(move |result| (user_id, mode, result))
-            })
-            .collect();
-
-        // Iterate over the request responses
-        while let Some((user_id, mode, result)) = scores_futs.next().await {
-            match result {
+            match scores_fut.await {
                 Ok(mut scores) => {
-                    // Note: If scores are empty, (user_id, mode) will not be reset into the tracking queue
+                    // * Note: If scores are empty, (user_id, mode) will not be reset into the tracking queue
                     if !scores.is_empty() {
                         process_tracking(&ctx, mode, &mut scores, None).await
                     }
                 }
                 Err(OsuError::NotFound) => {
                     warn!(
-                        "404 response while retrieving user scores ({},{}) for tracking, don't reset entry",
+                        "got 404 while retrieving scores for ({},{}), don't reset entry",
                         user_id, mode
                     );
 

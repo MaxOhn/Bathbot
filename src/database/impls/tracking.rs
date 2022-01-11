@@ -1,4 +1,4 @@
-use crate::{database::TrackingUser, BotResult, Database};
+use crate::{database::TrackingUser, tracking::TrackingEntry, BotResult, Database};
 
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
@@ -10,7 +10,7 @@ use twilight_model::id::ChannelId;
 
 impl Database {
     #[cold]
-    pub async fn get_osu_trackings(&self) -> BotResult<DashMap<(u32, GameMode), TrackingUser>> {
+    pub async fn get_osu_trackings(&self) -> BotResult<DashMap<TrackingEntry, TrackingUser>> {
         let mut stream = sqlx::query!("SELECT * FROM osu_trackings").fetch(&self.pool);
         let tracks = DashMap::with_capacity(5000);
 
@@ -27,7 +27,7 @@ impl Database {
                 channels: serde_json::from_value(channels)?,
             };
 
-            tracks.insert((user_id as u32, mode), user);
+            tracks.insert(TrackingEntry { user_id, mode }, user);
         }
 
         Ok(tracks)

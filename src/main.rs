@@ -168,7 +168,7 @@ async fn async_main() -> Result<()> {
     let role_assigns = psql.get_role_assigns().await?;
 
     // osu! top score tracking
-    let osu_tracking = OsuTracking::new(&psql).await?;
+    let (osu_tracking, osu_tracking_rx) = OsuTracking::new(&psql).await?;
 
     // snipe countries
     let snipe_countries = psql.get_snipe_countries().await?;
@@ -262,7 +262,7 @@ async fn async_main() -> Result<()> {
 
     // Spawn osu tracking worker
     let osu_tracking_ctx = Arc::clone(&ctx);
-    tokio::spawn(tracking::tracking_loop(osu_tracking_ctx));
+    tokio::spawn(tracking::tracking_loop(osu_tracking_ctx, osu_tracking_rx));
 
     // Spawn background loop worker
     let background_ctx = Arc::clone(&ctx);
