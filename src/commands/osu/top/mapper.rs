@@ -67,7 +67,7 @@ pub(super) async fn _mapper(
     user.mode = mode;
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
+    process_tracking(&ctx, &mut scores, Some(&user)).await;
 
     let mut scores: Vec<_> = scores
         .into_iter()

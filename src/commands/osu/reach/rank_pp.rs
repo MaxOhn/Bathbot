@@ -164,7 +164,7 @@ pub(super) async fn _rank(
 
     if let Some(ref mut scores) = scores {
         // Process user and their top scores for tracking
-        process_tracking(&ctx, mode, scores, Some(rank_data.user_borrow())).await;
+        process_tracking(&ctx, scores, Some(rank_data.user_borrow())).await;
     }
 
     // Creating the embed

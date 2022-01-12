@@ -33,6 +33,23 @@ impl Database {
         Ok(tracks)
     }
 
+    pub async fn update_osu_tracking_date(
+        &self,
+        entry: &TrackingEntry,
+        last_top_score: DateTime<Utc>,
+    ) -> BotResult<()> {
+        sqlx::query!(
+            "UPDATE osu_trackings SET last_top_score=$3 WHERE user_id=$1 AND mode=$2",
+            entry.user_id as i32,
+            entry.mode as i16,
+            last_top_score,
+        )
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
     pub async fn update_osu_tracking(
         &self,
         user_id: u32,

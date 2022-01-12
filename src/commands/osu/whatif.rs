@@ -65,7 +65,7 @@ async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> 
     user.mode = mode;
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
+    process_tracking(&ctx, &mut scores, Some(&user)).await;
 
     let whatif_data = if scores.is_empty() {
         let rank_result = ctx

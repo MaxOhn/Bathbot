@@ -81,7 +81,7 @@ pub(super) async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) 
     };
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
+    process_tracking(&ctx, &mut scores, Some(&user)).await;
 
     // Accumulate all necessary data
     let embed_data = PPMissingEmbed::new(user, scores, pp, rank);

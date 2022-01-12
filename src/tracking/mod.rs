@@ -141,11 +141,10 @@ impl OsuTracking {
     ) -> BotResult<()> {
         let entry = TrackingEntry { user_id, mode };
 
-        if let Some(mut tracked_user) = self.users.get_mut(&entry) {
-            if new_date > tracked_user.last_top_score {
-                tracked_user.last_top_score = new_date;
-                psql.update_osu_tracking(user_id, mode, new_date, &tracked_user.channels)
-                    .await?;
+        if let Some(mut user) = self.users.get_mut(&entry) {
+            if new_date > user.last_top_score {
+                user.last_top_score = new_date;
+                psql.update_osu_tracking_date(&entry, new_date).await?;
             }
         }
 

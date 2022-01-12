@@ -81,26 +81,26 @@ async fn _ratios(
     let user_args = UserArgs::new(name.as_str(), GameMode::MNA);
     let score_args = ScoreArgs::top(100);
 
-    let (mut user, mut scores) = match super::get_user_and_scores(&ctx, user_args, &score_args).await
-    {
-        Ok((user, scores)) => (user, scores),
-        Err(OsuError::NotFound) => {
-            let content = format!("User `{}` was not found", name);
+    let (mut user, mut scores) =
+        match super::get_user_and_scores(&ctx, user_args, &score_args).await {
+            Ok((user, scores)) => (user, scores),
+            Err(OsuError::NotFound) => {
+                let content = format!("User `{}` was not found", name);
 
-            return data.error(&ctx, content).await;
-        }
-        Err(why) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+                return data.error(&ctx, content).await;
+            }
+            Err(why) => {
+                let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
-        }
-    };
+                return Err(why.into());
+            }
+        };
 
     // Overwrite default mode
     user.mode = GameMode::MNA;
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, GameMode::MNA, &mut scores, Some(&user)).await;
+    process_tracking(&ctx, &mut scores, Some(&user)).await;
 
     // Accumulate all necessary data
     let embed_data = RatioEmbed::new(user, scores);

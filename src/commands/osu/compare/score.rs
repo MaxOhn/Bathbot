@@ -230,7 +230,7 @@ pub(super) async fn _compare(
 
         // Process user and their top scores for tracking
         if let Some(ref mut scores) = best {
-            process_tracking(&ctx, mode, scores, None).await;
+            process_tracking(&ctx, scores, None).await;
         }
 
         // Wait for minimizing
@@ -254,7 +254,7 @@ pub(super) async fn _compare(
 
         // Process user and their top scores for tracking
         if let Some(ref mut scores) = best {
-            process_tracking(&ctx, mode, scores, None).await;
+            process_tracking(&ctx, scores, None).await;
         }
     }
 

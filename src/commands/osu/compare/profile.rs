@@ -98,8 +98,8 @@ pub(super) async fn _profilecompare(
     }
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, mode, &mut scores1, Some(&user1)).await;
-    process_tracking(&ctx, mode, &mut scores2, Some(&user2)).await;
+    process_tracking(&ctx, &mut scores1, Some(&user1)).await;
+    process_tracking(&ctx, &mut scores2, Some(&user2)).await;
 
     let profile_result1 = CompareResult::calc(mode, &scores1, user1.statistics.as_ref().unwrap());
     let profile_result2 = CompareResult::calc(mode, &scores2, user2.statistics.as_ref().unwrap());

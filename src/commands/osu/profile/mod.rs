@@ -69,7 +69,7 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
     };
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
+    process_tracking(&ctx, &mut scores, Some(&user)).await;
 
     let mut profile_data = ProfileData::new(user, scores);
 

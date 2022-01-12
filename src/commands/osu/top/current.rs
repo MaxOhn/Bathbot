@@ -23,7 +23,7 @@ use twilight_model::{
 use crate::{
     commands::{
         check_user_mention,
-        osu::{get_user_and_scores,  ScoreArgs, UserArgs},
+        osu::{get_user_and_scores, ScoreArgs, UserArgs},
         parse_discord, parse_mode_option, DoubleResultCow,
     },
     database::UserConfig,
@@ -46,7 +46,7 @@ use crate::{
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
-use super::{ GradeArg};
+use super::GradeArg;
 
 pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> BotResult<()> {
     if args.index.filter(|n| *n > 100).is_some() {
@@ -125,7 +125,7 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
     user.mode = mode;
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
+    process_tracking(&ctx, &mut scores, Some(&user)).await;
 
     // Filter scores according to mods, combo, acc, and grade
     let scores = filter_scores(scores, &args);

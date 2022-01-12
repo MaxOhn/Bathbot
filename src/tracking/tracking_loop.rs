@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
 use chrono::{DateTime, Utc};
 use eyre::Report;
@@ -46,7 +46,7 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
                 Ok(mut scores) => {
                     // * Note: If scores are empty, (user_id, mode) will not be reset into the tracking queue
                     if !scores.is_empty() {
-                        process_tracking(&ctx, mode, &mut scores, None).await
+                        process_tracking(&ctx, &mut scores, None).await
                     }
                 }
                 Err(OsuError::NotFound) => {
@@ -75,15 +75,10 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
     }
 }
 
-pub async fn process_tracking(
-    ctx: &Context,
-    mode: GameMode,
-    scores: &mut [Score],
-    user: Option<&User>,
-) {
+pub async fn process_tracking(ctx: &Context, scores: &mut [Score], user: Option<&User>) {
     // Make sure scores is not empty
-    let user_id = match scores.first().map(|s| s.user_id) {
-        Some(user_id) => user_id,
+    let (user_id, mode) = match scores.first().map(|s| (s.user_id, s.mode)) {
+        Some(tuple) => tuple,
         None => return,
     };
 
@@ -116,8 +111,7 @@ pub async fn process_tracking(
                 user_id, mode
             );
 
-            let report = Report::new(why).wrap_err(wrap);
-            warn!("{:?}", report);
+            warn!("{:?}", Report::new(why).wrap_err(wrap));
         }
     }
 
@@ -228,41 +222,29 @@ async fn score_loop(
 struct TrackUser<'u> {
     user_id: u32,
     mode: GameMode,
-    user_ref: Option<&'u User>,
-    user: Option<User>,
-    embed: Option<Embed>,
+    user: Option<Cow<'u, User>>,
 }
 
 impl<'u> TrackUser<'u> {
     #[inline]
-    fn new(user_id: u32, mode: GameMode, user_ref: Option<&'u User>) -> Self {
+    fn new(user_id: u32, mode: GameMode, user: Option<&'u User>) -> Self {
         Self {
             user_id,
             mode,
-            user_ref,
-            user: None,
-            embed: None,
+            user: user.map(Cow::Borrowed),
         }
     }
 
     async fn embed(&mut self, ctx: &Context, score: &Score, idx: usize) -> OsuResult<Embed> {
-        if let Some(ref embed) = self.embed {
-            return Ok(embed.to_owned());
-        }
-
-        let data = if let Some(user) = self.user_ref {
-            TrackNotificationEmbed::new(user, score, idx).await
-        } else if let Some(ref user) = self.user {
+        let data = if let Some(user) = self.user.as_deref() {
             TrackNotificationEmbed::new(user, score, idx).await
         } else {
             let user = ctx.osu().user(self.user_id).mode(self.mode).await?;
-            let user = self.user.get_or_insert(user);
+            let user = self.user.get_or_insert(Cow::Owned(user));
 
-            TrackNotificationEmbed::new(user, score, idx).await
+            TrackNotificationEmbed::new(user.as_ref(), score, idx).await
         };
 
-        let embed = data.into_builder().build();
-
-        Ok(self.embed.get_or_insert(embed).to_owned())
+        Ok(data.into_builder().build())
     }
 }

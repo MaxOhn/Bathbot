@@ -175,7 +175,7 @@ async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotRes
     if let Some((_, best)) = scores.as_mut().filter(|_| {
         unchoked_pp.is_some() || matches!(map.status, RankStatus::Ranked | RankStatus::Approved)
     }) {
-        process_tracking(&ctx, map.mode, best, Some(&user)).await;
+        process_tracking(&ctx, best, Some(&user)).await;
     }
 
     let gb = ctx.map_garbage_collector(&map);

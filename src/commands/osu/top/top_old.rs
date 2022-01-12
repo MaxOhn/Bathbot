@@ -199,7 +199,7 @@ pub(super) async fn _topold(
     user.mode = mode;
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, mode, &mut scores, Some(&user)).await;
+    process_tracking(&ctx, &mut scores, Some(&user)).await;
 
     // Calculate bonus pp
     let actual_pp: f32 = scores
