@@ -418,8 +418,30 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
             // if let Err(why) = ctx.member_tx.send((e.id, shard_id)) {
             //     warn!("Failed to forward member request: {}", why);
             // }
+
+            let stats = ctx.cache.stats();
+            ctx.stats.cache_counts.guilds.set(stats.guilds() as i64);
+            ctx.stats
+                .cache_counts
+                .unavailable_guilds
+                .set(stats.unavailable_guilds() as i64);
+            ctx.stats.cache_counts.members.set(stats.members() as i64);
+            ctx.stats.cache_counts.users.set(stats.users() as i64);
+            ctx.stats.cache_counts.roles.set(stats.roles() as i64);
         }
-        Event::GuildDelete(_) => ctx.stats.event_counts.guild_delete.inc(),
+        Event::GuildDelete(_) => {
+            ctx.stats.event_counts.guild_delete.inc();
+
+            let stats = ctx.cache.stats();
+            ctx.stats.cache_counts.guilds.set(stats.guilds() as i64);
+            ctx.stats
+                .cache_counts
+                .unavailable_guilds
+                .set(stats.unavailable_guilds() as i64);
+            ctx.stats.cache_counts.members.set(stats.members() as i64);
+            ctx.stats.cache_counts.users.set(stats.users() as i64);
+            ctx.stats.cache_counts.roles.set(stats.roles() as i64);
+        }
         Event::GuildEmojisUpdate(_) => {}
         Event::GuildIntegrationsUpdate(_) => {}
         Event::GuildUpdate(_) => ctx.stats.event_counts.guild_update.inc(),
@@ -441,8 +463,20 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
         }
         Event::InviteCreate(_) => {}
         Event::InviteDelete(_) => {}
-        Event::MemberAdd(_) => ctx.stats.event_counts.member_add.inc(),
-        Event::MemberRemove(_) => ctx.stats.event_counts.member_remove.inc(),
+        Event::MemberAdd(_) => {
+            ctx.stats.event_counts.member_add.inc();
+
+            let stats = ctx.cache.stats();
+            ctx.stats.cache_counts.members.set(stats.members() as i64);
+            ctx.stats.cache_counts.users.set(stats.users() as i64);
+        }
+        Event::MemberRemove(_) => {
+            ctx.stats.event_counts.member_remove.inc();
+
+            let stats = ctx.cache.stats();
+            ctx.stats.cache_counts.members.set(stats.members() as i64);
+            ctx.stats.cache_counts.users.set(stats.users() as i64);
+        }
         Event::MemberUpdate(_) => ctx.stats.event_counts.member_update.inc(),
         Event::MemberChunk(_) => ctx.stats.event_counts.member_chunk.inc(),
         Event::MessageCreate(msg) => {
@@ -478,12 +512,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
 
             if let Some(guild_id) = reaction.guild_id {
                 if let Some(roles) = ctx.get_role_assigns(reaction) {
-                    for id in roles {
-                        let role_id = match RoleId::new(id) {
-                            Some(id) => id,
-                            None => continue,
-                        };
-
+                    for role_id in roles.into_iter().filter_map(RoleId::new) {
                         let add_role_fut =
                             ctx.http
                                 .add_guild_member_role(guild_id, reaction.user_id, role_id);
@@ -502,12 +531,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
 
             if let Some(guild_id) = reaction.guild_id {
                 if let Some(roles) = ctx.get_role_assigns(reaction) {
-                    for id in roles {
-                        let role_id = match RoleId::new(id) {
-                            Some(id) => id,
-                            None => continue,
-                        };
-
+                    for role_id in roles.into_iter().filter_map(RoleId::new) {
                         let remove_role_fut =
                             ctx.http
                                 .remove_guild_member_role(guild_id, reaction.user_id, role_id);
@@ -537,10 +561,32 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
             } else {
                 info!("Game is set for shard {}", shard_id);
             }
+
+            let stats = ctx.cache.stats();
+            ctx.stats.cache_counts.guilds.set(stats.guilds() as i64);
+            ctx.stats
+                .cache_counts
+                .unavailable_guilds
+                .set(stats.unavailable_guilds() as i64);
+            ctx.stats.cache_counts.members.set(stats.members() as i64);
+            ctx.stats.cache_counts.users.set(stats.users() as i64);
+            ctx.stats.cache_counts.roles.set(stats.roles() as i64);
         }
         Event::Resumed => info!("Shard {} is resumed", shard_id),
-        Event::RoleCreate(_) => ctx.stats.event_counts.role_create.inc(),
-        Event::RoleDelete(_) => ctx.stats.event_counts.role_delete.inc(),
+        Event::RoleCreate(_) => {
+            ctx.stats.event_counts.role_create.inc();
+            ctx.stats
+                .cache_counts
+                .roles
+                .set(ctx.cache.stats().roles() as i64);
+        }
+        Event::RoleDelete(_) => {
+            ctx.stats.event_counts.role_delete.inc();
+            ctx.stats
+                .cache_counts
+                .roles
+                .set(ctx.cache.stats().roles() as i64);
+        }
         Event::RoleUpdate(_) => ctx.stats.event_counts.role_update.inc(),
         Event::ShardConnected(_) => info!("Shard {} is connected", shard_id),
         Event::ShardConnecting(_) => info!("Shard {} is connecting...", shard_id),
@@ -559,7 +605,14 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
         Event::ThreadMembersUpdate(_) => {}
         Event::ThreadUpdate(_) => {}
         Event::TypingStart(_) => {}
-        Event::UnavailableGuild(_) => ctx.stats.event_counts.unavailable_guild.inc(),
+        Event::UnavailableGuild(_) => {
+            ctx.stats.event_counts.unavailable_guild.inc();
+
+            ctx.stats
+                .cache_counts
+                .unavailable_guilds
+                .set(ctx.cache.stats().unavailable_guilds() as i64);
+        }
         Event::UserUpdate(_) => ctx.stats.event_counts.user_update.inc(),
         Event::VoiceServerUpdate(_) => {}
         Event::VoiceStateUpdate(_) => {}

@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use prometheus::{IntCounter, IntCounterVec, Opts, Registry};
+use prometheus::{IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts, Registry};
 
 use crate::util::constants::common_literals::NAME;
 
@@ -49,12 +49,21 @@ pub struct CommandCounters {
     pub components: IntCounterVec,
 }
 
+pub struct CacheStats {
+    pub guilds: IntGauge,
+    pub unavailable_guilds: IntGauge,
+    pub members: IntGauge,
+    pub users: IntGauge,
+    pub roles: IntGauge,
+}
+
 pub struct BotStats {
     pub registry: Registry,
     pub start_time: DateTime<Utc>,
     pub event_counts: EventStats,
     pub message_counts: MessageCounters,
     pub command_counts: CommandCounters,
+    pub cache_counts: CacheStats,
     pub osu_metrics: OsuCounters,
 }
 
@@ -78,6 +87,7 @@ impl BotStats {
             metric_vec!(counter: "slash_commands", "Executed slash commands", NAME);
         let components =
             metric_vec!(counter: "components", "Executed interaction components", NAME);
+        let cache_counter = metric_vec!(gauge: "cache", "Cache counts", "cached_type");
 
         let registry = Registry::new_custom(Some(String::from("bathbot")), None).unwrap();
         registry.register(Box::new(event_counter.clone())).unwrap();
@@ -86,6 +96,7 @@ impl BotStats {
             .register(Box::new(message_commands.clone()))
             .unwrap();
         registry.register(Box::new(slash_commands.clone())).unwrap();
+        registry.register(Box::new(cache_counter.clone())).unwrap();
         registry.register(Box::new(osu_metrics.clone())).unwrap();
 
         Self {
@@ -128,6 +139,13 @@ impl BotStats {
                 message_commands,
                 slash_commands,
                 components,
+            },
+            cache_counts: CacheStats {
+                guilds: cache_counter.with_label_values(&["Guilds"]),
+                unavailable_guilds: cache_counter.with_label_values(&["Unavailable guilds"]),
+                members: cache_counter.with_label_values(&["Members"]),
+                users: cache_counter.with_label_values(&["Users"]),
+                roles: cache_counter.with_label_values(&["Roles"]),
             },
             osu_metrics: OsuCounters {
                 user_cached: osu_metrics.with_label_values(&["User cached"]),
