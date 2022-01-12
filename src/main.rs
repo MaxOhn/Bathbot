@@ -336,6 +336,8 @@ async fn async_main() -> Result<()> {
     ctx.clear_msgs_to_process();
 
     // TODO: Cold resume
+    ctx.cluster.down();
+
     // Store sessions for later resume
     // let sessions = ctx
     //     .cluster

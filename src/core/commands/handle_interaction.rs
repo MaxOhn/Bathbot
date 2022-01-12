@@ -166,14 +166,13 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
     Ok(())
 }
 
-async fn process_command<F, R>(
+async fn process_command<R>(
     ctx: Arc<Context>,
     command: ApplicationCommand,
     args: CommandArgs,
-    fun: F,
+    fun: fn(Arc<Context>, ApplicationCommand) -> R,
 ) -> BotResult<ProcessResult>
 where
-    F: Fn(Arc<Context>, ApplicationCommand) -> R,
     R: Future<Output = BotResult<()>>,
 {
     let ephemeral = args.ephemeral;
