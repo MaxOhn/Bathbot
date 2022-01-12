@@ -47,8 +47,8 @@ use crate::{
     util::{constants::BATHBOT_WORKSHOP_ID, MessageBuilder},
 };
 
+use bb8_redis::{bb8::Pool, RedisConnectionManager};
 use dashmap::{DashMap, DashSet};
-use deadpool_redis::{Config as RedisConfig, PoolConfig as RedisPoolConfig};
 use eyre::{Result, WrapErr};
 use futures::StreamExt;
 use hashbrown::HashSet;
@@ -141,13 +141,8 @@ async fn async_main() -> Result<()> {
     let redis_port = config.redis_port;
     let redis_uri = format!("redis://{}:{}", redis_host, redis_port);
 
-    let redis_config = RedisConfig {
-        connection: None,
-        pool: Some(RedisPoolConfig::new(4)),
-        url: Some(redis_uri),
-    };
-
-    let redis = redis_config.create_pool(None)?;
+    let redis_manager = RedisConnectionManager::new(redis_uri)?;
+    let redis = Pool::builder().max_size(8).build(redis_manager).await?;
 
     // Connect to osu! API
     let osu_client_id = config.tokens.osu_client_id;

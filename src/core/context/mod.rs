@@ -1,5 +1,6 @@
 mod impls;
 
+use bb8_redis::{bb8::Pool, RedisConnectionManager};
 pub use impls::{MatchLiveChannels, MatchTrackResult};
 use smallvec::SmallVec;
 
@@ -13,7 +14,6 @@ use crate::{
 };
 
 use dashmap::{DashMap, DashSet};
-use deadpool_redis::Pool as RedisPool;
 use hashbrown::HashSet;
 use parking_lot::Mutex;
 use rosu_v2::Osu;
@@ -48,7 +48,7 @@ pub struct Context {
 
 pub struct Clients {
     pub psql: Database,
-    pub redis: RedisPool,
+    pub redis: Pool<RedisConnectionManager>,
     pub osu: Osu,
     pub custom: CustomClient,
     pub twitch: Twitch,

@@ -48,8 +48,6 @@ pub enum Error {
     ChronoParse(#[from] chrono::format::ParseError),
     #[error("command error: {1}")]
     Command(#[source] Box<Error>, String),
-    #[error("failed to create redis pool")]
-    CreateRedisPool(#[from] deadpool_redis::CreatePoolError),
     #[error("{0}")]
     Custom(String),
     #[error("custom client error")]
@@ -80,8 +78,8 @@ pub enum Error {
     Osu(#[from] rosu_v2::error::OsuError),
     #[error("error while calculating pp")]
     Pp(#[from] pp::PPError),
-    #[error("error while communicating with redis cache")]
-    Redis(#[from] deadpool_redis::redis::RedisError),
+    #[error("error while communicating with redis")]
+    Redis(#[from] bb8_redis::redis::RedisError),
     #[error("reqwest error")]
     Reqwest(#[from] reqwest::Error),
     #[error("serde json error")]

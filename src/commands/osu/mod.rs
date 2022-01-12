@@ -66,7 +66,7 @@ use crate::{
     BotResult, CommandData, Context, Error,
 };
 
-use deadpool_redis::redis::AsyncCommands;
+use bb8_redis::redis::AsyncCommands;
 use eyre::Report;
 use futures::future::FutureExt;
 use rosu_v2::{
