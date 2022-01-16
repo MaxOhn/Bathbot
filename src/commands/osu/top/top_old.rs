@@ -132,7 +132,11 @@ pub(super) async fn _topold(
     args: OldArgs,
 ) -> BotResult<()> {
     let OldArgs { config, version } = args;
-    let mode = config.mode.unwrap_or(GameMode::STD);
+
+    let mode = version
+        .map(OldVersion::mode)
+        .or_else(|| config.mode)
+        .unwrap_or(GameMode::STD);
 
     let content = match (mode, version) {
         (GameMode::STD, None) => Some("osu! was not a thing until september 2007."),
@@ -507,7 +511,7 @@ impl OldVersion {
         }
     }
 
-    fn date_range(&self) -> &'static str {
+    fn date_range(self) -> &'static str {
         match self {
             OldVersion::OsuRankedScore => "between 2007 and april 2012",
             OldVersion::OsuPpV1 => "between april 2012 and january 2014",
@@ -527,6 +531,23 @@ impl OldVersion {
 
             OldVersion::CatchMar14May20 => "between march 2014 and may 2020",
             OldVersion::CatchMay20 => "since may 2020",
+        }
+    }
+
+    fn mode(self) -> GameMode {
+        match self {
+            OldVersion::OsuRankedScore
+            | OldVersion::OsuPpV1
+            | OldVersion::OsuPpV2
+            | OldVersion::OsuApr15May18
+            | OldVersion::OsuMay18Feb19
+            | OldVersion::OsuFeb19Jan21
+            | OldVersion::OsuJan21Jul21
+            | OldVersion::OsuJul21Nov21
+            | OldVersion::OsuNov21 => GameMode::STD,
+            OldVersion::ManiaMar14May18 | OldVersion::ManiaMay18 => GameMode::MNA,
+            OldVersion::TaikoMar14Sep20 | OldVersion::TaikoSep20 => GameMode::TKO,
+            OldVersion::CatchMar14May20 | OldVersion::CatchMay20 => GameMode::CTB,
         }
     }
 }
