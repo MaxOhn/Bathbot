@@ -14,12 +14,11 @@ use twilight_model::{
 
 use crate::{
     database::MapsetTagWrapper,
-    error::BgGameError,
     util::{constants::OSU_BASE, MessageExt},
     Context, MessageBuilder,
 };
 
-use super::{game_loop, Game, GameResult, LoopResult};
+use super::{game_loop, BgGameError, Game, GameResult, LoopResult};
 
 const GAME_LEN: Duration = Duration::from_secs(180);
 

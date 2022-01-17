@@ -1,10 +1,12 @@
-use super::GameResult;
-use crate::{database::MapsetTagWrapper, error::BgGameError, Context};
+use std::collections::VecDeque;
 
 use eyre::Report;
 use rand::RngCore;
 use rosu_v2::model::beatmap::BeatmapsetCompact;
-use std::collections::VecDeque;
+
+use crate::{database::MapsetTagWrapper, Context};
+
+use super::GameResult;
 
 #[allow(clippy::needless_lifetimes)]
 pub async fn get_random_mapset<'m>(
@@ -37,23 +39,18 @@ pub async fn get_title_artist(ctx: &Context, mapset_id: u32) -> GameResult<(Stri
         if let Ok(mapset) = mapset_fut.await {
             (mapset.title.to_lowercase(), mapset.artist)
         } else {
-            match ctx.osu().beatmapset(mapset_id).await {
-                Ok(mapset) => {
-                    if let Err(err) = ctx.psql().insert_beatmapset(&mapset).await {
-                        warn!("{:?}", Report::new(err));
-                    }
+            let mapset = ctx.osu().beatmapset(mapset_id).await?;
 
-                    (mapset.title.to_lowercase(), mapset.artist)
-                }
-                Err(why) => return Err(BgGameError::Osu(why)),
+            if let Err(err) = ctx.psql().insert_beatmapset(&mapset).await {
+                warn!("{:?}", Report::new(err));
             }
+
+            (mapset.title.to_lowercase(), mapset.artist)
         }
     };
 
-    if let Some(idx_open) = title.find('(') {
-        if let Some(idx_close) = title.rfind(')') {
-            title.replace_range(idx_open..=idx_close, "");
-        }
+    if let (Some(open), Some(close)) = (title.find('('), title.rfind(')')) {
+        title.replace_range(open..=close, "");
     }
 
     if let Some(idx) = title.find("feat.").or_else(|| title.find("ft.")) {

@@ -1,11 +1,7 @@
-mod bg_game;
-mod custom_client;
 mod map_download;
 mod pp;
 mod twitch;
 
-pub use bg_game::BgGameError;
-pub use custom_client::CustomClientError;
 pub use map_download::MapDownloadError;
 pub use pp::PPError;
 pub use twitch::TwitchError;
@@ -19,8 +15,6 @@ use twilight_http::request::{
 };
 use twilight_model::application::interaction::{ApplicationCommand, MessageComponentInteraction};
 
-use crate::core::CacheMiss;
-
 #[macro_export]
 macro_rules! bail {
     ($($arg:tt)*) => {
@@ -33,9 +27,9 @@ pub enum Error {
     #[error("error while checking authority status")]
     Authority(#[source] Box<Error>),
     #[error("background game error")]
-    BgGame(#[from] bg_game::BgGameError),
+    BgGame(#[from] crate::bg_game::BgGameError),
     #[error("missing value in cache")]
-    Cache(#[from] CacheMiss),
+    Cache(#[from] crate::core::CacheMiss),
     #[error("serde cbor error")]
     Cbor(#[from] serde_cbor::Error),
     #[error("error occured on cluster request")]
@@ -51,7 +45,7 @@ pub enum Error {
     #[error("{0}")]
     Custom(String),
     #[error("custom client error")]
-    CustomClient(#[from] custom_client::CustomClientError),
+    CustomClient(#[from] crate::custom_client::CustomClientError),
     #[error("database error")]
     Database(#[from] sqlx::Error),
     #[error("fmt error")]

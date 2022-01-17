@@ -12,15 +12,11 @@ use eyre::Report;
 use std::{collections::BTreeMap, sync::Arc};
 use twilight_model::application::interaction::ApplicationCommand;
 
-pub(super) async fn count<R>(
-    ctx: Arc<Context>,
-    command: ApplicationCommand,
-    kind: R,
-) -> BotResult<()>
+pub(super) async fn count<R>(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()>
 where
     R: OsekaiRanking<Entry = OsekaiRankingEntry<usize>>,
 {
-    let osekai_fut = ctx.clients.custom.get_osekai_ranking(kind);
+    let osekai_fut = ctx.clients.custom.get_osekai_ranking::<R>();
     let osu_fut = ctx.psql().get_user_osu(command.user_id()?);
 
     let (osekai_result, osu_result) = tokio::join!(osekai_fut, osu_fut);
@@ -57,12 +53,12 @@ where
     send_response(ctx, command, users, data, osu_result).await
 }
 
-pub(super) async fn pp<R>(ctx: Arc<Context>, command: ApplicationCommand, kind: R) -> BotResult<()>
+pub(super) async fn pp<R>(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()>
 where
     R: OsekaiRanking<Entry = OsekaiRankingEntry<u32>>,
 {
     let owner = command.user_id()?;
-    let osekai_fut = ctx.clients.custom.get_osekai_ranking(kind);
+    let osekai_fut = ctx.clients.custom.get_osekai_ranking::<R>();
     let osu_fut = ctx.psql().get_user_osu(owner);
 
     let (osekai_result, osu_result) = tokio::join!(osekai_fut, osu_fut);

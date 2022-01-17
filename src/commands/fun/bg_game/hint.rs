@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    error::BgGameError,
+    bg_game::BgGameError,
     util::{constants::GENERAL_ISSUE, MessageExt},
     BotResult, CommandData, Context, MessageBuilder,
 };

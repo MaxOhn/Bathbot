@@ -1,6 +1,4 @@
-use thiserror::Error;
-
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum MapDownloadError {
     #[error("failed to download {0}.osu")]
     Content(u32),

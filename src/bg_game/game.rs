@@ -12,7 +12,6 @@ use twilight_standby::future::WaitForMessageStream;
 
 use crate::{
     database::MapsetTagWrapper,
-    error::BgGameError,
     util::{
         constants::{
             common_literals::{MANIA, OSU},
@@ -23,7 +22,7 @@ use crate::{
     Context, CONFIG,
 };
 
-use super::{util, GameResult, Hints, ImageReveal};
+use super::{util, BgGameError, GameResult, Hints, ImageReveal};
 
 pub struct Game {
     pub title: String,
@@ -96,7 +95,7 @@ impl Game {
                             img
                         }
                     })
-                    .map_err(BgGameError::from)
+                    .map_err(BgGameError::Image)
             });
 
         let ((title, artist), img) =

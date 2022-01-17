@@ -1,20 +1,20 @@
 mod deserialize;
+mod error;
 mod osekai;
 mod osu_daily;
 mod osu_stats;
 mod score;
 mod snipe;
 
+pub use error::CustomClientError;
 pub use osekai::*;
 pub use osu_daily::*;
 pub use osu_stats::*;
-use score::ScraperScores;
 pub use score::{ScraperBeatmap, ScraperScore};
 use serde::Serialize;
 pub use snipe::*;
 
 use crate::{
-    error::CustomClientError,
     util::{
         constants::{
             common_literals::{COUNTRY, MODS},
@@ -35,6 +35,8 @@ use rosu_v2::prelude::{GameMode, GameMods, User};
 use serde_json::Value;
 use std::{fmt::Write, hash::Hash, num::NonZeroU32};
 use tokio::time::{sleep, timeout, Duration};
+
+use self::{error::ErrorKind, score::ScraperScores};
 
 type ClientResult<T> = Result<T, CustomClientError>;
 
@@ -116,12 +118,8 @@ impl CustomClient {
         let response = self.make_post_request(url, Site::Osekai, form).await?;
         let bytes = response.bytes().await?;
 
-        let medals: OsekaiMedals =
-            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
-                body: String::from_utf8_lossy(&bytes).into_owned(),
-                source,
-                request: "osekai medals",
-            })?;
+        let medals: OsekaiMedals = serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsekaiMedals))?;
 
         Ok(medals.0)
     }
@@ -133,12 +131,8 @@ impl CustomClient {
         let response = self.make_post_request(url, Site::Osekai, form).await?;
         let bytes = response.bytes().await?;
 
-        let maps: OsekaiMaps =
-            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
-                body: String::from_utf8_lossy(&bytes).into_owned(),
-                source,
-                request: "osekai maps",
-            })?;
+        let maps: OsekaiMaps = serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsekaiMaps))?;
 
         Ok(maps.0.unwrap_or_default())
     }
@@ -150,29 +144,22 @@ impl CustomClient {
         let response = self.make_post_request(url, Site::Osekai, form).await?;
         let bytes = response.bytes().await?;
 
-        let comments: OsekaiComments =
-            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
-                body: String::from_utf8_lossy(&bytes).into_owned(),
-                source,
-                request: "osekai comments",
-            })?;
+        let comments: OsekaiComments = serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsekaiComments))?;
 
         Ok(comments.0.unwrap_or_default())
     }
 
-    pub async fn get_osekai_ranking<R: OsekaiRanking>(&self, _: R) -> ClientResult<Vec<R::Entry>> {
+    pub async fn get_osekai_ranking<R: OsekaiRanking>(&self) -> ClientResult<Vec<R::Entry>> {
         let url = "https://osekai.net/rankings/api/api.php";
         let form = &[("App", R::FORM)];
 
         let response = self.make_post_request(url, Site::Osekai, form).await?;
         let bytes = response.bytes().await?;
 
-        let ranking =
-            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
-                body: String::from_utf8_lossy(&bytes).into_owned(),
-                source,
-                request: R::REQUEST,
-            })?;
+        let ranking = serde_json::from_slice(&bytes).map_err(|e| {
+            CustomClientError::parsing(e, &bytes, ErrorKind::OsekaiRanking(R::REQUEST))
+        })?;
 
         Ok(ranking)
     }
@@ -188,12 +175,8 @@ impl CustomClient {
         let response = self.make_get_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
 
-        let player: SnipePlayer =
-            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
-                body: String::from_utf8_lossy(&bytes).into_owned(),
-                source,
-                request: "snipe player",
-            })?;
+        let player: SnipePlayer = serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::SnipePlayer))?;
 
         Ok(player)
     }
@@ -208,12 +191,8 @@ impl CustomClient {
         let response = self.make_get_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
 
-        let country_players: Vec<SnipeCountryPlayer> =
-            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
-                body: String::from_utf8_lossy(&bytes).into_owned(),
-                source,
-                request: "snipe country",
-            })?;
+        let country_players: Vec<SnipeCountryPlayer> = serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::SnipeCountry))?;
 
         Ok(country_players)
     }
@@ -228,12 +207,8 @@ impl CustomClient {
         let response = self.make_get_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
 
-        let statistics =
-            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
-                body: String::from_utf8_lossy(&bytes).into_owned(),
-                source,
-                request: "country statistics",
-            })?;
+        let statistics = serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::CountryStatistics))?;
 
         Ok(statistics)
     }
@@ -259,12 +234,8 @@ impl CustomClient {
         let response = self.make_get_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
 
-        let snipes: Vec<SnipeRecent> =
-            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
-                body: String::from_utf8_lossy(&bytes).into_owned(),
-                source,
-                request: "snipe recent",
-            })?;
+        let snipes: Vec<SnipeRecent> = serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::SnipeRecent))?;
 
         Ok(snipes)
     }
@@ -297,12 +268,8 @@ impl CustomClient {
         let response = self.make_get_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
 
-        let scores: Vec<SnipeScore> =
-            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
-                body: String::from_utf8_lossy(&bytes).into_owned(),
-                source,
-                request: "snipe score",
-            })?;
+        let scores: Vec<SnipeScore> = serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::SnipeScore))?;
 
         Ok(scores)
     }
@@ -332,12 +299,8 @@ impl CustomClient {
         let response = self.make_get_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
 
-        let count: usize =
-            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
-                body: String::from_utf8_lossy(&bytes).into_owned(),
-                source,
-                request: "snipe score count",
-            })?;
+        let count: usize = serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::SnipeScoreCount))?;
 
         Ok(count)
     }
@@ -368,12 +331,8 @@ impl CustomClient {
 
         let bytes = response.bytes().await?;
 
-        let players: Vec<OsuStatsPlayer> =
-            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
-                body: String::from_utf8_lossy(&bytes).into_owned(),
-                source,
-                request: "globals list",
-            })?;
+        let players: Vec<OsuStatsPlayer> = serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::GlobalsList))?;
 
         Ok(players)
     }
@@ -418,30 +377,18 @@ impl CustomClient {
 
         let bytes = response.bytes().await?;
 
-        let result: Value =
-            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
-                body: String::from_utf8_lossy(&bytes).into_owned(),
-                source,
-                request: "osu stats global",
-            })?;
+        let result: Value = serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsuStatsGlobal))?;
 
         let (scores, amount) = if let Value::Array(mut array) = result {
             let mut values = array.drain(..2);
 
-            let scores = serde_json::from_value(values.next().unwrap()).map_err(|source| {
-                CustomClientError::Parsing {
-                    body: String::from_utf8_lossy(&bytes).into_owned(),
-                    source,
-                    request: "osu stats global scores",
-                }
+            let scores = serde_json::from_value(values.next().unwrap()).map_err(|e| {
+                CustomClientError::parsing(e, &bytes, ErrorKind::OsuStatsGlobalScores)
             })?;
 
-            let amount = serde_json::from_value(values.next().unwrap()).map_err(|source| {
-                CustomClientError::Parsing {
-                    body: String::from_utf8_lossy(&bytes).into_owned(),
-                    source,
-                    request: "osu stats global amount",
-                }
+            let amount = serde_json::from_value(values.next().unwrap()).map_err(|e| {
+                CustomClientError::parsing(e, &bytes, ErrorKind::OsuStatsGlobalAmount)
             })?;
 
             (scores, amount)
@@ -469,7 +416,7 @@ impl CustomClient {
             .map(|mods| !mods.contains(GameMods::Mirror))
             .unwrap_or(true);
 
-        // Check another request for mania's MR is needed
+        // Check if another request for mania's MR is needed
         if mode == GameMode::MNA && non_mirror {
             let mods = match mods {
                 None => Some(GameMods::Mirror),
@@ -538,12 +485,8 @@ impl CustomClient {
         let response = self.make_get_request(url, Site::OsuHiddenApi).await?;
         let bytes = response.bytes().await?;
 
-        let scores: ScraperScores =
-            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
-                body: String::from_utf8_lossy(&bytes).into_owned(),
-                source,
-                request: "leaderboard",
-            })?;
+        let scores: ScraperScores = serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::Leaderboard))?;
 
         Ok(scores.get())
     }
@@ -570,8 +513,6 @@ impl CustomClient {
             RankParam::Pp(pp) => write!(url, "t=pp&v={}", round(pp)),
         };
 
-        const SECOND: Duration = Duration::from_secs(1);
-
         let response = loop {
             let response = self.make_get_request(&url, Site::OsuDaily).await?;
 
@@ -580,17 +521,13 @@ impl CustomClient {
             }
 
             debug!("Ratelimited by osudaily, wait a second");
-            sleep(SECOND).await;
+            sleep(Duration::from_secs(1)).await;
         };
 
         let bytes = response.bytes().await?;
 
-        let rank_pp =
-            serde_json::from_slice(&bytes).map_err(|source| CustomClientError::Parsing {
-                body: String::from_utf8_lossy(&bytes).into_owned(),
-                source,
-                request: "rank data",
-            })?;
+        let rank_pp = serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::RankData))?;
 
         Ok(rank_pp)
     }

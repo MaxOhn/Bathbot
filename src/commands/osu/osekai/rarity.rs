@@ -11,7 +11,7 @@ use std::sync::Arc;
 use twilight_model::application::interaction::ApplicationCommand;
 
 pub(super) async fn rarity(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
-    let osekai_fut = ctx.clients.custom.get_osekai_ranking(Rarity);
+    let osekai_fut = ctx.clients.custom.get_osekai_ranking::<Rarity>();
 
     let ranking = match osekai_fut.await {
         Ok(ranking) => ranking,

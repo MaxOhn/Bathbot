@@ -135,7 +135,7 @@ pub(super) async fn _topold(
 
     let mode = version
         .map(OldVersion::mode)
-        .or_else(|| config.mode)
+        .or(config.mode)
         .unwrap_or(GameMode::STD);
 
     let content = match (mode, version) {

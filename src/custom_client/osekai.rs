@@ -1,13 +1,4 @@
-use groups::*;
-
-use super::deserialize::{str_to_f32, str_to_u32};
-use crate::{
-    embeds::RankingKindData,
-    util::{
-        constants::common_literals::{COUNTRY, CTB, FRUITS, MANIA, OSU, RANK, TAIKO},
-        CountryCode,
-    },
-};
+use std::{cmp::Ordering, fmt, marker::PhantomData, str::FromStr};
 
 use rosu_v2::{
     model::{GameMode, GameMods},
@@ -17,7 +8,18 @@ use serde::{
     de::{Error, MapAccess, Unexpected, Visitor},
     Deserialize, Deserializer,
 };
-use std::{cmp::Ordering, fmt, marker::PhantomData, str::FromStr};
+
+use crate::{
+    embeds::RankingKindData,
+    util::{
+        constants::common_literals::{COUNTRY, CTB, FRUITS, MANIA, OSU, RANK, TAIKO},
+        CountryCode,
+    },
+};
+
+use self::groups::*;
+
+use super::deserialize::{str_to_f32, str_to_u32};
 
 pub trait OsekaiRanking {
     const FORM: &'static str;

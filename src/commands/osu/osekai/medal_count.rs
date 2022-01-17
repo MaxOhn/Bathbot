@@ -14,7 +14,7 @@ use twilight_model::application::interaction::ApplicationCommand;
 pub(super) async fn medal_count(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
     let owner = command.user_id()?;
     let osu_fut = ctx.psql().get_user_osu(owner);
-    let osekai_fut = ctx.clients.custom.get_osekai_ranking(MedalCount);
+    let osekai_fut = ctx.clients.custom.get_osekai_ranking::<MedalCount>();
 
     let (ranking, author_name) = match tokio::join!(osekai_fut, osu_fut) {
         (Ok(ranking), Ok(osu)) => (ranking, osu.map(OsuData::into_username)),

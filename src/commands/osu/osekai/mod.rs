@@ -61,15 +61,15 @@ impl OsekaiCommandKind {
 
 pub async fn slash_osekai(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
     match OsekaiCommandKind::slash(&mut command).await? {
-        OsekaiCommandKind::Badges => count(ctx, command, Badges).await,
-        OsekaiCommandKind::LovedMapsets => count(ctx, command, LovedMapsets).await,
+        OsekaiCommandKind::Badges => count::<Badges>(ctx, command).await,
+        OsekaiCommandKind::LovedMapsets => count::<LovedMapsets>(ctx, command).await,
         OsekaiCommandKind::MedalCount => medal_count(ctx, command).await,
-        OsekaiCommandKind::RankedMapsets => count(ctx, command, RankedMapsets).await,
+        OsekaiCommandKind::RankedMapsets => count::<RankedMapsets>(ctx, command).await,
         OsekaiCommandKind::Rarity => rarity(ctx, command).await,
-        OsekaiCommandKind::Replays => count(ctx, command, Replays).await,
-        OsekaiCommandKind::StandardDeviation => pp(ctx, command, StandardDeviation).await,
-        OsekaiCommandKind::Subscribers => count(ctx, command, Subscribers).await,
-        OsekaiCommandKind::TotalPp => pp(ctx, command, TotalPp).await,
+        OsekaiCommandKind::Replays => count::<Replays>(ctx, command).await,
+        OsekaiCommandKind::StandardDeviation => pp::<StandardDeviation>(ctx, command).await,
+        OsekaiCommandKind::Subscribers => count::<Subscribers>(ctx, command).await,
+        OsekaiCommandKind::TotalPp => pp::<TotalPp>(ctx, command).await,
     }
 }
 

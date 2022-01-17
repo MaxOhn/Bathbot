@@ -5,7 +5,9 @@ use eyre::Report;
 use twilight_model::id::ChannelId;
 
 use crate::{
-    bg_game::GameWrapper, database::MapsetTagWrapper, error::BgGameError, BotResult, Context,
+    bg_game::{BgGameError, GameWrapper},
+    database::MapsetTagWrapper,
+    BotResult, Context,
 };
 
 impl Context {

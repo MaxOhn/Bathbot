@@ -360,7 +360,7 @@ fn main_fields(user: &User, stats: &UserStatistics, bonus_pp: f32) -> Vec<EmbedF
             "Play count / time",
             format!(
                 "{} / {} hrs",
-                with_comma_int(stats.playcount).to_string(),
+                with_comma_int(stats.playcount),
                 stats.playtime / 60 / 60
             ),
             true
