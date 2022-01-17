@@ -74,8 +74,8 @@ pub async fn handle_message(ctx: Arc<Context>, msg: Message) -> BotResult<()> {
 
     // Handle processing result
     match command_result {
-        Ok(ProcessResult::Success) => info!("Processed command `{}`", name),
-        Ok(result) => info!("Command `{}` was not processed: {:?}", name, result),
+        Ok(ProcessResult::Success) => info!("Processed command `{name}`"),
+        Ok(result) => info!("Command `{name}` was not processed: {result:?}"),
         Err(why) => return Err(Error::Command(Box::new(why), name.into_owned())),
     }
 
@@ -104,7 +104,7 @@ fn log_invoke(ctx: &Context, msg: &Message) {
         None => location.push_str("Private"),
     }
 
-    info!("[{}] {}: {}", location, msg.author.name, msg.content);
+    info!("[{location}] {}: {}", msg.author.name, msg.content);
 }
 
 async fn process_command(
@@ -150,9 +150,8 @@ async fn process_command(
 
         if ratelimit > 0 {
             trace!(
-                "Ratelimiting user {} for {} seconds",
+                "Ratelimiting user {} for {ratelimit} seconds",
                 msg.author.id,
-                ratelimit,
             );
 
             return Ok(ProcessResult::Ratelimited(BucketName::All));
@@ -162,14 +161,13 @@ async fn process_command(
     if let Some(bucket) = cmd.bucket {
         if let Some((cooldown, bucket)) = super::check_ratelimit(&ctx, msg, bucket).await {
             trace!(
-                "Ratelimiting user {} on command `{}` for {} seconds",
+                "Ratelimiting user {} on command `{}` for {cooldown} seconds",
                 msg.author.id,
                 cmd.names[0],
-                cooldown,
             );
 
             if !matches!(bucket, BucketName::BgHint) {
-                let content = format!("Command on cooldown, try again in {} seconds", cooldown);
+                let content = format!("Command on cooldown, try again in {cooldown} seconds");
                 msg.error(&ctx, content).await?;
             }
 

@@ -47,9 +47,8 @@ impl ProfileArgs {
                     }
                     _ => {
                         let content = format!(
-                            "Unrecognized option `{}`.\n\
-                            Available options are: `size`.",
-                            key
+                            "Unrecognized option `{key}`.\n\
+                            Available options are: `size`."
                         );
 
                         return Ok(Err(content.into()));

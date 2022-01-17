@@ -297,16 +297,15 @@ fn parse_country_code(ctx: &Context, mut country: String) -> Result<CountryCode,
                 code
             } else {
                 let content = format!(
-                    "Failed to parse `{}` as country or country code.\n\
-                    Be sure to specify a valid country or two ASCII letter country code.",
-                    country
+                    "Failed to parse `{country}` as country or country code.\n\
+                    Be sure to specify a valid country or two ASCII letter country code."
                 );
 
                 return Err(content);
             };
 
             if !country.snipe_supported(ctx) {
-                let content = format!("The country acronym `{}` is not supported :(", country);
+                let content = format!("The country acronym `{country}` is not supported :(");
 
                 return Err(content);
             }

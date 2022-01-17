@@ -80,7 +80,7 @@ async fn check_authority(
             .cache
             .member(guild_id, author, |member| member.roles().to_owned())?,
         RolesLookup::NotFound => {
-            bail!("missing user {} of guild {} in cache", author, guild_id)
+            bail!("missing user {author} of guild {guild_id} in cache")
         }
     };
 
@@ -97,10 +97,10 @@ async fn check_authority(
         let mut roles = auth_roles.into_iter();
 
         if let Some(first) = roles.next() {
-            let _ = write!(content, "<@&{}>", first);
+            let _ = write!(content, "<@&{first}>");
 
             for role in roles {
-                let _ = write!(content, ", <@&{}>", role);
+                let _ = write!(content, ", <@&{role}>");
             }
         }
 

@@ -76,7 +76,7 @@ pub(super) async fn _playersnipestats(
     let mut user = match get_user(&ctx, &user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = format!("User `{}` was not found", name);
+            let content = format!("User `{name}` was not found");
 
             return data.error(&ctx, content).await;
         }
@@ -108,7 +108,7 @@ pub(super) async fn _playersnipestats(
         Err(why) => {
             let report = Report::new(why).wrap_err("failed to retrieve snipe player");
             warn!("{:?}", report);
-            let content = format!("`{}` has never had any national #1s", name);
+            let content = format!("`{name}` has never had any national #1s");
             let builder = MessageBuilder::new().embed(content);
             data.create_message(&ctx, builder).await?;
 

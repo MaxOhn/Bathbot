@@ -158,8 +158,8 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
     };
 
     match command_result {
-        Ok(ProcessResult::Success) => info!("Processed slash command `{}`", name),
-        Ok(result) => info!("Command `/{}` was not processed: {:?}", name, result),
+        Ok(ProcessResult::Success) => info!("Processed slash command `{name}`"),
+        Ok(result) => info!("Command `/{name}` was not processed: {result:?}"),
         Err(why) => return Err(Error::Command(Box::new(why), name)),
     }
 
@@ -306,7 +306,7 @@ async fn pre_process_command(
         let ratelimit = bucket.take(author_id.get());
 
         if ratelimit > 0 {
-            trace!("Ratelimiting user {} for {} seconds", author_id, ratelimit);
+            trace!("Ratelimiting user {author_id} for {ratelimit} seconds");
 
             return Ok(Some(ProcessResult::Ratelimited(BucketName::All)));
         }
@@ -317,7 +317,7 @@ async fn pre_process_command(
             super::_check_ratelimit(ctx, author_id, guild_id, bucket).await
         {
             if !matches!(bucket, BucketName::BgHint) {
-                let content = format!("Command on cooldown, try again in {} seconds", cooldown);
+                let content = format!("Command on cooldown, try again in {cooldown} seconds");
                 premature_error(ctx, command, content, true).await?;
             }
 
@@ -367,5 +367,5 @@ fn log_interaction(ctx: &Context, interaction: &dyn InteractionExt, name: &str) 
         None => location.push_str("Private"),
     }
 
-    info!("[{}] {} used `{}` interaction", location, username, name);
+    info!("[{location}] {username} used `{name}` interaction");
 }

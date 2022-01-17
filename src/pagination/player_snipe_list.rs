@@ -150,7 +150,7 @@ impl Pagination for PlayerSnipeListPagination {
 
     async fn final_processing(mut self, ctx: &Context) -> BotResult<()> {
         match ctx.psql().insert_beatmaps(self.maps.values()).await {
-            Ok(n) => debug!("Added {} maps to DB", n),
+            Ok(n) => debug!("Added {n} maps to DB"),
             Err(err) => warn!("{:?}", Report::new(err)),
         }
 

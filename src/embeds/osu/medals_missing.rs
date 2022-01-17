@@ -28,7 +28,7 @@ impl MedalsMissingEmbed {
         for (i, medal) in medals.iter().enumerate() {
             match medal {
                 MedalType::Group(g) => {
-                    let _ = writeln!(description, "__**{}:**__", g);
+                    let _ = writeln!(description, "__**{g}:**__");
 
                     if let Some(MedalType::Group(_)) = medals.get(i + 1) {
                         description.push_str("All medals acquired\n");
@@ -53,7 +53,7 @@ impl MedalsMissingEmbed {
         ));
 
         let author = Author::new(user.username.as_str().to_owned())
-            .url(format!("{}u/{}", OSU_BASE, user.user_id))
+            .url(format!("{OSU_BASE}u/{}", user.user_id))
             .icon_url(flag_url(user.country_code.as_str()));
 
         Self {

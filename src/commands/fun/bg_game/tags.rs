@@ -91,11 +91,10 @@ async fn bgtagsmanual(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
             Some(Ok(tag)) => tags.insert(tag),
             Some(Err(tag)) => {
                 let content = format!(
-                    "Could not parse tag `{}`.\n\
+                    "Could not parse tag `{tag}`.\n\
                     Be sure to only give these tags:\n\
                     `farm, streams, alternate, old, meme, hardname, \
-                    easy, hard, tech, weeb, bluesky, english`",
-                    tag
+                    easy, hard, tech, weeb, bluesky, english`"
                 );
 
                 return msg.error(&ctx, content).await;
@@ -121,10 +120,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     // Then show the final tags
     match result {
         Ok(tags) => {
-            let content = format!(
-                "{}beatmapsets/{} is now tagged as:\n{}",
-                OSU_BASE, mapset_id, tags,
-            );
+            let content = format!("{OSU_BASE}beatmapsets/{mapset_id} is now tagged as:\n{tags}");
 
             let builder = MessageBuilder::new().content(content);
             msg.create_message(&ctx, builder).await?;
@@ -231,13 +227,12 @@ async fn bgtags(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         let (mapset_id, img) = get_random_image(mapsets, mode).await;
 
         let content = format!(
-            "<@{}> Which tags should this mapsets get: {}beatmapsets/{}\n\
+            "<@{owner}> Which tags should this mapsets get: {OSU_BASE}beatmapsets/{mapset_id}\n\
             ```\n\
             🍋: Easy 🎨: Weeb 😱: Hard name 🗽: English 💯: Tech\n\
             🤓: Hard 🍨: Kpop 🪀: Alternate 🌀: Streams ✅: Lock in\n\
             🤡: Meme 👨‍🌾: Farm 🟦: Blue sky  👴: Old     ❌: Exit loop\n\
-            ```",
-            owner, OSU_BASE, mapset_id
+            ```"
         );
 
         let img = AttachmentFile::from_bytes("bg_img.png", &img);

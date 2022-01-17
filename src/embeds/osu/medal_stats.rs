@@ -30,14 +30,14 @@ impl MedalStatsEmbed {
         ));
 
         let completion = round(100.0 * owned.len() as f32 / medals.len() as f32);
-        fields.push(field!("Completion", format!("{}%", completion), true));
+        fields.push(field!("Completion", format!("{completion}%"), true));
 
         if let Some(medal) = owned.first() {
             let name = medals
                 .get(&medal.medal_id)
                 .map_or("Unknown medal", |medal| medal.name.as_str());
 
-            let value = format!("{} ({})", name, medal.achieved_at.format("%F"));
+            let value = format!("{name} ({})", medal.achieved_at.format("%F"));
             fields.push(field!("First medal", value, false));
         }
 
@@ -46,7 +46,7 @@ impl MedalStatsEmbed {
                 .get(&medal.medal_id)
                 .map_or("Unknown medal", |medal| medal.name.as_str());
 
-            let value = format!("{} ({})", name, medal.achieved_at.format("%F"));
+            let value = format!("{name} ({})", medal.achieved_at.format("%F"));
             fields.push(field!("Last medal", value, false));
         }
 
@@ -75,7 +75,7 @@ impl MedalStatsEmbed {
                 if let Some((total, owned)) = counts.get(group) {
                     fields.push(field!(
                         group.to_string(),
-                        format!("{} / {}", owned, total),
+                        format!("{owned} / {total}"),
                         true
                     ));
                 }
@@ -92,7 +92,7 @@ impl MedalStatsEmbed {
         }
 
         let author = Author::new(user.username.into_string())
-            .url(format!("{}u/{}", OSU_BASE, user.user_id))
+            .url(format!("{OSU_BASE}u/{}", user.user_id))
             .icon_url(flag_url(user.country_code.as_str()));
 
         let footer = Footer::new("Check osekai.net for more info");

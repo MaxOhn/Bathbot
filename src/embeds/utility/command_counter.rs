@@ -31,15 +31,12 @@ impl CommandCounterEmbed {
 
             let _ = writeln!(
                 description,
-                "{:>2} {:1} # {:<len$} => {}",
-                i,
+                "{i:>2} {:1} # {name:<len$} => {amount}",
                 if i <= SYMBOLS.len() {
                     SYMBOLS[i - 1]
                 } else {
                     ""
                 },
-                name,
-                amount,
                 len = len
             );
         }

@@ -36,26 +36,25 @@ impl Context {
 
         for map_id in maps_to_delete {
             let mut map_path = config.map_path.clone();
-            map_path.push(format!("{}.osu", map_id));
+            map_path.push(format!("{map_id}.osu"));
 
             match time::timeout(five_seconds, remove_file(map_path)).await {
                 Ok(Ok(_)) => success += 1,
                 Ok(Err(why)) => match why.kind() {
                     ErrorKind::NotFound => file_not_found += 1,
                     _ => {
-                        let wrap = format!("[BG] Failed to delete map {}", map_id);
+                        let wrap = format!("[BG] Failed to delete map {map_id}");
                         let report = Report::new(why).wrap_err(wrap);
                         warn!("{:?}", report);
                     }
                 },
-                Err(_) => warn!("[BG] Timed out while deleting map {}", map_id),
+                Err(_) => warn!("[BG] Timed out while deleting map {map_id}"),
             }
         }
 
         if file_not_found > 0 {
             warn!(
-                "[BG] Failed to delete {} maps due to missing file",
-                file_not_found
+                "[BG] Failed to delete {file_not_found} maps due to missing file"
             );
         }
 
@@ -82,7 +81,7 @@ impl Context {
             info!("[BG] Background iteration...");
 
             match update_medals(&ctx).await {
-                Ok(count) => info!("[BG] Updated {} medals", count),
+                Ok(count) => info!("[BG] Updated {count} medals"),
                 Err(why) => {
                     let report = Report::new(why).wrap_err("[BG] failed to update medals");
                     warn!("{:?}", report);
@@ -90,7 +89,7 @@ impl Context {
             }
 
             let (success, total) = ctx.garbage_collect_all_maps().await;
-            info!("[BG] Garbage collected {}/{} maps", success, total);
+            info!("[BG] Garbage collected {success}/{total} maps");
         }
     }
 }

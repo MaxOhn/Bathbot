@@ -79,7 +79,7 @@ async fn _bws(ctx: Arc<Context>, data: CommandData<'_>, args: BwsArgs) -> BotRes
     let user = match get_user(&ctx, &user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = format!("User `{}` was not found", name);
+            let content = format!("User `{name}` was not found");
 
             return data.error(&ctx, content).await;
         }
@@ -156,9 +156,7 @@ impl BwsArgs {
                     },
                     _ => {
                         let content = format!(
-                            "Unrecognized option `{}`.\n\
-                            Available options are: `rank` or `badges`.",
-                            key
+                            "Unrecognized option `{key}`.\nAvailable options are: `rank` or `badges`."
                         );
 
                         return Ok(Err(content.into()));

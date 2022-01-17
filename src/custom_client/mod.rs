@@ -81,7 +81,7 @@ impl CustomClient {
     async fn make_get_request(&self, url: impl AsRef<str>, site: Site) -> ClientResult<Response> {
         let url = url.as_ref();
 
-        trace!("GET request of url {}", url);
+        trace!("GET request of url {url}");
         let mut req = self.client.get(url);
 
         if let Site::OsuHiddenApi = site {
@@ -104,7 +104,7 @@ impl CustomClient {
     ) -> ClientResult<Response> {
         let url = url.as_ref();
 
-        trace!("POST request of url {}", url);
+        trace!("POST request of url {url}");
         let req = self.client.post(url).form(form);
         self.ratelimit(site).await;
 
@@ -166,10 +166,8 @@ impl CustomClient {
 
     pub async fn get_snipe_player(&self, country: &str, user_id: u32) -> ClientResult<SnipePlayer> {
         let url = format!(
-            "{}player/{}/{}?type=id",
-            HUISMETBENEN,
+            "{HUISMETBENEN}player/{}/{user_id}?type=id",
             country.to_lowercase(),
-            user_id
         );
 
         let response = self.make_get_request(url, Site::OsuSnipe).await?;
@@ -183,8 +181,7 @@ impl CustomClient {
 
     pub async fn get_snipe_country(&self, country: &str) -> ClientResult<Vec<SnipeCountryPlayer>> {
         let url = format!(
-            "{}rankings/{}/pp/weighted",
-            HUISMETBENEN,
+            "{HUISMETBENEN}rankings/{}/pp/weighted",
             country.to_lowercase()
         );
 
@@ -202,7 +199,7 @@ impl CustomClient {
         country: &str,
     ) -> ClientResult<SnipeCountryStatistics> {
         let country = country.to_lowercase();
-        let url = format!("{}rankings/{}/statistics", HUISMETBENEN, country);
+        let url = format!("{HUISMETBENEN}rankings/{country}/statistics");
 
         let response = self.make_get_request(url, Site::OsuSnipe).await?;
         let bytes = response.bytes().await?;
@@ -223,8 +220,7 @@ impl CustomClient {
         let date_format = "%FT%TZ";
 
         let url = format!(
-            "{}snipes/{}/{}?since={}&until={}",
-            HUISMETBENEN,
+            "{HUISMETBENEN}snipes/{}/{}?since={}&until={}",
             user.user_id,
             if sniper { "new" } else { "old" },
             from.format(date_format),
@@ -260,7 +256,7 @@ impl CustomClient {
                 if mods == GameMods::NoMod {
                     url.push_str("&mods=nomod");
                 } else {
-                    let _ = write!(url, "&mods={}", mods);
+                    let _ = write!(url, "&mods={mods}");
                 }
             }
         }
@@ -291,7 +287,7 @@ impl CustomClient {
                 if mods == GameMods::NoMod {
                     url.push_str("&mods=nomod");
                 } else {
-                    let _ = write!(url, "&mods={}", mods);
+                    let _ = write!(url, "&mods={mods}");
                 }
             }
         }
@@ -320,7 +316,7 @@ impl CustomClient {
         }
 
         let url = "https://osustats.ppy.sh/api/getScoreRanking";
-        trace!("Requesting POST from url {} [page {}]", url, params.page);
+        trace!("Requesting POST from url {url} [page {}]", params.page);
         let request = self.client.post(url).multipart(form);
         self.ratelimit(Site::OsuStats).await;
 
@@ -357,16 +353,16 @@ impl CustomClient {
             let mut mod_str = String::with_capacity(3);
 
             let _ = match selection {
-                ModSelection::Include(mods) => write!(mod_str, "+{}", mods),
-                ModSelection::Exclude(mods) => write!(mod_str, "-{}", mods),
-                ModSelection::Exact(mods) => write!(mod_str, "!{}", mods),
+                ModSelection::Include(mods) => write!(mod_str, "+{mods}"),
+                ModSelection::Exclude(mods) => write!(mod_str, "-{mods}"),
+                ModSelection::Exact(mods) => write!(mod_str, "!{mods}"),
             };
 
             form = form.text(MODS, mod_str);
         }
 
         let url = "https://osustats.ppy.sh/api/getScores";
-        trace!("Requesting POST from url {}", url);
+        trace!("Requesting POST from url {url}");
         let request = self.client.post(url).multipart(form);
         self.ratelimit(Site::OsuStats).await;
 
@@ -477,7 +473,7 @@ impl CustomClient {
                 url.push_str("&mods[]=NM");
             } else {
                 for m in mods.iter() {
-                    let _ = write!(url, "&mods[]={}", m);
+                    let _ = write!(url, "&mods[]={m}");
                 }
             }
         }
@@ -493,7 +489,7 @@ impl CustomClient {
 
     #[allow(dead_code)]
     pub async fn get_avatar_with_id(&self, user_id: u32) -> ClientResult<Vec<u8>> {
-        let url = format!("{}{}", AVATAR_URL, user_id);
+        let url = format!("{AVATAR_URL}{user_id}");
 
         self.get_avatar(url).await
     }
@@ -506,10 +502,10 @@ impl CustomClient {
 
     pub async fn get_rank_data(&self, mode: GameMode, param: RankParam) -> ClientResult<RankPP> {
         let key = &CONFIG.get().unwrap().tokens.osu_daily;
-        let mut url = format!("{}pp.php?k={}&m={}&", OSU_DAILY_API, key, mode as u8);
+        let mut url = format!("{OSU_DAILY_API}pp.php?k={key}&m={}&", mode as u8);
 
         let _ = match param {
-            RankParam::Rank(rank) => write!(url, "t=rank&v={}", rank),
+            RankParam::Rank(rank) => write!(url, "t=rank&v={rank}"),
             RankParam::Pp(pp) => write!(url, "t=pp&v={}", round(pp)),
         };
 

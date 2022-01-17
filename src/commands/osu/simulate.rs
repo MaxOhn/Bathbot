@@ -110,9 +110,8 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
             Ok(map) => map,
             Err(OsuError::NotFound) => {
                 let content = format!(
-                    "Could not find beatmap with id `{}`. \
-                    Did you give me a mapset id instead of a map id?",
-                    map_id
+                    "Could not find beatmap with id `{map_id}`. \
+                    Did you give me a mapset id instead of a map id?"
                 );
 
                 return data.error(&ctx, content).await;
@@ -247,10 +246,9 @@ impl SimulateArgs {
                     },
                     _ => {
                         let content = format!(
-                            "Unrecognized option `{}`.\n\
+                            "Unrecognized option `{key}`.\n\
                             Available options are: `n300`, `n100`, `n50`, \
-                            `misses`, `acc`, `combo`, and `score`.",
-                            key
+                            `misses`, `acc`, `combo`, and `score`."
                         );
 
                         return Err(content);
@@ -264,10 +262,9 @@ impl SimulateArgs {
                 map = Some(id);
             } else {
                 let content = format!(
-                    "Failed to parse `{}`.\n\
+                    "Failed to parse `{arg}`.\n\
                     Be sure to specify either of the following: map id, map url, mods, or \
-                    options in the form `key=value`.\nCheck the command's help for more info.",
-                    arg
+                    options in the form `key=value`.\nCheck the command's help for more info."
                 );
 
                 return Err(content);

@@ -204,10 +204,10 @@ fn role_string(roles: &[u64], content: &mut String) {
 
     if let Some(first) = iter.next() {
         content.reserve(roles.len() * 20);
-        let _ = write!(content, "<@&{}>", first);
+        let _ = write!(content, "<@&{first}>");
 
         for role in iter {
-            let _ = write!(content, ", <@&{}>", role);
+            let _ = write!(content, ", <@&{role}>");
         }
     } else {
         content.push_str("None");
@@ -223,7 +223,7 @@ pub(super) enum AuthorityCommandKind {
 
 fn parse_role(arg: &str) -> Result<RoleId, Cow<'static, str>> {
     matcher::get_mention_role(arg)
-        .ok_or_else(|| format!("Expected role mention or role id, got `{}`", arg).into())
+        .ok_or_else(|| format!("Expected role mention or role id, got `{arg}`").into())
 }
 
 impl AuthorityCommandKind {

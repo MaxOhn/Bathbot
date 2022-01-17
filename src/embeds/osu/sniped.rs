@@ -52,11 +52,9 @@ impl SnipedEmbed {
             let value = format!(
                 "Total count: {}\n\
                 Different victims: {}\n\
-                Targeted the most: {} ({})",
+                Targeted the most: {most_name} ({most_count})",
                 sniper.len(),
                 victims.len(),
-                most_name,
-                most_count
             );
 
             fields.push(field!(name, value, false));
@@ -75,11 +73,9 @@ impl SnipedEmbed {
             let value = format!(
                 "Total count: {}\n\
                 Different snipers: {}\n\
-                Targeted the most: {} ({})",
+                Targeted the most: {most_name} ({most_count})",
                 snipee.len(),
                 snipers.len(),
-                most_name,
-                most_count
             );
 
             fields.push(field!(name, value, false));

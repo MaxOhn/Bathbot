@@ -91,7 +91,7 @@ pub(super) async fn _sniped(
     let mut user = match get_user(&ctx, &user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = format!("Could not find user `{}`", name);
+            let content = format!("Could not find user `{name}`");
 
             return data.error(&ctx, content).await;
         }

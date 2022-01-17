@@ -58,9 +58,8 @@ pub(super) async fn _players(
 
     if players.is_empty() {
         let content = format!(
-            "No entries found for country `{}`.\n\
-            Be sure to specify it with its acronym, e.g. `de` for germany.",
-            country
+            "No entries found for country `{country}`.\n\
+            Be sure to specify it with its acronym, e.g. `de` for germany."
         );
 
         return data.error(&ctx, content).await;
@@ -74,7 +73,6 @@ pub(super) async fn _players(
 
     let content = format!(
         "Country: `{country}` ~ `Rank: {rank_min} - {rank_max}`",
-        country = country,
         rank_min = params.rank_min,
         rank_max = params.rank_max,
     );
@@ -376,11 +374,8 @@ impl OsuStatsListParams {
                         None => rank_max = Some(value.parse().map_err(|_| Self::ERR_PARSE_RANK)?),
                     },
                     _ => {
-                        let content = format!(
-                            "Unrecognized option `{}`.\n\
-                            Available options are: `rank`.",
-                            key
-                        );
+                        let content =
+                            format!("Unrecognized option `{key}`.\nAvailable options are: `rank`.");
 
                         return Err(content);
                     }
@@ -391,10 +386,9 @@ impl OsuStatsListParams {
                 country = Some(code);
             } else {
                 let content = format!(
-                    "Failed to parse `{}` as either rank or country.\n\
+                    "Failed to parse `{arg}` as either rank or country.\n\
                     Be sure to specify valid country or two ASCII letter country code.\n\
-                    A rank range can be specified like `rank=2..45`.",
-                    arg
+                    A rank range can be specified like `rank=2..45`."
                 );
 
                 return Err(content);
@@ -429,9 +423,8 @@ impl OsuStatsListParams {
                             country = Some(code);
                         } else {
                             let content = format!(
-                                "Failed to parse `{}` as country or country code.\n\
-                                Be sure to specify valid country or two ASCII letter country code.",
-                                value
+                                "Failed to parse `{value}` as country or country code.\n\
+                                Be sure to specify valid country or two ASCII letter country code."
                             );
 
                             return Ok(Err(content));

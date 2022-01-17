@@ -34,8 +34,7 @@ pub(super) async fn _trackinginterval(
     *ctx.tracking().interval.write() = interval;
 
     let content = format!(
-        "Tracking interval: {}s -> {}s",
-        previous,
+        "Tracking interval: {previous}s -> {}s",
         interval.num_seconds()
     );
 

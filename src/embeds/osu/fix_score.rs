@@ -27,7 +27,7 @@ impl FixScoreEmbed {
     ) -> Self {
         let author = author!(user);
         let url = map.url;
-        let thumbnail = format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id);
+        let thumbnail = format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id);
 
         let mapset = map.mapset.as_ref().unwrap();
         let title = format!("{} - {} [{}]", mapset.artist, mapset.title, map.version);
@@ -60,18 +60,15 @@ impl FixScoreEmbed {
                     if let Some(old_idx) = old_idx {
                         write!(
                             description,
-                            "The score would have moved from personal #{} to #{}, \
+                            "The score would have moved from personal #{old_idx} to #{new_idx}, \
                             pushing their total pp to **{}pp**.",
-                            old_idx,
-                            new_idx,
                             with_comma_float(new_pp)
                         )
                     } else {
                         write!(
                             description,
-                            "It would have been a personal top #{}, \
+                            "It would have been a personal top #{new_idx}, \
                             pushing their total pp to **{}pp**.",
-                            new_idx,
                             with_comma_float(new_pp),
                         )
                     }
@@ -81,8 +78,7 @@ impl FixScoreEmbed {
 
                     write!(
                         description,
-                        "A new top100 score requires {}pp.",
-                        lowest_pp_required
+                        "A new top100 score requires {lowest_pp_required}pp."
                     )
                 }
             // Map not ranked but in top100
@@ -92,9 +88,8 @@ impl FixScoreEmbed {
                 write!(
                     description,
                     "If the map wasn't {:?}, an FC would have \
-                    been a personal #{}, pushing their total pp to **{}pp**.",
+                    been a personal #{idx}, pushing their total pp to **{}pp**.",
                     map.status,
-                    idx,
                     with_comma_float(new_pp)
                 )
             // Map not ranked and not in top100
@@ -103,8 +98,8 @@ impl FixScoreEmbed {
 
                 write!(
                     description,
-                    "A top100 score requires {}pp but the map is {:?} anyway.",
-                    lowest_pp_required, map.status
+                    "A top100 score requires {lowest_pp_required}pp but the map is {:?} anyway.",
+                    map.status
                 )
             };
 
@@ -121,9 +116,8 @@ impl FixScoreEmbed {
                     let _ = write!(
                         description,
                         ". If the map wasn't {:?} the score would have \
-                        been a personal #{}, pushing their total pp to **{}pp**.",
+                        been a personal #{idx}, pushing their total pp to **{}pp**.",
                         map.status,
-                        idx,
                         with_comma_float(new_pp)
                     );
                 } else {
@@ -132,8 +126,8 @@ impl FixScoreEmbed {
 
                     let _ = write!(
                         description,
-                        ". A top100 score would have required {}pp but the map is {:?} anyway.",
-                        lowest_pp_required, map.status
+                        ". A top100 score would have required {lowest_pp_required}pp but the map is {:?} anyway.",
+                        map.status
                     );
                 }
             }
@@ -142,7 +136,7 @@ impl FixScoreEmbed {
         // The user has no score on the map
         } else {
             match mods {
-                Some(mods) => format!("No {} score on the map", mods),
+                Some(mods) => format!("No {mods} score on the map"),
                 None => "No score on the map".to_owned(),
             }
         };

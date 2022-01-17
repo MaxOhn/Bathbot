@@ -194,13 +194,13 @@ impl SimulateEmbed {
         };
 
         let footer = Footer::new(format!("{:?} map by {}", map.status, mapset.creator_name))
-            .icon_url(format!("{}{}", AVATAR_URL, mapset.creator_id));
+            .icon_url(format!("{AVATAR_URL}{}", mapset.creator_id));
 
         Ok(Self {
             title,
             url: map.url.to_owned(),
             footer,
-            thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id), // mapset.covers is empty :(
+            thumbnail: format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id), // mapset.covers is empty :(
             grade_completion_mods,
             stars,
             score: unchoked_score.score as u64,
@@ -227,7 +227,7 @@ impl EmbedData for SimulateEmbed {
         );
 
         let combo = if let Some(prev_combo) = self.prev_combo {
-            format!("{} → {}", prev_combo, self.combo)
+            format!("{prev_combo} → {}", self.combo)
         } else {
             self.combo.to_owned()
         };
@@ -243,7 +243,7 @@ impl EmbedData for SimulateEmbed {
         ];
 
         let pp = if let Some(prev_pp) = self.prev_pp {
-            format!("{} → {}", prev_pp, self.pp)
+            format!("{prev_pp} → {}", self.pp)
         } else {
             self.pp.to_owned()
         };
@@ -258,7 +258,7 @@ impl EmbedData for SimulateEmbed {
             ));
         } else {
             let hits = if let Some(ref prev_hits) = self.prev_hits {
-                format!("{} → {}", prev_hits, &self.hits)
+                format!("{prev_hits} → {}", &self.hits)
             } else {
                 self.hits.to_owned()
             };
@@ -278,7 +278,7 @@ impl EmbedData for SimulateEmbed {
 
     fn into_builder(self) -> EmbedBuilder {
         let mut value = if let Some(prev_pp) = self.prev_pp {
-            format!("{} → {}", prev_pp, self.pp)
+            format!("{prev_pp} → {}", self.pp)
         } else {
             self.pp
         };
@@ -288,7 +288,7 @@ impl EmbedData for SimulateEmbed {
         }
 
         if let Some(misses) = self.removed_misses.filter(|misses| *misses > 0) {
-            let _ = write!(value, " (+{}miss)", misses);
+            let _ = write!(value, " (+{misses}miss)");
         }
 
         let mut name = String::with_capacity(50);
@@ -301,7 +301,7 @@ impl EmbedData for SimulateEmbed {
             let _ = write!(name, "({}%)", self.acc);
 
             let _ = if let Some(prev_combo) = self.prev_combo {
-                write!(name, " [ {} → {} ]", prev_combo, self.combo)
+                write!(name, " [ {prev_combo} → {} ]", self.combo)
             } else {
                 write!(name, " [ {} ]", self.combo)
             };

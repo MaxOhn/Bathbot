@@ -96,7 +96,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
             // Adjust streams' thumbnail url
             let url_len = stream.thumbnail_url.len();
             stream.thumbnail_url.truncate(url_len - 20); // cut off "{width}x{height}.jpg"
-            let _ = write!(stream.thumbnail_url, "{}x{}.jpg", width, height);
+            let _ = write!(stream.thumbnail_url, "{width}x{height}.jpg");
 
             let data = TwitchNotifEmbed::new(&stream, &users[&stream.user_id]);
 
@@ -126,23 +126,21 @@ async fn send_notif(ctx: &Context, data: &TwitchNotifEmbed, channel: ChannelId) 
                             if let Err(err) = ctx.psql().remove_channel_tracks(channel.get()).await
                             {
                                 let wrap = format!(
-                                    "could not remove stream tracks from unknown channel {}",
-                                    channel
+                                    "could not remove stream tracks from unknown channel {channel}"
                                 );
 
                                 let report = Report::new(err).wrap_err(wrap);
                                 warn!("{:?}", report);
                             } else {
-                                debug!("Removed twitch tracking of unknown channel {}", channel);
+                                debug!("Removed twitch tracking of unknown channel {channel}");
                             }
                         }
                         why => warn!(
-                            "Error from API while sending twitch notif (channel {}): {}",
-                            channel, why
+                            "Error from API while sending twitch notif (channel {channel}): {why}"
                         ),
                     }
                 } else {
-                    let wrap = format!("error while sending twitch notif (channel {})", channel);
+                    let wrap = format!("error while sending twitch notif (channel {channel})");
                     let report = Report::new(why).wrap_err(wrap);
                     warn!("{:?}", report);
                 }

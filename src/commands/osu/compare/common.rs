@@ -117,7 +117,7 @@ pub(super) async fn _common(
 
                     users.push(CommonUser::new(name, avatar_url, user_id));
                 } else {
-                    let content = format!("User `{}` has no {} top scores", name, mode);
+                    let content = format!("User `{name}` has no {mode} top scores");
 
                     return data.error(&ctx, content).await;
                 }
@@ -125,7 +125,7 @@ pub(super) async fn _common(
                 all_scores.push(scores);
             }
             Err(OsuError::NotFound) => {
-                let content = format!("User `{}` was not found", name);
+                let content = format!("User `{name}` was not found");
 
                 return data.error(&ctx, content).await;
             }
@@ -265,10 +265,10 @@ pub(super) async fn _common(
 
     if let Some(first) = iter.next() {
         let last = iter.next_back();
-        let _ = write!(content, "`{}`", first);
+        let _ = write!(content, "`{first}`");
 
         for name in iter {
-            let _ = write!(content, ", `{}`", name);
+            let _ = write!(content, ", `{name}`");
         }
 
         if let Some(name) = last {
@@ -276,7 +276,7 @@ pub(super) async fn _common(
                 content.push(',');
             }
 
-            let _ = write!(content, " and `{}`", name);
+            let _ = write!(content, " and `{name}`");
         }
     }
 

@@ -86,9 +86,9 @@ pub(super) async fn _profilecompare(
     }
 
     let content = if scores1.is_empty() {
-        Some(format!("No scores data for user `{}`", name1))
+        Some(format!("No scores data for user `{name1}`"))
     } else if scores2.is_empty() {
-        Some(format!("No scores data for user `{}`", name2))
+        Some(format!("No scores data for user `{name2}`"))
     } else {
         None
     };

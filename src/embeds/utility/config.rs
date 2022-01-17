@@ -14,12 +14,12 @@ impl ConfigEmbed {
     pub fn new(author: &User, config: UserConfig, twitch: Option<String>) -> Self {
         let author_img = match author.avatar {
             Some(ref hash) if hash.starts_with("a_") => format!(
-                "https://cdn.discordapp.com/avatars/{}/{}.gif",
-                author.id, hash
+                "https://cdn.discordapp.com/avatars/{}/{hash}.gif",
+                author.id
             ),
             Some(ref hash) => format!(
-                "https://cdn.discordapp.com/avatars/{}/{}.png",
-                author.id, hash
+                "https://cdn.discordapp.com/avatars/{}/{hash}.png",
+                author.id
             ),
             None => format!(
                 "https://cdn.discordapp.com/embed/avatars/{}.png",
@@ -35,7 +35,7 @@ impl ConfigEmbed {
         description.push_str("```\nosu!: ");
 
         if let Some(name) = config.username() {
-            let _ = writeln!(description, "{}", name);
+            let _ = writeln!(description, "{name}");
         } else {
             description.push_str("-\n");
         }
@@ -43,7 +43,7 @@ impl ConfigEmbed {
         description.push_str("Twitch: ");
 
         if let Some(name) = twitch {
-            let _ = writeln!(description, "{}", name);
+            let _ = writeln!(description, "{name}");
         } else {
             description.push_str("-\n");
         }

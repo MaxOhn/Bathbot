@@ -41,7 +41,7 @@ pub async fn _removestream(
     let twitch_id = match twitch.get_user(name).await {
         Ok(Some(user)) => user.user_id,
         Ok(None) => {
-            let content = format!("Twitch user `{}` was not found", name);
+            let content = format!("Twitch user `{name}` was not found");
 
             return data.error(&ctx, content).await;
         }
@@ -58,14 +58,11 @@ pub async fn _removestream(
     match ctx.psql().remove_stream_track(channel, twitch_id).await {
         Ok(true) => {
             trace!(
-                "No longer tracking {}'s twitch for channel {}",
-                name,
-                channel
+                "No longer tracking {name}'s twitch for channel {channel}"
             );
 
             let content = format!(
-                "I'm no longer tracking `{}`'s twitch stream in this channel",
-                name
+                "I'm no longer tracking `{name}`'s twitch stream in this channel"
             );
 
             let builder = MessageBuilder::new().content(content);
@@ -74,7 +71,7 @@ pub async fn _removestream(
             Ok(())
         }
         Ok(false) => {
-            let content = format!("Twitch user `{}` was not tracked in this channel", name);
+            let content = format!("Twitch user `{name}` was not tracked in this channel");
 
             data.error(&ctx, content).await
         }

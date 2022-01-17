@@ -19,9 +19,8 @@ impl ServerConfigEmbed {
 
         if let Some(ref hash) = guild.icon {
             let url = format!(
-                "https://cdn.discordapp.com/icons/{}/{}.{}",
+                "https://cdn.discordapp.com/icons/{}/{hash}.{}",
                 guild.id,
-                hash,
                 if hash.starts_with("a_") {
                     "gif"
                 } else {
@@ -41,10 +40,10 @@ impl ServerConfigEmbed {
         let mut authorities = authorities.iter();
 
         if let Some(auth) = authorities.next() {
-            let _ = write!(description, "@{}", auth);
+            let _ = write!(description, "@{auth}");
 
             for auth in authorities {
-                let _ = write!(description, ", @{}", auth);
+                let _ = write!(description, ", @{auth}");
             }
         } else {
             description.push_str("None");
@@ -54,10 +53,10 @@ impl ServerConfigEmbed {
         let mut prefixes = config.prefixes.iter();
 
         if let Some(prefix) = prefixes.next() {
-            let _ = write!(description, "`{}`", prefix);
+            let _ = write!(description, "`{prefix}`");
 
             for prefix in prefixes {
-                let _ = write!(description, ", `{}`", prefix);
+                let _ = write!(description, ", `{prefix}`");
             }
         }
 

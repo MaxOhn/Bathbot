@@ -90,7 +90,7 @@ impl MedalsCommonEmbed {
 
 fn timestamp(timestamp: Option<&i64>) -> Cow<'static, str> {
     match timestamp {
-        Some(timestamp) => format!("<t:{}:d>", timestamp).into(),
+        Some(timestamp) => format!("<t:{timestamp}:d>").into(),
         None => "Never".into(),
     }
 }

@@ -76,7 +76,7 @@ pub(super) async fn _rank(
                 (user, rank_holder)
             }
             Err(OsuError::NotFound) => {
-                let content = format!("User `{}` was not found", name);
+                let content = format!("User `{name}` was not found");
 
                 return data.error(&ctx, content).await;
             }
@@ -118,7 +118,7 @@ pub(super) async fn _rank(
         let mut user = match user_result {
             Ok(user) => user,
             Err(OsuError::NotFound) => {
-                let content = format!("User `{}` was not found", name);
+                let content = format!("User `{name}` was not found");
 
                 return data.error(&ctx, content).await;
             }
@@ -414,9 +414,8 @@ impl RankPpArgs {
                             country = Some(code);
                         } else {
                             let content = format!(
-                                "Failed to parse `{}` as country.\n\
-                                Be sure to specify a valid country or two ASCII letter country code.",
-                                value
+                                "Failed to parse `{value}` as country.\n\
+                                Be sure to specify a valid country or two ASCII letter country code."
                             );
 
                             return Ok(Err(content.into()));

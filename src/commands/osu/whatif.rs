@@ -50,7 +50,7 @@ async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> 
     let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = format!("User `{}` was not found", name);
+            let content = format!("User `{name}` was not found");
 
             return data.error(&ctx, content).await;
         }

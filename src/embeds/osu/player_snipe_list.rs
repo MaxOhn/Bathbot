@@ -82,8 +82,8 @@ impl PlayerSnipeListEmbed {
         }
 
         let footer = Footer::new(format!(
-            "Page {}/{} ~ Total scores: {}",
-            pages.0, pages.1, total
+            "Page {}/{} ~ Total scores: {total}",
+            pages.0, pages.1
         ));
 
         Self {

@@ -145,7 +145,7 @@ impl RankingKindData {
     }
 
     fn footer(&self, curr_page: usize, total_pages: usize, author_idx: Option<usize>) -> Footer {
-        let mut text = format!("Page {}/{}", curr_page, total_pages);
+        let mut text = format!("Page {curr_page}/{total_pages}");
 
         if let Some(idx) = author_idx {
             let _ = write!(text, " • Your position: {}", idx + 1);

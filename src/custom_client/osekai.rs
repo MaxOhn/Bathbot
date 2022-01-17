@@ -426,7 +426,7 @@ impl<'de, T: Deserialize<'de> + FromStr> Deserialize<'de> for ValueWrapper<T> {
 
         let value = s
             .parse()
-            .map_err(|_| Error::custom(format!("failed to parse `{}` into ranking value", s)))?;
+            .map_err(|_| Error::custom(format!("failed to parse `{s}` into ranking value")))?;
 
         Ok(Self(value))
     }

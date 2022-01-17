@@ -52,7 +52,7 @@ pub(super) async fn _mapper(
     let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = format!("User `{}` was not found", user);
+            let content = format!("User `{user}` was not found");
 
             return data.error(&ctx, content).await;
         }
@@ -126,7 +126,7 @@ pub(super) async fn _mapper(
             content
         }
         _ => format!(
-            "{} of `{}`'{} top score maps were mapped by `{}`",
+            "{} of `{}`'{} top score maps were mapped by `{mapper}`",
             scores.len(),
             user.username,
             if user.username.ends_with('s') {
@@ -134,7 +134,6 @@ pub(super) async fn _mapper(
             } else {
                 "s"
             },
-            mapper
         ),
     };
 

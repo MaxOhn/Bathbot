@@ -158,7 +158,7 @@ async fn get_mapsets(
                 "🍨" => MapsetTags::Kpop,
                 "✅" if reaction.as_deref().user_id == author_id => break,
                 "❌" if reaction.as_deref().user_id == author_id => {
-                    let builder = MessageBuilder::new().content("Game cancelled");
+                    let builder = MessageBuilder::new().content("Game canceled");
                     response.create_message(ctx, builder).await?;
 
                     return Ok(Vec::new());

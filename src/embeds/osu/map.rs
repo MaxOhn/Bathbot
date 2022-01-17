@@ -191,10 +191,10 @@ impl MapEmbed {
         pp_values.push_str("```");
 
         if let Some(combo) = map.max_combo {
-            let _ = write!(info_value, "Combo: `{}x`", combo);
+            let _ = write!(info_value, "Combo: `{combo}x`");
         }
 
-        let _ = writeln!(info_value, " Stars: `{:.2}★`", stars);
+        let _ = writeln!(info_value, " Stars: `{stars:.2}★`");
         let _ = write!(info_value, "Length: `{}` ", sec_to_minsec(seconds_total));
 
         if seconds_drain != seconds_total {
@@ -216,7 +216,7 @@ impl MapEmbed {
         let mut info_name = format!("{} __[{}]__", mode_emote(map.mode), map.version);
 
         if !mods.is_empty() {
-            let _ = write!(info_name, " +{}", mods);
+            let _ = write!(info_name, " +{mods}");
         }
 
         fields.push(field!(info_name, info_value, true));
@@ -248,12 +248,12 @@ impl MapEmbed {
         );
 
         let author = Author::new(format!("Created by {}", mapset.creator_name))
-            .url(format!("{}u/{}", OSU_BASE, mapset.creator_id))
+            .url(format!("{OSU_BASE}u/{}", mapset.creator_id))
             .icon_url(creator_avatar_url);
 
         let footer_text = format!(
-            "Map {} out of {} in the mapset, {}",
-            pages.0, pages.1, date_text
+            "Map {} out of {} in the mapset, {date_text}",
+            pages.0, pages.1
         );
 
         let footer = Footer::new(footer_text);

@@ -37,7 +37,7 @@ pub async fn _addstream(ctx: Arc<Context>, data: CommandData<'_>, name: &'_ str)
     let twitch_id = match twitch.get_user(name).await {
         Ok(Some(user)) => user.user_id,
         Ok(None) => {
-            let content = format!("Twitch user `{}` was not found", name);
+            let content = format!("Twitch user `{name}` was not found");
 
             return data.error(&ctx, content).await;
         }
@@ -54,16 +54,13 @@ pub async fn _addstream(ctx: Arc<Context>, data: CommandData<'_>, name: &'_ str)
     match ctx.psql().add_stream_track(channel, twitch_id).await {
         Ok(true) => {
             let content = format!(
-                "I'm now tracking `{}`'s twitch stream in this channel",
-                name
+                "I'm now tracking `{name}`'s twitch stream in this channel"
             );
 
             let builder = MessageBuilder::new().content(content);
 
             trace!(
-                "Now tracking twitch stream {} for channel {}",
-                name,
-                channel
+                "Now tracking twitch stream {name} for channel {channel}"
             );
 
             data.create_message(&ctx, builder).await?;
@@ -72,8 +69,7 @@ pub async fn _addstream(ctx: Arc<Context>, data: CommandData<'_>, name: &'_ str)
         }
         Ok(false) => {
             let content = format!(
-                "Twitch user `{}` is already being tracked in this channel",
-                name
+                "Twitch user `{name}` is already being tracked in this channel"
             );
 
             data.error(&ctx, content).await

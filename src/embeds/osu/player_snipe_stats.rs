@@ -114,18 +114,18 @@ impl PlayerSnipeStatsEmbed {
             let mut iter = count_mods.into_iter();
 
             if let Some((first_mods, first_amount)) = iter.next() {
-                let _ = write!(value, "`{}: {}`", first_mods, first_amount);
+                let _ = write!(value, "`{first_mods}: {first_amount}`");
                 let mut idx = 0;
 
                 for (mods, amount) in iter {
                     match idx {
                         2 => {
                             idx = 0;
-                            let _ = write!(value, " >\n`{}: {}`", mods, amount);
+                            let _ = write!(value, " >\n`{mods}: {amount}`");
                         }
                         _ => {
                             idx += 1;
-                            let _ = write!(value, " > `{}: {}`", mods, amount);
+                            let _ = write!(value, " > `{mods}: {amount}`");
                         }
                     }
                 }

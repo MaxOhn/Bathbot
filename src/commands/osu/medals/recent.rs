@@ -77,7 +77,7 @@ pub(super) async fn _medalrecent(
     let mut user = match user_fut.await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = format!("User `{}` was not found", name);
+            let content = format!("User `{name}` was not found");
 
             return data.error(&ctx, content).await;
         }
@@ -129,10 +129,10 @@ pub(super) async fn _medalrecent(
 
     let content = match index % 10 {
         1 if index == 1 => "Most recent medal:".to_owned(),
-        1 if index != 11 => format!("{}st most recent medal:", index),
-        2 if index != 12 => format!("{}nd most recent medal:", index),
-        3 if index != 13 => format!("{}rd most recent medal:", index),
-        _ => format!("{}th most recent medal:", index),
+        1 if index != 11 => format!("{index}st most recent medal:"),
+        2 if index != 12 => format!("{index}nd most recent medal:"),
+        3 if index != 13 => format!("{index}rd most recent medal:"),
+        _ => format!("{index}th most recent medal:"),
     };
 
     let achieved = MedalAchieved {

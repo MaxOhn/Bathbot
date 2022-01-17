@@ -20,7 +20,7 @@ impl TwitchNotifEmbed {
             description: stream.title.clone(),
             thumbnail: user.image_url.clone(),
             image: stream.thumbnail_url.clone(),
-            url: format!("{}{}", TWITCH_BASE, user.display_name),
+            url: format!("{TWITCH_BASE}{}", user.display_name),
             author: Author::new("Now live on twitch:"),
         }
     }

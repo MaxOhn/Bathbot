@@ -444,7 +444,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
                 let date = Utc
                     .datetime_from_str(inner_score.date_set, DATE_FORMAT)
                     .unwrap_or_else(|why| {
-                        warn!("Couldn't parse date `{}`: {}", inner_score.date_set, why);
+                        warn!("Couldn't parse date `{}`: {why}", inner_score.date_set);
 
                         Utc::now()
                     });

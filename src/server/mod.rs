@@ -86,8 +86,8 @@ fn router(ctx: Arc<Context>) -> Router<Body, ServerError> {
     let twitch_client_secret = config.tokens.twitch_token.to_owned();
 
     let url = &config.server.external_url;
-    let osu_redirect = format!("{}/auth/osu", url);
-    let twitch_redirect = format!("{}/auth/twitch", url);
+    let osu_redirect = format!("{url}/auth/osu");
+    let twitch_redirect = format!("{url}/auth/twitch");
 
     let mut handlebars = Handlebars::new();
     let env_var = env::var("WEBSITE_PATH").expect("missing env variable `WEBSITE_PATH`");
@@ -297,9 +297,8 @@ async fn auth_twitch_handler_(req: &Request<Body>) -> HandlerResult {
     let Client(client) = req.data().unwrap();
 
     let req_uri = format!(
-        "{}?client_id={}&client_secret={}\
-        &code={}&grant_type=authorization_code&redirect_uri={}",
-        TWITCH_OAUTH, client_id, client_secret, code, redirect
+        "{TWITCH_OAUTH}?client_id={client_id}&client_secret={client_secret}\
+        &code={code}&grant_type=authorization_code&redirect_uri={redirect}"
     );
 
     let token_req = Request::post(req_uri).body(Body::empty())?;
@@ -319,7 +318,7 @@ async fn auth_twitch_handler_(req: &Request<Body>) -> HandlerResult {
 
             TwitchError::SerdeToken { source, content }
         })
-        .map(|token| format!("Bearer {}", token))?;
+        .map(|token| format!("Bearer {token}"))?;
 
     let user_req = Request::get(TWITCH_USERS_ENDPOINT)
         .header(AUTHORIZATION, token)
@@ -396,7 +395,7 @@ async fn osudirect_handler(req: Request<Body>) -> HandlerResult {
         }
     };
 
-    let location = format!("osu://dl/{}", mapset_id);
+    let location = format!("osu://dl/{mapset_id}");
 
     let response = Response::builder()
         .status(StatusCode::PERMANENT_REDIRECT)

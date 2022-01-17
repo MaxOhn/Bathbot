@@ -64,7 +64,7 @@ impl NoChokeEmbed {
                 new_acc = unchoked.accuracy,
                 old_combo = original.max_combo,
                 new_combo = unchoked.max_combo,
-                max_combo = map.max_combo.map_or_else(|| Cow::Borrowed("-"), |combo| format!("{}x", combo).into()),
+                max_combo = map.max_combo.map_or_else(|| Cow::Borrowed("-"), |combo| format!("{combo}x").into()),
                 misses = original.statistics.count_miss - unchoked.statistics.count_miss,
                 plural = if original.statistics.count_miss - unchoked.statistics.count_miss != 1 {
                     "es"
@@ -75,8 +75,7 @@ impl NoChokeEmbed {
         }
 
         let title = format!(
-            "Total pp: {} → **{}pp** (+{})",
-            pp_raw, unchoked_pp, pp_diff
+            "Total pp: {pp_raw} → **{unchoked_pp}pp** (+{pp_diff})"
         );
 
         Self {

@@ -95,7 +95,7 @@ async fn no_medal(ctx: &Context, data: &CommandData<'_>, name: &str) -> BotResul
 
     medals.sort_unstable_by(|(a, _), (b, _)| b.partial_cmp(a).unwrap_or(Ordering::Equal));
 
-    let mut content = format!("No medal found with the name `{}`.", name);
+    let mut content = format!("No medal found with the name `{name}`.");
 
     let mut iter = medals
         .into_iter()
@@ -103,10 +103,10 @@ async fn no_medal(ctx: &Context, data: &CommandData<'_>, name: &str) -> BotResul
         .take_while(|(similarity, _)| *similarity >= SIMILARITY_THRESHOLD);
 
     if let Some((_, first)) = iter.next() {
-        let _ = write!(content, "\nDid you mean `{}`", first);
+        let _ = write!(content, "\nDid you mean `{first}`");
 
         for (_, medal) in iter {
-            let _ = write!(content, ", `{}`", medal);
+            let _ = write!(content, ", `{medal}`");
         }
 
         content.push('?');

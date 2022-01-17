@@ -36,10 +36,7 @@ use twilight_model::{
 
 #[allow(dead_code)]
 pub fn discord_avatar(user_id: UserId, hash: &str) -> String {
-    format!(
-        "https://cdn.discordapp.com/avatars/{}/{}.webp?size=1024",
-        user_id, hash
-    )
+    format!("https://cdn.discordapp.com/avatars/{user_id}/{hash}.webp?size=1024",)
 }
 
 macro_rules! get {
@@ -337,9 +334,8 @@ pub async fn send_reaction(ctx: &Context, msg: &Message, emote: Emote) -> BotRes
     // 100ms - 400ms - 1600ms
     for (i, duration) in ExponentialBackoff::new(4).factor(25).take(3).enumerate() {
         debug!(
-            "Send reaction retry attempt #{} | Backoff {:?}",
+            "Send reaction retry attempt #{} | Backoff {duration:?}",
             i + 1,
-            duration
         );
         sleep(duration).await;
         let emoji = emote.request_reaction_type();

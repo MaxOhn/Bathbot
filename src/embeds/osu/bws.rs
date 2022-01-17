@@ -113,7 +113,7 @@ impl BWSEmbed {
                     let _ = writeln!(
                         content,
                         " {:>rank_len$} | {:^len1$} | {:^len2$} | {:^len3$}",
-                        format!("#{}", rank),
+                        format!("#{rank}"),
                         bwss[0],
                         bwss[1],
                         bwss[2],
@@ -178,8 +178,7 @@ impl BWSEmbed {
         };
 
         let title = format!(
-            "Current BWS for {} badge{}: {}",
-            badges_curr,
+            "Current BWS for {badges_curr} badge{}: {}",
             if badges_curr == 1 { "" } else { "s" },
             with_comma_int(bws(stats.global_rank, badges_curr))
         );

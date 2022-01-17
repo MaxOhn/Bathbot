@@ -69,7 +69,7 @@ pub(super) async fn _recentlist(
         }
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = format!("User `{}` was not found", name);
+            let content = format!("User `{name}` was not found");
 
             return data.error(&ctx, content).await;
         }
@@ -349,9 +349,8 @@ impl RecentListArgs {
                     },
                     _ => {
                         let content = format!(
-                            "Unrecognized option `{}`.\n\
-                            Available options are: `grade` or `pass`.",
-                            key
+                            "Unrecognized option `{key}`.\n\
+                            Available options are: `grade` or `pass`."
                         );
 
                         return Ok(Err(content.into()));

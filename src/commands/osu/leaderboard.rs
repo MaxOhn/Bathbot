@@ -70,7 +70,7 @@ async fn _leaderboard(
     let author_name = match ctx.psql().get_user_osu(author_id).await {
         Ok(osu) => osu.map(OsuData::into_username),
         Err(why) => {
-            let wrap = format!("failed to get UserConfig of user {}", author_id);
+            let wrap = format!("failed to get UserConfig of user {author_id}");
             warn!("{:?}", Report::new(why).wrap_err(wrap));
 
             None
@@ -149,10 +149,8 @@ async fn _leaderboard(
     };
 
     // Sending the embed
-    let content = format!(
-        "I found {} scores with the specified mods on the map's leaderboard",
-        amount
-    );
+    let content =
+        format!("I found {amount} scores with the specified mods on the map's leaderboard");
 
     let embed = embed_data.into_builder().build();
     let builder = MessageBuilder::new().content(content).embed(embed);

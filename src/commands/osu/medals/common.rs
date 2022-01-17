@@ -101,7 +101,7 @@ pub(super) async fn _common(
     for medal_id in medals1.keys() {
         match medals_map.remove(medal_id) {
             Some(medal) => medals.push(medal),
-            None => warn!("Missing medal id {} in DB medals", medal_id),
+            None => warn!("Missing medal id {medal_id} in DB medals"),
         }
     }
 

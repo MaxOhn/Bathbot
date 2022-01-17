@@ -38,7 +38,7 @@ pub enum Emote {
 impl Emote {
     pub fn text(self) -> Cow<'static, str> {
         if let Self::Custom(emote) = self {
-            format!(":{}:", emote).into()
+            format!(":{emote}:").into()
         } else {
             CONFIG.get().unwrap().emotes.get(&self).unwrap().into()
         }

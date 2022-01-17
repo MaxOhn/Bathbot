@@ -31,7 +31,7 @@ impl Context {
                 }
                 Ok(false) => {}
                 Err(why) => {
-                    let wrap = format!("error while stopping bg game in channel {}", channel);
+                    let wrap = format!("error while stopping bg game in channel {channel}");
                     let report = Report::new(why).wrap_err(wrap);
                     warn!("{:?}", report);
                 }

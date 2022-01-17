@@ -77,7 +77,7 @@ impl TopSingleEmbed {
                 ratio /= score.statistics.count_300 as f32
             }
 
-            let combo = format!("**{}x** / {:.2}", &score.max_combo, ratio);
+            let combo = format!("**{}x** / {ratio:.2}", &score.max_combo);
 
             let title = format!(
                 "{} {} - {} [{}]",
@@ -101,7 +101,7 @@ impl TopSingleEmbed {
             let _ = write!(hits, "{}/", if_fc.n100);
 
             if let Some(n50) = if_fc.n50 {
-                let _ = write!(hits, "{}/", n50);
+                let _ = write!(hits, "{n50}/");
             }
 
             let _ = write!(hits, "0}}");
@@ -117,9 +117,9 @@ impl TopSingleEmbed {
             "{:?} map by {} | played",
             map.status, mapset.creator_name
         ))
-        .icon_url(format!("{}{}", AVATAR_URL, mapset.creator_id));
+        .icon_url(format!("{AVATAR_URL}{}", mapset.creator_id));
 
-        let mut description = format!("__**Personal Best #{}", idx);
+        let mut description = format!("__**Personal Best #{idx}");
 
         if let Some(idx) = global.and_then(|global| global.iter().position(|s| s == score)) {
             description.reserve(23);
@@ -176,7 +176,7 @@ impl EmbedData for TopSingleEmbed {
 
         if let Some((pp, acc, hits)) = &self.if_fc {
             fields.push(field!("**If FC**: PP", pp.clone(), true));
-            fields.push(field!("Acc", format!("{}%", acc), true));
+            fields.push(field!("Acc", format!("{acc}%"), true));
             fields.push(field!("Hits", hits.clone(), true));
         }
 

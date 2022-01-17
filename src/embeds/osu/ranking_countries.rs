@@ -88,7 +88,7 @@ impl RankingCountriesEmbed {
             description,
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
             title: format!("Country Ranking for osu!{}", mode_str(mode)),
-            url: format!("https://osu.ppy.sh/rankings/{}/country", mode),
+            url: format!("https://osu.ppy.sh/rankings/{mode}/country"),
         }
     }
 }

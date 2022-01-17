@@ -101,7 +101,7 @@ fn duration_to_u32<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
 
     let secs = s
         .parse::<u32>()
-        .map_err(|_| Error::custom(format!("failed to parse `{}` as seconds", s)))?;
+        .map_err(|_| Error::custom(format!("failed to parse `{s}` as seconds")))?;
 
     seconds += secs;
 

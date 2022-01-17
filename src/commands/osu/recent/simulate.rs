@@ -62,23 +62,21 @@ pub(super) async fn _recentsimulate(
     let mut score = match scores_fut.await {
         Ok(scores) if scores.is_empty() => {
             let content = format!(
-                "No recent {}plays found for user `{}`",
+                "No recent {}plays found for user `{name}`",
                 match mode {
                     GameMode::STD => "",
                     GameMode::TKO => "taiko ",
                     GameMode::CTB => "ctb ",
                     GameMode::MNA => "mania ",
-                },
-                name
+                }
             );
 
             return data.error(&ctx, content).await;
         }
         Ok(scores) if scores.len() < limit => {
             let content = format!(
-                "There are only {} many scores in `{}`'{} recent history.",
+                "There are only {} many scores in `{name}`'{} recent history.",
                 scores.len(),
-                name,
                 if name.ends_with('s') { "" } else { "s" }
             );
 
@@ -94,13 +92,13 @@ pub(super) async fn _recentsimulate(
                 }
             },
             None => {
-                let content = format!("No recent plays found for user `{}`", name);
+                let content = format!("No recent plays found for user `{name}`");
 
                 return data.error(&ctx, content).await;
             }
         },
         Err(OsuError::NotFound) => {
-            let content = format!("User `{}` was not found", name);
+            let content = format!("User `{name}` was not found");
 
             return data.error(&ctx, content).await;
         }
@@ -393,10 +391,9 @@ impl RecentSimulateArgs {
                     },
                     _ => {
                         let content = format!(
-                            "Unrecognized option `{}`.\n\
+                            "Unrecognized option `{key}`.\n\
                             Available options are: `n300`, `n100`, `n50`, \
-                            `misses`, `acc`, `combo`, and `score`.",
-                            key
+                            `misses`, `acc`, `combo`, and `score`."
                         );
 
                         return Ok(Err(content.into()));

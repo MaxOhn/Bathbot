@@ -43,8 +43,8 @@ impl OsuStatsCountsEmbed {
             author: author!(user),
             thumbnail: user.avatar_url,
             title: format!(
-                "In how many top X {}map leaderboards is {}?",
-                mode, user.username
+                "In how many top X {mode}map leaderboards is {}?",
+                user.username
             ),
         }
     }

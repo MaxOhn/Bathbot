@@ -19,7 +19,7 @@ async fn ping(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let response_raw = data.create_message(&ctx, builder).await?;
     let elapsed = (Instant::now() - start).as_millis();
     let response = response_raw.model().await?;
-    let content = format!(":ping_pong: Pong! ({}ms)", elapsed);
+    let content = format!(":ping_pong: Pong! ({elapsed}ms)");
     let builder = MessageBuilder::new().content(content);
     response.update_message(&ctx, builder).await?;
 

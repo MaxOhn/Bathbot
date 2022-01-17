@@ -69,8 +69,7 @@ async fn _roleassign(
             let _ = data.error(&ctx, "No message found with this id").await;
 
             let wrap = format!(
-                "(Channel,Message) ({},{}) for roleassign was not found",
-                channel_id, msg_id
+                "(Channel,Message) ({channel_id},{msg_id}) for roleassign was not found"
             );
 
             let report = Report::new(why).wrap_err(wrap);
@@ -100,7 +99,7 @@ async fn _roleassign(
                         .any(|&r| match ctx.cache.role(r, |r| r.position > role_pos) {
                             Ok(b) => b,
                             Err(_) => {
-                                warn!("CurrentUser role {} not in cache", r);
+                                warn!("CurrentUser role {r} not in cache");
 
                                 false
                             }
@@ -114,8 +113,7 @@ async fn _roleassign(
                     let description = format!(
                         "To assign a role, one must have a role that is \
                         higher than the role to assign.\n\
-                        The role <@&{}> is higher than all my roles so I can't assign it.",
-                        role_id
+                        The role <@&{role_id}> is higher than all my roles so I can't assign it."
                     );
 
                     return data.error(&ctx, description).await;
@@ -124,8 +122,7 @@ async fn _roleassign(
                     let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
                     bail!(
-                        "no member data in guild {} for CurrentUser in cache",
-                        guild_id
+                        "no member data in guild {guild_id} for CurrentUser in cache"
                     );
                 }
                 Err(_) => {

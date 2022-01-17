@@ -40,10 +40,8 @@ impl CountrySnipeListEmbed {
         let (title, thumbnail) = match country {
             Some((country, code)) => {
                 let title = format!(
-                    "{}{} #1 list, sorted by {}",
-                    country,
+                    "{country}{} #1 list, sorted by {order_text}",
                     if country.ends_with('s') { "'" } else { "'s" },
-                    order_text
                 );
 
                 let thumbnail = flag_url(code.as_str());
@@ -51,7 +49,7 @@ impl CountrySnipeListEmbed {
                 (title, thumbnail)
             }
             None => (
-                format!("Global #1 statistics, sorted by {}", order_text),
+                format!("Global #1 statistics, sorted by {order_text}"),
                 String::new(),
             ),
         };

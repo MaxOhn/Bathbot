@@ -14,13 +14,13 @@ pub struct AvatarEmbed {
 impl AvatarEmbed {
     pub fn new(user: User) -> Self {
         let author = Author::new(user.username.into_string())
-            .url(format!("{}u/{}", OSU_BASE, user.user_id))
+            .url(format!("{OSU_BASE}u/{}", user.user_id))
             .icon_url(flag_url(user.country_code.as_str()));
 
         Self {
             author,
             image: user.avatar_url,
-            url: format!("{}u/{}", OSU_BASE, user.user_id),
+            url: format!("{OSU_BASE}u/{}", user.user_id),
         }
     }
 }

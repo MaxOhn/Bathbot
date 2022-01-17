@@ -40,7 +40,7 @@ pub async fn tracked(ctx: Arc<Context>, data: CommandData<'_>) -> BotResult<()> 
         let _ = write!(content, "`{}`", users.next().unwrap());
 
         for user in users {
-            let _ = write!(content, ", `{}`", user);
+            let _ = write!(content, ", `{user}`");
         }
     }
 

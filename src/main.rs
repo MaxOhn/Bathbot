@@ -139,7 +139,7 @@ async fn async_main() -> Result<()> {
     // Connect to redis
     let redis_host = &config.redis_host;
     let redis_port = config.redis_port;
-    let redis_uri = format!("redis://{}:{}", redis_host, redis_port);
+    let redis_uri = format!("redis://{redis_host}:{redis_port}");
 
     let redis_manager = RedisConnectionManager::new(redis_uri)?;
     let redis = Pool::builder().max_size(8).build(redis_manager).await?;
@@ -355,13 +355,13 @@ async fn async_main() -> Result<()> {
     // }
 
     let (count, total) = ctx.garbage_collect_all_maps().await;
-    info!("Garbage collected {}/{} maps", count, total);
+    info!("Garbage collected {count}/{total} maps");
 
     let count = ctx.stop_all_games().await;
-    info!("Stopped {} bg games", count);
+    info!("Stopped {count} bg games");
 
     let count = ctx.notify_match_live_shutdown().await;
-    info!("Stopped match tracking in {} channels", count);
+    info!("Stopped match tracking in {count} channels");
 
     info!("Shutting down");
 
@@ -404,11 +404,11 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
                     shard_id
                 );
             } else {
-                warn!("Gateway has invalidated session for shard {}", shard_id);
+                warn!("Gateway has invalidated session for shard {shard_id}");
             }
         }
         Event::GatewayReconnect => {
-            info!("Gateway requested shard {} to reconnect", shard_id);
+            info!("Gateway requested shard {shard_id} to reconnect");
             ctx.stats.event_counts.gateway_reconnect.inc();
         }
         Event::GiftCodeUpdate => {}
@@ -519,7 +519,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
 
                         match add_role_fut.exec().await {
                             Ok(_) => debug!("Assigned react-role to user"),
-                            Err(why) => error!("Error while assigning react-role to user: {}", why),
+                            Err(why) => error!("Error while assigning react-role to user: {why}"),
                         }
                     }
                 }
@@ -539,7 +539,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
                         match remove_role_fut.exec().await {
                             Ok(_) => debug!("Removed react-role from user"),
                             Err(why) => {
-                                error!("Error while removing react-role from user: {}", why)
+                                error!("Error while removing react-role from user: {why}")
                             }
                         }
                     }
@@ -549,17 +549,17 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
         Event::ReactionRemoveAll(_) => ctx.stats.event_counts.reaction_remove_all.inc(),
         Event::ReactionRemoveEmoji(_) => ctx.stats.event_counts.reaction_remove_emoji.inc(),
         Event::Ready(_) => {
-            info!("Shard {} is ready", shard_id);
+            info!("Shard {shard_id} is ready");
 
             let result = ctx
                 .set_shard_activity(shard_id, Status::Online, ActivityType::Playing, "osu!")
                 .await
-                .wrap_err_with(|| format!("failed to set activity for shard {}", shard_id));
+                .wrap_err_with(|| format!("failed to set activity for shard {shard_id}"));
 
             if let Err(report) = result {
                 error!("{:?}", report);
             } else {
-                info!("Game is set for shard {}", shard_id);
+                info!("Game is set for shard {shard_id}");
             }
 
             let stats = ctx.cache.stats();
@@ -572,7 +572,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
             ctx.stats.cache_counts.users.set(stats.users() as i64);
             ctx.stats.cache_counts.roles.set(stats.roles() as i64);
         }
-        Event::Resumed => info!("Shard {} is resumed", shard_id),
+        Event::Resumed => info!("Shard {shard_id} is resumed"),
         Event::RoleCreate(_) => {
             ctx.stats.event_counts.role_create.inc();
             ctx.stats
@@ -588,13 +588,13 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
                 .set(ctx.cache.stats().roles() as i64);
         }
         Event::RoleUpdate(_) => ctx.stats.event_counts.role_update.inc(),
-        Event::ShardConnected(_) => info!("Shard {} is connected", shard_id),
-        Event::ShardConnecting(_) => info!("Shard {} is connecting...", shard_id),
-        Event::ShardDisconnected(_) => info!("Shard {} is disconnected", shard_id),
-        Event::ShardIdentifying(_) => info!("Shard {} is identifying...", shard_id),
-        Event::ShardReconnecting(_) => info!("Shard {} is reconnecting...", shard_id),
+        Event::ShardConnected(_) => info!("Shard {shard_id} is connected"),
+        Event::ShardConnecting(_) => info!("Shard {shard_id} is connecting..."),
+        Event::ShardDisconnected(_) => info!("Shard {shard_id} is disconnected"),
+        Event::ShardIdentifying(_) => info!("Shard {shard_id} is identifying..."),
+        Event::ShardReconnecting(_) => info!("Shard {shard_id} is reconnecting..."),
         Event::ShardPayload(_) => {}
-        Event::ShardResuming(_) => info!("Shard {} is resuming...", shard_id),
+        Event::ShardResuming(_) => info!("Shard {shard_id} is resuming..."),
         Event::StageInstanceCreate(_) => {}
         Event::StageInstanceDelete(_) => {}
         Event::StageInstanceUpdate(_) => {}

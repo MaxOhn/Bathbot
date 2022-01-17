@@ -123,7 +123,7 @@ impl MatchLiveEmbed {
                     if !description.is_empty() {
                         let embed = Self {
                             title: lobby.name.to_owned(),
-                            url: format!("{}community/matches/{}", OSU_BASE, lobby.match_id),
+                            url: format!("{OSU_BASE}community/matches/{}", lobby.match_id),
                             description,
                             image: None,
                             footer: None,
@@ -143,7 +143,7 @@ impl MatchLiveEmbed {
 
                     let embed = Self {
                         title: lobby.name.to_owned(),
-                        url: format!("{}community/matches/{}", OSU_BASE, lobby.match_id),
+                        url: format!("{OSU_BASE}community/matches/{}", lobby.match_id),
                         description,
                         image,
                         footer,
@@ -168,7 +168,7 @@ impl MatchLiveEmbed {
             if description.len() + DESCRIPTION_BUFFER > DESCRIPTION_SIZE {
                 let embed = Self {
                     title: lobby.name.to_owned(),
-                    url: format!("{}community/matches/{}", OSU_BASE, lobby.match_id),
+                    url: format!("{OSU_BASE}community/matches/{}", lobby.match_id),
                     description,
                     image: None,
                     footer: None,
@@ -183,7 +183,7 @@ impl MatchLiveEmbed {
         if !description.is_empty() {
             let embed = Self {
                 title: lobby.name.to_owned(),
-                url: format!("{}community/matches/{}", OSU_BASE, lobby.match_id),
+                url: format!("{OSU_BASE}community/matches/{}", lobby.match_id),
                 description,
                 image: None,
                 footer: None,
@@ -213,7 +213,7 @@ impl MatchLiveEmbed {
             if let Some(state) = last_state.take() {
                 let mut embed = Self {
                     title: lobby.name.to_owned(),
-                    url: format!("{}community/matches/{}", OSU_BASE, lobby.match_id),
+                    url: format!("{OSU_BASE}community/matches/{}", lobby.match_id),
                     description: String::new(),
                     image: None,
                     footer: None,
@@ -364,7 +364,7 @@ impl MatchLiveEmbed {
                         } else {
                             let new_embed = Self {
                                 title: lobby.name.to_owned(),
-                                url: format!("{}community/matches/{}", OSU_BASE, lobby.match_id),
+                                url: format!("{OSU_BASE}community/matches/{}", lobby.match_id),
                                 description,
                                 image,
                                 footer,
@@ -394,7 +394,7 @@ impl MatchLiveEmbed {
                 {
                     let embed = Self {
                         title: lobby.name.to_owned(),
-                        url: format!("{}community/matches/{}", OSU_BASE, lobby.match_id),
+                        url: format!("{OSU_BASE}community/matches/{}", lobby.match_id),
                         description: String::new(),
                         image: None,
                         footer: None,

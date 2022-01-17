@@ -332,11 +332,11 @@ impl fmt::Display for UserValue {
                 } else if score < 1_000_000_000 {
                     let score = (score / 10_000) as f32 / 100.0;
 
-                    write!(f, "{:.2} million", score)
+                    write!(f, "{score:.2} million")
                 } else {
                     let score = (score / 10_000_000) as f32 / 100.0;
 
-                    write!(f, "{:.2} bn", score)
+                    write!(f, "{score:.2} bn")
                 }
             }
         }

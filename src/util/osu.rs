@@ -28,7 +28,7 @@ impl ModSelection {
 
 pub fn flag_url(country_code: &str) -> String {
     // format!("{}/images/flags/{}.png", OSU_BASE, country_code) // from osu itself but outdated
-    format!("https://osuflags.omkserver.nl/{}-256.png", country_code) // kelderman
+    format!("https://osuflags.omkserver.nl/{country_code}-256.png") // kelderman
 }
 
 #[allow(dead_code)]
@@ -77,10 +77,10 @@ pub fn grade_completion_mods(score: &dyn ScoreExt, map: &Beatmap) -> Cow<'static
         mods.is_empty(),
         score.grade(mode) == Grade::F && mode != GameMode::CTB,
     ) {
-        (true, true) => format!("{} ({}%)", grade, completion(score, map)).into(),
-        (false, true) => format!("{} ({}%) +{}", grade, completion(score, map), mods).into(),
+        (true, true) => format!("{grade} ({}%)", completion(score, map)).into(),
+        (false, true) => format!("{grade} ({}%) +{mods}", completion(score, map)).into(),
         (true, false) => grade.into(),
-        (false, false) => format!("{} +{}", grade, mods).into(),
+        (false, false) => format!("{grade} +{mods}").into(),
     }
 }
 
@@ -93,13 +93,13 @@ fn completion(score: &dyn ScoreExt, map: &Beatmap) -> u32 {
 
 pub async fn prepare_beatmap_file(map_id: u32) -> Result<String, MapDownloadError> {
     let mut map_path = CONFIG.get().unwrap().map_path.clone();
-    map_path.push(format!("{}.osu", map_id));
+    map_path.push(format!("{map_id}.osu"));
 
     if !map_path.exists() {
         let content = request_beatmap_file(map_id).await?;
         let mut file = File::create(&map_path).await?;
         file.write_all(&content).await?;
-        info!("Downloaded {}.osu successfully", map_id);
+        info!("Downloaded {map_id}.osu successfully");
     }
 
     let map_path = map_path
@@ -111,7 +111,7 @@ pub async fn prepare_beatmap_file(map_id: u32) -> Result<String, MapDownloadErro
 }
 
 async fn request_beatmap_file(map_id: u32) -> Result<Bytes, MapDownloadError> {
-    let url = format!("{}osu/{}", OSU_BASE, map_id);
+    let url = format!("{OSU_BASE}osu/{map_id}");
     let mut content = reqwest::get(&url).await?.bytes().await?;
 
     if content.len() >= 6 && &content.slice(0..6)[..] != b"<html>" {
@@ -123,9 +123,8 @@ async fn request_beatmap_file(map_id: u32) -> Result<Bytes, MapDownloadError> {
 
     for (i, duration) in backoff.take(10).enumerate() {
         debug!(
-            "Request beatmap retry attempt #{} | Backoff {:?}",
+            "Request beatmap retry attempt #{} | Backoff {duration:?}",
             i + 1,
-            duration
         );
         sleep(duration).await;
 

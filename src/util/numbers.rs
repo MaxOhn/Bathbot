@@ -45,7 +45,7 @@ impl fmt::Display for FormatF32 {
                 dec /= 10;
             }
 
-            write!(f, ".{}", dec)?;
+            write!(f, ".{dec}")?;
         }
 
         Ok(())

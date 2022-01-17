@@ -70,7 +70,7 @@ impl TopIfEmbed {
             description,
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
             thumbnail: user.avatar_url.to_owned(),
-            title: format!("Total pp: {} → **{}pp** ({:+})", pre_pp, post_pp, pp_diff),
+            title: format!("Total pp: {pre_pp} → **{post_pp}pp** ({pp_diff:+})"),
         }
     }
 }

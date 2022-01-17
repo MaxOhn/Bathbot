@@ -303,7 +303,7 @@ async fn request_by_map(
             let user = match get_user(ctx, &user_args).await {
                 Ok(user) => user,
                 Err(OsuError::NotFound) => {
-                    let content = format!("Could not find user `{}`", name);
+                    let content = format!("Could not find user `{name}`");
 
                     return match data.error(ctx, content).await {
                         Ok(_) => ScoreResult::Done,

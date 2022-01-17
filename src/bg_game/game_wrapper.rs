@@ -116,7 +116,7 @@ impl GameWrapper {
                         }
 
                         // Then quit
-                        info!("Game finished in channel {}", channel);
+                        info!("Game finished in channel {channel}");
                         break;
                     }
                     LoopResult::Winner(user_id) => {

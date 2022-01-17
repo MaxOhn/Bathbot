@@ -105,8 +105,7 @@ async fn _matchliveremove(
 ) -> BotResult<()> {
     if ctx.remove_match_track(data.channel_id(), match_id) {
         let content = format!(
-            "Stopped live tracking [the match]({}community/matches/{})",
-            OSU_BASE, match_id
+            "Stopped live tracking [the match]({OSU_BASE}community/matches/{match_id})",
         );
 
         let builder = MessageBuilder::new().embed(content);

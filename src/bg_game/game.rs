@@ -78,7 +78,7 @@ impl Game {
 
         let mapset = util::get_random_mapset(mapsets, previous_ids).await;
         let mapset_id = mapset.mapset_id;
-        debug!("Next BG mapset id: {}", mapset_id);
+        debug!("Next BG mapset id: {mapset_id}");
         path.push(&mapset.filename);
 
         let img_fut = fs::read(path)

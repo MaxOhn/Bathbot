@@ -104,7 +104,7 @@ impl Database {
 
     #[allow(dead_code)]
     pub async fn get_medals_by_name_infix(&self, name: &str) -> BotResult<Vec<OsekaiMedal>> {
-        let pattern = format!("%{}%", name);
+        let pattern = format!("%{name}%");
         let mut stream = sqlx::query!("SELECT * FROM osekai_medals WHERE name ILIKE $1", pattern)
             .fetch(&self.pool);
 

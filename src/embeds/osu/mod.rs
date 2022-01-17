@@ -100,7 +100,7 @@ pub fn get_mods(mods: GameMods) -> String {
     if mods.is_empty() {
         String::new()
     } else {
-        format!("+{}", mods)
+        format!("+{mods}")
     }
 }
 
@@ -109,7 +109,7 @@ pub fn get_combo(score: &dyn ScoreExt, map: &dyn BeatmapExt) -> String {
     let _ = write!(combo, "{}x**/", score.max_combo());
 
     match map.max_combo() {
-        Some(amount) => write!(combo, "{}x", amount).unwrap(),
+        Some(amount) => write!(combo, "{amount}x").unwrap(),
         None => combo.push('-'),
     }
 
@@ -142,7 +142,7 @@ pub fn get_pp(actual: Option<f32>, max: Option<f32>) -> String {
 
 pub fn get_keys(mods: GameMods, map: &Beatmap) -> String {
     if let Some(key_mod) = mods.has_key_mod() {
-        format!("[{}]", key_mod)
+        format!("[{key_mod}]")
     } else {
         format!("[{}K]", map.cs as u32)
     }

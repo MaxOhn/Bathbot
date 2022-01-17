@@ -30,15 +30,12 @@ impl BGRankingEmbed {
 
             let _ = writeln!(
                 description,
-                "{:>2} {:1} # {:<len$} => {}",
-                i,
+                "{i:>2} {:1} # {user:<len$} => {score}",
                 if i <= SYMBOLS.len() {
                     SYMBOLS[i - 1]
                 } else {
                     ""
                 },
-                user,
-                score,
                 len = len
             );
         }

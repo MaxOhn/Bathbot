@@ -41,10 +41,8 @@ pub async fn backgroundgame(ctx: Arc<Context>, data: CommandData) -> BotResult<(
             _ => {
                 let prefix = ctx.guild_first_prefix(msg.guild_id).await;
 
-                let content = format!(
-                    "That's not a valid subcommand. Check `{}bg` for more help.",
-                    prefix
-                );
+                let content =
+                    format!("That's not a valid subcommand. Check `{prefix}bg` for more help.");
 
                 msg.error(&ctx, content).await
             }

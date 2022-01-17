@@ -43,7 +43,7 @@ async fn countrysnipestats(ctx: Arc<Context>, data: CommandData) -> BotResult<()
 
                         if !ctx.contains_country(code.as_str()) {
                             let content =
-                                format!("The country acronym `{}` is not supported :(", arg);
+                                format!("The country acronym `{arg}` is not supported :(");
 
                             return msg.error(&ctx, content).await;
                         }
@@ -51,7 +51,7 @@ async fn countrysnipestats(ctx: Arc<Context>, data: CommandData) -> BotResult<()
                         Some(code.into())
                     } else if let Some(code) = CountryCode::from_name(arg) {
                         if !code.snipe_supported(&ctx) {
-                            let content = format!("The country `{}` is not supported :(", arg);
+                            let content = format!("The country `{arg}` is not supported :(");
 
                             return msg.error(&ctx, content).await;
                         }
@@ -94,7 +94,7 @@ pub(super) async fn _countrysnipestats(
                 let user = match get_user_cached(&ctx, &user_args).await {
                     Ok(user) => user,
                     Err(OsuError::NotFound) => {
-                        let content = format!("User `{}` was not found", name);
+                        let content = format!("User `{name}` was not found");
 
                         return data.error(&ctx, content).await;
                     }

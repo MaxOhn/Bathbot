@@ -241,10 +241,10 @@ impl MedalRecentPagination {
 
         let content = match idx % 10 {
             1 if idx == 1 => "Most recent medal:".into(),
-            1 if idx != 11 => format!("{}st most recent medal:", idx).into(),
-            2 if idx != 12 => format!("{}nd most recent medal:", idx).into(),
-            3 if idx != 13 => format!("{}rd most recent medal:", idx).into(),
-            _ => format!("{}th most recent medal:", idx).into(),
+            1 if idx != 11 => format!("{idx}st most recent medal:").into(),
+            2 if idx != 12 => format!("{idx}nd most recent medal:").into(),
+            3 if idx != 13 => format!("{idx}rd most recent medal:").into(),
+            _ => format!("{idx}th most recent medal:").into(),
         };
 
         Some(content)
@@ -271,8 +271,7 @@ impl MedalRecentPagination {
                     },
                 },
                 None => bail!(
-                    "Medal index out of bounds: {}/{}",
-                    idx,
+                    "Medal index out of bounds: {idx}/{}",
                     self.achieved_medals.len()
                 ),
             };
@@ -296,8 +295,7 @@ impl MedalRecentPagination {
                             Ok(tuple) => tuple,
                             Err(why) => {
                                 let wrap = format!(
-                                    "failed to retrieve osekai maps or comments for medal {}",
-                                    name
+                                    "failed to retrieve osekai maps or comments for medal {name}"
                                 );
                                 let report = Report::new(why).wrap_err(wrap);
                                 warn!("{:?}", report);

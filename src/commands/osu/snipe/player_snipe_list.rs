@@ -89,7 +89,7 @@ pub(super) async fn _playersnipelist(
     let mut user = match get_user(&ctx, &user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = format!("User `{}` was not found", name);
+            let content = format!("User `{name}` was not found");
 
             return data.error(&ctx, content).await;
         }
@@ -185,7 +185,7 @@ pub(super) async fn _playersnipelist(
     );
 
     if let Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) = params.mods {
-        let _ = write!(content, " ~ `Mods: {}`", mods,);
+        let _ = write!(content, " ~ `Mods: {mods}`");
     }
 
     // Creating the embed
@@ -270,9 +270,8 @@ impl PlayerListArgs {
                     },
                     _ => {
                         let content = format!(
-                            "Unrecognized option `{}`.\n\
-                            Available options are: `sort` or `reverse`.",
-                            key
+                            "Unrecognized option `{key}`.\n\
+                            Available options are: `sort` or `reverse`."
                         );
 
                         return Ok(Err(content.into()));

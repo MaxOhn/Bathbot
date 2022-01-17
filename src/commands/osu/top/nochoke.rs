@@ -55,7 +55,7 @@ pub(super) async fn _nochokes(
     let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = format!("User `{}` was not found", name);
+            let content = format!("User `{name}` was not found");
 
             return data.error(&ctx, content).await;
         }
@@ -252,14 +252,13 @@ pub(super) async fn _nochokes(
     let embed = embed_data_fut.await.into_builder().build();
 
     let content = format!(
-        "No-choke top {}scores for `{}`:",
+        "No-choke top {}scores for `{name}`:",
         match mode {
             GameMode::STD => "",
             GameMode::TKO => "taiko ",
             GameMode::CTB => "ctb ",
             GameMode::MNA => panic!("can not unchoke mania scores"),
         },
-        name
     );
 
     // Creating the embed

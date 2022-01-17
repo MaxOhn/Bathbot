@@ -187,7 +187,7 @@ impl CompareEmbed {
             "{:?} map by {} | played",
             map.status, mapset.creator_name
         ))
-        .icon_url(format!("{}{}", AVATAR_URL, mapset.creator_id));
+        .icon_url(format!("{AVATAR_URL}{}", mapset.creator_id));
 
         let personal_idx = personal.and_then(|personal| personal.iter().position(|s| s == &score));
 
@@ -208,7 +208,7 @@ impl CompareEmbed {
             }
 
             if global_idx <= GLOBAL_IDX_THRESHOLD {
-                let _ = write!(description, "Global Top #{}", global_idx);
+                let _ = write!(description, "Global Top #{global_idx}");
             }
 
             if personal_idx.is_some() || global_idx <= 50 {
@@ -236,7 +236,7 @@ impl CompareEmbed {
                 national = stats.country_rank.unwrap_or(0)
             );
 
-            let url = format!("{}users/{}/{}", OSU_BASE, user.user_id, score.mode);
+            let url = format!("{OSU_BASE}users/{}/{}", user.user_id, score.mode);
             let icon = flag_url(user.country_code.as_str());
 
             Author::new(text).url(url).icon_url(icon)
@@ -255,7 +255,7 @@ impl CompareEmbed {
             author,
             footer,
             timestamp,
-            thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id), // mapset.covers is empty :(
+            thumbnail: format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id), // mapset.covers is empty :(
             grade_completion_mods,
             stars,
             score,
@@ -355,7 +355,7 @@ impl NoScoresEmbed {
         let mapset = map.mapset.as_ref().unwrap();
 
         let footer = Footer::new(format!("{:?} map by {}", map.status, mapset.creator_name))
-            .icon_url(format!("{}{}", AVATAR_URL, mapset.creator_id));
+            .icon_url(format!("{AVATAR_URL}{}", mapset.creator_id));
 
         let author_text = format!(
             "{name}: {pp}pp (#{global} {country}{national})",
@@ -367,7 +367,7 @@ impl NoScoresEmbed {
         );
 
         let author = Author::new(author_text)
-            .url(format!("{}u/{}", OSU_BASE, user.user_id))
+            .url(format!("{OSU_BASE}u/{}", user.user_id))
             .icon_url(user.avatar_url);
 
         let title = format!("{} - {} [{}]", mapset.artist, mapset.title, map.version);
@@ -375,14 +375,14 @@ impl NoScoresEmbed {
         let mut description = "No scores".to_owned();
 
         if let Some(mods) = mods {
-            let _ = write!(description, " with {}", mods);
+            let _ = write!(description, " with {mods}");
         }
 
         Self {
             author,
             description,
             footer,
-            thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id),
+            thumbnail: format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id),
             title,
             url: map.url,
         }

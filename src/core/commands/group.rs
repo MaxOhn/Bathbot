@@ -36,8 +36,8 @@ lazy_static! {
                 for &name in cmd.names {
                     if let Some(value) = trie.insert(name, cmd) {
                         panic!(
-                            "Tried to insert command `{}` for `{}` but name already inserted for `{}`",
-                            name, cmd.names[0], value.names[0]
+                            "Tried to insert command `{name}` for `{}` but name already inserted for `{}`",
+                            cmd.names[0], value.names[0]
                         );
                     }
                 }

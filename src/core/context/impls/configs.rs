@@ -28,7 +28,7 @@ impl Context {
                 let config = GuildConfig::default();
 
                 if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
-                    let wrap = format!("failed to insert guild {}", guild_id);
+                    let wrap = format!("failed to insert guild {guild_id}");
                     let report = Report::new(why).wrap_err(wrap);
                     warn!("{:?}", report);
                 }
@@ -47,7 +47,7 @@ impl Context {
                 let config = GuildConfig::default();
 
                 if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
-                    let wrap = format!("failed to insert guild {}", guild_id);
+                    let wrap = format!("failed to insert guild {guild_id}");
                     let report = Report::new(why).wrap_err(wrap);
                     warn!("{:?}", report);
                 }
@@ -68,7 +68,7 @@ impl Context {
                         let config = GuildConfig::default();
 
                         if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
-                            let wrap = format!("failed to insert guild {}", guild_id);
+                            let wrap = format!("failed to insert guild {guild_id}");
                             let report = Report::new(why).wrap_err(wrap);
                             warn!("{:?}", report);
                         }
@@ -90,7 +90,7 @@ impl Context {
                 let config = GuildConfig::default();
 
                 if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
-                    let wrap = format!("failed to insert guild {}", guild_id);
+                    let wrap = format!("failed to insert guild {guild_id}");
                     let report = Report::new(why).wrap_err(wrap);
                     warn!("{:?}", report);
                 }
@@ -109,7 +109,7 @@ impl Context {
                 let config = GuildConfig::default();
 
                 if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
-                    let wrap = format!("failed to insert guild {}", guild_id);
+                    let wrap = format!("failed to insert guild {guild_id}");
                     let report = Report::new(why).wrap_err(wrap);
                     warn!("{:?}", report);
                 }
@@ -128,7 +128,7 @@ impl Context {
                 let config = GuildConfig::default();
 
                 if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
-                    let wrap = format!("failed to insert guild {}", guild_id);
+                    let wrap = format!("failed to insert guild {guild_id}");
                     let report = Report::new(why).wrap_err(wrap);
                     warn!("{:?}", report);
                 }
@@ -147,7 +147,7 @@ impl Context {
                 let config = GuildConfig::default();
 
                 if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
-                    let wrap = format!("failed to insert guild {}", guild_id);
+                    let wrap = format!("failed to insert guild {guild_id}");
                     let report = Report::new(why).wrap_err(wrap);
                     warn!("{:?}", report);
                 }
@@ -176,7 +176,7 @@ impl Context {
                 let config = GuildConfig::default();
 
                 if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
-                    let wrap = format!("failed to insert guild {}", guild_id);
+                    let wrap = format!("failed to insert guild {guild_id}");
                     let report = Report::new(why).wrap_err(wrap);
                     warn!("{:?}", report);
                 }

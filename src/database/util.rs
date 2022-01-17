@@ -18,10 +18,10 @@ impl CustomSQL for String {
         };
 
         self.reserve(size * (delim.len() + 10));
-        write!(self, " {}={}", tag_column(first_tag), value)?;
+        write!(self, " {}={value}", tag_column(first_tag))?;
 
         for tag in tags {
-            write!(self, "{}{}={}", delim, tag_column(tag), value)?;
+            write!(self, "{delim}{}={value}", tag_column(tag))?;
         }
 
         Ok(self)

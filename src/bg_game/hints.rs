@@ -60,10 +60,7 @@ impl Hints {
                 artist_hint.push(if c == ' ' { c } else { '▢' });
             }
 
-            format!(
-                "Here's my second hint: The artist looks like `{}`",
-                artist_hint
-            )
+            format!("Here's my second hint: The artist looks like `{artist_hint}`")
         // } else if !self.tags.is_empty()
         //     && ((self.hint_level == 2 && self.artist_guessed) || self.hint_level == 3)
         // {
@@ -82,9 +79,9 @@ impl Hints {
                 .map(|(mask, c)| if *mask { c } else { '▢' })
                 .collect();
 
-            format!("Slowly constructing the title: `{}`", title_hint)
+            format!("Slowly constructing the title: `{title_hint}`")
         } else {
-            format!("Bruh the title is literally `{}` xd", title)
+            format!("Bruh the title is literally `{title}` xd")
         }
     }
 }

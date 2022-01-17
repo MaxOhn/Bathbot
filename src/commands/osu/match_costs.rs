@@ -97,7 +97,7 @@ async fn _matchcosts(
 
     // Process match
     let (description, match_result) = if games.is_empty() {
-        let mut description = format!("No games played yet beyond the {} warmup", warmups);
+        let mut description = format!("No games played yet beyond the {warmups} warmup");
 
         if warmups != 1 {
             description.push('s');
@@ -124,7 +124,7 @@ async fn _matchcosts(
         if warmups == 1 {
             content.push_str(MAP);
         } else {
-            let _ = write!(content, "{} maps", warmups);
+            let _ = write!(content, "{warmups} maps");
         }
 
         content.push_str(" as warmup:");

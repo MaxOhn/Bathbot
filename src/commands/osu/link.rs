@@ -26,8 +26,7 @@ async fn link(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 "This command is deprecated and no longer works.\n\
                 Use the slash command `/link` instead.\n\
                 If slash commands are not available in your server, \
-                try [re-inviting the bot]({}).",
-                INVITE_LINK
+                try [re-inviting the bot]({INVITE_LINK})."
             );
 
             return msg.error(&ctx, content).await;

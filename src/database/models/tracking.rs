@@ -65,8 +65,7 @@ where
                 .collect(),
             Err(why) => {
                 let wrap = format!(
-                    "failed to deserialize tracking channels value for ({},{})",
-                    user_id, mode
+                    "failed to deserialize tracking channels value for ({user_id},{mode})"
                 );
                 let report = Report::new(why).wrap_err(wrap);
                 warn!("{:?}", report);

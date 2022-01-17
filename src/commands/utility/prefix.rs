@@ -36,8 +36,7 @@ async fn prefix(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         Some(other) => {
             let content = format!(
                 "If any arguments are provided, the first one \
-                must be either `add` or `remove`, not `{}`",
-                other
+                must be either `add` or `remove`, not `{other}`"
             );
 
             return msg.error(&ctx, content).await;
@@ -124,10 +123,10 @@ fn current_prefixes(content: &mut String, prefixes: &[Prefix]) {
     let mut prefixes = prefixes.iter();
 
     if let Some(first) = prefixes.next() {
-        let _ = write!(content, "`{}`", first);
+        let _ = write!(content, "`{first}`");
 
         for prefix in prefixes {
-            let _ = write!(content, ", `{}`", prefix);
+            let _ = write!(content, ", `{prefix}`");
         }
     }
 }

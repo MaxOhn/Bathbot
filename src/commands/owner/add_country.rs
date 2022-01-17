@@ -63,8 +63,7 @@ pub(super) async fn _addcountry(
 
     if let Some(name) = ctx.get_country(&code) {
         let content = format!(
-            "The country code `{}` is already available for `{}`.",
-            code, name
+            "The country code `{code}` is already available for `{name}`."
         );
 
         return data.error(&ctx, content).await;
@@ -78,7 +77,7 @@ pub(super) async fn _addcountry(
         return Err(why);
     }
 
-    let content = format!("Successfuly added country `{}` (`{}`)", country, code);
+    let content = format!("Successfuly added country `{country}` (`{code}`)");
     ctx.add_country(country, code);
     let builder = MessageBuilder::new().embed(content);
     data.create_message(&ctx, builder).await?;

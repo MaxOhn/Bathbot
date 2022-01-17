@@ -52,9 +52,8 @@ impl RankingCommandKind {
                             country = Some(code)
                         } else {
                             let content = format!(
-                                "Failed to parse `{}` as country.\n\
-                                Be sure to specify a valid country or two ASCII letter country code.",
-                                value
+                                "Failed to parse `{value}` as country.\n\
+                                Be sure to specify a valid country or two ASCII letter country code."
                             );
 
                             return Ok(Err(content));

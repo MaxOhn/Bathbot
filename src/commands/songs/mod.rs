@@ -66,7 +66,7 @@ async fn song_send(
 
         for line in &lyrics[1..] {
             interval.tick().await;
-            let _ = writeln!(content, "♫ {} ♫", line);
+            let _ = writeln!(content, "♫ {line} ♫");
 
             response = ctx
                 .http

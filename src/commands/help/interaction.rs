@@ -436,20 +436,16 @@ async fn basic_help(ctx: &Context, command: ApplicationCommand) -> BotResult<()>
         .current_user()
         .expect("missing CurrentUser in cache")
         .id;
-    let mention = format!("<@{}>", id);
+    let mention = format!("<@{id}>");
 
     let description = format!(
-        "{self} is a discord bot written by [Badewanne3](https://osu.ppy.sh/u/2211396) all around osu!",
-        self = mention,
+        "{mention} is a discord bot written by [Badewanne3](https://osu.ppy.sh/u/2211396) all around osu!"
     );
 
     let join_server = EmbedField {
         inline: false,
         name: "Got a question, suggestion, bug, or are interested in the development?".to_owned(),
-        value: format!(
-            "Feel free to join the [discord server]({server})",
-            server = BATHBOT_WORKSHOP
-        ),
+        value: format!("Feel free to join the [discord server]({BATHBOT_WORKSHOP})"),
     };
 
     let command_help = EmbedField {
@@ -462,10 +458,7 @@ async fn basic_help(ctx: &Context, command: ApplicationCommand) -> BotResult<()>
     let invite = EmbedField {
         inline: false,
         name: "Want to invite the bot to your server?".to_owned(),
-        value: format!(
-            "Try using this [**invite link**]({invite})",
-            invite = INVITE_LINK
-        ),
+        value: format!("Try using this [**invite link**]({INVITE_LINK})"),
     };
 
     let boot_time = ctx.stats.start_time;
@@ -488,7 +481,7 @@ async fn basic_help(ctx: &Context, command: ApplicationCommand) -> BotResult<()>
     let github = EmbedField {
         inline: false,
         name: "Interested in the source code?".to_owned(),
-        value: format!("The current version is not public but you can check out the [previous version]({github})", github = BATHBOT_GITHUB),
+        value: format!("The current version is not public but you can check out the [previous version]({BATHBOT_GITHUB})"),
     };
 
     let commands_used: usize = ctx.stats.command_counts.message_commands.collect()[0]

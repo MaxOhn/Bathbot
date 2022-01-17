@@ -85,7 +85,7 @@ async fn _ratios(
         match super::get_user_and_scores(&ctx, user_args, &score_args).await {
             Ok((user, scores)) => (user, scores),
             Err(OsuError::NotFound) => {
-                let content = format!("User `{}` was not found", name);
+                let content = format!("User `{name}` was not found");
 
                 return data.error(&ctx, content).await;
             }
@@ -104,7 +104,7 @@ async fn _ratios(
 
     // Accumulate all necessary data
     let embed_data = RatioEmbed::new(user, scores);
-    let content = format!("Average ratios of `{}`'s top 100 in mania:", name);
+    let content = format!("Average ratios of `{name}`'s top 100 in mania:");
 
     // Creating the embed
     let embed = embed_data.into_builder().build();

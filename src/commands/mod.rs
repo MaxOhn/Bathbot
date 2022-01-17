@@ -56,7 +56,7 @@ async fn parse_discord(ctx: &Context, user_id: UserId) -> DoubleResultCow<OsuDat
     match ctx.psql().get_user_osu(user_id).await {
         Ok(Some(osu)) => Ok(Ok(osu)),
         Ok(None) => {
-            let content = format!("<@{}> is not linked to an osu profile", user_id);
+            let content = format!("<@{user_id}> is not linked to an osu profile");
 
             Ok(Err(content.into()))
         }

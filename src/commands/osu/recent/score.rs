@@ -97,7 +97,7 @@ pub(super) async fn _recent(
         }
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = format!("User `{}` was not found", name);
+            let content = format!("User `{name}` was not found");
 
             return data.error(&ctx, content).await;
         }
@@ -260,7 +260,7 @@ pub(super) async fn _recent(
         (None, None) => true,
     };
 
-    let content = show_retries.then(|| format!("Try #{}", tries));
+    let content = show_retries.then(|| format!("Try #{tries}"));
 
     let embeds_maximized = match (config.embeds_maximized, guild_id) {
         (Some(embeds_maximized), _) => embeds_maximized,
@@ -387,7 +387,7 @@ async fn retrieve_vod(
             }
 
             if offset > 0 {
-                let _ = write!(vod.url, "{}s", offset);
+                let _ = write!(vod.url, "{offset}s");
             }
 
             Some(vod)
@@ -648,9 +648,8 @@ impl RecentArgs {
                     },
                     _ => {
                         let content = format!(
-                            "Unrecognized option `{}`.\n\
-                            Available options are: `grade` or `pass`.",
-                            key
+                            "Unrecognized option `{key}`.\n\
+                            Available options are: `grade` or `pass`."
                         );
 
                         return Ok(Err(content.into()));

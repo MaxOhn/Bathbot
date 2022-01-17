@@ -69,7 +69,7 @@ pub(super) async fn _countrysnipelist(
             match get_user_cached(&ctx, &user_args).await {
                 Ok(user) => Some(user),
                 Err(OsuError::NotFound) => {
-                    let content = format!("User `{}` was not found", name);
+                    let content = format!("User `{name}` was not found");
 
                     return data.error(&ctx, content).await;
                 }
@@ -82,7 +82,7 @@ pub(super) async fn _countrysnipelist(
         }
         Ok(None) => None,
         Err(why) => {
-            let wrap = format!("failed to get UserConfig for user {}", author_id);
+            let wrap = format!("failed to get UserConfig for user author_id");
             warn!("{:?}", Report::new(why).wrap_err(wrap));
 
             None
@@ -225,9 +225,7 @@ impl CountryListArgs {
                     }
                     _ => {
                         let content = format!(
-                            "Unrecognized option `{}`.\n\
-                            Available options are: `sort`.",
-                            key
+                            "Unrecognized option `{key}`.\nAvailable options are: `sort`."
                         );
 
                         return Err(content.into());
@@ -239,7 +237,7 @@ impl CountryListArgs {
                 let code = arg.to_uppercase();
 
                 if !ctx.contains_country(&code) {
-                    let content = format!("The country acronym `{}` is not supported :(", code);
+                    let content = format!("The country acronym `{code}` is not supported :(");
 
                     return Err(content.into());
                 }
@@ -247,7 +245,7 @@ impl CountryListArgs {
                 country = Some(code.into())
             } else if let Some(code) = CountryCode::from_name(arg.as_ref()) {
                 if !code.snipe_supported(ctx) {
-                    let content = format!("The country `{}` is not supported :(", code);
+                    let content = format!("The country `{code}` is not supported :(");
 
                     return Err(content.into());
                 }
@@ -255,10 +253,9 @@ impl CountryListArgs {
                 country = Some(code);
             } else {
                 let content = format!(
-                    "Failed to parse `{}`.\n\
+                    "Failed to parse `{arg}`.\n\
                     It must be either a valid country, a two ASCII character country code or \
-                    `sort=count/pp/stars/weighted`",
-                    arg
+                    `sort=count/pp/stars/weighted`"
                 );
 
                 return Err(content.into());

@@ -52,7 +52,7 @@ impl MapSearchEmbed {
                     title.push(' ');
                 }
 
-                let _ = write!(title, "mode={}", mode);
+                let _ = write!(title, "mode={mode}");
                 pushed = true;
             }
 
@@ -198,7 +198,7 @@ impl MapSearchEmbed {
         let mut footer_text = format!("Page {}/", pages.0);
 
         match pages.1 {
-            Some(page) => write!(footer_text, "{}", page).unwrap(),
+            Some(page) => write!(footer_text, "{page}").unwrap(),
             None => footer_text.push('?'),
         }
 

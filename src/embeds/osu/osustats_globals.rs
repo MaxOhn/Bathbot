@@ -55,7 +55,7 @@ impl OsuStatsGlobalsEmbed {
 
             match score.map.max_combo {
                 Some(amount) => {
-                    let _ = write!(combo, "{}x", amount);
+                    let _ = write!(combo, "{amount}x");
                 }
 
                 None => combo.push('-'),
@@ -83,8 +83,8 @@ impl OsuStatsGlobalsEmbed {
         }
 
         let footer = Footer::new(format!(
-            "Page {}/{} ~ Total scores: {}",
-            pages.0, pages.1, total
+            "Page {}/{} ~ Total scores: {total}",
+            pages.0, pages.1
         ));
 
         Self {

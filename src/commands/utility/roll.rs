@@ -44,9 +44,7 @@ async fn _roll(ctx: Arc<Context>, data: CommandData<'_>, limit: u64) -> BotResul
     let author_id = data.author()?.id;
 
     let description = format!(
-        "<@{}> rolls {} point{} :game_die:",
-        author_id,
-        num,
+        "<@{author_id}> rolls {num} point{} :game_die:",
         if num == 1 { "" } else { "s" }
     );
 

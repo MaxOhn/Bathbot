@@ -56,8 +56,8 @@ impl LeaderboardEmbed {
 
         let _ = write!(
             author_text,
-            "{} - {} [{}] [{:.2}★]",
-            artist, title, map.version, map.stars
+            "{artist} - {title} [{}] [{:.2}★]",
+            map.version, map.stars
         );
 
         let description = if let Some(scores) = scores {
@@ -113,20 +113,20 @@ impl LeaderboardEmbed {
             "No scores found".to_string()
         };
 
-        let mut author = Author::new(author_text).url(format!("{}b/{}", OSU_BASE, map.map_id));
+        let mut author = Author::new(author_text).url(format!("{OSU_BASE}b/{}", map.map_id));
 
         if let Some(ref author_icon) = author_icon {
             author = author.icon_url(author_icon.to_owned());
         }
 
-        let footer = Footer::new(format!("{:?} map by {}", map.status, creator_name))
-            .icon_url(format!("{}{}", AVATAR_URL, creator_id));
+        let footer = Footer::new(format!("{:?} map by {creator_name}", map.status))
+            .icon_url(format!("{AVATAR_URL}{creator_id}"));
 
         Ok(Self {
             author,
             description,
             footer,
-            thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id),
+            thumbnail: format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id),
         })
     }
 }

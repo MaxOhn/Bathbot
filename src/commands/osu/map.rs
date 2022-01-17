@@ -150,7 +150,7 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
             (mapset, maps)
         }
         Err(OsuError::NotFound) => {
-            let content = format!("Could find neither map nor mapset with id {}", mapset_id);
+            let content = format!("Could find neither map nor mapset with id {mapset_id}");
 
             return data.error(&ctx, content).await;
         }
@@ -361,7 +361,7 @@ fn graph(strains: Vec<(f64, f64)>, mut background: DynamicImage) -> Result<Vec<u
                 let minutes = d.num_seconds() / 60;
                 let seconds = d.num_seconds() % 60;
 
-                format!("{}:{:0>2}", minutes, seconds)
+                format!("{minutes}:{seconds:0>2}")
             })
             .draw()?;
 
@@ -409,9 +409,8 @@ impl MapArgs {
                 mods = Some(mods_);
             } else {
                 let content = format!(
-                    "Failed to parse `{}`.\n\
-                    Be sure you specify either a valid map id, map url, or mod combination.",
-                    arg
+                    "Failed to parse `{arg}`.\n\
+                    Be sure you specify either a valid map id, map url, or mod combination."
                 );
 
                 return Err(content);

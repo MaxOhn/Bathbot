@@ -136,7 +136,7 @@ pub(super) async fn _mostplayedcommon(
                 all_maps.extend(maps.into_iter().map(|map| (map.map.map_id, map)));
             }
             Err(OsuError::NotFound) => {
-                let content = format!("User `{}` was not found", name);
+                let content = format!("User `{name}` was not found");
 
                 return data.error(&ctx, content).await;
             }
@@ -184,10 +184,10 @@ pub(super) async fn _mostplayedcommon(
 
     if let Some(first) = iter.next() {
         let last = iter.next_back();
-        let _ = write!(content, "`{}`", first);
+        let _ = write!(content, "`{first}`");
 
         for name in iter {
-            let _ = write!(content, ", `{}`", name);
+            let _ = write!(content, ", `{name}`");
         }
 
         if let Some(name) = last {
@@ -195,7 +195,7 @@ pub(super) async fn _mostplayedcommon(
                 content.push(',');
             }
 
-            let _ = write!(content, " and `{}`", name);
+            let _ = write!(content, " and `{name}`");
         }
     }
 

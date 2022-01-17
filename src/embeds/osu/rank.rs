@@ -38,7 +38,7 @@ impl RankEmbed {
                 );
 
                 let description = if user.user_id == rank_holder.user_id {
-                    format!("{} is already at rank #{}.", user.username, rank)
+                    format!("{} is already at rank #{rank}.", user.username)
                 } else if user_pp > rank_holder_pp {
                     format!(
                         "Rank {country}{rank} is currently held by {holder_name} with \

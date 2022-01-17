@@ -72,7 +72,7 @@ pub(super) async fn _medalstats(
     let (mut user, all_medals) = match tokio::join!(user_fut, medals_fut) {
         (Ok(user), Ok(medals)) => (user, medals),
         (Err(OsuError::NotFound), _) => {
-            let content = format!("User `{}` was not found", name);
+            let content = format!("User `{name}` was not found");
 
             return data.error(&ctx, content).await;
         }

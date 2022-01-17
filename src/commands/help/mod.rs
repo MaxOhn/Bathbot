@@ -26,10 +26,10 @@ async fn failed_message_(
             let count = dists.len().min(5);
             let mut content = String::with_capacity(14 + count * (5 + 2) + (count - 1) * 2);
             content.push_str("Did you mean ");
-            write!(content, "`{}`", name)?;
+            write!(content, "`{name}`")?;
 
             for name in names {
-                write!(content, ", `{}`", name)?;
+                write!(content, ", `{name}`")?;
             }
 
             content.push('?');

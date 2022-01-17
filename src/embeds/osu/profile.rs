@@ -31,14 +31,11 @@ impl ProfileEmbed {
         let playtime = stats.playtime / 60 / 60;
 
         let description = format!(
-            "Accuracy: `{:.2}%` • Level: `{:.2}`\n\
-            Playcount: `{}` (`{} hrs`)\n\
-            Max pp play: `{:.2}pp` • Mode: `{}`",
+            "Accuracy: `{:.2}%` • Level: `{level:.2}`\n\
+            Playcount: `{}` (`{playtime} hrs`)\n\
+            Max pp play: `{max_pp:.2}pp` • Mode: `{}`",
             stats.accuracy,
-            level,
             with_comma_int(stats.playcount),
-            playtime,
-            max_pp,
             match user.mode {
                 GameMode::STD => "osu!",
                 GameMode::TKO => TAIKO,
@@ -70,7 +67,7 @@ impl ProfileEmbed {
         );
 
         if let Some(user_id) = discord_id {
-            let _ = write!(title, " for <@{}>", user_id);
+            let _ = write!(title, " for <@{user_id}>");
         }
 
         title.push(':');
@@ -108,7 +105,7 @@ impl ProfileEmbed {
         );
 
         if let Some(user_id) = discord_id {
-            let _ = write!(title, " for <@{}>", user_id);
+            let _ = write!(title, " for <@{user_id}>");
         }
 
         title.push(':');
@@ -175,10 +172,10 @@ impl ProfileEmbed {
                 let mut value = String::with_capacity(len * 14);
                 let mut iter = mod_combs_count.iter();
                 let (mods, count) = iter.next().unwrap();
-                let _ = write!(value, "`{} {}%`", mods, count);
+                let _ = write!(value, "`{mods} {count}%`");
 
                 for (mods, count) in iter {
-                    let _ = write!(value, " > `{} {}%`", mods, count);
+                    let _ = write!(value, " > `{mods} {count}%`");
                 }
 
                 fields.push(field!("Favourite mod combinations", value, false));
@@ -189,10 +186,10 @@ impl ProfileEmbed {
             let mut value = String::with_capacity(len * 14);
             let mut iter = values.mods_count.iter();
             let (mods, count) = iter.next().unwrap();
-            let _ = write!(value, "`{} {}%`", mods, count);
+            let _ = write!(value, "`{mods} {count}%`");
 
             for (mods, count) in iter {
-                let _ = write!(value, " > `{} {}%`", mods, count);
+                let _ = write!(value, " > `{mods} {count}%`");
             }
 
             fields.push(field!("Favourite mods", value, false));
@@ -200,10 +197,10 @@ impl ProfileEmbed {
             let mut value = String::with_capacity(len * 15);
             let mut iter = values.mod_combs_pp.iter();
             let (mods, pp) = iter.next().unwrap();
-            let _ = write!(value, "`{} {:.2}pp`", mods, *pp);
+            let _ = write!(value, "`{mods} {pp:.2}pp`");
 
             for (mods, pp) in iter {
-                let _ = write!(value, " > `{} {:.2}pp`", mods, *pp);
+                let _ = write!(value, " > `{mods} {pp:.2}pp`");
             }
 
             let name = if mult_mods {
@@ -234,7 +231,7 @@ impl ProfileEmbed {
                 );
 
                 if own_top_scores > 0 {
-                    let _ = writeln!(mapper_stats, "Own maps in top scores: {}", own_top_scores);
+                    let _ = writeln!(mapper_stats, "Own maps in top scores: {own_top_scores}");
                 }
 
                 fields.push(field!("Mapsets from player", mapper_stats, false));
@@ -249,10 +246,10 @@ impl ProfileEmbed {
             let mut value = String::with_capacity(len);
             let mut iter = values.mappers.iter();
             let (name, count, pp) = iter.next().unwrap();
-            let _ = writeln!(value, "{}: {:.2}pp ({})", name, *pp, count);
+            let _ = writeln!(value, "{name}: {pp:.2}pp ({count})");
 
             for (name, count, pp) in iter {
-                let _ = writeln!(value, "{}: {:.2}pp ({})", name, *pp, count);
+                let _ = writeln!(value, "{name}: {pp:.2}pp ({count})");
             }
 
             fields.push(field!("Mappers in top 100", value, true));
@@ -333,7 +330,7 @@ fn main_fields(user: &User, stats: &UserStatistics, bonus_pp: f32) -> Vec<EmbedF
             with_comma_int(stats.total_hits).to_string(),
             true
         ),
-        field!("Bonus PP", format!("{}pp", bonus_pp), true),
+        field!("Bonus PP", format!("{bonus_pp}pp"), true),
         field!(
             "Followers",
             with_comma_int(user.follower_count.unwrap_or(0)).to_string(),

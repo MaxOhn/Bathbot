@@ -362,7 +362,7 @@ async fn no_scores(
                 map
             }
             Err(OsuError::NotFound) => {
-                let content = format!("There is no map with id {}", map_id);
+                let content = format!("There is no map with id {map_id}");
 
                 return data.error(ctx, content).await;
             }
@@ -379,7 +379,7 @@ async fn no_scores(
     let user = match get_user(ctx, &user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = format!("Could not find user `{}`", name);
+            let content = format!("Could not find user `{name}`");
 
             return data.error(ctx, content).await;
         }

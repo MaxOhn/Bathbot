@@ -56,12 +56,8 @@ impl RatioEmbed {
 
                 let _ = writeln!(
                     description,
-                    "{}{:>2}%: {:>7} | {:>6.3} | {:>7.3}%",
+                    "{}{acc:>2}%: {scores:>7} | {ratio:>6.3} | {misses:>7.3}%",
                     if acc < 100 { ">" } else { "" },
-                    acc,
-                    scores,
-                    ratio,
-                    misses,
                 );
 
                 all_scores.push(scores as i8);

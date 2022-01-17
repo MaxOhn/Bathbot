@@ -11,7 +11,7 @@ pub(super) async fn trackingtoggle(ctx: Arc<Context>, data: CommandData) -> BotR
         .fetch_nand(true, Ordering::SeqCst);
 
     let current = ctx.tracking().stop_tracking.load(Ordering::Acquire);
-    let content = format!("Tracking toggle: {} -> {}", current, !current);
+    let content = format!("Tracking toggle: {current} -> {}", !current);
     let builder = MessageBuilder::new().embed(content);
     data.create_message(&ctx, builder).await?;
 

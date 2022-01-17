@@ -110,7 +110,7 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
     let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = format!("User `{}` was not found", name);
+            let content = format!("User `{name}` was not found");
 
             return data.error(&ctx, content).await;
         }
@@ -132,8 +132,7 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
 
     if args.index.filter(|n| *n > scores.len()).is_some() {
         let content = format!(
-            "`{}` only has {} top scores with the specified properties",
-            name,
+            "`{name}` only has {} top scores with the specified properties",
             scores.len()
         );
 
@@ -979,9 +978,8 @@ impl TopArgs {
                     },
                     _ => {
                         let content = format!(
-                            "Unrecognized option `{}`.\n\
-                            Available options are: `acc`, `combo`, `sort`, `grade`, or `reverse`.",
-                            key
+                            "Unrecognized option `{key}`.\n\
+                            Available options are: `acc`, `combo`, `sort`, `grade`, or `reverse`."
                         );
 
                         return Ok(Err(content.into()));
@@ -1140,11 +1138,11 @@ fn write_content(name: &str, args: &TopArgs, amount: usize) -> Option<String> {
         let genitive = if name.ends_with('s') { "" } else { "s" };
 
         let content = match args.sort_by {
-            TopOrder::Acc => format!("`{}`'{} top100 sorted by accuracy:", name, genitive),
-            TopOrder::Combo => format!("`{}`'{} top100 sorted by combo:", name, genitive),
-            TopOrder::Date => format!("Most recent scores in `{}`'{} top100:", name, genitive),
-            TopOrder::Length => format!("`{}`'{} top100 sorted by length:", name, genitive),
-            TopOrder::Misses => format!("`{}`'{} top100 sorted by miss count:", name, genitive),
+            TopOrder::Acc => format!("`{name}`'{genitive} top100 sorted by accuracy:"),
+            TopOrder::Combo => format!("`{name}`'{genitive} top100 sorted by combo:"),
+            TopOrder::Date => format!("Most recent scores in `{name}`'{genitive} top100:"),
+            TopOrder::Length => format!("`{name}`'{genitive} top100 sorted by length:"),
+            TopOrder::Misses => format!("`{name}`'{genitive} top100 sorted by miss count:"),
             TopOrder::Position => return None,
         };
 
@@ -1191,22 +1189,22 @@ fn content_with_condition(args: &TopArgs, amount: usize) -> String {
     match (args.combo_min, args.combo_max) {
         (None, None) => {}
         (None, Some(max)) => {
-            let _ = write!(content, " ~ `Combo: 0 - {}`", max);
+            let _ = write!(content, " ~ `Combo: 0 - {max}`");
         }
         (Some(min), None) => {
-            let _ = write!(content, " ~ `Combo: {} - ∞`", min);
+            let _ = write!(content, " ~ `Combo: {min} - ∞`");
         }
         (Some(min), Some(max)) => {
-            let _ = write!(content, " ~ `Combo: {} - {}`", min, max);
+            let _ = write!(content, " ~ `Combo: {min} - {max}`");
         }
     }
 
     match args.grade {
         Some(GradeArg::Single(grade)) => {
-            let _ = write!(content, " ~ `Grade: {}`", grade);
+            let _ = write!(content, " ~ `Grade: {grade}`");
         }
         Some(GradeArg::Range { bot, top }) => {
-            let _ = write!(content, " ~ `Grade: {} - {}`", bot, top);
+            let _ = write!(content, " ~ `Grade: {bot} - {top}`");
         }
         None => {}
     }
@@ -1217,17 +1215,17 @@ fn content_with_condition(args: &TopArgs, amount: usize) -> String {
             " ~ `Mods: {}`",
             match selection {
                 ModSelection::Exact(mods) => mods.to_string(),
-                ModSelection::Exclude(mods) => format!("Exclude {}", mods),
-                ModSelection::Include(mods) => format!("Include {}", mods),
+                ModSelection::Exclude(mods) => format!("Exclude {mods}"),
+                ModSelection::Include(mods) => format!("Include {mods}"),
             },
         );
     }
 
     if let Some(perfect_combo) = args.perfect_combo {
-        let _ = write!(content, " ~ `Perfect combo: {}`", perfect_combo);
+        let _ = write!(content, " ~ `Perfect combo: {perfect_combo}`");
     }
 
-    let _ = write!(content, "\nFound {} matching top scores:", amount);
+    let _ = write!(content, "\nFound {amount} matching top scores:");
 
     content
 }

@@ -53,8 +53,8 @@ impl MedalEmbed {
 
             for map in maps {
                 let m = format!(
-                    " - [{} [{}]]({}b/{}) (+{})\n",
-                    map.title, map.version, OSU_BASE, map.map_id, map.vote_sum
+                    " - [{} [{}]]({OSU_BASE}b/{}) (+{})\n",
+                    map.title, map.version, map.map_id, map.vote_sum
                 );
 
                 if m.len() + map_value.len() + 7 >= FIELD_VALUE_SIZE {
@@ -67,7 +67,7 @@ impl MedalEmbed {
             }
 
             map_value.pop();
-            fields.push(field!(format!("Beatmaps: {}", len), map_value, false));
+            fields.push(field!(format!("Beatmaps: {len}"), map_value, false));
         }
 
         if !comments.is_empty() {
@@ -106,7 +106,7 @@ impl MedalEmbed {
             let user = achieved.user;
 
             let author = Author::new(user.username.as_str())
-                .url(format!("{}u/{}", OSU_BASE, user.user_id))
+                .url(format!("{OSU_BASE}u/{}", user.user_id))
                 .icon_url(flag_url(user.country_code.as_str()));
 
             let footer = Footer::new(format!(

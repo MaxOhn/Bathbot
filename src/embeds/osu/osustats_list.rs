@@ -36,10 +36,9 @@ impl OsuStatsListEmbed {
         for (i, player) in players.iter().enumerate() {
             let _ = writeln!(
                 description,
-                "**{}. [{}]({}users/{})**: {}",
+                "**{}. [{}]({OSU_BASE}users/{})**: {}",
                 (pages.0 - 1) * 15 + i + 1,
                 player.username,
-                OSU_BASE,
                 player.user_id,
                 with_comma_int(player.count)
             );
@@ -49,7 +48,7 @@ impl OsuStatsListEmbed {
             author,
             description,
             footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
-            thumbnail: format!("{}{}", AVATAR_URL, first_place_id),
+            thumbnail: format!("{AVATAR_URL}{first_place_id}"),
         }
     }
 }

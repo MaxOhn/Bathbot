@@ -52,7 +52,7 @@ impl MatchCostEmbed {
                     for (i, (id, cost)) in blue.into_iter().enumerate() {
                         let name = match osu_match.users.get(&id) {
                             Some(user) => Cow::Borrowed(user.username.as_str()),
-                            None => Cow::Owned(format!("User id {}", id)),
+                            None => Cow::Owned(format!("User id {id}")),
                         };
 
                         let medal = {
@@ -93,7 +93,7 @@ impl MatchCostEmbed {
                     for (i, (id, cost)) in red.into_iter().enumerate() {
                         let name = match osu_match.users.get(&id) {
                             Some(user) => Cow::Borrowed(user.username.as_str()),
-                            None => Cow::Owned(format!("User id {}", id)),
+                            None => Cow::Owned(format!("User id {id}")),
                         };
 
                         let medal = if !medals.is_empty() {
@@ -123,7 +123,7 @@ impl MatchCostEmbed {
                     for (i, (id, cost)) in players.into_iter().enumerate() {
                         let name = match osu_match.users.get(&id) {
                             Some(user) => Cow::Borrowed(user.username.as_str()),
-                            None => Cow::Owned(format!("User id {}", id)),
+                            None => Cow::Owned(format!("User id {id}")),
                         };
 
                         let _ = writeln!(
@@ -161,7 +161,7 @@ impl MatchCostEmbed {
             footer,
             thumbnail,
             description,
-            url: format!("{}community/matches/{}", OSU_BASE, match_id),
+            url: format!("{OSU_BASE}community/matches/{match_id}"),
         })
     }
 }

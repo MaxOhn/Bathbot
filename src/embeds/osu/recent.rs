@@ -199,7 +199,7 @@ impl RecentEmbed {
             let _ = write!(hits, "{}/", if_fc.n100);
 
             if let Some(n50) = if_fc.n50 {
-                let _ = write!(hits, "{}/", n50);
+                let _ = write!(hits, "{n50}/");
             }
 
             let _ = write!(hits, "0}}");
@@ -215,7 +215,7 @@ impl RecentEmbed {
             "{:?} map by {} | played",
             map.status, mapset.creator_name
         ))
-        .icon_url(format!("{}{}", AVATAR_URL, mapset.creator_id));
+        .icon_url(format!("{AVATAR_URL}{}", mapset.creator_id));
 
         let personal_idx = personal.and_then(|personal| personal.iter().position(|s| s == score));
 
@@ -237,7 +237,7 @@ impl RecentEmbed {
             }
 
             if let Some(idx) = global_idx {
-                let _ = write!(description, "Global Top #{}", idx);
+                let _ = write!(description, "Global Top #{idx}");
             }
 
             description.push_str("**__");
@@ -304,7 +304,7 @@ impl EmbedData for RecentEmbed {
 
         if let Some((pp, acc, hits)) = &self.if_fc {
             fields.push(field!("**If FC**: PP", pp.clone(), true));
-            fields.push(field!("Acc", format!("{}%", acc), true));
+            fields.push(field!("Acc", format!("{acc}%"), true));
             fields.push(field!("Hits", hits.clone(), true));
         }
 

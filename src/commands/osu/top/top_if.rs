@@ -81,7 +81,7 @@ pub(super) async fn _topif(
     let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = format!("User `{}` was not found", name);
+            let content = format!("User `{name}` was not found");
 
             return data.error(&ctx, content).await;
         }
@@ -239,16 +239,16 @@ pub(super) async fn _topif(
 
             if let Some(first) = mod_iter.next() {
                 let last = mod_iter.next_back();
-                let _ = write!(mod_str, "`{}`", first);
+                let _ = write!(mod_str, "`{first}`");
 
                 for elem in mod_iter {
-                    let _ = write!(mod_str, ", `{}`", elem);
+                    let _ = write!(mod_str, ", `{elem}`");
                 }
 
                 if let Some(last) = last {
                     let _ = match len {
-                        2 => write!(mod_str, " and `{}`", last),
-                        _ => write!(mod_str, ", and `{}`", last),
+                        2 => write!(mod_str, " and `{last}`"),
+                        _ => write!(mod_str, ", and `{last}`"),
                     };
                 }
             }

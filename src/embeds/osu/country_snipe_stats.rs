@@ -41,8 +41,7 @@ impl CountrySnipeStatsEmbed {
         let (title, thumbnail) = match country {
             Some((country, code)) => {
                 let title = format!(
-                    "{}{} #1 statistics",
-                    country,
+                    "{country}{} #1 statistics",
                     if country.ends_with('s') { "'" } else { "'s" }
                 );
 
@@ -54,10 +53,9 @@ impl CountrySnipeStatsEmbed {
         };
 
         let footer = Footer::new(format!(
-            "Unplayed maps: {}/{} ({}%)",
+            "Unplayed maps: {}/{} ({percent}%)",
             with_comma_int(statistics.unplayed_maps),
             with_comma_int(statistics.total_maps),
-            percent
         ));
 
         Self {

@@ -64,7 +64,7 @@ impl Database {
         );
 
         query.execute(&self.pool).await?;
-        info!("Inserted GuildConfig for guild {} into DB", guild_id);
+        info!("Inserted GuildConfig for guild {guild_id} into DB");
 
         Ok(())
     }
@@ -196,7 +196,7 @@ impl Database {
         );
 
         query.execute(&self.pool).await?;
-        debug!("Inserted UserConfig for user {} into DB", user_id);
+        debug!("Inserted UserConfig for user {user_id} into DB");
 
         Ok(())
     }

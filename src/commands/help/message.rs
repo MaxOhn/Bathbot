@@ -31,10 +31,10 @@ async fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
             } else {
                 let prefix_iter = prefixes.iter();
                 let mut prefixes_str = String::with_capacity(9);
-                let _ = write!(prefixes_str, "`{}`", prefix);
+                let _ = write!(prefixes_str, "`{prefix}`");
 
                 for prefix in prefix_iter {
-                    let _ = write!(prefixes_str, ", `{}`", prefix);
+                    let _ = write!(prefixes_str, ", `{prefix}`");
                 }
 
                 (Some(prefixes_str), prefix)
@@ -48,14 +48,14 @@ async fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
 
     let prefix_desc = custom_prefix.map_or_else(
         || String::from("Prefix: `<` (none required in DMs)"),
-        |p| format!("Server prefix: {}\nDM prefix: `<` or none at all", p),
+        |p| format!("Server prefix: {p}\nDM prefix: `<` or none at all"),
     );
 
     format!(":fire: **Slash commands now supported!** Type `/` to check them out :fire:\n\n\
         {prefix_desc}\n\
         __**General**__\n\
         - To find out more about a command like what arguments you can give or which shorter aliases it has, \
-        use __**`{prefix}help [command]`**__, e.g. `{prefix}help simulate`.
+        use __**`{first_prefix}help [command]`**__, e.g. `{first_prefix}help simulate`.
         - If you want to specify an argument, e.g. a username, that contains \
         spaces, you must encapsulate it with `\"` i.e. `\"nathan on osu\"`.\n\
         - If you've used the `/link` command to connect to an osu! account, you can omit the username for any command that needs one.\n\
@@ -64,7 +64,7 @@ async fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
         - ~~`Strikethrough`~~ commands indicate that either you can't use them in DMs or \
         you lack authority status in the server.\n\
         - If you have questions, complains, or suggestions for the bot, feel free to join its \
-        [discord server]({discord_url}) and let Badewanne3 know.\n\
+        [discord server]({BATHBOT_WORKSHOP}) and let Badewanne3 know.\n\
         __**Mods for osu!**__
         Many commands allow you to specify mods. You can do so with `+mods` \
         for included mods, `+mods!` for exact mods, or `-mods!` for excluded mods. For example:\n\
@@ -72,7 +72,7 @@ async fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
         `+hd!`: only HD scores\n\
         `-nm!`: scores that are not NoMod\n\
         `-nfsohdez!`: scores that have neither NF, SO, HD, or EZ\n\
-        \n__**All commands:**__\n", prefix_desc = prefix_desc, prefix = first_prefix, discord_url = BATHBOT_WORKSHOP)
+        \n__**All commands:**__\n")
 }
 
 pub async fn help(ctx: &Context, data: CommandData<'_>, is_authority: bool) -> BotResult<()> {
@@ -236,10 +236,10 @@ pub async fn help_command(
         let mut value = String::with_capacity(len);
         let mut example_len = 0;
         let cmd_len = prefix.chars().count() + name.chars().count();
-        writeln!(value, "`{}{} {}`", prefix, name, first)?;
+        writeln!(value, "`{prefix}{name} {first}`")?;
 
         for example in examples {
-            writeln!(value, "`{}{} {}`", prefix, name, example)?;
+            writeln!(value, "`{prefix}{name} {example}`")?;
             example_len = example_len.max(cmd_len + example.chars().count());
         }
 
@@ -261,10 +261,10 @@ pub async fn help_command(
     if let Some(first) = aliases.next() {
         let len: usize = cmd.names.iter().skip(1).map(|n| 4 + n.len()).sum();
         let mut value = String::with_capacity(len);
-        write!(value, "`{}`", first)?;
+        write!(value, "`{first}`")?;
 
         for &alias in aliases {
-            write!(value, ", `{}`", alias)?;
+            write!(value, ", `{alias}`")?;
         }
 
         let field = EmbedField {
@@ -283,10 +283,10 @@ pub async fn help_command(
             let mut iter = authorities.iter();
 
             if let Some(first) = iter.next() {
-                let _ = write!(value, " or any of these roles: <@&{}>", first);
+                let _ = write!(value, " or any of these roles: <@&{first}>");
 
                 for role in iter {
-                    let _ = write!(value, ", <@&{}>", role);
+                    let _ = write!(value, ", <@&{role}>");
                 }
             }
 

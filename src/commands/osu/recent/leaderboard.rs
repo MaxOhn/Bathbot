@@ -102,7 +102,7 @@ pub(super) async fn _recentleaderboard(
             }
         },
         Err(OsuError::NotFound) => {
-            let content = format!("User `{}` was not found", name);
+            let content = format!("User `{name}` was not found");
 
             return data.error(&ctx, content).await;
         }
@@ -160,8 +160,7 @@ pub(super) async fn _recentleaderboard(
 
     // Sending the embed
     let content = format!(
-        "I found {} scores with the specified mods on the map's leaderboard",
-        amount
+        "I found {amount} scores with the specified mods on the map's leaderboard"
     );
 
     let embed = embed_data.into_builder().build();

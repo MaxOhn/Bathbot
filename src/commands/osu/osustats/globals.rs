@@ -52,7 +52,7 @@ pub(super) async fn _scores(
     let mut user = match get_user(&ctx, &user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = format!("User `{}` was not found", name);
+            let content = format!("User `{name}` was not found");
 
             return data.error(&ctx, content).await;
         }
@@ -106,8 +106,8 @@ pub(super) async fn _scores(
             " ~ `Mods: {}`",
             match selection {
                 ModSelection::Exact(mods) => mods.to_string(),
-                ModSelection::Exclude(mods) => format!("Exclude {}", mods),
-                ModSelection::Include(mods) => format!("Include {}", mods),
+                ModSelection::Exclude(mods) => format!("Exclude {mods}"),
+                ModSelection::Include(mods) => format!("Include {mods}"),
             },
         );
     }
@@ -458,9 +458,8 @@ impl ScoresArgs {
                     },
                     _ => {
                         let content = format!(
-                            "Unrecognized option `{}`.\n\
-                            Available options are: `acc`, `rank`, `sort`, or `reverse`.",
-                            key
+                            "Unrecognized option `{key}`.\n\
+                            Available options are: `acc`, `rank`, `sort`, or `reverse`."
                         );
 
                         return Ok(Err(content.into()));

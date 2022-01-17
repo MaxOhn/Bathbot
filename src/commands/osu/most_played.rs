@@ -103,7 +103,7 @@ async fn _mostplayed(
     let (user, maps) = match result {
         Ok((user, maps)) => (user, maps),
         Err(OsuError::NotFound) => {
-            let content = format!("User `{}` was not found", name);
+            let content = format!("User `{name}` was not found");
 
             return data.error(&ctx, content).await;
         }

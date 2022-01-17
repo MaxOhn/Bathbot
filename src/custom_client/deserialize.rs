@@ -133,8 +133,7 @@ impl<'de> Visitor<'de> for MaybeModsString {
                 Ok(m) => mods |= m,
                 Err(why) => {
                     return Err(Error::custom(format_args!(
-                        r#"invalid value "{}": {}"#,
-                        v, why
+                        r#"invalid value "{v}": {why}"#
                     )));
                 }
             }
