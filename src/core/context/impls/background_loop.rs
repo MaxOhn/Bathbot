@@ -1,4 +1,4 @@
-use std::{io::ErrorKind, mem, sync::Arc};
+use std::{io::ErrorKind, mem, num::NonZeroU32, sync::Arc};
 
 use eyre::Report;
 use rosu_v2::prelude::{
@@ -53,9 +53,7 @@ impl Context {
         }
 
         if file_not_found > 0 {
-            warn!(
-                "[BG] Failed to delete {file_not_found} maps due to missing file"
-            );
+            warn!("[BG] Failed to delete {file_not_found} maps due to missing file");
         }
 
         (success, total)
@@ -101,13 +99,13 @@ async fn update_medals(ctx: &Context) -> BotResult<usize> {
     Ok(medals.len())
 }
 
-pub struct GarbageCollectMap(Option<u32>);
+pub struct GarbageCollectMap(Option<NonZeroU32>);
 
 impl GarbageCollectMap {
     pub fn new(map: &Beatmap) -> Self {
         match map.status {
             Ranked | Loved | Approved => Self(None),
-            _ => Self(Some(map.map_id)),
+            _ => Self(NonZeroU32::new(map.map_id)),
         }
     }
 

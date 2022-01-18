@@ -23,14 +23,54 @@ use twilight_model::{
     guild::Permissions,
 };
 
-#[derive(Default)]
+#[derive(Copy, Clone, Default)]
 struct CommandArgs {
-    authority: bool,
+    bools: u8,
     bucket: Option<BucketName>,
-    // defer_msg: bool,
-    ephemeral: bool,
-    only_guilds: bool,
-    only_owner: bool,
+}
+
+impl CommandArgs {
+    const AUTHORITY: u8 = 1 << 0;
+    const EPHEMERAL: u8 = 1 << 1;
+    const ONLY_GUILDS: u8 = 1 << 2;
+    const ONLY_OWNER: u8 = 1 << 3;
+    // const DEFERRED_MSG: u8 = 1 << 4;
+
+    fn authority(&self) -> bool {
+        self.bools & Self::AUTHORITY > 0
+    }
+
+    fn bucket(&self) -> Option<BucketName> {
+        self.bucket
+    }
+
+    fn ephemeral(&self) -> bool {
+        self.bools & Self::EPHEMERAL > 0
+    }
+
+    fn only_guilds(&self) -> bool {
+        self.bools & Self::ONLY_GUILDS > 0
+    }
+
+    fn only_owner(&self) -> bool {
+        self.bools & Self::ONLY_OWNER > 0
+    }
+
+    fn set_authority(&mut self) {
+        self.bools |= Self::AUTHORITY
+    }
+
+    fn set_ephemeral(&mut self) {
+        self.bools |= Self::EPHEMERAL
+    }
+
+    fn set_only_guilds(&mut self) {
+        self.bools |= Self::ONLY_GUILDS
+    }
+
+    fn set_only_owner(&mut self) {
+        self.bools |= Self::ONLY_OWNER
+    }
 }
 
 pub async fn handle_component(
@@ -60,7 +100,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         "commands" => process_command(ctx, command, args, utility::slash_commands).await,
         "compare" => process_command(ctx, command, args, osu::slash_compare).await,
         "config" => {
-            args.ephemeral = true;
+            args.set_ephemeral();
 
             process_command(ctx, command, args, utility::slash_config).await
         }
@@ -76,14 +116,14 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         "invite" => process_command(ctx, command, args, utility::slash_invite).await,
         "leaderboard" => process_command(ctx, command, args, osu::slash_leaderboard).await,
         "link" => {
-            args.ephemeral = true;
+            args.set_ephemeral();
 
             process_command(ctx, command, args, osu::slash_link).await
         }
         MAP => process_command(ctx, command, args, osu::slash_map).await,
         "matchcost" => process_command(ctx, command, args, osu::slash_matchcost).await,
         "matchlive" => {
-            args.authority = true;
+            args.set_authority();
 
             process_command(ctx, command, args, osu::slash_matchlive).await
         }
@@ -93,16 +133,16 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         "osekai" => process_command(ctx, command, args, osu::slash_osekai).await,
         "osustats" => process_command(ctx, command, args, osu::slash_osustats).await,
         "owner" => {
-            args.only_owner = true;
-            args.ephemeral = true;
+            args.set_only_owner();
+            args.set_ephemeral();
 
             process_command(ctx, command, args, owner::slash_owner).await
         }
         "ping" => process_command(ctx, command, args, utility::slash_ping).await,
         PROFILE => process_command(ctx, command, args, osu::slash_profile).await,
         "prune" => {
-            args.authority = true;
-            args.only_guilds = true;
+            args.set_authority();
+            args.set_only_guilds();
 
             process_command(ctx, command, args, utility::slash_prune).await
         }
@@ -111,16 +151,16 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         "reach" => process_command(ctx, command, args, osu::slash_reach).await,
         "recent" => process_command(ctx, command, args, osu::slash_recent).await,
         "roleassign" => {
-            args.authority = true;
-            args.only_guilds = true;
+            args.set_authority();
+            args.set_only_guilds();
 
             process_command(ctx, command, args, utility::slash_roleassign).await
         }
         "roll" => process_command(ctx, command, args, utility::slash_roll).await,
         "search" => process_command(ctx, command, args, osu::slash_mapsearch).await,
         "serverconfig" => {
-            args.authority = true;
-            args.only_guilds = true;
+            args.set_authority();
+            args.set_only_guilds();
 
             process_command(ctx, command, args, utility::slash_serverconfig).await
         }
@@ -137,14 +177,14 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         }
         "top" => process_command(ctx, command, args, osu::slash_top).await,
         "track" => {
-            args.authority = true;
-            args.only_guilds = true;
+            args.set_authority();
+            args.set_only_guilds();
 
             process_command(ctx, command, args, tracking::slash_track).await
         }
         "trackstream" => {
-            args.authority = true;
-            args.only_guilds = true;
+            args.set_authority();
+            args.set_only_guilds();
 
             process_command(ctx, command, args, twitch::slash_trackstream).await
         }
@@ -175,7 +215,7 @@ async fn process_command<R>(
 where
     R: Future<Output = BotResult<()>>,
 {
-    let ephemeral = args.ephemeral;
+    let ephemeral = args.ephemeral();
 
     match pre_process_command(&ctx, &command, args).await? {
         Some(result) => Ok(result),
@@ -266,7 +306,7 @@ async fn pre_process_command(
     let guild_id = command.guild_id;
 
     // Only in guilds?
-    if args.only_guilds && guild_id.is_none() {
+    if args.only_guilds() && guild_id.is_none() {
         let content = "That command is only available in guilds";
         premature_error(ctx, command, content, false).await?;
 
@@ -276,7 +316,7 @@ async fn pre_process_command(
     let author_id = command.author().ok_or(Error::MissingInteractionAuthor)?.id;
 
     // Only for owner?
-    if args.only_owner && author_id.get() != OWNER_USER_ID {
+    if args.only_owner() && author_id.get() != OWNER_USER_ID {
         let content = "That command can only be used by the bot owner";
         premature_error(ctx, command, content, true).await?;
 
@@ -312,7 +352,7 @@ async fn pre_process_command(
         }
     }
 
-    if let Some(bucket) = args.bucket {
+    if let Some(bucket) = args.bucket() {
         if let Some((cooldown, bucket)) =
             super::_check_ratelimit(ctx, author_id, guild_id, bucket).await
         {
@@ -326,7 +366,7 @@ async fn pre_process_command(
     }
 
     // Only for authorities?
-    if args.authority {
+    if args.authority() {
         match super::check_authority(ctx, author_id, command.guild_id).await {
             Ok(None) => {}
             Ok(Some(content)) => {

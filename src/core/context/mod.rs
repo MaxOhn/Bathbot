@@ -17,7 +17,7 @@ use dashmap::{DashMap, DashSet};
 use hashbrown::HashSet;
 use parking_lot::Mutex;
 use rosu_v2::Osu;
-use std::sync::Arc;
+use std::{num::NonZeroU32, sync::Arc};
 use tokio::sync::mpsc::UnboundedSender;
 use twilight_gateway::Cluster;
 use twilight_http::Client as HttpClient;
@@ -67,7 +67,7 @@ pub struct ContextData {
     pub bg_games: DashMap<ChannelId, GameWrapper>,
     pub osu_tracking: OsuTracking,
     pub msgs_to_process: DashSet<MessageId>,
-    pub map_garbage_collection: Mutex<HashSet<u32>>,
+    pub map_garbage_collection: Mutex<HashSet<NonZeroU32>>,
     pub match_live: MatchLiveChannels,
     pub snipe_countries: DashMap<CountryCode, String>,
 }
