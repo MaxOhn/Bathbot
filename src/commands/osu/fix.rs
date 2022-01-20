@@ -4,7 +4,7 @@ use eyre::Report;
 use rosu_pp::{
     fruits::stars, Beatmap as Map, FruitsPP, ManiaPP, OsuPP, PerformanceAttributes, TaikoPP,
 };
-use rosu_v2::prelude::{Beatmap, GameMode, GameMods, OsuError, RankStatus, Score, User};
+use rosu_v2::prelude::{Beatmap, GameMode, GameMods, OsuError, Score, User};
 use twilight_model::{
     application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
     channel::message::MessageType,
@@ -172,9 +172,7 @@ async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotRes
     };
 
     // Process tracking
-    if let Some((_, best)) = scores.as_mut().filter(|_| {
-        unchoked_pp.is_some() || matches!(map.status, RankStatus::Ranked | RankStatus::Approved)
-    }) {
+    if let Some((_, best)) = scores.as_mut() {
         process_tracking(&ctx, best, Some(&user)).await;
     }
 
@@ -400,8 +398,8 @@ async fn request_by_score(
     ScoreResult::Data(data)
 }
 
-/// Returns (actual pp, unchoked pp) tuple
-async fn unchoke_pp(score: &mut Score, map: &Beatmap) -> BotResult<Option<f32>> {
+/// Returns unchoked pp and sets score pp if not available already
+pub(super) async fn unchoke_pp(score: &mut Score, map: &Beatmap) -> BotResult<Option<f32>> {
     let map_path = prepare_beatmap_file(map.map_id).await?;
     let rosu_map = Map::from_path(map_path).await.map_err(PPError::from)?;
     let mods = score.mods.bits();

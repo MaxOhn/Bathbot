@@ -83,14 +83,13 @@ pub(super) async fn _recent(
     let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
         Ok((_, scores)) if scores.is_empty() => {
             let content = format!(
-                "No recent {}plays found for user `{}`",
+                "No recent {}plays found for user `{name}`",
                 match mode {
                     GameMode::STD => "",
                     GameMode::TKO => "taiko ",
                     GameMode::CTB => "ctb ",
                     GameMode::MNA => "mania ",
                 },
-                name,
             );
 
             return data.error(&ctx, content).await;
@@ -737,7 +736,7 @@ impl RecentArgs {
                         .then(|| value)
                         .ok_or(Error::InvalidCommandOptions)?;
 
-                    index = Some(number.max(1).min(50) as usize);
+                    index = Some(number.max(1).min(100) as usize);
                 }
                 CommandOptionValue::Boolean(value) => {
                     let value = (option.name == "passes")

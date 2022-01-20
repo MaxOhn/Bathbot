@@ -1,8 +1,10 @@
+mod fix;
 mod leaderboard;
 mod list;
 mod score;
 mod simulate;
 
+use fix::*;
 pub use leaderboard::*;
 pub use list::*;
 pub use score::*;
@@ -37,6 +39,7 @@ use super::{GradeArg, _top, prepare_score, require_link};
 
 enum RecentCommandKind {
     Best(TopArgs),
+    Fix(FixArgs),
     Leaderboard(RecentLeaderboardArgs),
     List(RecentListArgs),
     Score(RecentArgs),
@@ -63,6 +66,10 @@ impl RecentCommandKind {
 
                         Ok(Ok(RecentCommandKind::Best(args)))
                     }
+                    Err(content) => Ok(Err(content)),
+                },
+                "fix" => match FixArgs::slash(ctx, command, options).await? {
+                    Ok(args) => Ok(Ok(RecentCommandKind::Fix(args))),
                     Err(content) => Ok(Err(content)),
                 },
                 "leaderboard" => match RecentLeaderboardArgs::slash(ctx, command, options).await? {
@@ -96,6 +103,7 @@ pub async fn slash_recent(ctx: Arc<Context>, mut command: ApplicationCommand) ->
         }
         Ok(RecentCommandKind::List(args)) => _recentlist(ctx, command.into(), args).await,
         Ok(RecentCommandKind::Simulate(args)) => _recentsimulate(ctx, command.into(), args).await,
+        Ok(RecentCommandKind::Fix(args)) => _fix(ctx, command.into(), args).await,
         Err(msg) => command.error(&ctx, msg).await,
     }
 }
@@ -216,6 +224,47 @@ fn subcommand_best() -> MyCommandOption {
 
     MyCommandOption::builder("best", "Display the user's current top100 sorted by date")
         .subcommand(vec![mode, name, mods, index, discord, reverse, grade])
+}
+
+fn subcommand_fix() -> MyCommandOption {
+    let mode_choices = vec![
+        CommandOptionChoice::String {
+            name: OSU.to_owned(),
+            value: OSU.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: TAIKO.to_owned(),
+            value: TAIKO.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: CTB.to_owned(),
+            value: CTB.to_owned(),
+        },
+    ];
+
+    let mode_help = "Specify a gamemode. \
+        Since combo does not matter in mania, its scores can't be fixed.";
+
+    let mode = MyCommandOption::builder(MODE, SPECIFY_MODE)
+        .help(mode_help)
+        .string(mode_choices, false);
+
+    let name = option_name();
+
+    let index_help = "By default the very last play will be chosen.\n\
+        However, if this index is specified, the play at that index will be fixed instead.\n\
+        E.g. `index:1` is the default and `index:2` would fix the second most recent play.\n\
+        The given index should be between 1 and 100.";
+
+    let index = MyCommandOption::builder(INDEX, "Choose the recent score's index")
+        .help(index_help)
+        .integer(Vec::new(), false);
+
+    let discord = option_discord();
+
+    let description = "Display a user's pp after unchoking their recent score";
+
+    MyCommandOption::builder("fix", description).subcommand(vec![mode, name, index, discord])
 }
 
 fn subcommand_leaderboard() -> MyCommandOption {
@@ -450,6 +499,7 @@ pub fn define_recent() -> MyCommand {
         subcommand_best(),
         subcommand_leaderboard(),
         subcommand_list(),
+        subcommand_fix(),
         subcommand_simulate(),
     ];
 
