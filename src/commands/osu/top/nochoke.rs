@@ -3,7 +3,7 @@ use std::{cmp::Ordering, sync::Arc};
 use eyre::Report;
 use futures::stream::{FuturesUnordered, TryStreamExt};
 use rosu_pp::{Beatmap as Map, FruitsPP, OsuPP, TaikoPP};
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::prelude::{GameMode, OsuError, Score};
 use twilight_model::{
     application::interaction::{
         application_command::{CommandDataOption, CommandOptionValue},
@@ -40,7 +40,12 @@ pub(super) async fn _nochokes(
     data: CommandData<'_>,
     args: NochokeArgs,
 ) -> BotResult<()> {
-    let NochokeArgs { config, miss_limit } = args;
+    let NochokeArgs {
+        config,
+        miss_limit,
+        version,
+    } = args;
+
     let mode = config.mode.unwrap_or(GameMode::STD);
 
     let name = match config.into_username() {
@@ -72,8 +77,95 @@ pub(super) async fn _nochokes(
     // Process user and their top scores for tracking
     process_tracking(&ctx, &mut scores, Some(&user)).await;
 
-    // Unchoke scores asynchronously
-    let unchoke_fut = scores
+    let mut scores_data = match version.calculate(scores, miss_limit).await {
+        Ok(scores_data) => scores_data,
+        Err(why) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(why);
+        }
+    };
+
+    // Calculate bonus pp
+    let actual_pp: f32 = scores_data
+        .iter()
+        .filter_map(|(_, s, ..)| s.weight)
+        .map(|weight| weight.pp)
+        .sum();
+
+    let bonus_pp = user.statistics.as_ref().unwrap().pp - actual_pp;
+
+    // Sort by unchoked pp
+    scores_data.sort_unstable_by(|(_, _, s1), (_, _, s2)| {
+        s2.pp.partial_cmp(&s1.pp).unwrap_or(Ordering::Equal)
+    });
+
+    // Calculate total user pp without chokes
+    let mut unchoked_pp: f32 = scores_data
+        .iter()
+        .enumerate()
+        .map(|(i, (_, _, s))| s.pp.unwrap_or(0.0) * 0.95_f32.powi(i as i32))
+        .sum();
+
+    unchoked_pp = (100.0 * (unchoked_pp + bonus_pp)).round() / 100.0;
+
+    // Accumulate all necessary data
+    let pages = numbers::div_euclid(5, scores_data.len());
+    let embed_data_fut =
+        NoChokeEmbed::new(&user, scores_data.iter().take(5), unchoked_pp, (1, pages));
+    let embed = embed_data_fut.await.into_builder().build();
+
+    let content = format!(
+        "{version} top {mode}scores for `{name}`:",
+        version = match version {
+            NochokeVersion::Perfect => "Perfect",
+            NochokeVersion::Unchoke => "No-choke",
+        },
+        mode = match mode {
+            GameMode::STD => "",
+            GameMode::TKO => "taiko ",
+            GameMode::CTB => "ctb ",
+            GameMode::MNA => panic!("can not unchoke mania scores"),
+        },
+    );
+
+    // Creating the embed
+    let builder = MessageBuilder::new().content(content).embed(embed);
+    let response_raw = data.create_message(&ctx, builder).await?;
+
+    // Add maps of scores to DB
+    let scores_iter = scores_data.iter().map(|(_, score, _)| score);
+
+    // Store maps of scores in DB; combo was inserted earlier
+    if let Err(err) = ctx.psql().store_scores_maps(scores_iter).await {
+        warn!("{:?}", Report::new(err));
+    }
+
+    // Skip pagination if too few entries
+    if scores_data.len() <= 5 {
+        return Ok(());
+    }
+
+    let response = response_raw.model().await?;
+
+    // Pagination
+    let pagination = NoChokePagination::new(response, user, scores_data, unchoked_pp);
+    let owner = data.author()?.id;
+
+    tokio::spawn(async move {
+        if let Err(err) = pagination.start(&ctx, owner, 90).await {
+            warn!("{:?}", Report::new(err));
+        }
+    });
+
+    Ok(())
+}
+
+async fn unchoke_scores(
+    scores: Vec<Score>,
+    miss_limit: Option<u32>,
+) -> BotResult<Vec<(usize, Score, Score)>> {
+    scores
         .into_iter()
         .enumerate()
         .map(|(mut i, score)| async move {
@@ -200,6 +292,7 @@ pub(super) async fn _nochokes(
                     unchoked.statistics.count_300 = count300 as u32;
                     unchoked.statistics.count_100 = count100 as u32;
                     unchoked.statistics.count_miss = 0;
+                    unchoked.max_combo = map.count_circles;
                     unchoked.pp = Some(pp_result.pp as f32);
                     unchoked.grade = unchoked.grade(Some(acc));
                     unchoked.accuracy = unchoked.accuracy();
@@ -211,86 +304,86 @@ pub(super) async fn _nochokes(
             Ok::<_, Error>((i, score, unchoked))
         })
         .collect::<FuturesUnordered<_>>()
-        .try_collect();
+        .try_collect()
+        .await
+}
 
-    let mut scores_data: Vec<_> = match unchoke_fut.await {
-        Ok(scores_data) => scores_data,
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
-    };
-
-    // Calculate bonus pp
-    let actual_pp: f32 = scores_data
-        .iter()
-        .filter_map(|(_, s, ..)| s.weight)
-        .map(|weight| weight.pp)
-        .sum();
-
-    let bonus_pp = user.statistics.as_ref().unwrap().pp - actual_pp;
-
-    // Sort by unchoked pp
-    scores_data.sort_unstable_by(|(_, _, s1), (_, _, s2)| {
-        s2.pp.partial_cmp(&s1.pp).unwrap_or(Ordering::Equal)
-    });
-
-    // Calculate total user pp without chokes
-    let mut unchoked_pp: f32 = scores_data
-        .iter()
+async fn perfect_scores(
+    scores: Vec<Score>,
+    miss_limit: Option<u32>,
+) -> BotResult<Vec<(usize, Score, Score)>> {
+    scores
+        .into_iter()
         .enumerate()
-        .map(|(i, (_, _, s))| s.pp.unwrap_or(0.0) * 0.95_f32.powi(i as i32))
-        .sum();
+        .map(|(mut i, score)| async move {
+            i += 1;
+            let map = score.map.as_ref().unwrap();
+            let mut unchoked = score.clone();
 
-    unchoked_pp = (100.0 * (unchoked_pp + bonus_pp)).round() / 100.0;
+            let many_misses = miss_limit
+                .filter(|&limit| score.statistics.count_miss > limit)
+                .is_some();
 
-    // Accumulate all necessary data
-    let pages = numbers::div_euclid(5, scores_data.len());
-    let embed_data_fut =
-        NoChokeEmbed::new(&user, scores_data.iter().take(5), unchoked_pp, (1, pages));
-    let embed = embed_data_fut.await.into_builder().build();
+            // Skip unchoking because it has too many misses or because its a convert
+            if many_misses || map.convert {
+                return Ok((i, score, unchoked));
+            }
 
-    let content = format!(
-        "No-choke top {}scores for `{name}`:",
-        match mode {
-            GameMode::STD => "",
-            GameMode::TKO => "taiko ",
-            GameMode::CTB => "ctb ",
-            GameMode::MNA => panic!("can not unchoke mania scores"),
-        },
-    );
+            let map_path = prepare_beatmap_file(map.map_id).await?;
+            let rosu_map = Map::from_path(map_path).await.map_err(PPError::from)?;
+            let mods = score.mods.bits();
+            let total_hits = score.total_hits();
 
-    // Creating the embed
-    let builder = MessageBuilder::new().content(content).embed(embed);
-    let response_raw = data.create_message(&ctx, builder).await?;
+            match map.mode {
+                GameMode::STD if score.statistics.count_300 != total_hits => {
+                    unchoked.statistics.count_300 = total_hits;
+                    unchoked.statistics.count_100 = 0;
+                    unchoked.statistics.count_50 = 0;
+                    unchoked.statistics.count_miss = 0;
 
-    // Add maps of scores to DB
-    let scores_iter = scores_data.iter().map(|(_, score, _)| score);
+                    let pp_result = OsuPP::new(&rosu_map).mods(mods).calculate();
 
-    // Store maps of scores in DB; combo was inserted earlier
-    if let Err(err) = ctx.psql().store_scores_maps(scores_iter).await {
-        warn!("{:?}", Report::new(err));
-    }
+                    unchoked.max_combo = map
+                        .max_combo
+                        .unwrap_or_else(|| pp_result.max_combo() as u32);
 
-    // Skip pagination if too few entries
-    if scores_data.len() <= 5 {
-        return Ok(());
-    }
+                    unchoked.pp = Some(pp_result.pp as f32);
+                    unchoked.grade = unchoked.grade(Some(100.0));
+                    unchoked.accuracy = 100.0;
+                }
+                GameMode::CTB if (100.0 - score.accuracy).abs() > f32::EPSILON => {
+                    let pp_result = FruitsPP::new(&rosu_map).mods(mods).calculate();
 
-    let response = response_raw.model().await?;
+                    unchoked.statistics.count_300 = pp_result.difficulty.n_fruits as u32;
+                    unchoked.statistics.count_katu = 0;
+                    unchoked.statistics.count_100 = pp_result.difficulty.n_droplets as u32;
+                    unchoked.statistics.count_50 = pp_result.difficulty.n_tiny_droplets as u32;
+                    unchoked.max_combo = pp_result.max_combo() as u32;
+                    unchoked.statistics.count_miss = 0;
+                    unchoked.pp = Some(pp_result.pp as f32);
+                    unchoked.grade = unchoked.grade(Some(100.0));
+                    unchoked.accuracy = 100.0;
+                }
+                GameMode::TKO if score.statistics.count_miss > 0 => {
+                    let pp_result = TaikoPP::new(&rosu_map).mods(mods).calculate();
 
-    // Pagination
-    let pagination = NoChokePagination::new(response, user, scores_data, unchoked_pp);
-    let owner = data.author()?.id;
+                    unchoked.statistics.count_300 = map.count_circles;
+                    unchoked.statistics.count_100 = 0;
+                    unchoked.statistics.count_miss = 0;
+                    unchoked.max_combo = map.count_circles;
+                    unchoked.pp = Some(pp_result.pp as f32);
+                    unchoked.grade = unchoked.grade(Some(100.0));
+                    unchoked.accuracy = 100.0;
+                }
+                GameMode::MNA => bail!("can not unchoke mania scores"),
+                _ => {} // Nothing to unchoke
+            }
 
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 90).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
-
-    Ok(())
+            Ok::<_, Error>((i, score, unchoked))
+        })
+        .collect::<FuturesUnordered<_>>()
+        .try_collect()
+        .await
 }
 
 #[command]
@@ -387,9 +480,29 @@ async fn nochokesctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     }
 }
 
+#[derive(Copy, Clone)]
+pub enum NochokeVersion {
+    Perfect,
+    Unchoke,
+}
+
+impl NochokeVersion {
+    async fn calculate(
+        self,
+        scores: Vec<Score>,
+        miss_limit: Option<u32>,
+    ) -> BotResult<Vec<(usize, Score, Score)>> {
+        match self {
+            NochokeVersion::Perfect => perfect_scores(scores, miss_limit).await,
+            NochokeVersion::Unchoke => unchoke_scores(scores, miss_limit).await,
+        }
+    }
+}
+
 pub(super) struct NochokeArgs {
     config: UserConfig,
     miss_limit: Option<u32>,
+    version: NochokeVersion,
 }
 
 impl NochokeArgs {
@@ -414,7 +527,11 @@ impl NochokeArgs {
             None => None,
         };
 
-        Ok(Ok(Self { config, miss_limit }))
+        Ok(Ok(Self {
+            config,
+            miss_limit,
+            version: NochokeVersion::Unchoke,
+        }))
     }
 
     pub(super) async fn slash(
@@ -424,12 +541,18 @@ impl NochokeArgs {
     ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(command.user_id()?).await?;
         let mut miss_limit = None;
+        let mut version = None;
 
         for option in options {
             match option.value {
                 CommandOptionValue::String(value) => match option.name.as_str() {
                     NAME => config.osu = Some(value.into()),
                     MODE => config.mode = parse_mode_option(&value),
+                    "version" => match value.as_str() {
+                        "perfect" => version = Some(NochokeVersion::Perfect),
+                        "unchoke" => version = Some(NochokeVersion::Unchoke),
+                        _ => return Err(Error::InvalidCommandOptions),
+                    },
                     _ => return Err(Error::InvalidCommandOptions),
                 },
                 CommandOptionValue::Integer(value) => {
@@ -450,6 +573,10 @@ impl NochokeArgs {
             }
         }
 
-        Ok(Ok(Self { config, miss_limit }))
+        Ok(Ok(Self {
+            config,
+            miss_limit,
+            version: version.unwrap_or(NochokeVersion::Unchoke),
+        }))
     }
 }

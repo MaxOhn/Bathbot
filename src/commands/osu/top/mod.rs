@@ -262,6 +262,25 @@ fn subcommand_nochoke() -> MyCommandOption {
     let miss_limit =
         MyCommandOption::builder("miss_limit", miss_limit_description).integer(Vec::new(), false);
 
+    let version_choices = vec![
+        CommandOptionChoice::String {
+            name: "Unchoke".to_owned(),
+            value: "unchoke".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Perfect".to_owned(),
+            value: "perfect".to_owned(),
+        },
+    ];
+
+    let version_help = "Specify a version to unchoke scores.\n\
+        - `Unchoke`: Make the score a full combo and transfer all misses to different hitresults. (default)\n\
+        - `Perfect`: Make the score a full combo and transfer all misses to the best hitresults.";
+
+    let version = MyCommandOption::builder("version", "Specify a version to unchoke scores")
+        .help(version_help)
+        .string(version_choices, false);
+
     let nochoke_description = "How the top plays would look like with only full combos";
 
     let nochoke_help = "Remove all misses from top scores and make them full combos.\n\
@@ -269,7 +288,7 @@ fn subcommand_nochoke() -> MyCommandOption {
 
     MyCommandOption::builder("nochoke", nochoke_description)
         .help(nochoke_help)
-        .subcommand(vec![mode, name, miss_limit, discord])
+        .subcommand(vec![mode, name, miss_limit, version, discord])
 }
 
 const VERSION: &str = "version";
