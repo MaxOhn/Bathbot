@@ -165,6 +165,15 @@ fn subcommand_current() -> MyCommandOption {
         },
     ];
 
+    let query_description = "Search for a specific artist, title, or difficulty name";
+
+    let query_help = "Search for a specific artist, title, or difficulty name.\n\
+        Filters out all scores for which `{artist} - {title} [{version}]` does not fit the query.";
+
+    let query = MyCommandOption::builder("query", query_description)
+        .help(query_help)
+        .string(vec![], false);
+
     let grade = MyCommandOption::builder(GRADE, CONSIDER_GRADE).string(grade_choices, false);
 
     let perfect_combo_description = "Filter out all scores that don't have a perfect combo";
@@ -180,6 +189,7 @@ fn subcommand_current() -> MyCommandOption {
         index,
         discord,
         reverse,
+        query,
         grade,
         perfect_combo,
     ])

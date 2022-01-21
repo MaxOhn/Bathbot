@@ -7,7 +7,7 @@ use std::{
 
 use eyre::Report;
 use rosu_v2::prelude::{
-    GameMode, Grade, OsuError,
+    Beatmap, BeatmapsetCompact, GameMode, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
     Score, User,
 };
@@ -620,6 +620,27 @@ fn filter_scores(scores: Vec<Score>, args: &TopArgs) -> Vec<(usize, Score)> {
         })
         .collect();
 
+    if let Some(query) = args.query.as_deref() {
+        let needle = query.cow_to_ascii_lowercase();
+        let mut haystack = String::new();
+
+        scores_indices.retain(|(_, score)| {
+            let Beatmap { version, .. } = score.map.as_ref().unwrap();
+            let BeatmapsetCompact { artist, title, .. } = score.mapset.as_ref().unwrap();
+            haystack.clear();
+
+            let _ = write!(
+                haystack,
+                "{} - {} [{}]",
+                artist.cow_to_ascii_lowercase(),
+                title.cow_to_ascii_lowercase(),
+                version.cow_to_ascii_lowercase()
+            );
+
+            haystack.contains(needle.as_ref())
+        });
+    }
+
     match args.sort_by {
         TopOrder::Acc => {
             scores_indices.sort_unstable_by(|(_, a), (_, b)| {
@@ -805,6 +826,7 @@ pub struct TopArgs {
     reverse: bool,
     perfect_combo: Option<bool>,
     index: Option<usize>,
+    query: Option<String>,
     has_dash_r: bool,
     has_dash_p_or_i: bool,
 }
@@ -1007,6 +1029,7 @@ impl TopArgs {
             reverse: reverse.unwrap_or(false),
             perfect_combo: None,
             index,
+            query: None,
             has_dash_r: has_dash_r.unwrap_or(false),
             has_dash_p_or_i: has_dash_p_or_i.unwrap_or(false),
         };
@@ -1026,6 +1049,7 @@ impl TopArgs {
         let mut reverse = None;
         let mut perfect_combo = None;
         let mut index = None;
+        let mut query = None;
 
         for option in options {
             match option.value {
@@ -1045,6 +1069,7 @@ impl TopArgs {
                         "pp" => order = Some(TopOrder::Position),
                         _ => return Err(Error::InvalidCommandOptions),
                     },
+                    "query" => query = Some(value),
                     GRADE => match value.as_str() {
                         "SS" => {
                             grade = Some(GradeArg::Range {
@@ -1101,6 +1126,7 @@ impl TopArgs {
             reverse: reverse.unwrap_or(false),
             perfect_combo,
             index,
+            query,
             has_dash_r: false,
             has_dash_p_or_i: false,
         };
@@ -1130,7 +1156,8 @@ fn write_content(name: &str, args: &TopArgs, amount: usize) -> Option<String> {
         || args.combo_max.is_some()
         || args.grade.is_some()
         || args.mods.is_some()
-        || args.perfect_combo.is_some();
+        || args.perfect_combo.is_some()
+        || args.query.is_some();
 
     if condition {
         Some(content_with_condition(args, amount))
@@ -1223,6 +1250,10 @@ fn content_with_condition(args: &TopArgs, amount: usize) -> String {
 
     if let Some(perfect_combo) = args.perfect_combo {
         let _ = write!(content, " ~ `Perfect combo: {perfect_combo}`");
+    }
+
+    if let Some(query) = args.query.as_deref() {
+        let _ = write!(content, "\nQuery: `{}`", query);
     }
 
     let _ = write!(content, "\nFound {amount} matching top scores:");
