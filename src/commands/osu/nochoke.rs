@@ -5,9 +5,12 @@ use futures::stream::{FuturesUnordered, TryStreamExt};
 use rosu_pp::{Beatmap as Map, FruitsPP, OsuPP, TaikoPP};
 use rosu_v2::prelude::{GameMode, OsuError, Score};
 use twilight_model::{
-    application::interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
+    application::{
+        command::CommandOptionChoice,
+        interaction::{
+            application_command::{CommandDataOption, CommandOptionValue},
+            ApplicationCommand,
+        },
     },
     id::UserId,
 };
@@ -16,7 +19,7 @@ use crate::{
     commands::{
         check_user_mention,
         osu::{get_user_and_scores, ScoreArgs, UserArgs},
-        parse_discord, parse_mode_option, DoubleResultCow,
+        parse_discord, parse_mode_option, DoubleResultCow, MyCommand, MyCommandOption,
     },
     database::UserConfig,
     embeds::{EmbedData, NoChokeEmbed},
@@ -25,21 +28,19 @@ use crate::{
     tracking::process_tracking,
     util::{
         constants::{
-            common_literals::{DISCORD, MODE, NAME},
+            common_literals::{CTB, DISCORD, MODE, NAME, OSU, SPECIFY_MODE, TAIKO},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
         numbers,
         osu::prepare_beatmap_file,
-        InteractionExt, MessageExt,
+        ApplicationCommandExt, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
-pub(super) async fn _nochokes(
-    ctx: Arc<Context>,
-    data: CommandData<'_>,
-    args: NochokeArgs,
-) -> BotResult<()> {
+use super::{option_discord, option_name};
+
+async fn _nochokes(ctx: Arc<Context>, data: CommandData<'_>, args: NochokeArgs) -> BotResult<()> {
     let NochokeArgs {
         config,
         miss_limit,
@@ -499,7 +500,16 @@ impl NochokeVersion {
     }
 }
 
-pub(super) struct NochokeArgs {
+pub async fn slash_nochoke(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+    let options = command.yoink_options();
+
+    match NochokeArgs::slash(&ctx, &command, options).await? {
+        Ok(args) => _nochokes(ctx, command.into(), args).await,
+        Err(content) => command.error(&ctx, content).await,
+    }
+}
+
+struct NochokeArgs {
     config: UserConfig,
     miss_limit: Option<u32>,
     version: NochokeVersion,
@@ -534,7 +544,7 @@ impl NochokeArgs {
         }))
     }
 
-    pub(super) async fn slash(
+    async fn slash(
         ctx: &Context,
         command: &ApplicationCommand,
         options: Vec<CommandDataOption>,
@@ -579,4 +589,64 @@ impl NochokeArgs {
             version: version.unwrap_or(NochokeVersion::Unchoke),
         }))
     }
+}
+
+pub fn define_nochoke() -> MyCommand {
+    let mode_choices = vec![
+        CommandOptionChoice::String {
+            name: OSU.to_owned(),
+            value: OSU.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: TAIKO.to_owned(),
+            value: TAIKO.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: CTB.to_owned(),
+            value: CTB.to_owned(),
+        },
+    ];
+
+    let mode_help = "Specify a gamemode. \
+        Since combo does not matter in mania, its scores can't be unchoked.";
+
+    let mode = MyCommandOption::builder(MODE, SPECIFY_MODE)
+        .help(mode_help)
+        .string(mode_choices, false);
+
+    let name = option_name();
+    let discord = option_discord();
+
+    let miss_limit_description = "Only unchoke scores with at most this many misses";
+
+    let miss_limit =
+        MyCommandOption::builder("miss_limit", miss_limit_description).integer(Vec::new(), false);
+
+    let version_choices = vec![
+        CommandOptionChoice::String {
+            name: "Unchoke".to_owned(),
+            value: "unchoke".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Perfect".to_owned(),
+            value: "perfect".to_owned(),
+        },
+    ];
+
+    let version_help = "Specify a version to unchoke scores.\n\
+        - `Unchoke`: Make the score a full combo and transfer all misses to different hitresults. (default)\n\
+        - `Perfect`: Make the score a full combo and transfer all misses to the best hitresults.";
+
+    let version = MyCommandOption::builder("version", "Specify a version to unchoke scores")
+        .help(version_help)
+        .string(version_choices, false);
+
+    let nochoke_description = "How the top plays would look like with only full combos";
+
+    let nochoke_help = "Remove all misses from top scores and make them full combos.\n\
+        Then after recalculating their pp, check how many total pp a user could have had.";
+
+    MyCommand::new("nochoke", nochoke_description)
+        .help(nochoke_help)
+        .options(vec![mode, name, miss_limit, version, discord])
 }

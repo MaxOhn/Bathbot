@@ -13,9 +13,12 @@ use rosu_v2::prelude::{
 };
 use tokio::time::{sleep, Duration};
 use twilight_model::{
-    application::interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
+    application::{
+        command::CommandOptionChoice,
+        interaction::{
+            application_command::{CommandDataOption, CommandOptionValue},
+            ApplicationCommand,
+        },
     },
     id::UserId,
 };
@@ -24,7 +27,7 @@ use crate::{
     commands::{
         check_user_mention,
         osu::{get_user_and_scores, ScoreArgs, UserArgs},
-        parse_discord, parse_mode_option, DoubleResultCow,
+        parse_discord, parse_mode_option, DoubleResultCow, MyCommand, MyCommandOption,
     },
     database::UserConfig,
     embeds::{EmbedData, TopEmbed, TopSingleEmbed},
@@ -34,19 +37,19 @@ use crate::{
     util::{
         constants::{
             common_literals::{
-                ACC, ACCURACY, COMBO, CTB, DISCORD, GRADE, INDEX, MANIA, MODE, MODS, NAME, REVERSE,
-                SORT, TAIKO,
+                ACC, ACCURACY, COMBO, CONSIDER_GRADE, CTB, DISCORD, GRADE, INDEX, MANIA, MODE,
+                MODS, NAME, REVERSE, SORT, TAIKO,
             },
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
         matcher, numbers,
         osu::ModSelection,
-        CowUtils, InteractionExt, MessageExt,
+        ApplicationCommandExt, CowUtils, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
-use super::GradeArg;
+use super::{option_discord, option_mode, option_mods_explicit, option_name, GradeArg};
 
 pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> BotResult<()> {
     if args.index.filter(|n| *n > 100).is_some() {
@@ -814,6 +817,15 @@ impl Default for TopOrder {
     }
 }
 
+pub async fn slash_top(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+    let options = command.yoink_options();
+
+    match TopArgs::slash(&ctx, &command, options).await? {
+        Ok(args) => _top(ctx, command.into(), args).await,
+        Err(content) => command.error(&ctx, content).await,
+    }
+}
+
 pub struct TopArgs {
     config: UserConfig,
     mods: Option<ModSelection>,
@@ -1259,4 +1271,106 @@ fn content_with_condition(args: &TopArgs, amount: usize) -> String {
     let _ = write!(content, "\nFound {amount} matching top scores:");
 
     content
+}
+
+pub fn define_top() -> MyCommand {
+    let mode = option_mode();
+    let name = option_name();
+
+    let sort_choices = vec![
+        CommandOptionChoice::String {
+            name: "pp".to_owned(),
+            value: "pp".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "date".to_owned(),
+            value: "date".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: ACCURACY.to_owned(),
+            value: ACC.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: COMBO.to_owned(),
+            value: COMBO.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "length".to_owned(),
+            value: "len".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "misses".to_owned(),
+            value: "miss".to_owned(),
+        },
+    ];
+
+    let sort = MyCommandOption::builder(SORT, "Choose how the scores should be ordered")
+        .help("Choose how the scores should be ordered, defaults to `pp`.")
+        .string(sort_choices, false);
+
+    let mods = option_mods_explicit();
+
+    let index = MyCommandOption::builder(INDEX, "Choose a specific score index between 1 and 100")
+        .integer(Vec::new(), false);
+
+    let discord = option_discord();
+
+    let reverse =
+        MyCommandOption::builder(REVERSE, "Reverse the resulting score list").boolean(false);
+
+    let grade_choices = vec![
+        CommandOptionChoice::String {
+            name: "SS".to_owned(),
+            value: "SS".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "S".to_owned(),
+            value: "S".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "A".to_owned(),
+            value: "A".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "B".to_owned(),
+            value: "B".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "C".to_owned(),
+            value: "C".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "D".to_owned(),
+            value: "D".to_owned(),
+        },
+    ];
+
+    let query_description = "Search for a specific artist, title, or difficulty name";
+
+    let query_help = "Search for a specific artist, title, or difficulty name.\n\
+        Filters out all scores for which `{artist} - {title} [{version}]` does not fit the query.";
+
+    let query = MyCommandOption::builder("query", query_description)
+        .help(query_help)
+        .string(vec![], false);
+
+    let grade = MyCommandOption::builder(GRADE, CONSIDER_GRADE).string(grade_choices, false);
+
+    let perfect_combo_description = "Filter out all scores that don't have a perfect combo";
+
+    let perfect_combo =
+        MyCommandOption::builder("perfect_combo", perfect_combo_description).boolean(false);
+
+    MyCommand::new("top", "Display the user's current top100").options(vec![
+        mode,
+        name,
+        sort,
+        mods,
+        index,
+        discord,
+        reverse,
+        query,
+        grade,
+        perfect_combo,
+    ])
 }

@@ -121,6 +121,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
             process_command(ctx, command, args, osu::slash_link).await
         }
         MAP => process_command(ctx, command, args, osu::slash_map).await,
+        "mapper" => process_command(ctx, command, args, osu::slash_mapper).await,
         "matchcost" => process_command(ctx, command, args, osu::slash_matchcost).await,
         "matchlive" => {
             args.set_authority();
@@ -130,6 +131,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         "medal" => process_command(ctx, command, args, osu::slash_medal).await,
         "minesweeper" => process_command(ctx, command, args, fun::slash_minesweeper).await,
         "mostplayed" => process_command(ctx, command, args, osu::slash_mostplayed).await,
+        "nochoke" => process_command(ctx, command, args, osu::slash_nochoke).await,
         "osekai" => process_command(ctx, command, args, osu::slash_osekai).await,
         "osustats" => process_command(ctx, command, args, osu::slash_osustats).await,
         "owner" => {
@@ -176,6 +178,8 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
             process_command(ctx, command, args, songs::slash_song).await
         }
         "top" => process_command(ctx, command, args, osu::slash_top).await,
+        "topif" => process_command(ctx, command, args, osu::slash_topif).await,
+        "topold" => process_command(ctx, command, args, osu::slash_topold).await,
         "track" => {
             args.set_authority();
             args.set_only_guilds();

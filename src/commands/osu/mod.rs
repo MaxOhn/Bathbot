@@ -12,10 +12,12 @@ mod leaderboard;
 mod link;
 mod map;
 mod map_search;
+mod mapper;
 mod match_costs;
 mod match_live;
 mod medals;
 mod most_played;
+mod nochoke;
 mod osekai;
 mod osustats;
 mod profile;
@@ -26,32 +28,28 @@ mod recent;
 mod simulate;
 mod snipe;
 mod top;
+mod top_if;
+mod top_old;
 mod whatif;
 
-pub use avatar::*;
-pub use bws::*;
-pub use compare::*;
-pub use fix::*;
+use std::{
+    borrow::Cow,
+    cmp::PartialOrd,
+    collections::BTreeMap,
+    future::Future,
+    ops::{AddAssign, Div},
+};
+
+use bb8_redis::redis::AsyncCommands;
+use eyre::Report;
+use futures::future::FutureExt;
 use hashbrown::HashMap;
-pub use leaderboard::*;
-pub use link::*;
-pub use map::*;
-pub use map_search::*;
-pub use match_costs::*;
-pub use match_live::*;
-pub use medals::*;
-pub use most_played::*;
-pub use osekai::*;
-pub use osustats::*;
-pub use profile::*;
-pub use ranking::*;
-pub use ratios::*;
-pub use reach::*;
-pub use recent::*;
-pub use simulate::*;
-pub use snipe::*;
-pub use top::*;
-pub use whatif::*;
+use rosu_v2::{
+    prelude::{BeatmapUserScore, GameMode, GameMods, Grade, OsuError, OsuResult, Score, User},
+    request::GetUserScores,
+    Osu,
+};
+use twilight_model::application::command::CommandOptionChoice;
 
 use crate::{
     custom_client::OsuStatsParams,
@@ -66,22 +64,12 @@ use crate::{
     BotResult, CommandData, Context, Error,
 };
 
-use bb8_redis::redis::AsyncCommands;
-use eyre::Report;
-use futures::future::FutureExt;
-use rosu_v2::{
-    prelude::{BeatmapUserScore, GameMode, GameMods, Grade, OsuError, OsuResult, Score, User},
-    request::GetUserScores,
-    Osu,
+pub use self::{
+    avatar::*, bws::*, compare::*, fix::*, leaderboard::*, link::*, map::*, map_search::*,
+    mapper::*, match_costs::*, match_live::*, medals::*, most_played::*, nochoke::*, osekai::*,
+    osustats::*, profile::*, ranking::*, ratios::*, reach::*, recent::*, simulate::*, snipe::*,
+    top::*, top_if::*, top_old::*, whatif::*,
 };
-use std::{
-    borrow::Cow,
-    cmp::PartialOrd,
-    collections::BTreeMap,
-    future::Future,
-    ops::{AddAssign, Div},
-};
-use twilight_model::application::command::CommandOptionChoice;
 
 use super::MyCommandOption;
 

@@ -14,7 +14,7 @@ use crate::{
     commands::{
         check_user_mention,
         osu::{get_user_and_scores, ScoreArgs, UserArgs},
-        parse_discord, parse_mode_option, DoubleResultCow,
+        parse_discord, parse_mode_option, DoubleResultCow, MyCommand, MyCommandOption,
     },
     database::UserConfig,
     embeds::{EmbedData, TopEmbed},
@@ -25,16 +25,14 @@ use crate::{
             common_literals::{DISCORD, MODE, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
-        matcher, numbers, CowUtils, InteractionExt, MessageExt,
+        matcher, numbers, ApplicationCommandExt, CowUtils, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
-pub(super) async fn _mapper(
-    ctx: Arc<Context>,
-    data: CommandData<'_>,
-    args: MapperArgs,
-) -> BotResult<()> {
+use super::{option_discord, option_mode, option_name};
+
+async fn _mapper(ctx: Arc<Context>, data: CommandData<'_>, args: MapperArgs) -> BotResult<()> {
     let MapperArgs { config, mapper } = args;
     let mode = config.mode.unwrap_or(GameMode::STD);
 
@@ -106,13 +104,13 @@ pub(super) async fn _mapper(
             );
 
             let to_push = match amount {
-                0 => "proud of you \\:)",
+                0 => "I'm proud \\:)",
                 1..=4 => "that's already too many...",
                 5..=8 => "kinda sad \\:/",
                 9..=15 => "pretty sad \\:(",
                 16..=25 => "this is so sad \\:((",
-                26..=35 => "you need to stop this",
-                36..=49 => "you have a serious problem...",
+                26..=35 => "this needs to stop this",
+                36..=49 => "that's a serious problem...",
                 50 => "that's half. HALF.",
                 51..=79 => "how do you sleep at night...",
                 80..=89 => "so close to ultimate disaster...",
@@ -339,7 +337,16 @@ pub async fn sotarks(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     }
 }
 
-pub(super) struct MapperArgs {
+pub async fn slash_mapper(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+    let options = command.yoink_options();
+
+    match MapperArgs::slash(&ctx, &command, options).await? {
+        Ok(args) => _mapper(ctx, command.into(), args).await,
+        Err(content) => command.error(&ctx, content).await,
+    }
+}
+
+struct MapperArgs {
     config: UserConfig,
     mapper: Username,
 }
@@ -387,7 +394,7 @@ impl MapperArgs {
         Ok(Ok(Self { config, mapper }))
     }
 
-    pub(super) async fn slash(
+    async fn slash(
         ctx: &Context,
         command: &ApplicationCommand,
         options: Vec<CommandDataOption>,
@@ -421,4 +428,25 @@ impl MapperArgs {
 
         Ok(Ok(args))
     }
+}
+
+pub fn define_mapper() -> MyCommand {
+    let mapper =
+        MyCommandOption::builder("mapper", "Specify a mapper username").string(Vec::new(), false);
+
+    let mode = option_mode();
+    let name = option_name();
+    let discord = option_discord();
+
+    let mapper_help = "Count the top plays on maps of the given mapper.\n\
+        It will try to consider guest difficulties so that if a map was created by someone else \
+        but the given mapper made the guest diff, it will count.\n\
+        Similarly, if the given mapper created the mapset but someone else guest diff'd, \
+        it will not count.\n\
+        This does not always work perfectly, like when mappers renamed or when guest difficulties don't have \
+        common difficulty labels like `X's Insane`";
+
+    MyCommand::new("mapper", "Count the top plays on maps of the given mapper")
+        .help(mapper_help)
+        .options(vec![mapper, mode, name, discord])
 }

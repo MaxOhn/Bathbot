@@ -7,9 +7,12 @@ use rosu_pp::{Beatmap, BeatmapExt, PerformanceAttributes};
 use rosu_pp_older::*;
 use rosu_v2::prelude::{GameMode, OsuError, Score};
 use twilight_model::{
-    application::interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
+    application::{
+        command::CommandOptionChoice,
+        interaction::{
+            application_command::{CommandDataOption, CommandOptionValue},
+            ApplicationCommand,
+        },
     },
     id::UserId,
 };
@@ -18,7 +21,7 @@ use crate::{
     commands::{
         check_user_mention,
         osu::{get_user_and_scores, ScoreArgs, UserArgs},
-        parse_discord, DoubleResultCow,
+        parse_discord, DoubleResultCow, MyCommand, MyCommandOption,
     },
     database::UserConfig,
     embeds::{EmbedData, TopIfEmbed},
@@ -32,10 +35,12 @@ use crate::{
         },
         numbers,
         osu::prepare_beatmap_file,
-        InteractionExt, MessageExt,
+        ApplicationCommandExt, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
+
+use super::{option_discord, option_name};
 
 macro_rules! pp_std {
     ($version:ident, $rosu_map:ident, $score:ident, $mods:ident) => {{
@@ -126,11 +131,7 @@ macro_rules! pp_tko {
     }};
 }
 
-pub(super) async fn _topold(
-    ctx: Arc<Context>,
-    data: CommandData<'_>,
-    args: OldArgs,
-) -> BotResult<()> {
+async fn _topold(ctx: Arc<Context>, data: CommandData<'_>, args: OldArgs) -> BotResult<()> {
     let OldArgs { config, version } = args;
 
     let mode = version
@@ -552,7 +553,16 @@ impl OldVersion {
     }
 }
 
-pub(super) struct OldArgs {
+pub async fn slash_topold(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+    let options = command.yoink_options();
+
+    match OldArgs::slash(&ctx, &command, options).await? {
+        Ok(args) => _topold(ctx, command.into(), args).await,
+        Err(content) => command.error(&ctx, content).await,
+    }
+}
+
+struct OldArgs {
     config: UserConfig,
     version: Option<OldVersion>,
 }
@@ -603,7 +613,7 @@ impl OldArgs {
         Ok(Ok(Self { config, version }))
     }
 
-    pub(super) async fn slash(
+    async fn slash(
         ctx: &Context,
         command: &ApplicationCommand,
         mut options: Vec<CommandDataOption>,
@@ -664,4 +674,123 @@ impl OldArgs {
 
         Ok(Ok(Self { config, version }))
     }
+}
+
+const VERSION: &str = "version";
+const VERSION_DESCRIPTION: &str = "Choose which version should replace the current pp system";
+
+pub fn define_topold() -> MyCommand {
+    let version_choices = vec![
+        CommandOptionChoice::String {
+            name: "april 2015 - may 2018".to_owned(),
+            value: "april15_may18".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "may 2018 - february 2019".to_owned(),
+            value: "may18_february19".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "february 2019 - january 2021".to_owned(),
+            value: "february19_january21".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "january 2021 - july 2021".to_owned(),
+            value: "january21_july21".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "july 2021 - november 2021".to_owned(),
+            value: "july21_november21".to_owned(),
+        },
+    ];
+
+    let version =
+        MyCommandOption::builder(VERSION, VERSION_DESCRIPTION).string(version_choices, true);
+    let name = option_name();
+    let discord = option_discord();
+
+    let osu_description =
+        "How the current osu!standard top plays would look like on a previous pp system";
+
+    let osu_help = "The osu!standard pp history looks roughly like this:\n\
+        - 2012: ppv1 (can't be implemented)\n\
+        - 2014: ppv2 (unavailable)\n\
+        - 2015: High CS nerf(?)\n\
+        - 2018: [HD adjustment](https://osu.ppy.sh/home/news/2018-05-16-performance-updates)\n\
+        - 2019: [Angles, speed, spaced streams](https://osu.ppy.sh/home/news/2019-02-05-new-changes-to-star-rating-performance-points)\n\
+        - 2021: [High AR nerf, NF & SO buff, speed & acc adjustment](https://osu.ppy.sh/home/news/2021-01-14-performance-points-updates)\n\
+        - 2021: [Diff spike nerf, AR buff, FL-AR adjust](https://osu.ppy.sh/home/news/2021-07-27-performance-points-star-rating-updates)\n\
+        - 2021: [Rhythm buff, slider buff, FL skill](https://osu.ppy.sh/home/news/2021-11-09-performance-points-star-rating-updates)";
+
+    let osu = MyCommandOption::builder(OSU, osu_description)
+        .help(osu_help)
+        .subcommand(vec![version, name, discord]);
+
+    let version_choices = vec![CommandOptionChoice::String {
+        name: "march 2014 - september 2020".to_owned(),
+        value: "march14_september20".to_owned(),
+    }];
+
+    let version =
+        MyCommandOption::builder(VERSION, VERSION_DESCRIPTION).string(version_choices, true);
+    let name = option_name();
+    let discord = option_discord();
+
+    let taiko_description =
+        "How the current osu!taiko top plays would look like on a previous pp system";
+
+    let taiko_help = "The osu!taiko pp history looks roughly like this:\n\
+        - 2014: ppv1\n\
+        - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-09-15-changes-to-osutaiko-star-rating)";
+
+    let taiko = MyCommandOption::builder(TAIKO, taiko_description)
+        .help(taiko_help)
+        .subcommand(vec![version, name, discord]);
+
+    let version_choices = vec![CommandOptionChoice::String {
+        name: "march 2014 - may 2020".to_owned(),
+        value: "march14_may20".to_owned(),
+    }];
+
+    let version =
+        MyCommandOption::builder(VERSION, VERSION_DESCRIPTION).string(version_choices, true);
+    let name = option_name();
+    let discord = option_discord();
+
+    let ctb_description =
+        "How the current osu!ctb top plays would look like on a previous pp system";
+
+    let ctb_help = "The osu!ctb pp history looks roughly like this:\n\
+        - 2014: ppv1\n\
+        - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-05-14-osucatch-scoring-updates)";
+
+    let ctb = MyCommandOption::builder(CTB, ctb_description)
+        .help(ctb_help)
+        .subcommand(vec![version, name, discord]);
+
+    let version_choices = vec![CommandOptionChoice::String {
+        name: "march 2014 - may 2018".to_owned(),
+        value: "march14_may18".to_owned(),
+    }];
+
+    let version =
+        MyCommandOption::builder(VERSION, VERSION_DESCRIPTION).string(version_choices, true);
+    let name = option_name();
+    let discord = option_discord();
+
+    let mania_description =
+        "How the current osu!mania top plays would look like on a previous pp system";
+
+    let mania_help = "The osu!mania pp history looks roughly like this:\n\
+        - 2014: ppv1\n\
+        - 2018: [ppv2](https://osu.ppy.sh/home/news/2018-05-16-performance-updates)";
+
+    let mania = MyCommandOption::builder(MANIA, mania_description)
+        .help(mania_help)
+        .subcommand(vec![version, name, discord]);
+
+    let old_description = "How the current top plays would look like on a previous pp system";
+
+    MyCommand::new("topold", old_description)
+        .help("Check a user's **current** top plays if their pp would be based on a previous pp system")
+        .options(vec![osu, taiko, ctb, mania])
 }

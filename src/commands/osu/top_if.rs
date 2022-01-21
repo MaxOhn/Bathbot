@@ -15,7 +15,7 @@ use crate::{
     commands::{
         check_user_mention,
         osu::{get_user_and_scores, ScoreArgs, UserArgs},
-        parse_discord, parse_mode_option, DoubleResultCow,
+        parse_discord, parse_mode_option, DoubleResultCow, MyCommand, MyCommandOption,
     },
     database::UserConfig,
     embeds::{EmbedData, TopIfEmbed},
@@ -29,10 +29,12 @@ use crate::{
         },
         matcher, numbers,
         osu::ModSelection,
-        InteractionExt, MessageExt,
+        ApplicationCommandExt, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
+
+use super::{option_discord, option_name};
 
 const NM: GameMods = GameMods::NoMod;
 const DT: GameMods = GameMods::DoubleTime;
@@ -43,11 +45,7 @@ const HR: GameMods = GameMods::HardRock;
 const PF: GameMods = GameMods::Perfect;
 const SD: GameMods = GameMods::SuddenDeath;
 
-pub(super) async fn _topif(
-    ctx: Arc<Context>,
-    data: CommandData<'_>,
-    args: IfArgs,
-) -> BotResult<()> {
+async fn _topif(ctx: Arc<Context>, data: CommandData<'_>, args: IfArgs) -> BotResult<()> {
     let IfArgs { config, mods } = args;
     let mode = config.mode.unwrap_or(GameMode::STD);
 
@@ -423,7 +421,16 @@ fn mode_str(mode: GameMode) -> &'static str {
     }
 }
 
-pub(super) struct IfArgs {
+pub async fn slash_topif(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+    let options = command.yoink_options();
+
+    match IfArgs::slash(&ctx, &command, options).await? {
+        Ok(args) => _topif(ctx, command.into(), args).await,
+        Err(content) => command.error(&ctx, content).await,
+    }
+}
+
+struct IfArgs {
     config: UserConfig,
     mods: ModSelection,
 }
@@ -456,7 +463,7 @@ impl IfArgs {
         Ok(Ok(Self { config, mods }))
     }
 
-    pub(super) async fn slash(
+    async fn slash(
         ctx: &Context,
         command: &ApplicationCommand,
         options: Vec<CommandDataOption>,
@@ -490,4 +497,29 @@ impl IfArgs {
 
         Ok(Ok(Self { config, mods }))
     }
+}
+
+pub fn define_topif() -> MyCommand {
+    let mods_description =
+        "Specify mods (`+mods` to insert them, `+mods!` to replace, `-mods!` to remove)";
+
+    let mods_help = "Specify how the top score mods should be adjusted.\n\
+        Mods must be given as `+mods` to included them everywhere, `+mods!` to replace them exactly, \
+        or `-mods!` to excluded them everywhere.\n\
+        Examples:\n\
+        - `+hd`: Add `HD` to all scores\n\
+        - `+hdhr!`: Make all scores `HDHR` scores\n\
+        - `+nm!`: Make all scores nomod scores\n\
+        - `-ezhd!`: Remove both `EZ` and `HD` from all scores";
+
+    let mods = MyCommandOption::builder(MODS, mods_description)
+        .help(mods_help)
+        .string(Vec::new(), false);
+
+    let name = option_name();
+    let discord = option_discord();
+
+    let if_description = "How the top plays would look like with different mods";
+
+    MyCommand::new("topif", if_description).options(vec![mods, name, discord])
 }
