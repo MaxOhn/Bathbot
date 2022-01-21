@@ -150,17 +150,31 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
         warn!("{:?}", Report::new(err));
     }
 
-    if let Some(num) = args.index.or_else(|| (scores.len() == 1).then(|| 0)) {
-        let maximize = match (args.config.embeds_maximized, data.guild_id()) {
-            (Some(embeds_maximized), _) => embeds_maximized,
-            (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
-            (None, None) => true,
-        };
+    match (args.index, scores.len()) {
+        (_, 1) => {
+            let maximize = match (args.config.embeds_maximized, data.guild_id()) {
+                (Some(embeds_maximized), _) => embeds_maximized,
+                (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
+                (None, None) => true,
+            };
 
-        single_embed(ctx, data, user, scores, num.saturating_sub(1), maximize).await?;
-    } else {
-        let content = write_content(name, &args, scores.len());
-        paginated_embed(ctx, data, user, scores, content).await?;
+            let content = write_content(name, &args, 1);
+            single_embed(ctx, data, user, scores, 0, maximize, content).await?;
+        }
+        (Some(num), _) => {
+            let maximize = match (args.config.embeds_maximized, data.guild_id()) {
+                (Some(embeds_maximized), _) => embeds_maximized,
+                (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
+                (None, None) => true,
+            };
+
+            let num = num.saturating_sub(1);
+            single_embed(ctx, data, user, scores, num, maximize, None).await?;
+        }
+        (None, _) => {
+            let content = write_content(name, &args, scores.len());
+            paginated_embed(ctx, data, user, scores, content).await?;
+        }
     }
 
     Ok(())
@@ -370,7 +384,7 @@ async fn topctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     specifying a number right after the command, e.g. `<rb2 badewanne3`."
 )]
 #[usage(
-   "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=grade[..grade]] [reverse=true/false]"
+    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=grade[..grade]] [reverse=true/false]"
 )]
 #[example(
     "badewanne3 acc=97.34..99.5 grade=A +hdhr",
@@ -417,7 +431,7 @@ async fn recentbest(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     specifying a number right after the command, e.g. `<rbm2 badewanne3`."
 )]
 #[usage(
-   "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=grade[..grade]] [reverse=true/false]"
+    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=grade[..grade]] [reverse=true/false]"
 )]
 #[example(
     "badewanne3 acc=97.34..99.5 grade=A +hdhr",
@@ -464,7 +478,7 @@ async fn recentbestmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
     specifying a number right after the command, e.g. `<rbt2 badewanne3`."
 )]
 #[usage(
-   "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=grade[..grade]] [reverse=true/false]"
+    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=grade[..grade]] [reverse=true/false]"
 )]
 #[example(
     "badewanne3 acc=97.34..99.5 grade=A +hdhr",
@@ -511,7 +525,7 @@ async fn recentbesttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
     specifying a number right after the command, e.g. `<rbc2 badewanne3`."
 )]
 #[usage(
-   "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=grade[..grade]] [reverse=true/false]"
+    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=grade[..grade]] [reverse=true/false]"
 )]
 #[example(
     "badewanne3 acc=97.34..99.5 grade=A +hdhr",
@@ -708,6 +722,7 @@ async fn single_embed(
     scores: Vec<(usize, Score)>,
     idx: usize,
     maximize: bool,
+    content: Option<String>,
 ) -> BotResult<()> {
     let (idx, score) = scores.get(idx).unwrap();
     let map = score.map.as_ref().unwrap();
@@ -733,7 +748,12 @@ async fn single_embed(
 
     // Only maximize if config allows it
     if maximize {
-        let builder = embed_data.as_builder().build().into();
+        let mut builder = MessageBuilder::new().embed(embed_data.as_builder().build());
+
+        if let Some(content) = content {
+            builder = builder.content(content);
+        }
+
         let response = data.create_message(&ctx, builder).await?.model().await?;
 
         ctx.store_msg(response.id);
@@ -754,7 +774,12 @@ async fn single_embed(
             }
         });
     } else {
-        let builder = embed_data.into_builder().build().into();
+        let mut builder = MessageBuilder::new().embed(embed_data.as_builder().build());
+
+        if let Some(content) = content {
+            builder = builder.content(content);
+        }
+
         data.create_message(&ctx, builder).await?;
     }
 
@@ -1265,10 +1290,11 @@ fn content_with_condition(args: &TopArgs, amount: usize) -> String {
     }
 
     if let Some(query) = args.query.as_deref() {
-        let _ = write!(content, "\nQuery: `{}`", query);
+        let _ = write!(content, " ~ `Query: {query}`");
     }
 
-    let _ = write!(content, "\nFound {amount} matching top scores:");
+    let plural = if amount == 1 { "" } else { "s" };
+    let _ = write!(content, "\nFound {amount} matching top score{plural}:");
 
     content
 }
