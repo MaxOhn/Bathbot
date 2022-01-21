@@ -147,7 +147,7 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
         warn!("{:?}", Report::new(err));
     }
 
-    if let Some(num) = args.index {
+    if let Some(num) = args.index.or_else(|| (scores.len() == 1).then(|| 0)) {
         let maximize = match (args.config.embeds_maximized, data.guild_id()) {
             (Some(embeds_maximized), _) => embeds_maximized,
             (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
