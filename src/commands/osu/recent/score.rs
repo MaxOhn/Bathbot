@@ -15,12 +15,11 @@ use twilight_model::{
     id::UserId,
 };
 
-use super::GradeArg;
 use crate::{
     commands::{
         check_user_mention,
         osu::{get_user_and_scores, ScoreArgs, UserArgs},
-        parse_discord, parse_mode_option, DoubleResultCow,
+        parse_discord, parse_mode_option, DoubleResultCow, MyCommand,
     },
     database::UserConfig,
     embeds::{EmbedData, RecentEmbed},
@@ -32,10 +31,12 @@ use crate::{
             common_literals::{DISCORD, GRADE, INDEX, MODE, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
-        CowUtils, InteractionExt, MessageExt,
+        ApplicationCommandExt, CowUtils, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
+
+use super::GradeArg;
 
 pub(super) async fn _recent(
     ctx: Arc<Context>,
@@ -565,6 +566,15 @@ pub async fn recentctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     }
 }
 
+pub async fn slash_rs(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+    let options = command.yoink_options();
+
+    match RecentArgs::slash(&ctx, &command, options).await? {
+        Ok(args) => _recent(ctx, command.into(), args).await,
+        Err(content) => command.error(&ctx, content).await,
+    }
+}
+
 pub(super) struct RecentArgs {
     config: UserConfig,
     input_name: Option<Username>,
@@ -777,4 +787,8 @@ impl RecentArgs {
 
         Ok(Ok(args))
     }
+}
+
+pub fn define_rs() -> MyCommand {
+    MyCommand::new("rs", "Show a user's recent score").options(super::score_options())
 }

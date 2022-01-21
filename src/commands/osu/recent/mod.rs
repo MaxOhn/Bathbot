@@ -108,7 +108,7 @@ pub async fn slash_recent(ctx: Arc<Context>, mut command: ApplicationCommand) ->
     }
 }
 
-fn subcommand_score() -> MyCommandOption {
+fn score_options() -> Vec<MyCommandOption> {
     let mode = MyCommandOption::builder(MODE, SPECIFY_MODE)
         .string(super::mode_choices(), false)
         .help(
@@ -168,8 +168,12 @@ fn subcommand_score() -> MyCommandOption {
 
     let discord = option_discord();
 
-    MyCommandOption::builder(SCORE, "Show a user's recent score")
-        .subcommand(vec![mode, name, index, grade, passes, discord])
+    vec![mode, name, index, grade, passes, discord]
+}
+
+fn subcommand_score() -> MyCommandOption {
+    MyCommandOption::builder(SCORE, "Show a user's recent score (same as `/rs`)")
+        .subcommand(score_options())
 }
 
 fn subcommand_best() -> MyCommandOption {

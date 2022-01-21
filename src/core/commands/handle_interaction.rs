@@ -159,6 +159,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
             process_command(ctx, command, args, utility::slash_roleassign).await
         }
         "roll" => process_command(ctx, command, args, utility::slash_roll).await,
+        "rs" => process_command(ctx, command, args, osu::slash_rs).await,
         "search" => process_command(ctx, command, args, osu::slash_mapsearch).await,
         "serverconfig" => {
             args.set_authority();
