@@ -690,7 +690,8 @@ lazy_static! {
         insert("search", define_mapsearch);
         insert("leaderboard", define_leaderboard);
         insert(PROFILE, define_profile);
-        insert("reach", define_reach);
+        insert("rank", define_rank);
+        insert("pp", define_pp);
         insert("compare", define_compare);
         insert("medal", define_medal);
         insert("osekai", define_osekai);

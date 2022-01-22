@@ -114,7 +114,7 @@ pub async fn rankrankedscore(ctx: Arc<Context>, data: CommandData) -> BotResult<
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_reach(ctx, *command).await,
+        CommandData::Interaction { command } => super::slash_rank(ctx, *command).await,
     }
 }
 
@@ -144,7 +144,7 @@ pub async fn rankrankedscoremania(ctx: Arc<Context>, data: CommandData) -> BotRe
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_reach(ctx, *command).await,
+        CommandData::Interaction { command } => super::slash_rank(ctx, *command).await,
     }
 }
 
@@ -174,7 +174,7 @@ pub async fn rankrankedscoretaiko(ctx: Arc<Context>, data: CommandData) -> BotRe
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_reach(ctx, *command).await,
+        CommandData::Interaction { command } => super::slash_rank(ctx, *command).await,
     }
 }
 
@@ -204,7 +204,7 @@ pub async fn rankrankedscorectb(ctx: Arc<Context>, data: CommandData) -> BotResu
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_reach(ctx, *command).await,
+        CommandData::Interaction { command } => super::slash_rank(ctx, *command).await,
     }
 }
 

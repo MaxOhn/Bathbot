@@ -13,8 +13,8 @@ use twilight_model::{
 use crate::{
     commands::{
         check_user_mention,
-        osu::{get_user_and_scores, ScoreArgs, UserArgs},
-        parse_discord, parse_mode_option, DoubleResultCow,
+        osu::{get_user_and_scores, option_discord, option_mode, option_name, ScoreArgs, UserArgs},
+        parse_discord, parse_mode_option, DoubleResultCow, MyCommand, MyCommandOption,
     },
     custom_client::RankParam,
     database::UserConfig,
@@ -25,12 +25,12 @@ use crate::{
             common_literals::{DISCORD, MODE, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
-        InteractionExt, MessageExt,
+        ApplicationCommandExt, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, Error,
 };
 
-pub(super) async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) -> BotResult<()> {
+async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) -> BotResult<()> {
     let PpArgs { config, pp } = args;
     let mode = config.mode.unwrap_or(GameMode::STD);
 
@@ -118,7 +118,7 @@ pub async fn pp(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_reach(ctx, *command).await,
+        CommandData::Interaction { command } => super::slash_pp(ctx, *command).await,
     }
 }
 
@@ -148,7 +148,7 @@ pub async fn ppmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_reach(ctx, *command).await,
+        CommandData::Interaction { command } => super::slash_pp(ctx, *command).await,
     }
 }
 
@@ -178,7 +178,7 @@ pub async fn pptaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_reach(ctx, *command).await,
+        CommandData::Interaction { command } => super::slash_pp(ctx, *command).await,
     }
 }
 
@@ -208,13 +208,22 @@ pub async fn ppctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             }
         }
-        CommandData::Interaction { command } => super::slash_reach(ctx, *command).await,
+        CommandData::Interaction { command } => super::slash_pp(ctx, *command).await,
     }
 }
 
-pub(super) struct PpArgs {
-    pub config: UserConfig,
-    pub pp: f32,
+pub async fn slash_pp(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+    let options = command.yoink_options();
+
+    match PpArgs::slash(&ctx, &command, options).await? {
+        Ok(args) => _pp(ctx, command.into(), args).await,
+        Err(content) => command.error(&ctx, content).await,
+    }
+}
+
+struct PpArgs {
+    config: UserConfig,
+    pp: f32,
 }
 
 impl PpArgs {
@@ -240,7 +249,7 @@ impl PpArgs {
         Ok(Ok(Self { config, pp }))
     }
 
-    pub(super) async fn slash(
+    async fn slash(
         ctx: &Context,
         command: &ApplicationCommand,
         options: Vec<CommandDataOption>,
@@ -290,4 +299,16 @@ impl PpArgs {
 
         Ok(Ok(args))
     }
+}
+
+pub fn define_pp() -> MyCommand {
+    // TODO
+    // let pp = MyCommandOption::builder("pp", "Specify a target pp amount").number(Vec::new(), true);
+    let pp = MyCommandOption::builder("pp", "Specify a target pp amount").string(Vec::new(), true);
+    let mode = option_mode();
+    let name = option_name();
+    let discord = option_discord();
+    let pp_description = "How many pp is a user missing to reach the given amount?";
+
+    MyCommand::new("pp", pp_description).options(vec![pp, mode, name, discord])
 }

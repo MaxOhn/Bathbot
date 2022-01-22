@@ -142,6 +142,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         }
         "ping" => process_command(ctx, command, args, utility::slash_ping).await,
         "pinned" => process_command(ctx, command, args, osu::slash_pinned).await,
+        "pp" => process_command(ctx, command, args, osu::slash_pp).await,
         PROFILE => process_command(ctx, command, args, osu::slash_profile).await,
         "prune" => {
             args.set_authority();
@@ -149,9 +150,9 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
 
             process_command(ctx, command, args, utility::slash_prune).await
         }
+        "rank" => process_command(ctx, command, args, osu::slash_rank).await,
         "ranking" => process_command(ctx, command, args, osu::slash_ranking).await,
         "ratios" => process_command(ctx, command, args, osu::slash_ratio).await,
-        "reach" => process_command(ctx, command, args, osu::slash_reach).await,
         "recent" => process_command(ctx, command, args, osu::slash_recent).await,
         "roleassign" => {
             args.set_authority();
