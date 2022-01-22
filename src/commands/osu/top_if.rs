@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, fmt::Write, sync::Arc};
+use std::{fmt::Write, sync::Arc};
 
 use eyre::Report;
 use futures::stream::{FuturesUnordered, TryStreamExt};
@@ -34,7 +34,7 @@ use crate::{
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
-use super::{option_discord, option_name};
+use super::{option_discord, option_name, SortableScore, TopOrder};
 
 const NM: GameMods = GameMods::NoMod;
 const DT: GameMods = GameMods::DoubleTime;
@@ -49,8 +49,8 @@ async fn _topif(ctx: Arc<Context>, data: CommandData<'_>, args: IfArgs) -> BotRe
     let IfArgs { config, mods } = args;
     let mode = config.mode.unwrap_or(GameMode::STD);
 
-    let name = match config.into_username() {
-        Some(name) => name,
+    let name = match config.username() {
+        Some(name) => name.as_str(),
         None => return super::require_link(&ctx, &data).await,
     };
 
@@ -73,7 +73,7 @@ async fn _topif(ctx: Arc<Context>, data: CommandData<'_>, args: IfArgs) -> BotRe
     }
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::new(name.as_str(), mode);
+    let user_args = UserArgs::new(name, mode);
     let score_args = ScoreArgs::top(100).with_combo();
 
     let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
@@ -208,9 +208,7 @@ async fn _topif(ctx: Arc<Context>, data: CommandData<'_>, args: IfArgs) -> BotRe
     };
 
     // Sort by adjusted pp
-    scores_data.sort_unstable_by(|(_, s1, _), (_, s2, _)| {
-        s2.pp.partial_cmp(&s1.pp).unwrap_or(Ordering::Equal)
-    });
+    TopOrder::Position.apply(&mut scores_data);
 
     // Calculate adjusted pp
     let adjusted_pp: f32 = scores_data
@@ -221,58 +219,7 @@ async fn _topif(ctx: Arc<Context>, data: CommandData<'_>, args: IfArgs) -> BotRe
     let adjusted_pp = numbers::round((bonus_pp + adjusted_pp).max(0.0) as f32);
 
     // Accumulate all necessary data
-    let content = match args.mods {
-        ModSelection::Exact(mods) => format!(
-            "`{name}`{plural} {mode}top100 with only `{mods}` scores:",
-            name = user.username,
-            plural = plural(user.username.as_str()),
-            mode = mode_str(mode),
-            mods = mods
-        ),
-        ModSelection::Exclude(mods) if mods != NM => {
-            let mods: Vec<_> = mods.iter().collect();
-            let len = mods.len();
-            let mut mod_iter = mods.into_iter();
-            let mut mod_str = String::with_capacity(len * 6 - 2);
-
-            if let Some(first) = mod_iter.next() {
-                let last = mod_iter.next_back();
-                let _ = write!(mod_str, "`{first}`");
-
-                for elem in mod_iter {
-                    let _ = write!(mod_str, ", `{elem}`");
-                }
-
-                if let Some(last) = last {
-                    let _ = match len {
-                        2 => write!(mod_str, " and `{last}`"),
-                        _ => write!(mod_str, ", and `{last}`"),
-                    };
-                }
-            }
-            format!(
-                "`{name}`{plural} {mode}top100 without {mods}:",
-                name = user.username,
-                plural = plural(user.username.as_str()),
-                mode = mode_str(mode),
-                mods = mod_str
-            )
-        }
-        ModSelection::Include(mods) if mods != NM => format!(
-            "`{name}`{plural} {mode}top100 with `{mods}` inserted everywhere:",
-            name = user.username,
-            plural = plural(user.username.as_str()),
-            mode = mode_str(mode),
-            mods = mods,
-        ),
-        _ => format!(
-            "`{name}`{plural} top {mode}scores:",
-            name = user.username,
-            plural = plural(user.username.as_str()),
-            mode = mode_str(mode),
-        ),
-    };
-
+    let content = get_content(user.username.as_str(), mode, mods);
     let pages = numbers::div_euclid(5, scores_data.len());
     let iter = scores_data.iter().take(5);
     let pre_pp = user.statistics.as_ref().unwrap().pp;
@@ -304,6 +251,60 @@ async fn _topif(ctx: Arc<Context>, data: CommandData<'_>, args: IfArgs) -> BotRe
     });
 
     Ok(())
+}
+
+impl SortableScore for (usize, Score, Option<f32>) {
+    fn get(&self) -> &Score {
+        &self.1
+    }
+}
+
+fn get_content(name: &str, mode: GameMode, mods: ModSelection) -> String {
+    match mods {
+        ModSelection::Exact(mods) => format!(
+            "`{name}`{plural} {mode}top100 with only `{mods}` scores:",
+            plural = plural(name),
+            mode = mode_str(mode),
+        ),
+        ModSelection::Exclude(mods) if mods != NM => {
+            let mods: Vec<_> = mods.iter().collect();
+            let len = mods.len();
+            let mut mod_iter = mods.into_iter();
+            let mut mod_str = String::with_capacity(len * 6 - 2);
+
+            if let Some(first) = mod_iter.next() {
+                let last = mod_iter.next_back();
+                let _ = write!(mod_str, "`{first}`");
+
+                for elem in mod_iter {
+                    let _ = write!(mod_str, ", `{elem}`");
+                }
+
+                if let Some(last) = last {
+                    let _ = match len {
+                        2 => write!(mod_str, " and `{last}`"),
+                        _ => write!(mod_str, ", and `{last}`"),
+                    };
+                }
+            }
+            format!(
+                "`{name}`{plural} {mode}top100 without {mods}:",
+                plural = plural(name),
+                mode = mode_str(mode),
+                mods = mod_str
+            )
+        }
+        ModSelection::Include(mods) if mods != NM => format!(
+            "`{name}`{plural} {mode}top100 with `{mods}` inserted everywhere:",
+            plural = plural(name),
+            mode = mode_str(mode),
+        ),
+        _ => format!(
+            "`{name}`{plural} top {mode}scores:",
+            plural = plural(name),
+            mode = mode_str(mode),
+        ),
+    }
 }
 
 #[command]
@@ -514,7 +515,7 @@ pub fn define_topif() -> MyCommand {
 
     let mods = MyCommandOption::builder(MODS, mods_description)
         .help(mods_help)
-        .string(Vec::new(), false);
+        .string(Vec::new(), true);
 
     let name = option_name();
     let discord = option_discord();

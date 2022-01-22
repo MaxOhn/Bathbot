@@ -658,44 +658,7 @@ fn filter_scores(scores: Vec<Score>, args: &TopArgs) -> Vec<(usize, Score)> {
         });
     }
 
-    match args.sort_by {
-        TopOrder::Acc => {
-            scores_indices.sort_unstable_by(|(_, a), (_, b)| {
-                b.accuracy
-                    .partial_cmp(&a.accuracy)
-                    .unwrap_or(Ordering::Equal)
-            });
-        }
-        TopOrder::Combo => scores_indices.sort_unstable_by_key(|(_, s)| Reverse(s.max_combo)),
-        TopOrder::Date => scores_indices.sort_unstable_by_key(|(_, s)| Reverse(s.created_at)),
-        TopOrder::Length => scores_indices.sort_unstable_by_key(|(_, s)| {
-            s.map
-                .as_ref()
-                .map_or(Reverse(0), |map| Reverse(map.seconds_drain))
-        }),
-        TopOrder::Misses => scores_indices.sort_unstable_by(|(_, a), (_, b)| {
-            b.statistics
-                .count_miss
-                .cmp(&a.statistics.count_miss)
-                .then_with(|| {
-                    let hits_a = a.total_hits();
-                    let hits_b = b.total_hits();
-
-                    let ratio_a = a.statistics.count_miss as f32 / hits_a as f32;
-                    let ratio_b = b.statistics.count_miss as f32 / hits_b as f32;
-
-                    ratio_b
-                        .partial_cmp(&ratio_a)
-                        .unwrap_or(Ordering::Equal)
-                        .then_with(|| hits_b.cmp(&hits_a))
-                })
-        }),
-        TopOrder::Position => {
-            scores_indices.sort_unstable_by(|(_, a), (_, b)| {
-                b.pp.partial_cmp(&a.pp).unwrap_or(Ordering::Equal)
-            });
-        }
-    }
+    args.sort_by.apply(&mut scores_indices);
 
     if args.reverse {
         scores_indices.reverse();
@@ -728,11 +691,11 @@ async fn single_embed(
     let map = score.map.as_ref().unwrap();
 
     // Prepare retrieval of the map's global top 50 and the user's top 100
-    let globals = match map.status {
+    let global_idx = match map.status {
         Ranked | Loved | Qualified | Approved => {
             // TODO: Add .limit(50) when supported by osu!api
             match ctx.osu().beatmap_scores(map.map_id).await {
-                Ok(scores) => Some(scores),
+                Ok(scores) => scores.iter().position(|s| s == score),
                 Err(why) => {
                     let report = Report::new(why).wrap_err("failed to get global scores");
                     warn!("{:?}", report);
@@ -744,7 +707,7 @@ async fn single_embed(
         _ => None,
     };
 
-    let embed_data = TopSingleEmbed::new(&user, score, *idx, globals.as_deref()).await?;
+    let embed_data = TopSingleEmbed::new(&user, score, Some(*idx), global_idx).await?;
 
     // Only maximize if config allows it
     if maximize {
@@ -834,6 +797,68 @@ pub enum TopOrder {
     Misses,
     Length,
     Position,
+}
+
+pub trait SortableScore {
+    fn get(&self) -> &Score;
+}
+
+impl SortableScore for Score {
+    fn get(&self) -> &Score {
+        self
+    }
+}
+
+impl SortableScore for (usize, Score) {
+    fn get(&self) -> &Score {
+        &self.1
+    }
+}
+
+impl TopOrder {
+    pub fn apply<S: SortableScore>(self, scores: &mut [S]) {
+        match self {
+            Self::Acc => {
+                scores.sort_unstable_by(|a, b| {
+                    b.get()
+                        .accuracy
+                        .partial_cmp(&a.get().accuracy)
+                        .unwrap_or(Ordering::Equal)
+                });
+            }
+            Self::Combo => scores.sort_unstable_by_key(|s| Reverse(s.get().max_combo)),
+            Self::Date => scores.sort_unstable_by_key(|s| Reverse(s.get().created_at)),
+            Self::Length => scores.sort_unstable_by_key(|s| {
+                Reverse(s.get().map.as_ref().map_or(0, |map| map.seconds_drain))
+            }),
+            Self::Misses => scores.sort_unstable_by(|a, b| {
+                let a = a.get();
+                let b = b.get();
+
+                b.statistics
+                    .count_miss
+                    .cmp(&a.statistics.count_miss)
+                    .then_with(|| {
+                        let hits_a = a.total_hits();
+                        let hits_b = b.total_hits();
+
+                        let ratio_a = a.statistics.count_miss as f32 / hits_a as f32;
+                        let ratio_b = b.statistics.count_miss as f32 / hits_b as f32;
+
+                        ratio_b
+                            .partial_cmp(&ratio_a)
+                            .unwrap_or(Ordering::Equal)
+                            .then_with(|| hits_b.cmp(&hits_a))
+                    })
+            }),
+            Self::Position => scores.sort_unstable_by(|a, b| {
+                b.get()
+                    .pp
+                    .partial_cmp(&a.get().pp)
+                    .unwrap_or(Ordering::Equal)
+            }),
+        }
+    }
 }
 
 impl Default for TopOrder {
@@ -1374,7 +1399,7 @@ pub fn define_top() -> MyCommand {
     let query_description = "Search for a specific artist, title, or difficulty name";
 
     let query_help = "Search for a specific artist, title, or difficulty name.\n\
-        Filters out all scores for which `{artist} - {title} [{version}]` does not fit the query.";
+        Filters out all scores for which `{artist} - {title} [{version}]` does not contain the query.";
 
     let query = MyCommandOption::builder("query", query_description)
         .help(query_help)

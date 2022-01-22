@@ -20,6 +20,7 @@ mod most_played;
 mod nochoke;
 mod osekai;
 mod osustats;
+mod pinned;
 mod profile;
 mod ranking;
 mod ratios;
@@ -67,8 +68,8 @@ use crate::{
 pub use self::{
     avatar::*, bws::*, compare::*, fix::*, leaderboard::*, link::*, map::*, map_search::*,
     mapper::*, match_costs::*, match_live::*, medals::*, most_played::*, nochoke::*, osekai::*,
-    osustats::*, profile::*, ranking::*, ratios::*, reach::*, recent::*, simulate::*, snipe::*,
-    top::*, top_if::*, top_old::*, whatif::*,
+    osustats::*, pinned::*, profile::*, ranking::*, ratios::*, reach::*, recent::*, simulate::*,
+    snipe::*, top::*, top_if::*, top_old::*, whatif::*,
 };
 
 use super::MyCommandOption;

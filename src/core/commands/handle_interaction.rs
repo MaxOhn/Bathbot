@@ -141,6 +141,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
             process_command(ctx, command, args, owner::slash_owner).await
         }
         "ping" => process_command(ctx, command, args, utility::slash_ping).await,
+        "pinned" => process_command(ctx, command, args, osu::slash_pinned).await,
         PROFILE => process_command(ctx, command, args, osu::slash_profile).await,
         "prune" => {
             args.set_authority();

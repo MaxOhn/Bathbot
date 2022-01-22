@@ -43,8 +43,8 @@ impl TopSingleEmbed {
     pub async fn new(
         user: &User,
         score: &Score,
-        idx: usize,
-        global: Option<&[Score]>,
+        personal_idx: Option<usize>,
+        global_idx: Option<usize>,
     ) -> BotResult<Self> {
         let map = score.map.as_ref().unwrap();
         let mapset = score.mapset.as_ref().unwrap();
@@ -89,10 +89,9 @@ impl TopSingleEmbed {
 
             (combo, title)
         } else {
-            (
-                osu::get_combo(score, map),
-                format!("{} - {} [{}]", mapset.artist, mapset.title, map.version),
-            )
+            let title = format!("{} - {} [{}]", mapset.artist, mapset.title, map.version);
+
+            (osu::get_combo(score, map), title)
         };
 
         let if_fc = if_fc.map(|if_fc| {
@@ -119,14 +118,29 @@ impl TopSingleEmbed {
         ))
         .icon_url(format!("{AVATAR_URL}{}", mapset.creator_id));
 
-        let mut description = format!("__**Personal Best #{idx}");
+        let description = if personal_idx.is_some() || global_idx.is_some() {
+            let mut description = String::with_capacity(25);
+            description.push_str("__**");
 
-        if let Some(idx) = global.and_then(|global| global.iter().position(|s| s == score)) {
-            description.reserve(23);
-            let _ = write!(description, " and Global Top #{}", idx + 1);
-        }
+            if let Some(idx) = personal_idx {
+                let _ = write!(description, "Personal Best #{}", idx + 1);
 
-        description.push_str("**__");
+                if global_idx.is_some() {
+                    description.reserve(19);
+                    description.push_str(" and ");
+                }
+            }
+
+            if let Some(idx) = global_idx {
+                let _ = write!(description, "Global Top #{}", idx + 1);
+            }
+
+            description.push_str("**__");
+
+            description
+        } else {
+            String::new()
+        };
 
         Ok(Self {
             title,

@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, sync::Arc};
+use std::sync::Arc;
 
 use chrono::{Datelike, Utc};
 use eyre::Report;
@@ -20,7 +20,7 @@ use twilight_model::{
 use crate::{
     commands::{
         check_user_mention,
-        osu::{get_user_and_scores, ScoreArgs, UserArgs},
+        osu::{get_user_and_scores, ScoreArgs, TopOrder, UserArgs},
         parse_discord, DoubleResultCow, MyCommand, MyCommandOption,
     },
     database::UserConfig,
@@ -258,9 +258,7 @@ async fn _topold(ctx: Arc<Context>, data: CommandData<'_>, args: OldArgs) -> Bot
     };
 
     // Sort by adjusted pp
-    scores_data.sort_unstable_by(|(_, s1, _), (_, s2, _)| {
-        s2.pp.partial_cmp(&s1.pp).unwrap_or(Ordering::Equal)
-    });
+    TopOrder::Position.apply(&mut scores_data);
 
     // Calculate adjusted pp
     let adjusted_pp: f32 = scores_data

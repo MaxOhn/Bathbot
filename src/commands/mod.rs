@@ -697,6 +697,7 @@ lazy_static! {
         insert("ranking", define_ranking);
         insert("osustats", define_osustats);
         insert("top", define_top);
+        insert("pinned", define_pinned);
         insert("topif", define_topif);
         insert("mapper", define_mapper);
         insert("nochoke", define_nochoke);
