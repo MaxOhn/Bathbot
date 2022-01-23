@@ -13,7 +13,7 @@ use twilight_model::{
         application_command::{CommandDataOption, CommandOptionValue},
         ApplicationCommand,
     },
-    id::UserId,
+    id::{marker::UserMarker, Id},
 };
 
 use crate::{
@@ -331,7 +331,7 @@ impl ProfileArgs {
     async fn args(
         ctx: &Context,
         args: &mut Args<'_>,
-        author_id: UserId,
+        author_id: Id<UserMarker>,
         mut mode: GameMode,
     ) -> DoubleResultCow<Self> {
         let config = ctx.user_config(author_id).await?;

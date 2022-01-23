@@ -1,23 +1,25 @@
-use super::{
-    super::{MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32},
-    ProfileEmbedMap,
-};
-use crate::util::osu::BonusPP;
-
-use hashbrown::HashMap;
-use rosu_v2::prelude::{GameMode, GameMods, Score, User, UserStatistics, Username};
 use std::{
     borrow::Cow,
     cmp::{Ordering::Equal, PartialOrd},
     collections::BTreeMap,
 };
-use twilight_model::id::UserId;
+
+use hashbrown::HashMap;
+use rosu_v2::prelude::{GameMode, GameMods, Score, User, UserStatistics, Username};
+use twilight_model::id::{marker::UserMarker, Id};
+
+use crate::util::osu::BonusPP;
+
+use super::{
+    super::{MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32},
+    ProfileEmbedMap,
+};
 
 pub struct ProfileData {
     pub user: User,
     pub scores: Vec<Score>,
     pub embeds: ProfileEmbedMap,
-    pub discord_id: Option<Option<UserId>>,
+    pub discord_id: Option<Option<Id<UserMarker>>>,
     pub profile_result: Option<ProfileResult>,
     pub globals_count: Option<BTreeMap<usize, Cow<'static, str>>>,
 }

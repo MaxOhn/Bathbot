@@ -1,17 +1,20 @@
+use dashmap::DashMap;
+use futures::stream::StreamExt;
+use rosu_v2::prelude::GameMode;
+use twilight_model::id::{
+    marker::{GuildMarker, UserMarker},
+    Id,
+};
+
 use crate::{
     commands::osu::ProfileSize,
     database::{models::OsuData, GuildConfig, UserConfig},
     BotResult, Database,
 };
 
-use dashmap::DashMap;
-use futures::stream::StreamExt;
-use rosu_v2::prelude::GameMode;
-use twilight_model::id::{GuildId, UserId};
-
 impl Database {
     #[cold]
-    pub async fn get_guilds(&self) -> BotResult<DashMap<GuildId, GuildConfig>> {
+    pub async fn get_guilds(&self) -> BotResult<DashMap<Id<GuildMarker>, GuildConfig>> {
         let mut stream = sqlx::query!("SELECT * FROM guild_configs").fetch(&self.pool);
         let guilds = DashMap::with_capacity(10_000);
 
@@ -25,7 +28,7 @@ impl Database {
                 with_lyrics: entry.with_lyrics,
             };
 
-            guilds.insert(GuildId::new(entry.guild_id as u64).unwrap(), config);
+            guilds.insert(Id::new(entry.guild_id as u64), config);
         }
 
         Ok(guilds)
@@ -33,7 +36,7 @@ impl Database {
 
     pub async fn upsert_guild_config(
         &self,
-        guild_id: GuildId,
+        guild_id: Id<GuildMarker>,
         config: &GuildConfig,
     ) -> BotResult<()> {
         let query = sqlx::query!(
@@ -69,7 +72,7 @@ impl Database {
         Ok(())
     }
 
-    pub async fn get_user_osu(&self, user_id: UserId) -> BotResult<Option<OsuData>> {
+    pub async fn get_user_osu(&self, user_id: Id<UserMarker>) -> BotResult<Option<OsuData>> {
         let query = sqlx::query!(
             "SELECT user_id,username \
             FROM\
@@ -93,7 +96,7 @@ impl Database {
         }
     }
 
-    pub async fn get_user_config(&self, user_id: UserId) -> BotResult<Option<UserConfig>> {
+    pub async fn get_user_config(&self, user_id: Id<UserMarker>) -> BotResult<Option<UserConfig>> {
         let query = sqlx::query!(
             "SELECT * \
             FROM\
@@ -159,7 +162,11 @@ impl Database {
         }
     }
 
-    pub async fn insert_user_config(&self, user_id: UserId, config: &UserConfig) -> BotResult<()> {
+    pub async fn insert_user_config(
+        &self,
+        user_id: Id<UserMarker>,
+        config: &UserConfig,
+    ) -> BotResult<()> {
         if let Some(OsuData::User { user_id, username }) = &config.osu {
             self.upsert_osu_name(*user_id, username).await?;
         }

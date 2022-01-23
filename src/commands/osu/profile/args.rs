@@ -7,12 +7,12 @@ use crate::{
         constants::common_literals::{DISCORD, MODE, NAME},
         ApplicationCommandExt, CowUtils, InteractionExt,
     },
-    Args,  Context,
+    Args, Context,
 };
 
 use twilight_model::{
     application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
-    id::UserId,
+    id::{marker::UserMarker, Id},
 };
 
 pub(super) struct ProfileArgs {
@@ -23,7 +23,7 @@ impl ProfileArgs {
     pub(super) async fn args(
         ctx: &Context,
         args: &mut Args<'_>,
-        author_id: UserId,
+        author_id: Id<UserMarker>,
     ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
 

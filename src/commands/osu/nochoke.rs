@@ -12,7 +12,7 @@ use twilight_model::{
             ApplicationCommand,
         },
     },
-    id::UserId,
+    id::{marker::UserMarker, Id},
 };
 
 use crate::{
@@ -516,7 +516,11 @@ struct NochokeArgs {
 }
 
 impl NochokeArgs {
-    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: Id<UserMarker>,
+    ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
 
         if let Some(arg) = args.next() {

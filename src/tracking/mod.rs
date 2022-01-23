@@ -1,7 +1,5 @@
 mod tracking_loop;
 
-pub use tracking_loop::{process_tracking, tracking_loop};
-
 use std::{
     cmp::Reverse,
     sync::atomic::{AtomicBool, Ordering},
@@ -15,9 +13,11 @@ use priority_queue::PriorityQueue;
 use rosu_v2::model::GameMode;
 use smallvec::SmallVec;
 use tokio::time;
-use twilight_model::id::ChannelId;
+use twilight_model::id::{marker::ChannelMarker, Id};
 
 use crate::{database::TrackingUser, BotResult, Database};
+
+pub use self::tracking_loop::{process_tracking, tracking_loop};
 
 lazy_static::lazy_static! {
     pub static ref OSU_TRACKING_INTERVAL: Duration = Duration::minutes(120);
@@ -156,7 +156,7 @@ impl OsuTracking {
         &self,
         user_id: u32,
         mode: GameMode,
-    ) -> Option<(DateTime<Utc>, HashMap<ChannelId, usize>)> {
+    ) -> Option<(DateTime<Utc>, HashMap<Id<ChannelMarker>, usize>)> {
         let entry = TrackingEntry { user_id, mode };
 
         self.users
@@ -221,7 +221,7 @@ impl OsuTracking {
         &self,
         user_id: u32,
         mode: Option<GameMode>,
-        channel: ChannelId,
+        channel: Id<ChannelMarker>,
         psql: &Database,
     ) -> BotResult<()> {
         let removed: SmallVec<[_; 4]> = self
@@ -268,7 +268,7 @@ impl OsuTracking {
 
     pub async fn remove_channel(
         &self,
-        channel: ChannelId,
+        channel: Id<ChannelMarker>,
         mode: Option<GameMode>,
         psql: &Database,
     ) -> BotResult<usize> {
@@ -324,7 +324,7 @@ impl OsuTracking {
         user_id: u32,
         mode: GameMode,
         last_top_score: DateTime<Utc>,
-        channel: ChannelId,
+        channel: Id<ChannelMarker>,
         limit: usize,
         psql: &Database,
     ) -> BotResult<bool> {
@@ -373,7 +373,7 @@ impl OsuTracking {
         Ok(true)
     }
 
-    pub fn list(&self, channel: ChannelId) -> Vec<(u32, GameMode, usize)> {
+    pub fn list(&self, channel: Id<ChannelMarker>) -> Vec<(u32, GameMode, usize)> {
         self.users
             .iter()
             .filter_map(|guard| {

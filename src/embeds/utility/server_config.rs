@@ -21,11 +21,7 @@ impl ServerConfigEmbed {
             let url = format!(
                 "https://cdn.discordapp.com/icons/{}/{hash}.{}",
                 guild.id,
-                if hash.starts_with("a_") {
-                    "gif"
-                } else {
-                    "webp"
-                }
+                if hash.is_animated() { "gif" } else { "webp" }
             );
 
             author = author.icon_url(url);

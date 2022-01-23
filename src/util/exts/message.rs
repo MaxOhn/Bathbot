@@ -8,7 +8,10 @@ use twilight_http::{request::AttachmentFile, Response};
 use twilight_model::{
     application::interaction::ApplicationCommand,
     channel::Message,
-    id::{ChannelId, InteractionId, MessageId},
+    id::{
+        marker::{ChannelMarker, InteractionMarker, MessageMarker},
+        Id,
+    },
 };
 
 #[async_trait]
@@ -33,7 +36,7 @@ pub trait MessageExt {
 }
 
 #[async_trait]
-impl MessageExt for (MessageId, ChannelId) {
+impl MessageExt for (Id<MessageMarker>, Id<ChannelMarker>) {
     async fn create_message<'c>(
         &self,
         ctx: &Context,
@@ -114,15 +117,16 @@ impl MessageExt for (MessageId, ChannelId) {
 }
 
 #[async_trait]
-impl<'s> MessageExt for (InteractionId, &'s str) {
+impl<'s> MessageExt for (Id<InteractionMarker>, &'s str) {
     async fn create_message<'c>(
         &self,
         ctx: &Context,
         builder: MessageBuilder<'c>,
     ) -> BotResult<Response<Message>> {
-        let req = ctx
-            .http
-            .update_interaction_original(self.1)?
+        let client = ctx.interaction();
+
+        let req = client
+            .update_interaction_original(self.1)
             .content(builder.content.as_ref().map(Cow::as_ref))?
             .embeds(builder.embed.as_ref().map(slice::from_ref))?
             .components(builder.components)?;
@@ -142,9 +146,10 @@ impl<'s> MessageExt for (InteractionId, &'s str) {
         ctx: &Context,
         builder: MessageBuilder<'c>,
     ) -> BotResult<Response<Message>> {
-        let req = ctx
-            .http
-            .update_interaction_original(self.1)?
+        let client = ctx.interaction();
+
+        let req = client
+            .update_interaction_original(self.1)
             .content(builder.content.as_deref())?
             .embeds(builder.embed.as_ref().map(slice::from_ref))?
             .components(builder.components)?;
@@ -153,7 +158,10 @@ impl<'s> MessageExt for (InteractionId, &'s str) {
     }
 
     async fn delete_message(&self, ctx: &Context) -> BotResult<()> {
-        ctx.http.delete_interaction_original(self.1)?.exec().await?;
+        ctx.interaction()
+            .delete_interaction_original(self.1)
+            .exec()
+            .await?;
 
         Ok(())
     }

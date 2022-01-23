@@ -7,7 +7,7 @@ use parking_lot::RwLock;
 use rosu_v2::model::GameMode;
 use tokio::fs;
 use tokio_stream::StreamExt;
-use twilight_model::id::ChannelId;
+use twilight_model::id::{marker::ChannelMarker, Id};
 use twilight_standby::future::WaitForMessageStream;
 
 use crate::{
@@ -162,7 +162,7 @@ pub async fn game_loop(
     msg_stream: &mut WaitForMessageStream,
     ctx: &Context,
     game_locked: &RwLock<Game>,
-    channel: ChannelId,
+    channel: Id<ChannelMarker>,
 ) -> LoopResult {
     // Collect and evaluate messages
     while let Some(msg) = msg_stream.next().await {

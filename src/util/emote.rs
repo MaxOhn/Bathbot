@@ -6,7 +6,7 @@ use serde::{
 };
 use std::{borrow::Cow, str::FromStr};
 use twilight_http::request::channel::reaction::RequestReactionType;
-use twilight_model::{channel::ReactionType, id::EmojiId};
+use twilight_model::{channel::ReactionType, id::Id};
 
 use super::constants::common_literals::OSU;
 
@@ -58,7 +58,7 @@ impl Emote {
             .split_emote();
 
         RequestReactionType::Custom {
-            id: EmojiId::new(id).unwrap(),
+            id: Id::new(id),
             name: Some(name),
         }
     }
@@ -81,7 +81,7 @@ impl Emote {
 
         ReactionType::Custom {
             animated: false,
-            id: EmojiId::new(id).unwrap(),
+            id: Id::new(id),
             name: Some(name.to_owned()),
         }
     }

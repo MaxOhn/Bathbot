@@ -8,7 +8,7 @@ use rosu_v2::prelude::{Beatmap, GameMode, GameMods, OsuError, Score, User};
 use twilight_model::{
     application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
     channel::message::MessageType,
-    id::UserId,
+    id::{marker::UserMarker, Id},
 };
 
 use crate::{
@@ -566,7 +566,11 @@ struct FixArgs {
 }
 
 impl FixArgs {
-    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: Id<UserMarker>,
+    ) -> DoubleResultCow<Self> {
         let mut osu = ctx.psql().get_user_osu(author_id).await?;
         let mut id = None;
         let mut mods = None;

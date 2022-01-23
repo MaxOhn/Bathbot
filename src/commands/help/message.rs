@@ -2,7 +2,10 @@ use std::{collections::BTreeMap, fmt::Write, time::Duration};
 
 use eyre::Report;
 use tokio::time::sleep;
-use twilight_model::{channel::embed::EmbedField, id::GuildId};
+use twilight_model::{
+    channel::embed::EmbedField,
+    id::{marker::GuildMarker, Id},
+};
 
 use crate::{
     core::{
@@ -19,7 +22,7 @@ use crate::{
 
 use super::failed_message_;
 
-async fn description(ctx: &Context, guild_id: Option<GuildId>) -> String {
+async fn description(ctx: &Context, guild_id: Option<Id<GuildMarker>>) -> String {
     let (custom_prefix, first_prefix) = if let Some(guild_id) = guild_id {
         let mut prefixes = ctx.guild_prefixes(guild_id).await;
 
@@ -203,7 +206,7 @@ pub async fn help(ctx: &Context, data: CommandData<'_>, is_authority: bool) -> B
 pub async fn help_command(
     ctx: &Context,
     cmd: &CoreCommand,
-    guild_id: Option<GuildId>,
+    guild_id: Option<Id<GuildMarker>>,
     data: CommandDataCompact,
 ) -> BotResult<()> {
     let name = cmd.names[0];

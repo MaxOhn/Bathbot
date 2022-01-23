@@ -4,15 +4,15 @@ use hashbrown::HashMap;
 use rosu_v2::model::GameMode;
 use serde_json::Value;
 use sqlx::{types::Json, ColumnIndex, Decode, Error, FromRow, Row, Type};
-use std::{collections::HashMap as StdHashMap};
-use twilight_model::id::ChannelId;
+use std::collections::HashMap as StdHashMap;
+use twilight_model::id::{marker::ChannelMarker, Id};
 
 #[derive(Debug)]
 pub struct TrackingUser {
     pub user_id: u32,
     pub mode: GameMode,
     pub last_top_score: DateTime<Utc>,
-    pub channels: HashMap<ChannelId, usize>,
+    pub channels: HashMap<Id<ChannelMarker>, usize>,
 }
 
 impl TrackingUser {
@@ -20,7 +20,7 @@ impl TrackingUser {
         user_id: u32,
         mode: GameMode,
         last_top_score: DateTime<Utc>,
-        channel: ChannelId,
+        channel: Id<ChannelMarker>,
         limit: usize,
     ) -> Self {
         let mut channels = HashMap::new();
@@ -34,7 +34,7 @@ impl TrackingUser {
         }
     }
 
-    pub fn remove_channel(&mut self, channel: ChannelId) -> bool {
+    pub fn remove_channel(&mut self, channel: Id<ChannelMarker>) -> bool {
         self.channels.remove(&channel).is_some()
     }
 }
@@ -61,12 +61,11 @@ where
         let channels = match serde_json::from_value::<StdHashMap<String, usize>>(row.try_get(3)?) {
             Ok(channels) => channels
                 .into_iter()
-                .map(|(id, limit)| (ChannelId::new(id.parse().unwrap()).unwrap(), limit))
+                .map(|(id, limit)| (Id::new(id.parse().unwrap()), limit))
                 .collect(),
             Err(why) => {
-                let wrap = format!(
-                    "failed to deserialize tracking channels value for ({user_id},{mode})"
-                );
+                let wrap =
+                    format!("failed to deserialize tracking channels value for ({user_id},{mode})");
                 let report = Report::new(why).wrap_err(wrap);
                 warn!("{:?}", report);
 

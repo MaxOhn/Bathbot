@@ -8,7 +8,16 @@ pub use most_played::*;
 pub use profile::*;
 pub use score::*;
 
-use super::{prepare_score, require_link, MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32};
+use std::sync::Arc;
+
+use rosu_v2::prelude::{GameMode, Username};
+use twilight_model::{
+    application::interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+    id::{marker::UserMarker, Id},
+};
 
 use crate::{
     commands::{
@@ -23,15 +32,7 @@ use crate::{
     Args, BotResult, Context, Error,
 };
 
-use rosu_v2::prelude::{GameMode, Username};
-use std::sync::Arc;
-use twilight_model::{
-    application::interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
-    },
-    id::UserId,
-};
+use super::{prepare_score, require_link, MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32};
 
 const AT_LEAST_ONE: &str = "You need to specify at least one osu username. \
     If you're not linked, you must specify two names.";
@@ -47,7 +48,7 @@ impl TripleArgs {
     async fn args(
         ctx: &Context,
         args: &mut Args<'_>,
-        author_id: UserId,
+        author_id: Id<UserMarker>,
         mode: Option<GameMode>,
     ) -> DoubleResultCow<Self> {
         let name1 = match args.next() {

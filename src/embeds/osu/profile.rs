@@ -1,3 +1,11 @@
+use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
+
+use rosu_v2::prelude::{GameMode, Grade, User, UserStatistics};
+use twilight_model::{
+    channel::embed::EmbedField,
+    id::{marker::UserMarker, Id},
+};
+
 use crate::{
     commands::osu::{MinMaxAvgBasic, ProfileResult},
     embeds::{attachment, Author, EmbedBuilder, EmbedData, EmbedFields, Footer},
@@ -8,10 +16,6 @@ use crate::{
         osu::grade_emote,
     },
 };
-
-use rosu_v2::prelude::{GameMode, Grade, User, UserStatistics};
-use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
-use twilight_model::{channel::embed::EmbedField, id::UserId};
 
 #[derive(Clone)]
 pub struct ProfileEmbed {
@@ -55,7 +59,7 @@ impl ProfileEmbed {
         }
     }
 
-    pub fn medium(user: &User, bonus_pp: f32, discord_id: Option<UserId>) -> Self {
+    pub fn medium(user: &User, bonus_pp: f32, discord_id: Option<Id<UserMarker>>) -> Self {
         let mut title = format!(
             "{} statistics",
             match user.mode {
@@ -92,7 +96,7 @@ impl ProfileEmbed {
         profile_result: Option<&ProfileResult>,
         globals_count: &BTreeMap<usize, Cow<'static, str>>,
         own_top_scores: usize,
-        discord_id: Option<UserId>,
+        discord_id: Option<Id<UserMarker>>,
     ) -> Self {
         let mut title = format!(
             "{} statistics",

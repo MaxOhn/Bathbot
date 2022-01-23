@@ -16,7 +16,10 @@ use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use twilight_model::{
     guild::Permissions,
-    id::{GuildId, UserId},
+    id::{
+        marker::{GuildMarker, UserMarker},
+        Id,
+    },
 };
 
 use crate::{core::buckets::BucketName, util::Authored, BotResult, Context};
@@ -53,8 +56,8 @@ impl Display for ProcessResult {
 // Couldn't figure out -> Err()
 async fn check_authority(
     ctx: &Context,
-    author: UserId,
-    guild: Option<GuildId>,
+    author: Id<UserMarker>,
+    guild: Option<Id<GuildMarker>>,
 ) -> BotResult<Option<String>> {
     let (guild_id, (permissions, roles)) = match guild {
         Some(guild) => (guild, ctx.cache.get_guild_permissions(author, guild)),
@@ -127,8 +130,8 @@ async fn check_ratelimit(
 
 async fn _check_ratelimit(
     ctx: &Context,
-    author_id: UserId,
-    guild_id: Option<GuildId>,
+    author_id: Id<UserMarker>,
+    guild_id: Option<Id<GuildMarker>>,
     bucket: BucketName,
 ) -> Option<(i64, BucketName)> {
     let (ratelimit, bucket) = {

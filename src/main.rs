@@ -32,19 +32,10 @@ mod tracking;
 mod twitch;
 mod util;
 
-use crate::{
-    arguments::Args,
-    commands::SLASH_COMMANDS,
-    core::{
-        commands::{self as cmds, CommandData, CommandDataCompact},
-        logging, BotStats, Cache, Context, MatchLiveChannels, CONFIG,
-    },
-    custom_client::CustomClient,
-    database::Database,
-    error::Error,
-    tracking::OsuTracking,
-    twitch::Twitch,
-    util::{constants::BATHBOT_WORKSHOP_ID, MessageBuilder},
+use std::{
+    env,
+    sync::{atomic::Ordering, Arc},
+    time::Duration,
 };
 
 use bb8_redis::{bb8::Pool, RedisConnectionManager};
@@ -54,11 +45,6 @@ use futures::StreamExt;
 use hashbrown::HashSet;
 use parking_lot::Mutex;
 use rosu_v2::Osu;
-use std::{
-    env,
-    sync::{atomic::Ordering, Arc},
-    time::Duration,
-};
 use tokio::{
     runtime::Builder as RuntimeBuilder,
     signal,
@@ -78,7 +64,22 @@ use twilight_model::{
         presence::{ActivityType, Status},
         Intents,
     },
-    id::{GuildId, RoleId},
+    id::Id,
+};
+
+use crate::{
+    arguments::Args,
+    commands::SLASH_COMMANDS,
+    core::{
+        commands::{self as cmds, CommandData, CommandDataCompact},
+        logging, BotStats, Cache, Context, MatchLiveChannels, CONFIG,
+    },
+    custom_client::CustomClient,
+    database::Database,
+    error::Error,
+    tracking::OsuTracking,
+    twitch::Twitch,
+    util::{constants::BATHBOT_WORKSHOP_ID, MessageBuilder},
 };
 
 type BotResult<T> = std::result::Result<T, Error>;
@@ -123,14 +124,12 @@ async fn async_main() -> Result<()> {
     let http = Arc::new(http);
 
     let current_user = http.current_user().exec().await?.model().await?;
-    let application_id = current_user.id.0.into();
+    let application_id = current_user.id.cast();
 
     info!(
         "Connecting to Discord as {}#{}...",
         current_user.name, current_user.discriminator
     );
-
-    http.set_application_id(application_id);
 
     // Connect to psql database
     let db_uri = env::var("DATABASE_URL").wrap_err("missing DATABASE_URL in .env")?;
@@ -178,6 +177,7 @@ async fn async_main() -> Result<()> {
         map_garbage_collection: Mutex::new(HashSet::new()),
         match_live: MatchLiveChannels::new(),
         snipe_countries,
+        application_id,
     };
 
     let intents = Intents::GUILDS
@@ -213,25 +213,13 @@ async fn async_main() -> Result<()> {
     let stats = Arc::new(BotStats::new(osu.metrics()));
 
     // Build cluster
-    let (cluster, events) = Cluster::builder(&CONFIG.get().unwrap().tokens.discord, intents)
+    let (cluster, events) = Cluster::builder(CONFIG.get().unwrap().tokens.discord.clone(), intents)
         .event_types(EventTypeFlags::all() - ignore_flags)
         .http_client(http.clone())
         .shard_scheme(ShardScheme::Auto)
         // .resume_sessions(sessions)
         .build()
         .await?;
-
-    // Slash commands
-    let slash_commands = SLASH_COMMANDS.collect();
-    info!("Setting {} slash commands...", slash_commands.len());
-
-    if cfg!(debug_assertions) {
-        http.set_guild_commands(GuildId::new(BATHBOT_WORKSHOP_ID).unwrap(), &slash_commands)?
-            .exec()
-            .await?;
-    } else {
-        http.set_global_commands(&slash_commands)?.exec().await?;
-    }
 
     let clients = crate::core::Clients {
         psql,
@@ -245,6 +233,22 @@ async fn async_main() -> Result<()> {
 
     // Final context
     let ctx = Arc::new(Context::new(cache, stats, http, clients, cluster, data, member_tx).await);
+
+    // Slash commands
+    let slash_commands = SLASH_COMMANDS.collect();
+    info!("Setting {} slash commands...", slash_commands.len());
+
+    if cfg!(debug_assertions) {
+        ctx.interaction()
+            .set_guild_commands(Id::new(BATHBOT_WORKSHOP_ID), &slash_commands)
+            .exec()
+            .await?;
+    } else {
+        ctx.interaction()
+            .set_global_commands(&slash_commands)
+            .exec()
+            .await?;
+    }
 
     // Spawn server worker
     let server_ctx = Arc::clone(&ctx);
@@ -515,7 +519,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
 
             if let Some(guild_id) = reaction.guild_id {
                 if let Some(roles) = ctx.get_role_assigns(reaction) {
-                    for role_id in roles.into_iter().filter_map(RoleId::new) {
+                    for role_id in roles.into_iter().map(Id::new) {
                         let add_role_fut =
                             ctx.http
                                 .add_guild_member_role(guild_id, reaction.user_id, role_id);
@@ -534,7 +538,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
 
             if let Some(guild_id) = reaction.guild_id {
                 if let Some(roles) = ctx.get_role_assigns(reaction) {
-                    for role_id in roles.into_iter().filter_map(RoleId::new) {
+                    for role_id in roles.into_iter().map(Id::new) {
                         let remove_role_fut =
                             ctx.http
                                 .remove_guild_member_role(guild_id, reaction.user_id, role_id);

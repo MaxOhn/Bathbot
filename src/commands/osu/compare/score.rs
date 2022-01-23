@@ -13,7 +13,7 @@ use twilight_model::{
         ApplicationCommand,
     },
     channel::message::MessageType,
-    id::UserId,
+    id::{marker::UserMarker, Id},
 };
 
 use crate::{
@@ -410,7 +410,11 @@ pub(super) struct ScoreArgs {
 }
 
 impl ScoreArgs {
-    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: Id<UserMarker>,
+    ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
         let mut id = None;
         let mut mods = None;

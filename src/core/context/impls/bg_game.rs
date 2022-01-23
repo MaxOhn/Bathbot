@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use dashmap::mapref::entry::Entry;
 use eyre::Report;
-use twilight_model::id::ChannelId;
+use twilight_model::id::{marker::ChannelMarker, Id};
 
 use crate::{
     bg_game::{BgGameError, GameWrapper},
@@ -13,7 +13,7 @@ use crate::{
 impl Context {
     pub async fn add_game_and_start(
         this: Arc<Context>,
-        channel: ChannelId,
+        channel: Id<ChannelMarker>,
         mapsets: Vec<MapsetTagWrapper>,
     ) {
         if this.data.bg_games.get(&channel).is_some() {
@@ -38,14 +38,14 @@ impl Context {
         }
     }
 
-    pub fn has_running_game(&self, channel: ChannelId) -> bool {
+    pub fn has_running_game(&self, channel: Id<ChannelMarker>) -> bool {
         self.data
             .bg_games
             .iter()
             .any(|guard| *guard.key() == channel)
     }
 
-    pub fn game_channels(&self) -> Vec<ChannelId> {
+    pub fn game_channels(&self) -> Vec<Id<ChannelMarker>> {
         self.data
             .bg_games
             .iter()
@@ -53,14 +53,14 @@ impl Context {
             .collect()
     }
 
-    pub fn restart_game(&self, channel: ChannelId) -> BotResult<bool> {
+    pub fn restart_game(&self, channel: Id<ChannelMarker>) -> BotResult<bool> {
         match self.data.bg_games.get(&channel) {
             Some(game) => Ok(game.restart().map(|_| true)?),
             None => Ok(false),
         }
     }
 
-    pub fn stop_game(&self, channel: ChannelId) -> BotResult<bool> {
+    pub fn stop_game(&self, channel: Id<ChannelMarker>) -> BotResult<bool> {
         if self.data.bg_games.contains_key(&channel) {
             if let Some(game) = self.data.bg_games.get(&channel) {
                 game.stop()?;
@@ -72,18 +72,18 @@ impl Context {
         }
     }
 
-    pub fn remove_game(&self, channel: ChannelId) {
+    pub fn remove_game(&self, channel: Id<ChannelMarker>) {
         self.data.bg_games.remove(&channel);
     }
 
-    pub fn game_hint(&self, channel: ChannelId) -> Result<String, BgGameError> {
+    pub fn game_hint(&self, channel: Id<ChannelMarker>) -> Result<String, BgGameError> {
         match self.data.bg_games.get(&channel) {
             Some(game) => Ok(game.hint()),
             None => Err(BgGameError::NoGame),
         }
     }
 
-    pub fn game_bigger(&self, channel: ChannelId) -> Result<Vec<u8>, BgGameError> {
+    pub fn game_bigger(&self, channel: Id<ChannelMarker>) -> Result<Vec<u8>, BgGameError> {
         match self.data.bg_games.get(&channel) {
             Some(game) => game.sub_image(),
             None => Err(BgGameError::NoGame),

@@ -1,6 +1,9 @@
 use std::{borrow::Cow, fmt::Write, sync::Arc};
 
-use twilight_model::{guild::Permissions, id::RoleId};
+use twilight_model::{
+    guild::Permissions,
+    id::{marker::RoleMarker, Id},
+};
 
 use crate::{
     util::{
@@ -218,10 +221,10 @@ pub(super) enum AuthorityCommandKind {
     Add(u64),
     List,
     Remove(u64),
-    Replace(Vec<RoleId>),
+    Replace(Vec<Id<RoleMarker>>),
 }
 
-fn parse_role(arg: &str) -> Result<RoleId, Cow<'static, str>> {
+fn parse_role(arg: &str) -> Result<Id<RoleMarker>, Cow<'static, str>> {
     matcher::get_mention_role(arg)
         .ok_or_else(|| format!("Expected role mention or role id, got `{arg}`").into())
 }

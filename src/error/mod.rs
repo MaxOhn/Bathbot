@@ -7,13 +7,8 @@ pub use pp::PPError;
 pub use twitch::TwitchError;
 
 use plotters::drawing::DrawingAreaErrorKind;
-use twilight_http::request::{
-    application::{
-        interaction::update_original_response::UpdateOriginalResponseError, InteractionError,
-    },
-    channel::message::{create_message::CreateMessageError, update_message::UpdateMessageError},
-};
 use twilight_model::application::interaction::{ApplicationCommand, MessageComponentInteraction};
+use twilight_validate::message::MessageValidationError;
 
 #[macro_export]
 macro_rules! bail {
@@ -36,8 +31,6 @@ pub enum Error {
     ClusterCommand(#[from] twilight_gateway::cluster::ClusterCommandError),
     #[error("failed to start cluster")]
     ClusterStart(#[from] twilight_gateway::cluster::ClusterStartError),
-    #[error("error while creating message")]
-    CreateMessage(#[from] CreateMessageError),
     #[error("chrono parse error")]
     ChronoParse(#[from] chrono::format::ParseError),
     #[error("command error: {1}")]
@@ -52,8 +45,6 @@ pub enum Error {
     Fmt(#[from] std::fmt::Error),
     #[error("image error")]
     Image(#[from] image::ImageError),
-    #[error("interaction error")]
-    Interaction(#[from] InteractionError),
     #[error("received invalid options for command")]
     InvalidCommandOptions,
     #[error("config file was not in correct format")]
@@ -64,6 +55,8 @@ pub enum Error {
     Io(#[from] tokio::io::Error),
     #[error("error while downloading map")]
     MapDownload(#[from] map_download::MapDownloadError),
+    #[error("failed to validate message")]
+    MessageValidation(#[from] MessageValidationError),
     #[error("interaction contained neighter member nor user")]
     MissingInteractionAuthor,
     #[error("config file was not found")]
@@ -97,10 +90,6 @@ pub enum Error {
         name: String,
         command: Box<ApplicationCommand>,
     },
-    #[error("error while updating message")]
-    UpdateMessage(#[from] UpdateMessageError),
-    #[error("update original response error")]
-    UpdateOriginalResponse(#[from] UpdateOriginalResponseError),
 }
 
 #[derive(Debug, thiserror::Error)]

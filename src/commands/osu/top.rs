@@ -20,7 +20,7 @@ use twilight_model::{
             ApplicationCommand,
         },
     },
-    id::UserId,
+    id::{marker::UserMarker, Id},
 };
 
 use crate::{
@@ -914,7 +914,7 @@ impl TopArgs {
     async fn args(
         ctx: &Context,
         args: &mut Args<'_>,
-        author_id: UserId,
+        author_id: Id<UserMarker>,
         index: Option<usize>,
     ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;

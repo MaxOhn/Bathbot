@@ -1,4 +1,17 @@
-use super::{PageChange, Pages, PaginationResult};
+use std::{borrow::Cow, cmp::Reverse, sync::Arc};
+
+use eyre::Report;
+use hashbrown::HashMap;
+use rosu_v2::prelude::{MedalCompact, User};
+use tokio::time::{sleep, Duration};
+use tokio_stream::StreamExt;
+use twilight_gateway::Event;
+use twilight_http::error::ErrorType;
+use twilight_model::{
+    channel::{Message, Reaction, ReactionType},
+    id::{marker::UserMarker, Id},
+};
+
 use crate::{
     commands::osu::MedalAchieved,
     custom_client::{OsekaiComment, OsekaiMap, OsekaiMedal},
@@ -8,18 +21,7 @@ use crate::{
     BotResult, Context,
 };
 
-use eyre::Report;
-use hashbrown::HashMap;
-use rosu_v2::prelude::{MedalCompact, User};
-use std::{borrow::Cow, cmp::Reverse, sync::Arc};
-use tokio::time::{sleep, Duration};
-use tokio_stream::StreamExt;
-use twilight_gateway::Event;
-use twilight_http::error::ErrorType;
-use twilight_model::{
-    channel::{Message, Reaction, ReactionType},
-    id::UserId,
-};
+use super::{PageChange, Pages, PaginationResult};
 
 struct CachedMedal {
     medal: OsekaiMedal,
@@ -93,7 +95,12 @@ impl MedalRecentPagination {
         ]
     }
 
-    pub async fn start(mut self, ctx: &Context, owner: UserId, duration: u64) -> PaginationResult {
+    pub async fn start(
+        mut self,
+        ctx: &Context,
+        owner: Id<UserMarker>,
+        duration: u64,
+    ) -> PaginationResult {
         let msg_id = self.msg.id;
         ctx.store_msg(msg_id);
         let reactions = Self::reactions();

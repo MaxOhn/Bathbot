@@ -7,7 +7,7 @@ use twilight_model::{
         application_command::{CommandDataOption, CommandOptionValue},
         ApplicationCommand,
     },
-    id::UserId,
+    id::{marker::UserMarker, Id},
 };
 
 use crate::{
@@ -159,9 +159,8 @@ pub(super) async fn _recentleaderboard(
     };
 
     // Sending the embed
-    let content = format!(
-        "I found {amount} scores with the specified mods on the map's leaderboard"
-    );
+    let content =
+        format!("I found {amount} scores with the specified mods on the map's leaderboard");
 
     let embed = embed_data.into_builder().build();
     let builder = MessageBuilder::new().content(content).embed(embed);
@@ -474,7 +473,7 @@ impl RecentLeaderboardArgs {
     async fn args(
         ctx: &Context,
         args: &mut Args<'_>,
-        author_id: UserId,
+        author_id: Id<UserMarker>,
         index: Option<usize>,
     ) -> DoubleResultCow<Self> {
         let config = ctx.user_config(author_id).await?;

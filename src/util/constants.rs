@@ -30,6 +30,10 @@ pub const OSU_DAILY_ISSUE: &str = "Some issue with the osudaily api, blame bade"
 pub const OSUSTATS_API_ISSUE: &str = "Some issue with the osustats api, blame bade";
 pub const TWITCH_API_ISSUE: &str = "Some issue with the twitch api, blame bade";
 
+// Discord error codes
+pub const MESSAGE_TOO_OLD_TO_BULK_DELETE: u64 = 50034;
+pub const UNKNOWN_CHANNEL: u64 = 10003;
+
 // Misc
 pub const OWNER_USER_ID: u64 = 219905108316520448;
 pub const SYMBOLS: [&str; 6] = ["♔", "♕", "♖", "♗", "♘", "♙"];

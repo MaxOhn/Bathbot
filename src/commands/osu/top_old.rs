@@ -14,7 +14,7 @@ use twilight_model::{
             ApplicationCommand,
         },
     },
-    id::UserId,
+    id::{marker::UserMarker, Id},
 };
 
 use crate::{
@@ -569,7 +569,7 @@ impl OldArgs {
     async fn args(
         ctx: &Context,
         args: &mut Args<'_>,
-        author_id: UserId,
+        author_id: Id<UserMarker>,
         mode: GameMode,
     ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;

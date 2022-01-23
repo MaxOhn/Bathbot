@@ -6,15 +6,19 @@ mod shutdown;
 mod twitch;
 
 pub use background_loop::GarbageCollectMap;
-use dashmap::mapref::entry::Entry;
 pub use match_live::{MatchLiveChannels, MatchTrackResult};
 
-use crate::{util::CountryCode, BotResult, Context, OsuTracking};
-
+use dashmap::mapref::entry::Entry;
+use twilight_http::client::InteractionClient;
 use twilight_model::{
     channel::{Message, Reaction},
-    id::{ChannelId, MessageId, RoleId},
+    id::{
+        marker::{ChannelMarker, MessageMarker, RoleMarker},
+        Id,
+    },
 };
+
+use crate::{util::CountryCode, BotResult, Context, OsuTracking};
 
 use super::AssignRoles;
 
@@ -25,6 +29,10 @@ impl Context {
             Ok(user) => user.id == other.author.id,
             Err(_) => false,
         }
+    }
+
+    pub fn interaction(&self) -> InteractionClient<'_> {
+        self.http.interaction(self.data.application_id)
     }
 
     pub fn get_role_assigns(&self, reaction: &Reaction) -> Option<AssignRoles> {
@@ -38,7 +46,10 @@ impl Context {
         &self.data.osu_tracking
     }
 
-    pub async fn retrieve_channel_history(&self, channel_id: ChannelId) -> BotResult<Vec<Message>> {
+    pub async fn retrieve_channel_history(
+        &self,
+        channel_id: Id<ChannelMarker>,
+    ) -> BotResult<Vec<Message>> {
         self.http
             .channel_messages(channel_id)
             .limit(50)
@@ -52,13 +63,13 @@ impl Context {
 
     /// Store a message id to register whether the message is not yet
     /// deleted on a later point when calling `remove_msg`.
-    pub fn store_msg(&self, msg: MessageId) {
+    pub fn store_msg(&self, msg: Id<MessageMarker>) {
         self.data.msgs_to_process.insert(msg);
     }
 
     /// Returns false if either `store_msg` was not called for the message id
     /// or if the message was deleted between the `store_msg` call and this call.
-    pub fn remove_msg(&self, msg: MessageId) -> bool {
+    pub fn remove_msg(&self, msg: Id<MessageMarker>) -> bool {
         self.data.msgs_to_process.remove(&msg).is_some()
     }
 
@@ -83,7 +94,12 @@ impl Context {
     }
 
     #[cold]
-    pub fn add_role_assign(&self, channel_id: ChannelId, msg_id: MessageId, role_id: RoleId) {
+    pub fn add_role_assign(
+        &self,
+        channel_id: Id<ChannelMarker>,
+        msg_id: Id<MessageMarker>,
+        role_id: Id<RoleMarker>,
+    ) {
         let role_id = role_id.get();
 
         let mut roles = self
@@ -98,7 +114,12 @@ impl Context {
     }
 
     #[cold]
-    pub fn remove_role_assign(&self, channel_id: ChannelId, msg_id: MessageId, role_id: RoleId) {
+    pub fn remove_role_assign(
+        &self,
+        channel_id: Id<ChannelMarker>,
+        msg_id: Id<MessageMarker>,
+        role_id: Id<RoleMarker>,
+    ) {
         let entry = self
             .data
             .role_assigns

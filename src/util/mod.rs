@@ -19,25 +19,21 @@ pub use exts::*;
 pub use matrix::Matrix;
 pub use message_builder::MessageBuilder;
 
-use crate::{BotResult, Context};
+use std::iter::Extend;
 
 use futures::stream::{FuturesOrdered, StreamExt};
 use hashbrown::HashSet;
 use image::{
     imageops::FilterType, DynamicImage, GenericImage, GenericImageView, ImageOutputFormat::Png,
 };
-use std::iter::Extend;
 use tokio::time::{sleep, Duration};
 use twilight_http::error::ErrorType;
 use twilight_model::{
     channel::Message,
-    id::{GuildId, UserId},
+    id::{marker::GuildMarker, Id},
 };
 
-#[allow(dead_code)]
-pub fn discord_avatar(user_id: UserId, hash: &str) -> String {
-    format!("https://cdn.discordapp.com/avatars/{user_id}/{hash}.webp?size=1024",)
-}
+use crate::{BotResult, Context};
 
 macro_rules! get {
     ($slice:ident[$idx:expr]) => {
@@ -271,7 +267,7 @@ pub async fn get_combined_thumbnail<'s>(
     Ok(png_bytes)
 }
 
-pub async fn get_member_ids(ctx: &Context, guild_id: GuildId) -> BotResult<HashSet<u64>> {
+pub async fn get_member_ids(ctx: &Context, guild_id: Id<GuildMarker>) -> BotResult<HashSet<u64>> {
     let members = ctx
         .http
         .guild_members(guild_id)

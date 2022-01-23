@@ -51,24 +51,25 @@ pub use recent_list::RecentListPagination;
 pub use sniped_difference::SnipedDiffPagination;
 pub use top::TopPagination;
 pub use top_if::TopIfPagination;
+
+use std::{borrow::Cow, time::Duration};
+
+use eyre::Report;
+use smallvec::SmallVec;
+use tokio::time::sleep;
+use tokio_stream::StreamExt;
 use twilight_gateway::Event;
+use twilight_http::error::ErrorType;
+use twilight_model::{
+    channel::{Message, Reaction, ReactionType},
+    id::{marker::UserMarker, Id},
+};
 
 use crate::{
     embeds::EmbedData,
     error::Error,
     util::{numbers, send_reaction, Emote},
     BotResult, Context,
-};
-
-use eyre::Report;
-use smallvec::SmallVec;
-use std::{borrow::Cow, time::Duration};
-use tokio::time::sleep;
-use tokio_stream::StreamExt;
-use twilight_http::error::ErrorType;
-use twilight_model::{
-    channel::{Message, Reaction, ReactionType},
-    id::UserId,
 };
 
 type ReactionVec = SmallVec<[Emote; 7]>;
@@ -147,7 +148,12 @@ pub trait Pagination: Sync + Sized {
     }
 
     // Don't implement anything else
-    async fn start(mut self, ctx: &Context, owner: UserId, duration: u64) -> PaginationResult {
+    async fn start(
+        mut self,
+        ctx: &Context,
+        owner: Id<UserMarker>,
+        duration: u64,
+    ) -> PaginationResult {
         ctx.store_msg(self.msg().id);
 
         let reactions = Self::reactions();

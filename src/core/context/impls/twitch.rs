@@ -1,6 +1,6 @@
 use crate::Context;
 
-use twilight_model::id::ChannelId;
+use twilight_model::id::{marker::ChannelMarker, Id};
 
 impl Context {
     pub fn add_tracking(&self, twitch_id: u64, channel_id: u64) {
@@ -30,17 +30,17 @@ impl Context {
             .collect()
     }
 
-    pub fn tracked_channels_for(&self, twitch_id: u64) -> Option<Vec<ChannelId>> {
+    pub fn tracked_channels_for(&self, twitch_id: u64) -> Option<Vec<Id<ChannelMarker>>> {
         self.data.tracked_streams.get(&twitch_id).map(|guard| {
             guard
                 .value()
                 .iter()
-                .map(|&channel| ChannelId::new(channel).unwrap())
+                .map(|&channel| Id::new(channel))
                 .collect()
         })
     }
 
-    pub fn tracked_users_in(&self, channel: ChannelId) -> Vec<u64> {
+    pub fn tracked_users_in(&self, channel: Id<ChannelMarker>) -> Vec<u64> {
         self.data
             .tracked_streams
             .iter()

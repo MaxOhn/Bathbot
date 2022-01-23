@@ -7,7 +7,7 @@ use twilight_model::{
         application_command::{CommandDataOption, CommandOptionValue},
         ApplicationCommand,
     },
-    id::UserId,
+    id::{marker::UserMarker, Id},
 };
 
 use crate::{
@@ -227,7 +227,11 @@ struct PpArgs {
 }
 
 impl PpArgs {
-    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: Id<UserMarker>,
+    ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
         let mut pp = None;
 

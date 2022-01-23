@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError};
-use twilight_model::id::UserId;
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::{
@@ -230,7 +230,11 @@ pub(super) struct PlayerListArgs {
 }
 
 impl PlayerListArgs {
-    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: Id<UserMarker>,
+    ) -> DoubleResultCow<Self> {
         let mut osu = ctx.psql().get_user_osu(author_id).await?;
         let mut order = None;
         let mut mods = None;

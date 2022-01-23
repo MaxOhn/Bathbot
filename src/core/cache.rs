@@ -12,7 +12,10 @@ use twilight_model::{
         GuildChannel,
     },
     guild::{Permissions, Role},
-    id::{ChannelId, GuildId, RoleId, UserId},
+    id::{
+        marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
+        Id,
+    },
     user::CurrentUser,
 };
 
@@ -47,7 +50,7 @@ impl Cache {
         self.0.stats()
     }
 
-    pub fn channel<F, T>(&self, channel: ChannelId, f: F) -> CacheResult<T>
+    pub fn channel<F, T>(&self, channel: Id<ChannelMarker>, f: F) -> CacheResult<T>
     where
         F: FnOnce(&GuildResource<GuildChannel>) -> T,
     {
@@ -63,7 +66,7 @@ impl Cache {
         self.0.current_user().ok_or(CacheMiss::CurrentUser)
     }
 
-    pub fn guild<F, T>(&self, guild: GuildId, f: F) -> CacheResult<T>
+    pub fn guild<F, T>(&self, guild: Id<GuildMarker>, f: F) -> CacheResult<T>
     where
         F: FnOnce(&CachedGuild) -> T,
     {
@@ -72,7 +75,7 @@ impl Cache {
         Ok(f(&guild))
     }
 
-    pub fn member<F, T>(&self, guild: GuildId, user: UserId, f: F) -> CacheResult<T>
+    pub fn member<F, T>(&self, guild: Id<GuildMarker>, user: Id<UserMarker>, f: F) -> CacheResult<T>
     where
         F: FnOnce(&CachedMember) -> T,
     {
@@ -84,7 +87,7 @@ impl Cache {
         Ok(f(&member))
     }
 
-    pub fn role<F, T>(&self, role: RoleId, f: F) -> CacheResult<T>
+    pub fn role<F, T>(&self, role: Id<RoleMarker>, f: F) -> CacheResult<T>
     where
         F: FnOnce(&GuildResource<Role>) -> T,
     {
@@ -93,14 +96,18 @@ impl Cache {
         Ok(f(&role))
     }
 
-    pub fn is_guild_owner(&self, guild: GuildId, user: UserId) -> CacheResult<bool> {
+    pub fn is_guild_owner(
+        &self,
+        guild: Id<GuildMarker>,
+        user: Id<UserMarker>,
+    ) -> CacheResult<bool> {
         self.guild(guild, |g| g.owner_id() == user)
     }
 
     pub fn get_guild_permissions(
         &self,
-        user: UserId,
-        guild: GuildId,
+        user: Id<UserMarker>,
+        guild: Id<GuildMarker>,
     ) -> (Permissions, RolesLookup) {
         if user.get() == OWNER_USER_ID {
             return (Permissions::all(), RolesLookup::NotChecked);
@@ -134,9 +141,9 @@ impl Cache {
 
     pub fn get_channel_permissions(
         &self,
-        user: UserId,
-        channel: ChannelId,
-        guild: GuildId,
+        user: Id<UserMarker>,
+        channel: Id<ChannelMarker>,
+        guild: Id<GuildMarker>,
     ) -> Permissions {
         let (mut permissions, roles) = self.get_guild_permissions(user, guild);
 
@@ -172,10 +179,10 @@ impl Cache {
 
     fn text_channel_permissions(
         permissions: &mut Permissions,
-        user: UserId,
-        guild: GuildId,
+        user: Id<UserMarker>,
+        guild: Id<GuildMarker>,
         permission_overwrites: Vec<PermissionOverwrite>,
-        roles: Vec<RoleId>,
+        roles: Vec<Id<RoleMarker>>,
     ) {
         let mut everyone_allowed = Permissions::empty();
         let mut everyone_denied = Permissions::empty();
@@ -193,7 +200,7 @@ impl Cache {
                     }
                 }
                 PermissionOverwriteType::Role(role) => {
-                    if role.0 == guild.0 {
+                    if role.get() == guild.get() {
                         everyone_allowed |= overwrite.allow;
                         everyone_denied |= overwrite.deny
                     } else if roles.contains(&role) {
@@ -214,7 +221,10 @@ impl Cache {
         *permissions |= user_allowed;
     }
 
-    fn permission_overwrite(&self, channel: Option<ChannelId>) -> Option<Vec<PermissionOverwrite>> {
+    fn permission_overwrite(
+        &self,
+        channel: Option<Id<ChannelMarker>>,
+    ) -> Option<Vec<PermissionOverwrite>> {
         channel.and_then(|channel| {
             self.channel(channel, |c| match c.deref() {
                 GuildChannel::Text(c) => Some(c.permission_overwrites.clone()),
@@ -229,19 +239,22 @@ impl Cache {
 #[derive(Debug, Error)]
 pub enum CacheMiss {
     #[error("missing channel {channel}")]
-    Channel { channel: ChannelId },
+    Channel { channel: Id<ChannelMarker> },
     #[error("missing current user")]
     CurrentUser,
     #[error("missing guild {guild}")]
-    Guild { guild: GuildId },
+    Guild { guild: Id<GuildMarker> },
     #[error("missing member {user} in guild {guild}")]
-    Member { guild: GuildId, user: UserId },
+    Member {
+        guild: Id<GuildMarker>,
+        user: Id<UserMarker>,
+    },
     #[error("missing role {role}")]
-    Role { role: RoleId },
+    Role { role: Id<RoleMarker> },
 }
 
 pub enum RolesLookup {
-    Found(Vec<RoleId>),
+    Found(Vec<Id<RoleMarker>>),
     NotChecked,
     NotFound,
 }

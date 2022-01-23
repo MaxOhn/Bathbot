@@ -1,9 +1,11 @@
-use super::{Pages, Pagination, ReactionVec};
-use crate::{embeds::BGRankingEmbed, util::Emote, BotResult, Context};
+use std::sync::Arc;
 
 use hashbrown::HashMap;
-use std::sync::Arc;
-use twilight_model::{channel::Message, id::UserId};
+use twilight_model::{channel::Message, id::Id};
+
+use crate::{embeds::BGRankingEmbed, util::Emote, BotResult, Context};
+
+use super::{Pages, Pagination, ReactionVec};
 
 pub struct BGRankingPagination {
     msg: Message,
@@ -76,7 +78,7 @@ impl Pagination for BGRankingPagination {
             .map(|(id, _)| id)
         {
             if !self.usernames.contains_key(id) {
-                let name = match self.ctx.http.user(UserId::new(*id).unwrap()).exec().await {
+                let name = match self.ctx.http.user(Id::new(*id)).exec().await {
                     Ok(user_res) => match user_res.model().await {
                         Ok(user) => user.name,
                         Err(_) => String::from("Unknown user"),

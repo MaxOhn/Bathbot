@@ -3,14 +3,17 @@ use crate::CommandData;
 use twilight_model::{
     application::interaction::ApplicationCommand,
     channel::Message,
-    id::{ChannelId, GuildId},
+    id::{
+        marker::{ChannelMarker, GuildMarker},
+        Id,
+    },
     user::User,
 };
 
 pub trait Authored {
     fn author(&self) -> Option<&User>;
-    fn guild_id(&self) -> Option<GuildId>;
-    fn channel_id(&self) -> ChannelId;
+    fn guild_id(&self) -> Option<Id<GuildMarker>>;
+    fn channel_id(&self) -> Id<ChannelMarker>;
 }
 
 impl Authored for Message {
@@ -18,11 +21,11 @@ impl Authored for Message {
         Some(&self.author)
     }
 
-    fn guild_id(&self) -> Option<GuildId> {
+    fn guild_id(&self) -> Option<Id<GuildMarker>> {
         self.guild_id
     }
 
-    fn channel_id(&self) -> ChannelId {
+    fn channel_id(&self) -> Id<ChannelMarker> {
         self.channel_id
     }
 }
@@ -35,11 +38,11 @@ impl Authored for ApplicationCommand {
             .or_else(|| self.user.as_ref())
     }
 
-    fn guild_id(&self) -> Option<GuildId> {
+    fn guild_id(&self) -> Option<Id<GuildMarker>> {
         self.guild_id
     }
 
-    fn channel_id(&self) -> ChannelId {
+    fn channel_id(&self) -> Id<ChannelMarker> {
         self.channel_id
     }
 }
@@ -52,14 +55,14 @@ impl Authored for CommandData<'_> {
         }
     }
 
-    fn guild_id(&self) -> Option<GuildId> {
+    fn guild_id(&self) -> Option<Id<GuildMarker>> {
         match self {
             CommandData::Message { msg, .. } => msg.guild_id(),
             CommandData::Interaction { command } => command.guild_id(),
         }
     }
 
-    fn channel_id(&self) -> ChannelId {
+    fn channel_id(&self) -> Id<ChannelMarker> {
         match self {
             CommandData::Message { msg, .. } => msg.channel_id(),
             CommandData::Interaction { command } => command.channel_id(),

@@ -4,7 +4,10 @@ use eyre::Report;
 use tokio::time::timeout;
 use twilight_model::{
     application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
-    id::{ChannelId, MessageId, RoleId},
+    id::{
+        marker::{ChannelMarker, MessageMarker, RoleMarker},
+        Id,
+    },
 };
 
 use crate::{
@@ -68,9 +71,8 @@ async fn _roleassign(
         Err(why) => {
             let _ = data.error(&ctx, "No message found with this id").await;
 
-            let wrap = format!(
-                "(Channel,Message) ({channel_id},{msg_id}) for roleassign was not found"
-            );
+            let wrap =
+                format!("(Channel,Message) ({channel_id},{msg_id}) for roleassign was not found");
 
             let report = Report::new(why).wrap_err(wrap);
             warn!("{:?}", report);
@@ -121,9 +123,7 @@ async fn _roleassign(
                 Ok(Err(_)) => {
                     let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
-                    bail!(
-                        "no member data in guild {guild_id} for CurrentUser in cache"
-                    );
+                    bail!("no member data in guild {guild_id} for CurrentUser in cache");
                 }
                 Err(_) => {
                     let _ = data.error(&ctx, GENERAL_ISSUE).await;
@@ -222,9 +222,9 @@ enum Kind {
 
 struct RoleAssignArgs {
     kind: Kind,
-    channel: ChannelId,
-    msg: MessageId,
-    role: RoleId,
+    channel: Id<ChannelMarker>,
+    msg: Id<MessageMarker>,
+    role: Id<RoleMarker>,
 }
 
 impl RoleAssignArgs {
@@ -239,7 +239,7 @@ impl RoleAssignArgs {
 
         let msg = match args.next() {
             Some(arg) => match arg.parse() {
-                Ok(id) => MessageId(id),
+                Ok(id) => Id::new(id),
                 Err(_) => return Err("The second argument must be a message id."),
             },
             None => return Err("You must provide a channel, a message, and a role."),
@@ -283,7 +283,7 @@ impl RoleAssignArgs {
 
                                     return Ok(Err(content));
                                 }
-                                Ok(num) => msg = Some(MessageId::new(num).unwrap()),
+                                Ok(num) => msg = Some(Id::new(num)),
                                 Err(_) => {
                                     let content =
                                         "Failed to parse message id. Be sure its a valid integer.";

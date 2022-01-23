@@ -3,7 +3,10 @@ use crate::{util, Args, BotResult, Error};
 use twilight_model::{
     application::interaction::ApplicationCommand,
     channel::Message,
-    id::{ChannelId, GuildId, InteractionId, MessageId},
+    id::{
+        marker::{ChannelMarker, GuildMarker, InteractionMarker, MessageMarker},
+        Id,
+    },
     user::User,
 };
 
@@ -19,11 +22,11 @@ pub enum CommandData<'m> {
 }
 
 impl CommandData<'_> {
-    pub fn guild_id(&self) -> Option<GuildId> {
+    pub fn guild_id(&self) -> Option<Id<GuildMarker>> {
         util::Authored::guild_id(self)
     }
 
-    pub fn channel_id(&self) -> ChannelId {
+    pub fn channel_id(&self) -> Id<ChannelMarker> {
         util::Authored::channel_id(self)
     }
 
@@ -47,11 +50,11 @@ impl From<ApplicationCommand> for CommandData<'_> {
 
 pub enum CommandDataCompact {
     Message {
-        msg_id: MessageId,
-        channel_id: ChannelId,
+        msg_id: Id<MessageMarker>,
+        channel_id: Id<ChannelMarker>,
     },
     Interaction {
-        interaction_id: InteractionId,
+        interaction_id: Id<InteractionMarker>,
         token: String,
     },
 }

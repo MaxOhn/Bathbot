@@ -132,6 +132,7 @@ dependencies = [
  "twilight-http",
  "twilight-model",
  "twilight-standby",
+ "twilight-validate",
 ]
 
 [[package]]
@@ -1132,9 +1133,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "leaky-bucket-lite"
-version = "0.2.2"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4cbc90428928528dc9ad276fe4d50d30aa26b6a148006e0269ef6915357bad16"
+checksum = "5774988d5facf43b785bfe0b2bbfa777daa22c6bae74a314e8b58563e5752771"
 dependencies = [
  "tokio",
 ]
@@ -2626,9 +2627,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-tungstenite"
-version = "0.16.0"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e057364a4dd37870b33bf8dc1885d29187d90770f488d599d3ee8d9e4916fbd3"
+checksum = "e80b39df6afcc12cdf752398ade96a6b9e99c903dfdc36e53ad10b9c366bca72"
 dependencies = [
  "futures-util",
  "log",
@@ -2776,9 +2777,9 @@ dependencies = [
 
 [[package]]
 name = "twilight-cache-inmemory"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45f41fb4d18f9f724ee922642c721de03446ee9cae5d40b7ee1f0e9286011122"
+checksum = "c2c375ba4ac728a0aef35eae2d3343833c01736c0f702c080b7bfbecee15ea3c"
 dependencies = [
  "bitflags",
  "dashmap",
@@ -2788,14 +2789,16 @@ dependencies = [
 
 [[package]]
 name = "twilight-gateway"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7994eba6d57fa20f630f0a59bcc1151a4903b3582a6073b726888a5219b2acf4"
+checksum = "6457d1261725b8f3f5e7b1485acf5e3b10be0bf764ce2955047fbb0b889b9abf"
 dependencies = [
  "bitflags",
  "flate2",
  "futures-util",
  "leaky-bucket-lite",
+ "rustls 0.20.2",
+ "rustls-native-certs",
  "serde",
  "serde_json",
  "tokio",
@@ -2809,9 +2812,9 @@ dependencies = [
 
 [[package]]
 name = "twilight-gateway-queue"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cd8b10f21852eea54c33b899bf0b7c2cb0811447e3d14782a93322bd5545705"
+checksum = "1aa90da65b5e09fe68770ecf370070bb9f227e14e50fa4897d1a5e0e77293404"
 dependencies = [
  "tokio",
  "twilight-http",
@@ -2819,9 +2822,9 @@ dependencies = [
 
 [[package]]
 name = "twilight-http"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9bf5b89606ec28c09950ccfe13f659d189c5e7a1e3c232bdb15b766bc1b00663"
+checksum = "c42dc0df5dd95a1eaffa75b623408b7f5af92dc6205050ddba1a3f738074b517"
 dependencies = [
  "hyper",
  "hyper-rustls",
@@ -2832,13 +2835,14 @@ dependencies = [
  "tokio",
  "twilight-http-ratelimiting",
  "twilight-model",
+ "twilight-validate",
 ]
 
 [[package]]
 name = "twilight-http-ratelimiting"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a84d3e4c5df6309b91dcea2338e3b3f5e1a9b1fe69a55563251cdccecd238db0"
+checksum = "6a8cc3e7563b2d76949160753a275bc6fc4105bc70146b150e24e9662d2f5f6a"
 dependencies = [
  "futures-util",
  "http",
@@ -2847,9 +2851,9 @@ dependencies = [
 
 [[package]]
 name = "twilight-model"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e11302b781e0368ebce961e97fa7a79e43442a437bf911abc7febc7932e7b316"
+checksum = "fb5c29836682ef9915f872367386eac5b8bd2beafa6d5eae2d26bc0275380244"
 dependencies = [
  "bitflags",
  "serde",
@@ -2860,13 +2864,22 @@ dependencies = [
 
 [[package]]
 name = "twilight-standby"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff9d1db078a674a9d9ca2a0af38d7a62a3b1e7d4e5ee249adc637fbbe7c6a6e1"
+checksum = "d35dcadb53c7bb05e45f17a69335cdd40907a9a2fa75e8cc2e53a373a84251e7"
 dependencies = [
  "dashmap",
  "futures-util",
  "tokio",
+ "twilight-model",
+]
+
+[[package]]
+name = "twilight-validate"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02930caab3f75f5854b9c7d2da9de32782df8367f23499f36fd639aa11e6e3d3"
+dependencies = [
  "twilight-model",
 ]
 

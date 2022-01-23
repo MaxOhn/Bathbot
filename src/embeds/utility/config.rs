@@ -13,7 +13,7 @@ pub struct ConfigEmbed {
 impl ConfigEmbed {
     pub fn new(author: &User, config: UserConfig, twitch: Option<String>) -> Self {
         let author_img = match author.avatar {
-            Some(ref hash) if hash.starts_with("a_") => format!(
+            Some(ref hash) if hash.is_animated() => format!(
                 "https://cdn.discordapp.com/avatars/{}/{hash}.gif",
                 author.id
             ),

@@ -257,12 +257,12 @@ async fn start_thinking(ctx: &Context, command: &ApplicationCommand) -> BotResul
         allowed_mentions: None,
         components: None,
         content: None,
-        embeds: Vec::new(),
+        embeds: None,
         flags: None,
         tts: None,
     });
 
-    ctx.http
+    ctx.interaction()
         .interaction_callback(command.id, &command.token, &response)
         .exec()
         .await?;
@@ -275,12 +275,12 @@ async fn start_thinking_ephemeral(ctx: &Context, command: &ApplicationCommand) -
         allowed_mentions: None,
         components: None,
         content: None,
-        embeds: Vec::new(),
+        embeds: None,
         flags: Some(MessageFlags::EPHEMERAL),
         tts: None,
     });
 
-    ctx.http
+    ctx.interaction()
         .interaction_callback(command.id, &command.token, &response)
         .exec()
         .await?;
@@ -301,12 +301,12 @@ async fn premature_error(
         allowed_mentions: None,
         components: None,
         content: None,
-        embeds: vec![embed],
+        embeds: Some(vec![embed]),
         flags,
         tts: None,
     });
 
-    ctx.http
+    ctx.interaction()
         .interaction_callback(command.id, &command.token, &response)
         .exec()
         .await?;

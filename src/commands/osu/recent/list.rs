@@ -7,7 +7,7 @@ use twilight_model::{
         application_command::{CommandDataOption, CommandOptionValue},
         ApplicationCommand,
     },
-    id::UserId,
+    id::{marker::UserMarker, Id},
 };
 
 use crate::{
@@ -285,7 +285,11 @@ impl RecentListArgs {
         Must be either a single grade or two grades of the form `a..b` e.g. `C..S`.\n\
         Valid grades are: `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`";
 
-    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: Id<UserMarker>,
+    ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
         let mut grade = None;
         let mut passes = None;

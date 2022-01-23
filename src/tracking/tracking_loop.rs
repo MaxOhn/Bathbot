@@ -8,14 +8,18 @@ use rosu_v2::{
     OsuResult,
 };
 use twilight_http::{
-    api_error::{ApiError, ErrorCode, GeneralApiError},
+    api_error::{ApiError, GeneralApiError},
     error::ErrorType as TwilightErrorType,
 };
-use twilight_model::{channel::embed::Embed, id::ChannelId};
+use twilight_model::{
+    channel::embed::Embed,
+    id::{marker::ChannelMarker, Id},
+};
 
 use crate::{
     commands::osu::prepare_score,
     embeds::{EmbedData, TrackNotificationEmbed},
+    util::constants::UNKNOWN_CHANNEL,
     Context,
 };
 
@@ -143,7 +147,7 @@ async fn score_loop(
     max: usize,
     last: DateTime<Utc>,
     scores: &mut [Score],
-    channels: &HashMap<ChannelId, usize>,
+    channels: &HashMap<Id<ChannelMarker>, usize>,
 ) -> OsuResult<()> {
     for (idx, score) in (1..).zip(scores.iter_mut()).take(max) {
         // Skip if its an older score
@@ -178,7 +182,7 @@ async fn score_loop(
                     if let Err(why) = msg_fut.exec().await {
                         if let TwilightErrorType::Response { error, .. } = why.kind() {
                             if let ApiError::General(GeneralApiError {
-                                code: ErrorCode::UnknownChannel,
+                                code: UNKNOWN_CHANNEL,
                                 ..
                             }) = error
                             {

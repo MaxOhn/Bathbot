@@ -6,7 +6,8 @@ use twilight_model::{
         command::CommandOptionChoice,
         interaction::{application_command::CommandOptionValue, ApplicationCommand},
     },
-    id::{GuildId, RoleId},
+    id::{marker::GuildMarker, Id},
+    util::ImageHash,
 };
 
 use crate::{
@@ -120,15 +121,15 @@ impl ServerConfigCommandKind {
 }
 
 pub struct GuildData {
-    pub icon: Option<String>,
-    pub id: GuildId,
+    pub icon: Option<ImageHash>,
+    pub id: Id<GuildMarker>,
     pub name: String,
 }
 
 impl From<&CachedGuild> for GuildData {
     fn from(guild: &CachedGuild) -> Self {
         Self {
-            icon: guild.icon().map(str::to_owned),
+            icon: guild.icon().map(ImageHash::to_owned),
             id: guild.id(),
             name: guild.name().to_owned(),
         }
@@ -192,7 +193,7 @@ pub async fn slash_serverconfig(ctx: Arc<Context>, command: ApplicationCommand) 
 
     for &auth in &config.authorities {
         if let Some(Ok(name)) =
-            RoleId::new(auth).map(|role| ctx.cache.role(role, |role| role.name.to_owned()))
+            Id::new_checked(auth).map(|role| ctx.cache.role(role, |role| role.name.to_owned()))
         {
             authorities.push(name);
         }

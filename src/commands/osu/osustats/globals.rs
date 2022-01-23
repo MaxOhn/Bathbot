@@ -7,7 +7,7 @@ use twilight_model::{
         application_command::{CommandDataOption, CommandOptionValue},
         ApplicationCommand,
     },
-    id::UserId,
+    id::{marker::UserMarker, Id},
 };
 
 use crate::{
@@ -353,7 +353,11 @@ impl ScoresArgs {
         }
     }
 
-    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: Id<UserMarker>,
+    ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
         let mut rank_min = None;
         let mut rank_max = None;

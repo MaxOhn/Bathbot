@@ -9,7 +9,10 @@ use hashbrown::HashMap;
 use parking_lot::RwLock;
 use twilight_model::{
     gateway::payload::incoming::MessageCreate,
-    id::{ChannelId, MessageId},
+    id::{
+        marker::{ChannelMarker, MessageMarker},
+        Id,
+    },
 };
 
 use crate::{
@@ -30,7 +33,7 @@ pub struct GameWrapper {
 impl GameWrapper {
     pub async fn new(
         ctx: Arc<Context>,
-        channel: ChannelId,
+        channel: Id<ChannelMarker>,
         mapsets: Vec<MapsetTagWrapper>,
     ) -> Self {
         let (tx, mut rx) = mpsc::unbounded_channel();
@@ -53,7 +56,7 @@ impl GameWrapper {
                     .content("Here's the next one:")
                     .file("bg_img.png", &img);
 
-                let tmp_msg = (MessageId::new(1).unwrap(), channel);
+                let tmp_msg = (Id::<MessageMarker>::new(1), channel);
                 let create_fut = tmp_msg.create_message(&ctx, builder);
 
                 if let Err(why) = create_fut.await {

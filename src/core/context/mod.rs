@@ -1,8 +1,26 @@
 mod impls;
 
 use bb8_redis::{bb8::Pool, RedisConnectionManager};
-pub use impls::{MatchLiveChannels, MatchTrackResult};
+use dashmap::{DashMap, DashSet};
+use hashbrown::HashSet;
+use parking_lot::Mutex;
+use rosu_v2::Osu;
 use smallvec::SmallVec;
+use std::{num::NonZeroU32, sync::Arc};
+use tokio::sync::mpsc::UnboundedSender;
+use twilight_gateway::Cluster;
+use twilight_http::Client as HttpClient;
+use twilight_model::{
+    gateway::{
+        payload::outgoing::UpdatePresence,
+        presence::{Activity, ActivityType, Status},
+    },
+    id::{
+        marker::{ApplicationMarker, ChannelMarker, GuildMarker, MessageMarker},
+        Id,
+    },
+};
+use twilight_standby::Standby;
 
 use crate::{
     bg_game::GameWrapper,
@@ -13,22 +31,7 @@ use crate::{
     BotResult, CustomClient, OsuTracking, Twitch,
 };
 
-use dashmap::{DashMap, DashSet};
-use hashbrown::HashSet;
-use parking_lot::Mutex;
-use rosu_v2::Osu;
-use std::{num::NonZeroU32, sync::Arc};
-use tokio::sync::mpsc::UnboundedSender;
-use twilight_gateway::Cluster;
-use twilight_http::Client as HttpClient;
-use twilight_model::{
-    gateway::{
-        payload::outgoing::UpdatePresence,
-        presence::{Activity, ActivityType, Status},
-    },
-    id::{ChannelId, GuildId, MessageId},
-};
-use twilight_standby::Standby;
+pub use self::impls::{MatchLiveChannels, MatchTrackResult};
 
 use super::Cache;
 
@@ -41,7 +44,7 @@ pub struct Context {
     pub buckets: Buckets,
     pub cluster: Cluster,
     pub clients: Clients,
-    pub member_tx: UnboundedSender<(GuildId, u64)>,
+    pub member_tx: UnboundedSender<(Id<GuildMarker>, u64)>,
     // private to avoid deadlocks by messing up references
     data: ContextData,
 }
@@ -59,17 +62,18 @@ pub type AssignRoles = SmallVec<[u64; 1]>;
 pub struct ContextData {
     // ! CAREFUL: When entries are added or modified
     // ! don't forget to update the DB entry aswell
-    pub guilds: DashMap<GuildId, GuildConfig>,
+    pub guilds: DashMap<Id<GuildMarker>, GuildConfig>,
     // Mapping twitch user ids to vec of discord channel ids
     pub tracked_streams: DashMap<u64, Vec<u64>>,
     // Mapping (channel id, message id) to role id
     pub role_assigns: DashMap<(u64, u64), AssignRoles>,
-    pub bg_games: DashMap<ChannelId, GameWrapper>,
+    pub bg_games: DashMap<Id<ChannelMarker>, GameWrapper>,
     pub osu_tracking: OsuTracking,
-    pub msgs_to_process: DashSet<MessageId>,
+    pub msgs_to_process: DashSet<Id<MessageMarker>>,
     pub map_garbage_collection: Mutex<HashSet<NonZeroU32>>,
     pub match_live: MatchLiveChannels,
     pub snipe_countries: DashMap<CountryCode, String>,
+    pub application_id: Id<ApplicationMarker>,
 }
 
 impl Context {
@@ -82,7 +86,7 @@ impl Context {
         clients: Clients,
         cluster: Cluster,
         data: ContextData,
-        member_tx: UnboundedSender<(GuildId, u64)>,
+        member_tx: UnboundedSender<(Id<GuildMarker>, u64)>,
     ) -> Self {
         Context {
             cache,

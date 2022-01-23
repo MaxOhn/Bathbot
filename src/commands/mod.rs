@@ -26,7 +26,7 @@ use twilight_model::{
         CommandOption, CommandOptionChoice, CommandType, NumberCommandOptionData,
         OptionsCommandOptionData,
     },
-    id::{CommandVersionId, UserId},
+    id::{marker::UserMarker, Id},
 };
 
 use crate::{
@@ -53,7 +53,7 @@ fn parse_mode_option(value: &str) -> Option<GameMode> {
 }
 
 /// Checks if the resolved data contains a user and tries to get the user's `OsuData`
-async fn parse_discord(ctx: &Context, user_id: UserId) -> DoubleResultCow<OsuData> {
+async fn parse_discord(ctx: &Context, user_id: Id<UserMarker>) -> DoubleResultCow<OsuData> {
     match ctx.psql().get_user_osu(user_id).await {
         Ok(Some(osu)) => Ok(Ok(osu)),
         Ok(None) => {
@@ -653,7 +653,7 @@ impl From<MyCommand> for Command {
             id: None,
             kind: CommandType::ChatInput,
             options: command.options.into_iter().map(Into::into).collect(),
-            version: CommandVersionId::new(1).unwrap(),
+            version: Id::new(1),
         }
     }
 }

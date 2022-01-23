@@ -1,15 +1,15 @@
 use crate::{
     commands::{MyCommand, MyCommandOption},
-    util::{constants::GENERAL_ISSUE, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, MESSAGE_TOO_OLD_TO_BULK_DELETE},
+        MessageExt,
+    },
     BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
 use std::{str::FromStr, sync::Arc};
 use tokio::time::{self, Duration};
-use twilight_http::{
-    api_error::{ApiError, ErrorCode::MessageTooOldToBulkDelete},
-    error::ErrorType,
-};
+use twilight_http::{api_error::ApiError, error::ErrorType};
 use twilight_model::application::interaction::{
     application_command::CommandOptionValue, ApplicationCommand,
 };
@@ -89,7 +89,7 @@ async fn _prune(ctx: Arc<Context>, data: CommandData<'_>, amount: u64) -> BotRes
         if matches!(why.kind(), ErrorType::Response {
             error: ApiError::General(err),
             ..
-        } if err.code == MessageTooOldToBulkDelete)
+        } if err.code == MESSAGE_TOO_OLD_TO_BULK_DELETE)
         {
             let content = "Cannot delete messages that are older than two weeks \\:(";
 

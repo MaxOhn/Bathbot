@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use eyre::Report;
 use hashbrown::HashMap;
-use twilight_model::id::UserId;
+use twilight_model::id::Id;
 
 use crate::{
     embeds::{BGRankingEmbed, EmbedData},
@@ -69,7 +69,7 @@ pub(super) async fn _rankings(
     let mut usernames = HashMap::with_capacity(15);
 
     for &id in scores.iter().take(15).map(|(id, _)| id) {
-        let user_id = UserId::new(id).unwrap();
+        let user_id = Id::new(id);
 
         let name = match ctx.http.user(user_id).exec().await {
             Ok(user_res) => match user_res.model().await {

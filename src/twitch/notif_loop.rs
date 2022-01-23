@@ -1,19 +1,22 @@
-use super::*;
-use crate::{
-    embeds::{EmbedData, TwitchNotifEmbed},
-    Context,
-};
+use std::{fmt::Write, sync::Arc};
 
 use eyre::Report;
 use hashbrown::{HashMap, HashSet};
 use rand::Rng;
-use std::{fmt::Write, sync::Arc};
 use tokio::time::{interval, Duration};
 use twilight_http::{
-    api_error::{ApiError, ErrorCode, GeneralApiError},
+    api_error::{ApiError, GeneralApiError},
     error::ErrorType,
 };
-use twilight_model::id::ChannelId;
+use twilight_model::id::{marker::ChannelMarker, Id};
+
+use crate::{
+    embeds::{EmbedData, TwitchNotifEmbed},
+    util::constants::UNKNOWN_CHANNEL,
+    Context,
+};
+
+use super::*;
 
 #[cold]
 pub async fn twitch_loop(ctx: Arc<Context>) {
@@ -109,7 +112,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
     }
 }
 
-async fn send_notif(ctx: &Context, data: &TwitchNotifEmbed, channel: ChannelId) {
+async fn send_notif(ctx: &Context, data: &TwitchNotifEmbed, channel: Id<ChannelMarker>) {
     let embed = data.as_builder().build();
 
     match ctx.http.create_message(channel).embeds(&[embed]) {
@@ -120,7 +123,7 @@ async fn send_notif(ctx: &Context, data: &TwitchNotifEmbed, channel: ChannelId) 
                 if let ErrorType::Response { error, .. } = why.kind() {
                     match error {
                         ApiError::General(GeneralApiError {
-                            code: ErrorCode::UnknownChannel,
+                            code: UNKNOWN_CHANNEL,
                             ..
                         }) => {
                             if let Err(err) = ctx.psql().remove_channel_tracks(channel.get()).await

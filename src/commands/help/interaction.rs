@@ -242,12 +242,12 @@ pub async fn handle_menu_select(
         allowed_mentions: None,
         components,
         content: None,
-        embeds: vec![embed_builder.build()],
+        embeds: Some(vec![embed_builder.build()]),
         flags: None,
         tts: None,
     });
 
-    ctx.http
+    ctx.interaction()
         .interaction_callback(component.id, &component.token, &response)
         .exec()
         .await?;
@@ -433,7 +433,7 @@ pub async fn handle_autocomplete(ctx: Arc<Context>, command: ApplicationCommand)
 
     let res = InteractionResponse::Autocomplete(Autocomplete { choices });
 
-    ctx.http
+    ctx.interaction()
         .interaction_callback(command.id, &command.token, &res)
         .exec()
         .await?;

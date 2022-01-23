@@ -53,8 +53,9 @@ toml = { version = "0.5" }
 tracing = { version = "0.1" }
 tracing-appender = { version = "0.2" }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt", "smallvec", "std", "time", "tracing-log"] }
-twilight-gateway = { version = "0.8" }
-twilight-cache-inmemory = { version = "0.8", default-features = false }
-twilight-http = { version = "0.8", default-features = false, features = ["rustls"] }
-twilight-model = { version = "0.8", default-features = false }
-twilight-standby = { version = "0.8", default-features = false }
+twilight-gateway = { version = "0.9" }
+twilight-cache-inmemory = { version = "0.9", default-features = false }
+twilight-http = { version = "0.9", default-features = false, features = ["rustls-webpki-roots"] }
+twilight-model = { version = "0.9", default-features = false }
+twilight-standby = { version = "0.9", default-features = false }
+twilight-validate = { version = "0.9" }

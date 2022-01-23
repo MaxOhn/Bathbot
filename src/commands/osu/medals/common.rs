@@ -8,7 +8,7 @@ use twilight_model::{
         application_command::{CommandDataOption, CommandOptionValue},
         ApplicationCommand,
     },
-    id::UserId,
+    id::{marker::UserMarker, Id},
 };
 
 use crate::{
@@ -218,7 +218,11 @@ impl CommonArgs {
     const AT_LEAST_ONE: &'static str = "You need to specify at least one osu username. \
         If you're not linked, you must specify two names.";
 
-    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: Id<UserMarker>,
+    ) -> DoubleResultCow<Self> {
         let osu = ctx.psql().get_user_osu(author_id).await?;
 
         let name2 = match args.next() {

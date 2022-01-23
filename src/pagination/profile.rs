@@ -1,4 +1,14 @@
-use super::{PageChange, PaginationResult, ReactionVec};
+use std::time::Duration;
+
+use eyre::Report;
+use tokio::time::sleep;
+use tokio_stream::StreamExt;
+use twilight_gateway::Event;
+use twilight_http::error::ErrorType;
+use twilight_model::{
+    channel::{Message, Reaction, ReactionType},
+    id::{marker::UserMarker, Id},
+};
 
 use crate::{
     commands::osu::{ProfileData, ProfileSize},
@@ -8,16 +18,7 @@ use crate::{
     BotResult, Context,
 };
 
-use eyre::Report;
-use std::time::Duration;
-use tokio::time::sleep;
-use tokio_stream::StreamExt;
-use twilight_gateway::Event;
-use twilight_http::error::ErrorType;
-use twilight_model::{
-    channel::{Message, Reaction, ReactionType},
-    id::UserId,
-};
+use super::{PageChange, PaginationResult, ReactionVec};
 
 pub struct ProfilePagination {
     msg: Message,
@@ -38,7 +39,12 @@ impl ProfilePagination {
         smallvec![Emote::Expand, Emote::Minimize]
     }
 
-    pub async fn start(mut self, ctx: &Context, owner: UserId, duration: u64) -> PaginationResult {
+    pub async fn start(
+        mut self,
+        ctx: &Context,
+        owner: Id<UserMarker>,
+        duration: u64,
+    ) -> PaginationResult {
         let msg_id = self.msg.id;
         ctx.store_msg(msg_id);
         let reactions = Self::reactions();

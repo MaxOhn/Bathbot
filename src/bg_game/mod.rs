@@ -12,13 +12,14 @@ pub use game_wrapper::GameWrapper;
 use hints::Hints;
 use img_reveal::ImageReveal;
 pub use tags::MapsetTags;
-use twilight_model::id::ChannelId;
+
+use twilight_model::id::{marker::ChannelMarker, Id};
 
 use crate::{core::Context, BotResult};
 
 type GameResult<T> = Result<T, BgGameError>;
 
-async fn send_msg(ctx: &Context, channel: ChannelId, content: &str) -> BotResult<()> {
+async fn send_msg(ctx: &Context, channel: Id<ChannelMarker>, content: &str) -> BotResult<()> {
     ctx.http
         .create_message(channel)
         .content(content)?

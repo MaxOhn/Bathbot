@@ -3,7 +3,7 @@ use std::{mem, sync::Arc};
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_model::{
     application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
-    id::UserId,
+    id::{marker::UserMarker, Id},
 };
 
 use crate::{
@@ -127,7 +127,11 @@ struct BwsArgs {
 }
 
 impl BwsArgs {
-    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: Id<UserMarker>,
+    ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
         let mut rank = None;
         let mut badges = None;

@@ -1,7 +1,11 @@
+use std::{borrow::Cow, str::FromStr};
+
 use regex::Regex;
 use rosu_v2::prelude::{GameMode, GameMods, UserId as OsuUserId};
-use std::{borrow::Cow, str::FromStr};
-use twilight_model::id::{ChannelId, RoleId, UserId};
+use twilight_model::id::{
+    marker::{ChannelMarker, RoleMarker, UserMarker},
+    Id,
+};
 
 use super::{
     constants::{
@@ -21,16 +25,16 @@ enum MentionType {
     User,
 }
 
-pub fn get_mention_channel(msg: &str) -> Option<ChannelId> {
-    get_mention(MentionType::Channel, msg).and_then(ChannelId::new)
+pub fn get_mention_channel(msg: &str) -> Option<Id<ChannelMarker>> {
+    get_mention(MentionType::Channel, msg).and_then(Id::new_checked)
 }
 
-pub fn get_mention_role(msg: &str) -> Option<RoleId> {
-    get_mention(MentionType::Role, msg).and_then(RoleId::new)
+pub fn get_mention_role(msg: &str) -> Option<Id<RoleMarker>> {
+    get_mention(MentionType::Role, msg).and_then(Id::new_checked)
 }
 
-pub fn get_mention_user(msg: &str) -> Option<UserId> {
-    get_mention(MentionType::User, msg).and_then(UserId::new)
+pub fn get_mention_user(msg: &str) -> Option<Id<UserMarker>> {
+    get_mention(MentionType::User, msg).and_then(Id::new_checked)
 }
 
 fn get_mention(mention_type: MentionType, msg: &str) -> Option<u64> {

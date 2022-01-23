@@ -5,7 +5,10 @@ use rosu_v2::prelude::{MatchEvent, OsuError, OsuMatch};
 use smallvec::SmallVec;
 use std::sync::Arc;
 use tokio::time::{interval, sleep, Duration};
-use twilight_model::id::{ChannelId, MessageId};
+use twilight_model::id::{
+    marker::{ChannelMarker, MessageMarker},
+    Id,
+};
 
 use crate::{
     embeds::{EmbedData, MatchLiveEmbed, MatchLiveEmbeds},
@@ -16,14 +19,14 @@ use crate::{
 // very short and thus cheap to iterate over.
 // Tuple contains the channel id, as well as the msg id
 // of the last msg in the channel.
-type ChannelList = SmallVec<[(ChannelId, Mutex<MessageId>); 2]>;
+type ChannelList = SmallVec<[(Id<ChannelMarker>, Mutex<Id<MessageMarker>>); 2]>;
 
 pub struct MatchLiveChannels {
     /// Mapping match ids to channels that track them
     match_channels: DashMap<u32, (Mutex<TrackedMatch>, ChannelList)>,
 
     /// Mapping channels to the amount of tracked matches in that channel
-    channel_count: DashMap<ChannelId, u8>,
+    channel_count: DashMap<Id<ChannelMarker>, u8>,
 }
 
 impl MatchLiveChannels {
@@ -52,7 +55,7 @@ const EMBED_LIMIT: usize = 10;
 
 impl Context {
     /// In case the channel tracks exactly one match, returns the match's id
-    pub fn tracks_single_match(&self, channel: ChannelId) -> Option<u32> {
+    pub fn tracks_single_match(&self, channel: Id<ChannelMarker>) -> Option<u32> {
         let match_live = &self.data.match_live;
 
         // If the channel doesn't track exactly one match, return early
@@ -73,7 +76,11 @@ impl Context {
             .map(|entry| *entry.key())
     }
 
-    pub async fn add_match_track(&self, channel: ChannelId, match_id: u32) -> MatchTrackResult {
+    pub async fn add_match_track(
+        &self,
+        channel: Id<ChannelMarker>,
+        match_id: u32,
+    ) -> MatchTrackResult {
         let match_live = &self.data.match_live;
 
         // Increment the track counter for the channel
@@ -142,7 +149,7 @@ impl Context {
     }
 
     /// Returns false if the match wasn't tracked in the channel
-    pub fn remove_match_track(&self, channel: ChannelId, match_id: u32) -> bool {
+    pub fn remove_match_track(&self, channel: Id<ChannelMarker>, match_id: u32) -> bool {
         let match_live = &self.data.match_live;
 
         if let Entry::Occupied(mut e) = match_live.match_channels.entry(match_id) {
@@ -321,9 +328,9 @@ impl TrackedMatch {
 /// and returns the last of these messages
 async fn send_match_messages(
     ctx: &Context,
-    channel: ChannelId,
+    channel: Id<ChannelMarker>,
     embeds: &[MatchLiveEmbed],
-) -> Option<MessageId> {
+) -> Option<Id<MessageMarker>> {
     let mut iter = embeds.iter();
 
     // Msg of last embed will be stored, do it separately

@@ -8,7 +8,7 @@ use twilight_model::{
         application_command::{CommandDataOption, CommandOptionValue},
         ApplicationCommand,
     },
-    id::UserId,
+    id::{marker::UserMarker, Id},
 };
 
 use crate::{
@@ -442,7 +442,11 @@ impl IfArgs {
         If you want to replace mods everywhere, specify it e.g. as `+hdhr!`.\n\
         And if you want to remote mods everywhere, specify it e.g. as `-hdnf!`.";
 
-    async fn args(ctx: &Context, args: &mut Args<'_>, author_id: UserId) -> DoubleResultCow<Self> {
+    async fn args(
+        ctx: &Context,
+        args: &mut Args<'_>,
+        author_id: Id<UserMarker>,
+    ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
         let mut mods = None;
 

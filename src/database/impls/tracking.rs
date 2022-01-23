@@ -6,7 +6,7 @@ use futures::stream::StreamExt;
 use hashbrown::HashMap;
 use rosu_v2::model::GameMode;
 use serde_json::Value;
-use twilight_model::id::ChannelId;
+use twilight_model::id::{marker::ChannelMarker, Id};
 
 impl Database {
     #[cold]
@@ -55,7 +55,7 @@ impl Database {
         user_id: u32,
         mode: GameMode,
         last_top_score: DateTime<Utc>,
-        channels: &HashMap<ChannelId, usize>,
+        channels: &HashMap<Id<ChannelMarker>, usize>,
     ) -> BotResult<()> {
         sqlx::query!(
             "UPDATE osu_trackings \
@@ -89,7 +89,7 @@ impl Database {
         user_id: u32,
         mode: GameMode,
         last_top_score: DateTime<Utc>,
-        channel: ChannelId,
+        channel: Id<ChannelMarker>,
         limit: usize,
     ) -> BotResult<()> {
         let mut set = HashMap::new();
@@ -110,7 +110,7 @@ impl Database {
         .fetch_one(&self.pool)
         .await?;
 
-        let mut channels: HashMap<ChannelId, usize> = serde_json::from_value(row.channels)?;
+        let mut channels: HashMap<Id<ChannelMarker>, usize> = serde_json::from_value(row.channels)?;
 
         if channels.insert(channel, limit).is_none() {
             sqlx::query!(
