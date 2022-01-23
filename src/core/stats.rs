@@ -47,6 +47,7 @@ pub struct CommandCounters {
     pub message_commands: IntCounterVec,
     pub slash_commands: IntCounterVec,
     pub components: IntCounterVec,
+    pub autocompletes: IntCounterVec,
 }
 
 pub struct CacheStats {
@@ -87,6 +88,8 @@ impl BotStats {
             metric_vec!(counter: "slash_commands", "Executed slash commands", NAME);
         let components =
             metric_vec!(counter: "components", "Executed interaction components", NAME);
+        let autocompletes =
+            metric_vec!(counter: "autocompletes", "Executed command autocompletes", NAME);
         let cache_counter = metric_vec!(gauge: "cache", "Cache counts", "cached_type");
 
         let registry = Registry::new_custom(Some(String::from("bathbot")), None).unwrap();
@@ -96,6 +99,8 @@ impl BotStats {
             .register(Box::new(message_commands.clone()))
             .unwrap();
         registry.register(Box::new(slash_commands.clone())).unwrap();
+        registry.register(Box::new(components.clone())).unwrap();
+        registry.register(Box::new(autocompletes.clone())).unwrap();
         registry.register(Box::new(cache_counter.clone())).unwrap();
         registry.register(Box::new(osu_metrics.clone())).unwrap();
 
@@ -139,6 +144,7 @@ impl BotStats {
                 message_commands,
                 slash_commands,
                 components,
+                autocompletes,
             },
             cache_counts: CacheStats {
                 guilds: cache_counter.with_label_values(&["Guilds"]),
@@ -172,6 +178,13 @@ impl BotStats {
         self.command_counts
             .components
             .with_label_values(&[component])
+            .inc();
+    }
+
+    pub fn increment_autocomplete(&self, cmd: &str) {
+        self.command_counts
+            .autocompletes
+            .with_label_values(&[cmd])
             .inc();
     }
 

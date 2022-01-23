@@ -90,6 +90,8 @@ pub enum Error {
     UnknownMessageComponent {
         component: Box<MessageComponentInteraction>,
     },
+    #[error("unexpected autocomplete for slash command `{0}`")]
+    UnknownSlashAutocomplete(String),
     #[error("unknown slash command `{name}`: {command:#?}")]
     UnknownSlashCommand {
         name: String,

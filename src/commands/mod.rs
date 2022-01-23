@@ -15,9 +15,10 @@ use tracking::*;
 use twitch::*;
 use utility::*;
 
-use std::{borrow::Cow, collections::BTreeMap};
+use std::{borrow::Cow, iter::Copied};
 
 use eyre::Report;
+use radix_trie::{iter::Keys, Trie, TrieCommon};
 use rosu_v2::prelude::{GameMode, Username};
 use twilight_model::{
     application::command::{
@@ -353,7 +354,11 @@ impl MyCommandOptionBuilder {
             name: self.name,
             description: self.description,
             help: self.help,
-            kind: MyCommandOptionKind::String { choices, required },
+            kind: MyCommandOptionKind::String {
+                autocomplete: false,
+                choices,
+                required,
+            },
         }
     }
 
@@ -435,6 +440,15 @@ impl MyCommandOption {
 
         self
     }
+
+    /// Only works for string options
+    pub fn autocomplete(mut self) -> Self {
+        if let MyCommandOptionKind::String { autocomplete, .. } = &mut self.kind {
+            *autocomplete = true;
+        }
+
+        self
+    }
 }
 
 pub enum MyCommandOptionKind {
@@ -445,6 +459,7 @@ pub enum MyCommandOptionKind {
         options: Vec<MyCommandOption>,
     },
     String {
+        autocomplete: bool,
         choices: Vec<CommandOptionChoice>,
         required: bool,
     },
@@ -498,9 +513,13 @@ impl From<MyCommandOption> for CommandOption {
 
                 Self::SubCommandGroup(inner)
             }
-            MyCommandOptionKind::String { choices, required } => {
+            MyCommandOptionKind::String {
+                autocomplete,
+                choices,
+                required,
+            } => {
                 let inner = ChoiceCommandOptionData {
-                    autocomplete: false,
+                    autocomplete,
                     choices,
                     description: option.description.to_owned(),
                     name: option.name.to_owned(),
@@ -640,7 +659,9 @@ impl From<MyCommand> for Command {
 }
 
 // BTreeMap to have a stable order
-pub struct SlashCommands(BTreeMap<&'static str, fn() -> MyCommand>);
+pub struct SlashCommands(Trie<&'static str, fn() -> MyCommand>);
+
+type CommandKeys<'t> = Copied<Keys<'t, &'static str, fn() -> MyCommand>>;
 
 impl SlashCommands {
     pub fn command(&self, command: &str) -> Option<MyCommand> {
@@ -651,15 +672,21 @@ impl SlashCommands {
         self.0.values().map(|f| (f)().into()).collect()
     }
 
-    pub fn names(&self) -> impl Iterator<Item = &'static str> + '_ {
+    pub fn names(&self) -> CommandKeys<'_> {
         self.0.keys().copied()
+    }
+
+    pub fn descendants(&self, prefix: &str) -> Option<CommandKeys<'_>> {
+        self.0
+            .get_raw_descendant(prefix)
+            .map(|sub| sub.keys().copied())
     }
 }
 
 lazy_static! {
     pub static ref SLASH_COMMANDS: SlashCommands = {
-        let mut map = BTreeMap::new();
-        let mut insert = |name: &'static str, f: fn() -> MyCommand| map.insert(name, f);
+        let mut trie = Trie::new();
+        let mut insert = |name: &'static str, f: fn() -> MyCommand| trie.insert(name, f);
 
         insert(HELP, help::define_help);
         insert("recent", define_recent);
@@ -706,6 +733,6 @@ lazy_static! {
         insert("snipe", define_snipe);
         insert("serverconfig", define_serverconfig);
 
-        SlashCommands(map)
+        SlashCommands(trie)
     };
 }

@@ -1,7 +1,7 @@
 mod interaction;
 mod message;
 
-pub use interaction::{define_help, handle_menu_select, slash_help};
+pub use interaction::{define_help, handle_autocomplete, handle_menu_select, slash_help};
 pub use message::{failed_help, help, help_command};
 
 use std::{collections::BTreeMap, fmt::Write};

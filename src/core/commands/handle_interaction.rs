@@ -87,6 +87,16 @@ pub async fn handle_component(
     }
 }
 
+pub async fn handle_autocomplete(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
+    let name = command.data.name.as_str();
+    ctx.stats.increment_autocomplete(name);
+
+    match name {
+        HELP => help::handle_autocomplete(ctx, command).await,
+        _ => Err(Error::UnknownSlashAutocomplete(command.data.name)),
+    }
+}
+
 pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
     let name = mem::take(&mut command.data.name);
     log_interaction(&ctx, &command, &name);

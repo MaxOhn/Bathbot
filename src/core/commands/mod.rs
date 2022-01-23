@@ -8,7 +8,7 @@ pub mod parse;
 pub use command::Command;
 pub use data::{CommandData, CommandDataCompact};
 pub use group::{CommandGroup, CommandGroups, CMD_GROUPS};
-pub use handle_interaction::{handle_command, handle_component};
+pub use handle_interaction::{handle_autocomplete, handle_command, handle_component};
 pub use handle_message::handle_message;
 pub use parse::Invoke;
 

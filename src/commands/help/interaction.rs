@@ -3,7 +3,8 @@ use std::{fmt::Write, sync::Arc};
 use prometheus::core::Collector;
 use twilight_model::{
     application::{
-        callback::{CallbackData, InteractionResponse},
+        callback::{Autocomplete, CallbackData, InteractionResponse},
+        command::CommandOptionChoice,
         component::{
             button::ButtonStyle, select_menu::SelectMenuOption, ActionRow, Button, Component,
             SelectMenu,
@@ -392,6 +393,54 @@ async fn help_slash_command(
     Ok(())
 }
 
+pub async fn handle_autocomplete(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
+    let mut cmd_name = None;
+    let mut focus = None;
+
+    if let Some(option) = command.data.options.first() {
+        let option = (option.name == "command").then(|| match &option.value {
+            CommandOptionValue::String(value) => Some((value, option.focused)),
+            _ => None,
+        });
+
+        match option.flatten() {
+            Some((value, focus_)) => {
+                cmd_name = Some(value);
+                focus = Some(focus_);
+            }
+            None => return Err(Error::InvalidCommandOptions),
+        }
+    }
+
+    let name = cmd_name.map(|name| name.cow_to_ascii_lowercase());
+
+    let choices = match (name, focus) {
+        (Some(name), Some(true)) => {
+            let arg = name.trim();
+
+            match (arg, SLASH_COMMANDS.descendants(arg)) {
+                ("", _) | (_, None) => Vec::new(),
+                (_, Some(cmds)) => cmds
+                    .map(|cmd| CommandOptionChoice::String {
+                        name: cmd.to_owned(),
+                        value: cmd.to_owned(),
+                    })
+                    .collect(),
+            }
+        }
+        _ => Vec::new(),
+    };
+
+    let res = InteractionResponse::Autocomplete(Autocomplete { choices });
+
+    ctx.http
+        .interaction_callback(command.id, &command.token, &res)
+        .exec()
+        .await?;
+
+    Ok(())
+}
+
 pub async fn slash_help(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
     let mut cmd_name = None;
 
@@ -531,7 +580,8 @@ pub fn define_help() -> MyCommand {
 
     let command = MyCommandOption::builder("command", "Specify a command base name")
         .help(option_help)
-        .string(Vec::new(), false);
+        .string(Vec::new(), false)
+        .autocomplete();
 
     let description = "Display general help or help for a specific command";
     let help = "If no command name is specified, it will show general help for the bot.\n\

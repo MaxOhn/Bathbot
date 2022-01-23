@@ -458,6 +458,9 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
                 Interaction::MessageComponent(component) => {
                     cmds::handle_component(ctx, component).await?;
                 }
+                Interaction::ApplicationCommandAutocomplete(cmd) => {
+                    cmds::handle_autocomplete(ctx, *cmd).await?;
+                }
                 _ => {}
             }
         }
