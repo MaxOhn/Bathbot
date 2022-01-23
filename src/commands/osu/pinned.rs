@@ -50,7 +50,12 @@ async fn _pinned(ctx: Arc<Context>, data: CommandData<'_>, args: PinnedArgs) -> 
     let result = if let Some(alt_name) = user_args.whitespaced_name() {
         match get_user_cached(&ctx, &user_args).await {
             Ok(user) => {
-                let scores_fut = ctx.osu().user_scores(user_args.name).pinned().limit(100);
+                let scores_fut = ctx
+                    .osu()
+                    .user_scores(user_args.name)
+                    .pinned()
+                    .mode(mode)
+                    .limit(100);
 
                 prepare_scores(&ctx, scores_fut)
                     .await
@@ -60,7 +65,12 @@ async fn _pinned(ctx: Arc<Context>, data: CommandData<'_>, args: PinnedArgs) -> 
                 user_args.name = &alt_name;
 
                 let user_fut = get_user_cached(&ctx, &user_args);
-                let scores_fut = ctx.osu().user_scores(user_args.name).pinned().limit(100);
+                let scores_fut = ctx
+                    .osu()
+                    .user_scores(user_args.name)
+                    .pinned()
+                    .mode(mode)
+                    .limit(100);
 
                 tokio::try_join!(user_fut, prepare_scores(&ctx, scores_fut))
             }
@@ -68,7 +78,12 @@ async fn _pinned(ctx: Arc<Context>, data: CommandData<'_>, args: PinnedArgs) -> 
         }
     } else {
         let user_fut = get_user_cached(&ctx, &user_args);
-        let scores_fut = ctx.osu().user_scores(user_args.name).pinned().limit(100);
+        let scores_fut = ctx
+            .osu()
+            .user_scores(user_args.name)
+            .pinned()
+            .mode(mode)
+            .limit(100);
 
         tokio::try_join!(user_fut, prepare_scores(&ctx, scores_fut))
     };
