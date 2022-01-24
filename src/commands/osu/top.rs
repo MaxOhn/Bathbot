@@ -664,8 +664,6 @@ fn filter_scores(scores: Vec<Score>, args: &TopArgs) -> Vec<(usize, Score)> {
         scores_indices.reverse();
     }
 
-    scores_indices.iter_mut().for_each(|(i, _)| *i += 1);
-
     scores_indices
 }
 
