@@ -151,16 +151,6 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
     }
 
     match (args.index, scores.len()) {
-        (_, 1) => {
-            let maximize = match (args.config.embeds_maximized, data.guild_id()) {
-                (Some(embeds_maximized), _) => embeds_maximized,
-                (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
-                (None, None) => true,
-            };
-
-            let content = write_content(name, &args, 1);
-            single_embed(ctx, data, user, scores, 0, maximize, content).await?;
-        }
         (Some(num), _) => {
             let maximize = match (args.config.embeds_maximized, data.guild_id()) {
                 (Some(embeds_maximized), _) => embeds_maximized,
@@ -170,6 +160,16 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
 
             let num = num.saturating_sub(1);
             single_embed(ctx, data, user, scores, num, maximize, None).await?;
+        }
+        (_, 1) => {
+            let maximize = match (args.config.embeds_maximized, data.guild_id()) {
+                (Some(embeds_maximized), _) => embeds_maximized,
+                (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
+                (None, None) => true,
+            };
+
+            let content = write_content(name, &args, 1);
+            single_embed(ctx, data, user, scores, 0, maximize, content).await?;
         }
         (None, _) => {
             let content = write_content(name, &args, scores.len());
@@ -737,7 +737,7 @@ async fn single_embed(
             }
         });
     } else {
-        let mut builder = MessageBuilder::new().embed(embed_data.as_builder().build());
+        let mut builder = MessageBuilder::new().embed(embed_data.into_builder().build());
 
         if let Some(content) = content {
             builder = builder.content(content);
