@@ -34,7 +34,7 @@ use crate::{
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
-use super::{option_discord, option_name, SortableScore, TopOrder};
+use super::{option_discord, option_mode, option_name, SortableScore, TopOrder};
 
 const NM: GameMods = GameMods::NoMod;
 const DT: GameMods = GameMods::DoubleTime;
@@ -505,6 +505,8 @@ impl IfArgs {
 }
 
 pub fn define_topif() -> MyCommand {
+    let mode = option_mode();
+
     let mods_description =
         "Specify mods (`+mods` to insert them, `+mods!` to replace, `-mods!` to remove)";
 
@@ -526,5 +528,5 @@ pub fn define_topif() -> MyCommand {
 
     let if_description = "How the top plays would look like with different mods";
 
-    MyCommand::new("topif", if_description).options(vec![mods, name, discord])
+    MyCommand::new("topif", if_description).options(vec![mods, mode, name, discord])
 }
