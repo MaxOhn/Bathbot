@@ -67,29 +67,27 @@ async fn _mapper(ctx: Arc<Context>, data: CommandData<'_>, args: MapperArgs) -> 
     // Process user and their top scores for tracking
     process_tracking(&ctx, &mut scores, Some(&user)).await;
 
-    let mut scores: Vec<_> = scores
+    let scores: Vec<_> = scores
         .into_iter()
         .enumerate()
-        .map(|(i, s)| (i + 1, s))
+        .filter(|(_, score)| {
+            let map = &score.map.as_ref().unwrap();
+            let mapset = &score.mapset.as_ref().unwrap();
+
+            //  Filter converts
+            if map.mode != mode {
+                return false;
+            }
+
+            // Either the version contains the mapper name (guest diff'd by mapper)
+            // or the map is created by mapper name and not guest diff'd by someone else
+            let version = map.version.to_lowercase();
+
+            version.contains(mapper.as_ref())
+                || (mapset.creator_name.to_lowercase().as_str() == mapper.as_ref()
+                    && !matcher::is_guest_diff(&version))
+        })
         .collect();
-
-    scores.retain(|(_, score)| {
-        let map = &score.map.as_ref().unwrap();
-        let mapset = &score.mapset.as_ref().unwrap();
-
-        //  Filter converts
-        if map.mode != mode {
-            return false;
-        }
-
-        // Either the version contains the mapper name (guest diff'd by mapper)
-        // or the map is created by mapper name and not guest diff'd by someone else
-        let version = map.version.to_lowercase();
-
-        version.contains(mapper.as_ref())
-            || (mapset.creator_name.to_lowercase().as_str() == mapper.as_ref()
-                && !matcher::is_guest_diff(&version))
-    });
 
     // Accumulate all necessary data
     let content = match mapper.as_ref() {

@@ -45,17 +45,14 @@ impl TopEmbed {
 
             let _ = writeln!(
                 description,
-                "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
+                "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars}]\n\
                 {grade} {pp} ~ ({acc}) ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
-                idx = idx,
+                idx = idx + 1,
                 title = mapset.title,
                 version = map.version,
-                base = OSU_BASE,
                 id = map.map_id,
                 mods = osu::get_mods(score.mods),
-                stars = stars,
                 grade = score.grade_emote(score.mode),
-                pp = pp,
                 acc = score.acc_string(score.mode),
                 score = with_comma_int(score.score),
                 combo = osu::get_combo(score, map),
