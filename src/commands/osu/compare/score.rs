@@ -103,10 +103,14 @@ pub(super) async fn _compare(
         None => return super::require_link(&ctx, &data).await,
     };
 
-    let (score, global_idx) = match id {
+    let (score, global_idx, pinned) = match id {
         Some(MapOrScore::Map(MapIdType::Map(id))) => {
             match retrieve_data(&ctx, &data, name.as_str(), id, mods).await {
-                ScoreResult::Score { score, global_idx } => (score, global_idx),
+                ScoreResult::Score {
+                    score,
+                    global_idx,
+                    pinned,
+                } => (score, global_idx, pinned),
                 ScoreResult::Done => return Ok(()),
                 ScoreResult::Error(err) => return Err(err),
             }
@@ -126,7 +130,18 @@ pub(super) async fn _compare(
                 }
             };
 
-            match ctx.osu().user(score.user_id).mode(mode).await {
+            let user_fut = ctx.osu().user(score.user_id).mode(mode);
+
+            let pinned_fut = ctx
+                .osu()
+                .user_scores(score.user_id)
+                .pinned()
+                .limit(100)
+                .mode(mode);
+
+            let (user_result, pinned_result) = tokio::join!(user_fut, pinned_fut);
+
+            match user_result {
                 Ok(user) => score.user = Some(user.into()),
                 Err(err) => {
                     let _ = data.error(&ctx, OSU_API_ISSUE).await;
@@ -134,6 +149,16 @@ pub(super) async fn _compare(
                     return Err(err.into());
                 }
             }
+
+            let pinned = match pinned_result {
+                Ok(scores) => scores.contains(&score),
+                Err(err) => {
+                    let report = Report::new(err).wrap_err("failed to retrieve pinned scores");
+                    warn!("{:?}", report);
+
+                    false
+                }
+            };
 
             let map = score.map.as_ref().unwrap();
 
@@ -151,7 +176,7 @@ pub(super) async fn _compare(
                 None
             };
 
-            (score, global_idx.map_or(usize::MAX, |idx| idx + 1))
+            (score, global_idx.map_or(usize::MAX, |idx| idx + 1), pinned)
         }
         None => {
             let msgs = match ctx.retrieve_channel_history(data.channel_id()).await {
@@ -166,7 +191,11 @@ pub(super) async fn _compare(
             match map_id_from_history(&msgs) {
                 Some(MapIdType::Map(id)) => {
                     match retrieve_data(&ctx, &data, name.as_str(), id, mods).await {
-                        ScoreResult::Score { score, global_idx } => (score, global_idx),
+                        ScoreResult::Score {
+                            score,
+                            global_idx,
+                            pinned,
+                        } => (score, global_idx, pinned),
                         ScoreResult::Done => return Ok(()),
                         ScoreResult::Error(err) => return Err(err),
                     }
@@ -212,7 +241,7 @@ pub(super) async fn _compare(
 
     // Accumulate all necessary data
     let embed_data =
-        match CompareEmbed::new(best.as_deref(), score, mods.is_some(), global_idx).await {
+        match CompareEmbed::new(best.as_deref(), score, mods.is_some(), global_idx, pinned).await {
             Ok(data) => data,
             Err(why) => {
                 let _ = data.error(&ctx, GENERAL_ISSUE).await;
@@ -263,7 +292,11 @@ pub(super) async fn _compare(
 
 #[allow(clippy::large_enum_variant)]
 enum ScoreResult {
-    Score { score: Score, global_idx: usize },
+    Score {
+        score: Score,
+        global_idx: usize,
+        pinned: bool,
+    },
     Done,
     Error(Error),
 }
@@ -312,36 +345,54 @@ async fn retrieve_data(
     let mapset_fut = ctx.psql().get_beatmapset(mapset_id);
     let user_fut = ctx.osu().user(score.user_id).mode(score.mode);
 
-    let user = match tokio::join!(mapset_fut, user_fut) {
-        (_, Err(why)) => {
+    let pinned_fut = ctx
+        .osu()
+        .user_scores(score.user_id)
+        .pinned()
+        .limit(100)
+        .mode(score.mode);
+
+    let (mapset_result, user_result, pinned_result) =
+        tokio::join!(mapset_fut, user_fut, pinned_fut);
+
+    let user = match user_result {
+        Ok(user) => user,
+        Err(err) => {
             let _ = data.error(ctx, OSU_API_ISSUE).await;
 
-            return ScoreResult::Error(why.into());
+            return ScoreResult::Error(err.into());
         }
-        (Ok(mapset), Ok(user)) => {
-            score.mapset = Some(mapset);
+    };
 
-            user
-        }
-        (Err(_), Ok(user)) => {
-            let mapset = match ctx.osu().beatmapset(mapset_id).await {
-                Ok(mapset) => mapset,
-                Err(why) => {
-                    let _ = data.error(ctx, OSU_API_ISSUE).await;
+    match mapset_result {
+        Ok(mapset) => score.mapset = Some(mapset),
+        Err(_) => match ctx.osu().beatmapset(mapset_id).await {
+            Ok(mapset) => score.mapset = Some(mapset.into()),
+            Err(why) => {
+                let _ = data.error(ctx, OSU_API_ISSUE).await;
 
-                    return ScoreResult::Error(why.into());
-                }
-            };
+                return ScoreResult::Error(why.into());
+            }
+        },
+    }
 
-            score.mapset = Some(mapset.into());
+    let pinned = match pinned_result {
+        Ok(scores) => scores.contains(&score),
+        Err(err) => {
+            let report = Report::new(err).wrap_err("failed to retrieve pinned scores");
+            warn!("{:?}", report);
 
-            user
+            false
         }
     };
 
     score.user = Some(user.into());
 
-    ScoreResult::Score { score, global_idx }
+    ScoreResult::Score {
+        score,
+        global_idx,
+        pinned,
+    }
 }
 
 async fn no_scores(

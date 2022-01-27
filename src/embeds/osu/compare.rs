@@ -46,6 +46,7 @@ impl CompareEmbed {
         score: Score,
         with_mods: bool,
         global_idx: usize,
+        pinned: bool,
     ) -> BotResult<Self> {
         let user = score.user.as_ref().unwrap();
         let map = score.map.as_ref().unwrap();
@@ -191,8 +192,16 @@ impl CompareEmbed {
 
         let personal_idx = personal.and_then(|personal| personal.iter().position(|s| s == &score));
 
-        let description = if personal_idx.is_some() || global_idx <= GLOBAL_IDX_THRESHOLD {
-            let mut description = String::with_capacity(25);
+        let mut description = String::new();
+
+        if pinned {
+            description.push('📌');
+        }
+
+        if personal_idx.is_some() || global_idx <= GLOBAL_IDX_THRESHOLD {
+            if pinned {
+                description.push(' ');
+            }
 
             if personal_idx.is_some() || global_idx <= 50 {
                 description.push_str("__**");
@@ -218,11 +227,7 @@ impl CompareEmbed {
             if with_mods && global_idx <= GLOBAL_IDX_THRESHOLD {
                 description.push_str(" (Mod leaderboard)");
             }
-
-            description
-        } else {
-            String::new()
-        };
+        }
 
         let author = {
             let stats = user.statistics.as_ref().expect("no statistics on user");
