@@ -325,7 +325,7 @@ impl PinnedArgs {
                         "date" => sort_by = Some(TopOrder::Date),
                         "len" => sort_by = Some(TopOrder::Length),
                         "miss" => sort_by = Some(TopOrder::Misses),
-                        "pp" => sort_by = Some(TopOrder::Position),
+                        "pp" => sort_by = Some(TopOrder::Pp),
                         _ => return Err(Error::InvalidCommandOptions),
                     },
                     "query" => query = Some(value),
@@ -364,7 +364,7 @@ fn write_content(name: &str, args: &PinnedArgs, amount: usize) -> Option<String>
             TopOrder::Date => format!("Most recent pinned scores of `{name}`:"),
             TopOrder::Length => format!("`{name}`'{genitive} pinned scores sorted by length:"),
             TopOrder::Misses => format!("`{name}`'{genitive} pinned scores sorted by miss count:"),
-            TopOrder::Position => format!("`{name}`'{genitive} pinned scores sorted by pp"),
+            TopOrder::Pp => format!("`{name}`'{genitive} pinned scores sorted by pp"),
         };
 
         Some(content)
@@ -386,7 +386,7 @@ fn content_with_condition(args: &PinnedArgs, amount: usize) -> String {
         Some(TopOrder::Date) => content.push_str("`Order: Date`"),
         Some(TopOrder::Length) => content.push_str("`Order: Length`"),
         Some(TopOrder::Misses) => content.push_str("`Order: Misscount`"),
-        Some(TopOrder::Position) => content.push_str("`Order: Pp`"),
+        Some(TopOrder::Pp) => content.push_str("`Order: Pp`"),
         None => {}
     }
 

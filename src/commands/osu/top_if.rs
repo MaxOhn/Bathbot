@@ -208,7 +208,7 @@ async fn _topif(ctx: Arc<Context>, data: CommandData<'_>, args: IfArgs) -> BotRe
     };
 
     // Sort by adjusted pp
-    TopOrder::Position.apply(&mut scores_data);
+    TopOrder::Pp.apply(&mut scores_data);
 
     // Calculate adjusted pp
     let adjusted_pp: f32 = scores_data

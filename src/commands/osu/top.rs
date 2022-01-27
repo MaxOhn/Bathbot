@@ -60,7 +60,7 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
 
     let mode = args.config.mode.unwrap_or(GameMode::STD);
 
-    if args.sort_by == TopOrder::Position && args.has_dash_r {
+    if args.sort_by == TopOrder::Pp && args.has_dash_r {
         let mode_long = mode_long(mode);
         let prefix = ctx.guild_first_prefix(data.guild_id()).await;
 
@@ -83,7 +83,7 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
     } else if args.has_dash_p_or_i {
         let cmd = match args.sort_by {
             TopOrder::Date => "rb",
-            TopOrder::Position => "top",
+            TopOrder::Pp => "top",
             _ => unreachable!(),
         };
 
@@ -794,7 +794,7 @@ pub enum TopOrder {
     Date,
     Misses,
     Length,
-    Position,
+    Pp,
 }
 
 pub trait SortableScore {
@@ -849,7 +849,7 @@ impl TopOrder {
                             .then_with(|| hits_b.cmp(&hits_a))
                     })
             }),
-            Self::Position => scores.sort_unstable_by(|a, b| {
+            Self::Pp => scores.sort_unstable_by(|a, b| {
                 b.get()
                     .pp
                     .partial_cmp(&a.get().pp)
@@ -861,7 +861,7 @@ impl TopOrder {
 
 impl Default for TopOrder {
     fn default() -> Self {
-        Self::Position
+        Self::Pp
     }
 }
 
@@ -1036,7 +1036,7 @@ impl TopArgs {
                         COMBO | "c" => sort_by = Some(TopOrder::Combo),
                         "date" | "d" | "recent" | "r" => sort_by = Some(TopOrder::Date),
                         "length" | "len" | "l" => sort_by = Some(TopOrder::Length),
-                        "pp" | "p" => sort_by = Some(TopOrder::Position),
+                        "pp" | "p" => sort_by = Some(TopOrder::Pp),
                         _ => {
                             let content = "Failed to parse `sort`.\n\
                             Must be either `acc`, `combo`, `date`, `length`, or `pp`";
@@ -1126,7 +1126,7 @@ impl TopArgs {
                         "date" => order = Some(TopOrder::Date),
                         "len" => order = Some(TopOrder::Length),
                         "miss" => order = Some(TopOrder::Misses),
-                        "pp" => order = Some(TopOrder::Position),
+                        "pp" => order = Some(TopOrder::Pp),
                         _ => return Err(Error::InvalidCommandOptions),
                     },
                     "query" => query = Some(value),
@@ -1230,7 +1230,7 @@ fn write_content(name: &str, args: &TopArgs, amount: usize) -> Option<String> {
             TopOrder::Date => format!("Most recent scores in `{name}`'{genitive} top100:"),
             TopOrder::Length => format!("`{name}`'{genitive} top100 sorted by length:"),
             TopOrder::Misses => format!("`{name}`'{genitive} top100 sorted by miss count:"),
-            TopOrder::Position => return None,
+            TopOrder::Pp => return None,
         };
 
         Some(content)
@@ -1246,7 +1246,7 @@ fn content_with_condition(args: &TopArgs, amount: usize) -> String {
         TopOrder::Date => content.push_str("`Order: Date"),
         TopOrder::Length => content.push_str("`Order: Length"),
         TopOrder::Misses => content.push_str("`Order: Misscount`"),
-        TopOrder::Position => content.push_str("`Order: Pp"),
+        TopOrder::Pp => content.push_str("`Order: Pp"),
     }
 
     if args.reverse {
