@@ -724,6 +724,7 @@ lazy_static! {
         insert("osekai", define_osekai);
         insert("ranking", define_ranking);
         insert("osustats", define_osustats);
+        insert("osc", define_osc);
         insert("top", define_top);
         insert("pinned", define_pinned);
         insert("topif", define_topif);

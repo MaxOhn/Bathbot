@@ -86,7 +86,8 @@ pub fn define_osustats() -> MyCommand {
     let name = option_name();
     let discord = option_discord();
 
-    let count_description = "Count how often a user appears on top of maps' leaderboards";
+    let count_description =
+        "Count how often a user appears on top of map leaderboards (same as `/osc`)";
 
     let count =
         MyCommandOption::builder("count", count_description).subcommand(vec![mode, name, discord]);

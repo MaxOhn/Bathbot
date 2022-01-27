@@ -142,6 +142,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         "minesweeper" => process_command(ctx, command, args, fun::slash_minesweeper).await,
         "mostplayed" => process_command(ctx, command, args, osu::slash_mostplayed).await,
         "nochoke" => process_command(ctx, command, args, osu::slash_nochoke).await,
+        "osc" => process_command(ctx, command, args, osu::slash_osc).await,
         "osekai" => process_command(ctx, command, args, osu::slash_osekai).await,
         "osustats" => process_command(ctx, command, args, osu::slash_osustats).await,
         "owner" => {

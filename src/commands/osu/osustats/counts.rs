@@ -12,8 +12,8 @@ use twilight_model::{
 use crate::{
     commands::{
         check_user_mention,
-        osu::{get_user, UserArgs},
-        parse_discord, parse_mode_option, DoubleResultCow,
+        osu::{get_user, option_discord, option_mode, option_name, UserArgs},
+        parse_discord, parse_mode_option, DoubleResultCow, MyCommand,
     },
     database::UserConfig,
     embeds::{EmbedData, OsuStatsCountsEmbed},
@@ -23,7 +23,7 @@ use crate::{
             common_literals::{DISCORD, MODE, NAME},
             GENERAL_ISSUE, OSUSTATS_API_ISSUE, OSU_API_ISSUE,
         },
-        InteractionExt, MessageExt,
+        ApplicationCommandExt, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context,
 };
@@ -204,6 +204,15 @@ pub async fn osustatscountctb(ctx: Arc<Context>, data: CommandData) -> BotResult
     }
 }
 
+pub async fn slash_osc(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+    let options = command.yoink_options();
+
+    match CountArgs::slash(&ctx, &command, options).await? {
+        Ok(args) => _count(ctx, command.into(), args).await,
+        Err(content) => command.error(&ctx, content).await,
+    }
+}
+
 pub(super) struct CountArgs {
     config: UserConfig,
 }
@@ -253,4 +262,13 @@ impl CountArgs {
 
         Ok(Ok(Self { config }))
     }
+}
+
+pub fn define_osc() -> MyCommand {
+    let mode = option_mode();
+    let name = option_name();
+    let discord = option_discord();
+    let description = "Count how often a user appears on top of map leaderboards";
+
+    MyCommand::new("osc", description).options(vec![mode, name, discord])
 }
