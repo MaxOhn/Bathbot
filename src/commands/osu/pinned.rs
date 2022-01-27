@@ -321,6 +321,7 @@ impl PinnedArgs {
                     MODE => config.mode = parse_mode_option(&value),
                     SORT => match value.as_str() {
                         ACC => sort_by = Some(TopOrder::Acc),
+                        "bpm" => sort_by = Some(TopOrder::Bpm),
                         COMBO => sort_by = Some(TopOrder::Combo),
                         "date" => sort_by = Some(TopOrder::Date),
                         "len" => sort_by = Some(TopOrder::Length),
@@ -360,6 +361,7 @@ fn write_content(name: &str, args: &PinnedArgs, amount: usize) -> Option<String>
 
         let content = match sort_by {
             TopOrder::Acc => format!("`{name}`'{genitive} pinned scores sorted by accuracy:"),
+            TopOrder::Bpm => format!("`{name}`'{genitive} pinned scores sorted by BPM:"),
             TopOrder::Combo => format!("`{name}`'{genitive} pinned scores sorted by combo:"),
             TopOrder::Date => format!("Most recent pinned scores of `{name}`:"),
             TopOrder::Length => format!("`{name}`'{genitive} pinned scores sorted by length:"),
@@ -382,6 +384,7 @@ fn content_with_condition(args: &PinnedArgs, amount: usize) -> String {
 
     match args.sort_by {
         Some(TopOrder::Acc) => content.push_str("`Order: Accuracy`"),
+        Some(TopOrder::Bpm) => content.push_str("`Order: BPM`"),
         Some(TopOrder::Combo) => content.push_str("`Order: Combo`"),
         Some(TopOrder::Date) => content.push_str("`Order: Date`"),
         Some(TopOrder::Length) => content.push_str("`Order: Length`"),
@@ -432,6 +435,10 @@ pub fn define_pinned() -> MyCommand {
         CommandOptionChoice::String {
             name: "misses".to_owned(),
             value: "miss".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "bpm".to_owned(),
+            value: "bpm".to_owned(),
         },
     ];
 

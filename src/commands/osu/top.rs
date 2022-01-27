@@ -7,7 +7,7 @@ use std::{
 
 use eyre::Report;
 use rosu_v2::prelude::{
-    Beatmap, BeatmapsetCompact, GameMode, Grade, OsuError,
+    Beatmap, BeatmapsetCompact, GameMode, GameMods, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
     Score, User,
 };
@@ -790,6 +790,7 @@ async fn paginated_embed(
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum TopOrder {
     Acc,
+    Bpm,
     Combo,
     Date,
     Misses,
@@ -802,12 +803,14 @@ pub trait SortableScore {
 }
 
 impl SortableScore for Score {
+    #[inline]
     fn get(&self) -> &Score {
         self
     }
 }
 
 impl SortableScore for (usize, Score) {
+    #[inline]
     fn get(&self) -> &Score {
         &self.1
     }
@@ -824,6 +827,28 @@ impl TopOrder {
                         .unwrap_or(Ordering::Equal)
                 });
             }
+            Self::Bpm => scores.sort_unstable_by(|a, b| {
+                let a = a.get();
+                let b = b.get();
+
+                fn clock_rate(mods: GameMods) -> f32 {
+                    if mods.contains(GameMods::DoubleTime) {
+                        1.5
+                    } else if mods.contains(GameMods::HalfTime) {
+                        0.75
+                    } else {
+                        1.0
+                    }
+                }
+
+                let a_clock_rate = clock_rate(a.mods);
+                let b_clock_rate = clock_rate(b.mods);
+
+                let a_bpm = a.map.as_ref().map_or(0.0, |map| map.bpm * a_clock_rate);
+                let b_bpm = b.map.as_ref().map_or(0.0, |map| map.bpm * b_clock_rate);
+
+                b_bpm.partial_cmp(&a_bpm).unwrap_or(Ordering::Equal)
+            }),
             Self::Combo => scores.sort_unstable_by_key(|s| Reverse(s.get().max_combo)),
             Self::Date => scores.sort_unstable_by_key(|s| Reverse(s.get().created_at)),
             Self::Length => scores.sort_unstable_by_key(|s| {
@@ -1122,6 +1147,7 @@ impl TopArgs {
                     },
                     SORT => match value.as_str() {
                         ACC => order = Some(TopOrder::Acc),
+                        "bpm" => order = Some(TopOrder::Bpm),
                         COMBO => order = Some(TopOrder::Combo),
                         "date" => order = Some(TopOrder::Date),
                         "len" => order = Some(TopOrder::Length),
@@ -1226,6 +1252,7 @@ fn write_content(name: &str, args: &TopArgs, amount: usize) -> Option<String> {
 
         let content = match args.sort_by {
             TopOrder::Acc => format!("`{name}`'{genitive} top100 sorted by accuracy:"),
+            TopOrder::Bpm => format!("`{name}`'{genitive} top100 sorted by BPM:"),
             TopOrder::Combo => format!("`{name}`'{genitive} top100 sorted by combo:"),
             TopOrder::Date => format!("Most recent scores in `{name}`'{genitive} top100:"),
             TopOrder::Length => format!("`{name}`'{genitive} top100 sorted by length:"),
@@ -1242,6 +1269,7 @@ fn content_with_condition(args: &TopArgs, amount: usize) -> String {
 
     match args.sort_by {
         TopOrder::Acc => content.push_str("`Order: Accuracy"),
+        TopOrder::Bpm => content.push_str("`Order: BPM"),
         TopOrder::Combo => content.push_str("`Order: Combo"),
         TopOrder::Date => content.push_str("`Order: Date"),
         TopOrder::Length => content.push_str("`Order: Length"),
@@ -1350,6 +1378,10 @@ pub fn define_top() -> MyCommand {
         CommandOptionChoice::String {
             name: "misses".to_owned(),
             value: "miss".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "bpm".to_owned(),
+            value: "bpm".to_owned(),
         },
     ];
 
