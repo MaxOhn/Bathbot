@@ -278,7 +278,11 @@ pub async fn get_member_ids(ctx: &Context, guild_id: Id<GuildMarker>) -> BotResu
         .models()
         .await?;
 
-    let mut last = members.last().unwrap().user.id;
+    let mut last = match members.last() {
+        Some(member) => member.user.id,
+        None => return Ok(HashSet::new()),
+    };
+
     let mut members: HashSet<_> = members
         .into_iter()
         .map(|member| member.user.id.get())
@@ -302,7 +306,11 @@ pub async fn get_member_ids(ctx: &Context, guild_id: Id<GuildMarker>) -> BotResu
                 .models()
                 .await?;
 
-            last = new_members.last().unwrap().user.id;
+            last = match new_members.last() {
+                Some(member) => member.user.id,
+                None => return Ok(members),
+            };
+
             let more_iterations = new_members.len() == 1000;
             members.extend(new_members.into_iter().map(|member| member.user.id.get()));
 
@@ -334,9 +342,8 @@ pub async fn send_reaction(ctx: &Context, msg: &Message, emote: Emote) -> BotRes
             i + 1,
         );
         sleep(duration).await;
-        let emoji = emote.request_reaction_type();
 
-        err = match ctx.http.create_reaction(channel, msg, &emoji).exec().await {
+        err = match ctx.http.create_reaction(channel, msg, emoji).exec().await {
             Ok(_) => return Ok(()),
             Err(e) if matches!(e.kind(), ErrorType::Response { status, .. } if status.raw() == 429) => {
                 e

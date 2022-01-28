@@ -27,6 +27,8 @@ lazy_static::lazy_static! {
 type TrackingQueue =
     RwLock<PriorityQueue<TrackingEntry, Reverse<DateTime<Utc>>, DefaultHashBuilder>>;
 
+type Channels = HashMap<Id<ChannelMarker>, usize>;
+
 pub struct TrackingStats {
     pub next_pop: TrackingEntry,
     pub users: usize,
@@ -152,11 +154,7 @@ impl OsuTracking {
     }
 
     #[inline]
-    pub fn get_tracked(
-        &self,
-        user_id: u32,
-        mode: GameMode,
-    ) -> Option<(DateTime<Utc>, HashMap<Id<ChannelMarker>, usize>)> {
+    pub fn get_tracked(&self, user_id: u32, mode: GameMode) -> Option<(DateTime<Utc>, Channels)> {
         let entry = TrackingEntry { user_id, mode };
 
         self.users

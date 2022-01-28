@@ -98,7 +98,7 @@ fn log_invoke(ctx: &Context, msg: &Message) {
                 .channel(msg.channel_id, |c| location.push_str(c.name()));
 
             if push_result.is_err() {
-                location.push_str("<unchached channel>");
+                location.push_str("<uncached channel>");
             }
         }
         None => location.push_str("Private"),

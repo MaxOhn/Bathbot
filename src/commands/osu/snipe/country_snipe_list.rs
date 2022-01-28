@@ -82,7 +82,7 @@ pub(super) async fn _countrysnipelist(
         }
         Ok(None) => None,
         Err(why) => {
-            let wrap = format!("failed to get UserConfig for user author_id");
+            let wrap = "failed to get UserConfig for user author_id";
             warn!("{:?}", Report::new(why).wrap_err(wrap));
 
             None
@@ -224,9 +224,8 @@ impl CountryListArgs {
                         };
                     }
                     _ => {
-                        let content = format!(
-                            "Unrecognized option `{key}`.\nAvailable options are: `sort`."
-                        );
+                        let content =
+                            format!("Unrecognized option `{key}`.\nAvailable options are: `sort`.");
 
                         return Err(content.into());
                     }
