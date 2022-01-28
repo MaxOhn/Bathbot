@@ -106,7 +106,7 @@ async fn _pinned(ctx: Arc<Context>, data: CommandData<'_>, args: PinnedArgs) -> 
     user.mode = mode;
 
     // Filter scores according to query
-    filter_scores(&mut scores, &args);
+    filter_scores(&mut scores, &args).await;
 
     // Add maps of scores to DB
     let scores_iter = scores.iter();
@@ -133,7 +133,7 @@ async fn _pinned(ctx: Arc<Context>, data: CommandData<'_>, args: PinnedArgs) -> 
     Ok(())
 }
 
-fn filter_scores(scores: &mut Vec<Score>, args: &PinnedArgs) {
+async fn filter_scores(scores: &mut Vec<Score>, args: &PinnedArgs) {
     if let Some(query) = args.query.as_deref() {
         let needle = query.cow_to_ascii_lowercase();
         let mut haystack = String::new();
@@ -156,7 +156,7 @@ fn filter_scores(scores: &mut Vec<Score>, args: &PinnedArgs) {
     }
 
     if let Some(sort_by) = args.sort_by {
-        sort_by.apply(scores);
+        sort_by.apply(scores).await;
     }
 }
 
@@ -327,6 +327,7 @@ impl PinnedArgs {
                         "len" => sort_by = Some(TopOrder::Length),
                         "miss" => sort_by = Some(TopOrder::Misses),
                         "pp" => sort_by = Some(TopOrder::Pp),
+                        "stars" => sort_by = Some(TopOrder::Stars),
                         _ => return Err(Error::InvalidCommandOptions),
                     },
                     "query" => query = Some(value),
@@ -367,6 +368,7 @@ fn write_content(name: &str, args: &PinnedArgs, amount: usize) -> Option<String>
             TopOrder::Length => format!("`{name}`'{genitive} pinned scores sorted by length:"),
             TopOrder::Misses => format!("`{name}`'{genitive} pinned scores sorted by miss count:"),
             TopOrder::Pp => format!("`{name}`'{genitive} pinned scores sorted by pp"),
+            TopOrder::Stars => format!("`{name}`'{genitive} pinned scores sorted by stars"),
         };
 
         Some(content)
@@ -390,6 +392,7 @@ fn content_with_condition(args: &PinnedArgs, amount: usize) -> String {
         Some(TopOrder::Length) => content.push_str("`Order: Length`"),
         Some(TopOrder::Misses) => content.push_str("`Order: Misscount`"),
         Some(TopOrder::Pp) => content.push_str("`Order: Pp`"),
+        Some(TopOrder::Stars) => content.push_str("`Order: Stars`"),
         None => {}
     }
 
@@ -427,6 +430,10 @@ pub fn define_pinned() -> MyCommand {
         CommandOptionChoice::String {
             name: COMBO.to_owned(),
             value: COMBO.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "stars".to_owned(),
+            value: "stars".to_owned(),
         },
         CommandOptionChoice::String {
             name: "length".to_owned(),

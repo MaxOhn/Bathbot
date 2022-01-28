@@ -6,6 +6,9 @@ use std::{
 };
 
 use eyre::Report;
+use futures::{stream::FuturesOrdered, StreamExt};
+use hashbrown::HashMap;
+use rosu_pp::{Beatmap as Map, BeatmapExt};
 use rosu_v2::prelude::{
     Beatmap, BeatmapsetCompact, GameMode, GameMods, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
@@ -43,7 +46,7 @@ use crate::{
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
         matcher, numbers,
-        osu::ModSelection,
+        osu::{prepare_beatmap_file, ModSelection},
         ApplicationCommandExt, CowUtils, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, MessageBuilder,
@@ -74,9 +77,6 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
         let content = format!(
             "`{prefix}top{mode_long} -r`? I think you meant `{prefix}recentbest{mode_long}` \
             or `{prefix}rb{mode_short}` for short ;)",
-            mode_long = mode_long,
-            mode_short = mode_short,
-            prefix = prefix
         );
 
         return data.error(&ctx, content).await;
@@ -91,11 +91,8 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
         let prefix = ctx.guild_first_prefix(data.guild_id()).await;
 
         let content = format!(
-            "`{prefix}{cmd}{mode} -i / -p`? \
-            Try putting the number right after the command, e.g. `{prefix}{cmd}{mode}42`, or use the arrow reactions.",
-            mode = mode_long,
-            cmd = cmd,
-            prefix = prefix
+            "`{prefix}{cmd}{mode_long} -i / -p`? \
+            Try putting the number right after the command, e.g. `{prefix}{cmd}{mode_long}42`, or use the arrow reactions.",
         );
 
         return data.error(&ctx, content).await;
@@ -131,7 +128,7 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
     process_tracking(&ctx, &mut scores, Some(&user)).await;
 
     // Filter scores according to mods, combo, acc, and grade
-    let scores = filter_scores(scores, &args);
+    let scores = filter_scores(scores, &args).await;
 
     if args.index.filter(|n| *n > scores.len()).is_some() {
         let content = format!(
@@ -556,7 +553,7 @@ async fn recentbestctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     }
 }
 
-fn filter_scores(scores: Vec<Score>, args: &TopArgs) -> Vec<(usize, Score)> {
+async fn filter_scores(scores: Vec<Score>, args: &TopArgs) -> Vec<(usize, Score)> {
     let selection = args.mods;
     let grade = args.grade;
 
@@ -658,7 +655,7 @@ fn filter_scores(scores: Vec<Score>, args: &TopArgs) -> Vec<(usize, Score)> {
         });
     }
 
-    args.sort_by.apply(&mut scores_indices);
+    args.sort_by.apply(&mut scores_indices).await;
 
     if args.reverse {
         scores_indices.reverse();
@@ -793,9 +790,10 @@ pub enum TopOrder {
     Bpm,
     Combo,
     Date,
-    Misses,
     Length,
+    Misses,
     Pp,
+    Stars,
 }
 
 pub trait SortableScore {
@@ -817,7 +815,7 @@ impl SortableScore for (usize, Score) {
 }
 
 impl TopOrder {
-    pub fn apply<S: SortableScore>(self, scores: &mut [S]) {
+    pub async fn apply<S: SortableScore>(self, scores: &mut [S]) {
         match self {
             Self::Acc => {
                 scores.sort_unstable_by(|a, b| {
@@ -880,6 +878,65 @@ impl TopOrder {
                     .partial_cmp(&a.get().pp)
                     .unwrap_or(Ordering::Equal)
             }),
+            Self::Stars => {
+                let stars = scores
+                    .iter()
+                    .map(SortableScore::get)
+                    .map(|score| async move {
+                        let id = score.score_id;
+
+                        let map = match score.map.as_ref() {
+                            Some(map) => map,
+                            None => return (id, 0.0),
+                        };
+
+                        if !score.mods.changes_stars(score.mode) {
+                            return (id, map.stars);
+                        }
+
+                        let map_path = match prepare_beatmap_file(map.map_id).await {
+                            Ok(path) => path,
+                            Err(err) => {
+                                warn!("{:?}", Report::new(err));
+
+                                return (id, 0.0);
+                            }
+                        };
+
+                        let map = match Map::from_path(map_path).await {
+                            Ok(map) => map,
+                            Err(err) => {
+                                warn!("{:?}", Report::new(err));
+
+                                return (id, 0.0);
+                            }
+                        };
+
+                        let difficulty = map.stars(score.mods.bits(), None);
+
+                        (id, difficulty.stars() as f32)
+                    })
+                    .collect::<FuturesOrdered<_>>()
+                    .collect::<HashMap<_, _>>()
+                    .await;
+
+                scores.sort_unstable_by(|a, b| {
+                    let a = a.get();
+                    let b = b.get();
+
+                    let stars_a = match stars.get(&a.score_id) {
+                        Some(stars) => stars,
+                        None => return Ordering::Greater,
+                    };
+
+                    let stars_b = match stars.get(&b.score_id) {
+                        Some(stars) => stars,
+                        None => return Ordering::Less,
+                    };
+
+                    stars_b.partial_cmp(&stars_a).unwrap_or(Ordering::Equal)
+                })
+            }
         }
     }
 }
@@ -1153,6 +1210,7 @@ impl TopArgs {
                         "len" => order = Some(TopOrder::Length),
                         "miss" => order = Some(TopOrder::Misses),
                         "pp" => order = Some(TopOrder::Pp),
+                        "stars" => order = Some(TopOrder::Stars),
                         _ => return Err(Error::InvalidCommandOptions),
                     },
                     "query" => query = Some(value),
@@ -1258,6 +1316,7 @@ fn write_content(name: &str, args: &TopArgs, amount: usize) -> Option<String> {
             TopOrder::Length => format!("`{name}`'{genitive} top100 sorted by length:"),
             TopOrder::Misses => format!("`{name}`'{genitive} top100 sorted by miss count:"),
             TopOrder::Pp => return None,
+            TopOrder::Stars => format!("`{name}`'{genitive} top100 sorted by stars:"),
         };
 
         Some(content)
@@ -1275,6 +1334,7 @@ fn content_with_condition(args: &TopArgs, amount: usize) -> String {
         TopOrder::Length => content.push_str("`Order: Length"),
         TopOrder::Misses => content.push_str("`Order: Misscount`"),
         TopOrder::Pp => content.push_str("`Order: Pp"),
+        TopOrder::Stars => content.push_str("`Order: Stars`"),
     }
 
     if args.reverse {
@@ -1370,6 +1430,10 @@ pub fn define_top() -> MyCommand {
         CommandOptionChoice::String {
             name: COMBO.to_owned(),
             value: COMBO.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "stars".to_owned(),
+            value: "stars".to_owned(),
         },
         CommandOptionChoice::String {
             name: "length".to_owned(),
