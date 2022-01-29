@@ -44,6 +44,7 @@ use eyre::{Result, WrapErr};
 use futures::StreamExt;
 use hashbrown::HashSet;
 use parking_lot::Mutex;
+use rosu::Osu as OsuV1;
 use rosu_v2::Osu;
 use tokio::{
     runtime::Builder as RuntimeBuilder,
@@ -146,8 +147,10 @@ async fn async_main() -> Result<()> {
     // Connect to osu! API
     let osu_client_id = config.tokens.osu_client_id;
     let osu_client_secret = &config.tokens.osu_client_secret;
+    let osu_token = &config.tokens.osu_token;
 
     let osu = Osu::new(osu_client_id, osu_client_secret).await?;
+    let osu_v1 = OsuV1::new(osu_token);
 
     // Log custom client into osu!
     let custom = CustomClient::new().await?;
@@ -225,6 +228,7 @@ async fn async_main() -> Result<()> {
         psql,
         redis,
         osu,
+        osu_v1,
         custom,
         twitch,
     };

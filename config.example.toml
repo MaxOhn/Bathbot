@@ -11,6 +11,7 @@ discord = ""
 osu_client_id = 1234
 osu_client_secret = ""
 osu_session = ""
+osu_token = ""
 twitch_client_id = ""
 twitch_token = ""
 osu_daily = ""

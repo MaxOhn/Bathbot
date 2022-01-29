@@ -32,6 +32,7 @@ radix_trie = { version = "0.2" }
 rand = { version = "0.8" }
 regex = { version = "1.0" }
 reqwest = { version = "0.11", default-features = false, features = ["cookies", "multipart", "rustls-tls"] }
+rosu = { version = "0.5" }
 rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "next", features = ["cache", "metrics"] }
 # rosu-v2 = { path = "../rosu-v2" }
 rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp", branch = "next", features = ["async_tokio"] }

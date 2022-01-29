@@ -109,6 +109,7 @@ dependencies = [
  "rand",
  "regex",
  "reqwest",
+ "rosu",
  "rosu-pp",
  "rosu-pp-older",
  "rosu-v2",
@@ -1834,6 +1835,23 @@ dependencies = [
  "untrusted",
  "web-sys",
  "winapi",
+]
+
+[[package]]
+name = "rosu"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38dd04e20fed9e8af6da048699ba04da519dd0981b4c8af5306099602d14a2e0"
+dependencies = [
+ "bitflags",
+ "bytes",
+ "chrono",
+ "futures-util",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]

@@ -21,7 +21,7 @@ use twilight_model::{
 
 use crate::{
     commands::{
-        osu::{option_discord, option_map, option_mode, option_mods, option_name},
+        osu::{option_discord, option_map, option_mode, option_name},
         parse_discord, parse_mode_option, DoubleResultCow, MyCommand, MyCommandOption,
     },
     database::OsuData,
@@ -32,7 +32,7 @@ use crate::{
     Args, BotResult, Context, Error,
 };
 
-use super::{prepare_score, require_link, MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32};
+use super::{require_link, MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32};
 
 const AT_LEAST_ONE: &str = "You need to specify at least one osu username. \
     If you're not linked, you must specify two names.";
@@ -266,7 +266,6 @@ fn option_discord_(n: u8) -> MyCommandOption {
 pub fn define_compare() -> MyCommand {
     let name = option_name();
     let map = option_map();
-    let mods = option_mods(false);
     let discord = option_discord();
 
     let score_help =
@@ -274,7 +273,7 @@ pub fn define_compare() -> MyCommand {
 
     let score = MyCommandOption::builder(SCORE, "Compare a score")
         .help(score_help)
-        .subcommand(vec![name, map, mods, discord]);
+        .subcommand(vec![name, map, discord]);
 
     let mode = option_mode();
     let name1 = option_name_(1);

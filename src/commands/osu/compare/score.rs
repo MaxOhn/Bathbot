@@ -2,9 +2,8 @@ use std::sync::Arc;
 
 use eyre::Report;
 use rosu_v2::prelude::{
-    GameMode, GameMods, OsuError,
+    GameMode, OsuError,
     RankStatus::{Approved, Loved, Ranked},
-    Score,
 };
 use tokio::time::{sleep, Duration};
 use twilight_model::{
@@ -19,20 +18,21 @@ use twilight_model::{
 use crate::{
     commands::{
         check_user_mention,
-        osu::{get_beatmap_user_score, get_user, UserArgs},
+        osu::{get_user, get_user_cached, UserArgs},
         parse_discord, DoubleResultCow,
     },
     database::UserConfig,
-    embeds::{CompareEmbed, EmbedData, NoScoresEmbed},
+    embeds::{CompareEmbed, EmbedData, NoScoresEmbed, ScoresEmbed},
     error::Error,
+    pagination::{Pagination, ScoresPagination},
     tracking::process_tracking,
     util::{
         constants::{
-            common_literals::{DISCORD, MAP, MAP_PARSE_FAIL, MODS, MODS_PARSE_FAIL, NAME},
+            common_literals::{DISCORD, MAP, MAP_PARSE_FAIL, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
         matcher,
-        osu::{map_id_from_history, map_id_from_msg, MapIdType, ModSelection},
+        osu::{map_id_from_history, map_id_from_msg, MapIdType},
         InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, MessageBuilder,
@@ -43,13 +43,12 @@ use crate::{
 #[long_desc(
     "Display a user's top score on a given map. \n\
      If no map is given, I will choose the last map \
-     I can find in the embeds of this channel.\n\
-     Mods can be specified."
+     I can find in the embeds of this channel."
 )]
-#[usage("[username] [map url / map id] [+mods]")]
+#[usage("[username] [map url / map id]")]
 #[example(
     "badewanne3",
-    "badewanne3 2240404 +hdhr",
+    "badewanne3 2240404",
     "badewanne3 https://osu.ppy.sh/beatmapsets/902425#osu/2240404"
 )]
 #[aliases("c")]
@@ -90,7 +89,7 @@ pub(super) async fn _compare(
     data: CommandData<'_>,
     args: ScoreArgs,
 ) -> BotResult<()> {
-    let ScoreArgs { config, mods, id } = args;
+    let ScoreArgs { config, id } = args;
 
     let embeds_maximized = match (config.embeds_maximized, data.guild_id()) {
         (Some(embeds_maximized), _) => embeds_maximized,
@@ -103,18 +102,8 @@ pub(super) async fn _compare(
         None => return super::require_link(&ctx, &data).await,
     };
 
-    let (score, global_idx, pinned) = match id {
-        Some(MapOrScore::Map(MapIdType::Map(id))) => {
-            match retrieve_data(&ctx, &data, name.as_str(), id, mods).await {
-                ScoreResult::Score {
-                    score,
-                    global_idx,
-                    pinned,
-                } => (score, global_idx, pinned),
-                ScoreResult::Done => return Ok(()),
-                ScoreResult::Error(err) => return Err(err),
-            }
-        }
+    let map_id = match id {
+        Some(MapOrScore::Map(MapIdType::Map(map_id))) => map_id,
         Some(MapOrScore::Map(MapIdType::Set(_))) => {
             let content = "Looks like you gave me a mapset id, I need a map id though";
 
@@ -176,7 +165,79 @@ pub(super) async fn _compare(
                 None
             };
 
-            (score, global_idx.map_or(usize::MAX, |idx| idx + 1), pinned)
+            let global_idx = global_idx.map_or(usize::MAX, |idx| idx + 1);
+            let mode = score.mode;
+
+            let mut best = if score.map.as_ref().unwrap().status == Ranked {
+                let fut = ctx
+                    .osu()
+                    .user_scores(score.user_id)
+                    .best()
+                    .limit(100)
+                    .mode(mode);
+
+                match fut.await {
+                    Ok(scores) => Some(scores),
+                    Err(why) => {
+                        let report = Report::new(why).wrap_err("failed to get top scores");
+                        warn!("{:?}", report);
+
+                        None
+                    }
+                }
+            } else {
+                None
+            };
+
+            // Accumulate all necessary data
+            let embed_data =
+                match CompareEmbed::new(best.as_deref(), score, global_idx, pinned).await {
+                    Ok(data) => data,
+                    Err(why) => {
+                        let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+                        return Err(why);
+                    }
+                };
+
+            // Only maximize if config allows it
+            if embeds_maximized {
+                let builder = embed_data.as_builder().build().into();
+                let response = data.create_message(&ctx, builder).await?.model().await?;
+
+                ctx.store_msg(response.id);
+
+                // Process user and their top scores for tracking
+                if let Some(ref mut scores) = best {
+                    process_tracking(&ctx, scores, None).await;
+                }
+
+                // Wait for minimizing
+                tokio::spawn(async move {
+                    sleep(Duration::from_secs(45)).await;
+
+                    if !ctx.remove_msg(response.id) {
+                        return;
+                    }
+
+                    let builder = embed_data.into_builder().build().into();
+
+                    if let Err(why) = response.update_message(&ctx, builder).await {
+                        let report = Report::new(why).wrap_err("failed to minimize message");
+                        warn!("{:?}", report);
+                    }
+                });
+            } else {
+                let builder = embed_data.into_builder().build().into();
+                data.create_message(&ctx, builder).await?;
+
+                // Process user and their top scores for tracking
+                if let Some(ref mut scores) = best {
+                    process_tracking(&ctx, scores, None).await;
+                }
+            }
+
+            return Ok(());
         }
         None => {
             let msgs = match ctx.retrieve_channel_history(data.channel_id()).await {
@@ -188,18 +249,8 @@ pub(super) async fn _compare(
                 }
             };
 
-            match map_id_from_history(&msgs) {
-                Some(MapIdType::Map(id)) => {
-                    match retrieve_data(&ctx, &data, name.as_str(), id, mods).await {
-                        ScoreResult::Score {
-                            score,
-                            global_idx,
-                            pinned,
-                        } => (score, global_idx, pinned),
-                        ScoreResult::Done => return Ok(()),
-                        ScoreResult::Error(err) => return Err(err),
-                    }
-                }
+            let map_id = match map_id_from_history(&msgs) {
+                Some(MapIdType::Map(id)) => id,
                 Some(MapIdType::Set(_)) => {
                     let content = "I found a mapset in the channel history but I need a map. \
                     Try specifying a map either by url to the map, or just by map id.";
@@ -212,187 +263,161 @@ pub(super) async fn _compare(
 
                     return data.error(&ctx, content).await;
                 }
-            }
+            };
+
+            map_id
         }
     };
 
-    let mode = score.mode;
+    // Retrieving the beatmap
+    let map = match ctx.psql().get_beatmap(map_id, true).await {
+        Ok(map) => map,
+        Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
+            Ok(map) => map,
+            Err(err) => {
+                let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
-    let mut best = if score.map.as_ref().unwrap().status == Ranked {
-        let fut = ctx
-            .osu()
-            .user_scores(score.user_id)
-            .best()
-            .limit(100)
-            .mode(mode);
+                return Err(err.into());
+            }
+        },
+    };
 
-        match fut.await {
-            Ok(scores) => Some(scores),
-            Err(why) => {
-                let report = Report::new(why).wrap_err("failed to get top scores");
-                warn!("{:?}", report);
+    let mut user_args = UserArgs::new(name.as_str(), map.mode);
 
-                None
+    let (user, scores) = if let Some(alt_name) = user_args.whitespaced_name() {
+        match get_user_cached(&ctx, &user_args).await {
+            Ok(user) => {
+                let scores_fut = ctx
+                    .clients
+                    .osu_v1
+                    .scores(map_id)
+                    .user(name.as_str())
+                    .mode((map.mode as u8).into());
+
+                match scores_fut.await {
+                    Ok(scores) => (user, scores),
+                    Err(err) => {
+                        let _ = data.error(&ctx, OSU_API_ISSUE).await;
+
+                        return Err(err.into());
+                    }
+                }
+            }
+            Err(OsuError::NotFound) => {
+                user_args.name = &alt_name;
+
+                let scores_fut = ctx
+                    .clients
+                    .osu_v1
+                    .scores(map_id)
+                    .user(alt_name.as_str())
+                    .mode((map.mode as u8).into());
+
+                match tokio::join!(get_user_cached(&ctx, &user_args), scores_fut) {
+                    (Err(OsuError::NotFound), _) => {
+                        let content = format!("User `{name}` was not found");
+
+                        return data.error(&ctx, content).await;
+                    }
+                    (Err(err), _) => {
+                        let _ = data.error(&ctx, OSU_API_ISSUE).await;
+
+                        return Err(err.into());
+                    }
+                    (_, Err(err)) => {
+                        let _ = data.error(&ctx, OSU_API_ISSUE).await;
+
+                        return Err(err.into());
+                    }
+                    (Ok(user), Ok(scores)) => (user, scores),
+                }
+            }
+            Err(err) => {
+                let _ = data.error(&ctx, OSU_API_ISSUE).await;
+
+                return Err(err.into());
             }
         }
     } else {
-        None
+        let scores_fut = ctx
+            .clients
+            .osu_v1
+            .scores(map_id)
+            .user(name.as_str())
+            .mode((map.mode as u8).into());
+
+        match tokio::join!(get_user_cached(&ctx, &user_args), scores_fut) {
+            (Err(OsuError::NotFound), _) => {
+                let content = format!("User `{name}` was not found");
+
+                return data.error(&ctx, content).await;
+            }
+            (Err(err), _) => {
+                let _ = data.error(&ctx, OSU_API_ISSUE).await;
+
+                return Err(err.into());
+            }
+            (_, Err(err)) => {
+                let _ = data.error(&ctx, OSU_API_ISSUE).await;
+
+                return Err(err.into());
+            }
+            (Ok(user), Ok(scores)) => (user, scores),
+        }
     };
+
+    if scores.is_empty() {
+        return no_scores(&ctx, &data, name.as_str(), map_id).await;
+    }
+
+    let pinned = match ctx
+        .osu()
+        .user_scores(user.user_id)
+        .pinned()
+        .mode(map.mode)
+        .limit(100)
+        .await
+    {
+        Ok(scores) => scores,
+        Err(err) => {
+            warn!(
+                "{:?}",
+                Report::new(err).wrap_err("failed to get pinned scores")
+            );
+
+            Vec::new()
+        }
+    };
+
+    let init_scores = scores.iter().take(10);
 
     // Accumulate all necessary data
-    let embed_data =
-        match CompareEmbed::new(best.as_deref(), score, mods.is_some(), global_idx, pinned).await {
-            Ok(data) => data,
-            Err(why) => {
-                let _ = data.error(&ctx, GENERAL_ISSUE).await;
+    let builder = ScoresEmbed::new(&user, &map, init_scores, 0, &pinned)
+        .await
+        .into_builder()
+        .build()
+        .into();
 
-                return Err(why);
-            }
-        };
+    let response_raw = data.create_message(&ctx, builder).await?;
 
-    // Only maximize if config allows it
-    if embeds_maximized {
-        let builder = embed_data.as_builder().build().into();
-        let response = data.create_message(&ctx, builder).await?.model().await?;
-
-        ctx.store_msg(response.id);
-
-        // Process user and their top scores for tracking
-        if let Some(ref mut scores) = best {
-            process_tracking(&ctx, scores, None).await;
-        }
-
-        // Wait for minimizing
-        tokio::spawn(async move {
-            sleep(Duration::from_secs(45)).await;
-
-            if !ctx.remove_msg(response.id) {
-                return;
-            }
-
-            let builder = embed_data.into_builder().build().into();
-
-            if let Err(why) = response.update_message(&ctx, builder).await {
-                let report = Report::new(why).wrap_err("failed to minimize message");
-                warn!("{:?}", report);
-            }
-        });
-    } else {
-        let builder = embed_data.into_builder().build().into();
-        data.create_message(&ctx, builder).await?;
-
-        // Process user and their top scores for tracking
-        if let Some(ref mut scores) = best {
-            process_tracking(&ctx, scores, None).await;
-        }
+    // Skip pagination if too few entries
+    if scores.len() <= 10 {
+        return Ok(());
     }
+
+    let response = response_raw.model().await?;
+
+    // Pagination
+    let pagination = ScoresPagination::new(response, user, map, scores, pinned);
+    let owner = data.author()?.id;
+
+    tokio::spawn(async move {
+        if let Err(err) = pagination.start(&ctx, owner, 60).await {
+            warn!("{:?}", Report::new(err));
+        }
+    });
 
     Ok(())
-}
-
-#[allow(clippy::large_enum_variant)]
-enum ScoreResult {
-    Score {
-        score: Score,
-        global_idx: usize,
-        pinned: bool,
-    },
-    Done,
-    Error(Error),
-}
-
-async fn retrieve_data(
-    ctx: &Context,
-    data: &CommandData<'_>,
-    name: &str,
-    map_id: u32,
-    mods: Option<ModSelection>,
-) -> ScoreResult {
-    let mods = match mods {
-        None | Some(ModSelection::Exclude(_)) => None,
-        Some(ModSelection::Exact(mods) | ModSelection::Include(mods)) => Some(mods),
-    };
-
-    let user_args = UserArgs::new(name, GameMode::STD);
-    let score_fut = get_beatmap_user_score(ctx.osu(), map_id, &user_args, mods);
-
-    // Retrieve user's score on the map
-    let (mut score, global_idx) = match score_fut.await {
-        Ok(mut score) => match super::prepare_score(ctx, &mut score.score).await {
-            Ok(_) => (score.score, score.pos),
-            Err(why) => {
-                let _ = data.error(ctx, OSU_API_ISSUE).await;
-
-                return ScoreResult::Error(why.into());
-            }
-        },
-        Err(OsuError::NotFound) => {
-            return match no_scores(ctx, data, name, map_id, mods).await {
-                Ok(_) => ScoreResult::Done,
-                Err(err) => ScoreResult::Error(err),
-            }
-        }
-        Err(why) => {
-            let _ = data.error(ctx, OSU_API_ISSUE).await;
-
-            return ScoreResult::Error(why.into());
-        }
-    };
-
-    let mapset_id = score.map.as_ref().unwrap().mapset_id;
-
-    // First try to just get the mapset from the DB
-    let mapset_fut = ctx.psql().get_beatmapset(mapset_id);
-    let user_fut = ctx.osu().user(score.user_id).mode(score.mode);
-
-    let pinned_fut = ctx
-        .osu()
-        .user_scores(score.user_id)
-        .pinned()
-        .limit(100)
-        .mode(score.mode);
-
-    let (mapset_result, user_result, pinned_result) =
-        tokio::join!(mapset_fut, user_fut, pinned_fut);
-
-    let user = match user_result {
-        Ok(user) => user,
-        Err(err) => {
-            let _ = data.error(ctx, OSU_API_ISSUE).await;
-
-            return ScoreResult::Error(err.into());
-        }
-    };
-
-    match mapset_result {
-        Ok(mapset) => score.mapset = Some(mapset),
-        Err(_) => match ctx.osu().beatmapset(mapset_id).await {
-            Ok(mapset) => score.mapset = Some(mapset.into()),
-            Err(why) => {
-                let _ = data.error(ctx, OSU_API_ISSUE).await;
-
-                return ScoreResult::Error(why.into());
-            }
-        },
-    }
-
-    let pinned = match pinned_result {
-        Ok(scores) => scores.contains(&score),
-        Err(err) => {
-            let report = Report::new(err).wrap_err("failed to retrieve pinned scores");
-            warn!("{:?}", report);
-
-            false
-        }
-    };
-
-    score.user = Some(user.into());
-
-    ScoreResult::Score {
-        score,
-        global_idx,
-        pinned,
-    }
 }
 
 async fn no_scores(
@@ -400,7 +425,6 @@ async fn no_scores(
     data: &CommandData<'_>,
     name: &str,
     map_id: u32,
-    mods: Option<GameMods>,
 ) -> BotResult<()> {
     let map = match ctx.psql().get_beatmap(map_id, true).await {
         Ok(map) => map,
@@ -442,7 +466,7 @@ async fn no_scores(
     };
 
     // Sending the embed
-    let embed = NoScoresEmbed::new(user, map, mods).into_builder().build();
+    let embed = NoScoresEmbed::new(user, map).into_builder().build();
     let builder = MessageBuilder::new().embed(embed);
     data.create_message(ctx, builder).await?;
 
@@ -456,7 +480,6 @@ enum MapOrScore {
 
 pub(super) struct ScoreArgs {
     config: UserConfig,
-    mods: Option<ModSelection>,
     id: Option<MapOrScore>,
 }
 
@@ -468,12 +491,9 @@ impl ScoreArgs {
     ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
         let mut id = None;
-        let mut mods = None;
 
         for arg in args.take(3) {
-            if let Some(mods_) = matcher::get_mods(arg) {
-                mods.replace(mods_);
-            } else if let Some(id_) =
+            if let Some(id_) =
                 matcher::get_osu_map_id(arg).or_else(|| matcher::get_osu_mapset_id(arg))
             {
                 id = Some(MapOrScore::Map(id_));
@@ -487,7 +507,7 @@ impl ScoreArgs {
             }
         }
 
-        Ok(Ok(Self { config, id, mods }))
+        Ok(Ok(Self { config, id }))
     }
 
     pub(super) async fn slash(
@@ -497,7 +517,6 @@ impl ScoreArgs {
     ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(command.user_id()?).await?;
         let mut id = None;
-        let mut mods = None;
 
         for option in options {
             match option.value {
@@ -510,13 +529,6 @@ impl ScoreArgs {
                         None => match matcher::get_osu_score_id(&value) {
                             Some((mode, id_)) => id = Some(MapOrScore::Score { mode, id: id_ }),
                             None => return Ok(Err(MAP_PARSE_FAIL.into())),
-                        },
-                    },
-                    MODS => match matcher::get_mods(&value) {
-                        Some(mods_) => mods = Some(mods_),
-                        None => match value.parse() {
-                            Ok(mods_) => mods = Some(ModSelection::Exact(mods_)),
-                            Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
                         },
                     },
                     _ => return Err(Error::InvalidCommandOptions),
@@ -532,6 +544,6 @@ impl ScoreArgs {
             }
         }
 
-        Ok(Ok(ScoreArgs { config, mods, id }))
+        Ok(Ok(ScoreArgs { config, id }))
     }
 }

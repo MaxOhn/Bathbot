@@ -4,6 +4,7 @@ use bb8_redis::{bb8::Pool, RedisConnectionManager};
 use dashmap::{DashMap, DashSet};
 use hashbrown::HashSet;
 use parking_lot::Mutex;
+use rosu::Osu as OsuV1;
 use rosu_v2::Osu;
 use smallvec::SmallVec;
 use std::{num::NonZeroU32, sync::Arc};
@@ -53,6 +54,7 @@ pub struct Clients {
     pub psql: Database,
     pub redis: Pool<RedisConnectionManager>,
     pub osu: Osu,
+    pub osu_v1: OsuV1,
     pub custom: CustomClient,
     pub twitch: Twitch,
 }

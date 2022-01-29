@@ -934,7 +934,7 @@ impl TopOrder {
                         None => return Ordering::Less,
                     };
 
-                    stars_b.partial_cmp(&stars_a).unwrap_or(Ordering::Equal)
+                    stars_b.partial_cmp(stars_a).unwrap_or(Ordering::Equal)
                 })
             }
         }

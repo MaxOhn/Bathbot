@@ -14,7 +14,7 @@ use crate::{
 
 use chrono::{DateTime, Utc};
 use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, ManiaPP, OsuPP, TaikoPP};
-use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, Score, User};
+use rosu_v2::prelude::{Beatmap, GameMode, Grade, Score, User};
 use std::{borrow::Cow, fmt::Write};
 
 const GLOBAL_IDX_THRESHOLD: usize = 500;
@@ -44,7 +44,6 @@ impl CompareEmbed {
     pub async fn new(
         personal: Option<&[Score]>,
         score: Score,
-        with_mods: bool,
         global_idx: usize,
         pinned: bool,
     ) -> BotResult<Self> {
@@ -196,13 +195,15 @@ impl CompareEmbed {
 
         if pinned {
             description.push('📌');
+
+            if personal_idx.is_some() || global_idx <= GLOBAL_IDX_THRESHOLD {
+                description.push(' ');
+            } else {
+                description.push('\u{200b}'); // zero-width character
+            }
         }
 
         if personal_idx.is_some() || global_idx <= GLOBAL_IDX_THRESHOLD {
-            if pinned {
-                description.push(' ');
-            }
-
             if personal_idx.is_some() || global_idx <= 50 {
                 description.push_str("__**");
             }
@@ -211,7 +212,7 @@ impl CompareEmbed {
                 let _ = write!(description, "Personal Best #{}", idx + 1);
 
                 if global_idx <= GLOBAL_IDX_THRESHOLD {
-                    description.reserve(19 + 18 * with_mods as usize);
+                    description.reserve(19);
                     description.push_str(" and ");
                 }
             }
@@ -222,10 +223,6 @@ impl CompareEmbed {
 
             if personal_idx.is_some() || global_idx <= 50 {
                 description.push_str("**__");
-            }
-
-            if with_mods && global_idx <= GLOBAL_IDX_THRESHOLD {
-                description.push_str(" (Mod leaderboard)");
             }
         }
 
@@ -346,7 +343,7 @@ impl EmbedData for CompareEmbed {
 }
 
 pub struct NoScoresEmbed {
-    description: String,
+    description: &'static str,
     thumbnail: String,
     footer: Footer,
     author: Author,
@@ -355,7 +352,7 @@ pub struct NoScoresEmbed {
 }
 
 impl NoScoresEmbed {
-    pub fn new(user: User, map: Beatmap, mods: Option<GameMods>) -> Self {
+    pub fn new(user: User, map: Beatmap) -> Self {
         let stats = user.statistics.as_ref().unwrap();
         let mapset = map.mapset.as_ref().unwrap();
 
@@ -377,15 +374,9 @@ impl NoScoresEmbed {
 
         let title = format!("{} - {} [{}]", mapset.artist, mapset.title, map.version);
 
-        let mut description = "No scores".to_owned();
-
-        if let Some(mods) = mods {
-            let _ = write!(description, " with {mods}");
-        }
-
         Self {
             author,
-            description,
+            description: "No scores",
             footer,
             thumbnail: format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id),
             title,

@@ -390,3 +390,70 @@ impl ScoreExt for MatchScore {
         self.accuracy
     }
 }
+
+impl ScoreExt for rosu::model::Score {
+    fn count_miss(&self) -> u32 {
+        self.count_miss
+    }
+
+    fn count_50(&self) -> u32 {
+        self.count50
+    }
+
+    fn count_100(&self) -> u32 {
+        self.count100
+    }
+
+    fn count_300(&self) -> u32 {
+        self.count300
+    }
+
+    fn count_geki(&self) -> u32 {
+        self.count_geki
+    }
+
+    fn count_katu(&self) -> u32 {
+        self.count_katu
+    }
+
+    fn max_combo(&self) -> u32 {
+        self.max_combo
+    }
+
+    fn mods(&self) -> GameMods {
+        GameMods::from_bits(self.enabled_mods.bits()).unwrap_or_default()
+    }
+
+    fn score(&self) -> u32 {
+        self.score
+    }
+
+    fn pp(&self) -> Option<f32> {
+        self.pp
+    }
+
+    fn acc(&self, mode: GameMode) -> f32 {
+        let amount_objects = self.hits(mode as u8) as f32;
+
+        let (numerator, denumerator) = match mode {
+            GameMode::TKO => (
+                0.5 * self.count100 as f32 + self.count300 as f32,
+                amount_objects,
+            ),
+            GameMode::CTB => (
+                (self.count300 + self.count100 + self.count50) as f32,
+                amount_objects,
+            ),
+            GameMode::STD | GameMode::MNA => {
+                let mut n = (self.count50 * 50 + self.count100 * 100 + self.count300 * 300) as f32;
+
+                n += ((mode == GameMode::MNA) as u32
+                    * (self.count_katu * 200 + self.count_geki * 300)) as f32;
+
+                (n, amount_objects * 300.0)
+            }
+        };
+
+        (10_000.0 * numerator / denumerator).round() / 100.0
+    }
+}
