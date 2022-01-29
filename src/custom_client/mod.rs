@@ -6,13 +6,17 @@ mod osu_stats;
 mod score;
 mod snipe;
 
-pub use error::CustomClientError;
-pub use osekai::*;
-pub use osu_daily::*;
-pub use osu_stats::*;
-pub use score::{ScraperBeatmap, ScraperScore};
+use std::{fmt::Write, hash::Hash, num::NonZeroU32};
+
+use chrono::{DateTime, Utc};
+use governor::{clock::DefaultClock, state::keyed::DashMapStateStore, Quota, RateLimiter};
+use hashbrown::HashSet;
+use once_cell::sync::OnceCell;
+use reqwest::{multipart::Form, Client, Response, StatusCode};
+use rosu_v2::prelude::{GameMode, GameMods, User};
 use serde::Serialize;
-pub use snipe::*;
+use serde_json::Value;
+use tokio::time::{sleep, timeout, Duration};
 
 use crate::{
     util::{
@@ -26,15 +30,14 @@ use crate::{
     BotResult, CONFIG,
 };
 
-use chrono::{DateTime, Utc};
-use governor::{clock::DefaultClock, state::keyed::DashMapStateStore, Quota, RateLimiter};
-use hashbrown::HashSet;
-use once_cell::sync::OnceCell;
-use reqwest::{multipart::Form, Client, Response, StatusCode};
-use rosu_v2::prelude::{GameMode, GameMods, User};
-use serde_json::Value;
-use std::{fmt::Write, hash::Hash, num::NonZeroU32};
-use tokio::time::{sleep, timeout, Duration};
+pub use self::{
+    error::CustomClientError,
+    osekai::*,
+    osu_daily::*,
+    osu_stats::*,
+    score::{ScraperBeatmap, ScraperScore},
+    snipe::*,
+};
 
 use self::{error::ErrorKind, score::ScraperScores};
 
@@ -241,8 +244,7 @@ impl CustomClient {
         params: &SnipeScoreParams,
     ) -> ClientResult<Vec<SnipeScore>> {
         let mut url = format!(
-            "{base}player/{country}/{user}/topranks?page={page}&mode={mode}&sort={sort}&order={order}",
-            base = HUISMETBENEN,
+            "{HUISMETBENEN}player/{country}/{user}/topranks?page={page}&mode={mode}&sort={sort}&order={order}",
             country = params.country,
             user = params.user_id,
             page = params.page,
@@ -275,8 +277,7 @@ impl CustomClient {
         params: &SnipeScoreParams,
     ) -> ClientResult<usize> {
         let mut url = format!(
-            "{base}player/{country}/{user}/topranks/count?mode={mode}",
-            base = HUISMETBENEN,
+            "{HUISMETBENEN}player/{country}/{user}/topranks/count?mode={mode}",
             country = params.country,
             user = params.user_id,
             mode = params.mode,

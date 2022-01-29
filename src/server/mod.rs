@@ -1,11 +1,6 @@
 mod auth;
 mod error;
 
-pub use auth::{
-    AuthenticationStandby, AuthenticationStandbyError, WaitForOsuAuth, WaitForTwitchAuth,
-};
-pub use error::ServerError;
-
 use eyre::Report;
 use handlebars::Handlebars;
 use hyper::{
@@ -27,6 +22,11 @@ use crate::{
     twitch::{OAuthToken, TwitchData, TwitchUser},
     util::constants::{GENERAL_ISSUE, TWITCH_OAUTH, TWITCH_USERS_ENDPOINT},
     Context, CONFIG,
+};
+
+pub use self::{
+    auth::{AuthenticationStandby, AuthenticationStandbyError, WaitForOsuAuth, WaitForTwitchAuth},
+    error::ServerError,
 };
 
 pub async fn run_server(ctx: Arc<Context>, shutdown_rx: oneshot::Receiver<()>) {

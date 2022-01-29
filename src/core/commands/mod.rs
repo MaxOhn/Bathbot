@@ -5,13 +5,6 @@ mod handle_interaction;
 mod handle_message;
 pub mod parse;
 
-pub use command::Command;
-pub use data::{CommandData, CommandDataCompact};
-pub use group::{CommandGroup, CommandGroups, CMD_GROUPS};
-pub use handle_interaction::{handle_autocomplete, handle_command, handle_component};
-pub use handle_message::handle_message;
-pub use parse::Invoke;
-
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use twilight_model::{
@@ -23,6 +16,15 @@ use twilight_model::{
 };
 
 use crate::{core::buckets::BucketName, util::Authored, BotResult, Context};
+
+pub use self::{
+    command::Command,
+    data::{CommandData, CommandDataCompact},
+    group::{CommandGroup, CommandGroups, CMD_GROUPS},
+    handle_interaction::{handle_autocomplete, handle_command, handle_component},
+    handle_message::handle_message,
+    parse::Invoke,
+};
 
 use super::cache::RolesLookup;
 

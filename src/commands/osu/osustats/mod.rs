@@ -2,11 +2,12 @@ mod counts;
 mod globals;
 mod list;
 
-pub use counts::*;
-pub use globals::*;
-pub use list::*;
+use std::sync::Arc;
 
-use super::{get_globals_count, require_link};
+use twilight_model::application::{
+    command::CommandOptionChoice,
+    interaction::{application_command::CommandOptionValue, ApplicationCommand},
+};
 
 use crate::{
     commands::{
@@ -21,11 +22,9 @@ use crate::{
     BotResult, Context, Error,
 };
 
-use std::sync::Arc;
-use twilight_model::application::{
-    command::CommandOptionChoice,
-    interaction::{application_command::CommandOptionValue, ApplicationCommand},
-};
+pub use self::{counts::*, globals::*, list::*};
+
+use super::{get_globals_count, require_link};
 
 enum OsustatsCommandKind {
     Count(CountArgs),

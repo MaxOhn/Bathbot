@@ -4,15 +4,9 @@ mod missing;
 mod recent;
 mod stats;
 
-pub use common::*;
-pub use medal::*;
-pub use missing::*;
-pub use recent::*;
-use rosu_v2::prelude::Username;
-pub use stats::*;
-
 use std::sync::Arc;
 
+use rosu_v2::prelude::Username;
 use twilight_model::application::interaction::{
     application_command::{CommandDataOption, CommandOptionValue},
     ApplicationCommand,
@@ -30,6 +24,8 @@ use crate::{
     },
     BotResult, Context, Error,
 };
+
+pub use self::{common::*, medal::*, missing::*, recent::*, stats::*};
 
 use super::require_link;
 

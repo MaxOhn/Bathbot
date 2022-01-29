@@ -5,13 +5,6 @@ mod player_snipe_stats;
 mod sniped;
 mod sniped_difference;
 
-pub use country_snipe_list::*;
-pub use country_snipe_stats::*;
-pub use player_snipe_list::*;
-pub use player_snipe_stats::*;
-pub use sniped::*;
-pub use sniped_difference::*;
-
 use std::sync::Arc;
 
 use rosu_v2::prelude::Username;
@@ -39,6 +32,11 @@ use crate::{
         CountryCode, InteractionExt, MessageExt,
     },
     BotResult, Context, Error,
+};
+
+pub use self::{
+    country_snipe_list::*, country_snipe_stats::*, player_snipe_list::*, player_snipe_stats::*,
+    sniped::*, sniped_difference::*,
 };
 
 use super::{prepare_score, require_link};

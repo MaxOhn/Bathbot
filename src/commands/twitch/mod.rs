@@ -2,19 +2,18 @@ pub mod addstream;
 pub mod removestream;
 pub mod tracked;
 
-pub use addstream::*;
-pub use removestream::*;
-pub use tracked::*;
+use std::{borrow::Cow, sync::Arc};
+
+use twilight_model::application::interaction::{
+    application_command::CommandOptionValue, ApplicationCommand,
+};
 
 use crate::{
     util::{constants::common_literals::NAME, CowUtils},
     Args, BotResult, Context, Error,
 };
 
-use std::{borrow::Cow, sync::Arc};
-use twilight_model::application::interaction::{
-    application_command::CommandOptionValue, ApplicationCommand,
-};
+pub use self::{addstream::*, removestream::*, tracked::*};
 
 use super::{MyCommand, MyCommandOption};
 

@@ -3,7 +3,7 @@ mod config;
 mod invite;
 mod server_config;
 
-pub use command_counter::CommandCounterEmbed;
-pub use config::ConfigEmbed;
-pub use invite::InviteEmbed;
-pub use server_config::ServerConfigEmbed;
+pub use self::{
+    command_counter::CommandCounterEmbed, config::ConfigEmbed, invite::InviteEmbed,
+    server_config::ServerConfigEmbed,
+};

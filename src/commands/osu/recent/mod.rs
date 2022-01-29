@@ -4,14 +4,9 @@ mod list;
 mod score;
 mod simulate;
 
-use fix::*;
-pub use leaderboard::*;
-pub use list::*;
-pub use score::*;
-pub use simulate::*;
-
 use std::sync::Arc;
 
+use fix::*;
 use twilight_model::application::{
     command::CommandOptionChoice,
     interaction::{application_command::CommandOptionValue, ApplicationCommand},
@@ -34,6 +29,8 @@ use crate::{
     },
     BotResult, Context, Error,
 };
+
+pub use self::{leaderboard::*, list::*, score::*, simulate::*};
 
 use super::{GradeArg, _top, prepare_score, require_link};
 

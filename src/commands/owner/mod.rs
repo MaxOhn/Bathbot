@@ -7,15 +7,6 @@ mod tracking_interval;
 mod tracking_stats;
 mod tracking_toggle;
 
-pub use add_bg::*;
-pub use add_country::*;
-pub use cache::*;
-pub use change_game::*;
-pub use tracking_cooldown::*;
-pub use tracking_interval::*;
-pub use tracking_stats::*;
-pub use tracking_toggle::*;
-
 use std::sync::Arc;
 
 use twilight_model::application::interaction::{
@@ -26,6 +17,11 @@ use twilight_model::application::interaction::{
 use crate::{
     util::{constants::common_literals::NAME, CountryCode},
     BotResult, Context, Error,
+};
+
+pub use self::{
+    add_bg::*, add_country::*, cache::*, change_game::*, tracking_cooldown::*,
+    tracking_interval::*, tracking_stats::*, tracking_toggle::*,
 };
 
 use super::{MyCommand, MyCommandOption};

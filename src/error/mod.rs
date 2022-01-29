@@ -2,13 +2,11 @@ mod map_download;
 mod pp;
 mod twitch;
 
-pub use map_download::MapDownloadError;
-pub use pp::PPError;
-pub use twitch::TwitchError;
-
 use plotters::drawing::DrawingAreaErrorKind;
 use twilight_model::application::interaction::{ApplicationCommand, MessageComponentInteraction};
 use twilight_validate::message::MessageValidationError;
+
+pub use self::{map_download::MapDownloadError, pp::PPError, twitch::TwitchError};
 
 #[macro_export]
 macro_rules! bail {

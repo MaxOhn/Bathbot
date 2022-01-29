@@ -5,12 +5,9 @@ mod start;
 mod stop;
 mod tags;
 
-pub use bigger::*;
-pub use hint::*;
-pub use rankings::*;
-pub use start::*;
-pub use stop::*;
-pub use tags::*;
+use std::sync::Arc;
+
+use twilight_model::channel::Reaction;
 
 use crate::{
     embeds::{BGHelpEmbed, EmbedData},
@@ -18,8 +15,7 @@ use crate::{
     BotResult, CommandData, Context,
 };
 
-use std::sync::Arc;
-use twilight_model::channel::Reaction;
+pub use self::{bigger::*, hint::*, rankings::*, start::*, stop::*, tags::*};
 
 #[command]
 #[short_desc("Play the background guessing game")]

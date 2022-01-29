@@ -1,5 +1,7 @@
 mod impls;
 
+use std::{num::NonZeroU32, sync::Arc};
+
 use bb8_redis::{bb8::Pool, RedisConnectionManager};
 use dashmap::{DashMap, DashSet};
 use hashbrown::HashSet;
@@ -7,7 +9,6 @@ use parking_lot::Mutex;
 use rosu::Osu as OsuV1;
 use rosu_v2::Osu;
 use smallvec::SmallVec;
-use std::{num::NonZeroU32, sync::Arc};
 use tokio::sync::mpsc::UnboundedSender;
 use twilight_gateway::Cluster;
 use twilight_http::Client as HttpClient;

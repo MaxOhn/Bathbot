@@ -7,14 +7,6 @@ pub mod tracking;
 pub mod twitch;
 pub mod utility;
 
-use fun::*;
-use osu::*;
-use owner::*;
-use songs::*;
-use tracking::*;
-use twitch::*;
-use utility::*;
-
 use std::{borrow::Cow, iter::Copied};
 
 use eyre::Report;
@@ -41,6 +33,8 @@ use crate::{
     },
     BotResult,
 };
+
+use self::{fun::*, osu::*, owner::*, songs::*, tracking::*, twitch::*, utility::*};
 
 fn parse_mode_option(value: &str) -> Option<GameMode> {
     match value {

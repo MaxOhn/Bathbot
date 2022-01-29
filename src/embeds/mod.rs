@@ -89,20 +89,15 @@ mod tracking;
 mod twitch;
 mod utility;
 
-pub use fun::*;
-pub use osu::*;
-pub use owner::*;
-pub use tracking::*;
-pub use twitch::*;
-pub use utility::*;
-
-use crate::util::constants::DARK_GREEN;
-
 use chrono::{DateTime, Utc};
 use twilight_model::{
     channel::embed::{Embed, EmbedAuthor, EmbedField, EmbedFooter, EmbedImage, EmbedThumbnail},
     datetime::Timestamp,
 };
+
+use crate::util::constants::DARK_GREEN;
+
+pub use self::{fun::*, osu::*, owner::*, tracking::*, twitch::*, utility::*};
 
 type EmbedFields = Vec<EmbedField>;
 

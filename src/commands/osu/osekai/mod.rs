@@ -2,10 +2,6 @@ mod medal_count;
 mod rarity;
 mod user_value;
 
-use medal_count::medal_count;
-use rarity::rarity;
-use user_value::{count, pp};
-
 use std::sync::Arc;
 
 use twilight_model::application::interaction::{
@@ -18,6 +14,12 @@ use crate::{
         Badges, LovedMapsets, RankedMapsets, Replays, StandardDeviation, Subscribers, TotalPp,
     },
     BotResult, Context, Error,
+};
+
+use self::{
+    medal_count::medal_count,
+    rarity::rarity,
+    user_value::{count, pp},
 };
 
 use super::UserValue;

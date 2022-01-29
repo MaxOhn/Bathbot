@@ -3,10 +3,16 @@ mod track_list;
 mod untrack;
 mod untrack_all;
 
-pub use track::*;
-pub use track_list::*;
-pub use untrack::*;
-pub use untrack_all::*;
+use std::{borrow::Cow, sync::Arc};
+
+use rosu_v2::prelude::{GameMode, Username};
+use twilight_model::application::{
+    command::CommandOptionChoice,
+    interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
+};
 
 use crate::{
     util::{
@@ -16,17 +22,9 @@ use crate::{
     Args, BotResult, Context, Error,
 };
 
-use rosu_v2::prelude::{GameMode, Username};
-use std::{borrow::Cow, sync::Arc};
-use twilight_model::application::{
-    command::CommandOptionChoice,
-    interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
-    },
-};
+pub use self::{track::*, track_list::*, untrack::*, untrack_all::*};
 
-use super::{MyCommand, MyCommandOption, check_user_mention, parse_mode_option};
+use super::{check_user_mention, parse_mode_option, MyCommand, MyCommandOption};
 
 pub async fn slash_track(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
     match TrackArgs::slash(&mut command)? {

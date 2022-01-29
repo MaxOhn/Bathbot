@@ -2,14 +2,14 @@ mod impls;
 mod models;
 mod util;
 
-pub use models::{
-    Authorities, DBBeatmap, DBBeatmapset, DBOsuMedal, GuildConfig, MapsetTagWrapper, MedalGroup,
-    OsuData, OsuMedal, Prefix, Prefixes, TagRow, TrackingUser, UserConfig,
-};
+use sqlx::postgres::{PgPool, PgPoolOptions};
 
 use crate::BotResult;
 
-use sqlx::postgres::{PgPool, PgPoolOptions};
+pub use self::models::{
+    Authorities, DBBeatmap, DBBeatmapset, DBOsuMedal, GuildConfig, MapsetTagWrapper, MedalGroup,
+    OsuData, OsuMedal, Prefix, Prefixes, TagRow, TrackingUser, UserConfig,
+};
 
 pub struct Database {
     pool: PgPool,

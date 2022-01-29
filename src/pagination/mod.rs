@@ -26,34 +26,6 @@ mod sniped_difference;
 mod top;
 mod top_if;
 
-pub use bg_rankings::BGRankingPagination;
-pub use command_count::CommandCountPagination;
-pub use common::CommonPagination;
-pub use country_snipe_list::CountrySnipeListPagination;
-pub use leaderboard::LeaderboardPagination;
-pub use map::MapPagination;
-pub use map_search::MapSearchPagination;
-pub use medal_recent::MedalRecentPagination;
-pub use medals_common::MedalsCommonPagination;
-pub use medals_missing::MedalsMissingPagination;
-pub use most_played::MostPlayedPagination;
-pub use most_played_common::MostPlayedCommonPagination;
-pub use nochoke::NoChokePagination;
-pub use osekai_medal_count::MedalCountPagination;
-pub use osekai_medal_rarity::MedalRarityPagination;
-pub use osustats_globals::OsuStatsGlobalsPagination;
-pub use osustats_list::OsuStatsListPagination;
-pub use pinned::PinnedPagination;
-pub use player_snipe_list::PlayerSnipeListPagination;
-pub use profile::ProfilePagination;
-pub use ranking::RankingPagination;
-pub use ranking_countries::RankingCountriesPagination;
-pub use recent_list::RecentListPagination;
-pub use scores::ScoresPagination;
-pub use sniped_difference::SnipedDiffPagination;
-pub use top::TopPagination;
-pub use top_if::TopIfPagination;
-
 use std::{borrow::Cow, time::Duration};
 
 use eyre::Report;
@@ -72,6 +44,22 @@ use crate::{
     error::Error,
     util::{numbers, send_reaction, Emote},
     BotResult, Context,
+};
+
+pub use self::{
+    bg_rankings::BGRankingPagination, command_count::CommandCountPagination,
+    common::CommonPagination, country_snipe_list::CountrySnipeListPagination,
+    leaderboard::LeaderboardPagination, map::MapPagination, map_search::MapSearchPagination,
+    medal_recent::MedalRecentPagination, medals_common::MedalsCommonPagination,
+    medals_missing::MedalsMissingPagination, most_played::MostPlayedPagination,
+    most_played_common::MostPlayedCommonPagination, nochoke::NoChokePagination,
+    osekai_medal_count::MedalCountPagination, osekai_medal_rarity::MedalRarityPagination,
+    osustats_globals::OsuStatsGlobalsPagination, osustats_list::OsuStatsListPagination,
+    pinned::PinnedPagination, player_snipe_list::PlayerSnipeListPagination,
+    profile::ProfilePagination, ranking::RankingPagination,
+    ranking_countries::RankingCountriesPagination, recent_list::RecentListPagination,
+    scores::ScoresPagination, sniped_difference::SnipedDiffPagination, top::TopPagination,
+    top_if::TopIfPagination,
 };
 
 type ReactionVec = SmallVec<[Emote; 7]>;

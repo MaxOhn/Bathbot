@@ -1,16 +1,7 @@
 mod models;
 mod notif_loop;
 
-pub use models::*;
-pub use notif_loop::twitch_loop;
-
-use crate::{
-    error::TwitchError,
-    util::constants::{
-        common_literals::SORT, TWITCH_OAUTH, TWITCH_STREAM_ENDPOINT, TWITCH_USERS_ENDPOINT,
-        TWITCH_VIDEOS_ENDPOINT,
-    },
-};
+use std::{borrow::Cow, convert::TryFrom, fmt, num::NonZeroU32};
 
 use governor::{
     clock::DefaultClock,
@@ -22,8 +13,17 @@ use reqwest::{
     Client, Response,
 };
 use serde::{Deserialize, Serialize};
-use std::{borrow::Cow, convert::TryFrom, fmt, num::NonZeroU32};
 use tokio::time::{interval, Duration};
+
+use crate::{
+    error::TwitchError,
+    util::constants::{
+        common_literals::SORT, TWITCH_OAUTH, TWITCH_STREAM_ENDPOINT, TWITCH_USERS_ENDPOINT,
+        TWITCH_VIDEOS_ENDPOINT,
+    },
+};
+
+pub use self::{models::*, notif_loop::twitch_loop};
 
 type TwitchResult<T> = Result<T, TwitchError>;
 

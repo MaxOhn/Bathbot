@@ -3,11 +3,6 @@ mod most_played;
 mod profile;
 mod score;
 
-pub use common::*;
-pub use most_played::*;
-pub use profile::*;
-pub use score::*;
-
 use std::sync::Arc;
 
 use rosu_v2::prelude::{GameMode, Username};
@@ -31,6 +26,8 @@ use crate::{
     },
     Args, BotResult, Context, Error,
 };
+
+pub use self::{common::*, most_played::*, profile::*, score::*};
 
 use super::{require_link, MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32};
 

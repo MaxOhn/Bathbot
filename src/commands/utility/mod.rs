@@ -10,14 +10,7 @@ mod roll;
 mod server_config;
 mod toggle_songs;
 
-pub use authorities::*;
-pub use command_count::*;
-pub use config::*;
-pub use invite::*;
-pub use ping::*;
-pub use prefix::*;
-pub use prune::*;
-pub use role_assign::*;
-pub use roll::*;
-pub use server_config::*;
-pub use toggle_songs::*;
+pub use self::{
+    authorities::*, command_count::*, config::*, invite::*, ping::*, prefix::*, prune::*,
+    role_assign::*, roll::*, server_config::*, toggle_songs::*,
+};

@@ -44,57 +44,60 @@ mod top_if;
 mod top_single;
 mod whatif;
 
-pub use avatar::AvatarEmbed;
-pub use bws::BWSEmbed;
-pub use common::CommonEmbed;
-pub use compare::{CompareEmbed, NoScoresEmbed};
-pub use country_snipe_list::CountrySnipeListEmbed;
-pub use country_snipe_stats::CountrySnipeStatsEmbed;
-pub use fix_score::FixScoreEmbed;
-pub use leaderboard::LeaderboardEmbed;
-pub use map::MapEmbed;
-pub use map_search::MapSearchEmbed;
-pub use match_costs::MatchCostEmbed;
-pub use match_live::{MatchLiveEmbed, MatchLiveEmbeds};
-pub use medal::MedalEmbed;
-pub use medal_stats::MedalStatsEmbed;
-pub use medals_common::{MedalsCommonEmbed, MedalsCommonUser};
-pub use medals_missing::MedalsMissingEmbed;
-pub use most_played::MostPlayedEmbed;
-pub use most_played_common::MostPlayedCommonEmbed;
-pub use nochoke::NoChokeEmbed;
-pub use osekai_medal_count::MedalCountEmbed;
-pub use osekai_medal_rarity::MedalRarityEmbed;
-pub use osustats_counts::OsuStatsCountsEmbed;
-pub use osustats_globals::OsuStatsGlobalsEmbed;
-pub use osustats_list::OsuStatsListEmbed;
-pub use pinned::PinnedEmbed;
-pub use player_snipe_list::PlayerSnipeListEmbed;
-pub use player_snipe_stats::PlayerSnipeStatsEmbed;
-pub use pp_missing::PPMissingEmbed;
-pub use profile::ProfileEmbed;
-pub use profile_compare::ProfileCompareEmbed;
-pub use rank::RankEmbed;
-pub use rank_score::RankRankedScoreEmbed;
-pub use ranking::*;
-pub use ranking_countries::RankingCountriesEmbed;
-pub use ratio::RatioEmbed;
-pub use recent::RecentEmbed;
-pub use recent_list::RecentListEmbed;
-pub use scores::ScoresEmbed;
-pub use simulate::SimulateEmbed;
-pub use sniped::SnipedEmbed;
-pub use sniped_difference::SnipedDiffEmbed;
-pub use top::TopEmbed;
-pub use top_if::TopIfEmbed;
-pub use top_single::TopSingleEmbed;
-pub use whatif::WhatIfEmbed;
-
-use crate::util::{datetime::sec_to_minsec, numbers::round, BeatmapExt, ScoreExt};
+use std::fmt::Write;
 
 use rosu_pp::Mods;
 use rosu_v2::prelude::{Beatmap, GameMode, GameMods};
-use std::fmt::Write;
+
+use crate::util::{datetime::sec_to_minsec, numbers::round, BeatmapExt, ScoreExt};
+
+pub use self::{
+    avatar::AvatarEmbed,
+    bws::BWSEmbed,
+    common::CommonEmbed,
+    compare::{CompareEmbed, NoScoresEmbed},
+    country_snipe_list::CountrySnipeListEmbed,
+    country_snipe_stats::CountrySnipeStatsEmbed,
+    fix_score::FixScoreEmbed,
+    leaderboard::LeaderboardEmbed,
+    map::MapEmbed,
+    map_search::MapSearchEmbed,
+    match_costs::MatchCostEmbed,
+    match_live::{MatchLiveEmbed, MatchLiveEmbeds},
+    medal::MedalEmbed,
+    medal_stats::MedalStatsEmbed,
+    medals_common::{MedalsCommonEmbed, MedalsCommonUser},
+    medals_missing::MedalsMissingEmbed,
+    most_played::MostPlayedEmbed,
+    most_played_common::MostPlayedCommonEmbed,
+    nochoke::NoChokeEmbed,
+    osekai_medal_count::MedalCountEmbed,
+    osekai_medal_rarity::MedalRarityEmbed,
+    osustats_counts::OsuStatsCountsEmbed,
+    osustats_globals::OsuStatsGlobalsEmbed,
+    osustats_list::OsuStatsListEmbed,
+    pinned::PinnedEmbed,
+    player_snipe_list::PlayerSnipeListEmbed,
+    player_snipe_stats::PlayerSnipeStatsEmbed,
+    pp_missing::PPMissingEmbed,
+    profile::ProfileEmbed,
+    profile_compare::ProfileCompareEmbed,
+    rank::RankEmbed,
+    rank_score::RankRankedScoreEmbed,
+    ranking::*,
+    ranking_countries::RankingCountriesEmbed,
+    ratio::RatioEmbed,
+    recent::RecentEmbed,
+    recent_list::RecentListEmbed,
+    scores::ScoresEmbed,
+    simulate::SimulateEmbed,
+    sniped::SnipedEmbed,
+    sniped_difference::SnipedDiffEmbed,
+    top::TopEmbed,
+    top_if::TopIfEmbed,
+    top_single::TopSingleEmbed,
+    whatif::WhatIfEmbed,
+};
 
 pub fn get_stars(stars: f32) -> String {
     format!("{:.2}★", stars)
