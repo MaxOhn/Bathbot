@@ -1,3 +1,5 @@
+use chrono::{DateTime, Utc};
+
 use crate::{
     commands::osu::MedalAchieved,
     custom_client::{OsekaiComment, OsekaiMap, OsekaiMedal},
@@ -8,9 +10,6 @@ use crate::{
         CowUtils,
     },
 };
-
-use chrono::{DateTime, Utc};
-use std::fmt::Write;
 
 #[derive(Clone)]
 pub struct MedalEmbed {
@@ -52,10 +51,15 @@ impl MedalEmbed {
             let mut map_value = String::with_capacity(256);
 
             for map in maps {
-                let m = format!(
-                    " - [{} [{}]]({OSU_BASE}b/{}) (+{})\n",
-                    map.title, map.version, map.map_id, map.vote_sum
-                );
+                let OsekaiMap {
+                    title,
+                    version,
+                    map_id,
+                    vote_sum,
+                    ..
+                } = map;
+
+                let m = format!(" - [{title} [{version}]]({OSU_BASE}b/{map_id}) ({vote_sum:+})\n",);
 
                 if m.len() + map_value.len() + 7 >= FIELD_VALUE_SIZE {
                     map_value.push_str("`...`\n");
@@ -74,13 +78,20 @@ impl MedalEmbed {
             let mut comment_value = String::with_capacity(256);
 
             for comment in comments {
-                let mut c =
-                    String::with_capacity(16 + comment.content.len() + comment.username.len());
+                let OsekaiComment {
+                    content,
+                    username,
+                    vote_sum,
+                    ..
+                } = comment;
 
-                c.push_str("```\n");
-                c.push_str(comment.content.as_str());
-                let _ = writeln!(c, "\n    - {} [{:+}]", comment.username, comment.vote_sum);
-                c.push_str("```\n");
+                let c = format!(
+                    "```\n\
+                    {content}\n    \
+                    - {username} [{vote_sum:+}]\n\
+                    ```\n",
+                    content = content.trim(),
+                );
 
                 if c.len() + comment_value.len() < FIELD_VALUE_SIZE {
                     comment_value += &c;
@@ -90,7 +101,7 @@ impl MedalEmbed {
             comment_value.pop();
 
             if !comment_value.is_empty() {
-                fields.push(field!("Comments".to_owned(), comment_value, false));
+                fields.push(field!("Comments", comment_value, false));
             }
         }
 
