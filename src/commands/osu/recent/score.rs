@@ -790,5 +790,10 @@ impl RecentArgs {
 }
 
 pub fn define_rs() -> MyCommand {
-    MyCommand::new("rs", "Show a user's recent score").options(super::score_options())
+    let help = "Show a user's recent score.\n\
+        To add a timestamp to a twitch VOD, be sure you linked yourself to a twitch account via `/config`.";
+
+    MyCommand::new("rs", "Show a user's recent score")
+        .help(help)
+        .options(super::score_options())
 }

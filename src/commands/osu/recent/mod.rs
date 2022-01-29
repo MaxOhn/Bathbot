@@ -172,7 +172,11 @@ fn score_options() -> Vec<MyCommandOption> {
 }
 
 fn subcommand_score() -> MyCommandOption {
+    let help = "Show a user's recent score (same as `/rs`).\n\
+        To add a timestamp to a twitch VOD, be sure you linked yourself to a twitch account via `/config`.";
+
     MyCommandOption::builder(SCORE, "Show a user's recent score (same as `/rs`)")
+        .help(help)
         .subcommand(score_options())
 }
 
