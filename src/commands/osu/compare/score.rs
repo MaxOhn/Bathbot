@@ -4,6 +4,7 @@ use eyre::Report;
 use rosu_v2::prelude::{
     GameMode, OsuError,
     RankStatus::{Approved, Loved, Ranked},
+    Score,
 };
 use tokio::time::{sleep, Duration};
 use twilight_model::{
@@ -143,7 +144,7 @@ pub(super) async fn _compare(
                 Ok(scores) => scores.contains(&score),
                 Err(err) => {
                     let report = Report::new(err).wrap_err("failed to retrieve pinned scores");
-                    warn!("{:?}", report);
+                    warn!("{report:?}");
 
                     false
                 }
@@ -156,7 +157,7 @@ pub(super) async fn _compare(
                     Ok(scores) => scores.iter().position(|s| s == &score),
                     Err(err) => {
                         let report = Report::new(err).wrap_err("failed to get global scores");
-                        warn!("{:?}", report);
+                        warn!("{report:?}");
 
                         None
                     }
@@ -178,9 +179,9 @@ pub(super) async fn _compare(
 
                 match fut.await {
                     Ok(scores) => Some(scores),
-                    Err(why) => {
-                        let report = Report::new(why).wrap_err("failed to get top scores");
-                        warn!("{:?}", report);
+                    Err(err) => {
+                        let report = Report::new(err).wrap_err("failed to get top scores");
+                        warn!("{report:?}");
 
                         None
                     }
@@ -189,55 +190,17 @@ pub(super) async fn _compare(
                 None
             };
 
-            // Accumulate all necessary data
-            let embed_data =
-                match CompareEmbed::new(best.as_deref(), score, global_idx, pinned).await {
-                    Ok(data) => data,
-                    Err(why) => {
-                        let _ = data.error(&ctx, GENERAL_ISSUE).await;
+            let fut = single_score(
+                ctx,
+                &data,
+                &score,
+                best.as_deref_mut(),
+                global_idx,
+                pinned,
+                embeds_maximized,
+            );
 
-                        return Err(why);
-                    }
-                };
-
-            // Only maximize if config allows it
-            if embeds_maximized {
-                let builder = embed_data.as_builder().build().into();
-                let response = data.create_message(&ctx, builder).await?.model().await?;
-
-                ctx.store_msg(response.id);
-
-                // Process user and their top scores for tracking
-                if let Some(ref mut scores) = best {
-                    process_tracking(&ctx, scores, None).await;
-                }
-
-                // Wait for minimizing
-                tokio::spawn(async move {
-                    sleep(Duration::from_secs(45)).await;
-
-                    if !ctx.remove_msg(response.id) {
-                        return;
-                    }
-
-                    let builder = embed_data.into_builder().build().into();
-
-                    if let Err(why) = response.update_message(&ctx, builder).await {
-                        let report = Report::new(why).wrap_err("failed to minimize message");
-                        warn!("{:?}", report);
-                    }
-                });
-            } else {
-                let builder = embed_data.into_builder().build().into();
-                data.create_message(&ctx, builder).await?;
-
-                // Process user and their top scores for tracking
-                if let Some(ref mut scores) = best {
-                    process_tracking(&ctx, scores, None).await;
-                }
-            }
-
-            return Ok(());
+            return fut.await;
         }
         None => {
             let msgs = match ctx.retrieve_channel_history(data.channel_id()).await {
@@ -370,14 +333,14 @@ pub(super) async fn _compare(
         return no_scores(&ctx, &data, name.as_str(), map_id).await;
     }
 
-    let pinned = match ctx
+    let pinned_fut = ctx
         .osu()
         .user_scores(user.user_id)
         .pinned()
         .mode(map.mode)
-        .limit(100)
-        .await
-    {
+        .limit(100);
+
+    let pinned = match pinned_fut.await {
         Ok(scores) => scores,
         Err(err) => {
             warn!(
@@ -416,6 +379,65 @@ pub(super) async fn _compare(
             warn!("{:?}", Report::new(err));
         }
     });
+
+    Ok(())
+}
+
+async fn single_score(
+    ctx: Arc<Context>,
+    data: &CommandData<'_>,
+    score: &Score,
+    best: Option<&mut [Score]>,
+    global_idx: usize,
+    pinned: bool,
+    embeds_maximized: bool,
+) -> BotResult<()> {
+    // Accumulate all necessary data
+    let embed_data = match CompareEmbed::new(best.as_deref(), score, global_idx, pinned).await {
+        Ok(data) => data,
+        Err(err) => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err);
+        }
+    };
+
+    // Only maximize if config allows it
+    if embeds_maximized {
+        let builder = embed_data.as_builder().build().into();
+        let response = data.create_message(&ctx, builder).await?.model().await?;
+
+        ctx.store_msg(response.id);
+
+        // Process user and their top scores for tracking
+        if let Some(scores) = best {
+            process_tracking(&ctx, scores, None).await;
+        }
+
+        // Wait for minimizing
+        tokio::spawn(async move {
+            sleep(Duration::from_secs(45)).await;
+
+            if !ctx.remove_msg(response.id) {
+                return;
+            }
+
+            let builder = embed_data.into_builder().build().into();
+
+            if let Err(err) = response.update_message(&ctx, builder).await {
+                let report = Report::new(err).wrap_err("failed to minimize message");
+                warn!("{:?}", report);
+            }
+        });
+    } else {
+        let builder = embed_data.into_builder().build().into();
+        data.create_message(&ctx, builder).await?;
+
+        // Process user and their top scores for tracking
+        if let Some(scores) = best {
+            process_tracking(&ctx, scores, None).await;
+        }
+    }
 
     Ok(())
 }

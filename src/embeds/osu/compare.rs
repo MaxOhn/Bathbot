@@ -43,7 +43,7 @@ pub struct CompareEmbed {
 impl CompareEmbed {
     pub async fn new(
         personal: Option<&[Score]>,
-        score: Score,
+        score: &Score,
         global_idx: usize,
         pinned: bool,
     ) -> BotResult<Self> {
@@ -60,8 +60,6 @@ impl CompareEmbed {
         let stars = round(max_result.stars() as f32);
 
         let pp = if score.grade == Grade::F {
-            let hits = score.total_hits() as usize;
-
             match map.mode {
                 GameMode::STD => {
                     OsuPP::new(&rosu_map)
@@ -71,7 +69,6 @@ impl CompareEmbed {
                         .n100(score.statistics.count_100 as usize)
                         .n50(score.statistics.count_50 as usize)
                         .misses(score.statistics.count_miss as usize)
-                        .passed_objects(hits)
                         .calculate()
                         .pp as f32
                 }
@@ -79,7 +76,6 @@ impl CompareEmbed {
                     ManiaPP::new(&rosu_map)
                         .mods(mods)
                         .score(score.score)
-                        .passed_objects(hits)
                         .calculate()
                         .pp as f32
                 }
@@ -90,7 +86,6 @@ impl CompareEmbed {
                         .fruits(score.statistics.count_300 as usize)
                         .droplets(score.statistics.count_100 as usize)
                         .misses(score.statistics.count_miss as usize)
-                        .passed_objects(hits - score.statistics.count_katu as usize)
                         .accuracy(score.accuracy as f64)
                         .calculate()
                         .pp as f32
@@ -99,7 +94,6 @@ impl CompareEmbed {
                     TaikoPP::new(&rosu_map)
                         .combo(score.max_combo as usize)
                         .mods(mods)
-                        .passed_objects(hits)
                         .accuracy(score.accuracy as f64)
                         .calculate()
                         .pp as f32
@@ -156,7 +150,7 @@ impl CompareEmbed {
 
         let pp = osu::get_pp(Some(pp), Some(max_pp as f32));
         let hits = score.hits_string(map.mode);
-        let grade_completion_mods = grade_completion_mods(&score, map);
+        let grade_completion_mods = grade_completion_mods(score, map);
 
         let (combo, title) = if map.mode == GameMode::MNA {
             let mut ratio = score.statistics.count_geki as f32;
@@ -165,7 +159,7 @@ impl CompareEmbed {
                 ratio /= score.statistics.count_300 as f32
             }
 
-            let combo = format!("**{}x** / {:.2}", &score.max_combo, ratio);
+            let combo = format!("**{}x** / {ratio:.2}", &score.max_combo);
 
             let title = format!(
                 "{} {} - {} [{}]",
@@ -178,7 +172,7 @@ impl CompareEmbed {
             (combo, title)
         } else {
             (
-                osu::get_combo(&score, map),
+                osu::get_combo(score, map),
                 format!("{} - {} [{}]", mapset.artist, mapset.title, map.version),
             )
         };
@@ -189,7 +183,7 @@ impl CompareEmbed {
         ))
         .icon_url(format!("{AVATAR_URL}{}", mapset.creator_id));
 
-        let personal_idx = personal.and_then(|personal| personal.iter().position(|s| s == &score));
+        let personal_idx = personal.and_then(|personal| personal.iter().position(|s| s == score));
 
         let mut description = String::new();
 
