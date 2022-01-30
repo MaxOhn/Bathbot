@@ -13,6 +13,7 @@ pub struct TopIfPagination {
     mode: GameMode,
     pre_pp: f32,
     post_pp: f32,
+    rank: Option<usize>,
 }
 
 impl TopIfPagination {
@@ -23,6 +24,7 @@ impl TopIfPagination {
         mode: GameMode,
         pre_pp: f32,
         post_pp: f32,
+        rank: Option<usize>,
     ) -> Self {
         Self {
             pages: Pages::new(5, scores.len()),
@@ -32,6 +34,7 @@ impl TopIfPagination {
             mode,
             pre_pp,
             post_pp,
+            rank,
         }
     }
 }
@@ -57,7 +60,7 @@ impl Pagination for TopIfPagination {
     }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        Ok(TopIfEmbed::new(
+        let embed_fut = TopIfEmbed::new(
             &self.user,
             self.scores
                 .iter()
@@ -66,8 +69,10 @@ impl Pagination for TopIfPagination {
             self.mode,
             self.pre_pp,
             self.post_pp,
+            self.rank,
             (self.page(), self.pages.total_pages),
-        )
-        .await)
+        );
+
+        Ok(embed_fut.await)
     }
 }

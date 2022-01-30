@@ -1,7 +1,11 @@
 use crate::{
     embeds::{osu, Author, Footer},
     pp::{Calculations, PPCalculator},
-    util::{constants::OSU_BASE, ScoreExt},
+    util::{
+        constants::OSU_BASE,
+        numbers::{with_comma_float, with_comma_int},
+        ScoreExt,
+    },
 };
 
 use eyre::Report;
@@ -21,6 +25,7 @@ impl NoChokeEmbed {
         user: &User,
         scores_data: S,
         unchoked_pp: f32,
+        rank: Option<usize>,
         pages: (usize, usize),
     ) -> Self
     where
@@ -39,23 +44,20 @@ impl NoChokeEmbed {
 
             if let Err(why) = calculator.calculate(calculations).await {
                 let report = Report::new(why).wrap_err("error while calculating pp for nochokes");
-                warn!("{:?}", report);
+                warn!("{report:?}");
             }
 
             let stars = osu::get_stars(calculator.stars().unwrap_or(0.0));
 
             let _ = writeln!(
                 description,
-                "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
+                "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars}]\n\
                 {grade} {old_pp:.2} → **{new_pp:.2}pp**/{max_pp:.2}PP ~ ({old_acc:.2} → **{new_acc:.2}%**)\n\
                 [ {old_combo} → **{new_combo}x**/{max_combo} ] ~ *Removed {misses} miss{plural}*",
-                idx = idx,
                 title = mapset.title,
                 version = map.version,
-                base = OSU_BASE,
                 id = map.map_id,
                 mods = osu::get_mods(original.mods),
-                stars = stars,
                 grade = unchoked.grade_emote(original.mode),
                 old_pp = original.pp.unwrap_or(0.0),
                 new_pp = unchoked.pp.unwrap_or(0.0),
@@ -74,16 +76,25 @@ impl NoChokeEmbed {
             );
         }
 
-        let title = format!(
-            "Total pp: {pp_raw} → **{unchoked_pp}pp** (+{pp_diff})"
-        );
+        let title = format!("Total pp: {pp_raw} → **{unchoked_pp}pp** (+{pp_diff})");
+
+        let mut footer_text = format!("Page {}/{}", pages.0, pages.1);
+
+        if let Some(rank) = rank {
+            let _ = write!(
+                footer_text,
+                " • The current rank for {pp}pp is #{rank}",
+                pp = with_comma_float(unchoked_pp),
+                rank = with_comma_int(rank)
+            );
+        }
 
         Self {
             title,
             author: author!(user),
             description,
             thumbnail: user.avatar_url.to_owned(),
-            footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
+            footer: Footer::new(footer_text),
         }
     }
 }

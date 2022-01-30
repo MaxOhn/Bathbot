@@ -21,6 +21,7 @@ use crate::{
         osu::{get_user_and_scores, ScoreArgs, UserArgs},
         parse_discord, parse_mode_option, DoubleResultCow, MyCommand, MyCommandOption,
     },
+    custom_client::RankParam,
     database::UserConfig,
     embeds::{EmbedData, NoChokeEmbed},
     error::PPError,
@@ -110,10 +111,30 @@ async fn _nochokes(ctx: Arc<Context>, data: CommandData<'_>, args: NochokeArgs) 
 
     unchoked_pp = (100.0 * (unchoked_pp + bonus_pp)).round() / 100.0;
 
+    let rank_fut = ctx
+        .clients
+        .custom
+        .get_rank_data(mode, RankParam::Pp(unchoked_pp));
+
+    let rank = match rank_fut.await {
+        Ok(rank) => Some(rank.rank as usize),
+        Err(err) => {
+            let report = Report::new(err).wrap_err("failed to get rank pp");
+            warn!("{report:?}");
+
+            None
+        }
+    };
+
     // Accumulate all necessary data
     let pages = numbers::div_euclid(5, scores_data.len());
-    let embed_data_fut =
-        NoChokeEmbed::new(&user, scores_data.iter().take(5), unchoked_pp, (1, pages));
+    let embed_data_fut = NoChokeEmbed::new(
+        &user,
+        scores_data.iter().take(5),
+        unchoked_pp,
+        rank,
+        (1, pages),
+    );
     let embed = embed_data_fut.await.into_builder().build();
 
     let content = format!(
@@ -150,7 +171,7 @@ async fn _nochokes(ctx: Arc<Context>, data: CommandData<'_>, args: NochokeArgs) 
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = NoChokePagination::new(response, user, scores_data, unchoked_pp);
+    let pagination = NoChokePagination::new(response, user, scores_data, unchoked_pp, rank);
     let owner = data.author()?.id;
 
     tokio::spawn(async move {

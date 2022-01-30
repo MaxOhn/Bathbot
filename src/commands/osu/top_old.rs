@@ -280,7 +280,7 @@ async fn _topold(ctx: Arc<Context>, data: CommandData<'_>, args: OldArgs) -> Bot
     let pages = numbers::div_euclid(5, scores_data.len());
     let post_pp = user.statistics.as_ref().unwrap().pp;
     let iter = scores_data.iter().take(5);
-    let embed_data_fut = TopIfEmbed::new(&user, iter, mode, adjusted_pp, post_pp, (1, pages));
+    let embed_data_fut = TopIfEmbed::new(&user, iter, mode, adjusted_pp, post_pp, None, (1, pages));
 
     // Creating the embed
     let embed = embed_data_fut.await.into_builder().build();
@@ -297,7 +297,15 @@ async fn _topold(ctx: Arc<Context>, data: CommandData<'_>, args: OldArgs) -> Bot
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = TopIfPagination::new(response, user, scores_data, mode, adjusted_pp, post_pp);
+    let pagination = TopIfPagination::new(
+        response,
+        user,
+        scores_data,
+        mode,
+        adjusted_pp,
+        post_pp,
+        None,
+    );
     let owner = data.author()?.id;
 
     tokio::spawn(async move {

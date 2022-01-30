@@ -17,6 +17,7 @@ use crate::{
         osu::{get_user_and_scores, ScoreArgs, UserArgs},
         parse_discord, parse_mode_option, DoubleResultCow, MyCommand, MyCommandOption,
     },
+    custom_client::RankParam,
     database::UserConfig,
     embeds::{EmbedData, TopIfEmbed},
     pagination::{Pagination, TopIfPagination},
@@ -218,12 +219,27 @@ async fn _topif(ctx: Arc<Context>, data: CommandData<'_>, args: IfArgs) -> BotRe
 
     let adjusted_pp = numbers::round((bonus_pp + adjusted_pp).max(0.0) as f32);
 
+    let rank_fut = ctx
+        .clients
+        .custom
+        .get_rank_data(mode, RankParam::Pp(adjusted_pp));
+
+    let rank = match rank_fut.await {
+        Ok(rank) => Some(rank.rank as usize),
+        Err(err) => {
+            let report = Report::new(err).wrap_err("failed to get rank pp");
+            warn!("{report:?}");
+
+            None
+        }
+    };
+
     // Accumulate all necessary data
     let content = get_content(user.username.as_str(), mode, mods);
     let pages = numbers::div_euclid(5, scores_data.len());
     let iter = scores_data.iter().take(5);
-    let pre_pp = user.statistics.as_ref().unwrap().pp;
-    let embed_data_fut = TopIfEmbed::new(&user, iter, mode, pre_pp, adjusted_pp, (1, pages));
+    let pre_pp = user.statistics.as_ref().map_or(0.0, |stats| stats.pp);
+    let embed_data_fut = TopIfEmbed::new(&user, iter, mode, pre_pp, adjusted_pp, rank, (1, pages));
 
     // Creating the embed
     let embed = embed_data_fut.await.into_builder().build();
@@ -241,7 +257,8 @@ async fn _topif(ctx: Arc<Context>, data: CommandData<'_>, args: IfArgs) -> BotRe
 
     // Pagination
     let pre_pp = user.statistics.as_ref().unwrap().pp;
-    let pagination = TopIfPagination::new(response, user, scores_data, mode, pre_pp, adjusted_pp);
+    let pagination =
+        TopIfPagination::new(response, user, scores_data, mode, pre_pp, adjusted_pp, rank);
     let owner = data.author()?.id;
 
     tokio::spawn(async move {

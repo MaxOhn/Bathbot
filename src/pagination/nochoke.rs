@@ -11,6 +11,7 @@ pub struct NoChokePagination {
     user: User,
     scores: Vec<(usize, Score, Score)>,
     unchoked_pp: f32,
+    rank: Option<usize>,
 }
 
 impl NoChokePagination {
@@ -19,6 +20,7 @@ impl NoChokePagination {
         user: User,
         scores: Vec<(usize, Score, Score)>,
         unchoked_pp: f32,
+        rank: Option<usize>,
     ) -> Self {
         Self {
             msg,
@@ -26,6 +28,7 @@ impl NoChokePagination {
             user,
             scores,
             unchoked_pp,
+            rank,
         }
     }
 }
@@ -58,6 +61,7 @@ impl Pagination for NoChokePagination {
                 .skip(self.pages.index)
                 .take(self.pages.per_page),
             self.unchoked_pp,
+            self.rank,
             (self.page(), self.pages.total_pages),
         )
         .await)

@@ -74,7 +74,7 @@ async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) -> BotResul
         Ok(rank_pp) => Some(rank_pp.rank as usize),
         Err(why) => {
             let report = Report::new(why).wrap_err("failed to get rank pp");
-            warn!("{:?}", report);
+            warn!("{report:?}");
 
             None
         }

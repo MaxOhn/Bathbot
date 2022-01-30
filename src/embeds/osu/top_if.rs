@@ -1,7 +1,10 @@
 use crate::{
     embeds::{osu, Author, Footer},
     util::{
-        constants::OSU_BASE, datetime::how_long_ago_dynamic, numbers::with_comma_int, ScoreExt,
+        constants::OSU_BASE,
+        datetime::how_long_ago_dynamic,
+        numbers::{with_comma_float, with_comma_int},
+        ScoreExt,
     },
 };
 
@@ -23,6 +26,7 @@ impl TopIfEmbed {
         mode: GameMode,
         pre_pp: f32,
         post_pp: f32,
+        rank: Option<usize>,
         pages: (usize, usize),
     ) -> Self
     where
@@ -44,17 +48,13 @@ impl TopIfEmbed {
 
             let _ = writeln!(
                 description,
-                "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
+                "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars}]\n\
                 {grade} {pp} ~ ({acc}) ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
-                idx = idx,
                 title = mapset.title,
                 version = map.version,
-                base = OSU_BASE,
                 id = map.map_id,
                 mods = osu::get_mods(score.mods),
-                stars = stars,
                 grade = score.grade_emote(mode),
-                pp = pp,
                 acc = score.acc_string(mode),
                 score = with_comma_int(score.score),
                 combo = osu::get_combo(score, map),
@@ -65,10 +65,21 @@ impl TopIfEmbed {
 
         description.pop();
 
+        let mut footer_text = format!("Page {}/{}", pages.0, pages.1);
+
+        if let Some(rank) = rank {
+            let _ = write!(
+                footer_text,
+                " • The current rank for {pp}pp is #{rank}",
+                pp = with_comma_float(post_pp),
+                rank = with_comma_int(rank)
+            );
+        }
+
         Self {
             author: author!(user),
             description,
-            footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
+            footer: Footer::new(footer_text),
             thumbnail: user.avatar_url.to_owned(),
             title: format!("Total pp: {pre_pp} → **{post_pp}pp** ({pp_diff:+})"),
         }
