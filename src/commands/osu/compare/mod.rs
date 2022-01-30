@@ -260,17 +260,21 @@ fn option_discord_(n: u8) -> MyCommandOption {
     discord
 }
 
-pub fn define_compare() -> MyCommand {
+fn score_options() -> Vec<MyCommandOption> {
     let name = option_name();
     let map = option_map();
     let discord = option_discord();
 
-    let score_help =
-        "Given a user and a map, display the user's play with the most score on the map";
+    vec![name, map, discord]
+}
 
-    let score = MyCommandOption::builder(SCORE, "Compare a score")
+pub fn define_compare() -> MyCommand {
+    let score_help = "Given a user and a map, display the user's scores on the map.\n\
+        Its shorter alias is the `/cs` command.";
+
+    let score = MyCommandOption::builder(SCORE, "Compare a score (same as `/cs`)")
         .help(score_help)
-        .subcommand(vec![name, map, discord]);
+        .subcommand(score_options());
 
     let mode = option_mode();
     let name1 = option_name_(1);

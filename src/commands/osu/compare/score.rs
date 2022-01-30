@@ -20,7 +20,7 @@ use crate::{
     commands::{
         check_user_mention,
         osu::{get_user, get_user_cached, UserArgs},
-        parse_discord, DoubleResultCow,
+        parse_discord, DoubleResultCow, MyCommand,
     },
     database::UserConfig,
     embeds::{CompareEmbed, EmbedData, NoScoresEmbed, ScoresEmbed},
@@ -34,10 +34,12 @@ use crate::{
         },
         matcher,
         osu::{map_id_from_history, map_id_from_msg, MapIdType},
-        InteractionExt, MessageExt,
+        ApplicationCommandExt, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
+
+use super::score_options;
 
 #[command]
 #[short_desc("Compare a player's score on a map")]
@@ -500,6 +502,15 @@ enum MapOrScore {
     Score { id: u64, mode: GameMode },
 }
 
+pub async fn slash_cs(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+    let options = command.yoink_options();
+
+    match ScoreArgs::slash(&ctx, &command, options).await? {
+        Ok(args) => _compare(ctx, command.into(), args).await,
+        Err(content) => command.error(&ctx, content).await,
+    }
+}
+
 pub(super) struct ScoreArgs {
     config: UserConfig,
     id: Option<MapOrScore>,
@@ -568,4 +579,12 @@ impl ScoreArgs {
 
         Ok(Ok(ScoreArgs { config, id }))
     }
+}
+
+pub fn define_cs() -> MyCommand {
+    let score_help = "Given a user and a map, display the user's scores on the map";
+
+    MyCommand::new("cs", "Compare a score")
+        .help(score_help)
+        .options(score_options())
 }

@@ -715,6 +715,7 @@ lazy_static! {
         insert("rank", define_rank);
         insert("pp", define_pp);
         insert("compare", define_compare);
+        insert("cs", define_cs);
         insert("medal", define_medal);
         insert("osekai", define_osekai);
         insert("ranking", define_ranking);

@@ -114,6 +114,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
 
             process_command(ctx, command, args, utility::slash_config).await
         }
+        "cs" => process_command(ctx, command, args, osu::slash_cs).await,
         "fix" => process_command(ctx, command, args, osu::slash_fix).await,
         HELP => {
             // Necessary to be able to use data.create_message later on
