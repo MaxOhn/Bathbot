@@ -685,6 +685,7 @@ lazy_static! {
         insert(HELP, help::define_help);
         insert("recent", define_recent);
         insert("rs", define_rs);
+        insert("rb", define_rb);
         insert("track", define_track);
         insert("owner", define_owner);
         insert("song", define_song);

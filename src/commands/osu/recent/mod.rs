@@ -25,7 +25,7 @@ use crate::{
             ACC, COMBO, CONSIDER_GRADE, CTB, FRUITS, GRADE, INDEX, MANIA, MISSES, MODE, OSU,
             REVERSE, SCORE, SPECIFY_MODE, TAIKO,
         },
-        MessageExt,
+        ApplicationCommandExt, MessageExt,
     },
     BotResult, Context, Error,
 };
@@ -105,6 +105,19 @@ pub async fn slash_recent(ctx: Arc<Context>, mut command: ApplicationCommand) ->
     }
 }
 
+pub async fn slash_rb(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+    let options = command.yoink_options();
+
+    match TopArgs::slash(&ctx, &command, options).await? {
+        Ok(mut args) => {
+            args.sort_by = TopOrder::Date;
+
+            _top(ctx, command.into(), args).await
+        }
+        Err(content) => command.error(&ctx, content).await,
+    }
+}
+
 fn score_options() -> Vec<MyCommandOption> {
     let mode = MyCommandOption::builder(MODE, SPECIFY_MODE)
         .string(super::mode_choices(), false)
@@ -177,7 +190,7 @@ fn subcommand_score() -> MyCommandOption {
         .subcommand(score_options())
 }
 
-fn subcommand_best() -> MyCommandOption {
+fn best_options() -> Vec<MyCommandOption> {
     let mode = option_mode();
     let name = option_name();
     let mods = option_mods_explicit();
@@ -196,6 +209,15 @@ fn subcommand_best() -> MyCommandOption {
     let discord = option_discord();
     let reverse =
         MyCommandOption::builder(REVERSE, "Reverse the resulting score list").boolean(false);
+
+    let query_description = "Search for a specific artist, title, or difficulty name";
+
+    let query_help = "Search for a specific artist, title, or difficulty name.\n\
+            Filters out all scores for which `{artist} - {title} [{version}]` does not contain the query.";
+
+    let query = MyCommandOption::builder("query", query_description)
+        .help(query_help)
+        .string(vec![], false);
 
     let grade = MyCommandOption::builder(GRADE, CONSIDER_GRADE).string(
         vec![
@@ -227,8 +249,28 @@ fn subcommand_best() -> MyCommandOption {
         false,
     );
 
-    MyCommandOption::builder("best", "Display the user's current top100 sorted by date")
-        .subcommand(vec![mode, name, mods, index, discord, reverse, grade])
+    let perfect_combo_description = "Filter out all scores that don't have a perfect combo";
+
+    let perfect_combo =
+        MyCommandOption::builder("perfect_combo", perfect_combo_description).boolean(false);
+
+    vec![
+        mode,
+        name,
+        mods,
+        index,
+        discord,
+        reverse,
+        query,
+        grade,
+        perfect_combo,
+    ]
+}
+
+fn subcommand_best() -> MyCommandOption {
+    let description = "Display the user's current top100 sorted by date (same as `/rb`)";
+
+    MyCommandOption::builder("best", description).subcommand(best_options())
 }
 
 fn subcommand_fix() -> MyCommandOption {
@@ -511,4 +553,8 @@ pub fn define_recent() -> MyCommand {
     MyCommand::new("recent", "Display info about a user's recent plays")
         .help(help)
         .options(options)
+}
+
+pub fn define_rb() -> MyCommand {
+    MyCommand::new("rb", "Display the user's current top100 sorted by date").options(best_options())
 }
