@@ -3,13 +3,23 @@ mod most_played;
 mod profile;
 mod score;
 
-use std::sync::Arc;
+use std::{
+    cmp::{Ordering, Reverse},
+    sync::Arc,
+};
 
+use eyre::Report;
+use hashbrown::HashMap;
+use rosu::prelude::{GameMode as GameModeV1, Score};
+use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_v2::prelude::{GameMode, Username};
 use twilight_model::{
-    application::interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
+    application::{
+        command::CommandOptionChoice,
+        interaction::{
+            application_command::{CommandDataOption, CommandOptionValue},
+            ApplicationCommand,
+        },
     },
     id::{marker::UserMarker, Id},
 };
@@ -21,8 +31,10 @@ use crate::{
     },
     database::OsuData,
     util::{
-        constants::common_literals::{MODE, PROFILE, SCORE},
-        matcher, InteractionExt, MessageExt,
+        constants::common_literals::{ACC, ACCURACY, COMBO, MODE, PROFILE, SCORE, SORT},
+        matcher,
+        osu::prepare_beatmap_file,
+        InteractionExt, MessageExt,
     },
     Args, BotResult, Context, Error,
 };
@@ -223,6 +235,163 @@ pub async fn slash_compare(ctx: Arc<Context>, mut command: ApplicationCommand) -
     }
 }
 
+#[derive(Copy, Clone)]
+enum ScoreOrder {
+    Acc,
+    Combo,
+    Date,
+    Misses,
+    Pp,
+    Score,
+    Stars,
+}
+
+impl Default for ScoreOrder {
+    fn default() -> Self {
+        Self::Score
+    }
+}
+
+impl ScoreOrder {
+    pub async fn apply(self, scores: &mut [Score], map_id: u32, mode: GameModeV1) {
+        if scores.len() <= 1 {
+            return;
+        }
+
+        match self {
+            Self::Acc => {
+                scores.sort_unstable_by(|a, b| {
+                    b.accuracy(mode)
+                        .partial_cmp(&a.accuracy(mode))
+                        .unwrap_or(Ordering::Equal)
+                });
+            }
+            Self::Combo => scores.sort_unstable_by_key(|s| Reverse(s.max_combo)),
+            Self::Date => scores.sort_unstable_by_key(|s| Reverse(s.date)),
+            Self::Misses => scores.sort_unstable_by(|a, b| {
+                b.count_miss.cmp(&a.count_miss).then_with(|| {
+                    let hits_a = a.total_hits(mode);
+                    let hits_b = b.total_hits(mode);
+
+                    let ratio_a = a.count_miss as f32 / hits_a as f32;
+                    let ratio_b = b.count_miss as f32 / hits_b as f32;
+
+                    ratio_b
+                        .partial_cmp(&ratio_a)
+                        .unwrap_or(Ordering::Equal)
+                        .then_with(|| hits_b.cmp(&hits_a))
+                })
+            }),
+            Self::Pp => {
+                let map_path = match prepare_beatmap_file(map_id).await {
+                    Ok(path) => path,
+                    Err(err) => {
+                        warn!("{:?}", Report::new(err));
+
+                        return;
+                    }
+                };
+
+                let map = match Beatmap::from_path(map_path).await {
+                    Ok(map) => map,
+                    Err(err) => {
+                        warn!("{:?}", Report::new(err));
+
+                        return;
+                    }
+                };
+
+                let pp = scores
+                    .iter()
+                    .map(|score| {
+                        let id = score.date.timestamp();
+
+                        let performance = map
+                            .pp()
+                            .mods(score.enabled_mods.bits())
+                            .n300(score.count300 as usize)
+                            .n100(score.count100 as usize)
+                            .n50(score.count50 as usize)
+                            .misses(score.count_miss as usize)
+                            .n_katu(score.count_katu as usize)
+                            .combo(score.max_combo as usize)
+                            .score(score.score)
+                            .calculate();
+
+                        (id, performance.pp() as f32)
+                    })
+                    .collect::<HashMap<_, _>>();
+
+                scores.sort_unstable_by(|a, b| {
+                    let id_a = a.date.timestamp();
+
+                    let pp_a = match pp.get(&id_a) {
+                        Some(pp) => pp,
+                        None => return Ordering::Greater,
+                    };
+
+                    let id_b = b.date.timestamp();
+
+                    let pp_b = match pp.get(&id_b) {
+                        Some(pp) => pp,
+                        None => return Ordering::Less,
+                    };
+
+                    pp_b.partial_cmp(pp_a).unwrap_or(Ordering::Equal)
+                })
+            }
+            Self::Score => scores.sort_unstable_by_key(|s| Reverse(s.score)),
+            Self::Stars => {
+                let map_path = match prepare_beatmap_file(map_id).await {
+                    Ok(path) => path,
+                    Err(err) => {
+                        warn!("{:?}", Report::new(err));
+
+                        return;
+                    }
+                };
+
+                let map = match Beatmap::from_path(map_path).await {
+                    Ok(map) => map,
+                    Err(err) => {
+                        warn!("{:?}", Report::new(err));
+
+                        return;
+                    }
+                };
+
+                let stars = scores
+                    .iter()
+                    .map(|score| {
+                        let id = score.date.timestamp();
+                        let difficulty = map.stars(score.enabled_mods.bits(), None);
+
+                        (id, difficulty.stars() as f32)
+                    })
+                    .collect::<HashMap<_, _>>();
+
+                scores.sort_unstable_by(|a, b| {
+                    let id_a = a.date.timestamp();
+
+                    let stars_a = match stars.get(&id_a) {
+                        Some(stars) => stars,
+                        None => return Ordering::Greater,
+                    };
+
+                    let id_b = b.date.timestamp();
+
+                    let stars_b = match stars.get(&id_b) {
+                        Some(stars) => stars,
+                        None => return Ordering::Less,
+                    };
+
+                    stars_b.partial_cmp(stars_a).unwrap_or(Ordering::Equal)
+                })
+            }
+        }
+    }
+}
+
 fn option_name_(n: u8) -> MyCommandOption {
     let mut name = option_name();
 
@@ -265,7 +434,42 @@ fn score_options() -> Vec<MyCommandOption> {
     let map = option_map();
     let discord = option_discord();
 
-    vec![name, map, discord]
+    let sort_choices = vec![
+        CommandOptionChoice::String {
+            name: "pp".to_owned(),
+            value: "pp".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "date".to_owned(),
+            value: "date".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: ACCURACY.to_owned(),
+            value: ACC.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: COMBO.to_owned(),
+            value: COMBO.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "stars".to_owned(),
+            value: "stars".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "misses".to_owned(),
+            value: "miss".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "score".to_owned(),
+            value: "score".to_owned(),
+        },
+    ];
+
+    let sort = MyCommandOption::builder(SORT, "Choose how the scores should be ordered")
+        .help("Choose how the scores should be ordered, defaults to `score`.")
+        .string(sort_choices, false);
+
+    vec![name, map, sort, discord]
 }
 
 pub fn define_compare() -> MyCommand {

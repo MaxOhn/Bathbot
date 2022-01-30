@@ -29,7 +29,7 @@ use crate::{
     tracking::process_tracking,
     util::{
         constants::{
-            common_literals::{DISCORD, MAP, MAP_PARSE_FAIL, NAME},
+            common_literals::{ACC, COMBO, DISCORD, MAP, MAP_PARSE_FAIL, NAME, SORT},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
         matcher,
@@ -39,7 +39,7 @@ use crate::{
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
-use super::score_options;
+use super::{score_options, ScoreOrder};
 
 #[command]
 #[short_desc("Compare a player's score on a map")]
@@ -92,7 +92,11 @@ pub(super) async fn _compare(
     data: CommandData<'_>,
     args: ScoreArgs,
 ) -> BotResult<()> {
-    let ScoreArgs { config, id } = args;
+    let ScoreArgs {
+        config,
+        id,
+        sort_by,
+    } = args;
 
     let embeds_maximized = match (config.embeds_maximized, data.guild_id()) {
         (Some(embeds_maximized), _) => embeds_maximized,
@@ -249,7 +253,7 @@ pub(super) async fn _compare(
 
     let mut user_args = UserArgs::new(name.as_str(), map.mode);
 
-    let (user, scores) = if let Some(alt_name) = user_args.whitespaced_name() {
+    let (user, mut scores) = if let Some(alt_name) = user_args.whitespaced_name() {
         match get_user_cached(&ctx, &user_args).await {
             Ok(user) => {
                 let scores_fut = ctx
@@ -342,9 +346,12 @@ pub(super) async fn _compare(
         .mode(map.mode)
         .limit(100);
 
-    let pinned = match pinned_fut.await {
-        Ok(scores) => scores,
-        Err(err) => {
+    let mode_v1 = (map.mode as u8).into();
+    let sort_fut = sort_by.apply(&mut scores, map.map_id, mode_v1);
+
+    let pinned = match tokio::join!(pinned_fut, sort_fut) {
+        (Ok(scores), _) => scores,
+        (Err(err), _) => {
             warn!(
                 "{:?}",
                 Report::new(err).wrap_err("failed to get pinned scores")
@@ -514,6 +521,7 @@ pub async fn slash_cs(ctx: Arc<Context>, mut command: ApplicationCommand) -> Bot
 pub(super) struct ScoreArgs {
     config: UserConfig,
     id: Option<MapOrScore>,
+    sort_by: ScoreOrder,
 }
 
 impl ScoreArgs {
@@ -540,7 +548,13 @@ impl ScoreArgs {
             }
         }
 
-        Ok(Ok(Self { config, id }))
+        let sort_by = ScoreOrder::Score;
+
+        Ok(Ok(Self {
+            config,
+            id,
+            sort_by,
+        }))
     }
 
     pub(super) async fn slash(
@@ -550,6 +564,7 @@ impl ScoreArgs {
     ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(command.user_id()?).await?;
         let mut id = None;
+        let mut sort_by = None;
 
         for option in options {
             match option.value {
@@ -564,6 +579,16 @@ impl ScoreArgs {
                             None => return Ok(Err(MAP_PARSE_FAIL.into())),
                         },
                     },
+                    SORT => match value.as_str() {
+                        ACC => sort_by = Some(ScoreOrder::Acc),
+                        COMBO => sort_by = Some(ScoreOrder::Combo),
+                        "date" => sort_by = Some(ScoreOrder::Date),
+                        "miss" => sort_by = Some(ScoreOrder::Misses),
+                        "pp" => sort_by = Some(ScoreOrder::Pp),
+                        "score" => sort_by = Some(ScoreOrder::Score),
+                        "stars" => sort_by = Some(ScoreOrder::Stars),
+                        _ => return Err(Error::InvalidCommandOptions),
+                    },
                     _ => return Err(Error::InvalidCommandOptions),
                 },
                 CommandOptionValue::User(value) => match option.name.as_str() {
@@ -577,7 +602,11 @@ impl ScoreArgs {
             }
         }
 
-        Ok(Ok(ScoreArgs { config, id }))
+        Ok(Ok(ScoreArgs {
+            config,
+            id,
+            sort_by: sort_by.unwrap_or_default(),
+        }))
     }
 }
 
