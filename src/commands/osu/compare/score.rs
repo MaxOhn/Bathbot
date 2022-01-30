@@ -352,10 +352,8 @@ pub(super) async fn _compare(
     let pinned = match tokio::join!(pinned_fut, sort_fut) {
         (Ok(scores), _) => scores,
         (Err(err), _) => {
-            warn!(
-                "{:?}",
-                Report::new(err).wrap_err("failed to get pinned scores")
-            );
+            let report = Report::new(err).wrap_err("failed to get pinned scores");
+            warn!("{report:?}");
 
             Vec::new()
         }

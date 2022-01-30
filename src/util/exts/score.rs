@@ -433,27 +433,22 @@ impl ScoreExt for rosu::model::Score {
     }
 
     fn acc(&self, mode: GameMode) -> f32 {
-        let amount_objects = self.hits(mode as u8) as f32;
+        self.accuracy((mode as u8).into())
+    }
 
-        let (numerator, denumerator) = match mode {
-            GameMode::TKO => (
-                0.5 * self.count100 as f32 + self.count300 as f32,
-                amount_objects,
-            ),
-            GameMode::CTB => (
-                (self.count300 + self.count100 + self.count50) as f32,
-                amount_objects,
-            ),
-            GameMode::STD | GameMode::MNA => {
-                let mut n = (self.count50 * 50 + self.count100 * 100 + self.count300 * 300) as f32;
+    fn grade(&self, _mode: GameMode) -> Grade {
+        use rosu::model::Grade as GradeV1;
 
-                n += ((mode == GameMode::MNA) as u32
-                    * (self.count_katu * 200 + self.count_geki * 300)) as f32;
-
-                (n, amount_objects * 300.0)
-            }
-        };
-
-        (10_000.0 * numerator / denumerator).round() / 100.0
+        match self.grade {
+            GradeV1::XH => Grade::XH,
+            GradeV1::X => Grade::X,
+            GradeV1::SH => Grade::SH,
+            GradeV1::S => Grade::S,
+            GradeV1::A => Grade::A,
+            GradeV1::B => Grade::B,
+            GradeV1::C => Grade::C,
+            GradeV1::D => Grade::D,
+            GradeV1::F => Grade::F,
+        }
     }
 }
