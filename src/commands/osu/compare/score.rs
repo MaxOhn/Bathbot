@@ -3,7 +3,7 @@ use std::sync::Arc;
 use eyre::Report;
 use rosu_v2::prelude::{
     GameMode, OsuError,
-    RankStatus::{Approved, Loved, Ranked},
+    RankStatus::{self, Approved, Loved, Ranked},
     Score,
 };
 use tokio::time::{sleep, Duration};
@@ -349,9 +349,40 @@ pub(super) async fn _compare(
     let mode_v1 = (map.mode as u8).into();
     let sort_fut = sort_by.apply(&mut scores, map.map_id, mode_v1);
 
-    let pinned = match tokio::join!(pinned_fut, sort_fut) {
-        (Ok(scores), _) => scores,
-        (Err(err), _) => {
+    let global_fut = async {
+        if matches!(
+            map.status,
+            RankStatus::Ranked | RankStatus::Loved | RankStatus::Approved
+        ) {
+            let fut = ctx.osu().beatmap_scores(map.map_id).mode(map.mode);
+
+            Some(fut.await)
+        } else {
+            None
+        }
+    };
+
+    let personal_fut = async {
+        if map.status == RankStatus::Ranked {
+            let fut = ctx
+                .osu()
+                .user_scores(user.user_id)
+                .mode(map.mode)
+                .best()
+                .limit(100);
+
+            Some(fut.await)
+        } else {
+            None
+        }
+    };
+
+    let (pinned_result, _, global_result, personal_result) =
+        tokio::join!(pinned_fut, sort_fut, global_fut, personal_fut);
+
+    let pinned = match pinned_result {
+        Ok(scores) => scores,
+        Err(err) => {
             let report = Report::new(err).wrap_err("failed to get pinned scores");
             warn!("{report:?}");
 
@@ -359,10 +390,46 @@ pub(super) async fn _compare(
         }
     };
 
+    // First elem: idx inside user scores that has most score
+    // Second elem: idx of score inside map leaderboard
+    let global_idx = match global_result {
+        Some(Ok(globals)) => scores
+            .iter()
+            .enumerate()
+            .max_by_key(|(_, s)| s.score)
+            .and_then(|(i, s)| {
+                let user = user.user_id;
+                let timestamp = s.date.timestamp();
+
+                globals
+                    .iter()
+                    .position(|s| s.created_at.timestamp() == timestamp && s.user_id == user)
+                    .map(|pos| (i, pos))
+            }),
+        Some(Err(err)) => {
+            let report = Report::new(err).wrap_err("failed to get map leaderboard");
+            warn!("{report:?}");
+
+            None
+        }
+        None => None,
+    };
+
+    let personal = match personal_result {
+        Some(Ok(scores)) => scores,
+        Some(Err(err)) => {
+            let report = Report::new(err).wrap_err("failed to get top100");
+            warn!("{report:?}");
+
+            Vec::new()
+        }
+        None => Vec::new(),
+    };
+
     let init_scores = scores.iter().take(10);
 
     // Accumulate all necessary data
-    let builder = ScoresEmbed::new(&user, &map, init_scores, 0, &pinned)
+    let builder = ScoresEmbed::new(&user, &map, init_scores, 0, &pinned, &personal, global_idx)
         .await
         .into_builder()
         .build()
@@ -378,7 +445,8 @@ pub(super) async fn _compare(
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = ScoresPagination::new(response, user, map, scores, pinned);
+    let pagination =
+        ScoresPagination::new(response, user, map, scores, pinned, personal, global_idx);
     let owner = data.author()?.id;
 
     tokio::spawn(async move {

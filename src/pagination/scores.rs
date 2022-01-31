@@ -14,6 +14,8 @@ pub struct ScoresPagination {
     map: Beatmap,
     scores: Vec<ScoreV1>,
     pinned: Vec<Score>,
+    personal: Vec<Score>,
+    global_idx: Option<(usize, usize)>,
 }
 
 impl ScoresPagination {
@@ -23,6 +25,8 @@ impl ScoresPagination {
         map: Beatmap,
         scores: Vec<ScoreV1>,
         pinned: Vec<Score>,
+        personal: Vec<Score>,
+        global_idx: Option<(usize, usize)>,
     ) -> Self {
         Self {
             msg,
@@ -31,6 +35,8 @@ impl ScoresPagination {
             map,
             scores,
             pinned,
+            personal,
+            global_idx,
         }
     }
 }
@@ -62,12 +68,26 @@ impl Pagination for ScoresPagination {
             .skip(self.pages.index)
             .take(self.pages.per_page);
 
+        let global_idx = self
+            .global_idx
+            .filter(|(idx, _)| {
+                (self.pages.index..self.pages.index + self.pages.per_page).contains(idx)
+            })
+            .map(|(score_idx, map_idx)| {
+                let factor = score_idx / self.pages.per_page;
+                let new_idx = score_idx - factor * self.pages.per_page;
+
+                (new_idx, map_idx)
+            });
+
         let embed_fut = ScoresEmbed::new(
             &self.user,
             &self.map,
             scores,
             self.pages.index,
             &self.pinned,
+            &self.personal,
+            global_idx,
         );
 
         Ok(embed_fut.await)

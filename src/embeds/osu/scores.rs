@@ -36,6 +36,8 @@ impl ScoresEmbed {
         scores: S,
         idx: usize,
         pinned: &[Score],
+        personal: &[Score],
+        global_idx: Option<(usize, usize)>,
     ) -> Self
     where
         S: Iterator<Item = &'i ScoreV1>,
@@ -108,12 +110,33 @@ impl ScoresEmbed {
                 };
             }
 
-            let value = format!(
-                "{pp}\t[ {combo} ]\t {hits}\t{ago}",
+            let mut value = format!(
+                "{pp} {combo} {hits} {ago}",
                 combo = osu::get_combo(score, map),
                 hits = score.hits_string(map.mode),
                 ago = how_long_ago_dynamic(&score.date)
             );
+
+            let personal_idx = personal.iter().position(|s| s.created_at == score.date);
+
+            if personal_idx.is_some() || matches!(global_idx, Some((n, _)) if n == i) {
+                value.push_str("\n__**");
+
+                if let Some(idx) = personal_idx {
+                    let _ = write!(value, "Personal Best #{}", idx + 1);
+                }
+
+                if let Some((_, idx)) = global_idx.filter(|(idx, _)| *idx == i) {
+                    if personal_idx.is_some() {
+                        value.reserve(19);
+                        value.push_str(" and ");
+                    }
+
+                    let _ = write!(value, "Global Top #{}", idx + 1);
+                }
+
+                value.push_str("**__");
+            }
 
             fields.push(field!(name, value, false));
         }
