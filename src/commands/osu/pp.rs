@@ -3,9 +3,12 @@ use std::sync::Arc;
 use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_model::{
-    application::interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
+    application::{
+        command::CommandOptionChoice,
+        interaction::{
+            application_command::{CommandDataOption, CommandOptionValue},
+            ApplicationCommand,
+        },
     },
     id::{marker::UserMarker, Id},
 };
@@ -31,7 +34,12 @@ use crate::{
 };
 
 async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) -> BotResult<()> {
-    let PpArgs { config, pp } = args;
+    let PpArgs {
+        config,
+        pp,
+        version,
+    } = args;
+
     let mode = config.mode.unwrap_or(GameMode::STD);
 
     let name = match config.into_username() {
@@ -84,7 +92,7 @@ async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) -> BotResul
     process_tracking(&ctx, &mut scores, Some(&user)).await;
 
     // Accumulate all necessary data
-    let embed_data = PPMissingEmbed::new(user, scores, pp, rank);
+    let embed_data = PPMissingEmbed::new(user, &mut scores, pp, rank, version);
 
     // Creating the embed
     let builder = embed_data.into_builder().build().into();
@@ -221,9 +229,22 @@ pub async fn slash_pp(ctx: Arc<Context>, mut command: ApplicationCommand) -> Bot
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum PpVersion {
+    Multi,
+    Single,
+}
+
+impl Default for PpVersion {
+    fn default() -> Self {
+        Self::Single
+    }
+}
+
 struct PpArgs {
     config: UserConfig,
     pp: f32,
+    version: PpVersion,
 }
 
 impl PpArgs {
@@ -250,7 +271,13 @@ impl PpArgs {
             None => return Ok(Err("You need to provide a decimal number".into())),
         };
 
-        Ok(Ok(Self { config, pp }))
+        let version = PpVersion::Single;
+
+        Ok(Ok(Self {
+            config,
+            pp,
+            version,
+        }))
     }
 
     async fn slash(
@@ -260,6 +287,7 @@ impl PpArgs {
     ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(command.user_id()?).await?;
         let mut pp = None;
+        let mut version = None;
 
         for option in options {
             match option.value {
@@ -275,6 +303,11 @@ impl PpArgs {
 
                             return Ok(Err(content.into()));
                         }
+                    },
+                    "version" => match value.as_str() {
+                        "multi" => version = Some(PpVersion::Multi),
+                        "single" => version = Some(PpVersion::Single),
+                        _ => return Err(Error::InvalidCommandOptions),
                     },
                     _ => return Err(Error::InvalidCommandOptions),
                 },
@@ -298,6 +331,7 @@ impl PpArgs {
 
         let args = Self {
             pp: pp.ok_or(Error::InvalidCommandOptions)?,
+            version: version.unwrap_or_default(),
             config,
         };
 
@@ -312,7 +346,28 @@ pub fn define_pp() -> MyCommand {
     let mode = option_mode();
     let name = option_name();
     let discord = option_discord();
-    let pp_description = "How many pp is a user missing to reach the given amount?";
 
-    MyCommand::new("pp", pp_description).options(vec![pp, mode, name, discord])
+    let version_choices = vec![
+        CommandOptionChoice::String {
+            name: "Single score".to_owned(),
+            value: "single".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Multiple scores".to_owned(),
+            value: "multi".to_owned(),
+        },
+    ];
+
+    let version_help = "Specify a version to calculate missing scores:\n\
+    - `Single score`: Reach the target pp with only one additional top100 score\n\
+    - `Multiple scores`: How many more personal #1 amount of pp scores are required?";
+
+    let version =
+        MyCommandOption::builder("version", "Specify a version to calculate missing scores")
+            .help(version_help)
+            .string(version_choices, false);
+
+    let description = "How many pp is a user missing to reach the given amount?";
+
+    MyCommand::new("pp", description).options(vec![pp, mode, name, version, discord])
 }
