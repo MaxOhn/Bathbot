@@ -30,11 +30,11 @@ pub use self::{
 };
 
 pub async fn run_server(ctx: Arc<Context>, shutdown_rx: oneshot::Receiver<()>) {
-    // if cfg!(debug_assertions) {
-    //     info!("Skip server on debug");
+    if cfg!(debug_assertions) {
+        info!("Skip server on debug");
 
-    //     return;
-    // }
+        return;
+    }
 
     let ip = CONFIG.get().unwrap().server.internal_ip;
     let port = CONFIG.get().unwrap().server.internal_port;
