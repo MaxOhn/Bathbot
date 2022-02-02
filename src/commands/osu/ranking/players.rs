@@ -8,6 +8,7 @@ use crate::{
     BotResult, CommandData, Context,
 };
 
+use chrono::{DateTime, Utc};
 use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuResult, Rankings};
 use std::{collections::BTreeMap, fmt, mem, sync::Arc};
@@ -112,8 +113,8 @@ async fn _ranking(
             let stats = user.statistics.as_ref().unwrap();
 
             let value = match kind {
-                RankingKind::Performance => UserValue::Pp(stats.pp.round() as u32),
-                RankingKind::Score => UserValue::Score(stats.ranked_score),
+                RankingKind::Performance => UserValue::PpU32(stats.pp.round() as u32),
+                RankingKind::Score => UserValue::Amount(stats.ranked_score),
             };
 
             RankingEntry {
@@ -318,27 +319,39 @@ pub enum RankingKind {
 
 #[derive(Copy, Clone)]
 pub enum UserValue {
-    Pp(u32),
-    Score(u64),
+    Accuracy(f32),
+    Amount(u64),
+    AmountWithNegative(i64),
+    Date(DateTime<Utc>),
+    Level(f32),
+    Playtime(u32),
+    PpF32(f32),
+    PpU32(u32),
+    Rank(u32),
 }
 
 impl fmt::Display for UserValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
-            UserValue::Pp(pp) => write!(f, "{}pp", numbers::with_comma_int(pp)),
-            UserValue::Score(score) => {
-                if score < 1_000_000 {
-                    write!(f, "{}", numbers::with_comma_int(score))
-                } else if score < 1_000_000_000 {
-                    let score = (score / 10_000) as f32 / 100.0;
-
-                    write!(f, "{score:.2} million")
+            Self::Accuracy(acc) => write!(f, "{:.2}%", numbers::round(acc)),
+            Self::Amount(amount) => write!(f, "{}", Self::AmountWithNegative(amount as i64)),
+            Self::AmountWithNegative(amount) => {
+                if amount.abs() < 1_000_000_000 {
+                    write!(f, "{}", numbers::with_comma_int(amount))
                 } else {
-                    let score = (score / 10_000_000) as f32 / 100.0;
+                    let score = (amount / 10_000_000) as f32 / 100.0;
 
                     write!(f, "{score:.2} bn")
                 }
             }
+            Self::Date(date) => write!(f, "{}", date.format("%F")),
+            Self::Level(level) => write!(f, "{:.2}", numbers::round(level)),
+            Self::Playtime(seconds) => {
+                write!(f, "{} hrs", numbers::with_comma_int(seconds / 60 / 60))
+            }
+            Self::PpF32(pp) => write!(f, "{}pp", numbers::with_comma_float(numbers::round(pp))),
+            Self::PpU32(pp) => write!(f, "{}pp", numbers::with_comma_int(pp)),
+            Self::Rank(rank) => write!(f, "#{}", numbers::with_comma_int(rank)),
         }
     }
 }

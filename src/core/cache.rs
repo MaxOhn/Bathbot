@@ -87,6 +87,15 @@ impl Cache {
         Ok(f(&member))
     }
 
+    pub fn members<F, T>(&self, guild: Id<GuildMarker>, f: F) -> Vec<T>
+    where
+        F: Fn(&Id<UserMarker>) -> T,
+    {
+        self.0
+            .guild_members(guild)
+            .map_or_else(Vec::new, |entry| entry.iter().map(f).collect())
+    }
+
     pub fn role<F, T>(&self, role: Id<RoleMarker>, f: F) -> CacheResult<T>
     where
         F: FnOnce(&GuildResource<Role>) -> T,

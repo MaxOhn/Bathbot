@@ -62,6 +62,8 @@ pub mod common_literals {
     pub const ACCURACY: &str = "accuracy";
     pub const MISSES: &str = "misses";
     pub const PROFILE: &str = "profile";
+    pub const USERNAME: &str = "username";
+    pub const USER_ID: &str = "user_id";
 
     pub const OSU: &str = "osu";
     pub const TAIKO: &str = "taiko";

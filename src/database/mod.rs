@@ -8,7 +8,8 @@ use crate::BotResult;
 
 pub use self::models::{
     Authorities, DBBeatmap, DBBeatmapset, DBOsuMedal, GuildConfig, MapsetTagWrapper, MedalGroup,
-    OsuData, OsuMedal, Prefix, Prefixes, TagRow, TrackingUser, UserConfig,
+    OsuData, OsuMedal, Prefix, Prefixes, TagRow, TrackingUser, UserConfig, UserStatsColumn,
+    UserValueRaw,
 };
 
 pub struct Database {

@@ -12,7 +12,7 @@ use serde::{
 use crate::{
     embeds::RankingKindData,
     util::{
-        constants::common_literals::{COUNTRY, CTB, FRUITS, MANIA, OSU, RANK, TAIKO},
+        constants::common_literals::{COUNTRY, CTB, FRUITS, MANIA, OSU, RANK, TAIKO, USERNAME},
         CountryCode,
     },
 };
@@ -468,7 +468,7 @@ impl<'de, T: Deserialize<'de> + FromStr> Visitor<'de> for OsekaiRankingEntryVisi
                 RANK => rank = Some(map.next_value()?),
                 "countrycode" => country_code = Some(map.next_value()?),
                 COUNTRY => country = Some(map.next_value()?),
-                "username" => username = Some(map.next_value()?),
+                USERNAME => username = Some(map.next_value()?),
                 "userid" => user_id = Some(map.next_value()?),
                 _ => value = Some(map.next_value()?),
             }
@@ -481,7 +481,7 @@ impl<'de, T: Deserialize<'de> + FromStr> Visitor<'de> for OsekaiRankingEntryVisi
 
         let country_code = country_code.ok_or_else(|| Error::missing_field("countrycode"))?;
         let country = country.ok_or_else(|| Error::missing_field(COUNTRY))?;
-        let username = username.ok_or_else(|| Error::missing_field("username"))?;
+        let username = username.ok_or_else(|| Error::missing_field(USERNAME))?;
 
         let user_id: &str = user_id.ok_or_else(|| Error::missing_field("userid"))?;
         let user_id = user_id.parse().map_err(|_| {

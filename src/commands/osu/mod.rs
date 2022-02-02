@@ -27,6 +27,7 @@ mod rank;
 mod ranking;
 mod ratios;
 mod recent;
+mod serverleaderboard;
 mod simulate;
 mod snipe;
 mod top;
@@ -70,7 +71,7 @@ pub use self::{
     avatar::*, bws::*, compare::*, fix::*, leaderboard::*, link::*, map::*, map_search::*,
     mapper::*, match_costs::*, match_live::*, medals::*, most_played::*, nochoke::*, osekai::*,
     osustats::*, pinned::*, pp::*, profile::*, rank::*, ranking::*, ratios::*, recent::*,
-    simulate::*, snipe::*, top::*, top_if::*, top_old::*, whatif::*,
+    serverleaderboard::*, simulate::*, snipe::*, top::*, top_if::*, top_old::*, whatif::*,
 };
 
 use super::MyCommandOption;
@@ -143,15 +144,15 @@ async fn get_beatmap_user_score(
     }
 }
 
-async fn get_user_cached(ctx: &Context, user: &UserArgs<'_>) -> OsuResult<User> {
-    let key = format!("__{}_{}", user.name, user.mode as u8);
+async fn get_user_cached(ctx: &Context, args: &UserArgs<'_>) -> OsuResult<User> {
+    let key = format!("__{}_{}", args.name, args.mode as u8);
 
     let mut conn = match ctx.clients.redis.get().await {
         Ok(mut conn) => {
             if let Ok(bytes) = conn.get::<_, Vec<u8>>(&key).await {
                 if !bytes.is_empty() {
                     ctx.stats.inc_cached_user();
-                    trace!("Found user `{}` in cache", user.name);
+                    trace!("Found user `{}` in cache", args.name);
                     let user =
                         serde_cbor::from_slice(&bytes).expect("failed to deserialize redis user");
 
@@ -165,11 +166,23 @@ async fn get_user_cached(ctx: &Context, user: &UserArgs<'_>) -> OsuResult<User> 
             let report = Report::new(why).wrap_err("failed to get redis connection");
             warn!("{:?}", report);
 
-            return ctx.osu().user(user.name).mode(user.mode).await;
+            let user = ctx.osu().user(args.name).mode(args.mode).await?;
+
+            if let Err(err) = ctx.psql().upsert_osu_user(&user, args.mode).await {
+                let report = Report::new(err).wrap_err("failed to upsert osu user");
+                warn!("{report:?}");
+            }
+
+            return Ok(user);
         }
     };
 
-    let mut user = ctx.osu().user(user.name).mode(user.mode).await?;
+    let mut user = ctx.osu().user(args.name).mode(args.mode).await?;
+
+    if let Err(err) = ctx.psql().upsert_osu_user(&user, args.mode).await {
+        let report = Report::new(err).wrap_err("failed to upsert osu user");
+        warn!("{report:?}");
+    }
 
     // Remove html user page to reduce overhead
     user.page.take();

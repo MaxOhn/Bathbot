@@ -84,9 +84,9 @@ impl RankingPagination {
 
                 let value = match kind {
                     RankingKindData::PpCountry { .. } | RankingKindData::PpGlobal { .. } => {
-                        UserValue::Pp(stats.pp.round() as u32)
+                        UserValue::PpU32(stats.pp.round() as u32)
                     }
-                    RankingKindData::RankedScore { .. } => UserValue::Score(stats.ranked_score),
+                    RankingKindData::RankedScore { .. } => UserValue::Amount(stats.ranked_score),
                     _ => unreachable!(),
                 };
 
