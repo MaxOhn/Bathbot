@@ -298,7 +298,7 @@ async fn async_main() -> Result<()> {
     let member_ctx = Arc::clone(&ctx);
 
     tokio::spawn(async move {
-        let mut interval = time::interval(Duration::from_millis(100));
+        let mut interval = time::interval(Duration::from_millis(250));
         interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
         interval.tick().await;
         let mut counter = 1;
