@@ -243,6 +243,8 @@ async fn async_main() -> Result<()> {
     info!("Setting {} slash commands...", slash_commands.len());
 
     if cfg!(debug_assertions) {
+        ctx.interaction().set_global_commands(&[]).exec().await?;
+
         ctx.interaction()
             .set_guild_commands(Id::new(BATHBOT_WORKSHOP_ID), &slash_commands)
             .exec()
@@ -296,14 +298,17 @@ async fn async_main() -> Result<()> {
     let member_ctx = Arc::clone(&ctx);
 
     tokio::spawn(async move {
-        let mut interval = time::interval(Duration::from_millis(100));
+        let mut interval = time::interval(Duration::from_millis(250));
         interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
         interval.tick().await;
+        let mut counter = 1;
         info!("Processing member request queue...");
 
         while let Some((guild_id, shard_id)) = member_rx.recv().await {
             interval.tick().await;
             let req = RequestGuildMembers::builder(guild_id).query("", None);
+            trace!("Member request #{counter} for guild {guild_id}");
+            counter += 1;
 
             let command_result = member_ctx
                 .cluster
@@ -312,7 +317,7 @@ async fn async_main() -> Result<()> {
                 .wrap_err_with(|| format!("failed to request members for guild {}", guild_id));
 
             if let Err(report) = command_result {
-                warn!("{:?}", report);
+                warn!("{report:?}");
             }
         }
     });
@@ -420,12 +425,12 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
             ctx.stats.event_counts.gateway_reconnect.inc();
         }
         Event::GiftCodeUpdate => {}
-        Event::GuildCreate(_) => {
+        Event::GuildCreate(e) => {
             ctx.stats.event_counts.guild_create.inc();
 
-            // if let Err(why) = ctx.member_tx.send((e.id, shard_id)) {
-            //     warn!("Failed to forward member request: {}", why);
-            // }
+            if let Err(why) = ctx.member_tx.send((e.id, shard_id)) {
+                warn!("Failed to forward member request: {}", why);
+            }
 
             let stats = ctx.cache.stats();
             ctx.stats.cache_counts.guilds.set(stats.guilds() as i64);

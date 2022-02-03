@@ -18,8 +18,8 @@ use tokio::time::{interval, Duration};
 use crate::{
     error::TwitchError,
     util::constants::{
-        common_literals::SORT, TWITCH_OAUTH, TWITCH_STREAM_ENDPOINT, TWITCH_USERS_ENDPOINT,
-        TWITCH_VIDEOS_ENDPOINT,
+        common_literals::{SORT, USER_ID},
+        TWITCH_OAUTH, TWITCH_STREAM_ENDPOINT, TWITCH_USERS_ENDPOINT, TWITCH_VIDEOS_ENDPOINT,
     },
 };
 
@@ -146,7 +146,7 @@ impl Twitch {
 
         for chunk in user_ids.chunks(100) {
             interval.tick().await;
-            let mut data: Vec<_> = chunk.iter().map(|&id| ("user_id", id)).collect();
+            let mut data: Vec<_> = chunk.iter().map(|&id| (USER_ID, id)).collect();
             data.push(("first", chunk.len() as u64));
             let response = self.send_request(TWITCH_STREAM_ENDPOINT, &data).await?;
             let bytes = response.bytes().await?;
@@ -166,7 +166,7 @@ impl Twitch {
 
     pub async fn get_last_vod(&self, user_id: u64) -> TwitchResult<Option<TwitchVideo>> {
         let data = [
-            ("user_id", Cow::Owned(user_id.to_string())),
+            (USER_ID, Cow::Owned(user_id.to_string())),
             ("first", "1".into()),
             (SORT, "time".into()),
         ];

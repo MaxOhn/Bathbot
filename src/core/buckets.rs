@@ -3,7 +3,7 @@ use hashbrown::HashMap;
 use parking_lot::Mutex;
 use std::{hash::Hash, str::FromStr};
 
-pub struct Buckets([Mutex<Bucket>; 7]);
+pub struct Buckets([Mutex<Bucket>; 8]);
 
 impl Buckets {
     pub fn new() -> Self {
@@ -21,6 +21,7 @@ impl Buckets {
             make_bucket(1, 8, 2),   // BgBigger
             make_bucket(0, 10, 4),  // BgHint
             make_bucket(2, 20, 3),  // BgStart
+            make_bucket(30, 0, 1),  // Leaderboard
             make_bucket(5, 900, 3), // MatchLive
             make_bucket(0, 60, 10), // Snipe
             make_bucket(20, 0, 1),  // Songs
@@ -33,9 +34,10 @@ impl Buckets {
             BucketName::BgBigger => &self.0[1],
             BucketName::BgHint => &self.0[2],
             BucketName::BgStart => &self.0[3],
-            BucketName::MatchLive => &self.0[4],
-            BucketName::Snipe => &self.0[5],
-            BucketName::Songs => &self.0[6],
+            BucketName::Leaderboard => &self.0[4],
+            BucketName::MatchLive => &self.0[5],
+            BucketName::Snipe => &self.0[6],
+            BucketName::Songs => &self.0[7],
         }
     }
 }
@@ -101,6 +103,7 @@ pub enum BucketName {
     BgBigger,
     BgHint,
     BgStart,
+    Leaderboard,
     MatchLive,
     Snipe,
     Songs,
@@ -115,6 +118,7 @@ impl FromStr for BucketName {
             "bg_bigger" => BucketName::BgBigger,
             "bg_hint" => BucketName::BgHint,
             "bg_start" => BucketName::BgStart,
+            "leaderboard" => BucketName::Leaderboard,
             "match_live" => BucketName::MatchLive,
             "snipe" => BucketName::Snipe,
             "songs" => BucketName::Songs,

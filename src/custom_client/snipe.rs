@@ -1,17 +1,18 @@
 use super::deserialize::{expect_negative_u32, str_to_maybe_datetime};
-use crate::{
-    util::{
-        constants::{
-            common_literals::{ACCURACY, MAP, MODS, SCORE},
-            DATE_FORMAT,
-        },
-        osu::ModSelection,
-        CountryCode,
+use crate::util::{
+    constants::{
+        common_literals::{ACCURACY, MAP, MODS, SCORE, USER_ID},
+        DATE_FORMAT,
     },
+    osu::ModSelection,
+    CountryCode,
 };
 
 use chrono::{offset::TimeZone, Date, DateTime, NaiveDate, Utc};
-use rosu_v2::{model::{GameMode, GameMods}, prelude::Username};
+use rosu_v2::{
+    model::{GameMode, GameMods},
+    prelude::Username,
+};
 use serde::{
     de::{Deserializer, Error, IgnoredAny, MapAccess, Unexpected, Visitor},
     Deserialize,
@@ -497,8 +498,8 @@ impl<'de> Deserialize<'de> for SnipeScore {
             // "artist",
             // "title",
             // "version",
-            "user_id",
-            // "username",
+            USER_ID,
+            // USERNAME,
             SCORE,
             "pp",
             MODS,

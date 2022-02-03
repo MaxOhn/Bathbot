@@ -39,7 +39,7 @@ where
             let name = entry.username;
 
             let entry = RankingEntry {
-                value: UserValue::Score(value),
+                value: UserValue::Amount(value),
                 name,
                 country,
             };
@@ -81,7 +81,7 @@ where
             let name = entry.username;
 
             let entry = RankingEntry {
-                value: UserValue::Pp(value),
+                value: UserValue::PpU32(value),
                 name,
                 country,
             };

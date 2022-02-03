@@ -729,6 +729,7 @@ lazy_static! {
         insert("topold", define_topold);
         insert("snipe", define_snipe);
         insert("serverconfig", define_serverconfig);
+        insert("serverleaderboard", define_serverleaderboard);
 
         SlashCommands(trie)
     };

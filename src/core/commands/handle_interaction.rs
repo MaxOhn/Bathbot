@@ -182,6 +182,12 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
 
             process_command(ctx, command, args, utility::slash_serverconfig).await
         }
+        "serverleaderboard" => {
+            args.bucket = Some(BucketName::Leaderboard);
+            args.set_only_guilds();
+
+            process_command(ctx, command, args, osu::slash_serverleaderboard).await
+        }
         "simulate" => process_command(ctx, command, args, osu::slash_simulate).await,
         "snipe" => {
             args.bucket = Some(BucketName::Snipe);

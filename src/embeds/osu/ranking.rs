@@ -1,14 +1,18 @@
 use std::{
-    borrow::Cow,
     collections::{btree_map::Range, BTreeMap},
     fmt::Write,
 };
 
 use rosu_v2::prelude::{GameMode, Username};
+use twilight_model::{
+    id::{marker::GuildMarker, Id},
+    util::ImageHash,
+};
 
 use crate::{
     commands::osu::UserValue,
-    embeds::Footer,
+    database::UserStatsColumn,
+    embeds::{Author, EmbedBuilder, EmbedData, Footer},
     util::{
         constants::common_literals::{CTB, MANIA, TAIKO},
         CountryCode,
@@ -19,6 +23,20 @@ pub struct RankingEntry {
     pub value: UserValue,
     pub name: Username,
     pub country: CountryCode,
+}
+
+enum EmbedHeader {
+    Author(Author),
+    Title { text: String, url: String },
+}
+
+impl EmbedHeader {
+    fn title(text: impl Into<String>, url: impl Into<String>) -> Self {
+        Self::Title {
+            text: text.into(),
+            url: url.into(),
+        }
+    }
 }
 
 pub enum RankingKindData {
@@ -42,64 +60,68 @@ pub enum RankingKindData {
     RankedScore {
         mode: GameMode,
     },
+    UserStats {
+        guild_icon: Option<(Id<GuildMarker>, ImageHash)>,
+        kind: UserStatsColumn,
+    },
 }
 
 impl RankingKindData {
-    fn title_url(&self) -> (Cow<'static, str>, Cow<'static, str>) {
+    fn embed_header(&self) -> EmbedHeader {
         match self {
-            RankingKindData::OsekaiRarity => {
+            Self::OsekaiRarity => {
                 let text = "Medal Ranking based on rarity";
                 let url = "https://osekai.net/rankings/?ranking=Medals&type=Rarity";
 
-                (text.into(), url.into())
+                EmbedHeader::title(text, url)
             }
-            RankingKindData::OsekaiMedalCount => {
+            Self::OsekaiMedalCount => {
                 let text = "User Ranking based on amount of owned medals";
                 let url = "https://osekai.net/rankings/?ranking=Medals&type=Users";
 
-                (text.into(), url.into())
+                EmbedHeader::title(text, url)
             }
-            RankingKindData::OsekaiReplays => {
+            Self::OsekaiReplays => {
                 let text = "User Ranking based on watched replays";
                 let url = "https://osekai.net/rankings/?ranking=All+Mode&type=Replays";
 
-                (text.into(), url.into())
+                EmbedHeader::title(text, url)
             }
-            RankingKindData::OsekaiTotalPp => {
+            Self::OsekaiTotalPp => {
                 let text = "User Ranking based on total pp across all modes";
                 let url = "https://osekai.net/rankings/?ranking=All+Mode&type=Total+pp";
 
-                (text.into(), url.into())
+                EmbedHeader::title(text, url)
             }
-            RankingKindData::OsekaiStandardDeviation => {
+            Self::OsekaiStandardDeviation => {
                 let text = "User Ranking based on pp standard deviation of all modes";
                 let url = "https://osekai.net/rankings/?ranking=All+Mode&type=Standard+Deviation";
 
-                (text.into(), url.into())
+                EmbedHeader::title(text, url)
             }
-            RankingKindData::OsekaiBadges => {
+            Self::OsekaiBadges => {
                 let text = "User Ranking based on amount of badges";
                 let url = "https://osekai.net/rankings/?ranking=Badges&type=Badges";
 
-                (text.into(), url.into())
+                EmbedHeader::title(text, url)
             }
-            RankingKindData::OsekaiRankedMapsets => {
+            Self::OsekaiRankedMapsets => {
                 let text = "User Ranking based on created ranked mapsets";
                 let url = "https://osekai.net/rankings/?ranking=Mappers&type=Ranked+Mapsets";
 
-                (text.into(), url.into())
+                EmbedHeader::title(text, url)
             }
-            RankingKindData::OsekaiLovedMapsets => {
+            Self::OsekaiLovedMapsets => {
                 let text = "User Ranking based on created loved mapsets";
                 let url = "https://osekai.net/rankings/?ranking=Mappers&type=Loved+Mapsets";
 
-                (text.into(), url.into())
+                EmbedHeader::title(text, url)
             }
-            RankingKindData::OsekaiSubscribers => {
+            Self::OsekaiSubscribers => {
                 let text = "User Ranking based on amount of mapping subscribers";
                 let url = "https://osekai.net/rankings/?ranking=Mappers&type=Subscribers";
 
-                (text.into(), url.into())
+                EmbedHeader::title(text, url)
             }
             Self::PpCountry {
                 country,
@@ -119,7 +141,7 @@ impl RankingKindData {
                     country = country_code
                 );
 
-                (text.into(), url.into())
+                EmbedHeader::title(text, url)
             }
             Self::PpGlobal { mode } => {
                 let text = format!("Performance Ranking for osu!{mode}", mode = mode_str(*mode));
@@ -129,7 +151,7 @@ impl RankingKindData {
                     mode = mode,
                 );
 
-                (text.into(), url.into())
+                EmbedHeader::title(text, url)
             }
             Self::RankedScore { mode } => {
                 let text = format!(
@@ -139,7 +161,53 @@ impl RankingKindData {
 
                 let url = format!("https://osu.ppy.sh/rankings/{mode}/score", mode = mode);
 
-                (text.into(), url.into())
+                EmbedHeader::title(text, url)
+            }
+            Self::UserStats { guild_icon, kind } => {
+                let text_kind = match kind {
+                    UserStatsColumn::Badges => "Badges",
+                    UserStatsColumn::Comments => "Comments",
+                    UserStatsColumn::Followers => "Followers",
+                    UserStatsColumn::ForumPosts => "Forum posts",
+                    UserStatsColumn::GraveyardMapsets => "Graveyard mapsets",
+                    UserStatsColumn::JoinDate => "Join date",
+                    UserStatsColumn::KudosuAvailable => "Kudosu available",
+                    UserStatsColumn::KudosuTotal => "Kudosu total",
+                    UserStatsColumn::LovedMapsets => "Loved mapsets",
+                    UserStatsColumn::MappingFollowers => "Mapping followers",
+                    UserStatsColumn::Medals => "Medals",
+                    UserStatsColumn::PlayedMaps => "Played maps",
+                    UserStatsColumn::RankedMapsets => "Ranked mapsets",
+                    UserStatsColumn::Usernames => "Namechange count",
+                    UserStatsColumn::Accuracy { .. } => "Accuracy",
+                    UserStatsColumn::CountSsh { .. } => "Count SSH's",
+                    UserStatsColumn::CountSs { .. } => "Count SS'",
+                    UserStatsColumn::CountSh { .. } => "Count SH's",
+                    UserStatsColumn::CountS { .. } => "Count S'",
+                    UserStatsColumn::CountA { .. } => "Count A's",
+                    UserStatsColumn::Level { .. } => "Level",
+                    UserStatsColumn::MaxCombo { .. } => "Max combo",
+                    UserStatsColumn::Playcount { .. } => "Playcount",
+                    UserStatsColumn::Playtime { .. } => "Playtime",
+                    UserStatsColumn::Pp { .. } => "PP",
+                    UserStatsColumn::RankCountry { .. } => "Country rank",
+                    UserStatsColumn::RankGlobal { .. } => "Global rank",
+                    UserStatsColumn::Replays { .. } => "Replays watched",
+                    UserStatsColumn::ScoreRanked { .. } => "Ranked score",
+                    UserStatsColumn::ScoreTotal { .. } => "Total score",
+                    UserStatsColumn::ScoresFirst { .. } => "Global #1s",
+                    UserStatsColumn::TotalHits { .. } => "Total hits",
+                };
+
+                let mut author = Author::new(format!("Server leaderboard: {text_kind}"));
+
+                if let Some((id, icon)) = guild_icon {
+                    let ext = if icon.is_animated() { "gif" } else { "webp" };
+                    let url = format!("https://cdn.discordapp.com/icons/{id}/{icon}.{ext}");
+                    author = author.icon_url(url);
+                }
+
+                EmbedHeader::Author(author)
             }
         }
     }
@@ -163,7 +231,7 @@ impl RankingKindData {
             | RankingKindData::OsekaiSubscribers => {
                 text.push_str(" • Check out osekai.net for more info")
             }
-            Self::PpCountry { .. } | Self::PpGlobal { .. } | Self::RankedScore { .. } => {}
+            _ => {}
         };
 
         Footer::new(text)
@@ -173,8 +241,7 @@ impl RankingKindData {
 pub struct RankingEmbed {
     description: String,
     footer: Footer,
-    title: Cow<'static, str>,
-    url: Cow<'static, str>,
+    header: EmbedHeader,
 }
 
 type RankingMap = BTreeMap<usize, RankingEntry>;
@@ -190,8 +257,8 @@ impl RankingEmbed {
 
         let mut buf = String::new();
 
-        let left_lengths = lengths(&mut buf, users.range(index..index + 10));
-        let right_lengths = lengths(&mut buf, users.range(index + 10..index + 20));
+        let left_lengths = Lengths::new(&mut buf, users.range(index..index + 10));
+        let right_lengths = Lengths::new(&mut buf, users.range(index + 10..index + 20));
 
         let mut description = String::with_capacity(1024);
 
@@ -208,7 +275,7 @@ impl RankingEmbed {
 
             let _ = write!(
                 description,
-                "`#{idx:<idx_len$}` :flag_{country}: `{name:<name_len$}` `{value:>value_len$}`",
+                "`#{idx:<idx_len$}`:flag_{country}:`{name:<name_len$}` `{value:>value_len$}`",
                 idx = idx,
                 idx_len = left_lengths.idx,
                 country = left_entry.country.to_ascii_lowercase(),
@@ -224,7 +291,7 @@ impl RankingEmbed {
 
                 let _ = write!(
                     description,
-                    " | `#{idx:<idx_len$}` :flag_{country}: `{name:<name_len$}` `{value:>value_len$}`",
+                    "|`#{idx:<idx_len$}`:flag_{country}:`{name:<name_len$}` `{value:>value_len$}`",
                     idx = idx + 10,
                     idx_len = right_lengths.idx,
                     country = right_entry.country.to_ascii_lowercase(),
@@ -238,23 +305,26 @@ impl RankingEmbed {
             description.push('\n');
         }
 
-        let (title, url) = data.title_url();
-
         Self {
             description,
             footer: data.footer(pages.0, pages.1, author_idx),
-            title,
-            url,
+            header: data.embed_header(),
         }
     }
 }
 
-impl_builder!(RankingEmbed {
-    description,
-    footer,
-    title,
-    url,
-});
+impl EmbedData for RankingEmbed {
+    fn into_builder(self) -> EmbedBuilder {
+        let builder = EmbedBuilder::new()
+            .description(self.description)
+            .footer(self.footer);
+
+        match self.header {
+            EmbedHeader::Author(author) => builder.author(author),
+            EmbedHeader::Title { text, url } => builder.title(text).url(url),
+        }
+    }
+}
 
 fn mode_str(mode: GameMode) -> &'static str {
     match mode {
@@ -265,37 +335,39 @@ fn mode_str(mode: GameMode) -> &'static str {
     }
 }
 
-fn lengths(buf: &mut String, iter: Range<'_, usize, RankingEntry>) -> Lengths {
-    let mut idx_len = 0;
-    let mut name_len = 0;
-    let mut value_len = 0;
-
-    for (i, entry) in iter {
-        let mut idx = i + 1;
-        let mut len = 0;
-
-        while idx > 0 {
-            len += 1;
-            idx /= 10;
-        }
-
-        idx_len = idx_len.max(len);
-        name_len = name_len.max(entry.name.len());
-
-        buf.clear();
-        let _ = write!(buf, "{}", entry.value);
-        value_len = value_len.max(buf.len());
-    }
-
-    Lengths {
-        idx: idx_len,
-        name: name_len,
-        value: value_len,
-    }
-}
-
 struct Lengths {
     idx: usize,
     name: usize,
     value: usize,
+}
+
+impl Lengths {
+    fn new(buf: &mut String, iter: Range<'_, usize, RankingEntry>) -> Self {
+        let mut idx_len = 0;
+        let mut name_len = 0;
+        let mut value_len = 0;
+
+        for (i, entry) in iter {
+            let mut idx = i + 1;
+            let mut len = 0;
+
+            while idx > 0 {
+                len += 1;
+                idx /= 10;
+            }
+
+            idx_len = idx_len.max(len);
+            name_len = name_len.max(entry.name.len());
+
+            buf.clear();
+            let _ = write!(buf, "{}", entry.value);
+            value_len = value_len.max(buf.len());
+        }
+
+        Lengths {
+            idx: idx_len,
+            name: name_len,
+            value: value_len,
+        }
+    }
 }
