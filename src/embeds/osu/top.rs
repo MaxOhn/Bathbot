@@ -1,14 +1,15 @@
+use std::fmt::Write;
+
+use eyre::Report;
+use rosu_v2::prelude::{Score, User};
+
 use crate::{
     embeds::{osu, Author, Footer},
-    pp::{Calculations, PPCalculator},
+    pp::PpCalculator,
     util::{
         constants::OSU_BASE, datetime::how_long_ago_dynamic, numbers::with_comma_int, ScoreExt,
     },
 };
-
-use eyre::Report;
-use rosu_v2::prelude::{Score, User};
-use std::fmt::Write;
 
 pub struct TopEmbed {
     author: Author,
@@ -28,20 +29,29 @@ impl TopEmbed {
             let map = score.map.as_ref().unwrap();
             let mapset = score.mapset.as_ref().unwrap();
 
-            let mut calculator = PPCalculator::new().score(score).map(map);
-            let mut calculations = Calculations::MAX_PP | Calculations::STARS;
+            let (pp, max_pp, stars) = match PpCalculator::new(map.map_id).await {
+                Ok(calc) => {
+                    let mut calc = calc.score(score);
 
-            if score.pp.is_none() {
-                calculations |= Calculations::PP;
-            }
+                    let stars = calc.stars();
+                    let max_pp = calc.max_pp();
 
-            if let Err(why) = calculator.calculate(calculations).await {
-                let report = Report::new(why).wrap_err("error while calculating pp for top");
-                warn!("{:?}", report);
-            }
+                    let pp = match score.pp {
+                        Some(pp) => pp,
+                        None => calc.pp() as f32,
+                    };
 
-            let stars = osu::get_stars(calculator.stars().unwrap_or(0.0));
-            let pp = osu::get_pp(score.pp.or_else(|| calculator.pp()), calculator.max_pp());
+                    (Some(pp), Some(max_pp as f32), stars as f32)
+                }
+                Err(err) => {
+                    warn!("{:?}", Report::new(err));
+
+                    (None, None, 0.0)
+                }
+            };
+
+            let stars = osu::get_stars(stars);
+            let pp = osu::get_pp(pp, max_pp);
 
             let _ = writeln!(
                 description,

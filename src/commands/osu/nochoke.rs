@@ -24,7 +24,7 @@ use crate::{
     custom_client::RankParam,
     database::UserConfig,
     embeds::{EmbedData, NoChokeEmbed},
-    error::PPError,
+    error::PpError,
     pagination::{NoChokePagination, Pagination},
     tracking::process_tracking,
     util::{
@@ -205,7 +205,7 @@ async fn unchoke_scores(
             }
 
             let map_path = prepare_beatmap_file(map.map_id).await?;
-            let rosu_map = Map::from_path(map_path).await.map_err(PPError::from)?;
+            let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
             let mods = score.mods.bits();
 
             match map.mode {
@@ -352,7 +352,7 @@ async fn perfect_scores(
             }
 
             let map_path = prepare_beatmap_file(map.map_id).await?;
-            let rosu_map = Map::from_path(map_path).await.map_err(PPError::from)?;
+            let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
             let mods = score.mods.bits();
             let total_hits = score.total_hits();
 

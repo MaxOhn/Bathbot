@@ -8,7 +8,7 @@ use twilight_model::channel::embed::EmbedField;
 
 use crate::{
     embeds::{osu, Author, Footer},
-    error::PPError,
+    error::PpError,
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago_dynamic,
@@ -196,7 +196,7 @@ impl_builder!(ScoresEmbed {
 
 async fn get_map(map_id: u32) -> BotResult<Map> {
     let map_path = prepare_beatmap_file(map_id).await?;
-    let map = Map::from_path(map_path).await.map_err(PPError::from)?;
+    let map = Map::from_path(map_path).await.map_err(PpError::from)?;
 
     Ok(map)
 }

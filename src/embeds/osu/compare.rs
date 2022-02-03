@@ -1,6 +1,6 @@
 use crate::{
     embeds::{osu, Author, EmbedBuilder, EmbedData, Footer},
-    error::PPError,
+    error::PpError,
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::{how_long_ago_dynamic, HowLongAgoFormatterDynamic},
@@ -52,7 +52,7 @@ impl CompareEmbed {
         let mapset = score.mapset.as_ref().unwrap();
 
         let map_path = prepare_beatmap_file(map.map_id).await?;
-        let rosu_map = Map::from_path(map_path).await.map_err(PPError::from)?;
+        let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
         let mods = score.mods.bits();
         let max_result = rosu_map.max_pp(mods);
 

@@ -21,7 +21,7 @@ use crate::{
     database::UserConfig,
     embeds::{EmbedData, TopIfEmbed},
     pagination::{Pagination, TopIfPagination},
-    pp::{Calculations, PPCalculator},
+    pp::PpCalculator,
     tracking::process_tracking,
     util::{
         constants::{
@@ -170,29 +170,25 @@ async fn _topif(ctx: Arc<Context>, data: CommandData<'_>, args: IfArgs) -> BotRe
                 _ => false,
             };
 
-            let mut calculations = Calculations::STARS | Calculations::MAX_PP;
-
             if changed {
                 score.grade = score.grade(Some(score.accuracy));
-                calculations |= Calculations::PP;
             }
 
-            let mut calculator = PPCalculator::new().score(&score).map(map);
+            let mut calc = PpCalculator::new(map.map_id).await?.score(&score);
 
-            calculator.calculate(calculations).await?;
+            let stars = calc.stars() as f32;
+            let max_pp = calc.max_pp() as f32;
 
-            let max_pp = calculator.max_pp().unwrap_or(0.0);
-            let (stars, pp) = (calculator.stars(), calculator.pp());
+            let pp = if let Some(pp) = score.pp.filter(|_| !changed) {
+                pp
+            } else {
+                calc.pp() as f32
+            };
 
-            drop(calculator);
+            drop(calc);
 
-            if let Some(stars) = stars {
-                score.map.as_mut().unwrap().stars = stars;
-            }
-
-            if let Some(pp) = pp {
-                score.pp.replace(pp);
-            }
+            score.map.as_mut().unwrap().stars = stars;
+            score.pp = Some(pp);
 
             Ok((i + 1, score, Some(max_pp)))
         })
@@ -201,10 +197,10 @@ async fn _topif(ctx: Arc<Context>, data: CommandData<'_>, args: IfArgs) -> BotRe
 
     let mut scores_data: Vec<_> = match scores_fut.await {
         Ok(scores) => scores,
-        Err(why) => {
+        Err(err) => {
             let _ = data.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(why);
+            return Err(err);
         }
     };
 

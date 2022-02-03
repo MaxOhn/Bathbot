@@ -1,7 +1,7 @@
 use crate::{
     custom_client::ScraperScore,
     embeds::{Author, Footer},
-    error::PPError,
+    error::PpError,
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago_dynamic,
@@ -62,7 +62,7 @@ impl LeaderboardEmbed {
 
         let description = if let Some(scores) = scores {
             let map_path = prepare_beatmap_file(map.map_id).await?;
-            let rosu_map = Map::from_path(map_path).await.map_err(PPError::from)?;
+            let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
 
             let mut mod_map = HashMap::new();
             let mut description = String::with_capacity(256);

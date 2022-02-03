@@ -1,6 +1,6 @@
 use crate::{
     embeds::{osu, Author, Footer},
-    error::PPError,
+    error::PpError,
     util::{
         datetime::how_long_ago_dynamic,
         osu::{grade_completion_mods, prepare_beatmap_file},
@@ -44,7 +44,7 @@ impl RecentListEmbed {
             #[allow(clippy::map_entry)]
             if !rosu_maps.contains_key(&map.map_id) {
                 let map_path = prepare_beatmap_file(map.map_id).await?;
-                let rosu_map = Map::from_path(map_path).await.map_err(PPError::from)?;
+                let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
 
                 rosu_maps.insert(map.map_id, rosu_map);
             };

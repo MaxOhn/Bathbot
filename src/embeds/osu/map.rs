@@ -2,7 +2,7 @@ use super::calculate_od;
 use crate::{
     core::CONFIG,
     embeds::{attachment, Author, EmbedFields, Footer},
-    error::PPError,
+    error::PpError,
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         datetime::sec_to_minsec,
@@ -76,7 +76,7 @@ impl MapEmbed {
         let mut fields = Vec::with_capacity(3);
 
         let map_path = prepare_beatmap_file(map.map_id).await?;
-        let rosu_map = Map::from_path(map_path).await.map_err(PPError::from)?;
+        let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
         let mod_bits = mods.bits();
 
         let mod_mult = 0.5_f32.powi(

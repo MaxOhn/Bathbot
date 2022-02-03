@@ -2,7 +2,7 @@ use crate::{
     commands::osu::Difference,
     custom_client::SnipeRecent,
     embeds::{osu, Author, Footer},
-    error::PPError,
+    error::PpError,
     util::{
         constants::OSU_BASE, datetime::how_long_ago_dynamic, numbers::round,
         osu::prepare_beatmap_file,
@@ -44,7 +44,7 @@ impl SnipedDiffEmbed {
                     #[allow(clippy::map_entry)]
                     if !maps.contains_key(&score.beatmap_id) {
                         let map_path = prepare_beatmap_file(score.beatmap_id).await?;
-                        let map = Beatmap::from_path(map_path).await.map_err(PPError::from)?;
+                        let map = Beatmap::from_path(map_path).await.map_err(PpError::from)?;
 
                         maps.insert(score.beatmap_id, map);
                     }

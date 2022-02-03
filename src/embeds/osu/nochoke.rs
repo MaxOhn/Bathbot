@@ -1,16 +1,17 @@
+use std::{borrow::Cow, fmt::Write};
+
+use eyre::Report;
+use rosu_v2::prelude::{Score, User};
+
 use crate::{
     embeds::{osu, Author, Footer},
-    pp::{Calculations, PPCalculator},
+    pp::PpCalculator,
     util::{
         constants::OSU_BASE,
         numbers::{with_comma_float, with_comma_int},
         ScoreExt,
     },
 };
-
-use eyre::Report;
-use rosu_v2::prelude::{Score, User};
-use std::{borrow::Cow, fmt::Write};
 
 pub struct NoChokeEmbed {
     description: String,
@@ -39,15 +40,23 @@ impl NoChokeEmbed {
             let map = original.map.as_ref().unwrap();
             let mapset = original.mapset.as_ref().unwrap();
 
-            let calculations = Calculations::MAX_PP | Calculations::STARS;
-            let mut calculator = PPCalculator::new().score(original).map(map);
+            let (max_pp, stars) = match PpCalculator::new(map.map_id).await {
+                Ok(calc) => {
+                    let mut calc = calc.score(original);
 
-            if let Err(why) = calculator.calculate(calculations).await {
-                let report = Report::new(why).wrap_err("error while calculating pp for nochokes");
-                warn!("{report:?}");
-            }
+                    let stars = calc.stars();
+                    let max_pp = calc.max_pp();
 
-            let stars = osu::get_stars(calculator.stars().unwrap_or(0.0));
+                    (max_pp, stars as f32)
+                }
+                Err(err) => {
+                    warn!("{:?}", Report::new(err));
+
+                    (0.0, 0.0)
+                }
+            };
+
+            let stars = osu::get_stars(stars);
 
             let _ = writeln!(
                 description,
@@ -61,7 +70,6 @@ impl NoChokeEmbed {
                 grade = unchoked.grade_emote(original.mode),
                 old_pp = original.pp.unwrap_or(0.0),
                 new_pp = unchoked.pp.unwrap_or(0.0),
-                max_pp = calculator.max_pp().unwrap_or(0.0),
                 old_acc = original.accuracy,
                 new_acc = unchoked.accuracy,
                 old_combo = original.max_combo,

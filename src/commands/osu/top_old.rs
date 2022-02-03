@@ -25,7 +25,7 @@ use crate::{
     },
     database::UserConfig,
     embeds::{EmbedData, TopIfEmbed},
-    error::PPError,
+    error::PpError,
     pagination::{Pagination, TopIfPagination},
     tracking::process_tracking,
     util::{
@@ -227,7 +227,7 @@ async fn _topold(ctx: Arc<Context>, data: CommandData<'_>, args: OldArgs) -> Bot
             }
 
             let map_path = prepare_beatmap_file(map.map_id).await?;
-            let rosu_map = Beatmap::from_path(map_path).await.map_err(PPError::from)?;
+            let rosu_map = Beatmap::from_path(map_path).await.map_err(PpError::from)?;
             let mods = score.mods.bits();
 
             // Calculate pp values

@@ -1,15 +1,4 @@
-use crate::{
-    embeds::{osu, EmbedBuilder, EmbedData, Footer},
-    error::PPError,
-    pp::{Calculations, PPCalculator},
-    util::{
-        constants::{AVATAR_URL, MAP_THUMB_URL},
-        numbers::{round, with_comma_int},
-        osu::{grade_completion_mods, prepare_beatmap_file, ModSelection},
-        ScoreExt,
-    },
-    BotResult,
-};
+use std::{borrow::Cow, fmt::Write};
 
 use chrono::Utc;
 use rosu_pp::{
@@ -19,7 +8,19 @@ use rosu_pp::{
 use rosu_v2::prelude::{
     Beatmap, BeatmapsetCompact, GameMode, GameMods, Grade, Score, ScoreStatistics,
 };
-use std::{borrow::Cow, fmt::Write};
+
+use crate::{
+    embeds::{osu, EmbedBuilder, EmbedData, Footer},
+    error::PpError,
+    pp::PpCalculator,
+    util::{
+        constants::{AVATAR_URL, MAP_THUMB_URL},
+        numbers::{round, with_comma_int},
+        osu::{grade_completion_mods, prepare_beatmap_file, ModSelection},
+        ScoreExt,
+    },
+    BotResult,
+};
 
 pub struct SimulateArgs {
     mods: Option<ModSelection>,
@@ -120,20 +121,16 @@ impl SimulateEmbed {
 
         let (prev_pp, prev_combo, prev_hits, misses) = if let Some(ref s) = score {
             let pp = if let Some(pp) = s.pp {
-                Some(pp)
+                pp
             } else {
-                let mut calculator = PPCalculator::new().score(s).map(map);
-                calculator.calculate(Calculations::PP).await?;
-
-                calculator.pp()
+                PpCalculator::new(map.map_id).await?.score(s).pp() as f32
             };
 
-            let prev_pp = pp.map(round);
             let prev_combo = (map.mode == GameMode::STD).then(|| s.max_combo);
             let prev_hits = Some(s.hits_string(map.mode));
 
             (
-                prev_pp,
+                Some(round(pp)),
                 prev_combo,
                 prev_hits,
                 Some(s.statistics.count_miss),
@@ -144,7 +141,7 @@ impl SimulateEmbed {
 
         let mut unchoked_score = score.unwrap_or_else(default_score);
         let map_path = prepare_beatmap_file(map.map_id).await?;
-        let rosu_map = Map::from_path(map_path).await.map_err(PPError::from)?;
+        let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
 
         if let Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) = args.mods {
             unchoked_score.mods = mods;
@@ -184,7 +181,7 @@ impl SimulateEmbed {
                         format!("**{}x**/-", unchoked_score.max_combo)
                     }
                 } else if let Some(combo) = map.max_combo {
-                    format!("**{combo}x**/{combo}", combo = combo)
+                    format!("**{combo}x**/{combo}")
                 } else {
                     "**-**/-".to_string()
                 };

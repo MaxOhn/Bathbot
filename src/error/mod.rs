@@ -6,7 +6,7 @@ use plotters::drawing::DrawingAreaErrorKind;
 use twilight_model::application::interaction::{ApplicationCommand, MessageComponentInteraction};
 use twilight_validate::message::MessageValidationError;
 
-pub use self::{map_download::MapDownloadError, pp::PPError, twitch::TwitchError};
+pub use self::{map_download::MapDownloadError, pp::PpError, twitch::TwitchError};
 
 #[macro_export]
 macro_rules! bail {
@@ -64,7 +64,7 @@ pub enum Error {
     #[error("osu v1 error")]
     OsuV1(#[from] rosu::OsuError),
     #[error("error while calculating pp")]
-    Pp(#[from] pp::PPError),
+    Pp(#[from] pp::PpError),
     #[error("error while communicating with redis")]
     Redis(#[from] bb8_redis::redis::RedisError),
     #[error("reqwest error")]

@@ -1,6 +1,10 @@
+use chrono::{DateTime, Utc};
+use eyre::Report;
+use rosu_v2::prelude::{GameMode, Score, User};
+
 use crate::{
     embeds::{osu, Author, EmbedFields, Footer},
-    pp::{Calculations, PPCalculator},
+    pp::PpCalculator,
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago_text,
@@ -9,9 +13,6 @@ use crate::{
         ScoreExt,
     },
 };
-
-use chrono::{DateTime, Utc};
-use rosu_v2::prelude::{GameMode, Score, User};
 
 pub struct TrackNotificationEmbed {
     fields: EmbedFields,
@@ -29,29 +30,36 @@ impl TrackNotificationEmbed {
         let map = score.map.as_ref().unwrap();
         let mapset = score.mapset.as_ref().unwrap();
 
-        let description = format!("{} __**Personal Best #{}**__", mode_emote(map.mode), idx);
-        let calculations = Calculations::MAX_PP | Calculations::STARS;
-        let mut calculator = PPCalculator::new().score(score).map(map);
+        let description = format!("{} __**Personal Best #{idx}**__", mode_emote(map.mode));
 
-        if let Err(why) = calculator.calculate(calculations).await {
-            warn!("Error while calculating pp for tracking: {}", why);
-        }
+        let (max_pp, stars) = match PpCalculator::new(map.map_id).await {
+            Ok(calc) => {
+                let mut calc = calc.score(score);
 
-        let stars = round(calculator.stars().unwrap_or(0.0));
+                let stars = calc.stars();
+                let max_pp = calc.max_pp();
+
+                (Some(max_pp as f32), round(stars as f32))
+            }
+            Err(err) => {
+                warn!("{:?}", Report::new(err));
+
+                (None, 0.0)
+            }
+        };
 
         let title = if map.mode == GameMode::MNA {
             format!(
-                "{} {} - {} [{}] [{}★]",
+                "{} {} - {} [{}] [{stars}★]",
                 osu::get_keys(score.mods, map),
                 mapset.artist,
                 mapset.title,
                 map.version,
-                stars
             )
         } else {
             format!(
-                "{} - {} [{}] [{}★]",
-                mapset.artist, mapset.title, map.version, stars
+                "{} - {} [{}] [{stars}★]",
+                mapset.artist, mapset.title, map.version
             )
         };
 
@@ -64,7 +72,7 @@ impl TrackNotificationEmbed {
 
         let value = format!(
             "{} [ {} ] {}",
-            osu::get_pp(score.pp, calculator.max_pp()),
+            osu::get_pp(score.pp, max_pp),
             if map.mode == GameMode::MNA {
                 let mut ratio = score.statistics.count_geki as f32;
 
@@ -84,7 +92,7 @@ impl TrackNotificationEmbed {
             mapset.creator_name,
             how_long_ago_text(&score.created_at)
         ))
-        .icon_url(format!("{}{}", AVATAR_URL, mapset.creator_id));
+        .icon_url(format!("{AVATAR_URL}{}", mapset.creator_id));
 
         let author = author!(user).icon_url(user.avatar_url.to_owned());
 
@@ -93,10 +101,10 @@ impl TrackNotificationEmbed {
             description,
             fields: vec![field!(name, value, false)],
             footer,
-            thumbnail: format!("{}{}l.jpg", MAP_THUMB_URL, map.mapset_id),
+            thumbnail: format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id),
             timestamp: score.created_at,
             title,
-            url: format!("{}b/{}", OSU_BASE, map.map_id),
+            url: format!("{OSU_BASE}b/{}", map.map_id),
         }
     }
 }

@@ -4,7 +4,7 @@ use crate::{
         MyCommand,
     },
     embeds::{EmbedData, MapEmbed},
-    error::{GraphError, PPError},
+    error::{GraphError, PpError},
     pagination::{MapPagination, Pagination},
     util::{
         constants::{
@@ -268,7 +268,7 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
 
 async fn strain_values(map_id: u32, mods: GameMods) -> BotResult<Vec<(f64, f64)>> {
     let map_path = prepare_beatmap_file(map_id).await?;
-    let map = Beatmap::from_path(map_path).await.map_err(PPError::from)?;
+    let map = Beatmap::from_path(map_path).await.map_err(PpError::from)?;
     let strains = map.strains(mods.bits());
     let section_len = strains.section_length;
 

@@ -1,7 +1,12 @@
+use std::fmt::Write;
+
+use eyre::Report;
+use rosu_v2::prelude::{GameMode, Score, User};
+
 use crate::{
     custom_client::SnipePlayer,
     embeds::{attachment, osu, Author, EmbedFields, Footer},
-    pp::{Calculations, PPCalculator},
+    pp::PpCalculator,
     util::{
         constants::OSU_BASE,
         datetime::how_long_ago_dynamic,
@@ -10,10 +15,6 @@ use crate::{
         ScoreExt,
     },
 };
-
-use eyre::Report;
-use rosu_v2::prelude::{GameMode, Score, User};
-use std::fmt::Write;
 
 pub struct PlayerSnipeStatsEmbed {
     description: String,
@@ -67,21 +68,24 @@ impl PlayerSnipeStatsEmbed {
             if let Some(score) = first_score {
                 let map = score.map.as_ref().unwrap();
 
-                let calculations = Calculations::all();
-                let mut calculator = PPCalculator::new().score(&score).map(map);
+                let (pp, max_pp, stars) = match PpCalculator::new(map.map_id).await {
+                    Ok(calc) => {
+                        let mut calc = calc.score(&score);
 
-                let (pp, max_pp, stars) = match calculator.calculate(calculations).await {
-                    Ok(_) => (
-                        calculator.pp(),
-                        calculator.max_pp(),
-                        calculator.stars().unwrap_or(0.0),
-                    ),
-                    Err(why) => {
-                        let report =
-                            Report::new(why).wrap_err("error while calculating pp for pss");
-                        warn!("{:?}", report);
+                        let stars = calc.stars();
+                        let max_pp = calc.max_pp();
 
-                        (None, None, map.stars)
+                        let pp = match score.pp {
+                            Some(pp) => pp,
+                            None => calc.pp() as f32,
+                        };
+
+                        (Some(pp), Some(max_pp as f32), stars as f32)
+                    }
+                    Err(err) => {
+                        warn!("{:?}", Report::new(err));
+
+                        (None, None, 0.0)
                     }
                 };
 

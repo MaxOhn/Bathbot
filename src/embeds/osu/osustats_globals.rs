@@ -1,16 +1,17 @@
+use std::{collections::BTreeMap, fmt::Write};
+
+use eyre::Report;
+use rosu_v2::model::user::User;
+
 use crate::{
     custom_client::OsuStatsScore,
     embeds::{osu, Author, Footer},
-    pp::{Calculations, PPCalculator},
+    pp::PpCalculator,
     util::{
         constants::OSU_BASE, datetime::how_long_ago_dynamic, numbers::with_comma_int,
         osu::grade_emote, ScoreExt,
     },
 };
-
-use eyre::Report;
-use rosu_v2::model::user::User;
-use std::{collections::BTreeMap, fmt::Write};
 
 pub struct OsuStatsGlobalsEmbed {
     description: String,
@@ -41,16 +42,26 @@ impl OsuStatsGlobalsEmbed {
 
         for (_, score) in entries {
             let grade = grade_emote(score.grade);
-            let calculations = Calculations::all();
-            let mut calculator = PPCalculator::new().score(score).map(&score.map);
 
-            if let Err(why) = calculator.calculate(calculations).await {
-                let report = Report::new(why).wrap_err("error while calcualting pp for osg");
-                warn!("{:?}", report);
-            }
+            let (pp, max_pp, stars) = match PpCalculator::new(score.map.beatmap_id).await {
+                Ok(calc) => {
+                    let mut calc = calc.score(score);
 
-            let stars = osu::get_stars(calculator.stars().unwrap_or(0.0));
-            let pp = osu::get_pp(calculator.pp(), calculator.max_pp());
+                    let stars = calc.stars();
+                    let max_pp = calc.max_pp();
+                    let pp = calc.pp();
+
+                    (Some(pp as f32), Some(max_pp as f32), stars as f32)
+                }
+                Err(err) => {
+                    warn!("{:?}", Report::new(err));
+
+                    (None, None, 0.0)
+                }
+            };
+
+            let stars = osu::get_stars(stars);
+            let pp = osu::get_pp(pp, max_pp);
             let mut combo = format!("**{}x**/", score.max_combo);
 
             match score.map.max_combo {
@@ -63,20 +74,15 @@ impl OsuStatsGlobalsEmbed {
 
             let _ = writeln!(
                 description,
-                "**[#{rank}] [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
+                "**[#{rank}] [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars}]\n\
                 {grade} {pp} ~ ({acc}%) ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
                 rank = score.position,
                 title = score.map.title,
                 version = score.map.version,
-                base = OSU_BASE,
                 id = score.map.beatmap_id,
                 mods = osu::get_mods(score.enabled_mods),
-                stars = stars,
-                grade = grade,
-                pp = pp,
                 acc = score.accuracy,
                 score = with_comma_int(score.score),
-                combo = combo,
                 hits = score.hits_string(score.map.mode),
                 ago = how_long_ago_dynamic(&score.date)
             );

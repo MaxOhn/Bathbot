@@ -1,248 +1,115 @@
+use rosu_pp::{Beatmap, BeatmapExt as rosu_v2BeatmapExt, DifficultyAttributes, ScoreState};
+use rosu_v2::model::GameMods;
+
 use crate::{
-    error::PPError,
-    util::{osu::prepare_beatmap_file, BeatmapExt, ScoreExt},
-    BotResult,
+    error::PpError,
+    util::{osu::prepare_beatmap_file, ScoreExt},
 };
 
-use bitflags::bitflags;
-use rosu_pp::{
-    Beatmap, BeatmapExt as rosu_v2BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP,
-    PerformanceAttributes, TaikoPP,
-};
-use rosu_v2::model::{GameMode, GameMods, Grade};
+enum ScoreKind<'s> {
+    Mods(GameMods),
+    Score(&'s dyn ScoreExt),
+}
 
-bitflags! {
-    pub struct Calculations: u8 {
-        const PP = 1;
-        const MAX_PP = 2;
-        const STARS = 4;
+impl ScoreKind<'_> {
+    fn mods(&self) -> u32 {
+        match self {
+            Self::Mods(mods) => mods.bits(),
+            Self::Score(score) => score.mods().bits(),
+        }
+    }
+
+    fn state(&self) -> ScoreState {
+        match self {
+            Self::Mods(_) => ScoreState::default(),
+            Self::Score(score) => ScoreState {
+                max_combo: score.max_combo() as usize,
+                n_katu: score.count_katu() as usize,
+                n300: score.count_300() as usize,
+                n100: score.count_100() as usize,
+                n50: score.count_50() as usize,
+                misses: score.count_miss() as usize,
+                score: score.score(),
+            },
+        }
     }
 }
 
-#[derive(Default)]
-pub struct PPCalculator<'s, 'm> {
-    score: Option<&'s dyn ScoreExt>,
-    map: Option<&'m dyn BeatmapExt>,
-
-    mods: Option<GameMods>,
-
-    pp: Option<f32>,
-    max_pp: Option<f32>,
-    stars: Option<f32>,
+pub struct PpCalculator<'s> {
+    map: Beatmap,
+    score: Option<ScoreKind<'s>>,
+    difficulty: Option<DifficultyAttributes>,
 }
 
-impl<'s, 'm> PPCalculator<'s, 'm> {
-    pub fn new() -> Self {
-        Self::default()
+impl<'s> PpCalculator<'s> {
+    pub async fn new(map_id: u32) -> Result<PpCalculator<'s>, PpError> {
+        let map_path = prepare_beatmap_file(map_id).await?;
+        let map = Beatmap::from_path(map_path).await?;
+
+        Ok(Self {
+            map,
+            score: None,
+            difficulty: None,
+        })
     }
 
     pub fn mods(mut self, mods: GameMods) -> Self {
-        self.mods.replace(mods);
+        self.score = Some(ScoreKind::Mods(mods));
+        self.difficulty = None;
 
         self
     }
 
     pub fn score(mut self, score: &'s dyn ScoreExt) -> Self {
-        self.score.replace(score);
+        self.score = Some(ScoreKind::Score(score));
+        self.difficulty = None;
 
         self
     }
 
-    pub fn map(mut self, map: &'m dyn BeatmapExt) -> Self {
-        self.map.replace(map);
+    pub fn stars(&mut self) -> f64 {
+        let mods = self.score.as_ref().map(ScoreKind::mods).unwrap_or_default();
 
-        self
+        self.difficulty
+            .get_or_insert_with(|| self.map.stars(mods, None))
+            .stars()
     }
 
-    pub async fn calculate(&mut self, calcs: Calculations) -> BotResult<()> {
-        assert_ne!(calcs.bits, 0);
+    pub fn max_pp(&mut self) -> f64 {
+        let mods = self.score.as_ref().map(ScoreKind::mods).unwrap_or_default();
 
-        let map = match self.map {
-            Some(map) => {
-                let map_path = prepare_beatmap_file(map.map_id()).await?;
+        let difficulty = self
+            .difficulty
+            .get_or_insert_with(|| self.map.stars(mods, None))
+            .to_owned();
 
-                Beatmap::from_path(map_path).await.map_err(PPError::from)?
-            }
-            None => return Err(PPError::NoMapId.into()),
-        };
-
-        let score = self.score;
-
-        let mods = score
-            .map_or_else(|| self.mods.unwrap_or(GameMods::NoMod), |s| s.mods())
-            .bits();
-
-        // Max PP
-        let max_pp_result = calcs
-            .contains(Calculations::MAX_PP)
-            .then(|| map.max_pp(mods));
-
-        let max_pp = max_pp_result.as_ref().map(|result| result.pp());
-        let mut stars = max_pp_result.as_ref().map(|result| result.stars());
-
-        // Score PP
-        let pp_result = if calcs.contains(Calculations::PP) {
-            let result = match map.mode {
-                Mode::STD => {
-                    let (misses, n300, n100, n50, combo, hits) = match score {
-                        Some(score) => (
-                            score.count_miss() as usize,
-                            score.count_300() as usize,
-                            score.count_100() as usize,
-                            score.count_50() as usize,
-                            Some(score.max_combo()),
-                            Some(score.hits(map.mode as u8)),
-                        ),
-                        None => (0, 0, 0, 0, None, None),
-                    };
-
-                    let mut calculator = OsuPP::new(&map)
-                        .mods(mods)
-                        .misses(misses)
-                        .n300(n300)
-                        .n100(n100)
-                        .n50(n50);
-
-                    if let Some(combo) = combo {
-                        calculator = calculator.combo(combo as usize);
-                    }
-
-                    if let Some(hits) = hits {
-                        calculator = calculator.passed_objects(hits as usize);
-                    }
-
-                    // Reuse attributes only if the play is not a fail
-                    if let Some(result) = max_pp_result
-                        .filter(|_| score.map_or(true, |s| s.grade(GameMode::STD) != Grade::F))
-                    {
-                        PerformanceAttributes::Osu(calculator.attributes(result).calculate())
-                    } else {
-                        PerformanceAttributes::Osu(calculator.calculate())
-                    }
-                }
-                Mode::MNA => {
-                    let score = score.map_or(1_000_000, |s| s.score());
-
-                    let calculator = ManiaPP::new(&map).mods(mods).score(score);
-
-                    if let Some(result) = max_pp_result {
-                        PerformanceAttributes::Mania(calculator.attributes(result).calculate())
-                    } else {
-                        PerformanceAttributes::Mania(calculator.calculate())
-                    }
-                }
-                Mode::CTB => {
-                    let (acc, combo, misses, hits) = match score {
-                        Some(score) => (
-                            score.acc(GameMode::CTB),
-                            Some(score.max_combo()),
-                            score.count_miss() as usize,
-                            Some(
-                                (score.count_300() + score.count_100() + score.count_miss())
-                                    as usize,
-                            ),
-                        ),
-                        None => (100.0, None, 0, None),
-                    };
-
-                    let mut calculator = FruitsPP::new(&map).mods(mods).misses(misses);
-
-                    // Reuse attributes only if the play is not a fail
-                    if let Some(result) = max_pp_result
-                        .filter(|_| score.map_or(true, |s| s.grade(GameMode::TKO) != Grade::F))
-                    {
-                        calculator = calculator.attributes(result);
-                    }
-
-                    if let Some(combo) = combo {
-                        calculator = calculator.combo(combo as usize);
-                    }
-
-                    if let Some(hits) = hits {
-                        calculator = calculator.passed_objects(hits as usize);
-                    }
-
-                    PerformanceAttributes::Fruits(calculator.accuracy(acc as f64).calculate())
-                }
-                Mode::TKO => {
-                    let (misses, acc, combo, hits) = match score {
-                        Some(score) => (
-                            score.count_miss() as usize,
-                            score.acc(GameMode::TKO),
-                            Some(score.max_combo()),
-                            Some(score.hits(map.mode as u8)),
-                        ),
-                        None => (0, 100.0, None, None),
-                    };
-
-                    let mut calculator = TaikoPP::new(&map)
-                        .mods(mods)
-                        .misses(misses)
-                        .accuracy(acc as f64);
-
-                    if let Some(combo) = combo {
-                        calculator = calculator.combo(combo as usize);
-                    }
-
-                    if let Some(hits) = hits {
-                        calculator = calculator.passed_objects(hits as usize);
-                    }
-
-                    // Reuse attributes only if the play is not a fail
-                    if let Some(result) = max_pp_result
-                        .filter(|_| score.map_or(true, |s| s.grade(GameMode::TKO) != Grade::F))
-                    {
-                        PerformanceAttributes::Taiko(calculator.attributes(result).calculate())
-                    } else {
-                        PerformanceAttributes::Taiko(calculator.calculate())
-                    }
-                }
-            };
-
-            Some(result)
-        } else {
-            None
-        };
-
-        let mut pp = None;
-
-        if let Some(result) = pp_result {
-            pp.replace(result.pp());
-
-            if stars.is_none() && score.map_or(true, |s| s.grade(GameMode::TKO) != Grade::F) {
-                stars.replace(result.stars());
-            }
-        }
-
-        // Stars
-        if stars.is_none() && calcs.contains(Calculations::STARS) {
-            stars = Some(map.stars(mods, None).stars());
-        }
-
-        if let Some(pp) = pp {
-            self.pp.replace(pp as f32);
-        }
-
-        if let Some(pp) = max_pp {
-            self.max_pp.replace(pp as f32);
-        }
-
-        if let Some(stars) = stars {
-            self.stars.replace(stars as f32);
-        }
-
-        Ok(())
+        self.map
+            .pp()
+            .attributes(difficulty)
+            .mods(mods)
+            .calculate()
+            .pp()
     }
 
-    pub fn pp(&self) -> Option<f32> {
-        self.pp
-    }
+    pub fn pp(&mut self) -> f64 {
+        let mods = self.score.as_ref().map(ScoreKind::mods).unwrap_or_default();
+        let state = self
+            .score
+            .as_ref()
+            .map(ScoreKind::state)
+            .unwrap_or_default();
 
-    pub fn max_pp(&self) -> Option<f32> {
-        self.max_pp
-    }
+        let difficulty = self
+            .difficulty
+            .get_or_insert_with(|| self.map.stars(mods, None))
+            .to_owned();
 
-    pub fn stars(&self) -> Option<f32> {
-        self.stars
+        self.map
+            .pp()
+            .attributes(difficulty)
+            .state(state)
+            .mods(mods)
+            .calculate()
+            .pp()
     }
 }

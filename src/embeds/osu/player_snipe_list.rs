@@ -1,18 +1,19 @@
+use std::{collections::BTreeMap, fmt::Write};
+
+use eyre::Report;
+use hashbrown::HashMap;
+use rosu_v2::prelude::{Beatmap, User};
+
 use crate::{
     custom_client::SnipeScore,
     embeds::{osu, Author, Footer},
-    pp::{Calculations, PPCalculator},
+    pp::PpCalculator,
     util::{
         constants::OSU_BASE,
         datetime::how_long_ago_dynamic,
         numbers::{round, with_comma_int},
     },
 };
-
-use eyre::Report;
-use hashbrown::HashMap;
-use rosu_v2::prelude::{Beatmap, User};
-use std::{collections::BTreeMap, fmt::Write};
 
 pub struct PlayerSnipeListEmbed {
     author: Author,
@@ -47,33 +48,30 @@ impl PlayerSnipeListEmbed {
                 .get(&score.beatmap_id)
                 .expect("missing beatmap for psl embed");
 
-            let calculations = Calculations::MAX_PP;
-            let mut calculator = PPCalculator::new().map(map).mods(score.mods);
+            let max_pp = match PpCalculator::new(map.map_id).await {
+                Ok(calc) => Some(calc.mods(score.mods).max_pp() as f32),
+                Err(err) => {
+                    warn!("{:?}", Report::new(err));
 
-            if let Err(why) = calculator.calculate(calculations).await {
-                let report = Report::new(why).wrap_err("error while calculating pp for psql");
-                warn!("{:?}", report);
-            }
+                    None
+                }
+            };
 
-            let pp = osu::get_pp(score.pp, calculator.max_pp());
-            let count_300 =
-                map.count_objects() - score.count_100 - score.count_50 - score.count_miss;
+            let pp = osu::get_pp(score.pp, max_pp);
+            let n300 = map.count_objects() - score.count_100 - score.count_50 - score.count_miss;
 
             let _ = writeln!(
                 description,
-                "**{idx}. [{title} [{version}]]({base}b/{id}) {mods}** [{stars}]\n\
+                "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars}]\n\
                 {pp} ~ ({acc}%) ~ {score}\n{{{n300}/{n100}/{n50}/{nmiss}}} ~ {ago}",
                 idx = idx + 1,
                 title = map.mapset.as_ref().unwrap().title,
                 version = map.version,
-                base = OSU_BASE,
                 id = score.beatmap_id,
                 mods = osu::get_mods(score.mods),
                 stars = osu::get_stars(score.stars),
-                pp = pp,
                 acc = round(score.accuracy),
                 score = with_comma_int(score.score),
-                n300 = count_300,
                 n100 = score.count_100,
                 n50 = score.count_50,
                 nmiss = score.count_miss,

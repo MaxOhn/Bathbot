@@ -134,7 +134,7 @@ async fn request_beatmap_file(map_id: u32) -> Result<Bytes, MapDownloadError> {
 
     (content.len() >= 6 && &content.slice(0..6)[..] != b"<html>")
         .then(|| content)
-        .ok_or(MapDownloadError::Content(map_id))
+        .ok_or(MapDownloadError::RetryLimit(map_id))
 }
 
 macro_rules! pp {
