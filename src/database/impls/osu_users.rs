@@ -343,6 +343,8 @@ impl Database {
                         self.stats_u32(&query, column_str, discord_ids)
                             .await
                             .map(|mut values| {
+                                // Filter out inactive players
+                                values.retain(|v| v.value != 0);
                                 values.sort_unstable_by_key(|v| v.value);
 
                                 values
