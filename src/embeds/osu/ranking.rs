@@ -257,8 +257,8 @@ impl RankingEmbed {
 
         let mut buf = String::new();
 
-        let left_lengths = lengths(&mut buf, users.range(index..index + 10));
-        let right_lengths = lengths(&mut buf, users.range(index + 10..index + 20));
+        let left_lengths = Lengths::new(&mut buf, users.range(index..index + 10));
+        let right_lengths = Lengths::new(&mut buf, users.range(index + 10..index + 20));
 
         let mut description = String::with_capacity(1024);
 
@@ -275,7 +275,7 @@ impl RankingEmbed {
 
             let _ = write!(
                 description,
-                "`#{idx:<idx_len$}` :flag_{country}: `{name:<name_len$}` `{value:>value_len$}`",
+                "`#{idx:<idx_len$}`:flag_{country}:`{name:<name_len$}` `{value:>value_len$}`",
                 idx = idx,
                 idx_len = left_lengths.idx,
                 country = left_entry.country.to_ascii_lowercase(),
@@ -291,7 +291,7 @@ impl RankingEmbed {
 
                 let _ = write!(
                     description,
-                    " | `#{idx:<idx_len$}` :flag_{country}: `{name:<name_len$}` `{value:>value_len$}`",
+                    "|`#{idx:<idx_len$}`:flag_{country}:`{name:<name_len$}` `{value:>value_len$}`",
                     idx = idx + 10,
                     idx_len = right_lengths.idx,
                     country = right_entry.country.to_ascii_lowercase(),
@@ -335,37 +335,39 @@ fn mode_str(mode: GameMode) -> &'static str {
     }
 }
 
-fn lengths(buf: &mut String, iter: Range<'_, usize, RankingEntry>) -> Lengths {
-    let mut idx_len = 0;
-    let mut name_len = 0;
-    let mut value_len = 0;
-
-    for (i, entry) in iter {
-        let mut idx = i + 1;
-        let mut len = 0;
-
-        while idx > 0 {
-            len += 1;
-            idx /= 10;
-        }
-
-        idx_len = idx_len.max(len);
-        name_len = name_len.max(entry.name.len());
-
-        buf.clear();
-        let _ = write!(buf, "{}", entry.value);
-        value_len = value_len.max(buf.len());
-    }
-
-    Lengths {
-        idx: idx_len,
-        name: name_len,
-        value: value_len,
-    }
-}
-
 struct Lengths {
     idx: usize,
     name: usize,
     value: usize,
+}
+
+impl Lengths {
+    fn new(buf: &mut String, iter: Range<'_, usize, RankingEntry>) -> Self {
+        let mut idx_len = 0;
+        let mut name_len = 0;
+        let mut value_len = 0;
+
+        for (i, entry) in iter {
+            let mut idx = i + 1;
+            let mut len = 0;
+
+            while idx > 0 {
+                len += 1;
+                idx /= 10;
+            }
+
+            idx_len = idx_len.max(len);
+            name_len = name_len.max(entry.name.len());
+
+            buf.clear();
+            let _ = write!(buf, "{}", entry.value);
+            value_len = value_len.max(buf.len());
+        }
+
+        Lengths {
+            idx: idx_len,
+            name: name_len,
+            value: value_len,
+        }
+    }
 }
