@@ -1,7 +1,4 @@
-use std::{
-    cmp::{Ordering, Reverse},
-    collections::BTreeMap,
-};
+use std::{cmp::Ordering, collections::BTreeMap};
 
 use chrono::{DateTime, Utc};
 use futures::stream::StreamExt;
@@ -200,7 +197,13 @@ impl Database {
                     self.stats_date(&query, column_str, discord_ids)
                         .await
                         .map(|mut values| {
-                            values.sort_unstable_by_key(|v| v.value);
+                            values.sort_unstable_by(|v1, v2| {
+                                v1.value
+                                    .cmp(&v2.value)
+                                    .then_with(|| v1.username.cmp(&v2.username))
+                            });
+
+                            values.dedup_by(|a, b| a.username == b.username);
 
                             values
                                 .into_iter()
@@ -216,7 +219,13 @@ impl Database {
                     self.stats_u32(&query, column_str, discord_ids)
                         .await
                         .map(|mut values| {
-                            values.sort_unstable_by_key(|v| Reverse(v.value));
+                            values.sort_unstable_by(|v1, v2| {
+                                v2.value
+                                    .cmp(&v1.value)
+                                    .then_with(|| v1.username.cmp(&v2.username))
+                            });
+
+                            values.dedup_by(|a, b| a.username == b.username);
 
                             values
                                 .into_iter()
@@ -249,7 +258,7 @@ impl Database {
             | UserStatsColumn::ScoresFirst { mode }
             | UserStatsColumn::TotalHits { mode } => {
                 let query = format!(
-                    "SELECT username,{column},country_code \
+                    "SELECT username,{column_str},country_code \
                     FROM\
                       (SELECT osu_id \
                        FROM user_configs \
@@ -257,14 +266,13 @@ impl Database {
                          AND osu_id IS NOT NULL) AS configs \
                     JOIN osu_user_names AS names ON configs.osu_id = names.user_id \
                     JOIN\
-                      (SELECT user_id,{column} \
+                      (SELECT user_id,{column_str} \
                        FROM osu_user_stats_mode \
                        WHERE mode={mode}) AS stats_mode ON names.user_id=stats_mode.user_id \
                     JOIN \
                       (SELECT user_id,\
                               country_code \
                        FROM osu_user_stats) AS stats ON names.user_id=stats.user_id",
-                    column = column_str,
                     mode = mode as u8
                 );
 
@@ -274,8 +282,13 @@ impl Database {
                         .await
                         .map(|mut values| {
                             values.sort_unstable_by(|v1, v2| {
-                                v2.value.partial_cmp(&v1.value).unwrap_or(Ordering::Equal)
+                                v2.value
+                                    .partial_cmp(&v1.value)
+                                    .unwrap_or(Ordering::Equal)
+                                    .then_with(|| v1.username.cmp(&v2.username))
                             });
+
+                            values.dedup_by(|a, b| a.username == b.username);
 
                             values
                                 .into_iter()
@@ -292,8 +305,13 @@ impl Database {
                         .await
                         .map(|mut values| {
                             values.sort_unstable_by(|v1, v2| {
-                                v2.value.partial_cmp(&v1.value).unwrap_or(Ordering::Equal)
+                                v2.value
+                                    .partial_cmp(&v1.value)
+                                    .unwrap_or(Ordering::Equal)
+                                    .then_with(|| v1.username.cmp(&v2.username))
                             });
+
+                            values.dedup_by(|a, b| a.username == b.username);
 
                             values
                                 .into_iter()
@@ -309,7 +327,13 @@ impl Database {
                         .stats_u32(&query, column_str, discord_ids)
                         .await
                         .map(|mut values| {
-                            values.sort_unstable_by_key(|v| Reverse(v.value));
+                            values.sort_unstable_by(|v1, v2| {
+                                v2.value
+                                    .cmp(&v1.value)
+                                    .then_with(|| v1.username.cmp(&v2.username))
+                            });
+
+                            values.dedup_by(|a, b| a.username == b.username);
 
                             values
                                 .into_iter()
@@ -326,8 +350,13 @@ impl Database {
                         .await
                         .map(|mut values| {
                             values.sort_unstable_by(|v1, v2| {
-                                v2.value.partial_cmp(&v1.value).unwrap_or(Ordering::Equal)
+                                v2.value
+                                    .partial_cmp(&v1.value)
+                                    .unwrap_or(Ordering::Equal)
+                                    .then_with(|| v1.username.cmp(&v2.username))
                             });
+
+                            values.dedup_by(|a, b| a.username == b.username);
 
                             values
                                 .into_iter()
@@ -345,7 +374,14 @@ impl Database {
                             .map(|mut values| {
                                 // Filter out inactive players
                                 values.retain(|v| v.value != 0);
-                                values.sort_unstable_by_key(|v| v.value);
+
+                                values.sort_unstable_by(|v1, v2| {
+                                    v1.value
+                                        .cmp(&v2.value)
+                                        .then_with(|| v1.username.cmp(&v2.username))
+                                });
+
+                                values.dedup_by(|a, b| a.username == b.username);
 
                                 values
                                     .into_iter()
@@ -366,7 +402,13 @@ impl Database {
                         .stats_i32(&query, column_str, discord_ids)
                         .await
                         .map(|mut values| {
-                            values.sort_unstable_by_key(|v| Reverse(v.value));
+                            values.sort_unstable_by(|v1, v2| {
+                                v2.value
+                                    .cmp(&v1.value)
+                                    .then_with(|| v1.username.cmp(&v2.username))
+                            });
+
+                            values.dedup_by(|a, b| a.username == b.username);
 
                             values
                                 .into_iter()
@@ -385,7 +427,13 @@ impl Database {
                         .stats_u32(&query, column_str, discord_ids)
                         .await
                         .map(|mut values| {
-                            values.sort_unstable_by_key(|v| Reverse(v.value));
+                            values.sort_unstable_by(|v1, v2| {
+                                v2.value
+                                    .cmp(&v1.value)
+                                    .then_with(|| v1.username.cmp(&v2.username))
+                            });
+
+                            values.dedup_by(|a, b| a.username == b.username);
 
                             values
                                 .into_iter()
@@ -403,7 +451,13 @@ impl Database {
                         .stats_u64(&query, column_str, discord_ids)
                         .await
                         .map(|mut values| {
-                            values.sort_unstable_by_key(|v| Reverse(v.value));
+                            values.sort_unstable_by(|v1, v2| {
+                                v2.value
+                                    .cmp(&v1.value)
+                                    .then_with(|| v1.username.cmp(&v2.username))
+                            });
+
+                            values.dedup_by(|a, b| a.username == b.username);
 
                             values
                                 .into_iter()
