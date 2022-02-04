@@ -70,42 +70,44 @@ impl<'s> PpCalculator<'s> {
     pub fn stars(&mut self) -> f64 {
         let mods = self.score.as_ref().map(ScoreKind::mods).unwrap_or_default();
 
-        self.difficulty
-            .get_or_insert_with(|| self.map.stars(mods, None))
+        let difficulty = &mut self.difficulty;
+        let map = &self.map;
+
+        difficulty
+            .get_or_insert_with(|| map.stars(mods, None))
             .stars()
     }
 
     pub fn max_pp(&mut self) -> f64 {
         let mods = self.score.as_ref().map(ScoreKind::mods).unwrap_or_default();
 
-        let difficulty = self
-            .difficulty
-            .get_or_insert_with(|| self.map.stars(mods, None))
+        let difficulty = &mut self.difficulty;
+        let map = &self.map;
+
+        let difficulty = difficulty
+            .get_or_insert_with(|| map.stars(mods, None))
             .to_owned();
 
-        self.map
-            .pp()
-            .attributes(difficulty)
-            .mods(mods)
-            .calculate()
-            .pp()
+        map.pp().attributes(difficulty).mods(mods).calculate().pp()
     }
 
     pub fn pp(&mut self) -> f64 {
         let mods = self.score.as_ref().map(ScoreKind::mods).unwrap_or_default();
+
         let state = self
             .score
             .as_ref()
             .map(ScoreKind::state)
             .unwrap_or_default();
 
-        let difficulty = self
-            .difficulty
-            .get_or_insert_with(|| self.map.stars(mods, None))
+        let difficulty = &mut self.difficulty;
+        let map = &self.map;
+
+        let difficulty = difficulty
+            .get_or_insert_with(|| map.stars(mods, None))
             .to_owned();
 
-        self.map
-            .pp()
+        map.pp()
             .attributes(difficulty)
             .state(state)
             .mods(mods)

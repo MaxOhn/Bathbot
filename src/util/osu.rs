@@ -7,7 +7,11 @@ use crate::{
 
 use bytes::Bytes;
 use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, Score, UserStatistics};
-use std::borrow::Cow;
+use std::{
+    borrow::Cow,
+    iter::{Copied, Map},
+    slice::Iter,
+};
 use tokio::{fs::File, io::AsyncWriteExt, time::sleep};
 use twilight_model::channel::{embed::Embed, Message};
 
@@ -137,51 +141,111 @@ async fn request_beatmap_file(map_id: u32) -> Result<Bytes, MapDownloadError> {
         .ok_or(MapDownloadError::RetryLimit(map_id))
 }
 
-macro_rules! pp {
-    ($scores:ident[$idx:expr]) => {
-        $scores.get($idx).and_then(|s| s.pp).unwrap_or(0.0)
-    };
+pub trait IntoPpIter {
+    type Inner: Iterator<Item = f32> + DoubleEndedIterator + ExactSizeIterator;
+
+    fn into_pps(self) -> PpIter<Self::Inner>;
+}
+
+impl<'s> IntoPpIter for &'s [Score] {
+    type Inner = Map<Iter<'s, Score>, fn(&Score) -> f32>;
+
+    #[inline]
+    fn into_pps(self) -> PpIter<Self::Inner> {
+        PpIter {
+            inner: self.iter().map(|score| score.pp.unwrap_or(0.0)),
+        }
+    }
+}
+
+impl<'f> IntoPpIter for &'f [f32] {
+    type Inner = Copied<Iter<'f, f32>>;
+
+    #[inline]
+    fn into_pps(self) -> PpIter<Self::Inner> {
+        PpIter {
+            inner: self.iter().copied(),
+        }
+    }
+}
+
+pub struct PpIter<I> {
+    inner: I,
+}
+
+impl<I: Iterator<Item = f32>> Iterator for PpIter<I> {
+    type Item = f32;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next()
+    }
+}
+
+impl<I: Iterator<Item = f32> + DoubleEndedIterator> DoubleEndedIterator for PpIter<I> {
+    #[inline]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.inner.next_back()
+    }
+}
+
+impl<I: Iterator<Item = f32> + ExactSizeIterator> ExactSizeIterator for PpIter<I> {
+    #[inline]
+    fn len(&self) -> usize {
+        self.inner.len()
+    }
 }
 
 /// First element: Weighted missing pp to reach goal from start
 ///
-/// Second element: Index of hypothetical pp in scores
-pub fn pp_missing(start: f32, goal: f32, scores: &[Score]) -> (f32, usize) {
-    let size: usize = scores.len();
-    let mut idx: usize = size - 1;
-    let mut factor: f32 = 0.95_f32.powi(idx as i32);
-    let mut top: f32 = start;
-    let mut bot: f32 = 0.0;
-    let mut current: f32 = pp!(scores[idx]);
+/// Second element: Index of hypothetical pp in pps
+pub fn pp_missing(start: f32, goal: f32, pps: impl IntoPpIter) -> (f32, usize) {
+    let pps = pps.into_pps();
 
-    while top + bot < goal {
-        top -= current * factor;
+    let mut top = start;
+    let mut bot = 0.0;
+    let len = pps.len();
 
-        if idx == 0 {
-            break;
+    let mut pp_iter = pps.enumerate().rev();
+
+    //     top + x * 0.95^i + bot = goal
+    // <=> x = (goal - top - bot) / 0.95^i
+    fn calculate_remaining(idx: usize, goal: f32, top: f32, bot: f32) -> (f32, usize) {
+        let factor = 0.95_f32.powi(idx as i32);
+        let required = (goal - top - bot) / factor;
+
+        (required, idx)
+    }
+
+    if let Some((i, last_pp)) = pp_iter.next() {
+        // Handle last score distinctly depending on whether the top100 is full or not
+        let factor = 0.95_f32.powi(i as i32);
+        let term = last_pp * factor;
+        let bot_term = (len < 100) as u8 as f32 * term * 0.95;
+
+        if top + bot + bot_term >= goal {
+            return calculate_remaining(i + 1, goal, top, bot);
         }
 
-        current = pp!(scores[idx - 1]);
-        bot += current * factor;
-        factor /= 0.95;
-        idx -= 1;
+        bot += bot_term;
+        top -= term;
+
+        // Handle remaining scores
+        for (i, last_pp) in pp_iter {
+            let factor = 0.95_f32.powi(i as i32);
+            let term = factor * last_pp;
+            let bot_term = term * 0.95;
+
+            if top + bot + bot_term >= goal {
+                return calculate_remaining(i + 1, goal, top, bot);
+            }
+
+            bot += bot_term;
+            top -= term;
+        }
     }
 
-    let mut required: f32 = goal - top - bot;
-
-    if top + bot >= goal {
-        factor *= 0.95;
-        required = (required + factor * pp!(scores[idx])) / factor;
-        idx += 1;
-    }
-
-    idx += 1;
-
-    if size < 100 {
-        required -= pp!(scores[size - 1]) * 0.95_f32.powi(size as i32 - 1);
-    }
-
-    (required, idx)
+    calculate_remaining(0, goal, top, bot)
 }
 
 pub fn map_id_from_history(msgs: &[Message]) -> Option<MapIdType> {

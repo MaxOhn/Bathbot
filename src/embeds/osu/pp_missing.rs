@@ -1,13 +1,14 @@
+use std::{cmp::Ordering, iter};
+
+use rosu_v2::prelude::{Score, User};
+
 use crate::{
-    commands::osu::PpVersion,
     embeds::{Author, EmbedBuilder, EmbedData, Footer},
     util::{
         numbers::{with_comma_float, with_comma_int},
         osu::pp_missing,
     },
 };
-
-use rosu_v2::prelude::{Score, User};
 
 pub struct PPMissingEmbed {
     author: Author,
@@ -21,75 +22,65 @@ impl PPMissingEmbed {
     pub fn new(
         user: User,
         scores: &mut [Score],
-        pp: f32,
+        goal_pp: f32,
         rank: Option<usize>,
-        version: PpVersion,
+        each: Option<f32>,
     ) -> Self {
-        let stats = user.statistics.as_ref().unwrap();
+        let stats_pp = user.statistics.as_ref().unwrap().pp;
 
         let title = format!(
-            "What scores is {name} missing to reach {pp_given}pp?",
+            "What scores is {name} missing to reach {goal_pp}pp?",
             name = user.username,
-            pp_given = with_comma_float(pp),
+            goal_pp = with_comma_float(goal_pp),
         );
 
-        // Filling the top100 with scores each worth the same x pp:
-        // Σ_i=0^99 (x * 0.95^i) = x * Σ_i=0^99 (0.95^i) = x * 19.881594
-        const FACTOR: f32 = 19.881594;
-
-        let description = if scores.is_empty() {
-            format!(
-                "To reach {pp}pp with one additional score, {user} needs to perform \
-                 a **{pp}pp** score which would be the top #1",
-                pp = with_comma_float(pp),
-                user = user.username,
-            )
-        } else if stats.pp > pp {
-            format!(
+        let description = match (scores.last().and_then(|s| s.pp), each) {
+            // No top scores
+            (None, _) => format!("No top scores found"),
+            // Total pp already above goal
+            _ if stats_pp > goal_pp => format!(
                 "{name} has {pp_raw}pp which is already more than {pp_given}pp.",
                 name = user.username,
-                pp_raw = with_comma_float(stats.pp),
-                pp_given = with_comma_float(pp)
-            )
-        } else {
-            let (required, idx) = pp_missing(stats.pp, pp, scores);
-            let top_pp = scores[0].pp.unwrap_or(0.0);
+                pp_raw = with_comma_float(stats_pp),
+                pp_given = with_comma_float(goal_pp),
+            ),
+            // Reach goal with only one score
+            (Some(_), None) => {
+                let (required, idx) = pp_missing(stats_pp, goal_pp, &(*scores)[..]);
 
-            let bot: f32 = scores
-                .iter()
-                .skip(1)
-                .filter_map(|s| s.weight)
-                .map(|w| w.pp)
-                .sum();
-
-            let bonus_pp = stats.pp - (top_pp + bot);
-
-            if required <= top_pp || version == PpVersion::Single {
                 format!(
                     "To reach {pp}pp with one additional score, {user} needs to perform \
                     a **{required}pp** score which would be the top #{idx}",
-                    pp = with_comma_float(pp),
+                    pp = with_comma_float(goal_pp),
                     user = user.username,
                     required = with_comma_float(required),
                 )
-            } else if top_pp * FACTOR + bonus_pp < pp {
-                format!(
-                    "If the entire top100 was filled with {top_pp}pp scores, \
-                    the total would still only be **{max_pp}pp** which is less than {pp}pp.",
-                    top_pp = with_comma_float(top_pp),
-                    max_pp = with_comma_float(top_pp * FACTOR + bonus_pp),
-                    pp = with_comma_float(pp),
-                )
-            } else {
-                let mut top = top_pp + bonus_pp;
-                let mut idx = 99;
+            }
+            // Top 100 is not full
+            (_, Some(each)) if scores.len() < 100 => {
+                let idx = scores
+                    .iter()
+                    .position(|s| s.pp.unwrap_or(0.0) < each)
+                    .unwrap_or_else(|| scores.len());
+
+                let mut iter = scores
+                    .iter()
+                    .filter_map(|s| s.weight.as_ref())
+                    .map(|w| w.pp);
+
+                let mut top: f32 = (&mut iter).take(idx).sum();
+                let bot: f32 = iter.sum();
+
+                let bonus_pp = stats_pp - (top + bot);
+                top += bonus_pp;
                 let len = scores.len();
 
-                for i in 1..scores.len() {
+                let mut n_each = 100;
+
+                for i in idx.. {
                     let bot: f32 = scores
                         .iter_mut()
-                        .skip(1)
-                        .take(len - i - 1)
+                        .skip(idx)
                         .filter_map(|s| s.weight.as_mut())
                         .map(|w| {
                             w.pp *= 0.95;
@@ -100,54 +91,168 @@ impl PPMissingEmbed {
 
                     let factor = 0.95_f32.powi(i as i32);
 
-                    if top + factor * top_pp + bot >= pp {
-                        // requires idx many new scores of top_pp many pp and one additional score
-                        idx = i - 1;
+                    if top + factor * each + bot >= goal_pp {
+                        // requires n_each many new scores of `each` many pp and one additional score
+                        n_each = i - idx;
                         break;
                     }
 
-                    top += factor * top_pp;
+                    top += factor * each;
                 }
 
-                // Shift scores to right and then overwrite pp values with top_pp
-                scores[1..].rotate_right(idx);
-
-                scores
-                    .iter_mut()
-                    .skip(1)
-                    .take(idx)
-                    .for_each(|s| s.pp = Some(top_pp));
-
-                let bot: f32 = scores
-                    .iter()
-                    .skip(idx + 1)
-                    .take(len - idx - 1)
-                    .filter_map(|s| s.weight.as_ref())
-                    .map(|w| w.pp / 0.95)
-                    .sum();
-
-                if idx == 99 {
+                if n_each == 100 {
                     format!(
-                        "To reach {pp}pp, {user} needs to perform 99 more **{top_pp}pp** scores",
-                        top_pp = with_comma_float(top_pp),
-                        pp = with_comma_float(pp),
+                        "Filling up {user}'{genitiv} top100 with {amount} new {each}pp score{plural} \
+                        would only lead to **{top}pp** which is still less than {pp}pp.",
+                        amount = 100 - len,
+                        each = with_comma_float(each),
+                        plural = if 100 - len != 1 { "s" } else { "" },
+                        genitiv = if idx != 1 { "s" } else { "" },
+                        pp = with_comma_float(goal_pp),
+                        top = with_comma_float(top),
                         user = user.username,
                     )
                 } else {
-                    // Calculate the pp of the missing score after adding idx many top_pp scores
-                    let total = top + bot;
-                    let (required, _) = pp_missing(total, pp, scores);
+                    // Add `n_each` many `each` pp scores
+                    let mut pps: Vec<_> = scores
+                        .iter()
+                        .filter_map(|s| s.pp)
+                        .chain(iter::repeat(each))
+                        .take((len + n_each).min(100))
+                        .collect();
+
+                    pps.sort_unstable_by(|a, b| b.partial_cmp(a).unwrap_or(Ordering::Equal));
+
+                    let total = pps
+                        .iter()
+                        .enumerate()
+                        .fold(0.0, |sum, (i, next)| sum + next * 0.95_f32.powi(i as i32))
+                        + bonus_pp;
+
+                    // Calculate the pp of the missing score
+                    let (required, _) = pp_missing(total, goal_pp, pps.as_slice());
 
                     format!(
-                        "To reach {pp}pp, {user} needs to perform {amount} more \
-                        **{top_pp}pp** score{plural} and one **{required}pp** score.",
-                        amount = idx,
-                        top_pp = with_comma_float(top_pp),
-                        plural = if idx != 1 { "s" } else { "" },
-                        pp = with_comma_float(pp),
+                        "To reach {pp}pp, {user} needs to perform **{n_each}** more \
+                        {each}pp score{plural} and one **{required}pp** score.",
+                        each = with_comma_float(each),
+                        plural = if n_each != 1 { "s" } else { "" },
+                        pp = with_comma_float(goal_pp),
                         user = user.username,
                         required = with_comma_float(required),
                     )
+                }
+            }
+            // Given score pp is below last top 100 score pp
+            (Some(last_pp), Some(each)) if each < last_pp => {
+                format!(
+                    "New top100 scores require at least **{last_pp}pp** for {user} \
+                    so {pp} total pp can't be reached with {each}pp scores.",
+                    pp = with_comma_float(goal_pp),
+                    last_pp = with_comma_float(last_pp),
+                    each = with_comma_float(each),
+                    user = user.username,
+                )
+            }
+            // Top 100 is full and given score pp would be in top 100
+            (Some(_), Some(each)) => {
+                let (required, idx) = pp_missing(stats_pp, goal_pp, &(*scores)[..]);
+
+                if required < each {
+                    format!(
+                        "To reach {pp}pp with one additional score, {user} needs to perform \
+                        a **{required}pp** score which would be the top #{idx}",
+                        pp = with_comma_float(goal_pp),
+                        user = user.username,
+                        required = with_comma_float(required),
+                    )
+                } else {
+                    let idx = scores
+                        .iter()
+                        .position(|s| s.pp.unwrap_or(0.0) < each)
+                        .unwrap_or_else(|| scores.len());
+
+                    let mut iter = scores
+                        .iter()
+                        .filter_map(|s| s.weight.as_ref())
+                        .map(|w| w.pp);
+
+                    let mut top: f32 = (&mut iter).take(idx).sum();
+                    let bot: f32 = iter.sum();
+
+                    let bonus_pp = stats_pp - (top + bot);
+                    top += bonus_pp;
+                    let len = scores.len();
+
+                    let mut n_each = 100;
+
+                    for i in idx..len - idx {
+                        let bot: f32 = scores
+                            .iter_mut()
+                            .skip(idx)
+                            .take(len - i - 1)
+                            .filter_map(|s| s.weight.as_mut())
+                            .map(|w| {
+                                w.pp *= 0.95;
+
+                                w.pp
+                            })
+                            .sum();
+
+                        let factor = 0.95_f32.powi(i as i32);
+
+                        if top + factor * each + bot >= goal_pp {
+                            // requires n_each many new scores of `each` many pp and one additional score
+                            n_each = i - idx;
+                            break;
+                        }
+
+                        top += factor * each;
+                    }
+
+                    if n_each == 100 {
+                        format!(
+                            "Filling up {user}'{genitiv} top100 with {amount} new {each}pp score{plural} \
+                            would only lead to **{top}pp** which is still less than {pp}pp.",
+                            amount = len - idx,
+                            each = with_comma_float(each),
+                            plural = if len - idx != 1 { "s" } else { "" },
+                            genitiv = if idx != 1 { "s" } else { "" },
+                            pp = with_comma_float(goal_pp),
+                            top = with_comma_float(top),
+                            user = user.username,
+                        )
+                    } else {
+                        // Shift scores to right and then overwrite pp values with top_pp
+                        scores[idx..].rotate_right(n_each);
+
+                        scores
+                            .iter_mut()
+                            .skip(idx)
+                            .take(n_each)
+                            .for_each(|s| s.pp = Some(each));
+
+                        let bot: f32 = scores
+                            .iter()
+                            .skip(idx + n_each)
+                            .filter_map(|s| s.weight.as_ref())
+                            .map(|w| w.pp / 0.95)
+                            .sum();
+
+                        // Calculate the pp of the missing score after adding `n_each` many `each` pp scores
+                        let total = top + bot;
+                        let (required, _) = pp_missing(total, goal_pp, &(*scores)[..]);
+
+                        format!(
+                            "To reach {pp}pp, {user} needs to perform **{n_each}** more \
+                            {each}pp score{plural} and one **{required}pp** score.",
+                            each = with_comma_float(each),
+                            plural = if n_each != 1 { "s" } else { "" },
+                            pp = with_comma_float(goal_pp),
+                            user = user.username,
+                            required = with_comma_float(required),
+                        )
+                    }
                 }
             }
         };
@@ -155,7 +260,7 @@ impl PPMissingEmbed {
         let footer = rank.map(|rank| {
             Footer::new(format!(
                 "The current rank for {pp}pp is #{rank}",
-                pp = with_comma_float(pp),
+                pp = with_comma_float(goal_pp),
                 rank = with_comma_int(rank),
             ))
         });

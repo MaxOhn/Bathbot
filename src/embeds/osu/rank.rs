@@ -51,7 +51,7 @@ impl RankEmbed {
                         pp = with_comma_float(user_pp)
                     )
                 } else if let Some(scores) = scores {
-                    let (required, _) = pp_missing(user_pp, rank_holder_pp, &scores);
+                    let (required, _) = pp_missing(user_pp, rank_holder_pp, scores.as_slice());
 
                     format!(
                         "Rank {country}{rank} is currently held by {holder_name} with \
@@ -103,7 +103,7 @@ impl RankEmbed {
                         pp = with_comma_float(user_pp)
                     )
                 } else if let Some(scores) = scores {
-                    let (required, _) = pp_missing(user_pp, *required_pp, &scores);
+                    let (required, _) = pp_missing(user_pp, *required_pp, scores.as_slice());
 
                     format!(
                         "Rank #{rank} currently requires **{required_pp}pp**, \
