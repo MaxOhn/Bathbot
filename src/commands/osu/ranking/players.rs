@@ -323,7 +323,7 @@ pub enum UserValue {
     Amount(u64),
     AmountWithNegative(i64),
     Date(DateTime<Utc>),
-    Level(f32),
+    Float(f32),
     Playtime(u32),
     PpF32(f32),
     PpU32(u32),
@@ -345,7 +345,7 @@ impl fmt::Display for UserValue {
                 }
             }
             Self::Date(date) => write!(f, "{}", date.format("%F")),
-            Self::Level(level) => write!(f, "{:.2}", numbers::round(level)),
+            Self::Float(v) => write!(f, "{:.2}", numbers::round(v)),
             Self::Playtime(seconds) => {
                 write!(f, "{} hrs", numbers::with_comma_int(seconds / 60 / 60))
             }

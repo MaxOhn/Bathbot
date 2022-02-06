@@ -180,6 +180,7 @@ impl RankingKindData {
                     UserStatsColumn::RankedMapsets => "Ranked mapsets",
                     UserStatsColumn::Usernames => "Namechange count",
                     UserStatsColumn::Accuracy { .. } => "Accuracy",
+                    UserStatsColumn::AverageHits { .. } => "Average hits per play",
                     UserStatsColumn::CountSsh { .. } => "Count SSH's",
                     UserStatsColumn::CountSs { .. } => "Count SS'",
                     UserStatsColumn::CountSh { .. } => "Count SH's",

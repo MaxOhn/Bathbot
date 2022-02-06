@@ -184,6 +184,7 @@ impl UserStatsColumn {
                 CommandOptionValue::String(value) => match option.name.as_str() {
                     "type" => match value.as_str() {
                         ACCURACY => Some(UserStatsColumn::Accuracy { mode }),
+                        "avg_hits" => Some(UserStatsColumn::AverageHits { mode }),
                         "count_ssh" => Some(UserStatsColumn::CountSsh { mode }),
                         "count_ss" => Some(UserStatsColumn::CountSs { mode }),
                         "count_sh" => Some(UserStatsColumn::CountSh { mode }),
@@ -220,6 +221,10 @@ fn mode_option() -> Vec<MyCommandOption> {
         CommandOptionChoice::String {
             name: "Accuracy".to_owned(),
             value: ACCURACY.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Average hits per play".to_owned(),
+            value: "avg_hits".to_owned(),
         },
         CommandOptionChoice::String {
             name: "Count SSH".to_owned(),

@@ -49,11 +49,11 @@ impl Database {
                 previous_usernames_count,\
                 ranked_mapset_count,\
                 medals\
-            )\
+        )\
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) ON CONFLICT (user_id) DO \
             UPDATE \
             SET country_code=$2,\
-                comment_count=$4,\
+            comment_count=$4,\
                 kudosu_total=$5,\
                 kudosu_available=$6,\
                 forum_post_count=$7,\
@@ -66,23 +66,23 @@ impl Database {
                 previous_usernames_count=$14,\
                 ranked_mapset_count=$15,\
                 medals=$16",
-            user.user_id as i32,
-            user.country_code.as_str(),
-            user.join_date,
-            user.comments_count as i32,
-            user.kudosu.total,
-            user.kudosu.available,
-            user.forum_post_count as i32,
-            user.badges.as_ref().map_or(0, Vec::len) as i32,
-            user.beatmap_playcounts_count.unwrap_or(0) as i32,
-            user.follower_count.unwrap_or(0) as i32,
-            user.graveyard_mapset_count.unwrap_or(0) as i32,
-            user.loved_mapset_count.unwrap_or(0) as i32,
-            user.mapping_follower_count.unwrap_or(0) as i32,
-            user.previous_usernames.as_ref().map_or(0, Vec::len) as i32,
-            user.ranked_mapset_count.unwrap_or(0) as i32,
-            user.medals.as_ref().map_or(0, Vec::len) as i32,
-        );
+                user.user_id as i32,
+                user.country_code.as_str(),
+                user.join_date,
+                user.comments_count as i32,
+                user.kudosu.total,
+                user.kudosu.available,
+                user.forum_post_count as i32,
+                user.badges.as_ref().map_or(0, Vec::len) as i32,
+                user.beatmap_playcounts_count.unwrap_or(0) as i32,
+                user.follower_count.unwrap_or(0) as i32,
+                user.graveyard_mapset_count.unwrap_or(0) as i32,
+                user.loved_mapset_count.unwrap_or(0) as i32,
+                user.mapping_follower_count.unwrap_or(0) as i32,
+                user.previous_usernames.as_ref().map_or(0, Vec::len) as i32,
+                user.ranked_mapset_count.unwrap_or(0) as i32,
+                user.medals.as_ref().map_or(0, Vec::len) as i32,
+                );
 
         stats_query.execute(&mut tx).await?;
 
@@ -100,7 +100,7 @@ impl Database {
                     count_s,\
                     count_sh,\
                     count_a,\
-                    LEVEL,\
+                    level,\
                     max_combo,\
                     playcount,\
                     playtime,\
@@ -121,7 +121,7 @@ impl Database {
                     count_s=$9,\
                     count_sh=$10,\
                     count_a=$11,\
-                    LEVEL=$12,\
+                    level=$12,\
                     max_combo=$13,\
                     playcount=$14,\
                     playtime=$15,\
@@ -130,27 +130,27 @@ impl Database {
                     total_hits=$18,\
                     total_score=$19,\
                     scores_first=$20",
-                user.user_id as i32,
-                mode as i16,
-                stats.accuracy,
-                stats.pp,
-                stats.country_rank.unwrap_or(0) as i32,
-                stats.global_rank.unwrap_or(0) as i32,
-                stats.grade_counts.ss,
-                stats.grade_counts.ssh,
-                stats.grade_counts.s,
-                stats.grade_counts.sh,
-                stats.grade_counts.a,
-                stats.level.current as f32 + stats.level.progress as f32 / 100.0,
-                stats.max_combo as i32,
-                stats.playcount as i32,
-                stats.playtime as i32,
-                stats.ranked_score as i64,
-                stats.replays_watched as i32,
-                stats.total_hits as i64,
-                stats.total_score as i64,
-                user.scores_first_count.unwrap_or(0) as i32,
-            );
+                    user.user_id as i32,
+                    mode as i16,
+                    stats.accuracy,
+                    stats.pp,
+                    stats.country_rank.unwrap_or(0) as i32,
+                    stats.global_rank.unwrap_or(0) as i32,
+                    stats.grade_counts.ss,
+                    stats.grade_counts.ssh,
+                    stats.grade_counts.s,
+                    stats.grade_counts.sh,
+                    stats.grade_counts.a,
+                    stats.level.current as f32 + stats.level.progress as f32 / 100.0,
+                    stats.max_combo as i32,
+                    stats.playcount as i32,
+                    stats.playtime as i32,
+                    stats.ranked_score as i64,
+                    stats.replays_watched as i32,
+                    stats.total_hits as i64,
+                    stats.total_score as i64,
+                    user.scores_first_count.unwrap_or(0) as i32,
+                    );
 
             mode_stats_query.execute(&mut tx).await?;
         }
@@ -183,13 +183,13 @@ impl Database {
                 let query = format!(
                     "SELECT username,{column_str},country_code \
                     FROM\
-                      (SELECT osu_id \
+                    (SELECT osu_id \
                        FROM user_configs \
                        WHERE discord_id=ANY($1) \
                          AND osu_id IS NOT NULL) AS configs \
                     JOIN osu_user_names AS names ON configs.osu_id = names.user_id \
                     JOIN\
-                      (SELECT user_id,{column_str},country_code \
+                    (SELECT user_id,{column_str},country_code \
                        FROM osu_user_stats) AS stats ON names.user_id=stats.user_id"
                 );
 
@@ -260,19 +260,19 @@ impl Database {
                 let query = format!(
                     "SELECT username,{column_str},country_code \
                     FROM\
-                      (SELECT osu_id \
+                    (SELECT osu_id \
                        FROM user_configs \
                        WHERE discord_id=ANY($1) \
                          AND osu_id IS NOT NULL) AS configs \
                     JOIN osu_user_names AS names ON configs.osu_id = names.user_id \
                     JOIN\
-                      (SELECT user_id,{column_str} \
+                    (SELECT user_id,{column_str} \
                        FROM osu_user_stats_mode \
                        WHERE mode={mode}) AS stats_mode ON names.user_id=stats_mode.user_id \
                     JOIN \
-                      (SELECT user_id,\
+                    (SELECT user_id,\
                               country_code \
-                       FROM osu_user_stats) AS stats ON names.user_id=stats.user_id",
+                              FROM osu_user_stats) AS stats ON names.user_id=stats.user_id",
                     mode = mode as u8
                 );
 
@@ -316,7 +316,7 @@ impl Database {
                             values
                                 .into_iter()
                                 .map(|v| RankingEntry {
-                                    value: UserValue::Level(v.value),
+                                    value: UserValue::Float(v.value),
                                     name: v.username,
                                     country: v.country_code,
                                 })
@@ -471,6 +471,61 @@ impl Database {
                         }),
                     _ => unreachable!(),
                 }
+            }
+            UserStatsColumn::AverageHits { mode } => {
+                let query = sqlx::query!(
+                    "SELECT username,total_hits,playcount,country_code \
+                    FROM\
+                    (SELECT osu_id \
+                       FROM user_configs \
+                       WHERE discord_id=ANY($1) \
+                         AND osu_id IS NOT NULL) AS configs \
+                    JOIN osu_user_names AS names ON configs.osu_id = names.user_id \
+                    JOIN\
+                    (SELECT user_id,total_hits,playcount \
+                       FROM osu_user_stats_mode \
+                       WHERE mode=$2) AS stats_mode ON names.user_id=stats_mode.user_id \
+                    JOIN \
+                    (SELECT user_id,\
+                              country_code \
+                              FROM osu_user_stats) AS stats ON names.user_id=stats.user_id",
+                    discord_ids,
+                    mode as i16,
+                );
+
+                let mut stream = query.fetch(&self.pool);
+                let mut users = Vec::with_capacity(discord_ids.len());
+
+                while let Some(row) = stream.next().await.transpose()? {
+                    let value = UserValueRaw {
+                        username: row.username.into(),
+                        country_code: row.country_code.into(),
+                        value: row.total_hits as f32 / row.playcount as f32,
+                    };
+
+                    users.push(value);
+                }
+
+                users.sort_unstable_by(|v1, v2| {
+                    v2.value
+                        .partial_cmp(&v1.value)
+                        .unwrap_or(Ordering::Equal)
+                        .then_with(|| v1.username.cmp(&v2.username))
+                });
+
+                users.dedup_by(|a, b| a.username == b.username);
+
+                let values = users
+                    .into_iter()
+                    .map(|v| RankingEntry {
+                        value: UserValue::Float(v.value),
+                        name: v.username,
+                        country: v.country_code,
+                    })
+                    .enumerate()
+                    .collect();
+
+                Ok(values)
             }
         }
     }
