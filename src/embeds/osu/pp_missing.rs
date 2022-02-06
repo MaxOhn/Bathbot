@@ -36,7 +36,7 @@ impl PPMissingEmbed {
 
         let description = match (scores.last().and_then(|s| s.pp), each) {
             // No top scores
-            (None, _) => format!("No top scores found"),
+            (None, _) => "No top scores found".to_owned(),
             // Total pp already above goal
             _ if stats_pp > goal_pp => format!(
                 "{name} has {pp_raw}pp which is already more than {pp_given}pp.",

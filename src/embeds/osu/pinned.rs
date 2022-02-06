@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use eyre::Report;
-use rosu_v2::prelude::{Score, User};
+use rosu_v2::prelude::{GameMode, Score, User};
 
 use crate::{
     embeds::{osu, Author, Footer},
@@ -72,12 +72,28 @@ impl PinnedEmbed {
 
         description.pop();
 
+        let footer_text = format!(
+            "Page {}/{} | Mode: {}",
+            pages.0,
+            pages.1,
+            mode_str(user.mode)
+        );
+
         Self {
             author: author!(user),
             description,
-            footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
+            footer: Footer::new(footer_text),
             thumbnail: user.avatar_url.to_owned(),
         }
+    }
+}
+
+fn mode_str(mode: GameMode) -> &'static str {
+    match mode {
+        GameMode::STD => "osu!",
+        GameMode::TKO => "Taiko",
+        GameMode::CTB => "Catch",
+        GameMode::MNA => "Mania",
     }
 }
 

@@ -1,3 +1,7 @@
+use std::fmt::Write;
+
+use rosu_v2::prelude::{GameMode, Score, User};
+
 use crate::{
     embeds::{osu, Author, Footer},
     util::{
@@ -7,9 +11,6 @@ use crate::{
         ScoreExt,
     },
 };
-
-use rosu_v2::prelude::{GameMode, Score, User};
-use std::fmt::Write;
 
 pub struct TopIfEmbed {
     author: Author,
