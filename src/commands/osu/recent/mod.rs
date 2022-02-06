@@ -378,10 +378,11 @@ fn subcommand_list() -> MyCommandOption {
         MyCommandOption::builder("passes", "Specify whether only passes should be considered")
             .boolean(false);
 
+    let mods = option_mods_explicit();
     let discord = option_discord();
 
     MyCommandOption::builder("list", "Show all recent plays of a user")
-        .subcommand(vec![mode, name, grade, passes, discord])
+        .subcommand(vec![mode, name, grade, passes, mods, discord])
 }
 
 fn subcommand_simulate() -> MyCommandOption {

@@ -1,3 +1,12 @@
+use std::fmt::Write;
+
+use hashbrown::HashMap;
+use rosu_pp::{
+    Beatmap as Map, BeatmapExt, DifficultyAttributes, FruitsPP, GameMode as Mode, ManiaPP, OsuPP,
+    PerformanceAttributes, TaikoPP,
+};
+use rosu_v2::prelude::{GameMode, Grade, Score, User};
+
 use crate::{
     embeds::{osu, Author, Footer},
     error::PpError,
@@ -8,14 +17,6 @@ use crate::{
     },
     BotResult,
 };
-
-use hashbrown::HashMap;
-use rosu_pp::{
-    Beatmap as Map, BeatmapExt, DifficultyAttributes, FruitsPP, GameMode as Mode, ManiaPP, OsuPP,
-    PerformanceAttributes, TaikoPP,
-};
-use rosu_v2::prelude::{GameMode, Grade, Score, User};
-use std::fmt::Write;
 
 pub struct RecentListEmbed {
     description: String,
@@ -41,6 +42,7 @@ impl RecentListEmbed {
             let map = score.map.as_ref().unwrap();
             let mapset = score.mapset.as_ref().unwrap();
 
+            // TODO: Use PpCalculator
             #[allow(clippy::map_entry)]
             if !rosu_maps.contains_key(&map.map_id) {
                 let map_path = prepare_beatmap_file(map.map_id).await?;

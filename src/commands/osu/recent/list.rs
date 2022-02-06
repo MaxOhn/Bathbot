@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{fmt::Write, sync::Arc};
 
 use eyre::Report;
 use rosu_v2::prelude::{GameMode, Grade, OsuError};
@@ -22,10 +22,12 @@ use crate::{
     pagination::{Pagination, RecentListPagination},
     util::{
         constants::{
-            common_literals::{DISCORD, GRADE, MODE, NAME},
+            common_literals::{DISCORD, GRADE, MODE, MODS, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
-        numbers, InteractionExt, MessageExt,
+        matcher, numbers,
+        osu::ModSelection,
+        InteractionExt, MessageBuilder, MessageExt,
     },
     Args, BotResult, CommandData, Context,
 };
@@ -37,7 +39,11 @@ pub(super) async fn _recentlist(
     data: CommandData<'_>,
     args: RecentListArgs,
 ) -> BotResult<()> {
-    let RecentListArgs { config, grade } = args;
+    let RecentListArgs {
+        config,
+        grade,
+        mods,
+    } = args;
     let mode = config.mode.unwrap_or(GameMode::STD);
 
     let name = match config.into_username() {
@@ -55,14 +61,13 @@ pub(super) async fn _recentlist(
     let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
         Ok((_, scores)) if scores.is_empty() => {
             let content = format!(
-                "No recent {}plays found for user `{}`",
+                "No recent {}plays found for user `{name}`",
                 match mode {
                     GameMode::STD => "",
                     GameMode::TKO => "taiko ",
                     GameMode::CTB => "ctb ",
                     GameMode::MNA => "mania ",
                 },
-                name
             );
 
             return data.error(&ctx, content).await;
@@ -91,6 +96,15 @@ pub(super) async fn _recentlist(
         None => {}
     }
 
+    match mods {
+        Some(ModSelection::Include(mods)) => scores.retain(|score| score.mods.contains(mods)),
+        Some(ModSelection::Exact(mods)) => scores.retain(|score| score.mods == mods),
+        Some(ModSelection::Exclude(mods)) => {
+            scores.retain(|score| score.mods.intersection(mods).is_empty())
+        }
+        None => {}
+    }
+
     let pages = numbers::div_euclid(10, scores.len());
     let scores_iter = scores.iter().take(10);
 
@@ -104,7 +118,12 @@ pub(super) async fn _recentlist(
     };
 
     // Creating the embed
-    let builder = embed.into();
+    let mut builder = MessageBuilder::from(embed);
+
+    if let Some(content) = message_content(grade, mods) {
+        builder = builder.content(content);
+    }
+
     let response_raw = data.create_message(&ctx, builder).await?;
 
     // Skip pagination if too few entries
@@ -125,6 +144,38 @@ pub(super) async fn _recentlist(
     });
 
     Ok(())
+}
+
+fn message_content(grade: Option<GradeArg>, mods: Option<ModSelection>) -> Option<String> {
+    let mut content = String::new();
+
+    match grade {
+        Some(GradeArg::Single(grade)) => {
+            let _ = write!(content, "`Grade: {grade}`");
+        }
+        Some(GradeArg::Range { bot, top }) => {
+            let _ = write!(content, "`Grade: {bot} - {top}`");
+        }
+        None => {}
+    }
+
+    if let Some(selection) = mods {
+        if grade.is_some() {
+            content.push_str(" ~ ");
+        }
+
+        content.push_str("`Mods: ");
+
+        match selection {
+            ModSelection::Exact(_) => {}
+            ModSelection::Exclude(_) => content.push_str("Exclude"),
+            ModSelection::Include(_) => content.push_str("Include "),
+        }
+
+        let _ = write!(content, "{}`", selection.mods());
+    }
+
+    (!content.is_empty()).then(|| content)
 }
 
 #[command]
@@ -278,12 +329,18 @@ pub async fn recentlistctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()
 pub(super) struct RecentListArgs {
     pub config: UserConfig,
     pub grade: Option<GradeArg>,
+    pub mods: Option<ModSelection>,
 }
 
 impl RecentListArgs {
     const ERR_PARSE_GRADE: &'static str = "Failed to parse `grade`.\n\
         Must be either a single grade or two grades of the form `a..b` e.g. `C..S`.\n\
         Valid grades are: `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`";
+
+    const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
+        If you want included mods, specify it e.g. as `+hrdt`.\n\
+        If you want exact mods, specify it e.g. as `+hdhr!`.\n\
+        And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
 
     async fn args(
         ctx: &Context,
@@ -390,7 +447,11 @@ impl RecentListArgs {
             None => grade,
         };
 
-        Ok(Ok(Self { config, grade }))
+        Ok(Ok(Self {
+            config,
+            grade,
+            mods: None,
+        }))
     }
 
     pub(super) async fn slash(
@@ -400,6 +461,7 @@ impl RecentListArgs {
     ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(command.user_id()?).await?;
         let mut grade = None;
+        let mut mods = None;
 
         for option in options {
             match option.value {
@@ -425,6 +487,10 @@ impl RecentListArgs {
                         "D" => grade = Some(GradeArg::Single(Grade::D)),
                         "F" => grade = Some(GradeArg::Single(Grade::F)),
                         _ => return Err(Error::InvalidCommandOptions),
+                    },
+                    MODS => match matcher::get_mods(&value) {
+                        Some(mods_) => mods = Some(mods_),
+                        None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
                     },
                     _ => return Err(Error::InvalidCommandOptions),
                 },
@@ -458,6 +524,10 @@ impl RecentListArgs {
             }
         }
 
-        Ok(Ok(Self { config, grade }))
+        Ok(Ok(Self {
+            config,
+            grade,
+            mods,
+        }))
     }
 }
