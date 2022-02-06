@@ -44,7 +44,7 @@ pub enum UserStatsColumn {
 }
 
 impl UserStatsColumn {
-    pub fn as_str(&self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             Self::Badges => "badges",
             Self::Comments => "comment_count",
@@ -80,6 +80,44 @@ impl UserStatsColumn {
             Self::ScoreTotal { .. } => "total_score",
             Self::ScoresFirst { .. } => "scores_first",
             Self::TotalHits { .. } => "total_hits",
+        }
+    }
+
+    pub fn mode(self) -> Option<GameMode> {
+        match self {
+            UserStatsColumn::Badges
+            | UserStatsColumn::Comments
+            | UserStatsColumn::Followers
+            | UserStatsColumn::ForumPosts
+            | UserStatsColumn::GraveyardMapsets
+            | UserStatsColumn::JoinDate
+            | UserStatsColumn::KudosuAvailable
+            | UserStatsColumn::KudosuTotal
+            | UserStatsColumn::LovedMapsets
+            | UserStatsColumn::MappingFollowers
+            | UserStatsColumn::Medals
+            | UserStatsColumn::PlayedMaps
+            | UserStatsColumn::RankedMapsets
+            | UserStatsColumn::Usernames => None,
+            UserStatsColumn::Accuracy { mode }
+            | UserStatsColumn::AverageHits { mode }
+            | UserStatsColumn::CountSsh { mode }
+            | UserStatsColumn::CountSs { mode }
+            | UserStatsColumn::CountSh { mode }
+            | UserStatsColumn::CountS { mode }
+            | UserStatsColumn::CountA { mode }
+            | UserStatsColumn::Level { mode }
+            | UserStatsColumn::MaxCombo { mode }
+            | UserStatsColumn::Playcount { mode }
+            | UserStatsColumn::Playtime { mode }
+            | UserStatsColumn::Pp { mode }
+            | UserStatsColumn::RankCountry { mode }
+            | UserStatsColumn::RankGlobal { mode }
+            | UserStatsColumn::Replays { mode }
+            | UserStatsColumn::ScoreRanked { mode }
+            | UserStatsColumn::ScoreTotal { mode }
+            | UserStatsColumn::ScoresFirst { mode }
+            | UserStatsColumn::TotalHits { mode } => Some(mode),
         }
     }
 }

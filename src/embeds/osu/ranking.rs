@@ -129,16 +129,13 @@ impl RankingKindData {
                 mode,
             } => {
                 let text = format!(
-                    "{name}'{plural} Performance Ranking for osu!{mode}",
-                    name = country,
+                    "{country}'{plural} Performance Ranking for osu!{mode}",
                     plural = if country.ends_with('s') { "" } else { "s" },
                     mode = mode_str(*mode),
                 );
 
                 let url = format!(
-                    "https://osu.ppy.sh/rankings/{mode}/performance?country={country}",
-                    mode = mode,
-                    country = country_code
+                    "https://osu.ppy.sh/rankings/{mode}/performance?country={country_code}",
                 );
 
                 EmbedHeader::title(text, url)
@@ -146,10 +143,7 @@ impl RankingKindData {
             Self::PpGlobal { mode } => {
                 let text = format!("Performance Ranking for osu!{mode}", mode = mode_str(*mode));
 
-                let url = format!(
-                    "https://osu.ppy.sh/rankings/{mode}/performance",
-                    mode = mode,
-                );
+                let url = format!("https://osu.ppy.sh/rankings/{mode}/performance");
 
                 EmbedHeader::title(text, url)
             }
@@ -159,12 +153,14 @@ impl RankingKindData {
                     mode = mode_str(*mode),
                 );
 
-                let url = format!("https://osu.ppy.sh/rankings/{mode}/score", mode = mode);
+                let url = format!("https://osu.ppy.sh/rankings/{mode}/score");
 
                 EmbedHeader::title(text, url)
             }
             Self::UserStats { guild_icon, kind } => {
-                let text_kind = match kind {
+                let mode = kind.mode();
+
+                let kind = match kind {
                     UserStatsColumn::Badges => "Badges",
                     UserStatsColumn::Comments => "Comments",
                     UserStatsColumn::Followers => "Followers",
@@ -181,11 +177,11 @@ impl RankingKindData {
                     UserStatsColumn::Usernames => "Namechange count",
                     UserStatsColumn::Accuracy { .. } => "Accuracy",
                     UserStatsColumn::AverageHits { .. } => "Average hits per play",
-                    UserStatsColumn::CountSsh { .. } => "Count SSH's",
-                    UserStatsColumn::CountSs { .. } => "Count SS'",
-                    UserStatsColumn::CountSh { .. } => "Count SH's",
-                    UserStatsColumn::CountS { .. } => "Count S'",
-                    UserStatsColumn::CountA { .. } => "Count A's",
+                    UserStatsColumn::CountSsh { .. } => "Count SSH",
+                    UserStatsColumn::CountSs { .. } => "Count SS",
+                    UserStatsColumn::CountSh { .. } => "Count SH",
+                    UserStatsColumn::CountS { .. } => "Count S",
+                    UserStatsColumn::CountA { .. } => "Count A",
                     UserStatsColumn::Level { .. } => "Level",
                     UserStatsColumn::MaxCombo { .. } => "Max combo",
                     UserStatsColumn::Playcount { .. } => "Playcount",
@@ -200,7 +196,15 @@ impl RankingKindData {
                     UserStatsColumn::TotalHits { .. } => "Total hits",
                 };
 
-                let mut author = Author::new(format!("Server leaderboard: {text_kind}"));
+                let mut author_text = "Server leaderboard".to_owned();
+
+                if let Some(mode) = mode {
+                    let _ = write!(author_text, " for osu!{mode}", mode = mode_str(mode));
+                }
+
+                let _ = write!(author_text, ": {kind}");
+
+                let mut author = Author::new(author_text);
 
                 if let Some((id, icon)) = guild_icon {
                     let ext = if icon.is_animated() { "gif" } else { "webp" };

@@ -1,12 +1,14 @@
-use crate::CONFIG;
+use std::{borrow::Cow, str::FromStr};
 
+use rosu_v2::prelude::GameMode;
 use serde::{
     de::{Deserializer, Error as SerdeError, Unexpected},
     Deserialize,
 };
-use std::{borrow::Cow, str::FromStr};
 use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::{channel::ReactionType, id::Id};
+
+use crate::CONFIG;
 
 use super::constants::common_literals::OSU;
 
@@ -83,6 +85,17 @@ impl Emote {
             animated: false,
             id: Id::new(id),
             name: Some(name.to_owned()),
+        }
+    }
+}
+
+impl From<GameMode> for Emote {
+    fn from(mode: GameMode) -> Self {
+        match mode {
+            GameMode::STD => Self::Std,
+            GameMode::TKO => Self::Tko,
+            GameMode::CTB => Self::Ctb,
+            GameMode::MNA => Self::Mna,
         }
     }
 }
