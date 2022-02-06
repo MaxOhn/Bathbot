@@ -13,6 +13,7 @@ pub struct BGRankingPagination {
     author_idx: Option<usize>,
     scores: Vec<(u64, u32)>,
     usernames: HashMap<u64, String>,
+    global: bool,
     ctx: Arc<Context>,
 }
 
@@ -23,6 +24,7 @@ impl BGRankingPagination {
         author_idx: Option<usize>,
         scores: Vec<(u64, u32)>,
         usernames: HashMap<u64, String>,
+        global: bool,
     ) -> Self {
         Self {
             msg,
@@ -30,6 +32,7 @@ impl BGRankingPagination {
             author_idx,
             scores,
             usernames,
+            global,
             ctx,
         }
     }
@@ -102,6 +105,7 @@ impl Pagination for BGRankingPagination {
             self.author_idx,
             scores,
             self.pages.index + 1,
+            self.global,
             (self.page(), self.pages.total_pages),
         ))
     }

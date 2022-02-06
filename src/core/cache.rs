@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{iter::FromIterator, ops::Deref};
 
 use thiserror::Error;
 use twilight_cache_inmemory::{
@@ -87,13 +87,14 @@ impl Cache {
         Ok(f(&member))
     }
 
-    pub fn members<F, T>(&self, guild: Id<GuildMarker>, f: F) -> Vec<T>
+    pub fn members<F, T, C>(&self, guild: Id<GuildMarker>, f: F) -> C
     where
+        C: Default + FromIterator<T>,
         F: Fn(&Id<UserMarker>) -> T,
     {
         self.0
             .guild_members(guild)
-            .map_or_else(Vec::new, |entry| entry.iter().map(f).collect())
+            .map_or_else(C::default, |entry| entry.iter().map(f).collect())
     }
 
     pub fn role<F, T>(&self, role: Id<RoleMarker>, f: F) -> CacheResult<T>

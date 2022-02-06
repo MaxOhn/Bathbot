@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use eyre::Report;
-use hashbrown::HashMap;
+use hashbrown::{HashMap, HashSet};
 use twilight_model::id::Id;
 
 use crate::{
     embeds::{BGRankingEmbed, EmbedData},
     pagination::{BGRankingPagination, Pagination},
-    util::{constants::GENERAL_ISSUE, get_member_ids, numbers, CowUtils, MessageExt},
+    util::{constants::GENERAL_ISSUE, numbers, CowUtils, MessageExt},
     BotResult, CommandData, Context,
 };
 
@@ -47,16 +47,7 @@ pub(super) async fn _rankings(
     let guild_id = data.guild_id();
 
     if let Some(guild_id) = guild_id.filter(|_| non_global) {
-        // TODO: Use cache event instead
-        let members = match get_member_ids(&ctx, guild_id).await {
-            Ok(members) => members,
-            Err(why) => {
-                let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-                return Err(why);
-            }
-        };
-
+        let members: HashSet<_> = ctx.cache.members(guild_id, |id| id.get());
         scores.retain(|(id, _)| members.contains(id));
     }
 
@@ -90,7 +81,8 @@ pub(super) async fn _rankings(
 
     // Prepare initial page
     let pages = numbers::div_euclid(15, scores.len());
-    let embed_data = BGRankingEmbed::new(author_idx, initial_scores, 1, (1, pages));
+    let global = guild_id.is_none() || !non_global;
+    let embed_data = BGRankingEmbed::new(author_idx, initial_scores, 1, global, (1, pages));
 
     // Creating the embed
     let builder = embed_data.into_builder().build().into();
@@ -104,8 +96,14 @@ pub(super) async fn _rankings(
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination =
-        BGRankingPagination::new(Arc::clone(&ctx), response, author_idx, scores, usernames);
+    let pagination = BGRankingPagination::new(
+        Arc::clone(&ctx),
+        response,
+        author_idx,
+        scores,
+        usernames,
+        global,
+    );
 
     let owner = author_id;
 

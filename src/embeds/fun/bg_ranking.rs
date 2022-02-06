@@ -16,6 +16,7 @@ impl BGRankingEmbed {
         author_idx: Option<usize>,
         list: Vec<(&String, u32)>,
         idx: usize,
+        global: bool,
         pages: (usize, usize),
     ) -> Self {
         let len = list
@@ -47,8 +48,14 @@ impl BGRankingEmbed {
             let _ = write!(footer_text, " ~ Your rank: {}", author_idx + 1);
         }
 
+        let author_text = if global {
+            "Global leaderboard for correct guesses"
+        } else {
+            "Server leaderboard for correct guesses"
+        };
+
         Self {
-            author: Author::new("Global leaderboard for correct guesses:"),
+            author: Author::new(author_text),
             description,
             footer: Footer::new(footer_text),
         }

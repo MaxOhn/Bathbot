@@ -19,19 +19,13 @@ pub use exts::*;
 pub use matrix::Matrix;
 pub use message_builder::MessageBuilder;
 
-use std::iter::Extend;
-
 use futures::stream::{FuturesOrdered, StreamExt};
-use hashbrown::HashSet;
 use image::{
     imageops::FilterType, DynamicImage, GenericImage, GenericImageView, ImageOutputFormat::Png,
 };
 use tokio::time::{sleep, Duration};
 use twilight_http::error::ErrorType;
-use twilight_model::{
-    channel::Message,
-    id::{marker::GuildMarker, Id},
-};
+use twilight_model::channel::Message;
 
 use crate::{BotResult, Context};
 
@@ -265,60 +259,6 @@ pub async fn get_combined_thumbnail<'s>(
     combined.write_to(&mut png_bytes, Png)?;
 
     Ok(png_bytes)
-}
-
-pub async fn get_member_ids(ctx: &Context, guild_id: Id<GuildMarker>) -> BotResult<HashSet<u64>> {
-    let members = ctx
-        .http
-        .guild_members(guild_id)
-        .limit(1000)
-        .unwrap()
-        .exec()
-        .await?
-        .models()
-        .await?;
-
-    let mut last = match members.last() {
-        Some(member) => member.user.id,
-        None => return Ok(HashSet::new()),
-    };
-
-    let mut members: HashSet<_> = members
-        .into_iter()
-        .map(|member| member.user.id.get())
-        .collect();
-
-    if members.len() == 1000 {
-        let delay = Duration::from_millis(500);
-
-        #[allow(clippy::blocks_in_if_conditions)]
-        while {
-            sleep(delay).await;
-
-            let new_members: Vec<_> = ctx
-                .http
-                .guild_members(guild_id)
-                .limit(1000)
-                .unwrap()
-                .after(last)
-                .exec()
-                .await?
-                .models()
-                .await?;
-
-            last = match new_members.last() {
-                Some(member) => member.user.id,
-                None => return Ok(members),
-            };
-
-            let more_iterations = new_members.len() == 1000;
-            members.extend(new_members.into_iter().map(|member| member.user.id.get()));
-
-            more_iterations
-        } {}
-    }
-
-    Ok(members)
 }
 
 pub async fn send_reaction(ctx: &Context, msg: &Message, emote: Emote) -> BotResult<()> {

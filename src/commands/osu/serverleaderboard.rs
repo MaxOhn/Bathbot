@@ -33,7 +33,7 @@ pub async fn slash_serverleaderboard(
     let owner = command.user_id()?;
     let guild_id = command.guild_id.unwrap(); // command is only processed in guilds
 
-    let members = ctx.cache.members(guild_id, |id| id.get() as i64);
+    let members: Vec<_> = ctx.cache.members(guild_id, |id| id.get() as i64);
 
     let guild_icon = ctx
         .cache
