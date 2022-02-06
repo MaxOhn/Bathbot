@@ -2,14 +2,16 @@ use std::sync::Arc;
 
 use eyre::Report;
 use rosu_v2::prelude::{BeatmapsetCompact, OsuError};
-use tokio::time::{self, Duration};
+use tokio::time::{sleep, Duration};
 use twilight_model::{
     application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
     channel::message::MessageType,
+    id::{marker::UserMarker, Id},
 };
 
 use crate::{
     commands::{DoubleResultCow, MyCommand, MyCommandOption},
+    database::UserConfig,
     embeds::{EmbedData, SimulateEmbed},
     error::Error,
     util::{
@@ -21,7 +23,7 @@ use crate::{
         },
         matcher,
         osu::{map_id_from_history, map_id_from_msg, MapIdType, ModSelection},
-        MessageExt,
+        InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
@@ -52,21 +54,23 @@ use super::{option_map, option_mods};
 #[aliases("s")]
 async fn simulate(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
-        CommandData::Message { msg, mut args, num } => match SimulateArgs::args(&mut args) {
-            Ok(mut simulate_args) => {
-                let reply = msg
-                    .referenced_message
-                    .as_ref()
-                    .filter(|_| msg.kind == MessageType::Reply);
+        CommandData::Message { msg, mut args, num } => {
+            match SimulateArgs::args(&ctx, msg.author.id, &mut args).await {
+                Ok(mut simulate_args) => {
+                    let reply = msg
+                        .referenced_message
+                        .as_ref()
+                        .filter(|_| msg.kind == MessageType::Reply);
 
-                if let Some(id) = reply.and_then(|msg| map_id_from_msg(msg)) {
-                    simulate_args.map = Some(id);
+                    if let Some(id) = reply.and_then(|msg| map_id_from_msg(msg)) {
+                        simulate_args.map = Some(id);
+                    }
+
+                    _simulate(ctx, CommandData::Message { msg, args, num }, simulate_args).await
                 }
-
-                _simulate(ctx, CommandData::Message { msg, args, num }, simulate_args).await
+                Err(content) => msg.error(&ctx, content).await,
             }
-            Err(content) => msg.error(&ctx, content).await,
-        },
+        }
         CommandData::Interaction { command } => slash_simulate(ctx, *command).await,
     }
 }
@@ -127,6 +131,12 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
 
     let mapset: BeatmapsetCompact = map.mapset.take().unwrap().into();
 
+    let maximize = match (args.config.embeds_maximized, data.guild_id()) {
+        (Some(embeds_maximized), _) => embeds_maximized,
+        (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
+        (None, None) => true,
+    };
+
     // Accumulate all necessary data
     let embed_data = match SimulateEmbed::new(None, &map, &mapset, args.into()).await {
         Ok(data) => data,
@@ -137,44 +147,60 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
         }
     };
 
-    // Creating the embed
-    let embed = embed_data.as_builder().build();
     let content = "Simulated score:";
-    let builder = MessageBuilder::new().content(content).embed(embed);
-    let response = data.create_message(&ctx, builder).await?.model().await?;
 
-    ctx.store_msg(response.id);
+    // Only maximize if config allows it
+    if maximize {
+        let embed = embed_data.as_builder().build();
+        let builder = MessageBuilder::new().content(content).embed(embed);
+        let response = data.create_message(&ctx, builder).await?.model().await?;
 
-    // Add map to database if its not in already
-    if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-        warn!("{:?}", Report::new(err));
-    }
+        ctx.store_msg(response.id);
 
-    // Set map on garbage collection list if unranked
-    let gb = ctx.map_garbage_collector(&map);
-
-    // Minimize embed after delay
-    tokio::spawn(async move {
-        gb.execute(&ctx).await;
-        time::sleep(Duration::from_secs(45)).await;
-
-        if !ctx.remove_msg(response.id) {
-            return;
+        // Store map in DB
+        if let Err(err) = ctx.psql().insert_beatmap(&map).await {
+            warn!("{:?}", Report::new(err));
         }
 
+        // Set map on garbage collection list if unranked
+        let gb = ctx.map_garbage_collector(&map);
+
+        // Minimize embed after delay
+        tokio::spawn(async move {
+            gb.execute(&ctx).await;
+            sleep(Duration::from_secs(45)).await;
+
+            if !ctx.remove_msg(response.id) {
+                return;
+            }
+
+            let embed = embed_data.into_builder().build();
+            let builder = MessageBuilder::new().content(content).embed(embed);
+
+            if let Err(why) = response.update_message(&ctx, builder).await {
+                let report = Report::new(why).wrap_err("failed to minimize message");
+                warn!("{:?}", report);
+            }
+        });
+    } else {
         let embed = embed_data.into_builder().build();
         let builder = MessageBuilder::new().content(content).embed(embed);
+        data.create_message(&ctx, builder).await?;
 
-        if let Err(why) = response.update_message(&ctx, builder).await {
-            let report = Report::new(why).wrap_err("failed to minimize simulate msg");
-            warn!("{:?}", report);
+        // Store map in DB, combo was inserted earlier
+        if let Err(err) = ctx.psql().insert_beatmap(&map).await {
+            warn!("{:?}", Report::new(err));
         }
-    });
+
+        // Set map on garbage collection list if unranked
+        ctx.map_garbage_collector(&map).execute(&ctx).await;
+    }
 
     Ok(())
 }
 
 pub struct SimulateArgs {
+    config: UserConfig,
     map: Option<MapIdType>,
     pub mods: Option<ModSelection>,
     pub n300: Option<usize>,
@@ -196,7 +222,11 @@ macro_rules! parse_fail {
 }
 
 impl SimulateArgs {
-    fn args(args: &mut Args<'_>) -> Result<Self, String> {
+    async fn args(
+        ctx: &Context,
+        author_id: Id<UserMarker>,
+        args: &mut Args<'_>,
+    ) -> Result<Self, String> {
         let mut map = None;
         let mut mods = None;
         let mut n300 = None;
@@ -272,7 +302,15 @@ impl SimulateArgs {
             }
         }
 
+        let config = ctx.user_config(author_id).await.map_err(|e| {
+            let report = Report::new(e).wrap_err("failed to get user config");
+            warn!("{report:?}");
+
+            GENERAL_ISSUE.to_owned()
+        })?;
+
         let args = Self {
+            config,
             map,
             mods,
             n300,
@@ -287,7 +325,9 @@ impl SimulateArgs {
         Ok(args)
     }
 
-    fn slash(command: &ApplicationCommand) -> DoubleResultCow<Self> {
+    async fn slash(ctx: &Context, command: &ApplicationCommand) -> DoubleResultCow<Self> {
+        let author_id = command.user_id()?;
+        let config = ctx.user_config(author_id).await?;
         let mut map = None;
         let mut mods = None;
         let mut n300 = None;
@@ -347,6 +387,7 @@ impl SimulateArgs {
         }
 
         let args = Self {
+            config,
             map,
             mods,
             n300,
@@ -363,7 +404,7 @@ impl SimulateArgs {
 }
 
 pub async fn slash_simulate(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
-    match SimulateArgs::slash(&command)? {
+    match SimulateArgs::slash(&ctx, &command).await? {
         Ok(args) => _simulate(ctx, command.into(), args).await,
         Err(content) => command.error(&ctx, content).await,
     }
