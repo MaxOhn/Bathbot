@@ -27,7 +27,7 @@ use tokio::time::{sleep, Duration};
 use twilight_http::error::ErrorType;
 use twilight_model::channel::Message;
 
-use crate::{BotResult, Context};
+use crate::{error::Error, BotResult, Context};
 
 macro_rules! get {
     ($slice:ident[$idx:expr]) => {
@@ -267,32 +267,31 @@ pub async fn send_reaction(ctx: &Context, msg: &Message, emote: Emote) -> BotRes
     let emoji = &emote.request_reaction_type();
 
     // Initial attempt, return if it's not a 429
-    let mut err = match ctx.http.create_reaction(channel, msg, emoji).exec().await {
+    match ctx.http.create_reaction(channel, msg, emoji).exec().await {
         Ok(_) => return Ok(()),
         Err(e) if matches!(e.kind(), ErrorType::Response { status, .. } if status.raw() == 429) => {
-            e
         }
         Err(e) => return Err(e.into()),
-    };
+    }
 
-    // 100ms - 400ms - 1600ms
-    for (i, duration) in ExponentialBackoff::new(4).factor(25).take(3).enumerate() {
-        debug!(
-            "Send reaction retry attempt #{} | Backoff {duration:?}",
-            i + 1,
-        );
+    const TRIES: usize = 3;
+
+    // 200ms - 1000ms - 2000ms
+    let backoff = ExponentialBackoff::new(5).factor(40).max_delay(2000);
+
+    for (duration, i) in backoff.take(TRIES).zip(1..) {
+        debug!("Send reaction retry attempt #{i} | Backoff {duration:?}");
         sleep(duration).await;
 
-        err = match ctx.http.create_reaction(channel, msg, emoji).exec().await {
+        match ctx.http.create_reaction(channel, msg, emoji).exec().await {
             Ok(_) => return Ok(()),
-            Err(e) if matches!(e.kind(), ErrorType::Response { status, .. } if status.raw() == 429) => {
-                e
-            }
+            Err(e) if matches!(e.kind(), ErrorType::Response { status, .. } if status.raw() == 429) =>
+                {}
             Err(e) => return Err(e.into()),
         };
     }
 
-    Err(err.into())
+    Err(Error::ReactionRatelimit(TRIES))
 }
 
 #[derive(Debug, Clone)]

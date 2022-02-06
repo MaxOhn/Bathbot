@@ -65,6 +65,8 @@ pub enum Error {
     OsuV1(#[from] rosu::OsuError),
     #[error("error while calculating pp")]
     Pp(#[from] pp::PpError),
+    #[error("failed to send reaction after {0} retries")]
+    ReactionRatelimit(usize),
     #[error("error while communicating with redis")]
     Redis(#[from] bb8_redis::redis::RedisError),
     #[error("reqwest error")]
