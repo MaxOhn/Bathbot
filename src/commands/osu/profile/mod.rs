@@ -3,10 +3,13 @@ mod data;
 mod graph;
 mod size;
 
+use std::{collections::BTreeMap, sync::Arc};
+
 use args::ProfileArgs;
-pub use data::{ProfileData, ProfileResult};
+use eyre::Report;
 use graph::graphs;
-pub use size::{ProfileEmbedMap, ProfileSize};
+use rosu_v2::prelude::{GameMode, OsuError};
+use twilight_model::application::{command::CommandOptionChoice, interaction::ApplicationCommand};
 
 use crate::{
     commands::{
@@ -23,10 +26,10 @@ use crate::{
     BotResult, CommandData, Context, MessageBuilder,
 };
 
-use eyre::Report;
-use rosu_v2::prelude::{GameMode, OsuError};
-use std::{collections::BTreeMap, sync::Arc};
-use twilight_model::application::{command::CommandOptionChoice, interaction::ApplicationCommand};
+pub use self::{
+    data::{ProfileData, ProfileResult},
+    size::{ProfileEmbedMap, ProfileSize},
+};
 
 use super::{get_user_and_scores, option_mode, ScoreArgs, UserArgs};
 

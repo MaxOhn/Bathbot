@@ -18,6 +18,30 @@ const COUNTRY_CODE: &str = "country_code";
 type StatsValueResult<T> = BotResult<Vec<UserValueRaw<T>>>;
 
 impl Database {
+    pub async fn remove_osu_user_stats(&self, user: &str) -> BotResult<()> {
+        let query = sqlx::query!(
+            "DELETE \
+            FROM osu_user_stats S USING osu_user_names N \
+            WHERE N.username ILIKE $1 \
+              AND S.user_id=N.user_id",
+            user
+        );
+
+        query.execute(&self.pool).await?;
+
+        let query = sqlx::query!(
+            "DELETE \
+            FROM osu_user_stats_mode S USING osu_user_names N \
+            WHERE N.username ILIKE $1 \
+                AND S.user_id=N.user_id",
+            user
+        );
+
+        query.execute(&self.pool).await?;
+
+        Ok(())
+    }
+
     pub async fn upsert_osu_user(&self, user: &User, mode: GameMode) -> BotResult<()> {
         let mut tx = self.pool.begin().await?;
 

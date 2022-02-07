@@ -164,9 +164,22 @@ async fn get_user_cached(ctx: &Context, args: &UserArgs<'_>) -> OsuResult<User> 
         }
         Err(why) => {
             let report = Report::new(why).wrap_err("failed to get redis connection");
-            warn!("{:?}", report);
+            warn!("{report:?}");
 
-            let user = ctx.osu().user(args.name).mode(args.mode).await?;
+            let user = match ctx.osu().user(args.name).mode(args.mode).await {
+                Ok(user) => user,
+                Err(OsuError::NotFound) => {
+                    // Remove stats of unknown/restricted users so they don't appear in the leaderboard
+                    if let Err(err) = ctx.psql().remove_osu_user_stats(args.name).await {
+                        let report =
+                            Report::new(err).wrap_err("failed to remove stats of unknown user");
+                        warn!("{report:?}");
+                    }
+
+                    return Err(OsuError::NotFound);
+                }
+                err => return err,
+            };
 
             if let Err(err) = ctx.psql().upsert_osu_user(&user, args.mode).await {
                 let report = Report::new(err).wrap_err("failed to upsert osu user");
@@ -177,7 +190,19 @@ async fn get_user_cached(ctx: &Context, args: &UserArgs<'_>) -> OsuResult<User> 
         }
     };
 
-    let mut user = ctx.osu().user(args.name).mode(args.mode).await?;
+    let mut user = match ctx.osu().user(args.name).mode(args.mode).await {
+        Ok(user) => user,
+        Err(OsuError::NotFound) => {
+            // Remove stats of unknown/restricted users so they don't appear in the leaderboard
+            if let Err(err) = ctx.psql().remove_osu_user_stats(args.name).await {
+                let report = Report::new(err).wrap_err("failed to remove stats of unknown user");
+                warn!("{report:?}");
+            }
+
+            return Err(OsuError::NotFound);
+        }
+        err => return err,
+    };
 
     if let Err(err) = ctx.psql().upsert_osu_user(&user, args.mode).await {
         let report = Report::new(err).wrap_err("failed to upsert osu user");
@@ -253,11 +278,21 @@ async fn get_scores<'c>(
         (scores.fun)(fut)
     };
 
-    if scores.with_combo {
+    let result = if scores.with_combo {
         prepare_scores(ctx, scores_fut).await
     } else {
         scores_fut.await
+    };
+
+    if let Err(OsuError::NotFound) = &result {
+        // Remove stats of unknown/restricted users so they don't appear in the leaderboard
+        if let Err(err) = ctx.psql().remove_osu_user_stats(user.name).await {
+            let report = Report::new(err).wrap_err("failed to remove stats of unknown user");
+            warn!("{report:?}");
+        }
     }
+
+    result
 }
 
 struct UserArgs<'n> {
@@ -416,7 +451,7 @@ where
 
                     if let Err(err) = ctx.psql().insert_beatmap(map).await {
                         let report = Report::new(err).wrap_err("failed to insert map into DB");
-                        warn!("{:?}", report);
+                        warn!("{report:?}");
                     }
                 }
             }
