@@ -413,14 +413,9 @@ fn subcommand_simulate() -> MyCommandOption {
     let misses =
         MyCommandOption::builder(MISSES, "Specify the amount of misses").integer(Vec::new(), false);
 
-    // TODO
-    // let acc = MyCommandOption::builder(ACC, "Specify the accuracy")
-    //     .help("Specify the accuracy. Should be between 0.0 and 100.0")
-    //     .number(Vec::new(), false);
-
     let acc = MyCommandOption::builder(ACC, "Specify the accuracy")
         .help("Specify the accuracy. Should be between 0.0 and 100.0")
-        .string(Vec::new(), false);
+        .number(Vec::new(), false);
 
     let combo = MyCommandOption::builder(COMBO, "Specify the combo").integer(Vec::new(), false);
 

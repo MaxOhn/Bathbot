@@ -147,22 +147,13 @@ pub fn define_osustats() -> MyCommand {
     let min_rank = option_min_rank();
     let max_rank = option_max_rank();
 
-    // TODO
-    // let min_acc =
-    //     MyCommandOption::builder("min_acc", "Specify a min accuracy between 0.0 and 100.0")
-    //         .number(Vec::new(), false);
-
-    // let max_acc =
-    //     MyCommandOption::builder("max_acc", "Specify a max accuracy between 0.0 and 100.0")
-    //         .number(Vec::new(), false);
-
     let min_acc =
         MyCommandOption::builder("min_acc", "Specify a min accuracy between 0.0 and 100.0")
-            .string(Vec::new(), false);
+            .number(Vec::new(), false);
 
     let max_acc =
         MyCommandOption::builder("max_acc", "Specify a max accuracy between 0.0 and 100.0")
-            .string(Vec::new(), false);
+            .number(Vec::new(), false);
 
     let reverse =
         MyCommandOption::builder(REVERSE, "Reverse the resulting score list").boolean(false);

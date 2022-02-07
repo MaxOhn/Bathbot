@@ -526,26 +526,6 @@ impl ScoresArgs {
                         _ => return Err(Error::InvalidCommandOptions),
                     },
                     NAME => config.osu = Some(value.into()),
-                    // TODO: remove
-                    "min_acc" => match value.parse::<f32>() {
-                        Ok(number) => acc_min = Some(number.clamp(0.0, 100.0)),
-                        Err(_) => {
-                            let content = "Failed to parse min accuracy. \
-                            Be sure you specify a valid number between 0 and 100.";
-
-                            return Ok(Err(content.into()));
-                        }
-                    },
-                    // TODO: remove
-                    "max_acc" => match value.parse::<f32>() {
-                        Ok(number) => acc_max = Some(number.clamp(0.0, 100.0)),
-                        Err(_) => {
-                            let content = "Failed to parse max accuracy. \
-                                Be sure you specify a valid number between 0 and 100.";
-
-                            return Ok(Err(content.into()));
-                        }
-                    },
                     _ => return Err(Error::InvalidCommandOptions),
                 },
                 CommandOptionValue::Integer(value) => match option.name.as_str() {

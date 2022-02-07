@@ -456,16 +456,6 @@ impl RecentSimulateArgs {
                                     Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
                                 },
                             },
-                            // TODO: Remove
-                            ACC => match value.parse::<f32>() {
-                                Ok(number) => acc = Some(number.clamp(0.0, 100.0)),
-                                Err(_) => {
-                                    let content = "Failed to parse accuracy. \
-                                        Be sure you specify a valid number between 0 and 100.";
-
-                                    return Ok(Err(content.into()));
-                                }
-                            },
                             _ => return Err(Error::InvalidCommandOptions),
                         },
                         CommandOptionValue::Integer(value) => match option.name.as_str() {
@@ -478,13 +468,10 @@ impl RecentSimulateArgs {
                             SCORE => score = Some(value.max(0) as u32),
                             _ => return Err(Error::InvalidCommandOptions),
                         },
-                        CommandOptionValue::Number(value) => {
-                            let number = (option.name == ACC)
-                                .then(|| value.0 as f32)
-                                .ok_or(Error::InvalidCommandOptions)?;
-
-                            acc = Some(number.max(0.0).min(100.0));
-                        }
+                        CommandOptionValue::Number(value) => match option.name.as_str() {
+                            ACC => acc = Some(value.0.clamp(0.0, 100.0) as f32),
+                            _ => return Err(Error::InvalidCommandOptions),
+                        },
                         CommandOptionValue::User(value) => match option.name.as_str() {
                             DISCORD => match parse_discord(ctx, value).await? {
                                 Ok(osu) => config.osu = Some(osu),

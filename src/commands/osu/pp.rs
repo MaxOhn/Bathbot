@@ -272,16 +272,6 @@ impl PpArgs {
                 CommandOptionValue::String(value) => match option.name.as_str() {
                     MODE => config.mode = parse_mode_option(&value),
                     NAME => config.osu = Some(value.into()),
-                    // TODO: Remove
-                    "pp" => match value.parse::<f32>() {
-                        Ok(number) => pp = Some(number.max(0.0)),
-                        Err(_) => {
-                            let content = "Failed to parse pp. \
-                                Be sure you specify a valid number";
-
-                            return Ok(Err(content.into()));
-                        }
-                    },
                     _ => return Err(Error::InvalidCommandOptions),
                 },
                 CommandOptionValue::Number(value) => match option.name.as_str() {
@@ -311,9 +301,7 @@ impl PpArgs {
 }
 
 pub fn define_pp() -> MyCommand {
-    // TODO
-    // let pp = MyCommandOption::builder("pp", "Specify a target pp amount").number(Vec::new(), true);
-    let pp = MyCommandOption::builder("pp", "Specify a target pp amount").string(Vec::new(), true);
+    let pp = MyCommandOption::builder("pp", "Specify a target pp amount").number(Vec::new(), true);
     let mode = option_mode();
     let name = option_name();
     let discord = option_discord();

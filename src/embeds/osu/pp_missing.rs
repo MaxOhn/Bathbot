@@ -54,6 +54,7 @@ impl PPMissingEmbed {
                     pp = with_comma_float(goal_pp),
                     user = user.username,
                     required = with_comma_float(required),
+                    idx = idx + 1,
                 )
             }
             // Top 100 is not full
@@ -165,6 +166,7 @@ impl PPMissingEmbed {
                         pp = with_comma_float(goal_pp),
                         user = user.username,
                         required = with_comma_float(required),
+                        idx = idx + 1,
                     )
                 } else {
                     let idx = scores

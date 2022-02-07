@@ -336,25 +336,12 @@ impl WhatIfArgs {
                 CommandOptionValue::String(value) => match option.name.as_str() {
                     MODE => config.mode = parse_mode_option(&value),
                     NAME => config.osu = Some(value.into()),
-                    // TODO: Remove
-                    "pp" => match value.parse::<f32>() {
-                        Ok(number) => pp = Some(number.max(0.0)),
-                        Err(_) => {
-                            let content =
-                                "Failed to parse pp value. Be sure to specify a valid number.";
-
-                            return Ok(Err(content.into()));
-                        }
-                    },
                     _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandOptionValue::Number(value) => {
-                    let number = (option.name == "pp")
-                        .then(|| value.0 as f32)
-                        .ok_or(Error::InvalidCommandOptions)?;
-
-                    pp = Some(number);
-                }
+                CommandOptionValue::Number(value) => match option.name.as_str() {
+                    "pp" => pp = Some(value.0 as f32),
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
                 CommandOptionValue::User(value) => match option.name.as_str() {
                     DISCORD => match parse_discord(ctx, value).await? {
                         Ok(osu) => config.osu = Some(osu),
@@ -383,9 +370,7 @@ pub async fn slash_whatif(ctx: Arc<Context>, mut command: ApplicationCommand) ->
 }
 
 pub fn define_whatif() -> MyCommand {
-    // TODO
-    // let pp = MyCommandOption::builder("pp", "Specify a pp amount").number(Vec::new(), true);
-    let pp = MyCommandOption::builder("pp", "Specify a pp amount").string(Vec::new(), true);
+    let pp = MyCommandOption::builder("pp", "Specify a pp amount").number(Vec::new(), true);
     let mode = option_mode();
     let name = option_name();
     let discord = option_discord();
