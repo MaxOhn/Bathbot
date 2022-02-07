@@ -30,8 +30,8 @@ impl PinnedEmbed {
             let mapset = score.mapset.as_ref().unwrap();
 
             let (pp, max_pp, stars) = match PpCalculator::new(map.map_id).await {
-                Ok(calc) => {
-                    let mut calc = calc.score(score);
+                Ok(mut calc) => {
+                    calc.score(score);
 
                     let stars = calc.stars();
                     let max_pp = calc.max_pp();

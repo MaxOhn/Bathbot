@@ -49,7 +49,7 @@ impl PlayerSnipeListEmbed {
                 .expect("missing beatmap for psl embed");
 
             let max_pp = match PpCalculator::new(map.map_id).await {
-                Ok(calc) => Some(calc.mods(score.mods).max_pp() as f32),
+                Ok(mut calc) => Some(calc.mods(score.mods).max_pp() as f32),
                 Err(err) => {
                     warn!("{:?}", Report::new(err));
 

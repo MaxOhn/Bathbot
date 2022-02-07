@@ -11,7 +11,6 @@ use std::{
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu::prelude::{GameMode as GameModeV1, Score};
-use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_v2::prelude::{GameMode, Username};
 use twilight_model::{
     application::{
@@ -30,11 +29,10 @@ use crate::{
         parse_discord, parse_mode_option, DoubleResultCow, MyCommand, MyCommandOption,
     },
     database::OsuData,
+    pp::PpCalculator,
     util::{
         constants::common_literals::{ACC, ACCURACY, COMBO, MODE, PROFILE, SCORE, SORT},
-        matcher,
-        osu::prepare_beatmap_file,
-        InteractionExt, MessageExt,
+        matcher, InteractionExt, MessageExt,
     },
     Args, BotResult, Context, Error,
 };
@@ -283,17 +281,8 @@ impl ScoreOrder {
                 })
             }),
             Self::Pp => {
-                let map_path = match prepare_beatmap_file(map_id).await {
-                    Ok(path) => path,
-                    Err(err) => {
-                        warn!("{:?}", Report::new(err));
-
-                        return;
-                    }
-                };
-
-                let map = match Beatmap::from_path(map_path).await {
-                    Ok(map) => map,
+                let mut calc = match PpCalculator::new(map_id).await {
+                    Ok(calc) => calc,
                     Err(err) => {
                         warn!("{:?}", Report::new(err));
 
@@ -306,19 +295,7 @@ impl ScoreOrder {
                     .map(|score| {
                         let id = score.date.timestamp();
 
-                        let performance = map
-                            .pp()
-                            .mods(score.enabled_mods.bits())
-                            .n300(score.count300 as usize)
-                            .n100(score.count100 as usize)
-                            .n50(score.count50 as usize)
-                            .misses(score.count_miss as usize)
-                            .n_katu(score.count_katu as usize)
-                            .combo(score.max_combo as usize)
-                            .score(score.score)
-                            .calculate();
-
-                        (id, performance.pp() as f32)
+                        (id, calc.score(score).pp() as f32)
                     })
                     .collect::<HashMap<_, _>>();
 
@@ -342,17 +319,8 @@ impl ScoreOrder {
             }
             Self::Score => scores.sort_unstable_by_key(|s| Reverse(s.score)),
             Self::Stars => {
-                let map_path = match prepare_beatmap_file(map_id).await {
-                    Ok(path) => path,
-                    Err(err) => {
-                        warn!("{:?}", Report::new(err));
-
-                        return;
-                    }
-                };
-
-                let map = match Beatmap::from_path(map_path).await {
-                    Ok(map) => map,
+                let mut calc = match PpCalculator::new(map_id).await {
+                    Ok(calc) => calc,
                     Err(err) => {
                         warn!("{:?}", Report::new(err));
 
@@ -364,9 +332,8 @@ impl ScoreOrder {
                     .iter()
                     .map(|score| {
                         let id = score.date.timestamp();
-                        let difficulty = map.stars(score.enabled_mods.bits(), None);
 
-                        (id, difficulty.stars() as f32)
+                        (id, calc.score(score).stars() as f32)
                     })
                     .collect::<HashMap<_, _>>();
 

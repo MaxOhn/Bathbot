@@ -8,7 +8,6 @@ use std::{
 use eyre::Report;
 use futures::{stream::FuturesOrdered, StreamExt};
 use hashbrown::HashMap;
-use rosu_pp::{Beatmap as Map, BeatmapExt};
 use rosu_v2::prelude::{
     Beatmap, BeatmapsetCompact, GameMode, GameMods, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
@@ -36,6 +35,7 @@ use crate::{
     embeds::{EmbedData, TopEmbed, TopSingleEmbed},
     error::Error,
     pagination::{Pagination, TopPagination},
+    pp::PpCalculator,
     tracking::process_tracking,
     util::{
         constants::{
@@ -46,7 +46,7 @@ use crate::{
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
         matcher, numbers,
-        osu::{prepare_beatmap_file, ModSelection},
+        osu::ModSelection,
         ApplicationCommandExt, CowUtils, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, MessageBuilder,
@@ -894,8 +894,8 @@ impl TopOrder {
                             return (id, map.stars);
                         }
 
-                        let map_path = match prepare_beatmap_file(map.map_id).await {
-                            Ok(path) => path,
+                        let stars = match PpCalculator::new(map.map_id).await {
+                            Ok(mut calc) => calc.mods(score.mods).stars() as f32,
                             Err(err) => {
                                 warn!("{:?}", Report::new(err));
 
@@ -903,18 +903,7 @@ impl TopOrder {
                             }
                         };
 
-                        let map = match Map::from_path(map_path).await {
-                            Ok(map) => map,
-                            Err(err) => {
-                                warn!("{:?}", Report::new(err));
-
-                                return (id, 0.0);
-                            }
-                        };
-
-                        let difficulty = map.stars(score.mods.bits(), None);
-
-                        (id, difficulty.stars() as f32)
+                        (id, stars)
                     })
                     .collect::<FuturesOrdered<_>>()
                     .collect::<HashMap<_, _>>()

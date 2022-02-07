@@ -42,7 +42,6 @@ impl RecentListEmbed {
             let map = score.map.as_ref().unwrap();
             let mapset = score.mapset.as_ref().unwrap();
 
-            // TODO: Use PpCalculator
             #[allow(clippy::map_entry)]
             if !rosu_maps.contains_key(&map.map_id) {
                 let map_path = prepare_beatmap_file(map.map_id).await?;
@@ -51,7 +50,7 @@ impl RecentListEmbed {
                 rosu_maps.insert(map.map_id, rosu_map);
             };
 
-            let rosu_map = rosu_maps.get(&map.map_id).unwrap();
+            let rosu_map = &rosu_maps[&map.map_id];
 
             let (pp, stars) = get_pp_stars(&mut mod_map, score, map.map_id, rosu_map);
 

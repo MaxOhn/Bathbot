@@ -577,8 +577,8 @@ impl From<MyCommandOption> for CommandOption {
                     autocomplete: false,
                     choices,
                     description: option.description.to_owned(),
-                    max_value: max.map(|v| CommandOptionValue::Integer(v)),
-                    min_value: min.map(|v| CommandOptionValue::Integer(v)),
+                    max_value: max.map(CommandOptionValue::Integer),
+                    min_value: min.map(CommandOptionValue::Integer),
                     name: option.name.to_owned(),
                     required,
                 };
@@ -595,8 +595,8 @@ impl From<MyCommandOption> for CommandOption {
                     autocomplete: false,
                     choices,
                     description: option.description.to_owned(),
-                    max_value: max.map(|v| CommandOptionValue::Number(v)),
-                    min_value: min.map(|v| CommandOptionValue::Number(v)),
+                    max_value: max.map(CommandOptionValue::Number),
+                    min_value: min.map(CommandOptionValue::Number),
                     name: option.name.to_owned(),
                     required,
                 };

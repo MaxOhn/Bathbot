@@ -44,8 +44,8 @@ impl OsuStatsGlobalsEmbed {
             let grade = grade_emote(score.grade);
 
             let (pp, max_pp, stars) = match PpCalculator::new(score.map.beatmap_id).await {
-                Ok(calc) => {
-                    let mut calc = calc.score(score);
+                Ok(mut calc) => {
+                    calc.score(score);
 
                     let stars = calc.stars();
                     let max_pp = calc.max_pp();

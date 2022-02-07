@@ -174,7 +174,8 @@ async fn _topif(ctx: Arc<Context>, data: CommandData<'_>, args: IfArgs) -> BotRe
                 score.grade = score.grade(Some(score.accuracy));
             }
 
-            let mut calc = PpCalculator::new(map.map_id).await?.score(&score);
+            let mut calc = PpCalculator::new(map.map_id).await?;
+            calc.score(&score);
 
             let stars = calc.stars() as f32;
             let max_pp = calc.max_pp() as f32;

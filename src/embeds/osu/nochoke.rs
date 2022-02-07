@@ -41,8 +41,8 @@ impl NoChokeEmbed {
             let mapset = original.mapset.as_ref().unwrap();
 
             let (max_pp, stars) = match PpCalculator::new(map.map_id).await {
-                Ok(calc) => {
-                    let mut calc = calc.score(original);
+                Ok(mut calc) => {
+                    calc.score(original);
 
                     let stars = calc.stars();
                     let max_pp = calc.max_pp();

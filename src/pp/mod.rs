@@ -53,14 +53,14 @@ impl<'s> PpCalculator<'s> {
         })
     }
 
-    pub fn mods(mut self, mods: GameMods) -> Self {
+    pub fn mods(&mut self, mods: GameMods) -> &mut Self {
         self.score = Some(ScoreKind::Mods(mods));
         self.difficulty = None;
 
         self
     }
 
-    pub fn score(mut self, score: &'s dyn ScoreExt) -> Self {
+    pub fn score(&mut self, score: &'s dyn ScoreExt) -> &mut Self {
         self.score = Some(ScoreKind::Score(score));
         self.difficulty = None;
 
