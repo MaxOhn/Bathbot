@@ -401,23 +401,31 @@ pub fn define_simulate() -> MyCommand {
     let map = option_map();
     let mods = option_mods(false);
 
-    let n300 =
-        MyCommandOption::builder("n300", "Specify the amount of 300s").integer(Vec::new(), false);
+    let n300 = MyCommandOption::builder("n300", "Specify the amount of 300s")
+        .min_int(0)
+        .integer(Vec::new(), false);
 
-    let n100 =
-        MyCommandOption::builder("n100", "Specify the amount of 100s").integer(Vec::new(), false);
+    let n100 = MyCommandOption::builder("n100", "Specify the amount of 100s")
+        .min_int(0)
+        .integer(Vec::new(), false);
 
-    let n50 =
-        MyCommandOption::builder("n50", "Specify the amount of 50s").integer(Vec::new(), false);
+    let n50 = MyCommandOption::builder("n50", "Specify the amount of 50s")
+        .min_int(0)
+        .integer(Vec::new(), false);
 
-    let misses =
-        MyCommandOption::builder(MISSES, "Specify the amount of misses").integer(Vec::new(), false);
+    let misses = MyCommandOption::builder(MISSES, "Specify the amount of misses")
+        .min_int(0)
+        .integer(Vec::new(), false);
 
     let acc = MyCommandOption::builder(ACC, "Specify the accuracy")
         .help("Specify the accuracy. Should be between 0.0 and 100.0")
+        .min_num(0.0)
+        .max_num(100.0)
         .number(Vec::new(), false);
 
-    let combo = MyCommandOption::builder(COMBO, "Specify the combo").integer(Vec::new(), false);
+    let combo = MyCommandOption::builder(COMBO, "Specify the combo")
+        .min_int(0)
+        .integer(Vec::new(), false);
 
     let score_help = "Specifying the score is only necessary for mania.\n\
         The value should be between 0 and 1,000,000 and already adjusted to mods \
@@ -425,6 +433,7 @@ pub fn define_simulate() -> MyCommand {
 
     let score = MyCommandOption::builder(SCORE, "Specify the score")
         .help(score_help)
+        .min_int(0)
         .integer(Vec::new(), false);
 
     let help = "Simulate a score on a map.\n\

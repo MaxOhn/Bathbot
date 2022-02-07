@@ -62,7 +62,10 @@ pub async fn slash_rank(ctx: Arc<Context>, mut command: ApplicationCommand) -> B
 }
 
 pub fn define_rank() -> MyCommand {
-    let rank = MyCommandOption::builder(RANK, "Specify the target rank").integer(Vec::new(), true);
+    let rank = MyCommandOption::builder(RANK, "Specify the target rank")
+        .min_int(1)
+        .integer(Vec::new(), true);
+
     let mode = option_mode();
     let name = option_name();
     let country = option_country();
@@ -71,7 +74,10 @@ pub fn define_rank() -> MyCommand {
     let pp = MyCommandOption::builder("pp", "How many pp are missing to reach the given rank?")
         .subcommand(vec![rank, mode, name, country, discord]);
 
-    let rank = MyCommandOption::builder(RANK, "Specify the target rank").integer(Vec::new(), true);
+    let rank = MyCommandOption::builder(RANK, "Specify the target rank")
+        .min_int(1)
+        .integer(Vec::new(), true);
+
     let mode = option_mode();
     let name = option_name();
     let discord = option_discord();

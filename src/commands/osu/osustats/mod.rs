@@ -72,11 +72,15 @@ pub async fn slash_osustats(ctx: Arc<Context>, mut command: ApplicationCommand) 
 
 fn option_min_rank() -> MyCommandOption {
     MyCommandOption::builder("min_rank", "Specify a min rank between 1 and 100")
+        .min_int(1)
+        .max_int(100)
         .integer(Vec::new(), false)
 }
 
 fn option_max_rank() -> MyCommandOption {
     MyCommandOption::builder("max_rank", "Specify a max rank between 1 and 100")
+        .min_int(1)
+        .max_int(100)
         .integer(Vec::new(), false)
 }
 
@@ -149,10 +153,14 @@ pub fn define_osustats() -> MyCommand {
 
     let min_acc =
         MyCommandOption::builder("min_acc", "Specify a min accuracy between 0.0 and 100.0")
+            .min_num(0.0)
+            .max_num(100.0)
             .number(Vec::new(), false);
 
     let max_acc =
         MyCommandOption::builder("max_acc", "Specify a max accuracy between 0.0 and 100.0")
+            .min_num(0.0)
+            .max_num(100.0)
             .number(Vec::new(), false);
 
     let reverse =

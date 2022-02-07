@@ -131,6 +131,7 @@ pub fn define_prune() -> MyCommand {
 
     let amount = MyCommandOption::builder("amount", "Choose the amount of messages to delete")
         .help(amount_help)
+        .min_int(1)
         .integer(Vec::new(), true);
 
     let help = "Delete the last few messages in a channel.\n\

@@ -580,8 +580,8 @@ pub fn define_help() -> MyCommand {
 
     let command = MyCommandOption::builder("command", "Specify a command base name")
         .help(option_help)
-        .string(Vec::new(), false)
-        .autocomplete();
+        .autocomplete()
+        .string(Vec::new(), false);
 
     let description = "Display general help or help for a specific command";
     let help = "If no command name is specified, it will show general help for the bot.\n\

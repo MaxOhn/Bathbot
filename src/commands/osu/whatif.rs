@@ -370,7 +370,10 @@ pub async fn slash_whatif(ctx: Arc<Context>, mut command: ApplicationCommand) ->
 }
 
 pub fn define_whatif() -> MyCommand {
-    let pp = MyCommandOption::builder("pp", "Specify a pp amount").number(Vec::new(), true);
+    let pp = MyCommandOption::builder("pp", "Specify a pp amount")
+        .min_num(0.0)
+        .number(Vec::new(), true);
+
     let mode = option_mode();
     let name = option_name();
     let discord = option_discord();

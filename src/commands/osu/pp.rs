@@ -301,7 +301,10 @@ impl PpArgs {
 }
 
 pub fn define_pp() -> MyCommand {
-    let pp = MyCommandOption::builder("pp", "Specify a target pp amount").number(Vec::new(), true);
+    let pp = MyCommandOption::builder("pp", "Specify a target pp amount")
+        .min_num(0.0)
+        .number(Vec::new(), true);
+
     let mode = option_mode();
     let name = option_name();
     let discord = option_discord();
@@ -309,7 +312,9 @@ pub fn define_pp() -> MyCommand {
     let each_description =
         "Fill a top100 with scores of this many pp until the target total pp are reached";
 
-    let each = MyCommandOption::builder("each", each_description).number(Vec::new(), false);
+    let each = MyCommandOption::builder("each", each_description)
+        .min_num(0.0)
+        .number(Vec::new(), false);
 
     let description = "How many pp is a user missing to reach the given amount?";
 

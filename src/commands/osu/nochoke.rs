@@ -644,8 +644,9 @@ pub fn define_nochoke() -> MyCommand {
 
     let miss_limit_description = "Only unchoke scores with at most this many misses";
 
-    let miss_limit =
-        MyCommandOption::builder("miss_limit", miss_limit_description).integer(Vec::new(), false);
+    let miss_limit = MyCommandOption::builder("miss_limit", miss_limit_description)
+        .min_int(0)
+        .integer(Vec::new(), false);
 
     let version_choices = vec![
         CommandOptionChoice::String {

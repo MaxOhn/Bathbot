@@ -15,8 +15,8 @@ use rosu_v2::prelude::{GameMode, Username};
 use twilight_model::{
     application::command::{
         BaseCommandOptionData, ChannelCommandOptionData, ChoiceCommandOptionData, Command,
-        CommandOption, CommandOptionChoice, CommandType, NumberCommandOptionData,
-        OptionsCommandOptionData,
+        CommandOption, CommandOptionChoice, CommandOptionValue, CommandType, Number,
+        NumberCommandOptionData, OptionsCommandOptionData,
     },
     id::{marker::UserMarker, Id},
 };
@@ -316,11 +316,46 @@ pub struct MyCommandOptionBuilder {
     name: &'static str,
     description: &'static str,
     help: Option<&'static str>,
+    autocomplete: bool,
+    min_num: Option<Number>,
+    max_num: Option<Number>,
+    min_int: Option<i64>,
+    max_int: Option<i64>,
 }
 
 impl MyCommandOptionBuilder {
     pub fn help(mut self, help: &'static str) -> Self {
         self.help = Some(help);
+
+        self
+    }
+
+    pub fn autocomplete(mut self) -> Self {
+        self.autocomplete = true;
+
+        self
+    }
+
+    pub fn min_num(mut self, n: f64) -> Self {
+        self.min_num = Some(Number(n));
+
+        self
+    }
+
+    pub fn max_num(mut self, n: f64) -> Self {
+        self.max_num = Some(Number(n));
+
+        self
+    }
+
+    pub fn min_int(mut self, n: i64) -> Self {
+        self.min_int = Some(n);
+
+        self
+    }
+
+    pub fn max_int(mut self, n: i64) -> Self {
+        self.max_int = Some(n);
 
         self
     }
@@ -349,7 +384,7 @@ impl MyCommandOptionBuilder {
             description: self.description,
             help: self.help,
             kind: MyCommandOptionKind::String {
-                autocomplete: false,
+                autocomplete: self.autocomplete,
                 choices,
                 required,
             },
@@ -361,7 +396,12 @@ impl MyCommandOptionBuilder {
             name: self.name,
             description: self.description,
             help: self.help,
-            kind: MyCommandOptionKind::Integer { choices, required },
+            kind: MyCommandOptionKind::Integer {
+                choices,
+                required,
+                min: self.min_int,
+                max: self.max_int,
+            },
         }
     }
 
@@ -370,7 +410,12 @@ impl MyCommandOptionBuilder {
             name: self.name,
             description: self.description,
             help: self.help,
-            kind: MyCommandOptionKind::Number { choices, required },
+            kind: MyCommandOptionKind::Number {
+                choices,
+                required,
+                min: self.min_num,
+                max: self.max_num,
+            },
         }
     }
 
@@ -426,20 +471,16 @@ impl MyCommandOption {
             name,
             description,
             help: None,
+            autocomplete: false,
+            min_num: None,
+            max_num: None,
+            min_int: None,
+            max_int: None,
         }
     }
 
     pub fn help(mut self, help: &'static str) -> Self {
         self.help = Some(help);
-
-        self
-    }
-
-    /// Only works for string options
-    pub fn autocomplete(mut self) -> Self {
-        if let MyCommandOptionKind::String { autocomplete, .. } = &mut self.kind {
-            *autocomplete = true;
-        }
 
         self
     }
@@ -460,10 +501,14 @@ pub enum MyCommandOptionKind {
     Integer {
         choices: Vec<CommandOptionChoice>,
         required: bool,
+        min: Option<i64>,
+        max: Option<i64>,
     },
     Number {
         choices: Vec<CommandOptionChoice>,
         required: bool,
+        min: Option<Number>,
+        max: Option<Number>,
     },
     Boolean {
         required: bool,
@@ -522,26 +567,36 @@ impl From<MyCommandOption> for CommandOption {
 
                 Self::String(inner)
             }
-            MyCommandOptionKind::Integer { choices, required } => {
+            MyCommandOptionKind::Integer {
+                choices,
+                required,
+                min,
+                max,
+            } => {
                 let inner = NumberCommandOptionData {
                     autocomplete: false,
                     choices,
                     description: option.description.to_owned(),
-                    max_value: None, // TODO: Make customizable
-                    min_value: None,
+                    max_value: max.map(|v| CommandOptionValue::Integer(v)),
+                    min_value: min.map(|v| CommandOptionValue::Integer(v)),
                     name: option.name.to_owned(),
                     required,
                 };
 
                 Self::Integer(inner)
             }
-            MyCommandOptionKind::Number { choices, required } => {
+            MyCommandOptionKind::Number {
+                choices,
+                required,
+                min,
+                max,
+            } => {
                 let inner = NumberCommandOptionData {
                     autocomplete: false,
                     choices,
                     description: option.description.to_owned(),
-                    max_value: None, // TODO: Make customizable
-                    min_value: None,
+                    max_value: max.map(|v| CommandOptionValue::Number(v)),
+                    min_value: min.map(|v| CommandOptionValue::Number(v)),
                     name: option.name.to_owned(),
                     required,
                 };

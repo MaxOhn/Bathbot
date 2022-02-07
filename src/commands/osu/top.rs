@@ -1456,6 +1456,8 @@ pub fn define_top() -> MyCommand {
     let mods = option_mods_explicit();
 
     let index = MyCommandOption::builder(INDEX, "Choose a specific score index between 1 and 100")
+        .min_int(1)
+        .max_int(100)
         .integer(Vec::new(), false);
 
     let discord = option_discord();

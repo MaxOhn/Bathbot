@@ -499,6 +499,7 @@ pub fn define_matchcost() -> MyCommand {
 
     let warmups = MyCommandOption::builder("warmups", warmup_description)
         .help(warmup_help)
+        .min_int(0)
         .integer(Vec::new(), false);
 
     let skip_last_description = "Specify the amount of maps to ignore at the end (defaults to 0)";
@@ -511,6 +512,7 @@ pub fn define_matchcost() -> MyCommand {
 
     let skip_last = MyCommandOption::builder("skip_last", skip_last_description)
         .help(skip_last_help)
+        .min_int(0)
         .integer(Vec::new(), false);
 
     let description = "Display performance ratings for a multiplayer match";

@@ -236,6 +236,7 @@ pub fn define_bws() -> MyCommand {
 
     let rank = MyCommandOption::builder(RANK, "Specify a target rank to reach")
         .help(rank_help)
+        .min_int(1)
         .integer(Vec::new(), false);
 
     let badges_help = "Calculate how the bws value evolves towards the given amount of badges.\n\
@@ -243,6 +244,7 @@ pub fn define_bws() -> MyCommand {
 
     let badges = MyCommandOption::builder("badges", "Specify an amount of badges to reach")
         .help(badges_help)
+        .min_int(0)
         .integer(Vec::new(), false);
 
     let description = "Show the badge weighted seeding for an osu!standard player";

@@ -74,6 +74,7 @@ pub async fn slash_roll(ctx: Arc<Context>, command: ApplicationCommand) -> BotRe
 
 pub fn define_roll() -> MyCommand {
     let limit = MyCommandOption::builder("limit", "Specify an upper limit, defaults to 100")
+        .min_int(0)
         .integer(Vec::new(), false);
 
     MyCommand::new("roll", "Roll a random number").options(vec![limit])

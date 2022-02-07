@@ -197,6 +197,8 @@ pub fn define_medal() -> MyCommand {
     let discord = option_discord();
 
     let index = MyCommandOption::builder(INDEX, "Specify an index e.g. 1 = most recent")
+        .min_int(0)
+        .max_int(100)
         .integer(Vec::new(), false);
 
     let recent_help = "Display a recently acquired medal of a user.\n\

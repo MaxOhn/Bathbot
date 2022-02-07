@@ -136,6 +136,8 @@ fn score_options() -> Vec<MyCommandOption> {
 
     let index = MyCommandOption::builder(INDEX, "Choose the recent score's index")
         .help(index_help)
+        .min_int(1)
+        .max_int(100)
         .integer(Vec::new(), false);
 
     let grade = MyCommandOption::builder(GRADE, CONSIDER_GRADE).string(
@@ -204,6 +206,8 @@ fn best_options() -> Vec<MyCommandOption> {
 
     let index = MyCommandOption::builder(INDEX, "Choose a specific score index between 1 and 100")
         .help(index_help)
+        .min_int(1)
+        .max_int(100)
         .integer(Vec::new(), false);
 
     let discord = option_discord();
@@ -305,6 +309,8 @@ fn subcommand_fix() -> MyCommandOption {
 
     let index = MyCommandOption::builder(INDEX, "Choose the recent score's index")
         .help(index_help)
+        .min_int(1)
+        .max_int(100)
         .integer(Vec::new(), false);
 
     let discord = option_discord();
@@ -326,6 +332,8 @@ fn subcommand_leaderboard() -> MyCommandOption {
 
     let index = MyCommandOption::builder(INDEX, "Choose the recent score's index")
         .help(index_help)
+        .min_int(1)
+        .max_int(100)
         .integer(Vec::new(), false);
 
     let discord = option_discord();
@@ -394,6 +402,8 @@ fn subcommand_simulate() -> MyCommandOption {
 
         MyCommandOption::builder(INDEX, "Choose the recent score's index")
             .help(help)
+            .min_int(1)
+            .max_int(100)
             .integer(Vec::new(), false)
     }
 
@@ -401,23 +411,31 @@ fn subcommand_simulate() -> MyCommandOption {
     let mods = option_mods(false);
     let index = simulate_index();
 
-    let n300 =
-        MyCommandOption::builder("n300", "Specify the amount of 300s").integer(Vec::new(), false);
+    let n300 = MyCommandOption::builder("n300", "Specify the amount of 300s")
+        .min_int(0)
+        .integer(Vec::new(), false);
 
-    let n100 =
-        MyCommandOption::builder("n100", "Specify the amount of 100s").integer(Vec::new(), false);
+    let n100 = MyCommandOption::builder("n100", "Specify the amount of 100s")
+        .min_int(0)
+        .integer(Vec::new(), false);
 
-    let n50 =
-        MyCommandOption::builder("n50", "Specify the amount of 50s").integer(Vec::new(), false);
+    let n50 = MyCommandOption::builder("n50", "Specify the amount of 50s")
+        .min_int(0)
+        .integer(Vec::new(), false);
 
-    let misses =
-        MyCommandOption::builder(MISSES, "Specify the amount of misses").integer(Vec::new(), false);
+    let misses = MyCommandOption::builder(MISSES, "Specify the amount of misses")
+        .min_int(0)
+        .integer(Vec::new(), false);
 
     let acc = MyCommandOption::builder(ACC, "Specify the accuracy")
         .help("Specify the accuracy. Should be between 0.0 and 100.0")
+        .min_num(0.0)
+        .max_num(100.0)
         .number(Vec::new(), false);
 
-    let combo = MyCommandOption::builder(COMBO, "Specify the combo").integer(Vec::new(), false);
+    let combo = MyCommandOption::builder(COMBO, "Specify the combo")
+        .min_int(0)
+        .integer(Vec::new(), false);
 
     let discord = option_discord();
 
@@ -434,20 +452,25 @@ fn subcommand_simulate() -> MyCommandOption {
     let mods = option_mods(false);
     let index = simulate_index();
 
-    let n300 =
-        MyCommandOption::builder("n300", "Specify the amount of 300s").integer(Vec::new(), false);
+    let n300 = MyCommandOption::builder("n300", "Specify the amount of 300s")
+        .min_int(0)
+        .integer(Vec::new(), false);
 
-    let n100 =
-        MyCommandOption::builder("n100", "Specify the amount of 100s").integer(Vec::new(), false);
+    let n100 = MyCommandOption::builder("n100", "Specify the amount of 100s")
+        .min_int(0)
+        .integer(Vec::new(), false);
 
-    let misses =
-        MyCommandOption::builder(MISSES, "Specify the amount of misses").integer(Vec::new(), false);
+    let misses = MyCommandOption::builder(MISSES, "Specify the amount of misses")
+        .min_int(0)
+        .integer(Vec::new(), false);
 
     let acc = MyCommandOption::builder(ACC, "Specify the accuracy")
         .help("Specify the accuracy. Should be between 0.0 and 100.0")
         .string(Vec::new(), false);
 
-    let combo = MyCommandOption::builder(COMBO, "Specify the combo").integer(Vec::new(), false);
+    let combo = MyCommandOption::builder(COMBO, "Specify the combo")
+        .min_int(0)
+        .integer(Vec::new(), false);
 
     let discord = option_discord();
 
@@ -465,23 +488,29 @@ fn subcommand_simulate() -> MyCommandOption {
     let index = simulate_index();
 
     let fruits = MyCommandOption::builder(FRUITS, "Specify the amount of fruit hits")
+        .min_int(0)
         .integer(Vec::new(), false);
 
     let droplets = MyCommandOption::builder("droplets", "Specify the amount of droplet hits")
+        .min_int(0)
         .integer(Vec::new(), false);
 
     let tiny_droplets =
         MyCommandOption::builder("tiny_droplets", "Specify the amount of tiny droplet hits")
+            .min_int(0)
             .integer(Vec::new(), false);
 
     let misses = MyCommandOption::builder(MISSES, "Specify the amount of fruit misses")
+        .min_int(0)
         .integer(Vec::new(), false);
 
     let acc = MyCommandOption::builder(ACC, "Specify the accuracy")
         .help("Specify the accuracy. Should be between 0.0 and 100.0")
         .string(Vec::new(), false);
 
-    let combo = MyCommandOption::builder(COMBO, "Specify the combo").integer(Vec::new(), false);
+    let combo = MyCommandOption::builder(COMBO, "Specify the combo")
+        .min_int(0)
+        .integer(Vec::new(), false);
 
     let discord = option_discord();
 
@@ -516,6 +545,7 @@ fn subcommand_simulate() -> MyCommandOption {
 
     let score = MyCommandOption::builder(SCORE, "Specify the score")
         .help(score_help)
+        .min_int(0)
         .integer(Vec::new(), false);
 
     let discord = option_discord();
