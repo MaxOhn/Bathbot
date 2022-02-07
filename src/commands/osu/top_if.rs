@@ -454,7 +454,7 @@ impl IfArgs {
     const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
         If you want to insert mods everywhere, specify it e.g. as `+hrdt`.\n\
         If you want to replace mods everywhere, specify it e.g. as `+hdhr!`.\n\
-        And if you want to remote mods everywhere, specify it e.g. as `-hdnf!`.";
+        And if you want to remove mods everywhere, specify it e.g. as `-hdnf!`.";
 
     async fn args(
         ctx: &Context,

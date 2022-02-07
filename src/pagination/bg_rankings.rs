@@ -73,23 +73,21 @@ impl Pagination for BGRankingPagination {
     }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        for id in self
+        for &id in self
             .scores
             .iter()
             .skip(self.pages.index)
             .take(self.pages.per_page)
             .map(|(id, _)| id)
         {
-            if !self.usernames.contains_key(id) {
-                let name = match self.ctx.http.user(Id::new(*id)).exec().await {
-                    Ok(user_res) => match user_res.model().await {
-                        Ok(user) => user.name,
-                        Err(_) => String::from("Unknown user"),
-                    },
-                    Err(_) => String::from("Unknown user"),
-                };
+            if !self.usernames.contains_key(&id) {
+                let name = self
+                    .ctx
+                    .cache
+                    .user(Id::new(id), |user| user.name.clone())
+                    .unwrap_or_else(|_| "Unknown user".to_owned());
 
-                self.usernames.insert(*id, name);
+                self.usernames.insert(id, name);
             }
         }
 

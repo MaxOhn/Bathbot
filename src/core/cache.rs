@@ -16,7 +16,7 @@ use twilight_model::{
         marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
         Id,
     },
-    user::CurrentUser,
+    user::{CurrentUser, User},
 };
 
 use crate::util::constants::OWNER_USER_ID;
@@ -104,6 +104,15 @@ impl Cache {
         let role = self.0.role(role).ok_or(CacheMiss::Role { role })?;
 
         Ok(f(&role))
+    }
+
+    pub fn user<F, T>(&self, user: Id<UserMarker>, f: F) -> CacheResult<T>
+    where
+        F: FnOnce(&User) -> T,
+    {
+        let user = self.0.user(user).ok_or(CacheMiss::User { user })?;
+
+        Ok(f(&user))
     }
 
     pub fn is_guild_owner(
@@ -261,6 +270,8 @@ pub enum CacheMiss {
     },
     #[error("missing role {role}")]
     Role { role: Id<RoleMarker> },
+    #[error("missing user {user}")]
+    User { user: Id<UserMarker> },
 }
 
 pub enum RolesLookup {

@@ -62,13 +62,10 @@ pub(super) async fn _rankings(
     for &id in scores.iter().take(15).map(|(id, _)| id) {
         let user_id = Id::new(id);
 
-        let name = match ctx.http.user(user_id).exec().await {
-            Ok(user_res) => match user_res.model().await {
-                Ok(user) => user.name,
-                Err(_) => String::from("Unknown user"),
-            },
-            Err(_) => String::from("Unknown user"),
-        };
+        let name = ctx
+            .cache
+            .user(user_id, |user| user.name.clone())
+            .unwrap_or_else(|_| "Unknown user".to_owned());
 
         usernames.insert(id, name);
     }
