@@ -19,18 +19,18 @@ pub struct ProfileData {
     pub user: User,
     pub scores: Vec<Score>,
     pub embeds: ProfileEmbedMap,
-    pub discord_id: Option<Option<Id<UserMarker>>>,
+    pub discord_id: Option<Id<UserMarker>>,
     pub profile_result: Option<ProfileResult>,
     pub globals_count: Option<BTreeMap<usize, Cow<'static, str>>>,
 }
 
 impl ProfileData {
-    pub(super) fn new(user: User, scores: Vec<Score>) -> Self {
+    pub(super) fn new(user: User, scores: Vec<Score>, discord_id: Option<Id<UserMarker>>) -> Self {
         Self {
             user,
             scores,
             embeds: ProfileEmbedMap::default(),
-            discord_id: None,
+            discord_id,
             profile_result: None,
             globals_count: None,
         }
@@ -39,7 +39,7 @@ impl ProfileData {
     /// Check how many of a user's top scores are on their own maps
     pub fn own_top_scores(&self) -> usize {
         let ranked_maps_count =
-            self.user.ranked_mapset_count.unwrap() + self.user.loved_mapset_count.unwrap();
+            self.user.ranked_mapset_count.unwrap_or(0) + self.user.loved_mapset_count.unwrap_or(0);
 
         if ranked_maps_count > 0 {
             self.scores

@@ -222,4 +222,18 @@ impl Database {
 
         Ok(())
     }
+
+    pub async fn get_discord_from_osu_id(&self, user_id: u32) -> BotResult<Option<Id<UserMarker>>> {
+        let query = sqlx::query!(
+            "SELECT discord_id FROM user_configs WHERE osu_id=$1",
+            user_id as i32
+        );
+
+        let discord_id = query
+            .fetch_optional(&self.pool)
+            .await?
+            .map(|e| Id::new(e.discord_id as u64));
+
+        Ok(discord_id)
+    }
 }

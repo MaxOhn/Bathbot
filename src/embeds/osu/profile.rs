@@ -8,73 +8,62 @@ use twilight_model::{
 
 use crate::{
     commands::osu::{MinMaxAvgBasic, ProfileResult},
-    embeds::{attachment, Author, EmbedBuilder, EmbedData, EmbedFields, Footer},
+    embeds::{attachment, Author, EmbedFields, Footer},
     util::{
-        constants::common_literals::{MANIA, TAIKO},
         datetime::{date_to_string, how_long_ago_text, sec_to_minsec},
         numbers::{round, with_comma_int},
         osu::grade_emote,
+        Emote,
     },
 };
 
 #[derive(Clone)]
 pub struct ProfileEmbed {
     author: Author,
-    description: Option<String>,
+    description: String,
     fields: EmbedFields,
     footer: Footer,
     image: String,
     thumbnail: String,
-    title: Option<String>,
 }
 
 impl ProfileEmbed {
-    pub fn compact(user: &User, max_pp: f32) -> Self {
+    pub fn compact(user: &User, max_pp: f32, discord_id: Option<Id<UserMarker>>) -> Self {
         let stats = user.statistics.as_ref().unwrap();
         let level = stats.level.float();
         let playtime = stats.playtime / 60 / 60;
 
-        let description = format!(
-            "Accuracy: `{:.2}%` • Level: `{level:.2}`\n\
-            Playcount: `{}` (`{playtime} hrs`)\n\
-            Max pp play: `{max_pp:.2}pp` • Mode: `{}`",
-            stats.accuracy,
-            with_comma_int(stats.playcount),
-            match user.mode {
-                GameMode::STD => "osu!",
-                GameMode::TKO => TAIKO,
-                GameMode::CTB => "catch",
-                GameMode::MNA => MANIA,
-            }
+        let mut description = format!(
+            "Accuracy: `{acc:.2}%` • Level: `{level:.2}`\n\
+            Playcount: `{playcount}` (`{playtime} hrs`) • {mode}\n\
+            Max pp play: `{max_pp:.2}pp`",
+            acc = stats.accuracy,
+            playcount = with_comma_int(stats.playcount),
+            mode = Emote::from(user.mode).text(),
         );
+
+        if let Some(user_id) = discord_id {
+            let _ = write!(description, " • <@{user_id}>");
+        }
 
         Self {
             author: author!(user),
-            description: Some(description),
+            description,
             fields: Vec::new(),
             footer: Footer::new(footer_text(user)),
             image: attachment("profile_graph.png"),
             thumbnail: user.avatar_url.to_owned(),
-            title: None,
         }
     }
 
     pub fn medium(user: &User, bonus_pp: f32, discord_id: Option<Id<UserMarker>>) -> Self {
-        let mut title = format!(
-            "{} statistics",
-            match user.mode {
-                GameMode::STD => "osu!",
-                GameMode::TKO => "Taiko",
-                GameMode::CTB => "CtB",
-                GameMode::MNA => "Mania",
-            }
-        );
+        let mut description = format!("**{} __statistics", Emote::from(user.mode).text());
 
         if let Some(user_id) = discord_id {
-            let _ = write!(title, " for <@{user_id}>");
+            let _ = write!(description, " for <@{user_id}>");
         }
 
-        title.push(':');
+        description.push_str(":__**");
 
         let footer_text = footer_text(user);
         let stats = user.statistics.as_ref().unwrap();
@@ -82,12 +71,11 @@ impl ProfileEmbed {
 
         Self {
             author: author!(user),
-            description: None,
+            description,
             fields,
             footer: Footer::new(footer_text),
             image: attachment("profile_graph.png"),
             thumbnail: user.avatar_url.to_owned(),
-            title: Some(title),
         }
     }
 
@@ -98,21 +86,13 @@ impl ProfileEmbed {
         own_top_scores: usize,
         discord_id: Option<Id<UserMarker>>,
     ) -> Self {
-        let mut title = format!(
-            "{} statistics",
-            match user.mode {
-                GameMode::STD => "osu!",
-                GameMode::TKO => "Taiko",
-                GameMode::CTB => "CtB",
-                GameMode::MNA => "Mania",
-            }
-        );
+        let mut description = format!("**{} __statistics", Emote::from(user.mode).text());
 
         if let Some(user_id) = discord_id {
-            let _ = write!(title, " for <@{user_id}>");
+            let _ = write!(description, " for <@{user_id}>");
         }
 
-        title.push(':');
+        description.push_str(":__**");
 
         let footer_text = footer_text(user);
         let stats = user.statistics.as_ref().unwrap();
@@ -123,7 +103,7 @@ impl ProfileEmbed {
 
         let mut fields = main_fields(user, stats, bonus_pp);
 
-        let description = if let Some(values) = profile_result {
+        if let Some(values) = profile_result {
             let mut avg_string = String::with_capacity(256);
             avg_string.push_str("```\n");
             let _ = writeln!(avg_string, "   |   PP   |  Acc  | Combo | Map len");
@@ -277,11 +257,9 @@ impl ProfileEmbed {
 
             count_str.push_str("```");
             fields.push(field!("Global leaderboards", count_str, true));
-
-            None
         } else {
-            Some("No Top scores".to_owned())
-        };
+            description.push_str("\n\n No Top scores");
+        }
 
         Self {
             author: author!(user),
@@ -290,7 +268,6 @@ impl ProfileEmbed {
             footer: Footer::new(footer_text),
             image: attachment("profile_graph.png"),
             thumbnail: user.avatar_url.to_owned(),
-            title: Some(title),
         }
     }
 }
@@ -374,23 +351,11 @@ fn main_fields(user: &User, stats: &UserStatistics, bonus_pp: f32) -> Vec<EmbedF
     ]
 }
 
-impl EmbedData for ProfileEmbed {
-    fn as_builder(&self) -> EmbedBuilder {
-        let mut builder = EmbedBuilder::new()
-            .author(&self.author)
-            .fields(self.fields.clone())
-            .footer(&self.footer)
-            .image(&self.image)
-            .thumbnail(&self.thumbnail);
-
-        if let Some(ref description) = self.description {
-            builder = builder.description(description);
-        }
-
-        if let Some(ref title) = self.title {
-            builder = builder.title(title);
-        }
-
-        builder
-    }
-}
+impl_builder!(&ProfileEmbed {
+    author,
+    description,
+    fields,
+    footer,
+    image,
+    thumbnail,
+});

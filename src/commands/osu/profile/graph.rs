@@ -1,4 +1,4 @@
-use crate::error::GraphError;
+use std::mem;
 
 use chrono::Datelike;
 use futures::{
@@ -9,7 +9,8 @@ use image::{imageops::FilterType::Lanczos3, load_from_memory, png::PngEncoder, C
 use plotters::prelude::*;
 use reqwest::Response;
 use rosu_v2::prelude::{MonthlyCount, User};
-use std::mem;
+
+use crate::error::GraphError;
 
 const W: u32 = 1350;
 const H: u32 = 350;

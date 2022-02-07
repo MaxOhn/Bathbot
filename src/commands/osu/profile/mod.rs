@@ -72,9 +72,26 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
     };
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, &mut scores, Some(&user)).await;
+    let tracking_fut = process_tracking(&ctx, &mut scores, Some(&user));
 
-    let mut profile_data = ProfileData::new(user, scores);
+    // Try to get the user discord id that is linked to the osu!user
+    let discord_id_fut = ctx.psql().get_discord_from_osu_id(user.user_id);
+
+    let discord_id = match tokio::join!(discord_id_fut, tracking_fut) {
+        (Ok(user), _) => data
+            .guild_id()
+            .zip(user)
+            .filter(|&(guild, user)| ctx.cache.member(guild, user, |_| ()).is_ok())
+            .map(|(_, user)| user),
+        (Err(err), _) => {
+            let report = Report::new(err).wrap_err("failed to get discord id from osu! user id");
+            warn!("{report:?}");
+
+            None
+        }
+    };
+
+    let mut profile_data = ProfileData::new(user, scores, discord_id);
 
     // Draw the graph
     let graph = match graphs(&mut profile_data.user).await {
@@ -130,7 +147,7 @@ impl ProfileEmbed {
                         .and_then(|score| score.pp)
                         .unwrap_or(0.0);
 
-                    ProfileEmbed::compact(user, max_pp)
+                    ProfileEmbed::compact(user, max_pp, profile_data.discord_id)
                 }
                 ProfileSize::Medium => {
                     let scores = &profile_data.scores;
@@ -147,10 +164,7 @@ impl ProfileEmbed {
                         .as_ref()
                         .map_or(0.0, |result| result.bonus_pp);
 
-                    // TODO: Use when all members are permanently in the cache
-                    let discord_id = None;
-
-                    ProfileEmbed::medium(user, bonus_pp, discord_id)
+                    ProfileEmbed::medium(user, bonus_pp, profile_data.discord_id)
                 }
                 ProfileSize::Full => {
                     let scores = &profile_data.scores;
@@ -164,7 +178,7 @@ impl ProfileEmbed {
                             Err(why) => {
                                 let report =
                                     Report::new(why).wrap_err("failed to request globals count");
-                                warn!("{:?}", report);
+                                warn!("{report:?}");
 
                                 profile_data.globals_count.insert(BTreeMap::new())
                             }
@@ -180,15 +194,12 @@ impl ProfileEmbed {
 
                     let profile_result = profile_data.profile_result.as_ref();
 
-                    // TODO: Use when all members are permanently in the cache
-                    let discord_id = None;
-
                     ProfileEmbed::full(
                         user,
                         profile_result,
                         globals_count,
                         own_top_scores,
-                        discord_id,
+                        profile_data.discord_id,
                     )
                 }
             };

@@ -61,7 +61,7 @@ macro_rules! impl_builder {
     (SUB &$ty:ty { $($field:ident,)+ }) => {
         fn as_builder(&self) -> crate::embeds::EmbedBuilder {
             crate::embeds::EmbedBuilder::new()
-                $(.$field(&self.$field))+
+                $(.$field(self.$field.clone()))+
         }
     };
 
