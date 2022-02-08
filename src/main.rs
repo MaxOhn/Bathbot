@@ -236,7 +236,18 @@ async fn async_main() -> Result<()> {
     let (member_tx, mut member_rx) = mpsc::unbounded_channel();
 
     // Final context
-    let ctx = Arc::new(Context::new(cache, stats, http, clients, cluster, data, member_tx).await);
+    let ctx = Arc::new(
+        Context::new(
+            cache,
+            stats,
+            http,
+            clients,
+            cluster,
+            data,
+            member_tx.clone(),
+        )
+        .await,
+    );
 
     // Slash commands
     let slash_commands = SLASH_COMMANDS.collect();
@@ -314,10 +325,14 @@ async fn async_main() -> Result<()> {
                 .cluster
                 .command(shard_id, &req)
                 .await
-                .wrap_err_with(|| format!("failed to request members for guild {}", guild_id));
+                .wrap_err_with(|| format!("failed to request members for guild {guild_id}"));
 
             if let Err(report) = command_result {
                 warn!("{report:?}");
+
+                if let Err(why) = member_tx.send((guild_id, shard_id)) {
+                    warn!("Failed to re-forward member request: {why}");
+                }
             }
         }
     });
@@ -429,7 +444,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
             ctx.stats.event_counts.guild_create.inc();
 
             if let Err(why) = ctx.member_tx.send((e.id, shard_id)) {
-                warn!("Failed to forward member request: {}", why);
+                warn!("Failed to forward member request: {why}");
             }
 
             let stats = ctx.cache.stats();
