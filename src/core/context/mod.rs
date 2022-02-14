@@ -37,6 +37,8 @@ pub use self::impls::{MatchLiveChannels, MatchTrackResult};
 
 use super::Cache;
 
+pub type Redis = Pool<RedisConnectionManager>;
+
 pub struct Context {
     pub cache: Cache,
     pub stats: Arc<BotStats>,
@@ -53,7 +55,7 @@ pub struct Context {
 
 pub struct Clients {
     pub psql: Database,
-    pub redis: Pool<RedisConnectionManager>,
+    pub redis: Redis,
     pub osu: Osu,
     pub osu_v1: OsuV1,
     pub custom: CustomClient,

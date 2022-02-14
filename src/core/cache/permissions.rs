@@ -1,128 +1,22 @@
-use std::{iter::FromIterator, ops::Deref};
+use std::ops::Deref;
 
-use thiserror::Error;
-use twilight_cache_inmemory::{
-    model::{CachedGuild, CachedMember},
-    GuildResource, InMemoryCache, InMemoryCacheStats, ResourceType,
-};
-use twilight_gateway::Event;
 use twilight_model::{
     channel::{
         permission_overwrite::{PermissionOverwrite, PermissionOverwriteType},
         GuildChannel,
     },
-    guild::{Permissions, Role},
+    guild::Permissions,
     id::{
         marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
         Id,
     },
-    user::{CurrentUser, User},
 };
 
 use crate::util::constants::OWNER_USER_ID;
 
-type CacheResult<T> = Result<T, CacheMiss>;
+use super::Cache;
 
-pub struct Cache(InMemoryCache);
-
-// TODO: Cold resume when fields on CachedGuild & co are pub
 impl Cache {
-    pub fn new() -> Self {
-        let resource_types = ResourceType::CHANNEL
-            | ResourceType::GUILD
-            | ResourceType::MEMBER
-            | ResourceType::ROLE
-            | ResourceType::USER_CURRENT;
-
-        let cache = InMemoryCache::builder()
-            .message_cache_size(0)
-            .resource_types(resource_types)
-            .build();
-
-        Self(cache)
-    }
-
-    pub fn update(&self, event: &Event) {
-        self.0.update(event)
-    }
-
-    pub fn stats(&self) -> InMemoryCacheStats<'_> {
-        self.0.stats()
-    }
-
-    pub fn channel<F, T>(&self, channel: Id<ChannelMarker>, f: F) -> CacheResult<T>
-    where
-        F: FnOnce(&GuildResource<GuildChannel>) -> T,
-    {
-        let channel = self
-            .0
-            .guild_channel(channel)
-            .ok_or(CacheMiss::Channel { channel })?;
-
-        Ok(f(&channel))
-    }
-
-    pub fn current_user(&self) -> CacheResult<CurrentUser> {
-        self.0.current_user().ok_or(CacheMiss::CurrentUser)
-    }
-
-    pub fn guild<F, T>(&self, guild: Id<GuildMarker>, f: F) -> CacheResult<T>
-    where
-        F: FnOnce(&CachedGuild) -> T,
-    {
-        let guild = self.0.guild(guild).ok_or(CacheMiss::Guild { guild })?;
-
-        Ok(f(&guild))
-    }
-
-    pub fn member<F, T>(&self, guild: Id<GuildMarker>, user: Id<UserMarker>, f: F) -> CacheResult<T>
-    where
-        F: FnOnce(&CachedMember) -> T,
-    {
-        let member = self
-            .0
-            .member(guild, user)
-            .ok_or(CacheMiss::Member { guild, user })?;
-
-        Ok(f(&member))
-    }
-
-    pub fn members<F, T, C>(&self, guild: Id<GuildMarker>, f: F) -> C
-    where
-        C: Default + FromIterator<T>,
-        F: Fn(&Id<UserMarker>) -> T,
-    {
-        self.0
-            .guild_members(guild)
-            .map_or_else(C::default, |entry| entry.iter().map(f).collect())
-    }
-
-    pub fn role<F, T>(&self, role: Id<RoleMarker>, f: F) -> CacheResult<T>
-    where
-        F: FnOnce(&GuildResource<Role>) -> T,
-    {
-        let role = self.0.role(role).ok_or(CacheMiss::Role { role })?;
-
-        Ok(f(&role))
-    }
-
-    pub fn user<F, T>(&self, user: Id<UserMarker>, f: F) -> CacheResult<T>
-    where
-        F: FnOnce(&User) -> T,
-    {
-        let user = self.0.user(user).ok_or(CacheMiss::User { user })?;
-
-        Ok(f(&user))
-    }
-
-    pub fn is_guild_owner(
-        &self,
-        guild: Id<GuildMarker>,
-        user: Id<UserMarker>,
-    ) -> CacheResult<bool> {
-        self.guild(guild, |g| g.owner_id() == user)
-    }
-
     pub fn get_guild_permissions(
         &self,
         user: Id<UserMarker>,
@@ -253,25 +147,6 @@ impl Cache {
             .flatten()
         })
     }
-}
-
-#[derive(Debug, Error)]
-pub enum CacheMiss {
-    #[error("missing channel {channel}")]
-    Channel { channel: Id<ChannelMarker> },
-    #[error("missing current user")]
-    CurrentUser,
-    #[error("missing guild {guild}")]
-    Guild { guild: Id<GuildMarker> },
-    #[error("missing member {user} in guild {guild}")]
-    Member {
-        guild: Id<GuildMarker>,
-        user: Id<UserMarker>,
-    },
-    #[error("missing role {role}")]
-    Role { role: Id<RoleMarker> },
-    #[error("missing user {user}")]
-    User { user: Id<UserMarker> },
 }
 
 pub enum RolesLookup {

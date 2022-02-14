@@ -47,6 +47,7 @@ use bb8_redis::redis::AsyncCommands;
 use eyre::Report;
 use futures::future::FutureExt;
 use hashbrown::HashMap;
+use rkyv::{Deserialize, Infallible};
 use rosu_v2::{
     prelude::{BeatmapUserScore, GameMode, GameMods, Grade, OsuError, OsuResult, Score, User},
     request::GetUserScores,
@@ -153,8 +154,9 @@ async fn get_user_cached(ctx: &Context, args: &UserArgs<'_>) -> OsuResult<User> 
                 if !bytes.is_empty() {
                     ctx.stats.inc_cached_user();
                     trace!("Found user `{}` in cache", args.name);
-                    let user =
-                        serde_cbor::from_slice(&bytes).expect("failed to deserialize redis user");
+
+                    let archived = unsafe { rkyv::archived_root::<User>(&bytes) };
+                    let user = archived.deserialize(&mut Infallible).unwrap();
 
                     return Ok(user);
                 }
@@ -212,22 +214,22 @@ async fn get_user_cached(ctx: &Context, args: &UserArgs<'_>) -> OsuResult<User> 
     // Remove html user page to reduce overhead
     user.page.take();
 
-    let bytes = serde_cbor::to_vec(&user).expect("failed to serialize user");
+    let bytes = rkyv::to_bytes::<_, 16_384>(&user).expect("failed to serialize user");
 
     // Cache users for 10 minutes and update username in DB
-    let set_fut = conn.set_ex::<_, _, ()>(key, bytes, USER_CACHE_SECONDS);
+    let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), USER_CACHE_SECONDS);
     let name_update_fut = ctx.psql().upsert_osu_name(user.user_id, &user.username);
 
     let (set_result, name_update_result) = tokio::join!(set_fut, name_update_fut);
 
     if let Err(why) = set_result {
         let report = Report::new(why).wrap_err("failed to insert bytes into cache");
-        warn!("{:?}", report);
+        warn!("{report:?}");
     }
 
     if let Err(why) = name_update_result {
         let report = Report::new(why).wrap_err("failed to update osu! username");
-        warn!("{:?}", report);
+        warn!("{report:?}");
     }
 
     Ok(user)

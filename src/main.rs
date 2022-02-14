@@ -40,7 +40,7 @@ use std::{
 
 use bb8_redis::{bb8::Pool, RedisConnectionManager};
 use dashmap::{DashMap, DashSet};
-use eyre::{Result, WrapErr};
+use eyre::{Report, Result, WrapErr};
 use futures::StreamExt;
 use hashbrown::HashSet;
 use parking_lot::Mutex;
@@ -211,7 +211,7 @@ async fn async_main() -> Result<()> {
         | EventTypeFlags::VOICE_STATE_UPDATE
         | EventTypeFlags::WEBHOOKS_UPDATE;
 
-    let cache = Cache::new();
+    let (cache, resume_data) = Cache::new(&redis).await;
 
     let stats = Arc::new(BotStats::new(osu.metrics()));
 
@@ -220,7 +220,7 @@ async fn async_main() -> Result<()> {
         .event_types(EventTypeFlags::all() - ignore_flags)
         .http_client(http.clone())
         .shard_scheme(ShardScheme::Auto)
-        // .resume_sessions(sessions)
+        .resume_sessions(resume_data)
         .build()
         .await?;
 
@@ -358,29 +358,12 @@ async fn async_main() -> Result<()> {
     // Prevent non-minimized msgs from getting minimized
     ctx.clear_msgs_to_process();
 
-    // TODO: Cold resume
-    ctx.cluster.down();
+    let resume_data = ctx.cluster.down_resumable();
 
-    // Store sessions for later resume
-    // let sessions = ctx
-    //     .cluster
-    //     .down_resumable()
-    //     .into_iter()
-    //     .map(|(shard, session)| {
-    //         let info = SessionInfo {
-    //             session_id: session.session_id,
-    //             sequence: session.sequence,
-    //         };
-
-    //         (shard, info)
-    //     })
-    //     .collect();
-
-    // if let Err(err) = ctx.cache.cache_sessions(&sessions).await {
-    //     let report = Report::new(err).wrap_err("failed to store sessions");
-
-    //     error!("{:?}", report,);
-    // }
+    if let Err(err) = ctx.cache.freeze(&ctx.clients.redis, resume_data).await {
+        let report = Report::new(err).wrap_err("failed to freeze cache");
+        error!("{report:?}");
+    }
 
     let (count, total) = ctx.garbage_collect_all_maps().await;
     info!("Garbage collected {count}/{total} maps");
@@ -443,8 +426,10 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
         Event::GuildCreate(e) => {
             ctx.stats.event_counts.guild_create.inc();
 
-            if let Err(why) = ctx.member_tx.send((e.id, shard_id)) {
-                warn!("Failed to forward member request: {why}");
+            if ctx.cache.count_members(e.id) < 10 {
+                if let Err(why) = ctx.member_tx.send((e.id, shard_id)) {
+                    warn!("Failed to forward member request: {why}");
+                }
             }
 
             let stats = ctx.cache.stats();

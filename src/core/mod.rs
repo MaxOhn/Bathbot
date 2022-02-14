@@ -11,6 +11,6 @@ pub use commands::{Command, CommandGroup, CommandGroups, CMD_GROUPS};
 pub use config::{BotConfig, CONFIG};
 pub use context::{
     generate_activity, AssignRoles, Clients, Context, ContextData, MatchLiveChannels,
-    MatchTrackResult,
+    MatchTrackResult, Redis,
 };
 pub use stats::BotStats;
