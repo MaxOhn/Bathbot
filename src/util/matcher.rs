@@ -34,7 +34,11 @@ pub fn get_mention_role(msg: &str) -> Option<Id<RoleMarker>> {
 }
 
 pub fn get_mention_user(msg: &str) -> Option<Id<UserMarker>> {
-    get_mention(MentionType::User, msg).and_then(Id::new_checked)
+    msg.parse::<u64>()
+        .is_err()
+        .then(|| get_mention(MentionType::User, msg))
+        .flatten()
+        .and_then(Id::new_checked)
 }
 
 fn get_mention(mention_type: MentionType, msg: &str) -> Option<u64> {
