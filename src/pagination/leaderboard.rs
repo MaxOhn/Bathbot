@@ -65,14 +65,16 @@ impl Pagination for LeaderboardPagination {
             .skip(self.pages.index)
             .take(self.pages.per_page);
 
-        LeaderboardEmbed::new(
+        let embed_fut = LeaderboardEmbed::new(
             self.author_name.as_deref(),
             &self.map,
             self.mapset.as_ref(),
             Some(scores),
             &self.first_place_icon,
             self.pages.index,
-        )
-        .await
+            (self.page(), self.pages.total_pages),
+        );
+
+        embed_fut.await
     }
 }

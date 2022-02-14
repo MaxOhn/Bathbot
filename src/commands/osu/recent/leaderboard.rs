@@ -21,7 +21,7 @@ use crate::{
             common_literals::{DISCORD, INDEX, MODE, MODS, MODS_PARSE_FAIL, NAME},
             AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE,
         },
-        matcher,
+        matcher, numbers,
         osu::ModSelection,
         InteractionExt, MessageExt,
     },
@@ -140,6 +140,8 @@ pub(super) async fn _recentleaderboard(
         .first()
         .map(|_| format!("{}{}", AVATAR_URL, user.user_id));
 
+    let pages = numbers::div_euclid(10, scores.len());
+
     let data_fut = LeaderboardEmbed::new(
         author_name.as_deref(),
         &map,
@@ -147,6 +149,7 @@ pub(super) async fn _recentleaderboard(
         (!scores.is_empty()).then(|| scores.iter().take(10)),
         &first_place_icon,
         0,
+        (1, pages),
     );
 
     let embed_data = match data_fut.await {

@@ -9,7 +9,7 @@ use crate::{
             common_literals::{MAP, MAP_PARSE_FAIL, MODS, MODS_PARSE_FAIL},
             AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE,
         },
-        matcher,
+        matcher, numbers,
         osu::{map_id_from_history, map_id_from_msg, MapIdType, ModSelection},
         ApplicationCommandExt, MessageExt,
     },
@@ -126,6 +126,8 @@ async fn _leaderboard(
         .first()
         .map(|s| format!("{}{}", AVATAR_URL, s.user_id));
 
+    let pages = numbers::div_euclid(10, scores.len());
+
     let data_fut = LeaderboardEmbed::new(
         author_name.as_deref(),
         &map,
@@ -137,6 +139,7 @@ async fn _leaderboard(
         },
         &first_place_icon,
         0,
+        (1, pages),
     );
 
     let embed_data = match data_fut.await {

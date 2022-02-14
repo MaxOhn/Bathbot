@@ -35,6 +35,7 @@ impl LeaderboardEmbed {
         scores: Option<S>,
         author_icon: &Option<String>,
         idx: usize,
+        pages: (usize, usize),
     ) -> BotResult<Self>
     where
         S: Iterator<Item = &'i ScraperScore>,
@@ -119,8 +120,12 @@ impl LeaderboardEmbed {
             author = author.icon_url(author_icon.to_owned());
         }
 
-        let footer = Footer::new(format!("{:?} map by {creator_name}", map.status))
-            .icon_url(format!("{AVATAR_URL}{creator_id}"));
+        let footer_text = format!(
+            "{:?} map by {creator_name} | Page {}/{}",
+            map.status, pages.0, pages.1,
+        );
+
+        let footer = Footer::new(footer_text).icon_url(format!("{AVATAR_URL}{creator_id}"));
 
         Ok(Self {
             author,
