@@ -81,7 +81,7 @@ impl Cache {
             inner: FreezeInnerError::from(inner),
         })?;
 
-        debug!("Resume data bytes: {}", bytes.len());
+        trace!("Resume data bytes: {}", bytes.len());
 
         Self::store_bytes(DATA_KEY, &bytes, redis)
             .await
@@ -295,8 +295,8 @@ impl Cache {
         Ok(idx)
     }
 
-    fn serialize_content<'i, 'j, K, V, const N: usize>(
-        iter: Take<&'i mut ResourceIter<'j, K, V>>,
+    fn serialize_content<K, V, const N: usize>(
+        iter: Take<&'_ mut ResourceIter<'_, K, V>>,
         len: usize,
     ) -> Result<AlignedVec, FreezeInnerError>
     where
@@ -311,7 +311,7 @@ impl Cache {
             resolvers.push((elem, resolver));
         }
 
-        let pos = serializer.align_for::<K>()?;
+        let pos = serializer.align_for::<V>()?;
 
         let resolver = unsafe {
             for (elem, resolver) in resolvers.drain(..) {
