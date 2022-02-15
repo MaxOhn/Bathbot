@@ -188,7 +188,7 @@ impl PPMissingEmbed {
 
                     let mut n_each = 100;
 
-                    for i in idx..len - idx {
+                    for i in idx..len {
                         let bot: f32 = scores
                             .iter_mut()
                             .skip(idx)
@@ -225,25 +225,23 @@ impl PPMissingEmbed {
                             user = user.username,
                         )
                     } else {
-                        // Shift scores to right and then overwrite pp values with top_pp
-                        scores[idx..].rotate_right(n_each);
-
-                        scores
-                            .iter_mut()
-                            .skip(idx)
-                            .take(n_each)
-                            .for_each(|s| s.pp = Some(each));
-
-                        let bot: f32 = scores
+                        let mut pps: Vec<_> = scores
                             .iter()
-                            .skip(idx + n_each)
-                            .filter_map(|s| s.weight.as_ref())
-                            .map(|w| w.pp / 0.95)
-                            .sum();
+                            .filter_map(|s| s.pp)
+                            .take(len - n_each)
+                            .chain(iter::repeat(each).take(n_each))
+                            .collect();
+
+                        pps.sort_unstable_by(|a, b| b.partial_cmp(a).unwrap_or(Ordering::Equal));
+
+                        let accum = pps
+                            .iter()
+                            .enumerate()
+                            .fold(0.0, |sum, (i, pp)| sum + pp * 0.95_f32.powi(i as i32));
 
                         // Calculate the pp of the missing score after adding `n_each` many `each` pp scores
-                        let total = top + bot;
-                        let (required, _) = pp_missing(total, goal_pp, &(*scores)[..]);
+                        let total = accum + bonus_pp;
+                        let (required, _) = pp_missing(total, goal_pp, pps.as_slice());
 
                         format!(
                             "To reach {pp}pp, {user} needs to perform **{n_each}** more \

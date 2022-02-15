@@ -153,7 +153,11 @@ async fn get_user_cached(ctx: &Context, args: &UserArgs<'_>) -> OsuResult<User> 
             if let Ok(bytes) = conn.get::<_, Vec<u8>>(&key).await {
                 if !bytes.is_empty() {
                     ctx.stats.inc_cached_user();
-                    trace!("Found user `{}` in cache", args.name);
+                    trace!(
+                        "Found user `{}` in cache ({} bytes)",
+                        args.name,
+                        bytes.len()
+                    );
 
                     let archived = unsafe { rkyv::archived_root::<User>(&bytes) };
                     let user = archived.deserialize(&mut Infallible).unwrap();
