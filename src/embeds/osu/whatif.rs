@@ -17,12 +17,21 @@ pub struct WhatIfEmbed {
 impl WhatIfEmbed {
     pub fn new(user: User, pp: f32, data: WhatIfData) -> Self {
         let stats = user.statistics.as_ref().unwrap();
+        let count = data.count();
 
-        let title = format!(
-            "What if {name} got a new {pp_given}pp score?",
-            name = user.username,
-            pp_given = round(pp)
-        );
+        let title = if count <= 1 {
+            format!(
+                "What if {name} got a new {pp_given}pp score?",
+                name = user.username,
+                pp_given = round(pp),
+            )
+        } else {
+            format!(
+                "What if {name} got {count} new {pp_given}pp scores?",
+                name = user.username,
+                pp_given = round(pp),
+            )
+        };
 
         let description = match data {
             WhatIfData::NonTop100 => {
@@ -33,13 +42,22 @@ impl WhatIfEmbed {
                     name = user.username
                 )
             }
-            WhatIfData::NoScores { rank } => {
-                let mut d = format!(
-                    "A {pp}pp play would be {name}'s #1 best play.\n\
-                     Their pp would change by **+{pp}** to **{pp}pp**",
-                    pp = with_comma_float(pp),
-                    name = user.username,
-                );
+            WhatIfData::NoScores { count, rank } => {
+                let mut d = if count == 1 {
+                    format!(
+                        "A {pp}pp play would be {name}'s #1 best play.\n\
+                        Their pp would change by **+{pp}** to **{pp}pp**",
+                        pp = with_comma_float(pp),
+                        name = user.username,
+                    )
+                } else {
+                    format!(
+                        "A {pp}pp play would be {name}'s #1 best play.\n\
+                        Adding {count} of them would change their pp by **{pp:+}** to **{pp}pp**",
+                        pp = with_comma_float(pp),
+                        name = user.username,
+                    )
+                };
 
                 if let Some(rank) = rank {
                     let _ = write!(
@@ -55,25 +73,38 @@ impl WhatIfEmbed {
             }
             WhatIfData::Top100 {
                 bonus_pp,
+                count,
                 new_pp,
                 new_pos,
                 max_pp,
                 rank,
             } => {
-                let mut d = format!(
-                    "A {pp}pp play would be {name}'s #{num} best play.\n\
-                     Their pp would change by **{pp_change:+.2}** to **{new_pp}pp**",
-                    pp = round(pp),
-                    name = user.username,
-                    num = new_pos,
-                    pp_change = (new_pp + bonus_pp - stats.pp).max(0.0),
-                    new_pp = with_comma_float(new_pp + bonus_pp)
-                );
+                let mut d = if count == 1 {
+                    format!(
+                        "A {pp}pp play would be {name}'s #{num} best play.\n\
+                        Their pp would change by **{pp_change:+.2}** to **{new_pp}pp**",
+                        pp = round(pp),
+                        name = user.username,
+                        num = new_pos,
+                        pp_change = (new_pp + bonus_pp - stats.pp).max(0.0),
+                        new_pp = with_comma_float(new_pp + bonus_pp)
+                    )
+                } else {
+                    format!(
+                        "A {pp}pp play would be {name}'s #{num} best play.\n\
+                        Adding {count} of them would change their pp by **{pp_change:+.2}** to **{new_pp}pp**",
+                        pp = round(pp),
+                        name = user.username,
+                        num = new_pos,
+                        pp_change = (new_pp + bonus_pp - stats.pp).max(0.0),
+                        new_pp = with_comma_float(new_pp + bonus_pp)
+                    )
+                };
 
                 if let Some(rank) = rank {
                     let _ = write!(
                         d,
-                        "\nand they would reach rank #{}.",
+                        " and they would reach rank #{}.",
                         with_comma_int(rank.min(stats.global_rank.unwrap_or(0)))
                     );
                 } else {

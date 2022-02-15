@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{cmp::Ordering, iter, sync::Arc};
 
 use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError};
@@ -29,7 +29,7 @@ use crate::{
 use super::{get_user_and_scores, option_discord, option_mode, option_name, ScoreArgs, UserArgs};
 
 async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> BotResult<()> {
-    let WhatIfArgs { config, pp } = args;
+    let WhatIfArgs { config, pp, count } = args;
     let mode = config.mode.unwrap_or(GameMode::STD);
 
     let name = match config.into_username() {
@@ -68,6 +68,11 @@ async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> 
     process_tracking(&ctx, &mut scores, Some(&user)).await;
 
     let whatif_data = if scores.is_empty() {
+        let pp = iter::repeat(pp)
+            .enumerate()
+            .take(count)
+            .fold(0.0, |sum, (i, pp)| sum + pp * 0.95_f32.powi(i as i32));
+
         let rank_result = ctx
             .clients
             .custom
@@ -78,13 +83,13 @@ async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> 
             Ok(rank_pp) => Some(rank_pp.rank),
             Err(why) => {
                 let report = Report::new(why).wrap_err("error while getting rank pp");
-                warn!("{:?}", report);
+                warn!("{report:?}");
 
                 None
             }
         };
 
-        WhatIfData::NoScores { rank }
+        WhatIfData::NoScores { count, rank }
     } else if pp < scores.last().and_then(|s| s.pp).unwrap_or(0.0) {
         WhatIfData::NonTop100
     } else {
@@ -95,47 +100,40 @@ async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> 
             .sum();
 
         let bonus_pp = user.statistics.as_ref().map_or(0.0, |stats| stats.pp) - actual;
-        let mut potential = 0.0;
-        let mut used = false;
-        let mut new_pos = scores.len();
-        let mut factor = 1.0;
+
+        let idx = scores
+            .iter()
+            .filter_map(|s| s.pp)
+            .position(|score_pp| score_pp < pp)
+            .unwrap_or_else(|| scores.len() - 1);
+
+        let mut pps = Vec::with_capacity(scores.len() + count);
 
         let pp_iter = scores
             .iter()
-            .take(scores.len() - 1)
-            .filter_map(|score| score.pp)
-            .enumerate();
+            .filter_map(|s| s.pp)
+            .chain(iter::repeat(pp).take(count));
 
-        for (i, pp_value) in pp_iter {
-            if !used && pp_value < pp {
-                used = true;
-                potential += pp * factor;
-                factor *= 0.95;
-                new_pos = i + 1;
-            }
+        pps.extend(pp_iter);
+        pps.sort_unstable_by(|a, b| b.partial_cmp(a).unwrap_or(Ordering::Equal));
 
-            potential += pp_value * factor;
-            factor *= 0.95;
-        }
+        let new_pp = pps
+            .iter()
+            .enumerate()
+            .fold(0.0, |sum, (i, pp)| sum + pp * 0.95_f32.powi(i as i32));
 
-        if !used {
-            potential += pp * factor;
-        };
-
-        let new_pp = potential;
         let max_pp = scores.first().and_then(|s| s.pp).unwrap_or(0.0);
 
-        let rank_result = ctx
+        let rank_fut = ctx
             .clients
             .custom
-            .get_rank_data(mode, RankParam::Pp(new_pp + bonus_pp))
-            .await;
+            .get_rank_data(mode, RankParam::Pp(new_pp + bonus_pp));
 
-        let rank = match rank_result {
+        let rank = match rank_fut.await {
             Ok(rank_pp) => Some(rank_pp.rank),
             Err(why) => {
                 let report = Report::new(why).wrap_err("error while getting rank pp");
-                warn!("{:?}", report);
+                warn!("{report:?}");
 
                 None
             }
@@ -143,8 +141,9 @@ async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> 
 
         WhatIfData::Top100 {
             bonus_pp,
+            count,
             new_pp,
-            new_pos,
+            new_pos: idx + 1,
             max_pp,
             rank,
         }
@@ -284,10 +283,12 @@ pub async fn whatifctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 pub enum WhatIfData {
     NonTop100,
     NoScores {
+        count: usize,
         rank: Option<u32>,
     },
     Top100 {
         bonus_pp: f32,
+        count: usize,
         new_pp: f32,
         new_pos: usize,
         max_pp: f32,
@@ -295,9 +296,20 @@ pub enum WhatIfData {
     },
 }
 
+impl WhatIfData {
+    pub fn count(&self) -> usize {
+        match self {
+            WhatIfData::NonTop100 => 0,
+            WhatIfData::NoScores { count, .. } => *count,
+            WhatIfData::Top100 { count, .. } => *count,
+        }
+    }
+}
+
 struct WhatIfArgs {
     config: UserConfig,
     pp: f32,
+    count: usize,
 }
 
 impl WhatIfArgs {
@@ -324,12 +336,15 @@ impl WhatIfArgs {
             None => return Ok(Err("You need to provide a decimal number".into())),
         };
 
-        Ok(Ok(Self { config, pp }))
+        let count = 1;
+
+        Ok(Ok(Self { config, pp, count }))
     }
 
     async fn slash(ctx: &Context, command: &mut ApplicationCommand) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(command.user_id()?).await?;
         let mut pp = None;
+        let mut count = None;
 
         for option in command.yoink_options() {
             match option.value {
@@ -340,6 +355,10 @@ impl WhatIfArgs {
                 },
                 CommandOptionValue::Number(value) => match option.name.as_str() {
                     "pp" => pp = Some(value.0 as f32),
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                CommandOptionValue::Integer(value) => match option.name.as_str() {
+                    "count" => count = Some(value as usize),
                     _ => return Err(Error::InvalidCommandOptions),
                 },
                 CommandOptionValue::User(value) => match option.name.as_str() {
@@ -355,6 +374,7 @@ impl WhatIfArgs {
 
         let args = Self {
             pp: pp.ok_or(Error::InvalidCommandOptions)?,
+            count: count.unwrap_or(1),
             config,
         };
 
@@ -376,9 +396,17 @@ pub fn define_whatif() -> MyCommand {
 
     let mode = option_mode();
     let name = option_name();
+
+    let count_description = "Specify how many times a score should be added, defaults to 1";
+
+    let count = MyCommandOption::builder("count", count_description)
+        .min_int(1)
+        .max_int(1000)
+        .integer(Vec::new(), false);
+
     let discord = option_discord();
 
     let description = "Display the impact of a new X pp score for a user";
 
-    MyCommand::new("whatif", description).options(vec![pp, mode, name, discord])
+    MyCommand::new("whatif", description).options(vec![pp, mode, name, count, discord])
 }
