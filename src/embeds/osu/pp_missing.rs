@@ -57,93 +57,6 @@ impl PPMissingEmbed {
                     idx = idx + 1,
                 )
             }
-            // Top 100 is not full
-            (_, Some(each)) if scores.len() < 100 => {
-                let idx = scores
-                    .iter()
-                    .position(|s| s.pp.unwrap_or(0.0) < each)
-                    .unwrap_or_else(|| scores.len());
-
-                let mut iter = scores
-                    .iter()
-                    .filter_map(|s| s.weight.as_ref())
-                    .map(|w| w.pp);
-
-                let mut top: f32 = (&mut iter).take(idx).sum();
-                let bot: f32 = iter.sum();
-
-                let bonus_pp = stats_pp - (top + bot);
-                top += bonus_pp;
-                let len = scores.len();
-
-                let mut n_each = 100;
-
-                for i in idx.. {
-                    let bot: f32 = scores
-                        .iter_mut()
-                        .skip(idx)
-                        .filter_map(|s| s.weight.as_mut())
-                        .map(|w| {
-                            w.pp *= 0.95;
-
-                            w.pp
-                        })
-                        .sum();
-
-                    let factor = 0.95_f32.powi(i as i32);
-
-                    if top + factor * each + bot >= goal_pp {
-                        // requires n_each many new scores of `each` many pp and one additional score
-                        n_each = i - idx;
-                        break;
-                    }
-
-                    top += factor * each;
-                }
-
-                if n_each == 100 {
-                    format!(
-                        "Filling up {user}'{genitiv} top100 with {amount} new {each}pp score{plural} \
-                        would only lead to **{top}pp** which is still less than {pp}pp.",
-                        amount = 100 - len,
-                        each = with_comma_float(each),
-                        plural = if 100 - len != 1 { "s" } else { "" },
-                        genitiv = if idx != 1 { "s" } else { "" },
-                        pp = with_comma_float(goal_pp),
-                        top = with_comma_float(top),
-                        user = user.username,
-                    )
-                } else {
-                    // Add `n_each` many `each` pp scores
-                    let mut pps: Vec<_> = scores
-                        .iter()
-                        .filter_map(|s| s.pp)
-                        .chain(iter::repeat(each))
-                        .take((len + n_each).min(100))
-                        .collect();
-
-                    pps.sort_unstable_by(|a, b| b.partial_cmp(a).unwrap_or(Ordering::Equal));
-
-                    let total = pps
-                        .iter()
-                        .enumerate()
-                        .fold(0.0, |sum, (i, next)| sum + next * 0.95_f32.powi(i as i32))
-                        + bonus_pp;
-
-                    // Calculate the pp of the missing score
-                    let (required, _) = pp_missing(total, goal_pp, pps.as_slice());
-
-                    format!(
-                        "To reach {pp}pp, {user} needs to perform **{n_each}** more \
-                        {each}pp score{plural} and one **{required}pp** score.",
-                        each = with_comma_float(each),
-                        plural = if n_each != 1 { "s" } else { "" },
-                        pp = with_comma_float(goal_pp),
-                        user = user.username,
-                        required = with_comma_float(required),
-                    )
-                }
-            }
             // Given score pp is below last top 100 score pp
             (Some(last_pp), Some(each)) if each < last_pp => {
                 format!(
@@ -157,7 +70,7 @@ impl PPMissingEmbed {
             }
             // Top 100 is full and given score pp would be in top 100
             (Some(_), Some(each)) => {
-                let (required, idx) = pp_missing(stats_pp, goal_pp, &(*scores)[..]);
+                let (required, idx) = pp_missing(stats_pp, goal_pp, &*scores);
 
                 if required < each {
                     format!(
@@ -186,7 +99,7 @@ impl PPMissingEmbed {
                     top += bonus_pp;
                     let len = scores.len();
 
-                    let mut n_each = 100;
+                    let mut n_each = len;
 
                     for i in idx..len {
                         let bot: f32 = scores
@@ -212,7 +125,7 @@ impl PPMissingEmbed {
                         top += factor * each;
                     }
 
-                    if n_each == 100 {
+                    if n_each == len {
                         format!(
                             "Filling up {user}'{genitiv} top100 with {amount} new {each}pp score{plural} \
                             would only lead to **{top}pp** which is still less than {pp}pp.",

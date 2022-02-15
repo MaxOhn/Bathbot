@@ -3,9 +3,12 @@ use std::sync::Arc;
 use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_model::{
-    application::interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
+    application::{
+        command::Number,
+        interaction::{
+            application_command::{CommandDataOption, CommandOptionValue},
+            ApplicationCommand,
+        },
     },
     id::{marker::UserMarker, Id},
 };
@@ -274,9 +277,9 @@ impl PpArgs {
                     NAME => config.osu = Some(value.into()),
                     _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandOptionValue::Number(value) => match option.name.as_str() {
-                    "pp" => pp = Some(value.0 as f32),
-                    "each" => each = Some(value.0 as f32),
+                CommandOptionValue::Number(Number(value)) => match option.name.as_str() {
+                    "pp" => pp = Some(value as f32),
+                    "each" => each = Some(value as f32),
                     _ => return Err(Error::InvalidCommandOptions),
                 },
                 CommandOptionValue::User(value) => match option.name.as_str() {

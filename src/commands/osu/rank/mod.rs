@@ -71,8 +71,15 @@ pub fn define_rank() -> MyCommand {
     let country = option_country();
     let discord = option_discord();
 
+    let each_description =
+        "Fill a top100 with scores of this many pp until the pp of the target rank are reached";
+
+    let each = MyCommandOption::builder("each", each_description)
+        .min_num(0.0)
+        .number(Vec::new(), false);
+
     let pp = MyCommandOption::builder("pp", "How many pp are missing to reach the given rank?")
-        .subcommand(vec![rank, mode, name, country, discord]);
+        .subcommand(vec![rank, mode, name, each, country, discord]);
 
     let rank = MyCommandOption::builder(RANK, "Specify the target rank")
         .min_int(1)

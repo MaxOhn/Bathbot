@@ -2,9 +2,12 @@ use std::sync::Arc;
 
 use rosu_v2::prelude::{GameMode, OsuError, User, UserCompact};
 use twilight_model::{
-    application::interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
+    application::{
+        command::Number,
+        interaction::{
+            application_command::{CommandDataOption, CommandOptionValue},
+            ApplicationCommand,
+        },
     },
     id::{marker::UserMarker, Id},
 };
@@ -38,6 +41,7 @@ pub(super) async fn _rank(
         config,
         country,
         rank,
+        each,
     } = args;
 
     let mode = config.mode.unwrap_or(GameMode::STD);
@@ -168,7 +172,9 @@ pub(super) async fn _rank(
     }
 
     // Creating the embed
-    let embed = RankEmbed::new(rank_data, scores).into_builder().build();
+    let embed = RankEmbed::new(rank_data, scores, each)
+        .into_builder()
+        .build();
     data.create_message(&ctx, embed.into()).await?;
 
     Ok(())
@@ -339,6 +345,7 @@ pub(super) struct RankPpArgs {
     pub config: UserConfig,
     pub country: Option<CountryCode>,
     pub rank: usize,
+    pub each: Option<f32>,
 }
 
 impl RankPpArgs {
@@ -392,6 +399,7 @@ impl RankPpArgs {
             config,
             country,
             rank,
+            each: None,
         };
 
         Ok(Ok(args))
@@ -405,6 +413,7 @@ impl RankPpArgs {
         let mut config = ctx.user_config(command.user_id()?).await?;
         let mut country = None;
         let mut rank = None;
+        let mut each = None;
 
         for option in options {
             match option.value {
@@ -427,13 +436,14 @@ impl RankPpArgs {
                     }
                     _ => return Err(Error::InvalidCommandOptions),
                 },
-                CommandOptionValue::Integer(value) => {
-                    let number = (option.name == RANK)
-                        .then(|| value)
-                        .ok_or(Error::InvalidCommandOptions)?;
-
-                    rank = Some(number.max(0) as usize);
-                }
+                CommandOptionValue::Number(Number(value)) => match option.name.as_str() {
+                    "each" => each = Some(value as f32),
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
+                CommandOptionValue::Integer(value) => match option.name.as_str() {
+                    RANK => rank = Some(value as usize),
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
                 CommandOptionValue::User(value) => match option.name.as_str() {
                     DISCORD => match parse_discord(ctx, value).await? {
                         Ok(osu) => config.osu = Some(osu),
@@ -449,6 +459,7 @@ impl RankPpArgs {
             rank: rank.ok_or(Error::InvalidCommandOptions)?,
             config,
             country,
+            each,
         };
 
         Ok(Ok(args))
