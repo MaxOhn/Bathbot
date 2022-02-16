@@ -72,7 +72,7 @@ pub(super) async fn _medal(ctx: Arc<Context>, data: CommandData<'_>, name: &str)
     Ok(())
 }
 
-const SIMILARITY_THRESHOLD: f32 = 0.75;
+const SIMILARITY_THRESHOLD: f32 = 0.65;
 
 async fn no_medal(ctx: &Context, data: &CommandData<'_>, name: &str) -> BotResult<()> {
     let medals = match ctx.psql().get_medal_names().await {
