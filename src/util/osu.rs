@@ -1,19 +1,27 @@
-use super::ExponentialBackoff;
+use std::{
+    borrow::Cow,
+    iter::{Copied, Map},
+    path::PathBuf,
+    slice::Iter,
+};
+
+use bytes::Bytes;
+use reqwest::Client as ReqwestClient;
+use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, Score, UserStatistics};
+use tokio::{
+    fs::{metadata, File},
+    io::AsyncWriteExt,
+    time::sleep,
+};
+use twilight_model::channel::{embed::Embed, Message};
+
 use crate::{
     error::MapDownloadError,
     util::{constants::OSU_BASE, matcher, numbers::round, BeatmapExt, Emote, ScoreExt},
     CONFIG,
 };
 
-use bytes::Bytes;
-use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, Score, UserStatistics};
-use std::{
-    borrow::Cow,
-    iter::{Copied, Map},
-    slice::Iter,
-};
-use tokio::{fs::File, io::AsyncWriteExt, time::sleep};
-use twilight_model::channel::{embed::Embed, Message};
+use super::ExponentialBackoff;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ModSelection {
@@ -95,28 +103,29 @@ fn completion(score: &dyn ScoreExt, map: &Beatmap) -> u32 {
     100 * passed / total
 }
 
-pub async fn prepare_beatmap_file(map_id: u32) -> Result<String, MapDownloadError> {
+/// Copied `std::path::Path::exists` method but with tokio
+async fn exists(path: &PathBuf) -> bool {
+    metadata(path).await.is_ok()
+}
+
+pub async fn prepare_beatmap_file(map_id: u32) -> Result<PathBuf, MapDownloadError> {
     let mut map_path = CONFIG.get().unwrap().map_path.clone();
     map_path.push(format!("{map_id}.osu"));
 
-    if !map_path.exists() {
+    if !exists(&map_path).await {
         let content = request_beatmap_file(map_id).await?;
         let mut file = File::create(&map_path).await?;
         file.write_all(&content).await?;
         info!("Downloaded {map_id}.osu successfully");
     }
 
-    let map_path = map_path
-        .into_os_string()
-        .into_string()
-        .expect("map_path OsString is no valid String");
-
     Ok(map_path)
 }
 
 async fn request_beatmap_file(map_id: u32) -> Result<Bytes, MapDownloadError> {
     let url = format!("{OSU_BASE}osu/{map_id}");
-    let mut content = reqwest::get(&url).await?.bytes().await?;
+    let client = ReqwestClient::builder().build()?;
+    let mut content = client.get(&url).send().await?.bytes().await?;
 
     if content.len() >= 6 && &content.slice(0..6)[..] != b"<html>" {
         return Ok(content);
@@ -129,7 +138,7 @@ async fn request_beatmap_file(map_id: u32) -> Result<Bytes, MapDownloadError> {
         debug!("Request beatmap retry attempt #{i} | Backoff {duration:?}",);
         sleep(duration).await;
 
-        content = reqwest::get(&url).await?.bytes().await?;
+        content = client.get(&url).send().await?.bytes().await?;
 
         if content.len() >= 6 && &content.slice(0..6)[..] != b"<html>" {
             return Ok(content);
