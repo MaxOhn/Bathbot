@@ -218,7 +218,7 @@ async fn get_user_cached(ctx: &Context, args: &UserArgs<'_>) -> OsuResult<User> 
     // Remove html user page to reduce overhead
     user.page.take();
 
-    let bytes = rkyv::to_bytes::<_, 16_384>(&user).expect("failed to serialize user");
+    let bytes = rkyv::to_bytes::<_, 13_000>(&user).expect("failed to serialize user");
 
     // Cache users for 10 minutes and update username in DB
     let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), USER_CACHE_SECONDS);
