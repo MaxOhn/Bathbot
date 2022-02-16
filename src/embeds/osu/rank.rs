@@ -105,7 +105,6 @@ impl RankEmbed {
                                     let bot: f32 = scores
                                         .iter_mut()
                                         .skip(idx)
-                                        .take(len - i - 1)
                                         .filter_map(|s| s.weight.as_mut())
                                         .map(|w| {
                                             w.pp *= 0.95;
@@ -146,7 +145,6 @@ impl RankEmbed {
                                     let mut pps: Vec<_> = scores
                                         .iter()
                                         .filter_map(|s| s.pp)
-                                        .take(len - n_each)
                                         .chain(iter::repeat(each).take(n_each))
                                         .collect();
 
@@ -285,7 +283,6 @@ impl RankEmbed {
                                     let bot: f32 = scores
                                         .iter_mut()
                                         .skip(idx)
-                                        .take(len - i - 1)
                                         .filter_map(|s| s.weight.as_mut())
                                         .map(|w| {
                                             w.pp *= 0.95;
@@ -325,7 +322,6 @@ impl RankEmbed {
                                     let mut pps: Vec<_> = scores
                                         .iter()
                                         .filter_map(|s| s.pp)
-                                        .take(len - n_each)
                                         .chain(iter::repeat(each).take(n_each))
                                         .collect();
 

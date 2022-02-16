@@ -68,7 +68,7 @@ impl PPMissingEmbed {
                     user = user.username,
                 )
             }
-            // Top 100 is full and given score pp would be in top 100
+            // Given score pp would be in top 100
             (Some(_), Some(each)) => {
                 let (required, idx) = pp_missing(stats_pp, goal_pp, &*scores);
 
@@ -105,7 +105,6 @@ impl PPMissingEmbed {
                         let bot: f32 = scores
                             .iter_mut()
                             .skip(idx)
-                            .take(len - i - 1)
                             .filter_map(|s| s.weight.as_mut())
                             .map(|w| {
                                 w.pp *= 0.95;
@@ -141,7 +140,6 @@ impl PPMissingEmbed {
                         let mut pps: Vec<_> = scores
                             .iter()
                             .filter_map(|s| s.pp)
-                            .take(len - n_each)
                             .chain(iter::repeat(each).take(n_each))
                             .collect();
 

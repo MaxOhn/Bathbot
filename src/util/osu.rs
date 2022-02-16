@@ -204,9 +204,6 @@ pub fn pp_missing(start: f32, goal: f32, pps: impl IntoPpIter) -> (f32, usize) {
 
     let mut top = start;
     let mut bot = 0.0;
-    let len = pps.len();
-
-    let mut pp_iter = pps.enumerate().rev();
 
     //     top + x * 0.95^i + bot = goal
     // <=> x = (goal - top - bot) / 0.95^i
@@ -217,11 +214,10 @@ pub fn pp_missing(start: f32, goal: f32, pps: impl IntoPpIter) -> (f32, usize) {
         (required, idx)
     }
 
-    if let Some((i, last_pp)) = pp_iter.next() {
-        // Handle last score distinctly depending on whether the top100 is full or not
+    for (i, last_pp) in pps.enumerate().rev() {
         let factor = 0.95_f32.powi(i as i32);
-        let term = last_pp * factor;
-        let bot_term = (len < 100) as u8 as f32 * term * 0.95;
+        let term = factor * last_pp;
+        let bot_term = term * 0.95;
 
         if top + bot + bot_term >= goal {
             return calculate_remaining(i + 1, goal, top, bot);
@@ -229,20 +225,6 @@ pub fn pp_missing(start: f32, goal: f32, pps: impl IntoPpIter) -> (f32, usize) {
 
         bot += bot_term;
         top -= term;
-
-        // Handle remaining scores
-        for (i, last_pp) in pp_iter {
-            let factor = 0.95_f32.powi(i as i32);
-            let term = factor * last_pp;
-            let bot_term = term * 0.95;
-
-            if top + bot + bot_term >= goal {
-                return calculate_remaining(i + 1, goal, top, bot);
-            }
-
-            bot += bot_term;
-            top -= term;
-        }
     }
 
     calculate_remaining(0, goal, top, bot)
