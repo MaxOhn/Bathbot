@@ -47,12 +47,12 @@ use super::option_mode;
     - __`sort`__: `favourites`, `playcount`, `rankeddate`, `rating`, `relevance`, `stars`, \
     `artist`, or `title`, defaults to `relevance`\n\n\
     Depending on `sort`, the mapsets are ordered in descending order by default. \
-    To reverse, specify `-asc`."
+    To reverse, specify `reverse=true`."
 )]
 #[aliases("searchmap", "mapsearch")]
 #[usage("[search query]")]
 #[example(
-    "some words yay mode=osu status=graveyard sort=favourites -asc",
+    "some words yay mode=osu status=graveyard sort=favourites reverse=true",
     "artist=camellia length<240 stars>8 genre=electronic"
 )]
 async fn search(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
@@ -391,14 +391,26 @@ impl MapSearchArgs {
             None => BeatmapsetSearchSort::Relevance,
         };
 
-        let descending = match query.find("-asc") {
+        let descending = match query.find("reverse=") {
             Some(start) => {
-                let end = start + "-asc".len();
-                let descending = query.len() < end && query.as_bytes()[end] != b' ';
+                let mut end = start + 1;
 
-                if !descending {
-                    query.replace_range(start..end + (query.len() > end + 1) as usize, "");
+                while end < query.len() && query.as_bytes()[end] != b' ' {
+                    end += 1;
                 }
+
+                let descending = match &query[start + "reverse=".len()..end] {
+                    "true" | "t" | "1" => false,
+                    "false" | "f" | "0" => true,
+                    _ => {
+                        let msg = "Failed to parse `reverse`. After `reverse=` \
+                        you must specify either `true` or `false`.";
+
+                        return Err(msg);
+                    }
+                };
+
+                query.replace_range(start..end + (query.len() > end + 1) as usize, "");
 
                 descending
             }
