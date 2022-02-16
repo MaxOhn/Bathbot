@@ -4,7 +4,6 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
-use std::fmt::Write;
 use twilight_cache_inmemory::InMemoryCacheStats;
 
 pub struct CacheEmbed {
@@ -15,11 +14,18 @@ pub struct CacheEmbed {
 
 impl CacheEmbed {
     pub fn new(stats: InMemoryCacheStats<'_>, start_time: DateTime<Utc>) -> Self {
-        let mut description = String::with_capacity(256);
-
-        let _ = writeln!(description, "Guilds: {}", with_comma_int(stats.guilds()));
-        let _ = writeln!(description, "Members: {}", with_comma_int(stats.members()));
-        let _ = writeln!(description, "Roles: {}", with_comma_int(stats.roles()));
+        let description = format!(
+            "Guilds: {guilds}\n\
+            Members: {members}\n\
+            Users: {users}\n\
+            Roles: {roles}\n\
+            Channels: {channels}",
+            guilds = with_comma_int(stats.guilds()),
+            members = with_comma_int(stats.members()),
+            users = with_comma_int(stats.users()),
+            roles = with_comma_int(stats.roles()),
+            channels = with_comma_int(stats.guild_channels_total()),
+        );
 
         Self {
             description,
