@@ -5,7 +5,10 @@ use futures::{
     future::TryFutureExt,
     stream::{FuturesUnordered, TryStreamExt},
 };
-use image::{imageops::FilterType::Lanczos3, load_from_memory, png::PngEncoder, ColorType};
+use image::{
+    codecs::png::PngEncoder, imageops::FilterType::Lanczos3, load_from_memory, ColorType,
+    ImageEncoder,
+};
 use plotters::prelude::*;
 use reqwest::Response;
 use rosu_v2::prelude::{MonthlyCount, User};
@@ -190,7 +193,7 @@ pub(super) async fn graphs(user: &mut User) -> Result<Option<Vec<u8>>, GraphErro
             .unwrap()
             .max(1);
 
-        let right_label_area = match right_max {
+        let right_label_area: i32 = match right_max {
             n if n < 10 => 40,
             n if n < 100 => 50,
             n if n < 1000 => 60,
@@ -200,9 +203,9 @@ pub(super) async fn graphs(user: &mut User) -> Result<Option<Vec<u8>>, GraphErro
         };
 
         let mut chart = ChartBuilder::on(&canvas)
-            .margin(9)
-            .x_label_area_size(20)
-            .y_label_area_size(75)
+            .margin(9_i32)
+            .x_label_area_size(20_i32)
+            .y_label_area_size(75_i32)
             .right_y_label_area_size(right_label_area)
             .build_cartesian_2d((left_first..left_last).monthly(), 0..left_max)?
             .set_secondary_coord((right_first..right_last).monthly(), 0..right_max);
@@ -215,13 +218,13 @@ pub(super) async fn graphs(user: &mut User) -> Result<Option<Vec<u8>>, GraphErro
             .x_labels(10)
             .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month()))
             .y_desc("Monthly playcount")
-            .label_style(("sans-serif", 20))
+            .label_style(("sans-serif", 20_i32))
             .draw()?;
 
         chart
             .configure_secondary_axes()
             .y_desc("Replays watched")
-            .label_style(("sans-serif", 20))
+            .label_style(("sans-serif", 20_i32))
             .draw()?;
 
         // Draw playcount area
@@ -244,7 +247,7 @@ pub(super) async fn graphs(user: &mut User) -> Result<Option<Vec<u8>>, GraphErro
             monthly_playcount
                 .iter()
                 .map(|MonthlyCount { start_date, count }| {
-                    Circle::new((*start_date, *count), 2, BLUE.filled())
+                    Circle::new((*start_date, *count), 2_i32, BLUE.filled())
                 }),
         )?;
 
@@ -265,7 +268,7 @@ pub(super) async fn graphs(user: &mut User) -> Result<Option<Vec<u8>>, GraphErro
 
         // Draw circles
         chart.draw_secondary_series(replays.iter().map(|MonthlyCount { start_date, count }| {
-            Circle::new((*start_date, *count), 2, RED.filled())
+            Circle::new((*start_date, *count), 2_i32, RED.filled())
         }))?;
 
         // Legend
@@ -273,15 +276,15 @@ pub(super) async fn graphs(user: &mut User) -> Result<Option<Vec<u8>>, GraphErro
             .configure_series_labels()
             .background_style(&RGBColor(192, 192, 192))
             .position(SeriesLabelPosition::UpperLeft)
-            .legend_area_size(45)
-            .label_font(("sans-serif", 20))
+            .legend_area_size(45_i32)
+            .label_font(("sans-serif", 20_i32))
             .draw()?;
     }
 
     // Encode buf to png
     let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
     let png_encoder = PngEncoder::new(&mut png_bytes);
-    png_encoder.encode(&buf, W, H, ColorType::Rgb8)?;
+    png_encoder.write_image(&buf, W, H, ColorType::Rgb8)?;
 
     Ok(Some(png_bytes))
 }

@@ -358,6 +358,12 @@ async fn async_main() -> Result<()> {
     // Prevent non-minimized msgs from getting minimized
     ctx.clear_msgs_to_process();
 
+    let count = ctx.stop_all_games().await;
+    info!("Stopped {count} bg games");
+
+    let count = ctx.notify_match_live_shutdown().await;
+    info!("Stopped match tracking in {count} channels");
+
     let resume_data = ctx.cluster.down_resumable();
 
     if let Err(err) = ctx.cache.freeze(&ctx.clients.redis, resume_data).await {
@@ -367,12 +373,6 @@ async fn async_main() -> Result<()> {
 
     let (count, total) = ctx.garbage_collect_all_maps().await;
     info!("Garbage collected {count}/{total} maps");
-
-    let count = ctx.stop_all_games().await;
-    info!("Stopped {count} bg games");
-
-    let count = ctx.notify_match_live_shutdown().await;
-    info!("Stopped match tracking in {count} channels");
 
     info!("Shutting down");
 

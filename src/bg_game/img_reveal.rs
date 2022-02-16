@@ -1,3 +1,5 @@
+use std::io::Cursor;
+
 use super::GameResult;
 
 use image::{DynamicImage, GenericImageView, ImageOutputFormat::Png};
@@ -39,9 +41,11 @@ impl ImageReveal {
         let w = (self.x + self.radius).min(w) - cx;
         let h = (self.y + self.radius).min(h) - cy;
         let sub_image = self.original.crop_imm(cx, cy, w, h);
-        let mut png_bytes: Vec<u8> = Vec::with_capacity((w * h) as usize);
-        sub_image.write_to(&mut png_bytes, Png)?;
+        let png_bytes: Vec<u8> = Vec::with_capacity((w * h) as usize);
 
-        Ok(png_bytes)
+        let mut cursor = Cursor::new(png_bytes);
+        sub_image.write_to(&mut cursor, Png)?;
+
+        Ok(cursor.into_inner())
     }
 }

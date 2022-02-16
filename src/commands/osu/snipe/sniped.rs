@@ -6,7 +6,7 @@ use std::{
 
 use chrono::{Date, DateTime, Duration, Utc};
 use eyre::Report;
-use image::{png::PngEncoder, ColorType};
+use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use itertools::Itertools;
 use plotters::{
     coord::{
@@ -191,7 +191,7 @@ fn graphs(
     // Encode buf to png
     let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
     let png_encoder = PngEncoder::new(&mut png_bytes);
-    png_encoder.encode(&buf, W, H, ColorType::Rgb8)?;
+    png_encoder.write_image(&buf, W, H, ColorType::Rgb8)?;
 
     Ok(Some(png_bytes))
 }

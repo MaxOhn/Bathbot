@@ -1,3 +1,6 @@
+use std::io::Error as IoError;
+
+use image::ImageError;
 use rosu_v2::prelude::{GameMode, OsuError};
 use thiserror::Error;
 use tokio::time::error::Elapsed;
@@ -5,13 +8,15 @@ use tokio::time::error::Elapsed;
 #[derive(Debug, Error)]
 pub enum BgGameError {
     #[error("image error")]
-    Image(#[from] image::ImageError),
+    Image(#[from] ImageError),
     #[error("io error, mapset_id={mapset_id}")]
     Io {
         #[source]
-        source: tokio::io::Error,
+        source: IoError,
         mapset_id: u32,
     },
+    #[error("creating subimage failed")]
+    IoSubimage(#[from] IoError),
     #[error("background game not available for {0}")]
     Mode(GameMode),
     #[error("no running game in the channel")]

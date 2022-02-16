@@ -2,7 +2,7 @@
 name = "bathbot-twilight"
 version = "0.1.0"
 authors = ["MaxOhn <ohn.m@hotmail.de>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 async-trait = { version = "0.1" }
@@ -16,14 +16,14 @@ eyre = { version = "0.6" }
 futures = { version = "0.3" }
 governor = { version = "0.3" }
 handlebars = { version = "4.0" }
-hashbrown = { version = "0.11", features = ["serde"] }
+hashbrown = { version = "0.12", features = ["serde"] }
 hyper = { version = "0.14", default-features = false, features = ["server"] }
 hyper-rustls = { version = "0.23", default-features = false, features = ["http1", "tls12", "tokio-runtime", "webpki-tokio"] }
 image = { version = "0.23", default-features = false, features = ["png", "gif"] }
 itertools = { version = "0.10" }
 lazy_static = { version = "1.0" }
 once_cell = { version = "1.0" }
-parking_lot = { version = "0.11", default-features = false, features = ["send_guard"] }
+parking_lot = { version = "0.12", default-features = false, features = ["send_guard"] }
 plotters = { version = "0.3", default-features = false, features = ["bitmap_backend", "image", "line_series", "datetime", "area_series", "histogram"] }
 priority-queue = { version = "1.0" }
 proc_macros  = { path = "./proc_macros" }
@@ -40,7 +40,7 @@ rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp", branch = "next", features
 # rosu-pp = { path = "../rosu-pp" }
 rosu-pp-older = { git = "https://github.com/MaxOhn/rosu-pp-older.git", branch = "main" }
 # rosu-pp-older = { path = "../rosu-pp-older" }
-routerify = { version = "2.0" }
+routerify = { version = "3.0" }
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_cbor = { version = "0.11", default-features = false, features = ["std"] }
 serde_json = { version = "1.0" }

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::Datelike;
 use eyre::Report;
-use image::{png::PngEncoder, ColorType};
+use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::prelude::*;
 use rosu_v2::prelude::{GameMode, MedalCompact, OsuError, Username};
 
@@ -171,7 +171,7 @@ fn graph(medals: &[MedalCompact]) -> Result<Option<Vec<u8>>, GraphError> {
     // Encode buf to png
     let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
     let png_encoder = PngEncoder::new(&mut png_bytes);
-    png_encoder.encode(&buf, W, H, ColorType::Rgb8)?;
+    png_encoder.write_image(&buf, W, H, ColorType::Rgb8)?;
 
     Ok(Some(png_bytes))
 }

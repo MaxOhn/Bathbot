@@ -368,8 +368,6 @@ impl<'de> Visitor<'de> for OsekaiModsVisitor {
     }
 
     fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
-        use std::convert::TryInto;
-
         let bits = v.try_into().map_err(|_| {
             Error::invalid_value(
                 Unexpected::Unsigned(v),

@@ -22,7 +22,10 @@ use crate::{
 
 use chrono::Duration;
 use eyre::Report;
-use image::{png::PngEncoder, ColorType, DynamicImage, GenericImage, GenericImageView, Pixel};
+use image::{
+    codecs::png::PngEncoder, ColorType, DynamicImage, GenericImage, GenericImageView, ImageEncoder,
+    Pixel,
+};
 use plotters::prelude::*;
 use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_v2::prelude::{GameMode, GameMods, OsuError};
@@ -306,7 +309,7 @@ fn graph(strains: Vec<(f64, f64)>, mut background: DynamicImage) -> Result<Vec<u
         let last_strain = strains.last().map_or(0.0, |(s, _)| *s);
 
         let mut chart = ChartBuilder::on(&root)
-            .x_label_area_size(17)
+            .x_label_area_size(17_i32)
             .build_cartesian_2d(0.0..last_strain, 0.0..max_strain)?;
 
         // Make background darker and sum up rgb values to find minimum
@@ -339,7 +342,7 @@ fn graph(strains: Vec<(f64, f64)>, mut background: DynamicImage) -> Result<Vec<u
         };
 
         // Add background
-        let elem: BitMapElement<'_, _> = ((0.0, max_strain), background).into();
+        let elem: BitMapElement<'_, _> = ((0.0_f64, max_strain), background).into();
         chart.draw_series(std::iter::once(elem))?;
 
         // Mesh and labels
@@ -348,7 +351,7 @@ fn graph(strains: Vec<(f64, f64)>, mut background: DynamicImage) -> Result<Vec<u
             .configure_mesh()
             .disable_y_mesh()
             .disable_y_axis()
-            .set_all_tick_mark_size(3)
+            .set_all_tick_mark_size(3_i32)
             .light_line_style(&BLACK.mix(0.0))
             .x_labels(10)
             .x_label_style(text_style)
@@ -375,7 +378,7 @@ fn graph(strains: Vec<(f64, f64)>, mut background: DynamicImage) -> Result<Vec<u
     // Encode buf to png
     let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
     let png_encoder = PngEncoder::new(&mut png_bytes);
-    png_encoder.encode(&buf, W, H, ColorType::Rgb8)?;
+    png_encoder.write_image(&buf, W, H, ColorType::Rgb8)?;
 
     Ok(png_bytes)
 }

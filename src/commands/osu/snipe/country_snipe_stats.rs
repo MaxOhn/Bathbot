@@ -1,7 +1,7 @@
 use std::{cmp::Ordering::Equal, sync::Arc};
 
 use eyre::Report;
-use image::{png::PngEncoder, ColorType};
+use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::prelude::*;
 use rosu_v2::prelude::{GameMode, OsuError};
 
@@ -277,7 +277,7 @@ fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>, GraphError> {
     // Encode buf to png
     let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
     let png_encoder = PngEncoder::new(&mut png_bytes);
-    png_encoder.encode(&buf, W, H, ColorType::Rgb8)?;
+    png_encoder.write_image(&buf, W, H, ColorType::Rgb8)?;
 
     Ok(png_bytes)
 }

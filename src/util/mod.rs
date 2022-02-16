@@ -11,6 +11,8 @@ mod message_builder;
 pub mod numbers;
 pub mod osu;
 
+use std::io::Cursor;
+
 pub use authored::Authored;
 pub use country_code::CountryCode;
 pub use cow::CowUtils;
@@ -255,10 +257,11 @@ pub async fn get_combined_thumbnail<'s>(
         i += 1;
     }
 
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(16_384); // 2^14 = 128x128
-    combined.write_to(&mut png_bytes, Png)?;
+    let png_bytes: Vec<u8> = Vec::with_capacity(16_384); // 2^14 = 128x128
+    let mut cursor = Cursor::new(png_bytes);
+    combined.write_to(&mut cursor, Png)?;
 
-    Ok(png_bytes)
+    Ok(cursor.into_inner())
 }
 
 pub async fn send_reaction(ctx: &Context, msg: &Message, emote: Emote) -> BotResult<()> {

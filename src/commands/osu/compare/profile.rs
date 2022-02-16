@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{io::Cursor, sync::Arc};
 
 use eyre::Report;
 use image::{
@@ -105,18 +105,15 @@ pub(super) async fn _profilecompare(
     let profile_result2 = CompareResult::calc(mode, &scores2, user2.statistics.as_ref().unwrap());
 
     // Create the thumbnail
-    let thumbnail =
-        match get_combined_thumbnail(&ctx, user1.avatar_url.as_str(), user2.avatar_url.as_str())
-            .await
-        {
-            Ok(thumbnail) => Some(thumbnail),
-            Err(why) => {
-                let report = Report::new(why).wrap_err("failed to combine avatars");
-                warn!("{:?}", report);
+    let thumbnail = match get_combined_thumbnail(&ctx, &user1.avatar_url, &user2.avatar_url).await {
+        Ok(thumbnail) => Some(thumbnail),
+        Err(err) => {
+            let report = Report::new(err).wrap_err("failed to combine avatars");
+            warn!("{report:?}");
 
-                None
-            }
-        };
+            None
+        }
+    };
 
     // Creating the embed
     let embed_data = ProfileCompareEmbed::new(mode, user1, user2, profile_result1, profile_result2);
@@ -315,10 +312,12 @@ async fn get_combined_thumbnail(
     let pfp2 = image::load_from_memory(&pfp2)?.resize_exact(128, 128, FilterType::Lanczos3);
     overlay(&mut img, &pfp1, 10, 0);
     overlay(&mut img, &pfp2, 582, 0);
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(92_160); // 720x128
-    img.write_to(&mut png_bytes, Png)?;
+    let png_bytes: Vec<u8> = Vec::with_capacity(92_160); // 720x128
 
-    Ok(png_bytes)
+    let mut cursor = Cursor::new(png_bytes);
+    img.write_to(&mut cursor, Png)?;
+
+    Ok(cursor.into_inner())
 }
 
 pub(super) struct ProfileArgs {
