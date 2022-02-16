@@ -89,6 +89,8 @@ fn main() {
     let runtime = RuntimeBuilder::new_multi_thread()
         .enable_all()
         .thread_stack_size(4 * 1024 * 1024)
+        .worker_threads(5)
+        .max_blocking_threads(2)
         .build()
         .expect("Could not build runtime");
 
