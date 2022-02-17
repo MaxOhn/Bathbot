@@ -1,18 +1,14 @@
 use std::{
     borrow::Cow,
     iter::{Copied, Map},
-    path::{Path, PathBuf},
+    path::PathBuf,
     slice::Iter,
 };
 
 use bytes::Bytes;
 use reqwest::Client as ReqwestClient;
 use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, Score, UserStatistics};
-use tokio::{
-    fs::{metadata, File},
-    io::AsyncWriteExt,
-    time::sleep,
-};
+use tokio::{fs::File, io::AsyncWriteExt, time::sleep};
 use twilight_model::channel::{embed::Embed, Message};
 
 use crate::{
@@ -100,17 +96,11 @@ fn completion(score: &dyn ScoreExt, map: &Beatmap) -> u32 {
 
     100 * passed / total
 }
-
-/// Copied `std::path::Path::exists` method but with tokio
-async fn exists(path: &Path) -> bool {
-    metadata(path).await.is_ok()
-}
-
 pub async fn prepare_beatmap_file(map_id: u32) -> Result<PathBuf, MapDownloadError> {
     let mut map_path = CONFIG.get().unwrap().map_path.clone();
     map_path.push(format!("{map_id}.osu"));
 
-    if !exists(&map_path).await {
+    if !map_path.exists() {
         let content = request_beatmap_file(map_id).await?;
         let mut file = File::create(&map_path).await?;
         file.write_all(&content).await?;
@@ -133,7 +123,7 @@ async fn request_beatmap_file(map_id: u32) -> Result<Bytes, MapDownloadError> {
     let backoff = ExponentialBackoff::new(2).factor(500).max_delay(10_000);
 
     for (duration, i) in backoff.take(10).zip(1..) {
-        debug!("Request beatmap retry attempt #{i} | Backoff {duration:?}",);
+        debug!("Request beatmap retry attempt #{i} | Backoff {duration:?}");
         sleep(duration).await;
 
         content = client.get(&url).send().await?.bytes().await?;
