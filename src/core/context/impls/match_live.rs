@@ -136,7 +136,7 @@ impl Context {
 
                     MatchTrackResult::Added
                 }
-                Err(OsuError::Response { status, .. }) if status.as_u16() == 401 => {
+                Err(OsuError::Response { status, .. }) if status == 401 => {
                     MatchTrackResult::Private
                 }
                 Err(why) => {

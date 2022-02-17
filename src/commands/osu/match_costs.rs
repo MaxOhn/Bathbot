@@ -69,7 +69,12 @@ async fn _matchcosts(
 
             (osu_match, games)
         }
-        Err(OsuError::Response { status, .. }) if status.as_u16() == 401 => {
+        Err(OsuError::NotFound) => {
+            let content = format!("No match with id `{match_id}` was found");
+
+            return data.error(&ctx, content).await;
+        }
+        Err(OsuError::Response { status, .. }) if status == 401 => {
             let content = "I can't access the match because it was set as private";
 
             return data.error(&ctx, content).await;
