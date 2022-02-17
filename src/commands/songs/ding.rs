@@ -20,7 +20,7 @@ pub fn _ding() -> (&'static [&'static str], u64) {
         "Doch wir nuckeln nur am Drink",
         "Oh-oh-oh, hübsches Ding",
         "Du bist Queen und ich bin King",
-        "Wenn ich dich seh', dann muss ich sing'n:",
+        "Wenn ich dich seh', dann muss ich sing'n",
         "Tingalingaling, you pretty thing!",
     ];
 

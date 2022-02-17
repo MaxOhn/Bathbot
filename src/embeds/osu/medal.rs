@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use rosu_v2::prelude::GameMode;
 
 use crate::{
     commands::osu::MedalAchieved,
@@ -116,8 +117,18 @@ impl MedalEmbed {
         let achieved = achieved.map(|achieved| {
             let user = achieved.user;
 
+            let mut author_url = format!("{OSU_BASE}users/{}", user.user_id);
+
+            match medal.restriction {
+                None => {}
+                Some(GameMode::STD) => author_url.push_str("/osu"),
+                Some(GameMode::TKO) => author_url.push_str("/taiko"),
+                Some(GameMode::CTB) => author_url.push_str("/fruits"),
+                Some(GameMode::MNA) => author_url.push_str("/mania"),
+            }
+
             let author = Author::new(user.username.as_str())
-                .url(format!("{OSU_BASE}u/{}", user.user_id))
+                .url(author_url)
                 .icon_url(flag_url(user.country_code.as_str()));
 
             let footer = Footer::new(format!(
