@@ -1,7 +1,6 @@
 use std::{fmt::Write, sync::Arc};
 
 use eyre::Report;
-use futures::stream::{FuturesUnordered, TryStreamExt};
 use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score};
 use twilight_model::{
     application::interaction::{
@@ -107,96 +106,7 @@ async fn _topif(ctx: Arc<Context>, data: CommandData<'_>, args: IfArgs) -> BotRe
     let bonus_pp = user.statistics.as_ref().unwrap().pp - actual_pp;
     let arg_mods = args.mods;
 
-    // Modify scores
-    let scores_fut = scores
-        .into_iter()
-        .enumerate()
-        .map(|(i, mut score)| async move {
-            let map = score.map.as_ref().unwrap();
-
-            if map.convert {
-                return Ok((i + 1, score, None));
-            }
-
-            let changed = match arg_mods {
-                ModSelection::Exact(mods) => {
-                    let changed = score.mods != mods;
-                    score.mods = mods;
-
-                    changed
-                }
-                ModSelection::Exclude(mut mods) if mods != NM => {
-                    if mods.contains(DT) {
-                        mods |= NC;
-                    }
-
-                    if mods.contains(SD) {
-                        mods |= PF
-                    }
-
-                    let changed = score.mods.intersects(mods);
-                    score.mods.remove(mods);
-
-                    changed
-                }
-                ModSelection::Include(mods) if mods != NM => {
-                    let mut changed = false;
-
-                    if mods.contains(DT) && score.mods.contains(HT) {
-                        score.mods.remove(HT);
-                        changed = true;
-                    }
-
-                    if mods.contains(HT) && score.mods.contains(DT) {
-                        score.mods.remove(NC);
-                        changed = true;
-                    }
-
-                    if mods.contains(HR) && score.mods.contains(EZ) {
-                        score.mods.remove(EZ);
-                        changed = true;
-                    }
-
-                    if mods.contains(EZ) && score.mods.contains(HR) {
-                        score.mods.remove(HR);
-                        changed = true;
-                    }
-
-                    changed |= !score.mods.contains(mods);
-                    score.mods.insert(mods);
-
-                    changed
-                }
-                _ => false,
-            };
-
-            if changed {
-                score.grade = score.grade(Some(score.accuracy));
-            }
-
-            let mut calc = PpCalculator::new(map.map_id).await?;
-            calc.score(&score);
-
-            let stars = calc.stars() as f32;
-            let max_pp = calc.max_pp() as f32;
-
-            let pp = if let Some(pp) = score.pp.filter(|_| !changed) {
-                pp
-            } else {
-                calc.pp() as f32
-            };
-
-            drop(calc);
-
-            score.map.as_mut().unwrap().stars = stars;
-            score.pp = Some(pp);
-
-            Ok((i + 1, score, Some(max_pp)))
-        })
-        .collect::<FuturesUnordered<_>>()
-        .try_collect();
-
-    let mut scores_data: Vec<_> = match scores_fut.await {
+    let mut scores_data: Vec<_> = match modify_scores(scores, arg_mods).await {
         Ok(scores) => scores,
         Err(err) => {
             let _ = data.error(&ctx, GENERAL_ISSUE).await;
@@ -265,6 +175,99 @@ async fn _topif(ctx: Arc<Context>, data: CommandData<'_>, args: IfArgs) -> BotRe
     });
 
     Ok(())
+}
+
+async fn modify_scores(
+    scores: Vec<Score>,
+    arg_mods: ModSelection,
+) -> BotResult<Vec<(usize, Score, Option<f32>)>> {
+    let mut scores_data = Vec::with_capacity(scores.len());
+
+    for (mut score, i) in scores.into_iter().zip(1..) {
+        let map = score.map.as_ref().unwrap();
+
+        if map.convert {
+            scores_data.push((i, score, None));
+            continue;
+        }
+
+        let changed = match arg_mods {
+            ModSelection::Exact(mods) => {
+                let changed = score.mods != mods;
+                score.mods = mods;
+
+                changed
+            }
+            ModSelection::Exclude(mut mods) if mods != NM => {
+                if mods.contains(DT) {
+                    mods |= NC;
+                }
+
+                if mods.contains(SD) {
+                    mods |= PF
+                }
+
+                let changed = score.mods.intersects(mods);
+                score.mods.remove(mods);
+
+                changed
+            }
+            ModSelection::Include(mods) if mods != NM => {
+                let mut changed = false;
+
+                if mods.contains(DT) && score.mods.contains(HT) {
+                    score.mods.remove(HT);
+                    changed = true;
+                }
+
+                if mods.contains(HT) && score.mods.contains(DT) {
+                    score.mods.remove(NC);
+                    changed = true;
+                }
+
+                if mods.contains(HR) && score.mods.contains(EZ) {
+                    score.mods.remove(EZ);
+                    changed = true;
+                }
+
+                if mods.contains(EZ) && score.mods.contains(HR) {
+                    score.mods.remove(HR);
+                    changed = true;
+                }
+
+                changed |= !score.mods.contains(mods);
+                score.mods.insert(mods);
+
+                changed
+            }
+            _ => false,
+        };
+
+        if changed {
+            score.grade = score.grade(Some(score.accuracy));
+        }
+
+        let mut calc = PpCalculator::new(map.map_id).await?;
+        calc.score(&score);
+
+        let stars = calc.stars() as f32;
+        let max_pp = calc.max_pp() as f32;
+
+        let pp = if let Some(pp) = score.pp.filter(|_| !changed) {
+            pp
+        } else {
+            calc.pp() as f32
+        };
+
+        drop(calc);
+
+        score.map.as_mut().unwrap().stars = stars;
+        score.pp = Some(pp);
+
+        scores_data.push((i, score, Some(max_pp)));
+    }
+
+    Ok(scores_data)
 }
 
 impl SortableScore for (usize, Score, Option<f32>) {

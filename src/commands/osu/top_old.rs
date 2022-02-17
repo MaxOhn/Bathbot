@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use chrono::{Datelike, Utc};
 use eyre::Report;
-use futures::stream::{FuturesUnordered, TryStreamExt};
 use rosu_pp::{Beatmap, BeatmapExt, PerformanceAttributes};
 use rosu_pp_older::*;
 use rosu_v2::prelude::{GameMode, OsuError, Score};
@@ -215,40 +214,7 @@ async fn _topold(ctx: Arc<Context>, data: CommandData<'_>, args: OldArgs) -> Bot
 
     let bonus_pp = user.statistics.as_ref().unwrap().pp - actual_pp;
 
-    let scores_fut = scores
-        .into_iter()
-        .enumerate()
-        .map(|(mut i, mut score)| async move {
-            i += 1;
-            let map = score.map.as_ref().unwrap();
-
-            if map.convert {
-                return Ok((i, score, None));
-            }
-
-            let map_path = prepare_beatmap_file(map.map_id).await?;
-            let rosu_map = Beatmap::from_path(map_path).await.map_err(PpError::from)?;
-            let mods = score.mods.bits();
-
-            // Calculate pp values
-            let max_pp = match version {
-                OldVersion::OsuApr15May18 => pp_std!(osu_2015, rosu_map, score, mods),
-                OldVersion::OsuMay18Feb19 => pp_std!(osu_2018, rosu_map, score, mods),
-                OldVersion::OsuFeb19Jan21 => pp_std!(osu_2019, rosu_map, score, mods),
-                OldVersion::OsuJan21Jul21 => pp_std!(osu_2021_january, rosu_map, score, mods),
-                OldVersion::OsuJul21Nov21 => pp_std!(osu_2021_july, rosu_map, score, mods),
-                OldVersion::ManiaMar14May18 => pp_mna!(mania_ppv1, rosu_map, score, mods),
-                OldVersion::TaikoMar14Sep20 => pp_tko!(taiko_ppv1, rosu_map, score, mods),
-                OldVersion::CatchMar14May20 => pp_ctb!(fruits_ppv1, rosu_map, score, mods),
-                _ => return Ok((i, score, Some(rosu_map.max_pp(mods).pp() as f32))),
-            };
-
-            Ok((i, score, Some(max_pp as f32)))
-        })
-        .collect::<FuturesUnordered<_>>()
-        .try_collect::<Vec<_>>();
-
-    let mut scores_data = match scores_fut.await {
+    let mut scores_data = match modify_scores(scores, version).await {
         Ok(scores) => scores,
         Err(why) => {
             let _ = data.error(&ctx, GENERAL_ISSUE).await;
@@ -315,6 +281,46 @@ async fn _topold(ctx: Arc<Context>, data: CommandData<'_>, args: OldArgs) -> Bot
     });
 
     Ok(())
+}
+
+async fn modify_scores(
+    scores: Vec<Score>,
+    version: OldVersion,
+) -> BotResult<Vec<(usize, Score, Option<f32>)>> {
+    let mut scores_data = Vec::with_capacity(scores.len());
+
+    for (mut score, i) in scores.into_iter().zip(1..) {
+        let map = score.map.as_ref().unwrap();
+
+        if map.convert {
+            scores_data.push((i, score, None));
+            continue;
+        }
+
+        let map_path = prepare_beatmap_file(map.map_id).await?;
+        let rosu_map = Beatmap::from_path(map_path).await.map_err(PpError::from)?;
+        let mods = score.mods.bits();
+
+        // Calculate pp values
+        let max_pp = match version {
+            OldVersion::OsuApr15May18 => pp_std!(osu_2015, rosu_map, score, mods),
+            OldVersion::OsuMay18Feb19 => pp_std!(osu_2018, rosu_map, score, mods),
+            OldVersion::OsuFeb19Jan21 => pp_std!(osu_2019, rosu_map, score, mods),
+            OldVersion::OsuJan21Jul21 => pp_std!(osu_2021_january, rosu_map, score, mods),
+            OldVersion::OsuJul21Nov21 => pp_std!(osu_2021_july, rosu_map, score, mods),
+            OldVersion::ManiaMar14May18 => pp_mna!(mania_ppv1, rosu_map, score, mods),
+            OldVersion::TaikoMar14Sep20 => pp_tko!(taiko_ppv1, rosu_map, score, mods),
+            OldVersion::CatchMar14May20 => pp_ctb!(fruits_ppv1, rosu_map, score, mods),
+            _ => {
+                scores_data.push((i, score, Some(rosu_map.max_pp(mods).pp() as f32)));
+                continue;
+            }
+        };
+
+        scores_data.push((i, score, Some(max_pp as f32)));
+    }
+
+    Ok(scores_data)
 }
 
 #[command]
