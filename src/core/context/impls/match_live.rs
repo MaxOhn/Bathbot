@@ -1,9 +1,10 @@
+use std::sync::Arc;
+
 use dashmap::{mapref::entry::Entry, DashMap};
 use eyre::Report;
 use parking_lot::Mutex;
 use rosu_v2::prelude::{MatchEvent, OsuError, OsuMatch};
 use smallvec::SmallVec;
-use std::sync::Arc;
 use tokio::time::{interval, sleep, Duration};
 use twilight_model::id::{
     marker::{ChannelMarker, MessageMarker},
@@ -140,7 +141,7 @@ impl Context {
                 }
                 Err(why) => {
                     let report = Report::new(why).wrap_err("failed to request initial match");
-                    warn!("{:?}", report);
+                    warn!("{report:?}");
 
                     MatchTrackResult::Error
                 }
@@ -215,7 +216,7 @@ impl Context {
                     Err(why) => {
                         let report =
                             Report::new(why).wrap_err("failed to request match for live ticker");
-                        warn!("{:?}", report);
+                        warn!("{report:?}");
 
                         continue;
                     }
@@ -246,7 +247,7 @@ impl Context {
                             Err(why) => {
                                 let report = Report::new(why)
                                     .wrap_err("failed to build msg update for live match");
-                                warn!("{:?}", report);
+                                warn!("{report:?}");
 
                                 continue;
                             }
@@ -255,7 +256,7 @@ impl Context {
                         if let Err(why) = update_fut.await {
                             let report =
                                 Report::new(why).wrap_err("failed to update match live msg");
-                            warn!("{:?}", report);
+                            warn!("{report:?}");
                         }
                     }
                 }
@@ -345,12 +346,12 @@ async fn send_match_messages(
                     if let Err(why) = msg_fut.exec().await {
                         let report =
                             Report::new(why).wrap_err("error while sending match live embed");
-                        warn!("{:?}", report);
+                        warn!("{report:?}");
                     }
                 }
                 Err(why) => {
                     let report = Report::new(why).wrap_err("error while creating match live msg");
-                    warn!("{:?}", report);
+                    warn!("{report:?}");
                 }
             }
 
@@ -359,10 +360,7 @@ async fn send_match_messages(
 
         None
     } else {
-        Some(
-            "The match has been going too long \
-            for me to send all previous messages.",
-        )
+        Some("The match has been going too long for me to send all previous messages.")
     };
 
     let last = last.as_builder().build();
@@ -380,14 +378,14 @@ async fn send_match_messages(
                     Err(why) => {
                         let report = Report::new(why)
                             .wrap_err("failed to deserialize last match live embed response");
-                        error!("{:?}", report);
+                        error!("{report:?}");
 
                         None
                     }
                 },
                 Err(why) => {
                     let report = Report::new(why).wrap_err("failed to send last match live embed");
-                    error!("{:?}", report);
+                    error!("{report:?}");
 
                     None
                 }
@@ -395,7 +393,7 @@ async fn send_match_messages(
         }
         Err(why) => {
             let report = Report::new(why).wrap_err("failed to create last match live msg");
-            error!("{:?}", report);
+            error!("{report:?}");
 
             None
         }
