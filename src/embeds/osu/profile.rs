@@ -7,7 +7,7 @@ use twilight_model::{
 };
 
 use crate::{
-    commands::osu::{MinMaxAvgBasic, ProfileResult},
+    commands::osu::ProfileResult,
     embeds::{attachment, Author, EmbedFields, Footer},
     util::{
         datetime::{date_to_string, how_long_ago_text, sec_to_minsec},

@@ -39,7 +39,7 @@ use crate::{
 
 pub use self::{common::*, most_played::*, profile::*, score::*};
 
-use super::{require_link, MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32};
+use super::require_link;
 
 const AT_LEAST_ONE: &str = "You need to specify at least one osu username. \
     If you're not linked, you must specify two names.";

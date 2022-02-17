@@ -18,7 +18,7 @@ use twilight_model::{
 
 use crate::{
     commands::{
-        osu::{get_user_and_scores, ScoreArgs, UserArgs},
+        osu::{get_user_and_scores, MinMaxAvg, ScoreArgs, UserArgs},
         parse_discord, parse_mode_option, DoubleResultCow,
     },
     database::OsuData,
@@ -34,7 +34,7 @@ use crate::{
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
-use super::{MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32, AT_LEAST_ONE};
+use super::AT_LEAST_ONE;
 
 pub(super) async fn _profilecompare(
     ctx: Arc<Context>,
@@ -254,15 +254,15 @@ pub async fn osucomparectb(ctx: Arc<Context>, data: CommandData) -> BotResult<()
 }
 pub struct CompareResult {
     pub mode: GameMode,
-    pub pp: MinMaxAvgF32,
-    pub map_len: MinMaxAvgU32,
+    pub pp: MinMaxAvg<f32>,
+    pub map_len: MinMaxAvg<u32>,
     pub bonus_pp: f32,
 }
 
 impl CompareResult {
     fn calc(mode: GameMode, scores: &[Score], stats: &UserStatistics) -> Self {
-        let mut pp = MinMaxAvgF32::new();
-        let mut map_len = MinMaxAvgF32::new();
+        let mut pp = MinMaxAvg::new();
+        let mut map_len = MinMaxAvg::new();
         let mut bonus_pp = BonusPP::new();
 
         for (i, score) in scores.iter().enumerate() {

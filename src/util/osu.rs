@@ -1,7 +1,7 @@
 use std::{
     borrow::Cow,
     iter::{Copied, Map},
-    path::PathBuf,
+    path::{Path, PathBuf},
     slice::Iter,
 };
 
@@ -48,16 +48,14 @@ pub fn flag_url_svg(country_code: &str) -> String {
     assert_eq!(
         country_code.len(),
         2,
-        "country code `{}` is invalid",
-        country_code
+        "country code `{country_code}` is invalid",
     );
 
     const OFFSET: u32 = 0x1F1A5;
     let bytes = country_code.as_bytes();
 
     let url = format!(
-        "{}assets/images/flags/{:x}-{:x}.svg",
-        OSU_BASE,
+        "{OSU_BASE}assets/images/flags/{:x}-{:x}.svg",
         bytes[0].to_ascii_uppercase() as u32 + OFFSET,
         bytes[1].to_ascii_uppercase() as u32 + OFFSET
     );
@@ -104,7 +102,7 @@ fn completion(score: &dyn ScoreExt, map: &Beatmap) -> u32 {
 }
 
 /// Copied `std::path::Path::exists` method but with tokio
-async fn exists(path: &PathBuf) -> bool {
+async fn exists(path: &Path) -> bool {
     metadata(path).await.is_ok()
 }
 

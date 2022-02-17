@@ -56,7 +56,7 @@ impl Emote {
         };
 
         let (id, name) = emote
-            .unwrap_or_else(|| panic!("No {:?} emote in config", self))
+            .unwrap_or_else(|| panic!("No {self:?} emote in config"))
             .split_emote();
 
         RequestReactionType::Custom {
@@ -78,7 +78,7 @@ impl Emote {
         };
 
         let (id, name) = emote
-            .unwrap_or_else(|| panic!("No {:?} emote in config", self))
+            .unwrap_or_else(|| panic!("No {self:?} emote in config"))
             .split_emote();
 
         ReactionType::Custom {

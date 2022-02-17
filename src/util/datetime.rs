@@ -73,8 +73,6 @@ impl<'a> fmt::Display for HowLongAgoFormatterText<'a> {
         write!(
             f,
             "{amount} {unit}{plural} ago",
-            amount = amount,
-            unit = unit,
             plural = if amount == 1 { "" } else { "s" }
         )
     }

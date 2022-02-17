@@ -8,12 +8,9 @@ use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, GameMods, Score, User, UserStatistics, Username};
 use twilight_model::id::{marker::UserMarker, Id};
 
-use crate::util::osu::BonusPP;
+use crate::{commands::osu::MinMaxAvg, util::osu::BonusPP};
 
-use super::{
-    super::{MinMaxAvgBasic, MinMaxAvgF32, MinMaxAvgU32},
-    ProfileEmbedMap,
-};
+use super::ProfileEmbedMap;
 
 pub struct ProfileData {
     pub user: User,
@@ -55,12 +52,12 @@ impl ProfileData {
 pub struct ProfileResult {
     pub mode: GameMode,
 
-    pub acc: MinMaxAvgF32,
-    pub pp: MinMaxAvgF32,
+    pub acc: MinMaxAvg<f32>,
+    pub pp: MinMaxAvg<f32>,
     pub bonus_pp: f32,
     pub map_combo: u32,
-    pub combo: MinMaxAvgU32,
-    pub map_len: MinMaxAvgU32,
+    pub combo: MinMaxAvg<u32>,
+    pub map_len: MinMaxAvg<u32>,
 
     pub mappers: Vec<(Username, u32, f32)>,
     pub mod_combs_count: Option<Vec<(GameMods, u32)>>,
@@ -70,10 +67,10 @@ pub struct ProfileResult {
 
 impl ProfileResult {
     pub(super) fn calc(mode: GameMode, scores: &[Score], stats: &UserStatistics) -> Self {
-        let mut acc = MinMaxAvgF32::new();
-        let mut pp = MinMaxAvgF32::new();
-        let mut combo = MinMaxAvgU32::new();
-        let mut map_len = MinMaxAvgF32::new();
+        let mut acc = MinMaxAvg::new();
+        let mut pp = MinMaxAvg::new();
+        let mut combo = MinMaxAvg::new();
+        let mut map_len = MinMaxAvg::new();
         let mut map_combo = 0;
         let mut mappers = HashMap::with_capacity(scores.len());
         let len = scores.len() as f32;

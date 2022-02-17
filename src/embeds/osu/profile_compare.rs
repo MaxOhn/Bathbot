@@ -1,5 +1,5 @@
 use crate::{
-    commands::osu::{CompareResult, MinMaxAvgBasic},
+    commands::osu::CompareResult,
     embeds::attachment,
     util::{
         datetime::sec_to_minsec,
