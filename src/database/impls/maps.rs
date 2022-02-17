@@ -163,14 +163,16 @@ impl Database {
 
         let mut conn = self.pool.acquire().await?;
 
-        let mut stream = sqlx::query_as!(
+        let query = sqlx::query_as!(
             DBBeatmap,
             "SELECT * FROM maps WHERE map_id=ANY($1)",
             map_ids
-        )
-        .fetch(&mut conn)
-        .map_ok(Beatmap::from)
-        .map_ok(|m| (m.map_id, m));
+        );
+
+        let mut stream = query
+            .fetch(&mut conn)
+            .map_ok(Beatmap::from)
+            .map_ok(|m| (m.map_id, m));
 
         let mut beatmaps = HashMap::with_capacity(map_ids.len());
 
@@ -182,9 +184,8 @@ impl Database {
                     map.mapset_id as i32
                 );
 
-                if let Some(mapset) = query.fetch_optional(&self.pool).await? {
-                    map.mapset.replace(mapset.into());
-                }
+                let mapset = query.fetch_one(&self.pool).await?;
+                map.mapset.replace(mapset.into());
             }
 
             beatmaps.insert(id, map);
