@@ -68,10 +68,10 @@ impl MapsetTags {
         };
 
         let mut result = String::with_capacity(self.size() * 6);
-        let _ = write!(result, "{:?}", first_tag);
+        let _ = write!(result, "{first_tag:?}");
 
         for element in iter {
-            let _ = write!(result, "{}{:?}", separator, element);
+            let _ = write!(result, "{separator}{element:?}");
         }
 
         result

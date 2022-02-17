@@ -51,13 +51,13 @@ impl Game {
                                 game.mapset_id
                             );
                             let report = Report::new(why).wrap_err(wrap);
-                            warn!("{:?}", report);
+                            warn!("{report:?}");
                         }
                     }
                 }
                 Err(why) => {
                     let report = Report::new(why).wrap_err("error while creating bg game");
-                    warn!("{:?}", report);
+                    warn!("{report:?}");
                 }
             }
         }
@@ -188,7 +188,7 @@ pub async fn game_loop(
                 // Send message
                 if let Err(why) = super::send_msg(ctx, channel, &content).await {
                     let report = Report::new(why).wrap_err("error while sending msg for winner");
-                    warn!("{:?}", report);
+                    warn!("{report:?}");
                 }
 
                 return LoopResult::Winner(msg.author.id.get());
@@ -219,7 +219,7 @@ pub async fn game_loop(
                 if let Err(why) = msg_fut.exec().await {
                     let report =
                         Report::new(why).wrap_err("error while sending msg for correct artist");
-                    warn!("{:?}", report);
+                    warn!("{report:?}");
                 }
             }
             ContentResult::None => {}

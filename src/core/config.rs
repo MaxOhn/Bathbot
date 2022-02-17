@@ -58,6 +58,6 @@ impl BotConfig {
     pub fn grade(&self, grade: Grade) -> &str {
         self.grades
             .get(&grade)
-            .unwrap_or_else(|| panic!("No grade emote for grade {} in config", grade))
+            .unwrap_or_else(|| panic!("No grade emote for grade {grade} in config"))
     }
 }

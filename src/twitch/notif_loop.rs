@@ -73,7 +73,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
             Ok(users) => users.into_iter().map(|u| (u.user_id, u)).collect(),
             Err(err) => {
                 let report = Report::new(err).wrap_err("error while retrieving twitch users");
-                warn!("{:?}", report);
+                warn!("{report:?}");
 
                 continue;
             }
@@ -131,7 +131,7 @@ async fn send_notif(ctx: &Context, data: &TwitchNotifEmbed, channel: Id<ChannelM
                                 );
 
                                 let report = Report::new(err).wrap_err(wrap);
-                                warn!("{:?}", report);
+                                warn!("{report:?}");
                             } else {
                                 debug!("Removed twitch tracking of unknown channel {channel}");
                             }
@@ -143,13 +143,13 @@ async fn send_notif(ctx: &Context, data: &TwitchNotifEmbed, channel: Id<ChannelM
                 } else {
                     let wrap = format!("error while sending twitch notif (channel {channel})");
                     let report = Report::new(why).wrap_err(wrap);
-                    warn!("{:?}", report);
+                    warn!("{report:?}");
                 }
             }
         }
         Err(err) => {
             let report = Report::new(err).wrap_err("invalid embed for twitch notif");
-            warn!("{:?}", report);
+            warn!("{report:?}");
         }
     }
 }

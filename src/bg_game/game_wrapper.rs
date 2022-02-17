@@ -62,7 +62,7 @@ impl GameWrapper {
                 if let Err(why) = create_fut.await {
                     let report =
                         Report::new(why).wrap_err("error while sending initial bg game msg");
-                    warn!("{:?}", report);
+                    warn!("{report:?}");
                 }
 
                 let result = tokio::select! {
@@ -81,15 +81,15 @@ impl GameWrapper {
 
                         // Send message
                         let content = format!(
-                            "Mapset: {}beatmapsets/{mapset_id}\n\
+                            "Mapset: {OSU_BASE}beatmapsets/{mapset_id}\n\
                             Full background: https://assets.ppy.sh/beatmaps/{mapset_id}/covers/raw.jpg",
-                            OSU_BASE, mapset_id = game.mapset_id
+                            mapset_id = game.mapset_id
                         );
 
                         if let Err(why) = super::send_msg(&ctx, channel, &content).await {
                             let report = Report::new(why)
                                 .wrap_err("error while showing resolve for bg game restart");
-                            warn!("{:?}", report);
+                            warn!("{report:?}");
                         }
                     }
                     LoopResult::Stop => {
@@ -106,7 +106,7 @@ impl GameWrapper {
                         if let Err(why) = super::send_msg(&ctx, channel, &content).await {
                             let report = Report::new(why)
                                 .wrap_err("error while showing resolve for bg game stop");
-                            warn!("{:?}", report);
+                            warn!("{report:?}");
                         }
 
                         // Store score for winners
@@ -114,7 +114,7 @@ impl GameWrapper {
                             if let Err(why) = ctx.psql().increment_bggame_score(user, score).await {
                                 let report = Report::new(why)
                                     .wrap_err("error while incrementing bg game score");
-                                warn!("{:?}", report);
+                                warn!("{report:?}");
                             }
                         }
 
