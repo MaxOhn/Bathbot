@@ -12,7 +12,7 @@ use crate::{
 #[bucket("bg_hint")]
 #[no_typing()]
 pub(super) async fn hint(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match ctx.game_hint(data.channel_id()) {
+    match ctx.game_hint(data.channel_id()).await {
         Ok(hint) => {
             let builder = MessageBuilder::new().content(hint);
             data.create_message(&ctx, builder).await?;

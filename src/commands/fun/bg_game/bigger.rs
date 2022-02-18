@@ -11,7 +11,7 @@ use crate::{
 #[aliases("b", "enhance")]
 #[bucket("bg_bigger")]
 pub(super) async fn bigger(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match ctx.game_bigger(data.channel_id()) {
+    match ctx.game_bigger(data.channel_id()).await {
         Ok(img) => {
             let builder = MessageBuilder::new().file("bg_img.png", &img);
             data.create_message(&ctx, builder).await?;

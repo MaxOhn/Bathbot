@@ -6,7 +6,7 @@ use tokio::{
 
 use eyre::Report;
 use hashbrown::HashMap;
-use parking_lot::RwLock;
+use tokio::sync::RwLock;
 use twilight_model::{
     gateway::payload::incoming::MessageCreate,
     id::{
@@ -77,7 +77,7 @@ impl GameWrapper {
                 // Process the result
                 match result {
                     LoopResult::Restart => {
-                        let game = game_clone.read();
+                        let game = game_clone.read().await;
 
                         // Send message
                         let content = format!(
@@ -93,14 +93,14 @@ impl GameWrapper {
                         }
                     }
                     LoopResult::Stop => {
-                        let game = game_clone.read();
+                        let game = game_clone.read().await;
 
                         // Send message
                         let content = format!(
-                            "Mapset: {}beatmapsets/{mapset_id}\n\
+                            "Mapset: {OSU_BASE}beatmapsets/{mapset_id}\n\
                             Full background: https://assets.ppy.sh/beatmaps/{mapset_id}/covers/raw.jpg\n\
                             End of game, see you next time o/",
-                            OSU_BASE, mapset_id = game.mapset_id
+                            mapset_id = game.mapset_id
                         );
 
                         if let Err(why) = super::send_msg(&ctx, channel, &content).await {
@@ -132,7 +132,7 @@ impl GameWrapper {
                 // Initialize next game
                 let (game, img_) = Game::new(&ctx, &mapsets, &mut previous_ids).await;
                 img = img_;
-                let mut unlocked_game = game_clone.write();
+                let mut unlocked_game = game_clone.write().await;
                 *unlocked_game = game;
             }
 
@@ -154,11 +154,11 @@ impl GameWrapper {
             .map_err(|_| BgGameError::RestartToken)
     }
 
-    pub fn sub_image(&self) -> GameResult<Vec<u8>> {
-        self.game.read().sub_image()
+    pub async fn sub_image(&self) -> GameResult<Vec<u8>> {
+        self.game.read().await.sub_image()
     }
 
-    pub fn hint(&self) -> String {
-        self.game.read().hint()
+    pub async fn hint(&self) -> String {
+        self.game.read().await.hint()
     }
 }

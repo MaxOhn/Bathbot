@@ -5,7 +5,7 @@ use futures::future::TryFutureExt;
 use image::GenericImageView;
 use parking_lot::RwLock;
 use rosu_v2::model::GameMode;
-use tokio::fs;
+use tokio::{fs, sync::RwLock as TokioRwLock};
 use tokio_stream::StreamExt;
 use twilight_model::id::{marker::ChannelMarker, Id};
 use twilight_standby::future::WaitForMessageStream;
@@ -161,12 +161,12 @@ pub enum LoopResult {
 pub async fn game_loop(
     msg_stream: &mut WaitForMessageStream,
     ctx: &Context,
-    game_locked: &RwLock<Game>,
+    game_locked: &TokioRwLock<Game>,
     channel: Id<ChannelMarker>,
 ) -> LoopResult {
     // Collect and evaluate messages
     while let Some(msg) = msg_stream.next().await {
-        let game = game_locked.read();
+        let game = game_locked.read().await;
         let content = msg.content.cow_to_ascii_lowercase();
 
         match game.check_msg_content(content.as_ref()) {

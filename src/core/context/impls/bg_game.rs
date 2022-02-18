@@ -76,16 +76,16 @@ impl Context {
         self.data.bg_games.remove(&channel);
     }
 
-    pub fn game_hint(&self, channel: Id<ChannelMarker>) -> Result<String, BgGameError> {
+    pub async fn game_hint(&self, channel: Id<ChannelMarker>) -> Result<String, BgGameError> {
         match self.data.bg_games.get(&channel) {
-            Some(game) => Ok(game.hint()),
+            Some(game) => Ok(game.hint().await),
             None => Err(BgGameError::NoGame),
         }
     }
 
-    pub fn game_bigger(&self, channel: Id<ChannelMarker>) -> Result<Vec<u8>, BgGameError> {
+    pub async fn game_bigger(&self, channel: Id<ChannelMarker>) -> Result<Vec<u8>, BgGameError> {
         match self.data.bg_games.get(&channel) {
-            Some(game) => game.sub_image(),
+            Some(game) => game.sub_image().await,
             None => Err(BgGameError::NoGame),
         }
     }
