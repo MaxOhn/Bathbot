@@ -446,11 +446,10 @@ fn game_content(lobby: &OsuMatch, game: &MatchGame) -> (String, Option<String>, 
 
                     let _ = write!(
                         description,
-                        "**[{artist} - {title} [{version}]]({base}b/{map_id})",
+                        "**[{artist} - {title} [{version}]]({OSU_BASE}b/{map_id})",
                         artist = mapset.artist,
                         title = mapset.title,
                         version = map.version,
-                        base = OSU_BASE,
                         map_id = map.map_id,
                     );
 
@@ -545,11 +544,10 @@ fn game_content(lobby: &OsuMatch, game: &MatchGame) -> (String, Option<String>, 
 
                     let _ = write!(
                         description,
-                        "**[{artist} - {title} [{version}]]({base}b/{map_id})",
+                        "**[{artist} - {title} [{version}]]({OSU_BASE}b/{map_id})",
                         artist = mapset.artist,
                         title = mapset.title,
                         version = map.version,
-                        base = OSU_BASE,
                         map_id = map.map_id,
                     );
 

@@ -1,12 +1,14 @@
+use std::slice;
 use std::sync::Arc;
 
 use dashmap::{mapref::entry::Entry, DashMap};
 use eyre::Report;
+use eyre::{Context as EyreContext, Result};
 use rosu_v2::prelude::{MatchEvent, OsuError, OsuMatch};
 use smallvec::SmallVec;
 use tokio::{
     sync::Mutex,
-    time::{interval, sleep, Duration},
+    time::{interval, Duration, MissedTickBehavior},
 };
 use twilight_model::id::{
     marker::{ChannelMarker, MessageMarker},
@@ -110,8 +112,12 @@ impl Context {
                 let locked_match = tracked_match.lock().await;
 
                 let msg = match send_match_messages(self, channel, &locked_match.embeds).await {
-                    Some(msg) => Mutex::new(msg),
-                    None => return MatchTrackResult::Error,
+                    Ok(msg) => Mutex::new(msg),
+                    Err(report) => {
+                        error!("{report:?}");
+
+                        return MatchTrackResult::Error;
+                    }
                 };
 
                 *match_live.channel_count.entry(channel).or_insert(0) += 1;
@@ -125,8 +131,12 @@ impl Context {
                     let embeds = MatchLiveEmbed::new(&osu_match);
 
                     let msg = match send_match_messages(self, channel, &embeds).await {
-                        Some(msg) => Mutex::new(msg),
-                        None => return MatchTrackResult::Error,
+                        Ok(msg) => Mutex::new(msg),
+                        Err(report) => {
+                            error!("{report:?}");
+
+                            return MatchTrackResult::Error;
+                        }
                     };
 
                     // Only add to tracking if it's not already disbanded
@@ -216,8 +226,7 @@ impl Context {
                 let next_match = match tracked_match.osu_match.get_next(ctx.osu()).await {
                     Ok(next_match) => next_match,
                     Err(why) => {
-                        let report =
-                            Report::new(why).wrap_err("failed to request match for live ticker");
+                        let report = Report::new(why).wrap_err("failed to request match");
                         warn!("{report:?}");
 
                         continue;
@@ -247,8 +256,8 @@ impl Context {
                         let update_fut = match update_result {
                             Ok(update_fut) => update_fut.exec(),
                             Err(why) => {
-                                let report = Report::new(why)
-                                    .wrap_err("failed to build msg update for live match");
+                                let report =
+                                    Report::new(why).wrap_err("failed to build msg update");
                                 warn!("{report:?}");
 
                                 continue;
@@ -256,8 +265,7 @@ impl Context {
                         };
 
                         if let Err(why) = update_fut.await {
-                            let report =
-                                Report::new(why).wrap_err("failed to update match live msg");
+                            let report = Report::new(why).wrap_err("failed to update msg");
                             warn!("{report:?}");
                         }
                     }
@@ -266,8 +274,15 @@ impl Context {
                 if let Some(embeds) = new_embeds {
                     for (channel, msg_lock) in channels.iter() {
                         match send_match_messages(&ctx, *channel, &embeds).await {
-                            Some(msg) => *msg_lock.lock().await = msg,
-                            None => error!("Failed to send last match live message"),
+                            Ok(msg) => *msg_lock.lock().await = msg,
+                            Err(report) => {
+                                error!(
+                                    "{:?}",
+                                    report.wrap_err(
+                                        "failed to send last message in channel {channel}"
+                                    )
+                                )
+                            }
                         }
                     }
 
@@ -333,15 +348,19 @@ async fn send_match_messages(
     ctx: &Context,
     channel: Id<ChannelMarker>,
     embeds: &[MatchLiveEmbed],
-) -> Option<Id<MessageMarker>> {
+) -> Result<Id<MessageMarker>> {
     let mut iter = embeds.iter();
 
     // Msg of last embed will be stored, do it separately
     let last = iter.next_back().expect("no embed on fresh match");
 
     let content = if embeds.len() <= EMBED_LIMIT {
+        let mut interval = interval(Duration::from_millis(250));
+        interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+
         for embed in iter {
             let embed = embed.as_builder().build();
+            interval.tick().await;
 
             match ctx.http.create_message(channel).embeds(&[embed]) {
                 Ok(msg_fut) => {
@@ -356,8 +375,6 @@ async fn send_match_messages(
                     warn!("{report:?}");
                 }
             }
-
-            sleep(Duration::from_millis(250)).await;
         }
 
         None
@@ -367,37 +384,25 @@ async fn send_match_messages(
 
     let last = last.as_builder().build();
 
-    match ctx.http.create_message(channel).embeds(&[last]) {
-        Ok(msg_fut) => {
-            let msg_fut = match content {
-                Some(content) => msg_fut.content(content).unwrap(),
-                None => msg_fut,
-            };
+    let mut msg_fut = ctx
+        .http
+        .create_message(channel)
+        .embeds(slice::from_ref(&last))
+        .wrap_err("failed to create last match live msg")?;
 
-            match msg_fut.exec().await {
-                Ok(msg_res) => match msg_res.model().await {
-                    Ok(msg) => Some(msg.id),
-                    Err(why) => {
-                        let report = Report::new(why)
-                            .wrap_err("failed to deserialize last match live embed response");
-                        error!("{report:?}");
-
-                        None
-                    }
-                },
-                Err(why) => {
-                    let report = Report::new(why).wrap_err("failed to send last match live embed");
-                    error!("{report:?}");
-
-                    None
-                }
-            }
-        }
-        Err(why) => {
-            let report = Report::new(why).wrap_err("failed to create last match live msg");
-            error!("{report:?}");
-
-            None
-        }
+    if let Some(content) = content {
+        msg_fut = msg_fut.content(content).unwrap();
     }
+
+    let msg_res = msg_fut
+        .exec()
+        .await
+        .wrap_err("failed to send last match live embed")?;
+
+    let msg = msg_res
+        .model()
+        .await
+        .wrap_err("failed to deserialize last match live embed response")?;
+
+    Ok(msg.id)
 }
