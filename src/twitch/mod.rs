@@ -1,13 +1,9 @@
 mod models;
 mod notif_loop;
 
-use std::{borrow::Cow, convert::TryFrom, fmt, num::NonZeroU32};
+use std::{borrow::Cow, convert::TryFrom, fmt};
 
-use governor::{
-    clock::DefaultClock,
-    state::{direct::NotKeyed, InMemoryState},
-    Quota, RateLimiter,
-};
+use leaky_bucket_lite::LeakyBucket;
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue},
     Client, Response,
@@ -30,7 +26,7 @@ type TwitchResult<T> = Result<T, TwitchError>;
 pub struct Twitch {
     client: Client,
     auth_token: OAuthToken,
-    ratelimiter: RateLimiter<NotKeyed, InMemoryState, DefaultClock>,
+    ratelimiter: LeakyBucket,
 }
 
 impl Twitch {
@@ -55,8 +51,12 @@ impl Twitch {
             TwitchError::SerdeToken { source, content }
         })?;
 
-        let quota = Quota::per_second(NonZeroU32::new(5).unwrap());
-        let ratelimiter = RateLimiter::direct(quota);
+        let ratelimiter = LeakyBucket::builder()
+            .max(5)
+            .tokens(5)
+            .refill_interval(Duration::from_millis(200))
+            .refill_amount(1)
+            .build();
 
         Ok(Self {
             client,
@@ -70,7 +70,7 @@ impl Twitch {
         endpoint: &str,
         data: &T,
     ) -> TwitchResult<Response> {
-        self.ratelimiter.until_ready().await;
+        self.ratelimiter.acquire_one().await;
 
         self.client
             .get(endpoint)

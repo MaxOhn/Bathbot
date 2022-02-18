@@ -6,11 +6,11 @@ mod osu_stats;
 mod score;
 mod snipe;
 
-use std::{fmt::Write, hash::Hash, num::NonZeroU32};
+use std::{fmt::Write, hash::Hash};
 
 use chrono::{DateTime, Utc};
-use governor::{clock::DefaultClock, state::keyed::DashMapStateStore, Quota, RateLimiter};
 use hashbrown::HashSet;
+use leaky_bucket_lite::LeakyBucket;
 use once_cell::sync::OnceCell;
 use reqwest::{multipart::Form, Client, Response, StatusCode};
 use rosu_v2::prelude::{GameMode, GameMods, User};
@@ -46,19 +46,20 @@ type ClientResult<T> = Result<T, CustomClientError>;
 static USER_AGENT: &str = env!("CARGO_PKG_NAME");
 static OSU_SESSION: OnceCell<&'static str> = OnceCell::new();
 
-#[derive(Hash, Eq, PartialEq, Copy, Clone)]
+#[derive(Copy, Clone, Eq, Hash, PartialEq)]
+#[repr(u8)]
 enum Site {
+    Huismetbenen,
     OsuStats,
     OsuHiddenApi,
     OsuAvatar,
-    OsuSnipe,
     Osekai,
     OsuDaily,
 }
 
 pub struct CustomClient {
     client: Client,
-    ratelimiter: RateLimiter<Site, DashMapStateStore<Site>, DefaultClock>,
+    ratelimiters: [LeakyBucket; 6],
 }
 
 impl CustomClient {
@@ -68,17 +69,33 @@ impl CustomClient {
         OSU_SESSION.set(&config.tokens.osu_session).unwrap();
 
         let client = Client::builder().user_agent(USER_AGENT).build()?;
-        let quota = Quota::per_second(NonZeroU32::new(2).unwrap());
-        let ratelimiter = RateLimiter::dashmap_with_clock(quota, &DefaultClock::default());
+
+        let ratelimiter = || {
+            LeakyBucket::builder()
+                .max(2)
+                .tokens(2)
+                .refill_interval(Duration::from_millis(500))
+                .refill_amount(1)
+                .build()
+        };
+
+        let ratelimiters = [
+            ratelimiter(), // Huismetbenen
+            ratelimiter(), // OsuStats
+            ratelimiter(), // OsuHiddenApi
+            ratelimiter(), // OsuAvatar
+            ratelimiter(), // Osekai
+            ratelimiter(), // OsuDaily
+        ];
 
         Ok(Self {
             client,
-            ratelimiter,
+            ratelimiters,
         })
     }
 
     async fn ratelimit(&self, site: Site) {
-        self.ratelimiter.until_key_ready(&site).await
+        self.ratelimiters[site as usize].acquire_one().await
     }
 
     async fn make_get_request(&self, url: impl AsRef<str>, site: Site) -> ClientResult<Response> {
@@ -88,10 +105,8 @@ impl CustomClient {
         let mut req = self.client.get(url);
 
         if let Site::OsuHiddenApi = site {
-            req = req.header(
-                "Cookie",
-                format!("osu_session={}", OSU_SESSION.get().unwrap()),
-            )
+            let cookie = format!("osu_session={}", OSU_SESSION.get().unwrap());
+            req = req.header("Cookie", cookie)
         }
 
         self.ratelimit(site).await;
@@ -173,7 +188,7 @@ impl CustomClient {
             country.to_lowercase(),
         );
 
-        let response = self.make_get_request(url, Site::OsuSnipe).await?;
+        let response = self.make_get_request(url, Site::Huismetbenen).await?;
         let bytes = response.bytes().await?;
 
         let player: SnipePlayer = serde_json::from_slice(&bytes)
@@ -188,7 +203,7 @@ impl CustomClient {
             country.to_lowercase()
         );
 
-        let response = self.make_get_request(url, Site::OsuSnipe).await?;
+        let response = self.make_get_request(url, Site::Huismetbenen).await?;
         let bytes = response.bytes().await?;
 
         let country_players: Vec<SnipeCountryPlayer> = serde_json::from_slice(&bytes)
@@ -204,7 +219,7 @@ impl CustomClient {
         let country = country.to_lowercase();
         let url = format!("{HUISMETBENEN}rankings/{country}/statistics");
 
-        let response = self.make_get_request(url, Site::OsuSnipe).await?;
+        let response = self.make_get_request(url, Site::Huismetbenen).await?;
         let bytes = response.bytes().await?;
 
         let statistics = serde_json::from_slice(&bytes)
@@ -230,7 +245,7 @@ impl CustomClient {
             until.format(date_format)
         );
 
-        let response = self.make_get_request(url, Site::OsuSnipe).await?;
+        let response = self.make_get_request(url, Site::Huismetbenen).await?;
         let bytes = response.bytes().await?;
 
         let snipes: Vec<SnipeRecent> = serde_json::from_slice(&bytes)
@@ -263,7 +278,7 @@ impl CustomClient {
             }
         }
 
-        let response = self.make_get_request(url, Site::OsuSnipe).await?;
+        let response = self.make_get_request(url, Site::Huismetbenen).await?;
         let bytes = response.bytes().await?;
 
         let scores: Vec<SnipeScore> = serde_json::from_slice(&bytes)
@@ -293,7 +308,7 @@ impl CustomClient {
             }
         }
 
-        let response = self.make_get_request(url, Site::OsuSnipe).await?;
+        let response = self.make_get_request(url, Site::Huismetbenen).await?;
         let bytes = response.bytes().await?;
 
         let count: usize = serde_json::from_slice(&bytes)
