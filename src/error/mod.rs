@@ -97,11 +97,15 @@ pub enum Error {
 #[derive(Debug, thiserror::Error)]
 #[error("failed to create graph")]
 pub enum GraphError {
+    #[error("failed to calculate bezier curve")]
+    Bezier(#[from] enterpolation::bezier::BezierError),
+    #[error("image error")]
     Image(#[from] image::ImageError),
-    #[error("failed to create graph: no non-zero strain point")]
+    #[error("no non-zero strain point")]
     InvalidStrainPoints,
-    #[error("failed to create graph: {0}")]
+    #[error("plotter error: {0}")]
     Plotter(String),
+    #[error("reqwest error")]
     Reqwest(#[from] reqwest::Error),
 }
 

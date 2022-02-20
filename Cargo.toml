@@ -12,6 +12,7 @@ bytes = { version = "1.0" }
 chrono = { version = "0.4", features = ["serde"] }
 dashmap = { version = "5.1", features = ["serde"] }
 dotenv = { version = "0.15" }
+enterpolation = { version = "0.1", default-features = false, features = ["std", "bezier"] }
 eyre = { version = "0.6" }
 futures = { version = "0.3", default-features = false }
 handlebars = { version = "4.0" }
@@ -25,6 +26,7 @@ leaky-bucket-lite = { version = "0.5", features = ["parking_lot"] }
 once_cell = { version = "1.0" }
 parking_lot = { version = "0.12", default-features = false }
 plotters = { version = "0.3", default-features = false, features = ["bitmap_backend", "image", "line_series", "datetime", "area_series", "histogram"] }
+plotters-backend = { version = "0.3" }
 priority-queue = { version = "1.0" }
 proc_macros  = { path = "./proc_macros" }
 prometheus = { version = "0.13" }

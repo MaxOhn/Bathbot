@@ -1,3 +1,23 @@
+use std::{cmp::Ordering, iter, sync::Arc};
+
+use chrono::Duration;
+use enterpolation::{bezier::Bezier, Curve};
+use eyre::Report;
+use image::{
+    codecs::png::PngEncoder, ColorType, DynamicImage, GenericImageView, ImageEncoder, Luma, Pixel,
+};
+use plotters::{
+    element::{Drawable, PointCollection},
+    prelude::*,
+};
+use plotters_backend::{BackendColor, BackendCoord, BackendStyle, DrawingErrorKind};
+use rosu_pp::{Beatmap, BeatmapExt};
+use rosu_v2::prelude::{GameMode, GameMods, OsuError};
+use twilight_model::{
+    application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
+    channel::message::MessageType,
+};
+
 use crate::{
     commands::{
         osu::{option_map, option_mods},
@@ -18,21 +38,6 @@ use crate::{
         ApplicationCommandExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
-};
-
-use chrono::Duration;
-use eyre::Report;
-use image::{
-    codecs::png::PngEncoder, ColorType, DynamicImage, GenericImage, GenericImageView, ImageEncoder,
-    Pixel,
-};
-use plotters::prelude::*;
-use rosu_pp::{Beatmap, BeatmapExt};
-use rosu_v2::prelude::{GameMode, GameMods, OsuError};
-use std::{cmp::Ordering, sync::Arc};
-use twilight_model::{
-    application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
-    channel::message::MessageType,
 };
 
 const W: u32 = 590;
@@ -195,13 +200,13 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
         },
         (Err(why), _) => {
             let report = Report::new(why).wrap_err("failed to create oppai values");
-            warn!("{:?}", report);
+            warn!("{report:?}");
 
             None
         }
         (_, Err(why)) => {
             let report = Report::new(why).wrap_err("failed to retrieve graph background");
-            warn!("{:?}", report);
+            warn!("{report:?}");
 
             None
         }
@@ -288,14 +293,31 @@ async fn strain_values(map_id: u32, mods: GameMods) -> BotResult<Vec<(f64, f64)>
     Ok(strains)
 }
 
-fn graph(strains: Vec<(f64, f64)>, mut background: DynamicImage) -> Result<Vec<u8>, GraphError> {
-    static LEN: usize = W as usize * H as usize;
+fn graph(strains: Vec<(f64, f64)>, background: DynamicImage) -> Result<Vec<u8>, GraphError> {
+    const LEN: usize = W as usize * H as usize;
+    const STEPS: usize = 128;
 
-    let max_strain = strains
+    let first_strain = strains.first().map_or(0.0, |(v, _)| *v);
+    let last_strain = strains.last().map_or(0.0, |(v, _)| *v);
+    let elements: Vec<_> = strains.into_iter().map(|(_, strain)| strain).collect();
+    let dist = (last_strain - first_strain) / STEPS as f64;
+
+    let curve = Bezier::builder()
+        .elements(elements)
+        .normalized::<f64>()
+        .dynamic()
+        .build()?;
+
+    let strains: Vec<_> = iter::successors(Some(first_strain), |n| Some(n + dist))
+        .take(STEPS)
+        .zip(curve.take(STEPS))
+        .collect();
+
+    let (min_strain, max_strain) = strains
         .iter()
-        .copied()
-        .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(Ordering::Equal))
-        .map_or(0.0, |(_, s)| s);
+        .fold((f64::MAX, f64::MIN), |(min, max), (_, strain)| {
+            (min.min(*strain), max.max(*strain))
+        });
 
     if max_strain <= std::f64::EPSILON {
         return Err(GraphError::InvalidStrainPoints);
@@ -306,47 +328,31 @@ fn graph(strains: Vec<(f64, f64)>, mut background: DynamicImage) -> Result<Vec<u
     {
         let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
         root.fill(&WHITE)?;
-        let last_strain = strains.last().map_or(0.0, |(s, _)| *s);
 
         let mut chart = ChartBuilder::on(&root)
             .x_label_area_size(17_i32)
-            .build_cartesian_2d(0.0..last_strain, 0.0..max_strain)?;
+            .build_cartesian_2d(first_strain..last_strain, min_strain..max_strain)?;
 
-        // Make background darker and sum up rgb values to find minimum
+        // Get grayscale value to determine color for x axis
         let (width, height) = background.dimensions();
-        let mut r = 0;
-        let mut g = 0;
-        let mut b = 0;
+        let y = height.saturating_sub(10);
 
-        for y in 0..height {
-            for x in 0..width {
-                let pixel = background
-                    .get_pixel(x, y)
-                    .map_with_alpha(|c| c.saturating_sub(75), |a| a.saturating_sub(25));
+        let sum: u32 = (0..width)
+            .map(|x| {
+                let Luma([value]) = background.get_pixel(x, y).to_luma();
 
-                r += pixel[0] as u64;
-                g += pixel[1] as u64;
-                b += pixel[2] as u64;
+                value as u32
+            })
+            .sum();
 
-                background.put_pixel(x, y, pixel);
-            }
-        }
-
-        // Take as line color whatever is represented least in the background
-        let b = (b as f32 * 1.3) as u64;
-        let line_color = match r.min(g).min(b) {
-            min if min == r => &RED,
-            min if min == g => &GREEN,
-            min if min == b => &BLUE,
-            _ => unreachable!(),
-        };
+        let axis_color = if sum / width >= 128 { &BLACK } else { &WHITE };
 
         // Add background
         let elem: BitMapElement<'_, _> = ((0.0_f64, max_strain), background).into();
-        chart.draw_series(std::iter::once(elem))?;
+        chart.draw_series(iter::once(elem))?;
 
         // Mesh and labels
-        let text_style = FontDesc::new(FontFamily::Serif, 12.0, FontStyle::Bold).color(line_color);
+        let text_style = FontDesc::new(FontFamily::Serif, 12.0, FontStyle::Bold).color(axis_color);
         chart
             .configure_mesh()
             .disable_y_mesh()
@@ -369,10 +375,8 @@ fn graph(strains: Vec<(f64, f64)>, mut background: DynamicImage) -> Result<Vec<u
             .draw()?;
 
         // Draw line
-        chart.draw_series(LineSeries::new(
-            strains.into_iter().map(|(time, strain)| (time, strain)),
-            line_color,
-        ))?;
+        let glowing = GlowingPath::new(strains, Line.into());
+        chart.draw_series(iter::once(glowing))?;
     }
 
     // Encode buf to png
@@ -383,13 +387,68 @@ fn graph(strains: Vec<(f64, f64)>, mut background: DynamicImage) -> Result<Vec<u
     Ok(png_bytes)
 }
 
-trait TupleExt: Sized {
-    fn add(self, other: (u64, u64, u64)) -> Self;
+struct GlowingPath<Coord>(PathElement<Coord>);
+
+impl<Coord> GlowingPath<Coord> {
+    fn new(points: Vec<Coord>, style: ShapeStyle) -> Self {
+        Self(PathElement::new(points, style))
+    }
 }
 
-impl TupleExt for (u64, u64, u64) {
-    fn add(self, other: (u64, u64, u64)) -> Self {
-        (self.0 + other.0, self.1 + other.1, self.2 + other.2)
+impl<'a, Coord> PointCollection<'a, Coord> for &'a GlowingPath<Coord> {
+    type Point = &'a Coord;
+    type IntoIter = &'a [Coord];
+
+    fn point_iter(self) -> Self::IntoIter {
+        self.0.point_iter()
+    }
+}
+
+impl<DB, Coord> Drawable<DB> for GlowingPath<Coord>
+where
+    DB: DrawingBackend,
+{
+    fn draw<I>(
+        &self,
+        pos: I,
+        backend: &mut DB,
+        parent_dim: (u32, u32),
+    ) -> Result<(), DrawingErrorKind<DB::ErrorType>>
+    where
+        I: Iterator<Item = BackendCoord>,
+    {
+        let pos: Vec<_> = pos.collect();
+        backend.draw_path(pos.iter().copied(), &Glow)?;
+        self.0.draw(pos.into_iter(), backend, parent_dim)?;
+
+        Ok(())
+    }
+}
+
+struct Glow;
+
+impl BackendStyle for Glow {
+    fn color(&self) -> BackendColor {
+        BackendColor {
+            alpha: 0.7,
+            rgb: (255, 255, 255),
+        }
+    }
+
+    fn stroke_width(&self) -> u32 {
+        5
+    }
+}
+
+struct Line;
+
+impl From<Line> for ShapeStyle {
+    fn from(_: Line) -> Self {
+        Self {
+            color: RGBColor(13, 98, 50).mix(1.0),
+            filled: false,
+            stroke_width: 2,
+        }
     }
 }
 
