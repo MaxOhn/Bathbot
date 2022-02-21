@@ -10,7 +10,7 @@ use image::{
     ImageEncoder,
 };
 use plotters::prelude::*;
-use reqwest::Response;
+use reqwest::{Client as ReqwestClient, Response};
 use rosu_v2::prelude::{MonthlyCount, User};
 
 use crate::error::GraphError;
@@ -34,10 +34,14 @@ pub(super) async fn graphs(user: &mut User) -> Result<Option<Vec<u8>>, GraphErro
         let badges = match badges.is_empty() {
             true => Vec::new(),
             false => {
+                let client = ReqwestClient::new();
+
                 badges
                     .iter()
                     .map(|badge| {
-                        reqwest::get(&badge.image_url)
+                        client
+                            .get(&badge.image_url)
+                            .send()
                             .and_then(Response::bytes)
                             .map_ok(|bytes| bytes.to_vec())
                     })
