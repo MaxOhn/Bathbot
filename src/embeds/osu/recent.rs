@@ -1,7 +1,7 @@
 use crate::{
+    custom_client::TwitchVideo,
     embeds::{osu, Author, EmbedBuilder, EmbedData, Footer},
     error::PpError,
-    twitch::TwitchVideo,
     util::{
         constants::{AVATAR_URL, TWITCH_BASE},
         datetime::{how_long_ago_dynamic, HowLongAgoFormatterDynamic},

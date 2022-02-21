@@ -30,7 +30,7 @@ use crate::{
     database::{Database, GuildConfig},
     server::AuthenticationStandby,
     util::CountryCode,
-    BotResult, CustomClient, OsuTracking, Twitch,
+    BotResult, CustomClient, OsuTracking,
 };
 
 pub use self::impls::{MatchLiveChannels, MatchTrackResult};
@@ -59,7 +59,6 @@ pub struct Clients {
     pub osu: Osu,
     pub osu_v1: OsuV1,
     pub custom: CustomClient,
-    pub twitch: Twitch,
 }
 
 pub type AssignRoles = SmallVec<[u64; 1]>;

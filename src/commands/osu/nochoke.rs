@@ -26,7 +26,7 @@ use crate::{
     embeds::{EmbedData, NoChokeEmbed},
     error::PpError,
     pagination::{NoChokePagination, Pagination},
-    tracking::process_tracking,
+    tracking::process_osu_tracking,
     util::{
         constants::{
             common_literals::{CTB, DISCORD, MODE, NAME, OSU, SPECIFY_MODE, TAIKO},
@@ -77,7 +77,7 @@ async fn _nochokes(ctx: Arc<Context>, data: CommandData<'_>, args: NochokeArgs) 
     user.mode = mode;
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, &mut scores, Some(&user)).await;
+    process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
     let mut scores_data = match version.calculate(scores, miss_limit).await {
         Ok(scores_data) => scores_data,

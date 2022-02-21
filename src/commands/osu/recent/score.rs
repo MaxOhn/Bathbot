@@ -21,11 +21,11 @@ use crate::{
         osu::{get_user_and_scores, ScoreArgs, UserArgs},
         parse_discord, parse_mode_option, DoubleResultCow, MyCommand,
     },
+    custom_client::TwitchVideo,
     database::UserConfig,
     embeds::{EmbedData, RecentEmbed},
     error::Error,
-    tracking::process_tracking,
-    twitch::TwitchVideo,
+    tracking::process_osu_tracking,
     util::{
         constants::{
             common_literals::{DISCORD, GRADE, INDEX, MODE, NAME},
@@ -287,7 +287,7 @@ pub(super) async fn _recent(
 
         // Process user and their top scores for tracking
         if let Some(ref mut scores) = best {
-            process_tracking(&ctx, scores, Some(&user)).await;
+            process_osu_tracking(&ctx, scores, Some(&user)).await;
         }
 
         // Wait for minimizing
@@ -329,7 +329,7 @@ pub(super) async fn _recent(
 
         // Process user and their top scores for tracking
         if let Some(ref mut scores) = best {
-            process_tracking(&ctx, scores, Some(&user)).await;
+            process_osu_tracking(&ctx, scores, Some(&user)).await;
         }
     }
 
@@ -342,7 +342,7 @@ async fn retrieve_vod(
     score: &Score,
     map: &Beatmap,
 ) -> Option<TwitchVideo> {
-    match ctx.clients.twitch.get_last_vod(user_id).await {
+    match ctx.clients.custom.get_last_twitch_vod(user_id).await {
         Ok(Some(mut vod)) => {
             let vod_start = vod.created_at.timestamp();
             let vod_end = vod_start + vod.duration as i64;

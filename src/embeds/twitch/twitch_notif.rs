@@ -1,6 +1,6 @@
 use crate::{
+    custom_client::{TwitchStream, TwitchUser},
     embeds::Author,
-    twitch::{TwitchStream, TwitchUser},
     util::constants::TWITCH_BASE,
 };
 

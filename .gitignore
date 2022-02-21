@@ -5,5 +5,4 @@ config.toml
 .env
 logs
 /.vscode
-tracking
 /resume_data

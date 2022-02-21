@@ -26,7 +26,7 @@ use crate::{
 use super::TrackingEntry;
 
 #[cold]
-pub async fn tracking_loop(ctx: Arc<Context>) {
+pub async fn osu_tracking_loop(ctx: Arc<Context>) {
     if cfg!(debug_assertions) {
         info!("Skip osu! tracking on debug");
 
@@ -50,7 +50,7 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
                 Ok(mut scores) => {
                     // * Note: If scores are empty, (user_id, mode) will not be reset into the tracking queue
                     if !scores.is_empty() {
-                        process_tracking(&ctx, &mut scores, None).await
+                        process_osu_tracking(&ctx, &mut scores, None).await
                     }
                 }
                 Err(OsuError::NotFound) => {
@@ -77,10 +77,10 @@ pub async fn tracking_loop(ctx: Arc<Context>) {
     }
 }
 
-pub async fn process_tracking(ctx: &Context, scores: &mut [Score], user: Option<&User>) {
+pub async fn process_osu_tracking(ctx: &Context, scores: &mut [Score], user: Option<&User>) {
     // Make sure scores is not empty
-    let (user_id, mode) = match scores.first().map(|s| (s.user_id, s.mode)) {
-        Some(tuple) => tuple,
+    let (user_id, mode, new_last) = match scores.iter().max_by_key(|s| s.created_at) {
+        Some(score) => (score.user_id, score.mode, score.created_at),
         None => return,
     };
 
@@ -96,11 +96,6 @@ pub async fn process_tracking(ctx: &Context, scores: &mut [Score], user: Option<
         None => return,
     };
 
-    let new_last = match scores.iter().map(|s| s.created_at).max() {
-        Some(new_last) => new_last,
-        None => return,
-    };
-
     // If new top score, update the date
     if new_last > last {
         let update_fut = ctx
@@ -108,8 +103,7 @@ pub async fn process_tracking(ctx: &Context, scores: &mut [Score], user: Option<
             .update_last_date(user_id, mode, new_last, ctx.psql());
 
         if let Err(why) = update_fut.await {
-            let wrap = format!("error while updating tracking date for user ({user_id},{mode})",);
-
+            let wrap = format!("error while updating tracking date for user ({user_id},{mode})");
             warn!("{:?}", Report::new(why).wrap_err(wrap));
         }
     }

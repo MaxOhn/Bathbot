@@ -11,15 +11,14 @@ use twilight_http::{
 use twilight_model::id::{marker::ChannelMarker, Id};
 
 use crate::{
+    custom_client::TwitchStream,
     embeds::{EmbedData, TwitchNotifEmbed},
     util::constants::UNKNOWN_CHANNEL,
     Context,
 };
 
-use super::*;
-
 #[cold]
-pub async fn twitch_loop(ctx: Arc<Context>) {
+pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
     if cfg!(debug_assertions) {
         info!("Skip twitch tracking on debug");
 
@@ -37,7 +36,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
         let user_ids = ctx.tracked_users();
 
         // Get stream data about all streams that need to be tracked
-        let mut streams = match ctx.clients.twitch.get_streams(&user_ids).await {
+        let mut streams = match ctx.clients.custom.get_twitch_streams(&user_ids).await {
             Ok(streams) => streams,
             Err(err) => {
                 let report = Report::new(err);
@@ -69,7 +68,7 @@ pub async fn twitch_loop(ctx: Arc<Context>) {
 
         let ids: Vec<_> = streams.iter().map(|s| s.user_id).collect();
 
-        let users: HashMap<_, _> = match ctx.clients.twitch.get_users(&ids).await {
+        let users: HashMap<_, _> = match ctx.clients.custom.get_twitch_users(&ids).await {
             Ok(users) => users.into_iter().map(|u| (u.user_id, u)).collect(),
             Err(err) => {
                 let report = Report::new(err).wrap_err("error while retrieving twitch users");

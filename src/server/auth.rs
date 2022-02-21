@@ -1,5 +1,3 @@
-use crate::twitch::TwitchUser;
-
 use dashmap::DashMap;
 use futures::future::FutureExt;
 use rosu_v2::prelude::User;
@@ -14,6 +12,8 @@ use tokio::{
     sync::oneshot::{self, Receiver, Sender},
     time::{self, Timeout},
 };
+
+use crate::custom_client::TwitchUser;
 
 const DEADLINE: Duration = Duration::from_secs(120);
 

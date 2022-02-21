@@ -14,7 +14,7 @@ use crate::{
     database::OsuData,
     embeds::{EmbedData, RatioEmbed},
     error::Error,
-    tracking::process_tracking,
+    tracking::process_osu_tracking,
     util::{
         constants::{
             common_literals::{DISCORD, NAME},
@@ -100,7 +100,7 @@ async fn _ratios(
     user.mode = GameMode::MNA;
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, &mut scores, Some(&user)).await;
+    process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
     // Accumulate all necessary data
     let embed_data = RatioEmbed::new(user, scores);

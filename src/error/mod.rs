@@ -1,12 +1,11 @@
 mod map_download;
 mod pp;
-mod twitch;
 
 use plotters::drawing::DrawingAreaErrorKind;
 use twilight_model::application::interaction::{ApplicationCommand, MessageComponentInteraction};
 use twilight_validate::message::MessageValidationError;
 
-pub use self::{map_download::MapDownloadError, pp::PpError, twitch::TwitchError};
+pub use self::{map_download::MapDownloadError, pp::PpError};
 
 #[macro_export]
 macro_rules! bail {
@@ -79,8 +78,6 @@ pub enum Error {
     TwilightDeserialize(#[from] twilight_http::response::DeserializeBodyError),
     #[error("error while making discord request")]
     TwilightHttp(#[from] twilight_http::Error),
-    #[error("twitch error")]
-    Twitch(#[from] twitch::TwitchError),
     #[error("unknown message component: {component:#?}")]
     UnknownMessageComponent {
         component: Box<MessageComponentInteraction>,

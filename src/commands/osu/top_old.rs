@@ -26,7 +26,7 @@ use crate::{
     embeds::{EmbedData, TopIfEmbed},
     error::PpError,
     pagination::{Pagination, TopIfPagination},
-    tracking::process_tracking,
+    tracking::process_osu_tracking,
     util::{
         constants::{
             common_literals::{CTB, DISCORD, MANIA, NAME, OSU, TAIKO},
@@ -203,7 +203,7 @@ async fn _topold(ctx: Arc<Context>, data: CommandData<'_>, args: OldArgs) -> Bot
     user.mode = mode;
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, &mut scores, Some(&user)).await;
+    process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
     // Calculate bonus pp
     let actual_pp: f32 = scores

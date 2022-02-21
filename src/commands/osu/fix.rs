@@ -16,7 +16,7 @@ use crate::{
     database::OsuData,
     embeds::{EmbedData, FixScoreEmbed},
     error::{Error, PpError},
-    tracking::process_tracking,
+    tracking::process_osu_tracking,
     util::{
         constants::{
             common_literals::{DISCORD, MAP, MAP_PARSE_FAIL, MODS, MODS_PARSE_FAIL, NAME},
@@ -173,7 +173,7 @@ async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotRes
 
     // Process tracking
     if let Some((_, best)) = scores.as_mut() {
-        process_tracking(&ctx, best, Some(&user)).await;
+        process_osu_tracking(&ctx, best, Some(&user)).await;
     }
 
     let gb = ctx.map_garbage_collector(&map);

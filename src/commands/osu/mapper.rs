@@ -19,7 +19,7 @@ use crate::{
     database::UserConfig,
     embeds::{EmbedData, TopEmbed},
     pagination::{Pagination, TopPagination},
-    tracking::process_tracking,
+    tracking::process_osu_tracking,
     util::{
         constants::{
             common_literals::{DISCORD, MODE, NAME},
@@ -65,7 +65,7 @@ async fn _mapper(ctx: Arc<Context>, data: CommandData<'_>, args: MapperArgs) -> 
     user.mode = mode;
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, &mut scores, Some(&user)).await;
+    process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
     let scores: Vec<_> = scores
         .into_iter()

@@ -24,7 +24,7 @@ use crate::{
     database::OsuData,
     embeds::{EmbedData, ProfileCompareEmbed},
     error::Error,
-    tracking::process_tracking,
+    tracking::process_osu_tracking,
     util::{
         constants::{common_literals::MODE, GENERAL_ISSUE, OSU_API_ISSUE},
         matcher,
@@ -98,8 +98,8 @@ pub(super) async fn _profilecompare(
     }
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, &mut scores1, Some(&user1)).await;
-    process_tracking(&ctx, &mut scores2, Some(&user2)).await;
+    process_osu_tracking(&ctx, &mut scores1, Some(&user1)).await;
+    process_osu_tracking(&ctx, &mut scores2, Some(&user2)).await;
 
     let profile_result1 = CompareResult::calc(mode, &scores1, user1.statistics.as_ref().unwrap());
     let profile_result2 = CompareResult::calc(mode, &scores2, user2.statistics.as_ref().unwrap());

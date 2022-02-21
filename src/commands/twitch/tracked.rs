@@ -17,9 +17,8 @@ async fn trackedstreams(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
 pub async fn tracked(ctx: Arc<Context>, data: CommandData<'_>) -> BotResult<()> {
     let twitch_ids = ctx.tracked_users_in(data.channel_id());
-    let twitch = &ctx.clients.twitch;
 
-    let mut twitch_users: Vec<_> = match twitch.get_users(&twitch_ids).await {
+    let mut twitch_users: Vec<_> = match ctx.clients.custom.get_twitch_users(&twitch_ids).await {
         Ok(users) => users.into_iter().map(|user| user.display_name).collect(),
         Err(why) => {
             let _ = data.error(&ctx, GENERAL_ISSUE).await;

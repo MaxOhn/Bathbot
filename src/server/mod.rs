@@ -18,8 +18,7 @@ use std::{env, fmt, net::SocketAddr, path::PathBuf, sync::Arc};
 use tokio::{fs::File, io::AsyncReadExt, sync::oneshot};
 
 use crate::{
-    error::TwitchError,
-    twitch::{OAuthToken, TwitchData, TwitchUser},
+    custom_client::{CustomClientError, ErrorKind, TwitchDataList, TwitchOAuthToken, TwitchUser},
     util::constants::{GENERAL_ISSUE, TWITCH_OAUTH, TWITCH_USERS_ENDPOINT},
     Context, CONFIG,
 };
@@ -138,7 +137,7 @@ impl fmt::Display for ErrorWrapper {
 
 async fn error_handler(err: RouteError) -> Response<Body> {
     let report = Report::new(ErrorWrapper(err)).wrap_err("error while handling server request");
-    error!("{:?}", report);
+    error!("{report:?}");
 
     Response::builder()
         .status(StatusCode::INTERNAL_SERVER_ERROR)
@@ -302,22 +301,11 @@ async fn auth_twitch_handler_(req: &Request<Body>) -> HandlerResult {
     );
 
     let token_req = Request::post(req_uri).body(Body::empty())?;
+    let response = client.request(token_req).await?;
+    let bytes = hyper::body::to_bytes(response.into_body()).await?;
 
-    let response = client
-        .request(token_req)
-        .await
-        .map_err(TwitchError::Hyper)?;
-
-    let bytes = hyper::body::to_bytes(response.into_body())
-        .await
-        .map_err(TwitchError::Hyper)?;
-
-    let token = serde_json::from_slice::<OAuthToken>(&bytes)
-        .map_err(|source| {
-            let content = String::from_utf8_lossy(&bytes).into_owned();
-
-            TwitchError::SerdeToken { source, content }
-        })
+    let token = serde_json::from_slice::<TwitchOAuthToken>(&bytes)
+        .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::TwitchToken))
         .map(|token| format!("Bearer {token}"))?;
 
     let user_req = Request::get(TWITCH_USERS_ENDPOINT)
@@ -325,20 +313,14 @@ async fn auth_twitch_handler_(req: &Request<Body>) -> HandlerResult {
         .header("Client-ID", client_id)
         .body(Body::empty())?;
 
-    let response = client.request(user_req).await.map_err(TwitchError::Hyper)?;
+    let response = client.request(user_req).await?;
 
-    let bytes = hyper::body::to_bytes(response.into_body())
-        .await
-        .map_err(TwitchError::Hyper)?;
+    let bytes = hyper::body::to_bytes(response.into_body()).await?;
 
-    let user = serde_json::from_slice::<TwitchData<TwitchUser>>(&bytes)
-        .map_err(|source| {
-            let content = String::from_utf8_lossy(&bytes).into_owned();
-
-            TwitchError::SerdeUser { source, content }
-        })
+    let user = serde_json::from_slice::<TwitchDataList<TwitchUser>>(&bytes)
+        .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::TwitchUserId))
         .map(|mut data| data.data.pop())?
-        .ok_or(TwitchError::NoUser)?;
+        .ok_or(ServerError::NoTwitchUser)?;
 
     let render_data = json!({
         "body_id": "success",

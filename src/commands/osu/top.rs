@@ -36,7 +36,7 @@ use crate::{
     error::Error,
     pagination::{Pagination, TopPagination},
     pp::PpCalculator,
-    tracking::process_tracking,
+    tracking::process_osu_tracking,
     util::{
         constants::{
             common_literals::{
@@ -125,7 +125,7 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
     user.mode = mode;
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, &mut scores, Some(&user)).await;
+    process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
     // Filter scores according to mods, combo, acc, and grade
     let scores = filter_scores(scores, &args).await;

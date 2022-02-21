@@ -1,3 +1,5 @@
+use std::fmt;
+
 use chrono::{DateTime, Utc};
 use serde::{de::Error, Deserialize, Deserializer};
 
@@ -14,6 +16,17 @@ fn str_to_maybe_u64<'de, D: Deserializer<'de>>(d: D) -> Result<Option<u64>, D::E
         Ok(None)
     } else {
         s.parse().map(Some).map_err(Error::custom)
+    }
+}
+
+#[derive(Deserialize)]
+pub struct TwitchOAuthToken {
+    access_token: String,
+}
+
+impl fmt::Display for TwitchOAuthToken {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.access_token)
     }
 }
 
@@ -56,7 +69,7 @@ fn get_live<'de, D: Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
 }
 
 #[derive(Deserialize)]
-pub struct TwitchData<T> {
+pub struct TwitchDataList<T> {
     pub data: Vec<T>,
 }
 

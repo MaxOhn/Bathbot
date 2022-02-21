@@ -4,6 +4,8 @@ use serde_json::Error;
 
 #[derive(Debug, thiserror::Error)]
 pub enum CustomClientError {
+    #[error("failed to create header value")]
+    InvalidHeader(#[from] reqwest::header::InvalidHeaderValue),
     #[error("could not deserialize {kind}: {body}")]
     Parsing {
         body: String,
@@ -18,7 +20,7 @@ pub enum CustomClientError {
 }
 
 impl CustomClientError {
-    pub(super) fn parsing(source: Error, bytes: &[u8], kind: ErrorKind) -> Self {
+    pub fn parsing(source: Error, bytes: &[u8], kind: ErrorKind) -> Self {
         Self::Parsing {
             body: String::from_utf8_lossy(bytes).into_owned(),
             source,
@@ -45,6 +47,12 @@ pub enum ErrorKind {
     SnipeRecent,
     SnipeScore,
     SnipeScoreCount,
+    TwitchStreams,
+    TwitchToken,
+    TwitchUserId,
+    TwitchUserName,
+    TwitchUsers,
+    TwitchVideos,
 }
 
 impl fmt::Display for ErrorKind {
@@ -66,6 +74,12 @@ impl fmt::Display for ErrorKind {
             Self::SnipeRecent => "snipe recent",
             Self::SnipeScore => "snipe score",
             Self::SnipeScoreCount => "snipe score count",
+            Self::TwitchStreams => "twitch streams",
+            Self::TwitchToken => "twitch token",
+            Self::TwitchUserId => "twitch user id",
+            Self::TwitchUserName => "twitch user name",
+            Self::TwitchUsers => "twitch users",
+            Self::TwitchVideos => "twitch videos",
         };
 
         f.write_str(kind)

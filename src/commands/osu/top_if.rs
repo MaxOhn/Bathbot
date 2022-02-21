@@ -21,7 +21,7 @@ use crate::{
     embeds::{EmbedData, TopIfEmbed},
     pagination::{Pagination, TopIfPagination},
     pp::PpCalculator,
-    tracking::process_tracking,
+    tracking::process_osu_tracking,
     util::{
         constants::{
             common_literals::{DISCORD, MODE, MODS, NAME},
@@ -94,7 +94,7 @@ async fn _topif(ctx: Arc<Context>, data: CommandData<'_>, args: IfArgs) -> BotRe
     user.mode = mode;
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, &mut scores, Some(&user)).await;
+    process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
     // Calculate bonus pp
     let actual_pp: f32 = scores

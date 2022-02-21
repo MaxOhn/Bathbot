@@ -18,7 +18,7 @@ use crate::{
     },
     embeds::{EmbedData, ProfileEmbed},
     pagination::ProfilePagination,
-    tracking::process_tracking,
+    tracking::process_osu_tracking,
     util::{
         constants::{common_literals::PROFILE, GENERAL_ISSUE, OSU_API_ISSUE},
         MessageExt,
@@ -72,7 +72,7 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
     };
 
     // Process user and their top scores for tracking
-    let tracking_fut = process_tracking(&ctx, &mut scores, Some(&user));
+    let tracking_fut = process_osu_tracking(&ctx, &mut scores, Some(&user));
 
     // Try to get the user discord id that is linked to the osu!user
     let discord_id_fut = ctx.psql().get_discord_from_osu_id(user.user_id);

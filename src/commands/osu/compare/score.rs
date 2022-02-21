@@ -26,7 +26,7 @@ use crate::{
     embeds::{CompareEmbed, EmbedData, NoScoresEmbed, ScoresEmbed},
     error::Error,
     pagination::{Pagination, ScoresPagination},
-    tracking::process_tracking,
+    tracking::process_osu_tracking,
     util::{
         constants::{
             common_literals::{ACC, COMBO, DISCORD, MAP, MAP_PARSE_FAIL, NAME, SORT},
@@ -486,7 +486,7 @@ async fn single_score(
 
         // Process user and their top scores for tracking
         if let Some(scores) = best {
-            process_tracking(&ctx, scores, None).await;
+            process_osu_tracking(&ctx, scores, None).await;
         }
 
         // Wait for minimizing
@@ -510,7 +510,7 @@ async fn single_score(
 
         // Process user and their top scores for tracking
         if let Some(scores) = best {
-            process_tracking(&ctx, scores, None).await;
+            process_osu_tracking(&ctx, scores, None).await;
         }
     }
 

@@ -235,7 +235,7 @@ async fn handle_osu_link(
     let mut twitch_name = None;
 
     if let Some(user_id) = config.twitch_id {
-        match ctx.clients.twitch.get_user_by_id(user_id).await {
+        match ctx.clients.custom.get_twitch_user_by_id(user_id).await {
             Ok(Some(user)) => twitch_name = Some(user.display_name),
             Ok(None) => {
                 debug!("No twitch user found for given id, remove from config");
@@ -297,7 +297,7 @@ async fn handle_no_links(
     let mut twitch_name = None;
 
     if let Some(user_id) = config.twitch_id {
-        match ctx.clients.twitch.get_user_by_id(user_id).await {
+        match ctx.clients.custom.get_twitch_user_by_id(user_id).await {
             Ok(Some(user)) => twitch_name = Some(user.display_name),
             Ok(None) => {
                 debug!("No twitch user found for given id, remove from config");

@@ -11,7 +11,7 @@ use crate::{
     commands::osu::{get_scores, ScoreArgs, UserArgs},
     embeds::{CommonEmbed, EmbedData},
     pagination::{CommonPagination, Pagination},
-    tracking::process_tracking,
+    tracking::process_osu_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         get_combined_thumbnail, MessageExt,
@@ -152,7 +152,7 @@ pub(super) async fn _common(
 
     // Process users and their top scores for tracking
     for scores in all_scores.iter_mut() {
-        process_tracking(&ctx, scores, None).await;
+        process_osu_tracking(&ctx, scores, None).await;
     }
 
     // Consider only scores on common maps

@@ -14,7 +14,7 @@ use crate::{
     core::{commands::CommandData, Context},
     embeds::{EmbedData, FixScoreEmbed},
     error::Error,
-    tracking::process_tracking,
+    tracking::process_osu_tracking,
     util::{
         constants::{
             common_literals::{DISCORD, INDEX, MODE, NAME},
@@ -148,7 +148,7 @@ pub(super) async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs
     };
 
     // Process tracking
-    process_tracking(&ctx, &mut scores, Some(&user)).await;
+    process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
     let gb = ctx.map_garbage_collector(&map);
 

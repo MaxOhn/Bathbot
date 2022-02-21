@@ -15,7 +15,7 @@ use crate::{
     custom_client::RankParam,
     database::UserConfig,
     embeds::{EmbedData, WhatIfEmbed},
-    tracking::process_tracking,
+    tracking::process_osu_tracking,
     util::{
         constants::{
             common_literals::{DISCORD, MODE, NAME},
@@ -65,7 +65,7 @@ async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> 
     user.mode = mode;
 
     // Process user and their top scores for tracking
-    process_tracking(&ctx, &mut scores, Some(&user)).await;
+    process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
     let whatif_data = if scores.is_empty() {
         let pp = iter::repeat(pp)

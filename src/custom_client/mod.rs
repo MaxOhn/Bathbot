@@ -5,46 +5,41 @@ mod osu_daily;
 mod osu_stats;
 mod score;
 mod snipe;
+mod twitch;
 
-use std::{fmt::Write, hash::Hash};
+use std::{borrow::Cow, fmt::Write, hash::Hash};
 
 use chrono::{DateTime, Utc};
 use hashbrown::HashSet;
+use hyper::header::HeaderValue;
 use leaky_bucket_lite::LeakyBucket;
-use once_cell::sync::OnceCell;
-use reqwest::{multipart::Form, Client, Response, StatusCode};
+use reqwest::{multipart::Form, Client, RequestBuilder, Response, StatusCode};
 use rosu_v2::prelude::{GameMode, GameMods, User};
 use serde::Serialize;
 use serde_json::Value;
-use tokio::time::{sleep, timeout, Duration};
+use tokio::time::{interval, sleep, timeout, Duration};
 
 use crate::{
+    core::BotConfig,
     util::{
         constants::{
-            common_literals::{COUNTRY, MODS},
-            AVATAR_URL, HUISMETBENEN, OSU_BASE, OSU_DAILY_API,
+            common_literals::{COUNTRY, MODS, SORT, USER_ID},
+            AVATAR_URL, HUISMETBENEN, OSU_BASE, OSU_DAILY_API, TWITCH_OAUTH,
+            TWITCH_STREAM_ENDPOINT, TWITCH_USERS_ENDPOINT, TWITCH_VIDEOS_ENDPOINT,
         },
         numbers::round,
         osu::ModSelection,
     },
-    BotResult, CONFIG,
+    CONFIG,
 };
 
-pub use self::{
-    error::CustomClientError,
-    osekai::*,
-    osu_daily::*,
-    osu_stats::*,
-    score::{ScraperBeatmap, ScraperScore},
-    snipe::*,
-};
+pub use self::{error::*, osekai::*, osu_daily::*, osu_stats::*, score::*, snipe::*, twitch::*};
 
-use self::{error::ErrorKind, score::ScraperScores};
+use self::score::ScraperScores;
 
 type ClientResult<T> = Result<T, CustomClientError>;
 
 static USER_AGENT: &str = env!("CARGO_PKG_NAME");
-static OSU_SESSION: OnceCell<&'static str> = OnceCell::new();
 
 #[derive(Copy, Clone, Eq, Hash, PartialEq)]
 #[repr(u8)]
@@ -55,21 +50,31 @@ enum Site {
     OsuAvatar,
     Osekai,
     OsuDaily,
+    Twitch,
 }
 
 pub struct CustomClient {
     client: Client,
-    ratelimiters: [LeakyBucket; 6],
+    osu_session: &'static str,
+    twitch: TwitchData,
+    ratelimiters: [LeakyBucket; 7],
+}
+
+struct TwitchData {
+    client_id: HeaderValue,
+    oauth_token: TwitchOAuthToken,
 }
 
 impl CustomClient {
-    pub async fn new() -> BotResult<Self> {
-        let config = CONFIG.get().unwrap();
-
-        OSU_SESSION.set(&config.tokens.osu_session).unwrap();
+    pub async fn new(config: &'static BotConfig) -> ClientResult<Self> {
+        let twitch_client_id = &config.tokens.twitch_client_id;
+        let twitch_token = &config.tokens.twitch_token;
 
         let client = Client::builder().user_agent(USER_AGENT).build()?;
 
+        let twitch = Self::get_twitch_token(&client, twitch_client_id, twitch_token).await?;
+
+        // 2 per second
         let ratelimiter = || {
             LeakyBucket::builder()
                 .max(2)
@@ -79,18 +84,60 @@ impl CustomClient {
                 .build()
         };
 
+        // 5 per second
+        let twitch_ratelimiter = LeakyBucket::builder()
+            .max(5)
+            .tokens(5)
+            .refill_interval(Duration::from_millis(200))
+            .refill_amount(1)
+            .build();
+
         let ratelimiters = [
-            ratelimiter(), // Huismetbenen
-            ratelimiter(), // OsuStats
-            ratelimiter(), // OsuHiddenApi
-            ratelimiter(), // OsuAvatar
-            ratelimiter(), // Osekai
-            ratelimiter(), // OsuDaily
+            ratelimiter(),      // Huismetbenen
+            ratelimiter(),      // OsuStats
+            ratelimiter(),      // OsuHiddenApi
+            ratelimiter(),      // OsuAvatar
+            ratelimiter(),      // Osekai
+            ratelimiter(),      // OsuDaily
+            twitch_ratelimiter, // Twitch
         ];
 
         Ok(Self {
             client,
+            osu_session: &config.tokens.osu_session,
+            twitch,
             ratelimiters,
+        })
+    }
+
+    async fn get_twitch_token(
+        client: &Client,
+        client_id: &str,
+        token: &str,
+    ) -> ClientResult<TwitchData> {
+        let form = &[
+            ("grant_type", "client_credentials"),
+            ("client_id", client_id),
+            ("client_secret", token),
+        ];
+
+        let client_id = HeaderValue::from_str(client_id)?;
+
+        let bytes = client
+            .post(TWITCH_OAUTH)
+            .form(form)
+            .header("Client-ID", client_id.clone())
+            .send()
+            .await?
+            .bytes()
+            .await?;
+
+        let oauth_token = serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::TwitchToken))?;
+
+        Ok(TwitchData {
+            client_id,
+            oauth_token,
         })
     }
 
@@ -102,11 +149,39 @@ impl CustomClient {
         let url = url.as_ref();
 
         trace!("GET request of url {url}");
-        let mut req = self.client.get(url);
+        let req = self.client.get(url);
 
-        if let Site::OsuHiddenApi = site {
-            let cookie = format!("osu_session={}", OSU_SESSION.get().unwrap());
-            req = req.header("Cookie", cookie)
+        self.make_get_request_(req, site).await
+    }
+
+    async fn make_twitch_get_request<T: Serialize>(
+        &self,
+        url: impl AsRef<str>,
+        data: &T,
+    ) -> ClientResult<Response> {
+        let url = url.as_ref();
+
+        trace!("GET request of url {url}");
+        let req = self.client.get(url).query(data);
+
+        self.make_get_request_(req, Site::Twitch).await
+    }
+
+    async fn make_get_request_(
+        &self,
+        mut req: RequestBuilder,
+        site: Site,
+    ) -> ClientResult<Response> {
+        match site {
+            Site::OsuHiddenApi => {
+                req = req.header("Cookie", format!("osu_session={}", self.osu_session));
+            }
+            Site::Twitch => {
+                req = req
+                    .header("Client-ID", self.twitch.client_id.clone())
+                    .bearer_auth(&self.twitch.oauth_token);
+            }
+            _ => {}
         }
 
         self.ratelimit(site).await;
@@ -114,7 +189,7 @@ impl CustomClient {
         Ok(req.send().await?.error_for_status()?)
     }
 
-    async fn make_post_request<F: Serialize + ?Sized>(
+    async fn make_post_request<F: Serialize>(
         &self,
         url: impl AsRef<str>,
         site: Site,
@@ -133,8 +208,11 @@ impl CustomClient {
         let url = "https://osekai.net/medals/api/medals.php";
         let form = &[("strSearch", "")];
 
-        let response = self.make_post_request(url, Site::Osekai, form).await?;
-        let bytes = response.bytes().await?;
+        let bytes = self
+            .make_post_request(url, Site::Osekai, form)
+            .await?
+            .bytes()
+            .await?;
 
         let medals: OsekaiMedals = serde_json::from_slice(&bytes)
             .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsekaiMedals))?;
@@ -146,8 +224,11 @@ impl CustomClient {
         let url = "https://osekai.net/medals/api/beatmaps.php";
         let form = &[("strSearch", medal_name)];
 
-        let response = self.make_post_request(url, Site::Osekai, form).await?;
-        let bytes = response.bytes().await?;
+        let bytes = self
+            .make_post_request(url, Site::Osekai, form)
+            .await?
+            .bytes()
+            .await?;
 
         let maps: OsekaiMaps = serde_json::from_slice(&bytes)
             .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsekaiMaps))?;
@@ -159,8 +240,11 @@ impl CustomClient {
         let url = "https://osekai.net/global/api/comment_system.php";
         let form = &[("strMedalName", medal_name), ("bGetComments", "true")];
 
-        let response = self.make_post_request(url, Site::Osekai, form).await?;
-        let bytes = response.bytes().await?;
+        let bytes = self
+            .make_post_request(url, Site::Osekai, form)
+            .await?
+            .bytes()
+            .await?;
 
         let comments: OsekaiComments = serde_json::from_slice(&bytes)
             .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsekaiComments))?;
@@ -172,8 +256,11 @@ impl CustomClient {
         let url = "https://osekai.net/rankings/api/api.php";
         let form = &[("App", R::FORM)];
 
-        let response = self.make_post_request(url, Site::Osekai, form).await?;
-        let bytes = response.bytes().await?;
+        let bytes = self
+            .make_post_request(url, Site::Osekai, form)
+            .await?
+            .bytes()
+            .await?;
 
         let ranking = serde_json::from_slice(&bytes).map_err(|e| {
             CustomClientError::parsing(e, &bytes, ErrorKind::OsekaiRanking(R::REQUEST))
@@ -188,8 +275,11 @@ impl CustomClient {
             country.to_lowercase(),
         );
 
-        let response = self.make_get_request(url, Site::Huismetbenen).await?;
-        let bytes = response.bytes().await?;
+        let bytes = self
+            .make_get_request(url, Site::Huismetbenen)
+            .await?
+            .bytes()
+            .await?;
 
         let player: SnipePlayer = serde_json::from_slice(&bytes)
             .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::SnipePlayer))?;
@@ -203,8 +293,11 @@ impl CustomClient {
             country.to_lowercase()
         );
 
-        let response = self.make_get_request(url, Site::Huismetbenen).await?;
-        let bytes = response.bytes().await?;
+        let bytes = self
+            .make_get_request(url, Site::Huismetbenen)
+            .await?
+            .bytes()
+            .await?;
 
         let country_players: Vec<SnipeCountryPlayer> = serde_json::from_slice(&bytes)
             .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::SnipeCountry))?;
@@ -219,8 +312,11 @@ impl CustomClient {
         let country = country.to_lowercase();
         let url = format!("{HUISMETBENEN}rankings/{country}/statistics");
 
-        let response = self.make_get_request(url, Site::Huismetbenen).await?;
-        let bytes = response.bytes().await?;
+        let bytes = self
+            .make_get_request(url, Site::Huismetbenen)
+            .await?
+            .bytes()
+            .await?;
 
         let statistics = serde_json::from_slice(&bytes)
             .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::CountryStatistics))?;
@@ -245,8 +341,11 @@ impl CustomClient {
             until.format(date_format)
         );
 
-        let response = self.make_get_request(url, Site::Huismetbenen).await?;
-        let bytes = response.bytes().await?;
+        let bytes = self
+            .make_get_request(url, Site::Huismetbenen)
+            .await?
+            .bytes()
+            .await?;
 
         let snipes: Vec<SnipeRecent> = serde_json::from_slice(&bytes)
             .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::SnipeRecent))?;
@@ -278,8 +377,11 @@ impl CustomClient {
             }
         }
 
-        let response = self.make_get_request(url, Site::Huismetbenen).await?;
-        let bytes = response.bytes().await?;
+        let bytes = self
+            .make_get_request(url, Site::Huismetbenen)
+            .await?
+            .bytes()
+            .await?;
 
         let scores: Vec<SnipeScore> = serde_json::from_slice(&bytes)
             .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::SnipeScore))?;
@@ -308,8 +410,11 @@ impl CustomClient {
             }
         }
 
-        let response = self.make_get_request(url, Site::Huismetbenen).await?;
-        let bytes = response.bytes().await?;
+        let bytes = self
+            .make_get_request(url, Site::Huismetbenen)
+            .await?
+            .bytes()
+            .await?;
 
         let count: usize = serde_json::from_slice(&bytes)
             .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::SnipeScoreCount))?;
@@ -336,12 +441,10 @@ impl CustomClient {
         let request = self.client.post(url).multipart(form);
         self.ratelimit(Site::OsuStats).await;
 
-        let response = match timeout(Duration::from_secs(4), request.send()).await {
-            Ok(result) => result?,
+        let bytes = match timeout(Duration::from_secs(4), request.send()).await {
+            Ok(result) => result?.bytes().await?,
             Err(_) => return Err(CustomClientError::OsuStatsTimeout),
         };
-
-        let bytes = response.bytes().await?;
 
         let players: Vec<OsuStatsPlayer> = serde_json::from_slice(&bytes)
             .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::GlobalsList))?;
@@ -382,12 +485,10 @@ impl CustomClient {
         let request = self.client.post(url).multipart(form);
         self.ratelimit(Site::OsuStats).await;
 
-        let response = match timeout(Duration::from_secs(4), request.send()).await {
-            Ok(result) => result?,
+        let bytes = match timeout(Duration::from_secs(4), request.send()).await {
+            Ok(result) => result?.bytes().await?,
             Err(_) => return Err(CustomClientError::OsuStatsTimeout),
         };
-
-        let bytes = response.bytes().await?;
 
         let result: Value = serde_json::from_slice(&bytes)
             .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsuStatsGlobal))?;
@@ -494,8 +595,11 @@ impl CustomClient {
             }
         }
 
-        let response = self.make_get_request(url, Site::OsuHiddenApi).await?;
-        let bytes = response.bytes().await?;
+        let bytes = self
+            .make_get_request(url, Site::OsuHiddenApi)
+            .await?
+            .bytes()
+            .await?;
 
         let scores: ScraperScores = serde_json::from_slice(&bytes)
             .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::Leaderboard))?;
@@ -525,23 +629,115 @@ impl CustomClient {
             RankParam::Pp(pp) => write!(url, "t=pp&v={}", round(pp)),
         };
 
-        let response = loop {
+        let bytes = loop {
             let response = self.make_get_request(&url, Site::OsuDaily).await?;
 
             if response.status() != StatusCode::TOO_MANY_REQUESTS {
-                break response;
+                break response.bytes().await?;
             }
 
             debug!("Ratelimited by osudaily, wait a second");
             sleep(Duration::from_secs(1)).await;
         };
 
-        let bytes = response.bytes().await?;
-
         let rank_pp = serde_json::from_slice(&bytes)
             .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::RankData))?;
 
         Ok(rank_pp)
+    }
+
+    pub async fn get_twitch_user(&self, name: &str) -> ClientResult<Option<TwitchUser>> {
+        let data = [("login", name)];
+
+        let bytes = self
+            .make_twitch_get_request(TWITCH_USERS_ENDPOINT, &data)
+            .await?
+            .bytes()
+            .await?;
+
+        let mut users: TwitchDataList<TwitchUser> = serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::TwitchUserName))?;
+
+        Ok(users.data.pop())
+    }
+
+    pub async fn get_twitch_user_by_id(&self, user_id: u64) -> ClientResult<Option<TwitchUser>> {
+        let data = [("id", user_id)];
+
+        let bytes = self
+            .make_twitch_get_request(TWITCH_USERS_ENDPOINT, &data)
+            .await?
+            .bytes()
+            .await?;
+
+        let mut users: TwitchDataList<TwitchUser> = serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::TwitchUserId))?;
+
+        Ok(users.data.pop())
+    }
+
+    pub async fn get_twitch_users(&self, user_ids: &[u64]) -> ClientResult<Vec<TwitchUser>> {
+        let mut users = Vec::with_capacity(user_ids.len());
+
+        for chunk in user_ids.chunks(100) {
+            let data: Vec<_> = chunk.iter().map(|&id| ("id", id)).collect();
+
+            let bytes = self
+                .make_twitch_get_request(TWITCH_USERS_ENDPOINT, &data)
+                .await?
+                .bytes()
+                .await?;
+
+            let parsed_response: TwitchDataList<TwitchUser> = serde_json::from_slice(&bytes)
+                .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::TwitchUsers))?;
+
+            users.extend(parsed_response.data);
+        }
+
+        Ok(users)
+    }
+
+    pub async fn get_twitch_streams(&self, user_ids: &[u64]) -> ClientResult<Vec<TwitchStream>> {
+        let mut streams = Vec::with_capacity(user_ids.len());
+        let mut interval = interval(Duration::from_millis(1000));
+
+        for chunk in user_ids.chunks(100) {
+            interval.tick().await;
+            let mut data: Vec<_> = chunk.iter().map(|&id| (USER_ID, id)).collect();
+            data.push(("first", chunk.len() as u64));
+
+            let bytes = self
+                .make_twitch_get_request(TWITCH_STREAM_ENDPOINT, &data)
+                .await?
+                .bytes()
+                .await?;
+
+            let parsed_response: TwitchDataList<TwitchStream> = serde_json::from_slice(&bytes)
+                .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::TwitchStreams))?;
+
+            streams.extend(parsed_response.data);
+        }
+
+        Ok(streams)
+    }
+
+    pub async fn get_last_twitch_vod(&self, user_id: u64) -> ClientResult<Option<TwitchVideo>> {
+        let data = [
+            (USER_ID, Cow::Owned(user_id.to_string())),
+            ("first", "1".into()),
+            (SORT, "time".into()),
+        ];
+
+        let bytes = self
+            .make_twitch_get_request(TWITCH_VIDEOS_ENDPOINT, &data)
+            .await?
+            .bytes()
+            .await?;
+
+        let mut videos: TwitchDataList<TwitchVideo> = serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::TwitchVideos))?;
+
+        Ok(videos.data.pop())
     }
 }
 

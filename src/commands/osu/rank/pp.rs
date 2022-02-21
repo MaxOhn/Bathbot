@@ -21,7 +21,7 @@ use crate::{
     custom_client::RankParam,
     database::UserConfig,
     embeds::{EmbedData, RankEmbed},
-    tracking::process_tracking,
+    tracking::process_osu_tracking,
     util::{
         constants::{
             common_literals::{COUNTRY, DISCORD, MODE, NAME, RANK},
@@ -168,7 +168,7 @@ pub(super) async fn _rank(
 
     if let Some(ref mut scores) = scores {
         // Process user and their top scores for tracking
-        process_tracking(&ctx, scores, Some(rank_data.user_borrow())).await;
+        process_osu_tracking(&ctx, scores, Some(rank_data.user_borrow())).await;
     }
 
     // Creating the embed

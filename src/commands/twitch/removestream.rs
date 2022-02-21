@@ -36,9 +36,7 @@ pub async fn _removestream(
     data: CommandData<'_>,
     name: &'_ str,
 ) -> BotResult<()> {
-    let twitch = &ctx.clients.twitch;
-
-    let twitch_id = match twitch.get_user(name).await {
+    let twitch_id = match ctx.clients.custom.get_twitch_user(name).await {
         Ok(Some(user)) => user.user_id,
         Ok(None) => {
             let content = format!("Twitch user `{name}` was not found");
@@ -57,13 +55,10 @@ pub async fn _removestream(
 
     match ctx.psql().remove_stream_track(channel, twitch_id).await {
         Ok(true) => {
-            trace!(
-                "No longer tracking {name}'s twitch for channel {channel}"
-            );
+            trace!("No longer tracking {name}'s twitch for channel {channel}");
 
-            let content = format!(
-                "I'm no longer tracking `{name}`'s twitch stream in this channel"
-            );
+            let content =
+                format!("I'm no longer tracking `{name}`'s twitch stream in this channel");
 
             let builder = MessageBuilder::new().content(content);
             data.create_message(&ctx, builder).await?;

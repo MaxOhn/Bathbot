@@ -29,7 +29,6 @@ mod pagination;
 mod pp;
 mod server;
 mod tracking;
-mod twitch;
 mod util;
 
 use std::{
@@ -79,7 +78,6 @@ use crate::{
     database::Database,
     error::Error,
     tracking::OsuTracking,
-    twitch::Twitch,
     util::{constants::BATHBOT_WORKSHOP_ID, MessageBuilder},
 };
 
@@ -105,9 +103,6 @@ async fn async_main() -> Result<()> {
     core::BotConfig::init("config.toml").await?;
 
     let config = CONFIG.get().unwrap();
-
-    // Prepare twitch client
-    let twitch = Twitch::new(&config.tokens.twitch_client_id, &config.tokens.twitch_token).await?;
 
     // Connect to the discord http client
     let http = HttpClient::builder()
@@ -153,7 +148,7 @@ async fn async_main() -> Result<()> {
     let osu_v1 = OsuV1::new(osu_token);
 
     // Log custom client into osu!
-    let custom = CustomClient::new().await?;
+    let custom = CustomClient::new(config).await?;
 
     // Guild configs
     let guilds = psql.get_guilds().await?;
@@ -230,7 +225,6 @@ async fn async_main() -> Result<()> {
         osu,
         osu_v1,
         custom,
-        twitch,
     };
 
     let (member_tx, mut member_rx) = mpsc::unbounded_channel();
@@ -274,11 +268,11 @@ async fn async_main() -> Result<()> {
 
     // Spawn twitch worker
     let twitch_ctx = Arc::clone(&ctx);
-    tokio::spawn(twitch::twitch_loop(twitch_ctx));
+    tokio::spawn(tracking::twitch_tracking_loop(twitch_ctx));
 
     // Spawn osu tracking worker
     let osu_tracking_ctx = Arc::clone(&ctx);
-    tokio::spawn(tracking::tracking_loop(osu_tracking_ctx));
+    tokio::spawn(tracking::osu_tracking_loop(osu_tracking_ctx));
 
     // Spawn background loop worker
     let background_ctx = Arc::clone(&ctx);
