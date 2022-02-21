@@ -82,8 +82,8 @@ pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
         let (width, height) = {
             let mut rng = rand::thread_rng();
 
-            let width = rng.gen_range(350..=370);
-            let height = rng.gen_range(175..=185);
+            let width: u32 = rng.gen_range(350..=370);
+            let height: u32 = rng.gen_range(175..=185);
 
             (width, height)
         };

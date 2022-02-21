@@ -43,7 +43,6 @@ pub(super) async fn graphs(user: &mut User) -> Result<Option<Vec<u8>>, GraphErro
                             .get(&badge.image_url)
                             .send()
                             .and_then(Response::bytes)
-                            .map_ok(|bytes| bytes.to_vec())
                     })
                     .collect::<FuturesUnordered<_>>()
                     .try_collect()
