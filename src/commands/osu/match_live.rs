@@ -76,10 +76,10 @@ async fn _matchlive(ctx: Arc<Context>, data: CommandData<'_>, match_id: u32) -> 
 async fn matchliveremove(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
-            let match_id_opt = args
-                .next()
-                .and_then(matcher::get_osu_match_id)
-                .or_else(|| ctx.tracks_single_match(msg.channel_id));
+            let match_id_opt = match args.next().and_then(matcher::get_osu_match_id) {
+                Some(id) => Some(id),
+                None => ctx.tracks_single_match(msg.channel_id).await,
+            };
 
             let match_id = match match_id_opt {
                 Some(match_id) => match_id,
@@ -103,10 +103,9 @@ async fn _matchliveremove(
     data: CommandData<'_>,
     match_id: u32,
 ) -> BotResult<()> {
-    if ctx.remove_match_track(data.channel_id(), match_id) {
-        let content = format!(
-            "Stopped live tracking [the match]({OSU_BASE}community/matches/{match_id})",
-        );
+    if ctx.remove_match_track(data.channel_id(), match_id).await {
+        let content =
+            format!("Stopped live tracking [the match]({OSU_BASE}community/matches/{match_id})",);
 
         let builder = MessageBuilder::new().embed(content);
         data.create_message(&ctx, builder).await?;
