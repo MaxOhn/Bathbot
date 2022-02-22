@@ -1,11 +1,18 @@
 use std::fmt;
 
+use http::StatusCode;
 use serde_json::Error;
 
 #[derive(Debug, thiserror::Error)]
 pub enum CustomClientError {
     #[error("failed to create header value")]
     InvalidHeader(#[from] reqwest::header::InvalidHeaderValue),
+    #[error("http error")]
+    Http(#[from] hyper::http::Error),
+    #[error("hyper error")]
+    Hyper(#[from] hyper::Error),
+    #[error("timeout while waiting for osu stats")]
+    OsuStatsTimeout,
     #[error("could not deserialize {kind}: {body}")]
     Parsing {
         body: String,
@@ -15,8 +22,12 @@ pub enum CustomClientError {
     },
     #[error("reqwest error")]
     Reqwest(#[from] reqwest::Error),
-    #[error("timeout while waiting for osu stats")]
-    OsuStatsTimeout,
+    #[error("failed to serialize")]
+    Serialize(#[source] serde_json::Error),
+    #[error("failed with status code {status} when requesting {url}")]
+    StatusError { status: StatusCode, url: String },
+    #[error("failed to serialize url encoding")]
+    UrlEncoded(#[from] serde_urlencoded::ser::Error),
 }
 
 impl CustomClientError {
