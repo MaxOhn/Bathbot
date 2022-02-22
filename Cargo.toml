@@ -78,3 +78,6 @@ twilight-http = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv", d
 twilight-model = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv", default-features = false }
 twilight-standby = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv", default-features = false }
 twilight-validate = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv" }
+
+[profile.dev.package.sqlx-macros]
+opt-level = 3
