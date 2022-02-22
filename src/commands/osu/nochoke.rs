@@ -79,7 +79,7 @@ async fn _nochokes(ctx: Arc<Context>, data: CommandData<'_>, args: NochokeArgs) 
     // Process user and their top scores for tracking
     process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
-    let mut scores_data = match version.calculate(scores, miss_limit).await {
+    let mut scores_data = match version.calculate(&ctx, scores, miss_limit).await {
         Ok(scores_data) => scores_data,
         Err(why) => {
             let _ = data.error(&ctx, GENERAL_ISSUE).await;
@@ -133,6 +133,7 @@ async fn _nochokes(ctx: Arc<Context>, data: CommandData<'_>, args: NochokeArgs) 
         scores_data.iter().take(5),
         unchoked_pp,
         rank,
+        &ctx,
         (1, pages),
     );
     let embed = embed_data_fut.await.into_builder().build();
@@ -171,7 +172,14 @@ async fn _nochokes(ctx: Arc<Context>, data: CommandData<'_>, args: NochokeArgs) 
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = NoChokePagination::new(response, user, scores_data, unchoked_pp, rank);
+    let pagination = NoChokePagination::new(
+        response,
+        user,
+        scores_data,
+        unchoked_pp,
+        rank,
+        Arc::clone(&ctx),
+    );
     let owner = data.author()?.id;
 
     tokio::spawn(async move {
@@ -184,6 +192,7 @@ async fn _nochokes(ctx: Arc<Context>, data: CommandData<'_>, args: NochokeArgs) 
 }
 
 async fn unchoke_scores(
+    ctx: &Context,
     scores: Vec<Score>,
     miss_limit: Option<u32>,
 ) -> BotResult<Vec<(usize, Score, Score)>> {
@@ -203,7 +212,7 @@ async fn unchoke_scores(
             continue;
         }
 
-        let map_path = prepare_beatmap_file(map.map_id).await?;
+        let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
         let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
         let mods = score.mods.bits();
 
@@ -328,6 +337,7 @@ async fn unchoke_scores(
 }
 
 async fn perfect_scores(
+    ctx: &Context,
     scores: Vec<Score>,
     miss_limit: Option<u32>,
 ) -> BotResult<Vec<(usize, Score, Score)>> {
@@ -348,7 +358,7 @@ async fn perfect_scores(
                 return Ok((i, score, unchoked));
             }
 
-            let map_path = prepare_beatmap_file(map.map_id).await?;
+            let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
             let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
             let mods = score.mods.bits();
             let total_hits = score.total_hits();
@@ -508,12 +518,13 @@ pub enum NochokeVersion {
 impl NochokeVersion {
     async fn calculate(
         self,
+        ctx: &Context,
         scores: Vec<Score>,
         miss_limit: Option<u32>,
     ) -> BotResult<Vec<(usize, Score, Score)>> {
         match self {
-            NochokeVersion::Perfect => perfect_scores(scores, miss_limit).await,
-            NochokeVersion::Unchoke => unchoke_scores(scores, miss_limit).await,
+            NochokeVersion::Perfect => perfect_scores(ctx, scores, miss_limit).await,
+            NochokeVersion::Unchoke => unchoke_scores(ctx, scores, miss_limit).await,
         }
     }
 }

@@ -1,11 +1,16 @@
-use super::{Pages, Pagination};
 
-use crate::{embeds::NoChokeEmbed, BotResult};
+
+use std::sync::Arc;
 
 use rosu_v2::prelude::{Score, User};
 use twilight_model::channel::Message;
 
+use crate::{embeds::NoChokeEmbed, BotResult, core::Context};
+
+use super::{Pages, Pagination};
+
 pub struct NoChokePagination {
+    ctx: Arc<Context>,
     msg: Message,
     pages: Pages,
     user: User,
@@ -21,6 +26,7 @@ impl NoChokePagination {
         scores: Vec<(usize, Score, Score)>,
         unchoked_pp: f32,
         rank: Option<usize>,
+        ctx: Arc<Context>,
     ) -> Self {
         Self {
             msg,
@@ -29,6 +35,7 @@ impl NoChokePagination {
             scores,
             unchoked_pp,
             rank,
+            ctx,
         }
     }
 }
@@ -54,7 +61,7 @@ impl Pagination for NoChokePagination {
     }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        Ok(NoChokeEmbed::new(
+        let fut = NoChokeEmbed::new(
             &self.user,
             self.scores
                 .iter()
@@ -62,8 +69,11 @@ impl Pagination for NoChokePagination {
                 .take(self.pages.per_page),
             self.unchoked_pp,
             self.rank,
+            &self.ctx,
             (self.page(), self.pages.total_pages),
-        )
+        );
+
+        Ok(fut
         .await)
     }
 }

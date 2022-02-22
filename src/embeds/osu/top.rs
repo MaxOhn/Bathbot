@@ -8,7 +8,7 @@ use crate::{
     pp::PpCalculator,
     util::{
         constants::OSU_BASE, datetime::how_long_ago_dynamic, numbers::with_comma_int, ScoreExt,
-    },
+    }, core::Context,
 };
 
 pub struct TopEmbed {
@@ -19,7 +19,7 @@ pub struct TopEmbed {
 }
 
 impl TopEmbed {
-    pub async fn new<'i, S>(user: &User, scores: S, pages: (usize, usize)) -> Self
+    pub async fn new<'i, S>(user: &User, scores: S, ctx: &Context, pages: (usize, usize)) -> Self
     where
         S: Iterator<Item = &'i (usize, Score)>,
     {
@@ -29,7 +29,7 @@ impl TopEmbed {
             let map = score.map.as_ref().unwrap();
             let mapset = score.mapset.as_ref().unwrap();
 
-            let (pp, max_pp, stars) = match PpCalculator::new(map.map_id).await {
+            let (pp, max_pp, stars) = match PpCalculator::new(ctx, map.map_id).await {
                 Ok(mut calc) => {
                     calc.score(score);
 

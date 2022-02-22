@@ -5,19 +5,16 @@ use std::{
     slice::Iter,
 };
 
-use bytes::Bytes;
-use reqwest::Client as ReqwestClient;
 use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, Score, UserStatistics};
-use tokio::{fs::File, io::AsyncWriteExt, time::sleep};
+use tokio::{fs::File, io::AsyncWriteExt};
 use twilight_model::channel::{embed::Embed, Message};
 
 use crate::{
-    error::MapDownloadError,
+    core::Context,
+    error::MapFileError,
     util::{constants::OSU_BASE, matcher, numbers::round, BeatmapExt, Emote, ScoreExt},
     CONFIG,
 };
-
-use super::ExponentialBackoff;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ModSelection {
@@ -96,46 +93,18 @@ fn completion(score: &dyn ScoreExt, map: &Beatmap) -> u32 {
 
     100 * passed / total
 }
-pub async fn prepare_beatmap_file(map_id: u32) -> Result<PathBuf, MapDownloadError> {
+pub async fn prepare_beatmap_file(ctx: &Context, map_id: u32) -> Result<PathBuf, MapFileError> {
     let mut map_path = CONFIG.get().unwrap().map_path.clone();
     map_path.push(format!("{map_id}.osu"));
 
     if !map_path.exists() {
-        let content = request_beatmap_file(map_id).await?;
+        let bytes = ctx.clients.custom.get_map_file(map_id).await?;
         let mut file = File::create(&map_path).await?;
-        file.write_all(&content).await?;
+        file.write_all(&bytes).await?;
         info!("Downloaded {map_id}.osu successfully");
     }
 
     Ok(map_path)
-}
-
-async fn request_beatmap_file(map_id: u32) -> Result<Bytes, MapDownloadError> {
-    let url = format!("{OSU_BASE}osu/{map_id}");
-    let client = ReqwestClient::builder().build()?;
-    let mut content = client.get(&url).send().await?.bytes().await?;
-
-    if content.len() >= 6 && &content.slice(0..6)[..] != b"<html>" {
-        return Ok(content);
-    }
-
-    // 1s - 2s - 4s - 8s - 10s - 10s - 10s - 10s - 10s - 10s - Give up
-    let backoff = ExponentialBackoff::new(2).factor(500).max_delay(10_000);
-
-    for (duration, i) in backoff.take(10).zip(1..) {
-        debug!("Request beatmap retry attempt #{i} | Backoff {duration:?}");
-        sleep(duration).await;
-
-        content = client.get(&url).send().await?.bytes().await?;
-
-        if content.len() >= 6 && &content.slice(0..6)[..] != b"<html>" {
-            return Ok(content);
-        }
-    }
-
-    (content.len() >= 6 && &content.slice(0..6)[..] != b"<html>")
-        .then(|| content)
-        .ok_or(MapDownloadError::RetryLimit(map_id))
 }
 
 pub trait IntoPpIter {

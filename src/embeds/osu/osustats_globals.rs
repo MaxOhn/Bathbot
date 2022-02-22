@@ -10,7 +10,7 @@ use crate::{
     util::{
         constants::OSU_BASE, datetime::how_long_ago_dynamic, numbers::with_comma_int,
         osu::grade_emote, ScoreExt,
-    },
+    }, core::Context,
 };
 
 pub struct OsuStatsGlobalsEmbed {
@@ -25,6 +25,7 @@ impl OsuStatsGlobalsEmbed {
         user: &User,
         scores: &BTreeMap<usize, OsuStatsScore>,
         total: usize,
+        ctx: &Context,
         pages: (usize, usize),
     ) -> Self {
         if scores.is_empty() {
@@ -43,7 +44,7 @@ impl OsuStatsGlobalsEmbed {
         for (_, score) in entries {
             let grade = grade_emote(score.grade);
 
-            let (pp, max_pp, stars) = match PpCalculator::new(score.map.beatmap_id).await {
+            let (pp, max_pp, stars) = match PpCalculator::new(ctx, score.map.beatmap_id).await {
                 Ok(mut calc) => {
                     calc.score(score);
 

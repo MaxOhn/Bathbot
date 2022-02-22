@@ -183,13 +183,12 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
 
     // Try creating the strain graph for the map
     let bg_fut = async {
-        let url = mapset.covers.cover.as_str();
-        let res = reqwest::get(url).await?.bytes().await?;
+        let bytes = ctx.clients.custom.get_mapset_cover(&mapset.covers).await?;
 
-        Ok::<_, Error>(image::load_from_memory(res.as_ref())?.thumbnail_exact(W, H))
+        Ok::<_, Error>(image::load_from_memory(&bytes)?.thumbnail_exact(W, H))
     };
 
-    let graph = match tokio::join!(strain_values(map.map_id, mods), bg_fut) {
+    let graph = match tokio::join!(strain_values(&ctx, map.map_id, mods), bg_fut) {
         (Ok(strain_values), Ok(img)) => match graph(strain_values, img) {
             Ok(graph) => Some(graph),
             Err(err) => {
@@ -218,6 +217,7 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
         &mapset,
         mods,
         graph.is_none(),
+        &ctx,
         (map_idx + 1, map_count),
     );
 
@@ -262,7 +262,7 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = MapPagination::new(response, mapset, maps, mods, map_idx, graph.is_none());
+    let pagination = MapPagination::new(response, mapset, maps, mods, map_idx, graph.is_none(), Arc::clone(&ctx));
     let owner = author_id;
 
     tokio::spawn(async move {
@@ -274,8 +274,8 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
     Ok(())
 }
 
-async fn strain_values(map_id: u32, mods: GameMods) -> BotResult<Vec<(f64, f64)>> {
-    let map_path = prepare_beatmap_file(map_id).await?;
+async fn strain_values(ctx: &Context, map_id: u32, mods: GameMods) -> BotResult<Vec<(f64, f64)>> {
+    let map_path = prepare_beatmap_file(ctx, map_id).await?;
     let map = Beatmap::from_path(map_path).await.map_err(PpError::from)?;
     let strains = map.strains(mods.bits());
     let section_len = strains.section_length;

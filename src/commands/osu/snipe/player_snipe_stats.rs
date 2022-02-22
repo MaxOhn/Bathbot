@@ -167,7 +167,7 @@ pub(super) async fn _playersnipestats(
         }
     };
 
-    let embed_data = PlayerSnipeStatsEmbed::new(user, player, first_score).await;
+    let embed_data = PlayerSnipeStatsEmbed::new(user, player, first_score, &ctx).await;
 
     // Sending the embed
     let embed = embed_data.into_builder().build();

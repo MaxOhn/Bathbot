@@ -347,7 +347,7 @@ pub(super) async fn _compare(
         .limit(100);
 
     let mode_v1 = (map.mode as u8).into();
-    let sort_fut = sort_by.apply(&mut scores, map.map_id, mode_v1);
+    let sort_fut = sort_by.apply(&ctx, &mut scores, map.map_id, mode_v1);
 
     let global_fut = async {
         if matches!(
@@ -429,11 +429,20 @@ pub(super) async fn _compare(
     let init_scores = scores.iter().take(10);
 
     // Accumulate all necessary data
-    let builder = ScoresEmbed::new(&user, &map, init_scores, 0, &pinned, &personal, global_idx)
-        .await
-        .into_builder()
-        .build()
-        .into();
+    let builder = ScoresEmbed::new(
+        &user,
+        &map,
+        init_scores,
+        0,
+        &pinned,
+        &personal,
+        global_idx,
+        &ctx,
+    )
+    .await
+    .into_builder()
+    .build()
+    .into();
 
     let response_raw = data.create_message(&ctx, builder).await?;
 
@@ -445,8 +454,16 @@ pub(super) async fn _compare(
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination =
-        ScoresPagination::new(response, user, map, scores, pinned, personal, global_idx);
+    let pagination = ScoresPagination::new(
+        response,
+        user,
+        map,
+        scores,
+        pinned,
+        personal,
+        global_idx,
+        Arc::clone(&ctx),
+    );
     let owner = data.author()?.id;
 
     tokio::spawn(async move {
@@ -468,7 +485,8 @@ async fn single_score(
     embeds_maximized: bool,
 ) -> BotResult<()> {
     // Accumulate all necessary data
-    let embed_data = match CompareEmbed::new(best.as_deref(), score, global_idx, pinned).await {
+    let embed_data = match CompareEmbed::new(best.as_deref(), score, global_idx, pinned, &ctx).await
+    {
         Ok(data) => data,
         Err(err) => {
             let _ = data.error(&ctx, GENERAL_ISSUE).await;

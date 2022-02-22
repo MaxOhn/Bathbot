@@ -7,6 +7,7 @@ use rosu_v2::prelude::{Beatmap, GameMode, Score, User};
 use twilight_model::channel::embed::EmbedField;
 
 use crate::{
+    core::Context,
     embeds::{osu, Author, Footer},
     error::PpError,
     util::{
@@ -30,6 +31,7 @@ pub struct ScoresEmbed {
 }
 
 impl ScoresEmbed {
+    #[allow(clippy::too_many_arguments)]
     pub async fn new<'i, S>(
         user: &User,
         map: &Beatmap,
@@ -38,13 +40,14 @@ impl ScoresEmbed {
         pinned: &[Score],
         personal: &[Score],
         global_idx: Option<(usize, usize)>,
+        ctx: &Context,
     ) -> Self
     where
         S: Iterator<Item = &'i ScoreV1>,
     {
         let mut fields = Vec::new();
 
-        let pp_map = match get_map(map.map_id).await {
+        let pp_map = match get_map(ctx, map.map_id).await {
             Ok(map) => Some(map),
             Err(err) => {
                 let report = Report::new(err).wrap_err("failed to prepare map for pp calculation");
@@ -194,8 +197,8 @@ impl_builder!(ScoresEmbed {
     url,
 });
 
-async fn get_map(map_id: u32) -> BotResult<Map> {
-    let map_path = prepare_beatmap_file(map_id).await?;
+async fn get_map(ctx: &Context, map_id: u32) -> BotResult<Map> {
+    let map_path = prepare_beatmap_file(ctx, map_id).await?;
     let map = Map::from_path(map_path).await.map_err(PpError::from)?;
 
     Ok(map)

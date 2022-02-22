@@ -28,10 +28,11 @@ use hyper::{
 };
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use leaky_bucket_lite::LeakyBucket;
-use rosu_v2::prelude::{GameMode, GameMods, User};
+use rosu_v2::prelude::{BeatmapsetCovers, GameMode, GameMods, User};
 use serde::Serialize;
 use serde_json::{Map, Value};
 use tokio::time::{interval, sleep, timeout, Duration};
+use twilight_model::channel::Attachment;
 
 use crate::{
     core::BotConfig,
@@ -43,6 +44,7 @@ use crate::{
         },
         numbers::round,
         osu::ModSelection,
+        ExponentialBackoff,
     },
     CONFIG,
 };
@@ -54,18 +56,23 @@ use self::score::ScraperScores;
 type ClientResult<T> = Result<T, CustomClientError>;
 
 static MY_USER_AGENT: &str = env!("CARGO_PKG_NAME");
+
 const APPLICATION_JSON: &str = "application/json";
 const APPLICATION_URLENCODED: &str = "application/x-www-form-urlencoded";
 
 #[derive(Copy, Clone, Eq, Hash, PartialEq)]
 #[repr(u8)]
 enum Site {
+    DiscordAttachment,
     Huismetbenen,
-    OsuStats,
-    OsuHiddenApi,
-    OsuAvatar,
     Osekai,
+    OsuAvatar,
+    OsuBadge,
     OsuDaily,
+    OsuHiddenApi,
+    OsuMapFile,
+    OsuMapsetCover,
+    OsuStats,
     Twitch,
 }
 
@@ -75,7 +82,7 @@ pub struct CustomClient {
     client: Client,
     osu_session: &'static str,
     twitch: TwitchData,
-    ratelimiters: [LeakyBucket; 7],
+    ratelimiters: [LeakyBucket; 11],
 }
 
 struct TwitchData {
@@ -108,13 +115,17 @@ impl CustomClient {
         };
 
         let ratelimiters = [
-            ratelimiter(2), // Huismetbenen
-            ratelimiter(2), // OsuStats
-            ratelimiter(2), // OsuHiddenApi
-            ratelimiter(5), // OsuAvatar
-            ratelimiter(2), // Osekai
-            ratelimiter(2), // OsuDaily
-            ratelimiter(5), // Twitch
+            ratelimiter(2),  // DiscordAttachment
+            ratelimiter(2),  // Huismetbenen
+            ratelimiter(2),  // Osekai
+            ratelimiter(10), // OsuAvatar
+            ratelimiter(10), // OsuBadge
+            ratelimiter(2),  // OsuDaily
+            ratelimiter(2),  // OsuHiddenApi
+            ratelimiter(5),  // OsuMapFile
+            ratelimiter(10), // OsuMapsetCover
+            ratelimiter(2),  // OsuStats
+            ratelimiter(5),  // Twitch
         ];
 
         Ok(Self {
@@ -252,7 +263,7 @@ impl CustomClient {
         url: impl Into<String>,
     ) -> ClientResult<Bytes> {
         if response.status().is_client_error() || response.status().is_server_error() {
-            Err(CustomClientError::StatusError {
+            Err(CustomClientError::Status {
                 status: response.status(),
                 url: url.into(),
             })
@@ -261,6 +272,11 @@ impl CustomClient {
 
             Ok(bytes)
         }
+    }
+
+    pub async fn get_discord_attachment(&self, attachment: &Attachment) -> ClientResult<Bytes> {
+        self.make_get_request(&attachment.url, Site::DiscordAttachment)
+            .await
     }
 
     pub async fn get_osekai_medals(&self) -> ClientResult<Vec<OsekaiMedal>> {
@@ -642,8 +658,38 @@ impl CustomClient {
         Ok(scores.get())
     }
 
-    pub async fn get_avatar(&self, url: impl AsRef<str>) -> ClientResult<Bytes> {
+    pub async fn get_avatar(&self, url: &str) -> ClientResult<Bytes> {
         self.make_get_request(url, Site::OsuAvatar).await
+    }
+
+    pub async fn get_badge(&self, url: &str) -> ClientResult<Bytes> {
+        self.make_get_request(url, Site::OsuBadge).await
+    }
+
+    pub async fn get_mapset_cover(&self, covers: &BeatmapsetCovers) -> ClientResult<Bytes> {
+        self.make_get_request(&covers.cover, Site::OsuMapsetCover)
+            .await
+    }
+
+    pub async fn get_map_file(&self, map_id: u32) -> ClientResult<Bytes> {
+        let url = format!("{OSU_BASE}osu/{map_id}");
+        let backoff = ExponentialBackoff::new(2).factor(500).max_delay(10_000);
+        const ATTEMPTS: usize = 10;
+
+        for (duration, i) in backoff.take(ATTEMPTS).zip(1..) {
+            let result = self.make_get_request(&url, Site::OsuMapFile).await;
+
+            if matches!(&result, Err(CustomClientError::Status { status, ..}) if *status == StatusCode::TOO_MANY_REQUESTS)
+                || matches!(&result, Ok(bytes) if bytes.starts_with(b"<html>"))
+            {
+                debug!("Request beatmap retry attempt #{i} | Backoff {duration:?}");
+                sleep(duration).await;
+            } else {
+                return result;
+            }
+        }
+
+        Err(CustomClientError::MapFileRetryLimit(map_id))
     }
 
     pub async fn get_rank_data(&self, mode: GameMode, param: RankParam) -> ClientResult<RankPP> {
@@ -658,7 +704,7 @@ impl CustomClient {
         let bytes = loop {
             match self.make_get_request(&url, Site::OsuDaily).await {
                 Ok(bytes) => break bytes,
-                Err(CustomClientError::StatusError { status, .. })
+                Err(CustomClientError::Status { status, .. })
                     if status == StatusCode::TOO_MANY_REQUESTS =>
                 {
                     debug!("Ratelimited by osudaily, wait a second");

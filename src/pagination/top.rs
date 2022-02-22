@@ -1,11 +1,14 @@
-use super::{Pages, Pagination};
-
-use crate::{embeds::TopEmbed, BotResult};
+use std::sync::Arc;
 
 use rosu_v2::prelude::{Score, User};
 use twilight_model::channel::Message;
 
+use crate::{core::Context, embeds::TopEmbed, BotResult};
+
+use super::{Pages, Pagination};
+
 pub struct TopPagination {
+    ctx: Arc<Context>,
     msg: Message,
     pages: Pages,
     user: User,
@@ -13,12 +16,13 @@ pub struct TopPagination {
 }
 
 impl TopPagination {
-    pub fn new(msg: Message, user: User, scores: Vec<(usize, Score)>) -> Self {
+    pub fn new(msg: Message, user: User, scores: Vec<(usize, Score)>, ctx: Arc<Context>) -> Self {
         Self {
             pages: Pages::new(5, scores.len()),
             msg,
             user,
             scores,
+            ctx,
         }
     }
 }
@@ -44,14 +48,16 @@ impl Pagination for TopPagination {
     }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        Ok(TopEmbed::new(
+        let fut = TopEmbed::new(
             &self.user,
             self.scores
                 .iter()
                 .skip(self.pages.index)
                 .take(self.pages.per_page),
+            &self.ctx,
             (self.page(), self.pages.total_pages),
-        )
-        .await)
+        );
+
+        Ok(fut.await)
     }
 }

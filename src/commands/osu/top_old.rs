@@ -214,7 +214,7 @@ async fn _topold(ctx: Arc<Context>, data: CommandData<'_>, args: OldArgs) -> Bot
 
     let bonus_pp = user.statistics.as_ref().unwrap().pp - actual_pp;
 
-    let mut scores_data = match modify_scores(scores, version).await {
+    let mut scores_data = match modify_scores(&ctx, scores, version).await {
         Ok(scores) => scores,
         Err(why) => {
             let _ = data.error(&ctx, GENERAL_ISSUE).await;
@@ -224,7 +224,7 @@ async fn _topold(ctx: Arc<Context>, data: CommandData<'_>, args: OldArgs) -> Bot
     };
 
     // Sort by adjusted pp
-    TopOrder::Pp.apply(&mut scores_data).await;
+    TopOrder::Pp.apply(&ctx, &mut scores_data).await;
 
     // Calculate adjusted pp
     let adjusted_pp: f32 = scores_data
@@ -284,6 +284,7 @@ async fn _topold(ctx: Arc<Context>, data: CommandData<'_>, args: OldArgs) -> Bot
 }
 
 async fn modify_scores(
+    ctx: &Context,
     scores: Vec<Score>,
     version: OldVersion,
 ) -> BotResult<Vec<(usize, Score, Option<f32>)>> {
@@ -297,7 +298,7 @@ async fn modify_scores(
             continue;
         }
 
-        let map_path = prepare_beatmap_file(map.map_id).await?;
+        let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
         let rosu_map = Beatmap::from_path(map_path).await.map_err(PpError::from)?;
         let mods = score.mods.bits();
 

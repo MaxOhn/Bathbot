@@ -10,7 +10,7 @@ use crate::{
         osu::{grade_completion_mods, prepare_beatmap_file},
         Emote, ScoreExt,
     },
-    BotResult,
+    BotResult, core::Context,
 };
 
 use chrono::{DateTime, Utc};
@@ -51,11 +51,12 @@ impl RecentEmbed {
         personal: Option<&[Score]>,
         map_score: Option<&BeatmapUserScore>,
         twitch_vod: Option<TwitchVideo>,
+        ctx: &Context,
     ) -> BotResult<Self> {
         let map = score.map.as_ref().unwrap();
         let mapset = score.mapset.as_ref().unwrap();
 
-        let map_path = prepare_beatmap_file(map.map_id).await?;
+        let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
         let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
         let mods = score.mods.bits();
         let max_result = rosu_map.max_pp(mods);

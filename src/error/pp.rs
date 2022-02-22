@@ -2,8 +2,8 @@
 pub enum PpError {
     #[error("io error")]
     IoError(#[from] tokio::io::Error),
-    #[error("failed to download map")]
-    MapDownload(#[from] crate::error::MapDownloadError),
+    #[error("failed to prepare beatmap file")]
+    MapFile(#[from] crate::error::MapFileError),
     #[error("error while parsing beatmap file")]
     Parse(#[from] rosu_pp::ParseError),
 }

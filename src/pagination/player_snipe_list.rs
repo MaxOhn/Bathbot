@@ -1,15 +1,17 @@
-use super::{Pages, Pagination, ReactionVec};
+use std::{collections::BTreeMap, iter::Extend, sync::Arc};
+
+use eyre::Report;
+use hashbrown::HashMap;
+use rosu_v2::prelude::{Beatmap, User};
+use twilight_model::channel::Message;
+
 use crate::{
     custom_client::{SnipeScore, SnipeScoreParams},
     embeds::PlayerSnipeListEmbed,
     BotResult, Context,
 };
 
-use eyre::Report;
-use hashbrown::HashMap;
-use rosu_v2::prelude::{Beatmap, User};
-use std::{collections::BTreeMap, iter::Extend, sync::Arc};
-use twilight_model::channel::Message;
+use super::{Pages, Pagination, ReactionVec};
 
 pub struct PlayerSnipeListPagination {
     msg: Message,
@@ -114,7 +116,7 @@ impl Pagination for PlayerSnipeListPagination {
                 Ok(maps) => maps,
                 Err(why) => {
                     let report = Report::new(why).wrap_err("error while getting maps from DB");
-                    warn!("{:?}", report);
+                    warn!("{report:?}");
 
                     HashMap::default()
                 }
@@ -142,6 +144,7 @@ impl Pagination for PlayerSnipeListPagination {
             &self.scores,
             &self.maps,
             self.total,
+            &self.ctx,
             (self.page(), self.pages.total_pages),
         );
 

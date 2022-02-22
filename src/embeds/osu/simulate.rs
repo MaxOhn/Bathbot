@@ -10,6 +10,7 @@ use rosu_v2::prelude::{
 };
 
 use crate::{
+    core::Context,
     embeds::{osu, EmbedBuilder, EmbedData, Footer},
     error::PpError,
     pp::PpCalculator,
@@ -104,6 +105,7 @@ impl SimulateEmbed {
         map: &Beatmap,
         mapset: &BeatmapsetCompact,
         args: SimulateArgs,
+        ctx: &Context,
     ) -> BotResult<Self> {
         let is_some = args.is_some();
 
@@ -123,7 +125,7 @@ impl SimulateEmbed {
             let pp = if let Some(pp) = s.pp {
                 pp
             } else {
-                PpCalculator::new(map.map_id).await?.score(s).pp() as f32
+                PpCalculator::new(ctx, map.map_id).await?.score(s).pp() as f32
             };
 
             let prev_combo = (map.mode == GameMode::STD).then(|| s.max_combo);
@@ -140,7 +142,7 @@ impl SimulateEmbed {
         };
 
         let mut unchoked_score = score.unwrap_or_else(default_score);
-        let map_path = prepare_beatmap_file(map.map_id).await?;
+        let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
         let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
 
         if let Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) = args.mods {

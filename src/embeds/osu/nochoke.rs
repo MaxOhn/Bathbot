@@ -10,7 +10,7 @@ use crate::{
         constants::OSU_BASE,
         numbers::{with_comma_float, with_comma_int},
         ScoreExt,
-    },
+    }, core::Context,
 };
 
 pub struct NoChokeEmbed {
@@ -27,6 +27,7 @@ impl NoChokeEmbed {
         scores_data: S,
         unchoked_pp: f32,
         rank: Option<usize>,
+        ctx: &Context,
         pages: (usize, usize),
     ) -> Self
     where
@@ -40,7 +41,7 @@ impl NoChokeEmbed {
             let map = original.map.as_ref().unwrap();
             let mapset = original.mapset.as_ref().unwrap();
 
-            let (max_pp, stars) = match PpCalculator::new(map.map_id).await {
+            let (max_pp, stars) = match PpCalculator::new(ctx, map.map_id).await {
                 Ok(mut calc) => {
                     calc.score(original);
 

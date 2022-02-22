@@ -1,13 +1,17 @@
-use super::{Pages, Pagination, ReactionVec};
+
+use std::{collections::BTreeMap, iter::Extend, sync::Arc};
+
+use rosu_v2::model::user::User;
+use twilight_model::channel::Message;
+
 use crate::{
     custom_client::{OsuStatsParams, OsuStatsScore},
     embeds::OsuStatsGlobalsEmbed,
     BotResult, Context,
 };
 
-use rosu_v2::model::user::User;
-use std::{collections::BTreeMap, iter::Extend, sync::Arc};
-use twilight_model::channel::Message;
+
+use super::{Pages, Pagination, ReactionVec};
 
 pub struct OsuStatsGlobalsPagination {
     msg: Message,
@@ -94,12 +98,15 @@ impl Pagination for OsuStatsGlobalsPagination {
             self.scores.extend(iter);
         }
 
-        Ok(OsuStatsGlobalsEmbed::new(
+        let fut = OsuStatsGlobalsEmbed::new(
             &self.user,
             &self.scores,
             self.total,
+            &self.ctx,
             (self.page(), self.pages.total_pages),
-        )
+        );
+
+        Ok(fut
         .await)
     }
 }

@@ -11,7 +11,7 @@ use crate::{
         numbers::{round, with_comma_int},
         osu::{grade_completion_mods, mode_emote},
         ScoreExt,
-    },
+    }, core::Context,
 };
 
 pub struct TrackNotificationEmbed {
@@ -26,13 +26,13 @@ pub struct TrackNotificationEmbed {
 }
 
 impl TrackNotificationEmbed {
-    pub async fn new(user: &User, score: &Score, idx: usize) -> Self {
+    pub async fn new(user: &User, score: &Score, idx: usize, ctx: &Context) -> Self {
         let map = score.map.as_ref().unwrap();
         let mapset = score.mapset.as_ref().unwrap();
 
         let description = format!("{} __**Personal Best #{idx}**__", mode_emote(map.mode));
 
-        let (max_pp, stars) = match PpCalculator::new(map.map_id).await {
+        let (max_pp, stars) = match PpCalculator::new(ctx, map.map_id).await {
             Ok(mut calc) => {
                 calc.score(score);
 

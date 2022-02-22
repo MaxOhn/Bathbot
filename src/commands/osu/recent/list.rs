@@ -108,7 +108,7 @@ pub(super) async fn _recentlist(
     let pages = numbers::div_euclid(10, scores.len());
     let scores_iter = scores.iter().take(10);
 
-    let embed = match RecentListEmbed::new(&user, scores_iter, (1, pages)).await {
+    let embed = match RecentListEmbed::new(&user, scores_iter, &ctx, (1, pages)).await {
         Ok(data) => data.into_builder().build(),
         Err(why) => {
             let _ = data.error(&ctx, GENERAL_ISSUE).await;
@@ -134,7 +134,7 @@ pub(super) async fn _recentlist(
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = RecentListPagination::new(response, user, scores);
+    let pagination = RecentListPagination::new(response, user, scores, Arc::clone(&ctx));
     let owner = data.author()?.id;
 
     tokio::spawn(async move {

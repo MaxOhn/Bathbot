@@ -13,7 +13,7 @@ use crate::{
         numbers::{with_comma_float, with_comma_int},
         osu::grade_completion_mods,
         ScoreExt,
-    },
+    }, core::Context,
 };
 
 pub struct PlayerSnipeStatsEmbed {
@@ -28,7 +28,7 @@ pub struct PlayerSnipeStatsEmbed {
 }
 
 impl PlayerSnipeStatsEmbed {
-    pub async fn new(user: User, player: SnipePlayer, first_score: Option<Score>) -> Self {
+    pub async fn new(user: User, player: SnipePlayer, first_score: Option<Score>, ctx: &Context) -> Self {
         let footer_text = format!(
             "{:+} #1{} since last update",
             player.difference,
@@ -68,7 +68,7 @@ impl PlayerSnipeStatsEmbed {
             if let Some(score) = first_score {
                 let map = score.map.as_ref().unwrap();
 
-                let (pp, max_pp, stars) = match PpCalculator::new(map.map_id).await {
+                let (pp, max_pp, stars) = match PpCalculator::new(ctx, map.map_id).await {
                     Ok(mut calc) => {
                         calc.score(&score);
 

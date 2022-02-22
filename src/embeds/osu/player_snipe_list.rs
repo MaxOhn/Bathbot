@@ -12,7 +12,7 @@ use crate::{
         constants::OSU_BASE,
         datetime::how_long_ago_dynamic,
         numbers::{round, with_comma_int},
-    },
+    }, core::Context,
 };
 
 pub struct PlayerSnipeListEmbed {
@@ -28,6 +28,7 @@ impl PlayerSnipeListEmbed {
         scores: &BTreeMap<usize, SnipeScore>,
         maps: &HashMap<u32, Beatmap>,
         total: usize,
+        ctx: &Context,
         pages: (usize, usize),
     ) -> Self {
         if scores.is_empty() {
@@ -48,7 +49,7 @@ impl PlayerSnipeListEmbed {
                 .get(&score.beatmap_id)
                 .expect("missing beatmap for psl embed");
 
-            let max_pp = match PpCalculator::new(map.map_id).await {
+            let max_pp = match PpCalculator::new(ctx, map.map_id).await {
                 Ok(mut calc) => Some(calc.mods(score.mods).max_pp() as f32),
                 Err(err) => {
                     warn!("{:?}", Report::new(err));

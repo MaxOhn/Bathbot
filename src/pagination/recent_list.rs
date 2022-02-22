@@ -1,11 +1,14 @@
-use super::{Pages, Pagination};
-
-use crate::{embeds::RecentListEmbed, BotResult, Context};
+use std::sync::Arc;
 
 use rosu_v2::prelude::{Score, User};
 use twilight_model::channel::Message;
 
+use crate::{embeds::RecentListEmbed, BotResult, Context};
+
+use super::{Pages, Pagination};
+
 pub struct RecentListPagination {
+    ctx: Arc<Context>,
     msg: Message,
     pages: Pages,
     user: User,
@@ -13,12 +16,13 @@ pub struct RecentListPagination {
 }
 
 impl RecentListPagination {
-    pub fn new(msg: Message, user: User, scores: Vec<Score>) -> Self {
+    pub fn new(msg: Message, user: User, scores: Vec<Score>, ctx: Arc<Context>) -> Self {
         Self {
             msg,
             user,
             pages: Pages::new(10, scores.len()),
             scores,
+            ctx,
         }
     }
 }
@@ -55,6 +59,12 @@ impl Pagination for RecentListPagination {
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let scores = self.scores.iter().skip(self.pages.index).take(10);
 
-        RecentListEmbed::new(&self.user, scores, (self.page(), self.pages.total_pages)).await
+        RecentListEmbed::new(
+            &self.user,
+            scores,
+            &self.ctx,
+            (self.page(), self.pages.total_pages),
+        )
+        .await
     }
 }

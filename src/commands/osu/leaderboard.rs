@@ -139,6 +139,7 @@ async fn _leaderboard(
         },
         &first_place_icon,
         0,
+        &ctx,
         (1, pages),
     );
 
@@ -176,7 +177,7 @@ async fn _leaderboard(
 
     // Pagination
     let pagination =
-        LeaderboardPagination::new(response, map, None, scores, author_name, first_place_icon);
+        LeaderboardPagination::new(response, map, None, scores, author_name, first_place_icon, Arc::clone(&ctx));
 
     let owner = author_id;
 

@@ -106,7 +106,7 @@ async fn _topif(ctx: Arc<Context>, data: CommandData<'_>, args: IfArgs) -> BotRe
     let bonus_pp = user.statistics.as_ref().unwrap().pp - actual_pp;
     let arg_mods = args.mods;
 
-    let mut scores_data: Vec<_> = match modify_scores(scores, arg_mods).await {
+    let mut scores_data: Vec<_> = match modify_scores(&ctx, scores, arg_mods).await {
         Ok(scores) => scores,
         Err(err) => {
             let _ = data.error(&ctx, GENERAL_ISSUE).await;
@@ -116,7 +116,7 @@ async fn _topif(ctx: Arc<Context>, data: CommandData<'_>, args: IfArgs) -> BotRe
     };
 
     // Sort by adjusted pp
-    TopOrder::Pp.apply(&mut scores_data).await;
+    TopOrder::Pp.apply(&ctx, &mut scores_data).await;
 
     // Calculate adjusted pp
     let adjusted_pp: f32 = scores_data
@@ -178,6 +178,7 @@ async fn _topif(ctx: Arc<Context>, data: CommandData<'_>, args: IfArgs) -> BotRe
 }
 
 async fn modify_scores(
+    ctx: &Context,
     scores: Vec<Score>,
     arg_mods: ModSelection,
 ) -> BotResult<Vec<(usize, Score, Option<f32>)>> {
@@ -247,7 +248,7 @@ async fn modify_scores(
             score.grade = score.grade(Some(score.accuracy));
         }
 
-        let mut calc = PpCalculator::new(map.map_id).await?;
+        let mut calc = PpCalculator::new(ctx, map.map_id).await?;
         calc.score(&score);
 
         let stars = calc.stars() as f32;

@@ -3,7 +3,7 @@ use rosu_v2::model::GameMods;
 
 use crate::{
     error::PpError,
-    util::{osu::prepare_beatmap_file, ScoreExt},
+    util::{osu::prepare_beatmap_file, ScoreExt}, core::Context,
 };
 
 enum ScoreKind<'s> {
@@ -42,8 +42,8 @@ pub struct PpCalculator<'s> {
 }
 
 impl<'s> PpCalculator<'s> {
-    pub async fn new(map_id: u32) -> Result<PpCalculator<'s>, PpError> {
-        let map_path = prepare_beatmap_file(map_id).await?;
+    pub async fn new(ctx: &Context, map_id: u32) -> Result<PpCalculator<'s>, PpError> {
+        let map_path = prepare_beatmap_file(ctx, map_id).await?;
         let map = Beatmap::from_path(map_path).await?;
 
         Ok(Self {

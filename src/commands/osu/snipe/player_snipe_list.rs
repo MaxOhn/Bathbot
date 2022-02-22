@@ -176,7 +176,7 @@ pub(super) async fn _playersnipelist(
     }
 
     let pages = numbers::div_euclid(5, count);
-    let embed_data = PlayerSnipeListEmbed::new(&user, &scores, &maps, count, (1, pages)).await;
+    let embed_data = PlayerSnipeListEmbed::new(&user, &scores, &maps, count, &ctx, (1, pages)).await;
 
     let mut content = format!(
         "`Order: {order:?} {descending}`",

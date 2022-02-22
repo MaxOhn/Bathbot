@@ -106,7 +106,7 @@ async fn _pinned(ctx: Arc<Context>, data: CommandData<'_>, args: PinnedArgs) -> 
     user.mode = mode;
 
     // Filter scores according to query
-    filter_scores(&mut scores, &args).await;
+    filter_scores(&ctx, &mut scores, &args).await;
 
     // Add maps of scores to DB
     let scores_iter = scores.iter();
@@ -133,7 +133,7 @@ async fn _pinned(ctx: Arc<Context>, data: CommandData<'_>, args: PinnedArgs) -> 
     Ok(())
 }
 
-async fn filter_scores(scores: &mut Vec<Score>, args: &PinnedArgs) {
+async fn filter_scores(ctx: &Context, scores: &mut Vec<Score>, args: &PinnedArgs) {
     if let Some(query) = args.query.as_deref() {
         let needle = query.cow_to_ascii_lowercase();
         let mut haystack = String::new();
@@ -156,7 +156,7 @@ async fn filter_scores(scores: &mut Vec<Score>, args: &PinnedArgs) {
     }
 
     if let Some(sort_by) = args.sort_by {
-        sort_by.apply(scores).await;
+        sort_by.apply(ctx, scores).await;
     }
 }
 
@@ -207,7 +207,7 @@ async fn single_embed(
         _ => (None, None),
     };
 
-    let embed_data = TopSingleEmbed::new(&user, score, personal_idx, global_idx).await?;
+    let embed_data = TopSingleEmbed::new(&user, score, personal_idx, global_idx, &ctx).await?;
 
     // Only maximize if config allows it
     if maximize {
@@ -257,7 +257,7 @@ async fn paginated_embed(
     content: Option<String>,
 ) -> BotResult<()> {
     let pages = numbers::div_euclid(5, scores.len());
-    let embed_data = PinnedEmbed::new(&user, scores.iter().take(5), (1, pages)).await;
+    let embed_data = PinnedEmbed::new(&user, scores.iter().take(5), &ctx, (1, pages)).await;
     let embed = embed_data.into_builder().build();
 
     // Creating the embed
@@ -277,7 +277,7 @@ async fn paginated_embed(
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = PinnedPagination::new(response, user, scores);
+    let pagination = PinnedPagination::new(response, user, scores, Arc::clone(&ctx));
     let owner = data.author()?.id;
 
     tokio::spawn(async move {

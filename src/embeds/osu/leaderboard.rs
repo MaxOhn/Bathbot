@@ -1,4 +1,5 @@
 use crate::{
+    core::Context,
     custom_client::ScraperScore,
     embeds::{Author, Footer},
     error::PpError,
@@ -28,6 +29,7 @@ pub struct LeaderboardEmbed {
 }
 
 impl LeaderboardEmbed {
+    #[allow(clippy::too_many_arguments)]
     pub async fn new<'i, S>(
         author_name: Option<&str>,
         map: &Beatmap,
@@ -35,6 +37,7 @@ impl LeaderboardEmbed {
         scores: Option<S>,
         author_icon: &Option<String>,
         idx: usize,
+        ctx: &Context,
         pages: (usize, usize),
     ) -> BotResult<Self>
     where
@@ -62,7 +65,7 @@ impl LeaderboardEmbed {
         );
 
         let description = if let Some(scores) = scores {
-            let map_path = prepare_beatmap_file(map.map_id).await?;
+            let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
             let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
 
             let mut mod_map = HashMap::new();

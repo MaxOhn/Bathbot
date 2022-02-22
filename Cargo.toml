@@ -34,7 +34,6 @@ prometheus = { version = "0.13" }
 radix_trie = { version = "0.2" }
 rand = { version = "0.8" }
 regex = { version = "1.0" }
-reqwest = { version = "0.11", default-features = false, features = ["cookies", "multipart", "rustls-tls"] }
 rkyv = { version = "0.7" }
 rosu = { version = "0.5" }
 rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "next", features = ["cache", "metrics", "rkyv"] }

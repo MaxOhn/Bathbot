@@ -128,7 +128,7 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
     process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
     // Filter scores according to mods, combo, acc, and grade
-    let scores = filter_scores(scores, &args).await;
+    let scores = filter_scores(&ctx, scores, &args).await;
 
     if args.index.filter(|n| *n > scores.len()).is_some() {
         let content = format!(
@@ -553,7 +553,7 @@ async fn recentbestctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     }
 }
 
-async fn filter_scores(scores: Vec<Score>, args: &TopArgs) -> Vec<(usize, Score)> {
+async fn filter_scores(ctx: &Context, scores: Vec<Score>, args: &TopArgs) -> Vec<(usize, Score)> {
     let selection = args.mods;
     let grade = args.grade;
 
@@ -655,7 +655,7 @@ async fn filter_scores(scores: Vec<Score>, args: &TopArgs) -> Vec<(usize, Score)
         });
     }
 
-    args.sort_by.apply(&mut scores_indices).await;
+    args.sort_by.apply(ctx, &mut scores_indices).await;
 
     if args.reverse {
         scores_indices.reverse();
@@ -702,7 +702,7 @@ async fn single_embed(
         _ => None,
     };
 
-    let embed_data = TopSingleEmbed::new(&user, score, Some(*idx), global_idx).await?;
+    let embed_data = TopSingleEmbed::new(&user, score, Some(*idx), global_idx, &ctx).await?;
 
     // Only maximize if config allows it
     if maximize {
@@ -752,7 +752,7 @@ async fn paginated_embed(
     content: Option<String>,
 ) -> BotResult<()> {
     let pages = numbers::div_euclid(5, scores.len());
-    let embed_data = TopEmbed::new(&user, scores.iter().take(5), (1, pages)).await;
+    let embed_data = TopEmbed::new(&user, scores.iter().take(5), &ctx, (1, pages)).await;
     let embed = embed_data.into_builder().build();
 
     // Creating the embed
@@ -772,7 +772,7 @@ async fn paginated_embed(
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = TopPagination::new(response, user, scores);
+    let pagination = TopPagination::new(response, user, scores, Arc::clone(&ctx));
     let owner = data.author()?.id;
 
     tokio::spawn(async move {
@@ -815,7 +815,7 @@ impl SortableScore for (usize, Score) {
 }
 
 impl TopOrder {
-    pub async fn apply<S: SortableScore>(self, scores: &mut [S]) {
+    pub async fn apply<S: SortableScore>(self, ctx: &Context, scores: &mut [S]) {
         match self {
             Self::Acc => {
                 scores.sort_unstable_by(|a, b| {
@@ -894,7 +894,7 @@ impl TopOrder {
                             return (id, map.stars);
                         }
 
-                        let stars = match PpCalculator::new(map.map_id).await {
+                        let stars = match PpCalculator::new(ctx, map.map_id).await {
                             Ok(mut calc) => calc.mods(score.mods).stars() as f32,
                             Err(err) => {
                                 warn!("{:?}", Report::new(err));

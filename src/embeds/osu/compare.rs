@@ -9,7 +9,7 @@ use crate::{
         osu::{flag_url, grade_completion_mods, prepare_beatmap_file},
         ScoreExt,
     },
-    BotResult,
+    BotResult, core::Context,
 };
 
 use chrono::{DateTime, Utc};
@@ -46,12 +46,13 @@ impl CompareEmbed {
         score: &Score,
         global_idx: usize,
         pinned: bool,
+        ctx: &Context,
     ) -> BotResult<Self> {
         let user = score.user.as_ref().unwrap();
         let map = score.map.as_ref().unwrap();
         let mapset = score.mapset.as_ref().unwrap();
 
-        let map_path = prepare_beatmap_file(map.map_id).await?;
+        let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
         let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
         let mods = score.mods.bits();
         let max_result = rosu_map.max_pp(mods);

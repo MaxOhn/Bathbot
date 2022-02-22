@@ -1,24 +1,20 @@
 use std::mem;
 
 use chrono::Datelike;
-use futures::{
-    future::TryFutureExt,
-    stream::{FuturesUnordered, TryStreamExt},
-};
+use futures::stream::{FuturesUnordered, TryStreamExt};
 use image::{
     codecs::png::PngEncoder, imageops::FilterType::Lanczos3, load_from_memory, ColorType,
     ImageEncoder,
 };
 use plotters::prelude::*;
-use reqwest::{Client as ReqwestClient, Response};
 use rosu_v2::prelude::{MonthlyCount, User};
 
-use crate::error::GraphError;
+use crate::{core::Context, error::GraphError};
 
 const W: u32 = 1350;
 const H: u32 = 350;
 
-pub(super) async fn graphs(user: &mut User) -> Result<Option<Vec<u8>>, GraphError> {
+pub(super) async fn graphs(ctx: &Context, user: &mut User) -> Result<Option<Vec<u8>>, GraphError> {
     let mut monthly_playcount = mem::replace(&mut user.monthly_playcounts, None).unwrap();
     let badges = mem::replace(&mut user.badges, None).unwrap();
 
@@ -34,16 +30,9 @@ pub(super) async fn graphs(user: &mut User) -> Result<Option<Vec<u8>>, GraphErro
         let badges = match badges.is_empty() {
             true => Vec::new(),
             false => {
-                let client = ReqwestClient::new();
-
                 badges
                     .iter()
-                    .map(|badge| {
-                        client
-                            .get(&badge.image_url)
-                            .send()
-                            .and_then(Response::bytes)
-                    })
+                    .map(|badge| ctx.clients.custom.get_badge(&badge.image_url))
                     .collect::<FuturesUnordered<_>>()
                     .try_collect()
                     .await?

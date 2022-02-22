@@ -137,7 +137,7 @@ async fn _mapper(ctx: Arc<Context>, data: CommandData<'_>, args: MapperArgs) -> 
         MessageBuilder::new().embed(content)
     } else {
         let pages = numbers::div_euclid(5, scores.len());
-        let data = TopEmbed::new(&user, scores.iter().take(5), (1, pages)).await;
+        let data = TopEmbed::new(&user, scores.iter().take(5), &ctx, (1, pages)).await;
         let embed = data.into_builder().build();
 
         MessageBuilder::new().content(content).embed(embed)
@@ -160,7 +160,7 @@ async fn _mapper(ctx: Arc<Context>, data: CommandData<'_>, args: MapperArgs) -> 
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = TopPagination::new(response, user, scores);
+    let pagination = TopPagination::new(response, user, scores, Arc::clone(&ctx));
     let owner = data.author()?.id;
 
     tokio::spawn(async move {

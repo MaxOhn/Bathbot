@@ -1,13 +1,16 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use rosu::model::Score as ScoreV1;
 use rosu_v2::prelude::{Beatmap, Score, User};
 use twilight_model::channel::Message;
 
-use crate::{embeds::ScoresEmbed, BotResult};
+use crate::{core::Context, embeds::ScoresEmbed, BotResult};
 
 use super::{Pages, Pagination};
 
 pub struct ScoresPagination {
+    ctx: Arc<Context>,
     msg: Message,
     pages: Pages,
     user: User,
@@ -19,6 +22,7 @@ pub struct ScoresPagination {
 }
 
 impl ScoresPagination {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         msg: Message,
         user: User,
@@ -27,6 +31,7 @@ impl ScoresPagination {
         pinned: Vec<Score>,
         personal: Vec<Score>,
         global_idx: Option<(usize, usize)>,
+        ctx: Arc<Context>,
     ) -> Self {
         Self {
             msg,
@@ -37,6 +42,7 @@ impl ScoresPagination {
             pinned,
             personal,
             global_idx,
+            ctx,
         }
     }
 }
@@ -88,6 +94,7 @@ impl Pagination for ScoresPagination {
             &self.pinned,
             &self.personal,
             global_idx,
+            &self.ctx,
         );
 
         Ok(embed_fut.await)

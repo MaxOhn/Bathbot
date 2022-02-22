@@ -100,7 +100,7 @@ pub(super) async fn _sniped_diff(
     let pages = numbers::div_euclid(5, scores.len());
     let mut maps = HashMap::new();
 
-    let data_fut = SnipedDiffEmbed::new(&user, diff, &scores, 0, (1, pages), &mut maps);
+    let data_fut = SnipedDiffEmbed::new(&user, diff, &scores, 0, (1, pages), &mut maps, &ctx);
 
     let builder = match data_fut.await {
         Ok(data) => data.into_builder().build().into(),
@@ -122,7 +122,8 @@ pub(super) async fn _sniped_diff(
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = SnipedDiffPagination::new(response, user, diff, scores, maps);
+    let pagination =
+        SnipedDiffPagination::new(response, user, diff, scores, maps, Arc::clone(&ctx));
 
     let owner = data.author()?.id;
 

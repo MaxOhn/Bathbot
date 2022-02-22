@@ -1,11 +1,11 @@
-mod map_download;
+mod map_file;
 mod pp;
 
 use plotters::drawing::DrawingAreaErrorKind;
 use twilight_model::application::interaction::{ApplicationCommand, MessageComponentInteraction};
 use twilight_validate::message::MessageValidationError;
 
-pub use self::{map_download::MapDownloadError, pp::PpError};
+pub use self::{map_file::MapFileError, pp::PpError};
 
 #[macro_export]
 macro_rules! bail {
@@ -50,8 +50,8 @@ pub enum Error {
     InvalidHelpState(#[from] InvalidHelpState),
     #[error("io error")]
     Io(#[from] tokio::io::Error),
-    #[error("error while downloading map")]
-    MapDownload(#[from] map_download::MapDownloadError),
+    #[error("error while preparing beatmap file")]
+    MapFile(#[from] MapFileError),
     #[error("failed to validate message")]
     MessageValidation(#[from] MessageValidationError),
     #[error("interaction contained neighter member nor user")]
@@ -63,13 +63,11 @@ pub enum Error {
     #[error("osu v1 error")]
     OsuV1(#[from] rosu::OsuError),
     #[error("error while calculating pp")]
-    Pp(#[from] pp::PpError),
+    Pp(#[from] PpError),
     #[error("failed to send reaction after {0} retries")]
     ReactionRatelimit(usize),
     #[error("error while communicating with redis")]
     Redis(#[from] bb8_redis::redis::RedisError),
-    #[error("reqwest error")]
-    Reqwest(#[from] reqwest::Error),
     #[error("serde json error")]
     Json(#[from] serde_json::Error),
     #[error("shard command error")]
@@ -96,14 +94,14 @@ pub enum Error {
 pub enum GraphError {
     #[error("failed to calculate bezier curve")]
     Bezier(#[from] enterpolation::bezier::BezierError),
+    #[error("client error")]
+    Client(#[from] crate::custom_client::CustomClientError),
     #[error("image error")]
     Image(#[from] image::ImageError),
     #[error("no non-zero strain point")]
     InvalidStrainPoints,
     #[error("plotter error: {0}")]
     Plotter(String),
-    #[error("reqwest error")]
-    Reqwest(#[from] reqwest::Error),
 }
 
 impl<E: std::error::Error + Send + Sync> From<DrawingAreaErrorKind<E>> for GraphError {

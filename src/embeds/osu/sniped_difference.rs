@@ -1,5 +1,6 @@
 use crate::{
     commands::osu::Difference,
+    core::Context,
     custom_client::SnipeRecent,
     embeds::{osu, Author, Footer},
     error::PpError,
@@ -31,6 +32,7 @@ impl SnipedDiffEmbed {
         start: usize,
         pages: (usize, usize),
         maps: &mut HashMap<u32, Beatmap>,
+        ctx: &Context,
     ) -> BotResult<Self> {
         let mut description = String::with_capacity(512);
 
@@ -43,7 +45,7 @@ impl SnipedDiffEmbed {
                 None => {
                     #[allow(clippy::map_entry)]
                     if !maps.contains_key(&score.beatmap_id) {
-                        let map_path = prepare_beatmap_file(score.beatmap_id).await?;
+                        let map_path = prepare_beatmap_file(ctx, score.beatmap_id).await?;
                         let map = Beatmap::from_path(map_path).await.map_err(PpError::from)?;
 
                         maps.insert(score.beatmap_id, map);

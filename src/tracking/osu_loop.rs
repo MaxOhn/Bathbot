@@ -227,12 +227,12 @@ impl<'u> TrackUser<'u> {
 
     async fn embed(&mut self, ctx: &Context, score: &Score, idx: usize) -> OsuResult<Embed> {
         let data = if let Some(user) = self.user.as_deref() {
-            TrackNotificationEmbed::new(user, score, idx).await
+            TrackNotificationEmbed::new(user, score, idx, ctx).await
         } else {
             let user = ctx.osu().user(self.user_id).mode(self.mode).await?;
             let user = self.user.get_or_insert(Cow::Owned(user));
 
-            TrackNotificationEmbed::new(user.as_ref(), score, idx).await
+            TrackNotificationEmbed::new(user.as_ref(), score, idx, ctx).await
         };
 
         Ok(data.into_builder().build())

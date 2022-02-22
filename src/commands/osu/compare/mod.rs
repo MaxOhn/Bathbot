@@ -251,7 +251,7 @@ impl Default for ScoreOrder {
 }
 
 impl ScoreOrder {
-    pub async fn apply(self, scores: &mut [Score], map_id: u32, mode: GameModeV1) {
+    pub async fn apply(self, ctx: &Context, scores: &mut [Score], map_id: u32, mode: GameModeV1) {
         if scores.len() <= 1 {
             return;
         }
@@ -281,7 +281,7 @@ impl ScoreOrder {
                 })
             }),
             Self::Pp => {
-                let mut calc = match PpCalculator::new(map_id).await {
+                let mut calc = match PpCalculator::new(ctx, map_id).await {
                     Ok(calc) => calc,
                     Err(err) => {
                         warn!("{:?}", Report::new(err));
@@ -319,7 +319,7 @@ impl ScoreOrder {
             }
             Self::Score => scores.sort_unstable_by_key(|s| Reverse(s.score)),
             Self::Stars => {
-                let mut calc = match PpCalculator::new(map_id).await {
+                let mut calc = match PpCalculator::new(ctx, map_id).await {
                     Ok(calc) => calc,
                     Err(err) => {
                         warn!("{:?}", Report::new(err));

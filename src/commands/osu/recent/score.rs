@@ -240,6 +240,7 @@ pub(super) async fn _recent(
         best.as_deref(),
         map_score.as_ref(),
         twitch_vod,
+        &ctx,
     );
 
     let embed_data = match data_fut.await {

@@ -149,6 +149,7 @@ pub(super) async fn _recentleaderboard(
         (!scores.is_empty()).then(|| scores.iter().take(10)),
         &first_place_icon,
         0,
+        &ctx,
         (1, pages),
     );
 
@@ -187,6 +188,7 @@ pub(super) async fn _recentleaderboard(
         scores,
         author_name,
         first_place_icon,
+        Arc::clone(&ctx),
     );
 
     gb.execute(&ctx).await;

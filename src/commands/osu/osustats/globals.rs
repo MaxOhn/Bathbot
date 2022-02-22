@@ -86,7 +86,7 @@ pub(super) async fn _scores(
 
     // Accumulate all necessary data
     let pages = numbers::div_euclid(5, amount);
-    let embed_data = OsuStatsGlobalsEmbed::new(&user, &scores, amount, (1, pages)).await;
+    let embed_data = OsuStatsGlobalsEmbed::new(&user, &scores, amount, &ctx, (1, pages)).await;
 
     let mut content = format!(
         "`Rank: {rank_min} - {rank_max}` ~ \

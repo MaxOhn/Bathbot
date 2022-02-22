@@ -15,7 +15,7 @@ use crate::{
         osu::{grade_completion_mods, prepare_beatmap_file},
         ScoreExt,
     },
-    BotResult,
+    BotResult, core::Context,
 };
 
 pub struct RecentListEmbed {
@@ -27,7 +27,7 @@ pub struct RecentListEmbed {
 }
 
 impl RecentListEmbed {
-    pub async fn new<'i, S>(user: &User, scores: S, pages: (usize, usize)) -> BotResult<Self>
+    pub async fn new<'i, S>(user: &User, scores: S, ctx: &Context, pages: (usize, usize)) -> BotResult<Self>
     where
         S: Iterator<Item = &'i Score>,
     {
@@ -44,7 +44,7 @@ impl RecentListEmbed {
 
             #[allow(clippy::map_entry)]
             if !rosu_maps.contains_key(&map.map_id) {
-                let map_path = prepare_beatmap_file(map.map_id).await?;
+                let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
                 let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
 
                 rosu_maps.insert(map.map_id, rosu_map);

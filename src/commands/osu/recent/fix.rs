@@ -137,7 +137,7 @@ pub(super) async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs
     let unchoked_pp = if score.pp.is_some() && !needs_unchoking(&score, &map) {
         None
     } else {
-        match unchoke_pp(&mut score, &map).await {
+        match unchoke_pp(&ctx, &mut score, &map).await {
             Ok(pp) => pp,
             Err(why) => {
                 let _ = data.error(&ctx, GENERAL_ISSUE).await;

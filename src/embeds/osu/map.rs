@@ -1,6 +1,6 @@
 use super::calculate_od;
 use crate::{
-    core::CONFIG,
+    core::{CONFIG, Context},
     embeds::{attachment, Author, EmbedFields, Footer},
     error::PpError,
     util::{
@@ -38,6 +38,7 @@ impl MapEmbed {
         mapset: &Beatmapset,
         mods: GameMods,
         with_thumbnail: bool,
+        ctx: &Context, 
         pages: (usize, usize),
     ) -> BotResult<Self> {
         let mut title = String::with_capacity(32);
@@ -75,7 +76,7 @@ impl MapEmbed {
         let mut info_value = String::with_capacity(128);
         let mut fields = Vec::with_capacity(3);
 
-        let map_path = prepare_beatmap_file(map.map_id).await?;
+        let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
         let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
         let mod_bits = mods.bits();
 

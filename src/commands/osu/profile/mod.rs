@@ -94,7 +94,7 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
     let mut profile_data = ProfileData::new(user, scores, discord_id);
 
     // Draw the graph
-    let graph = match graphs(&mut profile_data.user).await {
+    let graph = match graphs(&ctx, &mut profile_data.user).await {
         Ok(graph_option) => graph_option,
         Err(err) => {
             warn!("{:?}", Report::new(err));

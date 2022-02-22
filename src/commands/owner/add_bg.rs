@@ -6,7 +6,6 @@ use tokio::{
     fs::{remove_file, File},
     io::AsyncWriteExt,
 };
-use twilight_model::channel::Attachment;
 
 use crate::{
     util::{
@@ -79,7 +78,7 @@ async fn addbg(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     }
 
     // Download attachement
-    let path = match download_attachment(&attachment).await {
+    let path = match ctx.clients.custom.get_discord_attachment(&attachment).await {
         Ok(content) => {
             let mut path = CONFIG.get().unwrap().bg_path.clone();
 
@@ -109,10 +108,10 @@ async fn addbg(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
             }
             path
         }
-        Err(why) => {
+        Err(err) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(why);
+            return Err(err.into());
         }
     };
 
@@ -177,8 +176,4 @@ async fn prepare_mapset(
     }
 
     Ok(mapset)
-}
-
-async fn download_attachment(attachment: &Attachment) -> BotResult<Vec<u8>> {
-    Ok(reqwest::get(&attachment.url).await?.bytes().await?.to_vec())
 }

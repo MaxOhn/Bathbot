@@ -1,14 +1,19 @@
-use super::{Pages, Pagination};
-use crate::{
-    commands::osu::Difference, custom_client::SnipeRecent, embeds::SnipedDiffEmbed, BotResult,
-};
+use std::sync::Arc;
 
 use hashbrown::HashMap;
 use rosu_pp::Beatmap;
 use rosu_v2::model::user::User;
 use twilight_model::channel::Message;
 
+use crate::{
+    commands::osu::Difference, core::Context, custom_client::SnipeRecent, embeds::SnipedDiffEmbed,
+    BotResult,
+};
+
+use super::{Pages, Pagination};
+
 pub struct SnipedDiffPagination {
+    ctx: Arc<Context>,
     msg: Message,
     pages: Pages,
     user: User,
@@ -24,6 +29,7 @@ impl SnipedDiffPagination {
         diff: Difference,
         scores: Vec<SnipeRecent>,
         maps: HashMap<u32, Beatmap>,
+        ctx: Arc<Context>,
     ) -> Self {
         Self {
             pages: Pages::new(5, scores.len()),
@@ -32,6 +38,7 @@ impl SnipedDiffPagination {
             diff,
             scores,
             maps,
+            ctx,
         }
     }
 }
@@ -64,6 +71,7 @@ impl Pagination for SnipedDiffPagination {
             self.pages.index,
             (self.page(), self.pages.total_pages),
             &mut self.maps,
+            &self.ctx,
         )
         .await
     }

@@ -1,11 +1,14 @@
-use super::{Context, Pages, Pagination};
-
-use crate::{embeds::MapEmbed, BotResult};
+use std::sync::Arc;
 
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMods};
 use twilight_model::channel::Message;
 
+use crate::{embeds::MapEmbed, BotResult};
+
+use super::{Context, Pages, Pagination};
+
 pub struct MapPagination {
+    ctx: Arc<Context>,
     msg: Message,
     pages: Pages,
     mapset: Beatmapset,
@@ -22,6 +25,7 @@ impl MapPagination {
         mods: GameMods,
         start_idx: usize,
         with_thumbnail: bool,
+        ctx: Arc<Context>,
     ) -> Self {
         let mut pages = Pages::new(1, maps.len());
         pages.index = start_idx;
@@ -33,6 +37,7 @@ impl MapPagination {
             maps,
             mods,
             with_thumbnail,
+            ctx,
         }
     }
 }
@@ -68,6 +73,7 @@ impl Pagination for MapPagination {
             &self.mapset,
             self.mods,
             self.with_thumbnail,
+            &self.ctx,
             (self.pages.index + 1, self.maps.len()),
         )
         .await

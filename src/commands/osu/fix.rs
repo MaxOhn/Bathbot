@@ -158,7 +158,7 @@ async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotRes
             if score.pp.is_some() && !needs_unchoking(score, &map) {
                 None
             } else {
-                match unchoke_pp(score, &map).await {
+                match unchoke_pp(&ctx, score, &map).await {
                     Ok(pp) => pp,
                     Err(why) => {
                         let _ = data.error(&ctx, GENERAL_ISSUE).await;
@@ -399,8 +399,12 @@ async fn request_by_score(
 }
 
 /// Returns unchoked pp and sets score pp if not available already
-pub(super) async fn unchoke_pp(score: &mut Score, map: &Beatmap) -> BotResult<Option<f32>> {
-    let map_path = prepare_beatmap_file(map.map_id).await?;
+pub(super) async fn unchoke_pp(
+    ctx: &Context,
+    score: &mut Score,
+    map: &Beatmap,
+) -> BotResult<Option<f32>> {
+    let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
     let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
     let mods = score.mods.bits();
 
