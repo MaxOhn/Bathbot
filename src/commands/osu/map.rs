@@ -1,7 +1,6 @@
-use std::{cmp::Ordering, iter, sync::Arc};
+use std::{cmp::Ordering, iter, sync::Arc, time::Duration};
 
-use chrono::Duration;
-use enterpolation::{bezier::Bezier, Curve};
+use enterpolation::{linear::Linear, Curve};
 use eyre::Report;
 use image::{
     codecs::png::PngEncoder, ColorType, DynamicImage, GenericImageView, ImageEncoder, Luma, Pixel,
@@ -262,7 +261,15 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = MapPagination::new(response, mapset, maps, mods, map_idx, graph.is_none(), Arc::clone(&ctx));
+    let pagination = MapPagination::new(
+        response,
+        mapset,
+        maps,
+        mods,
+        map_idx,
+        graph.is_none(),
+        Arc::clone(&ctx),
+    );
     let owner = author_id;
 
     tokio::spawn(async move {
@@ -299,19 +306,19 @@ fn graph(strains: Vec<(f64, f64)>, background: DynamicImage) -> Result<Vec<u8>, 
 
     let first_strain = strains.first().map_or(0.0, |(v, _)| *v);
     let last_strain = strains.last().map_or(0.0, |(v, _)| *v);
+
+    let knots: Vec<_> = strains.iter().map(|(time, _)| *time).collect();
     let elements: Vec<_> = strains.into_iter().map(|(_, strain)| strain).collect();
     let dist = (last_strain - first_strain) / STEPS as f64;
 
-    let curve = Bezier::builder()
-        .elements(elements)
-        .normalized::<f64>()
-        .dynamic()
-        .build()?;
+    let curve = Linear::builder().elements(elements).knots(knots).build()?;
 
     let strains: Vec<_> = iter::successors(Some(first_strain), |n| Some(n + dist))
         .take(STEPS)
         .zip(curve.take(STEPS))
         .collect();
+
+    let last_strain = strains.last().map_or(0.0, |(v, _)| *v);
 
     let (min_strain, max_strain) = strains
         .iter()
@@ -348,17 +355,20 @@ fn graph(strains: Vec<(f64, f64)>, background: DynamicImage) -> Result<Vec<u8>, 
         let axis_color = if sum / width >= 128 { &BLACK } else { &WHITE };
 
         // Add background
+        let background = background.blur(2.0).brighten(-15);
         let elem: BitMapElement<'_, _> = ((0.0_f64, max_strain), background).into();
         chart.draw_series(iter::once(elem))?;
 
         // Mesh and labels
-        let text_style = FontDesc::new(FontFamily::Serif, 12.0, FontStyle::Bold).color(axis_color);
+        let text_style = FontDesc::new(FontFamily::Serif, 14.0, FontStyle::Bold).color(axis_color);
+
         chart
             .configure_mesh()
             .disable_y_mesh()
             .disable_y_axis()
             .set_all_tick_mark_size(3_i32)
-            .light_line_style(&BLACK.mix(0.0))
+            .light_line_style(axis_color.mix(0.0)) // hide
+            .bold_line_style(axis_color.mix(0.4))
             .x_labels(10)
             .x_label_style(text_style)
             .x_label_formatter(&|timestamp| {
@@ -366,16 +376,16 @@ fn graph(strains: Vec<(f64, f64)>, background: DynamicImage) -> Result<Vec<u8>, 
                     return String::new();
                 }
 
-                let d = Duration::milliseconds(*timestamp as i64);
-                let minutes = d.num_seconds() / 60;
-                let seconds = d.num_seconds() % 60;
+                let d = Duration::from_millis(*timestamp as u64);
+                let minutes = d.as_secs() / 60;
+                let seconds = d.as_secs() % 60;
 
                 format!("{minutes}:{seconds:0>2}")
             })
             .draw()?;
 
         // Draw line
-        let glowing = GlowingPath::new(strains, Line.into());
+        let glowing = GlowingPath::new(strains, Line);
         chart.draw_series(iter::once(glowing))?;
     }
 
@@ -390,7 +400,7 @@ fn graph(strains: Vec<(f64, f64)>, background: DynamicImage) -> Result<Vec<u8>, 
 struct GlowingPath<Coord>(PathElement<Coord>);
 
 impl<Coord> GlowingPath<Coord> {
-    fn new(points: Vec<Coord>, style: ShapeStyle) -> Self {
+    fn new(points: Vec<Coord>, style: impl Into<ShapeStyle>) -> Self {
         Self(PathElement::new(points, style))
     }
 }
@@ -430,7 +440,7 @@ struct Glow;
 impl BackendStyle for Glow {
     fn color(&self) -> BackendColor {
         BackendColor {
-            alpha: 0.7,
+            alpha: 0.4,
             rgb: (255, 255, 255),
         }
     }
@@ -445,7 +455,7 @@ struct Line;
 impl From<Line> for ShapeStyle {
     fn from(_: Line) -> Self {
         Self {
-            color: RGBColor(13, 98, 50).mix(1.0),
+            color: RGBColor(0, 255, 119).mix(1.0),
             filled: false,
             stroke_width: 2,
         }
