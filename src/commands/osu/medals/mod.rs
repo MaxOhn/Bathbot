@@ -7,9 +7,12 @@ mod stats;
 use std::sync::Arc;
 
 use rosu_v2::prelude::Username;
-use twilight_model::application::interaction::{
-    application_command::{CommandDataOption, CommandOptionValue},
-    ApplicationCommand,
+use twilight_model::application::{
+    command::CommandOptionChoice,
+    interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
 };
 
 use crate::{
@@ -17,10 +20,11 @@ use crate::{
         osu::{option_discord, option_name},
         parse_discord, DoubleResultCow, MyCommand, MyCommandOption,
     },
+    custom_client::MEDAL_GROUPS,
     database::OsuData,
     util::{
         constants::common_literals::{DISCORD, INDEX, NAME},
-        InteractionExt, MessageExt,
+        CowUtils, InteractionExt, MessageExt,
     },
     BotResult, Context, Error,
 };
@@ -164,13 +168,63 @@ fn option_discord_(n: u8) -> MyCommandOption {
 pub fn define_medal() -> MyCommand {
     let name1 = option_name_(1);
     let name2 = option_name_(2);
+
+    let sort_choices = vec![
+        CommandOptionChoice::String {
+            name: "Date First".to_owned(),
+            value: "date_first".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Date Last".to_owned(),
+            value: "date_last".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Default".to_owned(),
+            value: "default".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Rarity".to_owned(),
+            value: "rarity".to_owned(),
+        },
+    ];
+
+    let sort =
+        MyCommandOption::builder("sort", "Specify a medal order").string(sort_choices, false);
+
+    let filter_help = "Filter out some medals.\n\
+            If a medal group has been selected, only medals of that group will be shown.";
+
+    let mut filter_choices = vec![
+        CommandOptionChoice::String {
+            name: "None".to_owned(),
+            value: "none".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Unique".to_owned(),
+            value: "unique".to_owned(),
+        },
+    ];
+
+    let filter_iter = MEDAL_GROUPS
+        .iter()
+        .map(|group| CommandOptionChoice::String {
+            name: group.0.to_owned(),
+            value: group.0.cow_replace(' ', "_").into_owned(),
+        });
+
+    filter_choices.extend(filter_iter);
+
+    let filter = MyCommandOption::builder("filter", "Filter out some medals")
+        .help(filter_help)
+        .string(filter_choices, false);
+
     let discord1 = option_discord_(1);
     let discord2 = option_discord_(2);
 
     let common_description = "Compare which of the given users achieved medals first";
 
     let common = MyCommandOption::builder("common", common_description)
-        .subcommand(vec![name1, name2, discord1, discord2]);
+        .subcommand(vec![name1, name2, sort, filter, discord1, discord2]);
 
     let name_help = "Specify the name of a medal.\n\
         Upper- and lowercase does not matter but punctuation is important.";

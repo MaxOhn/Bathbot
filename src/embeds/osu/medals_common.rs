@@ -1,26 +1,20 @@
 use crate::{
-    custom_client::OsekaiMedal,
+    commands::osu::MedalEntry,
     embeds::{attachment, Footer},
     util::CowUtils,
 };
 
-use hashbrown::HashMap;
 use rosu_v2::prelude::Username;
 use std::{borrow::Cow, fmt::Write};
 
 pub struct MedalsCommonUser {
     name: Username,
-    medals: HashMap<u32, i64>,
     winner: usize,
 }
 
 impl MedalsCommonUser {
-    pub fn new(name: Username, medals: HashMap<u32, i64>, winner: usize) -> Self {
-        Self {
-            name,
-            medals,
-            winner,
-        }
+    pub fn new(name: Username, winner: usize) -> Self {
+        Self { name, winner }
     }
 }
 
@@ -35,27 +29,28 @@ impl MedalsCommonEmbed {
     pub fn new(
         user1: &MedalsCommonUser,
         user2: &MedalsCommonUser,
-        medals: &[OsekaiMedal],
+        medals: &[MedalEntry],
         index: usize,
     ) -> Self {
         let mut description = String::with_capacity(512);
 
-        for (i, medal) in medals.iter().enumerate() {
+        for (i, entry) in medals.iter().enumerate() {
             let _ = writeln!(
                 description,
                 "**{idx}. [{name}](https://osekai.net/medals/?medal={medal})**",
                 idx = index + i + 1,
-                name = medal.name,
-                medal = medal.name.cow_replace(' ', "+").cow_replace(',', "%2C"),
+                name = entry.medal.name,
+                medal = entry
+                    .medal
+                    .name
+                    .cow_replace(' ', "+")
+                    .cow_replace(',', "%2C"),
             );
 
-            let (timestamp1, timestamp2, first_earlier) = match (
-                user1.medals.get(&medal.medal_id),
-                user2.medals.get(&medal.medal_id),
-            ) {
-                (Some(date1), Some(date2)) => (Some(date1), Some(date2), date1 < date2),
-                (Some(date), None) => (Some(date), None, true),
-                (None, Some(date)) => (None, Some(date), false),
+            let (timestamp1, timestamp2, first_earlier) = match (entry.achieved1, entry.achieved2) {
+                (Some(a1), Some(a2)) => (Some(a1.timestamp()), Some(a2.timestamp()), a1 < a2),
+                (Some(a1), None) => (Some(a1.timestamp()), None, true),
+                (None, Some(a2)) => (None, Some(a2.timestamp()), false),
                 (None, None) => unreachable!(),
             };
 
@@ -88,7 +83,7 @@ impl MedalsCommonEmbed {
     }
 }
 
-fn timestamp(timestamp: Option<&i64>) -> Cow<'static, str> {
+fn timestamp(timestamp: Option<i64>) -> Cow<'static, str> {
     match timestamp {
         Some(timestamp) => format!("<t:{timestamp}:d>").into(),
         None => "Never".into(),

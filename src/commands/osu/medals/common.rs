@@ -1,5 +1,9 @@
-use std::sync::Arc;
+use std::{
+    cmp::{Ordering, Reverse},
+    sync::Arc,
+};
 
+use chrono::{DateTime, Utc};
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, User, Username};
@@ -16,13 +20,19 @@ use crate::{
         osu::{get_user, UserArgs},
         parse_discord, DoubleResultCow,
     },
-    custom_client::OsekaiMedal,
+    custom_client::{
+        groups::{
+            BEATMAP_CHALLENGE_PACKS, BEATMAP_PACKS, BEATMAP_SPOTLIGHTS, DEDICATION, HUSH_HUSH,
+            MOD_INTRODUCTION, SEASONAL_SPOTLIGHTS, SKILL,
+        },
+        OsekaiGrouping, OsekaiMedal, Rarity,
+    },
     database::OsuData,
     embeds::{EmbedData, MedalsCommonEmbed, MedalsCommonUser},
     error::Error,
     pagination::{MedalsCommonPagination, Pagination},
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
         get_combined_thumbnail, matcher, InteractionExt, MessageBuilder, MessageExt,
     },
     Args, BotResult, CommandData, Context,
@@ -33,7 +43,12 @@ pub(super) async fn _common(
     data: CommandData<'_>,
     args: CommonArgs,
 ) -> BotResult<()> {
-    let CommonArgs { name1, name2 } = args;
+    let CommonArgs {
+        name1,
+        name2,
+        order,
+        filter,
+    } = args;
 
     let name1 = match name1 {
         Some(name) => name,
@@ -79,46 +94,103 @@ pub(super) async fn _common(
     }
 
     // Combining and sorting all medals
-    let medals1 = match extract_medals(&user1) {
-        Some(medals) => medals,
-        None => {
-            let content = format!("`{}` has not achieved any medals :(", user1.username);
+    let medals1 = extract_medals(&user1);
+    let mut medals2 = extract_medals(&user2);
 
-            return data.error(&ctx, content).await;
-        }
-    };
-
-    let medals2 = match extract_medals(&user2) {
-        Some(medals) => medals,
-        None => {
-            let content = format!("`{}` has not achieved any medals :(", user2.username);
-
-            return data.error(&ctx, content).await;
-        }
-    };
     let mut medals = Vec::with_capacity(medals_map.len());
 
-    for medal_id in medals1.keys() {
-        match medals_map.remove(medal_id) {
-            Some(medal) => medals.push(medal),
+    for (medal_id, achieved1) in medals1 {
+        match medals_map.remove(&medal_id) {
+            Some(medal) => {
+                let achieved2 = medals2.remove(&medal_id);
+
+                let entry = MedalEntry {
+                    medal,
+                    achieved1: Some(achieved1),
+                    achieved2,
+                };
+
+                medals.push(entry);
+            }
             None => warn!("Missing medal id {medal_id} in DB medals"),
         }
     }
 
-    for medal_id in medals2.keys() {
-        if let Some(medal) = medals_map.remove(medal_id) {
-            medals.push(medal);
+    for (medal_id, achieved2) in medals2 {
+        match medals_map.remove(&medal_id) {
+            Some(medal) => {
+                let entry = MedalEntry {
+                    medal,
+                    achieved1: None,
+                    achieved2: Some(achieved2),
+                };
+
+                medals.push(entry);
+            }
+            None => warn!("Missing medal id {medal_id} in DB medals"),
         }
     }
 
-    medals.sort_unstable();
+    match filter {
+        CommonFilter::None => {}
+        CommonFilter::Unique => {
+            medals.retain(|entry| entry.achieved1.is_none() || entry.achieved2.is_none())
+        }
+        CommonFilter::Group(OsekaiGrouping(group)) => {
+            medals.retain(|entry| entry.medal.grouping == group)
+        }
+    }
+
+    match order {
+        CommonOrder::DateFirst => {
+            medals.sort_unstable_by_key(|entry| match (entry.achieved1, entry.achieved2) {
+                (Some(a1), Some(a2)) => a1.min(a2),
+                (Some(a1), None) => a1,
+                (None, Some(a2)) => a2,
+                (None, None) => unreachable!(),
+            })
+        }
+        CommonOrder::DateLast => {
+            medals.sort_unstable_by_key(|entry| match (entry.achieved1, entry.achieved2) {
+                (Some(a1), Some(a2)) => Reverse(a1.max(a2)),
+                (Some(a1), None) => Reverse(a1),
+                (None, Some(a2)) => Reverse(a2),
+                (None, None) => unreachable!(),
+            })
+        }
+        CommonOrder::Default => medals.sort_unstable_by(|a, b| a.medal.cmp(&b.medal)),
+        CommonOrder::Rarity => {
+            if !medals.is_empty() {
+                match ctx.clients.custom.get_osekai_ranking::<Rarity>().await {
+                    Ok(rarities) => {
+                        let rarities: HashMap<_, _> = rarities
+                            .into_iter()
+                            .map(|entry| (entry.medal_id, entry.possession_percent))
+                            .collect();
+
+                        medals.sort_unstable_by(|a, b| {
+                            let rarity1 = rarities.get(&a.medal.medal_id).copied().unwrap_or(100.0);
+                            let rarity2 = rarities.get(&b.medal.medal_id).copied().unwrap_or(100.0);
+
+                            rarity1.partial_cmp(&rarity2).unwrap_or(Ordering::Equal)
+                        });
+                    }
+                    Err(err) => {
+                        let _ = data.error(&ctx, OSEKAI_ISSUE).await;
+
+                        return Err(err.into());
+                    }
+                }
+            }
+        }
+    }
 
     let mut winner1 = 0;
     let mut winner2 = 0;
 
-    for OsekaiMedal { medal_id, .. } in &medals {
-        match (medals1.get(medal_id), medals2.get(medal_id)) {
-            (Some(date1), Some(date2)) => match date1 < date2 {
+    for entry in &medals {
+        match (entry.achieved1, entry.achieved2) {
+            (Some(a1), Some(a2)) => match a1 < a2 {
                 true => winner1 += 1,
                 false => winner2 += 1,
             },
@@ -135,15 +207,16 @@ pub(super) async fn _common(
         Ok(thumbnail) => Some(thumbnail),
         Err(why) => {
             let report = Report::new(why).wrap_err("failed to combine avatars");
-            warn!("{:?}", report);
+            warn!("{report:?}");
 
             None
         }
     };
 
-    let user1 = MedalsCommonUser::new(user1.username, medals1, winner1);
-    let user2 = MedalsCommonUser::new(user2.username, medals2, winner2);
     let len = medals.len().min(10);
+    let user1 = MedalsCommonUser::new(user1.username, winner1);
+    let user2 = MedalsCommonUser::new(user2.username, winner2);
+
     let embed_data = MedalsCommonEmbed::new(&user1, &user2, &medals[..len], 0);
 
     let embed = embed_data.into_builder().build();
@@ -174,15 +247,20 @@ pub(super) async fn _common(
     Ok(())
 }
 
-fn extract_medals(user: &User) -> Option<HashMap<u32, i64>> {
-    let medals = user.medals.as_ref()?;
+pub struct MedalEntry {
+    pub medal: OsekaiMedal,
+    pub achieved1: Option<DateTime<Utc>>,
+    pub achieved2: Option<DateTime<Utc>>,
+}
 
-    (!medals.is_empty()).then(|| {
-        medals
+fn extract_medals(user: &User) -> HashMap<u32, DateTime<Utc>> {
+    match user.medals.as_ref() {
+        Some(medals) => medals
             .iter()
-            .map(|medal| (medal.medal_id, medal.achieved_at.timestamp()))
-            .collect()
-    })
+            .map(|medal| (medal.medal_id, medal.achieved_at))
+            .collect(),
+        None => HashMap::new(),
+    }
 }
 
 #[command]
@@ -209,9 +287,36 @@ pub async fn medalscommon(ctx: Arc<Context>, data: CommandData) -> BotResult<()>
     }
 }
 
+enum CommonOrder {
+    DateFirst,
+    DateLast,
+    Default,
+    Rarity,
+}
+
+impl Default for CommonOrder {
+    fn default() -> Self {
+        Self::Default
+    }
+}
+
+enum CommonFilter {
+    None,
+    Unique,
+    Group(OsekaiGrouping<'static>),
+}
+
+impl Default for CommonFilter {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
 pub(super) struct CommonArgs {
     name1: Option<Username>,
     name2: Username,
+    order: CommonOrder,
+    filter: CommonFilter,
 }
 
 impl CommonArgs {
@@ -242,17 +347,23 @@ impl CommonArgs {
                     Ok(osu) => Self {
                         name1: Some(name2),
                         name2: osu.into_username(),
+                        order: CommonOrder::default(),
+                        filter: CommonFilter::default(),
                     },
                     Err(content) => return Ok(Err(content)),
                 },
                 None => Self {
                     name1: Some(name2),
                     name2: arg.into(),
+                    order: CommonOrder::default(),
+                    filter: CommonFilter::default(),
                 },
             },
             None => Self {
                 name1: osu.map(OsuData::into_username),
                 name2,
+                order: CommonOrder::default(),
+                filter: CommonFilter::default(),
             },
         };
 
@@ -266,12 +377,49 @@ impl CommonArgs {
     ) -> DoubleResultCow<Self> {
         let mut name1 = None;
         let mut name2 = None;
+        let mut order = None;
+        let mut filter = None;
 
         for option in options {
             match option.value {
                 CommandOptionValue::String(value) => match option.name.as_str() {
                     "name1" => name1 = Some(value.into()),
                     "name2" => name2 = Some(value.into()),
+                    "sort" => match value.as_str() {
+                        "date_first" => order = Some(CommonOrder::DateFirst),
+                        "date_last" => order = Some(CommonOrder::DateLast),
+                        "default" => order = Some(CommonOrder::Default),
+                        "rarity" => order = Some(CommonOrder::Rarity),
+                        _ => return Err(Error::InvalidCommandOptions),
+                    },
+                    "filter" => match value.as_str() {
+                        "none" => filter = Some(CommonFilter::None),
+                        "unique" => filter = Some(CommonFilter::Unique),
+                        "Skill" => filter = Some(CommonFilter::Group(OsekaiGrouping(SKILL))),
+                        "Dedication" => {
+                            filter = Some(CommonFilter::Group(OsekaiGrouping(DEDICATION)))
+                        }
+                        "Hush-Hush" => {
+                            filter = Some(CommonFilter::Group(OsekaiGrouping(HUSH_HUSH)))
+                        }
+                        "Beatmap_Packs" => {
+                            filter = Some(CommonFilter::Group(OsekaiGrouping(BEATMAP_PACKS)))
+                        }
+                        "Beatmap_Challenge_Packs" => {
+                            filter =
+                                Some(CommonFilter::Group(OsekaiGrouping(BEATMAP_CHALLENGE_PACKS)))
+                        }
+                        "Seasonal_Spotlights" => {
+                            filter = Some(CommonFilter::Group(OsekaiGrouping(SEASONAL_SPOTLIGHTS)))
+                        }
+                        "Beatmap_Spotlights" => {
+                            filter = Some(CommonFilter::Group(OsekaiGrouping(BEATMAP_SPOTLIGHTS)))
+                        }
+                        "Mod_Introduction" => {
+                            filter = Some(CommonFilter::Group(OsekaiGrouping(MOD_INTRODUCTION)))
+                        }
+                        _ => return Err(Error::InvalidCommandOptions),
+                    },
                     _ => return Err(Error::InvalidCommandOptions),
                 },
                 CommandOptionValue::User(value) => match option.name.as_str() {
@@ -304,6 +452,14 @@ impl CommonArgs {
                 .map(OsuData::into_username),
         };
 
-        Ok(Ok(CommonArgs { name1, name2 }))
+        let order = order.unwrap_or_default();
+        let filter = filter.unwrap_or_default();
+
+        Ok(Ok(CommonArgs {
+            name1,
+            name2,
+            order,
+            filter,
+        }))
     }
 }
