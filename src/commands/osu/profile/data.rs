@@ -72,7 +72,7 @@ impl ProfileResult {
         let mut combo = MinMaxAvg::new();
         let mut map_len = MinMaxAvg::new();
         let mut map_combo = 0;
-        let mut mappers = HashMap::with_capacity(scores.len());
+        let mut mappers = HashMap::with_capacity(10);
         let len = scores.len() as f32;
         let mut mod_combs = HashMap::with_capacity(5);
         let mut mods = HashMap::with_capacity(5);
@@ -92,7 +92,11 @@ impl ProfileResult {
             if let Some(weighted_pp) = score.weight.map(|w| w.pp) {
                 bonus_pp.update(weighted_pp, i);
 
-                let mut mapper = mappers.entry(&mapset.creator_name).or_insert((0, 0.0));
+                let mut mapper =
+                    mappers
+                        .entry(mapset.creator_id)
+                        .or_insert((0, 0.0, &mapset.creator_name));
+
                 mapper.0 += 1;
                 mapper.1 += weighted_pp;
 
@@ -139,7 +143,7 @@ impl ProfileResult {
 
         let mut mappers: Vec<_> = mappers
             .into_iter()
-            .map(|(name, (count, pp))| (name.to_owned(), count as u32, pp))
+            .map(|(_, (count, pp, name))| (name.to_owned(), count as u32, pp))
             .collect();
 
         mappers.sort_unstable_by(|(_, count_a, pp_a), (_, count_b, pp_b)| {
