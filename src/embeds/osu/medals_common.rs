@@ -1,5 +1,5 @@
 use crate::{
-    commands::osu::MedalEntry,
+    commands::osu::MedalEntryCommon,
     embeds::{attachment, Footer},
     util::CowUtils,
 };
@@ -29,7 +29,7 @@ impl MedalsCommonEmbed {
     pub fn new(
         user1: &MedalsCommonUser,
         user2: &MedalsCommonUser,
-        medals: &[MedalEntry],
+        medals: &[MedalEntryCommon],
         index: usize,
     ) -> Self {
         let mut description = String::with_capacity(512);

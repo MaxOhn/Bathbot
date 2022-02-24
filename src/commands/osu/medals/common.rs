@@ -104,7 +104,7 @@ pub(super) async fn _common(
             Some(medal) => {
                 let achieved2 = medals2.remove(&medal_id);
 
-                let entry = MedalEntry {
+                let entry = MedalEntryCommon {
                     medal,
                     achieved1: Some(achieved1),
                     achieved2,
@@ -119,7 +119,7 @@ pub(super) async fn _common(
     for (medal_id, achieved2) in medals2 {
         match medals_map.remove(&medal_id) {
             Some(medal) => {
-                let entry = MedalEntry {
+                let entry = MedalEntryCommon {
                     medal,
                     achieved1: None,
                     achieved2: Some(achieved2),
@@ -247,7 +247,7 @@ pub(super) async fn _common(
     Ok(())
 }
 
-pub struct MedalEntry {
+pub struct MedalEntryCommon {
     pub medal: OsekaiMedal,
     pub achieved1: Option<DateTime<Utc>>,
     pub achieved2: Option<DateTime<Utc>>,

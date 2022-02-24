@@ -52,7 +52,7 @@ impl Pagination for MedalsMissingPagination {
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let page = self.page();
-        let idx = (page - 1) * 15;
+        let idx = (page - 1) * self.pages.per_page;
         let limit = self.medals.len().min(idx + self.pages.per_page);
 
         Ok(MedalsMissingEmbed::new(

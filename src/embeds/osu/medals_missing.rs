@@ -52,7 +52,7 @@ impl MedalsMissingEmbed {
             pages.0, pages.1, medal_count.0, medal_count.1
         ));
 
-        let author = Author::new(user.username.as_str().to_owned())
+        let author = Author::new(user.username.as_str())
             .url(format!("{OSU_BASE}u/{}", user.user_id))
             .icon_url(flag_url(user.country_code.as_str()));
 

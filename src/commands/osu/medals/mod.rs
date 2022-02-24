@@ -36,6 +36,7 @@ use super::require_link;
 
 enum MedalCommandKind {
     Common(CommonArgs),
+    List(ListArgs),
     Medal(String),
     Missing(Option<Username>),
     Recent(RecentArgs),
@@ -101,8 +102,8 @@ impl MedalCommandKind {
                     Err(content) => Ok(Err(content)),
                 },
                 "info" => Self::slash_info(options).map(Ok),
-                "stats" => match parse_username(ctx, command, options).await? {
-                    Ok(name) => Ok(Ok(Self::Stats(name))),
+                "list" => match ListArgs::slash(ctx, command, options).await? {
+                    Ok(args) => Ok(Ok(Self::List(args))),
                     Err(content) => Ok(Err(content)),
                 },
                 "missing" => match parse_username(ctx, command, options).await? {
@@ -111,6 +112,10 @@ impl MedalCommandKind {
                 },
                 "recent" => match RecentArgs::slash(ctx, command, options).await? {
                     Ok(args) => Ok(Ok(Self::Recent(args))),
+                    Err(content) => Ok(Err(content)),
+                },
+                "stats" => match parse_username(ctx, command, options).await? {
+                    Ok(name) => Ok(Ok(Self::Stats(name))),
                     Err(content) => Ok(Err(content)),
                 },
                 _ => Err(Error::InvalidCommandOptions),
@@ -123,6 +128,7 @@ impl MedalCommandKind {
 pub async fn slash_medal(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
     match MedalCommandKind::slash(&ctx, &mut command).await? {
         Ok(MedalCommandKind::Common(args)) => _common(ctx, command.into(), args).await,
+        Ok(MedalCommandKind::List(args)) => _medalslist(ctx, command.into(), args).await,
         Ok(MedalCommandKind::Medal(name)) => _medal(ctx, command.into(), &name).await,
         Ok(MedalCommandKind::Missing(config)) => _medalsmissing(ctx, command.into(), config).await,
         Ok(MedalCommandKind::Recent(args)) => _medalrecent(ctx, command.into(), args).await,
@@ -170,6 +176,8 @@ pub fn define_medal() -> MyCommand {
     let name1 = option_name_(1);
     let name2 = option_name_(2);
 
+    // TODO: Add alphabetically
+    // TODO: Remove default
     let sort_choices = vec![
         CommandOptionChoice::String {
             name: "Date First".to_owned(),
@@ -242,6 +250,46 @@ pub fn define_medal() -> MyCommand {
         .subcommand(vec![name]);
 
     let name = option_name();
+
+    let sort_choices = vec![
+        CommandOptionChoice::String {
+            name: "Alphabetically".to_owned(),
+            value: "alphabet".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Medal ID".to_owned(),
+            value: "medal_id".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Date".to_owned(),
+            value: "date".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Rarity".to_owned(),
+            value: "rarity".to_owned(),
+        },
+    ];
+
+    let sort =
+        MyCommandOption::builder("sort", "Specify a medal order").string(sort_choices, false);
+
+    let group_choices = MEDAL_GROUPS
+        .iter()
+        .map(|group| CommandOptionChoice::String {
+            name: group.0.to_owned(),
+            value: group.0.cow_replace(' ', "_").into_owned(),
+        })
+        .collect();
+
+    let group = MyCommandOption::builder("group", "Only show medals of this group")
+        .string(group_choices, false);
+
+    let discord = option_discord();
+
+    let list = MyCommandOption::builder("list", "List all achieved medals of a user")
+        .subcommand(vec![name, sort, group, discord]);
+
+    let name = option_name();
     let discord = option_discord();
 
     let missing =
@@ -274,5 +322,5 @@ pub fn define_medal() -> MyCommand {
 
     MyCommand::new("medal", "Info about a medal or users' medal progress")
         .help(help)
-        .options(vec![common, info, missing, recent, stats])
+        .options(vec![common, info, list, missing, recent, stats])
 }
