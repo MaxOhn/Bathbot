@@ -50,13 +50,13 @@ impl TopIfEmbed {
             let _ = writeln!(
                 description,
                 "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars}]\n\
-                {grade} {pp} ~ ({acc}) ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
+                {grade} {pp} ~ {acc}% ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
                 title = mapset.title,
                 version = map.version,
                 id = map.map_id,
                 mods = osu::get_mods(score.mods),
                 grade = score.grade_emote(mode),
-                acc = score.acc_string(mode),
+                acc = score.acc(mode),
                 score = with_comma_int(score.score),
                 combo = osu::get_combo(score, map),
                 hits = score.hits_string(mode),

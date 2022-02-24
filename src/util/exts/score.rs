@@ -68,9 +68,6 @@ pub trait ScoreExt: Send + Sync {
         let _ = write!(hits, "{}}}", self.count_miss());
         hits
     }
-    fn acc_string(&self, mode: GameMode) -> String {
-        format!("{}%", self.acc(mode))
-    }
 
     // #########################
     // ## Auxiliary functions ##

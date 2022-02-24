@@ -8,6 +8,7 @@ use rosu_pp::{
 use rosu_v2::prelude::{GameMode, Grade, Score, User};
 
 use crate::{
+    core::Context,
     embeds::{osu, Author, Footer},
     error::PpError,
     util::{
@@ -15,7 +16,7 @@ use crate::{
         osu::{grade_completion_mods, prepare_beatmap_file},
         ScoreExt,
     },
-    BotResult, core::Context,
+    BotResult,
 };
 
 pub struct RecentListEmbed {
@@ -27,7 +28,12 @@ pub struct RecentListEmbed {
 }
 
 impl RecentListEmbed {
-    pub async fn new<'i, S>(user: &User, scores: S, ctx: &Context, pages: (usize, usize)) -> BotResult<Self>
+    pub async fn new<'i, S>(
+        user: &User,
+        scores: S,
+        ctx: &Context,
+        pages: (usize, usize),
+    ) -> BotResult<Self>
     where
         S: Iterator<Item = &'i Score>,
     {
@@ -73,10 +79,10 @@ impl RecentListEmbed {
 
             let _ = writeln!(
                 description,
-                "{pp}\t[ {combo} ]\t({acc})\t{ago}",
+                "{pp}\t[ {combo} ]\t({acc}%)\t{ago}",
                 pp = pp,
                 combo = osu::get_combo(score, map),
-                acc = score.acc_string(map.mode),
+                acc = score.acc(map.mode),
                 ago = how_long_ago_dynamic(&score.created_at)
             );
         }

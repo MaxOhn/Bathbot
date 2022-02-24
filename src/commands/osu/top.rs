@@ -170,7 +170,7 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
         }
         (None, _) => {
             let content = write_content(name, &args, scores.len());
-            paginated_embed(ctx, data, user, scores, content).await?;
+            paginated_embed(ctx, data, user, scores, args.sort_by, content).await?;
         }
     }
 
@@ -693,7 +693,7 @@ async fn single_embed(
                 Ok(scores) => scores.iter().position(|s| s == score),
                 Err(why) => {
                     let report = Report::new(why).wrap_err("failed to get global scores");
-                    warn!("{:?}", report);
+                    warn!("{report:?}");
 
                     None
                 }
@@ -749,10 +749,11 @@ async fn paginated_embed(
     data: CommandData<'_>,
     user: User,
     scores: Vec<(usize, Score)>,
+    sort_by: TopOrder,
     content: Option<String>,
 ) -> BotResult<()> {
     let pages = numbers::div_euclid(5, scores.len());
-    let embed_data = TopEmbed::new(&user, scores.iter().take(5), &ctx, (1, pages)).await;
+    let embed_data = TopEmbed::new(&user, scores.iter().take(5), &ctx, sort_by, (1, pages)).await;
     let embed = embed_data.into_builder().build();
 
     // Creating the embed
@@ -772,7 +773,7 @@ async fn paginated_embed(
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = TopPagination::new(response, user, scores, Arc::clone(&ctx));
+    let pagination = TopPagination::new(response, user, scores, sort_by, Arc::clone(&ctx));
     let owner = data.author()?.id;
 
     tokio::spawn(async move {

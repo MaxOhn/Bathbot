@@ -93,7 +93,7 @@ pub use self::{
     simulate::SimulateEmbed,
     sniped::SnipedEmbed,
     sniped_difference::SnipedDiffEmbed,
-    top::TopEmbed,
+    top::{OrderAppendix, TopEmbed},
     top_if::TopIfEmbed,
     top_single::TopSingleEmbed,
     whatif::WhatIfEmbed,

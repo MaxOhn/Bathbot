@@ -95,11 +95,11 @@ impl ScoresEmbed {
             let pp = osu::get_pp(pp, max_pp);
 
             let mut name = format!(
-                "**{idx}.** {grade}\t[{stars}]\t{score}\t({acc})",
+                "**{idx}.** {grade}\t[{stars}]\t{score}\t({acc}%)",
                 idx = idx + i + 1,
                 grade = grade_completion_mods(score, map),
                 score = with_comma_int(score.score),
-                acc = score.acc_string(map.mode),
+                acc = score.acc(map.mode),
             );
 
             if let Some(score_id) = score.score_id {

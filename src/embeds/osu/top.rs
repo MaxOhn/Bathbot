@@ -1,14 +1,19 @@
-use std::fmt::Write;
+use std::fmt::{self, Write};
 
 use eyre::Report;
-use rosu_v2::prelude::{GameMode, Score, User};
+use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Score, User};
 
 use crate::{
+    commands::osu::TopOrder,
+    core::Context,
     embeds::{osu, Author, Footer},
     pp::PpCalculator,
     util::{
-        constants::OSU_BASE, datetime::how_long_ago_dynamic, numbers::with_comma_int, ScoreExt,
-    }, core::Context,
+        constants::OSU_BASE,
+        datetime::how_long_ago_dynamic,
+        numbers::{round, with_comma_int},
+        ScoreExt,
+    },
 };
 
 pub struct TopEmbed {
@@ -19,7 +24,13 @@ pub struct TopEmbed {
 }
 
 impl TopEmbed {
-    pub async fn new<'i, S>(user: &User, scores: S, ctx: &Context, pages: (usize, usize)) -> Self
+    pub async fn new<'i, S>(
+        user: &User,
+        scores: S,
+        ctx: &Context,
+        sort_by: TopOrder,
+        pages: (usize, usize),
+    ) -> Self
     where
         S: Iterator<Item = &'i (usize, Score)>,
     {
@@ -56,15 +67,16 @@ impl TopEmbed {
             let _ = writeln!(
                 description,
                 "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars}]\n\
-                {grade} {pp} ~ ({acc}) ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
+                {grade} {pp} ~ {acc}% ~ {score}{appendix}\n[ {combo} ] ~ {hits} ~ {ago}",
                 idx = idx + 1,
                 title = mapset.title,
                 version = map.version,
                 id = map.map_id,
                 mods = osu::get_mods(score.mods),
                 grade = score.grade_emote(score.mode),
-                acc = score.acc_string(score.mode),
+                acc = score.acc(score.mode),
                 score = with_comma_int(score.score),
+                appendix = OrderAppendix::new(sort_by, map, score),
                 combo = osu::get_combo(score, map),
                 hits = score.hits_string(score.mode),
                 ago = how_long_ago_dynamic(&score.created_at)
@@ -104,3 +116,55 @@ impl_builder!(TopEmbed {
     footer,
     thumbnail,
 });
+
+pub struct OrderAppendix<'a> {
+    sort_by: TopOrder,
+    map: &'a Beatmap,
+    score: &'a Score,
+}
+
+impl<'a> OrderAppendix<'a> {
+    pub fn new(sort_by: TopOrder, map: &'a Beatmap, score: &'a Score) -> Self {
+        Self {
+            sort_by,
+            map,
+            score,
+        }
+    }
+}
+
+impl fmt::Display for OrderAppendix<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.sort_by {
+            TopOrder::Bpm => {
+                let mods = self.score.mods;
+
+                let clock_rate = if mods.contains(GameMods::DoubleTime) {
+                    1.5
+                } else if mods.contains(GameMods::HalfTime) {
+                    0.75
+                } else {
+                    1.0
+                };
+
+                write!(f, " ~ `{}bpm`", round(self.map.bpm * clock_rate))
+            }
+            TopOrder::Length => {
+                let mods = self.score.mods;
+
+                let clock_rate = if mods.contains(GameMods::DoubleTime) {
+                    1.5
+                } else if mods.contains(GameMods::HalfTime) {
+                    0.75
+                } else {
+                    1.0
+                };
+
+                let secs = (self.map.seconds_drain as f32 / clock_rate) as u32;
+
+                write!(f, " ~ `{}:{:0>2}`", secs / 60, secs % 60)
+            }
+            _ => return Ok(()),
+        }
+    }
+}

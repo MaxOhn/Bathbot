@@ -4,12 +4,16 @@ use eyre::Report;
 use rosu_v2::prelude::{GameMode, Score, User};
 
 use crate::{
+    commands::osu::TopOrder,
+    core::Context,
     embeds::{osu, Author, Footer},
     pp::PpCalculator,
     util::{
         constants::OSU_BASE, datetime::how_long_ago_dynamic, numbers::with_comma_int, ScoreExt,
-    }, core::Context,
+    },
 };
+
+use super::OrderAppendix;
 
 pub struct PinnedEmbed {
     author: Author,
@@ -19,7 +23,13 @@ pub struct PinnedEmbed {
 }
 
 impl PinnedEmbed {
-    pub async fn new<'i, S>(user: &User, scores: S, ctx: &Context, pages: (usize, usize)) -> Self
+    pub async fn new<'i, S>(
+        user: &User,
+        scores: S,
+        ctx: &Context,
+        sort_by: TopOrder,
+        pages: (usize, usize),
+    ) -> Self
     where
         S: Iterator<Item = &'i Score>,
     {
@@ -56,14 +66,15 @@ impl PinnedEmbed {
             let _ = writeln!(
                 description,
                 "**- [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars}]\n\
-                {grade} {pp} ~ ({acc}) ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
+                {grade} {pp} ~ {acc}% ~ {score}{appendix}\n[ {combo} ] ~ {hits} ~ {ago}",
                 title = mapset.title,
                 version = map.version,
                 id = map.map_id,
                 mods = osu::get_mods(score.mods),
                 grade = score.grade_emote(score.mode),
-                acc = score.acc_string(score.mode),
+                acc = score.acc(score.mode),
                 score = with_comma_int(score.score),
+                appendix = OrderAppendix::new(sort_by, map, score),
                 combo = osu::get_combo(score, map),
                 hits = score.hits_string(score.mode),
                 ago = how_long_ago_dynamic(&score.created_at)

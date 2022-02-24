@@ -4,6 +4,7 @@ use eyre::Report;
 use rosu_v2::prelude::{GameMode, Score, User};
 
 use crate::{
+    core::Context,
     custom_client::SnipePlayer,
     embeds::{attachment, osu, Author, EmbedFields, Footer},
     pp::PpCalculator,
@@ -13,7 +14,7 @@ use crate::{
         numbers::{with_comma_float, with_comma_int},
         osu::grade_completion_mods,
         ScoreExt,
-    }, core::Context,
+    },
 };
 
 pub struct PlayerSnipeStatsEmbed {
@@ -28,7 +29,12 @@ pub struct PlayerSnipeStatsEmbed {
 }
 
 impl PlayerSnipeStatsEmbed {
-    pub async fn new(user: User, player: SnipePlayer, first_score: Option<Score>, ctx: &Context) -> Self {
+    pub async fn new(
+        user: User,
+        player: SnipePlayer,
+        first_score: Option<Score>,
+        ctx: &Context,
+    ) -> Self {
         let footer_text = format!(
             "{:+} #1{} since last update",
             player.difference,
@@ -94,7 +100,7 @@ impl PlayerSnipeStatsEmbed {
 
                 let value = format!(
                     "**[{map}]({base}b/{id})**\t\
-                    {grade}\t[{stars}]\t{score}\t({acc})\t[{combo}]\t\
+                    {grade}\t[{stars}]\t{score}\t({acc}%)\t[{combo}]\t\
                     [{pp}]\t {hits}\t{ago}",
                     map = player.oldest_first.unwrap().map,
                     base = OSU_BASE,
@@ -102,7 +108,7 @@ impl PlayerSnipeStatsEmbed {
                     grade = grade_completion_mods(&score, map),
                     stars = stars,
                     score = with_comma_int(score.score),
-                    acc = score.acc_string(GameMode::STD),
+                    acc = score.acc(GameMode::STD),
                     pp = pp,
                     combo = osu::get_combo(&score, map),
                     hits = score.hits_string(GameMode::STD),

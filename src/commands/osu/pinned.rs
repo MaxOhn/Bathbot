@@ -127,7 +127,8 @@ async fn _pinned(ctx: Arc<Context>, data: CommandData<'_>, args: PinnedArgs) -> 
         single_embed(ctx, data, user, score, maximize, content).await?;
     } else {
         let content = write_content(name, &args, scores.len());
-        paginated_embed(ctx, data, user, scores, content).await?;
+        let sort_by = args.sort_by.unwrap_or(TopOrder::Pp); // TopOrder::Pp does not show anything
+        paginated_embed(ctx, data, user, scores, sort_by, content).await?;
     }
 
     Ok(())
@@ -254,10 +255,12 @@ async fn paginated_embed(
     data: CommandData<'_>,
     user: User,
     scores: Vec<Score>,
+    sort_by: TopOrder,
     content: Option<String>,
 ) -> BotResult<()> {
     let pages = numbers::div_euclid(5, scores.len());
-    let embed_data = PinnedEmbed::new(&user, scores.iter().take(5), &ctx, (1, pages)).await;
+    let embed_data =
+        PinnedEmbed::new(&user, scores.iter().take(5), &ctx, sort_by, (1, pages)).await;
     let embed = embed_data.into_builder().build();
 
     // Creating the embed
@@ -277,7 +280,7 @@ async fn paginated_embed(
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = PinnedPagination::new(response, user, scores, Arc::clone(&ctx));
+    let pagination = PinnedPagination::new(response, user, scores, sort_by, Arc::clone(&ctx));
     let owner = data.author()?.id;
 
     tokio::spawn(async move {
