@@ -176,9 +176,11 @@ pub fn define_medal() -> MyCommand {
     let name1 = option_name_(1);
     let name2 = option_name_(2);
 
-    // TODO: Add alphabetically
-    // TODO: Remove default
     let sort_choices = vec![
+        CommandOptionChoice::String {
+            name: "Alphabetically".to_owned(),
+            value: "alphabet".to_owned(),
+        },
         CommandOptionChoice::String {
             name: "Date First".to_owned(),
             value: "date_first".to_owned(),
@@ -186,10 +188,6 @@ pub fn define_medal() -> MyCommand {
         CommandOptionChoice::String {
             name: "Date Last".to_owned(),
             value: "date_last".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Default".to_owned(),
-            value: "default".to_owned(),
         },
         CommandOptionChoice::String {
             name: "Rarity".to_owned(),

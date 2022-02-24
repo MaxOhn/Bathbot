@@ -205,7 +205,7 @@ impl Cache {
         let mut conn = redis.get().await?;
 
         for idx in 0..chunks {
-            let key = format!("{MEMBER_KEY_PREFIX}_{idx}"); // TODO: idx
+            let key = format!("{MEMBER_KEY_PREFIX}_{idx}");
             let bytes: Vec<u8> = conn.get(&key).await?;
 
             if bytes.is_empty() {

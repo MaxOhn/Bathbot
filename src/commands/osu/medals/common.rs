@@ -142,7 +142,10 @@ pub(super) async fn _common(
     }
 
     match order {
-        CommonOrder::DateFirst => {
+        Some(CommonOrder::Alphabet) => {
+            medals.sort_unstable_by(|a, b| a.medal.name.cmp(&b.medal.name))
+        }
+        Some(CommonOrder::DateFirst) => {
             medals.sort_unstable_by_key(|entry| match (entry.achieved1, entry.achieved2) {
                 (Some(a1), Some(a2)) => a1.min(a2),
                 (Some(a1), None) => a1,
@@ -150,7 +153,7 @@ pub(super) async fn _common(
                 (None, None) => unreachable!(),
             })
         }
-        CommonOrder::DateLast => {
+        Some(CommonOrder::DateLast) => {
             medals.sort_unstable_by_key(|entry| match (entry.achieved1, entry.achieved2) {
                 (Some(a1), Some(a2)) => Reverse(a1.max(a2)),
                 (Some(a1), None) => Reverse(a1),
@@ -158,8 +161,8 @@ pub(super) async fn _common(
                 (None, None) => unreachable!(),
             })
         }
-        CommonOrder::Default => medals.sort_unstable_by(|a, b| a.medal.cmp(&b.medal)),
-        CommonOrder::Rarity => {
+        None => medals.sort_unstable_by(|a, b| a.medal.cmp(&b.medal)),
+        Some(CommonOrder::Rarity) => {
             if !medals.is_empty() {
                 match ctx.clients.custom.get_osekai_ranking::<Rarity>().await {
                     Ok(rarities) => {
@@ -288,16 +291,10 @@ pub async fn medalscommon(ctx: Arc<Context>, data: CommandData) -> BotResult<()>
 }
 
 enum CommonOrder {
+    Alphabet,
     DateFirst,
     DateLast,
-    Default,
     Rarity,
-}
-
-impl Default for CommonOrder {
-    fn default() -> Self {
-        Self::Default
-    }
 }
 
 enum CommonFilter {
@@ -315,7 +312,7 @@ impl Default for CommonFilter {
 pub(super) struct CommonArgs {
     name1: Option<Username>,
     name2: Username,
-    order: CommonOrder,
+    order: Option<CommonOrder>,
     filter: CommonFilter,
 }
 
@@ -347,7 +344,7 @@ impl CommonArgs {
                     Ok(osu) => Self {
                         name1: Some(name2),
                         name2: osu.into_username(),
-                        order: CommonOrder::default(),
+                        order: None,
                         filter: CommonFilter::default(),
                     },
                     Err(content) => return Ok(Err(content)),
@@ -355,14 +352,14 @@ impl CommonArgs {
                 None => Self {
                     name1: Some(name2),
                     name2: arg.into(),
-                    order: CommonOrder::default(),
+                    order: None,
                     filter: CommonFilter::default(),
                 },
             },
             None => Self {
                 name1: osu.map(OsuData::into_username),
                 name2,
-                order: CommonOrder::default(),
+                order: None,
                 filter: CommonFilter::default(),
             },
         };
@@ -386,9 +383,9 @@ impl CommonArgs {
                     "name1" => name1 = Some(value.into()),
                     "name2" => name2 = Some(value.into()),
                     "sort" => match value.as_str() {
+                        "alphabet" => order = Some(CommonOrder::Alphabet),
                         "date_first" => order = Some(CommonOrder::DateFirst),
                         "date_last" => order = Some(CommonOrder::DateLast),
-                        "default" => order = Some(CommonOrder::Default),
                         "rarity" => order = Some(CommonOrder::Rarity),
                         _ => return Err(Error::InvalidCommandOptions),
                     },
@@ -452,7 +449,6 @@ impl CommonArgs {
                 .map(OsuData::into_username),
         };
 
-        let order = order.unwrap_or_default();
         let filter = filter.unwrap_or_default();
 
         Ok(Ok(CommonArgs {
