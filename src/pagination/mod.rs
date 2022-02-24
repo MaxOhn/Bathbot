@@ -7,6 +7,7 @@ mod map;
 mod map_search;
 mod medal_recent;
 mod medals_common;
+mod medals_list;
 mod medals_missing;
 mod most_played;
 mod most_played_common;
@@ -51,15 +52,15 @@ pub use self::{
     common::CommonPagination, country_snipe_list::CountrySnipeListPagination,
     leaderboard::LeaderboardPagination, map::MapPagination, map_search::MapSearchPagination,
     medal_recent::MedalRecentPagination, medals_common::MedalsCommonPagination,
-    medals_missing::MedalsMissingPagination, most_played::MostPlayedPagination,
-    most_played_common::MostPlayedCommonPagination, nochoke::NoChokePagination,
-    osekai_medal_count::MedalCountPagination, osekai_medal_rarity::MedalRarityPagination,
-    osustats_globals::OsuStatsGlobalsPagination, osustats_list::OsuStatsListPagination,
-    pinned::PinnedPagination, player_snipe_list::PlayerSnipeListPagination,
-    profile::ProfilePagination, ranking::RankingPagination,
-    ranking_countries::RankingCountriesPagination, recent_list::RecentListPagination,
-    scores::ScoresPagination, sniped_difference::SnipedDiffPagination, top::TopPagination,
-    top_if::TopIfPagination,
+    medals_list::MedalsListPagination, medals_missing::MedalsMissingPagination,
+    most_played::MostPlayedPagination, most_played_common::MostPlayedCommonPagination,
+    nochoke::NoChokePagination, osekai_medal_count::MedalCountPagination,
+    osekai_medal_rarity::MedalRarityPagination, osustats_globals::OsuStatsGlobalsPagination,
+    osustats_list::OsuStatsListPagination, pinned::PinnedPagination,
+    player_snipe_list::PlayerSnipeListPagination, profile::ProfilePagination,
+    ranking::RankingPagination, ranking_countries::RankingCountriesPagination,
+    recent_list::RecentListPagination, scores::ScoresPagination,
+    sniped_difference::SnipedDiffPagination, top::TopPagination, top_if::TopIfPagination,
 };
 
 type ReactionVec = SmallVec<[Emote; 7]>;

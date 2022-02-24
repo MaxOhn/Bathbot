@@ -13,6 +13,7 @@ mod match_live;
 mod medal;
 mod medal_stats;
 mod medals_common;
+mod medals_list;
 mod medals_missing;
 mod most_played;
 mod most_played_common;
@@ -67,6 +68,7 @@ pub use self::{
     medal::MedalEmbed,
     medal_stats::MedalStatsEmbed,
     medals_common::{MedalsCommonEmbed, MedalsCommonUser},
+    medals_list::MedalsListEmbed,
     medals_missing::MedalsMissingEmbed,
     most_played::MostPlayedEmbed,
     most_played_common::MostPlayedCommonEmbed,

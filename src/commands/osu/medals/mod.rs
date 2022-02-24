@@ -1,4 +1,5 @@
 mod common;
+mod list;
 mod medal;
 mod missing;
 mod recent;
@@ -29,7 +30,7 @@ use crate::{
     BotResult, Context, Error,
 };
 
-pub use self::{common::*, medal::*, missing::*, recent::*, stats::*};
+pub use self::{common::*, list::*, medal::*, missing::*, recent::*, stats::*};
 
 use super::require_link;
 
