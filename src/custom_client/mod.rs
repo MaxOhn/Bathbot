@@ -543,7 +543,20 @@ impl CustomClient {
             .await
             .map_err(|_| CustomClientError::OsuStatsTimeout)??;
 
-        let bytes = Self::error_for_status(response, url).await?;
+        let status = response.status();
+
+        // Don't use Self::error_for_status since osustats returns a 400
+        // if the user has no scores for the given parameters
+        let bytes = if (status.is_client_error() && status != StatusCode::BAD_REQUEST)
+            || status.is_server_error()
+        {
+            return Err(CustomClientError::Status {
+                status,
+                url: url.to_owned(),
+            });
+        } else {
+            hyper::body::to_bytes(response.into_body()).await?
+        };
 
         let result: Value = serde_json::from_slice(&bytes)
             .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsuStatsGlobal))?;
