@@ -281,7 +281,7 @@ async fn request_by_map(
                         map
                     }
                     Err(OsuError::NotFound) => {
-                        let content = format!("There is no map with id {}", map_id);
+                        let content = format!("There is no map with id {map_id}");
 
                         return match data.error(ctx, content).await {
                             Ok(_) => ScoreResult::Done,

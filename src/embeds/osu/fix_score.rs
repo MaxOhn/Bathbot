@@ -1,3 +1,7 @@
+use std::fmt::Write;
+
+use rosu_v2::prelude::{Beatmap, GameMods, RankStatus, Score, User};
+
 use crate::{
     embeds::Author,
     util::{
@@ -5,9 +9,6 @@ use crate::{
         numbers::{round, with_comma_float},
     },
 };
-
-use rosu_v2::prelude::{Beatmap, GameMods, RankStatus, Score, User};
-use std::fmt::Write;
 
 pub struct FixScoreEmbed {
     author: Author,

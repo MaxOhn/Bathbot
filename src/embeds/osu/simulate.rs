@@ -324,7 +324,7 @@ fn simulate_score(
     mut attributes: DifficultyAttributes,
 ) -> DifficultyAttributes {
     match attributes {
-        DifficultyAttributes::Osu(diff_attributes) => {
+        DifficultyAttributes::Osu(attrs) => {
             let acc = args.acc.map_or(1.0, |a| a / 100.0);
             let mut n50 = args.n50.unwrap_or(0);
             let mut n100 = args.n100.unwrap_or(0);
@@ -333,8 +333,8 @@ fn simulate_score(
 
             let combo = args
                 .combo
-                .unwrap_or(diff_attributes.max_combo)
-                .min((diff_attributes.max_combo).saturating_sub(miss));
+                .unwrap_or(attrs.max_combo)
+                .min((attrs.max_combo).saturating_sub(miss));
 
             if n50 > 0 || n100 > 0 {
                 let placed_points = 2 * n100 + n50 + miss;
@@ -391,9 +391,9 @@ fn simulate_score(
             score.accuracy = score.accuracy();
             score.grade = score.grade(None);
 
-            attributes = DifficultyAttributes::Osu(diff_attributes);
+            attributes = DifficultyAttributes::Osu(attrs);
         }
-        DifficultyAttributes::Mania(diff_attributes) => {
+        DifficultyAttributes::Mania(attrs) => {
             let mut max_score = 1_000_000;
 
             let mods = score.mods;
@@ -433,9 +433,9 @@ fn simulate_score(
                 Grade::S
             };
 
-            attributes = DifficultyAttributes::Mania(diff_attributes);
+            attributes = DifficultyAttributes::Mania(attrs);
         }
-        DifficultyAttributes::Taiko(diff_attributes) => {
+        DifficultyAttributes::Taiko(attrs) => {
             let n100 = args.n100.unwrap_or(0);
             let n300 = args.n300.unwrap_or(0);
             let miss = args.misses.unwrap_or(0);
@@ -480,63 +480,54 @@ fn simulate_score(
             score.accuracy = acc * 100.0;
             score.grade = score.grade(Some(score.accuracy));
 
-            attributes = DifficultyAttributes::Taiko(diff_attributes);
+            attributes = DifficultyAttributes::Taiko(attrs);
         }
-        DifficultyAttributes::Fruits(diff_attributes) => {
+        DifficultyAttributes::Fruits(attrs) => {
             let n_tiny_droplets;
             let n_tiny_droplet_misses;
             let mut n_droplets;
             let mut n_fruits;
 
-            let miss = diff_attributes.max_combo().min(args.misses.unwrap_or(0));
+            let miss = attrs.max_combo().min(args.misses.unwrap_or(0));
 
             match args.acc {
                 Some(acc) => {
                     n_droplets = match args.n100 {
-                        Some(n100) => diff_attributes.n_droplets.min(n100),
-                        None => diff_attributes.n_droplets.saturating_sub(miss),
+                        Some(n100) => attrs.n_droplets.min(n100),
+                        None => attrs.n_droplets.saturating_sub(miss),
                     };
 
-                    n_fruits = diff_attributes.n_fruits.saturating_sub(
-                        miss.saturating_sub(diff_attributes.n_droplets.saturating_sub(n_droplets)),
+                    n_fruits = attrs.n_fruits.saturating_sub(
+                        miss.saturating_sub(attrs.n_droplets.saturating_sub(n_droplets)),
                     );
 
                     n_tiny_droplets = match args.n50 {
-                        Some(n50) => diff_attributes.n_tiny_droplets.min(n50),
-                        None => ((acc / 100.0
-                            * (diff_attributes.max_combo() + diff_attributes.n_tiny_droplets)
-                                as f32)
+                        Some(n50) => attrs.n_tiny_droplets.min(n50),
+                        None => ((acc / 100.0 * (attrs.max_combo() + attrs.n_tiny_droplets) as f32)
                             .round() as usize)
                             .saturating_sub(n_fruits)
                             .saturating_sub(n_droplets),
                     };
 
-                    n_tiny_droplet_misses = diff_attributes
-                        .n_tiny_droplets
-                        .saturating_sub(n_tiny_droplets);
+                    n_tiny_droplet_misses = attrs.n_tiny_droplets.saturating_sub(n_tiny_droplets);
                 }
                 None => {
-                    n_droplets = diff_attributes
-                        .n_droplets
-                        .min(args.n100.unwrap_or(0) as usize);
+                    n_droplets = attrs.n_droplets.min(args.n100.unwrap_or(0) as usize);
+                    n_fruits = attrs.n_fruits.min(args.n300.unwrap_or(0) as usize);
 
-                    n_fruits = diff_attributes
-                        .n_fruits
-                        .min(args.n300.unwrap_or(0) as usize);
-
-                    let missing_fruits = diff_attributes.n_fruits.saturating_sub(n_fruits);
-                    let missing_droplets = diff_attributes.n_droplets.saturating_sub(n_droplets);
+                    let missing_fruits = attrs.n_fruits.saturating_sub(n_fruits);
+                    let missing_droplets = attrs.n_droplets.saturating_sub(n_droplets);
 
                     n_droplets += missing_droplets.saturating_sub(miss);
                     n_fruits +=
                         missing_fruits.saturating_sub(miss.saturating_sub(missing_droplets));
 
                     n_tiny_droplets = match args.n50 {
-                        Some(n50) => diff_attributes.n_tiny_droplets.min(n50 as usize),
-                        None => diff_attributes.n_tiny_droplets,
+                        Some(n50) => attrs.n_tiny_droplets.min(n50 as usize),
+                        None => attrs.n_tiny_droplets,
                     };
 
-                    n_tiny_droplet_misses = diff_attributes.n_tiny_droplets - n_tiny_droplets;
+                    n_tiny_droplet_misses = attrs.n_tiny_droplets - n_tiny_droplets;
                 }
             }
 
@@ -549,13 +540,13 @@ fn simulate_score(
 
             score.max_combo = args
                 .combo
-                .unwrap_or_else(|| diff_attributes.max_combo())
-                .min(diff_attributes.max_combo() - miss) as u32;
+                .unwrap_or_else(|| attrs.max_combo())
+                .min(attrs.max_combo() - miss) as u32;
 
             score.accuracy = score.accuracy();
             score.grade = score.grade(Some(score.accuracy));
 
-            attributes = DifficultyAttributes::Fruits(diff_attributes);
+            attributes = DifficultyAttributes::Fruits(attrs);
         }
     }
 
@@ -568,9 +559,9 @@ fn unchoke_score(
     attributes: DifficultyAttributes,
 ) -> DifficultyAttributes {
     match attributes {
-        DifficultyAttributes::Osu(ref attribs)
+        DifficultyAttributes::Osu(ref attrs)
             if score.statistics.count_miss > 0
-                || score.max_combo < map.max_combo.unwrap_or(attribs.max_combo as u32) - 5 =>
+                || score.max_combo < map.max_combo.unwrap_or(attrs.max_combo as u32) - 5 =>
         {
             let total_objects = map.count_objects() as usize;
             let passed_objects = score.total_hits() as usize;
@@ -587,15 +578,27 @@ fn unchoke_score(
 
             score.statistics.count_300 = count300 as u32;
             score.statistics.count_100 = count100 as u32;
-            score.max_combo = map.max_combo.unwrap_or(attribs.max_combo as u32);
+            score.max_combo = map.max_combo.unwrap_or(attrs.max_combo as u32);
         }
         DifficultyAttributes::Mania(_) => {
             score.score = 1_000_000;
+            let mods = score.mods;
 
-            score.grade = if score
-                .mods
-                .intersects(GameMods::Flashlight | GameMods::Hidden)
-            {
+            if mods.contains(GameMods::Easy) {
+                score.score /= 2;
+            }
+
+            if mods.contains(GameMods::NoFail) {
+                score.score /= 2;
+            }
+
+            if mods.contains(GameMods::HalfTime) {
+                score.score /= 2;
+            }
+
+            let hdfl = GameMods::Flashlight | GameMods::Hidden;
+
+            score.grade = if score.mods.intersects(hdfl) {
                 Grade::XH
             } else {
                 Grade::X
@@ -603,15 +606,15 @@ fn unchoke_score(
 
             return attributes;
         }
-        DifficultyAttributes::Fruits(ref attribs)
-            if score.max_combo != map.max_combo.unwrap_or_else(|| attribs.max_combo() as u32) =>
+        DifficultyAttributes::Fruits(ref attrs)
+            if score.max_combo != map.max_combo.unwrap_or_else(|| attrs.max_combo() as u32) =>
         {
-            let total_objects = attribs.max_combo();
+            let total_objects = attrs.max_combo();
             let passed_objects = score.total_hits() as usize;
 
             let missing = total_objects - passed_objects;
             let missing_fruits = missing.saturating_sub(
-                attribs
+                attrs
                     .n_droplets
                     .saturating_sub(score.statistics.count_100 as usize),
             );
@@ -620,9 +623,7 @@ fn unchoke_score(
             let n_fruits = score.statistics.count_300 as usize + missing_fruits;
             let n_droplets = score.statistics.count_100 as usize + missing_droplets;
             let n_tiny_droplet_misses = score.statistics.count_katu as usize;
-            let n_tiny_droplets = attribs
-                .n_tiny_droplets
-                .saturating_sub(n_tiny_droplet_misses);
+            let n_tiny_droplets = attrs.n_tiny_droplets.saturating_sub(n_tiny_droplet_misses);
 
             score.statistics.count_300 = n_fruits as u32;
             score.statistics.count_100 = n_droplets as u32;
