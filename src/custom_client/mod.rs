@@ -23,7 +23,7 @@ use http::{
 };
 use hyper::{
     client::{connect::dns::GaiResolver, Client as HyperClient, HttpConnector},
-    header::{HeaderValue, CONTENT_TYPE, USER_AGENT as HYPER_USER_AGENT},
+    header::{HeaderValue, CONTENT_TYPE, USER_AGENT},
     Body, Method, Request,
 };
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
@@ -154,7 +154,7 @@ impl CustomClient {
             .method(Method::POST)
             .uri(TWITCH_OAUTH)
             .header("Client-ID", client_id.clone())
-            .header(HYPER_USER_AGENT, MY_USER_AGENT)
+            .header(USER_AGENT, MY_USER_AGENT)
             .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
             .body(Body::from(form_body))?;
 
@@ -224,7 +224,7 @@ impl CustomClient {
         let req = Request::builder()
             .uri(url.as_ref())
             .method(Method::GET)
-            .header(HYPER_USER_AGENT, MY_USER_AGENT);
+            .header(USER_AGENT, MY_USER_AGENT);
 
         match site {
             Site::OsuHiddenApi => req.header(COOKIE, format!("osu_session={}", self.osu_session)),
@@ -248,7 +248,7 @@ impl CustomClient {
         let req = Request::builder()
             .method(Method::POST)
             .uri(url.as_ref())
-            .header(HYPER_USER_AGENT, MY_USER_AGENT)
+            .header(USER_AGENT, MY_USER_AGENT)
             .header(CONTENT_TYPE, APPLICATION_URLENCODED)
             .body(Body::from(form_body))?;
 
@@ -479,7 +479,7 @@ impl CustomClient {
         let req = Request::builder()
             .method(Method::POST)
             .uri(url)
-            .header(HYPER_USER_AGENT, MY_USER_AGENT)
+            .header(USER_AGENT, MY_USER_AGENT)
             .header(CONTENT_TYPE, APPLICATION_JSON)
             .header(CONTENT_LENGTH, json.len())
             .body(Body::from(json))?;
@@ -511,7 +511,10 @@ impl CustomClient {
         map.insert("rankMax".to_owned(), params.rank_max.into());
         map.insert("gamemode".to_owned(), (params.mode as u8).into());
         map.insert("sortBy".to_owned(), (params.order as u8).into());
-        map.insert("sortOrder".to_owned(), (!params.descending as u8).into());
+        map.insert(
+            "sortOrder".to_owned(),
+            (!params.descending as u8).to_string().into(), // required as string
+        );
         map.insert("page".to_owned(), params.page.into());
         map.insert("u1".to_owned(), params.username.to_string().into());
 
@@ -532,7 +535,7 @@ impl CustomClient {
         let req = Request::builder()
             .method(Method::POST)
             .uri(url)
-            .header(HYPER_USER_AGENT, MY_USER_AGENT)
+            .header(USER_AGENT, MY_USER_AGENT)
             .header(CONTENT_TYPE, APPLICATION_JSON)
             .header(CONTENT_LENGTH, json.len())
             .body(Body::from(json))?;
