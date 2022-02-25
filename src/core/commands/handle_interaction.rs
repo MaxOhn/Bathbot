@@ -83,6 +83,10 @@ pub async fn handle_component(
 
     match name {
         "help_menu" | "help_back" => help::handle_menu_select(&ctx, *component).await,
+        "bg_start_include" => fun::handle_bg_start_include(&ctx, *component).await,
+        "bg_start_exclude" => fun::handle_bg_start_exclude(&ctx, *component).await,
+        "bg_start_button" => fun::handle_bg_start_button(ctx, *component).await,
+        "bg_start_cancel" => fun::handle_bg_start_cancel(&ctx, *component).await,
         _ => Err(Error::UnknownMessageComponent { component }),
     }
 }
@@ -106,6 +110,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
 
     let command_result = match name.as_str() {
         "avatar" => process_command(ctx, command, args, osu::slash_avatar).await,
+        "bg" => process_command(ctx, command, args, fun::slash_bg).await,
         "bws" => process_command(ctx, command, args, osu::slash_bws).await,
         "commands" => process_command(ctx, command, args, utility::slash_commands).await,
         "compare" => process_command(ctx, command, args, osu::slash_compare).await,

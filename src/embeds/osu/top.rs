@@ -164,7 +164,7 @@ impl fmt::Display for OrderAppendix<'_> {
 
                 write!(f, " ~ `{}:{:0>2}`", secs / 60, secs % 60)
             }
-            _ => return Ok(()),
+            _ => Ok(()),
         }
     }
 }

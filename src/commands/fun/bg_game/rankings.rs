@@ -13,7 +13,7 @@ use crate::{
 
 #[command]
 #[short_desc("Show the user rankings for the game")]
-#[aliases("rankings", "leaderboard", "lb", "stats")]
+#[aliases("rankings", "leaderboard", "l", "lb", "stats")]
 async fn rankings(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
