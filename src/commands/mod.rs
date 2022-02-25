@@ -785,6 +785,7 @@ lazy_static! {
         insert("snipe", define_snipe);
         insert("serverconfig", define_serverconfig);
         insert("serverleaderboard", define_serverleaderboard);
+        insert("bg", define_bg);
 
         SlashCommands(trie)
     };

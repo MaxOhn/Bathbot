@@ -1,21 +1,51 @@
 mod bigger;
 mod hint;
 mod rankings;
-mod start;
+mod skip;
 mod stop;
 mod tags;
 
 use std::sync::Arc;
 
-use twilight_model::channel::Reaction;
+use dashmap::mapref::entry::Entry;
+use eyre::Report;
+use rosu_v2::prelude::GameMode;
+use twilight_model::{
+    application::{
+        callback::{CallbackData, InteractionResponse},
+        command::CommandOptionChoice,
+        component::{
+            button::ButtonStyle, select_menu::SelectMenuOption, ActionRow, Button, Component,
+            SelectMenu,
+        },
+        interaction::{
+            application_command::CommandOptionValue, ApplicationCommand,
+            MessageComponentInteraction,
+        },
+    },
+    channel::{
+        embed::{Embed, EmbedField},
+        Reaction,
+    },
+    id::{marker::UserMarker, Id},
+};
 
 use crate::{
-    embeds::{BGHelpEmbed, EmbedData},
-    util::{constants::common_literals::HELP, MessageExt},
+    bg_game::{GameWrapper, MapsetTags},
+    commands::{parse_mode_option, MyCommand, MyCommandOption},
+    embeds::{BGHelpEmbed, BGTagsEmbed, EmbedBuilder, EmbedData},
+    error::{Error, InvalidBgState},
+    util::{
+        constants::{
+            common_literals::{HELP, MANIA, MODE, OSU, SPECIFY_MODE},
+            GENERAL_ISSUE, RED,
+        },
+        InteractionExt, MessageBuilder, MessageExt,
+    },
     BotResult, CommandData, Context,
 };
 
-pub use self::{bigger::*, hint::*, rankings::*, start::*, stop::*, tags::*};
+pub use self::{bigger::*, hint::*, rankings::*, skip::*, stop::*, tags::*};
 
 #[command]
 #[short_desc("Play the background guessing game")]
@@ -24,7 +54,7 @@ pub use self::{bigger::*, hint::*, rankings::*, start::*, stop::*, tags::*};
     Use this command without arguments to see the full help."
 )]
 #[aliases("bg")]
-#[sub_commands(start, bigger, hint, stop, rankings)]
+#[sub_commands(skip, bigger, hint, stop, rankings)]
 pub async fn backgroundgame(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, .. } => match args.next() {
@@ -58,4 +88,560 @@ impl ReactionWrapper {
             Self::Add(r) | Self::Remove(r) => r,
         }
     }
+}
+
+pub enum GameState {
+    Running {
+        game: GameWrapper,
+    },
+    Setup {
+        author: Id<UserMarker>,
+        excluded: MapsetTags,
+        included: MapsetTags,
+    },
+}
+
+fn parse_component_tags(component: &MessageComponentInteraction) -> MapsetTags {
+    component
+        .data
+        .values
+        .iter()
+        .fold(MapsetTags::empty(), |tags, value| {
+            tags | match value.as_str() {
+                "easy" => MapsetTags::Easy,
+                "hard" => MapsetTags::Hard,
+                "meme" => MapsetTags::Meme,
+                "weeb" => MapsetTags::Weeb,
+                "kpop" => MapsetTags::Kpop,
+                "farm" => MapsetTags::Farm,
+                "hardname" => MapsetTags::HardName,
+                "alt" => MapsetTags::Alternate,
+                "bluesky" => MapsetTags::BlueSky,
+                "english" => MapsetTags::English,
+                "streams" => MapsetTags::Streams,
+                "old" => MapsetTags::Old,
+                "tech" => MapsetTags::Tech,
+                _ => {
+                    warn!("unknown mapset tag `{value}`");
+
+                    return tags;
+                }
+            }
+        })
+}
+
+async fn update_field(
+    ctx: &Context,
+    component: &mut MessageComponentInteraction,
+    tags: MapsetTags,
+    name: &str,
+) -> BotResult<()> {
+    let mut embed = component
+        .message
+        .embeds
+        .pop()
+        .ok_or(InvalidBgState::MissingEmbed)?;
+
+    let field_opt = embed.fields.iter_mut().find(|field| field.name == name);
+
+    if let Some(field) = field_opt {
+        field.value = tags.join(", ");
+    } else {
+        let field = EmbedField {
+            inline: false,
+            name: name.to_owned(),
+            value: tags.join(", "),
+        };
+
+        embed.fields.push(field);
+    }
+
+    let callback_data = CallbackData {
+        allowed_mentions: None,
+        components: None,
+        content: None,
+        embeds: Some(vec![embed]),
+        flags: None,
+        tts: None,
+    };
+
+    let response = InteractionResponse::UpdateMessage(callback_data);
+    let client = ctx.interaction();
+
+    client
+        .interaction_callback(component.id, &component.token, &response)
+        .exec()
+        .await?;
+
+    Ok(())
+}
+
+pub async fn handle_bg_start_include(
+    ctx: &Context,
+    mut component: MessageComponentInteraction,
+) -> BotResult<()> {
+    match ctx.bg_games().entry(component.channel_id) {
+        Entry::Occupied(mut entry) => match entry.get_mut() {
+            GameState::Running { .. } => {
+                if let Err(err) = remove_components(ctx, &component, None).await {
+                    let report = Report::new(err).wrap_err("failed to remove components");
+                    warn!("{report:?}");
+                }
+            }
+            GameState::Setup {
+                author, included, ..
+            } => {
+                if *author != component.user_id()? {
+                    return Ok(());
+                }
+
+                *included = parse_component_tags(&component);
+                update_field(ctx, &mut component, *included, "Included tags").await?;
+            }
+        },
+        Entry::Vacant(_) => {
+            if let Err(err) = remove_components(ctx, &component, None).await {
+                let report = Report::new(err).wrap_err("failed to remove components");
+                warn!("{report:?}");
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn handle_bg_start_exclude(
+    ctx: &Context,
+    mut component: MessageComponentInteraction,
+) -> BotResult<()> {
+    match ctx.bg_games().entry(component.channel_id) {
+        Entry::Occupied(mut entry) => match entry.get_mut() {
+            GameState::Running { .. } => {
+                if let Err(err) = remove_components(ctx, &component, None).await {
+                    let report = Report::new(err).wrap_err("failed to remove components");
+                    warn!("{report:?}");
+                }
+            }
+            GameState::Setup {
+                author, excluded, ..
+            } => {
+                if *author != component.user_id()? {
+                    return Ok(());
+                }
+
+                *excluded = parse_component_tags(&component);
+                update_field(ctx, &mut component, *excluded, "Excluded tags").await?;
+            }
+        },
+        Entry::Vacant(_) => {
+            if let Err(err) = remove_components(ctx, &component, None).await {
+                let report = Report::new(err).wrap_err("failed to remove components");
+                warn!("{report:?}");
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn handle_bg_start_button(
+    ctx: Arc<Context>,
+    component: MessageComponentInteraction,
+) -> BotResult<()> {
+    let channel = component.channel_id;
+
+    match ctx.bg_games().entry(channel) {
+        Entry::Occupied(mut entry) => match entry.get() {
+            GameState::Running { .. } => {
+                if let Err(err) = remove_components(&ctx, &component, None).await {
+                    let report = Report::new(err).wrap_err("failed to remove components");
+                    warn!("{report:?}");
+                }
+            }
+            GameState::Setup {
+                author,
+                excluded,
+                included,
+            } => {
+                if *author != component.user_id()? {
+                    return Ok(());
+                }
+
+                let mapset_fut =
+                    ctx.psql()
+                        .get_specific_tags_mapset(GameMode::STD, *included, *excluded);
+
+                let mapsets = match mapset_fut.await {
+                    Ok(mapsets) => mapsets,
+                    Err(err) => {
+                        let embed = EmbedBuilder::new()
+                            .color(RED)
+                            .description(GENERAL_ISSUE)
+                            .build();
+
+                        if let Err(err) = remove_components(&ctx, &component, Some(embed)).await {
+                            let report = Report::new(err).wrap_err("failed to remove components");
+                            warn!("{report:?}");
+                        }
+
+                        return Err(err);
+                    }
+                };
+
+                let embed = BGTagsEmbed::new(*included, *excluded, mapsets.len())
+                    .into_builder()
+                    .build();
+
+                if let Err(err) = remove_components(&ctx, &component, Some(embed)).await {
+                    let report = Report::new(err).wrap_err("failed to remove components");
+                    warn!("{report:?}");
+                }
+
+                if mapsets.is_empty() {
+                    entry.remove();
+                    return Ok(());
+                }
+
+                info!(
+                    "Starting game with included: {} - excluded: {}",
+                    included.join(','),
+                    excluded.join(',')
+                );
+
+                let game = GameWrapper::new(Arc::clone(&ctx), channel, mapsets).await;
+
+                entry.insert(GameState::Running { game });
+            }
+        },
+        Entry::Vacant(_) => {
+            if let Err(err) = remove_components(&ctx, &component, None).await {
+                let report = Report::new(err).wrap_err("failed to remove components");
+                warn!("{report:?}");
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn handle_bg_start_cancel(
+    ctx: &Context,
+    component: MessageComponentInteraction,
+) -> BotResult<()> {
+    let channel = component.channel_id;
+
+    match ctx.bg_games().entry(channel) {
+        Entry::Occupied(entry) => match entry.get() {
+            GameState::Running { .. } => {
+                if let Err(err) = remove_components(ctx, &component, None).await {
+                    let report = Report::new(err).wrap_err("failed to remove components");
+                    warn!("{report:?}");
+                }
+
+                return Ok(());
+            }
+            GameState::Setup { author, .. } => {
+                if *author != component.user_id()? {
+                    return Ok(());
+                }
+
+                let embed = EmbedBuilder::new()
+                    .description("Aborted background game setup")
+                    .build();
+
+                entry.remove();
+                remove_components(ctx, &component, Some(embed)).await?;
+            }
+        },
+        Entry::Vacant(_) => {
+            if let Err(err) = remove_components(ctx, &component, None).await {
+                let report = Report::new(err).wrap_err("failed to remove components");
+                warn!("{report:?}");
+            }
+        }
+    }
+
+    Ok(())
+}
+
+async fn remove_components(
+    ctx: &Context,
+    component: &MessageComponentInteraction,
+    embed: Option<Embed>,
+) -> BotResult<()> {
+    let callback_data = CallbackData {
+        allowed_mentions: None,
+        components: Some(Vec::new()),
+        content: None,
+        embeds: embed.map(|e| vec![e]),
+        flags: None,
+        tts: None,
+    };
+
+    let response = InteractionResponse::UpdateMessage(callback_data);
+    let client = ctx.interaction();
+
+    client
+        .interaction_callback(component.id, &component.token, &response)
+        .exec()
+        .await?;
+
+    Ok(())
+}
+
+fn bg_components() -> Vec<Component> {
+    let options = vec![
+        SelectMenuOption {
+            default: false,
+            description: None,
+            emoji: None,
+            label: "Easy".to_owned(),
+            value: "easy".to_owned(),
+        },
+        SelectMenuOption {
+            default: false,
+            description: None,
+            emoji: None,
+            label: "Hard".to_owned(),
+            value: "hard".to_owned(),
+        },
+        SelectMenuOption {
+            default: false,
+            description: None,
+            emoji: None,
+            label: "Meme".to_owned(),
+            value: "meme".to_owned(),
+        },
+        SelectMenuOption {
+            default: false,
+            description: None,
+            emoji: None,
+            label: "Weeb".to_owned(),
+            value: "weeb".to_owned(),
+        },
+        SelectMenuOption {
+            default: false,
+            description: None,
+            emoji: None,
+            label: "K-Pop".to_owned(),
+            value: "kpop".to_owned(),
+        },
+        SelectMenuOption {
+            default: false,
+            description: None,
+            emoji: None,
+            label: "Farm".to_owned(),
+            value: "farm".to_owned(),
+        },
+        SelectMenuOption {
+            default: false,
+            description: None,
+            emoji: None,
+            label: "Hard name".to_owned(),
+            value: "hardname".to_owned(),
+        },
+        SelectMenuOption {
+            default: false,
+            description: None,
+            emoji: None,
+            label: "Alternate".to_owned(),
+            value: "alt".to_owned(),
+        },
+        SelectMenuOption {
+            default: false,
+            description: None,
+            emoji: None,
+            label: "Blue sky".to_owned(),
+            value: "bluesky".to_owned(),
+        },
+        SelectMenuOption {
+            default: false,
+            description: None,
+            emoji: None,
+            label: "English".to_owned(),
+            value: "english".to_owned(),
+        },
+        SelectMenuOption {
+            default: false,
+            description: None,
+            emoji: None,
+            label: "Streams".to_owned(),
+            value: "streams".to_owned(),
+        },
+        SelectMenuOption {
+            default: false,
+            description: None,
+            emoji: None,
+            label: "Old".to_owned(),
+            value: "old".to_owned(),
+        },
+        SelectMenuOption {
+            default: false,
+            description: None,
+            emoji: None,
+            label: "Tech".to_owned(),
+            value: "tech".to_owned(),
+        },
+    ];
+
+    let include_menu = SelectMenu {
+        custom_id: "bg_start_include".to_owned(),
+        disabled: false,
+        max_values: Some(options.len() as u8),
+        min_values: Some(0),
+        options: options.clone(),
+        placeholder: Some("Select which tags should be included".to_owned()),
+    };
+
+    let include_row = ActionRow {
+        components: vec![Component::SelectMenu(include_menu)],
+    };
+
+    let exclude_menu = SelectMenu {
+        custom_id: "bg_start_exclude".to_owned(),
+        disabled: false,
+        max_values: Some(options.len() as u8),
+        min_values: Some(0),
+        options,
+        placeholder: Some("Select which tags should be excluded".to_owned()),
+    };
+
+    let exclude_row = ActionRow {
+        components: vec![Component::SelectMenu(exclude_menu)],
+    };
+
+    let start_button = Button {
+        custom_id: Some("bg_start_button".to_owned()),
+        disabled: false,
+        emoji: None,
+        label: Some("Start".to_owned()),
+        style: ButtonStyle::Success,
+        url: None,
+    };
+
+    let cancel_button = Button {
+        custom_id: Some("bg_start_cancel".to_owned()),
+        disabled: false,
+        emoji: None,
+        label: Some("Cancel".to_owned()),
+        style: ButtonStyle::Danger,
+        url: None,
+    };
+
+    let button_row = ActionRow {
+        components: vec![
+            Component::Button(start_button),
+            Component::Button(cancel_button),
+        ],
+    };
+
+    vec![
+        Component::ActionRow(include_row),
+        Component::ActionRow(exclude_row),
+        Component::ActionRow(button_row),
+    ]
+}
+
+pub async fn slash_bg(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
+    if let Some((_, GameState::Running { game })) = ctx.bg_games().remove(&command.channel_id) {
+        if let Err(err) = game.stop() {
+            let report = Report::new(err).wrap_err("failed to stop game");
+            warn!("{report:?}");
+        }
+    }
+
+    let mut mode = None;
+
+    for option in &command.data.options {
+        match option.value {
+            CommandOptionValue::String(ref value) => match option.name.as_str() {
+                MODE => mode = parse_mode_option(value),
+                _ => return Err(Error::InvalidCommandOptions),
+            },
+            _ => return Err(Error::InvalidCommandOptions),
+        }
+    }
+
+    let state = match mode {
+        Some(GameMode::STD) | None => {
+            let components = bg_components();
+            let author = command.user_id()?;
+
+            let content = format!(
+                "<@{author}> select which tags should be included \
+                and which ones should be excluded, then start the game.\n\
+                Only you can use the components below.",
+            );
+
+            let builder = MessageBuilder::new().embed(content).components(&components);
+            command.create_message(&ctx, builder).await?;
+
+            GameState::Setup {
+                author,
+                excluded: MapsetTags::empty(),
+                included: MapsetTags::empty(),
+            }
+        }
+        Some(GameMode::MNA) => {
+            let mapsets = match ctx.psql().get_all_tags_mapset(GameMode::MNA).await {
+                Ok(mapsets) => mapsets,
+                Err(err) => {
+                    let _ = command.error(&ctx, GENERAL_ISSUE).await;
+
+                    return Err(err);
+                }
+            };
+
+            let content = format!(
+                "Starting mania background guessing game with {} different backgrounds",
+                mapsets.len()
+            );
+
+            let builder = MessageBuilder::new().embed(content);
+            command.create_message(&ctx, builder).await?;
+
+            GameState::Running {
+                game: GameWrapper::new(Arc::clone(&ctx), command.channel_id, mapsets).await,
+            }
+        }
+        Some(GameMode::TKO | GameMode::CTB) => unreachable!(),
+    };
+
+    ctx.bg_games().insert(command.channel_id, state);
+
+    Ok(())
+}
+
+pub fn define_bg() -> MyCommand {
+    let mode_choices = vec![
+        CommandOptionChoice::String {
+            name: OSU.to_owned(),
+            value: OSU.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: MANIA.to_owned(),
+            value: MANIA.to_owned(),
+        },
+    ];
+
+    let mode = MyCommandOption::builder(MODE, SPECIFY_MODE).string(mode_choices, false);
+
+    let description = "Start a new background guessing game";
+
+    let help = "Start a new background guessing game.\n\
+        Given part of a map's background, try to guess the **title** of the map's song.\n\
+        You don't need to guess content in parentheses `(...)` or content after `ft.` or `feat.`.\n\n\
+        Use these prefix commands to initiate with the game:\n\
+        • `<bg s[kip]` / `<bg r[esolve]`: Resolve the current background and \
+        give a new one with the same tag specs.\n\
+        • `<bg h[int]`: Receive a hint (can be used multiple times).\n\
+        • `<bg b[igger]`: Increase the radius of the displayed image (can be used multiple times).\n\
+        • `<bg stop`: Resolve the current background and stop the game.
+        • `<bg l[eaderboard] s[erver]`: Check out the global leaderboard for \
+        amount of correct guesses. If `server` or `s` is added at the end, \
+        I will only show members of this server.";
+
+    MyCommand::new("bg", description)
+        .help(help)
+        .options(vec![mode])
 }

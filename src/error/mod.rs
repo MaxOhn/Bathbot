@@ -46,6 +46,8 @@ pub enum Error {
     InvalidCommandOptions,
     #[error("config file was not in correct format")]
     InvalidConfig(#[from] toml::de::Error),
+    #[error("invalid bg state")]
+    InvalidBgState(#[from] InvalidBgState),
     #[error("invalid help state")]
     InvalidHelpState(#[from] InvalidHelpState),
     #[error("io error")]
@@ -108,6 +110,12 @@ impl<E: std::error::Error + Send + Sync> From<DrawingAreaErrorKind<E>> for Graph
     fn from(err: DrawingAreaErrorKind<E>) -> Self {
         Self::Plotter(err.to_string())
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum InvalidBgState {
+    #[error("missing embed")]
+    MissingEmbed,
 }
 
 #[derive(Debug, thiserror::Error)]

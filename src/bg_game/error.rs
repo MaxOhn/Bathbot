@@ -19,8 +19,6 @@ pub enum BgGameError {
     IoSubimage(#[from] IoError),
     #[error("background game not available for {0}")]
     Mode(GameMode),
-    #[error("no running game in the channel")]
-    NoGame,
     #[error("osu error")]
     Osu(#[from] OsuError),
     #[error("could not send restart token")]

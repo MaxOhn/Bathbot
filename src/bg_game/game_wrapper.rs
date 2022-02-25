@@ -136,7 +136,7 @@ impl GameWrapper {
                 *unlocked_game = game;
             }
 
-            ctx.remove_game(channel);
+            ctx.bg_games().remove(&channel);
         });
 
         Self { game, tx }
