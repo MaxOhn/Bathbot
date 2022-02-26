@@ -1,7 +1,6 @@
 use std::fmt::Write;
 
 use eyre::Report;
-use rosu::model::Score as ScoreV1;
 use rosu_pp::{Beatmap as Map, BeatmapExt};
 use rosu_v2::prelude::{Beatmap, GameMode, Score, User};
 use twilight_model::channel::embed::EmbedField;
@@ -43,7 +42,7 @@ impl ScoresEmbed {
         ctx: &Context,
     ) -> Self
     where
-        S: Iterator<Item = &'i ScoreV1>,
+        S: Iterator<Item = &'i Score>,
     {
         let mut fields = Vec::new();
 
@@ -60,7 +59,7 @@ impl ScoresEmbed {
         for (i, score) in scores.enumerate() {
             let (pp, max_pp, stars) = match pp_map {
                 Some(ref map) => {
-                    let mods = score.enabled_mods.bits();
+                    let mods = score.mods.bits();
                     let performance = map.pp().mods(mods).calculate();
 
                     let max_pp = performance.pp() as f32;
@@ -73,13 +72,13 @@ impl ScoresEmbed {
                                 .pp()
                                 .attributes(performance)
                                 .mods(mods)
-                                .n300(score.count300 as usize)
-                                .n100(score.count100 as usize)
-                                .n50(score.count50 as usize)
-                                .n_katu(score.count_katu as usize)
+                                .n300(score.statistics.count_300 as usize)
+                                .n100(score.statistics.count_100 as usize)
+                                .n50(score.statistics.count_50 as usize)
+                                .n_katu(score.statistics.count_katu as usize)
                                 .score(score.score)
                                 .combo(score.max_combo as usize)
-                                .misses(score.count_miss as usize)
+                                .misses(score.statistics.count_miss as usize)
                                 .calculate();
 
                             performance.pp() as f32
@@ -102,25 +101,23 @@ impl ScoresEmbed {
                 acc = score.acc(map.mode),
             );
 
-            if let Some(score_id) = score.score_id {
-                let mods = score.enabled_mods.bits();
-
-                if pinned
-                    .iter()
-                    .any(|s| s.score_id == score_id && s.mods.bits() == mods)
-                {
-                    let _ = write!(name, " 📌");
-                };
+            if pinned
+                .iter()
+                .any(|s| s.score_id == score.score_id && s.mods == score.mods)
+            {
+                let _ = write!(name, " 📌");
             }
 
             let mut value = format!(
                 "{pp} {combo} {hits} {ago}",
                 combo = osu::get_combo(score, map),
                 hits = score.hits_string(map.mode),
-                ago = how_long_ago_dynamic(&score.date)
+                ago = how_long_ago_dynamic(&score.created_at)
             );
 
-            let personal_idx = personal.iter().position(|s| s.created_at == score.date);
+            let personal_idx = personal
+                .iter()
+                .position(|s| s.created_at == score.created_at);
 
             if personal_idx.is_some() || matches!(global_idx, Some((n, _)) if n == i) {
                 value.push_str("\n__**");
@@ -160,7 +157,7 @@ impl ScoresEmbed {
         };
 
         let footer = Footer::new(format!("{:?} map by {}", status, creator_name))
-            .icon_url(format!("{}{}", AVATAR_URL, creator_id));
+            .icon_url(format!("{AVATAR_URL}{}", creator_id));
 
         let description = fields
             .is_empty()

@@ -62,8 +62,6 @@ pub enum Error {
     NoConfig,
     #[error("osu error")]
     Osu(#[from] rosu_v2::error::OsuError),
-    #[error("osu v1 error")]
-    OsuV1(#[from] rosu::OsuError),
     #[error("error while calculating pp")]
     Pp(#[from] PpError),
     #[error("failed to send reaction after {0} retries")]

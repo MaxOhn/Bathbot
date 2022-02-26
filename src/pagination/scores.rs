@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use rosu::model::Score as ScoreV1;
 use rosu_v2::prelude::{Beatmap, Score, User};
 use twilight_model::channel::Message;
 
@@ -15,7 +14,7 @@ pub struct ScoresPagination {
     pages: Pages,
     user: User,
     map: Beatmap,
-    scores: Vec<ScoreV1>,
+    scores: Vec<Score>,
     pinned: Vec<Score>,
     personal: Vec<Score>,
     global_idx: Option<(usize, usize)>,
@@ -27,7 +26,7 @@ impl ScoresPagination {
         msg: Message,
         user: User,
         map: Beatmap,
-        scores: Vec<ScoreV1>,
+        scores: Vec<Score>,
         pinned: Vec<Score>,
         personal: Vec<Score>,
         global_idx: Option<(usize, usize)>,

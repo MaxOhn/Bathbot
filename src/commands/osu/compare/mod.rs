@@ -10,8 +10,7 @@ use std::{
 
 use eyre::Report;
 use hashbrown::HashMap;
-use rosu::prelude::{GameMode as GameModeV1, Score};
-use rosu_v2::prelude::{GameMode, Username};
+use rosu_v2::prelude::{GameMode, Score, Username};
 use twilight_model::{
     application::{
         command::CommandOptionChoice,
@@ -251,7 +250,7 @@ impl Default for ScoreOrder {
 }
 
 impl ScoreOrder {
-    pub async fn apply(self, ctx: &Context, scores: &mut [Score], map_id: u32, mode: GameModeV1) {
+    pub async fn apply(self, ctx: &Context, scores: &mut [Score], map_id: u32) {
         if scores.len() <= 1 {
             return;
         }
@@ -259,26 +258,29 @@ impl ScoreOrder {
         match self {
             Self::Acc => {
                 scores.sort_unstable_by(|a, b| {
-                    b.accuracy(mode)
-                        .partial_cmp(&a.accuracy(mode))
+                    b.accuracy
+                        .partial_cmp(&a.accuracy)
                         .unwrap_or(Ordering::Equal)
                 });
             }
             Self::Combo => scores.sort_unstable_by_key(|s| Reverse(s.max_combo)),
-            Self::Date => scores.sort_unstable_by_key(|s| Reverse(s.date)),
+            Self::Date => scores.sort_unstable_by_key(|s| Reverse(s.created_at)),
             Self::Misses => scores.sort_unstable_by(|a, b| {
-                b.count_miss.cmp(&a.count_miss).then_with(|| {
-                    let hits_a = a.total_hits(mode);
-                    let hits_b = b.total_hits(mode);
+                b.statistics
+                    .count_miss
+                    .cmp(&a.statistics.count_miss)
+                    .then_with(|| {
+                        let hits_a = a.total_hits();
+                        let hits_b = b.total_hits();
 
-                    let ratio_a = a.count_miss as f32 / hits_a as f32;
-                    let ratio_b = b.count_miss as f32 / hits_b as f32;
+                        let ratio_a = a.statistics.count_miss as f32 / hits_a as f32;
+                        let ratio_b = b.statistics.count_miss as f32 / hits_b as f32;
 
-                    ratio_b
-                        .partial_cmp(&ratio_a)
-                        .unwrap_or(Ordering::Equal)
-                        .then_with(|| hits_b.cmp(&hits_a))
-                })
+                        ratio_b
+                            .partial_cmp(&ratio_a)
+                            .unwrap_or(Ordering::Equal)
+                            .then_with(|| hits_b.cmp(&hits_a))
+                    })
             }),
             Self::Pp => {
                 let mut calc = match PpCalculator::new(ctx, map_id).await {
@@ -293,21 +295,21 @@ impl ScoreOrder {
                 let pp = scores
                     .iter()
                     .map(|score| {
-                        let id = score.date.timestamp();
+                        let id = score.created_at.timestamp();
 
                         (id, calc.score(score).pp() as f32)
                     })
                     .collect::<HashMap<_, _>>();
 
                 scores.sort_unstable_by(|a, b| {
-                    let id_a = a.date.timestamp();
+                    let id_a = a.created_at.timestamp();
 
                     let pp_a = match pp.get(&id_a) {
                         Some(pp) => pp,
                         None => return Ordering::Greater,
                     };
 
-                    let id_b = b.date.timestamp();
+                    let id_b = b.created_at.timestamp();
 
                     let pp_b = match pp.get(&id_b) {
                         Some(pp) => pp,
@@ -331,21 +333,21 @@ impl ScoreOrder {
                 let stars = scores
                     .iter()
                     .map(|score| {
-                        let id = score.date.timestamp();
+                        let id = score.created_at.timestamp();
 
                         (id, calc.score(score).stars() as f32)
                     })
                     .collect::<HashMap<_, _>>();
 
                 scores.sort_unstable_by(|a, b| {
-                    let id_a = a.date.timestamp();
+                    let id_a = a.created_at.timestamp();
 
                     let stars_a = match stars.get(&id_a) {
                         Some(stars) => stars,
                         None => return Ordering::Greater,
                     };
 
-                    let id_b = b.date.timestamp();
+                    let id_b = b.created_at.timestamp();
 
                     let stars_b = match stars.get(&id_b) {
                         Some(stars) => stars,

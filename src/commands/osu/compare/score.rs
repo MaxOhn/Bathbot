@@ -257,11 +257,9 @@ pub(super) async fn _compare(
         match get_user_cached(&ctx, &user_args).await {
             Ok(user) => {
                 let scores_fut = ctx
-                    .clients
-                    .osu_v1
-                    .scores(map_id)
-                    .user(name.as_str())
-                    .mode((map.mode as u8).into());
+                    .osu()
+                    .beatmap_user_scores(map_id, user.user_id)
+                    .mode(map.mode);
 
                 match scores_fut.await {
                     Ok(scores) => (user, scores),
@@ -276,11 +274,9 @@ pub(super) async fn _compare(
                 user_args.name = &alt_name;
 
                 let scores_fut = ctx
-                    .clients
-                    .osu_v1
-                    .scores(map_id)
-                    .user(alt_name.as_str())
-                    .mode((map.mode as u8).into());
+                    .osu()
+                    .beatmap_user_scores(map_id, alt_name.as_str())
+                    .mode(map.mode);
 
                 match tokio::join!(get_user_cached(&ctx, &user_args), scores_fut) {
                     (Err(OsuError::NotFound), _) => {
@@ -309,11 +305,9 @@ pub(super) async fn _compare(
         }
     } else {
         let scores_fut = ctx
-            .clients
-            .osu_v1
-            .scores(map_id)
-            .user(name.as_str())
-            .mode((map.mode as u8).into());
+            .osu()
+            .beatmap_user_scores(map_id, name.as_str())
+            .mode(map.mode);
 
         match tokio::join!(get_user_cached(&ctx, &user_args), scores_fut) {
             (Err(OsuError::NotFound), _) => {
@@ -346,8 +340,7 @@ pub(super) async fn _compare(
         .mode(map.mode)
         .limit(100);
 
-    let mode_v1 = (map.mode as u8).into();
-    let sort_fut = sort_by.apply(&ctx, &mut scores, map.map_id, mode_v1);
+    let sort_fut = sort_by.apply(&ctx, &mut scores, map.map_id);
 
     let global_fut = async {
         if matches!(
@@ -399,7 +392,7 @@ pub(super) async fn _compare(
             .max_by_key(|(_, s)| s.score)
             .and_then(|(i, s)| {
                 let user = user.user_id;
-                let timestamp = s.date.timestamp();
+                let timestamp = s.created_at.timestamp();
 
                 globals
                     .iter()
