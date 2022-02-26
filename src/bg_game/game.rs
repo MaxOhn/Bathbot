@@ -14,7 +14,7 @@ use twilight_model::id::{marker::ChannelMarker, Id};
 use twilight_standby::future::WaitForMessageStream;
 
 use crate::{
-    commands::fun::Effects,
+    commands::fun::{Effects, GameDifficulty},
     database::MapsetTagWrapper,
     util::{
         constants::{
@@ -32,6 +32,7 @@ pub struct Game {
     pub title: String,
     pub artist: String,
     pub mapset_id: u32,
+    difficulty: f32,
     hints: Arc<RwLock<Hints>>,
     reveal: Arc<RwLock<ImageReveal>>,
 }
@@ -42,9 +43,10 @@ impl Game {
         mapsets: &[MapsetTagWrapper],
         previous_ids: &mut VecDeque<u32>,
         effects: Effects,
+        difficulty: GameDifficulty,
     ) -> (Self, Vec<u8>) {
         loop {
-            match Game::_new(ctx, mapsets, previous_ids, effects).await {
+            match Game::new_(ctx, mapsets, previous_ids, effects, difficulty).await {
                 Ok(game) => {
                     let sub_image_result = { game.reveal.read().sub_image() };
 
@@ -68,11 +70,12 @@ impl Game {
         }
     }
 
-    async fn _new(
+    async fn new_(
         ctx: &Context,
         mapsets: &[MapsetTagWrapper],
         previous_ids: &mut VecDeque<u32>,
         effects: Effects,
+        difficulty: GameDifficulty,
     ) -> GameResult<Self> {
         let mut path = CONFIG.get().unwrap().bg_path.clone();
 
@@ -135,6 +138,7 @@ impl Game {
             hints: Arc::new(RwLock::new(Hints::new(&title, mapset.tags))),
             title,
             artist,
+            difficulty: difficulty.value(),
             mapset_id: mapset.mapset_id,
             reveal: Arc::new(RwLock::new(ImageReveal::new(img))),
         })
@@ -163,7 +167,9 @@ impl Game {
         let similarity = levenshtein_similarity(content, &self.title);
 
         // Then through longest common substrings (generally more lenient than levenshtein)
-        if similarity > 0.5 || gestalt_pattern_matching(content, &self.title) > 0.6 {
+        if similarity > self.difficulty
+            || gestalt_pattern_matching(content, &self.title) > self.difficulty + 0.1
+        {
             return ContentResult::Title(false);
         }
 
@@ -172,7 +178,9 @@ impl Game {
             if content == self.artist {
                 return ContentResult::Artist(true);
             // Dissimilar enough from the title but similar enough to the artist?
-            } else if similarity < 0.3 && levenshtein_similarity(content, &self.artist) > 0.5 {
+            } else if similarity < 0.3
+                && levenshtein_similarity(content, &self.artist) > self.difficulty
+            {
                 return ContentResult::Artist(false);
             }
         }

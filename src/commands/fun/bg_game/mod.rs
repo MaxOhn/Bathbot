@@ -113,12 +113,36 @@ bitflags! {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum GameDifficulty {
+    Normal,
+    Hard,
+    Impossible,
+}
+
+impl GameDifficulty {
+    pub fn value(self) -> f32 {
+        match self {
+            GameDifficulty::Normal => 0.5,
+            GameDifficulty::Hard => 0.75,
+            GameDifficulty::Impossible => 0.95,
+        }
+    }
+}
+
+impl Default for GameDifficulty {
+    fn default() -> Self {
+        Self::Normal
+    }
+}
+
 pub enum GameState {
     Running {
         game: GameWrapper,
     },
     Setup {
         author: Id<UserMarker>,
+        difficulty: GameDifficulty,
         effects: Effects,
         excluded: MapsetTags,
         included: MapsetTags,
@@ -284,6 +308,7 @@ pub async fn handle_bg_start_button(
             }
             GameState::Setup {
                 author,
+                difficulty,
                 effects,
                 excluded,
                 included,
@@ -313,9 +338,10 @@ pub async fn handle_bg_start_button(
                     }
                 };
 
-                let embed = BGTagsEmbed::new(*included, *excluded, mapsets.len(), *effects)
-                    .into_builder()
-                    .build();
+                let embed =
+                    BGTagsEmbed::new(*included, *excluded, mapsets.len(), *effects, *difficulty)
+                        .into_builder()
+                        .build();
 
                 if let Err(err) = remove_components(&ctx, &component, Some(embed)).await {
                     let report = Report::new(err).wrap_err("failed to remove components");
@@ -334,7 +360,9 @@ pub async fn handle_bg_start_button(
                     excluded.join(',')
                 );
 
-                let game = GameWrapper::new(Arc::clone(&ctx), channel, mapsets, *effects).await;
+                let game =
+                    GameWrapper::new(Arc::clone(&ctx), channel, mapsets, *effects, *difficulty)
+                        .await;
 
                 entry.insert(GameState::Running { game });
             }
@@ -728,16 +756,25 @@ pub async fn slash_bg(ctx: Arc<Context>, command: ApplicationCommand) -> BotResu
     }
 
     let mut mode = None;
+    let mut difficulty = None;
 
     for option in &command.data.options {
         match option.value {
             CommandOptionValue::String(ref value) => match option.name.as_str() {
+                "difficulty" => match value.as_str() {
+                    "normal" => difficulty = Some(GameDifficulty::Normal),
+                    "hard" => difficulty = Some(GameDifficulty::Hard),
+                    "impossible" => difficulty = Some(GameDifficulty::Impossible),
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
                 MODE => mode = parse_mode_option(value),
                 _ => return Err(Error::InvalidCommandOptions),
             },
             _ => return Err(Error::InvalidCommandOptions),
         }
     }
+
+    let difficulty = difficulty.unwrap_or_default();
 
     let state = match mode {
         Some(GameMode::STD) | None => {
@@ -755,6 +792,7 @@ pub async fn slash_bg(ctx: Arc<Context>, command: ApplicationCommand) -> BotResu
 
             GameState::Setup {
                 author,
+                difficulty,
                 effects: Effects::empty(),
                 excluded: MapsetTags::empty(),
                 included: MapsetTags::empty(),
@@ -783,6 +821,7 @@ pub async fn slash_bg(ctx: Arc<Context>, command: ApplicationCommand) -> BotResu
                 command.channel_id,
                 mapsets,
                 Effects::empty(),
+                difficulty,
             );
 
             GameState::Running {
@@ -811,6 +850,30 @@ pub fn define_bg() -> MyCommand {
 
     let mode = MyCommandOption::builder(MODE, SPECIFY_MODE).string(mode_choices, false);
 
+    let difficulty_choices = vec![
+        CommandOptionChoice::String {
+            name: "Normal".to_owned(),
+            value: "normal".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Hard".to_owned(),
+            value: "hard".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Impossible".to_owned(),
+            value: "impossible".to_owned(),
+        },
+    ];
+
+    let difficulty_description = "Increase difficulty by requiring better guessing";
+
+    let difficulty_help = "Increase the difficulty.\n\
+        The higher the difficulty, the more accurate guesses have to be in order to be accepted.";
+
+    let difficulty = MyCommandOption::builder("difficulty", difficulty_description)
+        .help(difficulty_help)
+        .string(difficulty_choices, false);
+
     let description = "Start a new background guessing game";
 
     let help = "Start a new background guessing game.\n\
@@ -828,5 +891,5 @@ pub fn define_bg() -> MyCommand {
 
     MyCommand::new("bg", description)
         .help(help)
-        .options(vec![mode])
+        .options(vec![mode, difficulty])
 }

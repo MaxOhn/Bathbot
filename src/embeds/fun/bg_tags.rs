@@ -1,8 +1,13 @@
-use crate::{bg_game::MapsetTags, commands::fun::Effects, embeds::EmbedFields};
+use crate::{
+    bg_game::MapsetTags,
+    commands::fun::{Effects, GameDifficulty},
+    embeds::{EmbedFields, Footer},
+};
 
 pub struct BGTagsEmbed {
     description: &'static str,
     fields: EmbedFields,
+    footer: Footer,
     title: String,
 }
 
@@ -12,6 +17,7 @@ impl BGTagsEmbed {
         excluded: MapsetTags,
         amount: usize,
         effects: Effects,
+        difficulty: GameDifficulty,
     ) -> Self {
         let include_value = if !included.is_empty() {
             included.join('\n')
@@ -43,9 +49,12 @@ impl BGTagsEmbed {
             .then(|| "No stored backgrounds match these tags, try different ones")
             .unwrap_or_default();
 
+        let footer = Footer::new(format!("Difficulty: {difficulty:?}"));
+
         Self {
-            fields,
             description,
+            fields,
+            footer,
             title: format!("Selected tags ({amount} backgrounds)"),
         }
     }
@@ -54,5 +63,6 @@ impl BGTagsEmbed {
 impl_builder!(BGTagsEmbed {
     description,
     fields,
+    footer,
     title,
 });
