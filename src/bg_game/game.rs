@@ -2,7 +2,10 @@ use std::{collections::VecDeque, sync::Arc};
 
 use eyre::Report;
 use futures::future::TryFutureExt;
-use image::GenericImageView;
+use image::{
+    imageops::{self, colorops},
+    GenericImageView,
+};
 use parking_lot::RwLock;
 use rosu_v2::model::GameMode;
 use tokio::{fs, sync::RwLock as TokioRwLock};
@@ -11,6 +14,7 @@ use twilight_model::id::{marker::ChannelMarker, Id};
 use twilight_standby::future::WaitForMessageStream;
 
 use crate::{
+    commands::fun::Effects,
     database::MapsetTagWrapper,
     util::{
         constants::{
@@ -37,9 +41,10 @@ impl Game {
         ctx: &Context,
         mapsets: &[MapsetTagWrapper],
         previous_ids: &mut VecDeque<u32>,
+        effects: Effects,
     ) -> (Self, Vec<u8>) {
         loop {
-            match Game::_new(ctx, mapsets, previous_ids).await {
+            match Game::_new(ctx, mapsets, previous_ids, effects).await {
                 Ok(game) => {
                     let sub_image_result = { game.reveal.read().sub_image() };
 
@@ -67,6 +72,7 @@ impl Game {
         ctx: &Context,
         mapsets: &[MapsetTagWrapper],
         previous_ids: &mut VecDeque<u32>,
+        effects: Effects,
     ) -> GameResult<Self> {
         let mut path = CONFIG.get().unwrap().bg_path.clone();
 
@@ -81,22 +87,46 @@ impl Game {
         debug!("Next BG mapset id: {mapset_id}");
         path.push(&mapset.filename);
 
-        let img_fut = fs::read(path)
-            .map_err(|source| BgGameError::Io { source, mapset_id })
-            .and_then(|img_vec| {
-                async move { image::load_from_memory(&img_vec) }
-                    .map_ok(|img| {
-                        let (w, h) = img.dimensions();
+        let img_fut = async {
+            let bytes = fs::read(path)
+                .map_err(|source| BgGameError::Io { source, mapset_id })
+                .await?;
 
-                        // 800*600 (4:3)
-                        if w * h > 480_000 {
-                            img.thumbnail(800, 600)
-                        } else {
-                            img
-                        }
-                    })
-                    .map_err(BgGameError::Image)
-            });
+            let mut img = image::load_from_memory(&bytes).map_err(BgGameError::Image)?;
+
+            let (w, h) = img.dimensions();
+
+            // 800*600 (4:3)
+            if w * h > 480_000 {
+                img = img.thumbnail(800, 600);
+            }
+
+            if effects.contains(Effects::Invert) {
+                img.invert();
+            }
+
+            if effects.contains(Effects::Contrast) {
+                colorops::contrast_in_place(&mut img, 18.0);
+            }
+
+            if effects.contains(Effects::FlipHorizontal) {
+                imageops::flip_horizontal_in_place(&mut img);
+            }
+
+            if effects.contains(Effects::FlipVertical) {
+                imageops::flip_vertical_in_place(&mut img);
+            }
+
+            if effects.contains(Effects::Grayscale) {
+                img = img.grayscale();
+            }
+
+            if effects.contains(Effects::Blur) {
+                img = img.blur(4.0);
+            }
+
+            Ok(img)
+        };
 
         let ((title, artist), img) =
             tokio::try_join!(util::get_title_artist(ctx, mapset.mapset_id), img_fut)?;
@@ -208,7 +238,7 @@ pub async fn game_loop(
                 } else {
                     format!(
                         "`{}` got the artist almost correct, \
-                            it's actually `{}` but can you get the title?",
+                        it's actually `{}` but can you get the title?",
                         msg.author.name, game.artist
                     )
                 };

@@ -1,3 +1,5 @@
+#![allow(non_upper_case_globals)]
+
 mod bigger;
 mod hint;
 mod rankings;
@@ -7,6 +9,7 @@ mod tags;
 
 use std::sync::Arc;
 
+use bitflags::bitflags;
 use dashmap::mapref::entry::Entry;
 use eyre::Report;
 use rosu_v2::prelude::GameMode;
@@ -33,7 +36,7 @@ use twilight_model::{
 use crate::{
     bg_game::{GameWrapper, MapsetTags},
     commands::{parse_mode_option, MyCommand, MyCommandOption},
-    embeds::{BGHelpEmbed, BGTagsEmbed, EmbedBuilder, EmbedData},
+    embeds::{BGTagsEmbed, EmbedBuilder, EmbedData},
     error::{Error, InvalidBgState},
     util::{
         constants::{
@@ -48,18 +51,27 @@ use crate::{
 pub use self::{bigger::*, hint::*, rankings::*, skip::*, stop::*, tags::*};
 
 #[command]
-#[short_desc("Play the background guessing game")]
-#[long_desc(
-    "Play the background guessing game.\n\
-    Use this command without arguments to see the full help."
-)]
+#[short_desc("Play the background guessing game, use `/bg` to start")]
 #[aliases("bg")]
 #[sub_commands(skip, bigger, hint, stop, rankings)]
 pub async fn backgroundgame(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, .. } => match args.next() {
             None | Some(HELP) => {
-                let builder = BGHelpEmbed::new().into_builder().build().into();
+                let content = "Use `/bg` to start a new background guessing game.\n\
+                    Given part of a map's background, try to guess the **title** of the map's song.\n\
+                    You don't need to guess content in parentheses `(...)` or content after `ft.` or `feat.`.\n\n\
+                    Use these prefix commands to initiate with the game:\n\
+                    • `<bg s[kip]` / `<bg r[esolve]`: Resolve the current background and \
+                    give a new one with the same tag specs.\n\
+                    • `<bg h[int]`: Receive a hint (can be used multiple times).\n\
+                    • `<bg b[igger]`: Increase the radius of the displayed image (can be used multiple times).\n\
+                    • `<bg stop`: Resolve the current background and stop the game.
+                    • `<bg l[eaderboard] s[erver]`: Check out the global leaderboard for \
+                    amount of correct guesses. If `server` or `s` is added at the end, \
+                    I will only show members of this server.";
+
+                let builder = MessageBuilder::new().embed(content);
                 msg.create_message(&ctx, builder).await?;
 
                 Ok(())
@@ -90,12 +102,24 @@ impl ReactionWrapper {
     }
 }
 
+bitflags! {
+    pub struct Effects: u8 {
+        const Blur           = 1 << 0;
+        const Contrast       = 1 << 1;
+        const FlipHorizontal = 1 << 2;
+        const FlipVertical   = 1 << 3;
+        const Grayscale      = 1 << 4;
+        const Invert         = 1 << 5;
+    }
+}
+
 pub enum GameState {
     Running {
         game: GameWrapper,
     },
     Setup {
         author: Id<UserMarker>,
+        effects: Effects,
         excluded: MapsetTags,
         included: MapsetTags,
     },
@@ -260,6 +284,7 @@ pub async fn handle_bg_start_button(
             }
             GameState::Setup {
                 author,
+                effects,
                 excluded,
                 included,
             } => {
@@ -288,7 +313,7 @@ pub async fn handle_bg_start_button(
                     }
                 };
 
-                let embed = BGTagsEmbed::new(*included, *excluded, mapsets.len())
+                let embed = BGTagsEmbed::new(*included, *excluded, mapsets.len(), *effects)
                     .into_builder()
                     .build();
 
@@ -299,6 +324,7 @@ pub async fn handle_bg_start_button(
 
                 if mapsets.is_empty() {
                     entry.remove();
+
                     return Ok(());
                 }
 
@@ -308,7 +334,7 @@ pub async fn handle_bg_start_button(
                     excluded.join(',')
                 );
 
-                let game = GameWrapper::new(Arc::clone(&ctx), channel, mapsets).await;
+                let game = GameWrapper::new(Arc::clone(&ctx), channel, mapsets, *effects).await;
 
                 entry.insert(GameState::Running { game });
             }
@@ -351,6 +377,98 @@ pub async fn handle_bg_start_cancel(
 
                 entry.remove();
                 remove_components(ctx, &component, Some(embed)).await?;
+            }
+        },
+        Entry::Vacant(_) => {
+            if let Err(err) = remove_components(ctx, &component, None).await {
+                let report = Report::new(err).wrap_err("failed to remove components");
+                warn!("{report:?}");
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn handle_bg_start_effects(
+    ctx: &Context,
+    mut component: MessageComponentInteraction,
+) -> BotResult<()> {
+    match ctx.bg_games().entry(component.channel_id) {
+        Entry::Occupied(mut entry) => match entry.get_mut() {
+            GameState::Running { .. } => {
+                if let Err(err) = remove_components(ctx, &component, None).await {
+                    let report = Report::new(err).wrap_err("failed to remove components");
+                    warn!("{report:?}");
+                }
+            }
+            GameState::Setup {
+                author, effects, ..
+            } => {
+                if *author != component.user_id()? {
+                    return Ok(());
+                }
+
+                *effects = component
+                    .data
+                    .values
+                    .iter()
+                    .fold(Effects::empty(), |effects, value| {
+                        effects
+                            | match value.as_str() {
+                                "blur" => Effects::Blur,
+                                "contrast" => Effects::Contrast,
+                                "flip_h" => Effects::FlipHorizontal,
+                                "flip_v" => Effects::FlipVertical,
+                                "grayscale" => Effects::Grayscale,
+                                "invert" => Effects::Invert,
+                                _ => {
+                                    warn!("unknown effects `{value}`");
+
+                                    return effects;
+                                }
+                            }
+                    });
+
+                let mut embed = component
+                    .message
+                    .embeds
+                    .pop()
+                    .ok_or(InvalidBgState::MissingEmbed)?;
+
+                let field_opt = embed
+                    .fields
+                    .iter_mut()
+                    .find(|field| field.name == "Effects");
+
+                if let Some(field) = field_opt {
+                    field.value = effects.join(", ");
+                } else {
+                    let field = EmbedField {
+                        inline: false,
+                        name: "Effects".to_owned(),
+                        value: effects.join(", "),
+                    };
+
+                    embed.fields.push(field);
+                }
+
+                let callback_data = CallbackData {
+                    allowed_mentions: None,
+                    components: None,
+                    content: None,
+                    embeds: Some(vec![embed]),
+                    flags: None,
+                    tts: None,
+                };
+
+                let response = InteractionResponse::UpdateMessage(callback_data);
+                let client = ctx.interaction();
+
+                client
+                    .interaction_callback(component.id, &component.token, &response)
+                    .exec()
+                    .await?;
             }
         },
         Entry::Vacant(_) => {
@@ -535,9 +653,68 @@ fn bg_components() -> Vec<Component> {
         ],
     };
 
+    let effects = vec![
+        SelectMenuOption {
+            default: false,
+            description: Some("Blur the image".to_owned()),
+            emoji: None,
+            label: "blur".to_owned(),
+            value: "blur".to_owned(),
+        },
+        SelectMenuOption {
+            default: false,
+            description: Some("Increase the color contrast".to_owned()),
+            emoji: None,
+            label: "Contrast".to_owned(),
+            value: "contrast".to_owned(),
+        },
+        SelectMenuOption {
+            default: false,
+            description: Some("Flip the image horizontally".to_owned()),
+            emoji: None,
+            label: "Flip horizontal".to_owned(),
+            value: "flip_h".to_owned(),
+        },
+        SelectMenuOption {
+            default: false,
+            description: Some("Flip the image vertically".to_owned()),
+            emoji: None,
+            label: "Flip vertical".to_owned(),
+            value: "flip_v".to_owned(),
+        },
+        SelectMenuOption {
+            default: false,
+            description: Some("Grayscale the colors".to_owned()),
+            emoji: None,
+            label: "Grayscale".to_owned(),
+            value: "grayscale".to_owned(),
+        },
+        SelectMenuOption {
+            default: false,
+            description: Some("Invert the colors".to_owned()),
+            emoji: None,
+            label: "Invert".to_owned(),
+            value: "invert".to_owned(),
+        },
+    ];
+
+    let effects_menu = SelectMenu {
+        custom_id: "bg_start_effects".to_owned(),
+        disabled: false,
+        max_values: Some(effects.len() as u8),
+        min_values: Some(0),
+        options: effects,
+        placeholder: Some("Modify images through effects".to_owned()),
+    };
+
+    let effects_row = ActionRow {
+        components: vec![Component::SelectMenu(effects_menu)],
+    };
+
     vec![
         Component::ActionRow(include_row),
         Component::ActionRow(exclude_row),
+        Component::ActionRow(effects_row),
         Component::ActionRow(button_row),
     ]
 }
@@ -578,6 +755,7 @@ pub async fn slash_bg(ctx: Arc<Context>, command: ApplicationCommand) -> BotResu
 
             GameState::Setup {
                 author,
+                effects: Effects::empty(),
                 excluded: MapsetTags::empty(),
                 included: MapsetTags::empty(),
             }
@@ -600,8 +778,15 @@ pub async fn slash_bg(ctx: Arc<Context>, command: ApplicationCommand) -> BotResu
             let builder = MessageBuilder::new().embed(content);
             command.create_message(&ctx, builder).await?;
 
+            let game_fut = GameWrapper::new(
+                Arc::clone(&ctx),
+                command.channel_id,
+                mapsets,
+                Effects::empty(),
+            );
+
             GameState::Running {
-                game: GameWrapper::new(Arc::clone(&ctx), command.channel_id, mapsets).await,
+                game: game_fut.await,
             }
         }
         Some(GameMode::TKO | GameMode::CTB) => unreachable!(),

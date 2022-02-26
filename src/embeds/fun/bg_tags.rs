@@ -1,15 +1,20 @@
-use crate::{bg_game::MapsetTags, embeds::EmbedFields};
+use crate::{bg_game::MapsetTags, commands::fun::Effects, embeds::EmbedFields};
 
 pub struct BGTagsEmbed {
     description: &'static str,
     fields: EmbedFields,
-    title: &'static str,
+    title: String,
 }
 
 impl BGTagsEmbed {
-    pub fn new(included: MapsetTags, excluded: MapsetTags, amount: usize) -> Self {
+    pub fn new(
+        included: MapsetTags,
+        excluded: MapsetTags,
+        amount: usize,
+        effects: Effects,
+    ) -> Self {
         let include_value = if !included.is_empty() {
-            included.join("\n")
+            included.join('\n')
         } else if excluded.is_empty() {
             "Any".to_owned()
         } else {
@@ -17,7 +22,13 @@ impl BGTagsEmbed {
         };
 
         let excluded_value = if !excluded.is_empty() {
-            excluded.join("\n")
+            excluded.join('\n')
+        } else {
+            "None".to_owned()
+        };
+
+        let effects_value = if !effects.is_empty() {
+            effects.join('\n')
         } else {
             "None".to_owned()
         };
@@ -25,7 +36,7 @@ impl BGTagsEmbed {
         let fields = vec![
             field!("Included", include_value, true),
             field!("Excluded", excluded_value, true),
-            field!("#Backgrounds", amount.to_string(), true),
+            field!("Effects", effects_value, true),
         ];
 
         let description = (amount == 0)
@@ -35,7 +46,7 @@ impl BGTagsEmbed {
         Self {
             fields,
             description,
-            title: "Selected tags",
+            title: format!("Selected tags ({amount} backgrounds)"),
         }
     }
 }

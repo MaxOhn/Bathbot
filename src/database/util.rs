@@ -9,7 +9,7 @@ pub trait CustomSQL: Sized + Write {
 
 impl CustomSQL for String {
     fn set_tags(mut self, delim: &str, tags: MapsetTags, value: bool) -> BotResult<Self> {
-        let size = tags.size();
+        let size = tags.bits().count_ones() as usize;
         let mut tags = tags.into_iter();
 
         let first_tag = match tags.next() {

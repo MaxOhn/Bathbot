@@ -16,6 +16,7 @@ use twilight_model::{
 };
 
 use crate::{
+    commands::fun::Effects,
     database::MapsetTagWrapper,
     util::{constants::OSU_BASE, MessageExt},
     Context, MessageBuilder,
@@ -35,6 +36,7 @@ impl GameWrapper {
         ctx: Arc<Context>,
         channel: Id<ChannelMarker>,
         mapsets: Vec<MapsetTagWrapper>,
+        effects: Effects,
     ) -> Self {
         let (tx, mut rx) = mpsc::unbounded_channel();
 
@@ -46,7 +48,7 @@ impl GameWrapper {
         let mut scores = HashMap::new();
 
         // Initialize game
-        let (game, mut img) = Game::new(&ctx, &mapsets, &mut previous_ids).await;
+        let (game, mut img) = Game::new(&ctx, &mapsets, &mut previous_ids, effects).await;
         let game = Arc::new(RwLock::new(game));
         let game_clone = Arc::clone(&game);
 
@@ -130,7 +132,7 @@ impl GameWrapper {
                 }
 
                 // Initialize next game
-                let (game, img_) = Game::new(&ctx, &mapsets, &mut previous_ids).await;
+                let (game, img_) = Game::new(&ctx, &mapsets, &mut previous_ids, effects).await;
                 img = img_;
                 let mut unlocked_game = game_clone.write().await;
                 *unlocked_game = game;

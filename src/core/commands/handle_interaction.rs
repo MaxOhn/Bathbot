@@ -85,6 +85,7 @@ pub async fn handle_component(
         "help_menu" | "help_back" => help::handle_menu_select(&ctx, *component).await,
         "bg_start_include" => fun::handle_bg_start_include(&ctx, *component).await,
         "bg_start_exclude" => fun::handle_bg_start_exclude(&ctx, *component).await,
+        "bg_start_effects" => fun::handle_bg_start_effects(&ctx, *component).await,
         "bg_start_button" => fun::handle_bg_start_button(ctx, *component).await,
         "bg_start_cancel" => fun::handle_bg_start_cancel(&ctx, *component).await,
         _ => Err(Error::UnknownMessageComponent { component }),

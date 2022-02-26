@@ -1,9 +1,10 @@
 #![allow(non_upper_case_globals)]
 
-use crate::util::CowUtils;
+use std::str::FromStr;
 
 use bitflags::bitflags;
-use std::{fmt::Write, str::FromStr};
+
+use crate::util::CowUtils;
 
 bitflags! {
     pub struct MapsetTags: u32 {
@@ -51,68 +52,5 @@ impl FromStr for MapsetTags {
         };
 
         Ok(result)
-    }
-}
-
-impl MapsetTags {
-    pub fn size(self) -> usize {
-        self.bits().count_ones() as usize
-    }
-
-    pub fn join(self, separator: impl std::fmt::Display) -> String {
-        let mut iter = self.into_iter();
-
-        let first_tag = match iter.next() {
-            Some(first_tag) => first_tag,
-            None => return "None".to_owned(),
-        };
-
-        let mut result = String::with_capacity(self.size() * 6);
-        let _ = write!(result, "{first_tag:?}");
-
-        for element in iter {
-            let _ = write!(result, "{separator}{element:?}");
-        }
-
-        result
-    }
-}
-
-pub struct IntoIter {
-    tags: MapsetTags,
-    shift: usize,
-}
-
-impl Iterator for IntoIter {
-    type Item = MapsetTags;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.tags.is_empty() {
-            None
-        } else {
-            loop {
-                if self.shift == 32 {
-                    return None;
-                }
-
-                let bit = 1 << self.shift;
-                self.shift += 1;
-                if self.tags.bits & bit != 0 {
-                    return MapsetTags::from_bits(bit);
-                }
-            }
-        }
-    }
-}
-
-impl IntoIterator for MapsetTags {
-    type Item = MapsetTags;
-    type IntoIter = IntoIter;
-
-    fn into_iter(self) -> IntoIter {
-        IntoIter {
-            tags: self,
-            shift: 0,
-        }
     }
 }

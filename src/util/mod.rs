@@ -1,4 +1,5 @@
 mod authored;
+mod bitflags;
 pub mod constants;
 mod country_code;
 mod cow;
@@ -13,14 +14,6 @@ pub mod osu;
 
 use std::io::Cursor;
 
-pub use authored::Authored;
-pub use country_code::CountryCode;
-pub use cow::CowUtils;
-pub use emote::Emote;
-pub use exts::*;
-pub use matrix::Matrix;
-pub use message_builder::MessageBuilder;
-
 use futures::stream::{FuturesOrdered, StreamExt};
 use image::{
     imageops::FilterType, DynamicImage, GenericImage, GenericImageView, ImageOutputFormat::Png,
@@ -30,6 +23,11 @@ use twilight_http::error::ErrorType;
 use twilight_model::channel::Message;
 
 use crate::{error::Error, BotResult, Context};
+
+pub use self::{
+    authored::Authored, bitflags::*, country_code::CountryCode, cow::CowUtils, emote::Emote,
+    exts::*, matrix::Matrix, message_builder::MessageBuilder,
+};
 
 macro_rules! get {
     ($slice:ident[$idx:expr]) => {
