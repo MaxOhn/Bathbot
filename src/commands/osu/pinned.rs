@@ -238,7 +238,7 @@ async fn single_embed(
             }
         });
     } else {
-        let mut builder = MessageBuilder::new().embed(embed_data.as_builder().build());
+        let mut builder = MessageBuilder::new().embed(embed_data.into_builder().build());
 
         if let Some(content) = content {
             builder = builder.content(content);
