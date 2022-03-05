@@ -1,7 +1,7 @@
 use std::{fmt::Write, sync::Arc};
 
 use eyre::Report;
-use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score};
+use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, GameMode, GameMods, OsuError, Score};
 use twilight_model::{
     application::interaction::{
         application_command::{CommandDataOption, CommandOptionValue},
@@ -29,7 +29,7 @@ use crate::{
         },
         matcher, numbers,
         osu::ModSelection,
-        ApplicationCommandExt, InteractionExt, MessageExt,
+        ApplicationCommandExt, CowUtils, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
@@ -46,7 +46,11 @@ const PF: GameMods = GameMods::Perfect;
 const SD: GameMods = GameMods::SuddenDeath;
 
 async fn _topif(ctx: Arc<Context>, data: CommandData<'_>, args: IfArgs) -> BotResult<()> {
-    let IfArgs { config, mods } = args;
+    let IfArgs {
+        config,
+        mods,
+        query,
+    } = args;
     let mode = config.mode.unwrap_or(GameMode::STD);
 
     let name = match config.username() {
@@ -121,8 +125,29 @@ async fn _topif(ctx: Arc<Context>, data: CommandData<'_>, args: IfArgs) -> BotRe
     // Calculate adjusted pp
     let adjusted_pp: f32 = scores_data
         .iter()
-        .map(|(i, Score { pp, .. }, ..)| pp.unwrap_or(0.0) * 0.95_f32.powi(*i as i32 - 1))
+        .map(|(i, Score { pp, .. }, _)| pp.unwrap_or(0.0) * 0.95_f32.powi(*i as i32 - 1))
         .sum();
+
+    if let Some(query) = query.as_deref() {
+        let needle = query.cow_to_ascii_lowercase();
+        let mut haystack = String::new();
+
+        scores_data.retain(|(_, score, _)| {
+            let Beatmap { version, .. } = score.map.as_ref().unwrap();
+            let BeatmapsetCompact { artist, title, .. } = score.mapset.as_ref().unwrap();
+            haystack.clear();
+
+            let _ = write!(
+                haystack,
+                "{} - {} [{}]",
+                artist.cow_to_ascii_lowercase(),
+                title.cow_to_ascii_lowercase(),
+                version.cow_to_ascii_lowercase()
+            );
+
+            haystack.contains(needle.as_ref())
+        });
+    }
 
     let adjusted_pp = numbers::round((bonus_pp + adjusted_pp).max(0.0) as f32);
 
@@ -142,7 +167,7 @@ async fn _topif(ctx: Arc<Context>, data: CommandData<'_>, args: IfArgs) -> BotRe
     };
 
     // Accumulate all necessary data
-    let content = get_content(user.username.as_str(), mode, mods);
+    let content = get_content(user.username.as_str(), mode, mods, query.as_deref());
     let pages = numbers::div_euclid(5, scores_data.len());
     let iter = scores_data.iter().take(5);
     let pre_pp = user.statistics.as_ref().map_or(0.0, |stats| stats.pp);
@@ -277,10 +302,10 @@ impl SortableScore for (usize, Score, Option<f32>) {
     }
 }
 
-fn get_content(name: &str, mode: GameMode, mods: ModSelection) -> String {
-    match mods {
+fn get_content(name: &str, mode: GameMode, mods: ModSelection, query: Option<&str>) -> String {
+    let mut content = match mods {
         ModSelection::Exact(mods) => format!(
-            "`{name}`{plural} {mode}top100 with only `{mods}` scores:",
+            "`{name}`{plural} {mode}top100 with only `{mods}` scores",
             plural = plural(name),
             mode = mode_str(mode),
         ),
@@ -306,23 +331,31 @@ fn get_content(name: &str, mode: GameMode, mods: ModSelection) -> String {
                 }
             }
             format!(
-                "`{name}`{plural} {mode}top100 without {mods}:",
+                "`{name}`{plural} {mode}top100 without {mods}",
                 plural = plural(name),
                 mode = mode_str(mode),
                 mods = mod_str
             )
         }
         ModSelection::Include(mods) if mods != NM => format!(
-            "`{name}`{plural} {mode}top100 with `{mods}` inserted everywhere:",
+            "`{name}`{plural} {mode}top100 with `{mods}` inserted everywhere",
             plural = plural(name),
             mode = mode_str(mode),
         ),
         _ => format!(
-            "`{name}`{plural} top {mode}scores:",
+            "`{name}`{plural} top {mode}scores",
             plural = plural(name),
             mode = mode_str(mode),
         ),
+    };
+
+    if let Some(query) = query {
+        let _ = write!(content, " (`Query: {query}`):");
+    } else {
+        content.push(':');
     }
+
+    content
 }
 
 #[command]
@@ -452,6 +485,7 @@ pub async fn slash_topif(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
 struct IfArgs {
     config: UserConfig,
     mods: ModSelection,
+    query: Option<String>,
 }
 
 impl IfArgs {
@@ -483,7 +517,11 @@ impl IfArgs {
             None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
         };
 
-        Ok(Ok(Self { config, mods }))
+        Ok(Ok(Self {
+            config,
+            mods,
+            query: None,
+        }))
     }
 
     async fn slash(
@@ -493,6 +531,7 @@ impl IfArgs {
     ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(command.user_id()?).await?;
         let mut mods = None;
+        let mut query = None;
 
         for option in options {
             match option.value {
@@ -503,6 +542,7 @@ impl IfArgs {
                         None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
                     },
                     MODE => config.mode = parse_mode_option(&value),
+                    "query" => query = Some(value),
                     _ => return Err(Error::InvalidCommandOptions),
                 },
                 CommandOptionValue::User(value) => match option.name.as_str() {
@@ -518,7 +558,11 @@ impl IfArgs {
 
         let mods = mods.ok_or(Error::InvalidCommandOptions)?;
 
-        Ok(Ok(Self { config, mods }))
+        Ok(Ok(Self {
+            config,
+            mods,
+            query,
+        }))
     }
 }
 
@@ -542,9 +586,19 @@ pub fn define_topif() -> MyCommand {
         .string(Vec::new(), true);
 
     let name = option_name();
+
+    let query_description = "Search for a specific artist, title, or difficulty name";
+
+    let query_help = "Search for a specific artist, title, or difficulty name.\n\
+        Filters out all scores for which `{artist} - {title} [{version}]` does not contain the query.";
+
+    let query = MyCommandOption::builder("query", query_description)
+        .help(query_help)
+        .string(vec![], false);
+
     let discord = option_discord();
 
     let if_description = "How the top plays would look like with different mods";
 
-    MyCommand::new("topif", if_description).options(vec![mods, mode, name, discord])
+    MyCommand::new("topif", if_description).options(vec![mods, mode, name, query, discord])
 }

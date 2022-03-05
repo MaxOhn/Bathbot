@@ -6,7 +6,6 @@ use std::{
 };
 
 use eyre::Report;
-use futures::{stream::FuturesOrdered, StreamExt};
 use hashbrown::HashMap;
 use rosu_v2::prelude::{
     Beatmap, BeatmapsetCompact, GameMode, GameMods, Grade, OsuError,
@@ -880,49 +879,37 @@ impl TopOrder {
                     .unwrap_or(Ordering::Equal)
             }),
             Self::Stars => {
-                let stars = scores
-                    .iter()
-                    .map(SortableScore::get)
-                    .map(|score| async move {
-                        let id = score.score_id;
+                let mut stars = HashMap::new();
 
-                        let map = match score.map.as_ref() {
-                            Some(map) => map,
-                            None => return (id, 0.0),
-                        };
+                for score in scores.iter().map(SortableScore::get) {
+                    let id = score.score_id;
 
-                        if !score.mods.changes_stars(score.mode) {
-                            return (id, map.stars);
+                    let map = match score.map.as_ref() {
+                        Some(map) => map,
+                        None => continue,
+                    };
+
+                    if !score.mods.changes_stars(score.mode) {
+                        stars.insert(id, map.stars);
+
+                        continue;
+                    }
+
+                    let stars_ = match PpCalculator::new(ctx, map.map_id).await {
+                        Ok(mut calc) => calc.mods(score.mods).stars() as f32,
+                        Err(err) => {
+                            warn!("{:?}", Report::new(err));
+
+                            continue;
                         }
+                    };
 
-                        let stars = match PpCalculator::new(ctx, map.map_id).await {
-                            Ok(mut calc) => calc.mods(score.mods).stars() as f32,
-                            Err(err) => {
-                                warn!("{:?}", Report::new(err));
-
-                                return (id, 0.0);
-                            }
-                        };
-
-                        (id, stars)
-                    })
-                    .collect::<FuturesOrdered<_>>()
-                    .collect::<HashMap<_, _>>()
-                    .await;
+                    stars.insert(id, stars_);
+                }
 
                 scores.sort_unstable_by(|a, b| {
-                    let a = a.get();
-                    let b = b.get();
-
-                    let stars_a = match stars.get(&a.score_id) {
-                        Some(stars) => stars,
-                        None => return Ordering::Greater,
-                    };
-
-                    let stars_b = match stars.get(&b.score_id) {
-                        Some(stars) => stars,
-                        None => return Ordering::Less,
-                    };
+                    let stars_a = stars.get(&a.get().score_id).unwrap_or(&0.0);
+                    let stars_b = stars.get(&b.get().score_id).unwrap_or(&0.0);
 
                     stars_b.partial_cmp(stars_a).unwrap_or(Ordering::Equal)
                 })
