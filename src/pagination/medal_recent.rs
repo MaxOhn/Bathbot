@@ -25,14 +25,14 @@ use super::{PageChange, Pages, PaginationResult};
 
 struct CachedMedal {
     medal: OsekaiMedal,
-    map_comments: Option<(Vec<OsekaiMap>, Vec<OsekaiComment>)>,
+    map_comment: Option<(Vec<OsekaiMap>, Option<OsekaiComment>)>,
 }
 
 impl CachedMedal {
     fn new(medal: OsekaiMedal) -> Self {
         Self {
             medal,
-            map_comments: None,
+            map_comment: None,
         }
     }
 }
@@ -290,41 +290,45 @@ impl MedalRecentPagination {
                 medal_count: self.achieved_medals.len(),
             };
 
-            let (mut maps, mut comments) = if self.maximized {
-                match medal.map_comments {
+            let (maps, top_comment) = if self.maximized {
+                match medal.map_comment {
                     Some(ref tuple) => tuple.to_owned(),
                     None => {
                         let name = &medal.medal.name;
                         let map_fut = self.ctx.clients.custom.get_osekai_beatmaps(name);
                         let comment_fut = self.ctx.clients.custom.get_osekai_comments(name);
 
-                        let (maps, comments) = match tokio::try_join!(map_fut, comment_fut) {
+                        let (mut maps, comments) = match tokio::try_join!(map_fut, comment_fut) {
                             Ok(tuple) => tuple,
                             Err(why) => {
                                 let wrap = format!(
                                     "failed to retrieve osekai maps or comments for medal {name}"
                                 );
                                 let report = Report::new(why).wrap_err(wrap);
-                                warn!("{:?}", report);
+                                warn!("{report:?}");
 
                                 (Vec::new(), Vec::new())
                             }
                         };
 
-                        medal.map_comments.insert((maps, comments)).to_owned()
+                        let top_comment = comments
+                            .into_iter()
+                            .filter(|comment| comment.parent_id == 0)
+                            .max_by_key(|comment| comment.vote_sum)
+                            .filter(|comment| comment.vote_sum > 0);
+
+                        maps.sort_unstable_by_key(|map| Reverse(map.vote_sum));
+
+                        medal.map_comment.insert((maps, top_comment)).to_owned()
                     }
                 }
             } else {
-                (Vec::new(), Vec::new())
+                (Vec::new(), None)
             };
-
-            comments.retain(|comment| comment.parent_id == 0);
-            comments.sort_unstable_by_key(|comment| Reverse(comment.vote_sum));
-            maps.sort_unstable_by_key(|map| Reverse(map.vote_sum));
 
             let medal = medal.medal.to_owned();
 
-            let embed_data = MedalEmbed::new(medal, Some(achieved), maps, comments);
+            let embed_data = MedalEmbed::new(medal, Some(achieved), maps, top_comment);
             self.embeds.insert((idx, self.maximized), embed_data);
         }
 

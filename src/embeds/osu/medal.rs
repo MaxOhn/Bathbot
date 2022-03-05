@@ -26,7 +26,7 @@ impl MedalEmbed {
         medal: OsekaiMedal,
         achieved: Option<MedalAchieved<'_>>,
         maps: Vec<OsekaiMap>,
-        comments: Vec<OsekaiComment>,
+        comment: Option<OsekaiComment>,
     ) -> Self {
         let mode = medal
             .restriction
@@ -75,35 +75,23 @@ impl MedalEmbed {
             fields.push(field!(format!("Beatmaps: {len}"), map_value, false));
         }
 
-        if !comments.is_empty() {
-            let mut comment_value = String::with_capacity(256);
+        if let Some(comment) = comment {
+            let OsekaiComment {
+                content,
+                username,
+                vote_sum,
+                ..
+            } = comment;
 
-            for comment in comments {
-                let OsekaiComment {
-                    content,
-                    username,
-                    vote_sum,
-                    ..
-                } = comment;
+            let value = format!(
+                "```\n\
+                {content}\n    \
+                - {username} [{vote_sum:+}]\n\
+                ```",
+                content = content.trim(),
+            );
 
-                let c = format!(
-                    "```\n\
-                    {content}\n    \
-                    - {username} [{vote_sum:+}]\n\
-                    ```\n",
-                    content = content.trim(),
-                );
-
-                if c.len() + comment_value.len() < FIELD_VALUE_SIZE {
-                    comment_value += &c;
-                }
-            }
-
-            comment_value.pop();
-
-            if !comment_value.is_empty() {
-                fields.push(field!("Comments", comment_value, false));
-            }
+            fields.push(field!("Top comment", value, false));
         }
 
         let title = medal.name;
