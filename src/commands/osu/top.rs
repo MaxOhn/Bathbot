@@ -1284,16 +1284,23 @@ fn write_content(name: &str, args: &TopArgs, amount: usize) -> Option<String> {
         Some(content_with_condition(args, amount))
     } else {
         let genitive = if name.ends_with('s') { "" } else { "s" };
+        let reverse = if args.reverse { "reversed " } else { "" };
 
         let content = match args.sort_by {
-            TopOrder::Acc => format!("`{name}`'{genitive} top100 sorted by accuracy:"),
-            TopOrder::Bpm => format!("`{name}`'{genitive} top100 sorted by BPM:"),
-            TopOrder::Combo => format!("`{name}`'{genitive} top100 sorted by combo:"),
+            TopOrder::Acc => format!("`{name}`'{genitive} top100 sorted by {reverse}accuracy:"),
+            TopOrder::Bpm => format!("`{name}`'{genitive} top100 sorted by {reverse}BPM:"),
+            TopOrder::Combo => format!("`{name}`'{genitive} top100 sorted by {reverse}combo:"),
+            TopOrder::Date if args.reverse => {
+                format!("Oldest scores in `{name}`'{genitive} top100:")
+            }
             TopOrder::Date => format!("Most recent scores in `{name}`'{genitive} top100:"),
-            TopOrder::Length => format!("`{name}`'{genitive} top100 sorted by length:"),
-            TopOrder::Misses => format!("`{name}`'{genitive} top100 sorted by miss count:"),
-            TopOrder::Pp => return None,
-            TopOrder::Stars => format!("`{name}`'{genitive} top100 sorted by stars:"),
+            TopOrder::Length => format!("`{name}`'{genitive} top100 sorted by {reverse}length:"),
+            TopOrder::Misses => {
+                format!("`{name}`'{genitive} top100 sorted by {reverse}miss count:")
+            }
+            TopOrder::Pp if !args.reverse => return None,
+            TopOrder::Pp => format!("`{name}`'{genitive} top100 sorted by reversed pp:"),
+            TopOrder::Stars => format!("`{name}`'{genitive} top100 sorted by {reverse}stars:"),
         };
 
         Some(content)
