@@ -1,7 +1,8 @@
 use std::fmt::{self, Write};
 
+use chrono::{DateTime, Utc};
 use eyre::Report;
-use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Score, User};
+use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods, Score, User};
 
 use crate::{
     commands::osu::TopOrder,
@@ -64,6 +65,22 @@ impl TopEmbed {
             let stars = osu::get_stars(stars);
             let pp = osu::get_pp(pp, max_pp);
 
+            let mapset_opt = if let TopOrder::RankedDate = sort_by {
+                let mapset_fut = ctx.psql().get_beatmapset::<Beatmapset>(mapset.mapset_id);
+
+                match mapset_fut.await {
+                    Ok(mapset) => Some(mapset),
+                    Err(err) => {
+                        let report = Report::new(err).wrap_err("failed to get mapset");
+                        warn!("{report:?}");
+
+                        None
+                    }
+                }
+            } else {
+                None
+            };
+
             let _ = writeln!(
                 description,
                 "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars}]\n\
@@ -76,7 +93,7 @@ impl TopEmbed {
                 grade = score.grade_emote(score.mode),
                 acc = score.acc(score.mode),
                 score = with_comma_int(score.score),
-                appendix = OrderAppendix::new(sort_by, map, score),
+                appendix = OrderAppendix::new(sort_by, map, mapset_opt, score),
                 combo = osu::get_combo(score, map),
                 hits = score.hits_string(score.mode),
                 ago = how_long_ago_dynamic(&score.created_at)
@@ -120,14 +137,23 @@ impl_builder!(TopEmbed {
 pub struct OrderAppendix<'a> {
     sort_by: TopOrder,
     map: &'a Beatmap,
+    ranked_date: Option<DateTime<Utc>>,
     score: &'a Score,
 }
 
 impl<'a> OrderAppendix<'a> {
-    pub fn new(sort_by: TopOrder, map: &'a Beatmap, score: &'a Score) -> Self {
+    pub fn new(
+        sort_by: TopOrder,
+        map: &'a Beatmap,
+        mapset: Option<Beatmapset>,
+        score: &'a Score,
+    ) -> Self {
+        let ranked_date = mapset.and_then(|mapset| mapset.ranked_date);
+
         Self {
             sort_by,
             map,
+            ranked_date,
             score,
         }
     }
@@ -163,6 +189,13 @@ impl fmt::Display for OrderAppendix<'_> {
                 let secs = (self.map.seconds_drain as f32 / clock_rate) as u32;
 
                 write!(f, " ~ `{}:{:0>2}`", secs / 60, secs % 60)
+            }
+            TopOrder::RankedDate => {
+                if let Some(date) = self.ranked_date {
+                    write!(f, " ~ <t:{}:d>", date.timestamp())
+                } else {
+                    Ok(())
+                }
             }
             _ => Ok(()),
         }

@@ -330,6 +330,7 @@ impl PinnedArgs {
                         "len" => sort_by = Some(TopOrder::Length),
                         "miss" => sort_by = Some(TopOrder::Misses),
                         "pp" => sort_by = Some(TopOrder::Pp),
+                        "ranked_date" => sort_by = Some(TopOrder::RankedDate),
                         "stars" => sort_by = Some(TopOrder::Stars),
                         _ => return Err(Error::InvalidCommandOptions),
                     },
@@ -371,6 +372,9 @@ fn write_content(name: &str, args: &PinnedArgs, amount: usize) -> Option<String>
             TopOrder::Length => format!("`{name}`'{genitive} pinned scores sorted by length:"),
             TopOrder::Misses => format!("`{name}`'{genitive} pinned scores sorted by miss count:"),
             TopOrder::Pp => format!("`{name}`'{genitive} pinned scores sorted by pp"),
+            TopOrder::RankedDate => {
+                format!("`{name}`'{genitive} pinned scores sorted by ranked date:")
+            }
             TopOrder::Stars => format!("`{name}`'{genitive} pinned scores sorted by stars"),
         };
 
@@ -395,6 +399,7 @@ fn content_with_condition(args: &PinnedArgs, amount: usize) -> String {
         Some(TopOrder::Length) => content.push_str("`Order: Length`"),
         Some(TopOrder::Misses) => content.push_str("`Order: Misscount`"),
         Some(TopOrder::Pp) => content.push_str("`Order: Pp`"),
+        Some(TopOrder::RankedDate) => content.push_str("`Order: Ranked date`"),
         Some(TopOrder::Stars) => content.push_str("`Order: Stars`"),
         None => {}
     }
@@ -419,36 +424,40 @@ pub fn define_pinned() -> MyCommand {
 
     let sort_choices = vec![
         CommandOptionChoice::String {
-            name: "pp".to_owned(),
-            value: "pp".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "date".to_owned(),
-            value: "date".to_owned(),
-        },
-        CommandOptionChoice::String {
             name: ACCURACY.to_owned(),
             value: ACC.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "bpm".to_owned(),
+            value: "bpm".to_owned(),
         },
         CommandOptionChoice::String {
             name: COMBO.to_owned(),
             value: COMBO.to_owned(),
         },
         CommandOptionChoice::String {
-            name: "stars".to_owned(),
-            value: "stars".to_owned(),
+            name: "date".to_owned(),
+            value: "date".to_owned(),
         },
         CommandOptionChoice::String {
             name: "length".to_owned(),
             value: "len".to_owned(),
         },
         CommandOptionChoice::String {
+            name: "map ranked date".to_owned(),
+            value: "ranked_date".to_owned(),
+        },
+        CommandOptionChoice::String {
             name: "misses".to_owned(),
             value: "miss".to_owned(),
         },
         CommandOptionChoice::String {
-            name: "bpm".to_owned(),
-            value: "bpm".to_owned(),
+            name: "pp".to_owned(),
+            value: "pp".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "stars".to_owned(),
+            value: "stars".to_owned(),
         },
     ];
 

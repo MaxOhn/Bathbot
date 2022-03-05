@@ -5,10 +5,12 @@ use std::{
     sync::Arc,
 };
 
+use chrono::Utc;
 use eyre::Report;
+use futures::{stream::FuturesUnordered, TryFutureExt, TryStreamExt};
 use hashbrown::HashMap;
 use rosu_v2::prelude::{
-    Beatmap, BeatmapsetCompact, GameMode, GameMods, Grade, OsuError,
+    Beatmap, Beatmapset, BeatmapsetCompact, GameMode, GameMods, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
     Score, User,
 };
@@ -793,6 +795,7 @@ pub enum TopOrder {
     Length,
     Misses,
     Pp,
+    RankedDate,
     Stars,
 }
 
@@ -878,6 +881,77 @@ impl TopOrder {
                     .partial_cmp(&a.get().pp)
                     .unwrap_or(Ordering::Equal)
             }),
+            Self::RankedDate => {
+                let mut mapsets = HashMap::new();
+                let mut new_mapsets = HashMap::new();
+
+                for score in scores.iter().map(SortableScore::get) {
+                    let mapset_id = score.mapset.as_ref().unwrap().mapset_id;
+
+                    match ctx.psql().get_beatmapset::<Beatmapset>(mapset_id).await {
+                        Ok(Beatmapset {
+                            ranked_date: Some(date),
+                            ..
+                        }) => {
+                            mapsets.insert(mapset_id, date);
+                        }
+                        Ok(_) => {
+                            warn!("Missing ranked date for top score DB mapset {mapset_id}");
+
+                            continue;
+                        }
+                        Err(err) => {
+                            let report = Report::new(err).wrap_err("failed to get mapset");
+                            warn!("{report:?}");
+
+                            match ctx.osu().beatmapset(mapset_id).await {
+                                Ok(mapset) => {
+                                    new_mapsets.insert(mapset_id, mapset);
+                                }
+                                Err(err) => {
+                                    let report =
+                                        Report::new(err).wrap_err("failed to request mapset");
+                                    warn!("{report:?}");
+
+                                    continue;
+                                }
+                            }
+                        }
+                    };
+                }
+
+                if !new_mapsets.is_empty() {
+                    let result: Result<(), _> = new_mapsets
+                        .values()
+                        .map(|mapset| ctx.psql().insert_beatmapset(mapset).map_ok(|_| ()))
+                        .collect::<FuturesUnordered<_>>()
+                        .try_collect()
+                        .await;
+
+                    if let Err(err) = result {
+                        let report = Report::new(err).wrap_err("failed to insert mapsets");
+                        warn!("{report:?}");
+                    } else {
+                        info!("Inserted {} mapsets into the DB", new_mapsets.len());
+                    }
+
+                    let iter = new_mapsets
+                        .into_iter()
+                        .filter_map(|(id, mapset)| Some((id, mapset.ranked_date?)));
+
+                    mapsets.extend(iter);
+                }
+
+                scores.sort_unstable_by(|a, b| {
+                    let mapset_a = a.get().mapset.as_ref().unwrap().mapset_id;
+                    let mapset_b = b.get().mapset.as_ref().unwrap().mapset_id;
+
+                    let date_a = mapsets.get(&mapset_a).copied().unwrap_or_else(Utc::now);
+                    let date_b = mapsets.get(&mapset_b).copied().unwrap_or_else(Utc::now);
+
+                    date_a.cmp(&date_b)
+                })
+            }
             Self::Stars => {
                 let mut stars = HashMap::new();
 
@@ -1187,6 +1261,7 @@ impl TopArgs {
                         "len" => order = Some(TopOrder::Length),
                         "miss" => order = Some(TopOrder::Misses),
                         "pp" => order = Some(TopOrder::Pp),
+                        "ranked_date" => order = Some(TopOrder::RankedDate),
                         "stars" => order = Some(TopOrder::Stars),
                         _ => return Err(Error::InvalidCommandOptions),
                     },
@@ -1300,6 +1375,9 @@ fn write_content(name: &str, args: &TopArgs, amount: usize) -> Option<String> {
             }
             TopOrder::Pp if !args.reverse => return None,
             TopOrder::Pp => format!("`{name}`'{genitive} top100 sorted by reversed pp:"),
+            TopOrder::RankedDate => {
+                format!("`{name}`'{genitive} top100 sorted by {reverse}ranked date:")
+            }
             TopOrder::Stars => format!("`{name}`'{genitive} top100 sorted by {reverse}stars:"),
         };
 
@@ -1318,6 +1396,7 @@ fn content_with_condition(args: &TopArgs, amount: usize) -> String {
         TopOrder::Length => content.push_str("`Order: Length"),
         TopOrder::Misses => content.push_str("`Order: Misscount`"),
         TopOrder::Pp => content.push_str("`Order: Pp"),
+        TopOrder::RankedDate => content.push_str("`Order: Ranked date`"),
         TopOrder::Stars => content.push_str("`Order: Stars`"),
     }
 
@@ -1400,36 +1479,40 @@ pub fn define_top() -> MyCommand {
 
     let sort_choices = vec![
         CommandOptionChoice::String {
-            name: "pp".to_owned(),
-            value: "pp".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "date".to_owned(),
-            value: "date".to_owned(),
-        },
-        CommandOptionChoice::String {
             name: ACCURACY.to_owned(),
             value: ACC.to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "bpm".to_owned(),
+            value: "bpm".to_owned(),
         },
         CommandOptionChoice::String {
             name: COMBO.to_owned(),
             value: COMBO.to_owned(),
         },
         CommandOptionChoice::String {
-            name: "stars".to_owned(),
-            value: "stars".to_owned(),
+            name: "date".to_owned(),
+            value: "date".to_owned(),
         },
         CommandOptionChoice::String {
             name: "length".to_owned(),
             value: "len".to_owned(),
         },
         CommandOptionChoice::String {
+            name: "map ranked date".to_owned(),
+            value: "ranked_date".to_owned(),
+        },
+        CommandOptionChoice::String {
             name: "misses".to_owned(),
             value: "miss".to_owned(),
         },
         CommandOptionChoice::String {
-            name: "bpm".to_owned(),
-            value: "bpm".to_owned(),
+            name: "pp".to_owned(),
+            value: "pp".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "stars".to_owned(),
+            value: "stars".to_owned(),
         },
     ];
 

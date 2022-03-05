@@ -88,24 +88,23 @@ impl Database {
     pub async fn get_beatmap(&self, map_id: u32, with_mapset: bool) -> BotResult<Beatmap> {
         let mut conn = self.pool.acquire().await?;
 
-        let map = sqlx::query_as!(
+        let query = sqlx::query_as!(
             DBBeatmap,
             "SELECT * FROM maps WHERE map_id=$1",
             map_id as i32
-        )
-        .fetch_one(&mut conn)
-        .await?;
+        );
 
-        let mut map: Beatmap = map.into();
+        let row = query.fetch_one(&mut conn).await?;
+        let mut map = Beatmap::from(row);
 
         if with_mapset {
-            let mapset = sqlx::query_as!(
+            let query = sqlx::query_as!(
                 DBBeatmapset,
                 "SELECT * FROM mapsets WHERE mapset_id=$1",
                 map.mapset_id as i32
-            )
-            .fetch_one(&mut conn)
-            .await?;
+            );
+
+            let mapset = query.fetch_one(&mut conn).await?;
 
             map.mapset.replace(mapset.into());
         }
@@ -114,15 +113,15 @@ impl Database {
     }
 
     pub async fn get_beatmapset<T: From<DBBeatmapset>>(&self, mapset_id: u32) -> BotResult<T> {
-        let mapset = sqlx::query_as!(
+        let query = sqlx::query_as!(
             DBBeatmapset,
             "SELECT * FROM mapsets WHERE mapset_id=$1",
             mapset_id as i32
-        )
-        .fetch_one(&self.pool)
-        .await?;
+        );
 
-        Ok(mapset.into())
+        let row = query.fetch_one(&self.pool).await?;
+
+        Ok(row.into())
     }
 
     pub async fn get_beatmap_combo(&self, map_id: u32) -> BotResult<Option<u32>> {

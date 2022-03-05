@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use eyre::Report;
-use rosu_v2::prelude::{GameMode, Score, User};
+use rosu_v2::prelude::{Beatmapset, GameMode, Score, User};
 
 use crate::{
     commands::osu::TopOrder,
@@ -63,6 +63,22 @@ impl PinnedEmbed {
             let stars = osu::get_stars(stars);
             let pp = osu::get_pp(pp, max_pp);
 
+            let mapset_opt = if let TopOrder::RankedDate = sort_by {
+                let mapset_fut = ctx.psql().get_beatmapset::<Beatmapset>(mapset.mapset_id);
+
+                match mapset_fut.await {
+                    Ok(mapset) => Some(mapset),
+                    Err(err) => {
+                        let report = Report::new(err).wrap_err("failed to get mapset");
+                        warn!("{report:?}");
+
+                        None
+                    }
+                }
+            } else {
+                None
+            };
+
             let _ = writeln!(
                 description,
                 "**- [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars}]\n\
@@ -74,7 +90,7 @@ impl PinnedEmbed {
                 grade = score.grade_emote(score.mode),
                 acc = score.acc(score.mode),
                 score = with_comma_int(score.score),
-                appendix = OrderAppendix::new(sort_by, map, score),
+                appendix = OrderAppendix::new(sort_by, map, mapset_opt, score),
                 combo = osu::get_combo(score, map),
                 hits = score.hits_string(score.mode),
                 ago = how_long_ago_dynamic(&score.created_at)
