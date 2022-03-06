@@ -852,8 +852,34 @@ impl TopOrder {
             }),
             Self::Combo => scores.sort_unstable_by_key(|s| Reverse(s.get().max_combo)),
             Self::Date => scores.sort_unstable_by_key(|s| Reverse(s.get().created_at)),
-            Self::Length => scores.sort_unstable_by_key(|s| {
-                Reverse(s.get().map.as_ref().map_or(0, |map| map.seconds_drain))
+            Self::Length => scores.sort_unstable_by(|a, b| {
+                let a = a.get();
+                let b = b.get();
+
+                fn clock_rate(mods: GameMods) -> f32 {
+                    if mods.contains(GameMods::DoubleTime) {
+                        1.5
+                    } else if mods.contains(GameMods::HalfTime) {
+                        0.75
+                    } else {
+                        1.0
+                    }
+                }
+
+                let a_clock_rate = clock_rate(a.mods);
+                let b_clock_rate = clock_rate(b.mods);
+
+                let a_len = a
+                    .map
+                    .as_ref()
+                    .map_or(0.0, |map| map.seconds_drain as f32 / a_clock_rate);
+
+                let b_len = b
+                    .map
+                    .as_ref()
+                    .map_or(0.0, |map| map.seconds_drain as f32 / b_clock_rate);
+
+                b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
             }),
             Self::Misses => scores.sort_unstable_by(|a, b| {
                 let a = a.get();
