@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use crate::{
-    util::{constants::GENERAL_ISSUE, MessageExt},
+    util::{
+        constants::{GENERAL_ISSUE, INVITE_LINK},
+        MessageExt,
+    },
     BotResult, CommandData, Context,
 };
 
@@ -33,8 +36,12 @@ async fn skip(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         },
         None => {
             // TODO: Put regular msg back it
-            let content = "The background guessing game must now be started with `/bg`.\n\
-                Everything else stayed as before.";
+            let content = format!(
+                "The background guessing game must now be started with `/bg`.\n\
+                Everything else stayed as before.\n\
+                If slash commands are not available in your server, \
+                try [re-inviting the bot]({INVITE_LINK})."
+            );
 
             // let content = "No running game in this channel. Start one with `/bg`.";
 
