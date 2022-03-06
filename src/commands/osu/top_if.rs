@@ -569,8 +569,8 @@ impl IfArgs {
 pub fn define_topif() -> MyCommand {
     let mode = option_mode();
 
-    let mods_description =
-        "Specify mods (`+mods` to insert them, `+mods!` to replace, `-mods!` to remove)";
+    let mods_description = "Specify mods \
+        (`+mods` to insert them, `+mods!` to replace, `-mods!` to remove)";
 
     let mods_help = "Specify how the top score mods should be adjusted.\n\
         Mods must be given as `+mods` to included them everywhere, `+mods!` to replace them exactly, \

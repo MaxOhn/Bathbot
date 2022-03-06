@@ -438,8 +438,8 @@ fn score_options() -> Vec<MyCommandOption> {
         .help("Choose how the scores should be ordered, defaults to `score`.")
         .string(sort_choices, false);
 
-    let mods_description =
-        "Filter out scores based on mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)";
+    let mods_description = "Filter out scores based on mods \
+        (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)";
 
     let mods_help = "Filter out scores based on mods.\n\
         Mods must be given as `+mods` to require these mods to be included, \
@@ -453,7 +453,7 @@ fn score_options() -> Vec<MyCommandOption> {
 
     let mods = MyCommandOption::builder(MODS, mods_description)
         .help(mods_help)
-        .string(Vec::new(), true);
+        .string(Vec::new(), false);
 
     vec![name, map, sort, mods, discord]
 }
