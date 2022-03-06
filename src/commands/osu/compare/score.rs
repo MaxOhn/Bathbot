@@ -239,7 +239,7 @@ pub(super) async fn _compare(
     };
 
     // Retrieving the beatmap
-    let map = match ctx.psql().get_beatmap(map_id, true).await {
+    let mut map = match ctx.psql().get_beatmap(map_id, true).await {
         Ok(map) => map,
         Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
             Ok(map) => map,
@@ -408,7 +408,7 @@ pub(super) async fn _compare(
         None => None,
     };
 
-    let personal = match personal_result {
+    let mut personal = match personal_result {
         Some(Ok(scores)) => scores,
         Some(Err(err)) => {
             let report = Report::new(err).wrap_err("failed to get top100");
@@ -419,51 +419,69 @@ pub(super) async fn _compare(
         None => Vec::new(),
     };
 
-    let init_scores = scores.iter().take(10);
+    if let [score] = &mut scores[..] {
+        let global_idx = global_idx.map_or(usize::MAX, |(_, i)| i + 1);
+        let best = (!personal.is_empty()).then(|| &mut personal[..]);
+        let pinned = pinned.contains(score);
+        score.user = Some(user.into());
+        score.mapset = map.mapset.take().map(From::from);
+        score.map = Some(map);
 
-    // Accumulate all necessary data
-    let builder = ScoresEmbed::new(
-        &user,
-        &map,
-        init_scores,
-        0,
-        &pinned,
-        &personal,
-        global_idx,
-        &ctx,
-    )
-    .await
-    .into_builder()
-    .build()
-    .into();
+        let fut = single_score(
+            ctx,
+            &data,
+            score,
+            best,
+            global_idx,
+            pinned,
+            embeds_maximized,
+        );
 
-    let response_raw = data.create_message(&ctx, builder).await?;
+        return fut.await;
+    } else {
+        let init_scores = scores.iter().take(10);
 
-    // Skip pagination if too few entries
-    if scores.len() <= 10 {
-        return Ok(());
-    }
+        // Accumulate all necessary data
+        let embed_fut = ScoresEmbed::new(
+            &user,
+            &map,
+            init_scores,
+            0,
+            &pinned,
+            &personal,
+            global_idx,
+            &ctx,
+        );
 
-    let response = response_raw.model().await?;
+        let builder = embed_fut.await.into_builder().build().into();
+        let response_raw = data.create_message(&ctx, builder).await?;
 
-    // Pagination
-    let pagination = ScoresPagination::new(
-        response,
-        user,
-        map,
-        scores,
-        pinned,
-        personal,
-        global_idx,
-        Arc::clone(&ctx),
-    );
-    let owner = data.author()?.id;
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
+        // Skip pagination if too few entries
+        if scores.len() <= 10 {
+            return Ok(());
         }
-    });
+
+        let response = response_raw.model().await?;
+
+        // Pagination
+        let pagination = ScoresPagination::new(
+            response,
+            user,
+            map,
+            scores,
+            pinned,
+            personal,
+            global_idx,
+            Arc::clone(&ctx),
+        );
+        let owner = data.author()?.id;
+
+        tokio::spawn(async move {
+            if let Err(err) = pagination.start(&ctx, owner, 60).await {
+                warn!("{:?}", Report::new(err));
+            }
+        });
+    }
 
     Ok(())
 }

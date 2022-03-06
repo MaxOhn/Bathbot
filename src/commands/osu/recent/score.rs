@@ -309,7 +309,7 @@ pub(super) async fn _recent(
 
             if let Err(why) = response.update_message(&ctx, builder).await {
                 let report = Report::new(why).wrap_err("failed to minimize message");
-                warn!("{:?}", report);
+                warn!("{report:?}");
             }
         });
     } else {
