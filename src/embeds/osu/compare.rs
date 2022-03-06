@@ -1,4 +1,5 @@
 use crate::{
+    core::Context,
     embeds::{osu, Author, EmbedBuilder, EmbedData, Footer},
     error::PpError,
     util::{
@@ -6,10 +7,10 @@ use crate::{
         datetime::{how_long_ago_dynamic, HowLongAgoFormatterDynamic},
         matcher::highlight_funny_numeral,
         numbers::{self, round, with_comma_float, with_comma_int},
-        osu::{flag_url, grade_completion_mods, prepare_beatmap_file},
+        osu::{flag_url, grade_completion_mods, prepare_beatmap_file, ModSelection},
         ScoreExt,
     },
-    BotResult, core::Context,
+    BotResult,
 };
 
 use chrono::{DateTime, Utc};
@@ -347,7 +348,7 @@ pub struct NoScoresEmbed {
 }
 
 impl NoScoresEmbed {
-    pub fn new(user: User, map: Beatmap) -> Self {
+    pub fn new(user: User, map: Beatmap, mods: Option<ModSelection>) -> Self {
         let stats = user.statistics.as_ref().unwrap();
         let mapset = map.mapset.as_ref().unwrap();
 
@@ -369,9 +370,15 @@ impl NoScoresEmbed {
 
         let title = format!("{} - {} [{}]", mapset.artist, mapset.title, map.version);
 
+        let description = if mods.is_some() {
+            "No scores with these mods"
+        } else {
+            "No scores"
+        };
+
         Self {
             author,
-            description: "No scores",
+            description,
             footer,
             thumbnail: format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id),
             title,

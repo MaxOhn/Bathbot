@@ -30,7 +30,7 @@ use crate::{
     database::OsuData,
     pp::PpCalculator,
     util::{
-        constants::common_literals::{ACC, ACCURACY, COMBO, MODE, PROFILE, SCORE, SORT},
+        constants::common_literals::{ACC, ACCURACY, COMBO, MODE, MODS, PROFILE, SCORE, SORT},
         matcher, InteractionExt, MessageExt,
     },
     Args, BotResult, Context, Error,
@@ -438,7 +438,24 @@ fn score_options() -> Vec<MyCommandOption> {
         .help("Choose how the scores should be ordered, defaults to `score`.")
         .string(sort_choices, false);
 
-    vec![name, map, sort, discord]
+    let mods_description =
+        "Filter out scores based on mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)";
+
+    let mods_help = "Filter out scores based on mods.\n\
+        Mods must be given as `+mods` to require these mods to be included, \
+        `+mods!` to require exactly these mods, \
+        or `-mods!` to ignore scores containing any of these mods.\n\
+        Examples:\n\
+        - `+hd`: Remove scores that don't include `HD`\n\
+        - `+hdhr!`: Only keep the `HDHR` score\n\
+        - `+nm!`: Only keep the nomod score\n\
+        - `-ezhd!`: Remove all scores that have either `EZ` or `HD`";
+
+    let mods = MyCommandOption::builder(MODS, mods_description)
+        .help(mods_help)
+        .string(Vec::new(), true);
+
+    vec![name, map, sort, mods, discord]
 }
 
 pub fn define_compare() -> MyCommand {

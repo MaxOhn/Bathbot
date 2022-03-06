@@ -29,11 +29,11 @@ use crate::{
     tracking::process_osu_tracking,
     util::{
         constants::{
-            common_literals::{ACC, COMBO, DISCORD, MAP, MAP_PARSE_FAIL, NAME, SORT},
+            common_literals::{ACC, COMBO, DISCORD, MAP, MAP_PARSE_FAIL, MODS, NAME, SORT},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
         matcher,
-        osu::{map_id_from_history, map_id_from_msg, MapIdType},
+        osu::{map_id_from_history, map_id_from_msg, MapIdType, ModSelection},
         ApplicationCommandExt, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, MessageBuilder,
@@ -95,6 +95,7 @@ pub(super) async fn _compare(
     let ScoreArgs {
         config,
         id,
+        mods,
         sort_by,
     } = args;
 
@@ -329,8 +330,20 @@ pub(super) async fn _compare(
         }
     };
 
+    match mods {
+        Some(ModSelection::Include(mods)) if mods.is_empty() => {
+            scores.retain(|s| s.mods.is_empty())
+        }
+        Some(ModSelection::Include(mods)) => scores.retain(|s| s.mods.contains(mods)),
+        Some(ModSelection::Exact(mods)) => scores.retain(|s| s.mods == mods),
+        Some(ModSelection::Exclude(mods)) => {
+            scores.retain(|s| s.mods.intersection(mods).is_empty())
+        }
+        None => {}
+    }
+
     if scores.is_empty() {
-        return no_scores(&ctx, &data, name.as_str(), map_id).await;
+        return no_scores(&ctx, &data, name.as_str(), map_id, mods).await;
     }
 
     let pinned_fut = ctx
@@ -551,6 +564,7 @@ async fn no_scores(
     data: &CommandData<'_>,
     name: &str,
     map_id: u32,
+    mods: Option<ModSelection>,
 ) -> BotResult<()> {
     let map = match ctx.psql().get_beatmap(map_id, true).await {
         Ok(map) => map,
@@ -592,7 +606,7 @@ async fn no_scores(
     };
 
     // Sending the embed
-    let embed = NoScoresEmbed::new(user, map).into_builder().build();
+    let embed = NoScoresEmbed::new(user, map, mods).into_builder().build();
     let builder = MessageBuilder::new().embed(embed);
     data.create_message(ctx, builder).await?;
 
@@ -616,10 +630,16 @@ pub async fn slash_cs(ctx: Arc<Context>, mut command: ApplicationCommand) -> Bot
 pub(super) struct ScoreArgs {
     config: UserConfig,
     id: Option<MapOrScore>,
+    mods: Option<ModSelection>,
     sort_by: ScoreOrder,
 }
 
 impl ScoreArgs {
+    const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
+        To specify included mods, provide them e.g. as `+hrdt`.\n\
+        For exact mods, provide it e.g. as `+hdhr!`.\n\
+        And for excluded mods, provide it e.g. as `-hdnf!`.";
+
     async fn args(
         ctx: &Context,
         args: &mut Args<'_>,
@@ -627,6 +647,7 @@ impl ScoreArgs {
     ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(author_id).await?;
         let mut id = None;
+        let mut mods = None;
 
         for arg in args.take(3) {
             if let Some(id_) =
@@ -635,6 +656,8 @@ impl ScoreArgs {
                 id = Some(MapOrScore::Map(id_));
             } else if let Some((mode, id_)) = matcher::get_osu_score_id(arg) {
                 id = Some(MapOrScore::Score { mode, id: id_ })
+            } else if let Some(mods_) = matcher::get_mods(arg) {
+                mods = Some(mods_);
             } else {
                 match check_user_mention(ctx, arg).await? {
                     Ok(osu) => config.osu = Some(osu),
@@ -648,6 +671,7 @@ impl ScoreArgs {
         Ok(Ok(Self {
             config,
             id,
+            mods,
             sort_by,
         }))
     }
@@ -659,6 +683,7 @@ impl ScoreArgs {
     ) -> DoubleResultCow<Self> {
         let mut config = ctx.user_config(command.user_id()?).await?;
         let mut id = None;
+        let mut mods = None;
         let mut sort_by = None;
 
         for option in options {
@@ -684,6 +709,10 @@ impl ScoreArgs {
                         "stars" => sort_by = Some(ScoreOrder::Stars),
                         _ => return Err(Error::InvalidCommandOptions),
                     },
+                    MODS => match matcher::get_mods(&value) {
+                        Some(mods_) => mods = Some(mods_),
+                        None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
+                    },
                     _ => return Err(Error::InvalidCommandOptions),
                 },
                 CommandOptionValue::User(value) => match option.name.as_str() {
@@ -700,6 +729,7 @@ impl ScoreArgs {
         Ok(Ok(ScoreArgs {
             config,
             id,
+            mods,
             sort_by: sort_by.unwrap_or_default(),
         }))
     }
