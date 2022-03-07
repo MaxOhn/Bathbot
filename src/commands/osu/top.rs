@@ -1420,10 +1420,10 @@ fn content_with_condition(args: &TopArgs, amount: usize) -> String {
         TopOrder::Combo => content.push_str("`Order: Combo"),
         TopOrder::Date => content.push_str("`Order: Date"),
         TopOrder::Length => content.push_str("`Order: Length"),
-        TopOrder::Misses => content.push_str("`Order: Misscount`"),
+        TopOrder::Misses => content.push_str("`Order: Misscount"),
         TopOrder::Pp => content.push_str("`Order: Pp"),
-        TopOrder::RankedDate => content.push_str("`Order: Ranked date`"),
-        TopOrder::Stars => content.push_str("`Order: Stars`"),
+        TopOrder::RankedDate => content.push_str("`Order: Ranked date"),
+        TopOrder::Stars => content.push_str("`Order: Stars"),
     }
 
     if args.reverse {
