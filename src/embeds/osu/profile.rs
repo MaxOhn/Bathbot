@@ -57,7 +57,7 @@ impl ProfileEmbed {
     }
 
     pub fn medium(user: &User, bonus_pp: f32, discord_id: Option<Id<UserMarker>>) -> Self {
-        let mut description = format!("**{} __statistics", Emote::from(user.mode).text());
+        let mut description = format!("**{} __stats", Emote::from(user.mode).text());
 
         if let Some(user_id) = discord_id {
             let _ = write!(description, " for <@{user_id}>");
@@ -86,7 +86,7 @@ impl ProfileEmbed {
         own_top_scores: usize,
         discord_id: Option<Id<UserMarker>>,
     ) -> Self {
-        let mut description = format!("**{} __statistics", Emote::from(user.mode).text());
+        let mut description = format!("**{} __stats", Emote::from(user.mode).text());
 
         if let Some(user_id) = discord_id {
             let _ = write!(description, " for <@{user_id}>");
