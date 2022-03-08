@@ -1,4 +1,4 @@
-use dashmap::mapref::entry::Entry;
+use dashmap::mapref::{entry::Entry, one::RefMut};
 use eyre::Report;
 use twilight_model::id::{
     marker::{GuildMarker, UserMarker},
@@ -24,8 +24,11 @@ impl Context {
         }
     }
 
-    pub async fn guild_authorities(&self, guild_id: Id<GuildMarker>) -> Authorities {
-        let config = match self.data.guilds.entry(guild_id) {
+    async fn guild_config_ref(
+        &self,
+        guild_id: Id<GuildMarker>,
+    ) -> RefMut<'_, Id<GuildMarker>, GuildConfig> {
+        match self.data.guilds.entry(guild_id) {
             Entry::Occupied(entry) => entry.into_ref(),
             Entry::Vacant(entry) => {
                 let config = GuildConfig::default();
@@ -33,172 +36,55 @@ impl Context {
                 if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
                     let wrap = format!("failed to insert guild {guild_id}");
                     let report = Report::new(why).wrap_err(wrap);
-                    warn!("{:?}", report);
+                    warn!("{report:?}");
                 }
 
                 entry.insert(config)
             }
-        };
+        }
+    }
 
-        config.authorities.clone()
+    pub async fn guild_authorities(&self, guild_id: Id<GuildMarker>) -> Authorities {
+        self.guild_config_ref(guild_id).await.authorities.clone()
     }
 
     pub async fn guild_prefixes(&self, guild_id: Id<GuildMarker>) -> Prefixes {
-        let config = match self.data.guilds.entry(guild_id) {
-            Entry::Occupied(entry) => entry.into_ref(),
-            Entry::Vacant(entry) => {
-                let config = GuildConfig::default();
-
-                if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
-                    let wrap = format!("failed to insert guild {guild_id}");
-                    let report = Report::new(why).wrap_err(wrap);
-                    warn!("{:?}", report);
-                }
-
-                entry.insert(config)
-            }
-        };
-
-        config.prefixes.clone()
+        self.guild_config_ref(guild_id).await.prefixes.clone()
     }
 
     pub async fn guild_first_prefix(&self, guild_id: Option<Id<GuildMarker>>) -> Prefix {
         match guild_id {
-            Some(guild_id) => {
-                let config = match self.data.guilds.entry(guild_id) {
-                    Entry::Occupied(entry) => entry.into_ref(),
-                    Entry::Vacant(entry) => {
-                        let config = GuildConfig::default();
-
-                        if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
-                            let wrap = format!("failed to insert guild {guild_id}");
-                            let report = Report::new(why).wrap_err(wrap);
-                            warn!("{:?}", report);
-                        }
-
-                        entry.insert(config)
-                    }
-                };
-
-                config.prefixes[0].clone()
-            }
+            Some(guild_id) => self.guild_config_ref(guild_id).await.prefixes[0].clone(),
             None => "<".into(),
         }
     }
 
     pub async fn guild_with_lyrics(&self, guild_id: Id<GuildMarker>) -> bool {
-        let config = match self.data.guilds.entry(guild_id) {
-            Entry::Occupied(entry) => entry.into_ref(),
-            Entry::Vacant(entry) => {
-                let config = GuildConfig::default();
-
-                if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
-                    let wrap = format!("failed to insert guild {guild_id}");
-                    let report = Report::new(why).wrap_err(wrap);
-                    warn!("{:?}", report);
-                }
-
-                entry.insert(config)
-            }
-        };
-
-        config.with_lyrics()
+        self.guild_config_ref(guild_id).await.with_lyrics()
     }
 
     pub async fn guild_profile_size(&self, guild_id: Id<GuildMarker>) -> ProfileSize {
-        let config = match self.data.guilds.entry(guild_id) {
-            Entry::Occupied(entry) => entry.into_ref(),
-            Entry::Vacant(entry) => {
-                let config = GuildConfig::default();
-
-                if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
-                    let wrap = format!("failed to insert guild {guild_id}");
-                    let report = Report::new(why).wrap_err(wrap);
-                    warn!("{:?}", report);
-                }
-
-                entry.insert(config)
-            }
-        };
-
-        config.profile_size.unwrap_or_default()
+        self.guild_config_ref(guild_id).await.profile_size()
     }
 
     pub async fn guild_show_retries(&self, guild_id: Id<GuildMarker>) -> bool {
-        let config = match self.data.guilds.entry(guild_id) {
-            Entry::Occupied(entry) => entry.into_ref(),
-            Entry::Vacant(entry) => {
-                let config = GuildConfig::default();
-
-                if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
-                    let wrap = format!("failed to insert guild {guild_id}");
-                    let report = Report::new(why).wrap_err(wrap);
-                    warn!("{:?}", report);
-                }
-
-                entry.insert(config)
-            }
-        };
-
-        config.show_retries()
+        self.guild_config_ref(guild_id).await.show_retries()
     }
 
     pub async fn guild_embeds_maximized(&self, guild_id: Id<GuildMarker>) -> EmbedsSize {
-        let config = match self.data.guilds.entry(guild_id) {
-            Entry::Occupied(entry) => entry.into_ref(),
-            Entry::Vacant(entry) => {
-                let config = GuildConfig::default();
-
-                if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
-                    let wrap = format!("failed to insert guild {guild_id}");
-                    let report = Report::new(why).wrap_err(wrap);
-                    warn!("{report:?}");
-                }
-
-                entry.insert(config)
-            }
-        };
-
-        config.embeds_size()
+        self.guild_config_ref(guild_id).await.embeds_size()
     }
 
-    // TODO: Refactor all these methods
     pub async fn guild_track_limit(&self, guild_id: Id<GuildMarker>) -> u8 {
-        let config = match self.data.guilds.entry(guild_id) {
-            Entry::Occupied(entry) => entry.into_ref(),
-            Entry::Vacant(entry) => {
-                let config = GuildConfig::default();
-
-                if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
-                    let wrap = format!("failed to insert guild {guild_id}");
-                    let report = Report::new(why).wrap_err(wrap);
-                    warn!("{report:?}");
-                }
-
-                entry.insert(config)
-            }
-        };
-
-        config.track_limit()
+        self.guild_config_ref(guild_id).await.track_limit()
     }
 
     pub async fn guild_minimized_pp(&self, guild_id: Id<GuildMarker>) -> MinimizedPp {
-        let config = match self.data.guilds.entry(guild_id) {
-            Entry::Occupied(entry) => entry.into_ref(),
-            Entry::Vacant(entry) => {
-                let config = GuildConfig::default();
+        self.guild_config_ref(guild_id).await.minimized_pp()
+    }
 
-                if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
-                    let wrap = format!("failed to insert guild {guild_id}");
-                    let report = Report::new(why).wrap_err(wrap);
-                    warn!("{report:?}");
-                }
-
-                entry.insert(config)
-            }
-        };
-
-        config.minimized_pp()
+    pub async fn guild_config(&self, guild_id: Id<GuildMarker>) -> GuildConfig {
+        self.guild_config_ref(guild_id).await.to_owned()
     }
 
     pub async fn update_guild_config<F>(&self, guild_id: Id<GuildMarker>, f: F) -> BotResult<()>
@@ -209,24 +95,5 @@ impl Context {
         f(config.value_mut());
 
         self.psql().upsert_guild_config(guild_id, &config).await
-    }
-
-    pub async fn guild_config(&self, guild_id: Id<GuildMarker>) -> GuildConfig {
-        let config = match self.data.guilds.entry(guild_id) {
-            Entry::Occupied(entry) => entry.into_ref(),
-            Entry::Vacant(entry) => {
-                let config = GuildConfig::default();
-
-                if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
-                    let wrap = format!("failed to insert guild {guild_id}");
-                    let report = Report::new(why).wrap_err(wrap);
-                    warn!("{report:?}");
-                }
-
-                entry.insert(config)
-            }
-        };
-
-        config.to_owned()
     }
 }

@@ -79,6 +79,10 @@ impl GuildConfig {
         self.minimized_pp.unwrap_or_default()
     }
 
+    pub fn profile_size(&self) -> ProfileSize {
+        self.profile_size.unwrap_or_default()
+    }
+
     pub fn show_retries(&self) -> bool {
         self.show_retries.unwrap_or(true)
     }
