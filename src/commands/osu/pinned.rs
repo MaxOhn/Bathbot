@@ -20,7 +20,7 @@ use crate::{
         osu::UserArgs, parse_discord, parse_mode_option, DoubleResultCow, MyCommand,
         MyCommandOption,
     },
-    database::{EmbedsSize, UserConfig},
+    database::{EmbedsSize, MinimizedPp, UserConfig},
     embeds::{EmbedData, PinnedEmbed, TopSingleEmbed},
     error::Error,
     pagination::{Pagination, PinnedPagination},
@@ -115,8 +115,14 @@ async fn _pinned(ctx: Arc<Context>, data: CommandData<'_>, args: PinnedArgs) -> 
             (None, None) => EmbedsSize::default(),
         };
 
+        let minimized_pp = match (args.config.minimized_pp, data.guild_id()) {
+            (Some(pp), _) => pp,
+            (None, Some(guild)) => ctx.guild_minimized_pp(guild).await,
+            (None, None) => MinimizedPp::default(),
+        };
+
         let content = write_content(name, &args, 1);
-        single_embed(ctx, data, user, score, embeds_size, content).await?;
+        single_embed(ctx, data, user, score, embeds_size, minimized_pp, content).await?;
     } else {
         let content = write_content(name, &args, scores.len());
         let sort_by = args.sort_by.unwrap_or(TopOrder::Pp); // TopOrder::Pp does not show anything
@@ -159,6 +165,7 @@ async fn single_embed(
     user: User,
     score: &Score,
     embeds_size: EmbedsSize,
+    minimized_pp: MinimizedPp,
     content: Option<String>,
 ) -> BotResult<()> {
     let map = score.map.as_ref().unwrap();
@@ -200,7 +207,8 @@ async fn single_embed(
         _ => (None, None),
     };
 
-    let embed_data = TopSingleEmbed::new(&user, score, personal_idx, global_idx, &ctx).await?;
+    let embed_data =
+        TopSingleEmbed::new(&user, score, personal_idx, global_idx, minimized_pp, &ctx).await?;
 
     // Only maximize if config allows it
     match embeds_size {

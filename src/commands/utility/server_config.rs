@@ -12,7 +12,7 @@ use twilight_model::{
 
 use crate::{
     commands::{osu::ProfileSize, MyCommand, MyCommandOption},
-    database::{EmbedsSize, GuildConfig},
+    database::{EmbedsSize, GuildConfig, MinimizedPp},
     embeds::{EmbedData, ServerConfigEmbed},
     util::{
         constants::{common_literals::PROFILE, GENERAL_ISSUE},
@@ -30,6 +30,7 @@ enum ServerConfigCommandKind {
 
 struct ServerConfigArgs {
     embeds_size: Option<EmbedsSize>,
+    minimized_pp: Option<MinimizedPp>,
     profile_size: Option<ProfileSize>,
     show_retries: Option<bool>,
     togglesongs: Option<bool>,
@@ -40,6 +41,7 @@ impl ServerConfigArgs {
     fn any(&self) -> bool {
         let ServerConfigArgs {
             embeds_size,
+            minimized_pp,
             profile_size,
             show_retries,
             togglesongs,
@@ -47,6 +49,7 @@ impl ServerConfigArgs {
         } = self;
 
         embeds_size.is_some()
+            || minimized_pp.is_some()
             || profile_size.is_some()
             || show_retries.is_some()
             || togglesongs.is_some()
@@ -63,6 +66,7 @@ impl ServerConfigCommandKind {
             .and_then(|option| match &option.value {
                 CommandOptionValue::SubCommand(options) if option.name == "edit" => {
                     let mut embeds_size = None;
+                    let mut minimized_pp = None;
                     let mut profile_size = None;
                     let mut show_retries = None;
                     let mut togglesongs = None;
@@ -83,6 +87,11 @@ impl ServerConfigCommandKind {
                                     "minimized" => embeds_size = Some(EmbedsSize::AlwaysMinimized),
                                     _ => return None,
                                 },
+                                "minimized_pp" => match value.as_str() {
+                                    "max" => minimized_pp = Some(MinimizedPp::Max),
+                                    "if_fc" => minimized_pp = Some(MinimizedPp::IfFc),
+                                    _ => return None,
+                                },
                                 "profile" => match value.as_str() {
                                     "compact" => profile_size = Some(ProfileSize::Compact),
                                     "medium" => profile_size = Some(ProfileSize::Medium),
@@ -99,6 +108,7 @@ impl ServerConfigCommandKind {
 
                     let args = ServerConfigArgs {
                         embeds_size,
+                        minimized_pp,
                         profile_size,
                         show_retries,
                         togglesongs,
@@ -175,6 +185,7 @@ pub async fn slash_serverconfig(ctx: Arc<Context>, command: ApplicationCommand) 
         let f = |config: &mut GuildConfig| {
             let ServerConfigArgs {
                 embeds_size: embeds_maximized,
+                minimized_pp,
                 profile_size,
                 show_retries,
                 togglesongs,
@@ -183,6 +194,10 @@ pub async fn slash_serverconfig(ctx: Arc<Context>, command: ApplicationCommand) 
 
             if let Some(embeds) = embeds_maximized {
                 config.embeds_size = Some(embeds);
+            }
+
+            if let Some(pp) = minimized_pp {
+                config.minimized_pp = Some(pp);
             }
 
             if let Some(profile) = profile_size {
@@ -358,8 +373,32 @@ pub fn define_serverconfig() -> MyCommand {
         .max_int(100)
         .integer(Vec::new(), false);
 
-    let edit = MyCommandOption::builder("edit", "Adjust configurations for a server")
-        .subcommand(vec![song_commands, profile, embeds, retries, track_limit]);
+    let minimized_pp_description =
+        "Specify whether the recent command should show max or if-fc pp when minimized";
+
+    let minimized_pp_choices = vec![
+        CommandOptionChoice::String {
+            name: "Max PP".to_owned(),
+            value: "max".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "If FC".to_owned(),
+            value: "if_fc".to_owned(),
+        },
+    ];
+
+    let minimized_pp = MyCommandOption::builder("minimized_pp", minimized_pp_description)
+        .string(minimized_pp_choices, false);
+
+    let edit =
+        MyCommandOption::builder("edit", "Adjust configurations for a server").subcommand(vec![
+            song_commands,
+            profile,
+            embeds,
+            retries,
+            track_limit,
+            minimized_pp,
+        ]);
 
     let description = "Adjust configurations or authority roles for this server";
 

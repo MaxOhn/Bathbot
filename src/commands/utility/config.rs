@@ -1,7 +1,7 @@
 use crate::{
     commands::{osu::ProfileSize, MyCommand, MyCommandOption},
     core::CONFIG,
-    database::{EmbedsSize, OsuData, UserConfig},
+    database::{EmbedsSize, MinimizedPp, OsuData, UserConfig},
     embeds::{ConfigEmbed, EmbedBuilder, EmbedData},
     server::AuthenticationStandbyError,
     util::{
@@ -45,9 +45,10 @@ pub async fn config_(
     let author = command.author().ok_or(Error::MissingInteractionAuthor)?;
 
     let ConfigArgs {
+        embeds_size,
+        minimized_pp,
         mode,
         profile_size,
-        embeds_size,
         show_retries,
         osu,
         twitch,
@@ -62,6 +63,10 @@ pub async fn config_(
             return Err(why);
         }
     };
+
+    if let Some(pp) = minimized_pp {
+        config.minimized_pp = Some(pp);
+    }
 
     if let Some(mode) = mode {
         config.mode = mode;
@@ -325,6 +330,7 @@ async fn handle_no_links(
 #[derive(Default)]
 pub struct ConfigArgs {
     embeds_size: Option<EmbedsSize>,
+    minimized_pp: Option<MinimizedPp>,
     mode: Option<Option<GameMode>>,
     profile_size: Option<ProfileSize>,
     show_retries: Option<bool>,
@@ -334,6 +340,7 @@ pub struct ConfigArgs {
 
 impl ConfigArgs {
     fn slash(command: &mut ApplicationCommand) -> BotResult<Self> {
+        let mut minimized_pp = None;
         let mut mode = None;
         let mut profile_size = None;
         let mut embeds_size = None;
@@ -346,6 +353,11 @@ impl ConfigArgs {
                 match option.name.as_str() {
                     OSU => osu = Some(value == "link"),
                     "twitch" => twitch = Some(value == "link"),
+                    "minimized_pp" => match value.as_str() {
+                        "max" => minimized_pp = Some(MinimizedPp::Max),
+                        "if_fc" => minimized_pp = Some(MinimizedPp::IfFc),
+                        _ => return Err(Error::InvalidCommandOptions),
+                    },
                     MODE => {
                         mode = match value.as_str() {
                             "none" => Some(None),
@@ -381,6 +393,7 @@ impl ConfigArgs {
         }
 
         let args = Self {
+            minimized_pp,
             mode,
             profile_size,
             embeds_size,
@@ -536,6 +549,30 @@ pub fn define_config() -> MyCommand {
     let retries =
         MyCommandOption::builder("retries", retries_description).string(retries_choices, false);
 
-    MyCommand::new("config", "Adjust your default configuration for commands")
-        .options(vec![osu, twitch, mode, profile, embeds, retries])
+    let minimized_pp_description =
+        "Specify whether the recent command should show max or if-fc pp when minimized";
+
+    let minimized_pp_choices = vec![
+        CommandOptionChoice::String {
+            name: "Max PP".to_owned(),
+            value: "max".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "If FC".to_owned(),
+            value: "if_fc".to_owned(),
+        },
+    ];
+
+    let minimized_pp = MyCommandOption::builder("minimized_pp", minimized_pp_description)
+        .string(minimized_pp_choices, false);
+
+    MyCommand::new("config", "Adjust your default configuration for commands").options(vec![
+        osu,
+        twitch,
+        mode,
+        profile,
+        embeds,
+        retries,
+        minimized_pp,
+    ])
 }

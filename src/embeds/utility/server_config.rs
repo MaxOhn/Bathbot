@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use crate::{
     commands::{osu::ProfileSize, utility::GuildData},
-    database::{EmbedsSize, GuildConfig},
+    database::{EmbedsSize, GuildConfig, MinimizedPp},
     embeds::Author,
 };
 
@@ -56,7 +56,7 @@ impl ServerConfigEmbed {
             }
         }
 
-        description.push_str("\n\nSong commands: | Retries*:\n");
+        description.push_str("\n\nSong commands: | Retries*: | Minimized PP*:\n");
 
         let songs = config.with_lyrics();
 
@@ -76,7 +76,17 @@ impl ServerConfigEmbed {
             description.push(' ');
         }
 
-        description.push_str("show\n");
+        description.push_str("show     | ");
+
+        let minimized_pp = config.minimized_pp();
+
+        if minimized_pp == MinimizedPp::Max {
+            description.push('>');
+        } else {
+            description.push(' ');
+        }
+
+        description.push_str("max pp\n");
 
         if songs {
             description.push(' ');
@@ -92,8 +102,18 @@ impl ServerConfigEmbed {
             description.push('>');
         }
 
-        description
-            .push_str("hide\n------------------------------\nEmbeds*:           | Profile*:\n");
+        description.push_str("hide     | ");
+
+        if minimized_pp == MinimizedPp::IfFc {
+            description.push('>');
+        } else {
+            description.push(' ');
+        }
+
+        description.push_str(
+            "if FC\n-------------------------------------------\n\
+            Embeds*:           | Profile*:\n",
+        );
 
         let embeds = config.embeds_size();
 
@@ -145,7 +165,7 @@ impl ServerConfigEmbed {
             description.push(' ');
         }
 
-        description.push_str("full\n------------------------------\n");
+        description.push_str("full\n-------------------------------------------\n");
 
         let track_limit = config.track_limit();
         let _ = writeln!(description, "Default track limit: {track_limit}");

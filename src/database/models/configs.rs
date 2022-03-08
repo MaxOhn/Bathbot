@@ -16,6 +16,28 @@ pub enum EmbedsSize {
     AlwaysMaximized = 2,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u8)]
+pub enum MinimizedPp {
+    IfFc = 0,
+    Max = 1,
+}
+
+impl From<i16> for MinimizedPp {
+    fn from(value: i16) -> Self {
+        match value {
+            0 => Self::IfFc,
+            _ => Self::Max,
+        }
+    }
+}
+
+impl Default for MinimizedPp {
+    fn default() -> Self {
+        Self::Max
+    }
+}
+
 impl From<i16> for EmbedsSize {
     fn from(value: i16) -> Self {
         match value {
@@ -36,6 +58,7 @@ impl Default for EmbedsSize {
 pub struct GuildConfig {
     pub authorities: Authorities,
     pub embeds_size: Option<EmbedsSize>,
+    pub minimized_pp: Option<MinimizedPp>,
     pub prefixes: Prefixes,
     pub profile_size: Option<ProfileSize>,
     pub show_retries: Option<bool>,
@@ -52,6 +75,10 @@ impl GuildConfig {
         self.embeds_size.unwrap_or_default()
     }
 
+    pub fn minimized_pp(&self) -> MinimizedPp {
+        self.minimized_pp.unwrap_or_default()
+    }
+
     pub fn show_retries(&self) -> bool {
         self.show_retries.unwrap_or(true)
     }
@@ -66,6 +93,7 @@ impl Default for GuildConfig {
         GuildConfig {
             authorities: SmallVec::new(),
             embeds_size: None,
+            minimized_pp: None,
             prefixes: smallvec!["<".into()],
             profile_size: None,
             show_retries: None,
@@ -119,6 +147,7 @@ impl From<String> for OsuData {
 #[derive(Clone, Debug, Default)]
 pub struct UserConfig {
     pub embeds_size: Option<EmbedsSize>,
+    pub minimized_pp: Option<MinimizedPp>,
     pub mode: Option<GameMode>,
     pub osu: Option<OsuData>,
     pub profile_size: Option<ProfileSize>,
@@ -137,5 +166,9 @@ impl UserConfig {
 
     pub fn embeds_size(&self) -> EmbedsSize {
         self.embeds_size.unwrap_or_default()
+    }
+
+    pub fn minimized_pp(&self) -> MinimizedPp {
+        self.minimized_pp.unwrap_or_default()
     }
 }

@@ -32,7 +32,7 @@ use crate::{
         osu::{get_user_and_scores, ScoreArgs, UserArgs},
         parse_discord, parse_mode_option, DoubleResultCow, MyCommand, MyCommandOption,
     },
-    database::{EmbedsSize, UserConfig},
+    database::{EmbedsSize, MinimizedPp, UserConfig},
     embeds::{EmbedData, TopEmbed, TopSingleEmbed},
     error::Error,
     pagination::{Pagination, TopPagination},
@@ -148,8 +148,24 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
                 (None, None) => EmbedsSize::default(),
             };
 
+            let minimized_pp = match (args.config.minimized_pp, data.guild_id()) {
+                (Some(pp), _) => pp,
+                (None, Some(guild)) => ctx.guild_minimized_pp(guild).await,
+                (None, None) => MinimizedPp::default(),
+            };
+
             let num = num.saturating_sub(1);
-            single_embed(ctx, data, user, scores, num, embeds_size, None).await?;
+            single_embed(
+                ctx,
+                data,
+                user,
+                scores,
+                num,
+                embeds_size,
+                minimized_pp,
+                None,
+            )
+            .await?;
         }
         (_, 1) => {
             let embeds_size = match (args.config.embeds_size, data.guild_id()) {
@@ -158,8 +174,24 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
                 (None, None) => EmbedsSize::default(),
             };
 
+            let minimized_pp = match (args.config.minimized_pp, data.guild_id()) {
+                (Some(pp), _) => pp,
+                (None, Some(guild)) => ctx.guild_minimized_pp(guild).await,
+                (None, None) => MinimizedPp::default(),
+            };
+
             let content = write_content(name, &args, 1);
-            single_embed(ctx, data, user, scores, 0, embeds_size, content).await?;
+            single_embed(
+                ctx,
+                data,
+                user,
+                scores,
+                0,
+                embeds_size,
+                minimized_pp,
+                content,
+            )
+            .await?;
         }
         (None, _) => {
             let content = write_content(name, &args, scores.len());
@@ -666,6 +698,7 @@ fn mode_long(mode: GameMode) -> &'static str {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn single_embed(
     ctx: Arc<Context>,
     data: CommandData<'_>,
@@ -673,6 +706,7 @@ async fn single_embed(
     scores: Vec<(usize, Score)>,
     idx: usize,
     embeds_size: EmbedsSize,
+    minimized_pp: MinimizedPp,
     content: Option<String>,
 ) -> BotResult<()> {
     let (idx, score) = scores.get(idx).unwrap();
@@ -695,7 +729,8 @@ async fn single_embed(
         _ => None,
     };
 
-    let embed_data = TopSingleEmbed::new(&user, score, Some(*idx), global_idx, &ctx).await?;
+    let embed_data =
+        TopSingleEmbed::new(&user, score, Some(*idx), global_idx, minimized_pp, &ctx).await?;
 
     // Only maximize if config allows it
     match embeds_size {

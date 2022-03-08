@@ -10,7 +10,7 @@ use crate::{
     commands::osu::ProfileSize,
     database::{
         models::{EmbedsSize, OsuData},
-        GuildConfig, UserConfig,
+        GuildConfig, MinimizedPp, UserConfig,
     },
     BotResult, Database,
 };
@@ -25,6 +25,7 @@ impl Database {
             let config = GuildConfig {
                 authorities: serde_cbor::from_slice(&entry.authorities)?,
                 embeds_size: entry.embeds_size.map(EmbedsSize::from),
+                minimized_pp: entry.minimized_pp.map(MinimizedPp::from),
                 prefixes: serde_cbor::from_slice(&entry.prefixes)?,
                 profile_size: entry.profile_size.map(ProfileSize::from),
                 show_retries: entry.show_retries,
@@ -48,24 +49,27 @@ impl Database {
                 guild_id,\
                 authorities,\
                 embeds_size,\
+                minimized_pp,\
                 prefixes,\
                 profile_size,\
                 show_retries,\
                 track_limit,\
                 with_lyrics\
             )\
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (guild_id) DO \
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (guild_id) DO \
             UPDATE \
             SET authorities=$2,\
                 embeds_size=$3,\
-                prefixes=$4,\
-                profile_size=$5,\
-                show_retries=$6,\
-                track_limit=$7,\
-                with_lyrics=$8",
+                minimized_pp=$4,\
+                prefixes=$5,\
+                profile_size=$6,\
+                show_retries=$7,\
+                track_limit=$8,\
+                with_lyrics=$9",
             guild_id.get() as i64,
             serde_cbor::to_vec(&config.authorities)?,
             config.embeds_size.map(|size| size as u8 as i16),
+            config.minimized_pp.map(|pp| pp as u8 as i16),
             serde_cbor::to_vec(&config.prefixes)?,
             config.profile_size.map(|size| size as i16),
             config.show_retries,
@@ -123,6 +127,7 @@ impl Database {
 
                 let config = UserConfig {
                     embeds_size: entry.embeds_size.map(EmbedsSize::from),
+                    minimized_pp: entry.minimized_pp.map(MinimizedPp::from),
                     mode: entry.mode.map(|mode| mode as u8).map(GameMode::from),
                     osu: Some(osu),
                     profile_size: entry.profile_size.map(ProfileSize::from),
@@ -156,6 +161,7 @@ impl Database {
 
                 let config = UserConfig {
                     embeds_size: entry.embeds_size.map(EmbedsSize::from),
+                    minimized_pp: entry.minimized_pp.map(MinimizedPp::from),
                     mode: entry.mode.map(|mode| mode as u8).map(GameMode::from),
                     osu: Some(osu),
                     profile_size: entry.profile_size.map(ProfileSize::from),
@@ -182,22 +188,25 @@ impl Database {
             "INSERT INTO user_configs (\
                 discord_id,\
                 embeds_size,\
+                minimized_pp,\
                 mode,\
                 osu_id,\
                 profile_size,\
                 show_retries,\
                 twitch_id\
             )\
-            VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (discord_id) DO \
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (discord_id) DO \
             UPDATE \
             SET embeds_size=$2,\
-                mode=$3,\
-                osu_id=$4,\
-                profile_size=$5,\
-                show_retries=$6,\
-                twitch_id=$7",
+                minimized_pp=$3,\
+                mode=$4,\
+                osu_id=$5,\
+                profile_size=$6,\
+                show_retries=$7,\
+                twitch_id=$8",
             user_id.get() as i64,
             config.embeds_size.map(|size| size as u8 as i16),
+            config.minimized_pp.map(|pp| pp as u8 as i16),
             config.mode.map(|m| m as i16),
             config
                 .osu

@@ -1,6 +1,6 @@
 use crate::{
     commands::osu::ProfileSize,
-    database::{EmbedsSize, UserConfig},
+    database::{EmbedsSize, MinimizedPp, UserConfig},
     embeds::Author,
 };
 
@@ -135,7 +135,7 @@ impl ConfigEmbed {
             description.push(' ');
         }
 
-        description.push_str("ctb   |----------|\n");
+        description.push_str("ctb   |----------|-------------------\n");
 
         if config.mode == Some(GameMode::MNA) {
             description.push('>');
@@ -143,7 +143,7 @@ impl ConfigEmbed {
             description.push(' ');
         }
 
-        description.push_str("mania | Retries: |\n       | ");
+        description.push_str("mania | Retries: | Minimized PP:\n       | ");
 
         if config.show_retries.unwrap_or(true) {
             description.push('>');
@@ -151,7 +151,17 @@ impl ConfigEmbed {
             description.push(' ');
         }
 
-        description.push_str("show    |\n       | ");
+        description.push_str("show    | ");
+
+        let minimized_pp = config.minimized_pp();
+
+        if minimized_pp == MinimizedPp::Max {
+            description.push('>');
+        } else {
+            description.push(' ');
+        }
+
+        description.push_str("max pp\n       | ");
 
         if config.show_retries.unwrap_or(true) {
             description.push(' ');
@@ -159,7 +169,15 @@ impl ConfigEmbed {
             description.push('>');
         }
 
-        description.push_str("hide    |\n```");
+        description.push_str("hide    | ");
+
+        if minimized_pp == MinimizedPp::IfFc {
+            description.push('>');
+        } else {
+            description.push(' ');
+        }
+
+        description.push_str("if FC\n```");
 
         Self {
             author,

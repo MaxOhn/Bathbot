@@ -8,7 +8,7 @@ use crate::BotResult;
 
 pub use self::models::{
     Authorities, DBBeatmap, DBBeatmapset, DBOsuMedal, EmbedsSize, GuildConfig, MapsetTagWrapper,
-    MedalGroup, OsuData, OsuMedal, Prefix, Prefixes, TagRow, TrackingUser, UserConfig,
+    MedalGroup, MinimizedPp, OsuData, OsuMedal, Prefix, Prefixes, TagRow, TrackingUser, UserConfig,
     UserStatsColumn, UserValueRaw,
 };
 

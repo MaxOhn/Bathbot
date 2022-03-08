@@ -7,3 +7,6 @@ ALTER TABLE user_configs ALTER COLUMN embeds_maximized TYPE BOOL USING CASE WHEN
 
 ALTER TABLE guild_configs RENAME COlUMN embeds_size TO embeds_maximized;
 ALTER TABLE guild_configs ALTER COLUMN embeds_maximized TYPE BOOL USING CASE WHEN embeds_maximized = 0 THEN FALSE ELSE TRUE END;
+
+ALTER TABLE user_configs DROP COLUMN minimized_pp;
+ALTER TABLE guild_configs DROP COLUMN minimized_pp;

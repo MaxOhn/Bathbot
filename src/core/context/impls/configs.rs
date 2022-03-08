@@ -7,7 +7,7 @@ use twilight_model::id::{
 
 use crate::{
     commands::osu::ProfileSize,
-    database::{Authorities, EmbedsSize, GuildConfig, Prefix, Prefixes, UserConfig},
+    database::{Authorities, EmbedsSize, GuildConfig, MinimizedPp, Prefix, Prefixes, UserConfig},
     BotResult, Context,
 };
 
@@ -180,6 +180,25 @@ impl Context {
         };
 
         config.track_limit()
+    }
+
+    pub async fn guild_minimized_pp(&self, guild_id: Id<GuildMarker>) -> MinimizedPp {
+        let config = match self.data.guilds.entry(guild_id) {
+            Entry::Occupied(entry) => entry.into_ref(),
+            Entry::Vacant(entry) => {
+                let config = GuildConfig::default();
+
+                if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
+                    let wrap = format!("failed to insert guild {guild_id}");
+                    let report = Report::new(why).wrap_err(wrap);
+                    warn!("{report:?}");
+                }
+
+                entry.insert(config)
+            }
+        };
+
+        config.minimized_pp()
     }
 
     pub async fn update_guild_config<F>(&self, guild_id: Id<GuildMarker>, f: F) -> BotResult<()>

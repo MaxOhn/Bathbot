@@ -1,5 +1,7 @@
 use crate::{
+    core::Context,
     custom_client::TwitchVideo,
+    database::MinimizedPp,
     embeds::{osu, Author, EmbedBuilder, EmbedData, Footer},
     error::PpError,
     util::{
@@ -10,7 +12,7 @@ use crate::{
         osu::{grade_completion_mods, prepare_beatmap_file},
         Emote, ScoreExt,
     },
-    BotResult, core::Context,
+    BotResult,
 };
 
 use chrono::{DateTime, Utc};
@@ -35,13 +37,15 @@ pub struct RecentEmbed {
     score: String,
     acc: f32,
     ago: HowLongAgoFormatterDynamic,
-    pp: String,
+    pp: Option<f32>,
+    max_pp: Option<f32>,
     combo: String,
     hits: String,
-    if_fc: Option<(String, f32, String)>,
+    if_fc: Option<(f32, f32, String)>,
     map_info: String,
     mapset_cover: String,
     twitch_vod: Option<TwitchVideo>,
+    minimized_pp: MinimizedPp,
 }
 
 impl RecentEmbed {
@@ -51,6 +55,7 @@ impl RecentEmbed {
         personal: Option<&[Score]>,
         map_score: Option<&BeatmapUserScore>,
         twitch_vod: Option<TwitchVideo>,
+        minimized_pp: MinimizedPp,
         ctx: &Context,
     ) -> BotResult<Self> {
         let map = score.map.as_ref().unwrap();
@@ -165,7 +170,8 @@ impl RecentEmbed {
 
         let if_fc = if_fc_struct(score, &rosu_map, attributes, mods);
 
-        let pp = osu::get_pp(Some(pp), Some(max_pp));
+        let pp = Some(pp);
+        let max_pp = Some(max_pp);
         let hits = score.hits_string(map.mode);
         let grade_completion_mods = grade_completion_mods(score, map);
 
@@ -205,11 +211,7 @@ impl RecentEmbed {
 
             let _ = write!(hits, "0}}");
 
-            (
-                osu::get_pp(Some(if_fc.pp), Some(max_pp)),
-                round(if_fc.acc),
-                hits,
-            )
+            (if_fc.pp, round(if_fc.acc), hits)
         });
 
         let footer = Footer::new(format!(
@@ -262,12 +264,14 @@ impl RecentEmbed {
             acc: round(score.accuracy),
             ago: how_long_ago_dynamic(&score.created_at),
             pp,
+            max_pp,
             combo,
             hits,
             map_info: osu::get_map_info(map, score.mods, stars),
             if_fc,
             mapset_cover: mapset.covers.cover.to_owned(),
             twitch_vod,
+            minimized_pp,
         })
     }
 }
@@ -276,7 +280,9 @@ impl EmbedData for RecentEmbed {
     fn as_builder(&self) -> EmbedBuilder {
         let score = highlight_funny_numeral(&self.score).into_owned();
         let acc = highlight_funny_numeral(&format!("{}%", self.acc)).into_owned();
-        let pp = highlight_funny_numeral(&self.pp).into_owned();
+
+        let pp = osu::get_pp(self.pp, self.max_pp);
+        let pp = highlight_funny_numeral(&pp).into_owned();
 
         let mut fields = vec![
             field!(
@@ -304,7 +310,8 @@ impl EmbedData for RecentEmbed {
         fields.push(field!("Hits", hits, true));
 
         if let Some((pp, acc, hits)) = &self.if_fc {
-            fields.push(field!("**If FC**: PP", pp.clone(), true));
+            let pp = osu::get_pp(Some(*pp), self.max_pp);
+            fields.push(field!("**If FC**: PP", pp, true));
             fields.push(field!("Acc", format!("{acc}%"), true));
             fields.push(field!("Hits", hits.clone(), true));
         }
@@ -341,7 +348,41 @@ impl EmbedData for RecentEmbed {
             self.grade_completion_mods, self.score, self.acc, self.ago
         );
 
-        let value = format!("{} [ {} ] {}", self.pp, self.combo, self.hits);
+        let pp = match self.minimized_pp {
+            MinimizedPp::IfFc => {
+                let mut result = String::with_capacity(17);
+                result.push_str("**");
+
+                if let Some(pp) = self.pp {
+                    let _ = write!(result, "{:.2}", pp);
+                } else {
+                    result.push('-');
+                }
+
+                match self.if_fc {
+                    Some((if_fc, ..)) => {
+                        let _ = write!(result, "pp** ~~({if_fc:.2}pp)~~");
+                    }
+                    None => {
+                        result.push_str("**/");
+
+                        if let Some(max) = self.max_pp {
+                            let pp = self.pp.map(|pp| pp.max(max)).unwrap_or(max);
+                            let _ = write!(result, "{:.2}", pp);
+                        } else {
+                            result.push('-');
+                        }
+
+                        result.push_str("PP");
+                    }
+                }
+
+                result
+            }
+            MinimizedPp::Max => osu::get_pp(self.pp, self.max_pp),
+        };
+
+        let value = format!("{pp} [ {} ] {}", self.combo, self.hits);
 
         let mut title = self.title;
         let _ = write!(title, " [{}★]", self.stars);

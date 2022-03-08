@@ -22,7 +22,7 @@ use crate::{
         parse_discord, parse_mode_option, DoubleResultCow, MyCommand,
     },
     custom_client::TwitchVideo,
-    database::{EmbedsSize, UserConfig},
+    database::{EmbedsSize, MinimizedPp, UserConfig},
     embeds::{EmbedData, RecentEmbed},
     error::Error,
     tracking::process_osu_tracking,
@@ -234,12 +234,21 @@ pub(super) async fn _recent(
         }
     };
 
+    let guild_id = data.guild_id();
+
+    let minimized_pp = match (config.minimized_pp, guild_id) {
+        (Some(pp), _) => pp,
+        (None, Some(guild)) => ctx.guild_minimized_pp(guild).await,
+        (None, None) => MinimizedPp::default(),
+    };
+
     let data_fut = RecentEmbed::new(
         &user,
         score,
         best.as_deref(),
         map_score.as_ref(),
         twitch_vod,
+        minimized_pp,
         &ctx,
     );
 
@@ -253,8 +262,6 @@ pub(super) async fn _recent(
     };
 
     // Creating the embed
-    let guild_id = data.guild_id();
-
     let show_retries = match (config.show_retries, guild_id) {
         (Some(show_retries), _) => show_retries,
         (None, Some(guild)) => ctx.guild_show_retries(guild).await,
