@@ -1,1 +1,3 @@
 ALTER TABLE maps ADD COLUMN user_id INT4 NOT NULL DEFAULT 0;
+
+ALTER TABLE guild_configs DROP COLUMN track_limit;

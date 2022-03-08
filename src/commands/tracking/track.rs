@@ -1,12 +1,4 @@
-use super::TrackArgs;
-use crate::{
-    embeds::{EmbedData, TrackEmbed},
-    util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        MessageExt,
-    },
-    BotResult, CommandData, Context, MessageBuilder,
-};
+use std::sync::Arc;
 
 use chrono::Utc;
 use eyre::Report;
@@ -16,7 +8,17 @@ use futures::{
 };
 use hashbrown::HashSet;
 use rosu_v2::prelude::{GameMode, OsuError};
-use std::sync::Arc;
+
+use crate::{
+    embeds::{EmbedData, TrackEmbed},
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        MessageExt,
+    },
+    BotResult, CommandData, Context, MessageBuilder,
+};
+
+use super::TrackArgs;
 
 pub(super) async fn _track(
     ctx: Arc<Context>,
@@ -27,7 +29,7 @@ pub(super) async fn _track(
     names.insert(args.name);
 
     if let Some(name) = names.iter().find(|name| name.len() > 15) {
-        let content = format!("`{}` is too long for an osu! username", name);
+        let content = format!("`{name}` is too long for an osu! username");
 
         return data.error(&ctx, content).await;
     }
@@ -39,7 +41,11 @@ pub(super) async fn _track(
             return data.error(&ctx, content).await;
         }
         Some(limit) => limit,
-        None => 50,
+        None => {
+            let guild = data.guild_id().unwrap();
+
+            ctx.guild_track_limit(guild).await as usize
+        }
     };
 
     let count = names.len();
@@ -63,7 +69,7 @@ pub(super) async fn _track(
         match result {
             Ok(user) => users.push((user.user_id, user.username)),
             Err(OsuError::NotFound) => {
-                let content = format!("User `{}` was not found", name);
+                let content = format!("User `{name}` was not found");
 
                 return data.error(&ctx, content).await;
             }
@@ -92,7 +98,7 @@ pub(super) async fn _track(
             Ok(false) => failure.push(username),
             Err(why) => {
                 let report = Report::new(why).wrap_err("error while adding tracked entry");
-                warn!("{:?}", report);
+                warn!("{report:?}");
 
                 let embed = TrackEmbed::new(mode, success, failure, Some(username), limit)
                     .into_builder()

@@ -1,4 +1,12 @@
-use super::TrackArgs;
+use std::sync::Arc;
+
+use futures::{
+    future::FutureExt,
+    stream::{FuturesUnordered, StreamExt},
+};
+use hashbrown::HashSet;
+use rosu_v2::prelude::{GameMode, OsuError, Username};
+
 use crate::{
     embeds::{EmbedData, UntrackEmbed},
     util::{
@@ -8,13 +16,7 @@ use crate::{
     BotResult, CommandData, Context, MessageBuilder,
 };
 
-use futures::{
-    future::FutureExt,
-    stream::{FuturesUnordered, StreamExt},
-};
-use hashbrown::HashSet;
-use rosu_v2::prelude::{GameMode, OsuError, Username};
-use std::sync::Arc;
+use super::TrackArgs;
 
 #[command]
 #[authority()]
@@ -56,7 +58,7 @@ pub(super) async fn _untrack(
     names.insert(args.name);
 
     if let Some(name) = names.iter().find(|name| name.len() > 15) {
-        let content = format!("`{}` is too long for an osu! username", name);
+        let content = format!("`{name}` is too long for an osu! username");
 
         return data.error(&ctx, content).await;
     }
@@ -81,7 +83,7 @@ pub(super) async fn _untrack(
         match result {
             Ok(user) => users.push((user.user_id, user.username)),
             Err(OsuError::NotFound) => {
-                let content = format!("User `{}` was not found", name);
+                let content = format!("User `{name}` was not found");
 
                 return data.error(&ctx, content).await;
             }
@@ -106,8 +108,8 @@ pub(super) async fn _untrack(
 
         match remove_fut.await {
             Ok(_) => success.insert(username),
-            Err(why) => {
-                warn!("Error while adding tracked entry: {}", why);
+            Err(err) => {
+                warn!("Error while adding tracked entry: {err}");
 
                 return send_message(&ctx, data, Some(&username), success).await;
             }

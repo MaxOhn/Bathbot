@@ -15,6 +15,7 @@ pub struct GuildConfig {
     pub prefixes: Prefixes,
     pub profile_size: Option<ProfileSize>,
     pub show_retries: Option<bool>,
+    pub track_limit: Option<u8>,
     pub with_lyrics: Option<bool>,
 }
 
@@ -30,6 +31,10 @@ impl GuildConfig {
     pub fn show_retries(&self) -> bool {
         self.show_retries.unwrap_or(true)
     }
+
+    pub fn track_limit(&self) -> u8 {
+        self.track_limit.unwrap_or(50)
+    }
 }
 
 impl Default for GuildConfig {
@@ -40,6 +45,7 @@ impl Default for GuildConfig {
             prefixes: smallvec!["<".into()],
             profile_size: None,
             show_retries: None,
+            track_limit: None,
             with_lyrics: None,
         }
     }

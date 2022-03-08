@@ -152,7 +152,7 @@ impl Context {
                 if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
                     let wrap = format!("failed to insert guild {guild_id}");
                     let report = Report::new(why).wrap_err(wrap);
-                    warn!("{:?}", report);
+                    warn!("{report:?}");
                 }
 
                 entry.insert(config)
@@ -160,6 +160,26 @@ impl Context {
         };
 
         config.embeds_maximized()
+    }
+
+    // TODO: Refactor all these methods
+    pub async fn guild_track_limit(&self, guild_id: Id<GuildMarker>) -> u8 {
+        let config = match self.data.guilds.entry(guild_id) {
+            Entry::Occupied(entry) => entry.into_ref(),
+            Entry::Vacant(entry) => {
+                let config = GuildConfig::default();
+
+                if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
+                    let wrap = format!("failed to insert guild {guild_id}");
+                    let report = Report::new(why).wrap_err(wrap);
+                    warn!("{report:?}");
+                }
+
+                entry.insert(config)
+            }
+        };
+
+        config.track_limit()
     }
 
     pub async fn update_guild_config<F>(&self, guild_id: Id<GuildMarker>, f: F) -> BotResult<()>
@@ -181,7 +201,7 @@ impl Context {
                 if let Err(why) = self.psql().upsert_guild_config(guild_id, &config).await {
                     let wrap = format!("failed to insert guild {guild_id}");
                     let report = Report::new(why).wrap_err(wrap);
-                    warn!("{:?}", report);
+                    warn!("{report:?}");
                 }
 
                 entry.insert(config)

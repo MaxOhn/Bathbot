@@ -1,15 +1,16 @@
-use crate::{
-    embeds::{EmbedData, TrackListEmbed},
-    util::{constants::OSU_API_ISSUE, MessageExt},
-    BotResult, CommandData, Context, MessageBuilder,
-};
+use std::sync::Arc;
 
 use futures::{
     future::FutureExt,
     stream::{FuturesUnordered, StreamExt},
 };
 use rosu_v2::prelude::OsuError;
-use std::sync::Arc;
+
+use crate::{
+    embeds::{EmbedData, TrackListEmbed},
+    util::{constants::OSU_API_ISSUE, MessageExt},
+    BotResult, CommandData, Context, MessageBuilder,
+};
 
 #[command]
 #[authority()]
@@ -20,6 +21,7 @@ pub async fn tracklist(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let tracked = ctx.tracking().list(channel_id);
     let count = tracked.len();
 
+    // TODO: Try to use DB first
     let mut user_futs: FuturesUnordered<_> = tracked
         .into_iter()
         .map(|(user_id, mode, limit)| {
@@ -40,11 +42,8 @@ pub async fn tracklist(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                     .tracking()
                     .remove_user(user_id, None, channel_id, ctx.psql());
 
-                if let Err(why) = remove_fut.await {
-                    warn!(
-                        "Error while removing unknown user ({},{}) from tracking: {}",
-                        user_id, mode, why
-                    );
+                if let Err(err) = remove_fut.await {
+                    warn!("Error while removing unknown user {user_id} from tracking: {err}");
                 }
             }
             Err(why) => {

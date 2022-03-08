@@ -33,6 +33,7 @@ struct ServerConfigArgs {
     profile_size: Option<ProfileSize>,
     show_retries: Option<bool>,
     togglesongs: Option<bool>,
+    track_limit: Option<u8>,
 }
 
 impl ServerConfigArgs {
@@ -42,12 +43,14 @@ impl ServerConfigArgs {
             profile_size,
             show_retries,
             togglesongs,
+            track_limit,
         } = self;
 
         embeds_maximized.is_some()
             || profile_size.is_some()
             || show_retries.is_some()
             || togglesongs.is_some()
+            || track_limit.is_some()
     }
 }
 
@@ -63,9 +66,14 @@ impl ServerConfigCommandKind {
                     let mut profile_size = None;
                     let mut show_retries = None;
                     let mut togglesongs = None;
+                    let mut track_limit = None;
 
                     for option in options {
                         match &option.value {
+                            CommandOptionValue::Integer(value) => match option.name.as_str() {
+                                "track_limit" => track_limit = Some(*value as u8),
+                                _ => return None,
+                            },
                             CommandOptionValue::String(value) => match option.name.as_str() {
                                 "embeds" => embeds_maximized = Some(value == "maximized"),
                                 "profile" => match value.as_str() {
@@ -87,6 +95,7 @@ impl ServerConfigCommandKind {
                         profile_size,
                         show_retries,
                         togglesongs,
+                        track_limit,
                     };
 
                     Some(Self::Args(args))
@@ -162,6 +171,7 @@ pub async fn slash_serverconfig(ctx: Arc<Context>, command: ApplicationCommand) 
                 profile_size,
                 show_retries,
                 togglesongs,
+                track_limit,
             } = args;
 
             if let Some(embeds) = embeds_maximized {
@@ -174,6 +184,10 @@ pub async fn slash_serverconfig(ctx: Arc<Context>, command: ApplicationCommand) 
 
             if let Some(retries) = show_retries {
                 config.show_retries = Some(retries);
+            }
+
+            if let Some(limit) = track_limit {
+                config.track_limit = Some(limit);
             }
 
             if let Some(with_lyrics) = togglesongs {
@@ -323,8 +337,19 @@ pub fn define_serverconfig() -> MyCommand {
         .string(retries_choices, false)
         .help(retries_help);
 
+    let track_limit_description = "Specify the default track limit for osu! top scores";
+
+    let track_limit_help = "Specify the default track limit for tracking user's osu! top scores.\n\
+        The value must be between 1 and 100, defaults to 50.";
+
+    let track_limit = MyCommandOption::builder("track_limit", track_limit_description)
+        .help(track_limit_help)
+        .min_int(1)
+        .max_int(100)
+        .integer(Vec::new(), false);
+
     let edit = MyCommandOption::builder("edit", "Adjust configurations for a server")
-        .subcommand(vec![song_commands, profile, embeds, retries]);
+        .subcommand(vec![song_commands, profile, embeds, retries, track_limit]);
 
     let description = "Adjust configurations or authority roles for this server";
 

@@ -25,6 +25,7 @@ impl Database {
                 prefixes: serde_cbor::from_slice(&entry.prefixes)?,
                 profile_size: entry.profile_size.map(ProfileSize::from),
                 show_retries: entry.show_retries,
+                track_limit: entry.track_limit.map(|limit| limit as u8),
                 with_lyrics: entry.with_lyrics,
             };
 
@@ -47,22 +48,25 @@ impl Database {
                 prefixes,\
                 profile_size,\
                 show_retries,\
+                track_limit,\
                 with_lyrics\
             )\
-            VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (guild_id) DO \
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (guild_id) DO \
             UPDATE \
             SET authorities=$2,\
                 embeds_maximized=$3,\
                 prefixes=$4,\
                 profile_size=$5,\
                 show_retries=$6,\
-                with_lyrics=$7",
+                track_limit=$7,\
+                with_lyrics=$8",
             guild_id.get() as i64,
             serde_cbor::to_vec(&config.authorities)?,
             config.embeds_maximized,
             serde_cbor::to_vec(&config.prefixes)?,
             config.profile_size.map(|size| size as i16),
             config.show_retries,
+            config.track_limit.map(|limit| limit as i16),
             config.with_lyrics,
         );
 

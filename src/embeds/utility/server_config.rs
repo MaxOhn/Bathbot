@@ -136,7 +136,12 @@ impl ServerConfigEmbed {
             description.push(' ');
         }
 
-        description.push_str("full\n```");
+        description.push_str("full\n---------------------------\n");
+
+        let track_limit = config.track_limit();
+        let _ = writeln!(description, "Default track limit: {track_limit}");
+
+        description.push_str("```");
 
         Self {
             author,

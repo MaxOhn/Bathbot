@@ -1,10 +1,11 @@
+use std::sync::Arc;
+
+use rosu_v2::model::GameMode;
+
 use crate::{
     util::{constants::GENERAL_ISSUE, MessageExt},
     BotResult, CommandData, Context, MessageBuilder,
 };
-
-use rosu_v2::model::GameMode;
-use std::sync::Arc;
 
 #[command]
 #[authority()]
@@ -49,7 +50,7 @@ pub async fn _untrackall(
 
     match remove_fut.await {
         Ok(amount) => {
-            let content = format!("Untracked {} users in this channel", amount);
+            let content = format!("Untracked {amount} users in this channel");
             let builder = MessageBuilder::new().content(content);
             data.create_message(&ctx, builder).await?;
 
