@@ -42,7 +42,6 @@ pub(super) async fn _recentleaderboard(
     } = args;
 
     let mode = config.mode.unwrap_or(GameMode::STD);
-
     let author_name = config.into_username();
 
     let name = match name.as_ref().or_else(|| author_name.as_ref()) {

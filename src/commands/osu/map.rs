@@ -134,6 +134,7 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
         MapIdType::Set(id) => (id, None),
     };
 
+    //* Note: Not pulling from DB since it might not contain all maps of the mapset
     // Request mapset through API
     let (mapset, maps) = match ctx.osu().beatmapset(mapset_id).await {
         Ok(mut mapset) => {
@@ -241,8 +242,8 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
 
     // Add mapset and maps to database
     let (mapset_result, maps_result) = tokio::join!(
-        ctx.clients.psql.insert_beatmapset(&mapset),
-        ctx.clients.psql.insert_beatmaps(maps.iter()),
+        ctx.psql().insert_beatmapset(&mapset),
+        ctx.psql().insert_beatmaps(maps.iter()),
     );
 
     if let Err(err) = mapset_result {

@@ -9,7 +9,6 @@ use sqlx::FromRow;
 pub struct DBBeatmap {
     pub map_id: i32,
     pub mapset_id: i32,
-    pub user_id: i32,
     pub checksum: Option<String>,
     pub version: String,
     pub seconds_total: i32,

@@ -112,7 +112,14 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
     let mut map = match ctx.psql().get_beatmap(map_id, true).await {
         Ok(map) => map,
         Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
-            Ok(map) => map,
+            Ok(map) => {
+                // Store map in DB
+                if let Err(err) = ctx.psql().insert_beatmap(&map).await {
+                    warn!("{:?}", Report::new(err));
+                }
+
+                map
+            }
             Err(OsuError::NotFound) => {
                 let content = format!(
                     "Could not find beatmap with id `{map_id}`. \
@@ -157,11 +164,6 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
 
         ctx.store_msg(response.id);
 
-        // Store map in DB
-        if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-            warn!("{:?}", Report::new(err));
-        }
-
         // Set map on garbage collection list if unranked
         let gb = ctx.map_garbage_collector(&map);
 
@@ -186,11 +188,6 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
         let embed = embed_data.into_builder().build();
         let builder = MessageBuilder::new().content(content).embed(embed);
         data.create_message(&ctx, builder).await?;
-
-        // Store map in DB, combo was inserted earlier
-        if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-            warn!("{:?}", Report::new(err));
-        }
 
         // Set map on garbage collection list if unranked
         ctx.map_garbage_collector(&map).execute(&ctx).await;

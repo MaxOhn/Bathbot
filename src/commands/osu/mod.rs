@@ -417,7 +417,7 @@ where
             Ok(map) => map,
             Err(err) => {
                 let report = Report::new(err).wrap_err("failed to get map combos");
-                warn!("{:?}", report);
+                warn!("{report:?}");
 
                 HashMap::default()
             }
@@ -448,11 +448,12 @@ where
         // Request remaining maps and insert their combos
         for map in ctx.osu().beatmaps(map_ids).await? {
             if let Some(combo) = map.max_combo {
-                if let Some(map) = scores
+                let map_opt = scores
                     .iter_mut()
                     .filter_map(|s| s.map.as_mut())
-                    .find(|m| m.map_id == map.map_id)
-                {
+                    .find(|m| m.map_id == map.map_id);
+
+                if let Some(map) = map_opt {
                     map.max_combo = Some(combo);
 
                     if let Err(err) = ctx.psql().insert_beatmap(map).await {

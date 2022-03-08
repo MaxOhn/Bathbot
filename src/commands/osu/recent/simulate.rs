@@ -138,11 +138,6 @@ pub(super) async fn _recentsimulate(
 
         ctx.store_msg(response.id);
 
-        // Store map in DB
-        if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-            warn!("{:?}", Report::new(err));
-        }
-
         // Set map on garbage collection list if unranked
         let gb = ctx.map_garbage_collector(&map);
 
@@ -167,11 +162,6 @@ pub(super) async fn _recentsimulate(
         let embed = embed_data.into_builder().build();
         let builder = MessageBuilder::new().content(content).embed(embed);
         data.create_message(&ctx, builder).await?;
-
-        // Store map in DB, combo was inserted earlier
-        if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-            warn!("{:?}", Report::new(err));
-        }
 
         // Set map on garbage collection list if unranked
         ctx.map_garbage_collector(&map).execute(&ctx).await;

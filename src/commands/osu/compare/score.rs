@@ -243,7 +243,14 @@ pub(super) async fn _compare(
     let mut map = match ctx.psql().get_beatmap(map_id, true).await {
         Ok(map) => map,
         Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
-            Ok(map) => map,
+            Ok(map) => {
+                // Store map in DB
+                if let Err(err) = ctx.psql().insert_beatmap(&map).await {
+                    warn!("{:?}", Report::new(err));
+                }
+
+                map
+            }
             Err(err) => {
                 let _ = data.error(&ctx, OSU_API_ISSUE).await;
 

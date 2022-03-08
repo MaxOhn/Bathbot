@@ -107,7 +107,7 @@ pub(super) async fn _playersnipestats(
         Ok(counts) => counts,
         Err(why) => {
             let report = Report::new(why).wrap_err("failed to retrieve snipe player");
-            warn!("{:?}", report);
+            warn!("{report:?}");
             let content = format!("`{name}` has never had any national #1s");
             let builder = MessageBuilder::new().embed(content);
             data.create_message(&ctx, builder).await?;
@@ -137,7 +137,7 @@ pub(super) async fn _playersnipestats(
                 },
                 Err(why) => {
                     let report = Report::new(why).wrap_err("faield to retrieve oldest data");
-                    warn!("{:?}", report);
+                    warn!("{report:?}");
 
                     Ok(None)
                 }

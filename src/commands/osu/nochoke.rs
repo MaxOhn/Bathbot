@@ -156,14 +156,6 @@ async fn _nochokes(ctx: Arc<Context>, data: CommandData<'_>, args: NochokeArgs) 
     let builder = MessageBuilder::new().content(content).embed(embed);
     let response_raw = data.create_message(&ctx, builder).await?;
 
-    // Add maps of scores to DB
-    let scores_iter = scores_data.iter().map(|(_, score, _)| score);
-
-    // Store maps of scores in DB; combo was inserted earlier
-    if let Err(err) = ctx.psql().store_scores_maps(scores_iter).await {
-        warn!("{:?}", Report::new(err));
-    }
-
     // Skip pagination if too few entries
     if scores_data.len() <= 5 {
         return Ok(());

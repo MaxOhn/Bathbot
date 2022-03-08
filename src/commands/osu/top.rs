@@ -140,14 +140,6 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
         return data.error(&ctx, content).await;
     }
 
-    // Add maps of scores to DB
-    let scores_iter = scores.iter().map(|(_, score)| score);
-
-    // Store maps of scores in DB; combo was inserted earlier
-    if let Err(err) = ctx.psql().store_scores_maps(scores_iter).await {
-        warn!("{:?}", Report::new(err));
-    }
-
     match (args.index, scores.len()) {
         (Some(num), _) => {
             let maximize = match (args.config.embeds_maximized, data.guild_id()) {

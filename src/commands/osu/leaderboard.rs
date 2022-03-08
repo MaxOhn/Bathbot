@@ -81,7 +81,14 @@ async fn _leaderboard(
     let map = match ctx.psql().get_beatmap(map_id, true).await {
         Ok(map) => map,
         Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
-            Ok(map) => map,
+            Ok(map) => {
+                // Add map to database if its not in already
+                if let Err(err) = ctx.psql().insert_beatmap(&map).await {
+                    warn!("{:?}", Report::new(err));
+                }
+
+                map
+            }
             Err(OsuError::NotFound) => {
                 let content = format!(
                     "Could not find beatmap with id `{}`. \
@@ -160,11 +167,6 @@ async fn _leaderboard(
     let builder = MessageBuilder::new().content(content).embed(embed);
     let response_raw = data.create_message(&ctx, builder).await?;
 
-    // Add map to database if its not in already
-    if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-        warn!("{:?}", Report::new(err));
-    }
-
     // Set map on garbage collection list if unranked
     let gb = ctx.map_garbage_collector(&map);
 
@@ -176,8 +178,15 @@ async fn _leaderboard(
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination =
-        LeaderboardPagination::new(response, map, None, scores, author_name, first_place_icon, Arc::clone(&ctx));
+    let pagination = LeaderboardPagination::new(
+        response,
+        map,
+        None,
+        scores,
+        author_name,
+        first_place_icon,
+        Arc::clone(&ctx),
+    );
 
     let owner = author_id;
 

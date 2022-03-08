@@ -124,7 +124,7 @@ pub(super) async fn _playersnipelist(
 
     let (scores, count) = match tokio::try_join!(scores_fut, count_fut) {
         Ok((scores, mut count)) => {
-            let scores = scores.into_iter().enumerate().collect::<BTreeMap<_, _>>();
+            let scores: BTreeMap<_, _> = scores.into_iter().enumerate().collect();
 
             // TODO: Remove this when it's fixed on huismetbenen
             if params.order != SnipeScoreOrder::Pp {
@@ -176,7 +176,8 @@ pub(super) async fn _playersnipelist(
     }
 
     let pages = numbers::div_euclid(5, count);
-    let embed_data = PlayerSnipeListEmbed::new(&user, &scores, &maps, count, &ctx, (1, pages)).await;
+    let embed_data =
+        PlayerSnipeListEmbed::new(&user, &scores, &maps, count, &ctx, (1, pages)).await;
 
     let mut content = format!(
         "`Order: {order:?} {descending}`",

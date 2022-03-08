@@ -147,13 +147,6 @@ async fn _mapper(ctx: Arc<Context>, data: CommandData<'_>, args: MapperArgs) -> 
 
     let response_raw = data.create_message(&ctx, builder).await?;
 
-    let scores_iter = scores.iter().map(|(_, score)| score);
-
-    // Store maps of scores in DB; combo was inserted earlier
-    if let Err(err) = ctx.psql().store_scores_maps(scores_iter).await {
-        warn!("{:?}", Report::new(err));
-    }
-
     // Skip pagination if too few entries
     if scores.len() <= 5 {
         return Ok(());

@@ -1,15 +1,13 @@
 use std::{error::Error as StdError, fmt};
 
-use chrono::{DateTime, Utc};
 use futures::{
     future::{BoxFuture, FutureExt},
     stream::{StreamExt, TryStreamExt},
 };
 use hashbrown::HashMap;
 use rosu_v2::prelude::{
-    Beatmap, Beatmapset, BeatmapsetCompact, GameMode,
+    Beatmap, Beatmapset, GameMode,
     RankStatus::{Approved, Loved, Ranked},
-    Score,
 };
 use sqlx::{Error as SqlxError, PgConnection};
 use thiserror::Error;
@@ -73,12 +71,22 @@ impl fmt::Display for InsertMapOrMapsetError {
 }
 
 #[derive(Debug, Error)]
-#[error("failed to add map to DB")]
-pub struct InsertMapError(#[from] SqlxError);
+pub enum InsertMapError {
+    #[error("cannot add {0:?} map to DB without combo")]
+    MissingCombo(GameMode),
+    #[error("failed to add map to DB")]
+    Sqlx(#[from] SqlxError),
+}
 
 #[derive(Debug, Error)]
-#[error("failed to add mapset to DB")]
-pub struct InsertMapsetError(#[from] SqlxError);
+pub enum InsertMapsetError {
+    #[error("cannot add mapset too DB without genre")]
+    MissingGenre,
+    #[error("cannot add mapset to DB without language")]
+    MissingLanguage,
+    #[error("failed to add mapset to DB")]
+    Sqlx(#[from] SqlxError),
+}
 
 fn should_not_be_stored(map: &Beatmap) -> bool {
     invalid_status!(map) || map.convert || (map.mode != GameMode::MNA && map.max_combo.is_none())
@@ -138,11 +146,12 @@ impl Database {
     ) -> BotResult<HashMap<u32, Option<u32>>> {
         let mut combos = HashMap::with_capacity(map_ids.len());
 
-        let mut rows = sqlx::query!(
+        let query = sqlx::query!(
             "SELECT map_id,max_combo FROM maps WHERE map_id=ANY($1)",
             map_ids
-        )
-        .fetch(&self.pool);
+        );
+
+        let mut rows = query.fetch(&self.pool);
 
         while let Some(row) = rows.next().await.transpose()? {
             combos.insert(row.map_id as u32, row.max_combo.map(|c| c as u32));
@@ -193,7 +202,6 @@ impl Database {
         Ok(beatmaps)
     }
 
-    /// Be mindful that the score's maps have max combos!
     pub async fn insert_beatmapset(&self, mapset: &Beatmapset) -> InsertMapResult<bool> {
         if invalid_status!(mapset) {
             return Ok(false);
@@ -203,14 +211,13 @@ impl Database {
 
         if let Some(ref maps) = mapset.maps {
             for map in maps {
-                _insert_map(&mut conn, map).await?;
+                insert_map_(&mut conn, map).await?;
             }
         }
 
-        _insert_mapset(&mut conn, mapset).await.map(|_| true)
+        insert_mapset_(&mut conn, mapset).await.map(|_| true)
     }
 
-    /// Be mindful that the score's maps have max combos!
     pub async fn insert_beatmap(&self, map: &Beatmap) -> InsertMapResult<bool> {
         if should_not_be_stored(map) {
             return Ok(false);
@@ -218,10 +225,9 @@ impl Database {
 
         let mut conn = self.pool.acquire().await?;
 
-        _insert_map(&mut conn, map).await.map(|_| true)
+        insert_map_(&mut conn, map).await.map(|_| true)
     }
 
-    /// Be mindful that the score's maps have max combos!
     pub async fn insert_beatmaps(
         &self,
         maps: impl Iterator<Item = &Beatmap>,
@@ -234,55 +240,27 @@ impl Database {
                 continue;
             }
 
-            _insert_map(&mut conn, map).await?;
+            insert_map_(&mut conn, map).await?;
             count += 1;
         }
 
         Ok(count)
     }
-
-    /// Be mindful that the score's maps have max combos!
-    pub async fn store_scores_maps<'s>(
-        &self,
-        scores: impl Iterator<Item = &'s Score>,
-    ) -> InsertMapResult<(usize, usize)> {
-        let mut conn = self.pool.acquire().await?;
-
-        let mut maps = 0;
-        let mut mapsets = 0;
-
-        for score in scores {
-            if let Some(ref map) = score.map {
-                if should_not_be_stored(map) {
-                    continue;
-                }
-
-                _insert_map(&mut conn, map).await?;
-
-                maps += 1;
-
-                if let Some(ref mapset) = score.mapset {
-                    if invalid_status!(mapset) {
-                        continue;
-                    }
-
-                    _insert_mapset_compact(&mut conn, mapset, map.bpm, map.last_updated).await?;
-
-                    mapsets += 1;
-                }
-            }
-        }
-
-        Ok((maps, mapsets))
-    }
 }
 
-async fn _insert_map(conn: &mut PgConnection, map: &Beatmap) -> InsertMapResult<()> {
-    sqlx::query!(
+async fn insert_map_(conn: &mut PgConnection, map: &Beatmap) -> InsertMapResult<()> {
+    let max_combo = if map.mode == GameMode::MNA {
+        None
+    } else if let Some(combo) = map.max_combo {
+        Some(combo as i32)
+    } else {
+        return Err(InsertMapError::MissingCombo(map.mode).into());
+    };
+
+    let query = sqlx::query!(
         "INSERT INTO maps (\
             map_id,\
             mapset_id,\
-            user_id,\
             checksum,\
             version,\
             seconds_total,\
@@ -302,11 +280,10 @@ async fn _insert_map(conn: &mut PgConnection, map: &Beatmap) -> InsertMapResult<
             max_combo\
         )\
         VALUES\
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)\
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)\
         ON CONFLICT (map_id) DO NOTHING",
         map.map_id as i32,
         map.mapset_id as i32,
-        map.mapset.as_ref().map_or(0, |ms| ms.creator_id as i32),
         map.checksum,
         map.version,
         map.seconds_total as i32,
@@ -323,25 +300,39 @@ async fn _insert_map(conn: &mut PgConnection, map: &Beatmap) -> InsertMapResult<
         map.last_updated,
         map.stars,
         map.bpm,
-        map.max_combo.map(|combo| combo as i32),
-    )
-    .execute(&mut *conn)
-    .await
-    .map_err(InsertMapError::from)?;
+        max_combo,
+    );
+
+    query
+        .execute(&mut *conn)
+        .await
+        .map_err(InsertMapError::from)?;
 
     if let Some(ref mapset) = map.mapset {
-        _insert_mapset(conn, mapset).await?;
+        insert_mapset_(conn, mapset).await?;
     }
 
     Ok(())
 }
 
-fn _insert_mapset<'a>(
+fn insert_mapset_<'a>(
     conn: &'a mut PgConnection,
     mapset: &'a Beatmapset,
 ) -> BoxFuture<'a, InsertMapResult<()>> {
     let fut = async move {
-        sqlx::query!(
+        let genre = if let Some(genre) = mapset.genre {
+            Some(genre as i16)
+        } else {
+            return Err(InsertMapsetError::MissingGenre.into());
+        };
+
+        let language = if let Some(language) = mapset.language {
+            Some(language as i16)
+        } else {
+            return Err(InsertMapsetError::MissingLanguage.into());
+        };
+
+        let query = sqlx::query!(
             "INSERT INTO mapsets (\
                 mapset_id,\
                 user_id,\
@@ -364,62 +355,21 @@ fn _insert_mapset<'a>(
             mapset.creator_name.as_str(),
             mapset.status as i16,
             mapset.ranked_date,
-            mapset.genre.map_or(1, |g| g as i16),
-            mapset.language.map_or(1, |l| l as i16),
+            genre,
+            language,
             mapset.bpm,
-        )
-        .execute(&mut *conn)
-        .await
-        .map_err(InsertMapsetError::from)?;
+        );
+
+        query
+            .execute(&mut *conn)
+            .await
+            .map_err(InsertMapsetError::from)?;
 
         if let Some(ref maps) = mapset.maps {
             for map in maps {
-                _insert_map(&mut *conn, map).await?;
+                insert_map_(conn, map).await?;
             }
         }
-
-        Ok(())
-    };
-
-    fut.boxed()
-}
-
-fn _insert_mapset_compact<'a>(
-    conn: &'a mut PgConnection,
-    mapset: &'a BeatmapsetCompact,
-    bpm: f32,
-    ranked_date: DateTime<Utc>,
-) -> BoxFuture<'a, Result<(), InsertMapsetError>> {
-    let fut = async move {
-        sqlx::query!(
-            "INSERT INTO mapsets (\
-                mapset_id,\
-                user_id,\
-                artist,\
-                title,\
-                creator,\
-                status,\
-                ranked_date,\
-                genre,\
-                language,\
-                bpm\
-            )\
-            VALUES\
-            ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)\
-            ON CONFLICT (mapset_id) DO NOTHING",
-            mapset.mapset_id as i32,
-            mapset.creator_id as i32,
-            mapset.artist,
-            mapset.title,
-            mapset.creator_name.as_str(),
-            mapset.status as i16,
-            ranked_date,
-            mapset.genre.map_or(1, |g| g as i16),
-            mapset.language.map_or(1, |l| l as i16),
-            bpm
-        )
-        .execute(&mut *conn)
-        .await?;
 
         Ok(())
     };
