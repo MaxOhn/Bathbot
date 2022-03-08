@@ -22,7 +22,7 @@ use crate::{
         osu::{get_user, get_user_cached, UserArgs},
         parse_discord, DoubleResultCow, MyCommand,
     },
-    database::UserConfig,
+    database::{EmbedsSize, UserConfig},
     embeds::{CompareEmbed, EmbedData, NoScoresEmbed, ScoresEmbed},
     error::Error,
     pagination::{Pagination, ScoresPagination},
@@ -99,10 +99,10 @@ pub(super) async fn _compare(
         sort_by,
     } = args;
 
-    let embeds_maximized = match (config.embeds_maximized, data.guild_id()) {
-        (Some(embeds_maximized), _) => embeds_maximized,
+    let embeds_size = match (config.embeds_size, data.guild_id()) {
+        (Some(size), _) => size,
         (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
-        (None, None) => true,
+        (None, None) => EmbedsSize::default(),
     };
 
     let name = match config.into_username() {
@@ -204,7 +204,7 @@ pub(super) async fn _compare(
                 best.as_deref_mut(),
                 global_idx,
                 pinned,
-                embeds_maximized,
+                embeds_size,
             );
 
             return fut.await;
@@ -447,15 +447,7 @@ pub(super) async fn _compare(
         score.mapset = map.mapset.take().map(From::from);
         score.map = Some(map);
 
-        let fut = single_score(
-            ctx,
-            &data,
-            score,
-            best,
-            global_idx,
-            pinned,
-            embeds_maximized,
-        );
+        let fut = single_score(ctx, &data, score, best, global_idx, pinned, embeds_size);
 
         return fut.await;
     } else {
@@ -513,7 +505,7 @@ async fn single_score(
     best: Option<&mut [Score]>,
     global_idx: usize,
     pinned: bool,
-    embeds_maximized: bool,
+    embeds_size: EmbedsSize,
 ) -> BotResult<()> {
     // Accumulate all necessary data
     let embed_data = match CompareEmbed::new(best.as_deref(), score, global_idx, pinned, &ctx).await
@@ -527,40 +519,43 @@ async fn single_score(
     };
 
     // Only maximize if config allows it
-    if embeds_maximized {
-        let builder = embed_data.as_builder().build().into();
-        let response = data.create_message(&ctx, builder).await?.model().await?;
-
-        ctx.store_msg(response.id);
-
-        // Process user and their top scores for tracking
-        if let Some(scores) = best {
-            process_osu_tracking(&ctx, scores, None).await;
-        }
-
-        // Wait for minimizing
-        tokio::spawn(async move {
-            sleep(Duration::from_secs(45)).await;
-
-            if !ctx.remove_msg(response.id) {
-                return;
-            }
-
+    match embeds_size {
+        EmbedsSize::AlwaysMinimized => {
             let builder = embed_data.into_builder().build().into();
-
-            if let Err(err) = response.update_message(&ctx, builder).await {
-                let report = Report::new(err).wrap_err("failed to minimize message");
-                warn!("{:?}", report);
-            }
-        });
-    } else {
-        let builder = embed_data.into_builder().build().into();
-        data.create_message(&ctx, builder).await?;
-
-        // Process user and their top scores for tracking
-        if let Some(scores) = best {
-            process_osu_tracking(&ctx, scores, None).await;
+            data.create_message(&ctx, builder).await?;
         }
+        EmbedsSize::InitialMaximized => {
+            let builder = embed_data.as_builder().build().into();
+            let response = data.create_message(&ctx, builder).await?.model().await?;
+
+            ctx.store_msg(response.id);
+            let ctx = Arc::clone(&ctx);
+
+            // Wait for minimizing
+            tokio::spawn(async move {
+                sleep(Duration::from_secs(45)).await;
+
+                if !ctx.remove_msg(response.id) {
+                    return;
+                }
+
+                let builder = embed_data.into_builder().build().into();
+
+                if let Err(err) = response.update_message(&ctx, builder).await {
+                    let report = Report::new(err).wrap_err("failed to minimize message");
+                    warn!("{report:?}");
+                }
+            });
+        }
+        EmbedsSize::AlwaysMaximized => {
+            let builder = embed_data.as_builder().build().into();
+            data.create_message(&ctx, builder).await?;
+        }
+    }
+
+    // Process user and their top scores for tracking
+    if let Some(scores) = best {
+        process_osu_tracking(&ctx, scores, None).await;
     }
 
     Ok(())

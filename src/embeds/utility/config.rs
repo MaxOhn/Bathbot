@@ -1,4 +1,8 @@
-use crate::{commands::osu::ProfileSize, database::UserConfig, embeds::Author};
+use crate::{
+    commands::osu::ProfileSize,
+    database::{EmbedsSize, UserConfig},
+    embeds::Author,
+};
 
 use rosu_v2::prelude::GameMode;
 use std::fmt::Write;
@@ -67,13 +71,15 @@ impl ConfigEmbed {
 
         description.push_str("compact | ");
 
-        if config.embeds_maximized.unwrap_or(true) {
-            description.push(' ');
-        } else {
+        let embeds = config.embeds_size();
+
+        if embeds == EmbedsSize::AlwaysMinimized {
             description.push('>');
+        } else {
+            description.push(' ');
         }
 
-        description.push_str("minimized\n");
+        description.push_str("always minimized\n");
 
         if config.mode == Some(GameMode::STD) {
             description.push('>');
@@ -91,13 +97,13 @@ impl ConfigEmbed {
 
         description.push_str("medium  | ");
 
-        if config.embeds_maximized.unwrap_or(true) {
+        if embeds == EmbedsSize::AlwaysMaximized {
             description.push('>');
         } else {
             description.push(' ');
         }
 
-        description.push_str("maximized\n");
+        description.push_str("always maximized\n");
 
         if config.mode == Some(GameMode::TKO) {
             description.push('>');
@@ -113,7 +119,15 @@ impl ConfigEmbed {
             description.push(' ');
         }
 
-        description.push_str("full    |-----------\n");
+        description.push_str("full    | ");
+
+        if embeds == EmbedsSize::InitialMaximized {
+            description.push('>');
+        } else {
+            description.push(' ');
+        }
+
+        description.push_str("initial maximized\n");
 
         if config.mode == Some(GameMode::CTB) {
             description.push('>');
@@ -121,7 +135,7 @@ impl ConfigEmbed {
             description.push(' ');
         }
 
-        description.push_str("ctb   |          | Retries:\n");
+        description.push_str("ctb   |----------|\n");
 
         if config.mode == Some(GameMode::MNA) {
             description.push('>');
@@ -129,7 +143,7 @@ impl ConfigEmbed {
             description.push(' ');
         }
 
-        description.push_str("mania |          | ");
+        description.push_str("mania | Retries: |\n       | ");
 
         if config.show_retries.unwrap_or(true) {
             description.push('>');
@@ -137,7 +151,7 @@ impl ConfigEmbed {
             description.push(' ');
         }
 
-        description.push_str("show\n       |          | ");
+        description.push_str("show    |\n       | ");
 
         if config.show_retries.unwrap_or(true) {
             description.push(' ');
@@ -145,7 +159,7 @@ impl ConfigEmbed {
             description.push('>');
         }
 
-        description.push_str("hide\n```");
+        description.push_str("hide    |\n```");
 
         Self {
             author,

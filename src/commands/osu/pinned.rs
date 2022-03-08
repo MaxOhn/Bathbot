@@ -20,7 +20,7 @@ use crate::{
         osu::UserArgs, parse_discord, parse_mode_option, DoubleResultCow, MyCommand,
         MyCommandOption,
     },
-    database::UserConfig,
+    database::{EmbedsSize, UserConfig},
     embeds::{EmbedData, PinnedEmbed, TopSingleEmbed},
     error::Error,
     pagination::{Pagination, PinnedPagination},
@@ -109,14 +109,14 @@ async fn _pinned(ctx: Arc<Context>, data: CommandData<'_>, args: PinnedArgs) -> 
     filter_scores(&ctx, &mut scores, &args).await;
 
     if let [score] = &scores[..] {
-        let maximize = match (args.config.embeds_maximized, data.guild_id()) {
-            (Some(embeds_maximized), _) => embeds_maximized,
+        let embeds_size = match (args.config.embeds_size, data.guild_id()) {
+            (Some(size), _) => size,
             (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
-            (None, None) => true,
+            (None, None) => EmbedsSize::default(),
         };
 
         let content = write_content(name, &args, 1);
-        single_embed(ctx, data, user, score, maximize, content).await?;
+        single_embed(ctx, data, user, score, embeds_size, content).await?;
     } else {
         let content = write_content(name, &args, scores.len());
         let sort_by = args.sort_by.unwrap_or(TopOrder::Pp); // TopOrder::Pp does not show anything
@@ -158,7 +158,7 @@ async fn single_embed(
     data: CommandData<'_>,
     user: User,
     score: &Score,
-    maximize: bool,
+    embeds_size: EmbedsSize,
     content: Option<String>,
 ) -> BotResult<()> {
     let map = score.map.as_ref().unwrap();
@@ -203,40 +203,51 @@ async fn single_embed(
     let embed_data = TopSingleEmbed::new(&user, score, personal_idx, global_idx, &ctx).await?;
 
     // Only maximize if config allows it
-    if maximize {
-        let mut builder = MessageBuilder::new().embed(embed_data.as_builder().build());
+    match embeds_size {
+        EmbedsSize::AlwaysMinimized => {
+            let mut builder = MessageBuilder::new().embed(embed_data.into_builder().build());
 
-        if let Some(content) = content {
-            builder = builder.content(content);
-        }
-
-        let response = data.create_message(&ctx, builder).await?.model().await?;
-
-        ctx.store_msg(response.id);
-
-        // Minimize embed after delay
-        tokio::spawn(async move {
-            sleep(Duration::from_secs(45)).await;
-
-            if !ctx.remove_msg(response.id) {
-                return;
+            if let Some(content) = content {
+                builder = builder.content(content);
             }
 
-            let builder = embed_data.into_builder().build().into();
-
-            if let Err(why) = response.update_message(&ctx, builder).await {
-                let report = Report::new(why).wrap_err("failed to minimize pinned message");
-                warn!("{:?}", report);
-            }
-        });
-    } else {
-        let mut builder = MessageBuilder::new().embed(embed_data.into_builder().build());
-
-        if let Some(content) = content {
-            builder = builder.content(content);
+            data.create_message(&ctx, builder).await?;
         }
+        EmbedsSize::InitialMaximized => {
+            let mut builder = MessageBuilder::new().embed(embed_data.as_builder().build());
 
-        data.create_message(&ctx, builder).await?;
+            if let Some(content) = content {
+                builder = builder.content(content);
+            }
+
+            let response = data.create_message(&ctx, builder).await?.model().await?;
+            ctx.store_msg(response.id);
+
+            // Minimize embed after delay
+            tokio::spawn(async move {
+                sleep(Duration::from_secs(45)).await;
+
+                if !ctx.remove_msg(response.id) {
+                    return;
+                }
+
+                let builder = embed_data.into_builder().build().into();
+
+                if let Err(why) = response.update_message(&ctx, builder).await {
+                    let report = Report::new(why).wrap_err("failed to minimize pinned message");
+                    warn!("{report:?}");
+                }
+            });
+        }
+        EmbedsSize::AlwaysMaximized => {
+            let mut builder = MessageBuilder::new().embed(embed_data.as_builder().build());
+
+            if let Some(content) = content {
+                builder = builder.content(content);
+            }
+
+            data.create_message(&ctx, builder).await?;
+        }
     }
 
     Ok(())

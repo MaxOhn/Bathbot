@@ -8,7 +8,10 @@ use twilight_model::id::{
 
 use crate::{
     commands::osu::ProfileSize,
-    database::{models::OsuData, GuildConfig, UserConfig},
+    database::{
+        models::{EmbedsSize, OsuData},
+        GuildConfig, UserConfig,
+    },
     BotResult, Database,
 };
 
@@ -21,7 +24,7 @@ impl Database {
         while let Some(entry) = stream.next().await.transpose()? {
             let config = GuildConfig {
                 authorities: serde_cbor::from_slice(&entry.authorities)?,
-                embeds_maximized: entry.embeds_maximized,
+                embeds_size: entry.embeds_size.map(EmbedsSize::from),
                 prefixes: serde_cbor::from_slice(&entry.prefixes)?,
                 profile_size: entry.profile_size.map(ProfileSize::from),
                 show_retries: entry.show_retries,
@@ -44,7 +47,7 @@ impl Database {
             "INSERT INTO guild_configs (\
                 guild_id,\
                 authorities,\
-                embeds_maximized,\
+                embeds_size,\
                 prefixes,\
                 profile_size,\
                 show_retries,\
@@ -54,7 +57,7 @@ impl Database {
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (guild_id) DO \
             UPDATE \
             SET authorities=$2,\
-                embeds_maximized=$3,\
+                embeds_size=$3,\
                 prefixes=$4,\
                 profile_size=$5,\
                 show_retries=$6,\
@@ -62,7 +65,7 @@ impl Database {
                 with_lyrics=$8",
             guild_id.get() as i64,
             serde_cbor::to_vec(&config.authorities)?,
-            config.embeds_maximized,
+            config.embeds_size.map(|size| size as u8 as i16),
             serde_cbor::to_vec(&config.prefixes)?,
             config.profile_size.map(|size| size as i16),
             config.show_retries,
@@ -119,7 +122,7 @@ impl Database {
                 };
 
                 let config = UserConfig {
-                    embeds_maximized: entry.embeds_maximized,
+                    embeds_size: entry.embeds_size.map(EmbedsSize::from),
                     mode: entry.mode.map(|mode| mode as u8).map(GameMode::from),
                     osu: Some(osu),
                     profile_size: entry.profile_size.map(ProfileSize::from),
@@ -152,7 +155,7 @@ impl Database {
                 };
 
                 let config = UserConfig {
-                    embeds_maximized: entry.embeds_maximized,
+                    embeds_size: entry.embeds_size.map(EmbedsSize::from),
                     mode: entry.mode.map(|mode| mode as u8).map(GameMode::from),
                     osu: Some(osu),
                     profile_size: entry.profile_size.map(ProfileSize::from),
@@ -178,7 +181,7 @@ impl Database {
         let query = sqlx::query!(
             "INSERT INTO user_configs (\
                 discord_id,\
-                embeds_maximized,\
+                embeds_size,\
                 mode,\
                 osu_id,\
                 profile_size,\
@@ -187,14 +190,14 @@ impl Database {
             )\
             VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (discord_id) DO \
             UPDATE \
-            SET embeds_maximized=$2,\
+            SET embeds_size=$2,\
                 mode=$3,\
                 osu_id=$4,\
                 profile_size=$5,\
                 show_retries=$6,\
                 twitch_id=$7",
             user_id.get() as i64,
-            config.embeds_maximized,
+            config.embeds_size.map(|size| size as u8 as i16),
             config.mode.map(|m| m as i16),
             config
                 .osu

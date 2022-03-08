@@ -12,7 +12,7 @@ use twilight_model::{
 
 use crate::{
     commands::{osu::ProfileSize, MyCommand, MyCommandOption},
-    database::GuildConfig,
+    database::{EmbedsSize, GuildConfig},
     embeds::{EmbedData, ServerConfigEmbed},
     util::{
         constants::{common_literals::PROFILE, GENERAL_ISSUE},
@@ -29,7 +29,7 @@ enum ServerConfigCommandKind {
 }
 
 struct ServerConfigArgs {
-    embeds_maximized: Option<bool>,
+    embeds_size: Option<EmbedsSize>,
     profile_size: Option<ProfileSize>,
     show_retries: Option<bool>,
     togglesongs: Option<bool>,
@@ -39,14 +39,14 @@ struct ServerConfigArgs {
 impl ServerConfigArgs {
     fn any(&self) -> bool {
         let ServerConfigArgs {
-            embeds_maximized,
+            embeds_size,
             profile_size,
             show_retries,
             togglesongs,
             track_limit,
         } = self;
 
-        embeds_maximized.is_some()
+        embeds_size.is_some()
             || profile_size.is_some()
             || show_retries.is_some()
             || togglesongs.is_some()
@@ -62,7 +62,7 @@ impl ServerConfigCommandKind {
             .first()
             .and_then(|option| match &option.value {
                 CommandOptionValue::SubCommand(options) if option.name == "edit" => {
-                    let mut embeds_maximized = None;
+                    let mut embeds_size = None;
                     let mut profile_size = None;
                     let mut show_retries = None;
                     let mut togglesongs = None;
@@ -75,7 +75,14 @@ impl ServerConfigCommandKind {
                                 _ => return None,
                             },
                             CommandOptionValue::String(value) => match option.name.as_str() {
-                                "embeds" => embeds_maximized = Some(value == "maximized"),
+                                "embeds" => match value.as_str() {
+                                    "initial_maximized" => {
+                                        embeds_size = Some(EmbedsSize::InitialMaximized)
+                                    }
+                                    "maximized" => embeds_size = Some(EmbedsSize::AlwaysMaximized),
+                                    "minimized" => embeds_size = Some(EmbedsSize::AlwaysMinimized),
+                                    _ => return None,
+                                },
                                 "profile" => match value.as_str() {
                                     "compact" => profile_size = Some(ProfileSize::Compact),
                                     "medium" => profile_size = Some(ProfileSize::Medium),
@@ -91,7 +98,7 @@ impl ServerConfigCommandKind {
                     }
 
                     let args = ServerConfigArgs {
-                        embeds_maximized,
+                        embeds_size,
                         profile_size,
                         show_retries,
                         togglesongs,
@@ -167,7 +174,7 @@ pub async fn slash_serverconfig(ctx: Arc<Context>, command: ApplicationCommand) 
     if args.any() {
         let f = |config: &mut GuildConfig| {
             let ServerConfigArgs {
-                embeds_maximized,
+                embeds_size: embeds_maximized,
                 profile_size,
                 show_retries,
                 togglesongs,
@@ -175,7 +182,7 @@ pub async fn slash_serverconfig(ctx: Arc<Context>, command: ApplicationCommand) 
             } = args;
 
             if let Some(embeds) = embeds_maximized {
-                config.embeds_maximized = Some(embeds);
+                config.embeds_size = Some(embeds);
             }
 
             if let Some(profile) = profile_size {
@@ -294,8 +301,7 @@ pub fn define_serverconfig() -> MyCommand {
         .string(profile_choices, false)
         .help(profile_help);
 
-    let embeds_description =
-        "What initial size should the recent, compare, simulate, ... commands be?";
+    let embeds_description = "What size should the recent, compare, simulate, ... commands be?";
 
     let embeds_help = "Some embeds are pretty chunky and show too much data.\n\
         With this option you can make those embeds minimized by default.\n\
@@ -305,11 +311,15 @@ pub fn define_serverconfig() -> MyCommand {
 
     let embeds_choices = vec![
         CommandOptionChoice::String {
-            name: "maximized".to_owned(),
+            name: "Initial maximized".to_owned(),
+            value: "initial_maximized".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Always maximized".to_owned(),
             value: "maximized".to_owned(),
         },
         CommandOptionChoice::String {
-            name: "minimized".to_owned(),
+            name: "Always minimized".to_owned(),
             value: "minimized".to_owned(),
         },
     ];

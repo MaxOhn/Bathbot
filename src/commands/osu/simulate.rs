@@ -11,7 +11,7 @@ use twilight_model::{
 
 use crate::{
     commands::{DoubleResultCow, MyCommand, MyCommandOption},
-    database::UserConfig,
+    database::{EmbedsSize, UserConfig},
     embeds::{EmbedData, SimulateEmbed},
     error::Error,
     util::{
@@ -138,10 +138,10 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
 
     let mapset: BeatmapsetCompact = map.mapset.take().unwrap().into();
 
-    let maximize = match (args.config.embeds_maximized, data.guild_id()) {
-        (Some(embeds_maximized), _) => embeds_maximized,
+    let embeds_size = match (args.config.embeds_size, data.guild_id()) {
+        (Some(size), _) => size,
         (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
-        (None, None) => true,
+        (None, None) => EmbedsSize::default(),
     };
 
     // Accumulate all necessary data
@@ -157,41 +157,46 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
     let content = "Simulated score:";
 
     // Only maximize if config allows it
-    if maximize {
-        let embed = embed_data.as_builder().build();
-        let builder = MessageBuilder::new().content(content).embed(embed);
-        let response = data.create_message(&ctx, builder).await?.model().await?;
-
-        ctx.store_msg(response.id);
-
-        // Set map on garbage collection list if unranked
-        let gb = ctx.map_garbage_collector(&map);
-
-        // Minimize embed after delay
-        tokio::spawn(async move {
-            gb.execute(&ctx).await;
-            sleep(Duration::from_secs(45)).await;
-
-            if !ctx.remove_msg(response.id) {
-                return;
-            }
-
+    match embeds_size {
+        EmbedsSize::AlwaysMinimized => {
             let embed = embed_data.into_builder().build();
             let builder = MessageBuilder::new().content(content).embed(embed);
+            data.create_message(&ctx, builder).await?;
+        }
+        EmbedsSize::InitialMaximized => {
+            let embed = embed_data.as_builder().build();
+            let builder = MessageBuilder::new().content(content).embed(embed);
+            let response = data.create_message(&ctx, builder).await?.model().await?;
 
-            if let Err(why) = response.update_message(&ctx, builder).await {
-                let report = Report::new(why).wrap_err("failed to minimize message");
-                warn!("{:?}", report);
-            }
-        });
-    } else {
-        let embed = embed_data.into_builder().build();
-        let builder = MessageBuilder::new().content(content).embed(embed);
-        data.create_message(&ctx, builder).await?;
+            ctx.store_msg(response.id);
+            let ctx = Arc::clone(&ctx);
 
-        // Set map on garbage collection list if unranked
-        ctx.map_garbage_collector(&map).execute(&ctx).await;
+            // Minimize embed after delay
+            tokio::spawn(async move {
+                sleep(Duration::from_secs(45)).await;
+
+                if !ctx.remove_msg(response.id) {
+                    return;
+                }
+
+                let embed = embed_data.into_builder().build();
+                let builder = MessageBuilder::new().content(content).embed(embed);
+
+                if let Err(why) = response.update_message(&ctx, builder).await {
+                    let report = Report::new(why).wrap_err("failed to minimize message");
+                    warn!("{report:?}");
+                }
+            });
+        }
+        EmbedsSize::AlwaysMaximized => {
+            let embed = embed_data.as_builder().build();
+            let builder = MessageBuilder::new().content(content).embed(embed);
+            data.create_message(&ctx, builder).await?;
+        }
     }
+
+    // Set map on garbage collection list if unranked
+    ctx.map_garbage_collector(&map).execute(&ctx).await;
 
     Ok(())
 }

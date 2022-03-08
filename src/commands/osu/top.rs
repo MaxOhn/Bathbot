@@ -32,7 +32,7 @@ use crate::{
         osu::{get_user_and_scores, ScoreArgs, UserArgs},
         parse_discord, parse_mode_option, DoubleResultCow, MyCommand, MyCommandOption,
     },
-    database::UserConfig,
+    database::{EmbedsSize, UserConfig},
     embeds::{EmbedData, TopEmbed, TopSingleEmbed},
     error::Error,
     pagination::{Pagination, TopPagination},
@@ -142,24 +142,24 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
 
     match (args.index, scores.len()) {
         (Some(num), _) => {
-            let maximize = match (args.config.embeds_maximized, data.guild_id()) {
-                (Some(embeds_maximized), _) => embeds_maximized,
+            let embeds_size = match (args.config.embeds_size, data.guild_id()) {
+                (Some(size), _) => size,
                 (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
-                (None, None) => true,
+                (None, None) => EmbedsSize::default(),
             };
 
             let num = num.saturating_sub(1);
-            single_embed(ctx, data, user, scores, num, maximize, None).await?;
+            single_embed(ctx, data, user, scores, num, embeds_size, None).await?;
         }
         (_, 1) => {
-            let maximize = match (args.config.embeds_maximized, data.guild_id()) {
-                (Some(embeds_maximized), _) => embeds_maximized,
+            let embeds_size = match (args.config.embeds_size, data.guild_id()) {
+                (Some(size), _) => size,
                 (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
-                (None, None) => true,
+                (None, None) => EmbedsSize::default(),
             };
 
             let content = write_content(name, &args, 1);
-            single_embed(ctx, data, user, scores, 0, maximize, content).await?;
+            single_embed(ctx, data, user, scores, 0, embeds_size, content).await?;
         }
         (None, _) => {
             let content = write_content(name, &args, scores.len());
@@ -672,7 +672,7 @@ async fn single_embed(
     user: User,
     scores: Vec<(usize, Score)>,
     idx: usize,
-    maximize: bool,
+    embeds_size: EmbedsSize,
     content: Option<String>,
 ) -> BotResult<()> {
     let (idx, score) = scores.get(idx).unwrap();
@@ -698,40 +698,52 @@ async fn single_embed(
     let embed_data = TopSingleEmbed::new(&user, score, Some(*idx), global_idx, &ctx).await?;
 
     // Only maximize if config allows it
-    if maximize {
-        let mut builder = MessageBuilder::new().embed(embed_data.as_builder().build());
+    match embeds_size {
+        EmbedsSize::AlwaysMinimized => {
+            let mut builder = MessageBuilder::new().embed(embed_data.into_builder().build());
 
-        if let Some(content) = content {
-            builder = builder.content(content);
-        }
-
-        let response = data.create_message(&ctx, builder).await?.model().await?;
-
-        ctx.store_msg(response.id);
-
-        // Minimize embed after delay
-        tokio::spawn(async move {
-            sleep(Duration::from_secs(45)).await;
-
-            if !ctx.remove_msg(response.id) {
-                return;
+            if let Some(content) = content {
+                builder = builder.content(content);
             }
 
-            let builder = embed_data.into_builder().build().into();
-
-            if let Err(why) = response.update_message(&ctx, builder).await {
-                let report = Report::new(why).wrap_err("failed to minimize top message");
-                warn!("{:?}", report);
-            }
-        });
-    } else {
-        let mut builder = MessageBuilder::new().embed(embed_data.into_builder().build());
-
-        if let Some(content) = content {
-            builder = builder.content(content);
+            data.create_message(&ctx, builder).await?;
         }
+        EmbedsSize::InitialMaximized => {
+            let mut builder = MessageBuilder::new().embed(embed_data.as_builder().build());
 
-        data.create_message(&ctx, builder).await?;
+            if let Some(content) = content {
+                builder = builder.content(content);
+            }
+
+            let response = data.create_message(&ctx, builder).await?.model().await?;
+
+            ctx.store_msg(response.id);
+
+            // Minimize embed after delay
+            tokio::spawn(async move {
+                sleep(Duration::from_secs(45)).await;
+
+                if !ctx.remove_msg(response.id) {
+                    return;
+                }
+
+                let builder = embed_data.into_builder().build().into();
+
+                if let Err(why) = response.update_message(&ctx, builder).await {
+                    let report = Report::new(why).wrap_err("failed to minimize top message");
+                    warn!("{report:?}");
+                }
+            });
+        }
+        EmbedsSize::AlwaysMaximized => {
+            let mut builder = MessageBuilder::new().embed(embed_data.as_builder().build());
+
+            if let Some(content) = content {
+                builder = builder.content(content);
+            }
+
+            data.create_message(&ctx, builder).await?;
+        }
     }
 
     Ok(())

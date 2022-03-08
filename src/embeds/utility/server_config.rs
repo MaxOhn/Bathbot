@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use crate::{
     commands::{osu::ProfileSize, utility::GuildData},
-    database::GuildConfig,
+    database::{EmbedsSize, GuildConfig},
     embeds::Author,
 };
 
@@ -56,7 +56,7 @@ impl ServerConfigEmbed {
             }
         }
 
-        description.push_str("\n\nSong commands: | Embeds*:\n");
+        description.push_str("\n\nSong commands: | Retries*:\n");
 
         let songs = config.with_lyrics();
 
@@ -68,15 +68,15 @@ impl ServerConfigEmbed {
 
         description.push_str("enabled       | ");
 
-        let embeds = config.embeds_maximized();
+        let retries = config.show_retries();
 
-        if embeds {
+        if retries {
             description.push('>');
         } else {
             description.push(' ');
         }
 
-        description.push_str("minimized\n");
+        description.push_str("show\n");
 
         if songs {
             description.push(' ');
@@ -86,23 +86,24 @@ impl ServerConfigEmbed {
 
         description.push_str("disabled      | ");
 
-        if embeds {
-            description.push(' ');
-        } else {
-            description.push('>');
-        }
-
-        description.push_str("maximized\n---------------------------\nRetries*: | Profile*:\n");
-
-        let retries = config.show_retries();
-
         if retries {
+            description.push(' ');
+        } else {
+            description.push('>');
+        }
+
+        description
+            .push_str("hide\n------------------------------\nEmbeds*:           | Profile*:\n");
+
+        let embeds = config.embeds_size();
+
+        if embeds == EmbedsSize::AlwaysMinimized {
             description.push('>');
         } else {
             description.push(' ');
         }
 
-        description.push_str("show     | ");
+        description.push_str("always minimized  | ");
 
         let profile = config.profile_size.unwrap_or_default();
 
@@ -114,13 +115,13 @@ impl ServerConfigEmbed {
 
         description.push_str("compact\n");
 
-        if retries {
-            description.push(' ');
-        } else {
+        if embeds == EmbedsSize::AlwaysMaximized {
             description.push('>');
+        } else {
+            description.push(' ');
         }
 
-        description.push_str("hide     | ");
+        description.push_str("always maximized  | ");
 
         if profile == ProfileSize::Medium {
             description.push('>');
@@ -128,7 +129,15 @@ impl ServerConfigEmbed {
             description.push(' ');
         }
 
-        description.push_str("medium\n          | ");
+        description.push_str("medium\n");
+
+        if embeds == EmbedsSize::InitialMaximized {
+            description.push('>');
+        } else {
+            description.push(' ');
+        }
+
+        description.push_str("initial maximized | ");
 
         if profile == ProfileSize::Full {
             description.push('>');
@@ -136,7 +145,7 @@ impl ServerConfigEmbed {
             description.push(' ');
         }
 
-        description.push_str("full\n---------------------------\n");
+        description.push_str("full\n------------------------------\n");
 
         let track_limit = config.track_limit();
         let _ = writeln!(description, "Default track limit: {track_limit}");

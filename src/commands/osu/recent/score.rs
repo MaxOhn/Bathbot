@@ -22,7 +22,7 @@ use crate::{
         parse_discord, parse_mode_option, DoubleResultCow, MyCommand,
     },
     custom_client::TwitchVideo,
-    database::UserConfig,
+    database::{EmbedsSize, UserConfig},
     embeds::{EmbedData, RecentEmbed},
     error::Error,
     tracking::process_osu_tracking,
@@ -263,75 +263,75 @@ pub(super) async fn _recent(
 
     let content = show_retries.then(|| format!("Try #{tries}"));
 
-    let embeds_maximized = match (config.embeds_maximized, guild_id) {
-        (Some(embeds_maximized), _) => embeds_maximized,
+    let embeds_size = match (config.embeds_size, guild_id) {
+        (Some(size), _) => size,
         (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
-        (None, None) => true,
+        (None, None) => EmbedsSize::default(),
     };
 
     // Only maximize if config allows it
-    if embeds_maximized {
-        let embed = embed_data.as_builder().build();
-        let mut builder = MessageBuilder::new().embed(embed);
-
-        if let Some(content) = content {
-            builder = builder.content(content);
-        }
-
-        let mut response = data.create_message(&ctx, builder).await?.model().await?;
-        ctx.store_msg(response.id);
-
-        // Set map on garbage collection list if unranked
-        let gb = ctx.map_garbage_collector(map);
-
-        // * Note: Don't store maps in DB as their max combo isn't available
-
-        // Process user and their top scores for tracking
-        if let Some(ref mut scores) = best {
-            process_osu_tracking(&ctx, scores, Some(&user)).await;
-        }
-
-        // Wait for minimizing
-        tokio::spawn(async move {
-            gb.execute(&ctx).await;
-            sleep(Duration::from_secs(45)).await;
-
-            if !ctx.remove_msg(response.id) {
-                return;
-            }
-
+    match embeds_size {
+        EmbedsSize::AlwaysMinimized => {
             let embed = embed_data.into_builder().build();
             let mut builder = MessageBuilder::new().embed(embed);
 
-            if !response.content.is_empty() {
-                builder = builder.content(mem::take(&mut response.content));
+            if let Some(content) = content {
+                builder = builder.content(content);
             }
 
-            if let Err(why) = response.update_message(&ctx, builder).await {
-                let report = Report::new(why).wrap_err("failed to minimize message");
-                warn!("{report:?}");
+            data.create_message(&ctx, builder).await?;
+        }
+        EmbedsSize::InitialMaximized => {
+            let embed = embed_data.as_builder().build();
+            let mut builder = MessageBuilder::new().embed(embed);
+
+            if let Some(content) = content {
+                builder = builder.content(content);
             }
-        });
-    } else {
-        let embed = embed_data.into_builder().build();
-        let mut builder = MessageBuilder::new().embed(embed);
 
-        if let Some(content) = content {
-            builder = builder.content(content);
+            let mut response = data.create_message(&ctx, builder).await?.model().await?;
+            ctx.store_msg(response.id);
+            let ctx = Arc::clone(&ctx);
+
+            // Wait for minimizing
+            tokio::spawn(async move {
+                sleep(Duration::from_secs(45)).await;
+
+                if !ctx.remove_msg(response.id) {
+                    return;
+                }
+
+                let embed = embed_data.into_builder().build();
+                let mut builder = MessageBuilder::new().embed(embed);
+
+                if !response.content.is_empty() {
+                    builder = builder.content(mem::take(&mut response.content));
+                }
+
+                if let Err(why) = response.update_message(&ctx, builder).await {
+                    let report = Report::new(why).wrap_err("failed to minimize message");
+                    warn!("{report:?}");
+                }
+            });
         }
+        EmbedsSize::AlwaysMaximized => {
+            let embed = embed_data.as_builder().build();
+            let mut builder = MessageBuilder::new().embed(embed);
 
-        data.create_message(&ctx, builder).await?;
+            if let Some(content) = content {
+                builder = builder.content(content);
+            }
 
-        // Set map on garbage collection list if unranked
-        let gb = ctx.map_garbage_collector(map);
-        gb.execute(&ctx).await;
-
-        // * Note: Don't store maps in DB as their max combo isn't available
-
-        // Process user and their top scores for tracking
-        if let Some(ref mut scores) = best {
-            process_osu_tracking(&ctx, scores, Some(&user)).await;
+            data.create_message(&ctx, builder).await?;
         }
+    }
+
+    // Set map on garbage collection list if unranked
+    ctx.map_garbage_collector(map).execute(&ctx).await;
+
+    // Process user and their top scores for tracking
+    if let Some(ref mut scores) = best {
+        process_osu_tracking(&ctx, scores, Some(&user)).await;
     }
 
     Ok(())

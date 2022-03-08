@@ -7,7 +7,7 @@ use twilight_model::id::{
 
 use crate::{
     commands::osu::ProfileSize,
-    database::{Authorities, GuildConfig, Prefix, Prefixes, UserConfig},
+    database::{Authorities, EmbedsSize, GuildConfig, Prefix, Prefixes, UserConfig},
     BotResult, Context,
 };
 
@@ -143,7 +143,7 @@ impl Context {
         config.show_retries()
     }
 
-    pub async fn guild_embeds_maximized(&self, guild_id: Id<GuildMarker>) -> bool {
+    pub async fn guild_embeds_maximized(&self, guild_id: Id<GuildMarker>) -> EmbedsSize {
         let config = match self.data.guilds.entry(guild_id) {
             Entry::Occupied(entry) => entry.into_ref(),
             Entry::Vacant(entry) => {
@@ -159,7 +159,7 @@ impl Context {
             }
         };
 
-        config.embeds_maximized()
+        config.embeds_size()
     }
 
     // TODO: Refactor all these methods

@@ -1,7 +1,7 @@
 use crate::{
     commands::{osu::ProfileSize, MyCommand, MyCommandOption},
     core::CONFIG,
-    database::{OsuData, UserConfig},
+    database::{EmbedsSize, OsuData, UserConfig},
     embeds::{ConfigEmbed, EmbedBuilder, EmbedData},
     server::AuthenticationStandbyError,
     util::{
@@ -47,7 +47,7 @@ pub async fn config_(
     let ConfigArgs {
         mode,
         profile_size,
-        embeds_maximized,
+        embeds_size,
         show_retries,
         osu,
         twitch,
@@ -71,8 +71,8 @@ pub async fn config_(
         config.profile_size = Some(size);
     }
 
-    if let Some(maximize) = embeds_maximized {
-        config.embeds_maximized = Some(maximize);
+    if let Some(maximize) = embeds_size {
+        config.embeds_size = Some(maximize);
     }
 
     if let Some(retries) = show_retries {
@@ -105,7 +105,6 @@ fn osu_content(state: u8) -> String {
         emote = Emote::Osu.text(),
         client_id = config.tokens.osu_client_id,
         url = config.server.external_url,
-        state = state,
     )
 }
 
@@ -119,7 +118,6 @@ fn twitch_content(state: u8) -> String {
         emote = Emote::Twitch.text(),
         client_id = config.tokens.twitch_client_id,
         url = config.server.external_url,
-        state = state,
     )
 }
 
@@ -326,7 +324,7 @@ async fn handle_no_links(
 
 #[derive(Default)]
 pub struct ConfigArgs {
-    embeds_maximized: Option<bool>,
+    embeds_size: Option<EmbedsSize>,
     mode: Option<Option<GameMode>>,
     profile_size: Option<ProfileSize>,
     show_retries: Option<bool>,
@@ -338,7 +336,7 @@ impl ConfigArgs {
     fn slash(command: &mut ApplicationCommand) -> BotResult<Self> {
         let mut mode = None;
         let mut profile_size = None;
-        let mut embeds_maximized = None;
+        let mut embeds_size = None;
         let mut show_retries = None;
         let mut osu = None;
         let mut twitch = None;
@@ -365,8 +363,9 @@ impl ConfigArgs {
                         _ => return Err(Error::InvalidCommandOptions),
                     },
                     "embeds" => match value.as_str() {
-                        "maximized" => embeds_maximized = Some(true),
-                        "minimized" => embeds_maximized = Some(false),
+                        "initial_maximized" => embeds_size = Some(EmbedsSize::InitialMaximized),
+                        "maximized" => embeds_size = Some(EmbedsSize::AlwaysMaximized),
+                        "minimized" => embeds_size = Some(EmbedsSize::AlwaysMinimized),
                         _ => return Err(Error::InvalidCommandOptions),
                     },
                     "retries" => match value.as_str() {
@@ -384,7 +383,7 @@ impl ConfigArgs {
         let args = Self {
             mode,
             profile_size,
-            embeds_maximized,
+            embeds_size,
             show_retries,
             osu,
             twitch,
@@ -495,8 +494,7 @@ pub fn define_config() -> MyCommand {
     let profile =
         MyCommandOption::builder(PROFILE, profile_description).string(profile_choices, false);
 
-    let embeds_description =
-        "What initial size should the recent, compare, simulate, ... commands be?";
+    let embeds_description = "What size should the recent, compare, simulate, ... commands be?";
 
     let embeds_help = "Some embeds are pretty chunky and show too much data.\n\
         With this option you can make those embeds minimized by default.\n\
@@ -505,11 +503,15 @@ pub fn define_config() -> MyCommand {
 
     let embeds_choices = vec![
         CommandOptionChoice::String {
-            name: "maximized".to_owned(),
+            name: "Initial maximized".to_owned(),
+            value: "initial_maximized".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Always maximized".to_owned(),
             value: "maximized".to_owned(),
         },
         CommandOptionChoice::String {
-            name: "minimized".to_owned(),
+            name: "Always minimized".to_owned(),
             value: "minimized".to_owned(),
         },
     ];

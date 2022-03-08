@@ -8,10 +8,34 @@ pub type Prefix = SmallString<[u8; 2]>;
 pub type Prefixes = SmallVec<[Prefix; 5]>;
 pub type Authorities = SmallVec<[u64; 4]>;
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u8)]
+pub enum EmbedsSize {
+    AlwaysMinimized = 0,
+    InitialMaximized = 1,
+    AlwaysMaximized = 2,
+}
+
+impl From<i16> for EmbedsSize {
+    fn from(value: i16) -> Self {
+        match value {
+            0 => Self::AlwaysMinimized,
+            2 => Self::AlwaysMaximized,
+            _ => Self::InitialMaximized,
+        }
+    }
+}
+
+impl Default for EmbedsSize {
+    fn default() -> Self {
+        Self::InitialMaximized
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct GuildConfig {
     pub authorities: Authorities,
-    pub embeds_maximized: Option<bool>,
+    pub embeds_size: Option<EmbedsSize>,
     pub prefixes: Prefixes,
     pub profile_size: Option<ProfileSize>,
     pub show_retries: Option<bool>,
@@ -24,8 +48,8 @@ impl GuildConfig {
         self.with_lyrics.unwrap_or(true)
     }
 
-    pub fn embeds_maximized(&self) -> bool {
-        self.embeds_maximized.unwrap_or(true)
+    pub fn embeds_size(&self) -> EmbedsSize {
+        self.embeds_size.unwrap_or_default()
     }
 
     pub fn show_retries(&self) -> bool {
@@ -41,7 +65,7 @@ impl Default for GuildConfig {
     fn default() -> Self {
         GuildConfig {
             authorities: SmallVec::new(),
-            embeds_maximized: None,
+            embeds_size: None,
             prefixes: smallvec!["<".into()],
             profile_size: None,
             show_retries: None,
@@ -94,7 +118,7 @@ impl From<String> for OsuData {
 
 #[derive(Clone, Debug, Default)]
 pub struct UserConfig {
-    pub embeds_maximized: Option<bool>,
+    pub embeds_size: Option<EmbedsSize>,
     pub mode: Option<GameMode>,
     pub osu: Option<OsuData>,
     pub profile_size: Option<ProfileSize>,
@@ -109,5 +133,9 @@ impl UserConfig {
 
     pub fn into_username(self) -> Option<Username> {
         self.osu.map(OsuData::into_username)
+    }
+
+    pub fn embeds_size(&self) -> EmbedsSize {
+        self.embeds_size.unwrap_or_default()
     }
 }
