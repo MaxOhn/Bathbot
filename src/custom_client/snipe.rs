@@ -1,11 +1,7 @@
-use super::deserialize::{expect_negative_u32, str_to_maybe_datetime};
-use crate::util::{
-    constants::{
-        common_literals::{ACCURACY, MAP, MODS, SCORE, USER_ID},
-        DATE_FORMAT,
-    },
-    osu::ModSelection,
-    CountryCode,
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt,
+    str::FromStr,
 };
 
 use chrono::{offset::TimeZone, Date, DateTime, NaiveDate, Utc};
@@ -17,11 +13,17 @@ use serde::{
     de::{Deserializer, Error, IgnoredAny, MapAccess, Unexpected, Visitor},
     Deserialize,
 };
-use std::{
-    collections::{BTreeMap, HashMap},
-    fmt,
-    str::FromStr,
+
+use crate::util::{
+    constants::{
+        common_literals::{ACCURACY, MAP, MODS, SCORE, USER_ID},
+        DATE_FORMAT,
+    },
+    osu::ModSelection,
+    CountryCode,
 };
+
+use super::deserialize::{expect_negative_u32, str_to_maybe_datetime};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SnipeScoreOrder {
@@ -267,8 +269,8 @@ impl<'de> Deserialize<'de> for SnipeRecent {
                             }
                         });
 
-                let sniped = sniped.ok_or_else(|| Error::missing_field("sniped"))?;
-                let sniped_id = sniped_id.ok_or_else(|| Error::missing_field("sniped_id"))?;
+                let sniped = sniped.flatten().map(Username::from);
+                let sniped_id = sniped_id.flatten();
                 let sniper = sniper.ok_or_else(|| Error::missing_field("sniper"))?;
                 let sniper_id = sniper_id.ok_or_else(|| Error::missing_field("sniper_id"))?;
                 let beatmap_id = beatmap_id.ok_or_else(|| Error::missing_field("beatmap_id"))?;
@@ -282,7 +284,7 @@ impl<'de> Deserialize<'de> for SnipeRecent {
                 let beatmap = beatmap.ok_or_else(|| Error::missing_field(MAP))?;
 
                 let snipe = SnipeRecent {
-                    sniped: sniped.map(From::from),
+                    sniped,
                     sniped_id,
                     sniper: sniper.into(),
                     sniper_id,
