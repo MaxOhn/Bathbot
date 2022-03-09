@@ -1,4 +1,4 @@
-use std::{env, path::PathBuf};
+use std::{env, mem::MaybeUninit, path::PathBuf};
 
 use hashbrown::HashMap;
 use once_cell::sync::OnceCell;
@@ -14,7 +14,7 @@ pub struct BotConfig {
     pub tokens: Tokens,
     pub paths: Paths,
     pub server: Server,
-    grades: HashMap<Grade, String>,
+    grades: [String; 9],
     pub emotes: HashMap<Emote, String>,
     pub redis_host: String,
     pub redis_port: u16,
@@ -47,17 +47,29 @@ pub struct Tokens {
 
 impl BotConfig {
     pub fn init() -> BotResult<()> {
-        let grades = ["F", "D", "C", "B", "A", "S", "X", "SH", "XH"];
+        let mut grades = [
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+        ];
 
-        let grades = grades
-            .iter()
-            .map(|grade_str| {
-                let key = grade_str.parse().unwrap();
-                let value = env_var(grade_str)?;
+        let grade_strs = ["F", "D", "C", "B", "A", "S", "X", "SH", "XH"];
 
-                Ok((key, value))
-            })
-            .collect::<BotResult<_>>()?;
+        for grade_str in grade_strs {
+            let key: Grade = grade_str.parse().unwrap();
+            let value: String = env_var(grade_str)?;
+            grades[key as usize].write(value);
+        }
+
+        // SAFETY: All grades have been initialized.
+        // Otherwise an error would have been thrown due to a missing emote.
+        let grades = unsafe { (&grades as *const _ as *const [String; 9]).read() };
 
         let emotes = [
             "osu",
@@ -123,9 +135,7 @@ impl BotConfig {
     }
 
     pub fn grade(&self, grade: Grade) -> &str {
-        self.grades
-            .get(&grade)
-            .unwrap_or_else(|| panic!("No grade emote for grade {grade} in config"))
+        self.grades[grade as usize].as_str()
     }
 }
 
