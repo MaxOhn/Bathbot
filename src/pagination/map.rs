@@ -19,6 +19,7 @@ pub struct MapPagination {
 }
 
 impl MapPagination {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         msg: Message,
         mapset: Beatmapset,
@@ -64,7 +65,7 @@ impl Pagination for MapPagination {
     async fn final_processing(mut self, ctx: &Context) -> BotResult<()> {
         // Set maps on garbage collection list if unranked
         for map in self.maps.iter() {
-            ctx.map_garbage_collector(map).execute(ctx).await;
+            ctx.map_garbage_collector(map).execute(ctx);
         }
 
         Ok(())

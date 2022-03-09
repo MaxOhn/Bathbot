@@ -334,7 +334,7 @@ pub(super) async fn _recent(
     }
 
     // Set map on garbage collection list if unranked
-    ctx.map_garbage_collector(map).execute(&ctx).await;
+    ctx.map_garbage_collector(map).execute(&ctx);
 
     // Process user and their top scores for tracking
     if let Some(ref mut scores) = best {

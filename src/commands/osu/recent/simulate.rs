@@ -170,7 +170,7 @@ pub(super) async fn _recentsimulate(
     }
 
     // Set map on garbage collection list if unranked
-    ctx.map_garbage_collector(&map).execute(&ctx).await;
+    ctx.map_garbage_collector(&map).execute(&ctx);
 
     Ok(())
 }

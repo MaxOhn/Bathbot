@@ -190,7 +190,7 @@ pub(super) async fn _recentleaderboard(
         Arc::clone(&ctx),
     );
 
-    gb.execute(&ctx).await;
+    gb.execute(&ctx);
     let owner = data.author()?.id;
 
     tokio::spawn(async move {

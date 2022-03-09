@@ -50,7 +50,7 @@ impl Pagination for RecentListPagination {
     async fn final_processing(mut self, ctx: &Context) -> BotResult<()> {
         // Set maps on garbage collection list if unranked
         for map in self.scores.iter().filter_map(|s| s.map.as_ref()) {
-            ctx.map_garbage_collector(map).execute(ctx).await;
+            ctx.map_garbage_collector(map).execute(ctx);
         }
 
         Ok(())

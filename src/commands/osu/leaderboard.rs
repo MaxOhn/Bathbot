@@ -190,7 +190,7 @@ async fn _leaderboard(
 
     let owner = author_id;
 
-    gb.execute(&ctx).await;
+    gb.execute(&ctx);
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {

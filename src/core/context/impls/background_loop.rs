@@ -109,7 +109,7 @@ impl GarbageCollectMap {
         }
     }
 
-    pub async fn execute(self, ctx: &Context) {
+    pub fn execute(self, ctx: &Context) {
         if let Some(map_id) = self.0 {
             let mut lock = ctx.data.map_garbage_collection.lock();
 

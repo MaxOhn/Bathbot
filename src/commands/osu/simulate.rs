@@ -196,7 +196,7 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
     }
 
     // Set map on garbage collection list if unranked
-    ctx.map_garbage_collector(&map).execute(&ctx).await;
+    ctx.map_garbage_collector(&map).execute(&ctx);
 
     Ok(())
 }

@@ -483,9 +483,7 @@ pub struct CustomAttrs {
 
 impl CustomAttrs {
     fn content(&self) -> Option<String> {
-        if self.ar.or(self.cs).or(self.hp).or(self.od).is_none() {
-            return None;
-        }
+        self.ar.or(self.cs).or(self.hp).or(self.od)?;
 
         let mut content = "Custom attributes:".to_owned();
         let mut pushed = false;

@@ -157,7 +157,7 @@ pub(super) async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs
     data.create_message(&ctx, builder).await?;
 
     // Set map on garbage collection list if unranked
-    gb.execute(&ctx).await;
+    gb.execute(&ctx);
 
     Ok(())
 }
