@@ -288,7 +288,7 @@ async fn async_main() -> Result<()> {
             .await;
 
         if let Err(report) = activity_result.wrap_err("error while setting activity") {
-            warn!("{:?}", report);
+            warn!("{report:?}");
         }
     });
 
@@ -296,7 +296,7 @@ async fn async_main() -> Result<()> {
     let member_ctx = Arc::clone(&ctx);
 
     tokio::spawn(async move {
-        let mut interval = time::interval(Duration::from_millis(250));
+        let mut interval = time::interval(Duration::from_millis(300));
         interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
         interval.tick().await;
         let mut counter = 1;
@@ -329,7 +329,7 @@ async fn async_main() -> Result<()> {
     tokio::select! {
         _ = event_loop(event_ctx, events) => error!("Event loop ended"),
         res = signal::ctrl_c() => if let Err(report) = res.wrap_err("error while awaiting ctrl+c") {
-            error!("{:?}", report);
+            error!("{report:?}");
         } else {
             info!("Received Ctrl+C");
         },
@@ -376,7 +376,7 @@ async fn event_loop(ctx: Arc<Context>, mut events: Events) {
             let handle_fut = handle_event(ctx, event, shard_id);
 
             if let Err(report) = handle_fut.await.wrap_err("error while handling event") {
-                error!("{:?}", report);
+                error!("{report:?}");
             }
         });
     }
@@ -398,8 +398,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
 
             if reconnect {
                 warn!(
-                    "Gateway has invalidated session for shard {}, but its reconnectable",
-                    shard_id
+                    "Gateway has invalidated session for shard {shard_id}, but its reconnectable"
                 );
             } else {
                 warn!("Gateway has invalidated session for shard {shard_id}");
@@ -560,7 +559,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
                 .wrap_err_with(|| format!("failed to set activity for shard {shard_id}"));
 
             if let Err(report) = result {
-                error!("{:?}", report);
+                error!("{report:?}");
             } else {
                 info!("Game is set for shard {shard_id}");
             }
