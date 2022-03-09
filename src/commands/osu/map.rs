@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, iter, sync::Arc, time::Duration};
+use std::{cmp::Ordering, fmt::Write, iter, sync::Arc, time::Duration};
 
 use enterpolation::{linear::Linear, Curve};
 use eyre::Report;
@@ -13,14 +13,17 @@ use plotters_backend::{BackendColor, BackendCoord, BackendStyle, DrawingErrorKin
 use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_v2::prelude::{GameMode, GameMods, OsuError};
 use twilight_model::{
-    application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
+    application::{
+        command::Number,
+        interaction::{application_command::CommandOptionValue, ApplicationCommand},
+    },
     channel::message::MessageType,
 };
 
 use crate::{
     commands::{
         osu::{option_map, option_mods},
-        MyCommand,
+        MyCommand, MyCommandOption,
     },
     embeds::{EmbedData, MapEmbed},
     error::{GraphError, PpError},
@@ -76,7 +79,7 @@ async fn map(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotResult<()> {
-    let MapArgs { map, mods } = args;
+    let MapArgs { map, mods, attrs } = args;
     let author_id = data.author()?.id;
 
     let map_id = if let Some(id) = map {
@@ -217,6 +220,7 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
         &mapset,
         mods,
         graph.is_none(),
+        &attrs,
         &ctx,
         (map_idx + 1, map_count),
     );
@@ -236,6 +240,10 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
 
     if let Some(bytes) = graph.as_deref() {
         builder = builder.file("map_graph.png", bytes);
+    }
+
+    if let Some(content) = attrs.content() {
+        builder = builder.content(content);
     }
 
     let response_raw = data.create_message(&ctx, builder).await?;
@@ -269,8 +277,10 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
         mods,
         map_idx,
         graph.is_none(),
+        attrs,
         Arc::clone(&ctx),
     );
+
     let owner = author_id;
 
     tokio::spawn(async move {
@@ -463,9 +473,62 @@ impl From<Line> for ShapeStyle {
     }
 }
 
+#[derive(Default)]
+pub struct CustomAttrs {
+    pub ar: Option<f64>,
+    pub cs: Option<f64>,
+    pub hp: Option<f64>,
+    pub od: Option<f64>,
+}
+
+impl CustomAttrs {
+    fn content(&self) -> Option<String> {
+        if self.ar.or(self.cs).or(self.hp).or(self.od).is_none() {
+            return None;
+        }
+
+        let mut content = "Custom attributes:".to_owned();
+        let mut pushed = false;
+
+        if let Some(ar) = self.ar {
+            let _ = write!(content, "`AR: {ar:.2}`");
+            pushed = true;
+        }
+
+        if let Some(cs) = self.cs {
+            if pushed {
+                content.push_str(" ~ ");
+            }
+
+            let _ = write!(content, "`CS: {cs:.2}`");
+            pushed = true;
+        }
+
+        if let Some(hp) = self.hp {
+            if pushed {
+                content.push_str(" ~ ");
+            }
+
+            let _ = write!(content, "`HP: {hp:.2}`");
+            pushed = true;
+        }
+
+        if let Some(od) = self.od {
+            if pushed {
+                content.push_str(" ~ ");
+            }
+
+            let _ = write!(content, "`OD: {od:.2}`");
+        }
+
+        Some(content)
+    }
+}
+
 struct MapArgs {
     map: Option<MapIdType>,
     mods: Option<ModSelection>,
+    attrs: CustomAttrs,
 }
 
 impl MapArgs {
@@ -490,15 +553,27 @@ impl MapArgs {
             }
         }
 
-        Ok(Self { map, mods })
+        Ok(Self {
+            map,
+            mods,
+            attrs: CustomAttrs::default(),
+        })
     }
 
     fn slash(command: &mut ApplicationCommand) -> BotResult<Result<Self, &'static str>> {
         let mut map = None;
         let mut mods = None;
+        let mut attrs = CustomAttrs::default();
 
         for option in command.yoink_options() {
             match option.value {
+                CommandOptionValue::Number(Number(value)) => match option.name.as_str() {
+                    "ar" => attrs.ar = Some(value),
+                    "cs" => attrs.cs = Some(value),
+                    "hp" => attrs.hp = Some(value),
+                    "od" => attrs.od = Some(value),
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
                 CommandOptionValue::String(value) => match option.name.as_str() {
                     MAP => match matcher::get_osu_map_id(&value)
                         .or_else(|| matcher::get_osu_mapset_id(&value))
@@ -519,7 +594,7 @@ impl MapArgs {
             }
         }
 
-        Ok(Ok(Self { map, mods }))
+        Ok(Ok(Self { map, mods, attrs }))
     }
 }
 
@@ -534,6 +609,26 @@ pub fn define_map() -> MyCommand {
     let map = option_map();
     let mods = option_mods(false);
 
+    let ar = MyCommandOption::builder("ar", "Specify an AR value to override the actual one")
+        .min_num(0.0)
+        .max_num(10.0)
+        .number(Vec::new(), false);
+
+    let od = MyCommandOption::builder("od", "Specify an OD value to override the actual one")
+        .min_num(0.0)
+        .max_num(10.0)
+        .number(Vec::new(), false);
+
+    let cs = MyCommandOption::builder("cs", "Specify a CS value to override the actual one")
+        .min_num(0.0)
+        .max_num(7.0)
+        .number(Vec::new(), false);
+
+    let hp = MyCommandOption::builder("hp", "Specify an HP value to override the actual one")
+        .min_num(0.0)
+        .max_num(10.0)
+        .number(Vec::new(), false);
+
     let help = "Display a bunch of stats about a map(set).\n\
         The values in the map info will be adjusted to mods.\n\
         Since discord does not allow images to be adjusted when editing messages, \
@@ -542,5 +637,5 @@ pub fn define_map() -> MyCommand {
 
     MyCommand::new(MAP, "Display a bunch of stats about map(set)")
         .help(help)
-        .options(vec![map, mods])
+        .options(vec![map, mods, ar, od, cs, hp])
 }

@@ -1,6 +1,15 @@
-use super::calculate_od;
+use std::fmt::Write;
+
+use chrono::{DateTime, Utc};
+use rosu_pp::{
+    Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, Mods, OsuPP,
+    PerformanceAttributes, TaikoPP,
+};
+use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods};
+
 use crate::{
-    core::{CONFIG, Context},
+    commands::osu::CustomAttrs,
+    core::{Context, CONFIG},
     embeds::{attachment, Author, EmbedFields, Footer},
     error::PpError,
     util::{
@@ -12,13 +21,7 @@ use crate::{
     BotResult,
 };
 
-use chrono::{DateTime, Utc};
-use rosu_pp::{
-    Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, OsuPP, PerformanceAttributes,
-    TaikoPP,
-};
-use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods};
-use std::fmt::Write;
+use super::{calculate_ar, calculate_od};
 
 pub struct MapEmbed {
     title: String,
@@ -38,7 +41,8 @@ impl MapEmbed {
         mapset: &Beatmapset,
         mods: GameMods,
         with_thumbnail: bool,
-        ctx: &Context, 
+        attrs: &CustomAttrs,
+        ctx: &Context,
         pages: (usize, usize),
     ) -> BotResult<Self> {
         let mut title = String::with_capacity(32);
@@ -51,11 +55,10 @@ impl MapEmbed {
 
         let download_value = format!(
             "[osu!direct]({url}/osudirect/{mapset_id})\n\
-            [Mapset]({base}d/{mapset_id})\n\
-            [No Video]({base}d/{mapset_id}n)\n\
+            [Mapset]({OSU_BASE}d/{mapset_id})\n\
+            [No Video]({OSU_BASE}d/{mapset_id}n)\n\
             [Beatconnect](https://beatconnect.io/b/{mapset_id})",
             url = CONFIG.get().unwrap().server.external_url,
-            base = OSU_BASE,
             mapset_id = map.mapset_id
         );
 
@@ -77,7 +80,7 @@ impl MapEmbed {
         let mut fields = Vec::with_capacity(3);
 
         let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
-        let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
+        let mut rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
         let mod_bits = mods.bits();
 
         let mod_mult = 0.5_f32.powi(
@@ -86,6 +89,22 @@ impl MapEmbed {
                 + mods.contains(GameMods::HalfTime) as i32,
         );
 
+        if let Some(ar_) = attrs.ar {
+            rosu_map.ar = ar_ as f32;
+        }
+
+        if let Some(cs_) = attrs.cs {
+            rosu_map.cs = cs_ as f32;
+        }
+
+        if let Some(hp_) = attrs.hp {
+            rosu_map.hp = hp_ as f32;
+        }
+
+        if let Some(od_) = attrs.od {
+            rosu_map.od = od_ as f32;
+        }
+
         let attributes = rosu_map.attributes().mods(mod_bits);
         let hp = attributes.hp;
         let cs = attributes.cs;
@@ -93,9 +112,11 @@ impl MapEmbed {
         let (ar, od) = if map.mode == GameMode::MNA {
             (rosu_map.ar as f64, rosu_map.od)
         } else {
+            let mult = mod_bits.od_ar_hp_multiplier() as f32;
+
             (
-                attributes.ar,
-                calculate_od(attributes.od as f32, attributes.clock_rate as f32),
+                calculate_ar((rosu_map.ar * mult).min(10.0), attributes.clock_rate as f32) as f64,
+                calculate_od((rosu_map.od * mult).min(10.0), attributes.clock_rate as f32),
             )
         };
 
@@ -148,7 +169,6 @@ impl MapEmbed {
                 with_comma_int(acc_to_score(mod_mult, 97.0)).to_string(),
                 with_comma_int(acc_to_score(mod_mult, 99.0)).to_string(),
                 with_comma_int(acc_to_score(mod_mult, 100.0)).to_string(),
-                len = len,
             );
 
             len
@@ -159,11 +179,7 @@ impl MapEmbed {
             let _ = writeln!(
                 pp_values,
                 "Acc |{:^len$}|{:^len$}|{:^len$}|{:^len$}",
-                "95%",
-                "97%",
-                "99%",
-                "100%",
-                len = len,
+                "95%", "97%", "99%", "100%",
             );
 
             len
@@ -172,11 +188,7 @@ impl MapEmbed {
         let _ = writeln!(
             pp_values,
             "----+{:->len$}+{:->len$}+{:->len$}+{:->len$}",
-            "-",
-            "-",
-            "-",
-            "-",
-            len = len,
+            "-", "-", "-", "-",
         );
 
         let _ = writeln!(
@@ -186,7 +198,6 @@ impl MapEmbed {
             round(pps[1]),
             round(pps[2]),
             round(pps[3]),
-            len = len
         );
 
         pp_values.push_str("```");

@@ -93,6 +93,7 @@ fn completion(score: &dyn ScoreExt, map: &Beatmap) -> u32 {
 
     100 * passed / total
 }
+
 pub async fn prepare_beatmap_file(ctx: &Context, map_id: u32) -> Result<PathBuf, MapFileError> {
     let mut map_path = CONFIG.get().unwrap().map_path.clone();
     map_path.push(format!("{map_id}.osu"));
