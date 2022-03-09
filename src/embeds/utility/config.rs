@@ -135,7 +135,7 @@ impl ConfigEmbed {
             description.push(' ');
         }
 
-        description.push_str("ctb   |----------|-------------------\n");
+        description.push_str("ctb   |----------+-------------------\n");
 
         if config.mode == Some(GameMode::MNA) {
             description.push('>');

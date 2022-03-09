@@ -194,7 +194,7 @@ pub(super) async fn _recent(
                 Ok(None) => None,
                 Err(why) => {
                     let report = Report::new(why).wrap_err("failed to get config of input name");
-                    warn!("{:?}", report);
+                    warn!("{report:?}");
 
                     None
                 }
@@ -217,7 +217,7 @@ pub(super) async fn _recent(
         Some(Ok(score)) => Some(score),
         Some(Err(why)) => {
             let report = Report::new(why).wrap_err("failed to get global scores");
-            warn!("{:?}", report);
+            warn!("{report:?}");
 
             None
         }
@@ -228,7 +228,7 @@ pub(super) async fn _recent(
         Some(Ok(scores)) => Some(scores),
         Some(Err(why)) => {
             let report = Report::new(why).wrap_err("failed to get top scores");
-            warn!("{:?}", report);
+            warn!("{report:?}");
 
             None
         }

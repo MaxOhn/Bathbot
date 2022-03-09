@@ -80,7 +80,7 @@ pub enum InsertMapError {
 
 #[derive(Debug, Error)]
 pub enum InsertMapsetError {
-    #[error("cannot add mapset too DB without genre")]
+    #[error("cannot add mapset to DB without genre")]
     MissingGenre,
     #[error("cannot add mapset to DB without language")]
     MissingLanguage,
@@ -208,12 +208,6 @@ impl Database {
         }
 
         let mut conn = self.pool.acquire().await?;
-
-        if let Some(ref maps) = mapset.maps {
-            for map in maps {
-                insert_map_(&mut conn, map).await?;
-            }
-        }
 
         insert_mapset_(&mut conn, mapset).await.map(|_| true)
     }
