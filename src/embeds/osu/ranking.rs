@@ -142,7 +142,6 @@ impl RankingKindData {
             }
             Self::PpGlobal { mode } => {
                 let text = format!("Performance Ranking for osu!{mode}", mode = mode_str(*mode));
-
                 let url = format!("https://osu.ppy.sh/rankings/{mode}/performance");
 
                 EmbedHeader::title(text, url)
@@ -280,13 +279,11 @@ impl RankingEmbed {
 
             let _ = write!(
                 description,
-                "`#{idx:<idx_len$}`:flag_{country}:`{name:<name_len$}` `{value:>value_len$}`",
-                idx = idx,
+                "`#{idx:<idx_len$}`:flag_{country}:`{name:<name_len$}` `{buf:>value_len$}`",
                 idx_len = left_lengths.idx,
                 country = left_entry.country.to_ascii_lowercase(),
                 name = left_entry.name,
                 name_len = left_lengths.name,
-                value = buf,
                 value_len = left_lengths.value,
             );
 
@@ -296,13 +293,12 @@ impl RankingEmbed {
 
                 let _ = write!(
                     description,
-                    "|`#{idx:<idx_len$}`:flag_{country}:`{name:<name_len$}` `{value:>value_len$}`",
+                    "|`#{idx:<idx_len$}`:flag_{country}:`{name:<name_len$}` `{buf:>value_len$}`",
                     idx = idx + 10,
                     idx_len = right_lengths.idx,
                     country = right_entry.country.to_ascii_lowercase(),
                     name = right_entry.name,
                     name_len = right_lengths.name,
-                    value = buf,
                     value_len = right_lengths.value,
                 );
             }
