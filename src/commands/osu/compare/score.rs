@@ -54,7 +54,7 @@ use super::{score_options, ScoreOrder};
     "badewanne3 2240404",
     "badewanne3 https://osu.ppy.sh/beatmapsets/902425#osu/2240404"
 )]
-#[aliases("c")]
+#[aliases("c", "score", "scores")]
 async fn compare(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
