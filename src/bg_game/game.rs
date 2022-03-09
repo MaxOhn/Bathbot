@@ -77,7 +77,7 @@ impl Game {
         effects: Effects,
         difficulty: GameDifficulty,
     ) -> GameResult<Self> {
-        let mut path = CONFIG.get().unwrap().bg_path.clone();
+        let mut path = CONFIG.get().unwrap().paths.backgrounds.clone();
 
         match mapsets[0].mode {
             GameMode::STD => path.push(OSU),

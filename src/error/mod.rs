@@ -44,8 +44,6 @@ pub enum Error {
     Image(#[from] image::ImageError),
     #[error("received invalid options for command")]
     InvalidCommandOptions,
-    #[error("config file was not in correct format")]
-    InvalidConfig(#[from] toml::de::Error),
     #[error("invalid bg state")]
     InvalidBgState(#[from] InvalidBgState),
     #[error("invalid help state")]
@@ -56,12 +54,18 @@ pub enum Error {
     MapFile(#[from] MapFileError),
     #[error("failed to validate message")]
     MessageValidation(#[from] MessageValidationError),
+    #[error("missing env variable `{0}`")]
+    MissingEnvVariable(&'static str),
     #[error("interaction contained neighter member nor user")]
     MissingInteractionAuthor,
-    #[error("config file was not found")]
-    NoConfig,
     #[error("osu error")]
     Osu(#[from] rosu_v2::error::OsuError),
+    #[error("failed to parse env variable `{name}={value}`; expected {expected}")]
+    ParsingEnvVariable {
+        name: &'static str,
+        value: String,
+        expected: &'static str,
+    },
     #[error("error while calculating pp")]
     Pp(#[from] PpError),
     #[error("failed to send reaction after {0} retries")]

@@ -80,7 +80,7 @@ async fn addbg(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     // Download attachement
     let path = match ctx.clients.custom.get_discord_attachment(&attachment).await {
         Ok(content) => {
-            let mut path = CONFIG.get().unwrap().bg_path.clone();
+            let mut path = CONFIG.get().unwrap().paths.backgrounds.clone();
 
             match mode {
                 GameMode::STD => path.push(OSU),

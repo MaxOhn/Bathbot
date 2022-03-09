@@ -1,8 +1,4 @@
-use std::env::VarError;
-
-use thiserror::Error;
-
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum ServerError {
     #[error("custom client error")]
     CustomClient(#[from] crate::custom_client::CustomClientError),
@@ -12,8 +8,6 @@ pub enum ServerError {
     Hyper(#[from] hyper::Error),
     #[error("io error")]
     Io(#[from] std::io::Error),
-    #[error("missing an environment variable")]
-    MissingEnvVariable,
     #[error("no twitch user provided by api after authorization")]
     NoTwitchUser,
     #[error("osu error")]
@@ -22,10 +16,4 @@ pub enum ServerError {
     Render(#[from] handlebars::RenderError),
     #[error("handlebars template error")]
     Template(#[from] handlebars::TemplateError),
-}
-
-impl From<VarError> for ServerError {
-    fn from(_: VarError) -> Self {
-        Self::MissingEnvVariable
-    }
 }

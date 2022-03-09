@@ -95,7 +95,7 @@ fn completion(score: &dyn ScoreExt, map: &Beatmap) -> u32 {
 }
 
 pub async fn prepare_beatmap_file(ctx: &Context, map_id: u32) -> Result<PathBuf, MapFileError> {
-    let mut map_path = CONFIG.get().unwrap().map_path.clone();
+    let mut map_path = CONFIG.get().unwrap().paths.maps.clone();
     map_path.push(format!("{map_id}.osu"));
 
     if !map_path.exists() {

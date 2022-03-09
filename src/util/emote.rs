@@ -1,10 +1,6 @@
 use std::{borrow::Cow, str::FromStr};
 
 use rosu_v2::prelude::GameMode;
-use serde::{
-    de::{Deserializer, Error as SerdeError, Unexpected},
-    Deserialize,
-};
 use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::{channel::ReactionType, id::Id};
 
@@ -115,11 +111,11 @@ impl SplitEmote for String {
     }
 }
 
-impl<'de> Deserialize<'de> for Emote {
-    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let s: &str = Deserialize::deserialize(d)?;
+impl FromStr for Emote {
+    type Err = ();
 
-        let other = match s {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let emote = match s {
             OSU => Self::Osu,
             "osu_std" => Self::Std,
             "osu_taiko" => Self::Tko,
@@ -136,14 +132,9 @@ impl<'de> Deserialize<'de> for Emote {
             "single_step" => Self::SingleStep,
             "multi_step" => Self::MultiStep,
             "jump_end" => Self::JumpEnd,
-            other => {
-                return Err(SerdeError::invalid_value(
-                    Unexpected::Str(other),
-                    &"the name of a required emote",
-                ))
-            }
+            _ => return Err(()),
         };
 
-        Ok(other)
+        Ok(emote)
     }
 }

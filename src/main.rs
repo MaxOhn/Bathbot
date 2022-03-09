@@ -32,7 +32,6 @@ mod tracking;
 mod util;
 
 use std::{
-    env,
     sync::{atomic::Ordering, Arc},
     time::Duration,
 };
@@ -99,7 +98,7 @@ async fn async_main() -> Result<()> {
     let _log_worker_guard = logging::initialize();
 
     // Load config file
-    core::BotConfig::init("config.toml").await?;
+    core::BotConfig::init()?;
 
     let config = CONFIG.get().unwrap();
 
@@ -127,8 +126,7 @@ async fn async_main() -> Result<()> {
     );
 
     // Connect to psql database
-    let db_uri = env::var("DATABASE_URL").wrap_err("missing DATABASE_URL in .env")?;
-    let psql = Database::new(&db_uri)?;
+    let psql = Database::new(&config.database_url)?;
 
     // Connect to redis
     let redis_host = &config.redis_host;

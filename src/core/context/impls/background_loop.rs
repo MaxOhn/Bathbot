@@ -35,7 +35,7 @@ impl Context {
         let mut file_not_found = 0;
 
         for map_id in maps_to_delete {
-            let mut map_path = config.map_path.clone();
+            let mut map_path = config.paths.maps.clone();
             map_path.push(format!("{map_id}.osu"));
 
             match time::timeout(five_seconds, remove_file(map_path)).await {

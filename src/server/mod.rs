@@ -1,6 +1,8 @@
 mod auth;
 mod error;
 
+use std::{fmt, net::SocketAddr, sync::Arc};
+
 use eyre::Report;
 use handlebars::Handlebars;
 use hyper::{
@@ -14,7 +16,6 @@ use prometheus::{Encoder, TextEncoder};
 use rosu_v2::Osu;
 use routerify::{ext::RequestExt, RouteError, Router, RouterService};
 use serde_json::json;
-use std::{env, fmt, net::SocketAddr, path::PathBuf, sync::Arc};
 use tokio::{fs::File, io::AsyncReadExt, sync::oneshot};
 
 use crate::{
@@ -89,8 +90,7 @@ fn router(ctx: Arc<Context>) -> Router<Body, ServerError> {
     let twitch_redirect = format!("{url}/auth/twitch");
 
     let mut handlebars = Handlebars::new();
-    let env_var = env::var("WEBSITE_PATH").expect("missing env variable `WEBSITE_PATH`");
-    let mut path = PathBuf::from(env_var);
+    let mut path = config.paths.website.to_owned();
     path.push("auth.hbs");
 
     handlebars
@@ -342,7 +342,7 @@ async fn auth_twitch_handler_(req: &Request<Body>) -> HandlerResult {
 }
 
 async fn auth_css_handler(_: Request<Body>) -> HandlerResult {
-    let mut path = PathBuf::from(env::var("WEBSITE_PATH")?);
+    let mut path = CONFIG.get().unwrap().paths.website.to_owned();
     path.push("auth.css");
     let mut buf = Vec::with_capacity(1824);
     File::open(path).await?.read_to_end(&mut buf).await?;
@@ -351,7 +351,7 @@ async fn auth_css_handler(_: Request<Body>) -> HandlerResult {
 }
 
 async fn auth_icon_handler(_: Request<Body>) -> HandlerResult {
-    let mut path = PathBuf::from(env::var("WEBSITE_PATH")?);
+    let mut path = CONFIG.get().unwrap().paths.website.to_owned();
     path.push("icon.svg");
     let mut buf = Vec::with_capacity(11_198);
     File::open(path).await?.read_to_end(&mut buf).await?;

@@ -1,19 +1,18 @@
-use crate::{util::Emote, BotResult, Error};
+use std::{env, path::PathBuf};
 
 use hashbrown::HashMap;
 use once_cell::sync::OnceCell;
 use rosu_v2::model::Grade;
-use serde::Deserialize;
-use std::path::PathBuf;
-use tokio::fs;
+
+use crate::{util::Emote, BotResult, Error};
 
 pub static CONFIG: OnceCell<BotConfig> = OnceCell::new();
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
 pub struct BotConfig {
+    pub database_url: String,
     pub tokens: Tokens,
-    pub bg_path: PathBuf,
-    pub map_path: PathBuf,
+    pub paths: Paths,
     pub server: Server,
     grades: HashMap<Grade, String>,
     pub emotes: HashMap<Emote, String>,
@@ -21,14 +20,21 @@ pub struct BotConfig {
     pub redis_port: u16,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
+pub struct Paths {
+    pub backgrounds: PathBuf,
+    pub maps: PathBuf,
+    pub website: PathBuf,
+}
+
+#[derive(Debug)]
 pub struct Server {
     pub internal_ip: [u8; 4],
     pub internal_port: u16,
     pub external_url: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
 pub struct Tokens {
     pub discord: String,
     pub osu_client_id: u64,
@@ -40,12 +46,74 @@ pub struct Tokens {
 }
 
 impl BotConfig {
-    pub async fn init(filename: &str) -> BotResult<()> {
-        let config_file = fs::read_to_string(filename)
-            .await
-            .map_err(|_| Error::NoConfig)?;
+    pub fn init() -> BotResult<()> {
+        let grades = ["F", "D", "C", "B", "A", "S", "X", "SH", "XH"];
 
-        let config = toml::from_str::<BotConfig>(&config_file).map_err(Error::InvalidConfig)?;
+        let grades = grades
+            .iter()
+            .map(|grade_str| {
+                let key = grade_str.parse().unwrap();
+                let value = env_var(grade_str)?;
+
+                Ok((key, value))
+            })
+            .collect::<BotResult<_>>()?;
+
+        let emotes = [
+            "osu",
+            "osu_std",
+            "osu_taiko",
+            "osu_ctb",
+            "osu_mania",
+            "twitch",
+            "tracking",
+            "minimize",
+            "expand",
+            "jump_start",
+            "multi_step_back",
+            "single_step_back",
+            "my_position",
+            "single_step",
+            "multi_step",
+            "jump_end",
+        ];
+
+        let emotes = emotes
+            .iter()
+            .map(|emote_str| {
+                let key = emote_str.parse().unwrap();
+                let value = env_var(emote_str)?;
+
+                Ok((key, value))
+            })
+            .collect::<BotResult<_>>()?;
+
+        let config = BotConfig {
+            database_url: env_var("DATABASE_URL")?,
+            tokens: Tokens {
+                discord: env_var("DISCORD_TOKEN")?,
+                osu_client_id: env_var("OSU_CLIENT_ID")?,
+                osu_client_secret: env_var("OSU_CLIENT_SECRET")?,
+                osu_session: env_var("OSU_SESSION")?,
+                osu_daily: env_var("OSU_DAILY_TOKEN")?,
+                twitch_client_id: env_var("TWITCH_CLIENT_ID")?,
+                twitch_token: env_var("TWITCH_TOKEN")?,
+            },
+            paths: Paths {
+                backgrounds: env_var("BG_PATH")?,
+                maps: env_var("MAP_PATH")?,
+                website: env_var("WEBSITE_PATH")?,
+            },
+            server: Server {
+                internal_ip: env_var("INTERNAL_IP")?,
+                internal_port: env_var("INTERNAL_PORT")?,
+                external_url: env_var("EXTERNAL_URL")?,
+            },
+            grades,
+            emotes,
+            redis_host: env_var("REDIS_HOST")?,
+            redis_port: env_var("REDIS_PORT")?,
+        };
 
         if CONFIG.set(config).is_err() {
             warn!("CONFIG was already set");
@@ -59,4 +127,57 @@ impl BotConfig {
             .get(&grade)
             .unwrap_or_else(|| panic!("No grade emote for grade {grade} in config"))
     }
+}
+
+trait EnvKind: Sized {
+    const EXPECTED: &'static str;
+
+    fn from_str(s: &str) -> Option<Self>;
+}
+
+macro_rules! env_kind {
+    ($($ty:ty: $arg:ident => $impl:block,)*) => {
+        $(
+            impl EnvKind for $ty {
+                const EXPECTED: &'static str = stringify!($ty);
+
+                fn from_str($arg: &str) -> Option<Self> {
+                    $impl
+                }
+            }
+        )*
+    };
+}
+
+env_kind! {
+    u16: s => { s.parse().ok() },
+    u64: s => { s.parse().ok() },
+    PathBuf: s => { s.parse().ok() },
+    String: s => { Some(s.to_owned()) },
+    [u8; 4]: s => {
+        if !(s.starts_with('[') && s.ends_with(']')) {
+            return None
+        }
+
+        let mut values = s[1..s.len() - 1].split(',');
+
+        let array = [
+            values.next()?.trim().parse().ok()?,
+            values.next()?.trim().parse().ok()?,
+            values.next()?.trim().parse().ok()?,
+            values.next()?.trim().parse().ok()?,
+        ];
+
+        Some(array)
+    },
+}
+
+fn env_var<T: EnvKind>(name: &'static str) -> BotResult<T> {
+    let value = env::var(name).map_err(|_| Error::MissingEnvVariable(name))?;
+
+    T::from_str(&value).ok_or(Error::ParsingEnvVariable {
+        name,
+        value,
+        expected: T::EXPECTED,
+    })
 }

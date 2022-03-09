@@ -386,7 +386,7 @@ async fn bgtags(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 async fn get_random_image(mut mapsets: Vec<MapsetTagWrapper>, mode: GameMode) -> (u32, Vec<u8>) {
-    let mut path = CONFIG.get().unwrap().bg_path.clone();
+    let mut path = CONFIG.get().unwrap().paths.backgrounds.clone();
 
     match mode {
         GameMode::STD => path.push(OSU),
