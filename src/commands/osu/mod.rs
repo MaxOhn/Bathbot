@@ -13,6 +13,7 @@ mod link;
 mod map;
 mod map_search;
 mod mapper;
+mod match_compare;
 mod match_costs;
 mod match_live;
 mod medals;
@@ -70,9 +71,10 @@ use crate::{
 
 pub use self::{
     avatar::*, bws::*, compare::*, fix::*, leaderboard::*, link::*, map::*, map_search::*,
-    mapper::*, match_costs::*, match_live::*, medals::*, most_played::*, nochoke::*, osekai::*,
-    osustats::*, pinned::*, pp::*, profile::*, rank::*, ranking::*, ratios::*, recent::*,
-    serverleaderboard::*, simulate::*, snipe::*, top::*, top_if::*, top_old::*, whatif::*,
+    mapper::*, match_compare::*, match_costs::*, match_live::*, medals::*, most_played::*,
+    nochoke::*, osekai::*, osustats::*, pinned::*, pp::*, profile::*, rank::*, ranking::*,
+    ratios::*, recent::*, serverleaderboard::*, simulate::*, snipe::*, top::*, top_if::*,
+    top_old::*, whatif::*,
 };
 
 use super::MyCommandOption;

@@ -3,7 +3,7 @@ pub const DARK_GREEN: u32 = 0x1F8B4C;
 pub const RED: u32 = 0xE74C3C;
 
 // Message field sizes
-pub const DESCRIPTION_SIZE: usize = 2048;
+pub const DESCRIPTION_SIZE: usize = 4096;
 pub const FIELD_VALUE_SIZE: usize = 1024;
 
 // osu!

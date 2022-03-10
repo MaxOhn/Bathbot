@@ -111,6 +111,12 @@ pub trait EmbedData: Send + Sync + Sized {
     }
 }
 
+impl EmbedData for EmbedBuilder {
+    fn into_builder(self) -> EmbedBuilder {
+        self
+    }
+}
+
 fn validate_image_url(url: &str) {
     debug_assert!(
         url.starts_with("http:") || url.starts_with("https:"),
@@ -133,6 +139,7 @@ pub fn attachment(filename: impl AsRef<str>) -> String {
     format!("attachment://{}", filename.as_ref())
 }
 
+#[derive(Clone)]
 pub struct EmbedBuilder(Embed);
 
 impl Default for EmbedBuilder {

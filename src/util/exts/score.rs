@@ -26,7 +26,7 @@ pub trait ScoreExt: Send + Sync {
             GameMode::STD => self.osu_grade(),
             GameMode::MNA => self.mania_grade(Some(self.acc(GameMode::MNA))),
             GameMode::CTB => self.ctb_grade(Some(self.acc(GameMode::CTB))),
-            GameMode::TKO => self.taiko_grade(Some(self.acc(GameMode::TKO))),
+            GameMode::TKO => self.taiko_grade(),
         }
     }
     fn hits(&self, mode: u8) -> u32 {
@@ -135,32 +135,36 @@ pub trait ScoreExt: Send + Sync {
         }
     }
 
-    fn taiko_grade(&self, acc: Option<f32>) -> Grade {
-        let passed_objects = self.hits(GameMode::TKO as u8);
+    fn taiko_grade(&self) -> Grade {
         let mods = self.mods();
+        let passed_objects = self.hits(GameMode::TKO as u8);
+        let count_300 = self.count_300();
 
-        if self.count_300() == passed_objects {
-            return if mods.contains(GameMods::Hidden) || mods.contains(GameMods::Flashlight) {
+        if count_300 == passed_objects {
+            return if mods.intersects(GameMods::Hidden | GameMods::Flashlight) {
                 Grade::XH
             } else {
                 Grade::X
             };
         }
 
-        let acc = acc.unwrap_or_else(|| self.acc(GameMode::TKO));
+        let ratio300 = count_300 as f32 / passed_objects as f32;
+        let count_miss = self.count_miss();
 
-        if acc > 95.0 {
-            if mods.contains(GameMods::Hidden) || mods.contains(GameMods::Flashlight) {
+        if ratio300 > 0.9 && count_miss == 0 {
+            if mods.intersects(GameMods::Hidden | GameMods::Flashlight) {
                 Grade::SH
             } else {
                 Grade::S
             }
-        } else if acc > 90.0 {
+        } else if ratio300 > 0.9 || (ratio300 > 0.8 && count_miss == 0) {
             Grade::A
-        } else if acc > 80.0 {
+        } else if ratio300 > 0.8 || (ratio300 > 0.7 && count_miss == 0) {
             Grade::B
-        } else {
+        } else if ratio300 > 0.6 {
             Grade::C
+        } else {
+            Grade::D
         }
     }
 

@@ -8,6 +8,7 @@ mod fix_score;
 mod leaderboard;
 mod map;
 mod map_search;
+mod match_compare;
 mod match_costs;
 mod match_live;
 mod medal;
@@ -63,6 +64,7 @@ pub use self::{
     leaderboard::LeaderboardEmbed,
     map::MapEmbed,
     map_search::MapSearchEmbed,
+    match_compare::{MatchCompareMapEmbed, MatchCompareSummaryEmbed},
     match_costs::MatchCostEmbed,
     match_live::{MatchLiveEmbed, MatchLiveEmbeds},
     medal::MedalEmbed,
