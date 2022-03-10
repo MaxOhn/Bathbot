@@ -348,6 +348,15 @@ fn subcommand_list() -> MyCommandOption {
     let mode = option_mode();
     let name = option_name();
 
+    let query_description = "Search for a specific artist, title, or difficulty name";
+
+    let query_help = "Search for a specific artist, title, or difficulty name.\n\
+        Filters out all scores for which `{artist} - {title} [{version}]` does not contain the query.";
+
+    let query = MyCommandOption::builder("query", query_description)
+        .help(query_help)
+        .string(vec![], false);
+
     let grade = MyCommandOption::builder(GRADE, CONSIDER_GRADE).string(
         vec![
             CommandOptionChoice::String {
@@ -390,7 +399,7 @@ fn subcommand_list() -> MyCommandOption {
     let discord = option_discord();
 
     MyCommandOption::builder("list", "Show all recent plays of a user")
-        .subcommand(vec![mode, name, grade, passes, mods, discord])
+        .subcommand(vec![mode, name, query, grade, passes, mods, discord])
 }
 
 fn subcommand_simulate() -> MyCommandOption {

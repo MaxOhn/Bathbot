@@ -1,7 +1,7 @@
 use std::{fmt::Write, sync::Arc};
 
 use eyre::Report;
-use rosu_v2::prelude::{GameMode, Grade, OsuError};
+use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, GameMode, Grade, OsuError};
 use twilight_model::{
     application::interaction::{
         application_command::{CommandDataOption, CommandOptionValue},
@@ -27,7 +27,7 @@ use crate::{
         },
         matcher, numbers,
         osu::ModSelection,
-        InteractionExt, MessageBuilder, MessageExt,
+        CowUtils, InteractionExt, MessageBuilder, MessageExt,
     },
     Args, BotResult, CommandData, Context,
 };
@@ -43,7 +43,9 @@ pub(super) async fn _recentlist(
         config,
         grade,
         mods,
+        query,
     } = args;
+
     let mode = config.mode.unwrap_or(GameMode::STD);
 
     let name = match config.into_username() {
@@ -105,6 +107,27 @@ pub(super) async fn _recentlist(
         None => {}
     }
 
+    if let Some(query) = query.as_deref() {
+        let needle = query.cow_to_ascii_lowercase();
+        let mut haystack = String::new();
+
+        scores.retain(|score| {
+            let Beatmap { version, .. } = score.map.as_ref().unwrap();
+            let BeatmapsetCompact { artist, title, .. } = score.mapset.as_ref().unwrap();
+            haystack.clear();
+
+            let _ = write!(
+                haystack,
+                "{} - {} [{}]",
+                artist.cow_to_ascii_lowercase(),
+                title.cow_to_ascii_lowercase(),
+                version.cow_to_ascii_lowercase()
+            );
+
+            haystack.contains(needle.as_ref())
+        });
+    }
+
     let pages = numbers::div_euclid(10, scores.len());
     let scores_iter = scores.iter().take(10);
 
@@ -120,7 +143,7 @@ pub(super) async fn _recentlist(
     // Creating the embed
     let mut builder = MessageBuilder::from(embed);
 
-    if let Some(content) = message_content(grade, mods) {
+    if let Some(content) = message_content(grade, mods, query) {
         builder = builder.content(content);
     }
 
@@ -146,7 +169,11 @@ pub(super) async fn _recentlist(
     Ok(())
 }
 
-fn message_content(grade: Option<GradeArg>, mods: Option<ModSelection>) -> Option<String> {
+fn message_content(
+    grade: Option<GradeArg>,
+    mods: Option<ModSelection>,
+    query: Option<String>,
+) -> Option<String> {
     let mut content = String::new();
 
     match grade {
@@ -160,7 +187,7 @@ fn message_content(grade: Option<GradeArg>, mods: Option<ModSelection>) -> Optio
     }
 
     if let Some(selection) = mods {
-        if grade.is_some() {
+        if !content.is_empty() {
             content.push_str(" ~ ");
         }
 
@@ -173,6 +200,14 @@ fn message_content(grade: Option<GradeArg>, mods: Option<ModSelection>) -> Optio
         }
 
         let _ = write!(content, "{}`", selection.mods());
+    }
+
+    if let Some(query) = query {
+        if !content.is_empty() {
+            content.push_str(" ~ ");
+        }
+
+        let _ = write!(content, "`Query: {query}`");
     }
 
     (!content.is_empty()).then(|| content)
@@ -330,6 +365,7 @@ pub(super) struct RecentListArgs {
     pub config: UserConfig,
     pub grade: Option<GradeArg>,
     pub mods: Option<ModSelection>,
+    query: Option<String>,
 }
 
 impl RecentListArgs {
@@ -451,6 +487,7 @@ impl RecentListArgs {
             config,
             grade,
             mods: None,
+            query: None,
         }))
     }
 
@@ -462,6 +499,7 @@ impl RecentListArgs {
         let mut config = ctx.user_config(command.user_id()?).await?;
         let mut grade = None;
         let mut mods = None;
+        let mut query = None;
 
         for option in options {
             match option.value {
@@ -492,6 +530,7 @@ impl RecentListArgs {
                         Some(mods_) => mods = Some(mods_),
                         None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
                     },
+                    "query" => query = Some(value),
                     _ => return Err(Error::InvalidCommandOptions),
                 },
                 CommandOptionValue::Boolean(value) => {
@@ -528,6 +567,7 @@ impl RecentListArgs {
             config,
             grade,
             mods,
+            query,
         }))
     }
 }
