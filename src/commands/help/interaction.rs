@@ -529,8 +529,8 @@ async fn basic_help(ctx: &Context, command: ApplicationCommand) -> BotResult<()>
 
     let github = EmbedField {
         inline: false,
-        name: "Interested in the source code?".to_owned(),
-        value: format!("The current version is not public but you can check out the [previous version]({BATHBOT_GITHUB})"),
+        name: "Interested in the code?".to_owned(),
+        value: format!("The source code can be found over at [github]({BATHBOT_GITHUB})"),
     };
 
     let commands_used: usize = ctx.stats.command_counts.message_commands.collect()[0]
