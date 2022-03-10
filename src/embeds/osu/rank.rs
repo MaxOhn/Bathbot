@@ -178,13 +178,13 @@ impl RankEmbed {
                             }
                         }
                         _ => {
-                            let (required, _) =
+                            let (required, idx) =
                                 pp_missing(user_pp, rank_holder_pp, scores.as_slice());
 
                             format!(
                                 "Rank {country}{rank} is currently held by {holder_name} with \
                                 **{holder_pp}pp**, so {name} is missing **{missing}** raw pp, \
-                                achievable with a single score worth **{pp}pp**.",
+                                achievable with a single score worth **{pp}pp** which would be the top #{idx}.",
                                 holder_name = rank_holder.username,
                                 holder_pp = with_comma_float(rank_holder_pp),
                                 name = user.username,

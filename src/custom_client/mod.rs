@@ -650,7 +650,7 @@ impl CustomClient {
         national: bool,
         mods: Option<GameMods>,
     ) -> ClientResult<Vec<ScraperScore>> {
-        let mut url = format!("{base}beatmaps/{id}/scores?", base = OSU_BASE, id = map_id);
+        let mut url = format!("{OSU_BASE}beatmaps/{map_id}/scores?");
 
         if national {
             url.push_str("type=country");

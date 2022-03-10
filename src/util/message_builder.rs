@@ -34,7 +34,6 @@ impl<'c> MessageBuilder<'c> {
         self
     }
 
-    #[allow(dead_code)]
     pub fn components(mut self, components: &'c [Component]) -> Self {
         self.components.replace(components);
 
