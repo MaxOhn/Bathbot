@@ -191,15 +191,13 @@ fn message_content(
             content.push_str(" ~ ");
         }
 
-        content.push_str("`Mods: ");
+        let (pre, mods) = match selection {
+            ModSelection::Exact(mods) => ("", mods),
+            ModSelection::Exclude(mods) => ("Exclude ", mods),
+            ModSelection::Include(mods) => ("Include ", mods),
+        };
 
-        match selection {
-            ModSelection::Exact(_) => {}
-            ModSelection::Exclude(_) => content.push_str("Exclude"),
-            ModSelection::Include(_) => content.push_str("Include "),
-        }
-
-        let _ = write!(content, "{}`", selection.mods());
+        let _ = write!(content, "`Mods: {pre}{mods}`");
     }
 
     if let Some(query) = query {

@@ -1513,15 +1513,13 @@ fn content_with_condition(args: &TopArgs, amount: usize) -> String {
     }
 
     if let Some(selection) = args.mods {
-        let _ = write!(
-            content,
-            " ~ `Mods: {}`",
-            match selection {
-                ModSelection::Exact(mods) => mods.to_string(),
-                ModSelection::Exclude(mods) => format!("Exclude {mods}"),
-                ModSelection::Include(mods) => format!("Include {mods}"),
-            },
-        );
+        let (pre, mods) = match selection {
+            ModSelection::Include(mods) => ("Include ", mods),
+            ModSelection::Exclude(mods) => ("Exclude ", mods),
+            ModSelection::Exact(mods) => ("", mods),
+        };
+
+        let _ = write!(content, " ~ `Mods: {pre}{mods}`");
     }
 
     if let Some(perfect_combo) = args.perfect_combo {

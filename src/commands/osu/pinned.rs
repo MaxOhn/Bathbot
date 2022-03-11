@@ -26,15 +26,20 @@ use crate::{
     pagination::{Pagination, PinnedPagination},
     util::{
         constants::{
-            common_literals::{ACC, ACCURACY, COMBO, DISCORD, MODE, NAME, SORT},
+            common_literals::{ACC, ACCURACY, COMBO, DISCORD, MODE, MODS, NAME, SORT},
             OSU_API_ISSUE,
         },
-        numbers, ApplicationCommandExt, CowUtils, InteractionExt, MessageExt,
+        matcher, numbers,
+        osu::ModSelection,
+        ApplicationCommandExt, CowUtils, InteractionExt, MessageExt,
     },
     BotResult, CommandData, Context, MessageBuilder,
 };
 
-use super::{get_user_cached, option_discord, option_mode, option_name, prepare_scores, TopOrder};
+use super::{
+    get_user_cached, option_discord, option_mode, option_mods_explicit, option_name,
+    prepare_scores, TopOrder,
+};
 
 async fn _pinned(ctx: Arc<Context>, data: CommandData<'_>, args: PinnedArgs) -> BotResult<()> {
     let mode = args.config.mode.unwrap_or(GameMode::STD);
@@ -152,6 +157,17 @@ async fn filter_scores(ctx: &Context, scores: &mut Vec<Score>, args: &PinnedArgs
 
             haystack.contains(needle.as_ref())
         });
+    }
+
+    match args.mods {
+        Some(ModSelection::Include(mods)) => {
+            scores.retain(|score| score.mods.intersection(mods) == mods)
+        }
+        Some(ModSelection::Exact(mods)) => scores.retain(|score| score.mods == mods),
+        Some(ModSelection::Exclude(mods)) => {
+            scores.retain(|score| score.mods.intersection(mods).is_empty())
+        }
+        None => {}
     }
 
     if let Some(sort_by) = args.sort_by {
@@ -316,9 +332,15 @@ struct PinnedArgs {
     config: UserConfig,
     pub sort_by: Option<TopOrder>,
     query: Option<String>,
+    mods: Option<ModSelection>,
 }
 
 impl PinnedArgs {
+    const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
+        If you want included mods, specify it e.g. as `+hrdt`.\n\
+        If you want exact mods, specify it e.g. as `+hdhr!`.\n\
+        And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
+
     async fn slash(
         ctx: &Context,
         command: &ApplicationCommand,
@@ -327,6 +349,7 @@ impl PinnedArgs {
         let mut config = ctx.user_config(command.user_id()?).await?;
         let mut sort_by = None;
         let mut query = None;
+        let mut mods = None;
 
         for option in options {
             match option.value {
@@ -346,6 +369,10 @@ impl PinnedArgs {
                         _ => return Err(Error::InvalidCommandOptions),
                     },
                     "query" => query = Some(value),
+                    MODS => match matcher::get_mods(&value) {
+                        Some(mods_) => mods = Some(mods_),
+                        None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
+                    },
                     _ => return Err(Error::InvalidCommandOptions),
                 },
                 CommandOptionValue::User(value) => match option.name.as_str() {
@@ -363,6 +390,7 @@ impl PinnedArgs {
             config,
             sort_by,
             query,
+            mods,
         };
 
         Ok(Ok(args))
@@ -370,7 +398,7 @@ impl PinnedArgs {
 }
 
 fn write_content(name: &str, args: &PinnedArgs, amount: usize) -> Option<String> {
-    if args.query.is_some() {
+    if args.query.is_some() || args.mods.is_some() {
         Some(content_with_condition(args, amount))
     } else if let Some(sort_by) = args.sort_by {
         let genitive = if name.ends_with('s') { "" } else { "s" };
@@ -415,8 +443,22 @@ fn content_with_condition(args: &PinnedArgs, amount: usize) -> String {
         None => {}
     }
 
+    if let Some(selection) = args.mods {
+        if !content.is_empty() {
+            content.push_str(" ~ ");
+        }
+
+        let (pre, mods) = match selection {
+            ModSelection::Include(mods) => ("Include ", mods),
+            ModSelection::Exclude(mods) => ("Exclude ", mods),
+            ModSelection::Exact(mods) => ("", mods),
+        };
+
+        let _ = write!(content, "`Mods: {pre}{mods}`");
+    }
+
     if let Some(query) = args.query.as_deref() {
-        if args.sort_by.is_some() {
+        if !content.is_empty() {
             content.push_str(" ~ ");
         }
 
@@ -486,6 +528,8 @@ pub fn define_pinned() -> MyCommand {
         .help(query_help)
         .string(vec![], false);
 
+    let mods = option_mods_explicit();
+
     MyCommand::new("pinned", "Display the user's pinned scores")
-        .options(vec![mode, name, sort, query, discord])
+        .options(vec![mode, name, sort, query, mods, discord])
 }
