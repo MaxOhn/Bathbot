@@ -104,15 +104,17 @@ fn prepare_scores(
 
     let mut value = String::new();
 
-    let _ = writeln!(
-        value,
-        "**Total**: :blue_circle: {blue_won}{blue_score}{blue_won} \
-        - {red_won}{red_score}{red_won} :red_circle:",
-        blue_score = with_comma_int(totals[1]),
-        red_score = with_comma_int(totals[2]),
-        blue_won = if totals[1] > totals[2] { "**" } else { "" },
-        red_won = if totals[2] > totals[1] { "**" } else { "" },
-    );
+    if totals[1] + totals[2] > 0 {
+        let _ = writeln!(
+            value,
+            "**Total**: :blue_circle: {blue_won}{blue_score}{blue_won} \
+            - {red_won}{red_score}{red_won} :red_circle:",
+            blue_score = with_comma_int(totals[1]),
+            red_score = with_comma_int(totals[2]),
+            blue_won = if totals[1] > totals[2] { "**" } else { "" },
+            red_won = if totals[2] > totals[1] { "**" } else { "" },
+        );
+    }
 
     for score in embed_scores {
         let _ = write!(
