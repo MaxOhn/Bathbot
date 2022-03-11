@@ -36,7 +36,7 @@ const TOO_MANY_PLAYERS_TEXT: &str = "Too many players, cannot display message :(
 #[aliases("mc", "matchcost")]
 async fn matchcosts(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match data {
-        CommandData::Message { msg, mut args, num } => match MatchCostArgs::args(&mut args) {
+        CommandData::Message { msg, mut args, num } => match MatchCostArgs::args(&mut args, num) {
             Ok(matchcost_args) => {
                 _matchcosts(ctx, CommandData::Message { msg, args, num }, matchcost_args).await
             }
@@ -425,7 +425,7 @@ struct MatchCostArgs {
 }
 
 impl MatchCostArgs {
-    fn args(args: &mut Args<'_>) -> Result<Self, &'static str> {
+    fn args(args: &mut Args<'_>, index: Option<usize>) -> Result<Self, &'static str> {
         let match_id = match args.next().and_then(matcher::get_osu_match_id) {
             Some(id) => id,
             None => {
@@ -434,7 +434,9 @@ impl MatchCostArgs {
             }
         };
 
-        let warmups = args.next().and_then(|num| num.parse().ok()).unwrap_or(2);
+        let warmups = index
+            .or_else(|| args.next().and_then(|num| num.parse().ok()))
+            .unwrap_or(2);
 
         Ok(Self {
             match_id,
