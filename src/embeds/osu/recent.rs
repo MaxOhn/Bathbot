@@ -424,7 +424,9 @@ pub fn if_fc_struct(
     match attributes {
         DifficultyAttributes::Osu(attributes)
             if score.statistics.count_miss > 0
-                || score.max_combo < attributes.max_combo as u32 - 5 =>
+                || score.max_combo
+                    // Allowing one missed sliderend per 500 combo
+                    < (attributes.max_combo - (attributes.max_combo / 500).max(5)) as u32 =>
         {
             let total_objects = (map.n_circles + map.n_sliders + map.n_spinners) as usize;
             let passed_objects = (score.statistics.count_300
