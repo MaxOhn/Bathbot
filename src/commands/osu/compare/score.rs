@@ -22,7 +22,7 @@ use crate::{
         osu::{get_user, get_user_cached, UserArgs},
         parse_discord, DoubleResultCow, MyCommand,
     },
-    database::{EmbedsSize, UserConfig},
+    database::{EmbedsSize, MinimizedPp, UserConfig},
     embeds::{CompareEmbed, EmbedData, NoScoresEmbed, ScoresEmbed},
     error::Error,
     pagination::{Pagination, ScoresPagination},
@@ -103,6 +103,12 @@ pub(super) async fn _compare(
         (Some(size), _) => size,
         (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
         (None, None) => EmbedsSize::default(),
+    };
+
+    let minimized_pp = match (config.minimized_pp, data.guild_id()) {
+        (Some(pp), _) => pp,
+        (None, Some(guild)) => ctx.guild_minimized_pp(guild).await,
+        (None, None) => MinimizedPp::default(),
     };
 
     let name = match config.into_username() {
@@ -205,6 +211,7 @@ pub(super) async fn _compare(
                 global_idx,
                 pinned,
                 embeds_size,
+                minimized_pp,
             );
 
             return fut.await;
@@ -447,7 +454,16 @@ pub(super) async fn _compare(
         score.mapset = map.mapset.take().map(From::from);
         score.map = Some(map);
 
-        let fut = single_score(ctx, &data, score, best, global_idx, pinned, embeds_size);
+        let fut = single_score(
+            ctx,
+            &data,
+            score,
+            best,
+            global_idx,
+            pinned,
+            embeds_size,
+            minimized_pp,
+        );
 
         return fut.await;
     } else {
@@ -506,10 +522,19 @@ async fn single_score(
     global_idx: usize,
     pinned: bool,
     embeds_size: EmbedsSize,
+    minimized_pp: MinimizedPp,
 ) -> BotResult<()> {
     // Accumulate all necessary data
-    let embed_data = match CompareEmbed::new(best.as_deref(), score, global_idx, pinned, &ctx).await
-    {
+    let embed_fut = CompareEmbed::new(
+        best.as_deref(),
+        score,
+        global_idx,
+        pinned,
+        minimized_pp,
+        &ctx,
+    );
+
+    let embed_data = match embed_fut.await {
         Ok(data) => data,
         Err(err) => {
             let _ = data.error(&ctx, GENERAL_ISSUE).await;

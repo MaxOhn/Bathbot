@@ -168,7 +168,7 @@ impl RecentEmbed {
             pp as f32
         };
 
-        let if_fc = if_fc_struct(score, &rosu_map, attributes, mods);
+        let (if_fc, _) = if_fc_struct(score, &rosu_map, attributes, mods);
 
         let pp = Some(pp);
         let max_pp = Some(max_pp);
@@ -202,8 +202,7 @@ impl RecentEmbed {
 
         let if_fc = if_fc.map(|if_fc| {
             let mut hits = String::from("{");
-            let _ = write!(hits, "{}/", if_fc.n300);
-            let _ = write!(hits, "{}/", if_fc.n100);
+            let _ = write!(hits, "{}/{}/", if_fc.n300, if_fc.n100);
 
             if let Some(n50) = if_fc.n50 {
                 let _ = write!(hits, "{n50}/");
@@ -408,20 +407,20 @@ impl EmbedData for RecentEmbed {
     }
 }
 
-struct IfFC {
-    n300: usize,
-    n100: usize,
-    n50: Option<usize>,
-    pp: f32,
-    acc: f32,
+pub struct IfFC {
+    pub n300: usize,
+    pub n100: usize,
+    pub n50: Option<usize>,
+    pub pp: f32,
+    pub acc: f32,
 }
 
-fn if_fc_struct(
+pub fn if_fc_struct(
     score: &Score,
     map: &Map,
     attributes: DifficultyAttributes,
     mods: u32,
-) -> Option<IfFC> {
+) -> (Option<IfFC>, DifficultyAttributes) {
     match attributes {
         DifficultyAttributes::Osu(attributes)
             if score.statistics.count_miss > 0
@@ -455,13 +454,15 @@ fn if_fc_struct(
             let acc =
                 100.0 * (6 * count300 + 2 * count100 + count50) as f32 / (6 * total_objects) as f32;
 
-            Some(IfFC {
+            let if_fc = IfFC {
                 n300: count300,
                 n100: count100,
                 n50: Some(count50),
                 pp: pp_result.pp as f32,
                 acc,
-            })
+            };
+
+            (Some(if_fc), pp_result.difficulty.into())
         }
         DifficultyAttributes::Fruits(attributes)
             if score.max_combo != attributes.max_combo() as u32 =>
@@ -505,13 +506,15 @@ fn if_fc_struct(
                 100.0 * hits as f32 / total as f32
             };
 
-            Some(IfFC {
+            let if_fc = IfFC {
                 n300: n_fruits,
                 n100: n_droplets,
                 n50: Some(n_tiny_droplets),
                 pp: pp_result.pp as f32,
                 acc,
-            })
+            };
+
+            (Some(if_fc), pp_result.difficulty.into())
         }
         DifficultyAttributes::Taiko(attributes)
             if score.grade == Grade::F || score.statistics.count_miss > 0 =>
@@ -537,14 +540,16 @@ fn if_fc_struct(
                 .accuracy(acc as f64)
                 .calculate();
 
-            Some(IfFC {
+            let if_fc = IfFC {
                 n300: count300,
                 n100: count100,
                 n50: None,
                 pp: pp_result.pp as f32,
                 acc,
-            })
+            };
+
+            (Some(if_fc), pp_result.difficulty.into())
         }
-        _ => None,
+        _ => (None, attributes),
     }
 }

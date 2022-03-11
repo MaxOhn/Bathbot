@@ -1,5 +1,6 @@
 use crate::{
     core::Context,
+    database::MinimizedPp,
     embeds::{osu, Author, EmbedBuilder, EmbedData, Footer},
     error::PpError,
     util::{
@@ -18,6 +19,8 @@ use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, ManiaPP, OsuPP, TaikoPP};
 use rosu_v2::prelude::{Beatmap, GameMode, Grade, Score, User};
 use std::{borrow::Cow, fmt::Write};
 
+use super::recent::if_fc_struct;
+
 const GLOBAL_IDX_THRESHOLD: usize = 500;
 
 pub struct CompareEmbed {
@@ -35,10 +38,13 @@ pub struct CompareEmbed {
     score: String,
     acc: f32,
     ago: HowLongAgoFormatterDynamic,
-    pp: String,
+    pp: Option<f32>,
+    max_pp: Option<f32>,
     combo: String,
     hits: String,
+    if_fc: Option<(f32, f32, String)>,
     map_info: String,
+    minimized_pp: MinimizedPp,
 }
 
 impl CompareEmbed {
@@ -47,6 +53,7 @@ impl CompareEmbed {
         score: &Score,
         global_idx: usize,
         pinned: bool,
+        minimized_pp: MinimizedPp,
         ctx: &Context,
     ) -> BotResult<Self> {
         let user = score.user.as_ref().unwrap();
@@ -56,10 +63,25 @@ impl CompareEmbed {
         let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
         let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
         let mods = score.mods.bits();
-        let max_result = rosu_map.max_pp(mods);
+        let attrs = rosu_map.max_pp(mods);
 
-        let max_pp = max_result.pp();
-        let stars = round(max_result.stars() as f32);
+        let max_pp = attrs.pp();
+        let stars = round(attrs.stars() as f32);
+
+        let (if_fc, attrs) = if_fc_struct(score, &rosu_map, attrs.difficulty_attributes(), mods);
+
+        let if_fc = if_fc.map(|if_fc| {
+            let mut hits = String::from("{");
+            let _ = write!(hits, "{}/{}/", if_fc.n300, if_fc.n100);
+
+            if let Some(n50) = if_fc.n50 {
+                let _ = write!(hits, "{n50}/");
+            }
+
+            let _ = write!(hits, "0}}");
+
+            (if_fc.pp, round(if_fc.acc), hits)
+        });
 
         let pp = if score.grade == Grade::F {
             match map.mode {
@@ -107,7 +129,7 @@ impl CompareEmbed {
             match map.mode {
                 GameMode::STD => {
                     OsuPP::new(&rosu_map)
-                        .attributes(max_result)
+                        .attributes(attrs)
                         .mods(mods)
                         .combo(score.max_combo as usize)
                         .n300(score.statistics.count_300 as usize)
@@ -119,7 +141,7 @@ impl CompareEmbed {
                 }
                 GameMode::MNA => {
                     ManiaPP::new(&rosu_map)
-                        .attributes(max_result)
+                        .attributes(attrs)
                         .mods(mods)
                         .score(score.score)
                         .calculate()
@@ -127,7 +149,7 @@ impl CompareEmbed {
                 }
                 GameMode::CTB => {
                     FruitsPP::new(&rosu_map)
-                        .attributes(max_result)
+                        .attributes(attrs)
                         .mods(mods)
                         .combo(score.max_combo as usize)
                         .fruits(score.statistics.count_300 as usize)
@@ -139,7 +161,7 @@ impl CompareEmbed {
                 }
                 GameMode::TKO => {
                     TaikoPP::new(&rosu_map)
-                        .attributes(max_result)
+                        .attributes(attrs)
                         .combo(score.max_combo as usize)
                         .mods(mods)
                         .misses(score.statistics.count_miss as usize)
@@ -150,7 +172,8 @@ impl CompareEmbed {
             }
         };
 
-        let pp = osu::get_pp(Some(pp), Some(max_pp as f32));
+        let pp = Some(pp);
+        let max_pp = Some(max_pp as f32);
         let hits = score.hits_string(map.mode);
         let grade_completion_mods = grade_completion_mods(score, map);
 
@@ -260,10 +283,13 @@ impl CompareEmbed {
             acc,
             ago,
             pp,
+            max_pp,
             combo,
             hits,
             mapset_id: mapset.mapset_id,
+            if_fc,
             map_info: osu::get_map_info(map, mods, stars),
+            minimized_pp,
         })
     }
 }
@@ -272,7 +298,9 @@ impl EmbedData for CompareEmbed {
     fn as_builder(&self) -> EmbedBuilder {
         let score = highlight_funny_numeral(&self.score).into_owned();
         let acc = highlight_funny_numeral(&format!("{}%", self.acc)).into_owned();
-        let pp = highlight_funny_numeral(&self.pp).into_owned();
+
+        let pp = osu::get_pp(self.pp, self.max_pp);
+        let pp = highlight_funny_numeral(&pp).into_owned();
 
         let mut fields = vec![
             field!(
@@ -299,6 +327,14 @@ impl EmbedData for CompareEmbed {
         ));
 
         fields.push(field!("Hits", hits, true));
+
+        if let Some((pp, acc, hits)) = &self.if_fc {
+            let pp = osu::get_pp(Some(*pp), self.max_pp);
+            fields.push(field!("**If FC**: PP", pp, true));
+            fields.push(field!("Acc", format!("{acc}%"), true));
+            fields.push(field!("Hits", hits.clone(), true));
+        }
+
         fields.push(field!("Map Info", self.map_info.clone(), false));
 
         let image = format!(
@@ -323,7 +359,41 @@ impl EmbedData for CompareEmbed {
             self.grade_completion_mods, self.score, self.acc, self.ago
         );
 
-        let value = format!("{} [ {} ] {}", self.pp, self.combo, self.hits);
+        let pp = match self.minimized_pp {
+            MinimizedPp::IfFc => {
+                let mut result = String::with_capacity(17);
+                result.push_str("**");
+
+                if let Some(pp) = self.pp {
+                    let _ = write!(result, "{:.2}", pp);
+                } else {
+                    result.push('-');
+                }
+
+                match self.if_fc {
+                    Some((if_fc, ..)) => {
+                        let _ = write!(result, "pp** ~~({if_fc:.2}pp)~~");
+                    }
+                    None => {
+                        result.push_str("**/");
+
+                        if let Some(max) = self.max_pp {
+                            let pp = self.pp.map(|pp| pp.max(max)).unwrap_or(max);
+                            let _ = write!(result, "{:.2}", pp);
+                        } else {
+                            result.push('-');
+                        }
+
+                        result.push_str("PP");
+                    }
+                }
+
+                result
+            }
+            MinimizedPp::Max => osu::get_pp(self.pp, self.max_pp),
+        };
+
+        let value = format!("{pp} [ {} ] {}", self.combo, self.hits);
 
         let mut title = self.title;
         let _ = write!(title, " [{}★]", self.stars);
