@@ -3,6 +3,7 @@ mod error;
 mod osekai;
 mod osu_daily;
 mod osu_stats;
+mod osu_tracker;
 mod score;
 mod snipe;
 mod twitch;
@@ -49,7 +50,9 @@ use crate::{
     CONFIG,
 };
 
-pub use self::{error::*, osekai::*, osu_daily::*, osu_stats::*, score::*, snipe::*, twitch::*};
+pub use self::{
+    error::*, osekai::*, osu_daily::*, osu_stats::*, osu_tracker::*, score::*, snipe::*, twitch::*,
+};
 
 use self::score::ScraperScores;
 
@@ -73,6 +76,7 @@ enum Site {
     OsuMapFile,
     OsuMapsetCover,
     OsuStats,
+    OsuTracker,
     Twitch,
 }
 
@@ -82,7 +86,7 @@ pub struct CustomClient {
     client: Client,
     osu_session: &'static str,
     twitch: TwitchData,
-    ratelimiters: [LeakyBucket; 11],
+    ratelimiters: [LeakyBucket; 12],
 }
 
 struct TwitchData {
@@ -125,6 +129,7 @@ impl CustomClient {
             ratelimiter(5),  // OsuMapFile
             ratelimiter(10), // OsuMapsetCover
             ratelimiter(2),  // OsuStats
+            ratelimiter(2),  // OsuTracker
             ratelimiter(5),  // Twitch
         ];
 
@@ -277,6 +282,26 @@ impl CustomClient {
     pub async fn get_discord_attachment(&self, attachment: &Attachment) -> ClientResult<Bytes> {
         self.make_get_request(&attachment.url, Site::DiscordAttachment)
             .await
+    }
+
+    pub async fn get_osutracker_stats(&self) -> ClientResult<OsuTrackerStats> {
+        let url = "https://osutracker.com/api/stats";
+        let bytes = self.make_get_request(url, Site::OsuTracker).await?;
+
+        let stats: OsuTrackerStats = serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsuTrackerStats))?;
+
+        Ok(stats)
+    }
+
+    pub async fn get_osutracker_pp_groups(&self) -> ClientResult<Vec<OsuTrackerPpGroup>> {
+        let url = "https://osutracker.com/api/stats/ppBarrier";
+        let bytes = self.make_get_request(url, Site::OsuTracker).await?;
+
+        let groups: Vec<OsuTrackerPpGroup> = serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsuTrackerGroups))?;
+
+        Ok(groups)
     }
 
     pub async fn get_osekai_medals(&self) -> ClientResult<Vec<OsekaiMedal>> {

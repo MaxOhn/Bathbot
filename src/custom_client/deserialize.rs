@@ -132,9 +132,7 @@ impl<'de> Visitor<'de> for MaybeModsString {
             match result {
                 Ok(m) => mods |= m,
                 Err(why) => {
-                    return Err(Error::custom(format_args!(
-                        r#"invalid value "{v}": {why}"#
-                    )));
+                    return Err(Error::custom(format_args!(r#"invalid value "{v}": {why}"#)));
                 }
             }
         }
@@ -159,4 +157,10 @@ pub fn expect_negative_u32<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Er
     let i: i64 = Deserialize::deserialize(d)?;
 
     Ok(i.max(0) as u32)
+}
+
+pub fn inflate_acc<'de, D: Deserializer<'de>>(d: D) -> Result<f32, D::Error> {
+    let acc: f32 = Deserialize::deserialize(d)?;
+
+    Ok(100.0 * acc)
 }

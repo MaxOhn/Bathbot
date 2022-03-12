@@ -787,6 +787,7 @@ lazy_static! {
         insert("serverleaderboard", define_serverleaderboard);
         insert("bg", define_bg);
         insert("matchcompare", define_matchcompare);
+        insert("popular", define_popular);
 
         SlashCommands(trie)
     };

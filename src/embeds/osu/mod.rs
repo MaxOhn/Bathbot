@@ -24,6 +24,10 @@ mod osekai_medal_rarity;
 mod osustats_counts;
 mod osustats_globals;
 mod osustats_list;
+mod osutracker_mappers;
+mod osutracker_maps;
+mod osutracker_mapsets;
+mod osutracker_mods;
 mod pinned;
 mod player_snipe_list;
 mod player_snipe_stats;
@@ -80,6 +84,10 @@ pub use self::{
     osustats_counts::OsuStatsCountsEmbed,
     osustats_globals::OsuStatsGlobalsEmbed,
     osustats_list::OsuStatsListEmbed,
+    osutracker_mappers::OsuTrackerMappersEmbed,
+    osutracker_maps::OsuTrackerMapsEmbed,
+    osutracker_mapsets::OsuTrackerMapsetsEmbed,
+    osutracker_mods::OsuTrackerModsEmbed,
     pinned::PinnedEmbed,
     player_snipe_list::PlayerSnipeListEmbed,
     player_snipe_stats::PlayerSnipeStatsEmbed,

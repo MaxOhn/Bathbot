@@ -20,6 +20,7 @@ mod medals;
 mod most_played;
 mod nochoke;
 mod osekai;
+mod popular;
 mod osustats;
 mod pinned;
 mod pp;
@@ -74,7 +75,7 @@ pub use self::{
     mapper::*, match_compare::*, match_costs::*, match_live::*, medals::*, most_played::*,
     nochoke::*, osekai::*, osustats::*, pinned::*, pp::*, profile::*, rank::*, ranking::*,
     ratios::*, recent::*, serverleaderboard::*, simulate::*, snipe::*, top::*, top_if::*,
-    top_old::*, whatif::*,
+    top_old::*, whatif::*, popular::*,
 };
 
 use super::MyCommandOption;

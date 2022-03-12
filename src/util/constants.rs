@@ -28,6 +28,7 @@ pub const OSEKAI_ISSUE: &str = "Some issue with the osekai api, blame bade";
 pub const HUISMETBENEN_ISSUE: &str = "Some issue with the huismetbenen api, blame bade";
 pub const OSU_DAILY_ISSUE: &str = "Some issue with the osudaily api, blame bade";
 pub const OSUSTATS_API_ISSUE: &str = "Some issue with the osustats api, blame bade";
+pub const OSUTRACKER_ISSUE: &str = "Some issue with the osutracker api, blame bade";
 pub const TWITCH_API_ISSUE: &str = "Some issue with the twitch api, blame bade";
 
 // Discord error codes
