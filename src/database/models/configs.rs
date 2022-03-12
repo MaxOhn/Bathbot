@@ -16,6 +16,22 @@ pub enum EmbedsSize {
     AlwaysMaximized = 2,
 }
 
+impl From<i16> for EmbedsSize {
+    fn from(value: i16) -> Self {
+        match value {
+            0 => Self::AlwaysMinimized,
+            2 => Self::AlwaysMaximized,
+            _ => Self::InitialMaximized,
+        }
+    }
+}
+
+impl Default for EmbedsSize {
+    fn default() -> Self {
+        Self::InitialMaximized
+    }
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum MinimizedPp {
@@ -35,22 +51,6 @@ impl From<i16> for MinimizedPp {
 impl Default for MinimizedPp {
     fn default() -> Self {
         Self::Max
-    }
-}
-
-impl From<i16> for EmbedsSize {
-    fn from(value: i16) -> Self {
-        match value {
-            0 => Self::AlwaysMinimized,
-            2 => Self::AlwaysMaximized,
-            _ => Self::InitialMaximized,
-        }
-    }
-}
-
-impl Default for EmbedsSize {
-    fn default() -> Self {
-        Self::InitialMaximized
     }
 }
 

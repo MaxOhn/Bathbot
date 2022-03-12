@@ -139,7 +139,11 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         }
         MAP => process_command(ctx, command, args, osu::slash_map).await,
         "mapper" => process_command(ctx, command, args, osu::slash_mapper).await,
-        "matchcompare" => process_command(ctx, command, args, osu::slash_matchcompare).await,
+        "matchcompare" => {
+            args.bucket = Some(BucketName::MatchCompare);
+
+            process_command(ctx, command, args, osu::slash_matchcompare).await
+        }
         "matchcost" => process_command(ctx, command, args, osu::slash_matchcost).await,
         "matchlive" => {
             args.set_authority();
