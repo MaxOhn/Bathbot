@@ -2,7 +2,7 @@ use std::{fmt::Write, sync::Arc};
 
 use eyre::Report;
 use rosu_v2::prelude::{
-    Beatmap, BeatmapsetCompact, GameMode, OsuError,
+    Beatmap, BeatmapsetCompact, GameMode, GameMods, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
     Score, User,
 };
@@ -160,10 +160,16 @@ async fn filter_scores(ctx: &Context, scores: &mut Vec<Score>, args: &PinnedArgs
     }
 
     match args.mods {
+        Some(ModSelection::Include(GameMods::NoMod)) => {
+            scores.retain(|score| score.mods.is_empty())
+        }
         Some(ModSelection::Include(mods)) => {
             scores.retain(|score| score.mods.intersection(mods) == mods)
         }
         Some(ModSelection::Exact(mods)) => scores.retain(|score| score.mods == mods),
+        Some(ModSelection::Exclude(GameMods::NoMod)) => {
+            scores.retain(|score| !score.mods.is_empty())
+        }
         Some(ModSelection::Exclude(mods)) => {
             scores.retain(|score| score.mods.intersection(mods).is_empty())
         }
