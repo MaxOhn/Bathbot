@@ -13,6 +13,8 @@ pub enum CustomClientError {
     Hyper(#[from] hyper::Error),
     #[error("reached retry limit and still failed to download {0}.osu")]
     MapFileRetryLimit(u32),
+    #[error("don't make twitch requests on debug")]
+    NoTwitchOnDebug,
     #[error("timeout while waiting for osu stats")]
     OsuStatsTimeout,
     #[error("could not deserialize {kind}: {body}")]

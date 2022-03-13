@@ -19,7 +19,7 @@ fn str_to_maybe_u64<'de, D: Deserializer<'de>>(d: D) -> Result<Option<u64>, D::E
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Default, Deserialize)]
 pub struct TwitchOAuthToken {
     access_token: String,
 }

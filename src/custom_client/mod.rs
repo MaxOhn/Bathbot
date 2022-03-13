@@ -146,6 +146,16 @@ impl CustomClient {
         client_id: &str,
         token: &str,
     ) -> ClientResult<TwitchData> {
+        // Skipping twitch initialization on debug
+        if cfg!(debug_assertions) {
+            let data = TwitchData {
+                client_id: HeaderValue::from_str("").unwrap(),
+                oauth_token: TwitchOAuthToken::default(),
+            };
+
+            return Ok(data);
+        }
+
         let form = &[
             ("grant_type", "client_credentials"),
             ("client_id", client_id),
@@ -202,6 +212,10 @@ impl CustomClient {
         U: Display,
         V: Display,
     {
+        if cfg!(debug_assertions) {
+            return Err(CustomClientError::NoTwitchOnDebug);
+        }
+
         trace!("GET request of url {}", url.as_ref());
 
         let mut uri = format!("{}?", url.as_ref());
