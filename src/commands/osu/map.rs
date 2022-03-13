@@ -619,7 +619,7 @@ pub fn define_map() -> MyCommand {
 
     let cs = MyCommandOption::builder("cs", "Specify a CS value to override the actual one")
         .min_num(0.0)
-        .max_num(7.0)
+        .max_num(10.0)
         .number(Vec::new(), false);
 
     let hp = MyCommandOption::builder("hp", "Specify an HP value to override the actual one")
