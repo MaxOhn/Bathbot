@@ -13,8 +13,9 @@ use rosu_v2::prelude::{
     GameMods, MatchGame, Osu, OsuError, OsuMatch, OsuResult, Team, TeamType, UserCompact,
 };
 use std::{cmp::Ordering, collections::HashMap as StdHashMap, fmt::Write, mem, sync::Arc};
-use twilight_model::application::interaction::{
-    application_command::CommandOptionValue, ApplicationCommand,
+use twilight_model::application::{
+    command::Number,
+    interaction::{application_command::CommandOptionValue, ApplicationCommand},
 };
 
 const USER_LIMIT: usize = 50;
@@ -27,7 +28,6 @@ const TOO_MANY_PLAYERS_TEXT: &str = "Too many players, cannot display message :(
      in the given multiplayer match.\nThe optional second \
      argument is the amount of played warmups, defaults to 2.\n\
      Here's the current [formula](https://i.imgur.com/7KFwcUS.png).\n\
-     Additionally, scores with the EZ mod are multiplied by 1.7 beforehand.\n\
      Keep in mind that all bots use different formulas so comparing \
      with values from other bots makes no sense."
 )]
@@ -55,13 +55,30 @@ async fn _matchcosts(
         match_id,
         warmups,
         skip_last,
+        ez_mult,
     } = args;
 
     // Retrieve the match
     let (mut osu_match, games) = match ctx.osu().osu_match(match_id).await {
         Ok(mut osu_match) => {
             retrieve_previous(&mut osu_match, ctx.osu()).await?;
-            let mut games: Vec<_> = osu_match.drain_games().skip(warmups).collect();
+            let games_iter = osu_match.drain_games().skip(warmups);
+
+            let mut games: Vec<_> = if ez_mult != 1.0 {
+                games_iter
+                    .map(|mut game| {
+                        game.scores.iter_mut().for_each(|score| {
+                            if score.mods.contains(GameMods::Easy) {
+                                score.score = (score.score as f32 * ez_mult) as u32;
+                            }
+                        });
+
+                        game
+                    })
+                    .collect()
+            } else {
+                games_iter.collect()
+            };
 
             if skip_last > 0 {
                 games.truncate(games.len() - skip_last);
@@ -123,8 +140,10 @@ async fn _matchcosts(
 
     let embed = embed_data.into_builder().build();
 
-    let content = (warmups > 0).then(|| {
-        let mut content = "Ignoring the first ".to_owned();
+    let mut content = String::new();
+
+    if warmups > 0 {
+        content.push_str("Ignoring the first ");
 
         if warmups == 1 {
             content.push_str(MAP);
@@ -132,15 +151,23 @@ async fn _matchcosts(
             let _ = write!(content, "{warmups} maps");
         }
 
-        content.push_str(" as warmup:");
+        content.push_str(" as warmup");
+    }
 
-        content
-    });
+    if ez_mult != 1.0 {
+        let _ = if content.is_empty() {
+            write!(content, "EZ multiplier: {ez_mult:.2}")
+        } else {
+            write!(content, " (EZ multiplier: {ez_mult:.2}):")
+        };
+    } else {
+        content.push(':');
+    }
 
     // Creating the embed
     let mut builder = MessageBuilder::new().embed(embed);
 
-    if let Some(content) = content {
+    if !content.is_empty() {
         builder = builder.content(content);
     }
 
@@ -215,12 +242,7 @@ pub fn process_match(
 
     // Calculate point scores for each score in each game
     for game in games.iter() {
-        let score_sum: f32 = game
-            .scores
-            .iter()
-            .map(|s| (s.mods.contains(GameMods::Easy), s.score as f32))
-            .map(|(ez, score)| if ez { score * 1.7 } else { score })
-            .sum();
+        let score_sum: f32 = game.scores.iter().map(|s| s.score as f32).sum();
 
         let avg = score_sum / game.scores.iter().filter(|s| s.score > 0).count() as f32;
         let mut team_scores = HashMap::with_capacity(team_vs as usize + 1);
@@ -231,10 +253,6 @@ pub fn process_match(
                 .insert(score.mods - GameMods::NoFail);
 
             let mut point_cost = score.score as f32 / avg;
-
-            if score.mods.contains(GameMods::Easy) {
-                point_cost *= 1.7;
-            }
 
             point_cost += FLAT_PARTICIPATION_BONUS;
 
@@ -422,6 +440,7 @@ struct MatchCostArgs {
     match_id: u32,
     warmups: usize,
     skip_last: usize,
+    ez_mult: f32,
 }
 
 impl MatchCostArgs {
@@ -442,6 +461,7 @@ impl MatchCostArgs {
             match_id,
             warmups,
             skip_last: 0,
+            ez_mult: 1.0,
         })
     }
 
@@ -449,6 +469,7 @@ impl MatchCostArgs {
         let mut match_id = None;
         let mut warmups = None;
         let mut skip_last = None;
+        let mut ez_mult = None;
 
         for option in command.yoink_options() {
             match option.value {
@@ -467,6 +488,10 @@ impl MatchCostArgs {
                         }
                     }
                 }
+                CommandOptionValue::Number(Number(value)) => match option.name.as_str() {
+                    "ez_multiplier" => ez_mult = Some(value as f32),
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
                 CommandOptionValue::Integer(value) => match option.name.as_str() {
                     "warmups" => warmups = Some(value.max(0) as usize),
                     "skip_last" => skip_last = Some(value.max(0) as usize),
@@ -480,6 +505,7 @@ impl MatchCostArgs {
             match_id: match_id.ok_or(Error::InvalidCommandOptions)?,
             warmups: warmups.unwrap_or(2),
             skip_last: skip_last.unwrap_or(0),
+            ez_mult: ez_mult.unwrap_or(1.0),
         };
 
         Ok(Ok(args))
@@ -509,6 +535,14 @@ pub fn define_matchcost() -> MyCommand {
         .min_int(0)
         .integer(Vec::new(), false);
 
+    let ez_mult_help = "Specify a multiplier for EZ scores.\n\
+        The suggested multiplier range is 1.0-2.0";
+
+    let ez_mult = MyCommandOption::builder("ez_multiplier", "Specify a multiplier for EZ scores")
+        .help(ez_mult_help)
+        .max_num(100.0)
+        .number(Vec::new(), false);
+
     let skip_last_description = "Specify the amount of maps to ignore at the end (defaults to 0)";
 
     let skip_last_help = "In case the last few maps were just for fun, \
@@ -532,5 +566,5 @@ pub fn define_matchcost() -> MyCommand {
 
     MyCommand::new("matchcost", description)
         .help(help)
-        .options(vec![match_url, warmups, skip_last])
+        .options(vec![match_url, warmups, ez_mult, skip_last])
 }
