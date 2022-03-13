@@ -190,6 +190,7 @@ impl RankEmbed {
                                 name = user.username,
                                 missing = with_comma_float(rank_holder_pp - user_pp),
                                 pp = with_comma_float(required),
+                                idx = idx + 1,
                             )
                         }
                     }
