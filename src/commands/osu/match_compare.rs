@@ -39,6 +39,7 @@ async fn matchcompare_(
         match_id_1,
         match_id_2,
         output,
+        comparison,
     } = args;
 
     if match_id_1 == match_id_2 {
@@ -61,7 +62,7 @@ async fn matchcompare_(
                 return Err(err.into());
             }
 
-            MatchComparison::new(&mut match_1, &mut match_2).into_embeds()
+            MatchComparison::new(&mut match_1, &mut match_2).into_embeds(comparison)
         }
         Err(OsuError::NotFound) => {
             let content = format!("At least one of the two given matches was not found");
@@ -193,7 +194,7 @@ impl MatchComparison {
         }
     }
 
-    fn into_embeds(self) -> Vec<EmbedBuilder> {
+    fn into_embeds(self, comparison: MatchCompareComparison) -> Vec<EmbedBuilder> {
         let mut embeds = Vec::with_capacity(self.common_maps.len() + 2);
         let common_total = self.common_maps.len();
 
@@ -217,6 +218,7 @@ impl MatchComparison {
                     &self.match_1.name,
                     &self.match_2.name,
                     &self.users,
+                    comparison,
                     (i, common_total, maps_total),
                 )
             })
@@ -371,10 +373,24 @@ impl Default for MatchCompareOutput {
     }
 }
 
+#[derive(Copy, Clone)]
+pub enum MatchCompareComparison {
+    Both,
+    Players,
+    Teams,
+}
+
+impl Default for MatchCompareComparison {
+    fn default() -> Self {
+        Self::Players
+    }
+}
+
 struct MatchCompareArgs {
     match_id_1: u32,
     match_id_2: u32,
     output: MatchCompareOutput,
+    comparison: MatchCompareComparison,
 }
 
 impl MatchCompareArgs {
@@ -382,6 +398,7 @@ impl MatchCompareArgs {
         let mut match_id_1 = None;
         let mut match_id_2 = None;
         let mut output = None;
+        let mut comparison = None;
 
         for option in command.yoink_options() {
             match option.value {
@@ -409,6 +426,12 @@ impl MatchCompareArgs {
                         "paginated" => output = Some(MatchCompareOutput::Paginated),
                         _ => return Err(Error::InvalidCommandOptions),
                     },
+                    "comparison" => match value.as_str() {
+                        "both" => comparison = Some(MatchCompareComparison::Both),
+                        "players" => comparison = Some(MatchCompareComparison::Players),
+                        "teams" => comparison = Some(MatchCompareComparison::Teams),
+                        _ => return Err(Error::InvalidCommandOptions),
+                    },
                     _ => return Err(Error::InvalidCommandOptions),
                 },
                 _ => return Err(Error::InvalidCommandOptions),
@@ -419,6 +442,7 @@ impl MatchCompareArgs {
             match_id_1: match_id_1.ok_or(Error::InvalidCommandOptions)?,
             match_id_2: match_id_2.ok_or(Error::InvalidCommandOptions)?,
             output: output.unwrap_or_default(),
+            comparison: comparison.unwrap_or_default(),
         };
 
         Ok(Ok(args))
@@ -444,6 +468,26 @@ pub fn define_matchcompare() -> MyCommand {
         MyCommandOption::builder("match_url_2", "Specify the second match url or match id")
             .string(Vec::new(), true);
 
+    let comparison_choices = vec![
+        CommandOptionChoice::String {
+            name: "Compare players".to_owned(),
+            value: "players".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Compare teams".to_owned(),
+            value: "teams".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Compare both".to_owned(),
+            value: "both".to_owned(),
+        },
+    ];
+
+    let comparison_description = "Specify it should show comparisons between players or teams";
+
+    let comparison = MyCommandOption::builder("comparison", comparison_description)
+        .string(comparison_choices, false);
+
     let output_choices = vec![
         CommandOptionChoice::String {
             name: "Full".to_owned(),
@@ -460,7 +504,7 @@ pub fn define_matchcompare() -> MyCommand {
     let output =
         MyCommandOption::builder("output", output_description).string(output_choices, false);
 
-    let options = vec![match_url_1, match_url_2, output];
+    let options = vec![match_url_1, match_url_2, output, comparison];
 
     MyCommand::new("matchcompare", "Compare two multiplayer matches").options(options)
 }

@@ -1,10 +1,12 @@
-use std::{borrow::Cow, fmt::Write};
+use std::{borrow::Cow, cmp::Reverse, fmt::Write};
 
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Grade, Team, Username};
 
 use crate::{
-    commands::osu::{CommonMap, MatchCompareScore, ProcessedMatch, UniqueMap},
+    commands::osu::{
+        CommonMap, MatchCompareComparison, MatchCompareScore, ProcessedMatch, UniqueMap,
+    },
     embeds::{Author, EmbedFields, Footer},
     util::{
         constants::OSU_BASE,
@@ -27,13 +29,11 @@ impl MatchCompareMapEmbed {
         match_1: &str,
         match_2: &str,
         users: &HashMap<u32, Username>,
+        comparison: MatchCompareComparison,
         (common_idx, common_total, maps_total): (usize, usize, usize),
     ) -> Self {
         let author_text = format!("Match compare - Common map {common_idx}/{common_total}");
         let author = Author::new(author_text);
-
-        let title = map.map;
-        let url = format!("{OSU_BASE}b/{}", map.map_id);
 
         let footer_text = format!(
             "Page {common_idx}/{pages} | Common maps: {common_total}/{maps_total}",
@@ -42,18 +42,51 @@ impl MatchCompareMapEmbed {
 
         let footer = Footer::new(footer_text);
 
-        let fields = vec![
-            field!(
-                match_1,
-                prepare_scores(&map.match_1, map.match_1_scores, users),
-                false
-            ),
-            field!(
-                match_2,
-                prepare_scores(&map.match_2, map.match_2_scores, users),
-                false
-            ),
-        ];
+        let fields = match comparison {
+            MatchCompareComparison::Both => {
+                vec![
+                    field!(
+                        match_1,
+                        prepare_scores(&map.match_1, map.match_1_scores, users, false),
+                        false
+                    ),
+                    field!(
+                        match_2,
+                        prepare_scores(&map.match_2, map.match_2_scores, users, false),
+                        false
+                    ),
+                    field!(
+                        "Total team scores",
+                        team_scores(&map, match_1, match_2),
+                        false
+                    ),
+                ]
+            }
+            MatchCompareComparison::Players => {
+                vec![
+                    field!(
+                        match_1,
+                        prepare_scores(&map.match_1, map.match_1_scores, users, true),
+                        false
+                    ),
+                    field!(
+                        match_2,
+                        prepare_scores(&map.match_2, map.match_2_scores, users, true),
+                        false
+                    ),
+                ]
+            }
+            MatchCompareComparison::Teams => {
+                vec![field!(
+                    "Total team scores",
+                    team_scores(&map, match_1, match_2),
+                    false
+                )]
+            }
+        };
+
+        let title = map.map;
+        let url = format!("{OSU_BASE}b/{}", map.map_id);
 
         Self {
             author,
@@ -65,10 +98,69 @@ impl MatchCompareMapEmbed {
     }
 }
 
+fn team_scores(map: &CommonMap, match_1: &str, match_2: &str) -> String {
+    let mut scores = Vec::new();
+
+    for team in [Team::Blue, Team::Red] {
+        if map.match_1_scores[team as usize] > 0 {
+            scores.push(TeamScore::new(
+                team,
+                match_1,
+                map.match_1_scores[team as usize],
+            ));
+        }
+
+        if map.match_2_scores[team as usize] > 0 {
+            scores.push(TeamScore::new(
+                team,
+                match_2,
+                map.match_2_scores[team as usize],
+            ));
+        }
+    }
+
+    if scores.is_empty() {
+        return "No teams".to_owned();
+    }
+
+    scores.sort_unstable_by_key(|score| Reverse(score.score));
+
+    let mut value = String::with_capacity(scores.len() * 80);
+
+    for (score, i) in scores.into_iter().zip(1..) {
+        let _ = writeln!(
+            value,
+            "**{i}.** `{score}` :{team}_circle:\n> {name}",
+            score = with_comma_int(score.score),
+            team = if score.team == Team::Blue {
+                "blue"
+            } else {
+                "red"
+            },
+            name = score.name,
+        );
+    }
+
+    value
+}
+
+struct TeamScore<'n> {
+    team: Team,
+    name: &'n str,
+    score: u32,
+}
+
+impl<'n> TeamScore<'n> {
+    fn new(team: Team, name: &'n str, score: u32) -> Self {
+        Self { team, name, score }
+    }
+}
+
 fn prepare_scores(
     scores: &[MatchCompareScore],
     totals: [u32; 3],
     users: &HashMap<u32, Username>,
+    with_total: bool,
 ) -> String {
     let mut embed_scores = Vec::with_capacity(scores.len());
     let mut sizes = ColumnSizes::default();
@@ -104,16 +196,18 @@ fn prepare_scores(
 
     let mut value = String::new();
 
-    if totals[1] + totals[2] > 0 {
-        let _ = writeln!(
-            value,
-            "**Total**: :blue_circle: {blue_won}{blue_score}{blue_won} \
-            - {red_won}{red_score}{red_won} :red_circle:",
-            blue_score = with_comma_int(totals[1]),
-            red_score = with_comma_int(totals[2]),
-            blue_won = if totals[1] > totals[2] { "**" } else { "" },
-            red_won = if totals[2] > totals[1] { "**" } else { "" },
-        );
+    if with_total {
+        if totals[1] + totals[2] > 0 {
+            let _ = writeln!(
+                value,
+                "**Total**: :blue_circle: {blue_won}{blue_score}{blue_won} \
+                - {red_won}{red_score}{red_won} :red_circle:",
+                blue_score = with_comma_int(totals[1]),
+                red_score = with_comma_int(totals[2]),
+                blue_won = if totals[1] > totals[2] { "**" } else { "" },
+                red_won = if totals[2] > totals[1] { "**" } else { "" },
+            );
+        }
     }
 
     for score in embed_scores {
