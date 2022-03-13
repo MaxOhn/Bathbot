@@ -32,6 +32,7 @@ mod pinned;
 mod player_snipe_list;
 mod player_snipe_stats;
 mod pp_missing;
+mod osutracker_countrytop;
 mod profile;
 mod profile_compare;
 mod rank;
@@ -82,6 +83,7 @@ pub use self::{
     osekai_medal_count::MedalCountEmbed,
     osekai_medal_rarity::MedalRarityEmbed,
     osustats_counts::OsuStatsCountsEmbed,
+    osutracker_countrytop::OsuTrackerCountryTopEmbed,
     osustats_globals::OsuStatsGlobalsEmbed,
     osustats_list::OsuStatsListEmbed,
     osutracker_mappers::OsuTrackerMappersEmbed,

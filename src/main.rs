@@ -240,13 +240,19 @@ async fn async_main() -> Result<()> {
     let slash_commands = SLASH_COMMANDS.collect();
     info!("Setting {} slash commands...", slash_commands.len());
 
+    // info!("Defining: {slash_commands:#?}");
+
     if cfg!(debug_assertions) {
         ctx.interaction().set_global_commands(&[]).exec().await?;
 
-        ctx.interaction()
+        let _received = ctx
+            .interaction()
             .set_guild_commands(Id::new(BATHBOT_WORKSHOP_ID), &slash_commands)
             .exec()
             .await?;
+
+        // let commands = _received.models().await?;
+        // info!("Received: {commands:#?}");
     } else {
         ctx.interaction()
             .set_global_commands(&slash_commands)

@@ -120,6 +120,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
 
             process_command(ctx, command, args, utility::slash_config).await
         }
+        "countrytop" => process_command(ctx, command, args, osu::slash_countrytop).await,
         "cs" => process_command(ctx, command, args, osu::slash_cs).await,
         "fix" => process_command(ctx, command, args, osu::slash_fix).await,
         HELP => {

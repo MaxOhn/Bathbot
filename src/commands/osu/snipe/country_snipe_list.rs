@@ -107,8 +107,7 @@ pub(super) async fn _countrysnipelist(
                 }
             }
             None => {
-                let content =
-                    "Since you're not linked, you must specify a country acronym, e.g. `fr`";
+                let content = "Since you're not linked, you must specify a country (code)";
 
                 return data.error(&ctx, content).await;
             }

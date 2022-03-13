@@ -17,6 +17,7 @@ mod osekai_medal_count;
 mod osekai_medal_rarity;
 mod osustats_globals;
 mod osustats_list;
+mod osutracker_countrytop;
 mod osutracker_mappers;
 mod osutracker_maps;
 mod osutracker_mapsets;
@@ -62,6 +63,7 @@ pub use self::{
     most_played_common::MostPlayedCommonPagination, nochoke::NoChokePagination,
     osekai_medal_count::MedalCountPagination, osekai_medal_rarity::MedalRarityPagination,
     osustats_globals::OsuStatsGlobalsPagination, osustats_list::OsuStatsListPagination,
+    osutracker_countrytop::OsuTrackerCountryTopPagination,
     osutracker_mappers::OsuTrackerMappersPagination, osutracker_maps::OsuTrackerMapsPagination,
     osutracker_mapsets::OsuTrackerMapsetsPagination, osutracker_mods::OsuTrackerModsPagination,
     pinned::PinnedPagination, player_snipe_list::PlayerSnipeListPagination,

@@ -788,6 +788,7 @@ lazy_static! {
         insert("bg", define_bg);
         insert("matchcompare", define_matchcompare);
         insert("popular", define_popular);
+        insert("countrytop", define_countrytop);
 
         SlashCommands(trie)
     };

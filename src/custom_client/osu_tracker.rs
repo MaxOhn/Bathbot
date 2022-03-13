@@ -1,7 +1,8 @@
-use rosu_v2::prelude::GameMods;
+use chrono::{DateTime, Utc};
+use rosu_v2::prelude::{CountryCode, GameMods, Username};
 use serde::Deserialize;
 
-use super::deserialize::{inflate_acc, str_to_u32};
+use super::deserialize::{inflate_acc, str_to_datetime, str_to_f32, str_to_u32};
 
 #[derive(Debug, Deserialize)]
 pub struct OsuTrackerPpGroup {
@@ -70,7 +71,7 @@ pub struct OsuTrackerModsEntry {
 
 #[derive(Debug, Deserialize)]
 pub struct OsuTrackerMapperEntry {
-    pub mapper: String,
+    pub mapper: Username,
     pub count: usize,
 }
 
@@ -79,4 +80,54 @@ pub struct OsuTrackerMapsetEntry {
     #[serde(rename = "setId", deserialize_with = "str_to_u32")]
     pub mapset_id: u32,
     pub count: usize,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OsuTrackerCountryDetails {
+    pub contributors: Vec<OsuTrackerCountryContributor>,
+    #[serde(rename = "scoresCurrent")]
+    pub scores: Vec<OsuTrackerCountryScore>,
+    #[serde(rename = "name")]
+    pub country: String,
+    #[serde(rename = "abbreviation")]
+    pub code: CountryCode,
+    #[serde(deserialize_with = "str_to_f32")]
+    pub pp: f32,
+    // #[serde(deserialize_with = "str_to_f32")]
+    // pub range: f32,
+    #[serde(deserialize_with = "inflate_acc")]
+    pub acc: f32,
+    pub farm: f32,
+    #[serde(rename = "averageLength")]
+    pub avg_len: f32,
+    #[serde(rename = "averageObjects")]
+    pub avg_objects: f32,
+    // #[serde(rename = "modsCount")]
+    // pub mods_count: Vec<OsuTrackerModsEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OsuTrackerCountryContributor {
+    pub name: Username,
+    pub pp: f32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OsuTrackerCountryScore {
+    pub name: String,
+    #[serde(rename = "id", deserialize_with = "str_to_u32")]
+    pub map_id: u32,
+    #[serde(rename = "setId", deserialize_with = "str_to_u32")]
+    pub mapset_id: u32,
+    pub mods: GameMods,
+    #[serde(deserialize_with = "str_to_f32")]
+    pub pp: f32,
+    #[serde(rename = "missCount", deserialize_with = "str_to_u32")]
+    pub n_misses: u32,
+    #[serde(deserialize_with = "inflate_acc")]
+    pub acc: f32,
+    pub mapper: Username,
+    #[serde(rename = "time", deserialize_with = "str_to_datetime")]
+    pub created_at: DateTime<Utc>,
+    pub player: Username,
 }
