@@ -28,6 +28,8 @@ use crate::{
     BotResult,
 };
 
+use super::retrieve_previous;
+
 async fn matchcompare_(
     ctx: Arc<Context>,
     data: ApplicationCommand,
@@ -50,6 +52,15 @@ async fn matchcompare_(
 
     let embeds = match tokio::try_join!(match_fut_1, match_fut_2) {
         Ok((mut match_1, mut match_2)) => {
+            let previous_fut_1 = retrieve_previous(&mut match_1, ctx.osu());
+            let previous_fut_2 = retrieve_previous(&mut match_2, ctx.osu());
+
+            if let Err(err) = tokio::try_join!(previous_fut_1, previous_fut_2) {
+                let _ = data.error(&ctx, OSU_API_ISSUE).await;
+
+                return Err(err.into());
+            }
+
             MatchComparison::new(&mut match_1, &mut match_2).into_embeds()
         }
         Err(OsuError::NotFound) => {
@@ -63,10 +74,10 @@ async fn matchcompare_(
 
             return data.error(&ctx, content).await;
         }
-        Err(why) => {
+        Err(err) => {
             let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 

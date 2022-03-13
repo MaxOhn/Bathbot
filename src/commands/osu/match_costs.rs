@@ -149,7 +149,7 @@ async fn _matchcosts(
     Ok(())
 }
 
-async fn retrieve_previous(osu_match: &mut OsuMatch, osu: &Osu) -> OsuResult<()> {
+pub async fn retrieve_previous(osu_match: &mut OsuMatch, osu: &Osu) -> OsuResult<()> {
     let mut curr = &*osu_match;
     let mut prev: Option<OsuMatch> = None;
 
