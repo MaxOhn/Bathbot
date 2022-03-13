@@ -37,6 +37,8 @@ You can also join its [discord server](https://discord.gg/n9fFstG) to keep up wi
 - [Piotrekol](https://osu.ppy.sh/users/304520) and [Ezoda](https://osu.ppy.sh/users/1231180) and their website [osustats](https://osustats.ppy.sh/) for providing leaderboard data
 - [Adri](https://osu.ppy.sh/users/4579132) and his website [osudaily](https://osudaily.net/) for providing rank data
 - [mulraf](https://osu.ppy.sh/users/1309242), [Hubz](https://osu.ppy.sh/users/10379965), and the rest of the [osekai](https://osekai.net/) team for providing medal data
+- [nzbasic](https://osu.ppy.sh/users/9008211) and his website [osutracker](https://osutracker.com/) for providing global data and country top scores
+- [OMKelderman](https://osu.ppy.sh/users/2756335) and his [flag conversion](https://osuflags.omkserver.nl/) service
 
 ## Internals
 
