@@ -1,5 +1,6 @@
 mod bombsaway;
 mod catchit;
+mod chicago;
 mod ding;
 mod fireandflames;
 mod fireflies;
@@ -25,9 +26,9 @@ use twilight_model::application::{
 use crate::{util::MessageExt, BotResult, CommandData, Context, Error, MessageBuilder};
 
 pub use self::{
-    bombsaway::*, catchit::*, ding::*, fireandflames::*, fireflies::*, flamingo::*, mylove::*,
-    padoru::*, pretender::*, rockefeller::*, saygoodbye::*, startagain::*, tijdmachine::*,
-    wordsneversaid::*, zenzenzense::*,
+    bombsaway::*, catchit::*, chicago::*, ding::*, fireandflames::*, fireflies::*, flamingo::*,
+    mylove::*, padoru::*, pretender::*, rockefeller::*, saygoodbye::*, startagain::*,
+    tijdmachine::*, wordsneversaid::*, zenzenzense::*,
 };
 
 use super::{MyCommand, MyCommandOption};
@@ -84,6 +85,7 @@ pub async fn slash_song(ctx: Arc<Context>, command: ApplicationCommand) -> BotRe
             CommandOptionValue::String(value) => match value.as_str() {
                 "bombsaway" => Some(_bombsaway()),
                 "catchit" => Some(_catchit()),
+                "chicago" => Some(_chicago()),
                 "ding" => Some(_ding()),
                 "fireandflames" => Some(_fireandflames()),
                 "fireflies" => Some(_fireflies()),
@@ -120,6 +122,10 @@ pub fn define_song() -> MyCommand {
         CommandOptionChoice::String {
             name: "Catchit".to_owned(),
             value: "catchit".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Chicago".to_owned(),
+            value: "chicago".to_owned(),
         },
         CommandOptionChoice::String {
             name: "Ding".to_owned(),
@@ -178,6 +184,7 @@ pub fn define_song() -> MyCommand {
     let help = "Currently available: \
         [Bombs away](https://youtu.be/xpkkakkDhN4?t=65), \
         [Catchit](https://youtu.be/BjFWk0ncr70?t=12), \
+        [Chicago](https://www.youtube.com/watch?v=MWserASk0Jg&t=60s), \
         [Ding](https://youtu.be/_yWU0lFghxU?t=54), \
         [Fireflies](https://youtu.be/psuRGfAaju4?t=25), \
         [Flamingo](https://youtu.be/la9C0n7jSsI), \
