@@ -117,6 +117,10 @@ fn subcommand_maps() -> MyCommandOption {
             value: "800_900".to_owned(),
         },
         CommandOptionChoice::String {
+            name: "900-1000pp".to_owned(),
+            value: "900_1000".to_owned(),
+        },
+        CommandOptionChoice::String {
             name: "1000-1100pp".to_owned(),
             value: "1000_1100".to_owned(),
         },
