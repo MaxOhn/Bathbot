@@ -1,8 +1,10 @@
 use twilight_model::channel::Message;
 
 use crate::{
-    commands::osu::OsuTrackerCountryDetailsCompact, custom_client::OsuTrackerCountryScore,
-    embeds::OsuTrackerCountryTopEmbed, BotResult,
+    commands::osu::{OsuTrackerCountryDetailsCompact, TopOrder},
+    custom_client::OsuTrackerCountryScore,
+    embeds::OsuTrackerCountryTopEmbed,
+    BotResult,
 };
 
 use super::{Pages, Pagination};
@@ -11,20 +13,23 @@ pub struct OsuTrackerCountryTopPagination {
     msg: Message,
     pages: Pages,
     details: OsuTrackerCountryDetailsCompact,
-    scores: Vec<OsuTrackerCountryScore>,
+    scores: Vec<(OsuTrackerCountryScore, usize)>,
+    sort_by: TopOrder,
 }
 
 impl OsuTrackerCountryTopPagination {
     pub fn new(
         msg: Message,
         details: OsuTrackerCountryDetailsCompact,
-        scores: Vec<OsuTrackerCountryScore>,
+        scores: Vec<(OsuTrackerCountryScore, usize)>,
+        sort_by: TopOrder,
     ) -> Self {
         Self {
             pages: Pages::new(10, scores.len()),
             msg,
             details,
             scores,
+            sort_by,
         }
     }
 }
@@ -54,7 +59,8 @@ impl Pagination for OsuTrackerCountryTopPagination {
         let scores = &self.scores[index..(index + 10).min(self.scores.len())];
         let page = self.page();
         let pages = self.pages.total_pages;
-        let embed = OsuTrackerCountryTopEmbed::new(&self.details, scores, (page, pages));
+        let embed =
+            OsuTrackerCountryTopEmbed::new(&self.details, scores, self.sort_by, (page, pages));
 
         Ok(embed)
     }

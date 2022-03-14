@@ -1,5 +1,6 @@
 use std::{fmt::Write, sync::Arc};
 
+use chrono::{DateTime, Utc};
 use eyre::Report;
 use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, GameMode, GameMods, OsuError, Score};
 use twilight_model::{
@@ -297,8 +298,60 @@ async fn modify_scores(
 }
 
 impl SortableScore for (usize, Score, Option<f32>) {
-    fn get(&self) -> &Score {
-        &self.1
+    fn acc(&self) -> f32 {
+        SortableScore::acc(&self.1)
+    }
+
+    fn bpm(&self) -> f32 {
+        SortableScore::bpm(&self.1)
+    }
+
+    fn created_at(&self) -> DateTime<Utc> {
+        SortableScore::created_at(&self.1)
+    }
+
+    fn map_id(&self) -> u32 {
+        SortableScore::map_id(&self.1)
+    }
+
+    fn mapset_id(&self) -> u32 {
+        SortableScore::mapset_id(&self.1)
+    }
+
+    fn max_combo(&self) -> u32 {
+        SortableScore::max_combo(&self.1)
+    }
+
+    fn mode(&self) -> GameMode {
+        SortableScore::mode(&self.1)
+    }
+
+    fn mods(&self) -> GameMods {
+        SortableScore::mods(&self.1)
+    }
+
+    fn n_misses(&self) -> u32 {
+        SortableScore::n_misses(&self.1)
+    }
+
+    fn pp(&self) -> Option<f32> {
+        SortableScore::pp(&self.1)
+    }
+
+    fn score_id(&self) -> u64 {
+        SortableScore::score_id(&self.1)
+    }
+
+    fn seconds_drain(&self) -> u32 {
+        SortableScore::seconds_drain(&self.1)
+    }
+
+    fn stars(&self) -> f32 {
+        SortableScore::stars(&self.1)
+    }
+
+    fn total_hits_sort(&self) -> u32 {
+        SortableScore::total_hits_sort(&self.1)
     }
 }
 

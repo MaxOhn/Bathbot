@@ -126,6 +126,8 @@ pub struct OsuTrackerCountryScore {
     pub n_misses: u32,
     #[serde(deserialize_with = "inflate_acc")]
     pub acc: f32,
+    #[serde(rename = "length", deserialize_with = "str_to_u32")]
+    pub seconds_total: u32,
     pub mapper: Username,
     #[serde(rename = "time", deserialize_with = "str_to_datetime")]
     pub created_at: DateTime<Utc>,

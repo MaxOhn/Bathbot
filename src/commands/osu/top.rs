@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use eyre::Report;
 use futures::{stream::FuturesUnordered, TryFutureExt, TryStreamExt};
 use hashbrown::HashMap;
@@ -839,119 +839,192 @@ pub enum TopOrder {
 }
 
 pub trait SortableScore {
-    fn get(&self) -> &Score;
+    fn acc(&self) -> f32;
+    fn bpm(&self) -> f32;
+    fn created_at(&self) -> DateTime<Utc>;
+    fn map_id(&self) -> u32;
+    fn mapset_id(&self) -> u32;
+    fn max_combo(&self) -> u32;
+    fn mode(&self) -> GameMode;
+    fn mods(&self) -> GameMods;
+    fn n_misses(&self) -> u32;
+    fn pp(&self) -> Option<f32>;
+    fn score_id(&self) -> u64;
+    fn seconds_drain(&self) -> u32;
+    fn stars(&self) -> f32;
+    fn total_hits_sort(&self) -> u32;
 }
 
 impl SortableScore for Score {
-    #[inline]
-    fn get(&self) -> &Score {
-        self
+    fn acc(&self) -> f32 {
+        self.accuracy
+    }
+
+    fn bpm(&self) -> f32 {
+        self.map.as_ref().map_or(0.0, |map| map.bpm)
+    }
+
+    fn created_at(&self) -> DateTime<Utc> {
+        self.created_at
+    }
+
+    fn map_id(&self) -> u32 {
+        self.map.as_ref().map_or(0, |map| map.map_id)
+    }
+
+    fn mapset_id(&self) -> u32 {
+        self.mapset.as_ref().map_or(0, |mapset| mapset.mapset_id)
+    }
+
+    fn max_combo(&self) -> u32 {
+        self.max_combo
+    }
+
+    fn mode(&self) -> GameMode {
+        self.mode
+    }
+
+    fn mods(&self) -> GameMods {
+        self.mods
+    }
+
+    fn n_misses(&self) -> u32 {
+        self.statistics.count_miss
+    }
+
+    fn pp(&self) -> Option<f32> {
+        self.pp
+    }
+
+    fn score_id(&self) -> u64 {
+        self.score_id
+    }
+
+    fn seconds_drain(&self) -> u32 {
+        self.map.as_ref().map_or(0, |map| map.seconds_drain)
+    }
+
+    fn stars(&self) -> f32 {
+        self.map.as_ref().map_or(0.0, |map| map.stars)
+    }
+
+    fn total_hits_sort(&self) -> u32 {
+        self.total_hits()
     }
 }
 
 impl SortableScore for (usize, Score) {
-    #[inline]
-    fn get(&self) -> &Score {
-        &self.1
+    fn acc(&self) -> f32 {
+        SortableScore::acc(&self.1)
+    }
+
+    fn bpm(&self) -> f32 {
+        SortableScore::bpm(&self.1)
+    }
+
+    fn created_at(&self) -> DateTime<Utc> {
+        SortableScore::created_at(&self.1)
+    }
+
+    fn map_id(&self) -> u32 {
+        SortableScore::map_id(&self.1)
+    }
+
+    fn mapset_id(&self) -> u32 {
+        SortableScore::mapset_id(&self.1)
+    }
+
+    fn max_combo(&self) -> u32 {
+        SortableScore::max_combo(&self.1)
+    }
+
+    fn mode(&self) -> GameMode {
+        SortableScore::mode(&self.1)
+    }
+
+    fn mods(&self) -> GameMods {
+        SortableScore::mods(&self.1)
+    }
+
+    fn n_misses(&self) -> u32 {
+        SortableScore::n_misses(&self.1)
+    }
+
+    fn pp(&self) -> Option<f32> {
+        SortableScore::pp(&self.1)
+    }
+
+    fn score_id(&self) -> u64 {
+        SortableScore::score_id(&self.1)
+    }
+
+    fn seconds_drain(&self) -> u32 {
+        SortableScore::seconds_drain(&self.1)
+    }
+
+    fn stars(&self) -> f32 {
+        SortableScore::stars(&self.1)
+    }
+
+    fn total_hits_sort(&self) -> u32 {
+        SortableScore::total_hits_sort(&self.1)
     }
 }
 
 impl TopOrder {
     pub async fn apply<S: SortableScore>(self, ctx: &Context, scores: &mut [S]) {
+        fn clock_rate(mods: GameMods) -> f32 {
+            if mods.contains(GameMods::DoubleTime) {
+                1.5
+            } else if mods.contains(GameMods::HalfTime) {
+                0.75
+            } else {
+                1.0
+            }
+        }
+
         match self {
             Self::Acc => {
                 scores.sort_unstable_by(|a, b| {
-                    b.get()
-                        .accuracy
-                        .partial_cmp(&a.get().accuracy)
-                        .unwrap_or(Ordering::Equal)
+                    b.acc().partial_cmp(&a.acc()).unwrap_or(Ordering::Equal)
                 });
             }
             Self::Bpm => scores.sort_unstable_by(|a, b| {
-                let a = a.get();
-                let b = b.get();
-
-                fn clock_rate(mods: GameMods) -> f32 {
-                    if mods.contains(GameMods::DoubleTime) {
-                        1.5
-                    } else if mods.contains(GameMods::HalfTime) {
-                        0.75
-                    } else {
-                        1.0
-                    }
-                }
-
-                let a_clock_rate = clock_rate(a.mods);
-                let b_clock_rate = clock_rate(b.mods);
-
-                let a_bpm = a.map.as_ref().map_or(0.0, |map| map.bpm * a_clock_rate);
-                let b_bpm = b.map.as_ref().map_or(0.0, |map| map.bpm * b_clock_rate);
+                let a_bpm = a.bpm() * clock_rate(a.mods());
+                let b_bpm = b.bpm() * clock_rate(b.mods());
 
                 b_bpm.partial_cmp(&a_bpm).unwrap_or(Ordering::Equal)
             }),
-            Self::Combo => scores.sort_unstable_by_key(|s| Reverse(s.get().max_combo)),
-            Self::Date => scores.sort_unstable_by_key(|s| Reverse(s.get().created_at)),
+            Self::Combo => scores.sort_unstable_by_key(|s| Reverse(s.max_combo())),
+            Self::Date => scores.sort_unstable_by_key(|s| Reverse(s.created_at())),
             Self::Length => scores.sort_unstable_by(|a, b| {
-                let a = a.get();
-                let b = b.get();
-
-                fn clock_rate(mods: GameMods) -> f32 {
-                    if mods.contains(GameMods::DoubleTime) {
-                        1.5
-                    } else if mods.contains(GameMods::HalfTime) {
-                        0.75
-                    } else {
-                        1.0
-                    }
-                }
-
-                let a_clock_rate = clock_rate(a.mods);
-                let b_clock_rate = clock_rate(b.mods);
-
-                let a_len = a
-                    .map
-                    .as_ref()
-                    .map_or(0.0, |map| map.seconds_drain as f32 / a_clock_rate);
-
-                let b_len = b
-                    .map
-                    .as_ref()
-                    .map_or(0.0, |map| map.seconds_drain as f32 / b_clock_rate);
+                let a_len = a.seconds_drain() as f32 / clock_rate(a.mods());
+                let b_len = b.seconds_drain() as f32 / clock_rate(b.mods());
 
                 b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
             }),
             Self::Misses => scores.sort_unstable_by(|a, b| {
-                let a = a.get();
-                let b = b.get();
+                b.n_misses().cmp(&a.n_misses()).then_with(|| {
+                    let hits_a = a.total_hits_sort();
+                    let hits_b = b.total_hits_sort();
 
-                b.statistics
-                    .count_miss
-                    .cmp(&a.statistics.count_miss)
-                    .then_with(|| {
-                        let hits_a = a.total_hits();
-                        let hits_b = b.total_hits();
+                    let ratio_a = a.n_misses() as f32 / hits_a as f32;
+                    let ratio_b = b.n_misses() as f32 / hits_b as f32;
 
-                        let ratio_a = a.statistics.count_miss as f32 / hits_a as f32;
-                        let ratio_b = b.statistics.count_miss as f32 / hits_b as f32;
-
-                        ratio_b
-                            .partial_cmp(&ratio_a)
-                            .unwrap_or(Ordering::Equal)
-                            .then_with(|| hits_b.cmp(&hits_a))
-                    })
+                    ratio_b
+                        .partial_cmp(&ratio_a)
+                        .unwrap_or(Ordering::Equal)
+                        .then_with(|| hits_b.cmp(&hits_a))
+                })
             }),
-            Self::Pp => scores.sort_unstable_by(|a, b| {
-                b.get()
-                    .pp
-                    .partial_cmp(&a.get().pp)
-                    .unwrap_or(Ordering::Equal)
-            }),
+            Self::Pp => scores
+                .sort_unstable_by(|a, b| b.pp().partial_cmp(&a.pp()).unwrap_or(Ordering::Equal)),
             Self::RankedDate => {
                 let mut mapsets = HashMap::new();
                 let mut new_mapsets = HashMap::new();
 
-                for score in scores.iter().map(SortableScore::get) {
-                    let mapset_id = score.mapset.as_ref().unwrap().mapset_id;
+                for score in scores.iter() {
+                    let mapset_id = score.mapset_id();
 
                     match ctx.psql().get_beatmapset::<Beatmapset>(mapset_id).await {
                         Ok(Beatmapset {
@@ -1008,8 +1081,8 @@ impl TopOrder {
                 }
 
                 scores.sort_unstable_by(|a, b| {
-                    let mapset_a = a.get().mapset.as_ref().unwrap().mapset_id;
-                    let mapset_b = b.get().mapset.as_ref().unwrap().mapset_id;
+                    let mapset_a = a.mapset_id();
+                    let mapset_b = b.mapset_id();
 
                     let date_a = mapsets.get(&mapset_a).copied().unwrap_or_else(Utc::now);
                     let date_b = mapsets.get(&mapset_b).copied().unwrap_or_else(Utc::now);
@@ -1020,22 +1093,18 @@ impl TopOrder {
             Self::Stars => {
                 let mut stars = HashMap::new();
 
-                for score in scores.iter().map(SortableScore::get) {
-                    let id = score.score_id;
+                for score in scores.iter() {
+                    let score_id = score.score_id();
+                    let map_id = score.map_id();
 
-                    let map = match score.map.as_ref() {
-                        Some(map) => map,
-                        None => continue,
-                    };
-
-                    if !score.mods.changes_stars(score.mode) {
-                        stars.insert(id, map.stars);
+                    if !score.mods().changes_stars(score.mode()) {
+                        stars.insert(score_id, score.stars());
 
                         continue;
                     }
 
-                    let stars_ = match PpCalculator::new(ctx, map.map_id).await {
-                        Ok(mut calc) => calc.mods(score.mods).stars() as f32,
+                    let stars_ = match PpCalculator::new(ctx, map_id).await {
+                        Ok(mut calc) => calc.mods(score.mods()).stars() as f32,
                         Err(err) => {
                             warn!("{:?}", Report::new(err));
 
@@ -1043,12 +1112,12 @@ impl TopOrder {
                         }
                     };
 
-                    stars.insert(id, stars_);
+                    stars.insert(score_id, stars_);
                 }
 
                 scores.sort_unstable_by(|a, b| {
-                    let stars_a = stars.get(&a.get().score_id).unwrap_or(&0.0);
-                    let stars_b = stars.get(&b.get().score_id).unwrap_or(&0.0);
+                    let stars_a = stars.get(&a.score_id()).unwrap_or(&0.0);
+                    let stars_b = stars.get(&b.score_id()).unwrap_or(&0.0);
 
                     stars_b.partial_cmp(stars_a).unwrap_or(Ordering::Equal)
                 })
@@ -1629,7 +1698,7 @@ pub fn define_top() -> MyCommand {
 
     let query = MyCommandOption::builder("query", query_description)
         .help(query_help)
-        .string(vec![], false);
+        .string(Vec::new(), false);
 
     let grade = MyCommandOption::builder(GRADE, CONSIDER_GRADE).string(grade_choices, false);
 

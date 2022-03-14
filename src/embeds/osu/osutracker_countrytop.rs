@@ -1,9 +1,11 @@
-use std::fmt::Write;
+use std::fmt::{self, Write};
+
+use rosu_v2::prelude::GameMods;
 
 use crate::{
-    commands::osu::OsuTrackerCountryDetailsCompact,
+    commands::osu::{OsuTrackerCountryDetailsCompact, TopOrder},
     custom_client::OsuTrackerCountryScore,
-    embeds::{Author, Footer},
+    embeds::Footer,
     util::{
         constants::OSU_BASE,
         numbers::{round, with_comma_float},
@@ -13,33 +15,21 @@ use crate::{
 };
 
 pub struct OsuTrackerCountryTopEmbed {
-    author: Author,
     description: String,
     footer: Footer,
+    thumbnail: String,
     title: String,
+    url: String,
 }
 
 impl OsuTrackerCountryTopEmbed {
     pub fn new(
         details: &OsuTrackerCountryDetailsCompact,
-        scores: &[OsuTrackerCountryScore],
+        scores: &[(OsuTrackerCountryScore, usize)],
+        sort_by: TopOrder,
         (page, pages): (usize, usize),
     ) -> Self {
-        let author_text = format!(
-            "{country}'{genitive} top scores",
-            country = details.country,
-            genitive = if details.country.ends_with('s') {
-                ""
-            } else {
-                "s"
-            },
-        );
-
-        let author_url = format!("https://osutracker.com/country/{}", details.code);
-
-        let author = Author::new(author_text)
-            .url(author_url)
-            .icon_url(flag_url(details.code.as_str()));
+        let url = format!("https://osutracker.com/country/{}", details.code);
 
         let footer_text =
             format!("Page {page}/{pages} • Data originates from https://osutracker.com");
@@ -47,37 +37,80 @@ impl OsuTrackerCountryTopEmbed {
 
         let title = format!("Total PP: {}pp", with_comma_float(details.pp));
 
-        let idx = (page - 1) * 10 + 1;
-
         let mut description = String::with_capacity(scores.len() * 160);
 
-        for (score, i) in scores.iter().zip(idx..) {
+        for (score, i) in scores.iter() {
             let _ = writeln!(
                 description,
                 "**{i}.** [{map_name}]({OSU_BASE}b/{map_id}) **+{mods}**\n\
-                | by __{user}__ • **{pp}pp** • {acc}% • <t:{timestamp}:R>",
+                > by __[{user}]({OSU_BASE}u/{adjusted_user})__ • **{pp}pp** • {acc}% • <t:{timestamp}:R>{appendix}",
                 map_name = score.name,
                 map_id = score.map_id,
                 mods = score.mods,
                 user = score.player.cow_replace('_', "\\_"),
+                adjusted_user = score.player.cow_replace(' ', "%20"),
                 pp = round(score.pp),
                 acc = round(score.acc),
                 timestamp = score.created_at.timestamp(),
+                appendix = OrderAppendix::new(sort_by, score),
             );
         }
 
         Self {
-            author,
             description,
             footer,
+            thumbnail: flag_url(details.code.as_str()),
             title,
+            url,
         }
     }
 }
 
 impl_builder!(OsuTrackerCountryTopEmbed {
-    author,
     footer,
     description,
+    thumbnail,
     title,
+    url,
 });
+
+struct OrderAppendix<'s> {
+    sort_by: TopOrder,
+    score: &'s OsuTrackerCountryScore,
+}
+
+impl<'s> OrderAppendix<'s> {
+    pub fn new(sort_by: TopOrder, score: &'s OsuTrackerCountryScore) -> Self {
+        Self { sort_by, score }
+    }
+}
+
+impl fmt::Display for OrderAppendix<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.sort_by {
+            TopOrder::Acc | TopOrder::Date | TopOrder::Pp => Ok(()),
+            TopOrder::Length => {
+                let mods = self.score.mods;
+
+                let clock_rate = if mods.contains(GameMods::DoubleTime) {
+                    1.5
+                } else if mods.contains(GameMods::HalfTime) {
+                    0.75
+                } else {
+                    1.0
+                };
+
+                let secs = (self.score.seconds_total as f32 / clock_rate) as u32;
+
+                write!(f, " • `{}:{:0>2}`", secs / 60, secs % 60)
+            }
+            TopOrder::Misses => write!(
+                f,
+                " • {}miss{plural}",
+                self.score.n_misses,
+                plural = if self.score.n_misses != 1 { "es" } else { "" }
+            ),
+            _ => unreachable!(),
+        }
+    }
+}
