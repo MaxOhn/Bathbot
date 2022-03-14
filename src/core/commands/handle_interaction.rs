@@ -346,7 +346,7 @@ async fn pre_process_command(
 
     // Only in guilds?
     if args.only_guilds() && guild_id.is_none() {
-        let content = "That command is only available in guilds";
+        let content = "That command is only available in servers";
         premature_error(ctx, command, content, false).await?;
 
         return Ok(Some(ProcessResult::NoDM));

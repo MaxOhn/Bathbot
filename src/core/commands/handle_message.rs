@@ -116,7 +116,7 @@ async fn process_command(
 ) -> BotResult<ProcessResult> {
     // Only in guilds?
     if (cmd.authority || cmd.only_guilds) && msg.guild_id.is_none() {
-        let content = "That command is only available in guilds";
+        let content = "That command is only available in servers";
         msg.error(&ctx, content).await?;
 
         return Ok(ProcessResult::NoDM);
