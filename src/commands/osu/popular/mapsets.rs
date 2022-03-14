@@ -26,7 +26,7 @@ pub(super) async fn mapsets_(ctx: Arc<Context>, data: CommandData<'_>) -> BotRes
         }
     };
 
-    counts.truncate(500);
+    counts.truncate(727);
 
     let mut mapsets = HashMap::new();
 
