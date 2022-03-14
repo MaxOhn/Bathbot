@@ -3,7 +3,7 @@ use std::sync::Arc;
 use rosu_v2::prelude::{Score, User};
 use twilight_model::channel::Message;
 
-use crate::{commands::osu::TopOrder, core::Context, embeds::TopEmbed, BotResult};
+use crate::{ core::Context, embeds::TopEmbed, BotResult, util::osu::ScoreOrder};
 
 use super::{Pages, Pagination};
 
@@ -13,7 +13,7 @@ pub struct TopPagination {
     pages: Pages,
     user: User,
     scores: Vec<(usize, Score)>,
-    sort_by: TopOrder,
+    sort_by: ScoreOrder,
 }
 
 impl TopPagination {
@@ -21,7 +21,7 @@ impl TopPagination {
         msg: Message,
         user: User,
         scores: Vec<(usize, Score)>,
-        sort_by: TopOrder,
+        sort_by: ScoreOrder,
         ctx: Arc<Context>,
     ) -> Self {
         Self {

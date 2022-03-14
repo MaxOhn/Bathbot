@@ -3,13 +3,13 @@ use std::fmt::{self, Write};
 use rosu_v2::prelude::GameMods;
 
 use crate::{
-    commands::osu::{OsuTrackerCountryDetailsCompact, TopOrder},
+    commands::osu::OsuTrackerCountryDetailsCompact,
     custom_client::OsuTrackerCountryScore,
     embeds::Footer,
     util::{
         constants::OSU_BASE,
         numbers::{round, with_comma_float},
-        osu::flag_url,
+        osu::{flag_url, ScoreOrder},
         CowUtils,
     },
 };
@@ -26,7 +26,7 @@ impl OsuTrackerCountryTopEmbed {
     pub fn new(
         details: &OsuTrackerCountryDetailsCompact,
         scores: &[(OsuTrackerCountryScore, usize)],
-        sort_by: TopOrder,
+        sort_by: ScoreOrder,
         (page, pages): (usize, usize),
     ) -> Self {
         let url = format!("https://osutracker.com/country/{}", details.code);
@@ -75,12 +75,12 @@ impl_builder!(OsuTrackerCountryTopEmbed {
 });
 
 struct OrderAppendix<'s> {
-    sort_by: TopOrder,
+    sort_by: ScoreOrder,
     score: &'s OsuTrackerCountryScore,
 }
 
 impl<'s> OrderAppendix<'s> {
-    pub fn new(sort_by: TopOrder, score: &'s OsuTrackerCountryScore) -> Self {
+    pub fn new(sort_by: ScoreOrder, score: &'s OsuTrackerCountryScore) -> Self {
         Self { sort_by, score }
     }
 }
@@ -88,8 +88,8 @@ impl<'s> OrderAppendix<'s> {
 impl fmt::Display for OrderAppendix<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.sort_by {
-            TopOrder::Acc | TopOrder::Date | TopOrder::Pp => Ok(()),
-            TopOrder::Length => {
+            ScoreOrder::Acc | ScoreOrder::Date | ScoreOrder::Pp => Ok(()),
+            ScoreOrder::Length => {
                 let mods = self.score.mods;
 
                 let clock_rate = if mods.contains(GameMods::DoubleTime) {
@@ -104,7 +104,7 @@ impl fmt::Display for OrderAppendix<'_> {
 
                 write!(f, " • `{}:{:0>2}`", secs / 60, secs % 60)
             }
-            TopOrder::Misses => write!(
+            ScoreOrder::Misses => write!(
                 f,
                 " • {}miss{plural}",
                 self.score.n_misses,

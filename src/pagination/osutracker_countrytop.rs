@@ -1,10 +1,8 @@
 use twilight_model::channel::Message;
 
 use crate::{
-    commands::osu::{OsuTrackerCountryDetailsCompact, TopOrder},
-    custom_client::OsuTrackerCountryScore,
-    embeds::OsuTrackerCountryTopEmbed,
-    BotResult,
+    commands::osu::OsuTrackerCountryDetailsCompact, custom_client::OsuTrackerCountryScore,
+    embeds::OsuTrackerCountryTopEmbed, util::osu::ScoreOrder, BotResult,
 };
 
 use super::{Pages, Pagination};
@@ -14,7 +12,7 @@ pub struct OsuTrackerCountryTopPagination {
     pages: Pages,
     details: OsuTrackerCountryDetailsCompact,
     scores: Vec<(OsuTrackerCountryScore, usize)>,
-    sort_by: TopOrder,
+    sort_by: ScoreOrder,
 }
 
 impl OsuTrackerCountryTopPagination {
@@ -22,7 +20,7 @@ impl OsuTrackerCountryTopPagination {
         msg: Message,
         details: OsuTrackerCountryDetailsCompact,
         scores: Vec<(OsuTrackerCountryScore, usize)>,
-        sort_by: TopOrder,
+        sort_by: ScoreOrder,
     ) -> Self {
         Self {
             pages: Pages::new(10, scores.len()),

@@ -30,15 +30,14 @@ use crate::{
             OSU_API_ISSUE,
         },
         matcher, numbers,
-        osu::ModSelection,
+        osu::{ModSelection, ScoreOrder},
         ApplicationCommandExt, CowUtils, InteractionExt, MessageExt,
     },
     BotResult, CommandData, Context, MessageBuilder,
 };
 
 use super::{
-    get_user_cached, option_discord, option_mode, option_mods_explicit, option_name,
-    prepare_scores, TopOrder,
+    get_user_cached, option_discord, option_mode, option_mods_explicit, option_name, prepare_scores,
 };
 
 async fn _pinned(ctx: Arc<Context>, data: CommandData<'_>, args: PinnedArgs) -> BotResult<()> {
@@ -130,7 +129,7 @@ async fn _pinned(ctx: Arc<Context>, data: CommandData<'_>, args: PinnedArgs) -> 
         single_embed(ctx, data, user, score, embeds_size, minimized_pp, content).await?;
     } else {
         let content = write_content(name, &args, scores.len());
-        let sort_by = args.sort_by.unwrap_or(TopOrder::Pp); // TopOrder::Pp does not show anything
+        let sort_by = args.sort_by.unwrap_or(ScoreOrder::Pp); // TopOrder::Pp does not show anything
         paginated_embed(ctx, data, user, scores, sort_by, content).await?;
     }
 
@@ -288,7 +287,7 @@ async fn paginated_embed(
     data: CommandData<'_>,
     user: User,
     scores: Vec<Score>,
-    sort_by: TopOrder,
+    sort_by: ScoreOrder,
     content: Option<String>,
 ) -> BotResult<()> {
     let pages = numbers::div_euclid(5, scores.len());
@@ -336,7 +335,7 @@ pub async fn slash_pinned(ctx: Arc<Context>, mut command: ApplicationCommand) ->
 
 struct PinnedArgs {
     config: UserConfig,
-    pub sort_by: Option<TopOrder>,
+    pub sort_by: Option<ScoreOrder>,
     query: Option<String>,
     mods: Option<ModSelection>,
 }
@@ -363,15 +362,15 @@ impl PinnedArgs {
                     NAME => config.osu = Some(value.into()),
                     MODE => config.mode = parse_mode_option(&value),
                     SORT => match value.as_str() {
-                        ACC => sort_by = Some(TopOrder::Acc),
-                        "bpm" => sort_by = Some(TopOrder::Bpm),
-                        COMBO => sort_by = Some(TopOrder::Combo),
-                        "date" => sort_by = Some(TopOrder::Date),
-                        "len" => sort_by = Some(TopOrder::Length),
-                        "miss" => sort_by = Some(TopOrder::Misses),
-                        "pp" => sort_by = Some(TopOrder::Pp),
-                        "ranked_date" => sort_by = Some(TopOrder::RankedDate),
-                        "stars" => sort_by = Some(TopOrder::Stars),
+                        ACC => sort_by = Some(ScoreOrder::Acc),
+                        "bpm" => sort_by = Some(ScoreOrder::Bpm),
+                        COMBO => sort_by = Some(ScoreOrder::Combo),
+                        "date" => sort_by = Some(ScoreOrder::Date),
+                        "len" => sort_by = Some(ScoreOrder::Length),
+                        "miss" => sort_by = Some(ScoreOrder::Misses),
+                        "pp" => sort_by = Some(ScoreOrder::Pp),
+                        "ranked_date" => sort_by = Some(ScoreOrder::RankedDate),
+                        "stars" => sort_by = Some(ScoreOrder::Stars),
                         _ => return Err(Error::InvalidCommandOptions),
                     },
                     "query" => query = Some(value),
@@ -410,17 +409,19 @@ fn write_content(name: &str, args: &PinnedArgs, amount: usize) -> Option<String>
         let genitive = if name.ends_with('s') { "" } else { "s" };
 
         let content = match sort_by {
-            TopOrder::Acc => format!("`{name}`'{genitive} pinned scores sorted by accuracy:"),
-            TopOrder::Bpm => format!("`{name}`'{genitive} pinned scores sorted by BPM:"),
-            TopOrder::Combo => format!("`{name}`'{genitive} pinned scores sorted by combo:"),
-            TopOrder::Date => format!("Most recent pinned scores of `{name}`:"),
-            TopOrder::Length => format!("`{name}`'{genitive} pinned scores sorted by length:"),
-            TopOrder::Misses => format!("`{name}`'{genitive} pinned scores sorted by miss count:"),
-            TopOrder::Pp => format!("`{name}`'{genitive} pinned scores sorted by pp"),
-            TopOrder::RankedDate => {
+            ScoreOrder::Acc => format!("`{name}`'{genitive} pinned scores sorted by accuracy:"),
+            ScoreOrder::Bpm => format!("`{name}`'{genitive} pinned scores sorted by BPM:"),
+            ScoreOrder::Combo => format!("`{name}`'{genitive} pinned scores sorted by combo:"),
+            ScoreOrder::Date => format!("Most recent pinned scores of `{name}`:"),
+            ScoreOrder::Length => format!("`{name}`'{genitive} pinned scores sorted by length:"),
+            ScoreOrder::Misses => {
+                format!("`{name}`'{genitive} pinned scores sorted by miss count:")
+            }
+            ScoreOrder::Pp => format!("`{name}`'{genitive} pinned scores sorted by pp"),
+            ScoreOrder::RankedDate => {
                 format!("`{name}`'{genitive} pinned scores sorted by ranked date:")
             }
-            TopOrder::Stars => format!("`{name}`'{genitive} pinned scores sorted by stars"),
+            ScoreOrder::Stars => format!("`{name}`'{genitive} pinned scores sorted by stars"),
         };
 
         Some(content)
@@ -437,15 +438,15 @@ fn content_with_condition(args: &PinnedArgs, amount: usize) -> String {
     let mut content = String::with_capacity(64);
 
     match args.sort_by {
-        Some(TopOrder::Acc) => content.push_str("`Order: Accuracy`"),
-        Some(TopOrder::Bpm) => content.push_str("`Order: BPM`"),
-        Some(TopOrder::Combo) => content.push_str("`Order: Combo`"),
-        Some(TopOrder::Date) => content.push_str("`Order: Date`"),
-        Some(TopOrder::Length) => content.push_str("`Order: Length`"),
-        Some(TopOrder::Misses) => content.push_str("`Order: Misscount`"),
-        Some(TopOrder::Pp) => content.push_str("`Order: Pp`"),
-        Some(TopOrder::RankedDate) => content.push_str("`Order: Ranked date`"),
-        Some(TopOrder::Stars) => content.push_str("`Order: Stars`"),
+        Some(ScoreOrder::Acc) => content.push_str("`Order: Accuracy`"),
+        Some(ScoreOrder::Bpm) => content.push_str("`Order: BPM`"),
+        Some(ScoreOrder::Combo) => content.push_str("`Order: Combo`"),
+        Some(ScoreOrder::Date) => content.push_str("`Order: Date`"),
+        Some(ScoreOrder::Length) => content.push_str("`Order: Length`"),
+        Some(ScoreOrder::Misses) => content.push_str("`Order: Miss count`"),
+        Some(ScoreOrder::Pp) => content.push_str("`Order: Pp`"),
+        Some(ScoreOrder::RankedDate) => content.push_str("`Order: Ranked date`"),
+        Some(ScoreOrder::Stars) => content.push_str("`Order: Stars`"),
         None => {}
     }
 

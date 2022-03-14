@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use super::{Pages, Pagination};
 
-use crate::{commands::osu::TopOrder, core::Context, embeds::PinnedEmbed, BotResult};
+use crate::{core::Context, embeds::PinnedEmbed, util::osu::ScoreOrder, BotResult};
 
 use rosu_v2::prelude::{Score, User};
 use twilight_model::channel::Message;
@@ -13,7 +13,7 @@ pub struct PinnedPagination {
     pages: Pages,
     user: User,
     scores: Vec<Score>,
-    sort_by: TopOrder,
+    sort_by: ScoreOrder,
 }
 
 impl PinnedPagination {
@@ -21,7 +21,7 @@ impl PinnedPagination {
         msg: Message,
         user: User,
         scores: Vec<Score>,
-        sort_by: TopOrder,
+        sort_by: ScoreOrder,
         ctx: Arc<Context>,
     ) -> Self {
         Self {

@@ -1,17 +1,24 @@
 use std::{
     borrow::Cow,
+    cmp::{Ordering, Reverse},
     iter::{Copied, Map},
     path::PathBuf,
     slice::Iter,
 };
 
-use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, Score, UserStatistics};
+use chrono::{DateTime, Utc};
+use eyre::Report;
+use futures::{stream::FuturesUnordered, TryFutureExt, TryStreamExt};
+use hashbrown::HashMap;
+use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods, Grade, Score, UserStatistics};
 use tokio::{fs::File, io::AsyncWriteExt};
 use twilight_model::channel::{embed::Embed, Message};
 
 use crate::{
     core::Context,
+    custom_client::OsuTrackerCountryScore,
     error::MapFileError,
+    pp::PpCalculator,
     util::{constants::OSU_BASE, matcher, numbers::round, BeatmapExt, Emote, ScoreExt},
     CONFIG,
 };
@@ -320,5 +327,377 @@ impl BonusPP {
         }
 
         round(stats.pp - pp).min(Self::MAX)
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum ScoreOrder {
+    Acc,
+    Bpm,
+    Combo,
+    Date,
+    Length,
+    Misses,
+    Pp,
+    RankedDate,
+    Stars,
+}
+
+impl Default for ScoreOrder {
+    fn default() -> Self {
+        Self::Pp
+    }
+}
+
+impl ScoreOrder {
+    pub async fn apply<S: SortableScore>(self, ctx: &Context, scores: &mut [S]) {
+        fn clock_rate(mods: GameMods) -> f32 {
+            if mods.contains(GameMods::DoubleTime) {
+                1.5
+            } else if mods.contains(GameMods::HalfTime) {
+                0.75
+            } else {
+                1.0
+            }
+        }
+
+        match self {
+            Self::Acc => {
+                scores.sort_unstable_by(|a, b| {
+                    b.acc().partial_cmp(&a.acc()).unwrap_or(Ordering::Equal)
+                });
+            }
+            Self::Bpm => scores.sort_unstable_by(|a, b| {
+                let a_bpm = a.bpm() * clock_rate(a.mods());
+                let b_bpm = b.bpm() * clock_rate(b.mods());
+
+                b_bpm.partial_cmp(&a_bpm).unwrap_or(Ordering::Equal)
+            }),
+            Self::Combo => scores.sort_unstable_by_key(|s| Reverse(s.max_combo())),
+            Self::Date => scores.sort_unstable_by_key(|s| Reverse(s.created_at())),
+            Self::Length => scores.sort_unstable_by(|a, b| {
+                let a_len = a.seconds_drain() as f32 / clock_rate(a.mods());
+                let b_len = b.seconds_drain() as f32 / clock_rate(b.mods());
+
+                b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
+            }),
+            Self::Misses => scores.sort_unstable_by(|a, b| {
+                b.n_misses().cmp(&a.n_misses()).then_with(|| {
+                    let hits_a = a.total_hits_sort();
+                    let hits_b = b.total_hits_sort();
+
+                    let ratio_a = a.n_misses() as f32 / hits_a as f32;
+                    let ratio_b = b.n_misses() as f32 / hits_b as f32;
+
+                    ratio_b
+                        .partial_cmp(&ratio_a)
+                        .unwrap_or(Ordering::Equal)
+                        .then_with(|| hits_b.cmp(&hits_a))
+                })
+            }),
+            Self::Pp => scores
+                .sort_unstable_by(|a, b| b.pp().partial_cmp(&a.pp()).unwrap_or(Ordering::Equal)),
+            Self::RankedDate => {
+                let mut mapsets = HashMap::new();
+                let mut new_mapsets = HashMap::new();
+
+                for score in scores.iter() {
+                    let mapset_id = score.mapset_id();
+
+                    match ctx.psql().get_beatmapset::<Beatmapset>(mapset_id).await {
+                        Ok(Beatmapset {
+                            ranked_date: Some(date),
+                            ..
+                        }) => {
+                            mapsets.insert(mapset_id, date);
+                        }
+                        Ok(_) => {
+                            warn!("Missing ranked date for top score DB mapset {mapset_id}");
+
+                            continue;
+                        }
+                        Err(err) => {
+                            let report = Report::new(err).wrap_err("failed to get mapset");
+                            warn!("{report:?}");
+
+                            match ctx.osu().beatmapset(mapset_id).await {
+                                Ok(mapset) => {
+                                    new_mapsets.insert(mapset_id, mapset);
+                                }
+                                Err(err) => {
+                                    let report =
+                                        Report::new(err).wrap_err("failed to request mapset");
+                                    warn!("{report:?}");
+
+                                    continue;
+                                }
+                            }
+                        }
+                    };
+                }
+
+                if !new_mapsets.is_empty() {
+                    let result: Result<(), _> = new_mapsets
+                        .values()
+                        .map(|mapset| ctx.psql().insert_beatmapset(mapset).map_ok(|_| ()))
+                        .collect::<FuturesUnordered<_>>()
+                        .try_collect()
+                        .await;
+
+                    if let Err(err) = result {
+                        let report = Report::new(err).wrap_err("failed to insert mapsets");
+                        warn!("{report:?}");
+                    } else {
+                        info!("Inserted {} mapsets into the DB", new_mapsets.len());
+                    }
+
+                    let iter = new_mapsets
+                        .into_iter()
+                        .filter_map(|(id, mapset)| Some((id, mapset.ranked_date?)));
+
+                    mapsets.extend(iter);
+                }
+
+                scores.sort_unstable_by(|a, b| {
+                    let mapset_a = a.mapset_id();
+                    let mapset_b = b.mapset_id();
+
+                    let date_a = mapsets.get(&mapset_a).copied().unwrap_or_else(Utc::now);
+                    let date_b = mapsets.get(&mapset_b).copied().unwrap_or_else(Utc::now);
+
+                    date_a.cmp(&date_b)
+                })
+            }
+            Self::Stars => {
+                let mut stars = HashMap::new();
+
+                for score in scores.iter() {
+                    let score_id = score.score_id();
+                    let map_id = score.map_id();
+
+                    if !score.mods().changes_stars(score.mode()) {
+                        stars.insert(score_id, score.stars());
+
+                        continue;
+                    }
+
+                    let stars_ = match PpCalculator::new(ctx, map_id).await {
+                        Ok(mut calc) => calc.mods(score.mods()).stars() as f32,
+                        Err(err) => {
+                            warn!("{:?}", Report::new(err));
+
+                            continue;
+                        }
+                    };
+
+                    stars.insert(score_id, stars_);
+                }
+
+                scores.sort_unstable_by(|a, b| {
+                    let stars_a = stars.get(&a.score_id()).unwrap_or(&0.0);
+                    let stars_b = stars.get(&b.score_id()).unwrap_or(&0.0);
+
+                    stars_b.partial_cmp(stars_a).unwrap_or(Ordering::Equal)
+                })
+            }
+        }
+    }
+}
+
+pub trait SortableScore {
+    fn acc(&self) -> f32;
+    fn bpm(&self) -> f32;
+    fn created_at(&self) -> DateTime<Utc>;
+    fn map_id(&self) -> u32;
+    fn mapset_id(&self) -> u32;
+    fn max_combo(&self) -> u32;
+    fn mode(&self) -> GameMode;
+    fn mods(&self) -> GameMods;
+    fn n_misses(&self) -> u32;
+    fn pp(&self) -> Option<f32>;
+    fn score_id(&self) -> u64;
+    fn seconds_drain(&self) -> u32;
+    fn stars(&self) -> f32;
+    fn total_hits_sort(&self) -> u32;
+}
+
+impl SortableScore for Score {
+    fn acc(&self) -> f32 {
+        self.accuracy
+    }
+
+    fn bpm(&self) -> f32 {
+        self.map.as_ref().map_or(0.0, |map| map.bpm)
+    }
+
+    fn created_at(&self) -> DateTime<Utc> {
+        self.created_at
+    }
+
+    fn map_id(&self) -> u32 {
+        self.map.as_ref().map_or(0, |map| map.map_id)
+    }
+
+    fn mapset_id(&self) -> u32 {
+        self.mapset.as_ref().map_or(0, |mapset| mapset.mapset_id)
+    }
+
+    fn max_combo(&self) -> u32 {
+        self.max_combo
+    }
+
+    fn mode(&self) -> GameMode {
+        self.mode
+    }
+
+    fn mods(&self) -> GameMods {
+        self.mods
+    }
+
+    fn n_misses(&self) -> u32 {
+        self.statistics.count_miss
+    }
+
+    fn pp(&self) -> Option<f32> {
+        self.pp
+    }
+
+    fn score_id(&self) -> u64 {
+        self.score_id
+    }
+
+    fn seconds_drain(&self) -> u32 {
+        self.map.as_ref().map_or(0, |map| map.seconds_drain)
+    }
+
+    fn stars(&self) -> f32 {
+        self.map.as_ref().map_or(0.0, |map| map.stars)
+    }
+
+    fn total_hits_sort(&self) -> u32 {
+        self.total_hits()
+    }
+}
+
+macro_rules! impl_sortable_score_tuple {
+    (($($ty:ty),*) => $idx:tt) => {
+        impl SortableScore for ($($ty),*) {
+            fn acc(&self) -> f32 {
+                SortableScore::acc(&self.$idx)
+            }
+
+            fn bpm(&self) -> f32 {
+                SortableScore::bpm(&self.$idx)
+            }
+
+            fn created_at(&self) -> DateTime<Utc> {
+                SortableScore::created_at(&self.$idx)
+            }
+
+            fn map_id(&self) -> u32 {
+                SortableScore::map_id(&self.$idx)
+            }
+
+            fn mapset_id(&self) -> u32 {
+                SortableScore::mapset_id(&self.$idx)
+            }
+
+            fn max_combo(&self) -> u32 {
+                SortableScore::max_combo(&self.$idx)
+            }
+
+            fn mode(&self) -> GameMode {
+                SortableScore::mode(&self.$idx)
+            }
+
+            fn mods(&self) -> GameMods {
+                SortableScore::mods(&self.$idx)
+            }
+
+            fn n_misses(&self) -> u32 {
+                SortableScore::n_misses(&self.$idx)
+            }
+
+            fn pp(&self) -> Option<f32> {
+                SortableScore::pp(&self.$idx)
+            }
+
+            fn score_id(&self) -> u64 {
+                SortableScore::score_id(&self.$idx)
+            }
+
+            fn seconds_drain(&self) -> u32 {
+                SortableScore::seconds_drain(&self.$idx)
+            }
+
+            fn stars(&self) -> f32 {
+                SortableScore::stars(&self.1)
+            }
+
+            fn total_hits_sort(&self) -> u32 {
+                SortableScore::total_hits_sort(&self.$idx)
+            }
+        }
+    };
+}
+
+impl_sortable_score_tuple!((usize, Score) => 1);
+impl_sortable_score_tuple!((usize, Score, Option<f32>) => 1);
+
+impl SortableScore for (OsuTrackerCountryScore, usize) {
+    fn acc(&self) -> f32 {
+        self.0.acc
+    }
+
+    fn bpm(&self) -> f32 {
+        panic!("can't sort by bpm")
+    }
+
+    fn created_at(&self) -> DateTime<Utc> {
+        self.0.created_at
+    }
+
+    fn map_id(&self) -> u32 {
+        self.0.map_id
+    }
+
+    fn mapset_id(&self) -> u32 {
+        self.0.mapset_id
+    }
+
+    fn max_combo(&self) -> u32 {
+        panic!("can't sort by combo")
+    }
+
+    fn mode(&self) -> GameMode {
+        GameMode::STD
+    }
+
+    fn mods(&self) -> GameMods {
+        self.0.mods
+    }
+
+    fn n_misses(&self) -> u32 {
+        self.0.n_misses
+    }
+
+    fn pp(&self) -> Option<f32> {
+        Some(self.0.pp)
+    }
+
+    fn score_id(&self) -> u64 {
+        panic!("can't sort with score id")
+    }
+
+    fn seconds_drain(&self) -> u32 {
+        self.0.seconds_total
+    }
+
+    fn stars(&self) -> f32 {
+        panic!("can't sort by stars")
+    }
+
+    fn total_hits_sort(&self) -> u32 {
+        self.0.n_misses + 1
     }
 }

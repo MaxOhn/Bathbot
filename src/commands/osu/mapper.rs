@@ -25,12 +25,14 @@ use crate::{
             common_literals::{DISCORD, MODE, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
-        matcher, numbers, ApplicationCommandExt, CowUtils, InteractionExt, MessageExt,
+        matcher, numbers,
+        osu::ScoreOrder,
+        ApplicationCommandExt, CowUtils, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
-use super::{option_discord, option_mode, option_name, TopOrder};
+use super::{option_discord, option_mode, option_name};
 
 async fn _mapper(ctx: Arc<Context>, data: CommandData<'_>, args: MapperArgs) -> BotResult<()> {
     let MapperArgs { config, mapper } = args;
@@ -133,7 +135,7 @@ async fn _mapper(ctx: Arc<Context>, data: CommandData<'_>, args: MapperArgs) -> 
         ),
     };
 
-    let sort_by = TopOrder::Pp;
+    let sort_by = ScoreOrder::Pp;
 
     let builder = if scores.is_empty() {
         MessageBuilder::new().embed(content)

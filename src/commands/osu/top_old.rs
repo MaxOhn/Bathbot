@@ -19,7 +19,7 @@ use twilight_model::{
 use crate::{
     commands::{
         check_user_mention,
-        osu::{get_user_and_scores, ScoreArgs, TopOrder, UserArgs},
+        osu::{get_user_and_scores, ScoreArgs, UserArgs},
         parse_discord, DoubleResultCow, MyCommand, MyCommandOption,
     },
     database::UserConfig,
@@ -33,7 +33,7 @@ use crate::{
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
         numbers,
-        osu::prepare_beatmap_file,
+        osu::{prepare_beatmap_file, ScoreOrder},
         ApplicationCommandExt, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
@@ -224,7 +224,7 @@ async fn _topold(ctx: Arc<Context>, data: CommandData<'_>, args: OldArgs) -> Bot
     };
 
     // Sort by adjusted pp
-    TopOrder::Pp.apply(&ctx, &mut scores_data).await;
+    ScoreOrder::Pp.apply(&ctx, &mut scores_data).await;
 
     // Calculate adjusted pp
     let adjusted_pp: f32 = scores_data

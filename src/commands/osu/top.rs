@@ -1,16 +1,8 @@
-use std::{
-    cmp::{Ordering, Reverse},
-    fmt::Write,
-    mem,
-    sync::Arc,
-};
+use std::{fmt::Write, mem, sync::Arc};
 
-use chrono::{DateTime, Utc};
 use eyre::Report;
-use futures::{stream::FuturesUnordered, TryFutureExt, TryStreamExt};
-use hashbrown::HashMap;
 use rosu_v2::prelude::{
-    Beatmap, Beatmapset, BeatmapsetCompact, GameMode, GameMods, Grade, OsuError,
+    Beatmap, BeatmapsetCompact, GameMode, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
     Score, User,
 };
@@ -36,7 +28,6 @@ use crate::{
     embeds::{EmbedData, TopEmbed, TopSingleEmbed},
     error::Error,
     pagination::{Pagination, TopPagination},
-    pp::PpCalculator,
     tracking::process_osu_tracking,
     util::{
         constants::{
@@ -47,7 +38,7 @@ use crate::{
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
         matcher, numbers,
-        osu::ModSelection,
+        osu::{ModSelection, ScoreOrder},
         ApplicationCommandExt, CowUtils, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, MessageBuilder,
@@ -64,7 +55,7 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
 
     let mode = args.config.mode.unwrap_or(GameMode::STD);
 
-    if args.sort_by == TopOrder::Pp && args.has_dash_r {
+    if args.sort_by == ScoreOrder::Pp && args.has_dash_r {
         let mode_long = mode_long(mode);
         let prefix = ctx.guild_first_prefix(data.guild_id()).await;
 
@@ -83,8 +74,8 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
         return data.error(&ctx, content).await;
     } else if args.has_dash_p_or_i {
         let cmd = match args.sort_by {
-            TopOrder::Date => "rb",
-            TopOrder::Pp => "top",
+            ScoreOrder::Date => "rb",
+            ScoreOrder::Pp => "top",
             _ => unreachable!(),
         };
 
@@ -420,7 +411,7 @@ async fn recentbest(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
             match TopArgs::args(&ctx, &mut args, msg.author.id, num).await {
                 Ok(Ok(mut top_args)) => {
                     let data = CommandData::Message { msg, args, num };
-                    top_args.sort_by = TopOrder::Date;
+                    top_args.sort_by = ScoreOrder::Date;
                     top_args.config.mode.get_or_insert(GameMode::STD);
 
                     _top(ctx, data, top_args).await
@@ -467,7 +458,7 @@ async fn recentbestmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
             match TopArgs::args(&ctx, &mut args, msg.author.id, num).await {
                 Ok(Ok(mut top_args)) => {
                     let data = CommandData::Message { msg, args, num };
-                    top_args.sort_by = TopOrder::Date;
+                    top_args.sort_by = ScoreOrder::Date;
                     top_args.config.mode = Some(GameMode::MNA);
 
                     _top(ctx, data, top_args).await
@@ -514,7 +505,7 @@ async fn recentbesttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
             match TopArgs::args(&ctx, &mut args, msg.author.id, num).await {
                 Ok(Ok(mut top_args)) => {
                     let data = CommandData::Message { msg, args, num };
-                    top_args.sort_by = TopOrder::Date;
+                    top_args.sort_by = ScoreOrder::Date;
                     top_args.config.mode = Some(GameMode::TKO);
 
                     _top(ctx, data, top_args).await
@@ -561,7 +552,7 @@ async fn recentbestctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
             match TopArgs::args(&ctx, &mut args, msg.author.id, num).await {
                 Ok(Ok(mut top_args)) => {
                     let data = CommandData::Message { msg, args, num };
-                    top_args.sort_by = TopOrder::Date;
+                    top_args.sort_by = ScoreOrder::Date;
                     top_args.config.mode = Some(GameMode::CTB);
 
                     _top(ctx, data, top_args).await
@@ -789,7 +780,7 @@ async fn paginated_embed(
     data: CommandData<'_>,
     user: User,
     scores: Vec<(usize, Score)>,
-    sort_by: TopOrder,
+    sort_by: ScoreOrder,
     content: Option<String>,
 ) -> BotResult<()> {
     let pages = numbers::div_euclid(5, scores.len());
@@ -825,313 +816,6 @@ async fn paginated_embed(
     Ok(())
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
-pub enum TopOrder {
-    Acc,
-    Bpm,
-    Combo,
-    Date,
-    Length,
-    Misses,
-    Pp,
-    RankedDate,
-    Stars,
-}
-
-pub trait SortableScore {
-    fn acc(&self) -> f32;
-    fn bpm(&self) -> f32;
-    fn created_at(&self) -> DateTime<Utc>;
-    fn map_id(&self) -> u32;
-    fn mapset_id(&self) -> u32;
-    fn max_combo(&self) -> u32;
-    fn mode(&self) -> GameMode;
-    fn mods(&self) -> GameMods;
-    fn n_misses(&self) -> u32;
-    fn pp(&self) -> Option<f32>;
-    fn score_id(&self) -> u64;
-    fn seconds_drain(&self) -> u32;
-    fn stars(&self) -> f32;
-    fn total_hits_sort(&self) -> u32;
-}
-
-impl SortableScore for Score {
-    fn acc(&self) -> f32 {
-        self.accuracy
-    }
-
-    fn bpm(&self) -> f32 {
-        self.map.as_ref().map_or(0.0, |map| map.bpm)
-    }
-
-    fn created_at(&self) -> DateTime<Utc> {
-        self.created_at
-    }
-
-    fn map_id(&self) -> u32 {
-        self.map.as_ref().map_or(0, |map| map.map_id)
-    }
-
-    fn mapset_id(&self) -> u32 {
-        self.mapset.as_ref().map_or(0, |mapset| mapset.mapset_id)
-    }
-
-    fn max_combo(&self) -> u32 {
-        self.max_combo
-    }
-
-    fn mode(&self) -> GameMode {
-        self.mode
-    }
-
-    fn mods(&self) -> GameMods {
-        self.mods
-    }
-
-    fn n_misses(&self) -> u32 {
-        self.statistics.count_miss
-    }
-
-    fn pp(&self) -> Option<f32> {
-        self.pp
-    }
-
-    fn score_id(&self) -> u64 {
-        self.score_id
-    }
-
-    fn seconds_drain(&self) -> u32 {
-        self.map.as_ref().map_or(0, |map| map.seconds_drain)
-    }
-
-    fn stars(&self) -> f32 {
-        self.map.as_ref().map_or(0.0, |map| map.stars)
-    }
-
-    fn total_hits_sort(&self) -> u32 {
-        self.total_hits()
-    }
-}
-
-impl SortableScore for (usize, Score) {
-    fn acc(&self) -> f32 {
-        SortableScore::acc(&self.1)
-    }
-
-    fn bpm(&self) -> f32 {
-        SortableScore::bpm(&self.1)
-    }
-
-    fn created_at(&self) -> DateTime<Utc> {
-        SortableScore::created_at(&self.1)
-    }
-
-    fn map_id(&self) -> u32 {
-        SortableScore::map_id(&self.1)
-    }
-
-    fn mapset_id(&self) -> u32 {
-        SortableScore::mapset_id(&self.1)
-    }
-
-    fn max_combo(&self) -> u32 {
-        SortableScore::max_combo(&self.1)
-    }
-
-    fn mode(&self) -> GameMode {
-        SortableScore::mode(&self.1)
-    }
-
-    fn mods(&self) -> GameMods {
-        SortableScore::mods(&self.1)
-    }
-
-    fn n_misses(&self) -> u32 {
-        SortableScore::n_misses(&self.1)
-    }
-
-    fn pp(&self) -> Option<f32> {
-        SortableScore::pp(&self.1)
-    }
-
-    fn score_id(&self) -> u64 {
-        SortableScore::score_id(&self.1)
-    }
-
-    fn seconds_drain(&self) -> u32 {
-        SortableScore::seconds_drain(&self.1)
-    }
-
-    fn stars(&self) -> f32 {
-        SortableScore::stars(&self.1)
-    }
-
-    fn total_hits_sort(&self) -> u32 {
-        SortableScore::total_hits_sort(&self.1)
-    }
-}
-
-impl TopOrder {
-    pub async fn apply<S: SortableScore>(self, ctx: &Context, scores: &mut [S]) {
-        fn clock_rate(mods: GameMods) -> f32 {
-            if mods.contains(GameMods::DoubleTime) {
-                1.5
-            } else if mods.contains(GameMods::HalfTime) {
-                0.75
-            } else {
-                1.0
-            }
-        }
-
-        match self {
-            Self::Acc => {
-                scores.sort_unstable_by(|a, b| {
-                    b.acc().partial_cmp(&a.acc()).unwrap_or(Ordering::Equal)
-                });
-            }
-            Self::Bpm => scores.sort_unstable_by(|a, b| {
-                let a_bpm = a.bpm() * clock_rate(a.mods());
-                let b_bpm = b.bpm() * clock_rate(b.mods());
-
-                b_bpm.partial_cmp(&a_bpm).unwrap_or(Ordering::Equal)
-            }),
-            Self::Combo => scores.sort_unstable_by_key(|s| Reverse(s.max_combo())),
-            Self::Date => scores.sort_unstable_by_key(|s| Reverse(s.created_at())),
-            Self::Length => scores.sort_unstable_by(|a, b| {
-                let a_len = a.seconds_drain() as f32 / clock_rate(a.mods());
-                let b_len = b.seconds_drain() as f32 / clock_rate(b.mods());
-
-                b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
-            }),
-            Self::Misses => scores.sort_unstable_by(|a, b| {
-                b.n_misses().cmp(&a.n_misses()).then_with(|| {
-                    let hits_a = a.total_hits_sort();
-                    let hits_b = b.total_hits_sort();
-
-                    let ratio_a = a.n_misses() as f32 / hits_a as f32;
-                    let ratio_b = b.n_misses() as f32 / hits_b as f32;
-
-                    ratio_b
-                        .partial_cmp(&ratio_a)
-                        .unwrap_or(Ordering::Equal)
-                        .then_with(|| hits_b.cmp(&hits_a))
-                })
-            }),
-            Self::Pp => scores
-                .sort_unstable_by(|a, b| b.pp().partial_cmp(&a.pp()).unwrap_or(Ordering::Equal)),
-            Self::RankedDate => {
-                let mut mapsets = HashMap::new();
-                let mut new_mapsets = HashMap::new();
-
-                for score in scores.iter() {
-                    let mapset_id = score.mapset_id();
-
-                    match ctx.psql().get_beatmapset::<Beatmapset>(mapset_id).await {
-                        Ok(Beatmapset {
-                            ranked_date: Some(date),
-                            ..
-                        }) => {
-                            mapsets.insert(mapset_id, date);
-                        }
-                        Ok(_) => {
-                            warn!("Missing ranked date for top score DB mapset {mapset_id}");
-
-                            continue;
-                        }
-                        Err(err) => {
-                            let report = Report::new(err).wrap_err("failed to get mapset");
-                            warn!("{report:?}");
-
-                            match ctx.osu().beatmapset(mapset_id).await {
-                                Ok(mapset) => {
-                                    new_mapsets.insert(mapset_id, mapset);
-                                }
-                                Err(err) => {
-                                    let report =
-                                        Report::new(err).wrap_err("failed to request mapset");
-                                    warn!("{report:?}");
-
-                                    continue;
-                                }
-                            }
-                        }
-                    };
-                }
-
-                if !new_mapsets.is_empty() {
-                    let result: Result<(), _> = new_mapsets
-                        .values()
-                        .map(|mapset| ctx.psql().insert_beatmapset(mapset).map_ok(|_| ()))
-                        .collect::<FuturesUnordered<_>>()
-                        .try_collect()
-                        .await;
-
-                    if let Err(err) = result {
-                        let report = Report::new(err).wrap_err("failed to insert mapsets");
-                        warn!("{report:?}");
-                    } else {
-                        info!("Inserted {} mapsets into the DB", new_mapsets.len());
-                    }
-
-                    let iter = new_mapsets
-                        .into_iter()
-                        .filter_map(|(id, mapset)| Some((id, mapset.ranked_date?)));
-
-                    mapsets.extend(iter);
-                }
-
-                scores.sort_unstable_by(|a, b| {
-                    let mapset_a = a.mapset_id();
-                    let mapset_b = b.mapset_id();
-
-                    let date_a = mapsets.get(&mapset_a).copied().unwrap_or_else(Utc::now);
-                    let date_b = mapsets.get(&mapset_b).copied().unwrap_or_else(Utc::now);
-
-                    date_a.cmp(&date_b)
-                })
-            }
-            Self::Stars => {
-                let mut stars = HashMap::new();
-
-                for score in scores.iter() {
-                    let score_id = score.score_id();
-                    let map_id = score.map_id();
-
-                    if !score.mods().changes_stars(score.mode()) {
-                        stars.insert(score_id, score.stars());
-
-                        continue;
-                    }
-
-                    let stars_ = match PpCalculator::new(ctx, map_id).await {
-                        Ok(mut calc) => calc.mods(score.mods()).stars() as f32,
-                        Err(err) => {
-                            warn!("{:?}", Report::new(err));
-
-                            continue;
-                        }
-                    };
-
-                    stars.insert(score_id, stars_);
-                }
-
-                scores.sort_unstable_by(|a, b| {
-                    let stars_a = stars.get(&a.score_id()).unwrap_or(&0.0);
-                    let stars_b = stars.get(&b.score_id()).unwrap_or(&0.0);
-
-                    stars_b.partial_cmp(stars_a).unwrap_or(Ordering::Equal)
-                })
-            }
-        }
-    }
-}
-
-impl Default for TopOrder {
-    fn default() -> Self {
-        Self::Pp
-    }
-}
-
 pub async fn slash_top(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
     let options = command.yoink_options();
 
@@ -1149,7 +833,7 @@ pub struct TopArgs {
     combo_min: Option<u32>,
     combo_max: Option<u32>,
     grade: Option<GradeArg>,
-    pub sort_by: TopOrder,
+    pub sort_by: ScoreOrder,
     reverse: bool,
     perfect_combo: Option<bool>,
     index: Option<usize>,
@@ -1299,11 +983,11 @@ impl TopArgs {
                         },
                     },
                     SORT | "s" | "order" | "ordering" => match value {
-                        ACC | "a" | ACCURACY => sort_by = Some(TopOrder::Acc),
-                        COMBO | "c" => sort_by = Some(TopOrder::Combo),
-                        "date" | "d" | "recent" | "r" => sort_by = Some(TopOrder::Date),
-                        "length" | "len" | "l" => sort_by = Some(TopOrder::Length),
-                        "pp" | "p" => sort_by = Some(TopOrder::Pp),
+                        ACC | "a" | ACCURACY => sort_by = Some(ScoreOrder::Acc),
+                        COMBO | "c" => sort_by = Some(ScoreOrder::Combo),
+                        "date" | "d" | "recent" | "r" => sort_by = Some(ScoreOrder::Date),
+                        "length" | "len" | "l" => sort_by = Some(ScoreOrder::Length),
+                        "pp" | "p" => sort_by = Some(ScoreOrder::Pp),
                         _ => {
                             let content = "Failed to parse `sort`.\n\
                             Must be either `acc`, `combo`, `date`, `length`, or `pp`";
@@ -1388,15 +1072,15 @@ impl TopArgs {
                         None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
                     },
                     SORT => match value.as_str() {
-                        ACC => order = Some(TopOrder::Acc),
-                        "bpm" => order = Some(TopOrder::Bpm),
-                        COMBO => order = Some(TopOrder::Combo),
-                        "date" => order = Some(TopOrder::Date),
-                        "len" => order = Some(TopOrder::Length),
-                        "miss" => order = Some(TopOrder::Misses),
-                        "pp" => order = Some(TopOrder::Pp),
-                        "ranked_date" => order = Some(TopOrder::RankedDate),
-                        "stars" => order = Some(TopOrder::Stars),
+                        ACC => order = Some(ScoreOrder::Acc),
+                        "bpm" => order = Some(ScoreOrder::Bpm),
+                        COMBO => order = Some(ScoreOrder::Combo),
+                        "date" => order = Some(ScoreOrder::Date),
+                        "len" => order = Some(ScoreOrder::Length),
+                        "miss" => order = Some(ScoreOrder::Misses),
+                        "pp" => order = Some(ScoreOrder::Pp),
+                        "ranked_date" => order = Some(ScoreOrder::RankedDate),
+                        "stars" => order = Some(ScoreOrder::Stars),
                         _ => return Err(Error::InvalidCommandOptions),
                     },
                     "query" => query = Some(value),
@@ -1496,23 +1180,23 @@ fn write_content(name: &str, args: &TopArgs, amount: usize) -> Option<String> {
         let reverse = if args.reverse { "reversed " } else { "" };
 
         let content = match args.sort_by {
-            TopOrder::Acc => format!("`{name}`'{genitive} top100 sorted by {reverse}accuracy:"),
-            TopOrder::Bpm => format!("`{name}`'{genitive} top100 sorted by {reverse}BPM:"),
-            TopOrder::Combo => format!("`{name}`'{genitive} top100 sorted by {reverse}combo:"),
-            TopOrder::Date if args.reverse => {
+            ScoreOrder::Acc => format!("`{name}`'{genitive} top100 sorted by {reverse}accuracy:"),
+            ScoreOrder::Bpm => format!("`{name}`'{genitive} top100 sorted by {reverse}BPM:"),
+            ScoreOrder::Combo => format!("`{name}`'{genitive} top100 sorted by {reverse}combo:"),
+            ScoreOrder::Date if args.reverse => {
                 format!("Oldest scores in `{name}`'{genitive} top100:")
             }
-            TopOrder::Date => format!("Most recent scores in `{name}`'{genitive} top100:"),
-            TopOrder::Length => format!("`{name}`'{genitive} top100 sorted by {reverse}length:"),
-            TopOrder::Misses => {
+            ScoreOrder::Date => format!("Most recent scores in `{name}`'{genitive} top100:"),
+            ScoreOrder::Length => format!("`{name}`'{genitive} top100 sorted by {reverse}length:"),
+            ScoreOrder::Misses => {
                 format!("`{name}`'{genitive} top100 sorted by {reverse}miss count:")
             }
-            TopOrder::Pp if !args.reverse => return None,
-            TopOrder::Pp => format!("`{name}`'{genitive} top100 sorted by reversed pp:"),
-            TopOrder::RankedDate => {
+            ScoreOrder::Pp if !args.reverse => return None,
+            ScoreOrder::Pp => format!("`{name}`'{genitive} top100 sorted by reversed pp:"),
+            ScoreOrder::RankedDate => {
                 format!("`{name}`'{genitive} top100 sorted by {reverse}ranked date:")
             }
-            TopOrder::Stars => format!("`{name}`'{genitive} top100 sorted by {reverse}stars:"),
+            ScoreOrder::Stars => format!("`{name}`'{genitive} top100 sorted by {reverse}stars:"),
         };
 
         Some(content)
@@ -1523,15 +1207,15 @@ fn content_with_condition(args: &TopArgs, amount: usize) -> String {
     let mut content = String::with_capacity(64);
 
     match args.sort_by {
-        TopOrder::Acc => content.push_str("`Order: Accuracy"),
-        TopOrder::Bpm => content.push_str("`Order: BPM"),
-        TopOrder::Combo => content.push_str("`Order: Combo"),
-        TopOrder::Date => content.push_str("`Order: Date"),
-        TopOrder::Length => content.push_str("`Order: Length"),
-        TopOrder::Misses => content.push_str("`Order: Misscount"),
-        TopOrder::Pp => content.push_str("`Order: Pp"),
-        TopOrder::RankedDate => content.push_str("`Order: Ranked date"),
-        TopOrder::Stars => content.push_str("`Order: Stars"),
+        ScoreOrder::Acc => content.push_str("`Order: Accuracy"),
+        ScoreOrder::Bpm => content.push_str("`Order: BPM"),
+        ScoreOrder::Combo => content.push_str("`Order: Combo"),
+        ScoreOrder::Date => content.push_str("`Order: Date"),
+        ScoreOrder::Length => content.push_str("`Order: Length"),
+        ScoreOrder::Misses => content.push_str("`Order: Miss count"),
+        ScoreOrder::Pp => content.push_str("`Order: Pp"),
+        ScoreOrder::RankedDate => content.push_str("`Order: Ranked date"),
+        ScoreOrder::Stars => content.push_str("`Order: Stars"),
     }
 
     if args.reverse {

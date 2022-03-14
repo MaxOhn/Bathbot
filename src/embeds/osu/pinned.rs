@@ -4,12 +4,12 @@ use eyre::Report;
 use rosu_v2::prelude::{Beatmapset, GameMode, Score, User};
 
 use crate::{
-    commands::osu::TopOrder,
     core::Context,
     embeds::{osu, Author, Footer},
     pp::PpCalculator,
     util::{
-        constants::OSU_BASE, datetime::how_long_ago_dynamic, numbers::with_comma_int, ScoreExt,
+        constants::OSU_BASE, datetime::how_long_ago_dynamic, numbers::with_comma_int,
+        osu::ScoreOrder, ScoreExt,
     },
 };
 
@@ -27,7 +27,7 @@ impl PinnedEmbed {
         user: &User,
         scores: S,
         ctx: &Context,
-        sort_by: TopOrder,
+        sort_by: ScoreOrder,
         pages: (usize, usize),
     ) -> Self
     where
@@ -63,7 +63,7 @@ impl PinnedEmbed {
             let stars = osu::get_stars(stars);
             let pp = osu::get_pp(pp, max_pp);
 
-            let mapset_opt = if let TopOrder::RankedDate = sort_by {
+            let mapset_opt = if let ScoreOrder::RankedDate = sort_by {
                 let mapset_fut = ctx.psql().get_beatmapset::<Beatmapset>(mapset.mapset_id);
 
                 match mapset_fut.await {

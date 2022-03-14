@@ -1,6 +1,5 @@
 use std::{fmt::Write, sync::Arc};
 
-use chrono::{DateTime, Utc};
 use eyre::Report;
 use rosu_v2::prelude::{CountryCode as CountryCodeRosu, GameMode, GameMods, OsuError, Username};
 use twilight_model::application::{
@@ -25,13 +24,13 @@ use crate::{
             GENERAL_ISSUE, OSUTRACKER_ISSUE, OSU_API_ISSUE,
         },
         matcher, numbers,
-        osu::ModSelection,
+        osu::{ModSelection, ScoreOrder},
         ApplicationCommandExt, CountryCode, CowUtils, MessageBuilder, MessageExt,
     },
     BotResult,
 };
 
-use super::{option_mods_explicit, SortableScore, TopOrder};
+use super::option_mods_explicit;
 
 async fn countrytop_(
     ctx: Arc<Context>,
@@ -186,68 +185,10 @@ impl From<OsuTrackerCountryDetails> for OsuTrackerCountryDetailsCompact {
     }
 }
 
-impl SortableScore for (OsuTrackerCountryScore, usize) {
-    fn acc(&self) -> f32 {
-        self.0.acc
-    }
-
-    fn bpm(&self) -> f32 {
-        panic!("can't sort by bpm")
-    }
-
-    fn created_at(&self) -> DateTime<Utc> {
-        self.0.created_at
-    }
-
-    fn map_id(&self) -> u32 {
-        self.0.map_id
-    }
-
-    fn mapset_id(&self) -> u32 {
-        self.0.mapset_id
-    }
-
-    fn max_combo(&self) -> u32 {
-        panic!("can't sort by combo")
-    }
-
-    fn mode(&self) -> GameMode {
-        GameMode::STD
-    }
-
-    fn mods(&self) -> GameMods {
-        self.0.mods
-    }
-
-    fn n_misses(&self) -> u32 {
-        self.0.n_misses
-    }
-
-    fn pp(&self) -> Option<f32> {
-        Some(self.0.pp)
-    }
-
-    fn score_id(&self) -> u64 {
-        panic!("can't sort with score id")
-    }
-
-    fn seconds_drain(&self) -> u32 {
-        self.0.seconds_total
-    }
-
-    fn stars(&self) -> f32 {
-        panic!("can't sort by stars")
-    }
-
-    fn total_hits_sort(&self) -> u32 {
-        self.0.n_misses + 1
-    }
-}
-
 struct CountryTopArgs {
     country: Option<CountryCode>,
     mods: Option<ModSelection>,
-    sort_by: TopOrder,
+    sort_by: ScoreOrder,
     reverse: bool,
     query: Option<String>,
     username: Option<Username>,
@@ -296,11 +237,11 @@ impl CountryTopArgs {
                         None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
                     },
                     SORT => match value.as_str() {
-                        ACC => sort_by = Some(TopOrder::Acc),
-                        "date" => sort_by = Some(TopOrder::Date),
-                        "len" => sort_by = Some(TopOrder::Length),
-                        "miss" => sort_by = Some(TopOrder::Misses),
-                        "pp" => sort_by = Some(TopOrder::Pp),
+                        ACC => sort_by = Some(ScoreOrder::Acc),
+                        "date" => sort_by = Some(ScoreOrder::Date),
+                        "len" => sort_by = Some(ScoreOrder::Length),
+                        "miss" => sort_by = Some(ScoreOrder::Misses),
+                        "pp" => sort_by = Some(ScoreOrder::Pp),
                         _ => return Err(Error::InvalidCommandOptions),
                     },
                     "query" => query = Some(value),
@@ -318,7 +259,7 @@ impl CountryTopArgs {
         let args = Self {
             country,
             mods,
-            sort_by: sort_by.unwrap_or(TopOrder::Pp),
+            sort_by: sort_by.unwrap_or(ScoreOrder::Pp),
             reverse: reverse.unwrap_or(false),
             query,
             username,
@@ -336,16 +277,16 @@ fn write_content(name: &str, args: &CountryTopArgs, amount: usize) -> String {
         let reverse = if args.reverse { "reversed " } else { "" };
 
         match args.sort_by {
-            TopOrder::Acc => format!("`{name}`'{genitive} top100 sorted by {reverse}accuracy:"),
-            TopOrder::Date if args.reverse => {
+            ScoreOrder::Acc => format!("`{name}`'{genitive} top100 sorted by {reverse}accuracy:"),
+            ScoreOrder::Date if args.reverse => {
                 format!("Oldest scores in `{name}`'{genitive} top100:")
             }
-            TopOrder::Date => format!("Most recent scores in `{name}`'{genitive} top100:"),
-            TopOrder::Length => format!("`{name}`'{genitive} top100 sorted by {reverse}length:"),
-            TopOrder::Misses => {
+            ScoreOrder::Date => format!("Most recent scores in `{name}`'{genitive} top100:"),
+            ScoreOrder::Length => format!("`{name}`'{genitive} top100 sorted by {reverse}length:"),
+            ScoreOrder::Misses => {
                 format!("`{name}`'{genitive} top100 sorted by {reverse}miss count:")
             }
-            TopOrder::Pp => format!("`{name}`'{genitive} top100 sorted by {reverse}pp:"),
+            ScoreOrder::Pp => format!("`{name}`'{genitive} top100 sorted by {reverse}pp:"),
             _ => unreachable!(),
         }
     }
@@ -358,11 +299,11 @@ fn content_with_condition(name: &str, args: &CountryTopArgs, amount: usize) -> S
     let _ = write!(content, "`{name}`'{genitive} top100  ~ ");
 
     match args.sort_by {
-        TopOrder::Acc => content.push_str("`Order: Accuracy"),
-        TopOrder::Date => content.push_str("`Order: Date"),
-        TopOrder::Length => content.push_str("`Order: Length"),
-        TopOrder::Misses => content.push_str("`Order: Misscount"),
-        TopOrder::Pp => content.push_str("`Order: Pp"),
+        ScoreOrder::Acc => content.push_str("`Order: Accuracy"),
+        ScoreOrder::Date => content.push_str("`Order: Date"),
+        ScoreOrder::Length => content.push_str("`Order: Length"),
+        ScoreOrder::Misses => content.push_str("`Order: Miss count"),
+        ScoreOrder::Pp => content.push_str("`Order: Pp"),
         _ => unreachable!(),
     }
 

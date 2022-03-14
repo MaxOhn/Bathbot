@@ -16,7 +16,6 @@ use crate::{
     commands::{
         osu::{
             option_discord, option_mode, option_mods, option_mods_explicit, option_name, TopArgs,
-            TopOrder,
         },
         DoubleResultCow, {MyCommand, MyCommandOption},
     },
@@ -25,6 +24,7 @@ use crate::{
             ACC, COMBO, CONSIDER_GRADE, CTB, FRUITS, GRADE, INDEX, MANIA, MISSES, MODE, OSU,
             REVERSE, SCORE, SPECIFY_MODE, TAIKO,
         },
+        osu::ScoreOrder,
         ApplicationCommandExt, MessageExt,
     },
     BotResult, Context, Error,
@@ -59,7 +59,7 @@ impl RecentCommandKind {
                 },
                 "best" => match TopArgs::slash(ctx, command, options).await? {
                     Ok(mut args) => {
-                        args.sort_by = TopOrder::Date;
+                        args.sort_by = ScoreOrder::Date;
 
                         Ok(Ok(RecentCommandKind::Best(args)))
                     }
@@ -110,7 +110,7 @@ pub async fn slash_rb(ctx: Arc<Context>, mut command: ApplicationCommand) -> Bot
 
     match TopArgs::slash(&ctx, &command, options).await? {
         Ok(mut args) => {
-            args.sort_by = TopOrder::Date;
+            args.sort_by = ScoreOrder::Date;
 
             _top(ctx, command.into(), args).await
         }
