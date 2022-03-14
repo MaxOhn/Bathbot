@@ -55,7 +55,7 @@ impl OsuTrackerMappersEmbed {
                 c_len = sizes.count_left,
             );
 
-            if let Some(entry) = entries.get(i + 9 - idx) {
+            if let Some(entry) = entries.get(i + 10 - idx) {
                 let _ = write!(
                     description,
                     " | `{i:>i_len$}.` `{mapper:<m_len$}` `{count:>c_len$}`",
