@@ -56,8 +56,6 @@ Copy the content of `.env.example` into a new file `.env` and provide all of its
 - `DISCORD_TOKEN`
 - `OSU_CLIENT_ID`
 - `OSU_CLIENT_SECRET`
-- `TWITCH_CLIENT_ID`
-- `TWITCH_TOKEN`
 - `MAP_PATH`
 - `REDIS_HOST`
 - `REDIS_PORT`
