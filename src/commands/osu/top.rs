@@ -1,6 +1,7 @@
 use std::{fmt::Write, mem, sync::Arc};
 
 use eyre::Report;
+use hashbrown::HashSet;
 use rosu_v2::prelude::{
     GameMode, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
@@ -35,7 +36,7 @@ use crate::{
                 ACC, ACCURACY, COMBO, CONSIDER_GRADE, CTB, DISCORD, GRADE, INDEX, MANIA, MODE,
                 MODS, NAME, REVERSE, SORT, TAIKO,
             },
-            GENERAL_ISSUE, OSU_API_ISSUE,
+            GENERAL_ISSUE, OSUTRACKER_ISSUE, OSU_API_ISSUE,
         },
         matcher, numbers,
         osu::{ModSelection, ScoreOrder},
@@ -47,6 +48,8 @@ use crate::{
 use super::{
     option_discord, option_mode, option_mods_explicit, option_name, option_query, GradeArg,
 };
+
+const FARM_CUTOFF: usize = 727;
 
 pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> BotResult<()> {
     if args.index.filter(|n| *n > 100).is_some() {
@@ -101,7 +104,31 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
     let user_args = UserArgs::new(name, mode);
     let score_args = ScoreArgs::top(100).with_combo();
 
-    let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
+    let farm_fut = async {
+        if args.farm.is_some() {
+            ctx.clients
+                .custom
+                .get_osutracker_stats()
+                .await
+                .map(|stats| {
+                    stats
+                        .mapset_count
+                        .into_iter()
+                        .take(FARM_CUTOFF)
+                        .map(|entry| entry.mapset_id)
+                        .collect::<HashSet<_>>()
+                })
+                .map(Some)
+                .transpose()
+        } else {
+            None
+        }
+    };
+
+    let (user_score_result, farm_result) =
+        tokio::join!(get_user_and_scores(&ctx, user_args, &score_args), farm_fut);
+
+    let (mut user, mut scores) = match user_score_result {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
             let content = format!("User `{name}` was not found");
@@ -115,6 +142,16 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
         }
     };
 
+    let farm = match farm_result {
+        Some(Ok(mapsets)) => mapsets,
+        Some(Err(err)) => {
+            let _ = data.error(&ctx, OSUTRACKER_ISSUE).await;
+
+            return Err(err.into());
+        }
+        None => HashSet::new(),
+    };
+
     // Overwrite default mode
     user.mode = mode;
 
@@ -122,7 +159,7 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
     process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
     // Filter scores according to mods, combo, acc, and grade
-    let scores = filter_scores(&ctx, scores, &args).await;
+    let scores = filter_scores(&ctx, scores, &args, farm).await;
 
     if args.index.filter(|n| *n > scores.len()).is_some() {
         let content = format!(
@@ -571,7 +608,12 @@ async fn recentbestctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     }
 }
 
-async fn filter_scores(ctx: &Context, scores: Vec<Score>, args: &TopArgs) -> Vec<(usize, Score)> {
+async fn filter_scores(
+    ctx: &Context,
+    scores: Vec<Score>,
+    args: &TopArgs,
+    farm: HashSet<u32>,
+) -> Vec<(usize, Score)> {
     let selection = args.mods;
     let grade = args.grade;
 
@@ -656,6 +698,14 @@ async fn filter_scores(ctx: &Context, scores: Vec<Score>, args: &TopArgs) -> Vec
         let criteria = FilterCriteria::new(query);
 
         scores_indices.retain(|(_, score)| score.matches(&criteria));
+    }
+
+    match args.farm {
+        Some(FarmFilter::Only) => scores_indices
+            .retain(|(_, score)| farm.contains(&score.mapset.as_ref().unwrap().mapset_id)),
+        Some(FarmFilter::Without) => scores_indices
+            .retain(|(_, score)| !farm.contains(&score.mapset.as_ref().unwrap().mapset_id)),
+        None => {}
     }
 
     args.sort_by.apply(ctx, &mut scores_indices).await;
@@ -812,6 +862,12 @@ pub async fn slash_top(ctx: Arc<Context>, mut command: ApplicationCommand) -> Bo
     }
 }
 
+#[derive(Copy, Clone)]
+enum FarmFilter {
+    Only,
+    Without,
+}
+
 pub struct TopArgs {
     config: UserConfig,
     mods: Option<ModSelection>,
@@ -825,6 +881,7 @@ pub struct TopArgs {
     perfect_combo: Option<bool>,
     index: Option<usize>,
     query: Option<String>,
+    farm: Option<FarmFilter>,
     has_dash_r: bool,
     has_dash_p_or_i: bool,
 }
@@ -1028,6 +1085,7 @@ impl TopArgs {
             perfect_combo: None,
             index,
             query: None,
+            farm: None,
             has_dash_r: has_dash_r.unwrap_or(false),
             has_dash_p_or_i: has_dash_p_or_i.unwrap_or(false),
         };
@@ -1048,6 +1106,7 @@ impl TopArgs {
         let mut perfect_combo = None;
         let mut index = None;
         let mut query = None;
+        let mut farm = None;
 
         for option in options {
             match option.value {
@@ -1070,7 +1129,6 @@ impl TopArgs {
                         "stars" => order = Some(ScoreOrder::Stars),
                         _ => return Err(Error::InvalidCommandOptions),
                     },
-                    "query" => query = Some(value),
                     GRADE => match value.as_str() {
                         "SS" => {
                             grade = Some(GradeArg::Range {
@@ -1088,6 +1146,12 @@ impl TopArgs {
                         "B" => grade = Some(GradeArg::Single(Grade::B)),
                         "C" => grade = Some(GradeArg::Single(Grade::C)),
                         "D" => grade = Some(GradeArg::Single(Grade::D)),
+                        _ => return Err(Error::InvalidCommandOptions),
+                    },
+                    "query" => query = Some(value),
+                    "farm" => match value.as_str() {
+                        "no_farm" => farm = Some(FarmFilter::Without),
+                        "only_farm" => farm = Some(FarmFilter::Only),
                         _ => return Err(Error::InvalidCommandOptions),
                     },
                     _ => return Err(Error::InvalidCommandOptions),
@@ -1128,6 +1192,7 @@ impl TopArgs {
             perfect_combo,
             index,
             query,
+            farm,
             has_dash_r: false,
             has_dash_p_or_i: false,
         };
@@ -1158,7 +1223,8 @@ fn write_content(name: &str, args: &TopArgs, amount: usize) -> Option<String> {
         || args.grade.is_some()
         || args.mods.is_some()
         || args.perfect_combo.is_some()
-        || args.query.is_some();
+        || args.query.is_some()
+        || args.farm.is_some();
 
     if condition {
         Some(content_with_condition(args, amount))
@@ -1270,6 +1336,12 @@ fn content_with_condition(args: &TopArgs, amount: usize) -> String {
         let _ = write!(content, " ~ `Query: {query}`");
     }
 
+    match args.farm {
+        Some(FarmFilter::Only) => content.push_str(" ~ `Only farm`"),
+        Some(FarmFilter::Without) => content.push_str(" ~ `Without farm`"),
+        None => {}
+    }
+
     let plural = if amount == 1 { "" } else { "s" };
     let _ = write!(content, "\nFound {amount} matching top score{plural}:");
 
@@ -1366,6 +1438,20 @@ pub fn define_top() -> MyCommand {
 
     let grade = MyCommandOption::builder(GRADE, CONSIDER_GRADE).string(grade_choices, false);
 
+    let farm_choices = vec![
+        CommandOptionChoice::String {
+            name: "No farm".to_owned(),
+            value: "no_farm".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Only farm".to_owned(),
+            value: "only_farm".to_owned(),
+        },
+    ];
+
+    let farm = MyCommandOption::builder("farm", "Specify if you want to filter out farm maps")
+        .string(farm_choices, false);
+
     let perfect_combo_description = "Filter out all scores that don't have a perfect combo";
 
     let perfect_combo =
@@ -1381,6 +1467,7 @@ pub fn define_top() -> MyCommand {
         reverse,
         query,
         grade,
+        farm,
         perfect_combo,
     ])
 }
