@@ -99,17 +99,14 @@ impl PlayerSnipeStatsEmbed {
                 let pp = osu::get_pp(pp, max_pp);
 
                 let value = format!(
-                    "**[{map}]({base}b/{id})**\t\
+                    "**[{map}]({OSU_BASE}b/{id})**\t\
                     {grade}\t[{stars}]\t{score}\t({acc}%)\t[{combo}]\t\
                     [{pp}]\t {hits}\t{ago}",
                     map = player.oldest_first.unwrap().map,
-                    base = OSU_BASE,
                     id = map.map_id,
                     grade = grade_completion_mods(&score, map),
-                    stars = stars,
                     score = with_comma_int(score.score),
                     acc = score.acc(GameMode::STD),
-                    pp = pp,
                     combo = osu::get_combo(&score, map),
                     hits = score.hits_string(GameMode::STD),
                     ago = how_long_ago_dynamic(&score.created_at)
@@ -147,8 +144,9 @@ impl PlayerSnipeStatsEmbed {
         };
 
         let url = format!(
-            "https://snipe.huismetbenen.nl/player/be/osu/{}",
-            user.user_id
+            "https://snipe.huismetbenen.nl/player/{code}/osu/{user_id}",
+            code = user.country_code.to_lowercase(),
+            user_id = user.user_id,
         );
 
         Self {
