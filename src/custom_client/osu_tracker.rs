@@ -1,8 +1,9 @@
 use chrono::{DateTime, Utc};
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use rosu_v2::prelude::{CountryCode, GameMods, Username};
 use serde::Deserialize;
 
-use super::deserialize::{inflate_acc, str_to_datetime, str_to_f32, str_to_u32};
+use super::deserialize::{inflate_acc, str_to_datetime, str_to_f32, str_to_u32, UsernameWrapper};
 
 #[derive(Debug, Deserialize)]
 pub struct OsuTrackerPpGroup {
@@ -18,7 +19,7 @@ pub struct OsuTrackerPpEntry {
     pub count: usize,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerStats {
     #[serde(rename = "userStats")]
     pub user: OsuTrackerUserStats,
@@ -30,7 +31,7 @@ pub struct OsuTrackerStats {
     pub mapset_count: Vec<OsuTrackerMapsetEntry>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerUserStats {
     pub range: f32,
     pub acc: f32,
@@ -48,7 +49,7 @@ pub struct OsuTrackerUserStats {
     // top_play: u32,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerCountryStats {
     #[serde(deserialize_with = "inflate_acc")]
     pub acc: f32,
@@ -63,19 +64,20 @@ pub struct OsuTrackerCountryStats {
     pub range: f32,
 }
 
-#[derive(Copy, Clone, Debug, Deserialize)]
+#[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerModsEntry {
     pub mods: GameMods,
     pub count: usize,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerMapperEntry {
+    #[with(UsernameWrapper)]
     pub mapper: Username,
     pub count: usize,
 }
 
-#[derive(Copy, Clone, Debug, Deserialize)]
+#[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerMapsetEntry {
     #[serde(rename = "setId", deserialize_with = "str_to_u32")]
     pub mapset_id: u32,

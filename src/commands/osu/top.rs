@@ -46,7 +46,8 @@ use crate::{
 };
 
 use super::{
-    option_discord, option_mode, option_mods_explicit, option_name, option_query, GradeArg,
+    get_osutracker_stats, option_discord, option_mode, option_mods_explicit, option_name,
+    option_query, GradeArg,
 };
 
 const FARM_CUTOFF: usize = 727;
@@ -106,9 +107,7 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
 
     let farm_fut = async {
         if args.farm.is_some() {
-            ctx.clients
-                .custom
-                .get_osutracker_stats()
+            get_osutracker_stats(&ctx)
                 .await
                 .map(|stats| {
                     stats

@@ -6,6 +6,7 @@ use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmapset, Username};
 
 use crate::{
+    commands::osu::get_osutracker_stats,
     core::{commands::CommandData, Context},
     embeds::{EmbedData, OsuTrackerMapsetsEmbed},
     pagination::{OsuTrackerMapsetsPagination, Pagination},
@@ -17,7 +18,7 @@ use crate::{
 };
 
 pub(super) async fn mapsets_(ctx: Arc<Context>, data: CommandData<'_>) -> BotResult<()> {
-    let mut counts = match ctx.clients.custom.get_osutracker_stats().await {
+    let mut counts = match get_osutracker_stats(&ctx).await {
         Ok(stats) => stats.mapset_count,
         Err(err) => {
             let _ = data.error(&ctx, OSUTRACKER_ISSUE).await;
