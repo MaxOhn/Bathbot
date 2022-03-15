@@ -139,17 +139,23 @@ async fn _topold(ctx: Arc<Context>, data: CommandData<'_>, args: OldArgs) -> Bot
         .unwrap_or(GameMode::STD);
 
     let content = match (mode, version) {
-        (GameMode::STD, None) => Some("osu! was not a thing until september 2007."),
-        (GameMode::STD, Some(OldVersion::OsuRankedScore)) => {
-            Some("Up until april 2012, ranked score was the skill metric.")
-        }
+        (GameMode::STD, None) => Some(
+            "osu! was not a thing until september 2007.\n\
+            The first available pp system is from 2015.",
+        ),
+        (GameMode::STD, Some(OldVersion::OsuRankedScore)) => Some(
+            "Up until april 2012, ranked score was the skill metric.\n\
+            The first available pp system is from 2015.",
+        ),
         (GameMode::STD, Some(OldVersion::OsuPpV1)) => Some(
-            "April 2012 till january 2014 was the reign of ppv1.\n\
-            The source code is not available though \\:(",
+            "April 2012 till january 2014 the ppv1 system was in place.\n\
+            The source code is not available though \\:(\n\
+            The first available pp system is from 2015.",
         ),
         (GameMode::STD, Some(OldVersion::OsuPpV2)) => Some(
             "ppv2 replaced ppv1 in january 2014 and lasted until april 2015.\n\
-            The source code is not available though \\:(",
+            The source code is not available though \\:(\n\
+            The first available pp system is from 2015.",
         ),
 
         (GameMode::TKO, None) => {
