@@ -25,7 +25,8 @@ use crate::{
         },
         matcher, numbers,
         osu::{ModSelection, ScoreOrder},
-        ApplicationCommandExt, CountryCode, CowUtils, MessageBuilder, MessageExt,
+        ApplicationCommandExt, CountryCode, CowUtils, FilterCriteria, MessageBuilder, MessageExt,
+        Searchable,
     },
     BotResult,
 };
@@ -151,9 +152,9 @@ async fn filter_scores(
     }
 
     if let Some(query) = args.query.as_deref() {
-        let needle = query.cow_to_ascii_lowercase();
+        let criteria = FilterCriteria::new(query);
 
-        scores.retain(|(score, _)| score.name.contains(needle.as_ref()));
+        scores.retain(|(score, _)| score.matches(&criteria));
     }
 
     if let Some(username) = args.username.as_deref() {
@@ -392,14 +393,9 @@ pub fn define_countrytop() -> MyCommand {
     let reverse =
         MyCommandOption::builder(REVERSE, "Reverse the resulting score list").boolean(false);
 
-    let query_description = "Search for a specific artist, title, or difficulty name";
+    let query_description = "Search for a specific artist, title, difficulty, or mapper";
 
-    let query_help = "Search for a specific artist, title, or difficulty name.\n\
-        Filters out all scores for which `{artist} - {title} [{version}]` does not contain the query.";
-
-    let query = MyCommandOption::builder("query", query_description)
-        .help(query_help)
-        .string(Vec::new(), false);
+    let query = MyCommandOption::builder("query", query_description).string(Vec::new(), false);
 
     let username = MyCommandOption::builder("username", "Only keep scores from this user")
         .string(Vec::new(), false);

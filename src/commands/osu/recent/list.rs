@@ -1,7 +1,7 @@
 use std::{fmt::Write, sync::Arc};
 
 use eyre::Report;
-use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, GameMode, Grade, OsuError};
+use rosu_v2::prelude::{GameMode, Grade, OsuError};
 use twilight_model::{
     application::interaction::{
         application_command::{CommandDataOption, CommandOptionValue},
@@ -27,7 +27,7 @@ use crate::{
         },
         matcher, numbers,
         osu::ModSelection,
-        CowUtils, InteractionExt, MessageBuilder, MessageExt,
+        FilterCriteria, InteractionExt, MessageBuilder, MessageExt, Searchable,
     },
     Args, BotResult, CommandData, Context,
 };
@@ -108,24 +108,9 @@ pub(super) async fn _recentlist(
     }
 
     if let Some(query) = query.as_deref() {
-        let needle = query.cow_to_ascii_lowercase();
-        let mut haystack = String::new();
+        let criteria = FilterCriteria::new(query);
 
-        scores.retain(|score| {
-            let Beatmap { version, .. } = score.map.as_ref().unwrap();
-            let BeatmapsetCompact { artist, title, .. } = score.mapset.as_ref().unwrap();
-            haystack.clear();
-
-            let _ = write!(
-                haystack,
-                "{} - {} [{}]",
-                artist.cow_to_ascii_lowercase(),
-                title.cow_to_ascii_lowercase(),
-                version.cow_to_ascii_lowercase()
-            );
-
-            haystack.contains(needle.as_ref())
-        });
+        scores.retain(|score| score.matches(&criteria));
     }
 
     let pages = numbers::div_euclid(10, scores.len());

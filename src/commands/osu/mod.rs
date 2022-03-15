@@ -696,3 +696,16 @@ fn option_map() -> MyCommandOption {
         .help(help)
         .string(Vec::new(), false)
 }
+
+fn option_query() -> MyCommandOption {
+    let query_description = "Specify a search query containing artist, difficulty, AR, BPM, ...";
+
+    let query_help = "Filter out scores similarly as you filter maps in osu! itself.\n\
+        You can specify the artist, creator, difficulty, title, or limit values such as \
+        ar, cs, hp, od, bpm, length, or stars like for example `fdfd ar>10 od>=9`.\n\
+        While ar & co will be adjusted to mods, stars will not.";
+
+    MyCommandOption::builder("query", query_description)
+        .help(query_help)
+        .string(Vec::new(), false)
+}

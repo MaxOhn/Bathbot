@@ -2,7 +2,7 @@ use std::{fmt::Write, mem, sync::Arc};
 
 use eyre::Report;
 use rosu_v2::prelude::{
-    Beatmap, BeatmapsetCompact, GameMode, Grade, OsuError,
+    GameMode, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
     Score, User,
 };
@@ -39,12 +39,14 @@ use crate::{
         },
         matcher, numbers,
         osu::{ModSelection, ScoreOrder},
-        ApplicationCommandExt, CowUtils, InteractionExt, MessageExt,
+        ApplicationCommandExt, CowUtils, FilterCriteria, InteractionExt, MessageExt, Searchable,
     },
     Args, BotResult, CommandData, Context, MessageBuilder,
 };
 
-use super::{option_discord, option_mode, option_mods_explicit, option_name, GradeArg};
+use super::{
+    option_discord, option_mode, option_mods_explicit, option_name, option_query, GradeArg,
+};
 
 pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> BotResult<()> {
     if args.index.filter(|n| *n > 100).is_some() {
@@ -651,24 +653,9 @@ async fn filter_scores(ctx: &Context, scores: Vec<Score>, args: &TopArgs) -> Vec
         .collect();
 
     if let Some(query) = args.query.as_deref() {
-        let needle = query.cow_to_ascii_lowercase();
-        let mut haystack = String::new();
+        let criteria = FilterCriteria::new(query);
 
-        scores_indices.retain(|(_, score)| {
-            let Beatmap { version, .. } = score.map.as_ref().unwrap();
-            let BeatmapsetCompact { artist, title, .. } = score.mapset.as_ref().unwrap();
-            haystack.clear();
-
-            let _ = write!(
-                haystack,
-                "{} - {} [{}]",
-                artist.cow_to_ascii_lowercase(),
-                title.cow_to_ascii_lowercase(),
-                version.cow_to_ascii_lowercase()
-            );
-
-            haystack.contains(needle.as_ref())
-        });
+        scores_indices.retain(|(_, score)| score.matches(&criteria));
     }
 
     args.sort_by.apply(ctx, &mut scores_indices).await;
@@ -1375,14 +1362,7 @@ pub fn define_top() -> MyCommand {
         },
     ];
 
-    let query_description = "Search for a specific artist, title, or difficulty name";
-
-    let query_help = "Search for a specific artist, title, or difficulty name.\n\
-        Filters out all scores for which `{artist} - {title} [{version}]` does not contain the query.";
-
-    let query = MyCommandOption::builder("query", query_description)
-        .help(query_help)
-        .string(Vec::new(), false);
+    let query = option_query();
 
     let grade = MyCommandOption::builder(GRADE, CONSIDER_GRADE).string(grade_choices, false);
 

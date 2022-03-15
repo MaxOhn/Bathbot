@@ -207,4 +207,6 @@ lazy_static! {
     static ref SEVEN_TWO_SEVEN: Regex = Regex::new("(?P<num>7[.,]?2[.,]?7)").unwrap();
 
     static ref OSU_SCORE_URL_MATCHER: Regex = Regex::new(r"https://osu.ppy.sh/scores/(osu|taiko|mania|fruits)/(\d+)").unwrap();
+
+    pub static ref QUERY_SYNTAX_REGEX: Regex = Regex::new(r#"\b(?P<key>\w+)(?P<op>(:|=|(>|<)(:|=)?))(?P<value>("".*"")|(\S*))"#).unwrap();
 }

@@ -1,7 +1,7 @@
 use std::{fmt::Write, sync::Arc};
 
 use eyre::Report;
-use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, GameMode, GameMods, OsuError, Score};
+use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score};
 use twilight_model::{
     application::interaction::{
         application_command::{CommandDataOption, CommandOptionValue},
@@ -29,12 +29,12 @@ use crate::{
         },
         matcher, numbers,
         osu::{ModSelection, ScoreOrder},
-        ApplicationCommandExt, CowUtils, InteractionExt, MessageExt,
+        ApplicationCommandExt, FilterCriteria, InteractionExt, MessageExt, Searchable,
     },
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
-use super::{option_discord, option_mode, option_name};
+use super::{option_discord, option_mode, option_name, option_query};
 
 const NM: GameMods = GameMods::NoMod;
 const DT: GameMods = GameMods::DoubleTime;
@@ -129,24 +129,9 @@ async fn _topif(ctx: Arc<Context>, data: CommandData<'_>, args: IfArgs) -> BotRe
         .sum();
 
     if let Some(query) = query.as_deref() {
-        let needle = query.cow_to_ascii_lowercase();
-        let mut haystack = String::new();
+        let criteria = FilterCriteria::new(query);
 
-        scores_data.retain(|(_, score, _)| {
-            let Beatmap { version, .. } = score.map.as_ref().unwrap();
-            let BeatmapsetCompact { artist, title, .. } = score.mapset.as_ref().unwrap();
-            haystack.clear();
-
-            let _ = write!(
-                haystack,
-                "{} - {} [{}]",
-                artist.cow_to_ascii_lowercase(),
-                title.cow_to_ascii_lowercase(),
-                version.cow_to_ascii_lowercase()
-            );
-
-            haystack.contains(needle.as_ref())
-        });
+        scores_data.retain(|(_, score, _)| score.matches(&criteria));
     }
 
     let adjusted_pp = numbers::round((bonus_pp + adjusted_pp).max(0.0) as f32);
@@ -580,15 +565,7 @@ pub fn define_topif() -> MyCommand {
         .string(Vec::new(), true);
 
     let name = option_name();
-
-    let query_description = "Search for a specific artist, title, or difficulty name";
-
-    let query_help = "Search for a specific artist, title, or difficulty name.\n\
-        Filters out all scores for which `{artist} - {title} [{version}]` does not contain the query.";
-
-    let query = MyCommandOption::builder("query", query_description)
-        .help(query_help)
-        .string(vec![], false);
+    let query = option_query();
 
     let discord = option_discord();
 

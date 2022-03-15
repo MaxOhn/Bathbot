@@ -11,6 +11,7 @@ pub mod matrix;
 mod message_builder;
 pub mod numbers;
 pub mod osu;
+mod query;
 
 use std::io::Cursor;
 
@@ -26,7 +27,7 @@ use crate::{error::Error, BotResult, Context};
 
 pub use self::{
     authored::Authored, bitflags::*, country_code::CountryCode, cow::CowUtils, emote::Emote,
-    exts::*, matrix::Matrix, message_builder::MessageBuilder,
+    exts::*, matrix::Matrix, message_builder::MessageBuilder, query::*,
 };
 
 macro_rules! get {

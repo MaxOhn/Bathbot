@@ -2,7 +2,7 @@ use std::{fmt::Write, sync::Arc};
 
 use eyre::Report;
 use rosu_v2::prelude::{
-    Beatmap, BeatmapsetCompact, GameMode, GameMods, OsuError,
+    GameMode, GameMods, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
     Score, User,
 };
@@ -31,13 +31,14 @@ use crate::{
         },
         matcher, numbers,
         osu::{ModSelection, ScoreOrder},
-        ApplicationCommandExt, CowUtils, InteractionExt, MessageExt,
+        ApplicationCommandExt, FilterCriteria, InteractionExt, MessageExt, Searchable,
     },
     BotResult, CommandData, Context, MessageBuilder,
 };
 
 use super::{
-    get_user_cached, option_discord, option_mode, option_mods_explicit, option_name, prepare_scores,
+    get_user_cached, option_discord, option_mode, option_mods_explicit, option_name, option_query,
+    prepare_scores,
 };
 
 async fn _pinned(ctx: Arc<Context>, data: CommandData<'_>, args: PinnedArgs) -> BotResult<()> {
@@ -138,24 +139,9 @@ async fn _pinned(ctx: Arc<Context>, data: CommandData<'_>, args: PinnedArgs) -> 
 
 async fn filter_scores(ctx: &Context, scores: &mut Vec<Score>, args: &PinnedArgs) {
     if let Some(query) = args.query.as_deref() {
-        let needle = query.cow_to_ascii_lowercase();
-        let mut haystack = String::new();
+        let criteria = FilterCriteria::new(query);
 
-        scores.retain(|score| {
-            let Beatmap { version, .. } = score.map.as_ref().unwrap();
-            let BeatmapsetCompact { artist, title, .. } = score.mapset.as_ref().unwrap();
-            haystack.clear();
-
-            let _ = write!(
-                haystack,
-                "{} - {} [{}]",
-                artist.cow_to_ascii_lowercase(),
-                title.cow_to_ascii_lowercase(),
-                version.cow_to_ascii_lowercase()
-            );
-
-            haystack.contains(needle.as_ref())
-        });
+        scores.retain(|score| score.matches(&criteria));
     }
 
     match args.mods {
@@ -525,15 +511,7 @@ pub fn define_pinned() -> MyCommand {
         .string(sort_choices, false);
 
     let discord = option_discord();
-
-    let query_description = "Search for a specific artist, title, or difficulty name";
-
-    let query_help = "Search for a specific artist, title, or difficulty name.\n\
-        Filters out all scores for which `{artist} - {title} [{version}]` does not contain the query.";
-
-    let query = MyCommandOption::builder("query", query_description)
-        .help(query_help)
-        .string(vec![], false);
+    let query = option_query();
 
     let mods = option_mods_explicit();
 
