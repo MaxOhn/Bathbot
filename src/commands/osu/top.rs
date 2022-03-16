@@ -1125,6 +1125,7 @@ impl TopArgs {
                         "miss" => order = Some(ScoreOrder::Misses),
                         "pp" => order = Some(ScoreOrder::Pp),
                         "ranked_date" => order = Some(ScoreOrder::RankedDate),
+                        "score" => order = Some(ScoreOrder::Score),
                         "stars" => order = Some(ScoreOrder::Stars),
                         _ => return Err(Error::InvalidCommandOptions),
                     },
@@ -1248,6 +1249,7 @@ fn write_content(name: &str, args: &TopArgs, amount: usize) -> Option<String> {
             ScoreOrder::RankedDate => {
                 format!("`{name}`'{genitive} top100 sorted by {reverse}ranked date:")
             }
+            ScoreOrder::Score => format!("`{name}`'{genitive} top100 sorted by {reverse}score:"),
             ScoreOrder::Stars => format!("`{name}`'{genitive} top100 sorted by {reverse}stars:"),
         };
 
@@ -1267,6 +1269,7 @@ fn content_with_condition(args: &TopArgs, amount: usize) -> String {
         ScoreOrder::Misses => content.push_str("`Order: Miss count"),
         ScoreOrder::Pp => content.push_str("`Order: Pp"),
         ScoreOrder::RankedDate => content.push_str("`Order: Ranked date"),
+        ScoreOrder::Score => content.push_str("`Order: Score"),
         ScoreOrder::Stars => content.push_str("`Order: Stars"),
     }
 
@@ -1383,6 +1386,10 @@ pub fn define_top() -> MyCommand {
         CommandOptionChoice::String {
             name: "pp".to_owned(),
             value: "pp".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "score".to_owned(),
+            value: "score".to_owned(),
         },
         CommandOptionChoice::String {
             name: "stars".to_owned(),

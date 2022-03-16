@@ -356,6 +356,7 @@ impl PinnedArgs {
                         "miss" => sort_by = Some(ScoreOrder::Misses),
                         "pp" => sort_by = Some(ScoreOrder::Pp),
                         "ranked_date" => sort_by = Some(ScoreOrder::RankedDate),
+                        "score" => sort_by = Some(ScoreOrder::Score),
                         "stars" => sort_by = Some(ScoreOrder::Stars),
                         _ => return Err(Error::InvalidCommandOptions),
                     },
@@ -407,6 +408,7 @@ fn write_content(name: &str, args: &PinnedArgs, amount: usize) -> Option<String>
             ScoreOrder::RankedDate => {
                 format!("`{name}`'{genitive} pinned scores sorted by ranked date:")
             }
+            ScoreOrder::Score => format!("`{name}`'{genitive} pinned scores sorted by score"),
             ScoreOrder::Stars => format!("`{name}`'{genitive} pinned scores sorted by stars"),
         };
 
@@ -432,6 +434,7 @@ fn content_with_condition(args: &PinnedArgs, amount: usize) -> String {
         Some(ScoreOrder::Misses) => content.push_str("`Order: Miss count`"),
         Some(ScoreOrder::Pp) => content.push_str("`Order: Pp`"),
         Some(ScoreOrder::RankedDate) => content.push_str("`Order: Ranked date`"),
+        Some(ScoreOrder::Score) => content.push_str("`Order: Score`"),
         Some(ScoreOrder::Stars) => content.push_str("`Order: Stars`"),
         None => {}
     }
@@ -500,6 +503,10 @@ pub fn define_pinned() -> MyCommand {
         CommandOptionChoice::String {
             name: "pp".to_owned(),
             value: "pp".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "score".to_owned(),
+            value: "score".to_owned(),
         },
         CommandOptionChoice::String {
             name: "stars".to_owned(),

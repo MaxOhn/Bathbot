@@ -340,6 +340,7 @@ pub enum ScoreOrder {
     Misses,
     Pp,
     RankedDate,
+    Score,
     Stars,
 }
 
@@ -468,6 +469,7 @@ impl ScoreOrder {
                     date_a.cmp(&date_b)
                 })
             }
+            Self::Score => scores.sort_unstable_by_key(|score| Reverse(score.score())),
             Self::Stars => {
                 let mut stars = HashMap::new();
 
@@ -515,6 +517,7 @@ pub trait SortableScore {
     fn mods(&self) -> GameMods;
     fn n_misses(&self) -> u32;
     fn pp(&self) -> Option<f32>;
+    fn score(&self) -> u32;
     fn score_id(&self) -> u64;
     fn seconds_drain(&self) -> u32;
     fn stars(&self) -> f32;
@@ -560,6 +563,10 @@ impl SortableScore for Score {
 
     fn pp(&self) -> Option<f32> {
         self.pp
+    }
+
+    fn score(&self) -> u32 {
+        self.score
     }
 
     fn score_id(&self) -> u64 {
@@ -620,6 +627,10 @@ macro_rules! impl_sortable_score_tuple {
 
             fn pp(&self) -> Option<f32> {
                 SortableScore::pp(&self.$idx)
+            }
+
+            fn score(&self) -> u32 {
+                SortableScore::score(&self.$idx)
             }
 
             fn score_id(&self) -> u64 {
@@ -683,6 +694,10 @@ impl SortableScore for (OsuTrackerCountryScore, usize) {
 
     fn pp(&self) -> Option<f32> {
         Some(self.0.pp)
+    }
+
+    fn score(&self) -> u32 {
+        panic!("can't sort by score")
     }
 
     fn score_id(&self) -> u64 {

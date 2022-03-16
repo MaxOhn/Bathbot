@@ -232,6 +232,7 @@ pub async fn slash_compare(ctx: Arc<Context>, mut command: ApplicationCommand) -
     }
 }
 
+// TODO: Use util::osu::ScoreOrder instead?
 #[derive(Copy, Clone)]
 enum ScoreOrder {
     Acc,
