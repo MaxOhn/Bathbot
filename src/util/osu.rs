@@ -326,7 +326,7 @@ impl BonusPP {
             pp += val;
         }
 
-        round(stats.pp - pp).min(Self::MAX)
+        round(stats.pp - pp).clamp(0.0, Self::MAX)
     }
 }
 

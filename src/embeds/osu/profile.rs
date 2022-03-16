@@ -57,13 +57,13 @@ impl ProfileEmbed {
     }
 
     pub fn medium(user: &User, bonus_pp: f32, discord_id: Option<Id<UserMarker>>) -> Self {
-        let mut description = format!("**{} __stats", Emote::from(user.mode).text());
+        let mode = Emote::from(user.mode).text();
 
-        if let Some(user_id) = discord_id {
-            let _ = write!(description, " for <@{user_id}>");
-        }
-
-        description.push_str(":__**");
+        let description = if let Some(user_id) = discord_id {
+            format!("**{mode} __stats for <@{user_id}>:__**")
+        } else {
+            format!("**{mode} __statistics:__**")
+        };
 
         let footer_text = footer_text(user);
         let stats = user.statistics.as_ref().unwrap();
