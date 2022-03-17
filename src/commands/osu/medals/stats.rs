@@ -119,7 +119,7 @@ pub(super) async fn _medalstats(
 const W: u32 = 1350;
 const H: u32 = 350;
 
-fn graph(medals: &[MedalCompact]) -> Result<Option<Vec<u8>>, GraphError> {
+pub fn graph(medals: &[MedalCompact]) -> Result<Option<Vec<u8>>, GraphError> {
     static LEN: usize = W as usize * H as usize;
     let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3
     {

@@ -7,7 +7,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use args::ProfileArgs;
 use eyre::Report;
-use graph::graphs;
+pub use graph::graphs;
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_model::application::{command::CommandOptionChoice, interaction::ApplicationCommand};
 

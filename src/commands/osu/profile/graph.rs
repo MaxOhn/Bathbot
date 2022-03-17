@@ -14,7 +14,7 @@ use crate::{core::Context, error::GraphError};
 const W: u32 = 1350;
 const H: u32 = 350;
 
-pub(super) async fn graphs(ctx: &Context, user: &mut User) -> Result<Option<Vec<u8>>, GraphError> {
+pub async fn graphs(ctx: &Context, user: &mut User) -> Result<Option<Vec<u8>>, GraphError> {
     let mut monthly_playcount = mem::replace(&mut user.monthly_playcounts, None).unwrap();
     let badges = mem::replace(&mut user.badges, None).unwrap();
 

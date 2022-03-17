@@ -3,7 +3,7 @@ mod list;
 mod medal;
 mod missing;
 mod recent;
-mod stats;
+pub mod stats;
 
 use std::sync::Arc;
 

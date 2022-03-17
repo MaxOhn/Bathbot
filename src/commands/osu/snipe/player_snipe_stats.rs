@@ -150,7 +150,7 @@ pub(super) async fn _playersnipestats(
     let (graph_result, first_score_result) = tokio::join!(graph_fut, oldest_fut);
 
     let graph = match graph_result {
-        Ok(graph_option) => graph_option,
+        Ok(graph) => Some(graph),
         Err(err) => {
             warn!("{:?}", Report::new(err));
 
@@ -185,10 +185,10 @@ pub(super) async fn _playersnipestats(
 const W: u32 = 1350;
 const H: u32 = 350;
 
-fn graphs(
+pub fn graphs(
     history: &BTreeMap<Date<Utc>, u32>,
     stars: &BTreeMap<u8, u32>,
-) -> Result<Option<Vec<u8>>, GraphError> {
+) -> Result<Vec<u8>, GraphError> {
     static LEN: usize = W as usize * H as usize;
     let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3
 
@@ -287,5 +287,5 @@ fn graphs(
     let png_encoder = PngEncoder::new(&mut png_bytes);
     png_encoder.write_image(&buf, W, H, ColorType::Rgb8)?;
 
-    Ok(Some(png_bytes))
+    Ok(png_bytes)
 }

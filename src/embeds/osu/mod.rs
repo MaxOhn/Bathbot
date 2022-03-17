@@ -30,6 +30,7 @@ mod osutracker_mapsets;
 mod osutracker_mods;
 mod pinned;
 mod player_snipe_list;
+mod graph;
 mod player_snipe_stats;
 mod pp_missing;
 mod osutracker_countrytop;
@@ -76,6 +77,7 @@ pub use self::{
     medal_stats::MedalStatsEmbed,
     medals_common::{MedalsCommonEmbed, MedalsCommonUser},
     medals_list::MedalsListEmbed,
+    graph::GraphEmbed,
     medals_missing::MedalsMissingEmbed,
     most_played::MostPlayedEmbed,
     most_played_common::MostPlayedCommonEmbed,

@@ -111,6 +111,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
 
     let command_result = match name.as_str() {
         "avatar" => process_command(ctx, command, args, osu::slash_avatar).await,
+        // TODO: Bucket
         "bg" => process_command(ctx, command, args, fun::slash_bg).await,
         "bws" => process_command(ctx, command, args, osu::slash_bws).await,
         "commands" => process_command(ctx, command, args, utility::slash_commands).await,
@@ -123,6 +124,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         "countrytop" => process_command(ctx, command, args, osu::slash_countrytop).await,
         "cs" => process_command(ctx, command, args, osu::slash_cs).await,
         "fix" => process_command(ctx, command, args, osu::slash_fix).await,
+        "graph" => process_command(ctx, command, args, osu::slash_graph).await,
         HELP => {
             // Necessary to be able to use data.create_message later on
             start_thinking_ephemeral(&ctx, &command).await?;

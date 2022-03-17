@@ -160,7 +160,7 @@ pub(super) async fn _sniped(
 const W: u32 = 1350;
 const H: u32 = 350;
 
-fn graphs(
+pub fn graphs(
     name: &str,
     sniper: &[SnipeRecent],
     snipee: &[SnipeRecent],

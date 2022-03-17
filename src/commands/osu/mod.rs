@@ -9,6 +9,7 @@ mod bws;
 mod compare;
 mod country_top;
 mod fix;
+mod graphs;
 mod leaderboard;
 mod link;
 mod map;
@@ -72,8 +73,8 @@ use crate::{
 };
 
 pub use self::{
-    avatar::*, bws::*, compare::*, country_top::*, fix::*, leaderboard::*, link::*, map::*,
-    map_search::*, mapper::*, match_compare::*, match_costs::*, match_live::*, medals::*,
+    avatar::*, bws::*, compare::*, country_top::*, fix::*, graphs::*, leaderboard::*, link::*,
+    map::*, map_search::*, mapper::*, match_compare::*, match_costs::*, match_live::*, medals::*,
     most_played::*, nochoke::*, osekai::*, osustats::*, pinned::*, popular::*, pp::*, profile::*,
     rank::*, ranking::*, ratios::*, recent::*, serverleaderboard::*, simulate::*, snipe::*, top::*,
     top_if::*, top_old::*, whatif::*,

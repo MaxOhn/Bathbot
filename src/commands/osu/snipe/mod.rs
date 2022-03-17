@@ -1,8 +1,8 @@
 mod country_snipe_list;
 mod country_snipe_stats;
 mod player_snipe_list;
-mod player_snipe_stats;
-mod sniped;
+pub mod player_snipe_stats;
+pub mod sniped;
 mod sniped_difference;
 
 use std::sync::Arc;
