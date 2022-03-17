@@ -1,11 +1,272 @@
 use crate::{util::CowUtils, Context};
 
+use chrono::FixedOffset;
 use hashbrown::HashMap;
 use serde::Deserialize;
 use smallstr::SmallString;
 use std::{borrow::Borrow, fmt, ops::Deref};
 
 lazy_static! {
+    static ref TIMEZONES: HashMap<&'static str, i32> = {
+        const HOUR: i32 = 3600;
+        const HALF_HOUR: i32 = 1800;
+
+        let mut map = HashMap::with_capacity(250); // TODO
+
+        // http://1min.in/content/international/time-zones
+        map.insert("AF", 4 * HOUR + HALF_HOUR);
+        map.insert("AL", 3 * HOUR);
+        map.insert("DZ", 1 * HOUR);
+        map.insert("AS", -11 * HOUR);
+        map.insert("AD", 2 * HOUR);
+        map.insert("AO", 1 * HOUR);
+        map.insert("AI", -4 * HOUR);
+        map.insert("AQ", 7 * HOUR);
+        map.insert("AG", -4 * HOUR);
+        map.insert("AR", -3 * HOUR);
+        map.insert("AM", 4 * HOUR);
+        map.insert("AW", -4 * HOUR);
+        map.insert("AU", 10 * HOUR);
+        map.insert("AT", 2 * HOUR);
+        map.insert("AZ", 4 * HOUR);
+        map.insert("BS", -4 * HOUR);
+        map.insert("BH", 3 * HOUR);
+        map.insert("BD", 6 * HOUR);
+        map.insert("BB", -4 * HOUR);
+        map.insert("BY", 3 * HOUR);
+        map.insert("BE", 2 * HOUR);
+        map.insert("BZ", -6 * HOUR);
+        map.insert("BJ", 1 * HOUR);
+        map.insert("BM", -3 * HOUR);
+        map.insert("BT", 6 * HOUR);
+        map.insert("BO", -4 * HOUR);
+        map.insert("BQ", -4 * HOUR);
+        map.insert("BA", 2 * HOUR);
+        map.insert("BW", 2 * HOUR);
+        // map.insert("BV", 0);
+        map.insert("BR", -3 * HOUR);
+        map.insert("IO", 6 * HOUR);
+        map.insert("BN", 8 * HOUR);
+        map.insert("BG", 3 * HOUR);
+        map.insert("BF", 0);
+        map.insert("BI", 2 * HOUR);
+        map.insert("CV", -1 * HOUR);
+        map.insert("KH", 7 * HOUR);
+        map.insert("CM", 1 * HOUR);
+        map.insert("CA", -4 * HOUR);
+        map.insert("KY", -5 * HOUR);
+        map.insert("CF", 1 * HOUR);
+        map.insert("TD", 1 * HOUR);
+        map.insert("CL", -3 * HOUR);
+        map.insert("CN", 8 * HOUR);
+        map.insert("CX", 7 * HOUR);
+        map.insert("CC", 6 * HOUR + HALF_HOUR);
+        map.insert("CO", -5 * HOUR);
+        map.insert("KM", 3 * HOUR);
+        map.insert("CD", 1 * HOUR);
+        map.insert("CG", 1 * HOUR);
+        map.insert("CK", -10 * HOUR);
+        map.insert("CR", -6 * HOUR);
+        map.insert("HR", 2 * HOUR);
+        map.insert("CU", -4 * HOUR);
+        map.insert("CW", -4 * HOUR);
+        map.insert("CY", 3 * HOUR);
+        map.insert("CZ", 2 * HOUR);
+        map.insert("CI", 0);
+        map.insert("DK", 2 * HOUR);
+        map.insert("DJ", 3 * HOUR);
+        map.insert("DM", -4 * HOUR);
+        map.insert("DO", -4 * HOUR);
+        map.insert("EC", -5 * HOUR);
+        map.insert("EG", 2 * HOUR);
+        map.insert("SV", -6 * HOUR);
+        map.insert("GQ", 1 * HOUR);
+        map.insert("ER", 3 * HOUR);
+        map.insert("EE", 3 * HOUR);
+        map.insert("SZ", 2 * HOUR);
+        map.insert("ET", 3 * HOUR);
+        map.insert("FK", -3 * HOUR);
+        map.insert("FO", 1 * HOUR);
+        map.insert("FJ", 12 * HOUR);
+        map.insert("FI", 3 * HOUR);
+        map.insert("FR", 2 * HOUR);
+        map.insert("GF", -3 * HOUR);
+        map.insert("PF", -9 * HOUR);
+        map.insert("TF", 5 * HOUR);
+        map.insert("GA", 1 * HOUR);
+        map.insert("GM", 0);
+        map.insert("GE", 4 * HOUR);
+        map.insert("DE", 2 * HOUR);
+        map.insert("GH", 0);
+        map.insert("GI", 2 * HOUR);
+        map.insert("GR", 3 * HOUR);
+        map.insert("GL", -2 * HOUR);
+        map.insert("GD", -4 * HOUR);
+        map.insert("GP", -4 * HOUR);
+        map.insert("GU", 10 * HOUR);
+        map.insert("GT", -6 * HOUR);
+        map.insert("GG", 1 * HOUR);
+        map.insert("GN", 0);
+        map.insert("GW", 0);
+        map.insert("GY", -4 * HOUR);
+        map.insert("HT", -4 * HOUR);
+        // map.insert("HM", HOUR);
+        map.insert("VA", 2 * HOUR);
+        map.insert("HN", -6 * HOUR);
+        map.insert("HK", 8 * HOUR);
+        map.insert("HU", 2 * HOUR);
+        map.insert("IS", 0);
+        map.insert("IN", 5 * HOUR + HALF_HOUR);
+        map.insert("ID", 7 * HOUR);
+        map.insert("IR", 4 * HOUR + HALF_HOUR);
+        map.insert("IQ", 3 * HOUR);
+        map.insert("IE", 1 * HOUR);
+        map.insert("IM", 1 * HOUR);
+        map.insert("IL", 3 * HOUR);
+        map.insert("IT", 2 * HOUR);
+        map.insert("JM", -5 * HOUR);
+        map.insert("JP", 9 * HOUR);
+        map.insert("JE", 1 * HOUR);
+        map.insert("JO", 3 * HOUR);
+        map.insert("KZ", 5 * HOUR);
+        map.insert("KE", 3 * HOUR);
+        map.insert("KI", 13 * HOUR);
+        map.insert("KP", 8 * HOUR + HALF_HOUR);
+        map.insert("KR", 9 * HOUR);
+        map.insert("KW", 3 * HOUR);
+        map.insert("KG", 6 * HOUR);
+        map.insert("LA", 7 * HOUR);
+        map.insert("LV", 3 * HOUR);
+        map.insert("LB", 3 * HOUR);
+        map.insert("LS", 2 * HOUR);
+        map.insert("LR", 0);
+        map.insert("LY", 2 * HOUR);
+        map.insert("LI", 2 * HOUR);
+        map.insert("LT", 3 * HOUR);
+        map.insert("LU", 2 * HOUR);
+        map.insert("MO", 8 * HOUR);
+        map.insert("MG", 3 * HOUR);
+        map.insert("MW", 2 * HOUR);
+        map.insert("MY", 8 * HOUR);
+        map.insert("MV", 5 * HOUR);
+        map.insert("ML", 0);
+        map.insert("MT", 2 * HOUR);
+        map.insert("MH", 12 * HOUR);
+        map.insert("MQ", -4 * HOUR);
+        map.insert("MR", 0);
+        map.insert("MU", 4 * HOUR);
+        map.insert("YT", 3 * HOUR);
+        map.insert("MX", -6 * HOUR);
+        map.insert("FM", 11 * HOUR);
+        map.insert("MD", 3 * HOUR);
+        map.insert("MC", 2 * HOUR);
+        map.insert("MN", 8 * HOUR);
+        map.insert("ME", 2 * HOUR);
+        map.insert("MS", -4 * HOUR);
+        map.insert("MA", 1 * HOUR);
+        map.insert("MZ", 2 * HOUR);
+        map.insert("MM", 6 * HOUR + HALF_HOUR);
+        map.insert("NA", 2 * HOUR);
+        map.insert("NR", 12 * HOUR);
+        map.insert("NP", 5 * HOUR + 2700);
+        map.insert("NL", 2 * HOUR);
+        map.insert("NC", 11 * HOUR);
+        map.insert("NZ", 12 * HOUR);
+        map.insert("NI", -6 * HOUR);
+        map.insert("NE", 1 * HOUR);
+        map.insert("NG", 1 * HOUR);
+        map.insert("NU", -11 * HOUR);
+        map.insert("NF", 11 * HOUR);
+        map.insert("MP", 10 * HOUR);
+        map.insert("NO", 2 * HOUR);
+        map.insert("OM", 4 * HOUR);
+        map.insert("PK", 5 * HOUR);
+        map.insert("PW", 9 * HOUR);
+        map.insert("PS", 3 * HOUR);
+        map.insert("PA", -5 * HOUR);
+        map.insert("PG", 10 * HOUR);
+        map.insert("PY", -4 * HOUR);
+        map.insert("PE", -5 * HOUR);
+        map.insert("PH", 8 * HOUR);
+        map.insert("PN", -8 * HOUR);
+        map.insert("PL", 2 * HOUR);
+        map.insert("PT", 1 * HOUR);
+        map.insert("PR", -4 * HOUR);
+        map.insert("QA", 3 * HOUR);
+        map.insert("MK", 2 * HOUR);
+        map.insert("RO", 3 * HOUR);
+        map.insert("RU", 6 * HOUR);
+        map.insert("RW", 2 * HOUR);
+        map.insert("RE", 4 * HOUR);
+        map.insert("BL", -4 * HOUR);
+        map.insert("SH", 0);
+        map.insert("KN", -4 * HOUR);
+        map.insert("LC", -4 * HOUR);
+        map.insert("MF", -4 * HOUR);
+        map.insert("PM", -2 * HOUR);
+        map.insert("PM", -2 * HOUR);
+        map.insert("VC", -4 * HOUR);
+        map.insert("WS", 13 * HOUR);
+        map.insert("SM", 2 * HOUR);
+        map.insert("ST", 1 * HOUR);
+        map.insert("SA", 3 * HOUR);
+        map.insert("SN", 0);
+        map.insert("RS", 2 * HOUR);
+        map.insert("SC", 4 * HOUR);
+        map.insert("SL", 0);
+        map.insert("SG", 8 * HOUR);
+        map.insert("SX", -4 * HOUR);
+        map.insert("SK", 2 * HOUR);
+        map.insert("SI", 2 * HOUR);
+        map.insert("SB", 11 * HOUR);
+        map.insert("SO", 3 * HOUR);
+        map.insert("ZA", 2 * HOUR);
+        map.insert("GS", -2 * HOUR);
+        map.insert("SS", 3 * HOUR);
+        map.insert("ES", 1 * HOUR);
+        map.insert("LK", 5 * HOUR + HALF_HOUR);
+        map.insert("SD", 2 * HOUR);
+        map.insert("SR", -3 * HOUR);
+        map.insert("SJ", 2 * HOUR);
+        map.insert("SE", 2 * HOUR);
+        map.insert("CH", 2 * HOUR);
+        map.insert("SY", 3 * HOUR);
+        map.insert("TW", 8 * HOUR);
+        map.insert("TJ", 5 * HOUR);
+        map.insert("TZ", 3 * HOUR);
+        map.insert("TH", 7 * HOUR);
+        map.insert("TL", 9 * HOUR);
+        map.insert("TG", 0);
+        map.insert("TK", 13 * HOUR);
+        map.insert("TO", 13 * HOUR);
+        map.insert("TT", -4 * HOUR);
+        map.insert("TN", 1 * HOUR);
+        map.insert("TR", 3 * HOUR);
+        map.insert("TM", 5 * HOUR);
+        map.insert("TC", -4 * HOUR);
+        map.insert("TV", 12 * HOUR);
+        map.insert("UG", 3 * HOUR);
+        map.insert("UA", 3 * HOUR);
+        map.insert("AE", 4 * HOUR);
+        map.insert("GB", 1 * HOUR);
+        map.insert("UM", 12 * HOUR);
+        map.insert("US", -5 * HOUR);
+        map.insert("UY", -3 * HOUR);
+        map.insert("UZ", 5 * HOUR);
+        map.insert("VU", 11 * HOUR);
+        map.insert("VE", -4 * HOUR);
+        map.insert("VN", 7 * HOUR);
+        map.insert("VG", -4 * HOUR);
+        map.insert("VI", -4 * HOUR);
+        map.insert("WF", 12 * HOUR);
+        map.insert("EH", 1 * HOUR);
+        map.insert("YE", 3 * HOUR);
+        map.insert("ZM", 2 * HOUR);
+        map.insert("ZW", 2 * HOUR);
+
+        map
+    };
+
     static ref COUNTRIES: HashMap<&'static str, SmallString<[u8; 2]>> = {
         let mut map = HashMap::with_capacity(300);
 
@@ -292,6 +553,19 @@ impl CountryCode {
 
     pub fn snipe_supported(&self, ctx: &Context) -> bool {
         ctx.contains_country(self.0.as_str())
+    }
+
+    pub fn timezone(&self) -> FixedOffset {
+        let offset = match TIMEZONES.get(self.0.as_str()) {
+            Some(offset) => *offset,
+            None => {
+                warn!("missing timezone for country code {self}");
+
+                0
+            }
+        };
+
+        FixedOffset::east(offset)
     }
 }
 

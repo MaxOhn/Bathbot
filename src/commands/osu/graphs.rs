@@ -1,8 +1,16 @@
 use std::sync::Arc;
 
-use chrono::{Duration, Utc};
+use chrono::{Duration, FixedOffset, Timelike, Utc};
 use eyre::Report;
-use rosu_v2::prelude::{GameMode, OsuError, User};
+use image::{png::PngEncoder, ColorType, ImageEncoder};
+use plotters::{
+    prelude::{
+        BitMapBackend, ChartBuilder, IntoDrawingArea, IntoSegmentedCoord, Rectangle, SegmentValue,
+    },
+    style::{Color, RGBColor, WHITE},
+};
+use plotters_backend::FontStyle;
+use rosu_v2::prelude::{GameMode, OsuError, Score, User};
 use twilight_model::application::interaction::{
     application_command::CommandOptionValue, ApplicationCommand,
 };
@@ -10,15 +18,20 @@ use twilight_model::application::interaction::{
 use crate::{
     commands::{
         osu::{get_user, get_user_and_scores, ScoreArgs, UserArgs},
-        parse_mode_option, MyCommand, MyCommandOption,
+        parse_discord, parse_mode_option, MyCommand, MyCommandOption,
     },
     core::{commands::CommandData, Context},
     database::UserConfig,
-    embeds::{EmbedData, GraphEmbed},
-    error::Error,
+    embeds::{Author, EmbedBuilder, EmbedData, Footer, GraphEmbed},
+    error::{Error, GraphError},
     util::{
-        constants::{common_literals::MODE, GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
-        InteractionExt, MessageBuilder, MessageExt,
+        constants::{
+            common_literals::{DISCORD, MODE, NAME},
+            GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE, OSU_BASE,
+        },
+        numbers::{with_comma_float, with_comma_int},
+        osu::flag_url,
+        CountryCode, InteractionExt, MessageBuilder, MessageExt,
     },
     BotResult,
 };
@@ -42,7 +55,46 @@ async fn graph(ctx: Arc<Context>, data: CommandData<'_>, args: GraphArgs) -> Bot
             playcount_replays_graph(&ctx, &data, &name, &user_args).await?
         }
         GraphKind::RankProgression => rank_graph(&ctx, &data, &name, &user_args).await?,
-        GraphKind::ScoreTime => score_time_graph(&ctx, &data, &name, user_args).await?,
+        GraphKind::ScoreTime => {
+            // Handle distinctly because it has a footer due to the timezone
+            let tuple_option = score_time_graph(&ctx, &data, &name, user_args).await?;
+
+            let (user, graph, tz) = match tuple_option {
+                Some(tuple) => tuple,
+                None => return Ok(()),
+            };
+
+            let author = {
+                let stats = user.statistics.as_ref().expect("no statistics on user");
+
+                let text = format!(
+                    "{name}: {pp}pp (#{global} {country}{national})",
+                    name = user.username,
+                    pp = with_comma_float(stats.pp),
+                    global = with_comma_int(stats.global_rank.unwrap_or(0)),
+                    country = user.country_code,
+                    national = stats.country_rank.unwrap_or(0)
+                );
+
+                let url = format!("{OSU_BASE}users/{}/{}", user.user_id, user.mode,);
+                let icon = flag_url(user.country_code.as_str());
+
+                Author::new(text).url(url).icon_url(icon)
+            };
+
+            let footer = Footer::new(format!("Considering timezone UTC{tz}"));
+
+            let embed = EmbedBuilder::new()
+                .author(author)
+                .footer(footer)
+                .image("attachment://graph.png")
+                .build();
+
+            let builder = MessageBuilder::new().embed(embed).file("graph.png", &graph);
+            data.create_message(&ctx, builder).await?;
+
+            return Ok(());
+        }
         GraphKind::Sniped => sniped_graph(&ctx, &data, &name, &user_args).await?,
         GraphKind::SnipeCount => snipe_count_graph(&ctx, &data, &name, &user_args).await?,
     };
@@ -174,10 +226,10 @@ async fn score_time_graph(
     data: &CommandData<'_>,
     name: &str,
     user_args: UserArgs<'_>,
-) -> BotResult<Option<(User, Vec<u8>)>> {
+) -> BotResult<Option<(User, Vec<u8>, FixedOffset)>> {
     let score_args = ScoreArgs::top(100);
 
-    let (_user, _scores) = match get_user_and_scores(ctx, user_args, &score_args).await {
+    let (user, scores) = match get_user_and_scores(ctx, user_args, &score_args).await {
         Ok(tuple) => tuple,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{name}`");
@@ -192,7 +244,68 @@ async fn score_time_graph(
         }
     };
 
-    todo!()
+    fn draw_graph(scores: &[Score], tz: &FixedOffset) -> Result<Vec<u8>, GraphError> {
+        const W: u32 = 750;
+        const H: u32 = 400;
+        const LEN: usize = (W * H) as usize * 3;
+
+        let mut hours = [0_u32; 24];
+
+        for score in scores {
+            hours[score.created_at.with_timezone(tz).hour() as usize] += 1;
+        }
+
+        let max = hours.iter().max().copied().unwrap_or(0);
+        let mut buf = vec![0; LEN];
+
+        {
+            let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
+            let background = RGBColor(19, 43, 33);
+            root.fill(&background)?;
+
+            let mut chart = ChartBuilder::on(&root)
+                .x_label_area_size(40)
+                .y_label_area_size(40)
+                .margin(5)
+                .build_cartesian_2d((0_u32..23_u32).into_segmented(), 0u32..max + 1)?;
+
+            chart
+                .configure_mesh()
+                .disable_x_mesh()
+                .x_labels(24)
+                .x_desc("Hour of the day")
+                .y_desc("#  of  plays  set")
+                .label_style(("sans-serif", 15, &WHITE))
+                .bold_line_style(&WHITE.mix(0.3))
+                .axis_style(RGBColor(7, 18, 14))
+                .axis_desc_style(("sans-serif", 16, FontStyle::Bold, &WHITE))
+                .draw()?;
+
+            let counts = ScoreHourCounts::new(hours);
+            chart.draw_series(counts)?;
+        }
+
+        // Encode buf to png
+        let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
+        let png_encoder = PngEncoder::new(&mut png_bytes);
+        png_encoder.write_image(&buf, W, H, ColorType::Rgb8)?;
+
+        Ok(png_bytes)
+    }
+
+    let tz = CountryCode::from(user.country_code.clone()).timezone();
+
+    let bytes = match draw_graph(&scores, &tz) {
+        Ok(graph) => graph,
+        Err(err) => {
+            let _ = data.error(ctx, GENERAL_ISSUE).await;
+            warn!("{:?}", Report::new(err));
+
+            return Ok(None);
+        }
+    };
+
+    Ok(Some((user, bytes, tz)))
 }
 
 async fn sniped_graph(
@@ -339,6 +452,37 @@ async fn snipe_count_graph(
     Ok(Some((user, bytes)))
 }
 
+struct ScoreHourCounts {
+    hours: [u32; 24],
+    idx: usize,
+}
+
+impl ScoreHourCounts {
+    fn new(hours: [u32; 24]) -> Self {
+        Self { hours, idx: 0 }
+    }
+}
+
+impl Iterator for ScoreHourCounts {
+    type Item = Rectangle<(SegmentValue<u32>, u32)>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let count = *self.hours.get(self.idx)?;
+        let hour = self.idx as u32;
+        self.idx += 1;
+
+        let top_left = (SegmentValue::Exact(hour), count);
+        let bot_right = (SegmentValue::Exact(hour + 1), 0);
+
+        let style = RGBColor(2, 186, 213).mix(0.8).filled();
+
+        let mut rect = Rectangle::new([top_left, bot_right], style);
+        rect.set_margin(0, 0, 2, 2);
+
+        Some(rect)
+    }
+}
+
 struct GraphArgs {
     config: UserConfig,
     kind: GraphKind,
@@ -369,41 +513,35 @@ pub async fn slash_graph(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
     let kind = match subcommand.as_str() {
         "medals" => GraphKind::MedalProgression,
         "playcount_replays" => GraphKind::PlaycountReplays,
-        "rank" => {
-            for option in options {
-                match option.value {
-                    CommandOptionValue::String(value) => match option.name.as_str() {
-                        MODE => config.mode = parse_mode_option(&value),
-                        _ => return Err(Error::InvalidCommandOptions),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                }
-            }
-
-            GraphKind::RankProgression
-        }
-        "score_time" => {
-            for option in options {
-                match option.value {
-                    CommandOptionValue::String(value) => match option.name.as_str() {
-                        MODE => config.mode = parse_mode_option(&value),
-                        _ => return Err(Error::InvalidCommandOptions),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                }
-            }
-
-            GraphKind::ScoreTime
-        }
+        "rank" => GraphKind::RankProgression,
+        "score_time" => GraphKind::ScoreTime,
         "sniped" => GraphKind::Sniped,
         "snipe_count" => GraphKind::SnipeCount,
         _ => return Err(Error::InvalidCommandOptions),
     };
 
+    for option in options {
+        match option.value {
+            CommandOptionValue::String(value) => match option.name.as_str() {
+                NAME => config.osu = Some(value.into()),
+                MODE => config.mode = parse_mode_option(&value),
+                _ => return Err(Error::InvalidCommandOptions),
+            },
+            CommandOptionValue::User(value) => match option.name.as_str() {
+                DISCORD => match parse_discord(&ctx, value).await? {
+                    Ok(osu) => config.osu = Some(osu),
+                    Err(content) => return command.error(&ctx, content).await,
+                },
+                _ => return Err(Error::InvalidCommandOptions),
+            },
+            _ => return Err(Error::InvalidCommandOptions),
+        }
+    }
+
     graph(ctx, command.into(), GraphArgs { config, kind }).await
 }
 
-pub fn _define_graph() -> MyCommand {
+pub fn define_graph() -> MyCommand {
     let medals = MyCommandOption::builder("medals", "Display a user's medal progress over time")
         .subcommand(vec![option_name(), option_discord()]);
 
