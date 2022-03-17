@@ -635,14 +635,16 @@ static ALLOC: MyAlloc = MyAlloc;
 
 struct MyAlloc;
 
+const ALLOC_BACKTRACE_TRESHOLD: usize = 10_000_000; // bytes
+
 unsafe impl std::alloc::GlobalAlloc for MyAlloc {
     unsafe fn alloc(&self, layout: std::alloc::Layout) -> *mut u8 {
         let size = layout.size();
 
-        if size > 10_000_000 {
+        if size > ALLOC_BACKTRACE_TRESHOLD {
             debug!(
-                "Trying to allocate {size} bytes\nBacktrace:\n{:?}",
-                backtrace::Backtrace::new(),
+                "Trying to allocate {size} bytes\nBacktrace:\n{backtrace:?}",
+                backtrace = backtrace::Backtrace::new(),
             );
         }
 
@@ -661,6 +663,14 @@ unsafe impl std::alloc::GlobalAlloc for MyAlloc {
 
     #[inline]
     unsafe fn realloc(&self, ptr: *mut u8, layout: std::alloc::Layout, new_size: usize) -> *mut u8 {
+        if new_size > ALLOC_BACKTRACE_TRESHOLD {
+            debug!(
+                "Trying to re-allocate from {old_size} to {new_size} bytes\nBacktrace:\n{backtrace:?}",
+                old_size = layout.size(),
+                backtrace = backtrace::Backtrace::new(),
+            );
+        }
+
         std::alloc::System.realloc(ptr, layout, new_size)
     }
 }
