@@ -6,6 +6,7 @@ edition = "2021"
 
 [dependencies]
 async-trait = { version = "0.1" }
+backtrace = { version = "0.3" }
 bb8-redis = { version = "0.10" }
 bitflags = { version = "1.0" }
 bytes = { version = "1.0" }

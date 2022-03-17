@@ -629,3 +629,63 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
 
     Ok(())
 }
+
+#[global_allocator]
+static ALLOC: MyAlloc = MyAlloc;
+
+struct MyAlloc;
+
+unsafe impl std::alloc::GlobalAlloc for MyAlloc {
+    unsafe fn alloc(&self, layout: std::alloc::Layout) -> *mut u8 {
+        use std::fmt::Write;
+
+        let size = layout.size();
+
+        if size > 10_000_000 {
+            let mut i = 0;
+            let mut buf = String::new();
+
+            let _ = writeln!(buf, "Trying to allocate {size} bytes\nBacktrace:");
+
+            backtrace::trace(|frame| {
+                backtrace::resolve_frame(frame, |symbol| {
+                    let name = symbol
+                        .name()
+                        .and_then(|s| s.as_str())
+                        .unwrap_or("<unknown name>");
+
+                    let _ = write!(buf, "    {i}: {name}");
+                    i += 1;
+
+                    if let Some(filename) = symbol.filename() {
+                        let filename = filename.as_os_str().to_string_lossy();
+                        let _ = write!(buf, "\n        at {filename}");
+                    }
+
+                    buf.push('\n');
+                });
+
+                true
+            });
+
+            debug!("{buf}");
+        }
+
+        std::alloc::System.alloc(layout)
+    }
+
+    #[inline]
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: std::alloc::Layout) {
+        std::alloc::System.dealloc(ptr, layout)
+    }
+
+    #[inline]
+    unsafe fn alloc_zeroed(&self, layout: std::alloc::Layout) -> *mut u8 {
+        std::alloc::System.alloc_zeroed(layout)
+    }
+
+    #[inline]
+    unsafe fn realloc(&self, ptr: *mut u8, layout: std::alloc::Layout, new_size: usize) -> *mut u8 {
+        std::alloc::System.realloc(ptr, layout, new_size)
+    }
+}
