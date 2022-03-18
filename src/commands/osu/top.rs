@@ -1149,7 +1149,7 @@ impl TopArgs {
                         _ => return Err(Error::InvalidCommandOptions),
                     },
                     "query" => query = Some(value),
-                    "farm" => match value.as_str() {
+                    "common_farm" => match value.as_str() {
                         "no_farm" => farm = Some(FarmFilter::Without),
                         "only_farm" => farm = Some(FarmFilter::Only),
                         _ => return Err(Error::InvalidCommandOptions),
@@ -1455,8 +1455,16 @@ pub fn define_top() -> MyCommand {
         },
     ];
 
-    let farm = MyCommandOption::builder("farm", "Specify if you want to filter out farm maps")
-        .string(farm_choices, false);
+    let farm_help = "Specify if you want to filter out farm maps.\n\
+        A map counts as farmy if its mapset appears in the top 727 \
+        sets based on how often the set is in people's top100 scores.\n\
+        The list of mapsets can be checked with `/popular mapsets` or \
+        on [here](https://osutracker.com/stats)";
+
+    let farm =
+        MyCommandOption::builder("common_farm", "Specify if you want to filter out farm maps")
+            .help(farm_help)
+            .string(farm_choices, false);
 
     let perfect_combo_description = "Filter out all scores that don't have a perfect combo";
 
