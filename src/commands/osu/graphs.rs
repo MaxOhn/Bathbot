@@ -112,6 +112,10 @@ async fn graph(ctx: Arc<Context>, data: CommandData<'_>, args: GraphArgs) -> Bot
     Ok(())
 }
 
+const W: u32 = 750;
+const H: u32 = 400;
+const LEN: usize = (W * H) as usize * 3;
+
 async fn medals_graph(
     ctx: &Context,
     data: &CommandData<'_>,
@@ -137,7 +141,7 @@ async fn medals_graph(
         medals.sort_unstable_by_key(|medal| medal.achieved_at);
     }
 
-    let bytes = match super::medals::stats::graph(user.medals.as_ref().unwrap()) {
+    let bytes = match super::medals::stats::graph(user.medals.as_ref().unwrap(), W, H) {
         Ok(Some(graph)) => graph,
         Ok(None) => {
             let content = format!("`{name}` does not have any medals");
@@ -220,10 +224,6 @@ async fn rank_graph(
     };
 
     fn draw_graph(user: &User) -> Result<Option<Vec<u8>>, GraphError> {
-        const W: u32 = 750;
-        const H: u32 = 400;
-        const LEN: usize = (W * H) as usize * 3;
-
         let mut buf = vec![0; LEN];
 
         let history = match user.rank_history {
@@ -272,7 +272,7 @@ async fn rank_graph(
             let background = RGBColor(19, 43, 33);
             root.fill(&background)?;
 
-            let circle_style: fn(RGBColor) -> ShapeStyle = |color| ShapeStyle {
+            let style: fn(RGBColor) -> ShapeStyle = |color| ShapeStyle {
                 color: color.to_rgba(),
                 filled: false,
                 stroke_width: 1,
@@ -302,24 +302,25 @@ async fn rank_graph(
             let data = (0..).zip(history.iter().map(|rank| -(*rank as i32)));
 
             let area_style = RGBColor(2, 186, 213).mix(0.8).filled();
-            let series = AreaSeries::new(data, min, area_style);
+            let border_style = style(RGBColor(0, 208, 138)).stroke_width(3);
+            let series = AreaSeries::new(data, min, area_style).border_style(border_style);
             chart.draw_series(series)?;
 
             let max_coords = (min_idx as u32, max);
-            let circle = Circle::new(max_coords, 9_u32, circle_style(GREEN));
+            let circle = Circle::new(max_coords, 9_u32, style(GREEN));
 
             chart
                 .draw_series(std::iter::once(circle))?
                 .label(format!("Peak: #{}", with_comma_int(-max)))
-                .legend(|(x, y)| Circle::new((x, y), 5_u32, circle_style(GREEN)));
+                .legend(|(x, y)| Circle::new((x, y), 5_u32, style(GREEN)));
 
             let min_coords = (max_idx as u32, min);
-            let circle = Circle::new(min_coords, 9_u32, circle_style(RED));
+            let circle = Circle::new(min_coords, 9_u32, style(RED));
 
             chart
                 .draw_series(std::iter::once(circle))?
                 .label(format!("Worst: #{}", with_comma_int(-min)))
-                .legend(|(x, y)| Circle::new((x, y), 5_u32, circle_style(RED)));
+                .legend(|(x, y)| Circle::new((x, y), 5_u32, style(RED)));
 
             let position = if min_idx <= 70 {
                 SeriesLabelPosition::UpperRight
@@ -390,10 +391,6 @@ async fn score_time_graph(
     };
 
     fn draw_graph(scores: &[Score], tz: &FixedOffset) -> Result<Vec<u8>, GraphError> {
-        const W: u32 = 750;
-        const H: u32 = 400;
-        const LEN: usize = (W * H) as usize * 3;
-
         let mut hours = [0_u32; 24];
 
         for score in scores {

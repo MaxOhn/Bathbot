@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use chrono::Datelike;
+use chrono::{DateTime, Datelike, Utc};
 use eyre::Report;
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::prelude::*;
@@ -92,7 +92,7 @@ pub(super) async fn _medalstats(
         medals.sort_unstable_by_key(|medal| medal.achieved_at);
     }
 
-    let graph = match graph(user.medals.as_ref().unwrap()) {
+    let graph = match graph(user.medals.as_ref().unwrap(), W, H) {
         Ok(bytes_option) => bytes_option,
         Err(err) => {
             warn!("{:?}", Report::new(err));
@@ -119,34 +119,34 @@ pub(super) async fn _medalstats(
 const W: u32 = 1350;
 const H: u32 = 350;
 
-pub fn graph(medals: &[MedalCompact]) -> Result<Option<Vec<u8>>, GraphError> {
-    static LEN: usize = W as usize * H as usize;
-    let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3
+pub fn graph(medals: &[MedalCompact], w: u32, h: u32) -> Result<Option<Vec<u8>>, GraphError> {
+    let len = (w * h * 3) as usize; // PIXEL_SIZE = 3
+    let mut buf = vec![0; len];
+
     {
-        let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
-        root.fill(&WHITE)?;
+        let root = BitMapBackend::with_buffer(&mut buf, (w, h)).into_drawing_area();
+        let background = RGBColor(19, 43, 33);
+        root.fill(&background)?;
 
         if medals.is_empty() {
             return Ok(None);
         }
 
-        let mut medal_counter = Vec::with_capacity(medals.len());
-        let mut counter = 0;
-
-        for medal in medals {
-            counter += 1;
-            medal_counter.push((medal.achieved_at, counter));
-        }
-
         let first = medals.first().unwrap().achieved_at;
         let last = medals.last().unwrap().achieved_at;
 
+        let style: fn(RGBColor) -> ShapeStyle = |color| ShapeStyle {
+            color: color.to_rgba(),
+            filled: false,
+            stroke_width: 1,
+        };
+
         let mut chart = ChartBuilder::on(&root)
-            .margin_right(17)
-            .caption("Medal history", ("sans-serif", 30))
+            .margin_right(22)
+            .caption("Medal history", ("sans-serif", 30, &WHITE))
             .x_label_area_size(30)
             .y_label_area_size(45)
-            .build_cartesian_2d((first..last).monthly(), 0..counter)?;
+            .build_cartesian_2d((first..last).monthly(), 0..medals.len())?;
 
         // Mesh and labels
         chart
@@ -154,24 +154,47 @@ pub fn graph(medals: &[MedalCompact]) -> Result<Option<Vec<u8>>, GraphError> {
             .disable_x_mesh()
             .x_labels(10)
             .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month()))
-            .label_style(("sans-serif", 20))
+            .label_style(("sans-serif", 20, &WHITE))
+            .bold_line_style(&WHITE.mix(0.3))
+            .axis_style(RGBColor(7, 18, 14))
+            .axis_desc_style(("sans-serif", 16, FontStyle::Bold, &WHITE))
             .draw()?;
 
         // Draw area
-        chart.draw_series(
-            AreaSeries::new(
-                medal_counter.iter().map(|(date, count)| (*date, *count)),
-                0,
-                &BLUE.mix(0.2),
-            )
-            .border_style(&BLUE),
-        )?;
+        let area_style = RGBColor(2, 186, 213).mix(0.8).filled();
+        let border_style = style(RGBColor(0, 208, 138)).stroke_width(3);
+        let counter = MedalCounter::new(&medals);
+        let series = AreaSeries::new(counter, 0, area_style).border_style(border_style);
+        chart.draw_series(series)?;
     }
 
     // Encode buf to png
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
+    let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
     let png_encoder = PngEncoder::new(&mut png_bytes);
-    png_encoder.write_image(&buf, W, H, ColorType::Rgb8)?;
+    png_encoder.write_image(&buf, w, h, ColorType::Rgb8)?;
 
     Ok(Some(png_bytes))
+}
+
+struct MedalCounter<'m> {
+    count: usize,
+    medals: &'m [MedalCompact],
+}
+
+impl<'m> MedalCounter<'m> {
+    fn new(medals: &'m [MedalCompact]) -> Self {
+        Self { count: 0, medals }
+    }
+}
+
+impl Iterator for MedalCounter<'_> {
+    type Item = (DateTime<Utc>, usize);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let date = self.medals.first()?.achieved_at;
+        self.count += 1;
+        self.medals = &self.medals[1..];
+
+        Some((date, self.count))
+    }
 }
