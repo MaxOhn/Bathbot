@@ -91,9 +91,8 @@ async fn _leaderboard(
             }
             Err(OsuError::NotFound) => {
                 let content = format!(
-                    "Could not find beatmap with id `{}`. \
+                    "Could not find beatmap with id `{map_id}`. \
                     Did you give me a mapset id instead of a map id?",
-                    map_id
                 );
 
                 return data.error(&ctx, content).await;
@@ -129,9 +128,7 @@ async fn _leaderboard(
     let amount = scores.len();
 
     // Accumulate all necessary data
-    let first_place_icon = scores
-        .first()
-        .map(|s| format!("{}{}", AVATAR_URL, s.user_id));
+    let first_place_icon = scores.first().map(|s| format!("{AVATAR_URL}{}", s.user_id));
 
     let pages = numbers::div_euclid(10, scores.len());
 

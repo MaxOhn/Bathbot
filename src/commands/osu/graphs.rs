@@ -123,7 +123,7 @@ async fn medals_graph(
     name: &str,
     user_args: &UserArgs<'_>,
 ) -> BotResult<Option<(User, Vec<u8>)>> {
-    let mut user = match get_user(ctx, &user_args).await {
+    let mut user = match get_user(ctx, user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{name}`");
@@ -168,7 +168,7 @@ async fn playcount_replays_graph(
     name: &str,
     user_args: &UserArgs<'_>,
 ) -> BotResult<Option<(User, Vec<u8>)>> {
-    let mut user = match get_user(ctx, &user_args).await {
+    let mut user = match get_user(ctx, user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{name}`");
@@ -209,7 +209,7 @@ async fn rank_graph(
     name: &str,
     user_args: &UserArgs<'_>,
 ) -> BotResult<Option<(User, Vec<u8>)>> {
-    let user = match get_user(ctx, &user_args).await {
+    let user = match get_user(ctx, user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{name}`");
@@ -458,7 +458,7 @@ async fn sniped_graph(
     name: &str,
     user_args: &UserArgs<'_>,
 ) -> BotResult<Option<(User, Vec<u8>)>> {
-    let user = match get_user(ctx, &user_args).await {
+    let user = match get_user(ctx, user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{name}`");
@@ -534,7 +534,7 @@ async fn snipe_count_graph(
     name: &str,
     user_args: &UserArgs<'_>,
 ) -> BotResult<Option<(User, Vec<u8>)>> {
-    let user = match get_user(ctx, &user_args).await {
+    let user = match get_user(ctx, user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{name}`");
@@ -562,7 +562,7 @@ async fn snipe_count_graph(
                 warn!("{report:?}");
                 let content = format!("`{name}` has never had any national #1s");
                 let builder = MessageBuilder::new().embed(content);
-                data.create_message(&ctx, builder).await?;
+                data.create_message(ctx, builder).await?;
 
                 return Ok(None);
             }
@@ -573,7 +573,7 @@ async fn snipe_count_graph(
             user.username, user.country_code
         );
 
-        data.error(&ctx, content).await?;
+        data.error(ctx, content).await?;
 
         return Ok(None);
     };

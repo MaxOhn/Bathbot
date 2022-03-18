@@ -196,18 +196,16 @@ fn prepare_scores(
 
     let mut value = String::new();
 
-    if with_total {
-        if totals[1] + totals[2] > 0 {
-            let _ = writeln!(
-                value,
-                "**Total**: :blue_circle: {blue_won}{blue_score}{blue_won} \
-                - {red_won}{red_score}{red_won} :red_circle:",
-                blue_score = with_comma_int(totals[1]),
-                red_score = with_comma_int(totals[2]),
-                blue_won = if totals[1] > totals[2] { "**" } else { "" },
-                red_won = if totals[2] > totals[1] { "**" } else { "" },
-            );
-        }
+    if with_total && totals[1] + totals[2] > 0 {
+        let _ = writeln!(
+            value,
+            "**Total**: :blue_circle: {blue_won}{blue_score}{blue_won} \
+            - {red_won}{red_score}{red_won} :red_circle:",
+            blue_score = with_comma_int(totals[1]),
+            red_score = with_comma_int(totals[2]),
+            blue_won = if totals[1] > totals[2] { "**" } else { "" },
+            red_won = if totals[2] > totals[1] { "**" } else { "" },
+        );
     }
 
     for score in embed_scores {
@@ -278,7 +276,7 @@ pub struct MatchCompareSummaryEmbed {
 }
 
 impl MatchCompareSummaryEmbed {
-    pub fn new<'m>(
+    pub fn new(
         common: &[CommonMap],
         processed: &ProcessedMatch,
         (page, common_maps, total_maps): (usize, usize, usize),

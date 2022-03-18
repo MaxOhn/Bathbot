@@ -163,7 +163,7 @@ pub fn graph(medals: &[MedalCompact], w: u32, h: u32) -> Result<Option<Vec<u8>>,
         // Draw area
         let area_style = RGBColor(2, 186, 213).mix(0.7).filled();
         let border_style = style(RGBColor(0, 208, 138)).stroke_width(3);
-        let counter = MedalCounter::new(&medals);
+        let counter = MedalCounter::new(medals);
         let series = AreaSeries::new(counter, 0, area_style).border_style(border_style);
         chart.draw_series(series)?;
     }

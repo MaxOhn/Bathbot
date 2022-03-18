@@ -65,7 +65,7 @@ async fn matchcompare_(
             MatchComparison::new(&mut match_1, &mut match_2).into_embeds(comparison)
         }
         Err(OsuError::NotFound) => {
-            let content = format!("At least one of the two given matches was not found");
+            let content = "At least one of the two given matches was not found";
 
             return data.error(&ctx, content).await;
         }

@@ -1,4 +1,7 @@
-use super::{parse, Command, Invoke, ProcessResult};
+use std::sync::Arc;
+
+use twilight_model::{channel::Message, guild::Permissions};
+
 use crate::{
     arguments::{Args, Stream},
     commands::help::{failed_help, help, help_command},
@@ -7,8 +10,7 @@ use crate::{
     BotResult, CommandData, Context, Error,
 };
 
-use std::sync::Arc;
-use twilight_model::{channel::Message, guild::Permissions};
+use super::{parse, Command, Invoke, ProcessResult};
 
 pub async fn handle_message(ctx: Arc<Context>, msg: Message) -> BotResult<()> {
     // Ignore bots and webhooks

@@ -514,6 +514,7 @@ pub(super) async fn _compare(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn single_score(
     ctx: Arc<Context>,
     data: &CommandData<'_>,
