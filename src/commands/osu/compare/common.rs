@@ -201,9 +201,15 @@ pub(super) async fn _common(
 
             // Calculate the index of the pp ordered by their values
             if (scores[0].pp - scores[1].pp).abs() <= f32::EPSILON {
-                match scores[0].score.created_at.cmp(&scores[1].score.created_at) {
+                match scores[1].score.score.cmp(&scores[0].score.score) {
                     Ordering::Less => scores[1].pos += 1,
-                    Ordering::Equal => {}
+                    Ordering::Equal => {
+                        match scores[0].score.created_at.cmp(&scores[1].score.created_at) {
+                            Ordering::Less => scores[1].pos += 1,
+                            Ordering::Equal => {}
+                            Ordering::Greater => scores[0].pos += 1,
+                        }
+                    }
                     Ordering::Greater => scores[0].pos += 1,
                 }
             } else if scores[0].pp > scores[1].pp {
@@ -214,9 +220,15 @@ pub(super) async fn _common(
 
             if scores.len() == 3 {
                 if (scores[0].pp - scores[2].pp).abs() <= f32::EPSILON {
-                    match scores[0].score.created_at.cmp(&scores[2].score.created_at) {
+                    match scores[2].score.score.cmp(&scores[0].score.score) {
                         Ordering::Less => scores[2].pos += 1,
-                        Ordering::Equal => {}
+                        Ordering::Equal => {
+                            match scores[0].score.created_at.cmp(&scores[2].score.created_at) {
+                                Ordering::Less => scores[2].pos += 1,
+                                Ordering::Equal => {}
+                                Ordering::Greater => scores[0].pos += 1,
+                            }
+                        }
                         Ordering::Greater => scores[0].pos += 1,
                     }
                 } else if scores[0].pp > scores[2].pp {
@@ -226,9 +238,15 @@ pub(super) async fn _common(
                 }
 
                 if (scores[1].pp - scores[2].pp).abs() <= f32::EPSILON {
-                    match scores[1].score.created_at.cmp(&scores[2].score.created_at) {
+                    match scores[2].score.score.cmp(&scores[1].score.score) {
                         Ordering::Less => scores[2].pos += 1,
-                        Ordering::Equal => {}
+                        Ordering::Equal => {
+                            match scores[1].score.created_at.cmp(&scores[2].score.created_at) {
+                                Ordering::Less => scores[2].pos += 1,
+                                Ordering::Equal => {}
+                                Ordering::Greater => scores[1].pos += 1,
+                            }
+                        }
                         Ordering::Greater => scores[1].pos += 1,
                     }
                 } else if scores[1].pp > scores[2].pp {
