@@ -12,8 +12,9 @@ use plotters::{
 };
 use plotters_backend::FontStyle;
 use rosu_v2::prelude::{GameMode, OsuError, Score, User};
-use twilight_model::application::interaction::{
-    application_command::CommandOptionValue, ApplicationCommand,
+use twilight_model::application::{
+    command::CommandOptionChoice,
+    interaction::{application_command::CommandOptionValue, ApplicationCommand},
 };
 
 use crate::{
@@ -56,9 +57,9 @@ async fn graph(ctx: Arc<Context>, data: CommandData<'_>, args: GraphArgs) -> Bot
             playcount_replays_graph(&ctx, &data, &name, &user_args).await?
         }
         GraphKind::RankProgression => rank_graph(&ctx, &data, &name, &user_args).await?,
-        GraphKind::ScoreTime => {
+        GraphKind::ScoreTime { tz } => {
             // Handle distinctly because it has a footer due to the timezone
-            let tuple_option = score_time_graph(&ctx, &data, &name, user_args).await?;
+            let tuple_option = score_time_graph(&ctx, &data, &name, user_args, tz).await?;
 
             let (user, graph, tz) = match tuple_option {
                 Some(tuple) => tuple,
@@ -372,6 +373,7 @@ async fn score_time_graph(
     data: &CommandData<'_>,
     name: &str,
     user_args: UserArgs<'_>,
+    tz: Option<FixedOffset>,
 ) -> BotResult<Option<(User, Vec<u8>, FixedOffset)>> {
     let score_args = ScoreArgs::top(100);
 
@@ -435,7 +437,7 @@ async fn score_time_graph(
         Ok(png_bytes)
     }
 
-    let tz = CountryCode::from(user.country_code.clone()).timezone();
+    let tz = tz.unwrap_or_else(|| CountryCode::from(user.country_code.clone()).timezone());
 
     let bytes = match draw_graph(&scores, &tz) {
         Ok(graph) => graph,
@@ -636,13 +638,13 @@ enum GraphKind {
     MedalProgression,
     PlaycountReplays,
     RankProgression,
-    ScoreTime,
+    ScoreTime { tz: Option<FixedOffset> },
     Sniped,
     SnipeCount,
 }
 
 pub async fn slash_graph(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    let (subcommand, options) = command
+    let (subcommand, mut options) = command
         .data
         .options
         .pop()
@@ -658,7 +660,21 @@ pub async fn slash_graph(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
         "medals" => GraphKind::MedalProgression,
         "playcount_replays" => GraphKind::PlaycountReplays,
         "rank" => GraphKind::RankProgression,
-        "score_time" => GraphKind::ScoreTime,
+        "score_time" => {
+            let mut tz = None;
+
+            if let Some(idx) = options.iter().position(|option| option.name == "timezone") {
+                match options.swap_remove(idx).value {
+                    CommandOptionValue::String(value) => match value.parse::<i32>() {
+                        Ok(value) => tz = Some(FixedOffset::east(value * 3600)),
+                        Err(_) => return Err(Error::InvalidCommandOptions),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
+                }
+            }
+
+            GraphKind::ScoreTime { tz }
+        }
         "sniped" => GraphKind::Sniped,
         "snipe_count" => GraphKind::SnipeCount,
         _ => return Err(Error::InvalidCommandOptions),
@@ -685,6 +701,111 @@ pub async fn slash_graph(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
     graph(ctx, command.into(), GraphArgs { config, kind }).await
 }
 
+fn timezones() -> Vec<CommandOptionChoice> {
+    vec![
+        CommandOptionChoice::String {
+            name: "UTC-12".to_owned(),
+            value: "-12".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC-11".to_owned(),
+            value: "-11".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC-10".to_owned(),
+            value: "-10".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC-9".to_owned(),
+            value: "-9".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC-8".to_owned(),
+            value: "-8".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC-7".to_owned(),
+            value: "-7".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC-6".to_owned(),
+            value: "-6".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC-5".to_owned(),
+            value: "-5".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC-4".to_owned(),
+            value: "-4".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC-3".to_owned(),
+            value: "-3".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC-2".to_owned(),
+            value: "-2".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC-1".to_owned(),
+            value: "-1".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC+0".to_owned(),
+            value: "0".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC+1".to_owned(),
+            value: "1".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC+2".to_owned(),
+            value: "2".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC+3".to_owned(),
+            value: "3".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC+4".to_owned(),
+            value: "4".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC+5".to_owned(),
+            value: "5".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC+6".to_owned(),
+            value: "6".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC+7".to_owned(),
+            value: "7".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC+8".to_owned(),
+            value: "8".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC+9".to_owned(),
+            value: "9".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC+10".to_owned(),
+            value: "10".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC+11".to_owned(),
+            value: "11".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "UTC+12".to_owned(),
+            value: "12".to_owned(),
+        },
+    ]
+}
+
 pub fn define_graph() -> MyCommand {
     let medals = MyCommandOption::builder("medals", "Display a user's medal progress over time")
         .subcommand(vec![option_name(), option_discord()]);
@@ -698,10 +819,18 @@ pub fn define_graph() -> MyCommand {
     let rank = MyCommandOption::builder("rank", "Display a user's rank progression over time")
         .subcommand(vec![option_mode(), option_name(), option_discord()]);
 
+    let timezone =
+        MyCommandOption::builder("timezone", "Specify a timezone").string(timezones(), false);
+
     let score_time_description = "Display at what times a user set their top scores";
 
-    let score_time = MyCommandOption::builder("score_time", score_time_description)
-        .subcommand(vec![option_mode(), option_name(), option_discord()]);
+    let score_time =
+        MyCommandOption::builder("score_time", score_time_description).subcommand(vec![
+            option_mode(),
+            timezone,
+            option_name(),
+            option_discord(),
+        ]);
 
     let sniped = MyCommandOption::builder("sniped", "Display sniped users of the past 8 weeks")
         .subcommand(vec![option_name(), option_discord()]);
