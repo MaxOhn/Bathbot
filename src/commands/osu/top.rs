@@ -1,7 +1,7 @@
 use std::{fmt::Write, mem, sync::Arc};
 
 use eyre::Report;
-use hashbrown::HashSet;
+use hashbrown::HashMap;
 use rosu_v2::prelude::{
     GameMode, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
@@ -25,6 +25,7 @@ use crate::{
         osu::{get_user_and_scores, ScoreArgs, UserArgs},
         parse_discord, parse_mode_option, DoubleResultCow, MyCommand, MyCommandOption,
     },
+    custom_client::OsuTrackerMapsetEntry,
     database::{EmbedsSize, MinimizedPp, UserConfig},
     embeds::{EmbedData, TopEmbed, TopSingleEmbed},
     error::Error,
@@ -39,7 +40,7 @@ use crate::{
             GENERAL_ISSUE, OSUTRACKER_ISSUE, OSU_API_ISSUE,
         },
         matcher, numbers,
-        osu::{ModSelection, ScoreOrder},
+        osu::{ModSelection, ScoreOrder, SortableScore},
         ApplicationCommandExt, CowUtils, FilterCriteria, InteractionExt, MessageExt, Searchable,
     },
     Args, BotResult, CommandData, Context, MessageBuilder,
@@ -61,7 +62,7 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
 
     let mode = args.config.mode.unwrap_or(GameMode::STD);
 
-    if args.sort_by == ScoreOrder::Pp && args.has_dash_r {
+    if args.sort_by == TopOrder::Other(ScoreOrder::Pp) && args.has_dash_r {
         let mode_long = mode_long(mode);
         let prefix = ctx.guild_first_prefix(data.guild_id()).await;
 
@@ -80,8 +81,8 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
         return data.error(&ctx, content).await;
     } else if args.has_dash_p_or_i {
         let cmd = match args.sort_by {
-            ScoreOrder::Date => "rb",
-            ScoreOrder::Pp => "top",
+            TopOrder::Other(ScoreOrder::Date) => "rb",
+            TopOrder::Other(ScoreOrder::Pp) => "top",
             _ => unreachable!(),
         };
 
@@ -106,16 +107,16 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
     let score_args = ScoreArgs::top(100).with_combo();
 
     let farm_fut = async {
-        if args.farm.is_some() {
+        if args.farm.is_some() || matches!(args.sort_by, TopOrder::Farm) {
             get_osutracker_stats(&ctx)
                 .await
                 .map(|stats| {
                     stats
                         .mapset_count
                         .into_iter()
-                        .take(FARM_CUTOFF)
-                        .map(|entry| entry.mapset_id)
-                        .collect::<HashSet<_>>()
+                        .enumerate()
+                        .map(|(i, entry)| (entry.mapset_id, (entry, i < FARM_CUTOFF)))
+                        .collect::<Farm>()
                 })
                 .map(Some)
                 .transpose()
@@ -148,7 +149,7 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
 
             return Err(err.into());
         }
-        None => HashSet::new(),
+        None => HashMap::new(),
     };
 
     // Overwrite default mode
@@ -158,7 +159,7 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
     process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
     // Filter scores according to mods, combo, acc, and grade
-    let scores = filter_scores(&ctx, scores, &args, farm).await;
+    let scores = filter_scores(&ctx, scores, &args, &farm).await;
 
     if args.index.filter(|n| *n > scores.len()).is_some() {
         let content = format!(
@@ -224,7 +225,7 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
         }
         (None, _) => {
             let content = write_content(name, &args, scores.len());
-            paginated_embed(ctx, data, user, scores, args.sort_by, content).await?;
+            paginated_embed(ctx, data, user, scores, args.sort_by, content, farm).await?;
         }
     }
 
@@ -449,7 +450,7 @@ async fn recentbest(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
             match TopArgs::args(&ctx, &mut args, msg.author.id, num).await {
                 Ok(Ok(mut top_args)) => {
                     let data = CommandData::Message { msg, args, num };
-                    top_args.sort_by = ScoreOrder::Date;
+                    top_args.sort_by = ScoreOrder::Date.into();
                     top_args.config.mode.get_or_insert(GameMode::STD);
 
                     _top(ctx, data, top_args).await
@@ -496,7 +497,7 @@ async fn recentbestmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
             match TopArgs::args(&ctx, &mut args, msg.author.id, num).await {
                 Ok(Ok(mut top_args)) => {
                     let data = CommandData::Message { msg, args, num };
-                    top_args.sort_by = ScoreOrder::Date;
+                    top_args.sort_by = ScoreOrder::Date.into();
                     top_args.config.mode = Some(GameMode::MNA);
 
                     _top(ctx, data, top_args).await
@@ -543,7 +544,7 @@ async fn recentbesttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
             match TopArgs::args(&ctx, &mut args, msg.author.id, num).await {
                 Ok(Ok(mut top_args)) => {
                     let data = CommandData::Message { msg, args, num };
-                    top_args.sort_by = ScoreOrder::Date;
+                    top_args.sort_by = ScoreOrder::Date.into();
                     top_args.config.mode = Some(GameMode::TKO);
 
                     _top(ctx, data, top_args).await
@@ -590,7 +591,7 @@ async fn recentbestctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
             match TopArgs::args(&ctx, &mut args, msg.author.id, num).await {
                 Ok(Ok(mut top_args)) => {
                     let data = CommandData::Message { msg, args, num };
-                    top_args.sort_by = ScoreOrder::Date;
+                    top_args.sort_by = ScoreOrder::Date.into();
                     top_args.config.mode = Some(GameMode::CTB);
 
                     _top(ctx, data, top_args).await
@@ -611,7 +612,7 @@ async fn filter_scores(
     ctx: &Context,
     scores: Vec<Score>,
     args: &TopArgs,
-    farm: HashSet<u32>,
+    farm: &Farm,
 ) -> Vec<(usize, Score)> {
     let selection = args.mods;
     let grade = args.grade;
@@ -700,14 +701,29 @@ async fn filter_scores(
     }
 
     match args.farm {
-        Some(FarmFilter::Only) => scores_indices
-            .retain(|(_, score)| farm.contains(&score.mapset.as_ref().unwrap().mapset_id)),
-        Some(FarmFilter::Without) => scores_indices
-            .retain(|(_, score)| !farm.contains(&score.mapset.as_ref().unwrap().mapset_id)),
+        Some(FarmFilter::Only) => scores_indices.retain(|(_, score)| {
+            farm.get(&score.mapset.as_ref().unwrap().mapset_id)
+                .map_or(false, |(_, farm)| *farm)
+        }),
+        Some(FarmFilter::Without) => scores_indices.retain(|(_, score)| {
+            farm.get(&score.mapset.as_ref().unwrap().mapset_id)
+                .map_or(true, |(_, farm)| !*farm)
+        }),
         None => {}
     }
 
-    args.sort_by.apply(ctx, &mut scores_indices).await;
+    match args.sort_by {
+        TopOrder::Farm => scores_indices.sort_unstable_by(|(_, a), (_, b)| {
+            let mapset_a = a.mapset_id();
+            let mapset_b = b.mapset_id();
+
+            let count_a = farm.get(&mapset_a).map_or(0, |(entry, _)| entry.count);
+            let count_b = farm.get(&mapset_b).map_or(0, |(entry, _)| entry.count);
+
+            count_b.cmp(&count_a)
+        }),
+        TopOrder::Other(sort_by) => sort_by.apply(ctx, &mut scores_indices).await,
+    }
 
     if args.reverse {
         scores_indices.reverse();
@@ -811,16 +827,27 @@ async fn single_embed(
     Ok(())
 }
 
+type Farm = HashMap<u32, (OsuTrackerMapsetEntry, bool)>;
+
 async fn paginated_embed(
     ctx: Arc<Context>,
     data: CommandData<'_>,
     user: User,
     scores: Vec<(usize, Score)>,
-    sort_by: ScoreOrder,
+    sort_by: TopOrder,
     content: Option<String>,
+    farm: Farm,
 ) -> BotResult<()> {
     let pages = numbers::div_euclid(5, scores.len());
-    let embed_data = TopEmbed::new(&user, scores.iter().take(5), &ctx, sort_by, (1, pages)).await;
+    let embed_data = TopEmbed::new(
+        &user,
+        scores.iter().take(5),
+        &ctx,
+        sort_by,
+        &farm,
+        (1, pages),
+    )
+    .await;
     let embed = embed_data.into_builder().build();
 
     // Creating the embed
@@ -840,7 +867,7 @@ async fn paginated_embed(
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = TopPagination::new(response, user, scores, sort_by, Arc::clone(&ctx));
+    let pagination = TopPagination::new(response, user, scores, sort_by, farm, Arc::clone(&ctx));
     let owner = data.author()?.id;
 
     tokio::spawn(async move {
@@ -867,6 +894,24 @@ enum FarmFilter {
     Without,
 }
 
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum TopOrder {
+    Farm,
+    Other(ScoreOrder),
+}
+
+impl From<ScoreOrder> for TopOrder {
+    fn from(sort_by: ScoreOrder) -> Self {
+        Self::Other(sort_by)
+    }
+}
+
+impl Default for TopOrder {
+    fn default() -> Self {
+        Self::Other(ScoreOrder::default())
+    }
+}
+
 pub struct TopArgs {
     config: UserConfig,
     mods: Option<ModSelection>,
@@ -875,7 +920,7 @@ pub struct TopArgs {
     combo_min: Option<u32>,
     combo_max: Option<u32>,
     grade: Option<GradeArg>,
-    pub sort_by: ScoreOrder,
+    pub sort_by: TopOrder,
     reverse: bool,
     perfect_combo: Option<bool>,
     index: Option<usize>,
@@ -1079,7 +1124,7 @@ impl TopArgs {
             combo_min,
             combo_max,
             grade,
-            sort_by: sort_by.unwrap_or_default(),
+            sort_by: sort_by.unwrap_or_default().into(),
             reverse: reverse.unwrap_or(false),
             perfect_combo: None,
             index,
@@ -1100,7 +1145,7 @@ impl TopArgs {
         let mut config = ctx.user_config(command.user_id()?).await?;
         let mut mods = None;
         let mut grade = None;
-        let mut order = None;
+        let mut sort_by = None;
         let mut reverse = None;
         let mut perfect_combo = None;
         let mut index = None;
@@ -1117,16 +1162,17 @@ impl TopArgs {
                         None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
                     },
                     SORT => match value.as_str() {
-                        ACC => order = Some(ScoreOrder::Acc),
-                        "bpm" => order = Some(ScoreOrder::Bpm),
-                        COMBO => order = Some(ScoreOrder::Combo),
-                        "date" => order = Some(ScoreOrder::Date),
-                        "len" => order = Some(ScoreOrder::Length),
-                        "miss" => order = Some(ScoreOrder::Misses),
-                        "pp" => order = Some(ScoreOrder::Pp),
-                        "ranked_date" => order = Some(ScoreOrder::RankedDate),
-                        "score" => order = Some(ScoreOrder::Score),
-                        "stars" => order = Some(ScoreOrder::Stars),
+                        ACC => sort_by = Some(TopOrder::Other(ScoreOrder::Acc)),
+                        "bpm" => sort_by = Some(TopOrder::Other(ScoreOrder::Bpm)),
+                        COMBO => sort_by = Some(TopOrder::Other(ScoreOrder::Combo)),
+                        "date" => sort_by = Some(TopOrder::Other(ScoreOrder::Date)),
+                        "farm" => sort_by = Some(TopOrder::Farm),
+                        "len" => sort_by = Some(TopOrder::Other(ScoreOrder::Length)),
+                        "miss" => sort_by = Some(TopOrder::Other(ScoreOrder::Misses)),
+                        "pp" => sort_by = Some(TopOrder::Other(ScoreOrder::Pp)),
+                        "ranked_date" => sort_by = Some(TopOrder::Other(ScoreOrder::RankedDate)),
+                        "score" => sort_by = Some(TopOrder::Other(ScoreOrder::Score)),
+                        "stars" => sort_by = Some(TopOrder::Other(ScoreOrder::Stars)),
                         _ => return Err(Error::InvalidCommandOptions),
                     },
                     GRADE => match value.as_str() {
@@ -1187,7 +1233,7 @@ impl TopArgs {
             combo_min: None,
             combo_max: None,
             grade,
-            sort_by: order.unwrap_or_default(),
+            sort_by: sort_by.unwrap_or_default(),
             reverse: reverse.unwrap_or(false),
             perfect_combo,
             index,
@@ -1233,24 +1279,44 @@ fn write_content(name: &str, args: &TopArgs, amount: usize) -> Option<String> {
         let reverse = if args.reverse { "reversed " } else { "" };
 
         let content = match args.sort_by {
-            ScoreOrder::Acc => format!("`{name}`'{genitive} top100 sorted by {reverse}accuracy:"),
-            ScoreOrder::Bpm => format!("`{name}`'{genitive} top100 sorted by {reverse}BPM:"),
-            ScoreOrder::Combo => format!("`{name}`'{genitive} top100 sorted by {reverse}combo:"),
-            ScoreOrder::Date if args.reverse => {
+            TopOrder::Farm if args.reverse => {
+                format!("`{name}`'{genitive} top100 sorted by least popular farm:")
+            }
+            TopOrder::Farm => format!("`{name}`'{genitive} top100 sorted by most popular farm:"),
+            TopOrder::Other(ScoreOrder::Acc) => {
+                format!("`{name}`'{genitive} top100 sorted by {reverse}accuracy:")
+            }
+            TopOrder::Other(ScoreOrder::Bpm) => {
+                format!("`{name}`'{genitive} top100 sorted by {reverse}BPM:")
+            }
+            TopOrder::Other(ScoreOrder::Combo) => {
+                format!("`{name}`'{genitive} top100 sorted by {reverse}combo:")
+            }
+            TopOrder::Other(ScoreOrder::Date) if args.reverse => {
                 format!("Oldest scores in `{name}`'{genitive} top100:")
             }
-            ScoreOrder::Date => format!("Most recent scores in `{name}`'{genitive} top100:"),
-            ScoreOrder::Length => format!("`{name}`'{genitive} top100 sorted by {reverse}length:"),
-            ScoreOrder::Misses => {
+            TopOrder::Other(ScoreOrder::Date) => {
+                format!("Most recent scores in `{name}`'{genitive} top100:")
+            }
+            TopOrder::Other(ScoreOrder::Length) => {
+                format!("`{name}`'{genitive} top100 sorted by {reverse}length:")
+            }
+            TopOrder::Other(ScoreOrder::Misses) => {
                 format!("`{name}`'{genitive} top100 sorted by {reverse}miss count:")
             }
-            ScoreOrder::Pp if !args.reverse => return None,
-            ScoreOrder::Pp => format!("`{name}`'{genitive} top100 sorted by reversed pp:"),
-            ScoreOrder::RankedDate => {
+            TopOrder::Other(ScoreOrder::Pp) if !args.reverse => return None,
+            TopOrder::Other(ScoreOrder::Pp) => {
+                format!("`{name}`'{genitive} top100 sorted by reversed pp:")
+            }
+            TopOrder::Other(ScoreOrder::RankedDate) => {
                 format!("`{name}`'{genitive} top100 sorted by {reverse}ranked date:")
             }
-            ScoreOrder::Score => format!("`{name}`'{genitive} top100 sorted by {reverse}score:"),
-            ScoreOrder::Stars => format!("`{name}`'{genitive} top100 sorted by {reverse}stars:"),
+            TopOrder::Other(ScoreOrder::Score) => {
+                format!("`{name}`'{genitive} top100 sorted by {reverse}score:")
+            }
+            TopOrder::Other(ScoreOrder::Stars) => {
+                format!("`{name}`'{genitive} top100 sorted by {reverse}stars:")
+            }
         };
 
         Some(content)
@@ -1261,16 +1327,17 @@ fn content_with_condition(args: &TopArgs, amount: usize) -> String {
     let mut content = String::with_capacity(64);
 
     match args.sort_by {
-        ScoreOrder::Acc => content.push_str("`Order: Accuracy"),
-        ScoreOrder::Bpm => content.push_str("`Order: BPM"),
-        ScoreOrder::Combo => content.push_str("`Order: Combo"),
-        ScoreOrder::Date => content.push_str("`Order: Date"),
-        ScoreOrder::Length => content.push_str("`Order: Length"),
-        ScoreOrder::Misses => content.push_str("`Order: Miss count"),
-        ScoreOrder::Pp => content.push_str("`Order: Pp"),
-        ScoreOrder::RankedDate => content.push_str("`Order: Ranked date"),
-        ScoreOrder::Score => content.push_str("`Order: Score"),
-        ScoreOrder::Stars => content.push_str("`Order: Stars"),
+        TopOrder::Farm => content.push_str("`Order: Farm`"),
+        TopOrder::Other(ScoreOrder::Acc) => content.push_str("`Order: Accuracy"),
+        TopOrder::Other(ScoreOrder::Bpm) => content.push_str("`Order: BPM"),
+        TopOrder::Other(ScoreOrder::Combo) => content.push_str("`Order: Combo"),
+        TopOrder::Other(ScoreOrder::Date) => content.push_str("`Order: Date"),
+        TopOrder::Other(ScoreOrder::Length) => content.push_str("`Order: Length"),
+        TopOrder::Other(ScoreOrder::Misses) => content.push_str("`Order: Miss count"),
+        TopOrder::Other(ScoreOrder::Pp) => content.push_str("`Order: Pp"),
+        TopOrder::Other(ScoreOrder::RankedDate) => content.push_str("`Order: Ranked date"),
+        TopOrder::Other(ScoreOrder::Score) => content.push_str("`Order: Score"),
+        TopOrder::Other(ScoreOrder::Stars) => content.push_str("`Order: Stars"),
     }
 
     if args.reverse {
@@ -1370,6 +1437,10 @@ pub fn define_top() -> MyCommand {
         CommandOptionChoice::String {
             name: "date".to_owned(),
             value: "date".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "common farm".to_owned(),
+            value: "farm".to_owned(),
         },
         CommandOptionChoice::String {
             name: "length".to_owned(),

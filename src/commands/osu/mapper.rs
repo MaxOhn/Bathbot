@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use eyre::Report;
+use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError, Username};
 use twilight_model::{
     application::interaction::{
@@ -32,7 +33,7 @@ use crate::{
     Args, BotResult, CommandData, Context, Error, MessageBuilder,
 };
 
-use super::{option_discord, option_mode, option_name};
+use super::{option_discord, option_mode, option_name, TopOrder};
 
 async fn _mapper(ctx: Arc<Context>, data: CommandData<'_>, args: MapperArgs) -> BotResult<()> {
     let MapperArgs { config, mapper } = args;
@@ -136,12 +137,23 @@ async fn _mapper(ctx: Arc<Context>, data: CommandData<'_>, args: MapperArgs) -> 
     };
 
     let sort_by = ScoreOrder::Pp;
+    let farm = HashMap::new();
 
     let builder = if scores.is_empty() {
         MessageBuilder::new().embed(content)
     } else {
         let pages = numbers::div_euclid(5, scores.len());
-        let data = TopEmbed::new(&user, scores.iter().take(5), &ctx, sort_by, (1, pages)).await;
+
+        let embed_fut = TopEmbed::new(
+            &user,
+            scores.iter().take(5),
+            &ctx,
+            sort_by,
+            &farm,
+            (1, pages),
+        );
+
+        let data = embed_fut.await;
         let embed = data.into_builder().build();
 
         MessageBuilder::new().content(content).embed(embed)
@@ -157,7 +169,8 @@ async fn _mapper(ctx: Arc<Context>, data: CommandData<'_>, args: MapperArgs) -> 
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = TopPagination::new(response, user, scores, sort_by, Arc::clone(&ctx));
+    let sort_by = TopOrder::Other(sort_by);
+    let pagination = TopPagination::new(response, user, scores, sort_by, farm, Arc::clone(&ctx));
     let owner = data.author()?.id;
 
     tokio::spawn(async move {

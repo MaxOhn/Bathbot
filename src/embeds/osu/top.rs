@@ -2,10 +2,13 @@ use std::fmt::{self, Write};
 
 use chrono::{DateTime, Utc};
 use eyre::Report;
+use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods, Score, User};
 
 use crate::{
+    commands::osu::TopOrder,
     core::Context,
+    custom_client::OsuTrackerMapsetEntry,
     embeds::{osu, Author, Footer},
     pp::PpCalculator,
     util::{
@@ -29,7 +32,22 @@ impl TopEmbed {
         user: &User,
         scores: S,
         ctx: &Context,
-        sort_by: ScoreOrder,
+        sort_by: impl Into<TopOrder>,
+        farm: &HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
+        pages: (usize, usize),
+    ) -> Self
+    where
+        S: Iterator<Item = &'i (usize, Score)>,
+    {
+        Self::new_(user, scores, ctx, sort_by.into(), farm, pages).await
+    }
+
+    pub async fn new_<'i, S>(
+        user: &User,
+        scores: S,
+        ctx: &Context,
+        sort_by: TopOrder,
+        farm: &HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
         pages: (usize, usize),
     ) -> Self
     where
@@ -65,7 +83,7 @@ impl TopEmbed {
             let stars = osu::get_stars(stars);
             let pp = osu::get_pp(pp, max_pp);
 
-            let mapset_opt = if let ScoreOrder::RankedDate = sort_by {
+            let mapset_opt = if let TopOrder::Other(ScoreOrder::RankedDate) = sort_by {
                 let mapset_fut = ctx.psql().get_beatmapset::<Beatmapset>(mapset.mapset_id);
 
                 match mapset_fut.await {
@@ -93,7 +111,7 @@ impl TopEmbed {
                 grade = score.grade_emote(score.mode),
                 acc = score.acc(score.mode),
                 score = with_comma_int(score.score),
-                appendix = OrderAppendix::new(sort_by, map, mapset_opt, score),
+                appendix = OrderAppendix::new(sort_by, map, mapset_opt, score, farm),
                 combo = osu::get_combo(score, map),
                 hits = score.hits_string(score.mode),
                 ago = how_long_ago_dynamic(&score.created_at)
@@ -135,18 +153,20 @@ impl_builder!(TopEmbed {
 });
 
 pub struct OrderAppendix<'a> {
-    sort_by: ScoreOrder,
+    sort_by: TopOrder,
     map: &'a Beatmap,
     ranked_date: Option<DateTime<Utc>>,
     score: &'a Score,
+    farm: &'a HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
 }
 
 impl<'a> OrderAppendix<'a> {
     pub fn new(
-        sort_by: ScoreOrder,
+        sort_by: TopOrder,
         map: &'a Beatmap,
         mapset: Option<Beatmapset>,
         score: &'a Score,
+        farm: &'a HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
     ) -> Self {
         let ranked_date = mapset.and_then(|mapset| mapset.ranked_date);
 
@@ -155,6 +175,7 @@ impl<'a> OrderAppendix<'a> {
             map,
             ranked_date,
             score,
+            farm,
         }
     }
 }
@@ -162,7 +183,16 @@ impl<'a> OrderAppendix<'a> {
 impl fmt::Display for OrderAppendix<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.sort_by {
-            ScoreOrder::Bpm => {
+            TopOrder::Farm => {
+                let mapset_id = self.map.mapset_id;
+                let count = self
+                    .farm
+                    .get(&mapset_id)
+                    .map_or(0, |(entry, _)| entry.count);
+
+                write!(f, " ~ `{}`", with_comma_int(count))
+            }
+            TopOrder::Other(ScoreOrder::Bpm) => {
                 let mods = self.score.mods;
 
                 let clock_rate = if mods.contains(GameMods::DoubleTime) {
@@ -175,7 +205,7 @@ impl fmt::Display for OrderAppendix<'_> {
 
                 write!(f, " ~ `{}bpm`", round(self.map.bpm * clock_rate))
             }
-            ScoreOrder::Length => {
+            TopOrder::Other(ScoreOrder::Length) => {
                 let mods = self.score.mods;
 
                 let clock_rate = if mods.contains(GameMods::DoubleTime) {
@@ -190,7 +220,7 @@ impl fmt::Display for OrderAppendix<'_> {
 
                 write!(f, " ~ `{}:{:0>2}`", secs / 60, secs % 60)
             }
-            ScoreOrder::RankedDate => {
+            TopOrder::Other(ScoreOrder::RankedDate) => {
                 if let Some(date) = self.ranked_date {
                     write!(f, " ~ <t:{}:d>", date.timestamp())
                 } else {

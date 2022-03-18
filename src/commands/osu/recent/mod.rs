@@ -59,7 +59,7 @@ impl RecentCommandKind {
                 },
                 "best" => match TopArgs::slash(ctx, command, options).await? {
                     Ok(mut args) => {
-                        args.sort_by = ScoreOrder::Date;
+                        args.sort_by = ScoreOrder::Date.into();
 
                         Ok(Ok(RecentCommandKind::Best(args)))
                     }
@@ -110,7 +110,7 @@ pub async fn slash_rb(ctx: Arc<Context>, mut command: ApplicationCommand) -> Bot
 
     match TopArgs::slash(&ctx, &command, options).await? {
         Ok(mut args) => {
-            args.sort_by = ScoreOrder::Date;
+            args.sort_by = ScoreOrder::Date.into();
 
             _top(ctx, command.into(), args).await
         }

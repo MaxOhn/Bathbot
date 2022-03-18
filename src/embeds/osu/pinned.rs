@@ -1,9 +1,11 @@
 use std::fmt::Write;
 
 use eyre::Report;
+use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmapset, GameMode, Score, User};
 
 use crate::{
+    commands::osu::TopOrder,
     core::Context,
     embeds::{osu, Author, Footer},
     pp::PpCalculator,
@@ -34,6 +36,7 @@ impl PinnedEmbed {
         S: Iterator<Item = &'i Score>,
     {
         let mut description = String::with_capacity(512);
+        let farm = HashMap::new();
 
         for score in scores {
             let map = score.map.as_ref().unwrap();
@@ -90,7 +93,8 @@ impl PinnedEmbed {
                 grade = score.grade_emote(score.mode),
                 acc = score.acc(score.mode),
                 score = with_comma_int(score.score),
-                appendix = OrderAppendix::new(sort_by, map, mapset_opt, score),
+                appendix =
+                    OrderAppendix::new(TopOrder::Other(sort_by), map, mapset_opt, score, &farm),
                 combo = osu::get_combo(score, map),
                 hits = score.hits_string(score.mode),
                 ago = how_long_ago_dynamic(&score.created_at)

@@ -1,9 +1,13 @@
 use std::sync::Arc;
 
+use hashbrown::HashMap;
 use rosu_v2::prelude::{Score, User};
 use twilight_model::channel::Message;
 
-use crate::{ core::Context, embeds::TopEmbed, BotResult, util::osu::ScoreOrder};
+use crate::{
+    commands::osu::TopOrder, core::Context, custom_client::OsuTrackerMapsetEntry, embeds::TopEmbed,
+    BotResult,
+};
 
 use super::{Pages, Pagination};
 
@@ -13,7 +17,8 @@ pub struct TopPagination {
     pages: Pages,
     user: User,
     scores: Vec<(usize, Score)>,
-    sort_by: ScoreOrder,
+    sort_by: TopOrder,
+    farm: HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
 }
 
 impl TopPagination {
@@ -21,7 +26,8 @@ impl TopPagination {
         msg: Message,
         user: User,
         scores: Vec<(usize, Score)>,
-        sort_by: ScoreOrder,
+        sort_by: TopOrder,
+        farm: HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
         ctx: Arc<Context>,
     ) -> Self {
         Self {
@@ -31,6 +37,7 @@ impl TopPagination {
             scores,
             ctx,
             sort_by,
+            farm,
         }
     }
 }
@@ -64,6 +71,15 @@ impl Pagination for TopPagination {
 
         let pages = (self.page(), self.pages.total_pages);
 
-        Ok(TopEmbed::new(&self.user, scores, &self.ctx, self.sort_by, pages).await)
+        let embed_fut = TopEmbed::new(
+            &self.user,
+            scores,
+            &self.ctx,
+            self.sort_by,
+            &self.farm,
+            pages,
+        );
+
+        Ok(embed_fut.await)
     }
 }
