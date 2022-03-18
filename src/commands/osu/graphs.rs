@@ -112,8 +112,8 @@ async fn graph(ctx: Arc<Context>, data: CommandData<'_>, args: GraphArgs) -> Bot
     Ok(())
 }
 
-const W: u32 = 750;
-const H: u32 = 400;
+const W: u32 = 950;
+const H: u32 = 500;
 const LEN: usize = (W * H) as usize * 3;
 
 async fn medals_graph(
@@ -301,7 +301,7 @@ async fn rank_graph(
 
             let data = (0..).zip(history.iter().map(|rank| -(*rank as i32)));
 
-            let area_style = RGBColor(2, 186, 213).mix(0.8).filled();
+            let area_style = RGBColor(2, 186, 213).mix(0.7).filled();
             let border_style = style(RGBColor(0, 208, 138)).stroke_width(3);
             let series = AreaSeries::new(data, min, area_style).border_style(border_style);
             chart.draw_series(series)?;
@@ -579,6 +579,8 @@ async fn snipe_count_graph(
     let graph_result = super::snipe::player_snipe_stats::graphs(
         &player.count_first_history,
         &player.count_sr_spread,
+        W,
+        H,
     );
 
     let bytes = match graph_result {

@@ -116,7 +116,7 @@ pub(super) async fn _playersnipestats(
         }
     };
 
-    let graph_fut = async { graphs(&player.count_first_history, &player.count_sr_spread) };
+    let graph_fut = async { graphs(&player.count_first_history, &player.count_sr_spread, W, H) };
 
     let oldest_fut = async {
         let valid_oldest = player
@@ -188,16 +188,25 @@ const H: u32 = 350;
 pub fn graphs(
     history: &BTreeMap<Date<Utc>, u32>,
     stars: &BTreeMap<u8, u32>,
+    w: u32,
+    h: u32,
 ) -> Result<Vec<u8>, GraphError> {
-    static LEN: usize = W as usize * H as usize;
-    let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3
+    let len = (w * h * 3) as usize; // PIXEL_SIZE = 3
+    let mut buf = vec![0; len];
+
+    let style: fn(RGBColor) -> ShapeStyle = |color| ShapeStyle {
+        color: color.to_rgba(),
+        filled: false,
+        stroke_width: 1,
+    };
 
     {
-        let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
-        root.fill(&WHITE)?;
+        let root = BitMapBackend::with_buffer(&mut buf, (w, h)).into_drawing_area();
+        let background = RGBColor(19, 43, 33);
+        root.fill(&background)?;
 
         let star_canvas = if history.len() > 1 {
-            let (left, right) = root.split_horizontally(3 * W / 5);
+            let (left, right) = root.split_horizontally(3 * w / 5);
 
             let (min, max) = history
                 .iter()
@@ -216,7 +225,7 @@ pub fn graphs(
 
             let mut chart = ChartBuilder::on(&left)
                 .margin(9)
-                .caption("National #1 Count History", ("sans-serif", 30))
+                .caption("National #1 Count History", ("sans-serif", 30, &WHITE))
                 .x_label_area_size(20)
                 .y_label_area_size(40)
                 .build_cartesian_2d((first..last).monthly(), min..max)?;
@@ -225,26 +234,20 @@ pub fn graphs(
             chart
                 .configure_mesh()
                 .disable_x_mesh()
-                .x_labels(10)
+                .x_labels(8)
                 .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month()))
+                .label_style(("sans-serif", 15, &WHITE))
+                .bold_line_style(&WHITE.mix(0.3))
+                .axis_style(RGBColor(7, 18, 14))
+                .axis_desc_style(("sans-serif", 16, FontStyle::Bold, &WHITE))
                 .draw()?;
 
             // Draw area
-            chart.draw_series(
-                AreaSeries::new(
-                    history.iter().map(|(date, n)| (*date, *n)),
-                    min,
-                    &BLUE.mix(0.2),
-                )
-                .border_style(&BLUE),
-            )?;
-
-            // Draw circles
-            chart.draw_series(
-                history
-                    .iter()
-                    .map(|(y, m)| Circle::new((*y, *m), 2, BLUE.filled())),
-            )?;
+            let iter = history.iter().map(|(date, n)| (*date, *n));
+            let area_style = RGBColor(2, 186, 213).mix(0.7).filled();
+            let border_style = style(RGBColor(0, 208, 138)).stroke_width(3);
+            let series = AreaSeries::new(iter, 0, area_style).border_style(border_style);
+            chart.draw_series(series)?;
 
             right
         } else {
@@ -264,7 +267,7 @@ pub fn graphs(
             .x_label_area_size(30)
             .y_label_area_size(40)
             .margin_right(15)
-            .caption("Star rating spread", ("sans-serif", 30))
+            .caption("Star rating spread", ("sans-serif", 30, &WHITE))
             .build_cartesian_2d((first..last).into_segmented(), 0..max)?;
 
         // Mesh and labels
@@ -272,20 +275,28 @@ pub fn graphs(
             .configure_mesh()
             .disable_x_mesh()
             .x_labels(15)
+            .label_style(("sans-serif", 15, &WHITE))
+            .bold_line_style(&WHITE.mix(0.3))
+            .axis_style(RGBColor(7, 18, 14))
+            .axis_desc_style(("sans-serif", 16, FontStyle::Bold, &WHITE))
             .draw()?;
 
         // Histogram bars
-        chart.draw_series(
-            Histogram::vertical(&chart)
-                .style(RED.mix(0.5).filled())
-                .data(stars.iter().map(|(stars, n)| (*stars as u32, *n))),
-        )?;
+        let area_style = RGBColor(2, 186, 213).mix(0.7).filled();
+        let iter = stars.iter().map(|(stars, n)| (*stars as u32, *n));
+
+        let series = Histogram::vertical(&chart)
+            .style(area_style)
+            .data(iter)
+            .margin(3);
+
+        chart.draw_series(series)?;
     }
 
     // Encode buf to png
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
+    let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
     let png_encoder = PngEncoder::new(&mut png_bytes);
-    png_encoder.write_image(&buf, W, H, ColorType::Rgb8)?;
+    png_encoder.write_image(&buf, w, h, ColorType::Rgb8)?;
 
     Ok(png_bytes)
 }
