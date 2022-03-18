@@ -31,7 +31,7 @@ use crate::{
     pagination::{MedalsListPagination, Pagination},
     util::{
         constants::{
-            common_literals::{DISCORD, NAME},
+            common_literals::{DISCORD, NAME, REVERSE},
             GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE,
         },
         numbers, InteractionExt, MessageBuilder, MessageExt,
@@ -48,6 +48,7 @@ pub(super) async fn _medalslist(
         config,
         order,
         group,
+        reverse,
     } = args;
 
     let name = match config.into_username() {
@@ -150,14 +151,22 @@ pub(super) async fn _medalslist(
         }
     };
 
+    let reverse_str = if reverse {
+        medals.reverse();
+
+        "reversed "
+    } else {
+        ""
+    };
+
     let len = medals.len().min(10);
     let pages = numbers::div_euclid(10, medals.len());
     let embed_data = MedalsListEmbed::new(&user, &medals[..len], acquired, (1, pages));
 
     let content = match group {
-        None => format!("All medals of `{name}` sorted by {order_str}:"),
+        None => format!("All medals of `{name}` sorted by {reverse_str}{order_str}:"),
         Some(OsekaiGrouping(group)) => {
-            format!("All `{group}` medals of `{name}` sorted by {order_str}:")
+            format!("All `{group}` medals of `{name}` sorted by {reverse_str}{order_str}:")
         }
     };
 
@@ -209,6 +218,7 @@ impl Default for ListOrder {
 pub struct ListArgs {
     config: UserConfig,
     order: ListOrder,
+    reverse: bool,
     group: Option<OsekaiGrouping<'static>>,
 }
 
@@ -221,6 +231,7 @@ impl ListArgs {
         let mut config = ctx.user_config(command.user_id()?).await?;
         let mut order = None;
         let mut group = None;
+        let mut reverse = None;
 
         for option in options {
             match option.value {
@@ -248,6 +259,10 @@ impl ListArgs {
                     },
                     _ => return Err(Error::InvalidCommandOptions),
                 },
+                CommandOptionValue::Boolean(value) => match option.name.as_str() {
+                    REVERSE => reverse = Some(value),
+                    _ => return Err(Error::InvalidCommandOptions),
+                },
                 CommandOptionValue::User(value) => match option.name.as_str() {
                     DISCORD => match parse_discord(ctx, value).await? {
                         Ok(osu) => config.osu = Some(osu),
@@ -263,6 +278,7 @@ impl ListArgs {
             config,
             order: order.unwrap_or_default(),
             group,
+            reverse: reverse.unwrap_or(false),
         }))
     }
 }

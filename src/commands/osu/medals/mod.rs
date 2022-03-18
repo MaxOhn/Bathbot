@@ -24,7 +24,7 @@ use crate::{
     custom_client::MEDAL_GROUPS,
     database::OsuData,
     util::{
-        constants::common_literals::{DISCORD, INDEX, NAME},
+        constants::common_literals::{DISCORD, INDEX, NAME, REVERSE},
         CowUtils, InteractionExt, MessageExt,
     },
     BotResult, Context, Error,
@@ -282,10 +282,13 @@ pub fn define_medal() -> MyCommand {
     let group = MyCommandOption::builder("group", "Only show medals of this group")
         .string(group_choices, false);
 
+    let reverse =
+        MyCommandOption::builder(REVERSE, "Reverse the resulting medal list").boolean(false);
+
     let discord = option_discord();
 
     let list = MyCommandOption::builder("list", "List all achieved medals of a user")
-        .subcommand(vec![name, sort, group, discord]);
+        .subcommand(vec![name, sort, group, reverse, discord]);
 
     let name = option_name();
     let discord = option_discord();
