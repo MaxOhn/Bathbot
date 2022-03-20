@@ -1427,47 +1427,47 @@ pub fn define_top() -> MyCommand {
 
     let sort_choices = vec![
         CommandOptionChoice::String {
-            name: ACCURACY.to_owned(),
+            name: "Accuracy".to_owned(),
             value: ACC.to_owned(),
         },
         CommandOptionChoice::String {
-            name: "bpm".to_owned(),
+            name: "BPM".to_owned(),
             value: "bpm".to_owned(),
         },
         CommandOptionChoice::String {
-            name: COMBO.to_owned(),
+            name: "Combo".to_owned(),
             value: COMBO.to_owned(),
         },
         CommandOptionChoice::String {
-            name: "date".to_owned(),
+            name: "Date".to_owned(),
             value: "date".to_owned(),
         },
         CommandOptionChoice::String {
-            name: "common farm".to_owned(),
+            name: "Common farm".to_owned(),
             value: "farm".to_owned(),
         },
         CommandOptionChoice::String {
-            name: "length".to_owned(),
+            name: "Length".to_owned(),
             value: "len".to_owned(),
         },
         CommandOptionChoice::String {
-            name: "map ranked date".to_owned(),
+            name: "Map ranked date".to_owned(),
             value: "ranked_date".to_owned(),
         },
         CommandOptionChoice::String {
-            name: "misses".to_owned(),
+            name: "Misses".to_owned(),
             value: "miss".to_owned(),
         },
         CommandOptionChoice::String {
-            name: "pp".to_owned(),
+            name: "PP".to_owned(),
             value: "pp".to_owned(),
         },
         CommandOptionChoice::String {
-            name: "score".to_owned(),
+            name: "Score".to_owned(),
             value: "score".to_owned(),
         },
         CommandOptionChoice::String {
-            name: "stars".to_owned(),
+            name: "Stars".to_owned(),
             value: "stars".to_owned(),
         },
     ];
