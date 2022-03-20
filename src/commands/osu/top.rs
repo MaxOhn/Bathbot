@@ -789,7 +789,7 @@ async fn single_embed(
         EmbedsSize::InitialMaximized => {
             let mut builder = MessageBuilder::new().embed(embed_data.as_builder().build());
 
-            if let Some(content) = content {
+            if let Some(ref content) = content {
                 builder = builder.content(content);
             }
 
@@ -805,7 +805,11 @@ async fn single_embed(
                     return;
                 }
 
-                let builder = embed_data.into_builder().build().into();
+                let mut builder = MessageBuilder::new().embed(embed_data.into_builder().build());
+
+                if let Some(content) = content {
+                    builder = builder.content(content);
+                }
 
                 if let Err(why) = response.update_message(&ctx, builder).await {
                     let report = Report::new(why).wrap_err("failed to minimize top message");
