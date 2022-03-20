@@ -253,6 +253,28 @@ fn best_options() -> Vec<MyCommandOption> {
         false,
     );
 
+    let farm_choices = vec![
+        CommandOptionChoice::String {
+            name: "No farm".to_owned(),
+            value: "no_farm".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Only farm".to_owned(),
+            value: "only_farm".to_owned(),
+        },
+    ];
+
+    let farm_help = "Specify if you want to filter out farm maps.\n\
+        A map counts as farmy if its mapset appears in the top 727 \
+        sets based on how often the set is in people's top100 scores.\n\
+        The list of mapsets can be checked with `/popular mapsets` or \
+        on [here](https://osutracker.com/stats)";
+
+    let farm =
+        MyCommandOption::builder("common_farm", "Specify if you want to filter out farm maps")
+            .help(farm_help)
+            .string(farm_choices, false);
+
     let perfect_combo_description = "Filter out all scores that don't have a perfect combo";
 
     let perfect_combo =
@@ -267,6 +289,7 @@ fn best_options() -> Vec<MyCommandOption> {
         reverse,
         query,
         grade,
+        farm,
         perfect_combo,
     ]
 }
