@@ -80,10 +80,6 @@ pub enum InsertMapError {
 
 #[derive(Debug, Error)]
 pub enum InsertMapsetError {
-    #[error("cannot add mapset to DB without genre")]
-    MissingGenre,
-    #[error("cannot add mapset to DB without language")]
-    MissingLanguage,
     #[error("failed to add mapset to DB")]
     Sqlx(#[from] SqlxError),
 }
@@ -314,18 +310,6 @@ fn insert_mapset_<'a>(
     mapset: &'a Beatmapset,
 ) -> BoxFuture<'a, InsertMapResult<()>> {
     let fut = async move {
-        let genre = if let Some(genre) = mapset.genre {
-            Some(genre as i16)
-        } else {
-            return Err(InsertMapsetError::MissingGenre.into());
-        };
-
-        let language = if let Some(language) = mapset.language {
-            Some(language as i16)
-        } else {
-            return Err(InsertMapsetError::MissingLanguage.into());
-        };
-
         let query = sqlx::query!(
             "INSERT INTO mapsets (\
                 mapset_id,\
@@ -335,12 +319,10 @@ fn insert_mapset_<'a>(
                 creator,\
                 status,\
                 ranked_date,\
-                genre,\
-                language,\
                 bpm\
             )\
             VALUES\
-            ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)\
+            ($1,$2,$3,$4,$5,$6,$7,$8)\
             ON CONFLICT (mapset_id) DO NOTHING",
             mapset.mapset_id as i32,
             mapset.creator_id as i32,
@@ -349,8 +331,6 @@ fn insert_mapset_<'a>(
             mapset.creator_name.as_str(),
             mapset.status as i16,
             mapset.ranked_date,
-            genre,
-            language,
             mapset.bpm,
         );
 

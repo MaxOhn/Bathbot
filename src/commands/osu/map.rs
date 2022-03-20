@@ -121,7 +121,14 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
                 Err(_) => {
                     // If not in DB, request through API
                     match ctx.osu().beatmap().map_id(id).await {
-                        Ok(map) => (map.mapset_id, Some(id)),
+                        Ok(map) => {
+                            // Store map in DB
+                            if let Err(err) = ctx.psql().insert_beatmap(&map).await {
+                                warn!("{:?}", Report::new(err));
+                            }
+
+                            (map.mapset_id, Some(id))
+                        }
                         Err(OsuError::NotFound) => (id, None),
                         Err(why) => {
                             let _ = data.error(&ctx, OSU_API_ISSUE).await;
@@ -137,8 +144,7 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
         MapIdType::Set(id) => (id, None),
     };
 
-    //* Note: Not pulling from DB since it might not contain all maps of the mapset
-    // Request mapset through API
+    // Request mapset through API for all maps + genre & language
     let (mapset, maps) = match ctx.osu().beatmapset(mapset_id).await {
         Ok(mut mapset) => {
             let mut maps = mapset.maps.take().unwrap_or_default();
