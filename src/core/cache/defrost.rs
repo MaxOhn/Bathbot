@@ -8,7 +8,7 @@ use twilight_cache_inmemory::{
     GuildResource,
 };
 use twilight_model::{
-    channel::GuildChannel,
+    channel::Channel,
     guild::Role,
     user::{CurrentUser, User},
 };
@@ -152,8 +152,7 @@ impl Cache {
                 return Err(DefrostInnerError::MissingKey(key));
             }
 
-            let channels =
-                unsafe { rkyv::archived_root::<Vec<GuildResource<GuildChannel>>>(&bytes) };
+            let channels = unsafe { rkyv::archived_root::<Vec<Channel>>(&bytes) };
             conn.del(key).await?;
 
             debug!(
@@ -162,11 +161,9 @@ impl Cache {
             );
 
             for channel in channels.iter() {
-                let channel = Deserialize::<GuildResource<GuildChannel>, _>::deserialize(
-                    channel,
-                    &mut Infallible,
-                )
-                .unwrap();
+                let channel =
+                    Deserialize::<Channel, _>::deserialize(channel, &mut Infallible)
+                        .unwrap();
                 self.inner.insert_channel(channel);
             }
         }

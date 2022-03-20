@@ -3,7 +3,6 @@ use std::{fmt::Write, sync::Arc};
 use prometheus::core::Collector;
 use twilight_model::{
     application::{
-        callback::{Autocomplete, CallbackData, InteractionResponse},
         command::CommandOptionChoice,
         component::{
             button::ButtonStyle, select_menu::SelectMenuOption, ActionRow, Button, Component,
@@ -11,10 +10,11 @@ use twilight_model::{
         },
         interaction::{
             application_command::CommandOptionValue, ApplicationCommand,
-            MessageComponentInteraction,
+            ApplicationCommandAutocomplete, MessageComponentInteraction,
         },
     },
     channel::embed::EmbedField,
+    http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
 };
 
 use crate::{
@@ -238,17 +238,19 @@ pub async fn handle_menu_select(
 
     menu_content.push(Component::ActionRow(button_row));
 
-    let response = InteractionResponse::UpdateMessage(CallbackData {
-        allowed_mentions: None,
+    let data = InteractionResponseData {
         components,
-        content: None,
         embeds: Some(vec![embed_builder.build()]),
-        flags: None,
-        tts: None,
-    });
+        ..Default::default()
+    };
+
+    let response = InteractionResponse {
+        kind: InteractionResponseType::UpdateMessage,
+        data: Some(data),
+    };
 
     ctx.interaction()
-        .interaction_callback(component.id, &component.token, &response)
+        .create_response(component.id, &component.token, &response)
         .exec()
         .await?;
 
@@ -393,22 +395,20 @@ async fn help_slash_command(
     Ok(())
 }
 
-pub async fn handle_autocomplete(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
+pub async fn handle_autocomplete(
+    ctx: Arc<Context>,
+    command: ApplicationCommandAutocomplete,
+) -> BotResult<()> {
     let mut cmd_name = None;
     let mut focus = None;
 
     if let Some(option) = command.data.options.first() {
-        let option = (option.name == "command").then(|| match &option.value {
-            CommandOptionValue::String(value) => Some((value, option.focused)),
-            _ => None,
-        });
-
-        match option.flatten() {
-            Some((value, focus_)) => {
+        match option.value {
+            Some(ref value) if option.name == "command" => {
                 cmd_name = Some(value);
-                focus = Some(focus_);
+                focus = Some(option.focused);
             }
-            None => return Err(Error::InvalidCommandOptions),
+            _ => return Err(Error::InvalidCommandOptions),
         }
     }
 
@@ -431,10 +431,18 @@ pub async fn handle_autocomplete(ctx: Arc<Context>, command: ApplicationCommand)
         _ => Vec::new(),
     };
 
-    let res = InteractionResponse::Autocomplete(Autocomplete { choices });
+    let data = InteractionResponseData {
+        choices: Some(choices),
+        ..Default::default()
+    };
+
+    let response = InteractionResponse {
+        kind: InteractionResponseType::ApplicationCommandAutocompleteResult,
+        data: Some(data),
+    };
 
     ctx.interaction()
-        .interaction_callback(command.id, &command.token, &res)
+        .create_response(command.id, &command.token, &response)
         .exec()
         .await?;
 

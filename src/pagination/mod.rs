@@ -239,7 +239,7 @@ pub trait Pagination: Sync + Sized {
                 builder = builder.thumbnail(thumbnail);
             }
 
-            update.embeds(&[builder.build()])?.exec().await?;
+            update.embeds(Some(&[builder.build()]))?.exec().await?;
         }
 
         Ok(())

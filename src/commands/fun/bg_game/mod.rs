@@ -15,7 +15,6 @@ use eyre::Report;
 use rosu_v2::prelude::GameMode;
 use twilight_model::{
     application::{
-        callback::{CallbackData, InteractionResponse},
         command::CommandOptionChoice,
         component::{
             button::ButtonStyle, select_menu::SelectMenuOption, ActionRow, Button, Component,
@@ -30,6 +29,7 @@ use twilight_model::{
         embed::{Embed, EmbedField},
         Reaction,
     },
+    http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
     id::{marker::UserMarker, Id},
 };
 
@@ -204,20 +204,20 @@ async fn update_field(
         embed.fields.push(field);
     }
 
-    let callback_data = CallbackData {
-        allowed_mentions: None,
-        components: None,
-        content: None,
+    let data = InteractionResponseData {
         embeds: Some(vec![embed]),
-        flags: None,
-        tts: None,
+        ..Default::default()
     };
 
-    let response = InteractionResponse::UpdateMessage(callback_data);
+    let response = InteractionResponse {
+        kind: InteractionResponseType::UpdateMessage,
+        data: Some(data),
+    };
+
     let client = ctx.interaction();
 
     client
-        .interaction_callback(component.id, &component.token, &response)
+        .create_response(component.id, &component.token, &response)
         .exec()
         .await?;
 
@@ -481,20 +481,20 @@ pub async fn handle_bg_start_effects(
                     embed.fields.push(field);
                 }
 
-                let callback_data = CallbackData {
-                    allowed_mentions: None,
-                    components: None,
-                    content: None,
+                let data = InteractionResponseData {
                     embeds: Some(vec![embed]),
-                    flags: None,
-                    tts: None,
+                    ..Default::default()
                 };
 
-                let response = InteractionResponse::UpdateMessage(callback_data);
+                let response = InteractionResponse {
+                    kind: InteractionResponseType::UpdateMessage,
+                    data: Some(data),
+                };
+
                 let client = ctx.interaction();
 
                 client
-                    .interaction_callback(component.id, &component.token, &response)
+                    .create_response(component.id, &component.token, &response)
                     .exec()
                     .await?;
             }
@@ -515,20 +515,21 @@ async fn remove_components(
     component: &MessageComponentInteraction,
     embed: Option<Embed>,
 ) -> BotResult<()> {
-    let callback_data = CallbackData {
-        allowed_mentions: None,
+    let data = InteractionResponseData {
         components: Some(Vec::new()),
-        content: None,
         embeds: embed.map(|e| vec![e]),
-        flags: None,
-        tts: None,
+        ..Default::default()
     };
 
-    let response = InteractionResponse::UpdateMessage(callback_data);
+    let response = InteractionResponse {
+        kind: InteractionResponseType::UpdateMessage,
+        data: Some(data),
+    };
+
     let client = ctx.interaction();
 
     client
-        .interaction_callback(component.id, &component.token, &response)
+        .create_response(component.id, &component.token, &response)
         .exec()
         .await?;
 

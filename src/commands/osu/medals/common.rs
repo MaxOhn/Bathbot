@@ -225,7 +225,7 @@ pub(super) async fn _common(
     let embed = embed_data.into_builder().build();
     let mut builder = MessageBuilder::new().embed(embed);
 
-    if let Some(bytes) = thumbnail.as_deref() {
+    if let Some(bytes) = thumbnail {
         builder = builder.file("avatar_fuse.png", bytes);
     }
 

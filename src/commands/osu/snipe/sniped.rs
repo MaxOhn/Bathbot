@@ -148,7 +148,7 @@ pub(super) async fn _sniped(
     let embed = embed_data.into_builder().build();
     let mut builder = MessageBuilder::new().embed(embed);
 
-    if let Some(bytes) = graph.as_deref() {
+    if let Some(bytes) = graph {
         builder = builder.file("sniped_graph.png", bytes);
     }
 

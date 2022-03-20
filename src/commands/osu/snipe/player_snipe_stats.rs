@@ -173,7 +173,7 @@ pub(super) async fn _playersnipestats(
     let embed = embed_data.into_builder().build();
     let mut builder = MessageBuilder::new().embed(embed);
 
-    if let Some(bytes) = graph.as_deref() {
+    if let Some(bytes) = graph {
         builder = builder.file("stats_graph.png", bytes);
     }
 

@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, sync::Arc};
+use std::{collections::VecDeque, mem, sync::Arc};
 use tokio::{
     sync::mpsc::{self, UnboundedSender},
     time::{sleep, Duration},
@@ -58,7 +58,7 @@ impl GameWrapper {
             loop {
                 let builder = MessageBuilder::new()
                     .content("Here's the next one:")
-                    .file("bg_img.png", &img);
+                    .file("bg_img.png", mem::take(&mut img));
 
                 let tmp_msg = (Id::<MessageMarker>::new(1), channel);
                 let create_fut = tmp_msg.create_message(&ctx, builder);

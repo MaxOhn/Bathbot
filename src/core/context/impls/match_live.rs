@@ -279,8 +279,12 @@ impl Context {
                         let data = tracked_match.embeds.last().unwrap();
 
                         for Channel { id, msg_id } in entry.channels.iter() {
-                            let embed = &[data.as_builder().build()];
-                            let update_result = ctx.http.update_message(*id, *msg_id).embeds(embed);
+                            let embed = Some(data.as_builder().build());
+
+                            let update_result = ctx
+                                .http
+                                .update_message(*id, *msg_id)
+                                .embeds(embed.as_ref().map(slice::from_ref));
 
                             let update_fut = match update_result {
                                 Ok(update_fut) => update_fut.exec(),

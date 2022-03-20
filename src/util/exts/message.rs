@@ -4,10 +4,11 @@ use crate::{
 };
 
 use std::{borrow::Cow, slice};
-use twilight_http::{request::AttachmentFile, Response};
+use twilight_http::Response;
 use twilight_model::{
     application::interaction::ApplicationCommand,
     channel::Message,
+    http::attachment::Attachment,
     id::{
         marker::{ChannelMarker, InteractionMarker, MessageMarker},
         Id,
@@ -58,10 +59,10 @@ impl MessageExt for (Id<MessageMarker>, Id<ChannelMarker>) {
 
         let attachment = builder
             .file
-            .map(|(name, bytes)| AttachmentFile::from_bytes(name, bytes));
+            .map(|(name, bytes)| Attachment::from_bytes(name, bytes));
 
         match attachment {
-            Some(attachment) => Ok(req.attach(&[attachment]).exec().await?),
+            Some(attachment) => Ok(req.attachments(&[attachment]).unwrap().exec().await?),
             None => Ok(req.exec().await?),
         }
     }
@@ -78,7 +79,7 @@ impl MessageExt for (Id<MessageMarker>, Id<ChannelMarker>) {
             .components(builder.components)?;
 
         if let Some(ref embed) = builder.embed {
-            req = req.embeds(slice::from_ref(embed))?;
+            req = req.embeds(Some(slice::from_ref(embed)))?;
         }
 
         Ok(req.exec().await?)
@@ -126,17 +127,17 @@ impl<'s> MessageExt for (Id<InteractionMarker>, &'s str) {
         let client = ctx.interaction();
 
         let req = client
-            .update_interaction_original(self.1)
+            .update_response(self.1)
             .content(builder.content.as_ref().map(Cow::as_ref))?
             .embeds(builder.embed.as_ref().map(slice::from_ref))?
             .components(builder.components)?;
 
         let attachment = builder
             .file
-            .map(|(name, bytes)| AttachmentFile::from_bytes(name, bytes));
+            .map(|(name, bytes)| Attachment::from_bytes(name, bytes));
 
         match attachment {
-            Some(attachment) => Ok(req.attach(&[attachment]).exec().await?),
+            Some(attachment) => Ok(req.attachments(&[attachment]).unwrap().exec().await?),
             None => Ok(req.exec().await?),
         }
     }
@@ -149,7 +150,7 @@ impl<'s> MessageExt for (Id<InteractionMarker>, &'s str) {
         let client = ctx.interaction();
 
         let req = client
-            .update_interaction_original(self.1)
+            .update_response(self.1)
             .content(builder.content.as_deref())?
             .embeds(builder.embed.as_ref().map(slice::from_ref))?
             .components(builder.components)?;
@@ -158,10 +159,7 @@ impl<'s> MessageExt for (Id<InteractionMarker>, &'s str) {
     }
 
     async fn delete_message(&self, ctx: &Context) -> BotResult<()> {
-        ctx.interaction()
-            .delete_interaction_original(self.1)
-            .exec()
-            .await?;
+        ctx.interaction().delete_response(self.1).exec().await?;
 
         Ok(())
     }

@@ -51,13 +51,12 @@ async fn prune(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
 async fn _prune(ctx: Arc<Context>, data: CommandData<'_>, amount: u64) -> BotResult<()> {
     let channel_id = data.channel_id();
-
     let slash = matches!(data, CommandData::Interaction { .. });
 
     let msgs_fut = ctx
         .http
         .channel_messages(channel_id)
-        .limit(amount + slash as u64)
+        .limit(amount as u16 + slash as u16)
         .unwrap()
         .exec();
 

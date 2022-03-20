@@ -16,7 +16,7 @@ pub(super) async fn bigger(ctx: Arc<Context>, data: CommandData) -> BotResult<()
         Some(state) => match state.value() {
             GameState::Running { game } => match game.sub_image().await {
                 Ok(bytes) => {
-                    let builder = MessageBuilder::new().file("bg_img.png", &bytes);
+                    let builder = MessageBuilder::new().file("bg_img.png", bytes);
                     data.create_message(&ctx, builder).await?;
 
                     Ok(())

@@ -131,9 +131,9 @@ impl Cache {
     }
 
     async fn freeze_channels_(&self, redis: &Redis) -> Result<usize, FreezeInnerError> {
-        let mut channels_count = self.inner.stats().guild_channels_total();
+        let mut channels_count = self.inner.stats().channels_total();
         debug!("Freezing {channels_count} channels");
-        let mut channels = self.inner.iter().guild_channels();
+        let mut channels = self.inner.iter().channels();
         let mut idx = 0;
 
         const CHANNELS_CHUNK_SIZE: usize = 80_000;

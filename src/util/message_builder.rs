@@ -7,7 +7,7 @@ use twilight_model::{application::component::Component, channel::embed::Embed};
 pub struct MessageBuilder<'c> {
     pub content: Option<Cow<'c, str>>,
     pub embed: Option<Embed>,
-    pub file: Option<(&'static str, &'c [u8])>,
+    pub file: Option<(String, Vec<u8>)>,
     pub components: Option<&'c [Component]>,
 }
 
@@ -28,8 +28,8 @@ impl<'c> MessageBuilder<'c> {
         self
     }
 
-    pub fn file(mut self, name: &'static str, data: &'c [u8]) -> Self {
-        self.file.replace((name, data));
+    pub fn file(mut self, name: impl Into<String>, data: Vec<u8>) -> Self {
+        self.file.replace((name.into(), data));
 
         self
     }

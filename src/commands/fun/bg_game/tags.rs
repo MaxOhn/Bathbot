@@ -5,8 +5,7 @@ use rand::RngCore;
 use rosu_v2::model::GameMode;
 use tokio::fs;
 use tokio_stream::StreamExt;
-use twilight_http::request::AttachmentFile;
-use twilight_model::{channel::ReactionType, gateway::event::Event};
+use twilight_model::{channel::ReactionType, gateway::event::Event, http::attachment::Attachment};
 
 use super::ReactionWrapper;
 use crate::{
@@ -235,14 +234,15 @@ async fn bgtags(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
             ```"
         );
 
-        let img = AttachmentFile::from_bytes("bg_img.png", &img);
+        let img = Attachment::from_bytes("bg_img.png".to_owned(), img);
 
         // Send response
         let response = ctx
             .http
             .create_message(msg.channel_id)
             .content(&content)?
-            .attach(&[img])
+            .attachments(&[img])
+            .unwrap()
             .exec()
             .await?
             .model()

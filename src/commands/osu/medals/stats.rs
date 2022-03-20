@@ -107,7 +107,7 @@ pub(super) async fn _medalstats(
 
     let mut builder = MessageBuilder::new().embed(embed);
 
-    if let Some(ref graph) = graph {
+    if let Some(graph) = graph {
         builder = builder.file("medal_graph.png", graph);
     }
 

@@ -177,7 +177,8 @@ async fn async_main() -> Result<()> {
         | Intents::GUILD_MESSAGES
         | Intents::GUILD_MESSAGE_REACTIONS
         | Intents::DIRECT_MESSAGES
-        | Intents::DIRECT_MESSAGE_REACTIONS;
+        | Intents::DIRECT_MESSAGE_REACTIONS
+        | Intents::MESSAGE_CONTENT;
 
     let ignore_flags = EventTypeFlags::BAN_ADD
         | EventTypeFlags::BAN_REMOVE
@@ -449,6 +450,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
         }
         Event::GuildEmojisUpdate(_) => {}
         Event::GuildIntegrationsUpdate(_) => {}
+        Event::GuildStickersUpdate(_) => {}
         Event::GuildUpdate(_) => ctx.stats.event_counts.guild_update.inc(),
         Event::IntegrationCreate(_) => {}
         Event::IntegrationDelete(_) => {}

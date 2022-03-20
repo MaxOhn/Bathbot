@@ -15,12 +15,12 @@ use crate::{
 
 use std::{future::Future, mem, sync::Arc};
 use twilight_model::{
-    application::{
-        callback::{CallbackData, InteractionResponse},
-        interaction::{ApplicationCommand, MessageComponentInteraction},
+    application::interaction::{
+        ApplicationCommand, ApplicationCommandAutocomplete, MessageComponentInteraction,
     },
     channel::message::MessageFlags,
     guild::Permissions,
+    http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
 };
 
 #[derive(Copy, Clone, Default)]
@@ -92,7 +92,10 @@ pub async fn handle_component(
     }
 }
 
-pub async fn handle_autocomplete(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
+pub async fn handle_autocomplete(
+    ctx: Arc<Context>,
+    command: ApplicationCommandAutocomplete,
+) -> BotResult<()> {
     let name = command.data.name.as_str();
     ctx.stats.increment_autocomplete(name);
 
@@ -277,17 +280,26 @@ where
 }
 
 async fn start_thinking(ctx: &Context, command: &ApplicationCommand) -> BotResult<()> {
-    let response = InteractionResponse::DeferredChannelMessageWithSource(CallbackData {
+    let data = InteractionResponseData {
         allowed_mentions: None,
+        attachments: None,
+        choices: None,
         components: None,
         content: None,
+        custom_id: None,
         embeds: None,
         flags: None,
+        title: None,
         tts: None,
-    });
+    };
+
+    let response = InteractionResponse {
+        kind: InteractionResponseType::DeferredChannelMessageWithSource,
+        data: Some(data), // TODO: None sufficient?
+    };
 
     ctx.interaction()
-        .interaction_callback(command.id, &command.token, &response)
+        .create_response(command.id, &command.token, &response)
         .exec()
         .await?;
 
@@ -295,17 +307,26 @@ async fn start_thinking(ctx: &Context, command: &ApplicationCommand) -> BotResul
 }
 
 async fn start_thinking_ephemeral(ctx: &Context, command: &ApplicationCommand) -> BotResult<()> {
-    let response = InteractionResponse::DeferredChannelMessageWithSource(CallbackData {
+    let data = InteractionResponseData {
         allowed_mentions: None,
+        attachments: None,
+        choices: None,
         components: None,
         content: None,
+        custom_id: None,
         embeds: None,
         flags: Some(MessageFlags::EPHEMERAL),
+        title: None,
         tts: None,
-    });
+    };
+
+    let response = InteractionResponse {
+        kind: InteractionResponseType::DeferredChannelMessageWithSource,
+        data: Some(data),
+    };
 
     ctx.interaction()
-        .interaction_callback(command.id, &command.token, &response)
+        .create_response(command.id, &command.token, &response)
         .exec()
         .await?;
 
@@ -321,17 +342,26 @@ async fn premature_error(
     let embed = EmbedBuilder::new().color(RED).description(content).build();
     let flags = ephemeral.then(|| MessageFlags::EPHEMERAL);
 
-    let response = InteractionResponse::ChannelMessageWithSource(CallbackData {
+    let data = InteractionResponseData {
         allowed_mentions: None,
+        attachments: None,
+        choices: None,
         components: None,
         content: None,
+        custom_id: None,
         embeds: Some(vec![embed]),
         flags,
+        title: None,
         tts: None,
-    });
+    };
+
+    let response = InteractionResponse {
+        kind: InteractionResponseType::ChannelMessageWithSource,
+        data: Some(data),
+    };
 
     ctx.interaction()
-        .interaction_callback(command.id, &command.token, &response)
+        .create_response(command.id, &command.token, &response)
         .exec()
         .await?;
 
@@ -437,9 +467,9 @@ fn log_interaction(ctx: &Context, interaction: &dyn InteractionExt, name: &str) 
             location.push_str(guild_name.as_str());
             location.push(':');
 
-            let push_result = ctx
-                .cache
-                .channel(interaction.channel_id(), |c| location.push_str(c.name()));
+            let push_result = ctx.cache.channel(interaction.channel_id(), |c| {
+                location.push_str(c.name.as_deref().unwrap_or("<uncached channel>"))
+            });
 
             if push_result.is_err() {
                 location.push_str("<uncached channel>");

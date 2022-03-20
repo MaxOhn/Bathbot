@@ -117,7 +117,7 @@ impl ProfilePagination {
 
         ctx.http
             .update_message(self.msg.channel_id, self.msg.id)
-            .embeds(&[embed.as_builder().build()])?
+            .embeds(Some(&[embed.as_builder().build()]))?
             .exec()
             .await?;
 

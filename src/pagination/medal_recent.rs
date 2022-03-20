@@ -182,7 +182,7 @@ impl MedalRecentPagination {
         ctx.http
             .update_message(self.msg.channel_id, self.msg.id)
             .content(content.as_deref())?
-            .embeds(&[embed.build()])?
+            .embeds(Some(&[embed.build()]))?
             .exec()
             .await?;
 

@@ -92,7 +92,7 @@ async fn graph(ctx: Arc<Context>, data: CommandData<'_>, args: GraphArgs) -> Bot
                 .image("attachment://graph.png")
                 .build();
 
-            let builder = MessageBuilder::new().embed(embed).file("graph.png", &graph);
+            let builder = MessageBuilder::new().embed(embed).file("graph.png", graph);
             data.create_message(&ctx, builder).await?;
 
             return Ok(());
@@ -107,7 +107,7 @@ async fn graph(ctx: Arc<Context>, data: CommandData<'_>, args: GraphArgs) -> Bot
     };
 
     let embed = GraphEmbed::new(&user).into_builder().build();
-    let builder = MessageBuilder::new().embed(embed).file("graph.png", &graph);
+    let builder = MessageBuilder::new().embed(embed).file("graph.png", graph);
     data.create_message(&ctx, builder).await?;
 
     Ok(())

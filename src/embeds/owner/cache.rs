@@ -24,7 +24,7 @@ impl CacheEmbed {
             members = with_comma_int(stats.members()),
             users = with_comma_int(stats.users()),
             roles = with_comma_int(stats.roles()),
-            channels = with_comma_int(stats.guild_channels_total()),
+            channels = with_comma_int(stats.channels_total()),
         );
 
         Self {

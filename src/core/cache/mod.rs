@@ -13,7 +13,7 @@ use twilight_cache_inmemory::{
 };
 use twilight_gateway::{shard::ResumeSession, Event};
 use twilight_model::{
-    channel::GuildChannel,
+    channel::Channel,
     guild::Role,
     id::{
         marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
@@ -85,11 +85,11 @@ impl Cache {
 
     pub fn channel<F, T>(&self, channel: Id<ChannelMarker>, f: F) -> CacheResult<T>
     where
-        F: FnOnce(&GuildResource<GuildChannel>) -> T,
+        F: FnOnce(&Channel) -> T,
     {
         let channel = self
             .inner
-            .guild_channel(channel)
+            .channel(channel)
             .ok_or(CacheMiss::Channel { channel })?;
 
         Ok(f(&channel))

@@ -95,9 +95,9 @@ fn log_invoke(ctx: &Context, msg: &Message) {
             location.push_str(guild_name.as_str());
             location.push(':');
 
-            let push_result = ctx
-                .cache
-                .channel(msg.channel_id, |c| location.push_str(c.name()));
+            let push_result = ctx.cache.channel(msg.channel_id, |c| {
+                location.push_str(c.name.as_deref().unwrap_or("<uncached channel>"))
+            });
 
             if push_result.is_err() {
                 location.push_str("<uncached channel>");

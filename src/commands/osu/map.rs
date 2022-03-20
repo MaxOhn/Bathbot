@@ -238,9 +238,13 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
     let embed = embed_data.into_builder().build();
     let mut builder = MessageBuilder::new().embed(embed);
 
-    if let Some(bytes) = graph.as_deref() {
+    let with_thumbnail = if let Some(bytes) = graph {
         builder = builder.file("map_graph.png", bytes);
-    }
+
+        true
+    } else {
+        false
+    };
 
     if let Some(content) = attrs.content() {
         builder = builder.content(content);
@@ -276,7 +280,7 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
         maps,
         mods,
         map_idx,
-        graph.is_none(),
+        with_thumbnail,
         attrs,
         Arc::clone(&ctx),
     );

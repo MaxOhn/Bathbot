@@ -110,7 +110,7 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
     let embed = embed_data.as_builder().build();
     let mut builder = MessageBuilder::new().embed(embed);
 
-    if let Some(bytes) = graph.as_deref() {
+    if let Some(bytes) = graph {
         builder = builder.file("profile_graph.png", bytes);
     }
 

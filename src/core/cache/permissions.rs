@@ -1,10 +1,5 @@
-use std::ops::Deref;
-
 use twilight_model::{
-    channel::{
-        permission_overwrite::{PermissionOverwrite, PermissionOverwriteType},
-        GuildChannel,
-    },
+    channel::permission_overwrite::{PermissionOverwrite, PermissionOverwriteType},
     guild::Permissions,
     id::{
         marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
@@ -64,12 +59,9 @@ impl Cache {
             return Permissions::all();
         }
 
-        if let Ok(Some(permission_overwrites)) = self.channel(channel, |c| match c.deref() {
-            GuildChannel::PrivateThread(c) => self.permission_overwrite(c.parent_id),
-            GuildChannel::PublicThread(c) => self.permission_overwrite(c.parent_id),
-            GuildChannel::Text(c) => Some(c.permission_overwrites.clone()),
-            _ => None,
-        }) {
+        if let Ok(Some(permission_overwrites)) =
+            self.channel(channel, |c| c.permission_overwrites.clone())
+        {
             let member_roles = match roles {
                 RolesLookup::Found(roles) => Some(roles),
                 RolesLookup::NotChecked => self.member(guild, user, |m| m.roles().to_owned()).ok(),
@@ -106,17 +98,17 @@ impl Cache {
 
         for overwrite in &permission_overwrites {
             match overwrite.kind {
-                PermissionOverwriteType::Member(member) => {
-                    if member == user {
+                PermissionOverwriteType::Member => {
+                    if overwrite.id.cast() == user {
                         user_allowed |= overwrite.allow;
                         user_denied |= overwrite.deny;
                     }
                 }
-                PermissionOverwriteType::Role(role) => {
-                    if role.get() == guild.get() {
+                PermissionOverwriteType::Role => {
+                    if overwrite.id.cast() == guild {
                         everyone_allowed |= overwrite.allow;
                         everyone_denied |= overwrite.deny
-                    } else if roles.contains(&role) {
+                    } else if roles.contains(&overwrite.id.cast()) {
                         role_allowed |= overwrite.allow;
                         role_denied |= overwrite.deny;
                     }
@@ -132,20 +124,6 @@ impl Cache {
 
         *permissions &= !user_denied;
         *permissions |= user_allowed;
-    }
-
-    fn permission_overwrite(
-        &self,
-        channel: Option<Id<ChannelMarker>>,
-    ) -> Option<Vec<PermissionOverwrite>> {
-        channel.and_then(|channel| {
-            self.channel(channel, |c| match c.deref() {
-                GuildChannel::Text(c) => Some(c.permission_overwrites.clone()),
-                _ => None,
-            })
-            .ok()
-            .flatten()
-        })
     }
 }
 
