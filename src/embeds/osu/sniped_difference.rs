@@ -53,7 +53,7 @@ impl SnipedDiffEmbed {
 
                     let map = maps.get(&score.beatmap_id).unwrap();
 
-                    map.stars(score.mods.bits(), None).stars() as f32
+                    map.stars().mods(score.mods.bits()).calculate().stars() as f32
                 }
             };
 

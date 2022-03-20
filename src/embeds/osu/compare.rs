@@ -15,7 +15,7 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
-use rosu_pp::{Beatmap as Map, BeatmapExt, FruitsPP, ManiaPP, OsuPP, TaikoPP};
+use rosu_pp::{Beatmap as Map, BeatmapExt, CatchPP, ManiaPP, OsuPP, TaikoPP};
 use rosu_v2::prelude::{Beatmap, GameMode, Grade, Score, User};
 use std::{borrow::Cow, fmt::Write};
 
@@ -104,7 +104,7 @@ impl CompareEmbed {
                         .pp as f32
                 }
                 GameMode::CTB => {
-                    FruitsPP::new(&rosu_map)
+                    CatchPP::new(&rosu_map)
                         .mods(mods)
                         .combo(score.max_combo as usize)
                         .fruits(score.statistics.count_300 as usize)
@@ -148,7 +148,7 @@ impl CompareEmbed {
                         .pp as f32
                 }
                 GameMode::CTB => {
-                    FruitsPP::new(&rosu_map)
+                    CatchPP::new(&rosu_map)
                         .attributes(attrs)
                         .mods(mods)
                         .combo(score.max_combo as usize)

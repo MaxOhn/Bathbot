@@ -17,7 +17,7 @@ use crate::{
 
 use chrono::{DateTime, Utc};
 use rosu_pp::{
-    Beatmap as Map, BeatmapExt, DifficultyAttributes, FruitsPP, ManiaPP, OsuPP,
+    Beatmap as Map, BeatmapExt, CatchPP, DifficultyAttributes, ManiaPP, OsuPP,
     PerformanceAttributes, TaikoPP,
 };
 use rosu_v2::prelude::{BeatmapUserScore, GameMode, Grade, Score, User};
@@ -103,7 +103,7 @@ impl RecentEmbed {
                         .pp as f32
                 }
                 GameMode::CTB => {
-                    FruitsPP::new(&rosu_map)
+                    CatchPP::new(&rosu_map)
                         .mods(mods)
                         .combo(score.max_combo as usize)
                         .fruits(score.statistics.count_300 as usize)
@@ -142,7 +142,7 @@ impl RecentEmbed {
                     .score(score.score)
                     .calculate()
                     .into(),
-                GameMode::CTB => FruitsPP::new(&rosu_map)
+                GameMode::CTB => CatchPP::new(&rosu_map)
                     .attributes(attributes)
                     .mods(mods)
                     .combo(score.max_combo as usize)
@@ -466,7 +466,7 @@ pub fn if_fc_struct(
 
             (Some(if_fc), pp_result.difficulty.into())
         }
-        DifficultyAttributes::Fruits(attributes)
+        DifficultyAttributes::Catch(attributes)
             if score.max_combo != attributes.max_combo() as u32 =>
         {
             let total_objects = attributes.max_combo();
@@ -490,7 +490,7 @@ pub fn if_fc_struct(
                 .n_tiny_droplets
                 .saturating_sub(n_tiny_droplet_misses);
 
-            let pp_result = FruitsPP::new(map)
+            let pp_result = CatchPP::new(map)
                 .attributes(attributes)
                 .mods(mods)
                 .fruits(n_fruits)

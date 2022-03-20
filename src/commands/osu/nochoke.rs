@@ -2,7 +2,7 @@ use std::{cmp::Ordering, sync::Arc};
 
 use eyre::Report;
 use futures::stream::{FuturesUnordered, TryStreamExt};
-use rosu_pp::{Beatmap as Map, FruitsPP, OsuPP, TaikoPP};
+use rosu_pp::{Beatmap as Map, CatchPP, CatchStars, OsuPP, TaikoPP};
 use rosu_v2::prelude::{GameMode, OsuError, Score};
 use twilight_model::{
     application::{
@@ -241,7 +241,7 @@ async fn unchoke_scores(
                 unchoked.accuracy = unchoked.accuracy();
             }
             GameMode::CTB if score.max_combo != map.max_combo.unwrap_or(0) => {
-                let attributes = rosu_pp::fruits::stars(&rosu_map, mods, None);
+                let attributes = CatchStars::new(&rosu_map).mods(mods).calculate();
 
                 let total_objects = attributes.max_combo();
                 let passed_objects = (score.statistics.count_300
@@ -261,7 +261,7 @@ async fn unchoke_scores(
                 let n_tiny_droplet_misses = score.statistics.count_katu as usize;
                 let n_tiny_droplets = score.statistics.count_50 as usize;
 
-                let pp_result = FruitsPP::new(&rosu_map)
+                let pp_result = CatchPP::new(&rosu_map)
                     .attributes(attributes)
                     .mods(mods)
                     .fruits(n_fruits)
@@ -373,7 +373,7 @@ async fn perfect_scores(
                     unchoked.accuracy = 100.0;
                 }
                 GameMode::CTB if (100.0 - score.accuracy).abs() > f32::EPSILON => {
-                    let pp_result = FruitsPP::new(&rosu_map).mods(mods).calculate();
+                    let pp_result = CatchPP::new(&rosu_map).mods(mods).calculate();
 
                     unchoked.statistics.count_300 = pp_result.difficulty.n_fruits as u32;
                     unchoked.statistics.count_katu = 0;

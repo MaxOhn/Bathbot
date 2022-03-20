@@ -207,7 +207,7 @@ fn difficulty_range(difficulty: f32, min: f32, mid: f32, max: f32) -> f32 {
 
 /// The stars argument must already be adjusted for mods
 pub fn get_map_info(map: &Beatmap, mods: GameMods, stars: f32) -> String {
-    let clock_rate = mods.bits().speed();
+    let clock_rate = mods.bits().clock_rate();
 
     let mut sec_total = map.seconds_total;
     let mut sec_drain = map.seconds_drain;

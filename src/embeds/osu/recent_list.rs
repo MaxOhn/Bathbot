@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use hashbrown::HashMap;
 use rosu_pp::{
-    Beatmap as Map, BeatmapExt, DifficultyAttributes, FruitsPP, GameMode as Mode, ManiaPP, OsuPP,
+    Beatmap as Map, BeatmapExt, CatchPP, DifficultyAttributes, GameMode as Mode, ManiaPP, OsuPP,
     PerformanceAttributes, TaikoPP,
 };
 use rosu_v2::prelude::{GameMode, Grade, Score, User};
@@ -120,7 +120,7 @@ fn get_pp_stars(
 
     let (mut attributes, mut max_pp) = mod_map.remove(&key).map_or_else(
         || {
-            let attributes = map.stars(bits, None);
+            let attributes = map.stars().mods(bits).calculate();
 
             (attributes, None)
         },
@@ -139,7 +139,7 @@ fn get_pp_stars(
                 .attributes(attributes)
                 .calculate()
                 .into(),
-            Mode::CTB => FruitsPP::new(map)
+            Mode::CTB => CatchPP::new(map)
                 .mods(bits)
                 .attributes(attributes)
                 .calculate()
@@ -181,7 +181,7 @@ fn get_pp_stars(
                 .passed_objects(passed)
                 .calculate()
                 .pp() as f32,
-            Mode::CTB => FruitsPP::new(map)
+            Mode::CTB => CatchPP::new(map)
                 .mods(bits)
                 .misses(score.statistics.count_miss as usize)
                 .combo(score.max_combo as usize)
@@ -220,7 +220,7 @@ fn get_pp_stars(
                 .score(score.score)
                 .calculate()
                 .into(),
-            Mode::CTB => FruitsPP::new(map)
+            Mode::CTB => CatchPP::new(map)
                 .mods(bits)
                 .attributes(attributes)
                 .misses(score.statistics.count_miss as usize)

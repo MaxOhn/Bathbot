@@ -74,7 +74,7 @@ impl<'s> PpCalculator<'s> {
         let map = &self.map;
 
         difficulty
-            .get_or_insert_with(|| map.stars(mods, None))
+            .get_or_insert_with(|| map.stars().mods(mods).calculate())
             .stars()
     }
 
@@ -85,7 +85,7 @@ impl<'s> PpCalculator<'s> {
         let map = &self.map;
 
         let difficulty = difficulty
-            .get_or_insert_with(|| map.stars(mods, None))
+            .get_or_insert_with(|| map.stars().mods(mods).calculate())
             .to_owned();
 
         map.pp().attributes(difficulty).mods(mods).calculate().pp()
@@ -104,7 +104,7 @@ impl<'s> PpCalculator<'s> {
         let map = &self.map;
 
         let difficulty = difficulty
-            .get_or_insert_with(|| map.stars(mods, None))
+            .get_or_insert_with(|| map.stars().mods(mods).calculate())
             .to_owned();
 
         map.pp()

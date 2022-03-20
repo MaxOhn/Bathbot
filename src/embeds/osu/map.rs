@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use chrono::{DateTime, Utc};
 use rosu_pp::{
-    Beatmap as Map, BeatmapExt, FruitsPP, GameMode as Mode, ManiaPP, Mods, OsuPP,
+    Beatmap as Map, BeatmapExt, CatchPP, GameMode as Mode, ManiaPP, Mods, OsuPP,
     PerformanceAttributes, TaikoPP,
 };
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods};
@@ -120,7 +120,7 @@ impl MapEmbed {
             )
         };
 
-        let mut attributes = rosu_map.stars(mod_bits, None);
+        let mut attributes = rosu_map.stars().mods(mod_bits).calculate();
         let stars = attributes.stars();
         let mut pps = Vec::with_capacity(4);
 
@@ -138,7 +138,7 @@ impl MapEmbed {
                     .score(acc_to_score(mod_mult, acc as f32) as u32)
                     .calculate()
                     .into(),
-                Mode::CTB => FruitsPP::new(&rosu_map)
+                Mode::CTB => CatchPP::new(&rosu_map)
                     .mods(mod_bits)
                     .attributes(attributes)
                     .accuracy(acc)

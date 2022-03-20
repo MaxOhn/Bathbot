@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use eyre::Report;
 use rosu_pp::{
-    fruits::stars, Beatmap as Map, FruitsPP, ManiaPP, OsuPP, PerformanceAttributes, TaikoPP,
+    Beatmap as Map, CatchPP, CatchStars, ManiaPP, OsuPP, PerformanceAttributes, TaikoPP,
 };
 use rosu_v2::prelude::{Beatmap, GameMode, GameMods, OsuError, Score, User};
 use twilight_model::{
@@ -426,7 +426,7 @@ pub(super) async fn unchoke_pp(
                 .score(score.score)
                 .calculate()
                 .into(),
-            GameMode::CTB => FruitsPP::new(&rosu_map)
+            GameMode::CTB => CatchPP::new(&rosu_map)
                 .mods(mods)
                 .combo(score.max_combo as usize)
                 .fruits(score.statistics.count_300 as usize)
@@ -483,9 +483,9 @@ pub(super) async fn unchoke_pp(
         }
         GameMode::CTB => {
             let attributes = match attributes {
-                Some(PerformanceAttributes::Fruits(attrs)) => attrs.difficulty,
+                Some(PerformanceAttributes::Catch(attrs)) => attrs.difficulty,
                 Some(_) => panic!("no ctb attributes after calculating stars for ctb map"),
-                None => stars(&rosu_map, mods, None),
+                None => CatchStars::new(&rosu_map).mods(mods).calculate(),
             };
 
             let total_objects = attributes.max_combo();
@@ -506,7 +506,7 @@ pub(super) async fn unchoke_pp(
             let n_tiny_droplet_misses = score.statistics.count_katu as usize;
             let n_tiny_droplets = score.statistics.count_50 as usize;
 
-            FruitsPP::new(&rosu_map)
+            CatchPP::new(&rosu_map)
                 .attributes(attributes)
                 .mods(mods)
                 .fruits(n_fruits)

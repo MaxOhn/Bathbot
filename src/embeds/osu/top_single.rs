@@ -14,7 +14,7 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
-use rosu_pp::{Beatmap as Map, BeatmapExt, DifficultyAttributes, FruitsPP, OsuPP, TaikoPP};
+use rosu_pp::{Beatmap as Map, BeatmapExt, CatchPP, DifficultyAttributes, OsuPP, TaikoPP};
 use rosu_v2::prelude::{GameMode, Grade, Score, User};
 use std::{borrow::Cow, fmt::Write};
 
@@ -324,7 +324,7 @@ fn if_fc_struct(
                 acc,
             })
         }
-        DifficultyAttributes::Fruits(attributes)
+        DifficultyAttributes::Catch(attributes)
             if score.max_combo != attributes.max_combo() as u32 =>
         {
             let total_objects = attributes.max_combo();
@@ -348,7 +348,7 @@ fn if_fc_struct(
                 .n_tiny_droplets
                 .saturating_sub(n_tiny_droplet_misses);
 
-            let pp_result = FruitsPP::new(map)
+            let pp_result = CatchPP::new(map)
                 .attributes(attributes)
                 .mods(mods)
                 .fruits(n_fruits)

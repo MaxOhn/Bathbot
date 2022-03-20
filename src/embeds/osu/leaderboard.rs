@@ -15,7 +15,7 @@ use crate::{
 
 use hashbrown::HashMap;
 use rosu_pp::{
-    Beatmap as Map, BeatmapExt, DifficultyAttributes, FruitsPP, GameMode as Mode, ManiaPP, OsuPP,
+    Beatmap as Map, BeatmapExt, CatchPP, DifficultyAttributes, GameMode as Mode, ManiaPP, OsuPP,
     PerformanceAttributes, TaikoPP,
 };
 use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, GameMode};
@@ -155,7 +155,7 @@ async fn get_pp(
 
     let (mut attributes, mut max_pp) = mod_map.remove(&bits).map_or_else(
         || {
-            let attributes = map.stars(bits, None);
+            let attributes = map.stars().mods(bits).calculate();
 
             (attributes, None)
         },
@@ -174,7 +174,7 @@ async fn get_pp(
                 .attributes(attributes)
                 .calculate()
                 .into(),
-            Mode::CTB => FruitsPP::new(map)
+            Mode::CTB => CatchPP::new(map)
                 .mods(bits)
                 .attributes(attributes)
                 .calculate()
@@ -207,7 +207,7 @@ async fn get_pp(
             .score(score.score)
             .calculate()
             .into(),
-        Mode::CTB => FruitsPP::new(map)
+        Mode::CTB => CatchPP::new(map)
             .mods(bits)
             .attributes(attributes)
             .misses(score.count_miss as usize)

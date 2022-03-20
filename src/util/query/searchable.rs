@@ -89,7 +89,7 @@ impl Searchable for Score {
 
         if let Some(ref map) = self.map {
             let mods = self.mods.bits();
-            let clock_rate = mods.speed() as f32;
+            let clock_rate = mods.clock_rate() as f32;
 
             let mut ar = map.ar;
             let mut cs = map.cs;
@@ -168,7 +168,7 @@ impl Searchable for OsuTrackerCountryScore {
     fn matches(&self, criteria: &FilterCriteria<'_>) -> bool {
         let mut matches = true;
 
-        let len = self.seconds_total as f32 / self.mods.bits().speed() as f32;
+        let len = self.seconds_total as f32 / self.mods.bits().clock_rate() as f32;
         matches &= criteria.length.contains(len);
 
         let creator = self.mapper.cow_to_ascii_lowercase();

@@ -2,7 +2,7 @@ use std::{borrow::Cow, fmt::Write};
 
 use chrono::Utc;
 use rosu_pp::{
-    Beatmap as Map, BeatmapExt, DifficultyAttributes, FruitsPP, GameMode as Mode, ManiaPP, OsuPP,
+    Beatmap as Map, BeatmapExt, DifficultyAttributes, CatchPP, GameMode as Mode, ManiaPP, OsuPP,
     PerformanceAttributes, TaikoPP,
 };
 use rosu_v2::prelude::{
@@ -482,7 +482,7 @@ fn simulate_score(
 
             attributes = DifficultyAttributes::Taiko(attrs);
         }
-        DifficultyAttributes::Fruits(attrs) => {
+        DifficultyAttributes::Catch(attrs) => {
             let n_tiny_droplets;
             let n_tiny_droplet_misses;
             let mut n_droplets;
@@ -546,7 +546,7 @@ fn simulate_score(
             score.accuracy = score.accuracy();
             score.grade = score.grade(Some(score.accuracy));
 
-            attributes = DifficultyAttributes::Fruits(attrs);
+            attributes = DifficultyAttributes::Catch(attrs);
         }
     }
 
@@ -606,7 +606,7 @@ fn unchoke_score(
 
             return attributes;
         }
-        DifficultyAttributes::Fruits(ref attrs)
+        DifficultyAttributes::Catch(ref attrs)
             if score.max_combo != map.max_combo.unwrap_or_else(|| attrs.max_combo() as u32) =>
         {
             let total_objects = attrs.max_combo();
@@ -684,7 +684,7 @@ fn calculate_pp(
             .score(score.score)
             .calculate()
             .into(),
-        Mode::CTB => FruitsPP::new(map)
+        Mode::CTB => CatchPP::new(map)
             .attributes(attributes)
             .mods(mods)
             .combo(score.max_combo as usize)
