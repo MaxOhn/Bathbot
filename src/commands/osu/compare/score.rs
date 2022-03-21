@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{cmp::Ordering, sync::Arc};
 
 use eyre::Report;
 use rosu_v2::prelude::{
@@ -32,7 +32,7 @@ use crate::{
             common_literals::{ACC, COMBO, DISCORD, MAP, MAP_PARSE_FAIL, MODS, NAME, SORT},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
-        matcher,
+        matcher, numbers,
         osu::{map_id_from_history, map_id_from_msg, MapIdType, ModSelection},
         ApplicationCommandExt, InteractionExt, MessageExt,
     },
@@ -424,7 +424,7 @@ pub(super) async fn _compare(
                 globals
                     .iter()
                     .position(|s| s.created_at.timestamp() == timestamp && s.user_id == user)
-                    .map(|pos| (i, pos))
+                    .map(|pos| (i, pos + 1))
             }),
         Some(Err(err)) => {
             let report = Report::new(err).wrap_err("failed to get map leaderboard");
@@ -467,17 +467,26 @@ pub(super) async fn _compare(
 
         return fut.await;
     } else {
+        let pages = numbers::div_euclid(10, scores.len());
         let init_scores = scores.iter().take(10);
+
+        let pp_idx = scores
+            .iter()
+            .enumerate()
+            .max_by(|(_, a), (_, b)| a.pp.partial_cmp(&b.pp).unwrap_or(Ordering::Equal))
+            .map(|(i, _)| i)
+            .unwrap_or(0);
 
         // Accumulate all necessary data
         let embed_fut = ScoresEmbed::new(
             &user,
             &map,
             init_scores,
-            0,
             &pinned,
             &personal,
             global_idx,
+            pp_idx,
+            (1, pages),
             &ctx,
         );
 
@@ -500,6 +509,7 @@ pub(super) async fn _compare(
             pinned,
             personal,
             global_idx,
+            pp_idx,
             Arc::clone(&ctx),
         );
         let owner = data.author()?.id;

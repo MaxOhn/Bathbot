@@ -18,6 +18,7 @@ pub struct ScoresPagination {
     pinned: Vec<Score>,
     personal: Vec<Score>,
     global_idx: Option<(usize, usize)>,
+    pp_idx: usize,
 }
 
 impl ScoresPagination {
@@ -30,6 +31,7 @@ impl ScoresPagination {
         pinned: Vec<Score>,
         personal: Vec<Score>,
         global_idx: Option<(usize, usize)>,
+        pp_idx: usize,
         ctx: Arc<Context>,
     ) -> Self {
         Self {
@@ -41,6 +43,7 @@ impl ScoresPagination {
             pinned,
             personal,
             global_idx,
+            pp_idx,
             ctx,
         }
     }
@@ -89,10 +92,11 @@ impl Pagination for ScoresPagination {
             &self.user,
             &self.map,
             scores,
-            self.pages.index,
             &self.pinned,
             &self.personal,
             global_idx,
+            self.pp_idx,
+            (self.page(), self.pages.total_pages),
             &self.ctx,
         );
 

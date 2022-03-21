@@ -88,6 +88,7 @@ impl BotConfig {
             "single_step",
             "multi_step",
             "jump_end",
+            "miss",
         ];
 
         let emotes = emotes

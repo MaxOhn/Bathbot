@@ -30,6 +30,8 @@ pub enum Emote {
     MultiStep,
     JumpEnd,
 
+    Miss,
+
     Custom(&'static str),
 }
 
@@ -132,6 +134,7 @@ impl FromStr for Emote {
             "single_step" => Self::SingleStep,
             "multi_step" => Self::MultiStep,
             "jump_end" => Self::JumpEnd,
+            "miss" => Self::Miss,
             _ => return Err(()),
         };
 
