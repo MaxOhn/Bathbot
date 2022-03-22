@@ -7,14 +7,14 @@ use rosu_v2::prelude::{GameMode, OsuError, Username};
 use crate::{
     commands::{
         check_user_mention,
-        osu::{get_user, UserArgs},
+        osu::{get_osekai_medals, get_user, UserArgs},
     },
     custom_client::{OsekaiGrouping, OsekaiMedal, MEDAL_GROUPS},
     database::OsuData,
     embeds::{EmbedData, MedalsMissingEmbed},
     pagination::{MedalsMissingPagination, Pagination},
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
         numbers, MessageExt,
     },
     BotResult, CommandData, Context,
@@ -66,7 +66,7 @@ pub(super) async fn _medalsmissing(
 
     let user_args = UserArgs::new(name.as_str(), GameMode::STD);
     let user_fut = get_user(&ctx, &user_args);
-    let medals_fut = ctx.psql().get_medals();
+    let medals_fut = get_osekai_medals(&ctx);
 
     let (user, all_medals) = match tokio::join!(user_fut, medals_fut) {
         (Ok(user), Ok(medals)) => (user, medals),
@@ -75,10 +75,10 @@ pub(super) async fn _medalsmissing(
 
             return data.error(&ctx, content).await;
         }
-        (_, Err(why)) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+        (_, Err(err)) => {
+            let _ = data.error(&ctx, OSEKAI_ISSUE).await;
 
-            return Err(why);
+            return Err(err.into());
         }
         (Err(why), _) => {
             let _ = data.error(&ctx, OSU_API_ISSUE).await;
@@ -93,8 +93,8 @@ pub(super) async fn _medalsmissing(
 
     let mut medals: Vec<_> = all_medals
         .into_iter()
-        .filter(|(id, _)| !owned.contains(id))
-        .map(|(_, medal)| MedalType::Medal(medal))
+        .filter(|medal| !owned.contains(&medal.medal_id))
+        .map(MedalType::Medal)
         .collect();
 
     medals.extend(MEDAL_GROUPS.iter().copied().map(MedalType::Group));

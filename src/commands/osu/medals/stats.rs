@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Datelike, Utc};
 use eyre::Report;
+use hashbrown::HashMap;
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::prelude::*;
 use rosu_v2::prelude::{GameMode, MedalCompact, OsuError, Username};
@@ -9,13 +10,13 @@ use rosu_v2::prelude::{GameMode, MedalCompact, OsuError, Username};
 use crate::{
     commands::{
         check_user_mention,
-        osu::{get_user, UserArgs},
+        osu::{get_osekai_medals, get_user, UserArgs},
     },
     database::OsuData,
     embeds::{EmbedData, MedalStatsEmbed},
     error::GraphError,
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
         MessageExt,
     },
     BotResult, CommandData, Context, MessageBuilder,
@@ -67,7 +68,7 @@ pub(super) async fn _medalstats(
 
     let user_args = UserArgs::new(name.as_str(), GameMode::STD);
     let user_fut = get_user(&ctx, &user_args);
-    let medals_fut = ctx.psql().get_medals();
+    let medals_fut = get_osekai_medals(&ctx);
 
     let (mut user, all_medals) = match tokio::join!(user_fut, medals_fut) {
         (Ok(user), Ok(medals)) => (user, medals),
@@ -76,10 +77,10 @@ pub(super) async fn _medalstats(
 
             return data.error(&ctx, content).await;
         }
-        (_, Err(why)) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+        (_, Err(err)) => {
+            let _ = data.error(&ctx, OSEKAI_ISSUE).await;
 
-            return Err(why);
+            return Err(err.into());
         }
         (Err(why), _) => {
             let _ = data.error(&ctx, OSU_API_ISSUE).await;
@@ -100,6 +101,11 @@ pub(super) async fn _medalstats(
             None
         }
     };
+
+    let all_medals: HashMap<_, _> = all_medals
+        .into_iter()
+        .map(|medal| (medal.medal_id, medal))
+        .collect();
 
     let embed = MedalStatsEmbed::new(user, all_medals, graph.is_some())
         .into_builder()

@@ -10,7 +10,7 @@ use tokio::{
     time::{self, Duration},
 };
 
-use crate::{BotResult, Context, CONFIG};
+use crate::{Context, CONFIG};
 
 impl Context {
     pub fn map_garbage_collector(&self, map: &Beatmap) -> GarbageCollectMap {
@@ -78,25 +78,10 @@ impl Context {
             interval.tick().await;
             info!("[BG] Background iteration...");
 
-            match update_medals(&ctx).await {
-                Ok(count) => info!("[BG] Updated {count} medals"),
-                Err(why) => {
-                    let report = Report::new(why).wrap_err("[BG] failed to update medals");
-                    warn!("{:?}", report);
-                }
-            }
-
             let (success, total) = ctx.garbage_collect_all_maps().await;
             info!("[BG] Garbage collected {success}/{total} maps");
         }
     }
-}
-
-async fn update_medals(ctx: &Context) -> BotResult<usize> {
-    let medals = ctx.clients.custom.get_osekai_medals().await?;
-    ctx.psql().store_medals(&medals).await?;
-
-    Ok(medals.len())
 }
 
 pub struct GarbageCollectMap(Option<NonZeroU32>);

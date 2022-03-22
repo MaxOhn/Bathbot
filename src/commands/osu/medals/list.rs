@@ -15,7 +15,7 @@ use twilight_model::application::interaction::{
 
 use crate::{
     commands::{
-        osu::{get_user, UserArgs},
+        osu::{get_osekai_medals, get_user, UserArgs},
         parse_discord, DoubleResultCow,
     },
     custom_client::{
@@ -32,7 +32,7 @@ use crate::{
     util::{
         constants::{
             common_literals::{DISCORD, NAME, REVERSE},
-            GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE,
+            OSEKAI_ISSUE, OSU_API_ISSUE,
         },
         numbers, InteractionExt, MessageBuilder, MessageExt,
     },
@@ -58,7 +58,7 @@ pub(super) async fn _medalslist(
 
     let user_args = UserArgs::new(name.as_str(), GameMode::STD);
     let user_fut = get_user(&ctx, &user_args);
-    let medals_fut = ctx.psql().get_medals();
+    let medals_fut = get_osekai_medals(&ctx);
     let rarity_fut = ctx.clients.custom.get_osekai_ranking::<Rarity>();
 
     let (mut user, mut osekai_medals, rarities) =
@@ -74,12 +74,7 @@ pub(super) async fn _medalslist(
 
                 return Err(err.into());
             }
-            (_, Err(err), _) => {
-                let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-                return Err(err);
-            }
-            (.., Err(err)) => {
+            (_, Err(err), _) | (.., Err(err)) => {
                 let _ = data.error(&ctx, OSEKAI_ISSUE).await;
 
                 return Err(err.into());
@@ -96,6 +91,8 @@ pub(super) async fn _medalslist(
         osekai_medals.len(),
     );
 
+    osekai_medals.sort_unstable_by_key(|medal| medal.medal_id);
+
     let mut medals = Vec::with_capacity(acquired.0);
 
     let medals_iter = user
@@ -103,20 +100,25 @@ pub(super) async fn _medalslist(
         .as_mut()
         .map_or_else(Vec::new, mem::take)
         .into_iter()
-        .filter_map(|m| match osekai_medals.remove(&m.medal_id) {
-            Some(medal) => {
-                let entry = MedalEntryList {
-                    medal,
-                    achieved: m.achieved_at,
-                    rarity: rarities.get(&m.medal_id).copied().unwrap_or(100.0),
-                };
+        .filter_map(|m| {
+            match osekai_medals
+                .iter()
+                .position(|m_| m_.medal_id == m.medal_id)
+            {
+                Some(idx) => {
+                    let entry = MedalEntryList {
+                        medal: osekai_medals.swap_remove(idx),
+                        achieved: m.achieved_at,
+                        rarity: rarities.get(&m.medal_id).copied().unwrap_or(100.0),
+                    };
 
-                Some(entry)
-            }
-            None => {
-                warn!("Missing medal id {} in DB medals", m.medal_id);
+                    Some(entry)
+                }
+                None => {
+                    warn!("Missing medal id {}", m.medal_id);
 
-                None
+                    None
+                }
             }
         });
 

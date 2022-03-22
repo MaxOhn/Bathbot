@@ -2,7 +2,7 @@ use std::{cmp::Reverse, sync::Arc};
 
 use chrono::{DateTime, Utc};
 use eyre::Report;
-use rosu_v2::prelude::{GameMode, OsuError, User, Username};
+use rosu_v2::prelude::{GameMode, MedalCompact, OsuError, User, Username};
 use twilight_model::{
     application::interaction::{
         application_command::{CommandDataOption, CommandOptionValue},
@@ -14,7 +14,7 @@ use twilight_model::{
 use crate::{
     commands::{
         check_user_mention,
-        osu::{get_user, UserArgs},
+        osu::{get_osekai_medals, get_user, UserArgs},
         parse_discord, DoubleResultCow,
     },
     database::OsuData,
@@ -24,7 +24,7 @@ use crate::{
     util::{
         constants::{
             common_literals::{DISCORD, INDEX, NAME},
-            GENERAL_ISSUE, OSU_API_ISSUE,
+            GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE,
         },
         InteractionExt, MessageExt,
     },
@@ -73,18 +73,24 @@ pub(super) async fn _medalrecent(
 
     let user_args = UserArgs::new(name.as_str(), GameMode::STD);
     let user_fut = get_user(&ctx, &user_args);
+    let medals_fut = get_osekai_medals(&ctx);
 
-    let mut user = match user_fut.await {
-        Ok(user) => user,
-        Err(OsuError::NotFound) => {
+    let (mut user, mut all_medals) = match tokio::join!(user_fut, medals_fut) {
+        (Ok(user), Ok(medals)) => (user, medals),
+        (Err(OsuError::NotFound), _) => {
             let content = format!("User `{name}` was not found");
 
             return data.error(&ctx, content).await;
         }
-        Err(why) => {
+        (Err(err), _) => {
             let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
+        }
+        (_, Err(err)) => {
+            let _ = data.error(&ctx, OSEKAI_ISSUE).await;
+
+            return Err(err.into());
         }
     };
 
@@ -101,29 +107,28 @@ pub(super) async fn _medalrecent(
     achieved_medals.sort_unstable_by_key(|medal| Reverse(medal.achieved_at));
     let index = index.unwrap_or(1);
 
-    let (medal, achieved_at) = match achieved_medals.get(index - 1) {
-        Some(achieved) => match ctx.psql().get_medal_by_id(achieved.medal_id).await {
-            Ok(Some(medal)) => (medal, achieved.achieved_at),
-            Ok(None) => {
-                let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-                bail!("No medal with id `{}` in DB", achieved.medal_id);
-            }
-            Err(why) => {
-                let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-                return Err(why);
-            }
-        },
+    let (medal_id, achieved_at) = match achieved_medals.get(index - 1) {
+        Some(MedalCompact {
+            medal_id,
+            achieved_at,
+        }) => (*medal_id, *achieved_at),
         None => {
             let content = format!(
-                "`{}` only has {} medals, cannot show medal #{}",
+                "`{}` only has {} medals, cannot show medal #{index}",
                 user.username,
                 achieved_medals.len(),
-                index
             );
 
             return data.error(&ctx, content).await;
+        }
+    };
+
+    let medal = match all_medals.iter().position(|m| m.medal_id == medal_id) {
+        Some(idx) => all_medals.swap_remove(idx),
+        None => {
+            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+            bail!("No medal with id `{medal_id}`");
         }
     };
 
@@ -156,6 +161,7 @@ pub(super) async fn _medalrecent(
         achieved_medals,
         index,
         embed_data,
+        all_medals,
     );
 
     tokio::spawn(async move {

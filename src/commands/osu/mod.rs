@@ -60,7 +60,7 @@ use rosu_v2::{
 use twilight_model::application::command::CommandOptionChoice;
 
 use crate::{
-    custom_client::{CustomClientError, OsuStatsParams, OsuTrackerStats},
+    custom_client::{CustomClientError, OsekaiMedal, OsuStatsParams, OsuTrackerStats},
     util::{
         constants::common_literals::{
             COUNTRY, CTB, DISCORD, MANIA, MAP, MODE, MODS, NAME, OSU, SPECIFY_COUNTRY,
@@ -101,6 +101,7 @@ impl From<OsuError> for ErrorType {
 
 const USER_CACHE_SECONDS: usize = 600;
 const OSUTRACKER_STATS_CACHE_SECONDS: usize = 1800;
+const MEDALS_CACHE_SECONDS: usize = 3600;
 
 async fn get_user(ctx: &Context, user: &UserArgs<'_>) -> OsuResult<User> {
     if let Some(alt_name) = user.whitespaced_name() {
@@ -149,6 +150,45 @@ async fn get_beatmap_user_score(
     } else {
         fut.await
     }
+}
+
+async fn get_osekai_medals(ctx: &Context) -> Result<Vec<OsekaiMedal>, CustomClientError> {
+    let key = "osekai_medals";
+
+    let mut conn = match ctx.clients.redis.get().await {
+        Ok(mut conn) => {
+            if let Ok(bytes) = conn.get::<_, Vec<u8>>(key).await {
+                if !bytes.is_empty() {
+                    ctx.stats.inc_cached_medals();
+                    trace!("Found medals in cache ({} bytes)", bytes.len());
+
+                    let archived = unsafe { rkyv::archived_root::<Vec<OsekaiMedal>>(&bytes) };
+                    let medals = archived.deserialize(&mut Infallible).unwrap();
+
+                    return Ok(medals);
+                }
+            }
+
+            conn
+        }
+        Err(err) => {
+            let report = Report::new(err).wrap_err("failed to get redis connection");
+            warn!("{report:?}");
+
+            return ctx.clients.custom.get_osekai_medals().await;
+        }
+    };
+
+    let medals = ctx.clients.custom.get_osekai_medals().await?;
+    let bytes = rkyv::to_bytes::<_, 80_000>(&medals).expect("failed to serialize medals");
+    let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), MEDALS_CACHE_SECONDS);
+
+    if let Err(err) = set_fut.await {
+        let report = Report::new(err).wrap_err("failed to insert bytes into cache");
+        warn!("{report:?}");
+    }
+
+    Ok(medals)
 }
 
 async fn get_osutracker_stats(ctx: &Context) -> Result<OsuTrackerStats, CustomClientError> {

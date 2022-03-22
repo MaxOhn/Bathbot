@@ -7,9 +7,8 @@ use sqlx::postgres::{PgPool, PgPoolOptions};
 use crate::BotResult;
 
 pub use self::models::{
-    Authorities, DBBeatmap, DBBeatmapset, DBOsuMedal, EmbedsSize, GuildConfig, MapsetTagWrapper,
-    MedalGroup, MinimizedPp, OsuData, OsuMedal, Prefix, Prefixes, TagRow, TrackingUser, UserConfig,
-    UserStatsColumn, UserValueRaw,
+    Authorities, DBBeatmap, DBBeatmapset, EmbedsSize, GuildConfig, MapsetTagWrapper, MinimizedPp,
+    OsuData, Prefix, Prefixes, TagRow, TrackingUser, UserConfig, UserStatsColumn, UserValueRaw,
 };
 
 pub struct Database {

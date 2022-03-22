@@ -17,7 +17,7 @@ use twilight_model::{
 
 use crate::{
     commands::{
-        osu::{get_user, UserArgs},
+        osu::{get_osekai_medals, get_user, UserArgs},
         parse_discord, DoubleResultCow,
     },
     custom_client::{
@@ -71,19 +71,19 @@ pub(super) async fn _common(
     let user_args2 = UserArgs::new(name2.as_str(), GameMode::STD);
     let user_fut2 = get_user(&ctx, &user_args2);
 
-    let medals_fut = ctx.psql().get_medals();
+    let medals_fut = get_osekai_medals(&ctx);
 
-    let (user1, user2, mut medals_map) = match tokio::join!(user_fut1, user_fut2, medals_fut) {
+    let (user1, user2, mut all_medals) = match tokio::join!(user_fut1, user_fut2, medals_fut) {
         (Ok(user1), Ok(user2), Ok(medals)) => (user1, user2, medals),
         (Err(why), ..) | (_, Err(why), _) => {
             let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
-        (.., Err(why)) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+        (.., Err(err)) => {
+            let _ = data.error(&ctx, OSEKAI_ISSUE).await;
 
-            return Err(why);
+            return Err(err.into());
         }
     };
 
@@ -97,37 +97,37 @@ pub(super) async fn _common(
     let medals1 = extract_medals(&user1);
     let mut medals2 = extract_medals(&user2);
 
-    let mut medals = Vec::with_capacity(medals_map.len());
+    let mut medals = Vec::with_capacity(all_medals.len());
 
     for (medal_id, achieved1) in medals1 {
-        match medals_map.remove(&medal_id) {
-            Some(medal) => {
+        match all_medals.iter().position(|m| m.medal_id == medal_id) {
+            Some(idx) => {
                 let achieved2 = medals2.remove(&medal_id);
 
                 let entry = MedalEntryCommon {
-                    medal,
+                    medal: all_medals.swap_remove(idx),
                     achieved1: Some(achieved1),
                     achieved2,
                 };
 
                 medals.push(entry);
             }
-            None => warn!("Missing medal id {medal_id} in DB medals"),
+            None => warn!("Missing medal id {medal_id}"),
         }
     }
 
     for (medal_id, achieved2) in medals2 {
-        match medals_map.remove(&medal_id) {
-            Some(medal) => {
+        match all_medals.iter().position(|m| m.medal_id == medal_id) {
+            Some(idx) => {
                 let entry = MedalEntryCommon {
-                    medal,
+                    medal: all_medals.swap_remove(idx),
                     achieved1: None,
                     achieved2: Some(achieved2),
                 };
 
                 medals.push(entry);
             }
-            None => warn!("Missing medal id {medal_id} in DB medals"),
+            None => warn!("Missing medal id {medal_id}"),
         }
     }
 

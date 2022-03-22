@@ -52,6 +52,7 @@ pub struct MedalRecentPagination {
     achieved_medals: Vec<MedalCompact>,
     embeds: HashMap<(usize, bool), MedalEmbed>,
     maximized: bool,
+    medals: Vec<OsekaiMedal>,
 }
 
 impl MedalRecentPagination {
@@ -63,6 +64,7 @@ impl MedalRecentPagination {
         achieved_medals: Vec<MedalCompact>,
         index: usize,
         embed_data: MedalEmbed,
+        medals: Vec<OsekaiMedal>,
     ) -> Self {
         let maximized = false;
         let mut embeds = HashMap::new();
@@ -81,6 +83,7 @@ impl MedalRecentPagination {
             achieved_medals,
             embeds,
             maximized,
+            medals,
         }
     }
 
@@ -264,8 +267,14 @@ impl MedalRecentPagination {
             let (medal, achieved_at) = match self.achieved_medals.get(idx - 1) {
                 Some(achieved) => match self.cached_medals.get_mut(&achieved.medal_id) {
                     Some(medal) => (medal, achieved.achieved_at),
-                    None => match self.ctx.psql().get_medal_by_id(achieved.medal_id).await {
-                        Ok(Some(medal)) => {
+                    None => match self
+                        .medals
+                        .iter()
+                        .position(|medal| medal.medal_id == achieved.medal_id)
+                    {
+                        Some(idx) => {
+                            let medal = self.medals.swap_remove(idx);
+
                             let medal = self
                                 .cached_medals
                                 .entry(medal.medal_id)
@@ -273,8 +282,7 @@ impl MedalRecentPagination {
 
                             (medal, achieved.achieved_at)
                         }
-                        Ok(None) => bail!("No medal with id `{}` in DB", achieved.medal_id),
-                        Err(why) => return Err(why),
+                        None => bail!("No medal with id `{}`", achieved.medal_id),
                     },
                 },
                 None => bail!(

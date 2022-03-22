@@ -1,9 +1,8 @@
 use crate::{
+    commands::osu::get_osekai_medals,
+    custom_client::OsekaiMedal,
     embeds::{EmbedData, MedalEmbed},
-    util::{
-        constants::{GENERAL_ISSUE, OSEKAI_ISSUE},
-        levenshtein_similarity, MessageExt,
-    },
+    util::{constants::OSEKAI_ISSUE, levenshtein_similarity, CowUtils, MessageExt},
     BotResult, CommandData, Context,
 };
 
@@ -39,14 +38,23 @@ async fn medal(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 pub(super) async fn _medal(ctx: Arc<Context>, data: CommandData<'_>, name: &str) -> BotResult<()> {
-    let medal = match ctx.psql().get_medal_by_name(name).await {
-        Ok(Some(medal)) => medal,
-        Ok(None) => return no_medal(&ctx, &data, name).await,
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+    let mut medals = match get_osekai_medals(&ctx).await {
+        Ok(medals) => medals,
+        Err(err) => {
+            let _ = data.error(&ctx, OSEKAI_ISSUE).await;
 
-            return Err(why);
+            return Err(err.into());
         }
+    };
+
+    let name = name.cow_to_ascii_lowercase();
+
+    let medal = match medals
+        .iter()
+        .position(|m| m.name.to_ascii_lowercase() == name)
+    {
+        Some(idx) => medals.swap_remove(idx),
+        None => return no_medal(&ctx, &data, name.as_ref(), medals).await,
     };
 
     let map_fut = ctx.clients.custom.get_osekai_beatmaps(&medal.name);
@@ -76,22 +84,18 @@ pub(super) async fn _medal(ctx: Arc<Context>, data: CommandData<'_>, name: &str)
     Ok(())
 }
 
-const SIMILARITY_THRESHOLD: f32 = 0.65;
+const SIMILARITY_THRESHOLD: f32 = 0.6;
 
-async fn no_medal(ctx: &Context, data: &CommandData<'_>, name: &str) -> BotResult<()> {
-    let medals = match ctx.psql().get_medal_names().await {
-        Ok(medals) => medals,
-        Err(why) => {
-            let _ = data.error(ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
-    };
-
+async fn no_medal(
+    ctx: &Context,
+    data: &CommandData<'_>,
+    name: &str,
+    medals: Vec<OsekaiMedal>,
+) -> BotResult<()> {
     let mut medals: Vec<_> = medals
         .into_iter()
         .map(|medal| {
-            let medal = medal.to_ascii_lowercase();
+            let medal = medal.name.to_ascii_lowercase();
 
             (levenshtein_similarity(name, &medal), medal)
         })

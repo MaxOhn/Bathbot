@@ -1,5 +1,6 @@
 use std::{cmp::Ordering, fmt, marker::PhantomData, str::FromStr};
 
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize};
 use rosu_v2::{
     model::{GameMode, GameMods},
     prelude::Username,
@@ -177,7 +178,7 @@ impl<'de> Visitor<'de> for OsekaiGroupingVisitor {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Archive, Clone, Debug, Deserialize, RkyvDeserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct OsekaiMedal {
     #[serde(rename = "MedalID")]
