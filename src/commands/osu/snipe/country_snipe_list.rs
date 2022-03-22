@@ -4,7 +4,7 @@ use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError};
 
 use crate::{
-    commands::osu::{get_user_cached, UserArgs},
+    commands::osu::UserArgs,
     custom_client::SnipeCountryPlayer as SCP,
     database::OsuData,
     embeds::{CountrySnipeListEmbed, EmbedData},
@@ -66,7 +66,7 @@ pub(super) async fn _countrysnipelist(
         Ok(Some(name)) => {
             let user_args = UserArgs::new(name.as_str(), GameMode::STD);
 
-            match get_user_cached(&ctx, &user_args).await {
+            match ctx.redis().osu_user(&user_args).await {
                 Ok(user) => Some(user),
                 Err(OsuError::NotFound) => {
                     let content = format!("User `{name}` was not found");

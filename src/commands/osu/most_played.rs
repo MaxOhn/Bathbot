@@ -9,7 +9,7 @@ use twilight_model::application::interaction::{
 use crate::{
     commands::{
         check_user_mention,
-        osu::{get_user_cached, option_discord, option_name},
+        osu::{option_discord, option_name},
         parse_discord, DoubleResultCow, MyCommand,
     },
     database::OsuData,
@@ -76,7 +76,7 @@ async fn _mostplayed(
     let mut user_args = UserArgs::new(name.as_str(), GameMode::STD);
 
     let result = if let Some(alt_name) = user_args.whitespaced_name() {
-        match get_user_cached(&ctx, &user_args).await {
+        match ctx.redis().osu_user(&user_args).await {
             Ok(user) => ctx
                 .osu()
                 .user_most_played(user_args.name)
@@ -85,8 +85,9 @@ async fn _mostplayed(
                 .map(|maps| (user, maps)),
             Err(OsuError::NotFound) => {
                 user_args.name = &alt_name;
+                let redis = ctx.redis();
 
-                let user_fut = get_user_cached(&ctx, &user_args);
+                let user_fut = redis.osu_user(&user_args);
                 let maps_fut = ctx.osu().user_most_played(user_args.name).limit(100);
 
                 tokio::try_join!(user_fut, maps_fut)
@@ -94,10 +95,10 @@ async fn _mostplayed(
             Err(err) => Err(err),
         }
     } else {
-        let user_fut = get_user_cached(&ctx, &user_args);
+        let redis = ctx.redis();
         let maps_fut = ctx.osu().user_most_played(user_args.name).limit(100);
 
-        tokio::try_join!(user_fut, maps_fut)
+        tokio::try_join!(redis.osu_user(&user_args), maps_fut)
     };
 
     let (user, maps) = match result {

@@ -7,7 +7,7 @@ use rosu_v2::prelude::{GameMode, OsuError, Username};
 use crate::{
     commands::{
         check_user_mention,
-        osu::{get_osekai_medals, get_user, UserArgs},
+        osu::{get_user, UserArgs},
     },
     custom_client::{OsekaiGrouping, OsekaiMedal, MEDAL_GROUPS},
     database::OsuData,
@@ -66,9 +66,9 @@ pub(super) async fn _medalsmissing(
 
     let user_args = UserArgs::new(name.as_str(), GameMode::STD);
     let user_fut = get_user(&ctx, &user_args);
-    let medals_fut = get_osekai_medals(&ctx);
+    let redis = ctx.redis();
 
-    let (user, all_medals) = match tokio::join!(user_fut, medals_fut) {
+    let (user, all_medals) = match tokio::join!(user_fut, redis.medals()) {
         (Ok(user), Ok(medals)) => (user, medals),
         (Err(OsuError::NotFound), _) => {
             let content = format!("User `{name}` was not found");

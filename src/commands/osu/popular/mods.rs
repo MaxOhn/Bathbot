@@ -3,7 +3,6 @@ use std::sync::Arc;
 use eyre::Report;
 
 use crate::{
-    commands::osu::get_osutracker_stats,
     core::{commands::CommandData, Context},
     embeds::EmbedData,
     embeds::OsuTrackerModsEmbed,
@@ -13,7 +12,7 @@ use crate::{
 };
 
 pub(super) async fn mods_(ctx: Arc<Context>, data: CommandData<'_>) -> BotResult<()> {
-    let counts = match get_osutracker_stats(&ctx).await {
+    let counts = match ctx.redis().osutracker_stats().await {
         Ok(stats) => stats.user.mods_count,
         Err(err) => {
             let _ = data.error(&ctx, OSUTRACKER_ISSUE).await;

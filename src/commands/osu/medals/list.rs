@@ -15,7 +15,7 @@ use twilight_model::application::interaction::{
 
 use crate::{
     commands::{
-        osu::{get_osekai_medals, get_user, UserArgs},
+        osu::{get_user, UserArgs},
         parse_discord, DoubleResultCow,
     },
     custom_client::{
@@ -58,11 +58,11 @@ pub(super) async fn _medalslist(
 
     let user_args = UserArgs::new(name.as_str(), GameMode::STD);
     let user_fut = get_user(&ctx, &user_args);
-    let medals_fut = get_osekai_medals(&ctx);
     let rarity_fut = ctx.clients.custom.get_osekai_ranking::<Rarity>();
+    let redis = ctx.redis();
 
     let (mut user, mut osekai_medals, rarities) =
-        match tokio::join!(user_fut, medals_fut, rarity_fut) {
+        match tokio::join!(user_fut, redis.medals(), rarity_fut) {
             (Ok(user), Ok(medals), Ok(rarities)) => (user, medals, rarities),
             (Err(OsuError::NotFound), ..) => {
                 let content = format!("User `{name}` was not found");

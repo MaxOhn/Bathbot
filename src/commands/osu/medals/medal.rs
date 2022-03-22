@@ -1,5 +1,4 @@
 use crate::{
-    commands::osu::get_osekai_medals,
     custom_client::OsekaiMedal,
     embeds::{EmbedData, MedalEmbed},
     util::{constants::OSEKAI_ISSUE, levenshtein_similarity, CowUtils, MessageExt},
@@ -38,7 +37,7 @@ async fn medal(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 pub(super) async fn _medal(ctx: Arc<Context>, data: CommandData<'_>, name: &str) -> BotResult<()> {
-    let mut medals = match get_osekai_medals(&ctx).await {
+    let mut medals = match ctx.redis().medals().await {
         Ok(medals) => medals,
         Err(err) => {
             let _ = data.error(&ctx, OSEKAI_ISSUE).await;

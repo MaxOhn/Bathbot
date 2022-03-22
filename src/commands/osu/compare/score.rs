@@ -19,7 +19,7 @@ use twilight_model::{
 use crate::{
     commands::{
         check_user_mention,
-        osu::{get_user, get_user_cached, UserArgs},
+        osu::{get_user, UserArgs},
         parse_discord, DoubleResultCow, MyCommand,
     },
     database::{EmbedsSize, MinimizedPp, UserConfig},
@@ -269,7 +269,7 @@ pub(super) async fn _compare(
     let mut user_args = UserArgs::new(name.as_str(), map.mode);
 
     let (user, mut scores) = if let Some(alt_name) = user_args.whitespaced_name() {
-        match get_user_cached(&ctx, &user_args).await {
+        match ctx.redis().osu_user(&user_args).await {
             Ok(user) => {
                 let scores_fut = ctx
                     .osu()
@@ -287,13 +287,14 @@ pub(super) async fn _compare(
             }
             Err(OsuError::NotFound) => {
                 user_args.name = &alt_name;
+                let redis = ctx.redis();
 
                 let scores_fut = ctx
                     .osu()
                     .beatmap_user_scores(map_id, alt_name.as_str())
                     .mode(map.mode);
 
-                match tokio::join!(get_user_cached(&ctx, &user_args), scores_fut) {
+                match tokio::join!(redis.osu_user(&user_args), scores_fut) {
                     (Err(OsuError::NotFound), _) => {
                         let content = format!("User `{name}` was not found");
 
@@ -324,7 +325,9 @@ pub(super) async fn _compare(
             .beatmap_user_scores(map_id, name.as_str())
             .mode(map.mode);
 
-        match tokio::join!(get_user_cached(&ctx, &user_args), scores_fut) {
+        let redis = ctx.redis();
+
+        match tokio::join!(redis.osu_user(&user_args), scores_fut) {
             (Err(OsuError::NotFound), _) => {
                 let content = format!("User `{name}` was not found");
 

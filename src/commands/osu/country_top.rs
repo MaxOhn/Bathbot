@@ -8,10 +8,7 @@ use twilight_model::application::{
 };
 
 use crate::{
-    commands::{
-        osu::{get_user_cached, UserArgs},
-        DoubleResultCow, MyCommand, MyCommandOption,
-    },
+    commands::{osu::UserArgs, DoubleResultCow, MyCommand, MyCommandOption},
     core::{commands::CommandData, Context},
     custom_client::{OsuTrackerCountryDetails, OsuTrackerCountryScore},
     database::OsuData,
@@ -51,7 +48,7 @@ async fn countrytop_(
             Ok(Some(name)) => {
                 let user_args = UserArgs::new(name.as_str(), GameMode::STD);
 
-                let user = match get_user_cached(&ctx, &user_args).await {
+                let user = match ctx.redis().osu_user(&user_args).await {
                     Ok(user) => user,
                     Err(OsuError::NotFound) => {
                         let content = format!("User `{name}` was not found");

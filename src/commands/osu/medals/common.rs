@@ -17,7 +17,7 @@ use twilight_model::{
 
 use crate::{
     commands::{
-        osu::{get_osekai_medals, get_user, UserArgs},
+        osu::{get_user, UserArgs},
         parse_discord, DoubleResultCow,
     },
     custom_client::{
@@ -70,10 +70,9 @@ pub(super) async fn _common(
 
     let user_args2 = UserArgs::new(name2.as_str(), GameMode::STD);
     let user_fut2 = get_user(&ctx, &user_args2);
+    let redis = ctx.redis();
 
-    let medals_fut = get_osekai_medals(&ctx);
-
-    let (user1, user2, mut all_medals) = match tokio::join!(user_fut1, user_fut2, medals_fut) {
+    let (user1, user2, mut all_medals) = match tokio::join!(user_fut1, user_fut2, redis.medals()) {
         (Ok(user1), Ok(user2), Ok(medals)) => (user1, user2, medals),
         (Err(why), ..) | (_, Err(why), _) => {
             let _ = data.error(&ctx, OSU_API_ISSUE).await;

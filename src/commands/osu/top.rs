@@ -47,7 +47,7 @@ use crate::{
 };
 
 use super::{
-    get_osutracker_stats, option_discord, option_mode, option_mods_explicit, option_name,
+     option_discord, option_mode, option_mods_explicit, option_name,
     option_query, GradeArg,
 };
 
@@ -108,7 +108,7 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
 
     let farm_fut = async {
         if args.farm.is_some() || matches!(args.sort_by, TopOrder::Farm) {
-            get_osutracker_stats(&ctx)
+            ctx.redis().osutracker_stats()
                 .await
                 .map(|stats| {
                     stats

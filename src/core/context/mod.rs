@@ -34,7 +34,7 @@ use crate::{
 
 pub use self::impls::{MatchLiveChannels, MatchTrackResult};
 
-use super::Cache;
+use super::{Cache, RedisCache};
 
 pub type Redis = Pool<RedisConnectionManager>;
 
@@ -159,6 +159,10 @@ impl Context {
 
     pub fn psql(&self) -> &Database {
         &self.clients.psql
+    }
+
+    pub fn redis(&self) -> RedisCache<'_> {
+        RedisCache::new(self)
     }
 }
 

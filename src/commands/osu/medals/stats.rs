@@ -10,7 +10,7 @@ use rosu_v2::prelude::{GameMode, MedalCompact, OsuError, Username};
 use crate::{
     commands::{
         check_user_mention,
-        osu::{get_osekai_medals, get_user, UserArgs},
+        osu::{get_user, UserArgs},
     },
     database::OsuData,
     embeds::{EmbedData, MedalStatsEmbed},
@@ -68,9 +68,9 @@ pub(super) async fn _medalstats(
 
     let user_args = UserArgs::new(name.as_str(), GameMode::STD);
     let user_fut = get_user(&ctx, &user_args);
-    let medals_fut = get_osekai_medals(&ctx);
+    let redis = ctx.redis();
 
-    let (mut user, all_medals) = match tokio::join!(user_fut, medals_fut) {
+    let (mut user, all_medals) = match tokio::join!(user_fut, redis.medals()) {
         (Ok(user), Ok(medals)) => (user, medals),
         (Err(OsuError::NotFound), _) => {
             let content = format!("User `{name}` was not found");

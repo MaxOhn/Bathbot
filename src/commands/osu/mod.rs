@@ -47,11 +47,9 @@ use std::{
     ops::{AddAssign, Div},
 };
 
-use bb8_redis::redis::AsyncCommands;
 use eyre::Report;
 use futures::future::FutureExt;
 use hashbrown::HashMap;
-use rkyv::{Deserialize, Infallible};
 use rosu_v2::{
     prelude::{BeatmapUserScore, GameMode, GameMods, Grade, OsuError, OsuResult, Score, User},
     request::GetUserScores,
@@ -60,7 +58,7 @@ use rosu_v2::{
 use twilight_model::application::command::CommandOptionChoice;
 
 use crate::{
-    custom_client::{CustomClientError, OsekaiMedal, OsuStatsParams, OsuTrackerStats},
+    custom_client::OsuStatsParams,
     util::{
         constants::common_literals::{
             COUNTRY, CTB, DISCORD, MANIA, MAP, MODE, MODS, NAME, OSU, SPECIFY_COUNTRY,
@@ -99,22 +97,18 @@ impl From<OsuError> for ErrorType {
     }
 }
 
-const USER_CACHE_SECONDS: usize = 600;
-const OSUTRACKER_STATS_CACHE_SECONDS: usize = 1800;
-const MEDALS_CACHE_SECONDS: usize = 3600;
-
 async fn get_user(ctx: &Context, user: &UserArgs<'_>) -> OsuResult<User> {
     if let Some(alt_name) = user.whitespaced_name() {
-        match get_user_cached(ctx, user).await {
+        match ctx.redis().osu_user(user).await {
             Err(OsuError::NotFound) => {
                 let user = UserArgs::new(&alt_name, user.mode);
 
-                get_user_cached(ctx, &user).await
+                ctx.redis().osu_user(&user).await
             }
             result => result,
         }
     } else {
-        get_user_cached(ctx, user).await
+        ctx.redis().osu_user(user).await
     }
 }
 
@@ -152,190 +146,20 @@ async fn get_beatmap_user_score(
     }
 }
 
-async fn get_osekai_medals(ctx: &Context) -> Result<Vec<OsekaiMedal>, CustomClientError> {
-    let key = "osekai_medals";
-
-    let mut conn = match ctx.clients.redis.get().await {
-        Ok(mut conn) => {
-            if let Ok(bytes) = conn.get::<_, Vec<u8>>(key).await {
-                if !bytes.is_empty() {
-                    ctx.stats.inc_cached_medals();
-                    trace!("Found medals in cache ({} bytes)", bytes.len());
-
-                    let archived = unsafe { rkyv::archived_root::<Vec<OsekaiMedal>>(&bytes) };
-                    let medals = archived.deserialize(&mut Infallible).unwrap();
-
-                    return Ok(medals);
-                }
-            }
-
-            conn
-        }
-        Err(err) => {
-            let report = Report::new(err).wrap_err("failed to get redis connection");
-            warn!("{report:?}");
-
-            return ctx.clients.custom.get_osekai_medals().await;
-        }
-    };
-
-    let medals = ctx.clients.custom.get_osekai_medals().await?;
-    let bytes = rkyv::to_bytes::<_, 80_000>(&medals).expect("failed to serialize medals");
-    let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), MEDALS_CACHE_SECONDS);
-
-    if let Err(err) = set_fut.await {
-        let report = Report::new(err).wrap_err("failed to insert bytes into cache");
-        warn!("{report:?}");
-    }
-
-    Ok(medals)
-}
-
-async fn get_osutracker_stats(ctx: &Context) -> Result<OsuTrackerStats, CustomClientError> {
-    let key = "osutracker_stats";
-
-    let mut conn = match ctx.clients.redis.get().await {
-        Ok(mut conn) => {
-            if let Ok(bytes) = conn.get::<_, Vec<u8>>(key).await {
-                if !bytes.is_empty() {
-                    ctx.stats.inc_cached_osutracker_stats();
-                    trace!("Found osutracker stats in cache ({} bytes)", bytes.len());
-
-                    let archived = unsafe { rkyv::archived_root::<OsuTrackerStats>(&bytes) };
-                    let stats = archived.deserialize(&mut Infallible).unwrap();
-
-                    return Ok(stats);
-                }
-            }
-
-            conn
-        }
-        Err(err) => {
-            let report = Report::new(err).wrap_err("failed to get redis connection");
-            warn!("{report:?}");
-
-            return ctx.clients.custom.get_osutracker_stats().await;
-        }
-    };
-
-    let stats = ctx.clients.custom.get_osutracker_stats().await?;
-    let bytes = rkyv::to_bytes::<_, 190_000>(&stats).expect("failed to serialize osutracker stats");
-    let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), OSUTRACKER_STATS_CACHE_SECONDS);
-
-    if let Err(err) = set_fut.await {
-        let report = Report::new(err).wrap_err("failed to insert bytes into cache");
-        warn!("{report:?}");
-    }
-
-    Ok(stats)
-}
-
-async fn get_user_cached(ctx: &Context, args: &UserArgs<'_>) -> OsuResult<User> {
-    let key = format!("__{}_{}", args.name, args.mode as u8);
-
-    let mut conn = match ctx.clients.redis.get().await {
-        Ok(mut conn) => {
-            if let Ok(bytes) = conn.get::<_, Vec<u8>>(&key).await {
-                if !bytes.is_empty() {
-                    ctx.stats.inc_cached_user();
-                    trace!(
-                        "Found user `{}` in cache ({} bytes)",
-                        args.name,
-                        bytes.len()
-                    );
-
-                    let archived = unsafe { rkyv::archived_root::<User>(&bytes) };
-                    let user = archived.deserialize(&mut Infallible).unwrap();
-
-                    return Ok(user);
-                }
-            }
-
-            conn
-        }
-        Err(why) => {
-            let report = Report::new(why).wrap_err("failed to get redis connection");
-            warn!("{report:?}");
-
-            let user = match ctx.osu().user(args.name).mode(args.mode).await {
-                Ok(user) => user,
-                Err(OsuError::NotFound) => {
-                    // Remove stats of unknown/restricted users so they don't appear in the leaderboard
-                    if let Err(err) = ctx.psql().remove_osu_user_stats(args.name).await {
-                        let report =
-                            Report::new(err).wrap_err("failed to remove stats of unknown user");
-                        warn!("{report:?}");
-                    }
-
-                    return Err(OsuError::NotFound);
-                }
-                err => return err,
-            };
-
-            if let Err(err) = ctx.psql().upsert_osu_user(&user, args.mode).await {
-                let report = Report::new(err).wrap_err("failed to upsert osu user");
-                warn!("{report:?}");
-            }
-
-            return Ok(user);
-        }
-    };
-
-    let mut user = match ctx.osu().user(args.name).mode(args.mode).await {
-        Ok(user) => user,
-        Err(OsuError::NotFound) => {
-            // Remove stats of unknown/restricted users so they don't appear in the leaderboard
-            if let Err(err) = ctx.psql().remove_osu_user_stats(args.name).await {
-                let report = Report::new(err).wrap_err("failed to remove stats of unknown user");
-                warn!("{report:?}");
-            }
-
-            return Err(OsuError::NotFound);
-        }
-        err => return err,
-    };
-
-    if let Err(err) = ctx.psql().upsert_osu_user(&user, args.mode).await {
-        let report = Report::new(err).wrap_err("failed to upsert osu user");
-        warn!("{report:?}");
-    }
-
-    // Remove html user page to reduce overhead
-    user.page.take();
-
-    let bytes = rkyv::to_bytes::<_, 13_000>(&user).expect("failed to serialize user");
-
-    // Cache users for 10 minutes and update username in DB
-    let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), USER_CACHE_SECONDS);
-    let name_update_fut = ctx.psql().upsert_osu_name(user.user_id, &user.username);
-
-    let (set_result, name_update_result) = tokio::join!(set_fut, name_update_fut);
-
-    if let Err(why) = set_result {
-        let report = Report::new(why).wrap_err("failed to insert bytes into cache");
-        warn!("{report:?}");
-    }
-
-    if let Err(why) = name_update_result {
-        let report = Report::new(why).wrap_err("failed to update osu! username");
-        warn!("{report:?}");
-    }
-
-    Ok(user)
-}
-
 async fn get_user_and_scores<'c>(
     ctx: &'c Context,
     mut user: UserArgs<'_>,
     scores: &ScoreArgs<'c>,
 ) -> OsuResult<(User, Vec<Score>)> {
+    let redis = ctx.redis();
+
     if let Some(alt_name) = user.whitespaced_name() {
-        match get_user_cached(ctx, &user).await {
+        match redis.osu_user(&user).await {
             Ok(u) => Ok((u, get_scores(ctx, &user, scores).await?)),
             Err(OsuError::NotFound) => {
                 user.name = &alt_name;
 
-                let user_fut = get_user_cached(ctx, &user);
+                let user_fut = redis.osu_user(&user);
                 let scores_fut = get_scores(ctx, &user, scores);
 
                 tokio::try_join!(user_fut, scores_fut)
@@ -343,7 +167,7 @@ async fn get_user_and_scores<'c>(
             Err(err) => Err(err),
         }
     } else {
-        let user_fut = get_user_cached(ctx, &user);
+        let user_fut = redis.osu_user(&user);
         let scores_fut = get_scores(ctx, &user, scores);
 
         tokio::try_join!(user_fut, scores_fut)
@@ -386,9 +210,9 @@ async fn get_scores<'c>(
     result
 }
 
-struct UserArgs<'n> {
-    name: &'n str,
-    mode: GameMode,
+pub struct UserArgs<'n> {
+    pub name: &'n str,
+    pub mode: GameMode,
 }
 
 impl<'n> UserArgs<'n> {
