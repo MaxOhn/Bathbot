@@ -8,7 +8,7 @@ use rosu_v2::{
 
 use crate::{
     commands::osu::UserArgs,
-    custom_client::{CustomClientError, OsekaiMedal, OsuTrackerStats},
+    custom_client::{CustomClientError, OsekaiBadge, OsekaiMedal, OsuTrackerStats},
 };
 
 use super::Context;
@@ -22,9 +22,49 @@ impl<'c> RedisCache<'c> {
     const USER_SECONDS: usize = 600;
     const OSUTRACKER_STATS_SECONDS: usize = 1800;
     const MEDALS_SECONDS: usize = 3600;
+    const BADGES_SECONDS: usize = 3600;
 
     pub fn new(ctx: &'c Context) -> Self {
         Self { ctx }
+    }
+
+    pub async fn badges(&self) -> Result<Vec<OsekaiBadge>, CustomClientError> {
+        let key = "osekai_badges";
+
+        let mut conn = match self.ctx.clients.redis.get().await {
+            Ok(mut conn) => {
+                if let Ok(bytes) = conn.get::<_, Vec<u8>>(key).await {
+                    if !bytes.is_empty() {
+                        self.ctx.stats.inc_cached_badges();
+                        trace!("Found badges in cache ({} bytes)", bytes.len());
+
+                        let archived = unsafe { rkyv::archived_root::<Vec<OsekaiBadge>>(&bytes) };
+                        let medals = archived.deserialize(&mut Infallible).unwrap();
+
+                        return Ok(medals);
+                    }
+                }
+
+                conn
+            }
+            Err(err) => {
+                let report = Report::new(err).wrap_err("failed to get redis connection");
+                warn!("{report:?}");
+
+                return self.ctx.clients.custom.get_osekai_badges().await;
+            }
+        };
+
+        let badges = self.ctx.clients.custom.get_osekai_badges().await?;
+        let bytes = rkyv::to_bytes::<_, 80_000>(&badges).expect("failed to serialize badges");
+        let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), Self::BADGES_SECONDS);
+
+        if let Err(err) = set_fut.await {
+            let report = Report::new(err).wrap_err("failed to insert bytes into cache");
+            warn!("{report:?}");
+        }
+
+        Ok(badges)
     }
 
     pub async fn medals(&self) -> Result<Vec<OsekaiMedal>, CustomClientError> {

@@ -4,6 +4,7 @@ mod osekai;
 mod osu_daily;
 mod osu_stats;
 mod osu_tracker;
+mod rkyv_impls;
 mod score;
 mod snipe;
 mod twitch;
@@ -18,13 +19,13 @@ use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use hashbrown::HashSet;
 use http::{
-    header::{AUTHORIZATION, CONTENT_LENGTH, COOKIE},
+    header::{CONTENT_LENGTH, COOKIE},
     request::Builder as RequestBuilder,
     Response, StatusCode,
 };
 use hyper::{
     client::{connect::dns::GaiResolver, Client as HyperClient, HttpConnector},
-    header::{HeaderValue, CONTENT_TYPE, USER_AGENT},
+    header::{CONTENT_TYPE, USER_AGENT},
     Body, Method, Request,
 };
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
@@ -40,8 +41,8 @@ use crate::{
     util::{
         constants::{
             common_literals::{COUNTRY, MODS, SORT, USER_ID},
-            HUISMETBENEN, OSU_BASE, OSU_DAILY_API, TWITCH_OAUTH, TWITCH_STREAM_ENDPOINT,
-            TWITCH_USERS_ENDPOINT, TWITCH_VIDEOS_ENDPOINT,
+            HUISMETBENEN, OSU_BASE, OSU_DAILY_API, TWITCH_STREAM_ENDPOINT, TWITCH_USERS_ENDPOINT,
+            TWITCH_VIDEOS_ENDPOINT,
         },
         numbers::round,
         osu::ModSelection,
@@ -50,11 +51,20 @@ use crate::{
     CONFIG,
 };
 
+#[cfg(not(debug_assertions))]
+use http::header::AUTHORIZATION;
+
+#[cfg(not(debug_assertions))]
+use hyper::header::HeaderValue;
+
+#[cfg(not(debug_assertions))]
+use crate::util::constants::TWITCH_OAUTH;
+
 pub use self::{
     error::*, osekai::*, osu_daily::*, osu_stats::*, osu_tracker::*, score::*, snipe::*, twitch::*,
 };
 
-use self::score::ScraperScores;
+use self::{deserialize::*, rkyv_impls::*, score::ScraperScores};
 
 type ClientResult<T> = Result<T, CustomClientError>;
 
@@ -77,6 +87,7 @@ enum Site {
     OsuMapsetCover,
     OsuStats,
     OsuTracker,
+    #[cfg(not(debug_assertions))]
     Twitch,
 }
 
@@ -85,10 +96,12 @@ type Client = HyperClient<HttpsConnector<HttpConnector<GaiResolver>>, Body>;
 pub struct CustomClient {
     client: Client,
     osu_session: &'static str,
+    #[cfg(not(debug_assertions))]
     twitch: TwitchData,
-    ratelimiters: [LeakyBucket; 12],
+    ratelimiters: [LeakyBucket; 11 + !cfg!(debug_assertions) as usize],
 }
 
+#[cfg(not(debug_assertions))]
 struct TwitchData {
     client_id: HeaderValue,
     oauth_token: TwitchOAuthToken,
@@ -96,9 +109,6 @@ struct TwitchData {
 
 impl CustomClient {
     pub async fn new(config: &'static BotConfig) -> ClientResult<Self> {
-        let twitch_client_id = &config.tokens.twitch_client_id;
-        let twitch_token = &config.tokens.twitch_token;
-
         let connector = HttpsConnectorBuilder::new()
             .with_webpki_roots()
             .https_or_http()
@@ -107,7 +117,13 @@ impl CustomClient {
 
         let client = HyperClient::builder().build(connector);
 
-        let twitch = Self::get_twitch_token(&client, twitch_client_id, twitch_token).await?;
+        #[cfg(not(debug_assertions))]
+        let twitch = {
+            let twitch_client_id = &config.tokens.twitch_client_id;
+            let twitch_token = &config.tokens.twitch_token;
+
+            Self::get_twitch_token(&client, twitch_client_id, twitch_token).await?
+        };
 
         let ratelimiter = |per_second| {
             LeakyBucket::builder()
@@ -130,17 +146,20 @@ impl CustomClient {
             ratelimiter(10), // OsuMapsetCover
             ratelimiter(2),  // OsuStats
             ratelimiter(2),  // OsuTracker
-            ratelimiter(5),  // Twitch
+            #[cfg(not(debug_assertions))]
+            ratelimiter(5), // Twitch
         ];
 
         Ok(Self {
             client,
             osu_session: &config.tokens.osu_session,
+            #[cfg(not(debug_assertions))]
             twitch,
             ratelimiters,
         })
     }
 
+    #[cfg(not(debug_assertions))]
     async fn get_twitch_token(
         client: &Client,
         client_id: &str,
@@ -202,6 +221,21 @@ impl CustomClient {
         Self::error_for_status(response, url.as_ref()).await
     }
 
+    #[cfg(debug_assertions)]
+    async fn make_twitch_get_request<I, U, V>(
+        &self,
+        _: impl AsRef<str>,
+        _: I,
+    ) -> ClientResult<Bytes>
+    where
+        I: IntoIterator<Item = (U, V)>,
+        U: Display,
+        V: Display,
+    {
+        Err(CustomClientError::NoTwitchOnDebug)
+    }
+
+    #[cfg(not(debug_assertions))]
     async fn make_twitch_get_request<I, U, V>(
         &self,
         url: impl AsRef<str>,
@@ -212,10 +246,6 @@ impl CustomClient {
         U: Display,
         V: Display,
     {
-        if cfg!(debug_assertions) {
-            return Err(CustomClientError::NoTwitchOnDebug);
-        }
-
         trace!("GET request of url {}", url.as_ref());
 
         let mut uri = format!("{}?", url.as_ref());
@@ -247,6 +277,7 @@ impl CustomClient {
 
         match site {
             Site::OsuHiddenApi => req.header(COOKIE, format!("osu_session={}", self.osu_session)),
+            #[cfg(not(debug_assertions))]
             Site::Twitch => req
                 .header("Client-ID", self.twitch.client_id.clone())
                 .header(AUTHORIZATION, format!("Bearer {}", self.twitch.oauth_token)),
@@ -330,6 +361,15 @@ impl CustomClient {
             .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsuTrackerGroups))?;
 
         Ok(groups)
+    }
+
+    pub async fn get_osekai_badges(&self) -> ClientResult<Vec<OsekaiBadge>> {
+        let url = "https://osekai.net/medals/api/getBadges.php";
+
+        let bytes = self.make_get_request(url, Site::Osekai).await?;
+
+        serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsekaiBadges))
     }
 
     pub async fn get_osekai_medals(&self) -> ClientResult<Vec<OsekaiMedal>> {

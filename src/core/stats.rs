@@ -43,6 +43,7 @@ pub struct OsuCounters {
     pub user_cached: IntCounter,
     pub osutracker_stats_cached: IntCounter,
     pub osekai_medals_cached: IntCounter,
+    pub osekai_badges_cached: IntCounter,
 }
 
 pub struct CommandCounters {
@@ -160,6 +161,7 @@ impl BotStats {
                 osutracker_stats_cached: osu_metrics
                     .with_label_values(&["osutracker stats cached"]),
                 osekai_medals_cached: osu_metrics.with_label_values(&["Medals cached"]),
+                osekai_badges_cached: osu_metrics.with_label_values(&["Badges cached"]),
                 rosu: osu_metrics,
             },
         }
@@ -203,5 +205,9 @@ impl BotStats {
 
     pub fn inc_cached_medals(&self) {
         self.osu_metrics.osekai_medals_cached.inc();
+    }
+
+    pub fn inc_cached_badges(&self) {
+        self.osu_metrics.osekai_badges_cached.inc();
     }
 }

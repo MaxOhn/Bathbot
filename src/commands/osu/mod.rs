@@ -5,6 +5,7 @@ macro_rules! map_id {
 }
 
 mod avatar;
+mod badges;
 mod bws;
 mod compare;
 mod country_top;
@@ -71,11 +72,11 @@ use crate::{
 };
 
 pub use self::{
-    avatar::*, bws::*, compare::*, country_top::*, fix::*, graphs::*, leaderboard::*, link::*,
-    map::*, map_search::*, mapper::*, match_compare::*, match_costs::*, match_live::*, medals::*,
-    most_played::*, nochoke::*, osekai::*, osustats::*, pinned::*, popular::*, pp::*, profile::*,
-    rank::*, ranking::*, ratios::*, recent::*, serverleaderboard::*, simulate::*, snipe::*, top::*,
-    top_if::*, top_old::*, whatif::*,
+    avatar::*, badges::*, bws::*, compare::*, country_top::*, fix::*, graphs::*, leaderboard::*,
+    link::*, map::*, map_search::*, mapper::*, match_compare::*, match_costs::*, match_live::*,
+    medals::*, most_played::*, nochoke::*, osekai::*, osustats::*, pinned::*, popular::*, pp::*,
+    profile::*, rank::*, ranking::*, ratios::*, recent::*, serverleaderboard::*, simulate::*,
+    snipe::*, top::*, top_if::*, top_old::*, whatif::*,
 };
 
 use super::MyCommandOption;

@@ -13,6 +13,7 @@ pub enum CustomClientError {
     Hyper(#[from] hyper::Error),
     #[error("reached retry limit and still failed to download {0}.osu")]
     MapFileRetryLimit(u32),
+    #[cfg(debug_assertions)]
     #[error("don't make twitch requests on debug")]
     NoTwitchOnDebug,
     #[error("timeout while waiting for osu stats")]
@@ -47,6 +48,7 @@ pub enum ErrorKind {
     CountryStatistics,
     GlobalsList,
     Leaderboard,
+    OsekaiBadges,
     OsekaiComments,
     OsekaiMaps,
     OsekaiMedals,
@@ -77,6 +79,7 @@ impl fmt::Display for ErrorKind {
             Self::CountryStatistics => "country statistics",
             Self::GlobalsList => "globals list",
             Self::Leaderboard => "leaderboard",
+            Self::OsekaiBadges => "osekai badges",
             Self::OsekaiComments => "osekai comments",
             Self::OsekaiMaps => "osekai maps",
             Self::OsekaiMedals => "osekai medals",
