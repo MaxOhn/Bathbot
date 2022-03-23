@@ -56,7 +56,10 @@ use rosu_v2::{
     request::GetUserScores,
     Osu,
 };
-use twilight_model::application::command::CommandOptionChoice;
+use twilight_model::{
+    application::{command::CommandOptionChoice, interaction::ApplicationCommandAutocomplete},
+    http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
+};
 
 use crate::{
     custom_client::OsuStatsParams,
@@ -537,6 +540,29 @@ fn mode_choices() -> Vec<CommandOptionChoice> {
             value: MANIA.to_owned(),
         },
     ]
+}
+
+async fn respond_autocomplete(
+    ctx: &Context,
+    command: &ApplicationCommandAutocomplete,
+    choices: Vec<CommandOptionChoice>,
+) -> BotResult<()> {
+    let data = InteractionResponseData {
+        choices: Some(choices),
+        ..Default::default()
+    };
+
+    let response = InteractionResponse {
+        kind: InteractionResponseType::ApplicationCommandAutocompleteResult,
+        data: Some(data),
+    };
+
+    ctx.interaction()
+        .create_response(command.id, &command.token, &response)
+        .exec()
+        .await?;
+
+    Ok(())
 }
 
 fn option_mode() -> MyCommandOption {

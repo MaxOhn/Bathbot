@@ -7,15 +7,13 @@ use std::{
 
 use eyre::Report;
 use rkyv::{Deserialize, Infallible};
-use twilight_model::{
-    application::{
-        command::CommandOptionChoice,
-        interaction::{ApplicationCommand, ApplicationCommandAutocomplete},
-    },
-    http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
+use twilight_model::application::{
+    command::CommandOptionChoice,
+    interaction::{ApplicationCommand, ApplicationCommandAutocomplete},
 };
 
 use crate::{
+    commands::osu::respond_autocomplete,
     core::Context,
     custom_client::OsekaiBadge,
     embeds::{BadgeEmbed, EmbedData},
@@ -231,29 +229,6 @@ fn new_choice(name: &str) -> CommandOptionChoice {
         name: name.to_owned(),
         value: name.to_owned(),
     }
-}
-
-async fn respond_autocomplete(
-    ctx: &Context,
-    command: &ApplicationCommandAutocomplete,
-    choices: Vec<CommandOptionChoice>,
-) -> BotResult<()> {
-    let data = InteractionResponseData {
-        choices: Some(choices),
-        ..Default::default()
-    };
-
-    let response = InteractionResponse {
-        kind: InteractionResponseType::ApplicationCommandAutocompleteResult,
-        data: Some(data),
-    };
-
-    ctx.interaction()
-        .create_response(command.id, &command.token, &response)
-        .exec()
-        .await?;
-
-    Ok(())
 }
 
 #[derive(Debug)]

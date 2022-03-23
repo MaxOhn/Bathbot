@@ -1,9 +1,14 @@
 use rkyv::{Deserialize, Infallible};
+use twilight_model::application::{
+    command::CommandOptionChoice, interaction::ApplicationCommandAutocomplete,
+};
 
 use crate::{
+    commands::osu::respond_autocomplete,
     core::ArchivedBytes,
     custom_client::OsekaiMedal,
     embeds::{EmbedData, MedalEmbed},
+    error::Error,
     util::{constants::OSEKAI_ISSUE, levenshtein_similarity, CowUtils, MessageExt},
     BotResult, CommandData, Context,
 };
@@ -125,4 +130,46 @@ async fn no_medal(
     }
 
     data.error(ctx, content).await
+}
+
+pub async fn handle_autocomplete(
+    ctx: Arc<Context>,
+    command: ApplicationCommandAutocomplete,
+) -> BotResult<()> {
+    let value_opt = command
+        .data
+        .options
+        .first()
+        .and_then(|opt| opt.options.first())
+        .and_then(|opt| opt.value.as_ref());
+
+    let name = match value_opt {
+        Some(value) if !value.is_empty() => value.cow_to_ascii_lowercase(),
+        Some(_) => return respond_autocomplete(&ctx, &command, Vec::new()).await,
+        None => return Err(Error::InvalidCommandOptions),
+    };
+
+    let name = name.as_ref();
+    let medals = ctx.redis().medals().await?;
+    let archived_medals = medals.get();
+    let mut choices = Vec::with_capacity(25);
+
+    for medal in archived_medals.iter() {
+        if medal.name.to_ascii_lowercase().starts_with(name) {
+            choices.push(new_choice(&medal.name));
+
+            if choices.len() == 25 {
+                break;
+            }
+        }
+    }
+
+    respond_autocomplete(&ctx, &command, choices).await
+}
+
+fn new_choice(name: &str) -> CommandOptionChoice {
+    CommandOptionChoice::String {
+        name: name.to_owned(),
+        value: name.to_owned(),
+    }
 }

@@ -30,7 +30,10 @@ use crate::{
     BotResult, Context, Error,
 };
 
-pub use self::{common::*, list::*, medal::*, missing::*, recent::*, stats::*};
+pub use self::{
+    common::*, list::*, medal::handle_autocomplete as handle_medal_autocomplete, medal::*,
+    missing::*, recent::*, stats::*,
+};
 
 use super::require_link;
 
@@ -237,6 +240,7 @@ pub fn define_medal() -> MyCommand {
         Upper- and lowercase does not matter but punctuation is important.";
 
     let name = MyCommandOption::builder(NAME, "Specify the name of a medal")
+        .autocomplete()
         .help(name_help)
         .string(Vec::new(), true);
 
