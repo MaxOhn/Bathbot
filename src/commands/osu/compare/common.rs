@@ -313,7 +313,7 @@ pub(super) async fn _common(
 
     // Create the combined profile pictures
     let urls = users.iter().map(CommonUser::avatar_url);
-    let thumbnail_fut = get_combined_thumbnail(&ctx, urls, users.len() as u32);
+    let thumbnail_fut = get_combined_thumbnail(&ctx, urls, users.len() as u32, None);
 
     let data_fut = async {
         let limit = scores_per_map.len().min(10);

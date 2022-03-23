@@ -364,12 +364,24 @@ impl CustomClient {
     }
 
     pub async fn get_osekai_badges(&self) -> ClientResult<Vec<OsekaiBadge>> {
-        let url = "https://osekai.net/medals/api/getBadges.php";
+        let url = "https://osekai.net/badges/api/getBadges.php";
 
         let bytes = self.make_get_request(url, Site::Osekai).await?;
 
         serde_json::from_slice(&bytes)
             .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsekaiBadges))
+    }
+
+    pub async fn get_osekai_badge_owners(
+        &self,
+        badge_id: u32,
+    ) -> ClientResult<Vec<OsekaiBadgeOwner>> {
+        let url = format!("https://osekai.net/badges/api/getUsers.php?badge_id={badge_id}");
+
+        let bytes = self.make_get_request(url, Site::Osekai).await?;
+
+        serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsekaiBadgeOwners))
     }
 
     pub async fn get_osekai_medals(&self) -> ClientResult<Vec<OsekaiMedal>> {

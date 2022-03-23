@@ -790,6 +790,7 @@ lazy_static! {
         insert("popular", define_popular);
         insert("countrytop", define_countrytop);
         insert("graphs", define_graph);
+        insert("badge", define_badges);
 
         SlashCommands(trie)
     };

@@ -1,36 +1,87 @@
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{Date, Datelike, TimeZone, Utc};
 use rkyv::{
+    ser::Serializer,
+    string::{ArchivedString, StringResolver},
     with::{ArchiveWith, DeserializeWith, SerializeWith},
     Archive, Archived, Fallible,
 };
+use rosu_v2::prelude::Username;
 
-pub struct DateTimeWrapper;
+pub struct UsernameWrapper;
 
-impl ArchiveWith<DateTime<Utc>> for DateTimeWrapper {
-    type Archived = Archived<i64>;
-    type Resolver = ();
+impl ArchiveWith<Username> for UsernameWrapper {
+    type Archived = ArchivedString;
+    type Resolver = StringResolver;
 
     #[inline]
     unsafe fn resolve_with(
-        field: &DateTime<Utc>,
+        field: &Username,
         pos: usize,
         resolver: Self::Resolver,
         out: *mut Self::Archived,
     ) {
-        Archive::resolve(&field.timestamp_millis(), pos, resolver, out);
+        ArchivedString::resolve_from_str(field.as_str(), pos, resolver, out);
     }
 }
 
-impl<D: Fallible> DeserializeWith<i64, DateTime<Utc>, D> for DateTimeWrapper {
+impl<S: Fallible + Serializer> SerializeWith<Username, S> for UsernameWrapper {
     #[inline]
-    fn deserialize_with(field: &Archived<i64>, _: &mut D) -> Result<DateTime<Utc>, D::Error> {
-        Ok(Utc.timestamp_millis(*field))
+    fn serialize_with(field: &Username, s: &mut S) -> Result<Self::Resolver, S::Error> {
+        ArchivedString::serialize_from_str(field.as_str(), s)
     }
 }
 
-impl<S: Fallible> SerializeWith<DateTime<Utc>, S> for DateTimeWrapper {
+impl<D: Fallible> DeserializeWith<ArchivedString, Username, D> for UsernameWrapper {
     #[inline]
-    fn serialize_with(_: &DateTime<Utc>, _: &mut S) -> Result<Self::Resolver, S::Error> {
+    fn deserialize_with(field: &ArchivedString, _: &mut D) -> Result<Username, D::Error> {
+        Ok(Username::from_str(field.as_str()))
+    }
+}
+
+pub struct DateWrapper;
+
+pub struct ArchivedDateUtc {
+    year: Archived<i32>,
+    ordinal: Archived<u32>,
+}
+
+impl ArchiveWith<Date<Utc>> for DateWrapper {
+    type Archived = ArchivedDateUtc;
+    type Resolver = ();
+
+    #[inline]
+    unsafe fn resolve_with(
+        field: &Date<Utc>,
+        pos: usize,
+        _: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
+        let (fp, fo) = {
+            let fo = (&mut (*out).year) as *mut i32;
+            (fo.cast::<u8>().offset_from(out.cast::<u8>()) as usize, fo)
+        };
+        #[allow(clippy::unit_arg)]
+        field.year().resolve(pos + fp, (), fo);
+
+        let (fp, fo) = {
+            let fo = (&mut (*out).ordinal) as *mut u32;
+            (fo.cast::<u8>().offset_from(out.cast::<u8>()) as usize, fo)
+        };
+        #[allow(clippy::unit_arg)]
+        field.ordinal().resolve(pos + fp, (), fo);
+    }
+}
+
+impl<S: Fallible> SerializeWith<Date<Utc>, S> for DateWrapper {
+    #[inline]
+    fn serialize_with(_: &Date<Utc>, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
+    }
+}
+
+impl<D: Fallible> DeserializeWith<ArchivedDateUtc, Date<Utc>, D> for DateWrapper {
+    #[inline]
+    fn deserialize_with(field: &ArchivedDateUtc, _: &mut D) -> Result<Date<Utc>, D::Error> {
+        Ok(Utc.yo(field.year, field.ordinal))
     }
 }

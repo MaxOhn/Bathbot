@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt, marker::PhantomData, str::FromStr};
 
-use chrono::{DateTime, Utc};
+use chrono::{Date, Utc};
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize};
 use rosu_v2::{
     model::{GameMode, GameMods},
@@ -21,7 +21,7 @@ use crate::{
 
 use self::groups::*;
 
-use super::{str_to_f32, str_to_u32, DateTimeWrapper};
+use super::{str_to_date, str_to_f32, str_to_u32, DateWrapper};
 
 pub trait OsekaiRanking {
     const FORM: &'static str;
@@ -540,23 +540,35 @@ pub struct OsekaiRarityEntry {
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, Serialize)]
 pub struct OsekaiBadge {
-    #[with(DateTimeWrapper)]
-    awarded_at: DateTime<Utc>,
-    description: String,
-    #[serde(deserialize_with = "str_to_u32")]
-    badge_id: u32,
-    image_url: String,
-    name: String,
+    #[serde(deserialize_with = "str_to_date")]
+    #[with(DateWrapper)]
+    pub awarded_at: Date<Utc>,
+    pub description: String,
+    #[serde(rename = "id", deserialize_with = "str_to_u32")]
+    pub badge_id: u32,
+    pub image_url: String,
+    pub name: String,
     #[serde(deserialize_with = "string_of_vec_of_u32s")]
-    users: Vec<u32>,
+    pub users: Vec<u32>,
 }
 
 fn string_of_vec_of_u32s<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u32>, D::Error> {
     let stringified_vec: &str = Deserialize::deserialize(d)?;
 
-    stringified_vec[2..stringified_vec.len() - 2]
+    stringified_vec[1..stringified_vec.len() - 1]
         .split(',')
         .map(|s| s.parse().map_err(|_| s))
         .collect::<Result<Vec<u32>, _>>()
-        .map_err(|s| Error::invalid_value(Unexpected::Str(s), &"an u32"))
+        .map_err(|s| Error::invalid_value(Unexpected::Str(s), &"u32"))
+}
+
+// data contains many more fields but none of use as of now
+#[derive(Debug, Deserialize)]
+pub struct OsekaiBadgeOwner {
+    pub avatar_url: String,
+    pub country_code: CountryCode,
+    #[serde(rename = "id")]
+    pub user_id: u32,
+    #[serde(rename = "name")]
+    pub username: Username,
 }

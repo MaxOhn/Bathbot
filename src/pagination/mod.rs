@@ -1,3 +1,4 @@
+mod badges;
 mod bg_rankings;
 mod command_count;
 mod common;
@@ -54,16 +55,16 @@ use crate::{
 };
 
 pub use self::{
-    bg_rankings::BGRankingPagination, command_count::CommandCountPagination,
-    common::CommonPagination, country_snipe_list::CountrySnipeListPagination,
-    leaderboard::LeaderboardPagination, map::MapPagination, map_search::MapSearchPagination,
-    match_compare::MatchComparePagination, medal_recent::MedalRecentPagination,
-    medals_common::MedalsCommonPagination, medals_list::MedalsListPagination,
-    medals_missing::MedalsMissingPagination, most_played::MostPlayedPagination,
-    most_played_common::MostPlayedCommonPagination, nochoke::NoChokePagination,
-    osekai_medal_count::MedalCountPagination, osekai_medal_rarity::MedalRarityPagination,
-    osustats_globals::OsuStatsGlobalsPagination, osustats_list::OsuStatsListPagination,
-    osutracker_countrytop::OsuTrackerCountryTopPagination,
+    badges::BadgePagination, bg_rankings::BGRankingPagination,
+    command_count::CommandCountPagination, common::CommonPagination,
+    country_snipe_list::CountrySnipeListPagination, leaderboard::LeaderboardPagination,
+    map::MapPagination, map_search::MapSearchPagination, match_compare::MatchComparePagination,
+    medal_recent::MedalRecentPagination, medals_common::MedalsCommonPagination,
+    medals_list::MedalsListPagination, medals_missing::MedalsMissingPagination,
+    most_played::MostPlayedPagination, most_played_common::MostPlayedCommonPagination,
+    nochoke::NoChokePagination, osekai_medal_count::MedalCountPagination,
+    osekai_medal_rarity::MedalRarityPagination, osustats_globals::OsuStatsGlobalsPagination,
+    osustats_list::OsuStatsListPagination, osutracker_countrytop::OsuTrackerCountryTopPagination,
     osutracker_mappers::OsuTrackerMappersPagination, osutracker_maps::OsuTrackerMapsPagination,
     osutracker_mapsets::OsuTrackerMapsetsPagination, osutracker_mods::OsuTrackerModsPagination,
     pinned::PinnedPagination, player_snipe_list::PlayerSnipeListPagination,

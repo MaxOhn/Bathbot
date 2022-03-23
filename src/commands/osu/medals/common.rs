@@ -205,7 +205,7 @@ pub(super) async fn _common(
     // Create the thumbnail
     let urls = [user1.avatar_url.as_str(), user2.avatar_url.as_str()];
 
-    let thumbnail = match get_combined_thumbnail(&ctx, urls, 2).await {
+    let thumbnail = match get_combined_thumbnail(&ctx, urls, 2, None).await {
         Ok(thumbnail) => Some(thumbnail),
         Err(why) => {
             let report = Report::new(why).wrap_err("failed to combine avatars");

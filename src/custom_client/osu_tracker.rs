@@ -3,7 +3,7 @@ use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use rosu_v2::prelude::{CountryCode, GameMods, Username};
 use serde::Deserialize;
 
-use super::deserialize::{inflate_acc, str_to_datetime, str_to_f32, str_to_u32, UsernameWrapper};
+use super::{inflate_acc, str_to_datetime, str_to_f32, str_to_u32, UsernameWrapper};
 
 #[derive(Debug, Deserialize)]
 pub struct OsuTrackerPpGroup {

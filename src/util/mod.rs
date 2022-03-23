@@ -221,9 +221,12 @@ pub async fn get_combined_thumbnail<'s>(
     ctx: &Context,
     avatar_urls: impl IntoIterator<Item = &'s str>,
     amount: u32,
+    width: Option<u32>,
 ) -> BotResult<Vec<u8>> {
-    let mut combined = DynamicImage::new_rgba8(128, 128);
-    let w = 128 / amount;
+    let width = width.map_or(128, |w| w.max(128));
+    let mut combined = DynamicImage::new_rgba8(width, 128);
+    let w = (width / amount).min(128);
+    let total_offset = (width - amount * w) / 2;
 
     // Future stream
     let mut pfp_futs: FuturesOrdered<_> = avatar_urls
@@ -237,12 +240,14 @@ pub async fn get_combined_thumbnail<'s>(
     // Closure that stitches the stripe onto the combined image
     let mut img_combining = |img: DynamicImage, i: u32| {
         let img = img.resize_exact(128, 128, FilterType::Lanczos3);
-        let x = i as u32 * 128 / amount;
+
+        let dst_offset = total_offset + i * w;
+        let src_offset = (w < 128) as u32 * i * (128 - w) / amount;
 
         for i in 0..w {
             for j in 0..128 {
-                let pixel = img.get_pixel(x + i, j);
-                combined.put_pixel(x + i, j, pixel);
+                let pixel = img.get_pixel(src_offset + i, j);
+                combined.put_pixel(dst_offset + i, j, pixel);
             }
         }
     };
@@ -256,7 +261,8 @@ pub async fn get_combined_thumbnail<'s>(
         i += 1;
     }
 
-    let png_bytes: Vec<u8> = Vec::with_capacity(16_384); // 2^14 = 128x128
+    let capacity = width as usize * 128;
+    let png_bytes: Vec<u8> = Vec::with_capacity(capacity);
     let mut cursor = Cursor::new(png_bytes);
     combined.write_to(&mut cursor, Png)?;
 

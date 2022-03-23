@@ -101,6 +101,7 @@ pub async fn handle_autocomplete(
 
     match name {
         HELP => help::handle_autocomplete(ctx, command).await,
+        "badge" => osu::handle_badge_autocomplete(ctx, command).await,
         _ => Err(Error::UnknownSlashAutocomplete(command.data.name)),
     }
 }
@@ -114,6 +115,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
 
     let command_result = match name.as_str() {
         "avatar" => process_command(ctx, command, args, osu::slash_avatar).await,
+        "badges" => process_command(ctx, command, args, osu::slash_badges).await,
         // TODO: Bucket
         "bg" => process_command(ctx, command, args, fun::slash_bg).await,
         "bws" => process_command(ctx, command, args, osu::slash_bws).await,

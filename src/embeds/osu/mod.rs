@@ -1,10 +1,12 @@
 mod avatar;
+mod badge;
 mod bws;
 mod common;
 mod compare;
 mod country_snipe_list;
 mod country_snipe_stats;
 mod fix_score;
+mod graph;
 mod leaderboard;
 mod map;
 mod map_search;
@@ -24,16 +26,15 @@ mod osekai_medal_rarity;
 mod osustats_counts;
 mod osustats_globals;
 mod osustats_list;
+mod osutracker_countrytop;
 mod osutracker_mappers;
 mod osutracker_maps;
 mod osutracker_mapsets;
 mod osutracker_mods;
 mod pinned;
 mod player_snipe_list;
-mod graph;
 mod player_snipe_stats;
 mod pp_missing;
-mod osutracker_countrytop;
 mod profile;
 mod profile_compare;
 mod rank;
@@ -61,12 +62,14 @@ use crate::util::{datetime::sec_to_minsec, numbers::round, BeatmapExt, ScoreExt}
 
 pub use self::{
     avatar::AvatarEmbed,
+    badge::BadgeEmbed,
     bws::BWSEmbed,
     common::CommonEmbed,
     compare::{CompareEmbed, NoScoresEmbed},
     country_snipe_list::CountrySnipeListEmbed,
     country_snipe_stats::CountrySnipeStatsEmbed,
     fix_score::FixScoreEmbed,
+    graph::GraphEmbed,
     leaderboard::LeaderboardEmbed,
     map::MapEmbed,
     map_search::MapSearchEmbed,
@@ -77,7 +80,6 @@ pub use self::{
     medal_stats::MedalStatsEmbed,
     medals_common::{MedalsCommonEmbed, MedalsCommonUser},
     medals_list::MedalsListEmbed,
-    graph::GraphEmbed,
     medals_missing::MedalsMissingEmbed,
     most_played::MostPlayedEmbed,
     most_played_common::MostPlayedCommonEmbed,
@@ -85,9 +87,9 @@ pub use self::{
     osekai_medal_count::MedalCountEmbed,
     osekai_medal_rarity::MedalRarityEmbed,
     osustats_counts::OsuStatsCountsEmbed,
-    osutracker_countrytop::OsuTrackerCountryTopEmbed,
     osustats_globals::OsuStatsGlobalsEmbed,
     osustats_list::OsuStatsListEmbed,
+    osutracker_countrytop::OsuTrackerCountryTopEmbed,
     osutracker_mappers::OsuTrackerMappersEmbed,
     osutracker_maps::OsuTrackerMapsEmbed,
     osutracker_mapsets::OsuTrackerMapsetsEmbed,

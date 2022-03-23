@@ -22,7 +22,7 @@ impl<'c> RedisCache<'c> {
     const USER_SECONDS: usize = 600;
     const OSUTRACKER_STATS_SECONDS: usize = 1800;
     const MEDALS_SECONDS: usize = 3600;
-    const BADGES_SECONDS: usize = 3600;
+    const BADGES_SECONDS: usize = 7200;
 
     pub fn new(ctx: &'c Context) -> Self {
         Self { ctx }
@@ -56,7 +56,7 @@ impl<'c> RedisCache<'c> {
         };
 
         let badges = self.ctx.clients.custom.get_osekai_badges().await?;
-        let bytes = rkyv::to_bytes::<_, 80_000>(&badges).expect("failed to serialize badges");
+        let bytes = rkyv::to_bytes::<_, 200_000>(&badges).expect("failed to serialize badges");
         let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), Self::BADGES_SECONDS);
 
         if let Err(err) = set_fut.await {
