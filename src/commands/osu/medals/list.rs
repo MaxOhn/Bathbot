@@ -63,7 +63,7 @@ pub(super) async fn _medalslist(
 
     let (mut user, mut osekai_medals, rarities) =
         match tokio::join!(user_fut, redis.medals(), rarity_fut) {
-            (Ok(user), Ok(medals), Ok(rarities)) => (user, medals, rarities),
+            (Ok(user), Ok(medals), Ok(rarities)) => (user, medals.to_inner(), rarities),
             (Err(OsuError::NotFound), ..) => {
                 let content = format!("User `{name}` was not found");
 

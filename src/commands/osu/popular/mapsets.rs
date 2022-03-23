@@ -3,10 +3,12 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use eyre::Report;
 use hashbrown::HashMap;
+use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{Beatmapset, Username};
 
 use crate::{
     core::{commands::CommandData, Context},
+    custom_client::OsuTrackerMapsetEntry,
     embeds::{EmbedData, OsuTrackerMapsetsEmbed},
     pagination::{OsuTrackerMapsetsPagination, Pagination},
     util::{
@@ -17,8 +19,12 @@ use crate::{
 };
 
 pub(super) async fn mapsets_(ctx: Arc<Context>, data: CommandData<'_>) -> BotResult<()> {
-    let mut counts = match ctx.redis().osutracker_stats().await {
-        Ok(stats) => stats.mapset_count,
+    let mut counts: Vec<OsuTrackerMapsetEntry> = match ctx.redis().osutracker_stats().await {
+        Ok(stats) => stats
+            .get()
+            .mapset_count
+            .deserialize(&mut Infallible)
+            .unwrap(),
         Err(err) => {
             let _ = data.error(&ctx, OSUTRACKER_ISSUE).await;
 

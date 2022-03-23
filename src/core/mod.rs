@@ -14,5 +14,5 @@ pub use context::{
     generate_activity, AssignRoles, Clients, Context, ContextData, MatchLiveChannels,
     MatchTrackResult, Redis,
 };
-pub use redis_cache::RedisCache;
+pub use redis_cache::{ArchivedBytes, RedisCache};
 pub use stats::BotStats;

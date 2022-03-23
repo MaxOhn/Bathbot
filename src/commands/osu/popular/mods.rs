@@ -1,9 +1,11 @@
 use std::sync::Arc;
 
 use eyre::Report;
+use rkyv::{Deserialize, Infallible};
 
 use crate::{
     core::{commands::CommandData, Context},
+    custom_client::OsuTrackerModsEntry,
     embeds::EmbedData,
     embeds::OsuTrackerModsEmbed,
     pagination::{OsuTrackerModsPagination, Pagination},
@@ -12,8 +14,13 @@ use crate::{
 };
 
 pub(super) async fn mods_(ctx: Arc<Context>, data: CommandData<'_>) -> BotResult<()> {
-    let counts = match ctx.redis().osutracker_stats().await {
-        Ok(stats) => stats.user.mods_count,
+    let counts: Vec<OsuTrackerModsEntry> = match ctx.redis().osutracker_stats().await {
+        Ok(stats) => stats
+            .get()
+            .user
+            .mods_count
+            .deserialize(&mut Infallible)
+            .unwrap(),
         Err(err) => {
             let _ = data.error(&ctx, OSUTRACKER_ISSUE).await;
 

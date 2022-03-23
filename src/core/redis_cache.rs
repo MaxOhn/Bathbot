@@ -1,6 +1,8 @@
+use std::{marker::PhantomData, ops::Deref};
+
 use bb8_redis::redis::AsyncCommands;
 use eyre::Report;
-use rkyv::{Deserialize, Infallible};
+use rkyv::{AlignedVec, Archive, Deserialize, Infallible};
 use rosu_v2::{
     prelude::{OsuError, User},
     OsuResult,
@@ -12,6 +14,8 @@ use crate::{
 };
 
 use super::Context;
+
+type ArchivedResult<T, E> = Result<ArchivedBytes<T>, E>;
 
 #[derive(Copy, Clone)]
 pub struct RedisCache<'c> {
@@ -28,7 +32,7 @@ impl<'c> RedisCache<'c> {
         Self { ctx }
     }
 
-    pub async fn badges(&self) -> Result<Vec<OsekaiBadge>, CustomClientError> {
+    pub async fn badges(&self) -> ArchivedResult<Vec<OsekaiBadge>, CustomClientError> {
         let key = "osekai_badges";
 
         let mut conn = match self.ctx.clients.redis.get().await {
@@ -38,10 +42,7 @@ impl<'c> RedisCache<'c> {
                         self.ctx.stats.inc_cached_badges();
                         trace!("Found badges in cache ({} bytes)", bytes.len());
 
-                        let archived = unsafe { rkyv::archived_root::<Vec<OsekaiBadge>>(&bytes) };
-                        let medals = archived.deserialize(&mut Infallible).unwrap();
-
-                        return Ok(medals);
+                        return Ok(ArchivedBytes::new(bytes));
                     }
                 }
 
@@ -51,7 +52,11 @@ impl<'c> RedisCache<'c> {
                 let report = Report::new(err).wrap_err("failed to get redis connection");
                 warn!("{report:?}");
 
-                return self.ctx.clients.custom.get_osekai_badges().await;
+                let badges = self.ctx.clients.custom.get_osekai_badges().await?;
+                let bytes =
+                    rkyv::to_bytes::<_, 200_000>(&badges).expect("failed to serialize badges");
+
+                return Ok(ArchivedBytes::new(bytes));
             }
         };
 
@@ -64,10 +69,10 @@ impl<'c> RedisCache<'c> {
             warn!("{report:?}");
         }
 
-        Ok(badges)
+        Ok(ArchivedBytes::new(bytes))
     }
 
-    pub async fn medals(&self) -> Result<Vec<OsekaiMedal>, CustomClientError> {
+    pub async fn medals(&self) -> ArchivedResult<Vec<OsekaiMedal>, CustomClientError> {
         let key = "osekai_medals";
 
         let mut conn = match self.ctx.clients.redis.get().await {
@@ -77,10 +82,7 @@ impl<'c> RedisCache<'c> {
                         self.ctx.stats.inc_cached_medals();
                         trace!("Found medals in cache ({} bytes)", bytes.len());
 
-                        let archived = unsafe { rkyv::archived_root::<Vec<OsekaiMedal>>(&bytes) };
-                        let medals = archived.deserialize(&mut Infallible).unwrap();
-
-                        return Ok(medals);
+                        return Ok(ArchivedBytes::new(bytes));
                     }
                 }
 
@@ -90,7 +92,11 @@ impl<'c> RedisCache<'c> {
                 let report = Report::new(err).wrap_err("failed to get redis connection");
                 warn!("{report:?}");
 
-                return self.ctx.clients.custom.get_osekai_medals().await;
+                let medals = self.ctx.clients.custom.get_osekai_medals().await?;
+                let bytes =
+                    rkyv::to_bytes::<_, 80_000>(&medals).expect("failed to serialize medals");
+
+                return Ok(ArchivedBytes::new(bytes));
             }
         };
 
@@ -103,10 +109,10 @@ impl<'c> RedisCache<'c> {
             warn!("{report:?}");
         }
 
-        Ok(medals)
+        Ok(ArchivedBytes::new(bytes))
     }
 
-    pub async fn osutracker_stats(&self) -> Result<OsuTrackerStats, CustomClientError> {
+    pub async fn osutracker_stats(&self) -> ArchivedResult<OsuTrackerStats, CustomClientError> {
         let key = "osutracker_stats";
 
         let mut conn = match self.ctx.clients.redis.get().await {
@@ -116,10 +122,7 @@ impl<'c> RedisCache<'c> {
                         self.ctx.stats.inc_cached_osutracker_stats();
                         trace!("Found osutracker stats in cache ({} bytes)", bytes.len());
 
-                        let archived = unsafe { rkyv::archived_root::<OsuTrackerStats>(&bytes) };
-                        let stats = archived.deserialize(&mut Infallible).unwrap();
-
-                        return Ok(stats);
+                        return Ok(ArchivedBytes::new(bytes));
                     }
                 }
 
@@ -129,7 +132,11 @@ impl<'c> RedisCache<'c> {
                 let report = Report::new(err).wrap_err("failed to get redis connection");
                 warn!("{report:?}");
 
-                return self.ctx.clients.custom.get_osutracker_stats().await;
+                let stats = self.ctx.clients.custom.get_osutracker_stats().await?;
+                let bytes = rkyv::to_bytes::<_, 190_000>(&stats)
+                    .expect("failed to serialize osutracker stats");
+
+                return Ok(ArchivedBytes::new(bytes));
             }
         };
 
@@ -144,7 +151,7 @@ impl<'c> RedisCache<'c> {
             warn!("{report:?}");
         }
 
-        Ok(stats)
+        Ok(ArchivedBytes::new(bytes))
     }
 
     pub async fn osu_user(&self, args: &UserArgs<'_>) -> OsuResult<User> {
@@ -243,5 +250,61 @@ impl<'c> RedisCache<'c> {
         }
 
         Ok(user)
+    }
+}
+
+pub struct ArchivedBytes<T> {
+    bytes: Bytes,
+    phantom: PhantomData<T>,
+}
+
+impl<T> ArchivedBytes<T> {
+    fn new(bytes: impl Into<Bytes>) -> Self {
+        Self {
+            bytes: bytes.into(),
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<T> ArchivedBytes<T>
+where
+    T: Archive,
+    T::Archived: Deserialize<T, Infallible>,
+{
+    pub fn get(&self) -> &T::Archived {
+        unsafe { rkyv::archived_root::<T>(&self.bytes) }
+    }
+
+    pub fn to_inner(&self) -> T {
+        self.get().deserialize(&mut Infallible).unwrap()
+    }
+}
+
+enum Bytes {
+    AlignedVec(AlignedVec),
+    Vec(Vec<u8>),
+}
+
+impl Deref for Bytes {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Bytes::AlignedVec(v) => v.as_slice(),
+            Bytes::Vec(v) => v.as_slice(),
+        }
+    }
+}
+
+impl From<AlignedVec> for Bytes {
+    fn from(vec: AlignedVec) -> Self {
+        Self::AlignedVec(vec)
+    }
+}
+
+impl From<Vec<u8>> for Bytes {
+    fn from(vec: Vec<u8>) -> Self {
+        Self::Vec(vec)
     }
 }

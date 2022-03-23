@@ -2,6 +2,7 @@ use std::{cmp::Ordering, sync::Arc};
 
 use eyre::Report;
 use hashbrown::HashSet;
+use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{GameMode, OsuError, Username};
 
 use crate::{
@@ -88,12 +89,17 @@ pub(super) async fn _medalsmissing(
     };
 
     let medals = user.medals.as_ref().unwrap();
-    let medal_count = (all_medals.len() - medals.len(), all_medals.len());
+    let archived_all_medals = all_medals.get();
+    let medal_count = (
+        archived_all_medals.len() - medals.len(),
+        archived_all_medals.len(),
+    );
     let owned: HashSet<_> = medals.iter().map(|medal| medal.medal_id).collect();
 
-    let mut medals: Vec<_> = all_medals
-        .into_iter()
+    let mut medals: Vec<_> = archived_all_medals
+        .iter()
         .filter(|medal| !owned.contains(&medal.medal_id))
+        .map(|entry| entry.deserialize(&mut Infallible).unwrap())
         .map(MedalType::Medal)
         .collect();
 

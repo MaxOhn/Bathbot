@@ -1,4 +1,7 @@
+use rkyv::{Deserialize, Infallible};
+
 use crate::{
+    core::ArchivedBytes,
     custom_client::OsekaiMedal,
     embeds::{EmbedData, MedalEmbed},
     util::{constants::OSEKAI_ISSUE, levenshtein_similarity, CowUtils, MessageExt},
@@ -37,7 +40,7 @@ async fn medal(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 pub(super) async fn _medal(ctx: Arc<Context>, data: CommandData<'_>, name: &str) -> BotResult<()> {
-    let mut medals = match ctx.redis().medals().await {
+    let medals = match ctx.redis().medals().await {
         Ok(medals) => medals,
         Err(err) => {
             let _ = data.error(&ctx, OSEKAI_ISSUE).await;
@@ -47,12 +50,13 @@ pub(super) async fn _medal(ctx: Arc<Context>, data: CommandData<'_>, name: &str)
     };
 
     let name = name.cow_to_ascii_lowercase();
+    let archived_medals = medals.get();
 
-    let medal = match medals
+    let medal: OsekaiMedal = match archived_medals
         .iter()
         .position(|m| m.name.to_ascii_lowercase() == name)
     {
-        Some(idx) => medals.swap_remove(idx),
+        Some(idx) => archived_medals[idx].deserialize(&mut Infallible).unwrap(),
         None => return no_medal(&ctx, &data, name.as_ref(), medals).await,
     };
 
@@ -89,10 +93,11 @@ async fn no_medal(
     ctx: &Context,
     data: &CommandData<'_>,
     name: &str,
-    medals: Vec<OsekaiMedal>,
+    medals: ArchivedBytes<Vec<OsekaiMedal>>,
 ) -> BotResult<()> {
     let mut medals: Vec<_> = medals
-        .into_iter()
+        .get()
+        .iter()
         .map(|medal| {
             let medal = medal.name.to_ascii_lowercase();
 

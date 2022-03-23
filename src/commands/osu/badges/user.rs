@@ -1,11 +1,13 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use eyre::Report;
+use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{GameMode, OsuError};
 
 use crate::{
     commands::osu::UserArgs,
     core::{commands::CommandData, Context},
+    custom_client::OsekaiBadge,
     database::UserConfig,
     embeds::{BadgeEmbed, EmbedData},
     pagination::{BadgePagination, Pagination},
@@ -64,7 +66,7 @@ pub(super) async fn user_(
         }
     };
 
-    let mut badges = match badges_result {
+    let badges = match badges_result {
         Ok(badges) => badges,
         Err(err) => {
             let _ = data.error(&ctx, OSEKAI_ISSUE).await;
@@ -73,7 +75,13 @@ pub(super) async fn user_(
         }
     };
 
-    badges.retain(|badge| badge.users.contains(&user.user_id));
+    let mut badges: Vec<OsekaiBadge> = badges
+        .get()
+        .iter()
+        .filter(|badge| badge.users.contains(&user.user_id))
+        .map(|badge| badge.deserialize(&mut Infallible).unwrap())
+        .collect();
+
     sort_by.apply(&mut badges);
 
     let owners = if let Some(badge) = badges.first() {

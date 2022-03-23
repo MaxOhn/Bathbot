@@ -2,6 +2,7 @@ use std::{fmt::Write, mem, sync::Arc};
 
 use eyre::Report;
 use hashbrown::HashMap;
+use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{
     GameMode, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
@@ -47,8 +48,7 @@ use crate::{
 };
 
 use super::{
-     option_discord, option_mode, option_mods_explicit, option_name,
-    option_query, GradeArg,
+    option_discord, option_mode, option_mods_explicit, option_name, option_query, GradeArg,
 };
 
 const FARM_CUTOFF: usize = 727;
@@ -108,14 +108,19 @@ pub async fn _top(ctx: Arc<Context>, data: CommandData<'_>, args: TopArgs) -> Bo
 
     let farm_fut = async {
         if args.farm.is_some() || matches!(args.sort_by, TopOrder::Farm) {
-            ctx.redis().osutracker_stats()
+            ctx.redis()
+                .osutracker_stats()
                 .await
                 .map(|stats| {
                     stats
+                        .get()
                         .mapset_count
-                        .into_iter()
+                        .iter()
+                        .map(|entry| entry.deserialize(&mut Infallible).unwrap())
                         .enumerate()
-                        .map(|(i, entry)| (entry.mapset_id, (entry, i < FARM_CUTOFF)))
+                        .map(|(i, entry): (_, OsuTrackerMapsetEntry)| {
+                            (entry.mapset_id, (entry, i < FARM_CUTOFF))
+                        })
                         .collect::<Farm>()
                 })
                 .map(Some)

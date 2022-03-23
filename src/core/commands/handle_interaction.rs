@@ -101,7 +101,7 @@ pub async fn handle_autocomplete(
 
     match name {
         HELP => help::handle_autocomplete(ctx, command).await,
-        "badge" => osu::handle_badge_autocomplete(ctx, command).await,
+        "badges" => osu::handle_badge_autocomplete(ctx, command).await,
         _ => Err(Error::UnknownSlashAutocomplete(command.data.name)),
     }
 }

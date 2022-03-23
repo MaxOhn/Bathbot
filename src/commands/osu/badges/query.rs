@@ -6,6 +6,7 @@ use std::{
 };
 
 use eyre::Report;
+use rkyv::{Deserialize, Infallible};
 use twilight_model::{
     application::{
         command::CommandOptionChoice,
@@ -16,6 +17,7 @@ use twilight_model::{
 
 use crate::{
     core::Context,
+    custom_client::OsekaiBadge,
     embeds::{BadgeEmbed, EmbedData},
     error::Error,
     pagination::{BadgePagination, Pagination},
@@ -34,7 +36,7 @@ pub(super) async fn query_(
     name: String,
     sort_by: BadgeOrder,
 ) -> BotResult<()> {
-    let mut badges = match ctx.redis().badges().await {
+    let badges = match ctx.redis().badges().await {
         Ok(badges) => badges,
         Err(err) => {
             let _ = command.error(&ctx, OSEKAI_ISSUE).await;
@@ -47,22 +49,29 @@ pub(super) async fn query_(
     let name = name_.as_ref();
     let mut found_exact = false;
 
-    badges.retain(|badge| {
-        if found_exact {
-            false
-        } else {
-            let lowercase_name = badge.name.cow_to_ascii_lowercase();
-            let lowercase_desc = badge.description.to_ascii_lowercase();
-
-            if lowercase_name == name || lowercase_desc == name {
-                found_exact = true;
-
-                true
+    let mut badges: Vec<OsekaiBadge> = badges
+        .get()
+        .iter()
+        .scan(&mut found_exact, |found_exact, badge| {
+            if **found_exact {
+                None
             } else {
-                lowercase_name.contains(name) || lowercase_desc.contains(name)
+                let lowercase_name = badge.name.cow_to_ascii_lowercase();
+                let lowercase_desc = badge.description.to_ascii_lowercase();
+
+                if lowercase_name == name || lowercase_desc == name {
+                    **found_exact = true;
+
+                    Some(Some(badge))
+                } else if lowercase_name.contains(name) || lowercase_desc.contains(name) {
+                    Some(Some(badge))
+                } else {
+                    Some(None)
+                }
             }
-        }
-    });
+        })
+        .filter_map(|badge| badge?.deserialize(&mut Infallible).ok())
+        .collect();
 
     if found_exact && badges.len() > 1 {
         let len = badges.len();
@@ -147,9 +156,10 @@ async fn no_badge_found(ctx: &Context, command: &ApplicationCommand, name: &str)
         }
     };
 
-    let mut heap = BinaryHeap::with_capacity(2 * badges.len());
+    let archived_badges = badges.get();
+    let mut heap = BinaryHeap::with_capacity(2 * archived_badges.len());
 
-    for badge in &badges {
+    for badge in archived_badges.iter() {
         heap.push(MatchingString::new_with_cow(name, &badge.name));
         heap.push(MatchingString::new(name, &badge.description));
     }
@@ -179,35 +189,31 @@ pub async fn handle_autocomplete(
     ctx: Arc<Context>,
     command: ApplicationCommandAutocomplete,
 ) -> BotResult<()> {
-    let mut name = None;
+    let value_opt = command
+        .data
+        .options
+        .first()
+        .and_then(|opt| opt.options.first())
+        .and_then(|opt| opt.value.as_ref());
 
-    if let Some(option) = command.data.options.first() {
-        match option
-            .options
-            .first()
-            .and_then(|option| option.value.as_ref())
-        {
-            Some(value) => name = Some(value),
-            _ => return Err(Error::InvalidCommandOptions),
-        }
-    }
-
-    let name_ = match name {
-        Some(name) if !name.is_empty() => name.cow_to_ascii_lowercase(),
-        _ => return respond_autocomplete(&ctx, &command, Vec::new()).await,
+    let name = match value_opt {
+        Some(value) if !value.is_empty() => value.cow_to_ascii_lowercase(),
+        Some(_) => return respond_autocomplete(&ctx, &command, Vec::new()).await,
+        None => return Err(Error::InvalidCommandOptions),
     };
 
-    let name = name_.as_ref();
+    let name = name.as_ref();
     let badges = ctx.redis().badges().await?;
+    let archived_badges = badges.get();
     let mut choices = Vec::with_capacity(25);
 
-    for badge in badges {
+    for badge in archived_badges.iter() {
         if badge.name.cow_to_ascii_lowercase().starts_with(name) {
-            choices.push(new_choice(badge.name));
+            choices.push(new_choice(&badge.name));
         }
 
         if badge.description.to_ascii_lowercase().starts_with(name) {
-            choices.push(new_choice(badge.description));
+            choices.push(new_choice(&badge.description));
         }
 
         if choices.len() >= 25 {
@@ -220,10 +226,10 @@ pub async fn handle_autocomplete(
     respond_autocomplete(&ctx, &command, choices).await
 }
 
-fn new_choice(name: String) -> CommandOptionChoice {
+fn new_choice(name: &str) -> CommandOptionChoice {
     CommandOptionChoice::String {
-        value: name.clone(),
-        name,
+        name: name.to_owned(),
+        value: name.to_owned(),
     }
 }
 

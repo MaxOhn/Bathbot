@@ -76,7 +76,7 @@ pub(super) async fn _medalrecent(
     let redis = ctx.redis();
 
     let (mut user, mut all_medals) = match tokio::join!(user_fut, redis.medals()) {
-        (Ok(user), Ok(medals)) => (user, medals),
+        (Ok(user), Ok(medals)) => (user, medals.to_inner()),
         (Err(OsuError::NotFound), _) => {
             let content = format!("User `{name}` was not found");
 

@@ -1,9 +1,11 @@
 use std::sync::Arc;
 
 use eyre::Report;
+use rkyv::{Deserialize, Infallible};
 
 use crate::{
     core::{commands::CommandData, Context},
+    custom_client::OsuTrackerMapperEntry,
     embeds::EmbedData,
     embeds::OsuTrackerMappersEmbed,
     pagination::{OsuTrackerMappersPagination, Pagination},
@@ -12,8 +14,12 @@ use crate::{
 };
 
 pub(super) async fn mappers_(ctx: Arc<Context>, data: CommandData<'_>) -> BotResult<()> {
-    let mut counts = match ctx.redis().osutracker_stats().await {
-        Ok(stats) => stats.mapper_count,
+    let mut counts: Vec<OsuTrackerMapperEntry> = match ctx.redis().osutracker_stats().await {
+        Ok(stats) => stats
+            .get()
+            .mapper_count
+            .deserialize(&mut Infallible)
+            .unwrap(),
         Err(err) => {
             let _ = data.error(&ctx, OSUTRACKER_ISSUE).await;
 

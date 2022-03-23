@@ -73,7 +73,7 @@ pub(super) async fn _common(
     let redis = ctx.redis();
 
     let (user1, user2, mut all_medals) = match tokio::join!(user_fut1, user_fut2, redis.medals()) {
-        (Ok(user1), Ok(user2), Ok(medals)) => (user1, user2, medals),
+        (Ok(user1), Ok(user2), Ok(medals)) => (user1, user2, medals.to_inner()),
         (Err(why), ..) | (_, Err(why), _) => {
             let _ = data.error(&ctx, OSU_API_ISSUE).await;
 

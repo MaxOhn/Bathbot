@@ -5,6 +5,7 @@ use eyre::Report;
 use hashbrown::HashMap;
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::prelude::*;
+use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{GameMode, MedalCompact, OsuError, Username};
 
 use crate::{
@@ -12,6 +13,7 @@ use crate::{
         check_user_mention,
         osu::{get_user, UserArgs},
     },
+    custom_client::OsekaiMedal,
     database::OsuData,
     embeds::{EmbedData, MedalStatsEmbed},
     error::GraphError,
@@ -103,8 +105,10 @@ pub(super) async fn _medalstats(
     };
 
     let all_medals: HashMap<_, _> = all_medals
-        .into_iter()
-        .map(|medal| (medal.medal_id, medal))
+        .get()
+        .iter()
+        .map(|entry| entry.deserialize(&mut Infallible).unwrap())
+        .map(|medal: OsekaiMedal| (medal.medal_id, medal))
         .collect();
 
     let embed = MedalStatsEmbed::new(user, all_medals, graph.is_some())
