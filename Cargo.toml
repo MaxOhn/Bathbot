@@ -20,7 +20,7 @@ hashbrown = { version = "0.12", features = ["serde"] }
 http = { version = "0.2" }
 hyper = { version = "0.14", default-features = false, features = ["server"] }
 hyper-rustls = { version = "0.23", default-features = false, features = ["http1", "tls12", "tokio-runtime", "webpki-tokio"] }
-image = { version = "0.23", default-features = false, features = ["png"] }
+image = { version = "0.23", default-features = false, features = ["gif", "png"] }
 itertools = { version = "0.10" }
 lazy_static = { version = "1.0" }
 leaky-bucket-lite = { version = "0.5", features = ["parking_lot"] }
