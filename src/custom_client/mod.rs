@@ -30,7 +30,7 @@ use hyper::{
 };
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use leaky_bucket_lite::LeakyBucket;
-use rosu_v2::prelude::{BeatmapsetCovers, GameMode, GameMods, User};
+use rosu_v2::prelude::{GameMode, GameMods, User};
 use serde::Serialize;
 use serde_json::{Map, Value};
 use tokio::time::{interval, sleep, timeout, Duration};
@@ -787,9 +787,9 @@ impl CustomClient {
         self.make_get_request(url, Site::OsuBadge).await
     }
 
-    pub async fn get_mapset_cover(&self, covers: &BeatmapsetCovers) -> ClientResult<Bytes> {
-        self.make_get_request(&covers.cover, Site::OsuMapsetCover)
-            .await
+    /// Make sure you provide a valid url to a mapset cover
+    pub async fn get_mapset_cover(&self, cover: &str) -> ClientResult<Bytes> {
+        self.make_get_request(&cover, Site::OsuMapsetCover).await
     }
 
     pub async fn get_map_file(&self, map_id: u32) -> ClientResult<Bytes> {

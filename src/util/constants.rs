@@ -1,3 +1,5 @@
+use twilight_model::id::{marker::ChannelMarker, Id};
+
 // Colors
 pub const DARK_GREEN: u32 = 0x1F8B4C;
 pub const RED: u32 = 0xE74C3C;
@@ -42,3 +44,4 @@ pub const INVITE_LINK: &str = "https://discord.com/api/oauth2/authorize?client_i
 pub const BATHBOT_WORKSHOP: &str = "https://discord.gg/n9fFstG";
 pub const BATHBOT_GITHUB: &str = "https://github.com/MaxOhn/Bathbot";
 pub const KOFI: &str = "https://ko-fi.com/bathbot";
+pub const HL_IMAGE_CHANNEL_ID: Id<ChannelMarker> = Id::new(953407312855445574);

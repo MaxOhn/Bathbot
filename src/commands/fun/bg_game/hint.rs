@@ -4,11 +4,10 @@ use twilight_model::channel::Message;
 
 use crate::{
     core::{buckets::BucketName, commands::checks::check_ratelimit},
+    games::bg::GameState,
     util::{builder::MessageBuilder, constants::GENERAL_ISSUE, ChannelExt},
     BotResult, Context,
 };
-
-use super::GameState;
 
 pub async fn hint(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     let ratelimit = check_ratelimit(&ctx, msg.author.id, BucketName::BgHint).await;

@@ -4,14 +4,13 @@ use twilight_model::channel::Message;
 
 use crate::{
     core::{buckets::BucketName, commands::checks::check_ratelimit},
+    games::bg::GameState,
     util::{
         constants::{GENERAL_ISSUE, INVITE_LINK},
         ChannelExt,
     },
     BotResult, Context,
 };
-
-use super::GameState;
 
 pub async fn skip(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     if let Some(cooldown) = check_ratelimit(&ctx, msg.author.id, BucketName::BgSkip).await {

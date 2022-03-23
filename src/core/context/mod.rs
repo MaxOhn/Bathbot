@@ -12,13 +12,14 @@ use twilight_http::{client::InteractionClient, Client};
 use twilight_model::{
     channel::message::allowed_mentions::AllowedMentionsBuilder,
     id::{
-        marker::{ApplicationMarker, ChannelMarker, GuildMarker, MessageMarker},
+        marker::{ApplicationMarker, ChannelMarker, GuildMarker, MessageMarker, UserMarker},
         Id,
     },
 };
 use twilight_standby::Standby;
 
 use crate::{
+    commands::fun::HlGameState,
     core::CONFIG,
     custom_client::CustomClient,
     database::{Database, GuildConfig},
@@ -197,6 +198,7 @@ impl Clients {
 struct ContextData {
     application_id: Id<ApplicationMarker>,
     bg_games: DashMap<Id<ChannelMarker>, GameState>,
+    hl_games: DashMap<Id<UserMarker>, HlGameState>,
     guilds: DashMap<Id<GuildMarker>, GuildConfig>,
     map_garbage_collection: Mutex<HashSet<NonZeroU32>>,
     matchlive: MatchLiveChannels,
@@ -213,6 +215,7 @@ impl ContextData {
             application_id,
             bg_games: DashMap::new(),
             guilds: psql.get_guilds().await?,
+            hl_games: DashMap::new(),
             map_garbage_collection: Mutex::new(HashSet::new()),
             matchlive: MatchLiveChannels::new(),
             msgs_to_process: DashSet::new(),
