@@ -192,7 +192,11 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
 
     // Try creating the strain graph for the map
     let bg_fut = async {
-        let bytes = ctx.clients.custom.get_mapset_cover(&mapset.covers).await?;
+        let bytes = ctx
+            .clients
+            .custom
+            .get_mapset_cover(&mapset.covers.cover)
+            .await?;
 
         Ok::<_, Error>(image::load_from_memory(&bytes)?.thumbnail_exact(W, H))
     };

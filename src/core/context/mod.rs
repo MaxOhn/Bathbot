@@ -17,14 +17,15 @@ use twilight_model::{
         presence::{Activity, ActivityType, Status},
     },
     id::{
-        marker::{ApplicationMarker, ChannelMarker, GuildMarker, MessageMarker},
+        marker::{ApplicationMarker, ChannelMarker, GuildMarker, MessageMarker, UserMarker},
         Id,
     },
 };
 use twilight_standby::Standby;
 
 use crate::{
-    commands::fun::GameState,
+    commands::fun::BgGameState,
+    commands::fun::HlGameState,
     core::{buckets::Buckets, BotStats},
     database::{Database, GuildConfig},
     server::AuthenticationStandby,
@@ -69,7 +70,8 @@ pub struct ContextData {
     pub tracked_streams: DashMap<u64, Vec<u64>>,
     // Mapping (channel id, message id) to role id
     pub role_assigns: DashMap<(u64, u64), AssignRoles>,
-    pub bg_games: DashMap<Id<ChannelMarker>, GameState>,
+    pub bg_games: DashMap<Id<ChannelMarker>, BgGameState>,
+    pub hl_games: DashMap<Id<UserMarker>, HlGameState>,
     pub osu_tracking: OsuTracking,
     pub msgs_to_process: DashSet<Id<MessageMarker>>,
     pub map_garbage_collection: Mutex<HashSet<NonZeroU32>>,

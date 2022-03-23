@@ -1,6 +1,6 @@
 mod background_loop;
-mod bg_game;
 mod configs;
+mod game_states;
 mod match_live;
 mod shutdown;
 mod twitch;

@@ -8,7 +8,7 @@ use crate::{
     BotResult, CommandData, Context,
 };
 
-use super::GameState;
+use super::BgGameState;
 
 #[command]
 #[bucket("bg_skip")]
@@ -17,7 +17,7 @@ use super::GameState;
 async fn skip(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match ctx.bg_games().get(&data.channel_id()) {
         Some(state) => match state.value() {
-            GameState::Running { game } => match game.restart() {
+            BgGameState::Running { game } => match game.restart() {
                 Ok(_) => Ok(()),
                 Err(err) => {
                     let _ = data.error(&ctx, GENERAL_ISSUE).await;
@@ -25,7 +25,7 @@ async fn skip(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                     Err(err.into())
                 }
             },
-            GameState::Setup { author, .. } => {
+            BgGameState::Setup { author, .. } => {
                 let content = format!(
                     "The game is currently being setup.\n\
                     <@{author}> must click on the \"Start\" button to begin."

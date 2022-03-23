@@ -791,6 +791,7 @@ lazy_static! {
         insert("countrytop", define_countrytop);
         insert("graphs", define_graph);
         insert("badge", define_badges);
+        insert("higherlower", define_higherlower);
 
         SlashCommands(trie)
     };

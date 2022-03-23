@@ -2,7 +2,7 @@ use crate::{util::MessageExt, BotResult, CommandData, Context};
 
 use std::sync::Arc;
 
-use super::GameState;
+use super::BgGameState;
 
 #[command]
 #[short_desc("Stop the bg game")]
@@ -10,7 +10,7 @@ use super::GameState;
 pub(super) async fn stop(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match ctx.bg_games().get(&data.channel_id()) {
         Some(state) => match state.value() {
-            GameState::Running { game } => match game.stop() {
+            BgGameState::Running { game } => match game.stop() {
                 Ok(_) => Ok(()),
                 Err(err) => {
                     let _ = data.error(&ctx, "Error while stopping game \\:(").await;
@@ -18,7 +18,7 @@ pub(super) async fn stop(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
                     Err(err.into())
                 }
             },
-            GameState::Setup { author, .. } => {
+            BgGameState::Setup { author, .. } => {
                 let content = format!(
                     "The game is currently being setup.\n\
                     Only <@{author}> can click on the \"Cancel\" button to abort."

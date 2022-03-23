@@ -1,3 +1,5 @@
+use twilight_model::id::{marker::ChannelMarker, Id};
+
 // Colors
 pub const DARK_GREEN: u32 = 0x1F8B4C;
 pub const RED: u32 = 0xE74C3C;
@@ -42,7 +44,8 @@ pub const DATE_FORMAT: &str = "%F %T";
 pub const INVITE_LINK: &str = "https://discord.com/api/oauth2/authorize?client_id=297073686916366336&permissions=36776045632&scope=bot%20applications.commands";
 pub const BATHBOT_WORKSHOP: &str = "https://discord.gg/n9fFstG";
 pub const BATHBOT_GITHUB: &str = "https://github.com/MaxOhn/Bathbot";
-pub const BATHBOT_WORKSHOP_ID: u64 = 741040473476694159;
+pub const BATHBOT_WORKSHOP_ID: u64 = 297072529426612224;
+pub const HL_IMAGE_CHANNEL_ID: Id<ChannelMarker> = Id::new(953407312855445574);
 
 pub mod common_literals {
     pub const HELP: &str = "help";

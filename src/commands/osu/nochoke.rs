@@ -2,7 +2,7 @@ use std::{cmp::Ordering, sync::Arc};
 
 use eyre::Report;
 use futures::stream::{FuturesUnordered, TryStreamExt};
-use rosu_pp::{Beatmap as Map, CatchPP, CatchStars, OsuPP, TaikoPP};
+use rosu_pp::{Beatmap as Map, OsuPP, TaikoPP, CatchStars, CatchPP};
 use rosu_v2::prelude::{GameMode, OsuError, Score};
 use twilight_model::{
     application::{

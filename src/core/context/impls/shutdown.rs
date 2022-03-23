@@ -1,6 +1,6 @@
 use eyre::Report;
 
-use crate::{commands::fun::GameState, Context};
+use crate::{commands::fun::BgGameState, Context};
 
 impl Context {
     #[cold]
@@ -27,7 +27,7 @@ impl Context {
         for channel in active_games {
             if let Some((_, state)) = self.bg_games().remove(&channel) {
                 match state {
-                    GameState::Running { game } => match game.stop() {
+                    BgGameState::Running { game } => match game.stop() {
                         Ok(_) => {
                             let _ = msg_fut(channel).await;
 
@@ -39,7 +39,7 @@ impl Context {
                             warn!("{report:?}");
                         }
                     },
-                    GameState::Setup { .. } => {
+                    BgGameState::Setup { .. } => {
                         let _ = msg_fut(channel).await;
 
                         count += 1;

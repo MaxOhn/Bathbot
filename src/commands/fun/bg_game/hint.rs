@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{util::MessageExt, BotResult, CommandData, Context, MessageBuilder};
 
-use super::GameState;
+use super::BgGameState;
 
 #[command]
 #[short_desc("Get a hint for the current background")]
@@ -12,14 +12,14 @@ use super::GameState;
 pub(super) async fn hint(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     match ctx.bg_games().get(&data.channel_id()) {
         Some(state) => match state.value() {
-            GameState::Running { game } => {
+            BgGameState::Running { game } => {
                 let hint = game.hint().await;
                 let builder = MessageBuilder::new().content(hint);
                 data.create_message(&ctx, builder).await?;
 
                 Ok(())
             }
-            GameState::Setup { author, .. } => {
+            BgGameState::Setup { author, .. } => {
                 let content = format!(
                     "The game is currently being setup.\n\
                     <@{author}> must click on the \"Start\" button to begin."

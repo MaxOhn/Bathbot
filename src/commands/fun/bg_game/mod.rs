@@ -136,7 +136,7 @@ impl Default for GameDifficulty {
     }
 }
 
-pub enum GameState {
+pub enum BgGameState {
     Running {
         game: GameWrapper,
     },
@@ -230,13 +230,13 @@ pub async fn handle_bg_start_include(
 ) -> BotResult<()> {
     match ctx.bg_games().entry(component.channel_id) {
         Entry::Occupied(mut entry) => match entry.get_mut() {
-            GameState::Running { .. } => {
+            BgGameState::Running { .. } => {
                 if let Err(err) = remove_components(ctx, &component, None).await {
                     let report = Report::new(err).wrap_err("failed to remove components");
                     warn!("{report:?}");
                 }
             }
-            GameState::Setup {
+            BgGameState::Setup {
                 author, included, ..
             } => {
                 if *author != component.user_id()? {
@@ -264,13 +264,13 @@ pub async fn handle_bg_start_exclude(
 ) -> BotResult<()> {
     match ctx.bg_games().entry(component.channel_id) {
         Entry::Occupied(mut entry) => match entry.get_mut() {
-            GameState::Running { .. } => {
+            BgGameState::Running { .. } => {
                 if let Err(err) = remove_components(ctx, &component, None).await {
                     let report = Report::new(err).wrap_err("failed to remove components");
                     warn!("{report:?}");
                 }
             }
-            GameState::Setup {
+            BgGameState::Setup {
                 author, excluded, ..
             } => {
                 if *author != component.user_id()? {
@@ -300,13 +300,13 @@ pub async fn handle_bg_start_button(
 
     match ctx.bg_games().entry(channel) {
         Entry::Occupied(mut entry) => match entry.get() {
-            GameState::Running { .. } => {
+            BgGameState::Running { .. } => {
                 if let Err(err) = remove_components(&ctx, &component, None).await {
                     let report = Report::new(err).wrap_err("failed to remove components");
                     warn!("{report:?}");
                 }
             }
-            GameState::Setup {
+            BgGameState::Setup {
                 author,
                 difficulty,
                 effects,
@@ -364,7 +364,7 @@ pub async fn handle_bg_start_button(
                     GameWrapper::new(Arc::clone(&ctx), channel, mapsets, *effects, *difficulty)
                         .await;
 
-                entry.insert(GameState::Running { game });
+                entry.insert(BgGameState::Running { game });
             }
         },
         Entry::Vacant(_) => {
@@ -386,7 +386,7 @@ pub async fn handle_bg_start_cancel(
 
     match ctx.bg_games().entry(channel) {
         Entry::Occupied(entry) => match entry.get() {
-            GameState::Running { .. } => {
+            BgGameState::Running { .. } => {
                 if let Err(err) = remove_components(ctx, &component, None).await {
                     let report = Report::new(err).wrap_err("failed to remove components");
                     warn!("{report:?}");
@@ -394,7 +394,7 @@ pub async fn handle_bg_start_cancel(
 
                 return Ok(());
             }
-            GameState::Setup { author, .. } => {
+            BgGameState::Setup { author, .. } => {
                 if *author != component.user_id()? {
                     return Ok(());
                 }
@@ -424,13 +424,13 @@ pub async fn handle_bg_start_effects(
 ) -> BotResult<()> {
     match ctx.bg_games().entry(component.channel_id) {
         Entry::Occupied(mut entry) => match entry.get_mut() {
-            GameState::Running { .. } => {
+            BgGameState::Running { .. } => {
                 if let Err(err) = remove_components(ctx, &component, None).await {
                     let report = Report::new(err).wrap_err("failed to remove components");
                     warn!("{report:?}");
                 }
             }
-            GameState::Setup {
+            BgGameState::Setup {
                 author, effects, ..
             } => {
                 if *author != component.user_id()? {
@@ -749,7 +749,7 @@ fn bg_components() -> Vec<Component> {
 }
 
 pub async fn slash_bg(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
-    if let Some((_, GameState::Running { game })) = ctx.bg_games().remove(&command.channel_id) {
+    if let Some((_, BgGameState::Running { game })) = ctx.bg_games().remove(&command.channel_id) {
         if let Err(err) = game.stop() {
             let report = Report::new(err).wrap_err("failed to stop game");
             warn!("{report:?}");
@@ -791,7 +791,7 @@ pub async fn slash_bg(ctx: Arc<Context>, command: ApplicationCommand) -> BotResu
             let builder = MessageBuilder::new().embed(content).components(&components);
             command.create_message(&ctx, builder).await?;
 
-            GameState::Setup {
+            BgGameState::Setup {
                 author,
                 difficulty,
                 effects: Effects::empty(),
@@ -825,7 +825,7 @@ pub async fn slash_bg(ctx: Arc<Context>, command: ApplicationCommand) -> BotResu
                 difficulty,
             );
 
-            GameState::Running {
+            BgGameState::Running {
                 game: game_fut.await,
             }
         }

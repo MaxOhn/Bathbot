@@ -1,4 +1,4 @@
-#![deny(clippy::all, nonstandard_style, rust_2018_idioms, unused, warnings)]
+//#![deny(clippy::all, nonstandard_style, rust_2018_idioms, unused, warnings)]
 
 #[macro_use]
 extern crate async_trait;
@@ -164,6 +164,7 @@ async fn async_main() -> Result<()> {
         tracked_streams,
         role_assigns,
         bg_games: DashMap::new(),
+        hl_games: DashMap::new(),
         osu_tracking,
         msgs_to_process: DashSet::new(),
         map_garbage_collection: Mutex::new(HashSet::new()),
