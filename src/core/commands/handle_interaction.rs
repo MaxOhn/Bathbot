@@ -1,4 +1,4 @@
-use std::{future::Future, mem, sync::Arc};
+use std::{fmt, future::Future, mem, sync::Arc};
 
 use bitflags::bitflags;
 use twilight_model::{
@@ -390,25 +390,36 @@ async fn pre_process_command(
 
 fn log_interaction(ctx: &Context, interaction: &dyn InteractionExt, name: &str) {
     let username = interaction.username().unwrap_or("<unknown user>");
-    let mut location = String::with_capacity(32);
-    let guild = interaction.guild_id();
-
-    // TODO: Avoid allocating for guild name
-    match guild.and_then(|id| ctx.cache.guild(id, |g| g.name().to_owned()).ok()) {
-        Some(guild_name) => {
-            location.push_str(guild_name.as_str());
-            location.push(':');
-
-            let push_result = ctx.cache.channel(interaction.channel_id(), |c| {
-                location.push_str(c.name.as_deref().unwrap_or("<uncached channel>"))
-            });
-
-            if push_result.is_err() {
-                location.push_str("<uncached channel>");
-            }
-        }
-        None => location.push_str("Private"),
-    }
-
+    let location = InteractionLocationLog { ctx, interaction };
     info!("[{location}] {username} used `{name}` interaction");
+}
+
+struct InteractionLocationLog<'l> {
+    ctx: &'l Context,
+    interaction: &'l dyn InteractionExt,
+}
+
+impl fmt::Display for InteractionLocationLog<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let guild = match self.interaction.guild_id() {
+            Some(id) => id,
+            None => return f.write_str("Private"),
+        };
+
+        match self.ctx.cache.guild(guild, |g| write!(f, "{}:", g.name())) {
+            Ok(Ok(_)) => {
+                let channel_result = self.ctx.cache.channel(self.interaction.channel_id(), |c| {
+                    f.write_str(c.name.as_deref().unwrap_or("<uncached channel>"))
+                });
+
+                match channel_result {
+                    Ok(Ok(_)) => Ok(()),
+                    Ok(err) => err,
+                    Err(_) => f.write_str("<uncached channel>"),
+                }
+            }
+            Ok(err) => err,
+            Err(_) => f.write_str("<uncached guild>"),
+        }
+    }
 }
