@@ -104,9 +104,12 @@ impl MatchLiveEmbed {
                 MatchEvent::Left { user_id, .. } => {
                     push!(description => "• `{}` left the lobby" @ lobby[user_id])
                 }
-                MatchEvent::Create { user_id, .. } => {
-                    push!(description => "• `{}` created the lobby" @ lobby[user_id])
-                }
+                MatchEvent::Create { user_id, .. } => match *user_id {
+                    Some(user_id) => {
+                        push!(description => "• `{}` created the lobby" @ lobby[user_id])
+                    }
+                    None => description.push_str("• The lobby has been created"),
+                },
                 MatchEvent::HostChanged { user_id, .. } => {
                     push!(description => "• `{}` became the new host" @ lobby[user_id])
                 }
@@ -233,9 +236,12 @@ impl MatchLiveEmbed {
                     MatchEvent::HostChanged { user_id, .. } => {
                         push!(embed.description => "• `{}` became the new host" @ lobby[user_id])
                     }
-                    MatchEvent::Create { user_id, .. } => {
-                        push!(embed.description => "• `{}` created the lobby" @ lobby[user_id])
-                    }
+                    MatchEvent::Create { user_id, .. } => match *user_id {
+                        Some(user_id) => {
+                            push!(embed.description => "• `{}` created the lobby" @ lobby[user_id])
+                        }
+                        None => embed.description.push_str("• The lobby has been created"),
+                    },
                     MatchEvent::Disbanded { .. } => {
                         embed.description.push_str("• **Lobby was closed**")
                     }
@@ -339,7 +345,12 @@ impl MatchLiveEmbed {
                     MatchEvent::Create { user_id, .. } => {
                         update.get_or_insert(empty);
 
-                        push!(embed.description => "• `{}` created the lobby" @ lobby[user_id])
+                        match *user_id {
+                            Some(user_id) => {
+                                push!(embed.description => "• `{}` created the lobby" @ lobby[user_id])
+                            }
+                            None => embed.description.push_str("• The lobby has been created"),
+                        }
                     }
                     MatchEvent::Disbanded { .. } => {
                         update.get_or_insert(empty);
