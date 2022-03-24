@@ -103,7 +103,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         "graph" => process_command(ctx, command, args, osu::slash_graph).await,
         HELP => {
             // Necessary to be able to use data.create_message later on
-            start_thinking_ephemeral(&ctx, &command).await?;
+            start_thinking(&ctx, &command, true).await?;
 
             help::slash_help(ctx, command)
                 .await
@@ -238,11 +238,7 @@ where
         Some(result) => Ok(result),
         None => {
             // Let discord know the command is now being processed
-            if ephemeral {
-                start_thinking_ephemeral(&ctx, &command).await?;
-            } else {
-                start_thinking(&ctx, &command).await?;
-            }
+            start_thinking(&ctx, &command, ephemeral).await?;
 
             // Call command function
             (fun)(ctx, command).await?;
@@ -252,47 +248,14 @@ where
     }
 }
 
-async fn start_thinking(ctx: &Context, command: &ApplicationCommand) -> BotResult<()> {
-    // TODO: Default
+async fn start_thinking(
+    ctx: &Context,
+    command: &ApplicationCommand,
+    ephemeral: bool,
+) -> BotResult<()> {
     let data = InteractionResponseData {
-        allowed_mentions: None,
-        attachments: None,
-        choices: None,
-        components: None,
-        content: None,
-        custom_id: None,
-        embeds: None,
-        flags: None,
-        title: None,
-        tts: None,
-    };
-
-    let response = InteractionResponse {
-        kind: InteractionResponseType::DeferredChannelMessageWithSource,
-        data: Some(data), // TODO: None sufficient?
-    };
-
-    ctx.interaction()
-        .create_response(command.id, &command.token, &response)
-        .exec()
-        .await?;
-
-    Ok(())
-}
-
-// TODO: Combine with start_thinking
-async fn start_thinking_ephemeral(ctx: &Context, command: &ApplicationCommand) -> BotResult<()> {
-    let data = InteractionResponseData {
-        allowed_mentions: None,
-        attachments: None,
-        choices: None,
-        components: None,
-        content: None,
-        custom_id: None,
-        embeds: None,
-        flags: Some(MessageFlags::EPHEMERAL),
-        title: None,
-        tts: None,
+        flags: ephemeral.then(|| MessageFlags::EPHEMERAL),
+        ..Default::default()
     };
 
     let response = InteractionResponse {
@@ -318,16 +281,9 @@ async fn premature_error(
     let flags = ephemeral.then(|| MessageFlags::EPHEMERAL);
 
     let data = InteractionResponseData {
-        allowed_mentions: None,
-        attachments: None,
-        choices: None,
-        components: None,
-        content: None,
-        custom_id: None,
         embeds: Some(vec![embed]),
         flags,
-        title: None,
-        tts: None,
+        ..Default::default()
     };
 
     let response = InteractionResponse {
