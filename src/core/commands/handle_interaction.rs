@@ -87,7 +87,6 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
     let command_result = match name.as_str() {
         "avatar" => process_command(ctx, command, args, osu::slash_avatar).await,
         "badges" => process_command(ctx, command, args, osu::slash_badges).await,
-        // TODO: Bucket
         "bg" => process_command(ctx, command, args, fun::slash_bg).await,
         "bws" => process_command(ctx, command, args, osu::slash_bws).await,
         "commands" => process_command(ctx, command, args, utility::slash_commands).await,

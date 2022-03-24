@@ -59,6 +59,22 @@ impl Database {
         Ok(map)
     }
 
+    pub async fn get_ids_by_names(&self, names: &[String]) -> BotResult<HashMap<Username, u32>> {
+        let query = sqlx::query!(
+            "SELECT user_id,username from osu_user_names WHERE username ILIKE ANY($1)",
+            names
+        );
+
+        let mut stream = query.fetch(&self.pool);
+        let mut map = HashMap::with_capacity(names.len());
+
+        while let Some(row) = stream.next().await.transpose()? {
+            map.insert(row.username.into(), row.user_id as u32);
+        }
+
+        Ok(map)
+    }
+
     pub async fn upsert_osu_user(&self, user: &User, mode: GameMode) -> BotResult<()> {
         let mut tx = self.pool.begin().await?;
 

@@ -5,7 +5,9 @@ mod untrack_all;
 
 use std::{borrow::Cow, sync::Arc};
 
-use rosu_v2::prelude::{GameMode, Username};
+use eyre::Report;
+use hashbrown::HashMap;
+use rosu_v2::prelude::{GameMode, OsuError, Username};
 use twilight_model::application::{
     command::CommandOptionChoice,
     interaction::{
@@ -24,7 +26,40 @@ use crate::{
 
 pub use self::{track::*, track_list::*, untrack::*, untrack_all::*};
 
-use super::{check_user_mention, parse_mode_option, MyCommand, MyCommandOption};
+use super::{check_user_mention, osu::UserArgs, parse_mode_option, MyCommand, MyCommandOption};
+
+async fn get_names<'n>(
+    ctx: &Context,
+    names: &'n [String],
+    mode: GameMode,
+) -> Result<HashMap<Username, u32>, (OsuError, Cow<'n, str>)> {
+    let mut entries = match ctx.psql().get_ids_by_names(names).await {
+        Ok(names) => names,
+        Err(err) => {
+            let report = Report::new(err).wrap_err("failed to get names by names");
+            warn!("{report:?}");
+
+            HashMap::new()
+        }
+    };
+
+    if entries.len() != names.len() {
+        for name in names {
+            let name = name.cow_to_ascii_lowercase();
+
+            if entries.keys().all(|n| name != n.cow_to_ascii_lowercase()) {
+                let user = UserArgs::new(name.as_ref(), mode);
+
+                match ctx.redis().osu_user(&user).await {
+                    Ok(user) => entries.insert(user.username, user.user_id),
+                    Err(err) => return Err((err, name)),
+                };
+            }
+        }
+    }
+
+    Ok(entries)
+}
 
 pub async fn slash_track(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
     match TrackArgs::slash(&mut command)? {
@@ -37,9 +72,9 @@ pub async fn slash_track(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
 
 struct TrackArgs {
     mode: Option<GameMode>,
-    name: Username,
+    name: String,
     limit: Option<usize>,
-    more_names: Vec<Username>,
+    more_names: Vec<String>,
 }
 
 enum TrackCommandKind {
@@ -75,9 +110,7 @@ impl TrackArgs {
                     },
                     _ => {
                         let content = format!(
-                            "Unrecognized option `{}`.\n\
-                            Available options are: `limit`.",
-                            key
+                            "Unrecognized option `{key}`.\nAvailable options are: `limit`."
                         );
 
                         return Ok(Err(content.into()));
@@ -85,7 +118,7 @@ impl TrackArgs {
                 }
             } else {
                 let name_ = match check_user_mention(ctx, arg.as_ref()).await? {
-                    Ok(osu) => osu.into_username(),
+                    Ok(osu) => osu.into_username().into_string(),
                     Err(content) => return Ok(Err(content)),
                 };
 

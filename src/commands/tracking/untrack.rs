@@ -1,9 +1,5 @@
 use std::sync::Arc;
 
-use futures::{
-    future::FutureExt,
-    stream::{FuturesUnordered, StreamExt},
-};
 use hashbrown::HashSet;
 use rosu_v2::prelude::{GameMode, OsuError, Username};
 
@@ -52,56 +48,41 @@ pub(super) async fn _untrack(
     data: CommandData<'_>,
     args: TrackArgs,
 ) -> BotResult<()> {
-    let mode = args.mode.unwrap_or(GameMode::STD);
+    let TrackArgs {
+        name,
+        mode,
+        mut more_names,
+        ..
+    } = args;
 
-    let mut names: HashSet<_> = args.more_names.into_iter().collect();
-    names.insert(args.name);
+    more_names.push(name);
 
-    if let Some(name) = names.iter().find(|name| name.len() > 15) {
+    if let Some(name) = more_names.iter().find(|name| name.len() > 15) {
         let content = format!("`{name}` is too long for an osu! username");
 
         return data.error(&ctx, content).await;
     }
 
-    let count = names.len();
+    let mode = mode.unwrap_or(GameMode::STD);
 
-    // TODO: Try to use DB
-    // Retrieve all users
-    let mut user_futs: FuturesUnordered<_> = names
-        .into_iter()
-        .map(|name| {
-            ctx.osu()
-                .user(name.as_str())
-                .mode(mode)
-                .map(move |result| (name, result))
-        })
-        .collect();
+    let users = match super::get_names(&ctx, &more_names, mode).await {
+        Ok(map) => map,
+        Err((OsuError::NotFound, name)) => {
+            let content = format!("User `{name}` was not found");
 
-    let mut users = Vec::with_capacity(count);
-
-    while let Some((name, result)) = user_futs.next().await {
-        match result {
-            Ok(user) => users.push((user.user_id, user.username)),
-            Err(OsuError::NotFound) => {
-                let content = format!("User `{name}` was not found");
-
-                return data.error(&ctx, content).await;
-            }
-            Err(why) => {
-                let _ = data.error(&ctx, OSU_API_ISSUE).await;
-
-                return Err(why.into());
-            }
+            return data.error(&ctx, content).await;
         }
-    }
+        Err((err, _)) => {
+            let _ = data.error(&ctx, OSU_API_ISSUE).await;
 
-    // Free &ctx again
-    drop(user_futs);
+            return Err(err.into());
+        }
+    };
 
     let channel = data.channel_id();
     let mut success = HashSet::with_capacity(users.len());
 
-    for (user_id, username) in users.into_iter() {
+    for (username, user_id) in users.into_iter() {
         let remove_fut = ctx
             .tracking()
             .remove_user(user_id, Some(mode), channel, ctx.psql());
