@@ -495,7 +495,7 @@ impl CustomAttrs {
     fn content(&self) -> Option<String> {
         self.ar.or(self.cs).or(self.hp).or(self.od)?;
 
-        let mut content = "Custom attributes:".to_owned();
+        let mut content = "Custom attributes: ".to_owned();
         let mut pushed = false;
 
         if let Some(ar) = self.ar {
