@@ -38,7 +38,7 @@ use crate::{
     BotResult,
 };
 
-use super::{option_discord, option_mode, option_name};
+use super::{option_discord, option_mode, option_name, player_snipe_stats, profile, sniped};
 
 async fn graph(ctx: Arc<Context>, data: CommandData<'_>, args: GraphArgs) -> BotResult<()> {
     let GraphArgs { config, kind } = args;
@@ -113,9 +113,9 @@ async fn graph(ctx: Arc<Context>, data: CommandData<'_>, args: GraphArgs) -> Bot
     Ok(())
 }
 
-const W: u32 = 950;
-const H: u32 = 500;
-const LEN: usize = (W * H) as usize * 3;
+const W: u32 = 1350;
+const H: u32 = 711;
+const LEN: usize = (W * H) as usize;
 
 async fn medals_graph(
     ctx: &Context,
@@ -183,7 +183,7 @@ async fn playcount_replays_graph(
         }
     };
 
-    let bytes = match super::profile::graphs(ctx, &mut user).await {
+    let bytes = match profile::graphs(ctx, &mut user, W, H).await {
         Ok(Some(graph)) => graph,
         Ok(None) => {
             let content = format!("`{name}` does not have enough playcount data points");
@@ -225,7 +225,7 @@ async fn rank_graph(
     };
 
     fn draw_graph(user: &User) -> Result<Option<Vec<u8>>, GraphError> {
-        let mut buf = vec![0; LEN];
+        let mut buf = vec![0; LEN * 3];
 
         let history = match user.rank_history {
             Some(ref history) if history.is_empty() => return Ok(None),
@@ -400,7 +400,7 @@ async fn score_time_graph(
         }
 
         let max = hours.iter().max().copied().unwrap_or(0);
-        let mut buf = vec![0; LEN];
+        let mut buf = vec![0; LEN * 3];
 
         {
             let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
@@ -507,7 +507,7 @@ async fn sniped_graph(
         return Ok(None);
     };
 
-    let bytes = match super::snipe::sniped::graphs(user.username.as_str(), &sniper, &snipee) {
+    let bytes = match sniped::graphs(user.username.as_str(), &sniper, &snipee, W, H) {
         Ok(Some(graph)) => graph,
         Ok(None) => {
             let content =
@@ -578,12 +578,8 @@ async fn snipe_count_graph(
         return Ok(None);
     };
 
-    let graph_result = super::snipe::player_snipe_stats::graphs(
-        &player.count_first_history,
-        &player.count_sr_spread,
-        W,
-        H,
-    );
+    let graph_result =
+        player_snipe_stats::graphs(&player.count_first_history, &player.count_sr_spread, W, H);
 
     let bytes = match graph_result {
         Ok(graph) => graph,

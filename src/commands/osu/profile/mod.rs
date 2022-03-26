@@ -33,6 +33,9 @@ pub use self::{
 
 use super::{get_user_and_scores, option_mode, ScoreArgs, UserArgs};
 
+const W: u32 = 1350;
+const H: u32 = 350;
+
 async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -> BotResult<()> {
     let ProfileArgs { config } = args;
 
@@ -94,7 +97,7 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
     let mut profile_data = ProfileData::new(user, scores, discord_id);
 
     // Draw the graph
-    let graph = match graphs(&ctx, &mut profile_data.user).await {
+    let graph = match graphs(&ctx, &mut profile_data.user, W, H).await {
         Ok(graph_option) => graph_option,
         Err(err) => {
             warn!("{:?}", Report::new(err));

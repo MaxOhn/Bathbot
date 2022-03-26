@@ -1,4 +1,4 @@
-use std::mem;
+use std::{iter, mem};
 
 use chrono::Datelike;
 use futures::stream::{FuturesUnordered, TryStreamExt};
@@ -11,10 +11,12 @@ use rosu_v2::prelude::{MonthlyCount, User};
 
 use crate::{core::Context, error::GraphError};
 
-const W: u32 = 1350;
-const H: u32 = 350;
-
-pub async fn graphs(ctx: &Context, user: &mut User) -> Result<Option<Vec<u8>>, GraphError> {
+pub async fn graphs(
+    ctx: &Context,
+    user: &mut User,
+    w: u32,
+    h: u32,
+) -> Result<Option<Vec<u8>>, GraphError> {
     let mut monthly_playcount = mem::replace(&mut user.monthly_playcounts, None).unwrap();
     let badges = mem::replace(&mut user.badges, None).unwrap();
 
@@ -22,8 +24,8 @@ pub async fn graphs(ctx: &Context, user: &mut User) -> Result<Option<Vec<u8>>, G
         return Ok(None);
     }
 
-    static LEN: usize = W as usize * H as usize;
-    let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3
+    let len = (w * h) as usize;
+    let mut buf = vec![0; len * 3]; // PIXEL_SIZE = 3
 
     {
         // Request all badge images
@@ -40,7 +42,7 @@ pub async fn graphs(ctx: &Context, user: &mut User) -> Result<Option<Vec<u8>>, G
         };
 
         // Setup total canvas
-        let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
+        let root = BitMapBackend::with_buffer(&mut buf, (w, h)).into_drawing_area();
         let background = RGBColor(19, 43, 33);
         root.fill(&background)?;
 
@@ -53,7 +55,7 @@ pub async fn graphs(ctx: &Context, user: &mut User) -> Result<Option<Vec<u8>>, G
             let inner_margin = 3;
             let badge_count = badges.len() as u32;
             let badge_rows = ((badge_count - 1) / max_badges_per_row) + 1;
-            let badge_total_height = (badge_rows * 60).min(H / 2);
+            let badge_total_height = (badge_rows * 60).min(h / 2);
             let badge_height = badge_total_height / badge_rows;
             let (top, bottom) = root.split_vertically(badge_total_height);
             let mut rows = Vec::with_capacity(badge_rows as usize);
@@ -66,7 +68,7 @@ pub async fn graphs(ctx: &Context, user: &mut User) -> Result<Option<Vec<u8>>, G
             }
 
             let badge_width =
-                (W - 2 * margin - (max_badges_per_row - 1) * inner_margin) / max_badges_per_row;
+                (w - 2 * margin - (max_badges_per_row - 1) * inner_margin) / max_badges_per_row;
 
             // Draw each row of badges
             for (row, chunk) in badges.chunks(max_badges_per_row as usize).enumerate() {
@@ -74,7 +76,7 @@ pub async fn graphs(ctx: &Context, user: &mut User) -> Result<Option<Vec<u8>>, G
 
                 let mut chart_row = ChartBuilder::on(&rows[row])
                     .margin(margin)
-                    .build_cartesian_2d(0..W, 0..badge_height)?;
+                    .build_cartesian_2d(0..w, 0..badge_height)?;
 
                 chart_row
                     .configure_mesh()
@@ -91,7 +93,7 @@ pub async fn graphs(ctx: &Context, user: &mut User) -> Result<Option<Vec<u8>>, G
                     let x = x_offset + idx as u32 * badge_width + idx as u32 * inner_margin;
                     let y = badge_height;
                     let elem: BitMapElement<'_, _> = ((x, y), badge_img).into();
-                    chart_row.draw_series(std::iter::once(elem))?;
+                    chart_row.draw_series(iter::once(elem))?;
                 }
             }
 
@@ -289,9 +291,9 @@ pub async fn graphs(ctx: &Context, user: &mut User) -> Result<Option<Vec<u8>>, G
     }
 
     // Encode buf to png
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
+    let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
     let png_encoder = PngEncoder::new(&mut png_bytes);
-    png_encoder.write_image(&buf, W, H, ColorType::Rgb8)?;
+    png_encoder.write_image(&buf, w, h, ColorType::Rgb8)?;
 
     Ok(Some(png_bytes))
 }

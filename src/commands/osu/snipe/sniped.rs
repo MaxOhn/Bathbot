@@ -133,7 +133,7 @@ pub(super) async fn _sniped(
         return data.error(&ctx, content).await;
     };
 
-    let graph = match graphs(user.username.as_str(), &sniper, &snipee) {
+    let graph = match graphs(user.username.as_str(), &sniper, &snipee, W, H) {
         Ok(graph_option) => graph_option,
         Err(err) => {
             warn!("{:?}", Report::new(err));
@@ -164,16 +164,18 @@ pub fn graphs(
     name: &str,
     sniper: &[SnipeRecent],
     snipee: &[SnipeRecent],
+    w: u32,
+    h: u32,
 ) -> Result<Option<Vec<u8>>, GraphError> {
     if sniper.is_empty() && snipee.is_empty() {
         return Ok(None);
     }
 
-    static LEN: usize = (W * H) as usize;
-    let mut buf = vec![0; LEN * 3];
+    let len = (w * h) as usize;
+    let mut buf = vec![0; len * 3];
 
     {
-        let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
+        let root = BitMapBackend::with_buffer(&mut buf, (w, h)).into_drawing_area();
         let background = RGBColor(19, 43, 33);
         root.fill(&background)?;
 
@@ -181,7 +183,7 @@ pub fn graphs(
             (false, true) => draw_sniper(&root, name, sniper)?,
             (true, false) => draw_snipee(&root, name, snipee)?,
             (false, false) => {
-                let (left, right) = root.split_horizontally(W / 2);
+                let (left, right) = root.split_horizontally(w / 2);
                 draw_sniper(&left, name, sniper)?;
                 draw_snipee(&right, name, snipee)?
             }
@@ -190,9 +192,9 @@ pub fn graphs(
     }
 
     // Encode buf to png
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
+    let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
     let png_encoder = PngEncoder::new(&mut png_bytes);
-    png_encoder.write_image(&buf, W, H, ColorType::Rgb8)?;
+    png_encoder.write_image(&buf, w, h, ColorType::Rgb8)?;
 
     Ok(Some(png_bytes))
 }
