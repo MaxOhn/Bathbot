@@ -1,6 +1,6 @@
 use std::{iter, mem};
 
-use chrono::Datelike;
+use chrono::{Datelike, TimeZone, Utc};
 use futures::stream::{FuturesUnordered, TryStreamExt};
 use image::{
     codecs::png::PngEncoder, imageops::FilterType::Lanczos3, load_from_memory, ColorType,
@@ -103,51 +103,7 @@ pub async fn graphs(
         let replays = user.replays_watched_counts.as_mut().unwrap();
 
         // Spoof missing months
-        // Making use of the fact that the dates are always of the form YYYY-MM-01
-        // TODO: Clean this up
-        let first_date = monthly_playcount.first().unwrap().start_date;
-        let mut curr_month = first_date.month();
-        let mut curr_year = first_date.year();
-
-        let dates = monthly_playcount
-            .iter()
-            .map(|date_count| date_count.start_date)
-            .enumerate()
-            .collect::<Vec<_>>() // i hate this
-            .into_iter();
-
-        let mut inserted = 0;
-
-        for (i, date) in dates {
-            while date.month() != curr_month || date.year() != curr_year {
-                let spoofed_date = date
-                    .with_month(curr_month)
-                    .unwrap()
-                    .with_year(curr_year)
-                    .unwrap();
-
-                let count = MonthlyCount {
-                    start_date: spoofed_date,
-                    count: 0,
-                };
-
-                monthly_playcount.insert(inserted + i, count);
-                inserted += 1;
-                curr_month += 1;
-
-                if curr_month == 13 {
-                    curr_month = 1;
-                    curr_year += 1;
-                }
-            }
-
-            curr_month += 1;
-
-            if curr_month == 13 {
-                curr_month = 1;
-                curr_year += 1;
-            }
-        }
+        spoof_monthly_counts(&mut monthly_playcount);
 
         // Spoof missing replays
         let dates = monthly_playcount
@@ -155,17 +111,15 @@ pub async fn graphs(
             .map(|date_count| date_count.start_date)
             .enumerate();
 
-        for (i, date) in dates {
-            let cond = replays
-                .get(i)
-                .map(|date_count| date_count.start_date == date);
+        for (i, start_date) in dates {
+            let cond = replays.get(i).map(|c| c.start_date == start_date);
 
-            let count = MonthlyCount {
-                start_date: date,
-                count: 0,
-            };
+            if cond != Some(true) {
+                let count = MonthlyCount {
+                    start_date,
+                    count: 0,
+                };
 
-            if let None | Some(false) = cond {
                 replays.insert(i, count);
             }
         }
@@ -296,4 +250,35 @@ pub async fn graphs(
     png_encoder.write_image(&buf, w, h, ColorType::Rgb8)?;
 
     Ok(Some(png_bytes))
+}
+
+fn spoof_monthly_counts(counts: &mut Vec<MonthlyCount>) {
+    let (mut year, mut month) = match counts.as_slice() {
+        [] | [_] => return,
+        [first, ..] => (first.start_date.year(), first.start_date.month()),
+    };
+
+    let mut i = 1;
+
+    while i < counts.len() {
+        month += 1;
+
+        if month == 13 {
+            month = 1;
+            year += 1;
+        }
+
+        let date = Utc.ymd(year, month, 1);
+
+        if date < counts[i].start_date {
+            let count = MonthlyCount {
+                start_date: date,
+                count: 0,
+            };
+
+            counts.insert(i, count);
+        }
+
+        i += 1;
+    }
 }
