@@ -1,26 +1,97 @@
-use std::{iter, mem};
+use std::iter;
 
-use chrono::{Datelike, TimeZone, Utc};
+use bitflags::bitflags;
+use chrono::{Date, Datelike, TimeZone, Utc};
 use futures::stream::{FuturesUnordered, TryStreamExt};
 use image::{
     codecs::png::PngEncoder, imageops::FilterType::Lanczos3, load_from_memory, ColorType,
     ImageEncoder,
 };
-use plotters::prelude::*;
+use plotters::{
+    coord::{
+        types::{Monthly, RangedCoordi32},
+        Shift,
+    },
+    prelude::*,
+};
 use rosu_v2::prelude::{MonthlyCount, User};
 
 use crate::{core::Context, error::GraphError};
 
-pub async fn graphs(
-    ctx: &Context,
-    user: &mut User,
+bitflags! {
+    #[derive(Default)]
+    pub struct Flags: u8 {
+        const NO_BADGES      = 1 << 0;
+        const ONLY_PLAYCOUNT = 1 << 1;
+        const ONLY_REPLAYS   = 1 << 2;
+    }
+}
+
+pub struct ProfileGraphParams<'l> {
+    ctx: &'l Context,
+    user: &'l mut User,
     w: u32,
     h: u32,
-) -> Result<Option<Vec<u8>>, GraphError> {
-    let mut monthly_playcount = mem::replace(&mut user.monthly_playcounts, None).unwrap();
-    let badges = mem::replace(&mut user.badges, None).unwrap();
+    flags: Flags,
+}
 
-    if monthly_playcount.len() < 2 {
+impl<'l> ProfileGraphParams<'l> {
+    const W: u32 = 1350;
+    const H: u32 = 350;
+
+    pub fn new(ctx: &'l Context, user: &'l mut User) -> Self {
+        Self {
+            ctx,
+            user,
+            w: Self::W,
+            h: Self::H,
+            flags: Flags::default(),
+        }
+    }
+
+    pub fn width(mut self, w: u32) -> Self {
+        self.w = w;
+
+        self
+    }
+
+    pub fn height(mut self, h: u32) -> Self {
+        self.h = h;
+
+        self
+    }
+
+    pub fn no_badges(&mut self) {
+        self.flags |= Flags::NO_BADGES;
+    }
+
+    pub fn only_playcount(&mut self) {
+        self.flags |= Flags::ONLY_PLAYCOUNT;
+    }
+
+    pub fn only_replays(&mut self) {
+        self.flags |= Flags::ONLY_REPLAYS;
+    }
+}
+
+type GraphResult<T> = Result<T, GraphError>;
+type Area<'b> = DrawingArea<BitMapBackend<'b>, Shift>;
+type Chart<'a, 'b> =
+    ChartContext<'a, BitMapBackend<'b>, Cartesian2d<Monthly<Date<Utc>>, RangedCoordi32>>;
+
+pub async fn graphs(params: ProfileGraphParams<'_>) -> GraphResult<Option<Vec<u8>>> {
+    let ProfileGraphParams {
+        ctx,
+        user,
+        w,
+        h,
+        flags,
+    } = params;
+
+    let (playcounts, replays) = prepare_monthly_counts(user, flags);
+    let badges = user.badges.take().unwrap_or_default();
+
+    if playcounts.len() < 2 || (flags.contains(Flags::ONLY_REPLAYS) && replays.len() < 2) {
         return Ok(None);
     }
 
@@ -29,15 +100,19 @@ pub async fn graphs(
 
     {
         // Request all badge images
-        let badges = match badges.is_empty() {
-            true => Vec::new(),
-            false => {
-                badges
-                    .iter()
-                    .map(|badge| ctx.clients.custom.get_badge(&badge.image_url))
-                    .collect::<FuturesUnordered<_>>()
-                    .try_collect()
-                    .await?
+        let badges = if flags.contains(Flags::NO_BADGES) {
+            Vec::new()
+        } else {
+            match badges.is_empty() {
+                true => Vec::new(),
+                false => {
+                    badges
+                        .iter()
+                        .map(|badge| ctx.clients.custom.get_badge(&badge.image_url))
+                        .collect::<FuturesUnordered<_>>()
+                        .try_collect()
+                        .await?
+                }
             }
         };
 
@@ -100,18 +175,265 @@ pub async fn graphs(
             bottom
         };
 
-        let replays = user.replays_watched_counts.as_mut().unwrap();
+        if flags.contains(Flags::ONLY_PLAYCOUNT) {
+            draw_playcounts(&playcounts, &canvas)?;
+        } else if flags.contains(Flags::ONLY_REPLAYS) {
+            draw_replays(&replays, &canvas)?;
+        } else {
+            draw_both(&playcounts, &replays, &canvas)?;
+        }
+    }
 
-        // Spoof missing months
-        spoof_monthly_counts(&mut monthly_playcount);
+    // Encode buf to png
+    let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
+    let png_encoder = PngEncoder::new(&mut png_bytes);
+    png_encoder.write_image(&buf, w, h, ColorType::Rgb8)?;
 
-        // Spoof missing replays
-        let dates = monthly_playcount
-            .iter()
-            .map(|date_count| date_count.start_date)
-            .enumerate();
+    Ok(Some(png_bytes))
+}
 
-        for (i, start_date) in dates {
+const PLAYCOUNTS_AREA_COLOR: RGBColor = RGBColor(0, 116, 193);
+const PLAYCOUNTS_BORDER_COLOR: RGBColor = RGBColor(102, 174, 222);
+
+fn draw_playcounts(playcounts: &[MonthlyCount], canvas: &Area<'_>) -> GraphResult<()> {
+    let (first, last, max) = first_last_max(playcounts);
+
+    let mut chart = ChartBuilder::on(canvas)
+        .margin(9_i32)
+        .x_label_area_size(20_i32)
+        .y_label_area_size(75_i32)
+        .build_cartesian_2d((first..last).monthly(), 0..max)?;
+
+    chart
+        .configure_mesh()
+        .light_line_style(&BLACK.mix(0.0))
+        .disable_x_mesh()
+        .x_labels(10)
+        .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month()))
+        .y_desc("Monthly playcount")
+        .label_style(("sans-serif", 20_i32, &WHITE))
+        .bold_line_style(&WHITE.mix(0.3))
+        .axis_style(RGBColor(7, 18, 14))
+        .axis_desc_style(("sans-serif", 20_i32, FontStyle::Bold, &WHITE))
+        .draw()?;
+
+    draw_area(
+        &mut chart,
+        PLAYCOUNTS_AREA_COLOR,
+        0.5,
+        PLAYCOUNTS_BORDER_COLOR,
+        0.6,
+        playcounts,
+    )
+}
+
+const REPLAYS_AREA_COLOR: RGBColor = RGBColor(0, 246, 193);
+const REPLAYS_BORDER_COLOR: RGBColor = RGBColor(40, 246, 205);
+
+fn draw_replays(replays: &[MonthlyCount], canvas: &Area<'_>) -> GraphResult<()> {
+    let (first, last, max) = first_last_max(replays);
+    let label_area = replay_label_area(max);
+
+    let mut chart = ChartBuilder::on(canvas)
+        .margin(9_i32)
+        .x_label_area_size(20_i32)
+        .y_label_area_size(label_area)
+        .build_cartesian_2d((first..last).monthly(), 0..max)?;
+
+    chart
+        .configure_mesh()
+        .light_line_style(&BLACK.mix(0.0))
+        .disable_x_mesh()
+        .x_labels(10)
+        .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month()))
+        .y_desc("Replays watched")
+        .label_style(("sans-serif", 20_i32, &WHITE))
+        .bold_line_style(&WHITE.mix(0.3))
+        .axis_style(RGBColor(7, 18, 14))
+        .axis_desc_style(("sans-serif", 20_i32, FontStyle::Bold, &WHITE))
+        .draw()?;
+
+    draw_area(
+        &mut chart,
+        REPLAYS_AREA_COLOR,
+        0.2,
+        REPLAYS_BORDER_COLOR,
+        1.0,
+        replays,
+    )
+}
+
+fn draw_both(
+    playcounts: &[MonthlyCount],
+    replays: &[MonthlyCount],
+    canvas: &Area<'_>,
+) -> GraphResult<()> {
+    let (left_first, left_last, left_max) = first_last_max(playcounts);
+    let (right_first, right_last, right_max) = first_last_max(replays);
+    let right_label_area = replay_label_area(right_max);
+
+    let mut chart = ChartBuilder::on(&canvas)
+        .margin(9_i32)
+        .x_label_area_size(20_i32)
+        .y_label_area_size(75_i32)
+        .right_y_label_area_size(right_label_area)
+        .build_cartesian_2d((left_first..left_last).monthly(), 0..left_max)?
+        .set_secondary_coord((right_first..right_last).monthly(), 0..right_max);
+
+    // Mesh and labels
+    chart
+        .configure_mesh()
+        .light_line_style(&BLACK.mix(0.0))
+        .disable_x_mesh()
+        .x_labels(10)
+        .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month()))
+        .y_desc("Monthly playcount")
+        .label_style(("sans-serif", 20_i32, &WHITE))
+        .bold_line_style(&WHITE.mix(0.3))
+        .axis_style(RGBColor(7, 18, 14))
+        .axis_desc_style(("sans-serif", 20_i32, FontStyle::Bold, &WHITE))
+        .draw()?;
+
+    chart
+        .configure_secondary_axes()
+        .y_desc("Replays watched")
+        .label_style(("sans-serif", 20_i32, &WHITE))
+        .axis_style(RGBColor(7, 18, 14))
+        .axis_desc_style(("sans-serif", 20_i32, FontStyle::Bold, &WHITE))
+        .draw()?;
+
+    draw_area(
+        &mut chart,
+        PLAYCOUNTS_AREA_COLOR,
+        0.5,
+        PLAYCOUNTS_BORDER_COLOR,
+        0.6,
+        playcounts,
+    )?;
+
+    // Draw replay watched area
+    // Can't use `draw_area` since it's for the secondary y-axis
+    let iter = replays
+        .iter()
+        .map(|MonthlyCount { start_date, count }| (*start_date, *count));
+
+    let area_color = REPLAYS_AREA_COLOR;
+    let border_color = REPLAYS_BORDER_COLOR;
+    let series = AreaSeries::new(iter, 0, area_color.mix(0.2).filled());
+
+    chart
+        .draw_secondary_series(series.border_style(border_color.stroke_width(1)))?
+        .label("Replays watched")
+        .legend(move |(x, y)| {
+            PathElement::new(vec![(x, y), (x + 20, y)], border_color.stroke_width(2))
+        });
+
+    // Draw circles
+    let circles = replays.iter().map(|MonthlyCount { start_date, count }| {
+        let style = border_color.stroke_width(1).filled();
+
+        Circle::new((*start_date, *count), 2_i32, style)
+    });
+
+    chart.draw_secondary_series(circles)?;
+
+    // Legend
+    chart
+        .configure_series_labels()
+        .background_style(&RGBColor(7, 23, 17))
+        .position(SeriesLabelPosition::UpperLeft)
+        .legend_area_size(45_i32)
+        .label_font(("sans-serif", 20_i32, &WHITE))
+        .draw()?;
+
+    Ok(())
+}
+
+fn draw_area(
+    chart: &mut Chart<'_, '_>,
+    area_color: RGBColor,
+    area_mix: f64,
+    border_color: RGBColor,
+    border_mix: f64,
+    monthly_counts: &[MonthlyCount],
+) -> GraphResult<()> {
+    // Draw area
+    let iter = monthly_counts
+        .iter()
+        .map(|MonthlyCount { start_date, count }| (*start_date, *count));
+
+    let series = AreaSeries::new(iter, 0, area_color.mix(area_mix).filled());
+
+    chart
+        .draw_series(series.border_style(border_color.stroke_width(1)))?
+        .legend(move |(x, y)| {
+            PathElement::new(vec![(x, y), (x + 20, y)], area_color.stroke_width(2))
+        });
+
+    // Draw circles
+    let circles = monthly_counts
+        .iter()
+        .map(move |MonthlyCount { start_date, count }| {
+            let style = border_color.mix(border_mix).filled();
+
+            Circle::new((*start_date, *count), 2_i32, style)
+        });
+
+    chart.draw_series(circles)?;
+
+    Ok(())
+}
+
+fn replay_label_area(max: i32) -> i32 {
+    match max {
+        n if n < 10 => 40,
+        n if n < 100 => 50,
+        n if n < 1000 => 60,
+        n if n < 10_000 => 70,
+        n if n < 100_000 => 80,
+        _ => 90,
+    }
+}
+
+fn first_last_max(counts: &[MonthlyCount]) -> (Date<Utc>, Date<Utc>, i32) {
+    let first = counts.first().unwrap().start_date;
+    let last = counts.last().unwrap().start_date;
+    let max = counts.iter().map(|c| c.count).max();
+
+    (first, last, max.unwrap_or(1))
+}
+
+fn prepare_monthly_counts(user: &mut User, flags: Flags) -> (Vec<MonthlyCount>, Vec<MonthlyCount>) {
+    let mut playcounts = user.monthly_playcounts.take().unwrap_or_default();
+    let mut replays = user.replays_watched_counts.take().unwrap_or_default();
+
+    // Spoof missing months
+    if !flags.contains(Flags::ONLY_REPLAYS) {
+        spoof_monthly_counts(&mut playcounts);
+    }
+
+    // Spoof missing replays
+    if flags.contains(Flags::ONLY_PLAYCOUNT) {
+        // nothing to do
+    } else if flags.contains(Flags::ONLY_REPLAYS) {
+        let now = Utc::now();
+        let year = now.year();
+        let month = now.month();
+        let start_date = Utc.ymd(year, month, 1);
+
+        if replays.last().map(|c| c.start_date < start_date) == Some(true) {
+            let count = MonthlyCount {
+                start_date,
+                count: 0,
+            };
+
+            replays.push(count);
+        }
+
+        spoof_monthly_counts(&mut replays);
+    } else {
+        // For every month in playcounts, make sure there is one in replays
+        for (i, start_date) in playcounts.iter().map(|c| c.start_date).enumerate() {
             let cond = replays.get(i).map(|c| c.start_date == start_date);
 
             if cond != Some(true) {
@@ -123,133 +445,9 @@ pub async fn graphs(
                 replays.insert(i, count);
             }
         }
-
-        let left_first = monthly_playcount.first().unwrap().start_date;
-        let left_last = monthly_playcount.last().unwrap().start_date;
-
-        let left_max = monthly_playcount
-            .iter()
-            .map(|date_count| date_count.count)
-            .max()
-            .unwrap();
-
-        let right_first = replays.first().unwrap().start_date;
-        let right_last = replays.last().unwrap().start_date;
-
-        let right_max = replays
-            .iter()
-            .map(|date_count| date_count.count)
-            .max()
-            .unwrap()
-            .max(1);
-
-        let right_label_area: i32 = match right_max {
-            n if n < 10 => 40,
-            n if n < 100 => 50,
-            n if n < 1000 => 60,
-            n if n < 10_000 => 70,
-            n if n < 100_000 => 80,
-            _ => 90,
-        };
-
-        let mut chart = ChartBuilder::on(&canvas)
-            .margin(9_i32)
-            .x_label_area_size(20_i32)
-            .y_label_area_size(75_i32)
-            .right_y_label_area_size(right_label_area)
-            .build_cartesian_2d((left_first..left_last).monthly(), 0..left_max)?
-            .set_secondary_coord((right_first..right_last).monthly(), 0..right_max);
-
-        // Mesh and labels
-        chart
-            .configure_mesh()
-            .light_line_style(&BLACK.mix(0.0))
-            .disable_x_mesh()
-            .x_labels(10)
-            .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month()))
-            .y_desc("Monthly playcount")
-            .label_style(("sans-serif", 20_i32, &WHITE))
-            .bold_line_style(&WHITE.mix(0.3))
-            .axis_style(RGBColor(7, 18, 14))
-            .axis_desc_style(("sans-serif", 20_i32, FontStyle::Bold, &WHITE))
-            .draw()?;
-
-        chart
-            .configure_secondary_axes()
-            .y_desc("Replays watched")
-            .label_style(("sans-serif", 20_i32, &WHITE))
-            .axis_style(RGBColor(7, 18, 14))
-            .axis_desc_style(("sans-serif", 20_i32, FontStyle::Bold, &WHITE))
-            .draw()?;
-
-        // Draw playcount area
-        let iter = monthly_playcount
-            .iter()
-            .map(|MonthlyCount { start_date, count }| (*start_date, *count));
-
-        let area_color = RGBColor(0, 116, 193);
-        let border_color = RGBColor(102, 174, 222);
-        let series = AreaSeries::new(iter, 0, area_color.mix(0.5).filled());
-
-        chart
-            .draw_series(series.border_style(border_color.stroke_width(1)))?
-            .label("Monthly playcount")
-            .legend(move |(x, y)| {
-                PathElement::new(vec![(x, y), (x + 20, y)], area_color.stroke_width(2))
-            });
-
-        // Draw circles
-        let circles = monthly_playcount
-            .iter()
-            .map(move |MonthlyCount { start_date, count }| {
-                let style = border_color.mix(0.6).filled();
-
-                Circle::new((*start_date, *count), 2_i32, style)
-            });
-
-        chart.draw_series(circles)?;
-
-        // Draw replay watched area
-        let iter = replays
-            .iter()
-            .map(|MonthlyCount { start_date, count }| (*start_date, *count));
-
-        let area_color = RGBColor(0, 246, 193);
-        let border_color = RGBColor(40, 246, 205);
-        let series = AreaSeries::new(iter, 0, area_color.mix(0.2).filled());
-
-        chart
-            .draw_secondary_series(series.border_style(border_color.stroke_width(1)))?
-            .label("Replays watched")
-            .legend(move |(x, y)| {
-                PathElement::new(vec![(x, y), (x + 20, y)], border_color.stroke_width(2))
-            });
-
-        // Draw circles
-        let circles = replays.iter().map(|MonthlyCount { start_date, count }| {
-            let style = border_color.stroke_width(1).filled();
-
-            Circle::new((*start_date, *count), 2_i32, style)
-        });
-
-        chart.draw_secondary_series(circles)?;
-
-        // Legend
-        chart
-            .configure_series_labels()
-            .background_style(&RGBColor(7, 23, 17))
-            .position(SeriesLabelPosition::UpperLeft)
-            .legend_area_size(45_i32)
-            .label_font(("sans-serif", 20_i32, &WHITE))
-            .draw()?;
     }
 
-    // Encode buf to png
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
-    let png_encoder = PngEncoder::new(&mut png_bytes);
-    png_encoder.write_image(&buf, w, h, ColorType::Rgb8)?;
-
-    Ok(Some(png_bytes))
+    (playcounts, replays)
 }
 
 fn spoof_monthly_counts(counts: &mut Vec<MonthlyCount>) {

@@ -14,7 +14,10 @@ use plotters_backend::FontStyle;
 use rosu_v2::prelude::{GameMode, OsuError, Score, User};
 use twilight_model::application::{
     command::CommandOptionChoice,
-    interaction::{application_command::CommandOptionValue, ApplicationCommand},
+    interaction::{
+        application_command::{CommandDataOption, CommandOptionValue},
+        ApplicationCommand,
+    },
 };
 
 use crate::{
@@ -38,7 +41,10 @@ use crate::{
     BotResult,
 };
 
-use super::{option_discord, option_mode, option_name, player_snipe_stats, profile, sniped};
+use super::{
+    option_discord, option_mode, option_name, player_snipe_stats, profile, sniped,
+    ProfileGraphParams,
+};
 
 async fn graph(ctx: Arc<Context>, data: CommandData<'_>, args: GraphArgs) -> BotResult<()> {
     let GraphArgs { config, kind } = args;
@@ -53,8 +59,18 @@ async fn graph(ctx: Arc<Context>, data: CommandData<'_>, args: GraphArgs) -> Bot
 
     let tuple_option = match kind {
         GraphKind::MedalProgression => medals_graph(&ctx, &data, &name, &user_args).await?,
-        GraphKind::PlaycountReplays => {
-            playcount_replays_graph(&ctx, &data, &name, &user_args).await?
+        GraphKind::PlaycountReplays {
+            badges,
+            playcount,
+            replays,
+        } => {
+            if !(playcount || replays) {
+                let content = "Must include `playcount`, `replays`, or both";
+                return data.error(&ctx, content).await;
+            }
+
+            playcount_replays_graph(&ctx, &data, &name, &user_args, badges, playcount, replays)
+                .await?
         }
         GraphKind::RankProgression => rank_graph(&ctx, &data, &name, &user_args).await?,
         GraphKind::ScoreTime { tz } => {
@@ -167,6 +183,9 @@ async fn playcount_replays_graph(
     data: &CommandData<'_>,
     name: &str,
     user_args: &UserArgs<'_>,
+    badges: bool,
+    playcount: bool,
+    replays: bool,
 ) -> BotResult<Option<(User, Vec<u8>)>> {
     let mut user = match get_user(ctx, user_args).await {
         Ok(user) => user,
@@ -183,7 +202,21 @@ async fn playcount_replays_graph(
         }
     };
 
-    let bytes = match profile::graphs(ctx, &mut user, W, H).await {
+    let mut params = ProfileGraphParams::new(ctx, &mut user).width(H).height(H);
+
+    if !badges {
+        params.no_badges();
+    }
+
+    if !playcount {
+        params.only_replays();
+    }
+
+    if !replays {
+        params.only_playcount();
+    }
+
+    let bytes = match profile::graphs(params).await {
         Ok(Some(graph)) => graph,
         Ok(None) => {
             let content = format!("`{name}` does not have enough playcount data points");
@@ -632,9 +665,15 @@ struct GraphArgs {
 
 enum GraphKind {
     MedalProgression,
-    PlaycountReplays,
+    PlaycountReplays {
+        badges: bool,
+        playcount: bool,
+        replays: bool,
+    },
     RankProgression,
-    ScoreTime { tz: Option<FixedOffset> },
+    ScoreTime {
+        tz: Option<FixedOffset>,
+    },
     Sniped,
     SnipeCount,
 }
@@ -654,7 +693,17 @@ pub async fn slash_graph(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
 
     let kind = match subcommand.as_str() {
         "medals" => GraphKind::MedalProgression,
-        "playcount_replays" => GraphKind::PlaycountReplays,
+        "playcount_replays" => {
+            let badges = check_show_hide_option(&mut options, "badges")?;
+            let playcount = check_show_hide_option(&mut options, "playcount")?;
+            let replays = check_show_hide_option(&mut options, "replays")?;
+
+            GraphKind::PlaycountReplays {
+                badges,
+                playcount,
+                replays,
+            }
+        }
         "rank" => GraphKind::RankProgression,
         "score_time" => {
             let mut tz = None;
@@ -695,6 +744,21 @@ pub async fn slash_graph(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
     }
 
     graph(ctx, command.into(), GraphArgs { config, kind }).await
+}
+
+fn check_show_hide_option(options: &mut Vec<CommandDataOption>, name: &str) -> BotResult<bool> {
+    if let Some(idx) = options.iter().position(|o| o.name == name) {
+        match options.swap_remove(idx).value {
+            CommandOptionValue::String(value) => match value.as_str() {
+                "show" => return Ok(true),
+                "hide" => return Ok(false),
+                _ => return Err(Error::InvalidCommandOptions),
+            },
+            _ => return Err(Error::InvalidCommandOptions),
+        }
+    }
+
+    Ok(true)
 }
 
 fn timezones() -> Vec<CommandOptionChoice> {
@@ -802,15 +866,41 @@ fn timezones() -> Vec<CommandOptionChoice> {
     ]
 }
 
+fn show_hide() -> Vec<CommandOptionChoice> {
+    vec![
+        CommandOptionChoice::String {
+            name: "Show".to_owned(),
+            value: "show".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Hide".to_owned(),
+            value: "hide".to_owned(),
+        },
+    ]
+}
+
 pub fn define_graph() -> MyCommand {
     let medals = MyCommandOption::builder("medals", "Display a user's medal progress over time")
         .subcommand(vec![option_name(), option_discord()]);
 
+    let playcount_description = "Specify if the playcount curve should be included";
+
+    let playcount =
+        MyCommandOption::builder("playcount", playcount_description).string(show_hide(), false);
+
+    let replays =
+        MyCommandOption::builder("replays", "Specify if the replay curve should be included")
+            .string(show_hide(), false);
+
+    let badges = MyCommandOption::builder("badges", "Specify if the badges should be included")
+        .string(show_hide(), false);
+
     let playcount_replays_description = "Display a user's playcount and replays watched over time";
 
     let playcount_replays =
-        MyCommandOption::builder("playcount_replays", playcount_replays_description)
-            .subcommand(vec![option_name(), option_discord()]);
+        MyCommandOption::builder("playcount_replays", playcount_replays_description).subcommand(
+            vec![option_name(), option_discord(), playcount, replays, badges],
+        );
 
     let rank = MyCommandOption::builder("rank", "Display a user's rank progression over time")
         .subcommand(vec![option_mode(), option_name(), option_discord()]);
@@ -820,13 +910,10 @@ pub fn define_graph() -> MyCommand {
 
     let score_time_description = "Display at what times a user set their top scores";
 
-    let score_time =
-        MyCommandOption::builder("score_time", score_time_description).subcommand(vec![
-            option_mode(),
-            timezone,
-            option_name(),
-            option_discord(),
-        ]);
+    let score_time_options = vec![option_mode(), timezone, option_name(), option_discord()];
+
+    let score_time = MyCommandOption::builder("score_time", score_time_description)
+        .subcommand(score_time_options);
 
     let sniped = MyCommandOption::builder("sniped", "Display sniped users of the past 8 weeks")
         .subcommand(vec![option_name(), option_discord()]);
