@@ -1,7 +1,7 @@
 use std::{
     borrow::Cow,
     cmp::{Ordering, Reverse},
-    iter::{Copied, Map},
+    iter::{self, Copied, Map},
     path::PathBuf,
     slice::Iter,
 };
@@ -115,6 +115,49 @@ pub async fn prepare_beatmap_file(ctx: &Context, map_id: u32) -> Result<PathBuf,
     Ok(map_path)
 }
 
+pub trait ExtractablePp {
+    fn extract_pp(&self) -> Vec<f32>;
+}
+
+impl ExtractablePp for [Score] {
+    fn extract_pp(&self) -> Vec<f32> {
+        self.iter().map(|s| s.pp.unwrap_or(0.0)).collect()
+    }
+}
+
+// Credits to flowabot
+/// Extend the list of pps by taking the average difference
+/// between 2 values towards the end and create more values
+/// based on that difference
+pub fn approx_more_pp(pps: &mut Vec<f32>, more: usize) {
+    if pps.len() != 100 {
+        return;
+    }
+
+    let diff = (pps[89] - pps[99]) / 10.0;
+
+    let extension = iter::successors(pps.last().copied(), |pp| {
+        let pp = pp - diff;
+
+        (pp > 0.0).then(|| pp)
+    });
+
+    pps.extend(extension.take(more));
+}
+
+pub trait PpListUtil {
+    fn accum_weighted(&self) -> f32;
+}
+
+impl PpListUtil for [f32] {
+    fn accum_weighted(&self) -> f32 {
+        self.iter()
+            .copied()
+            .zip(0..)
+            .fold(0.0, |sum, (pp, i)| sum + pp * 0.95_f32.powi(i))
+    }
+}
+
 pub trait IntoPpIter {
     type Inner: Iterator<Item = f32> + DoubleEndedIterator + ExactSizeIterator;
 
@@ -174,8 +217,6 @@ impl<I: Iterator<Item = f32> + ExactSizeIterator> ExactSizeIterator for PpIter<I
 ///
 /// Second element: Index of hypothetical pp in pps
 pub fn pp_missing(start: f32, goal: f32, pps: impl IntoPpIter) -> (f32, usize) {
-    let pps = pps.into_pps();
-
     let mut top = start;
     let mut bot = 0.0;
 
@@ -188,7 +229,7 @@ pub fn pp_missing(start: f32, goal: f32, pps: impl IntoPpIter) -> (f32, usize) {
         (required, idx)
     }
 
-    for (i, last_pp) in pps.enumerate().rev() {
+    for (i, last_pp) in pps.into_pps().enumerate().rev() {
         let factor = 0.95_f32.powi(i as i32);
         let term = factor * last_pp;
         let bot_term = term * 0.95;

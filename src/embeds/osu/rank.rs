@@ -5,7 +5,7 @@ use crate::{
     embeds::Author,
     util::{
         numbers::{with_comma_float, with_comma_int},
-        osu::pp_missing,
+        osu::{approx_more_pp, pp_missing, ExtractablePp, PpListUtil},
     },
 };
 
@@ -48,7 +48,7 @@ impl RankEmbed {
                         name = user.username,
                         pp = with_comma_float(user_pp)
                     )
-                } else if let Some(mut scores) = scores {
+                } else if let Some(scores) = scores {
                     match (scores.last().and_then(|s| s.pp), each) {
                         (Some(last_pp), Some(each)) if each < last_pp => {
                             format!(
@@ -65,8 +65,15 @@ impl RankEmbed {
                             )
                         }
                         (_, Some(each)) => {
-                            let (required, idx) =
-                                pp_missing(user_pp, rank_holder_pp, scores.as_slice());
+                            let mut pps = scores.extract_pp();
+
+                            let (required, idx) = if scores.len() == 100 {
+                                approx_more_pp(&mut pps, 50);
+
+                                pp_missing(user_pp, rank_holder_pp, pps.as_slice())
+                            } else {
+                                pp_missing(user_pp, rank_holder_pp, scores.as_slice())
+                            };
 
                             if required < each {
                                 format!(
@@ -82,36 +89,33 @@ impl RankEmbed {
                                     idx = idx + 1,
                                 )
                             } else {
-                                let idx = scores
+                                let idx = pps
                                     .iter()
-                                    .position(|s| s.pp.unwrap_or(0.0) < each)
-                                    .unwrap_or_else(|| scores.len());
+                                    .position(|&pp| pp < each)
+                                    .unwrap_or_else(|| pps.len());
 
-                                let mut iter = scores
+                                let mut iter = pps
                                     .iter()
-                                    .filter_map(|s| s.weight.as_ref())
-                                    .map(|w| w.pp);
+                                    .copied()
+                                    .zip(0..)
+                                    .map(|(pp, i)| pp * 0.95_f32.powi(i));
 
                                 let mut top: f32 = (&mut iter).take(idx).sum();
                                 let bot: f32 = iter.sum();
 
-                                let bonus_pp = user_pp - (top + bot);
+                                let bonus_pp = (user_pp - (top + bot)).max(0.0);
                                 top += bonus_pp;
-                                let len = scores.len();
+                                let len = pps.len();
 
                                 let mut n_each = len;
 
                                 for i in idx..len {
-                                    let bot: f32 = scores
-                                        .iter_mut()
-                                        .skip(idx)
-                                        .filter_map(|s| s.weight.as_mut())
-                                        .map(|w| {
-                                            w.pp *= 0.95;
-
-                                            w.pp
-                                        })
-                                        .sum();
+                                    // TODO: Test
+                                    let bot = pps[idx..]
+                                        .iter()
+                                        .copied()
+                                        .zip(i as i32 + 1..)
+                                        .fold(0.0, |sum, (pp, i)| sum + pp * 0.95_f32.powi(i));
 
                                     let factor = 0.95_f32.powi(i as i32);
 
@@ -128,7 +132,7 @@ impl RankEmbed {
                                     format!(
                                         "Rank {country}{rank} is currently held by {holder_name} with \
                                         **{holder_pp}pp**, so {name} is missing **{missing}** raw pp.\n\
-                                        Filling up {name}'{genitiv} top100 with {amount} new \
+                                        Filling up {name}'{genitiv} top scores with {amount} new \
                                         {each}pp score{plural} would only lead to **{top}pp** which \
                                         is still less than {holder_pp}pp.",
                                         holder_name = rank_holder.username,
@@ -142,19 +146,13 @@ impl RankEmbed {
                                         name = user.username,
                                     )
                                 } else {
-                                    let mut pps: Vec<_> = scores
-                                        .iter()
-                                        .filter_map(|s| s.pp)
-                                        .chain(iter::repeat(each).take(n_each))
-                                        .collect();
+                                    pps.extend(iter::repeat(each).take(n_each));
 
                                     pps.sort_unstable_by(|a, b| {
                                         b.partial_cmp(a).unwrap_or(Ordering::Equal)
                                     });
 
-                                    let accum = pps.iter().enumerate().fold(0.0, |sum, (i, pp)| {
-                                        sum + pp * 0.95_f32.powi(i as i32)
-                                    });
+                                    let accum = pps.accum_weighted();
 
                                     // Calculate the pp of the missing score after adding `n_each` many `each` pp scores
                                     let total = accum + bonus_pp;
@@ -178,8 +176,14 @@ impl RankEmbed {
                             }
                         }
                         _ => {
-                            let (required, idx) =
-                                pp_missing(user_pp, rank_holder_pp, scores.as_slice());
+                            let (required, idx) = if scores.len() == 100 {
+                                let mut pps = scores.extract_pp();
+                                approx_more_pp(&mut pps, 50);
+
+                                pp_missing(user_pp, rank_holder_pp, pps.as_slice())
+                            } else {
+                                pp_missing(user_pp, rank_holder_pp, scores.as_slice())
+                            };
 
                             format!(
                                 "Rank {country}{rank} is currently held by {holder_name} with \
@@ -229,7 +233,7 @@ impl RankEmbed {
                         name = user.username,
                         pp = with_comma_float(user_pp)
                     )
-                } else if let Some(mut scores) = scores {
+                } else if let Some(scores) = scores {
                     match (scores.last().and_then(|s| s.pp), each) {
                         (Some(last_pp), Some(each)) if each < last_pp => {
                             format!(
@@ -245,8 +249,15 @@ impl RankEmbed {
                             )
                         }
                         (_, Some(each)) => {
-                            let (required, idx) =
-                                pp_missing(user_pp, *required_pp, scores.as_slice());
+                            let mut pps = scores.extract_pp();
+
+                            let (required, idx) = if scores.len() == 100 {
+                                approx_more_pp(&mut pps, 50);
+
+                                pp_missing(user_pp, *required_pp, pps.as_slice())
+                            } else {
+                                pp_missing(user_pp, *required_pp, scores.as_slice())
+                            };
 
                             if required < each {
                                 format!(
@@ -261,36 +272,33 @@ impl RankEmbed {
                                     idx = idx + 1,
                                 )
                             } else {
-                                let idx = scores
+                                let idx = pps
                                     .iter()
-                                    .position(|s| s.pp.unwrap_or(0.0) < each)
-                                    .unwrap_or_else(|| scores.len());
+                                    .position(|&pp| pp < each)
+                                    .unwrap_or_else(|| pps.len());
 
-                                let mut iter = scores
+                                let mut iter = pps
                                     .iter()
-                                    .filter_map(|s| s.weight.as_ref())
-                                    .map(|w| w.pp);
+                                    .copied()
+                                    .zip(0..)
+                                    .map(|(pp, i)| pp * 0.95_f32.powi(i));
 
                                 let mut top: f32 = (&mut iter).take(idx).sum();
                                 let bot: f32 = iter.sum();
 
-                                let bonus_pp = user_pp - (top + bot);
+                                let bonus_pp = (user_pp - (top + bot)).max(0.0);
                                 top += bonus_pp;
-                                let len = scores.len();
+                                let len = pps.len();
 
                                 let mut n_each = len;
 
                                 for i in idx..len {
-                                    let bot: f32 = scores
-                                        .iter_mut()
-                                        .skip(idx)
-                                        .filter_map(|s| s.weight.as_mut())
-                                        .map(|w| {
-                                            w.pp *= 0.95;
-
-                                            w.pp
-                                        })
-                                        .sum();
+                                    // TODO: Test
+                                    let bot = pps[idx..]
+                                        .iter()
+                                        .copied()
+                                        .zip(i as i32 + 1..)
+                                        .fold(0.0, |sum, (pp, i)| sum + pp * 0.95_f32.powi(i));
 
                                     let factor = 0.95_f32.powi(i as i32);
 
@@ -320,19 +328,13 @@ impl RankEmbed {
                                         name = user.username,
                                     )
                                 } else {
-                                    let mut pps: Vec<_> = scores
-                                        .iter()
-                                        .filter_map(|s| s.pp)
-                                        .chain(iter::repeat(each).take(n_each))
-                                        .collect();
+                                    pps.extend(iter::repeat(each).take(n_each));
 
                                     pps.sort_unstable_by(|a, b| {
                                         b.partial_cmp(a).unwrap_or(Ordering::Equal)
                                     });
 
-                                    let accum = pps.iter().enumerate().fold(0.0, |sum, (i, pp)| {
-                                        sum + pp * 0.95_f32.powi(i as i32)
-                                    });
+                                    let accum = pps.accum_weighted();
 
                                     // Calculate the pp of the missing score after adding `n_each` many `each` pp scores
                                     let total = accum + bonus_pp;
@@ -355,18 +357,25 @@ impl RankEmbed {
                             }
                         }
                         _ => {
-                            let (required, _) =
-                                pp_missing(user_pp, *required_pp, scores.as_slice());
+                            let (required, idx) = if scores.len() == 100 {
+                                let mut pps = scores.extract_pp();
+                                approx_more_pp(&mut pps, 50);
+
+                                pp_missing(user_pp, *required_pp, pps.as_slice())
+                            } else {
+                                pp_missing(user_pp, *required_pp, scores.as_slice())
+                            };
 
                             format!(
                                 "Rank #{rank} currently requires **{required_pp}pp**, \
                                 so {name} is missing **{missing}** raw pp, \
-                                achievable with a single score worth **{pp}pp**.",
+                                achievable with a single score worth **{pp}pp** which would be the top #{idx}.",
                                 rank = with_comma_int(*rank),
                                 required_pp = with_comma_float(*required_pp),
                                 name = user.username,
                                 missing = with_comma_float(required_pp - user_pp),
                                 pp = with_comma_float(required),
+                                idx = idx + 1,
                             )
                         }
                     }
