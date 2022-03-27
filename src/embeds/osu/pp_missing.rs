@@ -57,10 +57,11 @@ impl PPMissingEmbed {
 
                 format!(
                     "To reach {pp}pp with one additional score, {user} needs to perform \
-                    a **{required}pp** score which would be the top #{idx}",
+                    a **{required}pp** score which would be the top {approx}#{idx}",
                     pp = with_comma_float(goal_pp),
                     user = user.username,
                     required = with_comma_float(required),
+                    approx = if idx >= 100 { "~" } else { "" },
                     idx = idx + 1,
                 )
             }
@@ -90,10 +91,11 @@ impl PPMissingEmbed {
                 if required < each {
                     format!(
                         "To reach {pp}pp with one additional score, {user} needs to perform \
-                        a **{required}pp** score which would be the top #{idx}",
+                        a **{required}pp** score which would be the top {approx}#{idx}",
                         pp = with_comma_float(goal_pp),
                         user = user.username,
                         required = with_comma_float(required),
+                        approx = if idx >= 100 { "~" } else { "" },
                         idx = idx + 1,
                     )
                 } else {
@@ -118,7 +120,6 @@ impl PPMissingEmbed {
                     let mut n_each = len;
 
                     for i in idx..len {
-                        // TODO: Test
                         let bot = pps[idx..]
                             .iter()
                             .copied()
@@ -139,12 +140,13 @@ impl PPMissingEmbed {
                     if n_each == len {
                         format!(
                             "Filling up {user}'{genitiv} top scores with {amount} new {each}pp score{plural} \
-                            would only lead to **{top}pp** which is still less than {pp}pp.",
+                            would only lead to {approx}**{top}pp** which is still less than {pp}pp.",
                             amount = len - idx,
                             each = with_comma_float(each),
                             plural = if len - idx != 1 { "s" } else { "" },
                             genitiv = if idx != 1 { "s" } else { "" },
                             pp = with_comma_float(goal_pp),
+                            approx = if idx >= 100 { "roughly " } else { "" },
                             top = with_comma_float(top),
                             user = user.username,
                         )

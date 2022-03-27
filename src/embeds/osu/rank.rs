@@ -80,12 +80,13 @@ impl RankEmbed {
                                     "Rank {country}{rank} is currently held by {holder_name} with \
                                     **{holder_pp}pp**, so {name} is missing **{missing}** raw pp.\n\
                                     To reach {holder_pp}pp with one additional score, {name} needs to \
-                                    perform a **{required}pp** score which would be the top #{idx}",
+                                    perform a **{required}pp** score which would be the top {approx}#{idx}",
                                     holder_name = rank_holder.username,
                                     holder_pp = with_comma_float(rank_holder_pp),
                                     name = user.username,
                                     missing = with_comma_float(rank_holder_pp - user_pp),
                                     required = with_comma_float(required),
+                                    approx = if idx >= 100 { "~" } else { "" },
                                     idx = idx + 1,
                                 )
                             } else {
@@ -110,7 +111,6 @@ impl RankEmbed {
                                 let mut n_each = len;
 
                                 for i in idx..len {
-                                    // TODO: Test
                                     let bot = pps[idx..]
                                         .iter()
                                         .copied()
@@ -133,7 +133,7 @@ impl RankEmbed {
                                         "Rank {country}{rank} is currently held by {holder_name} with \
                                         **{holder_pp}pp**, so {name} is missing **{missing}** raw pp.\n\
                                         Filling up {name}'{genitiv} top scores with {amount} new \
-                                        {each}pp score{plural} would only lead to **{top}pp** which \
+                                        {each}pp score{plural} would only lead to {approx}**{top}pp** which \
                                         is still less than {holder_pp}pp.",
                                         holder_name = rank_holder.username,
                                         holder_pp = with_comma_float(rank_holder_pp),
@@ -142,6 +142,7 @@ impl RankEmbed {
                                         missing = with_comma_float(rank_holder_pp - user_pp),
                                         plural = if len - idx != 1 { "s" } else { "" },
                                         genitiv = if idx != 1 { "s" } else { "" },
+                                        approx = if idx >= 100 { "roughly " } else { "" },
                                         top = with_comma_float(top),
                                         name = user.username,
                                     )
@@ -187,13 +188,14 @@ impl RankEmbed {
 
                             format!(
                                 "Rank {country}{rank} is currently held by {holder_name} with \
-                                **{holder_pp}pp**, so {name} is missing **{missing}** raw pp, \
-                                achievable with a single score worth **{pp}pp** which would be the top #{idx}.",
+                                **{holder_pp}pp**, so {name} is missing **{missing}** raw pp, achievable \
+                                with a single score worth **{pp}pp** which would be the top {approx}#{idx}.",
                                 holder_name = rank_holder.username,
                                 holder_pp = with_comma_float(rank_holder_pp),
                                 name = user.username,
                                 missing = with_comma_float(rank_holder_pp - user_pp),
                                 pp = with_comma_float(required),
+                                approx = if idx >= 100 { "~" } else { "" },
                                 idx = idx + 1,
                             )
                         }
@@ -264,11 +266,12 @@ impl RankEmbed {
                                     "Rank #{rank} currently requires **{required_pp}pp**, \
                                     so {name} is missing **{missing}** raw pp.\n\
                                     To reach {required_pp}pp with one additional score, {name} needs to \
-                                    perform a **{required}pp** score which would be the top #{idx}",
+                                    perform a **{required}pp** score which would be the top {approx}#{idx}",
                                     name = user.username,
                                     required_pp = with_comma_float(*required_pp),
                                     missing = with_comma_float(required_pp - user_pp),
                                     required = with_comma_float(required),
+                                    approx = if idx >= 100 { "~" } else { "" },
                                     idx = idx + 1,
                                 )
                             } else {
@@ -293,7 +296,6 @@ impl RankEmbed {
                                 let mut n_each = len;
 
                                 for i in idx..len {
-                                    // TODO: Test
                                     let bot = pps[idx..]
                                         .iter()
                                         .copied()
@@ -316,7 +318,7 @@ impl RankEmbed {
                                         "Rank #{rank} currently requires **{required_pp}pp**, \
                                         so {name} is missing **{missing}** raw pp.\n\
                                         Filling up {name}'{genitiv} top100 with {amount} new \
-                                        {each}pp score{plural} would only lead to **{top}pp** which \
+                                        {each}pp score{plural} would only lead to {approx}**{top}pp** which \
                                         is still less than {required_pp}pp.",
                                         required_pp = with_comma_float(*required_pp),
                                         amount = len - idx,
@@ -324,6 +326,7 @@ impl RankEmbed {
                                         missing = with_comma_float(required_pp - user_pp),
                                         plural = if len - idx != 1 { "s" } else { "" },
                                         genitiv = if idx != 1 { "s" } else { "" },
+                                        approx = if idx >= 100 { "roughly " } else { "" },
                                         top = with_comma_float(top),
                                         name = user.username,
                                     )
@@ -367,14 +370,15 @@ impl RankEmbed {
                             };
 
                             format!(
-                                "Rank #{rank} currently requires **{required_pp}pp**, \
-                                so {name} is missing **{missing}** raw pp, \
-                                achievable with a single score worth **{pp}pp** which would be the top #{idx}.",
+                                "Rank #{rank} currently requires **{required_pp}pp**, so \
+                                {name} is missing **{missing}** raw pp, achievable with a \
+                                single score worth **{pp}pp** which would be the top {approx}#{idx}.",
                                 rank = with_comma_int(*rank),
                                 required_pp = with_comma_float(*required_pp),
                                 name = user.username,
                                 missing = with_comma_float(required_pp - user_pp),
                                 pp = with_comma_float(required),
+                                approx = if idx >= 100 { "~" } else { "" },
                                 idx = idx + 1,
                             )
                         }
