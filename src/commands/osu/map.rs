@@ -376,7 +376,7 @@ fn graph(strains: Vec<(f64, f64)>, background: DynamicImage) -> Result<Vec<u8>, 
         let axis_color = if sum / width >= 128 { &BLACK } else { &WHITE };
 
         // Add background
-        let background = background.blur(2.0).brighten(-15);
+        let background = background.blur(2.0).brighten(-20);
         let elem: BitMapElement<'_, _> = ((0.0_f64, max_strain), background).into();
         chart.draw_series(iter::once(elem))?;
 
