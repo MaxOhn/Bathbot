@@ -22,7 +22,7 @@ use twilight_model::application::{
 
 use crate::{
     commands::{
-        osu::{get_user, get_user_and_scores, ScoreArgs, UserArgs},
+        osu::{get_user, get_user_and_scores, ProfileGraphFlags, ScoreArgs, UserArgs},
         parse_discord, parse_mode_option, MyCommand, MyCommandOption,
     },
     core::{commands::CommandData, Context},
@@ -59,18 +59,12 @@ async fn graph(ctx: Arc<Context>, data: CommandData<'_>, args: GraphArgs) -> Bot
 
     let tuple_option = match kind {
         GraphKind::MedalProgression => medals_graph(&ctx, &data, &name, &user_args).await?,
-        GraphKind::PlaycountReplays {
-            badges,
-            playcount,
-            replays,
-        } => {
-            if !(playcount || replays) {
-                let content = "Must include `playcount`, `replays`, or both";
-                return data.error(&ctx, content).await;
+        GraphKind::PlaycountReplays { flags } => {
+            if flags.is_empty() {
+                return data.error(&ctx, ":clown:").await;
             }
 
-            playcount_replays_graph(&ctx, &data, &name, &user_args, badges, playcount, replays)
-                .await?
+            playcount_replays_graph(&ctx, &data, &name, &user_args, flags).await?
         }
         GraphKind::RankProgression => rank_graph(&ctx, &data, &name, &user_args).await?,
         GraphKind::ScoreTime { tz } => {
@@ -183,9 +177,7 @@ async fn playcount_replays_graph(
     data: &CommandData<'_>,
     name: &str,
     user_args: &UserArgs<'_>,
-    badges: bool,
-    playcount: bool,
-    replays: bool,
+    flags: ProfileGraphFlags,
 ) -> BotResult<Option<(User, Vec<u8>)>> {
     let mut user = match get_user(ctx, user_args).await {
         Ok(user) => user,
@@ -202,19 +194,10 @@ async fn playcount_replays_graph(
         }
     };
 
-    let mut params = ProfileGraphParams::new(ctx, &mut user).width(H).height(H);
-
-    if !badges {
-        params.no_badges();
-    }
-
-    if !playcount {
-        params.only_replays();
-    }
-
-    if !replays {
-        params.only_playcount();
-    }
+    let params = ProfileGraphParams::new(ctx, &mut user)
+        .width(H)
+        .height(H)
+        .flags(flags);
 
     let bytes = match profile::graphs(params).await {
         Ok(Some(graph)) => graph,
@@ -665,15 +648,9 @@ struct GraphArgs {
 
 enum GraphKind {
     MedalProgression,
-    PlaycountReplays {
-        badges: bool,
-        playcount: bool,
-        replays: bool,
-    },
+    PlaycountReplays { flags: ProfileGraphFlags },
     RankProgression,
-    ScoreTime {
-        tz: Option<FixedOffset>,
-    },
+    ScoreTime { tz: Option<FixedOffset> },
     Sniped,
     SnipeCount,
 }
@@ -698,11 +675,21 @@ pub async fn slash_graph(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
             let playcount = check_show_hide_option(&mut options, "playcount")?;
             let replays = check_show_hide_option(&mut options, "replays")?;
 
-            GraphKind::PlaycountReplays {
-                badges,
-                playcount,
-                replays,
+            let mut flags = ProfileGraphFlags::default();
+
+            if !badges {
+                flags.remove(ProfileGraphFlags::BADGES);
             }
+
+            if !playcount {
+                flags.remove(ProfileGraphFlags::PLAYCOUNT);
+            }
+
+            if !replays {
+                flags.remove(ProfileGraphFlags::REPLAYS);
+            }
+
+            GraphKind::PlaycountReplays { flags }
         }
         "rank" => GraphKind::RankProgression,
         "score_time" => {

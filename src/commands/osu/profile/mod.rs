@@ -28,7 +28,7 @@ use crate::{
 
 pub use self::{
     data::{ProfileData, ProfileResult},
-    graph::ProfileGraphParams,
+    graph::{ProfileGraphFlags, ProfileGraphParams},
     size::{ProfileEmbedMap, ProfileSize},
 };
 

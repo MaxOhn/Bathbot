@@ -1,6 +1,7 @@
 use std::iter;
 
 use bitflags::bitflags;
+use bytes::Bytes;
 use chrono::{Date, Datelike, TimeZone, Utc};
 use futures::stream::{FuturesUnordered, TryStreamExt};
 use image::{
@@ -19,11 +20,30 @@ use rosu_v2::prelude::{MonthlyCount, User};
 use crate::{core::Context, error::GraphError};
 
 bitflags! {
-    #[derive(Default)]
-    pub struct Flags: u8 {
-        const NO_BADGES      = 1 << 0;
-        const ONLY_PLAYCOUNT = 1 << 1;
-        const ONLY_REPLAYS   = 1 << 2;
+    pub struct ProfileGraphFlags: u8 {
+        const BADGES    = 1 << 0;
+        const PLAYCOUNT = 1 << 1;
+        const REPLAYS   = 1 << 2;
+    }
+}
+
+impl ProfileGraphFlags {
+    fn badges(self) -> bool {
+        self.contains(Self::BADGES)
+    }
+
+    fn playcount(self) -> bool {
+        self.contains(Self::PLAYCOUNT)
+    }
+
+    fn replays(self) -> bool {
+        self.contains(Self::REPLAYS)
+    }
+}
+
+impl Default for ProfileGraphFlags {
+    fn default() -> Self {
+        Self::all()
     }
 }
 
@@ -32,7 +52,7 @@ pub struct ProfileGraphParams<'l> {
     user: &'l mut User,
     w: u32,
     h: u32,
-    flags: Flags,
+    flags: ProfileGraphFlags,
 }
 
 impl<'l> ProfileGraphParams<'l> {
@@ -45,7 +65,7 @@ impl<'l> ProfileGraphParams<'l> {
             user,
             w: Self::W,
             h: Self::H,
-            flags: Flags::default(),
+            flags: ProfileGraphFlags::default(),
         }
     }
 
@@ -61,16 +81,10 @@ impl<'l> ProfileGraphParams<'l> {
         self
     }
 
-    pub fn no_badges(&mut self) {
-        self.flags |= Flags::NO_BADGES;
-    }
+    pub fn flags(mut self, flags: ProfileGraphFlags) -> Self {
+        self.flags = flags;
 
-    pub fn only_playcount(&mut self) {
-        self.flags |= Flags::ONLY_PLAYCOUNT;
-    }
-
-    pub fn only_replays(&mut self) {
-        self.flags |= Flags::ONLY_REPLAYS;
+        self
     }
 }
 
@@ -80,6 +94,25 @@ type Chart<'a, 'b> =
     ChartContext<'a, BitMapBackend<'b>, Cartesian2d<Monthly<Date<Utc>>, RangedCoordi32>>;
 
 pub async fn graphs(params: ProfileGraphParams<'_>) -> GraphResult<Option<Vec<u8>>> {
+    let w = params.w;
+    let h = params.h;
+
+    let len = (w * h) as usize;
+    let mut buf = vec![0; len * 3]; // PIXEL_SIZE = 3
+
+    if !draw(&mut buf, params).await? {
+        return Ok(None);
+    }
+
+    // Encode buf to png
+    let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
+    let png_encoder = PngEncoder::new(&mut png_bytes);
+    png_encoder.write_image(&buf, w, h, ColorType::Rgb8)?;
+
+    Ok(Some(png_bytes))
+}
+
+async fn draw(buf: &mut [u8], params: ProfileGraphParams<'_>) -> GraphResult<bool> {
     let ProfileGraphParams {
         ctx,
         user,
@@ -89,107 +122,101 @@ pub async fn graphs(params: ProfileGraphParams<'_>) -> GraphResult<Option<Vec<u8
     } = params;
 
     let (playcounts, replays) = prepare_monthly_counts(user, flags);
-    let badges = user.badges.take().unwrap_or_default();
 
-    if playcounts.len() < 2 || (flags.contains(Flags::ONLY_REPLAYS) && replays.len() < 2) {
-        return Ok(None);
+    if (flags.playcount() && playcounts.len() < 2) || (!flags.playcount() && replays.len() < 2) {
+        return Ok(false);
     }
 
-    let len = (w * h) as usize;
-    let mut buf = vec![0; len * 3]; // PIXEL_SIZE = 3
+    let badges = user.badges.take().unwrap_or_default();
 
-    {
+    let canvas = if flags.badges() && !badges.is_empty() {
         // Request all badge images
-        let badges = if flags.contains(Flags::NO_BADGES) {
-            Vec::new()
-        } else {
-            match badges.is_empty() {
-                true => Vec::new(),
-                false => {
-                    badges
-                        .iter()
-                        .map(|badge| ctx.clients.custom.get_badge(&badge.image_url))
-                        .collect::<FuturesUnordered<_>>()
-                        .try_collect()
-                        .await?
-                }
-            }
-        };
+        let badges: Vec<_> = badges
+            .iter()
+            .map(|badge| ctx.clients.custom.get_badge(&badge.image_url))
+            .collect::<FuturesUnordered<_>>()
+            .try_collect()
+            .await?;
 
-        // Setup total canvas
-        let root = BitMapBackend::with_buffer(&mut buf, (w, h)).into_drawing_area();
-        let background = RGBColor(19, 43, 33);
-        root.fill(&background)?;
+        // Needs to happen after .await since type is not Send
+        let root = create_root(buf, w, h)?;
 
-        // Draw badges if there are any
-        let canvas = if badges.is_empty() {
-            root
-        } else {
-            let max_badges_per_row = 10;
-            let margin = 5;
-            let inner_margin = 3;
-            let badge_count = badges.len() as u32;
-            let badge_rows = ((badge_count - 1) / max_badges_per_row) + 1;
-            let badge_total_height = (badge_rows * 60).min(h / 2);
-            let badge_height = badge_total_height / badge_rows;
-            let (top, bottom) = root.split_vertically(badge_total_height);
-            let mut rows = Vec::with_capacity(badge_rows as usize);
-            let mut last = top;
+        draw_badges(&badges, root, w, h)?
+    } else {
+        create_root(buf, w, h)?
+    };
 
-            for _ in 0..badge_rows {
-                let (curr, remain) = last.split_vertically(badge_height);
-                rows.push(curr);
-                last = remain;
-            }
+    if flags.playcount() && flags.replays() {
+        draw_both(&playcounts, &replays, &canvas)?;
+    } else if flags.replays() {
+        draw_replays(&replays, &canvas)?;
+    } else if flags.playcount() {
+        draw_playcounts(&playcounts, &canvas)?;
+    }
 
-            let badge_width =
-                (w - 2 * margin - (max_badges_per_row - 1) * inner_margin) / max_badges_per_row;
+    Ok(true)
+}
 
-            // Draw each row of badges
-            for (row, chunk) in badges.chunks(max_badges_per_row as usize).enumerate() {
-                let x_offset = (max_badges_per_row - chunk.len() as u32) * badge_width / 2;
+fn create_root(buf: &mut [u8], w: u32, h: u32) -> GraphResult<Area<'_>> {
+    let root = BitMapBackend::with_buffer(buf, (w, h)).into_drawing_area();
+    let background = RGBColor(19, 43, 33);
+    root.fill(&background)?;
 
-                let mut chart_row = ChartBuilder::on(&rows[row])
-                    .margin(margin)
-                    .build_cartesian_2d(0..w, 0..badge_height)?;
+    Ok(root)
+}
 
-                chart_row
-                    .configure_mesh()
-                    .disable_x_axis()
-                    .disable_y_axis()
-                    .disable_x_mesh()
-                    .disable_y_mesh()
-                    .draw()?;
+fn draw_badges<'a>(badges: &[Bytes], area: Area<'a>, w: u32, h: u32) -> GraphResult<Area<'a>> {
+    let max_badges_per_row = 10;
+    let margin = 5;
+    let inner_margin = 3;
 
-                for (idx, badge) in chunk.iter().enumerate() {
-                    let badge_img =
-                        load_from_memory(badge)?.resize_exact(badge_width, badge_height, Lanczos3);
+    let badge_count = badges.len() as u32;
+    let badge_rows = ((badge_count - 1) / max_badges_per_row) + 1;
+    let badge_total_height = (badge_rows * 60).min(h / 2);
+    let badge_height = badge_total_height / badge_rows;
 
-                    let x = x_offset + idx as u32 * badge_width + idx as u32 * inner_margin;
-                    let y = badge_height;
-                    let elem: BitMapElement<'_, _> = ((x, y), badge_img).into();
-                    chart_row.draw_series(iter::once(elem))?;
-                }
-            }
+    let (top, bottom) = area.split_vertically(badge_total_height);
 
-            bottom
-        };
+    let mut rows = Vec::with_capacity(badge_rows as usize);
+    let mut last = top;
 
-        if flags.contains(Flags::ONLY_PLAYCOUNT) {
-            draw_playcounts(&playcounts, &canvas)?;
-        } else if flags.contains(Flags::ONLY_REPLAYS) {
-            draw_replays(&replays, &canvas)?;
-        } else {
-            draw_both(&playcounts, &replays, &canvas)?;
+    for _ in 0..badge_rows {
+        let (curr, remain) = last.split_vertically(badge_height);
+        rows.push(curr);
+        last = remain;
+    }
+
+    let badge_width =
+        (w - 2 * margin - (max_badges_per_row - 1) * inner_margin) / max_badges_per_row;
+
+    // Draw each row of badges
+    for (row, chunk) in badges.chunks(max_badges_per_row as usize).enumerate() {
+        let x_offset = (max_badges_per_row - chunk.len() as u32) * badge_width / 2;
+
+        let mut chart_row = ChartBuilder::on(&rows[row])
+            .margin(margin)
+            .build_cartesian_2d(0..w, 0..badge_height)?;
+
+        chart_row
+            .configure_mesh()
+            .disable_x_axis()
+            .disable_y_axis()
+            .disable_x_mesh()
+            .disable_y_mesh()
+            .draw()?;
+
+        for (idx, badge) in chunk.iter().enumerate() {
+            let badge_img =
+                load_from_memory(badge)?.resize_exact(badge_width, badge_height, Lanczos3);
+
+            let x = x_offset + idx as u32 * badge_width + idx as u32 * inner_margin;
+            let y = badge_height;
+            let elem: BitMapElement<'_, _> = ((x, y), badge_img).into();
+            chart_row.draw_series(iter::once(elem))?;
         }
     }
 
-    // Encode buf to png
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
-    let png_encoder = PngEncoder::new(&mut png_bytes);
-    png_encoder.write_image(&buf, w, h, ColorType::Rgb8)?;
-
-    Ok(Some(png_bytes))
+    Ok(bottom)
 }
 
 const PLAYCOUNTS_AREA_COLOR: RGBColor = RGBColor(0, 116, 193);
@@ -403,19 +430,22 @@ fn first_last_max(counts: &[MonthlyCount]) -> (Date<Utc>, Date<Utc>, i32) {
     (first, last, max.unwrap_or(1))
 }
 
-fn prepare_monthly_counts(user: &mut User, flags: Flags) -> (Vec<MonthlyCount>, Vec<MonthlyCount>) {
+fn prepare_monthly_counts(
+    user: &mut User,
+    flags: ProfileGraphFlags,
+) -> (Vec<MonthlyCount>, Vec<MonthlyCount>) {
     let mut playcounts = user.monthly_playcounts.take().unwrap_or_default();
     let mut replays = user.replays_watched_counts.take().unwrap_or_default();
 
     // Spoof missing months
-    if !flags.contains(Flags::ONLY_REPLAYS) {
+    if flags.playcount() {
         spoof_monthly_counts(&mut playcounts);
     }
 
     // Spoof missing replays
-    if flags.contains(Flags::ONLY_PLAYCOUNT) {
+    if !flags.replays() {
         // nothing to do
-    } else if flags.contains(Flags::ONLY_REPLAYS) {
+    } else if !flags.playcount() {
         let now = Utc::now();
         let year = now.year();
         let month = now.month();
