@@ -301,7 +301,7 @@ fn draw_histogram_block<'a, DB: DrawingBackend + 'a>(
 
     let color = HSLColor(i as f64 * 0.1, 0.5, 0.5);
 
-    let series = Histogram::vertical(&chart)
+    let series = Histogram::vertical(chart)
         .data(data)
         .style(color.mix(0.75).filled());
 
@@ -317,7 +317,7 @@ fn draw_histogram_block<'a, DB: DrawingBackend + 'a>(
         .map(|(i, count)| (&dates[i], *count));
 
     let color = HSLColor(i as f64 * 0.1, 0.5, 0.3);
-    let series = Histogram::vertical(&chart).data(data).style(color);
+    let series = Histogram::vertical(chart).data(data).style(color);
     chart.draw_series(series)?;
 
     Ok(())

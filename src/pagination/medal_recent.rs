@@ -56,6 +56,7 @@ pub struct MedalRecentPagination {
 }
 
 impl MedalRecentPagination {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         ctx: Arc<Context>,
         msg: Message,

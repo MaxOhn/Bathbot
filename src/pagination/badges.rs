@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+    collections::{btree_map::Entry, BTreeMap},
+    sync::Arc,
+};
 
 use twilight_model::channel::Message;
 
@@ -60,18 +63,20 @@ impl Pagination for BadgePagination {
         let idx = self.pages.index;
         let badge = &self.badges[idx];
 
-        if !self.owners.contains_key(&idx) {
-            let owners = self
-                .ctx
-                .clients
-                .custom
-                .get_osekai_badge_owners(badge.badge_id)
-                .await?;
+        let owners = match self.owners.entry(idx) {
+            Entry::Occupied(e) => &*e.into_mut(),
+            Entry::Vacant(e) => {
+                let owners = self
+                    .ctx
+                    .clients
+                    .custom
+                    .get_osekai_badge_owners(badge.badge_id)
+                    .await?;
 
-            self.owners.insert(idx, owners);
-        }
+                &*e.insert(owners)
+            }
+        };
 
-        let owners = &self.owners[&idx];
         let embed = BadgeEmbed::new(badge, owners, (idx + 1, self.pages.total_pages));
 
         Ok(embed)

@@ -174,8 +174,8 @@ impl TrackArgs {
             match option.value {
                 CommandOptionValue::String(value) => match option.name.as_str() {
                     MODE => mode = parse_mode_option(&value),
-                    NAME => username = Some(value.into()),
-                    _ if option.name.starts_with(NAME) => more_names.push(value.into()),
+                    NAME => username = Some(value),
+                    _ if option.name.starts_with(NAME) => more_names.push(value),
                     _ => return None,
                 },
                 CommandOptionValue::Integer(value) => {
@@ -211,8 +211,8 @@ impl TrackArgs {
                         match option.value {
                             CommandOptionValue::String(value) => match option.name.as_str() {
                                 MODE => mode = parse_mode_option(&value),
-                                NAME => username = Some(value.into()),
-                                _ if option.name.starts_with(NAME) => more_names.push(value.into()),
+                                NAME => username = Some(value),
+                                _ if option.name.starts_with(NAME) => more_names.push(value),
                                 _ => return None,
                             },
                             _ => return None,

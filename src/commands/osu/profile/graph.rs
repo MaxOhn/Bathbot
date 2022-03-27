@@ -299,7 +299,7 @@ fn draw_both(
     let (right_first, right_last, right_max) = first_last_max(replays);
     let right_label_area = replay_label_area(right_max);
 
-    let mut chart = ChartBuilder::on(&canvas)
+    let mut chart = ChartBuilder::on(canvas)
         .margin(9_i32)
         .x_label_area_size(20_i32)
         .y_label_area_size(75_i32)
