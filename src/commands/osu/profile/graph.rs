@@ -251,6 +251,7 @@ fn draw_playcounts(playcounts: &[MonthlyCount], canvas: &Area<'_>) -> GraphResul
         PLAYCOUNTS_BORDER_COLOR,
         0.6,
         playcounts,
+        "Monthly playcount",
     )
 }
 
@@ -287,6 +288,7 @@ fn draw_replays(replays: &[MonthlyCount], canvas: &Area<'_>) -> GraphResult<()> 
         REPLAYS_BORDER_COLOR,
         1.0,
         replays,
+        "Replays watched",
     )
 }
 
@@ -336,6 +338,7 @@ fn draw_both(
         PLAYCOUNTS_BORDER_COLOR,
         0.6,
         playcounts,
+        "Monthly playcount",
     )?;
 
     // Draw replay watched area
@@ -383,6 +386,7 @@ fn draw_area(
     border_color: RGBColor,
     border_mix: f64,
     monthly_counts: &[MonthlyCount],
+    label: &str,
 ) -> GraphResult<()> {
     // Draw area
     let iter = monthly_counts
@@ -393,6 +397,7 @@ fn draw_area(
 
     chart
         .draw_series(series.border_style(border_color.stroke_width(1)))?
+        .label(label)
         .legend(move |(x, y)| {
             PathElement::new(vec![(x, y), (x + 20, y)], area_color.stroke_width(2))
         });

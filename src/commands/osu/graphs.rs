@@ -195,7 +195,7 @@ async fn playcount_replays_graph(
     };
 
     let params = ProfileGraphParams::new(ctx, &mut user)
-        .width(H)
+        .width(W)
         .height(H)
         .flags(flags);
 
