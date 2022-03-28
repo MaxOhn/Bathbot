@@ -247,9 +247,9 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
     let with_thumbnail = if let Some(bytes) = graph {
         builder = builder.file("map_graph.png", bytes);
 
-        true
-    } else {
         false
+    } else {
+        true
     };
 
     if let Some(content) = attrs.content() {
