@@ -1,12 +1,10 @@
 mod background_loop;
 mod bg_game;
 mod configs;
+mod map_collect;
 mod match_live;
 mod shutdown;
 mod twitch;
-
-pub use background_loop::GarbageCollectMap;
-pub use match_live::{MatchLiveChannels, MatchTrackResult};
 
 use dashmap::mapref::entry::Entry;
 use twilight_http::client::InteractionClient;
@@ -19,6 +17,11 @@ use twilight_model::{
 };
 
 use crate::{util::CountryCode, BotResult, Context, OsuTracking};
+
+pub use self::{
+    map_collect::GarbageCollectMap,
+    match_live::{MatchLiveChannels, MatchTrackResult},
+};
 
 use super::AssignRoles;
 
