@@ -228,7 +228,7 @@ pub fn graphs(
                 .caption("National #1 Count History", ("sans-serif", 30, &WHITE))
                 .x_label_area_size(20)
                 .y_label_area_size(40)
-                .build_cartesian_2d((first..last).monthly(), min..max)?;
+                .build_cartesian_2d((first..last).monthly(), min..max + 1)?;
 
             // Mesh and labels
             chart
@@ -268,7 +268,7 @@ pub fn graphs(
             .y_label_area_size(40)
             .margin_right(15)
             .caption("Star rating spread", ("sans-serif", 30, &WHITE))
-            .build_cartesian_2d((first..last).into_segmented(), 0..max)?;
+            .build_cartesian_2d((first..last).into_segmented(), 0..max + 1)?;
 
         // Mesh and labels
         chart
