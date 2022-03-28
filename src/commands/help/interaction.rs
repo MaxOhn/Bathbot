@@ -23,7 +23,7 @@ use crate::{
     embeds::{EmbedBuilder, Footer},
     error::{Error, InvalidHelpState},
     util::{
-        constants::{common_literals::HELP, BATHBOT_GITHUB, BATHBOT_WORKSHOP, INVITE_LINK},
+        constants::{common_literals::HELP, BATHBOT_GITHUB, BATHBOT_WORKSHOP, INVITE_LINK, KOFI},
         datetime::how_long_ago_dynamic,
         levenshtein_distance,
         numbers::with_comma_int,
@@ -518,16 +518,13 @@ async fn basic_help(ctx: &Context, command: ApplicationCommand) -> BotResult<()>
         value: format!("Try using this [**invite link**]({INVITE_LINK})"),
     };
 
-    let boot_time = ctx.stats.start_time;
-    let mut fields = vec![join_server, command_help, invite];
-
     let servers = EmbedField {
         inline: true,
         name: "Servers".to_owned(),
         value: with_comma_int(ctx.cache.stats().guilds()).to_string(),
     };
 
-    fields.push(servers);
+    let boot_time = ctx.stats.start_time;
 
     let boot_up = EmbedField {
         inline: true,
@@ -547,17 +544,17 @@ async fn basic_help(ctx: &Context, command: ApplicationCommand) -> BotResult<()>
         .map(|metrics| metrics.get_counter().get_value() as usize)
         .sum();
 
-    let osu_requests: usize = ctx.stats.osu_metrics.rosu.collect()[0]
-        .get_metric()
-        .iter()
-        .map(|metric| metric.get_counter().get_value() as usize)
-        .sum();
-
     let commands_used = EmbedField {
         inline: true,
         name: "Commands used".to_owned(),
         value: with_comma_int(commands_used).to_string(),
     };
+
+    let osu_requests: usize = ctx.stats.osu_metrics.rosu.collect()[0]
+        .get_metric()
+        .iter()
+        .map(|metric| metric.get_counter().get_value() as usize)
+        .sum();
 
     let osu_requests = EmbedField {
         inline: true,
@@ -565,10 +562,23 @@ async fn basic_help(ctx: &Context, command: ApplicationCommand) -> BotResult<()>
         value: with_comma_int(osu_requests).to_string(),
     };
 
-    fields.push(boot_up);
-    fields.push(github);
-    fields.push(commands_used);
-    fields.push(osu_requests);
+    let kofi = EmbedField {
+        inline: false,
+        name: "Feel like supporting the bot's development & maintenance?".to_owned(),
+        value: format!("Donations through [Ko-fi]({KOFI}) are very much appreciated <3"),
+    };
+
+    let fields = vec![
+        join_server,
+        command_help,
+        invite,
+        servers,
+        boot_up,
+        github,
+        commands_used,
+        osu_requests,
+        kofi,
+    ];
 
     let builder = EmbedBuilder::new()
         .description(description)
