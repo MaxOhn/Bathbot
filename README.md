@@ -2,7 +2,7 @@
     <img src="https://raw.githubusercontent.com/MaxOhn/Bathbot/main/media/bb-text-coloured-hori.svg" alt="Bathbot" width=50% height=50%>
 </p>
 <p align="center">
-    Bathbot is a discord bot with functionality all around osu!
+    Bathbot is a discord bot with functionality all around [osu!](https://osu.ppy.sh/)
 </p>
 <p align="center">
     <a href="https://discord.gg/n9fFstG">
@@ -32,7 +32,7 @@
 - notify a channel when a twitch streams comes online (`/trackstream` / `<addstream`)
 - ... and a ton more
 
-All osu! gamemodes are supported and commands exist as slash commands aswell as prefix commands.
+All osu! gamemodes are supported and commands exist as slash commands as well as prefix commands.
 
 With the `<help` command the bot will DM you a list of all available prefix commands. With `<help [command name]` (e.g. `<help osg`) the bot will explain the command, show how to use it and give examples.
 

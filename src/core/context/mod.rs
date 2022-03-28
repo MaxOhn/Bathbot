@@ -63,7 +63,7 @@ pub type AssignRoles = SmallVec<[u64; 1]>;
 
 pub struct ContextData {
     // ! CAREFUL: When entries are added or modified
-    // ! don't forget to update the DB entry aswell
+    // ! don't forget to update the DB entry as well
     pub guilds: DashMap<Id<GuildMarker>, GuildConfig>,
     // Mapping twitch user ids to vec of discord channel ids
     pub tracked_streams: DashMap<u64, Vec<u64>>,
