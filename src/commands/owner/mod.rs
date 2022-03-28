@@ -1,7 +1,6 @@
 mod add_bg;
 mod add_country;
 mod cache;
-mod change_game;
 mod tracking_cooldown;
 mod tracking_interval;
 mod tracking_stats;
@@ -20,8 +19,8 @@ use crate::{
 };
 
 pub use self::{
-    add_bg::*, add_country::*, cache::*, change_game::*, tracking_cooldown::*,
-    tracking_interval::*, tracking_stats::*, tracking_toggle::*,
+    add_bg::*, add_country::*, cache::*, tracking_cooldown::*, tracking_interval::*,
+    tracking_stats::*, tracking_toggle::*,
 };
 
 use super::{MyCommand, MyCommandOption};
@@ -29,7 +28,6 @@ use super::{MyCommand, MyCommandOption};
 enum OwnerCommandKind {
     AddCountry { code: CountryCode, country: String },
     Cache,
-    ChangeGame(String),
     TrackingCooldown(f32),
     TrackingInterval(i64),
     TrackingStats,
@@ -43,19 +41,9 @@ impl OwnerCommandKind {
             .options
             .pop()
             .and_then(|option| match option.value {
-                CommandOptionValue::SubCommand(mut options) => match option.name.as_str() {
+                CommandOptionValue::SubCommand(options) => match option.name.as_str() {
                     "add_country" => Self::slash_add_country(options),
                     "cache" => Some(Self::Cache),
-                    "change_game" => {
-                        let option = options.pop()?;
-
-                        match (option.value, option.name.as_str()) {
-                            (CommandOptionValue::String(value), "game") => {
-                                Some(Self::ChangeGame(value))
-                            }
-                            _ => None,
-                        }
-                    }
                     _ => None,
                 },
                 CommandOptionValue::SubCommandGroup(options) => Self::slash_tracking(options),
@@ -126,7 +114,6 @@ pub async fn slash_owner(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
             _addcountry(ctx, command.into(), code, country).await
         }
         OwnerCommandKind::Cache => cache(ctx, command.into()).await,
-        OwnerCommandKind::ChangeGame(game) => _changegame(ctx, command.into(), game).await,
         OwnerCommandKind::TrackingCooldown(ms) => _trackingcooldown(ctx, command.into(), ms).await,
         OwnerCommandKind::TrackingInterval(seconds) => {
             _trackinginterval(ctx, command.into(), seconds).await
@@ -148,13 +135,6 @@ fn subcommand_addcountry() -> MyCommandOption {
 fn subcommand_cache() -> MyCommandOption {
     MyCommandOption::builder("cache", "Display stats about the internal cache")
         .subcommand(Vec::new())
-}
-
-fn subcommand_changegame() -> MyCommandOption {
-    let game = MyCommandOption::builder("game", "Specify the game name").string(Vec::new(), true);
-
-    MyCommandOption::builder("change_game", "Change the game the bot is playing")
-        .subcommand(vec![game])
 }
 
 fn subcommand_tracking() -> MyCommandOption {
@@ -184,7 +164,6 @@ pub fn define_owner() -> MyCommand {
     let options = vec![
         subcommand_addcountry(),
         subcommand_cache(),
-        subcommand_changegame(),
         subcommand_tracking(),
     ];
 

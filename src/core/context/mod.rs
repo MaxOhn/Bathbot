@@ -11,15 +11,9 @@ use smallvec::SmallVec;
 use tokio::sync::mpsc::UnboundedSender;
 use twilight_gateway::Cluster;
 use twilight_http::Client as HttpClient;
-use twilight_model::{
-    gateway::{
-        payload::outgoing::UpdatePresence,
-        presence::{Activity, ActivityType, Status},
-    },
-    id::{
-        marker::{ApplicationMarker, ChannelMarker, GuildMarker, MessageMarker},
-        Id,
-    },
+use twilight_model::id::{
+    marker::{ApplicationMarker, ChannelMarker, GuildMarker, MessageMarker},
+    Id,
 };
 use twilight_standby::Standby;
 
@@ -29,7 +23,7 @@ use crate::{
     database::{Database, GuildConfig},
     server::AuthenticationStandby,
     util::CountryCode,
-    BotResult, CustomClient, OsuTracking,
+    CustomClient, OsuTracking,
 };
 
 pub use self::impls::{MatchLiveChannels, MatchTrackResult};
@@ -79,7 +73,6 @@ pub struct ContextData {
 }
 
 impl Context {
-    #[allow(clippy::too_many_arguments)]
     #[cold]
     pub async fn new(
         cache: Cache,
@@ -104,55 +97,6 @@ impl Context {
         }
     }
 
-    pub async fn set_cluster_activity<M>(
-        &self,
-        status: Status,
-        activity_type: ActivityType,
-        message: M,
-    ) -> BotResult<()>
-    where
-        M: Into<String> + Clone,
-    {
-        let mut shards = self.cluster.shards();
-
-        if let Some(shard) = shards.next() {
-            for shard in shards {
-                match shard.info() {
-                    Ok(info) => info!("Setting activity for shard {}", info.id()),
-                    Err(_) => continue,
-                }
-
-                let activities = vec![generate_activity(activity_type, message.clone().into())];
-                let status = UpdatePresence::new(activities, false, None, status).unwrap();
-                shard.command(&status).await?;
-            }
-
-            // Handle last shard separately so the message is not cloned
-            if let Ok(info) = shard.info() {
-                info!("Setting activity for shard {}", info.id());
-                let activities = vec![generate_activity(activity_type, message.into())];
-                let status = UpdatePresence::new(activities, false, None, status).unwrap();
-                shard.command(&status).await?;
-            }
-        }
-
-        Ok(())
-    }
-
-    pub async fn set_shard_activity(
-        &self,
-        shard_id: u64,
-        status: Status,
-        activity_type: ActivityType,
-        message: impl Into<String>,
-    ) -> BotResult<()> {
-        let activities = vec![generate_activity(activity_type, message.into())];
-        let status = UpdatePresence::new(activities, false, None, status).unwrap();
-        self.cluster.command(shard_id, &status).await?;
-
-        Ok(())
-    }
-
     pub fn osu(&self) -> &Osu {
         &self.clients.osu
     }
@@ -163,26 +107,5 @@ impl Context {
 
     pub fn redis(&self) -> RedisCache<'_> {
         RedisCache::new(self)
-    }
-}
-
-pub fn generate_activity(activity_type: ActivityType, message: String) -> Activity {
-    Activity {
-        assets: None,
-        application_id: None,
-        buttons: Vec::new(),
-        created_at: None,
-        details: None,
-        flags: None,
-        id: None,
-        instance: None,
-        kind: activity_type,
-        name: message,
-        emoji: None,
-        party: None,
-        secrets: None,
-        state: None,
-        timestamps: None,
-        url: None,
     }
 }

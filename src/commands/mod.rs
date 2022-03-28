@@ -295,7 +295,6 @@ pub fn command_groups() -> [CommandGroup; 11] {
                 &CACHE_CMD,
                 &BGTAGS_CMD,
                 &BGTAGSMANUAL_CMD,
-                &CHANGEGAME_CMD,
                 &TRACKINGTOGGLE_CMD,
                 &TRACKINGSTATS_CMD,
                 &TRACKINGCOOLDOWN_CMD,

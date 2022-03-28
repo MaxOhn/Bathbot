@@ -58,8 +58,8 @@ use twilight_model::{
     application::interaction::Interaction,
     channel::message::allowed_mentions::AllowedMentionsBuilder,
     gateway::{
-        payload::outgoing::RequestGuildMembers,
-        presence::{ActivityType, Status},
+        payload::outgoing::{update_presence::UpdatePresencePayload, RequestGuildMembers},
+        presence::{ActivityType, MinimalActivity, Status},
         Intents,
     },
     id::Id,
@@ -205,12 +205,21 @@ async fn async_main() -> Result<()> {
 
     let stats = Arc::new(BotStats::new(osu.metrics()));
 
+    let activity = MinimalActivity {
+        kind: ActivityType::Playing,
+        name: "osu!".to_owned(),
+        url: None,
+    };
+
+    let presence = UpdatePresencePayload::new([activity.into()], false, None, Status::Online)?;
+
     // Build cluster
     let (cluster, events) = Cluster::builder(CONFIG.get().unwrap().tokens.discord.clone(), intents)
         .event_types(EventTypeFlags::all() - ignore_flags)
         .http_client(http.clone())
         .shard_scheme(ShardScheme::Auto)
         .resume_sessions(resume_data)
+        .presence(presence)
         .build()
         .await?;
 
@@ -224,18 +233,17 @@ async fn async_main() -> Result<()> {
     let (member_tx, mut member_rx) = mpsc::unbounded_channel();
 
     // Final context
-    let ctx = Arc::new(
-        Context::new(
-            cache,
-            stats,
-            http,
-            clients,
-            cluster,
-            data,
-            member_tx.clone(),
-        )
-        .await,
+    let ctx_fut = Context::new(
+        cache,
+        stats,
+        http,
+        clients,
+        cluster,
+        data,
+        member_tx.clone(),
     );
+
+    let ctx = Arc::new(ctx_fut.await);
 
     // Slash commands
     let slash_commands = SLASH_COMMANDS.collect();
@@ -288,15 +296,6 @@ async fn async_main() -> Result<()> {
     tokio::spawn(async move {
         time::sleep(Duration::from_secs(1)).await;
         cluster_ctx.cluster.up().await;
-        time::sleep(Duration::from_secs(5)).await;
-
-        let activity_result = cluster_ctx
-            .set_cluster_activity(Status::Online, ActivityType::Playing, "osu!")
-            .await;
-
-        if let Err(report) = activity_result.wrap_err("error while setting activity") {
-            warn!("{report:?}");
-        }
     });
 
     // Request members
@@ -560,17 +559,6 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
         Event::ReactionRemoveEmoji(_) => ctx.stats.event_counts.reaction_remove_emoji.inc(),
         Event::Ready(_) => {
             info!("Shard {shard_id} is ready");
-
-            let result = ctx
-                .set_shard_activity(shard_id, Status::Online, ActivityType::Playing, "osu!")
-                .await
-                .wrap_err_with(|| format!("failed to set activity for shard {shard_id}"));
-
-            if let Err(report) = result {
-                error!("{report:?}");
-            } else {
-                info!("Game is set for shard {shard_id}");
-            }
 
             let stats = ctx.cache.stats();
             ctx.stats.cache_counts.guilds.set(stats.guilds() as i64);
