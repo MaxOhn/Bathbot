@@ -222,11 +222,14 @@ async fn unchoke_scores(
         let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
         let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
         let mods = score.mods.bits();
+        let max_combo = map.max_combo.unwrap_or(0);
 
         match map.mode {
             GameMode::STD
                 if score.statistics.count_miss > 0
-                    || score.max_combo < map.max_combo.unwrap_or(5).saturating_sub(5) =>
+                    || score.max_combo
+                // Allowing one missed sliderend per 500 combo
+                < (max_combo - (max_combo / 500).max(5)) as u32 =>
             {
                 let total_objects = map.count_objects() as usize;
 
@@ -249,14 +252,14 @@ async fn unchoke_scores(
 
                 unchoked.statistics.count_300 = count300 as u32;
                 unchoked.statistics.count_100 = count100 as u32;
-                unchoked.max_combo = map.max_combo.unwrap_or(0);
+                unchoked.max_combo = max_combo;
                 unchoked.statistics.count_miss = 0;
                 unchoked.pp = Some(pp_result.pp as f32);
                 unchoked.grade = unchoked.grade(None);
                 unchoked.accuracy = unchoked.accuracy();
                 unchoked.score = 0; // distinguishing from original
             }
-            GameMode::CTB if score.max_combo != map.max_combo.unwrap_or(0) => {
+            GameMode::CTB if score.max_combo != max_combo => {
                 let attributes = CatchStars::new(&rosu_map).mods(mods).calculate();
 
                 let total_objects = attributes.max_combo();
