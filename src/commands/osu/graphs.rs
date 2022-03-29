@@ -5,8 +5,8 @@ use eyre::Report;
 use image::{png::PngEncoder, ColorType, ImageEncoder};
 use plotters::{
     prelude::{
-        AreaSeries, BitMapBackend, ChartBuilder, Circle, IntoDrawingArea, IntoSegmentedCoord,
-        Rectangle, SegmentValue, SeriesLabelPosition,
+        AreaSeries, BitMapBackend, ChartBuilder, Circle, EmptyElement, IntoDrawingArea,
+        IntoSegmentedCoord, PointSeries, Rectangle, SegmentValue, SeriesLabelPosition,
     },
     style::{Color, RGBColor, ShapeStyle, BLACK, GREEN, RED, WHITE},
 };
@@ -109,6 +109,7 @@ async fn graph(ctx: Arc<Context>, data: CommandData<'_>, args: GraphArgs) -> Bot
         }
         GraphKind::Sniped => sniped_graph(&ctx, &data, &name, &user_args).await?,
         GraphKind::SnipeCount => snipe_count_graph(&ctx, &data, &name, &user_args).await?,
+        GraphKind::Top { order } => top_graph(&ctx, &data, &name, user_args, order).await?,
     };
 
     let (user, graph) = match tuple_option {
@@ -641,6 +642,225 @@ impl Iterator for ScoreHourCounts {
     }
 }
 
+async fn top_graph(
+    ctx: &Context,
+    data: &CommandData<'_>,
+    name: &str,
+    user_args: UserArgs<'_>,
+    order: GraphTopOrder,
+) -> BotResult<Option<(User, Vec<u8>)>> {
+    let score_args = ScoreArgs::top(100);
+
+    let (user, mut scores) = match get_user_and_scores(ctx, user_args, &score_args).await {
+        Ok(tuple) => tuple,
+        Err(OsuError::NotFound) => {
+            let content = format!("Could not find user `{name}`");
+            data.error(ctx, content).await?;
+
+            return Ok(None);
+        }
+        Err(err) => {
+            let _ = data.error(ctx, OSU_API_ISSUE).await;
+
+            return Err(err.into());
+        }
+    };
+
+    if scores.is_empty() {
+        let content = "User's top scores are empty";
+        data.error(ctx, content).await?;
+
+        return Ok(None);
+    }
+
+    let graph_result = match order {
+        GraphTopOrder::Date => top_graph_date(user.username.as_str(), &mut scores).await,
+        GraphTopOrder::Index => top_graph_index(user.username.as_str(), &scores).await,
+    };
+
+    let bytes = match graph_result {
+        Ok(graph) => graph,
+        Err(err) => {
+            let _ = data.error(ctx, GENERAL_ISSUE).await;
+            warn!("{:?}", Report::new(err));
+
+            return Ok(None);
+        }
+    };
+
+    Ok(Some((user, bytes)))
+}
+
+async fn top_graph_date(name: &str, scores: &mut [Score]) -> Result<Vec<u8>, GraphError> {
+    let max = scores.first().and_then(|s| s.pp).unwrap_or(0.0);
+    let max_adj = max + 5.0;
+
+    let min = scores.last().and_then(|s| s.pp).unwrap_or(0.0);
+    let min_adj = (min - 5.0).max(0.0);
+
+    scores.sort_unstable_by_key(|s| s.created_at);
+    let dates: Vec<_> = scores.iter().map(|s| s.created_at).collect();
+
+    let first = dates[0];
+    let last = dates[dates.len() - 1];
+
+    let len = (W * H) as usize;
+    let mut buf = vec![0; len * 3];
+
+    {
+        let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
+        let background = RGBColor(19, 43, 33);
+        root.fill(&background)?;
+
+        let caption_style = ("sans-serif", 25_i32, FontStyle::Bold, &WHITE);
+
+        let caption = format!(
+            "{name}'{genitive} top scores",
+            genitive = if name.ends_with('s') { "" } else { "s" }
+        );
+
+        let mut chart = ChartBuilder::on(&root)
+            .x_label_area_size(40_i32)
+            .y_label_area_size(60_i32)
+            .margin_top(5_i32)
+            .margin_right(15_i32)
+            .caption(caption, caption_style)
+            .build_cartesian_2d(first..last, min_adj..max_adj)?;
+
+        chart
+            .configure_mesh()
+            .disable_x_mesh()
+            .y_label_formatter(&|pp| format!("{pp:.0}pp"))
+            .x_label_formatter(&|date| format!("{}", date.format("%F")))
+            .label_style(("sans-serif", 16_i32, &WHITE))
+            .bold_line_style(&WHITE.mix(0.3))
+            .axis_style(RGBColor(7, 18, 14))
+            .axis_desc_style(("sans-serif", 16_i32, FontStyle::Bold, &WHITE))
+            .draw()?;
+
+        let point_style = RGBColor(2, 186, 213).mix(0.7).filled();
+        // let border_style = RGBColor(30, 248, 178).mix(0.9).filled();
+        let border_style = WHITE.mix(0.9).stroke_width(1);
+
+        let iter = scores.iter().filter_map(|s| Some((s.created_at, s.pp?)));
+
+        let series = PointSeries::of_element(iter, 3_i32, point_style, &|coord, size, style| {
+            EmptyElement::at(coord) + Circle::new((0, 0), size, style)
+        });
+
+        chart
+            .draw_series(series)?
+            .label(format!("Max: {max}pp"))
+            .legend(|coord| EmptyElement::at(coord));
+
+        let iter = scores.iter().filter_map(|s| Some((s.created_at, s.pp?)));
+
+        let series = PointSeries::of_element(iter, 3_i32, border_style, &|coord, size, style| {
+            EmptyElement::at(coord) + Circle::new((0, 0), size, style)
+        });
+
+        chart
+            .draw_series(series)?
+            .label(format!("Min: {min}pp"))
+            .legend(|coord| EmptyElement::at(coord));
+
+        chart
+            .configure_series_labels()
+            .border_style(WHITE.mix(0.6).stroke_width(1))
+            .background_style(RGBColor(7, 23, 17))
+            .position(SeriesLabelPosition::UpperRight)
+            .legend_area_size(0_i32)
+            .label_font(("sans-serif", 16_i32, FontStyle::Bold, &WHITE))
+            .draw()?;
+    }
+
+    // Encode buf to png
+    let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
+    let png_encoder = PngEncoder::new(&mut png_bytes);
+    png_encoder.write_image(&buf, W, H, ColorType::Rgb8)?;
+
+    Ok(png_bytes)
+}
+
+async fn top_graph_index(name: &str, scores: &[Score]) -> Result<Vec<u8>, GraphError> {
+    let max = scores.first().and_then(|s| s.pp).unwrap_or(0.0);
+    let max_adj = max + 5.0;
+
+    let min = scores.last().and_then(|s| s.pp).unwrap_or(0.0);
+    let min_adj = (min - 5.0).max(0.0);
+
+    let len = (W * H) as usize;
+    let mut buf = vec![0; len * 3];
+
+    {
+        let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
+        let background = RGBColor(19, 43, 33);
+        root.fill(&background)?;
+
+        let caption_style = ("sans-serif", 25_i32, FontStyle::Bold, &WHITE);
+
+        let caption = format!(
+            "{name}'{genitive} top scores",
+            genitive = if name.ends_with('s') { "" } else { "s" }
+        );
+
+        let mut chart = ChartBuilder::on(&root)
+            .x_label_area_size(40_i32)
+            .y_label_area_size(60_i32)
+            .margin_top(5_i32)
+            .margin_right(15_i32)
+            .caption(caption, caption_style)
+            .build_cartesian_2d(1..scores.len(), min_adj..max_adj)?;
+
+        chart
+            .configure_mesh()
+            .y_label_formatter(&|pp| format!("{pp:.0}pp"))
+            .label_style(("sans-serif", 16_i32, &WHITE))
+            .bold_line_style(&WHITE.mix(0.3))
+            .axis_style(RGBColor(7, 18, 14))
+            .axis_desc_style(("sans-serif", 16_i32, FontStyle::Bold, &WHITE))
+            .draw()?;
+
+        let area_style = RGBColor(2, 186, 213).mix(0.7).filled();
+        let border_style = RGBColor(0, 208, 138).stroke_width(3);
+        let iter = (1..).zip(scores).filter_map(|(i, s)| Some((i, s.pp?)));
+        let series = AreaSeries::new(iter, 0.0, area_style).border_style(border_style);
+
+        chart
+            .draw_series(series)?
+            .label(format!("Max: {max}pp"))
+            .legend(|coord| EmptyElement::at(coord));
+
+        let iter = (1..)
+            .zip(scores)
+            .filter_map(|(i, s)| Some((i, s.pp?)))
+            .take(0);
+
+        let series = AreaSeries::new(iter, 0.0, &WHITE).border_style(&WHITE);
+
+        chart
+            .draw_series(series)?
+            .label(format!("Min: {min}pp"))
+            .legend(|coord| EmptyElement::at(coord));
+
+        chart
+            .configure_series_labels()
+            .border_style(WHITE.mix(0.6).stroke_width(1))
+            .background_style(RGBColor(7, 23, 17))
+            .position(SeriesLabelPosition::UpperRight)
+            .legend_area_size(0_i32)
+            .label_font(("sans-serif", 16_i32, FontStyle::Bold, &WHITE))
+            .draw()?;
+    }
+
+    // Encode buf to png
+    let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
+    let png_encoder = PngEncoder::new(&mut png_bytes);
+    png_encoder.write_image(&buf, W, H, ColorType::Rgb8)?;
+
+    Ok(png_bytes)
+}
+
 struct GraphArgs {
     config: UserConfig,
     kind: GraphKind,
@@ -653,6 +873,18 @@ enum GraphKind {
     ScoreTime { tz: Option<FixedOffset> },
     Sniped,
     SnipeCount,
+    Top { order: GraphTopOrder },
+}
+
+enum GraphTopOrder {
+    Date,
+    Index,
+}
+
+impl Default for GraphTopOrder {
+    fn default() -> Self {
+        Self::Index
+    }
 }
 
 pub async fn slash_graph(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
@@ -709,6 +941,24 @@ pub async fn slash_graph(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
         }
         "sniped" => GraphKind::Sniped,
         "snipe_count" => GraphKind::SnipeCount,
+        "top" => {
+            let mut order = None;
+
+            if let Some(idx) = options.iter().position(|option| option.name == "order") {
+                match options.swap_remove(idx).value {
+                    CommandOptionValue::String(value) => match value.as_str() {
+                        "date" => order = Some(GraphTopOrder::Date),
+                        "index" => order = Some(GraphTopOrder::Index),
+                        _ => return Err(Error::InvalidCommandOptions),
+                    },
+                    _ => return Err(Error::InvalidCommandOptions),
+                }
+            }
+
+            GraphKind::Top {
+                order: order.unwrap_or_default(),
+            }
+        }
         _ => return Err(Error::InvalidCommandOptions),
     };
 
@@ -910,6 +1160,22 @@ pub fn define_graph() -> MyCommand {
     let snipe_count = MyCommandOption::builder("snipe_count", snipe_count_description)
         .subcommand(vec![option_name(), option_discord()]);
 
+    let order_choices = vec![
+        CommandOptionChoice::String {
+            name: "Date".to_owned(),
+            value: "date".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Index".to_owned(),
+            value: "index".to_owned(),
+        },
+    ];
+
+    let order_description = "Choose by which order the scores should be sorted, defaults to index";
+    let order = MyCommandOption::builder("order", order_description).string(order_choices, false);
+    let options = vec![option_name(), order, option_discord()];
+    let top = MyCommandOption::builder("top", "Display a user's top scores pp").subcommand(options);
+
     let subcommands = vec![
         medals,
         playcount_replays,
@@ -917,6 +1183,7 @@ pub fn define_graph() -> MyCommand {
         score_time,
         sniped,
         snipe_count,
+        top,
     ];
 
     MyCommand::new("graph", "Display graphs about some data").options(subcommands)
