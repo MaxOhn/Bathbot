@@ -2,7 +2,7 @@
     <img src="https://raw.githubusercontent.com/MaxOhn/Bathbot/main/media/bb-text-coloured-hori.svg" alt="Bathbot" width=50% height=50%>
 </p>
 <p align="center">
-    A feature-rich discord bot with functionality all around [osu!](https://osu.ppy.sh/)
+    A feature-rich discord bot with functionality all around <a href="https://osu.ppy.sh">osu!</a>
 </p>
 <p align="center">
     <a href="https://discord.gg/n9fFstG">
