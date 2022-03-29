@@ -29,7 +29,7 @@ use crate::{
         },
         matcher,
         osu::ModSelection,
-        CountryCode, InteractionExt, MessageExt,
+        ApplicationCommandExt, CountryCode, InteractionExt, MessageExt,
     },
     BotResult, Context, Error,
 };
@@ -336,6 +336,15 @@ pub async fn slash_snipe(ctx: Arc<Context>, mut command: ApplicationCommand) -> 
     }
 }
 
+pub async fn slash_sniped(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+    let options = command.yoink_options();
+
+    match parse_username(&ctx, &command, options).await? {
+        Ok(name) => _sniped(ctx, command.into(), name).await,
+        Err(content) => command.error(&ctx, content).await,
+    }
+}
+
 fn option_country() -> MyCommandOption {
     MyCommandOption::builder(COUNTRY, "Specify a country (code)").string(Vec::new(), false)
 }
@@ -380,6 +389,14 @@ fn subcommand_country() -> MyCommandOption {
 
     MyCommandOption::builder(COUNTRY, "Country related snipe stats")
         .subcommandgroup(vec![list, stats])
+}
+
+fn sniped_data() -> (&'static str, &'static str, Vec<MyCommandOption>) {
+    let description = "Sniped users of the last 8 weeks";
+    let help = "Display who sniped and was sniped the most by a user in last 8 weeks";
+    let options = vec![option_name(), option_discord()];
+
+    (description, help, options)
 }
 
 fn subcommand_player() -> MyCommandOption {
@@ -443,11 +460,11 @@ fn subcommand_player() -> MyCommandOption {
     let stats = MyCommandOption::builder("stats", "Stats about a user's national #1 scores")
         .subcommand(vec![option_name(), option_discord()]);
 
-    let targets_help = "Display who sniped and was sniped the most by a user in last 8 weeks";
+    let (targets_description, targets_help, targets_options) = sniped_data();
 
-    let targets = MyCommandOption::builder("targets", "Sniped users of the last 8 weeks")
+    let targets = MyCommandOption::builder("targets", targets_description)
         .help(targets_help)
-        .subcommand(vec![option_name(), option_discord()]);
+        .subcommand(targets_options);
 
     MyCommandOption::builder("player", "Player related snipe stats")
         .subcommandgroup(vec![gain, list, loss, stats, targets])
@@ -461,4 +478,12 @@ pub fn define_snipe() -> MyCommand {
     MyCommand::new("snipe", "National #1 related data provided by huismetbenen")
         .help(help)
         .options(vec![subcommand_country(), subcommand_player()])
+}
+
+pub fn define_sniped() -> MyCommand {
+    let (description, help, options) = sniped_data();
+
+    MyCommand::new("sniped", description)
+        .help(help)
+        .options(options)
 }

@@ -184,6 +184,11 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
 
             process_command(ctx, command, args, osu::slash_snipe).await
         }
+        "sniped" => {
+            args.bucket = Some(BucketName::Snipe);
+
+            process_command(ctx, command, args, osu::slash_sniped).await
+        }
         "song" => {
             args.bucket = Some(BucketName::Songs);
 

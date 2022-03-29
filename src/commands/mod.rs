@@ -782,6 +782,7 @@ lazy_static! {
         insert("nochoke", define_nochoke);
         insert("topold", define_topold);
         insert("snipe", define_snipe);
+        insert("sniped", define_sniped);
         insert("serverconfig", define_serverconfig);
         insert("serverleaderboard", define_serverleaderboard);
         insert("bg", define_bg);
