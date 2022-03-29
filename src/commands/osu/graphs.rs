@@ -649,6 +649,7 @@ async fn top_graph(
     user_args: UserArgs<'_>,
     order: GraphTopOrder,
 ) -> BotResult<Option<(User, Vec<u8>)>> {
+    let mode = user_args.mode;
     let score_args = ScoreArgs::top(100);
 
     let (user, mut scores) = match get_user_and_scores(ctx, user_args, &score_args).await {
@@ -673,9 +674,25 @@ async fn top_graph(
         return Ok(None);
     }
 
+    let caption = format!(
+        "{name}'{genitive} top {mode}scores",
+        name = user.username,
+        genitive = if user.username.ends_with('s') {
+            ""
+        } else {
+            "s"
+        },
+        mode = match mode {
+            GameMode::STD => "",
+            GameMode::TKO => "taiko ",
+            GameMode::CTB => "ctb ",
+            GameMode::MNA => "mania ",
+        }
+    );
+
     let graph_result = match order {
-        GraphTopOrder::Date => top_graph_date(user.username.as_str(), &mut scores).await,
-        GraphTopOrder::Index => top_graph_index(user.username.as_str(), &scores).await,
+        GraphTopOrder::Date => top_graph_date(caption, &mut scores).await,
+        GraphTopOrder::Index => top_graph_index(caption, &scores).await,
     };
 
     let bytes = match graph_result {
@@ -691,7 +708,7 @@ async fn top_graph(
     Ok(Some((user, bytes)))
 }
 
-async fn top_graph_date(name: &str, scores: &mut [Score]) -> Result<Vec<u8>, GraphError> {
+async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec<u8>, GraphError> {
     let max = scores.first().and_then(|s| s.pp).unwrap_or(0.0);
     let max_adj = max + 5.0;
 
@@ -713,11 +730,6 @@ async fn top_graph_date(name: &str, scores: &mut [Score]) -> Result<Vec<u8>, Gra
         root.fill(&background)?;
 
         let caption_style = ("sans-serif", 25_i32, FontStyle::Bold, &WHITE);
-
-        let caption = format!(
-            "{name}'{genitive} top scores",
-            genitive = if name.ends_with('s') { "" } else { "s" }
-        );
 
         let mut chart = ChartBuilder::on(&root)
             .x_label_area_size(40_i32)
@@ -782,7 +794,7 @@ async fn top_graph_date(name: &str, scores: &mut [Score]) -> Result<Vec<u8>, Gra
     Ok(png_bytes)
 }
 
-async fn top_graph_index(name: &str, scores: &[Score]) -> Result<Vec<u8>, GraphError> {
+async fn top_graph_index(caption: String, scores: &[Score]) -> Result<Vec<u8>, GraphError> {
     let max = scores.first().and_then(|s| s.pp).unwrap_or(0.0);
     let max_adj = max + 5.0;
 
@@ -798,11 +810,6 @@ async fn top_graph_index(name: &str, scores: &[Score]) -> Result<Vec<u8>, GraphE
         root.fill(&background)?;
 
         let caption_style = ("sans-serif", 25_i32, FontStyle::Bold, &WHITE);
-
-        let caption = format!(
-            "{name}'{genitive} top scores",
-            genitive = if name.ends_with('s') { "" } else { "s" }
-        );
 
         let mut chart = ChartBuilder::on(&root)
             .x_label_area_size(40_i32)
@@ -1173,7 +1180,7 @@ pub fn define_graph() -> MyCommand {
 
     let order_description = "Choose by which order the scores should be sorted, defaults to index";
     let order = MyCommandOption::builder("order", order_description).string(order_choices, false);
-    let options = vec![option_name(), order, option_discord()];
+    let options = vec![option_mode(), option_name(), order, option_discord()];
     let top = MyCommandOption::builder("top", "Display a user's top scores pp").subcommand(options);
 
     let subcommands = vec![
