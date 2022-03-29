@@ -768,7 +768,7 @@ async fn top_graph_date(name: &str, scores: &mut [Score]) -> Result<Vec<u8>, Gra
             .configure_series_labels()
             .border_style(WHITE.mix(0.6).stroke_width(1))
             .background_style(RGBColor(7, 23, 17))
-            .position(SeriesLabelPosition::UpperRight)
+            .position(SeriesLabelPosition::MiddleLeft)
             .legend_area_size(0_i32)
             .label_font(("sans-serif", 16_i32, FontStyle::Bold, &WHITE))
             .draw()?;
