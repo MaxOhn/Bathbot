@@ -450,7 +450,7 @@ pub(super) async fn _compare(
     };
 
     if let [score] = &mut scores[..] {
-        let global_idx = global_idx.map_or(usize::MAX, |(_, i)| i + 1);
+        let global_idx = global_idx.map_or(usize::MAX, |(_, i)| i);
         let best = (!personal.is_empty()).then(|| &mut personal[..]);
         let pinned = pinned.contains(score);
         score.user = Some(user.into());
