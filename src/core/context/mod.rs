@@ -41,9 +41,14 @@ pub struct Context {
     pub buckets: Buckets,
     pub cluster: Cluster,
     pub clients: Clients,
-    pub member_tx: UnboundedSender<(Id<GuildMarker>, u64)>,
+    pub member_requests: MemberRequests,
     // private to avoid deadlocks by messing up references
     data: ContextData,
+}
+
+pub struct MemberRequests {
+    pub tx: UnboundedSender<(Id<GuildMarker>, u64)>,
+    pub todo_guilds: DashSet<Id<GuildMarker>>,
 }
 
 pub struct Clients {
@@ -81,7 +86,7 @@ impl Context {
         clients: Clients,
         cluster: Cluster,
         data: ContextData,
-        member_tx: UnboundedSender<(Id<GuildMarker>, u64)>,
+        tx: UnboundedSender<(Id<GuildMarker>, u64)>,
     ) -> Self {
         Context {
             cache,
@@ -93,7 +98,10 @@ impl Context {
             cluster,
             data,
             buckets: Buckets::new(),
-            member_tx,
+            member_requests: MemberRequests {
+                tx,
+                todo_guilds: DashSet::new(),
+            },
         }
     }
 

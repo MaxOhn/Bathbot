@@ -130,13 +130,6 @@ impl Cache {
             .map_or_else(C::default, |entry| entry.iter().map(f).collect())
     }
 
-    pub fn count_members(&self, guild: Id<GuildMarker>) -> usize {
-        self.inner
-            .guild_members(guild)
-            .map(|entry| entry.len())
-            .unwrap_or(0)
-    }
-
     pub fn role<F, T>(&self, role: Id<RoleMarker>, f: F) -> CacheResult<T>
     where
         F: FnOnce(&GuildResource<Role>) -> T,

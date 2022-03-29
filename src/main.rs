@@ -309,6 +309,13 @@ async fn async_main() -> Result<()> {
         info!("Processing member request queue...");
 
         while let Some((guild_id, shard_id)) = member_rx.recv().await {
+            let removed_opt = member_ctx.member_requests.todo_guilds.remove(&guild_id);
+
+            // If a guild is twice in the channel, only process the first and ignore the second
+            if removed_opt.is_none() {
+                continue;
+            }
+
             interval.tick().await;
             let req = RequestGuildMembers::builder(guild_id).query("", None);
             trace!("Member request #{counter} for guild {guild_id}");
@@ -417,11 +424,10 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
         Event::GiftCodeUpdate => {}
         Event::GuildCreate(e) => {
             ctx.stats.event_counts.guild_create.inc();
+            ctx.member_requests.todo_guilds.insert(e.id);
 
-            if ctx.cache.count_members(e.id) < 10 {
-                if let Err(why) = ctx.member_tx.send((e.id, shard_id)) {
-                    warn!("Failed to forward member request: {why}");
-                }
+            if let Err(why) = ctx.member_requests.tx.send((e.id, shard_id)) {
+                warn!("Failed to forward member request: {why}");
             }
 
             let stats = ctx.cache.stats();
