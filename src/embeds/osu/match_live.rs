@@ -123,6 +123,7 @@ impl MatchLiveEmbed {
                         finished: game.end_time.is_some(),
                     };
 
+                    // Finish up the embed we have so far
                     if !description.is_empty() {
                         let embed = Self {
                             title: lobby.name.to_owned(),
@@ -163,6 +164,8 @@ impl MatchLiveEmbed {
 
                         if last_game {
                             return embeds;
+                        } else {
+                            embeds.pop();
                         }
                     }
                 }
@@ -270,8 +273,8 @@ impl MatchLiveEmbed {
 
                         let (description, image, footer) = game_content(lobby, &*game);
 
-                        // Same id and current game is finished => modify embed
-                        if state.game_id == curr_state.game_id {
+                        // Previous game not yet finished but next one already there => override
+                        if !state.finished {
                             let (mut embed, empty) = match embeds.last_mut() {
                                 Some(embed) => (embed, false),
                                 None => (&mut *self, true),
