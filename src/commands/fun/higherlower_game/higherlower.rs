@@ -575,7 +575,16 @@ async fn defer_update(
             write!(field.value, "{}pp**", round(game.next.pp))?;
         }
         if let Some(footer) = embed.footer.as_mut() {
-            footer.text += " • Retrieving next play...";
+            write!(
+                footer.text,
+                " • {}pp {} • Retrieving next play...",
+                round((game.previous.pp - game.next.pp).abs()),
+                if game.previous.pp < game.next.pp {
+                    "higher"
+                } else {
+                    "lower"
+                }
+            )?;
         }
     }
 
