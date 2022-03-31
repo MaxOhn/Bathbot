@@ -46,6 +46,7 @@ pub const BATHBOT_WORKSHOP: &str = "https://discord.gg/n9fFstG";
 pub const BATHBOT_GITHUB: &str = "https://github.com/MaxOhn/Bathbot";
 pub const BATHBOT_WORKSHOP_ID: u64 = 297072529426612224;
 pub const HL_IMAGE_CHANNEL_ID: Id<ChannelMarker> = Id::new(953407312855445574);
+pub const KOFI: &str = "https://ko-fi.com/bathbot";
 
 pub mod common_literals {
     pub const HELP: &str = "help";

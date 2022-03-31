@@ -31,7 +31,7 @@ use super::option_mode;
 #[long_desc(
     "Search for mapsets. \n\
     The query works essentially the same as in game, meaning you can add \
-    any keywords, aswell as specific assignments like `creator=abc`, `length<123`, `ar>=9`, ...\n\n\
+    any keywords, as well as specific assignments like `creator=abc`, `length<123`, `ar>=9`, ...\n\n\
     Additionally, there are various special arguments you can provide with `argument=abc`:\n\
     - __`mode`__: `osu`, `taiko`, `ctb`, or `mania`, defaults to none\n\
     - __`status`__: `ranked`, `loved`, `qualified`, `pending`, `graveyard`, `any`, or \

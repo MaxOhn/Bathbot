@@ -2,7 +2,7 @@ use std::{borrow::Cow, fmt::Write};
 
 use chrono::Utc;
 use rosu_pp::{
-    Beatmap as Map, BeatmapExt, DifficultyAttributes, CatchPP, GameMode as Mode, ManiaPP, OsuPP,
+    Beatmap as Map, BeatmapExt, CatchPP, DifficultyAttributes, GameMode as Mode, ManiaPP, OsuPP,
     PerformanceAttributes, TaikoPP,
 };
 use rosu_v2::prelude::{
@@ -718,7 +718,7 @@ fn default_score() -> Score {
         pp: None,
         rank_country: None,
         rank_global: None,
-        replay: false,
+        replay: None,
         score: 0,
         score_id: 0,
         statistics: ScoreStatistics {

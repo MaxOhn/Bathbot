@@ -59,7 +59,7 @@ impl ScoresEmbed {
 
         if page == 1 {
             if let Some(score) = scores.next() {
-                let personal = personal_idx(score, &args.personal);
+                let personal = personal_idx(score, args.personal);
 
                 if personal.is_some() || matches!(args.global, Some((0, _))) {
                     args.description.push_str("__**");
@@ -271,7 +271,7 @@ fn write_compact_score(args: &mut WriteArgs<'_>, i: usize, score: &Score, stars:
         args.description.push_str(" 📌");
     }
 
-    let personal = personal_idx(score, &args.personal);
+    let personal = personal_idx(score, args.personal);
 
     if personal.is_some() || matches!(args.global, Some((n, _)) if n == i) {
         args.description.push_str(" **(");

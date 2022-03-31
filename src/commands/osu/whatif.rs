@@ -21,6 +21,7 @@ use crate::{
             common_literals::{DISCORD, MODE, NAME},
             GENERAL_ISSUE, OSU_API_ISSUE,
         },
+        osu::{approx_more_pp, ExtractablePp, PpListUtil},
         ApplicationCommandExt, InteractionExt, MessageExt,
     },
     Args, BotResult, CommandData, Context, Error,
@@ -69,9 +70,9 @@ async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> 
 
     let whatif_data = if scores.is_empty() {
         let pp = iter::repeat(pp)
-            .enumerate()
+            .zip(0..)
             .take(count)
-            .fold(0.0, |sum, (i, pp)| sum + pp * 0.95_f32.powi(i as i32));
+            .fold(0.0, |sum, (pp, i)| sum + pp * 0.95_f32.powi(i));
 
         let rank_result = ctx
             .clients
@@ -93,36 +94,22 @@ async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> 
     } else if pp < scores.last().and_then(|s| s.pp).unwrap_or(0.0) {
         WhatIfData::NonTop100
     } else {
-        let actual: f32 = scores
-            .iter()
-            .filter_map(|score| score.weight)
-            .map(|weight| weight.pp)
-            .sum();
+        let mut pps = scores.extract_pp();
+        approx_more_pp(&mut pps, 50);
+        let actual = pps.accum_weighted();
+        let total = user.statistics.as_ref().map_or(0.0, |stats| stats.pp);
+        let bonus_pp = total - actual;
 
-        let bonus_pp = user.statistics.as_ref().map_or(0.0, |stats| stats.pp) - actual;
-
-        let idx = scores
+        let idx = pps
             .iter()
-            .filter_map(|s| s.pp)
-            .position(|score_pp| score_pp < pp)
+            .position(|&pp_| pp_ < pp)
             .unwrap_or_else(|| scores.len() - 1);
 
-        let mut pps = Vec::with_capacity(scores.len() + count);
-
-        let pp_iter = scores
-            .iter()
-            .filter_map(|s| s.pp)
-            .chain(iter::repeat(pp).take(count));
-
-        pps.extend(pp_iter);
+        pps.extend(iter::repeat(pp).take(count));
         pps.sort_unstable_by(|a, b| b.partial_cmp(a).unwrap_or(Ordering::Equal));
 
-        let new_pp = pps
-            .iter()
-            .enumerate()
-            .fold(0.0, |sum, (i, pp)| sum + pp * 0.95_f32.powi(i as i32));
-
-        let max_pp = scores.first().and_then(|s| s.pp).unwrap_or(0.0);
+        let new_pp = pps.accum_weighted();
+        let max_pp = pps.first().copied().unwrap_or(0.0);
 
         let rank_fut = ctx
             .clients

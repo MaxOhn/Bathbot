@@ -164,10 +164,10 @@ fn new_pp(pp: f32, user: &User, scores: &[Score], actual_offset: f32) -> (usize,
     let actual: f32 = scores
         .iter()
         .filter_map(|s| s.weight)
-        .map(|weight| weight.pp)
-        .sum();
+        .fold(0.0, |sum, weight| sum + weight.pp);
 
-    let bonus_pp = user.statistics.as_ref().unwrap().pp - (actual + actual_offset);
+    let total = user.statistics.as_ref().map_or(0.0, |stats| stats.pp);
+    let bonus_pp = total - (actual + actual_offset);
     let mut new_pp = 0.0;
     let mut used = false;
     let mut new_pos = scores.len();

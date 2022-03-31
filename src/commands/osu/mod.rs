@@ -220,7 +220,7 @@ pub struct UserArgs<'n> {
 }
 
 impl<'n> UserArgs<'n> {
-    fn new(name: &'n str, mode: GameMode) -> Self {
+    pub fn new(name: &'n str, mode: GameMode) -> Self {
         Self { name, mode }
     }
 

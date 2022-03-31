@@ -6,7 +6,7 @@ use crate::{
     embeds::{Author, EmbedBuilder, EmbedData, Footer},
     util::{
         numbers::{with_comma_float, with_comma_int},
-        osu::pp_missing,
+        osu::{approx_more_pp, pp_missing, ExtractablePp, PpListUtil},
     },
 };
 
@@ -46,14 +46,22 @@ impl PPMissingEmbed {
             ),
             // Reach goal with only one score
             (Some(_), None) => {
-                let (required, idx) = pp_missing(stats_pp, goal_pp, &(*scores)[..]);
+                let (required, idx) = if scores.len() == 100 {
+                    let mut pps = scores.extract_pp();
+                    approx_more_pp(&mut pps, 50);
+
+                    pp_missing(stats_pp, goal_pp, pps.as_slice())
+                } else {
+                    pp_missing(stats_pp, goal_pp, &*scores)
+                };
 
                 format!(
                     "To reach {pp}pp with one additional score, {user} needs to perform \
-                    a **{required}pp** score which would be the top #{idx}",
+                    a **{required}pp** score which would be the top {approx}#{idx}",
                     pp = with_comma_float(goal_pp),
                     user = user.username,
                     required = with_comma_float(required),
+                    approx = if idx >= 100 { "~" } else { "" },
                     idx = idx + 1,
                 )
             }
@@ -70,48 +78,53 @@ impl PPMissingEmbed {
             }
             // Given score pp would be in top 100
             (Some(_), Some(each)) => {
-                let (required, idx) = pp_missing(stats_pp, goal_pp, &*scores);
+                let mut pps = scores.extract_pp();
+
+                let (required, idx) = if scores.len() == 100 {
+                    approx_more_pp(&mut pps, 50);
+
+                    pp_missing(stats_pp, goal_pp, pps.as_slice())
+                } else {
+                    pp_missing(stats_pp, goal_pp, &*scores)
+                };
 
                 if required < each {
                     format!(
                         "To reach {pp}pp with one additional score, {user} needs to perform \
-                        a **{required}pp** score which would be the top #{idx}",
+                        a **{required}pp** score which would be the top {approx}#{idx}",
                         pp = with_comma_float(goal_pp),
                         user = user.username,
                         required = with_comma_float(required),
+                        approx = if idx >= 100 { "~" } else { "" },
                         idx = idx + 1,
                     )
                 } else {
-                    let idx = scores
+                    let idx = pps
                         .iter()
-                        .position(|s| s.pp.unwrap_or(0.0) < each)
+                        .position(|&pp| pp < each)
                         .unwrap_or_else(|| scores.len());
 
-                    let mut iter = scores
+                    let mut iter = pps
                         .iter()
-                        .filter_map(|s| s.weight.as_ref())
-                        .map(|w| w.pp);
+                        .copied()
+                        .zip(0..)
+                        .map(|(pp, i)| pp * 0.95_f32.powi(i));
 
                     let mut top: f32 = (&mut iter).take(idx).sum();
                     let bot: f32 = iter.sum();
 
-                    let bonus_pp = stats_pp - (top + bot);
+                    let bonus_pp = (stats_pp - (top + bot)).max(0.0);
                     top += bonus_pp;
-                    let len = scores.len();
+                    let len = pps.len();
 
                     let mut n_each = len;
 
                     for i in idx..len {
-                        let bot: f32 = scores
-                            .iter_mut()
-                            .skip(idx)
-                            .filter_map(|s| s.weight.as_mut())
-                            .map(|w| {
-                                w.pp *= 0.95;
-
-                                w.pp
-                            })
-                            .sum();
+                        let bot = pps[idx..]
+                            .iter()
+                            .copied()
+                            .zip(i as i32 + 1..)
+                            .fold(0.0, |sum, (pp, i)| sum + pp * 0.95_f32.powi(i));
 
                         let factor = 0.95_f32.powi(i as i32);
 
@@ -126,29 +139,22 @@ impl PPMissingEmbed {
 
                     if n_each == len {
                         format!(
-                            "Filling up {user}'{genitiv} top100 with {amount} new {each}pp score{plural} \
-                            would only lead to **{top}pp** which is still less than {pp}pp.",
+                            "Filling up {user}'{genitiv} top scores with {amount} new {each}pp score{plural} \
+                            would only lead to {approx}**{top}pp** which is still less than {pp}pp.",
                             amount = len - idx,
                             each = with_comma_float(each),
                             plural = if len - idx != 1 { "s" } else { "" },
                             genitiv = if idx != 1 { "s" } else { "" },
                             pp = with_comma_float(goal_pp),
+                            approx = if idx >= 100 { "roughly " } else { "" },
                             top = with_comma_float(top),
                             user = user.username,
                         )
                     } else {
-                        let mut pps: Vec<_> = scores
-                            .iter()
-                            .filter_map(|s| s.pp)
-                            .chain(iter::repeat(each).take(n_each))
-                            .collect();
-
+                        pps.extend(iter::repeat(each).take(n_each));
                         pps.sort_unstable_by(|a, b| b.partial_cmp(a).unwrap_or(Ordering::Equal));
 
-                        let accum = pps
-                            .iter()
-                            .enumerate()
-                            .fold(0.0, |sum, (i, pp)| sum + pp * 0.95_f32.powi(i as i32));
+                        let accum = pps.accum_weighted();
 
                         // Calculate the pp of the missing score after adding `n_each` many `each` pp scores
                         let total = accum + bonus_pp;

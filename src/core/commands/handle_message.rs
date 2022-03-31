@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{fmt, sync::Arc};
 
 use twilight_model::{channel::Message, guild::Permissions};
 
@@ -85,28 +85,38 @@ pub async fn handle_message(ctx: Arc<Context>, msg: Message) -> BotResult<()> {
 }
 
 fn log_invoke(ctx: &Context, msg: &Message) {
-    let mut location = String::with_capacity(32);
-
-    match msg
-        .guild_id
-        .and_then(|id| ctx.cache.guild(id, |g| g.name().to_owned()).ok())
-    {
-        Some(guild_name) => {
-            location.push_str(guild_name.as_str());
-            location.push(':');
-
-            let push_result = ctx.cache.channel(msg.channel_id, |c| {
-                location.push_str(c.name.as_deref().unwrap_or("<uncached channel>"))
-            });
-
-            if push_result.is_err() {
-                location.push_str("<uncached channel>");
-            }
-        }
-        None => location.push_str("Private"),
-    }
-
+    let location = MessageLocationLog { ctx, msg };
     info!("[{location}] {}: {}", msg.author.name, msg.content);
+}
+
+struct MessageLocationLog<'l> {
+    ctx: &'l Context,
+    msg: &'l Message,
+}
+
+impl fmt::Display for MessageLocationLog<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let guild = match self.msg.guild_id {
+            Some(id) => id,
+            None => return f.write_str("Private"),
+        };
+
+        match self.ctx.cache.guild(guild, |g| write!(f, "{}:", g.name())) {
+            Ok(Ok(_)) => {
+                let channel_result = self.ctx.cache.channel(self.msg.channel_id, |c| {
+                    f.write_str(c.name.as_deref().unwrap_or("<uncached channel>"))
+                });
+
+                match channel_result {
+                    Ok(Ok(_)) => Ok(()),
+                    Ok(err) => err,
+                    Err(_) => f.write_str("<uncached channel>"),
+                }
+            }
+            Ok(err) => err,
+            Err(_) => f.write_str("<uncached guild>"),
+        }
+    }
 }
 
 async fn process_command(

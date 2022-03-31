@@ -148,7 +148,7 @@ async fn no_badge_found(ctx: &Context, command: &ApplicationCommand, name: &str)
     let badges = match ctx.redis().badges().await {
         Ok(badges) => badges,
         Err(err) => {
-            let _ = command.error(&ctx, OSEKAI_ISSUE).await;
+            let _ = command.error(ctx, OSEKAI_ISSUE).await;
 
             return Err(err.into());
         }

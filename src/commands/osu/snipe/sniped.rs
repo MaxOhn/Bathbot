@@ -133,7 +133,7 @@ pub(super) async fn _sniped(
         return data.error(&ctx, content).await;
     };
 
-    let graph = match graphs(user.username.as_str(), &sniper, &snipee) {
+    let graph = match graphs(user.username.as_str(), &sniper, &snipee, W, H) {
         Ok(graph_option) => graph_option,
         Err(err) => {
             warn!("{:?}", Report::new(err));
@@ -164,23 +164,26 @@ pub fn graphs(
     name: &str,
     sniper: &[SnipeRecent],
     snipee: &[SnipeRecent],
+    w: u32,
+    h: u32,
 ) -> Result<Option<Vec<u8>>, GraphError> {
     if sniper.is_empty() && snipee.is_empty() {
         return Ok(None);
     }
 
-    static LEN: usize = W as usize * H as usize;
-    let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3
+    let len = (w * h) as usize;
+    let mut buf = vec![0; len * 3];
 
     {
-        let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
-        root.fill(&WHITE)?;
+        let root = BitMapBackend::with_buffer(&mut buf, (w, h)).into_drawing_area();
+        let background = RGBColor(19, 43, 33);
+        root.fill(&background)?;
 
         match (sniper.is_empty(), snipee.is_empty()) {
             (false, true) => draw_sniper(&root, name, sniper)?,
             (true, false) => draw_snipee(&root, name, snipee)?,
             (false, false) => {
-                let (left, right) = root.split_horizontally(W / 2);
+                let (left, right) = root.split_horizontally(w / 2);
                 draw_sniper(&left, name, sniper)?;
                 draw_snipee(&right, name, snipee)?
             }
@@ -189,9 +192,9 @@ pub fn graphs(
     }
 
     // Encode buf to png
-    let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
+    let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
     let png_encoder = PngEncoder::new(&mut png_bytes);
-    png_encoder.write_image(&buf, W, H, ColorType::Rgb8)?;
+    png_encoder.write_image(&buf, w, h, ColorType::Rgb8)?;
 
     Ok(Some(png_bytes))
 }
@@ -202,7 +205,7 @@ type PrepareResult<'a> = (Vec<Date<Utc>>, Vec<(&'a str, Vec<usize>)>);
 
 fn draw_sniper<DB: DrawingBackend>(
     root: &DrawingArea<DB, Shift>,
-    name: impl AsRef<str>,
+    name: &str,
     sniper: &[SnipeRecent],
 ) -> DrawingError<DB> {
     let (dates, sniper) = prepare_sniper(sniper);
@@ -218,27 +221,13 @@ fn draw_sniper<DB: DrawingBackend>(
         .x_label_area_size(30)
         .y_label_area_size(35)
         .margin_right(5)
-        .caption(format!("Sniped by {}", name.as_ref()), ("sans-serif", 25))
+        .caption(format!("Sniped by {name}"), ("sans-serif", 25, &WHITE))
         .build_cartesian_2d((&dates[..]).into_segmented(), 0..max + 1)?;
 
     draw_mesh(&mut chart)?;
 
-    // Bars
     for (i, (name, values)) in sniper.into_iter().enumerate() {
-        let color = HSLColor(i as f64 * 0.1, 0.5, 0.5);
-        chart
-            .draw_series(
-                Histogram::vertical(&chart)
-                    .data(
-                        values
-                            .into_iter()
-                            .enumerate()
-                            .map(|(i, count)| (&dates[i], count)),
-                    )
-                    .style(color.filled()),
-            )?
-            .label(name)
-            .legend(move |(x, y)| Circle::new((x, y), 3, color.filled()));
+        draw_histogram_block(i, name, &values, &dates, &mut chart)?;
     }
 
     draw_legend(&mut chart)?;
@@ -248,7 +237,7 @@ fn draw_sniper<DB: DrawingBackend>(
 
 fn draw_snipee<DB: DrawingBackend>(
     root: &DrawingArea<DB, Shift>,
-    name: impl AsRef<str>,
+    name: &str,
     snipee: &[SnipeRecent],
 ) -> DrawingError<DB> {
     let (dates, snipee) = prepare_snipee(snipee);
@@ -264,27 +253,13 @@ fn draw_snipee<DB: DrawingBackend>(
         .x_label_area_size(30)
         .y_label_area_size(35)
         .margin_right(5)
-        .caption(format!("Sniped {}", name.as_ref()), ("sans-serif", 25))
+        .caption(format!("Sniped {name}"), ("sans-serif", 25, &WHITE))
         .build_cartesian_2d((&dates[..]).into_segmented(), 0..max + 1)?;
 
     draw_mesh(&mut chart)?;
 
-    // Bars
     for (i, (name, values)) in snipee.into_iter().enumerate() {
-        let color = HSLColor(i as f64 * 0.1, 0.5, 0.5);
-        chart
-            .draw_series(
-                Histogram::vertical(&chart)
-                    .data(
-                        values
-                            .into_iter()
-                            .enumerate()
-                            .map(|(i, count)| (&dates[i], count)),
-                    )
-                    .style(color.filled()),
-            )?
-            .label(name)
-            .legend(move |(x, y)| Circle::new((x, y), 3, color.filled()));
+        draw_histogram_block(i, name, &values, &dates, &mut chart)?;
     }
 
     draw_legend(&mut chart)?;
@@ -304,8 +279,48 @@ fn draw_mesh<DB: DrawingBackend>(
             }
             _ => unreachable!(),
         })
-        .label_style(("sans-serif", 13))
+        .label_style(("sans-serif", 15, &WHITE))
+        .bold_line_style(&WHITE.mix(0.3))
+        .axis_style(RGBColor(7, 18, 14))
+        .axis_desc_style(("sans-serif", 20_i32, FontStyle::Bold, &WHITE))
         .draw()
+}
+
+fn draw_histogram_block<'a, DB: DrawingBackend + 'a>(
+    i: usize,
+    name: &str,
+    values: &[usize],
+    dates: &'a [Date<Utc>],
+    chart: &mut ChartContext<'a, DB, ContextType<'a>>,
+) -> DrawingError<DB> {
+    // Draw block
+    let data = values
+        .iter()
+        .enumerate()
+        .map(|(i, count)| (&dates[i], *count));
+
+    let color = HSLColor(i as f64 * 0.1, 0.5, 0.5);
+
+    let series = Histogram::vertical(chart)
+        .data(data)
+        .style(color.mix(0.75).filled());
+
+    chart
+        .draw_series(series)?
+        .label(name)
+        .legend(move |(x, y)| Circle::new((x, y), 4, color.filled()));
+
+    // Draw border
+    let data = values
+        .iter()
+        .enumerate()
+        .map(|(i, count)| (&dates[i], *count));
+
+    let color = HSLColor(i as f64 * 0.1, 0.5, 0.3);
+    let series = Histogram::vertical(chart).data(data).style(color);
+    chart.draw_series(series)?;
+
+    Ok(())
 }
 
 fn draw_legend<'a, DB: DrawingBackend + 'a>(
@@ -313,11 +328,11 @@ fn draw_legend<'a, DB: DrawingBackend + 'a>(
 ) -> DrawingError<DB> {
     chart
         .configure_series_labels()
-        .border_style(BLACK.stroke_width(2))
-        .background_style(&RGBColor(192, 192, 192))
+        .border_style(WHITE.mix(0.6).stroke_width(1))
+        .background_style(RGBColor(7, 23, 17))
         .position(SeriesLabelPosition::UpperLeft)
         .legend_area_size(13)
-        .label_font(("sans-serif", 14, FontStyle::Bold))
+        .label_font(("sans-serif", 15, FontStyle::Bold, &WHITE))
         .draw()?;
 
     Ok(())

@@ -46,6 +46,7 @@ async fn _nochokes(ctx: Arc<Context>, data: CommandData<'_>, args: NochokeArgs) 
         config,
         miss_limit,
         version,
+        filter,
     } = args;
 
     let mode = config.mode.unwrap_or(GameMode::STD);
@@ -111,6 +112,12 @@ async fn _nochokes(ctx: Arc<Context>, data: CommandData<'_>, args: NochokeArgs) 
 
     unchoked_pp = (100.0 * (unchoked_pp + bonus_pp)).round() / 100.0;
 
+    match filter {
+        Some(NochokeFilter::OnlyChokes) => scores_data.retain(|(_, a, b)| a != b),
+        Some(NochokeFilter::RemoveChokes) => scores_data.retain(|(_, a, b)| a == b),
+        None => {}
+    }
+
     let rank_fut = ctx
         .clients
         .custom
@@ -138,8 +145,8 @@ async fn _nochokes(ctx: Arc<Context>, data: CommandData<'_>, args: NochokeArgs) 
     );
     let embed = embed_data_fut.await.into_builder().build();
 
-    let content = format!(
-        "{version} top {mode}scores for `{name}`:",
+    let mut content = format!(
+        "{version} top {mode}scores for `{name}`",
         version = match version {
             NochokeVersion::Perfect => "Perfect",
             NochokeVersion::Unchoke => "No-choke",
@@ -151,6 +158,14 @@ async fn _nochokes(ctx: Arc<Context>, data: CommandData<'_>, args: NochokeArgs) 
             GameMode::MNA => panic!("can not unchoke mania scores"),
         },
     );
+
+    match filter {
+        Some(NochokeFilter::OnlyChokes) => content.push_str(" (only chokes)"),
+        Some(NochokeFilter::RemoveChokes) => content.push_str(" (removed chokes)"),
+        None => {}
+    }
+
+    content.push(':');
 
     // Creating the embed
     let builder = MessageBuilder::new().content(content).embed(embed);
@@ -239,6 +254,7 @@ async fn unchoke_scores(
                 unchoked.pp = Some(pp_result.pp as f32);
                 unchoked.grade = unchoked.grade(None);
                 unchoked.accuracy = unchoked.accuracy();
+                unchoked.score = 0; // distinguishing from original
             }
             GameMode::CTB if score.max_combo != map.max_combo.unwrap_or(0) => {
                 let attributes = CatchStars::new(&rosu_map).mods(mods).calculate();
@@ -288,6 +304,7 @@ async fn unchoke_scores(
                 unchoked.pp = Some(pp_result.pp as f32);
                 unchoked.grade = unchoked.grade(Some(acc));
                 unchoked.accuracy = unchoked.accuracy();
+                unchoked.score = 0; // distinguishing from original
             }
             GameMode::TKO if score.statistics.count_miss > 0 => {
                 let total_objects = map.count_circles as usize;
@@ -317,6 +334,7 @@ async fn unchoke_scores(
                 unchoked.pp = Some(pp_result.pp as f32);
                 unchoked.grade = unchoked.grade(Some(acc));
                 unchoked.accuracy = unchoked.accuracy();
+                unchoked.score = 0; // distinguishing from original
             }
             GameMode::MNA => bail!("can not unchoke mania scores"),
             _ => {} // Nothing to unchoke
@@ -371,6 +389,7 @@ async fn perfect_scores(
                     unchoked.pp = Some(pp_result.pp as f32);
                     unchoked.grade = unchoked.grade(Some(100.0));
                     unchoked.accuracy = 100.0;
+                    unchoked.score = 0; // distinguishing from original
                 }
                 GameMode::CTB if (100.0 - score.accuracy).abs() > f32::EPSILON => {
                     let pp_result = CatchPP::new(&rosu_map).mods(mods).calculate();
@@ -384,6 +403,7 @@ async fn perfect_scores(
                     unchoked.pp = Some(pp_result.pp as f32);
                     unchoked.grade = unchoked.grade(Some(100.0));
                     unchoked.accuracy = 100.0;
+                    unchoked.score = 0; // distinguishing from original
                 }
                 GameMode::TKO if score.statistics.count_miss > 0 => {
                     let pp_result = TaikoPP::new(&rosu_map).mods(mods).calculate();
@@ -395,6 +415,7 @@ async fn perfect_scores(
                     unchoked.pp = Some(pp_result.pp as f32);
                     unchoked.grade = unchoked.grade(Some(100.0));
                     unchoked.accuracy = 100.0;
+                    unchoked.score = 0; // distinguishing from original
                 }
                 GameMode::MNA => bail!("can not unchoke mania scores"),
                 _ => {} // Nothing to unchoke
@@ -502,6 +523,12 @@ async fn nochokesctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 #[derive(Copy, Clone)]
+enum NochokeFilter {
+    OnlyChokes,
+    RemoveChokes,
+}
+
+#[derive(Copy, Clone)]
 pub enum NochokeVersion {
     Perfect,
     Unchoke,
@@ -534,6 +561,7 @@ struct NochokeArgs {
     config: UserConfig,
     miss_limit: Option<u32>,
     version: NochokeVersion,
+    filter: Option<NochokeFilter>,
 }
 
 impl NochokeArgs {
@@ -566,6 +594,7 @@ impl NochokeArgs {
             config,
             miss_limit,
             version: NochokeVersion::Unchoke,
+            filter: None,
         }))
     }
 
@@ -577,6 +606,7 @@ impl NochokeArgs {
         let mut config = ctx.user_config(command.user_id()?).await?;
         let mut miss_limit = None;
         let mut version = None;
+        let mut filter = None;
 
         for option in options {
             match option.value {
@@ -586,6 +616,11 @@ impl NochokeArgs {
                     "version" => match value.as_str() {
                         "perfect" => version = Some(NochokeVersion::Perfect),
                         "unchoke" => version = Some(NochokeVersion::Unchoke),
+                        _ => return Err(Error::InvalidCommandOptions),
+                    },
+                    "filter" => match value.as_str() {
+                        "only_chokes" => filter = Some(NochokeFilter::OnlyChokes),
+                        "remove_chokes" => filter = Some(NochokeFilter::RemoveChokes),
                         _ => return Err(Error::InvalidCommandOptions),
                     },
                     _ => return Err(Error::InvalidCommandOptions),
@@ -612,6 +647,7 @@ impl NochokeArgs {
             config,
             miss_limit,
             version: version.unwrap_or(NochokeVersion::Unchoke),
+            filter,
         }))
     }
 }
@@ -667,6 +703,20 @@ pub fn define_nochoke() -> MyCommand {
         .help(version_help)
         .string(version_choices, false);
 
+    let filter_choices = vec![
+        CommandOptionChoice::String {
+            name: "Only keep chokes".to_owned(),
+            value: "only_chokes".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Remove all chokes".to_owned(),
+            value: "remove_chokes".to_owned(),
+        },
+    ];
+
+    let filter = MyCommandOption::builder("filter", "Filter out certain scores")
+        .string(filter_choices, false);
+
     let nochoke_description = "How the top plays would look like with only full combos";
 
     let nochoke_help = "Remove all misses from top scores and make them full combos.\n\
@@ -674,5 +724,5 @@ pub fn define_nochoke() -> MyCommand {
 
     MyCommand::new("nochoke", nochoke_description)
         .help(nochoke_help)
-        .options(vec![mode, name, miss_limit, version, discord])
+        .options(vec![mode, name, miss_limit, version, filter, discord])
 }

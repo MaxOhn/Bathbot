@@ -251,9 +251,9 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
     let with_thumbnail = if let Some(bytes) = graph {
         builder = builder.file("map_graph.png", bytes);
 
-        true
-    } else {
         false
+    } else {
+        true
     };
 
     if let Some(content) = attrs.content() {
@@ -380,7 +380,7 @@ fn graph(strains: Vec<(f64, f64)>, background: DynamicImage) -> Result<Vec<u8>, 
         let axis_color = if sum / width >= 128 { &BLACK } else { &WHITE };
 
         // Add background
-        let background = background.blur(2.0).brighten(-15);
+        let background = background.blur(2.0).brighten(-20);
         let elem: BitMapElement<'_, _> = ((0.0_f64, max_strain), background).into();
         chart.draw_series(iter::once(elem))?;
 
@@ -499,7 +499,7 @@ impl CustomAttrs {
     fn content(&self) -> Option<String> {
         self.ar.or(self.cs).or(self.hp).or(self.od)?;
 
-        let mut content = "Custom attributes:".to_owned();
+        let mut content = "Custom attributes: ".to_owned();
         let mut pushed = false;
 
         if let Some(ar) = self.ar {

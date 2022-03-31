@@ -10,5 +10,5 @@ proc-macro = true
 [dependencies]
 static_assertions = "1.1"
 quote = "^1.0"
-syn = { version = "^1.0", features = ["full", "derive", "extra-traits"] }
+syn = { version = "^1.0", default-features = false, features = ["clone-impls", "extra-traits", "full", "parsing", "printing", "proc-macro"] }
 proc-macro2 = "^1.0"

@@ -23,7 +23,7 @@ pub struct FilterCriteria<'q> {
 impl<'q> FilterCriteria<'q> {
     pub fn new(query: &'q str) -> Self {
         let mut criteria = Self {
-            search_text: query.to_owned(),
+            search_text: query.to_owned().into(),
             ..Default::default()
         };
 
@@ -80,6 +80,8 @@ impl<'q> FilterCriteria<'q> {
         if trunc_idx < criteria.search_text.len() {
             criteria.search_text.truncate(trunc_idx);
         }
+
+        criteria.search_text.make_ascii_lowercase();
 
         criteria
     }

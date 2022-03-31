@@ -26,7 +26,7 @@ lazy_static = { version = "1.0" }
 leaky-bucket-lite = { version = "0.5", features = ["parking_lot"] }
 once_cell = { version = "1.0" }
 parking_lot = { version = "0.12", default-features = false }
-plotters = { version = "0.3", default-features = false, features = ["bitmap_backend", "image", "line_series", "datetime", "area_series", "histogram"] }
+plotters = { version = "0.3", default-features = false, features = ["bitmap_backend", "image", "line_series", "datetime", "area_series", "histogram", "point_series"] }
 plotters-backend = { version = "0.3" }
 priority-queue = { version = "1.0" }
 proc_macros  = { path = "./proc_macros" }

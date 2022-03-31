@@ -1,4 +1,15 @@
-use super::ProcessResult;
+use std::{fmt, future::Future, mem, sync::Arc};
+
+use bitflags::bitflags;
+use twilight_model::{
+    application::interaction::{
+        ApplicationCommand, ApplicationCommandAutocomplete, MessageComponentInteraction,
+    },
+    channel::message::MessageFlags,
+    guild::Permissions,
+    http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
+};
+
 use crate::{
     commands::{fun, help, osu, owner, songs, tracking, twitch, utility},
     core::buckets::BucketName,
@@ -13,63 +24,22 @@ use crate::{
     BotResult, Context, Error,
 };
 
-use std::{future::Future, mem, sync::Arc};
-use twilight_model::{
-    application::interaction::{
-        ApplicationCommand, ApplicationCommandAutocomplete, MessageComponentInteraction,
-    },
-    channel::message::MessageFlags,
-    guild::Permissions,
-    http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
-};
+use super::ProcessResult;
 
 #[derive(Copy, Clone, Default)]
 struct CommandArgs {
-    bools: u8,
+    bools: ArgBools,
     bucket: Option<BucketName>,
 }
 
-impl CommandArgs {
-    const AUTHORITY: u8 = 1 << 0;
-    const EPHEMERAL: u8 = 1 << 1;
-    const ONLY_GUILDS: u8 = 1 << 2;
-    const ONLY_OWNER: u8 = 1 << 3;
-    // const DEFERRED_MSG: u8 = 1 << 4;
-
-    fn authority(&self) -> bool {
-        self.bools & Self::AUTHORITY > 0
-    }
-
-    fn bucket(&self) -> Option<BucketName> {
-        self.bucket
-    }
-
-    fn ephemeral(&self) -> bool {
-        self.bools & Self::EPHEMERAL > 0
-    }
-
-    fn only_guilds(&self) -> bool {
-        self.bools & Self::ONLY_GUILDS > 0
-    }
-
-    fn only_owner(&self) -> bool {
-        self.bools & Self::ONLY_OWNER > 0
-    }
-
-    fn set_authority(&mut self) {
-        self.bools |= Self::AUTHORITY
-    }
-
-    fn set_ephemeral(&mut self) {
-        self.bools |= Self::EPHEMERAL
-    }
-
-    fn set_only_guilds(&mut self) {
-        self.bools |= Self::ONLY_GUILDS
-    }
-
-    fn set_only_owner(&mut self) {
-        self.bools |= Self::ONLY_OWNER
+bitflags! {
+    #[derive(Default)]
+    pub struct ArgBools: u8 {
+        const AUTHORITY    = 1 << 0;
+        const EPHEMERAL    = 1 << 1;
+        const ONLY_GUILDS  = 1 << 2;
+        const ONLY_OWNER   = 1 << 3;
+        // const DEFERRED_MSG = 1 << 4; // TODO
     }
 }
 
@@ -120,13 +90,12 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
     let command_result = match name.as_str() {
         "avatar" => process_command(ctx, command, args, osu::slash_avatar).await,
         "badges" => process_command(ctx, command, args, osu::slash_badges).await,
-        // TODO: Bucket
         "bg" => process_command(ctx, command, args, fun::slash_bg).await,
         "bws" => process_command(ctx, command, args, osu::slash_bws).await,
         "commands" => process_command(ctx, command, args, utility::slash_commands).await,
         "compare" => process_command(ctx, command, args, osu::slash_compare).await,
         "config" => {
-            args.set_ephemeral();
+            args.bools |= ArgBools::EPHEMERAL;
 
             process_command(ctx, command, args, utility::slash_config).await
         }
@@ -136,7 +105,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         "graph" => process_command(ctx, command, args, osu::slash_graph).await,
         HELP => {
             // Necessary to be able to use data.create_message later on
-            start_thinking_ephemeral(&ctx, &command).await?;
+            start_thinking(&ctx, &command, true).await?;
 
             help::slash_help(ctx, command)
                 .await
@@ -148,7 +117,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         "invite" => process_command(ctx, command, args, utility::slash_invite).await,
         "leaderboard" => process_command(ctx, command, args, osu::slash_leaderboard).await,
         "link" => {
-            args.set_ephemeral();
+            args.bools |= ArgBools::EPHEMERAL;
 
             process_command(ctx, command, args, osu::slash_link).await
         }
@@ -161,7 +130,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         }
         "matchcost" => process_command(ctx, command, args, osu::slash_matchcost).await,
         "matchlive" => {
-            args.set_authority();
+            args.bools |= ArgBools::AUTHORITY;
 
             process_command(ctx, command, args, osu::slash_matchlive).await
         }
@@ -173,8 +142,8 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         "osekai" => process_command(ctx, command, args, osu::slash_osekai).await,
         "osustats" => process_command(ctx, command, args, osu::slash_osustats).await,
         "owner" => {
-            args.set_only_owner();
-            args.set_ephemeral();
+            args.bools |= ArgBools::ONLY_OWNER;
+            args.bools |= ArgBools::EPHEMERAL;
 
             process_command(ctx, command, args, owner::slash_owner).await
         }
@@ -184,8 +153,8 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         "pp" => process_command(ctx, command, args, osu::slash_pp).await,
         PROFILE => process_command(ctx, command, args, osu::slash_profile).await,
         "prune" => {
-            args.set_authority();
-            args.set_only_guilds();
+            args.bools |= ArgBools::AUTHORITY;
+            args.bools |= ArgBools::ONLY_GUILDS;
 
             process_command(ctx, command, args, utility::slash_prune).await
         }
@@ -194,8 +163,8 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         "ratios" => process_command(ctx, command, args, osu::slash_ratio).await,
         "recent" => process_command(ctx, command, args, osu::slash_recent).await,
         "roleassign" => {
-            args.set_authority();
-            args.set_only_guilds();
+            args.bools |= ArgBools::AUTHORITY;
+            args.bools |= ArgBools::ONLY_GUILDS;
 
             process_command(ctx, command, args, utility::slash_roleassign).await
         }
@@ -204,14 +173,14 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         "rs" => process_command(ctx, command, args, osu::slash_rs).await,
         "search" => process_command(ctx, command, args, osu::slash_mapsearch).await,
         "serverconfig" => {
-            args.set_authority();
-            args.set_only_guilds();
+            args.bools |= ArgBools::AUTHORITY;
+            args.bools |= ArgBools::ONLY_GUILDS;
 
             process_command(ctx, command, args, utility::slash_serverconfig).await
         }
         "serverleaderboard" => {
             args.bucket = Some(BucketName::Leaderboard);
-            args.set_only_guilds();
+            args.bools |= ArgBools::ONLY_GUILDS;
 
             process_command(ctx, command, args, osu::slash_serverleaderboard).await
         }
@@ -230,14 +199,14 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         "topif" => process_command(ctx, command, args, osu::slash_topif).await,
         "topold" => process_command(ctx, command, args, osu::slash_topold).await,
         "track" => {
-            args.set_authority();
-            args.set_only_guilds();
+            args.bools |= ArgBools::AUTHORITY;
+            args.bools |= ArgBools::ONLY_GUILDS;
 
             process_command(ctx, command, args, tracking::slash_track).await
         }
         "trackstream" => {
-            args.set_authority();
-            args.set_only_guilds();
+            args.bools |= ArgBools::AUTHORITY;
+            args.bools |= ArgBools::ONLY_GUILDS;
 
             process_command(ctx, command, args, twitch::slash_trackstream).await
         }
@@ -268,17 +237,13 @@ async fn process_command<R>(
 where
     R: Future<Output = BotResult<()>>,
 {
-    let ephemeral = args.ephemeral();
+    let ephemeral = args.bools.contains(ArgBools::EPHEMERAL);
 
     match pre_process_command(&ctx, &command, args).await? {
         Some(result) => Ok(result),
         None => {
             // Let discord know the command is now being processed
-            if ephemeral {
-                start_thinking_ephemeral(&ctx, &command).await?;
-            } else {
-                start_thinking(&ctx, &command).await?;
-            }
+            start_thinking(&ctx, &command, ephemeral).await?;
 
             // Call command function
             (fun)(ctx, command).await?;
@@ -288,45 +253,14 @@ where
     }
 }
 
-async fn start_thinking(ctx: &Context, command: &ApplicationCommand) -> BotResult<()> {
+async fn start_thinking(
+    ctx: &Context,
+    command: &ApplicationCommand,
+    ephemeral: bool,
+) -> BotResult<()> {
     let data = InteractionResponseData {
-        allowed_mentions: None,
-        attachments: None,
-        choices: None,
-        components: None,
-        content: None,
-        custom_id: None,
-        embeds: None,
-        flags: None,
-        title: None,
-        tts: None,
-    };
-
-    let response = InteractionResponse {
-        kind: InteractionResponseType::DeferredChannelMessageWithSource,
-        data: Some(data), // TODO: None sufficient?
-    };
-
-    ctx.interaction()
-        .create_response(command.id, &command.token, &response)
-        .exec()
-        .await?;
-
-    Ok(())
-}
-
-async fn start_thinking_ephemeral(ctx: &Context, command: &ApplicationCommand) -> BotResult<()> {
-    let data = InteractionResponseData {
-        allowed_mentions: None,
-        attachments: None,
-        choices: None,
-        components: None,
-        content: None,
-        custom_id: None,
-        embeds: None,
-        flags: Some(MessageFlags::EPHEMERAL),
-        title: None,
-        tts: None,
+        flags: ephemeral.then(|| MessageFlags::EPHEMERAL),
+        ..Default::default()
     };
 
     let response = InteractionResponse {
@@ -352,16 +286,9 @@ async fn premature_error(
     let flags = ephemeral.then(|| MessageFlags::EPHEMERAL);
 
     let data = InteractionResponseData {
-        allowed_mentions: None,
-        attachments: None,
-        choices: None,
-        components: None,
-        content: None,
-        custom_id: None,
         embeds: Some(vec![embed]),
         flags,
-        title: None,
-        tts: None,
+        ..Default::default()
     };
 
     let response = InteractionResponse {
@@ -386,7 +313,7 @@ async fn pre_process_command(
     let guild_id = command.guild_id;
 
     // Only in guilds?
-    if args.only_guilds() && guild_id.is_none() {
+    if args.bools.contains(ArgBools::ONLY_GUILDS) && guild_id.is_none() {
         let content = "That command is only available in servers";
         premature_error(ctx, command, content, false).await?;
 
@@ -396,7 +323,7 @@ async fn pre_process_command(
     let author_id = command.author().ok_or(Error::MissingInteractionAuthor)?.id;
 
     // Only for owner?
-    if args.only_owner() && author_id.get() != OWNER_USER_ID {
+    if args.bools.contains(ArgBools::ONLY_OWNER) && author_id.get() != OWNER_USER_ID {
         let content = "That command can only be used by the bot owner";
         premature_error(ctx, command, content, true).await?;
 
@@ -432,7 +359,7 @@ async fn pre_process_command(
         }
     }
 
-    if let Some(bucket) = args.bucket() {
+    if let Some(bucket) = args.bucket {
         if let Some((cooldown, bucket)) =
             super::_check_ratelimit(ctx, author_id, guild_id, bucket).await
         {
@@ -446,7 +373,7 @@ async fn pre_process_command(
     }
 
     // Only for authorities?
-    if args.authority() {
+    if args.bools.contains(ArgBools::AUTHORITY) {
         match super::check_authority(ctx, author_id, command.guild_id).await {
             Ok(None) => {}
             Ok(Some(content)) => {
@@ -468,24 +395,36 @@ async fn pre_process_command(
 
 fn log_interaction(ctx: &Context, interaction: &dyn InteractionExt, name: &str) {
     let username = interaction.username().unwrap_or("<unknown user>");
-    let mut location = String::with_capacity(32);
-    let guild = interaction.guild_id();
-
-    match guild.and_then(|id| ctx.cache.guild(id, |g| g.name().to_owned()).ok()) {
-        Some(guild_name) => {
-            location.push_str(guild_name.as_str());
-            location.push(':');
-
-            let push_result = ctx.cache.channel(interaction.channel_id(), |c| {
-                location.push_str(c.name.as_deref().unwrap_or("<uncached channel>"))
-            });
-
-            if push_result.is_err() {
-                location.push_str("<uncached channel>");
-            }
-        }
-        None => location.push_str("Private"),
-    }
-
+    let location = InteractionLocationLog { ctx, interaction };
     info!("[{location}] {username} used `{name}` interaction");
+}
+
+struct InteractionLocationLog<'l> {
+    ctx: &'l Context,
+    interaction: &'l dyn InteractionExt,
+}
+
+impl fmt::Display for InteractionLocationLog<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let guild = match self.interaction.guild_id() {
+            Some(id) => id,
+            None => return f.write_str("Private"),
+        };
+
+        match self.ctx.cache.guild(guild, |g| write!(f, "{}:", g.name())) {
+            Ok(Ok(_)) => {
+                let channel_result = self.ctx.cache.channel(self.interaction.channel_id(), |c| {
+                    f.write_str(c.name.as_deref().unwrap_or("<uncached channel>"))
+                });
+
+                match channel_result {
+                    Ok(Ok(_)) => Ok(()),
+                    Ok(err) => err,
+                    Err(_) => f.write_str("<uncached channel>"),
+                }
+            }
+            Ok(err) => err,
+            Err(_) => f.write_str("<uncached guild>"),
+        }
+    }
 }

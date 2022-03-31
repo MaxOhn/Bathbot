@@ -130,8 +130,8 @@ const W: u32 = 1350;
 const H: u32 = 350;
 
 pub fn graph(medals: &[MedalCompact], w: u32, h: u32) -> Result<Option<Vec<u8>>, GraphError> {
-    let len = (w * h * 3) as usize; // PIXEL_SIZE = 3
-    let mut buf = vec![0; len];
+    let len = (w * h) as usize;
+    let mut buf = vec![0; len * 3]; // PIXEL_SIZE = 3
 
     {
         let root = BitMapBackend::with_buffer(&mut buf, (w, h)).into_drawing_area();

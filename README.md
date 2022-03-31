@@ -1,12 +1,20 @@
-![Banner](https://i.imgur.com/LNX6Db3.png)
+<p align="center">
+    <img src="https://raw.githubusercontent.com/MaxOhn/Bathbot/main/media/bb-text-coloured-hori.svg" alt="Bathbot" width=50% height=50%>
+</p>
+<p align="center">
+    A feature-rich discord bot with functionality all around <a href="https://osu.ppy.sh">osu!</a>
+</p>
+<p align="center">
+    <a href="https://discord.gg/n9fFstG">
+        <img src="https://img.shields.io/discord/741040473476694159?color=%237289DA&label=Bathbots%20workshop&logo=discord&style=for-the-badge" alt="Discord">
+    </a>
+    <a href="https://ko-fi.com/T6T0BTB5T">
+        <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Ko-fi">
+    </a>
+</p>
 
-# Bathbot
+# Features
 
-Fully fledged discord bot with functionalities all around [osu!](https://osu.ppy.sh/home) including top score tracking and a background guessing game, aswell as twitch stream tracking and some general utility.
-
-All osu! gamemodes are supported and commands exist as slash commands aswell as prefix commands.
-
-Some popular features of the bot:
 - check recent plays (`<r` / `/rs`)
 - track top scores (`<track`, `<trackmania`, ... / `/track`)
 - a background guessing game (`/bg`)
@@ -20,8 +28,11 @@ Some popular features of the bot:
 - display a bunch of statistics all around a users osu profile (`<osu`, `<taiko`, ... / `/profile`)
 - recalculate the personal top 100 if all scores were unchoked (`<nc` / `/nochoke`)
 - show all scores of a user that are in the top of a map's global leaderboard (`<osg` / `/osustats scores`)
-- list all members of the server with respect to some attribute of their osu! profile like global rank, pp, medal count, ... (`/serverleaderboard`)
-- and a ton more
+- list server members in order of some attribute in their osu! profile like pp, medal count, ... (`/serverleaderboard`)
+- notify a channel when a twitch streams comes online (`/trackstream` / `<addstream`)
+- ... and a ton more
+
+All osu! gamemodes are supported and commands exist as slash commands as well as prefix commands.
 
 With the `<help` command the bot will DM you a list of all available prefix commands. With `<help [command name]` (e.g. `<help osg`) the bot will explain the command, show how to use it and give examples.
 

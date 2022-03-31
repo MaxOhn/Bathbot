@@ -1,8 +1,9 @@
-use crate::util::constants::DESCRIPTION_SIZE;
+use std::fmt::Write;
 
 use itertools::Itertools;
-use rosu_v2::{model::GameMode, prelude::Username};
-use std::fmt::Write;
+use rosu_v2::model::GameMode;
+
+use crate::{commands::tracking::TracklistUserEntry, util::constants::DESCRIPTION_SIZE};
 
 pub struct TrackListEmbed {
     description: String,
@@ -10,14 +11,14 @@ pub struct TrackListEmbed {
 }
 
 impl TrackListEmbed {
-    pub fn new(users: Vec<(Username, GameMode, usize)>) -> Vec<Self> {
+    pub fn new(users: Vec<TracklistUserEntry>) -> Vec<Self> {
         let mut embeds = Vec::new();
         let title = "Tracked osu! users in this channel (limit)";
         let mut description = String::with_capacity(256);
 
         users
             .into_iter()
-            .group_by(|(_, mode, _)| *mode)
+            .group_by(|entry| entry.mode)
             .into_iter()
             .for_each(|(mode, group)| {
                 let mode = match mode {
@@ -28,7 +29,7 @@ impl TrackListEmbed {
                 };
 
                 description.reserve(256);
-                let mut names = group.map(|(name, _, limit)| (name, limit));
+                let mut names = group.map(|entry| (entry.name, entry.limit));
                 let (first_name, first_limit) = names.next().unwrap();
                 let len = description.chars().count() + mode.len() + first_name.chars().count() + 7;
 
@@ -41,8 +42,8 @@ impl TrackListEmbed {
                     description.clear();
                 }
 
-                let _ = writeln!(description, "__**{}**__", mode);
-                let _ = write!(description, "`{}` ({})", first_name, first_limit);
+                let _ = writeln!(description, "__**{mode}**__");
+                let _ = write!(description, "`{first_name}` ({first_limit})");
                 let mut with_comma = true;
 
                 for (name, limit) in names {
@@ -55,16 +56,14 @@ impl TrackListEmbed {
                         });
 
                         description.clear();
-                        let _ = writeln!(description, "__**{}**__", mode);
+                        let _ = writeln!(description, "__**{mode}**__");
                         with_comma = false;
                     }
 
                     let _ = write!(
                         description,
-                        "{}`{}` ({})",
+                        "{}`{name}` ({limit})",
                         if with_comma { ", " } else { "" },
-                        name,
-                        limit,
                     );
 
                     with_comma = true;

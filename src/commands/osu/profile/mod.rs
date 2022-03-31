@@ -28,6 +28,7 @@ use crate::{
 
 pub use self::{
     data::{ProfileData, ProfileResult},
+    graph::{ProfileGraphFlags, ProfileGraphParams},
     size::{ProfileEmbedMap, ProfileSize},
 };
 
@@ -94,7 +95,9 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
     let mut profile_data = ProfileData::new(user, scores, discord_id);
 
     // Draw the graph
-    let graph = match graphs(&ctx, &mut profile_data.user).await {
+    let params = ProfileGraphParams::new(&ctx, &mut profile_data.user);
+
+    let graph = match graphs(params).await {
         Ok(graph_option) => graph_option,
         Err(err) => {
             warn!("{:?}", Report::new(err));

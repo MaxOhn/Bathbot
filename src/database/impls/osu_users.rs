@@ -2,7 +2,8 @@ use std::{cmp::Ordering, collections::BTreeMap};
 
 use chrono::{DateTime, Utc};
 use futures::stream::StreamExt;
-use rosu_v2::prelude::{GameMode, User};
+use hashbrown::HashMap;
+use rosu_v2::prelude::{GameMode, User, Username};
 use sqlx::Row;
 
 use crate::{
@@ -40,6 +41,38 @@ impl Database {
         query.execute(&self.pool).await?;
 
         Ok(())
+    }
+
+    pub async fn get_names_by_ids(&self, ids: &[i32]) -> BotResult<HashMap<u32, Username>> {
+        let query = sqlx::query!(
+            "SELECT user_id,username from osu_user_names WHERE user_id=ANY($1)",
+            ids
+        );
+
+        let mut stream = query.fetch(&self.pool);
+        let mut map = HashMap::with_capacity(ids.len());
+
+        while let Some(row) = stream.next().await.transpose()? {
+            map.insert(row.user_id as u32, row.username.into());
+        }
+
+        Ok(map)
+    }
+
+    pub async fn get_ids_by_names(&self, names: &[String]) -> BotResult<HashMap<Username, u32>> {
+        let query = sqlx::query!(
+            "SELECT user_id,username from osu_user_names WHERE username ILIKE ANY($1)",
+            names
+        );
+
+        let mut stream = query.fetch(&self.pool);
+        let mut map = HashMap::with_capacity(names.len());
+
+        while let Some(row) = stream.next().await.transpose()? {
+            map.insert(row.username.into(), row.user_id as u32);
+        }
+
+        Ok(map)
     }
 
     pub async fn upsert_osu_user(&self, user: &User, mode: GameMode) -> BotResult<()> {

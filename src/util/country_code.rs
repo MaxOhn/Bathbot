@@ -11,7 +11,7 @@ lazy_static! {
         const HOUR: i32 = 3600;
         const HALF_HOUR: i32 = 1800;
 
-        let mut map = HashMap::with_capacity(250); // TODO
+        let mut map = HashMap::with_capacity(250);
 
         // http://1min.in/content/international/time-zones
         map.insert("AF", 4 * HOUR + HALF_HOUR);
