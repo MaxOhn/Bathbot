@@ -12,7 +12,7 @@ use twilight_model::{
     channel::embed::{Embed, EmbedField},
     http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
     id::{
-        marker::{MessageMarker, UserMarker},
+        marker::{ChannelMarker, GuildMarker, MessageMarker, UserMarker},
         Id,
     },
 };
@@ -21,7 +21,7 @@ use crate::{
     commands::MyCommand,
     embeds::{get_mods, EmbedBuilder},
     util::{
-        constants::{HL_IMAGE_CHANNEL_ID, RED},
+        constants::{GENERAL_ISSUE, HL_IMAGE_CHANNEL_ID, RED},
         numbers::{round, with_comma_int},
         osu::grade_emote,
         InteractionExt, MessageBuilder, MessageExt,
@@ -45,27 +45,64 @@ pub fn define_higherlower() -> MyCommand {
         .options(super::hl_options())
 }
 
+pub fn define_hl() -> MyCommand {
+    let help = "Play a game of osu! themed higher lower.\n\
+    The available modes are:\n \
+    - `PP`: Guess whether the next play is worth higher or lower PP!";
+
+    MyCommand::new("hl", "Play a game of osu! themed higher lower")
+        .help(help)
+        .options(super::hl_options())
+}
+
 pub async fn slash_higherlower(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
+    // TODO: handle modes, add different modes, add difficulties and difficulty increase
     let user = command.user_id()?;
+    let content = ctx.hl_games().get(&user).map(|v| {
+        let game = v.value();
+        format!(
+            "You can't play two higher lower games at once! \n\
+            Finish your [other game](https://discord.com/channels/{}/{}/{}) first or give up.",
+            match game.guild {
+                Some(id) => id.to_string(),
+                None => "@me".to_string(),
+            },
+            game.channel,
+            game.id
+        )
+    });
 
-    if ctx.hl_games().contains_key(&user) {
-        let content =
-            "You can't play two higher lower games at once! Finish your other game first.";
+    if let Some(content) = content {
+        let components = give_up_components();
+        let embed = EmbedBuilder::new().color(RED).description(content).build();
 
-        command.error(&ctx, content).await
+        let builder = MessageBuilder::new().embed(embed).components(&components);
+        command.create_message(&ctx, builder).await?;
+
+        Ok(())
     } else {
-        let play1 = random_play(&ctx).await?;
-        let mut play2 = random_play(&ctx).await?;
+        let (play1, mut play2) = match tokio::try_join!(random_play(&ctx), random_play(&ctx)) {
+            Ok(tuple) => tuple,
+            Err(err) => {
+                let _ = command.error(&ctx, GENERAL_ISSUE).await;
+                return Err(err);
+            }
+        };
         while play2 == play1 {
             play2 = random_play(&ctx).await?;
         }
 
+        //TODO: handle mode
         let mut game = HlGameState {
             previous: play1,
             next: play2,
             player: user,
             id: Id::new(1),
+            channel: command.channel_id(),
+            guild: command.guild_id(),
+            mode: 1,
             current_score: 0,
+            highscore: ctx.psql().get_higherlower_highscore(user.get(), 1).await?,
         };
 
         let image = game.create_image(&ctx).await?;
@@ -73,9 +110,7 @@ pub async fn slash_higherlower(ctx: Arc<Context>, command: ApplicationCommand) -
         let embed = game.to_embed(image);
 
         let builder = MessageBuilder::new().embed(embed).components(&components);
-
         let response = command.create_message(&ctx, builder).await?.model().await?;
-
         game.id = response.id;
         ctx.hl_games().insert(user, game);
 
@@ -88,9 +123,9 @@ async fn random_play(ctx: &Context) -> BotResult<HlGameStateInfo> {
         let mut rng = rand::thread_rng();
 
         (
-            rng.gen_range(1..=200),
+            rng.gen_range(1..=100),
             rng.gen_range(0..50),
-            rng.gen_range(0..100),
+            rng.gen_range(0..50),
         )
     };
 
@@ -166,7 +201,11 @@ pub struct HlGameState {
     next: HlGameStateInfo,
     player: Id<UserMarker>,
     id: Id<MessageMarker>,
+    channel: Id<ChannelMarker>,
+    guild: Option<Id<GuildMarker>>,
+    mode: u8,
     current_score: u32,
+    highscore: u32,
 }
 
 impl HlGameState {
@@ -183,15 +222,16 @@ impl HlGameState {
             name: format!("__Next:__ {}", self.next.player_string()),
             value: self.next.play_string(false),
         });
-        let footer = format!("Current score: {}", self.current_score);
+        let footer = format!(
+            "Current score: {} • Highscore: {}",
+            self.current_score, self.highscore
+        );
         let embed = EmbedBuilder::new()
             .title(title)
             .fields(fields)
             .image(image)
             .footer(footer)
             .build();
-
-        info!("{:#?}", embed);
 
         embed
     }
@@ -261,7 +301,6 @@ impl HlGameState {
             .model()
             .await?;
 
-        info!("{:?}", message.attachments.first().unwrap().proxy_url);
         return Ok(message.attachments.pop().unwrap().url);
     }
 }
@@ -348,6 +387,23 @@ fn hl_components() -> Vec<Component> {
     vec![Component::ActionRow(button_row)]
 }
 
+fn give_up_components() -> Vec<Component> {
+    let give_up_button = Button {
+        custom_id: Some("give_up_button".to_owned()),
+        disabled: false,
+        emoji: None,
+        label: Some("Give Up".to_owned()),
+        style: ButtonStyle::Danger,
+        url: None,
+    };
+
+    let button_row = ActionRow {
+        components: vec![Component::Button(give_up_button)],
+    };
+
+    vec![Component::ActionRow(button_row)]
+}
+
 pub async fn handle_higher(
     ctx: Arc<Context>,
     mut component: MessageComponentInteraction,
@@ -398,6 +454,24 @@ pub async fn handle_lower(
     Ok(())
 }
 
+pub async fn handle_give_up(
+    ctx: Arc<Context>,
+    mut component: MessageComponentInteraction,
+) -> BotResult<()> {
+    let user = component.user_id()?;
+    if let Some((_, game)) = ctx.hl_games().remove(&user) {
+        defer_update(&ctx, &mut component, &game).await?;
+
+        let content = "Successfully ended the previous game.\n\
+                            Start a new game by using `/higherlower`";
+        let embed = EmbedBuilder::new().description(content).build();
+        let builder = MessageBuilder::new().embed(embed).components(&[]);
+        component.message.update_message(&ctx, builder).await?;
+    }
+
+    Ok(())
+}
+
 async fn correct_guess(
     ctx: &Context,
     component: &MessageComponentInteraction,
@@ -423,11 +497,32 @@ async fn game_over(
     component: &MessageComponentInteraction,
     game: &HlGameState,
 ) -> BotResult<()> {
+    let better_score = ctx
+        .psql()
+        .upsert_higherlower_highscore(
+            game.player.get(),
+            game.mode,
+            game.current_score,
+            game.highscore,
+        )
+        .await?;
+
     let title = "Game over!";
-    let content = format!(
-        "You achieved a total score of {}! This is your new personal best!",
-        game.current_score
-    );
+    let content = match better_score {
+        true => {
+            format!(
+                "You achieved a total score of {}! \nThis is your new personal best!",
+                game.current_score
+            )
+        }
+        false => {
+            format!(
+                "You achieved a total score of {}! \n\
+                This unfortunately did not beat your personal best score of {}!",
+                game.current_score, game.highscore
+            )
+        }
+    };
 
     let embed = EmbedBuilder::new()
         .title(title)
@@ -436,7 +531,6 @@ async fn game_over(
         .build();
 
     let builder = MessageBuilder::new().embed(embed).components(&[]);
-
     component.message.update_message(&ctx, builder).await?;
 
     Ok(())
@@ -451,35 +545,35 @@ async fn defer_update(
     if let Some(embed) = embeds.first_mut() {
         if let Some(field) = embed.fields.get_mut(1) {
             field.value.truncate(field.value.len() - 7);
-            write!(field.value, "{}pp**", round(game.next.pp));
+            write!(field.value, "{}pp**", round(game.next.pp))?;
         }
         if let Some(footer) = embed.footer.as_mut() {
-            footer.text += " • Comparing Results...";
+            footer.text += " • Retrieving next play...";
         }
     }
 
-    // let response_data = InteractionResponseData {
-    //     allowed_mentions: None,
-    //     components: None,
-    //     content: None,
-    //     embeds: Some(embeds),
-    //     flags: None,
-    //     tts: None,
-    //     attachments: None,
-    //     choices: None,
-    //     custom_id: None,
-    //     title: None,
-    // };
+    let response_data = InteractionResponseData {
+        allowed_mentions: None,
+        components: None,
+        content: None,
+        embeds: Some(embeds),
+        flags: None,
+        tts: None,
+        attachments: None,
+        choices: None,
+        custom_id: None,
+        title: None,
+    };
 
-    // let response = InteractionResponse {
-    //     kind: InteractionResponseType::UpdateMessage,
-    //     data: Some(response_data),
-    // };
+    let response = InteractionResponse {
+        kind: InteractionResponseType::UpdateMessage,
+        data: Some(response_data),
+    };
+
     let client = ctx.interaction();
 
     client
-        .update_response(&component.token)
-        .embeds(Some(&embeds))?
+        .create_response(component.id, &component.token, &response)
         .exec()
         .await?;
 

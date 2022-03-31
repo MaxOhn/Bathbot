@@ -6,7 +6,7 @@ use crate::{
 use std::{borrow::Cow, slice};
 use twilight_http::Response;
 use twilight_model::{
-    application::interaction::{ApplicationCommand, MessageComponentInteraction},
+    application::interaction::ApplicationCommand,
     channel::Message,
     http::attachment::Attachment,
     id::{

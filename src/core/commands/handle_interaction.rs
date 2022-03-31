@@ -90,6 +90,7 @@ pub async fn handle_component(
         "bg_start_cancel" => fun::handle_bg_start_cancel(&ctx, *component).await,
         "higher_button" => fun::handle_higher(ctx, *component).await,
         "lower_button" => fun::handle_lower(ctx, *component).await,
+        "give_up_button" => fun::handle_give_up(ctx, *component).await,
         _ => Err(Error::UnknownMessageComponent { component }),
     }
 }
@@ -143,6 +144,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
         }
         //TODO: bucket baby
         "higherlower" => process_command(ctx, command, args, fun::slash_higherlower).await,
+        "hl" => process_command(ctx, command, args, fun::slash_higherlower).await,
         "invite" => process_command(ctx, command, args, utility::slash_invite).await,
         "leaderboard" => process_command(ctx, command, args, osu::slash_leaderboard).await,
         "link" => {

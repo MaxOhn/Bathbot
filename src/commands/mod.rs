@@ -792,6 +792,7 @@ lazy_static! {
         insert("graphs", define_graph);
         insert("badge", define_badges);
         insert("higherlower", define_higherlower);
+        insert("hl", define_hl);
 
         SlashCommands(trie)
     };
