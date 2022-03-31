@@ -3,7 +3,8 @@ use eyre::Report;
 use image::{png::PngEncoder, ColorType, GenericImageView, ImageBuffer};
 use rand::Rng;
 use rosu_v2::prelude::{CountryCode, GameMode, GameMods, Grade, Username};
-use std::fmt::Write;
+use std::{fmt::Write, time::Duration};
+use tokio::time::sleep;
 use twilight_model::{
     application::{
         component::{button::ButtonStyle, ActionRow, Button, Component},
@@ -24,7 +25,7 @@ use crate::{
         constants::{GENERAL_ISSUE, HL_IMAGE_CHANNEL_ID, RED},
         numbers::{round, with_comma_int},
         osu::grade_emote,
-        InteractionExt, MessageBuilder, MessageExt,
+        Emote, InteractionExt, MessageBuilder, MessageExt,
     },
     BotResult, Context,
 };
@@ -200,7 +201,7 @@ async fn random_play(ctx: &Context, prev_pp: f32, curr_score: u32) -> BotResult<
         max_combo: map.max_combo.unwrap_or(0),
         score: play.score,
         acc: round(play.accuracy),
-        _miss_count: play.statistics.count_miss,
+        miss_count: play.statistics.count_miss,
         grade: play.grade,
         cover: format!(
             "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
@@ -331,7 +332,7 @@ struct HlGameStateInfo {
     max_combo: u32,
     score: u32,
     acc: f32,
-    _miss_count: u32,
+    miss_count: u32,
     grade: Grade,
     cover: String,
 }
@@ -354,7 +355,7 @@ impl HlGameStateInfo {
 
     fn play_string(&self, pp_visible: bool) -> String {
         format!(
-            "**{} {}**\n{} {} • **{}%** • **{}x**/{}x • **{}pp**",
+            "**{} {}**\n{} {} • **{}%** • **{}x**/{}x {}• **{}pp**",
             self.map_string,
             get_mods(self.mods),
             grade_emote(self.grade),
@@ -362,6 +363,11 @@ impl HlGameStateInfo {
             self.acc,
             self.combo,
             self.max_combo,
+            if self.miss_count > 0 {
+                format!("• **{}{}** ", self.miss_count, Emote::Miss.text())
+            } else {
+                String::new()
+            },
             if pp_visible {
                 self.pp.to_string().into()
             } else {
@@ -496,8 +502,15 @@ async fn correct_guess(
         game.next = random_play(&ctx, game.previous.pp, game.current_score).await?;
     }
     game.current_score += 1;
-    let image = game.create_image(&ctx).await?;
+    let image = match game.create_image(&ctx).await {
+        Ok(url) => url,
+        Err(err) => {
+            let report = Report::new(err).wrap_err("failed to create hl image");
+            warn!("{report:?}");
 
+            String::new()
+        }
+    };
     let embed = game.to_embed(image);
     let builder = MessageBuilder::new().embed(embed);
     component.message.update_message(&ctx, builder).await?;
@@ -543,6 +556,7 @@ async fn game_over(
         .color(RED)
         .build();
 
+    sleep(Duration::from_secs(2)).await;
     let builder = MessageBuilder::new().embed(embed).components(&[]);
     component.message.update_message(&ctx, builder).await?;
 
