@@ -81,15 +81,16 @@ pub async fn slash_higherlower(ctx: Arc<Context>, command: ApplicationCommand) -
 
         Ok(())
     } else {
-        let (play1, mut play2) = match tokio::try_join!(random_play(&ctx), random_play(&ctx)) {
-            Ok(tuple) => tuple,
-            Err(err) => {
-                let _ = command.error(&ctx, GENERAL_ISSUE).await;
-                return Err(err);
-            }
-        };
+        let (play1, mut play2) =
+            match tokio::try_join!(random_play(&ctx, 0.0, 0), random_play(&ctx, 0.0, 0)) {
+                Ok(tuple) => tuple,
+                Err(err) => {
+                    let _ = command.error(&ctx, GENERAL_ISSUE).await;
+                    return Err(err);
+                }
+            };
         while play2 == play1 {
-            play2 = random_play(&ctx).await?;
+            play2 = random_play(&ctx, 0.0, 0).await?;
         }
 
         //TODO: handle mode
@@ -118,16 +119,15 @@ pub async fn slash_higherlower(ctx: Arc<Context>, command: ApplicationCommand) -
     }
 }
 
-async fn random_play(ctx: &Context) -> BotResult<HlGameStateInfo> {
-    let (page, idx, play): (u32, u32, u32) = {
+async fn random_play(ctx: &Context, prev_pp: f32, curr_score: u32) -> BotResult<HlGameStateInfo> {
+    let max_play = 1.max(25 - curr_score);
+    let (rank, play): (u32, u32) = {
         let mut rng = rand::thread_rng();
-
-        (
-            rng.gen_range(1..=100),
-            rng.gen_range(0..50),
-            rng.gen_range(0..50),
-        )
+        (rng.gen_range(1..=5000), rng.gen_range(0..max_play))
     };
+
+    let page = ((rank - 1) / 50) + 1;
+    let idx = (rank - 1) % 50;
 
     // ! Currently 3 requests, can probably be reduced
     let player = ctx
@@ -138,15 +138,23 @@ async fn random_play(ctx: &Context) -> BotResult<HlGameStateInfo> {
         .ranking
         .swap_remove(idx as usize);
 
-    let play = ctx
+    let mut plays = ctx
         .osu()
         .user_scores(player.user_id)
-        .limit(1)
-        .offset(play as usize)
+        .limit(50)
+        // .offset(play as usize)
         .mode(GameMode::STD)
         .best()
-        .await?
-        .swap_remove(0);
+        .await?;
+
+    plays.sort_by(|a, b| {
+        (round(a.pp.unwrap_or(0.0)) - prev_pp)
+            .abs()
+            .partial_cmp(&(round(b.pp.unwrap_or(0.0)) - prev_pp).abs())
+            .unwrap()
+    });
+
+    let play = plays.swap_remove(play as usize);
 
     let map_id = play.map.as_ref().unwrap().map_id;
 
@@ -192,8 +200,12 @@ async fn random_play(ctx: &Context) -> BotResult<HlGameStateInfo> {
         max_combo: map.max_combo.unwrap_or(0),
         score: play.score,
         acc: round(play.accuracy),
+        _miss_count: play.statistics.count_miss,
         grade: play.grade,
-        cover: mapset.covers.cover,
+        cover: format!(
+            "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
+            mapset.mapset_id
+        ),
     })
 }
 pub struct HlGameState {
@@ -319,6 +331,7 @@ struct HlGameStateInfo {
     max_combo: u32,
     score: u32,
     acc: f32,
+    _miss_count: u32,
     grade: Grade,
     cover: String,
 }
@@ -478,9 +491,9 @@ async fn correct_guess(
     game: &mut HlGameState,
 ) -> BotResult<()> {
     std::mem::swap(&mut game.previous, &mut game.next);
-    game.next = random_play(&ctx).await?;
+    game.next = random_play(&ctx, game.previous.pp, game.current_score).await?;
     while game.next == game.previous {
-        game.next = random_play(&ctx).await?;
+        game.next = random_play(&ctx, game.previous.pp, game.current_score).await?;
     }
     game.current_score += 1;
     let image = game.create_image(&ctx).await?;
