@@ -1,15 +1,22 @@
 use std::sync::Arc;
 
-use twilight_model::application::interaction::{
-    application_command::{CommandDataOption, CommandOptionValue},
-    ApplicationCommand,
+use twilight_http::{api_error::ApiError, error::ErrorType};
+use twilight_model::{
+    application::{
+        command::CommandOptionChoice,
+        interaction::{
+            application_command::{CommandDataOption, CommandOptionValue},
+            ApplicationCommand,
+        },
+    },
+    channel::{thread::AutoArchiveDuration, ChannelType},
 };
 
 use crate::{
     commands::{MyCommand, MyCommandOption},
     core::MatchTrackResult,
     util::{
-        constants::{OSU_API_ISSUE, OSU_BASE},
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE},
         matcher, MessageBuilder, MessageExt,
     },
     BotResult, CommandData, Context, Error,
@@ -41,14 +48,55 @@ async fn matchlive(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 }
             };
 
-            _matchlive(ctx, CommandData::Message { msg, args, num }, match_id).await
+            _matchlive(
+                ctx,
+                CommandData::Message { msg, args, num },
+                match_id.into(),
+            )
+            .await
         }
         CommandData::Interaction { command } => slash_matchlive(ctx, *command).await,
     }
 }
 
-async fn _matchlive(ctx: Arc<Context>, data: CommandData<'_>, match_id: u32) -> BotResult<()> {
-    let content: &str = match ctx.add_match_track(data.channel_id(), match_id).await {
+async fn _matchlive(
+    ctx: Arc<Context>,
+    data: CommandData<'_>,
+    args: MatchLiveArgs,
+) -> BotResult<()> {
+    let MatchLiveArgs {
+        match_id,
+        new_thread,
+    } = args;
+
+    let mut channel = data.channel_id();
+
+    if new_thread {
+        let kind = ChannelType::GuildPublicThread;
+        let archive_dur = AutoArchiveDuration::Day;
+        let thread_name = format!("Live tracking match id {match_id}");
+
+        let create_fut = ctx
+            .http
+            .create_thread(channel, &thread_name, kind)
+            .unwrap()
+            .auto_archive_duration(archive_dur)
+            .exec();
+
+        match create_fut.await {
+            Ok(res) => channel = res.model().await?.id,
+            Err(err) => match handle_error(err.kind()) {
+                Some(content) => return data.error(&ctx, content).await,
+                None => {
+                    let _ = data.error(&ctx, GENERAL_ISSUE).await;
+
+                    return Err(err.into());
+                }
+            },
+        }
+    }
+
+    let content: &str = match ctx.add_match_track(channel, match_id).await {
         MatchTrackResult::Added => match data {
             CommandData::Message { .. } => return Ok(()),
             CommandData::Interaction { command } => return command.delete_message(&ctx).await,
@@ -56,10 +104,26 @@ async fn _matchlive(ctx: Arc<Context>, data: CommandData<'_>, match_id: u32) -> 
         MatchTrackResult::Capped => "Channels can track at most three games at a time",
         MatchTrackResult::Duplicate => "That match is already being tracking in this channel",
         MatchTrackResult::Error => OSU_API_ISSUE,
+        MatchTrackResult::NotFound => "The osu!api returned a 404 indicating an invalid match id",
         MatchTrackResult::Private => "The match can't be tracked because it is private",
     };
 
     data.error(&ctx, content).await
+}
+
+const INVALID_ACTION_FOR_CHANNEL_TYPE: u64 = 50024;
+
+fn handle_error(kind: &ErrorType) -> Option<&'static str> {
+    match kind {
+        ErrorType::Response { error, .. } => match error {
+            ApiError::General(err) => match err.code {
+                INVALID_ACTION_FOR_CHANNEL_TYPE => Some("Cannot start new thread from here"),
+                _ => None,
+            },
+            _ => None,
+        },
+        _ => None,
+    }
 }
 
 #[command]
@@ -118,8 +182,22 @@ async fn _matchliveremove(
     }
 }
 
+struct MatchLiveArgs {
+    match_id: u32,
+    new_thread: bool,
+}
+
+impl From<u32> for MatchLiveArgs {
+    fn from(match_id: u32) -> Self {
+        Self {
+            match_id,
+            new_thread: false,
+        }
+    }
+}
+
 enum MatchLiveKind {
-    Add(u32),
+    Add(MatchLiveArgs),
     Remove(u32),
 }
 
@@ -155,10 +233,40 @@ impl MatchLiveKind {
 
         match &option.value {
             CommandOptionValue::SubCommand(options) => match option.name.as_str() {
-                "track" => match parse_match_id(options)? {
-                    Ok(match_id) => Ok(Ok(MatchLiveKind::Add(match_id))),
-                    Err(content) => Ok(Err(content)),
-                },
+                "track" => {
+                    let mut match_id = None;
+                    let mut thread = None;
+
+                    for option in options {
+                        match &option.value {
+                            CommandOptionValue::String(value) => match option.name.as_str() {
+                                "match_url" => match matcher::get_osu_match_id(value.as_str()) {
+                                    Some(id) => match_id = Some(id),
+                                    None => {
+                                        let content = "Failed to parse match url.\n\
+                                            Be sure it's a valid mp url or a match id";
+
+                                        return Ok(Err(content));
+                                    }
+                                },
+                                "thread" => match value.as_str() {
+                                    "channel" => thread = Some(false),
+                                    "thread" => thread = Some(true),
+                                    _ => return Err(Error::InvalidCommandOptions),
+                                },
+                                _ => return Err(Error::InvalidCommandOptions),
+                            },
+                            _ => return Err(Error::InvalidCommandOptions),
+                        }
+                    }
+
+                    let args = MatchLiveArgs {
+                        match_id: match_id.ok_or(Error::InvalidCommandOptions)?,
+                        new_thread: thread.ok_or(Error::InvalidCommandOptions)?,
+                    };
+
+                    Ok(Ok(Self::Add(args)))
+                }
                 "untrack" => match parse_match_id(options)? {
                     Ok(match_id) => Ok(Ok(MatchLiveKind::Remove(match_id))),
                     Err(content) => Ok(Err(content)),
@@ -184,8 +292,22 @@ fn option_match_url() -> MyCommandOption {
 }
 
 pub fn define_matchlive() -> MyCommand {
+    let thread_choices = vec![
+        CommandOptionChoice::String {
+            name: "Start new thread".to_owned(),
+            value: "thread".to_owned(),
+        },
+        CommandOptionChoice::String {
+            name: "Stay in channel".to_owned(),
+            value: "channel".to_owned(),
+        },
+    ];
+
+    let thread = MyCommandOption::builder("thread", "Choose if a new thread should be started")
+        .string(thread_choices, true);
+
     let track = MyCommandOption::builder("track", "Start tracking a match")
-        .subcommand(vec![option_match_url()]);
+        .subcommand(vec![option_match_url(), thread]);
 
     let untrack =
         MyCommandOption::builder("untrack", "Untrack a match").subcommand(vec![option_match_url()]);

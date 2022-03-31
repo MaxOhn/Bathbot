@@ -76,6 +76,8 @@ pub enum MatchTrackResult {
     Duplicate,
     /// Failed to request match or send the embed messages
     Error,
+    /// API does not know the match id
+    NotFound,
     /// The match is private
     Private,
 }
@@ -170,6 +172,7 @@ impl Context {
 
                     MatchTrackResult::Added
                 }
+                Err(OsuError::NotFound) => MatchTrackResult::NotFound,
                 Err(OsuError::Response { status, .. }) if status == 401 => {
                     MatchTrackResult::Private
                 }
@@ -309,8 +312,9 @@ impl Context {
                             match send_match_messages(&ctx, *id, &embeds).await {
                                 Ok(msg) => *msg_id = msg,
                                 Err(report) => {
-                                    let report =
-                                        report.wrap_err("failed to send last msg in channel {id}");
+                                    let report = report.wrap_err(format!(
+                                        "failed to send last msg in channel {id}"
+                                    ));
                                     error!("{report:?}")
                                 }
                             }
