@@ -1,5 +1,6 @@
 mod bggame;
 mod configs;
+mod higherlower;
 mod maps;
 mod osu_users;
 mod role_assign;
