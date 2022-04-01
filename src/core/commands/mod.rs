@@ -63,7 +63,7 @@ async fn check_authority(
 ) -> BotResult<Option<String>> {
     let (guild_id, (permissions, roles)) = match guild {
         Some(guild) => (guild, ctx.cache.get_guild_permissions(author, guild)),
-        None => return Ok(Some(String::new())),
+        None => return Ok(None),
     };
 
     if permissions.contains(Permissions::ADMINISTRATOR) {

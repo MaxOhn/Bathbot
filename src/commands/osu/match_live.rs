@@ -72,6 +72,10 @@ async fn _matchlive(
     let mut channel = data.channel_id();
 
     if new_thread {
+        if data.guild_id().is_none() {
+            return data.error(&ctx, THREADS_UNAVAILABLE).await;
+        }
+
         let kind = ChannelType::GuildPublicThread;
         let archive_dur = AutoArchiveDuration::Day;
         let thread_name = format!("Live tracking match id {match_id}");
@@ -112,12 +116,13 @@ async fn _matchlive(
 }
 
 const INVALID_ACTION_FOR_CHANNEL_TYPE: u64 = 50024;
+const THREADS_UNAVAILABLE: &str = "Cannot start new thread from here";
 
 fn handle_error(kind: &ErrorType) -> Option<&'static str> {
     match kind {
         ErrorType::Response { error, .. } => match error {
             ApiError::General(err) => match err.code {
-                INVALID_ACTION_FOR_CHANNEL_TYPE => Some("Cannot start new thread from here"),
+                INVALID_ACTION_FOR_CHANNEL_TYPE => Some(THREADS_UNAVAILABLE),
                 _ => None,
             },
             _ => None,
