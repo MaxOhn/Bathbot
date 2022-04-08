@@ -1,7 +1,7 @@
 use crate::{
     commands::osu::{CommonScoreEntry, CommonUser},
-    embeds::{attachment, Footer},
-    util::constants::OSU_BASE,
+    embeds::attachment,
+    util::{constants::OSU_BASE, builder::FooterBuilder},
 };
 
 use smallvec::SmallVec;
@@ -10,7 +10,7 @@ use std::fmt::Write;
 pub struct CommonEmbed {
     description: String,
     thumbnail: String,
-    footer: Footer,
+    footer: FooterBuilder,
 }
 
 type CommonScore = SmallVec<[CommonScoreEntry; 3]>;
@@ -71,7 +71,7 @@ impl CommonEmbed {
         }
 
         Self {
-            footer: Footer::new(footer),
+            footer: FooterBuilder::new(footer),
             description,
             thumbnail: attachment("avatar_fuse.png"),
         }

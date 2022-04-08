@@ -1,7 +1,7 @@
 use crate::{
     core::Context,
     database::MinimizedPp,
-    embeds::{osu, Author, EmbedBuilder, EmbedData, Footer},
+    embeds::{osu, EmbedData},
     error::PpError,
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
@@ -9,7 +9,7 @@ use crate::{
         matcher::highlight_funny_numeral,
         numbers::{self, round, with_comma_float, with_comma_int},
         osu::{flag_url, grade_completion_mods, prepare_beatmap_file, ModSelection},
-        ScoreExt,
+        ScoreExt, builder::{FooterBuilder, AuthorBuilder, EmbedBuilder},
     },
     BotResult,
 };
@@ -24,9 +24,9 @@ use super::recent::if_fc_struct;
 const GLOBAL_IDX_THRESHOLD: usize = 500;
 
 pub struct CompareEmbed {
-    author: Author,
+    author: AuthorBuilder,
     description: String,
-    footer: Footer,
+    footer: FooterBuilder,
     thumbnail: String,
     timestamp: DateTime<Utc>,
     title: String,
@@ -202,7 +202,7 @@ impl CompareEmbed {
             )
         };
 
-        let footer = Footer::new(format!(
+        let footer = FooterBuilder::new(format!(
             "{:?} map by {} | played",
             map.status, mapset.creator_name
         ))
@@ -260,7 +260,7 @@ impl CompareEmbed {
             let url = format!("{OSU_BASE}users/{}/{}", user.user_id, score.mode);
             let icon = flag_url(user.country_code.as_str());
 
-            Author::new(text).url(url).icon_url(icon)
+            AuthorBuilder::new(text).url(url).icon_url(icon)
         };
 
         let acc = round(score.accuracy);
@@ -411,8 +411,8 @@ impl EmbedData for CompareEmbed {
 pub struct NoScoresEmbed {
     description: &'static str,
     thumbnail: String,
-    footer: Footer,
-    author: Author,
+    footer: FooterBuilder,
+    author: AuthorBuilder,
     title: String,
     url: String,
 }
@@ -422,7 +422,7 @@ impl NoScoresEmbed {
         let stats = user.statistics.as_ref().unwrap();
         let mapset = map.mapset.as_ref().unwrap();
 
-        let footer = Footer::new(format!("{:?} map by {}", map.status, mapset.creator_name))
+        let footer = FooterBuilder::new(format!("{:?} map by {}", map.status, mapset.creator_name))
             .icon_url(format!("{AVATAR_URL}{}", mapset.creator_id));
 
         let author_text = format!(
@@ -434,7 +434,7 @@ impl NoScoresEmbed {
             national = stats.country_rank.unwrap_or(0),
         );
 
-        let author = Author::new(author_text)
+        let author = AuthorBuilder::new(author_text)
             .url(format!("{OSU_BASE}u/{}", user.user_id))
             .icon_url(user.avatar_url);
 

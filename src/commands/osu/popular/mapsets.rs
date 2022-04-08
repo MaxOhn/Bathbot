@@ -7,7 +7,7 @@ use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{Beatmapset, Username};
 
 use crate::{
-    core::{commands::CommandData, Context},
+    core::{commands_::CommandData, Context},
     custom_client::OsuTrackerMapsetEntry,
     embeds::{EmbedData, OsuTrackerMapsetsEmbed},
     pagination::{OsuTrackerMapsetsPagination, Pagination},

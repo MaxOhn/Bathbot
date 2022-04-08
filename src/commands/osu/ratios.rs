@@ -1,35 +1,51 @@
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
-use rosu_v2::prelude::{GameMode, OsuError, Username};
-use twilight_model::application::interaction::{
-    application_command::CommandOptionValue, ApplicationCommand,
+use command_macros::{command, HasName, SlashCommand};
+use rosu_v2::prelude::{GameMode, OsuError};
+use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_model::{
+    application::interaction::ApplicationCommand,
+    id::{marker::UserMarker, Id},
 };
 
 use crate::{
-    commands::{
-        check_user_mention,
-        osu::{option_discord, option_name},
-        parse_discord, DoubleResultCow, MyCommand,
-    },
-    database::OsuData,
+    core::commands::CommandOrigin,
     embeds::{EmbedData, RatioEmbed},
-    error::Error,
     tracking::process_osu_tracking,
-    util::{
-        constants::{
-            common_literals::{DISCORD, NAME},
-            GENERAL_ISSUE, OSU_API_ISSUE,
-        },
-        ApplicationCommandExt, InteractionExt, MessageExt,
-    },
-    BotResult, CommandData, Context, MessageBuilder,
+    util::{builder::MessageBuilder, constants::OSU_API_ISSUE, matcher, ApplicationCommandExt},
+    BotResult, Context,
 };
 
-use super::{ScoreArgs, UserArgs};
+use super::{HasName, ScoreArgs, UserArgs};
+
+#[derive(CommandModel, CreateCommand, Default, HasName, SlashCommand)]
+#[command(
+    name = "ratios",
+    help = "The \"ratio\" of a mania score is generally considered to be `n320/n300` \
+    (or sometimes `n320/everything else`).\n\n\
+    How to read the embed:\n\
+    The first column defines how the top scores are split up based on their accuracy.\n\
+    E.g. `>90%` will only include top scores that have more than 90% accuracy.\n\
+    The second column tells how many scores are in the corresponding accuracy row.\n\
+    For the third column, it calculates the ratio of all scores in that row and displays their average.\n\
+    The fourth column shows the average percentual miss amount for scores in the corresponding row."
+)]
+/// Ratio related stats about a user's mania top100
+pub struct Ratios<'a> {
+    /// Specify a username
+    name: Option<Cow<'a, str>>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
+}
 
 #[command]
-#[short_desc("Ratio related stats about a user's top100")]
-#[long_desc(
+#[desc("Ratio related stats about a user's top100")]
+#[help(
     "Calculate the average ratios of a user's top100.\n\
     If the command was used before on the given osu name, \
     I will also compare the current results with the ones from last time \
@@ -37,44 +53,44 @@ use super::{ScoreArgs, UserArgs};
 )]
 #[usage("[username]")]
 #[example("badewanne3")]
-#[aliases("ratio")]
-async fn ratios(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            let name = match args.next() {
-                Some(arg) => match check_user_mention(&ctx, arg).await {
-                    Ok(Ok(osu)) => Some(osu.into_username()),
-                    Ok(Err(content)) => return msg.error(&ctx, content).await,
-                    Err(why) => {
-                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+#[alias("ratio")]
+#[group(Mania)]
+async fn prefix_ratios(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    let args = match args.next() {
+        Some(arg) => match matcher::get_mention_user(arg) {
+            Some(id) => Ratios {
+                name: None,
+                discord: Some(id),
+            },
+            None => Ratios {
+                name: Some(Cow::Borrowed(arg)),
+                discord: None,
+            },
+        },
+        None => Ratios::default(),
+    };
 
-                        return Err(why);
-                    }
-                },
-                None => match ctx.psql().get_user_osu(msg.author.id).await {
-                    Ok(osu) => osu.map(OsuData::into_username),
-                    Err(why) => {
-                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                        return Err(why);
-                    }
-                },
-            };
-
-            _ratios(ctx, CommandData::Message { msg, args, num }, name).await
-        }
-        CommandData::Interaction { command } => slash_ratio(ctx, *command).await,
-    }
+    ratios(ctx, msg.into(), args).await
 }
 
-async fn _ratios(
-    ctx: Arc<Context>,
-    data: CommandData<'_>,
-    name: Option<Username>,
-) -> BotResult<()> {
+async fn slash_ratios(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    let args = Ratios::from_interaction(command.input_data())?;
+
+    ratios(ctx, command.into(), args).await
+}
+
+async fn ratios(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Ratios<'_>) -> BotResult<()> {
+    let name = match username!(ctx, orig, args) {
+        Some(name) => name,
+        None => match ctx.user_config(orig.user_id()?).await?.into_username() {
+            Some(name) => name,
+            None => todo!(),
+        },
+    };
+
     let name = match name {
         Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
+        None => return super::require_link(&ctx, &orig).await,
     };
 
     // Retrieve the user and their top scores
@@ -87,12 +103,12 @@ async fn _ratios(
             Err(OsuError::NotFound) => {
                 let content = format!("User `{name}` was not found");
 
-                return data.error(&ctx, content).await;
+                return orig.error(&ctx, content).await;
             }
-            Err(why) => {
-                let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            Err(err) => {
+                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-                return Err(why.into());
+                return Err(err.into());
             }
         };
 
@@ -109,63 +125,7 @@ async fn _ratios(
     // Creating the embed
     let embed = embed_data.into_builder().build();
     let builder = MessageBuilder::new().content(content).embed(embed);
-    data.create_message(&ctx, builder).await?;
+    orig.create_message(&ctx, &builder).await?;
 
     Ok(())
-}
-
-async fn parse_username(
-    ctx: &Context,
-    command: &mut ApplicationCommand,
-) -> DoubleResultCow<Option<Username>> {
-    let mut osu = None;
-
-    for option in command.yoink_options() {
-        match option.value {
-            CommandOptionValue::String(value) => match option.name.as_str() {
-                NAME => osu = Some(value.into()),
-                _ => return Err(Error::InvalidCommandOptions),
-            },
-            CommandOptionValue::User(value) => match option.name.as_str() {
-                DISCORD => match parse_discord(ctx, value).await? {
-                    Ok(osu_) => osu = Some(osu_),
-                    Err(content) => return Ok(Err(content)),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            },
-            _ => return Err(Error::InvalidCommandOptions),
-        }
-    }
-
-    let osu = match osu {
-        Some(osu) => Some(osu),
-        None => ctx.psql().get_user_osu(command.user_id()?).await?,
-    };
-
-    Ok(Ok(osu.map(OsuData::into_username)))
-}
-
-pub async fn slash_ratio(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match parse_username(&ctx, &mut command).await? {
-        Ok(name) => _ratios(ctx, command.into(), name).await,
-        Err(content) => return command.error(&ctx, content).await,
-    }
-}
-
-pub fn define_ratios() -> MyCommand {
-    let name = option_name();
-    let discord = option_discord();
-
-    let help = "The \"ratio\" of a mania score is generally considered to be `n320/n300` \
-        (or sometimes `n320/everything else`).\n\n\
-        How to read the embed:\n\
-        The first column defines how the top scores are split up based on their accuracy.\n\
-        E.g. `>90%` will only include top scores that have more than 90% accuracy.\n\
-        The second column tells how many scores are in the corresponding accuracy row.\n\
-        For the third column, it calculates the ratio of all scores in that row and displays their average.\n\
-        The fourth column shows the average percentual miss amount for scores in the corresponding row.";
-
-    MyCommand::new("ratios", "Ratio related stats about a user's mania top100")
-        .help(help)
-        .options(vec![name, discord])
 }

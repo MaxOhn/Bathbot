@@ -1,18 +1,20 @@
-use crate::{BotResult, CommandData, Context};
-
 use std::sync::Arc;
 
-#[command]
-#[short_desc("https://youtu.be/psuRGfAaju4?t=25")]
-#[bucket("songs")]
-#[no_typing()]
-async fn fireflies(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    let (lyrics, delay) = _fireflies();
+use command_macros::command;
 
-    super::song_send(lyrics, delay, ctx, data).await
+use crate::{BotResult, Context};
+
+#[command]
+#[desc("https://youtu.be/psuRGfAaju4?t=25")]
+#[group(Songs)]
+#[flags(SKIP_DEFER)]
+async fn prefix_fireflies(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+    let (lyrics, delay) = fireflies_();
+
+    super::song(lyrics, delay, ctx, msg.into()).await
 }
 
-pub fn _fireflies() -> (&'static [&'static str], u64) {
+pub fn fireflies_() -> (&'static [&'static str], u64) {
     let lyrics = &[
         "You would not believe your eyes",
         "If ten million fireflies",

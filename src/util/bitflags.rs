@@ -1,6 +1,6 @@
 use std::fmt::{Display, Write};
 
-use crate::{bg_game::MapsetTags, commands::fun::Effects};
+use crate::games::bg::{Effects, MapsetTags};
 
 pub struct IntoIter<F> {
     flags: F,

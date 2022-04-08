@@ -1,7 +1,7 @@
 use crate::{
     commands::osu::MedalEntryCommon,
-    embeds::{attachment, Footer},
-    util::CowUtils,
+    embeds::{attachment, },
+    util::{CowUtils, builder::FooterBuilder},
 };
 
 use rosu_v2::prelude::Username;
@@ -20,7 +20,7 @@ impl MedalsCommonUser {
 
 pub struct MedalsCommonEmbed {
     description: String,
-    footer: Footer,
+    footer: FooterBuilder,
     thumbnail: String,
     title: &'static str,
 }
@@ -76,7 +76,7 @@ impl MedalsCommonEmbed {
 
         Self {
             description,
-            footer: Footer::new(footer),
+            footer: FooterBuilder::new(footer),
             thumbnail: attachment("avatar_fuse.png"),
             title: "Who got which medal first",
         }

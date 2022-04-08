@@ -1,47 +1,44 @@
 use std::sync::Arc;
 
+use command_macros::{command, SlashCommand};
+use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
-    commands::{
-        utility::{config_, ConfigArgs},
-        MyCommand,
-    },
-    util::{constants::INVITE_LINK, MessageExt},
-    BotResult, CommandData, Context,
+    commands::utility::{config, Config, ConfigLink},
+    util::{constants::INVITE_LINK, ChannelExt},
+    BotResult, Context,
 };
 
+#[derive(CommandModel, CreateCommand, SlashCommand)]
+#[command(
+    name = "link",
+    help = "Link your discord to an osu! profile.\n\
+    To unlink, use the `/config` command.\n\
+    To link your discord to a twitch account you can also use the `/config` command."
+)]
+#[flags(EPHEMERAL)]
+/// Link your discord to an osu! profile
+pub struct Link;
+
+async fn slash_link(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotResult<()> {
+    let mut args = Config::default();
+    args.osu = Some(ConfigLink::Link);
+
+    config(ctx, command, args).await
+}
+
 #[command]
-#[short_desc("Deprecated command, use the slash command `/link` instead")]
-async fn link(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, .. } => {
-            let content = format!(
-                "This command is deprecated and no longer works.\n\
-                Use the slash command `/link` instead (no need to specify your osu! name).\n\
-                If slash commands are not available in your server, \
-                try [re-inviting the bot]({INVITE_LINK})."
-            );
+#[desc("Deprecated command, use the slash command `/link` instead")]
+#[flags(SKIP_DEFER)]
+#[group(AllModes)]
+async fn prefix_link(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+    let content = format!(
+        "This command is deprecated and no longer works.\n\
+        Use the slash command `/link` instead (no need to specify your osu! name).\n\
+        If slash commands are not available in your server, \
+        try [re-inviting the bot]({INVITE_LINK})."
+    );
 
-            return msg.error(&ctx, content).await;
-        }
-        CommandData::Interaction { command } => slash_link(ctx, *command).await,
-    }
-}
-
-pub async fn slash_link(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
-    let mut args = ConfigArgs::default();
-    args.osu = Some(true);
-
-    config_(ctx, command, args).await
-}
-
-pub fn define_link() -> MyCommand {
-    let help = "Link your discord to an osu! profile.\n\
-        To unlink, use the `/config` command.\n\
-        To link your discord to a twitch account you can also use the `/config` command.";
-
-    MyCommand::new("link", "Link your discord to an osu! profile")
-        .help(help)
-        .options(Vec::new())
+    msg.error(&ctx, content).await
 }

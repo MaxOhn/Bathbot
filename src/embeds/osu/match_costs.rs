@@ -1,7 +1,6 @@
 use crate::{
     commands::osu::MatchResult,
-    embeds::Footer,
-    util::constants::{DESCRIPTION_SIZE, OSU_BASE},
+    util::{constants::{DESCRIPTION_SIZE, OSU_BASE}, builder::FooterBuilder},
 };
 
 use rosu_v2::model::matches::OsuMatch;
@@ -12,7 +11,7 @@ pub struct MatchCostEmbed {
     thumbnail: String,
     title: String,
     url: String,
-    footer: Footer,
+    footer: FooterBuilder,
 }
 
 impl MatchCostEmbed {
@@ -154,7 +153,7 @@ impl MatchCostEmbed {
         let mut title = String::new();
         std::mem::swap(&mut title, &mut osu_match.name);
         title.retain(|c| c != '(' && c != ')');
-        let footer = Footer::new("Note: Formula is subject to change; values are volatile");
+        let footer = FooterBuilder::new("Note: Formula is subject to change; values are volatile");
 
         Some(Self {
             title,

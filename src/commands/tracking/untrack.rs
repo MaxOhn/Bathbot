@@ -1,53 +1,45 @@
 use std::sync::Arc;
 
+use command_macros::command;
 use hashbrown::HashSet;
 use rosu_v2::prelude::{GameMode, OsuError, Username};
 
 use crate::{
+    core::commands::CommandOrigin,
     embeds::{EmbedData, UntrackEmbed},
     util::{
+        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        MessageExt,
     },
-    BotResult, CommandData, Context, MessageBuilder,
+    BotResult, Context,
 };
 
 use super::TrackArgs;
 
 #[command]
-#[authority()]
-#[short_desc("Untrack user(s) in a channel")]
-#[long_desc(
+#[desc("Untrack user top scores in a channel")]
+#[help(
     "Stop notifying a channel about new plays in a user's top100.\n\
     Specified users will be untracked for all modes.\n\
     You can specify up to ten usernames per command invocation."
 )]
 #[usage("[username1] [username2] ...")]
 #[example("badewanne3 cookiezi \"freddie benson\" peppy")]
-async fn untrack(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            let track_args = match TrackArgs::args(&ctx, &mut args, num, None).await {
-                Ok(Ok(args)) => args,
-                Ok(Err(content)) => return msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+#[flags(AUTHORITY, ONLY_GUILDS)]
+#[group(Tracking)]
+async fn prefix_untrack(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match TrackArgs::args(&ctx, &mut args, None).await {
+        Ok(Ok(args)) => untrack(ctx, msg.into(), args).await,
+        Ok(Err(content)) => return msg.error(&ctx, content).await,
+        Err(err) => {
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-                    return Err(why);
-                }
-            };
-
-            _untrack(ctx, CommandData::Message { msg, args, num }, track_args).await
+            return Err(err);
         }
-        CommandData::Interaction { command } => super::slash_track(ctx, *command).await,
     }
 }
 
-pub(super) async fn _untrack(
-    ctx: Arc<Context>,
-    data: CommandData<'_>,
-    args: TrackArgs,
-) -> BotResult<()> {
+pub async fn untrack(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TrackArgs) -> BotResult<()> {
     let TrackArgs {
         name,
         mode,
@@ -60,7 +52,7 @@ pub(super) async fn _untrack(
     if let Some(name) = more_names.iter().find(|name| name.len() > 15) {
         let content = format!("`{name}` is too long for an osu! username");
 
-        return data.error(&ctx, content).await;
+        return orig.error(&ctx, content).await;
     }
 
     let mode = mode.unwrap_or(GameMode::STD);
@@ -70,16 +62,16 @@ pub(super) async fn _untrack(
         Err((OsuError::NotFound, name)) => {
             let content = format!("User `{name}` was not found");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         Err((err, _)) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(err.into());
         }
     };
 
-    let channel = data.channel_id();
+    let channel = orig.channel_id();
     let mut success = HashSet::with_capacity(users.len());
 
     for (username, user_id) in users.into_iter() {
@@ -92,26 +84,26 @@ pub(super) async fn _untrack(
             Err(err) => {
                 warn!("Error while adding tracked entry: {err}");
 
-                return send_message(&ctx, data, Some(&username), success).await;
+                return send_message(&ctx, orig, Some(&username), success).await;
             }
         };
     }
 
-    send_message(&ctx, data, None, success).await?;
+    send_message(&ctx, orig, None, success).await?;
 
     Ok(())
 }
 
 async fn send_message(
     ctx: &Context,
-    data: CommandData<'_>,
+    orig: CommandOrigin<'_>,
     name: Option<&Username>,
     success: HashSet<Username>,
 ) -> BotResult<()> {
     let success = success.into_iter().collect();
     let embed = UntrackEmbed::new(success, name).into_builder().build();
     let builder = MessageBuilder::new().embed(embed);
-    data.create_message(ctx, builder).await?;
+    orig.create_message(ctx, &builder).await?;
 
     Ok(())
 }

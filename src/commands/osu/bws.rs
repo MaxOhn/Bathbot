@@ -1,37 +1,125 @@
-use std::{mem, sync::Arc};
+use std::{borrow::Cow, mem, sync::Arc};
 
+use command_macros::{command, HasName, SlashCommand};
 use rosu_v2::prelude::{GameMode, OsuError};
+use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
-    application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
+    application::interaction::ApplicationCommand,
     id::{marker::UserMarker, Id},
 };
 
 use crate::{
-    commands::{
-        check_user_mention,
-        osu::{option_discord, option_name},
-        parse_discord, DoubleResultCow, MyCommand, MyCommandOption,
-    },
-    database::UserConfig,
+    core::commands::{prefix::Args, CommandOrigin},
     embeds::{BWSEmbed, EmbedData},
-    error::Error,
     util::{
-        constants::{
-            common_literals::{DISCORD, NAME, RANK},
-            GENERAL_ISSUE, OSU_API_ISSUE,
-        },
-        matcher, ApplicationCommandExt, InteractionExt, MessageExt,
+        builder::MessageBuilder,
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        matcher, ApplicationCommandExt,
     },
-    Args, BotResult, CommandData, Context,
+    BotResult, Context,
 };
 
-use super::{get_user, UserArgs};
+use super::{get_user, require_link, UserArgs};
 
-const MIN_BADGES_OFFSET: usize = 2;
+#[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
+#[command(
+    name = "bws",
+    help = "To combat those pesky derank players ruining everyone's tourneys, \
+many tournaments use a \"Badge Weighted Seeding\" system to adjust a player's rank based \
+on the amount of badges they own.\n\
+Instead of considering a player's global rank at face value, tourneys calculate \
+the player's bws value and use that to determine if they are allowed to \
+participate based on the rank restrictions.\n\
+There are various formulas around but this command uses `rank^(0.9937^(badges^2))`."
+)]
+/// Show the badge weighted seeding for an osu!standard player
+pub struct Bws<'a> {
+    /// Specify a username
+    name: Option<Cow<'a, str>>,
+    #[command(
+        min_value = 1,
+        help = "If specified, it will calculate how the bws value would evolve towards the given rank."
+    )]
+    /// "Specify a target rank to reach"
+    rank: Option<usize>,
+    #[command(
+        min_value = 0,
+        help = "Calculate how the bws value evolves towards the given amount of badges.\n\
+    If none is specified, it defaults to the current amount + 2."
+    )]
+    /// Specify an amount of badges to reach
+    badges: Option<usize>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
+}
+
+impl<'m> Bws<'m> {
+    fn args(args: Args<'_>) -> Result<Self, Cow<'static, str>> {
+        let mut name = None;
+        let mut discord = None;
+        let mut rank = None;
+        let mut badges = None;
+
+        for arg in args.take(3) {
+            if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
+                let key = &arg[..idx];
+                let value = arg[idx + 1..].trim_end();
+
+                match key {
+                    "rank" | "r" => match value.parse::<u32>() {
+                        Ok(num) => rank = Some(num.max(1)),
+                        Err(_) => {
+                            let content = "Failed to parse `rank`. Must be a positive integer.";
+
+                            return Ok(Err(content.into()));
+                        }
+                    },
+                    "badges" | "badge" | "b" => match value.parse() {
+                        Ok(num) => badges = Some(num),
+                        Err(_) => {
+                            let content = "Failed to parse `badges`. Must be a positive integer.";
+
+                            return Ok(Err(content.into()));
+                        }
+                    },
+                    _ => {
+                        let content = format!(
+                            "Unrecognized option `{key}`.\nAvailable options are: `rank` or `badges`."
+                        );
+
+                        return Ok(Err(content.into()));
+                    }
+                }
+            } else if let Some(id) = matcher::get_mention_user(arg) {
+                discord = Some(id);
+            } else {
+                name = Some(arg.into());
+            }
+        }
+
+        Ok(Self {
+            name,
+            rank,
+            badges,
+            discord,
+        })
+    }
+}
+
+async fn slash_bws(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    let args = Bws::from_interaction(command.input_data())?;
+
+    bws(ctx, command.into(), args).await
+}
 
 #[command]
-#[short_desc("Show the badge weighted seeding for a player")]
-#[long_desc(
+#[desc("Show the badge weighted seeding for a player")]
+#[help(
     "Show the badge weighted seeding for a player. \n\
     The current formula is `rank^(0.9937^(badges^2))`.\n\
     Next to the player's username, you can specify `rank=integer` \
@@ -40,53 +128,46 @@ const MIN_BADGES_OFFSET: usize = 2;
     progresses towards that badge amount."
 )]
 #[usage("[username] [rank=integer] [badges=integer]")]
-#[example("badewanne3", "badewanne3 rank=1234 badges=10", "badewanne3 badges=3")]
-async fn bws(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match BwsArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(bws_args)) => {
-                    _bws(ctx, CommandData::Message { msg, args, num }, bws_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => slash_bws(ctx, *command).await,
+#[examples("badewanne3", "badewanne3 rank=1234 badges=10", "badewanne3 badges=3")]
+#[group(Osu)]
+async fn prefix_bws(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match Bws::args(args) {
+        Ok(args) => bws(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
     }
 }
 
-async fn _bws(ctx: Arc<Context>, data: CommandData<'_>, args: BwsArgs) -> BotResult<()> {
-    let BwsArgs {
-        config,
-        rank,
-        badges,
-    } = args;
+const MIN_BADGES_OFFSET: usize = 2;
 
-    let mode = config.mode.unwrap_or(GameMode::STD);
-
-    let name = match config.into_username() {
+async fn bws(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Bws<'_>) -> BotResult<()> {
+    let name = match username!(ctx, orig, args) {
         Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
+        None => match ctx.psql().get_user_osu(orig.user_id()?).await {
+            Ok(Some(osu)) => osu.into_username(),
+            Ok(None) => return require_link(&ctx, &orig).await,
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(err);
+            }
+        },
     };
 
-    let user_args = UserArgs::new(name.as_str(), mode);
+    let Bws { rank, badges, .. } = args;
+
+    let user_args = UserArgs::new(name.as_str(), GameMode::STD);
 
     let user = match get_user(&ctx, &user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("User `{name}` was not found");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
-        Err(why) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+        Err(err) => {
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 
@@ -114,150 +195,9 @@ async fn _bws(ctx: Arc<Context>, data: CommandData<'_>, args: BwsArgs) -> BotRes
     };
 
     let embed_data = BWSEmbed::new(user, badges_curr, badges_min, badges_max, rank);
-    let builder = embed_data.into_builder().build().into();
-    data.create_message(&ctx, builder).await?;
+    let embed = embed_data.into_builder().build();
+    let builder = MessageBuilder::new().embed(embed);
+    orig.create_message(&ctx, &builder).await?;
 
     Ok(())
-}
-
-struct BwsArgs {
-    config: UserConfig,
-    rank: Option<u32>,
-    badges: Option<usize>,
-}
-
-impl BwsArgs {
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: Id<UserMarker>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(author_id).await?;
-        let mut rank = None;
-        let mut badges = None;
-
-        for arg in args.take(3) {
-            if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
-                let key = &arg[..idx];
-                let value = arg[idx + 1..].trim_end();
-
-                match key {
-                    RANK | "r" => match value.parse::<u32>() {
-                        Ok(num) => rank = Some(num.max(1)),
-                        Err(_) => {
-                            let content = "Failed to parse `rank`. Must be a positive integer.";
-
-                            return Ok(Err(content.into()));
-                        }
-                    },
-                    "badges" | "badge" | "b" => match value.parse() {
-                        Ok(num) => badges = Some(num),
-                        Err(_) => {
-                            let content = "Failed to parse `badges`. Must be a positive integer.";
-
-                            return Ok(Err(content.into()));
-                        }
-                    },
-                    _ => {
-                        let content = format!(
-                            "Unrecognized option `{key}`.\nAvailable options are: `rank` or `badges`."
-                        );
-
-                        return Ok(Err(content.into()));
-                    }
-                }
-            } else {
-                match check_user_mention(ctx, arg).await? {
-                    Ok(osu) => config.osu = Some(osu),
-                    Err(content) => return Ok(Err(content)),
-                }
-            }
-        }
-
-        let args = Self {
-            config,
-            rank,
-            badges,
-        };
-
-        Ok(Ok(args))
-    }
-
-    async fn slash(ctx: &Context, command: &mut ApplicationCommand) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(command.user_id()?).await?;
-        let mut rank = None;
-        let mut badges = None;
-
-        for option in command.yoink_options() {
-            match option.value {
-                CommandOptionValue::String(value) => match option.name.as_str() {
-                    NAME => config.osu = Some(value.into()),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::Integer(value) => match option.name.as_str() {
-                    RANK => rank = Some(value.max(1) as u32),
-                    "badges" => badges = Some(value.max(0) as usize),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::User(value) => match option.name.as_str() {
-                    DISCORD => match parse_discord(ctx, value).await? {
-                        Ok(osu) => config.osu = Some(osu),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            }
-        }
-
-        let args = Self {
-            config,
-            rank,
-            badges,
-        };
-
-        Ok(Ok(args))
-    }
-}
-
-pub async fn slash_bws(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match BwsArgs::slash(&ctx, &mut command).await? {
-        Ok(args) => _bws(ctx, command.into(), args).await,
-        Err(content) => command.error(&ctx, content).await,
-    }
-}
-
-pub fn define_bws() -> MyCommand {
-    let name = option_name();
-    let discord = option_discord();
-
-    let rank_help =
-        "If specified, it will calculate how the bws value would evolve towards the given rank.";
-
-    let rank = MyCommandOption::builder(RANK, "Specify a target rank to reach")
-        .help(rank_help)
-        .min_int(1)
-        .integer(Vec::new(), false);
-
-    let badges_help = "Calculate how the bws value evolves towards the given amount of badges.\n\
-        If none is specified, it defaults to the current amount + 2.";
-
-    let badges = MyCommandOption::builder("badges", "Specify an amount of badges to reach")
-        .help(badges_help)
-        .min_int(0)
-        .integer(Vec::new(), false);
-
-    let description = "Show the badge weighted seeding for an osu!standard player";
-
-    let help = "To combat those pesky derank players ruining everyone's tourneys, \
-        many tournaments use a \"Badge Weighted Seeding\" system to adjust a player's rank based \
-        on the amount of badges they own.\n\
-        Instead of considering a player's global rank at face value, tourneys calculate \
-        the player's bws value and use that to determine if they are allowed to \
-        participate based on the rank restrictions.\n\
-        There are various formulas around but this command uses `rank^(0.9937^(badges^2))`.";
-
-    MyCommand::new("bws", description)
-        .help(help)
-        .options(vec![name, rank, badges, discord])
 }

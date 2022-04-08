@@ -6,7 +6,7 @@ use rosu_v2::prelude::{GameMode, OsuError};
 
 use crate::{
     commands::osu::UserArgs,
-    core::{commands::CommandData, Context},
+    core::{commands_::CommandData, Context},
     custom_client::OsekaiBadge,
     database::UserConfig,
     embeds::{BadgeEmbed, EmbedData},

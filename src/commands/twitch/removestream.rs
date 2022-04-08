@@ -1,39 +1,43 @@
+use command_macros::command;
+
 use crate::{
+    core::commands::CommandOrigin,
     util::{
+        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, TWITCH_API_ISSUE},
-        MessageExt,
     },
-    BotResult, CommandData, Context, MessageBuilder,
+    BotResult, Context,
 };
 
 use std::sync::Arc;
 
 #[command]
-#[authority()]
-#[short_desc("Stop tracking a twitch user in a channel")]
+#[flags(AUTHORITY, ONLY_GUILDS)]
+#[desc("Stop tracking a twitch user in a channel")]
 #[aliases("streamremove", "untrackstream")]
 #[usage("[stream name]")]
 #[example("loltyler1")]
-async fn removestream(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { mut args, msg, num } => match super::StreamArgs::args(&mut args) {
-            Ok(name) => {
-                _removestream(ctx, CommandData::Message { msg, args, num }, name.as_ref()).await
-            }
-            Err(content) => {
-                let builder = MessageBuilder::new().content(content);
-                msg.create_message(&ctx, builder).await?;
+#[group(Twitch)]
+async fn prefix_removestream(
+    ctx: Arc<Context>,
+    msg: &Message,
+    mut args: Args<'_>,
+) -> BotResult<()> {
+    let name = match args.next() {
+        Some(arg) => arg.cow_to_ascii_lowercase(),
+        None => {
+            let content = "The first argument must be the name of the stream";
 
-                Ok(())
-            }
-        },
-        CommandData::Interaction { command } => super::slash_trackstream(ctx, *command).await,
-    }
+            return msg.error(&ctx, content).await;
+        }
+    };
+
+    removestream(ctx, msg.into(), name.as_ref()).await
 }
 
-pub async fn _removestream(
+pub async fn removestream(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
+    orig: CommandOrigin<'_>,
     name: &'_ str,
 ) -> BotResult<()> {
     let twitch_id = match ctx.clients.custom.get_twitch_user(name).await {
@@ -41,16 +45,16 @@ pub async fn _removestream(
         Ok(None) => {
             let content = format!("Twitch user `{name}` was not found");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
-        Err(why) => {
-            let _ = data.error(&ctx, TWITCH_API_ISSUE).await;
+        Err(err) => {
+            let _ = orig.error(&ctx, TWITCH_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 
-    let channel = data.channel_id().get();
+    let channel = orig.channel_id().get();
     ctx.remove_tracking(twitch_id, channel);
 
     match ctx.psql().remove_stream_track(channel, twitch_id).await {
@@ -61,19 +65,19 @@ pub async fn _removestream(
                 format!("I'm no longer tracking `{name}`'s twitch stream in this channel");
 
             let builder = MessageBuilder::new().content(content);
-            data.create_message(&ctx, builder).await?;
+            orig.create_message(&ctx, &builder).await?;
 
             Ok(())
         }
         Ok(false) => {
             let content = format!("Twitch user `{name}` was not tracked in this channel");
 
-            data.error(&ctx, content).await
+            orig.error(&ctx, content).await
         }
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            Err(why)
+            Err(err)
         }
     }
 }

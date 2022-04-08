@@ -2,10 +2,9 @@ use std::{cmp::Ordering, iter};
 
 use crate::{
     commands::osu::RankData,
-    embeds::Author,
     util::{
         numbers::{with_comma_float, with_comma_int},
-        osu::{approx_more_pp, pp_missing, ExtractablePp, PpListUtil},
+        osu::{approx_more_pp, pp_missing, ExtractablePp, PpListUtil}, builder::AuthorBuilder,
     },
 };
 
@@ -15,7 +14,7 @@ pub struct RankEmbed {
     description: String,
     title: String,
     thumbnail: String,
-    author: Author,
+    author: AuthorBuilder,
 }
 
 impl RankEmbed {

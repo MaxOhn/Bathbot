@@ -1,6 +1,6 @@
 use crate::{
-    embeds::{osu, Author, Footer},
-    util::constants::OSU_BASE,
+    embeds::{osu,  },
+    util::{constants::OSU_BASE, builder::{FooterBuilder, AuthorBuilder}},
 };
 
 use rosu_v2::prelude::{MostPlayedMap, User};
@@ -8,8 +8,8 @@ use std::fmt::Write;
 
 pub struct MostPlayedEmbed {
     description: String,
-    author: Author,
-    footer: Footer,
+    author: AuthorBuilder,
+    footer: FooterBuilder,
     thumbnail: String,
     title: &'static str,
 }
@@ -44,7 +44,7 @@ impl MostPlayedEmbed {
             description,
             title: "Most played maps:",
             author: author!(user),
-            footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
+            footer: FooterBuilder::new(format!("Page {}/{}", pages.0, pages.1)),
         }
     }
 }

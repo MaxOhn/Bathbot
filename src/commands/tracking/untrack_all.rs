@@ -1,65 +1,63 @@
 use std::sync::Arc;
 
+use command_macros::command;
 use rosu_v2::model::GameMode;
 
 use crate::{
-    util::{constants::GENERAL_ISSUE, MessageExt},
-    BotResult, CommandData, Context, MessageBuilder,
+    core::commands::CommandOrigin,
+    util::{builder::MessageBuilder, constants::GENERAL_ISSUE},
+    BotResult, Context,
 };
 
 #[command]
-#[authority()]
-#[short_desc("Untrack all users in a channel")]
-#[long_desc(
+#[desc("Untrack all users in a channel")]
+#[help(
     "Stop notifying a channel about new plays in any user's top100.\n\
     If you only want to untrack all users of a single mode, \
     provide the mode as argument."
 )]
 #[usage("[osu / mania / taiko / ctb]")]
 #[example("", "mania")]
-async fn untrackall(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            let mode = match args.next() {
-                Some("osu") | Some("o") | Some("standard") | Some("s") => Some(GameMode::STD),
-                Some("mania") | Some("m") => Some(GameMode::MNA),
-                Some("taiko") | Some("t") => Some(GameMode::TKO),
-                Some("ctb") | Some("c") | Some("catch") => Some(GameMode::CTB),
-                None => None,
-                _ => {
-                    let content = "If an argument is provided, \
-                        it must be either `osu`, `mania`, `taiko`, or `ctb`.";
+#[flags(AUTHORITY, ONLY_GUILDS, SKIP_DEFER)]
+#[group(Tracking)]
+async fn prefix_untrackall(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+    let mode = match args.next() {
+        Some("osu") | Some("o") | Some("standard") | Some("s") => Some(GameMode::STD),
+        Some("mania") | Some("m") => Some(GameMode::MNA),
+        Some("taiko") | Some("t") => Some(GameMode::TKO),
+        Some("ctb") | Some("c") | Some("catch") => Some(GameMode::CTB),
+        None => None,
+        _ => {
+            let content = "If an argument is provided, \
+                it must be either `osu`, `mania`, `taiko`, or `ctb`.";
 
-                    return msg.error(&ctx, content).await;
-                }
-            };
-
-            _untrackall(ctx, CommandData::Message { msg, args, num }, mode).await
+            return msg.error(&ctx, content).await;
         }
-        CommandData::Interaction { command } => super::slash_track(ctx, *command).await,
-    }
+    };
+
+    untrackall(ctx, msg.into(), mode).await
 }
 
-pub async fn _untrackall(
+pub async fn untrackall(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
+    orig: CommandOrigin<'_>,
     mode: Option<GameMode>,
 ) -> BotResult<()> {
-    let channel_id = data.channel_id();
+    let channel_id = orig.channel_id();
     let remove_fut = ctx.tracking().remove_channel(channel_id, mode, ctx.psql());
 
     match remove_fut.await {
         Ok(amount) => {
             let content = format!("Untracked {amount} users in this channel");
             let builder = MessageBuilder::new().content(content);
-            data.create_message(&ctx, builder).await?;
+            orig.create_message(&ctx, &builder).await?;
 
             Ok(())
         }
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            Err(why)
+            Err(err)
         }
     }
 }

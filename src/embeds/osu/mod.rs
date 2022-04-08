@@ -1,4 +1,3 @@
-mod avatar;
 mod badge;
 mod bws;
 mod common;
@@ -61,7 +60,6 @@ use rosu_v2::prelude::{Beatmap, GameMode, GameMods};
 use crate::util::{datetime::sec_to_minsec, numbers::round, BeatmapExt, ScoreExt};
 
 pub use self::{
-    avatar::AvatarEmbed,
     badge::BadgeEmbed,
     bws::BWSEmbed,
     common::CommonEmbed,

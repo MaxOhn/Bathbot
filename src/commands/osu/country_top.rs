@@ -1,47 +1,105 @@
 use std::{fmt::Write, sync::Arc};
 
+use command_macros::{HasName, SlashCommand};
 use eyre::Report;
-use rosu_v2::prelude::{CountryCode as CountryCodeRosu, GameMode, GameMods, OsuError, Username};
-use twilight_model::application::{
-    command::CommandOptionChoice,
-    interaction::{application_command::CommandOptionValue, ApplicationCommand},
+use rosu_v2::prelude::{CountryCode, GameMode, GameMods, OsuError};
+use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
+use twilight_model::{
+    application::interaction::ApplicationCommand,
+    id::{marker::UserMarker, Id},
 };
 
 use crate::{
-    commands::{osu::UserArgs, DoubleResultCow, MyCommand, MyCommandOption},
-    core::{commands::CommandData, Context},
+    core::Context,
     custom_client::{OsuTrackerCountryDetails, OsuTrackerCountryScore},
     database::OsuData,
     embeds::{EmbedData, OsuTrackerCountryTopEmbed},
-    error::Error,
     pagination::{OsuTrackerCountryTopPagination, Pagination},
     util::{
-        constants::{
-            common_literals::{ACC, ACCURACY, COUNTRY, MODS, REVERSE, SORT},
-            GENERAL_ISSUE, OSUTRACKER_ISSUE, OSU_API_ISSUE,
-        },
+        builder::MessageBuilder,
+        constants::{GENERAL_ISSUE, OSUTRACKER_ISSUE, OSU_API_ISSUE},
         matcher, numbers,
         osu::{ModSelection, ScoreOrder},
-        ApplicationCommandExt, CountryCode, CowUtils, FilterCriteria, MessageBuilder, MessageExt,
-        Searchable,
+        query::FilterCriteria,
+        ApplicationCommandExt, Authored, CowUtils,
     },
     BotResult,
 };
 
-use super::option_mods_explicit;
+use super::UserArgs;
 
-async fn countrytop_(
+#[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
+#[command(name = "countrytop")]
+/// Display the country's top scores
+pub struct CountryTop {
+    /// Specify a country (code)
+    country: Option<String>,
+    /// Choose how the scores should be ordered, defaults to PP
+    sort: Option<CountryTopOrder>,
+    #[command(help = "Filter out all scores that don't match the specified mods.\n\
+        Mods must be given as `+mods` for included mods, `+mods!` for exact mods, \
+        or `-mods!` for excluded mods.\n\
+        Examples:\n\
+        - `+hd`: Scores must have at least `HD` but can also have more other mods\n\
+        - `+hdhr!`: Scores must have exactly `HDHR`\n\
+        - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
+        - `-nm!`: Scores can not be nomod so there must be any other mod")]
+    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)
+    mods: Option<String>,
+    /// Reverse the resulting score list
+    reverse: Option<bool>,
+    /// Search for a specific artist, title, difficulty, or mapper
+    query: Option<String>,
+    /// Only keep scores from this username
+    name: Option<String>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Only keep scores from this discord user
+    discord: Option<Id<UserMarker>>,
+}
+
+#[derive(CommandOption, CreateOption)]
+pub enum CountryTopOrder {
+    #[option(name = "Accuracy", value = "acc")]
+    Acc,
+    #[option(name = "Date", value = "date")]
+    Date,
+    #[option(name = "Length", value = "len")]
+    Length,
+    #[option(name = "Misses", value = "miss")]
+    Misses,
+    #[option(name = "PP", value = "pp")]
+    Pp,
+}
+
+async fn slash_countrytop(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
-    mut args: CountryTopArgs,
+    mut command: Box<ApplicationCommand>,
 ) -> BotResult<()> {
-    let author_id = data.author()?.id;
+    let mut args = CountryTop::from_interaction(command.input_data())?;
+
+    let mods = match args.mods.map(|mods| matcher::get_mods(&mods)) {
+        Some(mods) => mods,
+        None => {
+            let content = "Failed to parse mods.\n\
+                If you want included mods, specify it e.g. as `+hrdt`.\n\
+                If you want exact mods, specify it e.g. as `+hdhr!`.\n\
+                And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
+
+            return command.error(&ctx, content).await;
+        }
+    };
+
+    let author = command.user_id()?;
 
     let country_code = match args.country.take() {
         Some(code) => code,
         None => match ctx
             .psql()
-            .get_user_osu(author_id)
+            .get_user_osu(author)
             .await
             .map(|osu| osu.map(OsuData::into_username))
         {
@@ -53,24 +111,24 @@ async fn countrytop_(
                     Err(OsuError::NotFound) => {
                         let content = format!("User `{name}` was not found");
 
-                        return data.error(&ctx, content).await;
+                        return command.error(&ctx, content).await;
                     }
                     Err(err) => {
-                        let _ = data.error(&ctx, OSU_API_ISSUE).await;
+                        let _ = command.error(&ctx, OSU_API_ISSUE).await;
 
                         return Err(err.into());
                     }
                 };
 
-                user.country_code.as_str().into()
+                user.country_code.into()
             }
             Ok(None) => {
                 let content = "Since you're not linked, you must specify a country (code)";
 
-                return data.error(&ctx, content).await;
+                return command.error(&ctx, content).await;
             }
             Err(err) => {
-                let _ = data.error(&ctx, GENERAL_ISSUE).await;
+                let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
                 return Err(err);
             }
@@ -85,7 +143,7 @@ async fn countrytop_(
     let mut details = match details_fut.await {
         Ok(details) => details,
         Err(err) => {
-            let _ = data.error(&ctx, OSUTRACKER_ISSUE).await;
+            let _ = command.error(&ctx, OSUTRACKER_ISSUE).await;
 
             return Err(err.into());
         }
@@ -94,7 +152,7 @@ async fn countrytop_(
     let mut scores = details.scores.drain(..).zip(1..).collect();
     let details = OsuTrackerCountryDetailsCompact::from(details);
 
-    filter_scores(&ctx, &mut scores, &args).await;
+    filter_scores(&ctx, &mut scores, &args, mods).await;
 
     let pages = numbers::div_euclid(10, scores.len());
     let initial = &scores[..scores.len().min(10)];
@@ -103,10 +161,10 @@ async fn countrytop_(
         .into_builder()
         .build();
 
-    let content = write_content(&details.country, &args, scores.len());
+    let content = write_content(&details.country, &args, mods, scores.len());
     let builder = MessageBuilder::new().embed(embed).content(content);
 
-    let response_raw = data.create_message(&ctx, builder).await?;
+    let response_raw = command.update(&ctx, &builder).await?;
 
     if scores.len() <= 10 {
         return Ok(());
@@ -115,10 +173,9 @@ async fn countrytop_(
     let response = response_raw.model().await?;
 
     let pagination = OsuTrackerCountryTopPagination::new(response, details, scores, args.sort_by);
-    let owner = data.author()?.id;
 
     tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
+        if let Err(err) = pagination.start(&ctx, author, 60).await {
             warn!("{:?}", Report::new(err));
         }
     });
@@ -129,9 +186,10 @@ async fn countrytop_(
 async fn filter_scores(
     ctx: &Context,
     scores: &mut Vec<(OsuTrackerCountryScore, usize)>,
-    args: &CountryTopArgs,
+    args: &CountryTop,
+    mods: Option<ModSelection>,
 ) {
-    match args.mods {
+    match mods {
         Some(ModSelection::Include(GameMods::NoMod)) => {
             scores.retain(|(score, _)| score.mods.is_empty())
         }
@@ -169,7 +227,7 @@ async fn filter_scores(
 
 pub struct OsuTrackerCountryDetailsCompact {
     pub country: String,
-    pub code: CountryCodeRosu,
+    pub code: CountryCode,
     pub pp: f32,
 }
 
@@ -183,93 +241,14 @@ impl From<OsuTrackerCountryDetails> for OsuTrackerCountryDetailsCompact {
     }
 }
 
-struct CountryTopArgs {
-    country: Option<CountryCode>,
+fn write_content(
+    name: &str,
+    args: &CountryTop,
     mods: Option<ModSelection>,
-    sort_by: ScoreOrder,
-    reverse: bool,
-    query: Option<String>,
-    username: Option<Username>,
-}
-
-impl CountryTopArgs {
-    const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
-        If you want included mods, specify it e.g. as `+hrdt`.\n\
-        If you want exact mods, specify it e.g. as `+hdhr!`.\n\
-        And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
-
-    pub fn slash(command: &mut ApplicationCommand) -> DoubleResultCow<Self> {
-        let mut country = None;
-        let mut mods = None;
-        let mut sort_by = None;
-        let mut reverse = None;
-        let mut query = None;
-        let mut username = None;
-
-        for option in command.yoink_options() {
-            match option.value {
-                CommandOptionValue::String(mut value) => match option.name.as_str() {
-                    COUNTRY => match value.as_str() {
-                        "global" | "world" => country = Some("global".into()),
-                        _ => {
-                            let country_ = if value.len() == 2 && value.is_ascii() {
-                                value.make_ascii_uppercase();
-
-                                value.into()
-                            } else if let Some(code) = CountryCode::from_name(&value) {
-                                code
-                            } else {
-                                let content = format!(
-                                    "Failed to parse `{value}` as country or country code.\n\
-                                    Be sure to specify a valid country or two ASCII letter country code."
-                                );
-
-                                return Ok(Err(content.into()));
-                            };
-
-                            country = Some(country_)
-                        }
-                    },
-                    MODS => match matcher::get_mods(&value) {
-                        Some(mods_) => mods = Some(mods_),
-                        None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
-                    },
-                    SORT => match value.as_str() {
-                        ACC => sort_by = Some(ScoreOrder::Acc),
-                        "date" => sort_by = Some(ScoreOrder::Date),
-                        "len" => sort_by = Some(ScoreOrder::Length),
-                        "miss" => sort_by = Some(ScoreOrder::Misses),
-                        "pp" => sort_by = Some(ScoreOrder::Pp),
-                        _ => return Err(Error::InvalidCommandOptions),
-                    },
-                    "query" => query = Some(value),
-                    "username" => username = Some(value.into()),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::Boolean(value) => match option.name.as_str() {
-                    REVERSE => reverse = Some(value),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            }
-        }
-
-        let args = Self {
-            country,
-            mods,
-            sort_by: sort_by.unwrap_or(ScoreOrder::Pp),
-            reverse: reverse.unwrap_or(false),
-            query,
-            username,
-        };
-
-        Ok(Ok(args))
-    }
-}
-
-fn write_content(name: &str, args: &CountryTopArgs, amount: usize) -> String {
-    if args.query.is_some() || args.mods.is_some() || args.username.is_some() {
-        content_with_condition(name, args, amount)
+    amount: usize,
+) -> String {
+    if args.query.is_some() || mods.is_some() || args.username.is_some() {
+        content_with_condition(name, args, mods, amount)
     } else {
         let genitive = if name.ends_with('s') { "" } else { "s" };
         let reverse = if args.reverse { "reversed " } else { "" };
@@ -290,7 +269,12 @@ fn write_content(name: &str, args: &CountryTopArgs, amount: usize) -> String {
     }
 }
 
-fn content_with_condition(name: &str, args: &CountryTopArgs, amount: usize) -> String {
+fn content_with_condition(
+    name: &str,
+    args: &CountryTop,
+    mods: Option<ModSelection>,
+    amount: usize,
+) -> String {
     let mut content = String::with_capacity(64);
 
     let genitive = if name.ends_with('s') { "" } else { "s" };
@@ -311,7 +295,7 @@ fn content_with_condition(name: &str, args: &CountryTopArgs, amount: usize) -> S
         content.push('`');
     }
 
-    if let Some(selection) = args.mods {
+    if let Some(selection) = mods {
         if !content.is_empty() {
             content.push_str(" ~ ");
         }
@@ -345,59 +329,4 @@ fn content_with_condition(name: &str, args: &CountryTopArgs, amount: usize) -> S
     let _ = write!(content, "\nFound {amount} matching top score{plural}:");
 
     content
-}
-
-pub async fn slash_countrytop(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match CountryTopArgs::slash(&mut command)? {
-        Ok(args) => countrytop_(ctx, command.into(), args).await,
-        Err(content) => command.error(&ctx, content).await,
-    }
-}
-
-pub fn define_countrytop() -> MyCommand {
-    let country =
-        MyCommandOption::builder(COUNTRY, "Specify a country (code)").string(Vec::new(), false);
-
-    let sort_choices = vec![
-        CommandOptionChoice::String {
-            name: ACCURACY.to_owned(),
-            value: ACC.to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "date".to_owned(),
-            value: "date".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "length".to_owned(),
-            value: "len".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "misses".to_owned(),
-            value: "miss".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "pp".to_owned(),
-            value: "pp".to_owned(),
-        },
-    ];
-
-    let sort = MyCommandOption::builder(SORT, "Choose how the scores should be ordered")
-        .help("Choose how the scores should be ordered, defaults to `pp`.")
-        .string(sort_choices, false);
-
-    let mods = option_mods_explicit();
-
-    let reverse =
-        MyCommandOption::builder(REVERSE, "Reverse the resulting score list").boolean(false);
-
-    let query_description = "Search for a specific artist, title, difficulty, or mapper";
-
-    let query = MyCommandOption::builder("query", query_description).string(Vec::new(), false);
-
-    let username = MyCommandOption::builder("username", "Only keep scores from this user")
-        .string(Vec::new(), false);
-
-    let options = vec![country, sort, mods, reverse, query, username];
-
-    MyCommand::new("countrytop", "Display the country's top scores").options(options)
 }

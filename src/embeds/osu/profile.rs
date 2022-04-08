@@ -8,21 +8,21 @@ use twilight_model::{
 
 use crate::{
     commands::osu::ProfileResult,
-    embeds::{attachment, Author, EmbedFields, Footer},
+    embeds::{attachment,  EmbedFields, },
     util::{
         datetime::{date_to_string, how_long_ago_text, sec_to_minsec},
         numbers::{round, with_comma_int},
         osu::grade_emote,
-        Emote,
+        Emote, builder::{FooterBuilder, AuthorBuilder},
     },
 };
 
 #[derive(Clone)]
 pub struct ProfileEmbed {
-    author: Author,
+    author: AuthorBuilder,
     description: String,
     fields: EmbedFields,
-    footer: Footer,
+    footer: FooterBuilder,
     image: String,
     thumbnail: String,
 }
@@ -50,7 +50,7 @@ impl ProfileEmbed {
             author: author!(user),
             description,
             fields: Vec::new(),
-            footer: Footer::new(footer_text(user)),
+            footer: FooterBuilder::new(footer_text(user)),
             image: attachment("profile_graph.png"),
             thumbnail: user.avatar_url.to_owned(),
         }
@@ -73,7 +73,7 @@ impl ProfileEmbed {
             author: author!(user),
             description,
             fields,
-            footer: Footer::new(footer_text),
+            footer: FooterBuilder::new(footer_text),
             image: attachment("profile_graph.png"),
             thumbnail: user.avatar_url.to_owned(),
         }
@@ -265,7 +265,7 @@ impl ProfileEmbed {
             author: author!(user),
             description,
             fields,
-            footer: Footer::new(footer_text),
+            footer: FooterBuilder::new(footer_text),
             image: attachment("profile_graph.png"),
             thumbnail: user.avatar_url.to_owned(),
         }

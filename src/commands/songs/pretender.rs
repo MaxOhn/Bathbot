@@ -1,18 +1,20 @@
-use crate::{BotResult, CommandData, Context};
-
 use std::sync::Arc;
 
-#[command]
-#[short_desc("https://youtu.be/SBjQ9tuuTJQ?t=83")]
-#[bucket("songs")]
-#[no_typing()]
-async fn pretender(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    let (lyrics, delay) = _pretender();
+use command_macros::command;
 
-    super::song_send(lyrics, delay, ctx, data).await
+use crate::{BotResult, Context};
+
+#[command]
+#[desc("https://youtu.be/SBjQ9tuuTJQ?t=83")]
+#[group(Songs)]
+#[flags(SKIP_DEFER)]
+async fn prefix_pretender(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+    let (lyrics, delay) = pretender_();
+
+    super::song(lyrics, delay, ctx, msg.into()).await
 }
 
-pub fn _pretender() -> (&'static [&'static str], u64) {
+pub fn pretender_() -> (&'static [&'static str], u64) {
     let lyrics = &[
         "What if I say I'm not like the others?",
         "What if I say I'm not just another oooone of your plays?",

@@ -1,18 +1,20 @@
-use crate::{BotResult, CommandData, Context};
-
 use std::sync::Arc;
 
-#[command]
-#[short_desc("https://youtu.be/_yWU0lFghxU?t=54")]
-#[bucket("songs")]
-#[no_typing()]
-async fn ding(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    let (lyrics, delay) = _ding();
+use command_macros::command;
 
-    super::song_send(lyrics, delay, ctx, data).await
+use crate::{core::Context, BotResult};
+
+#[command]
+#[desc("https://youtu.be/_yWU0lFghxU?t=54")]
+#[group(Songs)]
+#[flags(SKIP_DEFER)]
+async fn prefix_ding(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+    let (lyrics, delay) = ding_();
+
+    super::song(lyrics, delay, ctx, msg.into()).await
 }
 
-pub fn _ding() -> (&'static [&'static str], u64) {
+pub fn ding_() -> (&'static [&'static str], u64) {
     let lyrics = &[
         "Oh-oh-oh, hübsches Ding",
         "Ich versteck' mein' Ehering",

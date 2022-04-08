@@ -1,47 +1,188 @@
-use std::{cmp::Ordering, iter, sync::Arc};
+use std::{borrow::Cow, cmp::Ordering, iter, sync::Arc};
 
+use command_macros::{command, HasName, SlashCommand};
 use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError};
+use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
-    application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
+    application::interaction::ApplicationCommand,
     id::{marker::UserMarker, Id},
 };
 
 use crate::{
-    commands::{
-        check_user_mention, parse_discord, parse_mode_option, DoubleResultCow, MyCommand,
-        MyCommandOption,
-    },
+    commands::GameModeOption,
+    core::commands::{prefix::Args, CommandOrigin},
     custom_client::RankParam,
-    database::UserConfig,
     embeds::{EmbedData, WhatIfEmbed},
     tracking::process_osu_tracking,
     util::{
-        constants::{
-            common_literals::{DISCORD, MODE, NAME},
-            GENERAL_ISSUE, OSU_API_ISSUE,
-        },
+        constants::OSU_API_ISSUE,
+        matcher,
         osu::{approx_more_pp, ExtractablePp, PpListUtil},
-        ApplicationCommandExt, InteractionExt, MessageExt,
+        ApplicationCommandExt, ChannelExt,
     },
-    Args, BotResult, CommandData, Context, Error,
+    BotResult, Context,
 };
 
-use super::{get_user_and_scores, option_discord, option_mode, option_name, ScoreArgs, UserArgs};
+use super::{get_user_and_scores, HasName, ScoreArgs, UserArgs};
 
-async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> BotResult<()> {
-    let WhatIfArgs { config, pp, count } = args;
-    let mode = config.mode.unwrap_or(GameMode::STD);
+pub enum WhatIfData {
+    NonTop100,
+    NoScores {
+        count: usize,
+        rank: Option<u32>,
+    },
+    Top100 {
+        bonus_pp: f32,
+        count: usize,
+        new_pp: f32,
+        new_pos: usize,
+        max_pp: f32,
+        rank: Option<u32>,
+    },
+}
 
-    let name = match config.into_username() {
-        Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
-    };
+impl WhatIfData {
+    pub fn count(&self) -> usize {
+        match self {
+            WhatIfData::NonTop100 => 0,
+            WhatIfData::NoScores { count, .. } => *count,
+            WhatIfData::Top100 { count, .. } => *count,
+        }
+    }
+}
+
+#[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
+#[command(name = "whatif")]
+/// Display the impact of a new X pp score for a user
+pub struct WhatIf<'a> {
+    #[command(min_value = 0.0)]
+    /// Specify a pp amount
+    pp: f32,
+    /// Specify a gamemode
+    mode: Option<GameModeOption>,
+    /// Specify a username
+    name: Option<Cow<'a, str>>,
+    #[command(min_value = 1, max_value = 1000)]
+    /// Specify how many times a score should be added, defaults to 1
+    count: Option<usize>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
+}
+
+impl<'m> WhatIf<'m> {
+    fn args(mode: GameMode, mut args: Args<'m>) -> Result<Self, &'static str> {
+        let mut pp = None;
+        let mut name = None;
+        let mut discord = None;
+
+        for arg in args.take(2) {
+            match arg.parse() {
+                Ok(num) => pp = Some(num),
+                Err(_) => match matcher::get_mention_user(arg) {
+                    Some(id) => discord = Some(id),
+                    None => name = Some(arg.into()),
+                },
+            }
+        }
+
+        Ok(Self {
+            pp: pp.ok_or("You must specify a pp value")?,
+            mode: Some(mode),
+            name,
+            discord,
+        })
+    }
+}
+
+#[command]
+#[desc("Display the impact of a new X pp score for a user")]
+#[help(
+    "Calculate the gain in pp if the user were \
+     to get a score with the given pp value"
+)]
+#[usage("[username] [number]")]
+#[example("badewanne3 321.98")]
+#[alias("wi")]
+#[group(Osu)]
+pub async fn prefix_whatif(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match WhatIf::args(GameMode::STD, args) {
+        Ok(args) => whatif(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
+    }
+}
+
+#[command]
+#[desc("Display the impact of a new X pp score for a mania user")]
+#[help(
+    "Calculate the gain in pp if the mania user were \
+     to get a score with the given pp value"
+)]
+#[usage("[username] [number]")]
+#[example("badewanne3 321.98")]
+#[alias("wim")]
+#[group(Mania)]
+pub async fn prefix_whatifmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match WhatIf::args(GameMode::MNA, args) {
+        Ok(args) => whatif(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
+    }
+}
+
+#[command]
+#[desc("Display the impact of a new X pp score for a taiko user")]
+#[help(
+    "Calculate the gain in pp if the taiko user were \
+     to get a score with the given pp value"
+)]
+#[usage("[username] [number]")]
+#[example("badewanne3 321.98")]
+#[alias("wit")]
+#[group(Taiko)]
+pub async fn prefix_whatiftaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match WhatIf::args(GameMode::TKO, args) {
+        Ok(args) => whatif(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
+    }
+}
+
+#[command]
+#[desc("Display the impact of a new X pp score for a ctb user")]
+#[help(
+    "Calculate the gain in pp if the ctb user were \
+     to get a score with the given pp value"
+)]
+#[usage("[username] [number]")]
+#[example("badewanne3 321.98")]
+#[alias("wic")]
+#[group(Catch)]
+pub async fn prefix_whatifctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match WhatIf::args(GameMode::CTB, args) {
+        Ok(args) => whatif(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
+    }
+}
+
+async fn slash_whatif(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    let args = WhatIf::form_interaction(command.input_data())?;
+
+    whatif(ctx, command.into(), args).await
+}
+
+async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) -> BotResult<()> {
+    let (name, mode) = name_mode!(ctx, orig, args);
+    let count = args.count.unwrap_or(1);
+    let pp = args.pp;
 
     if pp < 0.0 {
-        return data.error(&ctx, "The pp number must be non-negative").await;
+        return orig.error(&ctx, "The pp number must be non-negative").await;
     } else if pp > (i64::MAX / 1024) as f32 {
-        return data.error(&ctx, "Number too large").await;
+        return orig.error(&ctx, "Number too large").await;
     }
 
     // Retrieve the user and their top scores
@@ -53,12 +194,12 @@ async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> 
         Err(OsuError::NotFound) => {
             let content = format!("User `{name}` was not found");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
-        Err(why) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+        Err(err) => {
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 
@@ -142,258 +283,7 @@ async fn _whatif(ctx: Arc<Context>, data: CommandData<'_>, args: WhatIfArgs) -> 
         .build()
         .into();
 
-    data.create_message(&ctx, builder).await?;
+    orig.create_message(&ctx, builder).await?;
 
     Ok(())
-}
-
-#[command]
-#[short_desc("Display the impact of a new X pp score for a user")]
-#[long_desc(
-    "Calculate the gain in pp if the user were \
-     to get a score with the given pp value"
-)]
-#[usage("[username] [number]")]
-#[example("badewanne3 321.98")]
-#[aliases("wi")]
-pub async fn whatif(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match WhatIfArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut whatif_args)) => {
-                    whatif_args.config.mode.get_or_insert(GameMode::STD);
-
-                    _whatif(ctx, CommandData::Message { msg, args, num }, whatif_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => slash_whatif(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("Display the impact of a new X pp score for a mania user")]
-#[long_desc(
-    "Calculate the gain in pp if the mania user were \
-     to get a score with the given pp value"
-)]
-#[usage("[username] [number]")]
-#[example("badewanne3 321.98")]
-#[aliases("wim")]
-pub async fn whatifmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match WhatIfArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut whatif_args)) => {
-                    whatif_args.config.mode = Some(GameMode::MNA);
-
-                    _whatif(ctx, CommandData::Message { msg, args, num }, whatif_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => slash_whatif(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("Display the impact of a new X pp score for a taiko user")]
-#[long_desc(
-    "Calculate the gain in pp if the taiko user were \
-     to get a score with the given pp value"
-)]
-#[usage("[username] [number]")]
-#[example("badewanne3 321.98")]
-#[aliases("wit")]
-pub async fn whatiftaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match WhatIfArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut whatif_args)) => {
-                    whatif_args.config.mode = Some(GameMode::TKO);
-
-                    _whatif(ctx, CommandData::Message { msg, args, num }, whatif_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => slash_whatif(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("Display the impact of a new X pp score for a ctb user")]
-#[long_desc(
-    "Calculate the gain in pp if the ctb user were \
-     to get a score with the given pp value"
-)]
-#[usage("[username] [number]")]
-#[example("badewanne3 321.98")]
-#[aliases("wic")]
-pub async fn whatifctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match WhatIfArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut whatif_args)) => {
-                    whatif_args.config.mode = Some(GameMode::CTB);
-
-                    _whatif(ctx, CommandData::Message { msg, args, num }, whatif_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => slash_whatif(ctx, *command).await,
-    }
-}
-
-pub enum WhatIfData {
-    NonTop100,
-    NoScores {
-        count: usize,
-        rank: Option<u32>,
-    },
-    Top100 {
-        bonus_pp: f32,
-        count: usize,
-        new_pp: f32,
-        new_pos: usize,
-        max_pp: f32,
-        rank: Option<u32>,
-    },
-}
-
-impl WhatIfData {
-    pub fn count(&self) -> usize {
-        match self {
-            WhatIfData::NonTop100 => 0,
-            WhatIfData::NoScores { count, .. } => *count,
-            WhatIfData::Top100 { count, .. } => *count,
-        }
-    }
-}
-
-struct WhatIfArgs {
-    config: UserConfig,
-    pp: f32,
-    count: usize,
-}
-
-impl WhatIfArgs {
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: Id<UserMarker>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(author_id).await?;
-        let mut pp = None;
-
-        for arg in args.take(2) {
-            match arg.parse() {
-                Ok(num) => pp = Some(num),
-                Err(_) => match check_user_mention(ctx, arg).await? {
-                    Ok(osu) => config.osu = Some(osu),
-                    Err(content) => return Ok(Err(content)),
-                },
-            }
-        }
-
-        let pp = match pp {
-            Some(pp) => pp,
-            None => return Ok(Err("You need to provide a decimal number".into())),
-        };
-
-        let count = 1;
-
-        Ok(Ok(Self { config, pp, count }))
-    }
-
-    async fn slash(ctx: &Context, command: &mut ApplicationCommand) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(command.user_id()?).await?;
-        let mut pp = None;
-        let mut count = None;
-
-        for option in command.yoink_options() {
-            match option.value {
-                CommandOptionValue::String(value) => match option.name.as_str() {
-                    MODE => config.mode = parse_mode_option(&value),
-                    NAME => config.osu = Some(value.into()),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::Number(value) => match option.name.as_str() {
-                    "pp" => pp = Some(value.0 as f32),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::Integer(value) => match option.name.as_str() {
-                    "count" => count = Some(value as usize),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::User(value) => match option.name.as_str() {
-                    DISCORD => match parse_discord(ctx, value).await? {
-                        Ok(osu) => config.osu = Some(osu),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            }
-        }
-
-        let args = Self {
-            pp: pp.ok_or(Error::InvalidCommandOptions)?,
-            count: count.unwrap_or(1),
-            config,
-        };
-
-        Ok(Ok(args))
-    }
-}
-
-pub async fn slash_whatif(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match WhatIfArgs::slash(&ctx, &mut command).await? {
-        Ok(args) => _whatif(ctx, command.into(), args).await,
-        Err(content) => command.error(&ctx, content).await,
-    }
-}
-
-pub fn define_whatif() -> MyCommand {
-    let pp = MyCommandOption::builder("pp", "Specify a pp amount")
-        .min_num(0.0)
-        .number(Vec::new(), true);
-
-    let mode = option_mode();
-    let name = option_name();
-
-    let count_description = "Specify how many times a score should be added, defaults to 1";
-
-    let count = MyCommandOption::builder("count", count_description)
-        .min_int(1)
-        .max_int(1000)
-        .integer(Vec::new(), false);
-
-    let discord = option_discord();
-
-    let description = "Display the impact of a new X pp score for a user";
-
-    MyCommand::new("whatif", description).options(vec![pp, mode, name, count, discord])
 }

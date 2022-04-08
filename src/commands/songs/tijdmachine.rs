@@ -1,18 +1,20 @@
-use crate::{BotResult, CommandData, Context};
-
 use std::sync::Arc;
 
-#[command]
-#[short_desc("https://youtu.be/DT6tpUbWOms?t=47")]
-#[bucket("songs")]
-#[no_typing()]
-async fn tijdmachine(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    let (lyrics, delay) = _tijdmachine();
+use command_macros::command;
 
-    super::song_send(lyrics, delay, ctx, data).await
+use crate::{BotResult, Context};
+
+#[command]
+#[desc("https://youtu.be/DT6tpUbWOms?t=47")]
+#[group(Songs)]
+#[flags(SKIP_DEFER)]
+async fn prefix_tijdmachine(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+    let (lyrics, delay) = tijdmachine_();
+
+    super::song(lyrics, delay, ctx, msg.into()).await
 }
 
-pub fn _tijdmachine() -> (&'static [&'static str], u64) {
+pub fn tijdmachine_() -> (&'static [&'static str], u64) {
     let lyrics = &[
         "Als ik denk aan al die dagen,",
         "dat ik mij zo heb misdragen.",

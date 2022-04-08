@@ -1,23 +1,27 @@
-use std::{borrow::Cow, fmt::Write, sync::Arc};
+use std::{borrow::Cow, sync::Arc};
 
+use command_macros::command;
 use twilight_model::{
     guild::Permissions,
     id::{marker::RoleMarker, Id},
 };
 
 use crate::{
-    util::{
-        constants::{GENERAL_ISSUE, OWNER_USER_ID},
-        matcher, MessageExt,
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        Context,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder,
+    util::{
+        builder::MessageBuilder,
+        constants::{GENERAL_ISSUE, OWNER_USER_ID},
+        matcher,
+    },
+    BotResult,
 };
 
 #[command]
-#[only_guilds()]
-#[authority()]
-#[short_desc("Adjust authority roles for a server")]
-#[long_desc(
+#[desc("Adjust authority roles for a server")]
+#[help(
     "Decide which roles should be considered authority roles. \n\
     Authority roles enable the usage of certain commands like \
     `addstream` or `prune`.\n\
@@ -27,27 +31,22 @@ use crate::{
 )]
 #[usage("[@role1] [id of role2] ...")]
 #[example("-show", "@Moderator @Mod 83794728403223 @BotCommander")]
-#[aliases("authority")]
-async fn authorities(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match AuthorityCommandKind::args(&mut args) {
-                Ok(authority_args) => {
-                    _authorities(ctx, CommandData::Message { msg, args, num }, authority_args).await
-                }
-                Err(content) => msg.error(&ctx, content).await,
-            }
-        }
-        CommandData::Interaction { .. } => unreachable!(),
+#[alias("authority")]
+#[flags(AUTHORITY, ONLY_GUILDS, SKIP_DEFER)]
+#[group(Utility)]
+async fn prefix_authorities(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+    match AuthorityCommandKind::args(&mut args) {
+        Ok(args) => authorities(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
     }
 }
 
-pub(super) async fn _authorities(
+pub async fn authorities(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
+    orig: CommandOrigin<'_>,
     args: AuthorityCommandKind,
 ) -> BotResult<()> {
-    let guild_id = data.guild_id().unwrap();
+    let guild_id = orig.guild_id().unwrap();
 
     let mut content = match args {
         AuthorityCommandKind::Add(role_id) => {
@@ -56,7 +55,7 @@ pub(super) async fn _authorities(
             if roles.len() >= 10 {
                 let content = "You can have at most 10 roles per server setup as authorities.";
 
-                return data.error(&ctx, content).await;
+                return orig.error(&ctx, content).await;
             }
 
             let update_fut = ctx.update_guild_config(guild_id, move |config| {
@@ -66,7 +65,7 @@ pub(super) async fn _authorities(
             });
 
             if let Err(why) = update_fut.await {
-                let _ = data.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
                 return Err(why);
             }
@@ -75,13 +74,13 @@ pub(super) async fn _authorities(
         }
         AuthorityCommandKind::List => "Current authority roles for this server: ".to_owned(),
         AuthorityCommandKind::Remove(role_id) => {
-            let author_id = data.author()?.id;
+            let author_id = orig.author()?.id;
             let roles = ctx.guild_authorities(guild_id).await;
 
             if roles.iter().all(|&id| id != role_id) {
                 let content = "The role was no authority role anyway";
                 let builder = MessageBuilder::new().embed(content);
-                data.create_message(&ctx, builder).await?;
+                orig.create_message(&ctx, &builder).await?;
 
                 return Ok(());
             }
@@ -115,11 +114,11 @@ pub(super) async fn _authorities(
                             let content = "You cannot set authority roles to something \
                                 that would make you lose authority status.";
 
-                            return data.error(&ctx, content).await;
+                            return orig.error(&ctx, content).await;
                         }
                     }
                     Err(err) => {
-                        let _ = data.error(&ctx, GENERAL_ISSUE).await;
+                        let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
                         return Err(err.into());
                     }
@@ -130,16 +129,16 @@ pub(super) async fn _authorities(
                 config.authorities.retain(|id| *id != role_id);
             });
 
-            if let Err(why) = update_fut.await {
-                let _ = data.error(&ctx, GENERAL_ISSUE).await;
+            if let Err(err) = update_fut.await {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(why);
+                return Err(err);
             }
 
             "Successfully removed authority role. Authority roles now are: ".to_owned()
         }
         AuthorityCommandKind::Replace(roles) => {
-            let author_id = data.author()?.id;
+            let author_id = orig.user_id()?;
 
             // Make sure the author is still an authority after applying new roles
             if !(author_id.get() == OWNER_USER_ID
@@ -168,11 +167,11 @@ pub(super) async fn _authorities(
                             let content = "You cannot set authority roles to something \
                                 that would make you lose authority status.";
 
-                            return data.error(&ctx, content).await;
+                            return orig.error(&ctx, content).await;
                         }
                     }
                     Err(err) => {
-                        let _ = data.error(&ctx, GENERAL_ISSUE).await;
+                        let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
                         return Err(err.into());
                     }
@@ -184,7 +183,7 @@ pub(super) async fn _authorities(
             });
 
             if let Err(why) = update_fut.await {
-                let _ = data.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
                 return Err(why);
             }
@@ -197,7 +196,7 @@ pub(super) async fn _authorities(
     let roles = ctx.guild_authorities(guild_id).await;
     role_string(&roles, &mut content);
     let builder = MessageBuilder::new().embed(content);
-    data.create_message(&ctx, builder).await?;
+    orig.create_message(&ctx, &builder).await?;
 
     Ok(())
 }
@@ -217,7 +216,7 @@ fn role_string(roles: &[u64], content: &mut String) {
     }
 }
 
-pub(super) enum AuthorityCommandKind {
+pub enum AuthorityCommandKind {
     Add(u64),
     List,
     Remove(u64),

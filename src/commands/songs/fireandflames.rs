@@ -1,18 +1,20 @@
-use crate::{BotResult, CommandData, Context};
-
 use std::sync::Arc;
 
-#[command]
-#[short_desc("https://youtu.be/0jgrCKhxE1s?t=77")]
-#[bucket("songs")]
-#[no_typing()]
-async fn fireandflames(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    let (lyrics, delay) = _fireandflames();
+use command_macros::command;
 
-    super::song_send(lyrics, delay, ctx, data).await
+use crate::{BotResult, Context};
+
+#[command]
+#[desc("https://youtu.be/0jgrCKhxE1s?t=77")]
+#[group(Songs)]
+#[flags(SKIP_DEFER)]
+async fn prefix_fireandflames(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+    let (lyrics, delay) = fireandflames_();
+
+    super::song(lyrics, delay, ctx, msg.into()).await
 }
 
-pub fn _fireandflames() -> (&'static [&'static str], u64) {
+pub fn fireandflames_() -> (&'static [&'static str], u64) {
     let lyrics = &[
         "So far away we wait for the day-yay",
         "For the lives all so wasted and gooone",

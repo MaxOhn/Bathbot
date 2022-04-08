@@ -1,14 +1,14 @@
-use crate::{
-    embeds::{Author, Footer},
-    util::constants::SYMBOLS,
+use crate::util::{
+    builder::{AuthorBuilder, FooterBuilder},
+    constants::SYMBOLS,
 };
 
 use std::fmt::Write;
 
 pub struct BGRankingEmbed {
-    author: Author,
+    author: AuthorBuilder,
     description: String,
-    footer: Footer,
+    footer: FooterBuilder,
 }
 
 impl BGRankingEmbed {
@@ -55,9 +55,9 @@ impl BGRankingEmbed {
         };
 
         Self {
-            author: Author::new(author_text),
+            author: AuthorBuilder::new(author_text),
             description,
-            footer: Footer::new(footer_text),
+            footer: FooterBuilder::new(footer_text),
         }
     }
 }

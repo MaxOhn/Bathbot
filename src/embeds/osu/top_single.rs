@@ -1,9 +1,10 @@
 use crate::{
     core::Context,
     database::MinimizedPp,
-    embeds::{osu, Author, EmbedBuilder, EmbedData, Footer},
+    embeds::{osu, EmbedData},
     error::PpError,
     util::{
+        builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
         constants::AVATAR_URL,
         datetime::{how_long_ago_dynamic, HowLongAgoFormatterDynamic},
         numbers::{round, with_comma_int},
@@ -23,8 +24,8 @@ pub struct TopSingleEmbed {
     description: String,
     title: String,
     url: String,
-    author: Author,
-    footer: Footer,
+    author: AuthorBuilder,
+    footer: FooterBuilder,
     timestamp: DateTime<Utc>,
     thumbnail: String,
 
@@ -114,7 +115,7 @@ impl TopSingleEmbed {
             (if_fc.pp, round(if_fc.acc), hits)
         });
 
-        let footer = Footer::new(format!(
+        let footer = FooterBuilder::new(format!(
             "{:?} map by {} | played",
             map.status, mapset.creator_name
         ))

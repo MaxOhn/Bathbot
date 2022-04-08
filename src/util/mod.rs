@@ -1,18 +1,3 @@
-mod authored;
-mod bitflags;
-pub mod constants;
-mod country_code;
-mod cow;
-pub mod datetime;
-mod emote;
-pub mod exts;
-pub mod matcher;
-pub mod matrix;
-mod message_builder;
-pub mod numbers;
-pub mod osu;
-mod query;
-
 use std::io::Cursor;
 
 use futures::stream::{FuturesOrdered, StreamExt};
@@ -26,9 +11,23 @@ use twilight_model::channel::Message;
 use crate::{error::Error, BotResult, Context};
 
 pub use self::{
-    authored::Authored, bitflags::*, country_code::CountryCode, cow::CowUtils, emote::Emote,
-    exts::*, matrix::Matrix, message_builder::MessageBuilder, query::*,
+    bitflags::*, country_code::CountryCode, cow::CowUtils, emote::Emote, ext::*, matrix::Matrix,
 };
+
+pub mod builder;
+pub mod constants;
+pub mod datetime;
+pub mod matcher;
+pub mod matrix;
+pub mod numbers;
+pub mod osu;
+pub mod query;
+
+mod bitflags;
+mod country_code;
+mod cow;
+mod emote;
+mod ext;
 
 macro_rules! get {
     ($slice:ident[$idx:expr]) => {

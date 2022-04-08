@@ -4,21 +4,21 @@ use eyre::Report;
 use rosu_v2::prelude::{Score, User};
 
 use crate::{
-    embeds::{osu, Author, Footer},
+    embeds::{osu,  },
     pp::PpCalculator,
     util::{
         constants::OSU_BASE,
         numbers::{with_comma_float, with_comma_int},
-        ScoreExt,
+        ScoreExt, builder::{AuthorBuilder, FooterBuilder},
     }, core::Context,
 };
 
 pub struct NoChokeEmbed {
     description: String,
     title: String,
-    author: Author,
+    author: AuthorBuilder,
     thumbnail: String,
-    footer: Footer,
+    footer: FooterBuilder,
 }
 
 impl NoChokeEmbed {
@@ -103,7 +103,7 @@ impl NoChokeEmbed {
             author: author!(user),
             description,
             thumbnail: user.avatar_url.to_owned(),
-            footer: Footer::new(footer_text),
+            footer: FooterBuilder::new(footer_text),
         }
     }
 }

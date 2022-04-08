@@ -2,24 +2,26 @@ use std::fmt::Write;
 
 use crate::{
     custom_client::OsuTrackerModsEntry,
-    embeds::{Author, Footer},
-    util::numbers::with_comma_int,
+    util::{
+        builder::{AuthorBuilder, FooterBuilder},
+        numbers::with_comma_int,
+    },
 };
 
 pub struct OsuTrackerModsEmbed {
-    author: Author,
+    author: AuthorBuilder,
     description: String,
-    footer: Footer,
+    footer: FooterBuilder,
 }
 
 impl OsuTrackerModsEmbed {
     pub fn new(entries: &[OsuTrackerModsEntry], (page, pages): (usize, usize)) -> Self {
         let author =
-            Author::new("Most common mods in top plays").url("https://osutracker.com/stats");
+            AuthorBuilder::new("Most common mods in top plays").url("https://osutracker.com/stats");
 
         let footer_text =
             format!("Page {page}/{pages} • Data originates from https://osutracker.com");
-        let footer = Footer::new(footer_text);
+        let footer = FooterBuilder::new(footer_text);
 
         let idx = (page - 1) * 20 + 1;
         let mut sizes = Sizes::default();

@@ -1,22 +1,39 @@
 use std::sync::Arc;
 
+use command_macros::{command, SlashCommand};
 use eyre::Report;
 use prometheus::core::Collector;
+use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
-    commands::MyCommand,
+    core::commands::CommandOrigin,
     embeds::{CommandCounterEmbed, EmbedData},
     pagination::{CommandCountPagination, Pagination},
-    util::{numbers, MessageExt},
-    BotResult, CommandData, Context,
+    util::numbers,
+    BotResult, Context,
 };
 
+#[derive(CommandModel, CreateCommand, SlashCommand)]
+#[command(name = "commands")]
+#[flags(SKIP_DEFER)]
+/// Display a list of popular commands
+pub struct Commands;
+
+pub async fn slash_commands(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotResult<()> {
+    commands(ctx, command.into()).await
+}
+
 #[command]
-#[short_desc("List of popular commands")]
-#[long_desc("Let me show you my most popular commands since my last reboot")]
-async fn commands(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    let owner = data.author()?.id;
+#[desc("List of popular commands")]
+#[group(Utility)]
+#[flags(SKIP_DEFER)]
+async fn prefix_commands(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+    commands(ctx, msg.into()).await
+}
+
+async fn commands(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> BotResult<()> {
+    let owner = orig.user_id()?;
 
     let mut cmds: Vec<_> = ctx.stats.command_counts.message_commands.collect()[0]
         .get_metric()
@@ -44,7 +61,11 @@ async fn commands(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     // Creating the embed
     let embed_data = CommandCounterEmbed::new(sub_vec, &boot_time, 1, (1, pages));
     let builder = embed_data.into_builder().build().into();
-    let response = data.create_message(&ctx, builder).await?.model().await?;
+    let response = orig
+        .callback_with_response(&ctx, builder)
+        .await?
+        .model()
+        .await?;
 
     // Pagination
     let pagination = CommandCountPagination::new(&ctx, response, cmds);
@@ -56,12 +77,4 @@ async fn commands(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     });
 
     Ok(())
-}
-
-pub async fn slash_commands(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
-    commands(ctx, command.into()).await
-}
-
-pub fn define_commands() -> MyCommand {
-    MyCommand::new("commands", "Display a list of popular commands")
 }

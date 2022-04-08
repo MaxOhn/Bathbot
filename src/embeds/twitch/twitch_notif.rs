@@ -1,7 +1,6 @@
 use crate::{
     custom_client::{TwitchStream, TwitchUser},
-    embeds::Author,
-    util::constants::TWITCH_BASE,
+    util::{builder::AuthorBuilder, constants::TWITCH_BASE},
 };
 
 pub struct TwitchNotifEmbed {
@@ -10,7 +9,7 @@ pub struct TwitchNotifEmbed {
     image: String,
     title: String,
     url: String,
-    author: Author,
+    author: AuthorBuilder,
 }
 
 impl TwitchNotifEmbed {
@@ -21,7 +20,7 @@ impl TwitchNotifEmbed {
             thumbnail: user.image_url.clone(),
             image: stream.thumbnail_url.clone(),
             url: format!("{TWITCH_BASE}{}", user.display_name),
-            author: Author::new("Now live on twitch:"),
+            author: AuthorBuilder::new("Now live on twitch:"),
         }
     }
 }

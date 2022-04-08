@@ -1,150 +1,26 @@
 use std::sync::Arc;
 
+use command_macros::{command, SlashCommand};
 use twilight_cache_inmemory::model::CachedGuild;
+use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
-    application::{
-        command::CommandOptionChoice,
-        interaction::{application_command::CommandOptionValue, ApplicationCommand},
+    application::interaction::ApplicationCommand,
+    id::{
+        marker::{GuildMarker, RoleMarker},
+        Id,
     },
-    id::{marker::GuildMarker, Id},
     util::ImageHash,
 };
 
 use crate::{
-    commands::{osu::ProfileSize, MyCommand, MyCommandOption},
-    database::{EmbedsSize, GuildConfig, MinimizedPp},
+    commands::ShowHideOption,
+    database::GuildConfig,
     embeds::{EmbedData, ServerConfigEmbed},
-    util::{
-        constants::{common_literals::PROFILE, GENERAL_ISSUE},
-        MessageExt,
-    },
-    BotResult, Context, Error,
+    util::{constants::GENERAL_ISSUE, ApplicationCommandExt},
+    BotResult, Context,
 };
 
-use super::AuthorityCommandKind;
-
-enum ServerConfigCommandKind {
-    Args(ServerConfigArgs),
-    Auth(AuthorityCommandKind),
-}
-
-struct ServerConfigArgs {
-    embeds_size: Option<EmbedsSize>,
-    minimized_pp: Option<MinimizedPp>,
-    profile_size: Option<ProfileSize>,
-    show_retries: Option<bool>,
-    togglesongs: Option<bool>,
-    track_limit: Option<u8>,
-}
-
-impl ServerConfigArgs {
-    fn any(&self) -> bool {
-        let ServerConfigArgs {
-            embeds_size,
-            minimized_pp,
-            profile_size,
-            show_retries,
-            togglesongs,
-            track_limit,
-        } = self;
-
-        embeds_size.is_some()
-            || minimized_pp.is_some()
-            || profile_size.is_some()
-            || show_retries.is_some()
-            || togglesongs.is_some()
-            || track_limit.is_some()
-    }
-}
-
-impl ServerConfigCommandKind {
-    fn slash(command: &ApplicationCommand) -> BotResult<Self> {
-        command
-            .data
-            .options
-            .first()
-            .and_then(|option| match &option.value {
-                CommandOptionValue::SubCommand(options) if option.name == "edit" => {
-                    let mut embeds_size = None;
-                    let mut minimized_pp = None;
-                    let mut profile_size = None;
-                    let mut show_retries = None;
-                    let mut togglesongs = None;
-                    let mut track_limit = None;
-
-                    for option in options {
-                        match &option.value {
-                            CommandOptionValue::Integer(value) => match option.name.as_str() {
-                                "track_limit" => track_limit = Some(*value as u8),
-                                _ => return None,
-                            },
-                            CommandOptionValue::String(value) => match option.name.as_str() {
-                                "embeds" => match value.as_str() {
-                                    "initial_maximized" => {
-                                        embeds_size = Some(EmbedsSize::InitialMaximized)
-                                    }
-                                    "maximized" => embeds_size = Some(EmbedsSize::AlwaysMaximized),
-                                    "minimized" => embeds_size = Some(EmbedsSize::AlwaysMinimized),
-                                    _ => return None,
-                                },
-                                "minimized_pp" => match value.as_str() {
-                                    "max" => minimized_pp = Some(MinimizedPp::Max),
-                                    "if_fc" => minimized_pp = Some(MinimizedPp::IfFc),
-                                    _ => return None,
-                                },
-                                "profile" => match value.as_str() {
-                                    "compact" => profile_size = Some(ProfileSize::Compact),
-                                    "medium" => profile_size = Some(ProfileSize::Medium),
-                                    "full" => profile_size = Some(ProfileSize::Full),
-                                    _ => return None,
-                                },
-                                "retries" => show_retries = Some(value == "show"),
-                                "song_commands" => togglesongs = Some(value == "enable"),
-                                _ => return None,
-                            },
-                            _ => return None,
-                        }
-                    }
-
-                    let args = ServerConfigArgs {
-                        embeds_size,
-                        minimized_pp,
-                        profile_size,
-                        show_retries,
-                        togglesongs,
-                        track_limit,
-                    };
-
-                    Some(Self::Args(args))
-                }
-                CommandOptionValue::SubCommandGroup(options) if option.name == "authorities" => {
-                    let option = options.first()?;
-
-                    match &option.value {
-                        CommandOptionValue::SubCommand(options) => match option.name.as_str() {
-                            "add" => match options.first()?.value {
-                                CommandOptionValue::Role(id) => {
-                                    Some(Self::Auth(AuthorityCommandKind::Add(id.get())))
-                                }
-                                _ => None,
-                            },
-                            "list" => Some(Self::Auth(AuthorityCommandKind::List)),
-                            "remove" => match options.first()?.value {
-                                CommandOptionValue::Role(id) => {
-                                    Some(Self::Auth(AuthorityCommandKind::Remove(id.get())))
-                                }
-                                _ => None,
-                            },
-                            _ => None,
-                        },
-                        _ => None,
-                    }
-                }
-                _ => None,
-            })
-            .ok_or(Error::InvalidCommandOptions)
-    }
-}
+use super::{ConfigEmbeds, ConfigMinimizedPp, ProfileSize};
 
 pub struct GuildData {
     pub icon: Option<ImageHash>,
@@ -162,7 +38,125 @@ impl From<&CachedGuild> for GuildData {
     }
 }
 
-pub async fn slash_serverconfig(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
+#[derive(CommandModel, CreateCommand, SlashCommand)]
+#[command(name = "serverconfig")]
+#[flags(AUTHORITY, ONLY_GUILDS)]
+/// Adjust configurations or authority roles for this server
+pub enum ServerConfig {
+    #[command(name = "authorities")]
+    Authorities(ServerConfigAuthorities),
+    #[command(name = "edit")]
+    Edit(ServerConfigEdit),
+}
+
+#[derive(CommandModel, CreateCommand)]
+#[command(
+    name = "authorities",
+    help = "To use certain commands, users require a special status.\n\
+    This command adjusts the authority status of roles.\n\
+    Any member with an authority role can use these higher commands.\n\n\
+    Authority commands: `matchlive`, `prune`, `roleassign`, \
+    `serverconfig`, `track`, `trackstream`."
+)]
+/// Adjust authority roles for a server
+pub enum ServerConfigAuthorities {
+    #[command(name = "add")]
+    Add(ServerConfigAuthoritiesAdd),
+    #[command(name = "remove")]
+    Remove(ServerConfigAuthoritiesRemove),
+    #[command(name = "list")]
+    List(ServerConfigAuthoritiesList),
+}
+
+#[derive(CommandModel, CreateCommand)]
+#[command(
+    name = "add",
+    help = "Add authority status to a role.\n\
+    Servers can have at most 10 authority roles."
+)]
+/// Add authority status to a role
+pub struct ServerConfigAuthoritiesAdd {
+    /// Specify the role that should gain authority status
+    role: Id<RoleMarker>,
+}
+
+#[derive(CommandModel, CreateCommand)]
+#[command(
+    name = "remove",
+    help = "Remove authority status from a role.\n\
+    You can only use this if the removed role would __not__ make you lose authority status yourself."
+)]
+/// Remove authority status from a role
+pub struct ServerConfigAuthoritiesRemove {
+    /// Specify the role that should gain authority status
+    role: Id<RoleMarker>,
+}
+
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "list")]
+/// Display all current authority roles
+pub struct ServerConfigAuthoritiesList;
+
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "edit")]
+/// Adjust configurations for a server
+pub struct ServerConfigEdit {
+    /// Choose whether song commands can be used or not
+    song_commands: Option<EnableDisable>,
+    #[command(help = "What initial size should the profile command be?\n\
+        Applies only if the member has not specified a config for themselves.")]
+    /// What initial size should the profile command be?
+    profile: Option<ProfileSize>,
+    #[command(help = "Some embeds are pretty chunky and show too much data.\n\
+        With this option you can make those embeds minimized by default.\n\
+        Affected commands are: `compare score`, `recent score`, `recent simulate`, \
+        and any command showing top scores when the `index` option is specified.\n\
+        Applies only if the member has not specified a config for themselves.")]
+    /// What size should the recent, compare, simulate, ... commands be?
+    embeds: Option<ConfigEmbeds>,
+    #[command(
+        help = "Should the amount of retries be shown for the `recent` command?\n\
+        Applies only if the member has not specified a config for themselves."
+    )]
+    /// Should the amount of retries be shown for the recent command?
+    retries: Option<ShowHideOption>,
+    #[command(
+        min_value = 1,
+        max_value = 100,
+        help = "Specify the default track limit for tracking user's osu! top scores.\n\
+        The value must be between 1 and 100, defaults to 50."
+    )]
+    /// Specify the default track limit for osu! top scores
+    track_limit: Option<i64>,
+    /// Specify whether the recent command should show max or if-fc pp when minimized
+    minimized_pp: Option<ConfigMinimizedPp>,
+}
+
+impl ServerConfigEdit {
+    fn any(&self) -> bool {
+        self.song_commands.is_some()
+            || self.profile.is_some()
+            || self.embeds.is_some()
+            || self.retries.is_some()
+            || self.track_limit.is_some()
+            || self.minimized_pp.is_some()
+    }
+}
+
+#[derive(CommandOption, CreateOption)]
+pub enum EnableDisable {
+    #[option(name = "Enable", value = "enable")]
+    Enable,
+    #[option(name = "Disable", value = "disable")]
+    Disable,
+}
+
+async fn slash_serverconfig(
+    ctx: Arc<Context>,
+    mut command: Box<ApplicationCommand>,
+) -> BotResult<()> {
+    let args = ServerConfig::from_interaction(command.input_data())?;
+
     let guild_id = command.guild_id.unwrap();
 
     let guild = match ctx.cache.guild(guild_id, |guild| guild.into()) {
@@ -174,25 +168,25 @@ pub async fn slash_serverconfig(ctx: Arc<Context>, command: ApplicationCommand) 
         }
     };
 
-    let args = match ServerConfigCommandKind::slash(&command)? {
-        ServerConfigCommandKind::Args(args) => args,
-        ServerConfigCommandKind::Auth(args) => {
-            return super::_authorities(ctx, command.into(), args).await
+    let args = match args {
+        ServerConfig::Authorities(authorities) => {
+            return super::authorities(ctx, command.into(), args).await
         }
+        ServerConfig::Edit(edit) => edit,
     };
 
     if args.any() {
         let f = |config: &mut GuildConfig| {
-            let ServerConfigArgs {
-                embeds_size: embeds_maximized,
+            let ServerConfigEdit {
+                embeds,
                 minimized_pp,
-                profile_size,
-                show_retries,
-                togglesongs,
+                profile,
+                retries,
+                song_commands,
                 track_limit,
             } = args;
 
-            if let Some(embeds) = embeds_maximized {
+            if let Some(embeds) = embeds {
                 config.embeds_size = Some(embeds);
             }
 
@@ -200,11 +194,12 @@ pub async fn slash_serverconfig(ctx: Arc<Context>, command: ApplicationCommand) 
                 config.minimized_pp = Some(pp);
             }
 
-            if let Some(profile) = profile_size {
+            if let Some(profile) = profile {
                 config.profile_size = Some(profile);
             }
 
-            if let Some(retries) = show_retries {
+            if let Some(retries) = retries {
+                // TODO
                 config.show_retries = Some(retries);
             }
 
@@ -212,7 +207,8 @@ pub async fn slash_serverconfig(ctx: Arc<Context>, command: ApplicationCommand) 
                 config.track_limit = Some(limit);
             }
 
-            if let Some(with_lyrics) = togglesongs {
+            if let Some(with_lyrics) = song_commands {
+                // TODO
                 config.with_lyrics = Some(with_lyrics);
             }
         };
@@ -240,167 +236,4 @@ pub async fn slash_serverconfig(ctx: Arc<Context>, command: ApplicationCommand) 
     command.create_message(&ctx, builder).await?;
 
     Ok(())
-}
-
-pub fn define_serverconfig() -> MyCommand {
-    let role =
-        MyCommandOption::builder("role", "Specify the role that should gain authority status")
-            .role(true);
-
-    let add = MyCommandOption::builder("add", "Add authority status to a role")
-        .help("Add authority status to a role.\nServers can have at most 10 authority roles.")
-        .subcommand(vec![role]);
-
-    let list = MyCommandOption::builder("list", "Display all current authority roles")
-        .subcommand(Vec::new());
-
-    let role =
-        MyCommandOption::builder("role", "Specify the role that should lose authority status")
-            .role(true);
-
-    let remove_help = "Remove authority status from a role.\n\
-        You can only use this if the removed role would __not__ make you lose authority status yourself.";
-
-    let remove = MyCommandOption::builder("remove", "Remove authority status from a role")
-        .help(remove_help)
-        .subcommand(vec![role]);
-
-    let authorities_help = "To use certain commands, users require a special status.\n\
-        This command adjusts the authority status of roles.\n\
-        Any member with an authority role can use these higher commands.\n\n\
-        Authority commands: `matchlive`, `prune`, `roleassign`, \
-        `serverconfig`, `track`, `trackstream`.";
-
-    let authorities =
-        MyCommandOption::builder("authorities", "Adjust authority roles for a server")
-            .subcommandgroup(vec![add, list, remove])
-            .help(authorities_help);
-
-    let song_commands_description = "Choose whether song commands can be used or not";
-
-    let song_commands_choices = vec![
-        CommandOptionChoice::String {
-            name: "enable".to_owned(),
-            value: "enable".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "disable".to_owned(),
-            value: "disable".to_owned(),
-        },
-    ];
-
-    let song_commands = MyCommandOption::builder("song_commands", song_commands_description)
-        .string(song_commands_choices, false);
-
-    let profile_description = "What initial size should the profile command be?";
-
-    let profile_choices = vec![
-        CommandOptionChoice::String {
-            name: "compact".to_owned(),
-            value: "compact".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "medium".to_owned(),
-            value: "medium".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "full".to_owned(),
-            value: "full".to_owned(),
-        },
-    ];
-
-    let profile_help = "What initial size should the profile command be?\n\
-        Applies only if the member has not specified a config for themselves.";
-
-    let profile = MyCommandOption::builder(PROFILE, profile_description)
-        .string(profile_choices, false)
-        .help(profile_help);
-
-    let embeds_description = "What size should the recent, compare, simulate, ... commands be?";
-
-    let embeds_help = "Some embeds are pretty chunky and show too much data.\n\
-        With this option you can make those embeds minimized by default.\n\
-        Affected commands are: `compare score`, `recent score`, `recent simulate`, \
-        and any command showing top scores when the `index` option is specified.\n\
-        Applies only if the member has not specified a config for themselves.";
-
-    let embeds_choices = vec![
-        CommandOptionChoice::String {
-            name: "Initial maximized".to_owned(),
-            value: "initial_maximized".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Always maximized".to_owned(),
-            value: "maximized".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Always minimized".to_owned(),
-            value: "minimized".to_owned(),
-        },
-    ];
-
-    let embeds = MyCommandOption::builder("embeds", embeds_description)
-        .help(embeds_help)
-        .string(embeds_choices, false);
-
-    let retries_description = "Should the amount of retries be shown for the `recent` command?";
-    let retries_help = "Should the amount of retries be shown for the `recent` command?\n\
-            Applies only if the member has not specified a config for themselves.";
-
-    let retries_choices = vec![
-        CommandOptionChoice::String {
-            name: "show".to_owned(),
-            value: "show".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "hide".to_owned(),
-            value: "hide".to_owned(),
-        },
-    ];
-
-    let retries = MyCommandOption::builder("retries", retries_description)
-        .string(retries_choices, false)
-        .help(retries_help);
-
-    let track_limit_description = "Specify the default track limit for osu! top scores";
-
-    let track_limit_help = "Specify the default track limit for tracking user's osu! top scores.\n\
-        The value must be between 1 and 100, defaults to 50.";
-
-    let track_limit = MyCommandOption::builder("track_limit", track_limit_description)
-        .help(track_limit_help)
-        .min_int(1)
-        .max_int(100)
-        .integer(Vec::new(), false);
-
-    let minimized_pp_description =
-        "Specify whether the recent command should show max or if-fc pp when minimized";
-
-    let minimized_pp_choices = vec![
-        CommandOptionChoice::String {
-            name: "Max PP".to_owned(),
-            value: "max".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "If FC".to_owned(),
-            value: "if_fc".to_owned(),
-        },
-    ];
-
-    let minimized_pp = MyCommandOption::builder("minimized_pp", minimized_pp_description)
-        .string(minimized_pp_choices, false);
-
-    let edit =
-        MyCommandOption::builder("edit", "Adjust configurations for a server").subcommand(vec![
-            song_commands,
-            profile,
-            embeds,
-            retries,
-            track_limit,
-            minimized_pp,
-        ]);
-
-    let description = "Adjust configurations or authority roles for this server";
-
-    MyCommand::new("serverconfig", description).options(vec![authorities, edit])
 }

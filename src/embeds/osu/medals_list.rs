@@ -4,14 +4,13 @@ use rosu_v2::prelude::User;
 
 use crate::{
     commands::osu::MedalEntryList,
-    embeds::{Author, Footer},
-    util::{constants::OSU_BASE, osu::flag_url, CowUtils},
+    util::{constants::OSU_BASE, osu::flag_url, CowUtils, builder::{AuthorBuilder, FooterBuilder}},
 };
 
 pub struct MedalsListEmbed {
-    author: Author,
+    author: AuthorBuilder,
     description: String,
-    footer: Footer,
+    footer: FooterBuilder,
     thumbnail: String,
 }
 
@@ -38,12 +37,12 @@ impl MedalsListEmbed {
             );
         }
 
-        let footer = Footer::new(format!(
+        let footer = FooterBuilder::new(format!(
             "Page {}/{} | Acquired {}/{} medals",
             pages.0, pages.1, acquired.0, acquired.1
         ));
 
-        let author = Author::new(user.username.as_str())
+        let author = AuthorBuilder::new(user.username.as_str())
             .url(format!("{OSU_BASE}u/{}", user.user_id))
             .icon_url(flag_url(user.country_code.as_str()));
 

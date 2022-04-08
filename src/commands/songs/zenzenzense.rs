@@ -1,4 +1,4 @@
-pub fn _zenzenzense() -> (&'static [&'static str], u64) {
+pub fn zenzenzense_() -> (&'static [&'static str], u64) {
     let lyrics = &[
         "Kimi no zen zen zense kara boku wa kimi wo sagashi hajimeta yo",
         "Sono bukiccho na waraikata wo megakete yatte kitanda yo",

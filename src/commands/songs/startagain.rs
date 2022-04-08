@@ -1,18 +1,20 @@
-use crate::{BotResult, CommandData, Context};
-
 use std::sync::Arc;
 
-#[command]
-#[short_desc("https://youtu.be/g7VNvg_QTMw&t=29")]
-#[bucket("songs")]
-#[no_typing()]
-async fn startagain(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    let (lyrics, delay) = _startagain();
+use command_macros::command;
 
-    super::song_send(lyrics, delay, ctx, data).await
+use crate::{BotResult, Context};
+
+#[command]
+#[desc("https://youtu.be/g7VNvg_QTMw&t=29")]
+#[group(Songs)]
+#[flags(SKIP_DEFER)]
+async fn prefix_startagain(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+    let (lyrics, delay) = startagain_();
+
+    super::song(lyrics, delay, ctx, msg.into()).await
 }
 
-pub fn _startagain() -> (&'static [&'static str], u64) {
+pub fn startagain_() -> (&'static [&'static str], u64) {
     let lyrics = &[
         "I'm not always perfect, but I'm always myself.",
         "If you don't think I'm worth it - find someone eeeelse.",

@@ -1,5 +1,6 @@
-use std::{cmp::Ordering, fmt::Write, iter, sync::Arc, time::Duration};
+use std::{borrow::Cow, cmp::Ordering, fmt::Write, iter, sync::Arc, time::Duration};
 
+use command_macros::{command, SlashCommand};
 use enterpolation::{linear::Linear, Curve};
 use eyre::Report;
 use image::{
@@ -12,42 +13,191 @@ use plotters::{
 use plotters_backend::{BackendColor, BackendCoord, BackendStyle, DrawingErrorKind};
 use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_v2::prelude::{GameMode, GameMods, OsuError};
+use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
-    application::{
-        command::Number,
-        interaction::{application_command::CommandOptionValue, ApplicationCommand},
-    },
-    channel::message::MessageType,
+    application::interaction::ApplicationCommand,
+    channel::{message::MessageType, Message},
 };
 
 use crate::{
-    commands::{
-        osu::{option_map, option_mods},
-        MyCommand, MyCommandOption,
-    },
+    core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, MapEmbed},
     error::{GraphError, PpError},
     pagination::{MapPagination, Pagination},
     util::{
-        constants::{
-            common_literals::{MAP, MAP_PARSE_FAIL, MODS, MODS_PARSE_FAIL},
-            GENERAL_ISSUE, OSU_API_ISSUE,
-        },
+        builder::MessageBuilder,
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher,
-        osu::{
-            map_id_from_history, map_id_from_msg, prepare_beatmap_file, MapIdType, ModSelection,
-        },
-        ApplicationCommandExt, MessageExt,
+        osu::{map_id_from_history, map_id_from_msg, prepare_beatmap_file, MapIdType},
+        ApplicationCommandExt,
     },
-    Args, BotResult, CommandData, Context, Error, MessageBuilder,
+    BotResult, Context, Error,
 };
 
-const W: u32 = 590;
-const H: u32 = 150;
+#[derive(CommandModel, CreateCommand, SlashCommand)]
+#[command(
+    name = "map",
+    help = "Display a bunch of stats about a map(set).\n\
+The values in the map info will be adjusted to mods.\n\
+Since discord does not allow images to be adjusted when editing messages, \
+the strain graph always belongs to the initial map, even after moving to \
+other maps of the set through the arrow reactions."
+)]
+/// Display a bunch of stats about a map(set)
+pub struct Map<'a> {
+    #[command(help = "Specify a map either by map url or map id.\n\
+        If none is specified, it will search in the recent channel history \
+        and pick the first map it can find.")]
+    /// Specify a map url or map id
+    map: Option<Cow<'a, str>>,
+    #[command(
+        help = "Specify mods either directly or through the explicit `+mods!` / `+mods` syntax e.g. `hdhr` or `+hdhr!`"
+    )]
+    /// Specify mods e.g. hdhr or nm
+    mods: Option<Cow<'a, str>>,
+    #[command(min_value = 0.0, max_value = 10.0)]
+    /// Specify an AR value to override the actual one
+    ar: Option<f64>,
+    #[command(min_value = 0.0, max_value = 10.0)]
+    /// Specify an OD value to override the actual one
+    od: Option<f64>,
+    #[command(min_value = 0.0, max_value = 10.0)]
+    /// Specify a CS value to override the actual one
+    cs: Option<f64>,
+    #[command(min_value = 0.0, max_value = 10.0)]
+    /// Specify an HP value to override the actual one
+    hp: Option<f64>,
+}
+
+struct MapArgs<'a> {
+    map: Option<MapIdType>,
+    mods: Option<Cow<'a, str>>,
+    attrs: CustomAttrs,
+}
+
+pub struct CustomAttrs {
+    pub ar: Option<f64>,
+    pub cs: Option<f64>,
+    pub hp: Option<f64>,
+    pub od: Option<f64>,
+}
+
+impl CustomAttrs {
+    fn content(&self) -> Option<String> {
+        self.ar.or(self.cs).or(self.hp).or(self.od)?;
+
+        let mut content = "Custom attributes: ".to_owned();
+        let mut pushed = false;
+
+        if let Some(ar) = self.ar {
+            let _ = write!(content, "`AR: {ar:.2}`");
+            pushed = true;
+        }
+
+        if let Some(cs) = self.cs {
+            if pushed {
+                content.push_str(" ~ ");
+            }
+
+            let _ = write!(content, "`CS: {cs:.2}`");
+            pushed = true;
+        }
+
+        if let Some(hp) = self.hp {
+            if pushed {
+                content.push_str(" ~ ");
+            }
+
+            let _ = write!(content, "`HP: {hp:.2}`");
+            pushed = true;
+        }
+
+        if let Some(od) = self.od {
+            if pushed {
+                content.push_str(" ~ ");
+            }
+
+            let _ = write!(content, "`OD: {od:.2}`");
+        }
+
+        Some(content)
+    }
+}
+
+impl<'m> MapArgs<'m> {
+    fn args(msg: &Message, args: Args<'m>) -> Result<Self, String> {
+        let mut map = None;
+        let mut mods = None;
+
+        for arg in args.take(2) {
+            if let Some(id) =
+                matcher::get_osu_map_id(arg).or_else(|| matcher::get_osu_mapset_id(arg))
+            {
+                map = Some(id);
+            } else if matcher::get_mods(arg).is_some() {
+                mods = Some(arg.into());
+            } else {
+                let content = format!(
+                    "Failed to parse `{arg}`.\n\
+                    Be sure you specify either a valid map id, map url, or mod combination."
+                );
+
+                return Err(content);
+            }
+        }
+
+        let reply = msg
+            .referenced_message
+            .as_ref()
+            .filter(|_| msg.kind == MessageType::Reply);
+
+        if let Some(id) = reply.and_then(|msg| map_id_from_msg(&msg)) {
+            map = Some(id);
+        }
+
+        Ok(Self {
+            map,
+            mods,
+            attrs: CustomAttrs::default(),
+        })
+    }
+}
+
+impl<'a> TryFrom<Map<'a>> for MapArgs<'a> {
+    type Error = &'static str;
+
+    fn try_from(args: Map<'a>) -> Result<Self, Self::Error> {
+        let Map {
+            map,
+            mods,
+            ar,
+            od,
+            cs,
+            hp,
+        } = args;
+
+        let map = match map
+            .map(|arg| matcher::get_osu_map_id(arg).or_else(|| matcher::get_osu_mapset_id(arg)))
+        {
+            Some(Some(id)) => Some(id),
+            Some(None) => {
+                let content =
+                    "Failed to parse map url. Be sure you specify a valid map id or url to a map.";
+
+                return Err(content);
+            }
+            None => None,
+        };
+
+        let attrs = CustomAttrs { ar, cs, hp, od };
+
+        Ok(Self { map, mods, attrs })
+    }
+}
 
 #[command]
-#[short_desc("Display a bunch of stats about a map(set)")]
-#[long_desc(
+#[desc("Display a bunch of stats about a map(set)")]
+#[help(
     "Display stats about a beatmap. Mods can be specified.\n\
     If no map(set) is specified by either url or id, I will choose the last map \
     I can find in the embeds of this channel.\n\
@@ -55,40 +205,50 @@ const H: u32 = 150;
     I will choose the latter."
 )]
 #[usage("[map(set) url / map(set) id] [+mods]")]
-#[example("2240404 +hddt", "https://osu.ppy.sh/beatmapsets/902425 +hr")]
+#[examples("2240404 +hddt", "https://osu.ppy.sh/beatmapsets/902425 +hr")]
 #[aliases("m", "beatmap", "maps", "beatmaps", "mapinfo")]
-async fn map(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => match MapArgs::args(&mut args) {
-            Ok(mut map_args) => {
-                let reply = msg
-                    .referenced_message
-                    .as_ref()
-                    .filter(|_| msg.kind == MessageType::Reply);
-
-                if let Some(id) = reply.and_then(|msg| map_id_from_msg(msg)) {
-                    map_args.map = Some(id);
-                }
-
-                _map(ctx, CommandData::Message { msg, args, num }, map_args).await
-            }
-            Err(content) => msg.error(&ctx, content).await,
-        },
-        CommandData::Interaction { command } => slash_map(ctx, *command).await,
+#[group(AllModes)]
+async fn prefix_map(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match MapArgs::args(msg, args) {
+        Ok(args) => map(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
     }
 }
 
-async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotResult<()> {
+async fn slash_map(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    let args = Map::from_interaction(command.input_data())?;
+
+    match MapArgs::try_from(args) {
+        Ok(args) => map(ctx, command.into(), args).await,
+        Err(content) => command.error(&ctx, content).await,
+    }
+}
+
+const W: u32 = 590;
+const H: u32 = 150;
+
+async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> BotResult<()> {
     let MapArgs { map, mods, attrs } = args;
-    let author_id = data.author()?.id;
+
+    let mods = match mods.map(|mods| matcher::get_mods(&mods)) {
+        Some(mods) => mods,
+        None => {
+            let content =
+                "Failed to parse mods. Be sure to specify a valid abbreviation e.g. `hdhr`.";
+
+            return orig.error(&ctx, content).await;
+        }
+    };
+
+    let author_id = orig.user_id()?;
 
     let map_id = if let Some(id) = map {
         id
     } else {
-        let msgs = match ctx.retrieve_channel_history(data.channel_id()).await {
+        let msgs = match ctx.retrieve_channel_history(orig.channel_id()).await {
             Ok(msgs) => msgs,
             Err(why) => {
-                let _ = data.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
                 return Err(why);
             }
@@ -101,7 +261,7 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
                     Try specifying a map(set) either by url to the map, \
                     or just by map(set) id.";
 
-                return data.error(&ctx, content).await;
+                return orig.error(&ctx, content).await;
             }
         }
     };
@@ -131,7 +291,7 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
                         }
                         Err(OsuError::NotFound) => (id, None),
                         Err(why) => {
-                            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+                            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
                             return Err(why.into());
                         }
@@ -169,10 +329,10 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
         Err(OsuError::NotFound) => {
             let content = format!("Could find neither map nor mapset with id {mapset_id}");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         Err(why) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -181,7 +341,7 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
     let map_count = maps.len();
 
     let map_idx = if maps.is_empty() {
-        return data.error(&ctx, "The mapset has no maps").await;
+        return orig.error(&ctx, "The mapset has no maps").await;
     } else {
         map_id
             .and_then(|map_id| maps.iter().position(|map| map.map_id == map_id))
@@ -234,7 +394,7 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
     let embed_data = match data_fut.await {
         Ok(data) => data,
         Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(why);
         }
@@ -256,7 +416,7 @@ async fn _map(ctx: Arc<Context>, data: CommandData<'_>, args: MapArgs) -> BotRes
         builder = builder.content(content);
     }
 
-    let response_raw = data.create_message(&ctx, builder).await?;
+    let response_raw = orig.create_message(&ctx, &builder).await?;
 
     // Add mapset and maps to database
     let (mapset_result, maps_result) = tokio::join!(
@@ -481,169 +641,4 @@ impl From<Line> for ShapeStyle {
             stroke_width: 2,
         }
     }
-}
-
-#[derive(Default)]
-pub struct CustomAttrs {
-    pub ar: Option<f64>,
-    pub cs: Option<f64>,
-    pub hp: Option<f64>,
-    pub od: Option<f64>,
-}
-
-impl CustomAttrs {
-    fn content(&self) -> Option<String> {
-        self.ar.or(self.cs).or(self.hp).or(self.od)?;
-
-        let mut content = "Custom attributes: ".to_owned();
-        let mut pushed = false;
-
-        if let Some(ar) = self.ar {
-            let _ = write!(content, "`AR: {ar:.2}`");
-            pushed = true;
-        }
-
-        if let Some(cs) = self.cs {
-            if pushed {
-                content.push_str(" ~ ");
-            }
-
-            let _ = write!(content, "`CS: {cs:.2}`");
-            pushed = true;
-        }
-
-        if let Some(hp) = self.hp {
-            if pushed {
-                content.push_str(" ~ ");
-            }
-
-            let _ = write!(content, "`HP: {hp:.2}`");
-            pushed = true;
-        }
-
-        if let Some(od) = self.od {
-            if pushed {
-                content.push_str(" ~ ");
-            }
-
-            let _ = write!(content, "`OD: {od:.2}`");
-        }
-
-        Some(content)
-    }
-}
-
-struct MapArgs {
-    map: Option<MapIdType>,
-    mods: Option<ModSelection>,
-    attrs: CustomAttrs,
-}
-
-impl MapArgs {
-    fn args(args: &mut Args<'_>) -> Result<Self, String> {
-        let mut map = None;
-        let mut mods = None;
-
-        for arg in args.take(2) {
-            if let Some(id) =
-                matcher::get_osu_map_id(arg).or_else(|| matcher::get_osu_mapset_id(arg))
-            {
-                map = Some(id);
-            } else if let Some(mods_) = matcher::get_mods(arg) {
-                mods = Some(mods_);
-            } else {
-                let content = format!(
-                    "Failed to parse `{arg}`.\n\
-                    Be sure you specify either a valid map id, map url, or mod combination."
-                );
-
-                return Err(content);
-            }
-        }
-
-        Ok(Self {
-            map,
-            mods,
-            attrs: CustomAttrs::default(),
-        })
-    }
-
-    fn slash(command: &mut ApplicationCommand) -> BotResult<Result<Self, &'static str>> {
-        let mut map = None;
-        let mut mods = None;
-        let mut attrs = CustomAttrs::default();
-
-        for option in command.yoink_options() {
-            match option.value {
-                CommandOptionValue::Number(Number(value)) => match option.name.as_str() {
-                    "ar" => attrs.ar = Some(value),
-                    "cs" => attrs.cs = Some(value),
-                    "hp" => attrs.hp = Some(value),
-                    "od" => attrs.od = Some(value),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::String(value) => match option.name.as_str() {
-                    MAP => match matcher::get_osu_map_id(&value)
-                        .or_else(|| matcher::get_osu_mapset_id(&value))
-                    {
-                        Some(id) => map = Some(id),
-                        None => return Ok(Err(MAP_PARSE_FAIL)),
-                    },
-                    MODS => match matcher::get_mods(&value) {
-                        Some(mods_) => mods = Some(mods_),
-                        None => match value.parse() {
-                            Ok(mods_) => mods = Some(ModSelection::Exact(mods_)),
-                            Err(_) => return Ok(Err(MODS_PARSE_FAIL)),
-                        },
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            }
-        }
-
-        Ok(Ok(Self { map, mods, attrs }))
-    }
-}
-
-pub async fn slash_map(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match MapArgs::slash(&mut command)? {
-        Ok(args) => _map(ctx, command.into(), args).await,
-        Err(content) => command.error(&ctx, content).await,
-    }
-}
-
-pub fn define_map() -> MyCommand {
-    let map = option_map();
-    let mods = option_mods(false);
-
-    let ar = MyCommandOption::builder("ar", "Specify an AR value to override the actual one")
-        .min_num(0.0)
-        .max_num(10.0)
-        .number(Vec::new(), false);
-
-    let od = MyCommandOption::builder("od", "Specify an OD value to override the actual one")
-        .min_num(0.0)
-        .max_num(10.0)
-        .number(Vec::new(), false);
-
-    let cs = MyCommandOption::builder("cs", "Specify a CS value to override the actual one")
-        .min_num(0.0)
-        .max_num(10.0)
-        .number(Vec::new(), false);
-
-    let hp = MyCommandOption::builder("hp", "Specify an HP value to override the actual one")
-        .min_num(0.0)
-        .max_num(10.0)
-        .number(Vec::new(), false);
-
-    let help = "Display a bunch of stats about a map(set).\n\
-        The values in the map info will be adjusted to mods.\n\
-        Since discord does not allow images to be adjusted when editing messages, \
-        the strain graph always belongs to the initial map, even after moving to \
-        other maps of the set through the arrow reactions.";
-
-    MyCommand::new(MAP, "Display a bunch of stats about map(set)")
-        .help(help)
-        .options(vec![map, mods, ar, od, cs, hp])
 }

@@ -10,13 +10,13 @@ use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods};
 use crate::{
     commands::osu::CustomAttrs,
     core::{Context, CONFIG},
-    embeds::{attachment, Author, EmbedFields, Footer},
+    embeds::{attachment,  EmbedFields, },
     error::PpError,
     util::{
         constants::{AVATAR_URL, OSU_BASE},
         datetime::sec_to_minsec,
         numbers::{round, with_comma_int},
-        osu::{mode_emote, prepare_beatmap_file},
+        osu::{mode_emote, prepare_beatmap_file}, builder::{AuthorBuilder, FooterBuilder},
     },
     BotResult,
 };
@@ -28,8 +28,8 @@ pub struct MapEmbed {
     url: String,
     thumbnail: String,
     description: String,
-    footer: Footer,
-    author: Author,
+    footer: FooterBuilder,
+    author: AuthorBuilder,
     image: String,
     timestamp: DateTime<Utc>,
     fields: EmbedFields,
@@ -259,7 +259,7 @@ impl MapEmbed {
             |creator| creator.avatar_url.to_owned(),
         );
 
-        let author = Author::new(format!("Created by {}", mapset.creator_name))
+        let author = AuthorBuilder::new(format!("Created by {}", mapset.creator_name))
             .url(format!("{OSU_BASE}u/{}", mapset.creator_id))
             .icon_url(creator_avatar_url);
 
@@ -268,7 +268,7 @@ impl MapEmbed {
             pages.0, pages.1
         );
 
-        let footer = Footer::new(footer_text);
+        let footer = FooterBuilder::new(footer_text);
 
         let thumbnail = with_thumbnail
             .then(|| mapset.covers.cover.to_owned())

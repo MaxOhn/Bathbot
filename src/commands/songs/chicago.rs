@@ -1,4 +1,4 @@
-pub fn _chicago() -> (&'static [&'static str], u64) {
+pub fn chicago_() -> (&'static [&'static str], u64) {
     let lyrics = &[
         "Kimi no koe ga itsumo hibii teru yo",
         "Doramachikku na tenkai matenrou-sa",

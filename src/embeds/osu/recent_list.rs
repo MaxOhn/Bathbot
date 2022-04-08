@@ -9,12 +9,12 @@ use rosu_v2::prelude::{GameMode, Grade, Score, User};
 
 use crate::{
     core::Context,
-    embeds::{osu, Author, Footer},
+    embeds::{osu,  },
     error::PpError,
     util::{
         datetime::how_long_ago_dynamic,
         osu::{grade_completion_mods, prepare_beatmap_file},
-        ScoreExt,
+        ScoreExt, builder::{AuthorBuilder, FooterBuilder},
     },
     BotResult,
 };
@@ -22,8 +22,8 @@ use crate::{
 pub struct RecentListEmbed {
     description: String,
     thumbnail: String,
-    footer: Footer,
-    author: Author,
+    footer: FooterBuilder,
+    author: AuthorBuilder,
     title: &'static str,
 }
 
@@ -94,7 +94,7 @@ impl RecentListEmbed {
         Ok(Self {
             description,
             author: author!(user),
-            footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
+            footer: FooterBuilder::new(format!("Page {}/{}", pages.0, pages.1)),
             thumbnail: user.avatar_url.to_owned(),
             title: "List of recent scores:",
         })

@@ -1,17 +1,21 @@
-mod buckets;
+// TODO: Remove BotConfig re-export?
+pub use self::{
+    cache::{Cache, CacheMiss},
+    config::{BotConfig, CONFIG},
+    context::{AssignRoles, Context, Redis},
+    events::event_loop,
+    redis_cache::{ArchivedBytes, RedisCache},
+    stats::BotStats,
+};
+
 mod cache;
-pub mod commands;
+mod cluster;
 mod config;
 mod context;
-pub mod logging;
+mod events;
 mod redis_cache;
 mod stats;
 
-pub use cache::{Cache, CacheMiss};
-pub use commands::{Command, CommandGroup, CommandGroups, CMD_GROUPS};
-pub use config::{BotConfig, CONFIG};
-pub use context::{
-    AssignRoles, Clients, Context, ContextData, MatchLiveChannels, MatchTrackResult, Redis,
-};
-pub use redis_cache::{ArchivedBytes, RedisCache};
-pub use stats::BotStats;
+pub mod buckets;
+pub mod commands;
+pub mod logging;

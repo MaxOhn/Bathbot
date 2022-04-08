@@ -3,15 +3,14 @@ use std::fmt::Write;
 use rosu_v2::prelude::{Beatmap, GameMods, RankStatus, Score, User};
 
 use crate::{
-    embeds::Author,
     util::{
         constants::MAP_THUMB_URL,
-        numbers::{round, with_comma_float},
+        numbers::{round, with_comma_float}, builder::AuthorBuilder,
     },
 };
 
 pub struct FixScoreEmbed {
-    author: Author,
+    author: AuthorBuilder,
     description: String,
     thumbnail: String,
     title: String,

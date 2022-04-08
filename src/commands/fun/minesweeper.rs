@@ -1,44 +1,82 @@
+use std::{fmt, sync::Arc};
+
+use command_macros::{command, SlashCommand};
+use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
+use twilight_model::application::interaction::ApplicationCommand;
+
 use crate::{
-    commands::{MyCommand, MyCommandOption},
-    util::{CowUtils, Matrix, MessageExt},
-    Args, BotResult, CommandData, Context, Error, MessageBuilder,
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        Context,
+    },
+    util::{builder::MessageBuilder, ApplicationCommandExt, CowUtils, Matrix},
+    BotResult,
 };
 
-use rand::RngCore;
-use std::{
-    fmt::{self, Write},
-    sync::Arc,
-};
-use twilight_model::application::{
-    command::CommandOptionChoice,
-    interaction::{application_command::CommandOptionValue, ApplicationCommand},
-};
+#[derive(CommandModel, CreateCommand, SlashCommand)]
+#[command(
+    name = "minesweeper",
+    help = "Play a game of minesweeper.\n\
+        In case you don't know how it works: Each number indicates the amount of neighboring bombs."
+)]
+#[flags(SKIP_DEFER)]
+/// Play a game of minesweeper
+pub struct Minesweeper {
+    /// Choose a difficulty
+    difficulty: Difficulty,
+}
+
+#[derive(CommandOption, CreateOption)]
+enum Difficulty {
+    #[option(name = "easy", value = "easy")]
+    Easy,
+    #[option(name = "medium", value = "medium")]
+    Medium,
+    #[option(name = "hard", value = "hard")]
+    Hard,
+    // #[option(name = "expert", value = "expert")]
+    // Expert,
+}
+
+pub async fn slash_minesweeper(
+    ctx: Arc<Context>,
+    mut command: Box<ApplicationCommand>,
+) -> BotResult<()> {
+    let args = Minesweeper::from_interaction(command.input_data())?;
+
+    minesweeper(ctx, command.into(), args.difficulty).await
+}
 
 #[command]
-#[short_desc("Play a game of minesweeper")]
-#[long_desc(
+#[desc("Play a game of minesweeper")]
+#[help(
     "Play a game of minesweeper.\n\
-    The available arguments are:\n \
-    - `easy`: 6x6 grid\n \
-    - `medium`: 8x8 grid\n \
+    The available arguments are:\n\
+    - `easy`: 6x6 grid\n\
+    - `medium`: 8x8 grid\n\
     - `hard`: 9x11 grid"
 )]
 #[usage("[easy / medium / hard]")]
-#[no_typing()]
-async fn minesweeper(ctx: Arc<Context>, mut data: CommandData) -> BotResult<()> {
-    let difficulty = match &mut data {
-        CommandData::Message { args, msg, .. } => match Difficulty::args(args) {
-            Ok(difficulty) => difficulty,
-            Err(content) => {
-                let builder = MessageBuilder::new().content(content);
-                msg.create_message(&ctx, builder).await?;
+#[flags(SKIP_DEFER)]
+#[group(Games)]
+async fn prefix_minesweeper(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+    let difficulty = match Difficulty::args(&mut args) {
+        Ok(difficulty) => difficulty,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
 
-                return Ok(());
-            }
-        },
-        CommandData::Interaction { command } => Difficulty::slash(command)?,
+            Ok(())
+        }
     };
 
+    minesweeper(ctx, msg.into(), difficulty).await
+}
+
+async fn minesweeper(
+    ctx: Arc<Context>,
+    orig: CommandOrigin<'_>,
+    difficulty: Difficulty,
+) -> BotResult<()> {
     let game = difficulty.create();
     let (w, h) = game.dim();
     let mut field = String::with_capacity(w * h * 9);
@@ -53,27 +91,20 @@ async fn minesweeper(ctx: Arc<Context>, mut data: CommandData) -> BotResult<()> 
 
     field.pop();
 
-    let content = format!(
-        "Here's a {}x{} game with {} mines:\n{}",
-        w, h, game.mines, field
-    );
-
+    let content = format!("Here's a {w}x{h} game with {} mines:\n{field}", game.mines);
     let builder = MessageBuilder::new().content(content);
-    data.create_message(&ctx, builder).await?;
+    orig.callback(&ctx, builder).await?;
 
     Ok(())
 }
 
-enum Difficulty {
-    Easy,
-    Medium,
-    Hard,
-    Expert,
-}
-
 impl Difficulty {
     fn args(args: &mut Args<'_>) -> Result<Self, &'static str> {
-        match args.next().map(CowUtils::cow_to_ascii_lowercase).as_deref() {
+        match args
+            .next()
+            .map(|arg| arg.cow_to_ascii_lowercase())
+            .as_deref()
+        {
             None | Some("easy") => Ok(Self::Easy),
             Some("medium") => Ok(Self::Medium),
             Some("hard") => Ok(Self::Hard),
@@ -82,42 +113,22 @@ impl Difficulty {
         }
     }
 
-    fn slash(command: &ApplicationCommand) -> BotResult<Self> {
-        let option = command.data.options.first().and_then(|option| {
-            (option.name == "difficulty").then(|| match &option.value {
-                CommandOptionValue::String(value) => match value.as_str() {
-                    "Easy" => Some(Self::Easy),
-                    "Medium" => Some(Self::Medium),
-                    "Hard" => Some(Self::Hard),
-                    "Expert" => Some(Self::Expert),
-                    _ => None,
-                },
-                _ => None,
-            })
-        });
-
-        match option.flatten() {
-            Some(value) => Ok(value),
-            None => Err(Error::InvalidCommandOptions),
-        }
-    }
-
-    fn create(&self) -> Minesweeper {
+    fn create(&self) -> Game {
         match self {
-            Difficulty::Easy => Minesweeper::new(6, 6, 6),
-            Difficulty::Medium => Minesweeper::new(8, 8, 12),
-            Difficulty::Hard => Minesweeper::new(11, 9, 20),
-            Difficulty::Expert => Minesweeper::new(13, 13, 40),
+            Self::Easy => Game::new(6, 6, 6),
+            Self::Medium => Game::new(8, 8, 12),
+            Self::Hard => Game::new(11, 9, 20),
+            // Self::Expert => Game::new(13, 13, 40),
         }
     }
 }
 
-struct Minesweeper {
+struct Game {
     pub field: Matrix<Cell>,
     pub mines: u8,
 }
 
-impl Minesweeper {
+impl Game {
     fn new(height: usize, width: usize, mines: u8) -> Self {
         let mut field = Matrix::new(width, height);
         let mut rng = rand::thread_rng();
@@ -182,35 +193,4 @@ impl Default for Cell {
     fn default() -> Self {
         Self::None
     }
-}
-
-pub async fn slash_minesweeper(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
-    minesweeper(ctx, command.into()).await
-}
-
-pub fn define_minesweeper() -> MyCommand {
-    let choices = vec![
-        CommandOptionChoice::String {
-            name: "Easy".to_owned(),
-            value: "Easy".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Medium".to_owned(),
-            value: "Medium".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Hard".to_owned(),
-            value: "Hard".to_owned(),
-        },
-    ];
-
-    let difficulty =
-        MyCommandOption::builder("difficulty", "Choose a difficulty").string(choices, true);
-
-    let help = "Play a game of minesweeper.\n\
-        In case you don't know how it works: Each number indicates the amount of neighboring bombs.";
-
-    MyCommand::new("minesweeper", "Play a game of minesweeper")
-        .help(help)
-        .options(vec![difficulty])
 }

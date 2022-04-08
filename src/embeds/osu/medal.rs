@@ -4,17 +4,17 @@ use rosu_v2::prelude::GameMode;
 use crate::{
     commands::osu::MedalAchieved,
     custom_client::{OsekaiComment, OsekaiMap, OsekaiMedal},
-    embeds::{Author, EmbedBuilder, EmbedData, EmbedFields, Footer},
+    embeds::{  EmbedData, EmbedFields, },
     util::{
         constants::{FIELD_VALUE_SIZE, OSU_BASE},
         osu::flag_url,
-        CowUtils,
+        CowUtils, builder::{FooterBuilder, AuthorBuilder, EmbedBuilder},
     },
 };
 
 #[derive(Clone)]
 pub struct MedalEmbed {
-    achieved: Option<(Author, Footer, DateTime<Utc>)>,
+    achieved: Option<(AuthorBuilder, FooterBuilder, DateTime<Utc>)>,
     fields: EmbedFields,
     thumbnail: String,
     title: String,
@@ -115,11 +115,11 @@ impl MedalEmbed {
                 Some(GameMode::MNA) => author_url.push_str("/mania"),
             }
 
-            let author = Author::new(user.username.as_str())
+            let author = AuthorBuilder::new(user.username.as_str())
                 .url(author_url)
                 .icon_url(flag_url(user.country_code.as_str()));
 
-            let footer = Footer::new(format!(
+            let footer = FooterBuilder::new(format!(
                 "Medal {}/{} | Achieved",
                 achieved.index, achieved.medal_count
             ));

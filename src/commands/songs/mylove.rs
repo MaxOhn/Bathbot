@@ -1,4 +1,4 @@
-pub fn _mylove() -> (&'static [&'static str], u64) {
+pub fn mylove_() -> (&'static [&'static str], u64) {
     let lyrics = &[
         "I wanna be your man,",
         "your lover and your friend.",

@@ -81,6 +81,7 @@ dependencies = [
  "bitflags",
  "bytes",
  "chrono",
+ "command-macros",
  "dashmap",
  "dotenv",
  "enterpolation",
@@ -100,7 +101,6 @@ dependencies = [
  "plotters",
  "plotters-backend",
  "priority-queue",
- "proc_macros",
  "prometheus",
  "radix_trie",
  "rand",
@@ -127,7 +127,8 @@ dependencies = [
  "twilight-cache-inmemory",
  "twilight-gateway",
  "twilight-http",
- "twilight-model",
+ "twilight-interactions",
+ "twilight-model 0.10.0",
  "twilight-standby",
  "twilight-validate",
 ]
@@ -305,6 +306,15 @@ dependencies = [
  "pin-project-lite",
  "tokio",
  "tokio-util",
+]
+
+[[package]]
+name = "command-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -1551,16 +1561,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "proc_macros"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "static_assertions",
- "syn",
-]
-
-[[package]]
 name = "prometheus"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2280,12 +2280,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "static_assertions"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
-
-[[package]]
 name = "stringprep"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2609,7 +2603,7 @@ dependencies = [
  "dashmap",
  "rkyv",
  "serde",
- "twilight-model",
+ "twilight-model 0.10.0",
 ]
 
 [[package]]
@@ -2631,7 +2625,7 @@ dependencies = [
  "tracing",
  "twilight-gateway-queue",
  "twilight-http",
- "twilight-model",
+ "twilight-model 0.10.0",
  "url",
 ]
 
@@ -2657,7 +2651,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "twilight-http-ratelimiting",
- "twilight-model",
+ "twilight-model 0.10.0",
  "twilight-validate",
 ]
 
@@ -2669,6 +2663,23 @@ dependencies = [
  "futures-util",
  "http",
  "tokio",
+]
+
+[[package]]
+name = "twilight-interactions"
+version = "0.10.0"
+dependencies = [
+ "twilight-interactions-derive",
+ "twilight-model 0.10.1",
+]
+
+[[package]]
+name = "twilight-interactions-derive"
+version = "0.10.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -2685,6 +2696,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "twilight-model"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "638caa27f669b7c20220460d35c0f89702452726e1547ae634c93e500ff80706"
+dependencies = [
+ "bitflags",
+ "serde",
+ "serde-value",
+ "serde_repr",
+ "time 0.3.7",
+ "tracing",
+]
+
+[[package]]
 name = "twilight-standby"
 version = "0.10.0"
 source = "git+https://github.com/MaxOhn/twilight?branch=rkyv#35a11a94ccd0d7957dd497e6f3134067a6119d43"
@@ -2692,7 +2717,7 @@ dependencies = [
  "dashmap",
  "futures-util",
  "tokio",
- "twilight-model",
+ "twilight-model 0.10.0",
 ]
 
 [[package]]
@@ -2700,7 +2725,7 @@ name = "twilight-validate"
 version = "0.10.0"
 source = "git+https://github.com/MaxOhn/twilight?branch=rkyv#35a11a94ccd0d7957dd497e6f3134067a6119d43"
 dependencies = [
- "twilight-model",
+ "twilight-model 0.10.0",
 ]
 
 [[package]]

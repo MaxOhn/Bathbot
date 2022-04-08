@@ -9,34 +9,34 @@ use twilight_model::{channel::ReactionType, gateway::event::Event, http::attachm
 
 use super::ReactionWrapper;
 use crate::{
-    bg_game::MapsetTags,
     database::MapsetTagWrapper,
+    games::bg::MapsetTags,
     util::{
         constants::{
             common_literals::{MANIA, OSU},
             GENERAL_ISSUE, OSU_BASE, OWNER_USER_ID,
         },
-        send_reaction, CowUtils, Emote, MessageExt,
+        send_reaction, CowUtils, Emote, 
     },
-    BotResult, CommandData, Context, MessageBuilder, CONFIG,
+    BotResult,  Context,  CONFIG,
 };
 
-#[command]
-#[short_desc("Help tagging backgrounds by tagging them manually")]
-#[long_desc(
-    "Manage the tags of a background for the bg game.\n\
-    First argument must be the mapset id, second argument must be either \
-    `a` or `add` to add tags, or `r` or `remove` to remove them. \n\
-    After that provide any of these pre-selected keywords:\n\
-    `farm, streams, alternate, old, meme, hardname, easy, hard, tech, weeb, bluesky, english`\n\
-    By default, all tags are marked as **true**, so removing them will be more important.\n\
-    **You need to be verified to use this command**, feel free to let \
-    Badewanne3 know if you want to help out tagging backgrounds."
-)]
-#[usage("[mapset id] [add/a/remove/r] [list of tags]")]
-#[example("21662 r hard farm streams alternate hardname tech weeb bluesky")]
-#[aliases("bgtm", "bgtagmanual")]
-#[owner()]
+// #[command]
+// #[short_desc("Help tagging backgrounds by tagging them manually")]
+// #[long_desc(
+//     "Manage the tags of a background for the bg game.\n\
+//     First argument must be the mapset id, second argument must be either \
+//     `a` or `add` to add tags, or `r` or `remove` to remove them. \n\
+//     After that provide any of these pre-selected keywords:\n\
+//     `farm, streams, alternate, old, meme, hardname, easy, hard, tech, weeb, bluesky, english`\n\
+//     By default, all tags are marked as **true**, so removing them will be more important.\n\
+//     **You need to be verified to use this command**, feel free to let \
+//     Badewanne3 know if you want to help out tagging backgrounds."
+// )]
+// #[usage("[mapset id] [add/a/remove/r] [list of tags]")]
+// #[example("21662 r hard farm streams alternate hardname tech weeb bluesky")]
+// #[aliases("bgtm", "bgtagmanual")]
+// #[owner()]
 async fn bgtagsmanual(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let (msg, mut args) = match data {
         CommandData::Message { msg, args, .. } => (msg, args),
@@ -134,19 +134,19 @@ async fn bgtagsmanual(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     Ok(())
 }
 
-#[command]
-#[short_desc("Help out tagging backgrounds")]
-#[long_desc(
-    "Let me give you mapsets that still need to be tagged.\n\
-    React to them properly, then lock it in by reacting with ✅.\n\
-    To leave the loop, react with ❌ or just wait 10 minutes.\n\
-    Mode can be specified in the first argument, defaults to std.\n\
-    **You need to be verified to use this command**, feel free to \
-    let Badewanne3 know if you want to help out tagging backgrounds."
-)]
-#[usage("[std / mna]")]
-#[aliases("bgt", "bgtag")]
-#[owner()]
+// #[command]
+// #[short_desc("Help out tagging backgrounds")]
+// #[long_desc(
+//     "Let me give you mapsets that still need to be tagged.\n\
+//     React to them properly, then lock it in by reacting with ✅.\n\
+//     To leave the loop, react with ❌ or just wait 10 minutes.\n\
+//     Mode can be specified in the first argument, defaults to std.\n\
+//     **You need to be verified to use this command**, feel free to \
+//     let Badewanne3 know if you want to help out tagging backgrounds."
+// )]
+// #[usage("[std / mna]")]
+// #[aliases("bgt", "bgtag")]
+// #[owner()]
 async fn bgtags(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let (msg, mut args) = match data {
         CommandData::Message { msg, args, .. } => (msg, args),

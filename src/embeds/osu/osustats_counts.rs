@@ -1,13 +1,13 @@
-use crate::embeds::Author;
-
 use rosu_v2::prelude::{GameMode, User};
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
+
+use crate::util::builder::AuthorBuilder;
 
 pub struct OsuStatsCountsEmbed {
     description: String,
     thumbnail: String,
     title: String,
-    author: Author,
+    author: AuthorBuilder,
 }
 
 impl OsuStatsCountsEmbed {

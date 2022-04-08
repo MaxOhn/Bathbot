@@ -1,6 +1,7 @@
 use std::{fmt::Write, sync::Arc};
 
 use chrono::{DateTime, Duration, FixedOffset, Timelike, Utc};
+use command_macros::{command, HasName, SlashCommand};
 use eyre::Report;
 use image::{png::PngEncoder, ColorType, ImageEncoder};
 use plotters::{
@@ -12,63 +13,324 @@ use plotters::{
 };
 use plotters_backend::FontStyle;
 use rosu_v2::prelude::{GameMode, OsuError, Score, User};
-use twilight_model::application::{
-    command::CommandOptionChoice,
-    interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
-    },
+use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
+use twilight_model::{
+    application::interaction::ApplicationCommand,
+    id::{marker::UserMarker, Id},
 };
 
 use crate::{
     commands::{
         osu::{get_user, get_user_and_scores, ProfileGraphFlags, ScoreArgs, UserArgs},
-        parse_discord, parse_mode_option, MyCommand, MyCommandOption,
+        GameModeOption, ShowHideOption,
     },
-    core::{commands::CommandData, Context},
-    database::UserConfig,
+    core::{commands::CommandOrigin, Context},
     embeds::{EmbedData, GraphEmbed},
-    error::{Error, GraphError},
+    error::GraphError,
     util::{
-        constants::{
-            common_literals::{DISCORD, MODE, NAME},
-            GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE,
-        },
+        builder::MessageBuilder,
+        constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         numbers::with_comma_int,
-        CountryCode, InteractionExt, MessageBuilder, MessageExt,
+        ApplicationCommandExt, CountryCode,
     },
     BotResult,
 };
 
-use super::{
-    option_discord, option_mode, option_name, player_snipe_stats, profile, sniped,
-    ProfileGraphParams,
-};
+use super::{player_snipe_stats, profile, require_link, sniped, ProfileGraphParams};
 
-async fn graph(ctx: Arc<Context>, data: CommandData<'_>, args: GraphArgs) -> BotResult<()> {
-    let GraphArgs { config, kind, tz } = args;
-    let mode = config.mode.unwrap_or(GameMode::STD);
+#[derive(CommandModel, CreateCommand, SlashCommand)]
+#[command(name = "graph")]
+/// Display graphs about some user data
+pub enum Graph {
+    #[command(name = "medals")]
+    Medals(GraphMedals),
+    #[command(name = "playcount_replays")]
+    PlaycountReplays(GraphPlaycountReplays),
+    #[command(name = "rank")]
+    Rank(GraphRank),
+    #[command(name = "sniped")]
+    Sniped(GraphSniped),
+    #[command(name = "snipe_count")]
+    SnipeCount(GraphSnipeCount),
+    #[command(name = "top")]
+    Top(GraphTop),
+}
 
-    let name = match config.into_username() {
-        Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
-    };
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "medals")]
+/// Display a user's medal progress over time
+pub struct GraphMedals {
+    /// Specify a username
+    name: Option<String>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
+}
 
-    let user_args = UserArgs::new(name.as_str(), mode);
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "playcount_replays")]
+/// Display a user's playcount and replays watched over time
+pub struct GraphPlaycountReplays {
+    /// Specify a username
+    name: Option<String>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
+    /// Specify if the playcount curve should be included
+    playcount: Option<ShowHideOption>,
+    /// Specify if the replay curve should be included
+    replays: Option<ShowHideOption>,
+    /// Specify if the badges should be included
+    badges: Option<ShowHideOption>,
+}
 
-    let tuple_option = match kind {
-        GraphKind::MedalProgression => medals_graph(&ctx, &data, &name, &user_args).await?,
-        GraphKind::PlaycountReplays { flags } => {
-            if flags.is_empty() {
-                return data.error(&ctx, ":clown:").await;
+#[derive(CommandModel, CreateCommand, HasName)]
+#[command(name = "rank")]
+/// Display a user's rank progression over time
+pub struct GraphRank {
+    /// Specify a gamemode
+    mode: Option<GameModeOption>,
+    /// Specify a username
+    name: Option<String>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
+}
+
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "sniped")]
+/// Display sniped users of the past 8 weeks
+pub struct GraphSniped {
+    /// Specify a username
+    name: Option<String>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
+}
+
+#[derive(CommandModel, CreateCommand, HasName)]
+#[command(name = "snipe_count")]
+/// Display how a user's national #1 count progressed
+pub struct GraphSnipeCount {
+    /// Specify a username
+    name: Option<String>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
+}
+
+#[derive(CommandModel, CreateCommand, HasName)]
+#[command(
+    name = "top",
+    help = "Display a user's top scores pp.\n\
+    The timezone option is only relevant for the `Time` order."
+)]
+/// Display a user's top scores pp
+pub struct GraphTop {
+    /// Choose by which order the scores should be sorted, defaults to index
+    order: GraphTopOrder,
+    /// Specify a gamemode
+    mode: Option<GameModeOption>,
+    /// Specify a username
+    name: Option<String>,
+    /// Specify a timezone (only relevant when ordered by `Time`)
+    timezone: Option<GraphTopTimezone>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
+}
+
+#[derive(CommandOption, CreateOption)]
+pub enum GraphTopOrder {
+    #[option(name = "Date", value = "date")]
+    Date,
+    #[option(name = "Index", value = "index")]
+    Index,
+    #[option(name = "Time", value = "time")]
+    Time,
+}
+
+#[derive(CommandOption, CreateOption)]
+pub enum GraphTopTimezone {
+    #[option(name = "UTC-12", value = "-12")]
+    M12 = -12,
+    #[option(name = "UTC-11", value = "-11")]
+    M11 = -11,
+    #[option(name = "UTC-10", value = "-10")]
+    M10 = -10,
+    #[option(name = "UTC-9", value = "-9")]
+    M9 = -9,
+    #[option(name = "UTC-8", value = "-8")]
+    M8 = -8,
+    #[option(name = "UTC-7", value = "-7")]
+    M7 = -7,
+    #[option(name = "UTC-6", value = "-6")]
+    M6 = -6,
+    #[option(name = "UTC-5", value = "-5")]
+    M5 = -5,
+    #[option(name = "UTC-4", value = "-4")]
+    M4 = -4,
+    #[option(name = "UTC-3", value = "-3")]
+    M3 = -3,
+    #[option(name = "UTC-2", value = "-2")]
+    M2 = -2,
+    #[option(name = "UTC-1", value = "-1")]
+    M1 = -1,
+    #[option(name = "UTC+0", value = "0")]
+    P0 = 0,
+    #[option(name = "UTC+1", value = "1")]
+    P1 = 1,
+    #[option(name = "UTC+2", value = "2")]
+    P2 = 2,
+    #[option(name = "UTC+3", value = "3")]
+    P3 = 3,
+    #[option(name = "UTC+4", value = "4")]
+    P4 = 4,
+    #[option(name = "UTC+5", value = "5")]
+    P5 = 5,
+    #[option(name = "UTC+6", value = "6")]
+    P6 = 6,
+    #[option(name = "UTC+7", value = "7")]
+    P7 = 7,
+    #[option(name = "UTC+8", value = "8")]
+    P8 = 8,
+    #[option(name = "UTC+9", value = "9")]
+    P9 = 9,
+    #[option(name = "UTC+10", value = "10")]
+    P10 = 10,
+    #[option(name = "UTC+11", value = "11")]
+    P11 = 11,
+    #[option(name = "UTC+12", value = "12")]
+    P12 = 12,
+}
+
+async fn slash_graph(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    let args = Graph::from_interaction(command.input_data()?);
+
+    graph(ctx, command, args).await
+}
+
+// Takes a `CommandOrigin` since `require_link` does not take `ApplicationCommand`
+async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> BotResult<()> {
+    let tuple_option = match args {
+        Graph::Medals(args) => {
+            let name = match username!(ctx, orig, args) {
+                Some(name) => name,
+                None => match ctx.psql().get_osu_user(orig.user_id()?).await {
+                    Ok(Some(osu)) => osu.into_username(),
+                    Ok(None) => return require_link(&ctx, &orig).await,
+                    Err(err) => {
+                        let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                        return Err(err);
+                    }
+                },
+            };
+
+            medals_graph(&ctx, &orig, &name).await?
+        }
+        Graph::PlaycountReplays(args) => {
+            let name = match username!(ctx, orig, args) {
+                Some(name) => name,
+                None => match ctx.psql().get_osu_user(orig.user_id()?).await {
+                    Ok(Some(osu)) => osu.into_username(),
+                    Ok(None) => return require_link(&ctx, &orig).await,
+                    Err(err) => {
+                        let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                        return Err(err);
+                    }
+                },
+            };
+
+            let mut flags = ProfileGraphFlags::all();
+
+            if let Some(ShowHideOption::Hide) = args.playcount {
+                flags &= !ProfileGraphFlags::PLAYCOUNT;
             }
 
-            playcount_replays_graph(&ctx, &data, &name, &user_args, flags).await?
+            if let Some(ShowHideOption::Hide) = args.replays {
+                flags &= !ProfileGraphFlags::REPLAYS;
+            }
+
+            if let Some(ShowHideOption::Hide) = args.badges {
+                flags &= !ProfileGraphFlags::BADGES;
+            }
+
+            if flags.is_empty() {
+                return orig.error(&ctx, ":clown:").await;
+            }
+
+            playcount_replays_graph(&ctx, &orig, &name, flags).await?
         }
-        GraphKind::RankProgression => rank_graph(&ctx, &data, &name, &user_args).await?,
-        GraphKind::Sniped => sniped_graph(&ctx, &data, &name, &user_args).await?,
-        GraphKind::SnipeCount => snipe_count_graph(&ctx, &data, &name, &user_args).await?,
-        GraphKind::Top { order } => top_graph(&ctx, &data, &name, user_args, order, tz).await?,
+        Graph::Rank(args) => {
+            let (name, mode) = name_mode!(ctx, orig, args);
+            let user_args = UserArgs::new(name.as_str(), mode);
+
+            rank_graph(&ctx, &orig, &name, &user_args).await?
+        }
+        Graph::Sniped(args) => {
+            let name = match username!(ctx, orig, args) {
+                Some(name) => name,
+                None => match ctx.psql().get_osu_user(orig.user_id()?).await {
+                    Ok(Some(osu)) => osu.into_username(),
+                    Ok(None) => return require_link(&ctx, &orig).await,
+                    Err(err) => {
+                        let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                        return Err(err);
+                    }
+                },
+            };
+
+            sniped_graph(&ctx, &orig, &name).await?
+        }
+        Graph::SnipeCount(args) => {
+            let name = match username!(ctx, orig, args) {
+                Some(name) => name,
+                None => match ctx.psql().get_osu_user(orig.user_id()?).await {
+                    Ok(Some(osu)) => osu.into_username(),
+                    Ok(None) => return require_link(&ctx, &orig).await,
+                    Err(err) => {
+                        let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                        return Err(err);
+                    }
+                },
+            };
+
+            snipe_count_graph(&ctx, &orig, &name).await?
+        }
+        Graph::Top(args) => {
+            let (name, mode) = name_mode!(ctx, orig, args);
+            let user_args = UserArgs::new(name.as_str(), mode);
+
+            top_graph(&ctx, &orig, &name, user_args, args.order, args.tz).await?
+        }
     };
 
     let (user, graph) = match tuple_option {
@@ -78,7 +340,7 @@ async fn graph(ctx: Arc<Context>, data: CommandData<'_>, args: GraphArgs) -> Bot
 
     let embed = GraphEmbed::new(&user).into_builder().build();
     let builder = MessageBuilder::new().embed(embed).file("graph.png", graph);
-    data.create_message(&ctx, builder).await?;
+    orig.create_message(&ctx, &builder).await?;
 
     Ok(())
 }
@@ -89,20 +351,21 @@ const LEN: usize = (W * H) as usize;
 
 async fn medals_graph(
     ctx: &Context,
-    data: &CommandData<'_>,
+    orig: &CommandOrigin<'_>,
     name: &str,
-    user_args: &UserArgs<'_>,
 ) -> BotResult<Option<(User, Vec<u8>)>> {
-    let mut user = match get_user(ctx, user_args).await {
+    let user_args = UserArgs::new(name, GameMode::STD);
+
+    let mut user = match get_user(ctx, &user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{name}`");
-            data.error(ctx, content).await?;
+            orig.error(ctx, content).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = data.error(ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(ctx, OSU_API_ISSUE).await;
 
             return Err(err.into());
         }
@@ -117,12 +380,12 @@ async fn medals_graph(
         Ok(None) => {
             let content = format!("`{name}` does not have any medals");
             let builder = MessageBuilder::new().embed(content);
-            data.create_message(ctx, builder).await?;
+            orig.create_message(ctx, &builder).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = data.error(ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(ctx, GENERAL_ISSUE).await;
             warn!("{:?}", Report::new(err));
 
             return Ok(None);
@@ -134,21 +397,22 @@ async fn medals_graph(
 
 async fn playcount_replays_graph(
     ctx: &Context,
-    data: &CommandData<'_>,
+    orig: &CommandOrigin<'_>,
     name: &str,
-    user_args: &UserArgs<'_>,
     flags: ProfileGraphFlags,
 ) -> BotResult<Option<(User, Vec<u8>)>> {
-    let mut user = match get_user(ctx, user_args).await {
+    let user_args = UserArgs::new(name, GameMode::STD);
+
+    let mut user = match get_user(ctx, &user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{name}`");
-            data.error(ctx, content).await?;
+            orig.error(ctx, content).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = data.error(ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(ctx, OSU_API_ISSUE).await;
 
             return Err(err.into());
         }
@@ -163,13 +427,13 @@ async fn playcount_replays_graph(
         Ok(Some(graph)) => graph,
         Ok(None) => {
             let content = format!("`{name}` does not have enough playcount data points");
-            let builder = MessageBuilder::new().embed(content);
-            data.create_message(ctx, builder).await?;
+            let builder = &MessageBuilder::new().embed(content);
+            orig.create_message(ctx, builder).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = data.error(ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(ctx, GENERAL_ISSUE).await;
             warn!("{:?}", Report::new(err));
 
             return Ok(None);
@@ -181,7 +445,7 @@ async fn playcount_replays_graph(
 
 async fn rank_graph(
     ctx: &Context,
-    data: &CommandData<'_>,
+    orig: &CommandOrigin<'_>,
     name: &str,
     user_args: &UserArgs<'_>,
 ) -> BotResult<Option<(User, Vec<u8>)>> {
@@ -189,12 +453,12 @@ async fn rank_graph(
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{name}`");
-            data.error(ctx, content).await?;
+            orig.error(ctx, content).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = data.error(ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(ctx, OSU_API_ISSUE).await;
 
             return Err(err.into());
         }
@@ -329,12 +593,12 @@ async fn rank_graph(
         Ok(Some(graph)) => graph,
         Ok(None) => {
             let content = format!("`{name}` has no available rank data :(");
-            let _ = data.error(ctx, content).await?;
+            let _ = orig.error(ctx, content).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = data.error(ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(ctx, GENERAL_ISSUE).await;
             warn!("{:?}", Report::new(err));
 
             return Ok(None);
@@ -346,20 +610,21 @@ async fn rank_graph(
 
 async fn sniped_graph(
     ctx: &Context,
-    data: &CommandData<'_>,
+    orig: &CommandOrigin<'_>,
     name: &str,
-    user_args: &UserArgs<'_>,
 ) -> BotResult<Option<(User, Vec<u8>)>> {
-    let user = match get_user(ctx, user_args).await {
+    let user_args = UserArgs::new(name, GameMode::STD);
+
+    let user = match get_user(ctx, &user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{name}`");
-            data.error(ctx, content).await?;
+            orig.error(ctx, content).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = data.error(ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(ctx, OSU_API_ISSUE).await;
 
             return Err(err.into());
         }
@@ -383,7 +648,7 @@ async fn sniped_graph(
                 (sniper, snipee)
             }
             Err(err) => {
-                let _ = data.error(ctx, HUISMETBENEN_ISSUE).await;
+                let _ = orig.error(ctx, HUISMETBENEN_ISSUE).await;
 
                 return Err(err.into());
             }
@@ -394,7 +659,7 @@ async fn sniped_graph(
             user.username, user.country_code
         );
 
-        data.error(ctx, content).await?;
+        orig.error(ctx, content).await?;
 
         return Ok(None);
     };
@@ -405,12 +670,12 @@ async fn sniped_graph(
             let content =
                 format!("`{name}` was neither sniped nor sniped other people in the last 8 weeks");
             let builder = MessageBuilder::new().embed(content);
-            data.create_message(ctx, builder).await?;
+            orig.create_message(ctx, &builder).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = data.error(ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(ctx, GENERAL_ISSUE).await;
             warn!("{:?}", Report::new(err));
 
             return Ok(None);
@@ -422,20 +687,21 @@ async fn sniped_graph(
 
 async fn snipe_count_graph(
     ctx: &Context,
-    data: &CommandData<'_>,
+    orig: &CommandOrigin<'_>,
     name: &str,
-    user_args: &UserArgs<'_>,
 ) -> BotResult<Option<(User, Vec<u8>)>> {
-    let user = match get_user(ctx, user_args).await {
+    let user_args = UserArgs::new(name, GameMode::STD);
+
+    let user = match get_user(ctx, &user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{name}`");
-            data.error(ctx, content).await?;
+            orig.error(ctx, content).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = data.error(ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(ctx, OSU_API_ISSUE).await;
 
             return Err(err.into());
         }
@@ -454,7 +720,7 @@ async fn snipe_count_graph(
                 warn!("{report:?}");
                 let content = format!("`{name}` has never had any national #1s");
                 let builder = MessageBuilder::new().embed(content);
-                data.create_message(ctx, builder).await?;
+                orig.create_message(ctx, &builder).await?;
 
                 return Ok(None);
             }
@@ -465,7 +731,7 @@ async fn snipe_count_graph(
             user.username, user.country_code
         );
 
-        data.error(ctx, content).await?;
+        orig.error(ctx, content).await?;
 
         return Ok(None);
     };
@@ -476,7 +742,7 @@ async fn snipe_count_graph(
     let bytes = match graph_result {
         Ok(graph) => graph,
         Err(err) => {
-            let _ = data.error(ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(ctx, GENERAL_ISSUE).await;
             warn!("{:?}", Report::new(err));
 
             return Ok(None);
@@ -488,7 +754,7 @@ async fn snipe_count_graph(
 
 async fn top_graph(
     ctx: &Context,
-    data: &CommandData<'_>,
+    orig: &CommandOrigin<'_>,
     name: &str,
     user_args: UserArgs<'_>,
     order: GraphTopOrder,
@@ -501,12 +767,12 @@ async fn top_graph(
         Ok(tuple) => tuple,
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{name}`");
-            data.error(ctx, content).await?;
+            orig.error(ctx, content).await?;
 
             return Ok(None);
         }
         Err(err) => {
-            let _ = data.error(ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(ctx, OSU_API_ISSUE).await;
 
             return Err(err.into());
         }
@@ -514,7 +780,7 @@ async fn top_graph(
 
     if scores.is_empty() {
         let content = "User's top scores are empty";
-        data.error(ctx, content).await?;
+        orig.error(ctx, content).await?;
 
         return Ok(None);
     }
@@ -546,7 +812,7 @@ async fn top_graph(
     let bytes = match graph_result {
         Ok(graph) => graph,
         Err(err) => {
-            let _ = data.error(ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(ctx, GENERAL_ISSUE).await;
             warn!("{:?}", Report::new(err));
 
             return Ok(None);
@@ -905,327 +1171,4 @@ impl Iterator for ScoreHourCounts {
 
         Some(rect)
     }
-}
-
-struct GraphArgs {
-    config: UserConfig,
-    kind: GraphKind,
-    tz: Option<FixedOffset>,
-}
-
-enum GraphKind {
-    MedalProgression,
-    PlaycountReplays { flags: ProfileGraphFlags },
-    RankProgression,
-    Sniped,
-    SnipeCount,
-    Top { order: GraphTopOrder },
-}
-
-enum GraphTopOrder {
-    Date,
-    Index,
-    Time,
-}
-
-impl Default for GraphTopOrder {
-    fn default() -> Self {
-        Self::Index
-    }
-}
-
-pub async fn slash_graph(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    let (subcommand, mut options) = command
-        .data
-        .options
-        .pop()
-        .and_then(|option| match option.value {
-            CommandOptionValue::SubCommand(options) => Some((option.name, options)),
-            _ => None,
-        })
-        .ok_or(Error::InvalidCommandOptions)?;
-
-    let mut config = ctx.user_config(command.user_id()?).await?;
-
-    let kind = match subcommand.as_str() {
-        "medals" => GraphKind::MedalProgression,
-        "playcount_replays" => {
-            let badges = check_show_hide_option(&mut options, "badges")?;
-            let playcount = check_show_hide_option(&mut options, "playcount")?;
-            let replays = check_show_hide_option(&mut options, "replays")?;
-
-            let mut flags = ProfileGraphFlags::default();
-
-            if !badges {
-                flags.remove(ProfileGraphFlags::BADGES);
-            }
-
-            if !playcount {
-                flags.remove(ProfileGraphFlags::PLAYCOUNT);
-            }
-
-            if !replays {
-                flags.remove(ProfileGraphFlags::REPLAYS);
-            }
-
-            GraphKind::PlaycountReplays { flags }
-        }
-        "rank" => GraphKind::RankProgression,
-        "sniped" => GraphKind::Sniped,
-        "snipe_count" => GraphKind::SnipeCount,
-        "top" => {
-            let mut order = None;
-
-            if let Some(idx) = options.iter().position(|option| option.name == "order") {
-                match options.swap_remove(idx).value {
-                    CommandOptionValue::String(value) => match value.as_str() {
-                        "date" => order = Some(GraphTopOrder::Date),
-                        "index" => order = Some(GraphTopOrder::Index),
-                        "time" => order = Some(GraphTopOrder::Time),
-                        _ => return Err(Error::InvalidCommandOptions),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                }
-            }
-
-            GraphKind::Top {
-                order: order.ok_or(Error::InvalidCommandOptions)?,
-            }
-        }
-        _ => return Err(Error::InvalidCommandOptions),
-    };
-
-    let mut tz = None;
-
-    for option in options {
-        match option.value {
-            CommandOptionValue::String(value) => match option.name.as_str() {
-                NAME => config.osu = Some(value.into()),
-                MODE => config.mode = parse_mode_option(&value),
-                "timezone" => match value.parse::<i32>() {
-                    Ok(value) => tz = Some(FixedOffset::east(value * 3600)),
-                    Err(_) => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            },
-            CommandOptionValue::User(value) => match option.name.as_str() {
-                DISCORD => match parse_discord(&ctx, value).await? {
-                    Ok(osu) => config.osu = Some(osu),
-                    Err(content) => return command.error(&ctx, content).await,
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            },
-            _ => return Err(Error::InvalidCommandOptions),
-        }
-    }
-
-    graph(ctx, command.into(), GraphArgs { config, kind, tz }).await
-}
-
-fn check_show_hide_option(options: &mut Vec<CommandDataOption>, name: &str) -> BotResult<bool> {
-    if let Some(idx) = options.iter().position(|o| o.name == name) {
-        match options.swap_remove(idx).value {
-            CommandOptionValue::String(value) => match value.as_str() {
-                "show" => return Ok(true),
-                "hide" => return Ok(false),
-                _ => return Err(Error::InvalidCommandOptions),
-            },
-            _ => return Err(Error::InvalidCommandOptions),
-        }
-    }
-
-    Ok(true)
-}
-
-fn timezones() -> Vec<CommandOptionChoice> {
-    vec![
-        CommandOptionChoice::String {
-            name: "UTC-12".to_owned(),
-            value: "-12".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC-11".to_owned(),
-            value: "-11".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC-10".to_owned(),
-            value: "-10".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC-9".to_owned(),
-            value: "-9".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC-8".to_owned(),
-            value: "-8".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC-7".to_owned(),
-            value: "-7".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC-6".to_owned(),
-            value: "-6".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC-5".to_owned(),
-            value: "-5".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC-4".to_owned(),
-            value: "-4".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC-3".to_owned(),
-            value: "-3".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC-2".to_owned(),
-            value: "-2".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC-1".to_owned(),
-            value: "-1".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC+0".to_owned(),
-            value: "0".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC+1".to_owned(),
-            value: "1".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC+2".to_owned(),
-            value: "2".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC+3".to_owned(),
-            value: "3".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC+4".to_owned(),
-            value: "4".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC+5".to_owned(),
-            value: "5".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC+6".to_owned(),
-            value: "6".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC+7".to_owned(),
-            value: "7".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC+8".to_owned(),
-            value: "8".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC+9".to_owned(),
-            value: "9".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC+10".to_owned(),
-            value: "10".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC+11".to_owned(),
-            value: "11".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "UTC+12".to_owned(),
-            value: "12".to_owned(),
-        },
-    ]
-}
-
-fn show_hide() -> Vec<CommandOptionChoice> {
-    vec![
-        CommandOptionChoice::String {
-            name: "Show".to_owned(),
-            value: "show".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Hide".to_owned(),
-            value: "hide".to_owned(),
-        },
-    ]
-}
-
-pub fn define_graph() -> MyCommand {
-    let medals = MyCommandOption::builder("medals", "Display a user's medal progress over time")
-        .subcommand(vec![option_name(), option_discord()]);
-
-    let playcount_description = "Specify if the playcount curve should be included";
-
-    let playcount =
-        MyCommandOption::builder("playcount", playcount_description).string(show_hide(), false);
-
-    let replays =
-        MyCommandOption::builder("replays", "Specify if the replay curve should be included")
-            .string(show_hide(), false);
-
-    let badges = MyCommandOption::builder("badges", "Specify if the badges should be included")
-        .string(show_hide(), false);
-
-    let playcount_replays_description = "Display a user's playcount and replays watched over time";
-
-    let playcount_replays =
-        MyCommandOption::builder("playcount_replays", playcount_replays_description).subcommand(
-            vec![option_name(), option_discord(), playcount, replays, badges],
-        );
-
-    let rank = MyCommandOption::builder("rank", "Display a user's rank progression over time")
-        .subcommand(vec![option_mode(), option_name(), option_discord()]);
-
-    let sniped = MyCommandOption::builder("sniped", "Display sniped users of the past 8 weeks")
-        .subcommand(vec![option_name(), option_discord()]);
-
-    let snipe_count_description = "Display how a user's national #1 count progressed";
-
-    let snipe_count = MyCommandOption::builder("snipe_count", snipe_count_description)
-        .subcommand(vec![option_name(), option_discord()]);
-
-    let order_choices = vec![
-        CommandOptionChoice::String {
-            name: "Date".to_owned(),
-            value: "date".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Index".to_owned(),
-            value: "index".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Time".to_owned(),
-            value: "time".to_owned(),
-        },
-    ];
-
-    let order_description = "Choose by which order the scores should be sorted, defaults to index";
-    let order = MyCommandOption::builder("order", order_description).string(order_choices, true);
-    let timezone_description = "Specify a timezone (only relevant when ordered by `Time`)";
-
-    let timezone =
-        MyCommandOption::builder("timezone", timezone_description).string(timezones(), false);
-
-    let options = vec![
-        order,
-        option_mode(),
-        option_name(),
-        timezone,
-        option_discord(),
-    ];
-
-    let top_help = "Display a user's top scores pp.\nThe timezone option is only relevant for the `Time` order.";
-
-    let top = MyCommandOption::builder("top", "Display a user's top scores pp")
-        .help(top_help)
-        .subcommand(options);
-
-    let subcommands = vec![medals, playcount_replays, rank, sniped, snipe_count, top];
-
-    MyCommand::new("graph", "Display graphs about some data").options(subcommands)
 }

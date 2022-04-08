@@ -1,4 +1,4 @@
-use crate::{bg_game::MapsetTags, BotResult};
+use crate::{games::bg::MapsetTags, BotResult};
 
 use std::fmt::Write;
 

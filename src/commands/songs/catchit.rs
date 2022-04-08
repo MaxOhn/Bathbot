@@ -1,18 +1,20 @@
-use crate::{BotResult, CommandData, Context};
-
 use std::sync::Arc;
 
-#[command]
-#[short_desc("https://youtu.be/BjFWk0ncr70?t=12")]
-#[bucket("songs")]
-#[no_typing()]
-async fn catchit(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    let (lyrics, delay) = _catchit();
+use command_macros::command;
 
-    super::song_send(lyrics, delay, ctx, data).await
+use crate::{core::Context, BotResult};
+
+#[command]
+#[desc("https://youtu.be/BjFWk0ncr70?t=12")]
+#[group(Songs)]
+#[flags(SKIP_DEFER)]
+async fn prefix_catchit(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+    let (lyrics, delay) = catchit_();
+
+    super::song(lyrics, delay, ctx, msg.into()).await
 }
 
-pub fn _catchit() -> (&'static [&'static str], u64) {
+pub fn catchit_() -> (&'static [&'static str], u64) {
     let lyrics = &[
         "This song is one you won't forget",
         "It will get stuck -- in your head",

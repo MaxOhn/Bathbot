@@ -2,24 +2,27 @@ use std::fmt::Write;
 
 use crate::{
     custom_client::OsuTrackerPpEntry,
-    embeds::{Author, Footer},
-    util::{constants::OSU_BASE, numbers::with_comma_int},
+    util::{
+        builder::{AuthorBuilder, FooterBuilder},
+        constants::OSU_BASE,
+        numbers::with_comma_int,
+    },
 };
 
 pub struct OsuTrackerMapsEmbed {
-    author: Author,
+    author: AuthorBuilder,
     description: String,
-    footer: Footer,
+    footer: FooterBuilder,
 }
 
 impl OsuTrackerMapsEmbed {
     pub fn new(pp: u32, entries: &[OsuTrackerPpEntry], (page, pages): (usize, usize)) -> Self {
         let author_text = format!("Most common maps in top plays: {pp}-{}pp", pp + 100);
-        let author = Author::new(author_text).url("https://osutracker.com/stats");
+        let author = AuthorBuilder::new(author_text).url("https://osutracker.com/stats");
 
         let footer_text =
             format!("Page {page}/{pages} • Data originates from https://osutracker.com");
-        let footer = Footer::new(footer_text);
+        let footer = FooterBuilder::new(footer_text);
 
         let idx = (page - 1) * 10 + 1;
         let mut sizes = Sizes::default();

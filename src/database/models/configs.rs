@@ -98,7 +98,7 @@ impl Default for GuildConfig {
             authorities: SmallVec::new(),
             embeds_size: None,
             minimized_pp: None,
-            prefixes: smallvec!["<".into()],
+            prefixes: smallvec::smallvec!["<".into()],
             profile_size: None,
             show_retries: None,
             track_limit: None,

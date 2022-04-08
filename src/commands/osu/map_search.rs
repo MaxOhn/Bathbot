@@ -1,137 +1,216 @@
-use crate::{
-    commands::{parse_mode_option, MyCommand, MyCommandOption},
-    embeds::{EmbedData, MapSearchEmbed},
-    error::Error,
-    pagination::{MapSearchPagination, Pagination},
-    util::{
-        constants::{
-            common_literals::{CTB, FRUITS, MANIA, MODE, OSU, REVERSE, SORT, TAIKO},
-            OSU_API_ISSUE,
-        },
-        ApplicationCommandExt, MessageExt,
-    },
-    Args, BotResult, CommandData, Context,
-};
+use std::{collections::BTreeMap, sync::Arc};
 
+use command_macros::{command, SlashCommand};
 use eyre::Report;
 use rosu_v2::prelude::{
-    Beatmapset, BeatmapsetSearchResult, BeatmapsetSearchSort, GameMode, Genre, Language, Osu,
-    OsuResult, RankStatus,
+    Beatmapset, BeatmapsetSearchResult, BeatmapsetSearchSort, Genre, Language, Osu, OsuResult,
+    RankStatus,
 };
-use std::{collections::BTreeMap, sync::Arc};
-use twilight_model::application::{
-    command::CommandOptionChoice,
-    interaction::{application_command::CommandOptionValue, ApplicationCommand},
+use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
+use twilight_model::application::interaction::ApplicationCommand;
+
+use crate::{
+    commands::GameModeOption,
+    core::commands::{prefix::Args, CommandOrigin},
+    embeds::{EmbedData, MapSearchEmbed},
+    pagination::{MapSearchPagination, Pagination},
+    util::constants::OSU_API_ISSUE,
+    BotResult, Context,
 };
 
-use super::option_mode;
-
-#[command]
-#[short_desc("Search for mapsets")]
-#[long_desc(
-    "Search for mapsets. \n\
-    The query works essentially the same as in game, meaning you can add \
-    any keywords, as well as specific assignments like `creator=abc`, `length<123`, `ar>=9`, ...\n\n\
-    Additionally, there are various special arguments you can provide with `argument=abc`:\n\
-    - __`mode`__: `osu`, `taiko`, `ctb`, or `mania`, defaults to none\n\
-    - __`status`__: `ranked`, `loved`, `qualified`, `pending`, `graveyard`, `any`, or \
-    `leaderboard`, defaults to `leaderboard`\n\
-    - __`genre`__: `any`, `unspecified`, `videogame`, `anime`, `rock`, `pop`, `other`, `novelty`, \
-    `hiphop`, `electronic`, `metal`, `classical`, `folk`, or `jazz`, defaults to `any`\n\
-    - __`language`__: `any`, `english`, `chinese`, `french`, `german`, `italian`, `japanese`, \
-    `korean`, `spanish`, `swedish`, `russian`, `polish`, `instrumental`, `unspecified`, \
-    or `other`, defaults to `any`\n\
-    - __`video`__: `true` or `false`, defaults to `false`\n\
-    - __`storyboard`__: `true` or `false`, defaults to `false`\n\
-    - __`nsfw`__: `true` or `false`, defaults to `true` (allows nsfw, not requires nsfw)\n\
-    - __`sort`__: `favourites`, `playcount`, `rankeddate`, `rating`, `relevance`, `stars`, \
-    `artist`, or `title`, defaults to `relevance`\n\n\
-    Depending on `sort`, the mapsets are ordered in descending order by default. \
-    To reverse, specify `reverse=true`."
-)]
-#[aliases("searchmap", "mapsearch")]
-#[usage("[search query]")]
-#[example(
-    "some words yay mode=osu status=graveyard sort=favourites reverse=true",
-    "artist=camellia length<240 stars>8 genre=electronic"
-)]
-async fn search(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => match MapSearchArgs::args(&mut args) {
-            Ok(search_args) => {
-                _search(ctx, CommandData::Message { msg, args, num }, search_args).await
-            }
-            Err(content) => msg.error(&ctx, content).await,
-        },
-        CommandData::Interaction { command } => slash_mapsearch(ctx, *command).await,
-    }
+#[derive(CommandModel, CreateCommand, SlashCommand)]
+#[command(name = "search")]
+/// Search for mapsets
+pub struct Search {
+    /// Specify a search query
+    query: Option<String>,
+    /// Specify a gamemode
+    mode: Option<GameModeOption>,
+    /// Specify a ranking status
+    status: Option<SearchStatus>,
+    /// Specify the order of mapsets
+    sort: Option<SearchOrder>,
+    /// Specify a genre
+    genre: Option<SearchGenre>,
+    /// Specify a language
+    language: Option<SearchLanguage>,
+    /// Specify if the mapset should have a video
+    video: Option<bool>,
+    /// Specify if the mapset should have a storyboard
+    storyboard: Option<bool>,
+    /// Specify whether the mapset can be NSFW
+    nsfw: Option<bool>,
+    /// Specify whether the resulting list should be reversed
+    reverse: Option<bool>,
 }
 
-async fn _search(ctx: Arc<Context>, data: CommandData<'_>, args: MapSearchArgs) -> BotResult<()> {
-    let mut search_result = match args.request(ctx.osu()).await {
-        Ok(response) => response,
-        Err(why) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE);
+#[derive(CommandOption, CreateOption)]
+pub enum SearchStatus {
+    #[option(name = "Any", value = "any")]
+    Any,
+    #[option(name = "Leaderboard", value = "leaderboard")]
+    Leaderboard,
+    #[option(name = "Ranked", value = "ranked")]
+    Ranked,
+    #[option(name = "Loved", value = "loved")]
+    Loved,
+    #[option(name = "Qualified", value = "qualified")]
+    Qualified,
+    #[option(name = "Pending", value = "pending")]
+    Pending,
+    #[option(name = "Graveyard", value = "graveyard")]
+    Graveyard,
+}
 
-            return Err(why.into());
+#[derive(CommandOption, CreateOption)]
+pub enum SearchGenre {
+    #[option(name = "Any", value = "any")]
+    Any,
+    #[option(name = "Anime", value = "anime")]
+    Anime,
+    #[option(name = "Classical", value = "classical")]
+    Classical,
+    #[option(name = "Electronic", value = "electronic")]
+    Electronic,
+    #[option(name = "Folk", value = "folk")]
+    Folk,
+    #[option(name = "Hip-Hop", value = "hiphop")]
+    HipHop,
+    #[option(name = "Jazz", value = "jazz")]
+    Jazz,
+    #[option(name = "Metal", value = "metal")]
+    Metal,
+    #[option(name = "Novelty", value = "novelty")]
+    Novelty,
+    #[option(name = "Other", value = "other")]
+    Other,
+    #[option(name = "Pop", value = "pop")]
+    Pop,
+    #[option(name = "Rock", value = "rock")]
+    Rock,
+    #[option(name = "Unspecified", value = "unspecified")]
+    Unspecified,
+    #[option(name = "VideoGame", value = "videogame")]
+    VideoGame,
+}
+
+impl From<SearchGenre> for Genre {
+    fn from(genre: SearchGenre) -> Self {
+        match genre {
+            SearchGenre::Any => Self::Any,
+            SearchGenre::Anime => Self::Anime,
+            SearchGenre::Classical => Self::Classical,
+            SearchGenre::Electronic => Self::Electronic,
+            SearchGenre::Folk => Self::Folk,
+            SearchGenre::HipHop => Self::HipHop,
+            SearchGenre::Jazz => Self::Jazz,
+            SearchGenre::Metal => Self::Metal,
+            SearchGenre::Novelty => Self::Novelty,
+            SearchGenre::Other => Self::Other,
+            SearchGenre::Pop => Self::Pop,
+            SearchGenre::Rock => Self::Rock,
+            SearchGenre::Unspecified => Self::Unspecified,
+            SearchGenre::VideoGame => Self::VideoGame,
         }
-    };
-
-    // Accumulate all necessary data
-    let mapset_count = search_result.mapsets.len();
-    let total_pages = (mapset_count < 50).then(|| mapset_count / 10 + 1);
-    let maps: BTreeMap<usize, Beatmapset> = search_result.mapsets.drain(..).enumerate().collect();
-    let embed_data = MapSearchEmbed::new(&maps, &args, (1, total_pages)).await;
-
-    // Creating the embed
-    let embed = embed_data.into_builder().build();
-    let response_raw = data.create_message(&ctx, embed.into()).await?;
-
-    // Skip pagination if too few entries
-    if maps.len() <= 10 {
-        return Ok(());
     }
+}
 
-    let owner = data.author()?.id;
-    let response = response_raw.model().await?;
+#[derive(CommandOption, CreateOption)]
+pub enum SearchLanguage {
+    #[option(name = "Any", value = "any")]
+    Any,
+    #[option(name = "Chinese", value = "chinese")]
+    Chinese,
+    #[option(name = "English", value = "english")]
+    English,
+    #[option(name = "French", value = "french")]
+    French,
+    #[option(name = "German", value = "german")]
+    German,
+    #[option(name = "Instrumental", value = "instrumental")]
+    Instrumental,
+    #[option(name = "Italian", value = "italian")]
+    Italian,
+    #[option(name = "Japanese", value = "japanese")]
+    Japanese,
+    #[option(name = "Korean", value = "korean")]
+    Korean,
+    #[option(name = "Other", value = "other")]
+    Other,
+    #[option(name = "Polish", value = "polish")]
+    Polish,
+    #[option(name = "Russian", value = "russian")]
+    Russian,
+    #[option(name = "Spanish", value = "spanish")]
+    Spanish,
+    #[option(name = "Swedish", value = "swedish")]
+    Swedish,
+    #[option(name = "Unspecified", value = "unspecified")]
+    Unspecified,
+}
 
-    // Pagination
-    let pagination =
-        MapSearchPagination::new(Arc::clone(&ctx), response, maps, search_result, args);
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
+impl From<SearchLanguage> for Language {
+    fn from(language: SearchLanguage) -> Self {
+        match language {
+            SearchLanguage::Any => Self::Any,
+            SearchLanguage::Chinese => Self::Chinese,
+            SearchLanguage::English => Self::English,
+            SearchLanguage::French => Self::French,
+            SearchLanguage::German => Self::German,
+            SearchLanguage::Instrumental => Self::Instrumental,
+            SearchLanguage::Italian => Self::Italian,
+            SearchLanguage::Japanese => Self::Japanese,
+            SearchLanguage::Korean => Self::Korean,
+            SearchLanguage::Other => Self::Other,
+            SearchLanguage::Polish => Self::Polish,
+            SearchLanguage::Russian => Self::Russian,
+            SearchLanguage::Spanish => Self::Spanish,
+            SearchLanguage::Swedish => Self::Swedish,
+            SearchLanguage::Unspecified => Self::Unspecified,
         }
-    });
-
-    Ok(())
-}
-
-pub struct SearchRankStatus(Option<RankStatus>);
-
-impl SearchRankStatus {
-    pub fn status(&self) -> Option<RankStatus> {
-        self.0
     }
 }
 
-pub struct MapSearchArgs {
-    pub query: Option<String>,
-    pub mode: Option<GameMode>,
-    pub status: Option<SearchRankStatus>,
-    pub genre: Option<Genre>,
-    pub language: Option<Language>,
-    pub video: bool,
-    pub storyboard: bool,
-    pub nsfw: bool,
-    pub sort: BeatmapsetSearchSort,
-    pub descending: bool,
+#[derive(CommandOption, CreateOption)]
+pub enum SearchOrder {
+    #[option(name = "Artist", value = "artist")]
+    Artist,
+    #[option(name = "Favourites", value = "favourites")]
+    Favourites,
+    #[option(name = "Playcount", value = "playcount")]
+    Playcount,
+    #[option(name = "RankedDate", value = "ranked_date")]
+    RankedDate,
+    #[option(name = "Rating", value = "rating")]
+    Rating,
+    #[option(name = "Relevance", value = "relevance")]
+    Relevance,
+    #[option(name = "Stars", value = "stars")]
+    Stars,
+    #[option(name = "Title", value = "title")]
+    Title,
 }
 
-impl MapSearchArgs {
-    pub fn args(args: &mut Args<'_>) -> Result<Self, &'static str> {
+impl From<SearchOrder> for BeatmapsetSearchSort {
+    fn from(order: SearchOrder) -> Self {
+        match order {
+            SearchOrder::Artist => Self::Artist,
+            SearchOrder::Favourites => Self::Favourites,
+            SearchOrder::Playcount => Self::Playcount,
+            SearchOrder::RankedDate => Self::RankedDate,
+            SearchOrder::Rating => Self::Rating,
+            SearchOrder::Relevance => Self::Relevance,
+            SearchOrder::Stars => Self::Stars,
+            SearchOrder::Title => Self::Title,
+        }
+    }
+}
+
+impl Search {
+    pub fn args(args: Args<'_>) -> Result<Self, &'static str> {
         let mut query = String::with_capacity(args.rest().len());
+
+        // * Note: Can't use Stream since `query` is edited while being parsed
 
         let chars = args
             .rest()
@@ -150,16 +229,16 @@ impl MapSearchArgs {
                 }
 
                 let mode = match &query[start + "mode=".len()..end] {
-                    "0" | OSU | "std" | "standard" => GameMode::STD,
-                    "1" | "tko" | TAIKO => GameMode::TKO,
-                    "2" | CTB | FRUITS | "catch" => GameMode::CTB,
-                    "3" | "mna" | MANIA => GameMode::MNA,
+                    "0" | "o" | "osu" | "std" | "standard" => GameModeOption::Osu,
+                    "1" | "t" | "tko" | "taiko" => GameModeOption::Taiko,
+                    "2" | "c" | "ctb" | "fruits" | "catch" => GameModeOption::Catch,
+                    "3" | "m" | "mna" | "mania" => GameModeOption::Mania,
                     _ => {
-                        let msg = "Failed to parse `mode`. After `mode=` you must \
+                        let content = "Failed to parse `mode`. After `mode=` you must \
                         specify the mode either by its name or by its number i.e. \
                         0=osu, 1=taiko, 2=ctb, 3=mania.";
 
-                        return Err(msg);
+                        return Err(content);
                     }
                 };
 
@@ -179,25 +258,25 @@ impl MapSearchArgs {
                 }
 
                 let status = match &query[start + "status=".len()..end] {
-                    "ranked" => Some(SearchRankStatus(Some(RankStatus::Ranked))),
-                    "loved" => Some(SearchRankStatus(Some(RankStatus::Loved))),
-                    "qualified" => Some(SearchRankStatus(Some(RankStatus::Qualified))),
-                    "pending" | "wip" => Some(SearchRankStatus(Some(RankStatus::Pending))),
-                    "graveyard" => Some(SearchRankStatus(Some(RankStatus::Graveyard))),
-                    "any" => Some(SearchRankStatus(None)),
-                    "leaderboard" => None,
+                    "ranked" => SearchStatus::Ranked,
+                    "loved" => SearchStatus::Loved,
+                    "qualified" => SearchStatus::Qualified,
+                    "pending" | "wip" => SearchStatus::Pending,
+                    "graveyard" => SearchStatus::Graveyard,
+                    "any" => SearchStatus::Any,
+                    "leaderboard" => SearchStatus::Leaderboard,
                     _ => {
-                        let msg = "Failed to parse `status`. After `status=` you must \
+                        let content = "Failed to parse `status`. After `status=` you must \
                         specify any of the following options: `ranked`, `loved`, `qualified`, \
                         `pending`, `graveyard`, `any`, or `leaderboard`";
 
-                        return Err(msg);
+                        return Err(content);
                     }
                 };
 
                 query.replace_range(start..end + (query.len() > end + 1) as usize, "");
 
-                status
+                Some(status)
             }
             None => None,
         };
@@ -211,20 +290,20 @@ impl MapSearchArgs {
                 }
 
                 let genre = match &query[start + "genre=".len()..end] {
-                    "any" => Genre::Any,
-                    "unspecified" => Genre::Unspecified,
-                    "videogame" | "videogames" => Genre::VideoGame,
-                    "anime" => Genre::Anime,
-                    "rock" => Genre::Rock,
-                    "pop" => Genre::Pop,
-                    "other" => Genre::Other,
-                    "novelty" => Genre::Novelty,
-                    "hiphop" => Genre::HipHop,
-                    "electronic" => Genre::Electronic,
-                    "metal" => Genre::Metal,
-                    "classical" => Genre::Classical,
-                    "folk" => Genre::Folk,
-                    "jazz" => Genre::Jazz,
+                    "any" => SearchGenre::Any,
+                    "unspecified" => SearchGenre::Unspecified,
+                    "videogame" | "videogames" => SearchGenre::VideoGame,
+                    "anime" => SearchGenre::Anime,
+                    "rock" => SearchGenre::Rock,
+                    "pop" => SearchGenre::Pop,
+                    "other" => SearchGenre::Other,
+                    "novelty" => SearchGenre::Novelty,
+                    "hiphop" => SearchGenre::HipHop,
+                    "electronic" => SearchGenre::Electronic,
+                    "metal" => SearchGenre::Metal,
+                    "classical" => SearchGenre::Classical,
+                    "folk" => SearchGenre::Folk,
+                    "jazz" => SearchGenre::Jazz,
                     _ => {
                         let msg = "Failed to parse `genre`. After `genre=` you must \
                         specify any of the following options: `any`, `unspecified`, \
@@ -251,28 +330,28 @@ impl MapSearchArgs {
                 }
 
                 let language = match &query[start + "language=".len()..end] {
-                    "any" => Language::Any,
-                    "english" => Language::English,
-                    "chinese" => Language::Chinese,
-                    "french" => Language::French,
-                    "german" => Language::German,
-                    "italian" => Language::Italian,
-                    "japanese" => Language::Japanese,
-                    "korean" => Language::Korean,
-                    "spanish" => Language::Spanish,
-                    "swedish" => Language::Swedish,
-                    "russian" => Language::Russian,
-                    "polish" => Language::Polish,
-                    "instrumental" => Language::Instrumental,
-                    "unspecified" => Language::Unspecified,
-                    "other" => Language::Other,
+                    "any" => SearchLanguage::Any,
+                    "english" => SearchLanguage::English,
+                    "chinese" => SearchLanguage::Chinese,
+                    "french" => SearchLanguage::French,
+                    "german" => SearchLanguage::German,
+                    "italian" => SearchLanguage::Italian,
+                    "japanese" => SearchLanguage::Japanese,
+                    "korean" => SearchLanguage::Korean,
+                    "spanish" => SearchLanguage::Spanish,
+                    "swedish" => SearchLanguage::Swedish,
+                    "russian" => SearchLanguage::Russian,
+                    "polish" => SearchLanguage::Polish,
+                    "instrumental" => SearchLanguage::Instrumental,
+                    "unspecified" => SearchLanguage::Unspecified,
+                    "other" => SearchLanguage::Other,
                     _ => {
-                        let msg = "Failed to parse `language`. After `language=` you must \
+                        let content = "Failed to parse `language`. After `language=` you must \
                         specify any of the following options: `any`, `english`, `chinese`, \
                         `french`, `german`, `italian`, `japanese`, `korean`, `spanish`, `swdish`, \
                         `russian`, `polish`, `instrumental`, `unspecified`, or `other`.";
 
-                        return Err(msg);
+                        return Err(content);
                     }
                 };
 
@@ -294,10 +373,10 @@ impl MapSearchArgs {
                 let video = match query[start + "video=".len()..end].parse() {
                     Ok(video) => video,
                     Err(_) => {
-                        let msg = "Failed to parse `video` boolean. After `video=` \
+                        let content = "Failed to parse `video` boolean. After `video=` \
                         you must specify either `true` or `false`.";
 
-                        return Err(msg);
+                        return Err(content);
                     }
                 };
 
@@ -319,10 +398,10 @@ impl MapSearchArgs {
                 let storyboard = match query[start + "storyboard=".len()..end].parse() {
                     Ok(storyboard) => storyboard,
                     Err(_) => {
-                        let msg = "Failed to parse `storyboard` boolean. After `storyboard=` \
+                        let content = "Failed to parse `storyboard` boolean. After `storyboard=` \
                         you must specify either `true` or `false`.";
 
-                        return Err(msg);
+                        return Err(content);
                     }
                 };
 
@@ -344,10 +423,10 @@ impl MapSearchArgs {
                 let nsfw = match query[start + "nsfw=".len()..end].parse() {
                     Ok(nsfw) => nsfw,
                     Err(_) => {
-                        let msg = "Failed to parse `nsfw` boolean. After `nsfw=` \
+                        let content = "Failed to parse `nsfw` boolean. After `nsfw=` \
                         you must specify either `true` or `false`.";
 
-                        return Err(msg);
+                        return Err(content);
                     }
                 };
 
@@ -376,11 +455,11 @@ impl MapSearchArgs {
                     "stars" | "difficulty" => BeatmapsetSearchSort::Stars,
                     "title" => BeatmapsetSearchSort::Title,
                     _ => {
-                        let msg = "Failed to parse `sort`. After `sort=` you must \
+                        let content = "Failed to parse `sort`. After `sort=` you must \
                         specify any of the following options: `artist`, `favourites`, `playcount`, \
                         `rankeddate`, `rating`, `relevance`, `difficulty`, or `title`.";
 
-                        return Err(msg);
+                        return Err(content);
                     }
                 };
 
@@ -391,7 +470,7 @@ impl MapSearchArgs {
             None => BeatmapsetSearchSort::Relevance,
         };
 
-        let descending = match query.find("reverse=") {
+        let reverse = match query.find("reverse=") {
             Some(start) => {
                 let mut end = start + 1;
 
@@ -399,22 +478,22 @@ impl MapSearchArgs {
                     end += 1;
                 }
 
-                let descending = match &query[start + "reverse=".len()..end] {
-                    "true" | "t" | "1" => false,
-                    "false" | "f" | "0" => true,
+                let reverse = match &query[start + "reverse=".len()..end] {
+                    "true" | "t" | "1" => true,
+                    "false" | "f" | "0" => false,
                     _ => {
-                        let msg = "Failed to parse `reverse`. After `reverse=` \
+                        let content = "Failed to parse `reverse`. After `reverse=` \
                         you must specify either `true` or `false`.";
 
-                        return Err(msg);
+                        return Err(content);
                     }
                 };
 
                 query.replace_range(start..end + (query.len() > end + 1) as usize, "");
 
-                descending
+                reverse
             }
-            None => true,
+            None => false,
         };
 
         let trailing_whitespace = query
@@ -445,368 +524,134 @@ impl MapSearchArgs {
             storyboard,
             nsfw,
             sort,
-            descending,
+            reverse,
         })
     }
 
-    pub async fn request(&self, osu: &Osu) -> OsuResult<BeatmapsetSearchResult> {
+    async fn request(&self, osu: &Osu) -> OsuResult<BeatmapsetSearchResult> {
+        let sort = self
+            .sort
+            .map(BeatmapsetSearchSort::from)
+            .unwrap_or_default();
+        let descending = self.reverse.map_or(true, |r| !r);
+
         let mut search_fut = osu
             .beatmapset_search()
             .video(self.video)
             .storyboard(self.storyboard)
             .nsfw(self.nsfw)
-            .sort(self.sort, self.descending);
+            .sort(sort, descending);
 
         if let Some(ref query) = self.query {
             search_fut = search_fut.query(query);
         }
 
         if let Some(mode) = self.mode {
-            search_fut = search_fut.mode(mode);
+            search_fut = search_fut.mode(mode.into());
         }
 
-        if let Some(ref status) = self.status {
-            search_fut = match status.status() {
-                Some(status) => search_fut.status(status),
-                None => search_fut.any_status(),
-            };
-        }
+        search_fut = match self.status {
+            Some(SearchStatus::Any) => search_fut.any_status(),
+            Some(SearchStatus::Leaderboard) | None => {}
+            Some(SearchStatus::Ranked) => search_fut.status(RankStatus::Ranked),
+            Some(SearchStatus::Loved) => search_fut.status(RankStatus::Loved),
+            Some(SearchStatus::Qualified) => search_fut.status(RankStatus::Qualified),
+            Some(SearchStatus::Pending) => search_fut.status(RankStatus::Pending),
+            Some(SearchStatus::Graveyard) => search_fut.status(RankStatus::Graveyard),
+        };
 
         if let Some(genre) = self.genre {
-            search_fut = search_fut.genre(genre);
+            search_fut = search_fut.genre(genre.into());
         }
 
         if let Some(language) = self.language {
-            search_fut = search_fut.language(language);
+            search_fut = search_fut.language(language.into());
         }
 
         search_fut.await
     }
 }
 
-pub async fn slash_mapsearch(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    let mut query = None;
-    let mut mode = None;
-    let mut status = None;
-    let mut genre = None;
-    let mut language = None;
-    let mut video = None;
-    let mut storyboard = None;
-    let mut nsfw = None;
-    let mut sort = None;
-    let mut descending = None;
+async fn slash_search(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    let args = Search::from_interaction(command.input_data())?;
 
-    for option in command.yoink_options() {
-        match option.value {
-            CommandOptionValue::String(value) => match option.name.as_str() {
-                "query" => query = Some(value),
-                MODE => mode = parse_mode_option(&value),
-                "status" => match value.as_str() {
-                    "any" => status = Some(SearchRankStatus(None)),
-                    "leaderboard" => status = None,
-                    "ranked" => status = Some(SearchRankStatus(Some(RankStatus::Ranked))),
-                    "loved" => status = Some(SearchRankStatus(Some(RankStatus::Loved))),
-                    "qualified" => status = Some(SearchRankStatus(Some(RankStatus::Qualified))),
-                    "pending" => status = Some(SearchRankStatus(Some(RankStatus::Pending))),
-                    "graveyard" => status = Some(SearchRankStatus(Some(RankStatus::Graveyard))),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                "genre" => match value.as_str() {
-                    "any" => genre = Some(Genre::Any),
-                    "anime" => genre = Some(Genre::Anime),
-                    "classical" => genre = Some(Genre::Classical),
-                    "electronic" => genre = Some(Genre::Electronic),
-                    "folk" => genre = Some(Genre::Folk),
-                    "hiphop" => genre = Some(Genre::HipHop),
-                    "jazz" => genre = Some(Genre::Jazz),
-                    "metal" => genre = Some(Genre::Metal),
-                    "novelty" => genre = Some(Genre::Novelty),
-                    "other" => genre = Some(Genre::Other),
-                    "pop" => genre = Some(Genre::Pop),
-                    "rock" => genre = Some(Genre::Rock),
-                    "unspecified" => genre = Some(Genre::Unspecified),
-                    "videogame" => genre = Some(Genre::VideoGame),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                "language" => match value.as_str() {
-                    "any" => language = Some(Language::Any),
-                    "chinese" => language = Some(Language::Chinese),
-                    "english" => language = Some(Language::English),
-                    "french" => language = Some(Language::French),
-                    "german" => language = Some(Language::German),
-                    "instrumental" => language = Some(Language::Instrumental),
-                    "italian" => language = Some(Language::Italian),
-                    "japanese" => language = Some(Language::Japanese),
-                    "korean" => language = Some(Language::Korean),
-                    "other" => language = Some(Language::Other),
-                    "polish" => language = Some(Language::Polish),
-                    "russian" => language = Some(Language::Russian),
-                    "spanish" => language = Some(Language::Spanish),
-                    "swedish" => language = Some(Language::Swedish),
-                    "unspecified" => language = Some(Language::Unspecified),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                SORT => match value.as_str() {
-                    "artist" => sort = Some(BeatmapsetSearchSort::Artist),
-                    "favourites" => sort = Some(BeatmapsetSearchSort::Favourites),
-                    "playcount" => sort = Some(BeatmapsetSearchSort::Playcount),
-                    "rankeddate" => sort = Some(BeatmapsetSearchSort::RankedDate),
-                    "rating" => sort = Some(BeatmapsetSearchSort::Rating),
-                    "relevance" => sort = Some(BeatmapsetSearchSort::Relevance),
-                    "stars" => sort = Some(BeatmapsetSearchSort::Stars),
-                    "title" => sort = Some(BeatmapsetSearchSort::Title),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            },
-            CommandOptionValue::Boolean(value) => match option.name.as_str() {
-                "video" => video = Some(value),
-                "storyboard" => storyboard = Some(value),
-                "nsfw" => nsfw = Some(value),
-                REVERSE => descending = Some(!value),
-                _ => return Err(Error::InvalidCommandOptions),
-            },
-            _ => return Err(Error::InvalidCommandOptions),
-        }
-    }
-
-    let args = MapSearchArgs {
-        query,
-        mode,
-        status,
-        genre,
-        language,
-        video: video.unwrap_or(false),
-        storyboard: storyboard.unwrap_or(false),
-        nsfw: nsfw.unwrap_or(true),
-        sort: sort.unwrap_or(BeatmapsetSearchSort::Relevance),
-        descending: descending.unwrap_or(true),
-    };
-
-    _search(ctx, command.into(), args).await
+    search(ctx, command.into(), args).await
 }
 
-pub fn define_mapsearch() -> MyCommand {
-    let query =
-        MyCommandOption::builder("query", "Specify a search query").string(Vec::new(), false);
-    let mode = option_mode();
+#[command]
+#[desc("Search for mapsets")]
+#[help(
+    "Search for mapsets. \n\
+    The query works essentially the same as in game, meaning you can add \
+    any keywords, as well as specific assignments like `creator=abc`, `length<123`, `ar>=9`, ...\n\n\
+    Additionally, there are various special arguments you can provide with `argument=abc`:\n\
+    - __`mode`__: `osu`, `taiko`, `ctb`, or `mania`, defaults to none\n\
+    - __`status`__: `ranked`, `loved`, `qualified`, `pending`, `graveyard`, `any`, or \
+    `leaderboard`, defaults to `leaderboard`\n\
+    - __`genre`__: `any`, `unspecified`, `videogame`, `anime`, `rock`, `pop`, `other`, `novelty`, \
+    `hiphop`, `electronic`, `metal`, `classical`, `folk`, or `jazz`, defaults to `any`\n\
+    - __`language`__: `any`, `english`, `chinese`, `french`, `german`, `italian`, `japanese`, \
+    `korean`, `spanish`, `swedish`, `russian`, `polish`, `instrumental`, `unspecified`, \
+    or `other`, defaults to `any`\n\
+    - __`video`__: `true` or `false`, defaults to `false`\n\
+    - __`storyboard`__: `true` or `false`, defaults to `false`\n\
+    - __`nsfw`__: `true` or `false`, defaults to `true` (allows nsfw, not requires nsfw)\n\
+    - __`sort`__: `favourites`, `playcount`, `rankeddate`, `rating`, `relevance`, `stars`, \
+    `artist`, or `title`, defaults to `relevance`\n\n\
+    Depending on `sort`, the mapsets are ordered in descending order by default. \
+    To reverse, specify `reverse=true`."
+)]
+#[aliases("searchmap", "mapsearch")]
+#[usage("[search query]")]
+#[examples(
+    "some words yay mode=osu status=graveyard sort=favourites reverse=true",
+    "artist=camellia length<240 stars>8 genre=electronic"
+)]
+#[group(AllModes)]
+async fn prefix_search(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match Search::args(args) {
+        Ok(args) => search(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
+    }
+}
 
-    let status_choices = vec![
-        CommandOptionChoice::String {
-            name: "any".to_owned(),
-            value: "any".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "leaderboard".to_owned(),
-            value: "leaderboard".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "ranked".to_owned(),
-            value: "ranked".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "loved".to_owned(),
-            value: "loved".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "qualified".to_owned(),
-            value: "qualified".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "pending".to_owned(),
-            value: "pending".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "graveyard".to_owned(),
-            value: "graveyard".to_owned(),
-        },
-    ];
+async fn search(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Search) -> BotResult<()> {
+    let mut search_result = match args.request(ctx.osu()).await {
+        Ok(response) => response,
+        Err(why) => {
+            let _ = orig.error(&ctx, OSU_API_ISSUE);
 
-    let status = MyCommandOption::builder("status", "Specify a ranking status")
-        .string(status_choices, false);
+            return Err(why.into());
+        }
+    };
 
-    let genre_choices = vec![
-        CommandOptionChoice::String {
-            name: "any".to_owned(),
-            value: "any".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "anime".to_owned(),
-            value: "anime".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "classical".to_owned(),
-            value: "classical".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "electronic".to_owned(),
-            value: "electronic".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "folk".to_owned(),
-            value: "folk".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "hiphop".to_owned(),
-            value: "hiphop".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "jazz".to_owned(),
-            value: "jazz".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "metal".to_owned(),
-            value: "metal".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "novelty".to_owned(),
-            value: "novelty".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "other".to_owned(),
-            value: "other".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "pop".to_owned(),
-            value: "pop".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "rock".to_owned(),
-            value: "rock".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "unspecified".to_owned(),
-            value: "unspecified".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "videogame".to_owned(),
-            value: "videogame".to_owned(),
-        },
-    ];
+    // Accumulate all necessary data
+    let mapset_count = search_result.mapsets.len();
+    let total_pages = (mapset_count < 50).then(|| mapset_count / 10 + 1);
+    let maps: BTreeMap<usize, Beatmapset> = search_result.mapsets.drain(..).enumerate().collect();
+    let embed_data = MapSearchEmbed::new(&maps, &args, (1, total_pages)).await;
 
-    let genre = MyCommandOption::builder("genre", "Specify a genre").string(genre_choices, false);
+    // Creating the embed
+    let embed = embed_data.into_builder().build();
+    let response_raw = orig.create_message(&ctx, embed.into()).await?;
 
-    let language_choices = vec![
-        CommandOptionChoice::String {
-            name: "any".to_owned(),
-            value: "any".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "chinese".to_owned(),
-            value: "chinese".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "english".to_owned(),
-            value: "english".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "french".to_owned(),
-            value: "french".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "german".to_owned(),
-            value: "german".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "instrumental".to_owned(),
-            value: "instrumental".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "italian".to_owned(),
-            value: "italian".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "japanese".to_owned(),
-            value: "japanese".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "korean".to_owned(),
-            value: "korean".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "other".to_owned(),
-            value: "other".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "polish".to_owned(),
-            value: "polish".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "russian".to_owned(),
-            value: "russian".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "spanish".to_owned(),
-            value: "spanish".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "swedish".to_owned(),
-            value: "swedish".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "unspecified".to_owned(),
-            value: "unspecified".to_owned(),
-        },
-    ];
+    // Skip pagination if too few entries
+    if maps.len() <= 10 {
+        return Ok(());
+    }
 
-    let language =
-        MyCommandOption::builder("language", "Specify a language").string(language_choices, false);
+    let owner = orig.author()?.id;
+    let response = response_raw.model().await?;
 
-    let video = MyCommandOption::builder("video", "Specify if the mapset should have a video")
-        .boolean(false);
+    // Pagination
+    let pagination =
+        MapSearchPagination::new(Arc::clone(&ctx), response, maps, search_result, args);
 
-    let storyboard = MyCommandOption::builder(
-        "storyboard",
-        "Specify if the mapset should have a storyboard",
-    )
-    .boolean(false);
+    tokio::spawn(async move {
+        if let Err(err) = pagination.start(&ctx, owner, 60).await {
+            warn!("{:?}", Report::new(err));
+        }
+    });
 
-    let nsfw =
-        MyCommandOption::builder("nsfw", "Specify whether the mapset can be NSFW").boolean(false);
-
-    let sort_choices = vec![
-        CommandOptionChoice::String {
-            name: "artist".to_owned(),
-            value: "artist".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "favourites".to_owned(),
-            value: "favourites".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "playcount".to_owned(),
-            value: "playcount".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "rankeddata".to_owned(),
-            value: "rankeddata".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "rating".to_owned(),
-            value: "rating".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "relevance".to_owned(),
-            value: "relevance".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "stars".to_owned(),
-            value: "stars".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "title".to_owned(),
-            value: "title".to_owned(),
-        },
-    ];
-
-    let sort =
-        MyCommandOption::builder(SORT, "Specify the order of mapsets").string(sort_choices, false);
-
-    let reverse_description = "Specify whether the resulting list should be reversed";
-
-    let reverse = MyCommandOption::builder(REVERSE, reverse_description).boolean(false);
-
-    MyCommand::new("search", "Search for mapsets").options(vec![
-        query, mode, status, sort, genre, language, video, storyboard, nsfw, reverse,
-    ])
+    Ok(())
 }

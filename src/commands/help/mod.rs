@@ -1,23 +1,29 @@
+use std::collections::BTreeMap;
+
+use twilight_interactions::command::{CommandOptionExt, CommandOptionExtInner};
+use twilight_model::{
+    application::component::{select_menu::SelectMenuOption, ActionRow, Component, SelectMenu},
+    channel::embed::EmbedField,
+    id::{marker::ChannelMarker, Id},
+};
+
+use crate::{core::Context, util::ChannelExt, BotResult};
+
+pub use self::{
+    components::handle_help_component,
+    interaction::{handle_help_autocomplete, Help, HELP_SLASH},
+    message::HELP_PREFIX,
+};
+
+mod components;
 mod interaction;
 mod message;
 
-use std::{collections::BTreeMap, fmt::Write};
-
-use crate::{
-    core::{commands::CommandDataCompact, Context},
-    embeds::EmbedBuilder,
-    util::{constants::RED, MessageBuilder, MessageExt},
-    BotResult,
-};
-
-pub use self::{
-    interaction::{define_help, handle_autocomplete, handle_menu_select, slash_help},
-    message::{failed_help, help, help_command},
-};
+const AUTHORITY_STATUS: &str = "Requires authority status (check the /authorities command)";
 
 async fn failed_message_(
     ctx: &Context,
-    data: CommandDataCompact,
+    channel: Id<ChannelMarker>,
     dists: BTreeMap<usize, &'static str>,
 ) -> BotResult<()> {
     // Needs tighter scope for some reason or tokio complains about something being not `Send`
@@ -28,10 +34,10 @@ async fn failed_message_(
             let count = dists.len().min(5);
             let mut content = String::with_capacity(14 + count * (5 + 2) + (count - 1) * 2);
             content.push_str("Did you mean ");
-            write!(content, "`{name}`")?;
+            let _ = write!(content, "`{name}`");
 
             for name in names {
-                write!(content, ", `{name}`")?;
+                let _ = write!(content, ", `{name}`");
             }
 
             content.push('?');
@@ -42,10 +48,88 @@ async fn failed_message_(
         }
     };
 
-    let embed = EmbedBuilder::new().description(content).color(RED).build();
-
-    let builder = MessageBuilder::new().embed(embed);
-    data.create_message(ctx, builder).await?;
+    channel.error(ctx, content).await?;
 
     Ok(())
+}
+
+fn parse_select_menu(options: &[CommandOptionExt]) -> Option<Vec<Component>> {
+    if options.is_empty() {
+        return None;
+    }
+
+    let options: Vec<_> = options
+        .iter()
+        .filter_map(|option| match &option.inner {
+            CommandOptionExtInner::SubCommand(d) => Some((&d.name, &d.description)),
+            CommandOptionExtInner::SubCommandGroup(d) => Some((&d.name, &d.description)),
+            _ => None,
+        })
+        .map(|(name, description)| SelectMenuOption {
+            default: false,
+            description: Some(description.to_owned()),
+            emoji: None,
+            label: name.to_owned(),
+            value: name.to_owned(),
+        })
+        .collect();
+
+    if options.is_empty() {
+        return None;
+    }
+
+    let select_menu = SelectMenu {
+        custom_id: "help_menu".to_owned(),
+        disabled: false,
+        max_values: None,
+        min_values: None,
+        options,
+        placeholder: Some("Select a subcommand".to_owned()),
+    };
+
+    let row = ActionRow {
+        components: vec![Component::SelectMenu(select_menu)],
+    };
+
+    Some(vec![Component::ActionRow(row)])
+}
+
+fn option_fields(children: &[CommandOptionExt]) -> Vec<EmbedField> {
+    children
+        .iter()
+        .filter_map(|child| {
+            let (required, name, description) = match &child.inner {
+                CommandOptionExtInner::SubCommand(_)
+                | CommandOptionExtInner::SubCommandGroup(_) => return None,
+                CommandOptionExtInner::String(d) => (d.required, &d.name, &d.description),
+                CommandOptionExtInner::Integer(d) => (d.required, &d.name, &d.description),
+                CommandOptionExtInner::Boolean(d) => (d.required, &d.name, &d.description),
+                CommandOptionExtInner::User(d) => (d.required, &d.name, &d.description),
+                CommandOptionExtInner::Channel(d) => (d.required, &d.name, &d.description),
+                CommandOptionExtInner::Role(d) => (d.required, &d.name, &d.description),
+                CommandOptionExtInner::Mentionable(d) => (d.required, &d.name, &d.description),
+                CommandOptionExtInner::Number(d) => (d.required, &d.name, &d.description),
+                CommandOptionExtInner::Attachment(d) => (d.required, &d.name, &d.description),
+            };
+
+            let mut name = name.to_owned();
+
+            if required {
+                name.push_str(" (required)");
+            }
+
+            let value = child
+                .help
+                .as_ref()
+                .map_or_else(|| description.to_owned(), |help| help.to_owned());
+
+            let field = EmbedField {
+                inline: value.len() <= 40,
+                name,
+                value,
+            };
+
+            Some(field)
+        })
+        .collect()
 }

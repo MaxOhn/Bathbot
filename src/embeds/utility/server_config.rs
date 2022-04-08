@@ -3,11 +3,11 @@ use std::fmt::Write;
 use crate::{
     commands::{osu::ProfileSize, utility::GuildData},
     database::{EmbedsSize, GuildConfig, MinimizedPp},
-    embeds::Author,
+    util::builder::AuthorBuilder,
 };
 
 pub struct ServerConfigEmbed {
-    author: Author,
+    author: AuthorBuilder,
     description: String,
     footer: &'static str,
     title: &'static str,
@@ -15,7 +15,7 @@ pub struct ServerConfigEmbed {
 
 impl ServerConfigEmbed {
     pub fn new(guild: GuildData, config: GuildConfig, authorities: &[String]) -> Self {
-        let mut author = Author::new(guild.name);
+        let mut author = AuthorBuilder::new(guild.name);
 
         if let Some(ref hash) = guild.icon {
             let url = format!(

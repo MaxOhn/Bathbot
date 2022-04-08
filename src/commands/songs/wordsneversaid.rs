@@ -1,4 +1,4 @@
-pub fn _wordsneversaid() -> (&'static [&'static str], u64) {
+pub fn wordsneversaid_() -> (&'static [&'static str], u64) {
     let lyrics = &[
         "It's so loooouuud insiiide my head.",
         "With words that I - should have said.",

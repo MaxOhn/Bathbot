@@ -1,14 +1,16 @@
+use command_macros::command;
+
 use crate::{
     database::Prefix,
-    util::{constants::GENERAL_ISSUE, matcher, MessageExt},
-    BotResult, CommandData, Context, MessageBuilder,
+    util::{builder::MessageBuilder, constants::GENERAL_ISSUE, matcher, ChannelExt},
+    BotResult, Context,
 };
 
 use std::{cmp::Ordering, fmt::Write, sync::Arc};
 
 #[command]
-#[short_desc("Change my prefixes for a server")]
-#[long_desc(
+#[desc("Change my prefixes for a server")]
+#[help(
     "Change my prefixes for a server.\n\
     To check the current prefixes for this server, \
     don't pass any arguments.\n\
@@ -17,17 +19,12 @@ use std::{cmp::Ordering, fmt::Write, sync::Arc};
     characters or strings you want to add or remove as prefix.\n\
     Servers must have between one and five prefixes."
 )]
-#[only_guilds()]
-#[authority()]
 #[usage("[add / remove] [prefix]")]
 #[example("add $ 🍆 new_pref", "remove < !!")]
-#[aliases("prefixes")]
-async fn prefix(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    let (msg, mut args) = match data {
-        CommandData::Message { msg, args, .. } => (msg, args),
-        CommandData::Interaction { .. } => unreachable!(),
-    };
-
+#[alias("prefixes")]
+#[flags(AUTHORITY, ONLY_GUILDS, SKIP_DEFER)]
+#[group(Utility)]
+async fn prefix_prefix(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
     let guild_id = msg.guild_id.unwrap();
 
     let action = match args.next() {
@@ -46,7 +43,7 @@ async fn prefix(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
             let mut content = String::new();
             current_prefixes(&mut content, &prefixes);
             let builder = MessageBuilder::new().embed(content);
-            msg.create_message(&ctx, builder).await?;
+            msg.create_message(&ctx, &builder).await?;
 
             return Ok(());
         }
@@ -106,7 +103,7 @@ async fn prefix(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let prefixes = ctx.guild_prefixes(guild_id).await;
     current_prefixes(&mut content, &prefixes);
     let builder = MessageBuilder::new().embed(content);
-    msg.create_message(&ctx, builder).await?;
+    msg.create_message(&ctx, &builder).await?;
 
     Ok(())
 }

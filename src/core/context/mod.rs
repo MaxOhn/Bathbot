@@ -1,5 +1,3 @@
-mod impls;
-
 use std::{num::NonZeroU32, sync::Arc};
 
 use bb8_redis::{bb8::Pool, RedisConnectionManager};
@@ -9,100 +7,56 @@ use parking_lot::Mutex;
 use rosu_v2::Osu;
 use smallvec::SmallVec;
 use tokio::sync::mpsc::UnboundedSender;
-use twilight_gateway::Cluster;
-use twilight_http::Client as HttpClient;
-use twilight_model::id::{
-    marker::{ApplicationMarker, ChannelMarker, GuildMarker, MessageMarker},
-    Id,
+use twilight_gateway::{cluster::Events, Cluster};
+use twilight_http::{client::InteractionClient, Client};
+use twilight_model::{
+    channel::message::allowed_mentions::AllowedMentionsBuilder,
+    id::{
+        marker::{ApplicationMarker, ChannelMarker, GuildMarker, MessageMarker},
+        Id,
+    },
 };
 use twilight_standby::Standby;
 
 use crate::{
-    commands::fun::GameState,
-    core::{buckets::Buckets, BotStats},
+    core::CONFIG,
+    custom_client::CustomClient,
     database::{Database, GuildConfig},
+    games::bg::GameState,
+    matchlive::MatchLiveChannels,
     server::AuthenticationStandby,
+    tracking::OsuTracking,
     util::CountryCode,
-    CustomClient, OsuTracking,
+    BotResult,
 };
 
-pub use self::impls::{MatchLiveChannels, MatchTrackResult};
+use super::{buckets::Buckets, cluster::build_cluster, BotStats, Cache, RedisCache};
 
-use super::{Cache, RedisCache};
+mod configs;
+mod map_collect;
+mod matchlive;
+mod twitch;
 
 pub type Redis = Pool<RedisConnectionManager>;
-
-pub struct Context {
-    pub cache: Cache,
-    pub stats: Arc<BotStats>,
-    pub http: Arc<HttpClient>,
-    pub standby: Standby,
-    pub auth_standby: AuthenticationStandby,
-    pub buckets: Buckets,
-    pub cluster: Cluster,
-    pub clients: Clients,
-    pub member_requests: MemberRequests,
-    // private to avoid deadlocks by messing up references
-    data: ContextData,
-}
-
-pub struct MemberRequests {
-    pub tx: UnboundedSender<(Id<GuildMarker>, u64)>,
-    pub todo_guilds: DashSet<Id<GuildMarker>>,
-}
-
-pub struct Clients {
-    pub psql: Database,
-    pub redis: Redis,
-    pub osu: Osu,
-    pub custom: CustomClient,
-}
-
 pub type AssignRoles = SmallVec<[u64; 1]>;
 
-pub struct ContextData {
-    // ! CAREFUL: When entries are added or modified
-    // ! don't forget to update the DB entry as well
-    pub guilds: DashMap<Id<GuildMarker>, GuildConfig>,
-    // Mapping twitch user ids to vec of discord channel ids
-    pub tracked_streams: DashMap<u64, Vec<u64>>,
-    // Mapping (channel id, message id) to role id
-    pub role_assigns: DashMap<(u64, u64), AssignRoles>,
-    pub bg_games: DashMap<Id<ChannelMarker>, GameState>,
-    pub osu_tracking: OsuTracking,
-    pub msgs_to_process: DashSet<Id<MessageMarker>>,
-    pub map_garbage_collection: Mutex<HashSet<NonZeroU32>>,
-    pub match_live: MatchLiveChannels,
-    pub snipe_countries: DashMap<CountryCode, String>,
-    pub application_id: Id<ApplicationMarker>,
+pub struct Context {
+    pub auth_standby: AuthenticationStandby,
+    pub buckets: Buckets,
+    pub cache: Cache,
+    pub cluster: Cluster,
+    pub http: Arc<Client>,
+    pub member_requests: MemberRequests,
+    pub standby: Standby,
+    pub stats: Arc<BotStats>, // TODO: Rename to Metrics
+    // private to avoid deadlocks by messing up references
+    data: ContextData,
+    clients: Clients,
 }
 
 impl Context {
-    #[cold]
-    pub async fn new(
-        cache: Cache,
-        stats: Arc<BotStats>,
-        http: Arc<HttpClient>,
-        clients: Clients,
-        cluster: Cluster,
-        data: ContextData,
-        tx: UnboundedSender<(Id<GuildMarker>, u64)>,
-    ) -> Self {
-        Context {
-            cache,
-            stats,
-            http,
-            standby: Standby::new(),
-            auth_standby: AuthenticationStandby::default(),
-            clients,
-            cluster,
-            data,
-            buckets: Buckets::new(),
-            member_requests: MemberRequests {
-                tx,
-                todo_guilds: DashSet::new(),
-            },
-        }
+    pub fn interaction(&self) -> InteractionClient<'_> {
+        self.http.interaction(self.application_id)
     }
 
     pub fn osu(&self) -> &Osu {
@@ -113,7 +67,144 @@ impl Context {
         &self.clients.psql
     }
 
+    pub fn client(&self) -> &CustomClient {
+        &self.clients.custom
+    }
+
     pub fn redis(&self) -> RedisCache<'_> {
         RedisCache::new(self)
+    }
+
+    pub fn tracking(&self) -> &OsuTracking {
+        &self.data.osu_tracking
+    }
+
+    pub async fn new(tx: UnboundedSender<(Id<GuildMarker>, u64)>) -> BotResult<(Self, Events)> {
+        let config = CONFIG.get().unwrap();
+        let discord_token = &config.tokens.discord;
+
+        let mentions = AllowedMentionsBuilder::new()
+            .replied_user()
+            .roles()
+            .users()
+            .build();
+
+        // Connect to the discord http client
+        let http = Client::builder()
+            .token(discord_token.to_owned())
+            .remember_invalid_token(false)
+            .default_allowed_mentions(mentions)
+            .build();
+
+        let http = Arc::new(http);
+
+        let current_user = http.current_user().exec().await?.model().await?;
+        let application_id = current_user.id.cast();
+
+        info!(
+            "Connecting to Discord as {}#{}...",
+            current_user.name, current_user.discriminator
+        );
+
+        // Connect to psql database
+        let psql = Database::new(&config.database_url)?;
+
+        // Connect to redis
+        let redis_host = &config.redis_host;
+        let redis_port = config.redis_port;
+        let redis_uri = format!("redis://{redis_host}:{redis_port}");
+
+        let redis_manager = RedisConnectionManager::new(redis_uri)?;
+        let redis = Pool::builder().max_size(8).build(redis_manager).await?;
+
+        // Connect to osu! API
+        let osu_client_id = config.tokens.osu_client_id;
+        let osu_client_secret = &config.tokens.osu_client_secret;
+        let osu = Osu::new(osu_client_id, osu_client_secret).await?;
+
+        // Log custom client into osu!
+        let custom = CustomClient::new(config).await?;
+
+        let data = ContextData::new(&psql, application_id).await?;
+        let (cache, resume_data) = Cache::new(&redis).await;
+        let stats = Arc::new(BotStats::new(osu.metrics()));
+        let clients = Clients::new(psql, redis, osu, custom);
+        let (cluster, events) =
+            build_cluster(discord_token, Arc::clone(&http), resume_data).await?;
+
+        Ok(Self {
+            cache,
+            stats,
+            http,
+            clients,
+            cluster,
+            data,
+            standby: Standby::new(),
+            auth_standby: AuthenticationStandby::default(),
+            buckets: Buckets::new(),
+            member_requests: MemberRequests::new(tx),
+        })
+    }
+}
+
+pub struct MemberRequests {
+    pub tx: UnboundedSender<(Id<GuildMarker>, u64)>,
+    pub todo_guilds: DashSet<Id<GuildMarker>>,
+}
+
+impl MemberRequests {
+    fn new(tx: UnboundedSender<(Id<GuildMarker>, u64)>) -> Self {
+        Self {
+            tx,
+            todo_guilds: DashSet::new(),
+        }
+    }
+}
+
+struct Clients {
+    custom: CustomClient, // TODO: Rename to Client
+    osu: Osu,
+    psql: Database,
+    redis: Redis,
+}
+
+impl Clients {
+    fn new(psql: Database, redis: Redis, osu: Osu, custom: CustomClient) -> Self {
+        Self {
+            psql,
+            redis,
+            osu,
+            custom,
+        }
+    }
+}
+
+struct ContextData {
+    application_id: Id<ApplicationMarker>,
+    bg_games: DashMap<Id<ChannelMarker>, GameState>,
+    guilds: DashMap<Id<GuildMarker>, GuildConfig>,
+    map_garbage_collection: Mutex<HashSet<NonZeroU32>>,
+    matchlive: MatchLiveChannels,
+    msgs_to_process: DashSet<Id<MessageMarker>>,
+    osu_tracking: OsuTracking,
+    role_assigns: DashMap<(u64, u64), AssignRoles>,
+    snipe_countries: DashMap<CountryCode, String>,
+    tracked_streams: DashMap<u64, Vec<u64>>,
+}
+
+impl ContextData {
+    async fn new(psql: &Database, application_id: Id<ApplicationMarker>) -> BotResult<Self> {
+        Ok(Self {
+            application_id,
+            bg_games: DashMap::new(),
+            guilds: psql.get_guilds().await?,
+            map_garbage_collection: Mutex::new(HashSet::new()),
+            matchlive: MatchLiveChannels::new(),
+            msgs_to_process: DashSet::new(),
+            osu_tracking: OsuTracking::new(&psql).await?,
+            role_assigns: psql.get_role_assigns().await?,
+            snipe_countries: psql.get_snipe_countries().await?,
+            tracked_streams: psql.get_stream_tracks().await?,
+        })
     }
 }

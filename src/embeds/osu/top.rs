@@ -6,24 +6,24 @@ use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods, Score, User};
 
 use crate::{
-    commands::osu::TopOrder,
+    commands::osu::TopScoreOrder,
     core::Context,
     custom_client::OsuTrackerMapsetEntry,
-    embeds::{osu, Author, Footer},
+    embeds::osu,
     pp::PpCalculator,
     util::{
+        builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
         datetime::how_long_ago_dynamic,
         numbers::{round, with_comma_int},
-        osu::ScoreOrder,
         ScoreExt,
     },
 };
 
 pub struct TopEmbed {
-    author: Author,
+    author: AuthorBuilder,
     description: String,
-    footer: Footer,
+    footer: FooterBuilder,
     thumbnail: String,
 }
 
@@ -32,7 +32,7 @@ impl TopEmbed {
         user: &User,
         scores: S,
         ctx: &Context,
-        sort_by: impl Into<TopOrder>,
+        sort_by: impl Into<TopScoreOrder>,
         farm: &HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
         pages: (usize, usize),
     ) -> Self
@@ -46,7 +46,7 @@ impl TopEmbed {
         user: &User,
         scores: S,
         ctx: &Context,
-        sort_by: TopOrder,
+        sort_by: TopScoreOrder,
         farm: &HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
         pages: (usize, usize),
     ) -> Self
@@ -83,7 +83,7 @@ impl TopEmbed {
             let stars = osu::get_stars(stars);
             let pp = osu::get_pp(pp, max_pp);
 
-            let mapset_opt = if let TopOrder::Other(ScoreOrder::RankedDate) = sort_by {
+            let mapset_opt = if let TopScoreOrder::RankedDate = sort_by {
                 let mapset_fut = ctx.psql().get_beatmapset::<Beatmapset>(mapset.mapset_id);
 
                 match mapset_fut.await {
@@ -130,7 +130,7 @@ impl TopEmbed {
         Self {
             author: author!(user),
             description,
-            footer: Footer::new(footer_text),
+            footer: FooterBuilder::new(footer_text),
             thumbnail: user.avatar_url.to_owned(),
         }
     }
@@ -153,7 +153,7 @@ impl_builder!(TopEmbed {
 });
 
 pub struct OrderAppendix<'a> {
-    sort_by: TopOrder,
+    sort_by: TopScoreOrder,
     map: &'a Beatmap,
     ranked_date: Option<DateTime<Utc>>,
     score: &'a Score,
@@ -162,7 +162,7 @@ pub struct OrderAppendix<'a> {
 
 impl<'a> OrderAppendix<'a> {
     pub fn new(
-        sort_by: TopOrder,
+        sort_by: TopScoreOrder,
         map: &'a Beatmap,
         mapset: Option<Beatmapset>,
         score: &'a Score,
@@ -183,7 +183,7 @@ impl<'a> OrderAppendix<'a> {
 impl fmt::Display for OrderAppendix<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.sort_by {
-            TopOrder::Farm => {
+            TopScoreOrder::Farm => {
                 let mapset_id = self.map.mapset_id;
                 let count = self
                     .farm
@@ -192,7 +192,7 @@ impl fmt::Display for OrderAppendix<'_> {
 
                 write!(f, " ~ `{}`", with_comma_int(count))
             }
-            TopOrder::Other(ScoreOrder::Bpm) => {
+            TopScoreOrder::Bpm => {
                 let mods = self.score.mods;
 
                 let clock_rate = if mods.contains(GameMods::DoubleTime) {
@@ -205,7 +205,7 @@ impl fmt::Display for OrderAppendix<'_> {
 
                 write!(f, " ~ `{}bpm`", round(self.map.bpm * clock_rate))
             }
-            TopOrder::Other(ScoreOrder::Length) => {
+            TopScoreOrder::Length => {
                 let mods = self.score.mods;
 
                 let clock_rate = if mods.contains(GameMods::DoubleTime) {
@@ -220,7 +220,7 @@ impl fmt::Display for OrderAppendix<'_> {
 
                 write!(f, " ~ `{}:{:0>2}`", secs / 60, secs % 60)
             }
-            TopOrder::Other(ScoreOrder::RankedDate) => {
+            TopScoreOrder::RankedDate => {
                 if let Some(date) = self.ranked_date {
                     write!(f, " ~ <t:{}:d>", date.timestamp())
                 } else {

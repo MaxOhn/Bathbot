@@ -11,7 +11,7 @@ use crate::{
         osu::{get_user_and_scores, unchoke_pp, ScoreArgs, UserArgs},
         parse_discord, parse_mode_option, DoubleResultCow,
     },
-    core::{commands::CommandData, Context},
+    core::{commands_::CommandData, Context},
     embeds::{EmbedData, FixScoreEmbed},
     error::Error,
     tracking::process_osu_tracking,

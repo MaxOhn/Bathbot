@@ -1,16 +1,16 @@
 use crate::{
     custom_client::{groups::*, OsekaiMedal},
-    embeds::{attachment, Author, EmbedFields, Footer},
-    util::{constants::OSU_BASE, numbers::round, osu::flag_url},
+    embeds::{attachment,  EmbedFields, },
+    util::{constants::OSU_BASE, numbers::round, osu::flag_url, builder::{AuthorBuilder, FooterBuilder}},
 };
 
 use hashbrown::HashMap;
 use rosu_v2::model::user::User;
 
 pub struct MedalStatsEmbed {
-    author: Author,
+    author: AuthorBuilder,
     fields: EmbedFields,
-    footer: Footer,
+    footer: FooterBuilder,
     image: String,
     thumbnail: String,
 }
@@ -91,11 +91,11 @@ impl MedalStatsEmbed {
             add_group_field(MOD_INTRODUCTION);
         }
 
-        let author = Author::new(user.username.into_string())
+        let author = AuthorBuilder::new(user.username.into_string())
             .url(format!("{OSU_BASE}u/{}", user.user_id))
             .icon_url(flag_url(user.country_code.as_str()));
 
-        let footer = Footer::new("Check osekai.net for more info");
+        let footer = FooterBuilder::new("Check osekai.net for more info");
 
         let image = with_graph
             .then(|| attachment("medal_graph.png"))

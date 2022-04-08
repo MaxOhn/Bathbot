@@ -20,7 +20,7 @@ macro_rules! author {
 
         let icon = crate::util::osu::flag_url($user.country_code.as_str());
 
-        Author::new(text).url(url).icon_url(icon)
+        AuthorBuilder::new(text).url(url).icon_url(icon)
     }};
 }
 
@@ -59,15 +59,15 @@ macro_rules! impl_builder {
     };
 
     (SUB &$ty:ty { $($field:ident,)+ }) => {
-        fn as_builder(&self) -> crate::embeds::EmbedBuilder {
-            crate::embeds::EmbedBuilder::new()
+        fn as_builder(&self) -> crate::util::builder::EmbedBuilder {
+            crate::util::builder::EmbedBuilder::new()
                 $(.$field(self.$field.clone()))+
         }
     };
 
     (SUB $ty:ty { $($field:ident,)+ }) => {
-        fn into_builder(self) -> crate::embeds::EmbedBuilder {
-            crate::embeds::EmbedBuilder::new()
+        fn into_builder(self) -> crate::util::builder::EmbedBuilder {
+            crate::util::builder::EmbedBuilder::new()
                 $(.$field(self.$field))+
         }
     };
@@ -84,20 +84,15 @@ macro_rules! impl_builder {
 
 mod fun;
 mod osu;
-mod owner;
 mod tracking;
 mod twitch;
 mod utility;
 
-use chrono::{DateTime, Utc};
-use twilight_model::{
-    channel::embed::{Embed, EmbedAuthor, EmbedField, EmbedFooter, EmbedImage, EmbedThumbnail},
-    datetime::Timestamp,
-};
+use twilight_model::channel::embed::EmbedField;
 
-use crate::util::constants::DARK_GREEN;
+use crate::util::builder::EmbedBuilder;
 
-pub use self::{fun::*, osu::*, owner::*, tracking::*, twitch::*, utility::*};
+pub use self::{fun::*, osu::*, tracking::*, twitch::*, utility::*};
 
 type EmbedFields = Vec<EmbedField>;
 
@@ -137,248 +132,4 @@ pub fn attachment(filename: impl AsRef<str>) -> String {
     }
 
     format!("attachment://{}", filename.as_ref())
-}
-
-#[derive(Clone)]
-pub struct EmbedBuilder(Embed);
-
-impl Default for EmbedBuilder {
-    fn default() -> Self {
-        Self(Embed {
-            author: None,
-            color: Some(DARK_GREEN),
-            description: None,
-            fields: Vec::new(),
-            footer: None,
-            image: None,
-            kind: String::new(),
-            provider: None,
-            thumbnail: None,
-            timestamp: None,
-            title: None,
-            url: None,
-            video: None,
-        })
-    }
-}
-
-impl EmbedBuilder {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn build(mut self) -> Embed {
-        self.0.kind.push_str("rich");
-
-        self.0
-    }
-
-    pub fn author(mut self, author: impl Into<EmbedAuthor>) -> Self {
-        self.0.author.replace(author.into());
-
-        self
-    }
-
-    pub fn color(mut self, color: u32) -> Self {
-        self.0.color.replace(color);
-
-        self
-    }
-
-    pub fn description(mut self, description: impl Into<String>) -> Self {
-        let description = description.into();
-        self.0.description.replace(description);
-
-        self
-    }
-
-    pub fn fields(mut self, fields: EmbedFields) -> Self {
-        self.0.fields = fields;
-
-        self
-    }
-
-    pub fn footer(mut self, footer: impl IntoEmbedFooter) -> Self {
-        self.0.footer.replace(footer.into());
-
-        self
-    }
-
-    pub fn image(mut self, image: impl Into<String>) -> Self {
-        let url = image.into();
-
-        if !url.is_empty() {
-            let image = EmbedImage {
-                height: None,
-                width: None,
-                proxy_url: None,
-                url,
-            };
-
-            self.0.image.replace(image);
-        }
-
-        self
-    }
-
-    pub fn timestamp(mut self, timestamp: DateTime<Utc>) -> Self {
-        self.0.timestamp = Timestamp::from_secs(timestamp.timestamp() as i64).ok();
-
-        self
-    }
-
-    pub fn title(mut self, title: impl Into<String>) -> Self {
-        self.0.title.replace(title.into());
-
-        self
-    }
-
-    pub fn thumbnail(mut self, thumbnail: impl Into<String>) -> Self {
-        let url = thumbnail.into();
-
-        if !url.is_empty() {
-            let thumbnail = EmbedThumbnail {
-                height: None,
-                width: None,
-                proxy_url: None,
-                url,
-            };
-
-            self.0.thumbnail.replace(thumbnail);
-        }
-
-        self
-    }
-
-    pub fn url(mut self, url: impl Into<String>) -> Self {
-        self.0.url.replace(url.into());
-
-        self
-    }
-}
-
-#[derive(Clone)]
-pub struct Footer(EmbedFooter);
-
-impl Footer {
-    pub fn new(text: impl Into<String>) -> Self {
-        Self(EmbedFooter {
-            text: text.into(),
-            icon_url: None,
-            proxy_icon_url: None,
-        })
-    }
-
-    pub fn icon_url(mut self, icon_url: impl Into<String>) -> Self {
-        let icon_url = icon_url.into();
-        validate_image_url(&icon_url);
-        self.0.icon_url.replace(icon_url);
-
-        self
-    }
-
-    pub fn into_footer(self) -> EmbedFooter {
-        self.0
-    }
-
-    pub fn as_footer(&self) -> &EmbedFooter {
-        &self.0
-    }
-}
-
-pub trait IntoEmbedFooter {
-    fn into(self) -> EmbedFooter;
-}
-
-impl IntoEmbedFooter for EmbedFooter {
-    #[inline]
-    fn into(self) -> EmbedFooter {
-        self
-    }
-}
-
-impl IntoEmbedFooter for &str {
-    #[inline]
-    fn into(self) -> EmbedFooter {
-        EmbedFooter {
-            icon_url: None,
-            proxy_icon_url: None,
-            text: self.to_owned(),
-        }
-    }
-}
-
-impl IntoEmbedFooter for String {
-    #[inline]
-    fn into(self) -> EmbedFooter {
-        EmbedFooter {
-            icon_url: None,
-            proxy_icon_url: None,
-            text: self,
-        }
-    }
-}
-
-impl IntoEmbedFooter for Footer {
-    #[inline]
-    fn into(self) -> EmbedFooter {
-        self.into_footer()
-    }
-}
-
-impl IntoEmbedFooter for &Footer {
-    #[inline]
-    fn into(self) -> EmbedFooter {
-        self.as_footer().to_owned()
-    }
-}
-
-#[derive(Clone)]
-pub struct Author(EmbedAuthor);
-
-impl Author {
-    pub fn new(name: impl Into<String>) -> Self {
-        Self(EmbedAuthor {
-            name: name.into(),
-            url: None,
-            icon_url: None,
-            proxy_icon_url: None,
-        })
-    }
-
-    pub fn url(mut self, url: impl Into<String>) -> Self {
-        self.0.url.replace(url.into());
-
-        self
-    }
-
-    pub fn icon_url(mut self, icon_url: impl Into<String>) -> Self {
-        let icon_url = icon_url.into();
-        validate_image_url(&icon_url);
-        self.0.icon_url.replace(icon_url);
-
-        self
-    }
-
-    pub fn into_author(self) -> EmbedAuthor {
-        self.0
-    }
-
-    pub fn as_author(&self) -> &EmbedAuthor {
-        &self.0
-    }
-}
-
-impl From<Author> for EmbedAuthor {
-    #[inline]
-    fn from(author: Author) -> Self {
-        author.into_author()
-    }
-}
-
-impl From<&Author> for EmbedAuthor {
-    #[inline]
-    fn from(author: &Author) -> Self {
-        author.as_author().to_owned()
-    }
 }

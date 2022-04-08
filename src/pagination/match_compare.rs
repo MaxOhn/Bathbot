@@ -1,6 +1,6 @@
 use twilight_model::channel::Message;
 
-use crate::{embeds::EmbedBuilder, BotResult};
+use crate::{util::builder::EmbedBuilder, BotResult};
 
 use super::{Pages, Pagination};
 

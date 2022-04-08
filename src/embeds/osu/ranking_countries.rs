@@ -1,8 +1,7 @@
 use crate::{
-    embeds::Footer,
     util::{
         constants::common_literals::{CTB, MANIA, TAIKO},
-        numbers::with_comma_int,
+        numbers::with_comma_int, builder::FooterBuilder,
     },
 };
 
@@ -13,7 +12,7 @@ pub struct RankingCountriesEmbed {
     description: String,
     title: String,
     url: String,
-    footer: Footer,
+    footer: FooterBuilder,
 }
 
 impl RankingCountriesEmbed {
@@ -86,7 +85,7 @@ impl RankingCountriesEmbed {
 
         Self {
             description,
-            footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
+            footer: FooterBuilder::new(format!("Page {}/{}", pages.0, pages.1)),
             title: format!("Country Ranking for osu!{}", mode_str(mode)),
             url: format!("https://osu.ppy.sh/rankings/{mode}/country"),
         }

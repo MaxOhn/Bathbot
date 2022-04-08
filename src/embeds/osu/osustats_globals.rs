@@ -5,19 +5,19 @@ use rosu_v2::model::user::User;
 
 use crate::{
     custom_client::OsuStatsScore,
-    embeds::{osu, Author, Footer},
+    embeds::{osu,  },
     pp::PpCalculator,
     util::{
         constants::OSU_BASE, datetime::how_long_ago_dynamic, numbers::with_comma_int,
-        osu::grade_emote, ScoreExt,
+        osu::grade_emote, ScoreExt, builder::{FooterBuilder, AuthorBuilder},
     }, core::Context,
 };
 
 pub struct OsuStatsGlobalsEmbed {
     description: String,
     thumbnail: String,
-    author: Author,
-    footer: Footer,
+    author: AuthorBuilder,
+    footer: FooterBuilder,
 }
 
 impl OsuStatsGlobalsEmbed {
@@ -32,7 +32,7 @@ impl OsuStatsGlobalsEmbed {
             return Self {
                 author: author!(user),
                 thumbnail: user.avatar_url.to_owned(),
-                footer: Footer::new("Page 1/1 ~ Total scores: 0"),
+                footer: FooterBuilder::new("Page 1/1 ~ Total scores: 0"),
                 description: "No scores with these parameters were found".to_owned(),
             };
         }
@@ -89,7 +89,7 @@ impl OsuStatsGlobalsEmbed {
             );
         }
 
-        let footer = Footer::new(format!(
+        let footer = FooterBuilder::new(format!(
             "Page {}/{} ~ Total scores: {total}",
             pages.0, pages.1
         ));

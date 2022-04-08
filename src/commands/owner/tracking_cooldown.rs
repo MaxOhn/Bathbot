@@ -1,31 +1,15 @@
+use std::sync::Arc;
+
+use twilight_model::application::interaction::ApplicationCommand;
+
 use crate::{
-    tracking::OSU_TRACKING_COOLDOWN, util::MessageExt, BotResult, CommandData, Context,
-    MessageBuilder,
+    util::{builder::MessageBuilder, ApplicationCommandExt},
+    BotResult, Context,
 };
 
-use std::{str::FromStr, sync::Arc};
-
-#[command]
-#[short_desc("Adjust the tracking cooldown (in ms) - default 5000")]
-#[owner()]
-async fn trackingcooldown(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            let ms = match args.next().map(f32::from_str) {
-                Some(Ok(value)) => value,
-                Some(Err(_)) => return msg.error(&ctx, "Expected f32 as first argument").await,
-                None => *OSU_TRACKING_COOLDOWN,
-            };
-
-            _trackingcooldown(ctx, CommandData::Message { msg, args, num }, ms).await
-        }
-        CommandData::Interaction { command } => super::slash_owner(ctx, *command).await,
-    }
-}
-
-pub(super) async fn _trackingcooldown(
+pub async fn trackingcooldown(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
+    command: Box<ApplicationCommand>,
     ms: f32,
 ) -> BotResult<()> {
     let previous = ctx.tracking().set_cooldown(ms);
@@ -36,7 +20,7 @@ pub(super) async fn _trackingcooldown(
     );
 
     let builder = MessageBuilder::new().embed(content);
-    data.create_message(&ctx, builder).await?;
+    command.callback(&ctx, builder, false).await?;
 
     Ok(())
 }

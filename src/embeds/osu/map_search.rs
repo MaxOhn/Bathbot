@@ -1,7 +1,7 @@
 use crate::{
-    commands::osu::MapSearchArgs,
-    embeds::Footer,
+    commands::osu::Search,
     util::{
+        builder::FooterBuilder,
         constants::{
             common_literals::{CTB, MANIA, TAIKO},
             OSU_BASE,
@@ -16,13 +16,13 @@ use std::{collections::BTreeMap, fmt::Write};
 pub struct MapSearchEmbed {
     title: String,
     description: String,
-    footer: Footer,
+    footer: FooterBuilder,
 }
 
 impl MapSearchEmbed {
-    pub async fn new(
+    pub fn new(
         maps: &BTreeMap<usize, Beatmapset>,
-        args: &MapSearchArgs,
+        args: &Search,
         pages: (usize, Option<usize>),
     ) -> Self {
         let mut title = "Mapset results".to_owned();
@@ -135,7 +135,7 @@ impl MapSearchEmbed {
         if maps.is_empty() {
             return Self {
                 title,
-                footer: Footer::new("Page 1/1"),
+                footer: FooterBuilder::new("Page 1/1"),
                 description: String::from("No maps found for the query"),
             };
         }
@@ -205,7 +205,7 @@ impl MapSearchEmbed {
         Self {
             title,
             description,
-            footer: Footer::new(footer_text),
+            footer: FooterBuilder::new(footer_text),
         }
     }
 }

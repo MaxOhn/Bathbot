@@ -1,171 +1,125 @@
+use std::sync::Arc;
+
+use command_macros::SlashCommand;
+use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_model::{application::interaction::ApplicationCommand, channel::Attachment};
+
+use crate::{
+    tracking::{OSU_TRACKING_COOLDOWN, OSU_TRACKING_INTERVAL},
+    util::ApplicationCommandExt,
+    BotResult, Context,
+};
+
+use self::{
+    add_bg::*, add_country::*, cache::*, tracking_cooldown::*, tracking_interval::*,
+    tracking_stats::*,
+};
+
+use super::GameModeOption;
+
 mod add_bg;
 mod add_country;
 mod cache;
 mod tracking_cooldown;
 mod tracking_interval;
 mod tracking_stats;
-mod tracking_toggle;
 
-use std::sync::Arc;
-
-use twilight_model::application::interaction::{
-    application_command::{CommandDataOption, CommandOptionValue},
-    ApplicationCommand,
-};
-
-use crate::{
-    util::{constants::common_literals::NAME, CountryCode},
-    BotResult, Context, Error,
-};
-
-pub use self::{
-    add_bg::*, add_country::*, cache::*, tracking_cooldown::*, tracking_interval::*,
-    tracking_stats::*, tracking_toggle::*,
-};
-
-use super::{MyCommand, MyCommandOption};
-
-enum OwnerCommandKind {
-    AddCountry { code: CountryCode, country: String },
-    Cache,
-    TrackingCooldown(f32),
-    TrackingInterval(i64),
-    TrackingStats,
-    TrackingToggle,
+#[derive(CommandModel, CreateCommand, SlashCommand)]
+#[command(name = "owner")]
+#[flags(ONLY_OWNER, SKIP_DEFER)]
+/// You won't be able to use this :^)
+pub enum Owner {
+    #[command(name = "add_bg")]
+    AddBg(OwnerAddBg),
+    #[command(name = "add_country")]
+    AddCountry(OwnerAddCountry),
+    #[command(name = "cache")]
+    Cache(OwnerCache),
+    #[command(name = "tracking")]
+    Tracking(OwnerTracking),
 }
 
-impl OwnerCommandKind {
-    fn slash(command: &mut ApplicationCommand) -> BotResult<Self> {
-        command
-            .data
-            .options
-            .pop()
-            .and_then(|option| match option.value {
-                CommandOptionValue::SubCommand(options) => match option.name.as_str() {
-                    "add_country" => Self::slash_add_country(options),
-                    "cache" => Some(Self::Cache),
-                    _ => None,
-                },
-                CommandOptionValue::SubCommandGroup(options) => Self::slash_tracking(options),
-                _ => None,
-            })
-            .ok_or(Error::InvalidCommandOptions)
-    }
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "add_bg")]
+/// Add a background the bg game
+pub struct OwnerAddBg {
+    /// Add a png or jpg image with the mapset id as name
+    image: Attachment,
+    /// Specify the mode of the background's map
+    mode: Option<GameModeOption>,
+}
 
-    fn slash_add_country(options: Vec<CommandDataOption>) -> Option<Self> {
-        let mut code = None;
-        let mut country = None;
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "add_country")]
+/// Add a country for snipe commands
+pub struct OwnerAddCountry {
+    /// Specify the country code
+    code: String,
+    /// Specify the country name
+    name: String,
+}
 
-        for option in options {
-            match option.value {
-                CommandOptionValue::String(mut value) => match option.name.as_str() {
-                    "code" => {
-                        value.make_ascii_uppercase();
-                        code = Some(value.into());
-                    }
-                    NAME => country = Some(value),
-                    _ => return None,
-                },
-                _ => return None,
-            }
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "cache")]
+/// Display stats about the internal cache
+pub struct OwnerCache;
+
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "tracking")]
+/// Stuff about osu!tracking
+pub enum OwnerTracking {
+    #[command(name = "cooldown")]
+    Cooldown(OwnerTrackingCooldown),
+    #[command(name = "interval")]
+    Interval(OwnerTrackingInterval),
+    #[command(name = "stats")]
+    Stats(OwnerTrackingStats),
+    #[command(name = "toggle")]
+    Toggle(OwnerTrackingToggle),
+}
+
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "cooldown")]
+/// Adjust the tracking cooldown
+pub struct OwnerTrackingCooldown {
+    /// Specify the cooldown in milliseconds, defaults to 5000.0
+    number: Option<f64>,
+}
+
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "interval")]
+/// Adjust the tracking interval
+pub struct OwnerTrackingInterval {
+    /// Specify the interval in seconds, defaults to 7200
+    number: Option<i64>,
+}
+
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "stats")]
+/// Display tracking stats
+pub struct OwnerTrackingStats;
+
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "toggle")]
+/// Enable or disable tracking
+pub struct OwnerTrackingToggle;
+
+async fn slash_owner(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    match Owner::from_interaction(command.input_data())? {
+        Owner::AddBg(bg) => addbg(ctx, command, bg).await,
+        Owner::AddCountry(country) => addcountry(ctx, command, country).await,
+        Owner::Cache(_) => cache(ctx, command).await,
+        Owner::Tracking(OwnerTracking::Cooldown(cooldown)) => {
+            let ms = cooldown.number.map_or(OSU_TRACKING_COOLDOWN, |n| n as f32);
+
+            trackingcooldown(ctx, command, ms).await
         }
+        Owner::Tracking(OwnerTracking::Interval(interval)) => {
+            let secs = interval.number.unwrap_or(OSU_TRACKING_INTERVAL);
 
-        let code = code?;
-        let country = country?;
-
-        Some(Self::AddCountry { code, country })
-    }
-
-    fn slash_tracking(options: Vec<CommandDataOption>) -> Option<Self> {
-        options.first().and_then(|option| match &option.value {
-            CommandOptionValue::SubCommand(options) => match option.name.as_str() {
-                "cooldown" => options
-                    .first()
-                    .and_then(|option| {
-                        (option.name == "number").then(|| match option.value {
-                            CommandOptionValue::Number(value) => Some(value.0 as f32),
-                            _ => None,
-                        })
-                    })
-                    .flatten()
-                    .map(Self::TrackingCooldown),
-                "interval" => options
-                    .first()
-                    .and_then(|option| {
-                        (option.name == "number").then(|| match option.value {
-                            CommandOptionValue::Integer(value) => Some(value.max(0)),
-                            _ => None,
-                        })
-                    })
-                    .flatten()
-                    .map(Self::TrackingInterval),
-                "stats" => Some(Self::TrackingStats),
-                "toggle" => Some(Self::TrackingToggle),
-                _ => None,
-            },
-            _ => None,
-        })
-    }
-}
-
-pub async fn slash_owner(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match OwnerCommandKind::slash(&mut command)? {
-        OwnerCommandKind::AddCountry { code, country } => {
-            _addcountry(ctx, command.into(), code, country).await
+            trackinginterval(ctx, command, secs).await
         }
-        OwnerCommandKind::Cache => cache(ctx, command.into()).await,
-        OwnerCommandKind::TrackingCooldown(ms) => _trackingcooldown(ctx, command.into(), ms).await,
-        OwnerCommandKind::TrackingInterval(seconds) => {
-            _trackinginterval(ctx, command.into(), seconds).await
-        }
-        OwnerCommandKind::TrackingStats => trackingstats(ctx, command.into()).await,
-        OwnerCommandKind::TrackingToggle => trackingtoggle(ctx, command.into()).await,
+        Owner::Tracking(OwnerTracking::Stats(_)) => trackingstats(ctx, command).await,
+        Owner::Tracking(OwnerTracking::Toggle(_)) => todo!(),
     }
-}
-
-fn subcommand_addcountry() -> MyCommandOption {
-    let code =
-        MyCommandOption::builder("code", "Specify the country code").string(Vec::new(), true);
-    let name = MyCommandOption::builder(NAME, "Specify the country name").string(Vec::new(), true);
-
-    MyCommandOption::builder("add_country", "Add a country for snipe commands")
-        .subcommand(vec![code, name])
-}
-
-fn subcommand_cache() -> MyCommandOption {
-    MyCommandOption::builder("cache", "Display stats about the internal cache")
-        .subcommand(Vec::new())
-}
-
-fn subcommand_tracking() -> MyCommandOption {
-    let number_description = "Specify the cooldown milliseconds, defaults to 5000.0";
-    let number = MyCommandOption::builder("number", number_description).number(Vec::new(), false);
-
-    let cooldown = MyCommandOption::builder("cooldown", "Adjust the tracking cooldown")
-        .subcommand(vec![number]);
-
-    let number =
-        MyCommandOption::builder("number", "Specify the interval seconds, defaults to 7200")
-            .integer(Vec::new(), false);
-
-    let interval = MyCommandOption::builder("interval", "Adjust the tracking interval")
-        .subcommand(vec![number]);
-
-    let stats = MyCommandOption::builder("stats", "Display tracking stats").subcommand(Vec::new());
-
-    let toggle =
-        MyCommandOption::builder("toggle", "Enable or disable tracking").subcommand(Vec::new());
-
-    MyCommandOption::builder("tracking", "Stuff about osu! tracking")
-        .subcommandgroup(vec![cooldown, interval, stats, toggle])
-}
-
-pub fn define_owner() -> MyCommand {
-    let options = vec![
-        subcommand_addcountry(),
-        subcommand_cache(),
-        subcommand_tracking(),
-    ];
-
-    MyCommand::new("owner", "You won't be able to use this :^)").options(options)
 }

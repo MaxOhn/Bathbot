@@ -6,7 +6,7 @@ use serde::Deserialize;
 use smallstr::SmallString;
 use std::{borrow::Borrow, fmt, ops::Deref};
 
-lazy_static! {
+lazy_static::lazy_static! {
     static ref TIMEZONES: HashMap<&'static str, i32> = {
         const HOUR: i32 = 3600;
         const HALF_HOUR: i32 = 1800;

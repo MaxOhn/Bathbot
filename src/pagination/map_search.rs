@@ -1,5 +1,5 @@
 use super::{Pages, Pagination};
-use crate::{commands::osu::MapSearchArgs, embeds::MapSearchEmbed, BotResult, Context};
+use crate::{commands::osu::Search, embeds::MapSearchEmbed, BotResult, Context};
 
 use rosu_v2::prelude::{Beatmapset, BeatmapsetSearchResult};
 use std::{collections::BTreeMap, iter::Extend, sync::Arc};
@@ -10,7 +10,7 @@ pub struct MapSearchPagination {
     pages: Pages,
     maps: BTreeMap<usize, Beatmapset>,
     search_result: BeatmapsetSearchResult,
-    args: MapSearchArgs,
+    args: Search,
     request_page: usize,
     reached_last_page: bool,
     ctx: Arc<Context>,
@@ -22,7 +22,7 @@ impl MapSearchPagination {
         msg: Message,
         maps: BTreeMap<usize, Beatmapset>,
         search_result: BeatmapsetSearchResult,
-        args: MapSearchArgs,
+        args: Search,
     ) -> Self {
         let reached_last_page = maps.len() < 50;
 

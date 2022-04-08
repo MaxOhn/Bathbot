@@ -6,14 +6,14 @@ use rosu_v2::prelude::{GameMode, Score, User};
 use crate::{
     core::Context,
     custom_client::SnipePlayer,
-    embeds::{attachment, osu, Author, EmbedFields, Footer},
+    embeds::{attachment, osu,  EmbedFields, },
     pp::PpCalculator,
     util::{
         constants::OSU_BASE,
         datetime::how_long_ago_dynamic,
         numbers::{with_comma_float, with_comma_int},
         osu::grade_completion_mods,
-        ScoreExt,
+        ScoreExt, builder::{AuthorBuilder, FooterBuilder},
     },
 };
 
@@ -22,8 +22,8 @@ pub struct PlayerSnipeStatsEmbed {
     thumbnail: String,
     title: &'static str,
     url: String,
-    author: Author,
-    footer: Footer,
+    author: AuthorBuilder,
+    footer: FooterBuilder,
     image: String,
     fields: EmbedFields,
 }
@@ -153,7 +153,7 @@ impl PlayerSnipeStatsEmbed {
             url,
             fields,
             description,
-            footer: Footer::new(footer_text),
+            footer: FooterBuilder::new(footer_text),
             author: author!(user),
             title: "National #1 statistics",
             image: attachment("stats_graph.png"),

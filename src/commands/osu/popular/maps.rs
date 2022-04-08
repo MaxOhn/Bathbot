@@ -3,7 +3,7 @@ use std::sync::Arc;
 use eyre::Report;
 
 use crate::{
-    core::{commands::CommandData, Context},
+    core::{commands_::CommandData, Context},
     embeds::EmbedData,
     embeds::OsuTrackerMapsEmbed,
     pagination::{OsuTrackerMapsPagination, Pagination},

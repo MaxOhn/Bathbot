@@ -7,17 +7,17 @@ use crate::{
     commands::osu::{
         CommonMap, MatchCompareComparison, MatchCompareScore, ProcessedMatch, UniqueMap,
     },
-    embeds::{Author, EmbedFields, Footer},
+    embeds::{ EmbedFields, },
     util::{
         constants::OSU_BASE,
         numbers::{round, with_comma_int},
-        osu::grade_emote,
+        osu::grade_emote, builder::{FooterBuilder, AuthorBuilder},
     },
 };
 
 pub struct MatchCompareMapEmbed {
-    author: Author,
-    footer: Footer,
+    author: AuthorBuilder,
+    footer: FooterBuilder,
     title: String,
     url: String,
     fields: EmbedFields,
@@ -33,14 +33,14 @@ impl MatchCompareMapEmbed {
         (common_idx, common_total, maps_total): (usize, usize, usize),
     ) -> Self {
         let author_text = format!("Match compare - Common map {common_idx}/{common_total}");
-        let author = Author::new(author_text);
+        let author = AuthorBuilder::new(author_text);
 
         let footer_text = format!(
             "Page {common_idx}/{pages} | Common maps: {common_total}/{maps_total}",
             pages = common_total + 2,
         );
 
-        let footer = Footer::new(footer_text);
+        let footer = FooterBuilder::new(footer_text);
 
         let fields = match comparison {
             MatchCompareComparison::Both => {
@@ -268,9 +268,9 @@ impl_builder!(MatchCompareMapEmbed {
 });
 
 pub struct MatchCompareSummaryEmbed {
-    author: Author,
+    author: AuthorBuilder,
     description: String,
-    footer: Footer,
+    footer: FooterBuilder,
     title: String,
     url: String,
 }
@@ -281,7 +281,7 @@ impl MatchCompareSummaryEmbed {
         processed: &ProcessedMatch,
         (page, common_maps, total_maps): (usize, usize, usize),
     ) -> Self {
-        let author = Author::new("Match compare - Summary");
+        let author = AuthorBuilder::new("Match compare - Summary");
         let title = processed.name.to_owned();
         let url = format!("{OSU_BASE}mp/{}", processed.match_id);
 
@@ -290,7 +290,7 @@ impl MatchCompareSummaryEmbed {
             pages = common_maps + 2,
         );
 
-        let footer = Footer::new(footer_text);
+        let footer = FooterBuilder::new(footer_text);
 
         let mut description = String::new();
 

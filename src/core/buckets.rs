@@ -1,9 +1,10 @@
+use std::hash::Hash;
+
 use chrono::Utc;
 use hashbrown::HashMap;
 use parking_lot::Mutex;
-use std::{hash::Hash, str::FromStr};
 
-pub struct Buckets([Mutex<Bucket>; 9]);
+pub struct Buckets([Mutex<Bucket>; 8]);
 
 impl Buckets {
     pub fn new() -> Self {
@@ -24,7 +25,6 @@ impl Buckets {
             make_bucket(30, 0, 1),  // Leaderboard
             make_bucket(15, 0, 1),  // MatchCompare
             make_bucket(5, 900, 3), // MatchLive
-            make_bucket(0, 60, 10), // Snipe
             make_bucket(20, 0, 1),  // Songs
         ])
     }
@@ -38,8 +38,7 @@ impl Buckets {
             BucketName::Leaderboard => &self.0[4],
             BucketName::MatchCompare => &self.0[5],
             BucketName::MatchLive => &self.0[6],
-            BucketName::Snipe => &self.0[7],
-            BucketName::Songs => &self.0[8],
+            BucketName::Songs => &self.0[7],
         }
     }
 }
@@ -108,27 +107,5 @@ pub enum BucketName {
     Leaderboard,
     MatchCompare,
     MatchLive,
-    Snipe,
     Songs,
-}
-
-impl FromStr for BucketName {
-    type Err = &'static str;
-
-    fn from_str(name: &str) -> Result<Self, Self::Err> {
-        let bucket = match name {
-            "all" => BucketName::All,
-            "bg_bigger" => BucketName::BgBigger,
-            "bg_hint" => BucketName::BgHint,
-            "bg_skip" => BucketName::BgSkip,
-            "leaderboard" => BucketName::Leaderboard,
-            "match_compare" => BucketName::MatchCompare,
-            "match_live" => BucketName::MatchLive,
-            "snipe" => BucketName::Snipe,
-            "songs" => BucketName::Songs,
-            _ => return Err("Unknown bucket name"),
-        };
-
-        Ok(bucket)
-    }
 }

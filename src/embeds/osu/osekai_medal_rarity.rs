@@ -2,13 +2,12 @@ use std::fmt::Write;
 
 use crate::{
     custom_client::OsekaiRarityEntry,
-    embeds::Footer,
-    util::{numbers::round, CowUtils},
+    util::{numbers::round, CowUtils, builder::FooterBuilder},
 };
 
 pub struct MedalRarityEmbed {
     description: String,
-    footer: Footer,
+    footer: FooterBuilder,
     title: &'static str,
     url: &'static str,
 }
@@ -43,7 +42,7 @@ impl MedalRarityEmbed {
 
         Self {
             description,
-            footer: Footer::new(footer_text),
+            footer: FooterBuilder::new(footer_text),
             title,
             url,
         }

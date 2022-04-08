@@ -1,23 +1,25 @@
 use std::sync::Arc;
 
 use chrono::Utc;
+use command_macros::command;
 use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError};
 
 use crate::{
+    core::commands::CommandOrigin,
     embeds::{EmbedData, TrackEmbed},
     util::{
+        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        MessageExt,
     },
-    BotResult, CommandData, Context, MessageBuilder,
+    BotResult, Context,
 };
 
 use super::TrackArgs;
 
-pub(super) async fn _track(
+pub(super) async fn track(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
+    orig: CommandOrigin<'_>,
     args: TrackArgs,
 ) -> BotResult<()> {
     let TrackArgs {
@@ -32,18 +34,18 @@ pub(super) async fn _track(
     if let Some(name) = more_names.iter().find(|name| name.len() > 15) {
         let content = format!("`{name}` is too long for an osu! username");
 
-        return data.error(&ctx, content).await;
+        return orig.error(&ctx, content).await;
     }
 
     let limit = match limit {
         Some(limit) if limit == 0 || limit > 100 => {
             let content = "The given limit must be between 1 and 100";
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         Some(limit) => limit,
         None => {
-            let guild = data.guild_id().unwrap();
+            let guild = orig.guild_id().unwrap();
 
             ctx.guild_track_limit(guild).await as usize
         }
@@ -56,16 +58,16 @@ pub(super) async fn _track(
         Err((OsuError::NotFound, name)) => {
             let content = format!("User `{name}` was not found");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         Err((err, _)) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(err.into());
         }
     };
 
-    let channel = data.channel_id();
+    let channel = orig.channel_id();
     let mut success = Vec::with_capacity(users.len());
     let mut failure = Vec::new();
 
@@ -86,7 +88,7 @@ pub(super) async fn _track(
                     .build();
 
                 let builder = MessageBuilder::new().embed(embed);
-                data.create_message(&ctx, builder).await?;
+                orig.create_message(&ctx, &builder).await?;
 
                 return Ok(());
             }
@@ -97,16 +99,15 @@ pub(super) async fn _track(
         .into_builder()
         .build();
     let builder = MessageBuilder::new().embed(embed);
-    data.create_message(&ctx, builder).await?;
+    orig.create_message(&ctx, &builder).await?;
 
     Ok(())
 }
 
 #[command]
-#[authority()]
-#[short_desc("Track osu!standard user(s') top scores")]
-#[long_desc(
-    "Track osu!standard user(s') top scores and notify a channel \
+#[desc("Track osu!standard user top scores")]
+#[help(
+    "Track osu!standard user top scores and notify a channel \
     about new plays in their top100.\n\
     You can specify __up to ten usernames__ per command invocation.\n\
     To provide a limit, specify a number right after the command, \
@@ -117,36 +118,29 @@ pub(super) async fn _track(
     The limit must be between 1 and 100, **defaults to 50** if none is given."
 )]
 #[usage("[limit=number] [username1] [username2] ...")]
-#[example(
+#[examples(
     "badewanne3 \"freddie benson\" peppy limit=23",
     "limit=45 cookiezi whitecat",
     "\"freddie benson\""
 )]
-pub async fn track(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            let track_args = match TrackArgs::args(&ctx, &mut args, num, Some(GameMode::STD)).await
-            {
-                Ok(Ok(args)) => args,
-                Ok(Err(content)) => return msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+#[flags(AUTHORITY, ONLY_GUILDS)]
+#[group(Tracking)]
+async fn prefix_track(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match TrackArgs::args(&ctx, &mut args, Some(GameMode::STD)).await {
+        Ok(Ok(args)) => track(ctx, msg.into(), args).await,
+        Ok(Err(content)) => return msg.error(&ctx, content).await,
+        Err(err) => {
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-                    return Err(why);
-                }
-            };
-
-            _track(ctx, CommandData::Message { msg, args, num }, track_args).await
+            return Err(err);
         }
-        CommandData::Interaction { command } => super::slash_track(ctx, *command).await,
     }
 }
 
 #[command]
-#[authority()]
-#[short_desc("Track mania user(s') top scores")]
-#[long_desc(
-    "Track mania user(s') top scores and notify a channel \
+#[desc("Track mania user top scores")]
+#[help(
+    "Track mania user top scores and notify a channel \
     about new plays in their top100.\n\
     You can specify __up to ten usernames__ per command invocation.\n\
     To provide a limit, specify a number right after the command, \
@@ -157,36 +151,29 @@ pub async fn track(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     The limit must be between 1 and 100, **defaults to 50** if none is given."
 )]
 #[usage("[limit=number] [username1] [username2] ...")]
-#[example(
+#[examples(
     "badewanne3 \"freddie benson\" peppy limit=23",
     "limit=45 cookiezi whitecat",
     "\"freddie benson\""
 )]
-pub async fn trackmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            let track_args = match TrackArgs::args(&ctx, &mut args, num, Some(GameMode::MNA)).await
-            {
-                Ok(Ok(args)) => args,
-                Ok(Err(content)) => return msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+#[flags(AUTHORITY, ONLY_GUILDS)]
+#[group(Tracking)]
+pub async fn prefix_trackmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match TrackArgs::args(&ctx, &mut args, Some(GameMode::MNA)).await {
+        Ok(Ok(args)) => track(ctx, msg.into(), args).await,
+        Ok(Err(content)) => return msg.error(&ctx, content).await,
+        Err(err) => {
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-                    return Err(why);
-                }
-            };
-
-            _track(ctx, CommandData::Message { msg, args, num }, track_args).await
+            return Err(err);
         }
-        CommandData::Interaction { command } => super::slash_track(ctx, *command).await,
     }
 }
 
 #[command]
-#[authority()]
-#[short_desc("Track taiko user(s') top scores")]
-#[long_desc(
-    "Track taiko user(s') top scores and notify a channel \
+#[desc("Track taiko user top scores")]
+#[help(
+    "Track taiko user top scores and notify a channel \
     about new plays in their top100.\n\
     You can specify __up to ten usernames__ per command invocation.\n\
     To provide a limit, specify a number right after the command, \
@@ -197,36 +184,29 @@ pub async fn trackmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     The limit must be between 1 and 100, **defaults to 50** if none is given."
 )]
 #[usage("[limit=number] [username1] [username2] ...")]
-#[example(
+#[examples(
     "badewanne3 \"freddie benson\" peppy limit=23",
     "limit=45 cookiezi whitecat",
     "\"freddie benson\""
 )]
-pub async fn tracktaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            let track_args = match TrackArgs::args(&ctx, &mut args, num, Some(GameMode::TKO)).await
-            {
-                Ok(Ok(args)) => args,
-                Ok(Err(content)) => return msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+#[flags(AUTHORITY, ONLY_GUILDS)]
+#[group(Tracking)]
+pub async fn prefix_tracktaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match TrackArgs::args(&ctx, &mut args, Some(GameMode::TKO)).await {
+        Ok(Ok(args)) => track(ctx, msg.into(), args).await,
+        Ok(Err(content)) => return msg.error(&ctx, content).await,
+        Err(err) => {
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-                    return Err(why);
-                }
-            };
-
-            _track(ctx, CommandData::Message { msg, args, num }, track_args).await
+            return Err(err);
         }
-        CommandData::Interaction { command } => super::slash_track(ctx, *command).await,
     }
 }
 
 #[command]
-#[authority()]
-#[short_desc("Track ctb user(s') top scores")]
-#[long_desc(
-    "Track ctb user(s') top scores and notify a channel \
+#[desc("Track ctb user top scores")]
+#[help(
+    "Track ctb user top scores and notify a channel \
     about new plays in their top100.\n\
     You can specify __up to ten usernames__ per command invocation.\n\
     To provide a limit, specify a number right after the command, \
@@ -237,27 +217,21 @@ pub async fn tracktaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     The limit must be between 1 and 100, **defaults to 50** if none is given."
 )]
 #[usage("[limit=number] [username1] [username2] ...")]
-#[example(
+#[examples(
     "badewanne3 \"freddie benson\" peppy limit=23",
     "limit=45 cookiezi whitecat",
     "\"freddie benson\""
 )]
-pub async fn trackctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            let track_args = match TrackArgs::args(&ctx, &mut args, num, Some(GameMode::CTB)).await
-            {
-                Ok(Ok(args)) => args,
-                Ok(Err(content)) => return msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+#[flags(AUTHORITY, ONLY_GUILDS)]
+#[group(Tracking)]
+pub async fn prefix_trackctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match TrackArgs::args(&ctx, &mut args, Some(GameMode::CTB)).await {
+        Ok(Ok(args)) => track(ctx, msg.into(), args).await,
+        Ok(Err(content)) => return msg.error(&ctx, content).await,
+        Err(err) => {
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-                    return Err(why);
-                }
-            };
-
-            _track(ctx, CommandData::Message { msg, args, num }, track_args).await
+            return Err(err);
         }
-        CommandData::Interaction { command } => super::slash_track(ctx, *command).await,
     }
 }

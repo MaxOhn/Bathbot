@@ -169,7 +169,7 @@ pub fn highlight_funny_numeral(content: &str) -> Cow<'_, str> {
     SEVEN_TWO_SEVEN.replace_all(content, "__${num}__")
 }
 
-lazy_static! {
+lazy_static::lazy_static! {
     static ref ROLE_ID_MATCHER: Regex = Regex::new(r"<@&(\d+)>").unwrap();
 
     static ref CHANNEL_ID_MATCHER: Regex = Regex::new(r"<#(\d+)>").unwrap();

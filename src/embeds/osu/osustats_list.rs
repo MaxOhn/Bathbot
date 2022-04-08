@@ -1,7 +1,7 @@
 use crate::{
     custom_client::OsuStatsPlayer,
-    embeds::{Author, Footer},
     util::{
+        builder::{AuthorBuilder, FooterBuilder},
         constants::{AVATAR_URL, OSU_BASE},
         numbers::with_comma_int,
         osu::flag_url,
@@ -12,9 +12,9 @@ use crate::{
 use std::fmt::Write;
 
 pub struct OsuStatsListEmbed {
-    author: Author,
+    author: AuthorBuilder,
     description: String,
-    footer: Footer,
+    footer: FooterBuilder,
     thumbnail: String,
 }
 
@@ -25,7 +25,7 @@ impl OsuStatsListEmbed {
         first_place_id: u32,
         pages: (usize, usize),
     ) -> Self {
-        let mut author = Author::new("Most global leaderboard scores");
+        let mut author = AuthorBuilder::new("Most global leaderboard scores");
 
         if let Some(country) = country {
             author = author.icon_url(flag_url(country.as_str()));
@@ -47,7 +47,7 @@ impl OsuStatsListEmbed {
         Self {
             author,
             description,
-            footer: Footer::new(format!("Page {}/{}", pages.0, pages.1)),
+            footer: FooterBuilder::new(format!("Page {}/{}", pages.0, pages.1)),
             thumbnail: format!("{AVATAR_URL}{first_place_id}"),
         }
     }

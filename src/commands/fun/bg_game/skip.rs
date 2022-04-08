@@ -1,26 +1,38 @@
 use std::sync::Arc;
 
+use twilight_model::channel::Message;
+
 use crate::{
+    core::{buckets::BucketName, commands::checks::check_ratelimit},
     util::{
         constants::{GENERAL_ISSUE, INVITE_LINK},
-        MessageExt,
+        ChannelExt,
     },
-    BotResult, CommandData, Context,
+    BotResult, Context,
 };
 
 use super::GameState;
 
-#[command]
-#[bucket("bg_skip")]
-#[short_desc("Skip the current background")]
-#[aliases("s", "resolve", "r")]
-async fn skip(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match ctx.bg_games().get(&data.channel_id()) {
+pub async fn skip(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+    if let Some(cooldown) = check_ratelimit(&ctx, msg.author.id, BucketName::BgSkip).await {
+        trace!(
+            "Ratelimiting user {} on bucket `BgSkip` for {cooldown} seconds",
+            msg.author.id
+        );
+
+        let content = format!("Command on cooldown, try again in {cooldown} seconds");
+
+        return msg.error(&ctx, content).await;
+    }
+
+    let _ = ctx.http.create_typing_trigger(msg.channel_id).exec().await;
+
+    match ctx.bg_games().get(&msg.channel_id) {
         Some(state) => match state.value() {
             GameState::Running { game } => match game.restart() {
                 Ok(_) => Ok(()),
                 Err(err) => {
-                    let _ = data.error(&ctx, GENERAL_ISSUE).await;
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
                     Err(err.into())
                 }
@@ -31,21 +43,17 @@ async fn skip(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                     <@{author}> must click on the \"Start\" button to begin."
                 );
 
-                data.error(&ctx, content).await
+                msg.error(&ctx, content).await
             }
         },
         None => {
-            // TODO: Put regular msg back it
             let content = format!(
-                "The background guessing game must now be started with `/bg`.\n\
-                Everything else stayed as before.\n\
+                "The background guessing game must be started with `/bg`.\n\
                 If slash commands are not available in your server, \
                 try [re-inviting the bot]({INVITE_LINK})."
             );
 
-            // let content = "No running game in this channel. Start one with `/bg`.";
-
-            data.error(&ctx, content).await
+            msg.error(&ctx, content).await
         }
     }
 }

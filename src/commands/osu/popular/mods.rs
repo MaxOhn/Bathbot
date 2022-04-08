@@ -4,7 +4,7 @@ use eyre::Report;
 use rkyv::{Deserialize, Infallible};
 
 use crate::{
-    core::{commands::CommandData, Context},
+    core::{commands_::CommandData, Context},
     custom_client::OsuTrackerModsEntry,
     embeds::EmbedData,
     embeds::OsuTrackerModsEmbed,

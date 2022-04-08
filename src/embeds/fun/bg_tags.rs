@@ -1,13 +1,14 @@
 use crate::{
-    bg_game::MapsetTags,
-    commands::fun::{Effects, GameDifficulty},
-    embeds::{EmbedFields, Footer},
+    commands::fun::GameDifficulty,
+    embeds::EmbedFields,
+    games::bg::{Effects, MapsetTags},
+    util::builder::FooterBuilder,
 };
 
 pub struct BGTagsEmbed {
     description: &'static str,
     fields: EmbedFields,
-    footer: Footer,
+    footer: FooterBuilder,
     title: String,
 }
 
@@ -49,7 +50,7 @@ impl BGTagsEmbed {
             .then(|| "No stored backgrounds match these tags, try different ones")
             .unwrap_or_default();
 
-        let footer = Footer::new(format!("Difficulty: {difficulty:?}"));
+        let footer = FooterBuilder::new(format!("Difficulty: {difficulty:?}"));
 
         Self {
             description,

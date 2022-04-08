@@ -3,8 +3,9 @@ use std::fmt::Write;
 use rosu_v2::prelude::{GameMode, Score, User};
 
 use crate::{
-    embeds::{osu, Author, Footer},
+    embeds::osu,
     util::{
+        builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
         datetime::how_long_ago_dynamic,
         numbers::{with_comma_float, with_comma_int},
@@ -13,9 +14,9 @@ use crate::{
 };
 
 pub struct TopIfEmbed {
-    author: Author,
+    author: AuthorBuilder,
     description: String,
-    footer: Footer,
+    footer: FooterBuilder,
     thumbnail: String,
     title: String,
 }
@@ -80,7 +81,7 @@ impl TopIfEmbed {
         Self {
             author: author!(user),
             description,
-            footer: Footer::new(footer_text),
+            footer: FooterBuilder::new(footer_text),
             thumbnail: user.avatar_url.to_owned(),
             title: format!("Total pp: {pre_pp} → **{post_pp}pp** ({pp_diff:+})"),
         }

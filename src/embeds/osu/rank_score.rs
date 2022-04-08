@@ -1,4 +1,4 @@
-use crate::{embeds::Author, util::numbers::with_comma_int};
+use crate::{ util::{numbers::with_comma_int, builder::AuthorBuilder}};
 
 use rosu_v2::model::user::{User, UserCompact};
 
@@ -6,7 +6,7 @@ pub struct RankRankedScoreEmbed {
     description: String,
     title: String,
     thumbnail: String,
-    author: Author,
+    author: AuthorBuilder,
 }
 
 impl RankRankedScoreEmbed {

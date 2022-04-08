@@ -1,75 +1,80 @@
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
+use command_macros::{command, HasName, SlashCommand};
 use eyre::Report;
-use rosu_v2::prelude::{GameMode, OsuError, Username};
-use twilight_model::application::interaction::{
-    application_command::CommandOptionValue, ApplicationCommand,
+use rosu_v2::prelude::{GameMode, OsuError};
+use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_model::{
+    application::interaction::ApplicationCommand,
+    id::{marker::UserMarker, Id},
 };
 
 use crate::{
-    commands::{
-        check_user_mention,
-        osu::{option_discord, option_name},
-        parse_discord, DoubleResultCow, MyCommand,
-    },
-    database::OsuData,
+    core::commands::CommandOrigin,
     embeds::{EmbedData, MostPlayedEmbed},
-    error::Error,
     pagination::{MostPlayedPagination, Pagination},
-    util::{
-        constants::{
-            common_literals::{DISCORD, NAME},
-            GENERAL_ISSUE, OSU_API_ISSUE,
-        },
-        numbers, ApplicationCommandExt, InteractionExt, MessageExt,
-    },
-    BotResult, CommandData, Context,
+    util::{constants::OSU_API_ISSUE, matcher, numbers, ApplicationCommandExt},
+    BotResult, Context,
 };
 
 use super::UserArgs;
 
-#[command]
-#[short_desc("Display the most played maps of a user")]
-#[usage("[username]")]
-#[example("badewanne3")]
-#[aliases("mp")]
-async fn mostplayed(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            let name = match args.next() {
-                Some(arg) => match check_user_mention(&ctx, arg).await {
-                    Ok(Ok(osu)) => Some(osu.into_username()),
-                    Ok(Err(content)) => return msg.error(&ctx, content).await,
-                    Err(why) => {
-                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                        return Err(why);
-                    }
-                },
-                None => match ctx.psql().get_user_osu(msg.author.id).await {
-                    Ok(osu) => osu.map(OsuData::into_username),
-                    Err(why) => {
-                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                        return Err(why);
-                    }
-                },
-            };
-
-            _mostplayed(ctx, CommandData::Message { msg, args, num }, name).await
-        }
-        CommandData::Interaction { command } => slash_mostplayed(ctx, *command).await,
-    }
+#[derive(CommandModel, CreateCommand, Default, HasName, SlashCommand)]
+#[command(name = "mostplayed")]
+/// Display the most played maps of a user
+pub struct MostPlayed<'a> {
+    /// Specify a username
+    name: Option<Cow<'a, str>>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
 }
 
-async fn _mostplayed(
+async fn slash_mostplayed(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
-    name: Option<Username>,
+    mut command: Box<ApplicationCommand>,
 ) -> BotResult<()> {
-    let name = match name {
+    let args = MostPlayed::form_interaction(command.input_data())?;
+
+    mostplayed(ctx, command.into(), args).await
+}
+
+#[command]
+#[desc("Display the most played maps of a user")]
+#[usage("[username]")]
+#[example("badewanne3")]
+#[alias("mp")]
+#[group(AllModes)]
+async fn prefix_mostplayed(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    let args = match args.next() {
+        Some(arg) => match matcher::get_mention_user(arg) {
+            Some(id) => MostPlayed {
+                name: None,
+                discord: Some(id),
+            },
+            None => MostPlayed {
+                name: Some(Cow::Borrowed(arg)),
+                discord: None,
+            },
+        },
+        None => MostPlayed::default(),
+    };
+
+    mostplayed(ctx, msg.into(), args).await
+}
+
+async fn mostplayed(
+    ctx: Arc<Context>,
+    orig: CommandOrigin<'_>,
+    args: MostPlayed<'_>,
+) -> BotResult<()> {
+    let name = match username!(ctx, orig, args) {
         Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
+        None => return super::require_link(&ctx, &orig).await,
     };
 
     // Retrieve the user and their most played maps
@@ -106,10 +111,10 @@ async fn _mostplayed(
         Err(OsuError::NotFound) => {
             let content = format!("User `{name}` was not found");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         Err(why) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -121,7 +126,7 @@ async fn _mostplayed(
 
     // Creating the embed
     let builder = embed_data.into_builder().build().into();
-    let response_raw = data.create_message(&ctx, builder).await?;
+    let response_raw = orig.create_message(&ctx, builder).await?;
 
     // Skip pagination if too few entries
     if maps.len() <= 10 {
@@ -132,7 +137,7 @@ async fn _mostplayed(
 
     // Pagination
     let pagination = MostPlayedPagination::new(response, user, maps);
-    let owner = data.author()?.id;
+    let owner = orig.author()?.id;
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {
@@ -141,59 +146,4 @@ async fn _mostplayed(
     });
 
     Ok(())
-}
-
-async fn parse_username(
-    ctx: &Context,
-    command: &mut ApplicationCommand,
-) -> DoubleResultCow<Option<Username>> {
-    let mut username = None;
-
-    for option in command.yoink_options() {
-        match option.value {
-            CommandOptionValue::String(value) => match option.name.as_str() {
-                NAME => username = Some(value.into()),
-                _ => return Err(Error::InvalidCommandOptions),
-            },
-            CommandOptionValue::User(value) => match option.name.as_str() {
-                DISCORD => match parse_discord(ctx, value).await? {
-                    Ok(osu) => username = Some(osu.into_username()),
-                    Err(content) => return Ok(Err(content)),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            },
-            _ => return Err(Error::InvalidCommandOptions),
-        }
-    }
-
-    let name = match username {
-        Some(name) => Some(name),
-        None => ctx
-            .psql()
-            .get_user_osu(command.user_id()?)
-            .await?
-            .map(OsuData::into_username),
-    };
-
-    Ok(Ok(name))
-}
-
-pub async fn slash_mostplayed(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match parse_username(&ctx, &mut command).await {
-        Ok(Ok(name)) => _mostplayed(ctx, command.into(), name).await,
-        Ok(Err(content)) => command.error(&ctx, content).await,
-        Err(why) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
-
-            Err(why)
-        }
-    }
-}
-
-pub fn define_mostplayed() -> MyCommand {
-    let name = option_name();
-    let discord = option_discord();
-
-    MyCommand::new("mostplayed", "Display the most played maps of a user")
-        .options(vec![name, discord])
 }

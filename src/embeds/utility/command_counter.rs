@@ -1,6 +1,7 @@
-use crate::{
-    embeds::{Author, Footer},
-    util::{constants::SYMBOLS, datetime::how_long_ago_text},
+use crate::util::{
+    builder::{AuthorBuilder, FooterBuilder},
+    constants::SYMBOLS,
+    datetime::how_long_ago_text,
 };
 
 use chrono::{DateTime, Utc};
@@ -8,8 +9,8 @@ use std::fmt::Write;
 
 pub struct CommandCounterEmbed {
     description: String,
-    footer: Footer,
-    author: Author,
+    footer: FooterBuilder,
+    author: AuthorBuilder,
 }
 
 impl CommandCounterEmbed {
@@ -52,8 +53,8 @@ impl CommandCounterEmbed {
 
         Self {
             description,
-            footer: Footer::new(footer_text),
-            author: Author::new("Most popular commands:"),
+            footer: FooterBuilder::new(footer_text),
+            author: AuthorBuilder::new("Most popular commands:"),
         }
     }
 }

@@ -5,8 +5,8 @@ use rosu_v2::prelude::{Score, User};
 use twilight_model::channel::Message;
 
 use crate::{
-    commands::osu::TopOrder, core::Context, custom_client::OsuTrackerMapsetEntry, embeds::TopEmbed,
-    BotResult,
+    commands::osu::TopScoreOrder, core::Context, custom_client::OsuTrackerMapsetEntry,
+    embeds::TopEmbed, BotResult,
 };
 
 use super::{Pages, Pagination};
@@ -17,7 +17,7 @@ pub struct TopPagination {
     pages: Pages,
     user: User,
     scores: Vec<(usize, Score)>,
-    sort_by: TopOrder,
+    sort_by: TopScoreOrder,
     farm: HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
 }
 
@@ -26,7 +26,7 @@ impl TopPagination {
         msg: Message,
         user: User,
         scores: Vec<(usize, Score)>,
-        sort_by: TopOrder,
+        sort_by: TopScoreOrder,
         farm: HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
         ctx: Arc<Context>,
     ) -> Self {

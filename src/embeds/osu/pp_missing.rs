@@ -3,17 +3,17 @@ use std::{cmp::Ordering, iter};
 use rosu_v2::prelude::{Score, User};
 
 use crate::{
-    embeds::{Author, EmbedBuilder, EmbedData, Footer},
+    embeds::{  EmbedData, },
     util::{
         numbers::{with_comma_float, with_comma_int},
-        osu::{approx_more_pp, pp_missing, ExtractablePp, PpListUtil},
+        osu::{approx_more_pp, pp_missing, ExtractablePp, PpListUtil}, builder::{FooterBuilder, AuthorBuilder, EmbedBuilder},
     },
 };
 
 pub struct PPMissingEmbed {
-    author: Author,
+    author: AuthorBuilder,
     description: String,
-    footer: Option<Footer>,
+    footer: Option<FooterBuilder>,
     thumbnail: String,
     title: String,
 }
@@ -175,7 +175,7 @@ impl PPMissingEmbed {
         };
 
         let footer = rank.map(|rank| {
-            Footer::new(format!(
+            FooterBuilder::new(format!(
                 "The current rank for {pp}pp is #{rank}",
                 pp = with_comma_float(goal_pp),
                 rank = with_comma_int(rank),

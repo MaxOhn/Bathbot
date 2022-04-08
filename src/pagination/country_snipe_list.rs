@@ -59,7 +59,7 @@ impl Pagination for CountrySnipeListPagination {
     }
 
     fn reactions() -> ReactionVec {
-        smallvec![
+        smallvec::smallvec![
             Emote::JumpStart,
             Emote::MultiStepBack,
             Emote::SingleStepBack,

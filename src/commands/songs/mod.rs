@@ -17,13 +17,16 @@ mod zenzenzense;
 
 use std::{fmt::Write, sync::Arc};
 
+use command_macros::SlashCommand;
 use tokio::time::{interval, Duration};
-use twilight_model::application::{
-    command::CommandOptionChoice,
-    interaction::{application_command::CommandOptionValue, ApplicationCommand},
-};
+use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
+use twilight_model::application::interaction::ApplicationCommand;
 
-use crate::{util::MessageExt, BotResult, CommandData, Context, Error, MessageBuilder};
+use crate::{
+    core::{buckets::BucketName, commands::CommandOrigin},
+    util::{builder::MessageBuilder, ApplicationCommandExt},
+    BotResult, Context,
+};
 
 pub use self::{
     bombsaway::*, catchit::*, chicago::*, ding::*, fireandflames::*, fireflies::*, flamingo::*,
@@ -31,20 +34,26 @@ pub use self::{
     tijdmachine::*, wordsneversaid::*, zenzenzense::*,
 };
 
-use super::{MyCommand, MyCommandOption};
-
-async fn song_send(
+async fn song(
     lyrics: &[&str],
     delay: u64,
     ctx: Arc<Context>,
-    data: CommandData<'_>,
+    orig: CommandOrigin<'_>,
 ) -> BotResult<()> {
     debug_assert!(lyrics.len() > 1);
 
-    let allow = match data.guild_id() {
-        Some(id) => ctx.guild_with_lyrics(id).await,
-        None => true,
+    let (id, allow) = match orig.guild_id() {
+        Some(guild) => (guild.get(), ctx.guild_with_lyrics(guild).await),
+        None => (orig.user_id()?.get(), true),
     };
+
+    let cooldown = ctx.buckets.get(BucketName::Songs).lock().take(id); // same bucket for guilds
+
+    if cooldown > 0 {
+        let content = format!("Command on cooldown, try again in {cooldown} seconds");
+
+        return orig.error(&ctx, content).await;
+    }
 
     if allow {
         let mut interval = interval(Duration::from_millis(delay));
@@ -54,12 +63,13 @@ async fn song_send(
         let _ = writeln!(content, "♫ {} ♫", lyrics[0]);
         let builder = MessageBuilder::new().content(&content);
         interval.tick().await;
-        let mut response = data.create_message(&ctx, builder).await?.model().await?;
+        let mut response = orig.create_message(&ctx, &builder).await?.model().await?;
 
         for line in &lyrics[1..] {
             interval.tick().await;
             let _ = writeln!(content, "♫ {line} ♫");
 
+            // It's fine to not implement a `plain_message` method on CommandOrigin
             response = ctx
                 .http
                 .update_message(response.channel_id, response.id)
@@ -71,137 +81,102 @@ async fn song_send(
         }
     } else {
         let content = "The server's big boys disabled song commands. \
-            Server authorities can re-enable them with the `serverconfig` command";
+            Server authorities can re-enable them with the `/serverconfig` command";
 
-        data.error(&ctx, content).await?;
+        orig.error(&ctx, content).await?;
     }
 
     Ok(())
 }
 
-pub async fn slash_song(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
-    let option = command.data.options.first().and_then(|option| {
-        (option.name == "title").then(|| match &option.value {
-            CommandOptionValue::String(value) => match value.as_str() {
-                "bombsaway" => Some(_bombsaway()),
-                "catchit" => Some(_catchit()),
-                "chicago" => Some(_chicago()),
-                "ding" => Some(_ding()),
-                "fireandflames" => Some(_fireandflames()),
-                "fireflies" => Some(_fireflies()),
-                "flamingo" => Some(_flamingo()),
-                "mylove" => Some(_mylove()),
-                "padoru" => Some(_padoru()),
-                "pretender" => Some(_pretender()),
-                "rockefeller" => Some(_rockefeller()),
-                "saygoodbye" => Some(_saygoodbye()),
-                "startagain" => Some(_startagain()),
-                "tijdmachine" => Some(_tijdmachine()),
-                "wordsneversaid" => Some(_wordsneversaid()),
-                "zenzenzense" => Some(_zenzenzense()),
-                _ => None,
-            },
-            _ => None,
-        })
-    });
-
-    let (lyrics, delay) = match option.flatten() {
-        Some(tuple) => tuple,
-        None => return Err(Error::InvalidCommandOptions),
-    };
-
-    song_send(lyrics, delay, ctx, command.into()).await
+#[derive(CommandModel, CreateCommand, SlashCommand)]
+#[command(name = "song")]
+#[flags(SKIP_DEFER)]
+/// Let me sing a song for you
+pub struct Song {
+    #[command(help = "Currently available: \
+    [Bombs away](https://youtu.be/xpkkakkDhN4?t=65), \
+    [Catchit](https://youtu.be/BjFWk0ncr70?t=12), \
+    [Chicago](https://www.youtube.com/watch?v=MWserASk0Jg&t=60s), \
+    [Ding](https://youtu.be/_yWU0lFghxU?t=54), \
+    [Fireflies](https://youtu.be/psuRGfAaju4?t=25), \
+    [Flamingo](https://youtu.be/la9C0n7jSsI), \
+    [My Love](https://www.youtube.com/watch?v=V3OPDTwH9os&t=53s), \
+    [Padoru](https://youtu.be/u3kRzdSnsTA), \
+    [Pretender](https://youtu.be/SBjQ9tuuTJQ?t=83), \
+    [Rockefeller Street](https://youtu.be/hjGZLnja1o8?t=41), \
+    [Say Goodbye](https://youtu.be/SyJMQg3spck?t=43), \
+    [Start Again](https://youtu.be/g7VNvg_QTMw&t=29), \
+    [Tijdmachine](https://youtu.be/DT6tpUbWOms?t=47), \
+    [The words I never said](https://youtu.be/8er4CQCxPRQ?t=65s), \
+    [Through the Fire and Flames](https://youtu.be/0jgrCKhxE1s?t=77), \
+    [Zen Zen Zense](https://www.youtube.com/watch?v=607QsB38hn8&t=71s)")]
+    /// Choose a song title
+    title: SongTitle,
 }
 
-pub fn define_song() -> MyCommand {
-    let choices = vec![
-        CommandOptionChoice::String {
-            name: "Bombs away".to_owned(),
-            value: "bombsaway".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Catchit".to_owned(),
-            value: "catchit".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Chicago".to_owned(),
-            value: "chicago".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Ding".to_owned(),
-            value: "ding".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Fireflies".to_owned(),
-            value: "fireflies".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Flamingo".to_owned(),
-            value: "flamingo".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "My Love".to_owned(),
-            value: "mylove".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Padoru".to_owned(),
-            value: "padoru".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Pretender".to_owned(),
-            value: "pretender".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Rockefeller Street".to_owned(),
-            value: "rockefeller".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Say Goodbye".to_owned(),
-            value: "saygoodbye".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Start Again".to_owned(),
-            value: "startagain".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Tijdmachine".to_owned(),
-            value: "tijdmachine".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "The words I never said".to_owned(),
-            value: "wordsneversaid".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Through the Fire and Flames".to_owned(),
-            value: "fireandflames".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Zen Zen Zense".to_owned(),
-            value: "zenzenzense".to_owned(),
-        },
-    ];
+#[derive(CommandOption, CreateOption)]
+pub enum SongTitle {
+    #[option(name = "Bombs away", value = "bombsaway")]
+    Bombsaway,
+    #[option(name = "Catchit", value = "catchit")]
+    Catchit,
+    #[option(name = "Chicago", value = "chicago")]
+    Chicago,
+    #[option(name = "Ding", value = "ding")]
+    Ding,
+    #[option(name = "Fireflies", value = "fireflies")]
+    Fireflies,
+    #[option(name = "Flamingo", value = "flamingo")]
+    Flamingo,
+    #[option(name = "My Love", value = "mylove")]
+    MyLove,
+    #[option(name = "Padoru", value = "padoru")]
+    Padoru,
+    #[option(name = "Pretender", value = "pretender")]
+    Pretender,
+    #[option(name = "Rockefeller Street", value = "rockefeller")]
+    Rockefeller,
+    #[option(name = "Say Goodbye", value = "saygoodbye")]
+    SayGoodbye,
+    #[option(name = "Start Again", value = "startagain")]
+    StartAgain,
+    #[option(name = "Tijdmachine", value = "tijdmachine")]
+    Tijdmachine,
+    #[option(name = "The words I never said", value = "wordsneversaid")]
+    WordsNeverSaid,
+    #[option(name = "Through the Fire and Flames", value = "fireandflames")]
+    FireAndFlames,
+    #[option(name = "Zen Zen Zense", value = "zenzenzense")]
+    ZenZenZense,
+}
 
-    let help = "Currently available: \
-        [Bombs away](https://youtu.be/xpkkakkDhN4?t=65), \
-        [Catchit](https://youtu.be/BjFWk0ncr70?t=12), \
-        [Chicago](https://www.youtube.com/watch?v=MWserASk0Jg&t=60s), \
-        [Ding](https://youtu.be/_yWU0lFghxU?t=54), \
-        [Fireflies](https://youtu.be/psuRGfAaju4?t=25), \
-        [Flamingo](https://youtu.be/la9C0n7jSsI), \
-        [My Love](https://www.youtube.com/watch?v=V3OPDTwH9os&t=53s), \
-        [Padoru](https://youtu.be/u3kRzdSnsTA), \
-        [Pretender](https://youtu.be/SBjQ9tuuTJQ?t=83), \
-        [Rockefeller Street](https://youtu.be/hjGZLnja1o8?t=41), \
-        [Say Goodbye](https://youtu.be/SyJMQg3spck?t=43), \
-        [Start Again](https://youtu.be/g7VNvg_QTMw&t=29), \
-        [Tijdmachine](https://youtu.be/DT6tpUbWOms?t=47), \
-        [The words I never said](https://youtu.be/8er4CQCxPRQ?t=65s), \
-        [Through the Fire and Flames](https://youtu.be/0jgrCKhxE1s?t=77), \
-        [Zen Zen Zense](https://www.youtube.com/watch?v=607QsB38hn8&t=71s)";
+impl SongTitle {
+    fn get(self) -> (&'static [&'static str], u64) {
+        match self {
+            SongTitle::Bombsaway => bombsaway_(),
+            SongTitle::Catchit => catchit_(),
+            SongTitle::Chicago => chicago_(),
+            SongTitle::Ding => ding_(),
+            SongTitle::Fireflies => fireflies_(),
+            SongTitle::Flamingo => flamingo_(),
+            SongTitle::MyLove => mylove_(),
+            SongTitle::Padoru => padoru_(),
+            SongTitle::Pretender => pretender_(),
+            SongTitle::Rockefeller => rockefeller_(),
+            SongTitle::SayGoodbye => saygoodbye_(),
+            SongTitle::StartAgain => startagain_(),
+            SongTitle::Tijdmachine => tijdmachine_(),
+            SongTitle::WordsNeverSaid => wordsneversaid_(),
+            SongTitle::FireAndFlames => fireandflames_(),
+            SongTitle::ZenZenZense => zenzenzense_(),
+        }
+    }
+}
 
-    let title = MyCommandOption::builder("title", "Choose a song title")
-        .help(help)
-        .string(choices, true);
+pub async fn slash_song(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    let args = Song::from_iteraction(command.input_data())?;
+    let (lyrics, delay) = args.title.get();
 
-    MyCommand::new("song", "Let me sing a song for you").options(vec![title])
+    song(lyrics, delay, ctx, command.into()).await
 }

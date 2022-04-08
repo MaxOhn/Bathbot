@@ -1,9 +1,9 @@
 use rosu_v2::prelude::User;
 
-use crate::embeds::{attachment, Author};
+use crate::{embeds::{attachment, }, util::builder::AuthorBuilder};
 
 pub struct GraphEmbed {
-    author: Author,
+    author: AuthorBuilder,
     image: String,
 }
 

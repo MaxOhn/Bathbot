@@ -5,8 +5,8 @@ use rosu_v2::prelude::GameMods;
 use crate::{
     commands::osu::OsuTrackerCountryDetailsCompact,
     custom_client::OsuTrackerCountryScore,
-    embeds::Footer,
     util::{
+        builder::FooterBuilder,
         constants::OSU_BASE,
         numbers::{round, with_comma_float},
         osu::{flag_url, ScoreOrder},
@@ -16,7 +16,7 @@ use crate::{
 
 pub struct OsuTrackerCountryTopEmbed {
     description: String,
-    footer: Footer,
+    footer: FooterBuilder,
     thumbnail: String,
     title: String,
     url: String,
@@ -33,7 +33,7 @@ impl OsuTrackerCountryTopEmbed {
 
         let footer_text =
             format!("Page {page}/{pages} • Data originates from https://osutracker.com");
-        let footer = Footer::new(footer_text);
+        let footer = FooterBuilder::new(footer_text);
 
         let title = format!("Total PP: {}pp", with_comma_float(details.pp));
 

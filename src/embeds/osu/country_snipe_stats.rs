@@ -1,17 +1,17 @@
 use crate::{
     custom_client::SnipeCountryStatistics,
-    embeds::{attachment, EmbedFields, Footer},
+    embeds::{attachment, EmbedFields, },
     util::{
         numbers::{round, with_comma_int},
         osu::flag_url,
-        CountryCode,
+        CountryCode, builder::FooterBuilder,
     },
 };
 
 pub struct CountrySnipeStatsEmbed {
     thumbnail: String,
     title: String,
-    footer: Footer,
+    footer: FooterBuilder,
     image: String,
     fields: EmbedFields,
 }
@@ -52,7 +52,7 @@ impl CountrySnipeStatsEmbed {
             None => ("Global #1 statistics".to_owned(), String::new()),
         };
 
-        let footer = Footer::new(format!(
+        let footer = FooterBuilder::new(format!(
             "Unplayed maps: {}/{} ({percent}%)",
             with_comma_int(statistics.unplayed_maps),
             with_comma_int(statistics.total_maps),

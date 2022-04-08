@@ -6,9 +6,9 @@ use rosu_v2::prelude::{Beatmap, GameMode, Score, User};
 
 use crate::{
     core::{Context, CONFIG},
-    embeds::{Author, Footer},
     error::PpError,
     util::{
+        builder::{AuthorBuilder, FooterBuilder},
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago_dynamic,
         numbers::{round, with_comma_int},
@@ -21,8 +21,8 @@ use crate::{
 pub struct ScoresEmbed {
     description: String,
     thumbnail: String,
-    footer: Footer,
-    author: Author,
+    footer: FooterBuilder,
+    author: AuthorBuilder,
     title: String,
     url: String,
 }
@@ -143,7 +143,8 @@ impl ScoresEmbed {
         };
 
         let footer_text = format!("Page {page}/{pages} • {status:?} map by {creator_name}");
-        let footer = Footer::new(footer_text).icon_url(format!("{AVATAR_URL}{}", creator_id));
+        let footer =
+            FooterBuilder::new(footer_text).icon_url(format!("{AVATAR_URL}{}", creator_id));
 
         let mut title_text = String::with_capacity(32);
 

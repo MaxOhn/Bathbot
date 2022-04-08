@@ -2,13 +2,13 @@ use std::fmt::Write;
 
 use crate::{
     custom_client::{OsekaiBadge, OsekaiBadgeOwner},
-    embeds::{attachment, EmbedFields, Footer},
-    util::constants::OSU_BASE,
+    embeds::{attachment, EmbedFields},
+    util::{constants::OSU_BASE, builder::FooterBuilder},
 };
 
 pub struct BadgeEmbed {
     fields: EmbedFields,
-    footer: Footer,
+    footer: FooterBuilder,
     image: String,
     thumbnail: String,
     title: String,
@@ -49,7 +49,7 @@ impl BadgeEmbed {
 
         Self {
             fields,
-            footer: Footer::new(footer_text),
+            footer: FooterBuilder::new(footer_text),
             image: attachment("badge_owners.png"),
             thumbnail: badge.image_url.clone(),
             title: badge.description.clone(),

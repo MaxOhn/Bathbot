@@ -1,11 +1,20 @@
-mod map_file;
-mod pp;
-
 use plotters::drawing::DrawingAreaErrorKind;
 use twilight_model::application::interaction::{ApplicationCommand, MessageComponentInteraction};
 use twilight_validate::message::MessageValidationError;
 
-pub use self::{map_file::MapFileError, pp::PpError};
+pub use self::{
+    bg_game::{BgGameError, InvalidBgState},
+    graph::GraphError,
+    help::InvalidHelpState,
+    map_file::MapFileError,
+    pp::PpError,
+};
+
+mod bg_game;
+mod graph;
+mod help;
+mod map_file;
+mod pp;
 
 #[macro_export]
 macro_rules! bail {
@@ -14,12 +23,14 @@ macro_rules! bail {
     };
 }
 
+// TODO: remove unused variants
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("error while checking authority status")]
     Authority(#[source] Box<Error>),
     #[error("background game error")]
-    BgGame(#[from] crate::bg_game::BgGameError),
+    BgGame(#[from] BgGameError),
     #[error("missing value in cache")]
     Cache(#[from] crate::core::CacheMiss),
     #[error("serde cbor error")]
@@ -56,8 +67,8 @@ pub enum Error {
     MessageValidation(#[from] MessageValidationError),
     #[error("missing env variable `{0}`")]
     MissingEnvVariable(&'static str),
-    #[error("interaction contained neighter member nor user")]
-    MissingInteractionAuthor,
+    #[error("event was expected to contain member or user but contained neither")]
+    MissingAuthor,
     #[error("osu error")]
     Osu(#[from] rosu_v2::error::OsuError),
     #[error("failed to parse env variable `{name}={value}`; expected {expected}")]
@@ -66,6 +77,8 @@ pub enum Error {
         value: String,
         expected: &'static str,
     },
+    #[error("received invalid options for command")]
+    ParseSlashOptions(#[from] twilight_interactions::error::ParseError),
     #[error("error while calculating pp")]
     Pp(#[from] PpError),
     #[error("failed to send reaction after {0} retries")]
@@ -93,39 +106,8 @@ pub enum Error {
     },
 }
 
-#[derive(Debug, thiserror::Error)]
-#[error("failed to create graph")]
-pub enum GraphError {
-    #[error("client error")]
-    Client(#[from] crate::custom_client::CustomClientError),
-    #[error("failed to calculate curve")]
-    Curve(#[from] enterpolation::linear::LinearError),
-    #[error("image error")]
-    Image(#[from] image::ImageError),
-    #[error("no non-zero strain point")]
-    InvalidStrainPoints,
-    #[error("plotter error: {0}")]
-    Plotter(String),
-}
-
 impl<E: std::error::Error + Send + Sync> From<DrawingAreaErrorKind<E>> for GraphError {
     fn from(err: DrawingAreaErrorKind<E>) -> Self {
         Self::Plotter(err.to_string())
     }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum InvalidBgState {
-    #[error("missing embed")]
-    MissingEmbed,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum InvalidHelpState {
-    #[error("unknown command")]
-    UnknownCommand,
-    #[error("missing embed")]
-    MissingEmbed,
-    #[error("missing embed title")]
-    MissingTitle,
 }

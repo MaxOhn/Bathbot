@@ -5,22 +5,25 @@ use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmapset, GameMode, Score, User};
 
 use crate::{
-    commands::osu::TopOrder,
     core::Context,
-    embeds::{osu, Author, Footer},
+    embeds::osu,
     pp::PpCalculator,
     util::{
-        constants::OSU_BASE, datetime::how_long_ago_dynamic, numbers::with_comma_int,
-        osu::ScoreOrder, ScoreExt,
+        builder::{AuthorBuilder, FooterBuilder},
+        constants::OSU_BASE,
+        datetime::how_long_ago_dynamic,
+        numbers::with_comma_int,
+        osu::ScoreOrder,
+        ScoreExt,
     },
 };
 
 use super::OrderAppendix;
 
 pub struct PinnedEmbed {
-    author: Author,
+    author: AuthorBuilder,
     description: String,
-    footer: Footer,
+    footer: FooterBuilder,
     thumbnail: String,
 }
 
@@ -93,8 +96,7 @@ impl PinnedEmbed {
                 grade = score.grade_emote(score.mode),
                 acc = score.acc(score.mode),
                 score = with_comma_int(score.score),
-                appendix =
-                    OrderAppendix::new(TopOrder::Other(sort_by), map, mapset_opt, score, &farm),
+                appendix = OrderAppendix::new(sort_by.into(), map, mapset_opt, score, &farm),
                 combo = osu::get_combo(score, map),
                 hits = score.hits_string(score.mode),
                 ago = how_long_ago_dynamic(&score.created_at)
@@ -113,7 +115,7 @@ impl PinnedEmbed {
         Self {
             author: author!(user),
             description,
-            footer: Footer::new(footer_text),
+            footer: FooterBuilder::new(footer_text),
             thumbnail: user.avatar_url.to_owned(),
         }
     }

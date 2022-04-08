@@ -1,12 +1,12 @@
-use crate::embeds::Author;
-
 use rosu_v2::prelude::{Grade, Score, User};
 use std::{collections::BTreeMap, fmt::Write};
+
+use crate::util::builder::AuthorBuilder;
 
 pub struct RatioEmbed {
     description: String,
     thumbnail: String,
-    author: Author,
+    author: AuthorBuilder,
 }
 
 impl RatioEmbed {

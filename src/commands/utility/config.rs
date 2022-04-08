@@ -1,60 +1,150 @@
+use std::{future::Future, sync::Arc};
+
+use command_macros::{command, SlashCommand};
+use rosu_v2::prelude::GameMode;
+use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
+use twilight_model::application::interaction::ApplicationCommand;
+
 use crate::{
-    commands::{osu::ProfileSize, MyCommand, MyCommandOption},
+    commands::ShowHideOption,
     core::CONFIG,
-    database::{EmbedsSize, MinimizedPp, OsuData, UserConfig},
-    embeds::{ConfigEmbed, EmbedBuilder, EmbedData},
+    database::{OsuData, UserConfig},
+    embeds::{ConfigEmbed, EmbedData},
     server::AuthenticationStandbyError,
     util::{
-        constants::{
-            common_literals::{CTB, MANIA, MODE, OSU, PROFILE, TAIKO},
-            GENERAL_ISSUE, RED, TWITCH_API_ISSUE,
-        },
-        ApplicationCommandExt, Authored, Emote, MessageBuilder, MessageExt,
+        builder::{EmbedBuilder, MessageBuilder},
+        constants::{GENERAL_ISSUE, RED, TWITCH_API_ISSUE},
+        ApplicationCommandExt, Authored, Emote,
     },
-    BotResult, CommandData, Context, Error,
+    BotResult, Context, Error,
 };
 
-use rosu_v2::prelude::GameMode;
-use std::{future::Future, sync::Arc};
-use twilight_model::application::{
-    command::CommandOptionChoice,
-    interaction::{application_command::CommandOptionValue, ApplicationCommand},
-};
+#[derive(CommandModel, CreateCommand, Default, SlashCommand)]
+#[command(name = "config")]
+#[flags(EPHEMERAL)]
+/// Adjust your default configuration for commands
+pub struct Config {
+    #[command(help = "Most osu! commands require a specified username to work.\n\
+    Since using a command is most commonly intended for your own profile, you can link \
+    your discord with an osu! profile so that when no username is specified in commands, \
+    it will choose the linked username.\n\
+    If the value is set to `Link`, it will prompt you to authorize your account.\n\
+    If `Unlink` is selected, you will be unlinked from the osu! profile.")]
+    /// Specify whether you want to link to an osu! profile
+    osu: Option<ConfigLink>,
+    #[command(help = "With this option you can link to a twitch channel.\n\
+    When you have both your osu! and twitch linked, are currently streaming, and anyone uses \
+    the `recent score` command on your osu! username, it will try to retrieve the last VOD from your \
+    twitch channel and link to a timestamp for the score.\n\
+    If the value is set to `Link`, it will prompt you to authorize your account.\n\
+    If `Unlink` is selected, you will be unlinked from the twitch channel.")]
+    /// Specify whether you want to link to a twitch profile
+    twitch: Option<ConfigLink>,
+    #[command(help = "Always having to specify the `mode` option for any non-std \
+    command can be pretty tedious.\nTo get around that, you can configure a mode here so \
+    that when the `mode` option is not specified in commands, it will choose your config mode.")]
+    /// Specify a gamemode (NOTE: Only use for non-std modes if you NEVER use std commands)
+    mode: Option<ConfigGameMode>,
+    /// What initial size should the profile command be?
+    profile: Option<ProfileSize>,
+    #[command(help = "Some embeds are pretty chunky and show too much data.\n\
+    With this option you can make those embeds minimized by default.\n\
+    Affected commands are: `compare score`, `recent score`, `recent simulate`, \
+    and any command showing top scores when the `index` option is specified.")]
+    /// What size should the recent, compare, simulate, ... commands be?
+    embeds: Option<ConfigEmbeds>,
+    /// Should the amount of retries be shown for the recent command?
+    retries: Option<ShowHideOption>,
+    /// Specify whether the recent command should show max or if-fc pp when minimized
+    minimized_pp: Option<ConfigMinimizedPp>,
+}
 
-const MSG_BADE: &str = "Contact Badewanne3 if you encounter issues with the website";
+#[derive(CommandOption, CreateOption)]
+pub enum ConfigLink {
+    #[option(name = "Link", value = "link")]
+    Link,
+    #[option(name = "Unlink", value = "unlink")]
+    Unlink,
+}
 
-#[command]
-#[short_desc("Deprecated command, use the slash command `/config` instead")]
-async fn config(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, .. } => {
-            let content = "This command is deprecated and no longer works.\n\
-                Use the slash command `/config` instead.";
+#[derive(CommandOption, CreateOption)]
+pub enum ConfigGameMode {
+    #[option(name = "None", value = "none")]
+    None,
+    #[option(name = "osu", value = "osu")]
+    Osu,
+    #[option(name = "taiko", value = "taiko")]
+    Taiko,
+    #[option(name = "ctb", value = "ctb")]
+    Catch,
+    #[option(name = "mania", value = "mania")]
+    Mania,
+}
 
-            return msg.error(&ctx, content).await;
+impl From<ConfigGameMode> for Option<GameMode> {
+    fn from(mode: ConfigGameMode) -> Self {
+        match mode {
+            ConfigGameMode::None => None,
+            ConfigGameMode::Osu => Some(GameMode::STD),
+            ConfigGameMode::Taiko => Some(GameMode::TKO),
+            ConfigGameMode::Catch => Some(GameMode::CTB),
+            ConfigGameMode::Mania => Some(GameMode::MNA),
         }
-        CommandData::Interaction { command } => slash_config(ctx, *command).await,
     }
 }
 
-pub async fn config_(
-    ctx: Arc<Context>,
-    command: ApplicationCommand,
-    args: ConfigArgs,
-) -> BotResult<()> {
-    let author = command.author().ok_or(Error::MissingInteractionAuthor)?;
+#[derive(CommandOption, CreateOption)]
+pub enum ProfileSize {
+    #[option(name = "Compact", value = "compact")]
+    Compact,
+    #[option(name = "Medium", value = "medium")]
+    Medium,
+    #[option(name = "Full", value = "full")]
+    Full,
+}
 
-    let ConfigArgs {
-        embeds_size,
-        minimized_pp,
-        mode,
-        profile_size,
-        show_retries,
+#[derive(CommandOption, CreateOption)]
+pub enum ConfigEmbeds {
+    #[option(name = "Initial maximized", value = "initial_max")]
+    InitialMax,
+    #[option(name = "Always maximized", value = "max")]
+    AlwaysMax,
+    #[option(name = "Always minimized", value = "min")]
+    AlwaysMin,
+}
+
+#[derive(CommandOption, CreateOption)]
+pub enum ConfigMinimizedPp {
+    #[option(name = "Max PP", value = "max")]
+    MaxPp,
+    #[option(name = "If FC", value = "if_fc")]
+    IfFc,
+}
+
+async fn slash_config(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    let config = Config::from_interaction(command.input_data())?;
+
+    config(ctx, command)
+}
+
+pub async fn config(
+    ctx: Arc<Context>,
+    command: Box<ApplicationCommand>,
+    config: Config,
+) -> BotResult<()> {
+    let Config {
         osu,
         twitch,
-    } = args;
+        mode,
+        profile,
+        embeds,
+        retries,
+        minimized_pp,
+    } = config;
 
-    let mut config = match ctx.psql().get_user_config(author.id).await {
+    let author = command.user_id()?;
+
+    let mut config = match ctx.psql().get_user_config(author).await {
         Ok(Some(config)) => config,
         Ok(None) => UserConfig::default(),
         Err(why) => {
@@ -72,16 +162,16 @@ pub async fn config_(
         config.mode = mode;
     }
 
-    if let Some(size) = profile_size {
+    if let Some(size) = profile {
         config.profile_size = Some(size);
     }
 
-    if let Some(maximize) = embeds_size {
+    if let Some(maximize) = embeds {
         config.embeds_size = Some(maximize);
     }
 
-    if let Some(retries) = show_retries {
-        config.show_retries = Some(retries);
+    if let Some(retries) = retries {
+        config.show_retries = Some(matches!(retries, ShowHideOption::Show));
     }
 
     if let Some(false) = osu {
@@ -99,6 +189,8 @@ pub async fn config_(
         (true, true) => handle_both_links(&ctx, command, config).await,
     }
 }
+
+const MSG_BADE: &str = "Contact Badewanne3 if you encounter issues with the website";
 
 fn osu_content(state: u8) -> String {
     let config = CONFIG.get().unwrap();
@@ -325,254 +417,4 @@ async fn handle_no_links(
     command.create_message(ctx, builder).await?;
 
     Ok(())
-}
-
-#[derive(Default)]
-pub struct ConfigArgs {
-    embeds_size: Option<EmbedsSize>,
-    minimized_pp: Option<MinimizedPp>,
-    mode: Option<Option<GameMode>>,
-    profile_size: Option<ProfileSize>,
-    show_retries: Option<bool>,
-    pub osu: Option<bool>,
-    pub twitch: Option<bool>,
-}
-
-impl ConfigArgs {
-    fn slash(command: &mut ApplicationCommand) -> BotResult<Self> {
-        let mut minimized_pp = None;
-        let mut mode = None;
-        let mut profile_size = None;
-        let mut embeds_size = None;
-        let mut show_retries = None;
-        let mut osu = None;
-        let mut twitch = None;
-
-        for option in command.yoink_options() {
-            if let CommandOptionValue::String(value) = option.value {
-                match option.name.as_str() {
-                    OSU => osu = Some(value == "link"),
-                    "twitch" => twitch = Some(value == "link"),
-                    "minimized_pp" => match value.as_str() {
-                        "max" => minimized_pp = Some(MinimizedPp::Max),
-                        "if_fc" => minimized_pp = Some(MinimizedPp::IfFc),
-                        _ => return Err(Error::InvalidCommandOptions),
-                    },
-                    MODE => {
-                        mode = match value.as_str() {
-                            "none" => Some(None),
-                            OSU => Some(Some(GameMode::STD)),
-                            TAIKO => Some(Some(GameMode::TKO)),
-                            CTB => Some(Some(GameMode::CTB)),
-                            MANIA => Some(Some(GameMode::MNA)),
-                            _ => return Err(Error::InvalidCommandOptions),
-                        }
-                    }
-                    PROFILE => match value.as_str() {
-                        "compact" => profile_size = Some(ProfileSize::Compact),
-                        "medium" => profile_size = Some(ProfileSize::Medium),
-                        "full" => profile_size = Some(ProfileSize::Full),
-                        _ => return Err(Error::InvalidCommandOptions),
-                    },
-                    "embeds" => match value.as_str() {
-                        "initial_maximized" => embeds_size = Some(EmbedsSize::InitialMaximized),
-                        "maximized" => embeds_size = Some(EmbedsSize::AlwaysMaximized),
-                        "minimized" => embeds_size = Some(EmbedsSize::AlwaysMinimized),
-                        _ => return Err(Error::InvalidCommandOptions),
-                    },
-                    "retries" => match value.as_str() {
-                        "show" => show_retries = Some(true),
-                        "hide" => show_retries = Some(false),
-                        _ => return Err(Error::InvalidCommandOptions),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                }
-            } else {
-                return Err(Error::InvalidCommandOptions);
-            }
-        }
-
-        let args = Self {
-            minimized_pp,
-            mode,
-            profile_size,
-            embeds_size,
-            show_retries,
-            osu,
-            twitch,
-        };
-
-        Ok(args)
-    }
-}
-
-pub async fn slash_config(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    let args = ConfigArgs::slash(&mut command)?;
-
-    config_(ctx, command, args).await
-}
-
-fn link_options() -> Vec<CommandOptionChoice> {
-    let link = CommandOptionChoice::String {
-        name: "Link".to_owned(),
-        value: "link".to_owned(),
-    };
-
-    let unlink = CommandOptionChoice::String {
-        name: "Unlink".to_owned(),
-        value: "unlink".to_owned(),
-    };
-
-    vec![link, unlink]
-}
-
-pub fn define_config() -> MyCommand {
-    let osu_description = "Specify whether you want to link to an osu! profile";
-
-    let osu_help = "Most osu! commands require a specified username to work.\n\
-        Since using a command is most commonly intended for your own profile, you can link \
-        your discord with an osu! profile so that when no username is specified in commands, \
-        it will choose the linked username.\n\
-        If the value is set to `Link`, it will prompt you to authorize your account.\n\
-        If `Unlink` is selected, you will be unlinked from the osu! profile.";
-
-    let osu = MyCommandOption::builder(OSU, osu_description)
-        .help(osu_help)
-        .string(link_options(), false);
-
-    let twitch_description = "Specify whether you want to link to a twitch profile";
-
-    let twitch_help = "With this option you can link to a twitch channel.\n\
-        When you have both your osu! and twitch linked, are currently streaming, and anyone uses \
-        the `recent score` command on your osu! username, it will try to retrieve the last VOD from your \
-        twitch channel and link to a timestamp for the score.\n\
-        If the value is set to `Link`, it will prompt you to authorize your account.\n\
-        If `Unlink` is selected, you will be unlinked from the twitch channel.";
-
-    let twitch = MyCommandOption::builder("twitch", twitch_description)
-        .help(twitch_help)
-        .string(link_options(), false);
-
-    let mode_description =
-        "Specify a gamemode (NOTE: Only use for non-std modes if you NEVER use std commands)";
-
-    let mode_help = "Always having to specify the `mode` option for any non-std \
-        command can be pretty tedious.\nTo get around that, you can configure a mode here so \
-        that when the `mode` option is not specified in commands, it will choose your config mode.";
-
-    let mode_choices = vec![
-        CommandOptionChoice::String {
-            name: "none".to_owned(),
-            value: "none".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: OSU.to_owned(),
-            value: OSU.to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: TAIKO.to_owned(),
-            value: TAIKO.to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: CTB.to_owned(),
-            value: CTB.to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: MANIA.to_owned(),
-            value: MANIA.to_owned(),
-        },
-    ];
-
-    let mode = MyCommandOption::builder(MODE, mode_description)
-        .help(mode_help)
-        .string(mode_choices, false);
-
-    let profile_description = "What initial size should the profile command be?";
-
-    let profile_choices = vec![
-        CommandOptionChoice::String {
-            name: "compact".to_owned(),
-            value: "compact".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "medium".to_owned(),
-            value: "medium".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "full".to_owned(),
-            value: "full".to_owned(),
-        },
-    ];
-
-    let profile =
-        MyCommandOption::builder(PROFILE, profile_description).string(profile_choices, false);
-
-    let embeds_description = "What size should the recent, compare, simulate, ... commands be?";
-
-    let embeds_help = "Some embeds are pretty chunky and show too much data.\n\
-        With this option you can make those embeds minimized by default.\n\
-        Affected commands are: `compare score`, `recent score`, `recent simulate`, \
-        and any command showing top scores when the `index` option is specified.";
-
-    let embeds_choices = vec![
-        CommandOptionChoice::String {
-            name: "Initial maximized".to_owned(),
-            value: "initial_maximized".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Always maximized".to_owned(),
-            value: "maximized".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Always minimized".to_owned(),
-            value: "minimized".to_owned(),
-        },
-    ];
-
-    let embeds = MyCommandOption::builder("embeds", embeds_description)
-        .help(embeds_help)
-        .string(embeds_choices, false);
-
-    let retries_description = "Should the amount of retries be shown for the `recent` command?";
-
-    let retries_choices = vec![
-        CommandOptionChoice::String {
-            name: "show".to_owned(),
-            value: "show".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "hide".to_owned(),
-            value: "hide".to_owned(),
-        },
-    ];
-
-    let retries =
-        MyCommandOption::builder("retries", retries_description).string(retries_choices, false);
-
-    let minimized_pp_description =
-        "Specify whether the recent command should show max or if-fc pp when minimized";
-
-    let minimized_pp_choices = vec![
-        CommandOptionChoice::String {
-            name: "Max PP".to_owned(),
-            value: "max".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "If FC".to_owned(),
-            value: "if_fc".to_owned(),
-        },
-    ];
-
-    let minimized_pp = MyCommandOption::builder("minimized_pp", minimized_pp_description)
-        .string(minimized_pp_choices, false);
-
-    MyCommand::new("config", "Adjust your default configuration for commands").options(vec![
-        osu,
-        twitch,
-        mode,
-        profile,
-        embeds,
-        retries,
-        minimized_pp,
-    ])
 }

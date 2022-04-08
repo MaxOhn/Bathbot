@@ -1,7 +1,6 @@
 use crate::{
     commands::osu::ProfileSize,
-    database::{EmbedsSize, MinimizedPp, UserConfig},
-    embeds::Author,
+    database::{EmbedsSize, MinimizedPp, UserConfig}, util::builder::AuthorBuilder,
 };
 
 use rosu_v2::prelude::GameMode;
@@ -9,7 +8,7 @@ use std::fmt::Write;
 use twilight_model::user::User;
 
 pub struct ConfigEmbed {
-    author: Author,
+    author: AuthorBuilder,
     description: String,
     title: &'static str,
 }
@@ -31,7 +30,7 @@ impl ConfigEmbed {
             ),
         };
 
-        let author = Author::new(&author.name).icon_url(author_img);
+        let author = AuthorBuilder::new(&author.name).icon_url(author_img);
         let title = "Current user configuration:";
 
         let mut description = String::with_capacity(256);

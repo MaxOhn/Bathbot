@@ -1,51 +1,157 @@
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
+use command_macros::{command, HasName, SlashCommand};
 use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError};
+use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
-    application::{
-        command::Number,
-        interaction::{
-            application_command::{CommandDataOption, CommandOptionValue},
-            ApplicationCommand,
-        },
-    },
+    application::interaction::ApplicationCommand,
     id::{marker::UserMarker, Id},
 };
 
 use crate::{
     commands::{
-        check_user_mention,
-        osu::{get_user_and_scores, option_discord, option_mode, option_name, ScoreArgs, UserArgs},
-        parse_discord, parse_mode_option, DoubleResultCow, MyCommand, MyCommandOption,
+        osu::{get_user_and_scores, ScoreArgs, UserArgs},
+        GameModeOption,
     },
+    core::commands::{prefix::Args, CommandOrigin},
     custom_client::RankParam,
-    database::UserConfig,
     embeds::{EmbedData, PPMissingEmbed},
     tracking::process_osu_tracking,
-    util::{
-        constants::{
-            common_literals::{DISCORD, MODE, NAME},
-            GENERAL_ISSUE, OSU_API_ISSUE,
-        },
-        ApplicationCommandExt, InteractionExt, MessageExt,
-    },
-    Args, BotResult, CommandData, Context, Error,
+    util::{builder::MessageBuilder, constants::OSU_API_ISSUE, matcher, ApplicationCommandExt},
+    BotResult, Context,
 };
 
-async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) -> BotResult<()> {
-    let PpArgs { config, pp, each } = args;
-    let mode = config.mode.unwrap_or(GameMode::STD);
+#[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
+#[command(name = "pp")]
+/// How many pp is a user missing to reach the given amount?
+pub struct Pp<'a> {
+    /// Specify a target total pp amount
+    pp: f32,
+    /// Specify a gamemode
+    mode: Option<GameModeOption>,
+    /// Specify a username
+    name: Option<Cow<'a, str>>,
+    #[command(min_value = 0.0)]
+    /// Fill a top100 with scores of this many pp until the target total pp are reached
+    each: Option<f32>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
+}
 
-    let name = match config.into_username() {
-        Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
-    };
+impl<'m> Pp<'m> {
+    fn args(mode: GameMode, args: Args<'_>) -> Result<Self, &'static str> {
+        let mut name = None;
+        let mut discord = None;
+        let mut pp = None;
+
+        for arg in args.take(2) {
+            if let Ok(num) = arg.parse() {
+                pp = Some(num);
+            } else if let Some(id) = matcher::get_mention_user(arg) {
+                discord = Some(id);
+            } else {
+                name = Some(arg.into());
+            }
+        }
+
+        Ok(Self {
+            pp: pp.ok_or("You need to provide a decimal number")?,
+            mode: Some(mode),
+            name,
+            each: None,
+            discord,
+        })
+    }
+}
+
+async fn slash_pp(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    let args = Pp::from_interaction(command.input_data())?;
+
+    pp(ctx, command.into(), args).await
+}
+
+#[command]
+#[desc("How many pp are missing to reach the given amount?")]
+#[help(
+    "Calculate what score a user is missing to \
+     reach the given total pp amount"
+)]
+#[usage("[username] [number]")]
+#[example("badewanne3 8000")]
+#[group(Osu)]
+pub async fn prefix_pp(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match Pp::args(GameMode::STD, args) {
+        Ok(args) => pp(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
+    }
+}
+
+#[command]
+#[desc("How many pp are missing to reach the given amount?")]
+#[help(
+    "Calculate what score a mania user is missing to \
+     reach the given total pp amount"
+)]
+#[usage("[username] [number]")]
+#[example("badewanne3 8000")]
+#[alias("ppm")]
+#[group(Mania)]
+pub async fn prefix_ppmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match Pp::args(GameMode::MNA, args) {
+        Ok(args) => pp(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
+    }
+}
+
+#[command]
+#[desc("How many pp are missing to reach the given amount?")]
+#[help(
+    "Calculate what score a taiko user is missing to \
+     reach the given total pp amount"
+)]
+#[usage("[username] [number]")]
+#[example("badewanne3 8000")]
+#[alias("ppt")]
+#[group(Taiko)]
+pub async fn prefix_pptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match Pp::args(GameMode::TKO, args) {
+        Ok(args) => pp(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
+    }
+}
+
+#[command]
+#[desc("How many pp are missing to reach the given amount?")]
+#[help(
+    "Calculate what score a ctb user is missing to \
+     reach the given total pp amount"
+)]
+#[usage("[username] [number]")]
+#[example("badewanne3 8000")]
+#[alias("ppc")]
+#[group(Catch)]
+pub async fn prefix_ppctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match Pp::args(GameMode::CTB, args) {
+        Ok(args) => pp(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
+    }
+}
+
+async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> BotResult<()> {
+    let (name, mode) = name_mode!(ctx, orig, args);
+
+    let Pp { pp, each, .. } = args;
 
     if pp < 0.0 {
-        return data.error(&ctx, "The pp number must be non-negative").await;
+        return orig.error(&ctx, "The pp number must be non-negative").await;
     } else if pp > (i64::MAX / 1024) as f32 {
-        return data.error(&ctx, "Number too large").await;
+        return orig.error(&ctx, "Number too large").await;
     }
 
     // Retrieve the user and their top scores
@@ -61,12 +167,12 @@ async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) -> BotResul
         Err(OsuError::NotFound) => {
             let content = format!("User `{name}` was not found");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
-        Err(why) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+        Err(err) => {
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 
@@ -75,8 +181,8 @@ async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) -> BotResul
 
     let rank = match rank_result {
         Ok(rank_pp) => Some(rank_pp.rank as usize),
-        Err(why) => {
-            let report = Report::new(why).wrap_err("failed to get rank pp");
+        Err(err) => {
+            let report = Report::new(err).wrap_err("failed to get rank pp");
             warn!("{report:?}");
 
             None
@@ -90,236 +196,9 @@ async fn _pp(ctx: Arc<Context>, data: CommandData<'_>, args: PpArgs) -> BotResul
     let embed_data = PPMissingEmbed::new(user, &mut scores, pp, rank, each);
 
     // Creating the embed
-    let builder = embed_data.into_builder().build().into();
-    data.create_message(&ctx, builder).await?;
+    let embed = embed_data.into_builder().build();
+    let builder = MessageBuilder::new().embed(embed);
+    orig.create_message(&ctx, &builder).await?;
 
     Ok(())
-}
-
-#[command]
-#[short_desc("How many pp are missing to reach the given amount?")]
-#[long_desc(
-    "Calculate what score a user is missing to \
-     reach the given total pp amount"
-)]
-#[usage("[username] [number]")]
-#[example("badewanne3 8000")]
-pub async fn pp(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match PpArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut pp_args)) => {
-                    pp_args.config.mode.get_or_insert(GameMode::STD);
-
-                    _pp(ctx, CommandData::Message { msg, args, num }, pp_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_pp(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("How many pp are missing to reach the given amount?")]
-#[long_desc(
-    "Calculate what score a mania user is missing to \
-     reach the given total pp amount"
-)]
-#[usage("[username] [number]")]
-#[example("badewanne3 8000")]
-#[aliases("ppm")]
-pub async fn ppmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match PpArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut pp_args)) => {
-                    pp_args.config.mode = Some(GameMode::MNA);
-
-                    _pp(ctx, CommandData::Message { msg, args, num }, pp_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_pp(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("How many pp are missing to reach the given amount?")]
-#[long_desc(
-    "Calculate what score a taiko user is missing to \
-     reach the given total pp amount"
-)]
-#[usage("[username] [number]")]
-#[example("badewanne3 8000")]
-#[aliases("ppt")]
-pub async fn pptaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match PpArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut pp_args)) => {
-                    pp_args.config.mode = Some(GameMode::TKO);
-
-                    _pp(ctx, CommandData::Message { msg, args, num }, pp_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_pp(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("How many pp are missing to reach the given amount?")]
-#[long_desc(
-    "Calculate what score a ctb user is missing to \
-     reach the given total pp amount"
-)]
-#[usage("[username] [number]")]
-#[example("badewanne3 8000")]
-#[aliases("ppc")]
-pub async fn ppctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match PpArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut pp_args)) => {
-                    pp_args.config.mode = Some(GameMode::CTB);
-
-                    _pp(ctx, CommandData::Message { msg, args, num }, pp_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_pp(ctx, *command).await,
-    }
-}
-
-pub async fn slash_pp(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    let options = command.yoink_options();
-
-    match PpArgs::slash(&ctx, &command, options).await? {
-        Ok(args) => _pp(ctx, command.into(), args).await,
-        Err(content) => command.error(&ctx, content).await,
-    }
-}
-
-struct PpArgs {
-    config: UserConfig,
-    pp: f32,
-    each: Option<f32>,
-}
-
-impl PpArgs {
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: Id<UserMarker>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(author_id).await?;
-        let mut pp = None;
-
-        for arg in args.take(2) {
-            match arg.parse() {
-                Ok(num) => pp = Some(num),
-                Err(_) => match check_user_mention(ctx, arg).await? {
-                    Ok(osu) => config.osu = Some(osu),
-                    Err(content) => return Ok(Err(content)),
-                },
-            }
-        }
-
-        let pp = match pp {
-            Some(pp) => pp,
-            None => return Ok(Err("You need to provide a decimal number".into())),
-        };
-
-        Ok(Ok(Self {
-            config,
-            pp,
-            each: None,
-        }))
-    }
-
-    async fn slash(
-        ctx: &Context,
-        command: &ApplicationCommand,
-        options: Vec<CommandDataOption>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(command.user_id()?).await?;
-        let mut pp = None;
-        let mut each = None;
-
-        for option in options {
-            match option.value {
-                CommandOptionValue::String(value) => match option.name.as_str() {
-                    MODE => config.mode = parse_mode_option(&value),
-                    NAME => config.osu = Some(value.into()),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::Number(Number(value)) => match option.name.as_str() {
-                    "pp" => pp = Some(value as f32),
-                    "each" => each = Some(value as f32),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::User(value) => match option.name.as_str() {
-                    DISCORD => match parse_discord(ctx, value).await? {
-                        Ok(osu) => config.osu = Some(osu),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            }
-        }
-
-        let args = Self {
-            pp: pp.ok_or(Error::InvalidCommandOptions)?,
-            each,
-            config,
-        };
-
-        Ok(Ok(args))
-    }
-}
-
-pub fn define_pp() -> MyCommand {
-    let pp = MyCommandOption::builder("pp", "Specify a target pp amount")
-        .min_num(0.0)
-        .number(Vec::new(), true);
-
-    let mode = option_mode();
-    let name = option_name();
-    let discord = option_discord();
-
-    let each_description =
-        "Fill a top100 with scores of this many pp until the target total pp are reached";
-
-    let each = MyCommandOption::builder("each", each_description)
-        .min_num(0.0)
-        .number(Vec::new(), false);
-
-    let description = "How many pp is a user missing to reach the given amount?";
-
-    MyCommand::new("pp", description).options(vec![pp, mode, name, each, discord])
 }

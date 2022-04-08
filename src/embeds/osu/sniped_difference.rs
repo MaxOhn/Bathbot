@@ -2,10 +2,13 @@ use crate::{
     commands::osu::Difference,
     core::Context,
     custom_client::SnipeRecent,
-    embeds::{osu, Author, Footer},
+    embeds::osu,
     error::PpError,
     util::{
-        constants::OSU_BASE, datetime::how_long_ago_dynamic, numbers::round,
+        builder::{AuthorBuilder, FooterBuilder},
+        constants::OSU_BASE,
+        datetime::how_long_ago_dynamic,
+        numbers::round,
         osu::prepare_beatmap_file,
     },
     BotResult,
@@ -20,8 +23,8 @@ pub struct SnipedDiffEmbed {
     description: String,
     thumbnail: String,
     title: &'static str,
-    author: Author,
-    footer: Footer,
+    author: AuthorBuilder,
+    footer: FooterBuilder,
 }
 
 impl SnipedDiffEmbed {
@@ -100,7 +103,7 @@ impl SnipedDiffEmbed {
             Difference::Loss => "Lost national #1s since last week",
         };
 
-        let footer = Footer::new(format!(
+        let footer = FooterBuilder::new(format!(
             "Page {}/{} ~ Total: {}",
             pages.0,
             pages.1,

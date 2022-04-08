@@ -2,7 +2,7 @@ use crate::{
     core::Context,
     custom_client::TwitchVideo,
     database::MinimizedPp,
-    embeds::{osu, Author, EmbedBuilder, EmbedData, Footer},
+    embeds::{osu,   EmbedData, },
     error::PpError,
     util::{
         constants::{AVATAR_URL, TWITCH_BASE},
@@ -10,7 +10,7 @@ use crate::{
         matcher::highlight_funny_numeral,
         numbers::{round, with_comma_int},
         osu::{grade_completion_mods, prepare_beatmap_file},
-        Emote, ScoreExt,
+        Emote, ScoreExt, builder::{AuthorBuilder, FooterBuilder, EmbedBuilder},
     },
     BotResult,
 };
@@ -27,8 +27,8 @@ pub struct RecentEmbed {
     description: String,
     title: String,
     url: String,
-    author: Author,
-    footer: Footer,
+    author: AuthorBuilder,
+    footer: FooterBuilder,
     timestamp: DateTime<Utc>,
     thumbnail: String,
 
@@ -213,7 +213,7 @@ impl RecentEmbed {
             (if_fc.pp, round(if_fc.acc), hits)
         });
 
-        let footer = Footer::new(format!(
+        let footer = FooterBuilder::new(format!(
             "{:?} map by {} | played",
             map.status, mapset.creator_name
         ))

@@ -1,32 +1,16 @@
-use crate::{
-    tracking::OSU_TRACKING_INTERVAL, util::MessageExt, BotResult, CommandData, Context,
-    MessageBuilder,
-};
+use std::sync::Arc;
 
 use chrono::Duration;
-use std::{str::FromStr, sync::Arc};
+use twilight_model::application::interaction::ApplicationCommand;
 
-#[command]
-#[short_desc("Adjust the tracking interval (in seconds) - default 3600")]
-#[owner()]
-async fn trackinginterval(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            let seconds = match args.next().map(i64::from_str) {
-                Some(Ok(value)) => value,
-                Some(Err(_)) => return msg.error(&ctx, "Expected i64 as first argument").await,
-                None => OSU_TRACKING_INTERVAL.num_seconds(),
-            };
+use crate::{
+    util::{builder::MessageBuilder, ApplicationCommandExt},
+    BotResult, Context,
+};
 
-            _trackinginterval(ctx, CommandData::Message { msg, args, num }, seconds).await
-        }
-        CommandData::Interaction { command } => super::slash_owner(ctx, *command).await,
-    }
-}
-
-pub(super) async fn _trackinginterval(
+pub async fn trackinginterval(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
+    command: Box<ApplicationCommand>,
     seconds: i64,
 ) -> BotResult<()> {
     let interval = Duration::seconds(seconds);
@@ -39,7 +23,7 @@ pub(super) async fn _trackinginterval(
     );
 
     let builder = MessageBuilder::new().embed(content);
-    data.create_message(&ctx, builder).await?;
+    command.callback(&ctx, builder, false).await?;
 
     Ok(())
 }

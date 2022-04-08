@@ -5,20 +5,22 @@ use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmap, User};
 
 use crate::{
+    core::Context,
     custom_client::SnipeScore,
-    embeds::{osu, Author, Footer},
+    embeds::osu,
     pp::PpCalculator,
     util::{
+        builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
         datetime::how_long_ago_dynamic,
         numbers::{round, with_comma_int},
-    }, core::Context,
+    },
 };
 
 pub struct PlayerSnipeListEmbed {
-    author: Author,
+    author: AuthorBuilder,
     description: String,
-    footer: Footer,
+    footer: FooterBuilder,
     thumbnail: String,
 }
 
@@ -35,7 +37,7 @@ impl PlayerSnipeListEmbed {
             return Self {
                 author: author!(user),
                 thumbnail: user.avatar_url.to_owned(),
-                footer: Footer::new("Page 1/1 ~ Total #1 scores: 0"),
+                footer: FooterBuilder::new("Page 1/1 ~ Total #1 scores: 0"),
                 description: "No scores were found".to_owned(),
             };
         }
@@ -80,7 +82,7 @@ impl PlayerSnipeListEmbed {
             );
         }
 
-        let footer = Footer::new(format!(
+        let footer = FooterBuilder::new(format!(
             "Page {}/{} ~ Total scores: {total}",
             pages.0, pages.1
         ));

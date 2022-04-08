@@ -11,10 +11,11 @@ use rosu_v2::prelude::{
 
 use crate::{
     core::Context,
-    embeds::{osu, EmbedBuilder, EmbedData, Footer},
+    embeds::{osu, EmbedData},
     error::PpError,
     pp::PpCalculator,
     util::{
+        builder::{EmbedBuilder, FooterBuilder},
         constants::{AVATAR_URL, MAP_THUMB_URL},
         numbers::{round, with_comma_int},
         osu::{grade_completion_mods, prepare_beatmap_file, ModSelection},
@@ -80,7 +81,7 @@ impl From<crate::commands::osu::SimulateArgs> for SimulateArgs {
 pub struct SimulateEmbed {
     title: String,
     url: String,
-    footer: Footer,
+    footer: FooterBuilder,
     thumbnail: String,
 
     mode: GameMode,
@@ -192,7 +193,7 @@ impl SimulateEmbed {
             }
         };
 
-        let footer = Footer::new(format!("{:?} map by {}", map.status, mapset.creator_name))
+        let footer = FooterBuilder::new(format!("{:?} map by {}", map.status, mapset.creator_name))
             .icon_url(format!("{AVATAR_URL}{}", mapset.creator_id));
 
         Ok(Self {

@@ -3,25 +3,27 @@ use eyre::Report;
 use rosu_v2::prelude::{GameMode, Score, User};
 
 use crate::{
-    embeds::{osu, Author, EmbedFields, Footer},
+    core::Context,
+    embeds::{osu, EmbedFields},
     pp::PpCalculator,
     util::{
+        builder::{AuthorBuilder, FooterBuilder},
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago_text,
         numbers::{round, with_comma_int},
         osu::{grade_completion_mods, mode_emote},
         ScoreExt,
-    }, core::Context,
+    },
 };
 
 pub struct TrackNotificationEmbed {
     fields: EmbedFields,
     description: String,
-    author: Author,
+    author: AuthorBuilder,
     title: String,
     url: String,
     thumbnail: String,
-    footer: Footer,
+    footer: FooterBuilder,
     timestamp: DateTime<Utc>,
 }
 
@@ -87,7 +89,7 @@ impl TrackNotificationEmbed {
             score.hits_string(map.mode),
         );
 
-        let footer = Footer::new(format!(
+        let footer = FooterBuilder::new(format!(
             "Mapped by {}, played {}",
             mapset.creator_name,
             how_long_ago_text(&score.created_at)

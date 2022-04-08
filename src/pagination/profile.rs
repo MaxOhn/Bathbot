@@ -36,7 +36,7 @@ impl ProfilePagination {
     }
 
     fn reactions() -> ReactionVec {
-        smallvec![Emote::Expand, Emote::Minimize]
+        smallvec::smallvec![Emote::Expand, Emote::Minimize]
     }
 
     pub async fn start(

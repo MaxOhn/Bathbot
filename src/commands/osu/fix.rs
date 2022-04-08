@@ -1,95 +1,199 @@
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
+use command_macros::{command, HasName, SlashCommand};
 use eyre::Report;
 use rosu_pp::{
     Beatmap as Map, CatchPP, CatchStars, ManiaPP, OsuPP, PerformanceAttributes, TaikoPP,
 };
 use rosu_v2::prelude::{Beatmap, GameMode, GameMods, OsuError, Score, User};
+use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
-    application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
-    channel::message::MessageType,
+    application::interaction::ApplicationCommand,
+    channel::{message::MessageType, Message},
     id::{marker::UserMarker, Id},
 };
 
 use crate::{
-    commands::{check_user_mention, parse_discord, DoubleResultCow, MyCommand},
-    database::OsuData,
+    core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, FixScoreEmbed},
     error::{Error, PpError},
     tracking::process_osu_tracking,
     util::{
-        constants::{
-            common_literals::{DISCORD, MAP, MAP_PARSE_FAIL, MODS, MODS_PARSE_FAIL, NAME},
-            GENERAL_ISSUE, OSU_API_ISSUE,
-        },
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher,
         osu::{
             map_id_from_history, map_id_from_msg, prepare_beatmap_file, MapIdType, ModSelection,
         },
-        ApplicationCommandExt, InteractionExt, MessageExt,
+        ApplicationCommandExt,
     },
-    Args, BotResult, CommandData, Context,
+    BotResult, Context,
 };
 
-use super::{
-    get_beatmap_user_score, get_user, option_discord, option_map, option_mods, option_name,
-    UserArgs,
-};
+use super::{get_beatmap_user_score, get_user, require_link, UserArgs};
+
+#[derive(CommandModel, CreateCommand, SlashCommand)]
+#[command(name = "fix")]
+/// Display a user's pp after unchoking their score on a map
+pub struct Fix<'a> {
+    /// Specify a username
+    name: Option<Cow<'a, str>>,
+    #[command(help = "Specify a map either by map url or map id.\n\
+        If none is specified, it will search in the recent channel history \
+        and pick the first map it can find.\
+        Alternatively, you can also provide a score url.")]
+    /// Specify a map url or map id
+    map: Option<String>,
+    #[command(
+        help = "Specify mods either directly or through the explicit `+mods!` / `+mods` syntax e.g. `hdhr` or `+hdhr!`"
+    )]
+    /// Specify mods e.g. hdhr or nm
+    mods: Option<Cow<'a, str>>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
+}
+
+#[derive(HasName)]
+struct FixArgs<'a> {
+    name: Option<Cow<'a, str>>,
+    id: Option<MapOrScore>,
+    mods: Option<Cow<'a, str>>,
+    discord: Option<Id<UserMarker>>,
+}
+
+enum MapOrScore {
+    Map(MapIdType),
+    Score { id: u64, mode: GameMode },
+}
+
+impl<'m> FixArgs<'m> {
+    fn args(msg: &Message, args: Args<'m>) -> Self {
+        let mut name = None;
+        let mut discord = None;
+        let mut id = None;
+        let mut mods = None;
+
+        for arg in args.take(3) {
+            if let Some(id) =
+                matcher::get_osu_map_id(arg).or_else(|| matcher::get_osu_mapset_id(arg))
+            {
+                id = Some(MapOrScore::Map(id));
+            } else if let Some((mode, id)) = matcher::get_osu_score_id(arg) {
+                id = Some(MapOrScore::Score { mode, id });
+            } else if matcher::get_mods(arg).is_some() {
+                mods = Some(arg.into());
+            } else if let Some(id) = matcher::get_mention_user(arg) {
+                discord = Some(id);
+            } else {
+                name = Some(arg.into());
+            }
+        }
+
+        let reply = msg
+            .referenced_message
+            .as_ref()
+            .filter(|_| msg.kind == MessageType::Reply);
+
+        if let Some(reply) = reply {
+            if let Some(id) = map_id_from_msg(&reply) {
+                id = Some(MapOrScore::Map(id));
+            } else if let Some((mode, id)) = matcher::get_osu_score_id(&reply.content) {
+                id = Some(MapOrScore::Score { mode, id });
+            }
+        }
+
+        Self {
+            name,
+            discord,
+            id,
+            mods,
+        }
+    }
+}
+
+impl<'a> TryFrom<Fix<'a>> for FixArgs<'a> {
+    type Error = &'static str;
+
+    fn try_from(args: Fix<'a>) -> Result<Self, Self::Error> {
+        let id = if let Some(id) =
+            matcher::get_osu_map_id(&args.map).or_else(|| matcher::get_osu_mapset_id(&args.map))
+        {
+            Some(MapOrScore::Map(id))
+        } else if let Some((mode, id)) = matcher::get_osu_score_id(&args.map) {
+            Some(MapOrScore::Score { mode, id })
+        } else {
+            return Err(
+                "Failed to parse map url. Be sure you specify a valid map id or url to a map.",
+            );
+        };
+
+        Ok(Self {
+            name: args.name,
+            id,
+            mods: args.mods,
+            discord: args.discord,
+        })
+    }
+}
+
+async fn slash_fix(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    let args = Fix::from_interaction(command.input_data())?;
+
+    match FixArgs::try_from(args) {
+        Ok(args) => fix(ctx, command.into(), args).await,
+        Err(content) => command.error(&ctx, content).await,
+    }
+}
 
 #[command]
-#[short_desc("Display a user's pp after unchoking their score on a map")]
-#[long_desc(
+#[desc("Display a user's pp after unchoking their score on a map")]
+#[help(
     "Display a user's pp after unchoking their score on a map. \n\
      If no map is given, I will choose the last map \
      I can find in the embeds of this channel.\n\
      Mods can be specified but only if there already is a score \
      on the map with those mods."
 )]
-#[aliases("fixscore")]
+#[alias("fixscore")]
 #[usage("[username] [map url / map id] [+mods]")]
-#[example(
+#[examples(
     "badewanne3",
     "badewanne3 2240404 +hdhr",
     "https://osu.ppy.sh/beatmapsets/902425#osu/2240404"
 )]
-async fn fix(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match FixArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut fix_args)) => {
-                    let reply = msg
-                        .referenced_message
-                        .as_ref()
-                        .filter(|_| msg.kind == MessageType::Reply);
+#[group(AllModes)]
+async fn prefix_fix(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    let args = FixArgs::args(msg, args);
 
-                    if let Some(id) = reply.and_then(|msg| map_id_from_msg(msg)) {
-                        fix_args.id = Some(MapOrScore::Map(id));
-                    } else if let Some((mode, id)) =
-                        reply.and_then(|msg| matcher::get_osu_score_id(&msg.content))
-                    {
-                        fix_args.id = Some(MapOrScore::Score { id, mode });
-                    }
-
-                    _fix(ctx, CommandData::Message { msg, args, num }, fix_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => slash_fix(ctx, *command).await,
-    }
+    fix(ctx, msg.into(), args).await
 }
 
-async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotResult<()> {
-    let FixArgs { osu, id, mods } = args;
-
-    let name = match osu.map(OsuData::into_username) {
+async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> BotResult<()> {
+    let name = match username!(ctx, orig, args) {
         Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
+        None => match ctx.psql().get_osu_user(orig.user_id()?) {
+            Ok(Some(osu)) => osu.into_username(),
+            Ok(None) => return require_link(&ctx, &orig).await,
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(err);
+            }
+        },
+    };
+
+    let mods = match args.mods.map(|mods| matcher::get_mods(&mods)) {
+        Some(mods) => mods,
+        None => {
+            let content =
+                "Failed to parse mods. Be sure to specify a valid abbreviation e.g. `hdhr`.";
+
+            return orig.error(&ctx, content).await;
+        }
     };
 
     let mods = match mods {
@@ -97,43 +201,43 @@ async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotRes
         Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) => Some(mods),
     };
 
-    let data_result = match id {
+    let data_result = match args.id {
         Some(MapOrScore::Score { id, mode }) => {
-            request_by_score(&ctx, &data, id, mode, name.as_str()).await
+            request_by_score(&ctx, &orig, id, mode, name.as_str()).await
         }
         Some(MapOrScore::Map(MapIdType::Map(id))) => {
-            request_by_map(&ctx, &data, id, name.as_str(), mods).await
+            request_by_map(&ctx, &orig, id, name.as_str(), mods).await
         }
         Some(MapOrScore::Map(MapIdType::Set(_))) => {
             let content = "Looks like you gave me a mapset id, I need a map id though";
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         None => {
-            let msgs = match ctx.retrieve_channel_history(data.channel_id()).await {
+            let msgs = match ctx.retrieve_channel_history(orig.channel_id()).await {
                 Ok(msgs) => msgs,
-                Err(why) => {
-                    let _ = data.error(&ctx, GENERAL_ISSUE).await;
+                Err(err) => {
+                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                    return Err(why);
+                    return Err(err);
                 }
             };
 
             match map_id_from_history(&msgs) {
                 Some(MapIdType::Map(id)) => {
-                    request_by_map(&ctx, &data, id, name.as_str(), mods).await
+                    request_by_map(&ctx, &orig, id, name.as_str(), mods).await
                 }
                 Some(MapIdType::Set(_)) => {
                     let content = "I found a mapset in the channel history but I need a map. \
                     Try specifying a map either by url to the map, or just by map id.";
 
-                    return data.error(&ctx, content).await;
+                    return orig.error(&ctx, content).await;
                 }
                 None => {
                     let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map either by url to the map, or just by map id.";
 
-                    return data.error(&ctx, content).await;
+                    return orig.error(&ctx, content).await;
                 }
             }
         }
@@ -150,7 +254,7 @@ async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotRes
     };
 
     if map.mode == GameMode::MNA {
-        return data.error(&ctx, "Can't fix mania scores \\:(").await;
+        return orig.error(&ctx, "Can't fix mania scores \\:(").await;
     }
 
     let unchoked_pp = match scores {
@@ -160,10 +264,10 @@ async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotRes
             } else {
                 match unchoke_pp(&ctx, score, &map).await {
                     Ok(pp) => pp,
-                    Err(why) => {
-                        let _ = data.error(&ctx, GENERAL_ISSUE).await;
+                    Err(err) => {
+                        let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                        return Err(why);
+                        return Err(err);
                     }
                 }
             }
@@ -180,7 +284,7 @@ async fn _fix(ctx: Arc<Context>, data: CommandData<'_>, args: FixArgs) -> BotRes
 
     let embed_data = FixScoreEmbed::new(user, map, scores, unchoked_pp, mods);
     let builder = embed_data.into_builder().build().into();
-    data.create_message(&ctx, builder).await?;
+    orig.create_message(&ctx, builder).await?;
 
     // Set map on garbage collection list if unranked
     gb.execute(&ctx);
@@ -204,7 +308,7 @@ struct ScoreData {
 // Retrieve user's score on the map, the user itself, and the map including mapset
 async fn request_by_map(
     ctx: &Context,
-    data: &CommandData<'_>,
+    orig: &CommandOrigin<'_>,
     map_id: u32,
     name: &str,
     mods: Option<GameMods>,
@@ -229,7 +333,7 @@ async fn request_by_map(
 
                 let (user, best) = match tokio::join!(mapset_fut, user_fut, best_fut) {
                     (_, Err(why), _) | (_, _, Err(why)) => {
-                        let _ = data.error(ctx, OSU_API_ISSUE).await;
+                        let _ = orig.error(ctx, OSU_API_ISSUE).await;
 
                         return ScoreResult::Error(why.into());
                     }
@@ -241,10 +345,10 @@ async fn request_by_map(
                     (Err(_), Ok(user), Ok(best)) => {
                         let mapset = match ctx.osu().beatmapset(map.mapset_id).await {
                             Ok(mapset) => mapset,
-                            Err(why) => {
-                                let _ = data.error(ctx, OSU_API_ISSUE).await;
+                            Err(err) => {
+                                let _ = orig.error(ctx, OSU_API_ISSUE).await;
 
-                                return ScoreResult::Error(why.into());
+                                return ScoreResult::Error(err.into());
                             }
                         };
 
@@ -262,10 +366,10 @@ async fn request_by_map(
 
                 ScoreResult::Data(data)
             }
-            Err(why) => {
-                let _ = data.error(ctx, OSU_API_ISSUE).await;
+            Err(err) => {
+                let _ = orig.error(ctx, OSU_API_ISSUE).await;
 
-                ScoreResult::Error(why.into())
+                ScoreResult::Error(err.into())
             }
         },
         // Either the user, map, or user score on the map don't exist
@@ -283,15 +387,15 @@ async fn request_by_map(
                     Err(OsuError::NotFound) => {
                         let content = format!("There is no map with id {map_id}");
 
-                        return match data.error(ctx, content).await {
+                        return match orig.error(ctx, content).await {
                             Ok(_) => ScoreResult::Done,
                             Err(err) => ScoreResult::Error(err),
                         };
                     }
-                    Err(why) => {
-                        let _ = data.error(ctx, OSU_API_ISSUE).await;
+                    Err(err) => {
+                        let _ = orig.error(ctx, OSU_API_ISSUE).await;
 
-                        return ScoreResult::Error(why.into());
+                        return ScoreResult::Error(err.into());
                     }
                 },
             };
@@ -303,15 +407,15 @@ async fn request_by_map(
                 Err(OsuError::NotFound) => {
                     let content = format!("Could not find user `{name}`");
 
-                    return match data.error(ctx, content).await {
+                    return match orig.error(ctx, content).await {
                         Ok(_) => ScoreResult::Done,
                         Err(err) => ScoreResult::Error(err),
                     };
                 }
-                Err(why) => {
-                    let _ = data.error(ctx, OSU_API_ISSUE).await;
+                Err(err) => {
+                    let _ = orig.error(ctx, OSU_API_ISSUE).await;
 
-                    return ScoreResult::Error(why.into());
+                    return ScoreResult::Error(err.into());
                 }
             };
 
@@ -323,17 +427,17 @@ async fn request_by_map(
 
             ScoreResult::Data(data)
         }
-        Err(why) => {
-            let _ = data.error(ctx, OSU_API_ISSUE).await;
+        Err(err) => {
+            let _ = orig.error(ctx, OSU_API_ISSUE).await;
 
-            ScoreResult::Error(why.into())
+            ScoreResult::Error(err.into())
         }
     }
 }
 
 async fn request_by_score(
     ctx: &Context,
-    data: &CommandData<'_>,
+    orig: &CommandOrigin<'_>,
     score_id: u64,
     mode: GameMode,
     name: &str,
@@ -344,7 +448,7 @@ async fn request_by_score(
     let (user, mut score) = match tokio::try_join!(user_fut, score_fut) {
         Ok((user, score)) => (user, score),
         Err(err) => {
-            let _ = data.error(ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(ctx, OSU_API_ISSUE).await;
 
             return ScoreResult::Error(err.into());
         }
@@ -363,10 +467,10 @@ async fn request_by_score(
         .best();
 
     let best = match tokio::join!(mapset_fut, best_fut) {
-        (_, Err(why)) => {
-            let _ = data.error(ctx, OSU_API_ISSUE).await;
+        (_, Err(err)) => {
+            let _ = orig.error(ctx, OSU_API_ISSUE).await;
 
-            return ScoreResult::Error(why.into());
+            return ScoreResult::Error(err.into());
         }
         (Ok(mapset), Ok(best)) => {
             map.mapset = Some(mapset);
@@ -376,10 +480,10 @@ async fn request_by_score(
         (Err(_), Ok(best)) => {
             let mapset = match ctx.osu().beatmapset(map.mapset_id).await {
                 Ok(mapset) => mapset,
-                Err(why) => {
-                    let _ = data.error(ctx, OSU_API_ISSUE).await;
+                Err(err) => {
+                    let _ = orig.error(ctx, OSU_API_ISSUE).await;
 
-                    return ScoreResult::Error(why.into());
+                    return ScoreResult::Error(err.into());
                 }
             };
 
@@ -556,105 +660,4 @@ fn needs_unchoking(score: &Score, map: &Beatmap) -> bool {
         GameMode::CTB => score.max_combo != map.max_combo.unwrap_or(0),
         GameMode::MNA => panic!("can not unchoke mania scores"),
     }
-}
-
-enum MapOrScore {
-    Map(MapIdType),
-    Score { id: u64, mode: GameMode },
-}
-
-struct FixArgs {
-    osu: Option<OsuData>,
-    id: Option<MapOrScore>,
-    mods: Option<ModSelection>,
-}
-
-impl FixArgs {
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: Id<UserMarker>,
-    ) -> DoubleResultCow<Self> {
-        let mut osu = ctx.psql().get_user_osu(author_id).await?;
-        let mut id = None;
-        let mut mods = None;
-
-        for arg in args.take(3) {
-            if let Some(id_) =
-                matcher::get_osu_map_id(arg).or_else(|| matcher::get_osu_mapset_id(arg))
-            {
-                id = Some(MapOrScore::Map(id_));
-            } else if let Some((mode, id_)) = matcher::get_osu_score_id(arg) {
-                id = Some(MapOrScore::Score { mode, id: id_ })
-            } else if let Some(mods_) = matcher::get_mods(arg) {
-                mods = Some(mods_);
-            } else {
-                match check_user_mention(ctx, arg).await? {
-                    Ok(osu_) => osu = Some(osu_),
-                    Err(content) => return Ok(Err(content)),
-                }
-            }
-        }
-
-        Ok(Ok(Self { osu, id, mods }))
-    }
-
-    async fn slash(ctx: &Context, command: &mut ApplicationCommand) -> DoubleResultCow<Self> {
-        let mut osu = ctx.psql().get_user_osu(command.user_id()?).await?;
-        let mut id = None;
-        let mut mods = None;
-
-        for option in command.yoink_options() {
-            match option.value {
-                CommandOptionValue::String(value) => match option.name.as_str() {
-                    NAME => osu = Some(value.into()),
-                    MAP => match matcher::get_osu_map_id(&value)
-                        .or_else(|| matcher::get_osu_mapset_id(&value))
-                    {
-                        Some(id_) => id = Some(MapOrScore::Map(id_)),
-                        None => match matcher::get_osu_score_id(&value) {
-                            Some((mode, id_)) => id = Some(MapOrScore::Score { mode, id: id_ }),
-                            None => return Ok(Err(MAP_PARSE_FAIL.into())),
-                        },
-                    },
-                    MODS => match matcher::get_mods(&value) {
-                        Some(mods_) => mods = Some(mods_),
-                        None => match value.parse() {
-                            Ok(mods_) => mods = Some(ModSelection::Exact(mods_)),
-                            Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
-                        },
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::User(value) => match option.name.as_str() {
-                    DISCORD => match parse_discord(ctx, value).await? {
-                        Ok(osu_) => osu = Some(osu_),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            }
-        }
-
-        Ok(Ok(Self { osu, id, mods }))
-    }
-}
-
-pub async fn slash_fix(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match FixArgs::slash(&ctx, &mut command).await? {
-        Ok(args) => _fix(ctx, command.into(), args).await,
-        Err(content) => command.error(&ctx, content).await,
-    }
-}
-
-pub fn define_fix() -> MyCommand {
-    let name = option_name();
-    let map = option_map();
-    let mods = option_mods(false);
-    let discord = option_discord();
-
-    let description = "Display a user's pp after unchoking their score on a map";
-
-    MyCommand::new("fix", description).options(vec![name, map, mods, discord])
 }

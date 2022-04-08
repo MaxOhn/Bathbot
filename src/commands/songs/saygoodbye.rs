@@ -1,18 +1,20 @@
-use crate::{BotResult, CommandData, Context};
-
 use std::sync::Arc;
 
-#[command]
-#[short_desc("https://youtu.be/SyJMQg3spck?t=43")]
-#[bucket("songs")]
-#[no_typing()]
-async fn saygoodbye(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    let (lyrics, delay) = _saygoodbye();
+use command_macros::command;
 
-    super::song_send(lyrics, delay, ctx, data).await
+use crate::{BotResult, Context};
+
+#[command]
+#[desc("https://youtu.be/SyJMQg3spck?t=43")]
+#[group(Songs)]
+#[flags(SKIP_DEFER)]
+async fn prefix_saygoodbye(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+    let (lyrics, delay) = saygoodbye_();
+
+    super::song(lyrics, delay, ctx, msg.into()).await
 }
 
-pub fn _saygoodbye() -> (&'static [&'static str], u64) {
+pub fn saygoodbye_() -> (&'static [&'static str], u64) {
     let lyrics = &[
         "It still kills meeee",
         "(it - still - kills - me)",

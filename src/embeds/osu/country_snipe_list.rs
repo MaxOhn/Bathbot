@@ -1,12 +1,11 @@
 use crate::{
     commands::osu::SnipeOrder,
     custom_client::SnipeCountryPlayer,
-    embeds::Footer,
     util::{
         constants::OSU_BASE,
         numbers::{with_comma_float, with_comma_int},
         osu::flag_url,
-        CountryCode,
+        CountryCode, builder::FooterBuilder,
     },
 };
 
@@ -16,7 +15,7 @@ pub struct CountrySnipeListEmbed {
     thumbnail: String,
     description: String,
     title: String,
-    footer: Footer,
+    footer: FooterBuilder,
 }
 
 impl CountrySnipeListEmbed {
@@ -91,7 +90,7 @@ impl CountrySnipeListEmbed {
             description,
             title,
             thumbnail,
-            footer: Footer::new(footer_text),
+            footer: FooterBuilder::new(footer_text),
         }
     }
 }

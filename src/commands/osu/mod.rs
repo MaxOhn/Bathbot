@@ -4,6 +4,93 @@ macro_rules! map_id {
     };
 }
 
+/// Try to extract an osu! username from the `args`' fields `name` or `discord`
+macro_rules! username {
+    ($ctx:ident, $orig:ident, $args:ident) => {
+        match crate::commands::osu::HasName::username(&$args, &$ctx) {
+            crate::commands::osu::UsernameResult::Name(name) => Some(name),
+            crate::commands::osu::UsernameResult::None => None,
+            crate::commands::osu::UsernameResult::Future(fut) => match fut.await {
+                crate::commands::osu::UsernameFutureResult::Name(name) => Some(name),
+                crate::commands::osu::UsernameFutureResult::NotLinked(user_id) => {
+                    let content = format!("<@{user_id}> is not linked to an osu!profile");
+
+                    return $orig.error(&$ctx, content).await;
+                }
+                crate::commands::osu::UsernameFutureResult::Err(err) => {
+                    let content = crate::util::constants::GENERAL_ISSUE;
+                    let _ = $orig.error(&$ctx, content).await;
+
+                    return Err(err);
+                }
+            },
+        }
+    };
+}
+
+/// Returns a (Username, GameMode) tuple
+macro_rules! name_mode {
+    ($ctx:ident, $orig:ident, $args:ident) => {{
+        let name = username!($ctx, $orig, $args);
+        let mode = $args.mode.map(rosu_v2::prelude::GameMode::from);
+
+        if let (Some(name), Some(mode)) = (name, mode) {
+            (name, mode)
+        } else {
+            let config = $ctx.user_config($orig.user_id()?).await?;
+
+            let mode = mode
+                .or(config.mode)
+                .unwrap_or(rosu_v2::prelude::GameMode::STD);
+
+            match name.or_else(|| config.into_username()) {
+                Some(name) => (name, mode),
+                None => return crate::commands::osu::require_link(&$ctx, &$orig).await,
+            }
+        }
+    }};
+}
+
+use std::{
+    borrow::Cow,
+    cmp::PartialOrd,
+    collections::BTreeMap,
+    future::Future,
+    ops::{AddAssign, Div},
+    pin::Pin,
+};
+
+use eyre::Report;
+use futures::future::FutureExt;
+use hashbrown::HashMap;
+use rosu_v2::{
+    prelude::{
+        BeatmapUserScore, GameMode, GameMods, Grade, OsuError, OsuResult, Score, User, Username,
+    },
+    request::GetUserScores,
+    Osu,
+};
+use twilight_model::{
+    application::{command::CommandOptionChoice, interaction::ApplicationCommandAutocomplete},
+    http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
+    id::{marker::UserMarker, Id},
+};
+
+use crate::{
+    core::commands::CommandOrigin,
+    custom_client::OsuStatsParams,
+    util::{numbers::with_comma_int, CowUtils},
+    BotResult, Context, Error,
+};
+
+pub use self::{
+    avatar::*, badges::*, bws::*, compare::*, country_top::*, fix::*, graphs::*, leaderboard::*,
+    link::*, map::*, map_search::*, mapper::*, match_compare::*, match_costs::*, match_live::*,
+    medals::*, most_played::*, nochoke::*, osekai::*, osustats::*, pinned::*, popular::*, pp::*,
+    profile::*, rank::*, ranking::*, ratios::*, recent::*, serverleaderboard::*, simulate::*,
+    snipe::*, top::*, whatif::*,
+};
+
 mod avatar;
 mod badges;
 mod bws;
@@ -36,53 +123,23 @@ mod serverleaderboard;
 mod simulate;
 mod snipe;
 mod top;
-mod top_if;
-mod top_old;
 mod whatif;
 
-use std::{
-    borrow::Cow,
-    cmp::PartialOrd,
-    collections::BTreeMap,
-    future::Future,
-    ops::{AddAssign, Div},
-};
+pub trait HasName {
+    fn username(&self, ctx: &Context) -> UsernameResult;
+}
 
-use eyre::Report;
-use futures::future::FutureExt;
-use hashbrown::HashMap;
-use rosu_v2::{
-    prelude::{BeatmapUserScore, GameMode, GameMods, Grade, OsuError, OsuResult, Score, User},
-    request::GetUserScores,
-    Osu,
-};
-use twilight_model::{
-    application::{command::CommandOptionChoice, interaction::ApplicationCommandAutocomplete},
-    http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
-};
+enum UsernameResult {
+    Name(Username),
+    None,
+    Future(Pin<Box<dyn Future<Output = UsernameFutureResult>>>),
+}
 
-use crate::{
-    custom_client::OsuStatsParams,
-    util::{
-        constants::common_literals::{
-            COUNTRY, CTB, DISCORD, MANIA, MAP, MODE, MODS, NAME, OSU, SPECIFY_COUNTRY,
-            SPECIFY_MODE, TAIKO,
-        },
-        numbers::with_comma_int,
-        CowUtils, MessageExt,
-    },
-    BotResult, CommandData, Context, Error,
-};
-
-pub use self::{
-    avatar::*, badges::*, bws::*, compare::*, country_top::*, fix::*, graphs::*, leaderboard::*,
-    link::*, map::*, map_search::*, mapper::*, match_compare::*, match_costs::*, match_live::*,
-    medals::*, most_played::*, nochoke::*, osekai::*, osustats::*, pinned::*, popular::*, pp::*,
-    profile::*, rank::*, ranking::*, ratios::*, recent::*, serverleaderboard::*, simulate::*,
-    snipe::*, top::*, top_if::*, top_old::*, whatif::*,
-};
-
-use super::MyCommandOption;
+enum UsernameFutureResult {
+    Name(Username),
+    NotLinked(Id<UserMarker>),
+    Err(Error),
+}
 
 enum ErrorType {
     Bot(Error),
@@ -381,10 +438,10 @@ where
     })
 }
 
-async fn require_link(ctx: &Context, data: &CommandData<'_>) -> BotResult<()> {
+pub async fn require_link(ctx: &Context, orig: &CommandOrigin<'_>) -> BotResult<()> {
     let content = "Either specify an osu! username or link yourself to an osu! profile via `/link`";
 
-    data.error(ctx, content).await
+    orig.error(ctx, content).await.map_err(Error::from)
 }
 
 async fn get_globals_count(
@@ -524,20 +581,20 @@ impl From<MinMaxAvg<f32>> for MinMaxAvg<u32> {
 fn mode_choices() -> Vec<CommandOptionChoice> {
     vec![
         CommandOptionChoice::String {
-            name: OSU.to_owned(),
-            value: OSU.to_owned(),
+            name: "osu".to_owned(),
+            value: "osu".to_owned(),
         },
         CommandOptionChoice::String {
-            name: TAIKO.to_owned(),
-            value: TAIKO.to_owned(),
+            name: "taiko".to_owned(),
+            value: "taiko".to_owned(),
         },
         CommandOptionChoice::String {
-            name: CTB.to_owned(),
-            value: CTB.to_owned(),
+            name: "ctb".to_owned(),
+            value: "ctb".to_owned(),
         },
         CommandOptionChoice::String {
-            name: MANIA.to_owned(),
-            value: MANIA.to_owned(),
+            name: "mania".to_owned(),
+            value: "mania".to_owned(),
         },
     ]
 }
@@ -565,79 +622,79 @@ async fn respond_autocomplete(
     Ok(())
 }
 
-fn option_mode() -> MyCommandOption {
-    MyCommandOption::builder(MODE, SPECIFY_MODE).string(mode_choices(), false)
-}
+// fn option_mode() -> MyCommandOption {
+//     MyCommandOption::builder(MODE, SPECIFY_MODE).string(mode_choices(), false)
+// }
 
-fn option_name() -> MyCommandOption {
-    MyCommandOption::builder(NAME, "Specify a username").string(Vec::new(), false)
-}
+// fn option_name() -> MyCommandOption {
+//     MyCommandOption::builder(NAME, "Specify a username").string(Vec::new(), false)
+// }
 
-fn option_discord() -> MyCommandOption {
-    let help = "Instead of specifying an osu! username with the `name` option, \
-        you can use this `discord` option to choose a discord user.\n\
-        For it to work, the user must be linked to an osu! account i.e. they must have used \
-        the `/link` or `/config` command to verify their account.";
+// fn option_discord() -> MyCommandOption {
+//     let help = "Instead of specifying an osu! username with the `name` option, \
+//         you can use this `discord` option to choose a discord user.\n\
+//         For it to work, the user must be linked to an osu! account i.e. they must have used \
+//         the `/link` or `/config` command to verify their account.";
 
-    MyCommandOption::builder(DISCORD, "Specify a linked discord user")
-        .help(help)
-        .user(false)
-}
+//     MyCommandOption::builder(DISCORD, "Specify a linked discord user")
+//         .help(help)
+//         .user(false)
+// }
 
-fn option_mods_explicit() -> MyCommandOption {
-    let description =
-        "Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)";
+// fn option_mods_explicit() -> MyCommandOption {
+//     let description =
+//         "Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)";
 
-    let help = "Filter out all scores that don't match the specified mods.\n\
-        Mods must be given as `+mods` for included mods, `+mods!` for exact mods, \
-        or `-mods!` for excluded mods.\n\
-        Examples:\n\
-        - `+hd`: Scores must have at least `HD` but can also have more other mods\n\
-        - `+hdhr!`: Scores must have exactly `HDHR`\n\
-        - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
-        - `-nm!`: Scores can not be nomod so there must be any other mod";
+//     let help = "Filter out all scores that don't match the specified mods.\n\
+//         Mods must be given as `+mods` for included mods, `+mods!` for exact mods, \
+//         or `-mods!` for excluded mods.\n\
+//         Examples:\n\
+//         - `+hd`: Scores must have at least `HD` but can also have more other mods\n\
+//         - `+hdhr!`: Scores must have exactly `HDHR`\n\
+//         - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
+//         - `-nm!`: Scores can not be nomod so there must be any other mod";
 
-    MyCommandOption::builder(MODS, description)
-        .help(help)
-        .string(Vec::new(), false)
-}
+//     MyCommandOption::builder(MODS, description)
+//         .help(help)
+//         .string(Vec::new(), false)
+// }
 
-fn option_country() -> MyCommandOption {
-    MyCommandOption::builder(COUNTRY, SPECIFY_COUNTRY).string(Vec::new(), false)
-}
+// fn option_country() -> MyCommandOption {
+//     MyCommandOption::builder(COUNTRY, SPECIFY_COUNTRY).string(Vec::new(), false)
+// }
 
-fn option_mods(filter: bool) -> MyCommandOption {
-    let help = if filter {
-        "Specify mods either directly or through the explicit `+_!` / `+_` syntax, \
-        e.g. `hdhr` or `+hdhr!`, and filter out all scores that don't match those mods."
-    } else {
-        "Specify mods either directly or through the explicit `+_!` / `+_` syntax e.g. `hdhr` or `+hdhr!`"
-    };
+// fn option_mods(filter: bool) -> MyCommandOption {
+//     let help = if filter {
+//         "Specify mods either directly or through the explicit `+mods!` / `+mods` syntax, \
+//         e.g. `hdhr` or `+hdhr!`, and filter out all scores that don't match those mods."
+//     } else {
+//         "Specify mods either directly or through the explicit `+mods!` / `+mods` syntax e.g. `hdhr` or `+hdhr!`"
+//     };
 
-    MyCommandOption::builder(MODS, "Specify mods e.g. hdhr or nm")
-        .help(help)
-        .string(Vec::new(), false)
-}
+//     MyCommandOption::builder(MODS, "Specify mods e.g. hdhr or nm")
+//         .help(help)
+//         .string(Vec::new(), false)
+// }
 
-fn option_map() -> MyCommandOption {
-    let help = "Specify a map either by map url or map id.\n\
-        If none is specified, it will search in the recent channel history \
-        and pick the first map it can find.";
+// fn option_map() -> MyCommandOption {
+//     let help = "Specify a map either by map url or map id.\n\
+//         If none is specified, it will search in the recent channel history \
+//         and pick the first map it can find.";
 
-    MyCommandOption::builder(MAP, "Specify a map url or map id")
-        .help(help)
-        .string(Vec::new(), false)
-}
+//     MyCommandOption::builder(MAP, "Specify a map url or map id")
+//         .help(help)
+//         .string(Vec::new(), false)
+// }
 
-fn option_query() -> MyCommandOption {
-    let query_description = "Specify a search query containing artist, difficulty, AR, BPM, ...";
+// fn option_query() -> MyCommandOption {
+//     let query_description = "Specify a search query containing artist, difficulty, AR, BPM, ...";
 
-    let query_help = "Filter out scores similarly as you filter maps in osu! itself.\n\
-        You can specify the artist, creator, difficulty, title, or limit values such as \
-        ar, cs, hp, od, bpm, length, or stars like for example `fdfd ar>10 od>=9`.\n\
-        While ar & co will be adjusted to mods, stars will not.";
+//     let query_help = "Filter out scores similarly as you filter maps in osu! itself.\n\
+//         You can specify the artist, creator, difficulty, title, or limit values such as \
+//         ar, cs, hp, od, bpm, length, or stars like for example `fdfd ar>10 od>=9`.\n\
+//         While ar & co will be adjusted to mods, stars will not.";
 
-    MyCommandOption::builder("query", query_description)
-        .help(query_help)
-        .string(Vec::new(), false)
-}
+//     MyCommandOption::builder("query", query_description)
+//         .help(query_help)
+//         .string(Vec::new(), false)
+// }

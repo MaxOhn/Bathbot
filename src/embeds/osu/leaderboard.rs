@@ -1,14 +1,13 @@
 use crate::{
     core::Context,
     custom_client::ScraperScore,
-    embeds::{Author, Footer},
     error::PpError,
     util::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago_dynamic,
         numbers::with_comma_int,
         osu::prepare_beatmap_file,
-        CowUtils, ScoreExt,
+        CowUtils, ScoreExt, builder::{FooterBuilder, AuthorBuilder},
     },
     BotResult,
 };
@@ -24,8 +23,8 @@ use std::fmt::{self, Write};
 pub struct LeaderboardEmbed {
     description: String,
     thumbnail: String,
-    author: Author,
-    footer: Footer,
+    author: AuthorBuilder,
+    footer: FooterBuilder,
 }
 
 impl LeaderboardEmbed {
@@ -117,7 +116,7 @@ impl LeaderboardEmbed {
             "No scores found".to_string()
         };
 
-        let mut author = Author::new(author_text).url(format!("{OSU_BASE}b/{}", map.map_id));
+        let mut author = AuthorBuilder::new(author_text).url(format!("{OSU_BASE}b/{}", map.map_id));
 
         if let Some(ref author_icon) = author_icon {
             author = author.icon_url(author_icon.to_owned());
@@ -128,7 +127,7 @@ impl LeaderboardEmbed {
             map.status, pages.0, pages.1,
         );
 
-        let footer = Footer::new(footer_text).icon_url(format!("{AVATAR_URL}{creator_id}"));
+        let footer = FooterBuilder::new(footer_text).icon_url(format!("{AVATAR_URL}{creator_id}"));
 
         Ok(Self {
             author,

@@ -63,7 +63,7 @@ impl Pagination for BGRankingPagination {
     }
 
     fn reactions() -> ReactionVec {
-        smallvec![
+        smallvec::smallvec![
             Emote::JumpStart,
             Emote::SingleStepBack,
             Emote::MyPosition,

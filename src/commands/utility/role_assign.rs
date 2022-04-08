@@ -1,9 +1,12 @@
-use std::{sync::Arc, time::Duration};
+use std::{borrow::Cow, sync::Arc, time::Duration};
 
+use command_macros::{command, SlashCommand};
 use eyre::Report;
 use tokio::time::timeout;
+use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
-    application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
+    application::interaction::ApplicationCommand,
+    channel::Message,
     id::{
         marker::{ChannelMarker, MessageMarker, RoleMarker},
         Id,
@@ -11,16 +14,96 @@ use twilight_model::{
 };
 
 use crate::{
-    commands::{MyCommand, MyCommandOption},
-    util::{constants::GENERAL_ISSUE, matcher, MessageBuilder, MessageExt},
-    Args, BotResult, CommandData, Context, Error,
+    core::commands::{prefix::Args, CommandOrigin},
+    util::{builder::MessageBuilder, constants::GENERAL_ISSUE, matcher, ApplicationCommandExt},
+    BotResult, Context,
 };
 
+#[derive(CommandModel, CreateCommand, SlashCommand)]
+#[command(
+    name = "roleassign",
+    help = "With this command you can link a message to a role.\n\
+    Whenever anyone reacts with __any__ reaction to that message, they will gain that role.\n\
+    If they remove a reaction from the message, they will lose the role.\n\
+    __**Note**__: Roles can only be assigned if they are lower than some role of the assigner i.e. the bot."
+)]
+#[flags(AUTHORITY, ONLY_GUILDS)]
+/// Manage roles with reactions
+pub enum RoleAssign<'a> {
+    #[command(name = "add")]
+    Add(RoleAssignAdd<'a>),
+    #[command(name = "remove")]
+    Remove(RoleAssignRemove<'a>),
+}
+
+#[derive(CommandModel, CreateCommand)]
+#[command(
+    name = "add",
+    help = "Add role-assigning upon reaction on a message \
+    i.e. make me add or remove a member's role when they (un)react to a message."
+)]
+/// Add role-assigning upon reaction on a message
+pub struct RoleAssignAdd<'a> {
+    /// Specify the channel that contains the message
+    channel: Id<ChannelMarker>,
+    #[command(help = "Specify the message by providing its ID.\n\
+    You can find the ID by rightclicking the message and clicking on `Copy ID`.\n\
+    To see the `Copy ID` option, you must have `Settings > Advanced > Developer Mode` enabled.")]
+    /// Specify a message id
+    message: Cow<'a, str>,
+    /// Specify a role that should be assigned
+    role: Id<RoleMarker>,
+}
+
+#[derive(CommandModel, CreateCommand)]
+#[command(
+    name = "remove",
+    help = "Remove role-assigning upon reaction on a message \
+    i.e. I will no longer add or remove a member's role when they (un)react to a message."
+)]
+/// Remove role-assigning upon reaction on a message
+pub struct RoleAssignRemove<'a> {
+    /// Specify the channel that contains the message
+    channel: Id<ChannelMarker>,
+    #[command(help = "Specify the message by providing its ID.\n\
+    You can find the ID by rightclicking the message and clicking on `Copy ID`.\n\
+    To see the `Copy ID` option, you must have `Settings > Advanced > Developer Mode` enabled.")]
+    /// Specify a message id
+    message: Cow<'a, str>,
+    /// Specify a role that was assigned for the message
+    role: Id<RoleMarker>,
+}
+
+impl<'m> RoleAssign<'m> {
+    fn args(args: &mut Args<'m>) -> Result<Self, &'static str> {
+        let channel = match args.next() {
+            Some(arg) => match matcher::get_mention_channel(arg) {
+                Some(channel_id) => channel_id,
+                None => return Err("The first argument must be a channel id."),
+            },
+            None => return Err("You must provide a channel, a message, and a role."),
+        };
+
+        let msg = match args.next() {
+            Some(arg) => Cow::Borrowed(arg),
+            None => return Err("You must provide a channel, a message, and a role."),
+        };
+
+        let role = match args.next() {
+            Some(arg) => match matcher::get_mention_role(arg) {
+                Some(role_id) => role_id,
+                None => return Err("The third argument must be a role id."),
+            },
+            None => return Err("You must provide a channel, a message, and a role."),
+        };
+
+        Ok(Self::Add(RoleAssignAdd { channel, msg, role }))
+    }
+}
+
 #[command]
-#[only_guilds()]
-#[authority()]
-#[short_desc("Managing roles with reactions")]
-#[long_desc(
+#[desc("Managing roles with reactions")]
+#[help(
     "Assign a message to a role such that \
      when anyone reacts to that message, the member will \
      gain that role and and if they remove a reaction, \
@@ -31,71 +114,58 @@ use crate::{
 )]
 #[usage("[channel mention / channel id] [message id] [role mention / role id]")]
 #[example("#general 681871156168753193 @Meetup")]
-async fn roleassign(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => match RoleAssignArgs::args(&mut args) {
-            Ok(roleassign_args) => {
-                let data = CommandData::Message { msg, args, num };
-
-                _roleassign(ctx, data, roleassign_args).await
-            }
-            Err(content) => msg.error(&ctx, content).await,
-        },
-        CommandData::Interaction { command } => slash_roleassign(ctx, *command).await,
+#[flags(AUTHORITY, ONLY_GUILDS)]
+#[group(Utility)]
+async fn prefix_roleassign(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+    match RoleAssign::args(&mut args) {
+        Ok(args) => roleassign(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
     }
 }
 
-async fn _roleassign(
+pub async fn slash_roleassign(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
-    args: RoleAssignArgs,
+    mut command: Box<ApplicationCommand>,
 ) -> BotResult<()> {
-    let RoleAssignArgs {
-        kind,
-        channel: channel_id,
-        msg: msg_id,
-        role: role_id,
-    } = args;
+    let args = RoleAssign::from_iteraction(command.input_data())?;
 
-    let role_pos = match ctx.cache.role(role_id, |role| role.position) {
-        Ok(pos) => pos,
-        Err(_) => return data.error(&ctx, "Role not found in this guild").await,
-    };
+    roleassign(ctx, command.into(), args).await
+}
 
-    if ctx.cache.channel(channel_id, |_| ()).is_err() {
-        return data.error(&ctx, "Channel not found in this guild").await;
-    }
+async fn roleassign(
+    ctx: Arc<Context>,
+    orig: CommandOrigin<'_>,
+    args: RoleAssign<'_>,
+) -> BotResult<()> {
+    match args {
+        RoleAssign::Add(add) => {
+            let msg = match parse_msg_id(add.message) {
+                Ok(id) => id,
+                Err(content) => return orig.error(&ctx, content).await,
+            };
 
-    let msg = match ctx.http.message(channel_id, msg_id).exec().await {
-        Ok(msg_res) => msg_res.model().await?,
-        Err(why) => {
-            let _ = data.error(&ctx, "No message found with this id").await;
+            if ctx.cache.channel(add.channel_id, |_| ()).is_err() {
+                return orig.error(&ctx, "Channel not found in this guild").await;
+            }
 
-            let wrap =
-                format!("(Channel,Message) ({channel_id},{msg_id}) for roleassign was not found");
+            let (role_pos, msg) = match retrieve_data(&ctx, add.channel, msg, add.role).await? {
+                Ok(tuple) => tuple,
+                Err(content) => return orig.error(&ctx, content).await,
+            };
 
-            let report = Report::new(why).wrap_err(wrap);
-            warn!("{:?}", report);
+            let guild = orig.guild_id().unwrap();
 
-            return Ok(());
-        }
-    };
-
-    let guild_id = data.guild_id().unwrap();
-
-    match kind {
-        Kind::Add => {
             let user = match ctx.cache.current_user() {
                 Ok(user) => user,
                 Err(_) => {
-                    let _ = data.error(&ctx, GENERAL_ISSUE).await;
+                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
                     bail!("CurrentUser not in cache");
                 }
             };
 
             let has_permission_fut = async {
-                ctx.cache.member(guild_id, user.id, |m| {
+                ctx.cache.member(guild, user.id, |m| {
                     m.roles()
                         .iter()
                         .any(|&r| match ctx.cache.role(r, |r| r.position > role_pos) {
@@ -115,37 +185,38 @@ async fn _roleassign(
                     let description = format!(
                         "To assign a role, one must have a role that is \
                         higher than the role to assign.\n\
-                        The role <@&{role_id}> is higher than all my roles so I can't assign it."
+                        The role <@&{role}> is higher than all my roles so I can't assign it.",
+                        role = add.role,
                     );
 
-                    return data.error(&ctx, description).await;
+                    return orig.error(&ctx, description).await;
                 }
                 Ok(Err(_)) => {
-                    let _ = data.error(&ctx, GENERAL_ISSUE).await;
+                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                    bail!("no member data in guild {guild_id} for CurrentUser in cache");
+                    bail!("no member data in guild {guild} for CurrentUser in cache");
                 }
                 Err(_) => {
-                    let _ = data.error(&ctx, GENERAL_ISSUE).await;
+                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
                     bail!("timed out while checking role permissions");
                 }
             }
 
-            let add_fut = ctx
-                .psql()
-                .add_role_assign(channel_id.get(), msg_id.get(), role_id.get());
+            let add_fut =
+                ctx.psql()
+                    .add_role_assign(add.channel.get(), msg.id.get(), add.role.get());
 
             match add_fut.await {
                 Ok(_) => debug!("Inserted into role_assign table"),
                 Err(err) => {
-                    let _ = data.error(&ctx, GENERAL_ISSUE).await;
+                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
                     return Err(err);
                 }
             }
 
-            ctx.add_role_assign(channel_id, msg_id, role_id);
+            ctx.add_role_assign(add.channel, msg.id, add.role);
 
             let description = format!(
                 "Whoever reacts to <@{author}>'s [message]\
@@ -153,21 +224,39 @@ async fn _roleassign(
                 ```\n{content}\n```\n\
                 in <#{channel_mention}> will be assigned the <@&{role_mention}> role!",
                 author = msg.author.id,
-                guild = guild_id,
                 channel = msg.channel_id,
                 msg = msg.id,
                 content = msg.content,
                 channel_mention = msg.channel_id,
-                role_mention = role_id,
+                role_mention = add.role,
             );
 
             let builder = MessageBuilder::new().embed(description);
-            data.create_message(&ctx, builder).await?;
+            orig.create_message(&ctx, &builder).await?;
         }
-        Kind::Remove => {
-            let remove_fut =
-                ctx.psql()
-                    .remove_role_assign(channel_id.get(), msg_id.get(), role_id.get());
+        RoleAssign::Remove(remove) => {
+            let msg = match parse_msg_id(remove.message) {
+                Ok(id) => id,
+                Err(content) => return orig.error(&ctx, content).await,
+            };
+
+            if ctx.cache.channel(remove.channel_id, |_| ()).is_err() {
+                return orig.error(&ctx, "Channel not found in this guild").await;
+            }
+
+            let (role_pos, msg) =
+                match retrieve_data(&ctx, remove.channel, msg, remove.role).await? {
+                    Ok(tuple) => tuple,
+                    Err(content) => return orig.error(&ctx, content).await,
+                };
+
+            let guild = orig.guild_id().unwrap();
+
+            let remove_fut = ctx.psql().remove_role_assign(
+                remove.channel.get(),
+                msg.id.get(),
+                remove.role.get(),
+            );
 
             match remove_fut.await {
                 Ok(true) => {
@@ -176,17 +265,16 @@ async fn _roleassign(
                         (https://discordapp.com/channels/{guild}/{channel}/{msg}) \
                         in <#{channel_mention}> will no longer assign the <@&{role_mention}> role.",
                         author = msg.author.id,
-                        guild = guild_id,
                         channel = msg.channel_id,
                         msg = msg.id,
                         channel_mention = msg.channel_id,
-                        role_mention = role_id,
+                        role_mention = remove.role,
                     );
 
                     debug!("Removed from role_assign table");
-                    ctx.remove_role_assign(channel_id, msg_id, role_id);
+                    ctx.remove_role_assign(remove.channel, msg.id, remove.role);
                     let builder = MessageBuilder::new().embed(description);
-                    data.create_message(&ctx, builder).await?;
+                    orig.create_message(&ctx, &builder).await?;
                 }
                 Ok(false) => {
                     let description = format!(
@@ -194,17 +282,16 @@ async fn _roleassign(
                         (https://discordapp.com/channels/{guild}/{channel}/{msg}) \
                         in <#{channel_mention}> was not linked to the <@&{role_mention}> role to begin with.",
                         author = msg.author.id,
-                        guild = guild_id,
                         channel = msg.channel_id,
                         msg = msg.id,
                         channel_mention = msg.channel_id,
-                        role_mention = role_id,
+                        role_mention = remove.role,
                     );
 
-                    data.error(&ctx, description).await?;
+                    orig.error(&ctx, description).await?;
                 }
                 Err(err) => {
-                    let _ = data.error(&ctx, GENERAL_ISSUE).await;
+                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
                     return Err(err);
                 }
@@ -215,169 +302,34 @@ async fn _roleassign(
     Ok(())
 }
 
-enum Kind {
-    Add,
-    Remove,
+fn parse_msg_id(msg: Cow<'_, str>) -> Result<Id<MessageMarker>, &'static str> {
+    match msg.parse() {
+        Ok(id) => Ok(Id::new(id)),
+        Err(_) => Err("Failed to parse message id. Be sure its a valid integer."),
+    }
 }
 
-struct RoleAssignArgs {
-    kind: Kind,
+async fn retrieve_data(
+    ctx: &Context,
     channel: Id<ChannelMarker>,
     msg: Id<MessageMarker>,
     role: Id<RoleMarker>,
-}
+) -> BotResult<Result<(i64, Message), &'static str>> {
+    let role_pos = match ctx.cache.role(role, |role| role.position) {
+        Ok(pos) => pos,
+        Err(_) => return Ok(Err("Role not found in this guild")),
+    };
 
-impl RoleAssignArgs {
-    fn args(args: &mut Args<'_>) -> Result<Self, &'static str> {
-        let channel = match args.next() {
-            Some(arg) => match matcher::get_mention_channel(arg) {
-                Some(channel_id) => channel_id,
-                None => return Err("The first argument must be a channel id."),
-            },
-            None => return Err("You must provide a channel, a message, and a role."),
-        };
+    let msg = match ctx.http.message(channel, msg).exec().await {
+        Ok(msg_res) => msg_res.model().await?,
+        Err(err) => {
+            let wrap = format!("(Channel,Message) ({channel},{msg}) for roleassign was not found");
+            let report = Report::new(err).wrap_err(wrap);
+            warn!("{:?}", report);
 
-        let msg = match args.next() {
-            Some(arg) => match arg.parse() {
-                Ok(id) => Id::new(id),
-                Err(_) => return Err("The second argument must be a message id."),
-            },
-            None => return Err("You must provide a channel, a message, and a role."),
-        };
+            return Ok(Err("No message found with this id"));
+        }
+    };
 
-        let role = match args.next() {
-            Some(arg) => match matcher::get_mention_role(arg) {
-                Some(role_id) => role_id,
-                None => return Err("The third argument must be a role id."),
-            },
-            None => return Err("You must provide a channel, a message, and a role."),
-        };
-
-        Ok(Self {
-            kind: Kind::Add,
-            channel,
-            msg,
-            role,
-        })
-    }
-
-    fn slash(command: &mut ApplicationCommand) -> BotResult<Result<Self, &'static str>> {
-        let mut channel = None;
-        let mut role = None;
-        let mut msg = None;
-
-        let option = command
-            .data
-            .options
-            .first()
-            .ok_or(Error::InvalidCommandOptions)?;
-
-        let kind = match &option.value {
-            CommandOptionValue::SubCommand(options) => {
-                for option in options {
-                    match &option.value {
-                        CommandOptionValue::String(value) => match option.name.as_str() {
-                            "message" => match value.parse() {
-                                Ok(0) => {
-                                    let content = "Message id can't be `0`.";
-
-                                    return Ok(Err(content));
-                                }
-                                Ok(num) => msg = Some(Id::new(num)),
-                                Err(_) => {
-                                    let content =
-                                        "Failed to parse message id. Be sure its a valid integer.";
-
-                                    return Ok(Err(content));
-                                }
-                            },
-                            _ => return Err(Error::InvalidCommandOptions),
-                        },
-                        CommandOptionValue::Channel(value) => channel = Some(*value),
-                        CommandOptionValue::Role(value) => role = Some(*value),
-                        _ => return Err(Error::InvalidCommandOptions),
-                    }
-                }
-
-                match option.name.as_str() {
-                    "add" => Kind::Add,
-                    "remove" => Kind::Remove,
-                    _ => return Err(Error::InvalidCommandOptions),
-                }
-            }
-            _ => return Err(Error::InvalidCommandOptions),
-        };
-
-        let args = Self {
-            kind,
-            channel: channel.ok_or(Error::InvalidCommandOptions)?,
-            msg: msg.ok_or(Error::InvalidCommandOptions)?,
-            role: role.ok_or(Error::InvalidCommandOptions)?,
-        };
-
-        Ok(Ok(args))
-    }
-}
-
-pub async fn slash_roleassign(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match RoleAssignArgs::slash(&mut command)? {
-        Ok(args) => _roleassign(ctx, command.into(), args).await,
-        Err(content) => command.error(&ctx, content).await,
-    }
-}
-
-pub fn define_roleassign() -> MyCommand {
-    let channel =
-        MyCommandOption::builder("channel", "Specify the channel that contains the message")
-            .channel(true);
-
-    let message_help = "Specify the message by providing its ID.\n\
-        You can find the ID by rightclicking the message and clicking on `Copy ID`.\n\
-        To see the `Copy ID` option, you must have `Settings > Advanced > Developer Mode` enabled.";
-
-    let message = MyCommandOption::builder("message", "Specify a message id")
-        .help(message_help)
-        .string(Vec::new(), true);
-
-    let role =
-        MyCommandOption::builder("role", "Specify a role that should be assigned").role(true);
-
-    let add_help = "Add role-assigning upon reaction on a message \
-        i.e. make me add or remove a member's role when they (un)react to a message.";
-
-    let add = MyCommandOption::builder("add", "Add role-assigning upon reaction on a message")
-        .help(add_help)
-        .subcommand(vec![channel, message, role]);
-
-    let channel =
-        MyCommandOption::builder("channel", "Specify the channel that contains the message")
-            .channel(true);
-
-    let message_help = "Specify the message by providing its ID.\n\
-            You can find the ID by rightclicking the message and clicking on `Copy ID`.\n\
-            To see the `Copy ID` option, you must have `Settings > Advanced > Developer Mode` enabled.";
-
-    let message = MyCommandOption::builder("message", "Specify a message id")
-        .help(message_help)
-        .string(Vec::new(), true);
-
-    let role = MyCommandOption::builder("role", "Specify a role that was assigned for the message")
-        .role(true);
-
-    let remove_help = "Remove role-assigning upon reaction on a message \
-        i.e. I will no longer add or remove a member's role when they (un)react to a message.";
-
-    let remove =
-        MyCommandOption::builder("remove", "Remove role-assigning upon reaction on a message")
-            .help(remove_help)
-            .subcommand(vec![channel, message, role]);
-
-    let help = "With this command you can link a message to a role.\n\
-        Whenever anyone reacts with __any__ reaction to that message, they will gain that role.\n\
-        If they remove a reaction from the message, they will lose the role.\n\
-        __**Note**__: Roles can only be assigned if they are lower than some role of the assigner i.e. the bot.";
-
-    MyCommand::new("roleassign", "Managing roles with reactions")
-        .help(help)
-        .options(vec![add, remove])
+    Ok(Ok((role_pos, msg)))
 }

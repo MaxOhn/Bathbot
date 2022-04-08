@@ -104,7 +104,7 @@ pub trait Pagination: Sync + Sized {
     }
 
     fn arrow_reactions() -> ReactionVec {
-        smallvec![
+        smallvec::smallvec![
             Emote::JumpStart,
             Emote::SingleStepBack,
             Emote::SingleStep,
@@ -113,7 +113,7 @@ pub trait Pagination: Sync + Sized {
     }
 
     fn arrow_reactions_full() -> ReactionVec {
-        smallvec![
+        smallvec::smallvec![
             Emote::JumpStart,
             Emote::MultiStepBack,
             Emote::SingleStepBack,

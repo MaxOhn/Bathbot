@@ -1,16 +1,15 @@
 use crate::{
     commands::osu::MedalType,
-    embeds::{Author, Footer},
-    util::{constants::OSU_BASE, osu::flag_url, CowUtils},
+    util::{constants::OSU_BASE, osu::flag_url, CowUtils, builder::{AuthorBuilder, FooterBuilder}},
 };
 
 use rosu_v2::model::user::User;
 use std::fmt::Write;
 
 pub struct MedalsMissingEmbed {
-    author: Author,
+    author: AuthorBuilder,
     description: String,
-    footer: Footer,
+    footer: FooterBuilder,
     thumbnail: String,
     title: &'static str,
 }
@@ -47,12 +46,12 @@ impl MedalsMissingEmbed {
             }
         }
 
-        let footer = Footer::new(format!(
+        let footer = FooterBuilder::new(format!(
             "Page {}/{} | Missing {}/{} medals",
             pages.0, pages.1, medal_count.0, medal_count.1
         ));
 
-        let author = Author::new(user.username.as_str())
+        let author = AuthorBuilder::new(user.username.as_str())
             .url(format!("{OSU_BASE}u/{}", user.user_id))
             .icon_url(flag_url(user.country_code.as_str()));
 

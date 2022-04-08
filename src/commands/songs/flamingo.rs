@@ -1,18 +1,20 @@
-use crate::{BotResult, CommandData, Context};
-
 use std::sync::Arc;
 
-#[command]
-#[short_desc("https://youtu.be/la9C0n7jSsI")]
-#[bucket("songs")]
-#[no_typing()]
-async fn flamingo(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    let (lyrics, delay) = _flamingo();
+use command_macros::command;
 
-    super::song_send(lyrics, delay, ctx, data).await
+use crate::{BotResult, Context};
+
+#[command]
+#[desc("https://youtu.be/la9C0n7jSsI")]
+#[group(Songs)]
+#[flags(SKIP_DEFER)]
+async fn prefix_flamingo(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+    let (lyrics, delay) = flamingo_();
+
+    super::song(lyrics, delay, ctx, msg.into()).await
 }
 
-pub fn _flamingo() -> (&'static [&'static str], u64) {
+pub fn flamingo_() -> (&'static [&'static str], u64) {
     let lyrics = &[
         "How many shrimps do you have to eat",
         "before you make your skin turn pink?",

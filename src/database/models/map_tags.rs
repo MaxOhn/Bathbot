@@ -1,8 +1,8 @@
-use crate::bg_game::MapsetTags;
-
 use rosu_v2::model::GameMode;
 use sqlx::{postgres::PgRow, Error, FromRow};
 use std::{fmt, ops::Deref};
+
+use crate::games::bg::MapsetTags;
 
 pub struct MapsetTagWrapper {
     pub mapset_id: u32,

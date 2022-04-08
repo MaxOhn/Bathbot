@@ -1,50 +1,200 @@
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
+use command_macros::{command, HasName, SlashCommand};
 use eyre::Report;
 use hashbrown::HashMap;
-use rosu_v2::prelude::{GameMode, OsuError, Username};
+use rosu_v2::prelude::{GameMode, OsuError};
+use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
-    application::interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
-    },
+    application::interaction::ApplicationCommand,
     id::{marker::UserMarker, Id},
 };
 
 use crate::{
     commands::{
-        check_user_mention,
         osu::{get_user_and_scores, ScoreArgs, UserArgs},
-        parse_discord, parse_mode_option, DoubleResultCow, MyCommand, MyCommandOption,
+        GameModeOption,
     },
-    database::UserConfig,
+    core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, TopEmbed},
     pagination::{Pagination, TopPagination},
     tracking::process_osu_tracking,
-    util::{
-        constants::{
-            common_literals::{DISCORD, MODE, NAME},
-            GENERAL_ISSUE, OSU_API_ISSUE,
-        },
-        matcher, numbers,
-        osu::ScoreOrder,
-        ApplicationCommandExt, CowUtils, InteractionExt, MessageExt,
-    },
-    Args, BotResult, CommandData, Context, Error, MessageBuilder,
+    util::{builder::MessageBuilder, constants::OSU_API_ISSUE, matcher, numbers, CowUtils},
+    BotResult, Context,
 };
 
-use super::{option_discord, option_mode, option_name, TopOrder};
+use super::TopScoreOrder;
 
-async fn _mapper(ctx: Arc<Context>, data: CommandData<'_>, args: MapperArgs) -> BotResult<()> {
-    let MapperArgs { config, mapper } = args;
-    let mode = config.mode.unwrap_or(GameMode::STD);
+#[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
+#[command(
+    name = "mapper",
+    help = "Count the top plays on maps of the given mapper.\n\
+    It will try to consider guest difficulties so that if a map was created by someone else \
+    but the given mapper made the guest diff, it will count.\n\
+    Similarly, if the given mapper created the mapset but someone else guest diff'd, \
+    it will not count.\n\
+    This does not always work perfectly, like when mappers renamed or when guest difficulties don't have \
+    common difficulty labels like `X's Insane`"
+)]
+/// How often does the given mapper appear in top a user's top plays
+pub struct Mapper<'a> {
+    /// Specify a mapper username
+    mapper: Cow<'a, str>,
+    /// Specify a gamemode
+    mode: Option<GameModeOption>,
+    /// Specify a username
+    name: Option<Cow<'a, str>>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
+}
 
-    let user = match config.into_username() {
-        Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
-    };
+impl<'m> Mapper<'m> {
+    fn args(
+        mode: GameMode,
+        mut args: Args<'_>,
+        mapper: Option<&'static str>,
+    ) -> Result<Self, &'static str> {
+        let mapper = match mapper.or_else(|| args.next()) {
+            Some(arg) => arg.into(),
+            None => {
+                let content = "You need to specify at least one osu! username for the mapper. \
+                    If you're not linked, you must specify at least two names.";
 
-    let mapper = mapper.cow_to_ascii_lowercase();
+                return Err(content);
+            }
+        };
+
+        let mut name = None;
+        let mut discord = None;
+
+        if let Some(arg) = args.next() {
+            match matcher::get_mention_user(arg) {
+                Some(id) => discord = Some(id),
+                None => name = Some(arg.into()),
+            }
+        }
+
+        Ok(Self {
+            mapper,
+            mode: Some(mode),
+            name,
+            discord,
+        })
+    }
+}
+
+#[command]
+#[desc("How many maps of a user's top100 are made by the given mapper?")]
+#[help(
+    "Display the top plays of a user which were mapped by the given mapper.\n\
+    Specify the __user first__ and the __mapper second__.\n\
+    Unlike the mapper count of the profile command, this command considers not only \
+    the map's creator, but also tries to check if the map is a guest difficulty."
+)]
+#[usage("[username] [mapper]")]
+#[examples("badewanne3 \"Hishiro Chizuru\"", "monstrata monstrata")]
+#[group(Osu)]
+async fn prefix_mapper(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match Mapper::args(GameMode::STD, args, None) {
+        Ok(args) => mapper(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
+    }
+}
+
+#[command]
+#[desc("How many maps of a mania user's top100 are made by the given mapper?")]
+#[help(
+    "Display the top plays of a mania user which were mapped by the given mapper.\n\
+    Specify the __user first__ and the __mapper second__.\n\
+    Unlike the mapper count of the profile command, this command considers not only \
+    the map's creator, but also tries to check if the map is a guest difficulty.\n\
+    If the `-convert` / `-c` argument is specified, I will __not__ count any maps \
+    that aren't native mania maps."
+)]
+#[usage("[username] [mapper] [-convert]")]
+#[examples("badewanne3 \"Hishiro Chizuru\"", "monstrata monstrata")]
+#[alias("mapperm")]
+#[group(Mania)]
+pub async fn prefix_mappermania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match Mapper::args(GameMode::MNA, args, None) {
+        Ok(args) => mapper(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
+    }
+}
+
+#[command]
+#[desc("How many maps of a taiko user's top100 are made by the given mapper?")]
+#[help(
+    "Display the top plays of a taiko user which were mapped by the given mapper.\n\
+    Specify the __user first__ and the __mapper second__.\n\
+    Unlike the mapper count of the profile command, this command considers not only \
+    the map's creator, but also tries to check if the map is a guest difficulty.\n\
+    If the `-convert` / `-c` argument is specified, I will __not__ count any maps \
+    that aren't native taiko maps."
+)]
+#[usage("[username] [mapper] [-convert]")]
+#[examples("badewanne3 \"Hishiro Chizuru\"", "monstrata monstrata")]
+#[alias("mappert")]
+#[group(Taiko)]
+pub async fn prefix_mappertaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match Mapper::args(GameMode::TKO, args, None) {
+        Ok(args) => mapper(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
+    }
+}
+
+#[command]
+#[desc("How many maps of a ctb user's top100 are made by the given mapper?")]
+#[help(
+    "Display the top plays of a ctb user which were mapped by the given mapper.\n\
+    Specify the __user first__ and the __mapper second__.\n\
+    Unlike the mapper count of the profile command, this command considers not only \
+    the map's creator, but also tries to check if the map is a guest difficulty.\n\
+    If the `-convert` / `-c` argument is specified, I will __not__ count any maps \
+    that aren't native ctb maps."
+)]
+#[usage("[username] [mapper] [-convert]")]
+#[example("badewanne3 \"Hishiro Chizuru\"", "monstrata monstrata")]
+#[alias("mapperc")]
+#[group(Catch)]
+async fn prefix_mapperctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match Mapper::args(GameMode::CTB, args, None) {
+        Ok(args) => mapper(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
+    }
+}
+
+#[command]
+#[desc("How many maps of a user's top100 are made by Sotarks?")]
+#[help(
+    "How many maps of a user's top100 are made by Sotarks?\n\
+    Unlike the mapper count of the profile command, this command considers not only \
+    the map's creator, but also tries to check if the map is a guest difficulty."
+)]
+#[usage("[username]")]
+#[example("badewanne3")]
+#[group(Osu)]
+pub async fn prefix_sotarks(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match Mapper::args(GameMode::CTB, args, Some("sotarks")) {
+        Ok(args) => mapper(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
+    }
+}
+
+async fn slash_mapper(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    let args = Mapper::form_interaction(command.input_data())?;
+
+    mapper(ctx, command.into(), args).await
+}
+
+async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) -> BotResult<()> {
+    let (user, mode) = name_mode!(ctx, orig, args);
+    let mapper = args.mapper.cow_to_ascii_lowercase();
 
     // Retrieve the user and their top scores
     let user_args = UserArgs::new(user.as_str(), mode);
@@ -55,10 +205,10 @@ async fn _mapper(ctx: Arc<Context>, data: CommandData<'_>, args: MapperArgs) -> 
         Err(OsuError::NotFound) => {
             let content = format!("User `{user}` was not found");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         Err(err) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(err.into());
         }
@@ -136,7 +286,7 @@ async fn _mapper(ctx: Arc<Context>, data: CommandData<'_>, args: MapperArgs) -> 
         ),
     };
 
-    let sort_by = ScoreOrder::Pp;
+    let sort_by = TopScoreOrder::Pp;
     let farm = HashMap::new();
 
     let builder = if scores.is_empty() {
@@ -159,7 +309,7 @@ async fn _mapper(ctx: Arc<Context>, data: CommandData<'_>, args: MapperArgs) -> 
         MessageBuilder::new().content(content).embed(embed)
     };
 
-    let response_raw = data.create_message(&ctx, builder).await?;
+    let response_raw = orig.create_message(&ctx, &builder).await?;
 
     // Skip pagination if too few entries
     if scores.len() <= 5 {
@@ -169,9 +319,8 @@ async fn _mapper(ctx: Arc<Context>, data: CommandData<'_>, args: MapperArgs) -> 
     let response = response_raw.model().await?;
 
     // Pagination
-    let sort_by = TopOrder::Other(sort_by);
     let pagination = TopPagination::new(response, user, scores, sort_by, farm, Arc::clone(&ctx));
-    let owner = data.author()?.id;
+    let owner = orig.author()?.id;
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {
@@ -180,281 +329,4 @@ async fn _mapper(ctx: Arc<Context>, data: CommandData<'_>, args: MapperArgs) -> 
     });
 
     Ok(())
-}
-
-#[command]
-#[short_desc("How many maps of a user's top100 are made by the given mapper?")]
-#[long_desc(
-    "Display the top plays of a user which were mapped by the given mapper.\n\
-    Specify the __user first__ and the __mapper second__.\n\
-    Unlike the mapper count of the profile command, this command considers not only \
-    the map's creator, but also tries to check if the map is a guest difficulty."
-)]
-#[usage("[username] [mapper]")]
-#[example("badewanne3 \"Hishiro Chizuru\"", "monstrata monstrata")]
-pub async fn mapper(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match MapperArgs::args(&ctx, &mut args, msg.author.id, None).await {
-                Ok(Ok(mut mapper_args)) => {
-                    mapper_args.config.mode.get_or_insert(GameMode::STD);
-
-                    _mapper(ctx, CommandData::Message { msg, args, num }, mapper_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("How many maps of a mania user's top100 are made by the given mapper?")]
-#[long_desc(
-    "Display the top plays of a mania user which were mapped by the given mapper.\n\
-    Specify the __user first__ and the __mapper second__.\n\
-    Unlike the mapper count of the profile command, this command considers not only \
-    the map's creator, but also tries to check if the map is a guest difficulty.\n\
-    If the `-convert` / `-c` argument is specified, I will __not__ count any maps \
-    that aren't native mania maps."
-)]
-#[usage("[username] [mapper] [-convert]")]
-#[example("badewanne3 \"Hishiro Chizuru\"", "monstrata monstrata")]
-#[aliases("mapperm")]
-pub async fn mappermania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match MapperArgs::args(&ctx, &mut args, msg.author.id, None).await {
-                Ok(Ok(mut mapper_args)) => {
-                    mapper_args.config.mode = Some(GameMode::MNA);
-
-                    _mapper(ctx, CommandData::Message { msg, args, num }, mapper_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("How many maps of a taiko user's top100 are made by the given mapper?")]
-#[long_desc(
-    "Display the top plays of a taiko user which were mapped by the given mapper.\n\
-    Specify the __user first__ and the __mapper second__.\n\
-    Unlike the mapper count of the profile command, this command considers not only \
-    the map's creator, but also tries to check if the map is a guest difficulty.\n\
-    If the `-convert` / `-c` argument is specified, I will __not__ count any maps \
-    that aren't native taiko maps."
-)]
-#[usage("[username] [mapper] [-convert]")]
-#[example("badewanne3 \"Hishiro Chizuru\"", "monstrata monstrata")]
-#[aliases("mappert")]
-pub async fn mappertaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match MapperArgs::args(&ctx, &mut args, msg.author.id, None).await {
-                Ok(Ok(mut mapper_args)) => {
-                    mapper_args.config.mode = Some(GameMode::TKO);
-
-                    _mapper(ctx, CommandData::Message { msg, args, num }, mapper_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("How many maps of a ctb user's top100 are made by the given mapper?")]
-#[long_desc(
-    "Display the top plays of a ctb user which were mapped by the given mapper.\n\
-    Specify the __user first__ and the __mapper second__.\n\
-    Unlike the mapper count of the profile command, this command considers not only \
-    the map's creator, but also tries to check if the map is a guest difficulty.\n\
-    If the `-convert` / `-c` argument is specified, I will __not__ count any maps \
-    that aren't native ctb maps."
-)]
-#[usage("[username] [mapper] [-convert]")]
-#[example("badewanne3 \"Hishiro Chizuru\"", "monstrata monstrata")]
-#[aliases("mapperc")]
-async fn mapperctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match MapperArgs::args(&ctx, &mut args, msg.author.id, None).await {
-                Ok(Ok(mut mapper_args)) => {
-                    mapper_args.config.mode = Some(GameMode::CTB);
-
-                    _mapper(ctx, CommandData::Message { msg, args, num }, mapper_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("How many maps of a user's top100 are made by Sotarks?")]
-#[long_desc(
-    "How many maps of a user's top100 are made by Sotarks?\n\
-    Unlike the mapper count of the profile command, this command considers not only \
-    the map's creator, but also tries to check if the map is a guest difficulty."
-)]
-#[usage("[username]")]
-#[example("badewanne3")]
-pub async fn sotarks(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match MapperArgs::args(&ctx, &mut args, msg.author.id, Some("sotarks")).await {
-                Ok(Ok(mut mapper_args)) => {
-                    mapper_args.config.mode.get_or_insert(GameMode::STD);
-
-                    _mapper(ctx, CommandData::Message { msg, args, num }, mapper_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
-    }
-}
-
-pub async fn slash_mapper(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    let options = command.yoink_options();
-
-    match MapperArgs::slash(&ctx, &command, options).await? {
-        Ok(args) => _mapper(ctx, command.into(), args).await,
-        Err(content) => command.error(&ctx, content).await,
-    }
-}
-
-struct MapperArgs {
-    config: UserConfig,
-    mapper: Username,
-}
-
-impl MapperArgs {
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: Id<UserMarker>,
-        mapper: Option<&str>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(author_id).await?;
-
-        let (name, mapper) = match args.next() {
-            Some(first) => match mapper {
-                Some(mapper) => (Some(first), mapper),
-                None => match args.next() {
-                    Some(second) => (Some(first), second),
-                    None => (None, first),
-                },
-            },
-            None => match mapper {
-                Some(mapper) => (None, mapper),
-                None => {
-                    let content = "You need to specify at least one osu username for the mapper. \
-                        If you're not linked, you must specify at least two names.";
-
-                    return Ok(Err(content.into()));
-                }
-            },
-        };
-
-        if let Some(name) = name {
-            match check_user_mention(ctx, name).await? {
-                Ok(osu) => config.osu = Some(osu),
-                Err(content) => return Ok(Err(content)),
-            }
-        }
-
-        let mapper = match check_user_mention(ctx, mapper).await? {
-            Ok(osu) => osu.into_username(),
-            Err(content) => return Ok(Err(content)),
-        };
-
-        Ok(Ok(Self { config, mapper }))
-    }
-
-    async fn slash(
-        ctx: &Context,
-        command: &ApplicationCommand,
-        options: Vec<CommandDataOption>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(command.user_id()?).await?;
-        let mut mapper = None;
-
-        for option in options {
-            match option.value {
-                CommandOptionValue::String(value) => match option.name.as_str() {
-                    NAME => config.osu = Some(value.into()),
-                    "mapper" => mapper = Some(value.into()),
-                    MODE => config.mode = parse_mode_option(&value),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::User(value) => match option.name.as_str() {
-                    DISCORD => match parse_discord(ctx, value).await? {
-                        Ok(osu) => config.osu = Some(osu),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            }
-        }
-
-        let args = Self {
-            mapper: mapper.ok_or(Error::InvalidCommandOptions)?,
-            config,
-        };
-
-        Ok(Ok(args))
-    }
-}
-
-pub fn define_mapper() -> MyCommand {
-    let mapper =
-        MyCommandOption::builder("mapper", "Specify a mapper username").string(Vec::new(), false);
-
-    let mode = option_mode();
-    let name = option_name();
-    let discord = option_discord();
-
-    let mapper_help = "Count the top plays on maps of the given mapper.\n\
-        It will try to consider guest difficulties so that if a map was created by someone else \
-        but the given mapper made the guest diff, it will count.\n\
-        Similarly, if the given mapper created the mapset but someone else guest diff'd, \
-        it will not count.\n\
-        This does not always work perfectly, like when mappers renamed or when guest difficulties don't have \
-        common difficulty labels like `X's Insane`";
-
-    MyCommand::new("mapper", "Count the top plays on maps of the given mapper")
-        .help(mapper_help)
-        .options(vec![mapper, mode, name, discord])
 }

@@ -2,13 +2,12 @@ use std::fmt::Write;
 
 use crate::{
     custom_client::OsekaiUserEntry,
-    embeds::Footer,
-    util::{constants::OSU_BASE, numbers::round, CowUtils},
+    util::{constants::OSU_BASE, numbers::round, CowUtils, builder::FooterBuilder},
 };
 
 pub struct MedalCountEmbed {
     description: String,
-    footer: Footer,
+    footer: FooterBuilder,
     title: &'static str,
     url: &'static str,
 }
@@ -59,7 +58,7 @@ impl MedalCountEmbed {
 
         Self {
             description,
-            footer: Footer::new(footer_text),
+            footer: FooterBuilder::new(footer_text),
             title,
             url,
         }

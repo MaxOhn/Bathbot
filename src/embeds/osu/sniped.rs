@@ -1,13 +1,14 @@
 use crate::{
     custom_client::SnipeRecent,
-    embeds::{attachment, Author, EmbedFields},
+    embeds::{attachment, EmbedFields},
+    util::builder::AuthorBuilder,
 };
 
 use rosu_v2::model::user::User;
 use std::collections::HashMap;
 
 pub struct SnipedEmbed {
-    author: Author,
+    author: AuthorBuilder,
     description: String,
     fields: EmbedFields,
     image: String,

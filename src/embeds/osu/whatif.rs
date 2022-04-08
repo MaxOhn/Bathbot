@@ -1,14 +1,16 @@
 use crate::{
     commands::osu::WhatIfData,
-    embeds::Author,
-    util::numbers::{round, with_comma_float, with_comma_int},
+    util::{
+        builder::AuthorBuilder,
+        numbers::{round, with_comma_float, with_comma_int},
+    },
 };
 
 use rosu_v2::model::user::User;
 use std::fmt::Write;
 
 pub struct WhatIfEmbed {
-    author: Author,
+    author: AuthorBuilder,
     description: String,
     thumbnail: String,
     title: String,

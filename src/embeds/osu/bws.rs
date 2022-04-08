@@ -1,4 +1,4 @@
-use crate::{embeds::Author, util::numbers::with_comma_int};
+use crate::util::{numbers::with_comma_int, builder::AuthorBuilder};
 
 use hashbrown::HashSet;
 use rosu_v2::model::user::User;
@@ -8,7 +8,7 @@ pub struct BWSEmbed {
     description: String,
     title: String,
     thumbnail: String,
-    author: Author,
+    author: AuthorBuilder,
 }
 
 impl BWSEmbed {

@@ -10,6 +10,7 @@ bb8-redis = { version = "0.10" }
 bitflags = { version = "1.0" }
 bytes = { version = "1.0" }
 chrono = { version = "0.4", features = ["serde"] }
+command-macros = { path = "./command-macros" }
 dashmap = { version = "5.1", features = ["serde"] }
 dotenv = { version = "0.15" }
 enterpolation = { version = "0.1", default-features = false, features = ["std", "linear"] }
@@ -29,7 +30,6 @@ parking_lot = { version = "0.12", default-features = false }
 plotters = { version = "0.3", default-features = false, features = ["bitmap_backend", "image", "line_series", "datetime", "area_series", "histogram", "point_series"] }
 plotters-backend = { version = "0.3" }
 priority-queue = { version = "1.0" }
-proc_macros  = { path = "./proc_macros" }
 prometheus = { version = "0.13" }
 radix_trie = { version = "0.2" }
 rand = { version = "0.8" }
@@ -67,6 +67,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = ["e
 # twilight-gateway = { path = "../twilight/gateway" }
 # twilight-cache-inmemory = { path = "../twilight/cache/in-memory", default-features = false }
 # twilight-http = { path = "../twilight/http", default-features = false, features = ["rustls-webpki-roots"] }
+twilight-interactions = { path = "../twilight-interactions/twilight-interactions", default-features = false, features = ["derive"] }
 # twilight-model = { path = "../twilight/model", default-features = false }
 # twilight-standby = { path = "../twilight/standby", default-features = false }
 # twilight-validate = { path = "../twilight/validate" }

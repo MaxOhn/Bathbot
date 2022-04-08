@@ -1,19 +1,18 @@
-use crate::{util::MessageExt, BotResult, CommandData, Context};
-
 use std::sync::Arc;
+
+use twilight_model::channel::Message;
+
+use crate::{util::ChannelExt, BotResult, Context};
 
 use super::GameState;
 
-#[command]
-#[short_desc("Stop the bg game")]
-#[aliases("end", "quit")]
-pub(super) async fn stop(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match ctx.bg_games().get(&data.channel_id()) {
+pub async fn stop(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+    match ctx.bg_games().get(&msg.channel_id) {
         Some(state) => match state.value() {
             GameState::Running { game } => match game.stop() {
                 Ok(_) => Ok(()),
                 Err(err) => {
-                    let _ = data.error(&ctx, "Error while stopping game \\:(").await;
+                    let _ = msg.error(&ctx, "Error while stopping game \\:(").await;
 
                     Err(err.into())
                 }
@@ -24,13 +23,13 @@ pub(super) async fn stop(ctx: Arc<Context>, data: CommandData) -> BotResult<()> 
                     Only <@{author}> can click on the \"Cancel\" button to abort."
                 );
 
-                data.error(&ctx, content).await
+                msg.error(&ctx, content).await
             }
         },
         None => {
             let content = "No running game in this channel. Start one with `/bg`.";
 
-            data.error(&ctx, content).await
+            msg.error(&ctx, content).await
         }
     }
 }

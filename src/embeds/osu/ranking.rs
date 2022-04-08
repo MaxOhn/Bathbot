@@ -12,8 +12,9 @@ use twilight_model::{
 use crate::{
     commands::osu::UserValue,
     database::UserStatsColumn,
-    embeds::{Author, EmbedBuilder, EmbedData, Footer},
+    embeds::EmbedData,
     util::{
+        builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
         constants::common_literals::{CTB, MANIA, TAIKO},
         CountryCode,
     },
@@ -26,7 +27,7 @@ pub struct RankingEntry {
 }
 
 enum EmbedHeader {
-    Author(Author),
+    Author(AuthorBuilder),
     Title { text: String, url: String },
 }
 
@@ -203,7 +204,7 @@ impl RankingKindData {
 
                 let _ = write!(author_text, ": {kind}");
 
-                let mut author = Author::new(author_text);
+                let mut author = AuthorBuilder::new(author_text);
 
                 if let Some((id, icon)) = guild_icon {
                     let ext = if icon.is_animated() { "gif" } else { "webp" };
@@ -216,7 +217,12 @@ impl RankingKindData {
         }
     }
 
-    fn footer(&self, curr_page: usize, total_pages: usize, author_idx: Option<usize>) -> Footer {
+    fn footer(
+        &self,
+        curr_page: usize,
+        total_pages: usize,
+        author_idx: Option<usize>,
+    ) -> FooterBuilder {
         let mut text = format!("Page {curr_page}/{total_pages}");
 
         if let Some(idx) = author_idx {
@@ -238,13 +244,13 @@ impl RankingKindData {
             _ => {}
         };
 
-        Footer::new(text)
+        FooterBuilder::new(text)
     }
 }
 
 pub struct RankingEmbed {
     description: String,
-    footer: Footer,
+    footer: FooterBuilder,
     header: EmbedHeader,
 }
 

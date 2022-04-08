@@ -5,14 +5,17 @@ use hashbrown::HashMap;
 use crate::{
     commands::osu::MapsetEntry,
     custom_client::OsuTrackerMapsetEntry,
-    embeds::{Author, Footer},
-    util::{constants::OSU_BASE, numbers::with_comma_int},
+    util::{
+        builder::{AuthorBuilder, FooterBuilder},
+        constants::OSU_BASE,
+        numbers::with_comma_int,
+    },
 };
 
 pub struct OsuTrackerMapsetsEmbed {
-    author: Author,
+    author: AuthorBuilder,
     description: String,
-    footer: Footer,
+    footer: FooterBuilder,
 }
 
 impl OsuTrackerMapsetsEmbed {
@@ -21,12 +24,12 @@ impl OsuTrackerMapsetsEmbed {
         mapsets: &HashMap<u32, MapsetEntry>,
         (page, pages): (usize, usize),
     ) -> Self {
-        let author =
-            Author::new("Most common mapsets in top plays").url("https://osutracker.com/stats");
+        let author = AuthorBuilder::new("Most common mapsets in top plays")
+            .url("https://osutracker.com/stats");
 
         let footer_text =
             format!("Page {page}/{pages} • Data originates from https://osutracker.com");
-        let footer = Footer::new(footer_text);
+        let footer = FooterBuilder::new(footer_text);
 
         let idx = (page - 1) * 10 + 1;
         let mut sizes = Sizes::default();
