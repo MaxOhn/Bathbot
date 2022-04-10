@@ -1,31 +1,33 @@
+use std::sync::Arc;
+
+use eyre::Report;
+use twilight_model::application::interaction::ApplicationCommand;
+
 use crate::{
     custom_client::Rarity,
     embeds::{EmbedData, MedalRarityEmbed},
     pagination::{MedalRarityPagination, Pagination},
-    util::{constants::OSEKAI_ISSUE, numbers, InteractionExt, MessageExt},
+    util::{constants::OSEKAI_ISSUE, numbers},
     BotResult, Context,
 };
 
-use eyre::Report;
-use std::sync::Arc;
-use twilight_model::application::interaction::ApplicationCommand;
-
-pub(super) async fn rarity(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
+pub(super) async fn rarity(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotResult<()> {
     let osekai_fut = ctx.clients.custom.get_osekai_ranking::<Rarity>();
 
     let ranking = match osekai_fut.await {
         Ok(ranking) => ranking,
-        Err(why) => {
+        Err(err) => {
             let _ = command.error(&ctx, OSEKAI_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 
     let pages = numbers::div_euclid(10, ranking.len());
     let embed_data = MedalRarityEmbed::new(&ranking[..10], 0, (1, pages));
-    let builder = embed_data.into_builder().build().into();
-    let response = command.create_message(&ctx, builder).await?.model().await?;
+    let embed = embed_data.into_builder().build();
+    let builder = MessageBuilder::new().embed(embed);
+    let response = command.update(&ctx, &builder).await?.model().await?;
     let owner = command.user_id()?;
     let pagination = MedalRarityPagination::new(response, ranking);
 

@@ -1,6 +1,7 @@
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
 use chrono::{DateTime, Datelike, Utc};
+use command_macros::command;
 use eyre::Report;
 use hashbrown::HashMap;
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
@@ -24,48 +25,48 @@ use crate::{
     BotResult, CommandData, Context, MessageBuilder,
 };
 
+use super::MedalStats;
+
 #[command]
-#[short_desc("Display medal stats for a user")]
+#[desc("Display medal stats for a user")]
 #[usage("[username]")]
-#[example("badewanne3", r#""im a fancy lad""#)]
-#[aliases("ms")]
-async fn medalstats(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            let name = match args.next() {
-                Some(arg) => match check_user_mention(&ctx, arg).await {
-                    Ok(Ok(osu)) => Some(osu.into_username()),
-                    Ok(Err(content)) => return msg.error(&ctx, content).await,
-                    Err(why) => {
-                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+#[examples("badewanne3", r#""im a fancy lad""#)]
+#[alias("ms")]
+#[group(AllModes)]
+async fn prefix_medalstats(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+    let args = match args.next() {
+        Some(arg) => match matcher::get_mention_user(arg) {
+            Some(id) => MedalStats {
+                name: None,
+                discord: Some(id),
+            },
+            None => MedalStats {
+                name: Some(Cow::Borrowed(arg)),
+                discord: None,
+            },
+        },
+        None => MedalStats::default(),
+    };
 
-                        return Err(why);
-                    }
-                },
-                None => match ctx.psql().get_user_osu(msg.author.id).await {
-                    Ok(osu) => osu.map(OsuData::into_username),
-                    Err(why) => {
-                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                        return Err(why);
-                    }
-                },
-            };
-
-            _medalstats(ctx, CommandData::Message { msg, args, num }, name).await
-        }
-        CommandData::Interaction { command } => super::slash_medal(ctx, *command).await,
-    }
+    stats(ctx, msg.into(), args).await
 }
 
-pub(super) async fn _medalstats(
+pub(super) async fn stats(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
-    name: Option<Username>,
+    orig: CommandOrigin<'_>,
+    args: MedalStats<'_>,
 ) -> BotResult<()> {
-    let name = match name {
+    let name = match username!(ctx, orig, args) {
         Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
+        None => match ctx.psql().get_osu_user(orig.user_id()?).await {
+            Ok(Some(osu)) => osu.into_username(),
+            Ok(None) => return require_link(&ctx, &orig).await,
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(err);
+            }
+        },
     };
 
     let user_args = UserArgs::new(name.as_str(), GameMode::STD);
@@ -77,15 +78,15 @@ pub(super) async fn _medalstats(
         (Err(OsuError::NotFound), _) => {
             let content = format!("User `{name}` was not found");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         (_, Err(err)) => {
-            let _ = data.error(&ctx, OSEKAI_ISSUE).await;
+            let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
             return Err(err.into());
         }
         (Err(why), _) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -121,7 +122,7 @@ pub(super) async fn _medalstats(
         builder = builder.file("medal_graph.png", graph);
     }
 
-    data.create_message(&ctx, builder).await?;
+    orig.create_message(&ctx, &builder).await?;
 
     Ok(())
 }

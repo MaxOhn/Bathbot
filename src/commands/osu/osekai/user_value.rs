@@ -1,18 +1,20 @@
-use super::UserValue;
+use std::{collections::BTreeMap, sync::Arc};
+
+use eyre::Report;
+use twilight_model::application::interaction::ApplicationCommand;
+
 use crate::{
     custom_client::{OsekaiRanking, OsekaiRankingEntry},
     database::OsuData,
     embeds::{EmbedData, RankingEmbed, RankingEntry, RankingKindData},
     pagination::{Pagination, RankingPagination},
-    util::{constants::OSEKAI_ISSUE, numbers, InteractionExt, MessageExt},
+    util::{constants::OSEKAI_ISSUE, numbers},
     BotResult, Context,
 };
 
-use eyre::Report;
-use std::{collections::BTreeMap, sync::Arc};
-use twilight_model::application::interaction::ApplicationCommand;
+use super::UserValue;
 
-pub(super) async fn count<R>(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()>
+pub(super) async fn count<R>(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotResult<()>
 where
     R: OsekaiRanking<Entry = OsekaiRankingEntry<usize>>,
 {
@@ -23,10 +25,10 @@ where
 
     let ranking = match osekai_result {
         Ok(ranking) => ranking,
-        Err(why) => {
+        Err(err) => {
             let _ = command.error(&ctx, OSEKAI_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 
@@ -53,7 +55,7 @@ where
     send_response(ctx, command, users, data, osu_result).await
 }
 
-pub(super) async fn pp<R>(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()>
+pub(super) async fn pp<R>(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotResult<()>
 where
     R: OsekaiRanking<Entry = OsekaiRankingEntry<u32>>,
 {
@@ -65,10 +67,10 @@ where
 
     let ranking = match osekai_result {
         Ok(ranking) => ranking,
-        Err(why) => {
+        Err(err) => {
             let _ = command.error(&ctx, OSEKAI_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 
@@ -97,15 +99,15 @@ where
 
 async fn send_response(
     ctx: Arc<Context>,
-    command: ApplicationCommand,
+    command: Box<ApplicationCommand>,
     users: BTreeMap<usize, RankingEntry>,
     data: RankingKindData,
     osu_result: BotResult<Option<OsuData>>,
 ) -> BotResult<()> {
     let username = match osu_result {
         Ok(osu) => osu.map(OsuData::into_username),
-        Err(why) => {
-            let report = Report::new(why).wrap_err("failed to retrieve user config");
+        Err(err) => {
+            let report = Report::new(err).wrap_err("failed to retrieve user config");
             warn!("{:?}", report);
 
             None
@@ -119,8 +121,9 @@ async fn send_response(
     let total = users.len();
     let pages = numbers::div_euclid(20, total);
     let embed_data = RankingEmbed::new(&users, &data, author_idx, (1, pages));
-    let builder = embed_data.into_builder().build().into();
-    let response = command.create_message(&ctx, builder).await?.model().await?;
+    let embed = embed_data.into_builder().build();
+    let builder = MessageBuilder::new().embed(embed);
+    let response = command.update(&ctx, &builder).await?.model().await?;
 
     // Pagination
     let pagination =

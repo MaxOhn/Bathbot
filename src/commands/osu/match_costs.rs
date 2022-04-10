@@ -1,29 +1,90 @@
-use crate::{
-    commands::{MyCommand, MyCommandOption},
-    embeds::{EmbedData, MatchCostEmbed},
-    util::{
-        constants::{common_literals::MAP, OSU_API_ISSUE},
-        matcher, ApplicationCommandExt, MessageExt,
-    },
-    Args, BotResult, CommandData, Context, Error, MessageBuilder,
-};
+use std::{cmp::Ordering, collections::HashMap as StdHashMap, fmt::Write, mem, sync::Arc};
 
+use command_macros::{command, SlashCommand};
 use hashbrown::{HashMap, HashSet};
 use rosu_v2::prelude::{
     GameMods, MatchGame, Osu, OsuError, OsuMatch, OsuResult, Team, TeamType, UserCompact,
 };
-use std::{cmp::Ordering, collections::HashMap as StdHashMap, fmt::Write, mem, sync::Arc};
-use twilight_model::application::{
-    command::Number,
-    interaction::{application_command::CommandOptionValue, ApplicationCommand},
+use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_model::application::interaction::ApplicationCommand;
+
+use crate::{
+    commands::{MyCommand, MyCommandOption},
+    embeds::{EmbedData, MatchCostEmbed},
+    util::{constants::OSU_API_ISSUE, matcher, ApplicationCommandExt, MessageExt},
+    BotResult, Context, Error,
 };
 
-const USER_LIMIT: usize = 50;
-const TOO_MANY_PLAYERS_TEXT: &str = "Too many players, cannot display message :(";
+
+// TODO: vim formating goes bruh mode
+
+#[derive(CommandModel, CreateCommand)]
+#[command(
+    name = "matchcost",
+    help = "Calculate a performance rating for each player in the given multiplayer match.\n\
+    Here's the current [formula](https://i.imgur.com/7KFwcUS.png).\n\
+    Additionally, scores with the EZ mod are multiplied by 1.7 beforehand.\n\n\
+    Keep in mind that all bots use different formulas \
+    so comparing with values from other bots makes no sense."
+)]
+/// Display performance ratings for a multiplayer match
+pub struct MatchCost<'a> {
+    /// Specify a match url or match id
+    match_url: Cow<'a, str>,
+    #[command(
+        min_value = 0,
+        help = "Since warmup maps commonly want to be skipped for performance calculations, \
+        this option allows you to specify how many maps should be ignored in the beginning.\n\
+        If no value is specified, it defaults to 2."
+    )]
+        /// Specify the amount of warmups to ignore (defaults to 2)
+        warmups: Option<usize>,
+        #[command(
+            max_value = 100.0,
+            help = "Specify a multiplier for EZ scores.\n\
+            The suggested multiplier range is 1.0-2.0"
+        )]
+            /// Specify a multiplier for EZ scores
+            ez_mult: Option<f32>,
+            #[command(
+                min_value = 0,
+                help = "In case the last few maps were just for fun, \
+                this options allows to ignore them for the performance rating.\n\
+        Alternatively, in combination with the `warmups` option, \
+        you can check the rating for specific maps.\n\
+        If no value is specified, it defaults to 0."
+            )]
+                /// Specify the amount of maps to ignore at the end (defaults to 0)
+                skip_last: Option<usize>,
+}
+
+impl<'m> MatchCost<'m> {
+    fn args(args: Args<'_>) -> Result<Self, &'static str> {
+        let match_id = match args.next().and_then(matcher::get_osu_match_id) {
+            Some(id) => id,
+            None => {
+                let content = "The first argument must be either a match \
+                    id or the multiplayer link to a match";
+
+                return Err(content);
+            }
+        };
+
+        let warmups = args.num.
+            .or_else(|| args.next().and_then(|num| num.parse().ok()));
+
+        Ok(Self {
+            match_id,
+            warmups,
+            skip_last: 0,
+            ez_mult: None,
+        })
+    }
+}
 
 #[command]
-#[short_desc("Display performance ratings for a multiplayer match")]
-#[long_desc(
+#[desc("Display performance ratings for a multiplayer match")]
+#[help(
     "Calculate a performance rating for each player \
      in the given multiplayer match.\nThe optional second \
      argument is the amount of played warmups, defaults to 2.\n\
@@ -32,31 +93,49 @@ const TOO_MANY_PLAYERS_TEXT: &str = "Too many players, cannot display message :(
      with values from other bots makes no sense."
 )]
 #[usage("[match url / match id] [amount of warmups]")]
-#[example("58320988 1", "https://osu.ppy.sh/community/matches/58320988")]
+#[examples("58320988 1", "https://osu.ppy.sh/community/matches/58320988")]
 #[aliases("mc", "matchcost")]
-async fn matchcosts(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => match MatchCostArgs::args(&mut args, num) {
-            Ok(matchcost_args) => {
-                _matchcosts(ctx, CommandData::Message { msg, args, num }, matchcost_args).await
-            }
-            Err(content) => msg.error(&ctx, content).await,
-        },
-        CommandData::Interaction { command } => slash_matchcost(ctx, *command).await,
+#[group(AllModes)]
+async fn prefix_matchcosts(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match MatchCost::args(args) {
+        Ok(args) => matchcosts(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
     }
 }
 
-async fn _matchcosts(
+async fn slash_matchcost(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    let args = MatchCost::from_interaction(command.input_data())?;
+
+    matchcosts(ctx, command.into(), args).await
+}
+
+const USER_LIMIT: usize = 50;
+const TOO_MANY_PLAYERS_TEXT: &str = "Too many players, cannot display message :(";
+
+async fn matchcosts(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
-    args: MatchCostArgs,
+    orig: CommandOrigin<'_>,
+    args: MatchCost<'_>,
 ) -> BotResult<()> {
-    let MatchCostArgs {
+    let MatchCost {
         match_id,
         warmups,
         skip_last,
         ez_mult,
     } = args;
+
+    let match_id = match matcher::get_osu_match_id(&match_id) {
+        Some(id) => id,
+        None => {
+            let content = "Failed to parse match url.\n\
+                Be sure it's a valid mp url or a match id.";
+
+            return orig.error(&ctx, content).await;
+        }
+    };
+
+    let warmups = warmups.unwrap_or(2);
+    let ez_mult = ez_mult.unwrap_or(1.0);
 
     // Retrieve the match
     let (mut osu_match, games) = match ctx.osu().osu_match(match_id).await {
@@ -75,7 +154,7 @@ async fn _matchcosts(
 
                         game
                     })
-                    .collect()
+                .collect()
             } else {
                 games_iter.collect()
             };
@@ -89,15 +168,15 @@ async fn _matchcosts(
         Err(OsuError::NotFound) => {
             let content = format!("No match with id `{match_id}` was found");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         Err(OsuError::Response { status, .. }) if status == 401 => {
             let content = "I can't access the match because it was set as private";
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         Err(why) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -114,7 +193,7 @@ async fn _matchcosts(
 
     // Prematurely abort if its too many players to display in a message
     if users.len() > USER_LIMIT {
-        return data.error(&ctx, TOO_MANY_PLAYERS_TEXT).await;
+        return orig.error(&ctx, TOO_MANY_PLAYERS_TEXT).await;
     }
 
     // Process match
@@ -135,7 +214,7 @@ async fn _matchcosts(
     // Accumulate all necessary data
     let embed_data = match MatchCostEmbed::new(&mut osu_match, description, match_result) {
         Some(data) => data,
-        None => return data.error(&ctx, TOO_MANY_PLAYERS_TEXT).await,
+        None => return orig.error(&ctx, TOO_MANY_PLAYERS_TEXT).await,
     };
 
     let embed = embed_data.into_builder().build();
@@ -161,6 +240,7 @@ async fn _matchcosts(
             write!(content, " (EZ multiplier: {ez_mult:.2}):")
         };
     } else {
+        // TODO
         content.push(':');
     }
 
@@ -171,7 +251,7 @@ async fn _matchcosts(
         builder = builder.content(content);
     }
 
-    data.create_message(&ctx, builder).await?;
+    orig.create_message(&ctx, &builder).await?;
 
     Ok(())
 }
@@ -267,7 +347,7 @@ pub fn process_match(
                 .entry(score.team)
                 .and_modify(|e| *e += score.score)
                 .or_insert(score.score);
-        }
+            }
 
         let (winner_team, _) = team_scores
             .into_iter()
@@ -280,7 +360,7 @@ pub fn process_match(
     // Tiebreaker bonus
     if let Some(game) = games
         .last()
-        .filter(|_| finished && games.len() > 4 && match_scores.difference() == 1)
+            .filter(|_| finished && games.len() > 4 && match_scores.difference() == 1)
     {
         point_costs
             .iter_mut()
@@ -306,7 +386,7 @@ pub fn process_match(
             point_scores
                 .iter_mut()
                 .for_each(|point_score| *point_score *= multiplier);
-        });
+            });
     }
 
     // Calculate match costs by combining point costs
@@ -434,137 +514,4 @@ impl MatchScores {
 
         max - min
     }
-}
-
-struct MatchCostArgs {
-    match_id: u32,
-    warmups: usize,
-    skip_last: usize,
-    ez_mult: f32,
-}
-
-impl MatchCostArgs {
-    fn args(args: &mut Args<'_>, index: Option<usize>) -> Result<Self, &'static str> {
-        let match_id = match args.next().and_then(matcher::get_osu_match_id) {
-            Some(id) => id,
-            None => {
-                return Err("The first argument must be either a match \
-                    id or the multiplayer link to a match")
-            }
-        };
-
-        let warmups = index
-            .or_else(|| args.next().and_then(|num| num.parse().ok()))
-            .unwrap_or(2);
-
-        Ok(Self {
-            match_id,
-            warmups,
-            skip_last: 0,
-            ez_mult: 1.0,
-        })
-    }
-
-    fn slash(command: &mut ApplicationCommand) -> BotResult<Result<Self, &'static str>> {
-        let mut match_id = None;
-        let mut warmups = None;
-        let mut skip_last = None;
-        let mut ez_mult = None;
-
-        for option in command.yoink_options() {
-            match option.value {
-                CommandOptionValue::String(value) => {
-                    if option.name != "match_url" {
-                        return Err(Error::InvalidCommandOptions);
-                    }
-
-                    match matcher::get_osu_match_id(value.as_str()) {
-                        Some(id) => match_id = Some(id),
-                        None => {
-                            let content = "Failed to parse `match_url`.\n\
-                                Be sure it's a valid mp url or a match id.";
-
-                            return Ok(Err(content));
-                        }
-                    }
-                }
-                CommandOptionValue::Number(Number(value)) => match option.name.as_str() {
-                    "ez_multiplier" => ez_mult = Some(value as f32),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::Integer(value) => match option.name.as_str() {
-                    "warmups" => warmups = Some(value.max(0) as usize),
-                    "skip_last" => skip_last = Some(value.max(0) as usize),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            }
-        }
-
-        let args = MatchCostArgs {
-            match_id: match_id.ok_or(Error::InvalidCommandOptions)?,
-            warmups: warmups.unwrap_or(2),
-            skip_last: skip_last.unwrap_or(0),
-            ez_mult: ez_mult.unwrap_or(1.0),
-        };
-
-        Ok(Ok(args))
-    }
-}
-
-pub async fn slash_matchcost(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match MatchCostArgs::slash(&mut command)? {
-        Ok(args) => _matchcosts(ctx, command.into(), args).await,
-        Err(content) => command.error(&ctx, content).await,
-    }
-}
-
-pub fn define_matchcost() -> MyCommand {
-    let match_url = MyCommandOption::builder("match_url", "Specify a match url or match id")
-        .string(Vec::new(), true);
-
-    let warmup_description = "Specify the amount of warmups to ignore (defaults to 2)";
-
-    let warmup_help =
-        "Since warmup maps commonly want to be skipped for performance calculations, \
-        this option allows you to specify how many maps should be ignored in the beginning.\n\
-        If no value is specified, it defaults to 2.";
-
-    let warmups = MyCommandOption::builder("warmups", warmup_description)
-        .help(warmup_help)
-        .min_int(0)
-        .integer(Vec::new(), false);
-
-    let ez_mult_help = "Specify a multiplier for EZ scores.\n\
-        The suggested multiplier range is 1.0-2.0";
-
-    let ez_mult = MyCommandOption::builder("ez_multiplier", "Specify a multiplier for EZ scores")
-        .help(ez_mult_help)
-        .max_num(100.0)
-        .number(Vec::new(), false);
-
-    let skip_last_description = "Specify the amount of maps to ignore at the end (defaults to 0)";
-
-    let skip_last_help = "In case the last few maps were just for fun, \
-        this options allows to ignore them for the performance rating.\n\
-        Alternatively, in combination with the `warmups` option, \
-        you can check the rating for specific maps.\n\
-        If no value is specified, it defaults to 0.";
-
-    let skip_last = MyCommandOption::builder("skip_last", skip_last_description)
-        .help(skip_last_help)
-        .min_int(0)
-        .integer(Vec::new(), false);
-
-    let description = "Display performance ratings for a multiplayer match";
-
-    let help = "Calculate a performance rating for each player in the given multiplayer match.\n\
-        Here's the current [formula](https://i.imgur.com/7KFwcUS.png).\n\
-        Additionally, scores with the EZ mod are multiplied by 1.7 beforehand.\n\n\
-        Keep in mind that all bots use different formulas \
-        so comparing with values from other bots makes no sense.";
-
-    MyCommand::new("matchcost", description)
-        .help(help)
-        .options(vec![match_url, warmups, ez_mult, skip_last])
 }

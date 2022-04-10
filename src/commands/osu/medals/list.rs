@@ -5,6 +5,7 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
+use command_macros::command;
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError};
@@ -34,15 +35,17 @@ use crate::{
             common_literals::{DISCORD, NAME, REVERSE},
             OSEKAI_ISSUE, OSU_API_ISSUE,
         },
-        numbers, InteractionExt, MessageBuilder, MessageExt,
+        numbers,
     },
-    BotResult, CommandData, Context,
+    BotResult, Context,
 };
 
-pub(super) async fn _medalslist(
+use super::{MedalList, MedalListOrder};
+
+pub(super) async fn list(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
-    args: ListArgs,
+    orig: CommandOrigin<'_>,
+    args: MedalList<'_>,
 ) -> BotResult<()> {
     let ListArgs {
         config,
@@ -51,9 +54,17 @@ pub(super) async fn _medalslist(
         reverse,
     } = args;
 
-    let name = match config.into_username() {
+    let name = match username!(ctx, orig, args) {
         Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
+        None => match ctx.psql().get_osu_user().await {
+            Ok(Some(osu)) => osu.into_username(),
+            Ok(None) => return require_link(&ctx, &orig).await,
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(err);
+            }
+        },
     };
 
     let user_args = UserArgs::new(name.as_str(), GameMode::STD);
@@ -67,15 +78,15 @@ pub(super) async fn _medalslist(
             (Err(OsuError::NotFound), ..) => {
                 let content = format!("User `{name}` was not found");
 
-                return data.error(&ctx, content).await;
+                return orig.error(&ctx, content).await;
             }
             (Err(err), ..) => {
-                let _ = data.error(&ctx, OSU_API_ISSUE).await;
+                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
                 return Err(err.into());
             }
             (_, Err(err), _) | (.., Err(err)) => {
-                let _ = data.error(&ctx, OSEKAI_ISSUE).await;
+                let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
                 return Err(err.into());
             }
@@ -176,7 +187,7 @@ pub(super) async fn _medalslist(
         .embed(embed_data.into_builder())
         .content(content);
 
-    let response_raw = data.create_message(&ctx, builder).await?;
+    let response_raw = orig.create_message(&ctx, &builder).await?;
 
     // Skip pagination if too few entries
     if medals.len() <= 10 {
@@ -187,7 +198,7 @@ pub(super) async fn _medalslist(
 
     // Pagination
     let pagination = MedalsListPagination::new(response, user, medals, acquired);
-    let owner = data.author()?.id;
+    let owner = orig.user_id()?;
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {
@@ -204,19 +215,6 @@ pub struct MedalEntryList {
     pub rarity: f32,
 }
 
-enum ListOrder {
-    Alphabet,
-    Date,
-    MedalId,
-    Rarity,
-}
-
-impl Default for ListOrder {
-    fn default() -> Self {
-        Self::Date
-    }
-}
-
 pub struct ListArgs {
     config: UserConfig,
     order: ListOrder,
@@ -224,7 +222,8 @@ pub struct ListArgs {
     group: Option<OsekaiGrouping<'static>>,
 }
 
-impl ListArgs {
+// TODO
+impl MedalList {
     pub(super) async fn slash(
         ctx: &Context,
         command: &ApplicationCommand,

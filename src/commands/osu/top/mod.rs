@@ -665,6 +665,7 @@ impl<'m> TopArgs<'m> {
         Ok(Ok(args))
     }
 
+    // TODO: impl TryFrom
     fn from_slash(top: Top) -> Result<Self, &'static str> {
         let mods = top.mods.map(|mods| match matcher::get_mods(&mods) {
             Some(mods) => Ok(mods),

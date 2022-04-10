@@ -1,5 +1,6 @@
 use std::{fmt::Write, mem, sync::Arc, time::Duration};
 
+use command_macros::SlashCommand;
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{
@@ -7,6 +8,7 @@ use rosu_v2::prelude::{
     OsuMatch, Team, Username,
 };
 use tokio::time::interval;
+use twilight_interactions::command::{CommandOption, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
     application::{
         command::CommandOptionChoice,
@@ -16,40 +18,112 @@ use twilight_model::{
 };
 
 use crate::{
-    commands::{MyCommand, MyCommandOption},
     core::Context,
     embeds::{EmbedBuilder, EmbedData, MatchCompareMapEmbed, MatchCompareSummaryEmbed},
     error::Error,
     pagination::{MatchComparePagination, Pagination},
-    util::{
-        constants::OSU_API_ISSUE, matcher, ApplicationCommandExt, InteractionExt, MessageExt,
-        ScoreExt,
-    },
+    util::{constants::OSU_API_ISSUE, matcher, ScoreExt},
     BotResult,
 };
 
 use super::retrieve_previous;
 
-async fn matchcompare_(
+#[derive(CommandModel, CreateCommand, SlashCommand)]
+#[command(name = "matchcompare")]
+/// Compare two multiplayer matches
+pub struct MatchCompare {
+    /// Specify the first match url or match id
+    match_url_1: String,
+    /// Specify the second match url or match id
+    match_url_2: String,
+    /// Specify if the response should be paginated or all at once
+    output: Option<MatchCompareOutput>,
+    /// Specify if it should show comparisons between players or teams
+    comparison: Option<MatchCompareComparison>,
+}
+
+#[derive(CommandOption, CreateOption)]
+pub enum MatchCompareOutput {
+    #[option(name = "Full", value = "full")]
+    Full,
+    #[option(name = "Paginated", value = "paginated")]
+    Paginated,
+}
+
+impl Default for MatchCompareOutput {
+    fn default() -> Self {
+        Self::Paginated
+    }
+}
+
+#[derive(CommandOption, CreateOption)]
+pub enum MatchCompareComparison {
+    #[option(name = "Compare players", value = "players")]
+    Players,
+    #[option(name = "Compare teams", value = "teams")]
+    Teams,
+    #[option(name = "Compare both", value = "both")]
+    Both,
+}
+
+impl Default for MatchCompareComparison {
+    fn default() -> Self {
+        Self::Players
+    }
+}
+
+async fn slash_matchcompare(
     ctx: Arc<Context>,
-    data: ApplicationCommand,
-    args: MatchCompareArgs,
+    mut command: Box<ApplicationCommand>,
 ) -> BotResult<()> {
-    let MatchCompareArgs {
+    let args = MatchCompare::from_interaction(command.input_data())?;
+
+    matchcompare(ctx, command, args).await
+}
+
+async fn matchcompare(
+    ctx: Arc<Context>,
+    command: Box<ApplicationCommand>,
+    args: MatchCompare,
+) -> BotResult<()> {
+    let MatchCompare {
         match_id_1,
         match_id_2,
         output,
         comparison,
     } = args;
 
+    let match_id_1 = match matcher::get_osu_match_id(&match_id_1) {
+        Some(id) => id,
+        None => {
+            let content = "Failed to parse `match_url_1`.\n\
+                Be sure it's a valid mp url or a match id.";
+
+            return command.error(&ctx, content).await;
+        }
+    };
+
+    let match_id_2 = match matcher::get_osu_match_id(&match_id_2) {
+        Some(id) => id,
+        None => {
+            let content = "Failed to parse `match_url_1`.\n\
+                Be sure it's a valid mp url or a match id.";
+
+            return command.error(&ctx, content).await;
+        }
+    };
+
     if match_id_1 == match_id_2 {
         let content = "Trying to compare a match with itself huh";
 
-        return data.error(&ctx, content).await;
+        return command.error(&ctx, content).await;
     }
 
     let match_fut_1 = ctx.osu().osu_match(match_id_1);
     let match_fut_2 = ctx.osu().osu_match(match_id_2);
+
+    let output = output.unwrap_or_default();
+    let comparison = comparison.unwrap_or_default();
 
     let embeds = match tokio::try_join!(match_fut_1, match_fut_2) {
         Ok((mut match_1, mut match_2)) => {
@@ -57,7 +131,7 @@ async fn matchcompare_(
             let previous_fut_2 = retrieve_previous(&mut match_2, ctx.osu());
 
             if let Err(err) = tokio::try_join!(previous_fut_1, previous_fut_2) {
-                let _ = data.error(&ctx, OSU_API_ISSUE).await;
+                let _ = command.error(&ctx, OSU_API_ISSUE).await;
 
                 return Err(err.into());
             }
@@ -67,16 +141,16 @@ async fn matchcompare_(
         Err(OsuError::NotFound) => {
             let content = "At least one of the two given matches was not found";
 
-            return data.error(&ctx, content).await;
+            return command.error(&ctx, content).await;
         }
         Err(OsuError::Response { status, .. }) if status == 401 => {
             let content =
                 "I can't access at least one of the two matches because it was set as private";
 
-            return data.error(&ctx, content).await;
+            return command.error(&ctx, content).await;
         }
         Err(err) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            let _ = command.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(err.into());
         }
@@ -87,12 +161,12 @@ async fn matchcompare_(
             let mut embeds = embeds.into_iter();
 
             if let Some(embed) = embeds.next() {
-                let embed = embed.build();
-                data.create_message(&ctx, embed.into()).await?;
+                let builder = MessageBuilder::new().embed(embed.build());
+                command.create_message(&ctx, &builder).await?;
 
                 let mut interval = interval(Duration::from_secs(1));
                 interval.tick().await;
-                let channel = (Id::new(1), data.channel_id);
+                let channel = (Id::new(1), command.channel_id);
 
                 for embed in embeds {
                     interval.tick().await;
@@ -103,10 +177,11 @@ async fn matchcompare_(
         }
         MatchCompareOutput::Paginated => {
             if let Some(embed) = embeds.first().cloned().map(EmbedBuilder::build) {
-                let response_raw = data.create_message(&ctx, embed.into()).await?;
+                let builder = MessageBuilder::new().embed(embed);
+                let response_raw = command.create_message(&ctx, &builder).await?;
                 let response = response_raw.model().await?;
                 let pagination = MatchComparePagination::new(response, embeds);
-                let owner = data.user_id()?;
+                let owner = command.user_id()?;
 
                 tokio::spawn(async move {
                     if let Err(err) = pagination.start(&ctx, owner, 60).await {
@@ -360,151 +435,4 @@ fn map_name(map: &BeatmapCompact) -> String {
     let _ = write!(name, " [{}]", map.version);
 
     name
-}
-
-enum MatchCompareOutput {
-    Full,
-    Paginated,
-}
-
-impl Default for MatchCompareOutput {
-    fn default() -> Self {
-        Self::Paginated
-    }
-}
-
-#[derive(Copy, Clone)]
-pub enum MatchCompareComparison {
-    Both,
-    Players,
-    Teams,
-}
-
-impl Default for MatchCompareComparison {
-    fn default() -> Self {
-        Self::Players
-    }
-}
-
-struct MatchCompareArgs {
-    match_id_1: u32,
-    match_id_2: u32,
-    output: MatchCompareOutput,
-    comparison: MatchCompareComparison,
-}
-
-impl MatchCompareArgs {
-    fn slash(command: &mut ApplicationCommand) -> BotResult<Result<Self, &'static str>> {
-        let mut match_id_1 = None;
-        let mut match_id_2 = None;
-        let mut output = None;
-        let mut comparison = None;
-
-        for option in command.yoink_options() {
-            match option.value {
-                CommandOptionValue::String(value) => match option.name.as_str() {
-                    "match_url_1" => match matcher::get_osu_match_id(value.as_str()) {
-                        Some(id) => match_id_1 = Some(id),
-                        None => {
-                            let content = "Failed to parse `match_url_1`.\n\
-                                    Be sure it's a valid mp url or a match id.";
-
-                            return Ok(Err(content));
-                        }
-                    },
-                    "match_url_2" => match matcher::get_osu_match_id(value.as_str()) {
-                        Some(id) => match_id_2 = Some(id),
-                        None => {
-                            let content = "Failed to parse `match_url_2`.\n\
-                                    Be sure it's a valid mp url or a match id.";
-
-                            return Ok(Err(content));
-                        }
-                    },
-                    "output" => match value.as_str() {
-                        "full" => output = Some(MatchCompareOutput::Full),
-                        "paginated" => output = Some(MatchCompareOutput::Paginated),
-                        _ => return Err(Error::InvalidCommandOptions),
-                    },
-                    "comparison" => match value.as_str() {
-                        "both" => comparison = Some(MatchCompareComparison::Both),
-                        "players" => comparison = Some(MatchCompareComparison::Players),
-                        "teams" => comparison = Some(MatchCompareComparison::Teams),
-                        _ => return Err(Error::InvalidCommandOptions),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            }
-        }
-
-        let args = Self {
-            match_id_1: match_id_1.ok_or(Error::InvalidCommandOptions)?,
-            match_id_2: match_id_2.ok_or(Error::InvalidCommandOptions)?,
-            output: output.unwrap_or_default(),
-            comparison: comparison.unwrap_or_default(),
-        };
-
-        Ok(Ok(args))
-    }
-}
-
-pub async fn slash_matchcompare(
-    ctx: Arc<Context>,
-    mut command: ApplicationCommand,
-) -> BotResult<()> {
-    match MatchCompareArgs::slash(&mut command)? {
-        Ok(args) => matchcompare_(ctx, command, args).await,
-        Err(content) => command.error(&ctx, content).await,
-    }
-}
-
-pub fn define_matchcompare() -> MyCommand {
-    let match_url_1 =
-        MyCommandOption::builder("match_url_1", "Specify the first match url or match id")
-            .string(Vec::new(), true);
-
-    let match_url_2 =
-        MyCommandOption::builder("match_url_2", "Specify the second match url or match id")
-            .string(Vec::new(), true);
-
-    let comparison_choices = vec![
-        CommandOptionChoice::String {
-            name: "Compare players".to_owned(),
-            value: "players".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Compare teams".to_owned(),
-            value: "teams".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Compare both".to_owned(),
-            value: "both".to_owned(),
-        },
-    ];
-
-    let comparison_description = "Specify it should show comparisons between players or teams";
-
-    let comparison = MyCommandOption::builder("comparison", comparison_description)
-        .string(comparison_choices, false);
-
-    let output_choices = vec![
-        CommandOptionChoice::String {
-            name: "Full".to_owned(),
-            value: "full".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Paginated".to_owned(),
-            value: "paginated".to_owned(),
-        },
-    ];
-
-    let output_description = "Specify if the response should be paginated or all at once";
-
-    let output =
-        MyCommandOption::builder("output", output_description).string(output_choices, false);
-
-    let options = vec![match_url_1, match_url_2, output, comparison];
-
-    MyCommand::new("matchcompare", "Compare two multiplayer matches").options(options)
 }

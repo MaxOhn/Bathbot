@@ -1,3 +1,10 @@
+use std::{
+    cmp::{Ordering, Reverse},
+    fmt::Write,
+    sync::Arc,
+};
+
+use command_macros::command;
 use rkyv::{Deserialize, Infallible};
 use twilight_model::application::{
     command::CommandOptionChoice, interaction::ApplicationCommandAutocomplete,
@@ -13,42 +20,42 @@ use crate::{
     BotResult, CommandData, Context,
 };
 
-use std::{
-    cmp::{Ordering, Reverse},
-    fmt::Write,
-    sync::Arc,
-};
+use super::MedalInfo;
 
 #[command]
-#[short_desc("Display info about an osu! medal")]
-#[long_desc(
+#[desc("Display info about an osu! medal")]
+#[help(
     "Display info about an osu! medal.\n\
     The given name must be exact (but case-insensitive).\n\
     All data originates from [osekai](https://osekai.net/medals/), \
     check it out for more info."
 )]
 #[usage("[medal name]")]
-#[example(r#""50,000 plays""#, "any%")]
-async fn medal(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, args, num } => {
-            let name = args.rest().trim_matches('"');
+#[examples(r#""50,000 plays""#, "any%")]
+#[group(AllModes)]
+async fn prefix_medal(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    let name = args.rest().trim_matches('"');
 
-            if name.is_empty() {
-                return msg.error(&ctx, "You must specify a medal name.").await;
-            }
-
-            _medal(ctx, CommandData::Message { msg, args, num }, name).await
-        }
-        CommandData::Interaction { command } => super::slash_medal(ctx, *command).await,
+    if name.is_empty() {
+        return msg.error(&ctx, "You must specify a medal name").await;
     }
+
+    let info = MedalInfo { name: name.into() };
+
+    medal(ctx, msg.into(), info).await
 }
 
-pub(super) async fn _medal(ctx: Arc<Context>, data: CommandData<'_>, name: &str) -> BotResult<()> {
+pub(super) async fn medal(
+    ctx: Arc<Context>,
+    orig: CommandOrigin<'_>,
+    info: MedalInfo<'_>,
+) -> BotResult<()> {
+    let MedalInfo { name } = args;
+
     let medals = match ctx.redis().medals().await {
         Ok(medals) => medals,
         Err(err) => {
-            let _ = data.error(&ctx, OSEKAI_ISSUE).await;
+            let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
             return Err(err.into());
         }
@@ -62,7 +69,7 @@ pub(super) async fn _medal(ctx: Arc<Context>, data: CommandData<'_>, name: &str)
         .position(|m| m.name.to_ascii_lowercase() == name)
     {
         Some(idx) => archived_medals[idx].deserialize(&mut Infallible).unwrap(),
-        None => return no_medal(&ctx, &data, name.as_ref(), medals).await,
+        None => return no_medal(&ctx, &orig, name.as_ref(), medals).await,
     };
 
     let map_fut = ctx.clients.custom.get_osekai_beatmaps(&medal.name);
@@ -71,7 +78,7 @@ pub(super) async fn _medal(ctx: Arc<Context>, data: CommandData<'_>, name: &str)
     let (mut maps, comments) = match tokio::try_join!(map_fut, comment_fut) {
         Ok((maps, comments)) => (maps, comments),
         Err(why) => {
-            let _ = data.error(&ctx, OSEKAI_ISSUE).await;
+            let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
             return Err(why.into());
         }
@@ -86,8 +93,9 @@ pub(super) async fn _medal(ctx: Arc<Context>, data: CommandData<'_>, name: &str)
     maps.sort_unstable_by_key(|map| Reverse(map.vote_sum));
 
     let embed_data = MedalEmbed::new(medal, None, maps, top_comment);
-    let builder = embed_data.into_builder().build().into();
-    data.create_message(&ctx, builder).await?;
+    let embed = embed_data.into_builder().build();
+    let builder = MessageBuilder::new().embed(embed);
+    orig.create_message(&ctx, &builder).await?;
 
     Ok(())
 }
@@ -96,7 +104,7 @@ const SIMILARITY_THRESHOLD: f32 = 0.6;
 
 async fn no_medal(
     ctx: &Context,
-    data: &CommandData<'_>,
+    orig: &CommandOrigin<'_>,
     name: &str,
     medals: ArchivedBytes<Vec<OsekaiMedal>>,
 ) -> BotResult<()> {
@@ -129,9 +137,10 @@ async fn no_medal(
         content.push('?');
     }
 
-    data.error(ctx, content).await
+    orig.error(ctx, content).await
 }
 
+// TODO
 pub async fn handle_autocomplete(
     ctx: Arc<Context>,
     command: ApplicationCommandAutocomplete,

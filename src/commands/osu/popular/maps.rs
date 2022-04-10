@@ -3,29 +3,35 @@ use std::sync::Arc;
 use eyre::Report;
 
 use crate::{
-    core::{commands_::CommandData, Context},
+    core::Context,
     embeds::EmbedData,
     embeds::OsuTrackerMapsEmbed,
     pagination::{OsuTrackerMapsPagination, Pagination},
     util::{
         constants::{GENERAL_ISSUE, OSUTRACKER_ISSUE},
-        numbers, MessageExt,
+        numbers,
     },
     BotResult,
 };
 
-pub(super) async fn maps_(ctx: Arc<Context>, data: CommandData<'_>, pp: u32) -> BotResult<()> {
+use super::PopularMapsPp;
+
+pub(super) async fn maps(
+    ctx: Arc<Context>,
+    command: Box<ApplicationCommand>,
+    args: PopularMapsPp,
+) -> BotResult<()> {
     let entries = match ctx.clients.custom.get_osutracker_pp_groups().await {
         Ok(groups) => match groups.into_iter().find(|group| group.number == pp) {
             Some(group) => group.list,
             None => {
                 error!("received no osutracker pp group with number={pp}");
 
-                return data.error(&ctx, GENERAL_ISSUE).await;
+                return command.error(&ctx, GENERAL_ISSUE).await;
             }
         },
         Err(err) => {
-            let _ = data.error(&ctx, OSUTRACKER_ISSUE).await;
+            let _ = command.error(&ctx, OSUTRACKER_ISSUE).await;
 
             return Err(err.into());
         }
@@ -34,11 +40,10 @@ pub(super) async fn maps_(ctx: Arc<Context>, data: CommandData<'_>, pp: u32) -> 
     let pages = numbers::div_euclid(10, entries.len());
     let initial = &entries[..entries.len().min(10)];
 
-    let embed = OsuTrackerMapsEmbed::new(pp, initial, (1, pages))
-        .into_builder()
-        .build();
+    let embed = OsuTrackerMapsEmbed::new(pp, initial, (1, pages)).into_builder();
+    let builder = MessageBuilder::new().embed(embed.build());
 
-    let response_raw = data.create_message(&ctx, embed.into()).await?;
+    let response_raw = command.update(&ctx, &builder).await?;
 
     if entries.len() <= 10 {
         return Ok(());
@@ -47,7 +52,7 @@ pub(super) async fn maps_(ctx: Arc<Context>, data: CommandData<'_>, pp: u32) -> 
     let response = response_raw.model().await?;
 
     let pagination = OsuTrackerMapsPagination::new(response, pp, entries);
-    let owner = data.author()?.id;
+    let owner = command.user_id()?;
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {

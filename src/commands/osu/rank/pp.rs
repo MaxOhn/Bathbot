@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
+use command_macros::command;
 use rosu_v2::prelude::{GameMode, OsuError, User, UserCompact};
 use twilight_model::{
     application::{
-        command::Number,
         interaction::{
-            application_command::{CommandDataOption, CommandOptionValue},
             ApplicationCommand,
         },
     },
@@ -14,9 +13,7 @@ use twilight_model::{
 
 use crate::{
     commands::{
-        check_user_mention,
         osu::{get_user, UserArgs},
-        parse_discord, parse_mode_option, DoubleResultCow,
     },
     custom_client::RankParam,
     database::UserConfig,
@@ -24,39 +21,33 @@ use crate::{
     tracking::process_osu_tracking,
     util::{
         constants::{
-            common_literals::{COUNTRY, DISCORD, MODE, NAME, RANK},
             GENERAL_ISSUE, OSU_API_ISSUE, OSU_DAILY_ISSUE,
         },
-        CountryCode, InteractionExt, MessageExt,
+        CountryCode,
     },
-    Args, BotResult, CommandData, Context, Error,
+    , BotResult,  Context, Error,
 };
 
-pub(super) async fn _rank(
+pub(super) async fn rank(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
-    args: RankPpArgs,
+    orig: CommandOrigin<'_>,
+    args: RankPp<'_>,
 ) -> BotResult<()> {
-    let RankPpArgs {
-        config,
+    let (name, mode) = name_mode!(ctx, orig, args);
+
+    let RankPp {
         country,
         rank,
         each,
+        ..
     } = args;
-
-    let mode = config.mode.unwrap_or(GameMode::STD);
-
-    let name = match config.into_username() {
-        Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
-    };
 
     if rank == 0 {
         return data.error(&ctx, "Rank can't be zero :clown:").await;
     } else if rank > 10_000 && country.is_some() {
         let content = "Unfortunately I can only provide data for country ranks up to 10,000 :(";
 
-        return data.error(&ctx, content).await;
+        return orig.error(&ctx, content).await;
     }
 
     let rank_data = if rank <= 10_000 {
@@ -82,12 +73,12 @@ pub(super) async fn _rank(
             Err(OsuError::NotFound) => {
                 let content = format!("User `{name}` was not found");
 
-                return data.error(&ctx, content).await;
+                return orig.error(&ctx, content).await;
             }
-            Err(why) => {
-                let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            Err(err) => {
+                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-                return Err(why.into());
+                return Err(err.into());
             }
         };
 
@@ -112,10 +103,10 @@ pub(super) async fn _rank(
 
         let required_pp = match pp_result {
             Ok(rank_pp) => rank_pp.pp,
-            Err(why) => {
-                let _ = data.error(&ctx, OSU_DAILY_ISSUE).await;
+            Err(err) => {
+                let _ = orig.error(&ctx, OSU_DAILY_ISSUE).await;
 
-                return Err(why.into());
+                return Err(err.into());
             }
         };
 
@@ -124,12 +115,12 @@ pub(super) async fn _rank(
             Err(OsuError::NotFound) => {
                 let content = format!("User `{name}` was not found");
 
-                return data.error(&ctx, content).await;
+                return orig.error(&ctx, content).await;
             }
-            Err(why) => {
-                let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            Err(err) => {
+                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-                return Err(why.into());
+                return Err(err.into());
             }
         };
 
@@ -156,10 +147,10 @@ pub(super) async fn _rank(
 
         match scores_fut.await {
             Ok(scores) => (!scores.is_empty()).then(|| scores),
-            Err(why) => {
-                let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            Err(err) => {
+                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-                return Err(why.into());
+                return Err(err.into());
             }
         }
     } else {
@@ -173,23 +164,24 @@ pub(super) async fn _rank(
 
     // Creating the embed
     let embed = RankEmbed::new(rank_data, scores, each)
-        .into_builder()
-        .build();
-    data.create_message(&ctx, embed.into()).await?;
+        .into_builder();
+    let builder = MessageBuilder::new().embed(embed);
+    orig.create_message(&ctx, &builder).await?;
 
     Ok(())
 }
 
 #[command]
-#[short_desc("How many pp is a player missing to reach the given rank?")]
-#[long_desc(
+#[desc("How many pp is a player missing to reach the given rank?")]
+#[help(
     "How many pp is a player missing to reach the given rank?\n\
     For ranks over 10,000 the data is provided by [osudaily](https://osudaily.net/)."
 )]
 #[usage("[username] [[country]number]")]
-#[example("badewanne3 be50", "badewanne3 123")]
-#[aliases("reach")]
-pub async fn rank(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+#[examples("badewanne3 be50", "badewanne3 123")]
+#[alias("reach")]
+#[group(Osu)]
+async fn prefix_rank(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
             match RankPpArgs::args(&ctx, &mut args, msg.author.id).await {
@@ -211,15 +203,16 @@ pub async fn rank(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 #[command]
-#[short_desc("How many pp is a player missing to reach the given rank?")]
-#[long_desc(
+#[desc("How many pp is a player missing to reach the given rank?")]
+#[help(
     "How many pp is a player missing to reach the given rank?\n\
     For ranks over 10,000 the data is provided by [osudaily](https://osudaily.net/)."
 )]
 #[usage("[username] [[country]number]")]
-#[example("badewanne3 be50", "badewanne3 123")]
-#[aliases("rankm", "reachmania", "reachm")]
-pub async fn rankmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+#[examples("badewanne3 be50", "badewanne3 123")]
+#[alias("rankm", "reachmania", "reachm")]
+#[group(Mania)]
+async fn prefix_rankmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
             match RankPpArgs::args(&ctx, &mut args, msg.author.id).await {
@@ -241,15 +234,16 @@ pub async fn rankmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 #[command]
-#[short_desc("How many pp is a player missing to reach the given rank?")]
-#[long_desc(
+#[desc("How many pp is a player missing to reach the given rank?")]
+#[help(
     "How many pp is a player missing to reach the given rank?\n\
     For ranks over 10,000 the data is provided by [osudaily](https://osudaily.net/)."
 )]
 #[usage("[username] [[country]number]")]
-#[example("badewanne3 be50", "badewanne3 123")]
-#[aliases("rankt", "reachtaiko", "reacht")]
-pub async fn ranktaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+#[examples("badewanne3 be50", "badewanne3 123")]
+#[alias("rankt", "reachtaiko", "reacht")]
+#[group(Taiko)]
+async fn prefix_ranktaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
             match RankPpArgs::args(&ctx, &mut args, msg.author.id).await {
@@ -271,15 +265,16 @@ pub async fn ranktaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 }
 
 #[command]
-#[short_desc("How many pp is a player missing to reach the given rank?")]
-#[long_desc(
+#[desc("How many pp is a player missing to reach the given rank?")]
+#[help(
     "How many pp is a player missing to reach the given rank?\n\
     For ranks over 10,000 the data is provided by [osudaily](https://osudaily.net/)."
 )]
 #[usage("[username] [[country]number]")]
-#[example("badewanne3 be50", "badewanne3 123")]
-#[aliases("rankc", "reachctb", "reachc")]
-pub async fn rankctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+#[examples("badewanne3 be50", "badewanne3 123")]
+#[alias("rankc", "reachctb", "reachc")]
+#[group(Catch)]
+async fn prefix_rankctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
             match RankPpArgs::args(&ctx, &mut args, msg.author.id).await {

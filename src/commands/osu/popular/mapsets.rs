@@ -7,18 +7,18 @@ use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{Beatmapset, Username};
 
 use crate::{
-    core::{commands_::CommandData, Context},
+    core::Context,
     custom_client::OsuTrackerMapsetEntry,
     embeds::{EmbedData, OsuTrackerMapsetsEmbed},
     pagination::{OsuTrackerMapsetsPagination, Pagination},
     util::{
         constants::{OSUTRACKER_ISSUE, OSU_API_ISSUE},
-        numbers, MessageExt,
+        numbers,
     },
     BotResult,
 };
 
-pub(super) async fn mapsets_(ctx: Arc<Context>, data: CommandData<'_>) -> BotResult<()> {
+pub(super) async fn mapsets(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotResult<()> {
     let mut counts: Vec<OsuTrackerMapsetEntry> = match ctx.redis().osutracker_stats().await {
         Ok(stats) => stats
             .get()
@@ -26,7 +26,7 @@ pub(super) async fn mapsets_(ctx: Arc<Context>, data: CommandData<'_>) -> BotRes
             .deserialize(&mut Infallible)
             .unwrap(),
         Err(err) => {
-            let _ = data.error(&ctx, OSUTRACKER_ISSUE).await;
+            let _ = command.error(&ctx, OSUTRACKER_ISSUE).await;
 
             return Err(err.into());
         }
@@ -50,7 +50,7 @@ pub(super) async fn mapsets_(ctx: Arc<Context>, data: CommandData<'_>) -> BotRes
                     mapset
                 }
                 Err(err) => {
-                    let _ = data.error(&ctx, OSU_API_ISSUE).await;
+                    let _ = command.error(&ctx, OSU_API_ISSUE).await;
 
                     return Err(err.into());
                 }
@@ -71,11 +71,10 @@ pub(super) async fn mapsets_(ctx: Arc<Context>, data: CommandData<'_>) -> BotRes
     let pages = numbers::div_euclid(10, counts.len());
     let initial = &counts[..counts.len().min(10)];
 
-    let embed = OsuTrackerMapsetsEmbed::new(initial, &mapsets, (1, pages))
-        .into_builder()
-        .build();
+    let embed = OsuTrackerMapsetsEmbed::new(initial, &mapsets, (1, pages)).into_builder();
+    let builder = MessageBuilder::new().embed(embed.build());
 
-    let response_raw = data.create_message(&ctx, embed.into()).await?;
+    let response_raw = command.update(&ctx, &builder).await?;
 
     if counts.len() <= 10 {
         return Ok(());
@@ -84,7 +83,7 @@ pub(super) async fn mapsets_(ctx: Arc<Context>, data: CommandData<'_>) -> BotRes
     let response = response_raw.model().await?;
 
     let pagination = OsuTrackerMapsetsPagination::new(Arc::clone(&ctx), response, counts, mapsets);
-    let owner = data.author()?.id;
+    let owner = command.user_id()?;
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {

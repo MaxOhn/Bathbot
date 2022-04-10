@@ -1,44 +1,27 @@
-mod common;
-mod most_played;
-mod profile;
-mod score;
-
 use std::{
+    borrow::Cow,
     cmp::{Ordering, Reverse},
     sync::Arc,
 };
 
+use command_macros::{HasName, SlashCommand};
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, Score, Username};
+use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
-    application::{
-        command::CommandOptionChoice,
-        interaction::{
-            application_command::{CommandDataOption, CommandOptionValue},
-            ApplicationCommand,
-        },
-    },
+    application::interaction::ApplicationCommand,
     id::{marker::UserMarker, Id},
 };
 
-use crate::{
-    commands::{
-        osu::{option_discord, option_map, option_mode, option_name},
-        parse_discord, parse_mode_option, DoubleResultCow, MyCommand, MyCommandOption,
-    },
-    database::OsuData,
-    pp::PpCalculator,
-    util::{
-        constants::common_literals::{ACC, ACCURACY, COMBO, MODE, MODS, PROFILE, SCORE, SORT},
-        matcher, InteractionExt, MessageExt,
-    },
-    Args, BotResult, Context, Error,
-};
+use crate::{pp::PpCalculator, util::matcher, BotResult, Context};
 
 pub use self::{common::*, most_played::*, profile::*, score::*};
 
-use super::require_link;
+mod common;
+mod most_played;
+mod profile;
+mod score;
 
 const AT_LEAST_ONE: &str = "You need to specify at least one osu username. \
     If you're not linked, you must specify two names.";
@@ -180,77 +163,79 @@ impl TripleArgs {
     }
 }
 
-enum CompareCommandKind {
-    Score(ScoreArgs),
-    Profile(ProfileArgs),
-    Top(TripleArgs),
-    Mostplayed(TripleArgs),
+#[derive(CommandModel, CreateCommand, SlashCommand)]
+#[command(name = "compare")]
+/// Compare scores or profiles
+pub enum Compare<'a> {
+    Score(CompareScore<'a>),
+    Profile(CompareProfile<'a>),
+    Top(CompareTop<'a>),
+    MostPlayed(CompareMostPlayed<'a>),
 }
 
-impl CompareCommandKind {
-    async fn slash(ctx: &Context, command: &mut ApplicationCommand) -> DoubleResultCow<Self> {
-        let option = command
-            .data
-            .options
-            .pop()
-            .ok_or(Error::InvalidCommandOptions)?;
-
-        match option.value {
-            CommandOptionValue::SubCommand(options) => match option.name.as_str() {
-                SCORE => match ScoreArgs::slash(ctx, command, options).await? {
-                    Ok(args) => Ok(Ok(Self::Score(args))),
-                    Err(content) => Ok(Err(content)),
-                },
-                PROFILE => match ProfileArgs::slash(ctx, command, options).await? {
-                    Ok(args) => Ok(Ok(CompareCommandKind::Profile(args))),
-                    Err(content) => Ok(Err(content)),
-                },
-                "top" => match TripleArgs::slash(ctx, command, options).await? {
-                    Ok(args) => Ok(Ok(CompareCommandKind::Top(args))),
-                    Err(content) => Ok(Err(content)),
-                },
-                "mostplayed" => match TripleArgs::slash(ctx, command, options).await? {
-                    Ok(args) => Ok(Ok(CompareCommandKind::Mostplayed(args))),
-                    Err(content) => Ok(Err(content)),
-                },
-                _ => Err(Error::InvalidCommandOptions),
-            },
-            _ => Err(Error::InvalidCommandOptions),
-        }
-    }
-}
-
-pub async fn slash_compare(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match CompareCommandKind::slash(&ctx, &mut command).await? {
-        Ok(CompareCommandKind::Score(args)) => _compare(ctx, command.into(), args).await,
-        Ok(CompareCommandKind::Profile(args)) => _profilecompare(ctx, command.into(), args).await,
-        Ok(CompareCommandKind::Top(args)) => _common(ctx, command.into(), args).await,
-        Ok(CompareCommandKind::Mostplayed(args)) => {
-            _mostplayedcommon(ctx, command.into(), args).await
-        }
-        Err(msg) => command.error(&ctx, msg).await,
-    }
+#[derive(CommandModel, CreateCommand, HasName)]
+#[command(
+    name = "score",
+    help = "Given a user and a map, display the user's scores on the map.\n\
+        Its shorter alias is the `/cs` command."
+)]
+/// Compare a score (same as `/cs`)
+pub struct CompareScore<'a> {
+    /// Specify a username
+    name: Option<Cow<'a, str>>,
+    #[command(help = "Specify a map either by map url or map id.\n\
+    If none is specified, it will search in the recent channel history \
+    and pick the first map it can find.")]
+    /// Specify a map url or map id
+    map: Option<Cow<'a, str>>,
+    /// Choose how the scores should be ordered
+    sort: Option<CompareScoreOrder>,
+    #[command(help = "Filter out scores based on mods.\n\
+        Mods must be given as `+mods` to require these mods to be included, \
+        `+mods!` to require exactly these mods, \
+        or `-mods!` to ignore scores containing any of these mods.\n\
+        Examples:\n\
+        - `+hd`: Remove scores that don't include `HD`\n\
+        - `+hdhr!`: Only keep the `HDHR` score\n\
+        - `+nm!`: Only keep the nomod score\n\
+        - `-ezhd!`: Remove all scores that have either `EZ` or `HD`")]
+    /// Filter out scores based on mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)
+    mods: Option<Cow<'a, str>>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
 }
 
 // TODO: Use util::osu::ScoreOrder instead?
-#[derive(Copy, Clone)]
-enum ScoreOrder {
+#[derive(CommandOption, CreateOption)]
+pub enum CompareScoreOrder {
+    #[option(name = "Accuracy", value = "acc")]
     Acc,
+    #[option(name = "Combo", value = "combo")]
     Combo,
+    #[option(name = "Date", value = "date")]
     Date,
+    #[option(name = "Misses", value = "miss")]
     Misses,
+    #[option(name = "PP", value = "pp")]
     Pp,
+    #[option(name = "Score", value = "score")]
     Score,
+    #[option(name = "Stars", value = "stars")]
     Stars,
 }
 
-impl Default for ScoreOrder {
+impl Default for CompareScoreOrder {
     fn default() -> Self {
         Self::Score
     }
 }
 
-impl ScoreOrder {
+impl CompareScoreOrder {
     pub async fn apply(self, ctx: &Context, scores: &mut [Score], map_id: u32) {
         if scores.len() <= 1 {
             return;
@@ -362,158 +347,86 @@ impl ScoreOrder {
     }
 }
 
-fn option_name_(n: u8) -> MyCommandOption {
-    let mut name = option_name();
-
-    name.name = match n {
-        1 => "name1",
-        2 => "name2",
-        3 => "name3",
-        _ => unreachable!(),
-    };
-
-    name
-}
-
-fn option_discord_(n: u8) -> MyCommandOption {
-    let mut discord = option_discord();
-
-    discord.name = match n {
-        1 => "discord1",
-        2 => "discord2",
-        3 => "discord3",
-        _ => unreachable!(),
-    };
-
-    discord.help = if n == 1 {
-        Some(
-            "Instead of specifying an osu! username with the `name1` option, \
-            you can use this `discord1` option to choose a discord user.\n\
-            For it to work, the user must be linked to an osu! account i.e. they must have used \
-            the `/link` or `/config` command to verify their account.",
-        )
-    } else {
-        None
-    };
-
-    discord
-}
-
-fn score_options() -> Vec<MyCommandOption> {
-    let name = option_name();
-    let map = option_map();
-    let discord = option_discord();
-
-    let sort_choices = vec![
-        CommandOptionChoice::String {
-            name: "pp".to_owned(),
-            value: "pp".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "date".to_owned(),
-            value: "date".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: ACCURACY.to_owned(),
-            value: ACC.to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: COMBO.to_owned(),
-            value: COMBO.to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "stars".to_owned(),
-            value: "stars".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "misses".to_owned(),
-            value: "miss".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "score".to_owned(),
-            value: "score".to_owned(),
-        },
-    ];
-
-    let sort = MyCommandOption::builder(SORT, "Choose how the scores should be ordered")
-        .help("Choose how the scores should be ordered, defaults to `score`.")
-        .string(sort_choices, false);
-
-    let mods_description = "Filter out scores based on mods \
-        (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)";
-
-    let mods_help = "Filter out scores based on mods.\n\
-        Mods must be given as `+mods` to require these mods to be included, \
-        `+mods!` to require exactly these mods, \
-        or `-mods!` to ignore scores containing any of these mods.\n\
-        Examples:\n\
-        - `+hd`: Remove scores that don't include `HD`\n\
-        - `+hdhr!`: Only keep the `HDHR` score\n\
-        - `+nm!`: Only keep the nomod score\n\
-        - `-ezhd!`: Remove all scores that have either `EZ` or `HD`";
-
-    let mods = MyCommandOption::builder(MODS, mods_description)
-        .help(mods_help)
-        .string(Vec::new(), false);
-
-    vec![name, map, sort, mods, discord]
-}
-
-pub fn define_compare() -> MyCommand {
-    let score_help = "Given a user and a map, display the user's scores on the map.\n\
-        Its shorter alias is the `/cs` command.";
-
-    let score = MyCommandOption::builder(SCORE, "Compare a score (same as `/cs`)")
-        .help(score_help)
-        .subcommand(score_options());
-
-    let mode = option_mode();
-    let name1 = option_name_(1);
-    let name2 = option_name_(2);
-    let discord1 = option_discord_(1);
-    let discord2 = option_discord_(2);
-
-    let profile_help = "Compare profile stats between two players.\n\
+#[derive(CommandMode, CreateCommand)]
+#[command(
+    name = "profile",
+    help = "Compare profile stats between two players.\n\
         Note:\n\
         - PC peak = Monthly playcount peak\n\
-        - PP spread = PP difference between the top score and the 100th score";
+        - PP spread = PP difference between the top score and the 100th score"
+)]
+/// Compare two profiles
+pub struct CompareProfile<'a> {
+    /// Specify a gamemode
+    mode: Option<GameModeOption>,
+    /// Specify a username
+    name1: Option<Cow<'a, str>>,
+    /// Specify a username
+    name2: Option<Cow<'a, str>>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name1` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord1: Option<Id<UserMarker>>,
+    /// Specify a linked discord user
+    discord2: Option<Id<UserMarker>>,
+}
 
-    let profile = MyCommandOption::builder(PROFILE, "Compare two profiles")
-        .help(profile_help)
-        .subcommand(vec![mode, name1, name2, discord1, discord2]);
+#[derive(CommandModel, CreateCommand)]
+#[command(
+    name = "top",
+    help = "Compare common top scores between players and see who did better on them"
+)]
+/// Compare common top scores
+pub struct CompareTop<'a> {
+    /// Specify a gamemode
+    mode: Option<GameModeOption>,
+    /// Specify a username
+    name1: Option<Cow<'a, str>>,
+    /// Specify a username
+    name2: Option<Cow<'a, str>>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name1` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord1: Option<Id<UserMarker>>,
+    /// Specify a linked discord user
+    discord2: Option<Id<UserMarker>>,
+}
 
-    let mode = option_mode();
-    let name1 = option_name_(1);
-    let name2 = option_name_(2);
-    let name3 = option_name_(3);
-    let discord1 = option_discord_(1);
-    let discord2 = option_discord_(2);
-    let discord3 = option_discord_(3);
+#[derive(CommandModel, CreateCommand)]
+#[command(
+    name = "mostplayed",
+    help = "Compare most played maps between players and see who played them more"
+)]
+/// Compare most played maps
+pub struct CompareMostPlayed<'a> {
+    /// Specify a gamemode
+    mode: Option<GameModeOption>,
+    /// Specify a username
+    name1: Option<Cow<'a, str>>,
+    /// Specify a username
+    name2: Option<Cow<'a, str>>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name1` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord1: Option<Id<UserMarker>>,
+    /// Specify a linked discord user
+    discord2: Option<Id<UserMarker>>,
+}
 
-    let top_help = "Compare common top scores between players and see who did better on them";
-
-    let top = MyCommandOption::builder("top", "Compare common top scores")
-        .help(top_help)
-        .subcommand(vec![
-            mode, name1, name2, name3, discord1, discord2, discord3,
-        ]);
-
-    let mode = option_mode();
-    let name1 = option_name_(1);
-    let name2 = option_name_(2);
-    let name3 = option_name_(3);
-    let discord1 = option_discord_(1);
-    let discord2 = option_discord_(2);
-    let discord3 = option_discord_(3);
-
-    let mostplayed_help = "Compare most played maps between players and see who played them more";
-
-    let mostplayed = MyCommandOption::builder("mostplayed", "Compare most played maps")
-        .help(mostplayed_help)
-        .subcommand(vec![
-            mode, name1, name2, name3, discord1, discord2, discord3,
-        ]);
-
-    MyCommand::new("compare", "Compare a score, top scores, or profiles")
-        .options(vec![score, profile, top, mostplayed])
+async fn slash_compare(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    match Compare::from_interaction(command.input_data())? {
+        Compare::Score(args) => score(ctx, command.into(), args).await,
+        Compare::Profile(args) => profile(ctx, command.into(), args).await,
+        Compare::Top(args) => top(ctx, command.into(), args).await,
+        Compare::MostPlayed(args) => mostplayed(ctx, command.into(), args).await,
+    }
 }

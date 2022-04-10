@@ -231,13 +231,14 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
     let MapArgs { map, mods, attrs } = args;
 
     let mods = match mods.map(|mods| matcher::get_mods(&mods)) {
-        Some(mods) => mods,
-        None => {
+        Some(Some(mods)) => Some(mods),
+        Some(None) => {
             let content =
                 "Failed to parse mods. Be sure to specify a valid abbreviation e.g. `hdhr`.";
 
             return orig.error(&ctx, content).await;
         }
+        None => None,
     };
 
     let author_id = orig.user_id()?;

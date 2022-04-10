@@ -1,5 +1,6 @@
-use std::{cmp::Ordering, sync::Arc};
+use std::{borrow::Cow, cmp::Ordering, sync::Arc};
 
+use command_macros::command;
 use eyre::Report;
 use hashbrown::HashSet;
 use rkyv::{Deserialize, Infallible};
@@ -11,58 +12,59 @@ use crate::{
         osu::{get_user, UserArgs},
     },
     custom_client::{OsekaiGrouping, OsekaiMedal, MEDAL_GROUPS},
-    database::OsuData,
     embeds::{EmbedData, MedalsMissingEmbed},
     pagination::{MedalsMissingPagination, Pagination},
     util::{
         constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
-        numbers, MessageExt,
+        numbers,
     },
-    BotResult, CommandData, Context,
+    BotResult, Context,
 };
 
+use super::MedalMissing;
+
 #[command]
-#[short_desc("Display a list of medals that a user is missing")]
+#[desc("Display a list of medals that a user is missing")]
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("mm", "missingmedals")]
-async fn medalsmissing(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            let name = match args.next() {
-                Some(arg) => match check_user_mention(&ctx, arg).await {
-                    Ok(Ok(osu)) => Some(osu.into_username()),
-                    Ok(Err(content)) => return msg.error(&ctx, content).await,
-                    Err(why) => {
-                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+#[group(AllModes)]
+async fn prefix_medalsmissing(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    let args = match args.next() {
+        Some(arg) => match matcher::get_mention_user(arg) {
+            Some(id) => MedalMissing {
+                name: None,
+                discord: Some(id),
+            },
+            None => MedalMissing {
+                name: Some(Cow::Borrowed(arg)),
+                discord: None,
+            },
+        },
+        None => MedalMissing::default(),
+    };
 
-                        return Err(why);
-                    }
-                },
-                None => match ctx.psql().get_user_osu(msg.author.id).await {
-                    Ok(osu) => osu.map(OsuData::into_username),
-                    Err(why) => {
-                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                        return Err(why);
-                    }
-                },
-            };
-
-            _medalsmissing(ctx, CommandData::Message { msg, args, num }, name).await
-        }
-        CommandData::Interaction { command } => super::slash_medal(ctx, *command).await,
-    }
+    missing(ctx, msg.into(), args).await
 }
 
-pub(super) async fn _medalsmissing(
+pub(super) async fn missing(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
-    name: Option<Username>,
+    orig: CommandOrigin<'_>,
+    args: MedalMissing<'_>,
 ) -> BotResult<()> {
-    let name = match name {
+    let owner = orig.user_id()?;
+
+    let name = match username!(ctx, orig, args) {
         Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
+        None => match ctx.psql().get_osu_user(owner).await {
+            Ok(Some(osu)) => osu.into_username(),
+            Ok(None) => return require_link(&ctx, &orig).await,
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(err);
+            }
+        },
     };
 
     let user_args = UserArgs::new(name.as_str(), GameMode::STD);
@@ -74,15 +76,15 @@ pub(super) async fn _medalsmissing(
         (Err(OsuError::NotFound), _) => {
             let content = format!("User `{name}` was not found");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         (_, Err(err)) => {
-            let _ = data.error(&ctx, OSEKAI_ISSUE).await;
+            let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
             return Err(err.into());
         }
         (Err(why), _) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -118,8 +120,9 @@ pub(super) async fn _medalsmissing(
     );
 
     // Send the embed
-    let builder = embed_data.into_builder().build().into();
-    let response_raw = data.create_message(&ctx, builder).await?;
+    let embed = embed_data.into_builder().build();
+    let builder = MessageBuilder::new().embed(embed);
+    let response_raw = orig.create_message(&ctx, &builder).await?;
 
     // Skip pagination if too few entries
     if medals.len() <= 15 {
@@ -130,7 +133,6 @@ pub(super) async fn _medalsmissing(
 
     // Pagination
     let pagination = MedalsMissingPagination::new(response, user, medals, medal_count);
-    let owner = data.author()?.id;
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {

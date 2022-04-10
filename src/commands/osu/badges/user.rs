@@ -6,7 +6,7 @@ use rosu_v2::prelude::{GameMode, OsuError};
 
 use crate::{
     commands::osu::UserArgs,
-    core::{commands_::CommandData, Context},
+    core::Context,
     custom_client::OsekaiBadge,
     database::UserConfig,
     embeds::{BadgeEmbed, EmbedData},
@@ -18,17 +18,27 @@ use crate::{
     BotResult,
 };
 
-use super::BadgeOrder;
+use super::BadgesOrder;
 
-pub(super) async fn user_(
+pub(super) async fn user(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
-    config: UserConfig,
-    sort_by: BadgeOrder,
+    orig: CommandOrigin<'_>,
+    args: BadgesUser<'_>,
 ) -> BotResult<()> {
-    let name = match config.into_username() {
+    let owner = orig.user_id()?;
+
+    // TODO: this could be a macro
+    let name = match username!(args) {
         Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
+        None => match ctx.psql().get_osu_user(owner).await {
+            Ok(Some(osu)) => osu.into_username(),
+            Ok(None) => return require_link(&ctx, &orig).await,
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(err);
+            }
+        },
     };
 
     let mut user = UserArgs::new(name.as_str(), GameMode::STD);
@@ -43,7 +53,7 @@ pub(super) async fn user_(
                 tokio::join!(redis.osu_user(&user), redis.badges())
             }
             Err(err) => {
-                let _ = data.error(&ctx, OSU_API_ISSUE).await;
+                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
                 return Err(err.into());
             }
@@ -57,10 +67,10 @@ pub(super) async fn user_(
         Err(OsuError::NotFound) => {
             let content = format!("User `{name}` was not found");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         Err(err) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(err.into());
         }
@@ -82,7 +92,7 @@ pub(super) async fn user_(
         .map(|badge| badge.deserialize(&mut Infallible).unwrap())
         .collect();
 
-    sort_by.apply(&mut badges);
+    args.sort.apply(&mut badges);
 
     let owners = if let Some(badge) = badges.first() {
         let owners_fut = ctx.clients.custom.get_osekai_badge_owners(badge.badge_id);
@@ -90,7 +100,7 @@ pub(super) async fn user_(
         match owners_fut.await {
             Ok(owners) => owners,
             Err(err) => {
-                let _ = data.error(&ctx, OSEKAI_ISSUE).await;
+                let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
                 return Err(err.into());
             }
@@ -98,7 +108,7 @@ pub(super) async fn user_(
     } else {
         let content = format!("User `{name}` has no badges \\:(");
         let builder = MessageBuilder::new().embed(content);
-        data.create_message(&ctx, builder).await?;
+        orig.create_message(&ctx, &builder).await?;
 
         return Ok(());
     };
@@ -121,17 +131,14 @@ pub(super) async fn user_(
 
     let pages = numbers::div_euclid(1, badges.len());
 
-    let embed = BadgeEmbed::new(&badges[0], &owners, (1, pages))
-        .into_builder()
-        .build();
-
-    let mut builder = MessageBuilder::new().embed(embed);
+    let embed = BadgeEmbed::new(&badges[0], &owners, (1, pages)).into_builder();
+    let mut builder = MessageBuilder::new().embed(embed.build());
 
     if let Some(bytes) = bytes {
         builder = builder.file("badge_owners.png", bytes);
     }
 
-    let response_raw = data.create_message(&ctx, builder).await?;
+    let response_raw = orig.create_message(&ctx, &builder).await?;
 
     if badges.len() == 1 {
         return Ok(());
@@ -142,7 +149,6 @@ pub(super) async fn user_(
     owners_map.insert(0, owners);
 
     let pagination = BadgePagination::new(response, badges, owners_map, Arc::clone(&ctx));
-    let owner = data.author()?.id;
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {

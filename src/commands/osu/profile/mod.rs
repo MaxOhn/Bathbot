@@ -1,53 +1,171 @@
+use std::{borrow::Cow, collections::BTreeMap, sync::Arc};
+
+use command_macros::{command, HasName, SlashCommand};
+use eyre::Report;
+use rosu_v2::prelude::{GameMode, OsuError};
+use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_model::application::{command::CommandOptionChoice, interaction::ApplicationCommand};
+
+use crate::{
+    embeds::{EmbedData, ProfileEmbed},
+    pagination::ProfilePagination,
+    tracking::process_osu_tracking,
+    util::constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    BotResult, Context,
+};
+
+pub use self::{
+    data::{ProfileData, ProfileResult},
+    graph::graphs,
+    graph::{ProfileGraphFlags, ProfileGraphParams},
+    size::{ProfileEmbedMap, ProfileSize},
+};
+
+use self::args::ProfileArgs;
+
+use super::{get_user_and_scores, ScoreArgs, UserArgs};
+
 mod args;
 mod data;
 mod graph;
 mod size;
 
-use std::{collections::BTreeMap, sync::Arc};
+#[derive(CommandModel, CreateCommand, SlashCommand, HasName)]
+#[command(name = "profile")]
+/// Display statistics of a user
+pub struct Profile<'a> {
+    /// Specify a gamemode
+    mode: Option<GameModeOption>,
+    /// Specify a username
+    name: Option<Cow<'a, str>>,
+    #[command(help = "Specify the initial size of the embed.\n\
+        If none is specified, it will pick the size as configured with the `/config` command.\n\
+        If none is configured, it defaults to `compact`.")]
+    /// Choose an embed size
+    size: Option<ProfileSize>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
+}
 
-use args::ProfileArgs;
-use eyre::Report;
-pub use graph::graphs;
-use rosu_v2::prelude::{GameMode, OsuError};
-use twilight_model::application::{command::CommandOptionChoice, interaction::ApplicationCommand};
+#[derive(CommandOption, CreateOption)]
+pub enum ProfileSize {
+    #[option(name = "Compact", value = "compact")]
+    Compact,
+    #[option(name = "Medium", value = "medium")]
+    Medium,
+    #[option(name = "Full", value = "full")]
+    Full,
+}
 
-use crate::{
-    commands::{
-        osu::{option_discord, option_name},
-        MyCommand, MyCommandOption,
-    },
-    embeds::{EmbedData, ProfileEmbed},
-    pagination::ProfilePagination,
-    tracking::process_osu_tracking,
-    util::{
-        constants::{common_literals::PROFILE, GENERAL_ISSUE, OSU_API_ISSUE},
-        MessageExt,
-    },
-    BotResult, CommandData, Context, MessageBuilder,
-};
+impl Default for ProfileSize {
+    #[inline]
+    fn default() -> Self {
+        Self::Compact
+    }
+}
 
-pub use self::{
-    data::{ProfileData, ProfileResult},
-    graph::{ProfileGraphFlags, ProfileGraphParams},
-    size::{ProfileEmbedMap, ProfileSize},
-};
+impl<'m> Profile<'m> {
+    fn args(mode: GameModeOption, args: Args<'_>) -> Result<Self, String> {
+        todo!() // TODO
+    }
+}
 
-use super::{get_user_and_scores, option_mode, ScoreArgs, UserArgs};
+#[command]
+#[desc("Display statistics of a user")]
+#[help(
+    "Display statistics of a user.\n\
+    You can choose between `compact`, `medium`, and `full` embed \
+    by specifying the argument `size=...`.\n\
+    Defaults to `compact` if not specified otherwise with the `config` command."
+)]
+#[usage("[username] [size=compact/medium/full]")]
+#[examples("badewanne3", "peppy size=full", "size=compact \"freddie benson\"")]
+#[alias("profile")]
+#[group(Osu)]
+async fn prefix_osu(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match Profile::args(GameModeOption::Osu, args) {
+        Ok(args) => profile(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
+    }
+}
 
-async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -> BotResult<()> {
-    let ProfileArgs { config } = args;
+#[command]
+#[desc("Display statistics of a mania user")]
+#[help(
+    "Display statistics of a mania user.\n\
+    You can choose between `compact`, `medium`, and `full` embed \
+    by specifying the argument `size=...`.\n\
+    Defaults to `compact` if not specified otherwise with the `config` command."
+)]
+#[usage("[username] [size=compact/medium/full]")]
+#[examples("badewanne3", "peppy size=full", "size=compact \"freddie benson\"")]
+#[aliases("profilemania", "maniaprofile", "profilem")]
+#[group(Mania)]
+async fn prefix_mania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match Profile::args(GameModeOption::Mania, args) {
+        Ok(args) => profile(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
+    }
+}
 
-    let kind = match (config.profile_size, data.guild_id()) {
+#[command]
+#[desc("Display statistics of a taiko user")]
+#[help(
+    "Display statistics of a taiko user.\n\
+    You can choose between `compact`, `medium`, and `full` embed \
+    by specifying the argument `size=...`.\n\
+    Defaults to `compact` if not specified otherwise with the `config` command."
+)]
+#[usage("[username] [size=compact/medium/full]")]
+#[examples("badewanne3", "peppy size=full", "size=compact \"freddie benson\"")]
+#[aliases("profiletaiko", "taikoprofile", "profilet")]
+#[group(Taiko)]
+async fn prefix_taiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match Profile::args(GameModeOption::Taiko, args) {
+        Ok(args) => profile(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
+    }
+}
+
+#[command]
+#[desc("Display statistics of a ctb user")]
+#[help(
+    "Display statistics of a ctb user.\n\
+    You can choose between `compact`, `medium`, and `full` embed \
+    by specifying the argument `size=...`.\n\
+    Defaults to `compact` if not specified otherwise with the `config` command."
+)]
+#[usage("[username] [size=compact/medium/full]")]
+#[examples("badewanne3", "peppy size=full", "size=compact \"freddie benson\"")]
+#[aliases("profilectb", "ctbprofile", "profilec")]
+#[group(Catch)]
+async fn prefix_ctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match Profile::args(GameModeOption::Catch, args) {
+        Ok(args) => profile(ctx, msg.into(), args).await,
+        Err(content) => msg.error(&ctx, content).await,
+    }
+}
+
+async fn slash_profile(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    let args = Profile::from_interaction(command.input_data())?;
+
+    profile(ctx, command.into(), args).await
+}
+
+async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) -> BotResult<()> {
+    let (name, mode) = name_mode!(ctx, orig, args);
+    let size = args.size;
+    let guild = orig.guild_id();
+
+    let kind = match (size, guild) {
         (Some(kind), _) => kind,
         (None, Some(guild)) => ctx.guild_profile_size(guild).await,
         (None, None) => ProfileSize::default(),
-    };
-
-    let mode = config.mode.unwrap_or(GameMode::STD);
-
-    let name = match config.into_username() {
-        Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
     };
 
     // Retrieve the user and their top scores
@@ -63,10 +181,10 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
         Err(OsuError::NotFound) => {
             let content = format!("User `{name}` was not found");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         Err(why) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -79,8 +197,7 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
     let discord_id_fut = ctx.psql().get_discord_from_osu_id(user.user_id);
 
     let discord_id = match tokio::join!(discord_id_fut, tracking_fut) {
-        (Ok(user), _) => data
-            .guild_id()
+        (Ok(user), _) => guild
             .zip(user)
             .filter(|&(guild, user)| ctx.cache.member(guild, user, |_| ()).is_ok())
             .map(|(_, user)| user),
@@ -117,11 +234,11 @@ async fn _profile(ctx: Arc<Context>, data: CommandData<'_>, args: ProfileArgs) -
         builder = builder.file("profile_graph.png", bytes);
     }
 
-    let response = data.create_message(&ctx, builder).await?.model().await?;
+    let response = orig.create_message(&ctx, &builder).await?.model().await?;
 
     // Pagination
     let pagination = ProfilePagination::new(response, profile_data, kind);
-    let owner = data.author()?.id;
+    let owner = orig.user_id()?;
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {
@@ -215,171 +332,4 @@ impl ProfileEmbed {
         //   - https://github.com/rust-lang/rust/issues/51826
         profile_data.embeds.get(kind).unwrap()
     }
-}
-
-#[command]
-#[short_desc("Display statistics of a user")]
-#[long_desc(
-    "Display statistics of a user.\n\
-    You can choose between `compact`, `medium`, and `full` embed \
-    by specifying the argument `size=...`.\n\
-    Defaults to `compact` if not specified otherwise with the `config` command."
-)]
-#[usage("[username] [size=compact/medium/full]")]
-#[example("badewanne3", "peppy size=full", "size=compact \"freddie benson\"")]
-#[aliases("profile")]
-async fn osu(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match ProfileArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut profile_args)) => {
-                    profile_args.config.mode.get_or_insert(GameMode::STD);
-
-                    _profile(ctx, CommandData::Message { msg, args, num }, profile_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => slash_profile(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("Display statistics of a mania user")]
-#[long_desc(
-    "Display statistics of a mania user.\n\
-    You can choose between `compact`, `medium`, and `full` embed \
-    by specifying the argument `size=...`.\n\
-    Defaults to `compact` if not specified otherwise with the `config` command."
-)]
-#[usage("[username] [size=compact/medium/full]")]
-#[example("badewanne3", "peppy size=full", "size=compact \"freddie benson\"")]
-#[aliases("profilemania", "maniaprofile", "profilem")]
-async fn mania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match ProfileArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut profile_args)) => {
-                    profile_args.config.mode = Some(GameMode::MNA);
-
-                    _profile(ctx, CommandData::Message { msg, args, num }, profile_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => slash_profile(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("Display statistics of a taiko user")]
-#[long_desc(
-    "Display statistics of a taiko user.\n\
-    You can choose between `compact`, `medium`, and `full` embed \
-    by specifying the argument `size=...`.\n\
-    Defaults to `compact` if not specified otherwise with the `config` command."
-)]
-#[usage("[username] [size=compact/medium/full]")]
-#[example("badewanne3", "peppy size=full", "size=compact \"freddie benson\"")]
-#[aliases("profiletaiko", "taikoprofile", "profilet")]
-async fn taiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match ProfileArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut profile_args)) => {
-                    profile_args.config.mode = Some(GameMode::TKO);
-
-                    _profile(ctx, CommandData::Message { msg, args, num }, profile_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => slash_profile(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("Display statistics of a ctb user")]
-#[long_desc(
-    "Display statistics of a ctb user.\n\
-    You can choose between `compact`, `medium`, and `full` embed \
-    by specifying the argument `size=...`.\n\
-    Defaults to `compact` if not specified otherwise with the `config` command."
-)]
-#[usage("[username] [size=compact/medium/full]")]
-#[example("badewanne3", "peppy size=full", "size=compact \"freddie benson\"")]
-#[aliases("profilectb", "ctbprofile", "profilec")]
-async fn ctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match ProfileArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut profile_args)) => {
-                    profile_args.config.mode = Some(GameMode::CTB);
-
-                    _profile(ctx, CommandData::Message { msg, args, num }, profile_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => slash_profile(ctx, *command).await,
-    }
-}
-
-pub async fn slash_profile(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match ProfileArgs::slash(&ctx, &mut command).await? {
-        Ok(args) => _profile(ctx, command.into(), args).await,
-        Err(content) => command.error(&ctx, content).await,
-    }
-}
-
-pub fn define_profile() -> MyCommand {
-    let mode = option_mode();
-
-    let size_choices = vec![
-        CommandOptionChoice::String {
-            name: "compact".to_owned(),
-            value: "compact".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "medium".to_owned(),
-            value: "medium".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "full".to_owned(),
-            value: "full".to_owned(),
-        },
-    ];
-
-    let size_help = "Specify the initial size of the embed.\n\
-        If none is specified, it will pick the size as configured with the `/config` command.\n\
-        If none is configured, it defaults to `compact`.";
-
-    let size = MyCommandOption::builder("size", "Choose an embed size")
-        .help(size_help)
-        .string(size_choices, false);
-
-    let name = option_name();
-    let discord = option_discord();
-
-    MyCommand::new(PROFILE, "Display statistics of a user").options(vec![mode, name, size, discord])
 }

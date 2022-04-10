@@ -1,186 +1,135 @@
-mod counts;
-mod globals;
-mod list;
+use std::{borrow::Cow, sync::Arc};
 
-use std::sync::Arc;
-
+use command_macros::{HasName, SlashCommand};
+use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::application::{
     command::CommandOptionChoice,
     interaction::{application_command::CommandOptionValue, ApplicationCommand},
 };
 
-use crate::{
-    commands::{
-        osu::{option_country, option_discord, option_mode, option_mods_explicit, option_name},
-        DoubleResultCow, MyCommand, MyCommandOption,
-    },
-    custom_client::OsuStatsListParams,
-    util::{
-        constants::common_literals::{ACC, ACCURACY, COMBO, MISSES, RANK, REVERSE, SCORE, SORT},
-        MessageExt,
-    },
-    BotResult, Context, Error,
-};
+use crate::{custom_client::OsuStatsListParams, BotResult, Context};
 
 pub use self::{counts::*, globals::*, list::*};
 
-use super::{get_globals_count, require_link};
+mod counts;
+mod globals;
+mod list;
 
-enum OsustatsCommandKind {
-    Count(CountArgs),
-    Players(OsuStatsListParams),
-    Scores(ScoresArgs),
-}
-
-impl OsustatsCommandKind {
-    async fn slash(ctx: &Context, command: &mut ApplicationCommand) -> DoubleResultCow<Self> {
-        let option = command
-            .data
-            .options
-            .pop()
-            .ok_or(Error::InvalidCommandOptions)?;
-
-        match option.value {
-            CommandOptionValue::SubCommand(options) => match option.name.as_str() {
-                "count" => match CountArgs::slash(ctx, command, options).await? {
-                    Ok(args) => Ok(Ok(Self::Count(args))),
-                    Err(content) => Ok(Err(content)),
-                },
-                "players" => match OsuStatsListParams::slash(options)? {
-                    Ok(args) => Ok(Ok(Self::Players(args))),
-                    Err(content) => Ok(Err(content.into())),
-                },
-                "scores" => match ScoresArgs::slash(ctx, command, options).await? {
-                    Ok(args) => Ok(Ok(Self::Scores(args))),
-                    Err(content) => Ok(Err(content)),
-                },
-                _ => Err(Error::InvalidCommandOptions),
-            },
-            _ => Err(Error::InvalidCommandOptions),
-        }
-    }
-}
-
-pub async fn slash_osustats(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match OsustatsCommandKind::slash(&ctx, &mut command).await? {
-        Ok(OsustatsCommandKind::Count(args)) => _count(ctx, command.into(), args).await,
-        Ok(OsustatsCommandKind::Players(args)) => _players(ctx, command.into(), args).await,
-        Ok(OsustatsCommandKind::Scores(args)) => _scores(ctx, command.into(), args).await,
-        Err(content) => command.error(&ctx, content).await,
-    }
-}
-
-fn option_min_rank() -> MyCommandOption {
-    MyCommandOption::builder("min_rank", "Specify a min rank between 1 and 100")
-        .min_int(1)
-        .max_int(100)
-        .integer(Vec::new(), false)
-}
-
-fn option_max_rank() -> MyCommandOption {
-    MyCommandOption::builder("max_rank", "Specify a max rank between 1 and 100")
-        .min_int(1)
-        .max_int(100)
-        .integer(Vec::new(), false)
-}
-
-pub fn define_osustats() -> MyCommand {
-    let mode = option_mode();
-    let name = option_name();
-    let discord = option_discord();
-
-    let count_description =
-        "Count how often a user appears on top of map leaderboards (same as `/osc`)";
-
-    let count =
-        MyCommandOption::builder("count", count_description).subcommand(vec![mode, name, discord]);
-
-    let mode = option_mode();
-    let country = option_country();
-    let min_rank = option_min_rank();
-    let max_rank = option_max_rank();
-
-    let players_description = "National player leaderboard of global leaderboard counts";
-
-    let players = MyCommandOption::builder("players", players_description)
-        .help("List players of a country and how often they appear on global map leaderboards.")
-        .subcommand(vec![mode, country, min_rank, max_rank]);
-
-    let mode = option_mode();
-    let name = option_name();
-
-    let sort_choices = vec![
-        CommandOptionChoice::String {
-            name: ACCURACY.to_owned(),
-            value: ACC.to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: COMBO.to_owned(),
-            value: COMBO.to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: MISSES.to_owned(),
-            value: MISSES.to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "pp".to_owned(),
-            value: "pp".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: RANK.to_owned(),
-            value: RANK.to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: SCORE.to_owned(),
-            value: SCORE.to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "score date".to_owned(),
-            value: "date".to_owned(),
-        },
-    ];
-
-    let sort_help = "Choose how the scores should be ordered.\n\
-        If not specified, it orders them by score date.";
-
-    let sort = MyCommandOption::builder(SORT, "Choose how the scores should be ordered")
-        .help(sort_help)
-        .string(sort_choices, false);
-
-    let mods = option_mods_explicit();
-    let min_rank = option_min_rank();
-    let max_rank = option_max_rank();
-
-    let min_acc =
-        MyCommandOption::builder("min_acc", "Specify a min accuracy between 0.0 and 100.0")
-            .min_num(0.0)
-            .max_num(100.0)
-            .number(Vec::new(), false);
-
-    let max_acc =
-        MyCommandOption::builder("max_acc", "Specify a max accuracy between 0.0 and 100.0")
-            .min_num(0.0)
-            .max_num(100.0)
-            .number(Vec::new(), false);
-
-    let reverse =
-        MyCommandOption::builder(REVERSE, "Reverse the resulting score list").boolean(false);
-
-    let discord = option_discord();
-
-    let scores_description = "All scores of a player that are on a map's global leaderboard";
-
-    let scores = MyCommandOption::builder("scores", scores_description).subcommand(vec![
-        mode, name, sort, mods, min_rank, max_rank, min_acc, max_acc, reverse, discord,
-    ]);
-
-    let description = "Stats about players' appearances in maps' leaderboards";
-
-    let help = "Stats about scores that players have on maps' global leaderboards.\n\
+#[derive(CommandModel, CreateCommand)]
+#[command(
+    name = "osustats",
+    help = "Stats about scores that players have on maps' global leaderboards.\n\
         All data is provided by [osustats](https://osustats.ppy.sh/).\n\
-        Note that the data usually __updates once per day__.";
+        Note that the data usually __updates once per day__."
+)]
+/// Stats about player's appearances in maps' leaderboard
+pub enum OsuStats<'a> {
+    #[command(name = "count")]
+    Count(OsuStatsCount<'a>),
+    #[command(name = "players")]
+    Players(OsuStatsPlayers<'a>),
+    #[command(name = "scores")]
+    Scores(OsuStatsScores<'a>),
+}
 
-    MyCommand::new("osustats", description)
-        .help(help)
-        .options(vec![count, players, scores])
+#[derive(CommandModel, CreateCommand, HasName)]
+#[command(name = "count")]
+/// Count how often a user appears on top of map leaderboards (same as `/osc`)
+pub struct OsuStatsCount<'a> {
+    /// Specify a gamemode
+    mode: Option<GameModeOption>,
+    /// Specify a country (code)
+    country: Option<Cow<'a, str>>,
+    #[command(min_value = 1, max_value = 100)]
+    /// Specify a min rank between 1 and 100
+    min_rank: Option<u32>,
+    #[command(min_value = 1, max_value = 100)]
+    /// Specify a max rank between 1 and 100
+    max_rank: Option<u32>,
+}
+
+#[derive(CommandModel, CreateCommand, HasName)]
+#[command(name = "players")]
+/// All scores of a player that are on a map's global leaderboard
+pub struct OsuStatsPlayers<'a> {
+    /// Specify a gamemode
+    mode: Option<GameModeOption>,
+    /// Specify a username
+    name: Option<Cow<'a, str>>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
+}
+
+#[derive(CommandModel, CreateCommand, HasName)]
+#[command(name = "scores")]
+/// All scores of a player that are on a map's global leaderboard
+pub struct OsuStatsScores<'a> {
+    /// Specify a gamemode
+    mode: Option<GameModeOption>,
+    /// Specify a username
+    name: Option<Cow<'a, str>>,
+    /// Choose how the scores should be ordered
+    sort: Option<OsuStatsScoresOrder>,
+    #[command(help = "Filter out all scores that don't match the specified mods.\n\
+    Mods must be given as `+mods` for included mods, `+mods!` for exact mods, \
+    or `-mods!` for excluded mods.\n\
+    Examples:\n\
+    - `+hd`: Scores must have at least `HD` but can also have more other mods\n\
+    - `+hdhr!`: Scores must have exactly `HDHR`\n\
+    - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
+    - `-nm!`: Scores can not be nomod so there must be any other mod")]
+    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)
+    mods: Option<Cow<'a, str>>,
+    #[command(min_value = 1, max_value = 100)]
+    /// Specify a min rank between 1 and 100
+    min_rank: Option<u32>,
+    #[command(min_value = 1, max_value = 100)]
+    /// Specify a max rank between 1 and 100
+    max_rank: Option<u32>,
+    #[command(min_value = 0.0, max_value = 100.0)]
+    /// Specify a min accuracy
+    min_acc: Option<f32>,
+    #[command(min_value = 0.0, max_value = 100.0)]
+    /// Specify a max accuracy
+    max_acc: Option<f32>,
+    /// Reverse the resulting score list
+    reverse: Option<bool>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
+}
+
+#[derive(CreateOption, CommandOption)]
+pub enum OsuStatsScoresOrder {
+    #[option(name = "Accuracy", value = "acc")]
+    Acc,
+    #[option(name = "Combo", value = "combo")]
+    Combo,
+    #[option(name = "Date", value = "date")]
+    Date,
+    #[option(name = "Misses", value = "misses")]
+    Misses,
+    #[option(name = "PP", value = "pp")]
+    Pp,
+    #[option(name = "Rank", value = "rank")]
+    Rank,
+    #[option(name = "Score", value = "score")]
+    Score,
+}
+
+async fn slash_osustats(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    match OsuStats::from_interaction(command.input_data())? {
+        OsuStats::Count(args) => count(ctx, command.into(), args).await,
+        OsuStats::Players(args) => players(ctx, command.into(), args).await,
+        OsuStats::Scores(args) => scores(ctx, command.into(), args).await,
+    }
 }

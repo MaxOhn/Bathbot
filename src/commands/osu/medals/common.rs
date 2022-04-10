@@ -4,22 +4,17 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
+use command_macros::command;
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, User, Username};
 use twilight_model::{
-    application::interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
-    },
+    application::interaction::ApplicationCommand,
     id::{marker::UserMarker, Id},
 };
 
 use crate::{
-    commands::{
-        osu::{get_user, UserArgs},
-        parse_discord, DoubleResultCow,
-    },
+    commands::osu::{get_user, UserArgs},
     custom_client::{
         groups::{
             BEATMAP_CHALLENGE_PACKS, BEATMAP_PACKS, BEATMAP_SPOTLIGHTS, DEDICATION, HUSH_HUSH,
@@ -27,22 +22,55 @@ use crate::{
         },
         OsekaiGrouping, OsekaiMedal, Rarity,
     },
-    database::OsuData,
     embeds::{EmbedData, MedalsCommonEmbed, MedalsCommonUser},
     error::Error,
     pagination::{MedalsCommonPagination, Pagination},
     util::{
         constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
-        get_combined_thumbnail, matcher, InteractionExt, MessageBuilder, MessageExt,
+        get_combined_thumbnail, matcher,
     },
-    Args, BotResult, CommandData, Context,
+    BotResult, Context,
 };
 
-pub(super) async fn _common(
+use super::{MedalCommon, MedalCommonOrder};
+
+#[command]
+#[desc("Compare which of the given users achieved medals first")]
+#[usage("[username1] [username2]")]
+#[example("badewanne3 5joshi")]
+#[alias("medalcommon")]
+#[group(AllModes)]
+pub async fn prefix_medalscommon(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
-    args: CommonArgs,
+    msg: &Message,
+    mut args: Args<'_>,
 ) -> BotResult<()> {
+    let mut args_ = MedalCommon::default();
+
+    for arg in args.take(2) {
+        if let Some(id) = matcher::get_mention_user(arg) {
+            if args_.discord1.is_none() {
+                args_.discord1 = Some(id);
+            } else {
+                args_.discord2 = Some(id);
+            }
+        } else if args_.name1.is_none() {
+            args_.name1 = Some(arg.into());
+        } else {
+            args_.name2 = Some(arg.into());
+        }
+    }
+
+    common(ctx, msg.into(), args_).await
+}
+
+pub(super) async fn common(
+    ctx: Arc<Context>,
+    orig: CommandOrigin<'_>,
+    args: MedalCommon<'_>,
+) -> BotResult<()> {
+    // TODO: name extraction
+    // TODO: at least one
     let CommonArgs {
         name1,
         name2,
@@ -56,12 +84,12 @@ pub(super) async fn _common(
             let content =
                 "Since you're not linked with the `link` command, you must specify two names.";
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
     };
 
     if name1 == name2 {
-        return data.error(&ctx, "Give two different names").await;
+        return orig.error(&ctx, "Give two different names").await;
     }
 
     // Retrieve all users and their scores
@@ -75,12 +103,12 @@ pub(super) async fn _common(
     let (user1, user2, mut all_medals) = match tokio::join!(user_fut1, user_fut2, redis.medals()) {
         (Ok(user1), Ok(user2), Ok(medals)) => (user1, user2, medals.to_inner()),
         (Err(why), ..) | (_, Err(why), _) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
         (.., Err(err)) => {
-            let _ = data.error(&ctx, OSEKAI_ISSUE).await;
+            let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
             return Err(err.into());
         }
@@ -89,7 +117,7 @@ pub(super) async fn _common(
     if user1.user_id == user2.user_id {
         let content = "Give two different users";
 
-        return data.error(&ctx, content).await;
+        return orig.error(&ctx, content).await;
     }
 
     // Combining and sorting all medals
@@ -178,7 +206,7 @@ pub(super) async fn _common(
                         });
                     }
                     Err(err) => {
-                        let _ = data.error(&ctx, OSEKAI_ISSUE).await;
+                        let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
                         return Err(err.into());
                     }
@@ -228,7 +256,7 @@ pub(super) async fn _common(
         builder = builder.file("avatar_fuse.png", bytes);
     }
 
-    let response_raw = data.create_message(&ctx, builder).await?;
+    let response_raw = orig.create_message(&ctx, &builder).await?;
 
     if medals.len() <= 10 {
         return Ok(());
@@ -238,7 +266,7 @@ pub(super) async fn _common(
 
     // Pagination
     let pagination = MedalsCommonPagination::new(response, user1, user2, medals);
-    let owner = data.author()?.id;
+    let owner = orig.user_id()?;
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {
@@ -263,37 +291,6 @@ fn extract_medals(user: &User) -> HashMap<u32, DateTime<Utc>> {
             .collect(),
         None => HashMap::new(),
     }
-}
-
-#[command]
-#[short_desc("Compare which of the given users achieved medals first")]
-#[usage("[username1] [username2]")]
-#[example("badewanne3 5joshi")]
-#[aliases("medalcommon")]
-pub async fn medalscommon(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match CommonArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(common_args)) => {
-                    _common(ctx, CommandData::Message { msg, args, num }, common_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_medal(ctx, *command).await,
-    }
-}
-
-enum CommonOrder {
-    Alphabet,
-    DateFirst,
-    DateLast,
-    Rarity,
 }
 
 enum CommonFilter {

@@ -21,19 +21,19 @@ use crate::{
     pagination::{BadgePagination, Pagination},
     util::{
         constants::OSEKAI_ISSUE, get_combined_thumbnail, levenshtein_similarity, numbers, CowUtils,
-        InteractionExt, MessageBuilder, MessageExt,
     },
     BotResult,
 };
 
-use super::BadgeOrder;
+use super::{BadgesOrder, BadgesQuery};
 
-pub(super) async fn query_(
+pub(super) async fn query(
     ctx: Arc<Context>,
-    command: ApplicationCommand,
-    name: String,
-    sort_by: BadgeOrder,
+    command: Box<ApplicationCommand>,
+    args: BadgesQuery,
 ) -> BotResult<()> {
+    let BadgesQuery { name, sort } = args;
+
     let badges = match ctx.redis().badges().await {
         Ok(badges) => badges,
         Err(err) => {
@@ -112,17 +112,14 @@ pub(super) async fn query_(
 
     let pages = numbers::div_euclid(1, badges.len());
 
-    let embed = BadgeEmbed::new(&badges[0], &owners, (1, pages))
-        .into_builder()
-        .build();
-
-    let mut builder = MessageBuilder::new().embed(embed);
+    let embed = BadgeEmbed::new(&badges[0], &owners, (1, pages)).into_builder();
+    let mut builder = MessageBuilder::new().embed(embed.build());
 
     if let Some(bytes) = bytes {
         builder = builder.file("badge_owners.png", bytes);
     }
 
-    let response_raw = command.create_message(&ctx, builder).await?;
+    let response_raw = command.update(&ctx, &builder).await?;
 
     if badges.len() == 1 {
         return Ok(());
@@ -221,6 +218,7 @@ pub async fn handle_autocomplete(
         }
     }
 
+    // TODO
     respond_autocomplete(&ctx, &command, choices).await
 }
 

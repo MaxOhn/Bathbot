@@ -1,9 +1,11 @@
 use std::{cmp::Ordering, sync::Arc};
 
+use command_macros::{command, HasName, SlashCommand};
 use eyre::Report;
 use futures::stream::{FuturesUnordered, TryStreamExt};
 use rosu_pp::{Beatmap as Map, CatchPP, CatchStars, OsuPP, TaikoPP};
 use rosu_v2::prelude::{GameMode, OsuError, Score};
+use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
     application::{
         command::CommandOptionChoice,
@@ -28,33 +30,181 @@ use crate::{
     pagination::{NoChokePagination, Pagination},
     tracking::process_osu_tracking,
     util::{
-        constants::{
-            common_literals::{CTB, DISCORD, MODE, NAME, OSU, SPECIFY_MODE, TAIKO},
-            GENERAL_ISSUE, OSU_API_ISSUE,
-        },
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         numbers,
         osu::prepare_beatmap_file,
         ApplicationCommandExt, InteractionExt, MessageExt,
     },
-    Args, BotResult, CommandData, Context, Error, MessageBuilder,
+    BotResult, Context, Error,
 };
 
-use super::{option_discord, option_name};
+#[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
+#[command(
+    name = "nochoke",
+    help = "Remove all misses from top scores and make them full combos.\n\
+    Then after recalculating their pp, check how many total pp a user could have had."
+)]
+/// How the top plays would look like with only full combos
+pub struct Nochoke<'a> {
+    #[command(help = "Specify a gamemode. \
+        Since combo does not matter in mania, its scores can't be unchoked.")]
+    /// Specify a gamemode
+    mode: Option<NochokeGameMode>,
+    /// Specify a username
+    name: Option<Cow<'a, str>>,
+    #[command(min_value = 0)]
+    /// Only unchoke scores with at most this many misses
+    miss_limit: Option<u32>,
+    #[command(help = "Specify a version to unchoke scores.\n\
+        - `Unchoke`: Make the score a full combo and transfer all misses to different hitresults. (default)\n\
+        - `Perfect`: Make the score a full combo and transfer all misses to the best hitresults.")]
+    /// Specify a version to unchoke scores
+    version: Option<NochokeVersion>,
+    /// Filter out certain scores
+    filter: Option<NochokeFilter>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
+}
 
-async fn _nochokes(ctx: Arc<Context>, data: CommandData<'_>, args: NochokeArgs) -> BotResult<()> {
-    let NochokeArgs {
-        config,
+#[derive(CommandOption, CreateOption)]
+pub enum NochokeGameMode {
+    #[option(name = "osu", value = "osu")]
+    Osu,
+    #[option(name = "taiko", value = "taiko")]
+    Taiko,
+    #[option(name = "ctb", value = "ctb")]
+    Catch,
+}
+
+#[derive(CommandOption, CreateOption)]
+pub enum NochokeVersion {
+    #[option(name = "Unchoke", value = "unchoke")]
+    Unchoke,
+    #[option(name = "Perfect", value = "perfect")]
+    Perfect,
+}
+
+impl NochokeVersion {
+    async fn calculate(
+        self,
+        ctx: &Context,
+        scores: Vec<Score>,
+        miss_limit: Option<u32>,
+    ) -> BotResult<Vec<(usize, Score, Score)>> {
+        match self {
+            NochokeVersion::Perfect => perfect_scores(ctx, scores, miss_limit).await,
+            NochokeVersion::Unchoke => unchoke_scores(ctx, scores, miss_limit).await,
+        }
+    }
+}
+
+#[derive(CommandOption, CreateOption)]
+pub enum NochokeFilter {
+    #[option(name = "Only keep chokes", value = "only_chokes")]
+    OnlyChokes,
+    #[option(name = "Remove all chokes", value = "remove_chokes")]
+    RemoveChokes,
+}
+
+impl<'m> Nochoke<'m> {
+    fn args(mode: NochokeGameMode, mut args: Args<'_>) -> Self {
+        let mut name = None;
+        let mut discord = None;
+        let mut miss_limit = None;
+
+        for arg in args.take(2) {
+            if let Ok(num) = arg.parse() {
+                miss_limit = Some(num);
+            } else if let Some(id) = matcher::get_mention_user(arg) {
+                discord = Some(id);
+            } else {
+                name = Some(arg.into());
+            }
+        }
+
+        Self {
+            mode: Some(mode),
+            name,
+            miss_limit,
+            version: None,
+            filter: None,
+            discord,
+        }
+    }
+}
+
+#[command]
+#[desc("Unchoke a user's top100")]
+#[help(
+    "Display a user's top plays if no score in their top100 would be a choke.\n
+    If a number is specified, I will only unchoke scores with at most that many misses"
+)]
+#[usage("[username] [number for miss limit]")]
+#[examples("badewanne3", "vaxei 5")]
+#[aliases("nc", "nochoke")]
+#[group(Osu)]
+async fn prefix_nochokes(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    let args = Nochoke::args(NochokeGameMode::Osu, args);
+
+    nochoke(ctx, msg.into(), args).await
+}
+
+#[command]
+#[desc("Unchoke a user's taiko top100")]
+#[help(
+    "Display a user's top plays if no score in their top100 would be a choke.\n\
+    If a number is specified, I will only unchoke scores with at most that many misses.\n\
+    Note: As for all commands, numbers for scores on converted maps are wack and \
+    are ignored when unchoking."
+)]
+#[usage("[username] [number for miss limit]")]
+#[examples("badewanne3", "vaxei 5")]
+#[alias("nct", "nochoketaiko")]
+#[group(Taiko)]
+async fn prefix_nochokestaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    let args = Nochoke::args(NochokeGameMode::Taiko, args);
+
+    nochoke(ctx, msg.into(), args).await
+}
+
+#[command]
+#[desc("Unchoke a user's ctb top100")]
+#[help(
+    "Display a user's top plays if no score in their top100 would be a choke.\n\
+    If a number is specified, I will only unchoke scores with at most that many misses.\n\
+    Note: As for all commands, numbers for scores on converted maps are wack and \
+    are ignored when unchoking."
+)]
+#[usage("[username] [number for miss limit]")]
+#[examples("badewanne3", "vaxei 5")]
+#[alias("ncc", "nochokectb")]
+#[group(Catch)]
+async fn prefix_nochokesctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    let args = Nochoke::args(NochokeGameMode::Catch, args);
+
+    nochoke(ctx, msg.into(), args).await
+}
+
+async fn slash_nochoke(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    let args = Nochoke::from_interaction(command.input_data())?;
+
+    nochoke(ctx, command.into(), args).await
+}
+
+async fn nochokes(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) -> BotResult<()> {
+    let (name, mode) = name_mode!(ctx, orig, args);
+
+    let Nochoke {
         miss_limit,
         version,
         filter,
+        ..
     } = args;
-
-    let mode = config.mode.unwrap_or(GameMode::STD);
-
-    let name = match config.into_username() {
-        Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
-    };
 
     // Retrieve the user and their top scores
     let user_args = UserArgs::new(name.as_str(), mode);
@@ -65,10 +215,10 @@ async fn _nochokes(ctx: Arc<Context>, data: CommandData<'_>, args: NochokeArgs) 
         Err(OsuError::NotFound) => {
             let content = format!("User `{name}` was not found");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         Err(err) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(err.into());
         }
@@ -83,7 +233,7 @@ async fn _nochokes(ctx: Arc<Context>, data: CommandData<'_>, args: NochokeArgs) 
     let mut scores_data = match version.calculate(&ctx, scores, miss_limit).await {
         Ok(scores_data) => scores_data,
         Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(why);
         }
@@ -135,7 +285,7 @@ async fn _nochokes(ctx: Arc<Context>, data: CommandData<'_>, args: NochokeArgs) 
 
     // Accumulate all necessary data
     let pages = numbers::div_euclid(5, scores_data.len());
-    let embed_data_fut = NoChokeEmbed::new(
+    let embed_fut = NoChokeEmbed::new(
         &user,
         scores_data.iter().take(5),
         unchoked_pp,
@@ -143,7 +293,7 @@ async fn _nochokes(ctx: Arc<Context>, data: CommandData<'_>, args: NochokeArgs) 
         &ctx,
         (1, pages),
     );
-    let embed = embed_data_fut.await.into_builder().build();
+    let embed = embed_fut.await.into_builder().build();
 
     let mut content = format!(
         "{version} top {mode}scores for `{name}`",
@@ -169,7 +319,7 @@ async fn _nochokes(ctx: Arc<Context>, data: CommandData<'_>, args: NochokeArgs) 
 
     // Creating the embed
     let builder = MessageBuilder::new().content(content).embed(embed);
-    let response_raw = data.create_message(&ctx, builder).await?;
+    let response_raw = orig.create_message(&ctx, builder).await?;
 
     // Skip pagination if too few entries
     if scores_data.len() <= 5 {
@@ -187,7 +337,7 @@ async fn _nochokes(ctx: Arc<Context>, data: CommandData<'_>, args: NochokeArgs) 
         rank,
         Arc::clone(&ctx),
     );
-    let owner = data.author()?.id;
+    let owner = orig.user_id()?;
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 90).await {
@@ -228,8 +378,8 @@ async fn unchoke_scores(
             GameMode::STD
                 if score.statistics.count_miss > 0
                     || score.max_combo
-                // Allowing one missed sliderend per 500 combo
-                < (max_combo - (max_combo / 500).max(5)) as u32 =>
+                        // Allowing one missed sliderend per 500 combo
+                        < (max_combo - (max_combo / 500).max(5)) as u32 =>
             {
                 let total_objects = map.count_objects() as usize;
 
@@ -429,303 +579,4 @@ async fn perfect_scores(
         .collect::<FuturesUnordered<_>>()
         .try_collect()
         .await
-}
-
-#[command]
-#[short_desc("Unchoke a user's top100")]
-#[long_desc(
-    "Display a user's top plays if no score in their top100 would be a choke.\n
-    If a number is specified, I will only unchoke scores with at most that many misses"
-)]
-#[usage("[username] [number for miss limit]")]
-#[example("badewanne3", "vaxei 5")]
-#[aliases("nc", "nochoke")]
-async fn nochokes(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match NochokeArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut nochoke_args)) => {
-                    nochoke_args.config.mode.get_or_insert(GameMode::STD);
-
-                    _nochokes(ctx, CommandData::Message { msg, args, num }, nochoke_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("Unchoke a user's taiko top100")]
-#[long_desc(
-    "Display a user's top plays if no score in their top100 would be a choke.\n\
-    If a number is specified, I will only unchoke scores with at most that many misses.\n\
-    Note: As for all commands, numbers for scores on converted maps are wack and \
-    are ignored when unchoking."
-)]
-#[usage("[username] [number for miss limit]")]
-#[example("badewanne3", "vaxei 5")]
-#[aliases("nct", "nochoketaiko")]
-async fn nochokestaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match NochokeArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut nochoke_args)) => {
-                    nochoke_args.config.mode = Some(GameMode::TKO);
-
-                    _nochokes(ctx, CommandData::Message { msg, args, num }, nochoke_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("Unchoke a user's ctb top100")]
-#[long_desc(
-    "Display a user's top plays if no score in their top100 would be a choke.\n\
-    If a number is specified, I will only unchoke scores with at most that many misses.\n\
-    Note: As for all commands, numbers for scores on converted maps are wack and \
-    are ignored when unchoking."
-)]
-#[usage("[username] [number for miss limit]")]
-#[example("badewanne3", "vaxei 5")]
-#[aliases("ncc", "nochokectb")]
-async fn nochokesctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match NochokeArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut nochoke_args)) => {
-                    nochoke_args.config.mode = Some(GameMode::CTB);
-
-                    _nochokes(ctx, CommandData::Message { msg, args, num }, nochoke_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_top(ctx, *command).await,
-    }
-}
-
-#[derive(Copy, Clone)]
-enum NochokeFilter {
-    OnlyChokes,
-    RemoveChokes,
-}
-
-#[derive(Copy, Clone)]
-pub enum NochokeVersion {
-    Perfect,
-    Unchoke,
-}
-
-impl NochokeVersion {
-    async fn calculate(
-        self,
-        ctx: &Context,
-        scores: Vec<Score>,
-        miss_limit: Option<u32>,
-    ) -> BotResult<Vec<(usize, Score, Score)>> {
-        match self {
-            NochokeVersion::Perfect => perfect_scores(ctx, scores, miss_limit).await,
-            NochokeVersion::Unchoke => unchoke_scores(ctx, scores, miss_limit).await,
-        }
-    }
-}
-
-pub async fn slash_nochoke(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    let options = command.yoink_options();
-
-    match NochokeArgs::slash(&ctx, &command, options).await? {
-        Ok(args) => _nochokes(ctx, command.into(), args).await,
-        Err(content) => command.error(&ctx, content).await,
-    }
-}
-
-struct NochokeArgs {
-    config: UserConfig,
-    miss_limit: Option<u32>,
-    version: NochokeVersion,
-    filter: Option<NochokeFilter>,
-}
-
-impl NochokeArgs {
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: Id<UserMarker>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(author_id).await?;
-
-        if let Some(arg) = args.next() {
-            match check_user_mention(ctx, arg).await? {
-                Ok(osu) => config.osu = Some(osu),
-                Err(content) => return Ok(Err(content)),
-            }
-        }
-
-        let miss_limit = match args.next().map(str::parse) {
-            Some(Ok(num)) => Some(num),
-            Some(Err(_)) => {
-                let content = "Failed to parse second argument as miss limit.\n\
-                    Be sure you specify it as a positive integer.";
-
-                return Ok(Err(content.into()));
-            }
-            None => None,
-        };
-
-        Ok(Ok(Self {
-            config,
-            miss_limit,
-            version: NochokeVersion::Unchoke,
-            filter: None,
-        }))
-    }
-
-    async fn slash(
-        ctx: &Context,
-        command: &ApplicationCommand,
-        options: Vec<CommandDataOption>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(command.user_id()?).await?;
-        let mut miss_limit = None;
-        let mut version = None;
-        let mut filter = None;
-
-        for option in options {
-            match option.value {
-                CommandOptionValue::String(value) => match option.name.as_str() {
-                    NAME => config.osu = Some(value.into()),
-                    MODE => config.mode = parse_mode_option(&value),
-                    "version" => match value.as_str() {
-                        "perfect" => version = Some(NochokeVersion::Perfect),
-                        "unchoke" => version = Some(NochokeVersion::Unchoke),
-                        _ => return Err(Error::InvalidCommandOptions),
-                    },
-                    "filter" => match value.as_str() {
-                        "only_chokes" => filter = Some(NochokeFilter::OnlyChokes),
-                        "remove_chokes" => filter = Some(NochokeFilter::RemoveChokes),
-                        _ => return Err(Error::InvalidCommandOptions),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::Integer(value) => {
-                    let number = (option.name == "miss_limit")
-                        .then(|| value)
-                        .ok_or(Error::InvalidCommandOptions)?;
-
-                    miss_limit = Some(number.max(0) as u32);
-                }
-                CommandOptionValue::User(value) => match option.name.as_str() {
-                    DISCORD => match parse_discord(ctx, value).await? {
-                        Ok(osu) => config.osu = Some(osu),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            }
-        }
-
-        Ok(Ok(Self {
-            config,
-            miss_limit,
-            version: version.unwrap_or(NochokeVersion::Unchoke),
-            filter,
-        }))
-    }
-}
-
-pub fn define_nochoke() -> MyCommand {
-    let mode_choices = vec![
-        CommandOptionChoice::String {
-            name: OSU.to_owned(),
-            value: OSU.to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: TAIKO.to_owned(),
-            value: TAIKO.to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: CTB.to_owned(),
-            value: CTB.to_owned(),
-        },
-    ];
-
-    let mode_help = "Specify a gamemode. \
-        Since combo does not matter in mania, its scores can't be unchoked.";
-
-    let mode = MyCommandOption::builder(MODE, SPECIFY_MODE)
-        .help(mode_help)
-        .string(mode_choices, false);
-
-    let name = option_name();
-    let discord = option_discord();
-
-    let miss_limit_description = "Only unchoke scores with at most this many misses";
-
-    let miss_limit = MyCommandOption::builder("miss_limit", miss_limit_description)
-        .min_int(0)
-        .integer(Vec::new(), false);
-
-    let version_choices = vec![
-        CommandOptionChoice::String {
-            name: "Unchoke".to_owned(),
-            value: "unchoke".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Perfect".to_owned(),
-            value: "perfect".to_owned(),
-        },
-    ];
-
-    let version_help = "Specify a version to unchoke scores.\n\
-        - `Unchoke`: Make the score a full combo and transfer all misses to different hitresults. (default)\n\
-        - `Perfect`: Make the score a full combo and transfer all misses to the best hitresults.";
-
-    let version = MyCommandOption::builder("version", "Specify a version to unchoke scores")
-        .help(version_help)
-        .string(version_choices, false);
-
-    let filter_choices = vec![
-        CommandOptionChoice::String {
-            name: "Only keep chokes".to_owned(),
-            value: "only_chokes".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "Remove all chokes".to_owned(),
-            value: "remove_chokes".to_owned(),
-        },
-    ];
-
-    let filter = MyCommandOption::builder("filter", "Filter out certain scores")
-        .string(filter_choices, false);
-
-    let nochoke_description = "How the top plays would look like with only full combos";
-
-    let nochoke_help = "Remove all misses from top scores and make them full combos.\n\
-        Then after recalculating their pp, check how many total pp a user could have had.";
-
-    MyCommand::new("nochoke", nochoke_description)
-        .help(nochoke_help)
-        .options(vec![mode, name, miss_limit, version, filter, discord])
 }

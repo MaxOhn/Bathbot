@@ -1,5 +1,6 @@
 use std::{fmt::Write, sync::Arc};
 
+use command_macros::{HasName, SlashCommand};
 use eyre::Report;
 use rosu_v2::prelude::{
     GameMode, GameMods, OsuError,
@@ -7,18 +8,16 @@ use rosu_v2::prelude::{
     Score, User,
 };
 use tokio::time::{sleep, Duration};
+use twilight_interactions::command::{CommandOption, CreateCommand};
 use twilight_model::application::{
-    command::CommandOptionChoice,
     interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
         ApplicationCommand,
     },
 };
 
 use crate::{
     commands::{
-        osu::UserArgs, parse_discord, parse_mode_option, DoubleResultCow, MyCommand,
-        MyCommandOption,
+        osu::UserArgs,
     },
     database::{EmbedsSize, MinimizedPp, UserConfig},
     embeds::{EmbedData, PinnedEmbed, TopSingleEmbed},
@@ -26,31 +25,79 @@ use crate::{
     pagination::{Pagination, PinnedPagination},
     util::{
         constants::{
-            common_literals::{ACC, ACCURACY, COMBO, DISCORD, MODE, MODS, NAME, SORT},
             OSU_API_ISSUE,
         },
         matcher, numbers,
-        osu::{ModSelection, ScoreOrder},
-        ApplicationCommandExt, FilterCriteria, InteractionExt, MessageExt, Searchable,
+        osu::{ModSelection},
+
     },
-    BotResult, CommandData, Context, MessageBuilder,
+    BotResult,  Context,
 };
 
 use super::{
-     option_discord, option_mode, option_mods_explicit, option_name, option_query,
     prepare_scores,
 };
 
-async fn _pinned(ctx: Arc<Context>, data: CommandData<'_>, args: PinnedArgs) -> BotResult<()> {
-    let mode = args.config.mode.unwrap_or(GameMode::STD);
 
-    let name = match args.config.username() {
-        Some(name) => name.as_str(),
-        None => return super::require_link(&ctx, &data).await,
+#[derive(CommandMode, CreateCommand, HasName, SlashCommand)]
+#[¢ommand(name = "pinned")]
+/// Display the user's pinned scores
+pub struct Pinned {
+    /// Specify a gamemode
+    mode: Option<GameModeOption>,
+    /// Specify a username
+    name: Option<String>,
+    /// Choose how the scores should be ordered
+    sort: Option<ScoreOrder>,
+    #[command(help = "Filter out scores similarly as you filter maps in osu! itself.\n\
+        You can specify the artist, creator, difficulty, title, or limit values such as \
+    ar, cs, hp, od, bpm, length, or stars like for example `fdfd ar>10 od>=9`.\n\
+    While ar & co will be adjusted to mods, stars will not.")]
+    /// Specify a search query containing artist, difficulty, AR, BPM, ...
+    query: Option<String>,
+    #[command(help = "Filter out all scores that don't match the specified mods.\n\
+        Mods must be given as `+mods` for included mods, `+mods!` for exact mods, \
+    or `-mods!` for excluded mods.\n\
+    Examples:\n\
+    - `+hd`: Scores must have at least `HD` but can also have more other mods\n\
+    - `+hdhr!`: Scores must have exactly `HDHR`\n\
+    - `-ezhd!`: Scores must have neither `EZ` nor `HD` e.g. `HDDT` would get filtered out\n\
+    - `-nm!`: Scores can not be nomod so there must be any other mod")]
+    /// Specify mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)
+    mods: Option<String>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+        /// Specify a linked discord user
+        discord: Option<Id<UserMarker>>,
+}
+
+async fn slash_pinned(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    let args = Pinned::from_interaction(command.input_data())?;
+
+    pinned(ctx, command.into(), args).await
+}
+
+async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> BotResult<()> {
+    let mods = match args.mods.map(|mods| matcher::get_mods(&mods)) {
+        Some(Some(mods)) => Some(mods),
+        Some(None) => {
+            let content = "Failed to parse mods.\n\
+                If you want included mods, specify it e.g. as `+hrdt`.\n\
+                If you want exact mods, specify it e.g. as `+hdhr!`.\n\
+                And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
+
+            return orig.error(&ctx, content).await;
+        }
+        None => None,
     };
 
+    let (name, mode) = name_mode!(ctx, orig, args);
+
     // Retrieve the user and their top scores
-    let mut user_args = UserArgs::new(name, mode);
+    let mut user_args = UserArgs::new(&name, mode);
 
     let result = if let Some(alt_name) = user_args.whitespaced_name() {
         match ctx.redis().osu_user(&user_args).await {
@@ -100,10 +147,10 @@ async fn _pinned(ctx: Arc<Context>, data: CommandData<'_>, args: PinnedArgs) -> 
         Err(OsuError::NotFound) => {
             let content = format!("User `{name}` was not found");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         Err(why) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -116,24 +163,24 @@ async fn _pinned(ctx: Arc<Context>, data: CommandData<'_>, args: PinnedArgs) -> 
     filter_scores(&ctx, &mut scores, &args).await;
 
     if let [score] = &scores[..] {
-        let embeds_size = match (args.config.embeds_size, data.guild_id()) {
+        let embeds_size = match (args.config.embeds_size, orig.guild_id()) {
             (Some(size), _) => size,
             (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
             (None, None) => EmbedsSize::default(),
         };
 
-        let minimized_pp = match (args.config.minimized_pp, data.guild_id()) {
+        let minimized_pp = match (args.config.minimized_pp, orig.guild_id()) {
             (Some(pp), _) => pp,
             (None, Some(guild)) => ctx.guild_minimized_pp(guild).await,
             (None, None) => MinimizedPp::default(),
         };
 
         let content = write_content(name, &args, 1);
-        single_embed(ctx, data, user, score, embeds_size, minimized_pp, content).await?;
+        single_embed(ctx, orig, user, score, embeds_size, minimized_pp, content).await?;
     } else {
         let content = write_content(name, &args, scores.len());
         let sort_by = args.sort_by.unwrap_or(ScoreOrder::Pp); // TopOrder::Pp does not show anything
-        paginated_embed(ctx, data, user, scores, sort_by, content).await?;
+        paginated_embed(ctx, orig, user, scores, sort_by, content).await?;
     }
 
     Ok(())
@@ -170,7 +217,7 @@ async fn filter_scores(ctx: &Context, scores: &mut Vec<Score>, args: &PinnedArgs
 
 async fn single_embed(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
+    orig: CommandOrigin<'_>,
     user: User,
     score: &Score,
     embeds_size: EmbedsSize,
@@ -228,7 +275,7 @@ async fn single_embed(
                 builder = builder.content(content);
             }
 
-            data.create_message(&ctx, builder).await?;
+            orig.create_message(&ctx, &builder).await?;
         }
         EmbedsSize::InitialMaximized => {
             let mut builder = MessageBuilder::new().embed(embed_data.as_builder().build());
@@ -237,7 +284,7 @@ async fn single_embed(
                 builder = builder.content(content);
             }
 
-            let response = data.create_message(&ctx, builder).await?.model().await?;
+            let response = orig.create_message(&ctx, &builder).await?.model().await?;
             ctx.store_msg(response.id);
 
             // Minimize embed after delay
@@ -263,7 +310,7 @@ async fn single_embed(
                 builder = builder.content(content);
             }
 
-            data.create_message(&ctx, builder).await?;
+            orig.create_message(&ctx, &builder).await?;
         }
     }
 
@@ -272,7 +319,7 @@ async fn single_embed(
 
 async fn paginated_embed(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
+    orig: CommandOrigin<'_>,
     user: User,
     scores: Vec<Score>,
     sort_by: ScoreOrder,
@@ -290,7 +337,7 @@ async fn paginated_embed(
         builder = builder.content(content);
     }
 
-    let response_raw = data.create_message(&ctx, builder).await?;
+    let response_raw = orig.create_message(&ctx, &builder).await?;
 
     // Skip pagination if too few entries
     if scores.len() <= 5 {
@@ -301,7 +348,7 @@ async fn paginated_embed(
 
     // Pagination
     let pagination = PinnedPagination::new(response, user, scores, sort_by, Arc::clone(&ctx));
-    let owner = data.author()?.id;
+    let owner = orig.user_id()?;
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {
@@ -312,89 +359,11 @@ async fn paginated_embed(
     Ok(())
 }
 
-pub async fn slash_pinned(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    let options = command.yoink_options();
 
-    match PinnedArgs::slash(&ctx, &command, options).await? {
-        Ok(args) => _pinned(ctx, command.into(), args).await,
-        Err(content) => command.error(&ctx, content).await,
-    }
-}
-
-struct PinnedArgs {
-    config: UserConfig,
-    pub sort_by: Option<ScoreOrder>,
-    query: Option<String>,
-    mods: Option<ModSelection>,
-}
-
-impl PinnedArgs {
-    const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
-        If you want included mods, specify it e.g. as `+hrdt`.\n\
-        If you want exact mods, specify it e.g. as `+hdhr!`.\n\
-        And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
-
-    async fn slash(
-        ctx: &Context,
-        command: &ApplicationCommand,
-        options: Vec<CommandDataOption>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(command.user_id()?).await?;
-        let mut sort_by = None;
-        let mut query = None;
-        let mut mods = None;
-
-        for option in options {
-            match option.value {
-                CommandOptionValue::String(value) => match option.name.as_str() {
-                    NAME => config.osu = Some(value.into()),
-                    MODE => config.mode = parse_mode_option(&value),
-                    SORT => match value.as_str() {
-                        ACC => sort_by = Some(ScoreOrder::Acc),
-                        "bpm" => sort_by = Some(ScoreOrder::Bpm),
-                        COMBO => sort_by = Some(ScoreOrder::Combo),
-                        "date" => sort_by = Some(ScoreOrder::Date),
-                        "len" => sort_by = Some(ScoreOrder::Length),
-                        "miss" => sort_by = Some(ScoreOrder::Misses),
-                        "pp" => sort_by = Some(ScoreOrder::Pp),
-                        "ranked_date" => sort_by = Some(ScoreOrder::RankedDate),
-                        "score" => sort_by = Some(ScoreOrder::Score),
-                        "stars" => sort_by = Some(ScoreOrder::Stars),
-                        _ => return Err(Error::InvalidCommandOptions),
-                    },
-                    "query" => query = Some(value),
-                    MODS => match matcher::get_mods(&value) {
-                        Some(mods_) => mods = Some(mods_),
-                        None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::User(value) => match option.name.as_str() {
-                    DISCORD => match parse_discord(ctx, value).await? {
-                        Ok(osu) => config.osu = Some(osu),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            }
-        }
-
-        let args = Self {
-            config,
-            sort_by,
-            query,
-            mods,
-        };
-
-        Ok(Ok(args))
-    }
-}
-
-fn write_content(name: &str, args: &PinnedArgs, amount: usize) -> Option<String> {
+fn write_content(name: &str, args: &Pinned, amount: usize) -> Option<String> {
     if args.query.is_some() || args.mods.is_some() {
         Some(content_with_condition(args, amount))
-    } else if let Some(sort_by) = args.sort_by {
+    } else if let Some(sort_by) = args.sort {
         let genitive = if name.ends_with('s') { "" } else { "s" };
 
         let content = match sort_by {
@@ -424,10 +393,10 @@ fn write_content(name: &str, args: &PinnedArgs, amount: usize) -> Option<String>
     }
 }
 
-fn content_with_condition(args: &PinnedArgs, amount: usize) -> String {
+fn content_with_condition(args: &Pinned, amount: usize) -> String {
     let mut content = String::with_capacity(64);
 
-    match args.sort_by {
+    match args.sort {
         Some(ScoreOrder::Acc) => content.push_str("`Order: Accuracy`"),
         Some(ScoreOrder::Bpm) => content.push_str("`Order: BPM`"),
         Some(ScoreOrder::Combo) => content.push_str("`Order: Combo`"),
@@ -441,6 +410,7 @@ fn content_with_condition(args: &PinnedArgs, amount: usize) -> String {
         None => {}
     }
 
+    // TODO
     if let Some(selection) = args.mods {
         if !content.is_empty() {
             content.push_str(" ~ ");
@@ -467,63 +437,4 @@ fn content_with_condition(args: &PinnedArgs, amount: usize) -> String {
     let _ = write!(content, "\nFound {amount} matching pinned score{plural}:");
 
     content
-}
-
-pub fn define_pinned() -> MyCommand {
-    let mode = option_mode();
-    let name = option_name();
-
-    let sort_choices = vec![
-        CommandOptionChoice::String {
-            name: ACCURACY.to_owned(),
-            value: ACC.to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "bpm".to_owned(),
-            value: "bpm".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: COMBO.to_owned(),
-            value: COMBO.to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "date".to_owned(),
-            value: "date".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "length".to_owned(),
-            value: "len".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "map ranked date".to_owned(),
-            value: "ranked_date".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "misses".to_owned(),
-            value: "miss".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "pp".to_owned(),
-            value: "pp".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "score".to_owned(),
-            value: "score".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "stars".to_owned(),
-            value: "stars".to_owned(),
-        },
-    ];
-
-    let sort = MyCommandOption::builder(SORT, "Choose how the scores should be ordered")
-        .string(sort_choices, false);
-
-    let discord = option_discord();
-    let query = option_query();
-
-    let mods = option_mods_explicit();
-
-    MyCommand::new("pinned", "Display the user's pinned scores")
-        .options(vec![mode, name, sort, query, mods, discord])
 }

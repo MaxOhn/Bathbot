@@ -1,53 +1,39 @@
 use std::sync::Arc;
 
+use command_macros::command;
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_model::{
-    application::interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
-    },
+    application::interaction::ApplicationCommand,
     id::{marker::UserMarker, Id},
 };
 
 use crate::{
-    commands::{
-        check_user_mention,
-        osu::{get_user, UserArgs},
-        parse_discord, parse_mode_option, DoubleResultCow,
-    },
+    commands::osu::{get_user, UserArgs},
     database::UserConfig,
     embeds::{EmbedData, RankRankedScoreEmbed},
     util::{
-        constants::{
-            common_literals::{DISCORD, MODE, NAME, RANK},
-            GENERAL_ISSUE, OSU_API_ISSUE,
-        },
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         InteractionExt, MessageExt,
     },
-    Args, BotResult, CommandData, Context, Error,
+    BotResult, Context, Error,
 };
 
-pub(super) async fn _rankscore(
+pub(super) async fn score(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
-    args: RankScoreArgs,
+    orig: CommandOrigin<'_>,
+    args: RankScore<'_>,
 ) -> BotResult<()> {
-    let RankScoreArgs { config, rank } = args;
-    let mode = config.mode.unwrap_or(GameMode::STD);
-
-    let name = match config.into_username() {
-        Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
-    };
+    let (name, mode) = name_mode!(ctx, orig, args);
+    let rank = args.rank;
 
     if rank == 0 {
         let content = "Rank number must be between 1 and 10,000";
 
-        return data.error(&ctx, content).await;
+        return orig.error(&ctx, content).await;
     } else if rank > 10_000 {
         let content = "Unfortunately I can only provide data for ranks up to 10,000 :(";
 
-        return data.error(&ctx, content).await;
+        return orig.error(&ctx, content).await;
     }
 
     // Retrieve the user and the user thats holding the given rank
@@ -66,12 +52,12 @@ pub(super) async fn _rankscore(
         Err(OsuError::NotFound) => {
             let content = format!("User `{name}` was not found");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
-        Err(why) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+        Err(err) => {
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 
@@ -83,21 +69,23 @@ pub(super) async fn _rankscore(
 
     // Creating the embed
     let embed = embed_data.into_builder().build();
-    data.create_message(&ctx, embed.into()).await?;
+    let builder = MessageBuilder::new().embed(embed);
+    orig.create_message(&ctx, &builder).await?;
 
     Ok(())
 }
 
 #[command]
-#[short_desc("How much ranked score is a player missing to reach the given rank?")]
-#[long_desc(
+#[desc("How much ranked score is a player missing to reach the given rank?")]
+#[help(
     "How much score is a player missing to reach the given rank in the ranked score leaderboard?\n\
     The number for the rank must be between 1 and 10,000."
 )]
 #[usage("[username] [number]")]
 #[example("badewanne3 123")]
-#[aliases("rrs")]
-pub async fn rankrankedscore(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+#[alias("rrs")]
+#[group(Osu)]
+async fn prefix_rankrankedscore(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
             match RankScoreArgs::args(&ctx, &mut args, msg.author.id).await {
@@ -119,15 +107,20 @@ pub async fn rankrankedscore(ctx: Arc<Context>, data: CommandData) -> BotResult<
 }
 
 #[command]
-#[short_desc("How much ranked score is a player missing to reach the given rank?")]
-#[long_desc(
+#[desc("How much ranked score is a player missing to reach the given rank?")]
+#[help(
     "How much score is a player missing to reach the given rank in the ranked score leaderboard?\n\
     The number for the rank must be between 1 and 10,000."
 )]
 #[usage("[username] [number]")]
 #[example("badewanne3 123")]
-#[aliases("rrsm")]
-pub async fn rankrankedscoremania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+#[alias("rrsm")]
+#[group(Mania)]
+async fn prefix_rankrankedscoremania(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
             match RankScoreArgs::args(&ctx, &mut args, msg.author.id).await {
@@ -149,15 +142,20 @@ pub async fn rankrankedscoremania(ctx: Arc<Context>, data: CommandData) -> BotRe
 }
 
 #[command]
-#[short_desc("How much ranked score is a player missing to reach the given rank?")]
-#[long_desc(
+#[desc("How much ranked score is a player missing to reach the given rank?")]
+#[help(
     "How much score is a player missing to reach the given rank in the ranked score leaderboard?\n\
     The number for the rank must be between 1 and 10,000."
 )]
 #[usage("[username] [number]")]
 #[example("badewanne3 123")]
-#[aliases("rrst")]
-pub async fn rankrankedscoretaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+#[alias("rrst")]
+#[group(Taiko)]
+async fn prefix_rankrankedscoretaiko(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
             match RankScoreArgs::args(&ctx, &mut args, msg.author.id).await {
@@ -179,15 +177,20 @@ pub async fn rankrankedscoretaiko(ctx: Arc<Context>, data: CommandData) -> BotRe
 }
 
 #[command]
-#[short_desc("How much ranked score is a player missing to reach the given rank?")]
-#[long_desc(
+#[desc("How much ranked score is a player missing to reach the given rank?")]
+#[help(
     "How much score is a player missing to reach the given rank in the ranked score leaderboard?\n\
     The number for the rank must be between 1 and 10,000."
 )]
 #[usage("[username] [number]")]
 #[example("badewanne3 123")]
-#[aliases("rrsc")]
-pub async fn rankrankedscorectb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+#[alias("rrsc")]
+#[group(Catch)]
+async fn prefix_rankrankedscorectb(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+) -> BotResult<()> {
     match data {
         CommandData::Message { msg, mut args, num } => {
             match RankScoreArgs::args(&ctx, &mut args, msg.author.id).await {

@@ -1,35 +1,20 @@
-mod country_snipe_list;
-mod country_snipe_stats;
-mod player_snipe_list;
-pub mod player_snipe_stats;
-pub mod sniped;
-mod sniped_difference;
 
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
-use rosu_v2::prelude::Username;
+use command_macros::{SlashCommand, HasName};
+use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::application::{
-    command::CommandOptionChoice,
     interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
         ApplicationCommand,
     },
 };
 
 use crate::{
-    commands::{
-        osu::{option_discord, option_mods, option_name},
-        parse_discord, DoubleResultCow, MyCommand, MyCommandOption,
-    },
     custom_client::SnipeScoreOrder,
-    database::OsuData,
     util::{
-        constants::common_literals::{
-            ACC, ACCURACY, COUNTRY, DISCORD, MISSES, MODS, MODS_PARSE_FAIL, NAME, REVERSE, SORT,
-        },
         matcher,
         osu::ModSelection,
-        ApplicationCommandExt, CountryCode, InteractionExt, MessageExt,
+        CountryCode,
     },
     BotResult, Context, Error,
 };
@@ -41,34 +26,15 @@ pub use self::{
 
 use super::{prepare_score, require_link};
 
-enum SnipeCommandKind {
-    CountryList(CountryListArgs),
-    CountryStats(Option<CountryCode>),
-    PlayerList(PlayerListArgs),
-    PlayerStats(Option<Username>),
-    Sniped(Option<Username>),
-    SnipeGain(Option<Username>),
-    SnipeLoss(Option<Username>),
-}
+mod country_snipe_list;
+mod country_snipe_stats;
+mod player_snipe_list;
+mod sniped_difference;
+
+pub mod player_snipe_stats;
+pub mod sniped;
 
 impl SnipeCommandKind {
-    async fn slash(ctx: &Context, command: &mut ApplicationCommand) -> DoubleResultCow<Self> {
-        let option = command
-            .data
-            .options
-            .pop()
-            .ok_or(Error::InvalidCommandOptions)?;
-
-        match option.value {
-            CommandOptionValue::SubCommandGroup(options) => match option.name.as_str() {
-                COUNTRY => Self::parse_country(ctx, options),
-                "player" => Self::parse_player(ctx, command, options).await,
-                _ => Err(Error::InvalidCommandOptions),
-            },
-            _ => Err(Error::InvalidCommandOptions),
-        }
-    }
-
     fn parse_country(ctx: &Context, mut options: Vec<CommandDataOption>) -> DoubleResultCow<Self> {
         let option = options.pop().ok_or(Error::InvalidCommandOptions)?;
 
@@ -183,104 +149,6 @@ impl SnipeCommandKind {
 
         Ok(Ok(Self::CountryStats(country)))
     }
-
-    async fn parse_player_list(
-        ctx: &Context,
-        command: &ApplicationCommand,
-        options: Vec<CommandDataOption>,
-    ) -> DoubleResultCow<Self> {
-        let mut osu = ctx.psql().get_user_osu(command.user_id()?).await?;
-        let mut order = None;
-        let mut mods = None;
-        let mut descending = None;
-
-        for option in options {
-            match option.value {
-                CommandOptionValue::String(value) => match option.name.as_str() {
-                    NAME => osu = Some(value.into()),
-                    SORT => match value.as_str() {
-                        ACC => order = Some(SnipeScoreOrder::Accuracy),
-                        "len" => order = Some(SnipeScoreOrder::Length),
-                        "map_date" => order = Some(SnipeScoreOrder::MapApprovalDate),
-                        MISSES => order = Some(SnipeScoreOrder::Misses),
-                        "pp" => order = Some(SnipeScoreOrder::Pp),
-                        "score_date" => order = Some(SnipeScoreOrder::ScoreDate),
-                        "stars" => order = Some(SnipeScoreOrder::Stars),
-                        _ => return Err(Error::InvalidCommandOptions),
-                    },
-                    MODS => match matcher::get_mods(&value) {
-                        Some(mods_) => mods = Some(mods_),
-                        None => match value.parse() {
-                            Ok(mods_) => mods = Some(ModSelection::Include(mods_)),
-                            Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
-                        },
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::Boolean(value) => {
-                    let value = (option.name == REVERSE)
-                        .then(|| value)
-                        .ok_or(Error::InvalidCommandOptions)?;
-
-                    descending = Some(!value);
-                }
-                CommandOptionValue::User(value) => match option.name.as_str() {
-                    DISCORD => match parse_discord(ctx, value).await? {
-                        Ok(osu_) => osu = Some(osu_),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            }
-        }
-
-        let args = PlayerListArgs {
-            osu,
-            order: order.unwrap_or_default(),
-            mods,
-            descending: descending.unwrap_or(true),
-        };
-
-        Ok(Ok(Self::PlayerList(args)))
-    }
-}
-
-async fn parse_username(
-    ctx: &Context,
-    command: &ApplicationCommand,
-    options: Vec<CommandDataOption>,
-) -> DoubleResultCow<Option<Username>> {
-    let mut username = None;
-
-    for option in options {
-        match option.value {
-            CommandOptionValue::String(value) => match option.name.as_str() {
-                NAME => username = Some(value.into()),
-                _ => return Err(Error::InvalidCommandOptions),
-            },
-            CommandOptionValue::User(value) => match option.name.as_str() {
-                DISCORD => match parse_discord(ctx, value).await? {
-                    Ok(osu) => username = Some(osu.into_username()),
-                    Err(content) => return Ok(Err(content)),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            },
-            _ => return Err(Error::InvalidCommandOptions),
-        }
-    }
-
-    match username {
-        Some(name) => Ok(Ok(Some(name))),
-        None => ctx
-            .psql()
-            .get_user_osu(command.user_id()?)
-            .await?
-            .map(OsuData::into_username)
-            .map(Ok)
-            .transpose()
-            .map(Ok),
-    }
 }
 
 fn parse_country_code(ctx: &Context, mut country: String) -> Result<CountryCode, String> {
@@ -313,177 +181,189 @@ fn parse_country_code(ctx: &Context, mut country: String) -> Result<CountryCode,
     }
 }
 
-pub async fn slash_snipe(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    match SnipeCommandKind::slash(&ctx, &mut command).await? {
-        Ok(SnipeCommandKind::CountryList(args)) => {
-            _countrysnipelist(ctx, command.into(), args).await
-        }
-        Ok(SnipeCommandKind::CountryStats(country)) => {
-            _countrysnipestats(ctx, command.into(), country).await
-        }
-        Ok(SnipeCommandKind::PlayerList(args)) => _playersnipelist(ctx, command.into(), args).await,
-        Ok(SnipeCommandKind::PlayerStats(name)) => {
-            _playersnipestats(ctx, command.into(), name).await
-        }
-        Ok(SnipeCommandKind::Sniped(name)) => _sniped(ctx, command.into(), name).await,
-        Ok(SnipeCommandKind::SnipeGain(name)) => {
-            _sniped_diff(ctx, command.into(), Difference::Gain, name).await
-        }
-        Ok(SnipeCommandKind::SnipeLoss(name)) => {
-            _sniped_diff(ctx, command.into(), Difference::Loss, name).await
-        }
-        Err(content) => command.error(&ctx, content).await,
-    }
+
+// TODO: vim formating goes bruh mode
+
+#[derive(CommandModel, CreateCommand, SlashCommand)]
+#[command(name = "snipe", help= "National #1 related stats. \
+        All data is provided by [huismetbenen](https://snipe.huismetbenen.nl).\n\
+        Note that the data usually __updates once per week__.")]
+/// National #1 related data provided by huismetbenen
+pub enum Snipe<'a> {
+    #[command(name = "country")]
+    Country(SnipeCountry<'a>),
+    #[command(name = "player")]
+    Player(SnipePlayer<'a>),
 }
 
-pub async fn slash_sniped(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    let options = command.yoink_options();
-
-    match parse_username(&ctx, &command, options).await? {
-        Ok(name) => _sniped(ctx, command.into(), name).await,
-        Err(content) => command.error(&ctx, content).await,
-    }
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "country")]
+/// Country related snipe stats
+pub enum SnipeCountry<'a> {
+    List(SnipeCountryList<'a>),
+    Stats(SnipeCountryStats<'a>),
 }
 
-fn option_country() -> MyCommandOption {
-    MyCommandOption::builder(COUNTRY, "Specify a country (code)").string(Vec::new(), false)
-}
-
-fn subcommand_country() -> MyCommandOption {
-    let country = option_country();
-
-    let sort_choices = vec![
-        CommandOptionChoice::String {
-            name: "count".to_owned(),
-            value: "count".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "pp".to_owned(),
-            value: "pp".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "stars".to_owned(),
-            value: "stars".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "weighted pp".to_owned(),
-            value: "weighted_pp".to_owned(),
-        },
-    ];
-
-    let sort_help = "Specify the order of players.\n\
+#[derive(CommandModel, CreateCommand)]
+#[comand(name = "list", help = "List all players of a country with a specific order based around #1 stats")]
+/// Sort the country's #1 leaderboard
+pub struct SnipeCountryList<'a> {
+    /// Specify a country (code)
+    country: Option<Cow<'a, str>>
+        #[command(help = "Specify the order of players.\n\
         Available orderings are `count` for amount of #1 scores, `pp` for average pp of #1 scores, \
         `stars` for average star rating of #1 scores, and `weighted_pp` for the total pp a user \
-        would have if only their #1s would count towards it.";
-
-    let sort = MyCommandOption::builder(SORT, "Specify the order of players")
-        .help(sort_help)
-        .string(sort_choices, false);
-
-    let list = MyCommandOption::builder("list", "Sort the country's #1 leaderboard")
-        .help("List all players of a country with a specific order based around #1 stats")
-        .subcommand(vec![country, sort]);
-
-    let stats = MyCommandOption::builder("stats", "#1-count related stats for a country")
-        .subcommand(vec![option_country()]);
-
-    MyCommandOption::builder(COUNTRY, "Country related snipe stats")
-        .subcommandgroup(vec![list, stats])
+        would have if only their #1s would count towards it.")]
+        /// Specify the order of players
+        sort: Option<SnipeCountryListOrder>,
 }
 
-fn sniped_data() -> (&'static str, &'static str, Vec<MyCommandOption>) {
-    let description = "Sniped users of the last 8 weeks";
-    let help = "Display who sniped and was sniped the most by a user in last 8 weeks";
-    let options = vec![option_name(), option_discord()];
-
-    (description, help, options)
+#[derive(CommandOption, CreateOptio)]
+pub enum SnipeCountryListOrder {
+    #[option(name = "Count", value = "count")]
+    Count,
+    #[option(name = "PP", value = "pp")]
+    Pp,
+    #[option(name = "Stars", value = "stars")]
+    Stars,
+    #[option(name = "Weighted PP", value = "weighted_pp")]
+    WeightedPp,
 }
 
-fn subcommand_player() -> MyCommandOption {
-    let gain_description = "Display a user's recently acquired national #1 scores";
-
-    let gain = MyCommandOption::builder("gain", gain_description)
-        .help("Display all national #1 scores that a user acquired within the last week")
-        .subcommand(vec![option_name(), option_discord()]);
-
-    let name = option_name();
-    let discord = option_discord();
-    let mods = option_mods(false);
-
-    let sort_choices = vec![
-        CommandOptionChoice::String {
-            name: ACCURACY.to_owned(),
-            value: ACC.to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "length".to_owned(),
-            value: "len".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "map approval date".to_owned(),
-            value: "map_date".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: MISSES.to_owned(),
-            value: MISSES.to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "pp".to_owned(),
-            value: "pp".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "score date".to_owned(),
-            value: "score_date".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "stars".to_owned(),
-            value: "stars".to_owned(),
-        },
-    ];
-
-    let sort = MyCommandOption::builder(SORT, "Specify the order of scores")
-        .help("Specify the order of scores. Defaults to `pp`.")
-        .string(sort_choices, false);
-
-    let reverse = MyCommandOption::builder(REVERSE, "Choose whether the list should be reversed")
-        .boolean(false);
-
-    let list = MyCommandOption::builder("list", "List all national #1 scores of a player")
-        .subcommand(vec![name, mods, sort, reverse, discord]);
-
-    let loss_description = "Display a user's recently lost national #1 scores";
-
-    let loss = MyCommandOption::builder("loss", loss_description)
-        .help("Display all national #1 scores that a user lost within the last week")
-        .subcommand(vec![option_name(), option_discord()]);
-
-    let stats = MyCommandOption::builder("stats", "Stats about a user's national #1 scores")
-        .subcommand(vec![option_name(), option_discord()]);
-
-    let (targets_description, targets_help, targets_options) = sniped_data();
-
-    let targets = MyCommandOption::builder("targets", targets_description)
-        .help(targets_help)
-        .subcommand(targets_options);
-
-    MyCommandOption::builder("player", "Player related snipe stats")
-        .subcommandgroup(vec![gain, list, loss, stats, targets])
+#[derive(CommandModel, CreateCommand)]
+#[comand(name = "stats")]
+/// #1-count related stats for a country
+pub struct SnipeCountryStats<'a> {
+    /// Specify a country (code)
+    country: Option<Cow<'a, str>>
 }
 
-pub fn define_snipe() -> MyCommand {
-    let help = "National #1 related stats. \
-        All data is provided by [huismetbenen](https://snipe.huismetbenen.nl).\n\
-        Note that the data usually __updates once per week__.";
-
-    MyCommand::new("snipe", "National #1 related data provided by huismetbenen")
-        .help(help)
-        .options(vec![subcommand_country(), subcommand_player()])
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "player")]
+/// Player related snipe stats
+pub enum SnipePlayer<'a> {
+    Gain(SnipePlayerGain<'a>),
+    List(SnipePlayerList<'a>),
+    Loss(SnipePlayerLoss<'a>),
+    Stats(SnipePlayerStats<'a>),
+    Sniped(SnipePlayerSniped<'a>),
 }
 
-pub fn define_sniped() -> MyCommand {
-    let (description, help, options) = sniped_data();
+#[derive(CommandModel, CreateCommand, HasName)]
+#[comand(name = "gain", help = "Display all national #1 scores that a user acquired within the last week")]
+/// Display a user's recent national #1 scores
+pub struct SnipePlayerGain<'a> {
+    /// Specify a username
+    name: Option<Cow<'a, str>>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+        /// Specify a linked discord user
+        discord: Option<Id<UserMarker>>,
+}
 
-    MyCommand::new("sniped", description)
-        .help(help)
-        .options(options)
+#[derive(CommandModel, CreateCommand, HasName)]
+#[comand(name = "list")]
+/// List all national #1 scores of a player
+pub struct SnipePlayerList<'a> {
+    /// Specify a username
+    name: Option<Cow<'a, str>>,
+    #[command(help = "Specify mods either directly or through the explicit `+mods!` / `+mods` syntax e.g. `hdhr` or `+hdhr!`"
+    )]
+        /// Specify mods e.g. hdhr or nm
+        mods: Option<Cow<'a, str>>,
+        /// Specify the order of scores
+        sort: Option<SnipePlayerListOrder>,
+        /// Choose whether the list should be reversed
+        reverse: Option<bool>,
+        #[command(
+            help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+        )]
+            /// Specify a linked discord user
+            discord: Option<Id<UserMarker>>,
+}
+
+#[derive(CommandOption, CreateOption)]
+pub enum SnipePlayerListOrder {
+    #[option(name = "Accuracy", value = "acc")]
+    Acc,
+    #[option(name = "Date", value = "date")]
+    Date,
+    #[option(name = "Length", value = "len")]
+    Length,
+    #[option(name = "Map approval date", value = "map_date")]
+    MapDate,
+    #[option(name = "Misses", value = "misses")]
+    Misses,
+    #[option(name = "PP", value = "pp")]
+    Pp,
+    #[option(name = "Stars", value = "stars")]
+    Stars,
+}
+
+#[derive(CommandModel, CreateCommand, HasName)]
+#[comand(name = "loss", help = "Display all national #1 scores that a user lost within the last week")]
+/// Display a user's recently lost national #1 scores
+pub struct SnipePlayerLoss<'a> {
+    /// Specify a username
+    name: Option<Cow<'a, str>>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+        /// Specify a linked discord user
+        discord: Option<Id<UserMarker>>,
+}
+
+#[derive(CommandModel, CreateCommand, HasName)]
+#[comand(name = "stats")]
+/// Stats about a user's national #1 scores
+pub struct SnipePlayerStats<'a> {
+    /// Specify a username
+    name: Option<Cow<'a, str>>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+        /// Specify a linked discord user
+        discord: Option<Id<UserMarker>>,
+}
+
+#[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
+#[comand(name = "sniped", help = "Display who sniped and was sniped the most by a user in last 8 weeks")]
+/// Sniped users of the last 8 weeks
+pub struct SnipePlayerSniped<'a> {
+    /// Specify a username
+    name: Option<Cow<'a, str>>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+        /// Specify a linked discord user
+        discord: Option<Id<UserMarker>>,
+}
+
+async fn slash_snipe(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    match Snipe::from_interaction(command.input_data())? {
+        Snipe::Country(SnipeCountry::List(args)) => country_list(ctx, command.into(), args).await,
+        Snipe::Country(SnipeCountry::Stats(args)) => country_stats(ctx, command.into(), args).await,
+        Snipe::Player(SnipePlayer::Gain(args)) => player_gain(ctx, command.into(), args).await,
+        Snipe::Player(SnipePlayer::List(args)) => player_list(ctx, command.into(), args).await,
+        Snipe::Player(SnipePlayer::Loss(args)) => player_loss(ctx, command.into(), args).await,
+        Snipe::Player(SnipePlayer::Stats(args)) => player_stats(ctx, command.into(), args).await,
+        Snipe::Player(SnipePlayer::Sniped(args)) => player_sniped(ctx, command.into(), args).await,
+    }
+}
+
+async fn slash_sniped(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    let args = SnipePlayerSniped::from_interaction(command.input_data())?;
+
+    player_sniped(ctx, command.into(), args).await
 }
