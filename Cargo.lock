@@ -2668,6 +2668,7 @@ dependencies = [
 [[package]]
 name = "twilight-interactions"
 version = "0.10.0"
+source = "git+https://github.com/MaxOhn/twilight-interactions?branch=rkyv#e69c71a31c63b52fdfce841a5cb8ea2f613f06f8"
 dependencies = [
  "twilight-interactions-derive",
  "twilight-model",
@@ -2676,6 +2677,7 @@ dependencies = [
 [[package]]
 name = "twilight-interactions-derive"
 version = "0.10.0"
+source = "git+https://github.com/MaxOhn/twilight-interactions?branch=rkyv#e69c71a31c63b52fdfce841a5cb8ea2f613f06f8"
 dependencies = [
  "proc-macro2",
  "quote",

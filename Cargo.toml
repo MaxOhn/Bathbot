@@ -67,7 +67,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = ["e
 # twilight-gateway = { path = "../twilight/gateway" }
 # twilight-cache-inmemory = { path = "../twilight/cache/in-memory", default-features = false }
 # twilight-http = { path = "../twilight/http", default-features = false, features = ["rustls-webpki-roots"] }
-twilight-interactions = { path = "../twilight-interactions/twilight-interactions", default-features = false, features = ["derive"] }
+# twilight-interactions = { path = "../twilight-interactions/twilight-interactions", default-features = false, features = ["derive"] }
 # twilight-model = { path = "../twilight/model", default-features = false }
 # twilight-standby = { path = "../twilight/standby", default-features = false }
 # twilight-validate = { path = "../twilight/validate" }
@@ -75,6 +75,7 @@ twilight-interactions = { path = "../twilight-interactions/twilight-interactions
 twilight-gateway = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv" }
 twilight-cache-inmemory = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv", default-features = false }
 twilight-http = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv", default-features = false, features = ["rustls-webpki-roots"] }
+twilight-interactions = { git = "https://github.com/MaxOhn/twilight-interactions", branch = "rkyv", default-features = false, features = ["derive"] }
 twilight-model = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv", default-features = false }
 twilight-standby = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv", default-features = false }
 twilight-validate = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv" }
