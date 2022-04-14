@@ -4,7 +4,7 @@ use chrono::Utc;
 use hashbrown::HashMap;
 use parking_lot::Mutex;
 
-pub struct Buckets([Mutex<Bucket>; 8]);
+pub struct Buckets([Mutex<Bucket>; 7]);
 
 impl Buckets {
     pub fn new() -> Self {
@@ -22,7 +22,6 @@ impl Buckets {
             make_bucket(1, 8, 2),   // BgBigger
             make_bucket(0, 10, 4),  // BgHint
             make_bucket(2, 20, 3),  // BgSkip
-            make_bucket(30, 0, 1),  // Leaderboard
             make_bucket(15, 0, 1),  // MatchCompare
             make_bucket(5, 900, 3), // MatchLive
             make_bucket(20, 0, 1),  // Songs
@@ -35,10 +34,9 @@ impl Buckets {
             BucketName::BgBigger => &self.0[1],
             BucketName::BgHint => &self.0[2],
             BucketName::BgSkip => &self.0[3],
-            BucketName::Leaderboard => &self.0[4],
-            BucketName::MatchCompare => &self.0[5],
-            BucketName::MatchLive => &self.0[6],
-            BucketName::Songs => &self.0[7],
+            BucketName::MatchCompare => &self.0[4],
+            BucketName::MatchLive => &self.0[5],
+            BucketName::Songs => &self.0[6],
         }
     }
 }
@@ -104,7 +102,6 @@ pub enum BucketName {
     BgBigger,
     BgHint,
     BgSkip,
-    Leaderboard,
     MatchCompare,
     MatchLive,
     Songs,

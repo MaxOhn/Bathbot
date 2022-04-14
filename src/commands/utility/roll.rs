@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use command_macros::{command, SlashCommand};
+use rand::Rng;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::application::interaction::ApplicationCommand;
 
@@ -38,7 +39,7 @@ async fn slash_roll(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> 
 #[usage("[upper limit]")]
 #[flags(SKIP_DEFER)]
 #[group(Utility)]
-async fn prefix_roll(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_roll(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
     let limit = match args.num {
         Some(n) => n as u64,
         None => match args.next().map(|arg| arg.parse()) {

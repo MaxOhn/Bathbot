@@ -15,7 +15,6 @@ use crate::{
     embeds::EmbedData,
     util::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
-        constants::common_literals::{CTB, MANIA, TAIKO},
         CountryCode,
     },
 };
@@ -336,9 +335,9 @@ impl EmbedData for RankingEmbed {
 fn mode_str(mode: GameMode) -> &'static str {
     match mode {
         GameMode::STD => "",
-        GameMode::TKO => TAIKO,
-        GameMode::CTB => CTB,
-        GameMode::MNA => MANIA,
+        GameMode::TKO => "taiko",
+        GameMode::CTB => "ctb",
+        GameMode::MNA => "mania",
     }
 }
 

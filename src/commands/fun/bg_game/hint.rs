@@ -28,8 +28,6 @@ pub async fn hint(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
                 let hint = game.hint().await;
                 let builder = MessageBuilder::new().content(hint);
                 msg.create_message(&ctx, &builder).await?;
-
-                Ok(())
             }
             GameState::Setup { author, .. } => {
                 let content = format!(
@@ -37,13 +35,14 @@ pub async fn hint(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
                     <@{author}> must click on the \"Start\" button to begin."
                 );
 
-                msg.error(&ctx, content).await
+                msg.error(&ctx, content).await?;
             }
         },
         None => {
             let content = "No running game in this channel. Start one with `/bg`.";
-
-            msg.error(&ctx, content).await
+            msg.error(&ctx, content).await?;
         }
     }
+
+    Ok(())
 }

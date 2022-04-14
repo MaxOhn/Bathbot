@@ -56,7 +56,7 @@ pub enum Graph {
     Top(GraphTop),
 }
 
-#[derive(CommandModel, CreateCommand)]
+#[derive(CommandModel, CreateCommand, HasName)]
 #[command(name = "medals")]
 /// Display a user's medal progress over time
 pub struct GraphMedals {
@@ -71,7 +71,7 @@ pub struct GraphMedals {
     discord: Option<Id<UserMarker>>,
 }
 
-#[derive(CommandModel, CreateCommand)]
+#[derive(CommandModel, CreateCommand, HasName)]
 #[command(name = "playcount_replays")]
 /// Display a user's playcount and replays watched over time
 pub struct GraphPlaycountReplays {
@@ -109,7 +109,7 @@ pub struct GraphRank {
     discord: Option<Id<UserMarker>>,
 }
 
-#[derive(CommandModel, CreateCommand)]
+#[derive(CommandModel, CreateCommand, HasName)]
 #[command(name = "sniped")]
 /// Display sniped users of the past 8 weeks
 pub struct GraphSniped {
@@ -228,10 +228,42 @@ pub enum GraphTopTimezone {
     P12 = 12,
 }
 
-async fn slash_graph(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
-    let args = Graph::from_interaction(command.input_data()?);
+impl From<GraphTopTimezone> for FixedOffset {
+    fn from(tz: GraphTopTimezone) -> Self {
+        match tz {
+            GraphTopTimezone::M12 => Self::east(-12 * 3600),
+            GraphTopTimezone::M11 => Self::east(-11 * 3600),
+            GraphTopTimezone::M10 => Self::east(-10 * 3600),
+            GraphTopTimezone::M9 => Self::east(-9 * 3600),
+            GraphTopTimezone::M8 => Self::east(-8 * 3600),
+            GraphTopTimezone::M7 => Self::east(-7 * 3600),
+            GraphTopTimezone::M6 => Self::east(-6 * 3600),
+            GraphTopTimezone::M5 => Self::east(-5 * 3600),
+            GraphTopTimezone::M4 => Self::east(-4 * 3600),
+            GraphTopTimezone::M3 => Self::east(-3 * 3600),
+            GraphTopTimezone::M2 => Self::east(-2 * 3600),
+            GraphTopTimezone::M1 => Self::east(-1 * 3600),
+            GraphTopTimezone::P0 => Self::east(0 * 3600),
+            GraphTopTimezone::P1 => Self::east(1 * 3600),
+            GraphTopTimezone::P2 => Self::east(2 * 3600),
+            GraphTopTimezone::P3 => Self::east(3 * 3600),
+            GraphTopTimezone::P4 => Self::east(4 * 3600),
+            GraphTopTimezone::P5 => Self::east(5 * 3600),
+            GraphTopTimezone::P6 => Self::east(6 * 3600),
+            GraphTopTimezone::P7 => Self::east(7 * 3600),
+            GraphTopTimezone::P8 => Self::east(8 * 3600),
+            GraphTopTimezone::P9 => Self::east(9 * 3600),
+            GraphTopTimezone::P10 => Self::east(10 * 3600),
+            GraphTopTimezone::P11 => Self::east(11 * 3600),
+            GraphTopTimezone::P12 => Self::east(12 * 3600),
+        }
+    }
+}
 
-    graph(ctx, command, args).await
+async fn slash_graph(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    let args = Graph::from_interaction(command.input_data())?;
+
+    graph(ctx, command.into(), args).await
 }
 
 // Takes a `CommandOrigin` since `require_link` does not take `ApplicationCommand`
@@ -240,7 +272,7 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> BotRe
         Graph::Medals(args) => {
             let name = match username!(ctx, orig, args) {
                 Some(name) => name,
-                None => match ctx.psql().get_osu_user(orig.user_id()?).await {
+                None => match ctx.psql().get_user_osu(orig.user_id()?).await {
                     Ok(Some(osu)) => osu.into_username(),
                     Ok(None) => return require_link(&ctx, &orig).await,
                     Err(err) => {
@@ -256,7 +288,7 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> BotRe
         Graph::PlaycountReplays(args) => {
             let name = match username!(ctx, orig, args) {
                 Some(name) => name,
-                None => match ctx.psql().get_osu_user(orig.user_id()?).await {
+                None => match ctx.psql().get_user_osu(orig.user_id()?).await {
                     Ok(Some(osu)) => osu.into_username(),
                     Ok(None) => return require_link(&ctx, &orig).await,
                     Err(err) => {
@@ -296,7 +328,7 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> BotRe
         Graph::Sniped(args) => {
             let name = match username!(ctx, orig, args) {
                 Some(name) => name,
-                None => match ctx.psql().get_osu_user(orig.user_id()?).await {
+                None => match ctx.psql().get_user_osu(orig.user_id()?).await {
                     Ok(Some(osu)) => osu.into_username(),
                     Ok(None) => return require_link(&ctx, &orig).await,
                     Err(err) => {
@@ -312,7 +344,7 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> BotRe
         Graph::SnipeCount(args) => {
             let name = match username!(ctx, orig, args) {
                 Some(name) => name,
-                None => match ctx.psql().get_osu_user(orig.user_id()?).await {
+                None => match ctx.psql().get_user_osu(orig.user_id()?).await {
                     Ok(Some(osu)) => osu.into_username(),
                     Ok(None) => return require_link(&ctx, &orig).await,
                     Err(err) => {
@@ -328,8 +360,9 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> BotRe
         Graph::Top(args) => {
             let (name, mode) = name_mode!(ctx, orig, args);
             let user_args = UserArgs::new(name.as_str(), mode);
+            let tz = args.timezone.map(FixedOffset::from);
 
-            top_graph(&ctx, &orig, &name, user_args, args.order, args.tz).await?
+            top_graph(&ctx, &orig, &name, user_args, args.order, tz).await?
         }
     };
 
@@ -339,7 +372,9 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> BotRe
     };
 
     let embed = GraphEmbed::new(&user).into_builder().build();
-    let builder = MessageBuilder::new().embed(embed).file("graph.png", graph);
+    let builder = MessageBuilder::new()
+        .embed(embed)
+        .attachment("graph.png", graph);
     orig.create_message(&ctx, &builder).await?;
 
     Ok(())
@@ -633,12 +668,10 @@ async fn sniped_graph(
     let (sniper, snipee) = if ctx.contains_country(user.country_code.as_str()) {
         let now = Utc::now();
         let sniper_fut =
-            ctx.clients
-                .custom
+            ctx.client()
                 .get_national_snipes(&user, true, now - Duration::weeks(8), now);
         let snipee_fut =
-            ctx.clients
-                .custom
+            ctx.client()
                 .get_national_snipes(&user, false, now - Duration::weeks(8), now);
 
         match tokio::try_join!(sniper_fut, snipee_fut) {
@@ -709,8 +742,7 @@ async fn snipe_count_graph(
 
     let player = if ctx.contains_country(user.country_code.as_str()) {
         let player_fut = ctx
-            .clients
-            .custom
+            .client()
             .get_snipe_player(&user.country_code, user.user_id);
 
         match player_fut.await {

@@ -1,8 +1,11 @@
 use std::{fmt::Write, sync::Arc};
 
-use command_macros::{HasName, SlashCommand};
+use command_macros::{HasMods, HasName, SlashCommand};
 use eyre::Report;
-use rosu_v2::prelude::{CountryCode, GameMode, GameMods, OsuError};
+use rosu_v2::{
+    prelude::{GameMode, GameMods, OsuError, Username},
+    OsuResult,
+};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
     application::interaction::ApplicationCommand,
@@ -17,18 +20,20 @@ use crate::{
     pagination::{OsuTrackerCountryTopPagination, Pagination},
     util::{
         builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSUTRACKER_ISSUE, OSU_API_ISSUE},
-        matcher, numbers,
-        osu::{ModSelection, ScoreOrder},
-        query::FilterCriteria,
-        ApplicationCommandExt, Authored, CowUtils,
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        numbers,
+        osu::ModSelection,
+        query::{FilterCriteria, Searchable},
+        ApplicationCommandExt, Authored, CountryCode, CowUtils,
     },
     BotResult,
 };
 
-use super::UserArgs;
+use super::{
+    HasMods, HasName, ModsResult, ScoreOrder, UserArgs, UsernameFutureResult, UsernameResult,
+};
 
-#[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
+#[derive(CommandModel, CreateCommand, HasMods, HasName, SlashCommand)]
 #[command(name = "countrytop")]
 /// Display the country's top scores
 pub struct CountryTop {
@@ -61,7 +66,7 @@ pub struct CountryTop {
     discord: Option<Id<UserMarker>>,
 }
 
-#[derive(CommandOption, CreateOption)]
+#[derive(Copy, Clone, CommandOption, CreateOption)]
 pub enum CountryTopOrder {
     #[option(name = "Accuracy", value = "acc")]
     Acc,
@@ -75,59 +80,57 @@ pub enum CountryTopOrder {
     Pp,
 }
 
+impl Default for CountryTopOrder {
+    fn default() -> Self {
+        Self::Pp
+    }
+}
+
+impl From<CountryTopOrder> for ScoreOrder {
+    fn from(sort: CountryTopOrder) -> Self {
+        match sort {
+            CountryTopOrder::Acc => Self::Acc,
+            CountryTopOrder::Date => Self::Date,
+            CountryTopOrder::Length => Self::Length,
+            CountryTopOrder::Misses => Self::Misses,
+            CountryTopOrder::Pp => Self::Pp,
+        }
+    }
+}
+
 async fn slash_countrytop(
     ctx: Arc<Context>,
     mut command: Box<ApplicationCommand>,
 ) -> BotResult<()> {
     let mut args = CountryTop::from_interaction(command.input_data())?;
 
-    let mods = match args.mods.map(|mods| matcher::get_mods(&mods)) {
-        Some(mods) => mods,
-        None => {
+    let mods = match args.mods() {
+        ModsResult::Mods(mods) => Some(mods),
+        ModsResult::None => None,
+        ModsResult::Invalid => {
             let content = "Failed to parse mods.\n\
                 If you want included mods, specify it e.g. as `+hrdt`.\n\
                 If you want exact mods, specify it e.g. as `+hdhr!`.\n\
                 And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
 
-            return command.error(&ctx, content).await;
+            command.error(&ctx, content).await?;
+
+            return Ok(());
         }
     };
 
-    let author = command.user_id()?;
+    let name = match args.username(&ctx) {
+        UsernameResult::Name(name) => Some(name),
+        UsernameResult::None => None,
+        UsernameResult::Future(fut) => match fut.await {
+            UsernameFutureResult::Name(name) => Some(name),
+            UsernameFutureResult::NotLinked(user_id) => {
+                let content = format!("<@{user_id}> is not linked to an osu!profile");
+                command.error(&ctx, content).await?;
 
-    let country_code = match args.country.take() {
-        Some(code) => code,
-        None => match ctx
-            .psql()
-            .get_user_osu(author)
-            .await
-            .map(|osu| osu.map(OsuData::into_username))
-        {
-            Ok(Some(name)) => {
-                let user_args = UserArgs::new(name.as_str(), GameMode::STD);
-
-                let user = match ctx.redis().osu_user(&user_args).await {
-                    Ok(user) => user,
-                    Err(OsuError::NotFound) => {
-                        let content = format!("User `{name}` was not found");
-
-                        return command.error(&ctx, content).await;
-                    }
-                    Err(err) => {
-                        let _ = command.error(&ctx, OSU_API_ISSUE).await;
-
-                        return Err(err.into());
-                    }
-                };
-
-                user.country_code.into()
+                return Ok(());
             }
-            Ok(None) => {
-                let content = "Since you're not linked, you must specify a country (code)";
-
-                return command.error(&ctx, content).await;
-            }
-            Err(err) => {
+            UsernameFutureResult::Err(err) => {
                 let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
                 return Err(err);
@@ -135,15 +138,89 @@ async fn slash_countrytop(
         },
     };
 
+    let author = command.user_id()?;
+
+    let country_code = if let Some(ref name) = name {
+        match user_country(&ctx, name).await {
+            Ok(code) => code,
+            Err(OsuError::NotFound) => {
+                let content = format!("User `{name}` was not found");
+                command.error(&ctx, content).await?;
+
+                return Ok(());
+            }
+            Err(err) => {
+                let _ = command.error(&ctx, OSU_API_ISSUE).await;
+
+                return Err(err.into());
+            }
+        }
+    } else {
+        match args.country.take() {
+            Some(country) => match CountryCode::from_name(&country) {
+                Some(code) => code,
+                None => {
+                    if country.len() == 2 {
+                        CountryCode::from(country)
+                    } else {
+                        let content = format!(
+                            "Looks like `{country}` is neither a country name nor a country code"
+                        );
+
+                        command.error(&ctx, content).await?;
+
+                        return Ok(());
+                    }
+                }
+            },
+            None => match ctx
+                .psql()
+                .get_user_osu(author)
+                .await
+                .map(|osu| osu.map(OsuData::into_username))
+            {
+                Ok(Some(name)) => match user_country(&ctx, &name).await {
+                    Ok(code) => code,
+                    Err(OsuError::NotFound) => {
+                        let content = format!("User `{name}` was not found");
+                        command.error(&ctx, content).await?;
+
+                        return Ok(());
+                    }
+                    Err(err) => {
+                        let _ = command.error(&ctx, OSU_API_ISSUE).await;
+
+                        return Err(err.into());
+                    }
+                },
+                Ok(None) => {
+                    let content = "Since you're not linked, you must specify a country (code)";
+                    command.error(&ctx, content).await?;
+
+                    return Ok(());
+                }
+                Err(err) => {
+                    let _ = command.error(&ctx, GENERAL_ISSUE).await;
+
+                    return Err(err);
+                }
+            },
+        }
+    };
+
     let details_fut = ctx
-        .clients
-        .custom
+        .client()
         .get_osutracker_country_details(country_code.as_str());
 
     let mut details = match details_fut.await {
         Ok(details) => details,
         Err(err) => {
-            let _ = command.error(&ctx, OSUTRACKER_ISSUE).await;
+            let content = format!(
+                "Either the country code `{country_code}` is not supported \
+                or the osutracker api has an issue."
+            );
+
+            let _ = command.error(&ctx, content).await;
 
             return Err(err.into());
         }
@@ -152,16 +229,17 @@ async fn slash_countrytop(
     let mut scores = details.scores.drain(..).zip(1..).collect();
     let details = OsuTrackerCountryDetailsCompact::from(details);
 
-    filter_scores(&ctx, &mut scores, &args, mods).await;
+    filter_scores(&ctx, &mut scores, &args, mods, name.as_deref()).await;
 
     let pages = numbers::div_euclid(10, scores.len());
     let initial = &scores[..scores.len().min(10)];
+    let sort = args.sort.unwrap_or_default().into();
 
-    let embed = OsuTrackerCountryTopEmbed::new(&details, initial, args.sort_by, (1, pages))
+    let embed = OsuTrackerCountryTopEmbed::new(&details, initial, sort, (1, pages))
         .into_builder()
         .build();
 
-    let content = write_content(&details.country, &args, mods, scores.len());
+    let content = write_content(&details.country, &args, mods, scores.len(), name);
     let builder = MessageBuilder::new().embed(embed).content(content);
 
     let response_raw = command.update(&ctx, &builder).await?;
@@ -171,8 +249,9 @@ async fn slash_countrytop(
     }
 
     let response = response_raw.model().await?;
+    let sort = args.sort.unwrap_or_default().into();
 
-    let pagination = OsuTrackerCountryTopPagination::new(response, details, scores, args.sort_by);
+    let pagination = OsuTrackerCountryTopPagination::new(response, details, scores, sort);
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, author, 60).await {
@@ -188,6 +267,7 @@ async fn filter_scores(
     scores: &mut Vec<(OsuTrackerCountryScore, usize)>,
     args: &CountryTop,
     mods: Option<ModSelection>,
+    name: Option<&str>,
 ) {
     match mods {
         Some(ModSelection::Include(GameMods::NoMod)) => {
@@ -212,22 +292,23 @@ async fn filter_scores(
         scores.retain(|(score, _)| score.matches(&criteria));
     }
 
-    if let Some(username) = args.username.as_deref() {
+    if let Some(username) = name {
         let username = username.cow_to_ascii_lowercase();
 
         scores.retain(|(score, _)| score.player.cow_to_ascii_lowercase() == username);
     }
 
-    args.sort_by.apply(ctx, scores).await;
+    let sort = args.sort.unwrap_or_default();
+    ScoreOrder::from(sort).apply(ctx, scores).await;
 
-    if args.reverse {
+    if args.reverse == Some(true) {
         scores.reverse();
     }
 }
 
 pub struct OsuTrackerCountryDetailsCompact {
     pub country: String,
-    pub code: CountryCode,
+    pub code: rosu_v2::prelude::CountryCode,
     pub pp: f32,
 }
 
@@ -246,25 +327,33 @@ fn write_content(
     args: &CountryTop,
     mods: Option<ModSelection>,
     amount: usize,
+    username: Option<Username>,
 ) -> String {
-    if args.query.is_some() || mods.is_some() || args.username.is_some() {
-        content_with_condition(name, args, mods, amount)
+    if args.query.is_some() || mods.is_some() || username.is_some() {
+        content_with_condition(name, args, mods, amount, username)
     } else {
         let genitive = if name.ends_with('s') { "" } else { "s" };
-        let reverse = if args.reverse { "reversed " } else { "" };
+        let reverse = if args.reverse == Some(true) {
+            "reversed "
+        } else {
+            ""
+        };
 
-        match args.sort_by {
-            ScoreOrder::Acc => format!("`{name}`'{genitive} top100 sorted by {reverse}accuracy:"),
-            ScoreOrder::Date if args.reverse => {
+        match args.sort.unwrap_or_default() {
+            CountryTopOrder::Acc => {
+                format!("`{name}`'{genitive} top100 sorted by {reverse}accuracy:")
+            }
+            CountryTopOrder::Date if args.reverse == Some(true) => {
                 format!("Oldest scores in `{name}`'{genitive} top100:")
             }
-            ScoreOrder::Date => format!("Most recent scores in `{name}`'{genitive} top100:"),
-            ScoreOrder::Length => format!("`{name}`'{genitive} top100 sorted by {reverse}length:"),
-            ScoreOrder::Misses => {
+            CountryTopOrder::Date => format!("Most recent scores in `{name}`'{genitive} top100:"),
+            CountryTopOrder::Length => {
+                format!("`{name}`'{genitive} top100 sorted by {reverse}length:")
+            }
+            CountryTopOrder::Misses => {
                 format!("`{name}`'{genitive} top100 sorted by {reverse}miss count:")
             }
-            ScoreOrder::Pp => format!("`{name}`'{genitive} top100 sorted by {reverse}pp:"),
-            _ => unreachable!(),
+            CountryTopOrder::Pp => format!("`{name}`'{genitive} top100 sorted by {reverse}pp:"),
         }
     }
 }
@@ -274,22 +363,22 @@ fn content_with_condition(
     args: &CountryTop,
     mods: Option<ModSelection>,
     amount: usize,
+    username: Option<Username>,
 ) -> String {
     let mut content = String::with_capacity(64);
 
     let genitive = if name.ends_with('s') { "" } else { "s" };
     let _ = write!(content, "`{name}`'{genitive} top100  ~ ");
 
-    match args.sort_by {
-        ScoreOrder::Acc => content.push_str("`Order: Accuracy"),
-        ScoreOrder::Date => content.push_str("`Order: Date"),
-        ScoreOrder::Length => content.push_str("`Order: Length"),
-        ScoreOrder::Misses => content.push_str("`Order: Miss count"),
-        ScoreOrder::Pp => content.push_str("`Order: Pp"),
-        _ => unreachable!(),
+    match args.sort.unwrap_or_default() {
+        CountryTopOrder::Acc => content.push_str("`Order: Accuracy"),
+        CountryTopOrder::Date => content.push_str("`Order: Date"),
+        CountryTopOrder::Length => content.push_str("`Order: Length"),
+        CountryTopOrder::Misses => content.push_str("`Order: Miss count"),
+        CountryTopOrder::Pp => content.push_str("`Order: Pp"),
     }
 
-    if args.reverse {
+    if args.reverse == Some(true) {
         content.push_str(" (reverse)`");
     } else {
         content.push('`');
@@ -317,7 +406,7 @@ fn content_with_condition(
         let _ = write!(content, "`Query: {query}`");
     }
 
-    if let Some(username) = args.username.as_deref() {
+    if let Some(username) = username.as_deref() {
         if !content.is_empty() {
             content.push_str(" ~ ");
         }
@@ -329,4 +418,11 @@ fn content_with_condition(
     let _ = write!(content, "\nFound {amount} matching top score{plural}:");
 
     content
+}
+
+async fn user_country(ctx: &Context, name: &str) -> OsuResult<CountryCode> {
+    let user_args = UserArgs::new(name, GameMode::STD);
+    let user = ctx.redis().osu_user(&user_args).await?;
+
+    Ok(user.country_code.into())
 }

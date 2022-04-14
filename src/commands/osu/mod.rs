@@ -28,14 +28,43 @@ macro_rules! username {
     };
 }
 
+macro_rules! username_ref {
+    ($ctx:ident, $orig:ident, $args:ident) => {
+        match crate::commands::osu::HasName::username($args, &$ctx) {
+            crate::commands::osu::UsernameResult::Name(name) => Some(name),
+            crate::commands::osu::UsernameResult::None => None,
+            crate::commands::osu::UsernameResult::Future(fut) => match fut.await {
+                crate::commands::osu::UsernameFutureResult::Name(name) => Some(name),
+                crate::commands::osu::UsernameFutureResult::NotLinked(user_id) => {
+                    let content = format!("<@{user_id}> is not linked to an osu!profile");
+
+                    return $orig.error(&$ctx, content).await;
+                }
+                crate::commands::osu::UsernameFutureResult::Err(err) => {
+                    let content = crate::util::constants::GENERAL_ISSUE;
+                    let _ = $orig.error(&$ctx, content).await;
+
+                    return Err(err);
+                }
+            },
+        }
+    };
+}
+
 /// Returns a (Username, GameMode) tuple
 macro_rules! name_mode {
     ($ctx:ident, $orig:ident, $args:ident) => {{
-        let name = username!($ctx, $orig, $args);
         let mode = $args.mode.map(rosu_v2::prelude::GameMode::from);
 
-        if let (Some(name), Some(mode)) = (name, mode) {
-            (name, mode)
+        if let Some(name) = username!($ctx, $orig, $args) {
+            if let Some(mode) = mode {
+                (name, mode)
+            } else {
+                let config = $ctx.user_config($orig.user_id()?).await?;
+                let mode = config.mode.unwrap_or(rosu_v2::prelude::GameMode::STD);
+
+                (name, mode)
+            }
         } else {
             let config = $ctx.user_config($orig.user_id()?).await?;
 
@@ -43,7 +72,7 @@ macro_rules! name_mode {
                 .or(config.mode)
                 .unwrap_or(rosu_v2::prelude::GameMode::STD);
 
-            match name.or_else(|| config.into_username()) {
+            match config.into_username() {
                 Some(name) => (name, mode),
                 None => return crate::commands::osu::require_link(&$ctx, &$orig).await,
             }
@@ -53,33 +82,37 @@ macro_rules! name_mode {
 
 use std::{
     borrow::Cow,
-    cmp::PartialOrd,
+    cmp::{Ordering, PartialOrd, Reverse},
     collections::BTreeMap,
     future::Future,
     ops::{AddAssign, Div},
     pin::Pin,
 };
 
+use chrono::Utc;
 use eyre::Report;
-use futures::future::FutureExt;
+use futures::{future::FutureExt, stream::FuturesUnordered, TryFutureExt, TryStreamExt};
 use hashbrown::HashMap;
 use rosu_v2::{
     prelude::{
-        BeatmapUserScore, GameMode, GameMods, Grade, OsuError, OsuResult, Score, User, Username,
+        BeatmapUserScore, Beatmapset, GameMode, GameMods, OsuError, OsuResult, Score, User,
+        Username,
     },
     request::GetUserScores,
     Osu,
 };
-use twilight_model::{
-    application::{command::CommandOptionChoice, interaction::ApplicationCommandAutocomplete},
-    http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
-    id::{marker::UserMarker, Id},
-};
+use twilight_interactions::command::{CommandOption, CreateOption};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     core::commands::CommandOrigin,
     custom_client::OsuStatsParams,
-    util::{numbers::with_comma_int, CowUtils},
+    pp::PpCalculator,
+    util::{
+        numbers::with_comma_int,
+        osu::{ModSelection, SortableScore},
+        CowUtils,
+    },
     BotResult, Context, Error,
 };
 
@@ -125,17 +158,27 @@ mod snipe;
 mod top;
 mod whatif;
 
-pub trait HasName {
-    fn username(&self, ctx: &Context) -> UsernameResult;
+pub trait HasMods {
+    fn mods(&self) -> ModsResult;
 }
 
-enum UsernameResult {
+pub enum ModsResult {
+    Mods(ModSelection),
+    None,
+    Invalid,
+}
+
+pub trait HasName {
+    fn username<'ctx>(&self, ctx: &'ctx Context) -> UsernameResult<'ctx>;
+}
+
+pub enum UsernameResult<'ctx> {
     Name(Username),
     None,
-    Future(Pin<Box<dyn Future<Output = UsernameFutureResult>>>),
+    Future(Pin<Box<dyn Future<Output = UsernameFutureResult> + 'ctx + Send>>),
 }
 
-enum UsernameFutureResult {
+pub enum UsernameFutureResult {
     Name(Username),
     NotLinked(Id<UserMarker>),
     Err(Error),
@@ -460,8 +503,8 @@ async fn get_globals_count(
             continue;
         }
 
-        params.rank_max = rank;
-        let (_, count) = ctx.clients.custom.get_global_scores(&params).await?;
+        params.max_rank = rank;
+        let (_, count) = ctx.client().get_global_scores(&params).await?;
         counts.insert(rank, Cow::Owned(with_comma_int(count).to_string()));
 
         if count == 0 {
@@ -472,8 +515,8 @@ async fn get_globals_count(
     let firsts = if let Some(firsts) = user.scores_first_count {
         Cow::Owned(with_comma_int(firsts).to_string())
     } else if get_amount {
-        params.rank_max = 1;
-        let (_, count) = ctx.clients.custom.get_global_scores(&params).await?;
+        params.max_rank = 1;
+        let (_, count) = ctx.client().get_global_scores(&params).await?;
 
         Cow::Owned(with_comma_int(count).to_string())
     } else {
@@ -483,22 +526,6 @@ async fn get_globals_count(
     counts.insert(1, firsts);
 
     Ok(counts)
-}
-
-#[derive(Copy, Clone)]
-pub enum GradeArg {
-    Single(Grade),
-    Range { bot: Grade, top: Grade },
-}
-
-impl GradeArg {
-    pub fn include_fails(&self) -> bool {
-        matches!(self,
-            Self::Single(g)
-                | Self::Range { bot: g, .. }
-                | Self::Range { top: g, ..} if *g == Grade::F
-        )
-    }
 }
 
 pub trait Number: AddAssign + Copy + Div<Output = Self> + PartialOrd {
@@ -576,27 +603,6 @@ impl From<MinMaxAvg<f32>> for MinMaxAvg<u32> {
             len: other.len as u32,
         }
     }
-}
-
-fn mode_choices() -> Vec<CommandOptionChoice> {
-    vec![
-        CommandOptionChoice::String {
-            name: "osu".to_owned(),
-            value: "osu".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "taiko".to_owned(),
-            value: "taiko".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "ctb".to_owned(),
-            value: "ctb".to_owned(),
-        },
-        CommandOptionChoice::String {
-            name: "mania".to_owned(),
-            value: "mania".to_owned(),
-        },
-    ]
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, CommandOption, CreateOption)]
@@ -783,6 +789,13 @@ impl ScoreOrder {
             }
         }
     }
+}
+
+enum NameExtraction {
+    Name(Username),
+    Err(Error),
+    Content(String),
+    None,
 }
 
 // fn option_mode() -> MyCommandOption {

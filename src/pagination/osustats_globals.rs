@@ -85,8 +85,7 @@ impl Pagination for OsuStatsGlobalsPagination {
 
             let (scores, _) = self
                 .ctx
-                .clients
-                .custom
+                .client()
                 .get_global_scores(&self.params)
                 .await?;
 

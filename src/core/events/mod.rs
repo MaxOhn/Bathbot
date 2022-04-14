@@ -3,6 +3,7 @@ use std::{
     sync::Arc,
 };
 
+use eyre::Context as EyreContext;
 use futures::StreamExt;
 use twilight_gateway::{cluster::Events, Event};
 use twilight_model::id::Id;
@@ -29,7 +30,7 @@ enum ProcessResult {
 fn log_command(ctx: &Context, cmd: &dyn Authored, name: &str) {
     let username = cmd
         .user()
-        .map(|u| u.username.as_str())
+        .map(|u| u.name.as_str())
         .unwrap_or("<unknown user>");
 
     let location = CommandLocation { ctx, cmd };

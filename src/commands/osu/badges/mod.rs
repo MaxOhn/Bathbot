@@ -1,18 +1,17 @@
-use std::{cmp::Reverse, str::FromStr, sync::Arc};
+use std::{cmp::Reverse, sync::Arc};
 
 use command_macros::{HasName, SlashCommand};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::application::interaction::ApplicationCommand;
-
-use crate::{
-    core::Context,
-    custom_client::OsekaiBadge,
-    error::Error,
-    util::{InteractionExt, MessageExt},
-    BotResult,
+use twilight_model::{
+    application::interaction::ApplicationCommand,
+    id::{marker::UserMarker, Id},
 };
 
+use crate::{core::Context, custom_client::OsekaiBadge, util::ApplicationCommandExt, BotResult};
+
 pub use query::handle_autocomplete as handle_badge_autocomplete;
+
+use self::{query::*, user::*};
 
 mod query;
 mod user;
@@ -27,7 +26,7 @@ pub enum Badges {
     User(BadgesUser),
 }
 
-#[derive(CommandMode, CreateCommand)]
+#[derive(CommandModel, CreateCommand)]
 #[command(name = "query")]
 /// Display all badges matching the query
 pub struct BadgesQuery {
@@ -38,7 +37,7 @@ pub struct BadgesQuery {
     sort: Option<BadgesOrder>,
 }
 
-#[derive(CommandMode, CreateCommand, HasName)]
+#[derive(CommandModel, CreateCommand, HasName)]
 #[command(name = "user")]
 /// Display all badges of a user
 pub struct BadgesUser {

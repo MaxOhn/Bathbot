@@ -12,7 +12,7 @@ use crate::{
         Context,
     },
     error::InvalidHelpState,
-    util::builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
+    util::{builder::{EmbedBuilder, FooterBuilder, MessageBuilder}, ComponentExt},
     BotResult,
 };
 

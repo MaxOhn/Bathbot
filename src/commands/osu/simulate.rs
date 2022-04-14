@@ -1,47 +1,134 @@
 use std::sync::Arc;
 
+use command_macros::{command, HasMods, SlashCommand};
 use eyre::Report;
 use rosu_v2::prelude::{BeatmapsetCompact, OsuError};
 use tokio::time::{sleep, Duration};
+use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
-    application::interaction::{application_command::CommandOptionValue, ApplicationCommand},
-    channel::message::MessageType,
-    id::{marker::UserMarker, Id},
+    application::interaction::ApplicationCommand,
+    channel::{message::MessageType, Message},
 };
 
 use crate::{
-    commands::{DoubleResultCow, MyCommand, MyCommandOption},
-    database::{EmbedsSize, UserConfig},
+    core::commands::{prefix::Args, CommandOrigin},
+    database::EmbedsSize,
     embeds::{EmbedData, SimulateEmbed},
-    error::Error,
     util::{
-        constants::{
-            common_literals::{
-                ACC, ACCURACY, COMBO, MAP, MAP_PARSE_FAIL, MISSES, MODS, MODS_PARSE_FAIL, SCORE,
-            },
-            GENERAL_ISSUE, OSU_API_ISSUE,
-        },
+        builder::MessageBuilder,
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher,
         osu::{map_id_from_history, map_id_from_msg, MapIdType, ModSelection},
-        InteractionExt, MessageExt,
+        ApplicationCommandExt, ChannelExt, CowUtils, MessageExt,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder,
+    BotResult, Context,
 };
 
-use super::{option_map, option_mods};
+use super::{HasMods, ModsResult};
+
+#[derive(CommandModel, CreateCommand, HasMods, SlashCommand)]
+#[command(
+    name = "simulate",
+    help = "Simulate a score on a map.\n\
+    Note that hitresults, combo, and accuracy are ignored in mania; only score is important."
+)]
+/// Simulate a score on a map
+pub struct Simulate {
+    #[command(help = "Specify a map either by map url or map id.\n\
+        If none is specified, it will search in the recent channel history \
+        and pick the first map it can find.")]
+    /// Specify a map url or map id
+    map: Option<String>,
+    #[command(
+        help = "Specify mods either directly or through the explicit `+mods!` / `+mods` syntax e.g. `hdhr` or `+hdhr!`"
+    )]
+    /// Specify mods e.g. hdhr or nm
+    mods: Option<String>,
+    #[command(min_value = 0)]
+    /// Specify the amount of 300s
+    n300: Option<u32>,
+    #[command(min_value = 0)]
+    /// Specify the amount of 100s
+    n100: Option<u32>,
+    #[command(min_value = 0)]
+    /// Specify the amount of 50s
+    n50: Option<u32>,
+    #[command(min_value = 0)]
+    /// Specify the amount of misses
+    misses: Option<u32>,
+    #[command(min_value = 0)]
+    /// Specify the combo
+    combo: Option<u32>,
+    #[command(min_value = 0.0, max_value = 100.0)]
+    /// Specify the accuracy
+    acc: Option<f32>,
+    #[command(
+        min_value = 0,
+        max_value = 1_000_000,
+        help = "Specifying the score is only necessary for mania.\n\
+        The value should be between 0 and 1,000,000 and already adjusted to mods \
+        e.g. only up to 500,000 for `EZ` or up to 250,000 for `EZNF`."
+    )]
+    /// Specify the score
+    score: Option<u32>,
+}
+
+impl TryFrom<Simulate> for SimulateArgs {
+    type Error = &'static str;
+
+    fn try_from(args: Simulate) -> Result<Self, Self::Error> {
+        let mods = match args.mods() {
+            ModsResult::Mods(mods) => Some(mods),
+            ModsResult::None => None,
+            ModsResult::Invalid => {
+                return Err(
+                    "Failed to parse mods. Be sure to either specify them directly \
+                    or through the `+mods` / `+mods!` syntax e.g. `hdhr` or `+hdhr!`",
+                )
+            }
+        };
+
+        let map = match args.map {
+            Some(map) => {
+                if let Some(id) =
+                    matcher::get_osu_map_id(&map).or_else(|| matcher::get_osu_mapset_id(&map))
+                {
+                    Some(id)
+                } else {
+                    return Err(
+                        "Failed to parse map url. Be sure you specify a valid map id or url to a map.",
+                    );
+                }
+            }
+            None => None,
+        };
+
+        Ok(Self {
+            map,
+            mods,
+            n300: args.n300.map(|n| n as usize),
+            n100: args.n100.map(|n| n as usize),
+            n50: args.n50.map(|n| n as usize),
+            misses: args.misses.map(|n| n as usize),
+            acc: args.acc,
+            combo: args.combo.map(|n| n as usize),
+            score: args.score,
+        })
+    }
+}
 
 #[command]
-#[short_desc("Simulate a score on a map")]
-#[long_desc(
+#[desc("Simulate a score on a map")]
+#[help(
     "Simulate a (perfect) score on the given map. \
-     Mods can be specified with `+mods` e.g. `+hdhr`.\n\
+    Mods can be specified with `+mods` e.g. `+hdhr`.\n\
     There are also multiple options you can set by specifying `key=value`.\n\
     For the keys `n300`, `n100`, `n50`, `misses`, `combo`, and `score` you must \
     specify an interger value.\n\
     For the `acc` key you must specify a number between 0.0 and 100.0.\n\
-     If no map is given, I will choose the last map \
-     I can find in the embeds of this channel.\n\
-     The `score` option is only relevant for mania."
+    If no map is given, I will choose the last map \
+    I can find in the embeds of this channel.\n\
+    The `score` option is only relevant for mania."
 )]
 #[usage(
     "[map url / map id] [+mods] [acc=number] [combo=integer] [n300=integer] \
@@ -51,40 +138,42 @@ use super::{option_map, option_mods};
     "1980365 +hddt acc=99.3 combo=1234 n300=1422 n50=2 misses=1",
     "https://osu.ppy.sh/beatmapsets/948199#osu/1980365 acc=97.56"
 )]
-#[aliases("s")]
-async fn simulate(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match SimulateArgs::args(&ctx, msg.author.id, &mut args).await {
-                Ok(mut simulate_args) => {
-                    let reply = msg
-                        .referenced_message
-                        .as_ref()
-                        .filter(|_| msg.kind == MessageType::Reply);
+#[alias("s")]
+#[group(AllModes)]
+async fn prefix_simulate(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match SimulateArgs::args(msg, args) {
+        Ok(args) => simulate(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
 
-                    if let Some(id) = reply.and_then(|msg| map_id_from_msg(msg)) {
-                        simulate_args.map = Some(id);
-                    }
-
-                    _simulate(ctx, CommandData::Message { msg, args, num }, simulate_args).await
-                }
-                Err(content) => msg.error(&ctx, content).await,
-            }
+            Ok(())
         }
-        CommandData::Interaction { command } => slash_simulate(ctx, *command).await,
     }
 }
 
-async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs) -> BotResult<()> {
+async fn slash_simulate(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    let args = Simulate::from_interaction(command.input_data())?;
+
+    match SimulateArgs::try_from(args) {
+        Ok(args) => simulate(ctx, command.into(), args).await,
+        Err(content) => {
+            command.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs) -> BotResult<()> {
     let map_id = if let Some(id) = args.map {
         id
     } else {
-        let msgs = match ctx.retrieve_channel_history(data.channel_id()).await {
+        let msgs = match ctx.retrieve_channel_history(orig.channel_id()).await {
             Ok(msgs) => msgs,
-            Err(why) => {
-                let _ = data.error(&ctx, GENERAL_ISSUE).await;
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(why);
+                return Err(err);
             }
         };
 
@@ -94,7 +183,7 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
                 let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map either by url to the map, or just by map id.";
 
-                return data.error(&ctx, content).await;
+                return orig.error(&ctx, content).await;
             }
         }
     };
@@ -104,12 +193,17 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
         MapIdType::Set(_) => {
             let content = "Looks like you gave me a mapset id, I need a map id though";
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
     };
 
+    let map_fut = ctx.psql().get_beatmap(map_id, true);
+    let config_fut = ctx.user_config(orig.user_id()?);
+
+    let (map_result, config_result) = tokio::join!(map_fut, config_fut);
+
     // Retrieving the beatmap
-    let mut map = match ctx.psql().get_beatmap(map_id, true).await {
+    let mut map = match map_result {
         Ok(map) => map,
         Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
             Ok(map) => {
@@ -126,19 +220,29 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
                     Did you give me a mapset id instead of a map id?"
                 );
 
-                return data.error(&ctx, content).await;
+                return orig.error(&ctx, content).await;
             }
-            Err(why) => {
-                let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            Err(err) => {
+                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-                return Err(why.into());
+                return Err(err.into());
             }
         },
     };
 
     let mapset: BeatmapsetCompact = map.mapset.take().unwrap().into();
 
-    let embeds_size = match (args.config.embeds_size, data.guild_id()) {
+    let embeds_size = match config_result {
+        Ok(config) => config.embeds_size,
+        Err(err) => {
+            let report = Report::new(err).wrap_err("failed to get user config");
+            warn!("{report:?}");
+
+            None
+        }
+    };
+
+    let embeds_size = match (embeds_size, orig.guild_id()) {
         (Some(size), _) => size,
         (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
         (None, None) => EmbedsSize::default(),
@@ -147,10 +251,10 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
     // Accumulate all necessary data
     let embed_data = match SimulateEmbed::new(None, &map, &mapset, args.into(), &ctx).await {
         Ok(data) => data,
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(why);
+            return Err(err);
         }
     };
 
@@ -161,12 +265,12 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
         EmbedsSize::AlwaysMinimized => {
             let embed = embed_data.into_builder().build();
             let builder = MessageBuilder::new().content(content).embed(embed);
-            data.create_message(&ctx, builder).await?;
+            orig.create_message(&ctx, &builder).await?;
         }
         EmbedsSize::InitialMaximized => {
             let embed = embed_data.as_builder().build();
             let builder = MessageBuilder::new().content(content).embed(embed);
-            let response = data.create_message(&ctx, builder).await?.model().await?;
+            let response = orig.create_message(&ctx, &builder).await?.model().await?;
 
             ctx.store_msg(response.id);
             let ctx = Arc::clone(&ctx);
@@ -182,8 +286,8 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
                 let embed = embed_data.into_builder().build();
                 let builder = MessageBuilder::new().content(content).embed(embed);
 
-                if let Err(why) = response.update_message(&ctx, builder).await {
-                    let report = Report::new(why).wrap_err("failed to minimize message");
+                if let Err(err) = response.update(&ctx, &builder).await {
+                    let report = Report::new(err).wrap_err("failed to minimize message");
                     warn!("{report:?}");
                 }
             });
@@ -191,7 +295,7 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
         EmbedsSize::AlwaysMaximized => {
             let embed = embed_data.as_builder().build();
             let builder = MessageBuilder::new().content(content).embed(embed);
-            data.create_message(&ctx, builder).await?;
+            orig.create_message(&ctx, &builder).await?;
         }
     }
 
@@ -202,7 +306,6 @@ async fn _simulate(ctx: Arc<Context>, data: CommandData<'_>, args: SimulateArgs)
 }
 
 pub struct SimulateArgs {
-    config: UserConfig,
     map: Option<MapIdType>,
     pub mods: Option<ModSelection>,
     pub n300: Option<usize>,
@@ -224,11 +327,7 @@ macro_rules! parse_fail {
 }
 
 impl SimulateArgs {
-    async fn args(
-        ctx: &Context,
-        author_id: Id<UserMarker>,
-        args: &mut Args<'_>,
-    ) -> Result<Self, String> {
+    fn args(msg: &Message, args: Args<'_>) -> Result<Self, String> {
         let mut map = None;
         let mut mods = None;
         let mut n300 = None;
@@ -239,7 +338,7 @@ impl SimulateArgs {
         let mut combo = None;
         let mut score = None;
 
-        for arg in args {
+        for arg in args.map(|arg| arg.cow_to_ascii_lowercase()) {
             if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
                 let key = &arg[..idx];
                 let value = &arg[idx + 1..];
@@ -257,25 +356,25 @@ impl SimulateArgs {
                         Ok(value) => n50 = Some(value),
                         Err(_) => parse_fail!(key, "a positive integer"),
                     },
-                    MISSES | "miss" | "m" => match value.parse() {
+                    "misses" | "miss" | "m" => match value.parse() {
                         Ok(value) => misses = Some(value),
                         Err(_) => parse_fail!(key, "a positive integer"),
                     },
-                    ACC | "a" | ACCURACY => match value.parse() {
+                    "acc" | "a" | "accuracy" => match value.parse() {
                         Ok(value) => acc = Some(value),
                         Err(_) => parse_fail!(key, "a number"),
                     },
-                    COMBO | "c" => match value.parse() {
+                    "combo" | "c" => match value.parse() {
                         Ok(value) => combo = Some(value),
                         Err(_) => parse_fail!(key, "a positive integer"),
                     },
-                    SCORE | "s" => match value.parse() {
+                    "score" | "s" => match value.parse() {
                         Ok(value) => score = Some(value),
                         Err(_) => parse_fail!(key, "a positive integer"),
                     },
-                    MODS => match value.parse() {
+                    "mods" => match value.parse() {
                         Ok(m) => mods = Some(ModSelection::Exact(m)),
-                        Err(_) => return Err(MODS_PARSE_FAIL.to_owned()),
+                        Err(_) => return Err("Failed to parse mods. Be sure to specify a valid abbreviation e.g. `hdhr`.".to_owned()),
                     },
                     _ => {
                         let content = format!(
@@ -287,10 +386,10 @@ impl SimulateArgs {
                         return Err(content);
                     }
                 }
-            } else if let Some(mods_) = matcher::get_mods(arg) {
-                mods.replace(mods_);
+            } else if let Some(mods_) = matcher::get_mods(&arg) {
+                mods = Some(mods_);
             } else if let Some(id) =
-                matcher::get_osu_map_id(arg).or_else(|| matcher::get_osu_mapset_id(arg))
+                matcher::get_osu_map_id(&arg).or_else(|| matcher::get_osu_mapset_id(&arg))
             {
                 map = Some(id);
             } else {
@@ -304,79 +403,18 @@ impl SimulateArgs {
             }
         }
 
-        let config = ctx.user_config(author_id).await.map_err(|e| {
-            let report = Report::new(e).wrap_err("failed to get user config");
-            warn!("{report:?}");
+        let reply = msg
+            .referenced_message
+            .as_ref()
+            .filter(|_| msg.kind == MessageType::Reply);
 
-            GENERAL_ISSUE.to_owned()
-        })?;
-
-        let args = Self {
-            config,
-            map,
-            mods,
-            n300,
-            n100,
-            n50,
-            misses,
-            acc,
-            combo,
-            score,
-        };
-
-        Ok(args)
-    }
-
-    async fn slash(ctx: &Context, command: &ApplicationCommand) -> DoubleResultCow<Self> {
-        let author_id = command.user_id()?;
-        let config = ctx.user_config(author_id).await?;
-        let mut map = None;
-        let mut mods = None;
-        let mut n300 = None;
-        let mut n100 = None;
-        let mut n50 = None;
-        let mut misses = None;
-        let mut acc = None;
-        let mut combo = None;
-        let mut score = None;
-
-        for option in &command.data.options {
-            match &option.value {
-                CommandOptionValue::String(value) => match option.name.as_str() {
-                    MAP => match matcher::get_osu_map_id(value)
-                        .or_else(|| matcher::get_osu_mapset_id(value))
-                    {
-                        Some(id) => map = Some(id),
-                        None => return Ok(Err(MAP_PARSE_FAIL.into())),
-                    },
-                    MODS => match matcher::get_mods(value) {
-                        Some(mods_) => mods = Some(mods_),
-                        None => match value.parse() {
-                            Ok(mods_) => mods = Some(ModSelection::Exact(mods_)),
-                            Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
-                        },
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::Integer(value) => match option.name.as_str() {
-                    "n300" => n300 = Some(*value.max(&0) as usize),
-                    "n100" => n100 = Some(*value.max(&0) as usize),
-                    "n50" => n50 = Some(*value.max(&0) as usize),
-                    MISSES => misses = Some(*value.max(&0) as usize),
-                    COMBO => combo = Some(*value.max(&0) as usize),
-                    SCORE => score = Some(*value.max(&0) as u32),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::Number(value) => match option.name.as_str() {
-                    ACC => acc = Some(value.0.clamp(0.0, 100.0) as f32),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
+        if let Some(reply) = reply {
+            if let Some(map_) = map_id_from_msg(&reply) {
+                map = Some(map_);
             }
         }
 
-        let args = Self {
-            config,
+        Ok(Self {
             map,
             mods,
             n300,
@@ -386,62 +424,6 @@ impl SimulateArgs {
             acc,
             combo,
             score,
-        };
-
-        Ok(Ok(args))
+        })
     }
-}
-
-pub async fn slash_simulate(ctx: Arc<Context>, command: ApplicationCommand) -> BotResult<()> {
-    match SimulateArgs::slash(&ctx, &command).await? {
-        Ok(args) => _simulate(ctx, command.into(), args).await,
-        Err(content) => command.error(&ctx, content).await,
-    }
-}
-
-pub fn define_simulate() -> MyCommand {
-    let map = option_map();
-    let mods = option_mods(false);
-
-    let n300 = MyCommandOption::builder("n300", "Specify the amount of 300s")
-        .min_int(0)
-        .integer(Vec::new(), false);
-
-    let n100 = MyCommandOption::builder("n100", "Specify the amount of 100s")
-        .min_int(0)
-        .integer(Vec::new(), false);
-
-    let n50 = MyCommandOption::builder("n50", "Specify the amount of 50s")
-        .min_int(0)
-        .integer(Vec::new(), false);
-
-    let misses = MyCommandOption::builder(MISSES, "Specify the amount of misses")
-        .min_int(0)
-        .integer(Vec::new(), false);
-
-    let acc = MyCommandOption::builder(ACC, "Specify the accuracy")
-        .help("Specify the accuracy. Should be between 0.0 and 100.0")
-        .min_num(0.0)
-        .max_num(100.0)
-        .number(Vec::new(), false);
-
-    let combo = MyCommandOption::builder(COMBO, "Specify the combo")
-        .min_int(0)
-        .integer(Vec::new(), false);
-
-    let score_help = "Specifying the score is only necessary for mania.\n\
-        The value should be between 0 and 1,000,000 and already adjusted to mods \
-        e.g. only up to 500,000 for `EZ` or up to 250,000 for `EZNF`.";
-
-    let score = MyCommandOption::builder(SCORE, "Specify the score")
-        .help(score_help)
-        .min_int(0)
-        .integer(Vec::new(), false);
-
-    let help = "Simulate a score on a map.\n\
-        Note that hitresults, combo, and accuracy are ignored in mania; only score is important.";
-
-    MyCommand::new("simulate", "Simulate a score on a map")
-        .help(help)
-        .options(vec![map, mods, n300, n100, n50, misses, combo, acc, score])
 }

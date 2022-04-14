@@ -14,7 +14,7 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        matcher, ApplicationCommandExt,
+        matcher, ApplicationCommandExt, ChannelExt,
     },
     BotResult, Context,
 };
@@ -41,7 +41,7 @@ pub struct Bws<'a> {
         help = "If specified, it will calculate how the bws value would evolve towards the given rank."
     )]
     /// "Specify a target rank to reach"
-    rank: Option<usize>,
+    rank: Option<u32>,
     #[command(
         min_value = 0,
         help = "Calculate how the bws value evolves towards the given amount of badges.\n\
@@ -59,7 +59,7 @@ pub struct Bws<'a> {
 }
 
 impl<'m> Bws<'m> {
-    fn args(args: Args<'_>) -> Result<Self, Cow<'static, str>> {
+    fn args(args: Args<'m>) -> Result<Self, Cow<'static, str>> {
         let mut name = None;
         let mut discord = None;
         let mut rank = None;
@@ -76,7 +76,7 @@ impl<'m> Bws<'m> {
                         Err(_) => {
                             let content = "Failed to parse `rank`. Must be a positive integer.";
 
-                            return Ok(Err(content.into()));
+                            return Err(content.into());
                         }
                     },
                     "badges" | "badge" | "b" => match value.parse() {
@@ -84,7 +84,7 @@ impl<'m> Bws<'m> {
                         Err(_) => {
                             let content = "Failed to parse `badges`. Must be a positive integer.";
 
-                            return Ok(Err(content.into()));
+                            return Err(content.into());
                         }
                     },
                     _ => {
@@ -92,7 +92,7 @@ impl<'m> Bws<'m> {
                             "Unrecognized option `{key}`.\nAvailable options are: `rank` or `badges`."
                         );
 
-                        return Ok(Err(content.into()));
+                        return Err(content.into());
                     }
                 }
             } else if let Some(id) = matcher::get_mention_user(arg) {
@@ -133,7 +133,11 @@ async fn slash_bws(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> B
 async fn prefix_bws(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match Bws::args(args) {
         Ok(args) => bws(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 

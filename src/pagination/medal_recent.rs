@@ -304,8 +304,8 @@ impl MedalRecentPagination {
                     Some(ref tuple) => tuple.to_owned(),
                     None => {
                         let name = &medal.medal.name;
-                        let map_fut = self.ctx.clients.custom.get_osekai_beatmaps(name);
-                        let comment_fut = self.ctx.clients.custom.get_osekai_comments(name);
+                        let map_fut = self.ctx.client().get_osekai_beatmaps(name);
+                        let comment_fut = self.ctx.client().get_osekai_comments(name);
 
                         let (mut maps, comments) = match tokio::try_join!(map_fut, comment_fut) {
                             Ok(tuple) => tuple,

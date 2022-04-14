@@ -1,6 +1,6 @@
 use std::{slice, sync::Arc};
 
-use eyre::{Context as EyreContext, Report};
+use eyre::Report;
 use hashbrown::hash_map::Entry;
 use rosu_v2::prelude::{MatchEvent, OsuError};
 use tokio::time::{interval, Duration};
@@ -9,6 +9,7 @@ use twilight_model::id::{marker::ChannelMarker, Id};
 use crate::{
     embeds::{EmbedData, MatchLiveEmbed},
     matchlive::{send_match_messages, Channel, MatchEntry, MatchTrackResult, TrackedMatch},
+    util::ChannelExt,
 };
 
 use super::Context;
@@ -163,11 +164,11 @@ impl Context {
     }
 
     pub async fn match_live_loop(ctx: Arc<Context>) {
-        if cfg!(debug_assertions) {
-            info!("Skip match live tracking on debug");
+        // if cfg!(debug_assertions) {
+        //     info!("Skip match live tracking on debug");
 
-            return;
-        }
+        //     return;
+        // }
 
         // Update all matches every 10 seconds
         let mut interval = interval(Duration::from_secs(10));

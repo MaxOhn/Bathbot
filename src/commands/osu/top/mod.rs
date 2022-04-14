@@ -1,6 +1,6 @@
 use std::{borrow::Cow, fmt::Write, mem, sync::Arc};
 
-use command_macros::{command, HasName, SlashCommand};
+use command_macros::{command, HasMods, HasName, SlashCommand};
 use eyre::Report;
 use hashbrown::HashMap;
 use rkyv::{Deserialize, Infallible};
@@ -29,23 +29,23 @@ use crate::{
     tracking::process_osu_tracking,
     util::{
         builder::MessageBuilder,
-        constants::{OSUTRACKER_ISSUE, OSU_API_ISSUE},
+        constants::{GENERAL_ISSUE, OSUTRACKER_ISSUE, OSU_API_ISSUE},
         matcher, numbers,
-        osu::{ModSelection, ScoreOrder, SortableScore},
-        query::FilterCriteria,
-        ApplicationCommandExt, CowUtils, MessageExt,
+        osu::{ModSelection, SortableScore},
+        query::{FilterCriteria, Searchable},
+        ApplicationCommandExt, ChannelExt, CowUtils, MessageExt,
     },
     BotResult, Context,
 };
 
 pub use self::{if_::*, old::*};
 
-use super::GradeArg;
+use super::{require_link, HasMods, ModsResult, ScoreOrder};
 
 mod if_;
 mod old;
 
-#[derive(CommandModel, CreateCommand, SlashCommand)]
+#[derive(CommandModel, CreateCommand, HasMods, SlashCommand)]
 #[command(name = "top")]
 /// Display the user's current top100
 pub struct Top {
@@ -99,7 +99,7 @@ pub struct Top {
     perfect_combo: Option<bool>,
 }
 
-#[derive(CommandOption, CreateOption)]
+#[derive(Copy, Clone, CommandOption, CreateOption, Eq, PartialEq)]
 pub enum TopScoreOrder {
     #[option(name = "Accuracy", value = "acc")]
     Acc,
@@ -123,6 +123,12 @@ pub enum TopScoreOrder {
     Score,
     #[option(name = "Stars", value = "stars")]
     Stars,
+}
+
+impl Default for TopScoreOrder {
+    fn default() -> Self {
+        Self::Pp
+    }
 }
 
 impl From<ScoreOrder> for TopScoreOrder {
@@ -150,15 +156,6 @@ pub enum FarmFilter {
     OnlyFarm,
 }
 
-async fn slash_top(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
-    let args = Top::from_interaction(command.input_data())?;
-
-    match TopArgs::from_slash(args) {
-        Ok(args) => top(ctx, command.into(), args).await,
-        Err(content) => command.error(&ctx, content).await,
-    }
-}
-
 #[command]
 #[desc("Display a user's top plays")]
 #[help(
@@ -168,7 +165,7 @@ async fn slash_top(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> B
      These are the keys with their values:\n\
      - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
      - `combo`: single integer or two integers of the form `a..b` e.g. `combo=500..1234`\n\
-     - `grade`: single grade or two grades of the form `a..b` e.g. `grade=b..sh`\n\
+     - `grade`: `SS`, `S`, `A`, `B`, `C`, or `D`\n\
      - `sort`: `acc`, `combo`, `date` (= `rb` command), `length`, or `position` (default)\n\
      - `reverse`: `true` or `false` (default)\n\
      \n\
@@ -177,19 +174,23 @@ async fn slash_top(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> B
 )]
 #[usage(
     "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] \
-    [grade=grade[..grade]] [sort=acc/combo/date/length/position] [reverse=true/false]"
+    [grade=SS/S/A/B/C/D] [sort=acc/combo/date/length/position] [reverse=true/false]"
 )]
 #[examples(
     "badewanne3 acc=97.34..99.5 grade=A +hdhr sort=combo",
     "vaxei -dt! combo=1234 sort=length",
-    "peppy combo=200..500 grade=B..S reverse=true"
+    "peppy combo=200..500 grade=B reverse=true"
 )]
 #[aliases("topscores", "osutop")]
 #[group(Osu)]
 async fn prefix_top(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match TopArgs::args(GameMode::STD, args) {
         Ok(args) => top(ctx, msg.into(), args).await,
-        Ok(Err(content)) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -202,7 +203,7 @@ async fn prefix_top(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResu
     These are the keys with their values:\n\
     - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
     - `combo`: single integer or two integers of the form `a..b` e.g. `combo=500..1234`\n\
-    - `grade`: single grade or two grades of the form `a..b` e.g. `grade=b..sh`\n\
+    - `grade`: `SS`, `S`, `A`, `B`, `C`, or `D`\n\
     - `sort`: `acc`, `combo`, `date` (= `rbm` command), `length`, or `position` (default)\n\
     - `reverse`: `true` or `false` (default)\n\
     \n\
@@ -211,19 +212,23 @@ async fn prefix_top(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResu
 )]
 #[usage(
     "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] \
-   [grade=grade[..grade]] [sort=acc/combo/date/length/position] [reverse=true/false]"
+    [grade=SS/S/A/B/C/D] [sort=acc/combo/date/length/position] [reverse=true/false]"
 )]
 #[examples(
     "badewanne3 acc=97.34..99.5 grade=A +hdhr sort=combo",
     "vaxei -dt! combo=1234 sort=length",
-    "peppy combo=200..500 grade=B..S reverse=true"
+    "peppy combo=200..500 grade=B reverse=true"
 )]
 #[alias("topm")]
 #[group(Mania)]
 async fn prefix_topmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match TopArgs::args(GameMode::MNA, args) {
         Ok(args) => top(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -236,7 +241,7 @@ async fn prefix_topmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Bo
     These are the keys with their values:\n\
     - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
     - `combo`: single integer or two integers of the form `a..b` e.g. `combo=500..1234`\n\
-    - `grade`: single grade or two grades of the form `a..b` e.g. `grade=b..sh`\n\
+    - `grade`: `SS`, `S`, `A`, `B`, `C`, or `D`\n\
     - `sort`: `acc`, `combo`, `date` (= `rbt` command), `length`, or `position` (default)\n\
     - `reverse`: `true` or `false` (default)\n\
     \n\
@@ -245,19 +250,23 @@ async fn prefix_topmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Bo
 )]
 #[usage(
     "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] \
-   [grade=grade[..grade]] [sort=acc/combo/date/length/position] [reverse=true/false]"
+    [grade=SS/S/A/B/C/D] [sort=acc/combo/date/length/position] [reverse=true/false]"
 )]
 #[examples(
     "badewanne3 acc=97.34..99.5 grade=A +hdhr sort=combo",
     "vaxei -dt! combo=1234 sort=length",
-    "peppy combo=200..500 grade=B..S reverse=true"
+    "peppy combo=200..500 grade=B reverse=true"
 )]
 #[alias("topt")]
 #[group(Taiko)]
 async fn prefix_toptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TopArgs::args(&ctx, args) {
+    match TopArgs::args(GameMode::TKO, args) {
         Ok(args) => top(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -270,7 +279,7 @@ async fn prefix_toptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Bo
     These are the keys with their values:\n\
     - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
     - `combo`: single integer or two integers of the form `a..b` e.g. `combo=500..1234`\n\
-    - `grade`: single grade or two grades of the form `a..b` e.g. `grade=b..sh`\n\
+    - `grade`: `SS`, `S`, `A`, `B`, `C`, or `D`\n\
     - `sort`: `acc`, `combo`, `date` (= `rbc` command), `length`, or `position` (default)\n\
     - `reverse`: `true` or `false` (default)\n\
     \n\
@@ -279,19 +288,23 @@ async fn prefix_toptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Bo
 )]
 #[usage(
     "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] \
-   [grade=grade[..grade]] [sort=acc/combo/date/length/position] [reverse=true/false]"
+   [grade=SS/S/A/B/C/D] [sort=acc/combo/date/length/position] [reverse=true/false]"
 )]
 #[examples(
     "badewanne3 acc=97.34..99.5 grade=A +hdhr sort=combo",
     "vaxei -dt! combo=1234 sort=length",
-    "peppy combo=200..500 grade=B..S reverse=true"
+    "peppy combo=200..500 grade=B reverse=true"
 )]
 #[alias("topc")]
 #[group(Catch)]
 async fn prefix_topctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match TopArgs::args(GameMode::CTB, args) {
         Ok(args) => top(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -304,19 +317,19 @@ async fn prefix_topctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotR
     These are the keys with their values:\n\
     - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
     - `combo`: single integer or two integers of the form `a..b` e.g. `combo=500..1234`\n\
-    - `grade`: single grade or two grades of the form `a..b` e.g. `grade=b..sh`\n\
+    - `grade`: `SS`, `S`, `A`, `B`, `C`, or `D`\n\
     - `reverse`: `true` or `false` (default)\n\
     \n\
     Instead of showing the scores in a list, you can also __show a single score__ by \
     specifying a number right after the command, e.g. `<rb2 badewanne3`."
 )]
 #[usage(
-    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=grade[..grade]] [reverse=true/false]"
+    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=SS/S/A/B/C/D] [reverse=true/false]"
 )]
 #[examples(
     "badewanne3 acc=97.34..99.5 grade=A +hdhr",
     "vaxei -dt! combo=1234",
-    "peppy combo=200..500 grade=B..S reverse=true"
+    "peppy combo=200..500 grade=B reverse=true"
 )]
 #[alias("rb")]
 #[group(Osu)]
@@ -327,7 +340,11 @@ async fn prefix_recentbest(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> 
 
             top(ctx, msg.into(), args).await
         }
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -340,30 +357,34 @@ async fn prefix_recentbest(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> 
     These are the keys with their values:\n\
     - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
     - `combo`: single integer or two integers of the form `a..b` e.g. `combo=500..1234`\n\
-    - `grade`: single grade or two grades of the form `a..b` e.g. `grade=b..sh`\n\
+    - `grade`: `SS`, `S`, `A`, `B`, `C`, or `D`\n\
     - `reverse`: `true` or `false` (default)\n\
     \n\
     Instead of showing the scores in a list, you can also __show a single score__ by \
     specifying a number right after the command, e.g. `<rbm2 badewanne3`."
 )]
 #[usage(
-    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=grade[..grade]] [reverse=true/false]"
+    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=SS/S/A/B/C/D] [reverse=true/false]"
 )]
 #[examples(
     "badewanne3 acc=97.34..99.5 grade=A +hdhr",
     "vaxei -dt! combo=1234",
-    "peppy combo=200..500 grade=B..S reverse=true"
+    "peppy combo=200..500 grade=B reverse=true"
 )]
 #[alias("rbm")]
 #[group(Mania)]
 async fn prefix_recentbestmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match TopArgs::args(GameMode::MNA, args) {
         Ok(mut args) => {
-            args.sort_by = ScoreOrder::Date;
+            args.sort_by = TopScoreOrder::Date;
 
             top(ctx, msg.into(), args).await
         }
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -376,30 +397,34 @@ async fn prefix_recentbestmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>
     These are the keys with their values:\n\
     - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
     - `combo`: single integer or two integers of the form `a..b` e.g. `combo=500..1234`\n\
-    - `grade`: single grade or two grades of the form `a..b` e.g. `grade=b..sh`\n\
+    - `grade`: `SS`, `S`, `A`, `B`, `C`, or `D`\n\
     - `reverse`: `true` or `false` (default)\n\
     \n\
     Instead of showing the scores in a list, you can also __show a single score__ by \
     specifying a number right after the command, e.g. `<rbt2 badewanne3`."
 )]
 #[usage(
-    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=grade[..grade]] [reverse=true/false]"
+    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=SS/S/A/B/C/D] [reverse=true/false]"
 )]
 #[examples(
     "badewanne3 acc=97.34..99.5 grade=A +hdhr",
     "vaxei -dt! combo=1234",
-    "peppy combo=200..500 grade=B..S reverse=true"
+    "peppy combo=200..500 grade=B reverse=true"
 )]
 #[alias("rbt")]
 #[group(Taiko)]
 async fn prefix_recentbesttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match TopArgs::args(GameMode::TKO, args) {
         Ok(mut args) => {
-            args.sort_by = ScoreOrder::Date;
+            args.sort_by = TopScoreOrder::Date;
 
             top(ctx, msg.into(), args).await
         }
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -412,56 +437,73 @@ async fn prefix_recentbesttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
     These are the keys with their values:\n\
     - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
     - `combo`: single integer or two integers of the form `a..b` e.g. `combo=500..1234`\n\
-    - `grade`: single grade or two grades of the form `a..b` e.g. `grade=b..sh`\n\
+    - `grade`: `SS`, `S`, `A`, `B`, `C`, or `D`\n\
     - `reverse`: `true` or `false` (default)\n\
     \n\
     Instead of showing the scores in a list, you can also __show a single score__ by \
     specifying a number right after the command, e.g. `<rbc2 badewanne3`."
 )]
 #[usage(
-    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=grade[..grade]] [reverse=true/false]"
+    "[username] [mods] [acc=number[..number]] [combo=integer[..integer]] [grade=SS/S/A/B/C/D] [reverse=true/false]"
 )]
 #[examples(
     "badewanne3 acc=97.34..99.5 grade=A +hdhr",
     "vaxei -dt! combo=1234",
-    "peppy combo=200..500 grade=B..S reverse=true"
+    "peppy combo=200..500 grade=B reverse=true"
 )]
 #[alias("rbc")]
 #[group(Catch)]
 async fn prefix_recentbestctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match TopArgs::args(GameMode::CTB, args) {
         Ok(mut args) => {
-            args.sort_by = ScoreOrder::Date;
+            args.sort_by = TopScoreOrder::Date;
 
             top(ctx, msg.into(), args).await
         }
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+async fn slash_top(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    let args = Top::from_interaction(command.input_data())?;
+
+    match TopArgs::try_from(args) {
+        Ok(args) => top(ctx, command.into(), args).await,
+        Err(content) => {
+            command.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
 #[derive(HasName)]
 pub struct TopArgs<'a> {
-    name: Option<Cow<'a, str>>,
-    discord: Option<Id<UserMarker>>,
-    mode: Option<GameMode>,
-    mods: Option<ModSelection>,
-    acc_min: Option<f32>,
-    acc_max: Option<f32>,
-    combo_min: Option<u32>,
-    combo_max: Option<u32>,
-    grade: Option<GradeArg>,
+    pub name: Option<Cow<'a, str>>,
+    pub discord: Option<Id<UserMarker>>,
+    pub mode: Option<GameMode>,
+    pub mods: Option<ModSelection>,
+    pub acc_min: Option<f32>,
+    pub acc_max: Option<f32>,
+    pub combo_min: Option<u32>,
+    pub combo_max: Option<u32>,
+    pub grade: Option<Grade>,
     pub sort_by: TopScoreOrder,
-    reverse: bool,
-    perfect_combo: Option<bool>,
-    index: Option<usize>,
-    query: Option<String>,
-    farm: Option<FarmFilter>,
-    has_dash_r: bool,
-    has_dash_p_or_i: bool,
+    pub reverse: bool,
+    pub perfect_combo: Option<bool>,
+    pub index: Option<usize>,
+    pub query: Option<String>,
+    pub farm: Option<FarmFilter>,
+    pub has_dash_r: bool,
+    pub has_dash_p_or_i: bool,
 }
 
 impl<'m> TopArgs<'m> {
-    const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
+    pub const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
         If you want included mods, specify it e.g. as `+hrdt`.\n\
         If you want exact mods, specify it e.g. as `+hdhr!`.\n\
         And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
@@ -474,11 +516,7 @@ impl<'m> TopArgs<'m> {
         Must be either a positive integer \
         or two positive integers of the form `a..b` e.g. `501..1234`.";
 
-    const ERR_PARSE_GRADE: &'static str = "Failed to parse `grade`.\n\
-        Must be either a single grade or two grades of the form `a..b` e.g. `C..S`.\n\
-        Valid grades are: `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, or `D`";
-
-    async fn args(mode: GameMode, args: Args<'m>) -> Result<Self, Cow<'static, str>> {
+    fn args(mode: GameMode, args: Args<'m>) -> Result<Self, Cow<'static, str>> {
         let mut name = None;
         let mut discord = None;
         let mut mods = None;
@@ -491,6 +529,7 @@ impl<'m> TopArgs<'m> {
         let mut reverse = None;
         let mut has_dash_r = None;
         let mut has_dash_p_or_i = None;
+        let num = args.num;
 
         for arg in args.map(|arg| arg.cow_to_ascii_lowercase()) {
             if arg.as_ref() == "-r" {
@@ -512,7 +551,7 @@ impl<'m> TopArgs<'m> {
                             } else if let Ok(num) = bot.parse::<f32>() {
                                 num.max(0.0).min(100.0)
                             } else {
-                                return Ok(Err(Self::ERR_PARSE_ACC.into()));
+                                return Err(Self::ERR_PARSE_ACC.into());
                             };
 
                             let mut max = if top.is_empty() {
@@ -520,7 +559,7 @@ impl<'m> TopArgs<'m> {
                             } else if let Ok(num) = top.parse::<f32>() {
                                 num.max(0.0).min(100.0)
                             } else {
-                                return Ok(Err(Self::ERR_PARSE_ACC.into()));
+                                return Err(Self::ERR_PARSE_ACC.into());
                             };
 
                             if min > max {
@@ -532,7 +571,7 @@ impl<'m> TopArgs<'m> {
                         }
                         None => match value.parse() {
                             Ok(num) => acc_min = Some(num),
-                            Err(_) => return Ok(Err(Self::ERR_PARSE_ACC.into())),
+                            Err(_) => return Err(Self::ERR_PARSE_ACC.into()),
                         },
                     },
                     "combo" | "c" => match value.find("..") {
@@ -545,7 +584,7 @@ impl<'m> TopArgs<'m> {
                             } else if let Ok(num) = bot.parse() {
                                 num
                             } else {
-                                return Ok(Err(Self::ERR_PARSE_COMBO.into()));
+                                return Err(Self::ERR_PARSE_COMBO.into());
                             };
 
                             let mut max = top.parse().ok();
@@ -561,40 +600,12 @@ impl<'m> TopArgs<'m> {
                         }
                         None => match value.parse() {
                             Ok(num) => combo_min = Some(num),
-                            Err(_) => return Ok(Err(Self::ERR_PARSE_COMBO.into())),
+                            Err(_) => return Err(Self::ERR_PARSE_COMBO.into()),
                         },
                     },
-                    "grade" | "g" => match value.find("..") {
-                        Some(idx) => {
-                            let bot = &value[..idx];
-                            let top = &value[idx + 2..];
-
-                            let mut bot = if bot.is_empty() {
-                                Grade::D
-                            } else if let Some(grade) = parse_grade(bot) {
-                                grade
-                            } else {
-                                return Ok(Err(Self::ERR_PARSE_GRADE.into()));
-                            };
-
-                            let mut top = if top.is_empty() {
-                                Grade::XH
-                            } else if let Some(grade) = parse_grade(top) {
-                                grade
-                            } else {
-                                return Ok(Err(Self::ERR_PARSE_GRADE.into()));
-                            };
-
-                            if bot > top {
-                                mem::swap(&mut bot, &mut top);
-                            }
-
-                            grade = Some(GradeArg::Range { bot, top })
-                        }
-                        None => match parse_grade(value).map(GradeArg::Single) {
-                            Some(grade_) => grade = Some(grade_),
-                            None => return Ok(Err(Self::ERR_PARSE_GRADE.into())),
-                        },
+                    "grade" | "g" => match value.parse::<GradeOption>() {
+                        Ok(grade_) => grade = Some(grade_.into()),
+                        Err(content) => return Err(content.into()),
                     },
                     "sort" | "s" | "order" | "ordering" => match value {
                         "acc" | "a" | "accuracy" => sort_by = Some(ScoreOrder::Acc),
@@ -606,12 +617,12 @@ impl<'m> TopArgs<'m> {
                             let content = "Failed to parse `sort`.\n\
                             Must be either `acc`, `combo`, `date`, `length`, or `pp`";
 
-                            return Ok(Err(content.into()));
+                            return Err(content.into());
                         }
                     },
                     "mods" => match matcher::get_mods(value) {
                         Some(mods_) => mods = Some(mods_),
-                        None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
+                        None => return Err(Self::ERR_PARSE_MODS.into()),
                     },
                     "reverse" | "r" => match value {
                         "true" | "t" | "1" => reverse = Some(true),
@@ -620,7 +631,7 @@ impl<'m> TopArgs<'m> {
                             let content =
                                 "Failed to parse `reverse`. Must be either `true` or `false`.";
 
-                            return Ok(Err(content.into()));
+                            return Err(content.into());
                         }
                     },
                     _ => {
@@ -629,7 +640,7 @@ impl<'m> TopArgs<'m> {
                             Available options are: `acc`, `combo`, `sort`, `grade`, or `reverse`."
                         );
 
-                        return Ok(Err(content.into()));
+                        return Err(content.into());
                     }
                 }
             } else if let Some(mods_) = matcher::get_mods(arg.as_ref()) {
@@ -655,69 +666,72 @@ impl<'m> TopArgs<'m> {
             sort_by: sort_by.unwrap_or_default().into(),
             reverse: reverse.unwrap_or(false),
             perfect_combo: None,
-            index: args.num.map(|n| n as usize),
+            index: num.map(|n| n as usize),
             query: None,
             farm: None,
             has_dash_r: has_dash_r.unwrap_or(false),
             has_dash_p_or_i: has_dash_p_or_i.unwrap_or(false),
         };
 
-        Ok(Ok(args))
+        Ok(args)
     }
+}
 
-    // TODO: impl TryFrom
-    fn from_slash(top: Top) -> Result<Self, &'static str> {
-        let mods = top.mods.map(|mods| match matcher::get_mods(&mods) {
-            Some(mods) => Ok(mods),
-            None => Err(Self::ERR_PARSE_MODS),
-        });
+impl TryFrom<Top> for TopArgs<'static> {
+    type Error = &'static str;
+
+    fn try_from(args: Top) -> Result<Self, Self::Error> {
+        let mods = match args.mods() {
+            ModsResult::Mods(mods) => Some(mods),
+            ModsResult::None => None,
+            ModsResult::Invalid => return Err(Self::ERR_PARSE_MODS),
+        };
 
         Ok(Self {
-            name: top.name,
-            discord: top.discord,
-            mode: top.mode,
-            mods: mods.transpose()?,
+            name: args.name.map(Cow::Owned),
+            discord: args.discord,
+            mode: args.mode.map(GameMode::from),
+            mods,
             acc_min: None,
             acc_max: None,
             combo_min: None,
             combo_max: None,
-            grade: top.grade.into(),
-            sort_by: top.sort,
-            reverse: top.reverse.unwrap_or(false),
-            perfect_combo: top.perfect_combo,
-            index: top.index,
-            query: top.query,
-            farm: top.farm,
+            grade: args.grade.map(Grade::from),
+            sort_by: args.sort.unwrap_or_default(),
+            reverse: args.reverse.unwrap_or(false),
+            perfect_combo: args.perfect_combo,
+            index: args.index.map(|n| n as usize),
+            query: args.query,
+            farm: args.farm,
             has_dash_r: false,
             has_dash_p_or_i: false,
         })
     }
 }
 
-fn parse_grade(arg: &str) -> Option<Grade> {
-    match arg {
-        "xh" | "ssh" => Some(Grade::XH),
-        "ss" | "x" => Some(Grade::X),
-        "sh" => Some(Grade::SH),
-        "s" => Some(Grade::S),
-        "a" => Some(Grade::A),
-        "b" => Some(Grade::B),
-        "c" => Some(Grade::C),
-        "d" => Some(Grade::D),
-        _ => None,
-    }
-}
-
 const FARM_CUTOFF: usize = 727;
 
-async fn top(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopArgs<'_>) -> BotResult<()> {
+pub(super) async fn top(
+    ctx: Arc<Context>,
+    orig: CommandOrigin<'_>,
+    args: TopArgs<'_>,
+) -> BotResult<()> {
     if args.index.filter(|n| *n > 100).is_some() {
         let content = "Can't have more than 100 top scores.";
 
         return orig.error(&ctx, content).await;
     }
 
-    let mode = args.config.mode.unwrap_or(GameMode::STD);
+    let mut config = match ctx.user_config(orig.user_id()?).await {
+        Ok(config) => config,
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err);
+        }
+    };
+
+    let mode = args.mode.or(config.mode).unwrap_or(GameMode::STD);
 
     if args.sort_by == TopScoreOrder::Pp && args.has_dash_r {
         let mode_long = mode_long(mode);
@@ -754,13 +768,16 @@ async fn top(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopArgs<'_>) -> B
         return orig.error(&ctx, content).await;
     }
 
-    let name = match args.config.username() {
-        Some(name) => name.as_str(),
-        None => return super::require_link(&ctx, &orig).await,
+    let name = match username!(ctx, orig, args) {
+        Some(name) => name,
+        None => match config.osu.take() {
+            Some(osu) => osu.into_username(),
+            None => return require_link(&ctx, &orig).await,
+        },
     };
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::new(name, mode);
+    let user_args = UserArgs::new(&name, mode);
     let score_args = ScoreArgs::top(100).with_combo();
 
     let farm_fut = async {
@@ -834,13 +851,13 @@ async fn top(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopArgs<'_>) -> B
 
     match (args.index, scores.len()) {
         (Some(num), _) => {
-            let embeds_size = match (args.config.embeds_size, orig.guild_id()) {
+            let embeds_size = match (config.embeds_size, orig.guild_id()) {
                 (Some(size), _) => size,
                 (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
                 (None, None) => EmbedsSize::default(),
             };
 
-            let minimized_pp = match (args.config.minimized_pp, orig.guild_id()) {
+            let minimized_pp = match (config.minimized_pp, orig.guild_id()) {
                 (Some(pp), _) => pp,
                 (None, Some(guild)) => ctx.guild_minimized_pp(guild).await,
                 (None, None) => MinimizedPp::default(),
@@ -860,19 +877,19 @@ async fn top(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopArgs<'_>) -> B
             .await?;
         }
         (_, 1) => {
-            let embeds_size = match (args.config.embeds_size, orig.guild_id()) {
+            let embeds_size = match (config.embeds_size, orig.guild_id()) {
                 (Some(size), _) => size,
                 (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
                 (None, None) => EmbedsSize::default(),
             };
 
-            let minimized_pp = match (args.config.minimized_pp, orig.guild_id()) {
+            let minimized_pp = match (config.minimized_pp, orig.guild_id()) {
                 (Some(pp), _) => pp,
                 (None, Some(guild)) => ctx.guild_minimized_pp(guild).await,
                 (None, None) => MinimizedPp::default(),
             };
 
-            let content = write_content(name, &args, 1);
+            let content = write_content(&name, &args, 1);
             single_embed(
                 ctx,
                 orig,
@@ -886,7 +903,7 @@ async fn top(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopArgs<'_>) -> B
             .await?;
         }
         (None, _) => {
-            let content = write_content(name, &args, scores.len());
+            let content = write_content(&name, &args, scores.len());
             paginated_embed(ctx, orig, user, scores, args.sort_by, content, farm).await?;
         }
     }
@@ -918,18 +935,10 @@ async fn filter_scores(
                 }
             }
 
-            match grade {
-                Some(GradeArg::Single(grade)) => {
-                    if !s.grade.eq_letter(grade) {
-                        return false;
-                    }
+            if let Some(grade) = grade {
+                if !s.grade.eq_letter(grade) {
+                    return false;
                 }
-                Some(GradeArg::Range { bot, top }) => {
-                    if s.grade < bot || s.grade > top {
-                        return false;
-                    }
-                }
-                None => {}
             }
 
             let mod_bool = match selection {
@@ -1008,10 +1017,22 @@ async fn filter_scores(
 
             count_b.cmp(&count_a)
         }),
-        _ => {
-            ScoreOrder::from(args.sort_by)
-                .apply(ctx, &mut scores_indices)
-                .await
+        other => {
+            let sort = match other {
+                TopScoreOrder::Acc => ScoreOrder::Acc,
+                TopScoreOrder::Bpm => ScoreOrder::Bpm,
+                TopScoreOrder::Combo => ScoreOrder::Combo,
+                TopScoreOrder::Date => ScoreOrder::Date,
+                TopScoreOrder::Length => ScoreOrder::Length,
+                TopScoreOrder::RankedDate => ScoreOrder::RankedDate,
+                TopScoreOrder::Misses => ScoreOrder::Misses,
+                TopScoreOrder::Pp => ScoreOrder::Pp,
+                TopScoreOrder::Score => ScoreOrder::Score,
+                TopScoreOrder::Stars => ScoreOrder::Stars,
+                _ => unreachable!(),
+            };
+
+            sort.apply(ctx, &mut scores_indices).await
         }
     }
 
@@ -1163,7 +1184,7 @@ async fn paginated_embed(
 
     // Pagination
     let pagination = TopPagination::new(response, user, scores, sort_by, farm, Arc::clone(&ctx));
-    let owner = orig.author()?.id;
+    let owner = orig.user_id()?;
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {
@@ -1292,14 +1313,8 @@ fn content_with_condition(args: &TopArgs<'_>, amount: usize) -> String {
         }
     }
 
-    match args.grade {
-        Some(GradeArg::Single(grade)) => {
-            let _ = write!(content, " ~ `Grade: {grade}`");
-        }
-        Some(GradeArg::Range { bot, top }) => {
-            let _ = write!(content, " ~ `Grade: {bot} - {top}`");
-        }
-        None => {}
+    if let Some(grade) = args.grade {
+        let _ = write!(content, " ~ `Grade: {grade}`");
     }
 
     if let Some(selection) = args.mods {

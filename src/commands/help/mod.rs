@@ -1,13 +1,10 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fmt::Write};
 
 use twilight_interactions::command::{CommandOptionExt, CommandOptionExtInner};
 use twilight_model::{
     application::component::{select_menu::SelectMenuOption, ActionRow, Component, SelectMenu},
     channel::embed::EmbedField,
-    id::{marker::ChannelMarker, Id},
 };
-
-use crate::{core::Context, util::ChannelExt, BotResult};
 
 pub use self::{
     components::handle_help_component,
@@ -21,36 +18,25 @@ mod message;
 
 const AUTHORITY_STATUS: &str = "Requires authority status (check the /authorities command)";
 
-async fn failed_message_(
-    ctx: &Context,
-    channel: Id<ChannelMarker>,
-    dists: BTreeMap<usize, &'static str>,
-) -> BotResult<()> {
-    // Needs tighter scope for some reason or tokio complains about something being not `Send`
-    let content = {
-        let mut names = dists.iter().take(5).map(|(_, &name)| name);
+fn failed_message_content(dists: BTreeMap<usize, &'static str>) -> String {
+    let mut names = dists.iter().take(5).map(|(_, &name)| name);
 
-        if let Some(name) = names.next() {
-            let count = dists.len().min(5);
-            let mut content = String::with_capacity(14 + count * (5 + 2) + (count - 1) * 2);
-            content.push_str("Did you mean ");
-            let _ = write!(content, "`{name}`");
+    if let Some(name) = names.next() {
+        let count = dists.len().min(5);
+        let mut content = String::with_capacity(14 + count * (5 + 2) + (count - 1) * 2);
+        content.push_str("Did you mean ");
+        let _ = write!(content, "`{name}`");
 
-            for name in names {
-                let _ = write!(content, ", `{name}`");
-            }
-
-            content.push('?');
-
-            content
-        } else {
-            "There is no such command".to_owned()
+        for name in names {
+            let _ = write!(content, ", `{name}`");
         }
-    };
 
-    channel.error(ctx, content).await?;
+        content.push('?');
 
-    Ok(())
+        content
+    } else {
+        "There is no such command".to_owned()
+    }
 }
 
 fn parse_select_menu(options: &[CommandOptionExt]) -> Option<Vec<Component>> {

@@ -28,7 +28,6 @@ use std::{
 };
 
 use eyre::{Report, Result, WrapErr};
-use futures::StreamExt;
 use tokio::{
     runtime::Builder as RuntimeBuilder,
     signal,
@@ -187,7 +186,7 @@ async fn async_main() -> Result<()> {
 
     let resume_data = ctx.cluster.down_resumable();
 
-    if let Err(err) = ctx.cache.freeze(&ctx.clients.redis, resume_data).await {
+    if let Err(err) = ctx.cache.freeze(ctx.redis_client(), resume_data).await {
         let report = Report::new(err).wrap_err("failed to freeze cache");
         error!("{report:?}");
     }

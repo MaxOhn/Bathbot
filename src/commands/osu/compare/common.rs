@@ -1,25 +1,84 @@
 use std::{cmp::Ordering, fmt::Write, sync::Arc};
 
+use command_macros::command;
 use eyre::Report;
-use futures::stream::{FuturesOrdered, StreamExt};
-use hashbrown::{HashMap, HashSet};
+use hashbrown::HashSet;
 use itertools::Itertools;
-use rosu_v2::prelude::{GameMode, OsuError, Score, Username};
+use rosu_v2::{
+    prelude::{GameMode, OsuError, Score, Username},
+    OsuResult,
+};
 use smallvec::SmallVec;
 
 use crate::{
-    commands::osu::{get_scores, ScoreArgs, UserArgs},
+    commands::{
+        osu::{get_scores, NameExtraction, ScoreArgs, UserArgs},
+        GameModeOption,
+    },
+    core::commands::{prefix::Args, CommandOrigin},
     embeds::{CommonEmbed, EmbedData},
     pagination::{CommonPagination, Pagination},
     tracking::process_osu_tracking,
     util::{
+        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        get_combined_thumbnail, MessageExt,
+        get_combined_thumbnail, matcher,
     },
-    BotResult, CommandData, Context, MessageBuilder,
+    BotResult, Context,
 };
 
-use super::TripleArgs;
+use super::{CompareTop, AT_LEAST_ONE};
+
+#[command]
+#[desc("Compare maps of two players' top100s")]
+#[help("Compare the two users' top 100 and check which maps appear in each top list.")]
+#[usage("[name1] [name2] [name3]")]
+#[example("badewanne3 \"nathan on osu\" idke")]
+#[group(Osu)]
+async fn prefix_common(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    let args = CompareTop::args(GameModeOption::Osu, args);
+
+    top(ctx, msg.into(), args).await
+}
+
+#[command]
+#[desc("Compare maps of two players' top100s")]
+#[help("Compare the mania users' top 100 and check which maps appear in each top list")]
+#[usage("[name1] [name2] [name3]")]
+#[example("badewanne3 \"nathan on osu\" idke")]
+#[alias("commonm")]
+#[group(Mania)]
+async fn prefix_commonmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    let args = CompareTop::args(GameModeOption::Mania, args);
+
+    top(ctx, msg.into(), args).await
+}
+
+#[command]
+#[desc("Compare maps of two players' top100s")]
+#[help("Compare the taiko users' top 100 and check which maps appear in each top list")]
+#[usage("[name1] [name2] [name3]")]
+#[example("badewanne3 \"nathan on osu\" idke")]
+#[alias("commont")]
+#[group(Taiko)]
+async fn prefix_commontaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    let args = CompareTop::args(GameModeOption::Taiko, args);
+
+    top(ctx, msg.into(), args).await
+}
+
+#[command]
+#[desc("Compare maps of two players' top100s")]
+#[help("Compare the ctb users' top 100 and check which maps appear in each top list")]
+#[usage("[name1] [name2] [name3]")]
+#[example("badewanne3 \"nathan on osu\" idke")]
+#[alias("commonc")]
+#[group(Catch)]
+async fn prefix_commonctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    let args = CompareTop::args(GameModeOption::Catch, args);
+
+    top(ctx, msg.into(), args).await
+}
 
 macro_rules! user_id {
     ($scores:ident[$idx:literal]) => {
@@ -29,125 +88,131 @@ macro_rules! user_id {
 
 type CommonUsers = SmallVec<[CommonUser; 3]>;
 
-pub(super) async fn _common(
+async fn extract_name(ctx: &Context, args: &mut CompareTop<'_>) -> NameExtraction {
+    if let Some(name) = args.name1.take().or_else(|| args.name2.take()) {
+        NameExtraction::Name(name.as_ref().into())
+    } else if let Some(discord) = args.discord1.take().or_else(|| args.discord2.take()) {
+        match ctx.psql().get_user_osu(discord).await {
+            Ok(Some(osu)) => NameExtraction::Name(osu.into_username()),
+            Ok(None) => {
+                NameExtraction::Content(format!("<@{discord}> is not linked to an osu!profile"))
+            }
+            Err(err) => NameExtraction::Err(err),
+        }
+    } else {
+        NameExtraction::None
+    }
+}
+
+pub(super) async fn top(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
-    args: TripleArgs,
+    orig: CommandOrigin<'_>,
+    mut args: CompareTop<'_>,
 ) -> BotResult<()> {
-    let TripleArgs {
-        name1,
-        name2,
-        name3,
-        mode,
-    } = args;
+    let mut name1 = match extract_name(&ctx, &mut args).await {
+        NameExtraction::Name(name) => name,
+        NameExtraction::Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-    let name1 = match name1 {
-        Some(name) => name,
-        None => {
-            let content =
-                "Since you're not linked with the `link` command, you must specify two names.";
+            return Err(err);
+        }
+        NameExtraction::Content(content) => return orig.error(&ctx, content).await,
+        NameExtraction::None => return orig.error(&ctx, AT_LEAST_ONE).await,
+    };
 
-            return data.error(&ctx, content).await;
+    let mut name2 = match extract_name(&ctx, &mut args).await {
+        NameExtraction::Name(name) => name,
+        NameExtraction::Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err);
+        }
+        NameExtraction::Content(content) => return orig.error(&ctx, content).await,
+        NameExtraction::None => match ctx.psql().get_user_osu(orig.user_id()?).await {
+            Ok(Some(osu)) => osu.into_username(),
+            Ok(None) => {
+                let content =
+                    "Since you're not linked with the `/link` command, you must specify two names.";
+
+                return orig.error(&ctx, content).await;
+            }
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(err);
+            }
+        },
+    };
+
+    if name1 == name2 {
+        return orig.error(&ctx, "Give two different names").await;
+    }
+
+    let mode = args.mode.map_or(GameMode::STD, GameMode::from);
+
+    let fut1 = get_scores_(&ctx, &name1, mode);
+    let fut2 = get_scores_(&ctx, &name2, mode);
+
+    let (scores1, scores2) = match tokio::join!(fut1, fut2) {
+        (Ok(scores1), Ok(scores2)) => (scores1, scores2),
+        (Err(OsuError::NotFound), _) => {
+            let content = format!("User `{name1}` was not found");
+
+            return orig.error(&ctx, content).await;
+        }
+        (_, Err(OsuError::NotFound)) => {
+            let content = format!("User `{name2}` was not found");
+
+            return orig.error(&ctx, content).await;
+        }
+        (Err(err), _) | (_, Err(err)) => {
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+
+            return Err(err.into());
         }
     };
 
-    let mut names = Vec::with_capacity(3);
-    names.push(name1);
-    names.push(name2);
+    // TODO: find nicer structure
+    let mut all_scores = Vec::<Vec<_>>::with_capacity(2);
+    let mut users = CommonUsers::with_capacity(2);
 
-    if let Some(name) = name3 {
-        names.push(name);
+    let opt = scores1
+        .first()
+        .and_then(|s| Some((s.user_id, s.user.as_ref()?.avatar_url.clone())));
+
+    if let Some((user_id, avatar_url)) = opt {
+        name1.make_ascii_lowercase();
+
+        users.push(CommonUser::new(name1, avatar_url, user_id));
+    } else {
+        let content = format!("User `{name1}` has no {mode} top scores");
+
+        return orig.error(&ctx, content).await;
     }
 
-    {
-        let mut unique = HashMap::with_capacity(names.len());
+    all_scores.push(scores1);
 
-        for name in names.iter() {
-            *unique.entry(name.as_str()).or_insert(0) += 1;
-        }
+    let opt = scores2
+        .first()
+        .and_then(|s| Some((s.user_id, s.user.as_ref()?.avatar_url.clone())));
 
-        if unique.len() == 1 {
-            let content = "Give at least two different names";
+    if let Some((user_id, avatar_url)) = opt {
+        name2.make_ascii_lowercase();
 
-            return data.error(&ctx, content).await;
-        }
+        users.push(CommonUser::new(name2, avatar_url, user_id));
+    } else {
+        let content = format!("User `{name2}` has no {mode} top scores");
+
+        return orig.error(&ctx, content).await;
     }
 
-    let count = names.len();
-
-    // Retrieve each user's top scores
-    let mut scores_futs: FuturesOrdered<_> = names
-        .into_iter()
-        .map(|name| async {
-            let mut user_args = UserArgs::new(name.as_str(), mode);
-            let score_args = ScoreArgs::top(100);
-            let scores_fut = get_scores(&ctx, &user_args, &score_args);
-
-            if let Some(alt_name) = user_args.whitespaced_name() {
-                match scores_fut.await {
-                    Ok(scores) => (name, Ok(scores)),
-                    Err(OsuError::NotFound) => {
-                        user_args.name = &alt_name;
-                        let scores_result = get_scores(&ctx, &user_args, &score_args).await;
-
-                        (alt_name.into(), scores_result)
-                    }
-                    Err(err) => (name, Err(err)),
-                }
-            } else {
-                let scores_result = scores_fut.await;
-
-                (name, scores_result)
-            }
-        })
-        .collect();
-
-    let mut all_scores = Vec::<Vec<_>>::with_capacity(count);
-    let mut users = CommonUsers::with_capacity(count);
-
-    while let Some((mut name, result)) = scores_futs.next().await {
-        match result {
-            Ok(scores) => {
-                let opt = scores
-                    .first()
-                    .and_then(|s| Some((s.user_id, s.user.as_ref()?.avatar_url.clone())));
-
-                if let Some((user_id, avatar_url)) = opt {
-                    name.make_ascii_lowercase();
-
-                    users.push(CommonUser::new(name, avatar_url, user_id));
-                } else {
-                    let content = format!("User `{name}` has no {mode} top scores");
-
-                    return data.error(&ctx, content).await;
-                }
-
-                all_scores.push(scores);
-            }
-            Err(OsuError::NotFound) => {
-                let content = format!("User `{name}` was not found");
-
-                return data.error(&ctx, content).await;
-            }
-            Err(why) => {
-                let _ = data.error(&ctx, OSU_API_ISSUE).await;
-
-                return Err(why.into());
-            }
-        }
-    }
-
-    drop(scores_futs);
+    all_scores.push(scores2);
 
     // Check if different names that both belong to the same user were given
-    {
-        let unique: HashSet<_> = users.iter().map(CommonUser::id).collect();
+    if users[0].id() == users[1].id() {
+        let content = "Give at least two different users";
 
-        if unique.len() == 1 {
-            let content = "Give at least two different users";
-
-            return data.error(&ctx, content).await;
-        }
+        return orig.error(&ctx, content).await;
     }
 
     // Process users and their top scores for tracking
@@ -338,10 +403,10 @@ pub(super) async fn _common(
     let mut builder = MessageBuilder::new().content(content).embed(embed);
 
     if let Some(bytes) = thumbnail {
-        builder = builder.file("avatar_fuse.png", bytes);
+        builder = builder.attachment("avatar_fuse.png", bytes);
     }
 
-    let response_raw = data.create_message(&ctx, builder).await?;
+    let response_raw = orig.create_message(&ctx, &builder).await?;
 
     // Skip pagination if too few entries
     if scores_per_map.len() <= 10 {
@@ -352,7 +417,7 @@ pub(super) async fn _common(
 
     // Pagination
     let pagination = CommonPagination::new(response, users, scores_per_map);
-    let owner = data.author()?.id;
+    let owner = orig.user_id()?;
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {
@@ -363,122 +428,23 @@ pub(super) async fn _common(
     Ok(())
 }
 
-#[command]
-#[short_desc("Compare maps of players' top100s")]
-#[long_desc(
-    "Compare the users' top 100 and check which \
-     maps appear in each top list (up to 3 users)"
-)]
-#[usage("[name1] [name2] [name3]")]
-#[example("badewanne3 \"nathan on osu\" idke")]
-pub async fn common(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match TripleArgs::args(&ctx, &mut args, msg.author.id, Some(GameMode::STD)).await {
-                Ok(Ok(common_args)) => {
-                    let data = CommandData::Message { msg, args, num };
+async fn get_scores_(ctx: &Context, name: &str, mode: GameMode) -> OsuResult<Vec<Score>> {
+    let mut user_args = UserArgs::new(name, mode);
+    let score_args = ScoreArgs::top(100);
+    let scores_fut = get_scores(ctx, &user_args, &score_args);
 
-                    _common(ctx, data, common_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+    if let Some(alt_name) = user_args.whitespaced_name() {
+        match scores_fut.await {
+            Ok(scores) => Ok(scores),
+            Err(OsuError::NotFound) => {
+                user_args.name = &alt_name;
 
-                    Err(why)
-                }
+                get_scores(ctx, &user_args, &score_args).await
             }
+            Err(err) => Err(err),
         }
-        CommandData::Interaction { command } => super::slash_compare(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("Compare maps of players' top100s")]
-#[long_desc(
-    "Compare the mania users' top 100 and check which \
-     maps appear in each top list (up to 3 users)"
-)]
-#[usage("[name1] [name2] [name3]")]
-#[example("badewanne3 \"nathan on osu\" idke")]
-#[aliases("commonm")]
-pub async fn commonmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match TripleArgs::args(&ctx, &mut args, msg.author.id, Some(GameMode::MNA)).await {
-                Ok(Ok(common_args)) => {
-                    let data = CommandData::Message { msg, args, num };
-
-                    _common(ctx, data, common_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_compare(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("Compare maps of players' top100s")]
-#[long_desc(
-    "Compare the taiko users' top 100 and check which \
-     maps appear in each top list (up to 3 users)"
-)]
-#[usage("[name1] [name2] [name3]")]
-#[example("badewanne3 \"nathan on osu\" idke")]
-#[aliases("commont")]
-pub async fn commontaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match TripleArgs::args(&ctx, &mut args, msg.author.id, Some(GameMode::TKO)).await {
-                Ok(Ok(common_args)) => {
-                    let data = CommandData::Message { msg, args, num };
-
-                    _common(ctx, data, common_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_compare(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("Compare maps of players' top100s")]
-#[long_desc(
-    "Compare the ctb users' top 100 and check which \
-     maps appear in each top list (up to 3 users)"
-)]
-#[usage("[name1] [name2] [name3]")]
-#[example("badewanne3 \"nathan on osu\" idke")]
-#[aliases("commonc")]
-pub async fn commonctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match TripleArgs::args(&ctx, &mut args, msg.author.id, Some(GameMode::CTB)).await {
-                Ok(Ok(common_args)) => {
-                    let data = CommandData::Message { msg, args, num };
-
-                    _common(ctx, data, common_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_compare(ctx, *command).await,
+    } else {
+        scores_fut.await
     }
 }
 
@@ -527,5 +493,30 @@ impl CommonUser {
 
     fn avatar_url(&self) -> &str {
         self.avatar_url.as_str()
+    }
+}
+
+impl<'m> CompareTop<'m> {
+    fn args(mode: GameModeOption, args: Args<'m>) -> Self {
+        let mut args_ = CompareTop {
+            mode: Some(mode),
+            ..Default::default()
+        };
+
+        for arg in args.take(2) {
+            if let Some(id) = matcher::get_mention_user(arg) {
+                if args_.discord1.is_none() {
+                    args_.discord1 = Some(id);
+                } else {
+                    args_.discord2 = Some(id);
+                }
+            } else if args_.name1.is_none() {
+                args_.name1 = Some(arg.into());
+            } else {
+                args_.name2 = Some(arg.into());
+            }
+        }
+
+        args_
     }
 }

@@ -68,8 +68,7 @@ impl Pagination for BadgePagination {
             Entry::Vacant(e) => {
                 let owners = self
                     .ctx
-                    .clients
-                    .custom
+                    .client()
                     .get_osekai_badge_owners(badge.badge_id)
                     .await?;
 

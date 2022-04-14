@@ -4,7 +4,7 @@ use crate::{
     core::commands::CommandOrigin,
     util::{
         builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, TWITCH_API_ISSUE},
+        constants::{GENERAL_ISSUE, TWITCH_API_ISSUE}, CowUtils, ChannelExt,
     },
     BotResult, Context,
 };
@@ -27,8 +27,9 @@ async fn prefix_removestream(
         Some(arg) => arg.cow_to_ascii_lowercase(),
         None => {
             let content = "The first argument must be the name of the stream";
+            msg.error(&ctx, content).await?;
 
-            return msg.error(&ctx, content).await;
+            return Ok(());
         }
     };
 
@@ -40,12 +41,13 @@ pub async fn removestream(
     orig: CommandOrigin<'_>,
     name: &'_ str,
 ) -> BotResult<()> {
-    let twitch_id = match ctx.clients.custom.get_twitch_user(name).await {
+    let twitch_id = match ctx.client().get_twitch_user(name).await {
         Ok(Some(user)) => user.user_id,
         Ok(None) => {
             let content = format!("Twitch user `{name}` was not found");
+            orig.error(&ctx, content).await?;
 
-            return orig.error(&ctx, content).await;
+            return Ok(());
         }
         Err(err) => {
             let _ = orig.error(&ctx, TWITCH_API_ISSUE).await;

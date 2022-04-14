@@ -1,7 +1,12 @@
 use crate::{
-    custom_client::{groups::*, OsekaiMedal},
-    embeds::{attachment,  EmbedFields, },
-    util::{constants::OSU_BASE, numbers::round, osu::flag_url, builder::{AuthorBuilder, FooterBuilder}},
+    custom_client::{OsekaiMedal, MEDAL_GROUPS},
+    embeds::{attachment, EmbedFields},
+    util::{
+        builder::{AuthorBuilder, FooterBuilder},
+        constants::OSU_BASE,
+        numbers::round,
+        osu::flag_url,
+    },
 };
 
 use hashbrown::HashMap;
@@ -71,24 +76,18 @@ impl MedalStatsEmbed {
             }
 
             // Add to fields
-            let mut add_group_field = |group: &str| {
-                if let Some((total, owned)) = counts.get(group) {
-                    fields.push(field!(
-                        group.to_string(),
-                        format!("{owned} / {total}"),
-                        true
-                    ));
-                }
-            };
-
-            add_group_field(SKILL);
-            add_group_field(DEDICATION);
-            add_group_field(HUSH_HUSH);
-            add_group_field(BEATMAP_PACKS);
-            add_group_field(BEATMAP_CHALLENGE_PACKS);
-            add_group_field(SEASONAL_SPOTLIGHTS);
-            add_group_field(BEATMAP_SPOTLIGHTS);
-            add_group_field(MOD_INTRODUCTION);
+            MEDAL_GROUPS
+                .iter()
+                .map(|group| group.as_str())
+                .for_each(|group| {
+                    if let Some((total, owned)) = counts.get(group) {
+                        fields.push(field!(
+                            group.to_string(),
+                            format!("{owned} / {total}"),
+                            true
+                        ));
+                    }
+                });
         }
 
         let author = AuthorBuilder::new(user.username.into_string())

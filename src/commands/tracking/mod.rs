@@ -107,7 +107,7 @@ async fn slash_track(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) ->
         Track::Add(add) => track(ctx, command.into(), add.into()).await,
         Track::Remove(TrackRemove::User(user)) => untrack(ctx, command.into(), user.into()).await,
         Track::Remove(TrackRemove::All(all)) => {
-            untrackall(ctx, command.into(), all.mode.into()).await
+            untrackall(ctx, command.into(), all.mode.map(GameMode::from)).await
         }
         Track::List(_) => tracklist(ctx, command.into()).await,
     }
@@ -153,19 +153,8 @@ struct TrackArgs {
     more_names: Vec<String>,
 }
 
-enum TrackCommandKind {
-    Add(TrackArgs),
-    RemoveAll(Option<GameMode>),
-    RemoveSpecific(TrackArgs),
-    List,
-}
-
 impl TrackArgs {
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        mode: Option<GameMode>,
-    ) -> BotResult<Result<Self, Cow<'static, str>>> {
+    async fn args(mode: Option<GameMode>, args: Args<'_>) -> Result<Self, Cow<'static, str>> {
         let mut name = None;
         let mut more_names = Vec::new();
         let mut limit = args.num;
@@ -181,7 +170,7 @@ impl TrackArgs {
                         Err(_) => {
                             let content = "Failed to parse `limit`. Must be either an integer.";
 
-                            return Ok(Err(content.into()));
+                            return Err(content.into());
                         }
                     },
                     _ => {
@@ -189,7 +178,7 @@ impl TrackArgs {
                             "Unrecognized option `{key}`.\nAvailable options are: `limit`."
                         );
 
-                        return Ok(Err(content.into()));
+                        return Err(content.into());
                     }
                 }
             } else {
@@ -203,7 +192,7 @@ impl TrackArgs {
 
         let name = match name {
             Some(name) => name,
-            None => return Ok(Err("You must specify at least one username".into())),
+            None => return Err("You must specify at least one username".into()),
         };
 
         let args = Self {
@@ -213,7 +202,7 @@ impl TrackArgs {
             mode,
         };
 
-        Ok(Ok(args))
+        Ok(args)
     }
 }
 
@@ -248,7 +237,7 @@ impl From<TrackAdd> for TrackArgs {
         }
 
         Self {
-            mode: mode.into(),
+            mode: Some(mode.into()),
             name,
             limit: limit.map(|l| l as u64),
             more_names,
@@ -261,7 +250,7 @@ impl From<TrackRemoveUser> for TrackArgs {
         let TrackRemoveUser { name, mode } = remove;
 
         Self {
-            mode: mode.into(),
+            mode: mode.map(GameMode::from),
             name,
             limit: None,
             more_names: Vec::new(),

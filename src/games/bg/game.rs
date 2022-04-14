@@ -20,7 +20,6 @@ use crate::{
     games::bg::{hints::Hints, img_reveal::ImageReveal},
     util::{
         constants::{
-            common_literals::{MANIA, OSU},
             OSU_BASE,
         },
         gestalt_pattern_matching, levenshtein_similarity, ChannelExt, CowUtils,
@@ -82,8 +81,8 @@ impl Game {
         let mut path = CONFIG.get().unwrap().paths.backgrounds.clone();
 
         match mapsets[0].mode {
-            GameMode::STD => path.push(OSU),
-            GameMode::MNA => path.push(MANIA),
+            GameMode::STD => path.push("osu"),
+            GameMode::MNA => path.push("mania"),
             _ => return Err(BgGameError::Mode(mapsets[0].mode)),
         }
 
@@ -140,7 +139,7 @@ impl Game {
             hints: Arc::new(RwLock::new(Hints::new(&title, mapset.tags))),
             title,
             artist,
-            difficulty: difficulty.value(),
+            difficulty: difficulty.factor(),
             mapset_id: mapset.mapset_id,
             reveal: Arc::new(RwLock::new(ImageReveal::new(img))),
         })

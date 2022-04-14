@@ -1,6 +1,6 @@
 use eyre::Report;
 
-use crate::{commands::fun::GameState, Context};
+use crate::{games::bg::GameState, util::ChannelExt, Context};
 
 impl Context {
     #[cold]
@@ -16,21 +16,12 @@ impl Context {
         let content = "I'll abort this game because I'm about to reboot, \
             you can start a new game again in just a moment...";
 
-        let msg_fut = |channel| {
-            self.http
-                .create_message(channel)
-                .content(content)
-                .unwrap()
-                .exec()
-        };
-
         for channel in active_games {
             if let Some((_, state)) = self.bg_games().remove(&channel) {
                 match state {
                     GameState::Running { game } => match game.stop() {
                         Ok(_) => {
-                            let _ = msg_fut(channel).await;
-
+                            let _ = channel.plain_message(self, content).await;
                             count += 1;
                         }
                         Err(err) => {
@@ -40,8 +31,7 @@ impl Context {
                         }
                     },
                     GameState::Setup { .. } => {
-                        let _ = msg_fut(channel).await;
-
+                        let _ = channel.plain_message(self, content).await;
                         count += 1;
                     }
                 }

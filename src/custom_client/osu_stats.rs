@@ -3,6 +3,7 @@ use super::deserialize::{
 };
 
 use crate::{
+    commands::osu::OsuStatsScoresOrder,
     util::{osu::ModSelection, CountryCode},
 };
 
@@ -113,24 +114,13 @@ pub struct OsuStatsMap {
     pub max_combo: Option<u32>,
 }
 
-#[derive(Copy, Clone, Debug)]
-pub enum OsuStatsOrder {
-    PlayDate = 0,
-    Pp = 1,
-    Rank = 2,
-    Accuracy = 3,
-    Combo = 4,
-    Score = 5,
-    Misses = 6,
-}
-
-impl Default for OsuStatsOrder {
+impl Default for OsuStatsScoresOrder {
     fn default() -> Self {
-        Self::PlayDate
+        Self::Date
     }
 }
 
-impl fmt::Display for OsuStatsOrder {
+impl fmt::Display for OsuStatsScoresOrder {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self)
     }
@@ -141,11 +131,11 @@ pub struct OsuStatsParams {
     pub username: Username,
     pub mode: GameMode,
     pub page: usize,
-    pub rank_min: usize,
-    pub rank_max: usize,
-    pub acc_min: f32,
-    pub acc_max: f32,
-    pub order: OsuStatsOrder,
+    pub min_rank: usize,
+    pub max_rank: usize,
+    pub min_acc: f32,
+    pub max_acc: f32,
+    pub order: OsuStatsScoresOrder,
     pub mods: Option<ModSelection>,
     pub descending: bool,
 }
@@ -156,11 +146,11 @@ impl OsuStatsParams {
             username: username.into(),
             mode: GameMode::STD,
             page: 1,
-            rank_min: 1,
-            rank_max: 100,
-            acc_min: 0.0,
-            acc_max: 100.0,
-            order: OsuStatsOrder::default(),
+            min_rank: 1,
+            max_rank: 100,
+            min_acc: 0.0,
+            max_acc: 100.0,
+            order: OsuStatsScoresOrder::default(),
             mods: None,
             descending: true,
         }

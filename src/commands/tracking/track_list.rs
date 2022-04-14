@@ -25,7 +25,7 @@ pub struct TracklistUserEntry {
 #[command]
 #[desc("Display tracked users of a channel")]
 #[alias("tl")]
-#[group(Track)]
+#[group(Tracking)]
 #[flags(AUTHORITY, ONLY_GUILDS)]
 async fn prefix_tracklist(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     tracklist(ctx, msg.into()).await

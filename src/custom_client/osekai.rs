@@ -10,16 +10,11 @@ use serde::{
     de::{Error, MapAccess, Unexpected, Visitor},
     Deserialize, Deserializer,
 };
+use twilight_interactions::command::{CommandOption, CreateOption};
 
-use crate::{
-    embeds::RankingKindData,
-    util::{
-        constants::common_literals::{COUNTRY, CTB, FRUITS, MANIA, OSU, RANK, TAIKO, USERNAME},
-        CountryCode,
-    },
-};
+use crate::{embeds::RankingKindData, util::CountryCode};
 
-use self::groups::*;
+// use self::groups::*;
 
 use super::{str_to_date, str_to_f32, str_to_u32, DateWrapper};
 
@@ -190,7 +185,7 @@ pub struct OsekaiMedal {
     pub description: String,
     #[serde(deserialize_with = "osekai_mode")]
     pub restriction: Option<GameMode>,
-    pub grouping: String,
+    pub grouping: MedalGroup,
     pub solution: Option<String>,
     #[serde(deserialize_with = "osekai_mods")]
     pub mods: Option<GameMods>,
@@ -199,68 +194,197 @@ pub struct OsekaiMedal {
     pub ordering: usize,
 }
 
-pub mod groups {
-    pub const SKILL: &str = "Skill";
-    pub const DEDICATION: &str = "Dedication";
-    pub const HUSH_HUSH: &str = "Hush-Hush";
-    pub const BEATMAP_PACKS: &str = "Beatmap Packs";
-    pub const BEATMAP_CHALLENGE_PACKS: &str = "Beatmap Challenge Packs";
-    pub const SEASONAL_SPOTLIGHTS: &str = "Seasonal Spotlights";
-    pub const BEATMAP_SPOTLIGHTS: &str = "Beatmap Spotlights";
-    pub const MOD_INTRODUCTION: &str = "Mod Introduction";
+// pub mod groups {
+//     pub const SKILL: &str = "Skill";
+//     pub const DEDICATION: &str = "Dedication";
+//     pub const HUSH_HUSH: &str = "Hush-Hush";
+//     pub const BEATMAP_PACKS: &str = "Beatmap Packs";
+//     pub const BEATMAP_CHALLENGE_PACKS: &str = "Beatmap Challenge Packs";
+//     pub const SEASONAL_SPOTLIGHTS: &str = "Seasonal Spotlights";
+//     pub const BEATMAP_SPOTLIGHTS: &str = "Beatmap Spotlights";
+//     pub const MOD_INTRODUCTION: &str = "Mod Introduction";
+// }
+
+// #[derive(Copy, Clone, Eq, PartialEq)]
+// pub struct OsekaiGrouping<'s>(pub &'s str);
+
+pub static MEDAL_GROUPS: [MedalGroup; 8] = [
+    MedalGroup::Skill,
+    MedalGroup::Dedication,
+    MedalGroup::HushHush,
+    MedalGroup::BeatmapPacks,
+    MedalGroup::BeatmapChallengePacks,
+    MedalGroup::SeasonalSpotlights,
+    MedalGroup::BeatmapSpotlights,
+    MedalGroup::ModIntroduction,
+];
+
+#[derive(
+    Archive,
+    Copy,
+    Clone,
+    CommandOption,
+    CreateOption,
+    Debug,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    RkyvDeserialize,
+    Serialize,
+)]
+pub enum MedalGroup {
+    #[option(name = "Skill", value = "skill")]
+    Skill,
+    #[option(name = "Dedication", value = "dedication")]
+    Dedication,
+    #[option(name = "Hush-Hush", value = "hush_hush")]
+    HushHush,
+    #[option(name = "Beatmap Packs", value = "map_packs")]
+    BeatmapPacks,
+    #[option(name = "Beatmap Challenge Packs", value = "map_challenge_packs")]
+    BeatmapChallengePacks,
+    #[option(name = "Seasonal Spotlights", value = "seasonal_spotlights")]
+    SeasonalSpotlights,
+    #[option(name = "Beatmap Spotlights", value = "map_spotlights")]
+    BeatmapSpotlights,
+    #[option(name = "Mod Introduction", value = "mod_intro")]
+    ModIntroduction,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
-pub struct OsekaiGrouping<'s>(pub &'s str);
+impl MedalGroup {
+    pub fn order(self) -> u32 {
+        self as u32
+    }
 
-impl<'s> OsekaiGrouping<'s> {
-    pub fn order(&self) -> u32 {
-        match self.0 {
-            SKILL => 0,
-            DEDICATION => 1,
-            HUSH_HUSH => 2,
-            BEATMAP_PACKS => 3,
-            BEATMAP_CHALLENGE_PACKS => 4,
-            SEASONAL_SPOTLIGHTS => 5,
-            BEATMAP_SPOTLIGHTS => 6,
-            MOD_INTRODUCTION => 7,
-            _ => 8,
+    pub fn as_str(self) -> &'static str {
+        match self {
+            MedalGroup::Skill => "Skill",
+            MedalGroup::Dedication => "Dedication",
+            MedalGroup::HushHush => "Hush-Hush",
+            MedalGroup::BeatmapPacks => "Beatmap Packs",
+            MedalGroup::BeatmapChallengePacks => "Beatmap Challenge Packs",
+            MedalGroup::SeasonalSpotlights => "Seasonal Spotlights",
+            MedalGroup::BeatmapSpotlights => "Beatmap Spotlights",
+            MedalGroup::ModIntroduction => "Mod Introduction",
         }
     }
+
+    pub fn from_str(s: &str) -> Option<Self> {
+        let group = match s {
+            "Skill" => MedalGroup::Skill,
+            "Dedication" => MedalGroup::Dedication,
+            "Hush-Hush" => MedalGroup::HushHush,
+            "Beatmap Packs" => MedalGroup::BeatmapPacks,
+            "Beatmap Challenge Packs" => MedalGroup::BeatmapChallengePacks,
+            "Seasonal Spotlights" => MedalGroup::SeasonalSpotlights,
+            "Beatmap Spotlights" => MedalGroup::BeatmapSpotlights,
+            "Mod Introduction" => MedalGroup::ModIntroduction,
+            _ => return None,
+        };
+
+        Some(group)
+    }
 }
 
-impl<'s> fmt::Display for OsekaiGrouping<'s> {
+impl fmt::Display for MedalGroup {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.0)
+        f.write_str(self.as_str())
     }
 }
 
-impl<'s> Ord for OsekaiGrouping<'s> {
-    fn cmp(&self, other: &OsekaiGrouping<'s>) -> Ordering {
-        self.order().cmp(&other.order())
+struct MedalGroupVisitor;
+
+impl<'de> Visitor<'de> for MedalGroupVisitor {
+    type Value = MedalGroup;
+
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("a valid medal group")
+    }
+
+    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        let group = match v {
+            0 => MedalGroup::Skill,
+            1 => MedalGroup::Dedication,
+            2 => MedalGroup::HushHush,
+            3 => MedalGroup::BeatmapPacks,
+            4 => MedalGroup::BeatmapChallengePacks,
+            5 => MedalGroup::SeasonalSpotlights,
+            6 => MedalGroup::BeatmapSpotlights,
+            7 => MedalGroup::ModIntroduction,
+            _ => return Err(Error::invalid_type(Unexpected::Unsigned(v), &self)),
+        };
+
+        Ok(group)
+    }
+
+    fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+        MedalGroup::from_str(v).ok_or_else(|| Error::invalid_type(Unexpected::Str(v), &self))
     }
 }
 
-impl<'s> PartialOrd for OsekaiGrouping<'s> {
-    fn partial_cmp(&self, other: &OsekaiGrouping<'s>) -> Option<Ordering> {
-        Some(self.cmp(other))
+impl<'de> Deserialize<'de> for MedalGroup {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let s: &str = Deserialize::deserialize(d)?;
+
+        Self::from_str(s).ok_or(Error::invalid_value(
+            Unexpected::Str(s),
+            &"a valid medal group",
+        ))
     }
 }
 
-pub const MEDAL_GROUPS: [OsekaiGrouping<'_>; 8] = [
-    OsekaiGrouping(SKILL),
-    OsekaiGrouping(DEDICATION),
-    OsekaiGrouping(HUSH_HUSH),
-    OsekaiGrouping(BEATMAP_PACKS),
-    OsekaiGrouping(BEATMAP_CHALLENGE_PACKS),
-    OsekaiGrouping(SEASONAL_SPOTLIGHTS),
-    OsekaiGrouping(BEATMAP_SPOTLIGHTS),
-    OsekaiGrouping(MOD_INTRODUCTION),
-];
+// impl<'s> OsekaiGrouping<'s> {
+//     pub fn order(&self) -> u32 {
+//         match self.0 {
+//             SKILL => 0,
+//             DEDICATION => 1,
+//             HUSH_HUSH => 2,
+//             BEATMAP_PACKS => 3,
+//             BEATMAP_CHALLENGE_PACKS => 4,
+//             SEASONAL_SPOTLIGHTS => 5,
+//             BEATMAP_SPOTLIGHTS => 6,
+//             MOD_INTRODUCTION => 7,
+//             _ => 8,
+//         }
+//     }
+// }
+
+// impl<'s> fmt::Display for OsekaiGrouping<'s> {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         f.write_str(self.0)
+//     }
+// }
+
+// impl<'s> Ord for OsekaiGrouping<'s> {
+//     fn cmp(&self, other: &OsekaiGrouping<'s>) -> Ordering {
+//         self.order().cmp(&other.order())
+//     }
+// }
+
+// impl<'s> PartialOrd for OsekaiGrouping<'s> {
+//     fn partial_cmp(&self, other: &OsekaiGrouping<'s>) -> Option<Ordering> {
+//         Some(self.cmp(other))
+//     }
+// }
+
+// pub const MEDAL_GROUPS: [OsekaiGrouping<'_>; 8] = [
+//     OsekaiGrouping(SKILL),
+//     OsekaiGrouping(DEDICATION),
+//     OsekaiGrouping(HUSH_HUSH),
+//     OsekaiGrouping(BEATMAP_PACKS),
+//     OsekaiGrouping(BEATMAP_CHALLENGE_PACKS),
+//     OsekaiGrouping(SEASONAL_SPOTLIGHTS),
+//     OsekaiGrouping(BEATMAP_SPOTLIGHTS),
+//     OsekaiGrouping(MOD_INTRODUCTION),
+// ];
 
 impl OsekaiMedal {
     fn grouping_order(&self) -> u32 {
-        OsekaiGrouping(self.grouping.as_str()).order()
+        self.grouping.order()
     }
 }
 
@@ -302,10 +426,10 @@ impl<'de> Visitor<'de> for OsekaiModeVisitor {
     fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
         let mode = match v {
             "NULL" => return Ok(None),
-            "0" | OSU | "osu!" => GameMode::STD,
-            "1" | TAIKO | "tko" => GameMode::TKO,
-            "2" | "catch" | CTB | FRUITS => GameMode::CTB,
-            "3" | MANIA | "mna" => GameMode::MNA,
+            "0" | "osu" | "osu!" => GameMode::STD,
+            "1" | "taiko" | "tko" => GameMode::TKO,
+            "2" | "catch" | "ctb" | "fruits" => GameMode::CTB,
+            "3" | "mania" | "mna" => GameMode::MNA,
             _ => {
                 return Err(Error::invalid_value(
                     Unexpected::Str(v),
@@ -465,23 +589,23 @@ impl<'de, T: Deserialize<'de> + FromStr> Visitor<'de> for OsekaiRankingEntryVisi
 
         while let Some(key) = map.next_key()? {
             match key {
-                RANK => rank = Some(map.next_value()?),
+                "rank" => rank = Some(map.next_value()?),
                 "countrycode" => country_code = Some(map.next_value()?),
-                COUNTRY => country = Some(map.next_value()?),
-                USERNAME => username = Some(map.next_value()?),
+                "country" => country = Some(map.next_value()?),
+                "username" => username = Some(map.next_value()?),
                 "userid" => user_id = Some(map.next_value()?),
                 _ => value = Some(map.next_value()?),
             }
         }
 
-        let rank: &str = rank.ok_or_else(|| Error::missing_field(RANK))?;
+        let rank: &str = rank.ok_or_else(|| Error::missing_field("rank"))?;
         let rank = rank.parse().map_err(|_| {
             Error::invalid_value(Unexpected::Str(rank), &"a string containing a u32")
         })?;
 
         let country_code = country_code.ok_or_else(|| Error::missing_field("countrycode"))?;
-        let country = country.ok_or_else(|| Error::missing_field(COUNTRY))?;
-        let username = username.ok_or_else(|| Error::missing_field(USERNAME))?;
+        let country = country.ok_or_else(|| Error::missing_field("country"))?;
+        let username = username.ok_or_else(|| Error::missing_field("username"))?;
 
         let user_id: &str = user_id.ok_or_else(|| Error::missing_field("userid"))?;
         let user_id = user_id.parse().map_err(|_| {

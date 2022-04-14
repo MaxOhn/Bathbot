@@ -13,6 +13,7 @@ use crate::{
         Context,
     },
     error::Error,
+    util::ChannelExt,
     BotResult,
 };
 
@@ -110,7 +111,7 @@ async fn process_command(
     }
 
     if let Some(bucket) = cmd.bucket {
-        if let Some(cooldown) = check_ratelimit(&ctx, msg, bucket).await {
+        if let Some(cooldown) = check_ratelimit(&ctx, msg.author.id, bucket).await {
             trace!(
                 "Ratelimiting user {} on bucket `{bucket:?}` for {cooldown} seconds",
                 msg.author.id,

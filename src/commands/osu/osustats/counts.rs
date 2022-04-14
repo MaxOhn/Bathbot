@@ -1,84 +1,83 @@
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
-use rosu_v2::prelude::{GameMode, OsuError};
+use command_macros::{command, HasName, SlashCommand};
+use rosu_v2::prelude::OsuError;
+use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
-    application::interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
-    },
+    application::interaction::ApplicationCommand,
     id::{marker::UserMarker, Id},
 };
 
 use crate::{
     commands::{
-        check_user_mention,
-        osu::{get_user, option_discord, option_mode, option_name, UserArgs},
-        parse_discord, parse_mode_option, DoubleResultCow, MyCommand,
+        osu::{get_globals_count, get_user, UserArgs},
+        GameModeOption,
     },
-    database::UserConfig,
+    core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, OsuStatsCountsEmbed},
-    error::Error,
     util::{
-        constants::{
-            common_literals::{DISCORD, MODE, NAME},
-            GENERAL_ISSUE, OSUSTATS_API_ISSUE, OSU_API_ISSUE,
-        },
-        ApplicationCommandExt, InteractionExt, MessageExt,
+        builder::MessageBuilder,
+        constants::{OSUSTATS_API_ISSUE, OSU_API_ISSUE},
+        matcher, ApplicationCommandExt,
     },
-    Args, BotResult, CommandData, Context,
+    BotResult, Context,
 };
 
-pub(super) async fn _count(
-    ctx: Arc<Context>,
-    data: CommandData<'_>,
-    args: CountArgs,
-) -> BotResult<()> {
-    let CountArgs { config } = args;
-    let mode = config.mode.unwrap_or(GameMode::STD);
+use super::OsuStatsCount;
 
-    let name = match config.into_username() {
-        Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
-    };
+#[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
+#[command(name = "osc")]
+/// Count how often a user appears on top of map leaderboards
+pub struct Osc<'a> {
+    /// Specify a gamemode
+    mode: Option<GameModeOption>,
+    /// Specify a username
+    name: Option<Cow<'a, str>>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
+}
 
-    let user_args = UserArgs::new(name.as_str(), mode);
-
-    let mut user = match get_user(&ctx, &user_args).await {
-        Ok(user) => user,
-        Err(OsuError::NotFound) => {
-            let content = format!("User `{name}` was not found");
-
-            return data.error(&ctx, content).await;
+impl<'m> From<Osc<'m>> for OsuStatsCount<'m> {
+    fn from(args: Osc<'m>) -> Self {
+        Self {
+            mode: args.mode,
+            name: args.name,
+            discord: args.discord,
         }
-        Err(why) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+    }
+}
 
-            return Err(why.into());
+impl<'m> OsuStatsCount<'m> {
+    fn args(mode: GameModeOption, mut args: Args<'m>) -> Self {
+        match args.next() {
+            Some(arg) => match matcher::get_mention_user(arg) {
+                Some(id) => Self {
+                    mode: Some(mode),
+                    discord: Some(id),
+                    name: None,
+                },
+                None => Self {
+                    mode: Some(mode),
+                    name: Some(arg.into()),
+                    discord: None,
+                },
+            },
+            None => Self {
+                mode: Some(mode),
+                ..Default::default()
+            },
         }
-    };
-
-    // Overwrite default mode
-    user.mode = mode;
-
-    let counts = match super::get_globals_count(&ctx, &user, mode).await {
-        Ok(counts) => counts,
-        Err(why) => {
-            let _ = data.error(&ctx, OSUSTATS_API_ISSUE).await;
-
-            return Err(why);
-        }
-    };
-
-    let embed_data = OsuStatsCountsEmbed::new(user, mode, counts);
-    let builder = embed_data.into_builder().build().into();
-    data.create_message(&ctx, builder).await?;
-
-    Ok(())
+    }
 }
 
 #[command]
-#[short_desc("Count how often a user appears on top of a map's leaderboard")]
-#[long_desc(
+#[desc("Count how often a user appears on top of a map's leaderboard")]
+#[help(
     "Display in how many top 1-50 map leaderboards the user has a score.\n\
     This command shows the same stats as the globals count section for the \
     `osu` command.\n\
@@ -87,30 +86,16 @@ pub(super) async fn _count(
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("osc", "osustatscounts")]
-pub async fn osustatscount(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match CountArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut count_args)) => {
-                    count_args.config.mode.get_or_insert(GameMode::STD);
+#[group(Osu)]
+async fn prefix_osustatscount(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    let args = OsuStatsCount::args(GameModeOption::Osu, args);
 
-                    _count(ctx, CommandData::Message { msg, args, num }, count_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_osustats(ctx, *command).await,
-    }
+    count(ctx, msg.into(), args).await
 }
 
 #[command]
-#[short_desc("Count how often a user appears on top of a mania map's leaderboard")]
-#[long_desc(
+#[desc("Count how often a user appears on top of a mania map's leaderboard")]
+#[help(
     "Display in how many top 1-50 map leaderboards the user has a score.\n\
     This command shows the same stats as the globals count section for the \
     `mania` command.\n\
@@ -119,30 +104,20 @@ pub async fn osustatscount(ctx: Arc<Context>, data: CommandData) -> BotResult<()
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("oscm", "osustatscountsmania")]
-pub async fn osustatscountmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match CountArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut count_args)) => {
-                    count_args.config.mode = Some(GameMode::MNA);
+#[group(Mania)]
+async fn prefix_osustatscountmania(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+) -> BotResult<()> {
+    let args = OsuStatsCount::args(GameModeOption::Mania, args);
 
-                    _count(ctx, CommandData::Message { msg, args, num }, count_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_osustats(ctx, *command).await,
-    }
+    count(ctx, msg.into(), args).await
 }
 
 #[command]
-#[short_desc("Count how often a user appears on top of a taiko map's leaderboard")]
-#[long_desc(
+#[desc("Count how often a user appears on top of a taiko map's leaderboard")]
+#[help(
     "Display in how many top 1-50 map leaderboards the user has a score.\n\
     This command shows the same stats as the globals count section for the \
     `taiko` command.\n\
@@ -151,30 +126,20 @@ pub async fn osustatscountmania(ctx: Arc<Context>, data: CommandData) -> BotResu
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("osct", "osustatscountstaiko")]
-pub async fn osustatscounttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match CountArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut count_args)) => {
-                    count_args.config.mode = Some(GameMode::TKO);
+#[group(Taiko)]
+async fn prefix_osustatscounttaiko(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+) -> BotResult<()> {
+    let args = OsuStatsCount::args(GameModeOption::Taiko, args);
 
-                    _count(ctx, CommandData::Message { msg, args, num }, count_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_osustats(ctx, *command).await,
-    }
+    count(ctx, msg.into(), args).await
 }
 
 #[command]
-#[short_desc("Count how often a user appears on top of a ctb map's leaderboard")]
-#[long_desc(
+#[desc("Count how often a user appears on top of a ctb map's leaderboard")]
+#[help(
     "Display in how many top 1-50 map leaderboards the user has a score.\n\
     This command shows the same stats as the globals count section for the \
     `ctb` command.\n\
@@ -183,92 +148,62 @@ pub async fn osustatscounttaiko(ctx: Arc<Context>, data: CommandData) -> BotResu
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("oscc", "osustatscountsctb")]
-pub async fn osustatscountctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match CountArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut count_args)) => {
-                    count_args.config.mode = Some(GameMode::CTB);
+#[group(Catch)]
+async fn prefix_osustatscountctb(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+) -> BotResult<()> {
+    let args = OsuStatsCount::args(GameModeOption::Catch, args);
 
-                    _count(ctx, CommandData::Message { msg, args, num }, count_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+    count(ctx, msg.into(), args).await
+}
 
-                    Err(why)
-                }
-            }
+async fn slash_osc(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    let args = Osc::from_interaction(command.input_data())?;
+
+    count(ctx, command.into(), args.into()).await
+}
+
+pub(super) async fn count(
+    ctx: Arc<Context>,
+    orig: CommandOrigin<'_>,
+    args: OsuStatsCount<'_>,
+) -> BotResult<()> {
+    let (name, mode) = name_mode!(ctx, orig, args);
+
+    let user_args = UserArgs::new(name.as_str(), mode);
+
+    let mut user = match get_user(&ctx, &user_args).await {
+        Ok(user) => user,
+        Err(OsuError::NotFound) => {
+            let content = format!("User `{name}` was not found");
+
+            return orig.error(&ctx, content).await;
         }
-        CommandData::Interaction { command } => super::slash_osustats(ctx, *command).await,
-    }
-}
+        Err(err) => {
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-pub async fn slash_osc(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    let options = command.yoink_options();
-
-    match CountArgs::slash(&ctx, &command, options).await? {
-        Ok(args) => _count(ctx, command.into(), args).await,
-        Err(content) => command.error(&ctx, content).await,
-    }
-}
-
-pub(super) struct CountArgs {
-    config: UserConfig,
-}
-
-impl CountArgs {
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: Id<UserMarker>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(author_id).await?;
-
-        if let Some(arg) = args.next() {
-            match check_user_mention(ctx, arg).await? {
-                Ok(osu) => config.osu = Some(osu),
-                Err(content) => return Ok(Err(content)),
-            }
+            return Err(err.into());
         }
+    };
 
-        Ok(Ok(Self { config }))
-    }
+    // Overwrite default mode
+    user.mode = mode;
 
-    pub(super) async fn slash(
-        ctx: &Context,
-        command: &ApplicationCommand,
-        options: Vec<CommandDataOption>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(command.user_id()?).await?;
+    let counts = match get_globals_count(&ctx, &user, mode).await {
+        Ok(counts) => counts,
+        Err(err) => {
+            let _ = orig.error(&ctx, OSUSTATS_API_ISSUE).await;
 
-        for option in options {
-            match option.value {
-                CommandOptionValue::String(value) => match option.name.as_str() {
-                    NAME => config.osu = Some(value.into()),
-                    MODE => config.mode = parse_mode_option(&value),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::User(value) => match option.name.as_str() {
-                    DISCORD => match parse_discord(ctx, value).await? {
-                        Ok(osu) => config.osu = Some(osu),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            }
+            return Err(err);
         }
+    };
 
-        Ok(Ok(Self { config }))
-    }
-}
+    let embed_data = OsuStatsCountsEmbed::new(user, mode, counts);
+    let embed = embed_data.into_builder().build();
+    let builder = MessageBuilder::new().embed(embed);
+    orig.create_message(&ctx, &builder).await?;
 
-pub fn define_osc() -> MyCommand {
-    let mode = option_mode();
-    let name = option_name();
-    let discord = option_discord();
-    let description = "Count how often a user appears on top of map leaderboards";
-
-    MyCommand::new("osc", description).options(vec![mode, name, discord])
+    Ok(())
 }

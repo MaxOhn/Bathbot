@@ -1,14 +1,14 @@
 use std::sync::Arc;
 
 use command_macros::SlashCommand;
-use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
+use twilight_interactions::command::{CommandModel,  CreateCommand};
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     custom_client::{
         Badges, LovedMapsets, RankedMapsets, Replays, StandardDeviation, Subscribers, TotalPp,
     },
-    BotResult, Context,
+    BotResult, Context, util::ApplicationCommandExt,
 };
 
 use self::{
@@ -23,11 +23,11 @@ mod medal_count;
 mod rarity;
 mod user_value;
 
-#[derive(CommandModel, CreateCommand)]
+#[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "osekai",
     help = "Various leaderboard stats. \
-        All data is provided by [osekai](https://osekai.net/)."
+    All data is provided by [osekai](https://osekai.net/)."
 )]
 /// Various leaderboards provided by osekai
 pub enum Osekai {

@@ -3,13 +3,13 @@ use std::fmt::{self, Write};
 use rosu_v2::prelude::GameMods;
 
 use crate::{
-    commands::osu::OsuTrackerCountryDetailsCompact,
+    commands::osu::{OsuTrackerCountryDetailsCompact, ScoreOrder},
     custom_client::OsuTrackerCountryScore,
     util::{
         builder::FooterBuilder,
         constants::OSU_BASE,
         numbers::{round, with_comma_float},
-        osu::{flag_url, ScoreOrder},
+        osu::flag_url,
         CowUtils,
     },
 };

@@ -3,17 +3,15 @@ use twilight_model::{
     application::interaction::ApplicationCommand,
     channel::Message,
     id::{
-        marker::{GuildMarker, UserMarker},
+        marker::{ChannelMarker, GuildMarker, UserMarker},
         Id,
     },
 };
 
 use crate::{
     core::Context,
-    util::{
-        builder::MessageBuilder, ApplicationCommandExt, Authored, ChannelExt, ComponentExt,
-        MessageExt,
-    },
+    error::Error,
+    util::{builder::MessageBuilder, ApplicationCommandExt, Authored, ChannelExt, MessageExt},
     BotResult,
 };
 
@@ -29,6 +27,13 @@ impl CommandOrigin<'_> {
         match self {
             CommandOrigin::Message { msg } => Ok(msg.author.id),
             CommandOrigin::Interaction { command } => command.user_id(),
+        }
+    }
+
+    pub fn channel_id(&self) -> Id<ChannelMarker> {
+        match self {
+            CommandOrigin::Message { msg } => msg.channel_id,
+            CommandOrigin::Interaction { command } => command.channel_id,
         }
     }
 
@@ -71,6 +76,7 @@ impl CommandOrigin<'_> {
         }
     }
 
+    #[allow(unused)]
     /// Respond to something.
     ///
     /// In case of a message, ignore the flags and discard the response message created.
@@ -105,6 +111,7 @@ impl CommandOrigin<'_> {
         }
     }
 
+    #[allow(unused)]
     /// Update a response and return the resulting response message.
     ///
     /// In case of an interaction, be sure this is the first and only time you call this.
@@ -123,10 +130,18 @@ impl CommandOrigin<'_> {
     /// Respond with a red embed.
     ///
     /// In case of an interaction, be sure you already called back beforehand.
-    pub async fn error(&self, ctx: &Context, content: impl Into<String>) -> HttpResult<()> {
+    pub async fn error(&self, ctx: &Context, content: impl Into<String>) -> BotResult<()> {
         match self {
-            Self::Message { msg } => msg.error(ctx, content).await.map(|_| ()),
-            Self::Interaction { command } => command.error(ctx, content).await.map(|_| ()),
+            Self::Message { msg } => msg
+                .error(ctx, content)
+                .await
+                .map(|_| ())
+                .map_err(Error::from),
+            Self::Interaction { command } => command
+                .error(ctx, content)
+                .await
+                .map(|_| ())
+                .map_err(Error::from),
         }
     }
 
@@ -134,16 +149,18 @@ impl CommandOrigin<'_> {
     ///
     /// In case of an interaction, be sure this is the first and only time you call this.
     /// The response will not be ephemeral.
-    pub async fn error_callback(
-        &self,
-        ctx: &Context,
-        content: impl Into<String>,
-    ) -> HttpResult<()> {
+    pub async fn error_callback(&self, ctx: &Context, content: impl Into<String>) -> BotResult<()> {
         match self {
-            CommandOrigin::Message { msg } => msg.error(ctx, content).await.map(|_| ()),
-            CommandOrigin::Interaction { command } => {
-                command.error_callback(ctx, content).await.map(|_| ())
-            }
+            CommandOrigin::Message { msg } => msg
+                .error(ctx, content)
+                .await
+                .map(|_| ())
+                .map_err(Error::from),
+            CommandOrigin::Interaction { command } => command
+                .error_callback(ctx, content)
+                .await
+                .map(|_| ())
+                .map_err(Error::from),
         }
     }
 }

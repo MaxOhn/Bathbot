@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use eyre::Report;
+use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     core::Context,
@@ -8,8 +9,9 @@ use crate::{
     embeds::OsuTrackerMapsEmbed,
     pagination::{OsuTrackerMapsPagination, Pagination},
     util::{
+        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSUTRACKER_ISSUE},
-        numbers,
+        numbers, Authored, ApplicationCommandExt,
     },
     BotResult,
 };
@@ -21,13 +23,16 @@ pub(super) async fn maps(
     command: Box<ApplicationCommand>,
     args: PopularMapsPp,
 ) -> BotResult<()> {
-    let entries = match ctx.clients.custom.get_osutracker_pp_groups().await {
+    let pp = args.pp();
+
+    let entries = match ctx.client().get_osutracker_pp_groups().await {
         Ok(groups) => match groups.into_iter().find(|group| group.number == pp) {
             Some(group) => group.list,
             None => {
                 error!("received no osutracker pp group with number={pp}");
+                command.error(&ctx, GENERAL_ISSUE).await?;
 
-                return command.error(&ctx, GENERAL_ISSUE).await;
+                return Ok(());
             }
         },
         Err(err) => {
@@ -61,4 +66,23 @@ pub(super) async fn maps(
     });
 
     Ok(())
+}
+
+impl PopularMapsPp {
+    fn pp(self) -> u32 {
+        match self {
+            PopularMapsPp::Pp100 => 100,
+            PopularMapsPp::Pp200 => 200,
+            PopularMapsPp::Pp300 => 300,
+            PopularMapsPp::Pp400 => 400,
+            PopularMapsPp::Pp500 => 500,
+            PopularMapsPp::Pp600 => 600,
+            PopularMapsPp::Pp700 => 700,
+            PopularMapsPp::Pp800 => 800,
+            PopularMapsPp::Pp900 => 900,
+            PopularMapsPp::Pp1000 => 1000,
+            PopularMapsPp::Pp1100 => 1100,
+            PopularMapsPp::Pp1200 => 1200,
+        }
+    }
 }

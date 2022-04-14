@@ -1,4 +1,6 @@
-use std::{cmp::Ordering, collections::HashMap as StdHashMap, fmt::Write, mem, sync::Arc};
+use std::{
+    borrow::Cow, cmp::Ordering, collections::HashMap as StdHashMap, fmt::Write, mem, sync::Arc,
+};
 
 use command_macros::{command, SlashCommand};
 use hashbrown::{HashMap, HashSet};
@@ -9,16 +11,16 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
-    commands::{MyCommand, MyCommandOption},
+    core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, MatchCostEmbed},
-    util::{constants::OSU_API_ISSUE, matcher, ApplicationCommandExt, MessageExt},
-    BotResult, Context, Error,
+    util::{
+        builder::MessageBuilder, constants::OSU_API_ISSUE, matcher, ApplicationCommandExt,
+        ChannelExt,
+    },
+    BotResult, Context,
 };
 
-
-// TODO: vim formating goes bruh mode
-
-#[derive(CommandModel, CreateCommand)]
+#[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "matchcost",
     help = "Calculate a performance rating for each player in the given multiplayer match.\n\
@@ -37,31 +39,31 @@ pub struct MatchCost<'a> {
         this option allows you to specify how many maps should be ignored in the beginning.\n\
         If no value is specified, it defaults to 2."
     )]
-        /// Specify the amount of warmups to ignore (defaults to 2)
-        warmups: Option<usize>,
-        #[command(
-            max_value = 100.0,
-            help = "Specify a multiplier for EZ scores.\n\
+    /// Specify the amount of warmups to ignore (defaults to 2)
+    warmups: Option<usize>,
+    #[command(
+        max_value = 100.0,
+        help = "Specify a multiplier for EZ scores.\n\
             The suggested multiplier range is 1.0-2.0"
-        )]
-            /// Specify a multiplier for EZ scores
-            ez_mult: Option<f32>,
-            #[command(
-                min_value = 0,
-                help = "In case the last few maps were just for fun, \
+    )]
+    /// Specify a multiplier for EZ scores
+    ez_mult: Option<f32>,
+    #[command(
+        min_value = 0,
+        help = "In case the last few maps were just for fun, \
                 this options allows to ignore them for the performance rating.\n\
         Alternatively, in combination with the `warmups` option, \
         you can check the rating for specific maps.\n\
         If no value is specified, it defaults to 0."
-            )]
-                /// Specify the amount of maps to ignore at the end (defaults to 0)
-                skip_last: Option<usize>,
+    )]
+    /// Specify the amount of maps to ignore at the end (defaults to 0)
+    skip_last: Option<usize>,
 }
 
 impl<'m> MatchCost<'m> {
-    fn args(args: Args<'_>) -> Result<Self, &'static str> {
-        let match_id = match args.next().and_then(matcher::get_osu_match_id) {
-            Some(id) => id,
+    fn args(mut args: Args<'m>) -> Result<Self, &'static str> {
+        let match_url = match args.next() {
+            Some(arg) => arg.into(),
             None => {
                 let content = "The first argument must be either a match \
                     id or the multiplayer link to a match";
@@ -70,13 +72,15 @@ impl<'m> MatchCost<'m> {
             }
         };
 
-        let warmups = args.num.
-            .or_else(|| args.next().and_then(|num| num.parse().ok()));
+        let warmups = args
+            .num
+            .or_else(|| args.next().and_then(|num| num.parse().ok()))
+            .map(|n| n as usize);
 
         Ok(Self {
-            match_id,
+            match_url,
             warmups,
-            skip_last: 0,
+            skip_last: None,
             ez_mult: None,
         })
     }
@@ -99,7 +103,11 @@ impl<'m> MatchCost<'m> {
 async fn prefix_matchcosts(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match MatchCost::args(args) {
         Ok(args) => matchcosts(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -118,13 +126,13 @@ async fn matchcosts(
     args: MatchCost<'_>,
 ) -> BotResult<()> {
     let MatchCost {
-        match_id,
+        match_url,
         warmups,
         skip_last,
         ez_mult,
     } = args;
 
-    let match_id = match matcher::get_osu_match_id(&match_id) {
+    let match_id = match matcher::get_osu_match_id(&match_url) {
         Some(id) => id,
         None => {
             let content = "Failed to parse match url.\n\
@@ -136,6 +144,7 @@ async fn matchcosts(
 
     let warmups = warmups.unwrap_or(2);
     let ez_mult = ez_mult.unwrap_or(1.0);
+    let skip_last = skip_last.unwrap_or(0);
 
     // Retrieve the match
     let (mut osu_match, games) = match ctx.osu().osu_match(match_id).await {
@@ -154,7 +163,7 @@ async fn matchcosts(
 
                         game
                     })
-                .collect()
+                    .collect()
             } else {
                 games_iter.collect()
             };
@@ -225,7 +234,7 @@ async fn matchcosts(
         content.push_str("Ignoring the first ");
 
         if warmups == 1 {
-            content.push_str(MAP);
+            content.push_str("map");
         } else {
             let _ = write!(content, "{warmups} maps");
         }
@@ -347,7 +356,7 @@ pub fn process_match(
                 .entry(score.team)
                 .and_modify(|e| *e += score.score)
                 .or_insert(score.score);
-            }
+        }
 
         let (winner_team, _) = team_scores
             .into_iter()
@@ -360,7 +369,7 @@ pub fn process_match(
     // Tiebreaker bonus
     if let Some(game) = games
         .last()
-            .filter(|_| finished && games.len() > 4 && match_scores.difference() == 1)
+        .filter(|_| finished && games.len() > 4 && match_scores.difference() == 1)
     {
         point_costs
             .iter_mut()
@@ -386,7 +395,7 @@ pub fn process_match(
             point_scores
                 .iter_mut()
                 .for_each(|point_score| *point_score *= multiplier);
-            });
+        });
     }
 
     // Calculate match costs by combining point costs

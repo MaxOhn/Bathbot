@@ -79,7 +79,7 @@ pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, global: bool) -> BotR
         global,
     );
 
-    let owner = author;
+    let owner = msg.author.id;
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {

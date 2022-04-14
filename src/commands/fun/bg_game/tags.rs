@@ -21,22 +21,20 @@ use crate::{
     BotResult,  Context,  CONFIG,
 };
 
-// #[command]
-// #[short_desc("Help tagging backgrounds by tagging them manually")]
-// #[long_desc(
-//     "Manage the tags of a background for the bg game.\n\
-//     First argument must be the mapset id, second argument must be either \
-//     `a` or `add` to add tags, or `r` or `remove` to remove them. \n\
-//     After that provide any of these pre-selected keywords:\n\
-//     `farm, streams, alternate, old, meme, hardname, easy, hard, tech, weeb, bluesky, english`\n\
-//     By default, all tags are marked as **true**, so removing them will be more important.\n\
-//     **You need to be verified to use this command**, feel free to let \
-//     Badewanne3 know if you want to help out tagging backgrounds."
-// )]
-// #[usage("[mapset id] [add/a/remove/r] [list of tags]")]
-// #[example("21662 r hard farm streams alternate hardname tech weeb bluesky")]
-// #[aliases("bgtm", "bgtagmanual")]
-// #[owner()]
+#[command]
+#[short_desc("Help tagging backgrounds by tagging them manually")]
+#[long_desc(
+    "Manage the tags of a background for the bg game.\n\
+    First argument must be the mapset id, second argument must be either \
+    `a` or `add` to add tags, or `r` or `remove` to remove them. \n\
+    After that provide any of these pre-selected keywords:\n\
+    `farm, streams, alternate, old, meme, hardname, easy, hard, tech, weeb, bluesky, english`\n\
+    By default, all tags are marked as **true**, so removing them will be more important."
+)]
+#[usage("[mapset id] [add/a/remove/r] [list of tags]")]
+#[example("21662 r hard farm streams alternate hardname tech weeb bluesky")]
+#[aliases("bgtm", "bgtagmanual")]
+#[owner()]
 async fn bgtagsmanual(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     let (msg, mut args) = match data {
         CommandData::Message { msg, args, .. } => (msg, args),
@@ -156,8 +154,8 @@ async fn bgtags(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     // Parse arguments as mode
     let mode = match args.next() {
         Some(arg) => match arg.cow_to_ascii_lowercase().as_ref() {
-            "mna" | MANIA | "m" => GameMode::MNA,
-            OSU | "std" | "standard" | "o" => GameMode::STD,
+            "mna" | "mania" | "m" => GameMode::MNA,
+            "osu" | "std" | "standard" | "o" => GameMode::STD,
             _ => {
                 let content = "Could not parse first argument as mode. \
                 Provide either `mna`, or `std`";

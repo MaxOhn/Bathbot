@@ -3,18 +3,18 @@ use std::{cmp::Reverse, sync::Arc};
 use chrono::{DateTime, Utc};
 use command_macros::command;
 use eyre::Report;
-use rosu_v2::prelude::{GameMode, MedalCompact, OsuError, User, Username};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use rosu_v2::prelude::{GameMode, MedalCompact, OsuError, User};
 
 use crate::{
-    commands::osu::{get_user, UserArgs},
+    commands::osu::{get_user, require_link, UserArgs},
+    core::commands::CommandOrigin,
     embeds::MedalEmbed,
-    error::Error,
     pagination::MedalRecentPagination,
-    util::constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
+    util::{
+        builder::MessageBuilder,
+        constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
+        matcher,
+    },
     BotResult, Context,
 };
 
@@ -32,7 +32,7 @@ use super::MedalRecent;
 #[group(AllModes)]
 async fn prefix_medalrecent(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
     let mut args_ = MedalRecent {
-        index: args.num,
+        index: args.num.map(|n| n as usize),
         ..Default::default()
     };
 
@@ -56,7 +56,7 @@ pub(super) async fn recent(
 
     let name = match username!(ctx, orig, args) {
         Some(name) => name,
-        None => match ctx.psql().get_osu_user(owner).await {
+        None => match ctx.psql().get_user_osu(owner).await {
             Ok(Some(osu)) => osu.into_username(),
             Ok(None) => return require_link(&ctx, &orig).await,
             Err(err) => {

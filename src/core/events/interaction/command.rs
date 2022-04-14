@@ -13,13 +13,13 @@ use crate::{
         Context,
     },
     error::Error,
-    util::{constants::OWNER_USER_ID, ApplicationCommandExt},
+    util::{constants::OWNER_USER_ID, ApplicationCommandExt, Authored},
     BotResult,
 };
 
 pub async fn handle_command(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) {
     let name = mem::take(&mut command.data.name);
-    log_command(&ctx, &command, &name);
+    log_command(&ctx, &*command, &name);
     ctx.stats.increment_slash_command(&name);
 
     let slash = match SLASH_COMMANDS.command(&name) {

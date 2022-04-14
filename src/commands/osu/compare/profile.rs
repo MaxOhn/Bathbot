@@ -1,5 +1,6 @@
 use std::{io::Cursor, sync::Arc};
 
+use command_macros::command;
 use eyre::Report;
 use image::{
     imageops::{overlay, FilterType},
@@ -7,59 +8,92 @@ use image::{
     ImageOutputFormat::Png,
     Rgba,
 };
-use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score, UserStatistics, Username};
-use twilight_model::{
-    application::interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
-    },
-    id::{marker::UserMarker, Id},
-};
+use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score, UserStatistics};
 
 use crate::{
     commands::{
-        osu::{get_user_and_scores, MinMaxAvg, ScoreArgs, UserArgs},
-        parse_discord, parse_mode_option, DoubleResultCow,
+        osu::{get_user_and_scores, MinMaxAvg, NameExtraction, ScoreArgs, UserArgs},
+        GameModeOption,
     },
-    database::OsuData,
+    core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, ProfileCompareEmbed},
-    error::Error,
     tracking::process_osu_tracking,
     util::{
-        constants::{common_literals::MODE, GENERAL_ISSUE, OSU_API_ISSUE},
+        builder::MessageBuilder,
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher,
         osu::BonusPP,
-        InteractionExt, MessageExt,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder,
+    BotResult, Context,
 };
 
-use super::AT_LEAST_ONE;
+use super::{CompareProfile, AT_LEAST_ONE};
 
-pub(super) async fn _profilecompare(
-    ctx: Arc<Context>,
-    data: CommandData<'_>,
-    args: ProfileArgs,
-) -> BotResult<()> {
-    let ProfileArgs { name1, name2, mode } = args;
-
-    let name1 = match name1 {
-        Some(name) => name,
-        None => {
-            let content =
-                "Since you're not linked with the `link` command, you must specify two names.";
-
-            return data.error(&ctx, content).await;
+async fn extract_name(ctx: &Context, args: &mut CompareProfile<'_>) -> NameExtraction {
+    if let Some(name) = args.name1.take().or_else(|| args.name2.take()) {
+        NameExtraction::Name(name.as_ref().into())
+    } else if let Some(discord) = args.discord1.take().or_else(|| args.discord2.take()) {
+        match ctx.psql().get_user_osu(discord).await {
+            Ok(Some(osu)) => NameExtraction::Name(osu.into_username()),
+            Ok(None) => {
+                NameExtraction::Content(format!("<@{discord}> is not linked to an osu!profile"))
+            }
+            Err(err) => NameExtraction::Err(err),
         }
+    } else {
+        NameExtraction::None
+    }
+}
+
+pub(super) async fn profile(
+    ctx: Arc<Context>,
+    orig: CommandOrigin<'_>,
+    mut args: CompareProfile<'_>,
+) -> BotResult<()> {
+    let name1 = match extract_name(&ctx, &mut args).await {
+        NameExtraction::Name(name) => name,
+        NameExtraction::Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err);
+        }
+        NameExtraction::Content(content) => return orig.error(&ctx, content).await,
+        NameExtraction::None => return orig.error(&ctx, AT_LEAST_ONE).await,
+    };
+
+    let name2 = match extract_name(&ctx, &mut args).await {
+        NameExtraction::Name(name) => name,
+        NameExtraction::Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err);
+        }
+        NameExtraction::Content(content) => return orig.error(&ctx, content).await,
+        NameExtraction::None => match ctx.psql().get_user_osu(orig.user_id()?).await {
+            Ok(Some(osu)) => osu.into_username(),
+            Ok(None) => {
+                let content =
+                    "Since you're not linked with the `/link` command, you must specify two names.";
+
+                return orig.error(&ctx, content).await;
+            }
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(err);
+            }
+        },
     };
 
     if name1 == name2 {
-        return data.error(&ctx, "Give two different names").await;
+        return orig.error(&ctx, "Give two different names").await;
     }
 
+    let mode = args.mode.map_or(GameMode::STD, GameMode::from);
+
     // Retrieve all users and their scores
-    let user_args1 = UserArgs::new(name1.as_str(), mode);
-    let user_args2 = UserArgs::new(name2.as_str(), mode);
+    let user_args1 = UserArgs::new(name1.as_ref(), mode);
+    let user_args2 = UserArgs::new(name2.as_ref(), mode);
     let score_args = ScoreArgs::top(100);
 
     let fut1 = get_user_and_scores(&ctx, user_args1, &score_args);
@@ -70,19 +104,19 @@ pub(super) async fn _profilecompare(
         Err(OsuError::NotFound) => {
             let content = "At least one of the players was not found";
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
-        Err(why) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+        Err(err) => {
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 
     if user1.user_id == user2.user_id {
         let content = "Give two different users";
 
-        return data.error(&ctx, content).await;
+        return orig.error(&ctx, content).await;
     }
 
     let content = if scores1.is_empty() {
@@ -94,7 +128,7 @@ pub(super) async fn _profilecompare(
     };
 
     if let Some(content) = content {
-        return data.error(&ctx, content).await;
+        return orig.error(&ctx, content).await;
     }
 
     // Process user and their top scores for tracking
@@ -121,17 +155,17 @@ pub(super) async fn _profilecompare(
     let mut builder = MessageBuilder::new().embed(embed);
 
     if let Some(bytes) = thumbnail {
-        builder = builder.file("avatar_fuse.png", bytes);
+        builder = builder.attachment("avatar_fuse.png", bytes);
     }
 
-    data.create_message(&ctx, builder).await?;
+    orig.create_message(&ctx, &builder).await?;
 
     Ok(())
 }
 
 #[command]
-#[short_desc("Compare profile stats between two players")]
-#[long_desc(
+#[desc("Compare profile stats between two players")]
+#[help(
     "Compare profile stats between two players.\n\
     Note:\n \
     - PC peak = Monthly playcount peak\n \
@@ -140,29 +174,16 @@ pub(super) async fn _profilecompare(
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
 #[aliases("oc", "compareosu", "co")]
-pub async fn osucompare(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match ProfileArgs::args(&ctx, &mut args, msg.author.id, GameMode::STD).await {
-                Ok(Ok(profile_args)) => {
-                    _profilecompare(ctx, CommandData::Message { msg, args, num }, profile_args)
-                        .await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+#[group(Osu)]
+async fn prefix_osucompare(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    let args = CompareProfile::args(GameModeOption::Osu, args);
 
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_compare(ctx, *command).await,
-    }
+    profile(ctx, msg.into(), args).await
 }
 
 #[command]
-#[short_desc("Compare profile stats between two mania players")]
-#[long_desc(
+#[desc("Compare profile stats between two mania players")]
+#[help(
     "Compare profile stats between two mania players.\n\
     Note:\n \
     - PC peak = Monthly playcount peak\n \
@@ -170,30 +191,17 @@ pub async fn osucompare(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 )]
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
-#[aliases("ocm")]
-pub async fn osucomparemania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match ProfileArgs::args(&ctx, &mut args, msg.author.id, GameMode::MNA).await {
-                Ok(Ok(profile_args)) => {
-                    _profilecompare(ctx, CommandData::Message { msg, args, num }, profile_args)
-                        .await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+#[alias("ocm")]
+#[group(Mania)]
+async fn prefix_osucomparemania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    let args = CompareProfile::args(GameModeOption::Mania, args);
 
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_compare(ctx, *command).await,
-    }
+    profile(ctx, msg.into(), args).await
 }
 
 #[command]
-#[short_desc("Compare profile stats between two taiko players")]
-#[long_desc(
+#[desc("Compare profile stats between two taiko players")]
+#[help(
     "Compare profile stats between two taiko players.\n\
     Note:\n \
     - PC peak = Monthly playcount peak\n \
@@ -201,30 +209,17 @@ pub async fn osucomparemania(ctx: Arc<Context>, data: CommandData) -> BotResult<
 )]
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
-#[aliases("oct")]
-pub async fn osucomparetaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match ProfileArgs::args(&ctx, &mut args, msg.author.id, GameMode::TKO).await {
-                Ok(Ok(profile_args)) => {
-                    _profilecompare(ctx, CommandData::Message { msg, args, num }, profile_args)
-                        .await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+#[alias("oct")]
+#[group(Taiko)]
+async fn prefix_osucomparetaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    let args = CompareProfile::args(GameModeOption::Taiko, args);
 
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_compare(ctx, *command).await,
-    }
+    profile(ctx, msg.into(), args).await
 }
 
 #[command]
-#[short_desc("Compare profile stats between two ctb players")]
-#[long_desc(
+#[desc("Compare profile stats between two ctb players")]
+#[help(
     "Compare profile stats between two ctb players.\n\
     Note:\n \
     - PC peak = Monthly playcount peak\n \
@@ -232,25 +227,12 @@ pub async fn osucomparetaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<
 )]
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
-#[aliases("occ")]
-pub async fn osucomparectb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match ProfileArgs::args(&ctx, &mut args, msg.author.id, GameMode::CTB).await {
-                Ok(Ok(profile_args)) => {
-                    _profilecompare(ctx, CommandData::Message { msg, args, num }, profile_args)
-                        .await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+#[alias("occ")]
+#[group(Catch)]
+async fn prefix_osucomparectb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    let args = CompareProfile::args(GameModeOption::Catch, args);
 
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_compare(ctx, *command).await,
-    }
+    profile(ctx, msg.into(), args).await
 }
 pub struct CompareResult {
     pub mode: GameMode,
@@ -304,8 +286,8 @@ async fn get_combined_thumbnail(
     let mut img = DynamicImage::ImageRgba8(ImageBuffer::from_pixel(720, 128, Rgba([0, 0, 0, 0])));
 
     let (pfp1, pfp2) = tokio::try_join!(
-        ctx.clients.custom.get_avatar(user1_url),
-        ctx.clients.custom.get_avatar(user2_url),
+        ctx.client().get_avatar(user1_url),
+        ctx.client().get_avatar(user2_url),
     )?;
 
     let pfp1 = image::load_from_memory(&pfp1)?.resize_exact(128, 128, FilterType::Lanczos3);
@@ -320,111 +302,33 @@ async fn get_combined_thumbnail(
     Ok(cursor.into_inner())
 }
 
-pub(super) struct ProfileArgs {
-    name1: Option<Username>,
-    name2: Username,
-    mode: GameMode,
-}
-
-impl ProfileArgs {
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: Id<UserMarker>,
-        mut mode: GameMode,
-    ) -> DoubleResultCow<Self> {
-        let config = ctx.user_config(author_id).await?;
-
-        if mode == GameMode::STD {
-            mode = config.mode.unwrap_or(GameMode::STD);
-        }
-
-        let name2 = match args.next() {
-            Some(arg) => match matcher::get_mention_user(arg) {
-                Some(user_id) => match parse_discord(ctx, user_id).await? {
-                    Ok(osu) => osu.into_username(),
-                    Err(content) => return Ok(Err(content)),
-                },
-                None => arg.into(),
-            },
-            None => return Ok(Err(AT_LEAST_ONE.into())),
-        };
-
-        let args = match args.next() {
-            Some(arg) => match matcher::get_mention_user(arg) {
-                Some(user_id) => match parse_discord(ctx, user_id).await? {
-                    Ok(osu) => Self {
-                        name1: Some(name2),
-                        name2: osu.into_username(),
-                        mode,
-                    },
-                    Err(content) => return Ok(Err(content)),
-                },
-                None => Self {
-                    name1: Some(name2),
-                    name2: arg.into(),
-                    mode,
-                },
-            },
-            None => Self {
-                name1: config.into_username(),
-                name2,
-                mode,
-            },
-        };
-
-        Ok(Ok(args))
-    }
-
-    pub(super) async fn slash(
-        ctx: &Context,
-        command: &ApplicationCommand,
-        options: Vec<CommandDataOption>,
-    ) -> DoubleResultCow<Self> {
+impl<'m> CompareProfile<'m> {
+    fn args(mode: GameModeOption, args: Args<'m>) -> Self {
         let mut name1 = None;
         let mut name2 = None;
-        let mut mode = None;
+        let mut discord1 = None;
+        let mut discord2 = None;
 
-        for option in options {
-            match option.value {
-                CommandOptionValue::String(value) => match option.name.as_str() {
-                    MODE => mode = parse_mode_option(&value),
-                    "name1" => name1 = Some(value.into()),
-                    "name2" => name2 = Some(value.into()),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::User(value) => match option.name.as_str() {
-                    "discord1" => match parse_discord(ctx, value).await? {
-                        Ok(osu) => name1 = Some(osu.into_username()),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    "discord2" => match parse_discord(ctx, value).await? {
-                        Ok(osu) => name2 = Some(osu.into_username()),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
+        for arg in args.take(2) {
+            if let Some(id) = matcher::get_mention_user(arg) {
+                if discord1.is_none() {
+                    discord1 = Some(id);
+                } else {
+                    discord2 = Some(id);
+                }
+            } else if name1.is_none() {
+                name1 = Some(arg.into());
+            } else {
+                name2 = Some(arg.into());
             }
         }
 
-        let (name1, name2) = match (name1, name2) {
-            (name1, Some(name)) => (name1, name),
-            (Some(name), None) => (None, name),
-            (None, None) => return Ok(Err(AT_LEAST_ONE.into())),
-        };
-
-        let name1 = match name1 {
-            Some(name) => Some(name),
-            None => ctx
-                .psql()
-                .get_user_osu(command.user_id()?)
-                .await?
-                .map(OsuData::into_username),
-        };
-
-        let mode = mode.unwrap_or(GameMode::STD);
-
-        Ok(Ok(ProfileArgs { name1, name2, mode }))
+        Self {
+            mode: Some(mode),
+            name1,
+            name2,
+            discord1,
+            discord2,
+        }
     }
 }

@@ -1,65 +1,224 @@
 use std::sync::Arc;
 
+use command_macros::command;
 use eyre::Report;
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::prelude::{GameMode, GameMods, OsuError};
 use tokio::time::{sleep, Duration};
-use twilight_model::{
-    application::interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
-    },
-    id::{marker::UserMarker, Id},
-};
 
 use crate::{
-    commands::{check_user_mention, parse_discord, parse_mode_option, DoubleResultCow},
-    database::{EmbedsSize, UserConfig},
-    embeds::{EmbedData, SimulateEmbed},
-    error::Error,
-    util::{
-        constants::{
-            common_literals::{
-                ACC, ACCURACY, COMBO, DISCORD, FRUITS, INDEX, MISSES, MODS, MODS_PARSE_FAIL, NAME,
-                SCORE,
-            },
-            GENERAL_ISSUE, OSU_API_ISSUE,
-        },
-        matcher,
-        osu::ModSelection,
-        InteractionExt, MessageExt,
+    commands::{
+        osu::{prepare_score, require_link},
+        GameModeOption,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder,
+    core::commands::{prefix::Args, CommandOrigin},
+    database::EmbedsSize,
+    embeds::{EmbedData, SimulateArgs, SimulateEmbed},
+    util::{
+        builder::MessageBuilder,
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        matcher, ChannelExt, CowUtils, MessageExt,
+    },
+    BotResult, Context,
 };
 
-pub(super) async fn _recentsimulate(
+use super::{
+    RecentSimulate, RecentSimulateCatch, RecentSimulateMania, RecentSimulateOsu,
+    RecentSimulateTaiko,
+};
+
+#[command]
+#[desc("Unchoke a user's most recent play")]
+#[help(
+    "Unchoke a user's most recent play.\n\
+    To get a previous recent score, you can add a number right after the command,\n\
+    e.g. `sr42 badewanne3` to get the 42nd most recent score."
+)]
+#[usage(
+    "[username] [+mods] [acc=number] [combo=integer] [n300=integer] [n100=integer] [n50=integer] [misses=integer]"
+)]
+#[example("badewanne3 +hr acc=99.3 n300=1422 misses=1")]
+#[alias("sr")]
+#[group(Osu)]
+async fn prefix_simulaterecent(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match RecentSimulate::args(GameModeOption::Osu, args) {
+        Ok(args) => simulate(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("Display a perfect play on a user's most recently played mania map")]
+#[help(
+    "Display a perfect play on a user's most recently played mania map.\n\
+    To get a previous recent map, you can add a number right after the command,\n\
+    e.g. `srm42 badewanne3` to get the 42nd most recent map."
+)]
+#[usage("[username] [+mods] [score=number]")]
+#[example("badewanne3 +dt score=895000")]
+#[alias("srm")]
+#[group(Mania)]
+async fn prefix_simulaterecentmania(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
-    args: RecentSimulateArgs,
+    msg: &Message,
+    args: Args<'_>,
 ) -> BotResult<()> {
-    let name = match args.config.username() {
-        Some(name) => name.as_str(),
-        None => return super::require_link(&ctx, &data).await,
+    match RecentSimulate::args(GameModeOption::Mania, args) {
+        Ok(args) => simulate(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("Unchoke a user's most recent taiko play")]
+#[help(
+    "Unchoke a user's most recent taiko play.\n\
+    To get a previous recent score, you can add a number right after the command,\n\
+    e.g. `srt42 badewanne3` to get the 42nd most recent score."
+)]
+#[usage(
+    "[username] [+mods] [acc=number] [combo=integer] [n300=integer] [n100=integer] [misses=integer]"
+)]
+#[example("badewanne3 +hr acc=99.3 n300=1422 misses=1")]
+#[alias("srt")]
+#[group(Taiko)]
+async fn prefix_simulaterecenttaiko(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+) -> BotResult<()> {
+    match RecentSimulate::args(GameModeOption::Taiko, args) {
+        Ok(args) => simulate(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("Unchoke a user's most recent ctb play")]
+#[help(
+    "Unchoke a user's most recent ctb play.\n\
+    To get a previous recent score, you can add a number right after the command,\n\
+    e.g. `src42 badewanne3` to get the 42nd most recent score.\n\
+    Note: n300 = #fruits ~ n100 = #droplets ~ n50 = #tiny droplets."
+)]
+#[usage(
+    "[username] [+mods] [acc=number] [combo=integer] [n300=integer] [n100=integer] [n50=integer] [misses=integer]"
+)]
+#[example("badewanne3 +hr acc=99.3 n300=1422 misses=1")]
+#[alias("src")]
+#[group(Catch)]
+async fn prefix_simulaterecentctb(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+) -> BotResult<()> {
+    match RecentSimulate::args(GameModeOption::Catch, args) {
+        Ok(args) => simulate(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+pub(super) async fn simulate(
+    ctx: Arc<Context>,
+    orig: CommandOrigin<'_>,
+    args: RecentSimulate<'_>,
+) -> BotResult<()> {
+    let owner = orig.user_id()?;
+
+    let (name, index, args, mode) = match args {
+        RecentSimulate::Osu(args) => {
+            let name = username!(ctx, orig, args);
+            let index = args.index;
+            let args = SimulateArgs::try_from(args);
+
+            (name, index, args, GameMode::STD)
+        }
+        RecentSimulate::Taiko(args) => {
+            let name = username!(ctx, orig, args);
+            let index = args.index;
+            let args = SimulateArgs::try_from(args);
+
+            (name, index, args, GameMode::TKO)
+        }
+        RecentSimulate::Catch(args) => {
+            let name = username!(ctx, orig, args);
+            let index = args.index;
+            let args = SimulateArgs::try_from(args);
+
+            (name, index, args, GameMode::CTB)
+        }
+        RecentSimulate::Mania(args) => {
+            let name = username!(ctx, orig, args);
+            let index = args.index;
+            let args = SimulateArgs::try_from(args);
+
+            (name, index, args, GameMode::MNA)
+        }
     };
 
-    let mode = args.config.mode.unwrap_or(GameMode::STD);
-    let limit = args.index.map_or(1, |n| n + (n == 0) as usize);
+    let args = match args {
+        Ok(args) => args,
+        Err(content) => return orig.error(&ctx, content).await,
+    };
+
+    let name = match name {
+        Some(name) => name,
+        None => match ctx.psql().get_user_osu(owner).await {
+            Ok(Some(osu)) => osu.into_username(),
+            Ok(None) => return require_link(&ctx, &orig).await,
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(err);
+            }
+        },
+    };
+
+    let limit = index.map_or(1, |n| n + (n == 0) as usize);
 
     if limit > 100 {
         let content = "Recent history goes only 100 scores back.";
 
-        return data.error(&ctx, content).await;
+        return orig.error(&ctx, content).await;
     }
 
     // Retrieve the recent score
     let scores_fut = ctx
         .osu()
-        .user_scores(name)
+        .user_scores(name.as_str())
         .recent()
         .mode(mode)
         .include_fails(true)
         .limit(limit);
 
-    let mut score = match scores_fut.await {
+    let config_fut = ctx.user_config(owner);
+    let (scores_result, config_result) = tokio::join!(scores_fut, config_fut);
+
+    let config = match config_result {
+        Ok(config) => config,
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err);
+        }
+    };
+
+    let mut score = match scores_result {
         Ok(scores) if scores.is_empty() => {
             let content = format!(
                 "No recent {}plays found for user `{name}`",
@@ -71,7 +230,7 @@ pub(super) async fn _recentsimulate(
                 }
             );
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         Ok(scores) if scores.len() < limit => {
             let content = format!(
@@ -80,13 +239,13 @@ pub(super) async fn _recentsimulate(
                 if name.ends_with('s') { "" } else { "s" }
             );
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         Ok(mut scores) => match scores.pop() {
-            Some(mut score) => match super::prepare_score(&ctx, &mut score).await {
+            Some(mut score) => match prepare_score(&ctx, &mut score).await {
                 Ok(_) => score,
                 Err(why) => {
-                    let _ = data.error(&ctx, OSU_API_ISSUE).await;
+                    let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
                     return Err(why.into());
                 }
@@ -94,25 +253,25 @@ pub(super) async fn _recentsimulate(
             None => {
                 let content = format!("No recent plays found for user `{name}`");
 
-                return data.error(&ctx, content).await;
+                return orig.error(&ctx, content).await;
             }
         },
         Err(OsuError::NotFound) => {
             let content = format!("User `{name}` was not found");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
-        Err(why) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+        Err(err) => {
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 
     let map = score.map.take().unwrap();
     let mapset = score.mapset.take().unwrap();
 
-    let embeds_size = match (args.config.embeds_size, data.guild_id()) {
+    let embeds_size = match (config.embeds_size, orig.guild_id()) {
         (Some(size), _) => size,
         (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
         (None, None) => EmbedsSize::default(),
@@ -121,10 +280,10 @@ pub(super) async fn _recentsimulate(
     // Accumulate all necessary data
     let embed_data = match SimulateEmbed::new(Some(score), &map, &mapset, args.into(), &ctx).await {
         Ok(data) => data,
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(why);
+            return Err(err);
         }
     };
 
@@ -135,12 +294,12 @@ pub(super) async fn _recentsimulate(
         EmbedsSize::AlwaysMinimized => {
             let embed = embed_data.into_builder().build();
             let builder = MessageBuilder::new().content(content).embed(embed);
-            data.create_message(&ctx, builder).await?;
+            orig.create_message(&ctx, &builder).await?;
         }
         EmbedsSize::InitialMaximized => {
             let embed = embed_data.as_builder().build();
             let builder = MessageBuilder::new().content(content).embed(embed);
-            let response = data.create_message(&ctx, builder).await?.model().await?;
+            let response = orig.create_message(&ctx, &builder).await?.model().await?;
 
             ctx.store_msg(response.id);
             let ctx = Arc::clone(&ctx);
@@ -156,8 +315,8 @@ pub(super) async fn _recentsimulate(
                 let embed = embed_data.into_builder().build();
                 let builder = MessageBuilder::new().content(content).embed(embed);
 
-                if let Err(why) = response.update_message(&ctx, builder).await {
-                    let report = Report::new(why).wrap_err("failed to minimize message");
+                if let Err(err) = response.update(&ctx, &builder).await {
+                    let report = Report::new(err).wrap_err("failed to minimize message");
                     warn!("{report:?}");
                 }
             });
@@ -165,7 +324,7 @@ pub(super) async fn _recentsimulate(
         EmbedsSize::AlwaysMaximized => {
             let embed = embed_data.as_builder().build();
             let builder = MessageBuilder::new().content(content).embed(embed);
-            data.create_message(&ctx, builder).await?;
+            orig.create_message(&ctx, &builder).await?;
         }
     }
 
@@ -175,168 +334,16 @@ pub(super) async fn _recentsimulate(
     Ok(())
 }
 
-#[command]
-#[short_desc("Unchoke a user's most recent play")]
-#[long_desc(
-    "Unchoke a user's most recent play.\n\
-    To get a previous recent score, you can add a number right after the command,\n\
-    e.g. `sr42 badewanne3` to get the 42nd most recent score."
-)]
-#[usage(
-    "[username] [+mods] [acc=number] [combo=integer] [n300=integer] [n100=integer] [n50=integer] [misses=integer]"
-)]
-#[example("badewanne3 +hr acc=99.3 n300=1422 misses=1")]
-#[aliases("sr")]
-pub async fn simulaterecent(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match RecentSimulateArgs::args(&ctx, &mut args, msg.author.id, num).await {
-                Ok(Ok(mut recent_args)) => {
-                    recent_args.config.mode.get_or_insert(GameMode::STD);
-
-                    _recentsimulate(ctx, CommandData::Message { msg, args, num }, recent_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("Display a perfect play on a user's most recently played mania map")]
-#[long_desc(
-    "Display a perfect play on a user's most recently played mania map.\n\
-    To get a previous recent map, you can add a number right after the command,\n\
-    e.g. `srm42 badewanne3` to get the 42nd most recent map."
-)]
-#[usage("[username] [+mods] [score=number]")]
-#[example("badewanne3 +dt score=895000")]
-#[aliases("srm")]
-pub async fn simulaterecentmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match RecentSimulateArgs::args(&ctx, &mut args, msg.author.id, num).await {
-                Ok(Ok(mut recent_args)) => {
-                    recent_args.config.mode = Some(GameMode::MNA);
-
-                    _recentsimulate(ctx, CommandData::Message { msg, args, num }, recent_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("Unchoke a user's most recent taiko play")]
-#[long_desc(
-    "Unchoke a user's most recent taiko play.\n\
-    To get a previous recent score, you can add a number right after the command,\n\
-    e.g. `srt42 badewanne3` to get the 42nd most recent score."
-)]
-#[usage(
-    "[username] [+mods] [acc=number] [combo=integer] [n300=integer] [n100=integer] [misses=integer]"
-)]
-#[example("badewanne3 +hr acc=99.3 n300=1422 misses=1")]
-#[aliases("srt")]
-pub async fn simulaterecenttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match RecentSimulateArgs::args(&ctx, &mut args, msg.author.id, num).await {
-                Ok(Ok(mut recent_args)) => {
-                    recent_args.config.mode = Some(GameMode::TKO);
-
-                    _recentsimulate(ctx, CommandData::Message { msg, args, num }, recent_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("Unchoke a user's most recent ctb play")]
-#[long_desc(
-    "Unchoke a user's most recent ctb play.\n\
-    To get a previous recent score, you can add a number right after the command,\n\
-    e.g. `src42 badewanne3` to get the 42nd most recent score.\n\
-    Note: n300 = #fruits ~ n100 = #droplets ~ n50 = #tiny droplets."
-)]
-#[usage(
-    "[username] [+mods] [acc=number] [combo=integer] [n300=integer] [n100=integer] [n50=integer] [misses=integer]"
-)]
-#[example("badewanne3 +hr acc=99.3 n300=1422 misses=1")]
-#[aliases("src")]
-pub async fn simulaterecentctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match RecentSimulateArgs::args(&ctx, &mut args, msg.author.id, num).await {
-                Ok(Ok(mut recent_args)) => {
-                    recent_args.config.mode = Some(GameMode::CTB);
-
-                    _recentsimulate(ctx, CommandData::Message { msg, args, num }, recent_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
-    }
-}
-
-pub struct RecentSimulateArgs {
-    pub(super) config: UserConfig,
-    pub(super) index: Option<usize>,
-    pub mods: Option<ModSelection>,
-    pub n300: Option<usize>,
-    pub n100: Option<usize>,
-    pub n50: Option<usize>,
-    pub misses: Option<usize>,
-    pub acc: Option<f32>,
-    pub combo: Option<usize>,
-    pub score: Option<u32>,
-}
-
 macro_rules! parse_fail {
     ($key:ident, $ty:literal) => {
-        return Ok(Err(format!(
-            concat!("Failed to parse `{}`. Must be ", $ty, "."),
-            $key
-        )
-        .into()))
+        return Err(format!(concat!("Failed to parse `{}`. Must be ", $ty, "."), $key).into())
     };
 }
 
-impl RecentSimulateArgs {
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: Id<UserMarker>,
-        index: Option<usize>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(author_id).await?;
+impl<'m> RecentSimulate<'m> {
+    fn args(mode: GameModeOption, args: Args<'m>) -> Result<Self, String> {
+        let mut name = None;
+        let mut discord = None;
         let mut mods = None;
         let mut n300 = None;
         let mut n100 = None;
@@ -345,8 +352,9 @@ impl RecentSimulateArgs {
         let mut acc = None;
         let mut combo = None;
         let mut score = None;
+        let num = args.num;
 
-        for arg in args {
+        for arg in args.map(|arg| arg.cow_to_ascii_lowercase()) {
             if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
                 let key = &arg[..idx];
                 let value = arg[idx + 1..].trim_end();
@@ -364,25 +372,25 @@ impl RecentSimulateArgs {
                         Ok(value) => n50 = Some(value),
                         Err(_) => parse_fail!(key, "a positive integer"),
                     },
-                    MISSES | "miss" | "m" => match value.parse() {
+                    "misses" | "miss" | "m" => match value.parse() {
                         Ok(value) => misses = Some(value),
                         Err(_) => parse_fail!(key, "a positive integer"),
                     },
-                    ACC | "a" | ACCURACY => match value.parse() {
+                    "acc" | "a" | "accuracy" => match value.parse() {
                         Ok(value) => acc = Some(value),
                         Err(_) => parse_fail!(key, "a number"),
                     },
-                    COMBO | "c" => match value.parse() {
+                    "combo" | "c" => match value.parse() {
                         Ok(value) => combo = Some(value),
                         Err(_) => parse_fail!(key, "a positive integer"),
                     },
-                    SCORE | "s" => match value.parse() {
+                    "score" | "s" => match value.parse() {
                         Ok(value) => score = Some(value),
                         Err(_) => parse_fail!(key, "a positive integer"),
                     },
-                    MODS => match value.parse() {
-                        Ok(m) => mods = Some(ModSelection::Exact(m)),
-                        Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
+                    "mods" => match value.parse::<GameMods>() {
+                        Ok(_) => mods = Some(format!("+{value}!").into()),
+                        Err(_) => return Err("Failed to parse mods. Be sure to specify a valid abbreviation e.g. `hdhr`.".to_owned()),
                     },
                     _ => {
                         let content = format!(
@@ -391,111 +399,65 @@ impl RecentSimulateArgs {
                             `misses`, `acc`, `combo`, and `score`."
                         );
 
-                        return Ok(Err(content.into()));
+                        return Err(content);
                     }
                 }
-            } else if let Some(mods_) = matcher::get_mods(arg) {
-                mods.replace(mods_);
+            } else if matcher::get_mods(&arg).is_some() {
+                mods = Some(arg);
+            } else if let Some(id) = matcher::get_mention_user(&arg) {
+                discord = Some(id);
             } else {
-                match check_user_mention(ctx, arg).await? {
-                    Ok(osu) => config.osu = Some(osu),
-                    Err(content) => return Ok(Err(content)),
-                }
+                name = Some(arg);
             }
         }
 
-        let args = Self {
-            config,
-            index,
-            mods,
-            n300,
-            n100,
-            n50,
-            misses,
-            acc,
-            combo,
-            score,
+        let index = num.map(|n| n as usize);
+
+        let args = match mode {
+            GameModeOption::Osu => Self::Osu(RecentSimulateOsu {
+                name,
+                mods,
+                index,
+                n300,
+                n100,
+                n50,
+                misses,
+                acc,
+                combo,
+                discord,
+            }),
+            GameModeOption::Taiko => Self::Taiko(RecentSimulateTaiko {
+                name,
+                mods,
+                index,
+                n300,
+                n100,
+                misses,
+                acc,
+                combo,
+                discord,
+            }),
+            GameModeOption::Catch => Self::Catch(RecentSimulateCatch {
+                name,
+                mods,
+                index,
+                fruits: n300,
+                droplets: n100,
+                tiny_droplets: n50,
+                misses,
+                acc,
+                combo,
+                discord,
+            }),
+            GameModeOption::Mania => Self::Mania(RecentSimulateMania {
+                name,
+                mods,
+                index,
+                score,
+                discord,
+            }),
         };
 
-        Ok(Ok(args))
-    }
-
-    pub(super) async fn slash(
-        ctx: &Context,
-        command: &ApplicationCommand,
-        mut options: Vec<CommandDataOption>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(command.user_id()?).await?;
-        let mut mods = None;
-        let mut index = None;
-        let mut n300 = None;
-        let mut n100 = None;
-        let mut n50 = None;
-        let mut misses = None;
-        let mut acc = None;
-        let mut combo = None;
-        let mut score = None;
-
-        let option = options.pop().ok_or(Error::InvalidCommandOptions)?;
-
-        match option.value {
-            CommandOptionValue::SubCommand(options) => {
-                for option in options {
-                    match option.value {
-                        CommandOptionValue::String(value) => match option.name.as_str() {
-                            NAME => config.osu = Some(value.into()),
-                            MODS => match matcher::get_mods(&value) {
-                                Some(mods_) => mods = Some(mods_),
-                                None => match value.parse() {
-                                    Ok(mods_) => mods = Some(ModSelection::Exact(mods_)),
-                                    Err(_) => return Ok(Err(MODS_PARSE_FAIL.into())),
-                                },
-                            },
-                            _ => return Err(Error::InvalidCommandOptions),
-                        },
-                        CommandOptionValue::Integer(value) => match option.name.as_str() {
-                            INDEX => index = Some(value.max(1).min(50) as usize),
-                            "n300" | FRUITS => n300 = Some(value.max(0) as usize),
-                            "n100" | "droplets" => n100 = Some(value.max(0) as usize),
-                            "n50" | "tiny_droplets" => n50 = Some(value.max(0) as usize),
-                            MISSES => misses = Some(value.max(0) as usize),
-                            COMBO => combo = Some(value.max(0) as usize),
-                            SCORE => score = Some(value.max(0) as u32),
-                            _ => return Err(Error::InvalidCommandOptions),
-                        },
-                        CommandOptionValue::Number(value) => match option.name.as_str() {
-                            ACC => acc = Some(value.0.clamp(0.0, 100.0) as f32),
-                            _ => return Err(Error::InvalidCommandOptions),
-                        },
-                        CommandOptionValue::User(value) => match option.name.as_str() {
-                            DISCORD => match parse_discord(ctx, value).await? {
-                                Ok(osu) => config.osu = Some(osu),
-                                Err(content) => return Ok(Err(content)),
-                            },
-                            _ => return Err(Error::InvalidCommandOptions),
-                        },
-                        _ => return Err(Error::InvalidCommandOptions),
-                    }
-                }
-
-                config.mode = parse_mode_option(&option.name);
-            }
-            _ => return Err(Error::InvalidCommandOptions),
-        }
-
-        let args = Self {
-            config,
-            mods,
-            index,
-            n300,
-            n100,
-            n50,
-            misses,
-            acc,
-            combo,
-            score,
-        };
-
-        Ok(Ok(args))
+        Ok(args)
     }
 }

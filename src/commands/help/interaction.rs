@@ -1,13 +1,17 @@
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
 use command_macros::SlashCommand;
+use prometheus::core::Collector;
 use twilight_interactions::{
     command::{ApplicationCommandData, CommandModel, CreateCommand},
     error::{ParseError, ParseOptionError, ParseOptionErrorType},
 };
-use twilight_model::application::{
-    command::CommandOptionChoice,
-    interaction::{ApplicationCommand, ApplicationCommandAutocomplete},
+use twilight_model::{
+    application::{
+        command::CommandOptionChoice,
+        interaction::{ApplicationCommand, ApplicationCommandAutocomplete},
+    },
+    channel::embed::EmbedField,
 };
 
 use crate::{
@@ -17,12 +21,16 @@ use crate::{
     },
     util::{
         builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
-        AutocompleteExt, CowUtils,
+        constants::{BATHBOT_GITHUB, BATHBOT_WORKSHOP, INVITE_LINK, KOFI},
+        datetime::how_long_ago_dynamic,
+        levenshtein_distance,
+        numbers::with_comma_int,
+        ApplicationCommandExt, AutocompleteExt, CowUtils,
     },
     BotResult,
 };
 
-use super::{option_fields, parse_select_menu, AUTHORITY_STATUS};
+use super::{failed_message_content, option_fields, parse_select_menu, AUTHORITY_STATUS};
 
 pub async fn handle_help_autocomplete(
     ctx: Arc<Context>,
@@ -85,19 +93,125 @@ async fn slash_help(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> 
         Some(name) => match SLASH_COMMANDS.command(&name) {
             Some(cmd) => help_slash_command(&ctx, command, cmd).await,
             None => {
-                let builder = MessageBuilder::new().embed("failed help");
-                command.callback(&ctx, builder, true).await?;
+                let dists: BTreeMap<_, _> = SLASH_COMMANDS
+                    .names()
+                    .map(|cmd| (levenshtein_distance(&name, cmd).0, cmd))
+                    .filter(|(dist, _)| *dist < 5)
+                    .collect();
+
+                let content = failed_message_content(dists);
+                command.error_callback(&ctx, content).await?;
 
                 Ok(())
             }
         },
-        None => {
-            let builder = MessageBuilder::new().embed("basic help");
-            command.callback(&ctx, builder, true).await?;
-
-            Ok(())
-        }
+        None => help_slash_basic(ctx, command).await,
     }
+}
+
+async fn help_slash_basic(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotResult<()> {
+    let id = ctx
+        .cache
+        .current_user()
+        .expect("missing CurrentUser in cache")
+        .id;
+
+    let mention = format!("<@{id}>");
+
+    let description = format!(
+        "{mention} is a discord bot written by [Badewanne3](https://osu.ppy.sh/u/2211396) all around osu!"
+    );
+
+    let join_server = EmbedField {
+        inline: false,
+        name: "Got a question, suggestion, bug, or are interested in the development?".to_owned(),
+        value: format!("Feel free to join the [discord server]({BATHBOT_WORKSHOP})"),
+    };
+
+    let command_help = EmbedField {
+        inline: false,
+        name: "Want to learn more about a command?".to_owned(),
+        value: "Try specifying the command name on the `help` command: `/help command:_`"
+            .to_owned(),
+    };
+
+    let invite = EmbedField {
+        inline: false,
+        name: "Want to invite the bot to your server?".to_owned(),
+        value: format!("Try using this [**invite link**]({INVITE_LINK})"),
+    };
+
+    let servers = EmbedField {
+        inline: true,
+        name: "Servers".to_owned(),
+        value: with_comma_int(ctx.cache.stats().guilds()).to_string(),
+    };
+
+    let boot_time = ctx.stats.start_time;
+
+    let boot_up = EmbedField {
+        inline: true,
+        name: "Boot-up".to_owned(),
+        value: how_long_ago_dynamic(&boot_time).to_string(),
+    };
+
+    let github = EmbedField {
+        inline: false,
+        name: "Interested in the code?".to_owned(),
+        value: format!("The source code can be found over at [github]({BATHBOT_GITHUB})"),
+    };
+
+    let commands_used: usize = ctx.stats.command_counts.message_commands.collect()[0]
+        .get_metric()
+        .iter()
+        .map(|metrics| metrics.get_counter().get_value() as usize)
+        .sum();
+
+    let commands_used = EmbedField {
+        inline: true,
+        name: "Commands used".to_owned(),
+        value: with_comma_int(commands_used).to_string(),
+    };
+
+    let osu_requests: usize = ctx.stats.osu_metrics.rosu.collect()[0]
+        .get_metric()
+        .iter()
+        .map(|metric| metric.get_counter().get_value() as usize)
+        .sum();
+
+    let osu_requests = EmbedField {
+        inline: true,
+        name: "osu!api requests".to_owned(),
+        value: with_comma_int(osu_requests).to_string(),
+    };
+
+    let kofi = EmbedField {
+        inline: false,
+        name: "Feel like supporting the bot's development & maintenance?".to_owned(),
+        value: format!("Donations through [Ko-fi]({KOFI}) are very much appreciated <3"),
+    };
+
+    let fields = vec![
+        join_server,
+        command_help,
+        invite,
+        servers,
+        boot_up,
+        github,
+        commands_used,
+        osu_requests,
+        kofi,
+    ];
+
+    let builder = EmbedBuilder::new()
+        .description(description)
+        .fields(fields)
+        .build()
+        .into();
+
+    command.callback(&ctx, builder, true).await?;
+
+    Ok(())
 }
 
 async fn help_slash_command(

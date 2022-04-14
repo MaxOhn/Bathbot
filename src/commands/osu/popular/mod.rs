@@ -1,12 +1,14 @@
 use std::sync::Arc;
 
 use command_macros::SlashCommand;
-use twilight_interactions::command::{CommandOption, CommandOption, CreateCommand, CreateOption};
+use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::application::interaction::ApplicationCommand;
 
-use crate::{core::Context, BotResult};
+use crate::{core::Context, BotResult, util::ApplicationCommandExt};
 
 pub use self::mapsets::MapsetEntry;
+
+use self::{mappers::*, maps::*, mapsets::*, mods::*};
 
 mod mappers;
 mod maps;
@@ -85,7 +87,7 @@ pub struct PopularMappers;
 
 async fn slash_popular(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
     match Popular::from_interaction(command.input_data())? {
-        Popular::Maps(args) => maps(ctx, command, args).await,
+        Popular::Maps(args) => maps(ctx, command, args.pp).await,
         Popular::Mapsets(_) => mapsets(ctx, command).await,
         Popular::Mods(_) => mods(ctx, command).await,
         Popular::Mappers(_) => mappers(ctx, command).await,

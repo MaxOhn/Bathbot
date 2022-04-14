@@ -14,7 +14,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, MapSearchEmbed},
     pagination::{MapSearchPagination, Pagination},
-    util::constants::OSU_API_ISSUE,
+    util::{constants::OSU_API_ISSUE, ApplicationCommandExt, ChannelExt},
     BotResult, Context,
 };
 
@@ -23,28 +23,28 @@ use crate::{
 /// Search for mapsets
 pub struct Search {
     /// Specify a search query
-    query: Option<String>,
+    pub query: Option<String>,
     /// Specify a gamemode
-    mode: Option<GameModeOption>,
+    pub mode: Option<GameModeOption>,
     /// Specify a ranking status
-    status: Option<SearchStatus>,
+    pub status: Option<SearchStatus>,
     /// Specify the order of mapsets
-    sort: Option<SearchOrder>,
+    pub sort: Option<SearchOrder>,
     /// Specify a genre
-    genre: Option<SearchGenre>,
+    pub genre: Option<SearchGenre>,
     /// Specify a language
-    language: Option<SearchLanguage>,
+    pub language: Option<SearchLanguage>,
     /// Specify if the mapset should have a video
-    video: Option<bool>,
+    pub video: Option<bool>,
     /// Specify if the mapset should have a storyboard
-    storyboard: Option<bool>,
+    pub storyboard: Option<bool>,
     /// Specify whether the mapset can be NSFW
-    nsfw: Option<bool>,
+    pub nsfw: Option<bool>,
     /// Specify whether the resulting list should be reversed
-    reverse: Option<bool>,
+    pub reverse: Option<bool>,
 }
 
-#[derive(CommandOption, CreateOption)]
+#[derive(CommandOption, CreateOption, Debug)]
 pub enum SearchStatus {
     #[option(name = "Any", value = "any")]
     Any,
@@ -62,7 +62,7 @@ pub enum SearchStatus {
     Graveyard,
 }
 
-#[derive(CommandOption, CreateOption)]
+#[derive(Copy, Clone, CommandOption, CreateOption)]
 pub enum SearchGenre {
     #[option(name = "Any", value = "any")]
     Any,
@@ -115,7 +115,7 @@ impl From<SearchGenre> for Genre {
     }
 }
 
-#[derive(CommandOption, CreateOption)]
+#[derive(Copy, Clone, CommandOption, CreateOption)]
 pub enum SearchLanguage {
     #[option(name = "Any", value = "any")]
     Any,
@@ -171,7 +171,7 @@ impl From<SearchLanguage> for Language {
     }
 }
 
-#[derive(CommandOption, CreateOption)]
+#[derive(Copy, Clone, CommandOption, CreateOption, Debug, Eq, PartialEq)]
 pub enum SearchOrder {
     #[option(name = "Artist", value = "artist")]
     Artist,
@@ -189,6 +189,12 @@ pub enum SearchOrder {
     Stars,
     #[option(name = "Title", value = "title")]
     Title,
+}
+
+impl Default for SearchOrder {
+    fn default() -> Self {
+        Self::Relevance
+    }
 }
 
 impl From<SearchOrder> for BeatmapsetSearchSort {
@@ -382,9 +388,9 @@ impl Search {
 
                 query.replace_range(start..end + (query.len() > end + 1) as usize, "");
 
-                video
+                Some(video)
             }
-            None => false,
+            None => None,
         };
 
         let storyboard = match query.find("storyboard=") {
@@ -407,9 +413,9 @@ impl Search {
 
                 query.replace_range(start..end + (query.len() > end + 1) as usize, "");
 
-                storyboard
+                Some(storyboard)
             }
-            None => false,
+            None => None,
         };
 
         let nsfw = match query.find("nsfw=") {
@@ -432,9 +438,9 @@ impl Search {
 
                 query.replace_range(start..end + (query.len() > end + 1) as usize, "");
 
-                nsfw
+                Some(nsfw)
             }
-            None => true,
+            None => None,
         };
 
         let sort = match query.find("sort=") {
@@ -446,14 +452,14 @@ impl Search {
                 }
 
                 let sort = match &query[start + "sort=".len()..end] {
-                    "artist" => BeatmapsetSearchSort::Artist,
-                    "favourites" => BeatmapsetSearchSort::Favourites,
-                    "playcount" | "plays" => BeatmapsetSearchSort::Playcount,
-                    "rankeddate" | "ranked" => BeatmapsetSearchSort::RankedDate,
-                    "rating" => BeatmapsetSearchSort::Rating,
-                    "relevance" => BeatmapsetSearchSort::Relevance,
-                    "stars" | "difficulty" => BeatmapsetSearchSort::Stars,
-                    "title" => BeatmapsetSearchSort::Title,
+                    "artist" => SearchOrder::Artist,
+                    "favourites" => SearchOrder::Favourites,
+                    "playcount" | "plays" => SearchOrder::Playcount,
+                    "rankeddate" | "ranked" => SearchOrder::RankedDate,
+                    "rating" => SearchOrder::Rating,
+                    "relevance" => SearchOrder::Relevance,
+                    "stars" | "difficulty" => SearchOrder::Stars,
+                    "title" => SearchOrder::Title,
                     _ => {
                         let content = "Failed to parse `sort`. After `sort=` you must \
                         specify any of the following options: `artist`, `favourites`, `playcount`, \
@@ -465,9 +471,9 @@ impl Search {
 
                 query.replace_range(start..end + (query.len() > end + 1) as usize, "");
 
-                sort
+                Some(sort)
             }
-            None => BeatmapsetSearchSort::Relevance,
+            None => None,
         };
 
         let reverse = match query.find("reverse=") {
@@ -491,9 +497,9 @@ impl Search {
 
                 query.replace_range(start..end + (query.len() > end + 1) as usize, "");
 
-                reverse
+                Some(reverse)
             }
-            None => false,
+            None => None,
         };
 
         let trailing_whitespace = query
@@ -533,13 +539,14 @@ impl Search {
             .sort
             .map(BeatmapsetSearchSort::from)
             .unwrap_or_default();
+
         let descending = self.reverse.map_or(true, |r| !r);
 
         let mut search_fut = osu
             .beatmapset_search()
-            .video(self.video)
-            .storyboard(self.storyboard)
-            .nsfw(self.nsfw)
+            .video(self.video.unwrap_or(false))
+            .storyboard(self.storyboard.unwrap_or(false))
+            .nsfw(self.nsfw.unwrap_or(true))
             .sort(sort, descending);
 
         if let Some(ref query) = self.query {
@@ -552,7 +559,7 @@ impl Search {
 
         search_fut = match self.status {
             Some(SearchStatus::Any) => search_fut.any_status(),
-            Some(SearchStatus::Leaderboard) | None => {}
+            Some(SearchStatus::Leaderboard) | None => search_fut,
             Some(SearchStatus::Ranked) => search_fut.status(RankStatus::Ranked),
             Some(SearchStatus::Loved) => search_fut.status(RankStatus::Loved),
             Some(SearchStatus::Qualified) => search_fut.status(RankStatus::Qualified),
@@ -611,7 +618,11 @@ async fn slash_search(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -
 async fn prefix_search(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match Search::args(args) {
         Ok(args) => search(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -629,18 +640,18 @@ async fn search(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Search) -> Bot
     let mapset_count = search_result.mapsets.len();
     let total_pages = (mapset_count < 50).then(|| mapset_count / 10 + 1);
     let maps: BTreeMap<usize, Beatmapset> = search_result.mapsets.drain(..).enumerate().collect();
-    let embed_data = MapSearchEmbed::new(&maps, &args, (1, total_pages)).await;
+    let embed_data = MapSearchEmbed::new(&maps, &args, (1, total_pages));
 
     // Creating the embed
     let embed = embed_data.into_builder().build();
-    let response_raw = orig.create_message(&ctx, embed.into()).await?;
+    let response_raw = orig.create_message(&ctx, &embed.into()).await?;
 
     // Skip pagination if too few entries
     if maps.len() <= 10 {
         return Ok(());
     }
 
-    let owner = orig.author()?.id;
+    let owner = orig.user_id()?;
     let response = response_raw.model().await?;
 
     // Pagination

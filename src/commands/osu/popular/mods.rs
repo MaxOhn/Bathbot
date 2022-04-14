@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use eyre::Report;
 use rkyv::{Deserialize, Infallible};
+use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     core::Context,
@@ -9,7 +10,7 @@ use crate::{
     embeds::EmbedData,
     embeds::OsuTrackerModsEmbed,
     pagination::{OsuTrackerModsPagination, Pagination},
-    util::{constants::OSUTRACKER_ISSUE, numbers},
+    util::{constants::OSUTRACKER_ISSUE, numbers, builder::MessageBuilder, ApplicationCommandExt, Authored},
     BotResult,
 };
 

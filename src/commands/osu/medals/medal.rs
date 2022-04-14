@@ -11,13 +11,15 @@ use twilight_model::application::{
 };
 
 use crate::{
-    commands::osu::respond_autocomplete,
-    core::ArchivedBytes,
+    core::{commands::CommandOrigin, ArchivedBytes},
     custom_client::OsekaiMedal,
     embeds::{EmbedData, MedalEmbed},
     error::Error,
-    util::{constants::OSEKAI_ISSUE, levenshtein_similarity, CowUtils, MessageExt},
-    BotResult, CommandData, Context,
+    util::{
+        builder::MessageBuilder, constants::OSEKAI_ISSUE, levenshtein_similarity, AutocompleteExt,
+        ChannelExt, CowUtils,
+    },
+    BotResult, Context,
 };
 
 use super::MedalInfo;
@@ -37,18 +39,18 @@ async fn prefix_medal(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotRe
     let name = args.rest().trim_matches('"');
 
     if name.is_empty() {
-        return msg.error(&ctx, "You must specify a medal name").await;
+        msg.error(&ctx, "You must specify a medal name").await?;
+
+        return Ok(());
     }
 
-    let info = MedalInfo { name: name.into() };
-
-    medal(ctx, msg.into(), info).await
+    info(ctx, msg.into(), MedalInfo { name: name.into() }).await
 }
 
-pub(super) async fn medal(
+pub(super) async fn info(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
-    info: MedalInfo<'_>,
+    args: MedalInfo<'_>,
 ) -> BotResult<()> {
     let MedalInfo { name } = args;
 
@@ -72,8 +74,8 @@ pub(super) async fn medal(
         None => return no_medal(&ctx, &orig, name.as_ref(), medals).await,
     };
 
-    let map_fut = ctx.clients.custom.get_osekai_beatmaps(&medal.name);
-    let comment_fut = ctx.clients.custom.get_osekai_comments(&medal.name);
+    let map_fut = ctx.client().get_osekai_beatmaps(&medal.name);
+    let comment_fut = ctx.client().get_osekai_comments(&medal.name);
 
     let (mut maps, comments) = match tokio::try_join!(map_fut, comment_fut) {
         Ok((maps, comments)) => (maps, comments),
@@ -140,10 +142,9 @@ async fn no_medal(
     orig.error(ctx, content).await
 }
 
-// TODO
 pub async fn handle_autocomplete(
     ctx: Arc<Context>,
-    command: ApplicationCommandAutocomplete,
+    command: Box<ApplicationCommandAutocomplete>,
 ) -> BotResult<()> {
     let value_opt = command
         .data
@@ -154,7 +155,11 @@ pub async fn handle_autocomplete(
 
     let name = match value_opt {
         Some(value) if !value.is_empty() => value.cow_to_ascii_lowercase(),
-        Some(_) => return respond_autocomplete(&ctx, &command, Vec::new()).await,
+        Some(_) => {
+            command.callback(&ctx, Vec::new()).await?;
+
+            return Ok(());
+        }
         None => return Err(Error::InvalidCommandOptions),
     };
 
@@ -173,7 +178,9 @@ pub async fn handle_autocomplete(
         }
     }
 
-    respond_autocomplete(&ctx, &command, choices).await
+    command.callback(&ctx, choices).await?;
+
+    Ok(())
 }
 
 fn new_choice(name: &str) -> CommandOptionChoice {

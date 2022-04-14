@@ -1,5 +1,7 @@
 use twilight_model::{
-    application::interaction::{ApplicationCommand, MessageComponentInteraction},
+    application::interaction::{
+        ApplicationCommand, ApplicationCommandAutocomplete, MessageComponentInteraction,
+    },
     channel::Message,
     id::{
         marker::{ChannelMarker, GuildMarker, UserMarker},
@@ -86,6 +88,37 @@ impl Authored for Message {
 }
 
 impl Authored for MessageComponentInteraction {
+    #[inline]
+    fn channel_id(&self) -> Id<ChannelMarker> {
+        self.channel_id
+    }
+
+    #[inline]
+    fn guild_id(&self) -> Option<Id<GuildMarker>> {
+        self.guild_id
+    }
+
+    #[inline]
+    fn user(&self) -> BotResult<&User> {
+        self.member
+            .as_ref()
+            .and_then(|member| member.user.as_ref())
+            .or_else(|| self.user.as_ref())
+            .ok_or(Error::MissingAuthor)
+    }
+
+    #[inline]
+    fn user_id(&self) -> BotResult<Id<UserMarker>> {
+        self.user().map(|user| user.id)
+    }
+
+    #[inline]
+    fn username(&self) -> BotResult<&str> {
+        self.user().map(|user| user.name.as_str())
+    }
+}
+
+impl Authored for ApplicationCommandAutocomplete {
     #[inline]
     fn channel_id(&self) -> Id<ChannelMarker> {
         self.channel_id

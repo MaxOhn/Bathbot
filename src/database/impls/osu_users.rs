@@ -10,7 +10,6 @@ use crate::{
     commands::osu::UserValue,
     database::{Database, UserStatsColumn, UserValueRaw},
     embeds::RankingEntry,
-    util::constants::common_literals::USERNAME,
     BotResult,
 };
 
@@ -598,7 +597,7 @@ impl Database {
 
         while let Some(row) = stream.next().await.transpose()? {
             let value = UserValueRaw {
-                username: row.get::<&str, _>(USERNAME).into(),
+                username: row.get::<&str, _>("username").into(),
                 country_code: row.get::<&str, _>(COUNTRY_CODE).into(),
                 value: row.get::<i32, _>(column) as u32,
             };
@@ -620,7 +619,7 @@ impl Database {
 
         while let Some(row) = stream.next().await.transpose()? {
             let value = UserValueRaw {
-                username: row.get::<&str, _>(USERNAME).into(),
+                username: row.get::<&str, _>("username").into(),
                 country_code: row.get::<&str, _>(COUNTRY_CODE).into(),
                 value: row.get::<i64, _>(column) as u64,
             };
@@ -642,7 +641,7 @@ impl Database {
 
         while let Some(row) = stream.next().await.transpose()? {
             let value = UserValueRaw {
-                username: row.get::<&str, _>(USERNAME).into(),
+                username: row.get::<&str, _>("username").into(),
                 country_code: row.get::<&str, _>(COUNTRY_CODE).into(),
                 value: row.get(column),
             };
@@ -664,7 +663,7 @@ impl Database {
 
         while let Some(row) = stream.next().await.transpose()? {
             let value = UserValueRaw {
-                username: row.get::<&str, _>(USERNAME).into(),
+                username: row.get::<&str, _>("username").into(),
                 country_code: row.get::<&str, _>(COUNTRY_CODE).into(),
                 value: row.get(column),
             };
@@ -686,7 +685,7 @@ impl Database {
 
         while let Some(row) = stream.next().await.transpose()? {
             let value = UserValueRaw {
-                username: row.get::<&str, _>(USERNAME).into(),
+                username: row.get::<&str, _>("username").into(),
                 country_code: row.get::<&str, _>(COUNTRY_CODE).into(),
                 value: row.get(column),
             };

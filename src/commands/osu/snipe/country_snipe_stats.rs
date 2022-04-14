@@ -1,5 +1,6 @@
-use std::{cmp::Ordering::Equal, sync::Arc};
+use std::{borrow::Cow, cmp::Ordering::Equal, sync::Arc};
 
+use command_macros::command;
 use eyre::Report;
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::prelude::*;
@@ -7,20 +8,24 @@ use rosu_v2::prelude::{GameMode, OsuError};
 
 use crate::{
     commands::osu::UserArgs,
+    core::commands::CommandOrigin,
     custom_client::SnipeCountryPlayer,
     database::OsuData,
     embeds::{CountrySnipeStatsEmbed, EmbedData},
     error::GraphError,
     util::{
+        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
-        CountryCode, MessageExt,
+        CountryCode,
     },
-    BotResult, CommandData, Context, MessageBuilder,
+    BotResult, Context,
 };
 
+use super::SnipeCountryStats;
+
 #[command]
-#[short_desc("Snipe / #1 count related stats for a country")]
-#[long_desc(
+#[desc("Snipe / #1 count related stats for a country")]
+#[help(
     "Some snipe / #1 count related stats for a country.\n\
     As argument, provide either `global`, or a country acronym, e.g. `be`.\n\
     If no country is specified, I will take the country of the linked user.\n\
@@ -28,60 +33,43 @@ use crate::{
     website [huismetbenen](https://snipe.huismetbenen.nl/)."
 )]
 #[usage("[country acronym]")]
-#[example("fr", "global")]
-#[aliases("css")]
-#[bucket("snipe")]
-async fn countrysnipestats(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            let country_code = match args.next() {
-                Some(arg) => {
-                    if arg == "global" || arg == "world" {
-                        Some("global".into())
-                    } else if arg.len() == 2 && arg.is_ascii() {
-                        let code = arg.to_ascii_uppercase();
+#[examples("fr", "global")]
+#[alias("css")]
+#[group(Osu)]
+async fn prefix_countrysnipestats(
+    ctx: Arc<Context>,
+    msg: &Message,
+    mut args: Args<'_>,
+) -> BotResult<()> {
+    let args = SnipeCountryStats {
+        country: args.next().map(Cow::from),
+    };
 
-                        if !ctx.contains_country(code.as_str()) {
-                            let content =
-                                format!("The country acronym `{arg}` is not supported :(");
-
-                            return msg.error(&ctx, content).await;
-                        }
-
-                        Some(code.into())
-                    } else if let Some(code) = CountryCode::from_name(arg) {
-                        if !code.snipe_supported(&ctx) {
-                            let content = format!("The country `{arg}` is not supported :(");
-
-                            return msg.error(&ctx, content).await;
-                        }
-
-                        Some(code)
-                    } else {
-                        let content =
-                            "The argument must be a country or country acronym of length two, e.g. `fr`";
-
-                        return msg.error(&ctx, content).await;
-                    }
-                }
-                None => None,
-            };
-
-            _countrysnipestats(ctx, CommandData::Message { msg, args, num }, country_code).await
-        }
-        CommandData::Interaction { command } => super::slash_snipe(ctx, *command).await,
-    }
+    country_stats(ctx, msg.into(), args).await
 }
 
-pub(super) async fn _countrysnipestats(
+pub(super) async fn country_stats(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
-    country_code: Option<CountryCode>,
+    orig: CommandOrigin<'_>,
+    args: SnipeCountryStats<'_>,
 ) -> BotResult<()> {
-    let author_id = data.author()?.id;
+    let author_id = orig.user_id()?;
 
-    let country_code = match country_code {
-        Some(code) => code,
+    let country_code = match args.country {
+        Some(country) => match CountryCode::from_name(&country) {
+            Some(code) => code,
+            None => {
+                if country.len() == 2 {
+                    CountryCode::from(country)
+                } else {
+                    let content = format!(
+                        "Looks like `{country}` is neither a country name nor a country code"
+                    );
+
+                    return orig.error(&ctx, content).await;
+                }
+            }
+        },
         None => match ctx
             .psql()
             .get_user_osu(author_id)
@@ -96,40 +84,38 @@ pub(super) async fn _countrysnipestats(
                     Err(OsuError::NotFound) => {
                         let content = format!("User `{name}` was not found");
 
-                        return data.error(&ctx, content).await;
+                        return orig.error(&ctx, content).await;
                     }
-                    Err(why) => {
-                        let _ = data.error(&ctx, OSU_API_ISSUE).await;
+                    Err(err) => {
+                        let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-                        return Err(why.into());
+                        return Err(err.into());
                     }
                 };
 
-                if ctx.contains_country(user.country_code.as_str()) {
-                    user.country_code.as_str().into()
-                } else {
-                    let content = format!(
-                        "`{}`'s country {} is not supported :(",
-                        user.username, user.country_code
-                    );
-
-                    return data.error(&ctx, content).await;
-                }
+                user.country_code.as_str().into()
             }
             Ok(None) => {
                 let content = "Since you're not linked, you must specify a country (code)";
 
-                return data.error(&ctx, content).await;
+                return orig.error(&ctx, content).await;
             }
-            Err(why) => {
-                let _ = data.error(&ctx, GENERAL_ISSUE).await;
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(why);
+                return Err(err);
             }
         },
     };
 
-    let client = &ctx.clients.custom;
+    // Check if huisemetbenen supports the country
+    if !country_code.snipe_supported(&ctx) {
+        let content = format!("The country code `{country_code}` is not supported :(",);
+
+        return orig.error(&ctx, content).await;
+    }
+
+    let client = &ctx.client();
 
     let (players, statistics) = {
         match tokio::try_join!(
@@ -137,10 +123,10 @@ pub(super) async fn _countrysnipestats(
             client.get_country_statistics(&country_code),
         ) {
             Ok((players, statistics)) => (players, statistics),
-            Err(why) => {
-                let _ = data.error(&ctx, HUISMETBENEN_ISSUE).await;
+            Err(err) => {
+                let _ = orig.error(&ctx, HUISMETBENEN_ISSUE).await;
 
-                return Err(why.into());
+                return Err(err.into());
             }
         }
     };
@@ -155,8 +141,8 @@ pub(super) async fn _countrysnipestats(
     };
 
     let country = ctx
-        .get_country(country_code.as_str())
-        .map(|name| (name, country_code));
+        .get_country(country_code.as_ref())
+        .map(|name| (name, country_code.into()));
     let embed_data = CountrySnipeStatsEmbed::new(country, statistics);
 
     // Sending the embed
@@ -164,10 +150,10 @@ pub(super) async fn _countrysnipestats(
     let mut builder = MessageBuilder::new().embed(embed);
 
     if let Some(bytes) = graph {
-        builder = builder.file("stats_graph.png", bytes);
+        builder = builder.attachment("stats_graph.png", bytes);
     }
 
-    data.create_message(&ctx, builder).await?;
+    orig.create_message(&ctx, &builder).await?;
 
     Ok(())
 }

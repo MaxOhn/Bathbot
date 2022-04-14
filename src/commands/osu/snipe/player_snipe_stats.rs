@@ -1,74 +1,76 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use chrono::{Date, Datelike, Utc};
+use command_macros::command;
 use eyre::Report;
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::prelude::*;
-use rosu_v2::prelude::{GameMode, OsuError, Username};
+use rosu_v2::prelude::{GameMode, OsuError};
 
 use crate::{
-    commands::{
-        check_user_mention,
-        osu::{get_user, UserArgs},
-    },
-    database::OsuData,
+    commands::osu::{get_user, require_link, UserArgs},
+    core::commands::CommandOrigin,
     embeds::{EmbedData, PlayerSnipeStatsEmbed},
     error::GraphError,
     util::{
+        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        MessageExt,
+        matcher,
     },
-    BotResult, CommandData, Context, MessageBuilder,
+    BotResult, Context,
 };
 
+use super::SnipePlayerStats;
+
 #[command]
-#[short_desc("Stats about a user's #1 scores in their country leaderboards")]
-#[long_desc(
+#[desc("Stats about a user's #1 scores in their country leaderboards")]
+#[help(
     "Stats about a user's #1 scores in their country leaderboards.\n\
     All data originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
     website [huismetbenen](https://snipe.huismetbenen.nl/)."
 )]
 #[usage("[username]")]
 #[example("badewanne3")]
-#[aliases("pss")]
-#[bucket("snipe")]
-async fn playersnipestats(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            let name = match args.next() {
-                Some(arg) => match check_user_mention(&ctx, arg).await {
-                    Ok(Ok(osu)) => Some(osu.into_username()),
-                    Ok(Err(content)) => return msg.error(&ctx, content).await,
-                    Err(why) => {
-                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+#[alias("pss")]
+#[group(Osu)]
+async fn prefix_playersnipestats(
+    ctx: Arc<Context>,
+    msg: &Message,
+    mut args: Args<'_>,
+) -> BotResult<()> {
+    let args = match args.next() {
+        Some(arg) => match matcher::get_mention_user(arg) {
+            Some(id) => SnipePlayerStats {
+                name: None,
+                discord: Some(id),
+            },
+            None => SnipePlayerStats {
+                name: Some(arg.into()),
+                discord: None,
+            },
+        },
+        None => SnipePlayerStats::default(),
+    };
 
-                        return Err(why);
-                    }
-                },
-                None => match ctx.psql().get_user_osu(msg.author.id).await {
-                    Ok(osu) => osu.map(OsuData::into_username),
-                    Err(why) => {
-                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                        return Err(why);
-                    }
-                },
-            };
-
-            _playersnipestats(ctx, CommandData::Message { msg, args, num }, name).await
-        }
-        CommandData::Interaction { command } => super::slash_snipe(ctx, *command).await,
-    }
+    player_stats(ctx, msg.into(), args).await
 }
 
-pub(super) async fn _playersnipestats(
+pub(super) async fn player_stats(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
-    name: Option<Username>,
+    orig: CommandOrigin<'_>,
+    args: SnipePlayerStats<'_>,
 ) -> BotResult<()> {
-    let name = match name {
+    let name = match username!(ctx, orig, args) {
         Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
+        None => match ctx.psql().get_user_osu(orig.user_id()?).await {
+            Ok(Some(osu)) => osu.into_username(),
+            Ok(None) => return require_link(&ctx, &orig).await,
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(err);
+            }
+        },
     };
 
     let user_args = UserArgs::new(name.as_str(), GameMode::STD);
@@ -78,10 +80,10 @@ pub(super) async fn _playersnipestats(
         Err(OsuError::NotFound) => {
             let content = format!("User `{name}` was not found");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         Err(why) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -91,8 +93,7 @@ pub(super) async fn _playersnipestats(
     user.mode = GameMode::STD;
 
     let player_fut = if ctx.contains_country(user.country_code.as_str()) {
-        ctx.clients
-            .custom
+        ctx.client()
             .get_snipe_player(&user.country_code, user.user_id)
     } else {
         let content = format!(
@@ -100,7 +101,7 @@ pub(super) async fn _playersnipestats(
             user.username, user.country_code
         );
 
-        return data.error(&ctx, content).await;
+        return orig.error(&ctx, content).await;
     };
 
     let player = match player_fut.await {
@@ -110,7 +111,7 @@ pub(super) async fn _playersnipestats(
             warn!("{report:?}");
             let content = format!("`{name}` has never had any national #1s");
             let builder = MessageBuilder::new().embed(content);
-            data.create_message(&ctx, builder).await?;
+            orig.create_message(&ctx, &builder).await?;
 
             return Ok(());
         }
@@ -135,8 +136,8 @@ pub(super) async fn _playersnipestats(
                     Ok(_) => Ok(Some(score.score)),
                     Err(why) => Err(why),
                 },
-                Err(why) => {
-                    let report = Report::new(why).wrap_err("faield to retrieve oldest data");
+                Err(err) => {
+                    let report = Report::new(err).wrap_err("faield to retrieve oldest data");
                     warn!("{report:?}");
 
                     Ok(None)
@@ -161,7 +162,7 @@ pub(super) async fn _playersnipestats(
     let first_score = match first_score_result {
         Ok(score) => score,
         Err(why) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -174,10 +175,10 @@ pub(super) async fn _playersnipestats(
     let mut builder = MessageBuilder::new().embed(embed);
 
     if let Some(bytes) = graph {
-        builder = builder.file("stats_graph.png", bytes);
+        builder = builder.attachment("stats_graph.png", bytes);
     }
 
-    data.create_message(&ctx, builder).await?;
+    orig.create_message(&ctx, &builder).await?;
 
     Ok(())
 }

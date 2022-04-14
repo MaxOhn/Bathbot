@@ -1,5 +1,6 @@
-use std::{cmp::Ordering, sync::Arc};
+use std::{borrow::Cow, cmp::Ordering, sync::Arc};
 
+use command_macros::{command, HasMods, HasName, SlashCommand};
 use eyre::Report;
 use rosu_v2::prelude::{
     GameMode, OsuError,
@@ -7,127 +8,262 @@ use rosu_v2::prelude::{
     Score,
 };
 use tokio::time::{sleep, Duration};
+use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
-    application::interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
-    },
+    application::interaction::ApplicationCommand,
     channel::message::MessageType,
     id::{marker::UserMarker, Id},
 };
 
 use crate::{
-    commands::{
-        check_user_mention,
-        osu::{get_user, UserArgs},
-        parse_discord, DoubleResultCow, MyCommand,
-    },
-    database::{EmbedsSize, MinimizedPp, UserConfig},
+    commands::osu::{get_user, require_link, HasMods, ModsResult, UserArgs},
+    core::commands::{prefix::Args, CommandOrigin},
+    database::{EmbedsSize, MinimizedPp},
     embeds::{CompareEmbed, EmbedData, NoScoresEmbed, ScoresEmbed},
-    error::Error,
     pagination::{Pagination, ScoresPagination},
     tracking::process_osu_tracking,
     util::{
-        constants::{
-            common_literals::{ACC, COMBO, DISCORD, MAP, MAP_PARSE_FAIL, MODS, NAME, SORT},
-            GENERAL_ISSUE, OSU_API_ISSUE,
-        },
+        builder::MessageBuilder,
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher, numbers,
         osu::{map_id_from_history, map_id_from_msg, MapIdType, ModSelection},
-        ApplicationCommandExt, InteractionExt, MessageExt,
+        ApplicationCommandExt, MessageExt,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder,
+    BotResult, Context,
 };
 
-use super::{score_options, ScoreOrder};
+use super::{CompareScore, CompareScoreOrder};
+
+#[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
+#[command(
+    name = "cs",
+    help = "Given a user and a map, display the user's scores on the map"
+)]
+/// Compare a score
+pub struct Cs<'a> {
+    /// Specify a username
+    name: Option<Cow<'a, str>>,
+    #[command(help = "Specify a map either by map url or map id.\n\
+    If none is specified, it will search in the recent channel history \
+    and pick the first map it can find.")]
+    /// Specify a map url or map id
+    map: Option<Cow<'a, str>>,
+    /// Choose how the scores should be ordered
+    sort: Option<CompareScoreOrder>,
+    #[command(help = "Filter out scores based on mods.\n\
+        Mods must be given as `+mods` to require these mods to be included, \
+        `+mods!` to require exactly these mods, \
+        or `-mods!` to ignore scores containing any of these mods.\n\
+        Examples:\n\
+        - `+hd`: Remove scores that don't include `HD`\n\
+        - `+hdhr!`: Only keep the `HDHR` score\n\
+        - `+nm!`: Only keep the nomod score\n\
+        - `-ezhd!`: Remove all scores that have either `EZ` or `HD`")]
+    /// Filter out scores based on mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)
+    mods: Option<Cow<'a, str>>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
+}
+
+enum MapOrScore {
+    Map(MapIdType),
+    Score { id: u64, mode: GameMode },
+}
+
+#[derive(HasMods, HasName)]
+pub(super) struct CompareScoreArgs<'a> {
+    name: Option<Cow<'a, str>>,
+    map: Option<MapOrScore>,
+    sort: Option<CompareScoreOrder>,
+    mods: Option<Cow<'a, str>>,
+    discord: Option<Id<UserMarker>>,
+}
+
+impl<'m> CompareScoreArgs<'m> {
+    fn args(args: Args<'m>) -> Self {
+        let mut name = None;
+        let mut discord = None;
+        let mut map = None;
+        let mut mods = None;
+
+        for arg in args.take(3) {
+            if let Some(id) =
+                matcher::get_osu_map_id(arg).or_else(|| matcher::get_osu_mapset_id(arg))
+            {
+                map = Some(MapOrScore::Map(id));
+            } else if let Some((mode, id)) = matcher::get_osu_score_id(arg) {
+                map = Some(MapOrScore::Score { mode, id })
+            } else if matcher::get_mods(arg).is_some() {
+                mods = Some(arg.into());
+            } else if let Some(id) = matcher::get_mention_user(arg) {
+                discord = Some(id);
+            } else {
+                name = Some(arg.into());
+            }
+        }
+
+        Self {
+            name,
+            map,
+            sort: None,
+            mods,
+            discord,
+        }
+    }
+}
+
+macro_rules! impl_try_from {
+    ($($ty:ident),*) => {
+        $(
+            impl<'a> TryFrom<$ty<'a>> for CompareScoreArgs<'a> {
+                type Error = &'static str;
+
+                fn try_from(args: $ty<'a>) -> Result<Self, Self::Error> {
+                    let map = if let Some(arg) = args.map {
+                        if let Some(id) =
+                            matcher::get_osu_map_id(&arg).or_else(|| matcher::get_osu_mapset_id(&arg))
+                        {
+                            Some(MapOrScore::Map(id))
+                        } else if let Some((mode, id)) = matcher::get_osu_score_id(&arg) {
+                            Some(MapOrScore::Score { mode, id })
+                        } else {
+                            let content =
+                                "Failed to parse map url. Be sure you specify a valid map id or url to a map.";
+
+                            return Err(content);
+                        }
+                    } else {
+                        None
+                    };
+
+                    Ok(Self {
+                        name: args.name,
+                        map,
+                        sort: args.sort,
+                        mods: args.mods,
+                        discord: args.discord,
+                    })
+                }
+            }
+        )*
+    }
+}
+
+impl_try_from!(CompareScore, Cs);
 
 #[command]
-#[short_desc("Compare a player's score on a map")]
-#[long_desc(
+#[desc("Compare a player's score on a map")]
+#[help(
     "Display a user's top score on a given map. \n\
      If no map is given, I will choose the last map \
      I can find in the embeds of this channel."
 )]
 #[usage("[username] [map url / map id]")]
-#[example(
+#[examples(
     "badewanne3",
     "badewanne3 2240404",
     "badewanne3 https://osu.ppy.sh/beatmapsets/902425#osu/2240404"
 )]
 #[aliases("c", "score", "scores")]
-async fn compare(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match ScoreArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut score_args)) => {
-                    let reply = msg
-                        .referenced_message
-                        .as_ref()
-                        .filter(|_| msg.kind == MessageType::Reply);
+#[group(AllModes)]
+async fn prefix_compare(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    let mut args = CompareScoreArgs::args(args);
 
-                    if let Some(id) = reply.and_then(|msg| map_id_from_msg(msg)) {
-                        score_args.id = Some(MapOrScore::Map(id));
-                    } else if let Some((mode, id)) =
-                        reply.and_then(|msg| matcher::get_osu_score_id(&msg.content))
-                    {
-                        score_args.id = Some(MapOrScore::Score { id, mode });
-                    }
+    let reply = msg
+        .referenced_message
+        .as_ref()
+        .filter(|_| msg.kind == MessageType::Reply);
 
-                    _compare(ctx, CommandData::Message { msg, args, num }, score_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
+    if let Some(msg) = reply {
+        if let Some(id) = map_id_from_msg(msg) {
+            args.map = Some(MapOrScore::Map(id));
+        } else if let Some((mode, id)) = matcher::get_osu_score_id(&msg.content) {
+            args.map = Some(MapOrScore::Score { id, mode });
         }
-        CommandData::Interaction { command } => super::slash_compare(ctx, *command).await,
+    }
+
+    score(ctx, msg.into(), args).await
+}
+
+async fn slash_cs(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    let args = Cs::from_interaction(command.input_data())?;
+
+    match CompareScoreArgs::try_from(args) {
+        Ok(args) => score(ctx, command.into(), args).await,
+        Err(content) => {
+            command.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
-pub(super) async fn _compare(
+pub(super) async fn score(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
-    args: ScoreArgs,
+    orig: CommandOrigin<'_>,
+    args: CompareScoreArgs<'_>,
 ) -> BotResult<()> {
-    let ScoreArgs {
-        config,
-        id,
-        mods,
-        sort_by,
-    } = args;
+    let owner = orig.user_id()?;
 
-    let embeds_size = match (config.embeds_size, data.guild_id()) {
+    let mods = match args.mods() {
+        ModsResult::Mods(mods) => Some(mods),
+        ModsResult::None => None,
+        ModsResult::Invalid => {
+            let content = "Failed to parse mods.\n\
+                To specify included mods, provide them e.g. as `+hrdt`.\n\
+                For exact mods, provide it e.g. as `+hdhr!`.\n\
+                And for excluded mods, provide it e.g. as `-hdnf!`.";
+
+            return orig.error(&ctx, content).await;
+        }
+    };
+
+    let (name, embeds_size, minimized_pp) = match ctx.user_config(owner).await {
+        Ok(config) => match username!(ctx, orig, args) {
+            Some(name) => (name, config.embeds_size, config.minimized_pp),
+            None => match config.osu {
+                Some(osu) => (osu.into_username(), config.embeds_size, config.minimized_pp),
+                None => return require_link(&ctx, &orig).await,
+            },
+        },
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err);
+        }
+    };
+
+    let embeds_size = match (embeds_size, orig.guild_id()) {
         (Some(size), _) => size,
         (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
         (None, None) => EmbedsSize::default(),
     };
 
-    let minimized_pp = match (config.minimized_pp, data.guild_id()) {
+    let minimized_pp = match (minimized_pp, orig.guild_id()) {
         (Some(pp), _) => pp,
         (None, Some(guild)) => ctx.guild_minimized_pp(guild).await,
         (None, None) => MinimizedPp::default(),
     };
 
-    let name = match config.into_username() {
-        Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
-    };
+    let CompareScoreArgs { sort, map, .. } = args;
 
-    let map_id = match id {
+    let map_id = match map {
         Some(MapOrScore::Map(MapIdType::Map(map_id))) => map_id,
         Some(MapOrScore::Map(MapIdType::Set(_))) => {
             let content = "Looks like you gave me a mapset id, I need a map id though";
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         Some(MapOrScore::Score { id, mode }) => {
             let mut score = match ctx.osu().score(id, mode).await {
                 Ok(score) => score,
                 Err(err) => {
-                    let _ = data.error(&ctx, OSU_API_ISSUE).await;
+                    let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
                     return Err(err.into());
                 }
@@ -147,7 +283,7 @@ pub(super) async fn _compare(
             match user_result {
                 Ok(user) => score.user = Some(user.into()),
                 Err(err) => {
-                    let _ = data.error(&ctx, OSU_API_ISSUE).await;
+                    let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
                     return Err(err.into());
                 }
@@ -205,7 +341,7 @@ pub(super) async fn _compare(
 
             let fut = single_score(
                 ctx,
-                &data,
+                &orig,
                 &score,
                 best.as_deref_mut(),
                 global_idx,
@@ -217,10 +353,10 @@ pub(super) async fn _compare(
             return fut.await;
         }
         None => {
-            let msgs = match ctx.retrieve_channel_history(data.channel_id()).await {
+            let msgs = match ctx.retrieve_channel_history(orig.channel_id()).await {
                 Ok(msgs) => msgs,
                 Err(err) => {
-                    let _ = data.error(&ctx, GENERAL_ISSUE).await;
+                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
                     return Err(err);
                 }
@@ -232,13 +368,13 @@ pub(super) async fn _compare(
                     let content = "I found a mapset in the channel history but I need a map. \
                     Try specifying a map either by url to the map, or just by map id.";
 
-                    return data.error(&ctx, content).await;
+                    return orig.error(&ctx, content).await;
                 }
                 None => {
                     let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map either by url to the map, or just by map id.";
 
-                    return data.error(&ctx, content).await;
+                    return orig.error(&ctx, content).await;
                 }
             };
 
@@ -259,7 +395,7 @@ pub(super) async fn _compare(
                 map
             }
             Err(err) => {
-                let _ = data.error(&ctx, OSU_API_ISSUE).await;
+                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
                 return Err(err.into());
             }
@@ -279,7 +415,7 @@ pub(super) async fn _compare(
                 match scores_fut.await {
                     Ok(scores) => (user, scores),
                     Err(err) => {
-                        let _ = data.error(&ctx, OSU_API_ISSUE).await;
+                        let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
                         return Err(err.into());
                     }
@@ -298,15 +434,15 @@ pub(super) async fn _compare(
                     (Err(OsuError::NotFound), _) => {
                         let content = format!("User `{name}` was not found");
 
-                        return data.error(&ctx, content).await;
+                        return orig.error(&ctx, content).await;
                     }
                     (Err(err), _) => {
-                        let _ = data.error(&ctx, OSU_API_ISSUE).await;
+                        let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
                         return Err(err.into());
                     }
                     (_, Err(err)) => {
-                        let _ = data.error(&ctx, OSU_API_ISSUE).await;
+                        let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
                         return Err(err.into());
                     }
@@ -314,7 +450,7 @@ pub(super) async fn _compare(
                 }
             }
             Err(err) => {
-                let _ = data.error(&ctx, OSU_API_ISSUE).await;
+                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
                 return Err(err.into());
             }
@@ -331,15 +467,15 @@ pub(super) async fn _compare(
             (Err(OsuError::NotFound), _) => {
                 let content = format!("User `{name}` was not found");
 
-                return data.error(&ctx, content).await;
+                return orig.error(&ctx, content).await;
             }
             (Err(err), _) => {
-                let _ = data.error(&ctx, OSU_API_ISSUE).await;
+                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
                 return Err(err.into());
             }
             (_, Err(err)) => {
-                let _ = data.error(&ctx, OSU_API_ISSUE).await;
+                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
                 return Err(err.into());
             }
@@ -360,7 +496,7 @@ pub(super) async fn _compare(
     }
 
     if scores.is_empty() {
-        return no_scores(&ctx, &data, name.as_str(), map_id, mods).await;
+        return no_scores(&ctx, &orig, name.as_str(), map_id, mods).await;
     }
 
     let pinned_fut = ctx
@@ -370,7 +506,9 @@ pub(super) async fn _compare(
         .mode(map.mode)
         .limit(100);
 
-    let sort_fut = sort_by.apply(&ctx, &mut scores, map.map_id);
+    let sort_fut = sort
+        .unwrap_or_default()
+        .apply(&ctx, &mut scores, map.map_id);
 
     let global_fut = async {
         if matches!(
@@ -459,7 +597,7 @@ pub(super) async fn _compare(
 
         let fut = single_score(
             ctx,
-            &data,
+            &orig,
             score,
             best,
             global_idx,
@@ -494,7 +632,7 @@ pub(super) async fn _compare(
         );
 
         let builder = embed_fut.await.into_builder().build().into();
-        let response_raw = data.create_message(&ctx, builder).await?;
+        let response_raw = orig.create_message(&ctx, &builder).await?;
 
         // Skip pagination if too few entries
         if scores.len() <= 10 {
@@ -515,7 +653,6 @@ pub(super) async fn _compare(
             pp_idx,
             Arc::clone(&ctx),
         );
-        let owner = data.author()?.id;
 
         tokio::spawn(async move {
             if let Err(err) = pagination.start(&ctx, owner, 60).await {
@@ -530,7 +667,7 @@ pub(super) async fn _compare(
 #[allow(clippy::too_many_arguments)]
 async fn single_score(
     ctx: Arc<Context>,
-    data: &CommandData<'_>,
+    orig: &CommandOrigin<'_>,
     score: &Score,
     best: Option<&mut [Score]>,
     global_idx: usize,
@@ -551,7 +688,7 @@ async fn single_score(
     let embed_data = match embed_fut.await {
         Ok(data) => data,
         Err(err) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -561,11 +698,11 @@ async fn single_score(
     match embeds_size {
         EmbedsSize::AlwaysMinimized => {
             let builder = embed_data.into_builder().build().into();
-            data.create_message(&ctx, builder).await?;
+            orig.create_message(&ctx, &builder).await?;
         }
         EmbedsSize::InitialMaximized => {
             let builder = embed_data.as_builder().build().into();
-            let response = data.create_message(&ctx, builder).await?.model().await?;
+            let response = orig.create_message(&ctx, &builder).await?.model().await?;
 
             ctx.store_msg(response.id);
             let ctx = Arc::clone(&ctx);
@@ -580,7 +717,7 @@ async fn single_score(
 
                 let builder = embed_data.into_builder().build().into();
 
-                if let Err(err) = response.update_message(&ctx, builder).await {
+                if let Err(err) = response.update(&ctx, &builder).await {
                     let report = Report::new(err).wrap_err("failed to minimize message");
                     warn!("{report:?}");
                 }
@@ -588,7 +725,7 @@ async fn single_score(
         }
         EmbedsSize::AlwaysMaximized => {
             let builder = embed_data.as_builder().build().into();
-            data.create_message(&ctx, builder).await?;
+            orig.create_message(&ctx, &builder).await?;
         }
     }
 
@@ -602,7 +739,7 @@ async fn single_score(
 
 async fn no_scores(
     ctx: &Context,
-    data: &CommandData<'_>,
+    orig: &CommandOrigin<'_>,
     name: &str,
     map_id: u32,
     mods: Option<ModSelection>,
@@ -620,12 +757,12 @@ async fn no_scores(
             Err(OsuError::NotFound) => {
                 let content = format!("There is no map with id {map_id}");
 
-                return data.error(ctx, content).await;
+                return orig.error(ctx, content).await;
             }
-            Err(why) => {
-                let _ = data.error(ctx, OSU_API_ISSUE).await;
+            Err(err) => {
+                let _ = orig.error(ctx, OSU_API_ISSUE).await;
 
-                return Err(why.into());
+                return Err(err.into());
             }
         },
     };
@@ -637,149 +774,19 @@ async fn no_scores(
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{name}`");
 
-            return data.error(ctx, content).await;
+            return orig.error(ctx, content).await;
         }
-        Err(why) => {
-            let _ = data.error(ctx, OSU_API_ISSUE).await;
+        Err(err) => {
+            let _ = orig.error(ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 
     // Sending the embed
     let embed = NoScoresEmbed::new(user, map, mods).into_builder().build();
     let builder = MessageBuilder::new().embed(embed);
-    data.create_message(ctx, builder).await?;
+    orig.create_message(ctx, &builder).await?;
 
     Ok(())
-}
-
-enum MapOrScore {
-    Map(MapIdType),
-    Score { id: u64, mode: GameMode },
-}
-
-pub async fn slash_cs(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
-    let options = command.yoink_options();
-
-    match ScoreArgs::slash(&ctx, &command, options).await? {
-        Ok(args) => _compare(ctx, command.into(), args).await,
-        Err(content) => command.error(&ctx, content).await,
-    }
-}
-
-pub(super) struct ScoreArgs {
-    config: UserConfig,
-    id: Option<MapOrScore>,
-    mods: Option<ModSelection>,
-    sort_by: ScoreOrder,
-}
-
-impl ScoreArgs {
-    const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
-        To specify included mods, provide them e.g. as `+hrdt`.\n\
-        For exact mods, provide it e.g. as `+hdhr!`.\n\
-        And for excluded mods, provide it e.g. as `-hdnf!`.";
-
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: Id<UserMarker>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(author_id).await?;
-        let mut id = None;
-        let mut mods = None;
-
-        for arg in args.take(3) {
-            if let Some(id_) =
-                matcher::get_osu_map_id(arg).or_else(|| matcher::get_osu_mapset_id(arg))
-            {
-                id = Some(MapOrScore::Map(id_));
-            } else if let Some((mode, id_)) = matcher::get_osu_score_id(arg) {
-                id = Some(MapOrScore::Score { mode, id: id_ })
-            } else if let Some(mods_) = matcher::get_mods(arg) {
-                mods = Some(mods_);
-            } else {
-                match check_user_mention(ctx, arg).await? {
-                    Ok(osu) => config.osu = Some(osu),
-                    Err(content) => return Ok(Err(content)),
-                }
-            }
-        }
-
-        let sort_by = ScoreOrder::Score;
-
-        Ok(Ok(Self {
-            config,
-            id,
-            mods,
-            sort_by,
-        }))
-    }
-
-    pub(super) async fn slash(
-        ctx: &Context,
-        command: &ApplicationCommand,
-        options: Vec<CommandDataOption>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(command.user_id()?).await?;
-        let mut id = None;
-        let mut mods = None;
-        let mut sort_by = None;
-
-        for option in options {
-            match option.value {
-                CommandOptionValue::String(value) => match option.name.as_str() {
-                    NAME => config.osu = Some(value.into()),
-                    MAP => match matcher::get_osu_map_id(&value)
-                        .or_else(|| matcher::get_osu_mapset_id(&value))
-                    {
-                        Some(id_) => id = Some(MapOrScore::Map(id_)),
-                        None => match matcher::get_osu_score_id(&value) {
-                            Some((mode, id_)) => id = Some(MapOrScore::Score { mode, id: id_ }),
-                            None => return Ok(Err(MAP_PARSE_FAIL.into())),
-                        },
-                    },
-                    SORT => match value.as_str() {
-                        ACC => sort_by = Some(ScoreOrder::Acc),
-                        COMBO => sort_by = Some(ScoreOrder::Combo),
-                        "date" => sort_by = Some(ScoreOrder::Date),
-                        "miss" => sort_by = Some(ScoreOrder::Misses),
-                        "pp" => sort_by = Some(ScoreOrder::Pp),
-                        "score" => sort_by = Some(ScoreOrder::Score),
-                        "stars" => sort_by = Some(ScoreOrder::Stars),
-                        _ => return Err(Error::InvalidCommandOptions),
-                    },
-                    MODS => match matcher::get_mods(&value) {
-                        Some(mods_) => mods = Some(mods_),
-                        None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::User(value) => match option.name.as_str() {
-                    DISCORD => match parse_discord(ctx, value).await? {
-                        Ok(osu) => config.osu = Some(osu),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            }
-        }
-
-        Ok(Ok(ScoreArgs {
-            config,
-            id,
-            mods,
-            sort_by: sort_by.unwrap_or_default(),
-        }))
-    }
-}
-
-pub fn define_cs() -> MyCommand {
-    let score_help = "Given a user and a map, display the user's scores on the map";
-
-    MyCommand::new("cs", "Compare a score")
-        .help(score_help)
-        .options(score_options())
 }

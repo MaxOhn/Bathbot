@@ -7,12 +7,12 @@ use crate::{
     custom_client::Rarity,
     embeds::{EmbedData, MedalRarityEmbed},
     pagination::{MedalRarityPagination, Pagination},
-    util::{constants::OSEKAI_ISSUE, numbers},
+    util::{builder::MessageBuilder, constants::OSEKAI_ISSUE, numbers, ApplicationCommandExt, Authored},
     BotResult, Context,
 };
 
 pub(super) async fn rarity(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotResult<()> {
-    let osekai_fut = ctx.clients.custom.get_osekai_ranking::<Rarity>();
+    let osekai_fut = ctx.client().get_osekai_ranking::<Rarity>();
 
     let ranking = match osekai_fut.await {
         Ok(ranking) => ranking,

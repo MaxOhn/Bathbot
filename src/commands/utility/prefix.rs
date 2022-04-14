@@ -36,7 +36,9 @@ async fn prefix_prefix(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> 
                 must be either `add` or `remove`, not `{other}`"
             );
 
-            return msg.error(&ctx, content).await;
+            msg.error(&ctx, content).await?;
+
+            return Ok(());
         }
         None => {
             let prefixes = ctx.guild_prefixes(guild_id).await;
@@ -51,16 +53,18 @@ async fn prefix_prefix(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> 
 
     if args.is_empty() {
         let content = "After the first argument you should specify some prefix(es)";
+        msg.error(&ctx, content).await?;
 
-        return msg.error(&ctx, content).await;
+        return Ok(());
     }
 
     let args: Vec<Prefix> = args.take(5).map(|arg| arg.into()).collect();
 
     if args.iter().any(|arg| matcher::is_custom_emote(arg)) {
         let content = "Does not work with custom emotes unfortunately \\:(";
+        msg.error(&ctx, content).await?;
 
-        return msg.error(&ctx, content).await;
+        return Ok(());
     }
 
     let update_fut = ctx.update_guild_config(guild_id, |config| match action {

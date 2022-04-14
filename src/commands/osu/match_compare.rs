@@ -8,21 +8,18 @@ use rosu_v2::prelude::{
     OsuMatch, Team, Username,
 };
 use tokio::time::interval;
-use twilight_interactions::command::{CommandOption, CommandOption, CreateCommand, CreateOption};
-use twilight_model::{
-    application::{
-        command::CommandOptionChoice,
-        interaction::{application_command::CommandOptionValue, ApplicationCommand},
-    },
-    id::Id,
-};
+use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
+use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     core::Context,
-    embeds::{EmbedBuilder, EmbedData, MatchCompareMapEmbed, MatchCompareSummaryEmbed},
-    error::Error,
+    embeds::{EmbedData, MatchCompareMapEmbed, MatchCompareSummaryEmbed},
     pagination::{MatchComparePagination, Pagination},
-    util::{constants::OSU_API_ISSUE, matcher, ScoreExt},
+    util::{
+        builder::{EmbedBuilder, MessageBuilder},
+        constants::OSU_API_ISSUE,
+        matcher, ApplicationCommandExt, Authored, ChannelExt, ScoreExt,
+    },
     BotResult,
 };
 
@@ -30,6 +27,7 @@ use super::retrieve_previous;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(name = "matchcompare")]
+#[bucket(MatchCompare)]
 /// Compare two multiplayer matches
 pub struct MatchCompare {
     /// Specify the first match url or match id
@@ -56,7 +54,7 @@ impl Default for MatchCompareOutput {
     }
 }
 
-#[derive(CommandOption, CreateOption)]
+#[derive(Copy, Clone, CommandOption, CreateOption)]
 pub enum MatchCompareComparison {
     #[option(name = "Compare players", value = "players")]
     Players,
@@ -87,36 +85,39 @@ async fn matchcompare(
     args: MatchCompare,
 ) -> BotResult<()> {
     let MatchCompare {
-        match_id_1,
-        match_id_2,
+        match_url_1,
+        match_url_2,
         output,
         comparison,
     } = args;
 
-    let match_id_1 = match matcher::get_osu_match_id(&match_id_1) {
+    let match_id_1 = match matcher::get_osu_match_id(&match_url_1) {
         Some(id) => id,
         None => {
             let content = "Failed to parse `match_url_1`.\n\
                 Be sure it's a valid mp url or a match id.";
+            command.error(&ctx, content).await?;
 
-            return command.error(&ctx, content).await;
+            return Ok(());
         }
     };
 
-    let match_id_2 = match matcher::get_osu_match_id(&match_id_2) {
+    let match_id_2 = match matcher::get_osu_match_id(&match_url_2) {
         Some(id) => id,
         None => {
             let content = "Failed to parse `match_url_1`.\n\
                 Be sure it's a valid mp url or a match id.";
+            command.error(&ctx, content).await?;
 
-            return command.error(&ctx, content).await;
+            return Ok(());
         }
     };
 
     if match_id_1 == match_id_2 {
         let content = "Trying to compare a match with itself huh";
+        command.error(&ctx, content).await?;
 
-        return command.error(&ctx, content).await;
+        return Ok(());
     }
 
     let match_fut_1 = ctx.osu().osu_match(match_id_1);
@@ -140,14 +141,16 @@ async fn matchcompare(
         }
         Err(OsuError::NotFound) => {
             let content = "At least one of the two given matches was not found";
+            command.error(&ctx, content).await?;
 
-            return command.error(&ctx, content).await;
+            return Ok(());
         }
         Err(OsuError::Response { status, .. }) if status == 401 => {
             let content =
                 "I can't access at least one of the two matches because it was set as private";
+            command.error(&ctx, content).await?;
 
-            return command.error(&ctx, content).await;
+            return Ok(());
         }
         Err(err) => {
             let _ = command.error(&ctx, OSU_API_ISSUE).await;
@@ -162,23 +165,25 @@ async fn matchcompare(
 
             if let Some(embed) = embeds.next() {
                 let builder = MessageBuilder::new().embed(embed.build());
-                command.create_message(&ctx, &builder).await?;
+                command.update(&ctx, &builder).await?;
 
                 let mut interval = interval(Duration::from_secs(1));
                 interval.tick().await;
-                let channel = (Id::new(1), command.channel_id);
 
                 for embed in embeds {
                     interval.tick().await;
                     let embed = embed.build();
-                    channel.create_message(&ctx, embed.into()).await?;
+                    command
+                        .channel_id
+                        .create_message(&ctx, &embed.into())
+                        .await?;
                 }
             }
         }
         MatchCompareOutput::Paginated => {
             if let Some(embed) = embeds.first().cloned().map(EmbedBuilder::build) {
                 let builder = MessageBuilder::new().embed(embed);
-                let response_raw = command.create_message(&ctx, &builder).await?;
+                let response_raw = command.update(&ctx, &builder).await?;
                 let response = response_raw.model().await?;
                 let pagination = MatchComparePagination::new(response, embeds);
                 let owner = command.user_id()?;

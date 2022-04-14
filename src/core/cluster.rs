@@ -53,7 +53,8 @@ pub async fn build_cluster(
         url: None,
     };
 
-    let presence = UpdatePresencePayload::new([activity.into()], false, None, Status::Online)?;
+    let presence =
+        UpdatePresencePayload::new([activity.into()], false, None, Status::Online).unwrap();
 
     let tuple = Cluster::builder(token.to_owned(), intents)
         .event_types(EventTypeFlags::all() - ignore_flags)

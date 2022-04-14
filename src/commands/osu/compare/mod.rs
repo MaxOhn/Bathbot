@@ -4,17 +4,19 @@ use std::{
     sync::Arc,
 };
 
-use command_macros::{HasName, SlashCommand};
+use command_macros::SlashCommand;
 use eyre::Report;
 use hashbrown::HashMap;
-use rosu_v2::prelude::{GameMode, Score, Username};
+use rosu_v2::prelude::Score;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
     application::interaction::ApplicationCommand,
     id::{marker::UserMarker, Id},
 };
 
-use crate::{pp::PpCalculator, util::matcher, BotResult, Context};
+use crate::{
+    commands::GameModeOption, pp::PpCalculator, util::ApplicationCommandExt, BotResult, Context,
+};
 
 pub use self::{common::*, most_played::*, profile::*, score::*};
 
@@ -26,154 +28,21 @@ mod score;
 const AT_LEAST_ONE: &str = "You need to specify at least one osu username. \
     If you're not linked, you must specify two names.";
 
-struct TripleArgs {
-    name1: Option<Username>,
-    name2: Username,
-    name3: Option<Username>,
-    mode: GameMode,
-}
-
-impl TripleArgs {
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: Id<UserMarker>,
-        mode: Option<GameMode>,
-    ) -> DoubleResultCow<Self> {
-        let name1 = match args.next() {
-            Some(arg) => match matcher::get_mention_user(arg) {
-                Some(user_id) => match parse_discord(ctx, user_id).await? {
-                    Ok(osu) => osu.into_username(),
-                    Err(content) => return Ok(Err(content)),
-                },
-                None => arg.into(),
-            },
-            None => return Ok(Err(AT_LEAST_ONE.into())),
-        };
-
-        let mode = mode.unwrap_or(GameMode::STD);
-
-        let name2 = match args.next() {
-            Some(arg) => match matcher::get_mention_user(arg) {
-                Some(user_id) => match parse_discord(ctx, user_id).await? {
-                    Ok(osu) => osu.into_username(),
-                    Err(content) => return Ok(Err(content)),
-                },
-                None => arg.into(),
-            },
-            None => {
-                return Ok(Ok(Self {
-                    name1: ctx
-                        .psql()
-                        .get_user_osu(author_id)
-                        .await?
-                        .map(OsuData::into_username),
-                    name2: name1,
-                    name3: None,
-                    mode,
-                }))
-            }
-        };
-
-        let name3 = match args.next() {
-            Some(arg) => match matcher::get_mention_user(arg) {
-                Some(user_id) => match parse_discord(ctx, user_id).await? {
-                    Ok(osu) => Some(osu.into_username()),
-                    Err(content) => return Ok(Err(content)),
-                },
-                None => Some(arg.into()),
-            },
-            None => None,
-        };
-
-        let args = Self {
-            name1: Some(name1),
-            name2,
-            name3,
-            mode,
-        };
-
-        Ok(Ok(args))
-    }
-
-    async fn slash(
-        ctx: &Context,
-        command: &ApplicationCommand,
-        options: Vec<CommandDataOption>,
-    ) -> DoubleResultCow<Self> {
-        let mut name1 = None;
-        let mut name2 = None;
-        let mut name3 = None;
-        let mut mode = None;
-
-        for option in options {
-            match option.value {
-                CommandOptionValue::String(value) => match option.name.as_str() {
-                    MODE => mode = parse_mode_option(&value),
-                    "name1" => name1 = Some(value.into()),
-                    "name2" => name2 = Some(value.into()),
-                    "name3" => name3 = Some(value.into()),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::User(value) => match option.name.as_str() {
-                    "discord1" => match parse_discord(ctx, value).await? {
-                        Ok(osu) => name1 = Some(osu.into_username()),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    "discord2" => match parse_discord(ctx, value).await? {
-                        Ok(osu) => name2 = Some(osu.into_username()),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    "discord3" => match parse_discord(ctx, value).await? {
-                        Ok(osu) => name3 = Some(osu.into_username()),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            }
-        }
-
-        let (name1, name2, name3) = match (name1, name2, name3) {
-            (None, Some(name2), Some(name3)) => (Some(name2), name3, None),
-            (name1, Some(name2), name3) => (name1, name2, name3),
-            (Some(name1), None, Some(name3)) => (Some(name1), name3, None),
-            (Some(name), None, None) => (None, name, None),
-            (None, None, Some(name)) => (None, name, None),
-            (None, None, None) => return Ok(Err(AT_LEAST_ONE.into())),
-        };
-
-        let name1 = match name1 {
-            Some(name) => Some(name),
-            None => ctx
-                .psql()
-                .get_user_osu(command.user_id()?)
-                .await?
-                .map(OsuData::into_username),
-        };
-
-        let args = TripleArgs {
-            name1,
-            name2,
-            name3,
-            mode: mode.unwrap_or(GameMode::STD),
-        };
-
-        Ok(Ok(args))
-    }
-}
-
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(name = "compare")]
 /// Compare scores or profiles
 pub enum Compare<'a> {
+    #[command(name = "score")]
     Score(CompareScore<'a>),
+    #[command(name = "profile")]
     Profile(CompareProfile<'a>),
+    #[command(name = "top")]
     Top(CompareTop<'a>),
+    #[command(name = "most_played")]
     MostPlayed(CompareMostPlayed<'a>),
 }
 
-#[derive(CommandModel, CreateCommand, HasName)]
+#[derive(CommandModel, CreateCommand)]
 #[command(
     name = "score",
     help = "Given a user and a map, display the user's scores on the map.\n\
@@ -347,7 +216,7 @@ impl CompareScoreOrder {
     }
 }
 
-#[derive(CommandMode, CreateCommand)]
+#[derive(CommandModel, CreateCommand, Default)]
 #[command(
     name = "profile",
     help = "Compare profile stats between two players.\n\
@@ -374,7 +243,7 @@ pub struct CompareProfile<'a> {
     discord2: Option<Id<UserMarker>>,
 }
 
-#[derive(CommandModel, CreateCommand)]
+#[derive(CommandModel, CreateCommand, Default)]
 #[command(
     name = "top",
     help = "Compare common top scores between players and see who did better on them"
@@ -398,15 +267,13 @@ pub struct CompareTop<'a> {
     discord2: Option<Id<UserMarker>>,
 }
 
-#[derive(CommandModel, CreateCommand)]
+#[derive(CommandModel, CreateCommand, Default)]
 #[command(
     name = "mostplayed",
     help = "Compare most played maps between players and see who played them more"
 )]
 /// Compare most played maps
 pub struct CompareMostPlayed<'a> {
-    /// Specify a gamemode
-    mode: Option<GameModeOption>,
     /// Specify a username
     name1: Option<Cow<'a, str>>,
     /// Specify a username
@@ -424,7 +291,14 @@ pub struct CompareMostPlayed<'a> {
 
 async fn slash_compare(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
     match Compare::from_interaction(command.input_data())? {
-        Compare::Score(args) => score(ctx, command.into(), args).await,
+        Compare::Score(args) => match CompareScoreArgs::try_from(args) {
+            Ok(args) => score(ctx, command.into(), args).await,
+            Err(content) => {
+                command.error(&ctx, content).await?;
+
+                Ok(())
+            }
+        },
         Compare::Profile(args) => profile(ctx, command.into(), args).await,
         Compare::Top(args) => top(ctx, command.into(), args).await,
         Compare::MostPlayed(args) => mostplayed(ctx, command.into(), args).await,

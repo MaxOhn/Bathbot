@@ -1,7 +1,6 @@
 use super::{Pages, Pagination, ReactionVec};
 use crate::{
-    custom_client::{OsuStatsListParams, OsuStatsPlayer},
-    embeds::OsuStatsListEmbed,
+    commands::osu::OsuStatsPlayersArgs, custom_client::OsuStatsPlayer, embeds::OsuStatsListEmbed,
     BotResult, Context,
 };
 
@@ -13,7 +12,7 @@ pub struct OsuStatsListPagination {
     msg: Message,
     pages: Pages,
     players: HashMap<usize, Vec<OsuStatsPlayer>>,
-    params: OsuStatsListParams,
+    params: OsuStatsPlayersArgs,
     first_place_id: u32,
     ctx: Arc<Context>,
 }
@@ -23,7 +22,7 @@ impl OsuStatsListPagination {
         ctx: Arc<Context>,
         msg: Message,
         players: HashMap<usize, Vec<OsuStatsPlayer>>,
-        params: OsuStatsListParams,
+        params: OsuStatsPlayersArgs,
         amount: usize,
     ) -> Self {
         let first_place_id = players[&1].first().unwrap().user_id;
@@ -74,12 +73,7 @@ impl Pagination for OsuStatsListPagination {
         if !self.players.contains_key(&page) {
             self.params.page = page;
 
-            let players = self
-                .ctx
-                .clients
-                .custom
-                .get_country_globals(&self.params)
-                .await?;
+            let players = self.ctx.client().get_country_globals(&self.params).await?;
 
             self.players.insert(page, players);
         }

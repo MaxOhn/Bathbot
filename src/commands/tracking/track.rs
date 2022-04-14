@@ -8,10 +8,7 @@ use rosu_v2::prelude::{GameMode, OsuError};
 use crate::{
     core::commands::CommandOrigin,
     embeds::{EmbedData, TrackEmbed},
-    util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-    },
+    util::{builder::MessageBuilder, constants::OSU_API_ISSUE, ChannelExt},
     BotResult, Context,
 };
 
@@ -43,7 +40,7 @@ pub(super) async fn track(
 
             return orig.error(&ctx, content).await;
         }
-        Some(limit) => limit,
+        Some(limit) => limit as usize,
         None => {
             let guild = orig.guild_id().unwrap();
 
@@ -95,10 +92,8 @@ pub(super) async fn track(
         }
     }
 
-    let embed = TrackEmbed::new(mode, success, failure, None, limit)
-        .into_builder()
-        .build();
-    let builder = MessageBuilder::new().embed(embed);
+    let embed = TrackEmbed::new(mode, success, failure, None, limit).into_builder();
+    let builder = MessageBuilder::new().embed(embed.build());
     orig.create_message(&ctx, &builder).await?;
 
     Ok(())
@@ -126,13 +121,12 @@ pub(super) async fn track(
 #[flags(AUTHORITY, ONLY_GUILDS)]
 #[group(Tracking)]
 async fn prefix_track(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TrackArgs::args(&ctx, &mut args, Some(GameMode::STD)).await {
-        Ok(Ok(args)) => track(ctx, msg.into(), args).await,
-        Ok(Err(content)) => return msg.error(&ctx, content).await,
-        Err(err) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+    match TrackArgs::args(Some(GameMode::STD), args).await {
+        Ok(args) => track(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
 
-            return Err(err);
+            Ok(())
         }
     }
 }
@@ -159,13 +153,12 @@ async fn prefix_track(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotRe
 #[flags(AUTHORITY, ONLY_GUILDS)]
 #[group(Tracking)]
 pub async fn prefix_trackmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TrackArgs::args(&ctx, &mut args, Some(GameMode::MNA)).await {
-        Ok(Ok(args)) => track(ctx, msg.into(), args).await,
-        Ok(Err(content)) => return msg.error(&ctx, content).await,
-        Err(err) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+    match TrackArgs::args(Some(GameMode::MNA), args).await {
+        Ok(args) => track(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
 
-            return Err(err);
+            Ok(())
         }
     }
 }
@@ -192,13 +185,12 @@ pub async fn prefix_trackmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>)
 #[flags(AUTHORITY, ONLY_GUILDS)]
 #[group(Tracking)]
 pub async fn prefix_tracktaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TrackArgs::args(&ctx, &mut args, Some(GameMode::TKO)).await {
-        Ok(Ok(args)) => track(ctx, msg.into(), args).await,
-        Ok(Err(content)) => return msg.error(&ctx, content).await,
-        Err(err) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+    match TrackArgs::args(Some(GameMode::TKO), args).await {
+        Ok(args) => track(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
 
-            return Err(err);
+            Ok(())
         }
     }
 }
@@ -225,13 +217,12 @@ pub async fn prefix_tracktaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>)
 #[flags(AUTHORITY, ONLY_GUILDS)]
 #[group(Tracking)]
 pub async fn prefix_trackctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TrackArgs::args(&ctx, &mut args, Some(GameMode::CTB)).await {
-        Ok(Ok(args)) => track(ctx, msg.into(), args).await,
-        Ok(Err(content)) => return msg.error(&ctx, content).await,
-        Err(err) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+    match TrackArgs::args(Some(GameMode::CTB), args).await {
+        Ok(args) => track(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
 
-            return Err(err);
+            Ok(())
         }
     }
 }

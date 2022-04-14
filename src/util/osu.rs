@@ -1,16 +1,12 @@
 use std::{
     borrow::Cow,
-    cmp::{Ordering, Reverse},
     iter::{self, Copied, Map},
     path::PathBuf,
     slice::Iter,
 };
 
 use chrono::{DateTime, Utc};
-use eyre::Report;
-use futures::{stream::FuturesUnordered, TryFutureExt, TryStreamExt};
-use hashbrown::HashMap;
-use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods, Grade, Score, UserStatistics};
+use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, Score, UserStatistics};
 use tokio::{fs::File, io::AsyncWriteExt};
 use twilight_model::channel::{embed::Embed, Message};
 
@@ -18,7 +14,6 @@ use crate::{
     core::Context,
     custom_client::OsuTrackerCountryScore,
     error::MapFileError,
-    pp::PpCalculator,
     util::{constants::OSU_BASE, matcher, numbers::round, BeatmapExt, Emote, ScoreExt},
     CONFIG,
 };
@@ -67,7 +62,7 @@ pub fn grade_emote(grade: Grade) -> &'static str {
     CONFIG.get().unwrap().grade(grade)
 }
 
-pub fn mode_emote(mode: GameMode) -> Cow<'static, str> {
+pub fn mode_emote(mode: GameMode) -> &'static str {
     let emote = match mode {
         GameMode::STD => Emote::Std,
         GameMode::TKO => Emote::Tko,
@@ -106,7 +101,7 @@ pub async fn prepare_beatmap_file(ctx: &Context, map_id: u32) -> Result<PathBuf,
     map_path.push(format!("{map_id}.osu"));
 
     if !map_path.exists() {
-        let bytes = ctx.clients.custom.get_map_file(map_id).await?;
+        let bytes = ctx.client().get_map_file(map_id).await?;
         let mut file = File::create(&map_path).await?;
         file.write_all(&bytes).await?;
         info!("Downloaded {map_id}.osu successfully");

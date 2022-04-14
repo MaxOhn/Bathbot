@@ -1,12 +1,10 @@
-use std::{borrow::Cow, str::FromStr};
+use std::str::FromStr;
 
 use rosu_v2::prelude::GameMode;
 use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::{channel::ReactionType, id::Id};
 
 use crate::CONFIG;
-
-use super::constants::common_literals::OSU;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub enum Emote {
@@ -31,27 +29,15 @@ pub enum Emote {
     JumpEnd,
 
     Miss,
-
-    Custom(&'static str),
 }
 
 impl Emote {
-    pub fn text(self) -> Cow<'static, str> {
-        if let Self::Custom(emote) = self {
-            format!(":{emote}:").into()
-        } else {
-            CONFIG.get().unwrap().emotes.get(&self).unwrap().into()
-        }
+    pub fn text(self) -> &'static str {
+        CONFIG.get().unwrap().emotes.get(&self).unwrap().as_str()
     }
 
     pub fn request_reaction_type(&self) -> RequestReactionType<'_> {
-        let emotes = &CONFIG.get().unwrap().emotes;
-
-        let emote = if let Self::Custom(name) = self {
-            return RequestReactionType::Unicode { name };
-        } else {
-            emotes.get(self)
-        };
+        let emote = CONFIG.get().unwrap().emotes.get(self);
 
         let (id, name) = emote
             .unwrap_or_else(|| panic!("No {self:?} emote in config"))
@@ -65,15 +51,7 @@ impl Emote {
 
     #[allow(dead_code)]
     pub fn reaction_type(&self) -> ReactionType {
-        let emotes = &CONFIG.get().unwrap().emotes;
-
-        let emote = if let Self::Custom(name) = self {
-            return ReactionType::Unicode {
-                name: name.to_string(),
-            };
-        } else {
-            emotes.get(self)
-        };
+        let emote = CONFIG.get().unwrap().emotes.get(self);
 
         let (id, name) = emote
             .unwrap_or_else(|| panic!("No {self:?} emote in config"))
@@ -118,7 +96,7 @@ impl FromStr for Emote {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let emote = match s {
-            OSU => Self::Osu,
+            "osu" => Self::Osu,
             "osu_std" => Self::Std,
             "osu_taiko" => Self::Tko,
             "osu_ctb" => Self::Ctb,

@@ -7,7 +7,6 @@ use crate::Context;
 impl Context {
     // Current tasks per iteration:
     //   - Deleting .osu files of unranked maps
-    //   - Retrieve all medals from osekai and store them in DB
     #[cold]
     pub async fn background_loop(ctx: Arc<Context>) {
         if cfg!(debug_assertions) {

@@ -5,36 +5,19 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use command_macros::command;
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError};
-use twilight_model::application::interaction::{
-    application_command::{CommandDataOption, CommandOptionValue},
-    ApplicationCommand,
-};
 
 use crate::{
-    commands::{
-        osu::{get_user, UserArgs},
-        parse_discord, DoubleResultCow,
-    },
-    custom_client::{
-        groups::{
-            BEATMAP_CHALLENGE_PACKS, BEATMAP_PACKS, BEATMAP_SPOTLIGHTS, DEDICATION, HUSH_HUSH,
-            MOD_INTRODUCTION, SEASONAL_SPOTLIGHTS, SKILL,
-        },
-        OsekaiGrouping, OsekaiMedal, Rarity,
-    },
-    database::UserConfig,
+    commands::osu::{get_user, require_link, UserArgs},
+    core::commands::CommandOrigin,
+    custom_client::{OsekaiMedal, Rarity},
     embeds::{EmbedData, MedalsListEmbed},
-    error::Error,
     pagination::{MedalsListPagination, Pagination},
     util::{
-        constants::{
-            common_literals::{DISCORD, NAME, REVERSE},
-            OSEKAI_ISSUE, OSU_API_ISSUE,
-        },
+        builder::MessageBuilder,
+        constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
         numbers,
     },
     BotResult, Context,
@@ -47,16 +30,9 @@ pub(super) async fn list(
     orig: CommandOrigin<'_>,
     args: MedalList<'_>,
 ) -> BotResult<()> {
-    let ListArgs {
-        config,
-        order,
-        group,
-        reverse,
-    } = args;
-
     let name = match username!(ctx, orig, args) {
         Some(name) => name,
-        None => match ctx.psql().get_osu_user().await {
+        None => match ctx.psql().get_user_osu(orig.user_id()?).await {
             Ok(Some(osu)) => osu.into_username(),
             Ok(None) => return require_link(&ctx, &orig).await,
             Err(err) => {
@@ -67,9 +43,16 @@ pub(super) async fn list(
         },
     };
 
+    let MedalList {
+        sort,
+        group,
+        reverse,
+        ..
+    } = args;
+
     let user_args = UserArgs::new(name.as_str(), GameMode::STD);
     let user_fut = get_user(&ctx, &user_args);
-    let rarity_fut = ctx.clients.custom.get_osekai_ranking::<Rarity>();
+    let rarity_fut = ctx.client().get_osekai_ranking::<Rarity>();
     let redis = ctx.redis();
 
     let (mut user, mut osekai_medals, rarities) =
@@ -135,27 +118,27 @@ pub(super) async fn list(
 
     medals.extend(medals_iter);
 
-    if let Some(OsekaiGrouping(group)) = group {
+    if let Some(group) = group {
         medals.retain(|entry| entry.medal.grouping == group);
     }
 
-    let order_str = match order {
-        ListOrder::Alphabet => {
+    let order_str = match sort.unwrap_or_default() {
+        MedalListOrder::Alphabet => {
             medals.sort_unstable_by(|a, b| a.medal.name.cmp(&b.medal.name));
 
             "alphabet"
         }
-        ListOrder::Date => {
+        MedalListOrder::Date => {
             medals.sort_unstable_by_key(|entry| Reverse(entry.achieved));
 
             "date"
         }
-        ListOrder::MedalId => {
+        MedalListOrder::MedalId => {
             medals.sort_unstable_by_key(|entry| entry.medal.medal_id);
 
             "medal id"
         }
-        ListOrder::Rarity => {
+        MedalListOrder::Rarity => {
             medals.sort_unstable_by(|a, b| {
                 a.rarity.partial_cmp(&b.rarity).unwrap_or(Ordering::Equal)
             });
@@ -164,7 +147,7 @@ pub(super) async fn list(
         }
     };
 
-    let reverse_str = if reverse {
+    let reverse_str = if reverse == Some(true) {
         medals.reverse();
 
         "reversed "
@@ -178,7 +161,7 @@ pub(super) async fn list(
 
     let content = match group {
         None => format!("All medals of `{name}` sorted by {reverse_str}{order_str}:"),
-        Some(OsekaiGrouping(group)) => {
+        Some(group) => {
             format!("All `{group}` medals of `{name}` sorted by {reverse_str}{order_str}:")
         }
     };
@@ -213,73 +196,4 @@ pub struct MedalEntryList {
     pub medal: OsekaiMedal,
     pub achieved: DateTime<Utc>,
     pub rarity: f32,
-}
-
-pub struct ListArgs {
-    config: UserConfig,
-    order: ListOrder,
-    reverse: bool,
-    group: Option<OsekaiGrouping<'static>>,
-}
-
-// TODO
-impl MedalList {
-    pub(super) async fn slash(
-        ctx: &Context,
-        command: &ApplicationCommand,
-        options: Vec<CommandDataOption>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(command.user_id()?).await?;
-        let mut order = None;
-        let mut group = None;
-        let mut reverse = None;
-
-        for option in options {
-            match option.value {
-                CommandOptionValue::String(value) => match option.name.as_str() {
-                    NAME => config.osu = Some(value.into()),
-                    "sort" => match value.as_str() {
-                        "alphabet" => order = Some(ListOrder::Alphabet),
-                        "date" => order = Some(ListOrder::Date),
-                        "medal_id" => order = Some(ListOrder::MedalId),
-                        "rarity" => order = Some(ListOrder::Rarity),
-                        _ => return Err(Error::InvalidCommandOptions),
-                    },
-                    "group" => match value.as_str() {
-                        "Skill" => group = Some(OsekaiGrouping(SKILL)),
-                        "Dedication" => group = Some(OsekaiGrouping(DEDICATION)),
-                        "Hush-Hush" => group = Some(OsekaiGrouping(HUSH_HUSH)),
-                        "Beatmap_Packs" => group = Some(OsekaiGrouping(BEATMAP_PACKS)),
-                        "Beatmap_Challenge_Packs" => {
-                            group = Some(OsekaiGrouping(BEATMAP_CHALLENGE_PACKS))
-                        }
-                        "Seasonal_Spotlights" => group = Some(OsekaiGrouping(SEASONAL_SPOTLIGHTS)),
-                        "Beatmap_Spotlights" => group = Some(OsekaiGrouping(BEATMAP_SPOTLIGHTS)),
-                        "Mod_Introduction" => group = Some(OsekaiGrouping(MOD_INTRODUCTION)),
-                        _ => return Err(Error::InvalidCommandOptions),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::Boolean(value) => match option.name.as_str() {
-                    REVERSE => reverse = Some(value),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::User(value) => match option.name.as_str() {
-                    DISCORD => match parse_discord(ctx, value).await? {
-                        Ok(osu) => config.osu = Some(osu),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            }
-        }
-
-        Ok(Ok(Self {
-            config,
-            order: order.unwrap_or_default(),
-            group,
-            reverse: reverse.unwrap_or(false),
-        }))
-    }
 }

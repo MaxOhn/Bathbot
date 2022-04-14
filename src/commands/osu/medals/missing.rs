@@ -4,19 +4,18 @@ use command_macros::command;
 use eyre::Report;
 use hashbrown::HashSet;
 use rkyv::{Deserialize, Infallible};
-use rosu_v2::prelude::{GameMode, OsuError, Username};
+use rosu_v2::prelude::{GameMode, OsuError};
 
 use crate::{
-    commands::{
-        check_user_mention,
-        osu::{get_user, UserArgs},
-    },
-    custom_client::{OsekaiGrouping, OsekaiMedal, MEDAL_GROUPS},
+    commands::osu::{get_user, require_link, UserArgs},
+    core::commands::CommandOrigin,
+    custom_client::{MedalGroup, OsekaiMedal, MEDAL_GROUPS},
     embeds::{EmbedData, MedalsMissingEmbed},
     pagination::{MedalsMissingPagination, Pagination},
     util::{
+        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
-        numbers,
+        matcher, numbers,
     },
     BotResult, Context,
 };
@@ -29,7 +28,11 @@ use super::MedalMissing;
 #[example("badewanne3")]
 #[aliases("mm", "missingmedals")]
 #[group(AllModes)]
-async fn prefix_medalsmissing(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_medalsmissing(
+    ctx: Arc<Context>,
+    msg: &Message,
+    mut args: Args<'_>,
+) -> BotResult<()> {
     let args = match args.next() {
         Some(arg) => match matcher::get_mention_user(arg) {
             Some(id) => MedalMissing {
@@ -56,7 +59,7 @@ pub(super) async fn missing(
 
     let name = match username!(ctx, orig, args) {
         Some(name) => name,
-        None => match ctx.psql().get_osu_user(owner).await {
+        None => match ctx.psql().get_user_osu(owner).await {
             Ok(Some(osu)) => osu.into_username(),
             Ok(None) => return require_link(&ctx, &orig).await,
             Err(err) => {
@@ -144,15 +147,15 @@ pub(super) async fn missing(
 }
 
 pub enum MedalType {
-    Group(OsekaiGrouping<'static>),
+    Group(MedalGroup),
     Medal(OsekaiMedal),
 }
 
 impl MedalType {
-    fn group(&self) -> OsekaiGrouping<'_> {
+    fn group(&self) -> MedalGroup {
         match self {
             Self::Group(g) => *g,
-            Self::Medal(m) => OsekaiGrouping(&m.grouping),
+            Self::Medal(m) => m.grouping,
         }
     }
 }

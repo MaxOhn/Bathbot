@@ -14,7 +14,7 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE},
-        matcher,
+        matcher, ApplicationCommandExt, ChannelExt,
     },
     BotResult, Context,
 };
@@ -60,7 +60,7 @@ pub struct MatchliveRemove<'a> {
     match_url: Cow<'a, str>,
 }
 
-async fn slash_matchlive(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_matchlive(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
     match Matchlive::from_interaction(command.input_data())? {
         Matchlive::Add(args) => matchlive(ctx, command.into(), args).await,
         Matchlive::Remove(args) => matchliveremove(ctx, command.into(), Some(args)).await,
@@ -78,7 +78,7 @@ async fn slash_matchlive(ctx: Arc<Context>, command: Box<ApplicationCommand>) ->
 #[usage("[match url / match id]")]
 #[examples("58320988", "https://osu.ppy.sh/community/matches/58320988")]
 #[alias("ml", "mla", "matchliveadd", "mlt", "matchlivetrack")]
-#[bucket(Matchlive)]
+#[bucket(MatchLive)]
 #[flags(AUTHORITY)]
 #[group(AllModes)]
 async fn prefix_matchlive(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
@@ -86,15 +86,16 @@ async fn prefix_matchlive(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) 
         Some(arg) => {
             let args = MatchliveAdd {
                 match_url: arg.into(),
-                thread: MatchliveAdd::Channel,
+                thread: MatchliveAddThread::Channel,
             };
 
             matchlive(ctx, msg.into(), args).await
         }
         None => {
             let content = "You must specify either a match id or a multiplayer link to a match";
+            msg.error(&ctx, content).await?;
 
-            msg.error(&ctx, content).await
+            Ok(())
         }
     }
 }
@@ -121,7 +122,11 @@ async fn prefix_matchliveremove(
             Ok(_) => Some(MatchliveRemove {
                 match_url: arg.into(),
             }),
-            Err(content) => return msg.error(&ctx, content).await,
+            Err(content) => {
+                msg.error(&ctx, content).await?;
+
+                return Ok(());
+            }
         },
         None => None,
     };
@@ -146,9 +151,9 @@ async fn matchlive(
     orig: CommandOrigin<'_>,
     args: MatchliveAdd<'_>,
 ) -> BotResult<()> {
-    let MatchliveAdd { match_id, thread } = args;
+    let MatchliveAdd { match_url, thread } = args;
 
-    let match_id = match parse_match_id(&match_id) {
+    let match_id = match parse_match_id(&match_url) {
         Ok(id) => id,
         Err(content) => return orig.error(&ctx, content).await,
     };
@@ -187,7 +192,11 @@ async fn matchlive(
     let content: &str = match ctx.add_match_track(channel, match_id).await {
         MatchTrackResult::Added => match orig {
             CommandOrigin::Message { .. } => return Ok(()),
-            CommandOrigin::Interaction { command } => return command.delete(&ctx).await,
+            CommandOrigin::Interaction { command } => {
+                ctx.interaction().delete_response(&command.token).exec().await?;
+
+                return Ok(())
+            }
         },
         MatchTrackResult::Capped => "Channels can track at most three games at a time",
         MatchTrackResult::Duplicate => "That match is already being tracking in this channel",

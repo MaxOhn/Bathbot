@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use twilight_model::{
     guild::Permissions,
     id::{
@@ -11,9 +13,9 @@ use crate::{
     BotResult,
 };
 
-// Is authority -> Ok(None)
-// No authority -> Ok(Some(message to user))
-// Couldn't figure out -> Err()
+/// Is authority -> Ok(None)
+/// No authority -> Ok(Some(message to user))
+/// Couldn't figure out -> Err()
 pub async fn check_authority(
     ctx: &Context,
     author: Id<UserMarker>,

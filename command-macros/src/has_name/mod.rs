@@ -85,14 +85,14 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
 
     let tokens = quote! {
         impl #generics #path HasName for #ident #generics {
-            fn username(&self, ctx: &crate::core::Context) -> #path UsernameResult {
-                if let Some(ref name) = self.name {
+            fn username<'ctx>(&self, ctx: &'ctx crate::core::Context) -> #path UsernameResult<'ctx> {
+                if let Some(name) = self.name.as_deref() {
                     #path UsernameResult::Name(name.into())
                 } else if let Some(id) = self.discord {
-                    let fut = async {
+                    let fut = async move {
                         match ctx.psql().get_user_osu(id).await {
-                            Ok(Some(osu)) => #path UsernameFutureResult::Name(osu.username),
-                            Ok(None) => #path UsernameFutureResult::None,
+                            Ok(Some(osu)) => #path UsernameFutureResult::Name(osu.into_username()),
+                            Ok(None) => #path UsernameFutureResult::NotLinked(id),
                             Err(err) => #path UsernameFutureResult::Err(err),
                         }
                     };

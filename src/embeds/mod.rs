@@ -112,14 +112,6 @@ impl EmbedData for EmbedBuilder {
     }
 }
 
-fn validate_image_url(url: &str) {
-    debug_assert!(
-        url.starts_with("http:") || url.starts_with("https:"),
-        "image url of embeds must start with `http:` or `https:`, got `{}`",
-        url
-    );
-}
-
 pub fn attachment(filename: impl AsRef<str>) -> String {
     #[cfg(debug_assert)]
     match filename.rfind('.') {

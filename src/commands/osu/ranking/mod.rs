@@ -4,7 +4,7 @@ use command_macros::SlashCommand;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::application::interaction::ApplicationCommand;
 
-use crate::{BotResult, Context};
+use crate::{commands::GameModeOption, BotResult, Context, util::ApplicationCommandExt};
 
 pub use self::{countries::*, players::*};
 
@@ -44,6 +44,12 @@ pub struct RankingScore {
     mode: Option<GameModeOption>,
 }
 
+impl From<GameModeOption> for RankingScore {
+    fn from(mode: GameModeOption) -> Self {
+        Self { mode: Some(mode) }
+    }
+}
+
 #[derive(CommandModel, CreateCommand)]
 #[command(
     name = "country",
@@ -53,6 +59,12 @@ pub struct RankingScore {
 pub struct RankingCountry {
     /// Specify a gamemode
     mode: Option<GameModeOption>,
+}
+
+impl From<GameModeOption> for RankingCountry {
+    fn from(mode: GameModeOption) -> Self {
+        Self { mode: Some(mode) }
+    }
 }
 
 async fn slash_ranking(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {

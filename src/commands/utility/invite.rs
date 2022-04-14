@@ -39,7 +39,7 @@ async fn invite(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> BotResult<()> {
         .build();
 
     let builder = MessageBuilder::new().content(BATHBOT_WORKSHOP).embed(embed);
-    orig.callback(&ctx, &builder).await?;
+    orig.callback(&ctx, builder).await?;
 
     Ok(())
 }

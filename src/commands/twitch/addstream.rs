@@ -5,6 +5,7 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, TWITCH_API_ISSUE},
+        ChannelExt, CowUtils,
     },
     BotResult, Context,
 };
@@ -18,13 +19,14 @@ use std::sync::Arc;
 #[usage("[stream name]")]
 #[example("loltyler1")]
 #[group(Twitch)]
-async fn prefix_addstream(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_addstream(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
     let name = match args.next() {
         Some(arg) => arg.cow_to_ascii_lowercase(),
         None => {
             let content = "The first argument must be the name of the stream";
+            msg.error(&ctx, content).await?;
 
-            return msg.error(&ctx, content).await;
+            return Ok(());
         }
     };
 
@@ -32,7 +34,7 @@ async fn prefix_addstream(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> B
 }
 
 pub async fn addstream(ctx: Arc<Context>, orig: CommandOrigin<'_>, name: &'_ str) -> BotResult<()> {
-    let twitch_id = match ctx.clients.custom.get_twitch_user(name).await {
+    let twitch_id = match ctx.client().get_twitch_user(name).await {
         Ok(Some(user)) => user.user_id,
         Ok(None) => {
             let content = format!("Twitch user `{name}` was not found");

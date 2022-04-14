@@ -1,5 +1,4 @@
 use plotters::drawing::DrawingAreaErrorKind;
-use twilight_model::application::interaction::{ApplicationCommand, MessageComponentInteraction};
 use twilight_validate::message::MessageValidationError;
 
 pub use self::{
@@ -23,8 +22,6 @@ macro_rules! bail {
     };
 }
 
-// TODO: remove unused variants
-
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("error while checking authority status")]
@@ -41,8 +38,6 @@ pub enum Error {
     ClusterStart(#[from] twilight_gateway::cluster::ClusterStartError),
     #[error("chrono parse error")]
     ChronoParse(#[from] chrono::format::ParseError),
-    #[error("command error: {1}")]
-    Command(#[source] Box<Error>, String),
     #[error("{0}")]
     Custom(String),
     #[error("custom client error")]
@@ -53,10 +48,10 @@ pub enum Error {
     Fmt(#[from] std::fmt::Error),
     #[error("image error")]
     Image(#[from] image::ImageError),
-    #[error("received invalid options for command")]
-    InvalidCommandOptions,
     #[error("invalid bg state")]
     InvalidBgState(#[from] InvalidBgState),
+    #[error("received invalid options for command")]
+    InvalidCommandOptions,
     #[error("invalid help state")]
     InvalidHelpState(#[from] InvalidHelpState),
     #[error("io error")]
@@ -93,17 +88,6 @@ pub enum Error {
     TwilightDeserialize(#[from] twilight_http::response::DeserializeBodyError),
     #[error("error while making discord request")]
     TwilightHttp(#[from] twilight_http::Error),
-    #[error("unknown message component: {component:#?}")]
-    UnknownMessageComponent {
-        component: Box<MessageComponentInteraction>,
-    },
-    #[error("unexpected autocomplete for slash command `{0}`")]
-    UnknownSlashAutocomplete(String),
-    #[error("unknown slash command `{name}`: {command:#?}")]
-    UnknownSlashCommand {
-        name: String,
-        command: Box<ApplicationCommand>,
-    },
 }
 
 impl<E: std::error::Error + Send + Sync> From<DrawingAreaErrorKind<E>> for GraphError {

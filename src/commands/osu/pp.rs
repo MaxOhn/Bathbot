@@ -2,7 +2,7 @@ use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
 use eyre::Report;
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::prelude::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     application::interaction::ApplicationCommand,
@@ -18,7 +18,10 @@ use crate::{
     custom_client::RankParam,
     embeds::{EmbedData, PPMissingEmbed},
     tracking::process_osu_tracking,
-    util::{builder::MessageBuilder, constants::OSU_API_ISSUE, matcher, ApplicationCommandExt},
+    util::{
+        builder::MessageBuilder, constants::OSU_API_ISSUE, matcher, ApplicationCommandExt,
+        ChannelExt,
+    },
     BotResult, Context,
 };
 
@@ -45,7 +48,7 @@ pub struct Pp<'a> {
 }
 
 impl<'m> Pp<'m> {
-    fn args(mode: GameMode, args: Args<'_>) -> Result<Self, &'static str> {
+    fn args(mode: GameModeOption, args: Args<'m>) -> Result<Self, &'static str> {
         let mut name = None;
         let mut discord = None;
         let mut pp = None;
@@ -86,9 +89,13 @@ async fn slash_pp(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> Bo
 #[example("badewanne3 8000")]
 #[group(Osu)]
 pub async fn prefix_pp(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match Pp::args(GameMode::STD, args) {
+    match Pp::args(GameModeOption::Osu, args) {
         Ok(args) => pp(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -103,9 +110,13 @@ pub async fn prefix_pp(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotR
 #[alias("ppm")]
 #[group(Mania)]
 pub async fn prefix_ppmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match Pp::args(GameMode::MNA, args) {
+    match Pp::args(GameModeOption::Mania, args) {
         Ok(args) => pp(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -120,9 +131,13 @@ pub async fn prefix_ppmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[alias("ppt")]
 #[group(Taiko)]
 pub async fn prefix_pptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match Pp::args(GameMode::TKO, args) {
+    match Pp::args(GameModeOption::Taiko, args) {
         Ok(args) => pp(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -137,9 +152,13 @@ pub async fn prefix_pptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[alias("ppc")]
 #[group(Catch)]
 pub async fn prefix_ppctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match Pp::args(GameMode::CTB, args) {
+    match Pp::args(GameModeOption::Catch, args) {
         Ok(args) => pp(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -158,7 +177,7 @@ async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> BotResu
     let user_args = UserArgs::new(name.as_str(), mode);
     let score_args = ScoreArgs::top(100);
     let user_scores_fut = get_user_and_scores(&ctx, user_args, &score_args);
-    let rank_fut = ctx.clients.custom.get_rank_data(mode, RankParam::Pp(pp));
+    let rank_fut = ctx.client().get_rank_data(mode, RankParam::Pp(pp));
 
     let (user_scores_result, rank_result) = tokio::join!(user_scores_fut, rank_fut);
 

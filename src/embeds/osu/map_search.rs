@@ -1,16 +1,9 @@
 use crate::{
-    commands::osu::Search,
-    util::{
-        builder::FooterBuilder,
-        constants::{
-            common_literals::{CTB, MANIA, TAIKO},
-            OSU_BASE,
-        },
-        numbers::round,
-    },
+    commands::osu::{Search, SearchOrder},
+    util::{builder::FooterBuilder, constants::OSU_BASE, numbers::round},
 };
 
-use rosu_v2::prelude::{Beatmapset, BeatmapsetSearchSort, GameMode};
+use rosu_v2::prelude::{Beatmapset, GameMode, Genre, Language};
 use std::{collections::BTreeMap, fmt::Write};
 
 pub struct MapSearchEmbed {
@@ -26,17 +19,18 @@ impl MapSearchEmbed {
         pages: (usize, Option<usize>),
     ) -> Self {
         let mut title = "Mapset results".to_owned();
+        let sort = args.sort.unwrap_or_default();
 
         let non_empty_args = args.query.is_some()
             || args.mode.is_some()
             || args.status.is_some()
             || args.genre.is_some()
             || args.language.is_some()
-            || args.video
-            || args.storyboard
-            || !args.nsfw
-            || args.sort != BeatmapsetSearchSort::Relevance
-            || !args.descending;
+            || args.video == Some(true)
+            || args.storyboard == Some(true)
+            || args.nsfw == Some(false)
+            || sort != SearchOrder::Relevance
+            || args.reverse == Some(true);
 
         if non_empty_args {
             title.push_str(" for `");
@@ -47,7 +41,7 @@ impl MapSearchEmbed {
                 pushed = true;
             }
 
-            if let Some(mode) = args.mode {
+            if let Some(mode) = args.mode.map(GameMode::from) {
                 if pushed {
                     title.push(' ');
                 }
@@ -61,35 +55,29 @@ impl MapSearchEmbed {
                     title.push(' ');
                 }
 
-                match status.status() {
-                    Some(status) => {
-                        let _ = write!(title, "status={:?}", status);
-                    }
-                    None => title.push_str("status=Any"),
-                }
-
+                let _ = write!(title, "status={status:?}");
                 pushed = true;
             }
 
-            if let Some(genre) = args.genre {
+            if let Some(genre) = args.genre.map(Genre::from) {
                 if pushed {
                     title.push(' ');
                 }
 
-                let _ = write!(title, "genre={:?}", genre);
+                let _ = write!(title, "genre={genre:?}");
                 pushed = true;
             }
 
-            if let Some(language) = args.language {
+            if let Some(language) = args.language.map(Language::from) {
                 if pushed {
                     title.push(' ');
                 }
 
-                let _ = write!(title, "language={:?}", language);
+                let _ = write!(title, "language={language:?}");
                 pushed = true;
             }
 
-            if args.video {
+            if args.video == Some(true) {
                 if pushed {
                     title.push(' ');
                 }
@@ -98,7 +86,7 @@ impl MapSearchEmbed {
                 pushed = true;
             }
 
-            if args.storyboard {
+            if args.storyboard == Some(true) {
                 if pushed {
                     title.push(' ');
                 }
@@ -107,7 +95,7 @@ impl MapSearchEmbed {
                 pushed = true;
             }
 
-            if !args.nsfw {
+            if args.nsfw == Some(false) {
                 if pushed {
                     title.push(' ');
                 }
@@ -116,7 +104,7 @@ impl MapSearchEmbed {
                 pushed = true;
             }
 
-            if args.sort != BeatmapsetSearchSort::Relevance || !args.descending {
+            if args.sort != Some(SearchOrder::Relevance) || args.reverse == Some(true) {
                 if pushed {
                     title.push(' ');
                 }
@@ -124,8 +112,12 @@ impl MapSearchEmbed {
                 let _ = write!(
                     title,
                     "sort={:?} ({})",
-                    args.sort,
-                    if args.descending { "desc" } else { "asc" }
+                    sort,
+                    if args.reverse == Some(true) {
+                        "asc"
+                    } else {
+                        "desc"
+                    }
                 );
             }
 
@@ -157,7 +149,7 @@ impl MapSearchEmbed {
                     mode.push_str(", ");
                 }
 
-                mode.push_str(MANIA);
+                mode.push_str("mania");
             }
 
             if maps.iter().any(|map| map.mode == GameMode::TKO) {
@@ -165,7 +157,7 @@ impl MapSearchEmbed {
                     mode.push_str(", ");
                 }
 
-                mode.push_str(TAIKO);
+                mode.push_str("taiko");
             }
 
             if maps.iter().any(|map| map.mode == GameMode::CTB) {
@@ -173,7 +165,7 @@ impl MapSearchEmbed {
                     mode.push_str(", ");
                 }
 
-                mode.push_str(CTB);
+                mode.push_str("ctb");
             }
 
             let _ = writeln!(

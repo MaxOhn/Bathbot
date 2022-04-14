@@ -13,19 +13,20 @@ use twilight_model::application::{
 };
 
 use crate::{
-    commands::osu::respond_autocomplete,
     core::Context,
     custom_client::OsekaiBadge,
     embeds::{BadgeEmbed, EmbedData},
     error::Error,
     pagination::{BadgePagination, Pagination},
     util::{
-        constants::OSEKAI_ISSUE, get_combined_thumbnail, levenshtein_similarity, numbers, CowUtils,
+        builder::MessageBuilder, constants::OSEKAI_ISSUE, get_combined_thumbnail,
+        levenshtein_similarity, numbers, ApplicationCommandExt, Authored, AutocompleteExt,
+        CowUtils,
     },
     BotResult,
 };
 
-use super::{BadgesOrder, BadgesQuery};
+use super::BadgesQuery;
 
 pub(super) async fn query(
     ctx: Arc<Context>,
@@ -77,10 +78,10 @@ pub(super) async fn query(
         badges.truncate(1);
     }
 
-    sort_by.apply(&mut badges);
+    sort.unwrap_or_default().apply(&mut badges);
 
     let owners = if let Some(badge) = badges.first() {
-        let owners_fut = ctx.clients.custom.get_osekai_badge_owners(badge.badge_id);
+        let owners_fut = ctx.client().get_osekai_badge_owners(badge.badge_id);
 
         match owners_fut.await {
             Ok(owners) => owners,
@@ -116,7 +117,7 @@ pub(super) async fn query(
     let mut builder = MessageBuilder::new().embed(embed.build());
 
     if let Some(bytes) = bytes {
-        builder = builder.file("badge_owners.png", bytes);
+        builder = builder.attachment("badge_owners.png", bytes);
     }
 
     let response_raw = command.update(&ctx, &builder).await?;
@@ -177,12 +178,14 @@ async fn no_badge_found(ctx: &Context, command: &ApplicationCommand, name: &str)
         content.push('?');
     }
 
-    command.error(ctx, content).await
+    command.error(ctx, content).await?;
+
+    Ok(())
 }
 
 pub async fn handle_autocomplete(
     ctx: Arc<Context>,
-    command: ApplicationCommandAutocomplete,
+    command: Box<ApplicationCommandAutocomplete>,
 ) -> BotResult<()> {
     let value_opt = command
         .data
@@ -193,7 +196,11 @@ pub async fn handle_autocomplete(
 
     let name = match value_opt {
         Some(value) if !value.is_empty() => value.cow_to_ascii_lowercase(),
-        Some(_) => return respond_autocomplete(&ctx, &command, Vec::new()).await,
+        Some(_) => {
+            command.callback(&ctx, Vec::new()).await?;
+
+            return Ok(());
+        }
         None => return Err(Error::InvalidCommandOptions),
     };
 
@@ -218,8 +225,9 @@ pub async fn handle_autocomplete(
         }
     }
 
-    // TODO
-    respond_autocomplete(&ctx, &command, choices).await
+    command.callback(&ctx, choices).await?;
+
+    Ok(())
 }
 
 fn new_choice(name: &str) -> CommandOptionChoice {

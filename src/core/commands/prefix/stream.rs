@@ -80,10 +80,6 @@ impl<'a> Stream<'a> {
         &src[..end]
     }
 
-    pub fn peek_until_char(&self, f: impl Fn(char) -> bool) -> &'a str {
-        self.peek_while_char(|c| !f(c))
-    }
-
     pub fn take_while(&mut self, f: impl Fn(u8) -> bool) -> &'a str {
         let s = self.peek_while(f);
         self.offset += s.len();

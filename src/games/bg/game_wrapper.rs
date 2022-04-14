@@ -10,7 +10,7 @@ use tokio::sync::RwLock;
 use twilight_model::{
     gateway::payload::incoming::MessageCreate,
     id::{
-        marker::{ChannelMarker, MessageMarker},
+        marker::{ChannelMarker, },
         Id,
     },
 };
@@ -62,14 +62,11 @@ impl GameWrapper {
             loop {
                 let builder = MessageBuilder::new()
                     .content("Here's the next one:")
-                    .file("bg_img.png", mem::take(&mut img));
+                    .attachment("bg_img.png", mem::take(&mut img));
 
-                let tmp_msg = (Id::<MessageMarker>::new(1), channel);
-                let create_fut = tmp_msg.create_message(&ctx, builder);
-
-                if let Err(why) = create_fut.await {
+                if let Err(err) = channel.create_message(&ctx, &builder).await {
                     let report =
-                        Report::new(why).wrap_err("error while sending initial bg game msg");
+                        Report::new(err).wrap_err("error while sending initial bg game msg");
                     warn!("{report:?}");
                 }
 

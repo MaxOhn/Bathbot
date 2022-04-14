@@ -1,144 +1,29 @@
 use std::{cmp::Reverse, sync::Arc};
 
 use chrono::{Duration, Utc};
+use command_macros::command;
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError, Username};
 
 use crate::{
-    commands::{
-        check_user_mention,
-        osu::{get_user, UserArgs},
-    },
-    database::OsuData,
+    commands::osu::{get_user, require_link, UserArgs},
+    core::commands::CommandOrigin,
     embeds::{EmbedData, SnipedDiffEmbed},
     pagination::{Pagination, SnipedDiffPagination},
     util::{
+        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
-        numbers, MessageExt,
+        matcher, numbers,
     },
-    BotResult, CommandData, Context, MessageBuilder,
+    BotResult, Context,
 };
 
-pub(super) async fn _sniped_diff(
-    ctx: Arc<Context>,
-    data: CommandData<'_>,
-    diff: Difference,
-    name: Option<Username>,
-) -> BotResult<()> {
-    let name = match name {
-        Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
-    };
-
-    // Request the user
-    let user_args = UserArgs::new(name.as_str(), GameMode::STD);
-
-    let mut user = match get_user(&ctx, &user_args).await {
-        Ok(user) => user,
-        Err(OsuError::NotFound) => {
-            let content = format!("Could not find user `{name}`");
-
-            return data.error(&ctx, content).await;
-        }
-        Err(why) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
-
-            return Err(why.into());
-        }
-    };
-
-    // Overwrite default mode
-    user.mode = GameMode::STD;
-
-    if !ctx.contains_country(user.country_code.as_str()) {
-        let content = format!(
-            "`{}`'s country {} is not supported :(",
-            user.username, user.country_code
-        );
-
-        return data.error(&ctx, content).await;
-    }
-
-    let client = &ctx.clients.custom;
-    let now = Utc::now();
-    let week_ago = now - Duration::weeks(1);
-
-    // Request the scores
-    let scores_fut = match diff {
-        Difference::Gain => client.get_national_snipes(&user, true, week_ago, now),
-        Difference::Loss => client.get_national_snipes(&user, false, week_ago, now),
-    };
-
-    let mut scores = match scores_fut.await {
-        Ok(scores) => scores,
-        Err(why) => {
-            let _ = data.error(&ctx, HUISMETBENEN_ISSUE).await;
-
-            return Err(why.into());
-        }
-    };
-
-    if scores.is_empty() {
-        let content = format!(
-            "`{name}` didn't {diff} national #1s in the last week.",
-            name = user.username,
-            diff = match diff {
-                Difference::Gain => "gain any new",
-                Difference::Loss => "lose any",
-            }
-        );
-
-        let builder = MessageBuilder::new().embed(content);
-        data.create_message(&ctx, builder).await?;
-
-        return Ok(());
-    }
-
-    scores.sort_unstable_by_key(|s| Reverse(s.date));
-
-    let pages = numbers::div_euclid(5, scores.len());
-    let mut maps = HashMap::new();
-
-    let data_fut = SnipedDiffEmbed::new(&user, diff, &scores, 0, (1, pages), &mut maps, &ctx);
-
-    let builder = match data_fut.await {
-        Ok(data) => data.into_builder().build().into(),
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(why);
-        }
-    };
-
-    // Creating the embed
-    let response_raw = data.create_message(&ctx, builder).await?;
-
-    // Skip pagination if too few entries
-    if scores.len() <= 5 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    let pagination =
-        SnipedDiffPagination::new(response, user, diff, scores, maps, Arc::clone(&ctx));
-
-    let owner = data.author()?.id;
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
-
-    Ok(())
-}
+use super::{SnipePlayerGain, SnipePlayerLoss};
 
 #[command]
-#[short_desc("Display a user's recently acquired national #1 scores")]
-#[long_desc(
+#[desc("Display a user's recently acquired national #1 scores")]
+#[help(
     "Display a user's national #1 scores that they acquired within the last week.\n\
     All data originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
     website [huismetbenen](https://snipe.huismetbenen.nl/)."
@@ -146,41 +31,28 @@ pub(super) async fn _sniped_diff(
 #[usage("[username]")]
 #[example("badewanne3")]
 #[aliases("sg", "snipegain", "snipesgain")]
-#[bucket("snipe")]
-async fn snipedgain(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            let name = match args.next() {
-                Some(arg) => match check_user_mention(&ctx, arg).await {
-                    Ok(Ok(osu)) => Some(osu.into_username()),
-                    Ok(Err(content)) => return msg.error(&ctx, content).await,
-                    Err(why) => {
-                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+#[group(Osu)]
+async fn prefix_snipedgain(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+    let args = match args.next() {
+        Some(arg) => match matcher::get_mention_user(arg) {
+            Some(id) => SnipePlayerGain {
+                name: None,
+                discord: Some(id),
+            },
+            None => SnipePlayerGain {
+                name: Some(arg.into()),
+                discord: None,
+            },
+        },
+        None => SnipePlayerGain::default(),
+    };
 
-                        return Err(why);
-                    }
-                },
-                None => match ctx.psql().get_user_osu(msg.author.id).await {
-                    Ok(osu) => osu.map(OsuData::into_username),
-                    Err(why) => {
-                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                        return Err(why);
-                    }
-                },
-            };
-
-            let data = CommandData::Message { msg, args, num };
-
-            _sniped_diff(ctx, data, Difference::Gain, name).await
-        }
-        CommandData::Interaction { command } => super::slash_snipe(ctx, *command).await,
-    }
+    player_gain(ctx, msg.into(), args).await
 }
 
 #[command]
-#[short_desc("Display a user's recently lost national #1 scores")]
-#[long_desc(
+#[desc("Display a user's recently lost national #1 scores")]
+#[help(
     "Display a user's national #1 scores that they lost within the last week.\n\
     All data originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
     website [huismetbenen](https://snipe.huismetbenen.nl/)."
@@ -195,36 +67,168 @@ async fn snipedgain(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     "snipelost",
     "snipeslost"
 )]
-#[bucket("snipe")]
-async fn snipedloss(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            let name = match args.next() {
-                Some(arg) => match check_user_mention(&ctx, arg).await {
-                    Ok(Ok(osu)) => Some(osu.into_username()),
-                    Ok(Err(content)) => return msg.error(&ctx, content).await,
-                    Err(why) => {
-                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+#[group(Osu)]
+async fn prefix_snipedloss(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+    let args = match args.next() {
+        Some(arg) => match matcher::get_mention_user(arg) {
+            Some(id) => SnipePlayerLoss {
+                name: None,
+                discord: Some(id),
+            },
+            None => SnipePlayerLoss {
+                name: Some(arg.into()),
+                discord: None,
+            },
+        },
+        None => SnipePlayerLoss::default(),
+    };
 
-                        return Err(why);
-                    }
-                },
-                None => match ctx.psql().get_user_osu(msg.author.id).await {
-                    Ok(osu) => osu.map(OsuData::into_username),
-                    Err(why) => {
-                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+    player_loss(ctx, msg.into(), args).await
+}
 
-                        return Err(why);
-                    }
-                },
-            };
+pub(super) async fn player_gain(
+    ctx: Arc<Context>,
+    orig: CommandOrigin<'_>,
+    args: SnipePlayerGain<'_>,
+) -> BotResult<()> {
+    let name = username!(ctx, orig, args);
 
-            let data = CommandData::Message { msg, args, num };
+    sniped_diff(ctx, orig, Difference::Gain, name).await
+}
 
-            _sniped_diff(ctx, data, Difference::Loss, name).await
+pub(super) async fn player_loss(
+    ctx: Arc<Context>,
+    orig: CommandOrigin<'_>,
+    args: SnipePlayerLoss<'_>,
+) -> BotResult<()> {
+    let name = username!(ctx, orig, args);
+
+    sniped_diff(ctx, orig, Difference::Loss, name).await
+}
+
+async fn sniped_diff(
+    ctx: Arc<Context>,
+    orig: CommandOrigin<'_>,
+    diff: Difference,
+    name: Option<Username>,
+) -> BotResult<()> {
+    let name = match name {
+        Some(name) => name,
+        None => match ctx.psql().get_user_osu(orig.user_id()?).await {
+            Ok(Some(osu)) => osu.into_username(),
+            Ok(None) => return require_link(&ctx, &orig).await,
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(err);
+            }
+        },
+    };
+
+    // Request the user
+    let user_args = UserArgs::new(name.as_str(), GameMode::STD);
+
+    let mut user = match get_user(&ctx, &user_args).await {
+        Ok(user) => user,
+        Err(OsuError::NotFound) => {
+            let content = format!("Could not find user `{name}`");
+
+            return orig.error(&ctx, content).await;
         }
-        CommandData::Interaction { command } => super::slash_snipe(ctx, *command).await,
+        Err(err) => {
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+
+            return Err(err.into());
+        }
+    };
+
+    // Overwrite default mode
+    user.mode = GameMode::STD;
+
+    if !ctx.contains_country(user.country_code.as_str()) {
+        let content = format!(
+            "`{}`'s country {} is not supported :(",
+            user.username, user.country_code
+        );
+
+        return orig.error(&ctx, content).await;
     }
+
+    let client = &ctx.client();
+    let now = Utc::now();
+    let week_ago = now - Duration::weeks(1);
+
+    // Request the scores
+    let scores_fut = match diff {
+        Difference::Gain => client.get_national_snipes(&user, true, week_ago, now),
+        Difference::Loss => client.get_national_snipes(&user, false, week_ago, now),
+    };
+
+    let mut scores = match scores_fut.await {
+        Ok(scores) => scores,
+        Err(err) => {
+            let _ = orig.error(&ctx, HUISMETBENEN_ISSUE).await;
+
+            return Err(err.into());
+        }
+    };
+
+    if scores.is_empty() {
+        let content = format!(
+            "`{name}` didn't {diff} national #1s in the last week.",
+            name = user.username,
+            diff = match diff {
+                Difference::Gain => "gain any new",
+                Difference::Loss => "lose any",
+            }
+        );
+
+        let builder = MessageBuilder::new().embed(content);
+        orig.create_message(&ctx, &builder).await?;
+
+        return Ok(());
+    }
+
+    scores.sort_unstable_by_key(|s| Reverse(s.date));
+
+    let pages = numbers::div_euclid(5, scores.len());
+    let mut maps = HashMap::new();
+
+    let data_fut = SnipedDiffEmbed::new(&user, diff, &scores, 0, (1, pages), &mut maps, &ctx);
+
+    let embed = match data_fut.await {
+        Ok(data) => data.into_builder().build(),
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err);
+        }
+    };
+
+    // Creating the embed
+    let builder = MessageBuilder::new().embed(embed);
+    let response_raw = orig.create_message(&ctx, &builder).await?;
+
+    // Skip pagination if too few entries
+    if scores.len() <= 5 {
+        return Ok(());
+    }
+
+    let response = response_raw.model().await?;
+
+    // Pagination
+    let pagination =
+        SnipedDiffPagination::new(response, user, diff, scores, maps, Arc::clone(&ctx));
+
+    let owner = orig.user_id()?;
+
+    tokio::spawn(async move {
+        if let Err(err) = pagination.start(&ctx, owner, 60).await {
+            warn!("{:?}", Report::new(err));
+        }
+    });
+
+    Ok(())
 }
 
 #[derive(Copy, Clone)]

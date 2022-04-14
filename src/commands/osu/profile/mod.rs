@@ -2,15 +2,23 @@ use std::{borrow::Cow, collections::BTreeMap, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
 use eyre::Report;
-use rosu_v2::prelude::{GameMode, OsuError};
-use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::application::{command::CommandOptionChoice, interaction::ApplicationCommand};
+use rosu_v2::prelude::OsuError;
+use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
+use twilight_model::{
+    application::interaction::ApplicationCommand,
+    id::{marker::UserMarker, Id},
+};
 
 use crate::{
+    commands::GameModeOption,
+    core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, ProfileEmbed},
     pagination::ProfilePagination,
     tracking::process_osu_tracking,
-    util::constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    util::{
+        builder::MessageBuilder, constants::OSU_API_ISSUE, matcher, ApplicationCommandExt,
+        ChannelExt, CowUtils,
+    },
     BotResult, Context,
 };
 
@@ -18,14 +26,11 @@ pub use self::{
     data::{ProfileData, ProfileResult},
     graph::graphs,
     graph::{ProfileGraphFlags, ProfileGraphParams},
-    size::{ProfileEmbedMap, ProfileSize},
+    size::ProfileEmbedMap,
 };
-
-use self::args::ProfileArgs;
 
 use super::{get_user_and_scores, ScoreArgs, UserArgs};
 
-mod args;
 mod data;
 mod graph;
 mod size;
@@ -52,7 +57,7 @@ pub struct Profile<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-#[derive(CommandOption, CreateOption)]
+#[derive(Copy, Clone, CommandOption, CreateOption, Debug, Eq, PartialEq)]
 pub enum ProfileSize {
     #[option(name = "Compact", value = "compact")]
     Compact,
@@ -62,16 +67,50 @@ pub enum ProfileSize {
     Full,
 }
 
-impl Default for ProfileSize {
-    #[inline]
-    fn default() -> Self {
-        Self::Compact
-    }
-}
-
 impl<'m> Profile<'m> {
-    fn args(mode: GameModeOption, args: Args<'_>) -> Result<Self, String> {
-        todo!() // TODO
+    fn args(mode: GameModeOption, args: Args<'m>) -> Result<Self, String> {
+        let mut name = None;
+        let mut discord = None;
+        let mut size = None;
+
+        for arg in args.map(|arg| arg.cow_to_ascii_lowercase()) {
+            if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
+                let key = &arg[..idx];
+                let value = &arg[idx + 1..];
+
+                match key {
+                    "size" => {
+                        size = match value {
+                            "compact" | "small" => Some(ProfileSize::Compact),
+                            "medium" => Some(ProfileSize::Medium),
+                            "full" | "big" => Some(ProfileSize::Full),
+                            _ => {
+                                let content = "Failed to parse `size`. Must be either `compact`, `medium`, or `full`.";
+
+                                return Err(content.to_owned());
+                            }
+                        };
+                    }
+                    _ => {
+                        let content =
+                            format!("Unrecognized option `{key}`.\nAvailable options are: `size`.");
+
+                        return Err(content);
+                    }
+                }
+            } else if let Some(id) = matcher::get_mention_user(&arg) {
+                discord = Some(id);
+            } else {
+                name = Some(arg);
+            }
+        }
+
+        Ok(Self {
+            mode: Some(mode),
+            name,
+            size,
+            discord,
+        })
     }
 }
 
@@ -90,7 +129,11 @@ impl<'m> Profile<'m> {
 async fn prefix_osu(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match Profile::args(GameModeOption::Osu, args) {
         Ok(args) => profile(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -109,7 +152,11 @@ async fn prefix_osu(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResu
 async fn prefix_mania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match Profile::args(GameModeOption::Mania, args) {
         Ok(args) => profile(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -128,7 +175,11 @@ async fn prefix_mania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotRe
 async fn prefix_taiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match Profile::args(GameModeOption::Taiko, args) {
         Ok(args) => profile(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -147,7 +198,11 @@ async fn prefix_taiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotRe
 async fn prefix_ctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match Profile::args(GameModeOption::Catch, args) {
         Ok(args) => profile(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -231,7 +286,7 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
     let mut builder = MessageBuilder::new().embed(embed);
 
     if let Some(bytes) = graph {
-        builder = builder.file("profile_graph.png", bytes);
+        builder = builder.attachment("profile_graph.png", bytes);
     }
 
     let response = orig.create_message(&ctx, &builder).await?.model().await?;

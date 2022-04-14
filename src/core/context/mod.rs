@@ -32,9 +32,15 @@ use crate::{
 
 use super::{buckets::Buckets, cluster::build_cluster, BotStats, Cache, RedisCache};
 
+mod background_loop;
 mod configs;
+mod countries;
+mod games;
 mod map_collect;
 mod matchlive;
+mod messages;
+mod role_assign;
+mod shutdown;
 mod twitch;
 
 pub type Redis = Pool<RedisConnectionManager>;
@@ -48,7 +54,7 @@ pub struct Context {
     pub http: Arc<Client>,
     pub member_requests: MemberRequests,
     pub standby: Standby,
-    pub stats: Arc<BotStats>, // TODO: Rename to Metrics
+    pub stats: Arc<BotStats>,
     // private to avoid deadlocks by messing up references
     data: ContextData,
     clients: Clients,
@@ -56,7 +62,7 @@ pub struct Context {
 
 impl Context {
     pub fn interaction(&self) -> InteractionClient<'_> {
-        self.http.interaction(self.application_id)
+        self.http.interaction(self.data.application_id)
     }
 
     pub fn osu(&self) -> &Osu {
@@ -67,10 +73,17 @@ impl Context {
         &self.clients.psql
     }
 
+    /// Returns the custom client
     pub fn client(&self) -> &CustomClient {
         &self.clients.custom
     }
 
+    /// Return the plain redis connection pool
+    pub fn redis_client(&self) -> &Redis {
+        &self.clients.redis
+    }
+
+    /// Return a redis wrapper with a specific interface
     pub fn redis(&self) -> RedisCache<'_> {
         RedisCache::new(self)
     }
@@ -132,7 +145,7 @@ impl Context {
         let (cluster, events) =
             build_cluster(discord_token, Arc::clone(&http), resume_data).await?;
 
-        Ok(Self {
+        let ctx = Self {
             cache,
             stats,
             http,
@@ -143,7 +156,9 @@ impl Context {
             auth_standby: AuthenticationStandby::default(),
             buckets: Buckets::new(),
             member_requests: MemberRequests::new(tx),
-        })
+        };
+
+        Ok((ctx, events))
     }
 }
 
@@ -162,7 +177,7 @@ impl MemberRequests {
 }
 
 struct Clients {
-    custom: CustomClient, // TODO: Rename to Client
+    custom: CustomClient,
     osu: Osu,
     psql: Database,
     redis: Redis,

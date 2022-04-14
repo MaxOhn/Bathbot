@@ -19,17 +19,6 @@ impl Deref for MapsetTagWrapper {
     }
 }
 
-impl MapsetTagWrapper {
-    pub fn untagged(&self) -> bool {
-        self.tags.is_empty()
-    }
-
-    #[allow(dead_code)]
-    pub fn any(&self) -> bool {
-        !self.tags.is_empty()
-    }
-}
-
 impl From<TagRow> for MapsetTagWrapper {
     fn from(row: TagRow) -> Self {
         let bits = row.farm as u32

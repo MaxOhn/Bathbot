@@ -1,34 +1,28 @@
 use std::sync::Arc;
 
 use command_macros::command;
-use rosu_v2::prelude::{GameMode, OsuError, User, UserCompact};
-use twilight_model::{
-    application::{
-        interaction::{
-            ApplicationCommand,
-        },
-    },
-    id::{marker::UserMarker, Id},
-};
+use rosu_v2::prelude::{OsuError, User, UserCompact};
 
 use crate::{
     commands::{
         osu::{get_user, UserArgs},
+        GameModeOption,
     },
+    core::commands::{prefix::Args, CommandOrigin},
     custom_client::RankParam,
-    database::UserConfig,
     embeds::{EmbedData, RankEmbed},
     tracking::process_osu_tracking,
     util::{
-        constants::{
-            GENERAL_ISSUE, OSU_API_ISSUE, OSU_DAILY_ISSUE,
-        },
-        CountryCode,
+        builder::MessageBuilder,
+        constants::{OSU_API_ISSUE, OSU_DAILY_ISSUE},
+        matcher, ChannelExt, CountryCode,
     },
-    , BotResult,  Context, Error,
+    BotResult, Context,
 };
 
-pub(super) async fn rank(
+use super::RankPp;
+
+pub(super) async fn pp(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: RankPp<'_>,
@@ -42,8 +36,26 @@ pub(super) async fn rank(
         ..
     } = args;
 
+    let country = match country {
+        Some(country) => match CountryCode::from_name(&country) {
+            Some(code) => Some(code),
+            None => {
+                if country.len() == 2 {
+                    Some(CountryCode::from(country))
+                } else {
+                    let content = format!(
+                        "Looks like `{country}` is neither a country name nor a country code"
+                    );
+
+                    return orig.error(&ctx, content).await;
+                }
+            }
+        },
+        None => None,
+    };
+
     if rank == 0 {
-        return data.error(&ctx, "Rank can't be zero :clown:").await;
+        return orig.error(&ctx, "Rank can't be zero :clown:").await;
     } else if rank > 10_000 && country.is_some() {
         let content = "Unfortunately I can only provide data for country ranks up to 10,000 :(";
 
@@ -92,10 +104,7 @@ pub(super) async fn rank(
             rank_holder: Box::new(rank_holder),
         }
     } else {
-        let pp_fut = ctx
-            .clients
-            .custom
-            .get_rank_data(mode, RankParam::Rank(rank));
+        let pp_fut = ctx.client().get_rank_data(mode, RankParam::Rank(rank));
 
         let user_args = UserArgs::new(name.as_str(), mode);
         let user_fut = get_user(&ctx, &user_args);
@@ -163,8 +172,7 @@ pub(super) async fn rank(
     }
 
     // Creating the embed
-    let embed = RankEmbed::new(rank_data, scores, each)
-        .into_builder();
+    let embed = RankEmbed::new(rank_data, scores, each).into_builder();
     let builder = MessageBuilder::new().embed(embed);
     orig.create_message(&ctx, &builder).await?;
 
@@ -182,23 +190,13 @@ pub(super) async fn rank(
 #[alias("reach")]
 #[group(Osu)]
 async fn prefix_rank(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match RankPpArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut rank_args)) => {
-                    rank_args.config.mode.get_or_insert(GameMode::STD);
+    match RankPp::args(GameModeOption::Osu, args) {
+        Ok(args) => pp(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
 
-                    _rank(ctx, CommandData::Message { msg, args, num }, rank_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
+            Ok(())
         }
-        CommandData::Interaction { command } => super::slash_rank(ctx, *command).await,
     }
 }
 
@@ -213,23 +211,13 @@ async fn prefix_rank(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotRes
 #[alias("rankm", "reachmania", "reachm")]
 #[group(Mania)]
 async fn prefix_rankmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match RankPpArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut rank_args)) => {
-                    rank_args.config.mode = Some(GameMode::MNA);
+    match RankPp::args(GameModeOption::Mania, args) {
+        Ok(args) => pp(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
 
-                    _rank(ctx, CommandData::Message { msg, args, num }, rank_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
+            Ok(())
         }
-        CommandData::Interaction { command } => super::slash_rank(ctx, *command).await,
     }
 }
 
@@ -244,23 +232,13 @@ async fn prefix_rankmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> B
 #[alias("rankt", "reachtaiko", "reacht")]
 #[group(Taiko)]
 async fn prefix_ranktaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match RankPpArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut rank_args)) => {
-                    rank_args.config.mode = Some(GameMode::TKO);
+    match RankPp::args(GameModeOption::Taiko, args) {
+        Ok(args) => pp(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
 
-                    _rank(ctx, CommandData::Message { msg, args, num }, rank_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
+            Ok(())
         }
-        CommandData::Interaction { command } => super::slash_rank(ctx, *command).await,
     }
 }
 
@@ -275,23 +253,13 @@ async fn prefix_ranktaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> B
 #[alias("rankc", "reachctb", "reachc")]
 #[group(Catch)]
 async fn prefix_rankctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match RankPpArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut rank_args)) => {
-                    rank_args.config.mode = Some(GameMode::CTB);
+    match RankPp::args(GameModeOption::Catch, args) {
+        Ok(args) => pp(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
 
-                    _rank(ctx, CommandData::Message { msg, args, num }, rank_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
+            Ok(())
         }
-        CommandData::Interaction { command } => super::slash_rank(ctx, *command).await,
     }
 }
 
@@ -336,127 +304,50 @@ impl RankData {
     }
 }
 
-pub(super) struct RankPpArgs {
-    pub config: UserConfig,
-    pub country: Option<CountryCode>,
-    pub rank: usize,
-    pub each: Option<f32>,
-}
-
-impl RankPpArgs {
-    const ERR_PARSE_COUNTRY: &'static str =
-        "Failed to parse `rank`. Provide it either as positive number \
-        or as country acronym followed by a positive number e.g. `be10` \
-        as one of the first two arguments.";
-
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: Id<UserMarker>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(author_id).await?;
+impl<'m> RankPp<'m> {
+    fn args(mode: GameModeOption, args: Args<'m>) -> Result<Self, &'static str> {
+        let mut name = None;
+        let mut discord = None;
         let mut country = None;
         let mut rank = None;
 
         for arg in args.take(2) {
-            match arg.parse() {
-                Ok(num) => rank = Some(num),
-                Err(_) => {
-                    if arg.len() >= 3 {
-                        let (prefix, suffix) = arg.split_at(2);
-                        let valid_country = prefix.chars().all(|c| c.is_ascii_alphabetic());
+            if let Ok(num) = arg.parse() {
+                rank = Some(num);
 
-                        if let (true, Ok(num)) = (valid_country, suffix.parse()) {
-                            country = Some(prefix.to_ascii_uppercase().into());
-                            rank = Some(num);
-                        } else {
-                            match check_user_mention(ctx, arg).await? {
-                                Ok(osu) => config.osu = Some(osu),
-                                Err(content) => return Ok(Err(content)),
-                            }
-                        }
-                    } else {
-                        match check_user_mention(ctx, arg).await? {
-                            Ok(osu) => config.osu = Some(osu),
-                            Err(content) => return Ok(Err(content)),
-                        }
-                    }
+                continue;
+            } else if arg.len() >= 3 {
+                let (prefix, suffix) = arg.split_at(2);
+                let valid_country = prefix.chars().all(|c| c.is_ascii_alphabetic());
+
+                if let (true, Ok(num)) = (valid_country, suffix.parse()) {
+                    country = Some(prefix.to_ascii_uppercase().into());
+                    rank = Some(num);
+
+                    continue;
                 }
             }
-        }
 
-        let rank = match rank {
-            Some(rank) => rank,
-            None => return Ok(Err(Self::ERR_PARSE_COUNTRY.into())),
-        };
-
-        let args = Self {
-            config,
-            country,
-            rank,
-            each: None,
-        };
-
-        Ok(Ok(args))
-    }
-
-    pub(super) async fn slash(
-        ctx: &Context,
-        command: &ApplicationCommand,
-        options: Vec<CommandDataOption>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(command.user_id()?).await?;
-        let mut country = None;
-        let mut rank = None;
-        let mut each = None;
-
-        for option in options {
-            match option.value {
-                CommandOptionValue::String(value) => match option.name.as_str() {
-                    MODE => config.mode = parse_mode_option(&value),
-                    NAME => config.osu = Some(value.into()),
-                    COUNTRY => {
-                        if value.len() == 2 && value.is_ascii() {
-                            country = Some(value.into())
-                        } else if let Some(code) = CountryCode::from_name(value.as_str()) {
-                            country = Some(code);
-                        } else {
-                            let content = format!(
-                                "Failed to parse `{value}` as country.\n\
-                                Be sure to specify a valid country or two ASCII letter country code."
-                            );
-
-                            return Ok(Err(content.into()));
-                        }
-                    }
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::Number(Number(value)) => match option.name.as_str() {
-                    "each" => each = Some(value as f32),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::Integer(value) => match option.name.as_str() {
-                    RANK => rank = Some(value as usize),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::User(value) => match option.name.as_str() {
-                    DISCORD => match parse_discord(ctx, value).await? {
-                        Ok(osu) => config.osu = Some(osu),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
+            if let Some(id) = matcher::get_mention_user(arg) {
+                discord = Some(id);
+            } else {
+                name = Some(arg.into());
             }
         }
 
-        let args = RankPpArgs {
-            rank: rank.ok_or(Error::InvalidCommandOptions)?,
-            config,
-            country,
-            each,
-        };
+        let rank = rank.ok_or(
+            "Failed to parse `rank`. Provide it either as positive number \
+            or as country acronym followed by a positive number e.g. `be10` \
+            as one of the first two arguments.",
+        )?;
 
-        Ok(Ok(args))
+        Ok(Self {
+            rank,
+            mode: Some(mode),
+            name,
+            each: None,
+            country,
+            discord,
+        })
     }
 }

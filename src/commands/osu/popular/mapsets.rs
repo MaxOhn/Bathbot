@@ -5,6 +5,7 @@ use eyre::Report;
 use hashbrown::HashMap;
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{Beatmapset, Username};
+use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     core::Context,
@@ -13,7 +14,7 @@ use crate::{
     pagination::{OsuTrackerMapsetsPagination, Pagination},
     util::{
         constants::{OSUTRACKER_ISSUE, OSU_API_ISSUE},
-        numbers,
+        numbers, builder::MessageBuilder, Authored, ApplicationCommandExt,
     },
     BotResult,
 };

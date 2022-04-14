@@ -1,7 +1,7 @@
+use std::str::FromStr;
+
 use rosu_v2::prelude::{GameMode, Grade};
 use twilight_interactions::command::{CommandOption, CreateOption};
-
-use self::osu::GradeArg;
 
 pub mod fun;
 pub mod help;
@@ -12,7 +12,7 @@ pub mod tracking;
 pub mod twitch;
 pub mod utility;
 
-#[derive(CommandOption, CreateOption)]
+#[derive(Copy, Clone, CommandOption, CreateOption, Eq, PartialEq)]
 pub enum ShowHideOption {
     #[option(name = "Show", value = "show")]
     Show,
@@ -20,7 +20,15 @@ pub enum ShowHideOption {
     Hide,
 }
 
-#[derive(CommandOption, CreateOption)]
+#[derive(Copy, Clone, CommandOption, CreateOption, Eq, PartialEq)]
+pub enum EnableDisable {
+    #[option(name = "Enable", value = "enable")]
+    Enable,
+    #[option(name = "Disable", value = "disable")]
+    Disable,
+}
+
+#[derive(Copy, Clone, CommandOption, CreateOption)]
 pub enum GameModeOption {
     #[option(name = "osu", value = "osu")]
     Osu,
@@ -33,6 +41,7 @@ pub enum GameModeOption {
 }
 
 impl From<GameModeOption> for GameMode {
+    #[inline]
     fn from(mode: GameModeOption) -> Self {
         match mode {
             GameModeOption::Osu => Self::STD,
@@ -61,16 +70,40 @@ pub enum GradeOption {
     F,
 }
 
-impl From<GradeOption> for GradeArg {
+impl From<GradeOption> for Grade {
+    #[inline]
     fn from(grade: GradeOption) -> Self {
         match grade {
-            SS => Self::Single(Grade::SS),
-            S => Self::Single(Grade::S),
-            A => Self::Single(Grade::A),
-            B => Self::Single(Grade::B),
-            C => Self::Single(Grade::C),
-            D => Self::Single(Grade::D),
-            F => Self::Single(Grade::F),
+            GradeOption::SS => Self::X,
+            GradeOption::S => Self::S,
+            GradeOption::A => Self::A,
+            GradeOption::B => Self::B,
+            GradeOption::C => Self::C,
+            GradeOption::D => Self::D,
+            GradeOption::F => Self::F,
         }
+    }
+}
+
+impl FromStr for GradeOption {
+    type Err = &'static str;
+
+    // ! Make sure the given strings are lower case
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let grade = match s {
+            "x" | "ss" => Self::SS,
+            "s" => Self::S,
+            "a" => Self::A,
+            "b" => Self::B,
+            "c" => Self::C,
+            "d" => Self::D,
+            "f" => Self::F,
+            _ => {
+                return Err("Failed to parse `grade`.\n\
+                Valid grades are: `SS`, `S`, `A`, `B`, `C`, `D`, or `F`")
+            }
+        };
+
+        Ok(grade)
     }
 }

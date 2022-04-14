@@ -1,46 +1,40 @@
 use std::{fmt::Write, sync::Arc};
 
-use command_macros::{HasName, SlashCommand};
+use command_macros::{HasMods, HasName, SlashCommand};
 use eyre::Report;
 use rosu_v2::prelude::{
-    GameMode, GameMods, OsuError,
+    GameMods, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
     Score, User,
 };
 use tokio::time::{sleep, Duration};
-use twilight_interactions::command::{CommandOption, CreateCommand};
-use twilight_model::application::{
-    interaction::{
-        ApplicationCommand,
-    },
+use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_model::{
+    application::interaction::ApplicationCommand,
+    id::{marker::UserMarker, Id},
 };
 
 use crate::{
-    commands::{
-        osu::UserArgs,
-    },
-    database::{EmbedsSize, MinimizedPp, UserConfig},
+    commands::{osu::UserArgs, GameModeOption},
+    core::commands::CommandOrigin,
+    database::{EmbedsSize, MinimizedPp},
     embeds::{EmbedData, PinnedEmbed, TopSingleEmbed},
-    error::Error,
     pagination::{Pagination, PinnedPagination},
     util::{
-        constants::{
-            OSU_API_ISSUE,
-        },
-        matcher, numbers,
-        osu::{ModSelection},
-
+        builder::MessageBuilder,
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        numbers,
+        osu::ModSelection,
+        query::{FilterCriteria, Searchable},
+        ApplicationCommandExt, MessageExt,
     },
-    BotResult,  Context,
+    BotResult, Context,
 };
 
-use super::{
-    prepare_scores,
-};
+use super::{prepare_scores, HasMods, ModsResult, ScoreOrder};
 
-
-#[derive(CommandMode, CreateCommand, HasName, SlashCommand)]
-#[¢ommand(name = "pinned")]
+#[derive(CommandModel, CreateCommand, HasMods, HasName, SlashCommand)]
+#[command(name = "pinned")]
 /// Display the user's pinned scores
 pub struct Pinned {
     /// Specify a gamemode
@@ -49,10 +43,12 @@ pub struct Pinned {
     name: Option<String>,
     /// Choose how the scores should be ordered
     sort: Option<ScoreOrder>,
-    #[command(help = "Filter out scores similarly as you filter maps in osu! itself.\n\
+    #[command(
+        help = "Filter out scores similarly as you filter maps in osu! itself.\n\
         You can specify the artist, creator, difficulty, title, or limit values such as \
     ar, cs, hp, od, bpm, length, or stars like for example `fdfd ar>10 od>=9`.\n\
-    While ar & co will be adjusted to mods, stars will not.")]
+    While ar & co will be adjusted to mods, stars will not."
+    )]
     /// Specify a search query containing artist, difficulty, AR, BPM, ...
     query: Option<String>,
     #[command(help = "Filter out all scores that don't match the specified mods.\n\
@@ -70,8 +66,8 @@ pub struct Pinned {
         you can use this option to choose a discord user.\n\
         Only works on users who have used the `/link` command."
     )]
-        /// Specify a linked discord user
-        discord: Option<Id<UserMarker>>,
+    /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
 }
 
 async fn slash_pinned(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
@@ -81,9 +77,10 @@ async fn slash_pinned(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -
 }
 
 async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> BotResult<()> {
-    let mods = match args.mods.map(|mods| matcher::get_mods(&mods)) {
-        Some(Some(mods)) => Some(mods),
-        Some(None) => {
+    let mods = match args.mods() {
+        ModsResult::Mods(mods) => Some(mods),
+        ModsResult::None => None,
+        ModsResult::Invalid => {
             let content = "Failed to parse mods.\n\
                 If you want included mods, specify it e.g. as `+hrdt`.\n\
                 If you want exact mods, specify it e.g. as `+hdhr!`.\n\
@@ -91,7 +88,6 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Bot
 
             return orig.error(&ctx, content).await;
         }
-        None => None,
     };
 
     let (name, mode) = name_mode!(ctx, orig, args);
@@ -159,41 +155,56 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Bot
     // Overwrite default mode
     user.mode = mode;
 
-    // Filter scores according to query
-    filter_scores(&ctx, &mut scores, &args).await;
+    // Filter scores according to query & gather config
+    let filter_fut = filter_scores(&ctx, &mut scores, &args, mods);
+    let config_fut = ctx.user_config(orig.user_id()?);
+
+    let config = match tokio::join!(filter_fut, config_fut) {
+        (_, Ok(config)) => config,
+        (_, Err(err)) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err);
+        }
+    };
 
     if let [score] = &scores[..] {
-        let embeds_size = match (args.config.embeds_size, orig.guild_id()) {
+        let embeds_size = match (config.embeds_size, orig.guild_id()) {
             (Some(size), _) => size,
             (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
             (None, None) => EmbedsSize::default(),
         };
 
-        let minimized_pp = match (args.config.minimized_pp, orig.guild_id()) {
+        let minimized_pp = match (config.minimized_pp, orig.guild_id()) {
             (Some(pp), _) => pp,
             (None, Some(guild)) => ctx.guild_minimized_pp(guild).await,
             (None, None) => MinimizedPp::default(),
         };
 
-        let content = write_content(name, &args, 1);
+        let content = write_content(&name, &args, 1, mods);
         single_embed(ctx, orig, user, score, embeds_size, minimized_pp, content).await?;
     } else {
-        let content = write_content(name, &args, scores.len());
-        let sort_by = args.sort_by.unwrap_or(ScoreOrder::Pp); // TopOrder::Pp does not show anything
+        let content = write_content(&name, &args, scores.len(), mods);
+        let sort_by = args.sort.unwrap_or(ScoreOrder::Pp); // TopOrder::Pp does not show anything
         paginated_embed(ctx, orig, user, scores, sort_by, content).await?;
     }
 
     Ok(())
 }
 
-async fn filter_scores(ctx: &Context, scores: &mut Vec<Score>, args: &PinnedArgs) {
+async fn filter_scores(
+    ctx: &Context,
+    scores: &mut Vec<Score>,
+    args: &Pinned,
+    mods: Option<ModSelection>,
+) {
     if let Some(query) = args.query.as_deref() {
         let criteria = FilterCriteria::new(query);
 
         scores.retain(|score| score.matches(&criteria));
     }
 
-    match args.mods {
+    match mods {
         Some(ModSelection::Include(GameMods::NoMod)) => {
             scores.retain(|score| score.mods.is_empty())
         }
@@ -210,7 +221,7 @@ async fn filter_scores(ctx: &Context, scores: &mut Vec<Score>, args: &PinnedArgs
         None => {}
     }
 
-    if let Some(sort_by) = args.sort_by {
+    if let Some(sort_by) = args.sort {
         sort_by.apply(ctx, scores).await;
     }
 }
@@ -297,7 +308,7 @@ async fn single_embed(
 
                 let builder = embed_data.into_builder().build().into();
 
-                if let Err(why) = response.update_message(&ctx, builder).await {
+                if let Err(why) = response.update(&ctx, &builder).await {
                     let report = Report::new(why).wrap_err("failed to minimize pinned message");
                     warn!("{report:?}");
                 }
@@ -359,10 +370,14 @@ async fn paginated_embed(
     Ok(())
 }
 
-
-fn write_content(name: &str, args: &Pinned, amount: usize) -> Option<String> {
-    if args.query.is_some() || args.mods.is_some() {
-        Some(content_with_condition(args, amount))
+fn write_content(
+    name: &str,
+    args: &Pinned,
+    amount: usize,
+    mods: Option<ModSelection>,
+) -> Option<String> {
+    if args.query.is_some() || mods.is_some() {
+        Some(content_with_condition(args, amount, mods))
     } else if let Some(sort_by) = args.sort {
         let genitive = if name.ends_with('s') { "" } else { "s" };
 
@@ -393,7 +408,7 @@ fn write_content(name: &str, args: &Pinned, amount: usize) -> Option<String> {
     }
 }
 
-fn content_with_condition(args: &Pinned, amount: usize) -> String {
+fn content_with_condition(args: &Pinned, amount: usize, mods: Option<ModSelection>) -> String {
     let mut content = String::with_capacity(64);
 
     match args.sort {
@@ -410,8 +425,7 @@ fn content_with_condition(args: &Pinned, amount: usize) -> String {
         None => {}
     }
 
-    // TODO
-    if let Some(selection) = args.mods {
+    if let Some(selection) = mods {
         if !content.is_empty() {
             content.push_str(" ~ ");
         }

@@ -133,7 +133,7 @@ async fn draw(buf: &mut [u8], params: ProfileGraphParams<'_>) -> GraphResult<boo
         // Request all badge images
         let badges: Vec<_> = badges
             .iter()
-            .map(|badge| ctx.clients.custom.get_badge(&badge.image_url))
+            .map(|badge| ctx.client().get_badge(&badge.image_url))
             .collect::<FuturesUnordered<_>>()
             .try_collect()
             .await?;

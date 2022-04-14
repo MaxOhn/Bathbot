@@ -1,6 +1,6 @@
 use std::{borrow::Cow, cmp::Ordering, fmt::Write, iter, sync::Arc, time::Duration};
 
-use command_macros::{command, SlashCommand};
+use command_macros::{command, HasMods, SlashCommand};
 use enterpolation::{linear::Linear, Curve};
 use eyre::Report;
 use image::{
@@ -29,10 +29,12 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher,
         osu::{map_id_from_history, map_id_from_msg, prepare_beatmap_file, MapIdType},
-        ApplicationCommandExt,
+        ApplicationCommandExt, ChannelExt,
     },
     BotResult, Context, Error,
 };
+
+use super::{HasMods, ModsResult};
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
@@ -69,12 +71,14 @@ pub struct Map<'a> {
     hp: Option<f64>,
 }
 
+#[derive(HasMods)]
 struct MapArgs<'a> {
     map: Option<MapIdType>,
     mods: Option<Cow<'a, str>>,
     attrs: CustomAttrs,
 }
 
+#[derive(Default)]
 pub struct CustomAttrs {
     pub ar: Option<f64>,
     pub cs: Option<f64>,
@@ -177,7 +181,7 @@ impl<'a> TryFrom<Map<'a>> for MapArgs<'a> {
         } = args;
 
         let map = match map
-            .map(|arg| matcher::get_osu_map_id(arg).or_else(|| matcher::get_osu_mapset_id(arg)))
+            .map(|arg| matcher::get_osu_map_id(&arg).or_else(|| matcher::get_osu_mapset_id(&arg)))
         {
             Some(Some(id)) => Some(id),
             Some(None) => {
@@ -211,7 +215,11 @@ impl<'a> TryFrom<Map<'a>> for MapArgs<'a> {
 async fn prefix_map(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match MapArgs::args(msg, args) {
         Ok(args) => map(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -220,7 +228,11 @@ async fn slash_map(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> B
 
     match MapArgs::try_from(args) {
         Ok(args) => map(ctx, command.into(), args).await,
-        Err(content) => command.error(&ctx, content).await,
+        Err(content) => {
+            command.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -228,19 +240,18 @@ const W: u32 = 590;
 const H: u32 = 150;
 
 async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> BotResult<()> {
-    let MapArgs { map, mods, attrs } = args;
-
-    let mods = match mods.map(|mods| matcher::get_mods(&mods)) {
-        Some(Some(mods)) => Some(mods),
-        Some(None) => {
+    let mods = match args.mods() {
+        ModsResult::Mods(mods) => Some(mods),
+        ModsResult::None => None,
+        ModsResult::Invalid => {
             let content =
                 "Failed to parse mods. Be sure to specify a valid abbreviation e.g. `hdhr`.";
 
             return orig.error(&ctx, content).await;
         }
-        None => None,
     };
 
+    let MapArgs { map, attrs, .. } = args;
     let author_id = orig.user_id()?;
 
     let map_id = if let Some(id) = map {
@@ -353,7 +364,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
 
     // Try creating the strain graph for the map
     let bg_fut = async {
-        let bytes = ctx.clients.custom.get_mapset_cover(&mapset.covers).await?;
+        let bytes = ctx.client().get_mapset_cover(&mapset.covers).await?;
 
         Ok::<_, Error>(image::load_from_memory(&bytes)?.thumbnail_exact(W, H))
     };
@@ -406,7 +417,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
     let mut builder = MessageBuilder::new().embed(embed);
 
     let with_thumbnail = if let Some(bytes) = graph {
-        builder = builder.file("map_graph.png", bytes);
+        builder = builder.attachment("map_graph.png", bytes);
 
         false
     } else {

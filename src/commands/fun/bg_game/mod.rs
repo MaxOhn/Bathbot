@@ -1,25 +1,22 @@
-use std::{borrow::Cow, sync::Arc};
+use std::sync::Arc;
 
 use command_macros::{command, SlashCommand};
 use eyre::Report;
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::{
-    application::{
-        component::{
-            button::ButtonStyle, select_menu::SelectMenuOption, ActionRow, Button, Component,
-            SelectMenu,
-        },
-        interaction::ApplicationCommand,
+use twilight_model::application::{
+    component::{
+        button::ButtonStyle, select_menu::SelectMenuOption, ActionRow, Button, Component,
+        SelectMenu,
     },
-    channel::Reaction,
+    interaction::ApplicationCommand,
 };
 
 use crate::{
     games::bg::{Effects, GameState, GameWrapper, MapsetTags},
     util::{
-        builder::MessageBuilder, constants::GENERAL_ISSUE, ApplicationCommandExt, ChannelExt,
-        ComponentExt, CowUtils,
+        builder::MessageBuilder, constants::GENERAL_ISSUE, ApplicationCommandExt, Authored,
+        ChannelExt, CowUtils,
     },
     BotResult, Context,
 };
@@ -41,11 +38,12 @@ mod stop;
 pub async fn prefix_backgroundgame(
     ctx: Arc<Context>,
     msg: &Message,
-    mut args: Args<'_>,
+    args: Args<'_>,
 ) -> BotResult<()> {
-    let args = args.map(|arg| arg.cow_to_ascii_lowercase());
+    let mut args = args.map(|arg| arg.cow_to_ascii_lowercase());
+    let arg = args.next();
 
-    match args.next().map(Cow::as_ref) {
+    match arg.as_ref().map(|arg| arg.as_ref()) {
         None | Some("help") => {
             let content = "Use `/bg` to start a new background guessing game.\n\
                 Given part of a map's background, try to guess the **title** of the map's song.\n\
@@ -69,17 +67,23 @@ pub async fn prefix_backgroundgame(
         Some("h" | "hint") => hint(ctx, msg).await,
         Some("b" | "bigger" | "enhance") => bigger(ctx, msg).await,
         Some("stop") => stop(ctx, msg).await,
-        Some("l" | "leaderboard") => match args.next().map(Cow::as_ref) {
-            Some("s" | "server") => leaderboard(ctx, msg, false).await,
-            _ => leaderboard(ctx, msg, true).await,
-        },
+        Some("l" | "leaderboard") => {
+            let arg = args.next();
+
+            match arg.as_ref().map(|arg| arg.as_ref()) {
+                Some("s" | "server") => leaderboard(ctx, msg, false).await,
+                _ => leaderboard(ctx, msg, true).await,
+            }
+        }
         _ => {
             let prefix = ctx.guild_first_prefix(msg.guild_id).await;
 
             let content =
                 format!("That's not a valid subcommand. Check `{prefix}bg` for more help.");
 
-            msg.error(&ctx, content).await
+            msg.error(&ctx, content).await?;
+
+            Ok(())
         }
     }
 }
@@ -130,7 +134,7 @@ pub enum GameDifficulty {
 }
 
 impl GameDifficulty {
-    pub fn value(self) -> f32 {
+    pub fn factor(self) -> f32 {
         match self {
             GameDifficulty::Normal => 0.5,
             GameDifficulty::Hard => 0.75,
@@ -145,7 +149,7 @@ impl Default for GameDifficulty {
     }
 }
 
-async fn slash_bg(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_bg(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
     if let Some((_, GameState::Running { game })) = ctx.bg_games().remove(&command.channel_id) {
         if let Err(err) = game.stop() {
             let report = Report::new(err).wrap_err("failed to stop game");
@@ -167,7 +171,7 @@ async fn slash_bg(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotRes
                 Only you can use the components below.",
             );
 
-            let builder = MessageBuilder::new().embed(content).components(&components);
+            let builder = MessageBuilder::new().embed(content).components(components);
             command.callback(&ctx, builder, false).await?;
 
             GameState::Setup {
@@ -425,17 +429,4 @@ fn bg_components() -> Vec<Component> {
         Component::ActionRow(effects_row),
         Component::ActionRow(button_row),
     ]
-}
-
-enum ReactionWrapper {
-    Add(Reaction),
-    Remove(Reaction),
-}
-
-impl ReactionWrapper {
-    fn as_deref(&self) -> &Reaction {
-        match self {
-            Self::Add(r) | Self::Remove(r) => r,
-        }
-    }
 }

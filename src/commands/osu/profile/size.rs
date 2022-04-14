@@ -5,12 +5,7 @@ use serde::{
     ser::{Serialize, Serializer},
 };
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum ProfileSize {
-    Compact,
-    Medium,
-    Full,
-}
+use super::ProfileSize;
 
 impl ProfileSize {
     pub fn minimize(&self) -> Option<Self> {

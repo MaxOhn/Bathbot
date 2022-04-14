@@ -5,6 +5,7 @@ use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmapset, GameMode, Score, User};
 
 use crate::{
+    commands::osu::ScoreOrder,
     core::Context,
     embeds::osu,
     pp::PpCalculator,
@@ -13,7 +14,6 @@ use crate::{
         constants::OSU_BASE,
         datetime::how_long_ago_dynamic,
         numbers::with_comma_int,
-        osu::ScoreOrder,
         ScoreExt,
     },
 };

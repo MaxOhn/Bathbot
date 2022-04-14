@@ -8,10 +8,7 @@ use twilight_model::id::{
 };
 
 use super::{
-    constants::{
-        common_literals::{FRUITS, MANIA, OSU, TAIKO},
-        OSU_BASE,
-    },
+    constants::OSU_BASE,
     osu::{MapIdType, ModSelection},
 };
 
@@ -108,10 +105,10 @@ pub fn get_osu_score_id(msg: &str) -> Option<(GameMode, u64)> {
         .and_then(|c| c.get(1).zip(c.get(2)))
         .and_then(|(mode, id)| {
             let mode = match mode.as_str() {
-                OSU => GameMode::STD,
-                TAIKO => GameMode::TKO,
-                FRUITS => GameMode::CTB,
-                MANIA => GameMode::MNA,
+                "osu" => GameMode::STD,
+                "taiko" => GameMode::TKO,
+                "fruits" => GameMode::CTB,
+                "mania" => GameMode::MNA,
                 _ => return None,
             };
 

@@ -4,7 +4,10 @@ use eyre::Report;
 use twilight_model::application::interaction::ApplicationCommandAutocomplete;
 
 use crate::{
-    commands::help::handle_help_autocomplete,
+    commands::{
+        help::handle_help_autocomplete,
+        osu::{handle_badge_autocomplete, handle_medal_autocomplete},
+    },
     core::{events::log_command, Context},
 };
 
@@ -13,12 +16,13 @@ pub async fn handle_autocomplete(
     mut command: Box<ApplicationCommandAutocomplete>,
 ) {
     let name = mem::take(&mut command.data.name);
-    log_command(&ctx, &command, &name);
+    log_command(&ctx, &*command, &name);
     ctx.stats.increment_autocomplete(&name);
 
     let res = match name.as_str() {
         "help" => handle_help_autocomplete(ctx, command).await,
-        // TODO: "badges" & "medal"
+        "badges" => handle_badge_autocomplete(ctx, command).await,
+        "medal" => handle_medal_autocomplete(ctx, command).await,
         _ => return error!("unknown autocomplete command `{name}`"),
     };
 

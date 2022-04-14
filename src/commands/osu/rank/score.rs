@@ -1,30 +1,155 @@
 use std::sync::Arc;
 
 use command_macros::command;
-use rosu_v2::prelude::{GameMode, OsuError};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use rosu_v2::prelude::OsuError;
 
 use crate::{
-    commands::osu::{get_user, UserArgs},
-    database::UserConfig,
-    embeds::{EmbedData, RankRankedScoreEmbed},
-    util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        InteractionExt, MessageExt,
+    commands::{
+        osu::{get_user, UserArgs},
+        GameModeOption,
     },
-    BotResult, Context, Error,
+    core::commands::{prefix::Args, CommandOrigin},
+    embeds::{EmbedData, RankRankedScoreEmbed},
+    util::{builder::MessageBuilder, constants::OSU_API_ISSUE, matcher, ChannelExt},
+    BotResult, Context,
 };
+
+use super::RankScore;
+
+#[command]
+#[desc("How much ranked score is a player missing to reach the given rank?")]
+#[help(
+    "How much score is a player missing to reach the given rank in the ranked score leaderboard?\n\
+    The number for the rank must be between 1 and 10,000."
+)]
+#[usage("[username] [number]")]
+#[example("badewanne3 123")]
+#[alias("rrs")]
+#[group(Osu)]
+async fn prefix_rankrankedscore(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match RankScore::args(GameModeOption::Osu, args) {
+        Ok(args) => score(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("How much ranked score is a player missing to reach the given rank?")]
+#[help(
+    "How much score is a player missing to reach the given rank in the ranked score leaderboard?\n\
+    The number for the rank must be between 1 and 10,000."
+)]
+#[usage("[username] [number]")]
+#[example("badewanne3 123")]
+#[alias("rrsm")]
+#[group(Mania)]
+async fn prefix_rankrankedscoremania(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+) -> BotResult<()> {
+    match RankScore::args(GameModeOption::Mania, args) {
+        Ok(args) => score(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("How much ranked score is a player missing to reach the given rank?")]
+#[help(
+    "How much score is a player missing to reach the given rank in the ranked score leaderboard?\n\
+    The number for the rank must be between 1 and 10,000."
+)]
+#[usage("[username] [number]")]
+#[example("badewanne3 123")]
+#[alias("rrst")]
+#[group(Taiko)]
+async fn prefix_rankrankedscoretaiko(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+) -> BotResult<()> {
+    match RankScore::args(GameModeOption::Taiko, args) {
+        Ok(args) => score(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("How much ranked score is a player missing to reach the given rank?")]
+#[help(
+    "How much score is a player missing to reach the given rank in the ranked score leaderboard?\n\
+    The number for the rank must be between 1 and 10,000."
+)]
+#[usage("[username] [number]")]
+#[example("badewanne3 123")]
+#[alias("rrsc")]
+#[group(Catch)]
+async fn prefix_rankrankedscorectb(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+) -> BotResult<()> {
+    match RankScore::args(GameModeOption::Catch, args) {
+        Ok(args) => score(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+impl<'m> RankScore<'m> {
+    fn args(mode: GameModeOption, args: Args<'m>) -> Result<Self, &'static str> {
+        let mut name = None;
+        let mut discord = None;
+        let mut rank = None;
+
+        for arg in args.take(2) {
+            if let Ok(num) = arg.parse() {
+                rank = Some(num);
+            } else if let Some(id) = matcher::get_mention_user(arg) {
+                discord = Some(id);
+            } else {
+                name = Some(arg.into());
+            }
+        }
+
+        let rank = rank.ok_or(
+            "Failed to parse `rank`. Provide it either as positive number \
+        or as country acronym followed by a positive number e.g. `be10` \
+        as one of the first two arguments.",
+        )?;
+
+        Ok(Self {
+            rank,
+            mode: Some(mode),
+            name,
+            discord,
+        })
+    }
+}
 
 pub(super) async fn score(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: RankScore<'_>,
 ) -> BotResult<()> {
-    let (name, mode) = name_mode!(ctx, orig, args);
     let rank = args.rank;
+    let (name, mode) = name_mode!(ctx, orig, args);
 
     if rank == 0 {
         let content = "Rank number must be between 1 and 10,000";
@@ -73,211 +198,4 @@ pub(super) async fn score(
     orig.create_message(&ctx, &builder).await?;
 
     Ok(())
-}
-
-#[command]
-#[desc("How much ranked score is a player missing to reach the given rank?")]
-#[help(
-    "How much score is a player missing to reach the given rank in the ranked score leaderboard?\n\
-    The number for the rank must be between 1 and 10,000."
-)]
-#[usage("[username] [number]")]
-#[example("badewanne3 123")]
-#[alias("rrs")]
-#[group(Osu)]
-async fn prefix_rankrankedscore(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match RankScoreArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut rank_args)) => {
-                    rank_args.config.mode.get_or_insert(GameMode::STD);
-
-                    _rankscore(ctx, CommandData::Message { msg, args, num }, rank_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_rank(ctx, *command).await,
-    }
-}
-
-#[command]
-#[desc("How much ranked score is a player missing to reach the given rank?")]
-#[help(
-    "How much score is a player missing to reach the given rank in the ranked score leaderboard?\n\
-    The number for the rank must be between 1 and 10,000."
-)]
-#[usage("[username] [number]")]
-#[example("badewanne3 123")]
-#[alias("rrsm")]
-#[group(Mania)]
-async fn prefix_rankrankedscoremania(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match RankScoreArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut rank_args)) => {
-                    rank_args.config.mode = Some(GameMode::MNA);
-
-                    _rankscore(ctx, CommandData::Message { msg, args, num }, rank_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_rank(ctx, *command).await,
-    }
-}
-
-#[command]
-#[desc("How much ranked score is a player missing to reach the given rank?")]
-#[help(
-    "How much score is a player missing to reach the given rank in the ranked score leaderboard?\n\
-    The number for the rank must be between 1 and 10,000."
-)]
-#[usage("[username] [number]")]
-#[example("badewanne3 123")]
-#[alias("rrst")]
-#[group(Taiko)]
-async fn prefix_rankrankedscoretaiko(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match RankScoreArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut rank_args)) => {
-                    rank_args.config.mode = Some(GameMode::TKO);
-
-                    _rankscore(ctx, CommandData::Message { msg, args, num }, rank_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_rank(ctx, *command).await,
-    }
-}
-
-#[command]
-#[desc("How much ranked score is a player missing to reach the given rank?")]
-#[help(
-    "How much score is a player missing to reach the given rank in the ranked score leaderboard?\n\
-    The number for the rank must be between 1 and 10,000."
-)]
-#[usage("[username] [number]")]
-#[example("badewanne3 123")]
-#[alias("rrsc")]
-#[group(Catch)]
-async fn prefix_rankrankedscorectb(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match RankScoreArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut rank_args)) => {
-                    rank_args.config.mode = Some(GameMode::CTB);
-
-                    _rankscore(ctx, CommandData::Message { msg, args, num }, rank_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_rank(ctx, *command).await,
-    }
-}
-
-pub(super) struct RankScoreArgs {
-    pub config: UserConfig,
-    pub rank: usize,
-}
-
-impl RankScoreArgs {
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: Id<UserMarker>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(author_id).await?;
-        let mut rank = None;
-
-        for arg in args.take(2) {
-            match arg.parse() {
-                Ok(num) => rank = Some(num),
-                Err(_) => match check_user_mention(ctx, arg).await? {
-                    Ok(osu) => config.osu = Some(osu),
-                    Err(content) => return Ok(Err(content)),
-                },
-            }
-        }
-
-        let rank = match rank {
-            Some(rank) => rank,
-            None => return Ok(Err("You must specify a target rank".into())),
-        };
-
-        Ok(Ok(Self { config, rank }))
-    }
-
-    pub(super) async fn slash(
-        ctx: &Context,
-        command: &ApplicationCommand,
-        options: Vec<CommandDataOption>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(command.user_id()?).await?;
-        let mut rank = None;
-
-        for option in options {
-            match option.value {
-                CommandOptionValue::String(value) => match option.name.as_str() {
-                    MODE => config.mode = parse_mode_option(&value),
-                    NAME => config.osu = Some(value.into()),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::Integer(value) => {
-                    let number = (option.name == RANK)
-                        .then(|| value)
-                        .ok_or(Error::InvalidCommandOptions)?;
-
-                    rank = Some(number.max(0) as usize);
-                }
-                CommandOptionValue::User(value) => match option.name.as_str() {
-                    DISCORD => match parse_discord(ctx, value).await? {
-                        Ok(osu) => config.osu = Some(osu),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            }
-        }
-
-        let rank = rank.ok_or(Error::InvalidCommandOptions)?;
-
-        Ok(Ok(RankScoreArgs { config, rank }))
-    }
 }

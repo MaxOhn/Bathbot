@@ -1,8 +1,10 @@
 use twilight_model::channel::Message;
 
 use crate::{
-    commands::osu::OsuTrackerCountryDetailsCompact, custom_client::OsuTrackerCountryScore,
-    embeds::OsuTrackerCountryTopEmbed, util::osu::ScoreOrder, BotResult,
+    commands::osu::{OsuTrackerCountryDetailsCompact, ScoreOrder},
+    custom_client::OsuTrackerCountryScore,
+    embeds::OsuTrackerCountryTopEmbed,
+    BotResult,
 };
 
 use super::{Pages, Pagination};

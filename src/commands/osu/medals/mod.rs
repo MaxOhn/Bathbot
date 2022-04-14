@@ -2,20 +2,17 @@ use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{HasName, SlashCommand};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::application::interaction::ApplicationCommand;
-
-use crate::{
-    custom_client::MEDAL_GROUPS,
-    util::{CowUtils, InteractionExt, MessageExt},
-    BotResult, Context, Error,
+use twilight_model::{
+    application::interaction::ApplicationCommand,
+    id::{marker::UserMarker, Id},
 };
+
+use crate::{custom_client::MedalGroup, util::ApplicationCommandExt, BotResult, Context};
 
 pub use self::{
     common::*, list::*, medal::handle_autocomplete as handle_medal_autocomplete, medal::*,
     missing::*, recent::*, stats::*,
 };
-
-use super::require_link;
 
 mod common;
 mod list;
@@ -26,7 +23,7 @@ mod recent;
 // TODO: remove pub
 pub mod stats;
 
-#[derive(CommandModel, CreateCommand)]
+#[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "medal",
     help = "Info about a medal or users' medal progress.\n\
@@ -87,26 +84,26 @@ pub enum MedalCommonOrder {
 
 #[derive(CommandOption, CreateOption)]
 pub enum MedalCommonFilter {
-    // TODO
-// let mut filter_choices = vec![
-//     CommandOptionChoice::String {
-//         name: "None".to_owned(),
-//         value: "none".to_owned(),
-//     },
-//     CommandOptionChoice::String {
-//         name: "Unique".to_owned(),
-//         value: "unique".to_owned(),
-//     },
-// ];
-
-// let filter_iter = MEDAL_GROUPS
-//     .iter()
-//     .map(|group| CommandOptionChoice::String {
-//         name: group.0.to_owned(),
-//         value: group.0.cow_replace(' ', "_").into_owned(),
-//     });
-
-// filter_choices.extend(filter_iter);
+    #[option(name = "None", value = "none")]
+    None,
+    #[option(name = "Unique", value = "unique")]
+    Unique,
+    #[option(name = "Skill", value = "skill")]
+    Skill,
+    #[option(name = "Dedication", value = "dedication")]
+    Dedication,
+    #[option(name = "Hush-Hush", value = "hush_hush")]
+    HushHush,
+    #[option(name = "Beatmap Packs", value = "map_packs")]
+    BeatmapPacks,
+    #[option(name = "Beatmap Challenge Packs", value = "map_challenge_packs")]
+    BeatmapChallengePacks,
+    #[option(name = "Seasonal Spotlights", value = "seasonal_spotlights")]
+    SeasonalSpotlights,
+    #[option(name = "Beatmap Spotlights", value = "map_spotlights")]
+    BeatmapSpotlights,
+    #[option(name = "Mod Introduction", value = "mod_intro")]
+    ModIntroduction,
 }
 
 #[derive(CommandModel, CreateCommand)]
@@ -135,7 +132,7 @@ pub struct MedalList<'a> {
     /// Specify a medal order
     sort: Option<MedalListOrder>,
     /// Only show medals of this group
-    group: Option<MedalListGroup>,
+    group: Option<MedalGroup>,
     /// Reverse the resulting medal list
     reverse: Option<bool>,
     #[command(
@@ -159,16 +156,10 @@ pub enum MedalListOrder {
     Rarity,
 }
 
-#[derive(CommandOption, CreateOption)]
-pub enum MedalListGroup {
-    // TODO
-// let group_choices = MEDAL_GROUPS
-//     .iter()
-//     .map(|group| CommandOptionChoice::String {
-//         name: group.0.to_owned(),
-//         value: group.0.cow_replace(' ', "_").into_owned(),
-//     })
-//     .collect();
+impl Default for MedalListOrder {
+    fn default() -> Self {
+        Self::Date
+    }
 }
 
 #[derive(CommandModel, CreateCommand, Default, HasName)]
@@ -187,7 +178,7 @@ pub struct MedalMissing<'a> {
 }
 
 #[derive(CommandModel, CreateCommand, Default, HasName)]
-#[comand(
+#[command(
     name = "recent",
     help = "Display a recently acquired medal of a user.\n\
     The solution, beatmaps, and comments are provided by [osekai](https://osekai.net/)."

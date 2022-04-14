@@ -128,7 +128,7 @@ dependencies = [
  "twilight-gateway",
  "twilight-http",
  "twilight-interactions",
- "twilight-model 0.10.0",
+ "twilight-model",
  "twilight-standby",
  "twilight-validate",
 ]
@@ -2603,7 +2603,7 @@ dependencies = [
  "dashmap",
  "rkyv",
  "serde",
- "twilight-model 0.10.0",
+ "twilight-model",
 ]
 
 [[package]]
@@ -2625,7 +2625,7 @@ dependencies = [
  "tracing",
  "twilight-gateway-queue",
  "twilight-http",
- "twilight-model 0.10.0",
+ "twilight-model",
  "url",
 ]
 
@@ -2651,7 +2651,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "twilight-http-ratelimiting",
- "twilight-model 0.10.0",
+ "twilight-model",
  "twilight-validate",
 ]
 
@@ -2670,7 +2670,7 @@ name = "twilight-interactions"
 version = "0.10.0"
 dependencies = [
  "twilight-interactions-derive",
- "twilight-model 0.10.1",
+ "twilight-model",
 ]
 
 [[package]]
@@ -2693,19 +2693,6 @@ dependencies = [
  "serde-value",
  "serde_repr",
  "time 0.3.7",
-]
-
-[[package]]
-name = "twilight-model"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "638caa27f669b7c20220460d35c0f89702452726e1547ae634c93e500ff80706"
-dependencies = [
- "bitflags",
- "serde",
- "serde-value",
- "serde_repr",
- "time 0.3.7",
  "tracing",
 ]
 
@@ -2717,7 +2704,7 @@ dependencies = [
  "dashmap",
  "futures-util",
  "tokio",
- "twilight-model 0.10.0",
+ "twilight-model",
 ]
 
 [[package]]
@@ -2725,7 +2712,7 @@ name = "twilight-validate"
 version = "0.10.0"
 source = "git+https://github.com/MaxOhn/twilight?branch=rkyv#35a11a94ccd0d7957dd497e6f3134067a6119d43"
 dependencies = [
- "twilight-model 0.10.0",
+ "twilight-model",
 ]
 
 [[package]]

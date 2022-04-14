@@ -5,6 +5,7 @@ use std::{
 };
 
 use chrono::{Date, DateTime, Duration, Utc};
+use command_macros::command;
 use eyre::Report;
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use itertools::Itertools;
@@ -16,74 +17,69 @@ use plotters::{
     },
     prelude::*,
 };
-use rosu_v2::prelude::{GameMode, OsuError, Username};
+use rosu_v2::prelude::{GameMode, OsuError};
 
 use crate::{
-    commands::{
-        check_user_mention,
-        osu::{get_user, UserArgs},
-    },
+    commands::osu::{get_user, require_link, UserArgs},
+    core::commands::CommandOrigin,
     custom_client::SnipeRecent,
-    database::OsuData,
     embeds::{EmbedData, SnipedEmbed},
     error::GraphError,
     util::{
+        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
-        MessageExt,
+        matcher,
     },
-    BotResult, CommandData, Context, MessageBuilder,
+    BotResult, Context,
 };
 
+use super::SnipePlayerSniped;
+
 #[command]
-#[short_desc("Sniped users of the last 8 weeks")]
-#[long_desc(
+#[desc("Sniped users of the last 8 weeks")]
+#[help(
     "Sniped users of the last 8 weeks.\n\
     All data originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
     website [huismetbenen](https://snipe.huismetbenen.nl/)."
 )]
 #[usage("[username]")]
 #[example("badewanne3")]
-#[aliases("snipes")]
-#[bucket("snipe")]
-async fn sniped(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            let name = match args.next() {
-                Some(arg) => match check_user_mention(&ctx, arg).await {
-                    Ok(Ok(osu)) => Some(osu.into_username()),
-                    Ok(Err(content)) => return msg.error(&ctx, content).await,
-                    Err(why) => {
-                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+#[alias("snipes")]
+#[group(Osu)]
+async fn prefix_sniped(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+    let args = match args.next() {
+        Some(arg) => match matcher::get_mention_user(arg) {
+            Some(id) => SnipePlayerSniped {
+                name: None,
+                discord: Some(id),
+            },
+            None => SnipePlayerSniped {
+                name: Some(arg.into()),
+                discord: None,
+            },
+        },
+        None => SnipePlayerSniped::default(),
+    };
 
-                        return Err(why);
-                    }
-                },
-                None => match ctx.psql().get_user_osu(msg.author.id).await {
-                    Ok(osu) => osu.map(OsuData::into_username),
-                    Err(why) => {
-                        let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                        return Err(why);
-                    }
-                },
-            };
-
-            let data = CommandData::Message { msg, args, num };
-
-            _sniped(ctx, data, name).await
-        }
-        CommandData::Interaction { command } => super::slash_snipe(ctx, *command).await,
-    }
+    player_sniped(ctx, msg.into(), args).await
 }
 
-pub(super) async fn _sniped(
+pub(super) async fn player_sniped(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
-    name: Option<Username>,
+    orig: CommandOrigin<'_>,
+    args: SnipePlayerSniped<'_>,
 ) -> BotResult<()> {
-    let name = match name {
+    let name = match username!(ctx, orig, args) {
         Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
+        None => match ctx.psql().get_user_osu(orig.user_id()?).await {
+            Ok(Some(osu)) => osu.into_username(),
+            Ok(None) => return require_link(&ctx, &orig).await,
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(err);
+            }
+        },
     };
 
     let user_args = UserArgs::new(name.as_str(), GameMode::STD);
@@ -93,10 +89,10 @@ pub(super) async fn _sniped(
         Err(OsuError::NotFound) => {
             let content = format!("Could not find user `{name}`");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         Err(why) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -105,7 +101,7 @@ pub(super) async fn _sniped(
     // Overwrite default mode
     user.mode = GameMode::STD;
 
-    let client = &ctx.clients.custom;
+    let client = &ctx.client();
     let now = Utc::now();
 
     let (sniper, snipee) = if ctx.contains_country(user.country_code.as_str()) {
@@ -118,10 +114,10 @@ pub(super) async fn _sniped(
 
                 (sniper, snipee)
             }
-            Err(why) => {
-                let _ = data.error(&ctx, HUISMETBENEN_ISSUE).await;
+            Err(err) => {
+                let _ = orig.error(&ctx, HUISMETBENEN_ISSUE).await;
 
-                return Err(why.into());
+                return Err(err.into());
             }
         }
     } else {
@@ -130,7 +126,7 @@ pub(super) async fn _sniped(
             user.username, user.country_code
         );
 
-        return data.error(&ctx, content).await;
+        return orig.error(&ctx, content).await;
     };
 
     let graph = match graphs(user.username.as_str(), &sniper, &snipee, W, H) {
@@ -149,10 +145,10 @@ pub(super) async fn _sniped(
     let mut builder = MessageBuilder::new().embed(embed);
 
     if let Some(bytes) = graph {
-        builder = builder.file("sniped_graph.png", bytes);
+        builder = builder.attachment("sniped_graph.png", bytes);
     }
 
-    data.create_message(&ctx, builder).await?;
+    orig.create_message(&ctx, &builder).await?;
 
     Ok(())
 }

@@ -12,14 +12,15 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     util::{
         builder::{AuthorBuilder, EmbedBuilder, MessageBuilder},
-        constants::{OSU_API_ISSUE, OSU_BASE},
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE},
         matcher,
         osu::flag_url,
+        ApplicationCommandExt,
     },
     BotResult, Context,
 };
 
-use super::{get_user, UserArgs};
+use super::{get_user, require_link, UserArgs};
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
 #[command(name = "avatar")]
@@ -74,7 +75,15 @@ impl<'m> Avatar<'m> {
 async fn avatar(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Avatar<'_>) -> BotResult<()> {
     let name = match username!(ctx, orig, args) {
         Some(name) => name,
-        None => return super::require_link(&ctx, &orig).await,
+        None => match ctx.psql().get_user_osu(orig.user_id()?).await {
+            Ok(Some(osu)) => osu.into_username(),
+            Ok(None) => return require_link(&ctx, &orig).await,
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(err);
+            }
+        },
     };
 
     let user_args = UserArgs::new(name.as_str(), GameMode::STD);

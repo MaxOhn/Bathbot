@@ -5,7 +5,7 @@ use rosu_v2::model::GameMode;
 
 use crate::{
     core::commands::CommandOrigin,
-    util::{builder::MessageBuilder, constants::GENERAL_ISSUE},
+    util::{builder::MessageBuilder, constants::GENERAL_ISSUE, ChannelExt},
     BotResult, Context,
 };
 
@@ -31,7 +31,9 @@ async fn prefix_untrackall(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>)
             let content = "If an argument is provided, \
                 it must be either `osu`, `mania`, `taiko`, or `ctb`.";
 
-            return msg.error(&ctx, content).await;
+            msg.error(&ctx, content).await?;
+
+            return Ok(());
         }
     };
 

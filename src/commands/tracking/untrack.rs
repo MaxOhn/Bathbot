@@ -7,10 +7,7 @@ use rosu_v2::prelude::{GameMode, OsuError, Username};
 use crate::{
     core::commands::CommandOrigin,
     embeds::{EmbedData, UntrackEmbed},
-    util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-    },
+    util::{builder::MessageBuilder, constants::OSU_API_ISSUE, ChannelExt},
     BotResult, Context,
 };
 
@@ -28,18 +25,21 @@ use super::TrackArgs;
 #[flags(AUTHORITY, ONLY_GUILDS)]
 #[group(Tracking)]
 async fn prefix_untrack(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TrackArgs::args(&ctx, &mut args, None).await {
-        Ok(Ok(args)) => untrack(ctx, msg.into(), args).await,
-        Ok(Err(content)) => return msg.error(&ctx, content).await,
-        Err(err) => {
-            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+    match TrackArgs::args(None, args).await {
+        Ok(args) => untrack(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
 
-            return Err(err);
+            Ok(())
         }
     }
 }
 
-pub async fn untrack(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TrackArgs) -> BotResult<()> {
+pub(super) async fn untrack(
+    ctx: Arc<Context>,
+    orig: CommandOrigin<'_>,
+    args: TrackArgs,
+) -> BotResult<()> {
     let TrackArgs {
         name,
         mode,

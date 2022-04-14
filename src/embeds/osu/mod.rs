@@ -106,7 +106,7 @@ pub use self::{
     recent::RecentEmbed,
     recent_list::RecentListEmbed,
     scores::ScoresEmbed,
-    simulate::SimulateEmbed,
+    simulate::{SimulateArgs, SimulateEmbed},
     sniped::SnipedEmbed,
     sniped_difference::SnipedDiffEmbed,
     top::{OrderAppendix, TopEmbed},

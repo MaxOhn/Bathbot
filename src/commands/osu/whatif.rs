@@ -2,7 +2,7 @@ use std::{borrow::Cow, cmp::Ordering, iter, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
 use eyre::Report;
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::prelude::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     application::interaction::ApplicationCommand,
@@ -16,6 +16,7 @@ use crate::{
     embeds::{EmbedData, WhatIfEmbed},
     tracking::process_osu_tracking,
     util::{
+        builder::MessageBuilder,
         constants::OSU_API_ISSUE,
         matcher,
         osu::{approx_more_pp, ExtractablePp, PpListUtil},
@@ -24,7 +25,7 @@ use crate::{
     BotResult, Context,
 };
 
-use super::{get_user_and_scores, HasName, ScoreArgs, UserArgs};
+use super::{get_user_and_scores, ScoreArgs, UserArgs};
 
 pub enum WhatIfData {
     NonTop100,
@@ -76,7 +77,7 @@ pub struct WhatIf<'a> {
 }
 
 impl<'m> WhatIf<'m> {
-    fn args(mode: GameMode, mut args: Args<'m>) -> Result<Self, &'static str> {
+    fn args(mode: GameModeOption, args: Args<'m>) -> Result<Self, &'static str> {
         let mut pp = None;
         let mut name = None;
         let mut discord = None;
@@ -95,6 +96,7 @@ impl<'m> WhatIf<'m> {
             pp: pp.ok_or("You must specify a pp value")?,
             mode: Some(mode),
             name,
+            count: None,
             discord,
         })
     }
@@ -111,9 +113,13 @@ impl<'m> WhatIf<'m> {
 #[alias("wi")]
 #[group(Osu)]
 pub async fn prefix_whatif(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match WhatIf::args(GameMode::STD, args) {
+    match WhatIf::args(GameModeOption::Osu, args) {
         Ok(args) => whatif(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -128,9 +134,13 @@ pub async fn prefix_whatif(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> 
 #[alias("wim")]
 #[group(Mania)]
 pub async fn prefix_whatifmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match WhatIf::args(GameMode::MNA, args) {
+    match WhatIf::args(GameModeOption::Mania, args) {
         Ok(args) => whatif(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -145,9 +155,13 @@ pub async fn prefix_whatifmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[alias("wit")]
 #[group(Taiko)]
 pub async fn prefix_whatiftaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match WhatIf::args(GameMode::TKO, args) {
+    match WhatIf::args(GameModeOption::Taiko, args) {
         Ok(args) => whatif(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -162,14 +176,18 @@ pub async fn prefix_whatiftaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[alias("wic")]
 #[group(Catch)]
 pub async fn prefix_whatifctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match WhatIf::args(GameMode::CTB, args) {
+    match WhatIf::args(GameModeOption::Catch, args) {
         Ok(args) => whatif(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
 async fn slash_whatif(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
-    let args = WhatIf::form_interaction(command.input_data())?;
+    let args = WhatIf::from_interaction(command.input_data())?;
 
     whatif(ctx, command.into(), args).await
 }
@@ -215,11 +233,7 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
             .take(count)
             .fold(0.0, |sum, (pp, i)| sum + pp * 0.95_f32.powi(i));
 
-        let rank_result = ctx
-            .clients
-            .custom
-            .get_rank_data(mode, RankParam::Pp(pp))
-            .await;
+        let rank_result = ctx.client().get_rank_data(mode, RankParam::Pp(pp)).await;
 
         let rank = match rank_result {
             Ok(rank_pp) => Some(rank_pp.rank),
@@ -253,8 +267,7 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
         let max_pp = pps.first().copied().unwrap_or(0.0);
 
         let rank_fut = ctx
-            .clients
-            .custom
+            .client()
             .get_rank_data(mode, RankParam::Pp(new_pp + bonus_pp));
 
         let rank = match rank_fut.await {
@@ -278,12 +291,9 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
     };
 
     // Sending the embed
-    let builder = WhatIfEmbed::new(user, pp, whatif_data)
-        .into_builder()
-        .build()
-        .into();
-
-    orig.create_message(&ctx, builder).await?;
+    let embed = WhatIfEmbed::new(user, pp, whatif_data).into_builder();
+    let builder = MessageBuilder::new().embed(embed.build());
+    orig.create_message(&ctx, &builder).await?;
 
     Ok(())
 }

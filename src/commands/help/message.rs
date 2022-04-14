@@ -1,6 +1,8 @@
 use std::{collections::BTreeMap, fmt::Write, sync::Arc, time::Duration};
 
 use command_macros::command;
+use eyre::Report;
+use hashbrown::HashSet;
 use tokio::time::{interval, MissedTickBehavior};
 use twilight_model::{
     channel::{embed::EmbedField, Message},
@@ -9,18 +11,21 @@ use twilight_model::{
 
 use crate::{
     core::{
-        commands::prefix::{PrefixCommand, PrefixCommandGroup, PREFIX_COMMANDS},
+        commands::{
+            checks::check_authority,
+            prefix::{PrefixCommand, PrefixCommandGroup, PREFIX_COMMANDS},
+        },
         Context,
     },
     util::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder},
-        constants::{BATHBOT_WORKSHOP, DESCRIPTION_SIZE, OWNER_USER_ID},
+        constants::{BATHBOT_WORKSHOP, DESCRIPTION_SIZE},
         levenshtein_distance, ChannelExt,
     },
     BotResult,
 };
 
-use super::failed_message_;
+use super::failed_message_content;
 
 #[command]
 #[desc("Display help for prefix commands")]
@@ -39,14 +44,20 @@ async fn prefix_help(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Bo
 }
 
 async fn failed_help(ctx: Arc<Context>, msg: &Message, name: &str) -> BotResult<()> {
+    let mut seen = HashSet::new();
+
     let dists: BTreeMap<_, _> = PREFIX_COMMANDS
-        .collect()
-        .into_iter()
-        .map(|cmd| (levenshtein_distance(name, cmd.name).0, cmd.name))
-        .filter(|(dist, _)| *dist < 3)
+        .iter()
+        .filter(|cmd| seen.insert(cmd.name()))
+        .flat_map(|cmd| cmd.names.iter())
+        .map(|&cmd| (levenshtein_distance(name, cmd).0, cmd))
+        .filter(|(dist, _)| *dist < 4)
         .collect();
 
-    failed_message_(&ctx, msg.channel_id, dists).await
+    let content = failed_message_content(dists);
+    msg.error(&ctx, content).await?;
+
+    Ok(())
 }
 
 async fn command_help(ctx: Arc<Context>, msg: &Message, cmd: &PrefixCommand) -> BotResult<()> {
@@ -234,8 +245,8 @@ macro_rules! send_chunk {
         $interval.tick().await;
 
         if let Err(err) = $msg.create_message(&$ctx, &builder).await {
-            // let report = Report::new(why).wrap_err("error while sending help chunk");
-            // warn!("{:?}", report);
+            let report = Report::new(err).wrap_err("error while sending help chunk");
+            warn!("{report:?}");
             let content = "Could not DM you, perhaps you disabled it?";
             $msg.error(&$ctx, content).await?;
 
@@ -247,17 +258,20 @@ macro_rules! send_chunk {
 async fn dm_help(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     let owner = msg.author.id;
 
-    // TODO: Gather info, maybe concurrent to private channel?
-    let is_authority = true;
+    let authority_fut = check_authority(&ctx, owner, msg.guild_id);
+    let channel_fut = ctx.http.create_private_channel(owner).exec();
 
-    let channel = match ctx.http.create_private_channel(owner).exec().await {
+    let (authority_result, channel_result) = tokio::join!(authority_fut, channel_fut);
+
+    let is_authority = matches!(authority_result, Ok(None));
+
+    let channel = match channel_result {
         Ok(channel_res) => channel_res.model().await?.id,
         Err(err) => {
             let content = "Your DMs seem blocked :(\n\
             Perhaps you disabled incoming messages from other server members?";
-            // let report = Report::new(err).wrap_err("error while creating DM channel");
-            // warn!("{:?}", report);
-
+            let report = Report::new(err).wrap_err("error while creating DM channel");
+            warn!("{report:?}");
             msg.error(&ctx, content).await?;
 
             return Ok(());
@@ -277,8 +291,8 @@ async fn dm_help(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     let _ = writeln!(
         buf,
         "\n{} __**{}**__",
-        PrefixCommandGroup::AllModes.emote(),
-        PrefixCommandGroup::AllModes.name(),
+        curr_group.emote(),
+        curr_group.name(),
     );
 
     let mut size = buf.len();
@@ -289,13 +303,9 @@ async fn dm_help(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
         "description size {size} > {DESCRIPTION_SIZE}",
     );
 
-    let mut cmds = PREFIX_COMMANDS.collect();
+    let mut cmds: Vec<_> = PREFIX_COMMANDS.iter().collect();
 
-    if owner.get() != OWNER_USER_ID {
-        cmds.retain(|c| c.group != PrefixCommandGroup::Owner);
-    }
-
-    cmds.sort_by_key(|cmd| cmd.group);
+    cmds.sort_unstable_by(|a, b| a.group.cmp(&b.group).then_with(|| a.name().cmp(b.name())));
     cmds.dedup_by_key(|cmd| cmd.name());
 
     let mut interval = interval(Duration::from_millis(100));

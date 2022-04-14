@@ -7,22 +7,20 @@ use hashbrown::HashMap;
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::prelude::*;
 use rkyv::{Deserialize, Infallible};
-use rosu_v2::prelude::{GameMode, MedalCompact, OsuError, Username};
+use rosu_v2::prelude::{GameMode, MedalCompact, OsuError};
 
 use crate::{
-    commands::{
-        check_user_mention,
-        osu::{get_user, UserArgs},
-    },
+    commands::osu::{get_user, require_link, UserArgs},
+    core::commands::CommandOrigin,
     custom_client::OsekaiMedal,
-    database::OsuData,
     embeds::{EmbedData, MedalStatsEmbed},
     error::GraphError,
     util::{
+        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
-        MessageExt,
+        matcher,
     },
-    BotResult, CommandData, Context, MessageBuilder,
+    BotResult, Context,
 };
 
 use super::MedalStats;
@@ -58,7 +56,7 @@ pub(super) async fn stats(
 ) -> BotResult<()> {
     let name = match username!(ctx, orig, args) {
         Some(name) => name,
-        None => match ctx.psql().get_osu_user(orig.user_id()?).await {
+        None => match ctx.psql().get_user_osu(orig.user_id()?).await {
             Ok(Some(osu)) => osu.into_username(),
             Ok(None) => return require_link(&ctx, &orig).await,
             Err(err) => {
@@ -119,7 +117,7 @@ pub(super) async fn stats(
     let mut builder = MessageBuilder::new().embed(embed);
 
     if let Some(graph) = graph {
-        builder = builder.file("medal_graph.png", graph);
+        builder = builder.attachment("medal_graph.png", graph);
     }
 
     orig.create_message(&ctx, &builder).await?;

@@ -17,9 +17,10 @@ use crate::{database::TrackingUser, BotResult, Database};
 
 pub use super::{osu_tracking_loop, process_osu_tracking};
 
+pub const OSU_TRACKING_COOLDOWN: f32 = 5000.0; // ms
+
 lazy_static::lazy_static! {
     pub static ref OSU_TRACKING_INTERVAL: Duration = Duration::minutes(120);
-    pub static ref OSU_TRACKING_COOLDOWN: f32 = 5000.0; // ms
 }
 
 type TrackingQueue =
@@ -79,7 +80,7 @@ impl OsuTracking {
             queue: RwLock::new(queue),
             users,
             last_date: RwLock::new(Utc::now()),
-            cooldown: RwLock::new(*OSU_TRACKING_COOLDOWN),
+            cooldown: RwLock::new(OSU_TRACKING_COOLDOWN),
             interval: RwLock::new(*OSU_TRACKING_INTERVAL),
             stop_tracking: AtomicBool::new(false),
         })

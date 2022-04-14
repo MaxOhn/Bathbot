@@ -1,8 +1,6 @@
 use chrono::{DateTime, Utc};
 use prometheus::{IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts, Registry};
 
-use crate::util::constants::common_literals::NAME;
-
 pub struct EventStats {
     pub channel_create: IntCounter,
     pub channel_delete: IntCounter,
@@ -86,13 +84,13 @@ impl BotStats {
         let event_counter = metric_vec!(counter: "gateway_events", "Gateway events", "events");
         let msg_counter = metric_vec!(counter: "messages", "Received messages", "sender_type");
         let message_commands =
-            metric_vec!(counter: "message_commands", "Executed message commands", NAME);
+            metric_vec!(counter: "message_commands", "Executed message commands", "name");
         let slash_commands =
-            metric_vec!(counter: "slash_commands", "Executed slash commands", NAME);
+            metric_vec!(counter: "slash_commands", "Executed slash commands", "name");
         let components =
-            metric_vec!(counter: "components", "Executed interaction components", NAME);
+            metric_vec!(counter: "components", "Executed interaction components", "name");
         let autocompletes =
-            metric_vec!(counter: "autocompletes", "Executed command autocompletes", NAME);
+            metric_vec!(counter: "autocompletes", "Executed command autocompletes", "name");
         let cache_counter = metric_vec!(gauge: "cache", "Cache counts", "cached_type");
 
         let registry = Registry::new_custom(Some(String::from("bathbot")), None).unwrap();

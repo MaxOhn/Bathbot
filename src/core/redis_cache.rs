@@ -35,7 +35,7 @@ impl<'c> RedisCache<'c> {
     pub async fn badges(&self) -> ArchivedResult<Vec<OsekaiBadge>, CustomClientError> {
         let key = "osekai_badges";
 
-        let mut conn = match self.ctx.clients.redis.get().await {
+        let mut conn = match self.ctx.redis_client().get().await {
             Ok(mut conn) => {
                 if let Ok(bytes) = conn.get::<_, Vec<u8>>(key).await {
                     if !bytes.is_empty() {
@@ -52,7 +52,7 @@ impl<'c> RedisCache<'c> {
                 let report = Report::new(err).wrap_err("failed to get redis connection");
                 warn!("{report:?}");
 
-                let badges = self.ctx.clients.custom.get_osekai_badges().await?;
+                let badges = self.ctx.client().get_osekai_badges().await?;
                 let bytes =
                     rkyv::to_bytes::<_, 200_000>(&badges).expect("failed to serialize badges");
 
@@ -60,7 +60,7 @@ impl<'c> RedisCache<'c> {
             }
         };
 
-        let badges = self.ctx.clients.custom.get_osekai_badges().await?;
+        let badges = self.ctx.client().get_osekai_badges().await?;
         let bytes = rkyv::to_bytes::<_, 200_000>(&badges).expect("failed to serialize badges");
         let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), Self::BADGES_SECONDS);
 
@@ -75,7 +75,7 @@ impl<'c> RedisCache<'c> {
     pub async fn medals(&self) -> ArchivedResult<Vec<OsekaiMedal>, CustomClientError> {
         let key = "osekai_medals";
 
-        let mut conn = match self.ctx.clients.redis.get().await {
+        let mut conn = match self.ctx.redis_client().get().await {
             Ok(mut conn) => {
                 if let Ok(bytes) = conn.get::<_, Vec<u8>>(key).await {
                     if !bytes.is_empty() {
@@ -92,7 +92,7 @@ impl<'c> RedisCache<'c> {
                 let report = Report::new(err).wrap_err("failed to get redis connection");
                 warn!("{report:?}");
 
-                let medals = self.ctx.clients.custom.get_osekai_medals().await?;
+                let medals = self.ctx.client().get_osekai_medals().await?;
                 let bytes =
                     rkyv::to_bytes::<_, 80_000>(&medals).expect("failed to serialize medals");
 
@@ -100,7 +100,7 @@ impl<'c> RedisCache<'c> {
             }
         };
 
-        let medals = self.ctx.clients.custom.get_osekai_medals().await?;
+        let medals = self.ctx.client().get_osekai_medals().await?;
         let bytes = rkyv::to_bytes::<_, 80_000>(&medals).expect("failed to serialize medals");
         let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), Self::MEDALS_SECONDS);
 
@@ -115,7 +115,7 @@ impl<'c> RedisCache<'c> {
     pub async fn osutracker_stats(&self) -> ArchivedResult<OsuTrackerStats, CustomClientError> {
         let key = "osutracker_stats";
 
-        let mut conn = match self.ctx.clients.redis.get().await {
+        let mut conn = match self.ctx.redis_client().get().await {
             Ok(mut conn) => {
                 if let Ok(bytes) = conn.get::<_, Vec<u8>>(key).await {
                     if !bytes.is_empty() {
@@ -132,7 +132,7 @@ impl<'c> RedisCache<'c> {
                 let report = Report::new(err).wrap_err("failed to get redis connection");
                 warn!("{report:?}");
 
-                let stats = self.ctx.clients.custom.get_osutracker_stats().await?;
+                let stats = self.ctx.client().get_osutracker_stats().await?;
                 let bytes = rkyv::to_bytes::<_, 190_000>(&stats)
                     .expect("failed to serialize osutracker stats");
 
@@ -140,7 +140,7 @@ impl<'c> RedisCache<'c> {
             }
         };
 
-        let stats = self.ctx.clients.custom.get_osutracker_stats().await?;
+        let stats = self.ctx.client().get_osutracker_stats().await?;
         let bytes =
             rkyv::to_bytes::<_, 190_000>(&stats).expect("failed to serialize osutracker stats");
         let set_fut =
@@ -157,7 +157,7 @@ impl<'c> RedisCache<'c> {
     pub async fn osu_user(&self, args: &UserArgs<'_>) -> OsuResult<User> {
         let key = format!("__{}_{}", args.name, args.mode as u8);
 
-        let mut conn = match self.ctx.clients.redis.get().await {
+        let mut conn = match self.ctx.redis_client().get().await {
             Ok(mut conn) => {
                 if let Ok(bytes) = conn.get::<_, Vec<u8>>(&key).await {
                     if !bytes.is_empty() {

@@ -1,4 +1,3 @@
-// TODO: Remove BotConfig re-export?
 pub use self::{
     cache::{Cache, CacheMiss},
     config::{BotConfig, CONFIG},

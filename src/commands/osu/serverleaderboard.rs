@@ -10,7 +10,7 @@ use crate::{
     database::UserStatsColumn,
     embeds::{EmbedData, RankingEmbed, RankingKindData},
     pagination::{Pagination, RankingPagination},
-    util::{constants::GENERAL_ISSUE, numbers, ApplicationCommandExt},
+    util::{constants::GENERAL_ISSUE, numbers, ApplicationCommandExt, Authored},
     BotResult, Context,
 };
 
@@ -96,7 +96,7 @@ impl From<ServerLeaderboardAllModesKind> for UserStatsColumn {
             ServerLeaderboardAllModesKind::LovedMapsets => Self::LovedMapsets,
             ServerLeaderboardAllModesKind::MappingFollowers => Self::MappingFollowers,
             ServerLeaderboardAllModesKind::Medals => Self::Medals,
-            ServerLeaderboardAllModesKind::Namechanges => Self::Namechanges,
+            ServerLeaderboardAllModesKind::Namechanges => Self::Usernames,
             ServerLeaderboardAllModesKind::PlayedMaps => Self::PlayedMaps,
             ServerLeaderboardAllModesKind::RankedMapsets => Self::RankedMapsets,
         }
@@ -187,25 +187,25 @@ impl ServerLeaderboardModeKind {
             Self::CountSh => UserStatsColumn::CountSh { mode },
             Self::CountS => UserStatsColumn::CountS { mode },
             Self::CountA => UserStatsColumn::CountA { mode },
-            Self::CountryRank => UserStatsColumn::CountryRank { mode },
+            Self::CountryRank => UserStatsColumn::RankCountry { mode },
             Self::GlobalFirsts => UserStatsColumn::ScoresFirst { mode },
-            Self::GlobalRank => UserStatsColumn::GlobalRank { mode },
+            Self::GlobalRank => UserStatsColumn::RankGlobal { mode },
             Self::Level => UserStatsColumn::Level { mode },
             Self::MaxCombo => UserStatsColumn::MaxCombo { mode },
             Self::Playcount => UserStatsColumn::Playcount { mode },
             Self::Playtime => UserStatsColumn::Playtime { mode },
             Self::Pp => UserStatsColumn::Pp { mode },
-            Self::RankedScore => UserStatsColumn::RankedScore { mode },
+            Self::RankedScore => UserStatsColumn::ScoreRanked { mode },
             Self::ReplaysWatched => UserStatsColumn::Replays { mode },
             Self::TotalHits => UserStatsColumn::TotalHits { mode },
-            Self::TotalScore => UserStatsColumn::TotalScore { mode },
+            Self::TotalScore => UserStatsColumn::ScoreTotal { mode },
         }
     }
 }
 
 async fn slash_serverleaderboard(
     ctx: Arc<Context>,
-    mut command: ApplicationCommand,
+    mut command: Box<ApplicationCommand>,
 ) -> BotResult<()> {
     let args = ServerLeaderboard::from_interaction(command.input_data())?;
 
@@ -275,7 +275,7 @@ async fn slash_serverleaderboard(
     // Creating the embed
     let embed_data = RankingEmbed::new(&leaderboard, &data, author_idx, (1, pages));
     let builder = embed_data.into_builder().build().into();
-    let response_raw = command.create_message(&ctx, builder).await?;
+    let response_raw = command.update(&ctx, &builder).await?;
 
     if total <= 20 {
         return Ok(());

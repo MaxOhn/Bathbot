@@ -2,9 +2,12 @@ use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{HasName, SlashCommand};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::application::interaction::ApplicationCommand;
+use twilight_model::{
+    application::interaction::ApplicationCommand,
+    id::{marker::UserMarker, Id},
+};
 
-use crate::{BotResult, Context, Error};
+use crate::{commands::GameModeOption, util::ApplicationCommandExt, BotResult, Context};
 
 pub use self::{pp::*, score::*};
 
@@ -27,7 +30,7 @@ pub enum Rank<'a> {
 pub struct RankPp<'a> {
     #[command(min_value = 1)]
     /// Specify the target rank
-    rank: u32,
+    rank: usize,
     /// Specify a gamemode
     mode: Option<GameModeOption>,
     /// Specify a username
@@ -52,7 +55,7 @@ pub struct RankPp<'a> {
 pub struct RankScore<'a> {
     #[command(min_value = 1)]
     /// Specify the target rank
-    rank: u32,
+    rank: usize,
     /// Specify a gamemode
     mode: Option<GameModeOption>,
     /// Specify a username

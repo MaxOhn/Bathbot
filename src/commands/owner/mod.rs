@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{atomic::Ordering, Arc};
 
 use command_macros::SlashCommand;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -6,7 +6,7 @@ use twilight_model::{application::interaction::ApplicationCommand, channel::Atta
 
 use crate::{
     tracking::{OSU_TRACKING_COOLDOWN, OSU_TRACKING_INTERVAL},
-    util::ApplicationCommandExt,
+    util::{builder::MessageBuilder, ApplicationCommandExt},
     BotResult, Context,
 };
 
@@ -115,11 +115,24 @@ async fn slash_owner(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) ->
             trackingcooldown(ctx, command, ms).await
         }
         Owner::Tracking(OwnerTracking::Interval(interval)) => {
-            let secs = interval.number.unwrap_or(OSU_TRACKING_INTERVAL);
+            let secs = interval
+                .number
+                .unwrap_or(OSU_TRACKING_INTERVAL.num_seconds());
 
             trackinginterval(ctx, command, secs).await
         }
         Owner::Tracking(OwnerTracking::Stats(_)) => trackingstats(ctx, command).await,
-        Owner::Tracking(OwnerTracking::Toggle(_)) => todo!(),
+        Owner::Tracking(OwnerTracking::Toggle(_)) => {
+            ctx.tracking()
+                .stop_tracking
+                .fetch_nand(true, Ordering::SeqCst);
+
+            let current = ctx.tracking().stop_tracking.load(Ordering::Acquire);
+            let content = format!("Tracking toggle: {current} -> {}", !current);
+            let builder = MessageBuilder::new().embed(content);
+            command.callback(&ctx, builder, false).await?;
+
+            Ok(())
+        }
     }
 }

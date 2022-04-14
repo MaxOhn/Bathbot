@@ -1,63 +1,231 @@
-use std::{fmt::Write, sync::Arc};
+use std::{borrow::Cow, fmt::Write, sync::Arc};
 
+use command_macros::command;
 use eyre::Report;
 use rosu_v2::prelude::{GameMode, Grade, OsuError};
-use twilight_model::{
-    application::interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
-    },
-    id::{marker::UserMarker, Id},
-};
 
 use crate::{
     commands::{
-        check_user_mention,
-        osu::{get_user_and_scores, ScoreArgs, UserArgs},
-        parse_discord, parse_mode_option, DoubleResultCow,
+        osu::{get_user_and_scores, HasMods, ModsResult, ScoreArgs, UserArgs},
+        GameModeOption, GradeOption,
     },
-    database::UserConfig,
+    core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, RecentListEmbed},
-    error::Error,
     pagination::{Pagination, RecentListPagination},
     util::{
-        constants::{
-            common_literals::{DISCORD, GRADE, MODE, MODS, NAME},
-            GENERAL_ISSUE, OSU_API_ISSUE,
-        },
+        builder::MessageBuilder,
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher, numbers,
         osu::ModSelection,
-        FilterCriteria, InteractionExt, MessageBuilder, MessageExt, Searchable,
+        query::{FilterCriteria, Searchable},
+        ChannelExt, CowUtils,
     },
-    Args, BotResult, CommandData, Context,
+    BotResult, Context,
 };
 
-use super::GradeArg;
+use super::RecentList;
 
-pub(super) async fn _recentlist(
+#[command]
+#[desc("Display a list of a user's most recent plays")]
+#[help(
+    "Display a list of a user's most recent plays.\n\
+    To filter all fails, you can specify `pass=true`.\n\
+    To filter specific grades, you can specify `grade=...`.\n\
+    Available grades are `SS`, `S`, `A`, `B`, `C`, `D`, or `F`."
+)]
+#[usage("[username]")]
+#[example("badewanne3")]
+#[alias("rl")]
+#[group(Osu)]
+async fn prefix_recentlist(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match RecentList::args(GameModeOption::Osu, args) {
+        Ok(args) => list(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("Display a list of a user's most recent mania plays")]
+#[help(
+    "Display a list of a user's most recent mania plays.\n\
+    To filter all fails, you can specify `pass=true`.\n\
+    To filter specific grades, you can specify `grade=...`.\n\
+    Available grades are `SS`, `S`, `A`, `B`, `C`, `D`, or `F`."
+)]
+#[usage("[username]")]
+#[example("badewanne3")]
+#[alias("rlm")]
+#[group(Mania)]
+async fn prefix_recentlistmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match RecentList::args(GameModeOption::Mania, args) {
+        Ok(args) => list(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("Display a list of a user's most recent taiko plays")]
+#[help(
+    "Display a list of a user's most recent taiko plays.\n\
+    To filter all fails, you can specify `pass=true`.\n\
+    To filter specific grades, you can specify `grade=...`.\n\
+    Available grades are `SS`, `S`, `A`, `B`, `C`, `D`, or `F`."
+)]
+#[usage("[username]")]
+#[example("badewanne3")]
+#[alias("rlt")]
+#[group(Taiko)]
+async fn prefix_recentlisttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match RecentList::args(GameModeOption::Taiko, args) {
+        Ok(args) => list(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("Display a list of a user's most recent ctb plays")]
+#[help(
+    "Display a list of a user's most recent ctb plays.\n\
+    To filter all fails, you can specify `pass=true`.\n\
+    To filter specific grades, you can specify `grade=...`.\n\
+    Available grades are `SS`, `S`, `A`, `B`, `C`, `D`, or `F`."
+)]
+#[usage("[username]")]
+#[example("badewanne3")]
+#[alias("rlc")]
+#[group(Catch)]
+async fn prefix_recentlistctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match RecentList::args(GameModeOption::Catch, args) {
+        Ok(args) => list(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+impl<'m> RecentList<'m> {
+    fn args(mode: GameModeOption, args: Args<'m>) -> Result<Self, Cow<'static, str>> {
+        let mut name = None;
+        let mut discord = None;
+        let mut grade = None;
+        let mut passes = None;
+
+        for arg in args.take(3).map(|arg| arg.cow_to_ascii_lowercase()) {
+            if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
+                let key = &arg[..idx];
+                let value = arg[idx + 1..].trim_end();
+
+                match key {
+                    "pass" | "p" | "passes" => match value {
+                        "true" | "t" | "1" => passes = Some(true),
+                        "false" | "f" | "0" => passes = Some(false),
+                        _ => {
+                            let content =
+                                "Failed to parse `pass`. Must be either `true` or `false`.";
+
+                            return Err(content.into());
+                        }
+                    },
+                    "fail" | "fails" | "f" => match value {
+                        "true" | "t" | "1" => passes = Some(false),
+                        "false" | "f" | "0" => passes = Some(true),
+                        _ => {
+                            let content =
+                                "Failed to parse `fail`. Must be either `true` or `false`.";
+
+                            return Err(content.into());
+                        }
+                    },
+                    "grade" | "g" => match value.parse::<GradeOption>() {
+                        Ok(grade_) => grade = Some(grade_),
+                        Err(content) => return Err(content.into()),
+                    },
+                    _ => {
+                        let content = format!(
+                            "Unrecognized option `{key}`.\n\
+                            Available options are: `grade` or `pass`."
+                        );
+
+                        return Err(content.into());
+                    }
+                }
+            } else if let Some(id) = matcher::get_mention_user(&arg) {
+                discord = Some(id);
+            } else {
+                name = Some(arg);
+            }
+        }
+
+        if passes.is_some() {
+            grade = None;
+        }
+
+        Ok(Self {
+            mode: Some(mode),
+            name,
+            query: None,
+            grade,
+            passes,
+            mods: None,
+            discord,
+        })
+    }
+}
+
+pub(super) async fn list(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
-    args: RecentListArgs,
+    orig: CommandOrigin<'_>,
+    args: RecentList<'_>,
 ) -> BotResult<()> {
-    let RecentListArgs {
-        config,
-        grade,
-        mods,
+    let mods = match args.mods() {
+        ModsResult::Mods(mods) => Some(mods),
+        ModsResult::None => None,
+        ModsResult::Invalid => {
+            let content = "Failed to parse mods.\n\
+            If you want included mods, specify it e.g. as `+hrdt`.\n\
+            If you want exact mods, specify it e.g. as `+hdhr!`.\n\
+            And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
+
+            return orig.error(&ctx, content).await;
+        }
+    };
+
+    let (name, mode) = name_mode!(ctx, orig, args);
+
+    let RecentList {
         query,
+        grade,
+        passes,
+        ..
     } = args;
 
-    let mode = config.mode.unwrap_or(GameMode::STD);
-
-    let name = match config.into_username() {
-        Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
-    };
+    let grade = grade.map(Grade::from);
 
     // Retrieve the user and their recent scores
     let user_args = UserArgs::new(name.as_str(), mode);
 
+    let include_fails = match (grade, passes) {
+        (_, Some(passes)) => !passes,
+        (Some(Grade::F), _) | (None, None) => true,
+        _ => false,
+    };
+
     let score_args = ScoreArgs::recent(100)
-        .include_fails(grade.map_or(true, |g| g.include_fails()))
+        .include_fails(include_fails)
         .with_combo();
 
     let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
@@ -72,16 +240,16 @@ pub(super) async fn _recentlist(
                 },
             );
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
             let content = format!("User `{name}` was not found");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         Err(err) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(err.into());
         }
@@ -90,12 +258,12 @@ pub(super) async fn _recentlist(
     // Overwrite default mode
     user.mode = mode;
 
-    match grade {
-        Some(GradeArg::Single(grade)) => scores.retain(|score| score.grade == grade),
-        Some(GradeArg::Range { bot, top }) => {
-            scores.retain(|score| (bot..=top).contains(&score.grade))
-        }
-        None => {}
+    if let Some(grade) = grade {
+        scores.retain(|score| score.grade.eq_letter(grade));
+    } else if let Some(true) = passes {
+        scores.retain(|score| score.grade != Grade::F);
+    } else if let Some(false) = passes {
+        scores.retain(|score| score.grade == Grade::F);
     }
 
     match mods {
@@ -118,21 +286,21 @@ pub(super) async fn _recentlist(
 
     let embed = match RecentListEmbed::new(&user, scores_iter, &ctx, (1, pages)).await {
         Ok(data) => data.into_builder().build(),
-        Err(why) => {
-            let _ = data.error(&ctx, GENERAL_ISSUE).await;
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(why);
+            return Err(err);
         }
     };
 
     // Creating the embed
-    let mut builder = MessageBuilder::from(embed);
+    let mut builder = MessageBuilder::new().embed(embed);
 
     if let Some(content) = message_content(grade, mods, query) {
         builder = builder.content(content);
     }
 
-    let response_raw = data.create_message(&ctx, builder).await?;
+    let response_raw = orig.create_message(&ctx, &builder).await?;
 
     // Skip pagination if too few entries
     if scores.len() <= 10 {
@@ -143,7 +311,7 @@ pub(super) async fn _recentlist(
 
     // Pagination
     let pagination = RecentListPagination::new(response, user, scores, Arc::clone(&ctx));
-    let owner = data.author()?.id;
+    let owner = orig.user_id()?;
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {
@@ -155,20 +323,14 @@ pub(super) async fn _recentlist(
 }
 
 fn message_content(
-    grade: Option<GradeArg>,
+    grade: Option<Grade>,
     mods: Option<ModSelection>,
     query: Option<String>,
 ) -> Option<String> {
     let mut content = String::new();
 
-    match grade {
-        Some(GradeArg::Single(grade)) => {
-            let _ = write!(content, "`Grade: {grade}`");
-        }
-        Some(GradeArg::Range { bot, top }) => {
-            let _ = write!(content, "`Grade: {bot} - {top}`");
-        }
-        None => {}
+    if let Some(grade) = grade {
+        let _ = write!(content, "`Grade: {grade}`");
     }
 
     if let Some(selection) = mods {
@@ -194,363 +356,4 @@ fn message_content(
     }
 
     (!content.is_empty()).then(|| content)
-}
-
-#[command]
-#[short_desc("Display a list of a user's most recent plays")]
-#[long_desc(
-    "Display a list of a user's most recent plays.\n\
-    To filter all fails, you can specify `pass=true`.\n\
-    To filter specific grades, you can specify `grade=...` where you can provide \
-    either a single grade or a grade *range*.\n\
-    Ranges can be specified like\n\
-    - `a..b` e.g. `C..SH` to only keep scores with grades between C and SH\n\
-    - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
-    - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
-    Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`."
-)]
-#[usage("[username]")]
-#[example("badewanne3")]
-#[aliases("rl")]
-pub async fn recentlist(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match RecentListArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut recent_args)) => {
-                    recent_args.config.mode.get_or_insert(GameMode::STD);
-
-                    _recentlist(ctx, CommandData::Message { msg, args, num }, recent_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("Display a list of a user's most recent mania plays")]
-#[long_desc(
-    "Display a list of a user's most recent mania plays.\n\
-    To filter all fails, you can specify `pass=true`.\n\
-    To filter specific grades, you can specify `grade=...` where you can provide \
-    either a single grade or a grade *range*.\n\
-    Ranges can be specified like\n\
-    - `a..b` e.g. `C..SH` to only keep scores with grades between C and SH\n\
-    - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
-    - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
-    Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`."
-)]
-#[usage("[username]")]
-#[example("badewanne3")]
-#[aliases("rlm")]
-pub async fn recentlistmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match RecentListArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut recent_args)) => {
-                    recent_args.config.mode = Some(GameMode::MNA);
-
-                    _recentlist(ctx, CommandData::Message { msg, args, num }, recent_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("Display a list of a user's most recent taiko plays")]
-#[long_desc(
-    "Display a list of a user's most recent taiko plays.\n\
-    To filter all fails, you can specify `pass=true`.\n\
-    To filter specific grades, you can specify `grade=...` where you can provide \
-    either a single grade or a grade *range*.\n\
-    Ranges can be specified like\n\
-    - `a..b` e.g. `C..SH` to only keep scores with grades between C and SH\n\
-    - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
-    - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
-    Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`."
-)]
-#[usage("[username]")]
-#[example("badewanne3")]
-#[aliases("rlt")]
-pub async fn recentlisttaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match RecentListArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut recent_args)) => {
-                    recent_args.config.mode = Some(GameMode::TKO);
-
-                    _recentlist(ctx, CommandData::Message { msg, args, num }, recent_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("Display a list of a user's most recent ctb plays")]
-#[long_desc(
-    "Display a list of a user's most recent ctb plays.\n\
-    To filter all fails, you can specify `pass=true`.\n\
-    To filter specific grades, you can specify `grade=...` where you can provide \
-    either a single grade or a grade *range*.\n\
-    Ranges can be specified like\n\
-    - `a..b` e.g. `C..SH` to only keep scores with grades between C and SH\n\
-    - `a..` e.g. `C..` to only keep scores with grade C or higher\n\
-    - `..b` e.g. `..C` to only keep scores that have at most grade C\n\
-    Available grades are `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`."
-)]
-#[usage("[username]")]
-#[example("badewanne3")]
-#[aliases("rlc")]
-pub async fn recentlistctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match RecentListArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut recent_args)) => {
-                    recent_args.config.mode = Some(GameMode::CTB);
-
-                    _recentlist(ctx, CommandData::Message { msg, args, num }, recent_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_recent(ctx, *command).await,
-    }
-}
-
-pub(super) struct RecentListArgs {
-    pub config: UserConfig,
-    pub grade: Option<GradeArg>,
-    pub mods: Option<ModSelection>,
-    query: Option<String>,
-}
-
-impl RecentListArgs {
-    const ERR_PARSE_GRADE: &'static str = "Failed to parse `grade`.\n\
-        Must be either a single grade or two grades of the form `a..b` e.g. `C..S`.\n\
-        Valid grades are: `SSH`, `SS`, `SH`, `S`, `A`, `B`, `C`, `D`, or `F`";
-
-    const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
-        If you want included mods, specify it e.g. as `+hrdt`.\n\
-        If you want exact mods, specify it e.g. as `+hdhr!`.\n\
-        And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
-
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: Id<UserMarker>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(author_id).await?;
-        let mut grade = None;
-        let mut passes = None;
-
-        for arg in args.take(3) {
-            if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
-                let key = &arg[..idx];
-                let value = arg[idx + 1..].trim_end();
-
-                match key {
-                    "pass" | "p" | "passes" => match value {
-                        "true" | "t" | "1" => passes = Some(true),
-                        "false" | "f" | "0" => passes = Some(false),
-                        _ => {
-                            let content =
-                                "Failed to parse `pass`. Must be either `true` or `false`.";
-
-                            return Ok(Err(content.into()));
-                        }
-                    },
-                    "fail" | "fails" | "f" => match value {
-                        "true" | "t" | "1" => passes = Some(false),
-                        "false" | "f" | "0" => passes = Some(true),
-                        _ => {
-                            let content =
-                                "Failed to parse `fail`. Must be either `true` or `false`.";
-
-                            return Ok(Err(content.into()));
-                        }
-                    },
-                    GRADE | "g" => match value.find("..") {
-                        Some(idx) => {
-                            let bot = &value[..idx];
-                            let top = &value[idx + 2..];
-
-                            let min = if bot.is_empty() {
-                                Grade::XH
-                            } else if let Ok(grade) = bot.parse() {
-                                grade
-                            } else {
-                                return Ok(Err(Self::ERR_PARSE_GRADE.into()));
-                            };
-
-                            let max = if top.is_empty() {
-                                Grade::D
-                            } else if let Ok(grade) = top.parse() {
-                                grade
-                            } else {
-                                return Ok(Err(Self::ERR_PARSE_GRADE.into()));
-                            };
-
-                            let bot = if min < max { min } else { max };
-                            let top = if min > max { min } else { max };
-
-                            grade = Some(GradeArg::Range { bot, top })
-                        }
-                        None => match value.parse().map(GradeArg::Single) {
-                            Ok(grade_) => grade = Some(grade_),
-                            Err(_) => return Ok(Err(Self::ERR_PARSE_GRADE.into())),
-                        },
-                    },
-                    _ => {
-                        let content = format!(
-                            "Unrecognized option `{key}`.\n\
-                            Available options are: `grade` or `pass`."
-                        );
-
-                        return Ok(Err(content.into()));
-                    }
-                }
-            } else {
-                match check_user_mention(ctx, arg).await? {
-                    Ok(osu) => config.osu = Some(osu),
-                    Err(content) => return Ok(Err(content)),
-                }
-            }
-        }
-
-        grade = match passes {
-            Some(true) => match grade {
-                Some(GradeArg::Single(Grade::F)) => None,
-                Some(GradeArg::Single(_)) => grade,
-                Some(GradeArg::Range { bot, top }) => match (bot, top) {
-                    (Grade::F, Grade::F) => None,
-                    (Grade::F, _) => Some(GradeArg::Range { bot: Grade::D, top }),
-                    (_, Grade::F) => Some(GradeArg::Range {
-                        bot: Grade::D,
-                        top: bot,
-                    }),
-                    _ => Some(GradeArg::Range { bot, top }),
-                },
-                None => Some(GradeArg::Range {
-                    bot: Grade::D,
-                    top: Grade::XH,
-                }),
-            },
-            Some(false) => Some(GradeArg::Single(Grade::F)),
-            None => grade,
-        };
-
-        Ok(Ok(Self {
-            config,
-            grade,
-            mods: None,
-            query: None,
-        }))
-    }
-
-    pub(super) async fn slash(
-        ctx: &Context,
-        command: &ApplicationCommand,
-        options: Vec<CommandDataOption>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(command.user_id()?).await?;
-        let mut grade = None;
-        let mut mods = None;
-        let mut query = None;
-
-        for option in options {
-            match option.value {
-                CommandOptionValue::String(value) => match option.name.as_str() {
-                    NAME => config.osu = Some(value.into()),
-                    MODE => config.mode = parse_mode_option(&value),
-                    GRADE => match value.as_str() {
-                        "SS" => {
-                            grade = Some(GradeArg::Range {
-                                bot: Grade::X,
-                                top: Grade::XH,
-                            })
-                        }
-                        "S" => {
-                            grade = Some(GradeArg::Range {
-                                bot: Grade::S,
-                                top: Grade::SH,
-                            })
-                        }
-                        "A" => grade = Some(GradeArg::Single(Grade::A)),
-                        "B" => grade = Some(GradeArg::Single(Grade::B)),
-                        "C" => grade = Some(GradeArg::Single(Grade::C)),
-                        "D" => grade = Some(GradeArg::Single(Grade::D)),
-                        "F" => grade = Some(GradeArg::Single(Grade::F)),
-                        _ => return Err(Error::InvalidCommandOptions),
-                    },
-                    MODS => match matcher::get_mods(&value) {
-                        Some(mods_) => mods = Some(mods_),
-                        None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
-                    },
-                    "query" => query = Some(value),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::Boolean(value) => {
-                    let value = (option.name == "passes")
-                        .then(|| value)
-                        .ok_or(Error::InvalidCommandOptions)?;
-
-                    if value {
-                        grade = match grade {
-                            Some(GradeArg::Single(Grade::F)) => None,
-                            Some(GradeArg::Single(_)) => grade,
-                            Some(GradeArg::Range { .. }) => grade,
-                            None => Some(GradeArg::Range {
-                                bot: Grade::D,
-                                top: Grade::XH,
-                            }),
-                        }
-                    } else {
-                        grade = Some(GradeArg::Single(Grade::F));
-                    }
-                }
-                CommandOptionValue::User(value) => match option.name.as_str() {
-                    DISCORD => match parse_discord(ctx, value).await? {
-                        Ok(osu) => config.osu = Some(osu),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            }
-        }
-
-        Ok(Ok(Self {
-            config,
-            grade,
-            mods,
-            query,
-        }))
-    }
 }

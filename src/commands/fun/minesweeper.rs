@@ -1,6 +1,7 @@
-use std::{fmt, sync::Arc};
+use std::{fmt::{self, Write}, sync::Arc};
 
 use command_macros::{command, SlashCommand};
+use rand::RngCore;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::application::interaction::ApplicationCommand;
 
@@ -9,7 +10,7 @@ use crate::{
         commands::{prefix::Args, CommandOrigin},
         Context,
     },
-    util::{builder::MessageBuilder, ApplicationCommandExt, CowUtils, Matrix},
+    util::{builder::MessageBuilder, ApplicationCommandExt, CowUtils, Matrix, ChannelExt},
     BotResult,
 };
 
@@ -65,7 +66,7 @@ async fn prefix_minesweeper(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>
         Err(content) => {
             msg.error(&ctx, content).await?;
 
-            Ok(())
+            return Ok(());
         }
     };
 

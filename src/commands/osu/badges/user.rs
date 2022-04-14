@@ -5,32 +5,31 @@ use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{GameMode, OsuError};
 
 use crate::{
-    commands::osu::UserArgs,
-    core::Context,
+    commands::osu::{require_link, UserArgs},
+    core::{commands::CommandOrigin, Context},
     custom_client::OsekaiBadge,
-    database::UserConfig,
     embeds::{BadgeEmbed, EmbedData},
     pagination::{BadgePagination, Pagination},
     util::{
-        constants::{OSEKAI_ISSUE, OSU_API_ISSUE},
-        get_combined_thumbnail, numbers, MessageBuilder, MessageExt,
+        builder::MessageBuilder,
+        constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
+        get_combined_thumbnail, numbers,
     },
     BotResult,
 };
 
-use super::BadgesOrder;
+use super::BadgesUser;
 
 pub(super) async fn user(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
-    args: BadgesUser<'_>,
+    args: BadgesUser,
 ) -> BotResult<()> {
     let owner = orig.user_id()?;
 
-    // TODO: this could be a macro
-    let name = match username!(args) {
+    let name = match username!(ctx, orig, args) {
         Some(name) => name,
-        None => match ctx.psql().get_osu_user(owner).await {
+        None => match ctx.psql().get_user_osu(owner).await {
             Ok(Some(osu)) => osu.into_username(),
             Ok(None) => return require_link(&ctx, &orig).await,
             Err(err) => {
@@ -79,7 +78,7 @@ pub(super) async fn user(
     let badges = match badges_result {
         Ok(badges) => badges,
         Err(err) => {
-            let _ = data.error(&ctx, OSEKAI_ISSUE).await;
+            let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
             return Err(err.into());
         }
@@ -92,10 +91,10 @@ pub(super) async fn user(
         .map(|badge| badge.deserialize(&mut Infallible).unwrap())
         .collect();
 
-    args.sort.apply(&mut badges);
+    args.sort.unwrap_or_default().apply(&mut badges);
 
     let owners = if let Some(badge) = badges.first() {
-        let owners_fut = ctx.clients.custom.get_osekai_badge_owners(badge.badge_id);
+        let owners_fut = ctx.client().get_osekai_badge_owners(badge.badge_id);
 
         match owners_fut.await {
             Ok(owners) => owners,
@@ -135,7 +134,7 @@ pub(super) async fn user(
     let mut builder = MessageBuilder::new().embed(embed.build());
 
     if let Some(bytes) = bytes {
-        builder = builder.file("badge_owners.png", bytes);
+        builder = builder.attachment("badge_owners.png", bytes);
     }
 
     let response_raw = orig.create_message(&ctx, &builder).await?;

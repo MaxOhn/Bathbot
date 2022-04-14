@@ -1,6 +1,6 @@
 use std::{borrow::Cow, sync::Arc};
 
-use command_macros::{command, SlashCommand};
+use command_macros::{command, HasMods, SlashCommand};
 use eyre::Report;
 use rosu_v2::error::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -24,6 +24,8 @@ use crate::{
     BotResult, Context,
 };
 
+use super::{HasMods, ModsResult};
+
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(name = "leaderboard")]
 /// Display the global leaderboard of a map
@@ -41,6 +43,7 @@ pub struct Leaderboard<'a> {
     mods: Option<Cow<'a, str>>,
 }
 
+#[derive(HasMods)]
 struct LeaderboardArgs<'a> {
     map: Option<MapIdType>,
     mods: Option<Cow<'a, str>>,
@@ -85,14 +88,19 @@ impl<'a> TryFrom<Leaderboard<'a>> for LeaderboardArgs<'a> {
     type Error = &'static str;
 
     fn try_from(args: Leaderboard<'a>) -> Result<Self, Self::Error> {
-        let map = if let Some(id) =
-            matcher::get_osu_map_id(&args.map).or_else(|| matcher::get_osu_mapset_id(&args.map))
-        {
-            Some(MapIdType::Map(id))
-        } else {
-            return Err(
-                "Failed to parse map url. Be sure you specify a valid map id or url to a map.",
-            );
+        let map = match args.map {
+            Some(map) => {
+                if let Some(id) =
+                    matcher::get_osu_map_id(&map).or_else(|| matcher::get_osu_mapset_id(&map))
+                {
+                    Some(id)
+                } else {
+                    return Err(
+                        "Failed to parse map url. Be sure you specify a valid map id or url to a map.",
+                    );
+                }
+            }
+            None => None,
         };
 
         Ok(Self {
@@ -106,9 +114,9 @@ impl<'a> TryFrom<Leaderboard<'a>> for LeaderboardArgs<'a> {
 #[desc("Display the global leaderboard of a map")]
 #[help(
     "Display the global leaderboard of a given map.\n\
-     If no map is given, I will choose the last map \
-     I can find in the embeds of this channel.\n\
-     Mods can be specified."
+    If no map is given, I will choose the last map \
+    I can find in the embeds of this channel.\n\
+    Mods can be specified."
 )]
 #[usage("[map url / map id] [mods]")]
 #[example("2240404", "https://osu.ppy.sh/beatmapsets/902425#osu/2240404")]
@@ -117,7 +125,11 @@ impl<'a> TryFrom<Leaderboard<'a>> for LeaderboardArgs<'a> {
 async fn prefix_leaderboard(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match LeaderboardArgs::args(msg, args) {
         Ok(args) => leaderboard(ctx, msg.into(), args, false).await,
-        Err(content) => return msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -125,9 +137,9 @@ async fn prefix_leaderboard(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[desc("Display the belgian leaderboard of a map")]
 #[help(
     "Display the belgian leaderboard of a given map.\n\
-     If no map is given, I will choose the last map \
-     I can find in the embeds of this channel.\n\
-     Mods can be specified."
+    If no map is given, I will choose the last map \
+    I can find in the embeds of this channel.\n\
+    Mods can be specified."
 )]
 #[usage("[map url / map id] [mods]")]
 #[example("2240404", "https://osu.ppy.sh/beatmapsets/902425#osu/2240404")]
@@ -140,7 +152,11 @@ async fn prefix_belgianleaderboard(
 ) -> BotResult<()> {
     match LeaderboardArgs::args(msg, args) {
         Ok(args) => leaderboard(ctx, msg.into(), args, true).await,
-        Err(content) => return msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -152,31 +168,36 @@ async fn slash_leaderboard(
 
     match LeaderboardArgs::try_from(args) {
         Ok(args) => leaderboard(ctx, command.into(), args, false).await,
-        Err(content) => command.error(&ctx, content).await,
+        Err(content) => {
+            command.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
 async fn leaderboard(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
-    args: Leaderboard<'_>,
+    args: LeaderboardArgs<'_>,
     national: bool,
 ) -> BotResult<()> {
-    let Leaderboard { map, mods } = args;
-
-    let mods = match mods.map(|mods| matcher::get_mods(&mods)) {
-        Some(mods) => mods,
-        None => {
-            let content =
-                "Failed to parse mods. Be sure to specify a valid abbreviation e.g. `hdhr`.";
+    let mods = match args.mods() {
+        ModsResult::Mods(mods) => Some(mods),
+        ModsResult::None => None,
+        ModsResult::Invalid => {
+            let content = "Failed to parse mods.\n\
+            If you want included mods, specify it e.g. as `+hrdt`.\n\
+            If you want exact mods, specify it e.g. as `+hdhr!`.\n\
+            And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
 
             return orig.error(&ctx, content).await;
         }
     };
 
-    let author = orig.user_id()?;
+    let owner = orig.user_id()?;
 
-    let map_id = match map {
+    let map_id = match args.map {
         Some(MapIdType::Map(id)) => id,
         Some(MapIdType::Set(_)) => {
             let content = "Looks like you gave me a mapset id, I need a map id though";
@@ -206,10 +227,10 @@ async fn leaderboard(
         }
     };
 
-    let author_name = match ctx.psql().get_user_osu(author).await {
+    let author_name = match ctx.psql().get_user_osu(owner).await {
         Ok(osu) => osu.map(OsuData::into_username),
         Err(err) => {
-            let wrap = format!("failed to get UserConfig of user {author}");
+            let wrap = format!("failed to get user config");
             warn!("{:?}", Report::new(err).wrap_err(wrap));
 
             None
@@ -245,7 +266,7 @@ async fn leaderboard(
     };
 
     // Retrieve the map's leaderboard
-    let scores_future = ctx.clients.custom.get_leaderboard(
+    let scores_future = ctx.client().get_leaderboard(
         map_id,
         national,
         match mods {
@@ -323,8 +344,6 @@ async fn leaderboard(
         first_place_icon,
         Arc::clone(&ctx),
     );
-
-    let owner = author;
 
     gb.execute(&ctx);
 

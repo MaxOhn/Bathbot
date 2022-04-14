@@ -3,7 +3,7 @@ use std::{borrow::Cow, sync::Arc};
 use command_macros::{command, HasName, SlashCommand};
 use eyre::Report;
 use hashbrown::HashMap;
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::prelude::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     application::interaction::ApplicationCommand,
@@ -19,7 +19,10 @@ use crate::{
     embeds::{EmbedData, TopEmbed},
     pagination::{Pagination, TopPagination},
     tracking::process_osu_tracking,
-    util::{builder::MessageBuilder, constants::OSU_API_ISSUE, matcher, numbers, CowUtils},
+    util::{
+        builder::MessageBuilder, constants::OSU_API_ISSUE, matcher, numbers, ApplicationCommandExt,
+        ChannelExt, CowUtils,
+    },
     BotResult, Context,
 };
 
@@ -55,8 +58,8 @@ pub struct Mapper<'a> {
 
 impl<'m> Mapper<'m> {
     fn args(
-        mode: GameMode,
-        mut args: Args<'_>,
+        mode: GameModeOption,
+        mut args: Args<'m>,
         mapper: Option<&'static str>,
     ) -> Result<Self, &'static str> {
         let mapper = match mapper.or_else(|| args.next()) {
@@ -100,9 +103,13 @@ impl<'m> Mapper<'m> {
 #[examples("badewanne3 \"Hishiro Chizuru\"", "monstrata monstrata")]
 #[group(Osu)]
 async fn prefix_mapper(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match Mapper::args(GameMode::STD, args, None) {
+    match Mapper::args(GameModeOption::Osu, args, None) {
         Ok(args) => mapper(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -121,9 +128,13 @@ async fn prefix_mapper(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotR
 #[alias("mapperm")]
 #[group(Mania)]
 pub async fn prefix_mappermania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match Mapper::args(GameMode::MNA, args, None) {
+    match Mapper::args(GameModeOption::Mania, args, None) {
         Ok(args) => mapper(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -142,9 +153,13 @@ pub async fn prefix_mappermania(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[alias("mappert")]
 #[group(Taiko)]
 pub async fn prefix_mappertaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match Mapper::args(GameMode::TKO, args, None) {
+    match Mapper::args(GameModeOption::Taiko, args, None) {
         Ok(args) => mapper(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -163,9 +178,13 @@ pub async fn prefix_mappertaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[alias("mapperc")]
 #[group(Catch)]
 async fn prefix_mapperctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match Mapper::args(GameMode::CTB, args, None) {
+    match Mapper::args(GameModeOption::Catch, args, None) {
         Ok(args) => mapper(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -180,14 +199,18 @@ async fn prefix_mapperctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> B
 #[example("badewanne3")]
 #[group(Osu)]
 pub async fn prefix_sotarks(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match Mapper::args(GameMode::CTB, args, Some("sotarks")) {
+    match Mapper::args(GameModeOption::Osu, args, Some("sotarks")) {
         Ok(args) => mapper(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
 async fn slash_mapper(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
-    let args = Mapper::form_interaction(command.input_data())?;
+    let args = Mapper::from_interaction(command.input_data())?;
 
     mapper(ctx, command.into(), args).await
 }
@@ -320,7 +343,7 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
 
     // Pagination
     let pagination = TopPagination::new(response, user, scores, sort_by, farm, Arc::clone(&ctx));
-    let owner = orig.author()?.id;
+    let owner = orig.user_id()?;
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {

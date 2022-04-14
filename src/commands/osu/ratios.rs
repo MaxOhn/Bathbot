@@ -16,7 +16,7 @@ use crate::{
     BotResult, Context,
 };
 
-use super::{HasName, ScoreArgs, UserArgs};
+use super::{require_link, ScoreArgs, UserArgs};
 
 #[derive(CommandModel, CreateCommand, Default, HasName, SlashCommand)]
 #[command(
@@ -55,7 +55,7 @@ pub struct Ratios<'a> {
 #[example("badewanne3")]
 #[alias("ratio")]
 #[group(Mania)]
-async fn prefix_ratios(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_ratios(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
     let args = match args.next() {
         Some(arg) => match matcher::get_mention_user(arg) {
             Some(id) => Ratios {
@@ -84,13 +84,8 @@ async fn ratios(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Ratios<'_>) ->
         Some(name) => name,
         None => match ctx.user_config(orig.user_id()?).await?.into_username() {
             Some(name) => name,
-            None => todo!(),
+            None => return require_link(&ctx, &orig).await,
         },
-    };
-
-    let name = match name {
-        Some(name) => name,
-        None => return super::require_link(&ctx, &orig).await,
     };
 
     // Retrieve the user and their top scores

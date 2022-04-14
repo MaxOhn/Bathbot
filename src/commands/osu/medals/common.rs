@@ -7,32 +7,23 @@ use chrono::{DateTime, Utc};
 use command_macros::command;
 use eyre::Report;
 use hashbrown::HashMap;
-use rosu_v2::prelude::{GameMode, User, Username};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use rosu_v2::prelude::{GameMode, User};
 
 use crate::{
-    commands::osu::{get_user, UserArgs},
-    custom_client::{
-        groups::{
-            BEATMAP_CHALLENGE_PACKS, BEATMAP_PACKS, BEATMAP_SPOTLIGHTS, DEDICATION, HUSH_HUSH,
-            MOD_INTRODUCTION, SEASONAL_SPOTLIGHTS, SKILL,
-        },
-        OsekaiGrouping, OsekaiMedal, Rarity,
-    },
+    commands::osu::{get_user, NameExtraction, UserArgs},
+    core::commands::CommandOrigin,
+    custom_client::{MedalGroup, OsekaiMedal, Rarity},
     embeds::{EmbedData, MedalsCommonEmbed, MedalsCommonUser},
-    error::Error,
     pagination::{MedalsCommonPagination, Pagination},
     util::{
+        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
         get_combined_thumbnail, matcher,
     },
     BotResult, Context,
 };
 
-use super::{MedalCommon, MedalCommonOrder};
+use super::{MedalCommon, MedalCommonFilter, MedalCommonOrder};
 
 #[command]
 #[desc("Compare which of the given users achieved medals first")]
@@ -43,7 +34,7 @@ use super::{MedalCommon, MedalCommonOrder};
 pub async fn prefix_medalscommon(
     ctx: Arc<Context>,
     msg: &Message,
-    mut args: Args<'_>,
+    args: Args<'_>,
 ) -> BotResult<()> {
     let mut args_ = MedalCommon::default();
 
@@ -64,39 +55,78 @@ pub async fn prefix_medalscommon(
     common(ctx, msg.into(), args_).await
 }
 
+async fn extract_name<'a>(ctx: &Context, args: &mut MedalCommon<'a>) -> NameExtraction {
+    if let Some(name) = args.name1.take().or_else(|| args.name2.take()) {
+        NameExtraction::Name(name.as_ref().into())
+    } else if let Some(discord) = args.discord1.take().or_else(|| args.discord2.take()) {
+        match ctx.psql().get_user_osu(discord).await {
+            Ok(Some(osu)) => NameExtraction::Name(osu.into_username().into()),
+            Ok(None) => {
+                NameExtraction::Content(format!("<@{discord}> is not linked to an osu!profile"))
+            }
+            Err(err) => NameExtraction::Err(err),
+        }
+    } else {
+        NameExtraction::None
+    }
+}
+
 pub(super) async fn common(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
-    args: MedalCommon<'_>,
+    mut args: MedalCommon<'_>,
 ) -> BotResult<()> {
-    // TODO: name extraction
-    // TODO: at least one
-    let CommonArgs {
-        name1,
-        name2,
-        order,
-        filter,
-    } = args;
+    let name1 = match extract_name(&ctx, &mut args).await {
+        NameExtraction::Name(name) => name,
+        NameExtraction::Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-    let name1 = match name1 {
-        Some(name) => name,
-        None => {
-            let content =
-                "Since you're not linked with the `link` command, you must specify two names.";
+            return Err(err);
+        }
+        NameExtraction::Content(content) => return orig.error(&ctx, content).await,
+        NameExtraction::None => {
+            let content = "You need to specify at least one osu username. \
+            If you're not linked, you must specify two names.";
 
             return orig.error(&ctx, content).await;
         }
+    };
+
+    let name2 = match extract_name(&ctx, &mut args).await {
+        NameExtraction::Name(name) => name,
+        NameExtraction::Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err);
+        }
+        NameExtraction::Content(content) => return orig.error(&ctx, content).await,
+        NameExtraction::None => match ctx.psql().get_user_osu(orig.user_id()?).await {
+            Ok(Some(osu)) => osu.into_username().into(),
+            Ok(None) => {
+                let content =
+                    "Since you're not linked with the `/link` command, you must specify two names.";
+
+                return orig.error(&ctx, content).await;
+            }
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(err);
+            }
+        },
     };
 
     if name1 == name2 {
         return orig.error(&ctx, "Give two different names").await;
     }
 
+    let MedalCommon { sort, filter, .. } = args;
+
     // Retrieve all users and their scores
-    let user_args1 = UserArgs::new(name1.as_str(), GameMode::STD);
+    let user_args1 = UserArgs::new(name1.as_ref(), GameMode::STD);
     let user_fut1 = get_user(&ctx, &user_args1);
 
-    let user_args2 = UserArgs::new(name2.as_str(), GameMode::STD);
+    let user_args2 = UserArgs::new(name2.as_ref(), GameMode::STD);
     let user_fut2 = get_user(&ctx, &user_args2);
     let redis = ctx.redis();
 
@@ -159,20 +189,32 @@ pub(super) async fn common(
     }
 
     match filter {
-        CommonFilter::None => {}
-        CommonFilter::Unique => {
+        None | Some(MedalCommonFilter::None) => {}
+        Some(MedalCommonFilter::Unique) => {
             medals.retain(|entry| entry.achieved1.is_none() || entry.achieved2.is_none())
         }
-        CommonFilter::Group(OsekaiGrouping(group)) => {
+        Some(other) => {
+            let group = match other {
+                MedalCommonFilter::Skill => MedalGroup::Skill,
+                MedalCommonFilter::Dedication => MedalGroup::Dedication,
+                MedalCommonFilter::HushHush => MedalGroup::HushHush,
+                MedalCommonFilter::BeatmapPacks => MedalGroup::BeatmapPacks,
+                MedalCommonFilter::BeatmapChallengePacks => MedalGroup::BeatmapChallengePacks,
+                MedalCommonFilter::SeasonalSpotlights => MedalGroup::SeasonalSpotlights,
+                MedalCommonFilter::BeatmapSpotlights => MedalGroup::BeatmapSpotlights,
+                MedalCommonFilter::ModIntroduction => MedalGroup::ModIntroduction,
+                _ => unreachable!(),
+            };
+
             medals.retain(|entry| entry.medal.grouping == group)
         }
     }
 
-    match order {
-        Some(CommonOrder::Alphabet) => {
+    match sort {
+        Some(MedalCommonOrder::Alphabet) => {
             medals.sort_unstable_by(|a, b| a.medal.name.cmp(&b.medal.name))
         }
-        Some(CommonOrder::DateFirst) => {
+        Some(MedalCommonOrder::DateFirst) => {
             medals.sort_unstable_by_key(|entry| match (entry.achieved1, entry.achieved2) {
                 (Some(a1), Some(a2)) => a1.min(a2),
                 (Some(a1), None) => a1,
@@ -180,7 +222,7 @@ pub(super) async fn common(
                 (None, None) => unreachable!(),
             })
         }
-        Some(CommonOrder::DateLast) => {
+        Some(MedalCommonOrder::DateLast) => {
             medals.sort_unstable_by_key(|entry| match (entry.achieved1, entry.achieved2) {
                 (Some(a1), Some(a2)) => Reverse(a1.max(a2)),
                 (Some(a1), None) => Reverse(a1),
@@ -189,9 +231,9 @@ pub(super) async fn common(
             })
         }
         None => medals.sort_unstable_by(|a, b| a.medal.cmp(&b.medal)),
-        Some(CommonOrder::Rarity) => {
+        Some(MedalCommonOrder::Rarity) => {
             if !medals.is_empty() {
-                match ctx.clients.custom.get_osekai_ranking::<Rarity>().await {
+                match ctx.client().get_osekai_ranking::<Rarity>().await {
                     Ok(rarities) => {
                         let rarities: HashMap<_, _> = rarities
                             .into_iter()
@@ -253,7 +295,7 @@ pub(super) async fn common(
     let mut builder = MessageBuilder::new().embed(embed);
 
     if let Some(bytes) = thumbnail {
-        builder = builder.file("avatar_fuse.png", bytes);
+        builder = builder.attachment("avatar_fuse.png", bytes);
     }
 
     let response_raw = orig.create_message(&ctx, &builder).await?;
@@ -290,168 +332,5 @@ fn extract_medals(user: &User) -> HashMap<u32, DateTime<Utc>> {
             .map(|medal| (medal.medal_id, medal.achieved_at))
             .collect(),
         None => HashMap::new(),
-    }
-}
-
-enum CommonFilter {
-    None,
-    Unique,
-    Group(OsekaiGrouping<'static>),
-}
-
-impl Default for CommonFilter {
-    fn default() -> Self {
-        Self::None
-    }
-}
-
-pub(super) struct CommonArgs {
-    name1: Option<Username>,
-    name2: Username,
-    order: Option<CommonOrder>,
-    filter: CommonFilter,
-}
-
-impl CommonArgs {
-    const AT_LEAST_ONE: &'static str = "You need to specify at least one osu username. \
-        If you're not linked, you must specify two names.";
-
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: Id<UserMarker>,
-    ) -> DoubleResultCow<Self> {
-        let osu = ctx.psql().get_user_osu(author_id).await?;
-
-        let name2 = match args.next() {
-            Some(arg) => match matcher::get_mention_user(arg) {
-                Some(user_id) => match parse_discord(ctx, user_id).await? {
-                    Ok(osu) => osu.into_username(),
-                    Err(content) => return Ok(Err(content)),
-                },
-                None => arg.into(),
-            },
-            None => return Ok(Err(Self::AT_LEAST_ONE.into())),
-        };
-
-        let args = match args.next() {
-            Some(arg) => match matcher::get_mention_user(arg) {
-                Some(user_id) => match parse_discord(ctx, user_id).await? {
-                    Ok(osu) => Self {
-                        name1: Some(name2),
-                        name2: osu.into_username(),
-                        order: None,
-                        filter: CommonFilter::default(),
-                    },
-                    Err(content) => return Ok(Err(content)),
-                },
-                None => Self {
-                    name1: Some(name2),
-                    name2: arg.into(),
-                    order: None,
-                    filter: CommonFilter::default(),
-                },
-            },
-            None => Self {
-                name1: osu.map(OsuData::into_username),
-                name2,
-                order: None,
-                filter: CommonFilter::default(),
-            },
-        };
-
-        Ok(Ok(args))
-    }
-
-    pub(super) async fn slash(
-        ctx: &Context,
-        command: &ApplicationCommand,
-        options: Vec<CommandDataOption>,
-    ) -> DoubleResultCow<Self> {
-        let mut name1 = None;
-        let mut name2 = None;
-        let mut order = None;
-        let mut filter = None;
-
-        for option in options {
-            match option.value {
-                CommandOptionValue::String(value) => match option.name.as_str() {
-                    "name1" => name1 = Some(value.into()),
-                    "name2" => name2 = Some(value.into()),
-                    "sort" => match value.as_str() {
-                        "alphabet" => order = Some(CommonOrder::Alphabet),
-                        "date_first" => order = Some(CommonOrder::DateFirst),
-                        "date_last" => order = Some(CommonOrder::DateLast),
-                        "rarity" => order = Some(CommonOrder::Rarity),
-                        _ => return Err(Error::InvalidCommandOptions),
-                    },
-                    "filter" => match value.as_str() {
-                        "none" => filter = Some(CommonFilter::None),
-                        "unique" => filter = Some(CommonFilter::Unique),
-                        "Skill" => filter = Some(CommonFilter::Group(OsekaiGrouping(SKILL))),
-                        "Dedication" => {
-                            filter = Some(CommonFilter::Group(OsekaiGrouping(DEDICATION)))
-                        }
-                        "Hush-Hush" => {
-                            filter = Some(CommonFilter::Group(OsekaiGrouping(HUSH_HUSH)))
-                        }
-                        "Beatmap_Packs" => {
-                            filter = Some(CommonFilter::Group(OsekaiGrouping(BEATMAP_PACKS)))
-                        }
-                        "Beatmap_Challenge_Packs" => {
-                            filter =
-                                Some(CommonFilter::Group(OsekaiGrouping(BEATMAP_CHALLENGE_PACKS)))
-                        }
-                        "Seasonal_Spotlights" => {
-                            filter = Some(CommonFilter::Group(OsekaiGrouping(SEASONAL_SPOTLIGHTS)))
-                        }
-                        "Beatmap_Spotlights" => {
-                            filter = Some(CommonFilter::Group(OsekaiGrouping(BEATMAP_SPOTLIGHTS)))
-                        }
-                        "Mod_Introduction" => {
-                            filter = Some(CommonFilter::Group(OsekaiGrouping(MOD_INTRODUCTION)))
-                        }
-                        _ => return Err(Error::InvalidCommandOptions),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::User(value) => match option.name.as_str() {
-                    "discord1" => match parse_discord(ctx, value).await? {
-                        Ok(osu) => name1 = Some(osu.into_username()),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    "discord2" => match parse_discord(ctx, value).await? {
-                        Ok(osu) => name2 = Some(osu.into_username()),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            }
-        }
-
-        let (name1, name2) = match (name1, name2) {
-            (name1, Some(name)) => (name1, name),
-            (Some(name), None) => (None, name),
-            (None, None) => return Ok(Err(Self::AT_LEAST_ONE.into())),
-        };
-
-        let name1 = match name1 {
-            Some(name) => Some(name),
-            None => ctx
-                .psql()
-                .get_user_osu(command.user_id()?)
-                .await?
-                .map(OsuData::into_username),
-        };
-
-        let filter = filter.unwrap_or_default();
-
-        Ok(Ok(CommonArgs {
-            name1,
-            name2,
-            order,
-            filter,
-        }))
     }
 }

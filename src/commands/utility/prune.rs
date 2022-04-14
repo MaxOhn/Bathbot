@@ -3,7 +3,7 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, MESSAGE_TOO_OLD_TO_BULK_DELETE},
-        ApplicationCommandExt, MessageExt,
+        ApplicationCommandExt, ChannelExt, MessageExt,
     },
     BotResult, Context,
 };
@@ -47,13 +47,14 @@ async fn slash_prune(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) ->
 #[alias("purge")]
 #[flags(AUTHORITY, ONLY_GUILDS, SKIP_DEFER)]
 #[group(Utility)]
-async fn prefix_prune(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_prune(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
     let amount = match args.num.map(Ok).or_else(|| args.next().map(u64::from_str)) {
         Some(Ok(amount)) => {
             if !(1..100).contains(&amount) {
                 let content = "First argument must be an integer between 1 and 99";
+                msg.error(&ctx, content).await?;
 
-                return msg.error(&ctx, content).await;
+                return Ok(());
             }
 
             amount + 1

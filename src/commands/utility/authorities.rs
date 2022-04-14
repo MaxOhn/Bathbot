@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, fmt::Write, sync::Arc};
 
 use command_macros::command;
 use twilight_model::{
@@ -14,7 +14,7 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OWNER_USER_ID},
-        matcher,
+        matcher, ChannelExt,
     },
     BotResult,
 };
@@ -37,7 +37,11 @@ use crate::{
 async fn prefix_authorities(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
     match AuthorityCommandKind::args(&mut args) {
         Ok(args) => authorities(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -55,7 +59,7 @@ pub async fn authorities(
             if roles.len() >= 10 {
                 let content = "You can have at most 10 roles per server setup as authorities.";
 
-                return orig.error(&ctx, content).await;
+                return orig.error_callback(&ctx, content).await;
             }
 
             let update_fut = ctx.update_guild_config(guild_id, move |config| {
@@ -65,7 +69,7 @@ pub async fn authorities(
             });
 
             if let Err(why) = update_fut.await {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
 
                 return Err(why);
             }
@@ -74,13 +78,13 @@ pub async fn authorities(
         }
         AuthorityCommandKind::List => "Current authority roles for this server: ".to_owned(),
         AuthorityCommandKind::Remove(role_id) => {
-            let author_id = orig.author()?.id;
+            let author_id = orig.user_id()?;
             let roles = ctx.guild_authorities(guild_id).await;
 
             if roles.iter().all(|&id| id != role_id) {
                 let content = "The role was no authority role anyway";
                 let builder = MessageBuilder::new().embed(content);
-                orig.create_message(&ctx, &builder).await?;
+                orig.callback(&ctx, builder).await?;
 
                 return Ok(());
             }
@@ -114,11 +118,11 @@ pub async fn authorities(
                             let content = "You cannot set authority roles to something \
                                 that would make you lose authority status.";
 
-                            return orig.error(&ctx, content).await;
+                            return orig.error_callback(&ctx, content).await;
                         }
                     }
                     Err(err) => {
-                        let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                        let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
 
                         return Err(err.into());
                     }
@@ -130,7 +134,7 @@ pub async fn authorities(
             });
 
             if let Err(err) = update_fut.await {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
 
                 return Err(err);
             }
@@ -167,11 +171,11 @@ pub async fn authorities(
                             let content = "You cannot set authority roles to something \
                                 that would make you lose authority status.";
 
-                            return orig.error(&ctx, content).await;
+                            return orig.error_callback(&ctx, content).await;
                         }
                     }
                     Err(err) => {
-                        let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                        let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
 
                         return Err(err.into());
                     }
@@ -182,10 +186,10 @@ pub async fn authorities(
                 config.authorities = roles.into_iter().map(|role| role.get()).collect();
             });
 
-            if let Err(why) = update_fut.await {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            if let Err(err) = update_fut.await {
+                let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
 
-                return Err(why);
+                return Err(err);
             }
 
             "Successfully changed the authority roles to: ".to_owned()
@@ -196,7 +200,7 @@ pub async fn authorities(
     let roles = ctx.guild_authorities(guild_id).await;
     role_string(&roles, &mut content);
     let builder = MessageBuilder::new().embed(content);
-    orig.create_message(&ctx, &builder).await?;
+    orig.callback(&ctx, builder).await?;
 
     Ok(())
 }

@@ -4,7 +4,7 @@ use chrono::FixedOffset;
 use hashbrown::HashMap;
 use serde::Deserialize;
 use smallstr::SmallString;
-use std::{borrow::Borrow, fmt, ops::Deref};
+use std::{borrow::{Borrow, Cow}, fmt, ops::Deref};
 
 lazy_static::lazy_static! {
     static ref TIMEZONES: HashMap<&'static str, i32> = {
@@ -592,6 +592,15 @@ impl From<String> for CountryCode {
 impl From<&str> for CountryCode {
     fn from(code: &str) -> Self {
         Self(code.into())
+    }
+}
+
+impl<'a> From<Cow<'a, str>> for CountryCode {
+    fn from(code: Cow<'a, str>) -> Self {
+        match code {
+            Cow::Borrowed(code) => code.into(),
+            Cow::Owned(code) => code.into(),
+        }
     }
 }
 

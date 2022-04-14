@@ -8,7 +8,7 @@ use crate::{
     database::OsuData,
     embeds::{EmbedData, RankingEmbed, RankingEntry, RankingKindData},
     pagination::{Pagination, RankingPagination},
-    util::{constants::OSEKAI_ISSUE, numbers},
+    util::{builder::MessageBuilder, constants::OSEKAI_ISSUE, numbers, Authored, ApplicationCommandExt},
     BotResult, Context,
 };
 
@@ -18,7 +18,7 @@ pub(super) async fn count<R>(ctx: Arc<Context>, command: Box<ApplicationCommand>
 where
     R: OsekaiRanking<Entry = OsekaiRankingEntry<usize>>,
 {
-    let osekai_fut = ctx.clients.custom.get_osekai_ranking::<R>();
+    let osekai_fut = ctx.client().get_osekai_ranking::<R>();
     let osu_fut = ctx.psql().get_user_osu(command.user_id()?);
 
     let (osekai_result, osu_result) = tokio::join!(osekai_fut, osu_fut);
@@ -60,7 +60,7 @@ where
     R: OsekaiRanking<Entry = OsekaiRankingEntry<u32>>,
 {
     let owner = command.user_id()?;
-    let osekai_fut = ctx.clients.custom.get_osekai_ranking::<R>();
+    let osekai_fut = ctx.client().get_osekai_ranking::<R>();
     let osu_fut = ctx.psql().get_user_osu(owner);
 
     let (osekai_result, osu_result) = tokio::join!(osekai_fut, osu_fut);

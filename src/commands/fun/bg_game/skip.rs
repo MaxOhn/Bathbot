@@ -21,8 +21,9 @@ pub async fn skip(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
         );
 
         let content = format!("Command on cooldown, try again in {cooldown} seconds");
+        msg.error(&ctx, content).await?;
 
-        return msg.error(&ctx, content).await;
+        return Ok(());
     }
 
     let _ = ctx.http.create_typing_trigger(msg.channel_id).exec().await;
@@ -30,11 +31,11 @@ pub async fn skip(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     match ctx.bg_games().get(&msg.channel_id) {
         Some(state) => match state.value() {
             GameState::Running { game } => match game.restart() {
-                Ok(_) => Ok(()),
+                Ok(_) => {},
                 Err(err) => {
                     let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-                    Err(err.into())
+                    return Err(err.into());
                 }
             },
             GameState::Setup { author, .. } => {
@@ -43,7 +44,7 @@ pub async fn skip(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
                     <@{author}> must click on the \"Start\" button to begin."
                 );
 
-                msg.error(&ctx, content).await
+                msg.error(&ctx, content).await?;
             }
         },
         None => {
@@ -53,7 +54,9 @@ pub async fn skip(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
                 try [re-inviting the bot]({INVITE_LINK})."
             );
 
-            msg.error(&ctx, content).await
+            msg.error(&ctx, content).await?;
         }
     }
+
+    Ok(())
 }

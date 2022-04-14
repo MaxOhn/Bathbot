@@ -1,10 +1,11 @@
-use std::{iter::Copied, pin::Pin};
+use std::pin::Pin;
 
 use futures::Future;
-use radix_trie::{iter::Keys, Trie, TrieCommon};
+use radix_trie::{Trie, TrieCommon};
 
 use crate::{
     commands::{fun::*, help::HELP_PREFIX, osu::*, songs::*, tracking::*, twitch::*, utility::*},
+    util::Emote,
     BotResult,
 };
 
@@ -42,6 +43,17 @@ lazy_static::lazy_static! {
             BWS_PREFIX,
             CATCHIT_PREFIX,
             COMMANDS_PREFIX,
+            COMMON_PREFIX,
+            COMMONCTB_PREFIX,
+            COMMONMANIA_PREFIX,
+            COMMONTAIKO_PREFIX,
+            COMPARE_PREFIX,
+            COUNTRYRANKING_PREFIX,
+            COUNTRYRANKINGCTB_PREFIX,
+            COUNTRYRANKINGMANIA_PREFIX,
+            COUNTRYRANKINGTAIKO_PREFIX,
+            COUNTRYSNIPELIST_PREFIX,
+            COUNTRYSNIPESTATS_PREFIX,
             CTB_PREFIX,
             DING_PREFIX,
             FIREANDFLAMES_PREFIX,
@@ -60,6 +72,7 @@ lazy_static::lazy_static! {
             MAPPERTAIKO_PREFIX,
             MATCHCOSTS_PREFIX,
             MATCHLIVE_PREFIX,
+            MATCHLIVEREMOVE_PREFIX,
             MEDAL_PREFIX,
             MEDALRECENT_PREFIX,
             MEDALSCOMMON_PREFIX,
@@ -67,15 +80,38 @@ lazy_static::lazy_static! {
             MEDALSTATS_PREFIX,
             MINESWEEPER_PREFIX,
             MOSTPLAYED_PREFIX,
+            MOSTPLAYEDCOMMON_PREFIX,
             NOCHOKES_PREFIX,
             NOCHOKESCTB_PREFIX,
             NOCHOKESTAIKO_PREFIX,
             OSU_PREFIX,
+            OSUCOMPARE_PREFIX,
+            OSUCOMPARECTB_PREFIX,
+            OSUCOMPAREMANIA_PREFIX,
+            OSUCOMPARETAIKO_PREFIX,
+            OSUSTATSCOUNT_PREFIX,
+            OSUSTATSCOUNTCTB_PREFIX,
+            OSUSTATSCOUNTMANIA_PREFIX,
+            OSUSTATSCOUNTTAIKO_PREFIX,
+            OSUSTATSGLOBALS_PREFIX,
+            OSUSTATSGLOBALSCTB_PREFIX,
+            OSUSTATSGLOBALSMANIA_PREFIX,
+            OSUSTATSGLOBALSTAIKO_PREFIX,
+            OSUSTATSLIST_PREFIX,
+            OSUSTATSLISTCTB_PREFIX,
+            OSUSTATSLISTMANIA_PREFIX,
+            OSUSTATSLISTTAIKO_PREFIX,
             PING_PREFIX,
+            PLAYERSNIPELIST_PREFIX,
+            PLAYERSNIPESTATS_PREFIX,
             PP_PREFIX,
             PPCTB_PREFIX,
             PPMANIA_PREFIX,
             PPTAIKO_PREFIX,
+            PPRANKING_PREFIX,
+            PPRANKINGCTB_PREFIX,
+            PPRANKINGMANIA_PREFIX,
+            PPRANKINGTAIKO_PREFIX,
             PREFIX_PREFIX,
             PRETENDER_PREFIX,
             PRUNE_PREFIX,
@@ -83,23 +119,53 @@ lazy_static::lazy_static! {
             RANKCTB_PREFIX,
             RANKMANIA_PREFIX,
             RANKTAIKO_PREFIX,
+            RANKEDSCORERANKING_PREFIX,
+            RANKEDSCORERANKINGCTB_PREFIX,
+            RANKEDSCORERANKINGMANIA_PREFIX,
+            RANKEDSCORERANKINGTAIKO_PREFIX,
             RANKRANKEDSCORE_PREFIX,
             RANKRANKEDSCORECTB_PREFIX,
             RANKRANKEDSCOREMANIA_PREFIX,
             RANKRANKEDSCORETAIKO_PREFIX,
             RATIOS_PREFIX,
+            RECENT_PREFIX,
+            RECENTCTB_PREFIX,
+            RECENTMANIA_PREFIX,
+            RECENTTAIKO_PREFIX,
             RECENTBEST_PREFIX,
             RECENTBESTCTB_PREFIX,
             RECENTBESTMANIA_PREFIX,
             RECENTBESTTAIKO_PREFIX,
+            RECENTBELGIANLEADERBOARD_PREFIX,
+            RECENTCTBBELGIANLEADERBOARD_PREFIX,
+            RECENTMANIABELGIANLEADERBOARD_PREFIX,
+            RECENTTAIKOBELGIANLEADERBOARD_PREFIX,
+            RECENTLEADERBOARD_PREFIX,
+            RECENTCTBLEADERBOARD_PREFIX,
+            RECENTMANIALEADERBOARD_PREFIX,
+            RECENTTAIKOLEADERBOARD_PREFIX,
+            RECENTLIST_PREFIX,
+            RECENTLISTCTB_PREFIX,
+            RECENTLISTMANIA_PREFIX,
+            RECENTLISTTAIKO_PREFIX,
             REMOVESTREAM_PREFIX,
             ROCKEFELLER_PREFIX,
             ROLEASSIGN_PREFIX,
             ROLL_PREFIX,
+            SAYGOODBYE_PREFIX,
             SEARCH_PREFIX,
+            SIMULATE_PREFIX,
+            SIMULATERECENT_PREFIX,
+            SIMULATERECENTCTB_PREFIX,
+            SIMULATERECENTMANIA_PREFIX,
+            SIMULATERECENTTAIKO_PREFIX,
+            SNIPED_PREFIX,
+            SNIPEDGAIN_PREFIX,
+            SNIPEDLOSS_PREFIX,
             SOTARKS_PREFIX,
             STARTAGAIN_PREFIX,
             TAIKO_PREFIX,
+            TIJDMACHINE_PREFIX,
             TOP_PREFIX,
             TOPCTB_PREFIX,
             TOPMANIA_PREFIX,
@@ -129,7 +195,6 @@ lazy_static::lazy_static! {
 
 pub type CommandResult<'fut> = Pin<Box<dyn Future<Output = BotResult<()>> + 'fut + Send>>;
 
-type CommandKeys<'t> = Copied<Keys<'t, &'static str, &'static PrefixCommand>>;
 type PrefixTrie = Trie<&'static str, &'static PrefixCommand>;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -144,12 +209,22 @@ pub enum PrefixCommandGroup {
     Games,
     Utility,
     Songs,
-    Owner,
 }
 
 impl PrefixCommandGroup {
     pub fn emote(self) -> &'static str {
-        "group emote"
+        match self {
+            PrefixCommandGroup::AllModes => Emote::Osu.text(),
+            PrefixCommandGroup::Osu => Emote::Std.text(),
+            PrefixCommandGroup::Taiko => Emote::Tko.text(),
+            PrefixCommandGroup::Catch => Emote::Ctb.text(),
+            PrefixCommandGroup::Mania => Emote::Mna.text(),
+            PrefixCommandGroup::Tracking => Emote::Tracking.text(),
+            PrefixCommandGroup::Twitch => Emote::Twitch.text(),
+            PrefixCommandGroup::Games => ":video_game:",
+            PrefixCommandGroup::Utility => ":tools:",
+            PrefixCommandGroup::Songs => ":musical_note:",
+        }
     }
 
     pub fn name(self) -> &'static str {
@@ -164,7 +239,6 @@ impl PrefixCommandGroup {
             PrefixCommandGroup::Games => "games",
             PrefixCommandGroup::Utility => "utility",
             PrefixCommandGroup::Songs => "songs",
-            PrefixCommandGroup::Owner => "owner",
         }
     }
 }
@@ -179,8 +253,7 @@ impl PrefixCommands {
         self.0.get(command).copied()
     }
 
-    // TODO: No need to .collect()
-    pub fn collect(&self) -> Vec<&'static PrefixCommand> {
-        self.0.values().copied().collect()
+    pub fn iter(&self) -> impl Iterator<Item = &'static PrefixCommand> + '_ {
+        self.0.values().copied()
     }
 }

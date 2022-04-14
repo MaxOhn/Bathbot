@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use command_macros::{command, SlashCommand};
 use twilight_cache_inmemory::model::CachedGuild;
-use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
+use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     application::interaction::ApplicationCommand,
     id::{
@@ -13,14 +13,14 @@ use twilight_model::{
 };
 
 use crate::{
-    commands::ShowHideOption,
+    commands::{osu::ProfileSize, EnableDisable, ShowHideOption},
     database::GuildConfig,
     embeds::{EmbedData, ServerConfigEmbed},
     util::{constants::GENERAL_ISSUE, ApplicationCommandExt},
     BotResult, Context,
 };
 
-use super::{ConfigEmbeds, ConfigMinimizedPp, ProfileSize};
+use super::{AuthorityCommandKind, ConfigEmbeds, ConfigMinimizedPp};
 
 pub struct GuildData {
     pub icon: Option<ImageHash>,
@@ -40,7 +40,7 @@ impl From<&CachedGuild> for GuildData {
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(name = "serverconfig")]
-#[flags(AUTHORITY, ONLY_GUILDS)]
+#[flags(AUTHORITY, ONLY_GUILDS, SKIP_DEFER)]
 /// Adjust configurations or authority roles for this server
 pub enum ServerConfig {
     #[command(name = "authorities")]
@@ -66,6 +66,16 @@ pub enum ServerConfigAuthorities {
     Remove(ServerConfigAuthoritiesRemove),
     #[command(name = "list")]
     List(ServerConfigAuthoritiesList),
+}
+
+impl From<ServerConfigAuthorities> for AuthorityCommandKind {
+    fn from(args: ServerConfigAuthorities) -> Self {
+        match args {
+            ServerConfigAuthorities::Add(args) => Self::Add(args.role.get()),
+            ServerConfigAuthorities::Remove(args) => Self::Remove(args.role.get()),
+            ServerConfigAuthorities::List(_) => Self::List,
+        }
+    }
 }
 
 #[derive(CommandModel, CreateCommand)]
@@ -143,14 +153,6 @@ impl ServerConfigEdit {
     }
 }
 
-#[derive(CommandOption, CreateOption)]
-pub enum EnableDisable {
-    #[option(name = "Enable", value = "enable")]
-    Enable,
-    #[option(name = "Disable", value = "disable")]
-    Disable,
-}
-
 async fn slash_serverconfig(
     ctx: Arc<Context>,
     mut command: Box<ApplicationCommand>,
@@ -169,8 +171,8 @@ async fn slash_serverconfig(
     };
 
     let args = match args {
-        ServerConfig::Authorities(authorities) => {
-            return super::authorities(ctx, command.into(), args).await
+        ServerConfig::Authorities(args) => {
+            return super::authorities(ctx, command.into(), args.into()).await
         }
         ServerConfig::Edit(edit) => edit,
     };
@@ -187,11 +189,11 @@ async fn slash_serverconfig(
             } = args;
 
             if let Some(embeds) = embeds {
-                config.embeds_size = Some(embeds);
+                config.embeds_size = Some(embeds.into());
             }
 
             if let Some(pp) = minimized_pp {
-                config.minimized_pp = Some(pp);
+                config.minimized_pp = Some(pp.into());
             }
 
             if let Some(profile) = profile {
@@ -199,22 +201,20 @@ async fn slash_serverconfig(
             }
 
             if let Some(retries) = retries {
-                // TODO
-                config.show_retries = Some(retries);
+                config.show_retries = Some(retries == ShowHideOption::Show);
             }
 
             if let Some(limit) = track_limit {
-                config.track_limit = Some(limit);
+                config.track_limit = Some(limit as u8);
             }
 
             if let Some(with_lyrics) = song_commands {
-                // TODO
-                config.with_lyrics = Some(with_lyrics);
+                config.with_lyrics = Some(with_lyrics == EnableDisable::Enable);
             }
         };
 
         if let Err(err) = ctx.update_guild_config(guild_id, f).await {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+            let _ = command.error_callback(&ctx, GENERAL_ISSUE).await;
 
             return Err(err);
         }
@@ -233,7 +233,7 @@ async fn slash_serverconfig(
 
     let embed = ServerConfigEmbed::new(guild, config, &authorities);
     let builder = embed.into_builder().build().into();
-    command.create_message(&ctx, builder).await?;
+    command.callback(&ctx, builder, false).await?;
 
     Ok(())
 }

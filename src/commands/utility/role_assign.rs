@@ -1,21 +1,26 @@
-use std::{borrow::Cow, sync::Arc, time::Duration};
+use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, SlashCommand};
 use eyre::Report;
-use tokio::time::timeout;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     application::interaction::ApplicationCommand,
     channel::Message,
     id::{
-        marker::{ChannelMarker, MessageMarker, RoleMarker},
+        marker::{ChannelMarker, GuildMarker, MessageMarker, RoleMarker},
         Id,
     },
 };
 
 use crate::{
-    core::commands::{prefix::Args, CommandOrigin},
-    util::{builder::MessageBuilder, constants::GENERAL_ISSUE, matcher, ApplicationCommandExt},
+    core::{
+        commands::{prefix::Args, CommandOrigin},
+        CacheMiss,
+    },
+    util::{
+        builder::MessageBuilder, constants::GENERAL_ISSUE, matcher, ApplicationCommandExt,
+        ChannelExt,
+    },
     BotResult, Context,
 };
 
@@ -44,6 +49,7 @@ pub enum RoleAssign<'a> {
 )]
 /// Add role-assigning upon reaction on a message
 pub struct RoleAssignAdd<'a> {
+    #[command(channel_types = "guild_text")]
     /// Specify the channel that contains the message
     channel: Id<ChannelMarker>,
     #[command(help = "Specify the message by providing its ID.\n\
@@ -63,6 +69,7 @@ pub struct RoleAssignAdd<'a> {
 )]
 /// Remove role-assigning upon reaction on a message
 pub struct RoleAssignRemove<'a> {
+    #[command(channel_types = "guild_text")]
     /// Specify the channel that contains the message
     channel: Id<ChannelMarker>,
     #[command(help = "Specify the message by providing its ID.\n\
@@ -84,7 +91,7 @@ impl<'m> RoleAssign<'m> {
             None => return Err("You must provide a channel, a message, and a role."),
         };
 
-        let msg = match args.next() {
+        let message = match args.next() {
             Some(arg) => Cow::Borrowed(arg),
             None => return Err("You must provide a channel, a message, and a role."),
         };
@@ -97,7 +104,11 @@ impl<'m> RoleAssign<'m> {
             None => return Err("You must provide a channel, a message, and a role."),
         };
 
-        Ok(Self::Add(RoleAssignAdd { channel, msg, role }))
+        Ok(Self::Add(RoleAssignAdd {
+            channel,
+            message,
+            role,
+        }))
     }
 }
 
@@ -119,7 +130,11 @@ impl<'m> RoleAssign<'m> {
 async fn prefix_roleassign(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
     match RoleAssign::args(&mut args) {
         Ok(args) => roleassign(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -127,7 +142,7 @@ pub async fn slash_roleassign(
     ctx: Arc<Context>,
     mut command: Box<ApplicationCommand>,
 ) -> BotResult<()> {
-    let args = RoleAssign::from_iteraction(command.input_data())?;
+    let args = RoleAssign::from_interaction(command.input_data())?;
 
     roleassign(ctx, command.into(), args).await
 }
@@ -144,7 +159,7 @@ async fn roleassign(
                 Err(content) => return orig.error(&ctx, content).await,
             };
 
-            if ctx.cache.channel(add.channel_id, |_| ()).is_err() {
+            if ctx.cache.channel(add.channel, |_| ()).is_err() {
                 return orig.error(&ctx, "Channel not found in this guild").await;
             }
 
@@ -155,33 +170,9 @@ async fn roleassign(
 
             let guild = orig.guild_id().unwrap();
 
-            let user = match ctx.cache.current_user() {
-                Ok(user) => user,
-                Err(_) => {
-                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-                    bail!("CurrentUser not in cache");
-                }
-            };
-
-            let has_permission_fut = async {
-                ctx.cache.member(guild, user.id, |m| {
-                    m.roles()
-                        .iter()
-                        .any(|&r| match ctx.cache.role(r, |r| r.position > role_pos) {
-                            Ok(b) => b,
-                            Err(_) => {
-                                warn!("CurrentUser role {r} not in cache");
-
-                                false
-                            }
-                        })
-                })
-            };
-
-            match timeout(Duration::from_secs(5), has_permission_fut).await {
-                Ok(Ok(true)) => {}
-                Ok(Ok(false)) => {
+            match has_permission(&ctx, guild, role_pos) {
+                Ok(true) => {}
+                Ok(false) => {
                     let description = format!(
                         "To assign a role, one must have a role that is \
                         higher than the role to assign.\n\
@@ -191,15 +182,10 @@ async fn roleassign(
 
                     return orig.error(&ctx, description).await;
                 }
-                Ok(Err(_)) => {
-                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                Err(err) => {
+                    warn!("{:?}", Report::new(err));
 
-                    bail!("no member data in guild {guild} for CurrentUser in cache");
-                }
-                Err(_) => {
-                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-                    bail!("timed out while checking role permissions");
+                    return orig.error(&ctx, GENERAL_ISSUE).await;
                 }
             }
 
@@ -240,7 +226,7 @@ async fn roleassign(
                 Err(content) => return orig.error(&ctx, content).await,
             };
 
-            if ctx.cache.channel(remove.channel_id, |_| ()).is_err() {
+            if ctx.cache.channel(remove.channel, |_| ()).is_err() {
                 return orig.error(&ctx, "Channel not found in this guild").await;
             }
 
@@ -251,6 +237,25 @@ async fn roleassign(
                 };
 
             let guild = orig.guild_id().unwrap();
+
+            match has_permission(&ctx, guild, role_pos) {
+                Ok(true) => {}
+                Ok(false) => {
+                    let description = format!(
+                        "To remove a role, one must have a role that is \
+                        higher than the role to remove.\n\
+                        The role <@&{role}> is higher than all my roles so I can't remove it.",
+                        role = remove.role,
+                    );
+
+                    return orig.error(&ctx, description).await;
+                }
+                Err(err) => {
+                    warn!("{:?}", Report::new(err));
+
+                    return orig.error(&ctx, GENERAL_ISSUE).await;
+                }
+            }
 
             let remove_fut = ctx.psql().remove_role_assign(
                 remove.channel.get(),
@@ -332,4 +337,21 @@ async fn retrieve_data(
     };
 
     Ok(Ok((role_pos, msg)))
+}
+
+fn has_permission(ctx: &Context, guild: Id<GuildMarker>, role_pos: i64) -> Result<bool, CacheMiss> {
+    let user = ctx.cache.current_user()?;
+
+    ctx.cache.member(guild, user.id, |m| {
+        m.roles()
+            .iter()
+            .any(|&r| match ctx.cache.role(r, |r| r.position > role_pos) {
+                Ok(b) => b,
+                Err(_) => {
+                    warn!("CurrentUser role {r} not in cache");
+
+                    false
+                }
+            })
+    })
 }

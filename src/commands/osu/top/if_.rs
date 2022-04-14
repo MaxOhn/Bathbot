@@ -11,7 +11,7 @@ use twilight_model::{
 
 use crate::{
     commands::{
-        osu::{get_user_and_scores, ScoreArgs, UserArgs},
+        osu::{get_user_and_scores, ScoreArgs, ScoreOrder, UserArgs},
         GameModeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
@@ -24,9 +24,9 @@ use crate::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher, numbers,
-        osu::{ModSelection, ScoreOrder},
-        query::FilterCriteria,
-        ApplicationCommandExt,
+        osu::ModSelection,
+        query::{FilterCriteria, Searchable},
+        ApplicationCommandExt, ChannelExt,
     },
     BotResult, Context,
 };
@@ -73,7 +73,12 @@ async fn slash_topif(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) ->
 }
 
 impl<'m> TopIf<'m> {
-    fn args(mode: GameMode, args: Args<'m>) -> Self {
+    const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
+        If you want add mods, specify it e.g. as `+hrdt`.\n\
+        If you want exact mods, specify it e.g. as `+hdhr!`.\n\
+        And if you want to remove mods, specify it e.g. as `-hdnf!`.";
+
+    fn args(mode: GameModeOption, args: Args<'m>) -> Result<Self, &'static str> {
         let mut name = None;
         let mut discord = None;
         let mut mods = None;
@@ -88,13 +93,13 @@ impl<'m> TopIf<'m> {
             }
         }
 
-        Self {
-            mods,
+        Ok(Self {
+            mods: mods.ok_or(Self::ERR_PARSE_MODS)?,
             mode: Some(mode),
             name,
             query: None,
             discord,
-        }
+        })
     }
 }
 
@@ -112,7 +117,14 @@ impl<'m> TopIf<'m> {
 #[alias("ti")]
 #[group(Osu)]
 async fn prefix_topif(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    topif(ctx, msg.into(), TopIf::args(GameMode::STD, args))
+    match TopIf::args(GameModeOption::Osu, args) {
+        Ok(args) => topif(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
 }
 
 #[command]
@@ -129,7 +141,14 @@ async fn prefix_topif(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotRe
 #[alias("tit")]
 #[group(Taiko)]
 async fn prefix_topiftaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    topif(ctx, msg.into(), TopIf::args(GameMode::TKO, args))
+    match TopIf::args(GameModeOption::Taiko, args) {
+        Ok(args) => topif(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
 }
 
 #[command]
@@ -146,7 +165,14 @@ async fn prefix_topiftaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> 
 #[alias("tic")]
 #[group(Catch)]
 async fn prefix_topifctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    topif(ctx, msg.into(), TopIf::args(GameMode::CTB, args))
+    match TopIf::args(GameModeOption::Catch, args) {
+        Ok(args) => topif(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
 }
 
 const NM: GameMods = GameMods::NoMod;
@@ -161,14 +187,7 @@ const SD: GameMods = GameMods::SuddenDeath;
 async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> BotResult<()> {
     let mods = match matcher::get_mods(&args.mods) {
         Some(mods) => mods,
-        None => {
-            let content = "Failed to parse mods.\n\
-            If you want to insert mods everywhere, specify it e.g. as `+hrdt`.\n\
-            If you want to replace mods everywhere, specify it e.g. as `+hdhr!`.\n\
-            And if you want to remove mods everywhere, specify it e.g. as `-hdnf!`.";
-
-            return orig.error(&ctx, content).await;
-        }
+        None => return orig.error(&ctx, TopIf::ERR_PARSE_MODS).await,
     };
 
     let (name, mode) = name_mode!(ctx, orig, args);
@@ -223,9 +242,8 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> B
         .sum();
 
     let bonus_pp = user.statistics.as_ref().unwrap().pp - actual_pp;
-    let arg_mods = args.mods;
 
-    let mut scores_data: Vec<_> = match modify_scores(&ctx, scores, arg_mods).await {
+    let mut scores_data: Vec<_> = match modify_scores(&ctx, scores, mods).await {
         Ok(scores) => scores,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -251,10 +269,7 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> B
 
     let adjusted_pp = numbers::round((bonus_pp + adjusted_pp).max(0.0) as f32);
 
-    let rank_fut = ctx
-        .clients
-        .custom
-        .get_rank_data(mode, RankParam::Pp(adjusted_pp));
+    let rank_fut = ctx.client().get_rank_data(mode, RankParam::Pp(adjusted_pp));
 
     let rank = match rank_fut.await {
         Ok(rank) => Some(rank.rank as usize),
@@ -291,7 +306,7 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> B
     let pre_pp = user.statistics.as_ref().unwrap().pp;
     let pagination =
         TopIfPagination::new(response, user, scores_data, mode, pre_pp, adjusted_pp, rank);
-    let owner = orig.author()?.id;
+    let owner = orig.user_id()?;
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {

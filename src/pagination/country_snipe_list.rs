@@ -1,7 +1,7 @@
 use super::{Pages, Pagination, ReactionVec};
 
 use crate::{
-    commands::osu::SnipeOrder,
+    commands::osu::SnipeCountryListOrder,
     custom_client::SnipeCountryPlayer,
     embeds::CountrySnipeListEmbed,
     util::{CountryCode, Emote},
@@ -15,7 +15,7 @@ pub struct CountrySnipeListPagination {
     pages: Pages,
     players: Vec<(usize, SnipeCountryPlayer)>,
     country: Option<(String, CountryCode)>,
-    order: SnipeOrder,
+    order: SnipeCountryListOrder,
     author_idx: Option<usize>,
 }
 
@@ -24,7 +24,7 @@ impl CountrySnipeListPagination {
         msg: Message,
         players: Vec<(usize, SnipeCountryPlayer)>,
         country: Option<(String, CountryCode)>,
-        order: SnipeOrder,
+        order: SnipeCountryListOrder,
         author_idx: Option<usize>,
     ) -> Self {
         Self {

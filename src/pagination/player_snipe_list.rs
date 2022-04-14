@@ -88,8 +88,7 @@ impl Pagination for PlayerSnipeListPagination {
             // Get scores
             let scores = self
                 .ctx
-                .clients
-                .custom
+                .client()
                 .get_national_firsts(&self.params)
                 .await?;
 

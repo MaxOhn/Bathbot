@@ -11,10 +11,8 @@ use twilight_model::application::interaction::ApplicationCommand;
 use crate::{
     util::{
         builder::MessageBuilder,
-        constants::{
-            common_literals::{MANIA, OSU},
-            GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE,
-        },
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE},
+        ApplicationCommandExt,
     },
     BotResult, Context, CONFIG,
 };
@@ -38,8 +36,9 @@ pub async fn addbg(
         None | Some(Err(_)) => {
             let content = "Provided image has no appropriate name. \
                 Be sure to let the name be the mapset id, e.g. 948199.png";
+            command.error(&ctx, content).await?;
 
-            return command.error(&ctx, content).await;
+            return Ok(());
         }
     };
 
@@ -50,18 +49,19 @@ pub async fn addbg(
 
     if valid_filetype_opt.is_none() {
         let content = "Provided image has inappropriate type. Must be either `.jpg` or `.png`";
+        command.error(&ctx, content).await?;
 
-        return command.error(&ctx, content).await;
+        return Ok(());
     }
 
     // Download attachement
-    let path = match ctx.clients.custom.get_discord_attachment(&image).await {
+    let path = match ctx.client().get_discord_attachment(&image).await {
         Ok(content) => {
             let mut path = CONFIG.get().unwrap().paths.backgrounds.clone();
 
             match mode {
-                GameMode::STD => path.push(OSU),
-                GameMode::MNA => path.push(MANIA),
+                GameMode::STD => path.push("osu"),
+                GameMode::MNA => path.push("mania"),
                 GameMode::TKO | GameMode::CTB => unreachable!(),
             }
 
@@ -110,7 +110,7 @@ pub async fn addbg(
     };
 
     let builder = MessageBuilder::new().embed(content);
-    command.callback(&ctx, builder).await?;
+    command.callback(&ctx, builder, false).await?;
 
     Ok(())
 }

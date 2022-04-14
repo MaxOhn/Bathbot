@@ -1,13 +1,13 @@
 use std::{borrow::Cow, sync::Arc};
 
-use command_macros::{HasName, SlashCommand};
+use command_macros::{HasMods, HasName, SlashCommand};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::application::{
-    command::CommandOptionChoice,
-    interaction::{application_command::CommandOptionValue, ApplicationCommand},
+use twilight_model::{
+    application::interaction::ApplicationCommand,
+    id::{marker::UserMarker, Id},
 };
 
-use crate::{custom_client::OsuStatsListParams, BotResult, Context};
+use crate::{commands::GameModeOption, util::ApplicationCommandExt, BotResult, Context};
 
 pub use self::{counts::*, globals::*, list::*};
 
@@ -15,7 +15,7 @@ mod counts;
 mod globals;
 mod list;
 
-#[derive(CommandModel, CreateCommand)]
+#[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "osustats",
     help = "Stats about scores that players have on maps' global leaderboards.\n\
@@ -32,26 +32,10 @@ pub enum OsuStats<'a> {
     Scores(OsuStatsScores<'a>),
 }
 
-#[derive(CommandModel, CreateCommand, HasName)]
+#[derive(CommandModel, CreateCommand, Default, HasName)]
 #[command(name = "count")]
 /// Count how often a user appears on top of map leaderboards (same as `/osc`)
 pub struct OsuStatsCount<'a> {
-    /// Specify a gamemode
-    mode: Option<GameModeOption>,
-    /// Specify a country (code)
-    country: Option<Cow<'a, str>>,
-    #[command(min_value = 1, max_value = 100)]
-    /// Specify a min rank between 1 and 100
-    min_rank: Option<u32>,
-    #[command(min_value = 1, max_value = 100)]
-    /// Specify a max rank between 1 and 100
-    max_rank: Option<u32>,
-}
-
-#[derive(CommandModel, CreateCommand, HasName)]
-#[command(name = "players")]
-/// All scores of a player that are on a map's global leaderboard
-pub struct OsuStatsPlayers<'a> {
     /// Specify a gamemode
     mode: Option<GameModeOption>,
     /// Specify a username
@@ -65,7 +49,23 @@ pub struct OsuStatsPlayers<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-#[derive(CommandModel, CreateCommand, HasName)]
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "players")]
+/// All scores of a player that are on a map's global leaderboard
+pub struct OsuStatsPlayers<'a> {
+    /// Specify a gamemode
+    mode: Option<GameModeOption>,
+    /// Specify a country (code)
+    country: Option<Cow<'a, str>>,
+    #[command(min_value = 1, max_value = 100)]
+    /// Specify a min rank between 1 and 100
+    min_rank: Option<u32>,
+    #[command(min_value = 1, max_value = 100)]
+    /// Specify a max rank between 1 and 100
+    max_rank: Option<u32>,
+}
+
+#[derive(CommandModel, CreateCommand, HasMods, HasName)]
 #[command(name = "scores")]
 /// All scores of a player that are on a map's global leaderboard
 pub struct OsuStatsScores<'a> {
@@ -108,22 +108,22 @@ pub struct OsuStatsScores<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-#[derive(CreateOption, CommandOption)]
+#[derive(Copy, Clone, CreateOption, CommandOption, Debug)]
 pub enum OsuStatsScoresOrder {
     #[option(name = "Accuracy", value = "acc")]
-    Acc,
+    Acc = 3,
     #[option(name = "Combo", value = "combo")]
-    Combo,
+    Combo = 4,
     #[option(name = "Date", value = "date")]
-    Date,
+    Date = 0,
     #[option(name = "Misses", value = "misses")]
-    Misses,
+    Misses = 6,
     #[option(name = "PP", value = "pp")]
-    Pp,
+    Pp = 1,
     #[option(name = "Rank", value = "rank")]
-    Rank,
+    Rank = 2,
     #[option(name = "Score", value = "score")]
-    Score,
+    Score = 5,
 }
 
 async fn slash_osustats(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {

@@ -10,13 +10,13 @@ use twilight_model::{
 
 use crate::{
     core::Context,
-    embeds::BGTagsEmbed,
+    embeds::{BGTagsEmbed, EmbedData},
     error::InvalidBgState,
     games::bg::GameWrapper,
     util::{
         builder::{EmbedBuilder, MessageBuilder},
         constants::{GENERAL_ISSUE, RED},
-        ComponentExt,
+        ComponentExt, Authored,
     },
     BotResult,
 };

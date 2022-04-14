@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, sync::Arc};
+use std::{borrow::Cow, cmp::Ordering, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
 use eyre::Report;
@@ -7,33 +7,24 @@ use rosu_pp::{Beatmap as Map, CatchPP, CatchStars, OsuPP, TaikoPP};
 use rosu_v2::prelude::{GameMode, OsuError, Score};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
-    application::{
-        command::CommandOptionChoice,
-        interaction::{
-            application_command::{CommandDataOption, CommandOptionValue},
-            ApplicationCommand,
-        },
-    },
+    application::interaction::ApplicationCommand,
     id::{marker::UserMarker, Id},
 };
 
 use crate::{
-    commands::{
-        check_user_mention,
-        osu::{get_user_and_scores, ScoreArgs, UserArgs},
-        parse_discord, parse_mode_option, DoubleResultCow, MyCommand, MyCommandOption,
-    },
+    commands::osu::{get_user_and_scores, ScoreArgs, UserArgs},
+    core::commands::{prefix::Args, CommandOrigin},
     custom_client::RankParam,
-    database::UserConfig,
     embeds::{EmbedData, NoChokeEmbed},
     error::PpError,
     pagination::{NoChokePagination, Pagination},
     tracking::process_osu_tracking,
     util::{
+        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        numbers,
+        matcher, numbers,
         osu::prepare_beatmap_file,
-        ApplicationCommandExt, InteractionExt, MessageExt,
+        ApplicationCommandExt,
     },
     BotResult, Context, Error,
 };
@@ -71,7 +62,7 @@ pub struct Nochoke<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-#[derive(CommandOption, CreateOption)]
+#[derive(Copy, Clone, CommandOption, CreateOption)]
 pub enum NochokeGameMode {
     #[option(name = "osu", value = "osu")]
     Osu,
@@ -81,12 +72,28 @@ pub enum NochokeGameMode {
     Catch,
 }
 
-#[derive(CommandOption, CreateOption)]
+impl From<NochokeGameMode> for GameMode {
+    fn from(mode: NochokeGameMode) -> Self {
+        match mode {
+            NochokeGameMode::Osu => Self::STD,
+            NochokeGameMode::Taiko => Self::TKO,
+            NochokeGameMode::Catch => Self::CTB,
+        }
+    }
+}
+
+#[derive(Copy, Clone, CommandOption, CreateOption)]
 pub enum NochokeVersion {
     #[option(name = "Unchoke", value = "unchoke")]
     Unchoke,
     #[option(name = "Perfect", value = "perfect")]
     Perfect,
+}
+
+impl Default for NochokeVersion {
+    fn default() -> Self {
+        Self::Unchoke
+    }
 }
 
 impl NochokeVersion {
@@ -112,7 +119,7 @@ pub enum NochokeFilter {
 }
 
 impl<'m> Nochoke<'m> {
-    fn args(mode: NochokeGameMode, mut args: Args<'_>) -> Self {
+    fn args(mode: NochokeGameMode, args: Args<'m>) -> Self {
         let mut name = None;
         let mut discord = None;
         let mut miss_limit = None;
@@ -196,7 +203,7 @@ async fn slash_nochoke(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) 
     nochoke(ctx, command.into(), args).await
 }
 
-async fn nochokes(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) -> BotResult<()> {
+async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) -> BotResult<()> {
     let (name, mode) = name_mode!(ctx, orig, args);
 
     let Nochoke {
@@ -229,6 +236,8 @@ async fn nochokes(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>)
 
     // Process user and their top scores for tracking
     process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
+
+    let version = version.unwrap_or_default();
 
     let mut scores_data = match version.calculate(&ctx, scores, miss_limit).await {
         Ok(scores_data) => scores_data,
@@ -268,10 +277,7 @@ async fn nochokes(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>)
         None => {}
     }
 
-    let rank_fut = ctx
-        .clients
-        .custom
-        .get_rank_data(mode, RankParam::Pp(unchoked_pp));
+    let rank_fut = ctx.client().get_rank_data(mode, RankParam::Pp(unchoked_pp));
 
     let rank = match rank_fut.await {
         Ok(rank) => Some(rank.rank as usize),
@@ -319,7 +325,7 @@ async fn nochokes(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>)
 
     // Creating the embed
     let builder = MessageBuilder::new().content(content).embed(embed);
-    let response_raw = orig.create_message(&ctx, builder).await?;
+    let response_raw = orig.create_message(&ctx, &builder).await?;
 
     // Skip pagination if too few entries
     if scores_data.len() <= 5 {

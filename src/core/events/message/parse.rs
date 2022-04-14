@@ -37,7 +37,7 @@ pub fn parse_invoke(stream: &mut Stream<'_>) -> Invoke {
 
     stream.take_while_char(char::is_whitespace);
 
-    if let Some(cmd) = PREFIX_COMMANDS.command(name.as_str()) {
+    if let Some(cmd) = PREFIX_COMMANDS.command(name.as_ref()) {
         Invoke::Command { cmd, num }
     } else {
         Invoke::None

@@ -1,36 +1,31 @@
-use std::{collections::BTreeMap, fmt::Write, sync::Arc};
+use std::{borrow::Cow, collections::BTreeMap, fmt::Write, sync::Arc};
 
+use command_macros::command;
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError};
-use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    commands::{
-        check_user_mention,
-        osu::{get_user, UserArgs},
-        DoubleResultCow,
-    },
-    custom_client::{SnipeScoreOrder, SnipeScoreParams},
-    database::OsuData,
+    commands::osu::{get_user, require_link, UserArgs, HasMods, ModsResult},
+    core::commands::{prefix::Args, CommandOrigin},
+    custom_client::SnipeScoreParams,
     embeds::{EmbedData, PlayerSnipeListEmbed},
     pagination::{Pagination, PlayerSnipeListPagination},
     util::{
-        constants::{
-            common_literals::{ACC, ACCURACY, MISSES, REVERSE, SORT},
-            GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE,
-        },
+        builder::MessageBuilder,
+        constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         matcher, numbers,
         osu::ModSelection,
-        CowUtils, MessageExt,
+        ChannelExt, CowUtils,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder,
+    BotResult, Context,
 };
 
+use super::{SnipePlayerList, SnipePlayerListOrder};
+
 #[command]
-#[bucket("snipe")]
-#[short_desc("List all national #1 scores of a player")]
-#[long_desc(
+#[desc("List all national #1 scores of a player")]
+#[help(
     "List all national #1 scores of a player.\n\
     To specify an order, you must provide `sort=...` with any of these values:\n\
     - `acc`: Sort by accuracy\n \
@@ -46,42 +41,47 @@ use crate::{
     website [huismetbenen](https://snipe.huismetbenen.nl/)."
 )]
 #[usage("[username] [+mods] [sort=acc/stars/misses/length/scoredate/mapdate] [reverse=true/false]")]
-#[example("badewanne3 +dt sort=acc reverse=true", "+hdhr sort=scoredate")]
-#[aliases("psl")]
-async fn playersnipelist(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match PlayerListArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(list_args)) => {
-                    _playersnipelist(ctx, CommandData::Message { msg, args, num }, list_args).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+#[examples("badewanne3 +dt sort=acc reverse=true", "+hdhr sort=scoredate")]
+#[alias("psl")]
+#[group(Osu)]
+async fn prefix_playersnipelist(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match SnipePlayerList::args(args) {
+        Ok(args) => player_list(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
 
-                    Err(why)
-                }
-            }
+            Ok(())
         }
-        CommandData::Interaction { command } => super::slash_snipe(ctx, *command).await,
     }
 }
 
-pub(super) async fn _playersnipelist(
+pub(super) async fn player_list(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
-    args: PlayerListArgs,
+    orig: CommandOrigin<'_>,
+    args: SnipePlayerList<'_>,
 ) -> BotResult<()> {
-    let PlayerListArgs {
-        osu,
-        order,
-        mods,
-        descending,
-    } = args;
+    let mods = match args.mods() {
+        ModsResult::Mods(mods) => Some(mods),
+        ModsResult::None => None,
+        ModsResult::Invalid => {
+            let content =
+                "Failed to parse mods. Be sure to specify a valid abbreviation e.g. `hdhr`.";
 
-    let name = match osu.map(OsuData::into_username) {
+            return orig.error(&ctx, content).await;
+        },
+    };
+
+    let name = match username!(ctx, orig, args) {
         Some(name) => name,
-        None => return super::require_link(&ctx, &data).await,
+        None => match ctx.psql().get_user_osu(orig.user_id()?).await {
+            Ok(Some(osu)) => osu.into_username(),
+            Ok(None) => return require_link(&ctx, &orig).await,
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(err);
+            }
+        },
     };
 
     let user_args = UserArgs::new(name.as_str(), GameMode::STD);
@@ -91,10 +91,10 @@ pub(super) async fn _playersnipelist(
         Err(OsuError::NotFound) => {
             let content = format!("User `{name}` was not found");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
         Err(why) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(why.into());
         }
@@ -111,30 +111,30 @@ pub(super) async fn _playersnipelist(
             user.username, user.country_code
         );
 
-        return data.error(&ctx, content).await;
+        return orig.error(&ctx, content).await;
     };
 
     let params = SnipeScoreParams::new(user.user_id, country)
-        .order(order)
-        .descending(descending)
+        .order(args.sort.unwrap_or_default())
+        .descending(args.reverse.map_or(true, |b| !b))
         .mods(mods);
 
-    let scores_fut = ctx.clients.custom.get_national_firsts(&params);
-    let count_fut = ctx.clients.custom.get_national_firsts_count(&params);
+    let scores_fut = ctx.client().get_national_firsts(&params);
+    let count_fut = ctx.client().get_national_firsts_count(&params);
 
     let (scores, count) = match tokio::try_join!(scores_fut, count_fut) {
         Ok((scores, mut count)) => {
             let scores: BTreeMap<_, _> = scores.into_iter().enumerate().collect();
 
             // TODO: Remove this when it's fixed on huismetbenen
-            if params.order != SnipeScoreOrder::Pp {
+            if params.order != SnipePlayerListOrder::Pp {
                 count = count.min(1000);
             }
 
             (scores, count)
         }
         Err(why) => {
-            let _ = data.error(&ctx, HUISMETBENEN_ISSUE).await;
+            let _ = orig.error(&ctx, HUISMETBENEN_ISSUE).await;
 
             return Err(why.into());
         }
@@ -167,7 +167,7 @@ pub(super) async fn _playersnipelist(
                     maps.insert(map_id, map);
                 }
                 Err(why) => {
-                    let _ = data.error(&ctx, OSU_API_ISSUE).await;
+                    let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
                     return Err(why.into());
                 }
@@ -192,7 +192,7 @@ pub(super) async fn _playersnipelist(
     // Creating the embed
     let embed = embed_data.into_builder().build();
     let builder = MessageBuilder::new().content(content).embed(embed);
-    let response_raw = data.create_message(&ctx, builder).await?;
+    let response_raw = orig.create_message(&ctx, &builder).await?;
 
     // Skip pagination if too few entries
     if scores.len() <= 5 {
@@ -212,7 +212,7 @@ pub(super) async fn _playersnipelist(
         params,
     );
 
-    let owner = data.author()?.id;
+    let owner = orig.user_id()?;
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {
@@ -223,23 +223,13 @@ pub(super) async fn _playersnipelist(
     Ok(())
 }
 
-pub(super) struct PlayerListArgs {
-    pub osu: Option<OsuData>,
-    pub order: SnipeScoreOrder,
-    pub mods: Option<ModSelection>,
-    pub descending: bool,
-}
-
-impl PlayerListArgs {
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: Id<UserMarker>,
-    ) -> DoubleResultCow<Self> {
-        let mut osu = ctx.psql().get_user_osu(author_id).await?;
-        let mut order = None;
+impl<'m> SnipePlayerList<'m> {
+    fn args(args: Args<'m>) -> Result<Self, Cow<'static, str>> {
+        let mut name = None;
+        let mut discord = None;
+        let mut sort = None;
         let mut mods = None;
-        let mut descending = None;
+        let mut reverse = None;
 
         for arg in args.take(4).map(CowUtils::cow_to_ascii_lowercase) {
             if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
@@ -247,30 +237,30 @@ impl PlayerListArgs {
                 let value = arg[idx + 1..].trim_end();
 
                 match key {
-                    SORT => {
-                        order = match value {
-                            ACC | ACCURACY | "a" => Some(SnipeScoreOrder::Accuracy),
-                            "mapdate" | "md" => Some(SnipeScoreOrder::MapApprovalDate),
-                            MISSES | "miss" | "m" => Some(SnipeScoreOrder::Misses),
-                            "scoredate" | "sd" => Some(SnipeScoreOrder::ScoreDate),
-                            "stars" | "s" => Some(SnipeScoreOrder::Stars),
-                            "length" | "len" | "l" => Some(SnipeScoreOrder::Length),
+                    "sort" | "s" => {
+                        sort = match value {
+                            "acc" | "accuracy" | "a" => Some(SnipePlayerListOrder::Acc),
+                            "mapdate" | "md" => Some(SnipePlayerListOrder::MapDate),
+                            "misses" | "miss" | "m" => Some(SnipePlayerListOrder::Misses),
+                            "scoredate" | "sd" => Some(SnipePlayerListOrder::Date),
+                            "stars" | "s" => Some(SnipePlayerListOrder::Stars),
+                            "length" | "len" | "l" => Some(SnipePlayerListOrder::Length),
                             _ => {
                                 let content = "Failed to parse `sort`. \
                                 Must be either `acc`, `length`, `mapdate`, `misses`, `scoredate`, or `stars`.";
 
-                                return Ok(Err(content.into()));
+                                return Err(content.into());
                             }
                         }
                     }
-                    REVERSE => match value {
-                        "true" | "t" | "1" => descending = Some(false),
-                        "false" | "f" | "0" => descending = Some(true),
+                    "reverse" | "r" => match value {
+                        "true" | "t" | "1" => reverse = Some(true),
+                        "false" | "f" | "0" => reverse = Some(false),
                         _ => {
                             let content =
                                 "Failed to parse `reverse`. Must be either `true` or `false`.";
 
-                            return Ok(Err(content.into()));
+                            return Err(content.into());
                         }
                     },
                     _ => {
@@ -279,26 +269,24 @@ impl PlayerListArgs {
                             Available options are: `sort` or `reverse`."
                         );
 
-                        return Ok(Err(content.into()));
+                        return Err(content.into());
                     }
                 }
-            } else if let Some(mods_) = matcher::get_mods(arg.as_ref()) {
-                mods = Some(mods_);
+            } else if matcher::get_mods(&arg).is_some() {
+                mods = Some(arg.into());
+            } else if let Some(id) = matcher::get_mention_user(&arg) {
+                discord = Some(id);
             } else {
-                match check_user_mention(ctx, arg.as_ref()).await? {
-                    Ok(osu_) => osu = Some(osu_),
-                    Err(content) => return Ok(Err(content)),
-                }
+                name = Some(arg.into());
             }
         }
 
-        let args = Self {
-            osu,
-            order: order.unwrap_or_default(),
+        Ok(Self {
+            name,
             mods,
-            descending: descending.unwrap_or(true),
-        };
-
-        Ok(Ok(args))
+            sort,
+            reverse,
+            discord,
+        })
     }
 }

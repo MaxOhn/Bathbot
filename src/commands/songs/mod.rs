@@ -24,7 +24,7 @@ use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     core::{buckets::BucketName, commands::CommandOrigin},
-    util::{builder::MessageBuilder, ApplicationCommandExt},
+    util::{builder::MessageBuilder, ApplicationCommandExt, MessageExt},
     BotResult, Context,
 };
 
@@ -63,21 +63,19 @@ async fn song(
         let _ = writeln!(content, "♫ {} ♫", lyrics[0]);
         let builder = MessageBuilder::new().content(&content);
         interval.tick().await;
-        let mut response = orig.create_message(&ctx, &builder).await?.model().await?;
+
+        let mut response = orig
+            .callback_with_response(&ctx, builder)
+            .await?
+            .model()
+            .await?;
 
         for line in &lyrics[1..] {
             interval.tick().await;
             let _ = writeln!(content, "♫ {line} ♫");
 
-            // It's fine to not implement a `plain_message` method on CommandOrigin
-            response = ctx
-                .http
-                .update_message(response.channel_id, response.id)
-                .content(Some(&content))?
-                .exec()
-                .await?
-                .model()
-                .await?;
+            let builder = MessageBuilder::new().content(&content);
+            response = response.update(&ctx, &builder).await?.model().await?;
         }
     } else {
         let content = "The server's big boys disabled song commands. \
@@ -175,7 +173,7 @@ impl SongTitle {
 }
 
 pub async fn slash_song(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
-    let args = Song::from_iteraction(command.input_data())?;
+    let args = Song::from_interaction(command.input_data())?;
     let (lyrics, delay) = args.title.get();
 
     song(lyrics, delay, ctx, command.into()).await

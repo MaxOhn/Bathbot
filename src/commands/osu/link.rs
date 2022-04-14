@@ -40,5 +40,7 @@ async fn prefix_link(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
         try [re-inviting the bot]({INVITE_LINK})."
     );
 
-    msg.error(&ctx, content).await
+    msg.error(&ctx, content).await?;
+
+    Ok(())
 }

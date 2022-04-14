@@ -4,11 +4,12 @@ use rosu_v2::prelude::GameMode;
 use crate::{
     commands::osu::MedalAchieved,
     custom_client::{OsekaiComment, OsekaiMap, OsekaiMedal},
-    embeds::{  EmbedData, EmbedFields, },
+    embeds::{EmbedData, EmbedFields},
     util::{
+        builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
         constants::{FIELD_VALUE_SIZE, OSU_BASE},
         osu::flag_url,
-        CowUtils, builder::{FooterBuilder, AuthorBuilder, EmbedBuilder},
+        CowUtils,
     },
 };
 
@@ -45,7 +46,7 @@ impl MedalEmbed {
 
         fields.push(field!("Mode", mode, true));
         fields.push(field!("Mods", mods, true));
-        fields.push(field!("Group", medal.grouping, true));
+        fields.push(field!("Group", medal.grouping.to_string(), true));
 
         if !maps.is_empty() {
             let len = maps.len();

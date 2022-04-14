@@ -1,52 +1,191 @@
-use std::{collections::BTreeMap, fmt::Write, mem, sync::Arc};
+use std::{borrow::Cow, collections::BTreeMap, fmt::Write, sync::Arc};
 
+use command_macros::command;
 use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError, Username};
-use twilight_model::{
-    application::interaction::{
-        application_command::{CommandDataOption, CommandOptionValue},
-        ApplicationCommand,
-    },
-    id::{marker::UserMarker, Id},
-};
 
 use crate::{
     commands::{
-        check_user_mention,
-        osu::{get_user, UserArgs},
-        parse_discord, parse_mode_option, DoubleResultCow,
+        osu::{get_user, HasMods, ModsResult, UserArgs},
+        GameModeOption,
     },
-    custom_client::{OsuStatsOrder, OsuStatsParams, OsuStatsScore},
-    database::UserConfig,
+    core::commands::{prefix::Args, CommandOrigin},
+    custom_client::{OsuStatsParams, OsuStatsScore},
     embeds::{EmbedData, OsuStatsGlobalsEmbed},
-    error::Error,
     pagination::{OsuStatsGlobalsPagination, Pagination},
     util::{
-        constants::{
-            common_literals::{
-                ACC, ACCURACY, COMBO, DISCORD, MISSES, MODE, MODS, NAME, RANK, REVERSE, SCORE, SORT,
-            },
-            GENERAL_ISSUE, OSUSTATS_API_ISSUE, OSU_API_ISSUE,
-        },
+        builder::MessageBuilder,
+        constants::{OSUSTATS_API_ISSUE, OSU_API_ISSUE},
         matcher, numbers,
         osu::ModSelection,
-        InteractionExt, MessageExt,
+        ChannelExt, CowUtils,
     },
-    Args, BotResult, CommandData, Context, MessageBuilder,
+    BotResult, Context,
 };
 
-pub(super) async fn _scores(
+use super::{OsuStatsScores, OsuStatsScoresOrder};
+
+#[command]
+#[desc("All scores of a player that are on a map's global leaderboard")]
+#[help(
+    "Show all scores of a player that are on a map's global leaderboard.\n\
+    Mods can be specified through the usual `+_`, `+_!`, `-_!` syntax.\n\
+    There are also multiple options you can set by specifying `key=value`.\n\
+    These are the keys with their values:\n\
+    - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
+    - `rank`: single integer or two integers of the form `a..b` e.g. `rank=2..45`\n\
+    - `sort`: `acc`, `combo`, `date` (default), `misses`, `pp`, `rank`, or `score`\n\
+    - `reverse`: `true` or `false` (default)\n\
+    Check https://osustats.ppy.sh/ for more info."
+)]
+#[usage(
+    "[username] [mods] [acc=[number..]number] [rank=[integer..]integer] \
+    [sort=acc/combo/date/misses/pp/rank/score] [reverse=true/false]"
+)]
+#[examples(
+    "badewanne3 -dt! acc=97.5..99.5 rank=42 sort=pp reverse=true",
+    "vaxei sort=rank rank=1..5 +hdhr"
+)]
+#[aliases("osg", "osustatsglobal")]
+#[group(Osu)]
+async fn prefix_osustatsglobals(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+    match OsuStatsScores::args(GameModeOption::Osu, args) {
+        Ok(args) => scores(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("All scores of a player that are on a map's global leaderboard")]
+#[help(
+    "Show all scores of a player that are on a mania map's global leaderboard.\n\
+    Mods can be specified through the usual `+_`, `+_!`, `-_!` syntax.\n\
+    There are also multiple options you can set by specifying `key=value`.\n\
+    These are the keys with their values:\n\
+    - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
+    - `rank`: single integer or two integers of the form `a..b` e.g. `rank=2..45`\n\
+    - `sort`: `acc`, `combo`, `date` (default), `misses`, `pp`, `rank`, or `score`\n\
+    - `reverse`: `true` or `false` (default)\n\
+    Check https://osustats.ppy.sh/ for more info."
+)]
+#[usage(
+    "[username] [mods] [acc=[number..]number] [rank=[integer..]integer] \
+    [sort=acc/combo/date/misses/pp/rank/score] [reverse=true/false]"
+)]
+#[examples(
+    "badewanne3 -dt! acc=97.5..99.5 rank=42 sort=pp reverse=true",
+    "vaxei sort=rank rank=1..5 +hdhr"
+)]
+#[aliases("osgm", "osustatsglobalmania")]
+#[group(Mania)]
+async fn prefix_osustatsglobalsmania(
     ctx: Arc<Context>,
-    data: CommandData<'_>,
-    args: ScoresArgs,
+    msg: &Message,
+    args: Args<'_>,
 ) -> BotResult<()> {
-    let name = match args.config.username() {
-        Some(name) => name.as_str(),
-        None => return super::require_link(&ctx, &data).await,
+    match OsuStatsScores::args(GameModeOption::Mania, args) {
+        Ok(args) => scores(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("All scores of a player that are on a map's global leaderboard")]
+#[help(
+    "Show all scores of a player that are on a taiko map's global leaderboard.\n\
+    Mods can be specified through the usual `+_`, `+_!`, `-_!` syntax.\n\
+    There are also multiple options you can set by specifying `key=value`.\n\
+    These are the keys with their values:\n\
+    - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
+    - `rank`: single integer or two integers of the form `a..b` e.g. `rank=2..45`\n\
+    - `sort`: `acc`, `combo`, `date` (default), `misses`, `pp`, `rank`, or `score`\n\
+    - `reverse`: `true` or `false` (default)\n\
+    Check https://osustats.ppy.sh/ for more info."
+)]
+#[usage(
+    "[username] [mods] [acc=[number..]number] [rank=[integer..]integer] \
+    [sort=acc/combo/date/misses/pp/rank/score] [reverse=true/false]"
+)]
+#[examples(
+    "badewanne3 -dt! acc=97.5..99.5 rank=42 sort=pp reverse=true",
+    "vaxei sort=rank rank=1..5 +hdhr"
+)]
+#[aliases("osgt", "osustatsglobaltaiko")]
+#[group(Taiko)]
+async fn prefix_osustatsglobalstaiko(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+) -> BotResult<()> {
+    match OsuStatsScores::args(GameModeOption::Taiko, args) {
+        Ok(args) => scores(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("All scores of a player that are on a map's global leaderboard")]
+#[help(
+    "Show all scores of a player that are on a ctb map's global leaderboard.\n\
+    Mods can be specified through the usual `+_`, `+_!`, `-_!` syntax.\n\
+    There are also multiple options you can set by specifying `key=value`.\n\
+    These are the keys with their values:\n\
+    - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
+    - `rank`: single integer or two integers of the form `a..b` e.g. `rank=2..45`\n\
+    - `sort`: `acc`, `combo`, `date` (default), `misses`, `pp`, `rank`, or `score`\n\
+    - `reverse`: `true` or `false` (default)\n\
+    Check https://osustats.ppy.sh/ for more info."
+)]
+#[usage(
+    "[username] [mods] [acc=[number..]number] [rank=[integer..]integer] \
+    [sort=acc/combo/date/misses/pp/rank/score] [reverse=true/false]"
+)]
+#[examples(
+    "badewanne3 -dt! acc=97.5..99.5 rank=42 sort=pp reverse=true",
+    "vaxei sort=rank rank=1..5 +hdhr"
+)]
+#[aliases("osgc", "osustatsglobalctb")]
+#[group(Catch)]
+async fn prefix_osustatsglobalsctb(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+) -> BotResult<()> {
+    match OsuStatsScores::args(GameModeOption::Catch, args) {
+        Ok(args) => scores(ctx, msg.into(), args).await,
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+pub(super) async fn scores(
+    ctx: Arc<Context>,
+    orig: CommandOrigin<'_>,
+    args: OsuStatsScores<'_>,
+) -> BotResult<()> {
+    let mods = match args.mods() {
+        ModsResult::Mods(mods) => Some(mods),
+        ModsResult::None => None,
+        ModsResult::Invalid => return orig.error(&ctx, OsuStatsScores::ERR_PARSE_MODS).await,
     };
 
-    let mode = args.config.mode.unwrap_or(GameMode::STD);
-    let user_args = UserArgs::new(name, mode);
+    let (name, mode) = name_mode!(ctx, orig, args);
+    let user_args = UserArgs::new(&name, mode);
 
     // Retrieve user
     let mut user = match get_user(&ctx, &user_args).await {
@@ -54,22 +193,22 @@ pub(super) async fn _scores(
         Err(OsuError::NotFound) => {
             let content = format!("User `{name}` was not found");
 
-            return data.error(&ctx, content).await;
+            return orig.error(&ctx, content).await;
         }
-        Err(why) => {
-            let _ = data.error(&ctx, OSU_API_ISSUE).await;
+        Err(err) => {
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 
     // Overwrite default mode
     user.mode = mode;
 
-    let params = args.into_params(user.username.as_str().into(), mode);
+    let params = args.into_params(user.username.as_str().into(), mode, mods);
 
     // Retrieve their top global scores
-    let (scores, amount) = match ctx.clients.custom.get_global_scores(&params).await {
+    let (scores, amount) = match ctx.client().get_global_scores(&params).await {
         Ok((scores, amount)) => (
             scores
                 .into_iter()
@@ -77,10 +216,10 @@ pub(super) async fn _scores(
                 .collect::<BTreeMap<usize, OsuStatsScore>>(),
             amount,
         ),
-        Err(why) => {
-            let _ = data.error(&ctx, OSUSTATS_API_ISSUE).await;
+        Err(err) => {
+            let _ = orig.error(&ctx, OSUSTATS_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 
@@ -92,10 +231,10 @@ pub(super) async fn _scores(
         "`Rank: {rank_min} - {rank_max}` ~ \
         `Acc: {acc_min}% - {acc_max}%` ~ \
         `Order: {order} {descending}`",
-        acc_min = params.acc_min,
-        acc_max = params.acc_max,
-        rank_min = params.rank_min,
-        rank_max = params.rank_max,
+        acc_min = params.min_acc,
+        acc_max = params.max_acc,
+        rank_min = params.min_rank,
+        rank_max = params.max_rank,
         order = params.order,
         descending = if params.descending { "Desc" } else { "Asc" },
     );
@@ -115,7 +254,7 @@ pub(super) async fn _scores(
     // Creating the embed
     let embed = embed_data.into_builder().build();
     let builder = MessageBuilder::new().content(content).embed(embed);
-    let response_raw = data.create_message(&ctx, builder).await?;
+    let response_raw = orig.create_message(&ctx, &builder).await?;
 
     // Skip pagination if too few entries
     if scores.len() <= 5 {
@@ -127,7 +266,7 @@ pub(super) async fn _scores(
     // Pagination
     let pagination =
         OsuStatsGlobalsPagination::new(Arc::clone(&ctx), response, user, scores, amount, params);
-    let owner = data.author()?.id;
+    let owner = orig.user_id()?;
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {
@@ -138,192 +277,9 @@ pub(super) async fn _scores(
     Ok(())
 }
 
-#[command]
-#[short_desc("All scores of a player that are on a map's global leaderboard")]
-#[long_desc(
-    "Show all scores of a player that are on a map's global leaderboard.\n\
-    Mods can be specified through the usual `+_`, `+_!`, `-_!` syntax.\n\
-    There are also multiple options you can set by specifying `key=value`.\n\
-    These are the keys with their values:\n\
-    - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
-    - `rank`: single integer or two integers of the form `a..b` e.g. `rank=2..45`\n\
-    - `sort`: `acc`, `combo`, `date` (default), `misses`, `pp`, `rank`, or `score`\n\
-    - `reverse`: `true` or `false` (default)\n\
-    Check https://osustats.ppy.sh/ for more info."
-)]
-#[usage(
-    "[username] [mods] [acc=[number..]number] [rank=[integer..]integer] \
-    [sort=acc/combo/date/misses/pp/rank/score] [reverse=true/false]"
-)]
-#[example(
-    "badewanne3 -dt! acc=97.5..99.5 rank=42 sort=pp reverse=true",
-    "vaxei sort=rank rank=1..5 +hdhr"
-)]
-#[aliases("osg", "osustatsglobal")]
-pub async fn osustatsglobals(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match ScoresArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut params)) => {
-                    params.config.mode.get_or_insert(GameMode::STD);
-
-                    _scores(ctx, CommandData::Message { msg, args, num }, params).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_osustats(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("All scores of a player that are on a map's global leaderboard")]
-#[long_desc(
-    "Show all scores of a player that are on a mania map's global leaderboard.\n\
-    Mods can be specified through the usual `+_`, `+_!`, `-_!` syntax.\n\
-    There are also multiple options you can set by specifying `key=value`.\n\
-    These are the keys with their values:\n\
-    - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
-    - `rank`: single integer or two integers of the form `a..b` e.g. `rank=2..45`\n\
-    - `sort`: `acc`, `combo`, `date` (default), `misses`, `pp`, `rank`, or `score`\n\
-    - `reverse`: `true` or `false` (default)\n\
-    Check https://osustats.ppy.sh/ for more info."
-)]
-#[usage(
-    "[username] [mods] [acc=[number..]number] [rank=[integer..]integer] \
-    [sort=acc/combo/date/misses/pp/rank/score] [reverse=true/false]"
-)]
-#[example(
-    "badewanne3 -dt! acc=97.5..99.5 rank=42 sort=pp reverse=true",
-    "vaxei sort=rank rank=1..5 +hdhr"
-)]
-#[aliases("osgm", "osustatsglobalmania")]
-pub async fn osustatsglobalsmania(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match ScoresArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut params)) => {
-                    params.config.mode = Some(GameMode::MNA);
-
-                    _scores(ctx, CommandData::Message { msg, args, num }, params).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_osustats(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("All scores of a player that are on a map's global leaderboard")]
-#[long_desc(
-    "Show all scores of a player that are on a taiko map's global leaderboard.\n\
-    Mods can be specified through the usual `+_`, `+_!`, `-_!` syntax.\n\
-    There are also multiple options you can set by specifying `key=value`.\n\
-    These are the keys with their values:\n\
-    - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
-    - `rank`: single integer or two integers of the form `a..b` e.g. `rank=2..45`\n\
-    - `sort`: `acc`, `combo`, `date` (default), `misses`, `pp`, `rank`, or `score`\n\
-    - `reverse`: `true` or `false` (default)\n\
-    Check https://osustats.ppy.sh/ for more info."
-)]
-#[usage(
-    "[username] [mods] [acc=[number..]number] [rank=[integer..]integer] \
-    [sort=acc/combo/date/misses/pp/rank/score] [reverse=true/false]"
-)]
-#[example(
-    "badewanne3 -dt! acc=97.5..99.5 rank=42 sort=pp reverse=true",
-    "vaxei sort=rank rank=1..5 +hdhr"
-)]
-#[aliases("osgt", "osustatsglobaltaiko")]
-pub async fn osustatsglobalstaiko(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match ScoresArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut params)) => {
-                    params.config.mode = Some(GameMode::TKO);
-
-                    _scores(ctx, CommandData::Message { msg, args, num }, params).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_osustats(ctx, *command).await,
-    }
-}
-
-#[command]
-#[short_desc("All scores of a player that are on a map's global leaderboard")]
-#[long_desc(
-    "Show all scores of a player that are on a ctb map's global leaderboard.\n\
-    Mods can be specified through the usual `+_`, `+_!`, `-_!` syntax.\n\
-    There are also multiple options you can set by specifying `key=value`.\n\
-    These are the keys with their values:\n\
-    - `acc`: single number or two numbers of the form `a..b` e.g. `acc=97.5..98`\n\
-    - `rank`: single integer or two integers of the form `a..b` e.g. `rank=2..45`\n\
-    - `sort`: `acc`, `combo`, `date` (default), `misses`, `pp`, `rank`, or `score`\n\
-    - `reverse`: `true` or `false` (default)\n\
-    Check https://osustats.ppy.sh/ for more info."
-)]
-#[usage(
-    "[username] [mods] [acc=[number..]number] [rank=[integer..]integer] \
-    [sort=acc/combo/date/misses/pp/rank/score] [reverse=true/false]"
-)]
-#[example(
-    "badewanne3 -dt! acc=97.5..99.5 rank=42 sort=pp reverse=true",
-    "vaxei sort=rank rank=1..5 +hdhr"
-)]
-#[aliases("osgc", "osustatsglobalctb")]
-pub async fn osustatsglobalsctb(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
-    match data {
-        CommandData::Message { msg, mut args, num } => {
-            match ScoresArgs::args(&ctx, &mut args, msg.author.id).await {
-                Ok(Ok(mut params)) => {
-                    params.config.mode = Some(GameMode::CTB);
-
-                    _scores(ctx, CommandData::Message { msg, args, num }, params).await
-                }
-                Ok(Err(content)) => msg.error(&ctx, content).await,
-                Err(why) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
-
-                    Err(why)
-                }
-            }
-        }
-        CommandData::Interaction { command } => super::slash_osustats(ctx, *command).await,
-    }
-}
-
-pub(super) struct ScoresArgs {
-    pub config: UserConfig,
-    pub rank_min: usize,
-    pub rank_max: usize,
-    pub acc_min: f32,
-    pub acc_max: f32,
-    pub order: OsuStatsOrder,
-    pub mods: Option<ModSelection>,
-    pub descending: bool,
-}
-
-impl ScoresArgs {
-    const MIN_RANK: usize = 1;
-    const MAX_RANK: usize = 100;
+impl<'m> OsuStatsScores<'m> {
+    const MIN_RANK: u32 = 1;
+    const MAX_RANK: u32 = 100;
 
     const ERR_PARSE_ACC: &'static str = "Failed to parse `accuracy`.\n\
         Must be either decimal number \
@@ -334,46 +290,48 @@ impl ScoresArgs {
         or two positive integers of the form `a..b` e.g. `2..45`.";
 
     const ERR_PARSE_MODS: &'static str = "Failed to parse mods.\n\
-        If you want included mods, specify it e.g. as `+hrdt`.\n\
-        If you want exact mods, specify it e.g. as `+hdhr!`.\n\
-        And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
+    If you want included mods, specify it e.g. as `+hrdt`.\n\
+    If you want exact mods, specify it e.g. as `+hdhr!`.\n\
+    And if you want to exclude mods, specify it e.g. as `-hdnf!`.";
 
-    fn into_params(self, username: Username, mode: GameMode) -> OsuStatsParams {
+    fn into_params(
+        self,
+        username: Username,
+        mode: GameMode,
+        mods: Option<ModSelection>,
+    ) -> OsuStatsParams {
         OsuStatsParams {
             username,
             mode,
             page: 1,
-            rank_min: self.rank_min,
-            rank_max: self.rank_max,
-            acc_min: self.acc_min,
-            acc_max: self.acc_max,
-            order: self.order,
-            mods: self.mods,
-            descending: self.descending,
+            min_rank: self.min_rank.unwrap_or(Self::MIN_RANK) as usize,
+            max_rank: self.max_rank.unwrap_or(Self::MAX_RANK) as usize,
+            min_acc: self.min_acc.unwrap_or(0.0),
+            max_acc: self.max_acc.unwrap_or(100.0),
+            order: self.sort.unwrap_or_default(),
+            mods,
+            descending: self.reverse.map_or(true, |b| !b),
         }
     }
 
-    async fn args(
-        ctx: &Context,
-        args: &mut Args<'_>,
-        author_id: Id<UserMarker>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(author_id).await?;
-        let mut rank_min = None;
-        let mut rank_max = None;
-        let mut acc_min = None;
-        let mut acc_max = None;
-        let mut order = None;
+    fn args(mode: GameModeOption, args: Args<'m>) -> Result<Self, Cow<'static, str>> {
+        let mut name = None;
+        let mut discord = None;
+        let mut min_rank = None;
+        let mut max_rank = None;
+        let mut min_acc = None;
+        let mut max_acc = None;
+        let mut sort = None;
         let mut mods = None;
-        let mut descending = None;
+        let mut reverse = None;
 
-        for arg in args {
+        for arg in args.map(|arg| arg.cow_to_ascii_lowercase()) {
             if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
                 let key = &arg[..idx];
                 let value = arg[idx + 1..].trim_end();
 
                 match key {
-                    ACC | ACCURACY | "a" => match value.find("..") {
+                    "acc" | "accuracy" | "a" => match value.find("..") {
                         Some(idx) => {
                             let bot = &value[..idx];
                             let top = &value[idx + 2..];
@@ -383,7 +341,7 @@ impl ScoresArgs {
                             } else if let Ok(num) = bot.parse::<f32>() {
                                 num.max(0.0).min(100.0)
                             } else {
-                                return Ok(Err(Self::ERR_PARSE_ACC.into()));
+                                return Err(Self::ERR_PARSE_ACC.into());
                             };
 
                             let max = if top.is_empty() {
@@ -391,74 +349,74 @@ impl ScoresArgs {
                             } else if let Ok(num) = top.parse::<f32>() {
                                 num.max(0.0).min(100.0)
                             } else {
-                                return Ok(Err(Self::ERR_PARSE_ACC.into()));
+                                return Err(Self::ERR_PARSE_ACC.into());
                             };
 
-                            acc_min = Some(min.min(max));
-                            acc_max = Some(min.max(max));
+                            min_acc = Some(min.min(max));
+                            max_acc = Some(min.max(max));
                         }
                         None => match value.parse() {
-                            Ok(num) => acc_min = Some(num),
-                            Err(_) => return Ok(Err(Self::ERR_PARSE_ACC.into())),
+                            Ok(num) => min_acc = Some(num),
+                            Err(_) => return Err(Self::ERR_PARSE_ACC.into()),
                         },
                     },
-                    RANK | "r" => match value.find("..") {
+                    "rank" | "r" => match value.find("..") {
                         Some(idx) => {
                             let bot = &value[..idx];
                             let top = &value[idx + 2..];
 
                             let min = if bot.is_empty() {
                                 Self::MIN_RANK
-                            } else if let Ok(num) = bot.parse::<usize>() {
+                            } else if let Ok(num) = bot.parse::<u32>() {
                                 num.max(Self::MIN_RANK).min(Self::MAX_RANK)
                             } else {
-                                return Ok(Err(Self::ERR_PARSE_RANK.into()));
+                                return Err(Self::ERR_PARSE_RANK.into());
                             };
 
                             let max = if top.is_empty() {
                                 Self::MAX_RANK
-                            } else if let Ok(num) = top.parse::<usize>() {
+                            } else if let Ok(num) = top.parse::<u32>() {
                                 num.max(Self::MIN_RANK).min(Self::MAX_RANK)
                             } else {
-                                return Ok(Err(Self::ERR_PARSE_RANK.into()));
+                                return Err(Self::ERR_PARSE_RANK.into());
                             };
 
-                            rank_min = Some(min.min(max));
-                            rank_max = Some(min.max(max));
+                            min_rank = Some(min.min(max));
+                            max_rank = Some(min.max(max));
                         }
                         None => match value.parse() {
-                            Ok(num) => rank_max = Some(num),
-                            Err(_) => return Ok(Err(Self::ERR_PARSE_RANK.into())),
+                            Ok(num) => max_rank = Some(num),
+                            Err(_) => return Err(Self::ERR_PARSE_RANK.into()),
                         },
                     },
-                    SORT | "s" | "order" | "ordering" => match value {
-                        "date" | "d" | "scoredate" => order = Some(OsuStatsOrder::PlayDate),
-                        "pp" => order = Some(OsuStatsOrder::Pp),
-                        RANK | "r" => order = Some(OsuStatsOrder::Rank),
-                        ACC | ACCURACY | "a" => order = Some(OsuStatsOrder::Accuracy),
-                        COMBO | "c" => order = Some(OsuStatsOrder::Combo),
-                        SCORE | "s" => order = Some(OsuStatsOrder::Score),
-                        MISSES | "miss" | "m" => order = Some(OsuStatsOrder::Misses),
+                    "sort" | "s" | "order" | "ordering" => match value {
+                        "date" | "d" | "scoredate" => sort = Some(OsuStatsScoresOrder::Date),
+                        "pp" => sort = Some(OsuStatsScoresOrder::Pp),
+                        "rank" | "r" => sort = Some(OsuStatsScoresOrder::Rank),
+                        "acc" | "accuracy" | "a" => sort = Some(OsuStatsScoresOrder::Acc),
+                        "combo" | "c" => sort = Some(OsuStatsScoresOrder::Combo),
+                        "score" | "s" => sort = Some(OsuStatsScoresOrder::Score),
+                        "misses" | "miss" | "m" => sort = Some(OsuStatsScoresOrder::Misses),
                         _ => {
                             let content = "Failed to parse `sort`.\n\
                                 Must be either `acc`, `combo`, `date`, `misses`, `pp`, `rank`, or `score`.";
 
-                            return Ok(Err(content.into()));
+                            return Err(content.into());
                         }
                     },
-                    REVERSE => match value {
-                        "true" | "t" | "1" => descending = Some(false),
-                        "false" | "f" | "0" => descending = Some(true),
+                    "reverse" => match value {
+                        "true" | "t" | "1" => reverse = Some(true),
+                        "false" | "f" | "0" => reverse = Some(false),
                         _ => {
                             let content =
                                 "Failed to parse `reverse`. Must be either `true` or `false`.";
 
-                            return Ok(Err(content.into()));
+                            return Err(content.into());
                         }
                     },
-                    MODS => match matcher::get_mods(value) {
-                        Some(mods_) => mods = Some(mods_),
-                        None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
+                    "mods" => match matcher::get_mods(value) {
+                        Some(_) => mods = Some(format!("+{value}!").into()),
+                        None => return Err(Self::ERR_PARSE_MODS.into()),
                     },
                     _ => {
                         let content = format!(
@@ -466,127 +424,29 @@ impl ScoresArgs {
                             Available options are: `acc`, `rank`, `sort`, or `reverse`."
                         );
 
-                        return Ok(Err(content.into()));
+                        return Err(content.into());
                     }
                 }
-            } else if let Some(mods_) = matcher::get_mods(arg) {
-                mods = Some(mods_);
+            } else if matcher::get_mods(&arg).is_some() {
+                mods = Some(arg);
+            } else if let Some(id) = matcher::get_mention_user(&arg) {
+                discord = Some(id);
             } else {
-                match check_user_mention(ctx, arg).await? {
-                    Ok(osu) => config.osu = Some(osu),
-                    Err(content) => return Ok(Err(content)),
-                }
+                name = Some(arg);
             }
         }
 
-        let args = Self {
-            config,
-            rank_min: rank_min.unwrap_or(Self::MIN_RANK),
-            rank_max: rank_max.unwrap_or(Self::MAX_RANK),
-            acc_min: acc_min.unwrap_or(0.0),
-            acc_max: acc_max.unwrap_or(100.0),
-            order: order.unwrap_or_default(),
+        Ok(Self {
+            mode: Some(mode),
+            name,
+            sort,
             mods,
-            descending: descending.unwrap_or(true),
-        };
-
-        Ok(Ok(args))
-    }
-
-    pub(super) async fn slash(
-        ctx: &Context,
-        command: &ApplicationCommand,
-        options: Vec<CommandDataOption>,
-    ) -> DoubleResultCow<Self> {
-        let mut config = ctx.user_config(command.user_id()?).await?;
-        let mut rank_min = None;
-        let mut rank_max = None;
-        let mut acc_min = None;
-        let mut acc_max = None;
-        let mut order = None;
-        let mut mods = None;
-        let mut descending = None;
-
-        for option in options {
-            match option.value {
-                CommandOptionValue::String(value) => match option.name.as_str() {
-                    MODE => config.mode = parse_mode_option(&value),
-                    MODS => match matcher::get_mods(&value) {
-                        Some(mods_) => mods = Some(mods_),
-                        None => return Ok(Err(Self::ERR_PARSE_MODS.into())),
-                    },
-                    SORT => match value.as_str() {
-                        ACC => order = Some(OsuStatsOrder::Accuracy),
-                        COMBO => order = Some(OsuStatsOrder::Combo),
-                        MISSES => order = Some(OsuStatsOrder::Misses),
-                        "pp" => order = Some(OsuStatsOrder::Pp),
-                        RANK => order = Some(OsuStatsOrder::Rank),
-                        SCORE => order = Some(OsuStatsOrder::Score),
-                        "date" => order = Some(OsuStatsOrder::PlayDate),
-                        _ => return Err(Error::InvalidCommandOptions),
-                    },
-                    NAME => config.osu = Some(value.into()),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::Integer(value) => match option.name.as_str() {
-                    "min_rank" => {
-                        rank_min =
-                            Some((value.max(Self::MIN_RANK as i64) as usize).min(Self::MAX_RANK))
-                    }
-                    "max_rank" => {
-                        rank_max =
-                            Some((value.max(Self::MIN_RANK as i64) as usize).min(Self::MAX_RANK))
-                    }
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::Boolean(value) => {
-                    let value = (option.name == REVERSE)
-                        .then(|| value)
-                        .ok_or(Error::InvalidCommandOptions)?;
-
-                    descending = Some(!value);
-                }
-                CommandOptionValue::Number(value) => match option.name.as_str() {
-                    "min_acc" => acc_min = Some(value.0.clamp(0.0, 100.0) as f32),
-                    "max_acc" => acc_max = Some(value.0.clamp(0.0, 100.0) as f32),
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                CommandOptionValue::User(value) => match option.name.as_str() {
-                    DISCORD => match parse_discord(ctx, value).await? {
-                        Ok(osu) => config.osu = Some(osu),
-                        Err(content) => return Ok(Err(content)),
-                    },
-                    _ => return Err(Error::InvalidCommandOptions),
-                },
-                _ => return Err(Error::InvalidCommandOptions),
-            }
-        }
-
-        let mut rank_min = rank_min.unwrap_or(Self::MIN_RANK);
-        let mut rank_max = rank_max.unwrap_or(Self::MAX_RANK);
-
-        if rank_min > rank_max {
-            mem::swap(&mut rank_min, &mut rank_max);
-        }
-
-        let mut acc_min = acc_min.unwrap_or(0.0);
-        let mut acc_max = acc_max.unwrap_or(100.0);
-
-        if acc_min > acc_max {
-            mem::swap(&mut acc_min, &mut acc_max);
-        }
-
-        let args = Self {
-            config,
-            rank_min,
-            rank_max,
-            acc_min,
-            acc_max,
-            order: order.unwrap_or_default(),
-            mods,
-            descending: descending.unwrap_or(true),
-        };
-
-        Ok(Ok(args))
+            min_rank,
+            max_rank,
+            min_acc,
+            max_acc,
+            reverse,
+            discord,
+        })
     }
 }

@@ -4,6 +4,7 @@ use syn::{parse_macro_input, DeriveInput};
 
 mod bucket;
 mod flags;
+mod has_mods;
 mod has_name;
 mod prefix;
 mod slash;
@@ -33,6 +34,20 @@ pub fn has_name(input: TokenStream) -> TokenStream {
     let derive_input = parse_macro_input!(input as DeriveInput);
 
     match has_name::derive(derive_input) {
+        Ok(result) => result.into(),
+        Err(err) => err.to_compile_error().into(),
+    }
+}
+
+/// Derive the `HasMods` trait which provides a `mods` method.
+///
+/// Can only be derived on structs containing the following named fields:
+/// - `mods`: `Option<String>` or `Option<Cow<'_, str>>`
+#[proc_macro_derive(HasMods)]
+pub fn has_mods(input: TokenStream) -> TokenStream {
+    let derive_input = parse_macro_input!(input as DeriveInput);
+
+    match has_mods::derive(derive_input) {
         Ok(result) => result.into(),
         Err(err) => err.to_compile_error().into(),
     }

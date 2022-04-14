@@ -10,6 +10,10 @@ use rosu_v2::prelude::{
 };
 
 use crate::{
+    commands::osu::{
+        HasMods, ModsResult, RecentSimulateCatch, RecentSimulateMania, RecentSimulateOsu,
+        RecentSimulateTaiko,
+    },
     core::Context,
     embeds::{osu, EmbedData},
     error::PpError,
@@ -48,18 +52,99 @@ impl SimulateArgs {
     }
 }
 
-impl From<crate::commands::osu::RecentSimulateArgs> for SimulateArgs {
-    fn from(args: crate::commands::osu::RecentSimulateArgs) -> Self {
-        Self {
-            mods: args.mods,
-            n300: args.n300,
-            n100: args.n100,
-            n50: args.n50,
-            misses: args.misses,
+static ERR_PARSE_MODS: &'static str =
+    "Failed to parse mods. Be sure to either specify them directly \
+    or through the `+mods` / `+mods!` syntax e.g. `hdhr` or `+hdhr!`";
+
+impl TryFrom<RecentSimulateOsu<'_>> for SimulateArgs {
+    type Error = &'static str;
+
+    fn try_from(args: RecentSimulateOsu<'_>) -> Result<Self, Self::Error> {
+        let mods = match args.mods() {
+            ModsResult::Mods(mods) => Some(mods),
+            ModsResult::None => None,
+            ModsResult::Invalid => return Err(ERR_PARSE_MODS),
+        };
+
+        Ok(Self {
+            mods,
+            n300: args.n300.map(|n| n as usize),
+            n100: args.n100.map(|n| n as usize),
+            n50: args.n50.map(|n| n as usize),
+            misses: args.misses.map(|n| n as usize),
             acc: args.acc,
-            combo: args.combo,
+            combo: args.combo.map(|n| n as usize),
+            score: None,
+        })
+    }
+}
+
+impl TryFrom<RecentSimulateTaiko<'_>> for SimulateArgs {
+    type Error = &'static str;
+
+    fn try_from(args: RecentSimulateTaiko<'_>) -> Result<Self, Self::Error> {
+        let mods = match args.mods() {
+            ModsResult::Mods(mods) => Some(mods),
+            ModsResult::None => None,
+            ModsResult::Invalid => return Err(ERR_PARSE_MODS),
+        };
+
+        Ok(Self {
+            mods,
+            n300: args.n300.map(|n| n as usize),
+            n100: args.n100.map(|n| n as usize),
+            n50: None,
+            misses: args.misses.map(|n| n as usize),
+            acc: args.acc,
+            combo: args.combo.map(|n| n as usize),
+            score: None,
+        })
+    }
+}
+
+impl TryFrom<RecentSimulateCatch<'_>> for SimulateArgs {
+    type Error = &'static str;
+
+    fn try_from(args: RecentSimulateCatch<'_>) -> Result<Self, Self::Error> {
+        let mods = match args.mods() {
+            ModsResult::Mods(mods) => Some(mods),
+            ModsResult::None => None,
+            ModsResult::Invalid => return Err(ERR_PARSE_MODS),
+        };
+
+        Ok(Self {
+            mods,
+            n300: args.fruits.map(|n| n as usize),
+            n100: args.droplets.map(|n| n as usize),
+            n50: args.tiny_droplets.map(|n| n as usize),
+            misses: args.misses.map(|n| n as usize),
+            acc: args.acc,
+            combo: args.combo.map(|n| n as usize),
+            score: None,
+        })
+    }
+}
+
+impl TryFrom<RecentSimulateMania<'_>> for SimulateArgs {
+    type Error = &'static str;
+
+    fn try_from(args: RecentSimulateMania<'_>) -> Result<Self, Self::Error> {
+        let mods = match args.mods() {
+            ModsResult::Mods(mods) => Some(mods),
+            ModsResult::None => None,
+            ModsResult::Invalid => return Err(ERR_PARSE_MODS),
+        };
+
+        Ok(Self {
+            mods,
+            n300: None,
+            n100: None,
+            n50: None,
+            misses: None,
+            acc: None,
+            combo: None,
             score: args.score,
-        }
+        })
     }
 }
 

@@ -19,7 +19,7 @@ async fn prefix_trackedstreams(ctx: Arc<Context>, msg: &Message) -> BotResult<()
 pub async fn tracked(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> BotResult<()> {
     let twitch_ids = ctx.tracked_users_in(orig.channel_id());
 
-    let mut twitch_users: Vec<_> = match ctx.clients.custom.get_twitch_users(&twitch_ids).await {
+    let mut twitch_users: Vec<_> = match ctx.client().get_twitch_users(&twitch_ids).await {
         Ok(users) => users.into_iter().map(|user| user.display_name).collect(),
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;

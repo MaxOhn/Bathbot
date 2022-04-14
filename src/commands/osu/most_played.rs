@@ -13,11 +13,14 @@ use crate::{
     core::commands::CommandOrigin,
     embeds::{EmbedData, MostPlayedEmbed},
     pagination::{MostPlayedPagination, Pagination},
-    util::{constants::OSU_API_ISSUE, matcher, numbers, ApplicationCommandExt},
+    util::{
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        matcher, numbers, ApplicationCommandExt,
+    },
     BotResult, Context,
 };
 
-use super::UserArgs;
+use super::{require_link, UserArgs};
 
 #[derive(CommandModel, CreateCommand, Default, HasName, SlashCommand)]
 #[command(name = "mostplayed")]
@@ -38,7 +41,7 @@ async fn slash_mostplayed(
     ctx: Arc<Context>,
     mut command: Box<ApplicationCommand>,
 ) -> BotResult<()> {
-    let args = MostPlayed::form_interaction(command.input_data())?;
+    let args = MostPlayed::from_interaction(command.input_data())?;
 
     mostplayed(ctx, command.into(), args).await
 }
@@ -49,7 +52,7 @@ async fn slash_mostplayed(
 #[example("badewanne3")]
 #[alias("mp")]
 #[group(AllModes)]
-async fn prefix_mostplayed(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_mostplayed(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
     let args = match args.next() {
         Some(arg) => match matcher::get_mention_user(arg) {
             Some(id) => MostPlayed {
@@ -72,9 +75,19 @@ async fn mostplayed(
     orig: CommandOrigin<'_>,
     args: MostPlayed<'_>,
 ) -> BotResult<()> {
+    let owner = orig.user_id()?;
+
     let name = match username!(ctx, orig, args) {
         Some(name) => name,
-        None => return super::require_link(&ctx, &orig).await,
+        None => match ctx.psql().get_user_osu(owner).await {
+            Ok(Some(osu)) => osu.into_username(),
+            Ok(None) => return require_link(&ctx, &orig).await,
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(err);
+            }
+        },
     };
 
     // Retrieve the user and their most played maps
@@ -126,7 +139,7 @@ async fn mostplayed(
 
     // Creating the embed
     let builder = embed_data.into_builder().build().into();
-    let response_raw = orig.create_message(&ctx, builder).await?;
+    let response_raw = orig.create_message(&ctx, &builder).await?;
 
     // Skip pagination if too few entries
     if maps.len() <= 10 {
@@ -137,7 +150,6 @@ async fn mostplayed(
 
     // Pagination
     let pagination = MostPlayedPagination::new(response, user, maps);
-    let owner = orig.author()?.id;
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {

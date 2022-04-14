@@ -11,16 +11,16 @@ use crate::{
 
 pub async fn handle_component(ctx: Arc<Context>, mut component: Box<MessageComponentInteraction>) {
     let name = mem::take(&mut component.data.custom_id);
-    log_command(&ctx, &component, &name);
+    log_command(&ctx, &*component, &name);
     ctx.stats.increment_component(&name);
 
     let res = match name.as_str() {
         "help_menu" | "help_back" => handle_help_component(&ctx, component).await,
-        "bg_start_include" => handle_bg_start_include(&ctx, *component).await,
-        "bg_start_exclude" => handle_bg_start_exclude(&ctx, *component).await,
-        "bg_start_effects" => handle_bg_start_effects(&ctx, *component).await,
-        "bg_start_button" => handle_bg_start_button(ctx, *component).await,
-        "bg_start_cancel" => handle_bg_start_cancel(&ctx, *component).await,
+        "bg_start_include" => handle_bg_start_include(&ctx, component).await,
+        "bg_start_exclude" => handle_bg_start_exclude(&ctx, component).await,
+        "bg_start_effects" => handle_bg_start_effects(&ctx, component).await,
+        "bg_start_button" => handle_bg_start_button(ctx, component).await,
+        "bg_start_cancel" => handle_bg_start_cancel(&ctx, component).await,
         _ => return error!("unknown message component `{name}`"),
     };
 

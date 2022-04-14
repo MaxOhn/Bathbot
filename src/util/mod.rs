@@ -230,7 +230,7 @@ pub async fn get_combined_thumbnail<'s>(
     // Future stream
     let mut pfp_futs: FuturesOrdered<_> = avatar_urls
         .into_iter()
-        .map(|url| ctx.clients.custom.get_avatar(url))
+        .map(|url| ctx.client().get_avatar(url))
         .collect();
 
     let mut next = pfp_futs.next().await;

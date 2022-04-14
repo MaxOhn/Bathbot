@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use super::{Pages, Pagination};
 
-use crate::{core::Context, embeds::PinnedEmbed, util::osu::ScoreOrder, BotResult};
+use crate::{commands::osu::ScoreOrder, core::Context, embeds::PinnedEmbed, BotResult};
 
 use rosu_v2::prelude::{Score, User};
 use twilight_model::channel::Message;

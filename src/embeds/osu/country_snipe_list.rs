@@ -1,11 +1,12 @@
 use crate::{
-    commands::osu::SnipeOrder,
+    commands::osu::SnipeCountryListOrder,
     custom_client::SnipeCountryPlayer,
     util::{
+        builder::FooterBuilder,
         constants::OSU_BASE,
         numbers::{with_comma_float, with_comma_int},
         osu::flag_url,
-        CountryCode, builder::FooterBuilder,
+        CountryCode,
     },
 };
 
@@ -21,7 +22,7 @@ pub struct CountrySnipeListEmbed {
 impl CountrySnipeListEmbed {
     pub fn new<'i, S>(
         country: Option<&(String, CountryCode)>,
-        order: SnipeOrder,
+        order: SnipeCountryListOrder,
         players: S,
         author_idx: Option<usize>,
         pages: (usize, usize),
@@ -30,10 +31,10 @@ impl CountrySnipeListEmbed {
         S: Iterator<Item = &'i (usize, SnipeCountryPlayer)>,
     {
         let order_text = match order {
-            SnipeOrder::Count => "#1 count",
-            SnipeOrder::Pp => "average pp of #1s",
-            SnipeOrder::Stars => "average stars of #1s",
-            SnipeOrder::WeightedPp => "weighted pp from #1s",
+            SnipeCountryListOrder::Count => "#1 count",
+            SnipeCountryListOrder::Pp => "average pp of #1s",
+            SnipeCountryListOrder::Stars => "average stars of #1s",
+            SnipeCountryListOrder::WeightedPp => "weighted pp from #1s",
         };
 
         let (title, thumbnail) = match country {
@@ -64,10 +65,22 @@ impl CountrySnipeListEmbed {
                 name = player.username,
                 base = OSU_BASE,
                 id = player.user_id,
-                c = if order == SnipeOrder::Count { "__" } else { "" },
-                p = if order == SnipeOrder::Pp { "__" } else { "" },
-                s = if order == SnipeOrder::Stars { "__" } else { "" },
-                w = if order == SnipeOrder::WeightedPp {
+                c = if order == SnipeCountryListOrder::Count {
+                    "__"
+                } else {
+                    ""
+                },
+                p = if order == SnipeCountryListOrder::Pp {
+                    "__"
+                } else {
+                    ""
+                },
+                s = if order == SnipeCountryListOrder::Stars {
+                    "__"
+                } else {
+                    ""
+                },
+                w = if order == SnipeCountryListOrder::WeightedPp {
                     "__"
                 } else {
                     ""

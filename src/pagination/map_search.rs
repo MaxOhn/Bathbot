@@ -122,6 +122,6 @@ impl Pagination for MapSearchPagination {
             total_pages
         };
 
-        Ok(MapSearchEmbed::new(&self.maps, &self.args, (self.page(), total_pages)).await)
+        Ok(MapSearchEmbed::new(&self.maps, &self.args, (self.page(), total_pages)))
     }
 }

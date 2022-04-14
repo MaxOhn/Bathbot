@@ -6,17 +6,17 @@ use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand,
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
-    commands::ShowHideOption,
+    commands::{osu::ProfileSize, ShowHideOption},
     core::CONFIG,
-    database::{OsuData, UserConfig},
+    database::{EmbedsSize, MinimizedPp, OsuData, UserConfig},
     embeds::{ConfigEmbed, EmbedData},
     server::AuthenticationStandbyError,
     util::{
         builder::{EmbedBuilder, MessageBuilder},
-        constants::{GENERAL_ISSUE, RED, TWITCH_API_ISSUE},
+        constants::{GENERAL_ISSUE, TWITCH_API_ISSUE},
         ApplicationCommandExt, Authored, Emote,
     },
-    BotResult, Context, Error,
+    BotResult, Context,
 };
 
 #[derive(CommandModel, CreateCommand, Default, SlashCommand)]
@@ -31,7 +31,7 @@ pub struct Config {
     If the value is set to `Link`, it will prompt you to authorize your account.\n\
     If `Unlink` is selected, you will be unlinked from the osu! profile.")]
     /// Specify whether you want to link to an osu! profile
-    osu: Option<ConfigLink>,
+    pub osu: Option<ConfigLink>,
     #[command(help = "With this option you can link to a twitch channel.\n\
     When you have both your osu! and twitch linked, are currently streaming, and anyone uses \
     the `recent score` command on your osu! username, it will try to retrieve the last VOD from your \
@@ -94,16 +94,6 @@ impl From<ConfigGameMode> for Option<GameMode> {
 }
 
 #[derive(CommandOption, CreateOption)]
-pub enum ProfileSize {
-    #[option(name = "Compact", value = "compact")]
-    Compact,
-    #[option(name = "Medium", value = "medium")]
-    Medium,
-    #[option(name = "Full", value = "full")]
-    Full,
-}
-
-#[derive(CommandOption, CreateOption)]
 pub enum ConfigEmbeds {
     #[option(name = "Initial maximized", value = "initial_max")]
     InitialMax,
@@ -111,6 +101,16 @@ pub enum ConfigEmbeds {
     AlwaysMax,
     #[option(name = "Always minimized", value = "min")]
     AlwaysMin,
+}
+
+impl From<ConfigEmbeds> for EmbedsSize {
+    fn from(size: ConfigEmbeds) -> Self {
+        match size {
+            ConfigEmbeds::InitialMax => Self::InitialMaximized,
+            ConfigEmbeds::AlwaysMax => Self::AlwaysMaximized,
+            ConfigEmbeds::AlwaysMin => Self::AlwaysMinimized,
+        }
+    }
 }
 
 #[derive(CommandOption, CreateOption)]
@@ -121,10 +121,19 @@ pub enum ConfigMinimizedPp {
     IfFc,
 }
 
-async fn slash_config(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
-    let config = Config::from_interaction(command.input_data())?;
+impl From<ConfigMinimizedPp> for MinimizedPp {
+    fn from(pp: ConfigMinimizedPp) -> Self {
+        match pp {
+            ConfigMinimizedPp::MaxPp => Self::Max,
+            ConfigMinimizedPp::IfFc => Self::IfFc,
+        }
+    }
+}
 
-    config(ctx, command)
+async fn slash_config(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+    let args = Config::from_interaction(command.input_data())?;
+
+    config(ctx, command, args).await
 }
 
 pub async fn config(
@@ -147,19 +156,24 @@ pub async fn config(
     let mut config = match ctx.psql().get_user_config(author).await {
         Ok(Some(config)) => config,
         Ok(None) => UserConfig::default(),
-        Err(why) => {
+        Err(err) => {
             let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(why);
+            return Err(err);
         }
     };
 
     if let Some(pp) = minimized_pp {
-        config.minimized_pp = Some(pp);
+        config.minimized_pp = Some(pp.into());
     }
 
-    if let Some(mode) = mode {
-        config.mode = mode;
+    match mode {
+        None => {}
+        Some(ConfigGameMode::None) => config.mode = None,
+        Some(ConfigGameMode::Osu) => config.mode = Some(GameMode::STD),
+        Some(ConfigGameMode::Taiko) => config.mode = Some(GameMode::TKO),
+        Some(ConfigGameMode::Catch) => config.mode = Some(GameMode::CTB),
+        Some(ConfigGameMode::Mania) => config.mode = Some(GameMode::MNA),
     }
 
     if let Some(size) = profile {
@@ -167,26 +181,28 @@ pub async fn config(
     }
 
     if let Some(maximize) = embeds {
-        config.embeds_size = Some(maximize);
+        config.embeds_size = Some(maximize.into());
     }
 
     if let Some(retries) = retries {
         config.show_retries = Some(matches!(retries, ShowHideOption::Show));
     }
 
-    if let Some(false) = osu {
+    if let Some(ConfigLink::Unlink) = osu {
         config.osu.take();
     }
 
-    if let Some(false) = twitch {
+    if let Some(ConfigLink::Unlink) = twitch {
         config.twitch_id.take();
     }
 
-    match (osu.unwrap_or(false), twitch.unwrap_or(false)) {
-        (false, false) => handle_no_links(&ctx, command, config).await,
-        (true, false) => handle_osu_link(&ctx, command, config).await,
-        (false, true) => handle_twitch_link(&ctx, command, config).await,
-        (true, true) => handle_both_links(&ctx, command, config).await,
+    match (osu, twitch) {
+        (Some(ConfigLink::Link), Some(ConfigLink::Link)) => {
+            handle_both_links(&ctx, command, config).await
+        }
+        (Some(ConfigLink::Link), _) => handle_osu_link(&ctx, command, config).await,
+        (_, Some(ConfigLink::Link)) => handle_twitch_link(&ctx, command, config).await,
+        (_, _) => handle_no_links(&ctx, command, config).await,
     }
 }
 
@@ -220,7 +236,7 @@ fn twitch_content(state: u8) -> String {
 
 async fn handle_both_links(
     ctx: &Context,
-    command: ApplicationCommand,
+    command: Box<ApplicationCommand>,
     mut config: UserConfig,
 ) -> BotResult<()> {
     let osu_fut = ctx.auth_standby.wait_for_osu();
@@ -251,7 +267,7 @@ async fn handle_both_links(
         None => return Ok(()),
     }
 
-    let author = command.author().ok_or(Error::MissingInteractionAuthor)?;
+    let author = command.user()?;
 
     if let Err(why) = ctx.psql().insert_user_config(author.id, &config).await {
         let _ = command.error(ctx, GENERAL_ISSUE).await;
@@ -261,14 +277,14 @@ async fn handle_both_links(
 
     let embed_data = ConfigEmbed::new(author, config, twitch_name);
     let builder = embed_data.into_builder().build().into();
-    command.update_message(ctx, builder).await?;
+    command.update(ctx, &builder).await?;
 
     Ok(())
 }
 
 async fn handle_twitch_link(
     ctx: &Context,
-    command: ApplicationCommand,
+    command: Box<ApplicationCommand>,
     mut config: UserConfig,
 ) -> BotResult<()> {
     let fut = ctx.auth_standby.wait_for_twitch();
@@ -289,7 +305,7 @@ async fn handle_twitch_link(
         None => return Ok(()),
     };
 
-    let author = command.author().ok_or(Error::MissingInteractionAuthor)?;
+    let author = command.user()?;
 
     if let Err(why) = ctx.psql().insert_user_config(author.id, &config).await {
         let _ = command.error(ctx, GENERAL_ISSUE).await;
@@ -299,14 +315,14 @@ async fn handle_twitch_link(
 
     let embed_data = ConfigEmbed::new(author, config, twitch_name);
     let builder = embed_data.into_builder().build().into();
-    command.update_message(ctx, builder).await?;
+    command.update(ctx, &builder).await?;
 
     Ok(())
 }
 
 async fn handle_osu_link(
     ctx: &Context,
-    command: ApplicationCommand,
+    command: Box<ApplicationCommand>,
     mut config: UserConfig,
 ) -> BotResult<()> {
     let fut = ctx.auth_standby.wait_for_osu();
@@ -326,33 +342,33 @@ async fn handle_osu_link(
         None => return Ok(()),
     };
 
-    let author = command.author().ok_or(Error::MissingInteractionAuthor)?;
+    let author = command.user()?;
     let mut twitch_name = None;
 
     if let Some(user_id) = config.twitch_id {
-        match ctx.clients.custom.get_twitch_user_by_id(user_id).await {
+        match ctx.client().get_twitch_user_by_id(user_id).await {
             Ok(Some(user)) => twitch_name = Some(user.display_name),
             Ok(None) => {
                 debug!("No twitch user found for given id, remove from config");
                 config.twitch_id.take();
             }
-            Err(why) => {
+            Err(err) => {
                 let _ = command.error(ctx, TWITCH_API_ISSUE).await;
 
-                return Err(why.into());
+                return Err(err.into());
             }
         }
     }
 
-    if let Err(why) = ctx.psql().insert_user_config(author.id, &config).await {
+    if let Err(err) = ctx.psql().insert_user_config(author.id, &config).await {
         let _ = command.error(ctx, GENERAL_ISSUE).await;
 
-        return Err(why);
+        return Err(err);
     }
 
     let embed_data = ConfigEmbed::new(author, config, twitch_name);
     let builder = embed_data.into_builder().build().into();
-    command.update_message(ctx, builder).await?;
+    command.update(ctx, &builder).await?;
 
     Ok(())
 }
@@ -363,8 +379,8 @@ async fn handle_ephemeral<T>(
     builder: MessageBuilder<'_>,
     fut: impl Future<Output = Result<T, AuthenticationStandbyError>>,
 ) -> Option<BotResult<T>> {
-    if let Err(why) = command.create_message(ctx, builder).await {
-        return Some(Err(why));
+    if let Err(err) = command.update(ctx, &builder).await {
+        return Some(Err(err.into()));
     }
 
     let content = match fut.await {
@@ -373,11 +389,8 @@ async fn handle_ephemeral<T>(
         Err(AuthenticationStandbyError::Canceled) => GENERAL_ISSUE,
     };
 
-    let builder =
-        MessageBuilder::new().embed(EmbedBuilder::new().color(RED).description(content).build());
-
-    if let Err(why) = command.update_message(ctx, builder).await {
-        return Some(Err(why));
+    if let Err(err) = command.error(&ctx, content).await {
+        return Some(Err(err.into()));
     }
 
     None
@@ -385,14 +398,14 @@ async fn handle_ephemeral<T>(
 
 async fn handle_no_links(
     ctx: &Context,
-    command: ApplicationCommand,
+    command: Box<ApplicationCommand>,
     mut config: UserConfig,
 ) -> BotResult<()> {
-    let author = command.author().ok_or(Error::MissingInteractionAuthor)?;
+    let author = command.user()?;
     let mut twitch_name = None;
 
     if let Some(user_id) = config.twitch_id {
-        match ctx.clients.custom.get_twitch_user_by_id(user_id).await {
+        match ctx.client().get_twitch_user_by_id(user_id).await {
             Ok(Some(user)) => twitch_name = Some(user.display_name),
             Ok(None) => {
                 debug!("No twitch user found for given id, remove from config");
@@ -406,15 +419,15 @@ async fn handle_no_links(
         }
     }
 
-    if let Err(why) = ctx.psql().insert_user_config(author.id, &config).await {
+    if let Err(err) = ctx.psql().insert_user_config(author.id, &config).await {
         let _ = command.error(ctx, GENERAL_ISSUE).await;
 
-        return Err(why);
+        return Err(err);
     }
 
     let embed_data = ConfigEmbed::new(author, config, twitch_name);
     let builder = embed_data.into_builder().build().into();
-    command.create_message(ctx, builder).await?;
+    command.update(ctx, &builder).await?;
 
     Ok(())
 }

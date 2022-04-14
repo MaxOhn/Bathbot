@@ -37,10 +37,10 @@ use tokio::time::{interval, sleep, timeout, Duration};
 use twilight_model::channel::Attachment;
 
 use crate::{
+    commands::osu::OsuStatsPlayersArgs,
     core::BotConfig,
     util::{
         constants::{
-            common_literals::{COUNTRY, MODS, SORT, USER_ID},
             HUISMETBENEN, OSU_BASE, OSU_DAILY_API, TWITCH_STREAM_ENDPOINT, TWITCH_USERS_ENDPOINT,
             TWITCH_VIDEOS_ENDPOINT,
         },
@@ -564,17 +564,17 @@ impl CustomClient {
 
     pub async fn get_country_globals(
         &self,
-        params: &OsuStatsListParams,
+        params: &OsuStatsPlayersArgs,
     ) -> ClientResult<Vec<OsuStatsPlayer>> {
         let mut map = Map::new();
 
-        map.insert("rankMin".to_owned(), params.rank_min.into());
-        map.insert("rankMax".to_owned(), params.rank_max.into());
+        map.insert("rankMin".to_owned(), params.min_rank.into());
+        map.insert("rankMax".to_owned(), params.max_rank.into());
         map.insert("gamemode".to_owned(), (params.mode as u8).into());
         map.insert("page".to_owned(), params.page.into());
 
         if let Some(ref country) = params.country {
-            map.insert(COUNTRY.to_owned(), country.to_string().into());
+            map.insert("country".to_owned(), country.to_string().into());
         }
 
         let json = serde_json::to_vec(&map).map_err(CustomClientError::Serialize)?;
@@ -610,10 +610,10 @@ impl CustomClient {
     ) -> ClientResult<(Vec<OsuStatsScore>, usize)> {
         let mut map = Map::new();
 
-        map.insert("accMin".to_owned(), params.acc_min.into());
-        map.insert("accMax".to_owned(), params.acc_max.into());
-        map.insert("rankMin".to_owned(), params.rank_min.into());
-        map.insert("rankMax".to_owned(), params.rank_max.into());
+        map.insert("accMin".to_owned(), params.min_acc.into());
+        map.insert("accMax".to_owned(), params.max_acc.into());
+        map.insert("rankMin".to_owned(), params.min_rank.into());
+        map.insert("rankMax".to_owned(), params.max_rank.into());
         map.insert("gamemode".to_owned(), (params.mode as u8).into());
         map.insert("sortBy".to_owned(), (params.order as u8).into());
         map.insert(
@@ -630,7 +630,7 @@ impl CustomClient {
                 ModSelection::Exact(mods) => format!("!{mods}"),
             };
 
-            map.insert(MODS.to_owned(), mod_str.into());
+            map.insert("mods".to_owned(), mod_str.into());
         }
 
         let json = serde_json::to_vec(&map).map_err(CustomClientError::Serialize)?;
@@ -892,7 +892,7 @@ impl CustomClient {
 
         for chunk in user_ids.chunks(100) {
             interval.tick().await;
-            let mut data: Vec<_> = chunk.iter().map(|&id| (USER_ID, id)).collect();
+            let mut data: Vec<_> = chunk.iter().map(|&id| ("user_id", id)).collect();
             data.push(("first", chunk.len() as u64));
 
             let bytes = self
@@ -910,9 +910,9 @@ impl CustomClient {
 
     pub async fn get_last_twitch_vod(&self, user_id: u64) -> ClientResult<Option<TwitchVideo>> {
         let data = [
-            (USER_ID, Cow::Owned(user_id.to_string())),
+            ("user_id", Cow::Owned(user_id.to_string())),
             ("first", "1".into()),
-            (SORT, "time".into()),
+            ("sort", "time".into()),
         ];
 
         let bytes = self

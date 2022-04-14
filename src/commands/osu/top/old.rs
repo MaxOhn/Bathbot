@@ -13,7 +13,7 @@ use twilight_model::{
 };
 
 use crate::{
-    commands::osu::{get_user_and_scores, require_link, ScoreArgs, UserArgs},
+    commands::osu::{get_user_and_scores, require_link, ScoreArgs, ScoreOrder, UserArgs},
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, TopIfEmbed},
     error::PpError,
@@ -23,8 +23,8 @@ use crate::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher, numbers,
-        osu::{prepare_beatmap_file, ScoreOrder},
-        ApplicationCommandExt,
+        osu::prepare_beatmap_file,
+        ApplicationCommandExt, ChannelExt,
     },
     BotResult, Context,
 };
@@ -247,7 +247,10 @@ impl TryFrom<i32> for TopOldManiaVersion {
     }
 }
 
-pub async fn slash_topold(ctx: Arc<Context>, mut command: ApplicationCommand) -> BotResult<()> {
+pub async fn slash_topold(
+    ctx: Arc<Context>,
+    mut command: Box<ApplicationCommand>,
+) -> BotResult<()> {
     let args = TopOld::from_interaction(command.input_data())?;
 
     topold(ctx, command.into(), args).await
@@ -276,7 +279,11 @@ pub async fn slash_topold(ctx: Arc<Context>, mut command: ApplicationCommand) ->
 async fn prefix_topold(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match TopOld::args(GameMode::STD, args) {
         Ok(args) => topold(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content),
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -297,7 +304,11 @@ async fn prefix_topold(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotR
 async fn prefix_topoldmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match TopOld::args(GameMode::MNA, args) {
         Ok(args) => topold(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content),
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -318,7 +329,11 @@ async fn prefix_topoldmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 async fn prefix_topoldtaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match TopOld::args(GameMode::TKO, args) {
         Ok(args) => topold(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content),
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -339,7 +354,11 @@ async fn prefix_topoldtaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 async fn prefix_topoldctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match TopOld::args(GameMode::CTB, args) {
         Ok(args) => topold(ctx, msg.into(), args).await,
-        Err(content) => msg.error(&ctx, content),
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -413,7 +432,7 @@ impl<'m> TopOld<'m> {
 
     fn date_range(&self) -> &'static str {
         match self {
-            TopOld::Old(o) => match o.version {
+            TopOld::Osu(o) => match o.version {
                 TopOldOsuVersion::April15May18 => "between april 2015 and may 2018",
                 TopOldOsuVersion::May18February19 => "between may 2018 and february 2019",
                 TopOldOsuVersion::February19January21 => "between february 2019 and january 2021",
@@ -528,10 +547,10 @@ macro_rules! pp_tko {
 
 async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) -> BotResult<()> {
     let (name, mode) = match &args {
-        TopOld::Osu(o) => (username!(ctx, orig, o), GameMode::STD),
-        TopOld::Taiko(t) => (username!(ctx, orig, t), GameMode::TKO),
-        TopOld::Catch(c) => (username!(ctx, orig, c), GameMode::CTB),
-        TopOld::Mania(m) => (username!(ctx, orig, m), GameMode::MNA),
+        TopOld::Osu(o) => (username_ref!(ctx, orig, o), GameMode::STD),
+        TopOld::Taiko(t) => (username_ref!(ctx, orig, t), GameMode::TKO),
+        TopOld::Catch(c) => (username_ref!(ctx, orig, c), GameMode::CTB),
+        TopOld::Mania(m) => (username_ref!(ctx, orig, m), GameMode::MNA),
     };
 
     let name = match name {
@@ -638,7 +657,7 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
         post_pp,
         None,
     );
-    let owner = orig.author()?.id;
+    let owner = orig.user_id()?;
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {

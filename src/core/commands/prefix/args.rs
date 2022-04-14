@@ -3,7 +3,7 @@ use super::stream::Stream;
 pub struct Args<'m> {
     msg: &'m str,
     stream: Stream<'m>,
-    num: Option<u64>,
+    pub num: Option<u64>,
 }
 
 impl<'m> Iterator for Args<'m> {
