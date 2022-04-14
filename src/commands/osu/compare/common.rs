@@ -32,8 +32,8 @@ use super::{CompareTop, AT_LEAST_ONE};
 #[command]
 #[desc("Compare maps of two players' top100s")]
 #[help("Compare the two users' top 100 and check which maps appear in each top list.")]
-#[usage("[name1] [name2] [name3]")]
-#[example("badewanne3 \"nathan on osu\" idke")]
+#[usage("[name1] [name2]")]
+#[example("badewanne3 \"nathan on osu\"")]
 #[group(Osu)]
 async fn prefix_common(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     let args = CompareTop::args(GameModeOption::Osu, args);
@@ -44,8 +44,8 @@ async fn prefix_common(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotR
 #[command]
 #[desc("Compare maps of two players' top100s")]
 #[help("Compare the mania users' top 100 and check which maps appear in each top list")]
-#[usage("[name1] [name2] [name3]")]
-#[example("badewanne3 \"nathan on osu\" idke")]
+#[usage("[name1] [name2]")]
+#[example("badewanne3 \"nathan on osu\"")]
 #[alias("commonm")]
 #[group(Mania)]
 async fn prefix_commonmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
@@ -57,8 +57,8 @@ async fn prefix_commonmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[command]
 #[desc("Compare maps of two players' top100s")]
 #[help("Compare the taiko users' top 100 and check which maps appear in each top list")]
-#[usage("[name1] [name2] [name3]")]
-#[example("badewanne3 \"nathan on osu\" idke")]
+#[usage("[name1] [name2]")]
+#[example("badewanne3 \"nathan on osu\"")]
 #[alias("commont")]
 #[group(Taiko)]
 async fn prefix_commontaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
@@ -70,8 +70,8 @@ async fn prefix_commontaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[command]
 #[desc("Compare maps of two players' top100s")]
 #[help("Compare the ctb users' top 100 and check which maps appear in each top list")]
-#[usage("[name1] [name2] [name3]")]
-#[example("badewanne3 \"nathan on osu\" idke")]
+#[usage("[name1] [name2]")]
+#[example("badewanne3 \"nathan on osu\"")]
 #[alias("commonc")]
 #[group(Catch)]
 async fn prefix_commonctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {

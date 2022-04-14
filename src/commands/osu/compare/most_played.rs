@@ -25,13 +25,13 @@ use crate::{
 use super::{CompareMostPlayed, AT_LEAST_ONE};
 
 #[command]
-#[desc("Compare the 100 most played maps of multiple users")]
+#[desc("Compare the 100 most played maps of two users")]
 #[help(
-    "Compare all users' 100 most played maps and check which \
-     ones appear for each user (up to 3 users)"
+    "Compare the users' 100 most played maps and check which \
+     ones appear for each user"
 )]
-#[usage("[name1] [name2] [name3")]
-#[example("badewanne3 \"nathan on osu\" idke")]
+#[usage("[name1] [name2]")]
+#[example("badewanne3 \"nathan on osu\"")]
 #[aliases("commonmostplayed", "mpc")]
 #[group(AllModes)]
 async fn prefix_mostplayedcommon(
