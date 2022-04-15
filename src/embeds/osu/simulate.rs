@@ -52,8 +52,7 @@ impl SimulateArgs {
     }
 }
 
-static ERR_PARSE_MODS: &'static str =
-    "Failed to parse mods. Be sure to either specify them directly \
+static ERR_PARSE_MODS: &str = "Failed to parse mods. Be sure to either specify them directly \
     or through the `+mods` / `+mods!` syntax e.g. `hdhr` or `+hdhr!`";
 
 impl TryFrom<RecentSimulateOsu<'_>> for SimulateArgs {

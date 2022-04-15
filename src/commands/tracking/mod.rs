@@ -181,12 +181,10 @@ impl TrackArgs {
                         return Err(content.into());
                     }
                 }
-            } else {
-                if name.is_none() {
-                    name = Some(arg.into_owned());
-                } else if more_names.len() < 9 {
-                    more_names.push(arg.into_owned());
-                }
+            } else if name.is_none() {
+                name = Some(arg.into_owned());
+            } else if more_names.len() < 9 {
+                more_names.push(arg.into_owned());
             }
         }
 
