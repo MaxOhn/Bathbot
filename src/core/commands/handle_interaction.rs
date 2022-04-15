@@ -91,6 +91,7 @@ pub async fn handle_component(
         "higher_button" => fun::handle_higher(ctx, *component).await,
         "lower_button" => fun::handle_lower(ctx, *component).await,
         "give_up_button" => fun::handle_give_up(ctx, *component).await,
+        "try_again_button" => fun::handle_try_again(ctx, *component).await,
         _ => Err(Error::UnknownMessageComponent { component }),
     }
 }

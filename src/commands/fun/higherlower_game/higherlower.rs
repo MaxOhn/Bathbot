@@ -126,10 +126,11 @@ async fn slash_hl(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotRes
 }
 
 async fn random_play(ctx: &Context, prev_pp: f32, curr_score: u32) -> BotResult<HlGameStateInfo> {
-    let max_play = 1.max(25 - curr_score);
+    let max_play = 25 - curr_score.min(24);
+    let min_play = 24 - 2 * curr_score.min(12);
     let (rank, play): (u32, u32) = {
         let mut rng = rand::thread_rng();
-        (rng.gen_range(1..=5000), rng.gen_range(0..max_play))
+        (rng.gen_range(1..=5000), rng.gen_range(min_play..max_play))
     };
 
     let page = ((rank - 1) / 50) + 1;
@@ -147,7 +148,7 @@ async fn random_play(ctx: &Context, prev_pp: f32, curr_score: u32) -> BotResult<
     let mut plays = ctx
         .osu()
         .user_scores(player.user_id)
-        .limit(50)
+        .limit(100)
         // .offset(play as usize)
         .mode(GameMode::STD)
         .best()
@@ -160,6 +161,7 @@ async fn random_play(ctx: &Context, prev_pp: f32, curr_score: u32) -> BotResult<
             .unwrap()
     });
 
+    //TODO: lower play number = harder, consider this when adding easier difficulties
     let play = plays.swap_remove(play as usize);
 
     let map_id = play.map.as_ref().unwrap().map_id;
@@ -344,6 +346,7 @@ impl PartialEq for HlGameStateInfo {
 }
 
 impl HlGameStateInfo {
+    //TODO: idk if player / map names are escaped to handle discord italic / bold
     fn player_string(&self) -> String {
         format!(
             ":flag_{}: {} (#{})",
@@ -423,6 +426,23 @@ fn give_up_components() -> Vec<Component> {
     vec![Component::ActionRow(button_row)]
 }
 
+fn try_again_components() -> Vec<Component> {
+    let try_again_button = Button {
+        custom_id: Some("try_again_button".to_owned()),
+        disabled: false,
+        emoji: None,
+        label: Some("Try Again".to_owned()),
+        style: ButtonStyle::Success,
+        url: None,
+    };
+
+    let button_row = ActionRow {
+        components: vec![Component::Button(try_again_button)],
+    };
+
+    vec![Component::ActionRow(button_row)]
+}
+
 pub async fn handle_higher(
     ctx: Arc<Context>,
     mut component: MessageComponentInteraction,
@@ -431,11 +451,11 @@ pub async fn handle_higher(
 
     if let Entry::Occupied(mut entry) = ctx.hl_games().entry(user) {
         let game = entry.get_mut();
-        defer_update(&ctx, &mut component, game).await?;
-
         if game.id != component.message.id {
             return Ok(());
         }
+
+        defer_update(&ctx, &mut component, Some(game)).await?;
 
         if !game.check_guess(HlGuess::Higher) {
             game_over(&ctx, &component, game).await?;
@@ -456,11 +476,11 @@ pub async fn handle_lower(
 
     if let Entry::Occupied(mut entry) = ctx.hl_games().entry(user) {
         let game = entry.get_mut();
-        defer_update(&ctx, &mut component, game).await?;
-
         if game.id != component.message.id {
             return Ok(());
         }
+
+        defer_update(&ctx, &mut component, Some(game)).await?;
 
         if !game.check_guess(HlGuess::Lower) {
             game_over(&ctx, &component, game).await?;
@@ -480,7 +500,7 @@ pub async fn handle_give_up(
 ) -> BotResult<()> {
     let user = component.user_id()?;
     if let Some((_, game)) = ctx.hl_games().remove(&user) {
-        defer_update(&ctx, &mut component, &game).await?;
+        defer_update(&ctx, &mut component, Some(&game)).await?;
 
         let content = "Successfully ended the previous game.\n\
                             Start a new game by using `/higherlower`";
@@ -488,6 +508,52 @@ pub async fn handle_give_up(
         let builder = MessageBuilder::new().embed(embed).components(Vec::new());
         component.update(&ctx, &builder).await?;
     }
+
+    Ok(())
+}
+
+pub async fn handle_try_again(
+    ctx: Arc<Context>,
+    mut component: MessageComponentInteraction,
+) -> BotResult<()> {
+    // TODO: handle modes, add different modes, add difficulties and difficulty increase
+    defer_update(&ctx, &mut component, None).await?;
+    let user = component.user_id()?;
+    info!("{}, {}", user, component.message.author.id);
+
+    let (play1, mut play2) =
+        match tokio::try_join!(random_play(&ctx, 0.0, 0), random_play(&ctx, 0.0, 0)) {
+            Ok(tuple) => tuple,
+            Err(err) => {
+                let _ = component.message.error(&ctx, GENERAL_ISSUE).await;
+                return Err(err);
+            }
+        };
+    while play2 == play1 {
+        play2 = random_play(&ctx, 0.0, 0).await?;
+    }
+
+    //TODO: handle mode
+    let mut game = HlGameState {
+        previous: play1,
+        next: play2,
+        player: user,
+        id: Id::new(1),
+        channel: component.channel_id(),
+        guild: component.guild_id(),
+        mode: 1,
+        current_score: 0,
+        highscore: ctx.psql().get_higherlower_highscore(user.get(), 1).await?,
+    };
+
+    let image = game.create_image(&ctx).await?;
+    let components = hl_components();
+    let embed = game.to_embed(image);
+
+    let builder = MessageBuilder::new().embed(embed).components(components);
+    let response = component.update(&ctx, &builder).await?.model().await?;
+    game.id = response.id;
+    ctx.hl_games().insert(user, game);
 
     Ok(())
 }
@@ -561,34 +627,38 @@ async fn game_over(
         .build();
 
     sleep(Duration::from_secs(2)).await;
-    let builder = MessageBuilder::new().embed(embed).components(Vec::new());
+    let components = try_again_components();
+    let builder = MessageBuilder::new().embed(embed).components(components);
     component.update(&ctx, &builder).await?;
 
     Ok(())
 }
 
+//TODO: show red bar if they get it wrong to easily see if you got it wrong
 async fn defer_update(
     ctx: &Context,
     component: &mut MessageComponentInteraction,
-    game: &HlGameState,
+    game: Option<&HlGameState>,
 ) -> BotResult<()> {
     let mut embeds = mem::take(&mut component.message.embeds);
     if let Some(embed) = embeds.first_mut() {
-        if let Some(field) = embed.fields.get_mut(1) {
-            field.value.truncate(field.value.len() - 7);
-            let _ = write!(field.value, "{}pp**", round(game.next.pp));
-        }
-        if let Some(footer) = embed.footer.as_mut() {
-            write!(
-                footer.text,
-                " • {}pp {} • Retrieving next play...",
-                round((game.previous.pp - game.next.pp).abs()),
-                if game.previous.pp < game.next.pp {
-                    "higher"
-                } else {
-                    "lower"
-                }
-            )?;
+        if let Some(game) = game {
+            if let Some(field) = embed.fields.get_mut(1) {
+                field.value.truncate(field.value.len() - 7);
+                let _ = write!(field.value, "{}pp**", round(game.next.pp));
+            }
+            if let Some(footer) = embed.footer.as_mut() {
+                let _ = write!(
+                    footer.text,
+                    " • {}pp {} • Retrieving next play...",
+                    round((game.previous.pp - game.next.pp).abs()),
+                    if game.previous.pp < game.next.pp {
+                        "higher"
+                    } else {
+                        "lower"
+                    }
+                );
+            }
         }
     }
 
