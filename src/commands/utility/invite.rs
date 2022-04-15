@@ -9,10 +9,10 @@ use crate::{
 
 use command_macros::{command, SlashCommand};
 use std::sync::Arc;
-use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_interactions::command::CreateCommand;
 use twilight_model::application::interaction::ApplicationCommand;
 
-#[derive(CommandModel, CreateCommand, SlashCommand)]
+#[derive(CreateCommand, SlashCommand)]
 #[command(name = "invite")]
 #[flags(SKIP_DEFER)]
 /// Invite me to your server

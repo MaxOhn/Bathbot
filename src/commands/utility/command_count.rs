@@ -3,7 +3,7 @@ use std::sync::Arc;
 use command_macros::{command, SlashCommand};
 use eyre::Report;
 use prometheus::core::Collector;
-use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_interactions::command::CreateCommand;
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
@@ -14,7 +14,7 @@ use crate::{
     BotResult, Context,
 };
 
-#[derive(CommandModel, CreateCommand, SlashCommand)]
+#[derive(CreateCommand, SlashCommand)]
 #[command(name = "commands")]
 #[flags(SKIP_DEFER)]
 /// Display a list of popular commands

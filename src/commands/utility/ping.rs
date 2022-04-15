@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Instant};
 
 use command_macros::{command, SlashCommand};
-use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_interactions::command::CreateCommand;
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
@@ -10,7 +10,7 @@ use crate::{
     BotResult,
 };
 
-#[derive(CommandModel, CreateCommand, SlashCommand)]
+#[derive(CreateCommand, SlashCommand)]
 #[command(
     name = "ping",
     help = "Most basic command, generally used to check if the bot is online.\n\
