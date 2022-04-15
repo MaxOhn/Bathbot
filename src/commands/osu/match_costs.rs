@@ -248,8 +248,7 @@ async fn matchcosts(
         } else {
             write!(content, " (EZ multiplier: {ez_mult:.2}):")
         };
-    } else {
-        // TODO
+    } else if !content.is_empty() {
         content.push(':');
     }
 
