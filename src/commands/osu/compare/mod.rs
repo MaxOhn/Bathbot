@@ -79,7 +79,6 @@ pub struct CompareScore<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-// TODO: Use util::osu::ScoreOrder instead?
 #[derive(CommandOption, CreateOption)]
 pub enum CompareScoreOrder {
     #[option(name = "Accuracy", value = "acc")]
@@ -100,7 +99,7 @@ pub enum CompareScoreOrder {
 
 impl Default for CompareScoreOrder {
     fn default() -> Self {
-        Self::Score
+        Self::Pp
     }
 }
 

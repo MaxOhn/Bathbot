@@ -6,7 +6,7 @@ use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError};
 
 use crate::{
-    commands::osu::{get_user, require_link, UserArgs, HasMods, ModsResult},
+    commands::osu::{get_user, require_link, HasMods, ModsResult, UserArgs},
     core::commands::{prefix::Args, CommandOrigin},
     custom_client::SnipeScoreParams,
     embeds::{EmbedData, PlayerSnipeListEmbed},
@@ -68,7 +68,7 @@ pub(super) async fn player_list(
                 "Failed to parse mods. Be sure to specify a valid abbreviation e.g. `hdhr`.";
 
             return orig.error(&ctx, content).await;
-        },
+        }
     };
 
     let name = match username!(ctx, orig, args) {
@@ -93,10 +93,10 @@ pub(super) async fn player_list(
 
             return orig.error(&ctx, content).await;
         }
-        Err(why) => {
+        Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 
@@ -133,10 +133,10 @@ pub(super) async fn player_list(
 
             (scores, count)
         }
-        Err(why) => {
+        Err(err) => {
             let _ = orig.error(&ctx, HUISMETBENEN_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 
@@ -149,8 +149,8 @@ pub(super) async fn player_list(
 
     let mut maps = match ctx.psql().get_beatmaps(&map_ids, true).await {
         Ok(maps) => maps,
-        Err(why) => {
-            let report = Report::new(why).wrap_err("failed to get maps from DB");
+        Err(err) => {
+            let report = Report::new(err).wrap_err("failed to get maps from DB");
             warn!("{:?}", report);
 
             HashMap::default()
@@ -166,10 +166,10 @@ pub(super) async fn player_list(
                 Ok(map) => {
                     maps.insert(map_id, map);
                 }
-                Err(why) => {
+                Err(err) => {
                     let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-                    return Err(why.into());
+                    return Err(err.into());
                 }
             }
         }
