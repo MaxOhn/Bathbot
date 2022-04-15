@@ -2,7 +2,6 @@ use std::{borrow::Cow, cmp::Ordering, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
 use eyre::Report;
-use futures::stream::{FuturesUnordered, TryStreamExt};
 use rosu_pp::{Beatmap as Map, CatchPP, CatchStars, OsuPP, TaikoPP};
 use rosu_v2::prelude::{GameMode, OsuError, Score};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
@@ -26,7 +25,7 @@ use crate::{
         osu::prepare_beatmap_file,
         ApplicationCommandExt,
     },
-    BotResult, Context, Error,
+    BotResult, Context,
 };
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
@@ -510,79 +509,77 @@ async fn perfect_scores(
     scores: Vec<Score>,
     miss_limit: Option<u32>,
 ) -> BotResult<Vec<(usize, Score, Score)>> {
-    scores
-        .into_iter()
-        .enumerate()
-        .map(|(mut i, score)| async move {
-            i += 1;
-            let map = score.map.as_ref().unwrap();
-            let mut unchoked = score.clone();
+    let mut scores_data = Vec::with_capacity(scores.len());
 
-            let many_misses = miss_limit
-                .filter(|&limit| score.statistics.count_miss > limit)
-                .is_some();
+    for (score, i) in scores.into_iter().zip(1..) {
+        let map = score.map.as_ref().unwrap();
+        let mut unchoked = score.clone();
 
-            // Skip unchoking because it has too many misses or because its a convert
-            if many_misses || map.convert {
-                return Ok((i, score, unchoked));
+        let many_misses = miss_limit
+            .filter(|&limit| score.statistics.count_miss > limit)
+            .is_some();
+
+        // Skip unchoking because it has too many misses or because its a convert
+        if many_misses || map.convert {
+            scores_data.push((i, score, unchoked));
+            continue;
+        }
+
+        let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
+        let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
+        let mods = score.mods.bits();
+        let total_hits = score.total_hits();
+
+        match map.mode {
+            GameMode::STD if score.statistics.count_300 != total_hits => {
+                unchoked.statistics.count_300 = total_hits;
+                unchoked.statistics.count_100 = 0;
+                unchoked.statistics.count_50 = 0;
+                unchoked.statistics.count_miss = 0;
+
+                let pp_result = OsuPP::new(&rosu_map).mods(mods).calculate();
+
+                unchoked.max_combo = map
+                    .max_combo
+                    .unwrap_or_else(|| pp_result.max_combo() as u32);
+
+                unchoked.pp = Some(pp_result.pp as f32);
+                unchoked.grade = unchoked.grade(Some(100.0));
+                unchoked.accuracy = 100.0;
+                unchoked.score = 0; // distinguishing from original
             }
+            GameMode::CTB if (100.0 - score.accuracy).abs() > f32::EPSILON => {
+                let pp_result = CatchPP::new(&rosu_map).mods(mods).calculate();
 
-            let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
-            let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
-            let mods = score.mods.bits();
-            let total_hits = score.total_hits();
-
-            match map.mode {
-                GameMode::STD if score.statistics.count_300 != total_hits => {
-                    unchoked.statistics.count_300 = total_hits;
-                    unchoked.statistics.count_100 = 0;
-                    unchoked.statistics.count_50 = 0;
-                    unchoked.statistics.count_miss = 0;
-
-                    let pp_result = OsuPP::new(&rosu_map).mods(mods).calculate();
-
-                    unchoked.max_combo = map
-                        .max_combo
-                        .unwrap_or_else(|| pp_result.max_combo() as u32);
-
-                    unchoked.pp = Some(pp_result.pp as f32);
-                    unchoked.grade = unchoked.grade(Some(100.0));
-                    unchoked.accuracy = 100.0;
-                    unchoked.score = 0; // distinguishing from original
-                }
-                GameMode::CTB if (100.0 - score.accuracy).abs() > f32::EPSILON => {
-                    let pp_result = CatchPP::new(&rosu_map).mods(mods).calculate();
-
-                    unchoked.statistics.count_300 = pp_result.difficulty.n_fruits as u32;
-                    unchoked.statistics.count_katu = 0;
-                    unchoked.statistics.count_100 = pp_result.difficulty.n_droplets as u32;
-                    unchoked.statistics.count_50 = pp_result.difficulty.n_tiny_droplets as u32;
-                    unchoked.max_combo = pp_result.max_combo() as u32;
-                    unchoked.statistics.count_miss = 0;
-                    unchoked.pp = Some(pp_result.pp as f32);
-                    unchoked.grade = unchoked.grade(Some(100.0));
-                    unchoked.accuracy = 100.0;
-                    unchoked.score = 0; // distinguishing from original
-                }
-                GameMode::TKO if score.statistics.count_miss > 0 => {
-                    let pp_result = TaikoPP::new(&rosu_map).mods(mods).calculate();
-
-                    unchoked.statistics.count_300 = map.count_circles;
-                    unchoked.statistics.count_100 = 0;
-                    unchoked.statistics.count_miss = 0;
-                    unchoked.max_combo = map.count_circles;
-                    unchoked.pp = Some(pp_result.pp as f32);
-                    unchoked.grade = unchoked.grade(Some(100.0));
-                    unchoked.accuracy = 100.0;
-                    unchoked.score = 0; // distinguishing from original
-                }
-                GameMode::MNA => bail!("can not unchoke mania scores"),
-                _ => {} // Nothing to unchoke
+                unchoked.statistics.count_300 = pp_result.difficulty.n_fruits as u32;
+                unchoked.statistics.count_katu = 0;
+                unchoked.statistics.count_100 = pp_result.difficulty.n_droplets as u32;
+                unchoked.statistics.count_50 = pp_result.difficulty.n_tiny_droplets as u32;
+                unchoked.max_combo = pp_result.max_combo() as u32;
+                unchoked.statistics.count_miss = 0;
+                unchoked.pp = Some(pp_result.pp as f32);
+                unchoked.grade = unchoked.grade(Some(100.0));
+                unchoked.accuracy = 100.0;
+                unchoked.score = 0; // distinguishing from original
             }
+            GameMode::TKO if score.statistics.count_miss > 0 => {
+                let pp_result = TaikoPP::new(&rosu_map).mods(mods).calculate();
 
-            Ok::<_, Error>((i, score, unchoked))
-        })
-        .collect::<FuturesUnordered<_>>()
-        .try_collect()
-        .await
+                unchoked.statistics.count_300 = map.count_circles;
+                unchoked.statistics.count_100 = 0;
+                unchoked.statistics.count_miss = 0;
+                unchoked.max_combo = map.count_circles;
+                unchoked.pp = Some(pp_result.pp as f32);
+                unchoked.grade = unchoked.grade(Some(100.0));
+                unchoked.accuracy = 100.0;
+                unchoked.score = 0; // distinguishing from original
+            }
+            GameMode::MNA => bail!("can not unchoke mania scores"),
+            _ => {} // Nothing to unchoke
+        }
+
+        scores_data.push((i, score, unchoked));
+    }
+
+    Ok(scores_data)
 }
