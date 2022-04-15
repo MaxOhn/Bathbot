@@ -154,14 +154,13 @@ async fn random_play(ctx: &Context, prev_pp: f32, curr_score: u32) -> BotResult<
         .best()
         .await?;
 
-    plays.sort_by(|a, b| {
-        (round(a.pp.unwrap_or(0.0)) - prev_pp)
+    plays.sort_unstable_by(|a, b| {
+        (a.pp.unwrap_or(0.0) - prev_pp)
             .abs()
-            .partial_cmp(&(round(b.pp.unwrap_or(0.0)) - prev_pp).abs())
+            .partial_cmp(&(b.pp.unwrap_or(0.0) - prev_pp).abs())
             .unwrap()
     });
 
-    //TODO: lower play number = harder, consider this when adding easier difficulties
     let play = plays.swap_remove(play as usize);
 
     let map_id = play.map.as_ref().unwrap().map_id;
@@ -248,14 +247,13 @@ impl HlGameState {
             "Current score: {} • Highscore: {}",
             self.current_score, self.highscore
         );
-        let embed = EmbedBuilder::new()
+
+        EmbedBuilder::new()
             .title(title)
             .fields(fields)
             .image(image)
             .footer(footer)
-            .build();
-
-        embed
+            .build()
     }
 
     fn check_guess(&self, guess: HlGuess) -> bool {
@@ -266,18 +264,19 @@ impl HlGameState {
     }
 
     async fn create_image(&self, ctx: &Context) -> BotResult<String> {
-        let pfp_left =
-            image::load_from_memory(&ctx.client().get_avatar(&self.previous.avatar).await?)?
-                .thumbnail(128, 128);
-        let pfp_right =
-            image::load_from_memory(&ctx.client().get_avatar(&self.next.avatar).await?)?
-                .thumbnail(128, 128);
+        let client = ctx.client();
 
-        let bg_left =
-            image::load_from_memory(&ctx.client().get_mapset_cover(&self.previous.cover).await?)?;
+        let (pfp_left, pfp_right, bg_left, bg_right) = tokio::try_join!(
+            client.get_avatar(&self.previous.avatar),
+            client.get_avatar(&self.next.avatar),
+            client.get_mapset_cover(&self.previous.cover),
+            client.get_mapset_cover(&self.next.cover)
+        )?;
 
-        let bg_right =
-            image::load_from_memory(&ctx.client().get_mapset_cover(&self.next.cover).await?)?;
+        let pfp_left = image::load_from_memory(&pfp_left)?.thumbnail(128, 128);
+        let pfp_right = image::load_from_memory(&pfp_right)?.thumbnail(128, 128);
+        let bg_left = image::load_from_memory(&bg_left)?;
+        let bg_right = image::load_from_memory(&bg_right)?;
 
         let mut blipped = ImageBuffer::new(W, H);
 
@@ -306,7 +305,7 @@ impl HlGameState {
 
         let mut png_bytes: Vec<u8> = Vec::with_capacity((W * H * 4) as usize);
         let png_encoder = PngEncoder::new(&mut png_bytes);
-        png_encoder.encode(&blipped.as_raw(), W, H, ColorType::Rgba8)?;
+        png_encoder.encode(blipped.as_raw(), W, H, ColorType::Rgba8)?;
 
         let builder = MessageBuilder::new().attachment("higherlower.png", png_bytes);
 
@@ -316,7 +315,7 @@ impl HlGameState {
             .model()
             .await?;
 
-        return Ok(message.attachments.pop().unwrap().url);
+        Ok(message.attachments.pop().unwrap().url)
     }
 }
 
@@ -512,6 +511,9 @@ pub async fn handle_give_up(
     Ok(())
 }
 
+// TODO
+#[allow(unused)]
+// TODO: people who didn't run the command can press try again on another game to take over leading to undesirable behaviour
 pub async fn handle_try_again(
     ctx: Arc<Context>,
     mut component: MessageComponentInteraction,
@@ -564,14 +566,13 @@ async fn correct_guess(
     game: &mut HlGameState,
 ) -> BotResult<()> {
     std::mem::swap(&mut game.previous, &mut game.next);
-    game.next = random_play(&ctx, game.previous.pp, game.current_score).await?;
-
+    game.next = random_play(ctx, game.previous.pp, game.current_score).await?;
     while game.next == game.previous {
-        game.next = random_play(&ctx, game.previous.pp, game.current_score).await?;
+        game.next = random_play(ctx, game.previous.pp, game.current_score).await?;
     }
 
     game.current_score += 1;
-    let image = match game.create_image(&ctx).await {
+    let image = match game.create_image(ctx).await {
         Ok(url) => url,
         Err(err) => {
             let report = Report::new(err).wrap_err("failed to create hl image");
@@ -582,7 +583,7 @@ async fn correct_guess(
     };
     let embed = game.to_embed(image);
     let builder = MessageBuilder::new().embed(embed);
-    component.update(&ctx, &builder).await?;
+    component.update(ctx, &builder).await?;
 
     Ok(())
 }
@@ -626,10 +627,11 @@ async fn game_over(
         .color(RED)
         .build();
 
+    //TODO: length might change based on release speed
     sleep(Duration::from_secs(2)).await;
     let components = try_again_components();
     let builder = MessageBuilder::new().embed(embed).components(components);
-    component.update(&ctx, &builder).await?;
+    component.update(ctx, &builder).await?;
 
     Ok(())
 }
