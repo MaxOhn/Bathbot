@@ -340,9 +340,9 @@ async fn retrieve_data(
 }
 
 fn has_permission(ctx: &Context, guild: Id<GuildMarker>, role_pos: i64) -> Result<bool, CacheMiss> {
-    let user = ctx.cache.current_user()?;
+    let user_id = ctx.cache.current_user(|user| user.id)?;
 
-    ctx.cache.member(guild, user.id, |m| {
+    ctx.cache.member(guild, user_id, |m| {
         m.roles()
             .iter()
             .any(|&r| match ctx.cache.role(r, |r| r.position > role_pos) {

@@ -112,9 +112,8 @@ async fn slash_help(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> 
 async fn help_slash_basic(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotResult<()> {
     let id = ctx
         .cache
-        .current_user()
-        .expect("missing CurrentUser in cache")
-        .id;
+        .current_user(|user| user.id)
+        .expect("missing CurrentUser in cache");
 
     let mention = format!("<@{id}>");
 

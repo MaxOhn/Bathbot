@@ -106,13 +106,10 @@ impl Cache {
     }
 
     async fn freeze_current_user_(&self, redis: &Redis) -> Result<(), FreezeInnerError> {
-        let user = self
-            .inner
-            .current_user()
-            .ok_or(FreezeInnerError::MissingCurrentUser)?;
-
         // ~56 bytes
-        let bytes = rkyv::to_bytes::<_, 64>(&user)?;
+        let bytes = self
+            .current_user(rkyv::to_bytes::<_, 64>)
+            .map_err(|_| FreezeInnerError::MissingCurrentUser)??;
 
         trace!("Current user bytes: {}", bytes.len());
         Self::store_bytes(CURRENT_USER_KEY, &bytes, redis).await?;

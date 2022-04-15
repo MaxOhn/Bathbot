@@ -86,7 +86,7 @@ async fn process_command(
 
     // Does bot have sufficient permissions to send response in a guild?
     if let Some(guild) = msg.guild_id {
-        let user = ctx.cache.current_user()?.id; // TODO: Store id separately
+        let user = ctx.cache.current_user(|user| user.id)?;
         let permissions = ctx.cache.get_channel_permissions(user, channel, guild);
 
         if !permissions.contains(Permissions::SEND_MESSAGES) {

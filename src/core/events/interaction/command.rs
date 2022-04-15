@@ -85,7 +85,7 @@ async fn pre_process_command(
     // Technically not necessary but there is currently no other way for
     // users to disable slash commands in certain channels.
     if let Some(guild) = command.guild_id {
-        let user = ctx.cache.current_user()?.id;
+        let user = ctx.cache.current_user(|user| user.id)?;
         let channel = command.channel_id;
         let permissions = ctx.cache.get_channel_permissions(user, channel, guild);
 

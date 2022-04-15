@@ -95,8 +95,13 @@ impl Cache {
         Ok(f(&channel))
     }
 
-    pub fn current_user(&self) -> CacheResult<CurrentUser> {
-        self.inner.current_user().ok_or(CacheMiss::CurrentUser)
+    pub fn current_user<F, O>(&self, f: F) -> CacheResult<O>
+    where
+        F: FnOnce(&CurrentUser) -> O,
+    {
+        self.inner
+            .current_user_partial(f)
+            .ok_or(CacheMiss::CurrentUser)
     }
 
     pub fn guild<F, T>(&self, guild: Id<GuildMarker>, f: F) -> CacheResult<T>
@@ -157,8 +162,8 @@ impl Cache {
     }
 
     pub async fn is_own(&self, other: &Message) -> bool {
-        match self.current_user() {
-            Ok(user) => user.id == other.author.id,
+        match self.current_user(|user| user.id == other.author.id) {
+            Ok(b) => b,
             Err(_) => false,
         }
     }
