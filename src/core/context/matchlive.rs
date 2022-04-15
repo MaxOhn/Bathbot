@@ -164,11 +164,11 @@ impl Context {
     }
 
     pub async fn match_live_loop(ctx: Arc<Context>) {
-        // if cfg!(debug_assertions) {
-        //     info!("Skip match live tracking on debug");
+        if cfg!(debug_assertions) {
+            info!("Skip match live tracking on debug");
 
-        //     return;
-        // }
+            return;
+        }
 
         // Update all matches every 10 seconds
         let mut interval = interval(Duration::from_secs(10));

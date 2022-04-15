@@ -76,8 +76,8 @@ pub(super) async fn track(
         match add_fut.await {
             Ok(true) => success.push(username),
             Ok(false) => failure.push(username),
-            Err(why) => {
-                let report = Report::new(why).wrap_err("error while adding tracked entry");
+            Err(err) => {
+                let report = Report::new(err).wrap_err("error while adding tracked entry");
                 warn!("{report:?}");
 
                 let embed = TrackEmbed::new(mode, success, failure, Some(username), limit)

@@ -55,9 +55,7 @@ pub(super) async fn untrack(
         return orig.error(&ctx, content).await;
     }
 
-    let mode = mode.unwrap_or(GameMode::STD);
-
-    let users = match super::get_names(&ctx, &more_names, mode).await {
+    let users = match super::get_names(&ctx, &more_names, mode.unwrap_or(GameMode::STD)).await {
         Ok(map) => map,
         Err((OsuError::NotFound, name)) => {
             let content = format!("User `{name}` was not found");
@@ -77,7 +75,7 @@ pub(super) async fn untrack(
     for (username, user_id) in users.into_iter() {
         let remove_fut = ctx
             .tracking()
-            .remove_user(user_id, Some(mode), channel, ctx.psql());
+            .remove_user(user_id, mode, channel, ctx.psql());
 
         match remove_fut.await {
             Ok(_) => success.insert(username),
