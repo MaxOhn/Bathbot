@@ -9,12 +9,13 @@ use rosu_v2::prelude::{GameMode, Grade, Score, User};
 
 use crate::{
     core::Context,
-    embeds::{osu,  },
+    embeds::osu,
     error::PpError,
     util::{
+        builder::{AuthorBuilder, FooterBuilder},
         datetime::how_long_ago_dynamic,
         osu::{grade_completion_mods, prepare_beatmap_file},
-        ScoreExt, builder::{AuthorBuilder, FooterBuilder},
+        ScoreExt,
     },
     BotResult,
 };

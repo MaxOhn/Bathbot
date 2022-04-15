@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use crate::{
     custom_client::OsekaiRarityEntry,
-    util::{numbers::round, CowUtils, builder::FooterBuilder},
+    util::{builder::FooterBuilder, numbers::round, CowUtils},
 };
 
 pub struct MedalRarityEmbed {

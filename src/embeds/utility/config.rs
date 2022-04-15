@@ -1,6 +1,7 @@
 use crate::{
     commands::osu::ProfileSize,
-    database::{EmbedsSize, MinimizedPp, UserConfig}, util::builder::AuthorBuilder,
+    database::{EmbedsSize, MinimizedPp, UserConfig},
+    util::builder::AuthorBuilder,
 };
 
 use rosu_v2::prelude::GameMode;

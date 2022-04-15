@@ -1,11 +1,12 @@
 use crate::{
-    embeds::{ EmbedData, },
+    embeds::EmbedData,
     util::{
+        builder::{EmbedBuilder, FooterBuilder},
         constants::{DESCRIPTION_SIZE, OSU_BASE},
         datetime::sec_to_minsec,
         numbers::{round, with_comma_int},
         osu::grade_emote,
-        ScoreExt, builder::{FooterBuilder, EmbedBuilder},
+        ScoreExt,
     },
 };
 
@@ -449,7 +450,10 @@ impl EmbedData for MatchLiveEmbed {
 }
 
 /// Return the description and image for a either in-progress or finished games
-fn game_content(lobby: &OsuMatch, game: &MatchGame) -> (String, Option<String>, Option<FooterBuilder>) {
+fn game_content(
+    lobby: &OsuMatch,
+    game: &MatchGame,
+) -> (String, Option<String>, Option<FooterBuilder>) {
     let mut description = String::with_capacity(128);
 
     match game.end_time {

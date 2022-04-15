@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use crate::{
     custom_client::OsekaiUserEntry,
-    util::{constants::OSU_BASE, numbers::round, CowUtils, builder::FooterBuilder},
+    util::{builder::FooterBuilder, constants::OSU_BASE, numbers::round, CowUtils},
 };
 
 pub struct MedalCountEmbed {

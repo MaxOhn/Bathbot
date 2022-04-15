@@ -13,8 +13,9 @@ use crate::{
     embeds::{EmbedData, OsuTrackerMapsetsEmbed},
     pagination::{OsuTrackerMapsetsPagination, Pagination},
     util::{
+        builder::MessageBuilder,
         constants::{OSUTRACKER_ISSUE, OSU_API_ISSUE},
-        numbers, builder::MessageBuilder, Authored, ApplicationCommandExt,
+        numbers, ApplicationCommandExt, Authored,
     },
     BotResult,
 };

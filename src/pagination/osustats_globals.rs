@@ -1,4 +1,3 @@
-
 use std::{collections::BTreeMap, iter::Extend, sync::Arc};
 
 use rosu_v2::model::user::User;
@@ -9,7 +8,6 @@ use crate::{
     embeds::OsuStatsGlobalsEmbed,
     BotResult, Context,
 };
-
 
 use super::{Pages, Pagination, ReactionVec};
 
@@ -83,11 +81,7 @@ impl Pagination for OsuStatsGlobalsPagination {
             let osustats_page = (self.pages.index / 24) + 1;
             self.params.page = osustats_page;
 
-            let (scores, _) = self
-                .ctx
-                .client()
-                .get_global_scores(&self.params)
-                .await?;
+            let (scores, _) = self.ctx.client().get_global_scores(&self.params).await?;
 
             let iter = scores
                 .into_iter()
@@ -105,7 +99,6 @@ impl Pagination for OsuStatsGlobalsPagination {
             (self.page(), self.pages.total_pages),
         );
 
-        Ok(fut
-        .await)
+        Ok(fut.await)
     }
 }

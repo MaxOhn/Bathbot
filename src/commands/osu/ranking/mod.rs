@@ -4,7 +4,7 @@ use command_macros::SlashCommand;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::application::interaction::ApplicationCommand;
 
-use crate::{commands::GameModeOption, BotResult, Context, util::ApplicationCommandExt};
+use crate::{commands::GameModeOption, util::ApplicationCommandExt, BotResult, Context};
 
 pub use self::{countries::*, players::*};
 

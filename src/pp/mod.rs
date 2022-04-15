@@ -2,8 +2,9 @@ use rosu_pp::{Beatmap, BeatmapExt as rosu_v2BeatmapExt, DifficultyAttributes, Sc
 use rosu_v2::model::GameMods;
 
 use crate::{
+    core::Context,
     error::PpError,
-    util::{osu::prepare_beatmap_file, ScoreExt}, core::Context,
+    util::{osu::prepare_beatmap_file, ScoreExt},
 };
 
 enum ScoreKind<'s> {

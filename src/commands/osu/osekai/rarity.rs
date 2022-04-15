@@ -7,7 +7,9 @@ use crate::{
     custom_client::Rarity,
     embeds::{EmbedData, MedalRarityEmbed},
     pagination::{MedalRarityPagination, Pagination},
-    util::{builder::MessageBuilder, constants::OSEKAI_ISSUE, numbers, ApplicationCommandExt, Authored},
+    util::{
+        builder::MessageBuilder, constants::OSEKAI_ISSUE, numbers, ApplicationCommandExt, Authored,
+    },
     BotResult, Context,
 };
 

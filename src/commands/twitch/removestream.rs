@@ -4,7 +4,8 @@ use crate::{
     core::commands::CommandOrigin,
     util::{
         builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, TWITCH_API_ISSUE}, CowUtils, ChannelExt,
+        constants::{GENERAL_ISSUE, TWITCH_API_ISSUE},
+        ChannelExt, CowUtils,
     },
     BotResult, Context,
 };

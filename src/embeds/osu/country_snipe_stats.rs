@@ -1,10 +1,11 @@
 use crate::{
     custom_client::SnipeCountryStatistics,
-    embeds::{attachment, EmbedFields, },
+    embeds::{attachment, EmbedFields},
     util::{
+        builder::FooterBuilder,
         numbers::{round, with_comma_int},
         osu::flag_url,
-        CountryCode, builder::FooterBuilder,
+        CountryCode,
     },
 };
 

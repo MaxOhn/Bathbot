@@ -1,6 +1,9 @@
 use crate::{
     commands::osu::MatchResult,
-    util::{constants::{DESCRIPTION_SIZE, OSU_BASE}, builder::FooterBuilder},
+    util::{
+        builder::FooterBuilder,
+        constants::{DESCRIPTION_SIZE, OSU_BASE},
+    },
 };
 
 use rosu_v2::model::matches::OsuMatch;

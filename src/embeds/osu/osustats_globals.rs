@@ -4,13 +4,18 @@ use eyre::Report;
 use rosu_v2::model::user::User;
 
 use crate::{
+    core::Context,
     custom_client::OsuStatsScore,
-    embeds::{osu,  },
+    embeds::osu,
     pp::PpCalculator,
     util::{
-        constants::OSU_BASE, datetime::how_long_ago_dynamic, numbers::with_comma_int,
-        osu::grade_emote, ScoreExt, builder::{FooterBuilder, AuthorBuilder},
-    }, core::Context,
+        builder::{AuthorBuilder, FooterBuilder},
+        constants::OSU_BASE,
+        datetime::how_long_ago_dynamic,
+        numbers::with_comma_int,
+        osu::grade_emote,
+        ScoreExt,
+    },
 };
 
 pub struct OsuStatsGlobalsEmbed {

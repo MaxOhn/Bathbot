@@ -3,10 +3,11 @@ use std::{cmp::Ordering, iter};
 use rosu_v2::prelude::{Score, User};
 
 use crate::{
-    embeds::{  EmbedData, },
+    embeds::EmbedData,
     util::{
+        builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
         numbers::{with_comma_float, with_comma_int},
-        osu::{approx_more_pp, pp_missing, ExtractablePp, PpListUtil}, builder::{FooterBuilder, AuthorBuilder, EmbedBuilder},
+        osu::{approx_more_pp, pp_missing, ExtractablePp, PpListUtil},
     },
 };
 

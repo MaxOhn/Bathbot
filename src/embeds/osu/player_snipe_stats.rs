@@ -6,14 +6,15 @@ use rosu_v2::prelude::{GameMode, Score, User};
 use crate::{
     core::Context,
     custom_client::SnipePlayer,
-    embeds::{attachment, osu,  EmbedFields, },
+    embeds::{attachment, osu, EmbedFields},
     pp::PpCalculator,
     util::{
+        builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
         datetime::how_long_ago_dynamic,
         numbers::{with_comma_float, with_comma_int},
         osu::grade_completion_mods,
-        ScoreExt, builder::{AuthorBuilder, FooterBuilder},
+        ScoreExt,
     },
 };
 

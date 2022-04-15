@@ -1,11 +1,9 @@
-
-
 use std::sync::Arc;
 
 use rosu_v2::prelude::{Score, User};
 use twilight_model::channel::Message;
 
-use crate::{embeds::NoChokeEmbed, BotResult, core::Context};
+use crate::{core::Context, embeds::NoChokeEmbed, BotResult};
 
 use super::{Pages, Pagination};
 
@@ -73,7 +71,6 @@ impl Pagination for NoChokePagination {
             (self.page(), self.pages.total_pages),
         );
 
-        Ok(fut
-        .await)
+        Ok(fut.await)
     }
 }

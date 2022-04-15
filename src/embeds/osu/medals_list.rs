@@ -4,7 +4,12 @@ use rosu_v2::prelude::User;
 
 use crate::{
     commands::osu::MedalEntryList,
-    util::{constants::OSU_BASE, osu::flag_url, CowUtils, builder::{AuthorBuilder, FooterBuilder}},
+    util::{
+        builder::{AuthorBuilder, FooterBuilder},
+        constants::OSU_BASE,
+        osu::flag_url,
+        CowUtils,
+    },
 };
 
 pub struct MedalsListEmbed {

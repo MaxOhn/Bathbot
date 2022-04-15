@@ -3,11 +3,12 @@ use crate::{
     custom_client::ScraperScore,
     error::PpError,
     util::{
+        builder::{AuthorBuilder, FooterBuilder},
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::how_long_ago_dynamic,
         numbers::with_comma_int,
         osu::prepare_beatmap_file,
-        CowUtils, ScoreExt, builder::{FooterBuilder, AuthorBuilder},
+        CowUtils, ScoreExt,
     },
     BotResult,
 };

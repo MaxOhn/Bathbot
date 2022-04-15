@@ -7,11 +7,12 @@ use crate::{
     commands::osu::{
         CommonMap, MatchCompareComparison, MatchCompareScore, ProcessedMatch, UniqueMap,
     },
-    embeds::{ EmbedFields, },
+    embeds::EmbedFields,
     util::{
+        builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
         numbers::{round, with_comma_int},
-        osu::grade_emote, builder::{FooterBuilder, AuthorBuilder},
+        osu::grade_emote,
     },
 };
 

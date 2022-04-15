@@ -8,7 +8,9 @@ use crate::{
     database::OsuData,
     embeds::{EmbedData, RankingEmbed, RankingEntry, RankingKindData},
     pagination::{Pagination, RankingPagination},
-    util::{builder::MessageBuilder, constants::OSEKAI_ISSUE, numbers, Authored, ApplicationCommandExt},
+    util::{
+        builder::MessageBuilder, constants::OSEKAI_ISSUE, numbers, ApplicationCommandExt, Authored,
+    },
     BotResult, Context,
 };
 

@@ -1,6 +1,6 @@
 use std::{slice, time::Duration};
 
-use eyre::{Report, Result, Context as EyreContext};
+use eyre::{Context as EyreContext, Report, Result};
 use tokio::time::{interval, MissedTickBehavior};
 use twilight_model::id::{
     marker::{ChannelMarker, MessageMarker},

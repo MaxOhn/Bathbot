@@ -4,7 +4,7 @@ use command_macros::SlashCommand;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::application::interaction::ApplicationCommand;
 
-use crate::{core::Context, BotResult, util::ApplicationCommandExt};
+use crate::{core::Context, util::ApplicationCommandExt, BotResult};
 
 pub use self::mapsets::MapsetEntry;
 

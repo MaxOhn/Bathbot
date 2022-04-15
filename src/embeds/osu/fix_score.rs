@@ -2,11 +2,10 @@ use std::fmt::Write;
 
 use rosu_v2::prelude::{Beatmap, GameMods, RankStatus, Score, User};
 
-use crate::{
-    util::{
-        constants::MAP_THUMB_URL,
-        numbers::{round, with_comma_float}, builder::AuthorBuilder,
-    },
+use crate::util::{
+    builder::AuthorBuilder,
+    constants::MAP_THUMB_URL,
+    numbers::{round, with_comma_float},
 };
 
 pub struct FixScoreEmbed {

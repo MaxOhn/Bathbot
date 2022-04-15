@@ -1,7 +1,7 @@
 use crate::{
     commands::osu::{CommonScoreEntry, CommonUser},
     embeds::attachment,
-    util::{constants::OSU_BASE, builder::FooterBuilder},
+    util::{builder::FooterBuilder, constants::OSU_BASE},
 };
 
 use smallvec::SmallVec;

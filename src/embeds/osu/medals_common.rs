@@ -1,7 +1,7 @@
 use crate::{
     commands::osu::MedalEntryCommon,
-    embeds::{attachment, },
-    util::{CowUtils, builder::FooterBuilder},
+    embeds::attachment,
+    util::{builder::FooterBuilder, CowUtils},
 };
 
 use rosu_v2::prelude::Username;

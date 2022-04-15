@@ -1,6 +1,9 @@
 use crate::{
-    embeds::{osu,  },
-    util::{constants::OSU_BASE, builder::{FooterBuilder, AuthorBuilder}},
+    embeds::osu,
+    util::{
+        builder::{AuthorBuilder, FooterBuilder},
+        constants::OSU_BASE,
+    },
 };
 
 use rosu_v2::prelude::{MostPlayedMap, User};

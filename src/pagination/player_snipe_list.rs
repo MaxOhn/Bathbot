@@ -86,11 +86,7 @@ impl Pagination for PlayerSnipeListPagination {
             self.params.page(huismetbenen_page as u8);
 
             // Get scores
-            let scores = self
-                .ctx
-                .client()
-                .get_national_firsts(&self.params)
-                .await?;
+            let scores = self.ctx.client().get_national_firsts(&self.params).await?;
 
             // Store scores in BTreeMap
             let iter = scores

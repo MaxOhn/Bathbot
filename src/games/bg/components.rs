@@ -16,7 +16,7 @@ use crate::{
     util::{
         builder::{EmbedBuilder, MessageBuilder},
         constants::{GENERAL_ISSUE, RED},
-        ComponentExt, Authored,
+        Authored, ComponentExt,
     },
     BotResult,
 };

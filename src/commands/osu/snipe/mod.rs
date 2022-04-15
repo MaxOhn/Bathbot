@@ -1,6 +1,6 @@
 use std::{borrow::Cow, fmt, sync::Arc};
 
-use command_macros::{HasName, HasMods, SlashCommand};
+use command_macros::{HasMods, HasName, SlashCommand};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
     application::interaction::ApplicationCommand,

@@ -162,8 +162,7 @@ impl Cache {
 
             for channel in channels.iter() {
                 let channel =
-                    Deserialize::<Channel, _>::deserialize(channel, &mut Infallible)
-                        .unwrap();
+                    Deserialize::<Channel, _>::deserialize(channel, &mut Infallible).unwrap();
                 self.inner.insert_channel(channel);
             }
         }

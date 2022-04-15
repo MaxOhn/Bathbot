@@ -10,7 +10,10 @@ use crate::{
     embeds::EmbedData,
     embeds::OsuTrackerModsEmbed,
     pagination::{OsuTrackerModsPagination, Pagination},
-    util::{constants::OSUTRACKER_ISSUE, numbers, builder::MessageBuilder, ApplicationCommandExt, Authored},
+    util::{
+        builder::MessageBuilder, constants::OSUTRACKER_ISSUE, numbers, ApplicationCommandExt,
+        Authored,
+    },
     BotResult,
 };
 

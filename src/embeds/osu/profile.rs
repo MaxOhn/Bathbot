@@ -8,12 +8,13 @@ use twilight_model::{
 
 use crate::{
     commands::osu::ProfileResult,
-    embeds::{attachment,  EmbedFields, },
+    embeds::{attachment, EmbedFields},
     util::{
+        builder::{AuthorBuilder, FooterBuilder},
         datetime::{date_to_string, how_long_ago_text, sec_to_minsec},
         numbers::{round, with_comma_int},
         osu::grade_emote,
-        Emote, builder::{FooterBuilder, AuthorBuilder},
+        Emote,
     },
 };
 

@@ -60,7 +60,9 @@ pub async fn slash_trackstream(
 ) -> BotResult<()> {
     match TrackStream::from_interaction(command.input_data())? {
         TrackStream::Add(add) => addstream(ctx, command.into(), add.name.as_ref()).await,
-        TrackStream::Remove(remove) => removestream(ctx, command.into(), remove.name.as_ref()).await,
+        TrackStream::Remove(remove) => {
+            removestream(ctx, command.into(), remove.name.as_ref()).await
+        }
         TrackStream::List(_) => tracked(ctx, command.into()).await,
     }
 }

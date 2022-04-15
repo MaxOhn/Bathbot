@@ -1,6 +1,11 @@
 use crate::{
     commands::osu::MedalType,
-    util::{constants::OSU_BASE, osu::flag_url, CowUtils, builder::{AuthorBuilder, FooterBuilder}},
+    util::{
+        builder::{AuthorBuilder, FooterBuilder},
+        constants::OSU_BASE,
+        osu::flag_url,
+        CowUtils,
+    },
 };
 
 use rosu_v2::model::user::User;

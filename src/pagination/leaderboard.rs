@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use super::{Pages, Pagination};
-use crate::{custom_client::ScraperScore, embeds::LeaderboardEmbed, BotResult, core::Context};
+use crate::{core::Context, custom_client::ScraperScore, embeds::LeaderboardEmbed, BotResult};
 
 use rosu_v2::{
     model::beatmap::{Beatmap, BeatmapsetCompact},
@@ -77,7 +77,8 @@ impl Pagination for LeaderboardPagination {
             Some(scores),
             &self.first_place_icon,
             self.pages.index,
-            &self.ctx,(self.page(), self.pages.total_pages),
+            &self.ctx,
+            (self.page(), self.pages.total_pages),
         );
 
         embed_fut.await

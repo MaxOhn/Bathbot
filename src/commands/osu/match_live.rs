@@ -193,9 +193,12 @@ async fn matchlive(
         MatchTrackResult::Added => match orig {
             CommandOrigin::Message { .. } => return Ok(()),
             CommandOrigin::Interaction { command } => {
-                ctx.interaction().delete_response(&command.token).exec().await?;
+                ctx.interaction()
+                    .delete_response(&command.token)
+                    .exec()
+                    .await?;
 
-                return Ok(())
+                return Ok(());
             }
         },
         MatchTrackResult::Capped => "Channels can track at most three games at a time",

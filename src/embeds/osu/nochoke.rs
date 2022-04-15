@@ -4,13 +4,15 @@ use eyre::Report;
 use rosu_v2::prelude::{Score, User};
 
 use crate::{
-    embeds::{osu,  },
+    core::Context,
+    embeds::osu,
     pp::PpCalculator,
     util::{
+        builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
         numbers::{with_comma_float, with_comma_int},
-        ScoreExt, builder::{AuthorBuilder, FooterBuilder},
-    }, core::Context,
+        ScoreExt,
+    },
 };
 
 pub struct NoChokeEmbed {

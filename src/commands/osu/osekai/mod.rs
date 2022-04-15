@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
 use command_macros::SlashCommand;
-use twilight_interactions::command::{CommandModel,  CreateCommand};
+use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     custom_client::{
         Badges, LovedMapsets, RankedMapsets, Replays, StandardDeviation, Subscribers, TotalPp,
     },
-    BotResult, Context, util::ApplicationCommandExt,
+    util::ApplicationCommandExt,
+    BotResult, Context,
 };
 
 use self::{

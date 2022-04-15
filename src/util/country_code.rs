@@ -4,7 +4,11 @@ use chrono::FixedOffset;
 use hashbrown::HashMap;
 use serde::Deserialize;
 use smallstr::SmallString;
-use std::{borrow::{Borrow, Cow}, fmt, ops::Deref};
+use std::{
+    borrow::{Borrow, Cow},
+    fmt,
+    ops::Deref,
+};
 
 lazy_static::lazy_static! {
     static ref TIMEZONES: HashMap<&'static str, i32> = {

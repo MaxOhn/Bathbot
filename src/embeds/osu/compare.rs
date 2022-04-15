@@ -4,12 +4,13 @@ use crate::{
     embeds::{osu, EmbedData},
     error::PpError,
     util::{
+        builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         datetime::{how_long_ago_dynamic, HowLongAgoFormatterDynamic},
         matcher::highlight_funny_numeral,
         numbers::{self, round, with_comma_float, with_comma_int},
         osu::{flag_url, grade_completion_mods, prepare_beatmap_file, ModSelection},
-        ScoreExt, builder::{FooterBuilder, AuthorBuilder, EmbedBuilder},
+        ScoreExt,
     },
     BotResult,
 };

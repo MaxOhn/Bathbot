@@ -11,7 +11,7 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSUTRACKER_ISSUE},
-        numbers, Authored, ApplicationCommandExt,
+        numbers, ApplicationCommandExt, Authored,
     },
     BotResult,
 };

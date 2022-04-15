@@ -19,10 +19,7 @@ use crate::{
     error::BgGameError,
     games::bg::{hints::Hints, img_reveal::ImageReveal},
     util::{
-        constants::{
-            OSU_BASE,
-        },
-        gestalt_pattern_matching, levenshtein_similarity, ChannelExt, CowUtils,
+        constants::OSU_BASE, gestalt_pattern_matching, levenshtein_similarity, ChannelExt, CowUtils,
     },
     Context, CONFIG,
 };

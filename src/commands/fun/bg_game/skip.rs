@@ -31,7 +31,7 @@ pub async fn skip(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     match ctx.bg_games().get(&msg.channel_id) {
         Some(state) => match state.value() {
             GameState::Running { game } => match game.restart() {
-                Ok(_) => {},
+                Ok(_) => {}
                 Err(err) => {
                     let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 

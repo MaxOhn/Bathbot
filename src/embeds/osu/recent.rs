@@ -2,15 +2,16 @@ use crate::{
     core::Context,
     custom_client::TwitchVideo,
     database::MinimizedPp,
-    embeds::{osu,   EmbedData, },
+    embeds::{osu, EmbedData},
     error::PpError,
     util::{
+        builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
         constants::{AVATAR_URL, TWITCH_BASE},
         datetime::{how_long_ago_dynamic, HowLongAgoFormatterDynamic},
         matcher::highlight_funny_numeral,
         numbers::{round, with_comma_int},
         osu::{grade_completion_mods, prepare_beatmap_file},
-        Emote, ScoreExt, builder::{AuthorBuilder, FooterBuilder, EmbedBuilder},
+        Emote, ScoreExt,
     },
     BotResult,
 };

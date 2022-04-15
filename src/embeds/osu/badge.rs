@@ -3,7 +3,7 @@ use std::fmt::Write;
 use crate::{
     custom_client::{OsekaiBadge, OsekaiBadgeOwner},
     embeds::{attachment, EmbedFields},
-    util::{constants::OSU_BASE, builder::FooterBuilder},
+    util::{builder::FooterBuilder, constants::OSU_BASE},
 };
 
 pub struct BadgeEmbed {

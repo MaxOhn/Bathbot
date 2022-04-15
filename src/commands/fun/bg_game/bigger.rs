@@ -35,7 +35,7 @@ pub async fn bigger(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
                 Err(err) => {
                     let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-                    return Err(err.into())
+                    return Err(err.into());
                 }
             },
             GameState::Setup { author, .. } => {

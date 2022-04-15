@@ -10,13 +10,14 @@ use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods};
 use crate::{
     commands::osu::CustomAttrs,
     core::{Context, CONFIG},
-    embeds::{attachment,  EmbedFields, },
+    embeds::{attachment, EmbedFields},
     error::PpError,
     util::{
+        builder::{AuthorBuilder, FooterBuilder},
         constants::{AVATAR_URL, OSU_BASE},
         datetime::sec_to_minsec,
         numbers::{round, with_comma_int},
-        osu::{mode_emote, prepare_beatmap_file}, builder::{AuthorBuilder, FooterBuilder},
+        osu::{mode_emote, prepare_beatmap_file},
     },
     BotResult,
 };

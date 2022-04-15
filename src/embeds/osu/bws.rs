@@ -1,4 +1,4 @@
-use crate::util::{numbers::with_comma_int, builder::AuthorBuilder};
+use crate::util::{builder::AuthorBuilder, numbers::with_comma_int};
 
 use hashbrown::HashSet;
 use rosu_v2::model::user::User;

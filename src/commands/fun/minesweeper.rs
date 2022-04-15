@@ -1,4 +1,7 @@
-use std::{fmt::{self, Write}, sync::Arc};
+use std::{
+    fmt::{self, Write},
+    sync::Arc,
+};
 
 use command_macros::{command, SlashCommand};
 use rand::RngCore;
@@ -10,7 +13,7 @@ use crate::{
         commands::{prefix::Args, CommandOrigin},
         Context,
     },
-    util::{builder::MessageBuilder, ApplicationCommandExt, CowUtils, Matrix, ChannelExt},
+    util::{builder::MessageBuilder, ApplicationCommandExt, ChannelExt, CowUtils, Matrix},
     BotResult,
 };
 

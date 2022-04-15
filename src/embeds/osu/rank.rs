@@ -3,8 +3,9 @@ use std::{cmp::Ordering, iter};
 use crate::{
     commands::osu::RankData,
     util::{
+        builder::AuthorBuilder,
         numbers::{with_comma_float, with_comma_int},
-        osu::{approx_more_pp, pp_missing, ExtractablePp, PpListUtil}, builder::AuthorBuilder,
+        osu::{approx_more_pp, pp_missing, ExtractablePp, PpListUtil},
     },
 };
 
