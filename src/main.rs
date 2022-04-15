@@ -34,7 +34,7 @@ use tokio::{
     sync::{mpsc, oneshot},
     time::{self, MissedTickBehavior},
 };
-use twilight_model::{gateway::payload::outgoing::RequestGuildMembers, id::Id};
+use twilight_model::gateway::payload::outgoing::RequestGuildMembers;
 
 use crate::{
     core::{
@@ -43,7 +43,6 @@ use crate::{
     },
     database::Database,
     error::Error,
-    util::constants::BATHBOT_WORKSHOP_ID,
 };
 
 type BotResult<T> = std::result::Result<T, Error>;
@@ -83,7 +82,7 @@ async fn async_main() -> Result<()> {
 
         let _received = ctx
             .interaction()
-            .set_guild_commands(Id::new(BATHBOT_WORKSHOP_ID), &slash_commands)
+            .set_guild_commands(CONFIG.get().unwrap().dev_guild, &slash_commands)
             .exec()
             .await?;
 

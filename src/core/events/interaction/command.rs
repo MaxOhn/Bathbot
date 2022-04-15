@@ -10,10 +10,10 @@ use crate::{
             slash::{SlashCommand, SLASH_COMMANDS},
         },
         events::{log_command, ProcessResult},
-        Context,
+        Context, CONFIG,
     },
     error::Error,
-    util::{constants::OWNER_USER_ID, ApplicationCommandExt, Authored},
+    util::{ApplicationCommandExt, Authored},
     BotResult,
 };
 
@@ -74,7 +74,7 @@ async fn pre_process_command(
     let user_id = command.user_id()?;
 
     // Only for owner?
-    if slash.flags.only_owner() && user_id.get() != OWNER_USER_ID {
+    if slash.flags.only_owner() && user_id != CONFIG.get().unwrap().owner {
         let content = "That command can only be used by the bot owner";
         command.error_callback(ctx, content).await?;
 

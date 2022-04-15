@@ -3,6 +3,10 @@ use std::{env, mem::MaybeUninit, path::PathBuf};
 use hashbrown::HashMap;
 use once_cell::sync::OnceCell;
 use rosu_v2::model::Grade;
+use twilight_model::id::{
+    marker::{GuildMarker, UserMarker},
+    Id,
+};
 
 use crate::{util::Emote, BotResult, Error};
 
@@ -18,6 +22,8 @@ pub struct BotConfig {
     pub emotes: HashMap<Emote, String>,
     pub redis_host: String,
     pub redis_port: u16,
+    pub owner: Id<UserMarker>,
+    pub dev_guild: Id<GuildMarker>,
 }
 
 #[derive(Debug)]
@@ -126,6 +132,8 @@ impl BotConfig {
             emotes,
             redis_host: env_var("REDIS_HOST")?,
             redis_port: env_var("REDIS_PORT")?,
+            owner: env_var("OWNER_USER_ID")?,
+            dev_guild: env_var("DEV_GUILD_ID")?,
         };
 
         if CONFIG.set(config).is_err() {
@@ -165,6 +173,8 @@ env_kind! {
     u64: s => { s.parse().ok() },
     PathBuf: s => { s.parse().ok() },
     String: s => { Some(s.to_owned()) },
+    Id<UserMarker>: s => { s.parse().ok().map(Id::new) },
+    Id<GuildMarker>: s => { s.parse().ok().map(Id::new) },
     [u8; 4]: s => {
         if !(s.starts_with('[') && s.ends_with(']')) {
             return None

@@ -9,13 +9,9 @@ use twilight_model::{
 use crate::{
     core::{
         commands::{prefix::Args, CommandOrigin},
-        Context,
+        Context, CONFIG,
     },
-    util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OWNER_USER_ID},
-        matcher, ChannelExt,
-    },
+    util::{builder::MessageBuilder, constants::GENERAL_ISSUE, matcher, ChannelExt},
     BotResult,
 };
 
@@ -90,7 +86,7 @@ pub async fn authorities(
             }
 
             // Make sure the author is still an authority after applying new roles
-            if !(author_id.get() == OWNER_USER_ID
+            if !(author_id == CONFIG.get().unwrap().owner
                 || ctx
                     .cache
                     .is_guild_owner(guild_id, author_id)
@@ -145,7 +141,7 @@ pub async fn authorities(
             let author_id = orig.user_id()?;
 
             // Make sure the author is still an authority after applying new roles
-            if !(author_id.get() == OWNER_USER_ID
+            if !(author_id == CONFIG.get().unwrap().owner
                 || ctx
                     .cache
                     .is_guild_owner(guild_id, author_id)
