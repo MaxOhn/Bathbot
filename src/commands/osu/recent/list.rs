@@ -277,7 +277,6 @@ pub(super) async fn list(
 
     if let Some(query) = query.as_deref() {
         let criteria = FilterCriteria::new(query);
-
         scores.retain(|score| score.matches(&criteria));
     }
 

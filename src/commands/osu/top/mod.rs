@@ -5,7 +5,7 @@ use eyre::Report;
 use hashbrown::HashMap;
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{
-    GameMode, Grade, OsuError,
+    GameMode, GameMods, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
     Score, User,
 };
@@ -487,10 +487,10 @@ pub struct TopArgs<'a> {
     pub discord: Option<Id<UserMarker>>,
     pub mode: Option<GameMode>,
     pub mods: Option<ModSelection>,
-    pub acc_min: Option<f32>,
-    pub acc_max: Option<f32>,
-    pub combo_min: Option<u32>,
-    pub combo_max: Option<u32>,
+    pub min_acc: Option<f32>,
+    pub max_acc: Option<f32>,
+    pub min_combo: Option<u32>,
+    pub max_combo: Option<u32>,
     pub grade: Option<Grade>,
     pub sort_by: TopScoreOrder,
     pub reverse: bool,
@@ -658,10 +658,10 @@ impl<'m> TopArgs<'m> {
             discord,
             mode: Some(mode),
             mods,
-            acc_min,
-            acc_max,
-            combo_min,
-            combo_max,
+            min_acc: acc_min,
+            max_acc: acc_max,
+            min_combo: combo_min,
+            max_combo: combo_max,
             grade,
             sort_by: sort_by.unwrap_or_default().into(),
             reverse: reverse.unwrap_or(false),
@@ -692,10 +692,10 @@ impl TryFrom<Top> for TopArgs<'static> {
             discord: args.discord,
             mode: args.mode.map(GameMode::from),
             mods,
-            acc_min: None,
-            acc_max: None,
-            combo_min: None,
-            combo_max: None,
+            min_acc: None,
+            max_acc: None,
+            min_combo: None,
+            max_combo: None,
             grade: args.grade.map(Grade::from),
             sort_by: args.sort.unwrap_or_default(),
             reverse: args.reverse.unwrap_or(false),
@@ -917,81 +917,51 @@ async fn filter_scores(
     args: &TopArgs<'_>,
     farm: &Farm,
 ) -> Vec<(usize, Score)> {
-    let selection = args.mods;
-    let grade = args.grade;
+    let mut scores_indices: Vec<_> = scores.into_iter().enumerate().collect();
 
-    let mut scores_indices: Vec<(usize, Score)> = scores
-        .into_iter()
-        .enumerate()
-        .filter(|(_, s)| {
-            if let Some(perfect_combo) = args.perfect_combo {
-                let map_combo = match s.map.as_ref().and_then(|m| m.max_combo) {
-                    Some(combo) => combo,
-                    None => return false,
-                };
+    if let Some(perfect_combo) = args.perfect_combo {
+        scores_indices.retain(
+            |(_, score)| match score.map.as_ref().and_then(|m| m.max_combo) {
+                Some(combo) => perfect_combo == (combo == score.max_combo),
+                None => false,
+            },
+        );
+    }
 
-                if perfect_combo ^ (map_combo == s.max_combo) {
-                    return false;
-                }
-            }
+    if let Some(grade) = args.grade {
+        scores_indices.retain(|(_, score)| score.grade.eq_letter(grade));
+    }
 
-            if let Some(grade) = grade {
-                if !s.grade.eq_letter(grade) {
-                    return false;
-                }
-            }
+    match args.mods {
+        None => {}
+        Some(ModSelection::Include(mods @ GameMods::NoMod) | ModSelection::Exact(mods)) => {
+            scores_indices.retain(|(_, score)| score.mods == mods)
+        }
+        Some(ModSelection::Include(mods)) => {
+            scores_indices.retain(|(_, score)| score.mods.contains(mods))
+        }
+        Some(ModSelection::Exclude(GameMods::NoMod)) => {
+            scores_indices.retain(|(_, score)| !score.mods.is_empty())
+        }
+        Some(ModSelection::Exclude(mods)) => {
+            scores_indices.retain(|(_, score)| score.mods.intersection(mods).is_empty())
+        }
+    }
 
-            let mod_bool = match selection {
-                None => true,
-                Some(ModSelection::Exact(mods)) => {
-                    if mods.is_empty() {
-                        s.mods.is_empty()
-                    } else {
-                        mods == s.mods
-                    }
-                }
-                Some(ModSelection::Include(mods)) => {
-                    if mods.is_empty() {
-                        s.mods.is_empty()
-                    } else {
-                        s.mods.contains(mods)
-                    }
-                }
-                Some(ModSelection::Exclude(mods)) => {
-                    if mods.is_empty() && s.mods.is_empty() {
-                        false
-                    } else if mods.is_empty() {
-                        true
-                    } else {
-                        !s.mods.contains(mods)
-                    }
-                }
-            };
+    if args.min_acc.or(args.max_acc).is_some() {
+        let min = args.min_acc.unwrap_or(0.0);
+        let max = args.max_acc.unwrap_or(100.0);
+        scores_indices.retain(|(_, score)| (min..=max).contains(&score.accuracy));
+    }
 
-            if !mod_bool {
-                return false;
-            }
-
-            let acc = s.accuracy;
-            let acc_bool = match (args.acc_min, args.acc_max) {
-                (Some(a), _) if a > acc => false,
-                (_, Some(a)) if a < acc => false,
-                _ => true,
-            };
-
-            let combo_bool = match (args.combo_min, args.combo_max) {
-                (Some(c), _) if c > s.max_combo => false,
-                (_, Some(c)) if c < s.max_combo => false,
-                _ => true,
-            };
-
-            acc_bool && combo_bool
-        })
-        .collect();
+    if args.min_combo.or(args.max_combo).is_some() {
+        let min = args.min_combo.unwrap_or(0);
+        let max = args.max_combo.unwrap_or(u32::MAX);
+        scores_indices.retain(|(_, score)| (min..=max).contains(&score.max_combo));
+    }
 
     if let Some(query) = args.query.as_deref() {
         let criteria = FilterCriteria::new(query);
-
         scores_indices.retain(|(_, score)| score.matches(&criteria));
     }
 
@@ -1196,10 +1166,10 @@ async fn paginated_embed(
 }
 
 fn write_content(name: &str, args: &TopArgs<'_>, amount: usize) -> Option<String> {
-    let condition = args.acc_min.is_some()
-        || args.acc_max.is_some()
-        || args.combo_min.is_some()
-        || args.combo_max.is_some()
+    let condition = args.min_acc.is_some()
+        || args.max_acc.is_some()
+        || args.min_combo.is_some()
+        || args.max_combo.is_some()
         || args.grade.is_some()
         || args.mods.is_some()
         || args.perfect_combo.is_some()
@@ -1282,7 +1252,7 @@ fn content_with_condition(args: &TopArgs<'_>, amount: usize) -> String {
         content.push('`');
     }
 
-    match (args.acc_min, args.acc_max) {
+    match (args.min_acc, args.max_acc) {
         (None, None) => {}
         (None, Some(max)) => {
             let _ = write!(content, " ~ `Acc: 0% - {}%`", numbers::round(max));
@@ -1300,7 +1270,7 @@ fn content_with_condition(args: &TopArgs<'_>, amount: usize) -> String {
         }
     }
 
-    match (args.combo_min, args.combo_max) {
+    match (args.min_combo, args.max_combo) {
         (None, None) => {}
         (None, Some(max)) => {
             let _ = write!(content, " ~ `Combo: 0 - {max}`");
