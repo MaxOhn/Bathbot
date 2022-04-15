@@ -549,7 +549,7 @@ impl<'m> TopArgs<'m> {
                             let mut min = if bot.is_empty() {
                                 0.0
                             } else if let Ok(num) = bot.parse::<f32>() {
-                                num.max(0.0).min(100.0)
+                                num.clamp(0.0, 100.0)
                             } else {
                                 return Err(Self::ERR_PARSE_ACC.into());
                             };
@@ -557,7 +557,7 @@ impl<'m> TopArgs<'m> {
                             let mut max = if top.is_empty() {
                                 100.0
                             } else if let Ok(num) = top.parse::<f32>() {
-                                num.max(0.0).min(100.0)
+                                num.clamp(0.0, 100.0)
                             } else {
                                 return Err(Self::ERR_PARSE_ACC.into());
                             };

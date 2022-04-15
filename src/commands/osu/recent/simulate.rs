@@ -376,8 +376,8 @@ impl<'m> RecentSimulate<'m> {
                         Ok(value) => misses = Some(value),
                         Err(_) => parse_fail!(key, "a positive integer"),
                     },
-                    "acc" | "a" | "accuracy" => match value.parse() {
-                        Ok(value) => acc = Some(value),
+                    "acc" | "a" | "accuracy" => match value.parse::<f32>() {
+                        Ok(value) => acc = Some(value.clamp(0.0, 100.0)),
                         Err(_) => parse_fail!(key, "a number"),
                     },
                     "combo" | "c" => match value.parse() {

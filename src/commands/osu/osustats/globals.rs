@@ -339,7 +339,7 @@ impl<'m> OsuStatsScores<'m> {
                             let min = if bot.is_empty() {
                                 0.0
                             } else if let Ok(num) = bot.parse::<f32>() {
-                                num.max(0.0).min(100.0)
+                                num.clamp(0.0, 100.0)
                             } else {
                                 return Err(Self::ERR_PARSE_ACC.into());
                             };
@@ -347,7 +347,7 @@ impl<'m> OsuStatsScores<'m> {
                             let max = if top.is_empty() {
                                 100.0
                             } else if let Ok(num) = top.parse::<f32>() {
-                                num.max(0.0).min(100.0)
+                                num.clamp(0.0, 100.0)
                             } else {
                                 return Err(Self::ERR_PARSE_ACC.into());
                             };
@@ -368,7 +368,7 @@ impl<'m> OsuStatsScores<'m> {
                             let min = if bot.is_empty() {
                                 Self::MIN_RANK
                             } else if let Ok(num) = bot.parse::<u32>() {
-                                num.max(Self::MIN_RANK).min(Self::MAX_RANK)
+                                num.clamp(Self::MIN_RANK, Self::MAX_RANK)
                             } else {
                                 return Err(Self::ERR_PARSE_RANK.into());
                             };
@@ -376,7 +376,7 @@ impl<'m> OsuStatsScores<'m> {
                             let max = if top.is_empty() {
                                 Self::MAX_RANK
                             } else if let Ok(num) = top.parse::<u32>() {
-                                num.max(Self::MIN_RANK).min(Self::MAX_RANK)
+                                num.clamp(Self::MIN_RANK, Self::MAX_RANK)
                             } else {
                                 return Err(Self::ERR_PARSE_RANK.into());
                             };
