@@ -10,11 +10,11 @@ pub async fn stop(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     match ctx.bg_games().get(&msg.channel_id) {
         Some(state) => match state.value() {
             GameState::Running { game } => match game.stop() {
-                Ok(_) => {},
+                Ok(_) => {}
                 Err(err) => {
                     let _ = msg.error(&ctx, "Error while stopping game \\:(").await;
 
-return                    Err(err.into());
+                    return Err(err.into());
                 }
             },
             GameState::Setup { author, .. } => {

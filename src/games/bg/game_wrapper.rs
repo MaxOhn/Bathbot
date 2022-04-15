@@ -1,7 +1,7 @@
 use std::{collections::VecDeque, mem, sync::Arc};
 use tokio::{
     sync::mpsc::{self, UnboundedSender},
-    time::{sleep, Duration},
+    time::{sleep, timeout, Duration},
 };
 
 use eyre::Report;
@@ -9,10 +9,7 @@ use hashbrown::HashMap;
 use tokio::sync::RwLock;
 use twilight_model::{
     gateway::payload::incoming::MessageCreate,
-    id::{
-        marker::{ChannelMarker, },
-        Id,
-    },
+    id::{marker::ChannelMarker, Id},
 };
 
 use crate::{
@@ -82,42 +79,40 @@ impl GameWrapper {
                 // Process the result
                 match result {
                     LoopResult::Restart => {
-                        let game = game_clone.read().await;
+                        let mapset_id = game_clone.read().await.mapset_id;
 
                         // Send message
                         let content = format!(
                             "Mapset: {OSU_BASE}beatmapsets/{mapset_id}\n\
-                            Full background: https://assets.ppy.sh/beatmaps/{mapset_id}/covers/raw.jpg",
-                            mapset_id = game.mapset_id
+                            Full background: https://assets.ppy.sh/beatmaps/{mapset_id}/covers/raw.jpg"
                         );
 
-                        if let Err(why) = channel.plain_message(&ctx, &content).await {
-                            let report = Report::new(why)
+                        if let Err(err) = channel.plain_message(&ctx, &content).await {
+                            let report = Report::new(err)
                                 .wrap_err("error while showing resolve for bg game restart");
                             warn!("{report:?}");
                         }
                     }
                     LoopResult::Stop => {
-                        let game = game_clone.read().await;
+                        let mapset_id = game_clone.read().await.mapset_id;
 
                         // Send message
                         let content = format!(
                             "Mapset: {OSU_BASE}beatmapsets/{mapset_id}\n\
                             Full background: https://assets.ppy.sh/beatmaps/{mapset_id}/covers/raw.jpg\n\
-                            End of game, see you next time o/",
-                            mapset_id = game.mapset_id
+                            End of game, see you next time o/"
                         );
 
-                        if let Err(why) = channel.plain_message(&ctx, &content).await {
-                            let report = Report::new(why)
+                        if let Err(err) = channel.plain_message(&ctx, &content).await {
+                            let report = Report::new(err)
                                 .wrap_err("error while showing resolve for bg game stop");
                             warn!("{report:?}");
                         }
 
                         // Store score for winners
                         for (user, score) in scores {
-                            if let Err(why) = ctx.psql().increment_bggame_score(user, score).await {
-                                let report = Report::new(why)
+                            if let Err(err) = ctx.psql().increment_bggame_score(user, score).await {
+                                let report = Report::new(err)
                                     .wrap_err("error while incrementing bg game score");
                                 warn!("{report:?}");
                             }
@@ -161,10 +156,14 @@ impl GameWrapper {
     }
 
     pub async fn sub_image(&self) -> GameResult<Vec<u8>> {
-        self.game.read().await.sub_image()
+        timeout(Duration::from_secs(1), self.game.read())
+            .await?
+            .sub_image()
     }
 
-    pub async fn hint(&self) -> String {
-        self.game.read().await.hint()
+    pub async fn hint(&self) -> GameResult<String> {
+        let game = timeout(Duration::from_secs(1), self.game.read()).await?;
+
+        Ok(game.hint())
     }
 }

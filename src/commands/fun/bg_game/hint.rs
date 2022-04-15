@@ -4,7 +4,7 @@ use twilight_model::channel::Message;
 
 use crate::{
     core::{buckets::BucketName, commands::checks::check_ratelimit},
-    util::{builder::MessageBuilder, ChannelExt},
+    util::{builder::MessageBuilder, constants::GENERAL_ISSUE, ChannelExt},
     BotResult, Context,
 };
 
@@ -24,11 +24,17 @@ pub async fn hint(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 
     match ctx.bg_games().get(&msg.channel_id) {
         Some(state) => match state.value() {
-            GameState::Running { game } => {
-                let hint = game.hint().await;
-                let builder = MessageBuilder::new().content(hint);
-                msg.create_message(&ctx, &builder).await?;
-            }
+            GameState::Running { game } => match game.hint().await {
+                Ok(hint) => {
+                    let builder = MessageBuilder::new().content(hint);
+                    msg.create_message(&ctx, &builder).await?;
+                }
+                Err(err) => {
+                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+                    return Err(err.into());
+                }
+            },
             GameState::Setup { author, .. } => {
                 let content = format!(
                     "The game is currently being setup.\n\
