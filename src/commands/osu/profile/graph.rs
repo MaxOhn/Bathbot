@@ -432,7 +432,7 @@ fn first_last_max(counts: &[MonthlyCount]) -> (Date<Utc>, Date<Utc>, i32) {
     let last = counts.last().unwrap().start_date;
     let max = counts.iter().map(|c| c.count).max();
 
-    (first, last, max.unwrap_or(1))
+    (first, last, max.map_or(2, |m| m.max(2)))
 }
 
 fn prepare_monthly_counts(
