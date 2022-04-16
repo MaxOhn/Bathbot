@@ -4,7 +4,7 @@ use hashbrown::HashMap;
 use once_cell::sync::OnceCell;
 use rosu_v2::model::Grade;
 use twilight_model::id::{
-    marker::{GuildMarker, UserMarker},
+    marker::{ChannelMarker, GuildMarker, UserMarker},
     Id,
 };
 
@@ -24,6 +24,7 @@ pub struct BotConfig {
     pub redis_port: u16,
     pub owner: Id<UserMarker>,
     pub dev_guild: Id<GuildMarker>,
+    pub hl_channel: Id<ChannelMarker>,
 }
 
 #[derive(Debug)]
@@ -134,6 +135,7 @@ impl BotConfig {
             redis_port: env_var("REDIS_PORT")?,
             owner: env_var("OWNER_USER_ID")?,
             dev_guild: env_var("DEV_GUILD_ID")?,
+            hl_channel: env_var("HL_IMAGE_CHANNEL")?,
         };
 
         if CONFIG.set(config).is_err() {
@@ -175,6 +177,7 @@ env_kind! {
     String: s => { Some(s.to_owned()) },
     Id<UserMarker>: s => { s.parse().ok().map(Id::new) },
     Id<GuildMarker>: s => { s.parse().ok().map(Id::new) },
+    Id<ChannelMarker>: s => { s.parse().ok().map(Id::new) },
     [u8; 4]: s => {
         if !(s.starts_with('[') && s.ends_with(']')) {
             return None

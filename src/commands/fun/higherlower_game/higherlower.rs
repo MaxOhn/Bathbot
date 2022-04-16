@@ -21,10 +21,11 @@ use twilight_model::{
 };
 
 use crate::{
+    core::CONFIG,
     embeds::get_mods,
     util::{
         builder::{EmbedBuilder, MessageBuilder},
-        constants::{GENERAL_ISSUE, HL_IMAGE_CHANNEL_ID, RED},
+        constants::{GENERAL_ISSUE, RED},
         numbers::{round, with_comma_int},
         osu::grade_emote,
         ApplicationCommandExt, Authored, ChannelExt, ComponentExt, Emote,
@@ -309,7 +310,10 @@ impl HlGameState {
 
         let builder = MessageBuilder::new().attachment("higherlower.png", png_bytes);
 
-        let mut message = HL_IMAGE_CHANNEL_ID
+        let mut message = CONFIG
+            .get()
+            .unwrap()
+            .hl_channel
             .create_message(ctx, &builder)
             .await?
             .model()
