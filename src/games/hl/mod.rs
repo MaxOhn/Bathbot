@@ -1,11 +1,11 @@
-use std::cmp::Ordering;
+use std::fmt;
 
-use eyre::Report;
-use rand::Rng;
-use rosu_v2::prelude::GameMode;
-use twilight_model::application::component::{button::ButtonStyle, ActionRow, Button, Component};
+use twilight_model::{
+    application::component::{button::ButtonStyle, ActionRow, Button, Component},
+    channel::ReactionType,
+};
 
-use crate::{core::Context, BotResult};
+use crate::util::Emote;
 
 pub use self::{state::GameState, state_info::GameStateInfo};
 
@@ -14,95 +14,133 @@ mod state_info;
 
 pub mod components;
 
+#[derive(Copy, Clone)]
+pub enum HlMode {
+    ScorePp,
+}
+
+#[derive(Copy, Clone, Debug)]
 enum HlGuess {
     Higher,
     Lower,
 }
 
-pub fn hl_components() -> Vec<Component> {
-    let higher_button = Button {
-        custom_id: Some("higher_button".to_owned()),
-        disabled: false,
-        emoji: None,
-        label: Some("Higher".to_owned()),
-        style: ButtonStyle::Success,
-        url: None,
-    };
-
-    let lower_button = Button {
-        custom_id: Some("lower_button".to_owned()),
-        disabled: false,
-        emoji: None,
-        label: Some("Lower".to_owned()),
-        style: ButtonStyle::Danger,
-        url: None,
-    };
-
-    let button_row = ActionRow {
-        components: vec![
-            Component::Button(higher_button),
-            Component::Button(lower_button),
-        ],
-    };
-
-    vec![Component::ActionRow(button_row)]
+impl fmt::Display for HlGuess {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
 }
 
-pub async fn random_play(ctx: &Context, prev_pp: f32, curr_score: u32) -> BotResult<GameStateInfo> {
-    let max_play = 25 - curr_score.min(24);
-    let min_play = 24 - 2 * curr_score.min(12);
+pub struct HigherLowerComponents {
+    higher: Button,
+    lower: Button,
+    next: Button,
+    retry: Button,
+}
 
-    let (rank, play): (u32, u32) = {
-        let mut rng = rand::thread_rng();
+impl HigherLowerComponents {
+    pub fn new() -> Self {
+        let higher = Button {
+            custom_id: Some("higher_button".to_owned()),
+            disabled: false,
+            emoji: None,
+            label: Some("Higher".to_owned()),
+            style: ButtonStyle::Success,
+            url: None,
+        };
 
-        (rng.gen_range(1..=5000), rng.gen_range(min_play..max_play))
-    };
+        let lower = Button {
+            custom_id: Some("lower_button".to_owned()),
+            disabled: false,
+            emoji: None,
+            label: Some("Lower".to_owned()),
+            style: ButtonStyle::Danger,
+            url: None,
+        };
 
-    let page = ((rank - 1) / 50) + 1;
-    let idx = (rank - 1) % 50;
+        let next = Button {
+            custom_id: Some("next_higherlower".to_owned()),
+            disabled: false,
+            emoji: Some(Emote::SingleStep.reaction_type()),
+            label: Some("Next".to_owned()),
+            style: ButtonStyle::Secondary,
+            url: None,
+        };
 
-    let player = ctx
-        .osu()
-        .performance_rankings(GameMode::STD)
-        .page(page)
-        .await?
-        .ranking
-        .swap_remove(idx as usize);
+        let retry = Button {
+            custom_id: Some("try_again_button".to_owned()),
+            disabled: false,
+            emoji: Some(ReactionType::Unicode {
+                name: "🔁".to_owned(),
+            }),
+            label: Some("Try Again".to_owned()),
+            style: ButtonStyle::Secondary,
+            url: None,
+        };
 
-    let mut plays = ctx
-        .osu()
-        .user_scores(player.user_id)
-        .limit(100)
-        // .offset(play as usize)
-        .mode(GameMode::STD)
-        .best()
-        .await?;
+        Self {
+            higher,
+            lower,
+            next,
+            retry,
+        }
+    }
 
-    plays.sort_unstable_by(|a, b| {
-        let a_pp = (a.pp.unwrap_or(0.0) - prev_pp).abs();
-        let b_pp = (b.pp.unwrap_or(0.0) - prev_pp).abs();
+    pub fn disable_higherlower(mut self) -> Self {
+        self.higher.disabled = true;
+        self.lower.disabled = true;
 
-        a_pp.partial_cmp(&b_pp).unwrap_or(Ordering::Equal)
-    });
+        self
+    }
 
-    let play = plays.swap_remove(play as usize);
+    pub fn disable_next(mut self) -> Self {
+        self.next.disabled = true;
 
-    let map_id = play.map.as_ref().unwrap().map_id;
+        self
+    }
 
-    let map = match ctx.psql().get_beatmap(map_id, true).await {
-        Ok(map) => map,
-        Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
-            Ok(map) => {
-                // Store map in DB
-                if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-                    warn!("{:?}", Report::new(err));
-                }
+    pub fn disable_restart(mut self) -> Self {
+        self.retry.disabled = true;
 
-                map
-            }
-            Err(err) => return Err(err.into()),
-        },
-    };
+        self
+    }
 
-    Ok(GameStateInfo::new(player, map, play))
+    pub fn give_up() -> Vec<Component> {
+        let give_up_button = Button {
+            custom_id: Some("give_up_button".to_owned()),
+            disabled: false,
+            emoji: None,
+            label: Some("Give Up".to_owned()),
+            style: ButtonStyle::Danger,
+            url: None,
+        };
+
+        let button_row = ActionRow {
+            components: vec![Component::Button(give_up_button)],
+        };
+
+        vec![Component::ActionRow(button_row)]
+    }
+}
+
+impl From<HigherLowerComponents> for Vec<Component> {
+    fn from(components: HigherLowerComponents) -> Self {
+        let HigherLowerComponents {
+            higher,
+            lower,
+            next,
+            retry,
+        } = components;
+
+        let button_row = ActionRow {
+            components: vec![
+                Component::Button(higher),
+                Component::Button(lower),
+                Component::Button(next),
+                Component::Button(retry),
+            ],
+        };
+
+        vec![Component::ActionRow(button_row)]
+    }
 }

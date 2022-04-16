@@ -41,7 +41,6 @@ lazy_static::lazy_static! {
             Graph => GRAPH_SLASH,
             Help => HELP_SLASH,
             HigherLower => HIGHERLOWER_SLASH,
-            Hl => HL_SLASH,
             Invite => INVITE_SLASH,
             Leaderboard => LEADERBOARD_SLASH,
             Link => LINK_SLASH,

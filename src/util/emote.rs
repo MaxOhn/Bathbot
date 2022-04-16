@@ -49,7 +49,6 @@ impl Emote {
         }
     }
 
-    #[allow(dead_code)]
     pub fn reaction_type(&self) -> ReactionType {
         let emote = CONFIG.get().unwrap().emotes.get(self);
 

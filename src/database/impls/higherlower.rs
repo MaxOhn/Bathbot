@@ -15,6 +15,7 @@ impl Database {
         }
     }
 
+    /// Caller must provide proper highscore value retrieved from [`get_higherlower_highscore`]
     pub async fn upsert_higherlower_highscore(
         &self,
         user_id: u64,
@@ -22,23 +23,22 @@ impl Database {
         score: u32,
         highscore: u32,
     ) -> BotResult<bool> {
-        //! Caller should provide proper highscore value retrieved from get_higherlower_highscore
-        if score > highscore {
-            sqlx::query!(
-                "INSERT INTO higherlower_scores \
-                    VALUES ($1, $2, $3) ON CONFLICT (discord_id, mode) DO \
-                    UPDATE \
-                    SET highscore=$3",
-                user_id as i64,
-                mode as i16,
-                score as i32
-            )
-            .execute(&self.pool)
-            .await?;
-
-            return Ok(true);
+        if score <= highscore {
+            return Ok(false);
         }
 
-        Ok(false)
+        sqlx::query!(
+            "INSERT INTO higherlower_scores \
+                VALUES ($1, $2, $3) ON CONFLICT (discord_id, mode) DO \
+                UPDATE \
+                SET highscore=$3",
+            user_id as i64,
+            mode as i16,
+            score as i32
+        )
+        .execute(&self.pool)
+        .await?;
+
+        Ok(true)
     }
 }

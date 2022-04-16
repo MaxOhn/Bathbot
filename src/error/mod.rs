@@ -2,14 +2,14 @@ use plotters::drawing::DrawingAreaErrorKind;
 use twilight_validate::message::MessageValidationError;
 
 pub use self::{
-    bg_game::{BgGameError, InvalidBgState},
+    games::{BgGameError, InvalidGameState},
     graph::GraphError,
     help::InvalidHelpState,
     map_file::MapFileError,
     pp::PpError,
 };
 
-mod bg_game;
+mod games;
 mod graph;
 mod help;
 mod map_file;
@@ -49,7 +49,7 @@ pub enum Error {
     #[error("image error")]
     Image(#[from] image::ImageError),
     #[error("invalid bg state")]
-    InvalidBgState(#[from] InvalidBgState),
+    InvalidBgState(#[from] InvalidGameState),
     #[error("received invalid options for command")]
     InvalidCommandOptions,
     #[error("invalid help state")]

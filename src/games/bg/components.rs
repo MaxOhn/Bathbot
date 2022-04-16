@@ -11,7 +11,7 @@ use twilight_model::{
 use crate::{
     core::Context,
     embeds::{BGTagsEmbed, EmbedData},
-    error::InvalidBgState,
+    error::InvalidGameState,
     games::bg::GameWrapper,
     util::{
         builder::{EmbedBuilder, MessageBuilder},
@@ -261,7 +261,7 @@ pub async fn handle_bg_start_effects(
                     .message
                     .embeds
                     .pop()
-                    .ok_or(InvalidBgState::MissingEmbed)?;
+                    .ok_or(InvalidGameState::MissingEmbed)?;
 
                 let field_opt = embed
                     .fields
@@ -305,7 +305,7 @@ async fn update_field(
         .message
         .embeds
         .pop()
-        .ok_or(InvalidBgState::MissingEmbed)?;
+        .ok_or(InvalidGameState::MissingEmbed)?;
 
     let field_opt = embed.fields.iter_mut().find(|field| field.name == name);
 

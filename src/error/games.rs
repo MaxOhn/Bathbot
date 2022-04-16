@@ -2,7 +2,9 @@ use rosu_v2::prelude::{GameMode, OsuError};
 use tokio::time::error::Elapsed;
 
 #[derive(Debug, thiserror::Error)]
-pub enum InvalidBgState {
+pub enum InvalidGameState {
+    #[error("missing attachment")]
+    MissingAttachment,
     #[error("missing embed")]
     MissingEmbed,
 }
