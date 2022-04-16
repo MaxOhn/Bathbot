@@ -51,8 +51,8 @@ pub async fn run_server(ctx: Arc<Context>, shutdown_rx: oneshot::Receiver<()>) {
 
     info!("Running server...");
 
-    if let Err(why) = server.await {
-        error!("{:?}", Report::new(why).wrap_err("server failed"));
+    if let Err(err) = server.await {
+        error!("{:?}", Report::new(err).wrap_err("server failed"));
     }
 }
 

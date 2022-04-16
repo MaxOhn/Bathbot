@@ -4,12 +4,9 @@ use eyre::Report;
 use twilight_model::application::interaction::MessageComponentInteraction;
 
 use crate::{
-    commands::{
-        fun::{handle_higher, handle_lower},
-        help::handle_help_component,
-    },
+    commands::help::handle_help_component,
     core::{events::log_command, Context},
-    games::bg::components::*,
+    games::{bg::components::*, hl::components::*},
 };
 
 pub async fn handle_component(ctx: Arc<Context>, mut component: Box<MessageComponentInteraction>) {
@@ -24,8 +21,8 @@ pub async fn handle_component(ctx: Arc<Context>, mut component: Box<MessageCompo
         "bg_start_effects" => handle_bg_start_effects(&ctx, component).await,
         "bg_start_button" => handle_bg_start_button(ctx, component).await,
         "bg_start_cancel" => handle_bg_start_cancel(&ctx, component).await,
-        "higher_button" => handle_higher(ctx, *component).await,
-        "lower_button" => handle_lower(ctx, *component).await,
+        "higher_button" => handle_higher(ctx, component).await,
+        "lower_button" => handle_lower(ctx, component).await,
         _ => return error!("unknown message component `{name}`"),
     };
 

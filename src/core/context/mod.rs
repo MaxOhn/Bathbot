@@ -19,11 +19,10 @@ use twilight_model::{
 use twilight_standby::Standby;
 
 use crate::{
-    commands::fun::HlGameState,
     core::CONFIG,
     custom_client::CustomClient,
     database::{Database, GuildConfig},
-    games::bg::GameState,
+    games::{bg::GameState as BgGameState, hl::GameState as HlGameState},
     matchlive::MatchLiveChannels,
     server::AuthenticationStandby,
     tracking::OsuTracking,
@@ -197,7 +196,7 @@ impl Clients {
 
 struct ContextData {
     application_id: Id<ApplicationMarker>,
-    bg_games: DashMap<Id<ChannelMarker>, GameState>,
+    bg_games: DashMap<Id<ChannelMarker>, BgGameState>,
     hl_games: DashMap<Id<UserMarker>, HlGameState>,
     guilds: DashMap<Id<GuildMarker>, GuildConfig>,
     map_garbage_collection: Mutex<HashSet<NonZeroU32>>,

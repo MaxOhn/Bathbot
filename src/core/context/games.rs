@@ -4,10 +4,13 @@ use twilight_model::id::{
     Id,
 };
 
-use crate::{commands::fun::HlGameState, games::bg::GameState, Context};
+use crate::{
+    games::{bg::GameState as BgGameState, hl::GameState as HlGameState},
+    Context,
+};
 
 impl Context {
-    pub fn bg_games(&self) -> &DashMap<Id<ChannelMarker>, GameState> {
+    pub fn bg_games(&self) -> &DashMap<Id<ChannelMarker>, BgGameState> {
         &self.data.bg_games
     }
 
