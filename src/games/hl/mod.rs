@@ -15,7 +15,7 @@ mod state_info;
 pub mod components;
 
 #[derive(Copy, Clone)]
-pub enum HlMode {
+pub enum HlVersion {
     ScorePp,
 }
 

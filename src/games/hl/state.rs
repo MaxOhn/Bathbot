@@ -23,7 +23,7 @@ use crate::{
     BotResult,
 };
 
-use super::{GameStateInfo, HlGuess, HlMode};
+use super::{GameStateInfo, HlGuess, HlVersion};
 
 const W: u32 = 900;
 const H: u32 = 250;
@@ -35,7 +35,7 @@ pub struct GameState {
     pub id: Id<MessageMarker>,
     pub channel: Id<ChannelMarker>,
     pub guild: Option<Id<GuildMarker>>,
-    pub hl_mode: HlMode,
+    pub version: HlVersion,
     pub current_score: u32,
     pub highscore: u32,
     image_url_rx: Receiver<String>,
@@ -96,7 +96,7 @@ impl GameState {
             id: Id::new(1),
             channel: origin.channel_id(),
             guild: origin.guild_id(),
-            hl_mode: HlMode::ScorePp,
+            version: HlVersion::ScorePp,
             current_score: 0,
             highscore,
             image_url_rx,

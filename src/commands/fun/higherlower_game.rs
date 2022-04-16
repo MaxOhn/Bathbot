@@ -3,7 +3,7 @@ use twilight_interactions::command::CreateCommand;
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
-    games::hl::{GameState, HigherLowerComponents},
+    games::hl::{GameState, HigherLowerComponents, HlVersion},
     util::{
         builder::{EmbedBuilder, MessageBuilder},
         constants::{GENERAL_ISSUE, RED},
@@ -18,8 +18,8 @@ use std::{fmt::Display, sync::Arc};
 #[command(
     name = "higherlower",
     help = "Play a game of osu! themed higher lower.\n\
-    The available modes are:\n \
-    - `PP`: Guess whether the next play is worth higher or lower PP"
+    The available versions are:\n \
+    - `Score PP`: Guess whether the next play is worth higher or lower PP"
 )]
 /// Play a game of osu! themed higher lower
 pub struct HigherLower;
@@ -47,7 +47,10 @@ async fn slash_higherlower(ctx: Arc<Context>, command: Box<ApplicationCommand>) 
         let builder = MessageBuilder::new().embed(embed).components(components);
         command.update(&ctx, &builder).await?;
     } else {
-        let highscore = ctx.psql().get_higherlower_highscore(user.get(), 0).await?;
+        let highscore = ctx
+            .psql()
+            .get_higherlower_highscore(user.get(), HlVersion::ScorePp)
+            .await?;
 
         let mut game = match GameState::new(&ctx, &*command, highscore).await {
             Ok(game) => game,

@@ -1,12 +1,16 @@
-use crate::{BotResult, Database};
+use crate::{games::hl::HlVersion, BotResult, Database};
 
 impl Database {
-    pub async fn get_higherlower_highscore(&self, user_id: u64, mode: u8) -> BotResult<u32> {
+    pub async fn get_higherlower_highscore(
+        &self,
+        user_id: u64,
+        version: HlVersion,
+    ) -> BotResult<u32> {
         let query = sqlx::query!(
             "SELECT highscore FROM higherlower_scores \
             WHERE discord_id=$1 AND mode=$2",
             user_id as i64,
-            mode as i16,
+            version as i16,
         );
 
         match query.fetch_optional(&self.pool).await?.map(|e| e.highscore) {
@@ -19,7 +23,7 @@ impl Database {
     pub async fn upsert_higherlower_highscore(
         &self,
         user_id: u64,
-        mode: u8,
+        version: HlVersion,
         score: u32,
         highscore: u32,
     ) -> BotResult<bool> {
@@ -33,7 +37,7 @@ impl Database {
                 UPDATE \
                 SET highscore=$3",
             user_id as i64,
-            mode as i16,
+            version as i16,
             score as i32
         )
         .execute(&self.pool)

@@ -19,7 +19,7 @@ use crate::{
     BotResult,
 };
 
-use super::{HigherLowerComponents, HlGuess};
+use super::{HigherLowerComponents, HlGuess, HlVersion};
 
 /// Higher Button
 pub async fn handle_higher(
@@ -116,7 +116,10 @@ pub async fn handle_try_again(
     component.defer(&ctx).await?;
     let user = component.user_id()?;
 
-    let highscore = ctx.psql().get_higherlower_highscore(user.get(), 1).await?;
+    let highscore = ctx
+        .psql()
+        .get_higherlower_highscore(user.get(), HlVersion::ScorePp)
+        .await?;
 
     let mut game = match GameState::new(&ctx, &*component, highscore).await {
         Ok(game) => game,
@@ -144,8 +147,6 @@ pub async fn handle_try_again(
     let response = component.update(&ctx, &builder).await?.model().await?;
     game.id = response.id;
     ctx.hl_games().insert(user, game);
-
-    // TODO: get to retry -> /higherlower -> click on Try again
 
     Ok(())
 }
@@ -198,19 +199,16 @@ async fn game_over(
     let user = component.user_id()?;
 
     let GameState {
-        hl_mode: mode,
+        version,
         current_score,
         highscore,
         next,
         ..
     } = game;
 
-    let better_score_fut = ctx.psql().upsert_higherlower_highscore(
-        user.get(),
-        *mode as u8,
-        *current_score,
-        *highscore,
-    );
+    let better_score_fut =
+        ctx.psql()
+            .upsert_higherlower_highscore(user.get(), *version, *current_score, *highscore);
 
     let name = format!("Game Over - {guess} was incorrect");
 
