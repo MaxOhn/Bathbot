@@ -42,12 +42,8 @@ pub(super) async fn await_retry(
         return;
     }
 
-    let components = HlComponents::new()
-        .disable_higherlower()
-        .disable_next()
-        .disable_restart();
-
-    let builder = MessageBuilder::new().components(components.into());
+    let components = HlComponents::disabled();
+    let builder = MessageBuilder::new().components(components);
 
     if let Err(err) = (msg, channel).update(&ctx, &builder).await {
         let report = Report::new(err).wrap_err("failed to update retry components after timeout");

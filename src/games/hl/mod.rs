@@ -32,78 +32,37 @@ impl fmt::Display for HlGuess {
     }
 }
 
-pub struct HlComponents {
-    higher: Button,
-    lower: Button,
-    next: Button,
-    retry: Button,
-}
+pub struct HlComponents;
 
 impl HlComponents {
-    pub fn new() -> Self {
-        let higher = Button {
-            custom_id: Some("higher_button".to_owned()),
-            disabled: false,
-            emoji: None,
-            label: Some("Higher".to_owned()),
-            style: ButtonStyle::Success,
-            url: None,
-        };
-
-        let lower = Button {
-            custom_id: Some("lower_button".to_owned()),
-            disabled: false,
-            emoji: None,
-            label: Some("Lower".to_owned()),
-            style: ButtonStyle::Danger,
-            url: None,
-        };
-
-        let next = Button {
-            custom_id: Some("next_higherlower".to_owned()),
-            disabled: false,
-            emoji: Some(Emote::SingleStep.reaction_type()),
-            label: Some("Next".to_owned()),
-            style: ButtonStyle::Secondary,
-            url: None,
-        };
-
-        let retry = Button {
-            custom_id: Some("try_again_button".to_owned()),
-            disabled: false,
-            emoji: Some(ReactionType::Unicode {
-                name: "🔁".to_owned(),
-            }),
-            label: Some("Try Again".to_owned()),
-            style: ButtonStyle::Secondary,
-            url: None,
-        };
-
-        Self {
-            higher,
-            lower,
-            next,
-            retry,
-        }
+    /// All buttons are disabled
+    pub fn disabled() -> Vec<Component> {
+        Self::build(Self::buttons())
     }
 
-    pub fn disable_higherlower(mut self) -> Self {
-        self.higher.disabled = true;
-        self.lower.disabled = true;
+    /// Only the Higher and Lower buttons are enabled
+    pub fn higherlower() -> Vec<Component> {
+        let mut buttons = Self::buttons();
+        buttons[0].disabled = false;
+        buttons[1].disabled = false;
 
-        self
+        Self::build(buttons)
     }
 
-    pub fn disable_next(mut self) -> Self {
-        self.next.disabled = true;
+    /// Only the Next button is enabled
+    pub fn next() -> Vec<Component> {
+        let mut buttons = Self::buttons();
+        buttons[2].disabled = false;
 
-        self
+        Self::build(buttons)
     }
 
-    pub fn disable_restart(mut self) -> Self {
-        self.retry.disabled = true;
+    /// Only the restart button is enabled
+    pub fn restart() -> Vec<Component> {
+        let mut buttons = Self::buttons();
+        buttons[3].disabled = false;
 
-        self
+        Self::build(buttons)
     }
 
     pub fn give_up() -> Vec<Component> {
@@ -122,24 +81,52 @@ impl HlComponents {
 
         vec![Component::ActionRow(button_row)]
     }
-}
 
-impl From<HlComponents> for Vec<Component> {
-    fn from(components: HlComponents) -> Self {
-        let HlComponents {
-            higher,
-            lower,
-            next,
-            retry,
-        } = components;
+    fn buttons() -> [Button; 4] {
+        let higher = Button {
+            custom_id: Some("higher_button".to_owned()),
+            disabled: true,
+            emoji: None,
+            label: Some("Higher".to_owned()),
+            style: ButtonStyle::Success,
+            url: None,
+        };
 
+        let lower = Button {
+            custom_id: Some("lower_button".to_owned()),
+            disabled: true,
+            emoji: None,
+            label: Some("Lower".to_owned()),
+            style: ButtonStyle::Danger,
+            url: None,
+        };
+
+        let next = Button {
+            custom_id: Some("next_higherlower".to_owned()),
+            disabled: true,
+            emoji: Some(Emote::SingleStep.reaction_type()),
+            label: Some("Next".to_owned()),
+            style: ButtonStyle::Secondary,
+            url: None,
+        };
+
+        let retry = Button {
+            custom_id: Some("try_again_button".to_owned()),
+            disabled: true,
+            emoji: Some(ReactionType::Unicode {
+                name: "🔁".to_owned(),
+            }),
+            label: Some("Try Again".to_owned()),
+            style: ButtonStyle::Secondary,
+            url: None,
+        };
+
+        [higher, lower, next, retry]
+    }
+
+    fn build(buttons: [Button; 4]) -> Vec<Component> {
         let button_row = ActionRow {
-            components: vec![
-                Component::Button(higher),
-                Component::Button(lower),
-                Component::Button(next),
-                Component::Button(retry),
-            ],
+            components: buttons.map(Component::Button).to_vec(),
         };
 
         vec![Component::ActionRow(button_row)]

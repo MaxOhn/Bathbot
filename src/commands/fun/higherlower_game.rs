@@ -61,11 +61,8 @@ async fn slash_higherlower(ctx: Arc<Context>, command: Box<ApplicationCommand>) 
         let image = game.image().await;
         let embed = game.to_embed(image);
 
-        let components = HlComponents::new().disable_next().disable_restart();
-
-        let builder = MessageBuilder::new()
-            .embed(embed)
-            .components(components.into());
+        let components = HlComponents::higherlower();
+        let builder = MessageBuilder::new().embed(embed).components(components);
 
         let response = command.update(&ctx, &builder).await?.model().await?;
 

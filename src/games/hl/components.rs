@@ -76,10 +76,7 @@ pub async fn handle_give_up(
     if let Some((_, game)) = ctx.hl_games().remove(&user) {
         component.defer(&ctx).await?;
 
-        let components = HlComponents::new()
-            .disable_higherlower()
-            .disable_next()
-            .disable_restart();
+        let components = HlComponents::disabled();
 
         let content = "Successfully ended the previous game.\n\
             Start a new game by using `/higherlower`";
@@ -110,11 +107,8 @@ pub async fn handle_next_higherlower(
         let image = game.image().await;
         let embed = game.to_embed(image);
 
-        let components = HlComponents::new().disable_next().disable_restart();
-
-        let builder = MessageBuilder::new()
-            .embed(embed)
-            .components(components.into());
+        let components = HlComponents::higherlower();
+        let builder = MessageBuilder::new().embed(embed).components(components);
 
         component.update(&ctx, &builder).await?;
     }
@@ -148,14 +142,8 @@ pub async fn handle_try_again(
     let footer = FooterBuilder::new("Preparing game, give me moment...");
     embed.footer = Some(footer.build());
 
-    let components = HlComponents::new()
-        .disable_higherlower()
-        .disable_next()
-        .disable_restart();
-
-    let builder = MessageBuilder::new()
-        .embed(embed)
-        .components(components.into());
+    let components = HlComponents::disabled();
+    let builder = MessageBuilder::new().embed(embed).components(components);
 
     component.callback(&ctx, builder).await?;
 
@@ -174,11 +162,8 @@ pub async fn handle_try_again(
     let image = game.image().await;
     let embed = game.to_embed(image);
 
-    let components = HlComponents::new().disable_next().disable_restart();
-
-    let builder = MessageBuilder::new()
-        .embed(embed)
-        .components(components.into());
+    let components = HlComponents::higherlower();
+    let builder = MessageBuilder::new().embed(embed).components(components);
 
     let response = component.update(&ctx, &builder).await?.model().await?;
     game.id = response.id;
@@ -205,11 +190,8 @@ async fn correct_guess(
         footer_.text = footer;
     }
 
-    let components = HlComponents::new().disable_higherlower().disable_restart();
-
-    let builder = MessageBuilder::new()
-        .embed(embed)
-        .components(components.into());
+    let components = HlComponents::next();
+    let builder = MessageBuilder::new().embed(embed).components(components);
 
     let ctx_clone = Arc::clone(&ctx);
 
@@ -264,11 +246,8 @@ async fn game_over(
 
     embed.fields.push(field);
 
-    let components = HlComponents::new().disable_higherlower().disable_next();
-
-    let builder = MessageBuilder::new()
-        .embed(embed)
-        .components(components.into());
+    let components = HlComponents::restart();
+    let builder = MessageBuilder::new().embed(embed).components(components);
 
     component.callback(&ctx, builder).await?;
 
