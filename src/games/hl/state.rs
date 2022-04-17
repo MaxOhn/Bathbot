@@ -39,24 +39,10 @@ pub struct GameState {
     pub version: HlVersion,
     pub current_score: u32,
     pub highscore: u32,
-    image_url_rx: Receiver<String>,
+    image_url_rx: Option<Receiver<String>>,
 }
 
 impl GameState {
-    /// Be sure this is only called once after [`GameState::new`] / [`GameState::next`].
-    /// Otherwise it will panic.
-    pub async fn image(&mut self) -> String {
-        match (&mut self.image_url_rx).await {
-            Ok(url) => url,
-            Err(err) => {
-                let report = Report::new(err).wrap_err("failed to receive image url");
-                warn!("{report:?}");
-
-                String::new()
-            }
-        }
-    }
-
     pub async fn new(
         ctx: &Context,
         origin: &(dyn Authored + Sync),
@@ -88,7 +74,7 @@ impl GameState {
 
         debug!("{}pp vs {}pp", previous.pp, next.pp);
 
-        let (tx, image_url_rx) = oneshot::channel();
+        let (tx, rx) = oneshot::channel();
 
         let pfp1 = &previous.avatar;
         let cover1 = &previous.cover;
@@ -118,7 +104,7 @@ impl GameState {
             version: HlVersion::ScorePp,
             current_score: 0,
             highscore,
-            image_url_rx,
+            image_url_rx: Some(rx),
         })
     }
 
@@ -142,7 +128,7 @@ impl GameState {
         let cover2 = self.next.cover.clone();
 
         let (tx, image_url_rx) = oneshot::channel();
-        self.image_url_rx = image_url_rx;
+        self.image_url_rx = Some(image_url_rx);
 
         // Create the image in the background so it's available when needed later
         tokio::spawn(async move {
@@ -160,6 +146,27 @@ impl GameState {
         });
 
         Ok(())
+    }
+
+    /// Only returns a url the first time after [`GameState::new`] / [`GameState::next`].
+    /// When calling it again, it'll return an empty string.
+    pub async fn image(&mut self) -> String {
+        match self.image_url_rx.take() {
+            Some(rx) => match rx.await {
+                Ok(url) => url,
+                Err(err) => {
+                    let report = Report::new(err).wrap_err("failed to receive image url");
+                    warn!("{report:?}");
+
+                    String::new()
+                }
+            },
+            None => {
+                warn!("tried to await image again");
+
+                String::new()
+            }
+        }
     }
 
     pub fn to_embed(&self, image: String) -> Embed {
