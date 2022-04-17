@@ -261,12 +261,6 @@ pub(super) async fn score(
         }
     }
 
-    let mode = if mode == GameMode::STD {
-        config.mode.unwrap_or(mode)
-    } else {
-        mode
-    };
-
     // Retrieve the user and their recent scores
     let user_args = UserArgs::new(&name, mode);
 
