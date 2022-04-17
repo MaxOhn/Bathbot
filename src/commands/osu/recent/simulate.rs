@@ -206,6 +206,7 @@ pub(super) async fn simulate(
         .include_fails(true)
         .limit(limit);
 
+    // TODO: combine with username retrieval
     let config_fut = ctx.user_config(owner);
     let (scores_result, config_result) = tokio::join!(scores_fut, config_fut);
 

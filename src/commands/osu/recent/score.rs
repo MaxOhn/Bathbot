@@ -16,7 +16,7 @@ use twilight_model::{
 
 use crate::{
     commands::{
-        osu::{get_user_and_scores, prepare_score, ScoreArgs, UserArgs},
+        osu::{get_user_and_scores, prepare_score, require_link, ScoreArgs, UserArgs},
         GameModeOption, GradeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
@@ -216,7 +216,6 @@ pub(super) async fn score(
     orig: CommandOrigin<'_>,
     args: RecentScore<'_>,
 ) -> BotResult<()> {
-    let (name, mode) = name_mode!(ctx, orig, args);
     let author = orig.user_id()?;
 
     let config = match ctx.user_config(author).await {
@@ -226,6 +225,20 @@ pub(super) async fn score(
 
             return Err(err);
         }
+    };
+
+    let mode = args
+        .mode
+        .map(GameMode::from)
+        .or(config.mode)
+        .unwrap_or(GameMode::STD);
+
+    let name = match username!(ctx, orig, args) {
+        Some(name) => name,
+        None => match config.username() {
+            Some(name) => name.to_owned(),
+            None => return require_link(&ctx, &orig).await,
+        },
     };
 
     let RecentScore {
