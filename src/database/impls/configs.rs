@@ -1,4 +1,4 @@
-use dashmap::DashMap;
+use flurry::HashMap as FlurryMap;
 use futures::stream::StreamExt;
 use rosu_v2::prelude::GameMode;
 use twilight_model::id::{
@@ -17,23 +17,27 @@ use crate::{
 
 impl Database {
     #[cold]
-    pub async fn get_guilds(&self) -> BotResult<DashMap<Id<GuildMarker>, GuildConfig>> {
+    pub async fn get_guilds(&self) -> BotResult<FlurryMap<Id<GuildMarker>, GuildConfig>> {
         let mut stream = sqlx::query!("SELECT * FROM guild_configs").fetch(&self.pool);
-        let guilds = DashMap::with_capacity(10_000);
+        let guilds = FlurryMap::with_capacity(10_000);
 
-        while let Some(entry) = stream.next().await.transpose()? {
-            let config = GuildConfig {
-                authorities: serde_cbor::from_slice(&entry.authorities)?,
-                embeds_size: entry.embeds_size.map(EmbedsSize::from),
-                minimized_pp: entry.minimized_pp.map(MinimizedPp::from),
-                prefixes: serde_cbor::from_slice(&entry.prefixes)?,
-                profile_size: entry.profile_size.map(ProfileSize::from),
-                show_retries: entry.show_retries,
-                track_limit: entry.track_limit.map(|limit| limit as u8),
-                with_lyrics: entry.with_lyrics,
-            };
+        {
+            let gref = guilds.pin();
 
-            guilds.insert(Id::new(entry.guild_id as u64), config);
+            while let Some(entry) = stream.next().await.transpose()? {
+                let config = GuildConfig {
+                    authorities: serde_cbor::from_slice(&entry.authorities)?,
+                    embeds_size: entry.embeds_size.map(EmbedsSize::from),
+                    minimized_pp: entry.minimized_pp.map(MinimizedPp::from),
+                    prefixes: serde_cbor::from_slice(&entry.prefixes)?,
+                    profile_size: entry.profile_size.map(ProfileSize::from),
+                    show_retries: entry.show_retries,
+                    track_limit: entry.track_limit.map(|limit| limit as u8),
+                    with_lyrics: entry.with_lyrics,
+                };
+
+                gref.insert(Id::new(entry.guild_id as u64), config);
+            }
         }
 
         Ok(guilds)
