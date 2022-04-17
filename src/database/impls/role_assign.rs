@@ -1,23 +1,35 @@
 use crate::{core::AssignRoles, BotResult, Database};
 
-use dashmap::DashMap;
+use flurry::HashMap as FlurryMap;
 use futures::stream::StreamExt;
+
+type AssignRolesMap = FlurryMap<(u64, u64), AssignRoles>;
 
 impl Database {
     #[cold]
-    pub async fn get_role_assigns(&self) -> BotResult<DashMap<(u64, u64), AssignRoles>> {
+    pub async fn get_role_assigns(&self) -> BotResult<AssignRolesMap> {
         let mut stream = sqlx::query!("SELECT * FROM role_assigns").fetch(&self.pool);
-        let assigns = DashMap::with_capacity(200);
+        let assigns = AssignRolesMap::with_capacity(200);
 
-        while let Some(entry) = stream.next().await.transpose()? {
-            let channel_id: i64 = entry.channel_id;
-            let message_id: i64 = entry.message_id;
-            let role_id: i64 = entry.role_id;
+        {
+            let aref = assigns.pin();
 
-            assigns
-                .entry((channel_id as u64, message_id as u64))
-                .or_insert_with(AssignRoles::new)
-                .push(role_id as u64);
+            while let Some(entry) = stream.next().await.transpose()? {
+                let key = (entry.channel_id as u64, entry.message_id as u64);
+
+                let missing = aref
+                    .compute_if_present(&key, |_, roles| {
+                        let mut roles = roles.to_owned();
+                        roles.push(entry.role_id as u64);
+
+                        Some(roles)
+                    })
+                    .is_none();
+
+                if missing {
+                    aref.insert(key, smallvec::smallvec![entry.role_id as u64]);
+                }
+            }
         }
 
         Ok(assigns)

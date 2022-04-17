@@ -206,7 +206,7 @@ struct ContextData {
     matchlive: MatchLiveChannels,
     msgs_to_process: DashSet<Id<MessageMarker>>,
     osu_tracking: OsuTracking,
-    role_assigns: DashMap<(u64, u64), AssignRoles>,
+    role_assigns: FlurryMap<(u64, u64), AssignRoles>, // very read-heavy
     snipe_countries: DashMap<CountryCode, String>,
     tracked_streams: DashMap<u64, Vec<u64>>,
 }
