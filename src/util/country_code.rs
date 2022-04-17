@@ -544,7 +544,7 @@ lazy_static::lazy_static! {
     };
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Deserialize, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct CountryCode(rosu_v2::prelude::CountryCode);
 
 impl CountryCode {

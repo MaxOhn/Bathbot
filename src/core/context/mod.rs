@@ -201,13 +201,13 @@ impl Clients {
 struct ContextData {
     application_id: Id<ApplicationMarker>,
     games: Games,
-    guilds: FlurryMap<Id<GuildMarker>, GuildConfig>, // very read-heavy
+    guilds: FlurryMap<Id<GuildMarker>, GuildConfig>, // read-heavy
     map_garbage_collection: Mutex<HashSet<NonZeroU32>>,
     matchlive: MatchLiveChannels,
     msgs_to_process: DashSet<Id<MessageMarker>>,
     osu_tracking: OsuTracking,
-    role_assigns: FlurryMap<(u64, u64), AssignRoles>, // very read-heavy
-    snipe_countries: DashMap<CountryCode, String>,
+    role_assigns: FlurryMap<(u64, u64), AssignRoles>, // read-heavy
+    snipe_countries: FlurryMap<CountryCode, String>,  // read-heavy
     tracked_streams: DashMap<u64, Vec<u64>>,
 }
 
