@@ -2,7 +2,7 @@ use std::{borrow::Cow, collections::BTreeMap, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
 use eyre::Report;
-use rosu_v2::prelude::OsuError;
+use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
     application::interaction::ApplicationCommand,
@@ -16,8 +16,9 @@ use crate::{
     pagination::ProfilePagination,
     tracking::process_osu_tracking,
     util::{
-        builder::MessageBuilder, constants::OSU_API_ISSUE, matcher, ApplicationCommandExt,
-        ChannelExt, CowUtils,
+        builder::MessageBuilder,
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        matcher, ApplicationCommandExt, ChannelExt, CowUtils,
     },
     BotResult, Context,
 };
@@ -29,7 +30,7 @@ pub use self::{
     size::ProfileEmbedMap,
 };
 
-use super::{get_user_and_scores, ScoreArgs, UserArgs};
+use super::{get_user_and_scores, require_link, ScoreArgs, UserArgs};
 
 mod data;
 mod graph;
@@ -213,9 +214,33 @@ async fn slash_profile(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) 
 }
 
 async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) -> BotResult<()> {
-    let (name, mode) = name_mode!(ctx, orig, args);
-    let size = args.size;
+    let owner = orig.user_id()?;
+
+    let config = match ctx.user_config(owner).await {
+        Ok(config) => config,
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err);
+        }
+    };
+
+    let mode = args
+        .mode
+        .map(GameMode::from)
+        .or(config.mode)
+        .unwrap_or(GameMode::STD);
+
+    let size = args.size.or(config.profile_size);
     let guild = orig.guild_id();
+
+    let name = match username!(ctx, orig, args) {
+        Some(name) => name,
+        None => match config.into_username() {
+            Some(name) => name,
+            None => return require_link(&ctx, &orig).await,
+        },
+    };
 
     let kind = match (size, guild) {
         (Some(kind), _) => kind,
@@ -238,10 +263,10 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
 
             return orig.error(&ctx, content).await;
         }
-        Err(why) => {
+        Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 
@@ -293,7 +318,6 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
 
     // Pagination
     let pagination = ProfilePagination::new(response, profile_data, kind);
-    let owner = orig.user_id()?;
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {
@@ -350,9 +374,9 @@ impl ProfileEmbed {
                         Some(counts) => counts,
                         None => match super::get_globals_count(ctx, user, mode).await {
                             Ok(globals_count) => profile_data.globals_count.insert(globals_count),
-                            Err(why) => {
+                            Err(err) => {
                                 let report =
-                                    Report::new(why).wrap_err("failed to request globals count");
+                                    Report::new(err).wrap_err("failed to request globals count");
                                 warn!("{report:?}");
 
                                 profile_data.globals_count.insert(BTreeMap::new())
