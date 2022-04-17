@@ -208,7 +208,7 @@ struct ContextData {
     osu_tracking: OsuTracking,
     role_assigns: FlurryMap<(u64, u64), AssignRoles>, // read-heavy
     snipe_countries: FlurryMap<CountryCode, String>,  // read-heavy
-    tracked_streams: DashMap<u64, Vec<u64>>,
+    tracked_streams: FlurryMap<u64, Vec<u64>>,        // read-heavy
 }
 
 impl ContextData {
