@@ -15,7 +15,7 @@ use crate::{
     util::{builder::MessageBuilder, MessageExt},
 };
 
-use super::{GameState, HigherLowerComponents};
+use super::{GameState, HlComponents};
 
 pub struct RetryState {
     pub(super) game: GameState,
@@ -42,7 +42,7 @@ pub(super) async fn await_retry(
         return;
     }
 
-    let components = HigherLowerComponents::new()
+    let components = HlComponents::new()
         .disable_higherlower()
         .disable_next()
         .disable_restart();

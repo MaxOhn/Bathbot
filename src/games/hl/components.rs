@@ -12,17 +12,17 @@ use crate::{
     error::InvalidGameState,
     games::hl::GameState,
     util::{
-        builder::{EmbedBuilder, MessageBuilder},
+        builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
         constants::{GENERAL_ISSUE, RED},
         numbers::round,
-        Authored, ComponentExt,
+        Authored, ComponentExt, MessageExt,
     },
     BotResult,
 };
 
 use super::{
     retry::{await_retry, RetryState},
-    HigherLowerComponents, HlGuess,
+    HlComponents, HlGuess,
 };
 
 /// Higher Button
@@ -73,12 +73,24 @@ pub async fn handle_give_up(
 ) -> BotResult<()> {
     let user = component.user_id()?;
 
-    if ctx.hl_games().remove(&user).is_some() {
+    if let Some((_, game)) = ctx.hl_games().remove(&user) {
+        component.defer(&ctx).await?;
+
+        let components = HlComponents::new()
+            .disable_higherlower()
+            .disable_next()
+            .disable_restart();
+
         let content = "Successfully ended the previous game.\n\
             Start a new game by using `/higherlower`";
 
-        let builder = MessageBuilder::new().embed(content).components(Vec::new());
-        component.callback(&ctx, builder).await?;
+        let update_builder = MessageBuilder::new().components(components.into());
+        let response_builder = MessageBuilder::new().embed(content).components(Vec::new());
+
+        let update_fut = (game.id, game.channel).update(&ctx, &update_builder);
+        let response_fut = component.update(&ctx, &response_builder);
+
+        tokio::try_join!(update_fut, response_fut)?;
     }
 
     Ok(())
@@ -98,9 +110,7 @@ pub async fn handle_next_higherlower(
         let image = game.image().await;
         let embed = game.to_embed(image);
 
-        let components = HigherLowerComponents::new()
-            .disable_next()
-            .disable_restart();
+        let components = HlComponents::new().disable_next().disable_restart();
 
         let builder = MessageBuilder::new()
             .embed(embed)
@@ -115,7 +125,7 @@ pub async fn handle_next_higherlower(
 /// Try again Button
 pub async fn handle_try_again(
     ctx: Arc<Context>,
-    component: Box<MessageComponentInteraction>,
+    mut component: Box<MessageComponentInteraction>,
 ) -> BotResult<()> {
     let user = component.user_id()?;
 
@@ -133,7 +143,21 @@ pub async fn handle_try_again(
         Entry::Vacant(_) => return Ok(()),
     };
 
-    component.defer(&ctx).await?;
+    let mut embeds = mem::take(&mut component.message.embeds);
+    let mut embed = embeds.pop().ok_or(InvalidGameState::MissingEmbed)?;
+    let footer = FooterBuilder::new("Preparing game, give me moment...");
+    embed.footer = Some(footer.build());
+
+    let components = HlComponents::new()
+        .disable_higherlower()
+        .disable_next()
+        .disable_restart();
+
+    let builder = MessageBuilder::new()
+        .embed(embed)
+        .components(components.into());
+
+    component.callback(&ctx, builder).await?;
 
     let mut game = match GameState::new(&ctx, &*component, version).await {
         Ok(game) => game,
@@ -150,9 +174,7 @@ pub async fn handle_try_again(
     let image = game.image().await;
     let embed = game.to_embed(image);
 
-    let components = HigherLowerComponents::new()
-        .disable_next()
-        .disable_restart();
+    let components = HlComponents::new().disable_next().disable_restart();
 
     let builder = MessageBuilder::new()
         .embed(embed)
@@ -183,9 +205,7 @@ async fn correct_guess(
         footer_.text = footer;
     }
 
-    let components = HigherLowerComponents::new()
-        .disable_higherlower()
-        .disable_restart();
+    let components = HlComponents::new().disable_higherlower().disable_restart();
 
     let builder = MessageBuilder::new()
         .embed(embed)
@@ -244,9 +264,7 @@ async fn game_over(
 
     embed.fields.push(field);
 
-    let components = HigherLowerComponents::new()
-        .disable_higherlower()
-        .disable_next();
+    let components = HlComponents::new().disable_higherlower().disable_next();
 
     let builder = MessageBuilder::new()
         .embed(embed)
@@ -256,7 +274,7 @@ async fn game_over(
 
     let (tx, rx) = oneshot::channel();
     let msg = game.id;
-    let channel = component.channel_id;
+    let channel = game.channel;
     let retry = RetryState::new(game, user, tx);
     ctx.hl_retries().insert(msg, retry);
     tokio::spawn(await_retry(ctx, msg, channel, rx));

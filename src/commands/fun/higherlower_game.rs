@@ -3,7 +3,7 @@ use twilight_interactions::command::CreateCommand;
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
-    games::hl::{GameState, HigherLowerComponents, HlVersion},
+    games::hl::{GameState, HlComponents, HlVersion},
     util::{
         builder::{EmbedBuilder, MessageBuilder},
         constants::{GENERAL_ISSUE, RED},
@@ -41,7 +41,7 @@ async fn slash_higherlower(ctx: Arc<Context>, command: Box<ApplicationCommand>) 
     });
 
     if let Some(content) = content {
-        let components = HigherLowerComponents::give_up();
+        let components = HlComponents::give_up();
         let embed = EmbedBuilder::new().color(RED).description(content).build();
 
         let builder = MessageBuilder::new().embed(embed).components(components);
@@ -61,9 +61,7 @@ async fn slash_higherlower(ctx: Arc<Context>, command: Box<ApplicationCommand>) 
         let image = game.image().await;
         let embed = game.to_embed(image);
 
-        let components = HigherLowerComponents::new()
-            .disable_next()
-            .disable_restart();
+        let components = HlComponents::new().disable_next().disable_restart();
 
         let builder = MessageBuilder::new()
             .embed(embed)

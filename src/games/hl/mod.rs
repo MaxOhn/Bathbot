@@ -32,14 +32,14 @@ impl fmt::Display for HlGuess {
     }
 }
 
-pub struct HigherLowerComponents {
+pub struct HlComponents {
     higher: Button,
     lower: Button,
     next: Button,
     retry: Button,
 }
 
-impl HigherLowerComponents {
+impl HlComponents {
     pub fn new() -> Self {
         let higher = Button {
             custom_id: Some("higher_button".to_owned()),
@@ -124,9 +124,9 @@ impl HigherLowerComponents {
     }
 }
 
-impl From<HigherLowerComponents> for Vec<Component> {
-    fn from(components: HigherLowerComponents) -> Self {
-        let HigherLowerComponents {
+impl From<HlComponents> for Vec<Component> {
+    fn from(components: HlComponents) -> Self {
+        let HlComponents {
             higher,
             lower,
             next,
