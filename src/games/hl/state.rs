@@ -35,6 +35,7 @@ pub struct GameState {
     pub id: Id<MessageMarker>,
     pub channel: Id<ChannelMarker>,
     pub guild: Option<Id<GuildMarker>>,
+    pub mode: GameMode,
     pub version: HlVersion,
     pub current_score: u32,
     pub highscore: u32,
@@ -59,26 +60,30 @@ impl GameState {
     pub async fn new(
         ctx: &Context,
         origin: &(dyn Authored + Sync),
+        mode: GameMode,
         version: HlVersion,
     ) -> BotResult<Self> {
         let user = origin.user_id()?.get();
         let highscore = ctx.psql().get_higherlower_highscore(user, version).await?;
 
         match version {
-            HlVersion::ScorePp => Self::new_score_pp(ctx, origin, highscore).await,
+            HlVersion::ScorePp => Self::new_score_pp(ctx, origin, mode, highscore).await,
         }
     }
 
     async fn new_score_pp(
         ctx: &Context,
         origin: &(dyn Authored + Sync),
+        mode: GameMode,
         highscore: u32,
     ) -> BotResult<Self> {
-        let (previous, mut next) =
-            tokio::try_join!(random_play(&ctx, 0.0, 0), random_play(&ctx, 0.0, 0))?;
+        let (previous, mut next) = tokio::try_join!(
+            random_play(&ctx, mode, 0.0, 0),
+            random_play(&ctx, mode, 0.0, 0)
+        )?;
 
         while next == previous {
-            next = random_play(&ctx, 0.0, 0).await?;
+            next = random_play(&ctx, mode, 0.0, 0).await?;
         }
 
         debug!("{}pp vs {}pp", previous.pp, next.pp);
@@ -109,6 +114,7 @@ impl GameState {
             id: Id::new(1),
             channel: origin.channel_id(),
             guild: origin.guild_id(),
+            mode,
             version: HlVersion::ScorePp,
             current_score: 0,
             highscore,
@@ -120,10 +126,10 @@ impl GameState {
     pub async fn next(&mut self, ctx: Arc<Context>) -> BotResult<()> {
         mem::swap(&mut self.previous, &mut self.next);
 
-        self.next = random_play(&ctx, self.previous.pp, self.current_score).await?;
+        self.next = random_play(&ctx, self.mode, self.previous.pp, self.current_score).await?;
 
         while self.next == self.previous {
-            self.next = random_play(&ctx, self.previous.pp, self.current_score).await?;
+            self.next = random_play(&ctx, self.mode, self.previous.pp, self.current_score).await?;
         }
 
         debug!("{}pp vs {}pp", self.previous.pp, self.next.pp);
@@ -157,7 +163,14 @@ impl GameState {
     }
 
     pub fn to_embed(&self, image: String) -> Embed {
-        let title = "Higher or Lower: PP";
+        let mut title = "Higher or Lower: PP".to_owned();
+
+        match self.mode {
+            GameMode::STD => {}
+            GameMode::TKO => title.push_str(" (taiko)"),
+            GameMode::CTB => title.push_str(" (ctb)"),
+            GameMode::MNA => title.push_str(" (mania)"),
+        }
 
         let fields = vec![
             EmbedField {
@@ -272,14 +285,23 @@ async fn create_image(
     Ok(attachment.url)
 }
 
-async fn random_play(ctx: &Context, prev_pp: f32, curr_score: u32) -> BotResult<GameStateInfo> {
+async fn random_play(
+    ctx: &Context,
+    mode: GameMode,
+    prev_pp: f32,
+    curr_score: u32,
+) -> BotResult<GameStateInfo> {
     let max_play = 25 - curr_score.min(24);
     let min_play = 24 - 2 * curr_score.min(12);
+    let max_rank = 5000 - (mode != GameMode::STD) as u32 * 1000;
 
     let (rank, play): (u32, u32) = {
         let mut rng = rand::thread_rng();
 
-        (rng.gen_range(1..=5000), rng.gen_range(min_play..max_play))
+        (
+            rng.gen_range(1..=max_rank),
+            rng.gen_range(min_play..max_play),
+        )
     };
 
     let page = ((rank - 1) / 50) + 1;
@@ -287,7 +309,7 @@ async fn random_play(ctx: &Context, prev_pp: f32, curr_score: u32) -> BotResult<
 
     let player = ctx
         .osu()
-        .performance_rankings(GameMode::STD)
+        .performance_rankings(mode)
         .page(page)
         .await?
         .ranking
@@ -297,7 +319,7 @@ async fn random_play(ctx: &Context, prev_pp: f32, curr_score: u32) -> BotResult<
         .osu()
         .user_scores(player.user_id)
         .limit(100)
-        .mode(GameMode::STD)
+        .mode(mode)
         .best()
         .await?;
 

@@ -123,7 +123,7 @@ pub async fn handle_try_again(
 ) -> BotResult<()> {
     let user = component.user_id()?;
 
-    let version = match ctx.hl_retries().entry(component.message.id) {
+    let (mode, version) = match ctx.hl_retries().entry(component.message.id) {
         Entry::Occupied(entry) => {
             if user != entry.get().user {
                 return Ok(());
@@ -132,7 +132,7 @@ pub async fn handle_try_again(
             let RetryState { game, tx, .. } = entry.remove();
             let _ = tx.send(());
 
-            game.version
+            (game.mode, game.version)
         }
         Entry::Vacant(_) => return Ok(()),
     };
@@ -147,7 +147,7 @@ pub async fn handle_try_again(
 
     component.callback(&ctx, builder).await?;
 
-    let mut game = match GameState::new(&ctx, &*component, version).await {
+    let mut game = match GameState::new(&ctx, &*component, mode, version).await {
         Ok(game) => game,
         Err(err) => {
             // ? Should ComponentExt provide error method?

@@ -20,7 +20,7 @@ pub struct GameStateInfo {
     mods: GameMods,
     pub pp: f32,
     combo: u32,
-    max_combo: u32,
+    max_combo: Option<u32>,
     score: u32,
     acc: f32,
     miss_count: u32,
@@ -54,7 +54,7 @@ impl GameStateInfo {
             mods: score.mods,
             pp: round(score.pp.unwrap_or(0.0)),
             combo: score.max_combo,
-            max_combo: map.max_combo.unwrap_or(0),
+            max_combo: map.max_combo,
             score: score.score,
             acc: round(score.accuracy),
             miss_count: score.statistics.count_miss,
@@ -65,20 +65,23 @@ impl GameStateInfo {
 
     pub fn play_string(&self, pp_visible: bool) -> String {
         format!(
-            "**{} {}**\n{} {} • **{}%** • **{}x**/{}x {}• **{}pp**",
-            self.map_string,
-            get_mods(self.mods),
-            grade_emote(self.grade),
-            with_comma_int(self.score),
-            self.acc,
-            self.combo,
-            self.max_combo,
-            if self.miss_count > 0 {
+            "**{map} {mods}**\n{grade} {score} • **{acc}%** • **{combo}x**{max_combo} {miss}• **{pp}pp**",
+            map = self.map_string,
+            mods = get_mods(self.mods),
+            grade = grade_emote(self.grade),
+            score = with_comma_int(self.score),
+            acc = self.acc,
+            combo = self.combo,
+            max_combo = match self.max_combo {
+                Some(ref combo) => format!("/{combo}x"),
+                None => String::new(),
+            },
+            miss = if self.miss_count > 0 {
                 format!("• **{}{}** ", self.miss_count, Emote::Miss.text())
             } else {
                 String::new()
             },
-            if pp_visible {
+            pp = if pp_visible {
                 self.pp.to_string().into()
             } else {
                 Cow::Borrowed("???")
