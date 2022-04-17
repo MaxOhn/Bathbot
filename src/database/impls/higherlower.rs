@@ -8,7 +8,7 @@ impl Database {
     ) -> BotResult<u32> {
         let query = sqlx::query!(
             "SELECT highscore FROM higherlower_scores \
-            WHERE discord_id=$1 AND mode=$2",
+            WHERE discord_id=$1 AND version=$2",
             user_id as i64,
             version as i16,
         );
@@ -33,7 +33,7 @@ impl Database {
 
         sqlx::query!(
             "INSERT INTO higherlower_scores \
-                VALUES ($1, $2, $3) ON CONFLICT (discord_id, mode) DO \
+                VALUES ($1, $2, $3) ON CONFLICT (discord_id, version) DO \
                 UPDATE \
                 SET highscore=$3",
             user_id as i64,

@@ -1,20 +1,17 @@
-use dashmap::DashMap;
-use twilight_model::id::{
-    marker::{ChannelMarker, UserMarker},
-    Id,
-};
+use crate::Context;
 
-use crate::{
-    games::{bg::GameState as BgGameState, hl::GameState as HlGameState},
-    Context,
-};
+use super::{BgGames, HlGames, HlRetries};
 
 impl Context {
-    pub fn bg_games(&self) -> &DashMap<Id<ChannelMarker>, BgGameState> {
-        &self.data.bg_games
+    pub fn bg_games(&self) -> &BgGames {
+        &self.data.games.bg
     }
 
-    pub fn hl_games(&self) -> &DashMap<Id<UserMarker>, HlGameState> {
-        &self.data.hl_games
+    pub fn hl_games(&self) -> &HlGames {
+        &self.data.games.hl
+    }
+
+    pub fn hl_retries(&self) -> &HlRetries {
+        &self.data.games.hl_retries
     }
 }

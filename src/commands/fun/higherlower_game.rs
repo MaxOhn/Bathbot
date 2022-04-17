@@ -31,7 +31,7 @@ async fn slash_higherlower(ctx: Arc<Context>, command: Box<ApplicationCommand>) 
         let GameState { guild, channel, id, .. } = v.value();
 
         format!(
-            "You can't play two higher lower games at once! \n\
+            "You can't play two higherlower games at once! \n\
             Finish your [other game](https://discord.com/channels/{}/{channel}/{id}) first or give up.",
             match guild {
                 Some(ref id) => id as &dyn Display,
@@ -47,12 +47,9 @@ async fn slash_higherlower(ctx: Arc<Context>, command: Box<ApplicationCommand>) 
         let builder = MessageBuilder::new().embed(embed).components(components);
         command.update(&ctx, &builder).await?;
     } else {
-        let highscore = ctx
-            .psql()
-            .get_higherlower_highscore(user.get(), HlVersion::ScorePp)
-            .await?;
+        let version = HlVersion::ScorePp;
 
-        let mut game = match GameState::new(&ctx, &*command, highscore).await {
+        let mut game = match GameState::new(&ctx, &*command, version).await {
             Ok(game) => game,
             Err(err) => {
                 let _ = command.error(&ctx, GENERAL_ISSUE).await;

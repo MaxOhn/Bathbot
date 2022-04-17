@@ -13,6 +13,7 @@ mod state;
 mod state_info;
 
 pub mod components;
+pub mod retry;
 
 #[derive(Copy, Clone)]
 pub enum HlVersion {

@@ -22,7 +22,10 @@ use crate::{
     core::CONFIG,
     custom_client::CustomClient,
     database::{Database, GuildConfig},
-    games::{bg::GameState as BgGameState, hl::GameState as HlGameState},
+    games::{
+        bg::GameState as BgGameState,
+        hl::{retry::RetryState, GameState as HlGameState},
+    },
     matchlive::MatchLiveChannels,
     server::AuthenticationStandby,
     tracking::OsuTracking,
@@ -196,8 +199,7 @@ impl Clients {
 
 struct ContextData {
     application_id: Id<ApplicationMarker>,
-    bg_games: DashMap<Id<ChannelMarker>, BgGameState>,
-    hl_games: DashMap<Id<UserMarker>, HlGameState>,
+    games: Games,
     guilds: DashMap<Id<GuildMarker>, GuildConfig>,
     map_garbage_collection: Mutex<HashSet<NonZeroU32>>,
     matchlive: MatchLiveChannels,
@@ -212,9 +214,8 @@ impl ContextData {
     async fn new(psql: &Database, application_id: Id<ApplicationMarker>) -> BotResult<Self> {
         Ok(Self {
             application_id,
-            bg_games: DashMap::new(),
+            games: Games::default(),
             guilds: psql.get_guilds().await?,
-            hl_games: DashMap::new(),
             map_garbage_collection: Mutex::new(HashSet::new()),
             matchlive: MatchLiveChannels::new(),
             msgs_to_process: DashSet::new(),
@@ -225,3 +226,14 @@ impl ContextData {
         })
     }
 }
+
+#[derive(Default)]
+struct Games {
+    bg: BgGames,
+    hl: HlGames,
+    hl_retries: HlRetries,
+}
+
+type BgGames = DashMap<Id<ChannelMarker>, BgGameState>;
+type HlGames = DashMap<Id<UserMarker>, HlGameState>;
+type HlRetries = DashMap<Id<MessageMarker>, RetryState>;

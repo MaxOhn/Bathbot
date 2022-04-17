@@ -1,6 +1,7 @@
 use std::{fmt::Write, mem, sync::Arc};
 
 use dashmap::mapref::entry::Entry;
+use tokio::sync::oneshot;
 use twilight_model::{
     application::interaction::MessageComponentInteraction,
     channel::embed::{Embed, EmbedField},
@@ -19,7 +20,10 @@ use crate::{
     BotResult,
 };
 
-use super::{HigherLowerComponents, HlGuess, HlVersion};
+use super::{
+    retry::{await_retry, RetryState},
+    HigherLowerComponents, HlGuess,
+};
 
 /// Higher Button
 pub async fn handle_higher(
@@ -53,7 +57,7 @@ async fn handle_higherlower(
 
         if !game.check_guess(guess) {
             let game = entry.remove();
-            game_over(&ctx, component, &game, guess).await?;
+            game_over(Arc::clone(&ctx), component, game, guess).await?;
         } else {
             correct_guess(Arc::clone(&ctx), component, game, guess).await?;
         }
@@ -85,10 +89,10 @@ pub async fn handle_next_higherlower(
     ctx: Arc<Context>,
     component: Box<MessageComponentInteraction>,
 ) -> BotResult<()> {
-    component.defer(&ctx).await?;
     let user = component.user_id()?;
 
     if let Entry::Occupied(mut entry) = ctx.hl_games().entry(user) {
+        component.defer(&ctx).await?;
         let game = entry.get_mut();
 
         let image = game.image().await;
@@ -113,15 +117,25 @@ pub async fn handle_try_again(
     ctx: Arc<Context>,
     component: Box<MessageComponentInteraction>,
 ) -> BotResult<()> {
-    component.defer(&ctx).await?;
     let user = component.user_id()?;
 
-    let highscore = ctx
-        .psql()
-        .get_higherlower_highscore(user.get(), HlVersion::ScorePp)
-        .await?;
+    let version = match ctx.hl_retries().entry(component.message.id) {
+        Entry::Occupied(entry) => {
+            if user != entry.get().user {
+                return Ok(());
+            }
 
-    let mut game = match GameState::new(&ctx, &*component, highscore).await {
+            let RetryState { game, tx, .. } = entry.remove();
+            let _ = tx.send(());
+
+            game.version
+        }
+        Entry::Vacant(_) => return Ok(()),
+    };
+
+    component.defer(&ctx).await?;
+
+    let mut game = match GameState::new(&ctx, &*component, version).await {
         Ok(game) => game,
         Err(err) => {
             // ? Should ComponentExt provide error method?
@@ -191,9 +205,9 @@ async fn correct_guess(
 }
 
 async fn game_over(
-    ctx: &Context,
+    ctx: Arc<Context>,
     mut component: Box<MessageComponentInteraction>,
-    game: &GameState,
+    game: GameState,
     guess: HlGuess,
 ) -> BotResult<()> {
     let user = component.user_id()?;
@@ -204,7 +218,7 @@ async fn game_over(
         highscore,
         next,
         ..
-    } = game;
+    } = &game;
 
     let better_score_fut =
         ctx.psql()
@@ -238,7 +252,14 @@ async fn game_over(
         .embed(embed)
         .components(components.into());
 
-    component.callback(ctx, builder).await?;
+    component.callback(&ctx, builder).await?;
+
+    let (tx, rx) = oneshot::channel();
+    let msg = game.id;
+    let channel = component.channel_id;
+    let retry = RetryState::new(game, user, tx);
+    ctx.hl_retries().insert(msg, retry);
+    tokio::spawn(await_retry(ctx, msg, channel, rx));
 
     Ok(())
 }

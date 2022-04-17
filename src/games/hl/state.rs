@@ -59,6 +59,19 @@ impl GameState {
     pub async fn new(
         ctx: &Context,
         origin: &(dyn Authored + Sync),
+        version: HlVersion,
+    ) -> BotResult<Self> {
+        let user = origin.user_id()?.get();
+        let highscore = ctx.psql().get_higherlower_highscore(user, version).await?;
+
+        match version {
+            HlVersion::ScorePp => Self::new_score_pp(ctx, origin, highscore).await,
+        }
+    }
+
+    async fn new_score_pp(
+        ctx: &Context,
+        origin: &(dyn Authored + Sync),
         highscore: u32,
     ) -> BotResult<Self> {
         let (previous, mut next) =
