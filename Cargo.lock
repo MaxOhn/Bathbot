@@ -86,6 +86,7 @@ dependencies = [
  "dotenv",
  "enterpolation",
  "eyre",
+ "flurry",
  "futures",
  "handlebars",
  "hashbrown 0.12.0",
@@ -614,6 +615,18 @@ name = "float-ord"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7bad48618fdb549078c333a7a8528acb57af271d0433bdecd523eb620628364e"
+
+[[package]]
+name = "flurry"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e0afc943ef18eebf6bc3335daeb8d338202093d18444a1784ea7f57fe7680f8"
+dependencies = [
+ "ahash",
+ "num_cpus",
+ "parking_lot 0.12.0",
+ "seize",
+]
 
 [[package]]
 name = "fnv"
@@ -1932,6 +1945,16 @@ checksum = "0160a13a177a45bfb43ce71c01580998474f556ad854dcbca936dd2841a5c556"
 dependencies = [
  "core-foundation-sys",
  "libc",
+]
+
+[[package]]
+name = "seize"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12dc9303fcd7adea830a7f82e37a30040e2cd5786933d54c560cc7e8fd748cee"
+dependencies = [
+ "num_cpus",
+ "once_cell",
 ]
 
 [[package]]

@@ -116,8 +116,8 @@ async fn send_notif(ctx: &Context, data: &TwitchNotifEmbed, channel: Id<ChannelM
 
     match ctx.http.create_message(channel).embeds(&[embed]) {
         Ok(msg_fut) => {
-            if let Err(why) = msg_fut.exec().await {
-                if let ErrorType::Response { error, .. } = why.kind() {
+            if let Err(err) = msg_fut.exec().await {
+                if let ErrorType::Response { error, .. } = err.kind() {
                     match error {
                         ApiError::General(GeneralApiError {
                             code: UNKNOWN_CHANNEL,
@@ -141,7 +141,7 @@ async fn send_notif(ctx: &Context, data: &TwitchNotifEmbed, channel: Id<ChannelM
                     }
                 } else {
                     let wrap = format!("error while sending twitch notif (channel {channel})");
-                    let report = Report::new(why).wrap_err(wrap);
+                    let report = Report::new(err).wrap_err(wrap);
                     warn!("{report:?}");
                 }
             }

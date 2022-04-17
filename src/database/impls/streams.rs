@@ -1,7 +1,11 @@
+use std::iter;
+
 use crate::{BotResult, Database};
 
-use dashmap::DashMap;
+use flurry::HashMap as FlurryMap;
 use futures::stream::StreamExt;
+
+type TrackedStreams = FlurryMap<u64, Vec<u64>>;
 
 impl Database {
     pub async fn add_stream_track(&self, channel: u64, user: u64) -> BotResult<bool> {
@@ -17,18 +21,33 @@ impl Database {
     }
 
     #[cold]
-    pub async fn get_stream_tracks(&self) -> BotResult<DashMap<u64, Vec<u64>>> {
+    pub async fn get_stream_tracks(&self) -> BotResult<TrackedStreams> {
         let mut stream = sqlx::query!("SELECT * FROM stream_tracks").fetch(&self.pool);
-        let tracks: DashMap<_, Vec<_>> = DashMap::with_capacity(1000);
+        let tracks = TrackedStreams::with_capacity(1000);
 
-        while let Some(entry) = stream.next().await.transpose()? {
-            let channel_id: i64 = entry.channel_id;
-            let user_id: i64 = entry.user_id;
+        {
+            let guard = tracks.guard();
 
-            tracks
-                .entry(user_id as u64)
-                .or_default()
-                .push(channel_id as u64);
+            while let Some(entry) = stream.next().await.transpose()? {
+                let channel_id = entry.channel_id as u64;
+                let user_id = entry.user_id as u64;
+
+                let missing = tracks
+                    .compute_if_present(
+                        &user_id,
+                        |_, channels| {
+                            let channels = channels.iter().copied().chain(iter::once(channel_id));
+
+                            Some(channels.collect())
+                        },
+                        &guard,
+                    )
+                    .is_none();
+
+                if missing {
+                    tracks.insert(user_id, vec![channel_id], &guard);
+                }
+            }
         }
 
         Ok(tracks)

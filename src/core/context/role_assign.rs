@@ -1,4 +1,3 @@
-use dashmap::mapref::entry::Entry;
 use twilight_model::{
     channel::Reaction,
     id::{
@@ -15,8 +14,9 @@ impl Context {
     pub fn get_role_assigns(&self, reaction: &Reaction) -> Option<AssignRoles> {
         self.data
             .role_assigns
+            .pin()
             .get(&(reaction.channel_id.get(), reaction.message_id.get()))
-            .map(|guard| guard.value().to_owned())
+            .map(AssignRoles::to_owned)
     }
 
     #[cold]
@@ -27,15 +27,30 @@ impl Context {
         role_id: Id<RoleMarker>,
     ) {
         let role_id = role_id.get();
+        let key = (channel_id.get(), msg_id.get());
 
-        let mut roles = self
-            .data
-            .role_assigns
-            .entry((channel_id.get(), msg_id.get()))
-            .or_default();
+        let assigns = &self.data.role_assigns;
+        let guard = assigns.guard();
 
-        if !roles.contains(&role_id) {
-            roles.push(role_id);
+        let missing = assigns
+            .compute_if_present(
+                &key,
+                |_, roles| {
+                    let mut roles = roles.to_owned();
+
+                    if !roles.contains(&role_id) {
+                        roles.push(role_id);
+                    }
+
+                    Some(roles)
+                },
+                &guard,
+            )
+            .is_none();
+
+        if missing {
+            let roles = smallvec::smallvec![role_id];
+            self.data.role_assigns.insert(key, roles, &guard);
         }
     }
 
@@ -46,18 +61,25 @@ impl Context {
         msg_id: Id<MessageMarker>,
         role_id: Id<RoleMarker>,
     ) {
-        let entry = self
-            .data
+        let role_id = role_id.get();
+        let key = (channel_id.get(), msg_id.get());
+
+        self.data
             .role_assigns
-            .entry((channel_id.get(), msg_id.get()));
+            .pin()
+            .compute_if_present(&key, |_, roles| {
+                if roles.contains(&role_id) {
+                    if roles.len() == 1 {
+                        return None;
+                    }
 
-        if let Entry::Occupied(mut e) = entry {
-            let role_id = role_id.get();
-            e.get_mut().retain(|r| *r != role_id);
+                    let mut roles = roles.to_owned();
+                    roles.retain(|r| *r != role_id);
 
-            if e.get().is_empty() {
-                e.remove();
-            }
-        }
+                    Some(roles)
+                } else {
+                    Some(roles.to_owned())
+                }
+            });
     }
 }

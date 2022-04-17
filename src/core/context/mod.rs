@@ -2,6 +2,7 @@ use std::{num::NonZeroU32, sync::Arc};
 
 use bb8_redis::{bb8::Pool, RedisConnectionManager};
 use dashmap::{DashMap, DashSet};
+use flurry::HashMap as FlurryMap;
 use hashbrown::HashSet;
 use parking_lot::Mutex;
 use rosu_v2::Osu;
@@ -200,14 +201,14 @@ impl Clients {
 struct ContextData {
     application_id: Id<ApplicationMarker>,
     games: Games,
-    guilds: DashMap<Id<GuildMarker>, GuildConfig>,
+    guilds: FlurryMap<Id<GuildMarker>, GuildConfig>, // read-heavy
     map_garbage_collection: Mutex<HashSet<NonZeroU32>>,
     matchlive: MatchLiveChannels,
     msgs_to_process: DashSet<Id<MessageMarker>>,
     osu_tracking: OsuTracking,
-    role_assigns: DashMap<(u64, u64), AssignRoles>,
-    snipe_countries: DashMap<CountryCode, String>,
-    tracked_streams: DashMap<u64, Vec<u64>>,
+    role_assigns: FlurryMap<(u64, u64), AssignRoles>, // read-heavy
+    snipe_countries: FlurryMap<CountryCode, String>,  // read-heavy
+    tracked_streams: FlurryMap<u64, Vec<u64>>,        // read-heavy
 }
 
 impl ContextData {
