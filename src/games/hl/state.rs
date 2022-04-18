@@ -27,7 +27,7 @@ pub struct GameState {
 }
 
 impl GameState {
-    pub async fn new_score_pp(
+    pub async fn score_pp(
         ctx: &Context,
         origin: &(dyn Authored + Sync),
         mode: GameMode,

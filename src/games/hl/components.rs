@@ -99,9 +99,16 @@ pub async fn handle_next_higherlower(
     let user = component.user_id()?;
 
     let embed = if let Some(mut game) = ctx.hl_games().get_mut(&user) {
-        component.defer(&ctx).await?; // TODO: disable buttons?
+        let components = HlComponents::disabled();
+        let builder = MessageBuilder::new().components(components);
 
-        Some(game.to_embed().await)
+        let callback_fut = component.callback(&ctx, builder);
+        let embed_fut = game.to_embed();
+
+        let (callback_res, embed) = tokio::join!(callback_fut, embed_fut);
+        callback_res?;
+
+        Some(embed)
     } else {
         None
     };
@@ -201,10 +208,10 @@ async fn correct_guess(
         let callback_fut = component.callback(&ctx, builder);
         let next_fut = game.next(ctx_clone);
 
-        let (callback_result, next_result) = tokio::join!(callback_fut, next_fut);
+        let (callback_res, next_res) = tokio::join!(callback_fut, next_fut);
 
-        callback_result?;
-        next_result?;
+        callback_res?;
+        next_res?;
     }
 
     Ok(())

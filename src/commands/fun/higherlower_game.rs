@@ -62,7 +62,7 @@ async fn slash_higherlower(
             None => ctx.user_config(user).await?.mode.unwrap_or(GameMode::STD),
         };
 
-        let mut game = match GameState::new_score_pp(&ctx, &*command, mode).await {
+        let mut game = match GameState::score_pp(&ctx, &*command, mode).await {
             Ok(game) => game,
             Err(err) => {
                 let _ = command.error(&ctx, GENERAL_ISSUE).await;
