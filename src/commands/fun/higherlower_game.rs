@@ -5,7 +5,7 @@ use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     commands::GameModeOption,
-    games::hl::{GameState, HlComponents, HlVersion},
+    games::hl::{GameState, HlComponents},
     util::{
         builder::{EmbedBuilder, MessageBuilder},
         constants::{GENERAL_ISSUE, RED},
@@ -35,8 +35,8 @@ async fn slash_higherlower(
 ) -> BotResult<()> {
     let user = command.user_id()?;
 
-    let content = ctx.hl_games().get(&user).map(|v| {
-        let GameState { guild, channel, id, .. } = v.value();
+    let give_up_content = ctx.hl_games().get(&user).map(|v| {
+        let GameState { guild, channel, msg: id, .. } = v.value();
 
         format!(
             "You can't play two higherlower games at once! \n\
@@ -48,7 +48,7 @@ async fn slash_higherlower(
         )
     });
 
-    if let Some(content) = content {
+    if let Some(content) = give_up_content {
         let components = HlComponents::give_up();
         let embed = EmbedBuilder::new().color(RED).description(content).build();
 
@@ -56,14 +56,13 @@ async fn slash_higherlower(
         command.update(&ctx, &builder).await?;
     } else {
         let args = HigherLower::from_interaction(command.input_data())?;
-        let version = HlVersion::ScorePp;
 
         let mode = match args.mode.map(GameMode::from) {
             Some(mode) => mode,
             None => ctx.user_config(user).await?.mode.unwrap_or(GameMode::STD),
         };
 
-        let mut game = match GameState::new(&ctx, &*command, mode, version).await {
+        let mut game = match GameState::new_score_pp(&ctx, &*command, mode).await {
             Ok(game) => game,
             Err(err) => {
                 let _ = command.error(&ctx, GENERAL_ISSUE).await;
@@ -72,15 +71,13 @@ async fn slash_higherlower(
             }
         };
 
-        let image = game.image().await;
-        let embed = game.to_embed(image);
-
+        let embed = game.to_embed().await;
         let components = HlComponents::higherlower();
         let builder = MessageBuilder::new().embed(embed).components(components);
 
         let response = command.update(&ctx, &builder).await?.model().await?;
 
-        game.id = response.id;
+        game.msg = response.id;
         ctx.hl_games().insert(user, game);
     }
 

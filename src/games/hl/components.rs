@@ -1,10 +1,8 @@
 use std::{fmt::Write, mem, sync::Arc};
 
-use dashmap::mapref::entry::Entry;
 use tokio::sync::oneshot;
 use twilight_model::{
-    application::interaction::MessageComponentInteraction,
-    channel::embed::{Embed, EmbedField},
+    application::interaction::MessageComponentInteraction, channel::embed::EmbedField,
 };
 
 use crate::{
@@ -14,7 +12,6 @@ use crate::{
     util::{
         builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
         constants::{GENERAL_ISSUE, RED},
-        numbers::round,
         Authored, ComponentExt, MessageExt,
     },
     BotResult,
@@ -49,7 +46,7 @@ async fn handle_higherlower(
     let user = component.user_id()?;
 
     let is_correct = if let Some(game) = ctx.hl_games().get(&user) {
-        if game.id != component.message.id {
+        if game.msg != component.message.id {
             return Ok(());
         }
 
@@ -85,7 +82,7 @@ pub async fn handle_give_up(
         let update_builder = MessageBuilder::new().components(components.into());
         let response_builder = MessageBuilder::new().embed(content).components(Vec::new());
 
-        let update_fut = (game.id, game.channel).update(&ctx, &update_builder);
+        let update_fut = (game.msg, game.channel).update(&ctx, &update_builder);
         let response_fut = component.update(&ctx, &response_builder);
 
         tokio::try_join!(update_fut, response_fut)?;
@@ -102,10 +99,9 @@ pub async fn handle_next_higherlower(
     let user = component.user_id()?;
 
     let embed = if let Some(mut game) = ctx.hl_games().get_mut(&user) {
-        component.defer(&ctx).await?;
-        let image = game.image().await;
+        component.defer(&ctx).await?; // TODO: disable buttons?
 
-        Some(game.to_embed(image))
+        Some(game.to_embed().await)
     } else {
         None
     };
@@ -125,22 +121,28 @@ pub async fn handle_try_again(
     mut component: Box<MessageComponentInteraction>,
 ) -> BotResult<()> {
     let user = component.user_id()?;
+    let msg = component.message.id;
 
-    let (mode, version) = match ctx.hl_retries().entry(component.message.id) {
-        Entry::Occupied(entry) => {
-            if user != entry.get().user {
-                return Ok(());
-            }
+    let available_game = ctx
+        .hl_retries()
+        .get(&msg)
+        .filter(|game| user == game.user)
+        .is_some();
 
-            let RetryState { game, tx, .. } = entry.remove();
-            let _ = tx.send(());
-
-            (game.mode, game.version)
-        }
-        Entry::Vacant(_) => return Ok(()),
-    };
+    if !available_game {
+        return Ok(());
+    }
 
     let mut embeds = mem::take(&mut component.message.embeds);
+
+    let game_fut = if let Some((_, retry)) = ctx.hl_retries().remove(&msg) {
+        let _ = retry.tx.send(());
+
+        retry.game.restart(&ctx, &*component)
+    } else {
+        return Ok(());
+    };
+
     let mut embed = embeds.pop().ok_or(InvalidGameState::MissingEmbed)?;
     let footer = FooterBuilder::new("Preparing game, give me moment...");
     embed.footer = Some(footer.build());
@@ -150,7 +152,7 @@ pub async fn handle_try_again(
 
     component.callback(&ctx, builder).await?;
 
-    let mut game = match GameState::new(&ctx, &*component, mode, version).await {
+    let mut game = match game_fut.await {
         Ok(game) => game,
         Err(err) => {
             // ? Should ComponentExt provide error method?
@@ -162,14 +164,12 @@ pub async fn handle_try_again(
         }
     };
 
-    let image = game.image().await;
-    let embed = game.to_embed(image);
-
+    let embed = game.to_embed().await;
     let components = HlComponents::higherlower();
     let builder = MessageBuilder::new().embed(embed).components(components);
 
     let response = component.update(&ctx, &builder).await?.model().await?;
-    game.id = response.id;
+    game.msg = response.id;
     ctx.hl_games().insert(user, game);
 
     Ok(())
@@ -185,7 +185,7 @@ async fn correct_guess(
     let ctx_clone = Arc::clone(&ctx);
 
     if let Some(mut game) = ctx.hl_games().get_mut(&user) {
-        let mut embed = extract_revealed_pp(&mut component, game.next.pp)?;
+        let mut embed = game.reveal(&mut component)?;
 
         // Update current score
         game.current_score += 1;
@@ -224,25 +224,19 @@ async fn game_over(
     };
 
     let GameState {
-        version,
         current_score,
         highscore,
-        next,
         ..
     } = &game;
 
-    let better_score_fut =
-        ctx.psql()
-            .upsert_higherlower_highscore(user.get(), *version, *current_score, *highscore);
-
-    let value = if better_score_fut.await? {
+    let value = if game.new_highscore(&ctx, user).await? {
         format!("You achieved a total score of {current_score}, your new personal best :tada:")
     } else {
         format!("You achieved a total score of {current_score}, your personal best is {highscore}.")
     };
 
     let name = format!("Game Over - {guess} was incorrect");
-    let mut embed = extract_revealed_pp(&mut component, next.pp)?;
+    let mut embed = game.reveal(&mut component)?;
     embed.footer.take();
 
     let field = EmbedField {
@@ -258,23 +252,11 @@ async fn game_over(
     component.callback(&ctx, builder).await?;
 
     let (tx, rx) = oneshot::channel();
-    let msg = game.id;
+    let msg = game.msg;
     let channel = game.channel;
     let retry = RetryState::new(game, user, tx);
     ctx.hl_retries().insert(msg, retry);
     tokio::spawn(await_retry(ctx, msg, channel, rx));
 
     Ok(())
-}
-
-fn extract_revealed_pp(component: &mut MessageComponentInteraction, pp: f32) -> BotResult<Embed> {
-    let mut embeds = mem::take(&mut component.message.embeds);
-    let mut embed = embeds.pop().ok_or(InvalidGameState::MissingEmbed)?;
-
-    if let Some(field) = embed.fields.get_mut(1) {
-        field.value.truncate(field.value.len() - 7);
-        let _ = write!(field.value, "__{}pp__**", round(pp));
-    }
-
-    Ok(embed)
 }

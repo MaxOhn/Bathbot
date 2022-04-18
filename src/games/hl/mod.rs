@@ -7,13 +7,17 @@ use twilight_model::{
 
 use crate::util::Emote;
 
-pub use self::{state::GameState, state_info::GameStateInfo};
+pub use self::state::GameState;
 
+mod score_pp;
 mod state;
-mod state_info;
+mod kind;
 
 pub mod components;
 pub mod retry;
+
+const W: u32 = 900;
+const H: u32 = 250;
 
 #[derive(Copy, Clone)]
 pub enum HlVersion {
