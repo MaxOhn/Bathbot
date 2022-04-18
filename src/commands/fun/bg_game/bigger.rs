@@ -24,28 +24,26 @@ pub async fn bigger(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 
     let _ = ctx.http.create_typing_trigger(msg.channel_id).exec().await;
 
-    match ctx.bg_games().get(&msg.channel_id) {
-        Some(state) => match state.value() {
-            GameState::Running { game } => match game.sub_image().await {
-                Ok(bytes) => {
-                    let builder = MessageBuilder::new().attachment("bg_img.png", bytes);
-                    msg.create_message(&ctx, &builder).await?;
-                }
-                Err(err) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+    match ctx.bg_games().read().await.get(&msg.channel_id) {
+        Some(GameState::Running { game }) => match game.sub_image().await {
+            Ok(bytes) => {
+                let builder = MessageBuilder::new().attachment("bg_img.png", bytes);
+                msg.create_message(&ctx, &builder).await?;
+            }
+            Err(err) => {
+                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-                    return Err(err.into());
-                }
-            },
-            GameState::Setup { author, .. } => {
-                let content = format!(
-                    "The game is currently being setup.\n\
-                    <@{author}> must click on the \"Start\" button to begin."
-                );
-
-                msg.error(&ctx, content).await?;
+                return Err(err.into());
             }
         },
+        Some(GameState::Setup { author, .. }) => {
+            let content = format!(
+                "The game is currently being setup.\n\
+                    <@{author}> must click on the \"Start\" button to begin."
+            );
+
+            msg.error(&ctx, content).await?;
+        }
         None => {
             let content = "No running game in this channel. Start one with `/bg`.";
             msg.error(&ctx, content).await?;

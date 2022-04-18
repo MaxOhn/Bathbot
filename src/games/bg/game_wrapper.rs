@@ -133,11 +133,10 @@ impl GameWrapper {
                 let (game, img_) =
                     Game::new(&ctx, &mapsets, &mut previous_ids, effects, difficulty).await;
                 img = img_;
-                let mut unlocked_game = game_clone.write().await;
-                *unlocked_game = game;
+                *game_clone.write().await = game;
             }
 
-            ctx.bg_games().remove(&channel);
+            ctx.bg_games().write().await.remove(&channel);
         });
 
         Self { game, tx }

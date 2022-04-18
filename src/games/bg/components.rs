@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use dashmap::mapref::entry::Entry;
 use eyre::Report;
+use hashbrown::hash_map::Entry;
 use rosu_v2::prelude::GameMode;
 use twilight_model::{
     application::interaction::MessageComponentInteraction,
@@ -27,31 +27,19 @@ pub async fn handle_bg_start_include(
     ctx: &Context,
     mut component: Box<MessageComponentInteraction>,
 ) -> BotResult<()> {
-    match ctx.bg_games().entry(component.channel_id) {
-        Entry::Occupied(mut entry) => match entry.get_mut() {
-            GameState::Running { .. } => {
-                if let Err(err) = remove_components(ctx, &component, None).await {
-                    let report = Report::new(err).wrap_err("failed to remove components");
-                    warn!("{report:?}");
-                }
-            }
-            GameState::Setup {
-                author, included, ..
-            } => {
-                if *author != component.user_id()? {
-                    return Ok(());
-                }
-
-                *included = parse_component_tags(&component);
-                update_field(ctx, &mut component, *included, "Included tags").await?;
-            }
-        },
-        Entry::Vacant(_) => {
-            if let Err(err) = remove_components(ctx, &component, None).await {
-                let report = Report::new(err).wrap_err("failed to remove components");
-                warn!("{report:?}");
-            }
+    if let Some(GameState::Setup {
+        author, included, ..
+    }) = ctx.bg_games().write().await.get_mut(&component.channel_id)
+    {
+        if *author != component.user_id()? {
+            return Ok(());
         }
+
+        *included = parse_component_tags(&component);
+        update_field(ctx, &mut component, *included, "Included tags").await?;
+    } else if let Err(err) = remove_components(ctx, &component, None).await {
+        let report = Report::new(err).wrap_err("failed to remove components");
+        warn!("{report:?}");
     }
 
     Ok(())
@@ -61,31 +49,19 @@ pub async fn handle_bg_start_exclude(
     ctx: &Context,
     mut component: Box<MessageComponentInteraction>,
 ) -> BotResult<()> {
-    match ctx.bg_games().entry(component.channel_id) {
-        Entry::Occupied(mut entry) => match entry.get_mut() {
-            GameState::Running { .. } => {
-                if let Err(err) = remove_components(ctx, &component, None).await {
-                    let report = Report::new(err).wrap_err("failed to remove components");
-                    warn!("{report:?}");
-                }
-            }
-            GameState::Setup {
-                author, excluded, ..
-            } => {
-                if *author != component.user_id()? {
-                    return Ok(());
-                }
-
-                *excluded = parse_component_tags(&component);
-                update_field(ctx, &mut component, *excluded, "Excluded tags").await?;
-            }
-        },
-        Entry::Vacant(_) => {
-            if let Err(err) = remove_components(ctx, &component, None).await {
-                let report = Report::new(err).wrap_err("failed to remove components");
-                warn!("{report:?}");
-            }
+    if let Some(GameState::Setup {
+        author, excluded, ..
+    }) = ctx.bg_games().write().await.get_mut(&component.channel_id)
+    {
+        if *author != component.user_id()? {
+            return Ok(());
         }
+
+        *excluded = parse_component_tags(&component);
+        update_field(ctx, &mut component, *excluded, "Excluded tags").await?;
+    } else if let Err(err) = remove_components(ctx, &component, None).await {
+        let report = Report::new(err).wrap_err("failed to remove components");
+        warn!("{report:?}");
     }
 
     Ok(())
@@ -97,14 +73,8 @@ pub async fn handle_bg_start_button(
 ) -> BotResult<()> {
     let channel = component.channel_id;
 
-    match ctx.bg_games().entry(channel) {
+    match ctx.bg_games().write().await.entry(channel) {
         Entry::Occupied(mut entry) => match entry.get() {
-            GameState::Running { .. } => {
-                if let Err(err) = remove_components(&ctx, &component, None).await {
-                    let report = Report::new(err).wrap_err("failed to remove components");
-                    warn!("{report:?}");
-                }
-            }
             GameState::Setup {
                 author,
                 difficulty,
@@ -159,11 +129,16 @@ pub async fn handle_bg_start_button(
                     excluded.join(',')
                 );
 
-                let game =
-                    GameWrapper::new(Arc::clone(&ctx), channel, mapsets, *effects, *difficulty)
-                        .await;
+                let ctx = Arc::clone(&ctx);
+                let game = GameWrapper::new(ctx, channel, mapsets, *effects, *difficulty).await;
 
                 entry.insert(GameState::Running { game });
+            }
+            GameState::Running { .. } => {
+                if let Err(err) = remove_components(&ctx, &component, None).await {
+                    let report = Report::new(err).wrap_err("failed to remove components");
+                    warn!("{report:?}");
+                }
             }
         },
         Entry::Vacant(_) => {
@@ -181,18 +156,8 @@ pub async fn handle_bg_start_cancel(
     ctx: &Context,
     component: Box<MessageComponentInteraction>,
 ) -> BotResult<()> {
-    let channel = component.channel_id;
-
-    match ctx.bg_games().entry(channel) {
+    match ctx.bg_games().write().await.entry(component.channel_id) {
         Entry::Occupied(entry) => match entry.get() {
-            GameState::Running { .. } => {
-                if let Err(err) = remove_components(ctx, &component, None).await {
-                    let report = Report::new(err).wrap_err("failed to remove components");
-                    warn!("{report:?}");
-                }
-
-                return Ok(());
-            }
             GameState::Setup { author, .. } => {
                 if *author != component.user_id()? {
                     return Ok(());
@@ -204,6 +169,14 @@ pub async fn handle_bg_start_cancel(
 
                 entry.remove();
                 remove_components(ctx, &component, Some(embed)).await?;
+            }
+            GameState::Running { .. } => {
+                if let Err(err) = remove_components(ctx, &component, None).await {
+                    let report = Report::new(err).wrap_err("failed to remove components");
+                    warn!("{report:?}");
+                }
+
+                return Ok(());
             }
         },
         Entry::Vacant(_) => {
@@ -221,75 +194,63 @@ pub async fn handle_bg_start_effects(
     ctx: &Context,
     mut component: Box<MessageComponentInteraction>,
 ) -> BotResult<()> {
-    match ctx.bg_games().entry(component.channel_id) {
-        Entry::Occupied(mut entry) => match entry.get_mut() {
-            GameState::Running { .. } => {
-                if let Err(err) = remove_components(ctx, &component, None).await {
-                    let report = Report::new(err).wrap_err("failed to remove components");
-                    warn!("{report:?}");
-                }
-            }
-            GameState::Setup {
-                author, effects, ..
-            } => {
-                if *author != component.user_id()? {
-                    return Ok(());
-                }
-
-                *effects = component
-                    .data
-                    .values
-                    .iter()
-                    .fold(Effects::empty(), |effects, value| {
-                        effects
-                            | match value.as_str() {
-                                "blur" => Effects::Blur,
-                                "contrast" => Effects::Contrast,
-                                "flip_h" => Effects::FlipHorizontal,
-                                "flip_v" => Effects::FlipVertical,
-                                "grayscale" => Effects::Grayscale,
-                                "invert" => Effects::Invert,
-                                _ => {
-                                    warn!("unknown effects `{value}`");
-
-                                    return effects;
-                                }
-                            }
-                    });
-
-                let mut embed = component
-                    .message
-                    .embeds
-                    .pop()
-                    .ok_or(InvalidGameState::MissingEmbed)?;
-
-                let field_opt = embed
-                    .fields
-                    .iter_mut()
-                    .find(|field| field.name == "Effects");
-
-                if let Some(field) = field_opt {
-                    field.value = effects.join(", ");
-                } else {
-                    let field = EmbedField {
-                        inline: false,
-                        name: "Effects".to_owned(),
-                        value: effects.join(", "),
-                    };
-
-                    embed.fields.push(field);
-                }
-
-                let builder = MessageBuilder::new().embed(embed);
-                component.callback(&ctx, builder).await?;
-            }
-        },
-        Entry::Vacant(_) => {
-            if let Err(err) = remove_components(ctx, &component, None).await {
-                let report = Report::new(err).wrap_err("failed to remove components");
-                warn!("{report:?}");
-            }
+    if let Some(GameState::Setup {
+        author, effects, ..
+    }) = ctx.bg_games().write().await.get_mut(&component.channel_id)
+    {
+        if *author != component.user_id()? {
+            return Ok(());
         }
+
+        *effects = component
+            .data
+            .values
+            .iter()
+            .fold(Effects::empty(), |effects, value| {
+                effects
+                    | match value.as_str() {
+                        "blur" => Effects::Blur,
+                        "contrast" => Effects::Contrast,
+                        "flip_h" => Effects::FlipHorizontal,
+                        "flip_v" => Effects::FlipVertical,
+                        "grayscale" => Effects::Grayscale,
+                        "invert" => Effects::Invert,
+                        _ => {
+                            warn!("unknown effects `{value}`");
+
+                            return effects;
+                        }
+                    }
+            });
+
+        let mut embed = component
+            .message
+            .embeds
+            .pop()
+            .ok_or(InvalidGameState::MissingEmbed)?;
+
+        let field_opt = embed
+            .fields
+            .iter_mut()
+            .find(|field| field.name == "Effects");
+
+        if let Some(field) = field_opt {
+            field.value = effects.join(", ");
+        } else {
+            let field = EmbedField {
+                inline: false,
+                name: "Effects".to_owned(),
+                value: effects.join(", "),
+            };
+
+            embed.fields.push(field);
+        }
+
+        let builder = MessageBuilder::new().embed(embed);
+        component.callback(&ctx, builder).await?;
+    } else if let Err(err) = remove_components(ctx, &component, None).await {
+        let report = Report::new(err).wrap_err("failed to remove components");
+        warn!("{report:?}");
     }
 
     Ok(())

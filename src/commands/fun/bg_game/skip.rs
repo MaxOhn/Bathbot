@@ -27,25 +27,23 @@ pub async fn skip(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 
     let _ = ctx.http.create_typing_trigger(msg.channel_id).exec().await;
 
-    match ctx.bg_games().get(&msg.channel_id) {
-        Some(state) => match state.value() {
-            GameState::Running { game } => match game.restart() {
-                Ok(_) => {}
-                Err(err) => {
-                    let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+    match ctx.bg_games().read().await.get(&msg.channel_id) {
+        Some(GameState::Running { game }) => match game.restart() {
+            Ok(_) => {}
+            Err(err) => {
+                let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-                    return Err(err.into());
-                }
-            },
-            GameState::Setup { author, .. } => {
-                let content = format!(
-                    "The game is currently being setup.\n\
-                    <@{author}> must click on the \"Start\" button to begin."
-                );
-
-                msg.error(&ctx, content).await?;
+                return Err(err.into());
             }
         },
+        Some(GameState::Setup { author, .. }) => {
+            let content = format!(
+                "The game is currently being setup.\n\
+                <@{author}> must click on the \"Start\" button to begin."
+            );
+
+            msg.error(&ctx, content).await?;
+        }
         None => {
             let content = format!(
                 "The background guessing game must be started with `/bg`.\n\

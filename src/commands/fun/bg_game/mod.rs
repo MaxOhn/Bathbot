@@ -150,7 +150,9 @@ impl Default for GameDifficulty {
 }
 
 async fn slash_bg(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
-    if let Some((_, GameState::Running { game })) = ctx.bg_games().remove(&command.channel_id) {
+    if let Some(GameState::Running { game }) =
+        ctx.bg_games().write().await.remove(&command.channel_id)
+    {
         if let Err(err) = game.stop() {
             let report = Report::new(err).wrap_err("failed to stop game");
             warn!("{report:?}");
@@ -214,7 +216,10 @@ async fn slash_bg(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> Bo
         }
     };
 
-    ctx.bg_games().insert(command.channel_id, state);
+    ctx.bg_games()
+        .write()
+        .await
+        .insert(command.channel_id, state);
 
     Ok(())
 }
