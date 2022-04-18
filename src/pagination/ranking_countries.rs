@@ -70,7 +70,7 @@ impl Pagination for RankingCountriesPagination {
                 150 => 4,
                 195 if !self.countries.contains_key(&195) => 4, // when going back to front
                 195 | 225 => 5,
-                _ => unreachable!("unexpected page index {}", self.pages.index),
+                _ => unreachable!("unexpected page index {}", self.pages.index), // TODO: this reached 240
             };
 
             let offset = page - 1;

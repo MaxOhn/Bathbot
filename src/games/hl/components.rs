@@ -48,19 +48,20 @@ async fn handle_higherlower(
 ) -> BotResult<()> {
     let user = component.user_id()?;
 
-    if let Entry::Occupied(mut entry) = ctx.hl_games().entry(user) {
-        let game = entry.get_mut();
-
+    let is_correct = if let Some(game) = ctx.hl_games().get(&user) {
         if game.id != component.message.id {
             return Ok(());
         }
 
-        if !game.check_guess(guess) {
-            let game = entry.remove();
-            game_over(Arc::clone(&ctx), component, game, guess).await?;
-        } else {
-            correct_guess(Arc::clone(&ctx), component, game, guess).await?;
-        }
+        Some(game.check_guess(guess))
+    } else {
+        None
+    };
+
+    match is_correct {
+        Some(true) => correct_guess(ctx, component, guess).await?,
+        Some(false) => game_over(ctx, component, guess).await?,
+        None => {}
     }
 
     Ok(())
@@ -100,16 +101,18 @@ pub async fn handle_next_higherlower(
 ) -> BotResult<()> {
     let user = component.user_id()?;
 
-    if let Entry::Occupied(mut entry) = ctx.hl_games().entry(user) {
+    let embed = if let Some(mut game) = ctx.hl_games().get_mut(&user) {
         component.defer(&ctx).await?;
-        let game = entry.get_mut();
-
         let image = game.image().await;
-        let embed = game.to_embed(image);
 
+        Some(game.to_embed(image))
+    } else {
+        None
+    };
+
+    if let Some(embed) = embed {
         let components = HlComponents::higherlower();
         let builder = MessageBuilder::new().embed(embed).components(components);
-
         component.update(&ctx, &builder).await?;
     }
 
@@ -175,33 +178,34 @@ pub async fn handle_try_again(
 async fn correct_guess(
     ctx: Arc<Context>,
     mut component: Box<MessageComponentInteraction>,
-    game: &mut GameState,
     guess: HlGuess,
 ) -> BotResult<()> {
-    let mut embed = extract_revealed_pp(&mut component, game.next.pp)?;
-
-    // Update current score
-    game.current_score += 1;
-    let mut footer = game.footer();
-
-    let _ = write!(footer, " • {guess} was correct, press Next to continue");
-
-    if let Some(footer_) = embed.footer.as_mut() {
-        footer_.text = footer;
-    }
-
+    let user = component.user_id()?;
     let components = HlComponents::next();
-    let builder = MessageBuilder::new().embed(embed).components(components);
-
     let ctx_clone = Arc::clone(&ctx);
 
-    let callback_fut = component.callback(&ctx, builder);
-    let next_fut = game.next(ctx_clone);
+    if let Some(mut game) = ctx.hl_games().get_mut(&user) {
+        let mut embed = extract_revealed_pp(&mut component, game.next.pp)?;
 
-    let (callback_result, next_result) = tokio::join!(callback_fut, next_fut);
+        // Update current score
+        game.current_score += 1;
+        let mut footer = game.footer();
+        let _ = write!(footer, " • {guess} was correct, press Next to continue");
 
-    callback_result?;
-    next_result?;
+        if let Some(footer_) = embed.footer.as_mut() {
+            footer_.text = footer;
+        }
+
+        let builder = MessageBuilder::new().embed(embed).components(components);
+
+        let callback_fut = component.callback(&ctx, builder);
+        let next_fut = game.next(ctx_clone);
+
+        let (callback_result, next_result) = tokio::join!(callback_fut, next_fut);
+
+        callback_result?;
+        next_result?;
+    }
 
     Ok(())
 }
@@ -209,10 +213,15 @@ async fn correct_guess(
 async fn game_over(
     ctx: Arc<Context>,
     mut component: Box<MessageComponentInteraction>,
-    game: GameState,
     guess: HlGuess,
 ) -> BotResult<()> {
     let user = component.user_id()?;
+
+    let game = if let Some((_, game)) = ctx.hl_games().remove(&user) {
+        game
+    } else {
+        return Ok(());
+    };
 
     let GameState {
         version,
@@ -226,16 +235,14 @@ async fn game_over(
         ctx.psql()
             .upsert_higherlower_highscore(user.get(), *version, *current_score, *highscore);
 
-    let name = format!("Game Over - {guess} was incorrect");
-
     let value = if better_score_fut.await? {
         format!("You achieved a total score of {current_score}, your new personal best :tada:")
     } else {
         format!("You achieved a total score of {current_score}, your personal best is {highscore}.")
     };
 
+    let name = format!("Game Over - {guess} was incorrect");
     let mut embed = extract_revealed_pp(&mut component, next.pp)?;
-
     embed.footer.take();
 
     let field = EmbedField {
@@ -245,7 +252,6 @@ async fn game_over(
     };
 
     embed.fields.push(field);
-
     let components = HlComponents::restart();
     let builder = MessageBuilder::new().embed(embed).components(components);
 

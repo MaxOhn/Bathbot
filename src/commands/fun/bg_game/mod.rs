@@ -66,7 +66,7 @@ pub async fn prefix_backgroundgame(
         Some("s" | "skip" | "r" | "resolve" | "start") => skip(ctx, msg).await,
         Some("h" | "hint") => hint(ctx, msg).await,
         Some("b" | "bigger" | "enhance") => bigger(ctx, msg).await,
-        Some("stop") => stop(ctx, msg).await,
+        Some("stop" | "end" | "quit") => stop(ctx, msg).await,
         Some("l" | "leaderboard") => {
             let arg = args.next();
 
