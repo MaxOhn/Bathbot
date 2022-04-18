@@ -67,26 +67,55 @@ async fn handle_higherlower(
 /// Give up Button
 pub async fn handle_give_up(
     ctx: Arc<Context>,
-    component: Box<MessageComponentInteraction>,
+    mut component: Box<MessageComponentInteraction>,
 ) -> BotResult<()> {
+    component.defer(&ctx).await?;
     let user = component.user_id()?;
 
-    if let Some(game) = ctx.hl_games().lock().await.remove(&user) {
-        component.defer(&ctx).await?;
+    let game = if let Some(game) = ctx.hl_games().lock().await.remove(&user) {
+        game
+    } else {
+        return Ok(());
+    };
 
-        let components = HlComponents::disabled();
+    let mut embed = component
+        .message
+        .embeds
+        .pop()
+        .ok_or(InvalidGameState::MissingEmbed)?;
 
-        let content = "Successfully ended the previous game.\n\
-            Start a new game by using `/higherlower`";
+    let footer = FooterBuilder::new("Preparing game, give me a moment...");
+    embed.footer = Some(footer.build());
 
-        let update_builder = MessageBuilder::new().components(components.into());
-        let response_builder = MessageBuilder::new().embed(content).components(Vec::new());
+    let components = HlComponents::disabled();
+    let update_builder = MessageBuilder::new().embed(embed).components(components);
+    let update_fut = component.update(&ctx, &update_builder);
 
-        let update_fut = (game.msg, game.channel).update(&ctx, &update_builder);
-        let response_fut = component.update(&ctx, &response_builder);
+    let components = HlComponents::disabled();
+    let disable_builder = MessageBuilder::new().components(components);
+    let disable_fut = (game.msg, game.channel).update(&ctx, &disable_builder);
 
-        tokio::try_join!(update_fut, response_fut)?;
-    }
+    let (msg_res, _) = tokio::try_join!(update_fut, disable_fut)?;
+    let msg = msg_res.model().await?;
+
+    let mut game = match game.restart(&ctx, &msg).await {
+        Ok(game) => game,
+        Err(err) => {
+            let embed = EmbedBuilder::new().description(GENERAL_ISSUE).color(RED);
+            let builder = MessageBuilder::new().embed(embed);
+            let _ = msg.update(&ctx, &builder).await;
+
+            return Err(err);
+        }
+    };
+
+    let embed = game.to_embed().await;
+    let components = HlComponents::higherlower();
+    let builder = MessageBuilder::new().embed(embed).components(components);
+
+    msg.update(&ctx, &builder).await?;
+    game.msg = msg.id;
+    ctx.hl_games().lock().await.insert(user, game);
 
     Ok(())
 }
@@ -155,7 +184,7 @@ pub async fn handle_try_again(
     };
 
     let mut embed = embeds.pop().ok_or(InvalidGameState::MissingEmbed)?;
-    let footer = FooterBuilder::new("Preparing game, give me moment...");
+    let footer = FooterBuilder::new("Preparing game, give me a moment...");
     embed.footer = Some(footer.build());
 
     let components = HlComponents::disabled();
