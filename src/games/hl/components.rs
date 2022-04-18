@@ -45,7 +45,7 @@ async fn handle_higherlower(
 ) -> BotResult<()> {
     let user = component.user_id()?;
 
-    let is_correct = if let Some(game) = ctx.hl_games().get(&user) {
+    let is_correct = if let Some(game) = ctx.hl_games().lock().await.get(&user) {
         if game.msg != component.message.id {
             return Ok(());
         }
@@ -71,7 +71,7 @@ pub async fn handle_give_up(
 ) -> BotResult<()> {
     let user = component.user_id()?;
 
-    if let Some((_, game)) = ctx.hl_games().remove(&user) {
+    if let Some(game) = ctx.hl_games().lock().await.remove(&user) {
         component.defer(&ctx).await?;
 
         let components = HlComponents::disabled();
@@ -98,19 +98,23 @@ pub async fn handle_next_higherlower(
 ) -> BotResult<()> {
     let user = component.user_id()?;
 
-    let embed = if let Some(mut game) = ctx.hl_games().get_mut(&user) {
-        let components = HlComponents::disabled();
-        let builder = MessageBuilder::new().components(components);
+    let embed = {
+        let mut hl_games = ctx.hl_games().lock().await;
 
-        let callback_fut = component.callback(&ctx, builder);
-        let embed_fut = game.to_embed();
+        if let Some(game) = hl_games.get_mut(&user) {
+            let components = HlComponents::disabled();
+            let builder = MessageBuilder::new().components(components);
 
-        let (callback_res, embed) = tokio::join!(callback_fut, embed_fut);
-        callback_res?;
+            let callback_fut = component.callback(&ctx, builder);
+            let embed_fut = game.to_embed();
 
-        Some(embed)
-    } else {
-        None
+            let (callback_res, embed) = tokio::join!(callback_fut, embed_fut);
+            callback_res?;
+
+            Some(embed)
+        } else {
+            None
+        }
     };
 
     if let Some(embed) = embed {
@@ -177,7 +181,7 @@ pub async fn handle_try_again(
 
     let response = component.update(&ctx, &builder).await?.model().await?;
     game.msg = response.id;
-    ctx.hl_games().insert(user, game);
+    ctx.hl_games().lock().await.insert(user, game);
 
     Ok(())
 }
@@ -190,8 +194,9 @@ async fn correct_guess(
     let user = component.user_id()?;
     let components = HlComponents::next();
     let ctx_clone = Arc::clone(&ctx);
+    let mut hl_games = ctx.hl_games().lock().await;
 
-    if let Some(mut game) = ctx.hl_games().get_mut(&user) {
+    if let Some(mut game) = hl_games.get_mut(&user) {
         let mut embed = game.reveal(&mut component)?;
 
         // Update current score
@@ -224,7 +229,7 @@ async fn game_over(
 ) -> BotResult<()> {
     let user = component.user_id()?;
 
-    let game = if let Some((_, game)) = ctx.hl_games().remove(&user) {
+    let game = if let Some(game) = ctx.hl_games().lock().await.remove(&user) {
         game
     } else {
         return Ok(());

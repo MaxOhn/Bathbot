@@ -35,8 +35,8 @@ async fn slash_higherlower(
 ) -> BotResult<()> {
     let user = command.user_id()?;
 
-    let give_up_content = ctx.hl_games().get(&user).map(|v| {
-        let GameState { guild, channel, msg: id, .. } = v.value();
+    let give_up_content = ctx.hl_games().lock().await.get(&user).map(|game| {
+        let GameState { guild, channel, msg: id, .. } = game;
 
         format!(
             "You can't play two higherlower games at once! \n\
@@ -78,7 +78,7 @@ async fn slash_higherlower(
         let response = command.update(&ctx, &builder).await?.model().await?;
 
         game.msg = response.id;
-        ctx.hl_games().insert(user, game);
+        ctx.hl_games().lock().await.insert(user, game);
     }
 
     Ok(())
