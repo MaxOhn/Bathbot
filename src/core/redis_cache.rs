@@ -10,7 +10,9 @@ use rosu_v2::{
 
 use crate::{
     commands::osu::UserArgs,
-    custom_client::{CustomClientError, OsekaiBadge, OsekaiMedal, OsuTrackerStats},
+    custom_client::{
+        CustomClientError, OsekaiBadge, OsekaiMedal, OsuTrackerPpGroup, OsuTrackerStats,
+    },
 };
 
 use super::Context;
@@ -24,7 +26,8 @@ pub struct RedisCache<'c> {
 
 impl<'c> RedisCache<'c> {
     const USER_SECONDS: usize = 600;
-    const OSUTRACKER_STATS_SECONDS: usize = 1800;
+    const OSUTRACKER_STATS_SECONDS: usize = 3600;
+    const OSUTRACKER_GROUPS_SECONDS: usize = 3600;
     const MEDALS_SECONDS: usize = 3600;
     const BADGES_SECONDS: usize = 7200;
 
@@ -103,6 +106,54 @@ impl<'c> RedisCache<'c> {
         let medals = self.ctx.client().get_osekai_medals().await?;
         let bytes = rkyv::to_bytes::<_, 80_000>(&medals).expect("failed to serialize medals");
         let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), Self::MEDALS_SECONDS);
+
+        if let Err(err) = set_fut.await {
+            let report = Report::new(err).wrap_err("failed to insert bytes into cache");
+            warn!("{report:?}");
+        }
+
+        Ok(ArchivedBytes::new(bytes))
+    }
+
+    pub async fn osutracker_groups(
+        &self,
+    ) -> ArchivedResult<Vec<OsuTrackerPpGroup>, CustomClientError> {
+        let key = "osutracker_pp_groups";
+
+        let mut conn = match self.ctx.redis_client().get().await {
+            Ok(mut conn) => {
+                if let Ok(bytes) = conn.get::<_, Vec<u8>>(key).await {
+                    if !bytes.is_empty() {
+                        self.ctx.stats.inc_cached_osutracker_groups();
+                        trace!(
+                            "Found osutracker pp groups in cache ({} bytes)",
+                            bytes.len()
+                        );
+
+                        return Ok(ArchivedBytes::new(bytes));
+                    }
+                }
+
+                conn
+            }
+            Err(err) => {
+                let report = Report::new(err).wrap_err("failed to get redis connection");
+                warn!("{report:?}");
+
+                let groups = self.ctx.client().get_osutracker_pp_groups().await?;
+                let bytes = rkyv::to_bytes::<_, 70_000>(&groups)
+                    .expect("failed to serialize osutracker pp groups");
+
+                return Ok(ArchivedBytes::new(bytes));
+            }
+        };
+
+        let groups = self.ctx.client().get_osutracker_pp_groups().await?;
+        let bytes =
+            rkyv::to_bytes::<_, 70_000>(&groups).expect("failed to serialize osutracker pp groups");
+
+        let set_fut =
+            conn.set_ex::<_, _, ()>(key, bytes.as_slice(), Self::OSUTRACKER_GROUPS_SECONDS);
 
         if let Err(err) = set_fut.await {
             let report = Report::new(err).wrap_err("failed to insert bytes into cache");

@@ -1,10 +1,12 @@
 use std::sync::Arc;
 
 use eyre::Report;
+use rkyv::{Deserialize, Infallible};
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     core::Context,
+    custom_client::OsuTrackerPpEntry,
     embeds::EmbedData,
     embeds::OsuTrackerMapsEmbed,
     pagination::{OsuTrackerMapsPagination, Pagination},
@@ -25,9 +27,9 @@ pub(super) async fn maps(
 ) -> BotResult<()> {
     let pp = args.pp();
 
-    let entries = match ctx.client().get_osutracker_pp_groups().await {
-        Ok(groups) => match groups.into_iter().find(|group| group.number == pp) {
-            Some(group) => group.list,
+    let entries: Vec<OsuTrackerPpEntry> = match ctx.redis().osutracker_groups().await {
+        Ok(groups) => match groups.get().iter().find(|group| group.number == pp) {
+            Some(group) => group.list.deserialize(&mut Infallible).unwrap(),
             None => {
                 error!("received no osutracker pp group with number={pp}");
                 command.error(&ctx, GENERAL_ISSUE).await?;

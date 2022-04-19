@@ -343,6 +343,7 @@ impl CustomClient {
         Ok(details)
     }
 
+    /// Don't use this; use [`RedisCache::osutracker_stats`] instead.
     pub async fn get_osutracker_stats(&self) -> ClientResult<OsuTrackerStats> {
         let url = "https://osutracker.com/api/stats";
         let bytes = self.make_get_request(url, Site::OsuTracker).await?;
@@ -353,6 +354,7 @@ impl CustomClient {
         Ok(stats)
     }
 
+    /// Don't use this; use [`RedisCache::osutracker_groups`] instead.
     pub async fn get_osutracker_pp_groups(&self) -> ClientResult<Vec<OsuTrackerPpGroup>> {
         let url = "https://osutracker.com/api/stats/ppBarrier";
         let bytes = self.make_get_request(url, Site::OsuTracker).await?;
@@ -363,6 +365,7 @@ impl CustomClient {
         Ok(groups)
     }
 
+    /// Don't use this; use [`RedisCache::badges`] instead.
     pub async fn get_osekai_badges(&self) -> ClientResult<Vec<OsekaiBadge>> {
         let url = "https://osekai.net/badges/api/getBadges.php";
 
@@ -384,6 +387,7 @@ impl CustomClient {
             .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsekaiBadgeOwners))
     }
 
+    /// Don't use this; use [`RedisCache::medals`] instead.
     pub async fn get_osekai_medals(&self) -> ClientResult<Vec<OsekaiMedal>> {
         let url = "https://osekai.net/medals/api/medals.php";
         let form = &[("strSearch", "")];

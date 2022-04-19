@@ -5,13 +5,13 @@ use serde::Deserialize;
 
 use super::{inflate_acc, str_to_datetime, str_to_f32, str_to_u32, UsernameWrapper};
 
-#[derive(Debug, Deserialize)]
+#[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerPpGroup {
     pub number: u32,
     pub list: Vec<OsuTrackerPpEntry>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerPpEntry {
     pub name: String,
     #[serde(rename = "id", deserialize_with = "str_to_u32")]
