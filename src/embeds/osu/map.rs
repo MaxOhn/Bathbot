@@ -279,11 +279,19 @@ impl MapEmbed {
             .then(|| attachment("map_graph.png"))
             .unwrap_or_default();
 
-        let description = format!(
+        let mut description = format!(
             ":musical_note: [Song preview](https://b.ppy.sh/preview/{mapset_id}.mp3) \
             :frame_photo: [Full background](https://assets.ppy.sh/beatmaps/{mapset_id}/covers/raw.jpg)",
             mapset_id = mapset.mapset_id
         );
+
+        if map.mode == GameMode::STD {
+            let _ = write!(
+                description,
+                " :clapper: [Map preview](http://jmir.xyz/osu/preview.html#{map_id})",
+                map_id = map.map_id
+            );
+        }
 
         Ok(Self {
             title,
