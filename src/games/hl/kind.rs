@@ -1,18 +1,24 @@
 use std::{fmt::Write, mem, sync::Arc};
 
 use eyre::Report;
+use image::{png::PngEncoder, ColorType};
 use rosu_v2::prelude::GameMode;
 use tokio::sync::oneshot::{self, Receiver};
 use twilight_model::channel::embed::EmbedField;
 
 use crate::{
-    core::Context,
+    core::{Context, CONFIG},
+    error::InvalidGameState,
     games::hl::score_pp::ScorePp,
-    util::{builder::EmbedBuilder, numbers::round},
+    util::{
+        builder::{EmbedBuilder, MessageBuilder},
+        numbers::round,
+        ChannelExt,
+    },
     BotResult,
 };
 
-use super::{HlGuess, HlVersion};
+use super::{HlGuess, HlVersion, H, W};
 
 pub(super) enum GameStateKind {
     ScorePp {
@@ -61,17 +67,18 @@ impl GameStateKind {
                 debug!("{}pp vs {}pp", previous.pp, next.pp);
 
                 let pfp1 = mem::take(&mut previous.avatar);
-                let cover1 = mem::take(&mut previous.cover);
 
-                // Clone these since they're needed in the next round
+                // Clone this since it's needed in the next round
                 let pfp2 = next.avatar.clone();
-                let cover2 = next.cover.clone();
+
+                let mapset1 = previous.mapset_id;
+                let mapset2 = next.mapset_id;
 
                 let (tx, rx) = oneshot::channel();
 
                 // Create the image in the background so it's available when needed later
                 tokio::spawn(async move {
-                    let url = match ScorePp::image(&ctx, &pfp1, &pfp2, &cover1, &cover2).await {
+                    let url = match ScorePp::image(&ctx, &pfp1, &pfp2, mapset1, mapset2).await {
                         Ok(url) => url,
                         Err(err) => {
                             let report = Report::new(err).wrap_err("failed to create image");
@@ -106,12 +113,12 @@ impl GameStateKind {
         let (tx, rx) = oneshot::channel();
 
         let pfp1 = &previous.avatar;
-        let cover1 = &previous.cover;
+        let mapset1 = previous.mapset_id;
 
         let pfp2 = &next.avatar;
-        let cover2 = &next.cover;
+        let mapset2 = next.mapset_id;
 
-        let url = match ScorePp::image(ctx, pfp1, pfp2, cover1, cover2).await {
+        let url = match ScorePp::image(ctx, pfp1, pfp2, mapset1, mapset2).await {
             Ok(url) => url,
             Err(err) => {
                 let report = Report::new(err).wrap_err("failed to create image");
@@ -181,5 +188,34 @@ impl GameStateKind {
         match self {
             Self::ScorePp { .. } => HlVersion::ScorePp,
         }
+    }
+
+    pub async fn upload_image(ctx: &Context, img: &[u8], content: String) -> BotResult<String> {
+        // Encode the combined images
+        let mut png_bytes: Vec<u8> = Vec::with_capacity((W * H * 4) as usize);
+        let png_encoder = PngEncoder::new(&mut png_bytes);
+        png_encoder.encode(img, W, H, ColorType::Rgba8)?;
+
+        // Send image into discord channel
+        let builder = MessageBuilder::new()
+            .attachment("higherlower.png", png_bytes)
+            .content(content);
+
+        let mut message = CONFIG
+            .get()
+            .unwrap()
+            .hl_channel
+            .create_message(ctx, &builder)
+            .await?
+            .model()
+            .await?;
+
+        // Return the url to the message's image
+        let attachment = message
+            .attachments
+            .pop()
+            .ok_or(InvalidGameState::MissingAttachment)?;
+
+        Ok(attachment.url)
     }
 }

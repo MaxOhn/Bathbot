@@ -1,24 +1,22 @@
 use std::{cmp::Ordering, fmt::Display};
 
 use eyre::Report;
-use image::{png::PngEncoder, ColorType, GenericImageView, ImageBuffer};
+use image::{GenericImageView, ImageBuffer};
 use rand::Rng;
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods, Grade, Score, UserCompact};
 
 use crate::{
-    core::{Context, CONFIG},
+    core::Context,
     embeds::get_mods,
-    error::InvalidGameState,
     util::{
-        builder::MessageBuilder,
         numbers::{round, with_comma_int},
         osu::grade_emote,
-        ChannelExt, Emote,
+        Emote,
     },
     BotResult,
 };
 
-use super::{H, W};
+use super::{kind::GameStateKind, H, W};
 
 const ALPHA_THRESHOLD: u8 = 20;
 
@@ -26,6 +24,7 @@ pub(super) struct ScorePp {
     user_id: u32,
     pub avatar: String,
     map_id: u32,
+    pub mapset_id: u32,
     pub player_string: String,
     map_string: String,
     mods: GameMods,
@@ -36,7 +35,6 @@ pub(super) struct ScorePp {
     acc: f32,
     miss_count: u32,
     grade: Grade,
-    pub cover: String,
 }
 
 impl ScorePp {
@@ -106,21 +104,28 @@ impl ScorePp {
         Ok(Self::new(player, map, play))
     }
 
+    fn mapset_cover(mapset_id: u32) -> String {
+        format!("https://assets.ppy.sh/beatmaps/{mapset_id}/covers/cover.jpg")
+    }
+
     pub async fn image(
         ctx: &Context,
         pfp1: &str,
         pfp2: &str,
-        cover1: &str,
-        cover2: &str,
+        mapset1: u32,
+        mapset2: u32,
     ) -> BotResult<String> {
+        let cover1 = Self::mapset_cover(mapset1);
+        let cover2 = Self::mapset_cover(mapset2);
+
         // Gather the profile pictures and map covers
         let client = ctx.client();
 
         let (pfp_left, pfp_right, bg_left, bg_right) = tokio::try_join!(
             client.get_avatar(pfp1),
             client.get_avatar(pfp2),
-            client.get_mapset_cover(cover1),
-            client.get_mapset_cover(cover2),
+            client.get_mapset_cover(&cover1),
+            client.get_mapset_cover(&cover2),
         )?;
 
         let pfp_left = image::load_from_memory(&pfp_left)?.thumbnail(128, 128);
@@ -154,30 +159,21 @@ impl ScorePp {
             }
         }
 
-        // Encode the combined images
-        let mut png_bytes: Vec<u8> = Vec::with_capacity((W * H * 4) as usize);
-        let png_encoder = PngEncoder::new(&mut png_bytes);
-        png_encoder.encode(blipped.as_raw(), W, H, ColorType::Rgba8)?;
+        const ID_START_IDX: usize = 17; // "https://a.ppy.sh/{user_id}?{hash}.png"
 
-        // Send image into discord channel
-        let builder = MessageBuilder::new().attachment("higherlower.png", png_bytes);
+        let content = format!(
+            "{user1} ({mapset1}) ~ {user2} ({mapset2})",
+            user1 = pfp1
+                .find('?')
+                .and_then(|idx| pfp1.get(ID_START_IDX..idx))
+                .unwrap_or(pfp1),
+            user2 = pfp2
+                .find('?')
+                .and_then(|idx| pfp2.get(ID_START_IDX..idx))
+                .unwrap_or(pfp2),
+        );
 
-        let mut message = CONFIG
-            .get()
-            .unwrap()
-            .hl_channel
-            .create_message(ctx, &builder)
-            .await?
-            .model()
-            .await?;
-
-        // Return the url to the message's image
-        let attachment = message
-            .attachments
-            .pop()
-            .ok_or(InvalidGameState::MissingAttachment)?;
-
-        Ok(attachment.url)
+        GameStateKind::upload_image(ctx, blipped.as_raw(), content).await
     }
 
     pub fn play_string(&self, pp_visible: bool) -> String {
@@ -226,6 +222,7 @@ impl ScorePp {
             user_id: user.user_id,
             avatar: user.avatar_url,
             map_id: map.map_id,
+            mapset_id,
             player_string: format!(":flag_{country_code}: {} (#{rank})", user.username,),
             map_string: format!("[{artist} - {title} [{}]]({})", map.version, map.url),
             mods: score.mods,
@@ -236,7 +233,6 @@ impl ScorePp {
             acc: round(score.accuracy),
             miss_count: score.statistics.count_miss,
             grade: score.grade,
-            cover: format!("https://assets.ppy.sh/beatmaps/{mapset_id}/covers/cover.jpg",),
         }
     }
 }
