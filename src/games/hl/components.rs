@@ -12,7 +12,7 @@ use crate::{
     util::{
         builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
         constants::{GENERAL_ISSUE, RED},
-        Authored, ComponentExt, MessageExt,
+        Authored, ComponentExt,
     },
     BotResult,
 };
@@ -60,62 +60,6 @@ async fn handle_higherlower(
         Some(false) => game_over(ctx, component, guess).await?,
         None => {}
     }
-
-    Ok(())
-}
-
-/// Give up Button
-pub async fn handle_give_up(
-    ctx: Arc<Context>,
-    mut component: Box<MessageComponentInteraction>,
-) -> BotResult<()> {
-    component.defer(&ctx).await?;
-    let user = component.user_id()?;
-
-    let game = if let Some(game) = ctx.hl_games().lock().await.remove(&user) {
-        game
-    } else {
-        return Ok(());
-    };
-
-    let mut embed = component
-        .message
-        .embeds
-        .pop()
-        .ok_or(InvalidGameState::MissingEmbed)?;
-
-    let footer = FooterBuilder::new("Preparing game, give me a moment...");
-    embed.footer = Some(footer.build());
-
-    let components = HlComponents::disabled();
-    let update_builder = MessageBuilder::new().embed(embed).components(components);
-    let update_fut = component.update(&ctx, &update_builder);
-
-    let components = HlComponents::disabled();
-    let disable_builder = MessageBuilder::new().components(components);
-    let disable_fut = (game.msg, game.channel).update(&ctx, &disable_builder);
-
-    let (msg_res, _) = tokio::try_join!(update_fut, disable_fut)?;
-    let msg = msg_res.model().await?;
-
-    let mut game = match game.restart(&ctx, &msg).await {
-        Ok(game) => game,
-        Err(err) => {
-            let embed = EmbedBuilder::new().description(GENERAL_ISSUE).color(RED);
-            let builder = MessageBuilder::new().embed(embed);
-            let _ = msg.update(&ctx, &builder).await;
-
-            return Err(err);
-        }
-    };
-
-    let embed = game.to_embed().await;
-    let components = HlComponents::higherlower();
-    let builder = MessageBuilder::new().embed(embed).components(components);
-
-    msg.update(&ctx, &builder).await?;
-    game.msg = msg.id;
-    ctx.hl_games().lock().await.insert(user, game);
 
     Ok(())
 }

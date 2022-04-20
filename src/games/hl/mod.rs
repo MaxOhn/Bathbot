@@ -9,9 +9,9 @@ use crate::util::Emote;
 
 pub use self::state::GameState;
 
+mod kind;
 mod score_pp;
 mod state;
-mod kind;
 
 pub mod components;
 pub mod retry;
@@ -67,23 +67,6 @@ impl HlComponents {
         buttons[3].disabled = false;
 
         Self::build(buttons)
-    }
-
-    pub fn give_up() -> Vec<Component> {
-        let give_up_button = Button {
-            custom_id: Some("give_up_button".to_owned()),
-            disabled: false,
-            emoji: None,
-            label: Some("Give Up".to_owned()),
-            style: ButtonStyle::Danger,
-            url: None,
-        };
-
-        let button_row = ActionRow {
-            components: vec![Component::Button(give_up_button)],
-        };
-
-        vec![Component::ActionRow(button_row)]
     }
 
     fn buttons() -> [Button; 4] {

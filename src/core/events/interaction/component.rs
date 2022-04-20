@@ -24,7 +24,6 @@ pub async fn handle_component(ctx: Arc<Context>, mut component: Box<MessageCompo
         "higher_button" => handle_higher(ctx, component).await,
         "lower_button" => handle_lower(ctx, component).await,
         "try_again_button" => handle_try_again(ctx, component).await,
-        "give_up_button" => handle_give_up(ctx, component).await,
         "next_higherlower" => handle_next_higherlower(ctx, component).await,
         _ => return error!("unknown message component `{name}`"),
     };
