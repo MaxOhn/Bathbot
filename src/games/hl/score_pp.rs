@@ -11,6 +11,7 @@ use rosu_v2::{
 use crate::{
     core::Context,
     embeds::get_mods,
+    games::hl::mapset_cover,
     util::{
         numbers::{round, with_comma_int},
         osu::grade_emote,
@@ -102,10 +103,6 @@ impl ScorePp {
         Ok(Self::new(player, map, play))
     }
 
-    fn mapset_cover(mapset_id: u32) -> String {
-        format!("https://assets.ppy.sh/beatmaps/{mapset_id}/covers/cover.jpg")
-    }
-
     pub async fn image(
         ctx: &Context,
         pfp1: &str,
@@ -113,8 +110,8 @@ impl ScorePp {
         mapset1: u32,
         mapset2: u32,
     ) -> BotResult<String> {
-        let cover1 = Self::mapset_cover(mapset1);
-        let cover2 = Self::mapset_cover(mapset2);
+        let cover1 = mapset_cover(mapset1);
+        let cover2 = mapset_cover(mapset2);
 
         // Gather the profile pictures and map covers
         let client = ctx.client();

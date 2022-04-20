@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use command_macros::SlashCommand;
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -13,20 +15,28 @@ use crate::{
     BotResult, Context,
 };
 
-use std::sync::Arc;
-
 #[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(
-    name = "higherlower",
-    help = "Play a game of osu! themed higher lower.\n\
-    The available versions are:\n \
-    - `Score PP`: Guess whether the next play is worth higher or lower PP"
-)]
+#[command(name = "higherlower")]
 /// Play a game of osu! themed higher lower
-pub struct HigherLower {
+pub enum HigherLower {
+    #[command(name = "pp")]
+    ScorePp(HigherLowerScorePp),
+    #[command(name = "farm")]
+    FarmMaps(HigherLowerFarmMaps),
+}
+
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "pp")]
+/// Is the score's pp value higher or lower?
+pub struct HigherLowerScorePp {
     /// Specify a gamemode
     mode: Option<GameModeOption>,
 }
+
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "farm")]
+/// Is the amount of times the map appears in top scores higher or lower?
+pub struct HigherLowerFarmMaps;
 
 async fn slash_higherlower(
     ctx: Arc<Context>,
@@ -42,12 +52,19 @@ async fn slash_higherlower(
 
     let args = HigherLower::from_interaction(command.input_data())?;
 
-    let mode = match args.mode.map(GameMode::from) {
-        Some(mode) => mode,
-        None => ctx.user_config(user).await?.mode.unwrap_or(GameMode::STD),
+    let game_res = match args {
+        HigherLower::ScorePp(args) => {
+            let mode = match args.mode.map(GameMode::from) {
+                Some(mode) => mode,
+                None => ctx.user_config(user).await?.mode.unwrap_or(GameMode::STD),
+            };
+
+            GameState::score_pp(&ctx, &*command, mode).await
+        }
+        HigherLower::FarmMaps(_) => GameState::farm_maps(&ctx, &*command).await,
     };
 
-    let mut game = match GameState::score_pp(&ctx, &*command, mode).await {
+    let mut game = match game_res {
         Ok(game) => game,
         Err(err) => {
             let _ = command.error(&ctx, GENERAL_ISSUE).await;

@@ -9,6 +9,7 @@ use crate::util::Emote;
 
 pub use self::state::GameState;
 
+mod farm_map;
 mod kind;
 mod score_pp;
 mod state;
@@ -21,7 +22,8 @@ const H: u32 = 250;
 
 #[derive(Copy, Clone)]
 pub enum HlVersion {
-    ScorePp,
+    ScorePp = 0,
+    FarmMaps = 1,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -118,4 +120,8 @@ impl HlComponents {
 
         vec![Component::ActionRow(button_row)]
     }
+}
+
+fn mapset_cover(mapset_id: u32) -> String {
+    format!("https://assets.ppy.sh/beatmaps/{mapset_id}/covers/cover.jpg")
 }

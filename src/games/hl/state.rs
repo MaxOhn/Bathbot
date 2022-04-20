@@ -14,7 +14,7 @@ use twilight_model::{
 
 use crate::{core::Context, error::InvalidGameState, util::Authored, BotResult};
 
-use super::{kind::GameStateKind, HlGuess, HlVersion};
+use super::{farm_map::FarmEntries, kind::GameStateKind, HlGuess, HlVersion};
 
 pub struct GameState {
     kind: GameStateKind,
@@ -52,13 +52,35 @@ impl GameState {
         })
     }
 
-    pub async fn restart(self, ctx: &Context, origin: &(dyn Authored + Sync)) -> BotResult<Self> {
+    pub async fn farm_maps(ctx: &Context, origin: &(dyn Authored + Sync)) -> BotResult<Self> {
         let user = origin.user_id()?.get();
-        let game_fut = self.kind.restart(ctx);
+
+        let entries_fut = FarmEntries::new(ctx);
 
         let highscore_fut = ctx
             .psql()
-            .get_higherlower_highscore(user, HlVersion::ScorePp);
+            .get_higherlower_highscore(user, HlVersion::FarmMaps);
+
+        let (entries, highscore) = tokio::try_join!(entries_fut, highscore_fut)?;
+        let (kind, rx) = GameStateKind::farm_maps(ctx, entries).await?;
+
+        Ok(Self {
+            kind,
+            img_url_rx: Some(rx),
+            msg: Id::new(1),
+            channel: origin.channel_id(),
+            guild: origin.guild_id(),
+            current_score: 0,
+            highscore,
+        })
+    }
+
+    pub async fn restart(self, ctx: &Context, origin: &(dyn Authored + Sync)) -> BotResult<Self> {
+        let user = origin.user_id()?.get();
+        let version = self.kind.version();
+
+        let game_fut = self.kind.restart(ctx);
+        let highscore_fut = ctx.psql().get_higherlower_highscore(user, version);
 
         let ((kind, rx), highscore) = tokio::try_join!(game_fut, highscore_fut)?;
 
@@ -81,7 +103,7 @@ impl GameState {
         Ok(())
     }
 
-    /// Only has an image if it the first call after [`GameState::new`] / [`GameState::next`].
+    /// Only has an image if it is the first call after [`GameState::new`] / [`GameState::next`].
     pub async fn to_embed(&mut self) -> Embed {
         let image = match self.img_url_rx.take() {
             Some(rx) => match rx.await {
@@ -120,10 +142,7 @@ impl GameState {
     pub fn reveal(&self, component: &mut MessageComponentInteraction) -> BotResult<Embed> {
         let mut embeds = mem::take(&mut component.message.embeds);
         let mut embed = embeds.pop().ok_or(InvalidGameState::MissingEmbed)?;
-
-        if let Some(field) = embed.fields.get_mut(1) {
-            self.kind.reveal(field)
-        }
+        self.kind.reveal(&mut embed);
 
         Ok(embed)
     }
