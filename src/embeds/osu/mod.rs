@@ -109,7 +109,7 @@ pub use self::{
     simulate::{SimulateArgs, SimulateEmbed},
     sniped::SnipedEmbed,
     sniped_difference::SnipedDiffEmbed,
-    top::{OrderAppendix, TopEmbed},
+    top::{OrderAppendix, TopEmbed, CondensedTopEmbed},
     top_if::TopIfEmbed,
     top_single::TopSingleEmbed,
     whatif::WhatIfEmbed,

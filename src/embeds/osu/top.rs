@@ -20,6 +20,9 @@ use crate::{
     },
 };
 
+const MAX_TITLE_LENGTH: usize = 40;
+const MAX_VERSION_LENGTH: usize = 20;
+
 pub struct TopEmbed {
     author: AuthorBuilder,
     description: String,
@@ -102,7 +105,7 @@ impl TopEmbed {
             let _ = writeln!(
                 description,
                 "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars}]\n\
-                {grade} {pp} ~ {acc}% ~ {score}{appendix}\n[ {combo} ] ~ {hits} ~ {ago}",
+                {grade} {pp} • {acc}% • {score}{appendix}\n[ {combo} ] • {hits} • {ago}",
                 idx = idx + 1,
                 title = mapset.title,
                 version = map.version,
@@ -136,6 +139,152 @@ impl TopEmbed {
     }
 }
 
+pub struct CondensedTopEmbed {
+    author: AuthorBuilder,
+    description: String,
+    footer: FooterBuilder,
+    thumbnail: String,
+}
+
+impl CondensedTopEmbed {
+    pub async fn new<'i, S>(
+        user: &User,
+        scores: S,
+        ctx: &Context,
+        pages: (usize, usize),
+    ) -> Self
+    where
+        S: Iterator<Item = &'i (usize, Score)>,
+    {
+        Self::new_(user, scores, ctx, pages).await
+    }
+
+    pub async fn new_<'i, S>(
+        user: &User,
+        scores: S,
+        ctx: &Context,
+        pages: (usize, usize),
+    ) -> Self
+    where
+        S: Iterator<Item = &'i (usize, Score)>,
+    {
+        let mut description = String::with_capacity(512);
+
+        for (idx, score) in scores {
+            let map = score.map.as_ref().unwrap();
+            let mapset = score.mapset.as_ref().unwrap();
+
+            let pp = match PpCalculator::new(ctx, map.map_id).await {
+                Ok(mut calc) => {
+                    calc.score(score);
+
+
+                    let pp = match score.pp {
+                        Some(pp) => pp,
+                        None => calc.pp() as f32,
+                    };
+
+                    Some(pp)
+                }
+                Err(err) => {
+                    warn!("{:?}", Report::new(err));
+
+                    None
+                }
+            };
+
+            let _ = writeln!(
+                description,
+                "**{idx}. {grade} [{truncated_title} [{truncated_version}]]({OSU_BASE}b/{id}) {mods}**\n\
+                {hits} • {acc}% • {pp} • [ {combo} ] • {truncated_score}",
+                idx = idx + 1,
+                truncated_title = truncate_title(&mapset.title),
+                truncated_version = truncate_version(&map.version),
+                id = map.map_id,
+                mods = osu::get_mods(score.mods),
+                grade = score.grade_emote(score.mode),
+                acc = score.acc(score.mode),
+                combo = osu::get_combo(score, map),
+                pp = format!("{pp:.2}PP", pp=pp.unwrap_or(0.0)),
+                truncated_score = truncate_score(score.score),
+                hits = score.hits_string(score.mode),
+            );
+        }
+
+        description.pop();
+
+        let footer_text = format!(
+            "Page {}/{} | Mode: {}",
+            pages.0,
+            pages.1,
+            mode_str(user.mode)
+        );
+
+        Self {
+            author: author!(user),
+            description,
+            footer: FooterBuilder::new(footer_text),
+            thumbnail: user.avatar_url.to_owned(),
+        }
+    }
+}
+fn truncate_title(title: &String) -> String {
+    let mut new_title: String = "".to_owned();
+    if title.len() > MAX_TITLE_LENGTH {
+        let mut count = 0;
+        let iter = title.split_ascii_whitespace();
+        for word in iter {
+            if count + word.len() < MAX_TITLE_LENGTH {
+                new_title.push_str(word);
+                new_title.push_str(" ");
+                count += word.len() + 1;
+            } else if count + word.len() > MAX_TITLE_LENGTH {
+                new_title.push_str(word);
+                new_title.push_str("...");
+                break;
+            }
+        }
+    } else {
+        new_title = title.to_string();
+    }
+    new_title
+}
+
+fn truncate_version(version: &String) -> String {
+    let mut new_version: String = "".to_owned();
+    if version.len() > MAX_VERSION_LENGTH {
+        let mut count = 0;
+        let iter = version.split_ascii_whitespace();
+        for word in iter {
+            if count + word.len() < MAX_VERSION_LENGTH {
+                new_version.push_str(word);
+                new_version.push_str(" ");
+                count += word.len() + 1;
+            } else if count + word.len() > MAX_VERSION_LENGTH {
+                new_version.push_str(word);
+                new_version.push_str("...");
+                break;
+            }
+        }
+    } else {
+        new_version = version.to_string();
+    }
+    new_version
+}
+
+fn truncate_score(score: u32) -> String {
+    for (num, chr) in [(1000000000, "B"), (1000000, "M"), (1000, "K")] {
+        let (div, mut rem) = (score / num, score % num);
+        if div > 0 {
+            while rem >= 100 {
+                rem /= 10
+            }
+            return format!("{div}.{rem}{chr}");
+        }
+    }
+    format!("{score}")
+}
+
 fn mode_str(mode: GameMode) -> &'static str {
     match mode {
         GameMode::STD => "osu!",
@@ -146,6 +295,13 @@ fn mode_str(mode: GameMode) -> &'static str {
 }
 
 impl_builder!(TopEmbed {
+    author,
+    description,
+    footer,
+    thumbnail,
+});
+
+impl_builder!(CondensedTopEmbed {
     author,
     description,
     footer,
