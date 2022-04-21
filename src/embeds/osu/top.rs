@@ -196,17 +196,17 @@ impl CondensedTopEmbed {
             let _ = writeln!(
                 description,
                 "**{idx}. {grade} [{truncated_title} [{truncated_version}]]({OSU_BASE}b/{id}) {mods}**\n\
-                {hits} • {acc}% • {pp} • [ {combo} ] • {truncated_score}",
+                {hits} • {acc}% • {pp} • {combo}x • {truncated_score}",
                 idx = idx + 1,
-                truncated_title = truncate_title(&mapset.title),
-                truncated_version = truncate_version(&map.version),
+                truncated_title = truncate_text(&mapset.title, MAX_TITLE_LENGTH),
+                truncated_version = truncate_text(&map.version, MAX_VERSION_LENGTH),
                 id = map.map_id,
                 mods = osu::get_mods(score.mods),
                 grade = score.grade_emote(score.mode),
                 acc = score.acc(score.mode),
-                combo = osu::get_combo(score, map),
+                combo = truncate_int(score.max_combo),
                 pp = format!("{pp:.2}PP", pp=pp.unwrap_or(0.0)),
-                truncated_score = truncate_score(score.score),
+                truncated_score = truncate_int(score.score),
                 hits = score.hits_string(score.mode),
             );
         }
@@ -228,17 +228,17 @@ impl CondensedTopEmbed {
         }
     }
 }
-fn truncate_title(title: &String) -> String {
+fn truncate_text(title: &String, max_length: usize) -> String {
     let mut new_title: String = "".to_owned();
-    if title.len() > MAX_TITLE_LENGTH {
+    if title.len() > max_length {
         let mut count = 0;
         let iter = title.split_ascii_whitespace();
         for word in iter {
-            if count + word.len() < MAX_TITLE_LENGTH {
+            if count + word.len() < max_length {
                 new_title.push_str(word);
                 new_title.push_str(" ");
                 count += word.len() + 1;
-            } else if count + word.len() > MAX_TITLE_LENGTH {
+            } else if count + word.len() > max_length {
                 new_title.push_str(word);
                 new_title.push_str("...");
                 break;
@@ -250,29 +250,7 @@ fn truncate_title(title: &String) -> String {
     new_title
 }
 
-fn truncate_version(version: &String) -> String {
-    let mut new_version: String = "".to_owned();
-    if version.len() > MAX_VERSION_LENGTH {
-        let mut count = 0;
-        let iter = version.split_ascii_whitespace();
-        for word in iter {
-            if count + word.len() < MAX_VERSION_LENGTH {
-                new_version.push_str(word);
-                new_version.push_str(" ");
-                count += word.len() + 1;
-            } else if count + word.len() > MAX_VERSION_LENGTH {
-                new_version.push_str(word);
-                new_version.push_str("...");
-                break;
-            }
-        }
-    } else {
-        new_version = version.to_string();
-    }
-    new_version
-}
-
-fn truncate_score(score: u32) -> String {
+fn truncate_int(score: u32) -> String {
     for (num, chr) in [(1000000000, "B"), (1000000, "M"), (1000, "K")] {
         let (div, mut rem) = (score / num, score % num);
         if div > 0 {

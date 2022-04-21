@@ -25,7 +25,7 @@ use crate::{
     custom_client::OsuTrackerMapsetEntry,
     database::{EmbedsSize, MinimizedPp},
     embeds::{EmbedData, TopEmbed, CondensedTopEmbed, TopSingleEmbed},
-    pagination::{Pagination, TopPagination},
+    pagination::{Pagination, TopPagination, CondensedTopPagination},
     tracking::process_osu_tracking,
     util::{
         builder::MessageBuilder,
@@ -910,7 +910,7 @@ pub(super) async fn top(
         (None, _) => {
             let content = write_content(&name, &args, scores.len());
             if args.condensed.unwrap_or(false) {
-                condensed_paginated_embed(ctx, orig, user, scores, args.sort_by, content, farm).await?;
+                condensed_paginated_embed(ctx, orig, user, scores, content).await?;
             } else {
                 paginated_embed(ctx, orig, user, scores, args.sort_by, content, farm).await?;
             }
@@ -1179,9 +1179,7 @@ async fn condensed_paginated_embed(
     orig: CommandOrigin<'_>,
     user: User,
     scores: Vec<(usize, Score)>,
-    sort_by: TopScoreOrder,
     content: Option<String>,
-    farm: Farm,
 ) -> BotResult<()> {
     let pages = numbers::div_euclid(10, scores.len());
 
@@ -1211,7 +1209,7 @@ async fn condensed_paginated_embed(
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = TopPagination::new(response, user, scores, sort_by, farm, Arc::clone(&ctx));
+    let pagination = CondensedTopPagination::new(response, user, scores, Arc::clone(&ctx));
     let owner = orig.user_id()?;
 
     tokio::spawn(async move {
