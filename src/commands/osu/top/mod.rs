@@ -24,8 +24,8 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     custom_client::OsuTrackerMapsetEntry,
     database::{EmbedsSize, MinimizedPp},
-    embeds::{EmbedData, TopEmbed, CondensedTopEmbed, TopSingleEmbed},
-    pagination::{Pagination, TopPagination, CondensedTopPagination},
+    embeds::{CondensedTopEmbed, EmbedData, TopEmbed, TopSingleEmbed},
+    pagination::{CondensedTopPagination, Pagination, TopPagination},
     tracking::process_osu_tracking,
     util::{
         builder::MessageBuilder,
@@ -97,7 +97,7 @@ pub struct Top {
     farm: Option<FarmFilter>,
     /// Filter out all scores that don't have a perfect combo
     perfect_combo: Option<bool>,
-    /// Condenses the pagnated embed
+    /// Condenses the embed
     condensed: Option<bool>,
 }
 
@@ -640,7 +640,7 @@ impl<'m> TopArgs<'m> {
                     _ => {
                         let content = format!(
                             "Unrecognized option `{key}`.\n\
-                            Available options are: `acc`, `combo`, `sort`, `grade`, `reverse`, or `condensed`."
+                            Available options are: `acc`, `combo`, `sort`, `grade`, or `reverse`."
                         );
 
                         return Err(content.into());
@@ -1183,12 +1183,7 @@ async fn condensed_paginated_embed(
 ) -> BotResult<()> {
     let pages = numbers::div_euclid(10, scores.len());
 
-    let embed_fut = CondensedTopEmbed::new(
-        &user,
-        scores.iter().take(10),
-        &ctx,
-        (1, pages),
-    );
+    let embed_fut = CondensedTopEmbed::new(&user, scores.iter().take(10), &ctx, (1, pages));
 
     let embed = embed_fut.await.into_builder().build();
 
@@ -1237,7 +1232,11 @@ fn write_content(name: &str, args: &TopArgs<'_>, amount: usize) -> Option<String
     } else {
         let genitive = if name.ends_with('s') { "" } else { "s" };
         let reverse = if args.reverse { "reversed " } else { "" };
-        let condensed = if args.condensed.unwrap_or(false) { "condensed " } else { "" };
+        let condensed = if args.condensed.unwrap_or(false) {
+            "condensed "
+        } else {
+            ""
+        };
 
         let content = match args.sort_by {
             TopScoreOrder::Farm if args.reverse => {

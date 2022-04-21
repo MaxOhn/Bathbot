@@ -147,24 +147,7 @@ pub struct CondensedTopEmbed {
 }
 
 impl CondensedTopEmbed {
-    pub async fn new<'i, S>(
-        user: &User,
-        scores: S,
-        ctx: &Context,
-        pages: (usize, usize),
-    ) -> Self
-    where
-        S: Iterator<Item = &'i (usize, Score)>,
-    {
-        Self::new_(user, scores, ctx, pages).await
-    }
-
-    pub async fn new_<'i, S>(
-        user: &User,
-        scores: S,
-        ctx: &Context,
-        pages: (usize, usize),
-    ) -> Self
+    pub async fn new<'i, S>(user: &User, scores: S, ctx: &Context, pages: (usize, usize)) -> Self
     where
         S: Iterator<Item = &'i (usize, Score)>,
     {
@@ -177,7 +160,6 @@ impl CondensedTopEmbed {
             let pp = match PpCalculator::new(ctx, map.map_id).await {
                 Ok(mut calc) => {
                     calc.score(score);
-
 
                     let pp = match score.pp {
                         Some(pp) => pp,
@@ -205,7 +187,7 @@ impl CondensedTopEmbed {
                 grade = score.grade_emote(score.mode),
                 acc = score.acc(score.mode),
                 combo = truncate_int(score.max_combo),
-                pp = format!("{pp:.2}PP", pp=pp.unwrap_or(0.0)),
+                pp = format!("{pp:.2}PP", pp = pp.unwrap_or(0.0)),
                 truncated_score = truncate_int(score.score),
                 hits = score.hits_string(score.mode),
             );
@@ -230,9 +212,11 @@ impl CondensedTopEmbed {
 }
 fn truncate_text(title: &String, max_length: usize) -> String {
     let mut new_title: String = "".to_owned();
+
     if title.len() > max_length {
         let mut count = 0;
         let iter = title.split_ascii_whitespace();
+
         for word in iter {
             if count + word.len() < max_length {
                 new_title.push_str(word);
@@ -241,25 +225,30 @@ fn truncate_text(title: &String, max_length: usize) -> String {
             } else if count + word.len() > max_length {
                 new_title.push_str(word);
                 new_title.push_str("...");
+
                 break;
             }
         }
     } else {
         new_title = title.to_string();
     }
+
     new_title
 }
 
 fn truncate_int(score: u32) -> String {
-    for (num, chr) in [(1000000000, "B"), (1000000, "M"), (1000, "K")] {
+    for (num, chr) in [(1_000_000_000, "B"), (1_000_000, "M"), (1000, "K")] {
         let (div, mut rem) = (score / num, score % num);
+
         if div > 0 {
             while rem >= 100 {
                 rem /= 10
             }
+
             return format!("{div}.{rem}{chr}");
         }
     }
+
     format!("{score}")
 }
 
