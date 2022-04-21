@@ -1,9 +1,9 @@
-use std::fmt::{self, Write};
+use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use chrono::{DateTime, Utc};
 use eyre::Report;
 use hashbrown::HashMap;
-use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods, Score, User};
+use rosu_v2::prelude::{Beatmap, Beatmapset, BeatmapsetCompact, GameMode, GameMods, Score, User};
 
 use crate::{
     commands::osu::TopScoreOrder,
@@ -16,12 +16,9 @@ use crate::{
         constants::OSU_BASE,
         datetime::how_long_ago_dynamic,
         numbers::{round, with_comma_int},
-        ScoreExt,
+        Emote, ScoreExt,
     },
 };
-
-const MAX_TITLE_LENGTH: usize = 40;
-const MAX_VERSION_LENGTH: usize = 20;
 
 pub struct TopEmbed {
     author: AuthorBuilder,
@@ -151,52 +148,14 @@ impl CondensedTopEmbed {
     where
         S: Iterator<Item = &'i (usize, Score)>,
     {
-        let mut description = String::with_capacity(512);
-
-        for (idx, score) in scores {
-            let map = score.map.as_ref().unwrap();
-            let mapset = score.mapset.as_ref().unwrap();
-
-            let pp = match PpCalculator::new(ctx, map.map_id).await {
-                Ok(mut calc) => {
-                    calc.score(score);
-
-                    let pp = match score.pp {
-                        Some(pp) => pp,
-                        None => calc.pp() as f32,
-                    };
-
-                    Some(pp)
-                }
-                Err(err) => {
-                    warn!("{:?}", Report::new(err));
-
-                    None
-                }
-            };
-
-            let _ = writeln!(
-                description,
-                "**{idx}. {grade} [{truncated_title} [{truncated_version}]]({OSU_BASE}b/{id}) {mods}**\n\
-                {hits} • {acc}% • {pp} • {combo}x • {truncated_score}",
-                idx = idx + 1,
-                truncated_title = truncate_text(&mapset.title, MAX_TITLE_LENGTH),
-                truncated_version = truncate_text(&map.version, MAX_VERSION_LENGTH),
-                id = map.map_id,
-                mods = osu::get_mods(score.mods),
-                grade = score.grade_emote(score.mode),
-                acc = score.acc(score.mode),
-                combo = truncate_int(score.max_combo),
-                pp = format!("{pp:.2}PP", pp = pp.unwrap_or(0.0)),
-                truncated_score = truncate_int(score.score),
-                hits = score.hits_string(score.mode),
-            );
-        }
-
-        description.pop();
+        let description = if user.mode == GameMode::MNA {
+            Self::description_mania(scores, ctx).await
+        } else {
+            Self::description(scores, ctx).await
+        };
 
         let footer_text = format!(
-            "Page {}/{} | Mode: {}",
+            "Page {}/{} • Mode: {}",
             pages.0,
             pages.1,
             mode_str(user.mode)
@@ -209,47 +168,215 @@ impl CondensedTopEmbed {
             thumbnail: user.avatar_url.to_owned(),
         }
     }
-}
-fn truncate_text(title: &String, max_length: usize) -> String {
-    let mut new_title: String = "".to_owned();
 
-    if title.len() > max_length {
-        let mut count = 0;
-        let iter = title.split_ascii_whitespace();
+    async fn description<'i, S>(scores: S, ctx: &Context) -> String
+    where
+        S: Iterator<Item = &'i (usize, Score)>,
+    {
+        let mut description = String::with_capacity(1024);
 
-        for word in iter {
-            if count + word.len() < max_length {
-                new_title.push_str(word);
-                new_title.push_str(" ");
-                count += word.len() + 1;
-            } else if count + word.len() > max_length {
-                new_title.push_str(word);
-                new_title.push_str("...");
+        for (idx, score) in scores {
+            let map = score.map.as_ref().unwrap();
+            let mapset = score.mapset.as_ref().unwrap();
 
-                break;
-            }
+            let (pp, stars) = match PpCalculator::new(ctx, map.map_id).await {
+                Ok(mut calc) => {
+                    calc.score(score);
+                    let stars = calc.stars();
+
+                    let pp = match score.pp {
+                        Some(pp) => pp,
+                        None => calc.pp() as f32,
+                    };
+
+                    (pp, stars as f32)
+                }
+                Err(err) => {
+                    warn!("{:?}", Report::new(err));
+
+                    (0.0, 0.0)
+                }
+            };
+
+            let _ = writeln!(
+                description,
+                "**{idx}. [{map}]({OSU_BASE}b/{map_id})** [{stars}★]\n\
+                {grade} *{pp}pp* ({acc}%) [**{combo}x**/{max_combo}x] {miss}**+{mods}** <t:{timestamp}:R>",
+                idx = idx + 1,
+                map = MapFormat { map, mapset },
+                map_id = map.map_id,
+                stars = round(stars),
+                grade = score.grade_emote(score.mode),
+                pp = round(pp),
+                acc = round(score.accuracy),
+                combo = score.max_combo,
+                max_combo = map.max_combo.unwrap_or(0),
+                miss = MissFormat(score.statistics.count_miss),
+                mods = score.mods,
+                timestamp = score.created_at.timestamp(),
+            );
         }
-    } else {
-        new_title = title.to_string();
+
+        description
     }
 
-    new_title
+    async fn description_mania<'i, S>(scores: S, ctx: &Context) -> String
+    where
+        S: Iterator<Item = &'i (usize, Score)>,
+    {
+        let mut description = String::with_capacity(1024);
+
+        for (idx, score) in scores {
+            let map = score.map.as_ref().unwrap();
+            let mapset = score.mapset.as_ref().unwrap();
+
+            let pp = match score.pp {
+                Some(pp) => pp,
+                None => match PpCalculator::new(ctx, map.map_id).await {
+                    Ok(mut calc) => calc.pp() as f32,
+                    Err(err) => {
+                        warn!("{:?}", Report::new(err));
+
+                        0.0
+                    }
+                },
+            };
+
+            let stats = &score.statistics;
+
+            let _ = writeln!(
+                description,
+                "**{idx}. [{map}]({OSU_BASE}b/{map_id}) +{mods}**\n\
+                {grade} *{pp}pp* ({acc}%) `{score}` {{{n320}/{n300}/.../{miss}}} <t:{timestamp}:R>",
+                idx = idx + 1,
+                map = MapFormat { map, mapset },
+                map_id = map.map_id,
+                mods = score.mods,
+                grade = score.grade_emote(score.mode),
+                pp = round(pp),
+                acc = round(score.accuracy),
+                score = ScoreFormat(score.score),
+                n320 = stats.count_geki,
+                n300 = stats.count_300,
+                // n200 = stats.count_katu,
+                // n100 = stats.count_100,
+                // n50 = stats.count_50,
+                miss = stats.count_miss,
+                timestamp = score.created_at.timestamp(),
+            );
+        }
+
+        description
+    }
 }
 
-fn truncate_int(score: u32) -> String {
-    for (num, chr) in [(1_000_000_000, "B"), (1_000_000, "M"), (1000, "K")] {
-        let (div, mut rem) = (score / num, score % num);
+struct MapFormat<'m> {
+    map: &'m Beatmap,
+    mapset: &'m BeatmapsetCompact,
+}
 
-        if div > 0 {
-            while rem >= 100 {
-                rem /= 10
+impl Display for MapFormat<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let artist = self.mapset.artist.len();
+        let title = self.mapset.title.len();
+        let version = self.map.version.len();
+
+        const LIMIT: usize = 50;
+
+        // if the dots wouldn't save space, might as well not replace the content
+        let tuple = |pre, post| {
+            if pre == post + 3 {
+                (pre, "")
+            } else {
+                (post, "...")
+            }
+        };
+
+        if artist + title + version + 6 <= LIMIT {
+            // short enough to display artist, title, and version
+            write!(
+                f,
+                "{} - {} [{}]",
+                self.mapset.artist, self.mapset.title, self.map.version
+            )
+        } else if title + version + 3 <= LIMIT {
+            // show title and version without truncating
+            write!(f, "{} [{}]", self.mapset.title, self.map.version)
+        } else if version < 15 {
+            // keep the version but truncate title
+            let (end, suffix) = tuple(title, 50 - version - 3 - 3);
+
+            write!(
+                f,
+                "{}{suffix} [{}]",
+                &self.mapset.title[..end],
+                self.map.version
+            )
+        } else if title < 15 {
+            // keep the title but truncate version
+            let (end, suffix) = tuple(version, 50 - title - 3 - 3);
+
+            write!(
+                f,
+                "{} [{}{suffix}]",
+                self.mapset.title,
+                &self.map.version[..end],
+            )
+        } else {
+            // truncate title and version evenly
+            let cut = (title + version + 3 + 6 - LIMIT) / 2;
+
+            let mut title_ = title.saturating_sub(cut).max(15);
+            let mut version_ = version.saturating_sub(cut).max(15);
+
+            if title_ + version_ + 3 > LIMIT - 6 {
+                if title_ == 15 {
+                    version_ = 50 - title_ - 3 - 6;
+                } else if version_ == 15 {
+                    title_ = 50 - version_ - 3 - 6;
+                }
             }
 
-            return format!("{div}.{rem}{chr}");
+            let (title_end, title_suffix) = tuple(title, title_);
+            let (version_end, version_suffix) = tuple(version, version_);
+
+            write!(
+                f,
+                "{}{title_suffix} [{}{version_suffix}]",
+                &self.mapset.title[..title_end],
+                &self.map.version[..version_end],
+            )
         }
     }
+}
 
-    format!("{score}")
+struct MissFormat(u32);
+
+impl Display for MissFormat {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        if self.0 == 0 {
+            return Ok(());
+        }
+
+        write!(
+            f,
+            "{miss}{emote} ",
+            miss = self.0,
+            emote = Emote::Miss.text()
+        )
+    }
+}
+
+struct ScoreFormat(u32);
+
+impl Display for ScoreFormat {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        if self.0 < 10_000 {
+            write!(f, "{}", self.0)
+        } else {
+            write!(f, "{}K", self.0 / 1000)
+        }
+    }
 }
 
 fn mode_str(mode: GameMode) -> &'static str {
@@ -260,20 +387,6 @@ fn mode_str(mode: GameMode) -> &'static str {
         GameMode::MNA => "Mania",
     }
 }
-
-impl_builder!(TopEmbed {
-    author,
-    description,
-    footer,
-    thumbnail,
-});
-
-impl_builder!(CondensedTopEmbed {
-    author,
-    description,
-    footer,
-    thumbnail,
-});
 
 pub struct OrderAppendix<'a> {
     sort_by: TopScoreOrder,
@@ -303,8 +416,8 @@ impl<'a> OrderAppendix<'a> {
     }
 }
 
-impl fmt::Display for OrderAppendix<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for OrderAppendix<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self.sort_by {
             TopScoreOrder::Farm => {
                 let mapset_id = self.map.mapset_id;
@@ -343,14 +456,25 @@ impl fmt::Display for OrderAppendix<'_> {
 
                 write!(f, " ~ `{}:{:0>2}`", secs / 60, secs % 60)
             }
-            TopScoreOrder::RankedDate => {
-                if let Some(date) = self.ranked_date {
-                    write!(f, " ~ <t:{}:d>", date.timestamp())
-                } else {
-                    Ok(())
-                }
-            }
+            TopScoreOrder::RankedDate => match self.ranked_date {
+                Some(date) => write!(f, " ~ <t:{}:d>", date.timestamp()),
+                None => Ok(()),
+            },
             _ => Ok(()),
         }
     }
 }
+
+impl_builder!(TopEmbed {
+    author,
+    description,
+    footer,
+    thumbnail,
+});
+
+impl_builder!(CondensedTopEmbed {
+    author,
+    description,
+    footer,
+    thumbnail,
+});
