@@ -165,14 +165,17 @@ async fn correct_guess(
     guess: HlGuess,
 ) -> BotResult<()> {
     let user = component.user_id()?;
-    let components = HlComponents::next();
+    let components = HlComponents::disabled();
     let ctx_clone = Arc::clone(&ctx);
-    let mut hl_games = ctx.hl_games().lock().await;
 
-    if let Some(mut game) = hl_games.get_mut(&user) {
+    let embed = if let Some(mut game) = ctx.hl_games().lock().await.get_mut(&user) {
+        // Callback with disabled components so nothing happens while the game is updated
+        let builder = MessageBuilder::new().components(components);
+        component.callback(&ctx, builder).await?;
+
+        // Update current score in embed
         let mut embed = game.reveal(&mut component)?;
 
-        // Update current score
         game.current_score += 1;
         let mut footer = game.footer();
         let _ = write!(footer, " • {guess} was correct, press Next to continue");
@@ -181,15 +184,21 @@ async fn correct_guess(
             footer_.text = footer;
         }
 
-        let builder = MessageBuilder::new().embed(embed).components(components);
+        // Updated the game
+        game.next(ctx_clone).await?;
 
-        let callback_fut = component.callback(&ctx, builder);
-        let next_fut = game.next(ctx_clone);
+        Some(embed)
+    } else {
+        None
+    };
 
-        let (callback_res, next_res) = tokio::join!(callback_fut, next_fut);
+    if let Some(embed) = embed {
+        // Send updated embed
+        let builder = MessageBuilder::new()
+            .embed(embed)
+            .components(HlComponents::next());
 
-        callback_res?;
-        next_res?;
+        component.update(&ctx, &builder).await?;
     }
 
     Ok(())
