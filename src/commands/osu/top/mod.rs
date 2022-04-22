@@ -1042,8 +1042,8 @@ async fn single_embed(
             // TODO: Add .limit(50) when supported by osu!api
             match ctx.osu().beatmap_scores(map.map_id).await {
                 Ok(scores) => scores.iter().position(|s| s == score),
-                Err(why) => {
-                    let report = Report::new(why).wrap_err("failed to get global scores");
+                Err(err) => {
+                    let report = Report::new(err).wrap_err("failed to get global scores");
                     warn!("{report:?}");
 
                     None
@@ -1092,8 +1092,8 @@ async fn single_embed(
                     builder = builder.content(content);
                 }
 
-                if let Err(why) = response.update(&ctx, &builder).await {
-                    let report = Report::new(why).wrap_err("failed to minimize top message");
+                if let Err(err) = response.update(&ctx, &builder).await {
+                    let report = Report::new(err).wrap_err("failed to minimize top message");
                     warn!("{report:?}");
                 }
             });

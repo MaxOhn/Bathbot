@@ -365,8 +365,8 @@ impl<'de> Deserialize<'de> for SnipeScore {
                         // "artist" => artist = Some(map.next_value()?),
                         // "date_ranked" => {
                         //     let date: &str = map.next_value()?;
-                        //     let date = Utc.datetime_from_str(date, "%F %T").unwrap_or_else(|why| {
-                        //         warn!("Couldn't parse date `{}`: {}", date, why);
+                        //     let date = Utc.datetime_from_str(date, "%F %T").unwrap_or_else(|err| {
+                        //         warn!("Couldn't parse date `{}`: {}", date, err);
                         //         Utc::now()
                         //     });
                         //     date_ranked = Some(date);
@@ -409,8 +409,8 @@ impl<'de> Deserialize<'de> for SnipeScore {
 
                 let date = Utc
                     .datetime_from_str(inner_score.date_set, DATE_FORMAT)
-                    .unwrap_or_else(|why| {
-                        warn!("Couldn't parse date `{}`: {why}", inner_score.date_set);
+                    .unwrap_or_else(|err| {
+                        warn!("Couldn't parse date `{}`: {err}", inner_score.date_set);
 
                         Utc::now()
                     });

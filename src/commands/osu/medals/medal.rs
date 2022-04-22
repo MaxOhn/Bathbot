@@ -79,10 +79,10 @@ pub(super) async fn info(
 
     let (mut maps, comments) = match tokio::try_join!(map_fut, comment_fut) {
         Ok((maps, comments)) => (maps, comments),
-        Err(why) => {
+        Err(err) => {
             let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 

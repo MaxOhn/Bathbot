@@ -245,10 +245,10 @@ pub(super) async fn simulate(
         Ok(mut scores) => match scores.pop() {
             Some(mut score) => match prepare_score(&ctx, &mut score).await {
                 Ok(_) => score,
-                Err(why) => {
+                Err(err) => {
                     let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-                    return Err(why.into());
+                    return Err(err.into());
                 }
             },
             None => {

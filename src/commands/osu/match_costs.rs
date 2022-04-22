@@ -184,10 +184,10 @@ async fn matchcosts(
 
             return orig.error(&ctx, content).await;
         }
-        Err(why) => {
+        Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 
@@ -281,7 +281,7 @@ pub async fn retrieve_previous(osu_match: &mut OsuMatch, osu: &Osu) -> OsuResult
                     osu_match.users.extend(prev.users);
                 }
             }
-            Some(Err(why)) => return Err(why),
+            Some(Err(err)) => return Err(err),
             None => break,
         }
     }

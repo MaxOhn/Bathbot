@@ -82,10 +82,10 @@ pub(super) async fn player_stats(
 
             return orig.error(&ctx, content).await;
         }
-        Err(why) => {
+        Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 
@@ -106,8 +106,8 @@ pub(super) async fn player_stats(
 
     let player = match player_fut.await {
         Ok(counts) => counts,
-        Err(why) => {
-            let report = Report::new(why).wrap_err("failed to retrieve snipe player");
+        Err(err) => {
+            let report = Report::new(err).wrap_err("failed to retrieve snipe player");
             warn!("{report:?}");
             let content = format!("`{name}` has never had any national #1s");
             let builder = MessageBuilder::new().embed(content);
@@ -134,7 +134,7 @@ pub(super) async fn player_stats(
             match score_fut.await {
                 Ok(mut score) => match super::prepare_score(&ctx, &mut score.score).await {
                     Ok(_) => Ok(Some(score.score)),
-                    Err(why) => Err(why),
+                    Err(err) => Err(err),
                 },
                 Err(err) => {
                     let report = Report::new(err).wrap_err("faield to retrieve oldest data");
@@ -161,10 +161,10 @@ pub(super) async fn player_stats(
 
     let first_score = match first_score_result {
         Ok(score) => score,
-        Err(why) => {
+        Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 

@@ -63,10 +63,10 @@ where
                 .into_iter()
                 .map(|(id, limit)| (Id::new(id.parse().unwrap()), limit))
                 .collect(),
-            Err(why) => {
+            Err(err) => {
                 let wrap =
                     format!("failed to deserialize tracking channels value for ({user_id},{mode})");
-                let report = Report::new(why).wrap_err(wrap);
+                let report = Report::new(err).wrap_err(wrap);
                 warn!("{:?}", report);
 
                 HashMap::new()

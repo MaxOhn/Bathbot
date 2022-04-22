@@ -58,17 +58,17 @@ pub async fn osu_tracking_loop(ctx: Arc<Context>) {
                         "got 404 while retrieving scores for ({user_id},{mode}), don't reset entry",
                     );
 
-                    if let Err(why) = ctx.tracking().remove_user_all(user_id, ctx.psql()).await {
-                        let report = Report::new(why)
+                    if let Err(err) = ctx.tracking().remove_user_all(user_id, ctx.psql()).await {
+                        let report = Report::new(err)
                             .wrap_err("failed to remove unknown user from tracking");
                         warn!("{report:?}");
                     }
                 }
-                Err(why) => {
+                Err(err) => {
                     let wrap = format!(
                         "osu!api issue while retrieving user ({user_id},{mode}) for tracking",
                     );
-                    let report = Report::new(why).wrap_err(wrap);
+                    let report = Report::new(err).wrap_err(wrap);
                     warn!("{report:?}");
                     ctx.tracking().reset(user_id, mode);
                 }
@@ -102,9 +102,9 @@ pub async fn process_osu_tracking(ctx: &Context, scores: &mut [Score], user: Opt
             .tracking()
             .update_last_date(user_id, mode, new_last, ctx.psql());
 
-        if let Err(why) = update_fut.await {
+        if let Err(err) = update_fut.await {
             let wrap = format!("error while updating tracking date for user ({user_id},{mode})");
-            warn!("{:?}", Report::new(why).wrap_err(wrap));
+            warn!("{:?}", Report::new(err).wrap_err(wrap));
         }
     }
 
@@ -149,8 +149,8 @@ async fn score_loop(
         });
 
         if requires_combo {
-            if let Err(why) = prepare_score(ctx, score).await {
-                let report = Report::new(why).wrap_err("failed to fill in max combo for tracking");
+            if let Err(err) = prepare_score(ctx, score).await {
+                let report = Report::new(err).wrap_err("failed to fill in max combo for tracking");
                 warn!("{report:?}");
 
                 continue;
@@ -174,8 +174,8 @@ async fn score_loop(
             // Try to build and send the message
             match ctx.http.create_message(channel).embeds(&[embed]) {
                 Ok(msg_fut) => {
-                    if let Err(why) = msg_fut.exec().await {
-                        if let TwilightErrorType::Response { error, .. } = why.kind() {
+                    if let Err(err) = msg_fut.exec().await {
+                        if let TwilightErrorType::Response { error, .. } = err.kind() {
                             if let ApiError::General(GeneralApiError {
                                 code: UNKNOWN_CHANNEL,
                                 ..
@@ -184,11 +184,11 @@ async fn score_loop(
                                 let remove_fut =
                                     ctx.tracking().remove_channel(channel, None, ctx.psql());
 
-                                if let Err(why) = remove_fut.await {
+                                if let Err(err) = remove_fut.await {
                                     let wrap = format!(
                                         "failed to remove osu tracks from unknown channel {channel}",
                                     );
-                                    let report = Report::new(why).wrap_err(wrap);
+                                    let report = Report::new(err).wrap_err(wrap);
                                     warn!("{report:?}");
                                 }
                             } else {
@@ -198,14 +198,14 @@ async fn score_loop(
                             }
                         } else {
                             let wrap = format!("error while sending osu notif (channel {channel})");
-                            let report = Report::new(why).wrap_err(wrap);
+                            let report = Report::new(err).wrap_err(wrap);
                             warn!("{report:?}");
                         }
                     }
                 }
-                Err(why) => {
+                Err(err) => {
                     let report =
-                        Report::new(why).wrap_err("invalid embed for osu!tracking notification");
+                        Report::new(err).wrap_err("invalid embed for osu!tracking notification");
                     warn!("{report:?}");
                 }
             }

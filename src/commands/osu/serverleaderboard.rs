@@ -241,10 +241,10 @@ async fn slash_serverleaderboard(
 
     let leaderboard = match ctx.psql().get_osu_users_stats(kind, &members).await {
         Ok(values) => values,
-        Err(why) => {
+        Err(err) => {
             let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(why);
+            return Err(err);
         }
     };
 

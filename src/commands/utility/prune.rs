@@ -85,10 +85,10 @@ async fn prune(ctx: Arc<Context>, orig: CommandOrigin<'_>, amount: u64) -> BotRe
             .take(amount as usize)
             .map(|msg| msg.id)
             .collect(),
-        Err(why) => {
+        Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 
@@ -100,8 +100,8 @@ async fn prune(ctx: Arc<Context>, orig: CommandOrigin<'_>, amount: u64) -> BotRe
         return Ok(());
     }
 
-    if let Err(why) = ctx.http.delete_messages(channel_id, &messages).exec().await {
-        if matches!(why.kind(), ErrorType::Response {
+    if let Err(err) = ctx.http.delete_messages(channel_id, &messages).exec().await {
+        if matches!(err.kind(), ErrorType::Response {
             error: ApiError::General(err),
             ..
         } if err.code == MESSAGE_TOO_OLD_TO_BULK_DELETE)
@@ -112,7 +112,7 @@ async fn prune(ctx: Arc<Context>, orig: CommandOrigin<'_>, amount: u64) -> BotRe
         } else {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     }
 

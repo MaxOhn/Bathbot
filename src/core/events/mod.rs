@@ -114,8 +114,8 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
             ctx.stats.event_counts.guild_create.inc();
             ctx.member_requests.todo_guilds.insert(e.id);
 
-            if let Err(why) = ctx.member_requests.tx.send((e.id, shard_id)) {
-                warn!("Failed to forward member request: {why}");
+            if let Err(err) = ctx.member_requests.tx.send((e.id, shard_id)) {
+                warn!("Failed to forward member request: {err}");
             }
 
             let stats = ctx.cache.stats();
@@ -211,7 +211,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
 
                         match add_role_fut.exec().await {
                             Ok(_) => debug!("Assigned react-role to user"),
-                            Err(why) => error!("Error while assigning react-role to user: {why}"),
+                            Err(err) => error!("Error while assigning react-role to user: {err}"),
                         }
                     }
                 }
@@ -230,8 +230,8 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
 
                         match remove_role_fut.exec().await {
                             Ok(_) => debug!("Removed react-role from user"),
-                            Err(why) => {
-                                error!("Error while removing react-role from user: {why}")
+                            Err(err) => {
+                                error!("Error while removing react-role from user: {err}")
                             }
                         }
                     }

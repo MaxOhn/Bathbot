@@ -86,10 +86,10 @@ pub(super) async fn missing(
 
             return Err(err.into());
         }
-        (Err(why), _) => {
+        (Err(err), _) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 

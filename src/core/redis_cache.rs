@@ -228,8 +228,8 @@ impl<'c> RedisCache<'c> {
 
                 conn
             }
-            Err(why) => {
-                let report = Report::new(why).wrap_err("failed to get redis connection");
+            Err(err) => {
+                let report = Report::new(err).wrap_err("failed to get redis connection");
                 warn!("{report:?}");
 
                 let user = match self.ctx.osu().user(args.name).mode(args.mode).await {
@@ -290,13 +290,13 @@ impl<'c> RedisCache<'c> {
 
         let (set_result, name_update_result) = tokio::join!(set_fut, name_update_fut);
 
-        if let Err(why) = set_result {
-            let report = Report::new(why).wrap_err("failed to insert bytes into cache");
+        if let Err(err) = set_result {
+            let report = Report::new(err).wrap_err("failed to insert bytes into cache");
             warn!("{report:?}");
         }
 
-        if let Err(why) = name_update_result {
-            let report = Report::new(why).wrap_err("failed to update osu! username");
+        if let Err(err) = name_update_result {
+            let report = Report::new(err).wrap_err("failed to update osu! username");
             warn!("{report:?}");
         }
 

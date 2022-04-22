@@ -64,10 +64,10 @@ pub async fn authorities(
                 }
             });
 
-            if let Err(why) = update_fut.await {
+            if let Err(err) = update_fut.await {
                 let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
 
-                return Err(why);
+                return Err(err);
             }
 
             "Successfully added authority role. Authority roles now are: ".to_owned()

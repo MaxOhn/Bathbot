@@ -259,10 +259,10 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
     } else {
         let msgs = match ctx.retrieve_channel_history(orig.channel_id()).await {
             Ok(msgs) => msgs,
-            Err(why) => {
+            Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(why);
+                return Err(err);
             }
         };
 
@@ -302,10 +302,10 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
                             (map.mapset_id, Some(id))
                         }
                         Err(OsuError::NotFound) => (id, None),
-                        Err(why) => {
+                        Err(err) => {
                             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-                            return Err(why.into());
+                            return Err(err.into());
                         }
                     }
                 }
@@ -343,10 +343,10 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
 
             return orig.error(&ctx, content).await;
         }
-        Err(why) => {
+        Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 
@@ -378,14 +378,14 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
                 None
             }
         },
-        (Err(why), _) => {
-            let report = Report::new(why).wrap_err("failed to create oppai values");
+        (Err(err), _) => {
+            let report = Report::new(err).wrap_err("failed to create oppai values");
             warn!("{report:?}");
 
             None
         }
-        (_, Err(why)) => {
-            let report = Report::new(why).wrap_err("failed to retrieve graph background");
+        (_, Err(err)) => {
+            let report = Report::new(err).wrap_err("failed to retrieve graph background");
             warn!("{report:?}");
 
             None
@@ -405,10 +405,10 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
 
     let embed_data = match data_fut.await {
         Ok(data) => data,
-        Err(why) => {
+        Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(why);
+            return Err(err);
         }
     };
 

@@ -390,8 +390,8 @@ pub(super) async fn top(
 
     let thumbnail = match thumbnail_result {
         Ok(thumbnail) => Some(thumbnail),
-        Err(why) => {
-            let report = Report::new(why).wrap_err("failed to combine avatars");
+        Err(err) => {
+            let report = Report::new(err).wrap_err("failed to combine avatars");
             warn!("{:?}", report);
 
             None

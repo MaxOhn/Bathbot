@@ -97,10 +97,10 @@ async fn prefix_prefix(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> 
         }
     });
 
-    if let Err(why) = update_fut.await {
+    if let Err(err) = update_fut.await {
         let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-        return Err(why);
+        return Err(err);
     }
 
     let mut content = "Prefixes updated!\n".to_owned();

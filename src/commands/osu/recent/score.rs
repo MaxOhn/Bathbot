@@ -326,10 +326,10 @@ pub(super) async fn score(
 
                 (score, tries)
             }
-            Err(why) => {
+            Err(err) => {
                 let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-                return Err(why.into());
+                return Err(err.into());
             }
         },
         None => {
@@ -384,8 +384,8 @@ pub(super) async fn score(
             match ctx.psql().get_user_config_by_osu(&user.username).await {
                 Ok(Some(config)) => config.twitch_id,
                 Ok(None) => None,
-                Err(why) => {
-                    let report = Report::new(why).wrap_err("failed to get config of input name");
+                Err(err) => {
+                    let report = Report::new(err).wrap_err("failed to get config of input name");
                     warn!("{report:?}");
 
                     None
@@ -407,8 +407,8 @@ pub(super) async fn score(
     let map_score = match map_score_result {
         None | Some(Err(OsuError::NotFound)) => None,
         Some(Ok(score)) => Some(score),
-        Some(Err(why)) => {
-            let report = Report::new(why).wrap_err("failed to get global scores");
+        Some(Err(err)) => {
+            let report = Report::new(err).wrap_err("failed to get global scores");
             warn!("{report:?}");
 
             None
@@ -418,8 +418,8 @@ pub(super) async fn score(
     let mut best = match best_result {
         None => None,
         Some(Ok(scores)) => Some(scores),
-        Some(Err(why)) => {
-            let report = Report::new(why).wrap_err("failed to get top scores");
+        Some(Err(err)) => {
+            let report = Report::new(err).wrap_err("failed to get top scores");
             warn!("{report:?}");
 
             None
@@ -446,10 +446,10 @@ pub(super) async fn score(
 
     let embed_data = match data_fut.await {
         Ok(data) => data,
-        Err(why) => {
+        Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(why);
+            return Err(err);
         }
     };
 
@@ -507,8 +507,8 @@ pub(super) async fn score(
                     builder = builder.content(mem::take(&mut response.content));
                 }
 
-                if let Err(why) = response.update(&ctx, &builder).await {
-                    let report = Report::new(why).wrap_err("failed to minimize message");
+                if let Err(err) = response.update(&ctx, &builder).await {
+                    let report = Report::new(err).wrap_err("failed to minimize message");
                     warn!("{report:?}");
                 }
             });

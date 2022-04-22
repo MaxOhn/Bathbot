@@ -109,8 +109,8 @@ impl Pagination for PlayerSnipeListPagination {
         if !map_ids.is_empty() {
             let mut maps = match self.ctx.psql().get_beatmaps(&map_ids, true).await {
                 Ok(maps) => maps,
-                Err(why) => {
-                    let report = Report::new(why).wrap_err("error while getting maps from DB");
+                Err(err) => {
+                    let report = Report::new(err).wrap_err("error while getting maps from DB");
                     warn!("{report:?}");
 
                     HashMap::default()
@@ -126,7 +126,7 @@ impl Pagination for PlayerSnipeListPagination {
                         Ok(map) => {
                             maps.insert(map_id, map);
                         }
-                        Err(why) => return Err(why.into()),
+                        Err(err) => return Err(err.into()),
                     }
                 }
             }

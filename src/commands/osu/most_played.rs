@@ -126,10 +126,10 @@ async fn mostplayed(
 
             return orig.error(&ctx, content).await;
         }
-        Err(why) => {
+        Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 

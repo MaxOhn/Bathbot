@@ -145,10 +145,10 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Bot
 
             return orig.error(&ctx, content).await;
         }
-        Err(why) => {
+        Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 
@@ -251,8 +251,8 @@ async fn single_embed(
 
             let personal_idx = match best_result {
                 Ok(scores) => scores.iter().position(|s| s == score),
-                Err(why) => {
-                    let report = Report::new(why).wrap_err("failed to get best scores");
+                Err(err) => {
+                    let report = Report::new(err).wrap_err("failed to get best scores");
                     warn!("{:?}", report);
 
                     None
@@ -261,8 +261,8 @@ async fn single_embed(
 
             let global_idx = match global_result {
                 Ok(scores) => scores.iter().position(|s| s == score),
-                Err(why) => {
-                    let report = Report::new(why).wrap_err("failed to get global scores");
+                Err(err) => {
+                    let report = Report::new(err).wrap_err("failed to get global scores");
                     warn!("{:?}", report);
 
                     None
@@ -308,8 +308,8 @@ async fn single_embed(
 
                 let builder = embed_data.into_builder().build().into();
 
-                if let Err(why) = response.update(&ctx, &builder).await {
-                    let report = Report::new(why).wrap_err("failed to minimize pinned message");
+                if let Err(err) = response.update(&ctx, &builder).await {
+                    let report = Report::new(err).wrap_err("failed to minimize pinned message");
                     warn!("{report:?}");
                 }
             });

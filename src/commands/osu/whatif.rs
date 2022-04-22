@@ -237,8 +237,8 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
 
         let rank = match rank_result {
             Ok(rank_pp) => Some(rank_pp.rank),
-            Err(why) => {
-                let report = Report::new(why).wrap_err("error while getting rank pp");
+            Err(err) => {
+                let report = Report::new(err).wrap_err("error while getting rank pp");
                 warn!("{report:?}");
 
                 None
@@ -272,8 +272,8 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
 
         let rank = match rank_fut.await {
             Ok(rank_pp) => Some(rank_pp.rank),
-            Err(why) => {
-                let report = Report::new(why).wrap_err("error while getting rank pp");
+            Err(err) => {
+                let report = Report::new(err).wrap_err("error while getting rank pp");
                 warn!("{report:?}");
 
                 None

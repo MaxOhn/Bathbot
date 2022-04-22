@@ -254,7 +254,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: ApplicationCommand) 
     match command_result {
         Ok(ProcessResult::Success) => info!("Processed slash command `{name}`"),
         Ok(result) => info!("Command `/{name}` was not processed: {result:?}"),
-        Err(why) => return Err(Error::Command(Box::new(why), name)),
+        Err(err) => return Err(Error::Command(Box::new(err), name)),
     }
 
     Ok(())
@@ -455,11 +455,11 @@ async fn pre_process_command(
 
                 return Ok(Some(ProcessResult::NoAuthority));
             }
-            Err(why) => {
+            Err(err) => {
                 let content = "Error while checking authority status";
                 let _ = premature_error(ctx, command, content, true).await;
 
-                return Err(Error::Authority(Box::new(why)));
+                return Err(Error::Authority(Box::new(err)));
             }
         }
     }

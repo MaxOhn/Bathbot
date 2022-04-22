@@ -168,8 +168,8 @@ async fn metrics_handler(req: Request<Body>) -> HandlerResult {
 async fn auth_osu_handler(req: Request<Body>) -> HandlerResult {
     match auth_osu_handler_(&req).await {
         Ok(response) => Ok(response),
-        Err(why) => {
-            warn!("{:?}", Report::new(why).wrap_err("osu! auth failed"));
+        Err(err) => {
+            warn!("{:?}", Report::new(err).wrap_err("osu! auth failed"));
 
             let render_data = json!({
                 "body_id": "error",
@@ -245,8 +245,8 @@ async fn auth_osu_handler_(req: &Request<Body>) -> HandlerResult {
 async fn auth_twitch_handler(req: Request<Body>) -> HandlerResult {
     match auth_twitch_handler_(&req).await {
         Ok(response) => Ok(response),
-        Err(why) => {
-            warn!("{:?}", Report::new(why).wrap_err("twitch auth failed"));
+        Err(err) => {
+            warn!("{:?}", Report::new(err).wrap_err("twitch auth failed"));
 
             let render_data = json!({
                 "body_id": "error",

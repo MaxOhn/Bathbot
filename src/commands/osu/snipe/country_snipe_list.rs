@@ -128,10 +128,10 @@ pub(super) async fn country_list(
     // Request players
     let mut players = match ctx.client().get_snipe_country(&country_code).await {
         Ok(players) => players,
-        Err(why) => {
+        Err(err) => {
             let _ = orig.error(&ctx, HUISMETBENEN_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 

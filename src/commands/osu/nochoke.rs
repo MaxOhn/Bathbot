@@ -240,10 +240,10 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
 
     let mut scores_data = match version.calculate(&ctx, scores, miss_limit).await {
         Ok(scores_data) => scores_data,
-        Err(why) => {
+        Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(why);
+            return Err(err);
         }
     };
 

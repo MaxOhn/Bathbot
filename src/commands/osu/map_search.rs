@@ -629,10 +629,10 @@ async fn prefix_search(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotR
 async fn search(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Search) -> BotResult<()> {
     let mut search_result = match args.request(ctx.osu()).await {
         Ok(response) => response,
-        Err(why) => {
+        Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE);
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 

@@ -189,8 +189,8 @@ pub trait Pagination: Sync + Sized {
         tokio::pin!(reaction_stream);
 
         while let Some(Ok(reaction)) = reaction_stream.next().await {
-            if let Err(why) = self.next_page(reaction.into_inner(), ctx).await {
-                warn!("{:?}", Report::new(why).wrap_err("error while paginating"));
+            if let Err(err) = self.next_page(reaction.into_inner(), ctx).await {
+                warn!("{:?}", Report::new(err).wrap_err("error while paginating"));
             }
         }
 
@@ -202,8 +202,8 @@ pub trait Pagination: Sync + Sized {
 
         let delete_fut = ctx.http.delete_all_reactions(msg.channel_id, msg.id).exec();
 
-        if let Err(why) = delete_fut.await {
-            if matches!(why.kind(), ErrorType::Response { status, .. } if status.raw() == 403) {
+        if let Err(err) = delete_fut.await {
+            if matches!(err.kind(), ErrorType::Response { status, .. } if status.raw() == 403) {
                 sleep(Duration::from_millis(100)).await;
 
                 for emote in &reactions {
@@ -215,7 +215,7 @@ pub trait Pagination: Sync + Sized {
                         .await?;
                 }
             } else {
-                return Err(why.into());
+                return Err(err.into());
             }
         }
 

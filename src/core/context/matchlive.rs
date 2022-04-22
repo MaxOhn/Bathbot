@@ -106,8 +106,8 @@ impl Context {
                 Err(OsuError::Response { status, .. }) if status == 401 => {
                     MatchTrackResult::Private
                 }
-                Err(why) => {
-                    let report = Report::new(why).wrap_err("failed to request initial match");
+                Err(err) => {
+                    let report = Report::new(err).wrap_err("failed to request initial match");
                     warn!("{report:?}");
 
                     MatchTrackResult::Error

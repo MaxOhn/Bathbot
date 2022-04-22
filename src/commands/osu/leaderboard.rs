@@ -257,10 +257,10 @@ async fn leaderboard(
 
                 return orig.error(&ctx, content).await;
             }
-            Err(why) => {
+            Err(err) => {
                 let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-                return Err(why.into());
+                return Err(err.into());
             }
         },
     };
@@ -278,10 +278,10 @@ async fn leaderboard(
 
     let scores = match scores_future.await {
         Ok(scores) => scores,
-        Err(why) => {
+        Err(err) => {
             let _ = orig.error(&ctx, OSU_WEB_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 
@@ -309,10 +309,10 @@ async fn leaderboard(
 
     let embed_data = match data_fut.await {
         Ok(data) => data,
-        Err(why) => {
+        Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(why);
+            return Err(err);
         }
     };
 

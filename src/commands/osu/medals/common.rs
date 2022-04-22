@@ -132,10 +132,10 @@ pub(super) async fn common(
 
     let (user1, user2, mut all_medals) = match tokio::join!(user_fut1, user_fut2, redis.medals()) {
         (Ok(user1), Ok(user2), Ok(medals)) => (user1, user2, medals.to_inner()),
-        (Err(why), ..) | (_, Err(why), _) => {
+        (Err(err), ..) | (_, Err(err), _) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
         (.., Err(err)) => {
             let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
@@ -277,8 +277,8 @@ pub(super) async fn common(
 
     let thumbnail = match get_combined_thumbnail(&ctx, urls, 2, None).await {
         Ok(thumbnail) => Some(thumbnail),
-        Err(why) => {
-            let report = Report::new(why).wrap_err("failed to combine avatars");
+        Err(err) => {
+            let report = Report::new(err).wrap_err("failed to combine avatars");
             warn!("{report:?}");
 
             None

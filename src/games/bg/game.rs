@@ -50,18 +50,18 @@ impl Game {
 
                     match sub_image_result {
                         Ok(img) => return (game, img),
-                        Err(why) => {
+                        Err(err) => {
                             let wrap = format!(
                                 "failed to create initial bg image for id {}",
                                 game.mapset_id
                             );
-                            let report = Report::new(why).wrap_err(wrap);
+                            let report = Report::new(err).wrap_err(wrap);
                             warn!("{report:?}");
                         }
                     }
                 }
-                Err(why) => {
-                    let report = Report::new(why).wrap_err("error while creating bg game");
+                Err(err) => {
+                    let report = Report::new(err).wrap_err("error while creating bg game");
                     warn!("{report:?}");
                 }
             }
@@ -222,8 +222,8 @@ pub async fn game_loop(
                 );
 
                 // Send message
-                if let Err(why) = channel.plain_message(ctx, &content).await {
-                    let report = Report::new(why).wrap_err("error while sending msg for winner");
+                if let Err(err) = channel.plain_message(ctx, &content).await {
+                    let report = Report::new(err).wrap_err("error while sending msg for winner");
                     warn!("{report:?}");
                 }
 
@@ -252,9 +252,9 @@ pub async fn game_loop(
                 // Send message
                 let msg_fut = ctx.http.create_message(channel).content(&content).unwrap();
 
-                if let Err(why) = msg_fut.exec().await {
+                if let Err(err) = msg_fut.exec().await {
                     let report =
-                        Report::new(why).wrap_err("error while sending msg for correct artist");
+                        Report::new(err).wrap_err("error while sending msg for correct artist");
                     warn!("{report:?}");
                 }
             }

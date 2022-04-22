@@ -16,9 +16,9 @@ use crate::{
             common_literals::{MANIA, OSU},
             GENERAL_ISSUE, OSU_BASE, OWNER_USER_ID,
         },
-        send_reaction, CowUtils, Emote, 
+        send_reaction, CowUtils, Emote,
     },
-    BotResult,  Context,  CONFIG,
+    BotResult, Context, CONFIG,
 };
 
 #[command]
@@ -110,7 +110,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
         match db_result {
             Ok(_) => ctx.psql().get_tags_mapset(mapset_id).await,
-            Err(why) => Err(why),
+            Err(err) => Err(err),
         }
     };
 
@@ -122,10 +122,10 @@ async fn bgtagsmanual(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
             let builder = MessageBuilder::new().content(content);
             msg.create_message(&ctx, builder).await?;
         }
-        Err(why) => {
+        Err(err) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(why);
+            return Err(err);
         }
     }
 
@@ -168,10 +168,10 @@ async fn bgtags(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
     let mut untagged = match ctx.psql().get_all_tags_mapset(mode).await {
         Ok(tags) => tags.iter().any(|tag| tag.untagged()),
-        Err(why) => {
+        Err(err) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(why);
+            return Err(err);
         }
     };
 
@@ -214,10 +214,10 @@ async fn bgtags(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 
                 tags
             }
-            Err(why) => {
+            Err(err) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(why);
+                return Err(err);
             }
         };
 
@@ -339,15 +339,15 @@ async fn bgtags(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
         }
 
         if !add_tags.is_empty() {
-            if let Err(why) = ctx.psql().add_tags_mapset(mapset_id, add_tags).await {
-                let report = Report::new(why).wrap_err("failed to add tags");
+            if let Err(err) = ctx.psql().add_tags_mapset(mapset_id, add_tags).await {
+                let report = Report::new(err).wrap_err("failed to add tags");
                 warn!("{:?}", report);
             }
         }
 
         if !remove_tags.is_empty() {
-            if let Err(why) = ctx.psql().remove_tags_mapset(mapset_id, remove_tags).await {
-                let report = Report::new(why).wrap_err("failed to remove tags");
+            if let Err(err) = ctx.psql().remove_tags_mapset(mapset_id, remove_tags).await {
+                let report = Report::new(err).wrap_err("failed to remove tags");
                 warn!("{:?}", report);
             }
         }
@@ -365,10 +365,10 @@ async fn bgtags(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                     msg.create_message(&ctx, builder).await?;
                 }
             }
-            Err(why) => {
+            Err(err) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(why);
+                return Err(err);
             }
         };
 
@@ -403,9 +403,9 @@ async fn get_random_image(mut mapsets: Vec<MapsetTagWrapper>, mode: GameMode) ->
 
         match fs::read(&path).await {
             Ok(bytes) => return (mapset.mapset_id, bytes),
-            Err(why) => {
+            Err(err) => {
                 let wrap = format!("error while reading file {}", path.display());
-                let report = Report::new(why).wrap_err(wrap);
+                let report = Report::new(err).wrap_err(wrap);
                 warn!("{:?}", report);
                 path.pop();
             }

@@ -75,8 +75,8 @@ impl ProfilePagination {
         tokio::pin!(reaction_stream);
 
         while let Some(Ok(reaction)) = reaction_stream.next().await {
-            if let Err(why) = self.next_page(reaction.into_inner(), ctx).await {
-                warn!("{:?}", Report::new(why).wrap_err("error while paginating"));
+            if let Err(err) = self.next_page(reaction.into_inner(), ctx).await {
+                warn!("{:?}", Report::new(err).wrap_err("error while paginating"));
             }
         }
 

@@ -112,10 +112,10 @@ async fn ranking(
 ) -> BotResult<()> {
     let mut ranking = match result {
         Ok(ranking) => ranking,
-        Err(why) => {
+        Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(why.into());
+            return Err(err.into());
         }
     };
 

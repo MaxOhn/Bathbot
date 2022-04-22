@@ -263,16 +263,16 @@ async fn handle_both_links(
             config.twitch_id = Some(twitch.user_id);
             twitch_name = Some(twitch.display_name);
         }
-        Some(Err(why)) => return Err(why),
+        Some(Err(err)) => return Err(err),
         None => return Ok(()),
     }
 
     let author = command.user()?;
 
-    if let Err(why) = ctx.psql().insert_user_config(author.id, &config).await {
+    if let Err(err) = ctx.psql().insert_user_config(author.id, &config).await {
         let _ = command.error(ctx, GENERAL_ISSUE).await;
 
-        return Err(why);
+        return Err(err);
     }
 
     let embed_data = ConfigEmbed::new(author, config, twitch_name);
@@ -301,16 +301,16 @@ async fn handle_twitch_link(
 
             Some(user.display_name)
         }
-        Some(Err(why)) => return Err(why),
+        Some(Err(err)) => return Err(err),
         None => return Ok(()),
     };
 
     let author = command.user()?;
 
-    if let Err(why) = ctx.psql().insert_user_config(author.id, &config).await {
+    if let Err(err) = ctx.psql().insert_user_config(author.id, &config).await {
         let _ = command.error(ctx, GENERAL_ISSUE).await;
 
-        return Err(why);
+        return Err(err);
     }
 
     let embed_data = ConfigEmbed::new(author, config, twitch_name);
@@ -338,7 +338,7 @@ async fn handle_osu_link(
             user_id: user.user_id,
             username: user.username,
         }),
-        Some(Err(why)) => return Err(why),
+        Some(Err(err)) => return Err(err),
         None => return Ok(()),
     };
 
@@ -411,10 +411,10 @@ async fn handle_no_links(
                 debug!("No twitch user found for given id, remove from config");
                 config.twitch_id.take();
             }
-            Err(why) => {
+            Err(err) => {
                 let _ = command.error(ctx, TWITCH_API_ISSUE).await;
 
-                return Err(why.into());
+                return Err(err.into());
             }
         }
     }

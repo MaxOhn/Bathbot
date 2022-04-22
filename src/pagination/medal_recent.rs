@@ -135,8 +135,8 @@ impl MedalRecentPagination {
         tokio::pin!(reaction_stream);
 
         while let Some(Ok(reaction)) = reaction_stream.next().await {
-            if let Err(why) = self.next_page(reaction.into_inner(), ctx).await {
-                warn!("{:?}", Report::new(why).wrap_err("error while paginating"));
+            if let Err(err) = self.next_page(reaction.into_inner(), ctx).await {
+                warn!("{:?}", Report::new(err).wrap_err("error while paginating"));
             }
         }
 
@@ -148,8 +148,8 @@ impl MedalRecentPagination {
 
         let delete_fut = ctx.http.delete_all_reactions(msg.channel_id, msg.id).exec();
 
-        if let Err(why) = delete_fut.await {
-            if matches!(why.kind(), ErrorType::Response { status, ..} if status.raw() == 403) {
+        if let Err(err) = delete_fut.await {
+            if matches!(err.kind(), ErrorType::Response { status, ..} if status.raw() == 403) {
                 sleep(Duration::from_millis(100)).await;
 
                 for emote in &reactions {
@@ -161,7 +161,7 @@ impl MedalRecentPagination {
                         .await?;
                 }
             } else {
-                return Err(why.into());
+                return Err(err.into());
             }
         }
 
@@ -309,11 +309,11 @@ impl MedalRecentPagination {
 
                         let (mut maps, comments) = match tokio::try_join!(map_fut, comment_fut) {
                             Ok(tuple) => tuple,
-                            Err(why) => {
+                            Err(err) => {
                                 let wrap = format!(
                                     "failed to retrieve osekai maps or comments for medal {name}"
                                 );
-                                let report = Report::new(why).wrap_err(wrap);
+                                let report = Report::new(err).wrap_err(wrap);
                                 warn!("{report:?}");
 
                                 (Vec::new(), Vec::new())

@@ -131,8 +131,8 @@ impl<'de> Visitor<'de> for MaybeModsString {
         for result in v.split(',').map(GameMods::from_str) {
             match result {
                 Ok(m) => mods |= m,
-                Err(why) => {
-                    return Err(Error::custom(format_args!(r#"invalid value "{v}": {why}"#)));
+                Err(err) => {
+                    return Err(Error::custom(format_args!(r#"invalid value "{v}": {err}"#)));
                 }
             }
         }

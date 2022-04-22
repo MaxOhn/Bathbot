@@ -342,10 +342,10 @@ async fn request_by_map(
                     .best();
 
                 let (user, best) = match tokio::join!(mapset_fut, user_fut, best_fut) {
-                    (_, Err(why), _) | (_, _, Err(why)) => {
+                    (_, Err(err), _) | (_, _, Err(err)) => {
                         let _ = orig.error(ctx, OSU_API_ISSUE).await;
 
-                        return ScoreResult::Error(why.into());
+                        return ScoreResult::Error(err.into());
                     }
                     (Ok(mapset), Ok(user), Ok(best)) => {
                         map.mapset = Some(mapset);

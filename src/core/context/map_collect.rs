@@ -40,11 +40,11 @@ impl Context {
 
             match time::timeout(five_seconds, remove_file(map_path)).await {
                 Ok(Ok(_)) => success += 1,
-                Ok(Err(why)) => match why.kind() {
+                Ok(Err(err)) => match err.kind() {
                     ErrorKind::NotFound => file_not_found += 1,
                     _ => {
                         let wrap = format!("[BG] Failed to delete map {map_id}");
-                        let report = Report::new(why).wrap_err(wrap);
+                        let report = Report::new(err).wrap_err(wrap);
                         warn!("{:?}", report);
                     }
                 },

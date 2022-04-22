@@ -70,18 +70,18 @@ pub async fn addbg(
             // Create file
             let mut file = match File::create(&path).await {
                 Ok(file) => file,
-                Err(why) => {
+                Err(err) => {
                     let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
-                    return Err(why.into());
+                    return Err(err.into());
                 }
             };
 
             // Store in file
-            if let Err(why) = file.write_all(&content).await {
+            if let Err(err) = file.write_all(&content).await {
                 let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(why.into());
+                return Err(err.into());
             }
             path
         }
@@ -136,8 +136,8 @@ async fn prepare_mapset(
             Err(OsuError::NotFound) => {
                 return Err("No mapset found with the name of the given file as id")
             }
-            Err(why) => {
-                let report = Report::new(why).wrap_err("failed to request mapset");
+            Err(err) => {
+                let report = Report::new(err).wrap_err("failed to request mapset");
                 error!("{:?}", report);
 
                 return Err(OSU_API_ISSUE);
@@ -145,8 +145,8 @@ async fn prepare_mapset(
         },
     };
 
-    if let Err(why) = ctx.psql().add_tag_mapset(mapset_id, filename, mode).await {
-        let report = Report::new(why).wrap_err("error while adding mapset to tags table");
+    if let Err(err) = ctx.psql().add_tag_mapset(mapset_id, filename, mode).await {
+        let report = Report::new(err).wrap_err("error while adding mapset to tags table");
         warn!("{:?}", report);
 
         return Err("There is already an entry with this mapset id");

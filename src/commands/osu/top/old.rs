@@ -601,10 +601,10 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
 
     let mut scores_data = match modify_scores(&ctx, scores, &args).await {
         Ok(scores) => scores,
-        Err(why) => {
+        Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(why);
+            return Err(err);
         }
     };
 
