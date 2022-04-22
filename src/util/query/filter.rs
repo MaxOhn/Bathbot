@@ -101,17 +101,17 @@ impl<'q> FilterCriteria<'q> {
         op: Operator,
     ) -> bool {
         match key.as_ref() {
-            "star" | "stars" => self.stars.try_update(op, &value, 0.05),
-            "ar" => self.ar.try_update(op, &value, 0.05),
-            "dr" | "hp" => self.hp.try_update(op, &value, 0.05),
-            "cs" => self.cs.try_update(op, &value, 0.05),
-            "od" => self.od.try_update(op, &value, 0.05),
+            "star" | "stars" => self.stars.try_update(op, &value, 0.005),
+            "ar" => self.ar.try_update(op, &value, 0.005),
+            "dr" | "hp" => self.hp.try_update(op, &value, 0.005),
+            "cs" => self.cs.try_update(op, &value, 0.005),
+            "od" => self.od.try_update(op, &value, 0.005),
             "bpm" => self.bpm.try_update(op, &value, 0.05),
             "length" | "len" => self.try_update_len(op, &value),
             "creator" | "mapper" => self.creator.try_update(op, value),
             "artist" => self.creator.try_update(op, value),
             "title" => self.title.try_update(op, value),
-            "key" | "keys" => self.keys.try_update(op, &value, 0.05),
+            "key" | "keys" => self.keys.try_update(op, &value, 0.5),
             _ => false,
         }
     }
