@@ -5,8 +5,11 @@ use rosu_v2::prelude::{Score, User};
 use twilight_model::channel::Message;
 
 use crate::{
-    commands::osu::TopScoreOrder, core::Context, custom_client::OsuTrackerMapsetEntry,
-    embeds::{TopEmbed, CondensedTopEmbed}, BotResult,
+    commands::osu::TopScoreOrder,
+    core::Context,
+    custom_client::OsuTrackerMapsetEntry,
+    embeds::{CondensedTopEmbed, TopEmbed},
+    BotResult,
 };
 
 use super::{Pages, Pagination};
@@ -48,6 +51,8 @@ pub struct CondensedTopPagination {
     pages: Pages,
     user: User,
     scores: Vec<(usize, Score)>,
+    sort_by: TopScoreOrder,
+    farm: HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
 }
 
 impl CondensedTopPagination {
@@ -55,6 +60,8 @@ impl CondensedTopPagination {
         msg: Message,
         user: User,
         scores: Vec<(usize, Score)>,
+        sort_by: TopScoreOrder,
+        farm: HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
         ctx: Arc<Context>,
     ) -> Self {
         Self {
@@ -62,6 +69,8 @@ impl CondensedTopPagination {
             msg,
             user,
             scores,
+            sort_by,
+            farm,
             ctx,
         }
     }
@@ -109,7 +118,6 @@ impl Pagination for TopPagination {
     }
 }
 
-
 #[async_trait]
 impl Pagination for CondensedTopPagination {
     type PageData = CondensedTopEmbed;
@@ -143,6 +151,8 @@ impl Pagination for CondensedTopPagination {
             &self.user,
             scores,
             &self.ctx,
+            self.sort_by,
+            &self.farm,
             pages,
         );
 

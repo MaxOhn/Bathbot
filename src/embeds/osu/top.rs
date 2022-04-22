@@ -14,11 +14,12 @@ use crate::{
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
-        datetime::how_long_ago_dynamic,
         numbers::{round, with_comma_int},
         Emote, ScoreExt,
     },
 };
+
+type Farm = HashMap<u32, (OsuTrackerMapsetEntry, bool)>;
 
 pub struct TopEmbed {
     author: AuthorBuilder,
@@ -33,7 +34,7 @@ impl TopEmbed {
         scores: S,
         ctx: &Context,
         sort_by: impl Into<TopScoreOrder>,
-        farm: &HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
+        farm: &Farm,
         pages: (usize, usize),
     ) -> Self
     where
@@ -47,7 +48,7 @@ impl TopEmbed {
         scores: S,
         ctx: &Context,
         sort_by: TopScoreOrder,
-        farm: &HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
+        farm: &Farm,
         pages: (usize, usize),
     ) -> Self
     where
@@ -84,17 +85,7 @@ impl TopEmbed {
             let pp = osu::get_pp(pp, max_pp);
 
             let mapset_opt = if let TopScoreOrder::RankedDate = sort_by {
-                let mapset_fut = ctx.psql().get_beatmapset::<Beatmapset>(mapset.mapset_id);
-
-                match mapset_fut.await {
-                    Ok(mapset) => Some(mapset),
-                    Err(err) => {
-                        let report = Report::new(err).wrap_err("failed to get mapset");
-                        warn!("{report:?}");
-
-                        None
-                    }
-                }
+                retrieve_mapset(ctx, mapset.mapset_id).await
             } else {
                 None
             };
@@ -102,7 +93,7 @@ impl TopEmbed {
             let _ = writeln!(
                 description,
                 "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars}]\n\
-                {grade} {pp} • {acc}% • {score}{appendix}\n[ {combo} ] • {hits} • {ago}",
+                {grade} {pp} • {acc}% • {score}\n[ {combo} ] • {hits} • {appendix}",
                 idx = idx + 1,
                 title = mapset.title,
                 version = map.version,
@@ -111,10 +102,9 @@ impl TopEmbed {
                 grade = score.grade_emote(score.mode),
                 acc = score.acc(score.mode),
                 score = with_comma_int(score.score),
-                appendix = OrderAppendix::new(sort_by, map, mapset_opt, score, farm),
                 combo = osu::get_combo(score, map),
                 hits = score.hits_string(score.mode),
-                ago = how_long_ago_dynamic(&score.created_at)
+                appendix = OrderAppendix::new(sort_by, map, mapset_opt, score, farm),
             );
         }
 
@@ -144,14 +134,21 @@ pub struct CondensedTopEmbed {
 }
 
 impl CondensedTopEmbed {
-    pub async fn new<'i, S>(user: &User, scores: S, ctx: &Context, pages: (usize, usize)) -> Self
+    pub async fn new<'i, S>(
+        user: &User,
+        scores: S,
+        ctx: &Context,
+        sort_by: TopScoreOrder,
+        farm: &Farm,
+        pages: (usize, usize),
+    ) -> Self
     where
         S: Iterator<Item = &'i (usize, Score)>,
     {
         let description = if user.mode == GameMode::MNA {
-            Self::description_mania(scores, ctx).await
+            Self::description_mania(scores, ctx, sort_by, farm).await
         } else {
-            Self::description(scores, ctx).await
+            Self::description(scores, ctx, sort_by, farm).await
         };
 
         let footer_text = format!(
@@ -169,7 +166,12 @@ impl CondensedTopEmbed {
         }
     }
 
-    async fn description<'i, S>(scores: S, ctx: &Context) -> String
+    async fn description<'i, S>(
+        scores: S,
+        ctx: &Context,
+        sort_by: TopScoreOrder,
+        farm: &Farm,
+    ) -> String
     where
         S: Iterator<Item = &'i (usize, Score)>,
     {
@@ -198,10 +200,16 @@ impl CondensedTopEmbed {
                 }
             };
 
+            let mapset_opt = if let TopScoreOrder::RankedDate = sort_by {
+                retrieve_mapset(ctx, mapset.mapset_id).await
+            } else {
+                None
+            };
+
             let _ = writeln!(
                 description,
                 "**{idx}. [{map}]({OSU_BASE}b/{map_id})** [{stars}★]\n\
-                {grade} *{pp}pp* ({acc}%) [**{combo}x**/{max_combo}x] {miss}**+{mods}** <t:{timestamp}:R>",
+                {grade} *{pp}pp* ({acc}%) [**{combo}x**/{max_combo}x] {miss}**+{mods}** {appendix}",
                 idx = idx + 1,
                 map = MapFormat { map, mapset },
                 map_id = map.map_id,
@@ -213,14 +221,19 @@ impl CondensedTopEmbed {
                 max_combo = map.max_combo.unwrap_or(0),
                 miss = MissFormat(score.statistics.count_miss),
                 mods = score.mods,
-                timestamp = score.created_at.timestamp(),
+                appendix = OrderAppendix::new(sort_by, map, mapset_opt, score, farm),
             );
         }
 
         description
     }
 
-    async fn description_mania<'i, S>(scores: S, ctx: &Context) -> String
+    async fn description_mania<'i, S>(
+        scores: S,
+        ctx: &Context,
+        sort_by: TopScoreOrder,
+        farm: &Farm,
+    ) -> String
     where
         S: Iterator<Item = &'i (usize, Score)>,
     {
@@ -244,10 +257,16 @@ impl CondensedTopEmbed {
 
             let stats = &score.statistics;
 
+            let mapset_opt = if let TopScoreOrder::RankedDate = sort_by {
+                retrieve_mapset(ctx, mapset.mapset_id).await
+            } else {
+                None
+            };
+
             let _ = writeln!(
                 description,
                 "**{idx}. [{map}]({OSU_BASE}b/{map_id}) +{mods}**\n\
-                {grade} *{pp}pp* ({acc}%) `{score}` {{{n320}/{n300}/.../{miss}}} <t:{timestamp}:R>",
+                {grade} *{pp}pp* ({acc}%) `{score}` {{{n320}/{n300}/.../{miss}}} {appendix}",
                 idx = idx + 1,
                 map = MapFormat { map, mapset },
                 map_id = map.map_id,
@@ -262,7 +281,7 @@ impl CondensedTopEmbed {
                 // n100 = stats.count_100,
                 // n50 = stats.count_50,
                 miss = stats.count_miss,
-                timestamp = score.created_at.timestamp(),
+                appendix = OrderAppendix::new(sort_by, map, mapset_opt, score, farm),
             );
         }
 
@@ -402,7 +421,7 @@ impl<'a> OrderAppendix<'a> {
         map: &'a Beatmap,
         mapset: Option<Beatmapset>,
         score: &'a Score,
-        farm: &'a HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
+        farm: &'a Farm,
     ) -> Self {
         let ranked_date = mapset.and_then(|mapset| mapset.ranked_date);
 
@@ -426,7 +445,7 @@ impl Display for OrderAppendix<'_> {
                     .get(&mapset_id)
                     .map_or(0, |(entry, _)| entry.count);
 
-                write!(f, " ~ `{}`", with_comma_int(count))
+                write!(f, "`{}`", with_comma_int(count))
             }
             TopScoreOrder::Bpm => {
                 let mods = self.score.mods;
@@ -439,7 +458,7 @@ impl Display for OrderAppendix<'_> {
                     1.0
                 };
 
-                write!(f, " ~ `{}bpm`", round(self.map.bpm * clock_rate))
+                write!(f, "`{}bpm`", round(self.map.bpm * clock_rate))
             }
             TopScoreOrder::Length => {
                 let mods = self.score.mods;
@@ -454,13 +473,34 @@ impl Display for OrderAppendix<'_> {
 
                 let secs = (self.map.seconds_drain as f32 / clock_rate) as u32;
 
-                write!(f, " ~ `{}:{:0>2}`", secs / 60, secs % 60)
+                write!(f, "`{}:{:0>2}`", secs / 60, secs % 60)
             }
             TopScoreOrder::RankedDate => match self.ranked_date {
-                Some(date) => write!(f, " ~ <t:{}:d>", date.timestamp()),
+                Some(date) => write!(f, "<t:{}:d>", date.timestamp()),
                 None => Ok(()),
             },
-            _ => Ok(()),
+            _ => write!(f, "<t:{}:R>", self.score.created_at.timestamp()),
+        }
+    }
+}
+
+async fn retrieve_mapset(ctx: &Context, mapset_id: u32) -> Option<Beatmapset> {
+    let mapset_fut = ctx.psql().get_beatmapset::<Beatmapset>(mapset_id);
+
+    match mapset_fut.await {
+        Ok(mapset) => {
+            if let Err(err) = ctx.psql().insert_beatmapset(&mapset).await {
+                let report = Report::new(err).wrap_err("failed to insert mapset into DB");
+                warn!("{report:?}");
+            }
+
+            Some(mapset)
+        }
+        Err(err) => {
+            let report = Report::new(err).wrap_err("failed to get mapset");
+            warn!("{report:?}");
+
+            None
         }
     }
 }
