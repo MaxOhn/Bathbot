@@ -71,7 +71,7 @@ pub use self::{
     profile::ProfilePagination, ranking::RankingPagination,
     ranking_countries::RankingCountriesPagination, recent_list::RecentListPagination,
     scores::ScoresPagination, sniped_difference::SnipedDiffPagination, top::TopPagination,
-    top_if::TopIfPagination,
+    top::CondensedTopPagination, top_if::TopIfPagination,
 };
 
 type ReactionVec = SmallVec<[Emote; 7]>;
