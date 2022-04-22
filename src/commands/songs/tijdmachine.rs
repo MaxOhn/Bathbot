@@ -22,7 +22,7 @@ pub fn tijdmachine_() -> (&'static [&'static str], u64) {
         "Maar die heb ik niet,",
         "dus zal ik mij gedragen,",
         "en zal ik blijven sparen,",
-        "sparen voor een tijjjdmaaachine.",
+        "sparen voor een tiiijdmaaachine.",
     ];
 
     (lyrics, 2500)
