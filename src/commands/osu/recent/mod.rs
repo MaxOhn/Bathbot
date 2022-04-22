@@ -142,6 +142,8 @@ pub struct RecentBest {
     farm: Option<FarmFilter>,
     /// Filter out all scores that don't have a perfect combo
     perfect_combo: Option<bool>,
+    /// Condense top plays
+    condensed: Option<bool>,
 }
 
 impl<'a> TryFrom<RecentBest> for TopArgs<'a> {
@@ -170,6 +172,7 @@ impl<'a> TryFrom<RecentBest> for TopArgs<'a> {
             index: args.index.map(|n| n as usize),
             query: args.query,
             farm: args.farm,
+            condensed: args.condensed,
             has_dash_r: false,
             has_dash_p_or_i: false,
         })
