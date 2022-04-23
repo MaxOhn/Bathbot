@@ -1,8 +1,8 @@
 use crate::{embeds::osu, util::constants::OSU_BASE};
 
 use hashbrown::HashMap;
-use rosu_v2::prelude::{MostPlayedMap, Username};
-use std::fmt::Write;
+use rosu_v2::prelude::MostPlayedMap;
+use std::{cmp::Ordering, fmt::Write};
 
 pub struct MostPlayedCommonEmbed {
     description: String,
@@ -10,56 +10,32 @@ pub struct MostPlayedCommonEmbed {
 
 impl MostPlayedCommonEmbed {
     pub fn new(
-        names: &[Username],
-        maps: &[MostPlayedMap],
-        users_count: &[HashMap<u32, usize>],
+        name1: &str,
+        name2: &str,
+        map_counts: &[(u32, usize)],
+        maps: &HashMap<u32, ([usize; 2], MostPlayedMap)>,
         index: usize,
     ) -> Self {
         let mut description = String::with_capacity(512);
-        let mut positions = Vec::with_capacity(names.len());
 
-        for (i, map) in maps.iter().enumerate() {
-            let map_id = &map.map.map_id;
+        for ((map_id, _), i) in map_counts.iter().zip(1..) {
+            let ([count1, count2], map) = maps.get(map_id).unwrap();
+
+            let (medal1, medal2) = match count1.cmp(&count2) {
+                Ordering::Less => ("second", "first"),
+                Ordering::Equal => ("first", "first"),
+                Ordering::Greater => ("first", "second"),
+            };
 
             let _ = writeln!(
                 description,
-                "**{idx}.** [{title} [{version}]]({base}b/{id}) [{stars}]",
-                idx = index + i + 1,
+                "**{idx}.** [{title} [{version}]]({OSU_BASE}b/{map_id}) [{stars}]\n\
+                - :{medal1}_place: `{name1}`: **{count1}** :{medal2}_place: `{name2}`: **{count2}**",
+                idx = index + i,
                 title = map.mapset.title,
                 version = map.map.version,
-                base = OSU_BASE,
-                id = map_id,
                 stars = osu::get_stars(map.map.stars),
             );
-
-            description.push('-');
-            positions.extend(names.iter().map(|_| 0_u8));
-
-            let count_0 = users_count[0][map_id];
-            let count_1 = users_count[1][map_id];
-            positions[(count_0 > count_1) as usize] += 1;
-
-            if let Some(&count_2) = users_count.get(2).and_then(|counts| counts.get(map_id)) {
-                positions[2 * (count_0 > count_2) as usize] += 1;
-                positions[1 + (count_1 > count_2) as usize] += 1;
-            }
-
-            for (i, (name, pos)) in names.iter().zip(positions.drain(..)).enumerate() {
-                let _ = write!(
-                    description,
-                    " :{medal}_place: `{name}`: **{count}**",
-                    medal = match pos {
-                        0 => "first",
-                        1 => "second",
-                        2 => "third",
-                        _ => unreachable!(),
-                    },
-                    name = name,
-                    count = users_count[i][map_id],
-                );
-            }
-
-            description.push('\n');
         }
 
         description.pop();

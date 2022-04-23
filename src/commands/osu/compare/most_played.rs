@@ -7,7 +7,6 @@ use rosu_v2::{
     prelude::{GameMode, MostPlayedMap, OsuError},
     OsuResult,
 };
-use smallvec::SmallVec;
 
 use crate::{
     commands::osu::{NameExtraction, UserArgs},
@@ -138,50 +137,29 @@ pub(super) async fn mostplayed(
         }
     };
 
-    // TODO: find nicer structure
-    let mut users_count = SmallVec::<[HashMap<u32, usize>; 3]>::with_capacity(2);
-    let mut all_maps = HashMap::with_capacity(100);
-
-    let map_counts = maps1
-        .iter()
-        .map(|map| (map.map.map_id, map.count))
-        .collect();
-    users_count.push(map_counts);
-    all_maps.extend(maps1.into_iter().map(|map| (map.map.map_id, map)));
-
-    let map_counts = maps2
-        .iter()
-        .map(|map| (map.map.map_id, map.count))
-        .collect();
-    users_count.push(map_counts);
-    all_maps.extend(maps2.into_iter().map(|map| (map.map.map_id, map)));
-
     // Consider only maps that appear in each users map list
-    let mut maps: Vec<_> = all_maps
+    let mut maps: HashMap<_, _> = maps1
         .into_iter()
-        .map(|(_, map)| map)
-        .filter(|map| {
-            users_count
-                .iter()
-                .all(|count_map| count_map.contains_key(&map.map.map_id))
-        })
+        .map(|map| (map.map.map_id, ([map.count, 0], map)))
         .collect();
 
-    let amount_common = maps.len();
+    for map in maps2 {
+        if let Some(([_, count], _)) = maps.get_mut(&map.map.map_id) {
+            *count += map.count;
+        }
+    }
+
+    maps.retain(|_, ([_, b], _)| *b > 0);
 
     // Sort maps by sum of counts
-    let total_counts: HashMap<u32, usize> = users_count.iter().fold(
-        HashMap::with_capacity(maps.len()),
-        |mut counts, user_entry| {
-            for (&map_id, count) in user_entry {
-                *counts.entry(map_id).or_default() += count;
-            }
+    let mut map_counts: Vec<_> = maps
+        .iter()
+        .map(|(map_id, ([a, b], _))| (*map_id, a + b))
+        .collect();
 
-            counts
-        },
-    );
+    map_counts.sort_unstable_by_key(|(_, count)| Reverse(*count));
 
-    maps.sort_unstable_by_key(|m| Reverse(total_counts.get(&m.map.map_id)));
+    let amount_common = maps.len();
 
     // Accumulate all necessary data
     let mut content = format!("`{name1}` and `{name2}`");
@@ -200,17 +178,11 @@ pub(super) async fn mostplayed(
         if amount_common > 1 { "s" } else { "" }
     );
 
-    // TODO: i hate this
-    let names = vec![name1, name2];
-
-    let data_fut = async {
-        let initial_maps = &maps[..10.min(maps.len())];
-
-        MostPlayedCommonEmbed::new(&names, initial_maps, &users_count, 0)
-    };
+    let initial_maps = &map_counts[..maps.len().min(10)];
+    let embed_data = MostPlayedCommonEmbed::new(&name1, &name2, initial_maps, &maps, 0);
 
     // Creating the embed
-    let embed = data_fut.await.into_builder().build();
+    let embed = embed_data.into_builder().build();
     let builder = MessageBuilder::new().content(content).embed(embed);
 
     // * Note: No combined pictures since user ids are not available
@@ -225,7 +197,7 @@ pub(super) async fn mostplayed(
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = MostPlayedCommonPagination::new(response, names, users_count, maps);
+    let pagination = MostPlayedCommonPagination::new(response, name1, name2, maps, map_counts);
 
     tokio::spawn(async move {
         if let Err(err) = pagination.start(&ctx, owner, 60).await {
