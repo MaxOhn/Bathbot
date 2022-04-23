@@ -3,7 +3,7 @@ pub use self::{
     config::{BotConfig, CONFIG},
     context::{AssignRoles, Context, Redis},
     events::event_loop,
-    redis_cache::{ArchivedBytes, RedisCache},
+    redis_cache::{ArchivedBytes, ArchivedResult, RedisCache},
     stats::BotStats,
 };
 

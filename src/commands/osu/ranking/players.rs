@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use command_macros::command;
 use eyre::Report;
 use lazy_static::__Deref;
+use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{GameMode, OsuResult, Rankings};
 
 use crate::{
@@ -67,13 +68,15 @@ pub(super) async fn pp(
                 country.into()
             };
 
-            ctx.osu()
-                .performance_rankings(mode)
-                .country(country.as_str())
+            ctx.redis()
+                .pp_ranking(mode, 1, Some(country.as_str()))
                 .await
         }
-        None => ctx.osu().performance_rankings(mode).await,
+        None => ctx.redis().pp_ranking(mode, 1, None).await,
     };
+
+    // TODO: avoid having to do this
+    let result = result.map(|bytes| bytes.get().deserialize(&mut Infallible).unwrap());
 
     let kind = RankingKind::Performance;
 

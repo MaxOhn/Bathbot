@@ -1,10 +1,10 @@
-use std::{marker::PhantomData, ops::Deref};
+use std::{fmt::Write, marker::PhantomData, ops::Deref};
 
 use bb8_redis::redis::AsyncCommands;
 use eyre::Report;
 use rkyv::{AlignedVec, Archive, Deserialize, Infallible};
 use rosu_v2::{
-    prelude::{OsuError, User},
+    prelude::{GameMode, OsuError, Rankings, User},
     OsuResult,
 };
 
@@ -17,7 +17,7 @@ use crate::{
 
 use super::Context;
 
-type ArchivedResult<T, E> = Result<ArchivedBytes<T>, E>;
+pub type ArchivedResult<T, E> = Result<ArchivedBytes<T>, E>;
 
 #[derive(Copy, Clone)]
 pub struct RedisCache<'c> {
@@ -30,6 +30,7 @@ impl<'c> RedisCache<'c> {
     const OSUTRACKER_GROUPS_SECONDS: usize = 3600;
     const MEDALS_SECONDS: usize = 3600;
     const BADGES_SECONDS: usize = 7200;
+    const PP_RANKING_SECONDS: usize = 1800;
 
     pub fn new(ctx: &'c Context) -> Self {
         Self { ctx }
@@ -196,6 +197,71 @@ impl<'c> RedisCache<'c> {
             rkyv::to_bytes::<_, 190_000>(&stats).expect("failed to serialize osutracker stats");
         let set_fut =
             conn.set_ex::<_, _, ()>(key, bytes.as_slice(), Self::OSUTRACKER_STATS_SECONDS);
+
+        if let Err(err) = set_fut.await {
+            let report = Report::new(err).wrap_err("failed to insert bytes into cache");
+            warn!("{report:?}");
+        }
+
+        Ok(ArchivedBytes::new(bytes))
+    }
+
+    pub async fn pp_ranking(
+        &self,
+        mode: GameMode,
+        page: u32,
+        country: Option<&str>,
+    ) -> ArchivedResult<Rankings, OsuError> {
+        let mut key = format!("pp_ranking_{}_{page}", mode as u8);
+
+        if let Some(country) = country {
+            let _ = write!(key, "_{country}");
+        }
+
+        let mut conn = match self.ctx.redis_client().get().await {
+            Ok(mut conn) => {
+                if let Ok(bytes) = conn.get::<_, Vec<u8>>(&key).await {
+                    if !bytes.is_empty() {
+                        self.ctx.stats.inc_cached_pp_ranking();
+                        trace!("Found pp ranking in cache ({} bytes)", bytes.len());
+
+                        return Ok(ArchivedBytes::new(bytes));
+                    }
+                }
+
+                conn
+            }
+            Err(err) => {
+                let report = Report::new(err).wrap_err("failed to get redis connection");
+                warn!("{report:?}");
+
+                let ranking_fut = self.ctx.osu().performance_rankings(mode).page(page);
+
+                let ranking = if let Some(country) = country {
+                    ranking_fut.country(country).await?
+                } else {
+                    ranking_fut.await?
+                };
+
+                // TODO: size
+                let bytes =
+                    rkyv::to_bytes::<_, 190_000>(&ranking).expect("failed to serialize ranking");
+
+                return Ok(ArchivedBytes::new(bytes));
+            }
+        };
+
+        let ranking_fut = self.ctx.osu().performance_rankings(mode).page(page);
+
+        let ranking = if let Some(country) = country {
+            ranking_fut.country(country).await?
+        } else {
+            ranking_fut.await?
+        };
+
+        // TODO: size
+        let bytes = rkyv::to_bytes::<_, 190_000>(&ranking).expect("failed to serialize ranking");
+        let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), Self::PP_RANKING_SECONDS);
 
         if let Err(err) = set_fut.await {
             let report = Report::new(err).wrap_err("failed to insert bytes into cache");

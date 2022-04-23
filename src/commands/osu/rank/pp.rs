@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use command_macros::command;
+use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{OsuError, User, UserCompact};
 
 use crate::{
@@ -66,19 +67,21 @@ pub(super) async fn pp(
         // Retrieve the user and the user thats holding the given rank
         let page = (rank / 50) + (rank % 50 != 0) as usize;
 
-        let mut rank_holder_fut = ctx.osu().performance_rankings(mode).page(page as u32);
+        let redis = ctx.redis();
 
-        if let Some(ref country) = country {
-            rank_holder_fut = rank_holder_fut.country(country.as_str());
-        }
+        let rank_holder_fut =
+            redis.pp_ranking(mode, page as u32, country.as_ref().map(|c| c.as_str()));
 
         let user_args = UserArgs::new(name.as_str(), mode);
         let user_fut = get_user(&ctx, &user_args);
 
         let (mut user, rank_holder) = match tokio::try_join!(user_fut, rank_holder_fut) {
-            Ok((user, mut rankings)) => {
+            Ok((user, rankings)) => {
                 let idx = (args.rank + 49) % 50;
-                let rank_holder = rankings.ranking.swap_remove(idx);
+
+                let rank_holder = rankings.get().ranking[idx]
+                    .deserialize(&mut Infallible)
+                    .unwrap();
 
                 (user, rank_holder)
             }

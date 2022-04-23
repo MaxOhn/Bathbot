@@ -3,6 +3,7 @@ use std::{cmp::Ordering, fmt::Display};
 use eyre::Report;
 use image::{GenericImageView, ImageBuffer};
 use rand::Rng;
+use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods, Grade, Score, UserCompact};
 
 use crate::{
@@ -60,13 +61,12 @@ impl ScorePp {
         let page = ((rank - 1) / 50) + 1;
         let idx = (rank - 1) % 50;
 
-        let player = ctx
-            .osu()
-            .performance_rankings(mode)
-            .page(page)
-            .await?
-            .ranking
-            .swap_remove(idx as usize);
+        let ranking = ctx.redis().pp_ranking(mode, page, None).await?;
+
+        // TODO: avoid deserializing the whole thing
+        let player: UserCompact = ranking.get().ranking[idx as usize]
+            .deserialize(&mut Infallible)
+            .unwrap();
 
         let mut plays = ctx
             .osu()
