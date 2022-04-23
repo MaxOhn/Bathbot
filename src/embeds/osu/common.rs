@@ -1,11 +1,13 @@
+use std::{cmp::Ordering, fmt::Write};
+
+use hashbrown::HashMap;
+use rosu_v2::prelude::{Beatmap, BeatmapsetCompact};
+
 use crate::{
-    commands::osu::{CommonScoreEntry, CommonUser},
+    commands::osu::CommonScore,
     embeds::attachment,
     util::{builder::FooterBuilder, constants::OSU_BASE},
 };
-
-use smallvec::SmallVec;
-use std::fmt::Write;
 
 pub struct CommonEmbed {
     description: String,
@@ -13,62 +15,41 @@ pub struct CommonEmbed {
     footer: FooterBuilder,
 }
 
-type CommonScore = SmallVec<[CommonScoreEntry; 3]>;
-
 impl CommonEmbed {
-    pub fn new(users: &[CommonUser], scores: &[CommonScore], index: usize) -> Self {
-        let mut description = String::with_capacity(512);
+    pub fn new(
+        name1: &str,
+        name2: &str,
+        map_pps: &[(u32, f32)],
+        maps: &HashMap<u32, ([CommonScore; 2], Beatmap, BeatmapsetCompact)>,
+        wins: [u8; 2],
+        index: usize,
+    ) -> Self {
+        let mut description = String::with_capacity(1024);
 
-        for (i, scores) in scores.iter().enumerate() {
-            let (title, version, map_id) = {
-                let first = scores.first().unwrap();
-                let map = first.score.map.as_ref().unwrap();
+        for ((map_id, _), i) in map_pps.iter().zip(1..) {
+            let ([score1, score2], map, mapset) = maps.get(map_id).unwrap();
 
-                (
-                    &first.score.mapset.as_ref().unwrap().title,
-                    &map.version,
-                    map.map_id,
-                )
+            let (medal1, medal2) = match score1.cmp(score2) {
+                Ordering::Less => ("second", "first"),
+                Ordering::Equal => ("first", "first"),
+                Ordering::Greater => ("first", "second"),
             };
 
             let _ = writeln!(
                 description,
-                "**{idx}.** [{title} [{version}]]({base}b/{id})",
+                "**{idx}.** [{title} [{version}]]({OSU_BASE}b/{map_id})\n\
+                - :{medal1}_place: `{name1}`: {pp1:.2}pp :{medal2}_place: `{name2}`: {pp2:.2}pp",
                 idx = index + i + 1,
-                title = title,
-                version = version,
-                base = OSU_BASE,
-                id = map_id,
+                title = mapset.title,
+                version = map.version,
+                pp1 = score1.pp,
+                pp2 = score2.pp,
             );
-
-            description.push('-');
-
-            for CommonScoreEntry { pos, pp, score } in scores.iter() {
-                let _ = write!(
-                    description,
-                    " :{medal}_place: `{name}`: {pp:.2}pp",
-                    medal = match pos {
-                        0 => "first",
-                        1 => "second",
-                        2 => "third",
-                        _ => unreachable!(),
-                    },
-                    name = score.user.as_ref().unwrap().username,
-                    pp = pp,
-                );
-            }
-
-            description.push('\n');
         }
 
         description.pop();
 
-        let mut footer = String::with_capacity(64);
-        footer.push_str("🥇 count");
-
-        for user in users {
-            let _ = write!(footer, " | {}: {}", user.name(), user.first_count);
-        }
+        let footer = format!("🥇 count • {name1}: {} • {name2}: {}", wins[0], wins[1]);
 
         Self {
             footer: FooterBuilder::new(footer),

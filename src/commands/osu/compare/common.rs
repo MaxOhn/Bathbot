@@ -1,14 +1,13 @@
-use std::{cmp::Ordering, fmt::Write, sync::Arc};
+use std::{cmp::Ordering, fmt::Write, iter, sync::Arc};
 
+use chrono::{DateTime, Utc};
 use command_macros::command;
 use eyre::Report;
-use hashbrown::HashSet;
-use itertools::Itertools;
+use hashbrown::HashMap;
 use rosu_v2::{
     prelude::{GameMode, OsuError, Score, Username},
     OsuResult,
 };
-use smallvec::SmallVec;
 
 use crate::{
     commands::{
@@ -79,14 +78,6 @@ async fn prefix_commonctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> B
 
     top(ctx, msg.into(), args).await
 }
-
-macro_rules! user_id {
-    ($scores:ident[$idx:literal]) => {
-        $scores[$idx].user.as_ref().unwrap().user_id
-    };
-}
-
-type CommonUsers = SmallVec<[CommonUser; 3]>;
 
 async fn extract_name(ctx: &Context, args: &mut CompareTop<'_>) -> NameExtraction {
     if let Some(name) = args.name1.take().or_else(|| args.name2.take()) {
@@ -163,7 +154,7 @@ pub(super) async fn top(
     let fut1 = get_scores_(&ctx, &name1, mode);
     let fut2 = get_scores_(&ctx, &name2, mode);
 
-    let (scores1, scores2) = match tokio::join!(fut1, fut2) {
+    let (mut scores1, mut scores2) = match tokio::join!(fut1, fut2) {
         (Ok(scores1), Ok(scores2)) => (scores1, scores2),
         (Err(OsuError::NotFound), _) => {
             let content = format!("User `{name1}` was not found");
@@ -182,221 +173,99 @@ pub(super) async fn top(
         }
     };
 
-    // TODO: find nicer structure
-    let mut all_scores = Vec::<Vec<_>>::with_capacity(2);
-    let mut users = CommonUsers::with_capacity(2);
-
-    let opt = scores1
-        .first()
-        .and_then(|s| Some((s.user_id, s.user.as_ref()?.avatar_url.clone())));
-
-    if let Some((user_id, avatar_url)) = opt {
+    let user1 = if let Some(score) = scores1.first() {
+        let user_id = score.user_id;
+        let avatar_url = score.user.as_ref().unwrap().avatar_url.clone();
         name1.make_ascii_lowercase();
 
-        users.push(CommonUser::new(name1, avatar_url, user_id));
+        CommonUser::new(name1, avatar_url, user_id)
     } else {
         let content = format!("User `{name1}` has no {mode} top scores");
 
         return orig.error(&ctx, content).await;
-    }
+    };
 
-    all_scores.push(scores1);
-
-    let opt = scores2
-        .first()
-        .and_then(|s| Some((s.user_id, s.user.as_ref()?.avatar_url.clone())));
-
-    if let Some((user_id, avatar_url)) = opt {
+    let user2 = if let Some(score) = scores2.first() {
+        let user_id = score.user_id;
+        let avatar_url = score.user.as_ref().unwrap().avatar_url.clone();
         name2.make_ascii_lowercase();
 
-        users.push(CommonUser::new(name2, avatar_url, user_id));
+        CommonUser::new(name2, avatar_url, user_id)
     } else {
         let content = format!("User `{name2}` has no {mode} top scores");
 
         return orig.error(&ctx, content).await;
-    }
-
-    all_scores.push(scores2);
+    };
 
     // Check if different names that both belong to the same user were given
-    if users[0].id() == users[1].id() {
-        let content = "Give at least two different users";
+    if user1.id() == user2.id() {
+        let content = "You must two different users";
 
         return orig.error(&ctx, content).await;
     }
 
     // Process users and their top scores for tracking
-    for scores in all_scores.iter_mut() {
-        process_osu_tracking(&ctx, scores, None).await;
-    }
+    let tracking_fut1 = process_osu_tracking(&ctx, &mut scores1, None);
+    let tracking_fut2 = process_osu_tracking(&ctx, &mut scores2, None);
+    tokio::join!(tracking_fut1, tracking_fut2);
 
-    // Consider only scores on common maps
-    let mut map_ids: HashSet<u32> = all_scores
+    let indices: HashMap<_, _> = scores2
         .iter()
-        .map(|scores| scores.iter().flat_map(|s| map_id!(s)))
-        .flatten()
+        .enumerate()
+        .map(|(i, score)| (score.map.as_ref().unwrap().map_id, i))
         .collect();
 
-    map_ids.retain(|&id| {
-        all_scores.iter().all(|scores| {
-            scores
-                .iter()
-                .filter_map(|s| map_id!(s))
-                .any(|map_id| map_id == id)
-        })
-    });
+    let mut wins = [0, 0];
 
-    all_scores
-        .iter_mut()
-        .for_each(|scores| scores.retain(|s| map_ids.contains(&map_id!(s).unwrap())));
-
-    // Flatten scores, sort by beatmap id, then group by beatmap id
-    let mut all_scores: Vec<Score> = all_scores.into_iter().flatten().collect();
-    all_scores.sort_unstable_by_key(|score| map_id!(score));
-
-    let mut scores_per_map: Vec<SmallVec<[CommonScoreEntry; 3]>> = all_scores
+    let maps: HashMap<_, _> = scores1
         .into_iter()
-        .group_by(|score| map_id!(score))
-        .into_iter()
-        .map(|(_, scores)| {
-            // Sort with respect to order of names
-            let mut scores: Vec<Score> = scores.collect();
+        .filter_map(|mut score1| {
+            let map = score1.map.take()?;
+            let mapset = score1.mapset.take()?;
 
-            if user_id!(scores[0]) != users[0].id() {
-                let target = (user_id!(scores[1]) != users[0].id()) as usize + 1;
-                scores.swap(0, target);
+            let score1 = CommonScore::from(&score1);
+
+            let idx = indices.get(&map.map_id)?;
+            let score2 = CommonScore::from(&scores2[*idx]);
+
+            match score1.cmp(&score2) {
+                Ordering::Less => wins[1] += 1,
+                Ordering::Equal => {}
+                Ordering::Greater => wins[0] += 1,
             }
 
-            if user_id!(scores[1]) != users[1].id() {
-                scores.swap(1, 2);
-            }
-
-            let mut scores: SmallVec<[CommonScoreEntry; 3]> =
-                scores.into_iter().map(CommonScoreEntry::new).collect();
-
-            // Calculate the index of the pp ordered by their values
-            if (scores[0].pp - scores[1].pp).abs() <= f32::EPSILON {
-                match scores[1].score.score.cmp(&scores[0].score.score) {
-                    Ordering::Less => scores[1].pos += 1,
-                    Ordering::Equal => {
-                        match scores[0].score.created_at.cmp(&scores[1].score.created_at) {
-                            Ordering::Less => scores[1].pos += 1,
-                            Ordering::Equal => {}
-                            Ordering::Greater => scores[0].pos += 1,
-                        }
-                    }
-                    Ordering::Greater => scores[0].pos += 1,
-                }
-            } else if scores[0].pp > scores[1].pp {
-                scores[1].pos += 1;
-            } else {
-                scores[0].pos += 1;
-            }
-
-            if scores.len() == 3 {
-                if (scores[0].pp - scores[2].pp).abs() <= f32::EPSILON {
-                    match scores[2].score.score.cmp(&scores[0].score.score) {
-                        Ordering::Less => scores[2].pos += 1,
-                        Ordering::Equal => {
-                            match scores[0].score.created_at.cmp(&scores[2].score.created_at) {
-                                Ordering::Less => scores[2].pos += 1,
-                                Ordering::Equal => {}
-                                Ordering::Greater => scores[0].pos += 1,
-                            }
-                        }
-                        Ordering::Greater => scores[0].pos += 1,
-                    }
-                } else if scores[0].pp > scores[2].pp {
-                    scores[2].pos += 1;
-                } else {
-                    scores[0].pos += 1;
-                }
-
-                if (scores[1].pp - scores[2].pp).abs() <= f32::EPSILON {
-                    match scores[2].score.score.cmp(&scores[1].score.score) {
-                        Ordering::Less => scores[2].pos += 1,
-                        Ordering::Equal => {
-                            match scores[1].score.created_at.cmp(&scores[2].score.created_at) {
-                                Ordering::Less => scores[2].pos += 1,
-                                Ordering::Equal => {}
-                                Ordering::Greater => scores[1].pos += 1,
-                            }
-                        }
-                        Ordering::Greater => scores[1].pos += 1,
-                    }
-                } else if scores[1].pp > scores[2].pp {
-                    scores[2].pos += 1;
-                } else {
-                    scores[1].pos += 1;
-                }
-            }
-
-            if scores[0].pos == 0 {
-                users[0].first_count += 1;
-            } else if scores[1].pos == 0 {
-                users[1].first_count += 1;
-            } else {
-                users[2].first_count += 1;
-            }
-
-            scores
+            Some((map.map_id, ([score1, score2], map, mapset)))
         })
         .collect();
 
     // Sort the maps by their score's avg pp values
-    scores_per_map.sort_unstable_by(|s1, s2| {
-        let s1 = s1.iter().map(|entry| entry.pp).sum::<f32>() / s1.len() as f32;
-        let s2 = s2.iter().map(|entry| entry.pp).sum::<f32>() / s2.len() as f32;
+    let mut map_pps: Vec<_> = maps
+        .iter()
+        .map(|(map_id, ([a, b], ..))| (*map_id, a.pp + b.pp))
+        .collect();
 
-        s2.partial_cmp(&s1).unwrap_or(Ordering::Equal)
-    });
+    map_pps.sort_unstable_by(|(_, a), (_, b)| b.partial_cmp(a).unwrap_or(Ordering::Equal));
 
     // Accumulate all necessary data
-    let mut content = String::with_capacity(16);
-    let len = users.len();
-    let mut iter = users.iter().map(CommonUser::name);
+    let mut content = format!("`{}` and `{}` ", user1.name, user2.name);
 
-    if let Some(first) = iter.next() {
-        let last = iter.next_back();
-        let _ = write!(content, "`{first}`");
-
-        for name in iter {
-            let _ = write!(content, ", `{name}`");
-        }
-
-        if let Some(name) = last {
-            if len > 2 {
-                content.push(',');
-            }
-
-            let _ = write!(content, " and `{name}`");
-        }
-    }
-
-    let amount_common = scores_per_map.len();
+    let amount_common = maps.len();
 
     if amount_common == 0 {
-        content.push_str(" have no common scores");
+        content.push_str("have no common scores");
     } else {
         let _ = write!(
             content,
-            " have {} common beatmap{} in their top 100",
-            amount_common,
+            "have {amount_common} common beatmap{} in their top 100",
             if amount_common > 1 { "s" } else { "" }
         );
     }
 
     // Create the combined profile pictures
-    let urls = users.iter().map(CommonUser::avatar_url);
-    let thumbnail_fut = get_combined_thumbnail(&ctx, urls, users.len() as u32, None);
-
-    let data_fut = async {
-        let limit = scores_per_map.len().min(10);
-
-        CommonEmbed::new(&users, &scores_per_map[..limit], 0)
-    };
-
-    let (thumbnail_result, embed_data) = tokio::join!(thumbnail_fut, data_fut);
+    let urls = iter::once(user1.avatar_url()).chain(iter::once(user2.avatar_url()));
+    let thumbnail_result = get_combined_thumbnail(&ctx, urls, 2, None).await;
+    let limit = maps.len().min(10);
+    let embed_data = CommonEmbed::new(&user1.name, &user2.name, &map_pps[..limit], &maps, wins, 0);
 
     let thumbnail = match thumbnail_result {
         Ok(thumbnail) => Some(thumbnail),
@@ -419,14 +288,14 @@ pub(super) async fn top(
     let response_raw = orig.create_message(&ctx, &builder).await?;
 
     // Skip pagination if too few entries
-    if scores_per_map.len() <= 10 {
+    if maps.len() <= 10 {
         return Ok(());
     }
 
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = CommonPagination::new(response, users, scores_per_map);
+    let pagination = CommonPagination::new(response, user1.name, user2.name, maps, map_pps, wins);
     let owner = orig.user_id()?;
 
     tokio::spawn(async move {
@@ -458,19 +327,38 @@ async fn get_scores_(ctx: &Context, name: &str, mode: GameMode) -> OsuResult<Vec
     }
 }
 
-pub struct CommonScoreEntry {
-    pub pos: usize,
+#[derive(PartialEq)]
+pub struct CommonScore {
     pub pp: f32,
-    pub score: Score,
+    score: u32,
+    created_at: DateTime<Utc>,
 }
 
-impl CommonScoreEntry {
-    fn new(score: Score) -> Self {
+impl Eq for CommonScore {}
+
+impl From<&Score> for CommonScore {
+    fn from(score: &Score) -> Self {
         Self {
-            pos: 0,
-            pp: score.pp.unwrap_or_default(),
-            score,
+            pp: score.pp.unwrap_or(0.0),
+            score: score.score,
+            created_at: score.created_at,
         }
+    }
+}
+
+impl Ord for CommonScore {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.pp
+            .partial_cmp(&other.pp)
+            .unwrap_or(Ordering::Equal)
+            .then_with(|| self.score.cmp(&other.score))
+            .then_with(|| other.created_at.cmp(&self.created_at))
+    }
+}
+
+impl PartialOrd for CommonScore {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -491,14 +379,9 @@ impl CommonUser {
         }
     }
 }
-
 impl CommonUser {
     pub fn id(&self) -> u32 {
         self.user_id
-    }
-
-    pub fn name(&self) -> &str {
-        self.name.as_str()
     }
 
     fn avatar_url(&self) -> &str {

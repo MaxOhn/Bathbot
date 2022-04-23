@@ -1,32 +1,38 @@
-use super::{Pages, Pagination};
-
-use crate::{
-    commands::osu::{CommonScoreEntry, CommonUser},
-    embeds::CommonEmbed,
-    BotResult,
-};
-
-use smallvec::SmallVec;
+use hashbrown::HashMap;
+use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, Username};
 use twilight_model::channel::Message;
+
+use crate::{commands::osu::CommonScore, embeds::CommonEmbed, BotResult};
+
+use super::{Pages, Pagination};
 
 pub struct CommonPagination {
     msg: Message,
     pages: Pages,
-    users: SmallVec<[CommonUser; 3]>,
-    scores_per_map: Vec<SmallVec<[CommonScoreEntry; 3]>>,
+    name1: Username,
+    name2: Username,
+    maps: HashMap<u32, ([CommonScore; 2], Beatmap, BeatmapsetCompact)>,
+    map_pps: Vec<(u32, f32)>,
+    wins: [u8; 2],
 }
 
 impl CommonPagination {
     pub fn new(
         msg: Message,
-        users: SmallVec<[CommonUser; 3]>,
-        scores_per_map: Vec<SmallVec<[CommonScoreEntry; 3]>>,
+        name1: Username,
+        name2: Username,
+        maps: HashMap<u32, ([CommonScore; 2], Beatmap, BeatmapsetCompact)>,
+        map_pps: Vec<(u32, f32)>,
+        wins: [u8; 2],
     ) -> Self {
         Self {
-            pages: Pages::new(10, scores_per_map.len()),
+            pages: Pages::new(10, maps.len()),
             msg,
-            users,
-            scores_per_map,
+            name1,
+            name2,
+            maps,
+            map_pps,
+            wins,
         }
     }
 }
@@ -53,9 +59,11 @@ impl Pagination for CommonPagination {
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         Ok(CommonEmbed::new(
-            &self.users,
-            &self.scores_per_map
-                [self.pages.index..(self.pages.index + 10).min(self.scores_per_map.len())],
+            &self.name1,
+            &self.name2,
+            &self.map_pps[self.pages.index..(self.pages.index + 10).min(self.maps.len())],
+            &self.maps,
+            self.wins,
             self.pages.index,
         ))
     }
