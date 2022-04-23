@@ -44,14 +44,13 @@ impl<'a> From<OsuStatsPlayers<'a>> for OsuStatsPlayersArgs {
 pub(super) async fn players(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
-    args: OsuStatsPlayers<'_>,
+    mut args: OsuStatsPlayers<'_>,
 ) -> BotResult<()> {
     let owner = orig.user_id()?;
-    let mut params = OsuStatsPlayersArgs::from(args);
 
-    if params.mode == GameMode::STD {
-        params.mode = match ctx.user_config(owner).await {
-            Ok(config) => config.mode.unwrap_or(GameMode::STD),
+    if matches!(args.mode, None) {
+        args.mode = match ctx.user_config(owner).await {
+            Ok(config) => config.mode.map(GameModeOption::from),
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
@@ -59,6 +58,8 @@ pub(super) async fn players(
             }
         };
     }
+
+    let mut params = OsuStatsPlayersArgs::from(args);
 
     if let Some(country) = params.country.as_mut() {
         if country.len() != 2 {
@@ -272,7 +273,7 @@ fn insert(
 #[aliases("osl")]
 #[group(Osu)]
 async fn prefix_osustatslist(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match OsuStatsPlayers::args(GameModeOption::Osu, args) {
+    match OsuStatsPlayers::args(None, args) {
         Ok(args) => players(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -303,7 +304,7 @@ async fn prefix_osustatslistmania(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    match OsuStatsPlayers::args(GameModeOption::Mania, args) {
+    match OsuStatsPlayers::args(Some(GameModeOption::Mania), args) {
         Ok(args) => players(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -334,7 +335,7 @@ async fn prefix_osustatslisttaiko(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    match OsuStatsPlayers::args(GameModeOption::Taiko, args) {
+    match OsuStatsPlayers::args(Some(GameModeOption::Taiko), args) {
         Ok(args) => players(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -361,7 +362,7 @@ async fn prefix_osustatslisttaiko(
 #[aliases("oslc")]
 #[group(Catch)]
 async fn prefix_osustatslistctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match OsuStatsPlayers::args(GameModeOption::Catch, args) {
+    match OsuStatsPlayers::args(Some(GameModeOption::Catch), args) {
         Ok(args) => players(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -379,7 +380,7 @@ impl<'m> OsuStatsPlayers<'m> {
         Must be either a positive integer \
         or two positive integers of the form `a..b` e.g. `2..45`.";
 
-    fn args(mode: GameModeOption, args: Args<'m>) -> Result<Self, Cow<'static, str>> {
+    fn args(mode: Option<GameModeOption>, args: Args<'m>) -> Result<Self, Cow<'static, str>> {
         let mut country = None;
         let mut min_rank = None;
         let mut max_rank = None;
@@ -439,7 +440,7 @@ impl<'m> OsuStatsPlayers<'m> {
         }
 
         Ok(Self {
-            mode: Some(mode),
+            mode,
             country,
             min_rank,
             max_rank,

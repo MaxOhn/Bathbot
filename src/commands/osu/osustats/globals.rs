@@ -49,7 +49,7 @@ use super::{OsuStatsScores, OsuStatsScoresOrder};
 #[aliases("osg", "osustatsglobal")]
 #[group(Osu)]
 async fn prefix_osustatsglobals(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match OsuStatsScores::args(GameModeOption::Osu, args) {
+    match OsuStatsScores::args(None, args) {
         Ok(args) => scores(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -87,7 +87,7 @@ async fn prefix_osustatsglobalsmania(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    match OsuStatsScores::args(GameModeOption::Mania, args) {
+    match OsuStatsScores::args(Some(GameModeOption::Mania), args) {
         Ok(args) => scores(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -125,7 +125,7 @@ async fn prefix_osustatsglobalstaiko(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    match OsuStatsScores::args(GameModeOption::Taiko, args) {
+    match OsuStatsScores::args(Some(GameModeOption::Taiko), args) {
         Ok(args) => scores(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -163,7 +163,7 @@ async fn prefix_osustatsglobalsctb(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    match OsuStatsScores::args(GameModeOption::Catch, args) {
+    match OsuStatsScores::args(Some(GameModeOption::Catch), args) {
         Ok(args) => scores(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -314,7 +314,7 @@ impl<'m> OsuStatsScores<'m> {
         }
     }
 
-    fn args(mode: GameModeOption, args: Args<'m>) -> Result<Self, Cow<'static, str>> {
+    fn args(mode: Option<GameModeOption>, args: Args<'m>) -> Result<Self, Cow<'static, str>> {
         let mut name = None;
         let mut discord = None;
         let mut min_rank = None;
@@ -437,7 +437,7 @@ impl<'m> OsuStatsScores<'m> {
         }
 
         Ok(Self {
-            mode: Some(mode),
+            mode,
             name,
             sort,
             mods,

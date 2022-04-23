@@ -78,7 +78,7 @@ impl<'m> TopIf<'m> {
         If you want exact mods, specify it e.g. as `+hdhr!`.\n\
         And if you want to remove mods, specify it e.g. as `-hdnf!`.";
 
-    fn args(mode: GameModeOption, args: Args<'m>) -> Result<Self, &'static str> {
+    fn args(mode: Option<GameModeOption>, args: Args<'m>) -> Result<Self, &'static str> {
         let mut name = None;
         let mut discord = None;
         let mut mods = None;
@@ -95,7 +95,7 @@ impl<'m> TopIf<'m> {
 
         Ok(Self {
             mods: mods.ok_or(Self::ERR_PARSE_MODS)?,
-            mode: Some(mode),
+            mode,
             name,
             query: None,
             discord,
@@ -117,7 +117,7 @@ impl<'m> TopIf<'m> {
 #[alias("ti")]
 #[group(Osu)]
 async fn prefix_topif(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TopIf::args(GameModeOption::Osu, args) {
+    match TopIf::args(None, args) {
         Ok(args) => topif(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -141,7 +141,7 @@ async fn prefix_topif(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotRe
 #[alias("tit")]
 #[group(Taiko)]
 async fn prefix_topiftaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TopIf::args(GameModeOption::Taiko, args) {
+    match TopIf::args(Some(GameModeOption::Taiko), args) {
         Ok(args) => topif(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -165,7 +165,7 @@ async fn prefix_topiftaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> 
 #[alias("tic")]
 #[group(Catch)]
 async fn prefix_topifctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TopIf::args(GameModeOption::Catch, args) {
+    match TopIf::args(Some(GameModeOption::Catch), args) {
         Ok(args) => topif(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -190,7 +190,11 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> B
         None => return orig.error(&ctx, TopIf::ERR_PARSE_MODS).await,
     };
 
-    let (name, mode) = name_mode!(ctx, orig, args);
+    let (name, mut mode) = name_mode!(ctx, orig, args);
+
+    if mode == GameMode::MNA {
+        mode = GameMode::STD;
+    }
 
     if let ModSelection::Exact(mods) | ModSelection::Include(mods) = mods {
         let mut content = None;

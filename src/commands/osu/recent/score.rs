@@ -51,7 +51,7 @@ use super::RecentScore;
 #[aliases("r", "rs")]
 #[group(Osu)]
 async fn prefix_recent(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match RecentScore::args(GameModeOption::Osu, args) {
+    match RecentScore::args(None, args) {
         Ok(args) => score(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -78,7 +78,7 @@ async fn prefix_recent(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotR
 #[aliases("rm")]
 #[group(Mania)]
 async fn prefix_recentmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match RecentScore::args(GameModeOption::Mania, args) {
+    match RecentScore::args(Some(GameModeOption::Mania), args) {
         Ok(args) => score(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -105,7 +105,7 @@ async fn prefix_recentmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[alias("rt")]
 #[group(Taiko)]
 async fn prefix_recenttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match RecentScore::args(GameModeOption::Taiko, args) {
+    match RecentScore::args(Some(GameModeOption::Taiko), args) {
         Ok(args) => score(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -132,7 +132,7 @@ async fn prefix_recenttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[alias("rc")]
 #[group(Catch)]
 async fn prefix_recentctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match RecentScore::args(GameModeOption::Catch, args) {
+    match RecentScore::args(Some(GameModeOption::Catch), args) {
         Ok(args) => score(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -143,7 +143,7 @@ async fn prefix_recentctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> B
 }
 
 impl<'m> RecentScore<'m> {
-    fn args(mode: GameModeOption, args: Args<'m>) -> Result<Self, Cow<'static, str>> {
+    fn args(mode: Option<GameModeOption>, args: Args<'m>) -> Result<Self, Cow<'static, str>> {
         let mut name = None;
         let mut discord = None;
         let mut grade = None;
@@ -201,7 +201,7 @@ impl<'m> RecentScore<'m> {
         }
 
         Ok(Self {
-            mode: Some(mode),
+            mode,
             name,
             index: num.map(|n| n as usize),
             grade,

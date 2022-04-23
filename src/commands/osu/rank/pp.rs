@@ -190,7 +190,7 @@ pub(super) async fn pp(
 #[alias("reach")]
 #[group(Osu)]
 async fn prefix_rank(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match RankPp::args(GameModeOption::Osu, args) {
+    match RankPp::args(None, args) {
         Ok(args) => pp(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -211,7 +211,7 @@ async fn prefix_rank(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotRes
 #[alias("rankm", "reachmania", "reachm")]
 #[group(Mania)]
 async fn prefix_rankmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match RankPp::args(GameModeOption::Mania, args) {
+    match RankPp::args(Some(GameModeOption::Mania), args) {
         Ok(args) => pp(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -232,7 +232,7 @@ async fn prefix_rankmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> B
 #[alias("rankt", "reachtaiko", "reacht")]
 #[group(Taiko)]
 async fn prefix_ranktaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match RankPp::args(GameModeOption::Taiko, args) {
+    match RankPp::args(Some(GameModeOption::Taiko), args) {
         Ok(args) => pp(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -253,7 +253,7 @@ async fn prefix_ranktaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> B
 #[alias("rankc", "reachctb", "reachc")]
 #[group(Catch)]
 async fn prefix_rankctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match RankPp::args(GameModeOption::Catch, args) {
+    match RankPp::args(Some(GameModeOption::Catch), args) {
         Ok(args) => pp(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -305,7 +305,7 @@ impl RankData {
 }
 
 impl<'m> RankPp<'m> {
-    fn args(mode: GameModeOption, args: Args<'m>) -> Result<Self, &'static str> {
+    fn args(mode: Option<GameModeOption>, args: Args<'m>) -> Result<Self, &'static str> {
         let mut name = None;
         let mut discord = None;
         let mut country = None;
@@ -343,7 +343,7 @@ impl<'m> RankPp<'m> {
 
         Ok(Self {
             rank,
-            mode: Some(mode),
+            mode,
             name,
             each: None,
             country,

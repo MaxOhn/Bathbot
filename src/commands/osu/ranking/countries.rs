@@ -23,7 +23,7 @@ use super::RankingCountry;
 #[aliases("cr")]
 #[group(Osu)]
 pub async fn prefix_countryranking(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    country(ctx, msg.into(), GameModeOption::Osu.into()).await
+    country(ctx, msg.into(), None.into()).await
 }
 
 #[command]
@@ -31,7 +31,7 @@ pub async fn prefix_countryranking(ctx: Arc<Context>, msg: &Message) -> BotResul
 #[aliases("crm")]
 #[group(Mania)]
 pub async fn prefix_countryrankingmania(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    country(ctx, msg.into(), GameModeOption::Mania.into()).await
+    country(ctx, msg.into(), Some(GameModeOption::Mania).into()).await
 }
 
 #[command]
@@ -39,7 +39,7 @@ pub async fn prefix_countryrankingmania(ctx: Arc<Context>, msg: &Message) -> Bot
 #[aliases("crt")]
 #[group(Taiko)]
 pub async fn prefix_countryrankingtaiko(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    country(ctx, msg.into(), GameModeOption::Taiko.into()).await
+    country(ctx, msg.into(), Some(GameModeOption::Taiko).into()).await
 }
 
 #[command]
@@ -47,7 +47,7 @@ pub async fn prefix_countryrankingtaiko(ctx: Arc<Context>, msg: &Message) -> Bot
 #[aliases("crc")]
 #[group(Catch)]
 pub async fn prefix_countryrankingctb(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    country(ctx, msg.into(), GameModeOption::Catch.into()).await
+    country(ctx, msg.into(), Some(GameModeOption::Catch).into()).await
 }
 
 pub(super) async fn country(

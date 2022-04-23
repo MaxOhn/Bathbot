@@ -38,7 +38,7 @@ use super::RecentList;
 #[alias("rl")]
 #[group(Osu)]
 async fn prefix_recentlist(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match RecentList::args(GameModeOption::Osu, args) {
+    match RecentList::args(None, args) {
         Ok(args) => list(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -61,7 +61,7 @@ async fn prefix_recentlist(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> 
 #[alias("rlm")]
 #[group(Mania)]
 async fn prefix_recentlistmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match RecentList::args(GameModeOption::Mania, args) {
+    match RecentList::args(Some(GameModeOption::Mania), args) {
         Ok(args) => list(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -84,7 +84,7 @@ async fn prefix_recentlistmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[alias("rlt")]
 #[group(Taiko)]
 async fn prefix_recentlisttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match RecentList::args(GameModeOption::Taiko, args) {
+    match RecentList::args(Some(GameModeOption::Taiko), args) {
         Ok(args) => list(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -107,7 +107,7 @@ async fn prefix_recentlisttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[alias("rlc")]
 #[group(Catch)]
 async fn prefix_recentlistctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match RecentList::args(GameModeOption::Catch, args) {
+    match RecentList::args(Some(GameModeOption::Catch), args) {
         Ok(args) => list(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -118,7 +118,7 @@ async fn prefix_recentlistctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) 
 }
 
 impl<'m> RecentList<'m> {
-    fn args(mode: GameModeOption, args: Args<'m>) -> Result<Self, Cow<'static, str>> {
+    fn args(mode: Option<GameModeOption>, args: Args<'m>) -> Result<Self, Cow<'static, str>> {
         let mut name = None;
         let mut discord = None;
         let mut grade = None;
@@ -175,7 +175,7 @@ impl<'m> RecentList<'m> {
         }
 
         Ok(Self {
-            mode: Some(mode),
+            mode,
             name,
             query: None,
             grade,

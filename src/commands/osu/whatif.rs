@@ -77,7 +77,7 @@ pub struct WhatIf<'a> {
 }
 
 impl<'m> WhatIf<'m> {
-    fn args(mode: GameModeOption, args: Args<'m>) -> Result<Self, &'static str> {
+    fn args(mode: Option<GameModeOption>, args: Args<'m>) -> Result<Self, &'static str> {
         let mut pp = None;
         let mut name = None;
         let mut discord = None;
@@ -94,7 +94,7 @@ impl<'m> WhatIf<'m> {
 
         Ok(Self {
             pp: pp.ok_or("You must specify a pp value")?,
-            mode: Some(mode),
+            mode,
             name,
             count: None,
             discord,
@@ -113,7 +113,7 @@ impl<'m> WhatIf<'m> {
 #[alias("wi")]
 #[group(Osu)]
 pub async fn prefix_whatif(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match WhatIf::args(GameModeOption::Osu, args) {
+    match WhatIf::args(None, args) {
         Ok(args) => whatif(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -134,7 +134,7 @@ pub async fn prefix_whatif(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> 
 #[alias("wim")]
 #[group(Mania)]
 pub async fn prefix_whatifmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match WhatIf::args(GameModeOption::Mania, args) {
+    match WhatIf::args(Some(GameModeOption::Mania), args) {
         Ok(args) => whatif(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -155,7 +155,7 @@ pub async fn prefix_whatifmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[alias("wit")]
 #[group(Taiko)]
 pub async fn prefix_whatiftaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match WhatIf::args(GameModeOption::Taiko, args) {
+    match WhatIf::args(Some(GameModeOption::Taiko), args) {
         Ok(args) => whatif(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -176,7 +176,7 @@ pub async fn prefix_whatiftaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[alias("wic")]
 #[group(Catch)]
 pub async fn prefix_whatifctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match WhatIf::args(GameModeOption::Catch, args) {
+    match WhatIf::args(Some(GameModeOption::Catch), args) {
         Ok(args) => whatif(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;

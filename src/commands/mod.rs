@@ -52,6 +52,18 @@ impl From<GameModeOption> for GameMode {
     }
 }
 
+impl From<GameMode> for GameModeOption {
+    #[inline]
+    fn from(mode: GameMode) -> Self {
+        match mode {
+            GameMode::STD => Self::Osu,
+            GameMode::TKO => Self::Taiko,
+            GameMode::CTB => Self::Catch,
+            GameMode::MNA => Self::Mania,
+        }
+    }
+}
+
 #[derive(CommandOption, CreateOption)]
 pub enum GradeOption {
     #[option(name = "SS", value = "ss")]

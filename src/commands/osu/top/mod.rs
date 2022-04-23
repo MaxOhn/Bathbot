@@ -186,7 +186,7 @@ pub enum FarmFilter {
 #[aliases("topscores", "osutop")]
 #[group(Osu)]
 async fn prefix_top(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TopArgs::args(GameMode::STD, args) {
+    match TopArgs::args(None, args) {
         Ok(args) => top(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -224,7 +224,7 @@ async fn prefix_top(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResu
 #[alias("topm")]
 #[group(Mania)]
 async fn prefix_topmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TopArgs::args(GameMode::MNA, args) {
+    match TopArgs::args(Some(GameMode::MNA), args) {
         Ok(args) => top(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -262,7 +262,7 @@ async fn prefix_topmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Bo
 #[alias("topt")]
 #[group(Taiko)]
 async fn prefix_toptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TopArgs::args(GameMode::TKO, args) {
+    match TopArgs::args(Some(GameMode::TKO), args) {
         Ok(args) => top(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -300,7 +300,7 @@ async fn prefix_toptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Bo
 #[alias("topc")]
 #[group(Catch)]
 async fn prefix_topctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TopArgs::args(GameMode::CTB, args) {
+    match TopArgs::args(Some(GameMode::CTB), args) {
         Ok(args) => top(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -336,7 +336,7 @@ async fn prefix_topctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotR
 #[alias("rb")]
 #[group(Osu)]
 async fn prefix_recentbest(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TopArgs::args(GameMode::STD, args) {
+    match TopArgs::args(None, args) {
         Ok(mut args) => {
             args.sort_by = TopScoreOrder::Date;
 
@@ -376,7 +376,7 @@ async fn prefix_recentbest(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> 
 #[alias("rbm")]
 #[group(Mania)]
 async fn prefix_recentbestmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TopArgs::args(GameMode::MNA, args) {
+    match TopArgs::args(Some(GameMode::MNA), args) {
         Ok(mut args) => {
             args.sort_by = TopScoreOrder::Date;
 
@@ -416,7 +416,7 @@ async fn prefix_recentbestmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[alias("rbt")]
 #[group(Taiko)]
 async fn prefix_recentbesttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TopArgs::args(GameMode::TKO, args) {
+    match TopArgs::args(Some(GameMode::TKO), args) {
         Ok(mut args) => {
             args.sort_by = TopScoreOrder::Date;
 
@@ -456,7 +456,7 @@ async fn prefix_recentbesttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[alias("rbc")]
 #[group(Catch)]
 async fn prefix_recentbestctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TopArgs::args(GameMode::CTB, args) {
+    match TopArgs::args(Some(GameMode::CTB), args) {
         Ok(mut args) => {
             args.sort_by = TopScoreOrder::Date;
 
@@ -519,7 +519,7 @@ impl<'m> TopArgs<'m> {
         Must be either a positive integer \
         or two positive integers of the form `a..b` e.g. `501..1234`.";
 
-    fn args(mode: GameMode, args: Args<'m>) -> Result<Self, Cow<'static, str>> {
+    fn args(mode: Option<GameMode>, args: Args<'m>) -> Result<Self, Cow<'static, str>> {
         let mut name = None;
         let mut discord = None;
         let mut mods = None;
@@ -659,7 +659,7 @@ impl<'m> TopArgs<'m> {
         let args = Self {
             name,
             discord,
-            mode: Some(mode),
+            mode,
             mods,
             min_acc: acc_min,
             max_acc: acc_max,

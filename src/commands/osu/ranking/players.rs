@@ -236,7 +236,7 @@ pub async fn prefix_ppranking(
     };
 
     let args = RankingPp {
-        mode: Some(GameModeOption::Osu),
+        mode: None,
         country: country.map(|c| c.deref().clone().into_string().into()),
     };
 
@@ -350,7 +350,7 @@ pub async fn prefix_pprankingctb(
 #[aliases("rsr", "rslb")]
 #[group(Osu)]
 pub async fn prefix_rankedscoreranking(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    score(ctx, msg.into(), GameModeOption::Osu.into()).await
+    score(ctx, msg.into(), None.into()).await
 }
 
 #[command]
@@ -358,7 +358,7 @@ pub async fn prefix_rankedscoreranking(ctx: Arc<Context>, msg: &Message) -> BotR
 #[aliases("rsrm", "rslbm")]
 #[group(Mania)]
 pub async fn prefix_rankedscorerankingmania(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    score(ctx, msg.into(), GameModeOption::Mania.into()).await
+    score(ctx, msg.into(), Some(GameModeOption::Mania).into()).await
 }
 
 #[command]
@@ -366,7 +366,7 @@ pub async fn prefix_rankedscorerankingmania(ctx: Arc<Context>, msg: &Message) ->
 #[aliases("rsrt", "rslbt")]
 #[group(Taiko)]
 pub async fn prefix_rankedscorerankingtaiko(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    score(ctx, msg.into(), GameModeOption::Taiko.into()).await
+    score(ctx, msg.into(), Some(GameModeOption::Taiko).into()).await
 }
 
 #[command]
@@ -374,7 +374,7 @@ pub async fn prefix_rankedscorerankingtaiko(ctx: Arc<Context>, msg: &Message) ->
 #[aliases("rsrc", "rslbc")]
 #[group(Catch)]
 pub async fn prefix_rankedscorerankingctb(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    score(ctx, msg.into(), GameModeOption::Catch.into()).await
+    score(ctx, msg.into(), Some(GameModeOption::Catch).into()).await
 }
 
 #[derive(Eq, PartialEq)]

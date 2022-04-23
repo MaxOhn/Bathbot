@@ -58,7 +58,7 @@ pub struct Mapper<'a> {
 
 impl<'m> Mapper<'m> {
     fn args(
-        mode: GameModeOption,
+        mode: Option<GameModeOption>,
         mut args: Args<'m>,
         mapper: Option<&'static str>,
     ) -> Result<Self, &'static str> {
@@ -84,7 +84,7 @@ impl<'m> Mapper<'m> {
 
         Ok(Self {
             mapper,
-            mode: Some(mode),
+            mode,
             name,
             discord,
         })
@@ -103,7 +103,7 @@ impl<'m> Mapper<'m> {
 #[examples("badewanne3 \"Hishiro Chizuru\"", "monstrata monstrata")]
 #[group(Osu)]
 async fn prefix_mapper(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match Mapper::args(GameModeOption::Osu, args, None) {
+    match Mapper::args(None, args, None) {
         Ok(args) => mapper(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -128,7 +128,7 @@ async fn prefix_mapper(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotR
 #[alias("mapperm")]
 #[group(Mania)]
 pub async fn prefix_mappermania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match Mapper::args(GameModeOption::Mania, args, None) {
+    match Mapper::args(Some(GameModeOption::Mania), args, None) {
         Ok(args) => mapper(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -153,7 +153,7 @@ pub async fn prefix_mappermania(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[alias("mappert")]
 #[group(Taiko)]
 pub async fn prefix_mappertaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match Mapper::args(GameModeOption::Taiko, args, None) {
+    match Mapper::args(Some(GameModeOption::Taiko), args, None) {
         Ok(args) => mapper(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -178,7 +178,7 @@ pub async fn prefix_mappertaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[alias("mapperc")]
 #[group(Catch)]
 async fn prefix_mapperctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match Mapper::args(GameModeOption::Catch, args, None) {
+    match Mapper::args(Some(GameModeOption::Catch), args, None) {
         Ok(args) => mapper(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -199,7 +199,7 @@ async fn prefix_mapperctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> B
 #[example("badewanne3")]
 #[group(Osu)]
 pub async fn prefix_sotarks(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match Mapper::args(GameModeOption::Osu, args, Some("sotarks")) {
+    match Mapper::args(Some(GameModeOption::Osu), args, Some("sotarks")) {
         Ok(args) => mapper(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;

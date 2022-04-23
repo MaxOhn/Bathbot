@@ -89,7 +89,17 @@ pub(super) async fn profile(
         return orig.error(&ctx, "Give two different names").await;
     }
 
-    let mode = args.mode.map_or(GameMode::STD, GameMode::from);
+    let mode = match args.mode {
+        Some(mode) => mode.into(),
+        None => match ctx.user_config(orig.user_id()?).await {
+            Ok(config) => config.mode.unwrap_or(GameMode::STD),
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(err);
+            }
+        },
+    };
 
     // Retrieve all users and their scores
     let user_args1 = UserArgs::new(name1.as_ref(), mode);
@@ -176,7 +186,7 @@ pub(super) async fn profile(
 #[aliases("oc", "compareosu", "co")]
 #[group(Osu)]
 async fn prefix_osucompare(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    let args = CompareProfile::args(GameModeOption::Osu, args);
+    let args = CompareProfile::args(None, args);
 
     profile(ctx, msg.into(), args).await
 }
@@ -194,7 +204,7 @@ async fn prefix_osucompare(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> 
 #[alias("ocm")]
 #[group(Mania)]
 async fn prefix_osucomparemania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    let args = CompareProfile::args(GameModeOption::Mania, args);
+    let args = CompareProfile::args(Some(GameModeOption::Mania), args);
 
     profile(ctx, msg.into(), args).await
 }
@@ -212,7 +222,7 @@ async fn prefix_osucomparemania(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[alias("oct")]
 #[group(Taiko)]
 async fn prefix_osucomparetaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    let args = CompareProfile::args(GameModeOption::Taiko, args);
+    let args = CompareProfile::args(Some(GameModeOption::Taiko), args);
 
     profile(ctx, msg.into(), args).await
 }
@@ -230,7 +240,7 @@ async fn prefix_osucomparetaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[alias("occ")]
 #[group(Catch)]
 async fn prefix_osucomparectb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    let args = CompareProfile::args(GameModeOption::Catch, args);
+    let args = CompareProfile::args(Some(GameModeOption::Catch), args);
 
     profile(ctx, msg.into(), args).await
 }
@@ -303,7 +313,7 @@ async fn get_combined_thumbnail(
 }
 
 impl<'m> CompareProfile<'m> {
-    fn args(mode: GameModeOption, args: Args<'m>) -> Self {
+    fn args(mode: Option<GameModeOption>, args: Args<'m>) -> Self {
         let mut name1 = None;
         let mut name2 = None;
         let mut discord1 = None;
@@ -324,7 +334,7 @@ impl<'m> CompareProfile<'m> {
         }
 
         Self {
-            mode: Some(mode),
+            mode,
             name1,
             name2,
             discord1,

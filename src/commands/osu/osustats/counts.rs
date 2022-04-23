@@ -53,22 +53,22 @@ impl<'m> From<Osc<'m>> for OsuStatsCount<'m> {
 }
 
 impl<'m> OsuStatsCount<'m> {
-    fn args(mode: GameModeOption, mut args: Args<'m>) -> Self {
+    fn args(mode: Option<GameModeOption>, mut args: Args<'m>) -> Self {
         match args.next() {
             Some(arg) => match matcher::get_mention_user(arg) {
                 Some(id) => Self {
-                    mode: Some(mode),
+                    mode,
                     discord: Some(id),
                     name: None,
                 },
                 None => Self {
-                    mode: Some(mode),
+                    mode,
                     name: Some(arg.into()),
                     discord: None,
                 },
             },
             None => Self {
-                mode: Some(mode),
+                mode,
                 ..Default::default()
             },
         }
@@ -88,7 +88,7 @@ impl<'m> OsuStatsCount<'m> {
 #[aliases("osc", "osustatscounts")]
 #[group(Osu)]
 async fn prefix_osustatscount(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    let args = OsuStatsCount::args(GameModeOption::Osu, args);
+    let args = OsuStatsCount::args(None, args);
 
     count(ctx, msg.into(), args).await
 }
@@ -110,7 +110,7 @@ async fn prefix_osustatscountmania(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    let args = OsuStatsCount::args(GameModeOption::Mania, args);
+    let args = OsuStatsCount::args(Some(GameModeOption::Mania), args);
 
     count(ctx, msg.into(), args).await
 }
@@ -132,7 +132,7 @@ async fn prefix_osustatscounttaiko(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    let args = OsuStatsCount::args(GameModeOption::Taiko, args);
+    let args = OsuStatsCount::args(Some(GameModeOption::Taiko), args);
 
     count(ctx, msg.into(), args).await
 }
@@ -154,7 +154,7 @@ async fn prefix_osustatscountctb(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    let args = OsuStatsCount::args(GameModeOption::Catch, args);
+    let args = OsuStatsCount::args(Some(GameModeOption::Catch), args);
 
     count(ctx, msg.into(), args).await
 }

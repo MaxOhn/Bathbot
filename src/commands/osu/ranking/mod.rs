@@ -44,9 +44,9 @@ pub struct RankingScore {
     mode: Option<GameModeOption>,
 }
 
-impl From<GameModeOption> for RankingScore {
-    fn from(mode: GameModeOption) -> Self {
-        Self { mode: Some(mode) }
+impl From<Option<GameModeOption>> for RankingScore {
+    fn from(mode: Option<GameModeOption>) -> Self {
+        Self { mode }
     }
 }
 
@@ -61,9 +61,9 @@ pub struct RankingCountry {
     mode: Option<GameModeOption>,
 }
 
-impl From<GameModeOption> for RankingCountry {
-    fn from(mode: GameModeOption) -> Self {
-        Self { mode: Some(mode) }
+impl From<Option<GameModeOption>> for RankingCountry {
+    fn from(mode: Option<GameModeOption>) -> Self {
+        Self { mode }
     }
 }
 

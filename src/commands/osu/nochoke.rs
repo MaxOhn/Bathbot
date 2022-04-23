@@ -118,7 +118,7 @@ pub enum NochokeFilter {
 }
 
 impl<'m> Nochoke<'m> {
-    fn args(mode: NochokeGameMode, args: Args<'m>) -> Self {
+    fn args(mode: Option<NochokeGameMode>, args: Args<'m>) -> Self {
         let mut name = None;
         let mut discord = None;
         let mut miss_limit = None;
@@ -134,7 +134,7 @@ impl<'m> Nochoke<'m> {
         }
 
         Self {
-            mode: Some(mode),
+            mode,
             name,
             miss_limit,
             version: None,
@@ -155,7 +155,7 @@ impl<'m> Nochoke<'m> {
 #[aliases("nc", "nochoke")]
 #[group(Osu)]
 async fn prefix_nochokes(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    let args = Nochoke::args(NochokeGameMode::Osu, args);
+    let args = Nochoke::args(None, args);
 
     nochoke(ctx, msg.into(), args).await
 }
@@ -173,7 +173,7 @@ async fn prefix_nochokes(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Bo
 #[alias("nct", "nochoketaiko")]
 #[group(Taiko)]
 async fn prefix_nochokestaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    let args = Nochoke::args(NochokeGameMode::Taiko, args);
+    let args = Nochoke::args(Some(NochokeGameMode::Taiko), args);
 
     nochoke(ctx, msg.into(), args).await
 }
@@ -191,7 +191,7 @@ async fn prefix_nochokestaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) 
 #[alias("ncc", "nochokectb")]
 #[group(Catch)]
 async fn prefix_nochokesctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    let args = Nochoke::args(NochokeGameMode::Catch, args);
+    let args = Nochoke::args(Some(NochokeGameMode::Catch), args);
 
     nochoke(ctx, msg.into(), args).await
 }
@@ -203,7 +203,11 @@ async fn slash_nochoke(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) 
 }
 
 async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) -> BotResult<()> {
-    let (name, mode) = name_mode!(ctx, orig, args);
+    let (name, mut mode) = name_mode!(ctx, orig, args);
+
+    if mode == GameMode::MNA {
+        mode = GameMode::STD;
+    }
 
     let Nochoke {
         miss_limit,

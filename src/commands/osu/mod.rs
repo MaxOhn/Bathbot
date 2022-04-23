@@ -51,7 +51,13 @@ macro_rules! username_ref {
     };
 }
 
-/// Returns a (Username, GameMode) tuple
+/// Tries to extract the username and mode from args.
+/// If either fails, it checks the user config.
+/// If the name is still not found, return the linking error.
+/// If the mode is still not found, pick STD.
+///
+/// Only use this when the user config is not needed otherwise,
+/// else you'll have to retrieve it twice.
 macro_rules! name_mode {
     ($ctx:ident, $orig:ident, $args:ident) => {{
         let mode = $args.mode.map(rosu_v2::prelude::GameMode::from);

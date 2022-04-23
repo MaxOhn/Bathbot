@@ -40,7 +40,7 @@ async fn prefix_recentbelgianleaderboard(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    let args = RecentLeaderboard::args(GameModeOption::Osu, args);
+    let args = RecentLeaderboard::args(None, args);
 
     leaderboard(ctx, msg.into(), args, true).await
 }
@@ -62,7 +62,7 @@ async fn prefix_recentmaniabelgianleaderboard(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    let args = RecentLeaderboard::args(GameModeOption::Mania, args);
+    let args = RecentLeaderboard::args(Some(GameModeOption::Mania), args);
 
     leaderboard(ctx, msg.into(), args, true).await
 }
@@ -84,7 +84,7 @@ async fn prefix_recenttaikobelgianleaderboard(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    let args = RecentLeaderboard::args(GameModeOption::Taiko, args);
+    let args = RecentLeaderboard::args(Some(GameModeOption::Taiko), args);
 
     leaderboard(ctx, msg.into(), args, true).await
 }
@@ -106,7 +106,7 @@ async fn prefix_recentctbbelgianleaderboard(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    let args = RecentLeaderboard::args(GameModeOption::Catch, args);
+    let args = RecentLeaderboard::args(Some(GameModeOption::Catch), args);
 
     leaderboard(ctx, msg.into(), args, true).await
 }
@@ -128,7 +128,7 @@ async fn prefix_recentleaderboard(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    let args = RecentLeaderboard::args(GameModeOption::Osu, args);
+    let args = RecentLeaderboard::args(None, args);
 
     leaderboard(ctx, msg.into(), args, false).await
 }
@@ -150,7 +150,7 @@ async fn prefix_recentmanialeaderboard(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    let args = RecentLeaderboard::args(GameModeOption::Mania, args);
+    let args = RecentLeaderboard::args(Some(GameModeOption::Mania), args);
 
     leaderboard(ctx, msg.into(), args, false).await
 }
@@ -172,7 +172,7 @@ async fn prefix_recenttaikoleaderboard(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    let args = RecentLeaderboard::args(GameModeOption::Taiko, args);
+    let args = RecentLeaderboard::args(Some(GameModeOption::Taiko), args);
 
     leaderboard(ctx, msg.into(), args, false).await
 }
@@ -194,13 +194,13 @@ async fn prefix_recentctbleaderboard(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    let args = RecentLeaderboard::args(GameModeOption::Catch, args);
+    let args = RecentLeaderboard::args(Some(GameModeOption::Catch), args);
 
     leaderboard(ctx, msg.into(), args, false).await
 }
 
 impl<'m> RecentLeaderboard<'m> {
-    fn args(mode: GameModeOption, args: Args<'m>) -> Self {
+    fn args(mode: Option<GameModeOption>, args: Args<'m>) -> Self {
         let mut name = None;
         let mut discord = None;
         let mut mods = None;
@@ -217,7 +217,7 @@ impl<'m> RecentLeaderboard<'m> {
         }
 
         Self {
-            mode: Some(mode),
+            mode,
             name,
             mods,
             index: num.map(|n| n as usize),

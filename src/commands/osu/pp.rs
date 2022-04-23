@@ -48,7 +48,7 @@ pub struct Pp<'a> {
 }
 
 impl<'m> Pp<'m> {
-    fn args(mode: GameModeOption, args: Args<'m>) -> Result<Self, &'static str> {
+    fn args(mode: Option<GameModeOption>, args: Args<'m>) -> Result<Self, &'static str> {
         let mut name = None;
         let mut discord = None;
         let mut pp = None;
@@ -65,7 +65,7 @@ impl<'m> Pp<'m> {
 
         Ok(Self {
             pp: pp.ok_or("You need to provide a decimal number")?,
-            mode: Some(mode),
+            mode,
             name,
             each: None,
             discord,
@@ -89,7 +89,7 @@ async fn slash_pp(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> Bo
 #[example("badewanne3 8000")]
 #[group(Osu)]
 pub async fn prefix_pp(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match Pp::args(GameModeOption::Osu, args) {
+    match Pp::args(None, args) {
         Ok(args) => pp(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -110,7 +110,7 @@ pub async fn prefix_pp(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotR
 #[alias("ppm")]
 #[group(Mania)]
 pub async fn prefix_ppmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match Pp::args(GameModeOption::Mania, args) {
+    match Pp::args(Some(GameModeOption::Mania), args) {
         Ok(args) => pp(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -131,7 +131,7 @@ pub async fn prefix_ppmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[alias("ppt")]
 #[group(Taiko)]
 pub async fn prefix_pptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match Pp::args(GameModeOption::Taiko, args) {
+    match Pp::args(Some(GameModeOption::Taiko), args) {
         Ok(args) => pp(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -152,7 +152,7 @@ pub async fn prefix_pptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[alias("ppc")]
 #[group(Catch)]
 pub async fn prefix_ppctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match Pp::args(GameModeOption::Catch, args) {
+    match Pp::args(Some(GameModeOption::Catch), args) {
         Ok(args) => pp(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;

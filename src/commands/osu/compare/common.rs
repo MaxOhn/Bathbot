@@ -36,7 +36,7 @@ use super::{CompareTop, AT_LEAST_ONE};
 #[example("badewanne3 \"nathan on osu\"")]
 #[group(Osu)]
 async fn prefix_common(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    let args = CompareTop::args(GameModeOption::Osu, args);
+    let args = CompareTop::args(None, args);
 
     top(ctx, msg.into(), args).await
 }
@@ -49,7 +49,7 @@ async fn prefix_common(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotR
 #[alias("commonm")]
 #[group(Mania)]
 async fn prefix_commonmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    let args = CompareTop::args(GameModeOption::Mania, args);
+    let args = CompareTop::args(Some(GameModeOption::Mania), args);
 
     top(ctx, msg.into(), args).await
 }
@@ -62,7 +62,7 @@ async fn prefix_commonmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[alias("commont")]
 #[group(Taiko)]
 async fn prefix_commontaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    let args = CompareTop::args(GameModeOption::Taiko, args);
+    let args = CompareTop::args(Some(GameModeOption::Taiko), args);
 
     top(ctx, msg.into(), args).await
 }
@@ -75,7 +75,7 @@ async fn prefix_commontaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[alias("commonc")]
 #[group(Catch)]
 async fn prefix_commonctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    let args = CompareTop::args(GameModeOption::Catch, args);
+    let args = CompareTop::args(Some(GameModeOption::Catch), args);
 
     top(ctx, msg.into(), args).await
 }
@@ -148,7 +148,17 @@ pub(super) async fn top(
         return orig.error(&ctx, "Give two different names").await;
     }
 
-    let mode = args.mode.map_or(GameMode::STD, GameMode::from);
+    let mode = match args.mode {
+        Some(mode) => mode.into(),
+        None => match ctx.user_config(orig.user_id()?).await {
+            Ok(config) => config.mode.unwrap_or(GameMode::STD),
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(err);
+            }
+        },
+    };
 
     let fut1 = get_scores_(&ctx, &name1, mode);
     let fut2 = get_scores_(&ctx, &name2, mode);
@@ -497,9 +507,9 @@ impl CommonUser {
 }
 
 impl<'m> CompareTop<'m> {
-    fn args(mode: GameModeOption, args: Args<'m>) -> Self {
+    fn args(mode: Option<GameModeOption>, args: Args<'m>) -> Self {
         let mut args_ = CompareTop {
-            mode: Some(mode),
+            mode,
             ..Default::default()
         };
 

@@ -27,7 +27,7 @@ use super::RankScore;
 #[alias("rrs")]
 #[group(Osu)]
 async fn prefix_rankrankedscore(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match RankScore::args(GameModeOption::Osu, args) {
+    match RankScore::args(None, args) {
         Ok(args) => score(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -52,7 +52,7 @@ async fn prefix_rankrankedscoremania(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    match RankScore::args(GameModeOption::Mania, args) {
+    match RankScore::args(Some(GameModeOption::Mania), args) {
         Ok(args) => score(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -77,7 +77,7 @@ async fn prefix_rankrankedscoretaiko(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    match RankScore::args(GameModeOption::Taiko, args) {
+    match RankScore::args(Some(GameModeOption::Taiko), args) {
         Ok(args) => score(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -102,7 +102,7 @@ async fn prefix_rankrankedscorectb(
     msg: &Message,
     args: Args<'_>,
 ) -> BotResult<()> {
-    match RankScore::args(GameModeOption::Catch, args) {
+    match RankScore::args(Some(GameModeOption::Catch), args) {
         Ok(args) => score(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -113,7 +113,7 @@ async fn prefix_rankrankedscorectb(
 }
 
 impl<'m> RankScore<'m> {
-    fn args(mode: GameModeOption, args: Args<'m>) -> Result<Self, &'static str> {
+    fn args(mode: Option<GameModeOption>, args: Args<'m>) -> Result<Self, &'static str> {
         let mut name = None;
         let mut discord = None;
         let mut rank = None;
@@ -136,7 +136,7 @@ impl<'m> RankScore<'m> {
 
         Ok(Self {
             rank,
-            mode: Some(mode),
+            mode,
             name,
             discord,
         })
