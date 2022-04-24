@@ -20,7 +20,6 @@ mod medal;
 mod missing;
 mod recent;
 
-// TODO: remove pub
 pub mod stats;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]

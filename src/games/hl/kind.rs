@@ -66,10 +66,10 @@ impl GameStateKind {
 
                 debug!("{}pp vs {}pp", previous.pp, next.pp);
 
-                let pfp1 = mem::take(&mut previous.avatar);
+                let pfp1 = mem::take(&mut previous.avatar_url);
 
                 // Clone this since it's needed in the next round
-                let pfp2 = next.avatar.clone();
+                let pfp2 = next.avatar_url.clone();
 
                 let mapset1 = previous.mapset_id;
                 let mapset2 = next.mapset_id;
@@ -112,10 +112,10 @@ impl GameStateKind {
 
         let (tx, rx) = oneshot::channel();
 
-        let pfp1 = &previous.avatar;
+        let pfp1 = &previous.avatar_url;
         let mapset1 = previous.mapset_id;
 
-        let pfp2 = &next.avatar;
+        let pfp2 = &next.avatar_url;
         let mapset2 = next.mapset_id;
 
         let url = match ScorePp::image(ctx, pfp1, pfp2, mapset1, mapset2).await {

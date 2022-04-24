@@ -21,8 +21,6 @@ mod country_snipe_stats;
 mod player_snipe_list;
 mod sniped_difference;
 
-// TODO: remove pub(?)
-
 pub mod player_snipe_stats;
 pub mod sniped;
 

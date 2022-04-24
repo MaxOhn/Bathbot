@@ -3,8 +3,10 @@ use std::{cmp::Ordering, fmt::Display};
 use eyre::Report;
 use image::{GenericImageView, ImageBuffer};
 use rand::Rng;
-use rkyv::{Deserialize, Infallible};
-use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods, Grade, Score, UserCompact};
+use rosu_v2::{
+    model::rkyv::ArchivedUserCompact,
+    prelude::{Beatmap, Beatmapset, CountryCode, GameMode, GameMods, Grade, Score, Username},
+};
 
 use crate::{
     core::Context,
@@ -23,7 +25,7 @@ const ALPHA_THRESHOLD: u8 = 20;
 
 pub(super) struct ScorePp {
     user_id: u32,
-    pub avatar: String,
+    pub avatar_url: String,
     map_id: u32,
     pub mapset_id: u32,
     pub player_string: String,
@@ -62,11 +64,7 @@ impl ScorePp {
         let idx = (rank - 1) % 50;
 
         let ranking = ctx.redis().pp_ranking(mode, page, None).await?;
-
-        // TODO: avoid deserializing the whole thing
-        let player: UserCompact = ranking.get().ranking[idx as usize]
-            .deserialize(&mut Infallible)
-            .unwrap();
+        let player = UserCompact::from(&ranking.get().ranking[idx as usize]);
 
         let mut plays = ctx
             .osu()
@@ -210,20 +208,22 @@ impl ScorePp {
             ..
         } = map.mapset.unwrap();
 
-        let rank = user
-            .statistics
-            .as_ref()
-            .and_then(|stats| stats.global_rank)
-            .unwrap_or(0);
+        let UserCompact {
+            avatar_url,
+            country_code,
+            global_rank,
+            user_id,
+            username,
+        } = user;
 
-        let country_code = user.country_code.to_lowercase();
+        let country_code = country_code.to_lowercase();
 
         Self {
-            user_id: user.user_id,
-            avatar: user.avatar_url,
+            user_id,
+            avatar_url,
             map_id: map.map_id,
             mapset_id,
-            player_string: format!(":flag_{country_code}: {} (#{rank})", user.username,),
+            player_string: format!(":flag_{country_code}: {username} (#{global_rank})"),
             map_string: format!("[{artist} - {title} [{}]]({})", map.version, map.url),
             mods: score.mods,
             pp: round(score.pp.unwrap_or(0.0)),
@@ -240,5 +240,29 @@ impl ScorePp {
 impl PartialEq for ScorePp {
     fn eq(&self, other: &Self) -> bool {
         self.user_id == other.user_id && self.map_id == other.map_id
+    }
+}
+
+struct UserCompact {
+    avatar_url: String,
+    country_code: CountryCode,
+    global_rank: u32,
+    user_id: u32,
+    username: Username,
+}
+
+impl From<&ArchivedUserCompact> for UserCompact {
+    fn from(user: &ArchivedUserCompact) -> Self {
+        Self {
+            avatar_url: user.avatar_url.as_str().to_owned(),
+            country_code: user.country_code.as_str().into(),
+            global_rank: user
+                .statistics
+                .as_ref()
+                .and_then(|stats| stats.global_rank.as_ref().copied())
+                .unwrap_or(0),
+            user_id: user.user_id,
+            username: user.username.as_str().into(),
+        }
     }
 }
