@@ -176,19 +176,6 @@ pub(super) async fn simulate(
         Err(content) => return orig.error(&ctx, content).await,
     };
 
-    let name = match name {
-        Some(name) => name,
-        None => match ctx.psql().get_user_osu(owner).await {
-            Ok(Some(osu)) => osu.into_username(),
-            Ok(None) => return require_link(&ctx, &orig).await,
-            Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-                return Err(err);
-            }
-        },
-    };
-
     let limit = index.map_or(1, |n| n + (n == 0) as usize);
 
     if limit > 100 {
@@ -196,6 +183,23 @@ pub(super) async fn simulate(
 
         return orig.error(&ctx, content).await;
     }
+
+    let config = match ctx.user_config(owner).await {
+        Ok(config) => config,
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err);
+        }
+    };
+
+    let name = match name {
+        Some(name) => name,
+        None => match config.username() {
+            Some(name) => name.to_owned(),
+            None => return require_link(&ctx, &orig).await,
+        },
+    };
 
     // Retrieve the recent score
     let scores_fut = ctx
@@ -206,20 +210,7 @@ pub(super) async fn simulate(
         .include_fails(true)
         .limit(limit);
 
-    // TODO: combine with username retrieval
-    let config_fut = ctx.user_config(owner);
-    let (scores_result, config_result) = tokio::join!(scores_fut, config_fut);
-
-    let config = match config_result {
-        Ok(config) => config,
-        Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(err);
-        }
-    };
-
-    let mut score = match scores_result {
+    let mut score = match scores_fut.await {
         Ok(scores) if scores.is_empty() => {
             let content = format!(
                 "No recent {}plays found for user `{name}`",
