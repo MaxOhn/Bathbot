@@ -240,38 +240,83 @@ pub fn pp_missing(start: f32, goal: f32, pps: impl IntoPpIter) -> (f32, usize) {
     calculate_remaining(0, goal, top, bot)
 }
 
-pub fn map_id_from_history(msgs: &[Message]) -> Option<MapIdType> {
-    msgs.iter().find_map(map_id_from_msg)
-}
-
-pub fn map_id_from_msg(msg: &Message) -> Option<MapIdType> {
-    if msg.content.chars().all(|c| c.is_numeric()) {
-        return check_embeds_for_map_id(&msg.embeds);
-    }
-
-    matcher::get_osu_map_id(&msg.content)
-        .or_else(|| matcher::get_osu_mapset_id(&msg.content))
-        .or_else(|| check_embeds_for_map_id(&msg.embeds))
-}
-
-fn check_embeds_for_map_id(embeds: &[Embed]) -> Option<MapIdType> {
-    embeds.iter().find_map(|embed| {
-        let url = embed
-            .author
-            .as_ref()
-            .and_then(|author| author.url.as_deref());
-
-        url.and_then(matcher::get_osu_map_id)
-            .or_else(|| url.and_then(matcher::get_osu_mapset_id))
-            .or_else(|| embed.url.as_deref().and_then(matcher::get_osu_map_id))
-            .or_else(|| embed.url.as_deref().and_then(matcher::get_osu_mapset_id))
-    })
-}
-
 #[derive(Copy, Clone, Debug)]
 pub enum MapIdType {
     Map(u32),
     Set(u32),
+}
+
+impl MapIdType {
+    /// Looks for map or mapset id
+    pub fn from_msgs(msgs: &[Message]) -> Option<Self> {
+        msgs.iter().find_map(Self::from_msg)
+    }
+
+    /// Looks for map or mapset id
+    pub fn from_msg(msg: &Message) -> Option<Self> {
+        if msg.content.chars().all(|c| c.is_numeric()) {
+            return Self::from_embeds(&msg.embeds);
+        }
+
+        matcher::get_osu_map_id(&msg.content)
+            .map(Self::Map)
+            .or_else(|| matcher::get_osu_mapset_id(&msg.content).map(Self::Set))
+            .or_else(|| Self::from_embeds(&msg.embeds))
+    }
+
+    /// Looks for map or mapset id
+    pub fn from_embeds(embeds: &[Embed]) -> Option<Self> {
+        embeds.iter().find_map(|embed| {
+            let url = embed
+                .author
+                .as_ref()
+                .and_then(|author| author.url.as_deref());
+
+            url.and_then(matcher::get_osu_map_id)
+                .map(Self::Map)
+                .or_else(|| url.and_then(matcher::get_osu_mapset_id).map(Self::Set))
+                .or_else(|| {
+                    embed
+                        .url
+                        .as_deref()
+                        .and_then(matcher::get_osu_map_id)
+                        .map(Self::Map)
+                })
+                .or_else(|| {
+                    embed
+                        .url
+                        .as_deref()
+                        .and_then(matcher::get_osu_mapset_id)
+                        .map(Self::Set)
+                })
+        })
+    }
+
+    /// Only looks for map id
+    pub fn map_from_msgs(msgs: &[Message]) -> Option<u32> {
+        msgs.iter().find_map(Self::map_from_msg)
+    }
+
+    /// Only looks for map id
+    pub fn map_from_msg(msg: &Message) -> Option<u32> {
+        if msg.content.chars().all(|c| c.is_numeric()) {
+            return Self::map_from_embeds(&msg.embeds);
+        }
+
+        matcher::get_osu_map_id(&msg.content).or_else(|| Self::map_from_embeds(&msg.embeds))
+    }
+
+    /// Only looks for map id
+    pub fn map_from_embeds(embeds: &[Embed]) -> Option<u32> {
+        embeds.iter().find_map(|embed| {
+            embed
+                .author
+                .as_ref()
+                .and_then(|author| author.url.as_deref())
+                .and_then(matcher::get_osu_map_id)
+                .or_else(|| embed.url.as_deref().and_then(matcher::get_osu_map_id))
+        })
+    }
 }
 
 // Credits to https://github.com/RoanH/osu-BonusPP/blob/master/BonusPP/src/me/roan/bonuspp/BonusPP.java#L202

@@ -21,9 +21,7 @@ use crate::{
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher,
-        osu::{
-            map_id_from_history, map_id_from_msg, prepare_beatmap_file, MapIdType, ModSelection,
-        },
+        osu::{prepare_beatmap_file, MapIdType, ModSelection},
         ApplicationCommandExt,
     },
     BotResult, Context,
@@ -78,8 +76,9 @@ impl<'m> FixArgs<'m> {
         let mut mods = None;
 
         for arg in args.take(3) {
-            if let Some(id) =
-                matcher::get_osu_map_id(arg).or_else(|| matcher::get_osu_mapset_id(arg))
+            if let Some(id) = matcher::get_osu_map_id(arg)
+                .map(MapIdType::Map)
+                .or_else(|| matcher::get_osu_mapset_id(arg).map(MapIdType::Set))
             {
                 id_ = Some(MapOrScore::Map(id));
             } else if let Some((mode, id)) = matcher::get_osu_score_id(arg) {
@@ -95,11 +94,11 @@ impl<'m> FixArgs<'m> {
 
         let reply = msg
             .referenced_message
-            .as_ref()
+            .as_deref()
             .filter(|_| msg.kind == MessageType::Reply);
 
         if let Some(reply) = reply {
-            if let Some(id) = map_id_from_msg(&reply) {
+            if let Some(id) = MapIdType::from_msg(reply) {
                 id_ = Some(MapOrScore::Map(id));
             } else if let Some((mode, id)) = matcher::get_osu_score_id(&reply.content) {
                 id_ = Some(MapOrScore::Score { mode, id });
@@ -121,8 +120,9 @@ impl<'a> TryFrom<Fix<'a>> for FixArgs<'a> {
     fn try_from(args: Fix<'a>) -> Result<Self, Self::Error> {
         let id = match args.map {
             Some(map) => {
-                if let Some(id) =
-                    matcher::get_osu_map_id(&map).or_else(|| matcher::get_osu_mapset_id(&map))
+                if let Some(id) = matcher::get_osu_map_id(&map)
+                    .map(MapIdType::Map)
+                    .or_else(|| matcher::get_osu_mapset_id(&map).map(MapIdType::Set))
                 {
                     Some(MapOrScore::Map(id))
                 } else if let Some((mode, id)) = matcher::get_osu_score_id(&map) {
@@ -233,16 +233,8 @@ async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> B
                 }
             };
 
-            match map_id_from_history(&msgs) {
-                Some(MapIdType::Map(id)) => {
-                    request_by_map(&ctx, &orig, id, name.as_str(), mods).await
-                }
-                Some(MapIdType::Set(_)) => {
-                    let content = "I found a mapset in the channel history but I need a map. \
-                    Try specifying a map either by url to the map, or just by map id.";
-
-                    return orig.error(&ctx, content).await;
-                }
+            match MapIdType::map_from_msgs(&msgs) {
+                Some(id) => request_by_map(&ctx, &orig, id, name.as_str(), mods).await,
                 None => {
                     let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map either by url to the map, or just by map id.";

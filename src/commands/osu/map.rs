@@ -28,7 +28,7 @@ use crate::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher,
-        osu::{map_id_from_history, map_id_from_msg, prepare_beatmap_file, MapIdType},
+        osu::{prepare_beatmap_file, MapIdType},
         ApplicationCommandExt, ChannelExt,
     },
     BotResult, Context, Error,
@@ -134,8 +134,9 @@ impl<'m> MapArgs<'m> {
         let mut mods = None;
 
         for arg in args.take(2) {
-            if let Some(id) =
-                matcher::get_osu_map_id(arg).or_else(|| matcher::get_osu_mapset_id(arg))
+            if let Some(id) = matcher::get_osu_map_id(arg)
+                .map(MapIdType::Map)
+                .or_else(|| matcher::get_osu_mapset_id(arg).map(MapIdType::Set))
             {
                 map = Some(id);
             } else if matcher::get_mods(arg).is_some() {
@@ -152,10 +153,10 @@ impl<'m> MapArgs<'m> {
 
         let reply = msg
             .referenced_message
-            .as_ref()
+            .as_deref()
             .filter(|_| msg.kind == MessageType::Reply);
 
-        if let Some(id) = reply.and_then(|msg| map_id_from_msg(&msg)) {
+        if let Some(id) = reply.and_then(MapIdType::from_msg) {
             map = Some(id);
         }
 
@@ -180,9 +181,11 @@ impl<'a> TryFrom<Map<'a>> for MapArgs<'a> {
             hp,
         } = args;
 
-        let map = match map
-            .map(|arg| matcher::get_osu_map_id(&arg).or_else(|| matcher::get_osu_mapset_id(&arg)))
-        {
+        let map = match map.map(|arg| {
+            matcher::get_osu_map_id(&arg)
+                .map(MapIdType::Map)
+                .or_else(|| matcher::get_osu_mapset_id(&arg).map(MapIdType::Set))
+        }) {
             Some(Some(id)) => Some(id),
             Some(None) => {
                 let content =
@@ -266,7 +269,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
             }
         };
 
-        match map_id_from_history(&msgs) {
+        match MapIdType::from_msgs(&msgs) {
             Some(id) => id,
             None => {
                 let content = "No beatmap specified and none found in recent channel history. \

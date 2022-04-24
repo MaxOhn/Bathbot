@@ -7,10 +7,7 @@ use twilight_model::id::{
     Id,
 };
 
-use super::{
-    constants::OSU_BASE,
-    osu::{MapIdType, ModSelection},
-};
+use super::{constants::OSU_BASE, osu::ModSelection};
 
 pub fn is_custom_emote(msg: &str) -> bool {
     EMOJI_MATCHER.is_match(msg)
@@ -64,9 +61,9 @@ pub fn get_osu_user_id(msg: &str) -> Option<OsuUserId> {
     })
 }
 
-pub fn get_osu_map_id(msg: &str) -> Option<MapIdType> {
-    if let Ok(id) = msg.parse::<u32>() {
-        return Some(MapIdType::Map(id));
+pub fn get_osu_map_id(msg: &str) -> Option<u32> {
+    if let Ok(id) = msg.parse() {
+        return Some(id);
     }
 
     if !msg.contains(OSU_BASE) {
@@ -79,12 +76,12 @@ pub fn get_osu_map_id(msg: &str) -> Option<MapIdType> {
         OSU_URL_MAP_NEW_MATCHER.captures(msg).and_then(|c| c.get(2))
     };
 
-    matcher.and_then(|c| c.as_str().parse::<u32>().ok().map(MapIdType::Map))
+    matcher.and_then(|c| c.as_str().parse().ok())
 }
 
-pub fn get_osu_mapset_id(msg: &str) -> Option<MapIdType> {
-    if let Ok(id) = msg.parse::<u32>() {
-        return Some(MapIdType::Set(id));
+pub fn get_osu_mapset_id(msg: &str) -> Option<u32> {
+    if let Ok(id) = msg.parse() {
+        return Some(id);
     }
 
     if !msg.contains(OSU_BASE) {
@@ -95,8 +92,7 @@ pub fn get_osu_mapset_id(msg: &str) -> Option<MapIdType> {
         .captures(msg)
         .or_else(|| OSU_URL_MAP_NEW_MATCHER.captures(msg))
         .and_then(|c| c.get(1))
-        .and_then(|c| c.as_str().parse::<u32>().ok())
-        .map(MapIdType::Set)
+        .and_then(|c| c.as_str().parse().ok())
 }
 
 pub fn get_osu_score_id(msg: &str) -> Option<(GameMode, u64)> {

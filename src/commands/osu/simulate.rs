@@ -18,7 +18,7 @@ use crate::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher,
-        osu::{map_id_from_history, map_id_from_msg, MapIdType, ModSelection},
+        osu::{MapIdType, ModSelection},
         ApplicationCommandExt, ChannelExt, CowUtils, MessageExt,
     },
     BotResult, Context,
@@ -90,8 +90,9 @@ impl TryFrom<Simulate> for SimulateArgs {
 
         let map = match args.map {
             Some(map) => {
-                if let Some(id) =
-                    matcher::get_osu_map_id(&map).or_else(|| matcher::get_osu_mapset_id(&map))
+                if let Some(id) = matcher::get_osu_map_id(&map)
+                    .map(MapIdType::Map)
+                    .or_else(|| matcher::get_osu_mapset_id(&map).map(MapIdType::Set))
                 {
                     Some(id)
                 } else {
@@ -165,35 +166,32 @@ async fn slash_simulate(ctx: Arc<Context>, mut command: Box<ApplicationCommand>)
 }
 
 async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs) -> BotResult<()> {
-    let map_id = if let Some(id) = args.map {
-        id
-    } else {
-        let msgs = match ctx.retrieve_channel_history(orig.channel_id()).await {
-            Ok(msgs) => msgs,
-            Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-                return Err(err);
-            }
-        };
-
-        match map_id_from_history(&msgs) {
-            Some(id) => id,
-            None => {
-                let content = "No beatmap specified and none found in recent channel history. \
-                    Try specifying a map either by url to the map, or just by map id.";
-
-                return orig.error(&ctx, content).await;
-            }
-        }
-    };
-
-    let map_id = match map_id {
-        MapIdType::Map(id) => id,
-        MapIdType::Set(_) => {
+    let map_id = match args.map {
+        Some(MapIdType::Map(id)) => id,
+        Some(MapIdType::Set(_)) => {
             let content = "Looks like you gave me a mapset id, I need a map id though";
 
             return orig.error(&ctx, content).await;
+        }
+        None => {
+            let msgs = match ctx.retrieve_channel_history(orig.channel_id()).await {
+                Ok(msgs) => msgs,
+                Err(err) => {
+                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                    return Err(err);
+                }
+            };
+
+            match MapIdType::map_from_msgs(&msgs) {
+                Some(id) => id,
+                None => {
+                    let content = "No beatmap specified and none found in recent channel history. \
+                    Try specifying a map either by url to the map, or just by map id.";
+
+                    return orig.error(&ctx, content).await;
+                }
+            }
         }
     };
 
@@ -388,8 +386,9 @@ impl SimulateArgs {
                 }
             } else if let Some(mods_) = matcher::get_mods(&arg) {
                 mods = Some(mods_);
-            } else if let Some(id) =
-                matcher::get_osu_map_id(&arg).or_else(|| matcher::get_osu_mapset_id(&arg))
+            } else if let Some(id) = matcher::get_osu_map_id(&arg)
+                .map(MapIdType::Map)
+                .or_else(|| matcher::get_osu_mapset_id(&arg).map(MapIdType::Set))
             {
                 map = Some(id);
             } else {
@@ -405,13 +404,11 @@ impl SimulateArgs {
 
         let reply = msg
             .referenced_message
-            .as_ref()
+            .as_deref()
             .filter(|_| msg.kind == MessageType::Reply);
 
-        if let Some(reply) = reply {
-            if let Some(map_) = map_id_from_msg(&reply) {
-                map = Some(map_);
-            }
+        if let Some(map_) = reply.and_then(MapIdType::from_msg) {
+            map = Some(map_);
         }
 
         Ok(Self {

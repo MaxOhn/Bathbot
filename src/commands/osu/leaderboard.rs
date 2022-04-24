@@ -18,7 +18,7 @@ use crate::{
         builder::MessageBuilder,
         constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE},
         matcher, numbers,
-        osu::{map_id_from_history, map_id_from_msg, MapIdType, ModSelection},
+        osu::{MapIdType, ModSelection},
         ApplicationCommandExt, ChannelExt,
     },
     BotResult, Context,
@@ -55,8 +55,9 @@ impl<'m> LeaderboardArgs<'m> {
         let mut mods = None;
 
         for arg in args.take(2) {
-            if let Some(id) =
-                matcher::get_osu_map_id(arg).or_else(|| matcher::get_osu_mapset_id(arg))
+            if let Some(id) = matcher::get_osu_map_id(arg)
+                .map(MapIdType::Map)
+                .or_else(|| matcher::get_osu_mapset_id(arg).map(MapIdType::Set))
             {
                 map = Some(id);
             } else if matcher::get_mods(arg).is_some() {
@@ -73,10 +74,10 @@ impl<'m> LeaderboardArgs<'m> {
 
         let reply = msg
             .referenced_message
-            .as_ref()
+            .as_deref()
             .filter(|_| msg.kind == MessageType::Reply);
 
-        if let Some(id) = reply.and_then(|msg| map_id_from_msg(&msg)) {
+        if let Some(id) = reply.and_then(MapIdType::from_msg) {
             map = Some(id);
         }
 
@@ -90,8 +91,9 @@ impl<'a> TryFrom<Leaderboard<'a>> for LeaderboardArgs<'a> {
     fn try_from(args: Leaderboard<'a>) -> Result<Self, Self::Error> {
         let map = match args.map {
             Some(map) => {
-                if let Some(id) =
-                    matcher::get_osu_map_id(&map).or_else(|| matcher::get_osu_mapset_id(&map))
+                if let Some(id) = matcher::get_osu_map_id(&map)
+                    .map(MapIdType::Map)
+                    .or_else(|| matcher::get_osu_mapset_id(&map).map(MapIdType::Set))
                 {
                     Some(id)
                 } else {
@@ -214,10 +216,9 @@ async fn leaderboard(
                 }
             };
 
-            match map_id_from_history(&msgs) {
-                Some(MapIdType::Map(id)) => id,
-                // TODO: handle MapIdType::Set
-                _ => {
+            match MapIdType::map_from_msgs(&msgs) {
+                Some(id) => id,
+                None => {
                     let content = "No beatmap specified and none found in recent channel history. \
                         Try specifying a map either by url to the map, or just by map id.";
 
