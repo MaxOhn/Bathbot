@@ -14,7 +14,7 @@ use twilight_model::{
 
 use crate::{core::Context, error::InvalidGameState, util::Authored, BotResult};
 
-use super::{farm_map::FarmEntries, kind::GameStateKind, HlGuess, HlVersion};
+use super::{kind::GameStateKind, HlGuess, HlVersion};
 
 pub struct GameState {
     kind: GameStateKind,
@@ -54,15 +54,17 @@ impl GameState {
 
     pub async fn farm_maps(ctx: &Context, origin: &(dyn Authored + Sync)) -> BotResult<Self> {
         let user = origin.user_id()?.get();
+        let redis = ctx.redis();
 
-        let entries_fut = FarmEntries::new(ctx);
+        let entries_fut = redis.osutracker_counts();
 
         let highscore_fut = ctx
             .psql()
             .get_higherlower_highscore(user, HlVersion::FarmMaps);
 
-        let (entries, highscore) = tokio::try_join!(entries_fut, highscore_fut)?;
-        let (kind, rx) = GameStateKind::farm_maps(ctx, entries).await?;
+        let (entries_res, highscore_res) = tokio::join!(entries_fut, highscore_fut);
+        let highscore = highscore_res?;
+        let (kind, rx) = GameStateKind::farm_maps(ctx, entries_res?).await?;
 
         Ok(Self {
             kind,

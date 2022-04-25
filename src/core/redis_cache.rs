@@ -11,7 +11,8 @@ use rosu_v2::{
 use crate::{
     commands::osu::UserArgs,
     custom_client::{
-        CustomClientError, OsekaiBadge, OsekaiMedal, OsuTrackerPpGroup, OsuTrackerStats,
+        CustomClientError, OsekaiBadge, OsekaiMedal, OsuTrackerIdCount, OsuTrackerPpGroup,
+        OsuTrackerStats,
     },
 };
 
@@ -28,6 +29,7 @@ impl<'c> RedisCache<'c> {
     const USER_SECONDS: usize = 600;
     const OSUTRACKER_STATS_SECONDS: usize = 86_400;
     const OSUTRACKER_PP_GROUP_SECONDS: usize = 86_400;
+    const OSUTRACKER_COUNTS_SECONDS: usize = 86_400;
     const MEDALS_SECONDS: usize = 3600;
     const BADGES_SECONDS: usize = 7200;
     const PP_RANKING_SECONDS: usize = 1800;
@@ -139,17 +141,17 @@ impl<'c> RedisCache<'c> {
                 let report = Report::new(err).wrap_err("failed to get redis connection");
                 warn!("{report:?}");
 
-                let groups = self.ctx.client().get_osutracker_pp_group(pp).await?;
-                let bytes = rkyv::to_bytes::<_, 7_000>(&groups)
+                let group = self.ctx.client().get_osutracker_pp_group(pp).await?;
+                let bytes = rkyv::to_bytes::<_, 7_000>(&group)
                     .expect("failed to serialize osutracker pp groups");
 
                 return Ok(ArchivedBytes::new(bytes));
             }
         };
 
-        let groups = self.ctx.client().get_osutracker_pp_group(pp).await?;
+        let group = self.ctx.client().get_osutracker_pp_group(pp).await?;
         let bytes =
-            rkyv::to_bytes::<_, 7_000>(&groups).expect("failed to serialize osutracker pp groups");
+            rkyv::to_bytes::<_, 7_000>(&group).expect("failed to serialize osutracker pp groups");
 
         let set_fut =
             conn.set_ex::<_, _, ()>(key, bytes.as_slice(), Self::OSUTRACKER_PP_GROUP_SECONDS);
@@ -204,6 +206,54 @@ impl<'c> RedisCache<'c> {
         Ok(ArchivedBytes::new(bytes))
     }
 
+    pub async fn osutracker_counts(
+        &self,
+    ) -> ArchivedResult<Vec<OsuTrackerIdCount>, CustomClientError> {
+        let key = "osutracker_id_counts";
+
+        let mut conn = match self.ctx.redis_client().get().await {
+            Ok(mut conn) => {
+                if let Ok(bytes) = conn.get::<_, Vec<u8>>(key).await {
+                    if !bytes.is_empty() {
+                        self.ctx.stats.inc_cached_osutracker_counts();
+                        trace!(
+                            "Found osutracker id counts in cache ({} bytes)",
+                            bytes.len()
+                        );
+
+                        return Ok(ArchivedBytes::new(bytes));
+                    }
+                }
+
+                conn
+            }
+            Err(err) => {
+                let report = Report::new(err).wrap_err("failed to get redis connection");
+                warn!("{report:?}");
+
+                let counts = self.ctx.client().get_osutracker_counts().await?;
+                let bytes = rkyv::to_bytes::<_, 330_000>(&counts)
+                    .expect("failed to serialize osutracker counts");
+
+                return Ok(ArchivedBytes::new(bytes));
+            }
+        };
+
+        let counts = self.ctx.client().get_osutracker_counts().await?;
+        let bytes =
+            rkyv::to_bytes::<_, 330_000>(&counts).expect("failed to serialize osutracker counts");
+
+        let set_fut =
+            conn.set_ex::<_, _, ()>(key, bytes.as_slice(), Self::OSUTRACKER_COUNTS_SECONDS);
+
+        if let Err(err) = set_fut.await {
+            let report = Report::new(err).wrap_err("failed to insert bytes into cache");
+            warn!("{report:?}");
+        }
+
+        Ok(ArchivedBytes::new(bytes))
+    }
+
     pub async fn pp_ranking(
         &self,
         mode: GameMode,
@@ -241,9 +291,8 @@ impl<'c> RedisCache<'c> {
                     ranking_fut.await?
                 };
 
-                // TODO: size
                 let bytes =
-                    rkyv::to_bytes::<_, 190_000>(&ranking).expect("failed to serialize ranking");
+                    rkyv::to_bytes::<_, 40_000>(&ranking).expect("failed to serialize ranking");
 
                 return Ok(ArchivedBytes::new(bytes));
             }
@@ -257,8 +306,7 @@ impl<'c> RedisCache<'c> {
             ranking_fut.await?
         };
 
-        // TODO: size
-        let bytes = rkyv::to_bytes::<_, 190_000>(&ranking).expect("failed to serialize ranking");
+        let bytes = rkyv::to_bytes::<_, 40_000>(&ranking).expect("failed to serialize ranking");
         let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), Self::PP_RANKING_SECONDS);
 
         if let Err(err) = set_fut.await {

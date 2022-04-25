@@ -6,6 +6,13 @@ use serde::Deserialize;
 use super::{inflate_acc, str_to_datetime, str_to_f32, str_to_u32, UsernameWrapper};
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
+pub struct OsuTrackerIdCount {
+    #[serde(rename = "id")]
+    pub map_id: u32,
+    pub count: usize,
+}
+
+#[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerPpGroup {
     pub number: u32,
     pub list: Vec<OsuTrackerPpEntry>,

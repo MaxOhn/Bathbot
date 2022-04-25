@@ -336,11 +336,8 @@ impl CustomClient {
         let url = format!("https://osutracker.com/api/countries/{country_code}/details");
         let bytes = self.make_get_request(url, Site::OsuTracker).await?;
 
-        let details: OsuTrackerCountryDetails = serde_json::from_slice(&bytes).map_err(|e| {
-            CustomClientError::parsing(e, &bytes, ErrorKind::OsuTrackerCountryDetails)
-        })?;
-
-        Ok(details)
+        serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsuTrackerCountryDetails))
     }
 
     /// Don't use this; use [`RedisCache::osutracker_stats`] instead.
@@ -348,10 +345,8 @@ impl CustomClient {
         let url = "https://osutracker.com/api/stats";
         let bytes = self.make_get_request(url, Site::OsuTracker).await?;
 
-        let stats: OsuTrackerStats = serde_json::from_slice(&bytes)
-            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsuTrackerStats))?;
-
-        Ok(stats)
+        serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsuTrackerStats))
     }
 
     /// Don't use this; use [`RedisCache::osutracker_pp_group`] instead.
@@ -360,7 +355,16 @@ impl CustomClient {
         let bytes = self.make_get_request(url, Site::OsuTracker).await?;
 
         serde_json::from_slice(&bytes)
-            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsuTrackerGroups))
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsuTrackerPpGroup))
+    }
+
+    /// Don't use this; use [`RedisCache::osutracker_counts`] instead.
+    pub async fn get_osutracker_counts(&self) -> ClientResult<Vec<OsuTrackerIdCount>> {
+        let url = "https://osutracker.com/api/stats/idCounts";
+        let bytes = self.make_get_request(url, Site::OsuTracker).await?;
+
+        serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsuTrackerIdCounts))
     }
 
     /// Don't use this; use [`RedisCache::badges`] instead.

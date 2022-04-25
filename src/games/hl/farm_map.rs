@@ -2,55 +2,18 @@ use std::f32::consts::SQRT_2;
 
 use chrono::{DateTime, Utc};
 use eyre::Report;
-use hashbrown::HashMap;
 use image::{GenericImageView, ImageBuffer};
 use rand::{prelude::SliceRandom, Rng};
 
-use crate::{core::Context, BotResult};
+use crate::{
+    core::{ArchivedBytes, Context},
+    custom_client::OsuTrackerIdCount,
+    BotResult,
+};
 
 use super::{kind::GameStateKind, mapset_cover, H, W};
 
-pub(super) struct FarmEntries {
-    max: f32,
-    entries: Vec<FarmEntry>,
-}
-
-#[derive(Copy, Clone)]
-struct FarmEntry {
-    map_id: u32,
-    count: u32,
-}
-
-impl FarmEntries {
-    pub(super) async fn new(ctx: &Context) -> BotResult<Self> {
-        let mut max = 0;
-
-        let entries = ctx
-            .redis()
-            .osutracker_groups()
-            .await?
-            .get()
-            .iter()
-            .flat_map(|group| group.list.iter())
-            .fold(
-                HashMap::<u32, u32>::with_capacity(2048),
-                |mut map, entry| {
-                    let entry_ = map.entry(entry.map_id).or_default();
-                    *entry_ += entry.count;
-                    max = max.max(*entry_);
-
-                    map
-                },
-            )
-            .into_iter()
-            .map(|(map_id, count)| FarmEntry { map_id, count })
-            .collect();
-
-        let max = max as f32;
-
-        Ok(Self { max, entries })
-    }
-}
+pub type FarmEntries = ArchivedBytes<Vec<OsuTrackerIdCount>>;
 
 pub(super) struct FarmMap {
     pub map_string: String,
@@ -74,15 +37,17 @@ impl FarmMap {
         prev_farm: Option<u32>,
         curr_score: u32,
     ) -> BotResult<Self> {
+        let archived = entries.get();
+
         let (prev_farm, rng_res) = {
             let mut rng = rand::thread_rng();
 
             let prev_farm = match prev_farm {
                 Some(farm) => farm,
-                None => rng.gen_range(1..=entries.max as u32),
+                None => rng.gen_range(1..=archived[0].count),
             };
 
-            let rng_res = entries.entries.choose_weighted(&mut rng, |entry| {
+            let rng_res = archived.choose_weighted(&mut rng, |entry| {
                 if entry.count == prev_farm {
                     return 0.0;
                 }
@@ -93,7 +58,7 @@ impl FarmMap {
                 const EXP: f32 = 0.7;
                 const FACTOR: f32 = 25.0;
 
-                let factor = entries.max * FACTOR;
+                let factor = archived[0].count as f32 * FACTOR;
                 let handicap = (THRESHOLD - curr_score as f32).max(1.0);
                 let percent = (THRESHOLD - handicap) / THRESHOLD;
 
@@ -109,23 +74,23 @@ impl FarmMap {
             (prev_farm, rng_res)
         };
 
-        let entry = match rng_res {
-            Ok(tuple) => *tuple,
+        let (map_id, count) = match rng_res {
+            Ok(id_count) => (id_count.map_id, id_count.count),
             Err(err) => {
                 let wrap = format!(
                     "failed to choose random entry \
                     (prev={prev_farm} | score={curr_score} | len={})",
-                    entries.entries.len()
+                    archived.len()
                 );
 
                 let report = Report::new(err).wrap_err(wrap);
                 error!("{report:?}");
 
-                entries.entries[0]
+                (archived[0].map_id, archived[0].count)
             }
         };
 
-        Self::new(ctx, entry).await
+        Self::new(ctx, map_id, count).await
     }
 
     pub async fn image(ctx: &Context, mapset1: u32, mapset2: u32) -> BotResult<String> {
@@ -160,11 +125,11 @@ impl FarmMap {
         GameStateKind::upload_image(ctx, blipped.as_raw(), content).await
     }
 
-    async fn new(ctx: &Context, entry: FarmEntry) -> BotResult<Self> {
-        let map = match ctx.psql().get_beatmap(entry.map_id, true).await {
+    async fn new(ctx: &Context, map_id: u32, farm: u32) -> BotResult<Self> {
+        let map = match ctx.psql().get_beatmap(map_id, true).await {
             Ok(map) => map,
             Err(_) => {
-                let map = ctx.osu().beatmap().map_id(entry.map_id).await?;
+                let map = ctx.osu().beatmap().map_id(map_id).await?;
 
                 if let Err(err) = ctx.psql().insert_beatmap(&map).await {
                     let report = Report::new(err).wrap_err("failed to insert map into DB");
@@ -194,7 +159,7 @@ impl FarmMap {
             ar: map.ar,
             od: map.od,
             hp: map.hp,
-            farm: entry.count,
+            farm,
         })
     }
 }
