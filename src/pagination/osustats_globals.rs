@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, iter::Extend, sync::Arc};
 
+use command_macros::BasePagination;
 use rosu_v2::model::user::User;
 use twilight_model::channel::Message;
 
@@ -11,6 +12,8 @@ use crate::{
 
 use super::{Pages, Pagination, ReactionVec};
 
+#[derive(BasePagination)]
+#[pagination(single_step = 5, multi_step = 25)]
 pub struct OsuStatsGlobalsPagination {
     msg: Message,
     pages: Pages,
@@ -46,28 +49,8 @@ impl OsuStatsGlobalsPagination {
 impl Pagination for OsuStatsGlobalsPagination {
     type PageData = OsuStatsGlobalsEmbed;
 
-    fn msg(&self) -> &Message {
-        &self.msg
-    }
-
-    fn pages(&self) -> Pages {
-        self.pages
-    }
-
-    fn pages_mut(&mut self) -> &mut Pages {
-        &mut self.pages
-    }
-
     fn reactions() -> ReactionVec {
         Self::arrow_reactions_full()
-    }
-
-    fn single_step(&self) -> usize {
-        5
-    }
-
-    fn multi_step(&self) -> usize {
-        25
     }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {

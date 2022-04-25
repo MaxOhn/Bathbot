@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use command_macros::BasePagination;
 use rosu_v2::prelude::{Beatmap, Score, User};
 use twilight_model::channel::Message;
 
@@ -8,6 +9,8 @@ use crate::{core::Context, embeds::ScoresEmbed, BotResult};
 
 use super::{Pages, Pagination};
 
+#[derive(BasePagination)]
+#[pagination(single_step = 10)]
 pub struct ScoresPagination {
     ctx: Arc<Context>,
     msg: Message,
@@ -52,22 +55,6 @@ impl ScoresPagination {
 #[async_trait]
 impl Pagination for ScoresPagination {
     type PageData = ScoresEmbed;
-
-    fn msg(&self) -> &Message {
-        &self.msg
-    }
-
-    fn pages(&self) -> Pages {
-        self.pages
-    }
-
-    fn pages_mut(&mut self) -> &mut Pages {
-        &mut self.pages
-    }
-
-    fn single_step(&self) -> usize {
-        self.pages.per_page
-    }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let scores = self

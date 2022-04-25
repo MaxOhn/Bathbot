@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, iter::Extend, sync::Arc};
 
+use command_macros::BasePagination;
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmap, User};
@@ -13,6 +14,8 @@ use crate::{
 
 use super::{Pages, Pagination, ReactionVec};
 
+#[derive(BasePagination)]
+#[pagination(single_step = 5, multi_step = 25)]
 pub struct PlayerSnipeListPagination {
     msg: Message,
     pages: Pages,
@@ -51,28 +54,8 @@ impl PlayerSnipeListPagination {
 impl Pagination for PlayerSnipeListPagination {
     type PageData = PlayerSnipeListEmbed;
 
-    fn msg(&self) -> &Message {
-        &self.msg
-    }
-
-    fn pages(&self) -> Pages {
-        self.pages
-    }
-
-    fn pages_mut(&mut self) -> &mut Pages {
-        &mut self.pages
-    }
-
     fn reactions() -> ReactionVec {
         Self::arrow_reactions_full()
-    }
-
-    fn single_step(&self) -> usize {
-        5
-    }
-
-    fn multi_step(&self) -> usize {
-        25
     }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {

@@ -2,9 +2,12 @@ use super::{Pages, Pagination};
 
 use crate::{commands::osu::MedalType, embeds::MedalsMissingEmbed, BotResult};
 
+use command_macros::BasePagination;
 use rosu_v2::model::user::User;
 use twilight_model::channel::Message;
 
+#[derive(BasePagination)]
+#[pagination(single_step = 15)]
 pub struct MedalsMissingPagination {
     msg: Message,
     pages: Pages,
@@ -33,22 +36,6 @@ impl MedalsMissingPagination {
 #[async_trait]
 impl Pagination for MedalsMissingPagination {
     type PageData = MedalsMissingEmbed;
-
-    fn msg(&self) -> &Message {
-        &self.msg
-    }
-
-    fn pages(&self) -> Pages {
-        self.pages
-    }
-
-    fn pages_mut(&mut self) -> &mut Pages {
-        &mut self.pages
-    }
-
-    fn single_step(&self) -> usize {
-        self.pages.per_page
-    }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let page = self.page();

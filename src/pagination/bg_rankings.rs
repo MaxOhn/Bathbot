@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use command_macros::BasePagination;
 use hashbrown::HashMap;
 use twilight_model::{channel::Message, id::Id};
 
@@ -7,6 +8,8 @@ use crate::{embeds::BGRankingEmbed, util::Emote, BotResult, Context};
 
 use super::{Pages, Pagination, ReactionVec};
 
+#[derive(BasePagination)]
+#[pagination(single_step = 15)]
 pub struct BGRankingPagination {
     msg: Message,
     pages: Pages,
@@ -41,22 +44,6 @@ impl BGRankingPagination {
 #[async_trait]
 impl Pagination for BGRankingPagination {
     type PageData = BGRankingEmbed;
-
-    fn msg(&self) -> &Message {
-        &self.msg
-    }
-
-    fn pages(&self) -> Pages {
-        self.pages
-    }
-
-    fn pages_mut(&mut self) -> &mut Pages {
-        &mut self.pages
-    }
-
-    fn single_step(&self) -> usize {
-        self.pages.per_page
-    }
 
     fn jump_index(&self) -> Option<usize> {
         self.author_idx

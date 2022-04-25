@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use command_macros::BasePagination;
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMods};
 use twilight_model::channel::Message;
 
@@ -7,6 +8,8 @@ use crate::{commands::osu::CustomAttrs, embeds::MapEmbed, BotResult};
 
 use super::{Context, Pages, Pagination};
 
+#[derive(BasePagination)]
+#[pagination(single_step = 1)]
 pub struct MapPagination {
     ctx: Arc<Context>,
     msg: Message,
@@ -49,18 +52,6 @@ impl MapPagination {
 #[async_trait]
 impl Pagination for MapPagination {
     type PageData = MapEmbed;
-
-    fn msg(&self) -> &Message {
-        &self.msg
-    }
-
-    fn pages(&self) -> Pages {
-        self.pages
-    }
-
-    fn pages_mut(&mut self) -> &mut Pages {
-        &mut self.pages
-    }
 
     async fn final_processing(mut self, ctx: &Context) -> BotResult<()> {
         // Set maps on garbage collection list if unranked

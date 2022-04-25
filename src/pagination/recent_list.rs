@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use command_macros::BasePagination;
 use rosu_v2::prelude::{Score, User};
 use twilight_model::channel::Message;
 
@@ -7,6 +8,8 @@ use crate::{embeds::RecentListEmbed, BotResult, Context};
 
 use super::{Pages, Pagination};
 
+#[derive(BasePagination)]
+#[pagination(single_step = 10)]
 pub struct RecentListPagination {
     ctx: Arc<Context>,
     msg: Message,
@@ -30,22 +33,6 @@ impl RecentListPagination {
 #[async_trait]
 impl Pagination for RecentListPagination {
     type PageData = RecentListEmbed;
-
-    fn msg(&self) -> &Message {
-        &self.msg
-    }
-
-    fn pages(&self) -> Pages {
-        self.pages
-    }
-
-    fn pages_mut(&mut self) -> &mut Pages {
-        &mut self.pages
-    }
-
-    fn single_step(&self) -> usize {
-        self.pages.per_page
-    }
 
     async fn final_processing(mut self, ctx: &Context) -> BotResult<()> {
         // Set maps on garbage collection list if unranked

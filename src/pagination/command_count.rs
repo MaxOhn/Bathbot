@@ -1,10 +1,13 @@
-use super::{Pages, Pagination};
+use chrono::{DateTime, Utc};
+use command_macros::BasePagination;
+use twilight_model::channel::Message;
 
 use crate::{embeds::CommandCounterEmbed, BotResult, Context};
 
-use chrono::{DateTime, Utc};
-use twilight_model::channel::Message;
+use super::{Pages, Pagination};
 
+#[derive(BasePagination)]
+#[pagination(single_step = 15)]
 pub struct CommandCountPagination {
     msg: Message,
     pages: Pages,
@@ -27,22 +30,6 @@ impl CommandCountPagination {
 #[async_trait]
 impl Pagination for CommandCountPagination {
     type PageData = CommandCounterEmbed;
-
-    fn msg(&self) -> &Message {
-        &self.msg
-    }
-
-    fn pages(&self) -> Pages {
-        self.pages
-    }
-
-    fn pages_mut(&mut self) -> &mut Pages {
-        &mut self.pages
-    }
-
-    fn single_step(&self) -> usize {
-        self.pages.per_page
-    }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let sub_list: Vec<(&String, u32)> = self

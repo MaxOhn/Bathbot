@@ -2,10 +2,13 @@ use super::{Pages, Pagination};
 
 use crate::{embeds::RankingCountriesEmbed, BotResult, Context};
 
+use command_macros::BasePagination;
 use rosu_v2::prelude::{CountryRanking, GameMode};
 use std::{collections::BTreeMap, sync::Arc};
 use twilight_model::channel::Message;
 
+#[derive(BasePagination)]
+#[pagination(single_step = 15)]
 pub struct RankingCountriesPagination {
     msg: Message,
     pages: Pages,
@@ -37,22 +40,6 @@ impl RankingCountriesPagination {
 #[async_trait]
 impl Pagination for RankingCountriesPagination {
     type PageData = RankingCountriesEmbed;
-
-    fn msg(&self) -> &Message {
-        &self.msg
-    }
-
-    fn pages(&self) -> Pages {
-        self.pages
-    }
-
-    fn pages_mut(&mut self) -> &mut Pages {
-        &mut self.pages
-    }
-
-    fn single_step(&self) -> usize {
-        self.pages.per_page
-    }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let count = self

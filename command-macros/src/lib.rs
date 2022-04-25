@@ -2,6 +2,7 @@ use prefix::CommandFun;
 use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 
+mod base_pagination;
 mod bucket;
 mod embed_data;
 mod flags;
@@ -72,6 +73,20 @@ pub fn embed_data(input: TokenStream) -> TokenStream {
     let derive_input = parse_macro_input!(input as DeriveInput);
 
     match embed_data::derive(derive_input) {
+        Ok(result) => result.into(),
+        Err(err) => err.to_compile_error().into(),
+    }
+}
+
+/// Derive the `BasePagination` trait.
+///
+/// Accepts the `#[pagination(...)]` attribute which must contain a list of assignments
+/// in which either `single_step` or `multi_step` is assigned a usize.
+#[proc_macro_derive(BasePagination, attributes(pagination))]
+pub fn base_pagination(input: TokenStream) -> TokenStream {
+    let derive_input = parse_macro_input!(input as DeriveInput);
+
+    match base_pagination::derive(derive_input) {
         Ok(result) => result.into(),
         Err(err) => err.to_compile_error().into(),
     }

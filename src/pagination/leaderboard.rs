@@ -1,14 +1,18 @@
 use std::sync::Arc;
 
-use super::{Pages, Pagination};
-use crate::{core::Context, custom_client::ScraperScore, embeds::LeaderboardEmbed, BotResult};
-
+use command_macros::BasePagination;
 use rosu_v2::{
     model::beatmap::{Beatmap, BeatmapsetCompact},
     prelude::Username,
 };
 use twilight_model::channel::Message;
 
+use crate::{core::Context, custom_client::ScraperScore, embeds::LeaderboardEmbed, BotResult};
+
+use super::{Pages, Pagination};
+
+#[derive(BasePagination)]
+#[pagination(single_step = 10)]
 pub struct LeaderboardPagination {
     ctx: Arc<Context>,
     msg: Message,
@@ -46,22 +50,6 @@ impl LeaderboardPagination {
 #[async_trait]
 impl Pagination for LeaderboardPagination {
     type PageData = LeaderboardEmbed;
-
-    fn msg(&self) -> &Message {
-        &self.msg
-    }
-
-    fn pages(&self) -> Pages {
-        self.pages
-    }
-
-    fn pages_mut(&mut self) -> &mut Pages {
-        &mut self.pages
-    }
-
-    fn single_step(&self) -> usize {
-        self.pages.per_page
-    }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let scores = self

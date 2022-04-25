@@ -1,9 +1,12 @@
+use command_macros::BasePagination;
 use twilight_model::channel::Message;
 
 use crate::{custom_client::OsuTrackerPpEntry, embeds::OsuTrackerMapsEmbed, BotResult};
 
 use super::{Pages, Pagination};
 
+#[derive(BasePagination)]
+#[pagination(single_step = 10)]
 pub struct OsuTrackerMapsPagination {
     msg: Message,
     pages: Pages,
@@ -25,22 +28,6 @@ impl OsuTrackerMapsPagination {
 #[async_trait]
 impl Pagination for OsuTrackerMapsPagination {
     type PageData = OsuTrackerMapsEmbed;
-
-    fn msg(&self) -> &Message {
-        &self.msg
-    }
-
-    fn pages(&self) -> Pages {
-        self.pages
-    }
-
-    fn pages_mut(&mut self) -> &mut Pages {
-        &mut self.pages
-    }
-
-    fn single_step(&self) -> usize {
-        self.pages.per_page
-    }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let index = self.pages.index;

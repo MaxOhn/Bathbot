@@ -84,16 +84,41 @@ pub enum PaginationError {
     Http(#[from] twilight_http::Error),
 }
 
-#[async_trait]
-pub trait Pagination: Sync + Sized {
-    type PageData: EmbedData + Send;
-
-    // Make these point to the corresponding struct fields
+pub trait BasePagination {
     fn msg(&self) -> &Message;
 
     fn pages(&self) -> Pages;
 
     fn pages_mut(&mut self) -> &mut Pages;
+
+    fn single_step(&self) -> usize;
+
+    fn multi_step(&self) -> usize;
+
+    fn index(&self) -> usize {
+        self.pages().index
+    }
+
+    fn last_index(&self) -> usize {
+        self.pages().last_index
+    }
+
+    fn per_page(&self) -> usize {
+        self.pages().per_page
+    }
+
+    fn total_pages(&self) -> usize {
+        self.pages().total_pages
+    }
+
+    fn index_mut(&mut self) -> &mut usize {
+        &mut self.pages_mut().index
+    }
+}
+
+#[async_trait]
+pub trait Pagination: BasePagination + Sync + Sized {
+    type PageData: EmbedData + Send;
 
     // Implement this
     async fn build_page(&mut self) -> BotResult<Self::PageData>;
@@ -121,14 +146,6 @@ pub trait Pagination: Sync + Sized {
             Emote::MultiStep,
             Emote::JumpEnd,
         ]
-    }
-
-    fn single_step(&self) -> usize {
-        1
-    }
-
-    fn multi_step(&self) -> usize {
-        self.pages().per_page
     }
 
     fn jump_index(&self) -> Option<usize> {
@@ -215,7 +232,9 @@ pub trait Pagination: Sync + Sized {
             }
         }
 
-        self.final_processing(ctx).await.map_err(From::from)
+        self.final_processing(ctx)
+            .await
+            .map_err(PaginationError::Bot)
     }
 
     async fn next_page(&mut self, reaction: Reaction, ctx: &Context) -> BotResult<()> {
@@ -290,26 +309,6 @@ pub trait Pagination: Sync + Sized {
             }
             None => PageChange::None,
         }
-    }
-
-    fn index(&self) -> usize {
-        self.pages().index
-    }
-
-    fn last_index(&self) -> usize {
-        self.pages().last_index
-    }
-
-    fn per_page(&self) -> usize {
-        self.pages().per_page
-    }
-
-    fn total_pages(&self) -> usize {
-        self.pages().total_pages
-    }
-
-    fn index_mut(&mut self) -> &mut usize {
-        &mut self.pages_mut().index
     }
 
     fn page(&self) -> usize {

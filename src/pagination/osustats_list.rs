@@ -4,10 +4,13 @@ use crate::{
     BotResult, Context,
 };
 
+use command_macros::BasePagination;
 use hashbrown::HashMap;
 use std::sync::Arc;
 use twilight_model::channel::Message;
 
+#[derive(BasePagination)]
+#[pagination(single_step = 15, multi_step = 45)]
 pub struct OsuStatsListPagination {
     msg: Message,
     pages: Pages,
@@ -42,28 +45,8 @@ impl OsuStatsListPagination {
 impl Pagination for OsuStatsListPagination {
     type PageData = OsuStatsListEmbed;
 
-    fn msg(&self) -> &Message {
-        &self.msg
-    }
-
-    fn pages(&self) -> Pages {
-        self.pages
-    }
-
-    fn pages_mut(&mut self) -> &mut Pages {
-        &mut self.pages
-    }
-
     fn reactions() -> ReactionVec {
         Self::arrow_reactions_full()
-    }
-
-    fn single_step(&self) -> usize {
-        15
-    }
-
-    fn multi_step(&self) -> usize {
-        45
     }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {

@@ -4,9 +4,12 @@ use super::{Pages, Pagination};
 
 use crate::{commands::osu::ScoreOrder, core::Context, embeds::PinnedEmbed, BotResult};
 
+use command_macros::BasePagination;
 use rosu_v2::prelude::{Score, User};
 use twilight_model::channel::Message;
 
+#[derive(BasePagination)]
+#[pagination(single_step = 5)]
 pub struct PinnedPagination {
     ctx: Arc<Context>,
     msg: Message,
@@ -38,22 +41,6 @@ impl PinnedPagination {
 #[async_trait]
 impl Pagination for PinnedPagination {
     type PageData = PinnedEmbed;
-
-    fn msg(&self) -> &Message {
-        &self.msg
-    }
-
-    fn pages(&self) -> Pages {
-        self.pages
-    }
-
-    fn pages_mut(&mut self) -> &mut Pages {
-        &mut self.pages
-    }
-
-    fn single_step(&self) -> usize {
-        self.pages.per_page
-    }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let scores = self

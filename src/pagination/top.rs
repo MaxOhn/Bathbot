@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use command_macros::BasePagination;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Score, User};
 use twilight_model::channel::Message;
@@ -14,6 +15,8 @@ use crate::{
 
 use super::{Pages, Pagination};
 
+#[derive(BasePagination)]
+#[pagination(single_step = 5)]
 pub struct TopPagination {
     ctx: Arc<Context>,
     msg: Message,
@@ -45,6 +48,8 @@ impl TopPagination {
     }
 }
 
+#[derive(BasePagination)]
+#[pagination(single_step = 10)]
 pub struct CondensedTopPagination {
     ctx: Arc<Context>,
     msg: Message,
@@ -80,22 +85,6 @@ impl CondensedTopPagination {
 impl Pagination for TopPagination {
     type PageData = TopEmbed;
 
-    fn msg(&self) -> &Message {
-        &self.msg
-    }
-
-    fn pages(&self) -> Pages {
-        self.pages
-    }
-
-    fn pages_mut(&mut self) -> &mut Pages {
-        &mut self.pages
-    }
-
-    fn single_step(&self) -> usize {
-        self.pages.per_page
-    }
-
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let scores = self
             .scores
@@ -121,22 +110,6 @@ impl Pagination for TopPagination {
 #[async_trait]
 impl Pagination for CondensedTopPagination {
     type PageData = CondensedTopEmbed;
-
-    fn msg(&self) -> &Message {
-        &self.msg
-    }
-
-    fn pages(&self) -> Pages {
-        self.pages
-    }
-
-    fn pages_mut(&mut self) -> &mut Pages {
-        &mut self.pages
-    }
-
-    fn single_step(&self) -> usize {
-        self.pages.per_page
-    }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let scores = self

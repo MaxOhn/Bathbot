@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
+use command_macros::BasePagination;
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::Beatmapset;
@@ -13,6 +14,8 @@ use crate::{
 
 use super::{Pages, Pagination};
 
+#[derive(BasePagination)]
+#[pagination(single_step = 10)]
 pub struct OsuTrackerMapsetsPagination {
     msg: Message,
     pages: Pages,
@@ -41,22 +44,6 @@ impl OsuTrackerMapsetsPagination {
 #[async_trait]
 impl Pagination for OsuTrackerMapsetsPagination {
     type PageData = OsuTrackerMapsetsEmbed;
-
-    fn msg(&self) -> &Message {
-        &self.msg
-    }
-
-    fn pages(&self) -> Pages {
-        self.pages
-    }
-
-    fn pages_mut(&mut self) -> &mut Pages {
-        &mut self.pages
-    }
-
-    fn single_step(&self) -> usize {
-        self.pages.per_page
-    }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let index = self.pages.index;

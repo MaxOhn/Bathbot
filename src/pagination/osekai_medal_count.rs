@@ -1,8 +1,11 @@
 use super::{Pages, Pagination, ReactionVec};
 use crate::{custom_client::OsekaiUserEntry, embeds::MedalCountEmbed, BotResult};
 
+use command_macros::BasePagination;
 use twilight_model::channel::Message;
 
+#[derive(BasePagination)]
+#[pagination(single_step = 10, multi_step = 100)]
 pub struct MedalCountPagination {
     msg: Message,
     pages: Pages,
@@ -25,28 +28,8 @@ impl MedalCountPagination {
 impl Pagination for MedalCountPagination {
     type PageData = MedalCountEmbed;
 
-    fn msg(&self) -> &Message {
-        &self.msg
-    }
-
-    fn pages(&self) -> Pages {
-        self.pages
-    }
-
-    fn pages_mut(&mut self) -> &mut Pages {
-        &mut self.pages
-    }
-
     fn reactions() -> ReactionVec {
         Self::arrow_reactions_full()
-    }
-
-    fn single_step(&self) -> usize {
-        self.pages.per_page
-    }
-
-    fn multi_step(&self) -> usize {
-        self.pages.per_page * 10
     }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {

@@ -6,11 +6,14 @@ use crate::{
     BotResult, Context,
 };
 
+use command_macros::BasePagination;
 use std::{collections::BTreeMap, sync::Arc};
 use twilight_model::channel::Message;
 
 type Users = BTreeMap<usize, RankingEntry>;
 
+#[derive(BasePagination)]
+#[pagination(single_step = 20, multi_step = 200)]
 pub struct RankingPagination {
     msg: Message,
     pages: Pages,
@@ -110,28 +113,8 @@ impl RankingPagination {
 impl Pagination for RankingPagination {
     type PageData = RankingEmbed;
 
-    fn msg(&self) -> &Message {
-        &self.msg
-    }
-
-    fn pages(&self) -> Pages {
-        self.pages
-    }
-
-    fn pages_mut(&mut self) -> &mut Pages {
-        &mut self.pages
-    }
-
     fn reactions() -> ReactionVec {
         Self::arrow_reactions_full()
-    }
-
-    fn single_step(&self) -> usize {
-        self.pages.per_page
-    }
-
-    fn multi_step(&self) -> usize {
-        self.pages.per_page * 10
     }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
