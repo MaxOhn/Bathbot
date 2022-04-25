@@ -1,7 +1,6 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use command_macros::{command, SlashCommand};
-use eyre::Report;
 use rosu_v2::prelude::{
     Beatmapset, BeatmapsetSearchResult, BeatmapsetSearchSort, Genre, Language, Osu, OsuResult,
     RankStatus,
@@ -658,11 +657,7 @@ async fn search(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Search) -> Bot
     let pagination =
         MapSearchPagination::new(Arc::clone(&ctx), response, maps, search_result, args);
 
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    pagination.start(ctx, owner, 60);
 
     Ok(())
 }

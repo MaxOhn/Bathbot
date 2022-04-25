@@ -2,7 +2,6 @@ use std::{borrow::Cow, collections::BTreeMap, fmt, mem, sync::Arc};
 
 use chrono::{DateTime, Utc};
 use command_macros::command;
-use eyre::Report;
 use lazy_static::__Deref;
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{GameMode, OsuResult, Rankings};
@@ -201,13 +200,7 @@ async fn ranking(
         ranking_kind_data,
     );
 
-    let owner = orig.user_id()?;
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    pagination.start(ctx, orig.user_id()?, 60);
 
     Ok(())
 }

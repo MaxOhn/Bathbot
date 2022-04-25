@@ -293,11 +293,7 @@ async fn slash_serverleaderboard(
         data,
     );
 
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    pagination.start(ctx, owner, 60);
 
     Ok(())
 }

@@ -34,7 +34,7 @@ mod sniped_difference;
 mod top;
 mod top_if;
 
-use std::{borrow::Cow, time::Duration};
+use std::{borrow::Cow, sync::Arc, time::Duration};
 
 use eyre::Report;
 use smallvec::SmallVec;
@@ -117,7 +117,7 @@ pub trait BasePagination {
 }
 
 #[async_trait]
-pub trait Pagination: BasePagination + Sync + Sized {
+pub trait Pagination: BasePagination + Send + Sync + Sized {
     type PageData: EmbedData + Send;
 
     // Implement this
@@ -163,152 +163,15 @@ pub trait Pagination: BasePagination + Sync + Sized {
     }
 
     // Don't implement anything else
-    async fn start(
-        mut self,
-        ctx: &Context,
-        owner: Id<UserMarker>,
-        duration: u64,
-    ) -> PaginationResult {
-        ctx.store_msg(self.msg().id);
-
-        let reactions = Self::reactions();
-
-        let reaction_stream = {
-            let msg = self.msg();
-            let msg_id = msg.id;
-
-            for emote in &reactions {
-                send_reaction(ctx, msg, *emote).await?;
+    fn start(self, ctx: Arc<Context>, owner: Id<UserMarker>, duration: u64)
+    where
+        Self: 'static,
+    {
+        tokio::spawn(async move {
+            if let Err(err) = start_pagination(self, &ctx, owner, duration).await {
+                warn!("{:?}", Report::new(err));
             }
-
-            ctx.standby
-                .wait_for_event_stream(move |event: &Event| match event {
-                    Event::ReactionAdd(event) => {
-                        event.message_id == msg_id && event.user_id == owner
-                    }
-                    Event::ReactionRemove(event) => {
-                        event.message_id == msg_id && event.user_id == owner
-                    }
-                    _ => false,
-                })
-                .map(|event| match event {
-                    Event::ReactionAdd(add) => ReactionWrapper::Add(add.0),
-                    Event::ReactionRemove(remove) => ReactionWrapper::Remove(remove.0),
-                    _ => unreachable!(),
-                })
-                .timeout(Duration::from_secs(duration))
-        };
-
-        tokio::pin!(reaction_stream);
-
-        while let Some(Ok(reaction)) = reaction_stream.next().await {
-            if let Err(err) = self.next_page(reaction.into_inner(), ctx).await {
-                warn!("{:?}", Report::new(err).wrap_err("error while paginating"));
-            }
-        }
-
-        let msg = self.msg();
-
-        if !ctx.remove_msg(msg.id) {
-            return Ok(());
-        }
-
-        let delete_fut = ctx.http.delete_all_reactions(msg.channel_id, msg.id).exec();
-
-        if let Err(err) = delete_fut.await {
-            if matches!(err.kind(), ErrorType::Response { status, .. } if status.raw() == 403) {
-                sleep(Duration::from_millis(100)).await;
-
-                for emote in &reactions {
-                    let request_reaction = emote.request_reaction_type();
-
-                    ctx.http
-                        .delete_current_user_reaction(msg.channel_id, msg.id, &request_reaction)
-                        .exec()
-                        .await?;
-                }
-            } else {
-                return Err(err.into());
-            }
-        }
-
-        self.final_processing(ctx)
-            .await
-            .map_err(PaginationError::Bot)
-    }
-
-    async fn next_page(&mut self, reaction: Reaction, ctx: &Context) -> BotResult<()> {
-        if self.process_reaction(&reaction.emoji).await == PageChange::Change {
-            let data = self.build_page().await?;
-            self.process_data(&data);
-            let msg = self.msg();
-            let mut update = ctx.http.update_message(msg.channel_id, msg.id);
-            let content = self.content();
-
-            if let Some(ref content) = content {
-                update = update.content(Some(content.as_ref()))?;
-            }
-
-            let builder = data.build();
-
-            update.embeds(Some(&[builder]))?.exec().await?;
-        }
-
-        Ok(())
-    }
-
-    async fn process_reaction(&mut self, reaction: &ReactionType) -> PageChange {
-        let change_result = match reaction {
-            ReactionType::Custom {
-                name: Some(name), ..
-            } => match name.as_str() {
-                // Move to start
-                "jump_start" => (self.index() != 0).then(|| 0),
-                // Move one page left
-                "multi_step_back" => match self.index() {
-                    0 => None,
-                    idx => Some(idx.saturating_sub(self.multi_step())),
-                },
-                // Move one index left
-                "single_step_back" => match self.index() {
-                    0 => None,
-                    idx => Some(idx.saturating_sub(self.single_step())),
-                },
-                // Move to specific position
-                "my_position" => {
-                    if let Some(index) = self.jump_index() {
-                        let i = numbers::last_multiple(self.per_page(), index + 1);
-
-                        if i != self.index() {
-                            Some(i)
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                }
-                // Move one index right
-                "single_step" => (self.index() != self.last_index())
-                    .then(|| self.last_index().min(self.index() + self.single_step())),
-                // Move one page right
-                "multi_step" => (self.index() != self.last_index())
-                    .then(|| self.last_index().min(self.index() + self.multi_step())),
-                // Move to end
-                "jump_end" => (self.index() != self.last_index()).then(|| self.last_index()),
-                _ => None,
-            },
-            _ => None,
-        };
-
-        match change_result {
-            Some(index) => {
-                *self.index_mut() = index;
-
-                PageChange::Change
-            }
-            None => PageChange::None,
-        }
+        });
     }
 
     fn page(&self) -> usize {
@@ -341,6 +204,168 @@ impl Pages {
             total_pages: numbers::div_euclid(per_page, amount),
             last_index: numbers::last_multiple(per_page, amount),
         }
+    }
+}
+
+async fn start_pagination<P: Pagination + Send>(
+    mut pagination: P,
+    ctx: &Context,
+    owner: Id<UserMarker>,
+    duration: u64,
+) -> PaginationResult {
+    ctx.store_msg(pagination.msg().id);
+
+    let reactions = P::reactions();
+
+    let reaction_stream = {
+        let msg = pagination.msg();
+        let msg_id = msg.id;
+
+        for emote in &reactions {
+            send_reaction(ctx, msg, *emote).await?;
+        }
+
+        ctx.standby
+            .wait_for_event_stream(move |event: &Event| match event {
+                Event::ReactionAdd(event) => event.message_id == msg_id && event.user_id == owner,
+                Event::ReactionRemove(event) => {
+                    event.message_id == msg_id && event.user_id == owner
+                }
+                _ => false,
+            })
+            .map(|event| match event {
+                Event::ReactionAdd(add) => ReactionWrapper::Add(add.0),
+                Event::ReactionRemove(remove) => ReactionWrapper::Remove(remove.0),
+                _ => unreachable!(),
+            })
+            .timeout(Duration::from_secs(duration))
+    };
+
+    tokio::pin!(reaction_stream);
+
+    while let Some(Ok(reaction)) = reaction_stream.next().await {
+        if let Err(err) = next_page(&mut pagination, reaction.into_inner(), ctx).await {
+            warn!("{:?}", Report::new(err).wrap_err("error while paginating"));
+        }
+    }
+
+    let msg = pagination.msg();
+
+    if !ctx.remove_msg(msg.id) {
+        return Ok(());
+    }
+
+    let delete_fut = ctx.http.delete_all_reactions(msg.channel_id, msg.id).exec();
+
+    if let Err(err) = delete_fut.await {
+        if matches!(err.kind(), ErrorType::Response { status, .. } if status.raw() == 403) {
+            sleep(Duration::from_millis(100)).await;
+
+            for emote in &reactions {
+                let request_reaction = emote.request_reaction_type();
+
+                ctx.http
+                    .delete_current_user_reaction(msg.channel_id, msg.id, &request_reaction)
+                    .exec()
+                    .await?;
+            }
+        } else {
+            return Err(err.into());
+        }
+    }
+
+    pagination
+        .final_processing(ctx)
+        .await
+        .map_err(PaginationError::Bot)
+}
+
+async fn next_page<P: Pagination>(
+    pagination: &mut P,
+    reaction: Reaction,
+    ctx: &Context,
+) -> BotResult<()> {
+    if process_reaction(pagination, &reaction.emoji).await == PageChange::Change {
+        let data = pagination.build_page().await?;
+        pagination.process_data(&data);
+        let msg = pagination.msg();
+        let mut update = ctx.http.update_message(msg.channel_id, msg.id);
+        let content = pagination.content();
+
+        if let Some(ref content) = content {
+            update = update.content(Some(content.as_ref()))?;
+        }
+
+        let builder = data.build();
+
+        update.embeds(Some(&[builder]))?.exec().await?;
+    }
+
+    Ok(())
+}
+
+async fn process_reaction<P: Pagination>(
+    pagination: &mut P,
+    reaction: &ReactionType,
+) -> PageChange {
+    let change_result = match reaction {
+        ReactionType::Custom {
+            name: Some(name), ..
+        } => match name.as_str() {
+            // Move to start
+            "jump_start" => (pagination.index() != 0).then(|| 0),
+            // Move one page left
+            "multi_step_back" => match pagination.index() {
+                0 => None,
+                idx => Some(idx.saturating_sub(pagination.multi_step())),
+            },
+            // Move one index left
+            "single_step_back" => match pagination.index() {
+                0 => None,
+                idx => Some(idx.saturating_sub(pagination.single_step())),
+            },
+            // Move to specific position
+            "my_position" => {
+                if let Some(index) = pagination.jump_index() {
+                    let i = numbers::last_multiple(pagination.per_page(), index + 1);
+
+                    if i != pagination.index() {
+                        Some(i)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+            // Move one index right
+            "single_step" => (pagination.index() != pagination.last_index()).then(|| {
+                pagination
+                    .last_index()
+                    .min(pagination.index() + pagination.single_step())
+            }),
+            // Move one page right
+            "multi_step" => (pagination.index() != pagination.last_index()).then(|| {
+                pagination
+                    .last_index()
+                    .min(pagination.index() + pagination.multi_step())
+            }),
+            // Move to end
+            "jump_end" => {
+                (pagination.index() != pagination.last_index()).then(|| pagination.last_index())
+            }
+            _ => None,
+        },
+        _ => None,
+    };
+
+    match change_result {
+        Some(index) => {
+            *pagination.index_mut() = index;
+
+            PageChange::Change
+        }
+        None => PageChange::None,
     }
 }
 

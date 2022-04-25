@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use eyre::Report;
 use rkyv::{Deserialize, Infallible};
 use twilight_model::application::interaction::ApplicationCommand;
 
@@ -58,14 +57,7 @@ pub(super) async fn maps(
 
     let response = response_raw.model().await?;
 
-    let pagination = OsuTrackerMapsPagination::new(response, pp, entries);
-    let owner = command.user_id()?;
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    OsuTrackerMapsPagination::new(response, pp, entries).start(ctx, command.user_id()?, 60);
 
     Ok(())
 }

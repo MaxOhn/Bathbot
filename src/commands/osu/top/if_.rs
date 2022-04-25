@@ -310,13 +310,8 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> B
     let pre_pp = user.statistics.as_ref().unwrap().pp;
     let pagination =
         TopIfPagination::new(response, user, scores_data, mode, pre_pp, adjusted_pp, rank);
-    let owner = orig.user_id()?;
 
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    pagination.start(ctx, orig.user_id()?, 60);
 
     Ok(())
 }

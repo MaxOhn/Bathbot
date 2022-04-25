@@ -2,7 +2,6 @@ use std::{cmp::Reverse, sync::Arc};
 
 use chrono::{Duration, Utc};
 use command_macros::command;
-use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError, Username};
 
@@ -220,13 +219,7 @@ async fn sniped_diff(
     let pagination =
         SnipedDiffPagination::new(response, user, diff, scores, maps, Arc::clone(&ctx));
 
-    let owner = orig.user_id()?;
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    pagination.start(ctx, orig.user_id()?, 60);
 
     Ok(())
 }

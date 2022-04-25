@@ -85,13 +85,7 @@ pub(super) async fn mapsets(ctx: Arc<Context>, command: Box<ApplicationCommand>)
     let response = response_raw.model().await?;
 
     let pagination = OsuTrackerMapsetsPagination::new(Arc::clone(&ctx), response, counts, mapsets);
-    let owner = command.user_id()?;
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    pagination.start(ctx, command.user_id()?, 60);
 
     Ok(())
 }

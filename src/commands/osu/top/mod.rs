@@ -1164,13 +1164,7 @@ async fn paginated_embed(
 
     // Pagination
     let pagination = TopPagination::new(response, user, scores, sort_by, farm, Arc::clone(&ctx));
-    let owner = orig.user_id()?;
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    pagination.start(ctx, orig.user_id()?, 60);
 
     Ok(())
 }
@@ -1216,13 +1210,8 @@ async fn condensed_paginated_embed(
     // Pagination
     let pagination =
         CondensedTopPagination::new(response, user, scores, sort_by, farm, Arc::clone(&ctx));
-    let owner = orig.user_id()?;
 
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    pagination.start(ctx, orig.user_id()?, 60);
 
     Ok(())
 }

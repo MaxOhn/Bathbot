@@ -131,13 +131,7 @@ async fn send_response(
     let pagination =
         RankingPagination::new(response, Arc::clone(&ctx), total, users, author_idx, data);
 
-    let owner = command.user_id()?;
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    pagination.start(ctx, command.user_id()?, 60);
 
     Ok(())
 }

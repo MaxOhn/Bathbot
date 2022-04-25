@@ -466,13 +466,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
         Arc::clone(&ctx),
     );
 
-    let owner = author_id;
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    pagination.start(ctx, author_id, 60);
 
     Ok(())
 }

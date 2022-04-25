@@ -359,13 +359,7 @@ async fn paginated_embed(
 
     // Pagination
     let pagination = PinnedPagination::new(response, user, scores, sort_by, Arc::clone(&ctx));
-    let owner = orig.user_id()?;
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    pagination.start(ctx, orig.user_id()?, 60);
 
     Ok(())
 }

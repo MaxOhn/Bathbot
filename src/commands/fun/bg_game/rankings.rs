@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use eyre::Report;
 use hashbrown::{HashMap, HashSet};
 use twilight_model::{channel::Message, id::Id};
 
@@ -79,13 +78,7 @@ pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, global: bool) -> BotR
         global,
     );
 
-    let owner = msg.author.id;
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    pagination.start(ctx, msg.author.id, 60);
 
     Ok(())
 }

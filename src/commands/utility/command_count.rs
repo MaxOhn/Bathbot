@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use command_macros::{command, SlashCommand};
-use eyre::Report;
 use prometheus::core::Collector;
 use twilight_interactions::command::CreateCommand;
 use twilight_model::application::interaction::ApplicationCommand;
@@ -68,13 +67,7 @@ async fn commands(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> BotResult<()> {
         .await?;
 
     // Pagination
-    let pagination = CommandCountPagination::new(&ctx, response, cmds);
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 90).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    CommandCountPagination::new(&ctx, response, cmds).start(ctx, owner, 60);
 
     Ok(())
 }

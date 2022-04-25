@@ -1,7 +1,6 @@
 use std::{fmt::Write, sync::Arc};
 
 use command_macros::{HasMods, HasName, SlashCommand};
-use eyre::Report;
 use rosu_v2::{
     prelude::{GameMode, GameMods, OsuError, Username},
     OsuResult,
@@ -235,8 +234,7 @@ async fn slash_countrytop(
     let initial = &scores[..scores.len().min(10)];
     let sort = args.sort.unwrap_or_default().into();
 
-    let embed = OsuTrackerCountryTopEmbed::new(&details, initial, sort, (1, pages))
-        .build();
+    let embed = OsuTrackerCountryTopEmbed::new(&details, initial, sort, (1, pages)).build();
 
     let content = write_content(&details.country, &args, mods, scores.len(), name);
     let builder = MessageBuilder::new().embed(embed).content(content);
@@ -251,12 +249,7 @@ async fn slash_countrytop(
     let sort = args.sort.unwrap_or_default().into();
 
     let pagination = OsuTrackerCountryTopPagination::new(response, details, scores, sort);
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, author, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    pagination.start(ctx, author, 60);
 
     Ok(())
 }

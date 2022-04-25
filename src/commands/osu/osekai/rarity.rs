@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use eyre::Report;
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
@@ -30,14 +29,8 @@ pub(super) async fn rarity(ctx: Arc<Context>, command: Box<ApplicationCommand>) 
     let embed = embed_data.build();
     let builder = MessageBuilder::new().embed(embed);
     let response = command.update(&ctx, &builder).await?.model().await?;
-    let owner = command.user_id()?;
-    let pagination = MedalRarityPagination::new(response, ranking);
 
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    MedalRarityPagination::new(response, ranking).start(ctx, command.user_id()?, 60);
 
     Ok(())
 }

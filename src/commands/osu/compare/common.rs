@@ -296,13 +296,7 @@ pub(super) async fn top(
 
     // Pagination
     let pagination = CommonPagination::new(response, user1.name, user2.name, maps, map_pps, wins);
-    let owner = orig.user_id()?;
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    pagination.start(ctx, orig.user_id()?, 60);
 
     Ok(())
 }

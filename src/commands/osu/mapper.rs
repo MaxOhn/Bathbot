@@ -1,7 +1,6 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
-use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -343,13 +342,7 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
 
     // Pagination
     let pagination = TopPagination::new(response, user, scores, sort_by, farm, Arc::clone(&ctx));
-    let owner = orig.user_id()?;
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    pagination.start(ctx, orig.user_id()?, 60);
 
     Ok(())
 }

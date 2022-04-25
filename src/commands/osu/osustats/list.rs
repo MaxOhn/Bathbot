@@ -1,7 +1,6 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::command;
-use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::model::GameMode;
 
@@ -129,11 +128,7 @@ pub(super) async fn players(
     let pagination =
         OsuStatsListPagination::new(Arc::clone(&ctx), response, players, params, amount);
 
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    pagination.start(ctx, owner, 60);
 
     Ok(())
 }

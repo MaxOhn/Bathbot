@@ -307,14 +307,7 @@ pub(super) async fn common(
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = MedalsCommonPagination::new(response, user1, user2, medals);
-    let owner = orig.user_id()?;
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    MedalsCommonPagination::new(response, user1, user2, medals).start(ctx, orig.user_id()?, 60);
 
     Ok(())
 }

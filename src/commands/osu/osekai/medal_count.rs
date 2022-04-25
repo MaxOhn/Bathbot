@@ -46,13 +46,8 @@ pub(super) async fn medal_count(
     let embed = embed_data.build();
     let builder = MessageBuilder::new().embed(embed);
     let response = command.update(&ctx, &builder).await?.model().await?;
-    let pagination = MedalCountPagination::new(response, ranking, author_idx);
 
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    MedalCountPagination::new(response, ranking, author_idx).start(ctx, owner, 60);
 
     Ok(())
 }

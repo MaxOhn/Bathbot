@@ -1,7 +1,6 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
-use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
@@ -149,13 +148,7 @@ async fn mostplayed(
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = MostPlayedPagination::new(response, user, maps);
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    MostPlayedPagination::new(response, user, maps).start(ctx, owner, 60);
 
     Ok(())
 }

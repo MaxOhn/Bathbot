@@ -1,7 +1,6 @@
 use std::{fmt::Write, mem, sync::Arc, time::Duration};
 
 use command_macros::SlashCommand;
-use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{
     BeatmapCompact, GameMode, GameMods, Grade, MatchEvent, MatchGame, MatchScore, OsuError,
@@ -183,14 +182,8 @@ async fn matchcompare(
                 let builder = MessageBuilder::new().embed(embed);
                 let response_raw = command.update(&ctx, &builder).await?;
                 let response = response_raw.model().await?;
-                let pagination = MatchComparePagination::new(response, embeds);
-                let owner = command.user_id()?;
 
-                tokio::spawn(async move {
-                    if let Err(err) = pagination.start(&ctx, owner, 60).await {
-                        warn!("{:?}", Report::new(err));
-                    }
-                });
+                MatchComparePagination::new(response, embeds).start(ctx, command.user_id()?, 60);
             }
         }
     }

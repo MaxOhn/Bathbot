@@ -1,7 +1,6 @@
 use std::{cmp::Reverse, fmt::Write, sync::Arc};
 
 use command_macros::command;
-use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::{
     prelude::{GameMode, MostPlayedMap, OsuError},
@@ -198,12 +197,7 @@ pub(super) async fn mostplayed(
 
     // Pagination
     let pagination = MostPlayedCommonPagination::new(response, name1, name2, maps, map_counts);
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    pagination.start(ctx, owner, 60);
 
     Ok(())
 }

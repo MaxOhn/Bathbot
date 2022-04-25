@@ -346,13 +346,8 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
         rank,
         Arc::clone(&ctx),
     );
-    let owner = orig.user_id()?;
 
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 90).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    pagination.start(ctx, orig.user_id()?, 90);
 
     Ok(())
 }

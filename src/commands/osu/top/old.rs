@@ -2,7 +2,6 @@ use std::{borrow::Cow, sync::Arc};
 
 use chrono::{Datelike, Utc};
 use command_macros::{command, HasName, SlashCommand};
-use eyre::Report;
 use rosu_pp::{Beatmap, BeatmapExt, PerformanceAttributes};
 use rosu_pp_older::*;
 use rosu_v2::prelude::{GameMode, OsuError, Score};
@@ -657,13 +656,8 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
         post_pp,
         None,
     );
-    let owner = orig.user_id()?;
 
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    pagination.start(ctx, orig.user_id()?, 60);
 
     Ok(())
 }

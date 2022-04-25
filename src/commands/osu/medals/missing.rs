@@ -1,7 +1,6 @@
 use std::{borrow::Cow, cmp::Ordering, sync::Arc};
 
 use command_macros::command;
-use eyre::Report;
 use hashbrown::HashSet;
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{GameMode, OsuError};
@@ -135,13 +134,7 @@ pub(super) async fn missing(
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = MedalsMissingPagination::new(response, user, medals, medal_count);
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    MedalsMissingPagination::new(response, user, medals, medal_count).start(ctx, owner, 60);
 
     Ok(())
 }

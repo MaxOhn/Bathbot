@@ -148,12 +148,7 @@ pub(super) async fn user(
     owners_map.insert(0, owners);
 
     let pagination = BadgePagination::new(response, badges, owners_map, Arc::clone(&ctx));
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    pagination.start(ctx, owner, 60);
 
     Ok(())
 }

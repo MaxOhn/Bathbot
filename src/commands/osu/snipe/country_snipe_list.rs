@@ -184,14 +184,8 @@ pub(super) async fn country_list(
     let response = orig.create_message(&ctx, &builder).await?.model().await?;
 
     // Pagination
-    let pagination = CountrySnipeListPagination::new(response, players, country, sort, author_idx);
-    let owner = author_id;
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    CountrySnipeListPagination::new(response, players, country, sort, author_idx)
+        .start(ctx, author_id, 60);
 
     Ok(())
 }

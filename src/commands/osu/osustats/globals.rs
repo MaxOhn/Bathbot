@@ -1,7 +1,6 @@
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write, sync::Arc};
 
 use command_macros::command;
-use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError, Username};
 
 use crate::{
@@ -266,13 +265,8 @@ pub(super) async fn scores(
     // Pagination
     let pagination =
         OsuStatsGlobalsPagination::new(Arc::clone(&ctx), response, user, scores, amount, params);
-    let owner = orig.user_id()?;
 
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    pagination.start(ctx, orig.user_id()?, 60);
 
     Ok(())
 }

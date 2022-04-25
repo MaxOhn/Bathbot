@@ -12,7 +12,6 @@ use crate::{
 };
 
 use command_macros::command;
-use eyre::Report;
 use rosu_v2::prelude::GameMode;
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -95,11 +94,7 @@ pub(super) async fn country(
         countries,
     );
 
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    pagination.start(ctx, owner, 60);
 
     Ok(())
 }

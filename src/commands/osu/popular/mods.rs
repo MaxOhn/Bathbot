@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use eyre::Report;
 use rkyv::{Deserialize, Infallible};
 use twilight_model::application::interaction::ApplicationCommand;
 
@@ -46,14 +45,7 @@ pub(super) async fn mods(ctx: Arc<Context>, command: Box<ApplicationCommand>) ->
 
     let response = response_raw.model().await?;
 
-    let pagination = OsuTrackerModsPagination::new(response, counts);
-    let owner = command.user_id()?;
-
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
+    OsuTrackerModsPagination::new(response, counts).start(ctx, command.user_id()?, 60);
 
     Ok(())
 }
