@@ -1,5 +1,7 @@
 use std::fmt::Write;
 
+use command_macros::EmbedData;
+
 use crate::{
     custom_client::OsuTrackerModsEntry,
     util::{
@@ -8,6 +10,7 @@ use crate::{
     },
 };
 
+#[derive(EmbedData)]
 pub struct OsuTrackerModsEmbed {
     author: AuthorBuilder,
     description: String,
@@ -82,12 +85,6 @@ impl OsuTrackerModsEmbed {
         }
     }
 }
-
-impl_builder!(OsuTrackerModsEmbed {
-    author,
-    footer,
-    description
-});
 
 #[derive(Default)]
 struct Sizes {

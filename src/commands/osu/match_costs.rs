@@ -226,7 +226,7 @@ async fn matchcosts(
         None => return orig.error(&ctx, TOO_MANY_PLAYERS_TEXT).await,
     };
 
-    let embed = embed_data.into_builder().build();
+    let embed = embed_data.build();
 
     let mut content = String::new();
 

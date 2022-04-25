@@ -626,7 +626,7 @@ pub(super) async fn score(
             &ctx,
         );
 
-        let builder = embed_fut.await.into_builder().build().into();
+        let builder = embed_fut.await.build().into();
         let response_raw = orig.create_message(&ctx, &builder).await?;
 
         // Skip pagination if too few entries
@@ -692,11 +692,11 @@ async fn single_score(
     // Only maximize if config allows it
     match embeds_size {
         EmbedsSize::AlwaysMinimized => {
-            let builder = embed_data.into_builder().build().into();
+            let builder = embed_data.into_minimized().into();
             orig.create_message(&ctx, &builder).await?;
         }
         EmbedsSize::InitialMaximized => {
-            let builder = embed_data.as_builder().build().into();
+            let builder = embed_data.as_maximized().into();
             let response = orig.create_message(&ctx, &builder).await?.model().await?;
 
             ctx.store_msg(response.id);
@@ -710,7 +710,7 @@ async fn single_score(
                     return;
                 }
 
-                let builder = embed_data.into_builder().build().into();
+                let builder = embed_data.into_minimized().into();
 
                 if let Err(err) = response.update(&ctx, &builder).await {
                     let report = Report::new(err).wrap_err("failed to minimize message");
@@ -719,7 +719,7 @@ async fn single_score(
             });
         }
         EmbedsSize::AlwaysMaximized => {
-            let builder = embed_data.as_builder().build().into();
+            let builder = embed_data.as_maximized().into();
             orig.create_message(&ctx, &builder).await?;
         }
     }
@@ -779,7 +779,7 @@ async fn no_scores(
     };
 
     // Sending the embed
-    let embed = NoScoresEmbed::new(user, map, mods).into_builder().build();
+    let embed = NoScoresEmbed::new(user, map, mods).build();
     let builder = MessageBuilder::new().embed(embed);
     orig.create_message(ctx, &builder).await?;
 

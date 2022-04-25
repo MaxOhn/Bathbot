@@ -9,8 +9,10 @@ use crate::{
     },
 };
 
+use command_macros::EmbedData;
 use rosu_v2::model::score::Score;
 
+#[derive(EmbedData)]
 pub struct RankEmbed {
     description: String,
     title: String,
@@ -408,10 +410,3 @@ impl RankEmbed {
         }
     }
 }
-
-impl_builder!(RankEmbed {
-    author,
-    description,
-    thumbnail,
-    title,
-});

@@ -188,7 +188,7 @@ async fn ranking(
     let embed_data = RankingEmbed::new(&users, &ranking_kind_data, None, (1, pages));
 
     // Creating the embed
-    let builder = embed_data.into_builder().build().into();
+    let builder = embed_data.build().into();
     let response = orig.create_message(&ctx, &builder).await?.model().await?;
 
     // Pagination

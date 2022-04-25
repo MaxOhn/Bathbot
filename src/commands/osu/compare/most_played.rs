@@ -182,7 +182,7 @@ pub(super) async fn mostplayed(
     let embed_data = MostPlayedCommonEmbed::new(&name1, &name2, initial_maps, &maps, 0);
 
     // Creating the embed
-    let embed = embed_data.into_builder().build();
+    let embed = embed_data.build();
     let builder = MessageBuilder::new().content(content).embed(embed);
 
     // * Note: No combined pictures since user ids are not available

@@ -1,6 +1,7 @@
 use std::fmt::Write;
 
 use chrono::{DateTime, Utc};
+use command_macros::EmbedData;
 use rosu_pp::{
     Beatmap as Map, BeatmapExt, CatchPP, GameMode as Mode, ManiaPP, Mods, OsuPP,
     PerformanceAttributes, TaikoPP,
@@ -24,6 +25,7 @@ use crate::{
 
 use super::{calculate_ar, calculate_od};
 
+#[derive(EmbedData)]
 pub struct MapEmbed {
     title: String,
     url: String,
@@ -310,15 +312,3 @@ impl MapEmbed {
 fn acc_to_score(mod_mult: f32, acc: f32) -> u64 {
     (mod_mult * (acc * 10_000.0 - (100.0 - acc) * 50_000.0)).round() as u64
 }
-
-impl_builder!(MapEmbed {
-    author,
-    description,
-    fields,
-    footer,
-    image,
-    thumbnail,
-    timestamp,
-    title,
-    url,
-});

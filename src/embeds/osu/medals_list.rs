@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+use command_macros::EmbedData;
 use rosu_v2::prelude::User;
 
 use crate::{
@@ -12,6 +13,7 @@ use crate::{
     },
 };
 
+#[derive(EmbedData)]
 pub struct MedalsListEmbed {
     author: AuthorBuilder,
     description: String,
@@ -59,10 +61,3 @@ impl MedalsListEmbed {
         }
     }
 }
-
-impl_builder!(MedalsListEmbed {
-    author,
-    description,
-    footer,
-    thumbnail,
-});

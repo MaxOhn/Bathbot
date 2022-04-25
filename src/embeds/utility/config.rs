@@ -1,13 +1,18 @@
+
+
+use std::fmt::Write;
+
+use command_macros::EmbedData;
+use rosu_v2::prelude::GameMode;
+use twilight_model::user::User;
+
 use crate::{
     commands::osu::ProfileSize,
     database::{EmbedsSize, MinimizedPp, UserConfig},
     util::builder::AuthorBuilder,
 };
 
-use rosu_v2::prelude::GameMode;
-use std::fmt::Write;
-use twilight_model::user::User;
-
+#[derive(EmbedData)]
 pub struct ConfigEmbed {
     author: AuthorBuilder,
     description: String,
@@ -186,9 +191,3 @@ impl ConfigEmbed {
         }
     }
 }
-
-impl_builder!(ConfigEmbed {
-    author,
-    description,
-    title,
-});

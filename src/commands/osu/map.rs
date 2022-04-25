@@ -416,7 +416,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
     };
 
     // Sending the embed
-    let embed = embed_data.into_builder().build();
+    let embed = embed_data.build();
     let mut builder = MessageBuilder::new().embed(embed);
 
     let with_thumbnail = if let Some(bytes) = graph {

@@ -1,17 +1,17 @@
-use twilight_model::channel::Message;
+use twilight_model::channel::{embed::Embed, Message};
 
-use crate::{util::builder::EmbedBuilder, BotResult};
+use crate::BotResult;
 
 use super::{Pages, Pagination};
 
 pub struct MatchComparePagination {
     msg: Message,
     pages: Pages,
-    embeds: Vec<EmbedBuilder>,
+    embeds: Vec<Embed>,
 }
 
 impl MatchComparePagination {
-    pub fn new(msg: Message, embeds: Vec<EmbedBuilder>) -> Self {
+    pub fn new(msg: Message, embeds: Vec<Embed>) -> Self {
         Self {
             pages: Pages::new(1, embeds.len()),
             msg,
@@ -22,7 +22,7 @@ impl MatchComparePagination {
 
 #[async_trait]
 impl Pagination for MatchComparePagination {
-    type PageData = EmbedBuilder;
+    type PageData = Embed;
 
     fn msg(&self) -> &Message {
         &self.msg

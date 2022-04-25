@@ -307,7 +307,7 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
     let embed_data = ProfileEmbed::get_or_create(&ctx, kind, &mut profile_data).await;
 
     // Send the embed
-    let embed = embed_data.as_builder().build();
+    let embed = embed_data.to_owned().build();
     let mut builder = MessageBuilder::new().embed(embed);
 
     if let Some(bytes) = graph {

@@ -1,3 +1,9 @@
+
+use std::fmt::Write;
+
+use command_macros::EmbedData;
+use rosu_v2::prelude::{MostPlayedMap, User};
+
 use crate::{
     embeds::osu,
     util::{
@@ -6,9 +12,7 @@ use crate::{
     },
 };
 
-use rosu_v2::prelude::{MostPlayedMap, User};
-use std::fmt::Write;
-
+#[derive(EmbedData)]
 pub struct MostPlayedEmbed {
     description: String,
     author: AuthorBuilder,
@@ -51,11 +55,3 @@ impl MostPlayedEmbed {
         }
     }
 }
-
-impl_builder!(MostPlayedEmbed {
-    author,
-    description,
-    footer,
-    thumbnail,
-    title,
-});

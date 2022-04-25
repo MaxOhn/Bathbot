@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use chrono::{DateTime, Utc};
+use command_macros::EmbedData;
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmap, Beatmapset, BeatmapsetCompact, GameMode, GameMods, Score, User};
@@ -21,6 +22,7 @@ use crate::{
 
 type Farm = HashMap<u32, (OsuTrackerMapsetEntry, bool)>;
 
+#[derive(EmbedData)]
 pub struct TopEmbed {
     author: AuthorBuilder,
     description: String,
@@ -126,6 +128,7 @@ impl TopEmbed {
     }
 }
 
+#[derive(EmbedData)]
 pub struct CondensedTopEmbed {
     author: AuthorBuilder,
     description: String,
@@ -504,17 +507,3 @@ async fn retrieve_mapset(ctx: &Context, mapset_id: u32) -> Option<Beatmapset> {
         }
     }
 }
-
-impl_builder!(TopEmbed {
-    author,
-    description,
-    footer,
-    thumbnail,
-});
-
-impl_builder!(CondensedTopEmbed {
-    author,
-    description,
-    footer,
-    thumbnail,
-});

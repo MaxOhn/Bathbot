@@ -284,7 +284,7 @@ pub(super) async fn list(
     let scores_iter = scores.iter().take(10);
 
     let embed = match RecentListEmbed::new(&user, scores_iter, &ctx, (1, pages)).await {
-        Ok(data) => data.into_builder().build(),
+        Ok(data) => data.build(),
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 

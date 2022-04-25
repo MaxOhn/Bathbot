@@ -321,7 +321,7 @@ async fn leaderboard(
     let content =
         format!("I found {amount} scores with the specified mods on the map's leaderboard");
 
-    let embed = embed_data.into_builder().build();
+    let embed = embed_data.build();
     let builder = MessageBuilder::new().content(content).embed(embed);
     let response_raw = orig.create_message(&ctx, &builder).await?;
 

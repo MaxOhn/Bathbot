@@ -302,7 +302,7 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
         &ctx,
         (1, pages),
     );
-    let embed = embed_fut.await.into_builder().build();
+    let embed = embed_fut.await.build();
 
     let mut content = format!(
         "{version} top {mode}scores for `{name}`",

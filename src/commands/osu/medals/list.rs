@@ -167,7 +167,7 @@ pub(super) async fn list(
     };
 
     let builder = MessageBuilder::new()
-        .embed(embed_data.into_builder())
+        .embed(embed_data.build())
         .content(content);
 
     let response_raw = orig.create_message(&ctx, &builder).await?;

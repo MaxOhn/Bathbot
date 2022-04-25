@@ -193,7 +193,7 @@ pub(super) async fn score(
     let embed_data = RankRankedScoreEmbed::new(user, rank, rank_holder);
 
     // Creating the embed
-    let embed = embed_data.into_builder().build();
+    let embed = embed_data.build();
     let builder = MessageBuilder::new().embed(embed);
     orig.create_message(&ctx, &builder).await?;
 

@@ -99,7 +99,7 @@ async fn send_message(
     success: HashSet<Username>,
 ) -> BotResult<()> {
     let success = success.into_iter().collect();
-    let embed = UntrackEmbed::new(success, name).into_builder().build();
+    let embed = UntrackEmbed::new(success, name).build();
     let builder = MessageBuilder::new().embed(embed);
     orig.create_message(ctx, &builder).await?;
 

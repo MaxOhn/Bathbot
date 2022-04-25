@@ -1,9 +1,12 @@
-use crate::util::{builder::AuthorBuilder, numbers::with_comma_int};
-
-use hashbrown::HashSet;
-use rosu_v2::model::user::User;
 use std::{collections::BTreeMap, fmt::Write, iter, mem};
 
+use command_macros::EmbedData;
+use hashbrown::HashSet;
+use rosu_v2::model::user::User;
+
+use crate::util::{builder::AuthorBuilder, numbers::with_comma_int};
+
+#[derive(EmbedData)]
 pub struct BWSEmbed {
     description: String,
     title: String,
@@ -191,13 +194,6 @@ impl BWSEmbed {
         }
     }
 }
-
-impl_builder!(BWSEmbed {
-    author,
-    description,
-    thumbnail,
-    title,
-});
 
 fn bws(rank: Option<u32>, badges: usize) -> u64 {
     let rank = rank.unwrap_or(0) as f64;

@@ -1,3 +1,13 @@
+use std::fmt::{self, Write};
+
+use command_macros::EmbedData;
+use hashbrown::HashMap;
+use rosu_pp::{
+    Beatmap as Map, BeatmapExt, CatchPP, DifficultyAttributes, GameMode as Mode, ManiaPP, OsuPP,
+    PerformanceAttributes, TaikoPP,
+};
+use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, GameMode};
+
 use crate::{
     core::Context,
     custom_client::ScraperScore,
@@ -13,14 +23,7 @@ use crate::{
     BotResult,
 };
 
-use hashbrown::HashMap;
-use rosu_pp::{
-    Beatmap as Map, BeatmapExt, CatchPP, DifficultyAttributes, GameMode as Mode, ManiaPP, OsuPP,
-    PerformanceAttributes, TaikoPP,
-};
-use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, GameMode};
-use std::fmt::{self, Write};
-
+#[derive(EmbedData)]
 pub struct LeaderboardEmbed {
     description: String,
     thumbnail: String,
@@ -138,13 +141,6 @@ impl LeaderboardEmbed {
         })
     }
 }
-
-impl_builder!(LeaderboardEmbed {
-    author,
-    description,
-    footer,
-    thumbnail,
-});
 
 async fn get_pp(
     mod_map: &mut HashMap<u32, (DifficultyAttributes, f32)>,

@@ -81,7 +81,6 @@ pub(super) async fn track(
                 warn!("{report:?}");
 
                 let embed = TrackEmbed::new(mode, success, failure, Some(username), limit)
-                    .into_builder()
                     .build();
 
                 let builder = MessageBuilder::new().embed(embed);
@@ -92,7 +91,7 @@ pub(super) async fn track(
         }
     }
 
-    let embed = TrackEmbed::new(mode, success, failure, None, limit).into_builder();
+    let embed = TrackEmbed::new(mode, success, failure, None, limit);
     let builder = MessageBuilder::new().embed(embed.build());
     orig.create_message(&ctx, &builder).await?;
 

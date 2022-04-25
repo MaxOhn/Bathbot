@@ -22,7 +22,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     custom_client::TwitchVideo,
     database::{EmbedsSize, MinimizedPp},
-    embeds::{EmbedData, RecentEmbed},
+    embeds::RecentEmbed,
     tracking::process_osu_tracking,
     util::{
         builder::MessageBuilder,
@@ -471,7 +471,7 @@ pub(super) async fn score(
     // Only maximize if config allows it
     match embeds_size {
         EmbedsSize::AlwaysMinimized => {
-            let embed = embed_data.into_builder().build();
+            let embed = embed_data.into_minimized();
             let mut builder = MessageBuilder::new().embed(embed);
 
             if let Some(content) = content {
@@ -481,7 +481,7 @@ pub(super) async fn score(
             orig.create_message(&ctx, &builder).await?;
         }
         EmbedsSize::InitialMaximized => {
-            let embed = embed_data.as_builder().build();
+            let embed = embed_data.as_maximized();
             let mut builder = MessageBuilder::new().embed(embed);
 
             if let Some(content) = content {
@@ -500,7 +500,7 @@ pub(super) async fn score(
                     return;
                 }
 
-                let embed = embed_data.into_builder().build();
+                let embed = embed_data.into_minimized();
                 let mut builder = MessageBuilder::new().embed(embed);
 
                 if !response.content.is_empty() {
@@ -514,7 +514,7 @@ pub(super) async fn score(
             });
         }
         EmbedsSize::AlwaysMaximized => {
-            let embed = embed_data.as_builder().build();
+            let embed = embed_data.as_maximized();
             let mut builder = MessageBuilder::new().embed(embed);
 
             if let Some(content) = content {

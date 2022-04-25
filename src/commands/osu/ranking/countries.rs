@@ -82,7 +82,7 @@ pub(super) async fn country(
     let pages = numbers::div_euclid(15, ranking.total as usize);
     let countries: BTreeMap<_, _> = ranking.ranking.drain(..).enumerate().collect();
     let embed_data = RankingCountriesEmbed::new(mode, &countries, (1, pages));
-    let embed = embed_data.into_builder().build();
+    let embed = embed_data.build();
     let builder = MessageBuilder::new().embed(embed);
     let response = orig.create_message(&ctx, &builder).await?.model().await?;
 

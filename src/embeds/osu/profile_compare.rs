@@ -1,3 +1,13 @@
+
+use std::{
+    cmp::Reverse,
+    fmt::{Display, Write},
+};
+
+use chrono::{DateTime, Utc};
+use command_macros::EmbedData;
+use rosu_v2::prelude::{GameMode, User, UserStatistics};
+
 use crate::{
     commands::osu::CompareResult,
     embeds::attachment,
@@ -7,13 +17,7 @@ use crate::{
     },
 };
 
-use chrono::{DateTime, Utc};
-use rosu_v2::prelude::{GameMode, User, UserStatistics};
-use std::{
-    cmp::Reverse,
-    fmt::{Display, Write},
-};
-
+#[derive(EmbedData)]
 pub struct ProfileCompareEmbed {
     description: String,
     image: String,
@@ -338,8 +342,6 @@ impl ProfileCompareEmbed {
         }
     }
 }
-
-impl_builder!(ProfileCompareEmbed { description, image });
 
 #[allow(clippy::too_many_arguments)]
 fn write_line<T: PartialOrd, V: Display>(

@@ -1,11 +1,14 @@
 use std::fmt::Write;
 
+use command_macros::EmbedData;
+
 use crate::{
     commands::{osu::ProfileSize, utility::GuildData},
     database::{EmbedsSize, GuildConfig, MinimizedPp},
     util::builder::AuthorBuilder,
 };
 
+#[derive(EmbedData)]
 pub struct ServerConfigEmbed {
     author: AuthorBuilder,
     description: String,
@@ -180,10 +183,3 @@ impl ServerConfigEmbed {
         }
     }
 }
-
-impl_builder!(ServerConfigEmbed {
-    author,
-    description,
-    footer,
-    title,
-});

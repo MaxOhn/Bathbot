@@ -215,7 +215,7 @@ async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> BotResu
     let embed_data = PPMissingEmbed::new(user, &mut scores, pp, rank, each);
 
     // Creating the embed
-    let embed = embed_data.into_builder().build();
+    let embed = embed_data.build();
     let builder = MessageBuilder::new().embed(embed);
     orig.create_message(&ctx, &builder).await?;
 

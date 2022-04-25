@@ -1,12 +1,16 @@
+
+use std::fmt::Write;
+
+use chrono::{DateTime, Utc};
+use command_macros::EmbedData;
+
 use crate::util::{
     builder::{AuthorBuilder, FooterBuilder},
     constants::SYMBOLS,
     datetime::how_long_ago_text,
 };
 
-use chrono::{DateTime, Utc};
-use std::fmt::Write;
-
+#[derive(EmbedData)]
 pub struct CommandCounterEmbed {
     description: String,
     footer: FooterBuilder,
@@ -58,9 +62,3 @@ impl CommandCounterEmbed {
         }
     }
 }
-
-impl_builder!(CommandCounterEmbed {
-    author,
-    description,
-    footer,
-});

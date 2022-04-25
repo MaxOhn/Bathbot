@@ -236,7 +236,6 @@ async fn slash_countrytop(
     let sort = args.sort.unwrap_or_default().into();
 
     let embed = OsuTrackerCountryTopEmbed::new(&details, initial, sort, (1, pages))
-        .into_builder()
         .build();
 
     let content = write_content(&details.country, &args, mods, scores.len(), name);

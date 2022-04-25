@@ -293,7 +293,7 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> B
     let embed_data_fut = TopIfEmbed::new(&user, iter, mode, pre_pp, adjusted_pp, rank, (1, pages));
 
     // Creating the embed
-    let embed = embed_data_fut.await.into_builder().build();
+    let embed = embed_data_fut.await.build();
     let builder = MessageBuilder::new().content(content).embed(embed);
     let response_raw = orig.create_message(&ctx, &builder).await?;
 

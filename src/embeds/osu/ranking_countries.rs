@@ -1,8 +1,14 @@
-use crate::util::{builder::FooterBuilder, numbers::with_comma_int};
 
-use rosu_v2::prelude::{CountryRanking, GameMode};
 use std::{collections::BTreeMap, fmt::Write};
 
+use command_macros::EmbedData;
+use rosu_v2::prelude::{CountryRanking, GameMode};
+
+use crate::util::{builder::FooterBuilder, numbers::with_comma_int};
+
+
+
+#[derive(EmbedData)]
 pub struct RankingCountriesEmbed {
     description: String,
     title: String,
@@ -86,13 +92,6 @@ impl RankingCountriesEmbed {
         }
     }
 }
-
-impl_builder!(RankingCountriesEmbed {
-    description,
-    footer,
-    title,
-    url,
-});
 
 fn mode_str(mode: GameMode) -> &'static str {
     match mode {

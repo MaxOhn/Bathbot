@@ -1,7 +1,7 @@
 use crate::{
     core::Context,
     database::MinimizedPp,
-    embeds::{osu, EmbedData},
+    embeds::osu,
     error::PpError,
     util::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
@@ -18,6 +18,7 @@ use chrono::{DateTime, Utc};
 use rosu_pp::{Beatmap as Map, BeatmapExt, CatchPP, DifficultyAttributes, OsuPP, TaikoPP};
 use rosu_v2::prelude::{GameMode, Grade, Score, User};
 use std::{borrow::Cow, fmt::Write};
+use twilight_model::channel::embed::Embed;
 
 #[derive(Clone)]
 pub struct TopSingleEmbed {
@@ -168,10 +169,8 @@ impl TopSingleEmbed {
             minimized_pp,
         })
     }
-}
 
-impl EmbedData for TopSingleEmbed {
-    fn as_builder(&self) -> EmbedBuilder {
+    pub fn as_maximized(&self) -> Embed {
         let pp = osu::get_pp(self.pp, self.max_pp);
 
         let mut fields = vec![
@@ -213,9 +212,10 @@ impl EmbedData for TopSingleEmbed {
             .timestamp(self.timestamp)
             .title(&self.title)
             .url(&self.url)
+            .build()
     }
 
-    fn into_builder(self) -> EmbedBuilder {
+    pub fn into_minimized(self) -> Embed {
         let name = format!(
             "{}\t{}\t({}%)\t{}",
             self.grade_completion_mods, self.score, self.acc, self.ago
@@ -232,22 +232,19 @@ impl EmbedData for TopSingleEmbed {
                     result.push('-');
                 }
 
-                match self.if_fc {
-                    Some((if_fc, ..)) => {
-                        let _ = write!(result, "pp** ~~({if_fc:.2}pp)~~");
-                    }
-                    None => {
-                        result.push_str("**/");
+                if let Some((if_fc, ..)) = self.if_fc {
+                    let _ = write!(result, "pp** ~~({if_fc:.2}pp)~~");
+                } else {
+                    result.push_str("**/");
 
-                        if let Some(max) = self.max_pp {
-                            let pp = self.pp.map(|pp| pp.max(max)).unwrap_or(max);
-                            let _ = write!(result, "{:.2}", pp);
-                        } else {
-                            result.push('-');
-                        }
-
-                        result.push_str("PP");
+                    if let Some(max) = self.max_pp {
+                        let pp = self.pp.map(|pp| pp.max(max)).unwrap_or(max);
+                        let _ = write!(result, "{:.2}", pp);
+                    } else {
+                        result.push('-');
                     }
+
+                    result.push_str("PP");
                 }
 
                 result
@@ -267,6 +264,7 @@ impl EmbedData for TopSingleEmbed {
             .thumbnail(self.thumbnail)
             .title(title)
             .url(self.url)
+            .build()
     }
 }
 

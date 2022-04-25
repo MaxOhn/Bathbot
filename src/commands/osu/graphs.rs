@@ -371,7 +371,7 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> BotRe
         None => return Ok(()),
     };
 
-    let embed = GraphEmbed::new(&user).into_builder().build();
+    let embed = GraphEmbed::new(&user).build();
     let builder = MessageBuilder::new()
         .embed(embed)
         .attachment("graph.png", graph);

@@ -1,9 +1,14 @@
-use crate::{embeds::osu, util::constants::OSU_BASE};
 
-use hashbrown::HashMap;
-use rosu_v2::prelude::MostPlayedMap;
 use std::{cmp::Ordering, fmt::Write};
 
+use command_macros::EmbedData;
+use hashbrown::HashMap;
+use rosu_v2::prelude::MostPlayedMap;
+
+use crate::{embeds::osu, util::constants::OSU_BASE};
+
+
+#[derive(EmbedData)]
 pub struct MostPlayedCommonEmbed {
     description: String,
 }
@@ -43,5 +48,3 @@ impl MostPlayedCommonEmbed {
         Self { description }
     }
 }
-
-impl_builder!(MostPlayedCommonEmbed { description });

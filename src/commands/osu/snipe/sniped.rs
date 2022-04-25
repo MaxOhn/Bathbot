@@ -141,7 +141,7 @@ pub(super) async fn player_sniped(
     let embed_data = SnipedEmbed::new(user, sniper, snipee);
 
     // Sending the embed
-    let embed = embed_data.into_builder().build();
+    let embed = embed_data.build();
     let mut builder = MessageBuilder::new().embed(embed);
 
     if let Some(bytes) = graph {

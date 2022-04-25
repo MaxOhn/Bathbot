@@ -1,5 +1,6 @@
 use std::fmt::{self, Write};
 
+use command_macros::EmbedData;
 use eyre::Report;
 use rosu_pp::{Beatmap as Map, BeatmapExt};
 use rosu_v2::prelude::{Beatmap, GameMode, Score, User};
@@ -18,6 +19,7 @@ use crate::{
     BotResult,
 };
 
+#[derive(EmbedData)]
 pub struct ScoresEmbed {
     description: String,
     thumbnail: String,
@@ -164,15 +166,6 @@ impl ScoresEmbed {
         }
     }
 }
-
-impl_builder!(ScoresEmbed {
-    author,
-    description,
-    footer,
-    thumbnail,
-    title,
-    url,
-});
 
 async fn get_map(ctx: &Context, map_id: u32) -> BotResult<Map> {
     let map_path = prepare_beatmap_file(ctx, map_id).await?;

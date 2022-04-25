@@ -1,11 +1,13 @@
+use std::{borrow::Cow, fmt::Write};
+
+use command_macros::EmbedData;
+use rosu_v2::prelude::Username;
+
 use crate::{
     commands::osu::MedalEntryCommon,
     embeds::attachment,
     util::{builder::FooterBuilder, CowUtils},
 };
-
-use rosu_v2::prelude::Username;
-use std::{borrow::Cow, fmt::Write};
 
 pub struct MedalsCommonUser {
     name: Username,
@@ -18,6 +20,7 @@ impl MedalsCommonUser {
     }
 }
 
+#[derive(EmbedData)]
 pub struct MedalsCommonEmbed {
     description: String,
     footer: FooterBuilder,
@@ -89,10 +92,3 @@ fn timestamp(timestamp: Option<i64>) -> Cow<'static, str> {
         None => "Never".into(),
     }
 }
-
-impl_builder!(MedalsCommonEmbed {
-    description,
-    footer,
-    thumbnail,
-    title,
-});

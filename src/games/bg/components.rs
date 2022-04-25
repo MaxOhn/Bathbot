@@ -109,7 +109,6 @@ pub async fn handle_bg_start_button(
 
                 let embed =
                     BGTagsEmbed::new(*included, *excluded, mapsets.len(), *effects, *difficulty)
-                        .into_builder()
                         .build();
 
                 if let Err(err) = remove_components(&ctx, &component, Some(embed)).await {

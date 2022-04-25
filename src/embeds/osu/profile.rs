@@ -1,5 +1,6 @@
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
 
+use command_macros::EmbedData;
 use rosu_v2::prelude::{GameMode, Grade, User, UserStatistics};
 use twilight_model::{
     channel::embed::EmbedField,
@@ -18,7 +19,7 @@ use crate::{
     },
 };
 
-#[derive(Clone)]
+#[derive(Clone, EmbedData)]
 pub struct ProfileEmbed {
     author: AuthorBuilder,
     description: String,
@@ -351,12 +352,3 @@ fn main_fields(user: &User, stats: &UserStatistics, bonus_pp: f32) -> Vec<EmbedF
         ),
     ]
 }
-
-impl_builder!(&ProfileEmbed {
-    author,
-    description,
-    fields,
-    footer,
-    image,
-    thumbnail,
-});

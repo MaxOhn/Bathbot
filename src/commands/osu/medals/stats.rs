@@ -110,9 +110,7 @@ pub(super) async fn stats(
         .map(|medal: OsekaiMedal| (medal.medal_id, medal))
         .collect();
 
-    let embed = MedalStatsEmbed::new(user, all_medals, graph.is_some())
-        .into_builder()
-        .build();
+    let embed = MedalStatsEmbed::new(user, all_medals, graph.is_some()).build();
 
     let mut builder = MessageBuilder::new().embed(embed);
 

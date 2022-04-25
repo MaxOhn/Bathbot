@@ -95,7 +95,7 @@ pub(super) async fn info(
     maps.sort_unstable_by_key(|map| Reverse(map.vote_sum));
 
     let embed_data = MedalEmbed::new(medal, None, maps, top_comment);
-    let embed = embed_data.into_builder().build();
+    let embed = embed_data.build();
     let builder = MessageBuilder::new().embed(embed);
     orig.create_message(&ctx, &builder).await?;
 

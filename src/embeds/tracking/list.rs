@@ -1,10 +1,12 @@
 use std::fmt::Write;
 
+use command_macros::EmbedData;
 use itertools::Itertools;
 use rosu_v2::model::GameMode;
 
 use crate::{commands::tracking::TracklistUserEntry, util::constants::DESCRIPTION_SIZE};
 
+#[derive(EmbedData)]
 pub struct TrackListEmbed {
     description: String,
     title: &'static str,
@@ -79,5 +81,3 @@ impl TrackListEmbed {
         embeds
     }
 }
-
-impl_builder!(TrackListEmbed { description, title });

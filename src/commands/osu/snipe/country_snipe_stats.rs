@@ -146,7 +146,7 @@ pub(super) async fn country_stats(
     let embed_data = CountrySnipeStatsEmbed::new(country, statistics);
 
     // Sending the embed
-    let embed = embed_data.into_builder().build();
+    let embed = embed_data.build();
     let mut builder = MessageBuilder::new().embed(embed);
 
     if let Some(bytes) = graph {

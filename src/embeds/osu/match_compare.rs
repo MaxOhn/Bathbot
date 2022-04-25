@@ -1,5 +1,6 @@
 use std::{borrow::Cow, cmp::Reverse, fmt::Write};
 
+use command_macros::EmbedData;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Grade, Team, Username};
 
@@ -16,6 +17,7 @@ use crate::{
     },
 };
 
+#[derive(EmbedData)]
 pub struct MatchCompareMapEmbed {
     author: AuthorBuilder,
     footer: FooterBuilder,
@@ -260,14 +262,7 @@ struct ColumnSizes {
     mods: usize,
 }
 
-impl_builder!(MatchCompareMapEmbed {
-    author,
-    footer,
-    title,
-    url,
-    fields,
-});
-
+#[derive(EmbedData)]
 pub struct MatchCompareSummaryEmbed {
     author: AuthorBuilder,
     description: String,
@@ -316,11 +311,3 @@ impl MatchCompareSummaryEmbed {
         }
     }
 }
-
-impl_builder!(MatchCompareSummaryEmbed {
-    author,
-    description,
-    footer,
-    title,
-    url,
-});

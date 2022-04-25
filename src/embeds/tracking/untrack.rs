@@ -1,9 +1,13 @@
+
+
+use std::{collections::HashSet, fmt::Write};
+
+use command_macros::EmbedData;
 use rosu_v2::prelude::Username;
 
 use crate::embeds::EmbedFields;
 
-use std::{collections::HashSet, fmt::Write};
-
+#[derive(EmbedData)]
 pub struct UntrackEmbed {
     fields: EmbedFields,
     title: &'static str,
@@ -34,5 +38,3 @@ impl UntrackEmbed {
         Self { fields, title }
     }
 }
-
-impl_builder!(UntrackEmbed { fields, title });

@@ -1,5 +1,6 @@
 use std::{cmp::Ordering, fmt::Write};
 
+use command_macros::EmbedData;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmap, BeatmapsetCompact};
 
@@ -9,6 +10,7 @@ use crate::{
     util::{builder::FooterBuilder, constants::OSU_BASE},
 };
 
+#[derive(EmbedData)]
 pub struct CommonEmbed {
     description: String,
     thumbnail: String,
@@ -58,9 +60,3 @@ impl CommonEmbed {
         }
     }
 }
-
-impl_builder!(CommonEmbed {
-    description,
-    footer,
-    thumbnail
-});

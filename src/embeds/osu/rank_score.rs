@@ -1,7 +1,11 @@
-use crate::util::{builder::AuthorBuilder, numbers::with_comma_int};
 
+use command_macros::EmbedData;
 use rosu_v2::model::user::{User, UserCompact};
 
+use crate::util::{builder::AuthorBuilder, numbers::with_comma_int};
+
+
+#[derive(EmbedData)]
 pub struct RankRankedScoreEmbed {
     description: String,
     title: String,
@@ -50,10 +54,3 @@ impl RankRankedScoreEmbed {
         }
     }
 }
-
-impl_builder!(RankRankedScoreEmbed {
-    author,
-    description,
-    thumbnail,
-    title,
-});

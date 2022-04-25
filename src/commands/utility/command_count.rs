@@ -60,7 +60,7 @@ async fn commands(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> BotResult<()> {
 
     // Creating the embed
     let embed_data = CommandCounterEmbed::new(sub_vec, &boot_time, 1, (1, pages));
-    let builder = embed_data.into_builder().build().into();
+    let builder = embed_data.build().into();
     let response = orig
         .callback_with_response(&ctx, builder)
         .await?

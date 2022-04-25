@@ -2,7 +2,7 @@ use crate::{
     core::Context,
     custom_client::TwitchVideo,
     database::MinimizedPp,
-    embeds::{osu, EmbedData},
+    embeds::{osu, },
     error::PpError,
     util::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
@@ -23,6 +23,7 @@ use rosu_pp::{
 };
 use rosu_v2::prelude::{BeatmapUserScore, GameMode, Grade, Score, User};
 use std::{borrow::Cow, fmt::Write};
+use twilight_model::channel::embed::Embed;
 
 pub struct RecentEmbed {
     description: String,
@@ -274,10 +275,8 @@ impl RecentEmbed {
             minimized_pp,
         })
     }
-}
 
-impl EmbedData for RecentEmbed {
-    fn as_builder(&self) -> EmbedBuilder {
+    pub fn as_maximized(&self) -> Embed {
         let score = highlight_funny_numeral(&self.score).into_owned();
         let acc = highlight_funny_numeral(&format!("{}%", self.acc)).into_owned();
 
@@ -340,9 +339,10 @@ impl EmbedData for RecentEmbed {
             .timestamp(self.timestamp)
             .title(&self.title)
             .url(&self.url)
+            .build()
     }
 
-    fn into_builder(mut self) -> EmbedBuilder {
+    pub fn into_minimized(mut self) -> Embed {
         let name = format!(
             "{}\t{}\t({}%)\t{}",
             self.grade_completion_mods, self.score, self.acc, self.ago
@@ -359,22 +359,19 @@ impl EmbedData for RecentEmbed {
                     result.push('-');
                 }
 
-                match self.if_fc {
-                    Some((if_fc, ..)) => {
-                        let _ = write!(result, "pp** ~~({if_fc:.2}pp)~~");
-                    }
-                    None => {
-                        result.push_str("**/");
+                if let Some((if_fc, ..)) = self.if_fc {
+                    let _ = write!(result, "pp** ~~({if_fc:.2}pp)~~");
+                } else {
+                    result.push_str("**/");
 
-                        if let Some(max) = self.max_pp {
-                            let pp = self.pp.map(|pp| pp.max(max)).unwrap_or(max);
-                            let _ = write!(result, "{:.2}", pp);
-                        } else {
-                            result.push('-');
-                        }
-
-                        result.push_str("PP");
+                    if let Some(max) = self.max_pp {
+                        let pp = self.pp.map(|pp| pp.max(max)).unwrap_or(max);
+                        let _ = write!(result, "{:.2}", pp);
+                    } else {
+                        result.push('-');
                     }
+
+                    result.push_str("PP");
                 }
 
                 result
@@ -405,6 +402,7 @@ impl EmbedData for RecentEmbed {
             .thumbnail(self.thumbnail)
             .title(title)
             .url(self.url)
+            .build()
     }
 }
 

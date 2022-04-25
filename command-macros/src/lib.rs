@@ -3,6 +3,7 @@ use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 
 mod bucket;
+mod embed_data;
 mod flags;
 mod has_mods;
 mod has_name;
@@ -48,6 +49,29 @@ pub fn has_mods(input: TokenStream) -> TokenStream {
     let derive_input = parse_macro_input!(input as DeriveInput);
 
     match has_mods::derive(derive_input) {
+        Ok(result) => result.into(),
+        Err(err) => err.to_compile_error().into(),
+    }
+}
+
+/// Derive the `EmbedData` trait which provides a `build` method.
+///
+/// Can only be derived on structs with any of the following field names:
+/// - `author`
+/// - `color`
+/// - `description`
+/// - `fields`
+/// - `footer`
+/// - `image`
+/// - `timestamp`
+/// - `title`
+/// - `thumbnail`
+/// - `url`
+#[proc_macro_derive(EmbedData)]
+pub fn embed_data(input: TokenStream) -> TokenStream {
+    let derive_input = parse_macro_input!(input as DeriveInput);
+
+    match embed_data::derive(derive_input) {
         Ok(result) => result.into(),
         Err(err) => err.to_compile_error().into(),
     }

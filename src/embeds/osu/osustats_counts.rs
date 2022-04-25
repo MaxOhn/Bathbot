@@ -1,8 +1,12 @@
-use rosu_v2::prelude::{GameMode, User};
+
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
+
+use command_macros::EmbedData;
+use rosu_v2::prelude::{GameMode, User};
 
 use crate::util::builder::AuthorBuilder;
 
+#[derive(EmbedData)]
 pub struct OsuStatsCountsEmbed {
     description: String,
     thumbnail: String,
@@ -49,10 +53,3 @@ impl OsuStatsCountsEmbed {
         }
     }
 }
-
-impl_builder!(OsuStatsCountsEmbed {
-    author,
-    description,
-    thumbnail,
-    title,
-});

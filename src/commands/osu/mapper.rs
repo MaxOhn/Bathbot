@@ -327,7 +327,7 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
         );
 
         let data = embed_fut.await;
-        let embed = data.into_builder().build();
+        let embed = data.build();
 
         MessageBuilder::new().content(content).embed(embed)
     };

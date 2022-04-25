@@ -1069,7 +1069,7 @@ async fn single_embed(
     // Only maximize if config allows it
     match embeds_size {
         EmbedsSize::AlwaysMinimized => {
-            let mut builder = MessageBuilder::new().embed(embed_data.into_builder().build());
+            let mut builder = MessageBuilder::new().embed(embed_data.into_minimized());
 
             if let Some(content) = content {
                 builder = builder.content(content);
@@ -1078,7 +1078,7 @@ async fn single_embed(
             orig.create_message(&ctx, &builder).await?;
         }
         EmbedsSize::InitialMaximized => {
-            let mut builder = MessageBuilder::new().embed(embed_data.as_builder().build());
+            let mut builder = MessageBuilder::new().embed(embed_data.as_maximized());
 
             if let Some(ref content) = content {
                 builder = builder.content(content);
@@ -1096,7 +1096,7 @@ async fn single_embed(
                     return;
                 }
 
-                let mut builder = MessageBuilder::new().embed(embed_data.into_builder().build());
+                let mut builder = MessageBuilder::new().embed(embed_data.into_minimized());
 
                 if let Some(content) = content {
                     builder = builder.content(content);
@@ -1109,7 +1109,7 @@ async fn single_embed(
             });
         }
         EmbedsSize::AlwaysMaximized => {
-            let mut builder = MessageBuilder::new().embed(embed_data.as_builder().build());
+            let mut builder = MessageBuilder::new().embed(embed_data.as_maximized());
 
             if let Some(content) = content {
                 builder = builder.content(content);
@@ -1144,7 +1144,7 @@ async fn paginated_embed(
         (1, pages),
     );
 
-    let embed = embed_fut.await.into_builder().build();
+    let embed = embed_fut.await.build();
 
     // Creating the embed
     let mut builder = MessageBuilder::new().embed(embed);
@@ -1195,7 +1195,7 @@ async fn condensed_paginated_embed(
         (1, pages),
     );
 
-    let embed = embed_fut.await.into_builder().build();
+    let embed = embed_fut.await.build();
 
     // Creating the embed
     let mut builder = MessageBuilder::new().embed(embed);

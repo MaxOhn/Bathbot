@@ -1,3 +1,7 @@
+use command_macros::EmbedData;
+use hashbrown::HashMap;
+use rosu_v2::model::user::User;
+
 use crate::{
     custom_client::{OsekaiMedal, MEDAL_GROUPS},
     embeds::{attachment, EmbedFields},
@@ -9,9 +13,7 @@ use crate::{
     },
 };
 
-use hashbrown::HashMap;
-use rosu_v2::model::user::User;
-
+#[derive(EmbedData)]
 pub struct MedalStatsEmbed {
     author: AuthorBuilder,
     fields: EmbedFields,
@@ -109,11 +111,3 @@ impl MedalStatsEmbed {
         }
     }
 }
-
-impl_builder!(MedalStatsEmbed {
-    author,
-    fields,
-    footer,
-    image,
-    thumbnail,
-});

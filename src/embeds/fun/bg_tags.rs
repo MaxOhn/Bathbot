@@ -1,3 +1,5 @@
+use command_macros::EmbedData;
+
 use crate::{
     commands::fun::GameDifficulty,
     embeds::EmbedFields,
@@ -5,6 +7,7 @@ use crate::{
     util::builder::FooterBuilder,
 };
 
+#[derive(EmbedData)]
 pub struct BGTagsEmbed {
     description: &'static str,
     fields: EmbedFields,
@@ -60,10 +63,3 @@ impl BGTagsEmbed {
         }
     }
 }
-
-impl_builder!(BGTagsEmbed {
-    description,
-    fields,
-    footer,
-    title,
-});

@@ -112,7 +112,7 @@ pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
 }
 
 async fn send_notif(ctx: &Context, data: &TwitchNotifEmbed, channel: Id<ChannelMarker>) {
-    let embed = data.as_builder().build();
+    let embed = data.to_owned().build();
 
     match ctx.http.create_message(channel).embeds(&[embed]) {
         Ok(msg_fut) => {

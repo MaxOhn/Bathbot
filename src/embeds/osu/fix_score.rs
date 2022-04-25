@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+use command_macros::EmbedData;
 use rosu_v2::prelude::{Beatmap, GameMods, RankStatus, Score, User};
 
 use crate::util::{
@@ -8,6 +9,7 @@ use crate::util::{
     numbers::{round, with_comma_float},
 };
 
+#[derive(EmbedData)]
 pub struct FixScoreEmbed {
     author: AuthorBuilder,
     description: String,
@@ -149,14 +151,6 @@ impl FixScoreEmbed {
         }
     }
 }
-
-impl_builder!(FixScoreEmbed {
-    author,
-    description,
-    thumbnail,
-    title,
-    url,
-});
 
 fn new_pp(pp: f32, user: &User, scores: &[Score], actual_offset: f32) -> (usize, f32) {
     let actual: f32 = scores

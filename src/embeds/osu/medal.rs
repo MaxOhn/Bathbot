@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use rosu_v2::prelude::GameMode;
+use twilight_model::channel::embed::Embed;
 
 use crate::{
     commands::osu::MedalAchieved,
@@ -137,19 +138,19 @@ impl MedalEmbed {
         }
     }
 
-    pub fn minimized(mut self) -> EmbedBuilder {
+    pub fn minimized(mut self) -> Embed {
         self.fields.truncate(5);
 
-        self.into_builder()
+        self.build()
     }
 
-    pub fn maximized(self) -> EmbedBuilder {
-        self.into_builder()
+    pub fn maximized(self) -> Embed {
+        self.build()
     }
 }
 
 impl EmbedData for MedalEmbed {
-    fn into_builder(self) -> EmbedBuilder {
+    fn build(self) -> Embed {
         let builder = EmbedBuilder::new()
             .fields(self.fields)
             .thumbnail(self.thumbnail)
@@ -157,10 +158,12 @@ impl EmbedData for MedalEmbed {
             .url(self.url);
 
         match self.achieved {
-            Some((author, footer, timestamp)) => {
-                builder.author(author).footer(footer).timestamp(timestamp)
-            }
-            None => builder,
+            Some((author, footer, timestamp)) => builder
+                .author(author)
+                .footer(footer)
+                .timestamp(timestamp)
+                .build(),
+            None => builder.build(),
         }
     }
 }

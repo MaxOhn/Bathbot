@@ -1,3 +1,9 @@
+
+use std::fmt::Write;
+
+use command_macros::EmbedData;
+use rosu_v2::model::user::User;
+
 use crate::{
     commands::osu::MedalType,
     util::{
@@ -8,9 +14,7 @@ use crate::{
     },
 };
 
-use rosu_v2::model::user::User;
-use std::fmt::Write;
-
+#[derive(EmbedData)]
 pub struct MedalsMissingEmbed {
     author: AuthorBuilder,
     description: String,
@@ -69,11 +73,3 @@ impl MedalsMissingEmbed {
         }
     }
 }
-
-impl_builder!(MedalsMissingEmbed {
-    author,
-    description,
-    footer,
-    thumbnail,
-    title,
-});

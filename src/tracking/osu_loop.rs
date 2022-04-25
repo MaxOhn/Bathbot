@@ -241,6 +241,6 @@ impl<'u> TrackUser<'u> {
             TrackNotificationEmbed::new(user.as_ref(), score, idx, ctx).await
         };
 
-        Ok(data.into_builder().build())
+        Ok(data.build())
     }
 }

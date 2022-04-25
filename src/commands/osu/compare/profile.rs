@@ -161,7 +161,7 @@ pub(super) async fn profile(
 
     // Creating the embed
     let embed_data = ProfileCompareEmbed::new(mode, user1, user2, profile_result1, profile_result2);
-    let embed = embed_data.into_builder().build();
+    let embed = embed_data.build();
     let mut builder = MessageBuilder::new().embed(embed);
 
     if let Some(bytes) = thumbnail {

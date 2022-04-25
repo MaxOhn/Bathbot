@@ -73,7 +73,7 @@ pub(super) async fn mapsets(ctx: Arc<Context>, command: Box<ApplicationCommand>)
     let pages = numbers::div_euclid(10, counts.len());
     let initial = &counts[..counts.len().min(10)];
 
-    let embed = OsuTrackerMapsetsEmbed::new(initial, &mapsets, (1, pages)).into_builder();
+    let embed = OsuTrackerMapsetsEmbed::new(initial, &mapsets, (1, pages));
     let builder = MessageBuilder::new().embed(embed.build());
 
     let response_raw = command.update(&ctx, &builder).await?;

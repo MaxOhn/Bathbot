@@ -143,7 +143,7 @@ pub(super) async fn fix(
     let gb = ctx.map_garbage_collector(&map);
 
     let embed_data = FixScoreEmbed::new(user, map, Some((score, scores)), unchoked_pp, None);
-    let embed = embed_data.into_builder().build();
+    let embed = embed_data.build();
     let builder = MessageBuilder::new().embed(embed);
     orig.create_message(&ctx, &builder).await?;
 

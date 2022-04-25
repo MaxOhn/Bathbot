@@ -144,7 +144,7 @@ pub(super) async fn recent(
     };
 
     let embed_data = MedalEmbed::new(medal.clone(), Some(achieved), Vec::new(), None);
-    let embed = embed_data.clone().minimized().build();
+    let embed = embed_data.clone().minimized();
     let builder = MessageBuilder::new().embed(embed).content(content);
     let response = orig.create_message(&ctx, &builder).await?.model().await?;
 

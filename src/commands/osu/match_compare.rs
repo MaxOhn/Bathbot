@@ -9,16 +9,15 @@ use rosu_v2::prelude::{
 };
 use tokio::time::interval;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::application::interaction::ApplicationCommand;
+use twilight_model::{application::interaction::ApplicationCommand, channel::embed::Embed};
 
 use crate::{
     core::Context,
     embeds::{EmbedData, MatchCompareMapEmbed, MatchCompareSummaryEmbed},
     pagination::{MatchComparePagination, Pagination},
     util::{
-        builder::{EmbedBuilder, MessageBuilder},
-        constants::OSU_API_ISSUE,
-        matcher, ApplicationCommandExt, Authored, ChannelExt, ScoreExt,
+        builder::MessageBuilder, constants::OSU_API_ISSUE, matcher, ApplicationCommandExt,
+        Authored, ChannelExt, ScoreExt,
     },
     BotResult,
 };
@@ -164,7 +163,7 @@ async fn matchcompare(
             let mut embeds = embeds.into_iter();
 
             if let Some(embed) = embeds.next() {
-                let builder = MessageBuilder::new().embed(embed.build());
+                let builder = MessageBuilder::new().embed(embed);
                 command.update(&ctx, &builder).await?;
 
                 let mut interval = interval(Duration::from_secs(1));
@@ -172,7 +171,6 @@ async fn matchcompare(
 
                 for embed in embeds {
                     interval.tick().await;
-                    let embed = embed.build();
                     command
                         .channel_id
                         .create_message(&ctx, &embed.into())
@@ -181,7 +179,7 @@ async fn matchcompare(
             }
         }
         MatchCompareOutput::Paginated => {
-            if let Some(embed) = embeds.first().cloned().map(EmbedBuilder::build) {
+            if let Some(embed) = embeds.first().cloned() {
                 let builder = MessageBuilder::new().embed(embed);
                 let response_raw = command.update(&ctx, &builder).await?;
                 let response = response_raw.model().await?;
@@ -274,7 +272,7 @@ impl MatchComparison {
         }
     }
 
-    fn into_embeds(self, comparison: MatchCompareComparison) -> Vec<EmbedBuilder> {
+    fn into_embeds(self, comparison: MatchCompareComparison) -> Vec<Embed> {
         let mut embeds = Vec::with_capacity(self.common_maps.len() + 2);
         let common_total = self.common_maps.len();
 
@@ -302,12 +300,12 @@ impl MatchComparison {
                     (i, common_total, maps_total),
                 )
             })
-            .map(EmbedData::into_builder);
+            .map(EmbedData::build);
 
         embeds.extend(iter);
 
-        embeds.push(summary_1.into_builder());
-        embeds.push(summary_2.into_builder());
+        embeds.push(summary_1.build());
+        embeds.push(summary_2.build());
 
         embeds
     }

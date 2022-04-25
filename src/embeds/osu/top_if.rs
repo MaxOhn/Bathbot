@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+use command_macros::EmbedData;
 use rosu_v2::prelude::{GameMode, Score, User};
 
 use crate::{
@@ -13,6 +14,7 @@ use crate::{
     },
 };
 
+#[derive(EmbedData)]
 pub struct TopIfEmbed {
     author: AuthorBuilder,
     description: String,
@@ -87,11 +89,3 @@ impl TopIfEmbed {
         }
     }
 }
-
-impl_builder!(TopIfEmbed {
-    author,
-    description,
-    footer,
-    thumbnail,
-    title,
-});

@@ -274,7 +274,7 @@ async fn slash_serverleaderboard(
 
     // Creating the embed
     let embed_data = RankingEmbed::new(&leaderboard, &data, author_idx, (1, pages));
-    let builder = embed_data.into_builder().build().into();
+    let builder = embed_data.build().into();
     let response_raw = command.update(&ctx, &builder).await?;
 
     if total <= 20 {

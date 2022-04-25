@@ -175,7 +175,7 @@ pub(super) async fn pp(
     }
 
     // Creating the embed
-    let embed = RankEmbed::new(rank_data, scores, each).into_builder();
+    let embed = RankEmbed::new(rank_data, scores, each).build();
     let builder = MessageBuilder::new().embed(embed);
     orig.create_message(&ctx, &builder).await?;
 

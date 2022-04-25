@@ -8,6 +8,7 @@ use rosu_pp::{
 use rosu_v2::prelude::{
     Beatmap, BeatmapsetCompact, GameMode, GameMods, Grade, Score, ScoreStatistics,
 };
+use twilight_model::channel::embed::Embed;
 
 use crate::{
     commands::osu::{
@@ -15,7 +16,7 @@ use crate::{
         RecentSimulateTaiko,
     },
     core::Context,
-    embeds::{osu, EmbedData},
+    embeds::osu,
     error::PpError,
     pp::PpCalculator,
     util::{
@@ -301,10 +302,8 @@ impl SimulateEmbed {
             mapset_id: mapset.mapset_id,
         })
     }
-}
 
-impl EmbedData for SimulateEmbed {
-    fn as_builder(&self) -> EmbedBuilder {
+    pub fn as_maximized(&self) -> Embed {
         let image = format!(
             "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",
             self.mapset_id
@@ -358,9 +357,10 @@ impl EmbedData for SimulateEmbed {
             .image(image)
             .title(&self.title)
             .url(&self.url)
+            .build()
     }
 
-    fn into_builder(self) -> EmbedBuilder {
+    pub fn into_minimized(self) -> Embed {
         let mut value = if let Some(prev_pp) = self.prev_pp {
             format!("{prev_pp} → {}", self.pp)
         } else {
@@ -399,6 +399,7 @@ impl EmbedData for SimulateEmbed {
             .thumbnail(self.thumbnail)
             .title(title)
             .url(self.url)
+            .build()
     }
 }
 

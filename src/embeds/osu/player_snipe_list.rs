@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, fmt::Write};
 
+use command_macros::EmbedData;
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmap, User};
@@ -17,6 +18,7 @@ use crate::{
     },
 };
 
+#[derive(EmbedData)]
 pub struct PlayerSnipeListEmbed {
     author: AuthorBuilder,
     description: String,
@@ -95,10 +97,3 @@ impl PlayerSnipeListEmbed {
         }
     }
 }
-
-impl_builder!(PlayerSnipeListEmbed {
-    author,
-    description,
-    footer,
-    thumbnail,
-});

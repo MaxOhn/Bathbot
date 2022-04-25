@@ -43,7 +43,7 @@ pub(super) async fn medal_count(
 
     let pages = numbers::div_euclid(10, ranking.len());
     let embed_data = MedalCountEmbed::new(&ranking[..10], 0, author_idx, (1, pages));
-    let embed = embed_data.into_builder().build();
+    let embed = embed_data.build();
     let builder = MessageBuilder::new().embed(embed);
     let response = command.update(&ctx, &builder).await?.model().await?;
     let pagination = MedalCountPagination::new(response, ranking, author_idx);

@@ -197,7 +197,7 @@ async fn sniped_diff(
     let data_fut = SnipedDiffEmbed::new(&user, diff, &scores, 0, (1, pages), &mut maps, &ctx);
 
     let embed = match data_fut.await {
-        Ok(data) => data.into_builder().build(),
+        Ok(data) => data.build(),
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 

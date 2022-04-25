@@ -1,10 +1,15 @@
+
+
+use std::fmt::Write;
+
+use command_macros::EmbedData;
+
 use crate::util::{
     builder::{AuthorBuilder, FooterBuilder},
     constants::SYMBOLS,
 };
 
-use std::fmt::Write;
-
+#[derive(EmbedData)]
 pub struct BGRankingEmbed {
     author: AuthorBuilder,
     description: String,
@@ -61,9 +66,3 @@ impl BGRankingEmbed {
         }
     }
 }
-
-impl_builder!(BGRankingEmbed {
-    author,
-    description,
-    footer,
-});

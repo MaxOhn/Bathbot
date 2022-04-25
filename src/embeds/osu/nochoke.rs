@@ -1,5 +1,6 @@
 use std::{borrow::Cow, fmt::Write};
 
+use command_macros::EmbedData;
 use eyre::Report;
 use rosu_v2::prelude::{Score, User};
 
@@ -15,6 +16,7 @@ use crate::{
     },
 };
 
+#[derive(EmbedData)]
 pub struct NoChokeEmbed {
     description: String,
     title: String,
@@ -109,11 +111,3 @@ impl NoChokeEmbed {
         }
     }
 }
-
-impl_builder!(NoChokeEmbed {
-    author,
-    description,
-    footer,
-    thumbnail,
-    title,
-});

@@ -276,7 +276,7 @@ async fn handle_both_links(
     }
 
     let embed_data = ConfigEmbed::new(author, config, twitch_name);
-    let builder = embed_data.into_builder().build().into();
+    let builder = embed_data.build().into();
     command.update(ctx, &builder).await?;
 
     Ok(())
@@ -314,7 +314,7 @@ async fn handle_twitch_link(
     }
 
     let embed_data = ConfigEmbed::new(author, config, twitch_name);
-    let builder = embed_data.into_builder().build().into();
+    let builder = embed_data.build().into();
     command.update(ctx, &builder).await?;
 
     Ok(())
@@ -367,7 +367,7 @@ async fn handle_osu_link(
     }
 
     let embed_data = ConfigEmbed::new(author, config, twitch_name);
-    let builder = embed_data.into_builder().build().into();
+    let builder = embed_data.build().into();
     command.update(ctx, &builder).await?;
 
     Ok(())
@@ -426,7 +426,7 @@ async fn handle_no_links(
     }
 
     let embed_data = ConfigEmbed::new(author, config, twitch_name);
-    let builder = embed_data.into_builder().build().into();
+    let builder = embed_data.build().into();
     command.update(ctx, &builder).await?;
 
     Ok(())

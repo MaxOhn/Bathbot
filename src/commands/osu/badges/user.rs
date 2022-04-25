@@ -130,7 +130,7 @@ pub(super) async fn user(
 
     let pages = numbers::div_euclid(1, badges.len());
 
-    let embed = BadgeEmbed::new(&badges[0], &owners, (1, pages)).into_builder();
+    let embed = BadgeEmbed::new(&badges[0], &owners, (1, pages));
     let mut builder = MessageBuilder::new().embed(embed.build());
 
     if let Some(bytes) = bytes {

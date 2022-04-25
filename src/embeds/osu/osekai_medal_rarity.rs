@@ -1,10 +1,13 @@
 use std::fmt::Write;
 
+use command_macros::EmbedData;
+
 use crate::{
     custom_client::OsekaiRarityEntry,
     util::{builder::FooterBuilder, numbers::round, CowUtils},
 };
 
+#[derive(EmbedData)]
 pub struct MedalRarityEmbed {
     description: String,
     footer: FooterBuilder,
@@ -48,10 +51,3 @@ impl MedalRarityEmbed {
         }
     }
 }
-
-impl_builder!(MedalRarityEmbed {
-    description,
-    footer,
-    title,
-    url,
-});

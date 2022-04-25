@@ -1,8 +1,13 @@
-use crate::embeds::EmbedFields;
 
-use rosu_v2::{model::GameMode, prelude::Username};
 use std::fmt::Write;
 
+use command_macros::EmbedData;
+use rosu_v2::{model::GameMode, prelude::Username};
+
+use crate::embeds::EmbedFields;
+
+
+#[derive(EmbedData)]
 pub struct TrackEmbed {
     fields: EmbedFields,
     title: String,
@@ -57,5 +62,3 @@ impl TrackEmbed {
         Self { fields, title }
     }
 }
-
-impl_builder!(TrackEmbed { fields, title });

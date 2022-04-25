@@ -1,8 +1,12 @@
-use rosu_v2::prelude::{Grade, Score, User};
+
 use std::{collections::BTreeMap, fmt::Write};
+
+use command_macros::EmbedData;
+use rosu_v2::prelude::{Grade, Score, User};
 
 use crate::util::builder::AuthorBuilder;
 
+#[derive(EmbedData)]
 pub struct RatioEmbed {
     description: String,
     thumbnail: String,
@@ -75,12 +79,6 @@ impl RatioEmbed {
         }
     }
 }
-
-impl_builder!(RatioEmbed {
-    author,
-    description,
-    thumbnail,
-});
 
 #[derive(Default)]
 struct RatioCategory {

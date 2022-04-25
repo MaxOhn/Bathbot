@@ -35,7 +35,7 @@ pub(super) async fn mods(ctx: Arc<Context>, command: Box<ApplicationCommand>) ->
     let pages = numbers::div_euclid(20, counts.len());
     let initial = &counts[..counts.len().min(20)];
 
-    let embed = OsuTrackerModsEmbed::new(initial, (1, pages)).into_builder();
+    let embed = OsuTrackerModsEmbed::new(initial, (1, pages));
     let builder = MessageBuilder::new().embed(embed.build());
 
     let response_raw = command.update(&ctx, &builder).await?;

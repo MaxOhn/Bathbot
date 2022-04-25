@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+use command_macros::EmbedData;
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmapset, GameMode, Score, User};
@@ -20,6 +21,7 @@ use crate::{
 
 use super::OrderAppendix;
 
+#[derive(EmbedData)]
 pub struct PinnedEmbed {
     author: AuthorBuilder,
     description: String,
@@ -129,10 +131,3 @@ fn mode_str(mode: GameMode) -> &'static str {
         GameMode::MNA => "Mania",
     }
 }
-
-impl_builder!(PinnedEmbed {
-    author,
-    description,
-    footer,
-    thumbnail,
-});

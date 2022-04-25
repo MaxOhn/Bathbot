@@ -13,7 +13,7 @@ use twilight_model::{
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     database::EmbedsSize,
-    embeds::{EmbedData, SimulateEmbed},
+    embeds::SimulateEmbed,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -261,12 +261,12 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
     // Only maximize if config allows it
     match embeds_size {
         EmbedsSize::AlwaysMinimized => {
-            let embed = embed_data.into_builder().build();
+            let embed = embed_data.into_minimized();
             let builder = MessageBuilder::new().content(content).embed(embed);
             orig.create_message(&ctx, &builder).await?;
         }
         EmbedsSize::InitialMaximized => {
-            let embed = embed_data.as_builder().build();
+            let embed = embed_data.as_maximized();
             let builder = MessageBuilder::new().content(content).embed(embed);
             let response = orig.create_message(&ctx, &builder).await?.model().await?;
 
@@ -281,7 +281,7 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
                     return;
                 }
 
-                let embed = embed_data.into_builder().build();
+                let embed = embed_data.into_minimized();
                 let builder = MessageBuilder::new().content(content).embed(embed);
 
                 if let Err(err) = response.update(&ctx, &builder).await {
@@ -291,7 +291,7 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
             });
         }
         EmbedsSize::AlwaysMaximized => {
-            let embed = embed_data.as_builder().build();
+            let embed = embed_data.as_maximized();
             let builder = MessageBuilder::new().content(content).embed(embed);
             orig.create_message(&ctx, &builder).await?;
         }

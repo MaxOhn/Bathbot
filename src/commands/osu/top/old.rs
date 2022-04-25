@@ -634,7 +634,7 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
     let embed_data_fut = TopIfEmbed::new(&user, iter, mode, adjusted_pp, post_pp, None, (1, pages));
 
     // Creating the embed
-    let embed = embed_data_fut.await.into_builder().build();
+    let embed = embed_data_fut.await.build();
     let builder = MessageBuilder::new().content(content).embed(embed);
     let response_raw = orig.create_message(&ctx, &builder).await?;
 

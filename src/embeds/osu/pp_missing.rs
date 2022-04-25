@@ -1,6 +1,7 @@
 use std::{cmp::Ordering, iter};
 
 use rosu_v2::prelude::{Score, User};
+use twilight_model::channel::embed::Embed;
 
 use crate::{
     embeds::EmbedData,
@@ -194,7 +195,7 @@ impl PPMissingEmbed {
 }
 
 impl EmbedData for PPMissingEmbed {
-    fn into_builder(self) -> EmbedBuilder {
+    fn build(self) -> Embed {
         let builder = EmbedBuilder::new()
             .author(self.author)
             .description(self.description)
@@ -202,9 +203,9 @@ impl EmbedData for PPMissingEmbed {
             .title(self.title);
 
         if let Some(footer) = self.footer {
-            builder.footer(footer)
+            builder.footer(footer).build()
         } else {
-            builder
+            builder.build()
         }
     }
 }

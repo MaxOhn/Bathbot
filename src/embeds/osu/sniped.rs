@@ -1,12 +1,16 @@
+
+use std::collections::HashMap;
+
+use command_macros::EmbedData;
+use rosu_v2::model::user::User;
+
 use crate::{
     custom_client::SnipeRecent,
     embeds::{attachment, EmbedFields},
     util::builder::AuthorBuilder,
 };
 
-use rosu_v2::model::user::User;
-use std::collections::HashMap;
-
+#[derive(EmbedData)]
 pub struct SnipedEmbed {
     author: AuthorBuilder,
     description: String,
@@ -92,12 +96,3 @@ impl SnipedEmbed {
         }
     }
 }
-
-impl_builder!(SnipedEmbed {
-    author,
-    description,
-    fields,
-    image,
-    thumbnail,
-    title,
-});

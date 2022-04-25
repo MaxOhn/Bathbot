@@ -320,14 +320,14 @@ impl RankingEmbed {
 }
 
 impl EmbedData for RankingEmbed {
-    fn into_builder(self) -> EmbedBuilder {
+    fn build(self) -> twilight_model::channel::embed::Embed {
         let builder = EmbedBuilder::new()
             .description(self.description)
             .footer(self.footer);
 
         match self.header {
-            EmbedHeader::Author(author) => builder.author(author),
-            EmbedHeader::Title { text, url } => builder.title(text).url(url),
+            EmbedHeader::Author(author) => builder.author(author).build(),
+            EmbedHeader::Title { text, url } => builder.title(text).url(url).build(),
         }
     }
 }

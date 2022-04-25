@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use command_macros::EmbedData;
 use eyre::Report;
 use rosu_v2::prelude::{GameMode, Score, User};
 
@@ -16,6 +17,7 @@ use crate::{
     },
 };
 
+#[derive(EmbedData)]
 pub struct TrackNotificationEmbed {
     fields: EmbedFields,
     description: String,
@@ -110,14 +112,3 @@ impl TrackNotificationEmbed {
         }
     }
 }
-
-impl_builder!(TrackNotificationEmbed {
-    author,
-    description,
-    fields,
-    footer,
-    thumbnail,
-    timestamp,
-    title,
-    url,
-});

@@ -1,7 +1,9 @@
+use command_macros::EmbedData;
 use rosu_v2::prelude::User;
 
 use crate::{embeds::attachment, util::builder::AuthorBuilder};
 
+#[derive(EmbedData)]
 pub struct GraphEmbed {
     author: AuthorBuilder,
     image: String,
@@ -15,5 +17,3 @@ impl GraphEmbed {
         }
     }
 }
-
-impl_builder!(GraphEmbed { author, image });

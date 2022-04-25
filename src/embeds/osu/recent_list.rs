@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+use command_macros::EmbedData;
 use hashbrown::HashMap;
 use rosu_pp::{
     Beatmap as Map, BeatmapExt, CatchPP, DifficultyAttributes, GameMode as Mode, ManiaPP, OsuPP,
@@ -20,6 +21,7 @@ use crate::{
     BotResult,
 };
 
+#[derive(EmbedData)]
 pub struct RecentListEmbed {
     description: String,
     thumbnail: String,
@@ -101,14 +103,6 @@ impl RecentListEmbed {
         })
     }
 }
-
-impl_builder!(RecentListEmbed {
-    author,
-    description,
-    footer,
-    thumbnail,
-    title,
-});
 
 fn get_pp_stars(
     mod_map: &mut HashMap<(u32, u32), (DifficultyAttributes, f32)>,

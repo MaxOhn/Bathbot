@@ -12,7 +12,7 @@ use crate::{
     },
     core::commands::{prefix::Args, CommandOrigin},
     database::EmbedsSize,
-    embeds::{EmbedData, SimulateArgs, SimulateEmbed},
+    embeds::{SimulateArgs, SimulateEmbed},
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -284,12 +284,12 @@ pub(super) async fn simulate(
     // Only maximize if config allows it
     match embeds_size {
         EmbedsSize::AlwaysMinimized => {
-            let embed = embed_data.into_builder().build();
+            let embed = embed_data.into_minimized();
             let builder = MessageBuilder::new().content(content).embed(embed);
             orig.create_message(&ctx, &builder).await?;
         }
         EmbedsSize::InitialMaximized => {
-            let embed = embed_data.as_builder().build();
+            let embed = embed_data.as_maximized();
             let builder = MessageBuilder::new().content(content).embed(embed);
             let response = orig.create_message(&ctx, &builder).await?.model().await?;
 
@@ -304,7 +304,7 @@ pub(super) async fn simulate(
                     return;
                 }
 
-                let embed = embed_data.into_builder().build();
+                let embed = embed_data.into_minimized();
                 let builder = MessageBuilder::new().content(content).embed(embed);
 
                 if let Err(err) = response.update(&ctx, &builder).await {
@@ -314,7 +314,7 @@ pub(super) async fn simulate(
             });
         }
         EmbedsSize::AlwaysMaximized => {
-            let embed = embed_data.as_builder().build();
+            let embed = embed_data.as_maximized();
             let builder = MessageBuilder::new().content(content).embed(embed);
             orig.create_message(&ctx, &builder).await?;
         }

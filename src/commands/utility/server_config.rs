@@ -232,7 +232,7 @@ async fn slash_serverconfig(
     }
 
     let embed = ServerConfigEmbed::new(guild, config, &authorities);
-    let builder = embed.into_builder().build().into();
+    let builder = embed.build().into();
     command.callback(&ctx, builder, false).await?;
 
     Ok(())

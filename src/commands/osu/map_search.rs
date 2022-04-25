@@ -643,7 +643,7 @@ async fn search(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Search) -> Bot
     let embed_data = MapSearchEmbed::new(&maps, &args, (1, total_pages));
 
     // Creating the embed
-    let embed = embed_data.into_builder().build();
+    let embed = embed_data.build();
     let response_raw = orig.create_message(&ctx, &embed.into()).await?;
 
     // Skip pagination if too few entries

@@ -27,7 +27,7 @@ pub(super) async fn rarity(ctx: Arc<Context>, command: Box<ApplicationCommand>) 
 
     let pages = numbers::div_euclid(10, ranking.len());
     let embed_data = MedalRarityEmbed::new(&ranking[..10], 0, (1, pages));
-    let embed = embed_data.into_builder().build();
+    let embed = embed_data.build();
     let builder = MessageBuilder::new().embed(embed);
     let response = command.update(&ctx, &builder).await?.model().await?;
     let owner = command.user_id()?;

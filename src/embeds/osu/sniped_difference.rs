@@ -1,3 +1,11 @@
+
+use std::fmt::Write;
+
+use command_macros::EmbedData;
+use hashbrown::HashMap;
+use rosu_pp::{Beatmap, BeatmapExt};
+use rosu_v2::model::user::User;
+
 use crate::{
     commands::osu::Difference,
     core::Context,
@@ -14,11 +22,7 @@ use crate::{
     BotResult,
 };
 
-use hashbrown::HashMap;
-use rosu_pp::{Beatmap, BeatmapExt};
-use rosu_v2::model::user::User;
-use std::fmt::Write;
-
+#[derive(EmbedData)]
 pub struct SnipedDiffEmbed {
     description: String,
     thumbnail: String,
@@ -119,11 +123,3 @@ impl SnipedDiffEmbed {
         })
     }
 }
-
-impl_builder!(SnipedDiffEmbed {
-    author,
-    description,
-    footer,
-    thumbnail,
-    title,
-});

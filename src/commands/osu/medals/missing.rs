@@ -123,7 +123,7 @@ pub(super) async fn missing(
     );
 
     // Send the embed
-    let embed = embed_data.into_builder().build();
+    let embed = embed_data.build();
     let builder = MessageBuilder::new().embed(embed);
     let response_raw = orig.create_message(&ctx, &builder).await?;
 

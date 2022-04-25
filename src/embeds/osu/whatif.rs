@@ -1,3 +1,9 @@
+
+use std::fmt::Write;
+
+use command_macros::EmbedData;
+use rosu_v2::model::user::User;
+
 use crate::{
     commands::osu::WhatIfData,
     util::{
@@ -6,9 +12,7 @@ use crate::{
     },
 };
 
-use rosu_v2::model::user::User;
-use std::fmt::Write;
-
+#[derive(EmbedData)]
 pub struct WhatIfEmbed {
     author: AuthorBuilder,
     description: String,
@@ -130,10 +134,3 @@ impl WhatIfEmbed {
         }
     }
 }
-
-impl_builder!(WhatIfEmbed {
-    author,
-    description,
-    thumbnail,
-    title,
-});

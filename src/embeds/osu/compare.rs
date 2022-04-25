@@ -1,7 +1,7 @@
 use crate::{
     core::Context,
     database::MinimizedPp,
-    embeds::{osu, EmbedData},
+    embeds::osu,
     error::PpError,
     util::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
@@ -16,9 +16,11 @@ use crate::{
 };
 
 use chrono::{DateTime, Utc};
+use command_macros::EmbedData;
 use rosu_pp::{Beatmap as Map, BeatmapExt, CatchPP, ManiaPP, OsuPP, TaikoPP};
 use rosu_v2::prelude::{Beatmap, GameMode, Grade, Score, User};
 use std::{borrow::Cow, fmt::Write};
+use twilight_model::channel::embed::Embed;
 
 use super::recent::if_fc_struct;
 
@@ -293,10 +295,60 @@ impl CompareEmbed {
             minimized_pp,
         })
     }
-}
 
-impl EmbedData for CompareEmbed {
-    fn as_builder(&self) -> EmbedBuilder {
+    pub fn into_minimized(self) -> Embed {
+        let name = format!(
+            "{}\t{}\t({}%)\t{}",
+            self.grade_completion_mods, self.score, self.acc, self.ago
+        );
+
+        let pp = match self.minimized_pp {
+            MinimizedPp::IfFc => {
+                let mut result = String::with_capacity(17);
+                result.push_str("**");
+
+                if let Some(pp) = self.pp {
+                    let _ = write!(result, "{:.2}", pp);
+                } else {
+                    result.push('-');
+                }
+
+                if let Some((if_fc, ..)) = self.if_fc {
+                    let _ = write!(result, "pp** ~~({if_fc:.2}pp)~~");
+                } else {
+                    result.push_str("**/");
+
+                    if let Some(max) = self.max_pp {
+                        let pp = self.pp.map(|pp| pp.max(max)).unwrap_or(max);
+                        let _ = write!(result, "{:.2}", pp);
+                    } else {
+                        result.push('-');
+                    }
+
+                    result.push_str("PP");
+                }
+
+                result
+            }
+            MinimizedPp::Max => osu::get_pp(self.pp, self.max_pp),
+        };
+
+        let value = format!("{pp} [ {} ] {}", self.combo, self.hits);
+
+        let mut title = self.title;
+        let _ = write!(title, " [{}★]", self.stars);
+
+        EmbedBuilder::new()
+            .author(self.author)
+            .description(self.description)
+            .fields(vec![field![name, value, false]])
+            .thumbnail(self.thumbnail)
+            .title(title)
+            .url(self.url)
+            .build()
+    }
+
+    pub fn as_maximized(&self) -> Embed {
         let score = highlight_funny_numeral(&self.score).into_owned();
         let acc = highlight_funny_numeral(&format!("{}%", self.acc)).into_owned();
 
@@ -352,63 +404,11 @@ impl EmbedData for CompareEmbed {
             .timestamp(self.timestamp)
             .title(&self.title)
             .url(&self.url)
-    }
-
-    fn into_builder(self) -> EmbedBuilder {
-        let name = format!(
-            "{}\t{}\t({}%)\t{}",
-            self.grade_completion_mods, self.score, self.acc, self.ago
-        );
-
-        let pp = match self.minimized_pp {
-            MinimizedPp::IfFc => {
-                let mut result = String::with_capacity(17);
-                result.push_str("**");
-
-                if let Some(pp) = self.pp {
-                    let _ = write!(result, "{:.2}", pp);
-                } else {
-                    result.push('-');
-                }
-
-                match self.if_fc {
-                    Some((if_fc, ..)) => {
-                        let _ = write!(result, "pp** ~~({if_fc:.2}pp)~~");
-                    }
-                    None => {
-                        result.push_str("**/");
-
-                        if let Some(max) = self.max_pp {
-                            let pp = self.pp.map(|pp| pp.max(max)).unwrap_or(max);
-                            let _ = write!(result, "{:.2}", pp);
-                        } else {
-                            result.push('-');
-                        }
-
-                        result.push_str("PP");
-                    }
-                }
-
-                result
-            }
-            MinimizedPp::Max => osu::get_pp(self.pp, self.max_pp),
-        };
-
-        let value = format!("{pp} [ {} ] {}", self.combo, self.hits);
-
-        let mut title = self.title;
-        let _ = write!(title, " [{}★]", self.stars);
-
-        EmbedBuilder::new()
-            .author(self.author)
-            .description(self.description)
-            .fields(vec![field![name, value, false]])
-            .thumbnail(self.thumbnail)
-            .title(title)
-            .url(self.url)
+            .build()
     }
 }
 
+#[derive(EmbedData)]
 pub struct NoScoresEmbed {
     description: &'static str,
     thumbnail: String,
@@ -457,12 +457,3 @@ impl NoScoresEmbed {
         }
     }
 }
-
-impl_builder!(NoScoresEmbed {
-    author,
-    description,
-    footer,
-    thumbnail,
-    title,
-    url,
-});

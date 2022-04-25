@@ -291,7 +291,7 @@ pub(super) async fn common(
 
     let embed_data = MedalsCommonEmbed::new(&user1, &user2, &medals[..len], 0);
 
-    let embed = embed_data.into_builder().build();
+    let embed = embed_data.build();
     let mut builder = MessageBuilder::new().embed(embed);
 
     if let Some(bytes) = thumbnail {

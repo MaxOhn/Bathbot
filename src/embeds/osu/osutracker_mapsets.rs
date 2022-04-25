@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+use command_macros::EmbedData;
 use hashbrown::HashMap;
 
 use crate::{
@@ -12,6 +13,7 @@ use crate::{
     },
 };
 
+#[derive(EmbedData)]
 pub struct OsuTrackerMapsetsEmbed {
     author: AuthorBuilder,
     description: String,
@@ -71,12 +73,6 @@ impl OsuTrackerMapsetsEmbed {
         }
     }
 }
-
-impl_builder!(OsuTrackerMapsetsEmbed {
-    author,
-    footer,
-    description
-});
 
 #[derive(Default)]
 struct Sizes {

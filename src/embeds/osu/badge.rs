@@ -1,11 +1,14 @@
 use std::fmt::Write;
 
+use command_macros::EmbedData;
+
 use crate::{
     custom_client::{OsekaiBadge, OsekaiBadgeOwner},
     embeds::{attachment, EmbedFields},
     util::{builder::FooterBuilder, constants::OSU_BASE},
 };
 
+#[derive(EmbedData)]
 pub struct BadgeEmbed {
     fields: EmbedFields,
     footer: FooterBuilder,
@@ -57,12 +60,3 @@ impl BadgeEmbed {
         }
     }
 }
-
-impl_builder!(BadgeEmbed {
-    fields,
-    footer,
-    image,
-    thumbnail,
-    title,
-    url,
-});

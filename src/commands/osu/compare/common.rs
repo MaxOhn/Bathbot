@@ -278,7 +278,7 @@ pub(super) async fn top(
     };
 
     // Creating the embed
-    let embed = embed_data.into_builder().build();
+    let embed = embed_data.build();
     let mut builder = MessageBuilder::new().content(content).embed(embed);
 
     if let Some(bytes) = thumbnail {

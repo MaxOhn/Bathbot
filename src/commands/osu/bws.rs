@@ -199,7 +199,7 @@ async fn bws(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Bws<'_>) -> BotRe
     };
 
     let embed_data = BWSEmbed::new(user, badges_curr, badges_min, badges_max, rank);
-    let embed = embed_data.into_builder().build();
+    let embed = embed_data.build();
     let builder = MessageBuilder::new().embed(embed);
     orig.create_message(&ctx, &builder).await?;
 

@@ -280,7 +280,7 @@ async fn single_embed(
     // Only maximize if config allows it
     match embeds_size {
         EmbedsSize::AlwaysMinimized => {
-            let mut builder = MessageBuilder::new().embed(embed_data.into_builder().build());
+            let mut builder = MessageBuilder::new().embed(embed_data.into_minimized());
 
             if let Some(content) = content {
                 builder = builder.content(content);
@@ -289,7 +289,7 @@ async fn single_embed(
             orig.create_message(&ctx, &builder).await?;
         }
         EmbedsSize::InitialMaximized => {
-            let mut builder = MessageBuilder::new().embed(embed_data.as_builder().build());
+            let mut builder = MessageBuilder::new().embed(embed_data.as_maximized());
 
             if let Some(content) = content {
                 builder = builder.content(content);
@@ -306,7 +306,7 @@ async fn single_embed(
                     return;
                 }
 
-                let builder = embed_data.into_builder().build().into();
+                let builder = embed_data.into_minimized().into();
 
                 if let Err(err) = response.update(&ctx, &builder).await {
                     let report = Report::new(err).wrap_err("failed to minimize pinned message");
@@ -315,7 +315,7 @@ async fn single_embed(
             });
         }
         EmbedsSize::AlwaysMaximized => {
-            let mut builder = MessageBuilder::new().embed(embed_data.as_builder().build());
+            let mut builder = MessageBuilder::new().embed(embed_data.as_maximized());
 
             if let Some(content) = content {
                 builder = builder.content(content);
@@ -339,7 +339,7 @@ async fn paginated_embed(
     let pages = numbers::div_euclid(5, scores.len());
     let embed_data =
         PinnedEmbed::new(&user, scores.iter().take(5), &ctx, sort_by, (1, pages)).await;
-    let embed = embed_data.into_builder().build();
+    let embed = embed_data.build();
 
     // Creating the embed
     let mut builder = MessageBuilder::new().embed(embed);

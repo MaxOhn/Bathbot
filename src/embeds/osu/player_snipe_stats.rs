@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+use command_macros::EmbedData;
 use eyre::Report;
 use rosu_v2::prelude::{GameMode, Score, User};
 
@@ -18,6 +19,7 @@ use crate::{
     },
 };
 
+#[derive(EmbedData)]
 pub struct PlayerSnipeStatsEmbed {
     description: String,
     thumbnail: String,
@@ -162,14 +164,3 @@ impl PlayerSnipeStatsEmbed {
         }
     }
 }
-
-impl_builder!(PlayerSnipeStatsEmbed {
-    author,
-    description,
-    fields,
-    footer,
-    image,
-    thumbnail,
-    title,
-    url,
-});

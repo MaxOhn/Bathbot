@@ -1,8 +1,11 @@
+use command_macros::EmbedData;
+
 use crate::{
     custom_client::{TwitchStream, TwitchUser},
     util::{builder::AuthorBuilder, constants::TWITCH_BASE},
 };
 
+#[derive(Clone, EmbedData)]
 pub struct TwitchNotifEmbed {
     description: String,
     thumbnail: String,
@@ -24,12 +27,3 @@ impl TwitchNotifEmbed {
         }
     }
 }
-
-impl_builder!(&TwitchNotifEmbed {
-    author,
-    description,
-    image,
-    thumbnail,
-    title,
-    url,
-});

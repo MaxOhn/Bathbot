@@ -123,7 +123,7 @@ async fn send_response(
     let total = users.len();
     let pages = numbers::div_euclid(20, total);
     let embed_data = RankingEmbed::new(&users, &data, author_idx, (1, pages));
-    let embed = embed_data.into_builder().build();
+    let embed = embed_data.build();
     let builder = MessageBuilder::new().embed(embed);
     let response = command.update(&ctx, &builder).await?.model().await?;
 

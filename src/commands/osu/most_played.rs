@@ -138,7 +138,7 @@ async fn mostplayed(
     let embed_data = MostPlayedEmbed::new(&user, maps.iter().take(10), (1, pages));
 
     // Creating the embed
-    let builder = embed_data.into_builder().build().into();
+    let builder = embed_data.build().into();
     let response_raw = orig.create_message(&ctx, &builder).await?;
 
     // Skip pagination if too few entries

@@ -36,7 +36,7 @@ pub(super) async fn mappers(ctx: Arc<Context>, command: Box<ApplicationCommand>)
     let pages = numbers::div_euclid(20, counts.len());
     let initial = &counts[..counts.len().min(20)];
 
-    let embed = OsuTrackerMappersEmbed::new(initial, (1, pages)).into_builder();
+    let embed = OsuTrackerMappersEmbed::new(initial, (1, pages));
     let builder = MessageBuilder::new().embed(embed.build());
 
     let response_raw = command.update(&ctx, &builder).await?;

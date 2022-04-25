@@ -1,3 +1,9 @@
+
+
+use std::fmt::Write;
+
+use command_macros::EmbedData;
+
 use crate::{
     custom_client::OsuStatsPlayer,
     util::{
@@ -9,8 +15,7 @@ use crate::{
     },
 };
 
-use std::fmt::Write;
-
+#[derive(EmbedData)]
 pub struct OsuStatsListEmbed {
     author: AuthorBuilder,
     description: String,
@@ -52,10 +57,3 @@ impl OsuStatsListEmbed {
         }
     }
 }
-
-impl_builder!(OsuStatsListEmbed {
-    author,
-    description,
-    footer,
-    thumbnail,
-});

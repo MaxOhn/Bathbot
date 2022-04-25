@@ -7,10 +7,7 @@ use twilight_model::id::{
     Id,
 };
 
-use crate::{
-    core::Context,
-    embeds::{EmbedData, MatchLiveEmbed},
-};
+use crate::{core::Context, embeds::MatchLiveEmbed};
 
 pub use self::types::*;
 
@@ -31,8 +28,7 @@ pub async fn send_match_messages(
     let last = iter
         .next_back()
         .expect("no embed on fresh match")
-        .as_builder()
-        .build();
+        .as_embed();
 
     let mut last_msg_fut = ctx
         .http
@@ -45,7 +41,7 @@ pub async fn send_match_messages(
         interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
         for embed in iter {
-            let embed = embed.as_builder().build();
+            let embed = embed.as_embed();
             interval.tick().await;
 
             match ctx.http.create_message(channel).embeds(&[embed]) {

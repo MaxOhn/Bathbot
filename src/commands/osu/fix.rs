@@ -285,7 +285,7 @@ async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> B
     let gb = ctx.map_garbage_collector(&map);
 
     let embed_data = FixScoreEmbed::new(user, map, scores, unchoked_pp, mods);
-    let builder = embed_data.into_builder().build().into();
+    let builder = embed_data.build().into();
     orig.create_message(&ctx, &builder).await?;
 
     // Set map on garbage collection list if unranked

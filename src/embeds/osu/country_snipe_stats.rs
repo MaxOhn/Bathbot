@@ -1,3 +1,5 @@
+use command_macros::EmbedData;
+
 use crate::{
     custom_client::SnipeCountryStatistics,
     embeds::{attachment, EmbedFields},
@@ -9,6 +11,7 @@ use crate::{
     },
 };
 
+#[derive(EmbedData)]
 pub struct CountrySnipeStatsEmbed {
     thumbnail: String,
     title: String,
@@ -68,11 +71,3 @@ impl CountrySnipeStatsEmbed {
         }
     }
 }
-
-impl_builder!(CountrySnipeStatsEmbed {
-    fields,
-    footer,
-    image,
-    thumbnail,
-    title,
-});

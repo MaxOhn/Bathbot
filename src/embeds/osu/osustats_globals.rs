@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, fmt::Write};
 
+use command_macros::EmbedData;
 use eyre::Report;
 use rosu_v2::model::user::User;
 
@@ -18,11 +19,12 @@ use crate::{
     },
 };
 
+#[derive(EmbedData)]
 pub struct OsuStatsGlobalsEmbed {
-    description: String,
-    thumbnail: String,
     author: AuthorBuilder,
+    description: String,
     footer: FooterBuilder,
+    thumbnail: String,
 }
 
 impl OsuStatsGlobalsEmbed {
@@ -107,10 +109,3 @@ impl OsuStatsGlobalsEmbed {
         }
     }
 }
-
-impl_builder!(OsuStatsGlobalsEmbed {
-    author,
-    description,
-    footer,
-    thumbnail,
-});

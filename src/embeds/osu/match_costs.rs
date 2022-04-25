@@ -1,3 +1,8 @@
+use std::{borrow::Cow, fmt::Write};
+
+use command_macros::EmbedData;
+use rosu_v2::model::matches::OsuMatch;
+
 use crate::{
     commands::osu::MatchResult,
     util::{
@@ -6,9 +11,7 @@ use crate::{
     },
 };
 
-use rosu_v2::model::matches::OsuMatch;
-use std::{borrow::Cow, fmt::Write};
-
+#[derive(EmbedData)]
 pub struct MatchCostEmbed {
     description: String,
     thumbnail: String,
@@ -167,11 +170,3 @@ impl MatchCostEmbed {
         })
     }
 }
-
-impl_builder!(MatchCostEmbed {
-    description,
-    footer,
-    thumbnail,
-    title,
-    url,
-});

@@ -1,3 +1,7 @@
+use std::fmt::Write;
+
+use command_macros::EmbedData;
+
 use crate::{
     commands::osu::SnipeCountryListOrder,
     custom_client::SnipeCountryPlayer,
@@ -10,8 +14,7 @@ use crate::{
     },
 };
 
-use std::fmt::Write;
-
+#[derive(EmbedData)]
 pub struct CountrySnipeListEmbed {
     thumbnail: String,
     description: String,
@@ -107,10 +110,3 @@ impl CountrySnipeListEmbed {
         }
     }
 }
-
-impl_builder!(CountrySnipeListEmbed {
-    description,
-    footer,
-    thumbnail,
-    title,
-});

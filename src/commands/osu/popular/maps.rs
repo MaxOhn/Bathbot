@@ -47,7 +47,7 @@ pub(super) async fn maps(
     let pages = numbers::div_euclid(10, entries.len());
     let initial = &entries[..entries.len().min(10)];
 
-    let embed = OsuTrackerMapsEmbed::new(pp, initial, (1, pages)).into_builder();
+    let embed = OsuTrackerMapsEmbed::new(pp, initial, (1, pages));
     let builder = MessageBuilder::new().embed(embed.build());
 
     let response_raw = command.update(&ctx, &builder).await?;

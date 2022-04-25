@@ -7,7 +7,7 @@ use tokio::time::{interval, Duration};
 use twilight_model::id::{marker::ChannelMarker, Id};
 
 use crate::{
-    embeds::{EmbedData, MatchLiveEmbed},
+    embeds::MatchLiveEmbed,
     matchlive::{send_match_messages, Channel, MatchEntry, MatchTrackResult, TrackedMatch},
     util::ChannelExt,
 };
@@ -218,7 +218,7 @@ impl Context {
 
                         // For every channel that's tracking the match
                         for Channel { id, msg_id } in entry.channels.iter() {
-                            let embed = Some(data.as_builder().build());
+                            let embed = Some(data.as_embed());
 
                             // Update the last message
                             let update_result = ctx

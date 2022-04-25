@@ -59,7 +59,7 @@ pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, global: bool) -> BotR
     let embed_data = BGRankingEmbed::new(author_idx, initial_scores, 1, global, (1, pages));
 
     // Creating the embed
-    let builder = embed_data.into_builder().build().into();
+    let builder = embed_data.build().into();
     let response_raw = msg.create_message(&ctx, &builder).await?;
 
     // Skip pagination if too few entries

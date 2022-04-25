@@ -1,13 +1,10 @@
-use crate::{
-    embeds::EmbedData,
-    util::{
-        builder::{EmbedBuilder, FooterBuilder},
-        constants::{DESCRIPTION_SIZE, OSU_BASE},
-        datetime::sec_to_minsec,
-        numbers::{round, with_comma_int},
-        osu::grade_emote,
-        ScoreExt,
-    },
+use crate::util::{
+    builder::{EmbedBuilder, FooterBuilder},
+    constants::{DESCRIPTION_SIZE, OSU_BASE},
+    datetime::sec_to_minsec,
+    numbers::{round, with_comma_int},
+    osu::grade_emote,
+    ScoreExt,
 };
 
 use rosu_v2::prelude::{
@@ -16,6 +13,7 @@ use rosu_v2::prelude::{
 };
 use smallvec::SmallVec;
 use std::{borrow::Cow, cmp::Ordering, collections::HashMap, fmt::Write};
+use twilight_model::channel::embed::Embed;
 
 const DESCRIPTION_BUFFER: usize = 45;
 
@@ -426,10 +424,8 @@ impl MatchLiveEmbed {
             (!embeds.is_empty()).then(|| embeds),
         )
     }
-}
 
-impl EmbedData for MatchLiveEmbed {
-    fn as_builder(&self) -> EmbedBuilder {
+    pub fn as_embed(&self) -> Embed {
         let mut builder = EmbedBuilder::new()
             .description(&self.description)
             .title(&self.title)
@@ -442,9 +438,9 @@ impl EmbedData for MatchLiveEmbed {
         };
 
         if let Some(ref footer) = self.footer {
-            builder.footer(footer)
+            builder.footer(footer).build()
         } else {
-            builder
+            builder.build()
         }
     }
 }

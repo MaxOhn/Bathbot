@@ -1,11 +1,14 @@
+use std::{collections::BTreeMap, fmt::Write};
+
+use command_macros::EmbedData;
+use rosu_v2::prelude::{Beatmapset, GameMode, Genre, Language};
+
 use crate::{
     commands::osu::{Search, SearchOrder},
     util::{builder::FooterBuilder, constants::OSU_BASE, numbers::round},
 };
 
-use rosu_v2::prelude::{Beatmapset, GameMode, Genre, Language};
-use std::{collections::BTreeMap, fmt::Write};
-
+#[derive(EmbedData)]
 pub struct MapSearchEmbed {
     title: String,
     description: String,
@@ -201,9 +204,3 @@ impl MapSearchEmbed {
         }
     }
 }
-
-impl_builder!(MapSearchEmbed {
-    description,
-    footer,
-    title,
-});

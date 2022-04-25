@@ -1,5 +1,6 @@
 use std::fmt::{self, Write};
 
+use command_macros::EmbedData;
 use rosu_v2::prelude::GameMods;
 
 use crate::{
@@ -14,6 +15,7 @@ use crate::{
     },
 };
 
+#[derive(EmbedData)]
 pub struct OsuTrackerCountryTopEmbed {
     description: String,
     footer: FooterBuilder,
@@ -65,14 +67,6 @@ impl OsuTrackerCountryTopEmbed {
         }
     }
 }
-
-impl_builder!(OsuTrackerCountryTopEmbed {
-    footer,
-    description,
-    thumbnail,
-    title,
-    url,
-});
 
 struct OrderAppendix<'s> {
     sort_by: ScoreOrder,

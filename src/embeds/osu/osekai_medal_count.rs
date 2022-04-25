@@ -1,10 +1,13 @@
 use std::fmt::Write;
 
+use command_macros::EmbedData;
+
 use crate::{
     custom_client::OsekaiUserEntry,
     util::{builder::FooterBuilder, constants::OSU_BASE, numbers::round, CowUtils},
 };
 
+#[derive(EmbedData)]
 pub struct MedalCountEmbed {
     description: String,
     footer: FooterBuilder,
@@ -64,10 +67,3 @@ impl MedalCountEmbed {
         }
     }
 }
-
-impl_builder!(MedalCountEmbed {
-    description,
-    footer,
-    title,
-    url,
-});

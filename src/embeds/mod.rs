@@ -34,80 +34,24 @@ macro_rules! field {
     };
 }
 
-#[allow(unused_macros)]
-macro_rules! impl_builder {
-    // Only through reference
-    (&$ty:ty { $($field:ident,)+ }) => {
-        impl crate::embeds::EmbedData for $ty {
-            impl_builder!(SUB &$ty { $($field,)+ });
-        }
-    };
-
-    // Only through ownership
-    ($ty:ty { $($field:ident,)+ }) => {
-        impl crate::embeds::EmbedData for $ty {
-            impl_builder!(SUB $ty { $($field,)+ });
-        }
-    };
-
-    // Through both reference and ownership
-    (!$ty:ty { $($field:ident,)+ }) => {
-        impl crate::embeds::EmbedData for $ty {
-            impl_builder!(SUB &$ty { $($field,)+ });
-            impl_builder!(SUB $ty { $($field,)+ });
-        }
-    };
-
-    (SUB &$ty:ty { $($field:ident,)+ }) => {
-        fn as_builder(&self) -> crate::util::builder::EmbedBuilder {
-            crate::util::builder::EmbedBuilder::new()
-                $(.$field(self.$field.clone()))+
-        }
-    };
-
-    (SUB $ty:ty { $($field:ident,)+ }) => {
-        fn into_builder(self) -> crate::util::builder::EmbedBuilder {
-            crate::util::builder::EmbedBuilder::new()
-                $(.$field(self.$field))+
-        }
-    };
-
-    // Without trailing comma
-    (&$ty:ty { $($field:ident),+ }) => {
-        impl_builder!(&$ty { $($field,)+ });
-    };
-
-    ($ty:ty { $($field:ident),+ }) => {
-        impl_builder!($ty { $($field,)+ });
-    };
-}
-
 mod fun;
 mod osu;
 mod tracking;
 mod twitch;
 mod utility;
 
-use twilight_model::channel::embed::EmbedField;
-
-use crate::util::builder::EmbedBuilder;
+use twilight_model::channel::embed::{Embed, EmbedField};
 
 pub use self::{fun::*, osu::*, tracking::*, twitch::*, utility::*};
 
 type EmbedFields = Vec<EmbedField>;
 
-pub trait EmbedData: Send + Sync + Sized {
-    fn as_builder(&self) -> EmbedBuilder {
-        panic!("`as_builder` not implemented")
-    }
-
-    fn into_builder(self) -> EmbedBuilder {
-        panic!("`into_builder` not implemented")
-    }
+pub trait EmbedData {
+    fn build(self) -> Embed;
 }
 
-impl EmbedData for EmbedBuilder {
-    fn into_builder(self) -> EmbedBuilder {
+impl EmbedData for Embed {
+    fn build(self) -> Embed {
         self
     }
 }

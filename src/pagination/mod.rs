@@ -70,8 +70,8 @@ pub use self::{
     pinned::PinnedPagination, player_snipe_list::PlayerSnipeListPagination,
     profile::ProfilePagination, ranking::RankingPagination,
     ranking_countries::RankingCountriesPagination, recent_list::RecentListPagination,
-    scores::ScoresPagination, sniped_difference::SnipedDiffPagination, top::TopPagination,
-    top::CondensedTopPagination, top_if::TopIfPagination,
+    scores::ScoresPagination, sniped_difference::SnipedDiffPagination, top::CondensedTopPagination,
+    top::TopPagination, top_if::TopIfPagination,
 };
 
 type ReactionVec = SmallVec<[Emote; 7]>;
@@ -86,7 +86,7 @@ pub enum PaginationError {
 
 #[async_trait]
 pub trait Pagination: Sync + Sized {
-    type PageData: EmbedData;
+    type PageData: EmbedData + Send;
 
     // Make these point to the corresponding struct fields
     fn msg(&self) -> &Message;
@@ -132,10 +132,6 @@ pub trait Pagination: Sync + Sized {
     }
 
     fn jump_index(&self) -> Option<usize> {
-        None
-    }
-
-    fn thumbnail(&self) -> Option<String> {
         None
     }
 
@@ -234,13 +230,9 @@ pub trait Pagination: Sync + Sized {
                 update = update.content(Some(content.as_ref()))?;
             }
 
-            let mut builder = data.into_builder();
+            let builder = data.build();
 
-            if let Some(thumbnail) = self.thumbnail() {
-                builder = builder.thumbnail(thumbnail);
-            }
-
-            update.embeds(Some(&[builder.build()]))?.exec().await?;
+            update.embeds(Some(&[builder]))?.exec().await?;
         }
 
         Ok(())
