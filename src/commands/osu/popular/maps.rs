@@ -10,9 +10,8 @@ use crate::{
     embeds::OsuTrackerMapsEmbed,
     pagination::{OsuTrackerMapsPagination, Pagination},
     util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSUTRACKER_ISSUE},
-        numbers, ApplicationCommandExt, Authored,
+        builder::MessageBuilder, constants::OSUTRACKER_ISSUE, numbers, ApplicationCommandExt,
+        Authored,
     },
     BotResult,
 };
@@ -26,16 +25,8 @@ pub(super) async fn maps(
 ) -> BotResult<()> {
     let pp = args.pp();
 
-    let entries: Vec<OsuTrackerPpEntry> = match ctx.redis().osutracker_groups().await {
-        Ok(groups) => match groups.get().iter().find(|group| group.number == pp) {
-            Some(group) => group.list.deserialize(&mut Infallible).unwrap(),
-            None => {
-                error!("received no osutracker pp group with number={pp}");
-                command.error(&ctx, GENERAL_ISSUE).await?;
-
-                return Ok(());
-            }
-        },
+    let entries: Vec<OsuTrackerPpEntry> = match ctx.redis().osutracker_pp_group(pp).await {
+        Ok(group) => group.get().list.deserialize(&mut Infallible).unwrap(),
         Err(err) => {
             let _ = command.error(&ctx, OSUTRACKER_ISSUE).await;
 
@@ -76,7 +67,6 @@ impl PopularMapsPp {
             PopularMapsPp::Pp900 => 900,
             PopularMapsPp::Pp1000 => 1000,
             PopularMapsPp::Pp1100 => 1100,
-            PopularMapsPp::Pp1200 => 1200,
         }
     }
 }

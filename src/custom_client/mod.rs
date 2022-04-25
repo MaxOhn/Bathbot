@@ -354,15 +354,13 @@ impl CustomClient {
         Ok(stats)
     }
 
-    /// Don't use this; use [`RedisCache::osutracker_groups`] instead.
-    pub async fn get_osutracker_pp_groups(&self) -> ClientResult<Vec<OsuTrackerPpGroup>> {
-        let url = "https://osutracker.com/api/stats/ppBarrier";
+    /// Don't use this; use [`RedisCache::osutracker_pp_group`] instead.
+    pub async fn get_osutracker_pp_group(&self, pp: u32) -> ClientResult<OsuTrackerPpGroup> {
+        let url = format!("https://osutracker.com/api/stats/ppBarrier?number={pp}");
         let bytes = self.make_get_request(url, Site::OsuTracker).await?;
 
-        let groups: Vec<OsuTrackerPpGroup> = serde_json::from_slice(&bytes)
-            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsuTrackerGroups))?;
-
-        Ok(groups)
+        serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsuTrackerGroups))
     }
 
     /// Don't use this; use [`RedisCache::badges`] instead.

@@ -40,7 +40,7 @@ pub struct OsuCounters {
     pub rosu: IntCounterVec,
     pub user_cached: IntCounter,
     pub osutracker_stats_cached: IntCounter,
-    pub osutracker_groups_cached: IntCounter,
+    pub osutracker_pp_group_cached: IntCounter,
     pub osekai_medals_cached: IntCounter,
     pub osekai_badges_cached: IntCounter,
     pub pp_ranking_cached: IntCounter,
@@ -160,8 +160,8 @@ impl BotStats {
                 user_cached: osu_metrics.with_label_values(&["User cached"]),
                 osutracker_stats_cached: osu_metrics
                     .with_label_values(&["osutracker stats cached"]),
-                osutracker_groups_cached: osu_metrics
-                    .with_label_values(&["osutracker groups cached"]),
+                osutracker_pp_group_cached: osu_metrics
+                    .with_label_values(&["osutracker pp group cached"]),
                 osekai_medals_cached: osu_metrics.with_label_values(&["Medals cached"]),
                 osekai_badges_cached: osu_metrics.with_label_values(&["Badges cached"]),
                 pp_ranking_cached: osu_metrics.with_label_values(&["Rankings cached"]),
@@ -206,8 +206,8 @@ impl BotStats {
         self.osu_metrics.osutracker_stats_cached.inc();
     }
 
-    pub fn inc_cached_osutracker_groups(&self) {
-        self.osu_metrics.osutracker_groups_cached.inc();
+    pub fn inc_cached_osutracker_pp_group(&self) {
+        self.osu_metrics.osutracker_pp_group_cached.inc();
     }
 
     pub fn inc_cached_medals(&self) {
