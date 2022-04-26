@@ -26,7 +26,13 @@ pub enum HigherLower {
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "pp")]
+#[command(
+    name = "pp",
+    help = "Is the score's pp value higher or lower?\n\
+    The players are chosen randomly from the top 5,000 and the top score \
+    is chosen randomly as well but the higher the current score is, the more \
+    likely it is that the next pp value is close to the previous pp."
+)]
 /// Is the score's pp value higher or lower?
 pub struct HigherLowerScorePp {
     /// Specify a gamemode
@@ -34,7 +40,13 @@ pub struct HigherLowerScorePp {
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "farm")]
+#[command(
+    name = "farm",
+    help = "Is the amount of times the map appears in top scores higher or lower?\n\
+    All counts are provided by [osutracker](https://osutracker.com) which only includes a portion \
+    of the actual data but it should be representative, at least for >300pp scores.\n\
+    The maps are chosen randomly based on [this weight function](https://www.desmos.com/calculator/u4jt9t4jnj)."
+)]
 /// Is the amount of times the map appears in top scores higher or lower?
 pub struct HigherLowerFarmMaps;
 

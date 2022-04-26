@@ -30,6 +30,31 @@ pub(super) struct FarmMap {
     pub farm: u32,
 }
 
+const THRESHOLD: f32 = 25.0;
+const CAP: f32 = 2000.0;
+const EXP: f32 = 0.7;
+const FACTOR: f32 = 100.0;
+
+// https://www.desmos.com/calculator/u4jt9t4jnj
+fn weight(prev: u32, curr: u32, max: f32, score: u32) -> f32 {
+    if curr <= 2 || curr == prev {
+        return 0.0;
+    }
+
+    let factor = max * FACTOR;
+    let handicap = (THRESHOLD - score as f32).max(1.0);
+    let percent = (THRESHOLD - handicap) / THRESHOLD;
+
+    let region = curr.abs_diff(prev);
+    let main = (factor * handicap / region as f32).powf(EXP).min(CAP);
+    let invert_base = ((percent - 1.0) * SQRT_2) + 1.0;
+    let invert = invert_base * invert_base + 1.0;
+    let offset = CAP * (1.0 - percent);
+    let log_shift = (curr as f32).ln().powi(4) / CAP;
+
+    (main * invert + offset) * log_shift
+}
+
 impl FarmMap {
     pub async fn random(
         ctx: &Context,
@@ -41,6 +66,7 @@ impl FarmMap {
 
         let (prev_farm, rng_res) = {
             let mut rng = rand::thread_rng();
+            let max = archived[0].count as f32;
 
             let prev_farm = match prev_farm {
                 Some(farm) => farm,
@@ -48,27 +74,7 @@ impl FarmMap {
             };
 
             let rng_res = archived.choose_weighted(&mut rng, |entry| {
-                if entry.count == prev_farm {
-                    return 0.0;
-                }
-
-                // https://www.desmos.com/calculator/0t2lt97bnh
-                const THRESHOLD: f32 = 25.0;
-                const CAP: f32 = 1500.0;
-                const EXP: f32 = 0.7;
-                const FACTOR: f32 = 25.0;
-
-                let factor = archived[0].count as f32 * FACTOR;
-                let handicap = (THRESHOLD - curr_score as f32).max(1.0);
-                let percent = (THRESHOLD - handicap) / THRESHOLD;
-
-                let region = entry.count.abs_diff(prev_farm);
-                let main = (factor * handicap / region as f32).powf(EXP).min(CAP);
-                let invert_base = ((percent - 1.0) * SQRT_2) + 1.0;
-                let invert = invert_base * invert_base + 1.0;
-                let offset = CAP * (1.0 - percent);
-
-                main * invert + offset
+                weight(prev_farm, entry.count, max, curr_score)
             });
 
             (prev_farm, rng_res)
