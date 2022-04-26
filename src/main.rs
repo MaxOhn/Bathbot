@@ -64,10 +64,14 @@ async fn async_main() -> Result<()> {
     let _log_worker_guard = logging::initialize();
 
     // Load config file
-    core::BotConfig::init()?;
+    core::BotConfig::init().context("failed to initialize config")?;
 
     let (member_tx, mut member_rx) = mpsc::unbounded_channel();
-    let (ctx, events) = Context::new(member_tx.clone()).await?;
+
+    let (ctx, events) = Context::new(member_tx.clone())
+        .await
+        .context("failed to create ctx")?;
+
     let ctx = Arc::new(ctx);
 
     // Initialize commands
@@ -78,13 +82,18 @@ async fn async_main() -> Result<()> {
     // info!("Defining: {slash_commands:#?}");
 
     if cfg!(debug_assertions) {
-        ctx.interaction().set_global_commands(&[]).exec().await?;
+        ctx.interaction()
+            .set_global_commands(&[])
+            .exec()
+            .await
+            .context("failed to set empty global commands")?;
 
         let _received = ctx
             .interaction()
             .set_guild_commands(CONFIG.get().unwrap().dev_guild, &slash_commands)
             .exec()
-            .await?;
+            .await
+            .context("failed to set guild commands")?;
 
         // let commands = _received.models().await?;
         // info!("Received: {commands:#?}");
@@ -92,7 +101,8 @@ async fn async_main() -> Result<()> {
         ctx.interaction()
             .set_global_commands(&slash_commands)
             .exec()
-            .await?;
+            .await
+            .context("failed to set global commands")?;
     }
 
     // Spawn server worker
