@@ -12,6 +12,7 @@ mod rockefeller;
 mod saygoodbye;
 mod startagain;
 mod tijdmachine;
+mod time_traveler;
 mod wordsneversaid;
 mod zenzenzense;
 
@@ -31,7 +32,7 @@ use crate::{
 pub use self::{
     bombsaway::*, catchit::*, chicago::*, ding::*, fireandflames::*, fireflies::*, flamingo::*,
     mylove::*, padoru::*, pretender::*, rockefeller::*, saygoodbye::*, startagain::*,
-    tijdmachine::*, wordsneversaid::*, zenzenzense::*,
+    tijdmachine::*, time_traveler::*, wordsneversaid::*, zenzenzense::*,
 };
 
 async fn song(
@@ -106,6 +107,7 @@ pub struct Song {
     [Say Goodbye](https://youtu.be/SyJMQg3spck?t=43), \
     [Start Again](https://youtu.be/g7VNvg_QTMw&t=29), \
     [Tijdmachine](https://youtu.be/DT6tpUbWOms?t=47), \
+    [Time Traveler](https://youtu.be/iNdDRQFdrmY?t=78), \
     [The words I never said](https://youtu.be/8er4CQCxPRQ?t=65s), \
     [Through the Fire and Flames](https://youtu.be/0jgrCKhxE1s?t=77), \
     [Zen Zen Zense](https://www.youtube.com/watch?v=607QsB38hn8&t=71s)")]
@@ -141,6 +143,8 @@ pub enum SongTitle {
     StartAgain,
     #[option(name = "Tijdmachine", value = "tijdmachine")]
     Tijdmachine,
+    #[option(name = "Time Traveler", value = "time_traveler")]
+    TimeTraveler,
     #[option(name = "The words I never said", value = "wordsneversaid")]
     WordsNeverSaid,
     #[option(name = "Through the Fire and Flames", value = "fireandflames")]
@@ -152,22 +156,23 @@ pub enum SongTitle {
 impl SongTitle {
     fn get(self) -> (&'static [&'static str], u64) {
         match self {
-            SongTitle::Bombsaway => bombsaway_(),
-            SongTitle::Catchit => catchit_(),
-            SongTitle::Chicago => chicago_(),
-            SongTitle::Ding => ding_(),
-            SongTitle::Fireflies => fireflies_(),
-            SongTitle::Flamingo => flamingo_(),
-            SongTitle::MyLove => mylove_(),
-            SongTitle::Padoru => padoru_(),
-            SongTitle::Pretender => pretender_(),
-            SongTitle::Rockefeller => rockefeller_(),
-            SongTitle::SayGoodbye => saygoodbye_(),
-            SongTitle::StartAgain => startagain_(),
-            SongTitle::Tijdmachine => tijdmachine_(),
-            SongTitle::WordsNeverSaid => wordsneversaid_(),
-            SongTitle::FireAndFlames => fireandflames_(),
-            SongTitle::ZenZenZense => zenzenzense_(),
+            Self::Bombsaway => bombsaway_(),
+            Self::Catchit => catchit_(),
+            Self::Chicago => chicago_(),
+            Self::Ding => ding_(),
+            Self::Fireflies => fireflies_(),
+            Self::Flamingo => flamingo_(),
+            Self::MyLove => mylove_(),
+            Self::Padoru => padoru_(),
+            Self::Pretender => pretender_(),
+            Self::Rockefeller => rockefeller_(),
+            Self::SayGoodbye => saygoodbye_(),
+            Self::StartAgain => startagain_(),
+            Self::Tijdmachine => tijdmachine_(),
+            Self::TimeTraveler => time_traveler_(),
+            Self::WordsNeverSaid => wordsneversaid_(),
+            Self::FireAndFlames => fireandflames_(),
+            Self::ZenZenZense => zenzenzense_(),
         }
     }
 }
