@@ -303,11 +303,11 @@ impl Display for MapFormat<'_> {
         let title = self.mapset.title.len();
         let version = self.map.version.len();
 
-        const LIMIT: usize = 50;
+        const LIMIT: usize = 46;
 
         // if the dots wouldn't save space, might as well not replace the content
         let tuple = |pre, post| {
-            if pre == post + 3 {
+            if pre <= post + 3 {
                 (pre, "")
             } else {
                 (post, "...")
@@ -353,9 +353,9 @@ impl Display for MapFormat<'_> {
 
             if title_ + version_ + 3 > LIMIT - 6 {
                 if title_ == 15 {
-                    version_ = 50 - title_ - 3 - 6;
+                    version_ = LIMIT - title_ - 3 - 6;
                 } else if version_ == 15 {
-                    title_ = 50 - version_ - 3 - 6;
+                    title_ = LIMIT - version_ - 3 - 6;
                 }
             }
 
