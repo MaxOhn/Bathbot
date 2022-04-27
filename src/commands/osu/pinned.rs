@@ -2,6 +2,7 @@ use std::{fmt::Write, sync::Arc};
 
 use command_macros::{HasMods, HasName, SlashCommand};
 use eyre::Report;
+use hashbrown::HashMap;
 use rosu_v2::prelude::{
     GameMods, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
@@ -18,8 +19,8 @@ use crate::{
     commands::{osu::UserArgs, GameModeOption},
     core::commands::CommandOrigin,
     database::{EmbedsSize, MinimizedPp},
-    embeds::{EmbedData, PinnedEmbed, TopSingleEmbed},
-    pagination::{Pagination, PinnedPagination},
+    embeds::{CondensedTopEmbed, EmbedData, TopSingleEmbed},
+    pagination::{CondensedTopPagination, Pagination},
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -336,10 +337,22 @@ async fn paginated_embed(
     sort_by: ScoreOrder,
     content: Option<String>,
 ) -> BotResult<()> {
-    let pages = numbers::div_euclid(5, scores.len());
-    let embed_data =
-        PinnedEmbed::new(&user, scores.iter().take(5), &ctx, sort_by, (1, pages)).await;
-    let embed = embed_data.build();
+    let scores: Vec<_> = scores.into_iter().enumerate().collect();
+
+    let farm = HashMap::new();
+    let sort_by = sort_by.into();
+    let pages = numbers::div_euclid(10, scores.len());
+
+    let embed_fut = CondensedTopEmbed::new(
+        &user,
+        scores.iter().take(10),
+        &ctx,
+        sort_by,
+        &farm,
+        (1, pages),
+    );
+
+    let embed = embed_fut.await.build();
 
     // Creating the embed
     let mut builder = MessageBuilder::new().embed(embed);
@@ -351,14 +364,16 @@ async fn paginated_embed(
     let response_raw = orig.create_message(&ctx, &builder).await?;
 
     // Skip pagination if too few entries
-    if scores.len() <= 5 {
+    if scores.len() <= 10 {
         return Ok(());
     }
 
     let response = response_raw.model().await?;
 
     // Pagination
-    let pagination = PinnedPagination::new(response, user, scores, sort_by, Arc::clone(&ctx));
+    let pagination =
+        CondensedTopPagination::new(response, user, scores, sort_by, farm, Arc::clone(&ctx));
+
     pagination.start(ctx, orig.user_id()?, 60);
 
     Ok(())

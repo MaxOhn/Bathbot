@@ -23,7 +23,6 @@ mod osutracker_mappers;
 mod osutracker_maps;
 mod osutracker_mapsets;
 mod osutracker_mods;
-mod pinned;
 mod player_snipe_list;
 mod profile;
 mod ranking;
@@ -67,11 +66,11 @@ pub use self::{
     osustats_list::OsuStatsListPagination, osutracker_countrytop::OsuTrackerCountryTopPagination,
     osutracker_mappers::OsuTrackerMappersPagination, osutracker_maps::OsuTrackerMapsPagination,
     osutracker_mapsets::OsuTrackerMapsetsPagination, osutracker_mods::OsuTrackerModsPagination,
-    pinned::PinnedPagination, player_snipe_list::PlayerSnipeListPagination,
-    profile::ProfilePagination, ranking::RankingPagination,
-    ranking_countries::RankingCountriesPagination, recent_list::RecentListPagination,
-    scores::ScoresPagination, sniped_difference::SnipedDiffPagination, top::CondensedTopPagination,
-    top::TopPagination, top_if::TopIfPagination,
+    player_snipe_list::PlayerSnipeListPagination, profile::ProfilePagination,
+    ranking::RankingPagination, ranking_countries::RankingCountriesPagination,
+    recent_list::RecentListPagination, scores::ScoresPagination,
+    sniped_difference::SnipedDiffPagination, top::CondensedTopPagination, top::TopPagination,
+    top_if::TopIfPagination,
 };
 
 type ReactionVec = SmallVec<[Emote; 7]>;

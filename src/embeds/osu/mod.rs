@@ -30,7 +30,6 @@ mod osutracker_mappers;
 mod osutracker_maps;
 mod osutracker_mapsets;
 mod osutracker_mods;
-mod pinned;
 mod player_snipe_list;
 mod player_snipe_stats;
 mod pp_missing;
@@ -92,7 +91,6 @@ pub use self::{
     osutracker_maps::OsuTrackerMapsEmbed,
     osutracker_mapsets::OsuTrackerMapsetsEmbed,
     osutracker_mods::OsuTrackerModsEmbed,
-    pinned::PinnedEmbed,
     player_snipe_list::PlayerSnipeListEmbed,
     player_snipe_stats::PlayerSnipeStatsEmbed,
     pp_missing::PPMissingEmbed,
@@ -109,7 +107,7 @@ pub use self::{
     simulate::{SimulateArgs, SimulateEmbed},
     sniped::SnipedEmbed,
     sniped_difference::SnipedDiffEmbed,
-    top::{OrderAppendix, TopEmbed, CondensedTopEmbed},
+    top::{CondensedTopEmbed, OrderAppendix, TopEmbed},
     top_if::TopIfEmbed,
     top_single::TopSingleEmbed,
     whatif::WhatIfEmbed,
