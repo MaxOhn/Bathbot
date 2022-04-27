@@ -2,7 +2,7 @@ use crate::{
     core::Context,
     custom_client::TwitchVideo,
     database::MinimizedPp,
-    embeds::{osu, },
+    embeds::osu,
     error::PpError,
     util::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
@@ -184,7 +184,7 @@ impl RecentEmbed {
                 ratio /= score.statistics.count_300 as f32
             }
 
-            let combo = format!("**{}x** / {:.2}", &score.max_combo, ratio);
+            let combo = format!("**{}x** / {ratio:.2}", &score.max_combo);
 
             let title = format!(
                 "{} {} - {} [{}]",

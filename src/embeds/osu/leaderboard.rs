@@ -1,11 +1,8 @@
-use std::fmt::{self, Write};
+use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use command_macros::EmbedData;
-use hashbrown::HashMap;
-use rosu_pp::{
-    Beatmap as Map, BeatmapExt, CatchPP, DifficultyAttributes, GameMode as Mode, ManiaPP, OsuPP,
-    PerformanceAttributes, TaikoPP,
-};
+use hashbrown::{hash_map::Entry, HashMap};
+use rosu_pp::{Beatmap as Map, BeatmapExt, DifficultyAttributes};
 use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, GameMode};
 
 use crate::{
@@ -18,7 +15,7 @@ use crate::{
         datetime::how_long_ago_dynamic,
         numbers::with_comma_int,
         osu::prepare_beatmap_file,
-        CowUtils, ScoreExt,
+        CowUtils, Emote, ScoreExt,
     },
     BotResult,
 };
@@ -74,10 +71,11 @@ impl LeaderboardEmbed {
             let mut mod_map = HashMap::new();
             let mut description = String::with_capacity(256);
             let author_name = author_name.unwrap_or_default();
+            let mut username = String::with_capacity(32);
 
-            for (i, score) in scores.enumerate() {
+            for (score, i) in scores.zip(idx + 1..) {
                 let found_author = author_name == score.username;
-                let mut username = String::with_capacity(32);
+                username.clear();
 
                 if found_author {
                     username.push_str("__");
@@ -85,9 +83,8 @@ impl LeaderboardEmbed {
 
                 let _ = write!(
                     username,
-                    "[{name}]({base}users/{id})",
+                    "[{name}]({OSU_BASE}users/{id})",
                     name = score.username.cow_replace('_', "\\_"),
-                    base = OSU_BASE,
                     id = score.user_id
                 );
 
@@ -97,20 +94,15 @@ impl LeaderboardEmbed {
 
                 let _ = writeln!(
                     description,
-                    "**{idx}.** {grade} **{name}**: {score} [ {combo} ]{mods}\n\
-                    - {pp} ~ {acc:.2}% ~ {ago}",
-                    idx = idx + i + 1,
+                    "**{i}.** {grade} **{username}**: {score} [ {combo} ] **+{mods}**\n\
+                    - {pp} • {acc:.2}% • {miss}{ago}",
                     grade = score.grade_emote(map.mode),
-                    name = username,
                     score = with_comma_int(score.score),
-                    combo = get_combo(score, map),
-                    mods = if score.mods.is_empty() {
-                        String::new()
-                    } else {
-                        format!(" **+{}**", score.mods)
-                    },
+                    combo = ComboFormatter(score, map),
+                    mods = score.mods,
                     pp = get_pp(&mut mod_map, score, &rosu_map).await,
                     acc = score.accuracy,
+                    miss = MissFormat(score.count_miss),
                     ago = how_long_ago_dynamic(&score.date),
                 );
             }
@@ -127,7 +119,7 @@ impl LeaderboardEmbed {
         }
 
         let footer_text = format!(
-            "{:?} map by {creator_name} | Page {}/{}",
+            "{:?} map by {creator_name} • Page {}/{}",
             map.status, pages.0, pages.1,
         );
 
@@ -149,115 +141,72 @@ async fn get_pp(
 ) -> PPFormatter {
     let bits = score.mods.bits();
 
-    let (mut attributes, mut max_pp) = mod_map.remove(&bits).map_or_else(
-        || {
-            let attributes = map.stars().mods(bits).calculate();
+    let (attrs, max_pp) = match mod_map.entry(bits) {
+        Entry::Occupied(entry) => {
+            let (attrs, max_pp) = entry.get();
 
-            (attributes, None)
-        },
-        |(attributes, max_pp)| (attributes, Some(max_pp)),
-    );
+            (attrs.to_owned(), *max_pp)
+        }
+        Entry::Vacant(entry) => {
+            let attrs = map.max_pp(bits);
+            let max_pp = attrs.pp() as f32;
+            let (attrs, max_pp) = entry.insert((attrs.into(), max_pp));
 
-    if max_pp.is_none() {
-        let result: PerformanceAttributes = match map.mode {
-            Mode::STD => OsuPP::new(map)
-                .mods(bits)
-                .attributes(attributes)
-                .calculate()
-                .into(),
-            Mode::MNA => ManiaPP::new(map)
-                .mods(bits)
-                .attributes(attributes)
-                .calculate()
-                .into(),
-            Mode::CTB => CatchPP::new(map)
-                .mods(bits)
-                .attributes(attributes)
-                .calculate()
-                .into(),
-            Mode::TKO => TaikoPP::new(map)
-                .mods(bits)
-                .attributes(attributes)
-                .calculate()
-                .into(),
-        };
-
-        max_pp.replace(result.pp() as f32);
-        attributes = result.into();
-    }
-
-    let result: PerformanceAttributes = match map.mode {
-        Mode::STD => OsuPP::new(map)
-            .mods(bits)
-            .attributes(attributes)
-            .misses(score.count_miss as usize)
-            .n300(score.count300 as usize)
-            .n100(score.count100 as usize)
-            .n50(score.count50 as usize)
-            .combo(score.max_combo as usize)
-            .calculate()
-            .into(),
-        Mode::MNA => ManiaPP::new(map)
-            .mods(bits)
-            .attributes(attributes)
-            .score(score.score)
-            .calculate()
-            .into(),
-        Mode::CTB => CatchPP::new(map)
-            .mods(bits)
-            .attributes(attributes)
-            .misses(score.count_miss as usize)
-            .combo(score.max_combo as usize)
-            .accuracy(score.accuracy as f64)
-            .calculate()
-            .into(),
-        Mode::TKO => TaikoPP::new(map)
-            .mods(bits)
-            .attributes(attributes)
-            .misses(score.count_miss as usize)
-            .combo(score.max_combo as usize)
-            .accuracy(score.accuracy as f64)
-            .calculate()
-            .into(),
+            (attrs.to_owned(), *max_pp)
+        }
     };
 
-    let max_pp = max_pp.unwrap();
-    let pp = result.pp() as f32;
-    let attributes = result.into();
-
-    mod_map.insert(bits, (attributes, max_pp));
+    let pp = map
+        .pp()
+        .attributes(attrs)
+        .state(score.into())
+        .calculate()
+        .pp() as f32;
 
     PPFormatter(pp, max_pp)
 }
 
 struct PPFormatter(f32, f32);
 
-impl fmt::Display for PPFormatter {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for PPFormatter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "**{:.2}**/{:.2}PP", self.0, self.1)
     }
 }
 
-fn get_combo<'a>(score: &'a ScraperScore, map: &'a Beatmap) -> ComboFormatter<'a> {
-    ComboFormatter(score, map)
-}
-
 struct ComboFormatter<'a>(&'a ScraperScore, &'a Beatmap);
 
-impl<'a> fmt::Display for ComboFormatter<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "**{}x**/", self.0.max_combo)?;
+impl<'a> Display for ComboFormatter<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "**{}x**", self.0.max_combo)?;
 
-        if let Some(amount) = self.1.max_combo {
-            write!(f, "{}x", amount)?;
+        if let Some(combo) = self.1.max_combo {
+            write!(f, "/{combo}x")
         } else {
-            write!(f, " {} miss", self.0.count_miss,)?;
+            let mut ratio = self.0.count_geki as f32;
 
-            if self.0.count_miss != 1 {
-                f.write_str("es")?;
+            if self.0.count300 > 0 {
+                ratio /= self.0.count300 as f32
             }
+
+            write!(f, " / {ratio:.2}")
+        }
+    }
+}
+
+struct MissFormat(u32);
+
+impl Display for MissFormat {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        if self.0 == 0 {
+            return Ok(());
         }
 
-        Ok(())
+        write!(
+            f,
+            "{miss}{emote} ",
+            miss = self.0,
+            emote = Emote::Miss.text()
+        )
     }
 }

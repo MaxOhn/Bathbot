@@ -1,6 +1,7 @@
 use crate::util::CountryCode;
 
 use chrono::{DateTime, Utc};
+use rosu_pp::ScoreState;
 use rosu_v2::prelude::{GameMode, GameMods, Grade, RankStatus};
 use serde::{de, Deserialize, Deserializer};
 
@@ -106,6 +107,41 @@ impl<'de> Deserialize<'de> for ScraperScore {
             count_katu: helper.statistics.count_katu,
             count_miss: helper.statistics.count_miss,
         })
+    }
+}
+
+impl From<&ScraperScore> for ScoreState {
+    fn from(score: &ScraperScore) -> Self {
+        match score.mode {
+            GameMode::STD => ScoreState {
+                max_combo: score.max_combo as usize,
+                n300: score.count300 as usize,
+                n100: score.count100 as usize,
+                n50: score.count50 as usize,
+                misses: score.count_miss as usize,
+                ..Default::default()
+            },
+            GameMode::TKO => ScoreState {
+                max_combo: score.max_combo as usize,
+                n300: score.count300 as usize,
+                n100: score.count100 as usize,
+                misses: score.count_miss as usize,
+                ..Default::default()
+            },
+            GameMode::CTB => ScoreState {
+                max_combo: score.max_combo as usize,
+                n300: score.count300 as usize,
+                n100: score.count100 as usize,
+                n50: score.count50 as usize,
+                n_katu: score.count_katu as usize,
+                misses: score.count_miss as usize,
+                ..Default::default()
+            },
+            GameMode::MNA => ScoreState {
+                score: score.score,
+                ..Default::default()
+            },
+        }
     }
 }
 
