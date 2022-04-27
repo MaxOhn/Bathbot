@@ -1,14 +1,3 @@
-mod deserialize;
-mod error;
-mod osekai;
-mod osu_daily;
-mod osu_stats;
-mod osu_tracker;
-mod rkyv_impls;
-mod score;
-mod snipe;
-mod twitch;
-
 use std::{
     borrow::Cow,
     fmt::{Display, Write},
@@ -61,10 +50,23 @@ use hyper::header::HeaderValue;
 use crate::util::constants::TWITCH_OAUTH;
 
 pub use self::{
-    error::*, osekai::*, osu_daily::*, osu_stats::*, osu_tracker::*, score::*, snipe::*, twitch::*,
+    error::*, osekai::*, osu_daily::*, osu_stats::*, osu_tracker::*, respektive::*, score::*,
+    snipe::*, twitch::*,
 };
 
 use self::{deserialize::*, rkyv_impls::*, score::ScraperScores};
+
+mod deserialize;
+mod error;
+mod osekai;
+mod osu_daily;
+mod osu_stats;
+mod osu_tracker;
+mod respektive;
+mod rkyv_impls;
+mod score;
+mod snipe;
+mod twitch;
 
 type ClientResult<T> = Result<T, CustomClientError>;
 
@@ -87,6 +89,7 @@ enum Site {
     OsuMapsetCover,
     OsuStats,
     OsuTracker,
+    Respektive,
     #[cfg(not(debug_assertions))]
     Twitch,
 }
@@ -98,7 +101,7 @@ pub struct CustomClient {
     osu_session: &'static str,
     #[cfg(not(debug_assertions))]
     twitch: TwitchData,
-    ratelimiters: [LeakyBucket; 11 + !cfg!(debug_assertions) as usize],
+    ratelimiters: [LeakyBucket; 12 + !cfg!(debug_assertions) as usize],
 }
 
 #[cfg(not(debug_assertions))]
@@ -146,6 +149,7 @@ impl CustomClient {
             ratelimiter(10), // OsuMapsetCover
             ratelimiter(2),  // OsuStats
             ratelimiter(2),  // OsuTracker
+            ratelimiter(1),  // Respektive
             #[cfg(not(debug_assertions))]
             ratelimiter(5), // Twitch
         ];
@@ -329,6 +333,34 @@ impl CustomClient {
             .await
     }
 
+    pub async fn get_respektive_user(
+        &self,
+        user_id: u32,
+        mode: GameMode,
+    ) -> ClientResult<Option<RespektiveUser>> {
+        let url = format!("https://score.respektive.pw/u/{user_id}?m={}", mode as u8);
+        let bytes = self.make_get_request(url, Site::Respektive).await?;
+
+        let mut users: Vec<RespektiveUser> = serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::RespektiveUser))?;
+
+        Ok(users.pop().filter(|user| user.rank > 0))
+    }
+
+    pub async fn get_respektive_rank(
+        &self,
+        rank: u32,
+        mode: GameMode,
+    ) -> ClientResult<Option<RespektiveUser>> {
+        let url = format!("https://score.respektive.pw/rank/{rank}?m={}", mode as u8);
+        let bytes = self.make_get_request(url, Site::Respektive).await?;
+
+        let mut users: Vec<RespektiveUser> = serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::RespektiveRank))?;
+
+        Ok(users.pop().filter(|user| user.rank > 0))
+    }
+
     pub async fn get_osutracker_country_details(
         &self,
         country_code: &str,
@@ -432,11 +464,9 @@ impl CustomClient {
 
         let bytes = self.make_post_request(url, Site::Osekai, form).await?;
 
-        let ranking = serde_json::from_slice(&bytes).map_err(|e| {
+        serde_json::from_slice(&bytes).map_err(|e| {
             CustomClientError::parsing(e, &bytes, ErrorKind::OsekaiRanking(R::REQUEST))
-        })?;
-
-        Ok(ranking)
+        })
     }
 
     pub async fn get_snipe_player(&self, country: &str, user_id: u32) -> ClientResult<SnipePlayer> {
@@ -447,10 +477,8 @@ impl CustomClient {
 
         let bytes = self.make_get_request(url, Site::Huismetbenen).await?;
 
-        let player: SnipePlayer = serde_json::from_slice(&bytes)
-            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::SnipePlayer))?;
-
-        Ok(player)
+        serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::SnipePlayer))
     }
 
     pub async fn get_snipe_country(&self, country: &str) -> ClientResult<Vec<SnipeCountryPlayer>> {
@@ -461,10 +489,8 @@ impl CustomClient {
 
         let bytes = self.make_get_request(url, Site::Huismetbenen).await?;
 
-        let country_players: Vec<SnipeCountryPlayer> = serde_json::from_slice(&bytes)
-            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::SnipeCountry))?;
-
-        Ok(country_players)
+        serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::SnipeCountry))
     }
 
     pub async fn get_country_statistics(
@@ -476,10 +502,8 @@ impl CustomClient {
 
         let bytes = self.make_get_request(url, Site::Huismetbenen).await?;
 
-        let statistics = serde_json::from_slice(&bytes)
-            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::CountryStatistics))?;
-
-        Ok(statistics)
+        serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::CountryStatistics))
     }
 
     pub async fn get_national_snipes(
@@ -501,10 +525,8 @@ impl CustomClient {
 
         let bytes = self.make_get_request(url, Site::Huismetbenen).await?;
 
-        let snipes: Vec<SnipeRecent> = serde_json::from_slice(&bytes)
-            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::SnipeRecent))?;
-
-        Ok(snipes)
+        serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::SnipeRecent))
     }
 
     pub async fn get_national_firsts(
@@ -533,10 +555,8 @@ impl CustomClient {
 
         let bytes = self.make_get_request(url, Site::Huismetbenen).await?;
 
-        let scores: Vec<SnipeScore> = serde_json::from_slice(&bytes)
-            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::SnipeScore))?;
-
-        Ok(scores)
+        serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::SnipeScore))
     }
 
     pub async fn get_national_firsts_count(
@@ -562,10 +582,8 @@ impl CustomClient {
 
         let bytes = self.make_get_request(url, Site::Huismetbenen).await?;
 
-        let count: usize = serde_json::from_slice(&bytes)
-            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::SnipeScoreCount))?;
-
-        Ok(count)
+        serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::SnipeScoreCount))
     }
 
     pub async fn get_country_globals(
@@ -603,10 +621,8 @@ impl CustomClient {
 
         let bytes = Self::error_for_status(response, url).await?;
 
-        let players: Vec<OsuStatsPlayer> = serde_json::from_slice(&bytes)
-            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::GlobalsList))?;
-
-        Ok(players)
+        serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::GlobalsList))
     }
 
     /// Be sure whitespaces in the username are **not** replaced
@@ -841,10 +857,8 @@ impl CustomClient {
             }
         };
 
-        let rank_pp = serde_json::from_slice(&bytes)
-            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::RankData))?;
-
-        Ok(rank_pp)
+        serde_json::from_slice(&bytes)
+            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::RankData))
     }
 
     pub async fn get_twitch_user(&self, name: &str) -> ClientResult<Option<TwitchUser>> {

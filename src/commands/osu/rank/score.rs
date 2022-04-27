@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use command_macros::command;
+use eyre::Report;
 use rosu_v2::prelude::OsuError;
 
 use crate::{
@@ -130,8 +131,8 @@ impl<'m> RankScore<'m> {
 
         let rank = rank.ok_or(
             "Failed to parse `rank`. Provide it either as positive number \
-        or as country acronym followed by a positive number e.g. `be10` \
-        as one of the first two arguments.",
+            or as country acronym followed by a positive number e.g. `be10` \
+            as one of the first two arguments.",
         )?;
 
         Ok(Self {
@@ -186,11 +187,21 @@ pub(super) async fn score(
         }
     };
 
+    let respektive_user = match ctx.client().get_respektive_user(user.user_id, mode).await {
+        Ok(user) => user,
+        Err(err) => {
+            let report = Report::new(err).wrap_err("failed to get respektive user");
+            warn!("{report:?}");
+
+            None
+        }
+    };
+
     // Overwrite default mode
     user.mode = mode;
 
     // Accumulate all necessary data
-    let embed_data = RankRankedScoreEmbed::new(user, rank, rank_holder);
+    let embed_data = RankRankedScoreEmbed::new(user, rank, rank_holder, respektive_user);
 
     // Creating the embed
     let embed = embed_data.build();
