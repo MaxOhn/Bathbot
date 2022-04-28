@@ -50,6 +50,7 @@ impl OsuTrackerMappersEmbed {
         let mut description = String::with_capacity(entries.len() * 35);
 
         for (entry, i) in entries.iter().take(10).zip(idx..) {
+            #[allow(clippy::to_string_in_format_args)]
             let _ = write!(
                 description,
                 "`{i:>i_len$}.` `{mapper:<m_len$}` `{count:>c_len$}`",
@@ -61,6 +62,7 @@ impl OsuTrackerMappersEmbed {
             );
 
             if let Some(entry) = entries.get(i + 10 - idx) {
+                #[allow(clippy::to_string_in_format_args)]
                 let _ = write!(
                     description,
                     " | `{i:>i_len$}.` `{mapper:<m_len$}` `{count:>c_len$}`",

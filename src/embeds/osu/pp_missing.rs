@@ -104,7 +104,7 @@ impl PPMissingEmbed {
                     let idx = pps
                         .iter()
                         .position(|&pp| pp < each)
-                        .unwrap_or_else(|| scores.len());
+                        .unwrap_or(scores.len());
 
                     let mut iter = pps
                         .iter()

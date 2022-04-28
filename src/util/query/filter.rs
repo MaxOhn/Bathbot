@@ -23,7 +23,7 @@ pub struct FilterCriteria<'q> {
 impl<'q> FilterCriteria<'q> {
     pub fn new(query: &'q str) -> Self {
         let mut criteria = Self {
-            search_text: query.to_owned().into(),
+            search_text: query.to_owned(),
             ..Default::default()
         };
 

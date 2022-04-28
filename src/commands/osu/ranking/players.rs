@@ -248,7 +248,7 @@ async fn ranking(
     let ranking_kind_data = if let Some((name, code)) = country {
         RankingKindData::PpCountry {
             mode,
-            country_code: code.into(),
+            country_code: code,
             country: name,
         }
     } else if kind == RankingKind::Performance {

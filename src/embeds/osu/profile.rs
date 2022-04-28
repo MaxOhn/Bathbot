@@ -111,6 +111,7 @@ impl ProfileEmbed {
             let _ = writeln!(avg_string, "   |   PP   |  Acc  | Combo | Map len");
             let _ = writeln!(avg_string, "---+--------+-------+-------+--------");
 
+            #[allow(clippy::to_string_in_format_args)]
             let _ = writeln!(
                 avg_string,
                 "Min|{:^8.2}|{:^7}|{:^7}| {:^7}",
@@ -120,6 +121,7 @@ impl ProfileEmbed {
                 sec_to_minsec(values.map_len.min()).to_string()
             );
 
+            #[allow(clippy::to_string_in_format_args)]
             let _ = writeln!(
                 avg_string,
                 "Avg|{:^8.2}|{:^7}|{:^7}| {:^7}",
@@ -129,6 +131,7 @@ impl ProfileEmbed {
                 sec_to_minsec(values.map_len.avg()).to_string()
             );
 
+            #[allow(clippy::to_string_in_format_args)]
             let _ = writeln!(
                 avg_string,
                 "Max|{:^8.2}|{:^7}|{:^7}| {:^7}",

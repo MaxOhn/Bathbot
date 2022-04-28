@@ -162,10 +162,7 @@ impl Cache {
     }
 
     pub async fn is_own(&self, other: &Message) -> bool {
-        match self.current_user(|user| user.id == other.author.id) {
-            Ok(b) => b,
-            Err(_) => false,
-        }
+        self.current_user(|user| user.id == other.author.id).unwrap_or(false)
     }
 }
 

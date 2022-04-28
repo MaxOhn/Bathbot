@@ -142,7 +142,7 @@ pub(super) async fn country_stats(
 
     let country = ctx
         .get_country(country_code.as_ref())
-        .map(|name| (name, country_code.into()));
+        .map(|name| (name, country_code));
     let embed_data = CountrySnipeStatsEmbed::new(country, statistics);
 
     // Sending the embed

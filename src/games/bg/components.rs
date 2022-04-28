@@ -246,7 +246,7 @@ pub async fn handle_bg_start_effects(
         }
 
         let builder = MessageBuilder::new().embed(embed);
-        component.callback(&ctx, builder).await?;
+        component.callback(ctx, builder).await?;
     } else if let Err(err) = remove_components(ctx, &component, None).await {
         let report = Report::new(err).wrap_err("failed to remove components");
         warn!("{report:?}");

@@ -257,7 +257,7 @@ pub(super) async fn leaderboard(
     let owner = orig.user_id()?;
 
     let author_name = if args.name.is_none() && args.discord.is_none() {
-        Some(name.clone().into())
+        Some(name.clone())
     } else {
         match ctx.user_config(owner).await {
             Ok(config) => config.into_username(),

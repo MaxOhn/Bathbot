@@ -242,8 +242,11 @@ impl From<GraphTopTimezone> for FixedOffset {
             GraphTopTimezone::M4 => Self::east(-4 * 3600),
             GraphTopTimezone::M3 => Self::east(-3 * 3600),
             GraphTopTimezone::M2 => Self::east(-2 * 3600),
+            #[allow(clippy::neg_multiply)]
             GraphTopTimezone::M1 => Self::east(-1 * 3600),
+            #[allow(clippy::erasing_op)]
             GraphTopTimezone::P0 => Self::east(0 * 3600),
+            #[allow(clippy::identity_op)]
             GraphTopTimezone::P1 => Self::east(1 * 3600),
             GraphTopTimezone::P2 => Self::east(2 * 3600),
             GraphTopTimezone::P3 => Self::east(3 * 3600),
@@ -909,7 +912,7 @@ async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec<u8>
         chart
             .draw_series(series)?
             .label(format!("Max: {max}pp"))
-            .legend(|coord| EmptyElement::at(coord));
+            .legend(EmptyElement::at);
 
         let iter = scores.iter().filter_map(|s| Some((s.created_at, s.pp?)));
 
@@ -920,7 +923,7 @@ async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec<u8>
         chart
             .draw_series(series)?
             .label(format!("Min: {min}pp"))
-            .legend(|coord| EmptyElement::at(coord));
+            .legend(EmptyElement::at);
 
         chart
             .configure_series_labels()
@@ -982,7 +985,7 @@ async fn top_graph_index(caption: String, scores: &[Score]) -> Result<Vec<u8>, G
         chart
             .draw_series(series)?
             .label(format!("Max: {max}pp"))
-            .legend(|coord| EmptyElement::at(coord));
+            .legend(EmptyElement::at);
 
         let iter = (1..)
             .zip(scores)
@@ -994,7 +997,7 @@ async fn top_graph_index(caption: String, scores: &[Score]) -> Result<Vec<u8>, G
         chart
             .draw_series(series)?
             .label(format!("Min: {min}pp"))
-            .legend(|coord| EmptyElement::at(coord));
+            .legend(EmptyElement::at);
 
         chart
             .configure_series_labels()
@@ -1140,7 +1143,7 @@ async fn top_graph_time(
         chart
             .draw_series(series)?
             .label(format!("Max: {max}pp"))
-            .legend(|coord| EmptyElement::at(coord));
+            .legend(EmptyElement::at);
 
         let iter = scores
             .iter()
@@ -1153,7 +1156,7 @@ async fn top_graph_time(
         chart
             .draw_series(series)?
             .label(format!("Min: {min}pp"))
-            .legend(|coord| EmptyElement::at(coord));
+            .legend(EmptyElement::at);
 
         chart
             .configure_series_labels()

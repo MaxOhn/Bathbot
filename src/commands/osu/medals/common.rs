@@ -60,7 +60,7 @@ async fn extract_name<'a>(ctx: &Context, args: &mut MedalCommon<'a>) -> NameExtr
         NameExtraction::Name(name.as_ref().into())
     } else if let Some(discord) = args.discord1.take().or_else(|| args.discord2.take()) {
         match ctx.psql().get_user_osu(discord).await {
-            Ok(Some(osu)) => NameExtraction::Name(osu.into_username().into()),
+            Ok(Some(osu)) => NameExtraction::Name(osu.into_username()),
             Ok(None) => {
                 NameExtraction::Content(format!("<@{discord}> is not linked to an osu!profile"))
             }
@@ -101,7 +101,7 @@ pub(super) async fn common(
         }
         NameExtraction::Content(content) => return orig.error(&ctx, content).await,
         NameExtraction::None => match ctx.psql().get_user_osu(orig.user_id()?).await {
-            Ok(Some(osu)) => osu.into_username().into(),
+            Ok(Some(osu)) => osu.into_username(),
             Ok(None) => {
                 let content =
                     "Since you're not linked with the `/link` command, you must specify two names.";

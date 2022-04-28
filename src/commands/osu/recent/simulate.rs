@@ -270,7 +270,7 @@ pub(super) async fn simulate(
     };
 
     // Accumulate all necessary data
-    let embed_data = match SimulateEmbed::new(Some(score), &map, &mapset, args.into(), &ctx).await {
+    let embed_data = match SimulateEmbed::new(Some(score), &map, &mapset, args, &ctx).await {
         Ok(data) => data,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;

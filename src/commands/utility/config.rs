@@ -389,7 +389,7 @@ async fn handle_ephemeral<T>(
         Err(AuthenticationStandbyError::Canceled) => GENERAL_ISSUE,
     };
 
-    if let Err(err) = command.error(&ctx, content).await {
+    if let Err(err) = command.error(ctx, content).await {
         return Some(Err(err.into()));
     }
 

@@ -330,7 +330,7 @@ impl<'de> Deserialize<'de> for MedalGroup {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let s: &str = Deserialize::deserialize(d)?;
 
-        Self::from_str(s).ok_or(Error::invalid_value(
+        Self::from_str(s).ok_or_else(|| Error::invalid_value(
             Unexpected::Str(s),
             &"a valid medal group",
         ))

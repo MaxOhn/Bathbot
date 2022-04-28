@@ -41,6 +41,7 @@ impl OsuTrackerMapsEmbed {
         let mut description = String::with_capacity(entries.len() * 100);
 
         for (entry, i) in entries.iter().zip(idx..) {
+            #[allow(clippy::to_string_in_format_args)]
             let _ = writeln!(
                 description,
                 "`{i:>i_len$}.` `{count:>c_len$}` [{name}]({OSU_BASE}b/{map_id})",

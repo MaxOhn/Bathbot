@@ -267,11 +267,11 @@ impl<'m> SnipePlayerList<'m> {
                     }
                 }
             } else if matcher::get_mods(&arg).is_some() {
-                mods = Some(arg.into());
+                mods = Some(arg);
             } else if let Some(id) = matcher::get_mention_user(&arg) {
                 discord = Some(id);
             } else {
-                name = Some(arg.into());
+                name = Some(arg);
             }
         }
 

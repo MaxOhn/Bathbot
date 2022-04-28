@@ -95,7 +95,7 @@ impl RankEmbed {
                                 let idx = pps
                                     .iter()
                                     .position(|&pp| pp < each)
-                                    .unwrap_or_else(|| pps.len());
+                                    .unwrap_or(pps.len());
 
                                 let mut iter = pps
                                     .iter()
@@ -280,7 +280,7 @@ impl RankEmbed {
                                 let idx = pps
                                     .iter()
                                     .position(|&pp| pp < each)
-                                    .unwrap_or_else(|| pps.len());
+                                    .unwrap_or(pps.len());
 
                                 let mut iter = pps
                                     .iter()

@@ -165,6 +165,7 @@ impl MapEmbed {
             let len = 9.max(2 + format!("{:.2}", pps[3]).len());
             pp_values.push_str("```\n");
 
+            #[allow(clippy::to_string_in_format_args)]
             let _ = writeln!(
                 pp_values,
                 "    |{:^len$}|{:^len$}|{:^len$}|{:^len$}",

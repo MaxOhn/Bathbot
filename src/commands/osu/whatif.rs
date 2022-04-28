@@ -258,7 +258,7 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
         let idx = pps
             .iter()
             .position(|&pp_| pp_ < pp)
-            .unwrap_or_else(|| scores.len() - 1);
+            .unwrap_or(scores.len() - 1);
 
         pps.extend(iter::repeat(pp).take(count));
         pps.sort_unstable_by(|a, b| b.partial_cmp(a).unwrap_or(Ordering::Equal));

@@ -220,7 +220,7 @@ impl ContextData {
             map_garbage_collection: Mutex::new(HashSet::new()),
             matchlive: MatchLiveChannels::new(),
             msgs_to_process: DashSet::new(),
-            osu_tracking: OsuTracking::new(&psql).await?,
+            osu_tracking: OsuTracking::new(psql).await?,
             role_assigns: psql.get_role_assigns().await?,
             snipe_countries: psql.get_snipe_countries().await?,
             tracked_streams: psql.get_stream_tracks().await?,

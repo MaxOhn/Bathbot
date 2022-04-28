@@ -194,8 +194,7 @@ async fn matchcosts(
     // Count different users
     let users: HashSet<_> = games
         .iter()
-        .map(|game| game.scores.iter())
-        .flatten()
+        .flat_map(|game| game.scores.iter())
         .filter(|s| s.score > 0)
         .map(|s| s.user_id)
         .collect();

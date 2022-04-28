@@ -85,7 +85,7 @@ async fn slash_higherlower(
         }
     };
 
-    let embed = game.to_embed().await;
+    let embed = game.make_embed().await;
     let components = HlComponents::higherlower();
     let builder = MessageBuilder::new().embed(embed).components(components);
 

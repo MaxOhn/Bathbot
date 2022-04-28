@@ -79,7 +79,7 @@ pub async fn handle_next_higherlower(
             let builder = MessageBuilder::new().components(components);
 
             let callback_fut = component.callback(&ctx, builder);
-            let embed_fut = game.to_embed();
+            let embed_fut = game.make_embed();
 
             let (callback_res, embed) = tokio::join!(callback_fut, embed_fut);
             callback_res?;
@@ -148,7 +148,7 @@ pub async fn handle_try_again(
         }
     };
 
-    let embed = game.to_embed().await;
+    let embed = game.make_embed().await;
     let components = HlComponents::higherlower();
     let builder = MessageBuilder::new().embed(embed).components(components);
 

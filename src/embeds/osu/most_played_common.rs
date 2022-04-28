@@ -26,7 +26,7 @@ impl MostPlayedCommonEmbed {
         for ((map_id, _), i) in map_counts.iter().zip(1..) {
             let ([count1, count2], map) = maps.get(map_id).unwrap();
 
-            let (medal1, medal2) = match count1.cmp(&count2) {
+            let (medal1, medal2) = match count1.cmp(count2) {
                 Ordering::Less => ("second", "first"),
                 Ordering::Equal => ("first", "first"),
                 Ordering::Greater => ("first", "second"),

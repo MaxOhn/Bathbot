@@ -216,11 +216,11 @@ const THREADS_UNAVAILABLE: &str = "Cannot start new thread from here";
 
 fn handle_error(kind: &ErrorType) -> Option<&'static str> {
     match kind {
-        ErrorType::Response { error, .. } => match error {
-            ApiError::General(err) => match err.code {
-                INVALID_ACTION_FOR_CHANNEL_TYPE => Some(THREADS_UNAVAILABLE),
-                _ => None,
-            },
+        ErrorType::Response {
+            error: ApiError::General(err),
+            ..
+        } => match err.code {
+            INVALID_ACTION_FOR_CHANNEL_TYPE => Some(THREADS_UNAVAILABLE),
             _ => None,
         },
         _ => None,

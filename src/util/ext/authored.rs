@@ -45,7 +45,7 @@ impl Authored for ApplicationCommand {
         self.member
             .as_ref()
             .and_then(|member| member.user.as_ref())
-            .or_else(|| self.user.as_ref())
+            .or(self.user.as_ref())
             .ok_or(Error::MissingAuthor)
     }
 
@@ -103,7 +103,7 @@ impl Authored for MessageComponentInteraction {
         self.member
             .as_ref()
             .and_then(|member| member.user.as_ref())
-            .or_else(|| self.user.as_ref())
+            .or(self.user.as_ref())
             .ok_or(Error::MissingAuthor)
     }
 
@@ -134,7 +134,7 @@ impl Authored for ApplicationCommandAutocomplete {
         self.member
             .as_ref()
             .and_then(|member| member.user.as_ref())
-            .or_else(|| self.user.as_ref())
+            .or(self.user.as_ref())
             .ok_or(Error::MissingAuthor)
     }
 

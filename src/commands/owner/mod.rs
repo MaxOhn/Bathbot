@@ -117,7 +117,7 @@ async fn slash_owner(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) ->
         Owner::Tracking(OwnerTracking::Interval(interval)) => {
             let secs = interval
                 .number
-                .unwrap_or(OSU_TRACKING_INTERVAL.num_seconds());
+                .unwrap_or_else(|| OSU_TRACKING_INTERVAL.num_seconds());
 
             trackinginterval(ctx, command, secs).await
         }

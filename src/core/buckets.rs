@@ -7,6 +7,7 @@ use parking_lot::Mutex;
 pub struct Buckets([Mutex<Bucket>; 7]);
 
 impl Buckets {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let make_bucket = |delay, time_span, limit| {
             let ratelimit = Ratelimit {

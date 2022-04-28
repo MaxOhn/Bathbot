@@ -231,8 +231,8 @@ async fn leaderboard(
     let author_name = match ctx.psql().get_user_osu(owner).await {
         Ok(osu) => osu.map(OsuData::into_username),
         Err(err) => {
-            let wrap = format!("failed to get user config");
-            warn!("{:?}", Report::new(err).wrap_err(wrap));
+            let report = Report::new(err).wrap_err("failed to get user config");
+            warn!("{report:?}");
 
             None
         }
