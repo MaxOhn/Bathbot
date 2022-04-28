@@ -409,6 +409,11 @@ pub(super) async fn score(
 
                 match scores_fut.await {
                     Ok(scores) => (user, scores),
+                    Err(OsuError::NotFound) => {
+                        let content = "Beatmap was not found. Maybe unranked?";
+
+                        return orig.error(&ctx, content).await;
+                    }
                     Err(err) => {
                         let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
@@ -431,12 +436,12 @@ pub(super) async fn score(
 
                         return orig.error(&ctx, content).await;
                     }
-                    (Err(err), _) => {
-                        let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                    (_, Err(OsuError::NotFound)) => {
+                        let content = "Beatmap was not found. Maybe unranked?";
 
-                        return Err(err.into());
+                        return orig.error(&ctx, content).await;
                     }
-                    (_, Err(err)) => {
+                    (Err(err), _) | (_, Err(err)) => {
                         let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
                         return Err(err.into());
@@ -464,12 +469,12 @@ pub(super) async fn score(
 
                 return orig.error(&ctx, content).await;
             }
-            (Err(err), _) => {
-                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            (_, Err(OsuError::NotFound)) => {
+                let content = "Beatmap was not found. Maybe unranked?";
 
-                return Err(err.into());
+                return orig.error(&ctx, content).await;
             }
-            (_, Err(err)) => {
+            (Err(err), _) | (_, Err(err)) => {
                 let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
                 return Err(err.into());
