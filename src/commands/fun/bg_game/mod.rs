@@ -3,20 +3,26 @@ use std::sync::Arc;
 use command_macros::{command, SlashCommand};
 use eyre::Report;
 use rosu_v2::prelude::GameMode;
+use twilight_http::{api_error::ApiError, error::ErrorType};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::application::{
-    component::{
-        button::ButtonStyle, select_menu::SelectMenuOption, ActionRow, Button, Component,
-        SelectMenu,
+use twilight_model::{
+    application::{
+        component::{
+            button::ButtonStyle, select_menu::SelectMenuOption, ActionRow, Button, Component,
+            SelectMenu,
+        },
+        interaction::ApplicationCommand,
     },
-    interaction::ApplicationCommand,
+    channel::{thread::AutoArchiveDuration, ChannelType},
 };
 
 use crate::{
+    commands::ThreadChannel,
     games::bg::{Effects, GameState, GameWrapper, MapsetTags},
     util::{
-        builder::MessageBuilder, constants::GENERAL_ISSUE, ApplicationCommandExt, Authored,
-        ChannelExt, CowUtils,
+        builder::MessageBuilder,
+        constants::{GENERAL_ISSUE, INVALID_ACTION_FOR_CHANNEL_TYPE, THREADS_UNAVAILABLE},
+        ApplicationCommandExt, Authored, ChannelExt, CowUtils,
     },
     BotResult, Context,
 };
@@ -113,6 +119,8 @@ pub struct Bg {
     The higher the difficulty, the more accurate guesses have to be in order to be accepted.")]
     /// Increase difficulty by requiring better guessing
     difficulty: Option<GameDifficulty>,
+    /// Choose if a new thread should be started, defaults to staying in the channel
+    thread: Option<ThreadChannel>,
 }
 
 #[derive(CommandOption, CreateOption)]
@@ -150,22 +158,75 @@ impl Default for GameDifficulty {
 }
 
 async fn slash_bg(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
-    if let Some(GameState::Running { game }) =
-        ctx.bg_games().write().await.remove(&command.channel_id)
-    {
+    let Bg {
+        difficulty,
+        mode,
+        thread,
+    } = Bg::from_interaction(command.input_data())?;
+    let mut channel = command.channel_id;
+    let author_user = command.user()?;
+    let author = author_user.id;
+
+    if let Some(ThreadChannel::Thread) = thread {
+        if command.guild_id.is_none() {
+            command.error(&ctx, THREADS_UNAVAILABLE).await?;
+
+            return Ok(());
+        }
+
+        let kind = ChannelType::GuildPublicThread;
+        let archive_dur = AutoArchiveDuration::Day;
+        let thread_name = format!("Background guessing game of {}", author_user.name);
+
+        let create_fut = ctx
+            .http
+            .create_thread(channel, &thread_name, kind)
+            .unwrap()
+            .auto_archive_duration(archive_dur)
+            .exec();
+
+        match create_fut.await {
+            Ok(res) => channel = res.model().await?.id,
+            Err(err) => {
+                let content = match err.kind() {
+                    ErrorType::Response {
+                        error: ApiError::General(err),
+                        ..
+                    } => match err.code {
+                        INVALID_ACTION_FOR_CHANNEL_TYPE => Some(THREADS_UNAVAILABLE),
+                        _ => None,
+                    },
+                    _ => None,
+                };
+
+                match content {
+                    Some(content) => {
+                        command.error(&ctx, content).await?;
+
+                        return Ok(());
+                    }
+                    None => {
+                        let _ = command.error(&ctx, GENERAL_ISSUE).await;
+
+                        return Err(err.into());
+                    }
+                }
+            }
+        }
+    }
+
+    if let Some(GameState::Running { game }) = ctx.bg_games().write().await.remove(&channel) {
         if let Err(err) = game.stop() {
             let report = Report::new(err).wrap_err("failed to stop game");
             warn!("{report:?}");
         }
     }
 
-    let Bg { difficulty, mode } = Bg::from_interaction(command.input_data())?;
     let difficulty = difficulty.unwrap_or_default();
 
     let state = match mode {
         Some(BgGameMode::Osu) | None => {
             let components = bg_components();
-            let author = command.user_id()?;
 
             let content = format!(
                 "<@{author}> select which tags should be included \
@@ -174,7 +235,15 @@ async fn slash_bg(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> Bo
             );
 
             let builder = MessageBuilder::new().embed(content).components(components);
-            command.callback(&ctx, builder, false).await?;
+
+            if matches!(thread, Some(ThreadChannel::Thread)) {
+                let res_builder = MessageBuilder::new().embed("Starting new thread...");
+                command.callback(&ctx, res_builder, true).await?;
+
+                channel.create_message(&ctx, &builder).await?;
+            } else {
+                command.callback(&ctx, builder, false).await?;
+            }
 
             GameState::Setup {
                 author,
@@ -200,11 +269,19 @@ async fn slash_bg(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> Bo
             );
 
             let builder = MessageBuilder::new().embed(content);
-            command.callback(&ctx, builder, false).await?;
+
+            if matches!(thread, Some(ThreadChannel::Thread)) {
+                let res_builder = MessageBuilder::new().embed("Starting new thread...");
+                command.callback(&ctx, res_builder, true).await?;
+
+                channel.create_message(&ctx, &builder).await?;
+            } else {
+                command.callback(&ctx, builder, false).await?;
+            }
 
             let game_fut = GameWrapper::new(
                 Arc::clone(&ctx),
-                command.channel_id,
+                channel,
                 mapsets,
                 Effects::empty(),
                 difficulty,
@@ -216,10 +293,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> Bo
         }
     };
 
-    ctx.bg_games()
-        .write()
-        .await
-        .insert(command.channel_id, state);
+    ctx.bg_games().write().await.insert(channel, state);
 
     Ok(())
 }

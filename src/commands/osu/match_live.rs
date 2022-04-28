@@ -2,18 +2,22 @@ use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, SlashCommand};
 use twilight_http::{api_error::ApiError, error::ErrorType};
-use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
+use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     application::interaction::ApplicationCommand,
     channel::{thread::AutoArchiveDuration, ChannelType},
 };
 
 use crate::{
+    commands::ThreadChannel,
     core::commands::CommandOrigin,
     matchlive::MatchTrackResult,
     util::{
         builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE},
+        constants::{
+            GENERAL_ISSUE, INVALID_ACTION_FOR_CHANNEL_TYPE, OSU_API_ISSUE, OSU_BASE,
+            THREADS_UNAVAILABLE,
+        },
         matcher, ApplicationCommandExt, ChannelExt,
     },
     BotResult, Context,
@@ -41,15 +45,7 @@ pub struct MatchliveAdd<'a> {
     /// Specify a match url or match id
     match_url: Cow<'a, str>,
     /// Choose if a new thread should be started
-    thread: MatchliveAddThread,
-}
-
-#[derive(CommandOption, CreateOption)]
-pub enum MatchliveAddThread {
-    #[option(name = "Stay in channel", value = "channel")]
-    Channel,
-    #[option(name = "Start new thread", value = "thread")]
-    Thread,
+    thread: ThreadChannel,
 }
 
 #[derive(CommandModel, CreateCommand)]
@@ -86,7 +82,7 @@ async fn prefix_matchlive(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) 
         Some(arg) => {
             let args = MatchliveAdd {
                 match_url: arg.into(),
-                thread: MatchliveAddThread::Channel,
+                thread: ThreadChannel::Channel,
             };
 
             matchlive(ctx, msg.into(), args).await
@@ -160,7 +156,7 @@ async fn matchlive(
 
     let mut channel = orig.channel_id();
 
-    if let MatchliveAddThread::Thread = thread {
+    if let ThreadChannel::Thread = thread {
         if orig.guild_id().is_none() {
             return orig.error(&ctx, THREADS_UNAVAILABLE).await;
         }
@@ -178,14 +174,27 @@ async fn matchlive(
 
         match create_fut.await {
             Ok(res) => channel = res.model().await?.id,
-            Err(err) => match handle_error(err.kind()) {
-                Some(content) => return orig.error(&ctx, content).await,
-                None => {
-                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            Err(err) => {
+                let content = match err.kind() {
+                    ErrorType::Response {
+                        error: ApiError::General(err),
+                        ..
+                    } => match err.code {
+                        INVALID_ACTION_FOR_CHANNEL_TYPE => Some(THREADS_UNAVAILABLE),
+                        _ => None,
+                    },
+                    _ => None,
+                };
 
-                    return Err(err.into());
+                match content {
+                    Some(content) => return orig.error(&ctx, content).await,
+                    None => {
+                        let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                        return Err(err.into());
+                    }
                 }
-            },
+            }
         }
     }
 
@@ -209,22 +218,6 @@ async fn matchlive(
     };
 
     orig.error(&ctx, content).await
-}
-
-const INVALID_ACTION_FOR_CHANNEL_TYPE: u64 = 50024;
-const THREADS_UNAVAILABLE: &str = "Cannot start new thread from here";
-
-fn handle_error(kind: &ErrorType) -> Option<&'static str> {
-    match kind {
-        ErrorType::Response {
-            error: ApiError::General(err),
-            ..
-        } => match err.code {
-            INVALID_ACTION_FOR_CHANNEL_TYPE => Some(THREADS_UNAVAILABLE),
-            _ => None,
-        },
-        _ => None,
-    }
 }
 
 async fn matchliveremove(

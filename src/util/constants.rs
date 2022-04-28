@@ -30,8 +30,10 @@ pub const OSU_DAILY_ISSUE: &str = "Some issue with the osudaily api, blame bade"
 pub const OSUSTATS_API_ISSUE: &str = "Some issue with the osustats api, blame bade";
 pub const OSUTRACKER_ISSUE: &str = "Some issue with the osutracker api, blame bade";
 pub const TWITCH_API_ISSUE: &str = "Some issue with the twitch api, blame bade";
+pub const THREADS_UNAVAILABLE: &str = "Cannot start new thread from here";
 
 // Discord error codes
+pub const INVALID_ACTION_FOR_CHANNEL_TYPE: u64 = 50024;
 pub const MESSAGE_TOO_OLD_TO_BULK_DELETE: u64 = 50034;
 pub const UNKNOWN_CHANNEL: u64 = 10003;
 

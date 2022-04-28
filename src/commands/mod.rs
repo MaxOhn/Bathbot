@@ -28,6 +28,14 @@ pub enum EnableDisable {
     Disable,
 }
 
+#[derive(CommandOption, CreateOption)]
+pub enum ThreadChannel {
+    #[option(name = "Stay in channel", value = "channel")]
+    Channel,
+    #[option(name = "Start new thread", value = "thread")]
+    Thread,
+}
+
 #[derive(Copy, Clone, CommandOption, CreateOption)]
 pub enum GameModeOption {
     #[option(name = "osu", value = "osu")]
