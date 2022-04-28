@@ -543,8 +543,8 @@ impl Database {
                        WHERE mode=$2) AS stats_mode ON names.user_id=stats_mode.user_id \
                     JOIN \
                     (SELECT user_id,\
-                              country_code \
-                              FROM osu_user_stats) AS stats ON names.user_id=stats.user_id",
+                        country_code \
+                        FROM osu_user_stats) AS stats ON names.user_id=stats.user_id",
                     discord_ids,
                     mode as i16,
                 );
@@ -575,6 +575,114 @@ impl Database {
                     .into_iter()
                     .map(|v| RankingEntry {
                         value: UserValue::Float(v.value),
+                        name: v.username,
+                        country: v.country_code,
+                    })
+                    .enumerate()
+                    .collect();
+
+                Ok(values)
+            }
+            UserStatsColumn::TotalSs { mode } => {
+                let query = sqlx::query!(
+                    "SELECT username,count_ssh,count_ss,country_code \
+                    FROM\
+                    (SELECT osu_id \
+                       FROM user_configs \
+                       WHERE discord_id=ANY($1) \
+                         AND osu_id IS NOT NULL) AS configs \
+                    JOIN osu_user_names AS names ON configs.osu_id = names.user_id \
+                    JOIN\
+                    (SELECT user_id,count_ssh,count_ss \
+                       FROM osu_user_stats_mode \
+                       WHERE mode=$2) AS stats_mode ON names.user_id=stats_mode.user_id \
+                    JOIN \
+                    (SELECT user_id,\
+                        country_code \
+                        FROM osu_user_stats) AS stats ON names.user_id=stats.user_id",
+                    discord_ids,
+                    mode as i16,
+                );
+
+                let mut stream = query.fetch(&self.pool);
+                let mut users = Vec::with_capacity(discord_ids.len());
+
+                while let Some(row) = stream.next().await.transpose()? {
+                    let value = UserValueRaw {
+                        username: row.username.into(),
+                        country_code: row.country_code.into(),
+                        value: (row.count_ssh + row.count_ss) as u32,
+                    };
+
+                    users.push(value);
+                }
+
+                users.sort_unstable_by(|v1, v2| {
+                    v2.value
+                        .cmp(&v1.value)
+                        .then_with(|| v1.username.cmp(&v2.username))
+                });
+
+                users.dedup_by(|a, b| a.username == b.username);
+
+                let values = users
+                    .into_iter()
+                    .map(|v| RankingEntry {
+                        value: UserValue::Amount(v.value as u64),
+                        name: v.username,
+                        country: v.country_code,
+                    })
+                    .enumerate()
+                    .collect();
+
+                Ok(values)
+            }
+            UserStatsColumn::TotalS { mode } => {
+                let query = sqlx::query!(
+                    "SELECT username,count_sh,count_s,country_code \
+                    FROM\
+                    (SELECT osu_id \
+                       FROM user_configs \
+                       WHERE discord_id=ANY($1) \
+                         AND osu_id IS NOT NULL) AS configs \
+                    JOIN osu_user_names AS names ON configs.osu_id = names.user_id \
+                    JOIN\
+                    (SELECT user_id,count_sh,count_s \
+                       FROM osu_user_stats_mode \
+                       WHERE mode=$2) AS stats_mode ON names.user_id=stats_mode.user_id \
+                    JOIN \
+                    (SELECT user_id,\
+                        country_code \
+                        FROM osu_user_stats) AS stats ON names.user_id=stats.user_id",
+                    discord_ids,
+                    mode as i16,
+                );
+
+                let mut stream = query.fetch(&self.pool);
+                let mut users = Vec::with_capacity(discord_ids.len());
+
+                while let Some(row) = stream.next().await.transpose()? {
+                    let value = UserValueRaw {
+                        username: row.username.into(),
+                        country_code: row.country_code.into(),
+                        value: (row.count_sh + row.count_s) as u32,
+                    };
+
+                    users.push(value);
+                }
+
+                users.sort_unstable_by(|v1, v2| {
+                    v2.value
+                        .cmp(&v1.value)
+                        .then_with(|| v1.username.cmp(&v2.username))
+                });
+
+                users.dedup_by(|a, b| a.username == b.username);
+
+                let values = users
+                    .into_iter()
+                    .map(|v| RankingEntry {
+                        value: UserValue::Amount(v.value as u64),
                         name: v.username,
                         country: v.country_code,
                     })

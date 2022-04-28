@@ -26,8 +26,10 @@ pub enum UserStatsColumn {
     AverageHits { mode: GameMode },
     CountSsh { mode: GameMode },
     CountSs { mode: GameMode },
+    TotalSs { mode: GameMode },
     CountSh { mode: GameMode },
     CountS { mode: GameMode },
+    TotalS { mode: GameMode },
     CountA { mode: GameMode },
     Level { mode: GameMode },
     MaxCombo { mode: GameMode },
@@ -65,8 +67,10 @@ impl UserStatsColumn {
             Self::AverageHits { .. } => "", // handled manually
             Self::CountSsh { .. } => "count_ssh",
             Self::CountSs { .. } => "count_ss",
+            Self::TotalSs { .. } => "", // handled manually
             Self::CountSh { .. } => "count_sh",
             Self::CountS { .. } => "count_s",
+            Self::TotalS { .. } => "", // handled manually
             Self::CountA { .. } => "count_a",
             Self::Level { .. } => "level",
             Self::MaxCombo { .. } => "max_combo",
@@ -85,39 +89,41 @@ impl UserStatsColumn {
 
     pub fn mode(self) -> Option<GameMode> {
         match self {
-            UserStatsColumn::Badges
-            | UserStatsColumn::Comments
-            | UserStatsColumn::Followers
-            | UserStatsColumn::ForumPosts
-            | UserStatsColumn::GraveyardMapsets
-            | UserStatsColumn::JoinDate
-            | UserStatsColumn::KudosuAvailable
-            | UserStatsColumn::KudosuTotal
-            | UserStatsColumn::LovedMapsets
-            | UserStatsColumn::MappingFollowers
-            | UserStatsColumn::Medals
-            | UserStatsColumn::PlayedMaps
-            | UserStatsColumn::RankedMapsets
-            | UserStatsColumn::Usernames => None,
-            UserStatsColumn::Accuracy { mode }
-            | UserStatsColumn::AverageHits { mode }
-            | UserStatsColumn::CountSsh { mode }
-            | UserStatsColumn::CountSs { mode }
-            | UserStatsColumn::CountSh { mode }
-            | UserStatsColumn::CountS { mode }
-            | UserStatsColumn::CountA { mode }
-            | UserStatsColumn::Level { mode }
-            | UserStatsColumn::MaxCombo { mode }
-            | UserStatsColumn::Playcount { mode }
-            | UserStatsColumn::Playtime { mode }
-            | UserStatsColumn::Pp { mode }
-            | UserStatsColumn::RankCountry { mode }
-            | UserStatsColumn::RankGlobal { mode }
-            | UserStatsColumn::Replays { mode }
-            | UserStatsColumn::ScoreRanked { mode }
-            | UserStatsColumn::ScoreTotal { mode }
-            | UserStatsColumn::ScoresFirst { mode }
-            | UserStatsColumn::TotalHits { mode } => Some(mode),
+            Self::Badges
+            | Self::Comments
+            | Self::Followers
+            | Self::ForumPosts
+            | Self::GraveyardMapsets
+            | Self::JoinDate
+            | Self::KudosuAvailable
+            | Self::KudosuTotal
+            | Self::LovedMapsets
+            | Self::MappingFollowers
+            | Self::Medals
+            | Self::PlayedMaps
+            | Self::RankedMapsets
+            | Self::Usernames => None,
+            Self::Accuracy { mode }
+            | Self::AverageHits { mode }
+            | Self::CountSsh { mode }
+            | Self::CountSs { mode }
+            | Self::TotalSs { mode }
+            | Self::CountSh { mode }
+            | Self::CountS { mode }
+            | Self::TotalS { mode }
+            | Self::CountA { mode }
+            | Self::Level { mode }
+            | Self::MaxCombo { mode }
+            | Self::Playcount { mode }
+            | Self::Playtime { mode }
+            | Self::Pp { mode }
+            | Self::RankCountry { mode }
+            | Self::RankGlobal { mode }
+            | Self::Replays { mode }
+            | Self::ScoreRanked { mode }
+            | Self::ScoreTotal { mode }
+            | Self::ScoresFirst { mode }
+            | Self::TotalHits { mode } => Some(mode),
         }
     }
 }

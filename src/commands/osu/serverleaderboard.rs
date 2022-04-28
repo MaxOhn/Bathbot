@@ -145,10 +145,14 @@ pub enum ServerLeaderboardModeKind {
     CountSsh,
     #[option(name = "Count SS", value = "count_ss")]
     CountSs,
+    #[option(name = "Total SS", value = "total_ss")]
+    TotalSs,
     #[option(name = "Count SH", value = "count_sh")]
     CountSh,
     #[option(name = "Count S", value = "count_s")]
     CountS,
+    #[option(name = "Total S", value = "total_s")]
+    TotalS,
     #[option(name = "Count A", value = "count_a")]
     CountA,
     #[option(name = "Country rank", value = "country_rank")]
@@ -184,8 +188,10 @@ impl ServerLeaderboardModeKind {
             Self::AvgHits => UserStatsColumn::AverageHits { mode },
             Self::CountSsh => UserStatsColumn::CountSsh { mode },
             Self::CountSs => UserStatsColumn::CountSs { mode },
+            Self::TotalSs => UserStatsColumn::TotalSs { mode },
             Self::CountSh => UserStatsColumn::CountSh { mode },
             Self::CountS => UserStatsColumn::CountS { mode },
+            Self::TotalS => UserStatsColumn::TotalS { mode },
             Self::CountA => UserStatsColumn::CountA { mode },
             Self::CountryRank => UserStatsColumn::RankCountry { mode },
             Self::GlobalFirsts => UserStatsColumn::ScoresFirst { mode },
