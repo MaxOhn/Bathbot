@@ -1,14 +1,17 @@
-use std::{borrow::Cow, collections::BTreeMap, fmt, mem, sync::Arc};
+use std::{collections::BTreeMap, fmt, mem, sync::Arc};
 
 use chrono::{DateTime, Utc};
 use command_macros::command;
+use eyre::Report;
 use lazy_static::__Deref;
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{GameMode, OsuResult, Rankings};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    commands::GameModeOption,
+    commands::{osu::UserArgs, GameModeOption},
     core::commands::CommandOrigin,
+    database::OsuData,
     embeds::{EmbedData, RankingEmbed, RankingEntry, RankingKindData},
     pagination::{Pagination, RankingPagination},
     util::{
@@ -37,11 +40,12 @@ pub(super) async fn pp(
     args: RankingPp<'_>,
 ) -> BotResult<()> {
     let RankingPp { country, mode } = args;
+    let author_id = orig.user_id()?;
 
-    let mode = match mode {
-        Some(mode) => mode.into(),
-        None => match ctx.user_config(orig.user_id()?).await {
-            Ok(config) => config.mode.unwrap_or(GameMode::STD),
+    let (mode, osu_data) = match mode {
+        Some(mode) => (mode.into(), None),
+        None => match ctx.user_config(author_id).await {
+            Ok(config) => (config.mode.unwrap_or(GameMode::STD), config.osu),
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
@@ -50,11 +54,11 @@ pub(super) async fn pp(
         },
     };
 
-    let result = match country.as_deref() {
+    let country = match country.as_deref() {
         Some(country) => {
-            let country = if country.len() != 2 {
+            if country.len() != 2 {
                 match CountryCode::from_name(country) {
-                    Some(code) => code,
+                    Some(code) => Some(code),
                     None => {
                         let content = format!(
                             "Looks like `{country}` is neither a country name nor a country code"
@@ -64,22 +68,71 @@ pub(super) async fn pp(
                     }
                 }
             } else {
-                country.into()
-            };
-
-            ctx.redis()
-                .pp_ranking(mode, 1, Some(country.as_str()))
-                .await
+                Some(country.to_uppercase().into())
+            }
         }
-        None => ctx.redis().pp_ranking(mode, 1, None).await,
+        None => None,
     };
 
-    // TODO: avoid having to do this
-    let result = result.map(|bytes| bytes.get().deserialize(&mut Infallible).unwrap());
+    let ranking_fut = async {
+        let ranking_result = match country.as_deref() {
+            Some(country) => ctx.redis().pp_ranking(mode, 1, Some(country)).await,
+            None => ctx.redis().pp_ranking(mode, 1, None).await,
+        };
 
+        ranking_result.map(|bytes| bytes.get().deserialize(&mut Infallible).unwrap())
+    };
+
+    let author_idx_fut = pp_author_idx(&ctx, author_id, osu_data, mode, country.as_ref());
+
+    let (ranking_result, author_idx) = tokio::join!(ranking_fut, author_idx_fut);
     let kind = RankingKind::Performance;
 
-    ranking(ctx, orig, mode, country, kind, result).await
+    ranking(ctx, orig, mode, country, kind, author_idx, ranking_result).await
+}
+
+async fn pp_author_idx(
+    ctx: &Context,
+    author_id: Id<UserMarker>,
+    osu: Option<OsuData>,
+    mode: GameMode,
+    country: Option<&CountryCode>,
+) -> Option<usize> {
+    let osu = match osu {
+        Some(osu) => osu,
+        None => match ctx.psql().get_user_osu(author_id).await {
+            Ok(osu) => osu?,
+            Err(err) => {
+                let report = Report::new(err).wrap_err("failed to get osu user");
+                warn!("{report:?}");
+
+                return None;
+            }
+        },
+    };
+
+    let user_args = UserArgs::new(osu.username().as_str(), mode);
+
+    match ctx.redis().osu_user(&user_args).await {
+        Ok(user) => {
+            let idx = match country {
+                Some(code) => user
+                    .statistics
+                    .filter(|_| user.country_code.as_str() == code.as_str())
+                    .and_then(|stats| stats.country_rank),
+                None => user.statistics.and_then(|stats| stats.global_rank),
+            };
+
+            idx.filter(|n| (1..=10_000).contains(n))
+                .map(|n| n as usize - 1)
+        }
+        Err(err) => {
+            let report = Report::new(err).wrap_err("failed to get osu user");
+            warn!("{report:?}");
+
+            None
+        }
+    }
 }
 
 pub(super) async fn score(
@@ -87,9 +140,11 @@ pub(super) async fn score(
     orig: CommandOrigin<'_>,
     args: RankingScore,
 ) -> BotResult<()> {
+    let author_id = orig.user_id()?;
+
     let mode = match args.mode {
         Some(mode) => mode.into(),
-        None => match ctx.user_config(orig.user_id()?).await {
+        None => match ctx.user_config(author_id).await {
             Ok(config) => config.mode.unwrap_or(GameMode::STD),
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -99,17 +154,53 @@ pub(super) async fn score(
         },
     };
 
-    let result = ctx.osu().score_rankings(mode).await;
+    let ranking_fut = ctx.osu().score_rankings(mode);
 
-    ranking(ctx, orig, mode, None, RankingKind::Score, result).await
+    let author_idx_fut = async {
+        match ctx.psql().get_user_osu(author_id).await {
+            Ok(Some(OsuData::User { user_id, .. })) => {
+                match ctx.client().get_respektive_user(user_id, mode).await {
+                    Ok(Some(user)) => Some(user.rank as usize - 1),
+                    Ok(None) => None,
+                    Err(err) => {
+                        let report = Report::new(err).wrap_err("failed to get respektive user");
+                        warn!("{report:?}");
+
+                        None
+                    }
+                }
+            }
+            Ok(_) => None,
+            Err(err) => {
+                let report = Report::new(err).wrap_err("failed to get user id");
+                warn!("{report:?}");
+
+                None
+            }
+        }
+    };
+
+    let (ranking_result, author_idx) = tokio::join!(ranking_fut, author_idx_fut);
+
+    ranking(
+        ctx,
+        orig,
+        mode,
+        None,
+        RankingKind::Score,
+        author_idx,
+        ranking_result,
+    )
+    .await
 }
 
 async fn ranking(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     mode: GameMode,
-    country_code: Option<Cow<'_, str>>,
+    country: Option<CountryCode>,
     kind: RankingKind,
+    author_idx: Option<usize>,
     result: OsuResult<Rankings>,
 ) -> BotResult<()> {
     let mut ranking = match result {
@@ -119,24 +210,6 @@ async fn ranking(
 
             return Err(err.into());
         }
-    };
-
-    let country = match country_code {
-        Some(country) => match CountryCode::from_name(&country) {
-            Some(code) => Some(code),
-            None => {
-                if country.len() == 2 {
-                    Some(country.into())
-                } else {
-                    let content = format!(
-                        "Looks like `{country}` is neither a country name nor a country code"
-                    );
-
-                    return orig.error(&ctx, content).await;
-                }
-            }
-        },
-        None => None,
     };
 
     let country = country.map(|code| {
@@ -184,7 +257,7 @@ async fn ranking(
         RankingKindData::RankedScore { mode }
     };
 
-    let embed_data = RankingEmbed::new(&users, &ranking_kind_data, None, (1, pages));
+    let embed_data = RankingEmbed::new(&users, &ranking_kind_data, author_idx, (1, pages));
 
     // Creating the embed
     let builder = embed_data.build().into();
@@ -196,7 +269,7 @@ async fn ranking(
         Arc::clone(&ctx),
         total,
         users,
-        None,
+        author_idx,
         ranking_kind_data,
     );
 

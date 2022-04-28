@@ -3,6 +3,7 @@ use super::{Pages, Pagination, ReactionVec};
 use crate::{
     commands::osu::UserValue,
     embeds::{RankingEmbed, RankingEntry, RankingKindData},
+    util::Emote,
     BotResult, Context,
 };
 
@@ -114,7 +115,19 @@ impl Pagination for RankingPagination {
     type PageData = RankingEmbed;
 
     fn reactions() -> ReactionVec {
-        Self::arrow_reactions_full()
+        smallvec::smallvec![
+            Emote::JumpStart,
+            Emote::MultiStepBack,
+            Emote::SingleStepBack,
+            Emote::MyPosition,
+            Emote::SingleStep,
+            Emote::MultiStep,
+            Emote::JumpEnd,
+        ]
+    }
+
+    fn jump_index(&self) -> Option<usize> {
+        self.author_idx
     }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
