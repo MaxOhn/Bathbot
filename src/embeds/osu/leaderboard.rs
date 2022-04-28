@@ -159,6 +159,7 @@ async fn get_pp(
     let pp = map
         .pp()
         .attributes(attrs)
+        .mods(score.mods.bits())
         .state(score.into())
         .calculate()
         .pp() as f32;
