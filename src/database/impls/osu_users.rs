@@ -556,7 +556,7 @@ impl Database {
                     let value = UserValueRaw {
                         username: row.username.into(),
                         country_code: row.country_code.into(),
-                        value: row.total_hits as f32 / row.playcount as f32,
+                        value: (row.total_hits as f32 / row.playcount as f32).max(0.0),
                     };
 
                     users.push(value);
