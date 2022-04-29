@@ -1,11 +1,13 @@
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
-use hashbrown::{HashMap, HashSet};
+use eyre::Report;
+use hashbrown::HashSet;
 use twilight_model::{channel::Message, id::Id};
 
 use crate::{
-    embeds::{BGRankingEmbed, EmbedData},
-    pagination::{BGRankingPagination, Pagination},
+    commands::osu::UserValue,
+    embeds::{EmbedData, RankingEmbed, RankingEntry, RankingKindData},
+    pagination::{Pagination, RankingPagination},
     util::{constants::GENERAL_ISSUE, numbers, ChannelExt},
     BotResult, Context,
 };
@@ -33,52 +35,62 @@ pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, global: bool) -> BotR
     let author_idx = scores.iter().position(|(user, _)| *user == author);
 
     // Gather usernames for initial page
-    let mut usernames = HashMap::with_capacity(15);
+    let mut users = BTreeMap::new();
 
-    for &id in scores.iter().take(15).map(|(id, _)| id) {
-        let user_id = Id::new(id);
+    for (i, (id, score)) in scores.iter().enumerate().take(20) {
+        let id = Id::new(*id);
 
-        let name = ctx
-            .cache
-            .user(user_id, |user| user.name.clone())
-            .unwrap_or_else(|_| "Unknown user".to_owned());
+        let name = match ctx.psql().get_user_osu(id).await {
+            Ok(Some(osu)) => osu.into_username(),
+            Ok(None) => ctx
+                .cache
+                .user(id, |user| user.name.clone())
+                .unwrap_or_else(|_| "Unknown user".to_owned())
+                .into(),
+            Err(err) => {
+                let report = Report::new(err).wrap_err("failed to get osu user");
+                warn!("{report:?}");
 
-        usernames.insert(id, name);
+                ctx.cache
+                    .user(id, |user| user.name.clone())
+                    .unwrap_or_else(|_| "Unknown user".to_owned())
+                    .into()
+            }
+        };
+
+        let entry = RankingEntry {
+            value: UserValue::Amount(*score as u64),
+            name,
+            country: None,
+        };
+
+        users.insert(i, entry);
     }
 
-    let initial_scores = scores
-        .iter()
-        .take(15)
-        .map(|(id, score)| (&usernames[id], *score))
-        .collect();
-
     // Prepare initial page
-    let pages = numbers::div_euclid(15, scores.len());
+    let total = scores.len();
+    let pages = numbers::div_euclid(20, total);
     let global = guild.is_none() || global;
-    let embed_data = BGRankingEmbed::new(author_idx, initial_scores, 1, global, (1, pages));
+    let data = RankingKindData::BgScores { global, scores };
 
     // Creating the embed
+    let embed_data = RankingEmbed::new(&users, &data, author_idx, (1, pages));
     let builder = embed_data.build().into();
     let response_raw = msg.create_message(&ctx, &builder).await?;
 
     // Skip pagination if too few entries
-    if scores.len() <= 15 {
+    if total <= 20 {
         return Ok(());
     }
 
     let response = response_raw.model().await?;
+    let owner = msg.author.id;
 
     // Pagination
-    let pagination = BGRankingPagination::new(
-        Arc::clone(&ctx),
-        response,
-        author_idx,
-        scores,
-        usernames,
-        global,
-    );
+    let pagination =
+        RankingPagination::new(response, Arc::clone(&ctx), total, users, author_idx, data);
 
-    pagination.start(ctx, msg.author.id, 60);
+    pagination.start(ctx, owner, 60);
 
     Ok(())
 }

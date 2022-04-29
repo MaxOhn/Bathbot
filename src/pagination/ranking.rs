@@ -1,4 +1,12 @@
-use super::{Pages, Pagination, ReactionVec};
+use std::{
+    collections::{btree_map::Entry, BTreeMap},
+    sync::Arc,
+};
+
+use command_macros::BasePagination;
+use eyre::Report;
+use rosu_v2::prelude::Rankings;
+use twilight_model::{channel::Message, id::Id};
 
 use crate::{
     commands::osu::UserValue,
@@ -7,9 +15,7 @@ use crate::{
     BotResult, Context,
 };
 
-use command_macros::BasePagination;
-use std::{collections::BTreeMap, sync::Arc};
-use twilight_model::channel::Message;
+use super::{Pages, Pagination, ReactionVec};
 
 type Users = BTreeMap<usize, RankingEntry>;
 
@@ -45,6 +51,30 @@ impl RankingPagination {
         }
     }
 
+    fn extend_from_ranking(&mut self, ranking: Rankings, offset: usize) {
+        let iter = ranking.ranking.into_iter().enumerate().map(|(i, user)| {
+            let stats = user.statistics.as_ref().unwrap();
+
+            let value = match self.ranking_kind_data {
+                RankingKindData::PpCountry { .. } | RankingKindData::PpGlobal { .. } => {
+                    UserValue::PpU32(stats.pp.round() as u32)
+                }
+                RankingKindData::RankedScore { .. } => UserValue::Amount(stats.ranked_score),
+                _ => unreachable!(),
+            };
+
+            let entry = RankingEntry {
+                value,
+                name: user.username,
+                country: Some(user.country_code.into()),
+            };
+
+            (offset * 50 + i, entry)
+        });
+
+        self.users.extend(iter);
+    }
+
     async fn assure_present_users(&mut self, page: usize) -> BotResult<()> {
         let count = self
             .users
@@ -54,56 +84,77 @@ impl RankingPagination {
         if count < self.pages.per_page && count < self.total - self.pages.index {
             let offset = page - 1;
             let page = page as u32;
+            let kind = &self.ranking_kind_data;
 
-            let ranking = match &self.ranking_kind_data {
+            match kind {
+                RankingKindData::BgScores { scores, .. } => {
+                    for i in
+                        self.pages.index..(self.pages.index + self.pages.per_page).min(self.total)
+                    {
+                        if let Entry::Vacant(entry) = self.users.entry(i) {
+                            let (id, score) = scores[i];
+                            let id = Id::new(id);
+
+                            let name = match self.ctx.psql().get_user_osu(id).await {
+                                Ok(Some(osu)) => osu.into_username(),
+                                Ok(None) => self
+                                    .ctx
+                                    .cache
+                                    .user(id, |user| user.name.clone())
+                                    .unwrap_or_else(|_| "Unknown user".to_owned())
+                                    .into(),
+                                Err(err) => {
+                                    let report =
+                                        Report::new(err).wrap_err("failed to get osu user");
+                                    warn!("{report:?}");
+
+                                    self.ctx
+                                        .cache
+                                        .user(id, |user| user.name.clone())
+                                        .unwrap_or_else(|_| "Unknown user".to_owned())
+                                        .into()
+                                }
+                            };
+
+                            entry.insert(RankingEntry {
+                                value: UserValue::Amount(score as u64),
+                                name,
+                                country: None,
+                            });
+                        }
+                    }
+                }
                 RankingKindData::PpCountry {
                     mode,
                     country_code: country,
                     ..
                 } => {
-                    self.ctx
+                    let ranking = self
+                        .ctx
                         .osu()
                         .performance_rankings(*mode)
                         .country(country.as_str())
                         .page(page)
-                        .await?
+                        .await?;
+
+                    self.extend_from_ranking(ranking, offset);
                 }
                 RankingKindData::PpGlobal { mode } => {
-                    self.ctx
+                    let ranking = self
+                        .ctx
                         .osu()
                         .performance_rankings(*mode)
                         .page(page)
-                        .await?
+                        .await?;
+
+                    self.extend_from_ranking(ranking, offset);
                 }
                 RankingKindData::RankedScore { mode } => {
-                    self.ctx.osu().score_rankings(*mode).page(page).await?
+                    let ranking = self.ctx.osu().score_rankings(*mode).page(page).await?;
+                    self.extend_from_ranking(ranking, offset);
                 }
-                _ => return Ok(()), // osekai data does not come paginated
-            };
-
-            let kind = &self.ranking_kind_data;
-
-            let iter = ranking.ranking.into_iter().enumerate().map(|(i, user)| {
-                let stats = user.statistics.as_ref().unwrap();
-
-                let value = match kind {
-                    RankingKindData::PpCountry { .. } | RankingKindData::PpGlobal { .. } => {
-                        UserValue::PpU32(stats.pp.round() as u32)
-                    }
-                    RankingKindData::RankedScore { .. } => UserValue::Amount(stats.ranked_score),
-                    _ => unreachable!(),
-                };
-
-                let entry = RankingEntry {
-                    value,
-                    name: user.username,
-                    country: Some(user.country_code.into()),
-                };
-
-                (offset * 50 + i, entry)
-            });
-
-            self.users.extend(iter);
+                _ => {} // other data does not come paginated
+            }
         }
 
         Ok(())

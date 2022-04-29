@@ -40,6 +40,10 @@ impl EmbedHeader {
 }
 
 pub enum RankingKindData {
+    BgScores {
+        global: bool,
+        scores: Vec<(u64, u32)>,
+    },
     OsekaiRarity,
     OsekaiMedalCount,
     OsekaiReplays,
@@ -69,6 +73,15 @@ pub enum RankingKindData {
 impl RankingKindData {
     fn embed_header(&self) -> EmbedHeader {
         match self {
+            Self::BgScores { global, .. } => {
+                let text = if *global {
+                    "Global leaderboard for correct guesses"
+                } else {
+                    "Server leaderboard for correct guesses"
+                };
+
+                EmbedHeader::Author(AuthorBuilder::new(text))
+            }
             Self::OsekaiRarity => {
                 let text = "Medal Ranking based on rarity";
                 let url = "https://osekai.net/rankings/?ranking=Medals&type=Rarity";
@@ -365,7 +378,7 @@ impl Lengths {
             }
 
             idx_len = idx_len.max(len);
-            name_len = name_len.max(entry.name.len());
+            name_len = name_len.max(entry.name.chars().count());
 
             buf.clear();
             let _ = write!(buf, "{}", entry.value);

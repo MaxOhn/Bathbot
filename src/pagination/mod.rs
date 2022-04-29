@@ -1,5 +1,4 @@
 mod badges;
-mod bg_rankings;
 mod command_count;
 mod common;
 mod country_snipe_list;
@@ -54,8 +53,7 @@ use crate::{
 };
 
 pub use self::{
-    badges::BadgePagination, bg_rankings::BGRankingPagination,
-    command_count::CommandCountPagination, common::CommonPagination,
+    badges::BadgePagination, command_count::CommandCountPagination, common::CommonPagination,
     country_snipe_list::CountrySnipeListPagination, leaderboard::LeaderboardPagination,
     map::MapPagination, map_search::MapSearchPagination, match_compare::MatchComparePagination,
     medal_recent::MedalRecentPagination, medals_common::MedalsCommonPagination,
