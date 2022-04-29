@@ -3,7 +3,7 @@ use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 use command_macros::EmbedData;
 use hashbrown::{hash_map::Entry, HashMap};
 use rosu_pp::{Beatmap as Map, BeatmapExt, DifficultyAttributes};
-use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, GameMode};
+use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode};
 
 use crate::{
     core::Context,
@@ -33,7 +33,6 @@ impl LeaderboardEmbed {
     pub async fn new<'i, S>(
         author_name: Option<&str>,
         map: &Beatmap,
-        mapset: Option<&BeatmapsetCompact>,
         scores: Option<S>,
         author_icon: &Option<String>,
         idx: usize,
@@ -43,14 +42,13 @@ impl LeaderboardEmbed {
     where
         S: Iterator<Item = &'i ScraperScore>,
     {
-        let (artist, title, creator_name, creator_id) = match map.mapset {
-            Some(ref ms) => (&ms.artist, &ms.title, &ms.creator_name, ms.creator_id),
-            None => {
-                let ms = mapset.expect("mapset neither in map nor in option");
-
-                (&ms.artist, &ms.title, &ms.creator_name, ms.creator_id)
-            }
-        };
+        let Beatmapset {
+            artist,
+            title,
+            creator_name,
+            creator_id,
+            ..
+        } = map.mapset.as_ref().unwrap();
 
         let mut author_text = String::with_capacity(32);
 
@@ -98,7 +96,7 @@ impl LeaderboardEmbed {
                     - {pp} • {acc:.2}% • {miss}{ago}",
                     grade = score.grade_emote(map.mode),
                     score = with_comma_int(score.score),
-                    combo = ComboFormatter(score, map),
+                    combo = ComboFormatter::new(score, map),
                     mods = score.mods,
                     pp = get_pp(&mut mod_map, score, &rosu_map).await,
                     acc = score.accuracy,
@@ -175,19 +173,28 @@ impl Display for PPFormatter {
     }
 }
 
-struct ComboFormatter<'a>(&'a ScraperScore, &'a Beatmap);
+struct ComboFormatter<'a> {
+    score: &'a ScraperScore,
+    map: &'a Beatmap,
+}
+
+impl<'a> ComboFormatter<'a> {
+    fn new(score: &'a ScraperScore, map: &'a Beatmap) -> Self {
+        Self { score, map }
+    }
+}
 
 impl<'a> Display for ComboFormatter<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "**{}x**", self.0.max_combo)?;
+        write!(f, "**{}x**", self.score.max_combo)?;
 
-        if let Some(combo) = self.1.max_combo {
+        if let Some(combo) = self.map.max_combo {
             write!(f, "/{combo}x")
         } else {
-            let mut ratio = self.0.count_geki as f32;
+            let mut ratio = self.score.count_geki as f32;
 
-            if self.0.count300 > 0 {
-                ratio /= self.0.count300 as f32
+            if self.score.count300 > 0 {
+                ratio /= self.score.count300 as f32
             }
 
             write!(f, " / {ratio:.2}")

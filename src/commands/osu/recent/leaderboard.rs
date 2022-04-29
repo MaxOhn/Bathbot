@@ -12,6 +12,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, LeaderboardEmbed},
     pagination::{LeaderboardPagination, Pagination},
+    pp::PpCalculator,
     util::{
         builder::MessageBuilder,
         constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE},
@@ -279,12 +280,11 @@ pub(super) async fn leaderboard(
         .mode(mode)
         .limit(limit);
 
-    let (map, mapset, user) = match scores_fut.await {
+    let (map_id, user) = match scores_fut.await {
         Ok(scores) if scores.len() < limit => {
             let content = format!(
-                "There are only {} many scores in `{}`'{} recent history.",
+                "There are only {} many scores in `{name}`'{} recent history.",
                 scores.len(),
-                name,
                 if name.ends_with('s') { "" } else { "s" }
             );
 
@@ -292,22 +292,19 @@ pub(super) async fn leaderboard(
         }
         Ok(mut scores) => match scores.pop() {
             Some(score) => {
-                let Score {
-                    map, mapset, user, ..
-                } = score;
+                let Score { map, user, .. } = score;
 
-                (map.unwrap(), mapset.unwrap(), user.unwrap())
+                (map.unwrap().map_id, user.unwrap())
             }
             None => {
                 let content = format!(
-                    "No recent {}plays found for user `{}`",
+                    "No recent {}plays found for user `{name}`",
                     match mode {
                         GameMode::STD => "",
                         GameMode::TKO => "taiko ",
                         GameMode::CTB => "ctb ",
                         GameMode::MNA => "mania ",
                     },
-                    name
                 );
 
                 return orig.error(&ctx, content).await;
@@ -325,18 +322,56 @@ pub(super) async fn leaderboard(
         }
     };
 
-    // Retrieve the map's leaderboard
-    let scores_fut = ctx.client().get_leaderboard(
-        map.map_id,
-        national,
-        match mods {
-            Some(ModSelection::Exclude(_)) | None => None,
-            Some(ModSelection::Include(m)) | Some(ModSelection::Exact(m)) => Some(m),
-        },
-        mode,
-    );
+    let mods = match mods {
+        Some(ModSelection::Exclude(_)) | None => None,
+        Some(ModSelection::Include(m)) | Some(ModSelection::Exact(m)) => Some(m),
+    };
 
-    let scores = match scores_fut.await {
+    // Retrieve the map's leaderboard
+    let scores_fut = ctx.client().get_leaderboard(map_id, national, mods, mode);
+
+    let map_fut = ctx.psql().get_beatmap(map_id, true);
+
+    let (scores_result, map_result) = tokio::join!(scores_fut, map_fut);
+
+    // Retrieving the beatmap
+    let map = match map_result {
+        Ok(map) => map,
+        Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
+            Ok(mut map) => {
+                // Add map to database if its not in already
+                if let Err(err) = ctx.psql().insert_beatmap(&map).await {
+                    warn!("{:?}", Report::new(err));
+                }
+
+                if let Some(m) = mods {
+                    match PpCalculator::new(&ctx, map_id).await {
+                        Ok(mut calc) => {
+                            map.stars = calc.mods(m).stars() as f32;
+                        }
+                        Err(err) => warn!("{:?}", Report::new(err)),
+                    }
+                }
+
+                map
+            }
+            Err(OsuError::NotFound) => {
+                let content = format!(
+                    "Could not find beatmap with id `{map_id}`. \
+                    Did you give me a mapset id instead of a map id?",
+                );
+
+                return orig.error(&ctx, content).await;
+            }
+            Err(err) => {
+                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+
+                return Err(err.into());
+            }
+        },
+    };
+
+    let scores = match scores_result {
         Ok(scores) => scores,
         Err(err) => {
             let _ = orig.error(&ctx, OSU_WEB_ISSUE).await;
@@ -350,14 +385,13 @@ pub(super) async fn leaderboard(
     // Accumulate all necessary data
     let first_place_icon = scores
         .first()
-        .map(|_| format!("{}{}", AVATAR_URL, user.user_id));
+        .map(|_| format!("{AVATAR_URL}{}", user.user_id));
 
     let pages = numbers::div_euclid(10, scores.len());
 
     let data_fut = LeaderboardEmbed::new(
         author_name.as_deref(),
         &map,
-        Some(&mapset),
         (!scores.is_empty()).then(|| scores.iter().take(10)),
         &first_place_icon,
         0,
@@ -396,7 +430,6 @@ pub(super) async fn leaderboard(
     let pagination = LeaderboardPagination::new(
         response,
         map,
-        Some(mapset),
         scores,
         author_name,
         first_place_icon,

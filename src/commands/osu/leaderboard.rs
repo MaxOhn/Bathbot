@@ -306,7 +306,6 @@ async fn leaderboard(
     let data_fut = LeaderboardEmbed::new(
         author_name.as_deref(),
         &map,
-        None,
         if scores.is_empty() {
             None
         } else {
@@ -349,7 +348,6 @@ async fn leaderboard(
     let pagination = LeaderboardPagination::new(
         response,
         map,
-        None,
         scores,
         author_name,
         first_place_icon,
