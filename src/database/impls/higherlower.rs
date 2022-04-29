@@ -1,6 +1,25 @@
+use tokio_stream::StreamExt;
+
 use crate::{games::hl::HlVersion, BotResult, Database};
 
 impl Database {
+    pub async fn get_higherlower_scores(&self, version: HlVersion) -> BotResult<Vec<(u64, u32)>> {
+        let query = sqlx::query!(
+            "SELECT discord_id,highscore \
+            FROM higherlower_scores \
+            WHERE version=$1",
+            version as i16
+        );
+
+        let scores = query
+            .fetch(&self.pool)
+            .map(|res| res.map(|entry| (entry.discord_id as u64, entry.highscore as u32)))
+            .collect::<Result<_, _>>()
+            .await?;
+
+        Ok(scores)
+    }
+
     pub async fn get_higherlower_highscore(
         &self,
         user_id: u64,

@@ -13,6 +13,7 @@ use crate::{
     commands::osu::UserValue,
     database::UserStatsColumn,
     embeds::EmbedData,
+    games::hl::HlVersion,
     util::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
         CountryCode,
@@ -43,6 +44,10 @@ pub enum RankingKindData {
     BgScores {
         global: bool,
         scores: Vec<(u64, u32)>,
+    },
+    HlScores {
+        scores: Vec<(u64, u32)>,
+        version: HlVersion,
     },
     OsekaiRarity,
     OsekaiMedalCount,
@@ -78,6 +83,14 @@ impl RankingKindData {
                     "Global leaderboard for correct guesses"
                 } else {
                     "Server leaderboard for correct guesses"
+                };
+
+                EmbedHeader::Author(AuthorBuilder::new(text))
+            }
+            Self::HlScores { version, .. } => {
+                let text = match version {
+                    HlVersion::ScorePp => "Server leaderboard for Higherlower (Score PP)",
+                    HlVersion::FarmMaps => "Server leaderboard for Higherlower (Farm)",
                 };
 
                 EmbedHeader::Author(AuthorBuilder::new(text))

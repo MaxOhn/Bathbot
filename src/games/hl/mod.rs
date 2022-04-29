@@ -1,5 +1,6 @@
 use std::fmt;
 
+use twilight_interactions::command::{CommandOption, CreateOption};
 use twilight_model::{
     application::component::{button::ButtonStyle, ActionRow, Button, Component},
     channel::ReactionType,
@@ -20,9 +21,11 @@ pub mod retry;
 const W: u32 = 900;
 const H: u32 = 250;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, CommandOption, CreateOption)]
 pub enum HlVersion {
+    #[option(name = "Score PP", value = "score_pp")]
     ScorePp = 0,
+    #[option(name = "Farm", value = "farm")]
     FarmMaps = 1,
 }
 

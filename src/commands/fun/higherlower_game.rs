@@ -1,16 +1,20 @@
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
 use command_macros::SlashCommand;
+use eyre::Report;
+use hashbrown::HashSet;
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::application::interaction::ApplicationCommand;
+use twilight_model::{application::interaction::ApplicationCommand, id::Id};
 
 use crate::{
-    commands::GameModeOption,
-    games::hl::{GameState, HlComponents},
+    commands::{osu::UserValue, GameModeOption},
+    embeds::{EmbedData, RankingEmbed, RankingEntry, RankingKindData},
+    games::hl::{GameState, HlComponents, HlVersion},
+    pagination::{Pagination, RankingPagination},
     util::{
-        builder::MessageBuilder, constants::GENERAL_ISSUE, ApplicationCommandExt, Authored,
-        MessageExt,
+        builder::MessageBuilder, constants::GENERAL_ISSUE, numbers, ApplicationCommandExt,
+        Authored, MessageExt,
     },
     BotResult, Context,
 };
@@ -23,6 +27,8 @@ pub enum HigherLower {
     ScorePp(HigherLowerScorePp),
     #[command(name = "farm")]
     FarmMaps(HigherLowerFarmMaps),
+    #[command(name = "leaderboard")]
+    Leaderboard(HigherLowerLeaderboard),
 }
 
 #[derive(CommandModel, CreateCommand)]
@@ -50,10 +56,24 @@ pub struct HigherLowerScorePp {
 /// Is the amount of times the map appears in top scores higher or lower?
 pub struct HigherLowerFarmMaps;
 
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "leaderboard")]
+/// Get the server leaderboard for higherlower highscores
+pub struct HigherLowerLeaderboard {
+    /// Specify the version to get the highscores of
+    version: HlVersion,
+}
+
 async fn slash_higherlower(
     ctx: Arc<Context>,
     mut command: Box<ApplicationCommand>,
 ) -> BotResult<()> {
+    let args = HigherLower::from_interaction(command.input_data())?;
+
+    if let HigherLower::Leaderboard(ref args) = args {
+        return higherlower_leaderboard(ctx, command, args.version).await;
+    }
+
     let user = command.user_id()?;
 
     if let Some(game) = ctx.hl_games().lock().await.remove(&user) {
@@ -61,8 +81,6 @@ async fn slash_higherlower(
         let builder = MessageBuilder::new().components(components);
         (game.msg, game.channel).update(&ctx, &builder).await?;
     }
-
-    let args = HigherLower::from_interaction(command.input_data())?;
 
     let game_res = match args {
         HigherLower::ScorePp(args) => {
@@ -74,6 +92,7 @@ async fn slash_higherlower(
             GameState::score_pp(&ctx, &*command, mode).await
         }
         HigherLower::FarmMaps(_) => GameState::farm_maps(&ctx, &*command).await,
+        HigherLower::Leaderboard(_) => unreachable!(),
     };
 
     let mut game = match game_res {
@@ -93,6 +112,97 @@ async fn slash_higherlower(
 
     game.msg = response.id;
     ctx.hl_games().lock().await.insert(user, game);
+
+    Ok(())
+}
+
+async fn higherlower_leaderboard(
+    ctx: Arc<Context>,
+    command: Box<ApplicationCommand>,
+    version: HlVersion,
+) -> BotResult<()> {
+    let guild = match command.guild_id {
+        Some(guild) => guild,
+        None => {
+            let content = "That command is only available in servers";
+            command.error(&ctx, content).await?;
+
+            return Ok(());
+        }
+    };
+
+    let mut scores = match ctx.psql().get_higherlower_scores(version).await {
+        Ok(scores) => scores,
+        Err(err) => {
+            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err);
+        }
+    };
+
+    let members: HashSet<_> = ctx.cache.members(guild, |id| id.get());
+    scores.retain(|(id, _)| members.contains(id));
+
+    let author = command.user_id()?;
+
+    scores.sort_unstable_by(|(_, a), (_, b)| b.cmp(a));
+    let author_idx = scores.iter().position(|(user, _)| *user == author);
+
+    // Gather usernames for initial page
+    let mut users = BTreeMap::new();
+
+    for (i, (id, score)) in scores.iter().enumerate().take(20) {
+        let id = Id::new(*id);
+
+        let name = match ctx.psql().get_user_osu(id).await {
+            Ok(Some(osu)) => osu.into_username(),
+            Ok(None) => ctx
+                .cache
+                .user(id, |user| user.name.clone())
+                .unwrap_or_else(|_| "Unknown user".to_owned())
+                .into(),
+            Err(err) => {
+                let report = Report::new(err).wrap_err("failed to get osu user");
+                warn!("{report:?}");
+
+                ctx.cache
+                    .user(id, |user| user.name.clone())
+                    .unwrap_or_else(|_| "Unknown user".to_owned())
+                    .into()
+            }
+        };
+
+        let entry = RankingEntry {
+            value: UserValue::Amount(*score as u64),
+            name,
+            country: None,
+        };
+
+        users.insert(i, entry);
+    }
+
+    // Prepare initial page
+    let total = scores.len();
+    let pages = numbers::div_euclid(20, total);
+    let data = RankingKindData::HlScores { scores, version };
+
+    // Creating the embed
+    let embed_data = RankingEmbed::new(&users, &data, author_idx, (1, pages));
+    let builder = embed_data.build().into();
+    let response_raw = command.update(&ctx, &builder).await?;
+
+    // Skip pagination if too few entries
+    if total <= 20 {
+        return Ok(());
+    }
+
+    let response = response_raw.model().await?;
+
+    // Pagination
+    let pagination =
+        RankingPagination::new(response, Arc::clone(&ctx), total, users, author_idx, data);
+
+    pagination.start(ctx, author, 60);
 
     Ok(())
 }
