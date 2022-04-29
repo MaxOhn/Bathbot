@@ -45,7 +45,7 @@ where
             let entry = RankingEntry {
                 value: UserValue::Amount(value),
                 name,
-                country,
+                country: Some(country),
             };
 
             (i, entry)
@@ -87,7 +87,7 @@ where
             let entry = RankingEntry {
                 value: UserValue::PpU32(value),
                 name,
-                country,
+                country: Some(country),
             };
 
             (i, entry)

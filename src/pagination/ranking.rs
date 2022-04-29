@@ -97,7 +97,7 @@ impl RankingPagination {
                 let entry = RankingEntry {
                     value,
                     name: user.username,
-                    country: user.country_code.into(),
+                    country: Some(user.country_code.into()),
                 };
 
                 (offset * 50 + i, entry)

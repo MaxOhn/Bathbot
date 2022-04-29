@@ -1,6 +1,6 @@
 use std::{
     collections::{btree_map::Range, BTreeMap},
-    fmt::Write,
+    fmt::{self, Write},
 };
 
 use rosu_v2::prelude::{GameMode, Username};
@@ -22,7 +22,7 @@ use crate::{
 pub struct RankingEntry {
     pub value: UserValue,
     pub name: Username,
-    pub country: CountryCode,
+    pub country: Option<CountryCode>,
 }
 
 enum EmbedHeader {
@@ -286,9 +286,9 @@ impl RankingEmbed {
 
             let _ = write!(
                 description,
-                "`#{idx:<idx_len$}`:flag_{country}:`{name:<name_len$}` `{buf:>value_len$}`",
+                "`#{idx:<idx_len$}`{country}`{name:<name_len$}` `{buf:>value_len$}`",
                 idx_len = left_lengths.idx,
-                country = left_entry.country.to_ascii_lowercase(),
+                country = CountryFormatter::new(left_entry),
                 name = left_entry.name,
                 name_len = left_lengths.name,
                 value_len = left_lengths.value,
@@ -300,10 +300,10 @@ impl RankingEmbed {
 
                 let _ = write!(
                     description,
-                    "|`#{idx:<idx_len$}`:flag_{country}:`{name:<name_len$}` `{buf:>value_len$}`",
+                    "|`#{idx:<idx_len$}`{country}`{name:<name_len$}` `{buf:>value_len$}`",
                     idx = idx + 10,
                     idx_len = right_lengths.idx,
-                    country = right_entry.country.to_ascii_lowercase(),
+                    country = CountryFormatter::new(right_entry),
                     name = right_entry.name,
                     name_len = right_lengths.name,
                     value_len = right_lengths.value,
@@ -376,6 +376,26 @@ impl Lengths {
             idx: idx_len,
             name: name_len,
             value: value_len,
+        }
+    }
+}
+
+struct CountryFormatter<'e> {
+    entry: &'e RankingEntry,
+}
+
+impl<'e> CountryFormatter<'e> {
+    fn new(entry: &'e RankingEntry) -> Self {
+        Self { entry }
+    }
+}
+
+impl fmt::Display for CountryFormatter<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(ref country) = self.entry.country {
+            write!(f, ":flag_{}:", country.to_ascii_lowercase())
+        } else {
+            f.write_str(" ")
         }
     }
 }

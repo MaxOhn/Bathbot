@@ -239,7 +239,7 @@ async fn ranking(
             RankingEntry {
                 value,
                 name: user.username,
-                country: user.country_code.into(),
+                country: Some(user.country_code.into()),
             }
         })
         .enumerate()

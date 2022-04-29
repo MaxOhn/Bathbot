@@ -266,7 +266,7 @@ impl Database {
                                 .map(|v| RankingEntry {
                                     value: UserValue::Date(v.value),
                                     name: v.username,
-                                    country: v.country_code,
+                                    country: Some(v.country_code),
                                 })
                                 .enumerate()
                                 .collect()
@@ -288,7 +288,7 @@ impl Database {
                                 .map(|v| RankingEntry {
                                     value: UserValue::Amount(v.value as u64),
                                     name: v.username,
-                                    country: v.country_code,
+                                    country: Some(v.country_code),
                                 })
                                 .enumerate()
                                 .collect()
@@ -351,7 +351,7 @@ impl Database {
                                 .map(|v| RankingEntry {
                                     value: UserValue::Accuracy(v.value),
                                     name: v.username,
-                                    country: v.country_code,
+                                    country: Some(v.country_code),
                                 })
                                 .enumerate()
                                 .collect()
@@ -374,7 +374,7 @@ impl Database {
                                 .map(|v| RankingEntry {
                                     value: UserValue::Float(v.value),
                                     name: v.username,
-                                    country: v.country_code,
+                                    country: Some(v.country_code),
                                 })
                                 .enumerate()
                                 .collect()
@@ -396,7 +396,7 @@ impl Database {
                                 .map(|v| RankingEntry {
                                     value: UserValue::Playtime(v.value),
                                     name: v.username,
-                                    country: v.country_code,
+                                    country: Some(v.country_code),
                                 })
                                 .enumerate()
                                 .collect()
@@ -419,7 +419,7 @@ impl Database {
                                 .map(|v| RankingEntry {
                                     value: UserValue::PpF32(v.value),
                                     name: v.username,
-                                    country: v.country_code,
+                                    country: Some(v.country_code),
                                 })
                                 .enumerate()
                                 .collect()
@@ -444,7 +444,7 @@ impl Database {
                                     .map(|v| RankingEntry {
                                         value: UserValue::Rank(v.value),
                                         name: v.username,
-                                        country: v.country_code,
+                                        country: Some(v.country_code),
                                     })
                                     .enumerate()
                                     .collect()
@@ -471,7 +471,7 @@ impl Database {
                                 .map(|v| RankingEntry {
                                     value: UserValue::AmountWithNegative(v.value as i64),
                                     name: v.username,
-                                    country: v.country_code,
+                                    country: Some(v.country_code),
                                 })
                                 .enumerate()
                                 .collect()
@@ -496,7 +496,7 @@ impl Database {
                                 .map(|v| RankingEntry {
                                     value: UserValue::Amount(v.value as u64),
                                     name: v.username,
-                                    country: v.country_code,
+                                    country: Some(v.country_code),
                                 })
                                 .enumerate()
                                 .collect()
@@ -520,7 +520,7 @@ impl Database {
                                 .map(|v| RankingEntry {
                                     value: UserValue::Amount(v.value),
                                     name: v.username,
-                                    country: v.country_code,
+                                    country: Some(v.country_code),
                                 })
                                 .enumerate()
                                 .collect()
@@ -576,7 +576,7 @@ impl Database {
                     .map(|v| RankingEntry {
                         value: UserValue::Float(v.value),
                         name: v.username,
-                        country: v.country_code,
+                        country: Some(v.country_code),
                     })
                     .enumerate()
                     .collect();
@@ -630,7 +630,7 @@ impl Database {
                     .map(|v| RankingEntry {
                         value: UserValue::Amount(v.value as u64),
                         name: v.username,
-                        country: v.country_code,
+                        country: Some(v.country_code),
                     })
                     .enumerate()
                     .collect();
@@ -684,7 +684,7 @@ impl Database {
                     .map(|v| RankingEntry {
                         value: UserValue::Amount(v.value as u64),
                         name: v.username,
-                        country: v.country_code,
+                        country: Some(v.country_code),
                     })
                     .enumerate()
                     .collect();
