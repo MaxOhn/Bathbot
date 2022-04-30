@@ -80,13 +80,18 @@ pub fn embed_data(input: TokenStream) -> TokenStream {
 
 /// Derive the `BasePagination` trait.
 ///
-/// Accepts the `#[pagination(...)]` attribute which must contain a list of assignments
-/// in which either `single_step` or `multi_step` is assigned a usize.
-#[proc_macro_derive(BasePagination, attributes(pagination))]
+/// Accepts the `#[pagination(...)]` and `#[jump_idx(...)]` attributes.
+/// - `pagination` only accepts one argument: `no_multi`. If it is specified,
+/// even if there are sufficiently many pages, it won't show the "multi_step_back"
+/// and "multi_step" reactions.
+/// - `jump_idx` takes one argument namely the name of a field of type `Option<usize>`.
+/// If it is specified, it'll add a "my_position" reaction that jumps to the value
+/// of the given field if available.
+#[proc_macro_derive(BasePagination, attributes(jump_idx, pagination))]
 pub fn base_pagination(input: TokenStream) -> TokenStream {
-    let derive_input = parse_macro_input!(input as DeriveInput);
+    let input = parse_macro_input!(input as DeriveInput);
 
-    match base_pagination::derive(derive_input) {
+    match base_pagination::derive(input) {
         Ok(result) => result.into(),
         Err(err) => err.to_compile_error().into(),
     }

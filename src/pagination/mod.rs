@@ -83,14 +83,37 @@ pub enum PaginationError {
 
 pub trait BasePagination {
     fn msg(&self) -> &Message;
-
-    fn pages(&self) -> Pages;
-
+    fn pages(&self) -> &Pages;
     fn pages_mut(&mut self) -> &mut Pages;
+    fn jump_index(&self) -> Option<usize>;
 
-    fn single_step(&self) -> usize;
+    fn multi_reaction(&self, vec: &mut ReactionVec);
+    fn my_pos_reaction(&self, vec: &mut ReactionVec);
 
-    fn multi_step(&self) -> usize;
+    fn single_step(&self) -> usize {
+        self.pages().per_page
+    }
+
+    fn multi_step(&self) -> usize {
+        match self.pages().total_pages {
+            0..=8 => self.pages().per_page * 2,
+            9..=15 => self.pages().per_page * 3,
+            16..=30 => self.pages().per_page * 5,
+            _ => self.pages().per_page * 10,
+        }
+    }
+
+    fn jump_reaction(&self, vec: &mut ReactionVec) {
+        vec.push(Emote::JumpStart);
+        self.multi_reaction(vec);
+        vec.push(Emote::JumpEnd);
+    }
+
+    fn single_reaction(&self, vec: &mut ReactionVec) {
+        vec.push(Emote::SingleStepBack);
+        self.my_pos_reaction(vec);
+        vec.push(Emote::SingleStep);
+    }
 
     fn index(&self) -> usize {
         self.pages().index
@@ -121,34 +144,6 @@ pub trait Pagination: BasePagination + Send + Sync + Sized {
     async fn build_page(&mut self) -> BotResult<Self::PageData>;
 
     // Optionally implement these
-    fn reactions() -> ReactionVec {
-        Self::arrow_reactions()
-    }
-
-    fn arrow_reactions() -> ReactionVec {
-        smallvec::smallvec![
-            Emote::JumpStart,
-            Emote::SingleStepBack,
-            Emote::SingleStep,
-            Emote::JumpEnd,
-        ]
-    }
-
-    fn arrow_reactions_full() -> ReactionVec {
-        smallvec::smallvec![
-            Emote::JumpStart,
-            Emote::MultiStepBack,
-            Emote::SingleStepBack,
-            Emote::SingleStep,
-            Emote::MultiStep,
-            Emote::JumpEnd,
-        ]
-    }
-
-    fn jump_index(&self) -> Option<usize> {
-        None
-    }
-
     fn content(&self) -> Option<Cow<'_, str>> {
         None
     }
@@ -171,6 +166,13 @@ pub trait Pagination: BasePagination + Send + Sync + Sized {
         });
     }
 
+    fn reactions(&self) -> ReactionVec {
+        let mut vec = ReactionVec::new();
+        self.jump_reaction(&mut vec);
+
+        vec
+    }
+
     fn page(&self) -> usize {
         self.index() / self.per_page() + 1
     }
@@ -182,7 +184,7 @@ pub enum PageChange {
     Change,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct Pages {
     index: usize,
     last_index: usize,
@@ -212,7 +214,7 @@ async fn start_pagination<P: Pagination + Send>(
 ) -> PaginationResult {
     ctx.store_msg(pagination.msg().id);
 
-    let reactions = P::reactions();
+    let reactions = pagination.reactions();
 
     let reaction_stream = {
         let msg = pagination.msg();

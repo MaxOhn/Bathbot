@@ -16,7 +16,7 @@ use crate::{
 use super::{Pages, Pagination};
 
 #[derive(BasePagination)]
-#[pagination(single_step = 5)]
+#[pagination(no_multi)]
 pub struct TopPagination {
     ctx: Arc<Context>,
     msg: Message,
@@ -49,7 +49,7 @@ impl TopPagination {
 }
 
 #[derive(BasePagination)]
-#[pagination(single_step = 10)]
+#[pagination(no_multi)]
 pub struct CondensedTopPagination {
     ctx: Arc<Context>,
     msg: Message,

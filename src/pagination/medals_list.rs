@@ -7,7 +7,6 @@ use crate::{commands::osu::MedalEntryList, embeds::MedalsListEmbed, BotResult};
 use super::{Pages, Pagination};
 
 #[derive(BasePagination)]
-#[pagination(single_step = 10)]
 pub struct MedalsListPagination {
     msg: Message,
     pages: Pages,

@@ -7,7 +7,6 @@ use rosu_v2::model::user::User;
 use twilight_model::channel::Message;
 
 #[derive(BasePagination)]
-#[pagination(single_step = 15)]
 pub struct MedalsMissingPagination {
     msg: Message,
     pages: Pages,

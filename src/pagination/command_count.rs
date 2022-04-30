@@ -7,7 +7,7 @@ use crate::{embeds::CommandCounterEmbed, BotResult, Context};
 use super::{Pages, Pagination};
 
 #[derive(BasePagination)]
-#[pagination(single_step = 15)]
+#[pagination(no_multi)]
 pub struct CommandCountPagination {
     msg: Message,
     pages: Pages,

@@ -9,7 +9,6 @@ use crate::{embeds::RecentListEmbed, BotResult, Context};
 use super::{Pages, Pagination};
 
 #[derive(BasePagination)]
-#[pagination(single_step = 10)]
 pub struct RecentListPagination {
     ctx: Arc<Context>,
     msg: Message,

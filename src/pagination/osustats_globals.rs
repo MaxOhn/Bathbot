@@ -10,10 +10,9 @@ use crate::{
     BotResult, Context,
 };
 
-use super::{Pages, Pagination, ReactionVec};
+use super::{Pages, Pagination};
 
 #[derive(BasePagination)]
-#[pagination(single_step = 5, multi_step = 25)]
 pub struct OsuStatsGlobalsPagination {
     msg: Message,
     pages: Pages,
@@ -48,10 +47,6 @@ impl OsuStatsGlobalsPagination {
 #[async_trait]
 impl Pagination for OsuStatsGlobalsPagination {
     type PageData = OsuStatsGlobalsEmbed;
-
-    fn reactions() -> ReactionVec {
-        Self::arrow_reactions_full()
-    }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let entries = self

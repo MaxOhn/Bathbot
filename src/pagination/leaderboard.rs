@@ -8,8 +8,9 @@ use crate::{core::Context, custom_client::ScraperScore, embeds::LeaderboardEmbed
 
 use super::{Pages, Pagination};
 
+// TODO: author idx?
+
 #[derive(BasePagination)]
-#[pagination(single_step = 10)]
 pub struct LeaderboardPagination {
     ctx: Arc<Context>,
     msg: Message,

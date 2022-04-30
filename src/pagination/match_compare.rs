@@ -6,7 +6,6 @@ use crate::BotResult;
 use super::{Pages, Pagination};
 
 #[derive(BasePagination)]
-#[pagination(single_step = 1)]
 pub struct MatchComparePagination {
     msg: Message,
     pages: Pages,

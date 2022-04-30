@@ -11,16 +11,15 @@ use twilight_model::{channel::Message, id::Id};
 use crate::{
     commands::osu::UserValue,
     embeds::{RankingEmbed, RankingEntry, RankingKindData},
-    util::Emote,
     BotResult, Context,
 };
 
-use super::{Pages, Pagination, ReactionVec};
+use super::{Pages, Pagination};
 
 type Users = BTreeMap<usize, RankingEntry>;
 
 #[derive(BasePagination)]
-#[pagination(single_step = 20, multi_step = 200)]
+#[jump_idx(author_idx)]
 pub struct RankingPagination {
     msg: Message,
     pages: Pages,
@@ -164,22 +163,6 @@ impl RankingPagination {
 #[async_trait]
 impl Pagination for RankingPagination {
     type PageData = RankingEmbed;
-
-    fn reactions() -> ReactionVec {
-        smallvec::smallvec![
-            Emote::JumpStart,
-            Emote::MultiStepBack,
-            Emote::SingleStepBack,
-            Emote::MyPosition,
-            Emote::SingleStep,
-            Emote::MultiStep,
-            Emote::JumpEnd,
-        ]
-    }
-
-    fn jump_index(&self) -> Option<usize> {
-        self.author_idx
-    }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let idx = self.pages.index.saturating_sub(1);

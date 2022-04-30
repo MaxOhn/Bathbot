@@ -1,4 +1,4 @@
-use super::{Pages, Pagination, ReactionVec};
+use super::{Pages, Pagination};
 use crate::{
     commands::osu::OsuStatsPlayersArgs, custom_client::OsuStatsPlayer, embeds::OsuStatsListEmbed,
     BotResult, Context,
@@ -10,7 +10,6 @@ use std::sync::Arc;
 use twilight_model::channel::Message;
 
 #[derive(BasePagination)]
-#[pagination(single_step = 15, multi_step = 45)]
 pub struct OsuStatsListPagination {
     msg: Message,
     pages: Pages,
@@ -44,10 +43,6 @@ impl OsuStatsListPagination {
 #[async_trait]
 impl Pagination for OsuStatsListPagination {
     type PageData = OsuStatsListEmbed;
-
-    fn reactions() -> ReactionVec {
-        Self::arrow_reactions_full()
-    }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let page = self.page();

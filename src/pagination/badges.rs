@@ -16,7 +16,6 @@ use crate::{
 use super::{Pages, Pagination};
 
 #[derive(BasePagination)]
-#[pagination(single_step = 1)]
 pub struct BadgePagination {
     msg: Message,
     pages: Pages,

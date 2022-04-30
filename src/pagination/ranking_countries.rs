@@ -8,7 +8,6 @@ use std::{collections::BTreeMap, sync::Arc};
 use twilight_model::channel::Message;
 
 #[derive(BasePagination)]
-#[pagination(single_step = 15)]
 pub struct RankingCountriesPagination {
     msg: Message,
     pages: Pages,

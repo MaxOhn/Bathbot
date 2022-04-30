@@ -10,7 +10,7 @@ use command_macros::BasePagination;
 use twilight_model::channel::Message;
 
 #[derive(BasePagination)]
-#[pagination(single_step = 10)]
+#[pagination(no_multi)]
 pub struct MedalsCommonPagination {
     msg: Message,
     pages: Pages,

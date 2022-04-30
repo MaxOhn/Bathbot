@@ -15,7 +15,6 @@ use crate::{
 use super::{Pages, Pagination};
 
 #[derive(BasePagination)]
-#[pagination(single_step = 10)]
 pub struct OsuTrackerMapsetsPagination {
     msg: Message,
     pages: Pages,

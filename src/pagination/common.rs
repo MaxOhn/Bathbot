@@ -8,7 +8,6 @@ use crate::{commands::osu::CommonScore, embeds::CommonEmbed, BotResult};
 use super::{Pages, Pagination};
 
 #[derive(BasePagination)]
-#[pagination(single_step = 10)]
 pub struct CommonPagination {
     msg: Message,
     pages: Pages,

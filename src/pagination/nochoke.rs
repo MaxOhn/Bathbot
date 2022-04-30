@@ -9,7 +9,6 @@ use crate::{core::Context, embeds::NoChokeEmbed, BotResult};
 use super::{Pages, Pagination};
 
 #[derive(BasePagination)]
-#[pagination(single_step = 5)]
 pub struct NoChokePagination {
     ctx: Arc<Context>,
     msg: Message,

@@ -14,7 +14,6 @@ use crate::{
 use super::{Pages, Pagination};
 
 #[derive(BasePagination)]
-#[pagination(single_step = 5)]
 pub struct SnipedDiffPagination {
     ctx: Arc<Context>,
     msg: Message,

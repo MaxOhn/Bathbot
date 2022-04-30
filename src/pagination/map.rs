@@ -9,7 +9,6 @@ use crate::{commands::osu::CustomAttrs, embeds::MapEmbed, BotResult};
 use super::{Context, Pages, Pagination};
 
 #[derive(BasePagination)]
-#[pagination(single_step = 1)]
 pub struct MapPagination {
     ctx: Arc<Context>,
     msg: Message,

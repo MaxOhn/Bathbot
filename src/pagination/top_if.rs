@@ -7,7 +7,6 @@ use rosu_v2::prelude::{GameMode, Score, User};
 use twilight_model::channel::Message;
 
 #[derive(BasePagination)]
-#[pagination(single_step = 5)]
 pub struct TopIfPagination {
     msg: Message,
     pages: Pages,

@@ -7,7 +7,6 @@ use std::{collections::BTreeMap, iter::Extend, sync::Arc};
 use twilight_model::channel::Message;
 
 #[derive(BasePagination)]
-#[pagination(single_step = 10)]
 pub struct MapSearchPagination {
     msg: Message,
     pages: Pages,

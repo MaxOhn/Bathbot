@@ -6,7 +6,6 @@ use crate::{custom_client::OsuTrackerModsEntry, embeds::OsuTrackerModsEmbed, Bot
 use super::{Pages, Pagination};
 
 #[derive(BasePagination)]
-#[pagination(single_step = 20)]
 pub struct OsuTrackerModsPagination {
     msg: Message,
     pages: Pages,

@@ -2,17 +2,14 @@ use command_macros::BasePagination;
 use twilight_model::channel::Message;
 
 use crate::{
-    commands::osu::SnipeCountryListOrder,
-    custom_client::SnipeCountryPlayer,
-    embeds::CountrySnipeListEmbed,
-    util::{CountryCode, Emote},
-    BotResult,
+    commands::osu::SnipeCountryListOrder, custom_client::SnipeCountryPlayer,
+    embeds::CountrySnipeListEmbed, util::CountryCode, BotResult,
 };
 
-use super::{Pages, Pagination, ReactionVec};
+use super::{Pages, Pagination};
 
 #[derive(BasePagination)]
-#[pagination(single_step = 10, multi_step = 50)]
+#[jump_idx(author_idx)]
 pub struct CountrySnipeListPagination {
     msg: Message,
     pages: Pages,
@@ -44,22 +41,6 @@ impl CountrySnipeListPagination {
 #[async_trait]
 impl Pagination for CountrySnipeListPagination {
     type PageData = CountrySnipeListEmbed;
-
-    fn jump_index(&self) -> Option<usize> {
-        self.author_idx
-    }
-
-    fn reactions() -> ReactionVec {
-        smallvec::smallvec![
-            Emote::JumpStart,
-            Emote::MultiStepBack,
-            Emote::SingleStepBack,
-            Emote::MyPosition,
-            Emote::SingleStep,
-            Emote::MultiStep,
-            Emote::JumpEnd,
-        ]
-    }
 
     async fn build_page(&mut self) -> BotResult<Self::PageData> {
         Ok(CountrySnipeListEmbed::new(

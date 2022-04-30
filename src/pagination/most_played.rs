@@ -7,7 +7,7 @@ use rosu_v2::prelude::{MostPlayedMap, User};
 use twilight_model::channel::Message;
 
 #[derive(BasePagination)]
-#[pagination(single_step = 10)]
+#[pagination(no_multi)]
 pub struct MostPlayedPagination {
     msg: Message,
     pages: Pages,

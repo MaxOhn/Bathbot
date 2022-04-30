@@ -8,7 +8,6 @@ use crate::{embeds::MostPlayedCommonEmbed, BotResult};
 use super::{Pages, Pagination};
 
 #[derive(BasePagination)]
-#[pagination(single_step = 10)]
 pub struct MostPlayedCommonPagination {
     msg: Message,
     pages: Pages,

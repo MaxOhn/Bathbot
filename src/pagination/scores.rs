@@ -10,7 +10,6 @@ use crate::{core::Context, embeds::ScoresEmbed, BotResult};
 use super::{Pages, Pagination};
 
 #[derive(BasePagination)]
-#[pagination(single_step = 10)]
 pub struct ScoresPagination {
     ctx: Arc<Context>,
     msg: Message,

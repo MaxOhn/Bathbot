@@ -1,9 +1,10 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{
-    parse_quote, spanned::Spanned, Attribute, Data, DeriveInput, Error, Fields, Lit, Meta,
-    NestedMeta, Result,
-};
+use syn::{parse_quote, Data, DeriveInput, Error, Fields, Result};
+
+use self::attributes::Attributes;
+
+mod attributes;
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream> {
     let DeriveInput {
@@ -55,11 +56,30 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
         return Err(Error::new(ident.span(), message));
     }
 
-    let (single_step, multi_step) = parse_steps(&attrs)?;
+    let Attributes { jump_idx, no_multi } = Attributes::try_from(attrs)?;
 
-    let multi_step = match multi_step {
-        Some(value) => quote!(#value),
-        None => quote!(self.pages.per_page),
+    let reaction_vec = quote!(crate::pagination::ReactionVec);
+    let emote = quote!(crate::util::Emote);
+
+    let jump_idx = match jump_idx {
+        Some(lit) => quote!(self.#lit),
+        None => quote!(None),
+    };
+
+    let multi = if no_multi {
+        quote!(self.single_reaction(vec))
+    } else {
+        quote! {
+            if self.pages.total_pages > 8 {
+                vec.push(#emote::MultiStepBack);
+            }
+
+            self.single_reaction(vec);
+
+            if self.pages.total_pages > 8 {
+                vec.push(#emote::MultiStep);
+            }
+        }
     };
 
     let tokens = quote! {
@@ -68,76 +88,29 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
                 &self.msg
             }
 
-            fn pages(&self) -> Pages {
-                self.pages
+            fn pages(&self) -> &Pages {
+                &self.pages
             }
 
             fn pages_mut(&mut self) -> &mut Pages {
                 &mut self.pages
             }
 
-            fn single_step(&self) -> usize {
-                #single_step
+            fn jump_index(&self) -> Option<usize> {
+                #jump_idx
             }
 
-            fn multi_step(&self) -> usize {
-                #multi_step
+            fn multi_reaction(&self, vec: &mut #reaction_vec) {
+                #multi
+            }
+
+            fn my_pos_reaction(&self, vec: &mut #reaction_vec) {
+                if self.jump_index().is_some() {
+                    vec.push(#emote::MyPosition);
+                }
             }
         }
     };
 
     Ok(tokens)
-}
-
-fn parse_steps(attrs: &[Attribute]) -> Result<(usize, Option<usize>)> {
-    let meta_opt = attrs
-        .iter()
-        .find_map(|attr| (attr.path.get_ident()? == "pagination").then(|| attr))
-        .map(Attribute::parse_meta)
-        .transpose()?;
-
-    let meta = match meta_opt {
-        Some(Meta::List(list)) => list,
-        Some(Meta::Path(path)) => return Err(Error::new(path.span(), "Expected a meta list")),
-        Some(Meta::NameValue(val)) => return Err(Error::new(val.span(), "Expected a meta list")),
-        None => return Ok((1, None)),
-    };
-
-    let mut single_step = None;
-    let mut multi_step = None;
-
-    for nested in meta.nested {
-        let meta = match nested {
-            NestedMeta::Meta(Meta::NameValue(val)) => val,
-            NestedMeta::Meta(Meta::List(list)) => {
-                return Err(Error::new(list.span(), "Expected a name value"))
-            }
-            NestedMeta::Meta(Meta::Path(path)) => {
-                return Err(Error::new(path.span(), "Expected a name value"))
-            }
-            NestedMeta::Lit(lit) => return Err(Error::new(lit.span(), "Expected a name value")),
-        };
-
-        let ident = match meta.path.get_ident() {
-            Some(ident) => ident,
-            None => return Err(Error::new(meta.path.span(), "Expected ident")),
-        };
-
-        let value = match meta.lit {
-            Lit::Int(value) => value.base10_parse()?,
-            _ => return Err(Error::new(meta.lit.span(), "Expected integer literal")),
-        };
-
-        if ident == "single_step" {
-            single_step = Some(value);
-        } else if ident == "multi_step" {
-            multi_step = Some(value);
-        } else {
-            let message = r#"Expected "single_step" or "multi_step""#;
-
-            return Err(Error::new(ident.span(), message));
-        }
-    }
-
-    Ok((single_step.unwrap_or(1), multi_step))
 }
