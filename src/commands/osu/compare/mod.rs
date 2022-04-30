@@ -38,7 +38,7 @@ pub enum Compare<'a> {
     Profile(CompareProfile<'a>),
     #[command(name = "top")]
     Top(CompareTop<'a>),
-    #[command(name = "most_played")]
+    #[command(name = "mostplayed")]
     MostPlayed(CompareMostPlayed<'a>),
 }
 
