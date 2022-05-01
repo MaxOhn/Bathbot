@@ -25,7 +25,7 @@ use crate::{
     BotResult, Context,
 };
 
-use super::TopScoreOrder;
+use super::{get_user, TopScoreOrder};
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
 #[command(
@@ -35,8 +35,7 @@ use super::TopScoreOrder;
     but the given mapper made the guest diff, it will count.\n\
     Similarly, if the given mapper created the mapset but someone else guest diff'd, \
     it will not count.\n\
-    This does not always work perfectly, like when mappers renamed or when guest difficulties don't have \
-    common difficulty labels like `X's Insane`"
+    This does not always work perfectly, especially for older maps but it's what the api provides."
 )]
 /// How often does the given mapper appear in top a user's top plays
 pub struct Mapper<'a> {
@@ -94,12 +93,10 @@ impl<'m> Mapper<'m> {
 #[desc("How many maps of a user's top100 are made by the given mapper?")]
 #[help(
     "Display the top plays of a user which were mapped by the given mapper.\n\
-    Specify the __user first__ and the __mapper second__.\n\
-    Unlike the mapper count of the profile command, this command considers not only \
-    the map's creator, but also tries to check if the map is a guest difficulty."
+    Specify the __mapper first__ and the __user second__."
 )]
-#[usage("[username] [mapper]")]
-#[examples("badewanne3 \"Hishiro Chizuru\"", "monstrata monstrata")]
+#[usage("[mapper] [user]")]
+#[example("\"Hishiro Chizuru\" badewanne3", "monstrata monstrata")]
 #[group(Osu)]
 async fn prefix_mapper(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match Mapper::args(None, args, None) {
@@ -116,14 +113,10 @@ async fn prefix_mapper(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotR
 #[desc("How many maps of a mania user's top100 are made by the given mapper?")]
 #[help(
     "Display the top plays of a mania user which were mapped by the given mapper.\n\
-    Specify the __user first__ and the __mapper second__.\n\
-    Unlike the mapper count of the profile command, this command considers not only \
-    the map's creator, but also tries to check if the map is a guest difficulty.\n\
-    If the `-convert` / `-c` argument is specified, I will __not__ count any maps \
-    that aren't native mania maps."
+    Specify the __mapper first__ and the __user second__."
 )]
-#[usage("[username] [mapper] [-convert]")]
-#[examples("badewanne3 \"Hishiro Chizuru\"", "monstrata monstrata")]
+#[usage("[mapper] [user]")]
+#[example("\"Hishiro Chizuru\" badewanne3", "monstrata monstrata")]
 #[alias("mapperm")]
 #[group(Mania)]
 pub async fn prefix_mappermania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
@@ -141,14 +134,10 @@ pub async fn prefix_mappermania(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[desc("How many maps of a taiko user's top100 are made by the given mapper?")]
 #[help(
     "Display the top plays of a taiko user which were mapped by the given mapper.\n\
-    Specify the __user first__ and the __mapper second__.\n\
-    Unlike the mapper count of the profile command, this command considers not only \
-    the map's creator, but also tries to check if the map is a guest difficulty.\n\
-    If the `-convert` / `-c` argument is specified, I will __not__ count any maps \
-    that aren't native taiko maps."
+    Specify the __mapper first__ and the __user second__."
 )]
-#[usage("[username] [mapper] [-convert]")]
-#[examples("badewanne3 \"Hishiro Chizuru\"", "monstrata monstrata")]
+#[usage("[mapper] [user]")]
+#[example("\"Hishiro Chizuru\" badewanne3", "monstrata monstrata")]
 #[alias("mappert")]
 #[group(Taiko)]
 pub async fn prefix_mappertaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
@@ -166,14 +155,10 @@ pub async fn prefix_mappertaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[desc("How many maps of a ctb user's top100 are made by the given mapper?")]
 #[help(
     "Display the top plays of a ctb user which were mapped by the given mapper.\n\
-    Specify the __user first__ and the __mapper second__.\n\
-    Unlike the mapper count of the profile command, this command considers not only \
-    the map's creator, but also tries to check if the map is a guest difficulty.\n\
-    If the `-convert` / `-c` argument is specified, I will __not__ count any maps \
-    that aren't native ctb maps."
+    Specify the __mapper first__ and the __user second__."
 )]
-#[usage("[username] [mapper] [-convert]")]
-#[example("badewanne3 \"Hishiro Chizuru\"", "monstrata monstrata")]
+#[usage("[mapper] [user]")]
+#[example("\"Hishiro Chizuru\" badewanne3", "monstrata monstrata")]
 #[alias("mapperc")]
 #[group(Catch)]
 async fn prefix_mapperctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
@@ -189,11 +174,6 @@ async fn prefix_mapperctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> B
 
 #[command]
 #[desc("How many maps of a user's top100 are made by Sotarks?")]
-#[help(
-    "How many maps of a user's top100 are made by Sotarks?\n\
-    Unlike the mapper count of the profile command, this command considers not only \
-    the map's creator, but also tries to check if the map is a guest difficulty."
-)]
 #[usage("[username]")]
 #[example("badewanne3")]
 #[group(Osu)]
@@ -216,20 +196,30 @@ async fn slash_mapper(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -
 
 async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) -> BotResult<()> {
     let (user, mode) = name_mode!(ctx, orig, args);
+
     let mapper = args.mapper.cow_to_ascii_lowercase();
+    let mapper_args = UserArgs::new(mapper.as_ref(), mode);
+    let mapper_fut = get_user(&ctx, &mapper_args);
 
     // Retrieve the user and their top scores
     let user_args = UserArgs::new(user.as_str(), mode);
     let score_args = ScoreArgs::top(100).with_combo();
 
-    let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
-        Ok((user, scores)) => (user, scores),
-        Err(OsuError::NotFound) => {
+    let user_scores_fut = get_user_and_scores(&ctx, user_args, &score_args);
+
+    let (mapper, mut user, mut scores) = match tokio::join!(mapper_fut, user_scores_fut) {
+        (Ok(mapper), Ok((user, scores))) => (mapper, user, scores),
+        (Err(OsuError::NotFound), _) => {
+            let content = format!("Mapper with username `{user}` was not found");
+
+            return orig.error(&ctx, content).await;
+        }
+        (_, Err(OsuError::NotFound)) => {
             let content = format!("User `{user}` was not found");
 
             return orig.error(&ctx, content).await;
         }
-        Err(err) => {
+        (Err(err), _) | (_, Err(err)) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(err.into());
@@ -246,26 +236,18 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
         .into_iter()
         .enumerate()
         .filter(|(_, score)| {
-            let map = &score.map.as_ref().unwrap();
-            let mapset = &score.mapset.as_ref().unwrap();
-
-            //  Filter converts
-            if map.mode != mode {
-                return false;
-            }
-
-            // Either the version contains the mapper name (guest diff'd by mapper)
-            // or the map is created by mapper name and not guest diff'd by someone else
-            let version = map.version.to_lowercase();
-
-            version.contains(mapper.as_ref())
-                || (mapset.creator_name.to_lowercase().as_str() == mapper.as_ref()
-                    && !matcher::is_guest_diff(&version))
+            score
+                .map
+                .as_ref()
+                .map(|map| map.creator_id == mapper.user_id)
+                .unwrap_or(false)
         })
         .collect();
 
+    let mapper = mapper.username;
+
     // Accumulate all necessary data
-    let content = match mapper.as_ref() {
+    let content = match mapper.as_str() {
         "sotarks" => {
             let amount = scores.len();
 
@@ -282,7 +264,7 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
                 5..=8 => "kinda sad \\:/",
                 9..=15 => "pretty sad \\:(",
                 16..=25 => "this is so sad \\:((",
-                26..=35 => "this needs to stop this",
+                26..=35 => "this needs to stop",
                 36..=49 => "that's a serious problem...",
                 50 => "that's half. HALF.",
                 51..=79 => "how do you sleep at night...",

@@ -150,10 +150,6 @@ pub fn is_hit_results(msg: &str) -> bool {
     HIT_RESULTS_MATCHER.is_match(msg)
 }
 
-pub fn is_guest_diff(msg: &str) -> bool {
-    OSU_DIFF_MATCHER.is_match(msg)
-}
-
 pub fn tourney_badge(description: &str) -> bool {
     !IGNORE_BADGE_MATCHER.is_match_at(description, 0)
 }
@@ -188,10 +184,6 @@ lazy_static::lazy_static! {
     static ref MOD_MINUS_MATCHER: Regex = Regex::new(r"^-(\w+)!$").unwrap();
 
     static ref HIT_RESULTS_MATCHER: Regex = Regex::new(r".*\{(\d+/){2,}\d+}.*").unwrap();
-
-    static ref OSU_DIFF_MATCHER: Regex =
-        Regex::new(".*'s? (easy|normal|hard|insane|expert|extra|extreme|emotions|repetition)")
-            .unwrap();
 
     static ref EMOJI_MATCHER: Regex = Regex::new(r"<(a?):([^:\n]+):(\d+)>").unwrap();
 
