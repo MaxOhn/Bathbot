@@ -1,0 +1,1 @@
+ALTER TABLE maps DROP COLUMN user_id;

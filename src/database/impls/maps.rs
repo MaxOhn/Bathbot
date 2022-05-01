@@ -267,10 +267,11 @@ async fn insert_map_(conn: &mut PgConnection, map: &Beatmap) -> InsertMapResult<
             last_update,\
             stars,\
             bpm,\
-            max_combo\
+            max_combo,\
+            user_id\
         )\
         VALUES\
-        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)\
+        ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)\
         ON CONFLICT (map_id) DO NOTHING",
         map.map_id as i32,
         map.mapset_id as i32,
@@ -291,6 +292,7 @@ async fn insert_map_(conn: &mut PgConnection, map: &Beatmap) -> InsertMapResult<
         map.stars,
         map.bpm,
         max_combo,
+        map.creator_id as i32,
     );
 
     query

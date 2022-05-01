@@ -26,12 +26,14 @@ pub struct DBBeatmap {
     pub stars: f32,
     pub bpm: f32,
     pub max_combo: Option<i32>,
+    pub user_id: i32,
 }
 
 impl From<DBBeatmap> for BeatmapCompact {
     fn from(map: DBBeatmap) -> Self {
         BeatmapCompact {
             checksum: map.checksum,
+            creator_id: map.user_id as u32,
             fail_times: None,
             map_id: map.map_id as u32,
             mapset: None,
@@ -55,6 +57,7 @@ impl From<DBBeatmap> for Beatmap {
             count_circles: map.count_circles as u32,
             count_sliders: map.count_sliders as u32,
             count_spinners: map.count_spinners as u32,
+            creator_id: map.user_id as u32,
             cs: map.cs,
             deleted_at: None,
             fail_times: None,
