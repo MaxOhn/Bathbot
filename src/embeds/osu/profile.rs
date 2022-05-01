@@ -1,7 +1,8 @@
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
 
 use command_macros::EmbedData;
-use rosu_v2::prelude::{GameMode, Grade, User, UserStatistics};
+use hashbrown::HashMap;
+use rosu_v2::prelude::{GameMode, Grade, User, UserStatistics, Username};
 use twilight_model::{
     channel::embed::EmbedField,
     id::{marker::UserMarker, Id},
@@ -87,6 +88,7 @@ impl ProfileEmbed {
         globals_count: &BTreeMap<usize, Cow<'static, str>>,
         own_top_scores: usize,
         discord_id: Option<Id<UserMarker>>,
+        mapper_names: &HashMap<u32, Username>,
     ) -> Self {
         let mode = Emote::from(user.mode).text();
 
@@ -225,16 +227,18 @@ impl ProfileEmbed {
                 fields.push(field!("Mapsets from player", mapper_stats, false));
             }
 
-            let len = values
-                .mappers
-                .iter()
-                .map(|(name, _, _)| name.len() + 12)
-                .sum();
+            let len = mapper_names.values().map(|name| name.len() + 12).sum();
 
             let mut value = String::with_capacity(len);
-            let mut iter = values.mappers.iter();
-            let (name, count, pp) = iter.next().unwrap();
-            let _ = writeln!(value, "{name}: {pp:.2}pp ({count})");
+
+            let iter = values.mappers.iter().map(|(id, count, pp)| {
+                let name = match mapper_names.get(id) {
+                    Some(name) => name.to_owned(),
+                    None => format!("User ID {id}").into(),
+                };
+
+                (name, count, pp)
+            });
 
             for (name, count, pp) in iter {
                 let _ = writeln!(value, "{name}: {pp:.2}pp ({count})");

@@ -5,7 +5,7 @@ use std::{
 };
 
 use hashbrown::HashMap;
-use rosu_v2::prelude::{GameMode, GameMods, Score, User, UserStatistics, Username};
+use rosu_v2::prelude::{GameMode, GameMods, Score, User, UserStatistics};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{commands::osu::MinMaxAvg, util::osu::BonusPP};
@@ -65,7 +65,7 @@ pub struct ProfileResult {
     pub combo: MinMaxAvg<u32>,
     pub map_len: MinMaxAvg<u32>,
 
-    pub mappers: Vec<(Username, u32, f32)>,
+    pub mappers: Vec<(u32, usize, f32)>,
     pub mod_combs_count: Option<Vec<(GameMods, u32)>>,
     pub mod_combs_pp: Vec<(GameMods, f32)>,
     pub mods_count: Vec<(GameMods, u32)>,
@@ -78,7 +78,7 @@ impl ProfileResult {
         let mut combo = MinMaxAvg::new();
         let mut map_len = MinMaxAvg::new();
         let mut map_combo = 0;
-        let mut mappers = HashMap::with_capacity(10);
+        let mut mapper_count = HashMap::with_capacity(10);
         let len = scores.len() as f32;
         let mut mod_combs = HashMap::with_capacity(5);
         let mut mods = HashMap::with_capacity(5);
@@ -87,7 +87,6 @@ impl ProfileResult {
 
         for (i, score) in scores.iter().enumerate() {
             let map = score.map.as_ref().unwrap();
-            let mapset = score.mapset.as_ref().unwrap();
 
             acc.add(score.accuracy);
 
@@ -98,13 +97,9 @@ impl ProfileResult {
             if let Some(weighted_pp) = score.weight.map(|w| w.pp) {
                 bonus_pp.update(weighted_pp, i);
 
-                let mut mapper =
-                    mappers
-                        .entry(mapset.creator_id)
-                        .or_insert((0, 0.0, &mapset.creator_name));
-
-                mapper.0 += 1;
-                mapper.1 += weighted_pp;
+                let (count, pp) = mapper_count.entry(map.creator_id).or_insert((0, 0.0));
+                *count += 1;
+                *pp += weighted_pp;
 
                 let mut mod_comb = mod_combs.entry(score.mods).or_insert((0, 0.0));
                 mod_comb.0 += 1;
@@ -147,19 +142,18 @@ impl ProfileResult {
         mods.values_mut()
             .for_each(|count| *count = (*count as f32 * 100.0 / len) as u32);
 
-        let mut mappers: Vec<_> = mappers
+        let mut mappers: Vec<_> = mapper_count
             .into_iter()
-            .map(|(_, (count, pp, name))| (name.to_owned(), count as u32, pp))
+            .map(|(id, (count, pp))| (id, count, pp))
             .collect();
 
         mappers.sort_unstable_by(|(_, count_a, pp_a), (_, count_b, pp_b)| {
-            match count_b.cmp(count_a) {
-                Equal => pp_b.partial_cmp(pp_a).unwrap_or(Equal),
-                other => other,
-            }
+            count_b
+                .cmp(count_a)
+                .then_with(|| pp_b.partial_cmp(pp_a).unwrap_or(Equal))
         });
 
-        mappers = mappers[..5.min(mappers.len())].to_vec();
+        mappers.truncate(5);
 
         let mod_combs_count = if mult_mods {
             let mut mod_combs_count: Vec<_> = mod_combs
@@ -167,7 +161,7 @@ impl ProfileResult {
                 .map(|(name, (count, _))| (*name, *count))
                 .collect();
 
-            mod_combs_count.sort_unstable_by(|a, b| b.1.cmp(&a.1));
+            mod_combs_count.sort_unstable_by(|(_, a), (_, b)| b.cmp(a));
 
             Some(mod_combs_count)
         } else {
@@ -180,7 +174,7 @@ impl ProfileResult {
                 .map(|(name, (_, avg))| (name, avg))
                 .collect();
 
-            mod_combs_pp.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Equal));
+            mod_combs_pp.sort_unstable_by(|(_, a), (_, b)| b.partial_cmp(a).unwrap_or(Equal));
 
             mod_combs_pp
         };

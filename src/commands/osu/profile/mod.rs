@@ -2,6 +2,7 @@ use std::{borrow::Cow, collections::BTreeMap, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
 use eyre::Report;
+use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
@@ -370,20 +371,6 @@ impl ProfileEmbed {
                     let mode = user.mode;
                     let own_top_scores = profile_data.own_top_scores();
 
-                    let globals_count = match profile_data.globals_count.as_ref() {
-                        Some(counts) => counts,
-                        None => match super::get_globals_count(ctx, user, mode).await {
-                            Ok(globals_count) => profile_data.globals_count.insert(globals_count),
-                            Err(err) => {
-                                let report =
-                                    Report::new(err).wrap_err("failed to request globals count");
-                                warn!("{report:?}");
-
-                                profile_data.globals_count.insert(BTreeMap::new())
-                            }
-                        },
-                    };
-
                     if profile_data.profile_result.is_none() && !scores.is_empty() {
                         let stats = user.statistics.as_ref().unwrap();
 
@@ -393,12 +380,91 @@ impl ProfileEmbed {
 
                     let profile_result = profile_data.profile_result.as_ref();
 
+                    let globals_count_fut = async {
+                        if profile_data.globals_count.is_some() {
+                            return None;
+                        }
+
+                        match super::get_globals_count(ctx, user, mode).await {
+                            Ok(globals_count) => Some(globals_count),
+                            Err(err) => {
+                                let report =
+                                    Report::new(err).wrap_err("failed to request globals count");
+                                warn!("{report:?}");
+
+                                Some(BTreeMap::new())
+                            }
+                        }
+                    };
+
+                    // Gather mapper names by first checking the DB, otherwise request them
+                    let mapper_names_fut = async {
+                        let result = if let Some(result) = profile_result {
+                            result
+                        } else {
+                            return HashMap::new();
+                        };
+
+                        let ids: Vec<_> =
+                            result.mappers.iter().map(|(id, ..)| *id as i32).collect();
+
+                        let mut names = match ctx.psql().get_names_by_ids(&ids).await {
+                            Ok(names) => names,
+                            Err(err) => {
+                                let report = Report::new(err).wrap_err("failed to get names");
+                                warn!("{report:?}");
+
+                                return HashMap::new();
+                            }
+                        };
+
+                        if ids.len() == names.len() {
+                            return names;
+                        }
+
+                        for (id, ..) in result.mappers.iter() {
+                            if names.contains_key(id) {
+                                continue;
+                            }
+
+                            let user_ = match ctx.osu().user(*id).mode(mode).await {
+                                Ok(user) => user,
+                                Err(err) => {
+                                    let report = Report::new(err).wrap_err("failed to get user");
+                                    warn!("{report:?}");
+
+                                    continue;
+                                }
+                            };
+
+                            let upsert_fut = ctx.psql().upsert_osu_user(&user_, mode);
+
+                            if let Err(err) = upsert_fut.await {
+                                let report = Report::new(err).wrap_err("failed to upsert user");
+                                warn!("{report:?}");
+                            }
+
+                            names.insert(user_.user_id, user_.username);
+                        }
+
+                        names
+                    };
+
+                    let (globals_count, mapper_names) =
+                        tokio::join!(globals_count_fut, mapper_names_fut);
+
+                    let globals_count = match globals_count {
+                        Some(count) => profile_data.globals_count.insert(count),
+                        None => profile_data.globals_count.get_or_insert_with(BTreeMap::new),
+                    };
+
                     ProfileEmbed::full(
                         user,
                         profile_result,
                         globals_count,
                         own_top_scores,
                         profile_data.discord_id,
+                        &mapper_names,
                     )
                 }
             };
