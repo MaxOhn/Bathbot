@@ -289,19 +289,17 @@ async fn get_scores<'c>(
     user: &UserArgs<'_>,
     scores: &ScoreArgs<'c>,
 ) -> OsuResult<Vec<Score>> {
-    let scores_fut = {
-        let mut fut = ctx
-            .osu()
-            .user_scores(user.name)
-            .mode(user.mode)
-            .limit(scores.limit);
+    let mut fut = ctx
+        .osu()
+        .user_scores(user.name)
+        .mode(user.mode)
+        .limit(scores.limit);
 
-        if let Some(include_fails) = scores.include_fails {
-            fut = fut.include_fails(include_fails)
-        }
+    if let Some(include_fails) = scores.include_fails {
+        fut = fut.include_fails(include_fails)
+    }
 
-        (scores.fun)(fut)
-    };
+    let scores_fut = (scores.fun)(fut);
 
     let result = if scores.with_combo {
         prepare_scores(ctx, scores_fut).await
@@ -465,19 +463,23 @@ where
         }
 
         // Request remaining maps and insert their combos
-        for map in ctx.osu().beatmaps(map_ids).await? {
-            if let Some(combo) = map.max_combo {
-                let map_opt = scores
-                    .iter_mut()
-                    .filter_map(|s| s.map.as_mut())
-                    .find(|m| m.map_id == map.map_id);
+        for chunk in map_ids.chunks(50) {
+            let ids = chunk.iter().copied();
 
-                if let Some(map) = map_opt {
-                    map.max_combo = Some(combo);
+            for map in ctx.osu().beatmaps(ids).await? {
+                if let Some(combo) = map.max_combo {
+                    let map_opt = scores
+                        .iter_mut()
+                        .filter_map(|s| s.map.as_mut())
+                        .find(|m| m.map_id == map.map_id);
 
-                    if let Err(err) = ctx.psql().insert_beatmap(map).await {
-                        let report = Report::new(err).wrap_err("failed to insert map into DB");
-                        warn!("{report:?}");
+                    if let Some(map) = map_opt {
+                        map.max_combo = Some(combo);
+
+                        if let Err(err) = ctx.psql().insert_beatmap(map).await {
+                            let report = Report::new(err).wrap_err("failed to insert map into DB");
+                            warn!("{report:?}");
+                        }
                     }
                 }
             }
