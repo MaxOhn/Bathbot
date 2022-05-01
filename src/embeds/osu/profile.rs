@@ -88,13 +88,13 @@ impl ProfileEmbed {
         own_top_scores: usize,
         discord_id: Option<Id<UserMarker>>,
     ) -> Self {
-        let mut description = format!("**{} __stats", Emote::from(user.mode).text());
+        let mode = Emote::from(user.mode).text();
 
-        if let Some(user_id) = discord_id {
-            let _ = write!(description, " for <@{user_id}>");
-        }
-
-        description.push_str(":__**");
+        let mut description = if let Some(user_id) = discord_id {
+            format!("**{mode} __stats for <@{user_id}>:__**")
+        } else {
+            format!("**{mode} __statistics:__**")
+        };
 
         let footer_text = footer_text(user);
         let stats = user.statistics.as_ref().unwrap();
@@ -200,21 +200,20 @@ impl ProfileEmbed {
 
             fields.push(field!(name, value, false));
 
-            let ranked_count = user.ranked_mapset_count.unwrap() + user.loved_mapset_count.unwrap();
+            let ranked_count = user.ranked_mapset_count.unwrap()
+                + user.loved_mapset_count.unwrap()
+                + user.guest_mapset_count.unwrap();
 
             if ranked_count > 0 {
                 let mut mapper_stats = String::with_capacity(64);
 
                 let _ = writeln!(
                     mapper_stats,
-                    "`Ranked {}` • `Unranked {}`",
+                    "`Ranked {}` • `Unranked {}` • `Guest: {}`\n\
+                    `Loved {}` • `Graveyard {}`",
                     user.ranked_mapset_count.unwrap_or(0),
                     user.pending_mapset_count.unwrap_or(0),
-                );
-
-                let _ = writeln!(
-                    mapper_stats,
-                    "`Loved {}` • `Graveyard {}`",
+                    user.guest_mapset_count.unwrap_or(0),
                     user.loved_mapset_count.unwrap_or(0),
                     user.graveyard_mapset_count.unwrap_or(0),
                 );

@@ -36,12 +36,18 @@ impl ProfileData {
     /// Check how many of a user's top scores are on their own maps
     pub fn own_top_scores(&self) -> usize {
         let ranked_maps_count =
-            self.user.ranked_mapset_count.unwrap_or(0) + self.user.loved_mapset_count.unwrap_or(0);
+            self.user.ranked_mapset_count.unwrap_or(0) + self.user.guest_mapset_count.unwrap_or(0);
 
         if ranked_maps_count > 0 {
             self.scores
                 .iter()
-                .filter(|score| score.mapset.as_ref().unwrap().creator_name == self.user.username)
+                .filter(|score| {
+                    score
+                        .map
+                        .as_ref()
+                        .map(|map| map.creator_id == self.user.user_id)
+                        .unwrap_or(false)
+                })
                 .count()
         } else {
             0
