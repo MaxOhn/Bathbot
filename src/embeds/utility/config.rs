@@ -1,5 +1,3 @@
-
-
 use std::fmt::Write;
 
 use command_macros::EmbedData;

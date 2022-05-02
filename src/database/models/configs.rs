@@ -54,10 +54,33 @@ impl Default for MinimizedPp {
     }
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u8)]
+pub enum ListSize {
+    Condensed = 0,
+    Detailed = 1,
+}
+
+impl From<i16> for ListSize {
+    fn from(value: i16) -> Self {
+        match value {
+            1 => Self::Detailed,
+            _ => Self::Condensed,
+        }
+    }
+}
+
+impl Default for ListSize {
+    fn default() -> Self {
+        Self::Condensed
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct GuildConfig {
     pub authorities: Authorities,
     pub embeds_size: Option<EmbedsSize>,
+    pub list_size: Option<ListSize>,
     pub minimized_pp: Option<MinimizedPp>,
     pub prefixes: Prefixes,
     pub profile_size: Option<ProfileSize>,
@@ -73,6 +96,10 @@ impl GuildConfig {
 
     pub fn embeds_size(&self) -> EmbedsSize {
         self.embeds_size.unwrap_or_default()
+    }
+
+    pub fn list_size(&self) -> ListSize {
+        self.list_size.unwrap_or_default()
     }
 
     pub fn minimized_pp(&self) -> MinimizedPp {
@@ -97,6 +124,7 @@ impl Default for GuildConfig {
         GuildConfig {
             authorities: SmallVec::new(),
             embeds_size: None,
+            list_size: None,
             minimized_pp: None,
             prefixes: smallvec::smallvec!["<".into()],
             profile_size: None,
@@ -151,6 +179,7 @@ impl From<String> for OsuData {
 #[derive(Clone, Debug, Default)]
 pub struct UserConfig {
     pub embeds_size: Option<EmbedsSize>,
+    pub list_size: Option<ListSize>,
     pub minimized_pp: Option<MinimizedPp>,
     pub mode: Option<GameMode>,
     pub osu: Option<OsuData>,
@@ -170,6 +199,10 @@ impl UserConfig {
 
     pub fn embeds_size(&self) -> EmbedsSize {
         self.embeds_size.unwrap_or_default()
+    }
+
+    pub fn list_size(&self) -> ListSize {
+        self.list_size.unwrap_or_default()
     }
 
     pub fn minimized_pp(&self) -> MinimizedPp {

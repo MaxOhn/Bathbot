@@ -7,7 +7,8 @@ mod tracking;
 pub use self::{
     beatmap::{DBBeatmap, DBBeatmapset},
     configs::{
-        Authorities, EmbedsSize, GuildConfig, MinimizedPp, OsuData, Prefix, Prefixes, UserConfig,
+        Authorities, EmbedsSize, GuildConfig, ListSize, MinimizedPp, OsuData, Prefix, Prefixes,
+        UserConfig,
     },
     map_tags::{MapsetTagWrapper, TagRow},
     osu_users::{UserStatsColumn, UserValueRaw},
