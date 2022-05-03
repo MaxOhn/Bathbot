@@ -251,9 +251,7 @@ async fn leaderboard(
 
                 if let Some(ModSelection::Include(m) | ModSelection::Exact(m)) = mods {
                     match PpCalculator::new(&ctx, map_id).await {
-                        Ok(mut calc) => {
-                            map.stars = calc.mods(m).stars() as f32;
-                        }
+                        Ok(mut calc) => map.stars = calc.mods(m).stars() as f32,
                         Err(err) => warn!("{:?}", Report::new(err)),
                     }
                 }

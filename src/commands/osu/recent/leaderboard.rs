@@ -329,7 +329,6 @@ pub(super) async fn leaderboard(
 
     // Retrieve the map's leaderboard
     let scores_fut = ctx.client().get_leaderboard(map_id, national, mods, mode);
-
     let map_fut = ctx.psql().get_beatmap(map_id, true);
 
     let (scores_result, map_result) = tokio::join!(scores_fut, map_fut);
@@ -346,9 +345,7 @@ pub(super) async fn leaderboard(
 
                 if let Some(m) = mods {
                     match PpCalculator::new(&ctx, map_id).await {
-                        Ok(mut calc) => {
-                            map.stars = calc.mods(m).stars() as f32;
-                        }
+                        Ok(mut calc) => map.stars = calc.mods(m).stars() as f32,
                         Err(err) => warn!("{:?}", Report::new(err)),
                     }
                 }
