@@ -245,7 +245,10 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> B
         .map(|weight| weight.pp)
         .sum();
 
-    let bonus_pp = user.statistics.as_ref().unwrap().pp - actual_pp;
+    let bonus_pp = user
+        .statistics
+        .as_ref()
+        .map_or(0.0, |stats| stats.pp - actual_pp);
 
     let mut scores_data: Vec<_> = match modify_scores(&ctx, scores, mods).await {
         Ok(scores) => scores,
@@ -271,7 +274,7 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> B
         scores_data.retain(|(_, score, _)| score.matches(&criteria));
     }
 
-    let adjusted_pp = numbers::round((bonus_pp + adjusted_pp).max(0.0) as f32);
+    let adjusted_pp = numbers::round(bonus_pp + adjusted_pp);
 
     let rank_fut = ctx.client().get_rank_data(mode, RankParam::Pp(adjusted_pp));
 

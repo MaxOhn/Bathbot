@@ -596,7 +596,10 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
         .map(|weight| weight.pp)
         .sum();
 
-    let bonus_pp = user.statistics.as_ref().unwrap().pp - actual_pp;
+    let bonus_pp = user
+        .statistics
+        .as_ref()
+        .map_or(0.0, |stats| stats.pp - actual_pp);
 
     let mut scores_data = match modify_scores(&ctx, scores, &args).await {
         Ok(scores) => scores,
@@ -616,7 +619,7 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
         .map(|(i, Score { pp, .. }, ..)| pp.unwrap_or(0.0) * 0.95_f32.powi(*i as i32 - 1))
         .sum();
 
-    let adjusted_pp = numbers::round((bonus_pp + adjusted_pp).max(0.0) as f32);
+    let adjusted_pp = numbers::round(bonus_pp + adjusted_pp);
 
     // Accumulate all necessary data
     let content = format!(
@@ -628,7 +631,7 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
     );
 
     let pages = numbers::div_euclid(5, scores_data.len());
-    let post_pp = user.statistics.as_ref().unwrap().pp;
+    let post_pp = user.statistics.as_ref().map_or(0.0, |stats| stats.pp);
     let iter = scores_data.iter().take(5);
     let embed_data_fut = TopIfEmbed::new(&user, iter, mode, adjusted_pp, post_pp, None, (1, pages));
 
