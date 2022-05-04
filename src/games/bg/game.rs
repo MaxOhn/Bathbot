@@ -17,19 +17,15 @@ use crate::{
     commands::fun::GameDifficulty,
     database::MapsetTagWrapper,
     error::BgGameError,
-    games::bg::{hints::Hints, img_reveal::ImageReveal},
-    util::{
-        constants::OSU_BASE, gestalt_pattern_matching, levenshtein_similarity, ChannelExt, CowUtils,
-    },
+    games::bg::{hints::Hints, img_reveal::ImageReveal, GameMapset},
+    util::{constants::OSU_BASE, ChannelExt, CowUtils},
     Context, CONFIG,
 };
 
 use super::{util, Effects, GameResult};
 
 pub struct Game {
-    pub title: String,
-    pub artist: String,
-    pub mapset_id: u32,
+    pub mapset: GameMapset,
     difficulty: f32,
     hints: Arc<RwLock<Hints>>,
     reveal: Arc<RwLock<ImageReveal>>,
@@ -53,7 +49,7 @@ impl Game {
                         Err(err) => {
                             let wrap = format!(
                                 "failed to create initial bg image for id {}",
-                                game.mapset_id
+                                game.mapset.mapset_id
                             );
                             let report = Report::new(err).wrap_err(wrap);
                             warn!("{report:?}");
@@ -129,15 +125,12 @@ impl Game {
             Ok(img)
         };
 
-        let ((title, artist), img) =
-            tokio::try_join!(util::get_title_artist(ctx, mapset.mapset_id), img_fut)?;
+        let (mapset_, img) = tokio::try_join!(GameMapset::new(ctx, mapset.mapset_id), img_fut)?;
 
         Ok(Self {
-            hints: Arc::new(RwLock::new(Hints::new(&title, mapset.tags))),
-            title,
-            artist,
+            hints: Arc::new(RwLock::new(Hints::new(mapset_.title(), mapset.tags))),
             difficulty: difficulty.factor(),
-            mapset_id: mapset.mapset_id,
+            mapset: mapset_,
             reveal: Arc::new(RwLock::new(ImageReveal::new(img))),
         })
     }
@@ -152,34 +145,25 @@ impl Game {
     pub fn hint(&self) -> String {
         let mut hints = self.hints.write();
 
-        hints.get(&self.title, &self.artist)
+        hints.get(self.mapset.title(), self.mapset.artist())
+    }
+
+    pub fn mapset_id(&self) -> u32 {
+        self.mapset.mapset_id
     }
 
     fn check_msg_content(&self, content: &str) -> ContentResult {
-        // Guessed the title exactly?
-        if content == self.title {
-            return ContentResult::Title(true);
-        }
-
-        // First check the title through levenshtein distance.
-        let similarity = levenshtein_similarity(content, &self.title);
-
-        // Then through longest common substrings (generally more lenient than levenshtein)
-        if similarity > self.difficulty
-            || gestalt_pattern_matching(content, &self.title) > self.difficulty + 0.1
-        {
-            return ContentResult::Title(false);
+        match self.mapset.matches_title(content, self.difficulty) {
+            Some(true) => return ContentResult::Title(true),
+            Some(false) => return ContentResult::Title(false),
+            None => {}
         }
 
         if !self.hints.read().artist_guessed {
-            // Guessed the artist exactly?
-            if content == self.artist {
-                return ContentResult::Artist(true);
-            // Dissimilar enough from the title but similar enough to the artist?
-            } else if similarity < 0.3
-                && levenshtein_similarity(content, &self.artist) > self.difficulty
-            {
-                return ContentResult::Artist(false);
+            match self.mapset.matches_artist(content, self.difficulty) {
+                Some(true) => return ContentResult::Artist(true),
+                Some(false) => return ContentResult::Artist(false),
+                None => {}
             }
         }
 
@@ -210,15 +194,14 @@ pub async fn game_loop(
             ContentResult::Title(exact) => {
                 let content = format!(
                     "{} \\:)\n\
-                    Mapset: {}beatmapsets/{mapset_id}\n\
+                    Mapset: {OSU_BASE}beatmapsets/{mapset_id}\n\
                     Full background: https://assets.ppy.sh/beatmaps/{mapset_id}/covers/raw.jpg",
                     if exact {
                         format!("Gratz {}, you guessed it", msg.author.name)
                     } else {
                         format!("You were close enough {}, gratz", msg.author.name)
                     },
-                    OSU_BASE,
-                    mapset_id = game.mapset_id
+                    mapset_id = game.mapset.mapset_id
                 );
 
                 // Send message
@@ -245,7 +228,8 @@ pub async fn game_loop(
                     format!(
                         "`{}` got the artist almost correct, \
                         it's actually `{}` but can you get the title?",
-                        msg.author.name, game.artist
+                        msg.author.name,
+                        game.mapset.artist()
                     )
                 };
 

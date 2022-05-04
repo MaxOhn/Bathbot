@@ -4,12 +4,13 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{commands::fun::GameDifficulty, error::BgGameError};
 
-pub use self::{game_wrapper::GameWrapper, tags::MapsetTags};
+pub use self::{game_wrapper::GameWrapper, mapset::GameMapset, tags::MapsetTags};
 
 mod game;
 mod game_wrapper;
 mod hints;
 mod img_reveal;
+mod mapset;
 mod tags;
 mod util;
 

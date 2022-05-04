@@ -1,12 +1,12 @@
 use std::{collections::VecDeque, mem, sync::Arc};
-use tokio::{
-    sync::mpsc::{self, UnboundedSender},
-    time::{sleep, timeout, Duration},
-};
 
 use eyre::Report;
 use hashbrown::HashMap;
 use tokio::sync::RwLock;
+use tokio::{
+    sync::mpsc::{self, UnboundedSender},
+    time::{sleep, timeout, Duration},
+};
 use twilight_model::{
     gateway::payload::incoming::MessageCreate,
     id::{marker::ChannelMarker, Id},
@@ -79,7 +79,7 @@ impl GameWrapper {
                 // Process the result
                 match result {
                     LoopResult::Restart => {
-                        let mapset_id = game_clone.read().await.mapset_id;
+                        let mapset_id = game_clone.read().await.mapset_id();
 
                         // Send message
                         let content = format!(
@@ -94,7 +94,7 @@ impl GameWrapper {
                         }
                     }
                     LoopResult::Stop => {
-                        let mapset_id = game_clone.read().await.mapset_id;
+                        let mapset_id = game_clone.read().await.mapset_id();
 
                         // Send message
                         let content = format!(
