@@ -234,7 +234,7 @@ impl ProfileEmbed {
             let iter = values.mappers.iter().map(|(id, count, pp)| {
                 let name = match mapper_names.get(id) {
                     Some(name) => name.to_owned(),
-                    None => format!("User ID {id}").into(),
+                    None => format!("User id {id}").into(),
                 };
 
                 (name, count, pp)

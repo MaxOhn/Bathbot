@@ -1,10 +1,8 @@
-use crate::util::{
-    builder::{EmbedBuilder, FooterBuilder},
-    constants::{DESCRIPTION_SIZE, OSU_BASE},
-    datetime::sec_to_minsec,
-    numbers::{round, with_comma_int},
-    osu::grade_emote,
-    ScoreExt,
+use std::{
+    borrow::Cow,
+    cmp::Ordering,
+    collections::HashMap,
+    fmt::{Display, Formatter, Result as FmtResult, Write},
 };
 
 use rosu_v2::prelude::{
@@ -12,8 +10,16 @@ use rosu_v2::prelude::{
     UserCompact, Username,
 };
 use smallvec::SmallVec;
-use std::{borrow::Cow, cmp::Ordering, collections::HashMap, fmt::Write};
 use twilight_model::channel::embed::Embed;
+
+use crate::util::{
+    builder::{EmbedBuilder, FooterBuilder},
+    constants::{DESCRIPTION_SIZE, OSU_BASE},
+    datetime::sec_to_minsec,
+    numbers::{round, with_comma_int},
+    osu::grade_emote,
+    Emote, ScoreExt,
+};
 
 const DESCRIPTION_BUFFER: usize = 45;
 
@@ -512,17 +518,12 @@ fn game_content(
                     team!(team,team_scores -> description);
                 }
 
-                let _ = write!(
-                    description,
-                    "{grade} `{name:<len$}`",
-                    grade = grade_emote(score.grade),
-                    name = score.username,
-                    len = sizes.name
-                );
-
                 let _ = writeln!(
                     description,
-                    " `+{mods:<mods_len$}` `{acc:>5}%` `{combo:>combo_len$}x` `{score:>score_len$}`",
+                    "{grade} `{name:<len$}` `+{mods:<mods_len$}` `{acc:>5}%` `{combo:>combo_len$}x` `{score:>score_len$}`{miss}",
+                    grade = grade_emote(score.grade),
+                    name = score.username,
+                    len = sizes.name,
                     mods = score.mods,
                     mods_len = sizes.mods,
                     acc = round(score.accuracy),
@@ -530,6 +531,7 @@ fn game_content(
                     combo_len = sizes.combo,
                     score = score.score_str,
                     score_len = sizes.score,
+                    miss = MissFormat(score.count_miss),
                 );
             }
 
@@ -695,6 +697,7 @@ fn prepare_scores(
             combo,
             score: score.score,
             score_str,
+            count_miss: score.statistics.count_miss,
         }
     });
 
@@ -734,4 +737,22 @@ struct EmbedScore {
     combo: String,
     score: u32,
     score_str: String,
+    count_miss: u32,
+}
+
+struct MissFormat(u32);
+
+impl Display for MissFormat {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        if self.0 == 0 {
+            return Ok(());
+        }
+
+        write!(
+            f,
+            " {miss}{emote}",
+            miss = self.0,
+            emote = Emote::Miss.text()
+        )
+    }
 }
