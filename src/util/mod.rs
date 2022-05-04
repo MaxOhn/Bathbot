@@ -1,4 +1,4 @@
-use std::io::Cursor;
+use std::{io::Cursor, mem};
 
 use futures::stream::{FuturesOrdered, StreamExt};
 use image::{
@@ -55,7 +55,7 @@ pub fn levenshtein_distance<'w>(mut word_a: &'w str, mut word_b: &'w str) -> (us
     let mut n = word_b.chars().count();
 
     if m > n {
-        std::mem::swap(&mut word_a, &mut word_b);
+        mem::swap(&mut word_a, &mut word_b);
         n = m;
     }
 
@@ -154,14 +154,18 @@ unsafe fn longest_common_substring<'w>(
     mut word_b: &'w str,
     buf: &mut [u16],
 ) -> SubstringResult {
+    if word_a.is_empty() || word_b.is_empty() {
+        return SubstringResult::default();
+    }
+
     let mut swapped = false;
     let mut m = word_a.chars().count();
     let mut n = word_b.chars().count();
 
     // Ensure word_b being the longer word with length n
     if m > n {
-        std::mem::swap(&mut word_a, &mut word_b);
-        std::mem::swap(&mut m, &mut n);
+        mem::swap(&mut word_a, &mut word_b);
+        mem::swap(&mut m, &mut n);
         swapped = true;
     }
 
@@ -210,6 +214,7 @@ unsafe fn longest_common_substring<'w>(
     }
 }
 
+#[derive(Default)]
 struct SubstringResult {
     start_a: usize,
     start_b: usize,
