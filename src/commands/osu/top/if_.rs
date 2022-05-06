@@ -196,22 +196,8 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> B
         mode = GameMode::STD;
     }
 
-    if let ModSelection::Exact(mods) | ModSelection::Include(mods) = mods {
-        let mut content = None;
-        let ezhr = EZ | HR;
-        let dtht = DT | HT;
-
-        if mods & ezhr == ezhr {
-            content = Some("Looks like an invalid mod combination, EZ and HR exclude each other.");
-        }
-
-        if mods & dtht == dtht {
-            content = Some("Looks like an invalid mod combination, DT and HT exclude each other");
-        }
-
-        if let Some(content) = content {
-            return orig.error(&ctx, content).await;
-        }
+    if let Err(content) = mods.validate() {
+        return orig.error(&ctx, content).await;
     }
 
     // Retrieve the user and their top scores

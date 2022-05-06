@@ -31,6 +31,77 @@ impl ModSelection {
             Self::Include(m) | Self::Exclude(m) | Self::Exact(m) => *m,
         }
     }
+
+    /// Make sure included or exact mods don't exclude each other e.g. EZHR
+    pub fn validate(self) -> Result<(), &'static str> {
+        let mods = match self {
+            Self::Include(mods) => mods,
+            Self::Exclude(_) => return Ok(()),
+            Self::Exact(mods) => mods,
+        };
+
+        const ezhr: GameMods = GameMods::Easy | GameMods::HardRock;
+        const dtht: GameMods = GameMods::DoubleTime | GameMods::HalfTime;
+
+        if mods & ezhr == ezhr {
+            return Err("Looks like an invalid mod combination, EZ and HR exclude each other");
+        }
+
+        if mods & dtht == dtht {
+            return Err("Looks like an invalid mod combination, DT and HT exclude each other");
+        }
+
+        const mania_mods: GameMods =
+            GameMods::FadeIn | GameMods::KeyCoop | GameMods::Mirror | GameMods::Random;
+
+        if mods.contains(GameMods::Relax) {
+            const excluded: GameMods = GameMods::Autopilot
+                | GameMods::SpunOut
+                | GameMods::Autoplay
+                | GameMods::Cinema
+                | mania_mods;
+
+            if !(mods & excluded).is_empty() || mods.has_key_mod().is_some() {
+                let content =
+                    "Looks like an invalid mod combination, RX excludes the following mods:\n\
+                    AP, SO, FI, MR, RD, 1-9K, Key Coop, Autoplay, and Cinema.";
+
+                return Err(content);
+            }
+        }
+
+        // * Note: Technically correct but probably unnecessary so might as well save some if's
+        // if mods.contains(GameMods::Autopilot) || mods.has_key_mod().is_some() {
+        //     const excluded: GameMods =
+        //         GameMods::SpunOut | GameMods::Autoplay | GameMods::Cinema | mania_mods;
+
+        //     if !(mods & excluded).is_empty() {
+        //         let content =
+        //             "Looks like an invalid mod combination, AP excludes the following mods:\n\
+        //             RX, SO, FI, MR, RD, 1-9K, Key Coop, Autoplay, and Cinema";
+
+        //         return Err(content);
+        //     }
+        // } else if mods.contains(GameMods::SpunOut) {
+        //     const excluded: GameMods = GameMods::Autoplay | GameMods::Cinema | mania_mods;
+
+        //     if !(mods & excluded).is_empty() || mods.has_key_mod().is_some() {
+        //         let content =
+        //             "Looks like an invalid mod combination, SO excludes the following mods:\n\
+        //             RX, AP, FI, MR, RD, 1-9K, Key Coop, Autoplay, and Cinema";
+
+        //         return Err(content);
+        //     }
+        // } else if mods.contains(GameMods::Autoplay) && mods.contains(GameMods::Cinema) {
+        //     let content =
+        //         "Looks like an invalid mod combination, Autoplay excludes the following mods:\n\
+        //         RX, AP, SO, and Cinema";
+
+        //     return Err(content);
+        // }
+
+        Ok(())
+    }
 }
 
 pub fn flag_url(country_code: &str) -> String {
