@@ -194,20 +194,6 @@ pub struct OsekaiMedal {
     pub ordering: usize,
 }
 
-// pub mod groups {
-//     pub const SKILL: &str = "Skill";
-//     pub const DEDICATION: &str = "Dedication";
-//     pub const HUSH_HUSH: &str = "Hush-Hush";
-//     pub const BEATMAP_PACKS: &str = "Beatmap Packs";
-//     pub const BEATMAP_CHALLENGE_PACKS: &str = "Beatmap Challenge Packs";
-//     pub const SEASONAL_SPOTLIGHTS: &str = "Seasonal Spotlights";
-//     pub const BEATMAP_SPOTLIGHTS: &str = "Beatmap Spotlights";
-//     pub const MOD_INTRODUCTION: &str = "Mod Introduction";
-// }
-
-// #[derive(Copy, Clone, Eq, PartialEq)]
-// pub struct OsekaiGrouping<'s>(pub &'s str);
-
 pub static MEDAL_GROUPS: [MedalGroup; 8] = [
     MedalGroup::Skill,
     MedalGroup::Dedication,
@@ -330,57 +316,10 @@ impl<'de> Deserialize<'de> for MedalGroup {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let s: &str = Deserialize::deserialize(d)?;
 
-        Self::from_str(s).ok_or_else(|| Error::invalid_value(
-            Unexpected::Str(s),
-            &"a valid medal group",
-        ))
+        Self::from_str(s)
+            .ok_or_else(|| Error::invalid_value(Unexpected::Str(s), &"a valid medal group"))
     }
 }
-
-// impl<'s> OsekaiGrouping<'s> {
-//     pub fn order(&self) -> u32 {
-//         match self.0 {
-//             SKILL => 0,
-//             DEDICATION => 1,
-//             HUSH_HUSH => 2,
-//             BEATMAP_PACKS => 3,
-//             BEATMAP_CHALLENGE_PACKS => 4,
-//             SEASONAL_SPOTLIGHTS => 5,
-//             BEATMAP_SPOTLIGHTS => 6,
-//             MOD_INTRODUCTION => 7,
-//             _ => 8,
-//         }
-//     }
-// }
-
-// impl<'s> fmt::Display for OsekaiGrouping<'s> {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         f.write_str(self.0)
-//     }
-// }
-
-// impl<'s> Ord for OsekaiGrouping<'s> {
-//     fn cmp(&self, other: &OsekaiGrouping<'s>) -> Ordering {
-//         self.order().cmp(&other.order())
-//     }
-// }
-
-// impl<'s> PartialOrd for OsekaiGrouping<'s> {
-//     fn partial_cmp(&self, other: &OsekaiGrouping<'s>) -> Option<Ordering> {
-//         Some(self.cmp(other))
-//     }
-// }
-
-// pub const MEDAL_GROUPS: [OsekaiGrouping<'_>; 8] = [
-//     OsekaiGrouping(SKILL),
-//     OsekaiGrouping(DEDICATION),
-//     OsekaiGrouping(HUSH_HUSH),
-//     OsekaiGrouping(BEATMAP_PACKS),
-//     OsekaiGrouping(BEATMAP_CHALLENGE_PACKS),
-//     OsekaiGrouping(SEASONAL_SPOTLIGHTS),
-//     OsekaiGrouping(BEATMAP_SPOTLIGHTS),
-//     OsekaiGrouping(MOD_INTRODUCTION),
-// ];
 
 impl OsekaiMedal {
     fn grouping_order(&self) -> u32 {
