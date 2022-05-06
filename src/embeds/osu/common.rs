@@ -28,8 +28,8 @@ impl CommonEmbed {
     ) -> Self {
         let mut description = String::with_capacity(1024);
 
-        for ((map_id, _), i) in map_pps.iter().zip(1..) {
-            let ([score1, score2], map, mapset) = maps.get(map_id).unwrap();
+        for ((map_id, _), i) in map_pps.iter().zip(index + 1..) {
+            let ([score1, score2], map, mapset) = &maps[map_id];
 
             let (medal1, medal2) = match score1.cmp(score2) {
                 Ordering::Less => ("second", "first"),
@@ -39,9 +39,8 @@ impl CommonEmbed {
 
             let _ = writeln!(
                 description,
-                "**{idx}.** [{title} [{version}]]({OSU_BASE}b/{map_id})\n\
+                "**{i}.** [{title} [{version}]]({OSU_BASE}b/{map_id})\n\
                 - :{medal1}_place: `{name1}`: {pp1:.2}pp :{medal2}_place: `{name2}`: {pp2:.2}pp",
-                idx = index + i + 1,
                 title = mapset.title,
                 version = map.version,
                 pp1 = score1.pp,

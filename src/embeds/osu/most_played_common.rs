@@ -1,12 +1,10 @@
-
 use std::{cmp::Ordering, fmt::Write};
 
 use command_macros::EmbedData;
 use hashbrown::HashMap;
 use rosu_v2::prelude::MostPlayedMap;
 
-use crate::{embeds::osu, util::constants::OSU_BASE};
-
+use crate::util::constants::OSU_BASE;
 
 #[derive(EmbedData)]
 pub struct MostPlayedCommonEmbed {
@@ -23,8 +21,8 @@ impl MostPlayedCommonEmbed {
     ) -> Self {
         let mut description = String::with_capacity(512);
 
-        for ((map_id, _), i) in map_counts.iter().zip(1..) {
-            let ([count1, count2], map) = maps.get(map_id).unwrap();
+        for ((map_id, _), i) in map_counts.iter().zip(index + 1..) {
+            let ([count1, count2], map) = &maps[map_id];
 
             let (medal1, medal2) = match count1.cmp(count2) {
                 Ordering::Less => ("second", "first"),
@@ -34,12 +32,11 @@ impl MostPlayedCommonEmbed {
 
             let _ = writeln!(
                 description,
-                "**{idx}.** [{title} [{version}]]({OSU_BASE}b/{map_id}) [{stars}]\n\
+                "**{i}.** [{title} [{version}]]({OSU_BASE}b/{map_id}) [{stars:.2}★]\n\
                 - :{medal1}_place: `{name1}`: **{count1}** :{medal2}_place: `{name2}`: **{count2}**",
-                idx = index + i,
                 title = map.mapset.title,
                 version = map.map.version,
-                stars = osu::get_stars(map.map.stars),
+                stars = map.map.stars,
             );
         }
 
