@@ -10,19 +10,41 @@ use crate::{
     pagination::{MedalCountPagination, Pagination},
     util::{
         builder::MessageBuilder, constants::OSEKAI_ISSUE, numbers, ApplicationCommandExt, Authored,
+        CountryCode,
     },
     BotResult, Context,
 };
 
+use super::OsekaiMedalCount;
+
 pub(super) async fn medal_count(
     ctx: Arc<Context>,
     command: Box<ApplicationCommand>,
+    args: OsekaiMedalCount,
 ) -> BotResult<()> {
+    let country_code = match args.country {
+        Some(country) => {
+            if country.len() == 2 {
+                Some(country.into())
+            } else if let Some(code) = CountryCode::from_name(&country) {
+                Some(code)
+            } else {
+                let content =
+                    format!("Looks like `{country}` is neither a country name nor a country code");
+
+                command.error(&ctx, content).await?;
+
+                return Ok(());
+            }
+        }
+        None => None,
+    };
+
     let owner = command.user_id()?;
     let osu_fut = ctx.psql().get_user_osu(owner);
     let osekai_fut = ctx.client().get_osekai_ranking::<MedalCount>();
 
-    let (ranking, author_name) = match tokio::join!(osekai_fut, osu_fut) {
+    let (mut ranking, author_name) = match tokio::join!(osekai_fut, osu_fut) {
         (Ok(ranking), Ok(osu)) => (ranking, osu.map(OsuData::into_username)),
         (Ok(ranking), Err(err)) => {
             let report = Report::new(err).wrap_err("failed to retrieve user config");
@@ -36,6 +58,10 @@ pub(super) async fn medal_count(
             return Err(err.into());
         }
     };
+
+    if let Some(code) = country_code {
+        ranking.retain(|entry| entry.country_code == code);
+    }
 
     let author_idx = author_name
         .as_deref()

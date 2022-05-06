@@ -65,7 +65,10 @@ pub struct OsekaiLovedMapsets;
 #[derive(CommandModel, CreateCommand)]
 #[command(name = "medal_count")]
 /// Who has the most medals?
-pub struct OsekaiMedalCount;
+pub struct OsekaiMedalCount {
+    /// If specified, only show users of this country
+    country: Option<String>,
+}
 
 #[derive(CommandModel, CreateCommand)]
 #[command(name = "ranked_mapsets")]
@@ -105,7 +108,7 @@ async fn slash_osekai(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -
     match Osekai::from_interaction(command.input_data())? {
         Osekai::Badges(_) => count::<Badges>(ctx, command).await,
         Osekai::LovedMapsets(_) => count::<LovedMapsets>(ctx, command).await,
-        Osekai::MedalCount(_) => medal_count(ctx, command).await,
+        Osekai::MedalCount(args) => medal_count(ctx, command, args).await,
         Osekai::RankedMapsets(_) => count::<RankedMapsets>(ctx, command).await,
         Osekai::Rarity(_) => rarity(ctx, command).await,
         Osekai::Replays(_) => count::<Replays>(ctx, command).await,
