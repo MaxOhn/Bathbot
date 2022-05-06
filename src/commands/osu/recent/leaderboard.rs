@@ -334,20 +334,13 @@ pub(super) async fn leaderboard(
     let (scores_result, map_result) = tokio::join!(scores_fut, map_fut);
 
     // Retrieving the beatmap
-    let map = match map_result {
+    let mut map = match map_result {
         Ok(map) => map,
         Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
-            Ok(mut map) => {
+            Ok(map) => {
                 // Add map to database if its not in already
                 if let Err(err) = ctx.psql().insert_beatmap(&map).await {
                     warn!("{:?}", Report::new(err));
-                }
-
-                if let Some(m) = mods {
-                    match PpCalculator::new(&ctx, map_id).await {
-                        Ok(mut calc) => map.stars = calc.mods(m).stars() as f32,
-                        Err(err) => warn!("{:?}", Report::new(err)),
-                    }
                 }
 
                 map
@@ -367,6 +360,13 @@ pub(super) async fn leaderboard(
             }
         },
     };
+
+    if let Some(m) = mods {
+        match PpCalculator::new(&ctx, map_id).await {
+            Ok(mut calc) => map.stars = calc.mods(m).stars() as f32,
+            Err(err) => warn!("{:?}", Report::new(err)),
+        }
+    }
 
     let scores = match scores_result {
         Ok(scores) => scores,

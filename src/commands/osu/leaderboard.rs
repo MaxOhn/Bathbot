@@ -240,20 +240,13 @@ async fn leaderboard(
     };
 
     // Retrieving the beatmap
-    let map = match ctx.psql().get_beatmap(map_id, true).await {
+    let mut map = match ctx.psql().get_beatmap(map_id, true).await {
         Ok(map) => map,
         Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
-            Ok(mut map) => {
+            Ok(map) => {
                 // Add map to database if its not in already
                 if let Err(err) = ctx.psql().insert_beatmap(&map).await {
                     warn!("{:?}", Report::new(err));
-                }
-
-                if let Some(ModSelection::Include(m) | ModSelection::Exact(m)) = mods {
-                    match PpCalculator::new(&ctx, map_id).await {
-                        Ok(mut calc) => map.stars = calc.mods(m).stars() as f32,
-                        Err(err) => warn!("{:?}", Report::new(err)),
-                    }
                 }
 
                 map
@@ -273,6 +266,13 @@ async fn leaderboard(
             }
         },
     };
+
+    if let Some(ModSelection::Include(m) | ModSelection::Exact(m)) = mods {
+        match PpCalculator::new(&ctx, map_id).await {
+            Ok(mut calc) => map.stars = calc.mods(m).stars() as f32,
+            Err(err) => warn!("{:?}", Report::new(err)),
+        }
+    }
 
     // Retrieve the map's leaderboard
     let scores_future = ctx.client().get_leaderboard(
