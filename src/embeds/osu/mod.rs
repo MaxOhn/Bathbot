@@ -1,3 +1,4 @@
+mod attributes;
 mod badge;
 mod bws;
 mod common;
@@ -59,58 +60,16 @@ use rosu_v2::prelude::{Beatmap, GameMode, GameMods};
 use crate::util::{datetime::sec_to_minsec, numbers::round, BeatmapExt, ScoreExt};
 
 pub use self::{
-    badge::BadgeEmbed,
-    bws::BWSEmbed,
-    common::CommonEmbed,
-    compare::{CompareEmbed, NoScoresEmbed},
-    country_snipe_list::CountrySnipeListEmbed,
-    country_snipe_stats::CountrySnipeStatsEmbed,
-    fix_score::FixScoreEmbed,
-    graph::GraphEmbed,
-    leaderboard::LeaderboardEmbed,
-    map::MapEmbed,
-    map_search::MapSearchEmbed,
-    match_compare::{MatchCompareMapEmbed, MatchCompareSummaryEmbed},
-    match_costs::MatchCostEmbed,
-    match_live::{MatchLiveEmbed, MatchLiveEmbeds},
-    medal::MedalEmbed,
-    medal_stats::MedalStatsEmbed,
-    medals_common::{MedalsCommonEmbed, MedalsCommonUser},
-    medals_list::MedalsListEmbed,
-    medals_missing::MedalsMissingEmbed,
-    most_played::MostPlayedEmbed,
-    most_played_common::MostPlayedCommonEmbed,
-    nochoke::NoChokeEmbed,
-    osekai_medal_count::MedalCountEmbed,
-    osekai_medal_rarity::MedalRarityEmbed,
-    osustats_counts::OsuStatsCountsEmbed,
-    osustats_globals::OsuStatsGlobalsEmbed,
-    osustats_list::OsuStatsListEmbed,
-    osutracker_countrytop::OsuTrackerCountryTopEmbed,
-    osutracker_mappers::OsuTrackerMappersEmbed,
-    osutracker_maps::OsuTrackerMapsEmbed,
-    osutracker_mapsets::OsuTrackerMapsetsEmbed,
-    osutracker_mods::OsuTrackerModsEmbed,
-    player_snipe_list::PlayerSnipeListEmbed,
-    player_snipe_stats::PlayerSnipeStatsEmbed,
-    pp_missing::PPMissingEmbed,
-    profile::ProfileEmbed,
-    profile_compare::ProfileCompareEmbed,
-    rank::RankEmbed,
-    rank_score::RankRankedScoreEmbed,
-    ranking::*,
-    ranking_countries::RankingCountriesEmbed,
-    ratio::RatioEmbed,
-    recent::RecentEmbed,
-    recent_list::RecentListEmbed,
-    scores::ScoresEmbed,
-    simulate::{SimulateArgs, SimulateEmbed},
-    sniped::SnipedEmbed,
-    sniped_difference::SnipedDiffEmbed,
-    top::{CondensedTopEmbed, OrderAppendix, TopEmbed},
-    top_if::TopIfEmbed,
-    top_single::TopSingleEmbed,
-    whatif::WhatIfEmbed,
+    attributes::*, badge::*, bws::*, common::*, compare::*, country_snipe_list::*,
+    country_snipe_stats::*, fix_score::*, graph::*, leaderboard::*, map::*, map_search::*,
+    match_compare::*, match_costs::*, match_live::*, medal::*, medal_stats::*, medals_common::*,
+    medals_list::*, medals_missing::*, most_played::*, most_played_common::*, nochoke::*,
+    osekai_medal_count::*, osekai_medal_rarity::*, osustats_counts::*, osustats_globals::*,
+    osustats_list::*, osutracker_countrytop::*, osutracker_mappers::*, osutracker_maps::*,
+    osutracker_mapsets::*, osutracker_mods::*, player_snipe_list::*, player_snipe_stats::*,
+    pp_missing::*, profile::*, profile_compare::*, rank::*, rank_score::*, ranking::*,
+    ranking_countries::*, ratio::*, recent::*, recent_list::*, scores::*, simulate::*, sniped::*,
+    sniped_difference::*, top::*, top_if::*, top_single::*, whatif::*,
 };
 
 pub fn get_stars(stars: f32) -> String {
@@ -169,6 +128,7 @@ pub fn get_keys(mods: GameMods, map: &Beatmap) -> String {
     }
 }
 
+// TODO: remove these, use AttributeKind instead
 pub fn calculate_od(od: f32, clock_rate: f32) -> f32 {
     let ms = difficulty_range(od, OD_MIN, OD_MID, OD_MAX) / clock_rate;
 

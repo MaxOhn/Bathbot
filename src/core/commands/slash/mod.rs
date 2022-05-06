@@ -29,6 +29,7 @@ lazy_static::lazy_static! {
     pub static ref SLASH_COMMANDS: SlashCommands = {
         slash_trie! {
             Avatar => AVATAR_SLASH,
+            Attributes => ATTRIBUTES_SLASH,
             Badges => BADGES_SLASH,
             Bg => BG_SLASH,
             Bws => BWS_SLASH,
