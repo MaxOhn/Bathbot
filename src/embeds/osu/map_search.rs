@@ -5,7 +5,7 @@ use rosu_v2::prelude::{Beatmapset, GameMode, Genre, Language};
 
 use crate::{
     commands::osu::{Search, SearchOrder},
-    util::{builder::FooterBuilder, constants::OSU_BASE, numbers::round},
+    util::{builder::FooterBuilder, constants::OSU_BASE, numbers::round, CowUtils},
 };
 
 #[derive(EmbedData)]
@@ -173,20 +173,18 @@ impl MapSearchEmbed {
 
             let _ = writeln!(
                 description,
-                "**{idx}. [{artist} - {title}]({base}s/{set_id})** [{count} map{plural}]\n\
-                Creator: [{creator}]({base}u/{creator_id}) ({status:?}) ~ BPM: {bpm} ~ Mode: {mode}",
+                "**{idx}. [{artist} - {title}]({OSU_BASE}s/{set_id})** [{count} map{plural}]\n\
+                Creator: [{creator}]({OSU_BASE}u/{creator_id}) ({status:?}) ~ BPM: {bpm} ~ Mode: {mode}",
                 idx = i + 1,
-                artist = mapset.artist,
-                title = mapset.title,
-                base = OSU_BASE,
+                artist = mapset.artist.cow_escape_markdown(),
+                title = mapset.title.cow_escape_markdown(),
                 set_id = mapset.mapset_id,
                 count = maps.len(),
                 plural = if maps.len() != 1 { "s" } else { "" },
-                creator = mapset.creator_name,
+                creator = mapset.creator_name.cow_escape_markdown(),
                 creator_id = mapset.creator_id,
                 status = mapset.status,
                 bpm = round(mapset.bpm),
-                mode = mode,
             );
         }
 

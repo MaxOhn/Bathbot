@@ -1,4 +1,3 @@
-
 use std::fmt::Write;
 
 use command_macros::EmbedData;
@@ -9,6 +8,7 @@ use crate::{
     util::{
         builder::AuthorBuilder,
         numbers::{round, with_comma_float, with_comma_int},
+        CowUtils,
     },
 };
 
@@ -28,13 +28,13 @@ impl WhatIfEmbed {
         let title = if count <= 1 {
             format!(
                 "What if {name} got a new {pp_given}pp score?",
-                name = user.username,
+                name = user.username.cow_escape_markdown(),
                 pp_given = round(pp),
             )
         } else {
             format!(
                 "What if {name} got {count} new {pp_given}pp scores?",
-                name = user.username,
+                name = user.username.cow_escape_markdown(),
                 pp_given = round(pp),
             )
         };
@@ -45,7 +45,7 @@ impl WhatIfEmbed {
                     "A {pp_given}pp play wouldn't even be in {name}'s top 100 plays.\n\
                      There would not be any significant pp change.",
                     pp_given = round(pp),
-                    name = user.username
+                    name = user.username.cow_escape_markdown()
                 )
             }
             WhatIfData::NoScores { count, rank } => {
@@ -54,14 +54,14 @@ impl WhatIfEmbed {
                         "A {pp}pp play would be {name}'s #1 best play.\n\
                         Their pp would change by **+{pp}** to **{pp}pp**",
                         pp = with_comma_float(pp),
-                        name = user.username,
+                        name = user.username.cow_escape_markdown(),
                     )
                 } else {
                     format!(
                         "A {pp}pp play would be {name}'s #1 best play.\n\
                         Adding {count} of them would change their pp by **{pp:+}** to **{pp}pp**",
                         pp = with_comma_float(pp),
-                        name = user.username,
+                        name = user.username.cow_escape_markdown(),
                     )
                 };
 
@@ -90,7 +90,7 @@ impl WhatIfEmbed {
                         "A {pp}pp play would be {name}'s #{new_pos} best play.\n\
                         Their pp would change by **{pp_change:+.2}** to **{new_pp}pp**",
                         pp = round(pp),
-                        name = user.username,
+                        name = user.username.cow_escape_markdown(),
                         pp_change = (new_pp + bonus_pp - stats.pp).max(0.0),
                         new_pp = with_comma_float(new_pp + bonus_pp)
                     )
@@ -99,7 +99,7 @@ impl WhatIfEmbed {
                         "A {pp}pp play would be {name}'s #{new_pos} best play.\n\
                         Adding {count} of them would change their pp by **{pp_change:+.2}** to **{new_pp}pp**",
                         pp = round(pp),
-                        name = user.username,
+                        name = user.username.cow_escape_markdown(),
                         pp_change = (new_pp + bonus_pp - stats.pp).max(0.0),
                         new_pp = with_comma_float(new_pp + bonus_pp)
                     )

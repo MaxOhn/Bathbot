@@ -37,11 +37,10 @@ impl MedalsCommonEmbed {
     ) -> Self {
         let mut description = String::with_capacity(512);
 
-        for (i, entry) in medals.iter().enumerate() {
+        for (entry, i) in medals.iter().zip(index + 1..) {
             let _ = writeln!(
                 description,
-                "**{idx}. [{name}](https://osekai.net/medals/?medal={medal})**",
-                idx = index + i + 1,
+                "**{i}. [{name}](https://osekai.net/medals/?medal={medal})**",
                 name = entry.medal.name,
                 medal = entry
                     .medal

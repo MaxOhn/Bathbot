@@ -15,7 +15,7 @@ use crate::{
         datetime::how_long_ago_dynamic,
         numbers::with_comma_int,
         osu::grade_emote,
-        ScoreExt,
+        CowUtils, ScoreExt,
     },
 };
 
@@ -85,8 +85,8 @@ impl OsuStatsGlobalsEmbed {
                 "**[#{rank}] [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars}]\n\
                 {grade} {pp} ~ ({acc}%) ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
                 rank = score.position,
-                title = score.map.title,
-                version = score.map.version,
+                title = score.map.title.cow_escape_markdown(),
+                version = score.map.version.cow_escape_markdown(),
                 id = score.map.beatmap_id,
                 mods = osu::get_mods(score.enabled_mods),
                 acc = score.accuracy,

@@ -5,7 +5,10 @@ use rosu_v2::model::user::{User, UserCompact};
 
 use crate::{
     custom_client::RespektiveUser,
-    util::{builder::AuthorBuilder, constants::OSU_BASE, numbers::with_comma_int, osu::flag_url},
+    util::{
+        builder::AuthorBuilder, constants::OSU_BASE, numbers::with_comma_int, osu::flag_url,
+        CowUtils,
+    },
 };
 
 #[derive(EmbedData)]
@@ -28,25 +31,25 @@ impl RankRankedScoreEmbed {
 
         let title = format!(
             "How much ranked score is {name} missing to reach rank #{rank}?",
-            name = user.username,
+            name = user.username.cow_escape_markdown(),
         );
 
         let description = if user_score > rank_holder_score {
             format!(
                 "Rank #{rank} is currently held by {holder_name} with **{holder_score} \
                 ranked score**, so {name} is already above that with **{score} ranked score**.",
-                holder_name = rank_holder.username,
+                holder_name = rank_holder.username.cow_escape_markdown(),
                 holder_score = with_comma_int(rank_holder_score),
-                name = user.username,
+                name = user.username.cow_escape_markdown(),
                 score = with_comma_int(user_score)
             )
         } else {
             format!(
                 "Rank #{rank} is currently held by {holder_name} with **{holder_score} \
                  ranked score**, so {name} is missing **{missing}** score.",
-                holder_name = rank_holder.username,
+                holder_name = rank_holder.username.cow_escape_markdown(),
                 holder_score = with_comma_int(rank_holder_score),
-                name = user.username,
+                name = user.username.cow_escape_markdown(),
                 missing = with_comma_int(rank_holder_score - user_score),
             )
         };
@@ -59,7 +62,7 @@ impl RankRankedScoreEmbed {
 
             let mut text = format!(
                 "{name}: {score}",
-                name = user.username,
+                name = user.username.cow_escape_markdown(),
                 score = with_comma_int(ranked_score),
             );
 

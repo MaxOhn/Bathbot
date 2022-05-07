@@ -6,6 +6,7 @@ use crate::{
         builder::AuthorBuilder,
         numbers::{with_comma_float, with_comma_int},
         osu::{approx_more_pp, pp_missing, ExtractablePp, PpListUtil},
+        CowUtils,
     },
 };
 
@@ -36,18 +37,21 @@ impl RankEmbed {
 
                 let title = format!(
                     "How many pp is {name} missing to reach rank {country}{rank}?",
-                    name = user.username,
+                    name = user.username.cow_escape_markdown(),
                 );
 
                 let description = if user.user_id == rank_holder.user_id {
-                    format!("{} is already at rank #{rank}.", user.username)
+                    format!(
+                        "{} is already at rank #{rank}.",
+                        user.username.cow_escape_markdown()
+                    )
                 } else if user_pp > rank_holder_pp {
                     format!(
                         "Rank {country}{rank} is currently held by {holder_name} with \
                         **{holder_pp}pp**, so {name} is already above that with **{pp}pp**.",
-                        holder_name = rank_holder.username,
+                        holder_name = rank_holder.username.cow_escape_markdown(),
                         holder_pp = with_comma_float(rank_holder_pp),
-                        name = user.username,
+                        name = user.username.cow_escape_markdown(),
                         pp = with_comma_float(user_pp)
                     )
                 } else if let Some(scores) = scores {
@@ -58,9 +62,9 @@ impl RankEmbed {
                                 **{holder_pp}pp**, so {name} is missing **{missing}** raw pp.\n\
                                 A new top100 score requires at least **{last_pp}pp** \
                                 so {holder_pp} total pp can't be reached with {each}pp scores.",
-                                holder_name = rank_holder.username,
+                                holder_name = rank_holder.username.cow_escape_markdown(),
                                 holder_pp = with_comma_float(rank_holder_pp),
-                                name = user.username,
+                                name = user.username.cow_escape_markdown(),
                                 missing = with_comma_float(rank_holder_pp - user_pp),
                                 last_pp = with_comma_float(last_pp),
                                 each = with_comma_float(each),
@@ -83,19 +87,16 @@ impl RankEmbed {
                                     **{holder_pp}pp**, so {name} is missing **{missing}** raw pp.\n\
                                     To reach {holder_pp}pp with one additional score, {name} needs to \
                                     perform a **{required}pp** score which would be the top {approx}#{idx}",
-                                    holder_name = rank_holder.username,
+                                    holder_name = rank_holder.username.cow_escape_markdown(),
                                     holder_pp = with_comma_float(rank_holder_pp),
-                                    name = user.username,
+                                    name = user.username.cow_escape_markdown(),
                                     missing = with_comma_float(rank_holder_pp - user_pp),
                                     required = with_comma_float(required),
                                     approx = if idx >= 100 { "~" } else { "" },
                                     idx = idx + 1,
                                 )
                             } else {
-                                let idx = pps
-                                    .iter()
-                                    .position(|&pp| pp < each)
-                                    .unwrap_or(pps.len());
+                                let idx = pps.iter().position(|&pp| pp < each).unwrap_or(pps.len());
 
                                 let mut iter = pps
                                     .iter()
@@ -137,7 +138,7 @@ impl RankEmbed {
                                         Filling up {name}'{genitiv} top scores with {amount} new \
                                         {each}pp score{plural} would only lead to {approx}**{top}pp** which \
                                         is still less than {holder_pp}pp.",
-                                        holder_name = rank_holder.username,
+                                        holder_name = rank_holder.username.cow_escape_markdown(),
                                         holder_pp = with_comma_float(rank_holder_pp),
                                         amount = len - idx,
                                         each = with_comma_float(each),
@@ -146,7 +147,7 @@ impl RankEmbed {
                                         genitiv = if idx != 1 { "s" } else { "" },
                                         approx = if idx >= 100 { "roughly " } else { "" },
                                         top = with_comma_float(top),
-                                        name = user.username,
+                                        name = user.username.cow_escape_markdown(),
                                     )
                                 } else {
                                     pps.extend(iter::repeat(each).take(n_each));
@@ -167,12 +168,12 @@ impl RankEmbed {
                                         **{holder_pp}pp**, so {name} is missing **{missing}** raw pp.\n\
                                         To reach {holder_pp}pp, {name} needs to perform **{n_each}** \
                                         more {each}pp score{plural} and one **{required}pp** score.",
-                                        holder_name = rank_holder.username,
+                                        holder_name = rank_holder.username.cow_escape_markdown(),
                                         holder_pp = with_comma_float(rank_holder_pp),
                                         missing = with_comma_float(rank_holder_pp - user_pp),
                                         each = with_comma_float(each),
                                         plural = if n_each != 1 { "s" } else { "" },
-                                        name = user.username,
+                                        name = user.username.cow_escape_markdown(),
                                         required = with_comma_float(required),
                                     )
                                 }
@@ -192,9 +193,9 @@ impl RankEmbed {
                                 "Rank {country}{rank} is currently held by {holder_name} with \
                                 **{holder_pp}pp**, so {name} is missing **{missing}** raw pp, achievable \
                                 with a single score worth **{pp}pp** which would be the top {approx}#{idx}.",
-                                holder_name = rank_holder.username,
+                                holder_name = rank_holder.username.cow_escape_markdown(),
                                 holder_pp = with_comma_float(rank_holder_pp),
-                                name = user.username,
+                                name = user.username.cow_escape_markdown(),
                                 missing = with_comma_float(rank_holder_pp - user_pp),
                                 pp = with_comma_float(required),
                                 approx = if idx >= 100 { "~" } else { "" },
@@ -207,9 +208,9 @@ impl RankEmbed {
                         "Rank {country}{rank} is currently held by {holder_name} with \
                         **{holder_pp}pp**, so {name} is missing **{holder_pp}** raw pp, \
                         achievable with a single score worth **{holder_pp}pp**.",
-                        holder_name = rank_holder.username,
+                        holder_name = rank_holder.username.cow_escape_markdown(),
                         holder_pp = with_comma_float(rank_holder_pp),
-                        name = user.username,
+                        name = user.username.cow_escape_markdown(),
                     )
                 };
 
@@ -224,7 +225,7 @@ impl RankEmbed {
 
                 let title = format!(
                     "How many pp is {name} missing to reach rank #{rank}?",
-                    name = user.username,
+                    name = user.username.cow_escape_markdown(),
                     rank = with_comma_int(*rank),
                 );
 
@@ -234,7 +235,7 @@ impl RankEmbed {
                         so {name} is already above that with **{pp}pp**.",
                         rank = with_comma_int(*rank),
                         required_pp = with_comma_float(*required_pp),
-                        name = user.username,
+                        name = user.username.cow_escape_markdown(),
                         pp = with_comma_float(user_pp)
                     )
                 } else if let Some(scores) = scores {
@@ -246,7 +247,7 @@ impl RankEmbed {
                                 A new top100 score requires at least **{last_pp}pp** \
                                 so {required_pp} total pp can't be reached with {each}pp scores.",
                                 required_pp = with_comma_float(*required_pp),
-                                name = user.username,
+                                name = user.username.cow_escape_markdown(),
                                 missing = with_comma_float(required_pp - user_pp),
                                 last_pp = with_comma_float(last_pp),
                                 each = with_comma_float(each),
@@ -269,7 +270,7 @@ impl RankEmbed {
                                     so {name} is missing **{missing}** raw pp.\n\
                                     To reach {required_pp}pp with one additional score, {name} needs to \
                                     perform a **{required}pp** score which would be the top {approx}#{idx}",
-                                    name = user.username,
+                                    name = user.username.cow_escape_markdown(),
                                     required_pp = with_comma_float(*required_pp),
                                     missing = with_comma_float(required_pp - user_pp),
                                     required = with_comma_float(required),
@@ -277,10 +278,7 @@ impl RankEmbed {
                                     idx = idx + 1,
                                 )
                             } else {
-                                let idx = pps
-                                    .iter()
-                                    .position(|&pp| pp < each)
-                                    .unwrap_or(pps.len());
+                                let idx = pps.iter().position(|&pp| pp < each).unwrap_or(pps.len());
 
                                 let mut iter = pps
                                     .iter()
@@ -330,7 +328,7 @@ impl RankEmbed {
                                         genitiv = if idx != 1 { "s" } else { "" },
                                         approx = if idx >= 100 { "roughly " } else { "" },
                                         top = with_comma_float(top),
-                                        name = user.username,
+                                        name = user.username.cow_escape_markdown(),
                                     )
                                 } else {
                                     pps.extend(iter::repeat(each).take(n_each));
@@ -355,7 +353,7 @@ impl RankEmbed {
                                         missing = with_comma_float(required_pp - user_pp),
                                         each = with_comma_float(each),
                                         plural = if n_each != 1 { "s" } else { "" },
-                                        name = user.username,
+                                        name = user.username.cow_escape_markdown(),
                                         required = with_comma_float(required),
                                     )
                                 }
@@ -377,7 +375,7 @@ impl RankEmbed {
                                 single score worth **{pp}pp** which would be the top {approx}#{idx}.",
                                 rank = with_comma_int(*rank),
                                 required_pp = with_comma_float(*required_pp),
-                                name = user.username,
+                                name = user.username.cow_escape_markdown(),
                                 missing = with_comma_float(required_pp - user_pp),
                                 pp = with_comma_float(required),
                                 approx = if idx >= 100 { "~" } else { "" },
@@ -392,7 +390,7 @@ impl RankEmbed {
                         achievable with a single score worth **{required_pp}pp**.",
                         rank = with_comma_int(*rank),
                         required_pp = with_comma_float(*required_pp),
-                        name = user.username,
+                        name = user.username.cow_escape_markdown(),
                     )
                 };
 

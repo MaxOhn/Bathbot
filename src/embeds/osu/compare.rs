@@ -10,7 +10,7 @@ use crate::{
         matcher::highlight_funny_numeral,
         numbers::{self, round, with_comma_float, with_comma_int},
         osu::{flag_url, grade_completion_mods, prepare_beatmap_file, ModSelection},
-        ScoreExt,
+        CowUtils, ScoreExt,
     },
     BotResult,
 };
@@ -439,7 +439,12 @@ impl NoScoresEmbed {
             .url(format!("{OSU_BASE}u/{}", user.user_id))
             .icon_url(user.avatar_url);
 
-        let title = format!("{} - {} [{}]", mapset.artist, mapset.title, map.version);
+        let title = format!(
+            "{} - {} [{}]",
+            mapset.artist.cow_escape_markdown(),
+            mapset.title.cow_escape_markdown(),
+            map.version.cow_escape_markdown()
+        );
 
         let description = if mods.is_some() {
             "No scores with these mods"

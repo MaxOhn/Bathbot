@@ -4,7 +4,7 @@ use command_macros::EmbedData;
 use hashbrown::HashMap;
 use rosu_v2::prelude::MostPlayedMap;
 
-use crate::util::constants::OSU_BASE;
+use crate::util::{constants::OSU_BASE, CowUtils};
 
 #[derive(EmbedData)]
 pub struct MostPlayedCommonEmbed {
@@ -34,8 +34,8 @@ impl MostPlayedCommonEmbed {
                 description,
                 "**{i}.** [{title} [{version}]]({OSU_BASE}b/{map_id}) [{stars:.2}★]\n\
                 - :{medal1}_place: `{name1}`: **{count1}** :{medal2}_place: `{name2}`: **{count2}**",
-                title = map.mapset.title,
-                version = map.map.version,
+                title = map.mapset.title.cow_escape_markdown(),
+                version = map.map.version.cow_escape_markdown(),
                 stars = map.map.stars,
             );
         }

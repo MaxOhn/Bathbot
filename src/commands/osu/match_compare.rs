@@ -1,4 +1,4 @@
-use std::{fmt::Write, mem, sync::Arc, time::Duration};
+use std::{borrow::Cow, fmt::Write, mem, sync::Arc, time::Duration};
 
 use command_macros::SlashCommand;
 use hashbrown::HashMap;
@@ -16,7 +16,7 @@ use crate::{
     pagination::{MatchComparePagination, Pagination},
     util::{
         builder::MessageBuilder, constants::OSU_API_ISSUE, matcher, ApplicationCommandExt,
-        Authored, ChannelExt, ScoreExt,
+        Authored, ChannelExt, CowUtils, ScoreExt,
     },
     BotResult,
 };
@@ -400,6 +400,11 @@ pub struct ProcessedMatch {
 
 impl ProcessedMatch {
     fn new(name: String, match_id: u32) -> Self {
+        let name = match name.cow_escape_markdown() {
+            Cow::Borrowed(_) => name,
+            Cow::Owned(owned) => owned,
+        };
+
         Self {
             name,
             match_id,
@@ -423,12 +428,12 @@ fn map_name(map: &BeatmapCompact) -> String {
     let mut name = String::new();
 
     if let Some(ref mapset) = map.mapset {
-        let _ = write!(name, "{}", mapset.title);
+        let _ = write!(name, "{}", mapset.title.cow_escape_markdown());
     } else {
         name.push_str("<unknown title>")
     }
 
-    let _ = write!(name, " [{}]", map.version);
+    let _ = write!(name, " [{}]", map.version.cow_escape_markdown());
 
     name
 }

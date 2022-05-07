@@ -1,4 +1,3 @@
-
 use std::fmt::Write;
 
 use command_macros::EmbedData;
@@ -18,6 +17,7 @@ use crate::{
         datetime::how_long_ago_dynamic,
         numbers::round,
         osu::prepare_beatmap_file,
+        CowUtils,
     },
     BotResult,
 };
@@ -66,13 +66,12 @@ impl SnipedDiffEmbed {
 
             let _ = write!(
                 description,
-                "**{idx}. [{map}]({base}b/{id}) {mods}**\n[{stars}] ~ ({acc}%) ~ ",
+                "**{idx}. [{map}]({OSU_BASE}b/{id}) {mods}**\n[{stars}] ~ ({acc}%) ~ ",
                 idx = idx + 1,
-                map = score.map,
-                base = OSU_BASE,
+                map = score.map.cow_escape_markdown(),
                 id = score.beatmap_id,
                 mods = osu::get_mods(score.mods),
-                stars = osu::get_stars(stars),
+                stars = osu::get_stars(stars), // TODO: remove function
                 acc = round(100.0 * score.accuracy),
             );
 
@@ -80,24 +79,21 @@ impl SnipedDiffEmbed {
                 Difference::Gain => match score.sniped {
                     Some(ref name) => write!(
                         description,
-                        "Sniped [{name}]({base}u/{id}) ",
-                        name = name,
-                        base = OSU_BASE,
+                        "Sniped [{name}]({OSU_BASE}u/{id}) ",
+                        name = name.cow_escape_markdown(),
                         id = score.sniped_id.unwrap_or(2),
                     ),
                     None => write!(description, "Unclaimed until "),
                 },
                 Difference::Loss => write!(
                     description,
-                    "Sniped by [{name}]({base}u/{id}) ",
-                    name = score.sniper,
-                    base = OSU_BASE,
+                    "Sniped by [{name}]({OSU_BASE}u/{id}) ",
+                    name = score.sniper.cow_escape_markdown(),
                     id = score.sniper_id,
                 ),
             };
 
-            let _ = write!(description, "{}", how_long_ago_dynamic(&score.date));
-            description.push('\n');
+            let _ = writeln!(description, "{}", how_long_ago_dynamic(&score.date));
         }
 
         description.pop();

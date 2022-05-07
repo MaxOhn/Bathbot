@@ -15,6 +15,7 @@ use crate::{
         constants::OSU_BASE,
         datetime::how_long_ago_dynamic,
         numbers::{round, with_comma_int},
+        CowUtils,
     },
 };
 
@@ -48,10 +49,9 @@ impl PlayerSnipeListEmbed {
         let entries = scores.range(index..index + 5);
         let mut description = String::with_capacity(1024);
 
+        // TODO: update formatting
         for (idx, score) in entries {
-            let map = maps
-                .get(&score.beatmap_id)
-                .expect("missing beatmap for psl embed");
+            let map = maps.get(&score.beatmap_id).expect("missing map");
 
             let max_pp = match PpCalculator::new(ctx, map.map_id).await {
                 Ok(mut calc) => Some(calc.mods(score.mods).max_pp() as f32),
@@ -65,16 +65,23 @@ impl PlayerSnipeListEmbed {
             let pp = osu::get_pp(score.pp, max_pp);
             let n300 = map.count_objects() - score.count_100 - score.count_50 - score.count_miss;
 
+            let title = map
+                .mapset
+                .as_ref()
+                .unwrap()
+                .title
+                .as_str()
+                .cow_escape_markdown();
+
             let _ = writeln!(
                 description,
                 "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars}]\n\
                 {pp} ~ ({acc}%) ~ {score}\n{{{n300}/{n100}/{n50}/{nmiss}}} ~ {ago}",
                 idx = idx + 1,
-                title = map.mapset.as_ref().unwrap().title,
-                version = map.version,
+                version = map.version.as_str().cow_escape_markdown(),
                 id = score.beatmap_id,
                 mods = osu::get_mods(score.mods),
-                stars = osu::get_stars(score.stars),
+                stars = osu::get_stars(score.stars), // TODO: remove function
                 acc = round(score.accuracy),
                 score = with_comma_int(score.score),
                 n100 = score.count_100,

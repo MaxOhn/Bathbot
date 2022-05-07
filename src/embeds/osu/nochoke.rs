@@ -12,7 +12,7 @@ use crate::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
         numbers::{with_comma_float, with_comma_int},
-        ScoreExt,
+        CowUtils, ScoreExt,
     },
 };
 
@@ -63,13 +63,14 @@ impl NoChokeEmbed {
 
             let stars = osu::get_stars(stars);
 
+            // TODO: use miss emote
             let _ = writeln!(
                 description,
                 "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars}]\n\
                 {grade} {old_pp:.2} → **{new_pp:.2}pp**/{max_pp:.2}PP ~ ({old_acc:.2} → **{new_acc:.2}%**)\n\
                 [ {old_combo} → **{new_combo}x**/{max_combo} ] ~ *Removed {misses} miss{plural}*",
-                title = mapset.title,
-                version = map.version,
+                title = mapset.title.cow_escape_markdown(),
+                version = map.version.cow_escape_markdown(),
                 id = map.map_id,
                 mods = osu::get_mods(original.mods),
                 grade = unchoked.grade_emote(original.mode),

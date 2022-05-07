@@ -14,6 +14,7 @@ use crate::{
         constants::OSU_BASE,
         numbers::{round, with_comma_int},
         osu::grade_emote,
+        CowUtils,
     },
 };
 
@@ -44,6 +45,9 @@ impl MatchCompareMapEmbed {
         );
 
         let footer = FooterBuilder::new(footer_text);
+
+        let match_1 = match_1.cow_escape_markdown();
+        let match_2 = match_2.cow_escape_markdown();
 
         let fields = match comparison {
             MatchCompareComparison::Both => {
@@ -101,14 +105,14 @@ impl MatchCompareMapEmbed {
     }
 }
 
-fn team_scores(map: &CommonMap, match_1: &str, match_2: &str) -> String {
+fn team_scores(map: &CommonMap, match_1: Cow<'_, str>, match_2: Cow<'_, str>) -> String {
     let mut scores = Vec::new();
 
     for team in [Team::Blue, Team::Red] {
         if map.match_1_scores[team as usize] > 0 {
             scores.push(TeamScore::new(
                 team,
-                match_1,
+                &match_1,
                 map.match_1_scores[team as usize],
             ));
         }
@@ -116,7 +120,7 @@ fn team_scores(map: &CommonMap, match_1: &str, match_2: &str) -> String {
         if map.match_2_scores[team as usize] > 0 {
             scores.push(TeamScore::new(
                 team,
-                match_2,
+                &match_2,
                 map.match_2_scores[team as usize],
             ));
         }

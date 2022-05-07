@@ -10,7 +10,7 @@ use crate::{
         constants::OSU_BASE,
         datetime::how_long_ago_dynamic,
         numbers::{with_comma_float, with_comma_int},
-        ScoreExt,
+        CowUtils, ScoreExt,
     },
 };
 
@@ -54,8 +54,8 @@ impl TopIfEmbed {
                 description,
                 "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars}]\n\
                 {grade} {pp} ~ {acc}% ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
-                title = mapset.title,
-                version = map.version,
+                title = mapset.title.cow_escape_markdown(),
+                version = map.version.cow_escape_markdown(),
                 id = map.map_id,
                 mods = osu::get_mods(score.mods),
                 grade = score.grade_emote(mode),

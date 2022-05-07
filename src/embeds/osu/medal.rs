@@ -62,7 +62,11 @@ impl MedalEmbed {
                     ..
                 } = map;
 
-                let m = format!(" - [{title} [{version}]]({OSU_BASE}b/{map_id}) ({vote_sum:+})\n",);
+                let m = format!(
+                    " - [{title} [{version}]]({OSU_BASE}b/{map_id}) ({vote_sum:+})\n",
+                    title = title.cow_escape_markdown(),
+                    version = version.cow_escape_markdown()
+                );
 
                 if m.len() + map_value.len() + 7 >= FIELD_VALUE_SIZE {
                     map_value.push_str("`...`\n");
@@ -140,6 +144,7 @@ impl MedalEmbed {
 
     pub fn minimized(mut self) -> Embed {
         self.fields.truncate(5);
+        // TODO: Check on min > max > min > max
 
         self.build()
     }

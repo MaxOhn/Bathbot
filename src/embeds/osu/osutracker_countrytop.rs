@@ -46,10 +46,10 @@ impl OsuTrackerCountryTopEmbed {
                 description,
                 "**{i}.** [{map_name}]({OSU_BASE}b/{map_id}) **+{mods}**\n\
                 > by __[{user}]({OSU_BASE}u/{adjusted_user})__ • **{pp}pp** • {acc}% • <t:{timestamp}:R>{appendix}",
-                map_name = score.name,
+                map_name = score.name.cow_escape_markdown(),
                 map_id = score.map_id,
                 mods = score.mods,
-                user = score.player.cow_replace('_', "\\_"),
+                user = score.player.cow_escape_markdown(),
                 adjusted_user = score.player.cow_replace(' ', "%20"),
                 pp = round(score.pp),
                 acc = round(score.acc),

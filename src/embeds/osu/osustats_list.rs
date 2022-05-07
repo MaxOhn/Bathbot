@@ -1,5 +1,3 @@
-
-
 use std::fmt::Write;
 
 use command_macros::EmbedData;
@@ -11,7 +9,7 @@ use crate::{
         constants::{AVATAR_URL, OSU_BASE},
         numbers::with_comma_int,
         osu::flag_url,
-        CountryCode,
+        CountryCode, CowUtils,
     },
 };
 
@@ -38,12 +36,12 @@ impl OsuStatsListEmbed {
 
         let mut description = String::with_capacity(1024);
 
-        for (i, player) in players.iter().enumerate() {
+        for (player, i) in players.iter().zip(1..) {
             let _ = writeln!(
                 description,
                 "**{}. [{}]({OSU_BASE}users/{})**: {}",
-                (pages.0 - 1) * 15 + i + 1,
-                player.username,
+                (pages.0 - 1) * 15 + i,
+                player.username.cow_escape_markdown(),
                 player.user_id,
                 with_comma_int(player.count)
             );

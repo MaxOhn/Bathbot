@@ -24,27 +24,23 @@ impl MedalCountEmbed {
     ) -> Self {
         let mut description = String::with_capacity(1024);
 
-        for (i, entry) in ranking.iter().enumerate() {
-            let idx = index + i;
-
+        for (entry, idx) in ranking.iter().zip(index..) {
             let medal_name = entry.rarest_medal.as_str();
             let tmp = medal_name.cow_replace(' ', "+");
             let url_name = tmp.cow_replace(',', "%2C");
 
             let _ = writeln!(
                 description,
-                "**{idx}.** :flag_{country}: [{author}**{user}**{author}]({base}u/{user_id}): \
+                "**{i}.** :flag_{country}: [{author}**{user}**{author}]({OSU_BASE}u/{user_id}): \
                 `{count}` (`{percent}%`) ▸ [{medal}](https://osekai.net/medals/?medal={url_name})",
-                idx = idx + 1,
+                i = idx + 1,
                 country = entry.country_code.to_ascii_lowercase(),
                 author = if author_idx == Some(idx) { "__" } else { "" },
-                user = entry.username,
-                base = OSU_BASE,
+                user = entry.username.cow_escape_markdown(),
                 user_id = entry.user_id,
                 count = entry.medal_count,
                 percent = round(entry.completion),
                 medal = entry.rarest_medal,
-                url_name = url_name,
             );
         }
 

@@ -9,6 +9,7 @@ use crate::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
         numbers::{with_comma_float, with_comma_int},
         osu::{approx_more_pp, pp_missing, ExtractablePp, PpListUtil},
+        CowUtils,
     },
 };
 
@@ -32,7 +33,7 @@ impl PPMissingEmbed {
 
         let title = format!(
             "What scores is {name} missing to reach {goal_pp}pp?",
-            name = user.username,
+            name = user.username.cow_escape_markdown(),
             goal_pp = with_comma_float(goal_pp),
         );
 
@@ -42,7 +43,7 @@ impl PPMissingEmbed {
             // Total pp already above goal
             _ if stats_pp > goal_pp => format!(
                 "{name} has {pp_raw}pp which is already more than {pp_given}pp.",
-                name = user.username,
+                name = user.username.cow_escape_markdown(),
                 pp_raw = with_comma_float(stats_pp),
                 pp_given = with_comma_float(goal_pp),
             ),
@@ -61,7 +62,7 @@ impl PPMissingEmbed {
                     "To reach {pp}pp with one additional score, {user} needs to perform \
                     a **{required}pp** score which would be the top {approx}#{idx}",
                     pp = with_comma_float(goal_pp),
-                    user = user.username,
+                    user = user.username.cow_escape_markdown(),
                     required = with_comma_float(required),
                     approx = if idx >= 100 { "~" } else { "" },
                     idx = idx + 1,
@@ -75,7 +76,7 @@ impl PPMissingEmbed {
                     pp = with_comma_float(goal_pp),
                     last_pp = with_comma_float(last_pp),
                     each = with_comma_float(each),
-                    user = user.username,
+                    user = user.username.cow_escape_markdown(),
                 )
             }
             // Given score pp would be in top 100
@@ -95,16 +96,13 @@ impl PPMissingEmbed {
                         "To reach {pp}pp with one additional score, {user} needs to perform \
                         a **{required}pp** score which would be the top {approx}#{idx}",
                         pp = with_comma_float(goal_pp),
-                        user = user.username,
+                        user = user.username.cow_escape_markdown(),
                         required = with_comma_float(required),
                         approx = if idx >= 100 { "~" } else { "" },
                         idx = idx + 1,
                     )
                 } else {
-                    let idx = pps
-                        .iter()
-                        .position(|&pp| pp < each)
-                        .unwrap_or(scores.len());
+                    let idx = pps.iter().position(|&pp| pp < each).unwrap_or(scores.len());
 
                     let mut iter = pps
                         .iter()
@@ -150,7 +148,7 @@ impl PPMissingEmbed {
                             pp = with_comma_float(goal_pp),
                             approx = if idx >= 100 { "roughly " } else { "" },
                             top = with_comma_float(top),
-                            user = user.username,
+                            user = user.username.cow_escape_markdown(),
                         )
                     } else {
                         pps.extend(iter::repeat(each).take(n_each));
@@ -168,7 +166,7 @@ impl PPMissingEmbed {
                             each = with_comma_float(each),
                             plural = if n_each != 1 { "s" } else { "" },
                             pp = with_comma_float(goal_pp),
-                            user = user.username,
+                            user = user.username.cow_escape_markdown(),
                             required = with_comma_float(required),
                         )
                     }

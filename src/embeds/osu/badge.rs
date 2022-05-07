@@ -5,7 +5,7 @@ use command_macros::EmbedData;
 use crate::{
     custom_client::{OsekaiBadge, OsekaiBadgeOwner},
     embeds::{attachment, EmbedFields},
-    util::{builder::FooterBuilder, constants::OSU_BASE},
+    util::{builder::FooterBuilder, constants::OSU_BASE, CowUtils},
 };
 
 #[derive(EmbedData)]
@@ -31,7 +31,7 @@ impl BadgeEmbed {
                 owners_str,
                 ":flag_{code}: [{name}]({OSU_BASE}u/{user_id})",
                 code = owner.country_code.to_ascii_lowercase(),
-                name = owner.username,
+                name = owner.username.cow_escape_markdown(),
                 user_id = owner.user_id
             );
         }

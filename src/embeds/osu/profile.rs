@@ -16,7 +16,7 @@ use crate::{
         datetime::{date_to_string, how_long_ago_text, sec_to_minsec},
         numbers::{round, with_comma_int},
         osu::grade_emote,
-        Emote,
+        CowUtils, Emote,
     },
 };
 
@@ -233,7 +233,7 @@ impl ProfileEmbed {
 
             let iter = values.mappers.iter().map(|(id, count, pp)| {
                 let name = match mapper_names.get(id) {
-                    Some(name) => name.to_owned(),
+                    Some(name) => name.cow_escape_markdown(),
                     None => format!("User id {id}").into(),
                 };
 
@@ -254,13 +254,7 @@ impl ProfileEmbed {
             count_str.push_str("```\n");
 
             for (rank, count) in globals_count {
-                let _ = writeln!(
-                    count_str,
-                    "Top {:<2}: {:>count_len$}",
-                    rank,
-                    count,
-                    count_len = count_len,
-                );
+                let _ = writeln!(count_str, "Top {rank:<2}: {count:>count_len$}",);
             }
 
             count_str.push_str("```");

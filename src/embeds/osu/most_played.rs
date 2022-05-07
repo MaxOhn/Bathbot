@@ -1,15 +1,12 @@
-
 use std::fmt::Write;
 
 use command_macros::EmbedData;
 use rosu_v2::prelude::{MostPlayedMap, User};
 
-use crate::{
-    embeds::osu,
-    util::{
-        builder::{AuthorBuilder, FooterBuilder},
-        constants::OSU_BASE,
-    },
+use crate::util::{
+    builder::{AuthorBuilder, FooterBuilder},
+    constants::OSU_BASE,
+    CowUtils,
 };
 
 #[derive(EmbedData)]
@@ -35,14 +32,13 @@ impl MostPlayedEmbed {
 
             let _ = writeln!(
                 description,
-                "**[{count}]** [{artist} - {title} [{version}]]({base}b/{map_id}) [{stars}]",
+                "**[{count}]** [{artist} - {title} [{version}]]({OSU_BASE}b/{map_id}) [{stars:.2}★]",
                 count = most_played.count,
-                title = mapset.title,
-                artist = mapset.artist,
-                version = map.version,
-                base = OSU_BASE,
+                title = mapset.title.cow_escape_markdown(),
+                artist = mapset.artist.cow_escape_markdown(),
+                version = map.version.cow_escape_markdown(),
                 map_id = map.map_id,
-                stars = osu::get_stars(map.stars),
+                stars = map.stars,
             );
         }
 

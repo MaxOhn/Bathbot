@@ -10,7 +10,7 @@ use crate::{
         constants::OSU_BASE,
         numbers::{with_comma_float, with_comma_int},
         osu::flag_url,
-        CountryCode,
+        CountryCode, CowUtils,
     },
 };
 
@@ -62,11 +62,9 @@ impl CountrySnipeListEmbed {
         for (idx, player) in players {
             let _ = writeln!(
                 description,
-                "**{idx}. [{name}]({base}users/{id})**: {w}Weighted pp: {weighted}{w}\n\
+                "**{idx}. [{name}]({OSU_BASE}users/{id})**: {w}Weighted pp: {weighted}{w}\n\
                 {c}Count: {count}{c} ~ {p}Avg pp: {pp}{p} ~ {s}Avg stars: {stars:.2}★{s}",
-                idx = idx,
-                name = player.username,
-                base = OSU_BASE,
+                name = player.username.cow_escape_markdown(),
                 id = player.user_id,
                 c = if order == SnipeCountryListOrder::Count {
                     "__"

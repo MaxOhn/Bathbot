@@ -16,7 +16,7 @@ use crate::{
         builder::{AuthorBuilder, FooterBuilder},
         datetime::how_long_ago_dynamic,
         osu::{grade_completion_mods, prepare_beatmap_file},
-        ScoreExt,
+        CowUtils, ScoreExt,
     },
     BotResult,
 };
@@ -47,7 +47,7 @@ impl RecentListEmbed {
 
         let mut description = String::with_capacity(512);
 
-        for (i, score) in scores.enumerate() {
+        for (score, i) in scores.zip(idx..) {
             let map = score.map.as_ref().unwrap();
             let mapset = score.mapset.as_ref().unwrap();
 
@@ -66,12 +66,10 @@ impl RecentListEmbed {
             let _ = write!(
                 description,
                 "**{idx}. {grade}\t[{title} [{version}]]({url})** [{stars}]",
-                idx = idx + i,
                 grade = grade_completion_mods(score, map),
-                title = mapset.title,
-                version = map.version,
+                title = mapset.title.cow_escape_markdown(),
+                version = map.version.cow_escape_markdown(),
                 url = map.url,
-                stars = stars,
             );
 
             if map.mode == GameMode::MNA {
@@ -83,7 +81,6 @@ impl RecentListEmbed {
             let _ = writeln!(
                 description,
                 "{pp}\t[ {combo} ]\t({acc}%)\t{ago}",
-                pp = pp,
                 combo = osu::get_combo(score, map),
                 acc = score.acc(map.mode),
                 ago = how_long_ago_dynamic(&score.created_at)

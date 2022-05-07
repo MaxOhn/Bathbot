@@ -19,6 +19,7 @@ use crate::{
         datetime::sec_to_minsec,
         numbers::{round, with_comma_int},
         osu::{mode_emote, prepare_beatmap_file},
+        CowUtils,
     },
     BotResult,
 };
@@ -54,7 +55,12 @@ impl MapEmbed {
             let _ = write!(title, "[{}K] ", map.cs as u32);
         }
 
-        let _ = write!(title, "{} - {}", mapset.artist, mapset.title);
+        let _ = write!(
+            title,
+            "{} - {}",
+            mapset.artist.cow_escape_markdown(),
+            mapset.title.cow_escape_markdown()
+        );
 
         let download_value = format!(
             "[osu!direct]({url}/osudirect/{mapset_id})\n\
@@ -229,7 +235,11 @@ impl MapEmbed {
             map.count_spinners,
         );
 
-        let mut info_name = format!("{} __[{}]__", mode_emote(map.mode), map.version);
+        let mut info_name = format!(
+            "{mode} __[{version}]__",
+            mode = mode_emote(map.mode),
+            version = map.version.cow_escape_markdown()
+        );
 
         if !mods.is_empty() {
             let _ = write!(info_name, " +{mods}");
@@ -259,7 +269,7 @@ impl MapEmbed {
         };
 
         let creator_avatar_url = mapset.creator.as_ref().map_or_else(
-            || format!("{}{}", AVATAR_URL, mapset.creator_id),
+            || format!("{AVATAR_URL}{}", mapset.creator_id),
             |creator| creator.avatar_url.to_owned(),
         );
 

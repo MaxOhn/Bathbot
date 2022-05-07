@@ -1,10 +1,9 @@
-
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
 
 use command_macros::EmbedData;
 use rosu_v2::prelude::{GameMode, User};
 
-use crate::util::builder::AuthorBuilder;
+use crate::util::{builder::AuthorBuilder, CowUtils};
 
 #[derive(EmbedData)]
 pub struct OsuStatsCountsEmbed {
@@ -24,13 +23,7 @@ impl OsuStatsCountsEmbed {
         description.push_str("```\n");
 
         for (rank, count) in counts {
-            let _ = writeln!(
-                description,
-                "Top {:<2}: {:>count_len$}",
-                rank,
-                count,
-                count_len = count_len,
-            );
+            let _ = writeln!(description, "Top {rank:<2}: {count:>count_len$}",);
         }
 
         let mode = match mode {
@@ -48,7 +41,7 @@ impl OsuStatsCountsEmbed {
             thumbnail: user.avatar_url,
             title: format!(
                 "In how many top X {mode}map leaderboards is {}?",
-                user.username
+                user.username.cow_escape_markdown()
             ),
         }
     }

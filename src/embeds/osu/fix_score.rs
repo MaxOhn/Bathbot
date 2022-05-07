@@ -7,6 +7,7 @@ use crate::util::{
     builder::AuthorBuilder,
     constants::MAP_THUMB_URL,
     numbers::{round, with_comma_float},
+    CowUtils,
 };
 
 #[derive(EmbedData)]
@@ -31,7 +32,13 @@ impl FixScoreEmbed {
         let thumbnail = format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id);
 
         let mapset = map.mapset.as_ref().unwrap();
-        let title = format!("{} - {} [{}]", mapset.artist, mapset.title, map.version);
+
+        let title = format!(
+            "{} - {} [{}]",
+            mapset.artist.cow_escape_markdown(),
+            mapset.title.cow_escape_markdown(),
+            map.version.cow_escape_markdown()
+        );
 
         // The score can be unchoked
         let description = if let Some(pp) = unchoked_pp {

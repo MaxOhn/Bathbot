@@ -3,6 +3,7 @@ use std::{
     cmp::Ordering,
     collections::HashMap,
     fmt::{Display, Formatter, Result as FmtResult, Write},
+    mem,
 };
 
 use rosu_v2::prelude::{
@@ -18,7 +19,7 @@ use crate::util::{
     datetime::sec_to_minsec,
     numbers::{round, with_comma_int},
     osu::grade_emote,
-    Emote, ScoreExt,
+    CowUtils, Emote, ScoreExt,
 };
 
 const DESCRIPTION_BUFFER: usize = 45;
@@ -50,7 +51,7 @@ macro_rules! username {
     ($lobby:ident[$user_id:ident]) => {
         match $lobby.users.get(&$user_id) {
             Some(user) => Cow::Borrowed(user.username.as_str()),
-            None => Cow::Owned(format!("User id {}", $user_id)),
+            None => format!("User id {}", $user_id).into(),
         }
     };
 }
@@ -131,7 +132,7 @@ impl MatchLiveEmbed {
                     // Finish up the embed we have so far
                     if !description.is_empty() {
                         let embed = Self {
-                            title: lobby.name.to_owned(),
+                            title: lobby.name.as_str().cow_escape_markdown().into_owned(),
                             url: format!("{OSU_BASE}community/matches/{}", lobby.match_id),
                             description,
                             image: None,
@@ -151,7 +152,7 @@ impl MatchLiveEmbed {
                     state = Some(next_state);
 
                     let embed = Self {
-                        title: lobby.name.to_owned(),
+                        title: lobby.name.as_str().cow_escape_markdown().into_owned(),
                         url: format!("{OSU_BASE}community/matches/{}", lobby.match_id),
                         description,
                         image,
@@ -178,7 +179,7 @@ impl MatchLiveEmbed {
 
             if description.len() + DESCRIPTION_BUFFER > DESCRIPTION_SIZE {
                 let embed = Self {
-                    title: lobby.name.to_owned(),
+                    title: lobby.name.as_str().cow_escape_markdown().into_owned(),
                     url: format!("{OSU_BASE}community/matches/{}", lobby.match_id),
                     description,
                     image: None,
@@ -193,7 +194,7 @@ impl MatchLiveEmbed {
 
         if !description.is_empty() {
             let embed = Self {
-                title: lobby.name.to_owned(),
+                title: lobby.name.as_str().cow_escape_markdown().into_owned(),
                 url: format!("{OSU_BASE}community/matches/{}", lobby.match_id),
                 description,
                 image: None,
@@ -223,7 +224,7 @@ impl MatchLiveEmbed {
             // The previous embed was a game
             if let Some(state) = last_state.take() {
                 let mut embed = Self {
-                    title: lobby.name.to_owned(),
+                    title: lobby.name.as_str().cow_escape_markdown().into_owned(),
                     url: format!("{OSU_BASE}community/matches/{}", lobby.match_id),
                     description: String::new(),
                     image: None,
@@ -317,7 +318,7 @@ impl MatchLiveEmbed {
                 update.get_or_insert(false);
 
                 match embeds.last_mut().filter(|e| e.description.is_empty()) {
-                    Some(last) => std::mem::swap(last, &mut embed),
+                    Some(last) => mem::swap(last, &mut embed),
                     None if !embed.description.is_empty() => embeds.push(embed),
                     _ => {}
                 }
@@ -382,7 +383,7 @@ impl MatchLiveEmbed {
                             embed.state = last_state;
                         } else {
                             let new_embed = Self {
-                                title: lobby.name.to_owned(),
+                                title: lobby.name.as_str().cow_escape_markdown().into_owned(),
                                 url: format!("{OSU_BASE}community/matches/{}", lobby.match_id),
                                 description,
                                 image,
@@ -412,7 +413,7 @@ impl MatchLiveEmbed {
                     && i != lobby.events.len() - 1
                 {
                     let embed = Self {
-                        title: lobby.name.to_owned(),
+                        title: lobby.name.as_str().cow_escape_markdown().into_owned(),
                         url: format!("{OSU_BASE}community/matches/{}", lobby.match_id),
                         description: String::new(),
                         image: None,
@@ -467,9 +468,9 @@ fn game_content(
                     let _ = write!(
                         description,
                         "**[{artist} - {title} [{version}]]({OSU_BASE}b/{map_id})",
-                        artist = mapset.artist,
-                        title = mapset.title,
-                        version = map.version,
+                        artist = mapset.artist.cow_escape_markdown(),
+                        title = mapset.title.cow_escape_markdown(),
+                        version = map.version.cow_escape_markdown(),
                         map_id = map.map_id,
                     );
 
@@ -561,9 +562,9 @@ fn game_content(
                     let _ = write!(
                         description,
                         "**[{artist} - {title} [{version}]]({OSU_BASE}b/{map_id})",
-                        artist = mapset.artist,
-                        title = mapset.title,
-                        version = map.version,
+                        artist = mapset.artist.cow_escape_markdown(),
+                        title = mapset.title.cow_escape_markdown(),
+                        version = map.version.cow_escape_markdown(),
                         map_id = map.map_id,
                     );
 

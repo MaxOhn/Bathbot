@@ -8,6 +8,7 @@ use crate::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
         numbers::with_comma_int,
+        CowUtils,
     },
 };
 
@@ -48,7 +49,7 @@ impl OsuTrackerMapsEmbed {
                 i_len = sizes.idx,
                 count = with_comma_int(entry.count).to_string(),
                 c_len = sizes.count,
-                name = entry.name,
+                name = entry.name.cow_escape_markdown(),
                 map_id = entry.map_id,
             );
         }

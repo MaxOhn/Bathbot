@@ -58,8 +58,11 @@ impl LeaderboardEmbed {
 
         let _ = write!(
             author_text,
-            "{artist} - {title} [{}] [{:.2}★]",
-            map.version, map.stars
+            "{artist} - {title} [{version}] [{stars:.2}★]",
+            artist = artist.cow_escape_markdown(),
+            title = title.cow_escape_markdown(),
+            version = map.version.cow_escape_markdown(),
+            stars = map.stars
         );
 
         let description = if let Some(scores) = scores {
@@ -82,7 +85,7 @@ impl LeaderboardEmbed {
                 let _ = write!(
                     username,
                     "[{name}]({OSU_BASE}users/{id})",
-                    name = score.username.cow_replace('_', "\\_"),
+                    name = score.username.cow_escape_markdown(),
                     id = score.user_id
                 );
 

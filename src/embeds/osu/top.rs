@@ -16,7 +16,7 @@ use crate::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
         numbers::{round, with_comma_int},
-        Emote, ScoreExt,
+        CowUtils, Emote, ScoreExt,
     },
 };
 
@@ -97,8 +97,8 @@ impl TopEmbed {
                 "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars}]\n\
                 {grade} {pp} • {acc}% • {score}\n[ {combo} ] • {hits} • {appendix}",
                 idx = idx + 1,
-                title = mapset.title,
-                version = map.version,
+                title = mapset.title.cow_escape_markdown(),
+                version = map.version.cow_escape_markdown(),
                 id = map.map_id,
                 mods = osu::get_mods(score.mods),
                 grade = score.grade_emote(score.mode),
@@ -280,9 +280,6 @@ impl CondensedTopEmbed {
                 score = ScoreFormat(score.score),
                 n320 = stats.count_geki,
                 n300 = stats.count_300,
-                // n200 = stats.count_katu,
-                // n100 = stats.count_100,
-                // n50 = stats.count_50,
                 miss = stats.count_miss,
                 appendix = OrderAppendix::new(sort_by, map, mapset_opt, score, farm),
             );
@@ -319,11 +316,18 @@ impl Display for MapFormat<'_> {
             write!(
                 f,
                 "{} - {} [{}]",
-                self.mapset.artist, self.mapset.title, self.map.version
+                self.mapset.artist.cow_escape_markdown(),
+                self.mapset.title.cow_escape_markdown(),
+                self.map.version.cow_escape_markdown(),
             )
         } else if title + version + 3 <= LIMIT {
             // show title and version without truncating
-            write!(f, "{} [{}]", self.mapset.title, self.map.version)
+            write!(
+                f,
+                "{} [{}]",
+                self.mapset.title.cow_escape_markdown(),
+                self.map.version.cow_escape_markdown()
+            )
         } else if version < 15 {
             // keep the version but truncate title
             let (end, suffix) = tuple(title, 50 - version - 3 - 3);
@@ -331,8 +335,8 @@ impl Display for MapFormat<'_> {
             write!(
                 f,
                 "{}{suffix} [{}]",
-                &self.mapset.title[..end],
-                self.map.version
+                self.mapset.title[..end].cow_escape_markdown(),
+                self.map.version.cow_escape_markdown(),
             )
         } else if title < 15 {
             // keep the title but truncate version
@@ -341,8 +345,8 @@ impl Display for MapFormat<'_> {
             write!(
                 f,
                 "{} [{}{suffix}]",
-                self.mapset.title,
-                &self.map.version[..end],
+                self.mapset.title.cow_escape_markdown(),
+                self.map.version[..end].cow_escape_markdown(),
             )
         } else {
             // truncate title and version evenly
@@ -365,8 +369,8 @@ impl Display for MapFormat<'_> {
             write!(
                 f,
                 "{}{title_suffix} [{}{version_suffix}]",
-                &self.mapset.title[..title_end],
-                &self.map.version[..version_end],
+                self.mapset.title[..title_end].cow_escape_markdown(),
+                self.map.version[..version_end].cow_escape_markdown(),
             )
         }
     }
