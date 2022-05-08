@@ -319,8 +319,8 @@ pub enum MapIdType {
 
 impl MapIdType {
     /// Looks for map or mapset id
-    pub fn from_msgs(msgs: &[Message]) -> Option<Self> {
-        msgs.iter().find_map(Self::from_msg)
+    pub fn from_msgs(msgs: &[Message], idx: usize) -> Option<Self> {
+        msgs.iter().filter_map(Self::from_msg).nth(idx)
     }
 
     /// Looks for map or mapset id
@@ -364,8 +364,8 @@ impl MapIdType {
     }
 
     /// Only looks for map id
-    pub fn map_from_msgs(msgs: &[Message]) -> Option<u32> {
-        msgs.iter().find_map(Self::map_from_msg)
+    pub fn map_from_msgs(msgs: &[Message], idx: usize) -> Option<u32> {
+        msgs.iter().filter_map(Self::map_from_msg).nth(idx)
     }
 
     /// Only looks for map id

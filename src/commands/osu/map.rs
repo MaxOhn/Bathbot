@@ -36,6 +36,7 @@ use crate::{
 
 use super::{HasMods, ModsResult};
 
+// TODO: formatting
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "map",
@@ -269,7 +270,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
             }
         };
 
-        match MapIdType::from_msgs(&msgs) {
+        match MapIdType::from_msgs(&msgs, 0) {
             Some(id) => id,
             None => {
                 let content = "No beatmap specified and none found in recent channel history. \

@@ -44,8 +44,8 @@ pub struct Cs<'a> {
     /// Specify a username
     name: Option<Cow<'a, str>>,
     #[command(help = "Specify a map either by map url or map id.\n\
-    If none is specified, it will search in the recent channel history \
-    and pick the first map it can find.")]
+        If none is specified, it will search in the recent channel history \
+        and pick the first map it can find.")]
     /// Specify a map url or map id
     map: Option<Cow<'a, str>>,
     /// Choose how the scores should be ordered
@@ -82,6 +82,7 @@ pub(super) struct CompareScoreArgs<'a> {
     sort: Option<CompareScoreOrder>,
     mods: Option<Cow<'a, str>>,
     discord: Option<Id<UserMarker>>,
+    index: Option<u64>,
 }
 
 impl<'m> CompareScoreArgs<'m> {
@@ -114,6 +115,7 @@ impl<'m> CompareScoreArgs<'m> {
             sort: None,
             mods,
             discord,
+            index: args.num,
         }
     }
 }
@@ -148,6 +150,7 @@ macro_rules! impl_try_from {
                         sort: args.sort,
                         mods: args.mods,
                         discord: args.discord,
+                        index: None,
                     })
                 }
             }
@@ -251,7 +254,9 @@ pub(super) async fn score(
         (None, None) => MinimizedPp::default(),
     };
 
-    let CompareScoreArgs { sort, map, .. } = args;
+    let CompareScoreArgs {
+        sort, map, index, ..
+    } = args;
 
     let map_id = match map {
         Some(MapOrScore::Map(MapIdType::Map(map_id))) => map_id,
@@ -354,6 +359,16 @@ pub(super) async fn score(
             return fut.await;
         }
         None => {
+            let idx = match index {
+                Some(idx @ 51..) => {
+                    let content = "I can only go back 50 messages";
+
+                    return orig.error(&ctx, content).await;
+                }
+                Some(idx) => idx.saturating_sub(1) as usize,
+                None => 0,
+            };
+
             let msgs = match ctx.retrieve_channel_history(orig.channel_id()).await {
                 Ok(msgs) => msgs,
                 Err(err) => {
@@ -363,11 +378,22 @@ pub(super) async fn score(
                 }
             };
 
-            let map_id = match MapIdType::map_from_msgs(&msgs) {
+            let map_id = match MapIdType::map_from_msgs(&msgs, idx) {
                 Some(id) => id,
+                None if idx == 0 => {
+                    let content =
+                        "No beatmap specified and none found in recent channel history.\n\
+                        Try specifying a map either by url to the map, or just by map id.";
+
+                    return orig.error(&ctx, content).await;
+                }
                 None => {
-                    let content = "No beatmap specified and none found in recent channel history. \
-                    Try specifying a map either by url to the map, or just by map id.";
+                    let content = format!(
+                        "No beatmap specified and none found at index {} \
+                        of the recent channel history.\nTry decreasing the index or \
+                        specify a map either by url to the map, or just by map id.",
+                        idx + 1
+                    );
 
                     return orig.error(&ctx, content).await;
                 }

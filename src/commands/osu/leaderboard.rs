@@ -217,7 +217,7 @@ async fn leaderboard(
                 }
             };
 
-            match MapIdType::map_from_msgs(&msgs) {
+            match MapIdType::map_from_msgs(&msgs, 0) {
                 Some(id) => id,
                 None => {
                     let content = "No beatmap specified and none found in recent channel history. \
