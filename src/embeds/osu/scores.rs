@@ -14,7 +14,7 @@ use crate::{
         datetime::how_long_ago_dynamic,
         numbers::{round, with_comma_int},
         osu::prepare_beatmap_file,
-        Emote, ScoreExt,
+        CowUtils, Emote, ScoreExt,
     },
     BotResult,
 };
@@ -150,7 +150,13 @@ impl ScoresEmbed {
 
         let mut title_text = String::with_capacity(32);
 
-        let _ = write!(title_text, "{artist} - {title} [{}]", map.version);
+        let _ = write!(
+            title_text,
+            "{artist} - {title} [{version}]",
+            artist = artist.cow_escape_markdown(),
+            title = title.cow_escape_markdown(),
+            version = map.version.cow_escape_markdown()
+        );
 
         if map.mode == GameMode::MNA {
             let _ = write!(title_text, "[{}K] ", map.cs as u32);

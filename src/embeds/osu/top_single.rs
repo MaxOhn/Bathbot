@@ -9,7 +9,7 @@ use crate::{
         datetime::{how_long_ago_dynamic, HowLongAgoFormatterDynamic},
         numbers::{round, with_comma_int},
         osu::{grade_completion_mods, prepare_beatmap_file},
-        ScoreExt,
+        CowUtils, ScoreExt,
     },
     BotResult,
 };
@@ -90,14 +90,19 @@ impl TopSingleEmbed {
             let title = format!(
                 "{} {} - {} [{}]",
                 osu::get_keys(score.mods, map),
-                mapset.artist,
-                mapset.title,
-                map.version
+                mapset.artist.cow_escape_markdown(),
+                mapset.title.cow_escape_markdown(),
+                map.version.cow_escape_markdown(),
             );
 
             (combo, title)
         } else {
-            let title = format!("{} - {} [{}]", mapset.artist, mapset.title, map.version);
+            let title = format!(
+                "{} - {} [{}]",
+                mapset.artist.cow_escape_markdown(),
+                mapset.title.cow_escape_markdown(),
+                map.version.cow_escape_markdown()
+            );
 
             (osu::get_combo(score, map), title)
         };

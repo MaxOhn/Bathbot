@@ -192,16 +192,21 @@ impl CompareEmbed {
             let title = format!(
                 "{} {} - {} [{}]",
                 osu::get_keys(score.mods, map),
-                mapset.artist,
-                mapset.title,
-                map.version
+                mapset.artist.cow_escape_markdown(),
+                mapset.title.cow_escape_markdown(),
+                map.version.cow_escape_markdown(),
             );
 
             (combo, title)
         } else {
             (
                 osu::get_combo(score, map),
-                format!("{} - {} [{}]", mapset.artist, mapset.title, map.version),
+                format!(
+                    "{} - {} [{}]",
+                    mapset.artist.cow_escape_markdown(),
+                    mapset.title.cow_escape_markdown(),
+                    map.version.cow_escape_markdown()
+                ),
             )
         };
 
