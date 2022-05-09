@@ -51,6 +51,8 @@ impl MatchCompareMapEmbed {
 
         let fields = match comparison {
             MatchCompareComparison::Both => {
+                let team_scores = team_scores(&map, &match_1, &match_2);
+
                 vec![
                     field!(
                         match_1,
@@ -62,11 +64,7 @@ impl MatchCompareMapEmbed {
                         prepare_scores(&map.match_2, map.match_2_scores, users, false),
                         false
                     ),
-                    field!(
-                        "Total team scores",
-                        team_scores(&map, match_1, match_2),
-                        false
-                    ),
+                    field!("Total team scores", team_scores, false),
                 ]
             }
             MatchCompareComparison::Players => {
@@ -86,7 +84,7 @@ impl MatchCompareMapEmbed {
             MatchCompareComparison::Teams => {
                 vec![field!(
                     "Total team scores",
-                    team_scores(&map, match_1, match_2),
+                    team_scores(&map, &match_1, &match_2),
                     false
                 )]
             }
@@ -105,14 +103,14 @@ impl MatchCompareMapEmbed {
     }
 }
 
-fn team_scores(map: &CommonMap, match_1: Cow<'_, str>, match_2: Cow<'_, str>) -> String {
+fn team_scores(map: &CommonMap, match_1: &str, match_2: &str) -> String {
     let mut scores = Vec::new();
 
     for team in [Team::Blue, Team::Red] {
         if map.match_1_scores[team as usize] > 0 {
             scores.push(TeamScore::new(
                 team,
-                &match_1,
+                match_1,
                 map.match_1_scores[team as usize],
             ));
         }
@@ -120,7 +118,7 @@ fn team_scores(map: &CommonMap, match_1: Cow<'_, str>, match_2: Cow<'_, str>) ->
         if map.match_2_scores[team as usize] > 0 {
             scores.push(TeamScore::new(
                 team,
-                &match_2,
+                match_2,
                 map.match_2_scores[team as usize],
             ));
         }

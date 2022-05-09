@@ -26,7 +26,7 @@ pub fn parse_invoke(stream: &mut Stream<'_>) -> Invoke {
         name = Cow::Borrowed(num_str);
 
         // thing like <rb1badewanne3 don't need to be considered
-        if stream.take_while_char(char::is_whitespace).is_empty() {
+        if stream.take_while_char(char::is_whitespace).is_empty() && !stream.is_empty() {
             return Invoke::None;
         }
 
@@ -37,7 +37,7 @@ pub fn parse_invoke(stream: &mut Stream<'_>) -> Invoke {
             n.wrapping_mul(10).wrapping_add((c as u8 & 0xF) as u64)
         });
 
-        if stream.take_while_char(char::is_whitespace).is_empty() {
+        if stream.take_while_char(char::is_whitespace).is_empty() && !stream.is_empty() {
             return Invoke::None;
         }
 

@@ -65,7 +65,7 @@ impl RecentListEmbed {
 
             let _ = write!(
                 description,
-                "**{idx}. {grade}\t[{title} [{version}]]({url})** [{stars}]",
+                "**{i}. {grade}\t[{title} [{version}]]({url})** [{stars}]",
                 grade = grade_completion_mods(score, map),
                 title = mapset.title.cow_escape_markdown(),
                 version = map.version.cow_escape_markdown(),

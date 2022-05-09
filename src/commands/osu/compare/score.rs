@@ -91,6 +91,7 @@ impl<'m> CompareScoreArgs<'m> {
         let mut discord = None;
         let mut map = None;
         let mut mods = None;
+        let index = args.num;
 
         for arg in args.take(3) {
             if let Some(id) = matcher::get_osu_map_id(arg)
@@ -115,7 +116,7 @@ impl<'m> CompareScoreArgs<'m> {
             sort: None,
             mods,
             discord,
-            index: args.num,
+            index,
         }
     }
 }
@@ -360,7 +361,7 @@ pub(super) async fn score(
         }
         None => {
             let idx = match index {
-                Some(idx @ 51..) => {
+                Some(_idx @ 51..) => {
                     let content = "I can only go back 50 messages";
 
                     return orig.error(&ctx, content).await;
