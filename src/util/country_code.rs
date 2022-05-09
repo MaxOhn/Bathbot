@@ -619,3 +619,15 @@ impl fmt::Display for CountryCode {
         write!(f, "{}", self.0)
     }
 }
+
+impl PartialEq<str> for CountryCode {
+    fn eq(&self, other: &str) -> bool {
+        self.0.eq(other)
+    }
+}
+
+impl PartialEq<String> for CountryCode {
+    fn eq(&self, other: &String) -> bool {
+        self.0.eq(other)
+    }
+}

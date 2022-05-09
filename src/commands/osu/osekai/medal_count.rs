@@ -60,6 +60,8 @@ pub(super) async fn medal_count(
     };
 
     if let Some(code) = country_code {
+        let code = code.to_ascii_uppercase();
+
         ranking.retain(|entry| entry.country_code == code);
     }
 
@@ -67,11 +69,19 @@ pub(super) async fn medal_count(
         .as_deref()
         .and_then(|name| ranking.iter().position(|e| e.username.as_str() == name));
 
+    let initial_ranking = &ranking[..ranking.len().min(10)];
+
     let pages = numbers::div_euclid(10, ranking.len());
-    let embed_data = MedalCountEmbed::new(&ranking[..10], 0, author_idx, (1, pages));
+    let embed_data = MedalCountEmbed::new(initial_ranking, 0, author_idx, (1, pages));
     let embed = embed_data.build();
     let builder = MessageBuilder::new().embed(embed);
-    let response = command.update(&ctx, &builder).await?.model().await?;
+    let response_raw = command.update(&ctx, &builder).await?;
+
+    if ranking.len() <= 10 {
+        return Ok(());
+    }
+
+    let response = response_raw.model().await?;
 
     MedalCountPagination::new(response, ranking, author_idx).start(ctx, owner, 60);
 
