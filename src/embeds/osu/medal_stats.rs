@@ -1,15 +1,19 @@
+use std::fmt::{Display, Formatter, Result as FmtResult, Write};
+
 use command_macros::EmbedData;
 use hashbrown::HashMap;
-use rosu_v2::model::user::User;
+use rosu_v2::{model::user::User, prelude::MedalCompact};
+use twilight_model::channel::embed::EmbedField;
 
 use crate::{
-    custom_client::{OsekaiMedal, MEDAL_GROUPS},
+    custom_client::{MedalGroup, MEDAL_GROUPS},
     embeds::{attachment, EmbedFields},
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
         numbers::round,
         osu::flag_url,
+        CowUtils,
     },
 };
 
@@ -23,12 +27,14 @@ pub struct MedalStatsEmbed {
 }
 
 impl MedalStatsEmbed {
-    pub fn new(mut user: User, medals: HashMap<u32, OsekaiMedal>, with_graph: bool) -> Self {
+    pub fn new(
+        user: User,
+        medals: &HashMap<u32, (String, MedalGroup)>,
+        rarest: Option<MedalCompact>,
+        with_graph: bool,
+    ) -> Self {
         let mut fields = Vec::with_capacity(5);
-
-        // Be sure owned medals are sorted by date
-        let owned = user.medals.as_mut().unwrap();
-        owned.sort_unstable_by_key(|m| m.achieved_at);
+        let owned = user.medals.as_ref().unwrap();
 
         fields.push(field!(
             "Medals",
@@ -39,30 +45,60 @@ impl MedalStatsEmbed {
         let completion = round(100.0 * owned.len() as f32 / medals.len() as f32);
         fields.push(field!("Completion", format!("{completion}%"), true));
 
-        if let Some(medal) = owned.first() {
-            let name = medals
-                .get(&medal.medal_id)
-                .map_or("Unknown medal", |medal| medal.name.as_str());
+        let oldest = owned.first();
+        let newest = owned.last();
 
-            let value = format!("{name} ({})", medal.achieved_at.format("%F"));
-            fields.push(field!("First medal", value, false));
-        }
+        if oldest.or(newest).or(rarest.as_ref()).is_some() {
+            let mut value = String::with_capacity(128);
 
-        if let Some(medal) = owned.last() {
-            let name = medals
-                .get(&medal.medal_id)
-                .map_or("Unknown medal", |medal| medal.name.as_str());
+            if let Some(((name, _), date)) =
+                oldest.and_then(|medal| Some((medals.get(&medal.medal_id)?, medal.achieved_at)))
+            {
+                let _ = writeln!(
+                    value,
+                    "👴 `Oldest` [{name}]({url}) <t:{timestamp}:d>",
+                    url = MedalUrl { name },
+                    timestamp = date.timestamp()
+                );
+            }
 
-            let value = format!("{name} ({})", medal.achieved_at.format("%F"));
-            fields.push(field!("Last medal", value, false));
+            if let Some(((name, _), date)) =
+                newest.and_then(|medal| Some((medals.get(&medal.medal_id)?, medal.achieved_at)))
+            {
+                let _ = writeln!(
+                    value,
+                    "👶 `Newest` [{name}]({url}) <t:{timestamp}:d>",
+                    url = MedalUrl { name },
+                    timestamp = date.timestamp()
+                );
+            }
+
+            if let Some(((name, _), date)) =
+                rarest.and_then(|medal| Some((medals.get(&medal.medal_id)?, medal.achieved_at)))
+            {
+                let _ = writeln!(
+                    value,
+                    "💎 `Rarest` [{name}]({url}) <t:{timestamp}:d>",
+                    url = MedalUrl { name },
+                    timestamp = date.timestamp()
+                );
+            }
+
+            let field = EmbedField {
+                name: "Corner stone medals".to_owned(),
+                value,
+                inline: false,
+            };
+
+            fields.push(field);
         }
 
         if !owned.is_empty() {
             let mut counts = HashMap::new();
 
             // Count groups for all medals
-            for medal in medals.values() {
-                let (total, _) = counts.entry(medal.grouping.as_str()).or_insert((0, 0));
+            for (_, grouping) in medals.values() {
+                let (total, _) = counts.entry(grouping.as_str()).or_insert((0, 0));
                 *total += 1;
             }
 
@@ -70,7 +106,7 @@ impl MedalStatsEmbed {
             for medal in owned.iter() {
                 let entry = medals
                     .get(&medal.medal_id)
-                    .and_then(|medal| counts.get_mut(medal.grouping.as_str()));
+                    .and_then(|(_, grouping)| counts.get_mut(grouping.as_str()));
 
                 if let Some((_, owned)) = entry {
                     *owned += 1;
@@ -109,5 +145,19 @@ impl MedalStatsEmbed {
             footer,
             thumbnail: user.avatar_url,
         }
+    }
+}
+
+struct MedalUrl<'n> {
+    name: &'n str,
+}
+
+impl Display for MedalUrl<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(
+            f,
+            "https://osekai.net/medals/?medal={}",
+            self.name.cow_replace(' ', "+").cow_replace(',', "%2C")
+        )
     }
 }

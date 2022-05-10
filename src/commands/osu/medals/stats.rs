@@ -12,7 +12,7 @@ use rosu_v2::prelude::{GameMode, MedalCompact, OsuError};
 use crate::{
     commands::osu::{get_user, require_link, UserArgs},
     core::commands::CommandOrigin,
-    custom_client::OsekaiMedal,
+    custom_client::Rarity,
     embeds::{EmbedData, MedalStatsEmbed},
     error::GraphError,
     util::{
@@ -70,23 +70,31 @@ pub(super) async fn stats(
     let user_args = UserArgs::new(name.as_str(), GameMode::STD);
     let user_fut = get_user(&ctx, &user_args);
     let redis = ctx.redis();
+    let ranking_fut = redis.osekai_ranking::<Rarity>();
 
-    let (mut user, all_medals) = match tokio::join!(user_fut, redis.medals()) {
-        (Ok(user), Ok(medals)) => (user, medals),
-        (Err(OsuError::NotFound), _) => {
+    let (mut user, all_medals, ranking) = match tokio::join!(user_fut, redis.medals(), ranking_fut)
+    {
+        (Ok(user), Ok(medals), Ok(ranking)) => (user, medals, Some(ranking)),
+        (Err(OsuError::NotFound), ..) => {
             let content = format!("User `{name}` was not found");
 
             return orig.error(&ctx, content).await;
         }
-        (_, Err(err)) => {
+        (_, Err(err), _) => {
             let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
             return Err(err.into());
         }
-        (Err(err), _) => {
+        (Err(err), ..) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
             return Err(err.into());
+        }
+        (Ok(user), Ok(medals), Err(err)) => {
+            let report = Report::new(err).wrap_err("failed to get rarity ranking");
+            warn!("{report:?}");
+
+            (user, medals, None)
         }
     };
 
@@ -106,11 +114,35 @@ pub(super) async fn stats(
     let all_medals: HashMap<_, _> = all_medals
         .get()
         .iter()
-        .map(|entry| entry.deserialize(&mut Infallible).unwrap())
-        .map(|medal: OsekaiMedal| (medal.medal_id, medal))
+        .map(|entry| {
+            let name = entry.name.deserialize(&mut Infallible).unwrap();
+            let grouping = entry.grouping.deserialize(&mut Infallible).unwrap();
+
+            (entry.medal_id, (name, grouping))
+        })
         .collect();
 
-    let embed = MedalStatsEmbed::new(user, all_medals, graph.is_some()).build();
+    let rarest = match (user.medals.as_ref(), ranking) {
+        (Some(medals), Some(ranking)) => {
+            let ranking: HashMap<_, _> = ranking
+                .get()
+                .iter()
+                .map(|entry| (entry.medal_id, entry.possession_percent))
+                .collect();
+
+            medals
+                .iter()
+                .min_by_key(|medal| {
+                    ranking
+                        .get(&medal.medal_id)
+                        .map_or(i32::MAX, |&perc| (perc * 10_000.0) as i32)
+                })
+                .copied()
+        }
+        _ => None,
+    };
+
+    let embed = MedalStatsEmbed::new(user, &all_medals, rarest, graph.is_some()).build();
 
     let mut builder = MessageBuilder::new().embed(embed);
 

@@ -155,7 +155,7 @@ impl<'c> RedisCache<'c> {
                 let report = Report::new(err).wrap_err("failed to get redis connection");
                 warn!("{report:?}");
 
-                let ranking = self.ctx.client().get_osekai_ranking_::<R>().await?;
+                let ranking = self.ctx.client().get_osekai_ranking::<R>().await?;
                 let bytes = rkyv::to_bytes::<_, 70_000>(&ranking)
                     .expect("failed to serialize osekai ranking");
 
@@ -163,7 +163,7 @@ impl<'c> RedisCache<'c> {
             }
         };
 
-        let ranking = self.ctx.client().get_osekai_ranking_::<R>().await?;
+        let ranking = self.ctx.client().get_osekai_ranking::<R>().await?;
         let bytes =
             rkyv::to_bytes::<_, 70_000>(&ranking).expect("failed to serialize osekai ranking");
         let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), Self::OSEKAI_RANKING);
