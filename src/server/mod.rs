@@ -108,6 +108,7 @@ fn router(ctx: Arc<Context>) -> Router<Body, ServerError> {
         .data(TwitchClientSecret(twitch_client_secret))
         .data(TwitchRedirect(twitch_redirect))
         .get("/metrics", metrics_handler)
+        .get("/guild_count", guild_count_handler)
         .get("/auth/osu", auth_osu_handler)
         .get("/auth/twitch", auth_twitch_handler)
         .get("/auth/auth.css", auth_css_handler)
@@ -163,6 +164,14 @@ async fn metrics_handler(req: Request<Body>) -> HandlerResult {
     encoder.encode(&metric_families, &mut buf).unwrap();
 
     Ok(Response::new(Body::from(buf)))
+}
+
+async fn guild_count_handler(req: Request<Body>) -> HandlerResult {
+    let Context_(ctx) = req.data().unwrap();
+    let guilds = ctx.stats.cache_counts.guilds.get();
+    let json = format!(r#"{{"guild_count":{guilds}}}"#);
+
+    Ok(Response::new(Body::from(json)))
 }
 
 async fn auth_osu_handler(req: Request<Body>) -> HandlerResult {
