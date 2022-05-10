@@ -42,15 +42,16 @@ pub(super) async fn medal_count(
 
     let owner = command.user_id()?;
     let osu_fut = ctx.psql().get_user_osu(owner);
-    let osekai_fut = ctx.client().get_osekai_ranking::<MedalCount>();
+    let redis = ctx.redis();
+    let osekai_fut = redis.osekai_ranking::<MedalCount>();
 
     let (mut ranking, author_name) = match tokio::join!(osekai_fut, osu_fut) {
-        (Ok(ranking), Ok(osu)) => (ranking, osu.map(OsuData::into_username)),
+        (Ok(ranking), Ok(osu)) => (ranking.to_inner(), osu.map(OsuData::into_username)),
         (Ok(ranking), Err(err)) => {
             let report = Report::new(err).wrap_err("failed to retrieve user config");
             warn!("{:?}", report);
 
-            (ranking, None)
+            (ranking.to_inner(), None)
         }
         (Err(err), _) => {
             let _ = command.error(&ctx, OSEKAI_ISSUE).await;

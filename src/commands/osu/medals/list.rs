@@ -51,11 +51,10 @@ pub(super) async fn list(
 
     let user_args = UserArgs::new(name.as_str(), GameMode::STD);
     let user_fut = get_user(&ctx, &user_args);
-    let rarity_fut = ctx.client().get_osekai_ranking::<Rarity>();
     let redis = ctx.redis();
 
     let (mut user, mut osekai_medals, rarities) =
-        match tokio::join!(user_fut, redis.medals(), rarity_fut) {
+        match tokio::join!(user_fut, redis.medals(), redis.osekai_ranking::<Rarity>()) {
             (Ok(user), Ok(medals), Ok(rarities)) => (user, medals.to_inner(), rarities),
             (Err(OsuError::NotFound), ..) => {
                 let content = format!("User `{name}` was not found");
@@ -75,7 +74,8 @@ pub(super) async fn list(
         };
 
     let rarities: HashMap<_, _> = rarities
-        .into_iter()
+        .get()
+        .iter()
         .map(|entry| (entry.medal_id, entry.possession_percent))
         .collect();
 

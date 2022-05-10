@@ -50,8 +50,8 @@ use hyper::header::HeaderValue;
 use crate::util::constants::TWITCH_OAUTH;
 
 pub use self::{
-    error::*, osekai::*, osu_daily::*, osu_stats::*, osu_tracker::*, respektive::*, score::*,
-    snipe::*, twitch::*,
+    error::*, osekai::*, osu_daily::*, osu_stats::*, osu_tracker::*, respektive::*,
+    rkyv_impls::UsernameWrapper, score::*, snipe::*, twitch::*,
 };
 
 use self::{deserialize::*, rkyv_impls::*, score::ScraperScores};
@@ -458,6 +458,7 @@ impl CustomClient {
         Ok(comments.0.unwrap_or_default())
     }
 
+    /// Don't use this; use [`RedisCache::osekai_ranking`] instead.
     pub async fn get_osekai_ranking<R: OsekaiRanking>(&self) -> ClientResult<Vec<R::Entry>> {
         let url = "https://osekai.net/rankings/api/api.php";
         let form = &[("App", R::FORM)];

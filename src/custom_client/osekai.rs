@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, fmt, marker::PhantomData, str::FromStr};
 
 use chrono::{Date, Utc};
-use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize};
+use rkyv::{with::ArchiveWith, Archive, Deserialize as RkyvDeserialize, Serialize};
 use rosu_v2::{
     model::{GameMode, GameMods},
     prelude::Username,
@@ -16,7 +16,7 @@ use crate::{embeds::RankingKindData, util::CountryCode};
 
 // use self::groups::*;
 
-use super::{str_to_date, str_to_f32, str_to_u32, DateWrapper};
+use super::{rkyv_impls::UsernameWrapper, str_to_date, str_to_f32, str_to_u32, DateWrapper};
 
 pub trait OsekaiRanking {
     const FORM: &'static str;
@@ -452,24 +452,46 @@ impl<'de> Visitor<'de> for OsekaiModsVisitor {
     }
 }
 
-#[derive(Debug)]
-pub struct OsekaiRankingEntry<T> {
+#[derive(Archive, Debug, RkyvDeserialize, Serialize)]
+#[archive(as = "ArchivedOsekaiRankingEntry<T>")]
+pub struct OsekaiRankingEntry<T: Archive> {
     pub country: String,
     pub country_code: CountryCode,
     pub rank: u32,
     pub user_id: u32,
+    #[with(UsernameWrapper)]
     pub username: Username,
     value: ValueWrapper<T>,
 }
 
-impl<T: Copy> OsekaiRankingEntry<T> {
+pub struct ArchivedOsekaiRankingEntry<T: Archive> {
+    pub country: <String as Archive>::Archived,
+    pub country_code: <CountryCode as Archive>::Archived,
+    pub rank: u32,
+    pub user_id: u32,
+    pub username: <UsernameWrapper as ArchiveWith<Username>>::Archived,
+    value: <ValueWrapper<T> as Archive>::Archived,
+}
+
+impl<T: Copy + Archive> OsekaiRankingEntry<T> {
     pub fn value(&self) -> T {
         self.value.0
     }
 }
 
-#[derive(Copy, Clone)]
-struct ValueWrapper<T>(T);
+impl<T> ArchivedOsekaiRankingEntry<T>
+where
+    T: Archive,
+    <T as Archive>::Archived: Copy,
+{
+    pub fn value(&self) -> T::Archived {
+        self.value.0
+    }
+}
+
+#[derive(Archive, Copy, Clone, RkyvDeserialize, Serialize)]
+#[archive(as = "ValueWrapper<T::Archived>")]
+pub struct ValueWrapper<T>(T);
 
 impl<T: fmt::Debug> fmt::Debug for ValueWrapper<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -495,7 +517,7 @@ impl<'de, T: Deserialize<'de> + FromStr> Deserialize<'de> for ValueWrapper<T> {
     }
 }
 
-impl<'de, T: Deserialize<'de> + FromStr> Deserialize<'de> for OsekaiRankingEntry<T> {
+impl<'de, T: Deserialize<'de> + FromStr + Archive> Deserialize<'de> for OsekaiRankingEntry<T> {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         d.deserialize_map(OsekaiRankingEntryVisitor::new())
     }
@@ -511,7 +533,7 @@ impl<T> OsekaiRankingEntryVisitor<T> {
     }
 }
 
-impl<'de, T: Deserialize<'de> + FromStr> Visitor<'de> for OsekaiRankingEntryVisitor<T> {
+impl<'de, T: Deserialize<'de> + FromStr + Archive> Visitor<'de> for OsekaiRankingEntryVisitor<T> {
     type Value = OsekaiRankingEntry<T>;
 
     fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -564,13 +586,14 @@ impl<'de, T: Deserialize<'de> + FromStr> Visitor<'de> for OsekaiRankingEntryVisi
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Archive, Debug, Deserialize, RkyvDeserialize, Serialize)]
 pub struct OsekaiUserEntry {
     #[serde(deserialize_with = "str_to_u32")]
     pub rank: u32,
     #[serde(rename = "countrycode")]
     pub country_code: CountryCode,
     pub country: String,
+    #[with(UsernameWrapper)]
     pub username: Username,
     #[serde(rename = "medalCount", deserialize_with = "str_to_u32")]
     pub medal_count: u32,
@@ -584,7 +607,7 @@ pub struct OsekaiUserEntry {
     pub completion: f32,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Archive, Debug, Deserialize, RkyvDeserialize, Serialize)]
 pub struct OsekaiRarityEntry {
     #[serde(deserialize_with = "str_to_u32")]
     pub rank: u32,

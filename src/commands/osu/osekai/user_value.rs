@@ -1,9 +1,11 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use eyre::Report;
+use rkyv::{with::DeserializeWith, Deserialize, Infallible};
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
+    custom_client::UsernameWrapper,
     custom_client::{OsekaiRanking, OsekaiRankingEntry},
     database::OsuData,
     embeds::{EmbedData, RankingEmbed, RankingEntry, RankingKindData},
@@ -20,7 +22,8 @@ pub(super) async fn count<R>(ctx: Arc<Context>, command: Box<ApplicationCommand>
 where
     R: OsekaiRanking<Entry = OsekaiRankingEntry<usize>>,
 {
-    let osekai_fut = ctx.client().get_osekai_ranking::<R>();
+    let redis = ctx.redis();
+    let osekai_fut = redis.osekai_ranking::<R>();
     let osu_fut = ctx.psql().get_user_osu(command.user_id()?);
 
     let (osekai_result, osu_result) = tokio::join!(osekai_fut, osu_fut);
@@ -35,12 +38,18 @@ where
     };
 
     let users: BTreeMap<_, _> = ranking
-        .into_iter()
+        .get()
+        .iter()
         .enumerate()
         .map(|(i, entry)| {
             let value = entry.value() as u64;
-            let country = entry.country_code;
-            let name = entry.username;
+            let country = entry.country_code.deserialize(&mut Infallible).unwrap();
+
+            let name = <UsernameWrapper as DeserializeWith<_, _, _>>::deserialize_with(
+                &entry.username,
+                &mut Infallible,
+            )
+            .unwrap();
 
             let entry = RankingEntry {
                 value: UserValue::Amount(value),
@@ -62,7 +71,8 @@ where
     R: OsekaiRanking<Entry = OsekaiRankingEntry<u32>>,
 {
     let owner = command.user_id()?;
-    let osekai_fut = ctx.client().get_osekai_ranking::<R>();
+    let redis = ctx.redis();
+    let osekai_fut = redis.osekai_ranking::<R>();
     let osu_fut = ctx.psql().get_user_osu(owner);
 
     let (osekai_result, osu_result) = tokio::join!(osekai_fut, osu_fut);
@@ -77,12 +87,18 @@ where
     };
 
     let users: BTreeMap<_, _> = ranking
-        .into_iter()
+        .get()
+        .iter()
         .enumerate()
         .map(|(i, entry)| {
             let value = entry.value();
-            let country = entry.country_code;
-            let name = entry.username;
+            let country = entry.country_code.deserialize(&mut Infallible).unwrap();
+
+            let name = <UsernameWrapper as DeserializeWith<_, _, _>>::deserialize_with(
+                &entry.username,
+                &mut Infallible,
+            )
+            .unwrap();
 
             let entry = RankingEntry {
                 value: UserValue::PpU32(value),

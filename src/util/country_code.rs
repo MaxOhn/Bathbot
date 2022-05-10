@@ -2,6 +2,10 @@ use crate::{util::CowUtils, Context};
 
 use chrono::FixedOffset;
 use hashbrown::HashMap;
+use rkyv::{
+    string::{ArchivedString, StringResolver},
+    Archive, Deserialize as RkyvDeserialize, Fallible, Serialize, SerializeUnsized,
+};
 use serde::Deserialize;
 use smallstr::SmallString;
 use std::{
@@ -629,5 +633,32 @@ impl PartialEq<str> for CountryCode {
 impl PartialEq<String> for CountryCode {
     fn eq(&self, other: &String) -> bool {
         self.0.eq(other)
+    }
+}
+
+impl Archive for CountryCode {
+    type Archived = ArchivedString;
+    type Resolver = StringResolver;
+
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+        ArchivedString::resolve_from_str(self.0.as_str(), pos, resolver, out);
+    }
+}
+
+impl<S> Serialize<S> for CountryCode
+where
+    S: Fallible,
+    str: SerializeUnsized<S>,
+{
+    fn serialize(&self, s: &mut S) -> Result<Self::Resolver, S::Error> {
+        ArchivedString::serialize_from_str(self.0.as_str(), s)
+    }
+}
+
+impl<D: Fallible> RkyvDeserialize<CountryCode, D> for ArchivedString {
+    fn deserialize(&self, _: &mut D) -> Result<CountryCode, <D as Fallible>::Error> {
+        let inner = rosu_v2::prelude::CountryCode::from_str(self.as_str());
+
+        Ok(CountryCode(inner))
     }
 }

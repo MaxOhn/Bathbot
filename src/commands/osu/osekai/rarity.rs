@@ -13,10 +13,8 @@ use crate::{
 };
 
 pub(super) async fn rarity(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotResult<()> {
-    let osekai_fut = ctx.client().get_osekai_ranking::<Rarity>();
-
-    let ranking = match osekai_fut.await {
-        Ok(ranking) => ranking,
+    let ranking = match ctx.redis().osekai_ranking::<Rarity>().await {
+        Ok(ranking) => ranking.to_inner(),
         Err(err) => {
             let _ = command.error(&ctx, OSEKAI_ISSUE).await;
 

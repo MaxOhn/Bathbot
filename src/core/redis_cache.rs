@@ -2,7 +2,13 @@ use std::{fmt::Write, marker::PhantomData, ops::Deref};
 
 use bb8_redis::redis::AsyncCommands;
 use eyre::Report;
-use rkyv::{AlignedVec, Archive, Deserialize, Infallible};
+use rkyv::{
+    ser::serializers::{
+        AlignedSerializer, AllocScratch, CompositeSerializer, FallbackScratch, HeapScratch,
+        SharedSerializeMap,
+    },
+    AlignedVec, Archive, Deserialize, Infallible, Serialize,
+};
 use rosu_v2::{
     prelude::{GameMode, OsuError, Rankings, User},
     OsuResult,
@@ -11,14 +17,20 @@ use rosu_v2::{
 use crate::{
     commands::osu::UserArgs,
     custom_client::{
-        CustomClientError, OsekaiBadge, OsekaiMedal, OsuTrackerIdCount, OsuTrackerPpGroup,
-        OsuTrackerStats,
+        CustomClientError, OsekaiBadge, OsekaiMedal, OsekaiRanking, OsuTrackerIdCount,
+        OsuTrackerPpGroup, OsuTrackerStats,
     },
 };
 
 use super::Context;
 
 pub type ArchivedResult<T, E> = Result<ArchivedBytes<T>, E>;
+
+type Serializer<const N: usize> = CompositeSerializer<
+    AlignedSerializer<AlignedVec>,
+    FallbackScratch<HeapScratch<N>, AllocScratch>,
+    SharedSerializeMap,
+>;
 
 #[derive(Copy, Clone)]
 pub struct RedisCache<'c> {
@@ -32,6 +44,7 @@ impl<'c> RedisCache<'c> {
     const OSUTRACKER_COUNTS_SECONDS: usize = 86_400;
     const MEDALS_SECONDS: usize = 3600;
     const BADGES_SECONDS: usize = 7200;
+    const OSEKAI_RANKING: usize = 7200;
     const PP_RANKING_SECONDS: usize = 1800;
 
     pub fn new(ctx: &'c Context) -> Self {
@@ -109,6 +122,51 @@ impl<'c> RedisCache<'c> {
         let medals = self.ctx.client().get_osekai_medals().await?;
         let bytes = rkyv::to_bytes::<_, 80_000>(&medals).expect("failed to serialize medals");
         let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), Self::MEDALS_SECONDS);
+
+        if let Err(err) = set_fut.await {
+            let report = Report::new(err).wrap_err("failed to insert bytes into cache");
+            warn!("{report:?}");
+        }
+
+        Ok(ArchivedBytes::new(bytes))
+    }
+
+    pub async fn osekai_ranking<R>(&self) -> ArchivedResult<Vec<R::Entry>, CustomClientError>
+    where
+        R: OsekaiRanking,
+        <R as OsekaiRanking>::Entry: Serialize<Serializer<70_000>>,
+    {
+        let key = format!("osekai_ranking_{}", R::FORM);
+
+        let mut conn = match self.ctx.redis_client().get().await {
+            Ok(mut conn) => {
+                if let Ok(bytes) = conn.get::<_, Vec<u8>>(&key).await {
+                    if !bytes.is_empty() {
+                        self.ctx.stats.inc_cached_osekai_ranking();
+                        trace!("Found osekai ranking in cache ({} bytes)", bytes.len());
+
+                        return Ok(ArchivedBytes::new(bytes));
+                    }
+                }
+
+                conn
+            }
+            Err(err) => {
+                let report = Report::new(err).wrap_err("failed to get redis connection");
+                warn!("{report:?}");
+
+                let ranking = self.ctx.client().get_osekai_ranking_::<R>().await?;
+                let bytes = rkyv::to_bytes::<_, 70_000>(&ranking)
+                    .expect("failed to serialize osekai ranking");
+
+                return Ok(ArchivedBytes::new(bytes));
+            }
+        };
+
+        let ranking = self.ctx.client().get_osekai_ranking_::<R>().await?;
+        let bytes =
+            rkyv::to_bytes::<_, 70_000>(&ranking).expect("failed to serialize osekai ranking");
+        let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), Self::OSEKAI_RANKING);
 
         if let Err(err) = set_fut.await {
             let report = Report::new(err).wrap_err("failed to insert bytes into cache");

@@ -233,10 +233,11 @@ pub(super) async fn common(
         None => medals.sort_unstable_by(|a, b| a.medal.cmp(&b.medal)),
         Some(MedalCommonOrder::Rarity) => {
             if !medals.is_empty() {
-                match ctx.client().get_osekai_ranking::<Rarity>().await {
+                match ctx.redis().osekai_ranking::<Rarity>().await {
                     Ok(rarities) => {
                         let rarities: HashMap<_, _> = rarities
-                            .into_iter()
+                            .get()
+                            .iter()
                             .map(|entry| (entry.medal_id, entry.possession_percent))
                             .collect();
 
