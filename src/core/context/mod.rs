@@ -145,6 +145,11 @@ impl Context {
         let data = ContextData::new(&psql, application_id).await?;
         let (cache, resume_data) = Cache::new(&redis).await;
         let stats = Arc::new(BotStats::new(osu.metrics()));
+
+        if !resume_data.is_empty() {
+            stats.populate(&cache);
+        }
+
         let clients = Clients::new(psql, redis, osu, custom);
         let (cluster, events) =
             build_cluster(discord_token, Arc::clone(&http), resume_data).await?;

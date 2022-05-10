@@ -1,6 +1,8 @@
 use chrono::{DateTime, Utc};
 use prometheus::{IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts, Registry};
 
+use super::Cache;
+
 pub struct EventStats {
     pub channel_create: IntCounter,
     pub channel_delete: IntCounter,
@@ -173,6 +175,15 @@ impl BotStats {
                 rosu: osu_metrics,
             },
         }
+    }
+
+    pub fn populate(&self, cache: &Cache) {
+        let stats = cache.stats();
+
+        self.cache_counts.guilds.set(stats.guilds() as i64);
+        self.cache_counts.members.set(stats.members() as i64);
+        self.cache_counts.users.set(stats.users() as i64);
+        self.cache_counts.roles.set(stats.roles() as i64);
     }
 
     pub fn increment_message_command(&self, cmd: &str) {
