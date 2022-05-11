@@ -1780,7 +1780,7 @@ dependencies = [
 [[package]]
 name = "rosu-v2"
 version = "0.3.2"
-source = "git+https://github.com/MaxOhn/rosu-v2?branch=next#fabf0c03b372a7d6c3ceabd756cfcfdb70279465"
+source = "git+https://github.com/MaxOhn/rosu-v2?branch=next#357afa798f69bd230d84cba4d244e411286d06cc"
 dependencies = [
  "bitflags",
  "bytes",
