@@ -318,20 +318,6 @@ impl ScoreExt for ScraperScore {
     fn mods(&self) -> GameMods {
         self.mods
     }
-    fn hits(&self, _: u8) -> u32 {
-        let mut amount = self.count300 + self.count100 + self.count_miss;
-
-        if self.mode != GameMode::TKO {
-            amount += self.count50;
-
-            if self.mode != GameMode::STD {
-                amount += self.count_katu;
-                amount += (self.mode != GameMode::CTB) as u32 * self.count_geki;
-            }
-        }
-
-        amount
-    }
     fn grade(&self, _: GameMode) -> Grade {
         self.grade
     }

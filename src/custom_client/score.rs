@@ -25,11 +25,10 @@ pub struct ScraperScore {
     pub mods: GameMods,
     pub score: u32,
     pub max_combo: u32,
-    pub perfect: bool,
+    // pub perfect: bool,
     pub pp: Option<f32>,
     pub grade: Grade,
     pub date: DateTime<Utc>,
-    pub mode: GameMode,
     pub replay: bool,
     pub count50: u32,
     pub count100: u32,
@@ -48,32 +47,33 @@ impl<'de> Deserialize<'de> for ScraperScore {
             #[serde(deserialize_with = "adjust_acc")]
             accuracy: f32,
             mods: GameMods,
+            #[serde(rename = "total_score")]
             score: u32,
             max_combo: u32,
-            perfect: bool,
+            // #[serde(rename = "legacy_perfect")]
+            // perfect: bool,
             statistics: ScraperScoreStatistics,
             pp: Option<f32>,
             rank: Grade,
-            #[serde(deserialize_with = "adjust_datetime")]
+            #[serde(deserialize_with = "adjust_datetime", rename = "ended_at")]
             created_at: DateTime<Utc>,
-            mode_int: GameMode,
             replay: bool,
             user: ScraperUser,
         }
 
         #[derive(Deserialize)]
         pub struct ScraperScoreStatistics {
-            #[serde(default)]
-            count_50: u32,
-            #[serde(default)]
-            count_100: u32,
-            #[serde(default)]
-            count_300: u32,
-            #[serde(default)]
+            #[serde(default, rename = "perfect")]
             count_geki: u32,
-            #[serde(default)]
+            #[serde(default, rename = "good", alias = "small_tick_miss")]
             count_katu: u32,
-            #[serde(default)]
+            #[serde(default, rename = "great")]
+            count_300: u32,
+            #[serde(default, rename = "ok", alias = "large_tick_hit")]
+            count_100: u32,
+            #[serde(default, rename = "meh", alias = "small_tick_hit")]
+            count_50: u32,
+            #[serde(default, rename = "miss")]
             count_miss: u32,
         }
 
@@ -94,11 +94,10 @@ impl<'de> Deserialize<'de> for ScraperScore {
             mods: helper.mods,
             score: helper.score,
             max_combo: helper.max_combo,
-            perfect: helper.perfect,
+            // perfect: helper.perfect,
             pp: helper.pp,
             grade: helper.rank,
             date: helper.created_at,
-            mode: helper.mode_int,
             replay: helper.replay,
             count50: helper.statistics.count_50,
             count100: helper.statistics.count_100,
@@ -112,35 +111,14 @@ impl<'de> Deserialize<'de> for ScraperScore {
 
 impl From<&ScraperScore> for ScoreState {
     fn from(score: &ScraperScore) -> Self {
-        match score.mode {
-            GameMode::STD => ScoreState {
-                max_combo: score.max_combo as usize,
-                n300: score.count300 as usize,
-                n100: score.count100 as usize,
-                n50: score.count50 as usize,
-                misses: score.count_miss as usize,
-                ..Default::default()
-            },
-            GameMode::TKO => ScoreState {
-                max_combo: score.max_combo as usize,
-                n300: score.count300 as usize,
-                n100: score.count100 as usize,
-                misses: score.count_miss as usize,
-                ..Default::default()
-            },
-            GameMode::CTB => ScoreState {
-                max_combo: score.max_combo as usize,
-                n300: score.count300 as usize,
-                n100: score.count100 as usize,
-                n50: score.count50 as usize,
-                n_katu: score.count_katu as usize,
-                misses: score.count_miss as usize,
-                ..Default::default()
-            },
-            GameMode::MNA => ScoreState {
-                score: score.score,
-                ..Default::default()
-            },
+        ScoreState {
+            max_combo: score.max_combo as usize,
+            n300: score.count300 as usize,
+            n100: score.count100 as usize,
+            n50: score.count50 as usize,
+            n_katu: score.count_katu as usize,
+            misses: score.count_miss as usize,
+            score: score.score,
         }
     }
 }
