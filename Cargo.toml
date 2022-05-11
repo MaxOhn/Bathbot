@@ -83,3 +83,8 @@ twilight-validate = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "debuginfo"
