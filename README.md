@@ -12,6 +12,10 @@
         <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Ko-fi">
     </a>
 </p>
+<p align="center">
+    <img src="https://img.shields.io/badge/dynamic/json?color=yellow&label=server%20count&query=guild_count&url=https%3A%2F%2Fbathbot.ddns.net%2Fguild_count&style=flat" alt="Server count">
+    <img src="https://tokei.rs/b1/github/MaxOhn/Bathbot?category=code" alt="Lines of Code">
+</p>
 
 # Features
 
