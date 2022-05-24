@@ -25,94 +25,6 @@ use crate::{
 use super::RecentLeaderboard;
 
 #[command]
-#[desc("Belgian leaderboard of a map that a user recently played")]
-#[help(
-    "Display the belgian leaderboard of a map that a user recently played.\n\
-     Mods can be specified.\n\
-     To get a previous recent map, you can add a number right after the command,\n\
-     e.g. `rblb42 badewanne3` to get the 42nd most recent map."
-)]
-#[usage("[username] [+mods]")]
-#[example("badewanne3 +hdhr")]
-#[alias("rblb")]
-#[group(Osu)]
-async fn prefix_recentbelgianleaderboard(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
-    let args = RecentLeaderboard::args(None, args);
-
-    leaderboard(ctx, msg.into(), args, true).await
-}
-
-#[command]
-#[desc("Belgian leaderboard of a map that a user recently played")]
-#[help(
-    "Display the belgian leaderboard of a mania map that a user recently played.\n\
-     Mods can be specified.\n\
-     To get a previous recent map, you can add a number right after the command,\n\
-     e.g. `rmblb42 badewanne3` to get the 42nd most recent map."
-)]
-#[usage("[username] [+mods]")]
-#[example("badewanne3 +hdhr")]
-#[alias("rmblb")]
-#[group(Mania)]
-async fn prefix_recentmaniabelgianleaderboard(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
-    let args = RecentLeaderboard::args(Some(GameModeOption::Mania), args);
-
-    leaderboard(ctx, msg.into(), args, true).await
-}
-
-#[command]
-#[desc("Belgian leaderboard of a map that a user recently played")]
-#[help(
-    "Display the belgian leaderboard of a taiko map that a user recently played.\n\
-     Mods can be specified.\n\
-     To get a previous recent map, you can add a number right after the command,\n\
-     e.g. `rtblb42 badewanne3` to get the 42nd most recent map."
-)]
-#[usage("[username] [+mods]")]
-#[example("badewanne3 +hdhr")]
-#[alias("rtblb")]
-#[group(Taiko)]
-async fn prefix_recenttaikobelgianleaderboard(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
-    let args = RecentLeaderboard::args(Some(GameModeOption::Taiko), args);
-
-    leaderboard(ctx, msg.into(), args, true).await
-}
-
-#[command]
-#[desc("Belgian leaderboard of a map that a user recently played")]
-#[help(
-    "Display the belgian leaderboard of a ctb map that a user recently played.\n\
-     Mods can be specified.\n\
-     To get a previous recent map, you can add a number right after the command,\n\
-     e.g. `rcblb42 badewanne3` to get the 42nd most recent map."
-)]
-#[usage("[username] [+mods]")]
-#[example("badewanne3 +hdhr")]
-#[alias("rcblb")]
-#[group(Catch)]
-async fn prefix_recentctbbelgianleaderboard(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
-    let args = RecentLeaderboard::args(Some(GameModeOption::Catch), args);
-
-    leaderboard(ctx, msg.into(), args, true).await
-}
-
-#[command]
 #[desc("Global leaderboard of a map that a user recently played")]
 #[help(
     "Display the global leaderboard of a map that a user recently played.\n\
@@ -131,7 +43,7 @@ async fn prefix_recentleaderboard(
 ) -> BotResult<()> {
     let args = RecentLeaderboard::args(None, args);
 
-    leaderboard(ctx, msg.into(), args, false).await
+    leaderboard(ctx, msg.into(), args).await
 }
 
 #[command]
@@ -153,7 +65,7 @@ async fn prefix_recentmanialeaderboard(
 ) -> BotResult<()> {
     let args = RecentLeaderboard::args(Some(GameModeOption::Mania), args);
 
-    leaderboard(ctx, msg.into(), args, false).await
+    leaderboard(ctx, msg.into(), args).await
 }
 
 #[command]
@@ -175,7 +87,7 @@ async fn prefix_recenttaikoleaderboard(
 ) -> BotResult<()> {
     let args = RecentLeaderboard::args(Some(GameModeOption::Taiko), args);
 
-    leaderboard(ctx, msg.into(), args, false).await
+    leaderboard(ctx, msg.into(), args).await
 }
 
 #[command]
@@ -197,7 +109,7 @@ async fn prefix_recentctbleaderboard(
 ) -> BotResult<()> {
     let args = RecentLeaderboard::args(Some(GameModeOption::Catch), args);
 
-    leaderboard(ctx, msg.into(), args, false).await
+    leaderboard(ctx, msg.into(), args).await
 }
 
 impl<'m> RecentLeaderboard<'m> {
@@ -231,7 +143,6 @@ pub(super) async fn leaderboard(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: RecentLeaderboard<'_>,
-    national: bool,
 ) -> BotResult<()> {
     let mods = match args.mods() {
         ModsResult::Mods(mods) => Some(mods),
@@ -328,7 +239,7 @@ pub(super) async fn leaderboard(
     };
 
     // Retrieve the map's leaderboard
-    let scores_fut = ctx.client().get_leaderboard(map_id, national, mods, mode);
+    let scores_fut = ctx.client().get_leaderboard(map_id,  mods, mode);
     let map_fut = ctx.psql().get_beatmap(map_id, true);
 
     let (scores_result, map_result) = tokio::join!(scores_fut, map_fut);

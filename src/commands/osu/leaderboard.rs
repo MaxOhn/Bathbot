@@ -127,34 +127,7 @@ impl<'a> TryFrom<Leaderboard<'a>> for LeaderboardArgs<'a> {
 #[group(AllModes)]
 async fn prefix_leaderboard(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match LeaderboardArgs::args(msg, args) {
-        Ok(args) => leaderboard(ctx, msg.into(), args, false).await,
-        Err(content) => {
-            msg.error(&ctx, content).await?;
-
-            Ok(())
-        }
-    }
-}
-
-#[command]
-#[desc("Display the belgian leaderboard of a map")]
-#[help(
-    "Display the belgian leaderboard of a given map.\n\
-    If no map is given, I will choose the last map \
-    I can find in the embeds of this channel.\n\
-    Mods can be specified."
-)]
-#[usage("[map url / map id] [mods]")]
-#[example("2240404", "https://osu.ppy.sh/beatmapsets/902425#osu/2240404")]
-#[alias("blb")]
-#[group(AllModes)]
-async fn prefix_belgianleaderboard(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
-    match LeaderboardArgs::args(msg, args) {
-        Ok(args) => leaderboard(ctx, msg.into(), args, true).await,
+        Ok(args) => leaderboard(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
 
@@ -170,7 +143,7 @@ async fn slash_leaderboard(
     let args = Leaderboard::from_interaction(command.input_data())?;
 
     match LeaderboardArgs::try_from(args) {
-        Ok(args) => leaderboard(ctx, command.into(), args, false).await,
+        Ok(args) => leaderboard(ctx, command.into(), args).await,
         Err(content) => {
             command.error(&ctx, content).await?;
 
@@ -183,7 +156,6 @@ async fn leaderboard(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: LeaderboardArgs<'_>,
-    national: bool,
 ) -> BotResult<()> {
     let mods = match args.mods() {
         ModsResult::Mods(mods) => Some(mods),
@@ -274,14 +246,15 @@ async fn leaderboard(
         }
     }
 
+    let mods = match mods {
+        Some(ModSelection::Exclude(_)) | None => None,
+        Some(ModSelection::Include(m)) | Some(ModSelection::Exact(m)) => Some(m),
+    };
+
     // Retrieve the map's leaderboard
     let scores_future = ctx.client().get_leaderboard(
         map_id,
-        national,
-        match mods {
-            Some(ModSelection::Exclude(_)) | None => None,
-            Some(ModSelection::Include(m)) | Some(ModSelection::Exact(m)) => Some(m),
-        },
+        mods,
         map.mode,
     );
 

@@ -582,7 +582,7 @@ async fn slash_recent(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -
                 Ok(())
             }
         },
-        Recent::Leaderboard(args) => leaderboard(ctx, command.into(), args, false).await,
+        Recent::Leaderboard(args) => leaderboard(ctx, command.into(), args).await,
         Recent::List(args) => list(ctx, command.into(), args).await,
         Recent::Simulate(args) => simulate(ctx, command.into(), args).await,
         Recent::Fix(args) => fix(ctx, command.into(), args).await,

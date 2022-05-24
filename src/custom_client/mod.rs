@@ -711,18 +711,17 @@ impl CustomClient {
         Ok((scores, amount))
     }
 
-    // Retrieve the leaderboard of a map (national / global)
+    // Retrieve the global leaderboard of a map
     // If mods contain DT / NC, it will do another request for the opposite
     // If mods dont contain Mirror and its a mania map, it will perform the
     // same requests again but with Mirror enabled
     pub async fn get_leaderboard(
         &self,
         map_id: u32,
-        national: bool,
         mods: Option<GameMods>,
         mode: GameMode,
     ) -> ClientResult<Vec<ScraperScore>> {
-        let mut scores = self._get_leaderboard(map_id, national, mods).await?;
+        let mut scores = self._get_leaderboard(map_id,  mods).await?;
 
         let non_mirror = mods
             .map(|mods| !mods.contains(GameMods::Mirror))
@@ -735,7 +734,7 @@ impl CustomClient {
                 Some(mods) => Some(mods | GameMods::Mirror),
             };
 
-            let mut new_scores = self._get_leaderboard(map_id, national, mods).await?;
+            let mut new_scores = self._get_leaderboard(map_id,  mods).await?;
             scores.append(&mut new_scores);
             scores.sort_unstable_by(|a, b| b.score.cmp(&a.score));
             let mut uniques = HashSet::with_capacity(50);
@@ -756,11 +755,11 @@ impl CustomClient {
         if mods.is_some() {
             if mode == GameMode::MNA && non_mirror {
                 let mods = mods.map(|mods| mods | GameMods::Mirror);
-                let mut new_scores = self._get_leaderboard(map_id, national, mods).await?;
+                let mut new_scores = self._get_leaderboard(map_id,  mods).await?;
                 scores.append(&mut new_scores);
             }
 
-            let mut new_scores = self._get_leaderboard(map_id, national, mods).await?;
+            let mut new_scores = self._get_leaderboard(map_id,  mods).await?;
             scores.append(&mut new_scores);
             scores.sort_unstable_by(|a, b| b.score.cmp(&a.score));
             let mut uniques = HashSet::with_capacity(50);
@@ -771,18 +770,13 @@ impl CustomClient {
         Ok(scores)
     }
 
-    // Retrieve the leaderboard of a map (national / global)
+    // Retrieve the global leaderboard of a map
     async fn _get_leaderboard(
         &self,
         map_id: u32,
-        national: bool,
         mods: Option<GameMods>,
     ) -> ClientResult<Vec<ScraperScore>> {
         let mut url = format!("{OSU_BASE}beatmaps/{map_id}/scores?");
-
-        if national {
-            url.push_str("type=country");
-        }
 
         if let Some(mods) = mods {
             if mods.is_empty() {
