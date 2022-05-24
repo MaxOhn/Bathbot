@@ -67,17 +67,31 @@ You can also join its [discord server](https://discord.gg/n9fFstG) to keep up wi
 
 ## Setup
 
-Copy the content of `.env.example` into a new file `.env` and provide all of its variables. The most important ones are
-- `DATABASE_URL`
-- `DISCORD_TOKEN`
-- `OSU_CLIENT_ID`
-- `OSU_CLIENT_SECRET`
-- `MAP_PATH`
-- `REDIS_HOST`
-- `REDIS_PORT`
+I wouldn't necessarily recommend to try and get the bot running yourself but feel free to give it a shot.
 
-Next, you need to migrate the database schema. For that, either make sure you have `sqlx-cli` installed (e.g. via `cargo install sqlx-cli --no-default-features --features rustls,postgres`) so you can run `sqlx migrate run`, or check out all `*.up.sql` files in `/migrations` and execute them manually in the correct order.
+[Rust](https://www.rust-lang.org/) must be installed and additionally either [docker](https://www.docker.com/) must be installed to setup the databases automatically (recommended) or [postgres](https://www.postgresql.org/) and [redis](https://redis.io/) must be installed manually.
 
-That should be all. When running the bot, try to work through all remaining error messages it throws at you :)
+- Copy the content of `.env.example` into a new file `.env` and provide all of its variables. The most important ones are
+  - `DISCORD_TOKEN`
+  - `OSU_CLIENT_ID`
+  - `OSU_CLIENT_SECRET`
+  - `MAP_PATH`
+- If you don't run through docker, be sure these env variables are also set
+  - `DATABASE_URL`
+  - `REDIS_HOST`
+  - `REDIS_PORT`
+- If you do run through docker, you can
+  - boot up the databases with `docker-compose up -d` (must be done)
+  - use `docker ps` to make sure `bathbot-db` and `bathbot-redis` have the status `Up` 
+  - inspect the postgres container with `docker exec -it bathbot-db psql -U bathbot -d bathbot`
+  - inspect the redis container with `docker exec -it bathbot-redis redis-cli`
+  - shut the databases down with `docker-compose down`
+- Next, install `sqlx-cli` if you haven't already. You can do so with `cargo install sqlx-cli --no-default-features --features postgres,rustls`.
+- Then migrate the database with `sqlx migrate run`. This command will complain if the `DATABASE_URL` variable in `.env` is not correct.
+- And finally you can compile and run the bot with `cargo run`. Be sure you have a hobby or some other activity to do while you get to enjoy the rust compilation times™️.
 
-The bot also exposes metric data to `INTERNAL_IP:INTERNAL_PORT/metrics` (`.env` variables) which you can make use of through something like [prometheus](https://prometheus.io/) and visualize through [grafana](https://grafana.com/).
+If the `--release` flag is set when compiling, the bot will be faster and have a few additional features such as
+- host a server on `INTERNAL_IP:INTERNAL_PORT` (`.env` variables) with endpoints related to linking osu! accounts or `/metrics` to expose metric data which you can make use of through something like [prometheus](https://prometheus.io/) and visualize with [grafana](https://grafana.com/)
+- osu! top score tracking
+- twitch stream tracking
+- matchlive tracking

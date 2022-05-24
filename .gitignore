@@ -6,3 +6,4 @@ config.toml
 logs
 /.vscode
 /resume_data
+/docker-volume

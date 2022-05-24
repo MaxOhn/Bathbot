@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  psql:
+    container_name: bathbot-db
+    image: postgres:alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=bathbot
+      - POSTGRES_PASSWORD=bathbot
+      - POSTGRES_DB=bathbot
+    ports:
+      - 2345:5432
+    volumes:
+      - ./docker-volume/psql:/var/lib/postgresql/data
+    networks:
+      - bathbot-net
+
+  redis:
+    container_name: bathbot-redis
+    image: redis:alpine
+    restart: unless-stopped
+    ports:
+      - 9736:6379
+    volumes:
+      - ./docker-volume/redis:/data
+    networks:
+      - bathbot-net
+
+networks:
+  bathbot-net:
+    driver: bridge
