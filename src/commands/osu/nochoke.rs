@@ -188,7 +188,7 @@ async fn prefix_nochokestaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) 
 )]
 #[usage("[username] [number for miss limit]")]
 #[examples("badewanne3", "vaxei 5")]
-#[alias("ncc", "nochokectb")]
+#[alias("ncc", "nochokectb", "nochokecatch", "nochokescatch")]
 #[group(Catch)]
 async fn prefix_nochokesctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     let args = Nochoke::args(Some(NochokeGameMode::Catch), args);

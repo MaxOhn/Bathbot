@@ -162,7 +162,7 @@ async fn prefix_topiftaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> 
 )]
 #[usage("[username] [mods")]
 #[examples("badewanne3 -hd!", "+hdhr!", "whitecat +hddt")]
-#[alias("tic")]
+#[aliases("tic", "topifcatch")]
 #[group(Catch)]
 async fn prefix_topifctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match TopIf::args(Some(GameModeOption::Catch), args) {

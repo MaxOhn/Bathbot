@@ -389,7 +389,7 @@ pub async fn prefix_pprankingtaiko(
 )]
 #[usage("[country]")]
 #[examples("", "de", "russia")]
-#[aliases("pprc", "pplbc", "ppleaderboardctb")]
+#[aliases("pprc", "pplbc", "ppleaderboardctb", "pprankingcatch")]
 #[group(Catch)]
 pub async fn prefix_pprankingctb(
     ctx: Arc<Context>,

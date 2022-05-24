@@ -253,7 +253,7 @@ async fn prefix_ranktaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> B
 )]
 #[usage("[username] [[country]number]")]
 #[examples("badewanne3 be50", "badewanne3 123")]
-#[alias("rankc", "reachctb", "reachc")]
+#[alias("rankc", "reachctb", "reachc", "rankcatch", "reachcatch")]
 #[group(Catch)]
 async fn prefix_rankctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match RankPp::args(Some(GameModeOption::Catch), args) {

@@ -214,6 +214,7 @@ pub async fn prefix_tracktaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>)
     "\"freddie benson\""
 )]
 #[flags(AUTHORITY, ONLY_GUILDS)]
+#[alias("trackingcatch")]
 #[group(Tracking)]
 pub async fn prefix_trackctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match TrackArgs::args(Some(GameMode::CTB), args).await {

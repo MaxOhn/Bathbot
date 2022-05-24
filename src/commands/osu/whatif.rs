@@ -173,7 +173,7 @@ pub async fn prefix_whatiftaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 )]
 #[usage("[username] [number]")]
 #[example("badewanne3 321.98")]
-#[alias("wic")]
+#[aliases("wic", "whatifcatch")]
 #[group(Catch)]
 pub async fn prefix_whatifctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match WhatIf::args(Some(GameModeOption::Catch), args) {

@@ -147,7 +147,7 @@ async fn prefix_osustatscounttaiko(
 )]
 #[usage("[username]")]
 #[example("badewanne3")]
-#[aliases("oscc", "osustatscountsctb")]
+#[aliases("oscc", "osustatscountsctb", "osustatscountcatch")]
 #[group(Catch)]
 async fn prefix_osustatscountctb(
     ctx: Arc<Context>,

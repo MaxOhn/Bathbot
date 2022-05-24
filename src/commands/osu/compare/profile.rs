@@ -237,7 +237,7 @@ async fn prefix_osucomparetaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 )]
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
-#[alias("occ")]
+#[aliases("occ", "osucomparecatch")]
 #[group(Catch)]
 async fn prefix_osucomparectb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     let args = CompareProfile::args(Some(GameModeOption::Catch), args);

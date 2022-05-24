@@ -149,7 +149,7 @@ pub async fn prefix_pptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 )]
 #[usage("[username] [number]")]
 #[example("badewanne3 8000")]
-#[alias("ppc")]
+#[aliases("ppc", "ppcatch")]
 #[group(Catch)]
 pub async fn prefix_ppctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match Pp::args(Some(GameModeOption::Catch), args) {

@@ -96,7 +96,7 @@ async fn prefix_rankrankedscoretaiko(
 )]
 #[usage("[username] [number]")]
 #[example("badewanne3 123")]
-#[alias("rrsc")]
+#[aliases("rrsc", "rankrankedscorecatch")]
 #[group(Catch)]
 async fn prefix_rankrankedscorectb(
     ctx: Arc<Context>,

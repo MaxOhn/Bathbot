@@ -354,7 +354,7 @@ async fn prefix_osustatslisttaiko(
 )]
 #[usage("[rank=[num..]num] [country acronym]")]
 #[examples("rankr=42 be", "rank=1..5", "fr")]
-#[aliases("oslc")]
+#[aliases("oslc", "osustatslistcatch")]
 #[group(Catch)]
 async fn prefix_osustatslistctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match OsuStatsPlayers::args(Some(GameModeOption::Catch), args) {

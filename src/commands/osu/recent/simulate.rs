@@ -116,7 +116,7 @@ async fn prefix_simulaterecenttaiko(
     "[username] [+mods] [acc=number] [combo=integer] [n300=integer] [n100=integer] [n50=integer] [misses=integer]"
 )]
 #[example("badewanne3 +hr acc=99.3 n300=1422 misses=1")]
-#[alias("src")]
+#[aliases("src", "simulaterecentcatch")]
 #[group(Catch)]
 async fn prefix_simulaterecentctb(
     ctx: Arc<Context>,

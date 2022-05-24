@@ -155,7 +155,7 @@ async fn prefix_osustatsglobalstaiko(
     "badewanne3 -dt! acc=97.5..99.5 rank=42 sort=pp reverse=true",
     "vaxei sort=rank rank=1..5 +hdhr"
 )]
-#[aliases("osgc", "osustatsglobalctb")]
+#[aliases("osgc", "osustatsglobalctb", "osustatsglobalscatch")]
 #[group(Catch)]
 async fn prefix_osustatsglobalsctb(
     ctx: Arc<Context>,

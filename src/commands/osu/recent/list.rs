@@ -103,7 +103,7 @@ async fn prefix_recentlisttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 )]
 #[usage("[username]")]
 #[example("badewanne3")]
-#[alias("rlc")]
+#[aliases("rlc", "recentlistcatch")]
 #[group(Catch)]
 async fn prefix_recentlistctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match RecentList::args(Some(GameModeOption::Catch), args) {

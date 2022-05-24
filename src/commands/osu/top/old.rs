@@ -348,7 +348,7 @@ async fn prefix_topoldtaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 )]
 #[usage("[username] [year]")]
 #[example("\"freddie benson\" 2019")]
-#[alias("toc")]
+#[aliases("toc", "topoldcatch")]
 #[group(Catch)]
 async fn prefix_topoldctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match TopOld::args(GameMode::CTB, args) {

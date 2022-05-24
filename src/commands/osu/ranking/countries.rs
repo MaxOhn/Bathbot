@@ -43,7 +43,7 @@ pub async fn prefix_countryrankingtaiko(ctx: Arc<Context>, msg: &Message) -> Bot
 
 #[command]
 #[desc("Display the osu!ctb rankings for countries")]
-#[aliases("crc")]
+#[aliases("crc", "countryrankingcatch")]
 #[group(Catch)]
 pub async fn prefix_countryrankingctb(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     country(ctx, msg.into(), Some(GameModeOption::Catch).into()).await

@@ -159,7 +159,7 @@ pub async fn prefix_mappertaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 )]
 #[usage("[mapper] [user]")]
 #[example("\"Hishiro Chizuru\" badewanne3", "monstrata monstrata")]
-#[alias("mapperc")]
+#[aliases("mapperc", "mappercatch")]
 #[group(Catch)]
 async fn prefix_mapperctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match Mapper::args(Some(GameModeOption::Catch), args, None) {

@@ -71,7 +71,7 @@ async fn prefix_commontaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[help("Compare the ctb users' top 100 and check which maps appear in each top list")]
 #[usage("[name1] [name2]")]
 #[example("badewanne3 \"nathan on osu\"")]
-#[alias("commonc")]
+#[aliases("commonc", "commoncatch")]
 #[group(Catch)]
 async fn prefix_commonctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     let args = CompareTop::args(Some(GameModeOption::Catch), args);

@@ -100,7 +100,7 @@ async fn prefix_recenttaikoleaderboard(
 )]
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
-#[aliases("rclb", "rcglb", "recentctbgloballeaderboard")]
+#[aliases("rclb", "rcglb", "recentctbgloballeaderboard", "recentcatchleaderboard")]
 #[group(Catch)]
 async fn prefix_recentctbleaderboard(
     ctx: Arc<Context>,

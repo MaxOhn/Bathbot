@@ -129,7 +129,7 @@ async fn prefix_recenttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 )]
 #[usage("[username] [pass=true/false] [grade=grade[..grade]]")]
 #[examples("badewanne3 pass=true", "grade=a", "whitecat grade=B")]
-#[alias("rc")]
+#[alias("rc", "recentcatch")]
 #[group(Catch)]
 async fn prefix_recentctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match RecentScore::args(Some(GameModeOption::Catch), args) {

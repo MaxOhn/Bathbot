@@ -195,7 +195,7 @@ async fn prefix_taiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotRe
 )]
 #[usage("[username] [size=compact/medium/full]")]
 #[examples("badewanne3", "peppy size=full", "size=compact \"freddie benson\"")]
-#[aliases("profilectb", "ctbprofile", "profilec")]
+#[aliases("profilectb", "ctbprofile", "profilec", "profilecatch", "catchprofile", "catch")]
 #[group(Catch)]
 async fn prefix_ctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match Profile::args(GameModeOption::Catch, args) {
