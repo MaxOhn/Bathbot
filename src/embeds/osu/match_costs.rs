@@ -137,7 +137,7 @@ impl MatchCostEmbed {
                         let _ = writeln!(
                             description,
                             "**{i}**: [{name}]({OSU_BASE}users/{id}) - **{cost:.2}** {medal}",
-                            medal = medals.get(i).unwrap_or(&""),
+                            medal = medals.get(i - 1).unwrap_or(&""),
                         );
                     }
 
