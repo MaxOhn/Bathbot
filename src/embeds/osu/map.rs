@@ -131,86 +131,85 @@ impl MapEmbed {
 
         let mut attributes = rosu_map.stars().mods(mod_bits).calculate();
         let stars = attributes.stars();
-        let mut pps = Vec::with_capacity(4);
+        const ACCS: [f32; 4] = [95.0, 97.0, 99.0, 100.0];
+        let mut pps = Vec::with_capacity(ACCS.len());
 
-        for acc in [95.0, 97.0, 99.0, 100.0].iter().copied() {
+        for &acc in ACCS.iter() {
             let pp_result: PerformanceAttributes = match rosu_map.mode {
                 Mode::STD => OsuPP::new(&rosu_map)
                     .mods(mod_bits)
                     .attributes(attributes)
-                    .accuracy(acc)
+                    .accuracy(acc as f64)
                     .calculate()
                     .into(),
                 Mode::MNA => ManiaPP::new(&rosu_map)
                     .mods(mod_bits)
                     .attributes(attributes)
-                    .score(acc_to_score(mod_mult, acc as f32) as u32)
+                    .score(acc_to_score(mod_mult, acc) as u32)
                     .calculate()
                     .into(),
                 Mode::CTB => CatchPP::new(&rosu_map)
                     .mods(mod_bits)
                     .attributes(attributes)
-                    .accuracy(acc)
+                    .accuracy(acc as f64)
                     .calculate()
                     .into(),
                 Mode::TKO => TaikoPP::new(&rosu_map)
                     .mods(mod_bits)
                     .attributes(attributes)
-                    .accuracy(acc)
+                    .accuracy(acc as f64)
                     .calculate()
                     .into(),
             };
 
-            pps.push(pp_result.pp() as f32);
+            let pp = pp_result.pp();
+
+            let pp_str = if pp > 100_000.0 {
+                format!("{pp:.3e}")
+            } else {
+                round(pp as f32).to_string()
+            };
+
+            pps.push(pp_str);
             attributes = pp_result.into();
         }
 
         let mut pp_values = String::with_capacity(128);
+        let mut lens = Vec::with_capacity(ACCS.len());
 
-        let len = if rosu_map.mode == Mode::MNA {
-            let len = 9.max(2 + format!("{:.2}", pps[3]).len());
-            pp_values.push_str("```\n");
+        if rosu_map.mode == Mode::MNA {
+            pp_values.push_str("```\n    ");
 
-            #[allow(clippy::to_string_in_format_args)]
-            let _ = writeln!(
-                pp_values,
-                "    |{:^len$}|{:^len$}|{:^len$}|{:^len$}",
-                with_comma_int(acc_to_score(mod_mult, 95.0)).to_string(),
-                with_comma_int(acc_to_score(mod_mult, 97.0)).to_string(),
-                with_comma_int(acc_to_score(mod_mult, 99.0)).to_string(),
-                with_comma_int(acc_to_score(mod_mult, 100.0)).to_string(),
-            );
-
-            len
+            for (pp, &acc) in pps.iter().zip(&ACCS) {
+                let score = with_comma_int(acc_to_score(mod_mult, acc)).to_string();
+                let len = pp.len().max(score.len()) + 2;
+                let _ = write!(pp_values, "|{score:^len$}");
+                lens.push(len);
+            }
         } else {
-            let len = 6.max(2 + format!("{:.2}", pps[3]).len());
-            pp_values.push_str("```\n");
+            pp_values.push_str("```\nAcc ");
 
-            let _ = writeln!(
-                pp_values,
-                "Acc |{:^len$}|{:^len$}|{:^len$}|{:^len$}",
-                "95%", "97%", "99%", "100%",
-            );
+            for (pp, &acc) in pps.iter().zip(&ACCS) {
+                let acc = acc.to_string() + "%";
+                let len = pp.len().max(acc.len()) + 2;
+                let _ = write!(pp_values, "|{acc:^len$}");
+                lens.push(len);
+            }
+        }
 
-            len
-        };
+        pp_values.push_str("\n----");
 
-        let _ = writeln!(
-            pp_values,
-            "----+{:->len$}+{:->len$}+{:->len$}+{:->len$}",
-            "-", "-", "-", "-",
-        );
+        for len in lens.iter() {
+            let _ = write!(pp_values, "+{:->len$}", "-");
+        }
 
-        let _ = writeln!(
-            pp_values,
-            " PP |{:^len$}|{:^len$}|{:^len$}|{:^len$}",
-            round(pps[0]),
-            round(pps[1]),
-            round(pps[2]),
-            round(pps[3]),
-        );
+        pp_values.push_str("\n PP ");
 
-        pp_values.push_str("```");
+        for (pp, len) in pps.iter().zip(&lens) {
+            let _ = write!(pp_values, "|{pp:^len$}");
+        }
+
+        pp_values.push_str("\n```");
 
         if let Some(combo) = map.max_combo {
             let _ = write!(info_value, "Combo: `{combo}x`");
