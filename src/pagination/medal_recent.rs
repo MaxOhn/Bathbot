@@ -149,7 +149,7 @@ impl MedalRecentPagination {
         let delete_fut = ctx.http.delete_all_reactions(msg.channel_id, msg.id).exec();
 
         if let Err(err) = delete_fut.await {
-            if matches!(err.kind(), ErrorType::Response { status, ..} if status.raw() == 403) {
+            if matches!(err.kind(), ErrorType::Response { status, ..} if status.get() == 403) {
                 sleep(Duration::from_millis(100)).await;
 
                 for emote in &reactions {

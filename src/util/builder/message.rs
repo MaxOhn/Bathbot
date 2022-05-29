@@ -32,7 +32,7 @@ impl<'c> MessageBuilder<'c> {
     }
 
     pub fn attachment(mut self, name: impl Into<String>, bytes: Vec<u8>) -> Self {
-        self.attachment = Some(Attachment::from_bytes(name.into(), bytes));
+        self.attachment = Some(Attachment::from_bytes(name.into(), bytes, 1));
 
         self
     }

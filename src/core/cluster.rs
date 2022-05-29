@@ -1,10 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use twilight_gateway::{
-    cluster::{Events, ShardScheme},
-    shard::ResumeSession,
-    Cluster, EventTypeFlags, Intents,
-};
+use twilight_gateway::{cluster::Events, shard::ResumeSession, Cluster, EventTypeFlags, Intents};
 use twilight_http::Client;
 use twilight_model::gateway::{
     payload::outgoing::update_presence::UpdatePresencePayload,
@@ -59,7 +55,6 @@ pub async fn build_cluster(
     let tuple = Cluster::builder(token.to_owned(), intents)
         .event_types(EventTypeFlags::all() - ignore_flags)
         .http_client(http)
-        .shard_scheme(ShardScheme::Auto)
         .resume_sessions(resume_data)
         .presence(presence)
         .build()

@@ -63,6 +63,7 @@ pub async fn handle_help_autocomplete(
                 (_, Some(cmds)) => cmds
                     .map(|cmd| CommandOptionChoice::String {
                         name: cmd.to_owned(),
+                        name_localizations: None,
                         value: cmd.to_owned(),
                     })
                     .collect(),

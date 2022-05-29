@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use twilight_model::{
     channel::embed::{Embed, EmbedAuthor, EmbedField, EmbedImage, EmbedThumbnail},
-    datetime::Timestamp,
+    util::Timestamp,
 };
 
 use crate::util::constants::DARK_GREEN;

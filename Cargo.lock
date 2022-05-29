@@ -437,13 +437,13 @@ dependencies = [
 
 [[package]]
 name = "dashmap"
-version = "5.2.0"
+version = "5.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c8858831f7781322e539ea39e72449c46b059638250c14344fec8d0aa6e539c"
+checksum = "391b56fbd302e585b7a9494fb70e40949567b1cf9003a8e4a6041a1687c26573"
 dependencies = [
  "cfg-if",
- "num_cpus",
- "parking_lot 0.12.0",
+ "hashbrown 0.12.0",
+ "lock_api",
  "serde",
 ]
 
@@ -2599,8 +2599,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-cache-inmemory"
-version = "0.10.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv#67b8b69f07f23ad8586beb18f48f6f91446bddcd"
+version = "0.11.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv#5de5a1ba899650c0f5f9df9c2e5e342018dbb5e7"
 dependencies = [
  "bitflags",
  "dashmap",
@@ -2611,8 +2611,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-gateway"
-version = "0.10.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv#67b8b69f07f23ad8586beb18f48f6f91446bddcd"
+version = "0.11.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv#5de5a1ba899650c0f5f9df9c2e5e342018dbb5e7"
 dependencies = [
  "bitflags",
  "flate2",
@@ -2634,17 +2634,18 @@ dependencies = [
 
 [[package]]
 name = "twilight-gateway-queue"
-version = "0.10.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv#67b8b69f07f23ad8586beb18f48f6f91446bddcd"
+version = "0.11.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv#5de5a1ba899650c0f5f9df9c2e5e342018dbb5e7"
 dependencies = [
  "tokio",
+ "tracing",
  "twilight-http",
 ]
 
 [[package]]
 name = "twilight-http"
-version = "0.10.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv#67b8b69f07f23ad8586beb18f48f6f91446bddcd"
+version = "0.11.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv#5de5a1ba899650c0f5f9df9c2e5e342018dbb5e7"
 dependencies = [
  "hyper",
  "hyper-rustls",
@@ -2653,6 +2654,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "tracing",
  "twilight-http-ratelimiting",
  "twilight-model",
  "twilight-validate",
@@ -2660,18 +2662,19 @@ dependencies = [
 
 [[package]]
 name = "twilight-http-ratelimiting"
-version = "0.10.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv#67b8b69f07f23ad8586beb18f48f6f91446bddcd"
+version = "0.11.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv#5de5a1ba899650c0f5f9df9c2e5e342018dbb5e7"
 dependencies = [
  "futures-util",
  "http",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
 name = "twilight-interactions"
-version = "0.10.0"
-source = "git+https://github.com/MaxOhn/twilight-interactions?branch=rkyv#e69c71a31c63b52fdfce841a5cb8ea2f613f06f8"
+version = "0.11.0"
+source = "git+https://github.com/MaxOhn/twilight-interactions?branch=rkyv#1ad2ad51cdba2be879a9ce29100a8c55a3085782"
 dependencies = [
  "twilight-interactions-derive",
  "twilight-model",
@@ -2679,8 +2682,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-interactions-derive"
-version = "0.10.0"
-source = "git+https://github.com/MaxOhn/twilight-interactions?branch=rkyv#e69c71a31c63b52fdfce841a5cb8ea2f613f06f8"
+version = "0.11.0"
+source = "git+https://github.com/MaxOhn/twilight-interactions?branch=rkyv#1ad2ad51cdba2be879a9ce29100a8c55a3085782"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2689,8 +2692,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-model"
-version = "0.10.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv#67b8b69f07f23ad8586beb18f48f6f91446bddcd"
+version = "0.11.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv#5de5a1ba899650c0f5f9df9c2e5e342018dbb5e7"
 dependencies = [
  "bitflags",
  "rkyv",
@@ -2703,19 +2706,20 @@ dependencies = [
 
 [[package]]
 name = "twilight-standby"
-version = "0.10.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv#67b8b69f07f23ad8586beb18f48f6f91446bddcd"
+version = "0.11.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv#5de5a1ba899650c0f5f9df9c2e5e342018dbb5e7"
 dependencies = [
  "dashmap",
  "futures-util",
  "tokio",
+ "tracing",
  "twilight-model",
 ]
 
 [[package]]
 name = "twilight-validate"
-version = "0.10.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv#67b8b69f07f23ad8586beb18f48f6f91446bddcd"
+version = "0.11.0"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv#5de5a1ba899650c0f5f9df9c2e5e342018dbb5e7"
 dependencies = [
  "twilight-model",
 ]

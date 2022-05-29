@@ -227,6 +227,7 @@ pub async fn handle_autocomplete(
 fn new_choice(name: &str) -> CommandOptionChoice {
     CommandOptionChoice::String {
         name: name.to_owned(),
+        name_localizations: None,
         value: name.to_owned(),
     }
 }

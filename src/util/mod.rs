@@ -281,7 +281,7 @@ pub async fn send_reaction(ctx: &Context, msg: &Message, emote: Emote) -> BotRes
     // Initial attempt, return if it's not a 429
     match ctx.http.create_reaction(channel, msg, emoji).exec().await {
         Ok(_) => return Ok(()),
-        Err(e) if matches!(e.kind(), ErrorType::Response { status, .. } if status.raw() == 429) => {
+        Err(e) if matches!(e.kind(), ErrorType::Response { status, .. } if status.get() == 429) => {
         }
         Err(e) => return Err(e.into()),
     }
@@ -297,7 +297,7 @@ pub async fn send_reaction(ctx: &Context, msg: &Message, emote: Emote) -> BotRes
 
         match ctx.http.create_reaction(channel, msg, emoji).exec().await {
             Ok(_) => return Ok(()),
-            Err(e) if matches!(e.kind(), ErrorType::Response { status, .. } if status.raw() == 429) =>
+            Err(e) if matches!(e.kind(), ErrorType::Response { status, .. } if status.get() == 429) =>
                 {}
             Err(e) => return Err(e.into()),
         };
