@@ -310,13 +310,18 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
         }
     };
 
-    let mut builder = ProfilePagination::builder(Arc::clone(&ctx), kind, profile_data);
+    let mut builder = ProfilePagination::builder(kind, profile_data);
 
     if let Some(bytes) = graph {
         builder = builder.attachment("profile_graph.png", bytes);
     }
 
-    builder.profile_components().start_by_update().defer_components().start(ctx, orig).await
+    builder
+        .profile_components()
+        .start_by_update()
+        .defer_components()
+        .start(ctx, orig)
+        .await
 }
 
 impl ProfileEmbed {

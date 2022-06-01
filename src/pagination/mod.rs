@@ -66,52 +66,52 @@ mod top_if;
 pub mod components;
 
 pub enum PaginationKind {
-    Badge(BadgePagination),
-    CommandCount(CommandCountPagination),
-    Common(CommonPagination),
-    CountrySnipeList(CountrySnipeListPagination),
-    Leaderboard(LeaderboardPagination),
-    Map(MapPagination),
-    MapSearch(MapSearchPagination),
-    MatchCompare(MatchComparePagination),
-    MedalCount(MedalCountPagination),
-    MedalRarity(MedalRarityPagination),
-    MedalRecent(MedalRecentPagination),
-    MedalsCommon(MedalsCommonPagination),
-    MedalsList(MedalsListPagination),
-    MedalsMissing(MedalsMissingPagination),
-    MostPlayed(MostPlayedPagination),
-    MostPlayedCommon(MostPlayedCommonPagination),
-    NoChoke(NoChokePagination),
-    OsuStatsGlobals(OsuStatsGlobalsPagination),
-    OsuStatsList(OsuStatsListPagination),
-    OsuTrackerCountryTop(OsuTrackerCountryTopPagination),
-    OsuTrackerMappers(OsuTrackerMappersPagination),
-    OsuTrackerMaps(OsuTrackerMapsPagination),
-    OsuTrackerMapsets(OsuTrackerMapsetsPagination),
-    OsuTrackerMods(OsuTrackerModsPagination),
-    PlayerSnipeList(PlayerSnipeListPagination),
-    Profile(ProfilePagination),
-    Ranking(RankingPagination),
-    RankingCountries(RankingCountriesPagination),
-    RecentList(RecentListPagination),
-    Scores(ScoresPagination),
-    SnipedDiff(SnipedDiffPagination),
-    Top(TopPagination),
-    TopCondensed(TopCondensedPagination),
-    TopIf(TopIfPagination),
+    Badge(Box<BadgePagination>),
+    CommandCount(Box<CommandCountPagination>),
+    Common(Box<CommonPagination>),
+    CountrySnipeList(Box<CountrySnipeListPagination>),
+    Leaderboard(Box<LeaderboardPagination>),
+    Map(Box<MapPagination>),
+    MapSearch(Box<MapSearchPagination>),
+    MatchCompare(Box<MatchComparePagination>),
+    MedalCount(Box<MedalCountPagination>),
+    MedalRarity(Box<MedalRarityPagination>),
+    MedalRecent(Box<MedalRecentPagination>),
+    MedalsCommon(Box<MedalsCommonPagination>),
+    MedalsList(Box<MedalsListPagination>),
+    MedalsMissing(Box<MedalsMissingPagination>),
+    MostPlayed(Box<MostPlayedPagination>),
+    MostPlayedCommon(Box<MostPlayedCommonPagination>),
+    NoChoke(Box<NoChokePagination>),
+    OsuStatsGlobals(Box<OsuStatsGlobalsPagination>),
+    OsuStatsList(Box<OsuStatsListPagination>),
+    OsuTrackerCountryTop(Box<OsuTrackerCountryTopPagination>),
+    OsuTrackerMappers(Box<OsuTrackerMappersPagination>),
+    OsuTrackerMaps(Box<OsuTrackerMapsPagination>),
+    OsuTrackerMapsets(Box<OsuTrackerMapsetsPagination>),
+    OsuTrackerMods(Box<OsuTrackerModsPagination>),
+    PlayerSnipeList(Box<PlayerSnipeListPagination>),
+    Profile(Box<ProfilePagination>),
+    Ranking(Box<RankingPagination>),
+    RankingCountries(Box<RankingCountriesPagination>),
+    RecentList(Box<RecentListPagination>),
+    Scores(Box<ScoresPagination>),
+    SnipedDiff(Box<SnipedDiffPagination>),
+    Top(Box<TopPagination>),
+    TopCondensed(Box<TopCondensedPagination>),
+    TopIf(Box<TopIfPagination>),
 }
 
 impl PaginationKind {
-    async fn build_page(&mut self, pages: &Pages) -> BotResult<Embed> {
+    async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> BotResult<Embed> {
         match self {
-            Self::Badge(kind) => kind.build_page(pages).await,
+            Self::Badge(kind) => kind.build_page(ctx, pages).await,
             Self::CommandCount(kind) => Ok(kind.build_page(pages)),
             Self::Common(kind) => Ok(kind.build_page(pages)),
             Self::CountrySnipeList(kind) => Ok(kind.build_page(pages)),
-            Self::Leaderboard(kind) => kind.build_page(pages).await,
-            Self::Map(kind) => kind.build_page(pages).await,
-            Self::MapSearch(kind) => kind.build_page(pages).await,
+            Self::Leaderboard(kind) => kind.build_page(ctx, pages).await,
+            Self::Map(kind) => kind.build_page(ctx, pages).await,
+            Self::MapSearch(kind) => kind.build_page(ctx, pages).await,
             Self::MatchCompare(kind) => Ok(kind.build_page(pages)),
             Self::MedalCount(kind) => Ok(kind.build_page(pages)),
             Self::MedalRarity(kind) => Ok(kind.build_page(pages)),
@@ -121,23 +121,23 @@ impl PaginationKind {
             Self::MedalsMissing(kind) => Ok(kind.build_page(pages)),
             Self::MostPlayed(kind) => Ok(kind.build_page(pages)),
             Self::MostPlayedCommon(kind) => Ok(kind.build_page(pages)),
-            Self::NoChoke(kind) => Ok(kind.build_page(pages).await),
-            Self::OsuStatsGlobals(kind) => kind.build_page(pages).await,
-            Self::OsuStatsList(kind) => kind.build_page(pages).await,
+            Self::NoChoke(kind) => Ok(kind.build_page(ctx, pages).await),
+            Self::OsuStatsGlobals(kind) => kind.build_page(ctx, pages).await,
+            Self::OsuStatsList(kind) => kind.build_page(ctx, pages).await,
             Self::OsuTrackerCountryTop(kind) => Ok(kind.build_page(pages)),
             Self::OsuTrackerMappers(kind) => Ok(kind.build_page(pages)),
             Self::OsuTrackerMaps(kind) => Ok(kind.build_page(pages)),
-            Self::OsuTrackerMapsets(kind) => kind.build_page(pages).await,
+            Self::OsuTrackerMapsets(kind) => kind.build_page(ctx, pages).await,
             Self::OsuTrackerMods(kind) => Ok(kind.build_page(pages)),
-            Self::PlayerSnipeList(kind) => kind.build_page(pages).await,
-            Self::Profile(kind) => Ok(kind.build_page(pages).await),
-            Self::Ranking(kind) => kind.build_page(pages).await,
-            Self::RankingCountries(kind) => kind.build_page(pages).await,
-            Self::RecentList(kind) => kind.build_page(pages).await,
-            Self::Scores(kind) => Ok(kind.build_page(pages).await),
-            Self::SnipedDiff(kind) => kind.build_page(pages).await,
-            Self::Top(kind) => Ok(kind.build_page(pages).await),
-            Self::TopCondensed(kind) => Ok(kind.build_page(pages).await),
+            Self::PlayerSnipeList(kind) => kind.build_page(ctx, pages).await,
+            Self::Profile(kind) => Ok(kind.build_page(ctx, pages).await),
+            Self::Ranking(kind) => kind.build_page(ctx, pages).await,
+            Self::RankingCountries(kind) => kind.build_page(ctx, pages).await,
+            Self::RecentList(kind) => kind.build_page(ctx, pages).await,
+            Self::Scores(kind) => Ok(kind.build_page(ctx, pages).await),
+            Self::SnipedDiff(kind) => kind.build_page(ctx, pages).await,
+            Self::Top(kind) => Ok(kind.build_page(ctx, pages).await),
+            Self::TopCondensed(kind) => Ok(kind.build_page(ctx, pages).await),
             Self::TopIf(kind) => Ok(kind.build_page(pages).await),
         }
     }
@@ -168,7 +168,7 @@ impl Pagination {
             component_kind,
         } = builder;
 
-        let embed = kind.build_page(&pages).await?;
+        let embed = kind.build_page(&ctx, &pages).await?;
         let components = pages.components(component_kind);
 
         let mut builder = MessageBuilder::new().embed(embed).components(components);
@@ -220,15 +220,15 @@ impl Pagination {
         let _ = self.tx.send(());
     }
 
-    async fn build(&mut self) -> BotResult<MessageBuilder<'static>> {
-        let embed = self.build_page().await?;
+    async fn build(&mut self, ctx: &Context) -> BotResult<MessageBuilder<'static>> {
+        let embed = self.build_page(ctx).await?;
         let components = self.pages.components(self.component_kind);
 
         Ok(MessageBuilder::new().embed(embed).components(components))
     }
 
-    async fn build_page(&mut self) -> BotResult<Embed> {
-        self.kind.build_page(&self.pages).await
+    async fn build_page(&mut self, ctx: &Context) -> BotResult<Embed> {
+        self.kind.build_page(ctx, &self.pages).await
     }
 
     fn spawn_timeout(

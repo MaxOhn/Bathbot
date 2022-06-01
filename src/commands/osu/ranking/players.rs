@@ -255,15 +255,13 @@ async fn ranking(
         RankingKindData::RankedScore { mode }
     };
 
-    let builder = RankingPagination::builder(
-        Arc::clone(&ctx),
-        users,
-        total,
-        author_idx,
-        ranking_kind_data,
-    );
+    let builder = RankingPagination::builder(users, total, author_idx, ranking_kind_data);
 
-    builder.start_by_update().defer_components().start(ctx, orig).await
+    builder
+        .start_by_update()
+        .defer_components()
+        .start(ctx, orig)
+        .await
 }
 
 #[command]

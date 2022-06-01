@@ -244,7 +244,7 @@ pub(super) async fn scores(
         );
     }
 
-    OsuStatsGlobalsPagination::builder(Arc::clone(&ctx), user, scores, amount, params)
+    OsuStatsGlobalsPagination::builder(user, scores, amount, params)
         .content(content)
         .start_by_update()
         .defer_components()

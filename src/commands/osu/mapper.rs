@@ -289,7 +289,7 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
     let sort_by = TopScoreOrder::Pp;
     let farm = HashMap::new();
 
-    TopPagination::builder(Arc::clone(&ctx), user, scores, sort_by, farm)
+    TopPagination::builder(user, scores, sort_by, farm)
         .content(content)
         .start_by_update()
         .defer_components()

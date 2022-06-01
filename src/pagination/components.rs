@@ -49,7 +49,7 @@ pub async fn handle_pagination_component(
             pagination.reset_timeout();
             page_fn(&mut pagination.pages);
 
-            (pagination.build().await, defer_components)
+            (pagination.build(&ctx).await, defer_components)
         } else {
             return remove_components(&ctx, &component).await;
         };
@@ -176,7 +176,7 @@ pub async fn handle_pagination_modal(
         pagination.reset_timeout();
         pagination.pages.index = (page - 1) * pagination.pages.per_page;
 
-        (pagination.build().await, defer_components)
+        (pagination.build(&ctx).await, defer_components)
     } else {
         warn!(
             "received unexpected modal (has msg: {})",

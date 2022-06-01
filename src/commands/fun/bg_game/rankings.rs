@@ -72,7 +72,7 @@ pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, global: bool) -> BotR
     let global = guild.is_none() || global;
     let data = RankingKindData::BgScores { global, scores };
 
-    RankingPagination::builder(Arc::clone(&ctx), users, total, author_idx, data)
+    RankingPagination::builder(users, total, author_idx, data)
         .start(ctx, msg.into())
         .await
 }

@@ -130,11 +130,15 @@ pub(super) async fn user(
     let mut owners_map = BTreeMap::new();
     owners_map.insert(0, owners);
 
-    let mut builder = BadgePagination::builder(Arc::clone(&ctx), badges, owners_map);
+    let mut builder = BadgePagination::builder(badges, owners_map);
 
     if let Some(bytes) = bytes {
         builder = builder.attachment("badge_owners.png", bytes);
     }
 
-    builder.start_by_update().defer_components().start(ctx, orig).await
+    builder
+        .start_by_update()
+        .defer_components()
+        .start(ctx, orig)
+        .await
 }

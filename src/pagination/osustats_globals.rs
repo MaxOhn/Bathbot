@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, iter::Extend, sync::Arc};
+use std::{collections::BTreeMap, iter::Extend};
 
 use command_macros::pagination;
 use rosu_v2::model::user::User;
@@ -14,7 +14,6 @@ use super::Pages;
 
 #[pagination(per_page = 5, total = "total")]
 pub struct OsuStatsGlobalsPagination {
-    ctx: Arc<Context>,
     user: User,
     scores: BTreeMap<usize, OsuStatsScore>,
     total: usize,
@@ -22,16 +21,15 @@ pub struct OsuStatsGlobalsPagination {
 }
 
 impl OsuStatsGlobalsPagination {
-    pub async fn build_page(&mut self, pages: &Pages) -> BotResult<Embed> {
+    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> BotResult<Embed> {
         let entries = self.scores.range(pages.index..pages.index + pages.per_page);
-
         let count = entries.count();
 
         if count < pages.per_page && self.total - pages.index > count {
             let osustats_page = (pages.index / 24) + 1;
             self.params.page = osustats_page;
 
-            let (scores, _) = self.ctx.client().get_global_scores(&self.params).await?;
+            let (scores, _) = ctx.client().get_global_scores(&self.params).await?;
 
             let iter = scores
                 .into_iter()
@@ -41,8 +39,7 @@ impl OsuStatsGlobalsPagination {
             self.scores.extend(iter);
         }
 
-        let embed_fut =
-            OsuStatsGlobalsEmbed::new(&self.user, &self.scores, self.total, &self.ctx, pages);
+        let embed_fut = OsuStatsGlobalsEmbed::new(&self.user, &self.scores, self.total, ctx, pages);
 
         Ok(embed_fut.await.build())
     }

@@ -184,8 +184,8 @@ async fn higherlower_leaderboard(
     let total = scores.len();
     let data = RankingKindData::HlScores { scores, version };
 
-    RankingPagination::builder(Arc::clone(&ctx), users, total, author_idx, data)
-    .start_by_update()
+    RankingPagination::builder(users, total, author_idx, data)
+        .start_by_update()
         .start(ctx, command.into())
         .await
 }

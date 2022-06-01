@@ -278,11 +278,10 @@ async fn slash_serverleaderboard(
     let data = RankingKindData::UserStats { guild_icon, kind };
     let total = leaderboard.len();
 
-    let builder =
-        RankingPagination::builder(Arc::clone(&ctx), leaderboard, total, author_idx, data);
+    let builder = RankingPagination::builder(leaderboard, total, author_idx, data);
 
     builder
-    .start_by_update()
+        .start_by_update()
         .start(ctx, CommandOrigin::Interaction { command })
         .await
 }

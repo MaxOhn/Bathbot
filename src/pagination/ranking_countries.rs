@@ -1,6 +1,6 @@
 use command_macros::pagination;
 use rosu_v2::prelude::{CountryRanking, GameMode};
-use std::{collections::BTreeMap, sync::Arc};
+use std::{collections::BTreeMap, };
 use twilight_model::channel::embed::Embed;
 
 use crate::{
@@ -12,14 +12,13 @@ use super::Pages;
 
 #[pagination(per_page = 15, total = "total")]
 pub struct RankingCountriesPagination {
-    ctx: Arc<Context>,
     mode: GameMode,
     countries: BTreeMap<usize, CountryRanking>,
     total: usize,
 }
 
 impl RankingCountriesPagination {
-    pub async fn build_page(&mut self, pages: &Pages) -> BotResult<Embed> {
+    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> BotResult<Embed> {
         let count = self
             .countries
             .range(pages.index..pages.index + pages.per_page)
@@ -41,8 +40,7 @@ impl RankingCountriesPagination {
 
             let offset = page - 1;
 
-            let mut ranking = self
-                .ctx
+            let mut ranking = ctx
                 .osu()
                 .country_rankings(self.mode)
                 .page(page as u32)

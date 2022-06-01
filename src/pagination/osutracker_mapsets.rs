@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use chrono::Utc;
 use command_macros::pagination;
 use eyre::Report;
@@ -19,13 +17,12 @@ use super::Pages;
 
 #[pagination(per_page = 10, entries = "entries")]
 pub struct OsuTrackerMapsetsPagination {
-    ctx: Arc<Context>,
     entries: Vec<OsuTrackerMapsetEntry>,
     mapsets: HashMap<u32, MapsetEntry>,
 }
 
 impl OsuTrackerMapsetsPagination {
-    pub async fn build_page(&mut self, pages: &Pages) -> BotResult<Embed> {
+    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> BotResult<Embed> {
         let idx = pages.index;
         let entries = &self.entries[idx..self.entries.len().min(idx + pages.per_page)];
 
@@ -36,14 +33,14 @@ impl OsuTrackerMapsetsPagination {
                 continue;
             }
 
-            let mapset_fut = self.ctx.psql().get_beatmapset::<Beatmapset>(mapset_id);
+            let mapset_fut = ctx.psql().get_beatmapset::<Beatmapset>(mapset_id);
 
             let mapset = match mapset_fut.await {
                 Ok(mapset) => mapset,
                 Err(_) => {
-                    let mapset = self.ctx.osu().beatmapset(mapset_id).await?;
+                    let mapset = ctx.osu().beatmapset(mapset_id).await?;
 
-                    if let Err(err) = self.ctx.psql().insert_beatmapset(&mapset).await {
+                    if let Err(err) = ctx.psql().insert_beatmapset(&mapset).await {
                         warn!("{:?}", Report::new(err));
                     }
 

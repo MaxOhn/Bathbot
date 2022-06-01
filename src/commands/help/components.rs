@@ -73,7 +73,7 @@ impl From<EitherCommand> for Parts {
     fn from(either: EitherCommand) -> Self {
         match either {
             EitherCommand::Base(command) => command.into(),
-            EitherCommand::Option(option) => option.into(),
+            EitherCommand::Option(option) => (*option).into(),
         }
     }
 }
@@ -89,7 +89,7 @@ impl From<CommandIter> for Parts {
 
 enum EitherCommand {
     Base(&'static SlashCommand),
-    Option(CommandOptionExt),
+    Option(Box<CommandOptionExt>),
 }
 
 struct CommandIter {
@@ -130,7 +130,7 @@ impl CommandIter {
         };
 
         if let Some(curr) = self.next.replace(next) {
-            self.curr = EitherCommand::Option(curr);
+            self.curr = EitherCommand::Option(Box::new(curr));
         }
 
         false

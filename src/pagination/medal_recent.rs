@@ -39,7 +39,7 @@ impl MedalRecentPagination {
             medals,
         };
 
-        let kind = PaginationKind::MedalRecent(pagination);
+        let kind = PaginationKind::MedalRecent(Box::new(pagination));
 
         PaginationBuilder::new(kind, pages)
     }
@@ -62,10 +62,7 @@ impl MedalRecentPagination {
                         Some(idx) => {
                             let medal = self.medals.swap_remove(idx);
 
-                            let medal = self
-                                .cached_medals
-                                .entry(medal.medal_id)
-                                .or_insert(medal.into());
+                            let medal = self.cached_medals.entry(medal.medal_id).or_insert(medal);
 
                             (medal, achieved.achieved_at)
                         }

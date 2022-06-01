@@ -68,8 +68,9 @@ pub(super) async fn mapsets(ctx: Arc<Context>, command: Box<ApplicationCommand>)
         mapsets.insert(mapset_id, entry);
     }
 
-    OsuTrackerMapsetsPagination::builder(Arc::clone(&ctx), counts, mapsets)
-    .start_by_update().defer_components()
+    OsuTrackerMapsetsPagination::builder(counts, mapsets)
+        .start_by_update()
+        .defer_components()
         .start(ctx, CommandOrigin::Interaction { command })
         .await
 }

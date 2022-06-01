@@ -341,7 +341,7 @@ async fn paginated_embed(
     let farm = HashMap::new();
     let sort_by = sort_by.into();
 
-    TopCondensedPagination::builder(Arc::clone(&ctx), user, scores, sort_by, farm)
+    TopCondensedPagination::builder(user, scores, sort_by, farm)
         .content(content.unwrap_or_default())
         .start(ctx, orig)
         .await

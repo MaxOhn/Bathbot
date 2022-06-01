@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, iter::Extend, sync::Arc};
+use std::{collections::BTreeMap, iter::Extend, };
 
 use command_macros::pagination;
 use eyre::Report;
@@ -16,7 +16,6 @@ use super::Pages;
 
 #[pagination(per_page = 5, total = "total")]
 pub struct PlayerSnipeListPagination {
-    ctx: Arc<Context>,
     user: User,
     scores: BTreeMap<usize, SnipeScore>,
     maps: HashMap<u32, Beatmap>,
@@ -25,7 +24,7 @@ pub struct PlayerSnipeListPagination {
 }
 
 impl PlayerSnipeListPagination {
-    pub async fn build_page(&mut self, pages: &Pages) -> BotResult<Embed> {
+    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> BotResult<Embed> {
         let count = self
             .scores
             .range(pages.index..pages.index + pages.per_page)
@@ -36,7 +35,7 @@ impl PlayerSnipeListPagination {
             self.params.page(huismetbenen_page as u8);
 
             // Get scores
-            let scores = self.ctx.client().get_national_firsts(&self.params).await?;
+            let scores = ctx.client().get_national_firsts(&self.params).await?;
 
             // Store scores in BTreeMap
             let iter = scores
@@ -57,7 +56,7 @@ impl PlayerSnipeListPagination {
             .collect();
 
         if !map_ids.is_empty() {
-            let mut maps = match self.ctx.psql().get_beatmaps(&map_ids, true).await {
+            let mut maps = match ctx.psql().get_beatmaps(&map_ids, true).await {
                 Ok(maps) => maps,
                 Err(err) => {
                     let report = Report::new(err).wrap_err("error while getting maps from DB");
@@ -72,7 +71,7 @@ impl PlayerSnipeListPagination {
                 let map_id = map_id as u32;
 
                 if !maps.contains_key(&map_id) {
-                    match self.ctx.osu().beatmap().map_id(map_id).await {
+                    match ctx.osu().beatmap().map_id(map_id).await {
                         Ok(map) => {
                             maps.insert(map_id, map);
                         }
@@ -84,14 +83,8 @@ impl PlayerSnipeListPagination {
             self.maps.extend(maps);
         }
 
-        let embed_fut = PlayerSnipeListEmbed::new(
-            &self.user,
-            &self.scores,
-            &self.maps,
-            self.total,
-            &self.ctx,
-            pages,
-        );
+        let embed_fut =
+            PlayerSnipeListEmbed::new(&self.user, &self.scores, &self.maps, self.total, ctx, pages);
 
         Ok(embed_fut.await.build())
     }

@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use command_macros::pagination;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Score, User};
@@ -16,7 +14,6 @@ use super::Pages;
 
 #[pagination(per_page = 5, entries = "scores")]
 pub struct TopPagination {
-    ctx: Arc<Context>,
     user: User,
     scores: Vec<(usize, Score)>,
     sort_by: TopScoreOrder,
@@ -24,17 +21,10 @@ pub struct TopPagination {
 }
 
 impl TopPagination {
-    pub async fn build_page(&mut self, pages: &Pages) -> Embed {
+    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Embed {
         let scores = self.scores.iter().skip(pages.index).take(pages.per_page);
 
-        let embed_fut = TopEmbed::new(
-            &self.user,
-            scores,
-            &self.ctx,
-            self.sort_by,
-            &self.farm,
-            pages,
-        );
+        let embed_fut = TopEmbed::new(&self.user, scores, ctx, self.sort_by, &self.farm, pages);
 
         embed_fut.await.build()
     }
@@ -42,7 +32,6 @@ impl TopPagination {
 
 #[pagination(per_page = 10, entries = "scores")]
 pub struct TopCondensedPagination {
-    ctx: Arc<Context>,
     user: User,
     scores: Vec<(usize, Score)>,
     sort_by: TopScoreOrder,
@@ -50,17 +39,11 @@ pub struct TopCondensedPagination {
 }
 
 impl TopCondensedPagination {
-    pub async fn build_page(&mut self, pages: &Pages) -> Embed {
+    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Embed {
         let scores = self.scores.iter().skip(pages.index).take(pages.per_page);
 
-        let embed_fut = CondensedTopEmbed::new(
-            &self.user,
-            scores,
-            &self.ctx,
-            self.sort_by,
-            &self.farm,
-            pages,
-        );
+        let embed_fut =
+            CondensedTopEmbed::new(&self.user, scores, ctx, self.sort_by, &self.farm, pages);
 
         embed_fut.await.build()
     }

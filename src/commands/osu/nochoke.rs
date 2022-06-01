@@ -312,7 +312,7 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
 
     content.push(':');
 
-    NoChokePagination::builder(Arc::clone(&ctx), user, scores_data, unchoked_pp, rank)
+    NoChokePagination::builder(user, scores_data, unchoked_pp, rank)
         .content(content)
         .start_by_update()
         .defer_components()

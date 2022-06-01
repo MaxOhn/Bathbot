@@ -1,5 +1,5 @@
 use rosu_v2::prelude::{Beatmapset, BeatmapsetSearchResult};
-use std::{collections::BTreeMap, iter::Extend, sync::Arc};
+use std::{collections::BTreeMap, iter::Extend, };
 use twilight_model::channel::embed::Embed;
 
 use crate::{
@@ -11,7 +11,6 @@ use crate::{
 use super::{Pages, PaginationBuilder, PaginationKind};
 
 pub struct MapSearchPagination {
-    ctx: Arc<Context>,
     maps: BTreeMap<usize, Beatmapset>,
     search_result: BeatmapsetSearchResult,
     args: Search,
@@ -19,7 +18,6 @@ pub struct MapSearchPagination {
 
 impl MapSearchPagination {
     pub fn builder(
-        ctx: Arc<Context>,
         maps: BTreeMap<usize, Beatmapset>,
         search_result: BeatmapsetSearchResult,
         args: Search,
@@ -27,26 +25,25 @@ impl MapSearchPagination {
         let total = search_result.total as usize;
 
         let pagination = Self {
-            ctx,
             maps,
             search_result,
             args,
         };
 
-        let kind = PaginationKind::MapSearch(pagination);
+        let kind = PaginationKind::MapSearch(Box::new(pagination));
         let pages = Pages::new(10, total);
 
         PaginationBuilder::new(kind, pages)
     }
 
-    pub async fn build_page(&mut self, pages: &Pages) -> BotResult<Embed> {
+    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> BotResult<Embed> {
         let count = self
             .maps
             .range(pages.index..pages.index + pages.per_page)
             .count();
 
         if count < pages.per_page {
-            let next_fut = self.search_result.get_next(self.ctx.osu());
+            let next_fut = self.search_result.get_next(ctx.osu());
 
             if let Some(mut next_search_result) = next_fut.await.transpose()? {
                 let idx = pages.index;

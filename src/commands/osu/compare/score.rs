@@ -642,18 +642,14 @@ pub(super) async fn score(
             .map(|(i, _)| i)
             .unwrap_or(0);
 
-        let builder = ScoresPagination::builder(
-            Arc::clone(&ctx),
-            user,
-            map,
-            scores,
-            pinned,
-            personal,
-            global_idx,
-            pp_idx,
-        );
+        let builder =
+            ScoresPagination::builder(user, map, scores, pinned, personal, global_idx, pp_idx);
 
-        builder.start_by_update().defer_components().start(ctx, orig).await
+        builder
+            .start_by_update()
+            .defer_components()
+            .start(ctx, orig)
+            .await
     }
 }
 

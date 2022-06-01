@@ -49,10 +49,11 @@ impl GameMapset {
             } else {
                 Some(title_)
             }
-        } else if let Some(idx) = title.find("feat.").or_else(|| title.find("ft.")) {
-            Some(title[..idx].trim_end().to_owned())
         } else {
-            None
+            title
+                .find("feat.")
+                .or_else(|| title.find("ft."))
+                .map(|idx| title[..idx].trim_end().to_owned())
         };
 
         let mapset = Self {

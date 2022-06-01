@@ -183,7 +183,7 @@ pub(super) async fn player_list(
         let _ = write!(content, " ~ `Mods: {mods}`");
     }
 
-    PlayerSnipeListPagination::builder(Arc::clone(&ctx), user, scores, maps, count, params)
+    PlayerSnipeListPagination::builder(user, scores, maps, count, params)
         .content(content)
         .start_by_update()
         .defer_components()

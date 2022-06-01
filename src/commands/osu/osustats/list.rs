@@ -106,7 +106,7 @@ pub(super) async fn players(
         rank_max = params.max_rank,
     );
 
-    OsuStatsListPagination::builder(Arc::clone(&ctx), players, params, first_place_id, amount)
+    OsuStatsListPagination::builder(players, params, first_place_id, amount)
         .content(content)
         .start_by_update()
         .defer_components()

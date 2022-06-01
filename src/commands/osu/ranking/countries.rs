@@ -74,9 +74,9 @@ pub(super) async fn country(
 
     let countries: BTreeMap<_, _> = ranking.ranking.drain(..).enumerate().collect();
 
-    RankingCountriesPagination::builder(Arc::clone(&ctx), mode, countries, ranking.total as usize)
-    .start_by_update()
-    .defer_components()
+    RankingCountriesPagination::builder(mode, countries, ranking.total as usize)
+        .start_by_update()
+        .defer_components()
         .start(ctx, orig)
         .await
 }

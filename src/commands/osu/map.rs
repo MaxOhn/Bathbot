@@ -399,17 +399,19 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
         }
     };
 
-    let ctx_ = Arc::clone(&ctx);
     let content = attrs.content();
 
-    let mut builder = MapPagination::builder(ctx_, mapset, maps, mods, map_idx, attrs);
+    let mut builder = MapPagination::builder(mapset, maps, mods, map_idx, attrs);
 
     if let Some(bytes) = graph {
         builder = builder.attachment("map_graph.png", bytes);
     }
 
+    if let Some(content) = content {
+        builder = builder.content(content);
+    }
+
     builder
-        .content(content.unwrap_or_default())
         .start_by_update()
         .defer_components()
         .start(ctx, orig)

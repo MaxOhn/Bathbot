@@ -210,7 +210,7 @@ struct ContextData {
     application_id: Id<ApplicationMarker>,
     games: Games,
     guilds: FlurryMap<Id<GuildMarker>, GuildConfig>, // read-heavy
-    map_garbage_collection: Mutex<HashSet<NonZeroU32>>, // TODO: use flurry
+    map_garbage_collection: Mutex<HashSet<NonZeroU32>>,
     matchlive: MatchLiveChannels,
     msgs_to_process: DashSet<Id<MessageMarker>>,
     osu_tracking: OsuTracking,

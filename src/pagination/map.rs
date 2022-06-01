@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMods};
 use twilight_model::channel::embed::Embed;
 
@@ -13,7 +11,6 @@ use super::{Context, Pages, PaginationBuilder, PaginationKind};
 
 // Not using #[pagination(...)] since it requires special initialization
 pub struct MapPagination {
-    ctx: Arc<Context>,
     mapset: Beatmapset,
     maps: Vec<Beatmap>,
     mods: GameMods,
@@ -22,7 +19,6 @@ pub struct MapPagination {
 
 impl MapPagination {
     pub fn builder(
-        ctx: Arc<Context>,
         mapset: Beatmapset,
         maps: Vec<Beatmap>,
         mods: GameMods,
@@ -33,25 +29,24 @@ impl MapPagination {
         pages.index = start_idx;
 
         let pagination = Self {
-            ctx,
             mapset,
             maps,
             mods,
             attrs,
         };
 
-        let kind = PaginationKind::Map(pagination);
+        let kind = PaginationKind::Map(Box::new(pagination));
 
         PaginationBuilder::new(kind, pages)
     }
 
-    pub async fn build_page(&mut self, pages: &Pages) -> BotResult<Embed> {
+    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> BotResult<Embed> {
         let embed_fut = MapEmbed::new(
             &self.maps[pages.index],
             &self.mapset,
             self.mods,
             &self.attrs,
-            &self.ctx,
+            ctx,
             pages,
         );
 

@@ -304,7 +304,7 @@ pub(super) async fn leaderboard(
     let content =
         format!("I found {amount} scores with the specified mods on the map's leaderboard");
 
-    LeaderboardPagination::builder(Arc::clone(&ctx), map, scores, author_name, first_place_icon)
+    LeaderboardPagination::builder(map, scores, author_name, first_place_icon)
         .start_by_update()
         .content(content)
         .start(ctx, orig)

@@ -279,7 +279,7 @@ pub(super) async fn list(
 
     let content = message_content(grade, mods, query);
 
-    RecentListPagination::builder(Arc::clone(&ctx), user, scores)
+    RecentListPagination::builder(user, scores)
         .content(content.unwrap_or_default())
         .start_by_update()
         .defer_components()

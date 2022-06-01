@@ -20,6 +20,6 @@ impl MostPlayedCommonPagination {
         let idx = pages.index;
         let map_counts = &self.map_counts[idx..self.maps.len().min(idx + pages.per_page)];
 
-        MostPlayedCommonEmbed::new(&self.name1, &self.name2, map_counts, &self.maps, &pages).build()
+        MostPlayedCommonEmbed::new(&self.name1, &self.name2, map_counts, &self.maps, pages).build()
     }
 }

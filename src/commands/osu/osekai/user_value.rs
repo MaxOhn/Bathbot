@@ -137,10 +137,10 @@ async fn send_response(
 
     let total = users.len();
 
-    let builder = RankingPagination::builder(Arc::clone(&ctx), users, total, author_idx, data);
+    let builder = RankingPagination::builder(users, total, author_idx, data);
 
     builder
-    .start_by_update()
+        .start_by_update()
         .start(ctx, CommandOrigin::Interaction { command })
         .await
 }

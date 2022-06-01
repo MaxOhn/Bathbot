@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use command_macros::pagination;
 use rosu_v2::prelude::{Beatmap, Score, User};
 use twilight_model::channel::embed::Embed;
@@ -13,7 +11,6 @@ use super::Pages;
 
 #[pagination(per_page = 10, entries = "scores")]
 pub struct ScoresPagination {
-    ctx: Arc<Context>,
     user: User,
     map: Beatmap,
     scores: Vec<Score>,
@@ -24,7 +21,7 @@ pub struct ScoresPagination {
 }
 
 impl ScoresPagination {
-    pub async fn build_page(&mut self, pages: &Pages) -> Embed {
+    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Embed {
         let scores = self.scores.iter().skip(pages.index).take(pages.per_page);
 
         let global_idx = self
@@ -46,7 +43,7 @@ impl ScoresPagination {
             global_idx,
             self.pp_idx,
             pages,
-            &self.ctx,
+            ctx,
         );
 
         embed_fut.await.build()

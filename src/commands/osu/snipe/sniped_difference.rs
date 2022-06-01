@@ -190,7 +190,7 @@ async fn sniped_diff(
     scores.sort_unstable_by_key(|s| Reverse(s.date));
     let maps = HashMap::new();
 
-    SnipedDiffPagination::builder(Arc::clone(&ctx), user, diff, scores, maps)
+    SnipedDiffPagination::builder(user, diff, scores, maps)
         .start_by_update()
         .defer_components()
         .start(ctx, orig)

@@ -636,7 +636,7 @@ async fn search(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Search) -> Bot
 
     let maps: BTreeMap<usize, Beatmapset> = search_result.mapsets.drain(..).enumerate().collect();
 
-    MapSearchPagination::builder(Arc::clone(&ctx), maps, search_result, args)
+    MapSearchPagination::builder(maps, search_result, args)
         .map_search_components()
         .start_by_update()
         .defer_components()

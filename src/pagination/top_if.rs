@@ -27,7 +27,7 @@ impl TopIfPagination {
             self.pre_pp,
             self.post_pp,
             self.rank,
-            &pages,
+            pages,
         );
 
         embed_fut.await.build()

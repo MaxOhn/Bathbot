@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use command_macros::pagination;
 use hashbrown::HashMap;
 use rosu_pp::Beatmap;
@@ -18,7 +16,6 @@ use super::Pages;
 
 #[pagination(per_page = 5, entries = "scores")]
 pub struct SnipedDiffPagination {
-    ctx: Arc<Context>,
     user: User,
     diff: Difference,
     scores: Vec<SnipeRecent>,
@@ -26,14 +23,14 @@ pub struct SnipedDiffPagination {
 }
 
 impl SnipedDiffPagination {
-    pub async fn build_page(&mut self, pages: &Pages) -> BotResult<Embed> {
+    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> BotResult<Embed> {
         let embed_fut = SnipedDiffEmbed::new(
             &self.user,
             self.diff,
             &self.scores,
             pages,
             &mut self.maps,
-            &self.ctx,
+            ctx,
         );
 
         embed_fut.await.map(EmbedData::build)

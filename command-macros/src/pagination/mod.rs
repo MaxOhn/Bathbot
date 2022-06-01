@@ -62,9 +62,10 @@ pub fn impl_(input: DeriveInput, list: AttributeList) -> Result<TokenStream> {
         }
 
         impl #ident {
+            #[allow(clippy::too_many_arguments)]
             pub fn builder( #named_fields ) -> crate::pagination::PaginationBuilder {
                 let pages = crate::pagination::Pages::new(#per_page, #entries);
-                let kind = crate::pagination::PaginationKind:: #variant (Self { #token_fields });
+                let kind = crate::pagination::PaginationKind:: #variant (Box::new(Self { #token_fields }));
 
                 crate::pagination::PaginationBuilder::new(kind, pages)
             }

@@ -1,7 +1,4 @@
-use std::{
-    collections::{btree_map::Entry, BTreeMap},
-    sync::Arc,
-};
+use std::collections::{btree_map::Entry, BTreeMap};
 
 use command_macros::pagination;
 use eyre::Report;
@@ -20,7 +17,6 @@ type Users = BTreeMap<usize, RankingEntry>;
 
 #[pagination(per_page = 20, total = "total")]
 pub struct RankingPagination {
-    ctx: Arc<Context>,
     users: Users,
     total: usize,
     author_idx: Option<usize>,
@@ -28,15 +24,15 @@ pub struct RankingPagination {
 }
 
 impl RankingPagination {
-    pub async fn build_page(&mut self, pages: &Pages) -> BotResult<Embed> {
+    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> BotResult<Embed> {
         let idx = pages.index.saturating_sub(1);
         let mut page = ((idx - idx % 50) + 50) / 50;
         page += self.users.contains_key(&idx) as usize;
 
-        self.assure_present_users(pages, page).await?;
+        self.assure_present_users(ctx, pages, page).await?;
 
         // Handle edge cases like idx=140;total=151 where two pages have to be requested at once
-        self.assure_present_users(pages, page + 1).await?;
+        self.assure_present_users(ctx, pages, page + 1).await?;
 
         let embed = RankingEmbed::new(&self.users, &self.ranking_kind_data, self.author_idx, pages);
 
@@ -67,7 +63,12 @@ impl RankingPagination {
         self.users.extend(iter);
     }
 
-    async fn assure_present_users(&mut self, pages: &Pages, page: usize) -> BotResult<()> {
+    async fn assure_present_users(
+        &mut self,
+        ctx: &Context,
+        pages: &Pages,
+        page: usize,
+    ) -> BotResult<()> {
         let count = self
             .users
             .range(pages.index..pages.index + pages.per_page)
@@ -80,15 +81,15 @@ impl RankingPagination {
 
             match kind {
                 RankingKindData::BgScores { scores, .. } => {
+                    #[allow(clippy::needless_range_loop)]
                     for i in pages.index..(pages.index + pages.per_page).min(self.total) {
                         if let Entry::Vacant(entry) = self.users.entry(i) {
                             let (id, score) = scores[i];
                             let id = Id::new(id);
 
-                            let name = match self.ctx.psql().get_user_osu(id).await {
+                            let name = match ctx.psql().get_user_osu(id).await {
                                 Ok(Some(osu)) => osu.into_username(),
-                                Ok(None) => self
-                                    .ctx
+                                Ok(None) => ctx
                                     .cache
                                     .user(id, |user| user.name.clone())
                                     .unwrap_or_else(|_| "Unknown user".to_owned())
@@ -98,8 +99,7 @@ impl RankingPagination {
                                         Report::new(err).wrap_err("failed to get osu user");
                                     warn!("{report:?}");
 
-                                    self.ctx
-                                        .cache
+                                    ctx.cache
                                         .user(id, |user| user.name.clone())
                                         .unwrap_or_else(|_| "Unknown user".to_owned())
                                         .into()
@@ -119,8 +119,7 @@ impl RankingPagination {
                     country_code: country,
                     ..
                 } => {
-                    let ranking = self
-                        .ctx
+                    let ranking = ctx
                         .osu()
                         .performance_rankings(*mode)
                         .country(country.as_str())
@@ -130,17 +129,12 @@ impl RankingPagination {
                     self.extend_from_ranking(ranking, offset);
                 }
                 RankingKindData::PpGlobal { mode } => {
-                    let ranking = self
-                        .ctx
-                        .osu()
-                        .performance_rankings(*mode)
-                        .page(page)
-                        .await?;
+                    let ranking = ctx.osu().performance_rankings(*mode).page(page).await?;
 
                     self.extend_from_ranking(ranking, offset);
                 }
                 RankingKindData::RankedScore { mode } => {
-                    let ranking = self.ctx.osu().score_rankings(*mode).page(page).await?;
+                    let ranking = ctx.osu().score_rankings(*mode).page(page).await?;
                     self.extend_from_ranking(ranking, offset);
                 }
                 _ => {} // other data does not come paginated
