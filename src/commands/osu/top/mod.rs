@@ -1133,7 +1133,7 @@ async fn paginated_embed(
     content: Option<String>,
     farm: Farm,
 ) -> BotResult<()> {
-    TopPagination::builder( user, scores, sort_by, farm)
+    TopPagination::builder(user, scores, sort_by, farm)
         .content(content.unwrap_or_default())
         .start_by_update()
         .defer_components()
@@ -1150,8 +1150,10 @@ async fn condensed_paginated_embed(
     content: Option<String>,
     farm: Farm,
 ) -> BotResult<()> {
-    TopCondensedPagination::builder( user, scores, sort_by, farm)
+    TopCondensedPagination::builder(user, scores, sort_by, farm)
         .content(content.unwrap_or_default())
+        .start_by_update()
+        .defer_components()
         .start(ctx, orig)
         .await
 }
