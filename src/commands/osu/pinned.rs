@@ -343,6 +343,8 @@ async fn paginated_embed(
 
     TopCondensedPagination::builder(user, scores, sort_by, farm)
         .content(content.unwrap_or_default())
+        .start_by_update()
+        .defer_components()
         .start(ctx, orig)
         .await
 }
