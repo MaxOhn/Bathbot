@@ -6,6 +6,7 @@ use rosu_v2::prelude::GameMods;
 use crate::{
     commands::osu::{OsuTrackerCountryDetailsCompact, ScoreOrder},
     custom_client::OsuTrackerCountryScore,
+    pagination::Pages,
     util::{
         builder::FooterBuilder,
         constants::OSU_BASE,
@@ -29,9 +30,12 @@ impl OsuTrackerCountryTopEmbed {
         details: &OsuTrackerCountryDetailsCompact,
         scores: &[(OsuTrackerCountryScore, usize)],
         sort_by: ScoreOrder,
-        (page, pages): (usize, usize),
+        pages: &Pages,
     ) -> Self {
         let url = format!("https://osutracker.com/country/{}", details.code);
+
+        let page = pages.curr_page();
+        let pages = pages.last_page();
 
         let footer_text =
             format!("Page {page}/{pages} • Data originates from https://osutracker.com");

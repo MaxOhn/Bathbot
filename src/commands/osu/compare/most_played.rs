@@ -10,8 +10,7 @@ use rosu_v2::{
 use crate::{
     commands::osu::{NameExtraction, UserArgs},
     core::commands::CommandOrigin,
-    embeds::{EmbedData, MostPlayedCommonEmbed},
-    pagination::{MostPlayedCommonPagination, Pagination},
+    pagination::MostPlayedCommonPagination,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -177,29 +176,11 @@ pub(super) async fn mostplayed(
         if amount_common > 1 { "s" } else { "" }
     );
 
-    let initial_maps = &map_counts[..maps.len().min(10)];
-    let embed_data = MostPlayedCommonEmbed::new(&name1, &name2, initial_maps, &maps, 0);
-
-    // Creating the embed
-    let embed = embed_data.build();
-    let builder = MessageBuilder::new().content(content).embed(embed);
-
-    // * Note: No combined pictures since user ids are not available
-
-    let response_raw = orig.create_message(&ctx, &builder).await?;
-
-    // Skip pagination if too few entries
-    if maps.len() <= 10 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    let pagination = MostPlayedCommonPagination::new(response, name1, name2, maps, map_counts);
-    pagination.start(ctx, owner, 60);
-
-    Ok(())
+    MostPlayedCommonPagination::builder(name1, name2, maps, map_counts)
+    .start_by_update()
+        .content(content)
+        .start(ctx, orig)
+        .await
 }
 
 async fn get_scores_(ctx: &Context, name: &str) -> OsuResult<Vec<MostPlayedMap>> {

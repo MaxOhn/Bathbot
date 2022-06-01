@@ -1,68 +1,61 @@
-use super::{Pages, Pagination};
+use hashbrown::{hash_map::Entry, HashMap};
+use std::sync::Arc;
+use twilight_model::channel::embed::Embed;
+
 use crate::{
-    commands::osu::OsuStatsPlayersArgs, custom_client::OsuStatsPlayer, embeds::OsuStatsListEmbed,
+    commands::osu::OsuStatsPlayersArgs,
+    custom_client::OsuStatsPlayer,
+    embeds::{EmbedData, OsuStatsListEmbed},
     BotResult, Context,
 };
 
-use command_macros::BasePagination;
-use hashbrown::HashMap;
-use std::sync::Arc;
-use twilight_model::channel::Message;
+use super::{Pages, PaginationBuilder, PaginationKind};
 
-#[derive(BasePagination)]
+// Not using #[pagination(...)] since it requires special initialization
 pub struct OsuStatsListPagination {
-    msg: Message,
-    pages: Pages,
+    ctx: Arc<Context>,
     players: HashMap<usize, Vec<OsuStatsPlayer>>,
     params: OsuStatsPlayersArgs,
     first_place_id: u32,
-    ctx: Arc<Context>,
 }
 
 impl OsuStatsListPagination {
-    pub fn new(
+    pub fn builder(
         ctx: Arc<Context>,
-        msg: Message,
         players: HashMap<usize, Vec<OsuStatsPlayer>>,
         params: OsuStatsPlayersArgs,
+        first_place_id: u32,
         amount: usize,
-    ) -> Self {
-        let first_place_id = players[&1].first().unwrap().user_id;
-
-        Self {
-            pages: Pages::new(15, amount),
-            msg,
+    ) -> PaginationBuilder {
+        let pagination = Self {
+            ctx,
             players,
             params,
             first_place_id,
-            ctx,
-        }
+        };
+
+        let pages = Pages::new(15, amount);
+        let kind = PaginationKind::OsuStatsList(pagination);
+
+        PaginationBuilder::new(kind, pages)
     }
-}
 
-#[async_trait]
-impl Pagination for OsuStatsListPagination {
-    type PageData = OsuStatsListEmbed;
+    pub async fn build_page(&mut self, pages: &Pages) -> BotResult<Embed> {
+        let page = pages.curr_page();
 
-    async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        let page = self.page();
+        let players = match self.players.entry(page) {
+            Entry::Occupied(e) => e.into_mut(),
+            Entry::Vacant(e) => {
+                self.params.page = page;
+                let players = self.ctx.client().get_country_globals(&self.params).await?;
 
-        #[allow(clippy::map_entry)]
-        if !self.players.contains_key(&page) {
-            self.params.page = page;
+                e.insert(players)
+            }
+        };
 
-            let players = self.ctx.client().get_country_globals(&self.params).await?;
+        let embed =
+            OsuStatsListEmbed::new(players, &self.params.country, self.first_place_id, pages);
 
-            self.players.insert(page, players);
-        }
-
-        let players = self.players.get(&page).unwrap();
-
-        Ok(OsuStatsListEmbed::new(
-            players,
-            &self.params.country,
-            self.first_place_id,
-            (self.page(), self.pages.total_pages),
-        ))
+        Ok(embed.build())
     }
 }

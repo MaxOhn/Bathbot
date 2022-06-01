@@ -10,11 +10,10 @@ use twilight_model::{
 
 use crate::{
     core::commands::CommandOrigin,
-    embeds::{EmbedData, MostPlayedEmbed},
-    pagination::{MostPlayedPagination, Pagination},
+    pagination::MostPlayedPagination,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        matcher, numbers, ApplicationCommandExt,
+        matcher, ApplicationCommandExt,
     },
     BotResult, Context,
 };
@@ -132,23 +131,8 @@ async fn mostplayed(
         }
     };
 
-    // Accumulate all necessary data
-    let pages = numbers::div_euclid(10, maps.len());
-    let embed_data = MostPlayedEmbed::new(&user, maps.iter().take(10), (1, pages));
-
-    // Creating the embed
-    let builder = embed_data.build().into();
-    let response_raw = orig.create_message(&ctx, &builder).await?;
-
-    // Skip pagination if too few entries
-    if maps.len() <= 10 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    MostPlayedPagination::new(response, user, maps).start(ctx, owner, 60);
-
-    Ok(())
+    MostPlayedPagination::builder(user, maps)
+    .start_by_update()
+        .start(ctx, orig)
+        .await
 }

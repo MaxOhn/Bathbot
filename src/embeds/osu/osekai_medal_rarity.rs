@@ -4,6 +4,7 @@ use command_macros::EmbedData;
 
 use crate::{
     custom_client::OsekaiRarityEntry,
+    pagination::Pages,
     util::{builder::FooterBuilder, numbers::round, CowUtils},
 };
 
@@ -16,20 +17,18 @@ pub struct MedalRarityEmbed {
 }
 
 impl MedalRarityEmbed {
-    pub fn new(ranking: &[OsekaiRarityEntry], index: usize, pages: (usize, usize)) -> Self {
+    pub fn new(ranking: &[OsekaiRarityEntry], pages: &Pages) -> Self {
         let mut description = String::with_capacity(1024);
 
-        for (i, entry) in ranking.iter().enumerate() {
+        for (entry, i) in ranking.iter().zip(pages.index + 1..) {
             let medal_name = entry.medal_name.as_str();
             let tmp = medal_name.cow_replace(' ', "+");
             let url_name = tmp.cow_replace(',', "%2C");
 
             let _ = writeln!(
                 description,
-                "**{idx}. [{medal}](https://osekai.net/medals/?medal={url_name})**: `{rarity}%`\n ▸ `{description}`",
-                idx = index + i + 1,
+                "**{i}. [{medal}](https://osekai.net/medals/?medal={url_name})**: `{rarity}%`\n ▸ `{description}`",
                 medal = entry.medal_name,
-                url_name = url_name,
                 rarity = round(entry.possession_percent),
                 description = entry.description,
             );
@@ -38,10 +37,10 @@ impl MedalRarityEmbed {
         let title = "Medal Ranking based on rarity";
         let url = "https://osekai.net/rankings/?ranking=Medals&type=Rarity";
 
-        let footer_text = format!(
-            "Page {}/{} • Check out osekai.net for more info",
-            pages.0, pages.1
-        );
+        let page = pages.curr_page();
+        let pages = pages.last_page();
+
+        let footer_text = format!("Page {page}/{pages} • Check out osekai.net for more info");
 
         Self {
             description,

@@ -114,14 +114,6 @@ into_int!(i32);
 into_int!(i64);
 into_int!(isize);
 
-pub fn div_euclid(group: usize, total: usize) -> usize {
-    if total % group == 0 && total > 0 {
-        total / group
-    } else {
-        total.div_euclid(group) + 1
-    }
-}
-
 pub fn last_multiple(per_page: usize, total: usize) -> usize {
     if per_page <= total && total % per_page == 0 {
         total - per_page

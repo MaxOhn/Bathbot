@@ -9,12 +9,10 @@ use crate::{
     commands::osu::{get_user, require_link, HasMods, ModsResult, UserArgs},
     core::commands::{prefix::Args, CommandOrigin},
     custom_client::SnipeScoreParams,
-    embeds::{EmbedData, PlayerSnipeListEmbed},
-    pagination::{Pagination, PlayerSnipeListPagination},
+    pagination::PlayerSnipeListPagination,
     util::{
-        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
-        matcher, numbers,
+        matcher,
         osu::ModSelection,
         ChannelExt, CowUtils,
     },
@@ -175,10 +173,6 @@ pub(super) async fn player_list(
         }
     }
 
-    let pages = numbers::div_euclid(5, count);
-    let embed_data =
-        PlayerSnipeListEmbed::new(&user, &scores, &maps, count, &ctx, (1, pages)).await;
-
     let mut content = format!(
         "`Order: {order:?} {descending}`",
         order = params.order,
@@ -189,32 +183,12 @@ pub(super) async fn player_list(
         let _ = write!(content, " ~ `Mods: {mods}`");
     }
 
-    // Creating the embed
-    let embed = embed_data.build();
-    let builder = MessageBuilder::new().content(content).embed(embed);
-    let response_raw = orig.create_message(&ctx, &builder).await?;
-
-    // Skip pagination if too few entries
-    if scores.len() <= 5 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    let pagination = PlayerSnipeListPagination::new(
-        Arc::clone(&ctx),
-        response,
-        user,
-        scores,
-        maps,
-        count,
-        params,
-    );
-
-    pagination.start(ctx, orig.user_id()?, 60);
-
-    Ok(())
+    PlayerSnipeListPagination::builder(Arc::clone(&ctx), user, scores, maps, count, params)
+        .content(content)
+        .start_by_update()
+        .defer_components()
+        .start(ctx, orig)
+        .await
 }
 
 impl<'m> SnipePlayerList<'m> {

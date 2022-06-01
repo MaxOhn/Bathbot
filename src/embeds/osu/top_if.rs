@@ -5,6 +5,7 @@ use rosu_v2::prelude::{GameMode, Score, User};
 
 use crate::{
     embeds::osu,
+    pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
@@ -31,7 +32,7 @@ impl TopIfEmbed {
         pre_pp: f32,
         post_pp: f32,
         rank: Option<usize>,
-        pages: (usize, usize),
+        pages: &Pages,
     ) -> Self
     where
         S: Iterator<Item = &'i (usize, Score, Option<f32>)>,
@@ -69,7 +70,7 @@ impl TopIfEmbed {
 
         description.pop();
 
-        let mut footer_text = format!("Page {}/{}", pages.0, pages.1);
+        let mut footer_text = format!("Page {}/{}", pages.curr_page(), pages.last_page());
 
         if let Some(rank) = rank {
             let _ = write!(

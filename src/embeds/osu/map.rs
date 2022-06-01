@@ -13,6 +13,7 @@ use crate::{
     core::{Context, CONFIG},
     embeds::{attachment, EmbedFields},
     error::PpError,
+    pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::{AVATAR_URL, OSU_BASE},
@@ -30,7 +31,6 @@ use super::{calculate_ar, calculate_od};
 pub struct MapEmbed {
     title: String,
     url: String,
-    thumbnail: String,
     description: String,
     footer: FooterBuilder,
     author: AuthorBuilder,
@@ -44,10 +44,9 @@ impl MapEmbed {
         map: &Beatmap,
         mapset: &Beatmapset,
         mods: GameMods,
-        with_thumbnail: bool,
         attrs: &CustomAttrs,
         ctx: &Context,
-        pages: (usize, usize),
+        pages: &Pages,
     ) -> BotResult<Self> {
         let mut title = String::with_capacity(32);
 
@@ -276,20 +275,13 @@ impl MapEmbed {
             .url(format!("{OSU_BASE}u/{}", mapset.creator_id))
             .icon_url(creator_avatar_url);
 
-        let footer_text = format!(
-            "Map {} out of {} in the mapset, {date_text}",
-            pages.0, pages.1
-        );
+        let page = pages.curr_page();
+        let pages = pages.last_page();
+        let footer_text = format!("Map {page} out of {pages} in the mapset, {date_text}");
 
         let footer = FooterBuilder::new(footer_text);
 
-        let thumbnail = with_thumbnail
-            .then(|| mapset.covers.cover.to_owned())
-            .unwrap_or_default();
-
-        let image = (!with_thumbnail)
-            .then(|| attachment("map_graph.png"))
-            .unwrap_or_default();
+        let image = attachment("map_graph.png");
 
         let mut description = format!(
             ":musical_note: [Song preview](https://b.ppy.sh/preview/{mapset_id}.mp3) \
@@ -311,7 +303,6 @@ impl MapEmbed {
             footer,
             fields,
             author,
-            thumbnail,
             timestamp,
             description,
             url: map.url.to_owned(),

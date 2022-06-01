@@ -14,6 +14,7 @@ use crate::{
     database::UserStatsColumn,
     embeds::EmbedData,
     games::hl::HlVersion,
+    pagination::Pages,
     util::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
         CountryCode,
@@ -288,9 +289,12 @@ impl RankingEmbed {
         users: &RankingMap,
         data: &RankingKindData,
         author_idx: Option<usize>,
-        pages: (usize, usize),
+        pages: &Pages,
     ) -> Self {
-        let index = (pages.0 - 1) * 20;
+        let page = pages.curr_page();
+        let pages = pages.last_page();
+
+        let index = (page - 1) * 20;
 
         let mut buf = String::new();
 
@@ -341,7 +345,7 @@ impl RankingEmbed {
 
         Self {
             description,
-            footer: data.footer(pages.0, pages.1, author_idx),
+            footer: data.footer(page, pages, author_idx),
             header: data.embed_header(),
         }
     }

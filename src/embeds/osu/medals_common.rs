@@ -6,6 +6,7 @@ use rosu_v2::prelude::Username;
 use crate::{
     commands::osu::MedalEntryCommon,
     embeds::attachment,
+    pagination::Pages,
     util::{builder::FooterBuilder, CowUtils},
 };
 
@@ -33,11 +34,11 @@ impl MedalsCommonEmbed {
         user1: &MedalsCommonUser,
         user2: &MedalsCommonUser,
         medals: &[MedalEntryCommon],
-        index: usize,
+        pages: &Pages,
     ) -> Self {
         let mut description = String::with_capacity(512);
 
-        for (entry, i) in medals.iter().zip(index + 1..) {
+        for (entry, i) in medals.iter().zip(pages.index + 1..) {
             let _ = writeln!(
                 description,
                 "**{i}. [{name}](https://osekai.net/medals/?medal={medal})**",

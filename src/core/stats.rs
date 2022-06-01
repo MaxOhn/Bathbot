@@ -55,6 +55,7 @@ pub struct CommandCounters {
     pub slash_commands: IntCounterVec,
     pub components: IntCounterVec,
     pub autocompletes: IntCounterVec,
+    pub modals: IntCounterVec,
 }
 
 pub struct CacheStats {
@@ -97,6 +98,7 @@ impl BotStats {
             metric_vec!(counter: "components", "Executed interaction components", "name");
         let autocompletes =
             metric_vec!(counter: "autocompletes", "Executed command autocompletes", "name");
+        let modals = metric_vec!(counter: "modals", "Executed modals", "name");
         let cache_counter = metric_vec!(gauge: "cache", "Cache counts", "cached_type");
 
         let registry = Registry::new_custom(Some(String::from("bathbot")), None).unwrap();
@@ -152,6 +154,7 @@ impl BotStats {
                 slash_commands,
                 components,
                 autocompletes,
+                modals,
             },
             cache_counts: CacheStats {
                 guilds: cache_counter.with_label_values(&["Guilds"]),
@@ -212,6 +215,10 @@ impl BotStats {
             .autocompletes
             .with_label_values(&[cmd])
             .inc();
+    }
+
+    pub fn increment_modal(&self, modal: &str) {
+        self.command_counts.modals.with_label_values(&[modal]).inc();
     }
 
     pub fn inc_cached_user(&self) {

@@ -1,15 +1,13 @@
-use super::{Pages, Pagination};
-
-use crate::{embeds::TopIfEmbed, BotResult};
-
-use command_macros::BasePagination;
+use command_macros::pagination;
 use rosu_v2::prelude::{GameMode, Score, User};
-use twilight_model::channel::Message;
+use twilight_model::channel::embed::Embed;
 
-#[derive(BasePagination)]
+use crate::embeds::{EmbedData, TopIfEmbed};
+
+use super::Pages;
+
+#[pagination(per_page = 5, entries = "scores")]
 pub struct TopIfPagination {
-    msg: Message,
-    pages: Pages,
     user: User,
     scores: Vec<(usize, Score, Option<f32>)>,
     mode: GameMode,
@@ -19,46 +17,19 @@ pub struct TopIfPagination {
 }
 
 impl TopIfPagination {
-    pub fn new(
-        msg: Message,
-        user: User,
-        scores: Vec<(usize, Score, Option<f32>)>,
-        mode: GameMode,
-        pre_pp: f32,
-        post_pp: f32,
-        rank: Option<usize>,
-    ) -> Self {
-        Self {
-            pages: Pages::new(5, scores.len()),
-            msg,
-            user,
-            scores,
-            mode,
-            pre_pp,
-            post_pp,
-            rank,
-        }
-    }
-}
+    pub async fn build_page(&mut self, pages: &Pages) -> Embed {
+        let scores = self.scores.iter().skip(pages.index).take(pages.per_page);
 
-#[async_trait]
-impl Pagination for TopIfPagination {
-    type PageData = TopIfEmbed;
-
-    async fn build_page(&mut self) -> BotResult<Self::PageData> {
         let embed_fut = TopIfEmbed::new(
             &self.user,
-            self.scores
-                .iter()
-                .skip(self.pages.index)
-                .take(self.pages.per_page),
+            scores,
             self.mode,
             self.pre_pp,
             self.post_pp,
             self.rank,
-            (self.page(), self.pages.total_pages),
+            &pages,
         );
 
-        Ok(embed_fut.await)
+        embed_fut.await.build()
     }
 }

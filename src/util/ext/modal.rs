@@ -1,42 +1,35 @@
-use std::borrow::Cow;
-
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
 use twilight_model::{
-    application::interaction::MessageComponentInteraction,
+    application::interaction::modal::ModalSubmitInteraction,
     channel::Message,
     http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
 };
 
-use crate::{
-    core::Context,
-    util::builder::{MessageBuilder, ModalBuilder},
-};
+use crate::{core::Context, util::builder::MessageBuilder};
 
 use super::MessageExt;
 
-pub trait ComponentExt {
-    /// Ackowledge the component and respond immediatly by updating the message.
+pub trait ModalExt {
+    /// Ackowledge the modal and respond immediatly by updating the message.
     fn callback(&self, ctx: &Context, builder: MessageBuilder<'_>) -> ResponseFuture<EmptyBody>;
 
-    /// Ackownledge the component but don't respond yet.
+    /// Ackownledge the modal but don't respond yet.
     fn defer(&self, ctx: &Context) -> ResponseFuture<EmptyBody>;
 
-    /// After having already ackowledged the component either via
-    /// [`ComponentExt::callback`] or [`ComponentExt::defer`],
+    /// After having already ackowledged the modal either via
+    /// [`ModalExt::callback`] or [`ModalExt::defer`],
     /// use this to update the message.
+    ///
+    /// Note: Can only be used if `ModalSubmitInteraction::message` is `Some`.
     fn update(&self, ctx: &Context, builder: &MessageBuilder<'_>) -> ResponseFuture<Message>;
-
-    /// Acknowledge a component by responding with a modal.
-    fn modal(&self, ctx: &Context, modal: ModalBuilder) -> ResponseFuture<EmptyBody>;
 }
 
-impl ComponentExt for MessageComponentInteraction {
+impl ModalExt for ModalSubmitInteraction {
     #[inline]
     fn callback(&self, ctx: &Context, builder: MessageBuilder<'_>) -> ResponseFuture<EmptyBody> {
         let data = InteractionResponseData {
             components: builder.components,
             embeds: builder.embed.map(|e| vec![e]),
-            content: builder.content.map(Cow::into_owned),
             ..Default::default()
         };
 
@@ -64,18 +57,9 @@ impl ComponentExt for MessageComponentInteraction {
 
     #[inline]
     fn update(&self, ctx: &Context, builder: &MessageBuilder<'_>) -> ResponseFuture<Message> {
-        self.message.update(ctx, builder)
-    }
-
-    #[inline]
-    fn modal(&self, ctx: &Context, modal: ModalBuilder) -> ResponseFuture<EmptyBody> {
-        let response = InteractionResponse {
-            kind: InteractionResponseType::Modal,
-            data: Some(modal.build()),
-        };
-
-        ctx.interaction()
-            .create_response(self.id, &self.token, &response)
-            .exec()
+        self.message
+            .as_ref()
+            .expect("no message in modal")
+            .update(ctx, builder)
     }
 }

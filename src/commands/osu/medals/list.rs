@@ -12,13 +12,8 @@ use crate::{
     commands::osu::{get_user, require_link, UserArgs},
     core::commands::CommandOrigin,
     custom_client::{OsekaiMedal, Rarity},
-    embeds::{EmbedData, MedalsListEmbed},
-    pagination::{MedalsListPagination, Pagination},
-    util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
-        numbers,
-    },
+    pagination::MedalsListPagination,
+    util::constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
     BotResult, Context,
 };
 
@@ -154,10 +149,6 @@ pub(super) async fn list(
         ""
     };
 
-    let len = medals.len().min(10);
-    let pages = numbers::div_euclid(10, medals.len());
-    let embed_data = MedalsListEmbed::new(&user, &medals[..len], acquired, (1, pages));
-
     let content = match group {
         None => format!("All medals of `{name}` sorted by {reverse_str}{order_str}:"),
         Some(group) => {
@@ -165,23 +156,11 @@ pub(super) async fn list(
         }
     };
 
-    let builder = MessageBuilder::new()
-        .embed(embed_data.build())
-        .content(content);
-
-    let response_raw = orig.create_message(&ctx, &builder).await?;
-
-    // Skip pagination if too few entries
-    if medals.len() <= 10 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    MedalsListPagination::new(response, user, medals, acquired).start(ctx, orig.user_id()?, 60);
-
-    Ok(())
+    MedalsListPagination::builder(user, acquired, medals)
+        .content(content)
+        .start_by_update()
+        .start(ctx, orig)
+        .await
 }
 
 pub struct MedalEntryList {

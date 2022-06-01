@@ -1,6 +1,7 @@
 use twilight_model::{
     application::interaction::{
-        ApplicationCommand, ApplicationCommandAutocomplete, MessageComponentInteraction,
+        modal::ModalSubmitInteraction, ApplicationCommand, ApplicationCommandAutocomplete,
+        MessageComponentInteraction,
     },
     channel::Message,
     id::{
@@ -23,10 +24,16 @@ pub trait Authored {
     fn user(&self) -> BotResult<&User>;
 
     /// Author's user id
-    fn user_id(&self) -> BotResult<Id<UserMarker>>;
+    #[inline]
+    fn user_id(&self) -> BotResult<Id<UserMarker>> {
+        self.user().map(|user| user.id)
+    }
 
     /// Author's username
-    fn username(&self) -> BotResult<&str>;
+    #[inline]
+    fn username(&self) -> BotResult<&str> {
+        self.user().map(|user| user.name.as_str())
+    }
 }
 
 impl Authored for ApplicationCommand {
@@ -47,16 +54,6 @@ impl Authored for ApplicationCommand {
             .and_then(|member| member.user.as_ref())
             .or(self.user.as_ref())
             .ok_or(Error::MissingAuthor)
-    }
-
-    #[inline]
-    fn user_id(&self) -> BotResult<Id<UserMarker>> {
-        self.user().map(|user| user.id)
-    }
-
-    #[inline]
-    fn username(&self) -> BotResult<&str> {
-        self.user().map(|user| user.name.as_str())
     }
 }
 
@@ -106,16 +103,6 @@ impl Authored for MessageComponentInteraction {
             .or(self.user.as_ref())
             .ok_or(Error::MissingAuthor)
     }
-
-    #[inline]
-    fn user_id(&self) -> BotResult<Id<UserMarker>> {
-        self.user().map(|user| user.id)
-    }
-
-    #[inline]
-    fn username(&self) -> BotResult<&str> {
-        self.user().map(|user| user.name.as_str())
-    }
 }
 
 impl Authored for ApplicationCommandAutocomplete {
@@ -137,14 +124,25 @@ impl Authored for ApplicationCommandAutocomplete {
             .or(self.user.as_ref())
             .ok_or(Error::MissingAuthor)
     }
+}
 
+impl Authored for ModalSubmitInteraction {
     #[inline]
-    fn user_id(&self) -> BotResult<Id<UserMarker>> {
-        self.user().map(|user| user.id)
+    fn channel_id(&self) -> Id<ChannelMarker> {
+        self.channel_id
     }
 
     #[inline]
-    fn username(&self) -> BotResult<&str> {
-        self.user().map(|user| user.name.as_str())
+    fn guild_id(&self) -> Option<Id<GuildMarker>> {
+        self.guild_id
+    }
+
+    #[inline]
+    fn user(&self) -> BotResult<&User> {
+        self.member
+            .as_ref()
+            .and_then(|member| member.user.as_ref())
+            .or(self.user.as_ref())
+            .ok_or(Error::MissingAuthor)
     }
 }

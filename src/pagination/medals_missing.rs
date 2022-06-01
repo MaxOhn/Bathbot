@@ -1,52 +1,34 @@
-use super::{Pages, Pagination};
-
-use crate::{commands::osu::MedalType, embeds::MedalsMissingEmbed, BotResult};
-
-use command_macros::BasePagination;
+use command_macros::pagination;
 use rosu_v2::model::user::User;
-use twilight_model::channel::Message;
+use twilight_model::channel::embed::Embed;
 
-#[derive(BasePagination)]
+use crate::{
+    commands::osu::MedalType,
+    embeds::{EmbedData, MedalsMissingEmbed},
+};
+
+use super::Pages;
+
+#[pagination(per_page = 15, entries = "medals")]
 pub struct MedalsMissingPagination {
-    msg: Message,
-    pages: Pages,
     user: User,
     medals: Vec<MedalType>,
     medal_count: (usize, usize),
 }
 
 impl MedalsMissingPagination {
-    pub fn new(
-        msg: Message,
-        user: User,
-        medals: Vec<MedalType>,
-        medal_count: (usize, usize),
-    ) -> Self {
-        Self {
-            msg,
-            pages: Pages::new(15, medals.len()),
-            user,
-            medals,
-            medal_count,
-        }
-    }
-}
+    pub fn build_page(&mut self, pages: &Pages) -> Embed {
+        let idx = pages.index;
+        let limit = self.medals.len().min(idx + pages.per_page);
 
-#[async_trait]
-impl Pagination for MedalsMissingPagination {
-    type PageData = MedalsMissingEmbed;
-
-    async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        let page = self.page();
-        let idx = (page - 1) * self.pages.per_page;
-        let limit = self.medals.len().min(idx + self.pages.per_page);
-
-        Ok(MedalsMissingEmbed::new(
+        let embed = MedalsMissingEmbed::new(
             &self.user,
             &self.medals[idx..limit],
             self.medal_count,
             limit == self.medals.len(),
-            (page, self.pages.total_pages),
-        ))
+            pages,
+        );
+
+        embed.build()
     }
 }

@@ -9,6 +9,7 @@ use crate::{
     core::Context,
     custom_client::SnipeScore,
     embeds::osu,
+    pagination::Pages,
     pp::PpCalculator,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
@@ -34,7 +35,7 @@ impl PlayerSnipeListEmbed {
         maps: &HashMap<u32, Beatmap>,
         total: usize,
         ctx: &Context,
-        pages: (usize, usize),
+        pages: &Pages,
     ) -> Self {
         if scores.is_empty() {
             return Self {
@@ -45,7 +46,9 @@ impl PlayerSnipeListEmbed {
             };
         }
 
-        let index = (pages.0 - 1) * 5;
+        let page = pages.curr_page();
+        let pages = pages.last_page();
+        let index = (page - 1) * 5;
         let entries = scores.range(index..index + 5);
         let mut description = String::with_capacity(1024);
 
@@ -91,10 +94,7 @@ impl PlayerSnipeListEmbed {
             );
         }
 
-        let footer = FooterBuilder::new(format!(
-            "Page {}/{} ~ Total scores: {total}",
-            pages.0, pages.1
-        ));
+        let footer = FooterBuilder::new(format!("Page {page}/{pages} ~ Total scores: {total}"));
 
         Self {
             author: author!(user),

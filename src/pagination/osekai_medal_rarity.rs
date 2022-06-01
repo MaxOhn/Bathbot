@@ -1,40 +1,23 @@
-use super::{Pages, Pagination};
-use crate::{custom_client::OsekaiRarityEntry, embeds::MedalRarityEmbed, BotResult};
+use command_macros::pagination;
+use twilight_model::channel::embed::Embed;
 
-use command_macros::BasePagination;
-use twilight_model::channel::Message;
+use crate::{
+    custom_client::OsekaiRarityEntry,
+    embeds::{EmbedData, MedalRarityEmbed},
+};
 
-#[derive(BasePagination)]
-#[pagination(no_multi)]
+use super::Pages;
+
+#[pagination(per_page = 10, entries = "ranking")]
 pub struct MedalRarityPagination {
-    msg: Message,
-    pages: Pages,
     ranking: Vec<OsekaiRarityEntry>,
 }
 
 impl MedalRarityPagination {
-    pub fn new(msg: Message, ranking: Vec<OsekaiRarityEntry>) -> Self {
-        Self {
-            msg,
-            pages: Pages::new(10, ranking.len()),
-            ranking,
-        }
-    }
-}
+    pub fn build_page(&mut self, pages: &Pages) -> Embed {
+        let idx = pages.index;
+        let limit = self.ranking.len().min(idx + pages.per_page);
 
-#[async_trait]
-impl Pagination for MedalRarityPagination {
-    type PageData = MedalRarityEmbed;
-
-    async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        let page = self.page();
-        let idx = (page - 1) * self.pages.per_page;
-        let limit = self.ranking.len().min(idx + self.pages.per_page);
-
-        Ok(MedalRarityEmbed::new(
-            &self.ranking[idx..limit],
-            self.pages.index,
-            (page, self.pages.total_pages),
-        ))
+        MedalRarityEmbed::new(&self.ranking[idx..limit], pages).build()
     }
 }

@@ -144,11 +144,11 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
         }
         Event::GuildEmojisUpdate(_) => {}
         Event::GuildIntegrationsUpdate(_) => {}
-        Event::GuildScheduledEventCreate(_) => todo!(),
-        Event::GuildScheduledEventDelete(_) => todo!(),
-        Event::GuildScheduledEventUpdate(_) => todo!(),
-        Event::GuildScheduledEventUserAdd(_) => todo!(),
-        Event::GuildScheduledEventUserRemove(_) => todo!(),
+        Event::GuildScheduledEventCreate(_) => {}
+        Event::GuildScheduledEventDelete(_) => {}
+        Event::GuildScheduledEventUpdate(_) => {}
+        Event::GuildScheduledEventUserAdd(_) => {}
+        Event::GuildScheduledEventUserRemove(_) => {}
         Event::GuildStickersUpdate(_) => {}
         Event::GuildUpdate(_) => ctx.stats.event_counts.guild_update.inc(),
         Event::IntegrationCreate(_) => {}

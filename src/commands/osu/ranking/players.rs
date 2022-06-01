@@ -1,9 +1,8 @@
-use std::{collections::BTreeMap, fmt, mem, sync::Arc};
+use std::{collections::BTreeMap, fmt, mem, ops::Deref, sync::Arc};
 
 use chrono::{DateTime, Utc};
 use command_macros::command;
 use eyre::Report;
-use lazy_static::__Deref;
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{GameMode, OsuResult, Rankings};
 use twilight_model::id::{marker::UserMarker, Id};
@@ -12,8 +11,8 @@ use crate::{
     commands::{osu::UserArgs, GameModeOption},
     core::commands::CommandOrigin,
     database::OsuData,
-    embeds::{EmbedData, RankingEmbed, RankingEntry, RankingKindData},
-    pagination::{Pagination, RankingPagination},
+    embeds::{RankingEntry, RankingKindData},
+    pagination::RankingPagination,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         numbers, ChannelExt, CountryCode,
@@ -223,7 +222,6 @@ async fn ranking(
     });
 
     let total = ranking.total as usize;
-    let pages = numbers::div_euclid(20, total);
 
     let users: BTreeMap<_, _> = ranking
         .ranking
@@ -257,25 +255,15 @@ async fn ranking(
         RankingKindData::RankedScore { mode }
     };
 
-    let embed_data = RankingEmbed::new(&users, &ranking_kind_data, author_idx, (1, pages));
-
-    // Creating the embed
-    let builder = embed_data.build().into();
-    let response = orig.create_message(&ctx, &builder).await?.model().await?;
-
-    // Pagination
-    let pagination = RankingPagination::new(
-        response,
+    let builder = RankingPagination::builder(
         Arc::clone(&ctx),
-        total,
         users,
+        total,
         author_idx,
         ranking_kind_data,
     );
 
-    pagination.start(ctx, orig.user_id()?, 60);
-
-    Ok(())
+    builder.start_by_update().defer_components().start(ctx, orig).await
 }
 
 #[command]

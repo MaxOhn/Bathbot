@@ -4,15 +4,10 @@ use rkyv::{Deserialize, Infallible};
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
-    core::Context,
+    core::{commands::CommandOrigin, Context},
     custom_client::OsuTrackerPpEntry,
-    embeds::EmbedData,
-    embeds::OsuTrackerMapsEmbed,
-    pagination::{OsuTrackerMapsPagination, Pagination},
-    util::{
-        builder::MessageBuilder, constants::OSUTRACKER_ISSUE, numbers, ApplicationCommandExt,
-        Authored,
-    },
+    pagination::OsuTrackerMapsPagination,
+    util::{constants::OSUTRACKER_ISSUE, ApplicationCommandExt},
     BotResult,
 };
 
@@ -34,23 +29,10 @@ pub(super) async fn maps(
         }
     };
 
-    let pages = numbers::div_euclid(10, entries.len());
-    let initial = &entries[..entries.len().min(10)];
-
-    let embed = OsuTrackerMapsEmbed::new(pp, initial, (1, pages));
-    let builder = MessageBuilder::new().embed(embed.build());
-
-    let response_raw = command.update(&ctx, &builder).await?;
-
-    if entries.len() <= 10 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    OsuTrackerMapsPagination::new(response, pp, entries).start(ctx, command.user_id()?, 60);
-
-    Ok(())
+    OsuTrackerMapsPagination::builder(pp, entries)
+    .start_by_update()
+        .start(ctx, CommandOrigin::Interaction { command })
+        .await
 }
 
 impl PopularMapsPp {

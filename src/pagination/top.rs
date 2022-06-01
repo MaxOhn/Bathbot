@@ -1,26 +1,22 @@
 use std::sync::Arc;
 
-use command_macros::BasePagination;
+use command_macros::pagination;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Score, User};
-use twilight_model::channel::Message;
+use twilight_model::channel::embed::Embed;
 
 use crate::{
     commands::osu::TopScoreOrder,
     core::Context,
     custom_client::OsuTrackerMapsetEntry,
-    embeds::{CondensedTopEmbed, TopEmbed},
-    BotResult,
+    embeds::{CondensedTopEmbed, EmbedData, TopEmbed},
 };
 
-use super::{Pages, Pagination};
+use super::Pages;
 
-#[derive(BasePagination)]
-#[pagination(no_multi)]
+#[pagination(per_page = 5, entries = "scores")]
 pub struct TopPagination {
     ctx: Arc<Context>,
-    msg: Message,
-    pages: Pages,
     user: User,
     scores: Vec<(usize, Score)>,
     sort_by: TopScoreOrder,
@@ -28,71 +24,8 @@ pub struct TopPagination {
 }
 
 impl TopPagination {
-    pub fn new(
-        msg: Message,
-        user: User,
-        scores: Vec<(usize, Score)>,
-        sort_by: TopScoreOrder,
-        farm: HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
-        ctx: Arc<Context>,
-    ) -> Self {
-        Self {
-            pages: Pages::new(5, scores.len()),
-            msg,
-            user,
-            scores,
-            ctx,
-            sort_by,
-            farm,
-        }
-    }
-}
-
-#[derive(BasePagination)]
-#[pagination(no_multi)]
-pub struct CondensedTopPagination {
-    ctx: Arc<Context>,
-    msg: Message,
-    pages: Pages,
-    user: User,
-    scores: Vec<(usize, Score)>,
-    sort_by: TopScoreOrder,
-    farm: HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
-}
-
-impl CondensedTopPagination {
-    pub fn new(
-        msg: Message,
-        user: User,
-        scores: Vec<(usize, Score)>,
-        sort_by: TopScoreOrder,
-        farm: HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
-        ctx: Arc<Context>,
-    ) -> Self {
-        Self {
-            pages: Pages::new(10, scores.len()),
-            msg,
-            user,
-            scores,
-            sort_by,
-            farm,
-            ctx,
-        }
-    }
-}
-
-#[async_trait]
-impl Pagination for TopPagination {
-    type PageData = TopEmbed;
-
-    async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        let scores = self
-            .scores
-            .iter()
-            .skip(self.pages.index)
-            .take(self.pages.per_page);
-
-        let pages = (self.page(), self.pages.total_pages);
+    pub async fn build_page(&mut self, pages: &Pages) -> Embed {
+        let scores = self.scores.iter().skip(pages.index).take(pages.per_page);
 
         let embed_fut = TopEmbed::new(
             &self.user,
@@ -103,22 +36,22 @@ impl Pagination for TopPagination {
             pages,
         );
 
-        Ok(embed_fut.await)
+        embed_fut.await.build()
     }
 }
 
-#[async_trait]
-impl Pagination for CondensedTopPagination {
-    type PageData = CondensedTopEmbed;
+#[pagination(per_page = 10, entries = "scores")]
+pub struct TopCondensedPagination {
+    ctx: Arc<Context>,
+    user: User,
+    scores: Vec<(usize, Score)>,
+    sort_by: TopScoreOrder,
+    farm: HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
+}
 
-    async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        let scores = self
-            .scores
-            .iter()
-            .skip(self.pages.index)
-            .take(self.pages.per_page);
-
-        let pages = (self.page(), self.pages.total_pages);
+impl TopCondensedPagination {
+    pub async fn build_page(&mut self, pages: &Pages) -> Embed {
+        let scores = self.scores.iter().skip(pages.index).take(pages.per_page);
 
         let embed_fut = CondensedTopEmbed::new(
             &self.user,
@@ -129,6 +62,6 @@ impl Pagination for CondensedTopPagination {
             pages,
         );
 
-        Ok(embed_fut.await)
+        embed_fut.await.build()
     }
 }

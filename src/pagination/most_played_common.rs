@@ -1,16 +1,14 @@
-use command_macros::BasePagination;
+use command_macros::pagination;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{MostPlayedMap, Username};
-use twilight_model::channel::Message;
+use twilight_model::channel::embed::Embed;
 
-use crate::{embeds::MostPlayedCommonEmbed, BotResult};
+use crate::embeds::{EmbedData, MostPlayedCommonEmbed};
 
-use super::{Pages, Pagination};
+use super::Pages;
 
-#[derive(BasePagination)]
+#[pagination(per_page = 10, entries = "maps")]
 pub struct MostPlayedCommonPagination {
-    msg: Message,
-    pages: Pages,
     name1: Username,
     name2: Username,
     maps: HashMap<u32, ([usize; 2], MostPlayedMap)>,
@@ -18,35 +16,10 @@ pub struct MostPlayedCommonPagination {
 }
 
 impl MostPlayedCommonPagination {
-    pub fn new(
-        msg: Message,
-        name1: Username,
-        name2: Username,
-        maps: HashMap<u32, ([usize; 2], MostPlayedMap)>,
-        map_counts: Vec<(u32, usize)>,
-    ) -> Self {
-        Self {
-            pages: Pages::new(10, maps.len()),
-            msg,
-            name1,
-            name2,
-            maps,
-            map_counts,
-        }
-    }
-}
+    pub fn build_page(&mut self, pages: &Pages) -> Embed {
+        let idx = pages.index;
+        let map_counts = &self.map_counts[idx..self.maps.len().min(idx + pages.per_page)];
 
-#[async_trait]
-impl Pagination for MostPlayedCommonPagination {
-    type PageData = MostPlayedCommonEmbed;
-
-    async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        Ok(MostPlayedCommonEmbed::new(
-            &self.name1,
-            &self.name2,
-            &self.map_counts[self.pages.index..(self.pages.index + 10).min(self.maps.len())],
-            &self.maps,
-            self.pages.index,
-        ))
+        MostPlayedCommonEmbed::new(&self.name1, &self.name2, map_counts, &self.maps, &pages).build()
     }
 }

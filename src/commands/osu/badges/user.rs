@@ -8,12 +8,11 @@ use crate::{
     commands::osu::{require_link, UserArgs},
     core::{commands::CommandOrigin, Context},
     custom_client::OsekaiBadge,
-    embeds::{BadgeEmbed, EmbedData},
-    pagination::{BadgePagination, Pagination},
+    pagination::BadgePagination,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
-        get_combined_thumbnail, numbers,
+        get_combined_thumbnail,
     },
     BotResult,
 };
@@ -128,27 +127,14 @@ pub(super) async fn user(
         None
     };
 
-    let pages = numbers::div_euclid(1, badges.len());
+    let mut owners_map = BTreeMap::new();
+    owners_map.insert(0, owners);
 
-    let embed = BadgeEmbed::new(&badges[0], &owners, (1, pages));
-    let mut builder = MessageBuilder::new().embed(embed.build());
+    let mut builder = BadgePagination::builder(Arc::clone(&ctx), badges, owners_map);
 
     if let Some(bytes) = bytes {
         builder = builder.attachment("badge_owners.png", bytes);
     }
 
-    let response_raw = orig.create_message(&ctx, &builder).await?;
-
-    if badges.len() == 1 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-    let mut owners_map = BTreeMap::new();
-    owners_map.insert(0, owners);
-
-    let pagination = BadgePagination::new(response, badges, owners_map, Arc::clone(&ctx));
-    pagination.start(ctx, owner, 60);
-
-    Ok(())
+    builder.start_by_update().defer_components().start(ctx, orig).await
 }

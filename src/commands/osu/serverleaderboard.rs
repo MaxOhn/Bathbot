@@ -7,10 +7,11 @@ use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand,
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
+    core::commands::CommandOrigin,
     database::UserStatsColumn,
-    embeds::{EmbedData, RankingEmbed, RankingKindData},
-    pagination::{Pagination, RankingPagination},
-    util::{constants::GENERAL_ISSUE, numbers, ApplicationCommandExt, Authored},
+    embeds::RankingKindData,
+    pagination::RankingPagination,
+    util::{constants::GENERAL_ISSUE, ApplicationCommandExt, Authored},
     BotResult, Context,
 };
 
@@ -276,30 +277,12 @@ async fn slash_serverleaderboard(
 
     let data = RankingKindData::UserStats { guild_icon, kind };
     let total = leaderboard.len();
-    let pages = numbers::div_euclid(20, total);
 
-    // Creating the embed
-    let embed_data = RankingEmbed::new(&leaderboard, &data, author_idx, (1, pages));
-    let builder = embed_data.build().into();
-    let response_raw = command.update(&ctx, &builder).await?;
+    let builder =
+        RankingPagination::builder(Arc::clone(&ctx), leaderboard, total, author_idx, data);
 
-    if total <= 20 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    let pagination = RankingPagination::new(
-        response,
-        Arc::clone(&ctx),
-        total,
-        leaderboard,
-        author_idx,
-        data,
-    );
-
-    pagination.start(ctx, owner, 60);
-
-    Ok(())
+    builder
+    .start_by_update()
+        .start(ctx, CommandOrigin::Interaction { command })
+        .await
 }

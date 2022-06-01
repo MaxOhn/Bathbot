@@ -12,13 +12,11 @@ use twilight_model::{
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     database::OsuData,
-    embeds::{EmbedData, LeaderboardEmbed},
-    pagination::{LeaderboardPagination, Pagination},
+    pagination::LeaderboardPagination,
     pp::PpCalculator,
     util::{
-        builder::MessageBuilder,
         constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE},
-        matcher, numbers,
+        matcher,
         osu::{MapIdType, ModSelection},
         ApplicationCommandExt, ChannelExt,
     },
@@ -221,6 +219,8 @@ async fn leaderboard(
                     warn!("{:?}", Report::new(err));
                 }
 
+                ctx.map_garbage_collector(&map).execute(&ctx);
+
                 map
             }
             Err(OsuError::NotFound) => {
@@ -252,11 +252,7 @@ async fn leaderboard(
     };
 
     // Retrieve the map's leaderboard
-    let scores_future = ctx.client().get_leaderboard(
-        map_id,
-        mods,
-        map.mode,
-    );
+    let scores_future = ctx.client().get_leaderboard(map_id, mods, map.mode);
 
     let scores = match scores_future.await {
         Ok(scores) => scores,
@@ -272,62 +268,13 @@ async fn leaderboard(
     // Accumulate all necessary data
     let first_place_icon = scores.first().map(|s| format!("{AVATAR_URL}{}", s.user_id));
 
-    let pages = numbers::div_euclid(10, scores.len());
-
-    let data_fut = LeaderboardEmbed::new(
-        author_name.as_deref(),
-        &map,
-        if scores.is_empty() {
-            None
-        } else {
-            Some(scores.iter().take(10))
-        },
-        &first_place_icon,
-        0,
-        &ctx,
-        (1, pages),
-    );
-
-    let embed_data = match data_fut.await {
-        Ok(data) => data,
-        Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(err);
-        }
-    };
-
     // Sending the embed
     let content =
         format!("I found {amount} scores with the specified mods on the map's leaderboard");
 
-    let embed = embed_data.build();
-    let builder = MessageBuilder::new().content(content).embed(embed);
-    let response_raw = orig.create_message(&ctx, &builder).await?;
-
-    // Set map on garbage collection list if unranked
-    let gb = ctx.map_garbage_collector(&map);
-
-    // Skip pagination if too few entries
-    if scores.len() <= 10 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    let pagination = LeaderboardPagination::new(
-        response,
-        map,
-        scores,
-        author_name,
-        first_place_icon,
-        Arc::clone(&ctx),
-    );
-
-    gb.execute(&ctx);
-
-    pagination.start(ctx, owner, 60);
-
-    Ok(())
+    LeaderboardPagination::builder(Arc::clone(&ctx), map, scores, author_name, first_place_icon)
+        .start_by_update()
+        .content(content)
+        .start(ctx, orig)
+        .await
 }

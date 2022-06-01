@@ -1,99 +1,55 @@
-use super::{Pages, Pagination};
-use crate::{commands::osu::Search, embeds::MapSearchEmbed, BotResult, Context};
-
-use command_macros::BasePagination;
 use rosu_v2::prelude::{Beatmapset, BeatmapsetSearchResult};
 use std::{collections::BTreeMap, iter::Extend, sync::Arc};
-use twilight_model::channel::Message;
+use twilight_model::channel::embed::Embed;
 
-#[derive(BasePagination)]
+use crate::{
+    commands::osu::Search,
+    embeds::{EmbedData, MapSearchEmbed},
+    BotResult, Context,
+};
+
+use super::{Pages, PaginationBuilder, PaginationKind};
+
 pub struct MapSearchPagination {
-    msg: Message,
-    pages: Pages,
+    ctx: Arc<Context>,
     maps: BTreeMap<usize, Beatmapset>,
     search_result: BeatmapsetSearchResult,
     args: Search,
-    request_page: usize,
-    reached_last_page: bool,
-    ctx: Arc<Context>,
 }
 
 impl MapSearchPagination {
-    pub fn new(
+    pub fn builder(
         ctx: Arc<Context>,
-        msg: Message,
         maps: BTreeMap<usize, Beatmapset>,
         search_result: BeatmapsetSearchResult,
         args: Search,
-    ) -> Self {
-        let reached_last_page = maps.len() < 50;
+    ) -> PaginationBuilder {
+        let total = search_result.total as usize;
 
-        let pages = if reached_last_page {
-            Pages::new(10, maps.len())
-        } else {
-            Pages {
-                index: 0,
-                per_page: 10,
-                last_index: 50,
-                total_pages: 6,
-            }
-        };
-
-        Self {
-            pages,
-            msg,
+        let pagination = Self {
+            ctx,
             maps,
             search_result,
             args,
-            reached_last_page,
-            request_page: 0,
-            ctx,
-        }
+        };
+
+        let kind = PaginationKind::MapSearch(pagination);
+        let pages = Pages::new(10, total);
+
+        PaginationBuilder::new(kind, pages)
     }
-}
 
-#[async_trait]
-impl Pagination for MapSearchPagination {
-    type PageData = MapSearchEmbed;
+    pub async fn build_page(&mut self, pages: &Pages) -> BotResult<Embed> {
+        let count = self
+            .maps
+            .range(pages.index..pages.index + pages.per_page)
+            .count();
 
-    async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        let total_pages = if self.reached_last_page {
-            Some(self.pages.total_pages)
-        } else {
-            let count = self
-                .maps
-                .range(self.pages.index..self.pages.index + self.pages.per_page)
-                .count();
+        if count < pages.per_page {
+            let next_fut = self.search_result.get_next(self.ctx.osu());
 
-            let mut total_pages = None;
-
-            if count < self.pages.per_page {
-                let mut next_search_result =
-                    self.search_result.get_next(self.ctx.osu()).await.unwrap()?;
-
-                self.request_page += 1;
-
-                if next_search_result.mapsets.len() < 50 {
-                    if next_search_result.mapsets.is_empty() {
-                        let max = *self.maps.keys().last().unwrap();
-
-                        self.pages = Pages::new(10, max + 1);
-                        self.pages.index = self.pages.last_index;
-                    } else {
-                        let mapsets = next_search_result.mapsets.len();
-
-                        self.pages.total_pages = self.request_page * 5 + mapsets / 10 + 1;
-                        self.pages.last_index = (self.request_page * 5 + mapsets / 10) * 10;
-                    }
-
-                    total_pages = Some(self.pages.total_pages);
-                    self.reached_last_page = true;
-                } else {
-                    self.pages.total_pages += 5;
-                    self.pages.last_index += 50;
-                }
-
-                let idx = self.pages.index;
+            if let Some(mut next_search_result) = next_fut.await.transpose()? {
+                let idx = pages.index;
 
                 let iter = next_search_result
                     .mapsets
@@ -104,14 +60,8 @@ impl Pagination for MapSearchPagination {
                 self.maps.extend(iter);
                 self.search_result = next_search_result;
             }
+        }
 
-            total_pages
-        };
-
-        Ok(MapSearchEmbed::new(
-            &self.maps,
-            &self.args,
-            (self.page(), total_pages),
-        ))
+        Ok(MapSearchEmbed::new(&self.maps, &self.args, pages).build())
     }
 }

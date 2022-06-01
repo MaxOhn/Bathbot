@@ -21,11 +21,9 @@ use twilight_model::{
 
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
-    embeds::{EmbedData, MapEmbed},
     error::{GraphError, PpError},
-    pagination::{MapPagination, Pagination},
+    pagination::MapPagination,
     util::{
-        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher,
         osu::{prepare_beatmap_file, MapIdType},
@@ -36,21 +34,20 @@ use crate::{
 
 use super::{HasMods, ModsResult};
 
-// TODO: formatting
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "map",
     help = "Display a bunch of stats about a map(set).\n\
-The values in the map info will be adjusted to mods.\n\
-Since discord does not allow images to be adjusted when editing messages, \
-the strain graph always belongs to the initial map, even after moving to \
-other maps of the set through the arrow reactions."
+    The values in the map info will be adjusted to mods.\n\
+    Since discord does not allow images to be adjusted when editing messages, \
+    the strain graph always belongs to the initial map, even after moving to \
+    other maps of the set through the arrow reactions."
 )]
 /// Display a bunch of stats about a map(set)
 pub struct Map<'a> {
     #[command(help = "Specify a map either by map url or map id.\n\
-        If none is specified, it will search in the recent channel history \
-        and pick the first map it can find.")]
+    If none is specified, it will search in the recent channel history \
+    and pick the first map it can find.")]
     /// Specify a map url or map id
     map: Option<Cow<'a, str>>,
     #[command(
@@ -256,7 +253,6 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
     };
 
     let MapArgs { map, attrs, .. } = args;
-    let author_id = orig.user_id()?;
 
     let map_id = if let Some(id) = map {
         id
@@ -323,7 +319,16 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
     // Request mapset through API for all maps + genre & language
     let (mapset, maps) = match ctx.osu().beatmapset(mapset_id).await {
         Ok(mut mapset) => {
+            if let Err(err) = ctx.psql().insert_beatmapset(&mapset).await {
+                warn!("{:?}", Report::new(err));
+            }
+
             let mut maps = mapset.maps.take().unwrap_or_default();
+
+            // Set maps on garbage collection list if unranked
+            for map in maps.iter() {
+                ctx.map_garbage_collector(map).execute(&ctx);
+            }
 
             maps.sort_unstable_by(|m1, m2| {
                 (m1.mode as u8)
@@ -353,8 +358,6 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
             return Err(err.into());
         }
     };
-
-    let map_count = maps.len();
 
     let map_idx = if maps.is_empty() {
         return orig.error(&ctx, "The mapset has no maps").await;
@@ -396,80 +399,21 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
         }
     };
 
-    // Accumulate all necessary data
-    let data_fut = MapEmbed::new(
-        map,
-        &mapset,
-        mods,
-        graph.is_none(),
-        &attrs,
-        &ctx,
-        (map_idx + 1, map_count),
-    );
+    let ctx_ = Arc::clone(&ctx);
+    let content = attrs.content();
 
-    let embed_data = match data_fut.await {
-        Ok(data) => data,
-        Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+    let mut builder = MapPagination::builder(ctx_, mapset, maps, mods, map_idx, attrs);
 
-            return Err(err);
-        }
-    };
-
-    // Sending the embed
-    let embed = embed_data.build();
-    let mut builder = MessageBuilder::new().embed(embed);
-
-    let with_thumbnail = if let Some(bytes) = graph {
+    if let Some(bytes) = graph {
         builder = builder.attachment("map_graph.png", bytes);
-
-        false
-    } else {
-        true
-    };
-
-    if let Some(content) = attrs.content() {
-        builder = builder.content(content);
     }
 
-    let response_raw = orig.create_message(&ctx, &builder).await?;
-
-    // Add mapset and maps to database
-    let (mapset_result, maps_result) = tokio::join!(
-        ctx.psql().insert_beatmapset(&mapset),
-        ctx.psql().insert_beatmaps(maps.iter()),
-    );
-
-    if let Err(err) = mapset_result {
-        warn!("{:?}", Report::new(err));
-    }
-
-    if let Err(err) = maps_result {
-        warn!("{:?}", Report::new(err));
-    }
-
-    // Skip pagination if too few entries
-    if map_count == 1 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    let pagination = MapPagination::new(
-        response,
-        mapset,
-        maps,
-        mods,
-        map_idx,
-        with_thumbnail,
-        attrs,
-        Arc::clone(&ctx),
-    );
-
-    pagination.start(ctx, author_id, 60);
-
-    Ok(())
+    builder
+        .content(content.unwrap_or_default())
+        .start_by_update()
+        .defer_components()
+        .start(ctx, orig)
+        .await
 }
 
 async fn strain_values(ctx: &Context, map_id: u32, mods: GameMods) -> BotResult<Vec<(f64, f64)>> {

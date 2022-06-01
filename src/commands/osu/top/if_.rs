@@ -16,12 +16,10 @@ use crate::{
     },
     core::commands::{prefix::Args, CommandOrigin},
     custom_client::RankParam,
-    embeds::{EmbedData, TopIfEmbed},
-    pagination::{Pagination, TopIfPagination},
+    pagination::TopIfPagination,
     pp::PpCalculator,
     tracking::process_osu_tracking,
     util::{
-        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher, numbers,
         osu::ModSelection,
@@ -275,34 +273,15 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> B
     };
 
     // Accumulate all necessary data
-    let content = get_content(user.username.as_str(), mode, mods, args.query.as_deref());
-    let pages = numbers::div_euclid(5, scores_data.len());
-    let iter = scores_data.iter().take(5);
     let pre_pp = user.statistics.as_ref().map_or(0.0, |stats| stats.pp);
-    let embed_data_fut = TopIfEmbed::new(&user, iter, mode, pre_pp, adjusted_pp, rank, (1, pages));
+    let content = get_content(user.username.as_str(), mode, mods, args.query.as_deref());
 
-    // Creating the embed
-    let embed = embed_data_fut.await.build();
-    let builder = MessageBuilder::new().content(content).embed(embed);
-    let response_raw = orig.create_message(&ctx, &builder).await?;
-
-    // * Don't add maps of scores to DB since their stars were potentially changed
-
-    // Skip pagination if too few entries
-    if scores_data.len() <= 5 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    let pre_pp = user.statistics.as_ref().unwrap().pp;
-    let pagination =
-        TopIfPagination::new(response, user, scores_data, mode, pre_pp, adjusted_pp, rank);
-
-    pagination.start(ctx, orig.user_id()?, 60);
-
-    Ok(())
+    TopIfPagination::builder(user, scores_data, mode, pre_pp, adjusted_pp, rank)
+        .content(content)
+        .start_by_update()
+        .defer_components()
+        .start(ctx, orig)
+        .await
 }
 
 async fn modify_scores(

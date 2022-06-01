@@ -7,6 +7,7 @@ use crate::{
     commands::help::handle_help_component,
     core::{events::log_command, Context},
     games::{bg::components::*, hl::components::*},
+    pagination::components::*,
 };
 
 pub async fn handle_component(ctx: Arc<Context>, mut component: Box<MessageComponentInteraction>) {
@@ -25,6 +26,14 @@ pub async fn handle_component(ctx: Arc<Context>, mut component: Box<MessageCompo
         "lower_button" => handle_lower(ctx, component).await,
         "try_again_button" => handle_try_again(ctx, component).await,
         "next_higherlower" => handle_next_higherlower(ctx, component).await,
+        "pagination_start" => handle_pagination_start(ctx, component).await,
+        "pagination_back" => handle_pagination_back(ctx, component).await,
+        "pagination_custom" => handle_pagination_custom(ctx, component).await,
+        "pagination_step" => handle_pagination_step(ctx, component).await,
+        "pagination_end" => handle_pagination_end(ctx, component).await,
+        "profile_compact" => handle_profile_compact(ctx, component).await,
+        "profile_medium" => handle_profile_medium(ctx, component).await,
+        "profile_full" => handle_profile_full(ctx, component).await,
         _ => return error!("unknown message component `{name}`"),
     };
 

@@ -7,6 +7,7 @@ use rosu_v2::prelude::{Beatmap, BeatmapsetCompact};
 use crate::{
     commands::osu::CommonScore,
     embeds::attachment,
+    pagination::Pages,
     util::{builder::FooterBuilder, constants::OSU_BASE},
 };
 
@@ -24,11 +25,11 @@ impl CommonEmbed {
         map_pps: &[(u32, f32)],
         maps: &HashMap<u32, ([CommonScore; 2], Beatmap, BeatmapsetCompact)>,
         wins: [u8; 2],
-        index: usize,
+        pages: &Pages,
     ) -> Self {
         let mut description = String::with_capacity(1024);
 
-        for ((map_id, _), i) in map_pps.iter().zip(index + 1..) {
+        for ((map_id, _), i) in map_pps.iter().zip(pages.index + 1..) {
             let ([score1, score2], map, mapset) = &maps[map_id];
 
             let (medal1, medal2) = match score1.cmp(score2) {

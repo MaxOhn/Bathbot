@@ -15,13 +15,9 @@ use crate::{
         GameModeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
-    embeds::{EmbedData, TopEmbed},
-    pagination::{Pagination, TopPagination},
+    pagination::TopPagination,
     tracking::process_osu_tracking,
-    util::{
-        builder::MessageBuilder, constants::OSU_API_ISSUE, matcher, numbers, ApplicationCommandExt,
-        ChannelExt, CowUtils,
-    },
+    util::{constants::OSU_API_ISSUE, matcher, ApplicationCommandExt, ChannelExt, CowUtils},
     BotResult, Context,
 };
 
@@ -293,38 +289,10 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
     let sort_by = TopScoreOrder::Pp;
     let farm = HashMap::new();
 
-    let builder = if scores.is_empty() {
-        MessageBuilder::new().embed(content)
-    } else {
-        let pages = numbers::div_euclid(5, scores.len());
-
-        let embed_fut = TopEmbed::new(
-            &user,
-            scores.iter().take(5),
-            &ctx,
-            sort_by,
-            &farm,
-            (1, pages),
-        );
-
-        let data = embed_fut.await;
-        let embed = data.build();
-
-        MessageBuilder::new().content(content).embed(embed)
-    };
-
-    let response_raw = orig.create_message(&ctx, &builder).await?;
-
-    // Skip pagination if too few entries
-    if scores.len() <= 5 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    let pagination = TopPagination::new(response, user, scores, sort_by, farm, Arc::clone(&ctx));
-    pagination.start(ctx, orig.user_id()?, 60);
-
-    Ok(())
+    TopPagination::builder(Arc::clone(&ctx), user, scores, sort_by, farm)
+        .content(content)
+        .start_by_update()
+        .defer_components()
+        .start(ctx, orig)
+        .await
 }

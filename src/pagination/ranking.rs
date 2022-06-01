@@ -3,26 +3,23 @@ use std::{
     sync::Arc,
 };
 
-use command_macros::BasePagination;
+use command_macros::pagination;
 use eyre::Report;
 use rosu_v2::prelude::Rankings;
-use twilight_model::{channel::Message, id::Id};
+use twilight_model::{channel::embed::Embed, id::Id};
 
 use crate::{
     commands::osu::UserValue,
-    embeds::{RankingEmbed, RankingEntry, RankingKindData},
+    embeds::{EmbedData, RankingEmbed, RankingEntry, RankingKindData},
     BotResult, Context,
 };
 
-use super::{Pages, Pagination};
+use super::Pages;
 
 type Users = BTreeMap<usize, RankingEntry>;
 
-#[derive(BasePagination)]
-#[jump_idx(author_idx)]
+#[pagination(per_page = 20, total = "total")]
 pub struct RankingPagination {
-    msg: Message,
-    pages: Pages,
     ctx: Arc<Context>,
     users: Users,
     total: usize,
@@ -31,23 +28,19 @@ pub struct RankingPagination {
 }
 
 impl RankingPagination {
-    pub fn new(
-        msg: Message,
-        ctx: Arc<Context>,
-        total: usize,
-        users: Users,
-        author_idx: Option<usize>,
-        ranking_kind_data: RankingKindData,
-    ) -> Self {
-        Self {
-            pages: Pages::new(20, total),
-            msg,
-            ctx,
-            users,
-            total,
-            author_idx,
-            ranking_kind_data,
-        }
+    pub async fn build_page(&mut self, pages: &Pages) -> BotResult<Embed> {
+        let idx = pages.index.saturating_sub(1);
+        let mut page = ((idx - idx % 50) + 50) / 50;
+        page += self.users.contains_key(&idx) as usize;
+
+        self.assure_present_users(pages, page).await?;
+
+        // Handle edge cases like idx=140;total=151 where two pages have to be requested at once
+        self.assure_present_users(pages, page + 1).await?;
+
+        let embed = RankingEmbed::new(&self.users, &self.ranking_kind_data, self.author_idx, pages);
+
+        Ok(embed.build())
     }
 
     fn extend_from_ranking(&mut self, ranking: Rankings, offset: usize) {
@@ -74,22 +67,20 @@ impl RankingPagination {
         self.users.extend(iter);
     }
 
-    async fn assure_present_users(&mut self, page: usize) -> BotResult<()> {
+    async fn assure_present_users(&mut self, pages: &Pages, page: usize) -> BotResult<()> {
         let count = self
             .users
-            .range(self.pages.index..self.pages.index + self.pages.per_page)
+            .range(pages.index..pages.index + pages.per_page)
             .count();
 
-        if count < self.pages.per_page && count < self.total - self.pages.index {
+        if count < pages.per_page && count < self.total - pages.index {
             let offset = page - 1;
             let page = page as u32;
             let kind = &self.ranking_kind_data;
 
             match kind {
                 RankingKindData::BgScores { scores, .. } => {
-                    for i in
-                        self.pages.index..(self.pages.index + self.pages.per_page).min(self.total)
-                    {
+                    for i in pages.index..(pages.index + pages.per_page).min(self.total) {
                         if let Entry::Vacant(entry) = self.users.entry(i) {
                             let (id, score) = scores[i];
                             let id = Id::new(id);
@@ -157,30 +148,5 @@ impl RankingPagination {
         }
 
         Ok(())
-    }
-}
-
-#[async_trait]
-impl Pagination for RankingPagination {
-    type PageData = RankingEmbed;
-
-    async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        let idx = self.pages.index.saturating_sub(1);
-        let mut page = ((idx - idx % 50) + 50) / 50;
-        page += self.users.contains_key(&idx) as usize;
-
-        self.assure_present_users(page).await?;
-
-        // Handle edge cases like idx=140;total=151 where two pages have to be requested at once
-        self.assure_present_users(page + 1).await?;
-
-        let pages = (self.page(), self.pages.total_pages);
-
-        Ok(RankingEmbed::new(
-            &self.users,
-            &self.ranking_kind_data,
-            self.author_idx,
-            pages,
-        ))
     }
 }

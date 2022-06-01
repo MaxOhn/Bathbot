@@ -13,10 +13,9 @@ use crate::{
     commands::osu::{get_user, NameExtraction, UserArgs},
     core::commands::CommandOrigin,
     custom_client::{MedalGroup, OsekaiMedal, Rarity},
-    embeds::{EmbedData, MedalsCommonEmbed, MedalsCommonUser},
-    pagination::{MedalsCommonPagination, Pagination},
+    embeds::MedalsCommonUser,
+    pagination::MedalsCommonPagination,
     util::{
-        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
         get_combined_thumbnail, matcher,
     },
@@ -286,31 +285,16 @@ pub(super) async fn common(
         }
     };
 
-    let len = medals.len().min(10);
     let user1 = MedalsCommonUser::new(user1.username, winner1);
     let user2 = MedalsCommonUser::new(user2.username, winner2);
 
-    let embed_data = MedalsCommonEmbed::new(&user1, &user2, &medals[..len], 0);
-
-    let embed = embed_data.build();
-    let mut builder = MessageBuilder::new().embed(embed);
+    let mut builder = MedalsCommonPagination::builder(user1, user2, medals);
 
     if let Some(bytes) = thumbnail {
         builder = builder.attachment("avatar_fuse.png", bytes);
     }
 
-    let response_raw = orig.create_message(&ctx, &builder).await?;
-
-    if medals.len() <= 10 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    MedalsCommonPagination::new(response, user1, user2, medals).start(ctx, orig.user_id()?, 60);
-
-    Ok(())
+    builder.start_by_update().start(ctx, orig).await
 }
 
 pub struct MedalEntryCommon {

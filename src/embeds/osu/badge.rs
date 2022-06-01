@@ -5,6 +5,7 @@ use command_macros::EmbedData;
 use crate::{
     custom_client::{OsekaiBadge, OsekaiBadgeOwner},
     embeds::{attachment, EmbedFields},
+    pagination::Pages,
     util::{builder::FooterBuilder, constants::OSU_BASE, CowUtils},
 };
 
@@ -19,11 +20,7 @@ pub struct BadgeEmbed {
 }
 
 impl BadgeEmbed {
-    pub fn new(
-        badge: &OsekaiBadge,
-        owners: &[OsekaiBadgeOwner],
-        (page, pages): (usize, usize),
-    ) -> Self {
+    pub fn new(badge: &OsekaiBadge, owners: &[OsekaiBadgeOwner], pages: &Pages) -> Self {
         let mut owners_str = String::with_capacity(50 * owners.len().min(10));
 
         for owner in owners.iter().take(10) {
@@ -48,6 +45,8 @@ impl BadgeEmbed {
             field!("Name", badge.name.clone(), true),
         ];
 
+        let page = pages.curr_page();
+        let pages = pages.last_page();
         let footer_text = format!("Page {page}/{pages} • Check out osekai.net for more info");
 
         Self {

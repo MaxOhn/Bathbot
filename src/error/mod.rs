@@ -6,6 +6,7 @@ pub use self::{
     graph::GraphError,
     help::InvalidHelpState,
     map_file::MapFileError,
+    modal::InvalidModal,
     pp::PpError,
 };
 
@@ -13,6 +14,7 @@ mod games;
 mod graph;
 mod help;
 mod map_file;
+mod modal;
 mod pp;
 
 #[macro_export]
@@ -54,6 +56,8 @@ pub enum Error {
     InvalidCommandOptions,
     #[error("invalid help state")]
     InvalidHelpState(#[from] InvalidHelpState),
+    #[error("invalid modal")]
+    InvalidModal(#[from] InvalidModal),
     #[error("io error")]
     Io(#[from] tokio::io::Error),
     #[error("error while preparing beatmap file")]

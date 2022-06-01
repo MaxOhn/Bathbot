@@ -15,11 +15,9 @@ use crate::{
         GameModeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
-    embeds::{CommonEmbed, EmbedData},
-    pagination::{CommonPagination, Pagination},
+    pagination::CommonPagination,
     tracking::process_osu_tracking,
     util::{
-        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         get_combined_thumbnail, matcher,
     },
@@ -264,8 +262,6 @@ pub(super) async fn top(
     // Create the combined profile pictures
     let urls = iter::once(user1.avatar_url()).chain(iter::once(user2.avatar_url()));
     let thumbnail_result = get_combined_thumbnail(&ctx, urls, 2, None).await;
-    let limit = maps.len().min(10);
-    let embed_data = CommonEmbed::new(&user1.name, &user2.name, &map_pps[..limit], &maps, wins, 0);
 
     let thumbnail = match thumbnail_result {
         Ok(thumbnail) => Some(thumbnail),
@@ -277,28 +273,13 @@ pub(super) async fn top(
         }
     };
 
-    // Creating the embed
-    let embed = embed_data.build();
-    let mut builder = MessageBuilder::new().content(content).embed(embed);
+    let mut builder = CommonPagination::builder(user1.name, user2.name, maps, map_pps, wins);
 
     if let Some(bytes) = thumbnail {
         builder = builder.attachment("avatar_fuse.png", bytes);
     }
 
-    let response_raw = orig.create_message(&ctx, &builder).await?;
-
-    // Skip pagination if too few entries
-    if maps.len() <= 10 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    let pagination = CommonPagination::new(response, user1.name, user2.name, maps, map_pps, wins);
-    pagination.start(ctx, orig.user_id()?, 60);
-
-    Ok(())
+    builder.start_by_update().start(ctx, orig).await
 }
 
 async fn get_scores_(ctx: &Context, name: &str, mode: GameMode) -> OsuResult<Vec<Score>> {

@@ -10,12 +10,10 @@ use crate::{
     },
     core::commands::{prefix::Args, CommandOrigin},
     custom_client::{OsuStatsParams, OsuStatsScore},
-    embeds::{EmbedData, OsuStatsGlobalsEmbed},
-    pagination::{OsuStatsGlobalsPagination, Pagination},
+    pagination::OsuStatsGlobalsPagination,
     util::{
-        builder::MessageBuilder,
         constants::{OSUSTATS_API_ISSUE, OSU_API_ISSUE},
-        matcher, numbers,
+        matcher,
         osu::ModSelection,
         ChannelExt, CowUtils,
     },
@@ -222,10 +220,6 @@ pub(super) async fn scores(
         }
     };
 
-    // Accumulate all necessary data
-    let pages = numbers::div_euclid(5, amount);
-    let embed_data = OsuStatsGlobalsEmbed::new(&user, &scores, amount, &ctx, (1, pages)).await;
-
     let mut content = format!(
         "`Rank: {rank_min} - {rank_max}` ~ \
         `Acc: {acc_min}% - {acc_max}%` ~ \
@@ -250,25 +244,12 @@ pub(super) async fn scores(
         );
     }
 
-    // Creating the embed
-    let embed = embed_data.build();
-    let builder = MessageBuilder::new().content(content).embed(embed);
-    let response_raw = orig.create_message(&ctx, &builder).await?;
-
-    // Skip pagination if too few entries
-    if scores.len() <= 5 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    let pagination =
-        OsuStatsGlobalsPagination::new(Arc::clone(&ctx), response, user, scores, amount, params);
-
-    pagination.start(ctx, orig.user_id()?, 60);
-
-    Ok(())
+    OsuStatsGlobalsPagination::builder(Arc::clone(&ctx), user, scores, amount, params)
+        .content(content)
+        .start_by_update()
+        .defer_components()
+        .start(ctx, orig)
+        .await
 }
 
 impl<'m> OsuStatsScores<'m> {

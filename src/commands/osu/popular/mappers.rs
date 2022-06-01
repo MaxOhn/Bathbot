@@ -4,15 +4,10 @@ use rkyv::{Deserialize, Infallible};
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
-    core::Context,
+    core::{commands::CommandOrigin, Context},
     custom_client::OsuTrackerMapperEntry,
-    embeds::EmbedData,
-    embeds::OsuTrackerMappersEmbed,
-    pagination::{OsuTrackerMappersPagination, Pagination},
-    util::{
-        builder::MessageBuilder, constants::OSUTRACKER_ISSUE, numbers, ApplicationCommandExt,
-        Authored,
-    },
+    pagination::OsuTrackerMappersPagination,
+    util::{constants::OSUTRACKER_ISSUE, ApplicationCommandExt},
     BotResult,
 };
 
@@ -30,23 +25,11 @@ pub(super) async fn mappers(ctx: Arc<Context>, command: Box<ApplicationCommand>)
         }
     };
 
+    // TODO: only deserialize this many in the first place
     counts.truncate(500);
 
-    let pages = numbers::div_euclid(20, counts.len());
-    let initial = &counts[..counts.len().min(20)];
-
-    let embed = OsuTrackerMappersEmbed::new(initial, (1, pages));
-    let builder = MessageBuilder::new().embed(embed.build());
-
-    let response_raw = command.update(&ctx, &builder).await?;
-
-    if counts.len() <= 20 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    OsuTrackerMappersPagination::new(response, counts).start(ctx, command.user_id()?, 60);
-
-    Ok(())
+    OsuTrackerMappersPagination::builder(counts)
+    .start_by_update()
+        .start(ctx, CommandOrigin::Interaction { command })
+        .await
 }

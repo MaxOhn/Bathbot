@@ -8,12 +8,10 @@ use crate::{
     commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
     custom_client::OsuStatsPlayer,
-    embeds::{EmbedData, OsuStatsListEmbed},
-    pagination::{OsuStatsListPagination, Pagination},
+    pagination::OsuStatsListPagination,
     util::{
-        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE},
-        numbers, ChannelExt, CountryCode, CowUtils,
+        ChannelExt, CountryCode, CowUtils,
     },
     BotResult, Context,
 };
@@ -100,11 +98,7 @@ pub(super) async fn players(
         return orig.error(&ctx, content).await;
     }
 
-    // Accumulate all necessary data
-    let pages = numbers::div_euclid(15, amount);
     let first_place_id = players[&1].first().unwrap().user_id;
-    let embed_data =
-        OsuStatsListEmbed::new(&players[&1], &params.country, first_place_id, (1, pages));
 
     let content = format!(
         "Country: `{country}` ~ `Rank: {rank_min} - {rank_max}`",
@@ -112,25 +106,12 @@ pub(super) async fn players(
         rank_max = params.max_rank,
     );
 
-    // Creating the embed
-    let embed = embed_data.build();
-    let builder = MessageBuilder::new().content(content).embed(embed);
-    let response_raw = orig.create_message(&ctx, &builder).await?;
-
-    // Skip pagination if too few entries
-    if players.len() <= 1 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    let pagination =
-        OsuStatsListPagination::new(Arc::clone(&ctx), response, players, params, amount);
-
-    pagination.start(ctx, owner, 60);
-
-    Ok(())
+    OsuStatsListPagination::builder(Arc::clone(&ctx), players, params, first_place_id, amount)
+        .content(content)
+        .start_by_update()
+        .defer_components()
+        .start(ctx, orig)
+        .await
 }
 
 /// Explicit binary search

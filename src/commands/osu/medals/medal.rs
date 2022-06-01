@@ -13,7 +13,7 @@ use twilight_model::application::{
 use crate::{
     core::{commands::CommandOrigin, ArchivedBytes},
     custom_client::OsekaiMedal,
-    embeds::{EmbedData, MedalEmbed},
+    embeds::MedalEmbed,
     error::Error,
     util::{
         builder::MessageBuilder, constants::OSEKAI_ISSUE, levenshtein_similarity, AutocompleteExt,
@@ -95,7 +95,7 @@ pub(super) async fn info(
     maps.sort_unstable_by_key(|map| Reverse(map.vote_sum));
 
     let embed_data = MedalEmbed::new(medal, None, maps, top_comment);
-    let embed = embed_data.build();
+    let embed = embed_data.maximized();
     let builder = MessageBuilder::new().embed(embed);
     orig.create_message(&ctx, &builder).await?;
 

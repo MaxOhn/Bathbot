@@ -19,13 +19,13 @@ use crate::{
     commands::osu::{get_user, require_link, HasMods, ModsResult, UserArgs},
     core::commands::{prefix::Args, CommandOrigin},
     database::{EmbedsSize, MinimizedPp},
-    embeds::{CompareEmbed, EmbedData, NoScoresEmbed, ScoresEmbed},
-    pagination::{Pagination, ScoresPagination},
+    embeds::{CompareEmbed, EmbedData, NoScoresEmbed},
+    pagination::ScoresPagination,
     tracking::process_osu_tracking,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        matcher, numbers,
+        matcher,
         osu::{MapIdType, ModSelection},
         ApplicationCommandExt, MessageExt,
     },
@@ -633,11 +633,8 @@ pub(super) async fn score(
             minimized_pp,
         );
 
-        return fut.await;
+        fut.await
     } else {
-        let pages = numbers::div_euclid(10, scores.len());
-        let init_scores = scores.iter().take(10);
-
         let pp_idx = scores
             .iter()
             .enumerate()
@@ -645,32 +642,8 @@ pub(super) async fn score(
             .map(|(i, _)| i)
             .unwrap_or(0);
 
-        // Accumulate all necessary data
-        let embed_fut = ScoresEmbed::new(
-            &user,
-            &map,
-            init_scores,
-            &pinned,
-            &personal,
-            global_idx,
-            pp_idx,
-            (1, pages),
-            &ctx,
-        );
-
-        let builder = embed_fut.await.build().into();
-        let response_raw = orig.create_message(&ctx, &builder).await?;
-
-        // Skip pagination if too few entries
-        if scores.len() <= 10 {
-            return Ok(());
-        }
-
-        let response = response_raw.model().await?;
-
-        // Pagination
-        let pagination = ScoresPagination::new(
-            response,
+        let builder = ScoresPagination::builder(
+            Arc::clone(&ctx),
             user,
             map,
             scores,
@@ -678,13 +651,10 @@ pub(super) async fn score(
             personal,
             global_idx,
             pp_idx,
-            Arc::clone(&ctx),
         );
 
-        pagination.start(ctx, owner, 60);
+        builder.start_by_update().defer_components().start(ctx, orig).await
     }
-
-    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]

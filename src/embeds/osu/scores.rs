@@ -8,6 +8,7 @@ use rosu_v2::prelude::{Beatmap, GameMode, Score, User};
 use crate::{
     core::{Context, CONFIG},
     error::PpError,
+    pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
@@ -39,7 +40,7 @@ impl ScoresEmbed {
         personal: &[Score],
         global: Option<(usize, usize)>,
         pp_idx: usize,
-        (page, pages): (usize, usize),
+        pages: &Pages,
         ctx: &Context,
     ) -> Self
     where
@@ -54,6 +55,9 @@ impl ScoresEmbed {
                 None
             }
         };
+
+        let page = pages.curr_page();
+        let pages = pages.last_page();
 
         let mut description = String::with_capacity(512);
         let pp_idx = (page == pp_idx / 10 + 1).then(|| pp_idx % 10);

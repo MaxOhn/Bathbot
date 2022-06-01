@@ -11,8 +11,7 @@ use twilight_model::application::interaction::ApplicationCommand;
 use crate::{
     commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
-    embeds::{EmbedData, MapSearchEmbed},
-    pagination::{MapSearchPagination, Pagination},
+    pagination::MapSearchPagination,
     util::{constants::OSU_API_ISSUE, ApplicationCommandExt, ChannelExt},
     BotResult, Context,
 };
@@ -635,29 +634,12 @@ async fn search(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Search) -> Bot
         }
     };
 
-    // Accumulate all necessary data
-    let mapset_count = search_result.mapsets.len();
-    let total_pages = (mapset_count < 50).then(|| mapset_count / 10 + 1);
     let maps: BTreeMap<usize, Beatmapset> = search_result.mapsets.drain(..).enumerate().collect();
-    let embed_data = MapSearchEmbed::new(&maps, &args, (1, total_pages));
 
-    // Creating the embed
-    let embed = embed_data.build();
-    let response_raw = orig.create_message(&ctx, &embed.into()).await?;
-
-    // Skip pagination if too few entries
-    if maps.len() <= 10 {
-        return Ok(());
-    }
-
-    let owner = orig.user_id()?;
-    let response = response_raw.model().await?;
-
-    // Pagination
-    let pagination =
-        MapSearchPagination::new(Arc::clone(&ctx), response, maps, search_result, args);
-
-    pagination.start(ctx, owner, 60);
-
-    Ok(())
+    MapSearchPagination::builder(Arc::clone(&ctx), maps, search_result, args)
+        .map_search_components()
+        .start_by_update()
+        .defer_components()
+        .start(ctx, orig)
+        .await
 }

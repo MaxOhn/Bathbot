@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use command_macros::EmbedData;
-use hashbrown::HashMap;
+use hashbrown::{hash_map::Entry, HashMap};
 use rosu_pp::{
     Beatmap as Map, BeatmapExt, CatchPP, DifficultyAttributes, GameMode as Mode, ManiaPP, OsuPP,
     PerformanceAttributes, TaikoPP,
@@ -12,6 +12,7 @@ use crate::{
     core::Context,
     embeds::osu,
     error::PpError,
+    pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         datetime::how_long_ago_dynamic,
@@ -31,16 +32,14 @@ pub struct RecentListEmbed {
 }
 
 impl RecentListEmbed {
-    pub async fn new<'i, S>(
-        user: &User,
-        scores: S,
-        ctx: &Context,
-        pages: (usize, usize),
-    ) -> BotResult<Self>
+    pub async fn new<'i, S>(user: &User, scores: S, ctx: &Context, pages: &Pages) -> BotResult<Self>
     where
         S: Iterator<Item = &'i Score>,
     {
-        let idx = (pages.0 - 1) * 10 + 1;
+        let page = pages.curr_page();
+        let pages = pages.last_page();
+
+        let idx = (page - 1) * 10 + 1;
 
         let mut mod_map = HashMap::new();
         let mut rosu_maps = HashMap::new();
@@ -51,15 +50,16 @@ impl RecentListEmbed {
             let map = score.map.as_ref().unwrap();
             let mapset = score.mapset.as_ref().unwrap();
 
-            #[allow(clippy::map_entry)]
-            if !rosu_maps.contains_key(&map.map_id) {
-                let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
-                let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
+            let rosu_map = match rosu_maps.entry(map.map_id) {
+                Entry::Occupied(e) => e.into_mut(),
+                Entry::Vacant(e) => {
+                    let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
+                    ctx.map_garbage_collector(map).execute(ctx);
+                    let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
 
-                rosu_maps.insert(map.map_id, rosu_map);
+                    e.insert(rosu_map)
+                }
             };
-
-            let rosu_map = &rosu_maps[&map.map_id];
 
             let (pp, stars) = get_pp_stars(&mut mod_map, score, map.map_id, rosu_map);
 
@@ -94,7 +94,7 @@ impl RecentListEmbed {
         Ok(Self {
             description,
             author: author!(user),
-            footer: FooterBuilder::new(format!("Page {}/{}", pages.0, pages.1)),
+            footer: FooterBuilder::new(format!("Page {page}/{pages}")),
             thumbnail: user.avatar_url.to_owned(),
             title: "List of recent scores:",
         })

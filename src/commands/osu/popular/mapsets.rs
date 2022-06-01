@@ -8,14 +8,12 @@ use rosu_v2::prelude::{Beatmapset, Username};
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
-    core::Context,
+    core::{commands::CommandOrigin, Context},
     custom_client::OsuTrackerMapsetEntry,
-    embeds::{EmbedData, OsuTrackerMapsetsEmbed},
-    pagination::{OsuTrackerMapsetsPagination, Pagination},
+    pagination::OsuTrackerMapsetsPagination,
     util::{
-        builder::MessageBuilder,
         constants::{OSUTRACKER_ISSUE, OSU_API_ISSUE},
-        numbers, ApplicationCommandExt, Authored,
+        ApplicationCommandExt,
     },
     BotResult,
 };
@@ -70,24 +68,10 @@ pub(super) async fn mapsets(ctx: Arc<Context>, command: Box<ApplicationCommand>)
         mapsets.insert(mapset_id, entry);
     }
 
-    let pages = numbers::div_euclid(10, counts.len());
-    let initial = &counts[..counts.len().min(10)];
-
-    let embed = OsuTrackerMapsetsEmbed::new(initial, &mapsets, (1, pages));
-    let builder = MessageBuilder::new().embed(embed.build());
-
-    let response_raw = command.update(&ctx, &builder).await?;
-
-    if counts.len() <= 10 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    let pagination = OsuTrackerMapsetsPagination::new(Arc::clone(&ctx), response, counts, mapsets);
-    pagination.start(ctx, command.user_id()?, 60);
-
-    Ok(())
+    OsuTrackerMapsetsPagination::builder(Arc::clone(&ctx), counts, mapsets)
+    .start_by_update().defer_components()
+        .start(ctx, CommandOrigin::Interaction { command })
+        .await
 }
 
 pub struct MapsetEntry {

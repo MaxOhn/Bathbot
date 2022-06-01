@@ -6,9 +6,9 @@ use twilight_model::{channel::Message, id::Id};
 
 use crate::{
     commands::osu::UserValue,
-    embeds::{EmbedData, RankingEmbed, RankingEntry, RankingKindData},
-    pagination::{Pagination, RankingPagination},
-    util::{constants::GENERAL_ISSUE, numbers, ChannelExt},
+    embeds::{RankingEntry, RankingKindData},
+    pagination::RankingPagination,
+    util::{constants::GENERAL_ISSUE, ChannelExt},
     BotResult, Context,
 };
 
@@ -69,28 +69,10 @@ pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, global: bool) -> BotR
 
     // Prepare initial page
     let total = scores.len();
-    let pages = numbers::div_euclid(20, total);
     let global = guild.is_none() || global;
     let data = RankingKindData::BgScores { global, scores };
 
-    // Creating the embed
-    let embed_data = RankingEmbed::new(&users, &data, author_idx, (1, pages));
-    let builder = embed_data.build().into();
-    let response_raw = msg.create_message(&ctx, &builder).await?;
-
-    // Skip pagination if too few entries
-    if total <= 20 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-    let owner = msg.author.id;
-
-    // Pagination
-    let pagination =
-        RankingPagination::new(response, Arc::clone(&ctx), total, users, author_idx, data);
-
-    pagination.start(ctx, owner, 60);
-
-    Ok(())
+    RankingPagination::builder(Arc::clone(&ctx), users, total, author_idx, data)
+        .start(ctx, msg.into())
+        .await
 }

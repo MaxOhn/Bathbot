@@ -1,38 +1,23 @@
-use command_macros::BasePagination;
-use twilight_model::channel::Message;
+use command_macros::pagination;
+use twilight_model::channel::embed::Embed;
 
-use crate::{custom_client::OsuTrackerMapperEntry, embeds::OsuTrackerMappersEmbed, BotResult};
+use crate::{
+    custom_client::OsuTrackerMapperEntry,
+    embeds::{EmbedData, OsuTrackerMappersEmbed},
+};
 
-use super::{Pages, Pagination};
+use super::Pages;
 
-#[derive(BasePagination)]
+#[pagination(per_page = 20, entries = "entries")]
 pub struct OsuTrackerMappersPagination {
-    msg: Message,
-    pages: Pages,
     entries: Vec<OsuTrackerMapperEntry>,
 }
 
 impl OsuTrackerMappersPagination {
-    pub fn new(msg: Message, entries: Vec<OsuTrackerMapperEntry>) -> Self {
-        Self {
-            pages: Pages::new(20, entries.len()),
-            msg,
-            entries,
-        }
-    }
-}
+    pub fn build_page(&mut self, pages: &Pages) -> Embed {
+        let idx = pages.index;
+        let entries = &self.entries[idx..self.entries.len().min(idx + pages.per_page)];
 
-#[async_trait]
-impl Pagination for OsuTrackerMappersPagination {
-    type PageData = OsuTrackerMappersEmbed;
-
-    async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        let index = self.pages.index;
-        let entries = &self.entries[index..(index + 20).min(self.entries.len())];
-        let page = self.page();
-        let pages = self.pages.total_pages;
-        let embed = OsuTrackerMappersEmbed::new(entries, (page, pages));
-
-        Ok(embed)
+        OsuTrackerMappersEmbed::new(entries, pages).build()
     }
 }

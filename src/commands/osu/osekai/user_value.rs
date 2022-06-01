@@ -5,14 +5,13 @@ use rkyv::{with::DeserializeWith, Deserialize, Infallible};
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
+    core::commands::CommandOrigin,
     custom_client::UsernameWrapper,
     custom_client::{OsekaiRanking, OsekaiRankingEntry},
     database::OsuData,
-    embeds::{EmbedData, RankingEmbed, RankingEntry, RankingKindData},
-    pagination::{Pagination, RankingPagination},
-    util::{
-        builder::MessageBuilder, constants::OSEKAI_ISSUE, numbers, ApplicationCommandExt, Authored,
-    },
+    embeds::{RankingEntry, RankingKindData},
+    pagination::RankingPagination,
+    util::{constants::OSEKAI_ISSUE, ApplicationCommandExt, Authored},
     BotResult, Context,
 };
 
@@ -137,17 +136,11 @@ async fn send_response(
         .and_then(|name| users.values().position(|entry| entry.name == name));
 
     let total = users.len();
-    let pages = numbers::div_euclid(20, total);
-    let embed_data = RankingEmbed::new(&users, &data, author_idx, (1, pages));
-    let embed = embed_data.build();
-    let builder = MessageBuilder::new().embed(embed);
-    let response = command.update(&ctx, &builder).await?.model().await?;
 
-    // Pagination
-    let pagination =
-        RankingPagination::new(response, Arc::clone(&ctx), total, users, author_idx, data);
+    let builder = RankingPagination::builder(Arc::clone(&ctx), users, total, author_idx, data);
 
-    pagination.start(ctx, command.user_id()?, 60);
-
-    Ok(())
+    builder
+    .start_by_update()
+        .start(ctx, CommandOrigin::Interaction { command })
+        .await
 }

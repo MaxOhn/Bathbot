@@ -1,13 +1,14 @@
+use pagination::AttributeList;
 use prefix::CommandFun;
 use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 
-mod base_pagination;
 mod bucket;
 mod embed_data;
 mod flags;
 mod has_mods;
 mod has_name;
+mod pagination;
 mod prefix;
 mod slash;
 mod util;
@@ -78,20 +79,28 @@ pub fn embed_data(input: TokenStream) -> TokenStream {
     }
 }
 
-/// Derive the `BasePagination` trait.
+/// Auxiliary procedural macro for pagination structs.
 ///
-/// Accepts the `#[pagination(...)]` and `#[jump_idx(...)]` attributes.
-/// - `pagination` only accepts one argument: `no_multi`. If it is specified,
-/// even if there are sufficiently many pages, it won't show the "multi_step_back"
-/// and "multi_step" reactions.
-/// - `jump_idx` takes one argument namely the name of a field of type `Option<usize>`.
-/// If it is specified, it'll add a "my_position" reaction that jumps to the value
-/// of the given field if available.
-#[proc_macro_derive(BasePagination, attributes(jump_idx, pagination))]
-pub fn base_pagination(input: TokenStream) -> TokenStream {
+/// Two attribute name-value pairs are required:
+///   - `per_page = {integer}`: How many entries are shown per page
+///   - `entries = "{field name}"`: Field on which the `len` method
+///      will be called to determine the total amount of pages
+///   - Alternatively to `entries`, you can also specify `total = "{arg name}"`.
+///     The argument must be of type `usize` and will be considered as total
+///     amount of entries.
+///
+/// Additionally, the struct name is restricted to the form `{SomeName}Pagination`
+/// and the `PaginationKind` enum must have a variant `{SomeName}`.
+///
+/// The macro will provide the following function:
+///
+/// `fn builder(...) -> PaginationBuilder`: Each field of the struct must be given as argument
+#[proc_macro_attribute]
+pub fn pagination(attr: TokenStream, input: TokenStream) -> TokenStream {
+    let attrs = parse_macro_input!(attr as AttributeList);
     let input = parse_macro_input!(input as DeriveInput);
 
-    match base_pagination::derive(input) {
+    match pagination::impl_(input, attrs) {
         Ok(result) => result.into(),
         Err(err) => err.to_compile_error().into(),
     }

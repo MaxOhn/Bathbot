@@ -8,12 +8,10 @@ use crate::{
     commands::osu::UserArgs,
     core::commands::{prefix::Args, CommandOrigin},
     custom_client::SnipeCountryPlayer as SCP,
-    embeds::{CountrySnipeListEmbed, EmbedData},
-    pagination::{CountrySnipeListPagination, Pagination},
+    pagination::CountrySnipeListPagination,
     util::{
-        builder::MessageBuilder,
         constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
-        numbers, ChannelExt, CountryCode, CowUtils,
+        ChannelExt, CountryCode, CowUtils,
     },
     BotResult, Context,
 };
@@ -167,27 +165,14 @@ pub(super) async fn country_list(
         .map(|(idx, player)| (idx + 1, player))
         .collect();
 
-    // Prepare embed
-    let pages = numbers::div_euclid(10, players.len());
-    let init_players = players.iter().take(10);
-
     let country = ctx
         .get_country(country_code.as_ref())
         .map(|name| (name, country_code.as_ref().into()));
 
-    let embed_data =
-        CountrySnipeListEmbed::new(country.as_ref(), sort, init_players, author_idx, (1, pages));
-
-    // Creating the embed
-    let embed = embed_data.build();
-    let builder = MessageBuilder::new().embed(embed);
-    let response = orig.create_message(&ctx, &builder).await?.model().await?;
-
-    // Pagination
-    CountrySnipeListPagination::new(response, players, country, sort, author_idx)
-        .start(ctx, author_id, 60);
-
-    Ok(())
+    CountrySnipeListPagination::builder(players, country, sort, author_idx)
+        .start_by_update()
+        .start(ctx, orig)
+        .await
 }
 
 impl<'m> SnipeCountryList<'m> {

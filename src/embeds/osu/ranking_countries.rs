@@ -1,12 +1,12 @@
-
 use std::{collections::BTreeMap, fmt::Write};
 
 use command_macros::EmbedData;
 use rosu_v2::prelude::{CountryRanking, GameMode};
 
-use crate::util::{builder::FooterBuilder, numbers::with_comma_int};
-
-
+use crate::{
+    pagination::Pages,
+    util::{builder::FooterBuilder, numbers::with_comma_int},
+};
 
 #[derive(EmbedData)]
 pub struct RankingCountriesEmbed {
@@ -17,12 +17,10 @@ pub struct RankingCountriesEmbed {
 }
 
 impl RankingCountriesEmbed {
-    pub fn new(
-        mode: GameMode,
-        countries: &BTreeMap<usize, CountryRanking>,
-        pages: (usize, usize),
-    ) -> Self {
-        let index = (pages.0 - 1) * 15;
+    pub fn new(mode: GameMode, countries: &BTreeMap<usize, CountryRanking>, pages: &Pages) -> Self {
+        let page = pages.curr_page();
+        let pages = pages.last_page();
+        let index = (page - 1) * 15;
 
         let mut idx_len = 0;
         let mut name_len = 0;
@@ -86,7 +84,7 @@ impl RankingCountriesEmbed {
 
         Self {
             description,
-            footer: FooterBuilder::new(format!("Page {}/{}", pages.0, pages.1)),
+            footer: FooterBuilder::new(format!("Page {page}/{pages}")),
             title: format!("Country Ranking for osu!{}", mode_str(mode)),
             url: format!("https://osu.ppy.sh/rankings/{mode}/country"),
         }

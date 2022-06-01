@@ -1,66 +1,38 @@
 use std::{collections::BTreeMap, iter::Extend, sync::Arc};
 
-use command_macros::BasePagination;
+use command_macros::pagination;
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmap, User};
-use twilight_model::channel::Message;
+use twilight_model::channel::embed::Embed;
 
 use crate::{
     custom_client::{SnipeScore, SnipeScoreParams},
-    embeds::PlayerSnipeListEmbed,
+    embeds::{EmbedData, PlayerSnipeListEmbed},
     BotResult, Context,
 };
 
-use super::{Pages, Pagination};
+use super::Pages;
 
-#[derive(BasePagination)]
+#[pagination(per_page = 5, total = "total")]
 pub struct PlayerSnipeListPagination {
-    msg: Message,
-    pages: Pages,
+    ctx: Arc<Context>,
     user: User,
     scores: BTreeMap<usize, SnipeScore>,
     maps: HashMap<u32, Beatmap>,
     total: usize,
     params: SnipeScoreParams,
-    ctx: Arc<Context>,
 }
 
 impl PlayerSnipeListPagination {
-    pub fn new(
-        ctx: Arc<Context>,
-        msg: Message,
-        user: User,
-        scores: BTreeMap<usize, SnipeScore>,
-        maps: HashMap<u32, Beatmap>,
-        total: usize,
-        params: SnipeScoreParams,
-    ) -> Self {
-        Self {
-            pages: Pages::new(5, total),
-            msg,
-            user,
-            scores,
-            maps,
-            total,
-            params,
-            ctx,
-        }
-    }
-}
-
-#[async_trait]
-impl Pagination for PlayerSnipeListPagination {
-    type PageData = PlayerSnipeListEmbed;
-
-    async fn build_page(&mut self) -> BotResult<Self::PageData> {
+    pub async fn build_page(&mut self, pages: &Pages) -> BotResult<Embed> {
         let count = self
             .scores
-            .range(self.pages.index..self.pages.index + self.pages.per_page)
+            .range(pages.index..pages.index + pages.per_page)
             .count();
 
-        if count < self.pages.per_page && count < self.total - self.pages.index {
-            let huismetbenen_page = self.pages.index / 50;
+        if count < pages.per_page && count < self.total - pages.index {
+            let huismetbenen_page = pages.index / 50;
             self.params.page(huismetbenen_page as u8);
 
             // Get scores
@@ -78,7 +50,7 @@ impl Pagination for PlayerSnipeListPagination {
         // Get maps from DB
         let map_ids: Vec<_> = self
             .scores
-            .range(self.pages.index..self.pages.index + self.pages.per_page)
+            .range(pages.index..pages.index + pages.per_page)
             .map(|(_, score)| score.beatmap_id)
             .filter(|map_id| !self.maps.contains_key(map_id))
             .map(|id| id as i32)
@@ -118,18 +90,9 @@ impl Pagination for PlayerSnipeListPagination {
             &self.maps,
             self.total,
             &self.ctx,
-            (self.page(), self.pages.total_pages),
+            pages,
         );
 
-        Ok(embed_fut.await)
-    }
-
-    async fn final_processing(mut self, ctx: &Context) -> BotResult<()> {
-        match ctx.psql().insert_beatmaps(self.maps.values()).await {
-            Ok(n) => debug!("Added {n} maps to DB"),
-            Err(err) => warn!("{:?}", Report::new(err)),
-        }
-
-        Ok(())
+        Ok(embed_fut.await.build())
     }
 }

@@ -4,7 +4,10 @@ use command_macros::EmbedData;
 use hashbrown::HashMap;
 use rosu_v2::prelude::MostPlayedMap;
 
-use crate::util::{constants::OSU_BASE, CowUtils};
+use crate::{
+    pagination::Pages,
+    util::{constants::OSU_BASE, CowUtils},
+};
 
 #[derive(EmbedData)]
 pub struct MostPlayedCommonEmbed {
@@ -17,11 +20,11 @@ impl MostPlayedCommonEmbed {
         name2: &str,
         map_counts: &[(u32, usize)],
         maps: &HashMap<u32, ([usize; 2], MostPlayedMap)>,
-        index: usize,
+        pages: &Pages,
     ) -> Self {
         let mut description = String::with_capacity(512);
 
-        for ((map_id, _), i) in map_counts.iter().zip(index + 1..) {
+        for ((map_id, _), i) in map_counts.iter().zip(pages.index + 1..) {
             let ([count1, count2], map) = &maps[map_id];
 
             let (medal1, medal2) = match count1.cmp(count2) {

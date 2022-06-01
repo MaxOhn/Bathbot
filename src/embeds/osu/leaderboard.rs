@@ -9,6 +9,7 @@ use crate::{
     core::Context,
     custom_client::ScraperScore,
     error::PpError,
+    pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
@@ -35,9 +36,8 @@ impl LeaderboardEmbed {
         map: &Beatmap,
         scores: Option<S>,
         author_icon: &Option<String>,
-        idx: usize,
         ctx: &Context,
-        pages: (usize, usize),
+        pages: &Pages,
     ) -> BotResult<Self>
     where
         S: Iterator<Item = &'i ScraperScore>,
@@ -74,7 +74,7 @@ impl LeaderboardEmbed {
             let author_name = author_name.unwrap_or_default();
             let mut username = String::with_capacity(32);
 
-            for (score, i) in scores.zip(idx + 1..) {
+            for (score, i) in scores.zip(pages.index + 1..) {
                 let found_author = author_name == score.username;
                 username.clear();
 
@@ -119,9 +119,11 @@ impl LeaderboardEmbed {
             author = author.icon_url(author_icon.to_owned());
         }
 
+        let page = pages.curr_page();
+        let pages = pages.last_page();
         let footer_text = format!(
-            "{:?} map by {creator_name} • Page {}/{}",
-            map.status, pages.0, pages.1,
+            "{:?} map by {creator_name} • Page {page}/{pages}",
+            map.status
         );
 
         let footer = FooterBuilder::new(footer_text).icon_url(format!("{AVATAR_URL}{creator_id}"));

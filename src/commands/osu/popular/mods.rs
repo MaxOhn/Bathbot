@@ -4,15 +4,10 @@ use rkyv::{Deserialize, Infallible};
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
-    core::Context,
+    core::{commands::CommandOrigin, Context},
     custom_client::OsuTrackerModsEntry,
-    embeds::EmbedData,
-    embeds::OsuTrackerModsEmbed,
-    pagination::{OsuTrackerModsPagination, Pagination},
-    util::{
-        builder::MessageBuilder, constants::OSUTRACKER_ISSUE, numbers, ApplicationCommandExt,
-        Authored,
-    },
+    pagination::OsuTrackerModsPagination,
+    util::{constants::OSUTRACKER_ISSUE, ApplicationCommandExt},
     BotResult,
 };
 
@@ -31,21 +26,9 @@ pub(super) async fn mods(ctx: Arc<Context>, command: Box<ApplicationCommand>) ->
         }
     };
 
-    let pages = numbers::div_euclid(20, counts.len());
-    let initial = &counts[..counts.len().min(20)];
-
-    let embed = OsuTrackerModsEmbed::new(initial, (1, pages));
-    let builder = MessageBuilder::new().embed(embed.build());
-
-    let response_raw = command.update(&ctx, &builder).await?;
-
-    if counts.len() <= 20 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    OsuTrackerModsPagination::new(response, counts).start(ctx, command.user_id()?, 60);
-
-    Ok(())
+    OsuTrackerModsPagination::builder(counts)
+    .start_by_update()
+    .defer_components()
+        .start(ctx, CommandOrigin::Interaction { command })
+        .await
 }

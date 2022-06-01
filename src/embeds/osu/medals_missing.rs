@@ -1,4 +1,3 @@
-
 use std::fmt::Write;
 
 use command_macros::EmbedData;
@@ -6,6 +5,7 @@ use rosu_v2::model::user::User;
 
 use crate::{
     commands::osu::MedalType,
+    pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
@@ -29,7 +29,7 @@ impl MedalsMissingEmbed {
         medals: &[MedalType],
         medal_count: (usize, usize),
         includes_last: bool,
-        pages: (usize, usize),
+        pages: &Pages,
     ) -> Self {
         let mut description = String::new();
 
@@ -55,9 +55,12 @@ impl MedalsMissingEmbed {
             }
         }
 
+        let page = pages.curr_page();
+        let pages = pages.last_page();
+
         let footer = FooterBuilder::new(format!(
-            "Page {}/{} | Missing {}/{} medals",
-            pages.0, pages.1, medal_count.0, medal_count.1
+            "Page {page}/{pages} | Missing {}/{} medals",
+            medal_count.0, medal_count.1
         ));
 
         let author = AuthorBuilder::new(user.username.as_str())

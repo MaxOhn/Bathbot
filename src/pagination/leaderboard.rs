@@ -1,20 +1,21 @@
 use std::sync::Arc;
 
-use command_macros::BasePagination;
+use command_macros::pagination;
 use rosu_v2::{model::beatmap::Beatmap, prelude::Username};
-use twilight_model::channel::Message;
+use twilight_model::channel::embed::Embed;
 
-use crate::{core::Context, custom_client::ScraperScore, embeds::LeaderboardEmbed, BotResult};
+use crate::{
+    core::Context,
+    custom_client::ScraperScore,
+    embeds::{EmbedData, LeaderboardEmbed},
+    BotResult,
+};
 
-use super::{Pages, Pagination};
+use super::Pages;
 
-// TODO: author idx?
-
-#[derive(BasePagination)]
+#[pagination(per_page = 10, entries = "scores")]
 pub struct LeaderboardPagination {
     ctx: Arc<Context>,
-    msg: Message,
-    pages: Pages,
     map: Beatmap,
     scores: Vec<ScraperScore>,
     author_name: Option<Username>,
@@ -22,47 +23,18 @@ pub struct LeaderboardPagination {
 }
 
 impl LeaderboardPagination {
-    pub fn new(
-        msg: Message,
-        map: Beatmap,
-        scores: Vec<ScraperScore>,
-        author_name: Option<Username>,
-        first_place_icon: Option<String>,
-        ctx: Arc<Context>,
-    ) -> Self {
-        Self {
-            msg,
-            pages: Pages::new(10, scores.len()),
-            map,
-            scores,
-            author_name,
-            first_place_icon,
-            ctx,
-        }
-    }
-}
-
-#[async_trait]
-impl Pagination for LeaderboardPagination {
-    type PageData = LeaderboardEmbed;
-
-    async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        let scores = self
-            .scores
-            .iter()
-            .skip(self.pages.index)
-            .take(self.pages.per_page);
+    pub async fn build_page(&mut self, pages: &Pages) -> BotResult<Embed> {
+        let scores = self.scores.iter().skip(pages.index).take(pages.per_page);
 
         let embed_fut = LeaderboardEmbed::new(
             self.author_name.as_deref(),
             &self.map,
             Some(scores),
             &self.first_place_icon,
-            self.pages.index,
             &self.ctx,
-            (self.page(), self.pages.total_pages),
+            pages,
         );
 
-        embed_fut.await
+        embed_fut.await.map(EmbedData::build)
     }
 }

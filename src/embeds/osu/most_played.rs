@@ -3,10 +3,13 @@ use std::fmt::Write;
 use command_macros::EmbedData;
 use rosu_v2::prelude::{MostPlayedMap, User};
 
-use crate::util::{
-    builder::{AuthorBuilder, FooterBuilder},
-    constants::OSU_BASE,
-    CowUtils,
+use crate::{
+    pagination::Pages,
+    util::{
+        builder::{AuthorBuilder, FooterBuilder},
+        constants::OSU_BASE,
+        CowUtils,
+    },
 };
 
 #[derive(EmbedData)]
@@ -19,7 +22,7 @@ pub struct MostPlayedEmbed {
 }
 
 impl MostPlayedEmbed {
-    pub fn new<'m, M>(user: &User, maps: M, pages: (usize, usize)) -> Self
+    pub fn new<'m, M>(user: &User, maps: M, pages: &Pages) -> Self
     where
         M: Iterator<Item = &'m MostPlayedMap>,
     {
@@ -42,12 +45,15 @@ impl MostPlayedEmbed {
             );
         }
 
+        let page = pages.curr_page();
+        let pages = pages.last_page();
+
         Self {
             thumbnail,
             description,
             title: "Most played maps:",
             author: author!(user),
-            footer: FooterBuilder::new(format!("Page {}/{}", pages.0, pages.1)),
+            footer: FooterBuilder::new(format!("Page {page}/{pages}")),
         }
     }
 }

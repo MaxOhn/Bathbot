@@ -15,13 +15,11 @@ use twilight_model::application::{
 use crate::{
     core::Context,
     custom_client::OsekaiBadge,
-    embeds::{BadgeEmbed, EmbedData},
     error::Error,
-    pagination::{BadgePagination, Pagination},
+    pagination::BadgePagination,
     util::{
-        builder::MessageBuilder, constants::OSEKAI_ISSUE, get_combined_thumbnail,
-        levenshtein_similarity, numbers, ApplicationCommandExt, Authored, AutocompleteExt,
-        CowUtils,
+        constants::OSEKAI_ISSUE, get_combined_thumbnail, levenshtein_similarity,
+        ApplicationCommandExt, AutocompleteExt, CowUtils,
     },
     BotResult,
 };
@@ -111,29 +109,16 @@ pub(super) async fn query(
         None
     };
 
-    let pages = numbers::div_euclid(1, badges.len());
+    let mut owners_map = BTreeMap::new();
+    owners_map.insert(0, owners);
 
-    let embed = BadgeEmbed::new(&badges[0], &owners, (1, pages));
-    let mut builder = MessageBuilder::new().embed(embed.build());
+    let mut builder = BadgePagination::builder(Arc::clone(&ctx), badges, owners_map);
 
     if let Some(bytes) = bytes {
         builder = builder.attachment("badge_owners.png", bytes);
     }
 
-    let response_raw = command.update(&ctx, &builder).await?;
-
-    if badges.len() == 1 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-    let mut owners_map = BTreeMap::new();
-    owners_map.insert(0, owners);
-
-    let pagination = BadgePagination::new(response, badges, owners_map, Arc::clone(&ctx));
-    pagination.start(ctx, command.user_id()?, 60);
-
-    Ok(())
+    builder.start_by_update().defer_components().start(ctx, command.into()).await
 }
 
 async fn no_badge_found(ctx: &Context, command: &ApplicationCommand, name: &str) -> BotResult<()> {

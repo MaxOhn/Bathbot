@@ -5,6 +5,7 @@ use rosu_v2::prelude::{Beatmapset, GameMode, Genre, Language};
 
 use crate::{
     commands::osu::{Search, SearchOrder},
+    pagination::Pages,
     util::{builder::FooterBuilder, constants::OSU_BASE, numbers::round, CowUtils},
 };
 
@@ -16,11 +17,7 @@ pub struct MapSearchEmbed {
 }
 
 impl MapSearchEmbed {
-    pub fn new(
-        maps: &BTreeMap<usize, Beatmapset>,
-        args: &Search,
-        pages: (usize, Option<usize>),
-    ) -> Self {
+    pub fn new(maps: &BTreeMap<usize, Beatmapset>, args: &Search, pages: &Pages) -> Self {
         let mut title = "Mapset results".to_owned();
         let sort = args.sort.unwrap_or_default();
 
@@ -135,7 +132,7 @@ impl MapSearchEmbed {
             };
         }
 
-        let index = (pages.0 - 1) * 10;
+        let index = pages.index;
         let entries = maps.range(index..index + 10);
         let mut description = String::with_capacity(512);
 
@@ -188,12 +185,9 @@ impl MapSearchEmbed {
             );
         }
 
-        let mut footer_text = format!("Page {}/", pages.0);
-
-        match pages.1 {
-            Some(page) => write!(footer_text, "{page}").unwrap(),
-            None => footer_text.push('?'),
-        }
+        let page = pages.curr_page();
+        let pages = pages.last_page();
+        let footer_text = format!("Page {page}/{pages}");
 
         Self {
             title,

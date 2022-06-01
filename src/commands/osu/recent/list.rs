@@ -9,12 +9,10 @@ use crate::{
         GameModeOption, GradeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
-    embeds::{EmbedData, RecentListEmbed},
-    pagination::{Pagination, RecentListPagination},
+    pagination::RecentListPagination,
     util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        matcher, numbers,
+        constants::OSU_API_ISSUE,
+        matcher,
         osu::ModSelection,
         query::{FilterCriteria, Searchable},
         ChannelExt, CowUtils,
@@ -279,39 +277,14 @@ pub(super) async fn list(
         scores.retain(|score| score.matches(&criteria));
     }
 
-    let pages = numbers::div_euclid(10, scores.len());
-    let scores_iter = scores.iter().take(10);
+    let content = message_content(grade, mods, query);
 
-    let embed = match RecentListEmbed::new(&user, scores_iter, &ctx, (1, pages)).await {
-        Ok(data) => data.build(),
-        Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(err);
-        }
-    };
-
-    // Creating the embed
-    let mut builder = MessageBuilder::new().embed(embed);
-
-    if let Some(content) = message_content(grade, mods, query) {
-        builder = builder.content(content);
-    }
-
-    let response_raw = orig.create_message(&ctx, &builder).await?;
-
-    // Skip pagination if too few entries
-    if scores.len() <= 10 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    let pagination = RecentListPagination::new(response, user, scores, Arc::clone(&ctx));
-    pagination.start(ctx, orig.user_id()?, 60);
-
-    Ok(())
+    RecentListPagination::builder(Arc::clone(&ctx), user, scores)
+        .content(content.unwrap_or_default())
+        .start_by_update()
+        .defer_components()
+        .start(ctx, orig)
+        .await
 }
 
 fn message_content(

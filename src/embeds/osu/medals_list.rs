@@ -5,6 +5,7 @@ use rosu_v2::prelude::User;
 
 use crate::{
     commands::osu::MedalEntryList,
+    pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
@@ -26,12 +27,11 @@ impl MedalsListEmbed {
         user: &User,
         medals: &[MedalEntryList],
         acquired: (usize, usize),
-        pages: (usize, usize),
+        pages: &Pages,
     ) -> Self {
         let mut description = String::with_capacity(1024);
-        let offset = (pages.0 - 1) * 10;
 
-        for (entry, i) in medals.iter().zip(offset + 1..) {
+        for (entry, i) in medals.iter().zip(pages.index + 1..) {
             let _ = writeln!(
                 description,
                 "**{i}. [{medal}](https://osekai.net/medals/?medal={url_name})**\n\
@@ -44,9 +44,12 @@ impl MedalsListEmbed {
             );
         }
 
+        let page = pages.curr_page();
+        let pages = pages.last_page();
+
         let footer = FooterBuilder::new(format!(
-            "Page {}/{} | Acquired {}/{} medals",
-            pages.0, pages.1, acquired.0, acquired.1
+            "Page {page}/{pages} | Acquired {}/{} medals",
+            acquired.0, acquired.1
         ));
 
         let author = AuthorBuilder::new(user.username.as_str())

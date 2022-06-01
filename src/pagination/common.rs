@@ -1,16 +1,17 @@
-use command_macros::BasePagination;
+use command_macros::pagination;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmap, BeatmapsetCompact, Username};
-use twilight_model::channel::Message;
+use twilight_model::channel::embed::Embed;
 
-use crate::{commands::osu::CommonScore, embeds::CommonEmbed, BotResult};
+use crate::{
+    commands::osu::CommonScore,
+    embeds::{CommonEmbed, EmbedData},
+};
 
-use super::{Pages, Pagination};
+use super::Pages;
 
-#[derive(BasePagination)]
+#[pagination(per_page = 10, entries = "maps")]
 pub struct CommonPagination {
-    msg: Message,
-    pages: Pages,
     name1: Username,
     name2: Username,
     maps: HashMap<u32, ([CommonScore; 2], Beatmap, BeatmapsetCompact)>,
@@ -19,38 +20,18 @@ pub struct CommonPagination {
 }
 
 impl CommonPagination {
-    pub fn new(
-        msg: Message,
-        name1: Username,
-        name2: Username,
-        maps: HashMap<u32, ([CommonScore; 2], Beatmap, BeatmapsetCompact)>,
-        map_pps: Vec<(u32, f32)>,
-        wins: [u8; 2],
-    ) -> Self {
-        Self {
-            pages: Pages::new(10, maps.len()),
-            msg,
-            name1,
-            name2,
-            maps,
-            map_pps,
-            wins,
-        }
-    }
-}
+    pub fn build_page(&mut self, pages: &Pages) -> Embed {
+        let idx = pages.index;
+        let map_pps = &self.map_pps[idx..(idx + pages.per_page).min(self.maps.len())];
 
-#[async_trait]
-impl Pagination for CommonPagination {
-    type PageData = CommonEmbed;
-
-    async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        Ok(CommonEmbed::new(
+        CommonEmbed::new(
             &self.name1,
             &self.name2,
-            &self.map_pps[self.pages.index..(self.pages.index + 10).min(self.maps.len())],
+            map_pps,
             &self.maps,
             self.wins,
-            self.pages.index,
-        ))
+            pages,
+        )
+        .build()
     }
 }

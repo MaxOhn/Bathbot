@@ -2,7 +2,6 @@ use std::{cmp::Reverse, sync::Arc};
 
 use chrono::{DateTime, Utc};
 use command_macros::command;
-use eyre::Report;
 use rosu_v2::prelude::{GameMode, MedalCompact, OsuError, User};
 
 use crate::{
@@ -128,13 +127,7 @@ pub(super) async fn recent(
         }
     };
 
-    let content = match index % 10 {
-        1 if index == 1 => "Most recent medal:".to_owned(),
-        1 if index != 11 => format!("{index}st most recent medal:"),
-        2 if index != 12 => format!("{index}nd most recent medal:"),
-        3 if index != 13 => format!("{index}rd most recent medal:"),
-        _ => format!("{index}th most recent medal:"),
-    };
+    let content = "Most recent medals:";
 
     let achieved = MedalAchieved {
         user: &user,
@@ -144,28 +137,15 @@ pub(super) async fn recent(
     };
 
     let embed_data = MedalEmbed::new(medal.clone(), Some(achieved), Vec::new(), None);
-    let embed = embed_data.clone().minimized();
-    let builder = MessageBuilder::new().embed(embed).content(content);
-    let response = orig.create_message(&ctx, &builder).await?.model().await?;
 
-    let pagination = MedalRecentPagination::new(
-        Arc::clone(&ctx),
-        response,
-        user,
-        medal,
-        achieved_medals,
-        index,
-        embed_data,
-        all_medals,
-    );
+    let builder =
+        MedalRecentPagination::builder(user, medal, achieved_medals, index, embed_data, all_medals);
 
-    tokio::spawn(async move {
-        if let Err(err) = pagination.start(&ctx, owner, 60).await {
-            warn!("{:?}", Report::new(err));
-        }
-    });
-
-    Ok(())
+    builder
+        .start_by_update()
+        .content(content)
+        .start(ctx, orig)
+        .await
 }
 
 pub struct MedalAchieved<'u> {

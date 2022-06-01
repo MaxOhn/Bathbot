@@ -14,12 +14,10 @@ use twilight_model::{
 use crate::{
     commands::osu::{get_user_and_scores, require_link, ScoreArgs, ScoreOrder, UserArgs},
     core::commands::{prefix::Args, CommandOrigin},
-    embeds::{EmbedData, TopIfEmbed},
     error::PpError,
-    pagination::{Pagination, TopIfPagination},
+    pagination::TopIfPagination,
     tracking::process_osu_tracking,
     util::{
-        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher, numbers,
         osu::prepare_beatmap_file,
@@ -630,39 +628,14 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
         version = args.date_range(),
     );
 
-    let pages = numbers::div_euclid(5, scores_data.len());
     let post_pp = user.statistics.as_ref().map_or(0.0, |stats| stats.pp);
-    let iter = scores_data.iter().take(5);
-    let embed_data_fut = TopIfEmbed::new(&user, iter, mode, adjusted_pp, post_pp, None, (1, pages));
 
-    // Creating the embed
-    let embed = embed_data_fut.await.build();
-    let builder = MessageBuilder::new().content(content).embed(embed);
-    let response_raw = orig.create_message(&ctx, &builder).await?;
-
-    // * Don't add maps of scores to DB since their stars were potentially changed
-
-    // Skip pagination if too few entries
-    if scores_data.len() <= 5 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    let pagination = TopIfPagination::new(
-        response,
-        user,
-        scores_data,
-        mode,
-        adjusted_pp,
-        post_pp,
-        None,
-    );
-
-    pagination.start(ctx, orig.user_id()?, 60);
-
-    Ok(())
+    TopIfPagination::builder(user, scores_data, mode, adjusted_pp, post_pp, None)
+        .content(content)
+        .start_by_update()
+        .defer_components()
+        .start(ctx, orig)
+        .await
 }
 
 async fn modify_scores(

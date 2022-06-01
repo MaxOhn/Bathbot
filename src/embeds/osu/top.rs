@@ -11,6 +11,7 @@ use crate::{
     core::Context,
     custom_client::OsuTrackerMapsetEntry,
     embeds::osu,
+    pagination::Pages,
     pp::PpCalculator,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
@@ -37,7 +38,7 @@ impl TopEmbed {
         ctx: &Context,
         sort_by: impl Into<TopScoreOrder>,
         farm: &Farm,
-        pages: (usize, usize),
+        pages: &Pages,
     ) -> Self
     where
         S: Iterator<Item = &'i (usize, Score)>,
@@ -51,7 +52,7 @@ impl TopEmbed {
         ctx: &Context,
         sort_by: TopScoreOrder,
         farm: &Farm,
-        pages: (usize, usize),
+        pages: &Pages,
     ) -> Self
     where
         S: Iterator<Item = &'i (usize, Score)>,
@@ -114,8 +115,8 @@ impl TopEmbed {
 
         let footer_text = format!(
             "Page {}/{} | Mode: {}",
-            pages.0,
-            pages.1,
+            pages.curr_page(),
+            pages.last_page(),
             mode_str(user.mode)
         );
 
@@ -143,7 +144,7 @@ impl CondensedTopEmbed {
         ctx: &Context,
         sort_by: TopScoreOrder,
         farm: &Farm,
-        pages: (usize, usize),
+        pages: &Pages,
     ) -> Self
     where
         S: Iterator<Item = &'i (usize, Score)>,
@@ -156,8 +157,8 @@ impl CondensedTopEmbed {
 
         let footer_text = format!(
             "Page {}/{} • Mode: {}",
-            pages.0,
-            pages.1,
+            pages.curr_page(),
+            pages.last_page(),
             mode_str(user.mode)
         );
 

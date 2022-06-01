@@ -1,3 +1,34 @@
+use std::{sync::Arc, time::Duration};
+
+use tokio::{
+    sync::watch::{self, Receiver, Sender},
+    time::sleep,
+};
+use twilight_model::{
+    application::component::{button::ButtonStyle, ActionRow, Button, Component},
+    channel::embed::Embed,
+    id::{
+        marker::{ChannelMarker, MessageMarker, UserMarker},
+        Id,
+    },
+};
+
+use crate::{
+    core::{commands::CommandOrigin, Context},
+    util::{builder::MessageBuilder, numbers::last_multiple, Emote, MessageExt},
+    BotResult,
+};
+
+pub use self::{
+    badges::*, command_count::*, common::*, country_snipe_list::*, leaderboard::*, map::*,
+    map_search::*, match_compare::*, medal_recent::*, medals_common::*, medals_list::*,
+    medals_missing::*, most_played::*, most_played_common::*, nochoke::*, osekai_medal_count::*,
+    osekai_medal_rarity::*, osustats_globals::*, osustats_list::*, osutracker_countrytop::*,
+    osutracker_mappers::*, osutracker_maps::*, osutracker_mapsets::*, osutracker_mods::*,
+    player_snipe_list::*, profile::*, ranking::*, ranking_countries::*, recent_list::*, scores::*,
+    sniped_difference::*, top::*, top_if::*,
+};
+
 mod badges;
 mod command_count;
 mod common;
@@ -32,164 +63,295 @@ mod sniped_difference;
 mod top;
 mod top_if;
 
-use std::{borrow::Cow, sync::Arc, time::Duration};
+pub mod components;
 
-use eyre::Report;
-use smallvec::SmallVec;
-use tokio::time::sleep;
-use tokio_stream::StreamExt;
-use twilight_gateway::Event;
-use twilight_http::error::ErrorType;
-use twilight_model::{
-    channel::{Message, Reaction, ReactionType},
-    id::{marker::UserMarker, Id},
-};
-
-use crate::{
-    embeds::EmbedData,
-    error::Error,
-    util::{numbers, send_reaction, Emote},
-    BotResult, Context,
-};
-
-pub use self::{
-    badges::BadgePagination, command_count::CommandCountPagination, common::CommonPagination,
-    country_snipe_list::CountrySnipeListPagination, leaderboard::LeaderboardPagination,
-    map::MapPagination, map_search::MapSearchPagination, match_compare::MatchComparePagination,
-    medal_recent::MedalRecentPagination, medals_common::MedalsCommonPagination,
-    medals_list::MedalsListPagination, medals_missing::MedalsMissingPagination,
-    most_played::MostPlayedPagination, most_played_common::MostPlayedCommonPagination,
-    nochoke::NoChokePagination, osekai_medal_count::MedalCountPagination,
-    osekai_medal_rarity::MedalRarityPagination, osustats_globals::OsuStatsGlobalsPagination,
-    osustats_list::OsuStatsListPagination, osutracker_countrytop::OsuTrackerCountryTopPagination,
-    osutracker_mappers::OsuTrackerMappersPagination, osutracker_maps::OsuTrackerMapsPagination,
-    osutracker_mapsets::OsuTrackerMapsetsPagination, osutracker_mods::OsuTrackerModsPagination,
-    player_snipe_list::PlayerSnipeListPagination, profile::ProfilePagination,
-    ranking::RankingPagination, ranking_countries::RankingCountriesPagination,
-    recent_list::RecentListPagination, scores::ScoresPagination,
-    sniped_difference::SnipedDiffPagination, top::CondensedTopPagination, top::TopPagination,
-    top_if::TopIfPagination,
-};
-
-type ReactionVec = SmallVec<[Emote; 7]>;
-type PaginationResult = Result<(), PaginationError>;
-
-#[derive(Debug, thiserror::Error)]
-#[error("pagination error")]
-pub enum PaginationError {
-    Bot(#[from] Error),
-    Http(#[from] twilight_http::Error),
+pub enum PaginationKind {
+    Badge(BadgePagination),
+    CommandCount(CommandCountPagination),
+    Common(CommonPagination),
+    CountrySnipeList(CountrySnipeListPagination),
+    Leaderboard(LeaderboardPagination),
+    Map(MapPagination),
+    MapSearch(MapSearchPagination),
+    MatchCompare(MatchComparePagination),
+    MedalCount(MedalCountPagination),
+    MedalRarity(MedalRarityPagination),
+    MedalRecent(MedalRecentPagination),
+    MedalsCommon(MedalsCommonPagination),
+    MedalsList(MedalsListPagination),
+    MedalsMissing(MedalsMissingPagination),
+    MostPlayed(MostPlayedPagination),
+    MostPlayedCommon(MostPlayedCommonPagination),
+    NoChoke(NoChokePagination),
+    OsuStatsGlobals(OsuStatsGlobalsPagination),
+    OsuStatsList(OsuStatsListPagination),
+    OsuTrackerCountryTop(OsuTrackerCountryTopPagination),
+    OsuTrackerMappers(OsuTrackerMappersPagination),
+    OsuTrackerMaps(OsuTrackerMapsPagination),
+    OsuTrackerMapsets(OsuTrackerMapsetsPagination),
+    OsuTrackerMods(OsuTrackerModsPagination),
+    PlayerSnipeList(PlayerSnipeListPagination),
+    Profile(ProfilePagination),
+    Ranking(RankingPagination),
+    RankingCountries(RankingCountriesPagination),
+    RecentList(RecentListPagination),
+    Scores(ScoresPagination),
+    SnipedDiff(SnipedDiffPagination),
+    Top(TopPagination),
+    TopCondensed(TopCondensedPagination),
+    TopIf(TopIfPagination),
 }
 
-pub trait BasePagination {
-    fn msg(&self) -> &Message;
-    fn pages(&self) -> &Pages;
-    fn pages_mut(&mut self) -> &mut Pages;
-    fn jump_index(&self) -> Option<usize>;
-
-    fn multi_reaction(&self, vec: &mut ReactionVec);
-    fn my_pos_reaction(&self, vec: &mut ReactionVec);
-
-    fn single_step(&self) -> usize {
-        self.pages().per_page
-    }
-
-    fn multi_step(&self) -> usize {
-        match self.pages().total_pages {
-            0..=8 => self.pages().per_page * 2,
-            9..=15 => self.pages().per_page * 3,
-            16..=30 => self.pages().per_page * 5,
-            _ => self.pages().per_page * 10,
+impl PaginationKind {
+    async fn build_page(&mut self, pages: &Pages) -> BotResult<Embed> {
+        match self {
+            Self::Badge(kind) => kind.build_page(pages).await,
+            Self::CommandCount(kind) => Ok(kind.build_page(pages)),
+            Self::Common(kind) => Ok(kind.build_page(pages)),
+            Self::CountrySnipeList(kind) => Ok(kind.build_page(pages)),
+            Self::Leaderboard(kind) => kind.build_page(pages).await,
+            Self::Map(kind) => kind.build_page(pages).await,
+            Self::MapSearch(kind) => kind.build_page(pages).await,
+            Self::MatchCompare(kind) => Ok(kind.build_page(pages)),
+            Self::MedalCount(kind) => Ok(kind.build_page(pages)),
+            Self::MedalRarity(kind) => Ok(kind.build_page(pages)),
+            Self::MedalRecent(kind) => Ok(kind.build_page(pages)),
+            Self::MedalsCommon(kind) => Ok(kind.build_page(pages)),
+            Self::MedalsList(kind) => Ok(kind.build_page(pages)),
+            Self::MedalsMissing(kind) => Ok(kind.build_page(pages)),
+            Self::MostPlayed(kind) => Ok(kind.build_page(pages)),
+            Self::MostPlayedCommon(kind) => Ok(kind.build_page(pages)),
+            Self::NoChoke(kind) => Ok(kind.build_page(pages).await),
+            Self::OsuStatsGlobals(kind) => kind.build_page(pages).await,
+            Self::OsuStatsList(kind) => kind.build_page(pages).await,
+            Self::OsuTrackerCountryTop(kind) => Ok(kind.build_page(pages)),
+            Self::OsuTrackerMappers(kind) => Ok(kind.build_page(pages)),
+            Self::OsuTrackerMaps(kind) => Ok(kind.build_page(pages)),
+            Self::OsuTrackerMapsets(kind) => kind.build_page(pages).await,
+            Self::OsuTrackerMods(kind) => Ok(kind.build_page(pages)),
+            Self::PlayerSnipeList(kind) => kind.build_page(pages).await,
+            Self::Profile(kind) => Ok(kind.build_page(pages).await),
+            Self::Ranking(kind) => kind.build_page(pages).await,
+            Self::RankingCountries(kind) => kind.build_page(pages).await,
+            Self::RecentList(kind) => kind.build_page(pages).await,
+            Self::Scores(kind) => Ok(kind.build_page(pages).await),
+            Self::SnipedDiff(kind) => kind.build_page(pages).await,
+            Self::Top(kind) => Ok(kind.build_page(pages).await),
+            Self::TopCondensed(kind) => Ok(kind.build_page(pages).await),
+            Self::TopIf(kind) => Ok(kind.build_page(pages).await),
         }
     }
-
-    fn jump_reaction(&self, vec: &mut ReactionVec) {
-        vec.push(Emote::JumpStart);
-        self.multi_reaction(vec);
-        vec.push(Emote::JumpEnd);
-    }
-
-    fn single_reaction(&self, vec: &mut ReactionVec) {
-        vec.push(Emote::SingleStepBack);
-        self.my_pos_reaction(vec);
-        vec.push(Emote::SingleStep);
-    }
-
-    fn index(&self) -> usize {
-        self.pages().index
-    }
-
-    fn last_index(&self) -> usize {
-        self.pages().last_index
-    }
-
-    fn per_page(&self) -> usize {
-        self.pages().per_page
-    }
-
-    fn total_pages(&self) -> usize {
-        self.pages().total_pages
-    }
-
-    fn index_mut(&mut self) -> &mut usize {
-        &mut self.pages_mut().index
-    }
 }
 
-#[async_trait]
-pub trait Pagination: BasePagination + Send + Sync + Sized {
-    type PageData: EmbedData + Send;
+pub struct Pagination {
+    pub defer_components: bool,
+    pub pages: Pages,
+    author: Id<UserMarker>,
+    kind: PaginationKind,
+    component_kind: ComponentKind,
+    tx: Sender<()>,
+}
 
-    // Implement this
-    async fn build_page(&mut self) -> BotResult<Self::PageData>;
+impl Pagination {
+    async fn start(
+        ctx: Arc<Context>,
+        orig: CommandOrigin<'_>,
+        builder: PaginationBuilder,
+    ) -> BotResult<()> {
+        let PaginationBuilder {
+            mut kind,
+            pages,
+            attachment,
+            content,
+            start_by_callback,
+            defer_components,
+            component_kind,
+        } = builder;
 
-    // Optionally implement these
-    fn content(&self) -> Option<Cow<'_, str>> {
-        None
-    }
+        let embed = kind.build_page(&pages).await?;
+        let components = pages.components(component_kind);
 
-    fn process_data(&mut self, _data: &Self::PageData) {}
+        let mut builder = MessageBuilder::new().embed(embed).components(components);
 
-    async fn final_processing(mut self, _ctx: &Context) -> BotResult<()> {
+        if let Some((name, bytes)) = attachment {
+            builder = builder.attachment(name, bytes);
+        }
+
+        if let Some(content) = content {
+            builder = builder.content(content);
+        }
+
+        let response_raw = if start_by_callback {
+            orig.callback_with_response(&ctx, builder).await?
+        } else {
+            orig.create_message(&ctx, &builder).await?
+        };
+
+        if pages.last_index == 0 {
+            return Ok(());
+        }
+
+        let response = response_raw.model().await?;
+        let channel = response.channel_id;
+        let msg = response.id;
+
+        let (tx, rx) = watch::channel(());
+        Self::spawn_timeout(Arc::clone(&ctx), rx, msg, channel);
+
+        let pagination = Pagination {
+            author: orig.user_id()?,
+            component_kind,
+            defer_components,
+            kind,
+            pages,
+            tx,
+        };
+
+        ctx.paginations.insert(msg, pagination);
+
         Ok(())
     }
 
-    // Don't implement anything else
-    fn start(self, ctx: Arc<Context>, owner: Id<UserMarker>, duration: u64)
-    where
-        Self: 'static,
-    {
+    fn is_author(&self, user: Id<UserMarker>) -> bool {
+        self.author == user
+    }
+
+    fn reset_timeout(&self) {
+        let _ = self.tx.send(());
+    }
+
+    async fn build(&mut self) -> BotResult<MessageBuilder<'static>> {
+        let embed = self.build_page().await?;
+        let components = self.pages.components(self.component_kind);
+
+        Ok(MessageBuilder::new().embed(embed).components(components))
+    }
+
+    async fn build_page(&mut self) -> BotResult<Embed> {
+        self.kind.build_page(&self.pages).await
+    }
+
+    fn spawn_timeout(
+        ctx: Arc<Context>,
+        mut rx: Receiver<()>,
+        msg: Id<MessageMarker>,
+        channel: Id<ChannelMarker>,
+    ) {
+        static MINUTE: Duration = Duration::from_secs(60);
+
         tokio::spawn(async move {
-            if let Err(err) = start_pagination(self, &ctx, owner, duration).await {
-                warn!("{:?}", Report::new(err));
+            loop {
+                tokio::select! {
+                    res = rx.changed() => if res.is_ok() {
+                        continue
+                    } else {
+                        return
+                    },
+                    _ = sleep(MINUTE) => {
+                        if ctx.paginations.remove(&msg).is_some() {
+                            let builder = MessageBuilder::new().components(Vec::new());
+
+                            if let Err(err) = (msg, channel).update(&ctx, &builder).await {
+                                eprintln!("failed to remove components: {err}");
+                            }
+                        }
+
+                        return;
+                    },
+                }
             }
         });
     }
-
-    fn reactions(&self) -> ReactionVec {
-        let mut vec = ReactionVec::new();
-        self.jump_reaction(&mut vec);
-
-        vec
-    }
-
-    fn page(&self) -> usize {
-        self.index() / self.per_page() + 1
-    }
 }
 
-#[derive(Eq, PartialEq)]
-pub enum PageChange {
-    None,
-    Change,
+pub struct PaginationBuilder {
+    kind: PaginationKind,
+    pages: Pages,
+    attachment: Option<(String, Vec<u8>)>,
+    content: Option<String>,
+    start_by_callback: bool,
+    defer_components: bool,
+    component_kind: ComponentKind,
+}
+
+impl PaginationBuilder {
+    fn new(kind: PaginationKind, pages: Pages) -> Self {
+        Self {
+            kind,
+            pages,
+            attachment: None,
+            content: None,
+            start_by_callback: true,
+            defer_components: false,
+            component_kind: ComponentKind::Default,
+        }
+    }
+
+    /// Start the pagination
+    pub async fn start(self, ctx: Arc<Context>, orig: CommandOrigin<'_>) -> crate::BotResult<()> {
+        Pagination::start(ctx, orig, self).await
+    }
+
+    /// Add an attachment to the initial message which
+    /// will stick throughout all pages.
+    pub fn attachment(mut self, name: impl Into<String>, bytes: Vec<u8>) -> Self {
+        self.attachment = Some((name.into(), bytes));
+
+        self
+    }
+
+    /// Add content to the initial message which
+    /// will stick throughout all pages.
+    pub fn content(mut self, content: impl Into<String>) -> Self {
+        self.content = Some(content.into());
+
+        self
+    }
+
+    /// By default, the initial message will be sent by callback.
+    /// This only works if the invoke originates either from a message,
+    /// or from an interaction that was **not** deferred.
+    ///
+    /// If this method is called, the initial message will be sent
+    /// through updating meaning it will work for interactions
+    /// that have been deferred already.
+    pub fn start_by_update(mut self) -> Self {
+        self.start_by_callback = false;
+
+        self
+    }
+
+    /// By default, the page-update message will be sent by callback.
+    /// This only works if the page generation is quick enough i.e. <300ms.
+    ///
+    /// If this method is called, pagination components will be deferred
+    /// and then after the page generation updated.
+    pub fn defer_components(mut self) -> Self {
+        self.defer_components = true;
+
+        self
+    }
+
+    /// "Compact", "Medium", and "Full" button components
+    pub fn profile_components(mut self) -> Self {
+        self.component_kind = ComponentKind::Profile;
+
+        self
+    }
+
+    /// "Jump start", "Step back", and "Step" button components
+    pub fn map_search_components(mut self) -> Self {
+        self.component_kind = ComponentKind::MapSearch;
+
+        self
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct Pages {
-    index: usize,
+    pub index: usize,
     last_index: usize,
-    per_page: usize,
-    total_pages: usize,
+    pub per_page: usize,
 }
 
 impl Pages {
@@ -200,183 +362,169 @@ impl Pages {
         Self {
             index: 0,
             per_page,
-            total_pages: numbers::div_euclid(per_page, amount),
-            last_index: numbers::last_multiple(per_page, amount),
+            last_index: last_multiple(per_page, amount),
         }
+    }
+
+    pub fn curr_page(&self) -> usize {
+        self.index / self.per_page + 1
+    }
+
+    pub fn last_page(&self) -> usize {
+        self.last_index / self.per_page + 1
+    }
+
+    fn components(&self, kind: ComponentKind) -> Vec<Component> {
+        match kind {
+            ComponentKind::Default => self.default_components(),
+            ComponentKind::MapSearch => self.map_search_components(),
+            ComponentKind::Profile => self.profile_components(),
+        }
+    }
+
+    fn default_components(&self) -> Vec<Component> {
+        if self.last_index == 0 {
+            return Vec::new();
+        }
+
+        let jump_start = Button {
+            custom_id: Some("pagination_start".to_owned()),
+            disabled: self.index == 0,
+            emoji: Some(Emote::JumpStart.reaction_type()),
+            label: None,
+            style: ButtonStyle::Secondary,
+            url: None,
+        };
+
+        let single_step_back = Button {
+            custom_id: Some("pagination_back".to_owned()),
+            disabled: self.index == 0,
+            emoji: Some(Emote::SingleStepBack.reaction_type()),
+            label: None,
+            style: ButtonStyle::Secondary,
+            url: None,
+        };
+
+        let jump_custom = Button {
+            custom_id: Some("pagination_custom".to_owned()),
+            disabled: false,
+            emoji: Some(Emote::MyPosition.reaction_type()),
+            label: None,
+            style: ButtonStyle::Secondary,
+            url: None,
+        };
+
+        let single_step = Button {
+            custom_id: Some("pagination_step".to_owned()),
+            disabled: self.index == self.last_index,
+            emoji: Some(Emote::SingleStep.reaction_type()),
+            label: None,
+            style: ButtonStyle::Secondary,
+            url: None,
+        };
+
+        let jump_end = Button {
+            custom_id: Some("pagination_end".to_owned()),
+            disabled: self.index == self.last_index,
+            emoji: Some(Emote::JumpEnd.reaction_type()),
+            label: None,
+            style: ButtonStyle::Secondary,
+            url: None,
+        };
+
+        let components = vec![
+            Component::Button(jump_start),
+            Component::Button(single_step_back),
+            Component::Button(jump_custom),
+            Component::Button(single_step),
+            Component::Button(jump_end),
+        ];
+
+        vec![Component::ActionRow(ActionRow { components })]
+    }
+
+    fn profile_components(&self) -> Vec<Component> {
+        let compact = Button {
+            custom_id: Some("profile_compact".to_owned()),
+            disabled: self.index == 0,
+            emoji: None,
+            label: Some("Compact".to_owned()),
+            style: ButtonStyle::Success,
+            url: None,
+        };
+
+        let medium = Button {
+            custom_id: Some("profile_medium".to_owned()),
+            disabled: self.index == 1,
+            emoji: None,
+            label: Some("Medium".to_owned()),
+            style: ButtonStyle::Success,
+            url: None,
+        };
+
+        let full = Button {
+            custom_id: Some("profile_full".to_owned()),
+            disabled: self.index == 2,
+            emoji: None,
+            label: Some("Full".to_owned()),
+            style: ButtonStyle::Success,
+            url: None,
+        };
+
+        let components = vec![
+            Component::Button(compact),
+            Component::Button(medium),
+            Component::Button(full),
+        ];
+
+        vec![Component::ActionRow(ActionRow { components })]
+    }
+
+    fn map_search_components(&self) -> Vec<Component> {
+        if self.last_index == 0 {
+            return Vec::new();
+        }
+
+        let jump_start = Button {
+            custom_id: Some("pagination_start".to_owned()),
+            disabled: self.index == 0,
+            emoji: Some(Emote::JumpStart.reaction_type()),
+            label: None,
+            style: ButtonStyle::Secondary,
+            url: None,
+        };
+
+        let single_step_back = Button {
+            custom_id: Some("pagination_back".to_owned()),
+            disabled: self.index == 0,
+            emoji: Some(Emote::SingleStepBack.reaction_type()),
+            label: None,
+            style: ButtonStyle::Secondary,
+            url: None,
+        };
+
+        let single_step = Button {
+            custom_id: Some("pagination_step".to_owned()),
+            disabled: self.index == self.last_index,
+            emoji: Some(Emote::SingleStep.reaction_type()),
+            label: None,
+            style: ButtonStyle::Secondary,
+            url: None,
+        };
+
+        let components = vec![
+            Component::Button(jump_start),
+            Component::Button(single_step_back),
+            Component::Button(single_step),
+        ];
+
+        vec![Component::ActionRow(ActionRow { components })]
     }
 }
 
-async fn start_pagination<P: Pagination + Send>(
-    mut pagination: P,
-    ctx: &Context,
-    owner: Id<UserMarker>,
-    duration: u64,
-) -> PaginationResult {
-    ctx.store_msg(pagination.msg().id);
-
-    let reactions = pagination.reactions();
-
-    let reaction_stream = {
-        let msg = pagination.msg();
-        let msg_id = msg.id;
-
-        for emote in &reactions {
-            send_reaction(ctx, msg, *emote).await?;
-        }
-
-        ctx.standby
-            .wait_for_event_stream(move |event: &Event| match event {
-                Event::ReactionAdd(event) => event.message_id == msg_id && event.user_id == owner,
-                Event::ReactionRemove(event) => {
-                    event.message_id == msg_id && event.user_id == owner
-                }
-                _ => false,
-            })
-            .map(|event| match event {
-                Event::ReactionAdd(add) => ReactionWrapper::Add(add.0),
-                Event::ReactionRemove(remove) => ReactionWrapper::Remove(remove.0),
-                _ => unreachable!(),
-            })
-            .timeout(Duration::from_secs(duration))
-    };
-
-    tokio::pin!(reaction_stream);
-
-    while let Some(Ok(reaction)) = reaction_stream.next().await {
-        if let Err(err) = next_page(&mut pagination, reaction.into_inner(), ctx).await {
-            warn!("{:?}", Report::new(err).wrap_err("error while paginating"));
-        }
-    }
-
-    let msg = pagination.msg();
-
-    if !ctx.remove_msg(msg.id) {
-        return Ok(());
-    }
-
-    let delete_fut = ctx.http.delete_all_reactions(msg.channel_id, msg.id).exec();
-
-    if let Err(err) = delete_fut.await {
-        if matches!(err.kind(), ErrorType::Response { status, .. } if status.get() == 403) {
-            sleep(Duration::from_millis(100)).await;
-
-            for emote in &reactions {
-                let request_reaction = emote.request_reaction_type();
-
-                ctx.http
-                    .delete_current_user_reaction(msg.channel_id, msg.id, &request_reaction)
-                    .exec()
-                    .await?;
-            }
-        } else {
-            return Err(err.into());
-        }
-    }
-
-    pagination
-        .final_processing(ctx)
-        .await
-        .map_err(PaginationError::Bot)
-}
-
-async fn next_page<P: Pagination>(
-    pagination: &mut P,
-    reaction: Reaction,
-    ctx: &Context,
-) -> BotResult<()> {
-    if process_reaction(pagination, &reaction.emoji).await == PageChange::Change {
-        let data = pagination.build_page().await?;
-        pagination.process_data(&data);
-        let msg = pagination.msg();
-        let mut update = ctx.http.update_message(msg.channel_id, msg.id);
-        let content = pagination.content();
-
-        if let Some(ref content) = content {
-            update = update.content(Some(content.as_ref()))?;
-        }
-
-        let builder = data.build();
-
-        update.embeds(Some(&[builder]))?.exec().await?;
-    }
-
-    Ok(())
-}
-
-async fn process_reaction<P: Pagination>(
-    pagination: &mut P,
-    reaction: &ReactionType,
-) -> PageChange {
-    let change_result = match reaction {
-        ReactionType::Custom {
-            name: Some(name), ..
-        } => match name.as_str() {
-            // Move to start
-            "jump_start" => (pagination.index() != 0).then(|| 0),
-            // Move one page left
-            "multi_step_back" => match pagination.index() {
-                0 => None,
-                idx => Some(idx.saturating_sub(pagination.multi_step())),
-            },
-            // Move one index left
-            "single_step_back" => match pagination.index() {
-                0 => None,
-                idx => Some(idx.saturating_sub(pagination.single_step())),
-            },
-            // Move to specific position
-            "my_position" => {
-                if let Some(index) = pagination.jump_index() {
-                    let i = numbers::last_multiple(pagination.per_page(), index + 1);
-
-                    if i != pagination.index() {
-                        Some(i)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            }
-            // Move one index right
-            "single_step" => (pagination.index() != pagination.last_index()).then(|| {
-                pagination
-                    .last_index()
-                    .min(pagination.index() + pagination.single_step())
-            }),
-            // Move one page right
-            "multi_step" => (pagination.index() != pagination.last_index()).then(|| {
-                pagination
-                    .last_index()
-                    .min(pagination.index() + pagination.multi_step())
-            }),
-            // Move to end
-            "jump_end" => {
-                (pagination.index() != pagination.last_index()).then(|| pagination.last_index())
-            }
-            _ => None,
-        },
-        _ => None,
-    };
-
-    match change_result {
-        Some(index) => {
-            *pagination.index_mut() = index;
-
-            PageChange::Change
-        }
-        None => PageChange::None,
-    }
-}
-
-enum ReactionWrapper {
-    Add(Reaction),
-    Remove(Reaction),
-}
-
-impl ReactionWrapper {
-    fn into_inner(self) -> Reaction {
-        match self {
-            Self::Add(r) | Self::Remove(r) => r,
-        }
-    }
+#[derive(Copy, Clone)]
+enum ComponentKind {
+    Default,
+    MapSearch,
+    Profile,
 }

@@ -1,13 +1,8 @@
 use crate::{
     commands::GameModeOption,
     core::commands::CommandOrigin,
-    embeds::{EmbedData, RankingCountriesEmbed},
-    pagination::{Pagination, RankingCountriesPagination},
-    util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        numbers,
-    },
+    pagination::RankingCountriesPagination,
+    util::constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     BotResult, Context,
 };
 
@@ -77,24 +72,11 @@ pub(super) async fn country(
         }
     };
 
-    // Creating the embed
-    let pages = numbers::div_euclid(15, ranking.total as usize);
     let countries: BTreeMap<_, _> = ranking.ranking.drain(..).enumerate().collect();
-    let embed_data = RankingCountriesEmbed::new(mode, &countries, (1, pages));
-    let embed = embed_data.build();
-    let builder = MessageBuilder::new().embed(embed);
-    let response = orig.create_message(&ctx, &builder).await?.model().await?;
 
-    // Pagination
-    let pagination = RankingCountriesPagination::new(
-        response,
-        mode,
-        Arc::clone(&ctx),
-        ranking.total as usize,
-        countries,
-    );
-
-    pagination.start(ctx, owner, 60);
-
-    Ok(())
+    RankingCountriesPagination::builder(Arc::clone(&ctx), mode, countries, ranking.total as usize)
+    .start_by_update()
+    .defer_components()
+        .start(ctx, orig)
+        .await
 }

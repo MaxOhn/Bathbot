@@ -4,6 +4,7 @@ use command_macros::EmbedData;
 
 use crate::{
     custom_client::OsekaiUserEntry,
+    pagination::Pages,
     util::{builder::FooterBuilder, constants::OSU_BASE, numbers::round, CowUtils},
 };
 
@@ -16,15 +17,10 @@ pub struct MedalCountEmbed {
 }
 
 impl MedalCountEmbed {
-    pub fn new(
-        ranking: &[OsekaiUserEntry],
-        index: usize,
-        author_idx: Option<usize>,
-        pages: (usize, usize),
-    ) -> Self {
+    pub fn new(ranking: &[OsekaiUserEntry], author_idx: Option<usize>, pages: &Pages) -> Self {
         let mut description = String::with_capacity(1024);
 
-        for (entry, idx) in ranking.iter().zip(index..) {
+        for (entry, idx) in ranking.iter().zip(pages.index..) {
             let medal_name = entry.rarest_medal.as_str();
             let tmp = medal_name.cow_replace(' ', "+");
             let url_name = tmp.cow_replace(',', "%2C");
@@ -47,7 +43,9 @@ impl MedalCountEmbed {
         let title = "User Ranking based on amount of owned medals";
         let url = "https://osekai.net/rankings/?ranking=Medals&type=Users";
 
-        let mut footer_text = format!("Page {}/{} • ", pages.0, pages.1);
+        let page = pages.curr_page();
+        let pages = pages.last_page();
+        let mut footer_text = format!("Page {page}/{pages} • ");
 
         if let Some(idx) = author_idx {
             let _ = write!(footer_text, "Your position: {} • ", idx + 1);

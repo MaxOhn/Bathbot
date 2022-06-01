@@ -4,14 +4,11 @@ use eyre::Report;
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
+    core::commands::CommandOrigin,
     custom_client::MedalCount,
     database::OsuData,
-    embeds::{EmbedData, MedalCountEmbed},
-    pagination::{MedalCountPagination, Pagination},
-    util::{
-        builder::MessageBuilder, constants::OSEKAI_ISSUE, numbers, ApplicationCommandExt, Authored,
-        CountryCode,
-    },
+    pagination::MedalCountPagination,
+    util::{constants::OSEKAI_ISSUE, ApplicationCommandExt, Authored, CountryCode},
     BotResult, Context,
 };
 
@@ -70,21 +67,8 @@ pub(super) async fn medal_count(
         .as_deref()
         .and_then(|name| ranking.iter().position(|e| e.username.as_str() == name));
 
-    let initial_ranking = &ranking[..ranking.len().min(10)];
-
-    let pages = numbers::div_euclid(10, ranking.len());
-    let embed_data = MedalCountEmbed::new(initial_ranking, 0, author_idx, (1, pages));
-    let embed = embed_data.build();
-    let builder = MessageBuilder::new().embed(embed);
-    let response_raw = command.update(&ctx, &builder).await?;
-
-    if ranking.len() <= 10 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    MedalCountPagination::new(response, ranking, author_idx).start(ctx, owner, 60);
-
-    Ok(())
+    MedalCountPagination::builder(ranking, author_idx)
+    .start_by_update()
+        .start(ctx, CommandOrigin::Interaction { command })
+        .await
 }

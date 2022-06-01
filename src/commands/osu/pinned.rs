@@ -19,12 +19,11 @@ use crate::{
     commands::{osu::UserArgs, GameModeOption},
     core::commands::CommandOrigin,
     database::{EmbedsSize, MinimizedPp},
-    embeds::{CondensedTopEmbed, EmbedData, TopSingleEmbed},
-    pagination::{CondensedTopPagination, Pagination},
+    embeds::TopSingleEmbed,
+    pagination::TopCondensedPagination,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        numbers,
         osu::ModSelection,
         query::{FilterCriteria, Searchable},
         ApplicationCommandExt, MessageExt,
@@ -341,42 +340,11 @@ async fn paginated_embed(
 
     let farm = HashMap::new();
     let sort_by = sort_by.into();
-    let pages = numbers::div_euclid(10, scores.len());
 
-    let embed_fut = CondensedTopEmbed::new(
-        &user,
-        scores.iter().take(10),
-        &ctx,
-        sort_by,
-        &farm,
-        (1, pages),
-    );
-
-    let embed = embed_fut.await.build();
-
-    // Creating the embed
-    let mut builder = MessageBuilder::new().embed(embed);
-
-    if let Some(content) = content {
-        builder = builder.content(content);
-    }
-
-    let response_raw = orig.create_message(&ctx, &builder).await?;
-
-    // Skip pagination if too few entries
-    if scores.len() <= 10 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    let pagination =
-        CondensedTopPagination::new(response, user, scores, sort_by, farm, Arc::clone(&ctx));
-
-    pagination.start(ctx, orig.user_id()?, 60);
-
-    Ok(())
+    TopCondensedPagination::builder(Arc::clone(&ctx), user, scores, sort_by, farm)
+        .content(content.unwrap_or_default())
+        .start(ctx, orig)
+        .await
 }
 
 fn write_content(

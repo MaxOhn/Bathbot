@@ -12,15 +12,12 @@ use twilight_model::{
 };
 
 use crate::{
-    core::Context,
+    core::{commands::CommandOrigin, Context},
     custom_client::{OsuTrackerCountryDetails, OsuTrackerCountryScore},
     database::OsuData,
-    embeds::{EmbedData, OsuTrackerCountryTopEmbed},
-    pagination::{OsuTrackerCountryTopPagination, Pagination},
+    pagination::OsuTrackerCountryTopPagination,
     util::{
-        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        numbers,
         osu::ModSelection,
         query::{FilterCriteria, Searchable},
         ApplicationCommandExt, Authored, CountryCode, CowUtils,
@@ -230,28 +227,14 @@ async fn slash_countrytop(
 
     filter_scores(&ctx, &mut scores, &args, mods, name.as_deref()).await;
 
-    let pages = numbers::div_euclid(10, scores.len());
-    let initial = &scores[..scores.len().min(10)];
-    let sort = args.sort.unwrap_or_default().into();
-
-    let embed = OsuTrackerCountryTopEmbed::new(&details, initial, sort, (1, pages)).build();
-
     let content = write_content(&details.country, &args, mods, scores.len(), name);
-    let builder = MessageBuilder::new().embed(embed).content(content);
-
-    let response_raw = command.update(&ctx, &builder).await?;
-
-    if scores.len() <= 10 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
     let sort = args.sort.unwrap_or_default().into();
 
-    let pagination = OsuTrackerCountryTopPagination::new(response, details, scores, sort);
-    pagination.start(ctx, author, 60);
-
-    Ok(())
+    OsuTrackerCountryTopPagination::builder(details, scores, sort)
+        .content(content)
+        .start_by_update()
+        .start(ctx, CommandOrigin::Interaction { command })
+        .await
 }
 
 async fn filter_scores(

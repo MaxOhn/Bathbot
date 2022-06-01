@@ -9,12 +9,12 @@ use twilight_model::{application::interaction::ApplicationCommand, id::Id};
 
 use crate::{
     commands::{osu::UserValue, GameModeOption},
-    embeds::{EmbedData, RankingEmbed, RankingEntry, RankingKindData},
+    embeds::{RankingEntry, RankingKindData},
     games::hl::{GameState, HlComponents, HlVersion},
-    pagination::{Pagination, RankingPagination},
+    pagination::RankingPagination,
     util::{
-        builder::MessageBuilder, constants::GENERAL_ISSUE, numbers, ApplicationCommandExt,
-        Authored, MessageExt,
+        builder::MessageBuilder, constants::GENERAL_ISSUE, ApplicationCommandExt, Authored,
+        MessageExt,
     },
     BotResult, Context,
 };
@@ -181,28 +181,11 @@ async fn higherlower_leaderboard(
         users.insert(i, entry);
     }
 
-    // Prepare initial page
     let total = scores.len();
-    let pages = numbers::div_euclid(20, total);
     let data = RankingKindData::HlScores { scores, version };
 
-    // Creating the embed
-    let embed_data = RankingEmbed::new(&users, &data, author_idx, (1, pages));
-    let builder = embed_data.build().into();
-    let response_raw = command.update(&ctx, &builder).await?;
-
-    // Skip pagination if too few entries
-    if total <= 20 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    let pagination =
-        RankingPagination::new(response, Arc::clone(&ctx), total, users, author_idx, data);
-
-    pagination.start(ctx, author, 60);
-
-    Ok(())
+    RankingPagination::builder(Arc::clone(&ctx), users, total, author_idx, data)
+    .start_by_update()
+        .start(ctx, command.into())
+        .await
 }

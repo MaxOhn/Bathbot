@@ -4,6 +4,7 @@ use command_macros::EmbedData;
 
 use crate::{
     custom_client::OsuTrackerMapperEntry,
+    pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         numbers::with_comma_int,
@@ -18,15 +19,11 @@ pub struct OsuTrackerMappersEmbed {
 }
 
 impl OsuTrackerMappersEmbed {
-    pub fn new(entries: &[OsuTrackerMapperEntry], (page, pages): (usize, usize)) -> Self {
+    pub fn new(entries: &[OsuTrackerMapperEntry], pages: &Pages) -> Self {
         let author = AuthorBuilder::new("Most common mappers in top plays")
             .url("https://osutracker.com/stats");
 
-        let footer_text =
-            format!("Page {page}/{pages} • Data originates from https://osutracker.com");
-        let footer = FooterBuilder::new(footer_text);
-
-        let idx = (page - 1) * 20 + 1;
+        let idx = pages.index + 1;
         let mut sizes = Sizes::default();
 
         for (entry, i) in entries.iter().take(10).zip(idx..) {
@@ -79,6 +76,13 @@ impl OsuTrackerMappersEmbed {
         }
 
         description.pop();
+
+        let page = pages.curr_page();
+        let pages = pages.last_page();
+
+        let footer_text =
+            format!("Page {page}/{pages} • Data originates from https://osutracker.com");
+        let footer = FooterBuilder::new(footer_text);
 
         Self {
             author,

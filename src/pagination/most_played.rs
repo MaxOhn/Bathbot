@@ -1,43 +1,21 @@
-use super::{Pages, Pagination};
-
-use crate::{embeds::MostPlayedEmbed, BotResult};
-
-use command_macros::BasePagination;
+use command_macros::pagination;
 use rosu_v2::prelude::{MostPlayedMap, User};
-use twilight_model::channel::Message;
+use twilight_model::channel::embed::Embed;
 
-#[derive(BasePagination)]
-#[pagination(no_multi)]
+use crate::embeds::{EmbedData, MostPlayedEmbed};
+
+use super::Pages;
+
+#[pagination(per_page = 10, entries = "maps")]
 pub struct MostPlayedPagination {
-    msg: Message,
-    pages: Pages,
-    user: Box<User>,
+    user: User,
     maps: Vec<MostPlayedMap>,
 }
 
 impl MostPlayedPagination {
-    pub fn new(msg: Message, user: User, maps: Vec<MostPlayedMap>) -> Self {
-        Self {
-            msg,
-            pages: Pages::new(10, maps.len()),
-            user: Box::new(user),
-            maps,
-        }
-    }
-}
+    pub fn build_page(&mut self, pages: &Pages) -> Embed {
+        let maps = self.maps.iter().skip(pages.index).take(pages.per_page);
 
-#[async_trait]
-impl Pagination for MostPlayedPagination {
-    type PageData = MostPlayedEmbed;
-
-    async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        Ok(MostPlayedEmbed::new(
-            &*self.user,
-            self.maps
-                .iter()
-                .skip(self.pages.index)
-                .take(self.pages.per_page),
-            (self.page(), self.pages.total_pages),
-        ))
+        MostPlayedEmbed::new(&self.user, maps, pages).build()
     }
 }

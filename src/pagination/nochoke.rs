@@ -1,18 +1,19 @@
 use std::sync::Arc;
 
-use command_macros::BasePagination;
+use command_macros::pagination;
 use rosu_v2::prelude::{Score, User};
-use twilight_model::channel::Message;
+use twilight_model::channel::embed::Embed;
 
-use crate::{core::Context, embeds::NoChokeEmbed, BotResult};
+use crate::{
+    core::Context,
+    embeds::{EmbedData, NoChokeEmbed},
+};
 
-use super::{Pages, Pagination};
+use super::Pages;
 
-#[derive(BasePagination)]
+#[pagination(per_page = 5, entries = "scores")]
 pub struct NoChokePagination {
     ctx: Arc<Context>,
-    msg: Message,
-    pages: Pages,
     user: User,
     scores: Vec<(usize, Score, Score)>,
     unchoked_pp: f32,
@@ -20,43 +21,18 @@ pub struct NoChokePagination {
 }
 
 impl NoChokePagination {
-    pub fn new(
-        msg: Message,
-        user: User,
-        scores: Vec<(usize, Score, Score)>,
-        unchoked_pp: f32,
-        rank: Option<usize>,
-        ctx: Arc<Context>,
-    ) -> Self {
-        Self {
-            msg,
-            pages: Pages::new(5, scores.len()),
-            user,
-            scores,
-            unchoked_pp,
-            rank,
-            ctx,
-        }
-    }
-}
+    pub async fn build_page(&mut self, pages: &Pages) -> Embed {
+        let scores = self.scores.iter().skip(pages.index).take(pages.per_page);
 
-#[async_trait]
-impl Pagination for NoChokePagination {
-    type PageData = NoChokeEmbed;
-
-    async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        let fut = NoChokeEmbed::new(
+        let embed_fut = NoChokeEmbed::new(
             &self.user,
-            self.scores
-                .iter()
-                .skip(self.pages.index)
-                .take(self.pages.per_page),
+            scores,
             self.unchoked_pp,
             self.rank,
             &self.ctx,
-            (self.page(), self.pages.total_pages),
+            pages,
         );
 
-        Ok(fut.await)
+        embed_fut.await.build()
     }
 }

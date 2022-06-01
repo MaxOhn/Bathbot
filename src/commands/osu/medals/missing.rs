@@ -9,12 +9,10 @@ use crate::{
     commands::osu::{get_user, require_link, UserArgs},
     core::commands::CommandOrigin,
     custom_client::{MedalGroup, OsekaiMedal, MEDAL_GROUPS},
-    embeds::{EmbedData, MedalsMissingEmbed},
-    pagination::{MedalsMissingPagination, Pagination},
+    pagination::MedalsMissingPagination,
     util::{
-        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
-        matcher, numbers,
+        matcher,
     },
     BotResult, Context,
 };
@@ -110,33 +108,10 @@ pub(super) async fn missing(
     medals.extend(MEDAL_GROUPS.iter().copied().map(MedalType::Group));
     medals.sort_unstable();
 
-    let limit = medals.len().min(15);
-    let pages = numbers::div_euclid(15, medals.len());
-
-    let embed_data = MedalsMissingEmbed::new(
-        &user,
-        &medals[..limit],
-        medal_count,
-        limit == medals.len(),
-        (1, pages),
-    );
-
-    // Send the embed
-    let embed = embed_data.build();
-    let builder = MessageBuilder::new().embed(embed);
-    let response_raw = orig.create_message(&ctx, &builder).await?;
-
-    // Skip pagination if too few entries
-    if medals.len() <= 15 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    MedalsMissingPagination::new(response, user, medals, medal_count).start(ctx, owner, 60);
-
-    Ok(())
+    MedalsMissingPagination::builder(user, medals, medal_count)
+    .start_by_update()
+        .start(ctx, orig)
+        .await
 }
 
 pub enum MedalType {

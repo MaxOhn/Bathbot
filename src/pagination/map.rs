@@ -1,76 +1,60 @@
 use std::sync::Arc;
 
-use command_macros::BasePagination;
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMods};
-use twilight_model::channel::Message;
+use twilight_model::channel::embed::Embed;
 
-use crate::{commands::osu::CustomAttrs, embeds::MapEmbed, BotResult};
+use crate::{
+    commands::osu::CustomAttrs,
+    embeds::{EmbedData, MapEmbed},
+    BotResult,
+};
 
-use super::{Context, Pages, Pagination};
+use super::{Context, Pages, PaginationBuilder, PaginationKind};
 
-#[derive(BasePagination)]
+// Not using #[pagination(...)] since it requires special initialization
 pub struct MapPagination {
     ctx: Arc<Context>,
-    msg: Message,
-    pages: Pages,
     mapset: Beatmapset,
     maps: Vec<Beatmap>,
     mods: GameMods,
     attrs: CustomAttrs,
-    with_thumbnail: bool,
 }
 
 impl MapPagination {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        msg: Message,
+    pub fn builder(
+        ctx: Arc<Context>,
         mapset: Beatmapset,
         maps: Vec<Beatmap>,
         mods: GameMods,
         start_idx: usize,
-        with_thumbnail: bool,
         attrs: CustomAttrs,
-        ctx: Arc<Context>,
-    ) -> Self {
+    ) -> PaginationBuilder {
         let mut pages = Pages::new(1, maps.len());
         pages.index = start_idx;
 
-        Self {
-            msg,
-            pages,
+        let pagination = Self {
+            ctx,
             mapset,
             maps,
             mods,
-            with_thumbnail,
             attrs,
-            ctx,
-        }
-    }
-}
+        };
 
-#[async_trait]
-impl Pagination for MapPagination {
-    type PageData = MapEmbed;
+        let kind = PaginationKind::Map(pagination);
 
-    async fn final_processing(mut self, ctx: &Context) -> BotResult<()> {
-        // Set maps on garbage collection list if unranked
-        for map in self.maps.iter() {
-            ctx.map_garbage_collector(map).execute(ctx);
-        }
-
-        Ok(())
+        PaginationBuilder::new(kind, pages)
     }
 
-    async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        MapEmbed::new(
-            &self.maps[self.pages.index],
+    pub async fn build_page(&mut self, pages: &Pages) -> BotResult<Embed> {
+        let embed_fut = MapEmbed::new(
+            &self.maps[pages.index],
             &self.mapset,
             self.mods,
-            self.with_thumbnail,
             &self.attrs,
             &self.ctx,
-            (self.pages.index + 1, self.maps.len()),
-        )
-        .await
+            pages,
+        );
+
+        embed_fut.await.map(EmbedData::build)
     }
 }

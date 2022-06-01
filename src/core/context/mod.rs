@@ -28,6 +28,7 @@ use crate::{
         hl::{retry::RetryState, GameState as HlGameState},
     },
     matchlive::MatchLiveChannels,
+    pagination::Pagination,
     server::AuthenticationStandby,
     tracking::OsuTracking,
     util::CountryCode,
@@ -57,6 +58,7 @@ pub struct Context {
     pub cluster: Cluster,
     pub http: Arc<Client>,
     pub member_requests: MemberRequests,
+    pub paginations: Arc<DashMap<Id<MessageMarker>, Pagination>>,
     pub standby: Standby,
     pub stats: Arc<BotStats>,
     // private to avoid deadlocks by messing up references
@@ -165,6 +167,7 @@ impl Context {
             auth_standby: AuthenticationStandby::default(),
             buckets: Buckets::new(),
             member_requests: MemberRequests::new(tx),
+            paginations: Arc::new(DashMap::new()),
         };
 
         Ok((ctx, events))
@@ -207,7 +210,7 @@ struct ContextData {
     application_id: Id<ApplicationMarker>,
     games: Games,
     guilds: FlurryMap<Id<GuildMarker>, GuildConfig>, // read-heavy
-    map_garbage_collection: Mutex<HashSet<NonZeroU32>>,
+    map_garbage_collection: Mutex<HashSet<NonZeroU32>>, // TODO: use flurry
     matchlive: MatchLiveChannels,
     msgs_to_process: DashSet<Id<MessageMarker>>,
     osu_tracking: OsuTracking,

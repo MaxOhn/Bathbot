@@ -24,8 +24,8 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     custom_client::OsuTrackerMapsetEntry,
     database::{EmbedsSize, MinimizedPp},
-    embeds::{CondensedTopEmbed, EmbedData, TopEmbed, TopSingleEmbed},
-    pagination::{CondensedTopPagination, Pagination, TopPagination},
+    embeds::TopSingleEmbed,
+    pagination::{TopCondensedPagination, TopPagination},
     tracking::process_osu_tracking,
     util::{
         builder::MessageBuilder,
@@ -1133,40 +1133,12 @@ async fn paginated_embed(
     content: Option<String>,
     farm: Farm,
 ) -> BotResult<()> {
-    let pages = numbers::div_euclid(5, scores.len());
-
-    let embed_fut = TopEmbed::new(
-        &user,
-        scores.iter().take(5),
-        &ctx,
-        sort_by,
-        &farm,
-        (1, pages),
-    );
-
-    let embed = embed_fut.await.build();
-
-    // Creating the embed
-    let mut builder = MessageBuilder::new().embed(embed);
-
-    if let Some(content) = content {
-        builder = builder.content(content);
-    }
-
-    let response_raw = orig.create_message(&ctx, &builder).await?;
-
-    // Skip pagination if too few entries
-    if scores.len() <= 5 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    let pagination = TopPagination::new(response, user, scores, sort_by, farm, Arc::clone(&ctx));
-    pagination.start(ctx, orig.user_id()?, 60);
-
-    Ok(())
+    TopPagination::builder(Arc::clone(&ctx), user, scores, sort_by, farm)
+        .content(content.unwrap_or_default())
+        .start_by_update()
+        .defer_components()
+        .start(ctx, orig)
+        .await
 }
 
 async fn condensed_paginated_embed(
@@ -1178,42 +1150,10 @@ async fn condensed_paginated_embed(
     content: Option<String>,
     farm: Farm,
 ) -> BotResult<()> {
-    let pages = numbers::div_euclid(10, scores.len());
-
-    let embed_fut = CondensedTopEmbed::new(
-        &user,
-        scores.iter().take(10),
-        &ctx,
-        sort_by,
-        &farm,
-        (1, pages),
-    );
-
-    let embed = embed_fut.await.build();
-
-    // Creating the embed
-    let mut builder = MessageBuilder::new().embed(embed);
-
-    if let Some(content) = content {
-        builder = builder.content(content);
-    }
-
-    let response_raw = orig.create_message(&ctx, &builder).await?;
-
-    // Skip pagination if too few entries
-    if scores.len() <= 10 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    let pagination =
-        CondensedTopPagination::new(response, user, scores, sort_by, farm, Arc::clone(&ctx));
-
-    pagination.start(ctx, orig.user_id()?, 60);
-
-    Ok(())
+    TopCondensedPagination::builder(Arc::clone(&ctx), user, scores, sort_by, farm)
+        .content(content.unwrap_or_default())
+        .start(ctx, orig)
+        .await
 }
 
 fn write_content(name: &str, args: &TopArgs<'_>, amount: usize) -> Option<String> {
@@ -1284,7 +1224,7 @@ fn write_content(name: &str, args: &TopArgs<'_>, amount: usize) -> Option<String
         Some(content)
     }
 }
-/// TODO should probably stick 'condensed' somewhere in here (?)
+
 fn content_with_condition(args: &TopArgs<'_>, amount: usize) -> String {
     let mut content = String::with_capacity(64);
 

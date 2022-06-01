@@ -5,6 +5,7 @@ use command_macros::EmbedData;
 use crate::{
     commands::osu::SnipeCountryListOrder,
     custom_client::SnipeCountryPlayer,
+    pagination::Pages,
     util::{
         builder::FooterBuilder,
         constants::OSU_BASE,
@@ -28,7 +29,7 @@ impl CountrySnipeListEmbed {
         order: SnipeCountryListOrder,
         players: S,
         author_idx: Option<usize>,
-        pages: (usize, usize),
+        pages: &Pages,
     ) -> Self
     where
         S: Iterator<Item = &'i (usize, SnipeCountryPlayer)>,
@@ -94,7 +95,10 @@ impl CountrySnipeListEmbed {
         }
 
         description.pop();
-        let mut footer_text = format!("Page {}/{}", pages.0, pages.1);
+
+        let page = pages.curr_page();
+        let pages = pages.last_page();
+        let mut footer_text = format!("Page {page}/{pages}");
 
         if let Some(idx) = author_idx {
             let _ = write!(footer_text, " ~ Your position: {}", idx + 1);

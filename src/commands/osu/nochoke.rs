@@ -14,14 +14,12 @@ use crate::{
     commands::osu::{get_user_and_scores, ScoreArgs, UserArgs},
     core::commands::{prefix::Args, CommandOrigin},
     custom_client::RankParam,
-    embeds::{EmbedData, NoChokeEmbed},
     error::PpError,
-    pagination::{NoChokePagination, Pagination},
+    pagination::NoChokePagination,
     tracking::process_osu_tracking,
     util::{
-        builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        matcher, numbers,
+        matcher,
         osu::prepare_beatmap_file,
         ApplicationCommandExt,
     },
@@ -292,18 +290,6 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
         }
     };
 
-    // Accumulate all necessary data
-    let pages = numbers::div_euclid(5, scores_data.len());
-    let embed_fut = NoChokeEmbed::new(
-        &user,
-        scores_data.iter().take(5),
-        unchoked_pp,
-        rank,
-        &ctx,
-        (1, pages),
-    );
-    let embed = embed_fut.await.build();
-
     let mut content = format!(
         "{version} top {mode}scores for `{name}`",
         version = match version {
@@ -326,30 +312,12 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
 
     content.push(':');
 
-    // Creating the embed
-    let builder = MessageBuilder::new().content(content).embed(embed);
-    let response_raw = orig.create_message(&ctx, &builder).await?;
-
-    // Skip pagination if too few entries
-    if scores_data.len() <= 5 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    let pagination = NoChokePagination::new(
-        response,
-        user,
-        scores_data,
-        unchoked_pp,
-        rank,
-        Arc::clone(&ctx),
-    );
-
-    pagination.start(ctx, orig.user_id()?, 90);
-
-    Ok(())
+    NoChokePagination::builder(Arc::clone(&ctx), user, scores_data, unchoked_pp, rank)
+        .content(content)
+        .start_by_update()
+        .defer_components()
+        .start(ctx, orig)
+        .await
 }
 
 async fn unchoke_scores(

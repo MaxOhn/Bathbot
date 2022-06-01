@@ -8,12 +8,11 @@ use rosu_v2::prelude::{GameMode, OsuError, Username};
 use crate::{
     commands::osu::{get_user, require_link, UserArgs},
     core::commands::CommandOrigin,
-    embeds::{EmbedData, SnipedDiffEmbed},
-    pagination::{Pagination, SnipedDiffPagination},
+    pagination::SnipedDiffPagination,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
-        matcher, numbers,
+        matcher,
     },
     BotResult, Context,
 };
@@ -189,39 +188,13 @@ async fn sniped_diff(
     }
 
     scores.sort_unstable_by_key(|s| Reverse(s.date));
+    let maps = HashMap::new();
 
-    let pages = numbers::div_euclid(5, scores.len());
-    let mut maps = HashMap::new();
-
-    let data_fut = SnipedDiffEmbed::new(&user, diff, &scores, 0, (1, pages), &mut maps, &ctx);
-
-    let embed = match data_fut.await {
-        Ok(data) => data.build(),
-        Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(err);
-        }
-    };
-
-    // Creating the embed
-    let builder = MessageBuilder::new().embed(embed);
-    let response_raw = orig.create_message(&ctx, &builder).await?;
-
-    // Skip pagination if too few entries
-    if scores.len() <= 5 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    let pagination =
-        SnipedDiffPagination::new(response, user, diff, scores, maps, Arc::clone(&ctx));
-
-    pagination.start(ctx, orig.user_id()?, 60);
-
-    Ok(())
+    SnipedDiffPagination::builder(Arc::clone(&ctx), user, diff, scores, maps)
+        .start_by_update()
+        .defer_components()
+        .start(ctx, orig)
+        .await
 }
 
 #[derive(Copy, Clone)]

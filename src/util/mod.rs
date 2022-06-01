@@ -4,11 +4,9 @@ use futures::stream::{FuturesOrdered, StreamExt};
 use image::{
     imageops::FilterType, DynamicImage, GenericImage, GenericImageView, ImageOutputFormat::Png,
 };
-use tokio::time::{sleep, Duration};
-use twilight_http::error::ErrorType;
-use twilight_model::channel::Message;
+use tokio::time::Duration;
 
-use crate::{error::Error, BotResult, Context};
+use crate::{BotResult, Context};
 
 pub use self::{
     bitflags::*, country_code::CountryCode, cow::CowUtils, emote::Emote, ext::*, matrix::Matrix,
@@ -271,39 +269,6 @@ pub async fn get_combined_thumbnail<'s>(
     combined.write_to(&mut cursor, Png)?;
 
     Ok(cursor.into_inner())
-}
-
-pub async fn send_reaction(ctx: &Context, msg: &Message, emote: Emote) -> BotResult<()> {
-    let channel = msg.channel_id;
-    let msg = msg.id;
-    let emoji = &emote.request_reaction_type();
-
-    // Initial attempt, return if it's not a 429
-    match ctx.http.create_reaction(channel, msg, emoji).exec().await {
-        Ok(_) => return Ok(()),
-        Err(e) if matches!(e.kind(), ErrorType::Response { status, .. } if status.get() == 429) => {
-        }
-        Err(e) => return Err(e.into()),
-    }
-
-    const TRIES: usize = 3;
-
-    // 200ms - 1000ms - 2000ms
-    let backoff = ExponentialBackoff::new(5).factor(40).max_delay(2000);
-
-    for (duration, i) in backoff.take(TRIES).zip(1..) {
-        debug!("Send reaction retry attempt #{i} | Backoff {duration:?}");
-        sleep(duration).await;
-
-        match ctx.http.create_reaction(channel, msg, emoji).exec().await {
-            Ok(_) => return Ok(()),
-            Err(e) if matches!(e.kind(), ErrorType::Response { status, .. } if status.get() == 429) =>
-                {}
-            Err(e) => return Err(e.into()),
-        };
-    }
-
-    Err(Error::ReactionRatelimit(TRIES))
 }
 
 #[derive(Debug, Clone)]

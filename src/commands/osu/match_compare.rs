@@ -11,12 +11,12 @@ use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand,
 use twilight_model::{application::interaction::ApplicationCommand, channel::embed::Embed};
 
 use crate::{
-    core::Context,
+    core::{commands::CommandOrigin, Context},
     embeds::{EmbedData, MatchCompareMapEmbed, MatchCompareSummaryEmbed},
-    pagination::{MatchComparePagination, Pagination},
+    pagination::MatchComparePagination,
     util::{
         builder::MessageBuilder, constants::OSU_API_ISSUE, matcher, ApplicationCommandExt,
-        Authored, ChannelExt, CowUtils, ScoreExt,
+        ChannelExt, CowUtils, ScoreExt,
     },
     BotResult,
 };
@@ -178,13 +178,10 @@ async fn matchcompare(
             }
         }
         MatchCompareOutput::Paginated => {
-            if let Some(embed) = embeds.first().cloned() {
-                let builder = MessageBuilder::new().embed(embed);
-                let response_raw = command.update(&ctx, &builder).await?;
-                let response = response_raw.model().await?;
-
-                MatchComparePagination::new(response, embeds).start(ctx, command.user_id()?, 60);
-            }
+            return MatchComparePagination::builder(embeds)
+            .start_by_update()
+                .start(ctx, CommandOrigin::Interaction { command })
+                .await
         }
     }
 

@@ -1,62 +1,34 @@
 use std::{collections::BTreeMap, iter::Extend, sync::Arc};
 
-use command_macros::BasePagination;
+use command_macros::pagination;
 use rosu_v2::model::user::User;
-use twilight_model::channel::Message;
+use twilight_model::channel::embed::Embed;
 
 use crate::{
     custom_client::{OsuStatsParams, OsuStatsScore},
-    embeds::OsuStatsGlobalsEmbed,
+    embeds::{EmbedData, OsuStatsGlobalsEmbed},
     BotResult, Context,
 };
 
-use super::{Pages, Pagination};
+use super::Pages;
 
-#[derive(BasePagination)]
+#[pagination(per_page = 5, total = "total")]
 pub struct OsuStatsGlobalsPagination {
-    msg: Message,
-    pages: Pages,
+    ctx: Arc<Context>,
     user: User,
     scores: BTreeMap<usize, OsuStatsScore>,
     total: usize,
     params: OsuStatsParams,
-    ctx: Arc<Context>,
 }
 
 impl OsuStatsGlobalsPagination {
-    pub fn new(
-        ctx: Arc<Context>,
-        msg: Message,
-        user: User,
-        scores: BTreeMap<usize, OsuStatsScore>,
-        total: usize,
-        params: OsuStatsParams,
-    ) -> Self {
-        Self {
-            pages: Pages::new(5, total),
-            msg,
-            user,
-            scores,
-            total,
-            params,
-            ctx,
-        }
-    }
-}
-
-#[async_trait]
-impl Pagination for OsuStatsGlobalsPagination {
-    type PageData = OsuStatsGlobalsEmbed;
-
-    async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        let entries = self
-            .scores
-            .range(self.pages.index..self.pages.index + self.pages.per_page);
+    pub async fn build_page(&mut self, pages: &Pages) -> BotResult<Embed> {
+        let entries = self.scores.range(pages.index..pages.index + pages.per_page);
 
         let count = entries.count();
 
-        if count < self.pages.per_page && self.total - self.pages.index > count {
-            let osustats_page = (self.pages.index / 24) + 1;
+        if count < pages.per_page && self.total - pages.index > count {
+            let osustats_page = (pages.index / 24) + 1;
             self.params.page = osustats_page;
 
             let (scores, _) = self.ctx.client().get_global_scores(&self.params).await?;
@@ -69,14 +41,9 @@ impl Pagination for OsuStatsGlobalsPagination {
             self.scores.extend(iter);
         }
 
-        let fut = OsuStatsGlobalsEmbed::new(
-            &self.user,
-            &self.scores,
-            self.total,
-            &self.ctx,
-            (self.page(), self.pages.total_pages),
-        );
+        let embed_fut =
+            OsuStatsGlobalsEmbed::new(&self.user, &self.scores, self.total, &self.ctx, pages);
 
-        Ok(fut.await)
+        Ok(embed_fut.await.build())
     }
 }

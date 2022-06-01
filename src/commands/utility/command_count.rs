@@ -6,11 +6,7 @@ use twilight_interactions::command::CreateCommand;
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
-    core::commands::CommandOrigin,
-    embeds::{CommandCounterEmbed, EmbedData},
-    pagination::{CommandCountPagination, Pagination},
-    util::numbers,
-    BotResult, Context,
+    core::commands::CommandOrigin, pagination::CommandCountPagination, BotResult, Context,
 };
 
 #[derive(CreateCommand, SlashCommand)]
@@ -32,8 +28,6 @@ async fn prefix_commands(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 }
 
 async fn commands(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> BotResult<()> {
-    let owner = orig.user_id()?;
-
     let mut cmds: Vec<_> = ctx.stats.command_counts.message_commands.collect()[0]
         .get_metric()
         .iter()
@@ -48,26 +42,9 @@ async fn commands(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> BotResult<()> {
     cmds.sort_unstable_by(|&(_, a), &(_, b)| b.cmp(&a));
 
     // Prepare embed data
-    let boot_time = ctx.stats.start_time;
-    let sub_vec = cmds
-        .iter()
-        .take(15)
-        .map(|(name, amount)| (name, *amount))
-        .collect();
+    let booted_up = ctx.stats.start_time;
 
-    let pages = numbers::div_euclid(15, cmds.len());
-
-    // Creating the embed
-    let embed_data = CommandCounterEmbed::new(sub_vec, &boot_time, 1, (1, pages));
-    let builder = embed_data.build().into();
-    let response = orig
-        .callback_with_response(&ctx, builder)
-        .await?
-        .model()
-        .await?;
-
-    // Pagination
-    CommandCountPagination::new(&ctx, response, cmds).start(ctx, owner, 60);
-
-    Ok(())
+    CommandCountPagination::builder(booted_up, cmds)
+        .start(ctx, orig)
+        .await
 }

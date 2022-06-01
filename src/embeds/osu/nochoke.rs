@@ -7,6 +7,7 @@ use rosu_v2::prelude::{Score, User};
 use crate::{
     core::Context,
     embeds::osu,
+    pagination::Pages,
     pp::PpCalculator,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
@@ -32,7 +33,7 @@ impl NoChokeEmbed {
         unchoked_pp: f32,
         rank: Option<usize>,
         ctx: &Context,
-        pages: (usize, usize),
+        pages: &Pages,
     ) -> Self
     where
         S: Iterator<Item = &'i (usize, Score, Score)>,
@@ -92,7 +93,9 @@ impl NoChokeEmbed {
 
         let title = format!("Total pp: {pp_raw} → **{unchoked_pp}pp** (+{pp_diff})");
 
-        let mut footer_text = format!("Page {}/{}", pages.0, pages.1);
+        let page = pages.curr_page();
+        let pages = pages.last_page();
+        let mut footer_text = format!("Page {page}/{pages}");
 
         if let Some(rank) = rank {
             let _ = write!(

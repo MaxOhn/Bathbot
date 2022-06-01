@@ -5,7 +5,7 @@ use twilight_model::channel::embed::Embed;
 use crate::{
     commands::osu::MedalAchieved,
     custom_client::{OsekaiComment, OsekaiMap, OsekaiMedal},
-    embeds::{EmbedData, EmbedFields},
+    embeds::EmbedFields,
     util::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
         constants::{FIELD_VALUE_SIZE, OSU_BASE},
@@ -144,18 +144,11 @@ impl MedalEmbed {
 
     pub fn minimized(mut self) -> Embed {
         self.fields.truncate(5);
-        // TODO: Check on min > max > min > max
 
-        self.build()
+        self.maximized()
     }
 
     pub fn maximized(self) -> Embed {
-        self.build()
-    }
-}
-
-impl EmbedData for MedalEmbed {
-    fn build(self) -> Embed {
         let builder = EmbedBuilder::new()
             .fields(self.fields)
             .thumbnail(self.thumbnail)

@@ -1,52 +1,33 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use command_macros::BasePagination;
+use command_macros::pagination;
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::Beatmapset;
-use twilight_model::channel::Message;
+use twilight_model::channel::embed::Embed;
 
 use crate::{
-    commands::osu::MapsetEntry, core::Context, custom_client::OsuTrackerMapsetEntry,
-    embeds::OsuTrackerMapsetsEmbed, BotResult,
+    commands::osu::MapsetEntry,
+    core::Context,
+    custom_client::OsuTrackerMapsetEntry,
+    embeds::{EmbedData, OsuTrackerMapsetsEmbed},
+    BotResult,
 };
 
-use super::{Pages, Pagination};
+use super::Pages;
 
-#[derive(BasePagination)]
+#[pagination(per_page = 10, entries = "entries")]
 pub struct OsuTrackerMapsetsPagination {
-    msg: Message,
-    pages: Pages,
+    ctx: Arc<Context>,
     entries: Vec<OsuTrackerMapsetEntry>,
     mapsets: HashMap<u32, MapsetEntry>,
-    ctx: Arc<Context>,
 }
 
 impl OsuTrackerMapsetsPagination {
-    pub fn new(
-        ctx: Arc<Context>,
-        msg: Message,
-        entries: Vec<OsuTrackerMapsetEntry>,
-        mapsets: HashMap<u32, MapsetEntry>,
-    ) -> Self {
-        Self {
-            ctx,
-            pages: Pages::new(10, entries.len()),
-            msg,
-            entries,
-            mapsets,
-        }
-    }
-}
-
-#[async_trait]
-impl Pagination for OsuTrackerMapsetsPagination {
-    type PageData = OsuTrackerMapsetsEmbed;
-
-    async fn build_page(&mut self) -> BotResult<Self::PageData> {
-        let index = self.pages.index;
-        let entries = &self.entries[index..(index + 10).min(self.entries.len())];
+    pub async fn build_page(&mut self, pages: &Pages) -> BotResult<Embed> {
+        let idx = pages.index;
+        let entries = &self.entries[idx..self.entries.len().min(idx + pages.per_page)];
 
         for entry in entries {
             let mapset_id = entry.mapset_id;
@@ -81,10 +62,6 @@ impl Pagination for OsuTrackerMapsetsPagination {
             self.mapsets.insert(mapset_id, entry);
         }
 
-        let page = self.page();
-        let pages = self.pages.total_pages;
-        let embed = OsuTrackerMapsetsEmbed::new(entries, &self.mapsets, (page, pages));
-
-        Ok(embed)
+        Ok(OsuTrackerMapsetsEmbed::new(entries, &self.mapsets, pages).build())
     }
 }

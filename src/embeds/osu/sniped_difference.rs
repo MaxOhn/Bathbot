@@ -11,6 +11,7 @@ use crate::{
     custom_client::SnipeRecent,
     embeds::osu,
     error::PpError,
+    pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
@@ -36,15 +37,14 @@ impl SnipedDiffEmbed {
         user: &User,
         diff: Difference,
         scores: &[SnipeRecent],
-        start: usize,
-        pages: (usize, usize),
+        pages: &Pages,
         maps: &mut HashMap<u32, Beatmap>,
         ctx: &Context,
     ) -> BotResult<Self> {
         let mut description = String::with_capacity(512);
 
         #[allow(clippy::needless_range_loop)]
-        for idx in start..scores.len().min(start + 5) {
+        for idx in pages.index..scores.len().min(pages.index + 5) {
             let score = &scores[idx];
 
             let stars = match score.stars {
@@ -105,8 +105,8 @@ impl SnipedDiffEmbed {
 
         let footer = FooterBuilder::new(format!(
             "Page {}/{} ~ Total: {}",
-            pages.0,
-            pages.1,
+            pages.curr_page(),
+            pages.last_page(),
             scores.len()
         ));
 

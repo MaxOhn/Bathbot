@@ -73,19 +73,11 @@ pub struct ProfileEmbedMap {
 }
 
 impl ProfileEmbedMap {
-    pub fn get(&self, kind: ProfileSize) -> Option<&ProfileEmbed> {
+    pub fn entry(&mut self, kind: ProfileSize) -> &mut Option<ProfileEmbed> {
         match kind {
-            ProfileSize::Compact => self.compact.as_ref(),
-            ProfileSize::Medium => self.medium.as_ref(),
-            ProfileSize::Full => self.full.as_ref(),
-        }
-    }
-
-    pub fn insert(&mut self, kind: ProfileSize, embed: ProfileEmbed) -> &ProfileEmbed {
-        match kind {
-            ProfileSize::Compact => self.compact.insert(embed),
-            ProfileSize::Medium => self.medium.insert(embed),
-            ProfileSize::Full => self.full.insert(embed),
+            ProfileSize::Compact => &mut self.compact,
+            ProfileSize::Medium => &mut self.medium,
+            ProfileSize::Full => &mut self.full,
         }
     }
 }

@@ -10,13 +10,11 @@ use crate::{
         GameModeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
-    embeds::{EmbedData, LeaderboardEmbed},
-    pagination::{LeaderboardPagination, Pagination},
+    pagination::LeaderboardPagination,
     pp::PpCalculator,
     util::{
-        builder::MessageBuilder,
-        constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE},
-        matcher, numbers,
+        constants::{AVATAR_URL, OSU_API_ISSUE, OSU_WEB_ISSUE},
+        matcher,
         osu::ModSelection,
     },
     BotResult, Context,
@@ -100,7 +98,12 @@ async fn prefix_recenttaikoleaderboard(
 )]
 #[usage("[username] [+mods]")]
 #[example("badewanne3 +hdhr")]
-#[aliases("rclb", "rcglb", "recentctbgloballeaderboard", "recentcatchleaderboard")]
+#[aliases(
+    "rclb",
+    "rcglb",
+    "recentctbgloballeaderboard",
+    "recentcatchleaderboard"
+)]
 #[group(Catch)]
 async fn prefix_recentctbleaderboard(
     ctx: Arc<Context>,
@@ -239,7 +242,7 @@ pub(super) async fn leaderboard(
     };
 
     // Retrieve the map's leaderboard
-    let scores_fut = ctx.client().get_leaderboard(map_id,  mods, mode);
+    let scores_fut = ctx.client().get_leaderboard(map_id, mods, mode);
     let map_fut = ctx.psql().get_beatmap(map_id, true);
 
     let (scores_result, map_result) = tokio::join!(scores_fut, map_fut);
@@ -253,6 +256,8 @@ pub(super) async fn leaderboard(
                 if let Err(err) = ctx.psql().insert_beatmap(&map).await {
                     warn!("{:?}", Report::new(err));
                 }
+
+                ctx.map_garbage_collector(&map).execute(&ctx);
 
                 map
             }
@@ -295,58 +300,13 @@ pub(super) async fn leaderboard(
         .first()
         .map(|_| format!("{AVATAR_URL}{}", user.user_id));
 
-    let pages = numbers::div_euclid(10, scores.len());
-
-    let data_fut = LeaderboardEmbed::new(
-        author_name.as_deref(),
-        &map,
-        (!scores.is_empty()).then(|| scores.iter().take(10)),
-        &first_place_icon,
-        0,
-        &ctx,
-        (1, pages),
-    );
-
-    let embed_data = match data_fut.await {
-        Ok(data) => data,
-        Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(err);
-        }
-    };
-
     // Sending the embed
     let content =
         format!("I found {amount} scores with the specified mods on the map's leaderboard");
 
-    let embed = embed_data.build();
-    let builder = MessageBuilder::new().content(content).embed(embed);
-    let response_raw = orig.create_message(&ctx, &builder).await?;
-
-    // Set map on garbage collection list if unranked
-    let gb = ctx.map_garbage_collector(&map);
-
-    // Skip pagination if too few entries
-    if scores.len() <= 10 {
-        return Ok(());
-    }
-
-    let response = response_raw.model().await?;
-
-    // Pagination
-    let pagination = LeaderboardPagination::new(
-        response,
-        map,
-        scores,
-        author_name,
-        first_place_icon,
-        Arc::clone(&ctx),
-    );
-
-    gb.execute(&ctx);
-
-    pagination.start(ctx, owner, 60);
-
-    Ok(())
+    LeaderboardPagination::builder(Arc::clone(&ctx), map, scores, author_name, first_place_icon)
+        .start_by_update()
+        .content(content)
+        .start(ctx, orig)
+        .await
 }
