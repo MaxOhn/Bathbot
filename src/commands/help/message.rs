@@ -222,8 +222,6 @@ async fn description(ctx: &Context, guild_id: Option<Id<GuildMarker>>) -> String
         - If you want to specify an argument, e.g. a username, that contains \
         spaces, you must encapsulate it with `\"` i.e. `\"nathan on osu\"`.\n\
         - If you've used the `/link` command to connect to an osu! account, you can omit the username for any command that needs one.\n\
-        - With the arrow reactions you can scroll through pages e.g. check an earlier play than the most recent one. \
-        Note that generally only reactions of the response invoker (user who used command) will be processed.\n\
         - ~~`Strikethrough`~~ commands indicate that either you can't use them in DMs or \
         you lack authority status in the server.\n\
         - If you have questions, complains, or suggestions for the bot, feel free to join its \

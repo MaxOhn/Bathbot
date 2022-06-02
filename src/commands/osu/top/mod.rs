@@ -767,7 +767,8 @@ pub(super) async fn top(
 
         let content = format!(
             "`{prefix}{cmd}{mode_long} -i / -p`? \
-            Try putting the number right after the command, e.g. `{prefix}{cmd}{mode_long}42`, or use the arrow reactions.",
+            Try putting the number right after the command, e.g. \
+            `{prefix}{cmd}{mode_long}42`, or use the pagination buttons.",
         );
 
         return orig.error(&ctx, content).await;

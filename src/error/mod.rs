@@ -80,8 +80,6 @@ pub enum Error {
     ParseSlashOptions(#[from] twilight_interactions::error::ParseError),
     #[error("error while calculating pp")]
     Pp(#[from] PpError),
-    #[error("failed to send reaction after {0} retries")]
-    ReactionRatelimit(usize),
     #[error("error while communicating with redis")]
     Redis(#[from] bb8_redis::redis::RedisError),
     #[error("serde json error")]

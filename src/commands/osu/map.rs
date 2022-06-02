@@ -41,7 +41,7 @@ use super::{HasMods, ModsResult};
     The values in the map info will be adjusted to mods.\n\
     Since discord does not allow images to be adjusted when editing messages, \
     the strain graph always belongs to the initial map, even after moving to \
-    other maps of the set through the arrow reactions."
+    other maps of the set through the pagination buttons."
 )]
 /// Display a bunch of stats about a map(set)
 pub struct Map<'a> {

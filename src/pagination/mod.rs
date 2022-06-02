@@ -1,5 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
+use eyre::Report;
 use tokio::{
     sync::watch::{self, Receiver, Sender},
     time::sleep,
@@ -252,7 +253,8 @@ impl Pagination {
                             let builder = MessageBuilder::new().components(Vec::new());
 
                             if let Err(err) = (msg, channel).update(&ctx, &builder).await {
-                                eprintln!("failed to remove components: {err}");
+                                let report = Report::new(err).wrap_err("failed to remove components");
+                                warn!("{report:?}");
                             }
                         }
 
