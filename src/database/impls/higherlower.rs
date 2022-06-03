@@ -38,7 +38,7 @@ impl Database {
         }
     }
 
-    /// Caller must provide proper highscore value retrieved from [`get_higherlower_highscore`]
+    /// Caller must provide proper highscore value retrieved from [`get_higherlower_highscore`](Database::get_higherlower_highscore)
     pub async fn upsert_higherlower_highscore(
         &self,
         user_id: u64,

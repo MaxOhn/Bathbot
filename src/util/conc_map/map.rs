@@ -16,11 +16,31 @@ use super::{
     guard::Guard, key::MultMapKey, AsyncMutex, AsyncRwLock, MapLock, SyncMutex, SyncRwLock,
 };
 
+/// [`MultMap`] that operates on the std library's [`RwLock`](std::sync::RwLock).
 pub type SyncRwLockMap<K, V, const N: usize = 10> = MultMap<K, V, SyncRwLock, N>;
+
+/// [`MultMap`] that operates on the std library's [`Mutex`](std::sync::RwLock).
 pub type SyncMutexMap<K, V, const N: usize = 10> = MultMap<K, V, SyncMutex, N>;
+
+/// [`MultMap`] that operates on tokio's [`RwLock`](tokio::sync::RwLock).
 pub type AsyncRwLockMap<K, V, const N: usize = 10> = MultMap<K, V, AsyncRwLock, N>;
+
+/// [`MultMap`] that operates on tokio's [`Mutex`](tokio::sync::RwLock).
 pub type AsyncMutexMap<K, V, const N: usize = 10> = MultMap<K, V, AsyncMutex, N>;
 
+/// Concurrent map with a similar internal structure to DashMap.
+///
+/// However, the amount of shards for this map can be set manually
+/// and can also be locked through any locks like a sync RwLock or an async Mutex.
+///
+/// Access to the map is generally abstracted through a [`Guard`] which you get
+/// from either `MultMapKey::read` or `MultMapKey::write`.
+///
+/// # DEADLOCKS
+///
+/// Note that the map can still deadlock when you hold a write-guard and want to
+/// get another guard while both happen to fall into the same shard.
+/// So don't do that :)
 pub struct MultMap<K, V, L, const N: usize>
 where
     L: MapLock<HashMap<K, V>>,
@@ -29,38 +49,88 @@ where
 }
 
 impl<K: MultMapKey, V, const N: usize> SyncRwLockMap<K, V, N> {
+    /// Acquire read access to a shard.
+    ///
+    /// # DEADLOCKS
+    ///
+    /// While not as bad as write access, you should still try to hold this guard
+    /// as briefly as possible. If a write guard is being acquired while this guard
+    /// is being held we got ourselves a potential deadlock.
     pub fn read(&self, key: K) -> Guard<StdReadGuard<'_, HashMap<K, V>>, K, V> {
         Guard::new(self.inner[key.index::<N>()].read().unwrap(), key)
     }
 
+    /// Acquire write access to a shard.
+    ///
+    /// # DEADLOCKS
+    ///
+    /// Be sure you hold the guard as briefly as possible so that nothing deadlocks.
+    /// If any guard for the same shard is being acquired while this guard is being held, that's no bueno.
     pub fn write(&self, key: K) -> Guard<StdWriteGuard<'_, HashMap<K, V>>, K, V> {
         Guard::new(self.inner[key.index::<N>()].write().unwrap(), key)
     }
 
+    /// Check if all shards are empty.
+    ///
+    /// # DEADLOCKS
+    ///
+    /// This method will acquire read access to the shards so be sure you don't
+    /// have a write-guard lying around unless you intend to deadlock yourself.
     pub fn is_empty(&self) -> bool {
         self.inner.iter().all(|map| map.read().unwrap().is_empty())
     }
 }
 
 impl<K: MultMapKey, V, const N: usize> SyncMutexMap<K, V, N> {
+    /// Acquire sole access to a shard.
+    ///
+    /// # DEADLOCKS
+    ///
+    /// Hold the guard as briefly as possible since all other acquisations of this lock
+    /// on the same shard will block until the guard is dropped.
     pub fn lock(&self, key: K) -> Guard<StdMutexGuard<'_, HashMap<K, V>>, K, V> {
         Guard::new(self.inner[key.index::<N>()].lock().unwrap(), key)
     }
 
+    /// Check if all shards are empty.
+    ///
+    /// # DEADLOCKS
+    ///
+    /// This method will acquire read access to the shards so be sure you don't
+    /// have a write-guard lying around unless you intend to deadlock yourself.
     pub fn is_empty(&self) -> bool {
         self.inner.iter().all(|map| map.lock().unwrap().is_empty())
     }
 }
 
 impl<K: MultMapKey, V, const N: usize> AsyncRwLockMap<K, V, N> {
+    /// Acquire read access to a shard.
+    ///
+    /// # DEADLOCKS
+    ///
+    /// While not as bad as write access, you should still try to hold this guard
+    /// as briefly as possible. If a write guard is being acquired while this guard
+    /// is being held we got ourselves a potential deadlock.
     pub async fn read(&self, key: K) -> Guard<TokioReadGuard<'_, HashMap<K, V>>, K, V> {
         Guard::new(self.inner[key.index::<N>()].read().await, key)
     }
 
+    /// Acquire write access to a shard.
+    ///
+    /// # DEADLOCKS
+    ///
+    /// Be sure you hold the guard as briefly as possible so that nothing deadlocks.
+    /// If any guard for the same shard is being acquired while this guard is being held, that's no bueno.
     pub async fn write(&self, key: K) -> Guard<TokioWriteGuard<'_, HashMap<K, V>>, K, V> {
         Guard::new(self.inner[key.index::<N>()].write().await, key)
     }
 
+    /// Check if all shards are empty.
+    ///
+    /// # DEADLOCKS
+    ///
+    /// This method will acquire read access to the shards so be sure you don't
+    /// have a write-guard lying around unless you intend to deadlock yourself.
     pub async fn is_empty(&self) -> bool {
         for map in self.inner.iter() {
             if !map.read().await.is_empty() {
@@ -73,10 +143,22 @@ impl<K: MultMapKey, V, const N: usize> AsyncRwLockMap<K, V, N> {
 }
 
 impl<K: MultMapKey, V, const N: usize> AsyncMutexMap<K, V, N> {
+    /// Acquire sole access to a shard.
+    ///
+    /// # DEADLOCKS
+    ///
+    /// Hold the guard as briefly as possible since all other acquisations of this lock
+    /// on the same shard will block until the guard is dropped.
     pub async fn lock(&self, key: K) -> Guard<TokioMutexGuard<'_, HashMap<K, V>>, K, V> {
         Guard::new(self.inner[key.index::<N>()].lock().await, key)
     }
 
+    /// Check if all shards are empty.
+    ///
+    /// # DEADLOCKS
+    ///
+    /// This method will acquire read access to the shards so be sure you don't
+    /// have a write-guard lying around unless you intend to deadlock yourself.
     pub async fn is_empty(&self) -> bool {
         for map in self.inner.iter() {
             if !map.lock().await.is_empty() {

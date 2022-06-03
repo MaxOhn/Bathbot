@@ -105,7 +105,7 @@ impl GameState {
         Ok(())
     }
 
-    /// Only has an image if it is the first call after [`GameState::new`] / [`GameState::next`].
+    /// Only has an image if it is the first call after initialization / [`GameState::next`].
     pub async fn make_embed(&mut self) -> Embed {
         let image = match self.img_url_rx.take() {
             Some(rx) => match rx.await {

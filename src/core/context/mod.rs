@@ -61,7 +61,7 @@ pub struct Context {
     pub cluster: Cluster,
     pub http: Arc<Client>,
     pub member_requests: MemberRequests,
-    pub paginations: Arc<AsyncMutexMap<Id<MessageMarker>, Pagination, 10>>,
+    pub paginations: Arc<AsyncMutexMap<Id<MessageMarker>, Pagination, 16>>,
     pub standby: Standby,
     pub stats: Arc<BotStats>,
     // private to avoid deadlocks by messing up references

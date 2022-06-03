@@ -372,7 +372,7 @@ impl CustomClient {
             .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsuTrackerCountryDetails))
     }
 
-    /// Don't use this; use [`RedisCache::osutracker_stats`] instead.
+    /// Don't use this; use [`RedisCache::osutracker_stats`](crate::core::RedisCache::osutracker_stats) instead.
     pub async fn get_osutracker_stats(&self) -> ClientResult<OsuTrackerStats> {
         let url = "https://osutracker.com/api/stats";
         let bytes = self.make_get_request(url, Site::OsuTracker).await?;
@@ -381,7 +381,7 @@ impl CustomClient {
             .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsuTrackerStats))
     }
 
-    /// Don't use this; use [`RedisCache::osutracker_pp_group`] instead.
+    /// Don't use this; use [`RedisCache::osutracker_pp_group`](crate::core::RedisCache::osutracker_pp_group) instead.
     pub async fn get_osutracker_pp_group(&self, pp: u32) -> ClientResult<OsuTrackerPpGroup> {
         let url = format!("https://osutracker.com/api/stats/ppBarrier?number={pp}");
         let bytes = self.make_get_request(url, Site::OsuTracker).await?;
@@ -390,7 +390,7 @@ impl CustomClient {
             .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsuTrackerPpGroup))
     }
 
-    /// Don't use this; use [`RedisCache::osutracker_counts`] instead.
+    /// Don't use this; use [`RedisCache::osutracker_counts`](crate::core::RedisCache::osutracker_counts) instead.
     pub async fn get_osutracker_counts(&self) -> ClientResult<Vec<OsuTrackerIdCount>> {
         let url = "https://osutracker.com/api/stats/idCounts";
         let bytes = self.make_get_request(url, Site::OsuTracker).await?;
@@ -399,7 +399,7 @@ impl CustomClient {
             .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsuTrackerIdCounts))
     }
 
-    /// Don't use this; use [`RedisCache::badges`] instead.
+    /// Don't use this; use [`RedisCache::badges`](crate::core::RedisCache::badges) instead.
     pub async fn get_osekai_badges(&self) -> ClientResult<Vec<OsekaiBadge>> {
         let url = "https://osekai.net/badges/api/getBadges.php";
 
@@ -421,7 +421,7 @@ impl CustomClient {
             .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::OsekaiBadgeOwners))
     }
 
-    /// Don't use this; use [`RedisCache::medals`] instead.
+    /// Don't use this; use [`RedisCache::medals`](crate::core::RedisCache::medals) instead.
     pub async fn get_osekai_medals(&self) -> ClientResult<Vec<OsekaiMedal>> {
         let url = "https://osekai.net/medals/api/medals.php";
         let form = &[("strSearch", "")];
@@ -458,7 +458,7 @@ impl CustomClient {
         Ok(comments.0.unwrap_or_default())
     }
 
-    /// Don't use this; use [`RedisCache::osekai_ranking`] instead.
+    /// Don't use this; use [`RedisCache::osekai_ranking`](crate::core::RedisCache::osekai_ranking) instead.
     pub async fn get_osekai_ranking<R: OsekaiRanking>(&self) -> ClientResult<Vec<R::Entry>> {
         let url = "https://osekai.net/rankings/api/api.php";
         let form = &[("App", R::FORM)];
@@ -721,7 +721,7 @@ impl CustomClient {
         mods: Option<GameMods>,
         mode: GameMode,
     ) -> ClientResult<Vec<ScraperScore>> {
-        let mut scores = self._get_leaderboard(map_id,  mods).await?;
+        let mut scores = self._get_leaderboard(map_id, mods).await?;
 
         let non_mirror = mods
             .map(|mods| !mods.contains(GameMods::Mirror))
@@ -734,7 +734,7 @@ impl CustomClient {
                 Some(mods) => Some(mods | GameMods::Mirror),
             };
 
-            let mut new_scores = self._get_leaderboard(map_id,  mods).await?;
+            let mut new_scores = self._get_leaderboard(map_id, mods).await?;
             scores.append(&mut new_scores);
             scores.sort_unstable_by(|a, b| b.score.cmp(&a.score));
             let mut uniques = HashSet::with_capacity(50);
@@ -755,11 +755,11 @@ impl CustomClient {
         if mods.is_some() {
             if mode == GameMode::MNA && non_mirror {
                 let mods = mods.map(|mods| mods | GameMods::Mirror);
-                let mut new_scores = self._get_leaderboard(map_id,  mods).await?;
+                let mut new_scores = self._get_leaderboard(map_id, mods).await?;
                 scores.append(&mut new_scores);
             }
 
-            let mut new_scores = self._get_leaderboard(map_id,  mods).await?;
+            let mut new_scores = self._get_leaderboard(map_id, mods).await?;
             scores.append(&mut new_scores);
             scores.sort_unstable_by(|a, b| b.score.cmp(&a.score));
             let mut uniques = HashSet::with_capacity(50);
