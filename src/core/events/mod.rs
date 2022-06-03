@@ -113,7 +113,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResu
         Event::GiftCodeUpdate => {}
         Event::GuildCreate(e) => {
             ctx.stats.event_counts.guild_create.inc();
-            ctx.member_requests.todo_guilds.insert(e.id);
+            ctx.member_requests.todo_guilds.lock().insert(e.id);
 
             if let Err(err) = ctx.member_requests.tx.send((e.id, shard_id)) {
                 warn!("Failed to forward member request: {err}");

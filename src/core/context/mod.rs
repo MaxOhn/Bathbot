@@ -1,7 +1,6 @@
 use std::{num::NonZeroU32, sync::Arc};
 
 use bb8_redis::{bb8::Pool, RedisConnectionManager};
-use dashmap::DashSet;
 use flurry::HashMap as FlurryMap;
 use hashbrown::{HashMap, HashSet};
 use parking_lot::Mutex;
@@ -179,14 +178,14 @@ impl Context {
 
 pub struct MemberRequests {
     pub tx: UnboundedSender<(Id<GuildMarker>, u64)>,
-    pub todo_guilds: DashSet<Id<GuildMarker>>,
+    pub todo_guilds: Mutex<HashSet<Id<GuildMarker>>>,
 }
 
 impl MemberRequests {
     fn new(tx: UnboundedSender<(Id<GuildMarker>, u64)>) -> Self {
         Self {
             tx,
-            todo_guilds: DashSet::new(),
+            todo_guilds: Mutex::new(HashSet::new()),
         }
     }
 }
@@ -215,7 +214,7 @@ struct ContextData {
     guilds: FlurryMap<Id<GuildMarker>, GuildConfig>, // read-heavy
     map_garbage_collection: Mutex<HashSet<NonZeroU32>>,
     matchlive: MatchLiveChannels,
-    msgs_to_process: DashSet<Id<MessageMarker>>,
+    msgs_to_process: Mutex<HashSet<Id<MessageMarker>>>,
     osu_tracking: OsuTracking,
     role_assigns: FlurryMap<(u64, u64), AssignRoles>, // read-heavy
     snipe_countries: FlurryMap<CountryCode, String>,  // read-heavy
@@ -230,7 +229,7 @@ impl ContextData {
             guilds: psql.get_guilds().await?,
             map_garbage_collection: Mutex::new(HashSet::new()),
             matchlive: MatchLiveChannels::new(),
-            msgs_to_process: DashSet::new(),
+            msgs_to_process: Mutex::new(HashSet::new()),
             osu_tracking: OsuTracking::new(psql).await?,
             role_assigns: psql.get_role_assigns().await?,
             snipe_countries: psql.get_snipe_countries().await?,

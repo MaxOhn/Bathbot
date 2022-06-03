@@ -134,10 +134,14 @@ async fn async_main() -> Result<()> {
         info!("Processing member request queue...");
 
         while let Some((guild_id, shard_id)) = member_rx.recv().await {
-            let removed_opt = member_ctx.member_requests.todo_guilds.remove(&guild_id);
+            let removed_opt = member_ctx
+                .member_requests
+                .todo_guilds
+                .lock()
+                .remove(&guild_id);
 
             // If a guild is in the channel twice, only process the first and ignore the second
-            if removed_opt.is_none() {
+            if !removed_opt {
                 continue;
             }
 
