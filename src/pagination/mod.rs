@@ -241,6 +241,8 @@ impl Pagination {
         static MINUTE: Duration = Duration::from_secs(60);
 
         tokio::spawn(async move {
+            ctx.store_msg(msg);
+
             loop {
                 tokio::select! {
                     res = rx.changed() => if res.is_ok() {
@@ -249,7 +251,10 @@ impl Pagination {
                         return
                     },
                     _ = sleep(MINUTE) => {
-                        if ctx.paginations.lock(msg).await.remove().is_some() {
+                        let pagination_active = ctx.paginations.lock(msg).await.remove().is_some();
+                        let msg_available = ctx.remove_msg(msg);
+
+                        if pagination_active && msg_available {
                             let builder = MessageBuilder::new().components(Vec::new());
 
                             if let Err(err) = (msg, channel).update(&ctx, &builder).await {
