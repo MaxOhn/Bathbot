@@ -208,7 +208,7 @@ impl Pagination {
             tx,
         };
 
-        ctx.paginations.insert(msg, pagination);
+        ctx.paginations.lock(msg).await.insert(pagination);
 
         Ok(())
     }
@@ -249,7 +249,7 @@ impl Pagination {
                         return
                     },
                     _ = sleep(MINUTE) => {
-                        if ctx.paginations.remove(&msg).is_some() {
+                        if ctx.paginations.lock(msg).await.remove().is_some() {
                             let builder = MessageBuilder::new().components(Vec::new());
 
                             if let Err(err) = (msg, channel).update(&ctx, &builder).await {

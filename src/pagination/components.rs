@@ -34,8 +34,10 @@ pub async fn handle_pagination_component(
     component: Box<MessageComponentInteraction>,
     page_fn: fn(&mut Pages),
 ) -> BotResult<()> {
-    let (builder, defer_components) =
-        if let Some(mut pagination) = ctx.paginations.get_mut(&component.message.id) {
+    let (builder, defer_components) = {
+        let mut guard = ctx.paginations.lock(component.message.id).await;
+
+        if let Some(pagination) = guard.get_mut() {
             if !pagination.is_author(component.user_id()?) {
                 return Ok(());
             }
@@ -52,7 +54,8 @@ pub async fn handle_pagination_component(
             (pagination.build(&ctx).await, defer_components)
         } else {
             return remove_components(&ctx, &component).await;
-        };
+        }
+    };
 
     if defer_components {
         component.update(&ctx, &builder?).await?;
@@ -103,16 +106,20 @@ pub async fn handle_pagination_custom(
     ctx: Arc<Context>,
     component: Box<MessageComponentInteraction>,
 ) -> BotResult<()> {
-    let max_page = if let Some(pagination) = ctx.paginations.get(&component.message.id) {
-        if !pagination.is_author(component.user_id()?) {
-            return Ok(());
+    let max_page = {
+        let guard = ctx.paginations.lock(component.message.id).await;
+
+        if let Some(pagination) = guard.get() {
+            if !pagination.is_author(component.user_id()?) {
+                return Ok(());
+            }
+
+            pagination.reset_timeout();
+
+            pagination.pages.last_page()
+        } else {
+            return remove_components(&ctx, &component).await;
         }
-
-        pagination.reset_timeout();
-
-        pagination.pages.last_page()
-    } else {
-        return remove_components(&ctx, &component).await;
     };
 
     let placeholder = format!("Number between 1 and {max_page}");
@@ -150,33 +157,35 @@ pub async fn handle_pagination_modal(
         return Ok(());
     };
 
-    let (builder, defer_components) = if let Some(mut pagination) = modal
-        .message
-        .as_ref()
-        .and_then(|msg| ctx.paginations.get_mut(&msg.id))
-    {
-        if !pagination.is_author(modal.user_id()?) {
+    let (builder, defer_components) = if let Some(ref msg) = modal.message {
+        let mut guard = ctx.paginations.lock(msg.id).await;
+
+        if let Some(pagination) = guard.get_mut() {
+            if !pagination.is_author(modal.user_id()?) {
+                return Ok(());
+            }
+
+            let max_page = pagination.pages.last_page();
+
+            if !(1..=max_page).contains(&page) {
+                debug!("page {page} is not between 1 and {max_page}");
+
+                return Ok(());
+            }
+
+            let defer_components = pagination.defer_components;
+
+            if defer_components {
+                modal.defer(&ctx).await?;
+            }
+
+            pagination.reset_timeout();
+            pagination.pages.index = (page - 1) * pagination.pages.per_page;
+
+            (pagination.build(&ctx).await, defer_components)
+        } else {
             return Ok(());
         }
-
-        let max_page = pagination.pages.last_page();
-
-        if !(1..=max_page).contains(&page) {
-            debug!("page {page} is not between 1 and {max_page}");
-
-            return Ok(());
-        }
-
-        let defer_components = pagination.defer_components;
-
-        if defer_components {
-            modal.defer(&ctx).await?;
-        }
-
-        pagination.reset_timeout();
-        pagination.pages.index = (page - 1) * pagination.pages.per_page;
-
-        (pagination.build(&ctx).await, defer_components)
     } else {
         warn!(
             "received unexpected modal (has msg: {})",

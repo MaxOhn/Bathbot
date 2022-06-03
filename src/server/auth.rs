@@ -1,10 +1,13 @@
-use dashmap::DashMap;
 use futures::future::FutureExt;
+use hashbrown::HashMap;
 use rosu_v2::prelude::User;
 use std::{
     future::Future,
     pin::Pin,
-    sync::atomic::{AtomicU8, Ordering},
+    sync::{
+        atomic::{AtomicU8, Ordering},
+        Mutex,
+    },
     task::{Context, Poll},
     time::Duration,
 };
@@ -26,8 +29,8 @@ pub enum AuthenticationStandbyError {
 pub struct AuthenticationStandby {
     // u8 is sufficient for 256 concurrent authorization awaitings within two minutes
     current_state: AtomicU8,
-    osu: DashMap<u8, Sender<User>>,
-    twitch: DashMap<u8, Sender<TwitchUser>>,
+    osu: Mutex<HashMap<u8, Sender<User>>>,
+    twitch: Mutex<HashMap<u8, Sender<TwitchUser>>>,
 }
 
 impl AuthenticationStandby {
@@ -36,13 +39,13 @@ impl AuthenticationStandby {
         let (tx, rx) = oneshot::channel();
         let state = self.generate_state();
         let fut = Box::pin(time::timeout(DEADLINE, rx));
-        self.osu.insert(state, tx);
+        self.osu.lock().unwrap().insert(state, tx);
 
         WaitForOsuAuth { state, fut }
     }
 
     pub fn is_osu_empty(&self) -> bool {
-        self.osu.is_empty()
+        self.osu.lock().unwrap().is_empty()
     }
 
     /// Wait for a twitch channel name to be authenticated.
@@ -50,13 +53,13 @@ impl AuthenticationStandby {
         let (tx, rx) = oneshot::channel();
         let state = self.generate_state();
         let fut = Box::pin(time::timeout(DEADLINE, rx));
-        self.twitch.insert(state, tx);
+        self.twitch.lock().unwrap().insert(state, tx);
 
         WaitForTwitchAuth { state, fut }
     }
 
     pub fn is_twitch_empty(&self) -> bool {
-        self.twitch.is_empty()
+        self.twitch.lock().unwrap().is_empty()
     }
 
     fn generate_state(&self) -> u8 {
@@ -64,13 +67,13 @@ impl AuthenticationStandby {
     }
 
     pub(super) fn process_osu(&self, user: User, id: u8) {
-        if let Some((_, tx)) = self.osu.remove(&id) {
+        if let Some(tx) = self.osu.lock().unwrap().remove(&id) {
             let _ = tx.send(user);
         }
     }
 
     pub(super) fn process_twitch(&self, user: TwitchUser, id: u8) {
-        if let Some((_, tx)) = self.twitch.remove(&id) {
+        if let Some(tx) = self.twitch.lock().unwrap().remove(&id) {
             let _ = tx.send(user);
         }
     }

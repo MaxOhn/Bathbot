@@ -1,6 +1,3 @@
-mod auth;
-mod error;
-
 use std::{fmt, net::SocketAddr, sync::Arc};
 
 use eyre::Report;
@@ -28,6 +25,9 @@ pub use self::{
     auth::{AuthenticationStandby, AuthenticationStandbyError, WaitForOsuAuth, WaitForTwitchAuth},
     error::ServerError,
 };
+
+mod auth;
+mod error;
 
 pub async fn run_server(ctx: Arc<Context>, shutdown_rx: oneshot::Receiver<()>) {
     if cfg!(debug_assertions) {

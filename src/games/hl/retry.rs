@@ -50,5 +50,5 @@ pub(super) async fn await_retry(
         warn!("{report:?}");
     }
 
-    ctx.hl_retries().remove(&msg);
+    ctx.hl_retries().lock(msg).remove();
 }

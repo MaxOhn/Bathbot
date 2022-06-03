@@ -107,11 +107,11 @@ pub async fn handle_try_again(
     let user = component.user_id()?;
     let msg = component.message.id;
 
-    let available_game = ctx
-        .hl_retries()
-        .get(&msg)
-        .filter(|game| user == game.user)
-        .is_some();
+    let available_game = {
+        let guard = ctx.hl_retries().lock(msg);
+
+        guard.get().filter(|game| user == game.user).is_some()
+    };
 
     if !available_game {
         return Ok(());
@@ -119,7 +119,7 @@ pub async fn handle_try_again(
 
     let mut embeds = mem::take(&mut component.message.embeds);
 
-    let game_fut = if let Some((_, retry)) = ctx.hl_retries().remove(&msg) {
+    let game_fut = if let Some(retry) = ctx.hl_retries().lock(msg).remove() {
         let _ = retry.tx.send(());
 
         retry.game.restart(&ctx, &*component)
@@ -249,7 +249,7 @@ async fn game_over(
     let msg = game.msg;
     let channel = game.channel;
     let retry = RetryState::new(game, user, tx);
-    ctx.hl_retries().insert(msg, retry);
+    ctx.hl_retries().lock(msg).insert(retry);
     tokio::spawn(await_retry(ctx, msg, channel, rx));
 
     Ok(())

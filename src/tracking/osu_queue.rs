@@ -116,7 +116,6 @@ impl OsuTracking {
     }
 
     // ms
-    #[inline]
     pub fn set_cooldown(&self, new_cooldown: f32) -> f32 {
         let mut cooldown = self.cooldown.write();
         let result = *cooldown;
@@ -125,7 +124,6 @@ impl OsuTracking {
         result
     }
 
-    #[inline]
     pub fn reset(&self, user_id: u32, mode: GameMode) {
         let now = Utc::now();
         *self.last_date.write() = now;
@@ -152,7 +150,6 @@ impl OsuTracking {
         Ok(())
     }
 
-    #[inline]
     pub fn get_tracked(&self, user_id: u32, mode: GameMode) -> Option<(DateTime<Utc>, Channels)> {
         let entry = TrackingEntry { user_id, mode };
 
@@ -243,7 +240,6 @@ impl OsuTracking {
 
             match entry.map(|guard| guard.value().channels.is_empty()) {
                 Some(true) => {
-                    // tracking_debug!("Removing ({},{}) from tracking", user_id, mode);
                     psql.remove_osu_tracking(user_id, mode).await?;
                     self.queue.write().remove(&key);
                     self.users.remove(&key);

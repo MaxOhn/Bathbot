@@ -1,7 +1,7 @@
 use std::{num::NonZeroU32, sync::Arc};
 
 use bb8_redis::{bb8::Pool, RedisConnectionManager};
-use dashmap::{DashMap, DashSet};
+use dashmap::DashSet;
 use flurry::HashMap as FlurryMap;
 use hashbrown::{HashMap, HashSet};
 use parking_lot::Mutex;
@@ -31,7 +31,10 @@ use crate::{
     pagination::Pagination,
     server::AuthenticationStandby,
     tracking::OsuTracking,
-    util::CountryCode,
+    util::{
+        conc_map::{AsyncMutexMap, SyncMutexMap},
+        CountryCode,
+    },
     BotResult,
 };
 
@@ -58,7 +61,7 @@ pub struct Context {
     pub cluster: Cluster,
     pub http: Arc<Client>,
     pub member_requests: MemberRequests,
-    pub paginations: Arc<DashMap<Id<MessageMarker>, Pagination>>,
+    pub paginations: Arc<AsyncMutexMap<Id<MessageMarker>, Pagination, 10>>,
     pub standby: Standby,
     pub stats: Arc<BotStats>,
     // private to avoid deadlocks by messing up references
@@ -167,7 +170,7 @@ impl Context {
             auth_standby: AuthenticationStandby::default(),
             buckets: Buckets::new(),
             member_requests: MemberRequests::new(tx),
-            paginations: Arc::new(DashMap::new()),
+            paginations: Arc::new(AsyncMutexMap::default()),
         };
 
         Ok((ctx, events))
@@ -245,4 +248,4 @@ struct Games {
 
 type BgGames = RwLock<HashMap<Id<ChannelMarker>, BgGameState>>;
 type HlGames = TokioMutex<HashMap<Id<UserMarker>, HlGameState>>;
-type HlRetries = DashMap<Id<MessageMarker>, RetryState>;
+type HlRetries = SyncMutexMap<Id<MessageMarker>, RetryState, 4>;

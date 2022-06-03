@@ -13,6 +13,7 @@ pub use self::{
 };
 
 pub mod builder;
+pub mod conc_map;
 pub mod constants;
 pub mod datetime;
 pub mod matcher;
