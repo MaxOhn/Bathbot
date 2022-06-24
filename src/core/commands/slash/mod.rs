@@ -33,6 +33,7 @@ lazy_static::lazy_static! {
             Badges => BADGES_SLASH,
             Bg => BG_SLASH,
             Bws => BWS_SLASH,
+            ClaimName => CLAIMNAME_SLASH,
             Commands => COMMANDS_SLASH,
             Compare => COMPARE_SLASH,
             Config => CONFIG_SLASH,

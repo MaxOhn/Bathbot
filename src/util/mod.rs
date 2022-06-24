@@ -9,7 +9,7 @@ use tokio::time::Duration;
 use crate::{BotResult, Context};
 
 pub use self::{
-    bitflags::*, country_code::CountryCode, cow::CowUtils, emote::Emote, ext::*, matrix::Matrix,
+    bitflags::*, country_code::CountryCode, cow::CowUtils, emote::Emote, ext::*, matrix::Matrix, boyer_moore::*,
 };
 
 pub mod builder;
@@ -22,6 +22,7 @@ pub mod numbers;
 pub mod osu;
 pub mod query;
 
+mod boyer_moore;
 mod bitflags;
 mod country_code;
 mod cow;

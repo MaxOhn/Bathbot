@@ -1,6 +1,7 @@
 mod attributes;
 mod badge;
 mod bws;
+mod claim_name;
 mod common;
 mod compare;
 mod country_snipe_list;
@@ -60,7 +61,7 @@ use rosu_v2::prelude::{Beatmap, GameMode, GameMods};
 use crate::util::{datetime::sec_to_minsec, numbers::round, BeatmapExt, ScoreExt};
 
 pub use self::{
-    attributes::*, badge::*, bws::*, common::*, compare::*, country_snipe_list::*,
+    attributes::*, badge::*, bws::*, claim_name::*, common::*, compare::*, country_snipe_list::*,
     country_snipe_stats::*, fix_score::*, graph::*, leaderboard::*, map::*, map_search::*,
     match_compare::*, match_costs::*, match_live::*, medal::*, medal_stats::*, medals_common::*,
     medals_list::*, medals_missing::*, most_played::*, most_played_common::*, nochoke::*,

@@ -123,17 +123,18 @@ use crate::{
 };
 
 pub use self::{
-    attributes::*, avatar::*, badges::*, bws::*, compare::*, country_top::*, fix::*, graphs::*,
-    leaderboard::*, link::*, map::*, map_search::*, mapper::*, match_compare::*, match_costs::*,
-    match_live::*, medals::*, most_played::*, nochoke::*, osekai::*, osustats::*, pinned::*,
-    popular::*, pp::*, profile::*, rank::*, ranking::*, ratios::*, recent::*, serverleaderboard::*,
-    simulate::*, snipe::*, top::*, whatif::*,
+    attributes::*, avatar::*, badges::*, bws::*, claim_name::*, compare::*, country_top::*, fix::*,
+    graphs::*, leaderboard::*, link::*, map::*, map_search::*, mapper::*, match_compare::*,
+    match_costs::*, match_live::*, medals::*, most_played::*, nochoke::*, osekai::*, osustats::*,
+    pinned::*, popular::*, pp::*, profile::*, rank::*, ranking::*, ratios::*, recent::*,
+    serverleaderboard::*, simulate::*, snipe::*, top::*, whatif::*,
 };
 
 mod attributes;
 mod avatar;
 mod badges;
 mod bws;
+mod claim_name;
 mod compare;
 mod country_top;
 mod fix;
