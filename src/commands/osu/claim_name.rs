@@ -35,6 +35,41 @@ pub struct ClaimName {
 async fn slash_claimname(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
     let ClaimName { name } = ClaimName::from_interaction(command.input_data())?;
 
+    let content = if name.chars().count() > 15 {
+        Some(format!(
+            "Names can have at most 15 characters so your name won't be accepted"
+        ))
+    } else if let Some(c) = name
+        .chars()
+        .find(|c| !matches!(c, 'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '[' | ']' | '_' | ' '))
+    {
+        Some(format!(
+            "`{c}` is an invalid character for usernames so `{name}` won't be accepted"
+        ))
+    } else if name.len() < 3 {
+        Some(format!(
+            "Names must be at least 3 characters long so `{name}` won't be accepted"
+        ))
+    } else if name.contains('_') && name.contains(' ') {
+        Some(format!(
+            "Names may contains underscores or spaces but not both \
+            so `{name}` won't be accepted"
+        ))
+    } else if name.starts_with(' ') || name.ends_with(' ') {
+        Some(format!(
+            "Names can't start or end with spaces so `{name}` won't be accepted"
+        ))
+    } else {
+        None
+    };
+
+    if let Some(content) = content {
+        let builder = MessageBuilder::new().embed(content);
+        command.update(&ctx, &builder).await?;
+
+        return Ok(());
+    }
+
     let args = [GameMode::STD, GameMode::TKO, GameMode::CTB, GameMode::MNA]
         .map(|mode| UserArgs::new(&name, mode));
 
