@@ -206,7 +206,7 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
     let (mapper, mut user, mut scores) = match tokio::join!(mapper_fut, user_scores_fut) {
         (Ok(mapper), Ok((user, scores))) => (mapper, user, scores),
         (Err(OsuError::NotFound), _) => {
-            let content = format!("Mapper with username `{user}` was not found");
+            let content = format!("Mapper with username `{mapper}` was not found");
 
             return orig.error(&ctx, content).await;
         }
