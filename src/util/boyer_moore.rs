@@ -23,8 +23,10 @@ pub fn contains_disallowed_infix(haystack: impl Into<String>) -> bool {
         "ibdl",
     ];
 
+    const MAX_NEEDLE_LEN: usize = 9;
+
     let mut bad_chars = [0; 256];
-    let mut good_suff = [0; 9];
+    let mut good_suff = [0; MAX_NEEDLE_LEN];
 
     let mut haystack = haystack.into();
 
@@ -33,21 +35,27 @@ pub fn contains_disallowed_infix(haystack: impl Into<String>) -> bool {
     }
 
     DISALLOWED_INFIX.iter().any(|&needle| {
-        is_substring_boyer_moore::<9>(needle, &haystack, &mut bad_chars, &mut good_suff)
+        is_substring_boyer_moore::<MAX_NEEDLE_LEN>(
+            needle,
+            &haystack,
+            &mut bad_chars,
+            &mut good_suff,
+        )
     })
 }
 
-/// http://igm.univ-mlv.fr/~lecroq/string/node14.html#SECTION00140
+/// https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string-search_algorithm
 fn is_substring_boyer_moore<const MAX_NEEDLE_LEN: usize>(
     needle: &str,
     haystack: &str,
     bad_chars: &mut [usize],
     good_suff: &mut [usize],
 ) -> bool {
-    let m = needle.len();
-    let n = haystack.len();
+    let needle_len = needle.len();
+    let haystack_len = haystack.len();
 
-    if m > n {
+    // empty pattern must be considered specially
+    if needle_len == 0 || needle_len > haystack_len {
         return false;
     }
 
@@ -55,96 +63,74 @@ fn is_substring_boyer_moore<const MAX_NEEDLE_LEN: usize>(
     let haystack = haystack.as_bytes();
 
     pre_bad_char(needle, bad_chars);
-    pre_good_suff::<MAX_NEEDLE_LEN>(needle, good_suff);
+    pre_good_suff(needle, good_suff);
 
-    let mut j = 0;
+    let mut i = needle_len - 1; // haystack idx
 
-    while j <= n - m {
-        let mut i = m - 1;
+    while i < haystack_len {
+        let mut j = needle_len - 1; // needle idx
 
-        while needle[i] == haystack[i + j] {
-            if let Some(i_) = i.checked_sub(1) {
-                i = i_;
+        while haystack[i] == needle[j] {
+            if let Some(j_) = j.checked_sub(1) {
+                j = j_;
+                i -= 1;
             } else {
                 return true;
             }
         }
 
-        j += good_suff[i].max(bad_chars[haystack[i + j] as usize] + 1 + i - m);
+        let shift = good_suff[j].max(bad_chars[haystack[i] as usize]);
+        i += shift;
     }
 
     false
 }
 
-fn pre_bad_char(pat: &[u8], bad_chars: &mut [usize]) {
-    let m = pat.len();
+fn pre_bad_char(needle: &[u8], bad_chars: &mut [usize]) {
+    let needle_len = needle.len();
 
     for i in 0..256 {
-        bad_chars[i] = m;
+        bad_chars[i] = needle_len;
     }
 
-    for i in 0..pat.len() - 1 {
-        bad_chars[pat[i] as usize] = m - i - 1;
+    for i in 0..needle.len() {
+        bad_chars[needle[i] as usize] = needle_len - i - 1;
     }
 }
 
-fn pre_good_suff<const MAX_NEEDLE_LEN: usize>(pat: &[u8], good_suff: &mut [usize]) {
-    let m = pat.len();
-    let mut suff = vec![0; MAX_NEEDLE_LEN];
+// true if the suffix of `word` starting from `pos` is a prefix of `word`
+fn is_prefix(word: &[u8], pos: usize) -> bool {
+    word[..word.len() - pos] == word[pos..]
+}
 
-    suffixes(pat, &mut suff);
+// length of the longest suffix of `word` ending on `pos`
+fn suffix_len(word: &[u8], pos: usize) -> usize {
+    let word_front = word.iter().take(pos + 1).rev();
+    let word_back = word.iter().rev();
 
-    for i in 0..m {
-        good_suff[i] = m;
-    }
+    word_front
+        .zip(word_back)
+        .take_while(|(front, back)| front == back)
+        .count()
+}
 
-    let mut j = 0;
+fn pre_good_suff(needle: &[u8], good_suff: &mut [usize]) {
+    let needle_len = needle.len();
+    let mut last_prefix_idx = 1;
 
-    for i in (0..=m - 1).rev() {
-        if suff[i] == i + 1 {
-            while j < m - 1 - i {
-                if good_suff[j] == m {
-                    good_suff[j] = m - 1 - i;
-                }
-
-                j += 1;
-            }
+    for p in (0..needle_len).rev() {
+        if is_prefix(needle, p + 1) {
+            last_prefix_idx = p + 1;
         }
+
+        good_suff[p] = last_prefix_idx + (needle_len - p - 1);
     }
 
-    for i in 0..=m - 2 {
-        good_suff[m - 1 - suff[i]] = m - 1 - i;
-    }
-}
+    for p in 0..needle_len - 1 {
+        let suff_len = suffix_len(needle, p);
 
-fn suffixes(pat: &[u8], suff: &mut [usize]) {
-    let m = pat.len();
-
-    suff[m - 1] = m;
-
-    let mut g = m - 1;
-    let mut f = 0;
-
-    for i in (0..=m - 2).rev() {
-        if i > g && suff[i + m - 1 - f] < i - g {
-            suff[i] = suff[i + m - 1 - f];
-        } else {
-            if i < g {
-                g = i;
-            }
-
-            f = i;
-
-            while pat[g] == pat[g + m - 1 - f] {
-                if let Some(g_) = g.checked_sub(1) {
-                    g = g_;
-                } else {
-                    f += 1;
-                    break;
-                }
-            }
-
-            suff[i] = f - g;
+        if p < suff_len || needle[p - suff_len] != needle[needle_len - suff_len - 1] {
+            good_suff[needle_len - suff_len - 1] = needle_len + suff_len - p - 1;
         }
     }
 }
