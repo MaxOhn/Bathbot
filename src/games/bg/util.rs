@@ -1,11 +1,11 @@
 use std::collections::VecDeque;
 
-use rand::RngCore;
+use rand::Rng;
 
 use crate::database::MapsetTagWrapper;
 
 #[allow(clippy::needless_lifetimes)]
-pub async fn get_random_mapset<'m>(
+pub fn get_random_mapset<'m>(
     mapsets: &'m [MapsetTagWrapper],
     previous_ids: &mut VecDeque<u32>,
 ) -> &'m MapsetTagWrapper {
@@ -13,7 +13,7 @@ pub async fn get_random_mapset<'m>(
     let buffer_size = mapsets.len() / 2;
 
     loop {
-        let random_index = rng.next_u32() as usize % mapsets.len();
+        let random_index = rng.gen::<usize>() % mapsets.len();
         let mapset = &mapsets[random_index];
 
         if !previous_ids.contains(&mapset.mapset_id) {

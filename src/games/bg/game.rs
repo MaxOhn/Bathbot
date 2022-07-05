@@ -79,7 +79,7 @@ impl Game {
             _ => return Err(BgGameError::Mode(mapsets[0].mode)),
         }
 
-        let mapset = util::get_random_mapset(mapsets, previous_ids).await;
+        let mapset = util::get_random_mapset(mapsets, previous_ids);
         let mapset_id = mapset.mapset_id;
         debug!("Next BG mapset id: {mapset_id}");
         path.push(&mapset.filename);
