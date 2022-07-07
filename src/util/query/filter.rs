@@ -29,7 +29,7 @@ impl<'q> FilterCriteria<'q> {
 
         let mut removed = 0;
 
-        for capture in QUERY_SYNTAX_REGEX.captures_iter(query) {
+        for capture in QUERY_SYNTAX_REGEX.get().captures_iter(query) {
             let key_match = match capture.name("key") {
                 Some(key) => key,
                 None => continue,

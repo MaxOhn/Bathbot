@@ -13,7 +13,7 @@ use crate::{
     core::{
         commands::{
             checks::check_authority,
-            prefix::{PrefixCommand, PrefixCommandGroup, PREFIX_COMMANDS},
+            prefix::{PrefixCommand, PrefixCommandGroup, PrefixCommands},
         },
         Context,
     },
@@ -35,7 +35,7 @@ use super::failed_message_content;
 #[example("", "recent", "osg")]
 async fn prefix_help(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
     match args.next() {
-        Some(arg) => match PREFIX_COMMANDS.command(arg) {
+        Some(arg) => match PrefixCommands::get().command(arg) {
             Some(cmd) => command_help(ctx, msg, cmd).await,
             None => failed_help(ctx, msg, arg).await,
         },
@@ -46,7 +46,7 @@ async fn prefix_help(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Bo
 async fn failed_help(ctx: Arc<Context>, msg: &Message, name: &str) -> BotResult<()> {
     let mut seen = HashSet::new();
 
-    let dists: BTreeMap<_, _> = PREFIX_COMMANDS
+    let dists: BTreeMap<_, _> = PrefixCommands::get()
         .iter()
         .filter(|cmd| seen.insert(cmd.name()))
         .flat_map(|cmd| cmd.names.iter())
@@ -301,7 +301,7 @@ async fn dm_help(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
         "description size {size} > {DESCRIPTION_SIZE}",
     );
 
-    let mut cmds: Vec<_> = PREFIX_COMMANDS.iter().collect();
+    let mut cmds: Vec<_> = PrefixCommands::get().iter().collect();
 
     cmds.sort_unstable_by(|a, b| a.group.cmp(&b.group).then_with(|| a.name().cmp(b.name())));
     cmds.dedup_by_key(|cmd| cmd.name());

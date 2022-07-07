@@ -2,6 +2,7 @@ use crate::{util::CowUtils, Context};
 
 use chrono::FixedOffset;
 use hashbrown::HashMap;
+use once_cell::sync::OnceCell;
 use rkyv::{
     string::{ArchivedString, StringResolver},
     Archive, Deserialize as RkyvDeserialize, Fallible, Serialize, SerializeUnsized,
@@ -14,8 +15,10 @@ use std::{
     ops::Deref,
 };
 
-lazy_static::lazy_static! {
-    static ref TIMEZONES: HashMap<&'static str, i32> = {
+static TIMEZONES: OnceCell<HashMap<&'static str, i32>> = OnceCell::new();
+
+fn timezones() -> &'static HashMap<&'static str, i32> {
+    TIMEZONES.get_or_init(|| {
         const HOUR: i32 = 3600;
         const HALF_HOUR: i32 = 1800;
 
@@ -273,9 +276,13 @@ lazy_static::lazy_static! {
         map.insert("ZW", 2 * HOUR);
 
         map
-    };
+    })
+}
 
-    static ref COUNTRIES: HashMap<&'static str, SmallString<[u8; 2]>> = {
+static COUNTRIES: OnceCell<HashMap<&'static str, SmallString<[u8; 2]>>> = OnceCell::new();
+
+fn countries() -> &'static HashMap<&'static str, SmallString<[u8; 2]>> {
+    COUNTRIES.get_or_init(|| {
         let mut map = HashMap::with_capacity(300);
 
         map.insert("afghanistan", "AF".into());
@@ -545,7 +552,7 @@ lazy_static::lazy_static! {
         map.insert("zimbabwe", "ZW".into());
 
         map
-    };
+    })
 }
 
 #[derive(Clone, Debug, Deserialize, Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -553,7 +560,7 @@ pub struct CountryCode(rosu_v2::prelude::CountryCode);
 
 impl CountryCode {
     pub fn from_name(name: &str) -> Option<Self> {
-        COUNTRIES
+        countries()
             .get(name.cow_to_ascii_lowercase().as_ref())
             .cloned()
             .map(Self)
@@ -564,7 +571,7 @@ impl CountryCode {
     }
 
     pub fn timezone(&self) -> FixedOffset {
-        let offset = match TIMEZONES.get(self.0.as_str()) {
+        let offset = match timezones().get(self.0.as_str()) {
             Some(offset) => *offset,
             None => {
                 warn!("missing timezone for country code {self}");
@@ -580,30 +587,35 @@ impl CountryCode {
 impl Deref for CountryCode {
     type Target = SmallString<[u8; 2]>;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
 impl From<rosu_v2::prelude::CountryCode> for CountryCode {
+    #[inline]
     fn from(country_code: rosu_v2::prelude::CountryCode) -> Self {
         Self(country_code)
     }
 }
 
 impl From<String> for CountryCode {
+    #[inline]
     fn from(code: String) -> Self {
         Self(code.into())
     }
 }
 
 impl From<&str> for CountryCode {
+    #[inline]
     fn from(code: &str) -> Self {
         Self(code.into())
     }
 }
 
 impl<'a> From<Cow<'a, str>> for CountryCode {
+    #[inline]
     fn from(code: Cow<'a, str>) -> Self {
         match code {
             Cow::Borrowed(code) => code.into(),
@@ -613,24 +625,28 @@ impl<'a> From<Cow<'a, str>> for CountryCode {
 }
 
 impl Borrow<str> for CountryCode {
+    #[inline]
     fn borrow(&self) -> &str {
         self.0.as_str()
     }
 }
 
 impl fmt::Display for CountryCode {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
 impl PartialEq<str> for CountryCode {
+    #[inline]
     fn eq(&self, other: &str) -> bool {
         self.0.eq(other)
     }
 }
 
 impl PartialEq<String> for CountryCode {
+    #[inline]
     fn eq(&self, other: &String) -> bool {
         self.0.eq(other)
     }
@@ -640,6 +656,7 @@ impl Archive for CountryCode {
     type Archived = ArchivedString;
     type Resolver = StringResolver;
 
+    #[inline]
     unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         ArchivedString::resolve_from_str(self.0.as_str(), pos, resolver, out);
     }
@@ -650,12 +667,14 @@ where
     S: Fallible,
     str: SerializeUnsized<S>,
 {
+    #[inline]
     fn serialize(&self, s: &mut S) -> Result<Self::Resolver, S::Error> {
         ArchivedString::serialize_from_str(self.0.as_str(), s)
     }
 }
 
 impl<D: Fallible> RkyvDeserialize<CountryCode, D> for ArchivedString {
+    #[inline]
     fn deserialize(&self, _: &mut D) -> Result<CountryCode, <D as Fallible>::Error> {
         let inner = rosu_v2::prelude::CountryCode::from_str(self.as_str());
 

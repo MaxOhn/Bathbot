@@ -34,10 +34,7 @@ use tokio::{
 use twilight_model::gateway::payload::outgoing::RequestGuildMembers;
 
 use crate::{
-    core::{
-        commands::{prefix::PREFIX_COMMANDS, slash::SLASH_COMMANDS},
-        event_loop, logging, Context, CONFIG,
-    },
+    core::{commands::slash::SlashCommands, event_loop, logging, Context, CONFIG},
     database::Database,
     error::Error,
 };
@@ -72,8 +69,7 @@ async fn async_main() -> Result<()> {
     let ctx = Arc::new(ctx);
 
     // Initialize commands
-    PREFIX_COMMANDS.init();
-    let slash_commands = SLASH_COMMANDS.collect();
+    let slash_commands = SlashCommands::get().collect();
     info!("Setting {} slash commands...", slash_commands.len());
 
     // info!("Defining: {slash_commands:#?}");

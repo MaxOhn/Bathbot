@@ -8,7 +8,7 @@ use twilight_model::application::{
 
 use crate::{
     core::{
-        commands::slash::{SlashCommand, SLASH_COMMANDS},
+        commands::slash::{SlashCommand, SlashCommands},
         Context,
     },
     error::InvalidHelpState,
@@ -187,7 +187,7 @@ fn continue_subcommand(title: &mut String, name: &str) -> PartResult {
     let mut names = title.split(' ');
     let base = names.next().ok_or(InvalidHelpState::MissingTitle)?;
 
-    let command = SLASH_COMMANDS
+    let command = SlashCommands::get()
         .command(base)
         .ok_or(InvalidHelpState::UnknownCommand)?;
 
@@ -215,7 +215,7 @@ fn backtrack_subcommand(title: &mut String) -> PartResult {
     let mut names = title.split(' ').take(index);
     let base = names.next().ok_or(InvalidHelpState::MissingTitle)?;
 
-    let command = SLASH_COMMANDS
+    let command = SlashCommands::get()
         .command(base)
         .ok_or(InvalidHelpState::UnknownCommand)?;
 

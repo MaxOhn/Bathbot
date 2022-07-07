@@ -16,7 +16,7 @@ use twilight_model::{
 
 use crate::{
     core::{
-        commands::slash::{SlashCommand, SLASH_COMMANDS},
+        commands::slash::{SlashCommand, SlashCommands},
         Context,
     },
     util::{
@@ -58,7 +58,7 @@ pub async fn handle_help_autocomplete(
         Some(name) => {
             let arg = name.trim();
 
-            match (arg, SLASH_COMMANDS.descendants(arg)) {
+            match (arg, SlashCommands::get().descendants(arg)) {
                 ("", _) | (_, None) => Vec::new(),
                 (_, Some(cmds)) => cmds
                     .map(|cmd| CommandOptionChoice::String {
@@ -91,10 +91,10 @@ async fn slash_help(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> 
     let args = Help::from_interaction(command.input_data())?;
 
     match args.command {
-        Some(name) => match SLASH_COMMANDS.command(&name) {
+        Some(name) => match SlashCommands::get().command(&name) {
             Some(cmd) => help_slash_command(&ctx, command, cmd).await,
             None => {
-                let dists: BTreeMap<_, _> = SLASH_COMMANDS
+                let dists: BTreeMap<_, _> = SlashCommands::get()
                     .names()
                     .map(|cmd| (levenshtein_distance(&name, cmd).0, cmd))
                     .filter(|(dist, _)| *dist < 5)

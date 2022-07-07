@@ -23,7 +23,6 @@ hyper = { version = "0.14", default-features = false, features = ["server"] }
 hyper-rustls = { version = "0.23", default-features = false, features = ["http1", "tls12", "tokio-runtime", "webpki-tokio"] }
 image = { version = "0.23", default-features = false, features = ["gif", "png"] }
 itertools = { version = "0.10" }
-lazy_static = { version = "1.0" }
 leaky-bucket-lite = { version = "0.5", features = ["parking_lot"] }
 once_cell = { version = "1.0" }
 parking_lot = { version = "0.12", default-features = false }

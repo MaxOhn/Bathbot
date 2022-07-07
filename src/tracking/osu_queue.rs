@@ -6,6 +6,7 @@ use std::{
 use chrono::{DateTime, Duration, Utc};
 use dashmap::DashMap;
 use hashbrown::hash_map::{DefaultHashBuilder, HashMap};
+use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
 use priority_queue::PriorityQueue;
 use rosu_v2::model::GameMode;
@@ -19,8 +20,10 @@ pub use super::{osu_tracking_loop, process_osu_tracking};
 
 pub const OSU_TRACKING_COOLDOWN: f32 = 5000.0; // ms
 
-lazy_static::lazy_static! {
-    pub static ref OSU_TRACKING_INTERVAL: Duration = Duration::minutes(120);
+static OSU_TRACKING_INTERVAL: OnceCell<Duration> = OnceCell::new();
+
+pub fn default_tracking_interval() -> Duration {
+    *OSU_TRACKING_INTERVAL.get_or_init(|| Duration::minutes(120))
 }
 
 type TrackingQueue =
@@ -81,7 +84,7 @@ impl OsuTracking {
             users,
             last_date: RwLock::new(Utc::now()),
             cooldown: RwLock::new(OSU_TRACKING_COOLDOWN),
-            interval: RwLock::new(*OSU_TRACKING_INTERVAL),
+            interval: RwLock::new(default_tracking_interval()),
             stop_tracking: AtomicBool::new(false),
         })
     }

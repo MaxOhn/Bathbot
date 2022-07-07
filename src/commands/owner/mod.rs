@@ -5,7 +5,7 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{application::interaction::ApplicationCommand, channel::Attachment};
 
 use crate::{
-    tracking::{OSU_TRACKING_COOLDOWN, OSU_TRACKING_INTERVAL},
+    tracking::{default_tracking_interval, OSU_TRACKING_COOLDOWN},
     util::{builder::MessageBuilder, ApplicationCommandExt},
     BotResult, Context,
 };
@@ -117,7 +117,7 @@ async fn slash_owner(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) ->
         Owner::Tracking(OwnerTracking::Interval(interval)) => {
             let secs = interval
                 .number
-                .unwrap_or_else(|| OSU_TRACKING_INTERVAL.num_seconds());
+                .unwrap_or_else(|| default_tracking_interval().num_seconds());
 
             trackinginterval(ctx, command, secs).await
         }

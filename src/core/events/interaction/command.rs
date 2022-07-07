@@ -7,7 +7,7 @@ use crate::{
     core::{
         commands::{
             checks::{check_authority, check_ratelimit},
-            slash::{SlashCommand, SLASH_COMMANDS},
+            slash::{SlashCommand, SlashCommands},
         },
         events::{log_command, ProcessResult},
         Context, CONFIG,
@@ -22,7 +22,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: Box<ApplicationComma
     log_command(&ctx, &*command, &name);
     ctx.stats.increment_slash_command(&name);
 
-    let slash = match SLASH_COMMANDS.command(&name) {
+    let slash = match SlashCommands::get().command(&name) {
         Some(slash) => slash,
         None => return error!("unknown slash command `{name}`"),
     };
