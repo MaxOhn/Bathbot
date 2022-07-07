@@ -754,7 +754,7 @@ fn calculate_pp(
     let mods = score.mods.bits();
 
     match map.mode {
-        Mode::STD => OsuPP::new(map)
+        Mode::Osu => OsuPP::new(map)
             .attributes(attributes)
             .mods(mods)
             .combo(score.max_combo as usize)
@@ -764,13 +764,13 @@ fn calculate_pp(
             .misses(score.statistics.count_miss as usize)
             .calculate()
             .into(),
-        Mode::MNA => ManiaPP::new(map)
+        Mode::Mania => ManiaPP::new(map)
             .attributes(attributes)
             .mods(mods)
             .score(score.score)
             .calculate()
             .into(),
-        Mode::CTB => CatchPP::new(map)
+        Mode::Catch => CatchPP::new(map)
             .attributes(attributes)
             .mods(mods)
             .combo(score.max_combo as usize)
@@ -780,7 +780,7 @@ fn calculate_pp(
             .accuracy(score.accuracy as f64)
             .calculate()
             .into(),
-        Mode::TKO => TaikoPP::new(map)
+        Mode::Taiko => TaikoPP::new(map)
             .attributes(attributes)
             .combo(score.max_combo as usize)
             .mods(mods)

@@ -120,29 +120,7 @@ fn get_pp_stars(
     );
 
     if max_pp.is_none() {
-        let result: PerformanceAttributes = match map.mode {
-            Mode::STD => OsuPP::new(map)
-                .mods(bits)
-                .attributes(attributes)
-                .calculate()
-                .into(),
-            Mode::MNA => ManiaPP::new(map)
-                .mods(bits)
-                .attributes(attributes)
-                .calculate()
-                .into(),
-            Mode::CTB => CatchPP::new(map)
-                .mods(bits)
-                .attributes(attributes)
-                .calculate()
-                .into(),
-            Mode::TKO => TaikoPP::new(map)
-                .mods(bits)
-                .attributes(attributes)
-                .calculate()
-                .into(),
-        };
-
+        let result = map.pp().mods(bits).attributes(attributes).calculate();
         max_pp.replace(result.pp() as f32);
         attributes = result.into();
     }
@@ -157,7 +135,7 @@ fn get_pp_stars(
         let passed = score.total_hits() as usize;
 
         pp = match map.mode {
-            Mode::STD => OsuPP::new(map)
+            Mode::Osu => OsuPP::new(map)
                 .mods(bits)
                 .misses(score.statistics.count_miss as usize)
                 .n300(score.statistics.count_300 as usize)
@@ -167,13 +145,13 @@ fn get_pp_stars(
                 .passed_objects(passed)
                 .calculate()
                 .pp() as f32,
-            Mode::MNA => ManiaPP::new(map)
+            Mode::Mania => ManiaPP::new(map)
                 .mods(bits)
                 .score(score.score)
                 .passed_objects(passed)
                 .calculate()
                 .pp() as f32,
-            Mode::CTB => CatchPP::new(map)
+            Mode::Catch => CatchPP::new(map)
                 .mods(bits)
                 .misses(score.statistics.count_miss as usize)
                 .combo(score.max_combo as usize)
@@ -184,7 +162,7 @@ fn get_pp_stars(
                 .passed_objects(passed - score.statistics.count_katu as usize)
                 .calculate()
                 .pp() as f32,
-            Mode::TKO => TaikoPP::new(map)
+            Mode::Taiko => TaikoPP::new(map)
                 .mods(bits)
                 .misses(score.statistics.count_miss as usize)
                 .combo(score.max_combo as usize)
@@ -196,7 +174,7 @@ fn get_pp_stars(
         };
     } else {
         let result: PerformanceAttributes = match map.mode {
-            Mode::STD => OsuPP::new(map)
+            Mode::Osu => OsuPP::new(map)
                 .mods(bits)
                 .attributes(attributes)
                 .misses(score.statistics.count_miss as usize)
@@ -206,13 +184,13 @@ fn get_pp_stars(
                 .combo(score.max_combo as usize)
                 .calculate()
                 .into(),
-            Mode::MNA => ManiaPP::new(map)
+            Mode::Mania => ManiaPP::new(map)
                 .mods(bits)
                 .attributes(attributes)
                 .score(score.score)
                 .calculate()
                 .into(),
-            Mode::CTB => CatchPP::new(map)
+            Mode::Catch => CatchPP::new(map)
                 .mods(bits)
                 .attributes(attributes)
                 .misses(score.statistics.count_miss as usize)
@@ -223,7 +201,7 @@ fn get_pp_stars(
                 .tiny_droplet_misses(score.statistics.count_katu as usize)
                 .calculate()
                 .into(),
-            Mode::TKO => TaikoPP::new(map)
+            Mode::Taiko => TaikoPP::new(map)
                 .mods(bits)
                 .attributes(attributes)
                 .misses(score.statistics.count_miss as usize)

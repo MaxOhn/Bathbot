@@ -3,8 +3,7 @@ use std::fmt::Write;
 use chrono::{DateTime, Utc};
 use command_macros::EmbedData;
 use rosu_pp::{
-    Beatmap as Map, BeatmapExt, CatchPP, GameMode as Mode, ManiaPP, Mods, OsuPP,
-    PerformanceAttributes, TaikoPP,
+    AnyPP, Beatmap as Map, BeatmapExt, GameMode as Mode, ManiaPP, Mods, PerformanceAttributes,
 };
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods};
 
@@ -135,30 +134,17 @@ impl MapEmbed {
 
         for &acc in ACCS.iter() {
             let pp_result: PerformanceAttributes = match rosu_map.mode {
-                Mode::STD => OsuPP::new(&rosu_map)
-                    .mods(mod_bits)
-                    .attributes(attributes)
-                    .accuracy(acc as f64)
-                    .calculate()
-                    .into(),
-                Mode::MNA => ManiaPP::new(&rosu_map)
+                Mode::Mania => ManiaPP::new(&rosu_map)
                     .mods(mod_bits)
                     .attributes(attributes)
                     .score(acc_to_score(mod_mult, acc) as u32)
                     .calculate()
                     .into(),
-                Mode::CTB => CatchPP::new(&rosu_map)
+                _ => AnyPP::new(&rosu_map)
                     .mods(mod_bits)
                     .attributes(attributes)
                     .accuracy(acc as f64)
-                    .calculate()
-                    .into(),
-                Mode::TKO => TaikoPP::new(&rosu_map)
-                    .mods(mod_bits)
-                    .attributes(attributes)
-                    .accuracy(acc as f64)
-                    .calculate()
-                    .into(),
+                    .calculate(),
             };
 
             let pp = pp_result.pp();
@@ -176,7 +162,7 @@ impl MapEmbed {
         let mut pp_values = String::with_capacity(128);
         let mut lens = Vec::with_capacity(ACCS.len());
 
-        if rosu_map.mode == Mode::MNA {
+        if rosu_map.mode == Mode::Mania {
             pp_values.push_str("```\n    ");
 
             for (pp, &acc) in pps.iter().zip(&ACCS) {

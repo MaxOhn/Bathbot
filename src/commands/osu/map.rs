@@ -11,7 +11,7 @@ use plotters::{
     prelude::*,
 };
 use plotters_backend::{BackendColor, BackendCoord, BackendStyle, DrawingErrorKind};
-use rosu_pp::{Beatmap, BeatmapExt};
+use rosu_pp::{Beatmap, BeatmapExt, Strains};
 use rosu_v2::prelude::{GameMode, GameMods, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
@@ -422,17 +422,60 @@ async fn strain_values(ctx: &Context, map_id: u32, mods: GameMods) -> BotResult<
     let map_path = prepare_beatmap_file(ctx, map_id).await?;
     let map = Beatmap::from_path(map_path).await.map_err(PpError::from)?;
     let strains = map.strains(mods.bits());
-    let section_len = strains.section_length;
+    let section_len = strains.section_len();
 
-    let strains = strains
-        .strains
-        .into_iter()
-        .scan(0.0, |time, strain| {
-            *time += section_len;
+    let strains: Vec<(f64, f64)> = match strains {
+        Strains::Catch(strains) => strains
+            .movement
+            .into_iter()
+            .scan(0.0, |time, strain| {
+                *time += section_len;
 
-            Some((*time, strain))
-        })
-        .collect();
+                Some((*time, strain))
+            })
+            .collect(),
+        Strains::Mania(strains) => strains
+            .strains
+            .into_iter()
+            .scan(0.0, |time, strain| {
+                *time += section_len;
+
+                Some((*time, strain))
+            })
+            .collect(),
+        Strains::Osu(strains) => {
+            let skill_count = (3 - mods.contains(GameMods::Relax) as usize
+                + mods.contains(GameMods::Flashlight) as usize)
+                as f64;
+
+            strains
+                .aim
+                .into_iter()
+                .zip(strains.aim_no_sliders)
+                .zip(strains.speed)
+                .zip(strains.flashlight)
+                .map(|(((a, b), c), d)| (a + b + c + d) / skill_count)
+                .scan(0.0, |time, strain| {
+                    *time += section_len;
+
+                    Some((*time, strain))
+                })
+                .collect()
+        }
+        Strains::Taiko(strains) => strains
+            .color
+            .into_iter()
+            .zip(strains.rhythm)
+            .zip(strains.stamina_left)
+            .zip(strains.stamina_right)
+            .map(|(((a, b), c), d)| (a + b + c + d) / 4.0)
+            .scan(0.0, |time, strain| {
+                *time += section_len;
+
+                Some((*time, strain))
+            })
+            .collect(),
+    };
 
     Ok(strains)
 }
