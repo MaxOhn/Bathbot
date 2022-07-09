@@ -1,6 +1,5 @@
 use std::{borrow::Cow, fmt::Write};
 
-use chrono::Utc;
 use rosu_pp::{
     Beatmap as Map, BeatmapExt, CatchPP, DifficultyAttributes, GameMode as Mode, ManiaPP, OsuPP,
     PerformanceAttributes, TaikoPP,
@@ -8,6 +7,7 @@ use rosu_pp::{
 use rosu_v2::prelude::{
     Beatmap, BeatmapsetCompact, GameMode, GameMods, Grade, Score, ScoreStatistics,
 };
+use time::OffsetDateTime;
 use twilight_model::channel::embed::Embed;
 
 use crate::{
@@ -195,7 +195,7 @@ impl SimulateEmbed {
     ) -> BotResult<Self> {
         let is_some = args.is_some();
 
-        let title = if map.mode == GameMode::MNA {
+        let title = if map.mode == GameMode::Mania {
             format!(
                 "{} {} - {} [{}]",
                 osu::get_keys(GameMods::default(), map),
@@ -214,7 +214,7 @@ impl SimulateEmbed {
                 PpCalculator::new(ctx, map.map_id).await?.score(s).pp() as f32
             };
 
-            let prev_combo = (map.mode == GameMode::STD).then(|| s.max_combo);
+            let prev_combo = (map.mode == GameMode::Osu).then(|| s.max_combo);
             let prev_hits = Some(s.hits_string(map.mode));
 
             (
@@ -254,12 +254,12 @@ impl SimulateEmbed {
         let hits = unchoked_score.hits_string(map.mode);
 
         let (combo, acc) = match map.mode {
-            GameMode::STD | GameMode::CTB => (
+            GameMode::Osu | GameMode::Catch => (
                 osu::get_combo(&unchoked_score, map),
                 round(unchoked_score.accuracy),
             ),
-            GameMode::MNA => (String::from("**-**/-"), 100.0),
-            GameMode::TKO => {
+            GameMode::Mania => (String::from("**-**/-"), 100.0),
+            GameMode::Taiko => {
                 let acc = round(unchoked_score.accuracy);
 
                 let combo = if is_some {
@@ -333,7 +333,7 @@ impl SimulateEmbed {
 
         fields.push(field!("PP", pp, true));
 
-        if self.mode == GameMode::MNA {
+        if self.mode == GameMode::Mania {
             fields.push(field!(
                 "Score",
                 with_comma_int(self.score).to_string(),
@@ -367,7 +367,7 @@ impl SimulateEmbed {
             self.pp
         };
 
-        if self.mode != GameMode::MNA {
+        if self.mode != GameMode::Mania {
             let _ = write!(value, " {}", self.hits);
         }
 
@@ -378,7 +378,7 @@ impl SimulateEmbed {
         let mut name = String::with_capacity(50);
         let _ = write!(name, "{} ", self.grade_completion_mods);
 
-        if self.mode == GameMode::MNA {
+        if self.mode == GameMode::Mania {
             let _ = write!(name, "{} ", with_comma_int(self.score));
             let _ = write!(name, "({}%)", self.acc);
         } else {
@@ -471,7 +471,7 @@ fn simulate_score(
                 score.statistics.count_50 = n50 as u32;
             }
 
-            score.mode = GameMode::STD;
+            score.mode = GameMode::Osu;
             score.statistics.count_miss = miss as u32;
             score.max_combo = combo as u32;
             score.accuracy = score.accuracy();
@@ -496,7 +496,7 @@ fn simulate_score(
                 max_score /= 2;
             }
 
-            score.mode = GameMode::MNA;
+            score.mode = GameMode::Mania;
             score.max_combo = 0;
             score.score = args.score.map_or(max_score, |s| s.min(max_score));
             score.statistics.count_geki = map.count_objects();
@@ -562,7 +562,7 @@ fn simulate_score(
                 .unwrap_or(0)
                 .min(n_objects.saturating_sub(miss) as u32);
 
-            score.mode = GameMode::TKO;
+            score.mode = GameMode::Taiko;
             score.accuracy = acc * 100.0;
             score.grade = score.grade(Some(score.accuracy));
 
@@ -617,7 +617,7 @@ fn simulate_score(
                 }
             }
 
-            score.mode = GameMode::CTB;
+            score.mode = GameMode::Catch;
             score.statistics.count_300 = n_fruits as u32;
             score.statistics.count_100 = n_droplets as u32;
             score.statistics.count_50 = n_tiny_droplets as u32;
@@ -793,7 +793,7 @@ fn calculate_pp(
 fn default_score() -> Score {
     Score {
         accuracy: 100.0,
-        created_at: Utc::now(),
+        ended_at: OffsetDateTime::now_utc(),
         grade: Grade::D,
         max_combo: 0,
         map: None,

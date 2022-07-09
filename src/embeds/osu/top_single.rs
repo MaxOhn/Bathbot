@@ -14,10 +14,10 @@ use crate::{
     BotResult,
 };
 
-use chrono::{DateTime, Utc};
 use rosu_pp::{Beatmap as Map, BeatmapExt, CatchPP, DifficultyAttributes, OsuPP, TaikoPP};
 use rosu_v2::prelude::{GameMode, Grade, Score, User};
 use std::{borrow::Cow, fmt::Write};
+use time::OffsetDateTime;
 use twilight_model::channel::embed::Embed;
 
 #[derive(Clone)]
@@ -27,7 +27,7 @@ pub struct TopSingleEmbed {
     url: String,
     author: AuthorBuilder,
     footer: FooterBuilder,
-    timestamp: DateTime<Utc>,
+    timestamp: OffsetDateTime,
     thumbnail: String,
 
     stars: f32,
@@ -66,7 +66,7 @@ impl TopSingleEmbed {
         let max_pp = score
             .pp
             .filter(|pp| {
-                score.grade.eq_letter(Grade::X) && score.mode != GameMode::MNA && *pp > 0.0
+                score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania && *pp > 0.0
             })
             .unwrap_or(max_result.pp() as f32);
 
@@ -78,7 +78,7 @@ impl TopSingleEmbed {
         let hits = score.hits_string(score.mode);
         let grade_completion_mods = grade_completion_mods(score, map);
 
-        let (combo, title) = if score.mode == GameMode::MNA {
+        let (combo, title) = if score.mode == GameMode::Mania {
             let mut ratio = score.statistics.count_geki as f32;
 
             if score.statistics.count_300 > 0 {
@@ -158,12 +158,12 @@ impl TopSingleEmbed {
             description,
             url: map.url.to_owned(),
             author: author!(user),
-            timestamp: score.created_at,
+            timestamp: score.ended_at,
             grade_completion_mods,
             stars,
             score: with_comma_int(score.score).to_string(),
             acc: round(score.accuracy),
-            ago: how_long_ago_dynamic(&score.created_at),
+            ago: how_long_ago_dynamic(&score.ended_at),
             pp,
             max_pp: Some(max_pp),
             combo,

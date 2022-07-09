@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use time::OffsetDateTime;
 use twilight_model::{
     channel::embed::{Embed, EmbedAuthor, EmbedField, EmbedImage, EmbedThumbnail},
     util::Timestamp,
@@ -90,8 +90,8 @@ impl EmbedBuilder {
         self
     }
 
-    pub fn timestamp(mut self, timestamp: DateTime<Utc>) -> Self {
-        self.0.timestamp = Timestamp::from_secs(timestamp.timestamp() as i64).ok();
+    pub fn timestamp(mut self, timestamp: OffsetDateTime) -> Self {
+        self.0.timestamp = Timestamp::from_secs(timestamp.unix_timestamp() as i64).ok();
 
         self
     }

@@ -4,9 +4,9 @@ use std::{
     sync::Arc,
 };
 
-use chrono::{DateTime, Utc};
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError};
+use time::OffsetDateTime;
 
 use crate::{
     commands::osu::{get_user, require_link, UserArgs},
@@ -44,7 +44,7 @@ pub(super) async fn list(
         ..
     } = args;
 
-    let user_args = UserArgs::new(name.as_str(), GameMode::STD);
+    let user_args = UserArgs::new(name.as_str(), GameMode::Osu);
     let user_fut = get_user(&ctx, &user_args);
     let redis = ctx.redis();
 
@@ -165,6 +165,6 @@ pub(super) async fn list(
 
 pub struct MedalEntryList {
     pub medal: OsekaiMedal,
-    pub achieved: DateTime<Utc>,
+    pub achieved: OffsetDateTime,
     pub rarity: f32,
 }

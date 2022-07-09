@@ -27,10 +27,10 @@ impl OsuStatsCountsEmbed {
         }
 
         let mode = match mode {
-            GameMode::STD => "",
-            GameMode::MNA => "mania ",
-            GameMode::TKO => "taiko ",
-            GameMode::CTB => "ctb ",
+            GameMode::Osu => "",
+            GameMode::Mania => "mania ",
+            GameMode::Taiko => "taiko ",
+            GameMode::Catch => "ctb ",
         };
 
         description.push_str("```");

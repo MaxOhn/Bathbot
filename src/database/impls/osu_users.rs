@@ -1,10 +1,10 @@
 use std::{cmp::Ordering, collections::BTreeMap};
 
-use chrono::{DateTime, Utc};
 use futures::stream::StreamExt;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, User, Username};
 use sqlx::Row;
+use time::OffsetDateTime;
 
 use crate::{
     commands::osu::UserValue,
@@ -787,7 +787,7 @@ impl Database {
         query: &str,
         column: &str,
         discord_ids: &[i64],
-    ) -> StatsValueResult<DateTime<Utc>> {
+    ) -> StatsValueResult<OffsetDateTime> {
         let mut stream = sqlx::query(query).bind(discord_ids).fetch(&self.pool);
         let mut users = Vec::with_capacity(discord_ids.len());
 

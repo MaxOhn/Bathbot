@@ -1,9 +1,9 @@
 use std::f32::consts::SQRT_2;
 
-use chrono::{DateTime, Utc};
 use eyre::Report;
 use image::{GenericImageView, ImageBuffer};
 use rand::{prelude::SliceRandom, Rng};
+use time::OffsetDateTime;
 
 use crate::{
     core::{ArchivedBytes, Context},
@@ -22,7 +22,7 @@ pub(super) struct FarmMap {
     pub stars: f32,
     pub seconds_drain: u32,
     pub combo: u32,
-    pub ranked: DateTime<Utc>,
+    pub ranked: OffsetDateTime,
     pub cs: f32,
     pub ar: f32,
     pub od: f32,
@@ -160,7 +160,7 @@ impl FarmMap {
             stars: map.stars,
             seconds_drain: map.seconds_drain,
             combo: map.max_combo.unwrap_or(0),
-            ranked: mapset.ranked_date.unwrap_or_else(Utc::now),
+            ranked: mapset.ranked_date.unwrap_or_else(OffsetDateTime::now_utc),
             cs: map.cs,
             ar: map.ar,
             od: map.od,

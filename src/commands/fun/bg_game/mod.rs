@@ -254,7 +254,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> Bo
             }
         }
         Some(BgGameMode::Mania) => {
-            let mapsets = match ctx.psql().get_all_tags_mapset(GameMode::MNA).await {
+            let mapsets = match ctx.psql().get_all_tags_mapset(GameMode::Mania).await {
                 Ok(mapsets) => mapsets,
                 Err(err) => {
                     let _ = command.error(&ctx, GENERAL_ISSUE).await;

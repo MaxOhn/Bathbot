@@ -84,7 +84,7 @@ impl ConfigEmbed {
 
         description.push_str("always minimized\n");
 
-        if config.mode == Some(GameMode::STD) {
+        if config.mode == Some(GameMode::Osu) {
             description.push('>');
         } else {
             description.push(' ');
@@ -108,7 +108,7 @@ impl ConfigEmbed {
 
         description.push_str("always maximized\n");
 
-        if config.mode == Some(GameMode::TKO) {
+        if config.mode == Some(GameMode::Taiko) {
             description.push('>');
         } else {
             description.push(' ');
@@ -132,7 +132,7 @@ impl ConfigEmbed {
 
         description.push_str("initial maximized\n");
 
-        if config.mode == Some(GameMode::CTB) {
+        if config.mode == Some(GameMode::Catch) {
             description.push('>');
         } else {
             description.push(' ');
@@ -140,7 +140,7 @@ impl ConfigEmbed {
 
         description.push_str("ctb   |----------+-------------------\n");
 
-        if config.mode == Some(GameMode::MNA) {
+        if config.mode == Some(GameMode::Mania) {
             description.push('>');
         } else {
             description.push(' ');

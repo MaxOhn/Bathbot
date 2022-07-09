@@ -58,7 +58,7 @@ impl MedalStatsEmbed {
                     value,
                     "👴 `Oldest` [{name}]({url}) <t:{timestamp}:d>",
                     url = MedalUrl { name },
-                    timestamp = date.timestamp()
+                    timestamp = date.unix_timestamp()
                 );
             }
 
@@ -69,7 +69,7 @@ impl MedalStatsEmbed {
                     value,
                     "👶 `Newest` [{name}]({url}) <t:{timestamp}:d>",
                     url = MedalUrl { name },
-                    timestamp = date.timestamp()
+                    timestamp = date.unix_timestamp()
                 );
             }
 
@@ -80,7 +80,7 @@ impl MedalStatsEmbed {
                     value,
                     "💎 `Rarest` [{name}]({url}) <t:{timestamp}:d>",
                     url = MedalUrl { name },
-                    timestamp = date.timestamp()
+                    timestamp = date.unix_timestamp()
                 );
             }
 

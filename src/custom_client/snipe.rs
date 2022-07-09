@@ -4,7 +4,6 @@ use std::{
     str::FromStr,
 };
 
-use chrono::{offset::TimeZone, Date, DateTime, NaiveDate, Utc};
 use rosu_v2::{
     model::{GameMode, GameMods},
     prelude::Username,
@@ -13,13 +12,14 @@ use serde::{
     de::{Deserializer, Error, IgnoredAny, MapAccess, Unexpected, Visitor},
     Deserialize,
 };
+use time::{Date, OffsetDateTime, PrimitiveDateTime};
 
 use crate::{
     commands::osu::SnipePlayerListOrder,
-    util::{constants::DATE_FORMAT, osu::ModSelection, CountryCode},
+    util::{datetime::DATETIME_FORMAT, osu::ModSelection, CountryCode},
 };
 
-use super::deserialize::{expect_negative_u32, str_to_maybe_datetime};
+use super::deserialize;
 
 #[derive(Debug)]
 pub struct SnipeScoreParams {
@@ -38,7 +38,7 @@ impl SnipeScoreParams {
             user_id,
             country: country_code.as_ref().to_ascii_lowercase().into(),
             page: 0,
-            mode: GameMode::STD,
+            mode: GameMode::Osu,
             order: SnipePlayerListOrder::Pp,
             mods: None,
             descending: true,
@@ -122,12 +122,8 @@ pub struct SnipePlayer {
         default
     )]
     pub count_mods: Option<Vec<(GameMods, u32)>>,
-    #[serde(
-        rename = "history_total_top_national",
-        deserialize_with = "deserialize_history",
-        default
-    )]
-    pub count_first_history: BTreeMap<Date<Utc>, u32>,
+    #[serde(rename = "history_total_top_national", with = "history", default)]
+    pub count_first_history: BTreeMap<Date, u32>,
     #[serde(rename = "sr_spread")]
     pub count_sr_spread: BTreeMap<u8, u32>,
     #[serde(rename = "oldest_date")]
@@ -151,11 +147,14 @@ pub struct SnipeCountryPlayer {
 
 #[derive(Debug, Deserialize)]
 pub struct SnipePlayerOldest {
-    #[serde(rename = "map_id", deserialize_with = "expect_negative_u32")]
+    #[serde(
+        rename = "map_id",
+        deserialize_with = "deserialize::expect_negative_u32"
+    )]
     pub beatmap_id: u32,
     pub map: String,
-    #[serde(deserialize_with = "str_to_maybe_datetime")]
-    pub date: Option<DateTime<Utc>>,
+    #[serde(with = "option_datetime")]
+    pub date: Option<OffsetDateTime>,
 }
 
 #[derive(Debug)]
@@ -167,7 +166,7 @@ pub struct SnipeRecent {
     pub mods: GameMods,
     pub beatmap_id: u32,
     pub map: String,
-    pub date: DateTime<Utc>,
+    pub date: OffsetDateTime,
     pub accuracy: f32,
     pub stars: Option<f32>,
 }
@@ -179,6 +178,7 @@ impl<'de> Deserialize<'de> for SnipeRecent {
         impl<'de> Visitor<'de> for SnipeRecentVisitor {
             type Value = SnipeRecent;
 
+            #[inline]
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("struct SnipeRecent")
             }
@@ -239,9 +239,11 @@ impl<'de> Deserialize<'de> for SnipeRecent {
                 let beatmap_id = beatmap_id.ok_or_else(|| Error::missing_field("beatmap_id"))?;
                 let date = date.ok_or_else(|| Error::missing_field("date"))?;
 
-                let date = Utc.datetime_from_str(&date, DATE_FORMAT).map_err(|_| {
-                    Error::invalid_value(Unexpected::Str(&date), &"a date of the form `%F %T`")
-                })?;
+                let date = PrimitiveDateTime::parse(&date, DATETIME_FORMAT)
+                    .map(PrimitiveDateTime::assume_utc)
+                    .map_err(|_| {
+                        Error::invalid_value(Unexpected::Str(&date), &"a date of the form `%F %T`")
+                    })?;
 
                 let accuracy = accuracy.ok_or_else(|| Error::missing_field("accuracy"))?;
                 let beatmap = beatmap.ok_or_else(|| Error::missing_field("map"))?;
@@ -299,7 +301,7 @@ pub struct SnipeScore {
     pub mods: GameMods,
     pub pp: Option<f32>,
     pub score: u32,
-    pub score_date: DateTime<Utc>,
+    pub score_date: OffsetDateTime,
     // pub seconds_total: u32,
     pub stars: f32,
     // pub tie: bool,
@@ -407,12 +409,12 @@ impl<'de> Deserialize<'de> for SnipeScore {
 
                 let mods = inner_score.mods;
 
-                let date = Utc
-                    .datetime_from_str(inner_score.date_set, DATE_FORMAT)
+                let date = PrimitiveDateTime::parse(inner_score.date_set, DATETIME_FORMAT)
+                    .map(PrimitiveDateTime::assume_utc)
                     .unwrap_or_else(|err| {
                         warn!("Couldn't parse date `{}`: {err}", inner_score.date_set);
 
-                        Utc::now()
+                        OffsetDateTime::now_utc()
                     });
 
                 let stars = inner_score.sr.unwrap_or_else(|| {
@@ -523,34 +525,97 @@ impl<'de> Visitor<'de> for SnipePlayerModVisitor {
     }
 }
 
-fn deserialize_history<'de, D>(d: D) -> Result<BTreeMap<Date<Utc>, u32>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    d.deserialize_map(SnipePlayerHistoryVisitor)
-}
+mod history {
+    use std::{collections::BTreeMap, fmt};
 
-struct SnipePlayerHistoryVisitor;
+    use serde::{
+        de::{Error, MapAccess, Unexpected, Visitor},
+        Deserializer,
+    };
+    use time::Date;
 
-impl<'de> Visitor<'de> for SnipePlayerHistoryVisitor {
-    type Value = BTreeMap<Date<Utc>, u32>;
+    use crate::util::datetime::DATE_FORMAT;
 
-    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("a map")
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<BTreeMap<Date, u32>, D::Error> {
+        d.deserialize_map(SnipePlayerHistoryVisitor)
     }
 
-    fn visit_map<V: MapAccess<'de>>(self, mut map: V) -> Result<Self::Value, V::Error> {
-        let mut history = BTreeMap::new();
+    struct SnipePlayerHistoryVisitor;
 
-        while let Some(key) = map.next_key()? {
-            let naive_date = NaiveDate::parse_from_str(key, "%F").map_err(|_| {
-                Error::invalid_value(Unexpected::Str(key), &"a date of  the form `%F`")
-            })?;
+    impl<'de> Visitor<'de> for SnipePlayerHistoryVisitor {
+        type Value = BTreeMap<Date, u32>;
 
-            let date = Date::from_utc(naive_date, Utc);
-            history.insert(date, map.next_value()?);
+        #[inline]
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("a map")
         }
 
-        Ok(history)
+        fn visit_map<V: MapAccess<'de>>(self, mut map: V) -> Result<Self::Value, V::Error> {
+            let mut history = BTreeMap::new();
+
+            while let Some(key) = map.next_key()? {
+                let date = Date::parse(key, DATE_FORMAT).map_err(|_| {
+                    Error::invalid_value(Unexpected::Str(key), &"a date of  the form `%F`")
+                })?;
+
+                history.insert(date, map.next_value()?);
+            }
+
+            Ok(history)
+        }
+    }
+}
+
+// Differs from `deserialize::option_datetime` in that failed string deserialization still returns `Ok(None)`
+mod option_datetime {
+    use std::fmt;
+
+    use serde::{
+        de::{Error, Visitor},
+        Deserializer,
+    };
+    use time::{OffsetDateTime, PrimitiveDateTime};
+
+    use crate::util::datetime::DATETIME_FORMAT;
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        d: D,
+    ) -> Result<Option<OffsetDateTime>, D::Error> {
+        d.deserialize_option(OptionDateTimeVisitor)
+    }
+
+    struct OptionDateTimeVisitor;
+
+    impl<'de> Visitor<'de> for OptionDateTimeVisitor {
+        type Value = Option<OffsetDateTime>;
+
+        #[inline]
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("a string, preferably in `OffsetDateTIme` format")
+        }
+
+        #[inline]
+        fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+            PrimitiveDateTime::parse(v, DATETIME_FORMAT)
+                .ok()
+                .map(PrimitiveDateTime::assume_utc)
+                .map(Ok)
+                .transpose()
+        }
+
+        #[inline]
+        fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
+            d.deserialize_str(self)
+        }
+
+        #[inline]
+        fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
+            self.visit_unit()
+        }
+
+        #[inline]
+        fn visit_unit<E: Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
     }
 }

@@ -1,3 +1,11 @@
+use std::{borrow::Cow, fmt::Write};
+
+use command_macros::EmbedData;
+use rosu_pp::{Beatmap as Map, BeatmapExt, CatchPP, ManiaPP, OsuPP, TaikoPP};
+use rosu_v2::prelude::{Beatmap, GameMode, Grade, Score, User};
+use time::OffsetDateTime;
+use twilight_model::channel::embed::Embed;
+
 use crate::{
     core::Context,
     database::MinimizedPp,
@@ -15,13 +23,6 @@ use crate::{
     BotResult,
 };
 
-use chrono::{DateTime, Utc};
-use command_macros::EmbedData;
-use rosu_pp::{Beatmap as Map, BeatmapExt, CatchPP, ManiaPP, OsuPP, TaikoPP};
-use rosu_v2::prelude::{Beatmap, GameMode, Grade, Score, User};
-use std::{borrow::Cow, fmt::Write};
-use twilight_model::channel::embed::Embed;
-
 use super::recent::if_fc_struct;
 
 const GLOBAL_IDX_THRESHOLD: usize = 500;
@@ -31,7 +32,7 @@ pub struct CompareEmbed {
     description: String,
     footer: FooterBuilder,
     thumbnail: String,
-    timestamp: DateTime<Utc>,
+    timestamp: OffsetDateTime,
     title: String,
     url: String,
 
@@ -88,7 +89,7 @@ impl CompareEmbed {
 
         let pp = if score.grade == Grade::F {
             match map.mode {
-                GameMode::STD => {
+                GameMode::Osu => {
                     OsuPP::new(&rosu_map)
                         .mods(mods)
                         .combo(score.max_combo as usize)
@@ -99,14 +100,14 @@ impl CompareEmbed {
                         .calculate()
                         .pp as f32
                 }
-                GameMode::MNA => {
+                GameMode::Mania => {
                     ManiaPP::new(&rosu_map)
                         .mods(mods)
                         .score(score.score)
                         .calculate()
                         .pp as f32
                 }
-                GameMode::CTB => {
+                GameMode::Catch => {
                     CatchPP::new(&rosu_map)
                         .mods(mods)
                         .combo(score.max_combo as usize)
@@ -117,7 +118,7 @@ impl CompareEmbed {
                         .calculate()
                         .pp as f32
                 }
-                GameMode::TKO => {
+                GameMode::Taiko => {
                     TaikoPP::new(&rosu_map)
                         .combo(score.max_combo as usize)
                         .mods(mods)
@@ -130,7 +131,7 @@ impl CompareEmbed {
             pp
         } else {
             match map.mode {
-                GameMode::STD => {
+                GameMode::Osu => {
                     OsuPP::new(&rosu_map)
                         .attributes(attrs)
                         .mods(mods)
@@ -142,7 +143,7 @@ impl CompareEmbed {
                         .calculate()
                         .pp as f32
                 }
-                GameMode::MNA => {
+                GameMode::Mania => {
                     ManiaPP::new(&rosu_map)
                         .attributes(attrs)
                         .mods(mods)
@@ -150,7 +151,7 @@ impl CompareEmbed {
                         .calculate()
                         .pp as f32
                 }
-                GameMode::CTB => {
+                GameMode::Catch => {
                     CatchPP::new(&rosu_map)
                         .attributes(attrs)
                         .mods(mods)
@@ -162,7 +163,7 @@ impl CompareEmbed {
                         .calculate()
                         .pp as f32
                 }
-                GameMode::TKO => {
+                GameMode::Taiko => {
                     TaikoPP::new(&rosu_map)
                         .attributes(attrs)
                         .combo(score.max_combo as usize)
@@ -180,7 +181,7 @@ impl CompareEmbed {
         let hits = score.hits_string(map.mode);
         let grade_completion_mods = grade_completion_mods(score, map);
 
-        let (combo, title) = if map.mode == GameMode::MNA {
+        let (combo, title) = if map.mode == GameMode::Mania {
             let mut ratio = score.statistics.count_geki as f32;
 
             if score.statistics.count_300 > 0 {
@@ -272,8 +273,8 @@ impl CompareEmbed {
         };
 
         let acc = round(score.accuracy);
-        let ago = how_long_ago_dynamic(&score.created_at);
-        let timestamp = score.created_at;
+        let ago = how_long_ago_dynamic(&score.ended_at);
+        let timestamp = score.ended_at;
         let mods = score.mods;
         let score = with_comma_int(score.score).to_string();
 

@@ -39,7 +39,7 @@ pub(super) async fn user(
         },
     };
 
-    let mut user = UserArgs::new(name.as_str(), GameMode::STD);
+    let mut user = UserArgs::new(name.as_str(), GameMode::Osu);
     let redis = ctx.redis();
 
     let (user_result, badges_result) = if let Some(alt_name) = user.whitespaced_name() {

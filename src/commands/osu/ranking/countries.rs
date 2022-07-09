@@ -54,7 +54,7 @@ pub(super) async fn country(
     let mode = match args.mode {
         Some(mode) => mode.into(),
         None => match ctx.user_config(owner).await {
-            Ok(config) => config.mode.unwrap_or(GameMode::STD),
+            Ok(config) => config.mode.unwrap_or(GameMode::Osu),
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 

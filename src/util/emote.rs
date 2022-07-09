@@ -62,10 +62,10 @@ impl Emote {
 impl From<GameMode> for Emote {
     fn from(mode: GameMode) -> Self {
         match mode {
-            GameMode::STD => Self::Std,
-            GameMode::TKO => Self::Tko,
-            GameMode::CTB => Self::Ctb,
-            GameMode::MNA => Self::Mna,
+            GameMode::Osu => Self::Std,
+            GameMode::Taiko => Self::Tko,
+            GameMode::Catch => Self::Ctb,
+            GameMode::Mania => Self::Mna,
         }
     }
 }

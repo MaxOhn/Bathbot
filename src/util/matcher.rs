@@ -106,10 +106,10 @@ pub fn get_osu_score_id(msg: &str) -> Option<(GameMode, u64)> {
         .and_then(|c| c.get(1).zip(c.get(2)))
         .and_then(|(mode, id)| {
             let mode = match mode.as_str() {
-                "osu" => GameMode::STD,
-                "taiko" => GameMode::TKO,
-                "fruits" => GameMode::CTB,
-                "mania" => GameMode::MNA,
+                "osu" => GameMode::Osu,
+                "taiko" => GameMode::Taiko,
+                "fruits" => GameMode::Catch,
+                "mania" => GameMode::Mania,
                 _ => return None,
             };
 

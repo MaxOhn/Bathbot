@@ -1,7 +1,7 @@
 use std::fmt;
 
-use chrono::{DateTime, Utc};
 use serde::{de::Error, Deserialize, Deserializer};
+use time::OffsetDateTime;
 
 fn str_to_u64<'de, D: Deserializer<'de>>(d: D) -> Result<u64, D::Error> {
     <&str as Deserialize>::deserialize(d)?
@@ -75,13 +75,15 @@ pub struct TwitchDataList<T> {
 
 #[derive(Debug, Deserialize)]
 pub struct TwitchVideo {
-    pub created_at: DateTime<Utc>,
+    #[serde(with = "datetime")]
+    pub created_at: OffsetDateTime,
     /// video duration in seconds
     #[serde(deserialize_with = "duration_to_u32")]
     pub duration: u32,
     #[serde(deserialize_with = "str_to_u64")]
     pub id: u64,
-    pub published_at: DateTime<Utc>,
+    #[serde(with = "datetime")]
+    pub published_at: OffsetDateTime,
     pub title: String,
     pub url: String,
     #[serde(rename = "user_name")]
@@ -119,4 +121,45 @@ fn duration_to_u32<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
     seconds += secs;
 
     Ok(seconds)
+}
+
+pub(super) mod datetime {
+    use std::fmt;
+
+    use serde::{
+        de::{Error, Visitor},
+        Deserializer,
+    };
+    use time::{format_description::FormatItem, OffsetDateTime, PrimitiveDateTime};
+
+    use crate::util::datetime::{DATE_FORMAT, TIME_FORMAT};
+
+    pub const DATETIMEZ_FORMAT: &[FormatItem<'_>] = &[
+        FormatItem::Compound(DATE_FORMAT),
+        FormatItem::Literal(b"T"),
+        FormatItem::Compound(TIME_FORMAT),
+        FormatItem::Literal(b"Z"),
+    ];
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<OffsetDateTime, D::Error> {
+        d.deserialize_str(DateTimeVisitor)
+    }
+
+    pub(super) struct DateTimeVisitor;
+
+    impl<'de> Visitor<'de> for DateTimeVisitor {
+        type Value = OffsetDateTime;
+
+        #[inline]
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("an `OffsetDateTime`")
+        }
+
+        #[inline]
+        fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+            PrimitiveDateTime::parse(v, DATETIMEZ_FORMAT)
+                .map(PrimitiveDateTime::assume_utc)
+                .map_err(Error::custom)
+        }
+    }
 }

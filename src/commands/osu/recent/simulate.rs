@@ -146,28 +146,28 @@ pub(super) async fn simulate(
             let index = args.index;
             let args = SimulateArgs::try_from(args);
 
-            (name, index, args, GameMode::STD)
+            (name, index, args, GameMode::Osu)
         }
         RecentSimulate::Taiko(args) => {
             let name = username!(ctx, orig, args);
             let index = args.index;
             let args = SimulateArgs::try_from(args);
 
-            (name, index, args, GameMode::TKO)
+            (name, index, args, GameMode::Taiko)
         }
         RecentSimulate::Catch(args) => {
             let name = username!(ctx, orig, args);
             let index = args.index;
             let args = SimulateArgs::try_from(args);
 
-            (name, index, args, GameMode::CTB)
+            (name, index, args, GameMode::Catch)
         }
         RecentSimulate::Mania(args) => {
             let name = username!(ctx, orig, args);
             let index = args.index;
             let args = SimulateArgs::try_from(args);
 
-            (name, index, args, GameMode::MNA)
+            (name, index, args, GameMode::Mania)
         }
     };
 
@@ -215,10 +215,10 @@ pub(super) async fn simulate(
             let content = format!(
                 "No recent {}plays found for user `{name}`",
                 match mode {
-                    GameMode::STD => "",
-                    GameMode::TKO => "taiko ",
-                    GameMode::CTB => "ctb ",
-                    GameMode::MNA => "mania ",
+                    GameMode::Osu => "",
+                    GameMode::Taiko => "taiko ",
+                    GameMode::Catch => "ctb ",
+                    GameMode::Mania => "mania ",
                 }
             );
 

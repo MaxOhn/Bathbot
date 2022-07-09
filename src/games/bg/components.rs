@@ -88,7 +88,7 @@ pub async fn handle_bg_start_button(
 
                 let mapset_fut =
                     ctx.psql()
-                        .get_specific_tags_mapset(GameMode::STD, *included, *excluded);
+                        .get_specific_tags_mapset(GameMode::Osu, *included, *excluded);
 
                 let mapsets = match mapset_fut.await {
                     Ok(mapsets) => mapsets,

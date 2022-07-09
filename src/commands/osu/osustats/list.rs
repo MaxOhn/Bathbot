@@ -29,7 +29,7 @@ pub struct OsuStatsPlayersArgs {
 impl<'a> From<OsuStatsPlayers<'a>> for OsuStatsPlayersArgs {
     fn from(args: OsuStatsPlayers<'a>) -> Self {
         Self {
-            mode: args.mode.map_or(GameMode::STD, GameMode::from),
+            mode: args.mode.map_or(GameMode::Osu, GameMode::from),
             country: args.country.map(|c| c.into()),
             page: 1,
             min_rank: args.min_rank.unwrap_or(OsuStatsPlayers::MIN_RANK),

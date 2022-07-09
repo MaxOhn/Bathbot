@@ -2,22 +2,19 @@ use std::iter;
 
 use bitflags::bitflags;
 use bytes::Bytes;
-use chrono::{Date, Datelike, TimeZone, Utc};
 use futures::stream::{FuturesUnordered, TryStreamExt};
 use image::{
     codecs::png::PngEncoder, imageops::FilterType::Lanczos3, load_from_memory, ColorType,
     ImageEncoder,
 };
 use plotters::{
-    coord::{
-        types::{Monthly, RangedCoordi32},
-        Shift,
-    },
+    coord::{types::RangedCoordi32, Shift},
     prelude::*,
 };
 use rosu_v2::prelude::{MonthlyCount, User};
+use time::{Date, Month, OffsetDateTime};
 
-use crate::{core::Context, error::GraphError};
+use crate::{core::Context, error::GraphError, util::Monthly};
 
 bitflags! {
     pub struct ProfileGraphFlags: u8 {
@@ -42,6 +39,7 @@ impl ProfileGraphFlags {
 }
 
 impl Default for ProfileGraphFlags {
+    #[inline]
     fn default() -> Self {
         Self::all()
     }
@@ -91,7 +89,7 @@ impl<'l> ProfileGraphParams<'l> {
 type GraphResult<T> = Result<T, GraphError>;
 type Area<'b> = DrawingArea<BitMapBackend<'b>, Shift>;
 type Chart<'a, 'b> =
-    ChartContext<'a, BitMapBackend<'b>, Cartesian2d<Monthly<Date<Utc>>, RangedCoordi32>>;
+    ChartContext<'a, BitMapBackend<'b>, Cartesian2d<Monthly<Date>, RangedCoordi32>>;
 
 pub async fn graphs(params: ProfileGraphParams<'_>) -> GraphResult<Option<Vec<u8>>> {
     let w = params.w;
@@ -229,14 +227,14 @@ fn draw_playcounts(playcounts: &[MonthlyCount], canvas: &Area<'_>) -> GraphResul
         .margin(9_i32)
         .x_label_area_size(20_i32)
         .y_label_area_size(75_i32)
-        .build_cartesian_2d((first..last).monthly(), 0..max)?;
+        .build_cartesian_2d(Monthly(first..last), 0..max)?;
 
     chart
         .configure_mesh()
         .light_line_style(&BLACK.mix(0.0))
         .disable_x_mesh()
         .x_labels(10)
-        .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month()))
+        .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month() as u8 + 1))
         .y_desc("Monthly playcount")
         .label_style(("sans-serif", 20_i32, &WHITE))
         .bold_line_style(&WHITE.mix(0.3))
@@ -266,14 +264,14 @@ fn draw_replays(replays: &[MonthlyCount], canvas: &Area<'_>) -> GraphResult<()> 
         .margin(9_i32)
         .x_label_area_size(20_i32)
         .y_label_area_size(label_area)
-        .build_cartesian_2d((first..last).monthly(), 0..max)?;
+        .build_cartesian_2d(Monthly(first..last), 0..max)?;
 
     chart
         .configure_mesh()
         .light_line_style(&BLACK.mix(0.0))
         .disable_x_mesh()
         .x_labels(10)
-        .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month()))
+        .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month() as u8 + 1))
         .y_desc("Replays watched")
         .label_style(("sans-serif", 20_i32, &WHITE))
         .bold_line_style(&WHITE.mix(0.3))
@@ -306,8 +304,8 @@ fn draw_both(
         .x_label_area_size(20_i32)
         .y_label_area_size(75_i32)
         .right_y_label_area_size(right_label_area)
-        .build_cartesian_2d((left_first..left_last).monthly(), 0..left_max)?
-        .set_secondary_coord((right_first..right_last).monthly(), 0..right_max);
+        .build_cartesian_2d(Monthly(left_first..left_last), 0..left_max)?
+        .set_secondary_coord(Monthly(right_first..right_last), 0..right_max);
 
     // Mesh and labels
     chart
@@ -315,7 +313,7 @@ fn draw_both(
         .light_line_style(&BLACK.mix(0.0))
         .disable_x_mesh()
         .x_labels(10)
-        .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month()))
+        .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month() as u8 + 1))
         .y_desc("Monthly playcount")
         .label_style(("sans-serif", 20_i32, &WHITE))
         .bold_line_style(&WHITE.mix(0.3))
@@ -427,7 +425,7 @@ fn replay_label_area(max: i32) -> i32 {
     }
 }
 
-fn first_last_max(counts: &[MonthlyCount]) -> (Date<Utc>, Date<Utc>, i32) {
+fn first_last_max(counts: &[MonthlyCount]) -> (Date, Date, i32) {
     let first = counts.first().unwrap().start_date;
     let last = counts.last().unwrap().start_date;
     let max = counts.iter().map(|c| c.count).max();
@@ -451,10 +449,10 @@ fn prepare_monthly_counts(
     if !flags.replays() {
         // nothing to do
     } else if !flags.playcount() {
-        let now = Utc::now();
+        let now = OffsetDateTime::now_utc();
         let year = now.year();
         let month = now.month();
-        let start_date = Utc.ymd(year, month, 1);
+        let start_date = Date::from_calendar_date(year, month, 1).unwrap();
 
         if replays.last().map(|c| c.start_date < start_date) == Some(true) {
             let count = MonthlyCount {
@@ -494,14 +492,9 @@ fn spoof_monthly_counts(counts: &mut Vec<MonthlyCount>) {
     let mut i = 1;
 
     while i < counts.len() {
-        month += 1;
-
-        if month == 13 {
-            month = 1;
-            year += 1;
-        }
-
-        let date = Utc.ymd(year, month, 1);
+        month = month.next();
+        year += (month == Month::January) as i32;
+        let date = Date::from_calendar_date(year, month, 1).unwrap();
 
         if date < counts[i].start_date {
             let count = MonthlyCount {

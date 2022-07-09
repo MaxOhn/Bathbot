@@ -1,9 +1,9 @@
-use chrono::{DateTime, Utc};
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use rosu_v2::prelude::{CountryCode, GameMods, Username};
 use serde::Deserialize;
+use time::OffsetDateTime;
 
-use super::{inflate_acc, str_to_datetime, str_to_f32, str_to_u32, UsernameWrapper};
+use super::{deserialize, UsernameWrapper};
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerIdCount {
@@ -21,7 +21,7 @@ pub struct OsuTrackerPpGroup {
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerPpEntry {
     pub name: String,
-    #[serde(rename = "id", deserialize_with = "str_to_u32")]
+    #[serde(rename = "id", deserialize_with = "deserialize::str_to_u32")]
     pub map_id: u32,
     pub count: usize,
 }
@@ -58,7 +58,7 @@ pub struct OsuTrackerUserStats {
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerCountryStats {
-    #[serde(deserialize_with = "inflate_acc")]
+    #[serde(deserialize_with = "deserialize::inflate_acc")]
     pub acc: f32,
     pub farm: f32,
     #[serde(rename = "lengthPlay")]
@@ -86,7 +86,7 @@ pub struct OsuTrackerMapperEntry {
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerMapsetEntry {
-    #[serde(rename = "setId", deserialize_with = "str_to_u32")]
+    #[serde(rename = "setId", deserialize_with = "deserialize::str_to_u32")]
     pub mapset_id: u32,
     pub count: usize,
 }
@@ -100,11 +100,11 @@ pub struct OsuTrackerCountryDetails {
     pub country: String,
     #[serde(rename = "abbreviation")]
     pub code: CountryCode,
-    #[serde(deserialize_with = "str_to_f32")]
+    #[serde(deserialize_with = "deserialize::str_to_f32")]
     pub pp: f32,
-    // #[serde(deserialize_with = "str_to_f32")]
+    // #[serde(deserialize_with = "deserialize::str_to_f32")]
     // pub range: f32,
-    #[serde(deserialize_with = "inflate_acc")]
+    #[serde(deserialize_with = "deserialize::inflate_acc")]
     pub acc: f32,
     pub farm: f32,
     #[serde(rename = "averageLength")]
@@ -124,21 +124,21 @@ pub struct OsuTrackerCountryContributor {
 #[derive(Debug, Deserialize)]
 pub struct OsuTrackerCountryScore {
     pub name: String,
-    #[serde(rename = "id", deserialize_with = "str_to_u32")]
+    #[serde(rename = "id", deserialize_with = "deserialize::str_to_u32")]
     pub map_id: u32,
-    #[serde(rename = "setId", deserialize_with = "str_to_u32")]
+    #[serde(rename = "setId", deserialize_with = "deserialize::str_to_u32")]
     pub mapset_id: u32,
     pub mods: GameMods,
-    #[serde(deserialize_with = "str_to_f32")]
+    #[serde(deserialize_with = "deserialize::str_to_f32")]
     pub pp: f32,
-    #[serde(rename = "missCount", deserialize_with = "str_to_u32")]
+    #[serde(rename = "missCount", deserialize_with = "deserialize::str_to_u32")]
     pub n_misses: u32,
-    #[serde(deserialize_with = "inflate_acc")]
+    #[serde(deserialize_with = "deserialize::inflate_acc")]
     pub acc: f32,
-    #[serde(rename = "length", deserialize_with = "str_to_u32")]
+    #[serde(rename = "length", deserialize_with = "deserialize::str_to_u32")]
     pub seconds_total: u32,
     pub mapper: Username,
-    #[serde(rename = "time", deserialize_with = "str_to_datetime")]
-    pub created_at: DateTime<Utc>,
+    #[serde(rename = "time", with = "deserialize::offset_datetime")]
+    pub ended_at: OffsetDateTime,
     pub player: Username,
 }

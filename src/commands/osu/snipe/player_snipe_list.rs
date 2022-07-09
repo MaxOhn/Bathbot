@@ -82,7 +82,7 @@ pub(super) async fn player_list(
         },
     };
 
-    let user_args = UserArgs::new(name.as_str(), GameMode::STD);
+    let user_args = UserArgs::new(name.as_str(), GameMode::Osu);
 
     let mut user = match get_user(&ctx, &user_args).await {
         Ok(user) => user,
@@ -99,7 +99,7 @@ pub(super) async fn player_list(
     };
 
     // Overwrite default mode
-    user.mode = GameMode::STD;
+    user.mode = GameMode::Osu;
 
     let country = if ctx.contains_country(user.country_code.as_str()) {
         user.country_code.to_owned()

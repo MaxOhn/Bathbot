@@ -70,8 +70,13 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: Box<ApplicationCommand>
         return Ok(());
     }
 
-    let args = [GameMode::STD, GameMode::TKO, GameMode::CTB, GameMode::MNA]
-        .map(|mode| UserArgs::new(&name, mode));
+    let args = [
+        GameMode::Osu,
+        GameMode::Taiko,
+        GameMode::Catch,
+        GameMode::Mania,
+    ]
+    .map(|mode| UserArgs::new(&name, mode));
 
     let redis = ctx.redis();
 

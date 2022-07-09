@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use chrono::Utc;
 use command_macros::command;
 use eyre::Report;
 use rosu_v2::prelude::{GameMode, OsuError};
+use time::OffsetDateTime;
 
 use crate::{
     core::commands::CommandOrigin,
@@ -48,7 +48,7 @@ pub(super) async fn track(
         }
     };
 
-    let mode = mode.unwrap_or(GameMode::STD);
+    let mode = mode.unwrap_or(GameMode::Osu);
 
     let users = match super::get_names(&ctx, &more_names, mode).await {
         Ok(map) => map,
@@ -69,9 +69,14 @@ pub(super) async fn track(
     let mut failure = Vec::new();
 
     for (username, user_id) in users {
-        let add_fut = ctx
-            .tracking()
-            .add(user_id, mode, Utc::now(), channel, limit, ctx.psql());
+        let add_fut = ctx.tracking().add(
+            user_id,
+            mode,
+            OffsetDateTime::now_utc(),
+            channel,
+            limit,
+            ctx.psql(),
+        );
 
         match add_fut.await {
             Ok(true) => success.push(username),
@@ -80,8 +85,7 @@ pub(super) async fn track(
                 let report = Report::new(err).wrap_err("error while adding tracked entry");
                 warn!("{report:?}");
 
-                let embed = TrackEmbed::new(mode, success, failure, Some(username), limit)
-                    .build();
+                let embed = TrackEmbed::new(mode, success, failure, Some(username), limit).build();
 
                 let builder = MessageBuilder::new().embed(embed);
                 orig.create_message(&ctx, &builder).await?;
@@ -120,7 +124,7 @@ pub(super) async fn track(
 #[flags(AUTHORITY, ONLY_GUILDS)]
 #[group(Tracking)]
 async fn prefix_track(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TrackArgs::args(Some(GameMode::STD), args).await {
+    match TrackArgs::args(Some(GameMode::Osu), args).await {
         Ok(args) => track(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -152,7 +156,7 @@ async fn prefix_track(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotRe
 #[flags(AUTHORITY, ONLY_GUILDS)]
 #[group(Tracking)]
 pub async fn prefix_trackmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TrackArgs::args(Some(GameMode::MNA), args).await {
+    match TrackArgs::args(Some(GameMode::Mania), args).await {
         Ok(args) => track(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -184,7 +188,7 @@ pub async fn prefix_trackmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>)
 #[flags(AUTHORITY, ONLY_GUILDS)]
 #[group(Tracking)]
 pub async fn prefix_tracktaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TrackArgs::args(Some(GameMode::TKO), args).await {
+    match TrackArgs::args(Some(GameMode::Taiko), args).await {
         Ok(args) => track(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -217,7 +221,7 @@ pub async fn prefix_tracktaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>)
 #[alias("trackingcatch")]
 #[group(Tracking)]
 pub async fn prefix_trackctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TrackArgs::args(Some(GameMode::CTB), args).await {
+    match TrackArgs::args(Some(GameMode::Catch), args).await {
         Ok(args) => track(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;

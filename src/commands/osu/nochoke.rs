@@ -72,9 +72,9 @@ pub enum NochokeGameMode {
 impl From<NochokeGameMode> for GameMode {
     fn from(mode: NochokeGameMode) -> Self {
         match mode {
-            NochokeGameMode::Osu => Self::STD,
-            NochokeGameMode::Taiko => Self::TKO,
-            NochokeGameMode::Catch => Self::CTB,
+            NochokeGameMode::Osu => Self::Osu,
+            NochokeGameMode::Taiko => Self::Taiko,
+            NochokeGameMode::Catch => Self::Catch,
         }
     }
 }
@@ -203,8 +203,8 @@ async fn slash_nochoke(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) 
 async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) -> BotResult<()> {
     let (name, mut mode) = name_mode!(ctx, orig, args);
 
-    if mode == GameMode::MNA {
-        mode = GameMode::STD;
+    if mode == GameMode::Mania {
+        mode = GameMode::Osu;
     }
 
     let Nochoke {
@@ -297,10 +297,10 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
             NochokeVersion::Unchoke => "No-choke",
         },
         mode = match mode {
-            GameMode::STD => "",
-            GameMode::TKO => "taiko ",
-            GameMode::CTB => "ctb ",
-            GameMode::MNA => panic!("can not unchoke mania scores"),
+            GameMode::Osu => "",
+            GameMode::Taiko => "taiko ",
+            GameMode::Catch => "ctb ",
+            GameMode::Mania => panic!("can not unchoke mania scores"),
         },
     );
 
@@ -347,7 +347,7 @@ async fn unchoke_scores(
         let max_combo = map.max_combo.unwrap_or(0);
 
         match map.mode {
-            GameMode::STD
+            GameMode::Osu
                 if score.statistics.count_miss > 0
                     || score.max_combo
                         // Allowing one missed sliderend per 500 combo
@@ -381,7 +381,7 @@ async fn unchoke_scores(
                 unchoked.accuracy = unchoked.accuracy();
                 unchoked.score = 0; // distinguishing from original
             }
-            GameMode::CTB if score.max_combo != max_combo => {
+            GameMode::Catch if score.max_combo != max_combo => {
                 let attributes = CatchStars::new(&rosu_map).mods(mods).calculate();
 
                 let total_objects = attributes.max_combo();
@@ -431,7 +431,7 @@ async fn unchoke_scores(
                 unchoked.accuracy = unchoked.accuracy();
                 unchoked.score = 0; // distinguishing from original
             }
-            GameMode::TKO if score.statistics.count_miss > 0 => {
+            GameMode::Taiko if score.statistics.count_miss > 0 => {
                 let total_objects = map.count_circles as usize;
                 let passed_objects = score.total_hits() as usize;
 
@@ -461,7 +461,7 @@ async fn unchoke_scores(
                 unchoked.accuracy = unchoked.accuracy();
                 unchoked.score = 0; // distinguishing from original
             }
-            GameMode::MNA => bail!("can not unchoke mania scores"),
+            GameMode::Mania => bail!("can not unchoke mania scores"),
             _ => {} // Nothing to unchoke
         }
 
@@ -498,7 +498,7 @@ async fn perfect_scores(
         let total_hits = score.total_hits();
 
         match map.mode {
-            GameMode::STD if score.statistics.count_300 != total_hits => {
+            GameMode::Osu if score.statistics.count_300 != total_hits => {
                 unchoked.statistics.count_300 = total_hits;
                 unchoked.statistics.count_100 = 0;
                 unchoked.statistics.count_50 = 0;
@@ -515,7 +515,7 @@ async fn perfect_scores(
                 unchoked.accuracy = 100.0;
                 unchoked.score = 0; // distinguishing from original
             }
-            GameMode::CTB if (100.0 - score.accuracy).abs() > f32::EPSILON => {
+            GameMode::Catch if (100.0 - score.accuracy).abs() > f32::EPSILON => {
                 let pp_result = CatchPP::new(&rosu_map).mods(mods).calculate();
 
                 unchoked.statistics.count_300 = pp_result.difficulty.n_fruits as u32;
@@ -529,7 +529,7 @@ async fn perfect_scores(
                 unchoked.accuracy = 100.0;
                 unchoked.score = 0; // distinguishing from original
             }
-            GameMode::TKO if score.statistics.count_miss > 0 => {
+            GameMode::Taiko if score.statistics.count_miss > 0 => {
                 let pp_result = TaikoPP::new(&rosu_map).mods(mods).calculate();
 
                 unchoked.statistics.count_300 = map.count_circles;
@@ -541,7 +541,7 @@ async fn perfect_scores(
                 unchoked.accuracy = 100.0;
                 unchoked.score = 0; // distinguishing from original
             }
-            GameMode::MNA => bail!("can not unchoke mania scores"),
+            GameMode::Mania => bail!("can not unchoke mania scores"),
             _ => {} // Nothing to unchoke
         }
 

@@ -67,7 +67,7 @@ pub(super) async fn missing(
         },
     };
 
-    let user_args = UserArgs::new(name.as_str(), GameMode::STD);
+    let user_args = UserArgs::new(name.as_str(), GameMode::Osu);
     let user_fut = get_user(&ctx, &user_args);
     let redis = ctx.redis();
 
@@ -109,7 +109,7 @@ pub(super) async fn missing(
     medals.sort_unstable();
 
     MedalsMissingPagination::builder(user, medals, medal_count)
-    .start_by_update()
+        .start_by_update()
         .start(ctx, orig)
         .await
 }

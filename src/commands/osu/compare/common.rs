@@ -1,6 +1,5 @@
 use std::{cmp::Ordering, fmt::Write, iter, sync::Arc};
 
-use chrono::{DateTime, Utc};
 use command_macros::command;
 use eyre::Report;
 use hashbrown::HashMap;
@@ -8,6 +7,7 @@ use rosu_v2::{
     prelude::{GameMode, OsuError, Score, Username},
     OsuResult,
 };
+use time::OffsetDateTime;
 
 use crate::{
     commands::{
@@ -140,7 +140,7 @@ pub(super) async fn top(
     let mode = match args.mode {
         Some(mode) => mode.into(),
         None => match ctx.user_config(orig.user_id()?).await {
-            Ok(config) => config.mode.unwrap_or(GameMode::STD),
+            Ok(config) => config.mode.unwrap_or(GameMode::Osu),
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
@@ -306,7 +306,7 @@ async fn get_scores_(ctx: &Context, name: &str, mode: GameMode) -> OsuResult<Vec
 pub struct CommonScore {
     pub pp: f32,
     score: u32,
-    created_at: DateTime<Utc>,
+    ended_at: OffsetDateTime,
 }
 
 impl Eq for CommonScore {}
@@ -316,7 +316,7 @@ impl From<&Score> for CommonScore {
         Self {
             pp: score.pp.unwrap_or(0.0),
             score: score.score,
-            created_at: score.created_at,
+            ended_at: score.ended_at,
         }
     }
 }
@@ -327,7 +327,7 @@ impl Ord for CommonScore {
             .partial_cmp(&other.pp)
             .unwrap_or(Ordering::Equal)
             .then_with(|| self.score.cmp(&other.score))
-            .then_with(|| other.created_at.cmp(&self.created_at))
+            .then_with(|| other.ended_at.cmp(&self.ended_at))
     }
 }
 

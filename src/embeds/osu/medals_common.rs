@@ -51,9 +51,13 @@ impl MedalsCommonEmbed {
             );
 
             let (timestamp1, timestamp2, first_earlier) = match (entry.achieved1, entry.achieved2) {
-                (Some(a1), Some(a2)) => (Some(a1.timestamp()), Some(a2.timestamp()), a1 < a2),
-                (Some(a1), None) => (Some(a1.timestamp()), None, true),
-                (None, Some(a2)) => (None, Some(a2.timestamp()), false),
+                (Some(a1), Some(a2)) => (
+                    Some(a1.unix_timestamp()),
+                    Some(a2.unix_timestamp()),
+                    a1 < a2,
+                ),
+                (Some(a1), None) => (Some(a1.unix_timestamp()), None, true),
+                (None, Some(a2)) => (None, Some(a2.unix_timestamp()), false),
                 (None, None) => unreachable!(),
             };
 

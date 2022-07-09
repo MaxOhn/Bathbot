@@ -55,7 +55,7 @@ pub(super) async fn untrack(
         return orig.error(&ctx, content).await;
     }
 
-    let users = match super::get_names(&ctx, &more_names, mode.unwrap_or(GameMode::STD)).await {
+    let users = match super::get_names(&ctx, &more_names, mode.unwrap_or(GameMode::Osu)).await {
         Ok(map) => map,
         Err((OsuError::NotFound, name)) => {
             let content = format!("User `{name}` was not found");

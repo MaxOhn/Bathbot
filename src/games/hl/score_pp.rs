@@ -50,7 +50,7 @@ impl ScorePp {
     ) -> BotResult<Self> {
         let max_play = 25 - curr_score.min(24);
         let min_play = 24 - 2 * curr_score.min(12);
-        let max_rank = 5000 - (mode != GameMode::STD) as u32 * 1000;
+        let max_rank = 5000 - (mode != GameMode::Osu) as u32 * 1000;
 
         let (rank, play): (u32, u32) = {
             let mut rng = rand::thread_rng();

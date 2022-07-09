@@ -230,10 +230,10 @@ pub(super) async fn list(
             let content = format!(
                 "No recent {}plays found for user `{name}`",
                 match mode {
-                    GameMode::STD => "",
-                    GameMode::TKO => "taiko ",
-                    GameMode::CTB => "ctb ",
-                    GameMode::MNA => "mania ",
+                    GameMode::Osu => "",
+                    GameMode::Taiko => "taiko ",
+                    GameMode::Catch => "ctb ",
+                    GameMode::Mania => "mania ",
                 },
             );
 

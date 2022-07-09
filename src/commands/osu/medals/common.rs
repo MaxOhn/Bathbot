@@ -3,11 +3,11 @@ use std::{
     sync::Arc,
 };
 
-use chrono::{DateTime, Utc};
 use command_macros::command;
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, User};
+use time::OffsetDateTime;
 
 use crate::{
     commands::osu::{get_user, NameExtraction, UserArgs},
@@ -122,10 +122,10 @@ pub(super) async fn common(
     let MedalCommon { sort, filter, .. } = args;
 
     // Retrieve all users and their scores
-    let user_args1 = UserArgs::new(name1.as_ref(), GameMode::STD);
+    let user_args1 = UserArgs::new(name1.as_ref(), GameMode::Osu);
     let user_fut1 = get_user(&ctx, &user_args1);
 
-    let user_args2 = UserArgs::new(name2.as_ref(), GameMode::STD);
+    let user_args2 = UserArgs::new(name2.as_ref(), GameMode::Osu);
     let user_fut2 = get_user(&ctx, &user_args2);
     let redis = ctx.redis();
 
@@ -299,11 +299,11 @@ pub(super) async fn common(
 
 pub struct MedalEntryCommon {
     pub medal: OsekaiMedal,
-    pub achieved1: Option<DateTime<Utc>>,
-    pub achieved2: Option<DateTime<Utc>>,
+    pub achieved1: Option<OffsetDateTime>,
+    pub achieved2: Option<OffsetDateTime>,
 }
 
-fn extract_medals(user: &User) -> HashMap<u32, DateTime<Utc>> {
+fn extract_medals(user: &User) -> HashMap<u32, OffsetDateTime> {
     match user.medals.as_ref() {
         Some(medals) => medals
             .iter()

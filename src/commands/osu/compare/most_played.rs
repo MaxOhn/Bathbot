@@ -177,14 +177,14 @@ pub(super) async fn mostplayed(
     );
 
     MostPlayedCommonPagination::builder(name1, name2, maps, map_counts)
-    .start_by_update()
+        .start_by_update()
         .content(content)
         .start(ctx, orig)
         .await
 }
 
 async fn get_scores_(ctx: &Context, name: &str) -> OsuResult<Vec<MostPlayedMap>> {
-    let user_args = UserArgs::new(name, GameMode::STD);
+    let user_args = UserArgs::new(name, GameMode::Osu);
     let scores_fut = ctx.osu().user_most_played(name).limit(100);
 
     if let Some(alt_name) = user_args.whitespaced_name() {

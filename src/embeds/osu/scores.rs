@@ -112,7 +112,7 @@ impl ScoresEmbed {
                     combo = score.max_combo,
                     max_combo = OptionFormat::new(map.max_combo),
                     hits = score.hits_string(score.mode),
-                    timestamp = how_long_ago_dynamic(&score.created_at)
+                    timestamp = how_long_ago_dynamic(&score.ended_at)
                 );
 
                 if let Some(score) = scores.next() {
@@ -162,7 +162,7 @@ impl ScoresEmbed {
             version = map.version.cow_escape_markdown()
         );
 
-        if map.mode == GameMode::MNA {
+        if map.mode == GameMode::Mania {
             let _ = write!(title_text, "[{}K] ", map.cs as u32);
         }
 
@@ -248,7 +248,7 @@ impl<'c> WriteArgs<'c> {
 fn personal_idx(score: &Score, scores: &[Score]) -> Option<usize> {
     scores
         .iter()
-        .position(|s| s.created_at == score.created_at)
+        .position(|s| s.ended_at == score.ended_at)
         .map(|i| i + 1)
 }
 
@@ -266,7 +266,7 @@ fn write_compact_score(args: &mut WriteArgs<'_>, i: usize, score: &Score, stars:
         combo = score.max_combo,
         miss = score.statistics.count_miss,
         miss_emote = Emote::Miss.text(),
-        timestamp = how_long_ago_dynamic(&score.created_at),
+        timestamp = how_long_ago_dynamic(&score.ended_at),
     );
 
     let mut pinned = args.pinned.iter();

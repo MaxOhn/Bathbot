@@ -140,11 +140,11 @@ impl MapSearchEmbed {
             let mut mode = String::with_capacity(4);
             let maps = mapset.maps.as_ref().unwrap();
 
-            if maps.iter().any(|map| map.mode == GameMode::STD) {
+            if maps.iter().any(|map| map.mode == GameMode::Osu) {
                 mode.push_str("osu!");
             }
 
-            if maps.iter().any(|map| map.mode == GameMode::MNA) {
+            if maps.iter().any(|map| map.mode == GameMode::Mania) {
                 if !mode.is_empty() {
                     mode.push_str(", ");
                 }
@@ -152,7 +152,7 @@ impl MapSearchEmbed {
                 mode.push_str("mania");
             }
 
-            if maps.iter().any(|map| map.mode == GameMode::TKO) {
+            if maps.iter().any(|map| map.mode == GameMode::Taiko) {
                 if !mode.is_empty() {
                     mode.push_str(", ");
                 }
@@ -160,7 +160,7 @@ impl MapSearchEmbed {
                 mode.push_str("taiko");
             }
 
-            if maps.iter().any(|map| map.mode == GameMode::CTB) {
+            if maps.iter().any(|map| map.mode == GameMode::Catch) {
                 if !mode.is_empty() {
                     mode.push_str(", ");
                 }

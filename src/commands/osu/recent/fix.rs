@@ -23,7 +23,7 @@ pub(super) async fn fix(
 ) -> BotResult<()> {
     let (name, mode) = name_mode!(ctx, orig, args);
 
-    if mode == GameMode::MNA {
+    if mode == GameMode::Mania {
         return orig.error(&ctx, "Can't fix mania scores \\:(").await;
     }
 
@@ -36,10 +36,10 @@ pub(super) async fn fix(
             let content = format!(
                 "No recent {}plays found for user `{name}`",
                 match mode {
-                    GameMode::STD => "",
-                    GameMode::TKO => "taiko ",
-                    GameMode::CTB => "ctb ",
-                    GameMode::MNA => "mania ",
+                    GameMode::Osu => "",
+                    GameMode::Taiko => "taiko ",
+                    GameMode::Catch => "ctb ",
+                    GameMode::Mania => "mania ",
                 },
             );
 
@@ -155,12 +155,12 @@ pub(super) async fn fix(
 
 fn needs_unchoking(score: &Score, map: &Beatmap) -> bool {
     match map.mode {
-        GameMode::STD => {
+        GameMode::Osu => {
             score.statistics.count_miss > 0
                 || score.max_combo < map.max_combo.map_or(0, |c| c.saturating_sub(5))
         }
-        GameMode::TKO => score.statistics.count_miss > 0,
-        GameMode::CTB => score.max_combo != map.max_combo.unwrap_or(0),
-        GameMode::MNA => panic!("can not unchoke mania scores"),
+        GameMode::Taiko => score.statistics.count_miss > 0,
+        GameMode::Catch => score.max_combo != map.max_combo.unwrap_or(0),
+        GameMode::Mania => panic!("can not unchoke mania scores"),
     }
 }

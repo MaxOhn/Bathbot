@@ -85,10 +85,10 @@ impl From<ConfigGameMode> for Option<GameMode> {
     fn from(mode: ConfigGameMode) -> Self {
         match mode {
             ConfigGameMode::None => None,
-            ConfigGameMode::Osu => Some(GameMode::STD),
-            ConfigGameMode::Taiko => Some(GameMode::TKO),
-            ConfigGameMode::Catch => Some(GameMode::CTB),
-            ConfigGameMode::Mania => Some(GameMode::MNA),
+            ConfigGameMode::Osu => Some(GameMode::Osu),
+            ConfigGameMode::Taiko => Some(GameMode::Taiko),
+            ConfigGameMode::Catch => Some(GameMode::Catch),
+            ConfigGameMode::Mania => Some(GameMode::Mania),
         }
     }
 }
@@ -170,10 +170,10 @@ pub async fn config(
     match mode {
         None => {}
         Some(ConfigGameMode::None) => config.mode = None,
-        Some(ConfigGameMode::Osu) => config.mode = Some(GameMode::STD),
-        Some(ConfigGameMode::Taiko) => config.mode = Some(GameMode::TKO),
-        Some(ConfigGameMode::Catch) => config.mode = Some(GameMode::CTB),
-        Some(ConfigGameMode::Mania) => config.mode = Some(GameMode::MNA),
+        Some(ConfigGameMode::Osu) => config.mode = Some(GameMode::Osu),
+        Some(ConfigGameMode::Taiko) => config.mode = Some(GameMode::Taiko),
+        Some(ConfigGameMode::Catch) => config.mode = Some(GameMode::Catch),
+        Some(ConfigGameMode::Mania) => config.mode = Some(GameMode::Mania),
     }
 
     if let Some(size) = profile {

@@ -1,6 +1,5 @@
 use std::{borrow::Cow, sync::Arc};
 
-use chrono::{DateTime, Datelike, Utc};
 use command_macros::command;
 use eyre::Report;
 use hashbrown::HashMap;
@@ -8,6 +7,7 @@ use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::prelude::*;
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{GameMode, MedalCompact, OsuError};
+use time::OffsetDateTime;
 
 use crate::{
     commands::osu::{get_user, require_link, UserArgs},
@@ -18,7 +18,7 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
-        matcher,
+        matcher, Monthly,
     },
     BotResult, Context,
 };
@@ -67,7 +67,7 @@ pub(super) async fn stats(
         },
     };
 
-    let user_args = UserArgs::new(name.as_str(), GameMode::STD);
+    let user_args = UserArgs::new(name.as_str(), GameMode::Osu);
     let user_fut = get_user(&ctx, &user_args);
     let redis = ctx.redis();
     let ranking_fut = redis.osekai_ranking::<Rarity>();
@@ -185,7 +185,7 @@ pub fn graph(medals: &[MedalCompact], w: u32, h: u32) -> Result<Option<Vec<u8>>,
             .caption("Medal history", ("sans-serif", 30, &WHITE))
             .x_label_area_size(30)
             .y_label_area_size(45)
-            .build_cartesian_2d((first..last).monthly(), 0..medals.len())?;
+            .build_cartesian_2d(Monthly(first..last), 0..medals.len())?;
 
         // Mesh and labels
         chart
@@ -227,7 +227,7 @@ impl<'m> MedalCounter<'m> {
 }
 
 impl Iterator for MedalCounter<'_> {
-    type Item = (DateTime<Utc>, usize);
+    type Item = (OffsetDateTime, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
         let date = self.medals.first()?.achieved_at;

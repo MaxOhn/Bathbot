@@ -1,6 +1,5 @@
 use crate::{util::CowUtils, Context};
 
-use chrono::FixedOffset;
 use hashbrown::HashMap;
 use once_cell::sync::OnceCell;
 use rkyv::{
@@ -14,6 +13,7 @@ use std::{
     fmt,
     ops::Deref,
 };
+use time::UtcOffset;
 
 static TIMEZONES: OnceCell<HashMap<&'static str, i32>> = OnceCell::new();
 
@@ -570,7 +570,7 @@ impl CountryCode {
         ctx.contains_country(self.0.as_str())
     }
 
-    pub fn timezone(&self) -> FixedOffset {
+    pub fn timezone(&self) -> UtcOffset {
         let offset = match timezones().get(self.0.as_str()) {
             Some(offset) => *offset,
             None => {
@@ -580,7 +580,7 @@ impl CountryCode {
             }
         };
 
-        FixedOffset::east(offset)
+        UtcOffset::from_whole_seconds(offset).unwrap()
     }
 }
 

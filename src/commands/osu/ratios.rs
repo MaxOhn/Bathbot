@@ -89,7 +89,7 @@ async fn ratios(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Ratios<'_>) ->
     };
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::new(name.as_str(), GameMode::MNA);
+    let user_args = UserArgs::new(name.as_str(), GameMode::Mania);
     let score_args = ScoreArgs::top(100);
 
     let (mut user, mut scores) =
@@ -108,7 +108,7 @@ async fn ratios(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Ratios<'_>) ->
         };
 
     // Overwrite default mode
-    user.mode = GameMode::MNA;
+    user.mode = GameMode::Mania;
 
     // Process user and their top scores for tracking
     process_osu_tracking(&ctx, &mut scores, Some(&user)).await;

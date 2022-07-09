@@ -1,9 +1,11 @@
-use crate::util::CountryCode;
-
-use chrono::{DateTime, Utc};
 use rosu_pp::ScoreState;
 use rosu_v2::prelude::{GameMode, GameMods, Grade, RankStatus};
-use serde::{de, Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer};
+use time::OffsetDateTime;
+
+use crate::util::CountryCode;
+
+use super::deserialize;
 
 #[derive(Deserialize)]
 pub struct ScraperScores {
@@ -28,7 +30,7 @@ pub struct ScraperScore {
     // pub perfect: bool,
     pub pp: Option<f32>,
     pub grade: Grade,
-    pub date: DateTime<Utc>,
+    pub date: OffsetDateTime,
     pub replay: bool,
     pub count50: u32,
     pub count100: u32,
@@ -39,7 +41,7 @@ pub struct ScraperScore {
 }
 
 impl<'de> Deserialize<'de> for ScraperScore {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
         struct Outer {
             id: u64,
@@ -55,8 +57,8 @@ impl<'de> Deserialize<'de> for ScraperScore {
             statistics: ScraperScoreStatistics,
             pp: Option<f32>,
             rank: Grade,
-            #[serde(deserialize_with = "adjust_datetime", rename = "ended_at")]
-            created_at: DateTime<Utc>,
+            #[serde(with = "deserialize::offset_datetime")]
+            ended_at: OffsetDateTime,
             replay: bool,
             user: ScraperUser,
         }
@@ -83,7 +85,7 @@ impl<'de> Deserialize<'de> for ScraperScore {
             country_code: CountryCode,
         }
 
-        let helper = Outer::deserialize(deserializer)?;
+        let helper = Outer::deserialize(d)?;
 
         Ok(ScraperScore {
             id: helper.id,
@@ -97,7 +99,7 @@ impl<'de> Deserialize<'de> for ScraperScore {
             // perfect: helper.perfect,
             pp: helper.pp,
             grade: helper.rank,
-            date: helper.created_at,
+            date: helper.ended_at,
             replay: helper.replay,
             count50: helper.statistics.count_50,
             count100: helper.statistics.count_100,
@@ -152,8 +154,8 @@ pub struct ScraperBeatmap {
     pub count_spinner: u32,
     #[serde(default)]
     pub count_total: u32,
-    #[serde(deserialize_with = "adjust_datetime")]
-    pub last_updated: DateTime<Utc>,
+    #[serde(with = "deserialize::offset_datetime")]
+    pub last_updated: OffsetDateTime,
     pub ranked: RankStatus,
 }
 
@@ -161,14 +163,4 @@ fn adjust_acc<'de, D: Deserializer<'de>>(d: D) -> Result<f32, D::Error> {
     let f: f32 = Deserialize::deserialize(d)?;
 
     Ok(f * 100.0)
-}
-
-fn adjust_datetime<'de, D: Deserializer<'de>>(d: D) -> Result<DateTime<Utc>, D::Error> {
-    let d: &str = Deserialize::deserialize(d)?;
-
-    let d = DateTime::parse_from_rfc3339(d)
-        .map_err(de::Error::custom)?
-        .with_timezone(&Utc);
-
-    Ok(d)
 }

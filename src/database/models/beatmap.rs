@@ -1,8 +1,8 @@
 use std::convert::TryInto;
 
-use chrono::{DateTime, Utc};
 use rosu_v2::model::beatmap::*;
 use sqlx::FromRow;
+use time::OffsetDateTime;
 
 #[derive(Debug, FromRow)]
 #[sqlx(type_name = "maps")]
@@ -22,7 +22,7 @@ pub struct DBBeatmap {
     pub ar: f32,
     pub mode: i16,
     pub status: i16,
-    pub last_update: DateTime<Utc>,
+    pub last_update: OffsetDateTime,
     pub stars: f32,
     pub bpm: f32,
     pub max_combo: Option<i32>,
@@ -91,7 +91,7 @@ pub struct DBBeatmapset {
     pub title: String,
     pub creator: String,
     pub status: i16,
-    pub ranked_date: DateTime<Utc>,
+    pub ranked_date: OffsetDateTime,
     pub bpm: f32,
 }
 

@@ -89,7 +89,7 @@ async fn mostplayed(
     };
 
     // Retrieve the user and their most played maps
-    let mut user_args = UserArgs::new(name.as_str(), GameMode::STD);
+    let mut user_args = UserArgs::new(name.as_str(), GameMode::Osu);
 
     let result = if let Some(alt_name) = user_args.whitespaced_name() {
         match ctx.redis().osu_user(&user_args).await {
@@ -132,7 +132,7 @@ async fn mostplayed(
     };
 
     MostPlayedPagination::builder(user, maps)
-    .start_by_update()
+        .start_by_update()
         .start(ctx, orig)
         .await
 }

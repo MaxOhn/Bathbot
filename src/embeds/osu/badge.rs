@@ -6,7 +6,7 @@ use crate::{
     custom_client::{OsekaiBadge, OsekaiBadgeOwner},
     embeds::{attachment, EmbedFields},
     pagination::Pages,
-    util::{builder::FooterBuilder, constants::OSU_BASE, CowUtils},
+    util::{builder::FooterBuilder, constants::OSU_BASE, datetime::DATE_FORMAT, CowUtils},
 };
 
 #[derive(EmbedData)]
@@ -37,7 +37,7 @@ impl BadgeEmbed {
             let _ = write!(owners_str, "and {} more...", owners.len() - 10);
         }
 
-        let awarded_at = badge.awarded_at.format("%F").to_string();
+        let awarded_at = badge.awarded_at.format(DATE_FORMAT).unwrap();
 
         let fields = vec![
             field!("Owners", owners_str, false),

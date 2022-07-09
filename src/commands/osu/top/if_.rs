@@ -190,8 +190,8 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> B
 
     let (name, mut mode) = name_mode!(ctx, orig, args);
 
-    if mode == GameMode::MNA {
-        mode = GameMode::STD;
+    if mode == GameMode::Mania {
+        mode = GameMode::Osu;
     }
 
     if let Err(content) = mods.validate() {
@@ -443,9 +443,9 @@ fn plural(name: &str) -> &'static str {
 
 fn mode_str(mode: GameMode) -> &'static str {
     match mode {
-        GameMode::STD => "",
-        GameMode::TKO => "taiko ",
-        GameMode::CTB => "ctb ",
-        GameMode::MNA => "mania ",
+        GameMode::Osu => "",
+        GameMode::Taiko => "taiko ",
+        GameMode::Catch => "ctb ",
+        GameMode::Mania => "mania ",
     }
 }

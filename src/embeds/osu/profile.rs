@@ -13,7 +13,7 @@ use crate::{
     embeds::{attachment, EmbedFields},
     util::{
         builder::{AuthorBuilder, FooterBuilder},
-        datetime::{date_to_string, how_long_ago_text, sec_to_minsec},
+        datetime::{how_long_ago_text, sec_to_minsec, DATETIME_FORMAT},
         numbers::{round, with_comma_int},
         osu::grade_emote,
         CowUtils, Emote,
@@ -147,7 +147,7 @@ impl ProfileEmbed {
             let mut combo = String::from(&values.combo.avg().to_string());
 
             match values.mode {
-                GameMode::STD | GameMode::CTB => {
+                GameMode::Osu | GameMode::Catch => {
                     let _ = write!(combo, "/{}", values.map_combo);
                 }
                 _ => {}
@@ -277,7 +277,7 @@ impl ProfileEmbed {
 fn footer_text(user: &User) -> String {
     format!(
         "Joined osu! {} ({})",
-        date_to_string(&user.join_date),
+        user.join_date.format(DATETIME_FORMAT).unwrap(),
         how_long_ago_text(&user.join_date),
     )
 }

@@ -52,7 +52,7 @@ impl LeaderboardEmbed {
 
         let mut author_text = String::with_capacity(32);
 
-        if map.mode == GameMode::MNA {
+        if map.mode == GameMode::Mania {
             let _ = write!(author_text, "[{}K] ", map.cs as u32);
         }
 

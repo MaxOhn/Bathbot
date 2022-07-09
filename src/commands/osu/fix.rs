@@ -255,7 +255,7 @@ async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> B
         ScoreResult::Error(err) => return Err(err),
     };
 
-    if map.mode == GameMode::MNA {
+    if map.mode == GameMode::Mania {
         return orig.error(&ctx, "Can't fix mania scores \\:(").await;
     }
 
@@ -315,7 +315,7 @@ async fn request_by_map(
     name: &str,
     mods: Option<GameMods>,
 ) -> ScoreResult {
-    let user_args = UserArgs::new(name, GameMode::STD);
+    let user_args = UserArgs::new(name, GameMode::Osu);
 
     match get_beatmap_user_score(ctx.osu(), map_id, &user_args, mods).await {
         Ok(mut score) => match super::prepare_score(ctx, &mut score.score).await {
@@ -518,7 +518,7 @@ pub(super) async fn unchoke_pp(
         None
     } else {
         let pp_result: PerformanceAttributes = match map.mode {
-            GameMode::STD => OsuPP::new(&rosu_map)
+            GameMode::Osu => OsuPP::new(&rosu_map)
                 .mods(mods)
                 .combo(score.max_combo as usize)
                 .n300(score.statistics.count_300 as usize)
@@ -527,12 +527,12 @@ pub(super) async fn unchoke_pp(
                 .misses(score.statistics.count_miss as usize)
                 .calculate()
                 .into(),
-            GameMode::MNA => ManiaPP::new(&rosu_map)
+            GameMode::Mania => ManiaPP::new(&rosu_map)
                 .mods(mods)
                 .score(score.score)
                 .calculate()
                 .into(),
-            GameMode::CTB => CatchPP::new(&rosu_map)
+            GameMode::Catch => CatchPP::new(&rosu_map)
                 .mods(mods)
                 .combo(score.max_combo as usize)
                 .fruits(score.statistics.count_300 as usize)
@@ -541,7 +541,7 @@ pub(super) async fn unchoke_pp(
                 .accuracy(score.accuracy as f64)
                 .calculate()
                 .into(),
-            GameMode::TKO => TaikoPP::new(&rosu_map)
+            GameMode::Taiko => TaikoPP::new(&rosu_map)
                 .combo(score.max_combo as usize)
                 .mods(mods)
                 .misses(score.statistics.count_miss as usize)
@@ -560,7 +560,7 @@ pub(super) async fn unchoke_pp(
     };
 
     let unchoked_pp = match map.mode {
-        GameMode::STD => {
+        GameMode::Osu => {
             let total_objects = map.count_objects() as usize;
 
             let mut count300 = score.statistics.count_300 as usize;
@@ -587,7 +587,7 @@ pub(super) async fn unchoke_pp(
                 .calculate()
                 .pp
         }
-        GameMode::CTB => {
+        GameMode::Catch => {
             let attributes = match attributes {
                 Some(PerformanceAttributes::Catch(attrs)) => attrs.difficulty,
                 Some(_) => panic!("no ctb attributes after calculating stars for ctb map"),
@@ -622,7 +622,7 @@ pub(super) async fn unchoke_pp(
                 .calculate()
                 .pp
         }
-        GameMode::TKO => {
+        GameMode::Taiko => {
             let total_objects = map.count_circles as usize;
             let passed_objects = score.total_hits() as usize;
 
@@ -646,7 +646,7 @@ pub(super) async fn unchoke_pp(
 
             calculator.mods(mods).accuracy(acc as f64).calculate().pp
         }
-        GameMode::MNA => panic!("can not unchoke mania scores"),
+        GameMode::Mania => panic!("can not unchoke mania scores"),
     };
 
     Ok(Some(unchoked_pp as f32))
@@ -654,12 +654,12 @@ pub(super) async fn unchoke_pp(
 
 fn needs_unchoking(score: &Score, map: &Beatmap) -> bool {
     match map.mode {
-        GameMode::STD => {
+        GameMode::Osu => {
             score.statistics.count_miss > 0
                 || score.max_combo < map.max_combo.map_or(0, |c| c.saturating_sub(5))
         }
-        GameMode::TKO => score.statistics.count_miss > 0,
-        GameMode::CTB => score.max_combo != map.max_combo.unwrap_or(0),
-        GameMode::MNA => panic!("can not unchoke mania scores"),
+        GameMode::Taiko => score.statistics.count_miss > 0,
+        GameMode::Catch => score.max_combo != map.max_combo.unwrap_or(0),
+        GameMode::Mania => panic!("can not unchoke mania scores"),
     }
 }

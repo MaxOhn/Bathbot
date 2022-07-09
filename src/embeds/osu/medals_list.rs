@@ -39,7 +39,7 @@ impl MedalsListEmbed {
                 medal = entry.medal.name,
                 url_name = entry.medal.name.cow_replace(' ', "+"),
                 rarity = entry.rarity,
-                timestamp = entry.achieved.timestamp(),
+                timestamp = entry.achieved.unix_timestamp(),
                 group = entry.medal.grouping,
             );
         }

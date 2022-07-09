@@ -1,18 +1,17 @@
-
 use std::{
     cmp::Reverse,
     fmt::{Display, Write},
 };
 
-use chrono::{DateTime, Utc};
 use command_macros::EmbedData;
 use rosu_v2::prelude::{GameMode, User, UserStatistics};
+use time::OffsetDateTime;
 
 use crate::{
     commands::osu::CompareResult,
     embeds::attachment,
     util::{
-        datetime::sec_to_minsec,
+        datetime::{sec_to_minsec, DATE_FORMAT},
         numbers::{with_comma_float, with_comma_int},
     },
 };
@@ -46,10 +45,10 @@ impl ProfileCompareEmbed {
             "{:>max_left$}  | {:^12} |  {:<max_right$}",
             user1.username,
             match mode {
-                GameMode::STD => "osu!",
-                GameMode::MNA => "Mania",
-                GameMode::TKO => "Taiko",
-                GameMode::CTB => "CtB",
+                GameMode::Osu => "osu!",
+                GameMode::Mania => "Mania",
+                GameMode::Taiko => "Taiko",
+                GameMode::Catch => "CtB",
             },
             user2.username,
             max_left = max_left,
@@ -279,8 +278,8 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Join date",
-            user1.join_date.format("%F"),
-            user2.join_date.format("%F"),
+            user1.join_date.format(DATE_FORMAT).unwrap(),
+            user2.join_date.format(DATE_FORMAT).unwrap(),
             Reverse(user1.join_date),
             Reverse(user2.join_date),
             max_left,
@@ -393,8 +392,8 @@ struct CompareStrings {
 }
 
 impl CompareStrings {
-    fn new(stats: &UserStatistics, join_date: DateTime<Utc>, result: &CompareResult) -> Self {
-        let days = (Utc::now() - join_date).num_days() as f32;
+    fn new(stats: &UserStatistics, join_date: OffsetDateTime, result: &CompareResult) -> Self {
+        let days = (OffsetDateTime::now_utc() - join_date).whole_days() as f32;
         let pp_per_month_num = 30.67 * stats.pp / days;
 
         Self {

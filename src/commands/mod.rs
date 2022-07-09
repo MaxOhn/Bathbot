@@ -52,10 +52,10 @@ impl From<GameModeOption> for GameMode {
     #[inline]
     fn from(mode: GameModeOption) -> Self {
         match mode {
-            GameModeOption::Osu => Self::STD,
-            GameModeOption::Taiko => Self::TKO,
-            GameModeOption::Catch => Self::CTB,
-            GameModeOption::Mania => Self::MNA,
+            GameModeOption::Osu => Self::Osu,
+            GameModeOption::Taiko => Self::Taiko,
+            GameModeOption::Catch => Self::Catch,
+            GameModeOption::Mania => Self::Mania,
         }
     }
 }
@@ -64,10 +64,10 @@ impl From<GameMode> for GameModeOption {
     #[inline]
     fn from(mode: GameMode) -> Self {
         match mode {
-            GameMode::STD => Self::Osu,
-            GameMode::TKO => Self::Taiko,
-            GameMode::CTB => Self::Catch,
-            GameMode::MNA => Self::Mania,
+            GameMode::Osu => Self::Osu,
+            GameMode::Taiko => Self::Taiko,
+            GameMode::Catch => Self::Catch,
+            GameMode::Mania => Self::Mania,
         }
     }
 }

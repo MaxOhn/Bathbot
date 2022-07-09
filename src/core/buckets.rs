@@ -1,8 +1,8 @@
 use std::hash::Hash;
 
-use chrono::Utc;
 use hashbrown::HashMap;
 use parking_lot::Mutex;
+use time::OffsetDateTime;
 
 pub struct Buckets([Mutex<Bucket>; 7]);
 
@@ -68,7 +68,7 @@ impl Bucket {
     }
 
     pub fn take(&mut self, user_id: u64) -> i64 {
-        let time = Utc::now().timestamp();
+        let time = OffsetDateTime::now_utc().unix_timestamp();
 
         let user = self
             .users

@@ -64,7 +64,7 @@ pub(super) async fn country_list(
     let osu_user = match ctx.psql().get_user_osu(author_id).await {
         Ok(Some(osu)) => {
             let name = osu.into_username();
-            let user_args = UserArgs::new(name.as_str(), GameMode::STD);
+            let user_args = UserArgs::new(name.as_str(), GameMode::Osu);
 
             match ctx.redis().osu_user(&user_args).await {
                 Ok(user) => Some(user),

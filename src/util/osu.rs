@@ -5,9 +5,9 @@ use std::{
     slice::Iter,
 };
 
-use chrono::{DateTime, Utc};
 use rosu_pp::Mods;
 use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, Score, UserStatistics};
+use time::OffsetDateTime;
 use tokio::{fs::File, io::AsyncWriteExt};
 use twilight_model::channel::{embed::Embed, Message};
 
@@ -135,10 +135,10 @@ pub fn grade_emote(grade: Grade) -> &'static str {
 
 pub fn mode_emote(mode: GameMode) -> &'static str {
     let emote = match mode {
-        GameMode::STD => Emote::Std,
-        GameMode::TKO => Emote::Tko,
-        GameMode::CTB => Emote::Ctb,
-        GameMode::MNA => Emote::Mna,
+        GameMode::Osu => Emote::Std,
+        GameMode::Taiko => Emote::Tko,
+        GameMode::Catch => Emote::Ctb,
+        GameMode::Mania => Emote::Mna,
     };
 
     emote.text()
@@ -151,7 +151,7 @@ pub fn grade_completion_mods(score: &dyn ScoreExt, map: &Beatmap) -> Cow<'static
 
     match (
         mods.is_empty(),
-        score.grade(mode) == Grade::F && mode != GameMode::CTB,
+        score.grade(mode) == Grade::F && mode != GameMode::Catch,
     ) {
         (true, true) => format!("{grade} ({}%)", completion(score, map)).into(),
         (false, true) => format!("{grade} ({}%) +{mods}", completion(score, map)).into(),
@@ -485,7 +485,7 @@ impl BonusPP {
 pub trait SortableScore {
     fn acc(&self) -> f32;
     fn bpm(&self) -> f32;
-    fn created_at(&self) -> DateTime<Utc>;
+    fn ended_at(&self) -> OffsetDateTime;
     fn map_id(&self) -> u32;
     fn mapset_id(&self) -> u32;
     fn max_combo(&self) -> u32;
@@ -509,8 +509,8 @@ impl SortableScore for Score {
         self.map.as_ref().map_or(0.0, |map| map.bpm)
     }
 
-    fn created_at(&self) -> DateTime<Utc> {
-        self.created_at
+    fn ended_at(&self) -> OffsetDateTime {
+        self.ended_at
     }
 
     fn map_id(&self) -> u32 {
@@ -573,8 +573,8 @@ macro_rules! impl_sortable_score_tuple {
                 SortableScore::bpm(&self.$idx)
             }
 
-            fn created_at(&self) -> DateTime<Utc> {
-                SortableScore::created_at(&self.$idx)
+            fn ended_at(&self) -> OffsetDateTime {
+                SortableScore::ended_at(&self.$idx)
             }
 
             fn map_id(&self) -> u32 {
@@ -640,8 +640,8 @@ impl SortableScore for (OsuTrackerCountryScore, usize) {
         panic!("can't sort by bpm")
     }
 
-    fn created_at(&self) -> DateTime<Utc> {
-        self.0.created_at
+    fn ended_at(&self) -> OffsetDateTime {
+        self.0.ended_at
     }
 
     fn map_id(&self) -> u32 {
@@ -657,7 +657,7 @@ impl SortableScore for (OsuTrackerCountryScore, usize) {
     }
 
     fn mode(&self) -> GameMode {
-        GameMode::STD
+        GameMode::Osu
     }
 
     fn mods(&self) -> GameMods {

@@ -218,10 +218,10 @@ async fn slash_serverleaderboard(
 
     let kind = match args {
         ServerLeaderboard::AllModes(args) => args.kind.into(),
-        ServerLeaderboard::Osu(args) => args.kind.column(GameMode::STD),
-        ServerLeaderboard::Taiko(args) => args.kind.column(GameMode::TKO),
-        ServerLeaderboard::Catch(args) => args.kind.column(GameMode::CTB),
-        ServerLeaderboard::Mania(args) => args.kind.column(GameMode::MNA),
+        ServerLeaderboard::Osu(args) => args.kind.column(GameMode::Osu),
+        ServerLeaderboard::Taiko(args) => args.kind.column(GameMode::Taiko),
+        ServerLeaderboard::Catch(args) => args.kind.column(GameMode::Catch),
+        ServerLeaderboard::Mania(args) => args.kind.column(GameMode::Mania),
     };
 
     let owner = command.user_id()?;

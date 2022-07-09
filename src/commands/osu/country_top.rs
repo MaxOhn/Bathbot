@@ -396,7 +396,7 @@ fn content_with_condition(
 }
 
 async fn user_country(ctx: &Context, name: &str) -> OsuResult<CountryCode> {
-    let user_args = UserArgs::new(name, GameMode::STD);
+    let user_args = UserArgs::new(name, GameMode::Osu);
     let user = ctx.redis().osu_user(&user_args).await?;
 
     Ok(user.country_code.into())

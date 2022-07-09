@@ -5,7 +5,6 @@ use std::{
 };
 
 use bytes::Bytes;
-use chrono::{DateTime, Utc};
 use hashbrown::HashSet;
 use http::{
     header::{CONTENT_LENGTH, COOKIE},
@@ -22,6 +21,7 @@ use leaky_bucket_lite::LeakyBucket;
 use rosu_v2::prelude::{GameMode, GameMods, User};
 use serde::Serialize;
 use serde_json::{Map, Value};
+use time::{format_description::FormatItem, OffsetDateTime};
 use tokio::time::{interval, sleep, timeout, Duration};
 use twilight_model::channel::Attachment;
 
@@ -33,6 +33,7 @@ use crate::{
             HUISMETBENEN, OSU_BASE, OSU_DAILY_API, TWITCH_STREAM_ENDPOINT, TWITCH_USERS_ENDPOINT,
             TWITCH_VIDEOS_ENDPOINT,
         },
+        datetime::{DATE_FORMAT, TIME_FORMAT},
         numbers::round,
         osu::ModSelection,
         ExponentialBackoff,
@@ -54,7 +55,7 @@ pub use self::{
     rkyv_impls::UsernameWrapper, score::*, snipe::*, twitch::*,
 };
 
-use self::{deserialize::*, rkyv_impls::*, score::ScraperScores};
+use self::{rkyv_impls::*, score::ScraperScores};
 
 mod deserialize;
 mod error;
@@ -511,17 +512,22 @@ impl CustomClient {
         &self,
         user: &User,
         sniper: bool,
-        from: DateTime<Utc>,
-        until: DateTime<Utc>,
+        from: OffsetDateTime,
+        until: OffsetDateTime,
     ) -> ClientResult<Vec<SnipeRecent>> {
-        let date_format = "%FT%TZ";
+        pub const DATETIME_FORMAT: &[FormatItem<'_>] = &[
+            FormatItem::Compound(DATE_FORMAT),
+            FormatItem::Literal(b"T"),
+            FormatItem::Compound(TIME_FORMAT),
+            FormatItem::Literal(b"Z"),
+        ];
 
         let url = format!(
             "{HUISMETBENEN}snipes/{}/{}?since={}&until={}",
             user.user_id,
             if sniper { "new" } else { "old" },
-            from.format(date_format),
-            until.format(date_format)
+            from.format(DATETIME_FORMAT).unwrap(),
+            until.format(DATETIME_FORMAT).unwrap()
         );
 
         let bytes = self.make_get_request(url, Site::Huismetbenen).await?;
@@ -728,7 +734,7 @@ impl CustomClient {
             .unwrap_or(true);
 
         // Check if another request for mania's MR is needed
-        if mode == GameMode::MNA && non_mirror {
+        if mode == GameMode::Mania && non_mirror {
             let mods = match mods {
                 None => Some(GameMods::Mirror),
                 Some(mods) => Some(mods | GameMods::Mirror),
@@ -753,7 +759,7 @@ impl CustomClient {
 
         // If DT / NC included, make another request
         if mods.is_some() {
-            if mode == GameMode::MNA && non_mirror {
+            if mode == GameMode::Mania && non_mirror {
                 let mods = mods.map(|mods| mods | GameMods::Mirror);
                 let mut new_scores = self._get_leaderboard(map_id, mods).await?;
                 scores.append(&mut new_scores);

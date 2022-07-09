@@ -86,7 +86,7 @@ async fn avatar(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Avatar<'_>) ->
         },
     };
 
-    let user_args = UserArgs::new(name.as_str(), GameMode::STD);
+    let user_args = UserArgs::new(name.as_str(), GameMode::Osu);
 
     let user = match get_user(&ctx, &user_args).await {
         Ok(user) => user,

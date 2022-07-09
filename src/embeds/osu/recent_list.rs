@@ -72,7 +72,7 @@ impl RecentListEmbed {
                 url = map.url,
             );
 
-            if map.mode == GameMode::MNA {
+            if map.mode == GameMode::Mania {
                 let _ = write!(description, "\t{}", osu::get_keys(score.mods, map));
             }
 
@@ -83,7 +83,7 @@ impl RecentListEmbed {
                 "{pp}\t[ {combo} ]\t({acc}%)\t{ago}",
                 combo = osu::get_combo(score, map),
                 acc = score.acc(map.mode),
-                ago = how_long_ago_dynamic(&score.created_at)
+                ago = how_long_ago_dynamic(&score.ended_at)
             );
         }
 

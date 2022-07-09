@@ -1,10 +1,10 @@
 use std::{collections::BTreeMap, fmt, mem, ops::Deref, sync::Arc};
 
-use chrono::{DateTime, Utc};
 use command_macros::command;
 use eyre::Report;
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{GameMode, OsuResult, Rankings};
+use time::OffsetDateTime;
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
@@ -44,7 +44,7 @@ pub(super) async fn pp(
     let (mode, osu_data) = match mode {
         Some(mode) => (mode.into(), None),
         None => match ctx.user_config(author_id).await {
-            Ok(config) => (config.mode.unwrap_or(GameMode::STD), config.osu),
+            Ok(config) => (config.mode.unwrap_or(GameMode::Osu), config.osu),
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
@@ -144,7 +144,7 @@ pub(super) async fn score(
     let mode = match args.mode {
         Some(mode) => mode.into(),
         None => match ctx.user_config(author_id).await {
-            Ok(config) => config.mode.unwrap_or(GameMode::STD),
+            Ok(config) => config.mode.unwrap_or(GameMode::Osu),
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
@@ -443,7 +443,7 @@ pub enum UserValue {
     Accuracy(f32),
     Amount(u64),
     AmountWithNegative(i64),
-    Date(DateTime<Utc>),
+    Date(OffsetDateTime),
     Float(f32),
     Playtime(u32),
     PpF32(f32),
@@ -465,7 +465,7 @@ impl fmt::Display for UserValue {
                     write!(f, "{score:.2} bn")
                 }
             }
-            Self::Date(date) => write!(f, "{}", date.format("%F")),
+            Self::Date(datetime) => write!(f, "{}", datetime.date()),
             Self::Float(v) => write!(f, "{:.2}", numbers::round(v)),
             Self::Playtime(seconds) => {
                 write!(f, "{} hrs", numbers::with_comma_int(seconds / 60 / 60))

@@ -22,10 +22,10 @@ use crate::{
 #[group(Tracking)]
 async fn prefix_untrackall(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
     let mode = match args.next() {
-        Some("osu") | Some("o") | Some("standard") | Some("s") => Some(GameMode::STD),
-        Some("mania") | Some("m") => Some(GameMode::MNA),
-        Some("taiko") | Some("t") => Some(GameMode::TKO),
-        Some("ctb") | Some("c") | Some("catch") => Some(GameMode::CTB),
+        Some("osu") | Some("o") | Some("standard") | Some("s") => Some(GameMode::Osu),
+        Some("mania") | Some("m") => Some(GameMode::Mania),
+        Some("taiko") | Some("t") => Some(GameMode::Taiko),
+        Some("ctb") | Some("c") | Some("catch") => Some(GameMode::Catch),
         None => None,
         _ => {
             let content = "If an argument is provided, \

@@ -26,7 +26,7 @@ impl Searchable for Beatmap {
         matches &= criteria.od.contains(self.od);
         matches &= criteria.length.contains(self.seconds_drain as f32);
         matches &= criteria.bpm.contains(self.bpm);
-        matches &= self.mode != GameMode::MNA || criteria.keys.contains(self.cs);
+        matches &= self.mode != GameMode::Mania || criteria.keys.contains(self.cs);
 
         if let Some(ref mapset) = self.mapset {
             matches &= mapset.matches(criteria);
@@ -137,7 +137,7 @@ impl Searchable for Score {
                 _ => unreachable!(),
             };
 
-            matches &= map.mode != GameMode::MNA || criteria.keys.contains(keys);
+            matches &= map.mode != GameMode::Mania || criteria.keys.contains(keys);
 
             version = map.version.cow_to_ascii_lowercase();
         }

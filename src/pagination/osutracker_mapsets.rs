@@ -1,8 +1,8 @@
-use chrono::Utc;
 use command_macros::pagination;
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::Beatmapset;
+use time::OffsetDateTime;
 use twilight_model::channel::embed::Embed;
 
 use crate::{
@@ -52,7 +52,7 @@ impl OsuTrackerMapsetsPagination {
                 creator: mapset.creator_name,
                 name: format!("{} - {}", mapset.artist, mapset.title),
                 mapset_id,
-                ranked_date: mapset.ranked_date.unwrap_or_else(Utc::now),
+                ranked_date: mapset.ranked_date.unwrap_or_else(OffsetDateTime::now_utc),
                 user_id: mapset.creator_id,
             };
 

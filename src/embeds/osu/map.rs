@@ -1,11 +1,11 @@
 use std::fmt::Write;
 
-use chrono::{DateTime, Utc};
 use command_macros::EmbedData;
 use rosu_pp::{
     AnyPP, Beatmap as Map, BeatmapExt, GameMode as Mode, ManiaPP, Mods, PerformanceAttributes,
 };
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods};
+use time::OffsetDateTime;
 
 use crate::{
     commands::osu::CustomAttrs,
@@ -34,7 +34,7 @@ pub struct MapEmbed {
     footer: FooterBuilder,
     author: AuthorBuilder,
     image: String,
-    timestamp: DateTime<Utc>,
+    timestamp: OffsetDateTime,
     fields: EmbedFields,
 }
 
@@ -49,7 +49,7 @@ impl MapEmbed {
     ) -> BotResult<Self> {
         let mut title = String::with_capacity(32);
 
-        if map.mode == GameMode::MNA {
+        if map.mode == GameMode::Mania {
             let _ = write!(title, "[{}K] ", map.cs as u32);
         }
 
@@ -116,7 +116,7 @@ impl MapEmbed {
         let hp = attributes.hp;
         let cs = attributes.cs;
 
-        let (ar, od) = if map.mode == GameMode::MNA {
+        let (ar, od) = if map.mode == GameMode::Mania {
             (rosu_map.ar as f64, rosu_map.od)
         } else {
             let mult = mod_bits.od_ar_hp_multiplier() as f32;
@@ -275,7 +275,7 @@ impl MapEmbed {
             mapset_id = mapset.mapset_id
         );
 
-        if map.mode == GameMode::STD {
+        if map.mode == GameMode::Osu {
             let _ = write!(
                 description,
                 " :clapper: [Map preview](http://jmir.xyz/osu/preview.html#{map_id})",

@@ -9,7 +9,8 @@ use tokio::time::Duration;
 use crate::{BotResult, Context};
 
 pub use self::{
-    bitflags::*, country_code::CountryCode, cow::CowUtils, emote::Emote, ext::*, matrix::Matrix, boyer_moore::*,
+    bitflags::*, boyer_moore::*, country_code::CountryCode, cow::CowUtils, emote::Emote, ext::*,
+    matrix::Matrix, monthly::Monthly
 };
 
 pub mod builder;
@@ -22,12 +23,13 @@ pub mod numbers;
 pub mod osu;
 pub mod query;
 
-mod boyer_moore;
 mod bitflags;
+mod boyer_moore;
 mod country_code;
 mod cow;
 mod emote;
 mod ext;
+mod monthly;
 
 macro_rules! get {
     ($slice:ident[$idx:expr]) => {

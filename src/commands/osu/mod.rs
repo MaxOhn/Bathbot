@@ -67,7 +67,7 @@ macro_rules! name_mode {
                 (name, mode)
             } else {
                 let config = $ctx.user_config($orig.user_id()?).await?;
-                let mode = config.mode.unwrap_or(rosu_v2::prelude::GameMode::STD);
+                let mode = config.mode.unwrap_or(rosu_v2::prelude::GameMode::Osu);
 
                 (name, mode)
             }
@@ -76,7 +76,7 @@ macro_rules! name_mode {
 
             let mode = mode
                 .or(config.mode)
-                .unwrap_or(rosu_v2::prelude::GameMode::STD);
+                .unwrap_or(rosu_v2::prelude::GameMode::Osu);
 
             match config.into_username() {
                 Some(name) => (name, mode),
@@ -95,7 +95,6 @@ use std::{
     pin::Pin,
 };
 
-use chrono::Utc;
 use eyre::Report;
 use futures::{future::FutureExt, stream::FuturesUnordered, TryFutureExt, TryStreamExt};
 use hashbrown::HashMap;
@@ -107,6 +106,7 @@ use rosu_v2::{
     request::GetUserScores,
     Osu,
 };
+use time::OffsetDateTime;
 use twilight_interactions::command::{CommandOption, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
@@ -389,7 +389,7 @@ pub async fn prepare_score(ctx: &Context, score: &mut Score) -> OsuResult<()> {
     let valid_score = score
         .map
         .as_mut()
-        .filter(|_| matches!(mode, GameMode::STD | GameMode::CTB))
+        .filter(|_| matches!(mode, GameMode::Osu | GameMode::Catch))
         .filter(|map| map.max_combo.is_none());
 
     if let Some(map) = valid_score {
@@ -424,7 +424,7 @@ where
         let map_ids: Vec<_> = scores
             .iter()
             .filter_map(|s| s.map.as_ref())
-            .filter(|map| map.max_combo.is_none() && map.mode != GameMode::MNA)
+            .filter(|map| map.max_combo.is_none() && map.mode != GameMode::Mania)
             .map(|map| map.map_id as i32)
             .collect();
 
@@ -448,7 +448,7 @@ where
         let map_ids_iter = scores
             .iter_mut()
             .filter_map(|score| score.map.as_mut())
-            .filter(|map| map.max_combo.is_none() && map.mode != GameMode::MNA)
+            .filter(|map| map.max_combo.is_none() && map.mode != GameMode::Mania)
             .filter_map(|map| match combos.get(&map.map_id) {
                 Some(Some(combo)) => {
                     map.max_combo = Some(*combo);
@@ -670,7 +670,7 @@ impl ScoreOrder {
                 b_bpm.partial_cmp(&a_bpm).unwrap_or(Ordering::Equal)
             }),
             Self::Combo => scores.sort_unstable_by_key(|s| Reverse(s.max_combo())),
-            Self::Date => scores.sort_unstable_by_key(|s| Reverse(s.created_at())),
+            Self::Date => scores.sort_unstable_by_key(|s| Reverse(s.ended_at())),
             Self::Length => scores.sort_unstable_by(|a, b| {
                 let a_len = a.seconds_drain() as f32 / clock_rate(a.mods());
                 let b_len = b.seconds_drain() as f32 / clock_rate(b.mods());
@@ -758,8 +758,14 @@ impl ScoreOrder {
                     let mapset_a = a.mapset_id();
                     let mapset_b = b.mapset_id();
 
-                    let date_a = mapsets.get(&mapset_a).copied().unwrap_or_else(Utc::now);
-                    let date_b = mapsets.get(&mapset_b).copied().unwrap_or_else(Utc::now);
+                    let date_a = mapsets
+                        .get(&mapset_a)
+                        .copied()
+                        .unwrap_or_else(OffsetDateTime::now_utc);
+                    let date_b = mapsets
+                        .get(&mapset_b)
+                        .copied()
+                        .unwrap_or_else(OffsetDateTime::now_utc);
 
                     date_a.cmp(&date_b)
                 })

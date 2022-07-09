@@ -23,10 +23,10 @@ pub trait ScoreExt: Send + Sync {
     // Optional to implement
     fn grade(&self, mode: GameMode) -> Grade {
         match mode {
-            GameMode::STD => self.osu_grade(),
-            GameMode::MNA => self.mania_grade(Some(self.acc(GameMode::MNA))),
-            GameMode::CTB => self.ctb_grade(Some(self.acc(GameMode::CTB))),
-            GameMode::TKO => self.taiko_grade(),
+            GameMode::Osu => self.osu_grade(),
+            GameMode::Mania => self.mania_grade(Some(self.acc(GameMode::Mania))),
+            GameMode::Catch => self.ctb_grade(Some(self.acc(GameMode::Catch))),
+            GameMode::Taiko => self.taiko_grade(),
         }
     }
     fn hits(&self, mode: u8) -> u32 {
@@ -54,15 +54,15 @@ pub trait ScoreExt: Send + Sync {
     }
     fn hits_string(&self, mode: GameMode) -> String {
         let mut hits = String::from("{");
-        if mode == GameMode::MNA {
+        if mode == GameMode::Mania {
             let _ = write!(hits, "{}/", self.count_geki());
         }
         let _ = write!(hits, "{}/", self.count_300());
-        if mode == GameMode::MNA {
+        if mode == GameMode::Mania {
             let _ = write!(hits, "{}/", self.count_katu());
         }
         let _ = write!(hits, "{}/", self.count_100());
-        if mode != GameMode::TKO {
+        if mode != GameMode::Taiko {
             let _ = write!(hits, "{}/", self.count_50());
         }
         let _ = write!(hits, "{}}}", self.count_miss());
@@ -73,7 +73,7 @@ pub trait ScoreExt: Send + Sync {
     // ## Auxiliary functions ##
     // #########################
     fn osu_grade(&self) -> Grade {
-        let passed_objects = self.hits(GameMode::STD as u8);
+        let passed_objects = self.hits(GameMode::Osu as u8);
         let mods = self.mods();
 
         if self.count_300() == passed_objects {
@@ -105,7 +105,7 @@ pub trait ScoreExt: Send + Sync {
     }
 
     fn mania_grade(&self, acc: Option<f32>) -> Grade {
-        let passed_objects = self.hits(GameMode::MNA as u8);
+        let passed_objects = self.hits(GameMode::Mania as u8);
         let mods = self.mods();
 
         if self.count_geki() == passed_objects {
@@ -116,7 +116,7 @@ pub trait ScoreExt: Send + Sync {
             };
         }
 
-        let acc = acc.unwrap_or_else(|| self.acc(GameMode::MNA));
+        let acc = acc.unwrap_or_else(|| self.acc(GameMode::Mania));
 
         if acc > 95.0 {
             if mods.contains(GameMods::Hidden) || mods.contains(GameMods::Flashlight) {
@@ -137,7 +137,7 @@ pub trait ScoreExt: Send + Sync {
 
     fn taiko_grade(&self) -> Grade {
         let mods = self.mods();
-        let passed_objects = self.hits(GameMode::TKO as u8);
+        let passed_objects = self.hits(GameMode::Taiko as u8);
         let count_300 = self.count_300();
 
         if count_300 == passed_objects {
@@ -170,7 +170,7 @@ pub trait ScoreExt: Send + Sync {
 
     fn ctb_grade(&self, acc: Option<f32>) -> Grade {
         let mods = self.mods();
-        let acc = acc.unwrap_or_else(|| self.acc(GameMode::CTB));
+        let acc = acc.unwrap_or_else(|| self.acc(GameMode::Catch));
 
         if (100.0 - acc).abs() <= std::f32::EPSILON {
             if mods.contains(GameMods::Hidden) || mods.contains(GameMods::Flashlight) {
@@ -268,12 +268,12 @@ impl ScoreExt for OsuStatsScore {
         let mut amount = self.count300 + self.count100 + self.count_miss;
         let mode = self.map.mode;
 
-        if mode != GameMode::TKO {
+        if mode != GameMode::Taiko {
             amount += self.count50;
 
-            if mode != GameMode::STD {
+            if mode != GameMode::Osu {
                 amount += self.count_katu;
-                amount += (mode != GameMode::CTB) as u32 * self.count_geki;
+                amount += (mode != GameMode::Catch) as u32 * self.count_geki;
             }
         }
 

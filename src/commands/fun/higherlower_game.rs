@@ -86,7 +86,7 @@ async fn slash_higherlower(
         HigherLower::ScorePp(args) => {
             let mode = match args.mode.map(GameMode::from) {
                 Some(mode) => mode,
-                None => ctx.user_config(user).await?.mode.unwrap_or(GameMode::STD),
+                None => ctx.user_config(user).await?.mode.unwrap_or(GameMode::Osu),
             };
 
             GameState::score_pp(&ctx, &*command, mode).await

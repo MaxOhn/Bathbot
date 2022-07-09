@@ -1,10 +1,10 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
-use chrono::{DateTime, Utc};
 use command_macros::EmbedData;
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmap, Beatmapset, BeatmapsetCompact, GameMode, GameMods, Score, User};
+use time::OffsetDateTime;
 
 use crate::{
     commands::osu::TopScoreOrder,
@@ -149,7 +149,7 @@ impl CondensedTopEmbed {
     where
         S: Iterator<Item = &'i (usize, Score)>,
     {
-        let description = if user.mode == GameMode::MNA {
+        let description = if user.mode == GameMode::Mania {
             Self::description_mania(scores, ctx, sort_by, farm).await
         } else {
             Self::description(scores, ctx, sort_by, farm).await
@@ -408,17 +408,17 @@ impl Display for ScoreFormat {
 
 fn mode_str(mode: GameMode) -> &'static str {
     match mode {
-        GameMode::STD => "osu!",
-        GameMode::TKO => "Taiko",
-        GameMode::CTB => "Catch",
-        GameMode::MNA => "Mania",
+        GameMode::Osu => "osu!",
+        GameMode::Taiko => "Taiko",
+        GameMode::Catch => "Catch",
+        GameMode::Mania => "Mania",
     }
 }
 
 pub struct OrderAppendix<'a> {
     sort_by: TopScoreOrder,
     map: &'a Beatmap,
-    ranked_date: Option<DateTime<Utc>>,
+    ranked_date: Option<OffsetDateTime>,
     score: &'a Score,
     farm: &'a HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
 }
@@ -484,10 +484,10 @@ impl Display for OrderAppendix<'_> {
                 write!(f, "`{}:{:0>2}`", secs / 60, secs % 60)
             }
             TopScoreOrder::RankedDate => match self.ranked_date {
-                Some(date) => write!(f, "<t:{}:d>", date.timestamp()),
+                Some(date) => write!(f, "<t:{}:d>", date.unix_timestamp()),
                 None => Ok(()),
             },
-            _ => write!(f, "<t:{}:R>", self.score.created_at.timestamp()),
+            _ => write!(f, "<t:{}:R>", self.score.ended_at.unix_timestamp()),
         }
     }
 }

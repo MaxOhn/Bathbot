@@ -199,7 +199,7 @@ pub fn get_map_info(map: &Beatmap, mods: GameMods, stars: f32) -> String {
         ar = calculate_ar(ar, clock_rate);
     }
 
-    if map.mode == GameMode::MNA {
+    if map.mode == GameMode::Mania {
         ar = map.ar;
         od = map.od;
     }

@@ -3,7 +3,7 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
-use chrono::{DateTime, Duration, Utc};
+use ::time::{Duration, OffsetDateTime};
 use dashmap::DashMap;
 use hashbrown::hash_map::{DefaultHashBuilder, HashMap};
 use once_cell::sync::OnceCell;
@@ -20,14 +20,14 @@ pub use super::{osu_tracking_loop, process_osu_tracking};
 
 pub const OSU_TRACKING_COOLDOWN: f32 = 5000.0; // ms
 
-static OSU_TRACKING_INTERVAL: OnceCell<Duration> = OnceCell::new();
+static OSU_TRACKING_INTERVAL: OnceCell<Duration> = OnceCell::with_value(Duration::minutes(120));
 
 pub fn default_tracking_interval() -> Duration {
-    *OSU_TRACKING_INTERVAL.get_or_init(|| Duration::minutes(120))
+    unsafe { *OSU_TRACKING_INTERVAL.get_unchecked() }
 }
 
 type TrackingQueue =
-    RwLock<PriorityQueue<TrackingEntry, Reverse<DateTime<Utc>>, DefaultHashBuilder>>;
+    RwLock<PriorityQueue<TrackingEntry, Reverse<OffsetDateTime>, DefaultHashBuilder>>;
 
 type Channels = HashMap<Id<ChannelMarker>, usize>;
 
@@ -35,7 +35,7 @@ pub struct TrackingStats {
     pub next_pop: TrackingEntry,
     pub users: usize,
     pub queue: usize,
-    pub last_pop: DateTime<Utc>,
+    pub last_pop: OffsetDateTime,
     pub interval: i64,
     pub cooldown: i64,
     pub tracking: bool,
@@ -63,7 +63,7 @@ impl From<&TrackingUser> for TrackingEntry {
 pub struct OsuTracking {
     queue: TrackingQueue,
     users: DashMap<TrackingEntry, TrackingUser>,
-    last_date: RwLock<DateTime<Utc>>,
+    last_date: RwLock<OffsetDateTime>,
     cooldown: RwLock<f32>,
     pub interval: RwLock<Duration>,
     pub stop_tracking: AtomicBool,
@@ -76,13 +76,13 @@ impl OsuTracking {
 
         let queue = users
             .iter()
-            .map(|guard| (*guard.key(), Reverse(Utc::now())))
+            .map(|guard| (*guard.key(), Reverse(OffsetDateTime::now_utc())))
             .collect();
 
         Ok(Self {
             queue: RwLock::new(queue),
             users,
-            last_date: RwLock::new(Utc::now()),
+            last_date: RwLock::new(OffsetDateTime::now_utc()),
             cooldown: RwLock::new(OSU_TRACKING_COOLDOWN),
             interval: RwLock::new(default_tracking_interval()),
             stop_tracking: AtomicBool::new(false),
@@ -98,7 +98,7 @@ impl OsuTracking {
         let cooldown = *self.cooldown.read();
         let tracking = !self.stop_tracking.load(Ordering::Acquire);
 
-        let wait_interval = (last_pop + interval - Utc::now()).num_milliseconds();
+        let wait_interval = (last_pop + interval - OffsetDateTime::now_utc()).whole_milliseconds();
         let ms_per_track = wait_interval as f32 / queue as f32;
         let amount = (cooldown / ms_per_track).max(1.0);
         let delay = (ms_per_track * amount) as u64;
@@ -108,10 +108,10 @@ impl OsuTracking {
             users,
             queue,
             last_pop,
-            interval: interval.num_seconds(),
+            interval: interval.whole_seconds(),
             cooldown: cooldown as i64,
             tracking,
-            wait_interval: wait_interval / 1000,
+            wait_interval: (wait_interval / 1000) as i64,
             ms_per_track: ms_per_track as i64,
             amount: amount as usize,
             delay,
@@ -128,7 +128,7 @@ impl OsuTracking {
     }
 
     pub fn reset(&self, user_id: u32, mode: GameMode) {
-        let now = Utc::now();
+        let now = OffsetDateTime::now_utc();
         *self.last_date.write() = now;
         let entry = TrackingEntry { user_id, mode };
         self.queue.write().push_decrease(entry, Reverse(now));
@@ -138,7 +138,7 @@ impl OsuTracking {
         &self,
         user_id: u32,
         mode: GameMode,
-        new_date: DateTime<Utc>,
+        new_date: OffsetDateTime,
         psql: &Database,
     ) -> BotResult<()> {
         let entry = TrackingEntry { user_id, mode };
@@ -160,7 +160,7 @@ impl OsuTracking {
         Ok(())
     }
 
-    pub fn get_tracked(&self, user_id: u32, mode: GameMode) -> Option<(DateTime<Utc>, Channels)> {
+    pub fn get_tracked(&self, user_id: u32, mode: GameMode) -> Option<(OffsetDateTime, Channels)> {
         let entry = TrackingEntry { user_id, mode };
 
         self.users
@@ -181,8 +181,8 @@ impl OsuTracking {
 
         // Calculate how many users need to be popped for this iteration
         // so that _all_ users will be popped within the next INTERVAL
-        let interval = last_date + *self.interval.read() - Utc::now();
-        let ms_per_track = interval.num_milliseconds() as f32 / len as f32;
+        let interval = last_date + *self.interval.read() - OffsetDateTime::now_utc();
+        let ms_per_track = interval.whole_milliseconds() as f32 / len as f32;
         let amount = (*self.cooldown.read() / ms_per_track).max(1.0);
         let delay = (ms_per_track * amount) as u64;
         time::sleep(time::Duration::from_millis(delay)).await;
@@ -326,7 +326,7 @@ impl OsuTracking {
         &self,
         user_id: u32,
         mode: GameMode,
-        last_top_score: DateTime<Utc>,
+        last_top_score: OffsetDateTime,
         channel: Id<ChannelMarker>,
         limit: usize,
         psql: &Database,
@@ -366,7 +366,7 @@ impl OsuTracking {
                     TrackingUser::new(user_id, mode, last_top_score, channel, limit);
 
                 self.users.insert(key, tracking_user);
-                let now = Utc::now();
+                let now = OffsetDateTime::now_utc();
                 *self.last_date.write() = now;
                 let entry = TrackingEntry { user_id, mode };
                 self.queue.write().push(entry, Reverse(now));

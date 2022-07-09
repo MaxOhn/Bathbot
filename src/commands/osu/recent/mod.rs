@@ -292,9 +292,9 @@ pub enum RecentFixGameMode {
 impl From<RecentFixGameMode> for GameMode {
     fn from(mode: RecentFixGameMode) -> Self {
         match mode {
-            RecentFixGameMode::Osu => Self::STD,
-            RecentFixGameMode::Taiko => Self::TKO,
-            RecentFixGameMode::Catch => Self::CTB,
+            RecentFixGameMode::Osu => Self::Osu,
+            RecentFixGameMode::Taiko => Self::Taiko,
+            RecentFixGameMode::Catch => Self::Catch,
         }
     }
 }

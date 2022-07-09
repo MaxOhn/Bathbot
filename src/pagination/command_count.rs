@@ -1,5 +1,5 @@
-use chrono::{DateTime, Utc};
 use command_macros::pagination;
+use time::OffsetDateTime;
 use twilight_model::channel::embed::Embed;
 
 use crate::embeds::{CommandCounterEmbed, EmbedData};
@@ -8,7 +8,7 @@ use super::Pages;
 
 #[pagination(per_page = 15, entries = "cmd_counts")]
 pub struct CommandCountPagination {
-    booted_up: DateTime<Utc>,
+    booted_up: OffsetDateTime,
     cmd_counts: Vec<(String, u32)>,
 }
 

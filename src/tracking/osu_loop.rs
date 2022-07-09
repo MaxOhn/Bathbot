@@ -1,12 +1,12 @@
 use std::{borrow::Cow, sync::Arc};
 
-use chrono::{DateTime, Utc};
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::{
     prelude::{GameMode, OsuError, Score, User},
     OsuResult,
 };
+use time::OffsetDateTime;
 use twilight_http::{
     api_error::{ApiError, GeneralApiError},
     error::ErrorType as TwilightErrorType,
@@ -79,8 +79,8 @@ pub async fn osu_tracking_loop(ctx: Arc<Context>) {
 
 pub async fn process_osu_tracking(ctx: &Context, scores: &mut [Score], user: Option<&User>) {
     // Make sure scores is not empty
-    let (user_id, mode, new_last) = match scores.iter().max_by_key(|s| s.created_at) {
-        Some(score) => (score.user_id, score.mode, score.created_at),
+    let (user_id, mode, new_last) = match scores.iter().max_by_key(|s| s.ended_at) {
+        Some(score) => (score.user_id, score.mode, score.ended_at),
         None => return,
     };
 
@@ -134,18 +134,18 @@ async fn score_loop(
     ctx: &Context,
     user: &mut TrackUser<'_>,
     max: usize,
-    last: DateTime<Utc>,
+    last: OffsetDateTime,
     scores: &mut [Score],
     channels: &HashMap<Id<ChannelMarker>, usize>,
 ) -> OsuResult<()> {
     for (idx, score) in (1..).zip(scores.iter_mut()).take(max) {
         // Skip if its an older score
-        if score.created_at <= last {
+        if score.ended_at <= last {
             continue;
         }
 
         let requires_combo = score.map.as_ref().map_or(false, |m| {
-            matches!(m.mode, GameMode::STD | GameMode::CTB) && m.max_combo.is_none()
+            matches!(m.mode, GameMode::Osu | GameMode::Catch) && m.max_combo.is_none()
         });
 
         if requires_combo {

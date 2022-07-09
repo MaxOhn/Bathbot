@@ -335,7 +335,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
                     .cmp(&(m2.mode as u8))
                     .then_with(|| match m1.mode {
                         // For mania sort first by mania key, then star rating
-                        GameMode::MNA => m1
+                        GameMode::Mania => m1
                             .cs
                             .partial_cmp(&m2.cs)
                             .unwrap_or(Ordering::Equal)

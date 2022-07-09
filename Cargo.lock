@@ -79,7 +79,6 @@ dependencies = [
  "bb8-redis",
  "bitflags",
  "bytes",
- "chrono",
  "command-macros",
  "dashmap",
  "dotenv",
@@ -117,7 +116,7 @@ dependencies = [
  "smallvec",
  "sqlx",
  "thiserror",
- "time 0.3.9",
+ "time",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -254,20 +253,6 @@ name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
-
-[[package]]
-name = "chrono"
-version = "0.4.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "670ad68c9088c2a963aaa298cb369688cf3f9465ce5e2d4ca10e6e0098a1ce73"
-dependencies = [
- "libc",
- "num-integer",
- "num-traits",
- "serde",
- "time 0.1.44",
- "winapi",
-]
 
 [[package]]
 name = "cmake"
@@ -1481,7 +1466,6 @@ version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32a3fd9ec30b9749ce28cd91f255d569591cdf937fe280c312143e3c4bad6f2a"
 dependencies = [
- "chrono",
  "font-kit",
  "image",
  "lazy_static",
@@ -1775,11 +1759,10 @@ dependencies = [
 [[package]]
 name = "rosu-v2"
 version = "0.4.0"
-source = "git+https://github.com/MaxOhn/rosu-v2?branch=next#0c6fc8e56fced5a50be5ed5cfe63abd48f5afb31"
+source = "git+https://github.com/MaxOhn/rosu-v2?branch=next#38b55c9f507bc6e9450e0e8b6290a3a0519752f3"
 dependencies = [
  "bitflags",
  "bytes",
- "chrono",
  "dashmap",
  "futures",
  "hyper",
@@ -1790,6 +1773,7 @@ dependencies = [
  "serde",
  "serde_json",
  "smallstr",
+ "time",
  "tokio",
  "url",
 ]
@@ -2168,7 +2152,6 @@ dependencies = [
  "bitflags",
  "byteorder",
  "bytes",
- "chrono",
  "crc",
  "crossbeam-queue",
  "dirs",
@@ -2203,6 +2186,7 @@ dependencies = [
  "sqlx-rt",
  "stringprep",
  "thiserror",
+ "time",
  "tokio-stream",
  "url",
  "webpki-roots",
@@ -2298,20 +2282,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.1.44"
+version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6db9e6914ab8b1ae1c260a4ae7a49b6c5611b40328a735b21862567685e73255"
-dependencies = [
- "libc",
- "wasi 0.10.0+wasi-snapshot-preview1",
- "winapi",
-]
-
-[[package]]
-name = "time"
-version = "0.3.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2702e08a7a860f005826c6815dcac101b19b5eb330c27fe4a5928fec1d20ddd"
+checksum = "72c91f41dcb2f096c05f0873d667dceec1087ce5bcf984ec8ffb19acddbb3217"
 dependencies = [
  "itoa 1.0.1",
  "libc",
@@ -2471,7 +2444,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09d48f71a791638519505cefafe162606f706c25592e4bde4d97600c0195312e"
 dependencies = [
  "crossbeam-channel",
- "time 0.3.9",
+ "time",
  "tracing-subscriber",
 ]
 
@@ -2519,7 +2492,7 @@ dependencies = [
  "sharded-slab",
  "smallvec",
  "thread_local",
- "time 0.3.9",
+ "time",
  "tracing",
  "tracing-core",
  "tracing-log",
@@ -2661,7 +2634,7 @@ dependencies = [
  "serde",
  "serde-value",
  "serde_repr",
- "time 0.3.9",
+ "time",
  "tracing",
 ]
 

@@ -1,12 +1,12 @@
-use crate::{database::TrackingUser, tracking::TrackingEntry, BotResult, Database};
-
-use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use futures::stream::StreamExt;
 use hashbrown::HashMap;
 use rosu_v2::model::GameMode;
 use serde_json::Value;
+use time::OffsetDateTime;
 use twilight_model::id::{marker::ChannelMarker, Id};
+
+use crate::{database::TrackingUser, tracking::TrackingEntry, BotResult, Database};
 
 impl Database {
     #[cold]
@@ -36,7 +36,7 @@ impl Database {
     pub async fn update_osu_tracking_date(
         &self,
         entry: &TrackingEntry,
-        last_top_score: DateTime<Utc>,
+        last_top_score: OffsetDateTime,
     ) -> BotResult<()> {
         sqlx::query!(
             "UPDATE osu_trackings SET last_top_score=$3 WHERE user_id=$1 AND mode=$2",
@@ -54,7 +54,7 @@ impl Database {
         &self,
         user_id: u32,
         mode: GameMode,
-        last_top_score: DateTime<Utc>,
+        last_top_score: OffsetDateTime,
         channels: &HashMap<Id<ChannelMarker>, usize>,
     ) -> BotResult<()> {
         sqlx::query!(
@@ -88,7 +88,7 @@ impl Database {
         &self,
         user_id: u32,
         mode: GameMode,
-        last_top_score: DateTime<Utc>,
+        last_top_score: OffsetDateTime,
         channel: Id<ChannelMarker>,
         limit: usize,
     ) -> BotResult<()> {

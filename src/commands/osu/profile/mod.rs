@@ -236,7 +236,7 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
         .mode
         .map(GameMode::from)
         .or(config.mode)
-        .unwrap_or(GameMode::STD);
+        .unwrap_or(GameMode::Osu);
 
     let size = args.size.or(config.profile_size);
     let guild = orig.guild_id();
@@ -326,7 +326,7 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
 
 impl ProfileEmbed {
     pub async fn get_or_create<'d>(
-        ctx: &Context,
+        ctx: &'d Context,
         kind: ProfileSize,
         profile_data: &'d mut ProfileData,
     ) -> &'d Self {

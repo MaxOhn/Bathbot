@@ -587,11 +587,11 @@ pub(super) async fn score(
             .max_by_key(|(_, s)| s.score)
             .and_then(|(i, s)| {
                 let user = user.user_id;
-                let timestamp = s.created_at.timestamp();
+                let timestamp = s.ended_at.unix_timestamp();
 
                 globals
                     .iter()
-                    .position(|s| s.created_at.timestamp() == timestamp && s.user_id == user)
+                    .position(|s| s.ended_at.unix_timestamp() == timestamp && s.user_id == user)
                     .map(|pos| (i, pos + 1))
             }),
         Some(Err(err)) => {

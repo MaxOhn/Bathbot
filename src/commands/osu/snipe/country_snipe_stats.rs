@@ -77,7 +77,7 @@ pub(super) async fn country_stats(
             .map(|osu| osu.map(OsuData::into_username))
         {
             Ok(Some(name)) => {
-                let user_args = UserArgs::new(name.as_str(), GameMode::STD);
+                let user_args = UserArgs::new(name.as_str(), GameMode::Osu);
 
                 let user = match ctx.redis().osu_user(&user_args).await {
                     Ok(user) => user,

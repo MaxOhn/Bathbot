@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
-use chrono::{DateTime, Utc};
 use command_macros::EmbedData;
+use time::OffsetDateTime;
 
 use crate::{
     pagination::Pages,
@@ -20,7 +20,7 @@ pub struct CommandCounterEmbed {
 }
 
 impl CommandCounterEmbed {
-    pub fn new(list: Vec<(&String, u32)>, booted_up: &DateTime<Utc>, pages: &Pages) -> Self {
+    pub fn new(list: Vec<(&String, u32)>, booted_up: &OffsetDateTime, pages: &Pages) -> Self {
         let len = list
             .iter()
             .fold(0, |max, (name, _)| max.max(name.chars().count()));

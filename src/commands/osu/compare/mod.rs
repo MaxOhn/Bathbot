@@ -118,7 +118,7 @@ impl CompareScoreOrder {
                 });
             }
             Self::Combo => scores.sort_unstable_by_key(|s| Reverse(s.max_combo)),
-            Self::Date => scores.sort_unstable_by_key(|s| Reverse(s.created_at)),
+            Self::Date => scores.sort_unstable_by_key(|s| Reverse(s.ended_at)),
             Self::Misses => scores.sort_unstable_by(|a, b| {
                 b.statistics
                     .count_miss
@@ -149,21 +149,21 @@ impl CompareScoreOrder {
                 let pp = scores
                     .iter()
                     .map(|score| {
-                        let id = score.created_at.timestamp();
+                        let id = score.ended_at.unix_timestamp();
 
                         (id, calc.score(score).pp() as f32)
                     })
                     .collect::<HashMap<_, _>>();
 
                 scores.sort_unstable_by(|a, b| {
-                    let id_a = a.created_at.timestamp();
+                    let id_a = a.ended_at.unix_timestamp();
 
                     let pp_a = match pp.get(&id_a) {
                         Some(pp) => pp,
                         None => return Ordering::Greater,
                     };
 
-                    let id_b = b.created_at.timestamp();
+                    let id_b = b.ended_at.unix_timestamp();
 
                     let pp_b = match pp.get(&id_b) {
                         Some(pp) => pp,
@@ -187,21 +187,21 @@ impl CompareScoreOrder {
                 let stars = scores
                     .iter()
                     .map(|score| {
-                        let id = score.created_at.timestamp();
+                        let id = score.ended_at.unix_timestamp();
 
                         (id, calc.score(score).stars() as f32)
                     })
                     .collect::<HashMap<_, _>>();
 
                 scores.sort_unstable_by(|a, b| {
-                    let id_a = a.created_at.timestamp();
+                    let id_a = a.ended_at.unix_timestamp();
 
                     let stars_a = match stars.get(&id_a) {
                         Some(stars) => stars,
                         None => return Ordering::Greater,
                     };
 
-                    let id_b = b.created_at.timestamp();
+                    let id_b = b.ended_at.unix_timestamp();
 
                     let stars_b = match stars.get(&id_b) {
                         Some(stars) => stars,

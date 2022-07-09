@@ -232,10 +232,10 @@ impl GameStateKind {
                 title.push_str("Score PP");
 
                 match mode {
-                    GameMode::STD => {}
-                    GameMode::TKO => title.push_str(" (taiko)"),
-                    GameMode::CTB => title.push_str(" (ctb)"),
-                    GameMode::MNA => title.push_str(" (mania)"),
+                    GameMode::Osu => {}
+                    GameMode::Taiko => title.push_str(" (taiko)"),
+                    GameMode::Catch => title.push_str(" (ctb)"),
+                    GameMode::Mania => title.push_str(" (mania)"),
                 }
 
                 let fields = vec![
@@ -268,7 +268,7 @@ impl GameStateKind {
                     prev_stars = previous.stars,
                     prev_len = sec_to_minsec(previous.seconds_drain),
                     prev_combo = previous.combo,
-                    prev_timestamp = previous.ranked.timestamp(),
+                    prev_timestamp = previous.ranked.unix_timestamp(),
                     prev_cs = previous.cs,
                     prev_ar = previous.ar,
                     prev_od = previous.od,
@@ -280,7 +280,7 @@ impl GameStateKind {
                     next_stars = next.stars,
                     next_len = sec_to_minsec(next.seconds_drain),
                     next_combo = next.combo,
-                    next_timestamp = next.ranked.timestamp(),
+                    next_timestamp = next.ranked.unix_timestamp(),
                     next_cs = next.cs,
                     next_ar = next.ar,
                     next_od = next.od,

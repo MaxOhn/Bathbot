@@ -1,10 +1,10 @@
 use std::{borrow::Cow, sync::Arc};
 
-use chrono::{Datelike, Utc};
 use command_macros::{command, HasName, SlashCommand};
 use rosu_pp::{Beatmap, BeatmapExt, PerformanceAttributes};
 use rosu_pp_older::*;
 use rosu_v2::prelude::{GameMode, OsuError, Score};
+use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
     application::interaction::ApplicationCommand,
@@ -274,7 +274,7 @@ pub async fn slash_topold(
 #[alias("to")]
 #[group(Osu)]
 async fn prefix_topold(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TopOld::args(GameMode::STD, args) {
+    match TopOld::args(GameMode::Osu, args) {
         Ok(args) => topold(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -299,7 +299,7 @@ async fn prefix_topold(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotR
 #[alias("tom")]
 #[group(Mania)]
 async fn prefix_topoldmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TopOld::args(GameMode::MNA, args) {
+    match TopOld::args(GameMode::Mania, args) {
         Ok(args) => topold(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -324,7 +324,7 @@ async fn prefix_topoldmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[alias("tot")]
 #[group(Taiko)]
 async fn prefix_topoldtaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TopOld::args(GameMode::TKO, args) {
+    match TopOld::args(GameMode::Taiko, args) {
         Ok(args) => topold(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -349,7 +349,7 @@ async fn prefix_topoldtaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[aliases("toc", "topoldcatch")]
 #[group(Catch)]
 async fn prefix_topoldctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
-    match TopOld::args(GameMode::CTB, args) {
+    match TopOld::args(GameMode::Catch, args) {
         Ok(args) => topold(ctx, msg.into(), args).await,
         Err(content) => {
             msg.error(&ctx, content).await?;
@@ -375,10 +375,10 @@ impl<'m> TopOld<'m> {
             }
         }
 
-        let year = year.unwrap_or_else(|| Utc::now().year());
+        let year = year.unwrap_or_else(|| OffsetDateTime::now_utc().year());
 
         let args = match mode {
-            GameMode::STD => {
+            GameMode::Osu => {
                 let version = TopOldOsuVersion::try_from(year)?;
 
                 let osu = TopOldOsu {
@@ -389,7 +389,7 @@ impl<'m> TopOld<'m> {
 
                 Self::Osu(osu)
             }
-            GameMode::TKO => {
+            GameMode::Taiko => {
                 let version = TopOldTaikoVersion::try_from(year)?;
 
                 let taiko = TopOldTaiko {
@@ -400,7 +400,7 @@ impl<'m> TopOld<'m> {
 
                 Self::Taiko(taiko)
             }
-            GameMode::CTB => {
+            GameMode::Catch => {
                 let version = TopOldCatchVersion::try_from(year)?;
 
                 let catch = TopOldCatch {
@@ -411,7 +411,7 @@ impl<'m> TopOld<'m> {
 
                 Self::Catch(catch)
             }
-            GameMode::MNA => {
+            GameMode::Mania => {
                 let version = TopOldManiaVersion::try_from(year)?;
 
                 let mania = TopOldMania {
@@ -544,10 +544,10 @@ macro_rules! pp_tko {
 
 async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) -> BotResult<()> {
     let (name, mode) = match &args {
-        TopOld::Osu(o) => (username_ref!(ctx, orig, o), GameMode::STD),
-        TopOld::Taiko(t) => (username_ref!(ctx, orig, t), GameMode::TKO),
-        TopOld::Catch(c) => (username_ref!(ctx, orig, c), GameMode::CTB),
-        TopOld::Mania(m) => (username_ref!(ctx, orig, m), GameMode::MNA),
+        TopOld::Osu(o) => (username_ref!(ctx, orig, o), GameMode::Osu),
+        TopOld::Taiko(t) => (username_ref!(ctx, orig, t), GameMode::Taiko),
+        TopOld::Catch(c) => (username_ref!(ctx, orig, c), GameMode::Catch),
+        TopOld::Mania(m) => (username_ref!(ctx, orig, m), GameMode::Mania),
     };
 
     let name = match name {
@@ -711,9 +711,9 @@ fn plural(name: &str) -> &'static str {
 
 fn mode_str(mode: GameMode) -> &'static str {
     match mode {
-        GameMode::STD => "",
-        GameMode::TKO => "taiko ",
-        GameMode::CTB => "ctb ",
-        GameMode::MNA => "mania ",
+        GameMode::Osu => "",
+        GameMode::Taiko => "taiko ",
+        GameMode::Catch => "ctb ",
+        GameMode::Mania => "mania ",
     }
 }

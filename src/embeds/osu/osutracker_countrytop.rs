@@ -57,7 +57,7 @@ impl OsuTrackerCountryTopEmbed {
                 adjusted_user = score.player.cow_replace(' ', "%20"),
                 pp = round(score.pp),
                 acc = round(score.acc),
-                timestamp = score.created_at.timestamp(),
+                timestamp = score.ended_at.unix_timestamp(),
                 appendix = OrderAppendix::new(sort_by, score),
             );
         }

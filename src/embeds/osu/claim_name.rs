@@ -1,13 +1,13 @@
 use std::fmt;
 
-use chrono::{Duration, Utc};
 use command_macros::EmbedData;
 use rosu_v2::model::user::User;
+use time::{Duration, OffsetDateTime};
 use twilight_model::channel::embed::EmbedField;
 
 use crate::util::{
-    self, builder::AuthorBuilder, constants::OSU_BASE, numbers::with_comma_int, osu::flag_url,
-    CowUtils,
+    self, builder::AuthorBuilder, constants::OSU_BASE, datetime::DATE_FORMAT,
+    numbers::with_comma_int, osu::flag_url, CowUtils,
 };
 
 #[derive(EmbedData)]
@@ -25,7 +25,7 @@ impl ClaimNameEmbed {
             let field = EmbedField {
                 inline: true,
                 name: "Last active".to_owned(),
-                value: last_visit.format("%F").to_string(),
+                value: last_visit.format(DATE_FORMAT).unwrap(),
             };
 
             fields.push(field);
@@ -86,8 +86,8 @@ impl ClaimNameEmbed {
 
             available_at_field(value)
         } else if let Some(time) = time_to_wait(user) {
-            let date = Utc::now() + time;
-            let days = time.num_days();
+            let date = OffsetDateTime::now_utc() + time;
+            let days = time.whole_days();
 
             let name = if days < 0 {
                 "Name available since"
@@ -95,7 +95,7 @@ impl ClaimNameEmbed {
                 "Name available at"
             };
 
-            let value = format!("{}{}", date.format("%F"), TimeUntil(days));
+            let value = format!("{}{}", date.format(DATE_FORMAT).unwrap(), TimeUntil(days));
 
             EmbedField {
                 inline: false,
@@ -130,7 +130,7 @@ fn available_at_field(value: impl Into<String>) -> EmbedField {
 
 fn time_to_wait(user: &User) -> Option<Duration> {
     let last_seen = user.last_visit?;
-    let inactive_time = Utc::now() - last_seen;
+    let inactive_time = OffsetDateTime::now_utc() - last_seen;
 
     let x = match user.statistics {
         Some(ref stats) if stats.playcount > 0 => stats.playcount as f32,

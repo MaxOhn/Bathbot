@@ -366,10 +366,10 @@ impl EmbedData for RankingEmbed {
 
 fn mode_str(mode: GameMode) -> &'static str {
     match mode {
-        GameMode::STD => "",
-        GameMode::TKO => "taiko",
-        GameMode::CTB => "ctb",
-        GameMode::MNA => "mania",
+        GameMode::Osu => "",
+        GameMode::Taiko => "taiko",
+        GameMode::Catch => "ctb",
+        GameMode::Mania => "mania",
     }
 }
 

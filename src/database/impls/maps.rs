@@ -85,7 +85,7 @@ pub enum InsertMapsetError {
 }
 
 fn should_not_be_stored(map: &Beatmap) -> bool {
-    invalid_status!(map) || map.convert || (map.mode != GameMode::MNA && map.max_combo.is_none())
+    invalid_status!(map) || map.convert || (map.mode != GameMode::Mania && map.max_combo.is_none())
 }
 
 impl Database {
@@ -239,7 +239,7 @@ impl Database {
 }
 
 async fn insert_map_(conn: &mut PgConnection, map: &Beatmap) -> InsertMapResult<()> {
-    let max_combo = if map.mode == GameMode::MNA {
+    let max_combo = if map.mode == GameMode::Mania {
         None
     } else if let Some(combo) = map.max_combo {
         Some(combo as i32)

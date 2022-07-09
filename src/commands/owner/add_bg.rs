@@ -26,7 +26,7 @@ pub async fn addbg(
 ) -> BotResult<()> {
     let OwnerAddBg { image, mode } = bg;
 
-    let mode = mode.map_or(GameMode::STD, GameMode::from);
+    let mode = mode.map_or(GameMode::Osu, GameMode::from);
 
     // Check if attachement as proper name
     let mut filename_split = image.filename.split('.');
@@ -60,9 +60,9 @@ pub async fn addbg(
             let mut path = CONFIG.get().unwrap().paths.backgrounds.clone();
 
             match mode {
-                GameMode::STD => path.push("osu"),
-                GameMode::MNA => path.push("mania"),
-                GameMode::TKO | GameMode::CTB => unreachable!(),
+                GameMode::Osu => path.push("osu"),
+                GameMode::Mania => path.push("mania"),
+                GameMode::Taiko | GameMode::Catch => unreachable!(),
             }
 
             path.push(&image.filename);

@@ -110,10 +110,10 @@ impl PlayerSnipeStatsEmbed {
                     id = map.map_id,
                     grade = grade_completion_mods(&score, map),
                     score = with_comma_int(score.score),
-                    acc = score.acc(GameMode::STD),
+                    acc = score.acc(GameMode::Osu),
                     combo = osu::get_combo(&score, map),
-                    hits = score.hits_string(GameMode::STD),
-                    ago = how_long_ago_dynamic(&score.created_at)
+                    hits = score.hits_string(GameMode::Osu),
+                    ago = how_long_ago_dynamic(&score.ended_at)
                 );
 
                 fields.push(field!("Oldest national #1:", value, false));

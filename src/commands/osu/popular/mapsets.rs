@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
 use eyre::Report;
 use hashbrown::HashMap;
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{Beatmapset, Username};
+use time::OffsetDateTime;
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
@@ -61,7 +61,7 @@ pub(super) async fn mapsets(ctx: Arc<Context>, command: Box<ApplicationCommand>)
             creator: mapset.creator_name,
             name: format!("{} - {}", mapset.artist, mapset.title),
             mapset_id,
-            ranked_date: mapset.ranked_date.unwrap_or_else(Utc::now),
+            ranked_date: mapset.ranked_date.unwrap_or_else(OffsetDateTime::now_utc),
             user_id: mapset.creator_id,
         };
 
@@ -79,6 +79,6 @@ pub struct MapsetEntry {
     pub creator: Username,
     pub name: String,
     pub mapset_id: u32,
-    pub ranked_date: DateTime<Utc>,
+    pub ranked_date: OffsetDateTime,
     pub user_id: u32,
 }

@@ -1,8 +1,8 @@
 use std::{cmp::Reverse, sync::Arc};
 
-use chrono::{DateTime, Utc};
 use command_macros::command;
 use rosu_v2::prelude::{GameMode, MedalCompact, OsuError, User};
+use time::OffsetDateTime;
 
 use crate::{
     commands::osu::{get_user, require_link, UserArgs},
@@ -66,7 +66,7 @@ pub(super) async fn recent(
         },
     };
 
-    let user_args = UserArgs::new(name.as_str(), GameMode::STD);
+    let user_args = UserArgs::new(name.as_str(), GameMode::Osu);
     let user_fut = get_user(&ctx, &user_args);
     let redis = ctx.redis();
 
@@ -150,7 +150,7 @@ pub(super) async fn recent(
 
 pub struct MedalAchieved<'u> {
     pub user: &'u User,
-    pub achieved_at: DateTime<Utc>,
+    pub achieved_at: OffsetDateTime,
     pub index: usize,
     pub medal_count: usize,
 }

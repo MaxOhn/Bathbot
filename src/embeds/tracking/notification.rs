@@ -1,7 +1,7 @@
-use chrono::{DateTime, Utc};
 use command_macros::EmbedData;
 use eyre::Report;
 use rosu_v2::prelude::{GameMode, Score, User};
+use time::OffsetDateTime;
 
 use crate::{
     core::Context,
@@ -26,7 +26,7 @@ pub struct TrackNotificationEmbed {
     url: String,
     thumbnail: String,
     footer: FooterBuilder,
-    timestamp: DateTime<Utc>,
+    timestamp: OffsetDateTime,
 }
 
 impl TrackNotificationEmbed {
@@ -52,7 +52,7 @@ impl TrackNotificationEmbed {
             }
         };
 
-        let title = if map.mode == GameMode::MNA {
+        let title = if map.mode == GameMode::Mania {
             format!(
                 "{} {} - {} [{}] [{stars}★]",
                 osu::get_keys(score.mods, map),
@@ -77,7 +77,7 @@ impl TrackNotificationEmbed {
         let value = format!(
             "{} [ {} ] {}",
             osu::get_pp(score.pp, max_pp),
-            if map.mode == GameMode::MNA {
+            if map.mode == GameMode::Mania {
                 let mut ratio = score.statistics.count_geki as f32;
 
                 if score.statistics.count_300 > 0 {
@@ -94,7 +94,7 @@ impl TrackNotificationEmbed {
         let footer = FooterBuilder::new(format!(
             "Mapped by {}, played {}",
             mapset.creator_name,
-            how_long_ago_text(&score.created_at)
+            how_long_ago_text(&score.ended_at)
         ))
         .icon_url(format!("{AVATAR_URL}{}", mapset.creator_id));
 
@@ -106,7 +106,7 @@ impl TrackNotificationEmbed {
             fields: vec![field!(name, value, false)],
             footer,
             thumbnail: format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id),
-            timestamp: score.created_at,
+            timestamp: score.ended_at,
             title,
             url: format!("{OSU_BASE}b/{}", map.map_id),
         }

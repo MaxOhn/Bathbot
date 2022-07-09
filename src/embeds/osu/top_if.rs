@@ -64,7 +64,7 @@ impl TopIfEmbed {
                 score = with_comma_int(score.score),
                 combo = osu::get_combo(score, map),
                 hits = score.hits_string(mode),
-                ago = how_long_ago_dynamic(&score.created_at)
+                ago = how_long_ago_dynamic(&score.ended_at)
             );
         }
 

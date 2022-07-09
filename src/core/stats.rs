@@ -1,5 +1,5 @@
-use chrono::{DateTime, Utc};
 use prometheus::{IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts, Registry};
+use time::OffsetDateTime;
 
 use super::Cache;
 
@@ -68,7 +68,7 @@ pub struct CacheStats {
 
 pub struct BotStats {
     pub registry: Registry,
-    pub start_time: DateTime<Utc>,
+    pub start_time: OffsetDateTime,
     pub event_counts: EventStats,
     pub message_counts: MessageCounters,
     pub command_counts: CommandCounters,
@@ -115,7 +115,7 @@ impl BotStats {
 
         Self {
             registry,
-            start_time: Utc::now(),
+            start_time: OffsetDateTime::now_utc(),
             event_counts: EventStats {
                 channel_create: event_counter.with_label_values(&["ChannelCreate"]),
                 channel_delete: event_counter.with_label_values(&["ChannelDelete"]),

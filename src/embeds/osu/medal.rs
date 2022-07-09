@@ -1,5 +1,5 @@
-use chrono::{DateTime, Utc};
 use rosu_v2::prelude::GameMode;
+use time::OffsetDateTime;
 use twilight_model::channel::embed::Embed;
 
 use crate::{
@@ -16,7 +16,7 @@ use crate::{
 
 #[derive(Clone)]
 pub struct MedalEmbed {
-    achieved: Option<(AuthorBuilder, FooterBuilder, DateTime<Utc>)>,
+    achieved: Option<(AuthorBuilder, FooterBuilder, OffsetDateTime)>,
     fields: EmbedFields,
     thumbnail: String,
     title: String,
@@ -115,10 +115,10 @@ impl MedalEmbed {
 
             match medal.restriction {
                 None => {}
-                Some(GameMode::STD) => author_url.push_str("/osu"),
-                Some(GameMode::TKO) => author_url.push_str("/taiko"),
-                Some(GameMode::CTB) => author_url.push_str("/fruits"),
-                Some(GameMode::MNA) => author_url.push_str("/mania"),
+                Some(GameMode::Osu) => author_url.push_str("/osu"),
+                Some(GameMode::Taiko) => author_url.push_str("/taiko"),
+                Some(GameMode::Catch) => author_url.push_str("/fruits"),
+                Some(GameMode::Mania) => author_url.push_str("/mania"),
             }
 
             let author = AuthorBuilder::new(user.username.as_str())

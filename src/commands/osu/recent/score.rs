@@ -231,7 +231,7 @@ pub(super) async fn score(
         .mode
         .map(GameMode::from)
         .or(config.mode)
-        .unwrap_or(GameMode::STD);
+        .unwrap_or(GameMode::Osu);
 
     let name = match username!(ctx, orig, args) {
         Some(name) => name,
@@ -277,10 +277,10 @@ pub(super) async fn score(
             let content = format!(
                 "No recent {}plays found for user `{name}`",
                 match mode {
-                    GameMode::STD => "",
-                    GameMode::TKO => "taiko ",
-                    GameMode::CTB => "ctb ",
-                    GameMode::MNA => "mania ",
+                    GameMode::Osu => "",
+                    GameMode::Taiko => "taiko ",
+                    GameMode::Catch => "ctb ",
+                    GameMode::Mania => "mania ",
                 },
             );
 
@@ -544,7 +544,7 @@ async fn retrieve_vod(
 ) -> Option<TwitchVideo> {
     match ctx.client().get_last_twitch_vod(user_id).await {
         Ok(Some(mut vod)) => {
-            let vod_start = vod.created_at.timestamp();
+            let vod_start = vod.created_at.unix_timestamp();
             let vod_end = vod_start + vod.duration as i64;
 
             // Adjust map length with mods
@@ -565,7 +565,7 @@ async fn retrieve_vod(
             }
 
             // 5 seconds early to offset potential breaks mid-song
-            let map_start = score.created_at.timestamp() - map_length as i64 - 5;
+            let map_start = score.ended_at.unix_timestamp() - map_length as i64 - 5;
 
             if vod_start > map_start || vod_end < map_start {
                 return None;

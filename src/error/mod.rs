@@ -38,8 +38,6 @@ pub enum Error {
     ClusterCommand(#[from] twilight_gateway::cluster::ClusterCommandError),
     #[error("failed to start cluster")]
     ClusterStart(#[from] twilight_gateway::cluster::ClusterStartError),
-    #[error("chrono parse error")]
-    ChronoParse(#[from] chrono::format::ParseError),
     #[error("{0}")]
     Custom(String),
     #[error("custom client error")]

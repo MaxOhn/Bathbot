@@ -24,10 +24,10 @@ impl TrackListEmbed {
             .into_iter()
             .for_each(|(mode, group)| {
                 let mode = match mode {
-                    GameMode::STD => "osu!standard",
-                    GameMode::MNA => "osu!mania",
-                    GameMode::TKO => "osu!taiko",
-                    GameMode::CTB => "osu!ctb",
+                    GameMode::Osu => "osu!standard",
+                    GameMode::Mania => "osu!mania",
+                    GameMode::Taiko => "osu!taiko",
+                    GameMode::Catch => "osu!ctb",
                 };
 
                 description.reserve(256);

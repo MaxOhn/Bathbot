@@ -59,7 +59,7 @@ impl OsuTrackerMapsetsEmbed {
                 mapset_id = entry.mapset_id,
                 creator = mapset.creator.cow_escape_markdown(),
                 user_id = mapset.user_id,
-                timestamp = mapset.ranked_date.timestamp(),
+                timestamp = mapset.ranked_date.unix_timestamp(),
             );
         }
 

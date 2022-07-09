@@ -1,11 +1,11 @@
 use std::{collections::BTreeMap, sync::Arc};
 
-use chrono::{Date, Datelike, Utc};
 use command_macros::command;
 use eyre::Report;
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::prelude::*;
 use rosu_v2::prelude::{GameMode, OsuError};
+use time::Date;
 
 use crate::{
     commands::osu::{get_user, require_link, UserArgs},
@@ -15,7 +15,7 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        matcher,
+        matcher, Monthly,
     },
     BotResult, Context,
 };
@@ -73,7 +73,7 @@ pub(super) async fn player_stats(
         },
     };
 
-    let user_args = UserArgs::new(name.as_str(), GameMode::STD);
+    let user_args = UserArgs::new(name.as_str(), GameMode::Osu);
 
     let mut user = match get_user(&ctx, &user_args).await {
         Ok(user) => user,
@@ -90,7 +90,7 @@ pub(super) async fn player_stats(
     };
 
     // Overwrite default mode
-    user.mode = GameMode::STD;
+    user.mode = GameMode::Osu;
 
     let player_fut = if ctx.contains_country(user.country_code.as_str()) {
         ctx.client()
@@ -129,7 +129,7 @@ pub(super) async fn player_stats(
             let score_fut = ctx
                 .osu()
                 .beatmap_user_score(oldest.beatmap_id, player.user_id)
-                .mode(GameMode::STD);
+                .mode(GameMode::Osu);
 
             match score_fut.await {
                 Ok(mut score) => match super::prepare_score(&ctx, &mut score.score).await {
@@ -187,7 +187,7 @@ const W: u32 = 1350;
 const H: u32 = 350;
 
 pub fn graphs(
-    history: &BTreeMap<Date<Utc>, u32>,
+    history: &BTreeMap<Date, u32>,
     stars: &BTreeMap<u8, u32>,
     w: u32,
     h: u32,
@@ -229,7 +229,7 @@ pub fn graphs(
                 .caption("National #1 Count History", ("sans-serif", 30, &WHITE))
                 .x_label_area_size(20)
                 .y_label_area_size(40)
-                .build_cartesian_2d((first..last).monthly(), min..max + 1)?;
+                .build_cartesian_2d(Monthly(first..last), min..max + 1)?;
 
             // Mesh and labels
             chart

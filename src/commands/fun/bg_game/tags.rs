@@ -154,8 +154,8 @@ async fn bgtags(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
     // Parse arguments as mode
     let mode = match args.next() {
         Some(arg) => match arg.cow_to_ascii_lowercase().as_ref() {
-            "mna" | "mania" | "m" => GameMode::MNA,
-            "osu" | "std" | "standard" | "o" => GameMode::STD,
+            "mna" | "mania" | "m" => GameMode::Mania,
+            "osu" | "std" | "standard" | "o" => GameMode::Osu,
             _ => {
                 let content = "Could not parse first argument as mode. \
                 Provide either `mna`, or `std`";
@@ -163,7 +163,7 @@ async fn bgtags(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
                 return msg.error(&ctx, content).await;
             }
         },
-        None => GameMode::STD,
+        None => GameMode::Osu,
     };
 
     let mut untagged = match ctx.psql().get_all_tags_mapset(mode).await {
@@ -387,8 +387,8 @@ async fn get_random_image(mut mapsets: Vec<MapsetTagWrapper>, mode: GameMode) ->
     let mut path = CONFIG.get().unwrap().paths.backgrounds.clone();
 
     match mode {
-        GameMode::STD => path.push(OSU),
-        GameMode::MNA => path.push(MANIA),
+        GameMode::Osu => path.push(OSU),
+        GameMode::Mania => path.push(MANIA),
         _ => unreachable!(),
     }
 

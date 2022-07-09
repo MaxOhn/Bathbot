@@ -74,8 +74,8 @@ impl Game {
         let mut path = CONFIG.get().unwrap().paths.backgrounds.clone();
 
         match mapsets[0].mode {
-            GameMode::STD => path.push("osu"),
-            GameMode::MNA => path.push("mania"),
+            GameMode::Osu => path.push("osu"),
+            GameMode::Mania => path.push("mania"),
             _ => return Err(BgGameError::Mode(mapsets[0].mode)),
         }
 

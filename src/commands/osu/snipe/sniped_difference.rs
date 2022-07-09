@@ -1,9 +1,9 @@
 use std::{cmp::Reverse, sync::Arc};
 
-use chrono::{Duration, Utc};
 use command_macros::command;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError, Username};
+use time::{Duration, OffsetDateTime};
 
 use crate::{
     commands::osu::{get_user, require_link, UserArgs},
@@ -124,7 +124,7 @@ async fn sniped_diff(
     };
 
     // Request the user
-    let user_args = UserArgs::new(name.as_str(), GameMode::STD);
+    let user_args = UserArgs::new(name.as_str(), GameMode::Osu);
 
     let mut user = match get_user(&ctx, &user_args).await {
         Ok(user) => user,
@@ -141,7 +141,7 @@ async fn sniped_diff(
     };
 
     // Overwrite default mode
-    user.mode = GameMode::STD;
+    user.mode = GameMode::Osu;
 
     if !ctx.contains_country(user.country_code.as_str()) {
         let content = format!(
@@ -153,7 +153,7 @@ async fn sniped_diff(
     }
 
     let client = &ctx.client();
-    let now = Utc::now();
+    let now = OffsetDateTime::now_utc();
     let week_ago = now - Duration::weeks(1);
 
     // Request the scores

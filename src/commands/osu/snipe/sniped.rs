@@ -4,7 +4,6 @@ use std::{
     sync::Arc,
 };
 
-use chrono::{Date, DateTime, Duration, Utc};
 use command_macros::command;
 use eyre::Report;
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
@@ -18,6 +17,7 @@ use plotters::{
     prelude::*,
 };
 use rosu_v2::prelude::{GameMode, OsuError};
+use time::{Date, Duration, OffsetDateTime};
 
 use crate::{
     commands::osu::{get_user, require_link, UserArgs},
@@ -28,6 +28,7 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
+        datetime::DATE_FORMAT,
         matcher,
     },
     BotResult, Context,
@@ -82,7 +83,7 @@ pub(super) async fn player_sniped(
         },
     };
 
-    let user_args = UserArgs::new(name.as_str(), GameMode::STD);
+    let user_args = UserArgs::new(name.as_str(), GameMode::Osu);
 
     let mut user = match get_user(&ctx, &user_args).await {
         Ok(user) => user,
@@ -99,10 +100,10 @@ pub(super) async fn player_sniped(
     };
 
     // Overwrite default mode
-    user.mode = GameMode::STD;
+    user.mode = GameMode::Osu;
 
     let client = &ctx.client();
-    let now = Utc::now();
+    let now = OffsetDateTime::now_utc();
 
     let (sniper, snipee) = if ctx.contains_country(user.country_code.as_str()) {
         let sniper_fut = client.get_national_snipes(&user, true, now - Duration::weeks(8), now);
@@ -195,9 +196,9 @@ pub fn graphs(
     Ok(Some(png_bytes))
 }
 
-type ContextType<'a> = Cartesian2d<SegmentedCoord<RangedSlice<'a, Date<Utc>>>, RangedCoordusize>;
+type ContextType<'a> = Cartesian2d<SegmentedCoord<RangedSlice<'a, Date>>, RangedCoordusize>;
 type DrawingError<DB> = Result<(), DrawingAreaErrorKind<<DB as DrawingBackend>::ErrorType>>;
-type PrepareResult<'a> = (Vec<Date<Utc>>, Vec<(&'a str, Vec<usize>)>);
+type PrepareResult<'a> = (Vec<Date>, Vec<(&'a str, Vec<usize>)>);
 
 fn draw_sniper<DB: DrawingBackend>(
     root: &DrawingArea<DB, Shift>,
@@ -269,9 +270,9 @@ fn draw_mesh<DB: DrawingBackend>(
     chart
         .configure_mesh()
         .disable_x_mesh()
-        .x_label_formatter(&|date: &SegmentValue<&Date<Utc>>| match date {
+        .x_label_formatter(&|date: &SegmentValue<&Date>| match date {
             SegmentValue::CenterOf(date) | SegmentValue::Exact(date) => {
-                date.format("%Y-%m-%d").to_string()
+                date.format(DATE_FORMAT).unwrap()
             }
             _ => unreachable!(),
         })
@@ -286,7 +287,7 @@ fn draw_histogram_block<'a, DB: DrawingBackend + 'a>(
     i: usize,
     name: &str,
     values: &[usize],
-    dates: &'a [Date<Utc>],
+    dates: &'a [Date],
     chart: &mut ChartContext<'a, DB, ContextType<'a>>,
 ) -> DrawingError<DB> {
     // Draw block
@@ -349,19 +350,22 @@ fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult<'_> {
 
     let categorized: Vec<_> = scores
         .iter()
-        .scan(Utc::now() - Duration::weeks(7), |state, score| {
-            if !names.contains(score.sniper.as_str()) {
-                return Some(None);
-            }
-
-            if score.date > *state {
-                while score.date > *state {
-                    *state = *state + Duration::weeks(1);
+        .scan(
+            OffsetDateTime::now_utc() - Duration::weeks(7),
+            |state, score| {
+                if !names.contains(score.sniper.as_str()) {
+                    return Some(None);
                 }
-            }
 
-            Some(Some((score.sniper.as_str(), *state)))
-        })
+                if score.date > *state {
+                    while score.date > *state {
+                        *state += Duration::weeks(1);
+                    }
+                }
+
+                Some(Some((score.sniper.as_str(), *state)))
+            },
+        )
         .flatten()
         .collect();
 
@@ -384,19 +388,22 @@ fn prepare_sniper(scores: &[SnipeRecent]) -> PrepareResult<'_> {
     let categorized: Vec<_> = scores
         .iter()
         .filter(|score| score.sniped.is_some())
-        .scan(Utc::now() - Duration::weeks(7), |state, score| {
-            if !names.contains(score.sniped.as_deref().unwrap()) {
-                return Some(None);
-            }
-
-            if score.date > *state {
-                while score.date > *state {
-                    *state = *state + Duration::weeks(1);
+        .scan(
+            OffsetDateTime::now_utc() - Duration::weeks(7),
+            |state, score| {
+                if !names.contains(score.sniped.as_deref().unwrap()) {
+                    return Some(None);
                 }
-            }
 
-            Some(Some((score.sniped.as_deref().unwrap(), *state)))
-        })
+                if score.date > *state {
+                    while score.date > *state {
+                        *state += Duration::weeks(1);
+                    }
+                }
+
+                Some(Some((score.sniped.as_deref().unwrap(), *state)))
+            },
+        )
         .flatten()
         .collect();
 
@@ -405,7 +412,7 @@ fn prepare_sniper(scores: &[SnipeRecent]) -> PrepareResult<'_> {
 
 fn finish_preparing<'a>(
     names: HashSet<&'a str>,
-    categorized: Vec<(&'a str, DateTime<Utc>)>,
+    categorized: Vec<(&'a str, OffsetDateTime)>,
 ) -> PrepareResult<'a> {
     let (dates, counts): (Vec<_>, Vec<_>) = categorized
         .into_iter()

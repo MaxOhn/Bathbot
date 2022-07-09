@@ -1,6 +1,5 @@
 use std::{fmt::Write, sync::Arc};
 
-use chrono::{DateTime, Duration, FixedOffset, Timelike, Utc};
 use command_macros::{command, HasName, SlashCommand};
 use eyre::Report;
 use image::{png::PngEncoder, ColorType, ImageEncoder};
@@ -13,6 +12,7 @@ use plotters::{
 };
 use plotters_backend::FontStyle;
 use rosu_v2::prelude::{GameMode, OsuError, Score, User};
+use time::{Duration, OffsetDateTime, UtcOffset};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
     application::interaction::ApplicationCommand,
@@ -31,7 +31,7 @@ use crate::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         numbers::with_comma_int,
-        ApplicationCommandExt, CountryCode,
+        ApplicationCommandExt, CountryCode, Monthly,
     },
     BotResult,
 };
@@ -228,38 +228,40 @@ pub enum GraphTopTimezone {
     P12 = 12,
 }
 
-impl From<GraphTopTimezone> for FixedOffset {
+impl From<GraphTopTimezone> for UtcOffset {
     fn from(tz: GraphTopTimezone) -> Self {
-        match tz {
-            GraphTopTimezone::M12 => Self::east(-12 * 3600),
-            GraphTopTimezone::M11 => Self::east(-11 * 3600),
-            GraphTopTimezone::M10 => Self::east(-10 * 3600),
-            GraphTopTimezone::M9 => Self::east(-9 * 3600),
-            GraphTopTimezone::M8 => Self::east(-8 * 3600),
-            GraphTopTimezone::M7 => Self::east(-7 * 3600),
-            GraphTopTimezone::M6 => Self::east(-6 * 3600),
-            GraphTopTimezone::M5 => Self::east(-5 * 3600),
-            GraphTopTimezone::M4 => Self::east(-4 * 3600),
-            GraphTopTimezone::M3 => Self::east(-3 * 3600),
-            GraphTopTimezone::M2 => Self::east(-2 * 3600),
+        let seconds = match tz {
+            GraphTopTimezone::M12 => -12 * 3600,
+            GraphTopTimezone::M11 => -11 * 3600,
+            GraphTopTimezone::M10 => -10 * 3600,
+            GraphTopTimezone::M9 => -9 * 3600,
+            GraphTopTimezone::M8 => -8 * 3600,
+            GraphTopTimezone::M7 => -7 * 3600,
+            GraphTopTimezone::M6 => -6 * 3600,
+            GraphTopTimezone::M5 => -5 * 3600,
+            GraphTopTimezone::M4 => -4 * 3600,
+            GraphTopTimezone::M3 => -3 * 3600,
+            GraphTopTimezone::M2 => -2 * 3600,
             #[allow(clippy::neg_multiply)]
-            GraphTopTimezone::M1 => Self::east(-1 * 3600),
+            GraphTopTimezone::M1 => -1 * 3600,
             #[allow(clippy::erasing_op)]
-            GraphTopTimezone::P0 => Self::east(0 * 3600),
+            GraphTopTimezone::P0 => 0 * 3600,
             #[allow(clippy::identity_op)]
-            GraphTopTimezone::P1 => Self::east(1 * 3600),
-            GraphTopTimezone::P2 => Self::east(2 * 3600),
-            GraphTopTimezone::P3 => Self::east(3 * 3600),
-            GraphTopTimezone::P4 => Self::east(4 * 3600),
-            GraphTopTimezone::P5 => Self::east(5 * 3600),
-            GraphTopTimezone::P6 => Self::east(6 * 3600),
-            GraphTopTimezone::P7 => Self::east(7 * 3600),
-            GraphTopTimezone::P8 => Self::east(8 * 3600),
-            GraphTopTimezone::P9 => Self::east(9 * 3600),
-            GraphTopTimezone::P10 => Self::east(10 * 3600),
-            GraphTopTimezone::P11 => Self::east(11 * 3600),
-            GraphTopTimezone::P12 => Self::east(12 * 3600),
-        }
+            GraphTopTimezone::P1 => 1 * 3600,
+            GraphTopTimezone::P2 => 2 * 3600,
+            GraphTopTimezone::P3 => 3 * 3600,
+            GraphTopTimezone::P4 => 4 * 3600,
+            GraphTopTimezone::P5 => 5 * 3600,
+            GraphTopTimezone::P6 => 6 * 3600,
+            GraphTopTimezone::P7 => 7 * 3600,
+            GraphTopTimezone::P8 => 8 * 3600,
+            GraphTopTimezone::P9 => 9 * 3600,
+            GraphTopTimezone::P10 => 10 * 3600,
+            GraphTopTimezone::P11 => 11 * 3600,
+            GraphTopTimezone::P12 => 12 * 3600,
+        };
+
+        Self::from_whole_seconds(seconds).unwrap()
     }
 }
 
@@ -363,7 +365,7 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> BotRe
         Graph::Top(args) => {
             let (name, mode) = name_mode!(ctx, orig, args);
             let user_args = UserArgs::new(name.as_str(), mode);
-            let tz = args.timezone.map(FixedOffset::from);
+            let tz = args.timezone.map(UtcOffset::from);
 
             top_graph(&ctx, &orig, &name, user_args, args.order, tz).await?
         }
@@ -392,7 +394,7 @@ async fn medals_graph(
     orig: &CommandOrigin<'_>,
     name: &str,
 ) -> BotResult<Option<(User, Vec<u8>)>> {
-    let user_args = UserArgs::new(name, GameMode::STD);
+    let user_args = UserArgs::new(name, GameMode::Osu);
 
     let mut user = match get_user(ctx, &user_args).await {
         Ok(user) => user,
@@ -439,7 +441,7 @@ async fn playcount_replays_graph(
     name: &str,
     flags: ProfileGraphFlags,
 ) -> BotResult<Option<(User, Vec<u8>)>> {
-    let user_args = UserArgs::new(name, GameMode::STD);
+    let user_args = UserArgs::new(name, GameMode::Osu);
 
     let mut user = match get_user(ctx, &user_args).await {
         Ok(user) => user,
@@ -651,7 +653,7 @@ async fn sniped_graph(
     orig: &CommandOrigin<'_>,
     name: &str,
 ) -> BotResult<Option<(User, Vec<u8>)>> {
-    let user_args = UserArgs::new(name, GameMode::STD);
+    let user_args = UserArgs::new(name, GameMode::Osu);
 
     let user = match get_user(ctx, &user_args).await {
         Ok(user) => user,
@@ -669,7 +671,7 @@ async fn sniped_graph(
     };
 
     let (sniper, snipee) = if ctx.contains_country(user.country_code.as_str()) {
-        let now = Utc::now();
+        let now = OffsetDateTime::now_utc();
         let sniper_fut =
             ctx.client()
                 .get_national_snipes(&user, true, now - Duration::weeks(8), now);
@@ -726,7 +728,7 @@ async fn snipe_count_graph(
     orig: &CommandOrigin<'_>,
     name: &str,
 ) -> BotResult<Option<(User, Vec<u8>)>> {
-    let user_args = UserArgs::new(name, GameMode::STD);
+    let user_args = UserArgs::new(name, GameMode::Osu);
 
     let user = match get_user(ctx, &user_args).await {
         Ok(user) => user,
@@ -793,7 +795,7 @@ async fn top_graph(
     name: &str,
     user_args: UserArgs<'_>,
     order: GraphTopOrder,
-    tz: Option<FixedOffset>,
+    tz: Option<UtcOffset>,
 ) -> BotResult<Option<(User, Vec<u8>)>> {
     let mode = user_args.mode;
     let score_args = ScoreArgs::top(100);
@@ -829,10 +831,10 @@ async fn top_graph(
             "s"
         },
         mode = match mode {
-            GameMode::STD => "",
-            GameMode::TKO => "taiko ",
-            GameMode::CTB => "ctb ",
-            GameMode::MNA => "mania ",
+            GameMode::Osu => "",
+            GameMode::Taiko => "taiko ",
+            GameMode::Catch => "ctb ",
+            GameMode::Mania => "mania ",
         }
     );
 
@@ -864,8 +866,8 @@ async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec<u8>
     let min = scores.last().and_then(|s| s.pp).unwrap_or(0.0);
     let min_adj = (min - 5.0).max(0.0);
 
-    scores.sort_unstable_by_key(|s| s.created_at);
-    let dates: Vec<_> = scores.iter().map(|s| s.created_at).collect();
+    scores.sort_unstable_by_key(|s| s.ended_at);
+    let dates: Vec<_> = scores.iter().map(|s| s.ended_at).collect();
 
     let first = dates[0];
     let last = dates[dates.len() - 1];
@@ -886,13 +888,13 @@ async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec<u8>
             .margin_top(5_i32)
             .margin_right(15_i32)
             .caption(caption, caption_style)
-            .build_cartesian_2d(first..last, min_adj..max_adj)?;
+            .build_cartesian_2d(Monthly(first..last), min_adj..max_adj)?;
 
         chart
             .configure_mesh()
             .disable_x_mesh()
             .y_label_formatter(&|pp| format!("{pp:.0}pp"))
-            .x_label_formatter(&|date| format!("{}", date.format("%F")))
+            .x_label_formatter(&|datetime| datetime.date().to_string())
             .label_style(("sans-serif", 16_i32, &WHITE))
             .bold_line_style(&WHITE.mix(0.3))
             .axis_style(RGBColor(7, 18, 14))
@@ -903,7 +905,7 @@ async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec<u8>
         // let border_style = RGBColor(30, 248, 178).mix(0.9).filled();
         let border_style = WHITE.mix(0.9).stroke_width(1);
 
-        let iter = scores.iter().filter_map(|s| Some((s.created_at, s.pp?)));
+        let iter = scores.iter().filter_map(|s| Some((s.ended_at, s.pp?)));
 
         let series = PointSeries::of_element(iter, 3_i32, point_style, &|coord, size, style| {
             EmptyElement::at(coord) + Circle::new((0, 0), size, style)
@@ -914,7 +916,7 @@ async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec<u8>
             .label(format!("Max: {max}pp"))
             .legend(EmptyElement::at);
 
-        let iter = scores.iter().filter_map(|s| Some((s.created_at, s.pp?)));
+        let iter = scores.iter().filter_map(|s| Some((s.ended_at, s.pp?)));
 
         let series = PointSeries::of_element(iter, 3_i32, border_style, &|coord, size, style| {
             EmptyElement::at(coord) + Circle::new((0, 0), size, style)
@@ -1020,10 +1022,10 @@ async fn top_graph_index(caption: String, scores: &[Score]) -> Result<Vec<u8>, G
 async fn top_graph_time(
     mut caption: String,
     scores: &mut [Score],
-    tz: FixedOffset,
+    tz: UtcOffset,
 ) -> Result<Vec<u8>, GraphError> {
-    fn date_to_value(date: DateTime<Utc>) -> u32 {
-        date.hour() * 60 + date.minute()
+    fn date_to_value(date: OffsetDateTime) -> u32 {
+        date.hour() as u32 * 60 + date.minute() as u32
     }
 
     let _ = write!(caption, " (UTC{tz})");
@@ -1037,11 +1039,11 @@ async fn top_graph_time(
     let min_adj = (min - 5.0).max(0.0);
 
     for score in scores.iter_mut() {
-        score.created_at = score.created_at + tz;
-        hours[score.created_at.hour() as usize] += 1;
+        score.ended_at = score.ended_at.replace_offset(tz);
+        hours[score.ended_at.hour() as usize] += 1;
     }
 
-    scores.sort_unstable_by_key(|s| s.created_at.time());
+    scores.sort_unstable_by_key(|s| s.ended_at.time());
 
     let max_hours = hours.iter().max().copied().unwrap_or(0);
 
@@ -1134,7 +1136,7 @@ async fn top_graph_time(
 
         let iter = scores
             .iter()
-            .filter_map(|s| Some((date_to_value(s.created_at), s.pp?)));
+            .filter_map(|s| Some((date_to_value(s.ended_at), s.pp?)));
 
         let series = PointSeries::of_element(iter, 3_i32, point_style, &|coord, size, style| {
             EmptyElement::at(coord) + Circle::new((0, 0), size, style)
@@ -1147,7 +1149,7 @@ async fn top_graph_time(
 
         let iter = scores
             .iter()
-            .filter_map(|s| Some((date_to_value(s.created_at), s.pp?)));
+            .filter_map(|s| Some((date_to_value(s.ended_at), s.pp?)));
 
         let series = PointSeries::of_element(iter, 3_i32, border_style, &|coord, size, style| {
             EmptyElement::at(coord) + Circle::new((0, 0), size, style)
