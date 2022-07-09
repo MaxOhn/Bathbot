@@ -89,8 +89,8 @@ fn is_substring_boyer_moore<const MAX_NEEDLE_LEN: usize>(
 fn pre_bad_char(needle: &[u8], bad_chars: &mut [usize]) {
     let needle_len = needle.len();
 
-    for i in 0..256 {
-        bad_chars[i] = needle_len;
+    for elem in bad_chars.iter_mut() {
+        *elem = needle_len;
     }
 
     for i in 0..needle.len() {

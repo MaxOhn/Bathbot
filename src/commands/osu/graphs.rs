@@ -633,7 +633,7 @@ async fn rank_graph(
         Ok(Some(graph)) => graph,
         Ok(None) => {
             let content = format!("`{name}` has no available rank data :(");
-            let _ = orig.error(ctx, content).await?;
+            orig.error(ctx, content).await?;
 
             return Ok(None);
         }

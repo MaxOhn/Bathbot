@@ -36,9 +36,7 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: Box<ApplicationCommand>
     let ClaimName { name } = ClaimName::from_interaction(command.input_data())?;
 
     let content = if name.chars().count() > 15 {
-        Some(format!(
-            "Names can have at most 15 characters so your name won't be accepted"
-        ))
+        Some("Names can have at most 15 characters so your name won't be accepted".to_owned())
     } else if let Some(c) = name
         .chars()
         .find(|c| !matches!(c, 'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '[' | ']' | '_' | ' '))
@@ -82,7 +80,7 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: Box<ApplicationCommand>
 
     let user_fut = args
         .iter()
-        .map(|args| redis.osu_user(&args))
+        .map(|args| redis.osu_user(args))
         .collect::<FuturesUnordered<_>>()
         .try_fold(None, |mut user: Option<User>, next| {
             match user.as_mut() {
