@@ -4,11 +4,13 @@ use tokio::sync::{Mutex as TokioMutex, RwLock as TokioRwLock};
 
 pub use self::{
     guard::Guard,
+    iter::{SyncMutexMapIter, SyncRwLockMapIter},
     key::MultMapKey,
     map::{AsyncMutexMap, AsyncRwLockMap, SyncMutexMap, SyncRwLockMap},
 };
 
 mod guard;
+mod iter;
 mod key;
 mod map;
 

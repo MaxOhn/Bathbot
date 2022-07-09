@@ -13,7 +13,8 @@ use tokio::sync::{
 };
 
 use super::{
-    guard::Guard, key::MultMapKey, AsyncMutex, AsyncRwLock, MapLock, SyncMutex, SyncRwLock,
+    guard::Guard, iter::SyncRwLockMapIter, key::MultMapKey, AsyncMutex, AsyncRwLock, MapLock,
+    SyncMutex, SyncMutexMapIter, SyncRwLock,
 };
 
 /// [`MultMap`] that operates on the std library's [`RwLock`](std::sync::RwLock).
@@ -45,7 +46,7 @@ pub struct MultMap<K, V, L, const N: usize>
 where
     L: MapLock<HashMap<K, V>>,
 {
-    inner: [L::Lock; N],
+    pub(super) inner: [L::Lock; N],
 }
 
 impl<K: MultMapKey, V, const N: usize> SyncRwLockMap<K, V, N> {
@@ -79,6 +80,15 @@ impl<K: MultMapKey, V, const N: usize> SyncRwLockMap<K, V, N> {
     pub fn is_empty(&self) -> bool {
         self.inner.iter().all(|map| map.read().unwrap().is_empty())
     }
+
+    /// Returns an iterator to iterate over all elements of all shards.
+    ///
+    /// # DEADLOCKS
+    ///
+    /// While iterating, be sure there is no write-guard around or it will deadlock.
+    pub fn iter(&self) -> SyncRwLockMapIter<'_, K, V, N> {
+        SyncRwLockMapIter::new(self)
+    }
 }
 
 impl<K: MultMapKey, V, const N: usize> SyncMutexMap<K, V, N> {
@@ -100,6 +110,15 @@ impl<K: MultMapKey, V, const N: usize> SyncMutexMap<K, V, N> {
     /// have a write-guard lying around unless you intend to deadlock yourself.
     pub fn is_empty(&self) -> bool {
         self.inner.iter().all(|map| map.lock().unwrap().is_empty())
+    }
+
+    /// Returns an iterator to iterate over all elements of all shards.
+    ///
+    /// # DEADLOCKS
+    ///
+    /// While iterating, be sure there is no write-guard around or it will deadlock.
+    pub fn iter(&self) -> SyncMutexMapIter<'_, K, V, N> {
+        SyncMutexMapIter::new(self)
     }
 }
 
