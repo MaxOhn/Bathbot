@@ -5,180 +5,210 @@ use serde::{
     de::{Error, Unexpected, Visitor},
     Deserialize, Deserializer,
 };
+use time::{Date, OffsetDateTime, PrimitiveDateTime};
 
-// pub fn str_to_maybe_datetime<'de, D>(d: D) -> Result<Option<DateTime<Utc>>, D::Error>
-// where
-//     D: Deserializer<'de>,
-// {
-//     d.deserialize_option(MaybeDateTimeString)
-// }
+use crate::util::datetime::{DATETIME_FORMAT, DATE_FORMAT, OFFSET_DATETIME_FORMAT};
 
-// struct MaybeDateTimeString;
+pub(super) mod option_f32_string {
+    use super::{f32_string::F32String, *};
 
-// impl<'de> Visitor<'de> for MaybeDateTimeString {
-//     type Value = Option<DateTime<Utc>>;
-
-//     fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         f.write_str("a string containing a datetime")
-//     }
-
-//     fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-//         match Utc.datetime_from_str(v, DATE_FORMAT) {
-//             Ok(date) => Ok(Some(date)),
-//             Err(_) => Ok(None),
-//         }
-//     }
-
-//     fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
-//         d.deserialize_str(self)
-//     }
-
-//     fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
-//         Ok(None)
-//     }
-// }
-
-// pub fn str_to_datetime<'de, D: Deserializer<'de>>(d: D) -> Result<DateTime<Utc>, D::Error> {
-//     Ok(str_to_maybe_datetime(d)?.unwrap())
-// }
-
-// pub fn str_to_date<'de, D: Deserializer<'de>>(d: D) -> Result<Date<Utc>, D::Error> {
-//     let date: NaiveDate = Deserialize::deserialize(d)?;
-
-//     Ok(Date::from_utc(date, Utc))
-// }
-
-pub fn str_to_maybe_f32<'de, D: Deserializer<'de>>(d: D) -> Result<Option<f32>, D::Error> {
-    d.deserialize_option(MaybeF32String)
-}
-
-struct MaybeF32String;
-
-impl<'de> Visitor<'de> for MaybeF32String {
-    type Value = Option<f32>;
-
-    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("a string containing an f32")
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Option<f32>, D::Error> {
+        d.deserialize_option(MaybeF32String)
     }
 
-    fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-        v.parse()
-            .map(Some)
-            .map_err(|_| Error::invalid_value(Unexpected::Str(v), &self))
-    }
+    pub(super) struct MaybeF32String;
 
-    fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
-        d.deserialize_str(self)
-    }
+    impl<'de> Visitor<'de> for MaybeF32String {
+        type Value = Option<f32>;
 
-    fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
-        Ok(None)
-    }
-}
-
-pub fn str_to_f32<'de, D: Deserializer<'de>>(d: D) -> Result<f32, D::Error> {
-    Ok(str_to_maybe_f32(d)?.unwrap_or(0.0))
-}
-
-pub fn str_to_maybe_u32<'de, D: Deserializer<'de>>(d: D) -> Result<Option<u32>, D::Error> {
-    d.deserialize_option(MaybeU32String)
-}
-
-struct MaybeU32String;
-
-impl<'de> Visitor<'de> for MaybeU32String {
-    type Value = Option<u32>;
-
-    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("a string containing an u32")
-    }
-
-    fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-        v.parse()
-            .map(Some)
-            .map_err(|_| Error::invalid_value(Unexpected::Str(v), &self))
-    }
-
-    fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
-        d.deserialize_str(self)
-    }
-
-    fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
-        Ok(None)
-    }
-}
-
-pub fn str_to_u32<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
-    Ok(str_to_maybe_u32(d)?.unwrap_or(0))
-}
-
-pub fn adjust_mods_maybe<'de, D: Deserializer<'de>>(d: D) -> Result<Option<GameMods>, D::Error> {
-    d.deserialize_option(MaybeModsString)
-}
-
-struct MaybeModsString;
-
-impl<'de> Visitor<'de> for MaybeModsString {
-    type Value = Option<GameMods>;
-
-    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("a string containing gamemods")
-    }
-
-    fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-        let mut mods = GameMods::NoMod;
-
-        if v == "None" {
-            return Ok(Some(mods));
+        #[inline]
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("an optional string containing an f32")
         }
 
-        for result in v.split(',').map(GameMods::from_str) {
-            match result {
-                Ok(m) => mods |= m,
-                Err(err) => {
-                    return Err(Error::custom(format_args!(r#"invalid value "{v}": {err}"#)));
+        #[inline]
+        fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
+            d.deserialize_str(F32String).map(Some)
+        }
+
+        #[inline]
+        fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
+            self.visit_unit()
+        }
+
+        #[inline]
+        fn visit_unit<E: Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+    }
+}
+
+pub(super) mod f32_string {
+    use super::{option_f32_string::MaybeF32String, *};
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<f32, D::Error> {
+        Ok(d.deserialize_option(MaybeF32String)?.unwrap_or(0.0))
+    }
+
+    pub(super) struct F32String;
+
+    impl<'de> Visitor<'de> for F32String {
+        type Value = f32;
+
+        #[inline]
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("a string containing an f32")
+        }
+
+        #[inline]
+        fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+            v.parse()
+                .map_err(|_| Error::invalid_value(Unexpected::Str(v), &self))
+        }
+    }
+}
+
+pub(super) mod option_u32_string {
+    use super::{u32_string::U32String, *};
+
+    pub(super) struct MaybeU32String;
+
+    impl<'de> Visitor<'de> for MaybeU32String {
+        type Value = Option<u32>;
+
+        #[inline]
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("an optional string containing an u32")
+        }
+
+        #[inline]
+        fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
+            d.deserialize_str(U32String).map(Some)
+        }
+
+        #[inline]
+        fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
+            self.visit_unit()
+        }
+
+        #[inline]
+        fn visit_unit<E: Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+    }
+}
+
+pub(super) mod u32_string {
+    use super::{option_u32_string::MaybeU32String, *};
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
+        Ok(d.deserialize_option(MaybeU32String)?.unwrap_or(0))
+    }
+
+    pub(super) struct U32String;
+
+    impl<'de> Visitor<'de> for U32String {
+        type Value = u32;
+
+        #[inline]
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("a string containing an u32")
+        }
+
+        #[inline]
+        fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+            v.parse()
+                .map_err(|_| Error::invalid_value(Unexpected::Str(v), &self))
+        }
+    }
+}
+
+pub(super) mod option_mods_string {
+    use super::{mods_string::ModsString, *};
+
+    pub(super) struct MaybeModsString;
+
+    impl<'de> Visitor<'de> for MaybeModsString {
+        type Value = Option<GameMods>;
+
+        #[inline]
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("an optional string containing gamemods")
+        }
+
+        #[inline]
+        fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
+            d.deserialize_str(ModsString).map(Some)
+        }
+
+        #[inline]
+        fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
+            self.visit_unit()
+        }
+
+        #[inline]
+        fn visit_unit<E: Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+    }
+}
+
+pub(super) mod mods_string {
+    use super::{option_mods_string::MaybeModsString, *};
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<GameMods, D::Error> {
+        Ok(d.deserialize_option(MaybeModsString)?.unwrap_or_default())
+    }
+
+    pub(super) struct ModsString;
+
+    impl<'de> Visitor<'de> for ModsString {
+        type Value = GameMods;
+
+        #[inline]
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("a string containing gamemods")
+        }
+
+        fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+            let mut mods = GameMods::NoMod;
+
+            if v == "None" {
+                return Ok(mods);
+            }
+
+            for result in v.split(',').map(GameMods::from_str) {
+                match result {
+                    Ok(m) => mods |= m,
+                    Err(err) => {
+                        return Err(Error::custom(format_args!(r#"invalid value "{v}": {err}"#)));
+                    }
                 }
             }
+
+            Ok(mods)
         }
-
-        Ok(Some(mods))
-    }
-
-    fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
-        d.deserialize_str(self)
-    }
-
-    fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
-        Ok(None)
     }
 }
 
-pub fn adjust_mods<'de, D: Deserializer<'de>>(d: D) -> Result<GameMods, D::Error> {
-    Ok(adjust_mods_maybe(d)?.unwrap_or_default())
+pub(super) mod negative_u32 {
+    use super::*;
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
+        Ok(<i32 as Deserialize>::deserialize(d)?.max(0) as u32)
+    }
 }
 
-pub fn expect_negative_u32<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
-    let i: i64 = Deserialize::deserialize(d)?;
+pub(super) mod adjust_acc {
+    use super::*;
 
-    Ok(i.max(0) as u32)
-}
-
-pub fn inflate_acc<'de, D: Deserializer<'de>>(d: D) -> Result<f32, D::Error> {
-    let acc: f32 = Deserialize::deserialize(d)?;
-
-    Ok(100.0 * acc)
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<f32, D::Error> {
+        Ok(<f32 as Deserialize>::deserialize(d)? * 100.0)
+    }
 }
 
 pub(super) mod datetime {
-    use std::fmt;
-
-    use serde::{
-        de::{Error, Visitor},
-        Deserializer,
-    };
-    use time::{OffsetDateTime, PrimitiveDateTime};
-
-    use crate::util::datetime::DATETIME_FORMAT;
+    use super::*;
 
     pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<OffsetDateTime, D::Error> {
         d.deserialize_str(DateTimeVisitor)
@@ -204,15 +234,7 @@ pub(super) mod datetime {
 }
 
 pub(super) mod option_datetime {
-    use std::fmt;
-
-    use serde::{
-        de::{Error, Visitor},
-        Deserializer,
-    };
-    use time::OffsetDateTime;
-
-    use super::datetime::DateTimeVisitor;
+    use super::{datetime::DateTimeVisitor, *};
 
     pub fn deserialize<'de, D: Deserializer<'de>>(
         d: D,
@@ -248,15 +270,7 @@ pub(super) mod option_datetime {
 }
 
 pub(super) mod offset_datetime {
-    use std::fmt;
-
-    use serde::{
-        de::{Error, Visitor},
-        Deserializer,
-    };
-    use time::OffsetDateTime;
-
-    use crate::util::datetime::OFFSET_DATETIME_FORMAT;
+    use super::*;
 
     pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<OffsetDateTime, D::Error> {
         d.deserialize_str(DateTimeVisitor)
@@ -280,15 +294,7 @@ pub(super) mod offset_datetime {
 }
 
 pub(super) mod date {
-    use std::fmt;
-
-    use serde::{
-        de::{Error, Visitor},
-        Deserializer,
-    };
-    use time::Date;
-
-    use crate::util::datetime::DATE_FORMAT;
+    use super::*;
 
     pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Date, D::Error> {
         d.deserialize_str(DateVisitor)

@@ -21,7 +21,7 @@ pub struct OsuTrackerPpGroup {
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerPpEntry {
     pub name: String,
-    #[serde(rename = "id", deserialize_with = "deserialize::str_to_u32")]
+    #[serde(rename = "id", with = "deserialize::u32_string")]
     pub map_id: u32,
     pub count: usize,
 }
@@ -52,13 +52,13 @@ pub struct OsuTrackerUserStats {
     pub objects_play: f32,
     #[serde(rename = "modsCount")]
     pub mods_count: Vec<OsuTrackerModsEntry>,
-    // #[serde(rename = "topPlay", deserialize_with = "str_to_u32")]
+    // #[serde(rename = "topPlay", with = "u32_string")]
     // top_play: u32,
 }
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerCountryStats {
-    #[serde(deserialize_with = "deserialize::inflate_acc")]
+    #[serde(with = "deserialize::adjust_acc")]
     pub acc: f32,
     pub farm: f32,
     #[serde(rename = "lengthPlay")]
@@ -86,7 +86,7 @@ pub struct OsuTrackerMapperEntry {
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerMapsetEntry {
-    #[serde(rename = "setId", deserialize_with = "deserialize::str_to_u32")]
+    #[serde(rename = "setId", with = "deserialize::u32_string")]
     pub mapset_id: u32,
     pub count: usize,
 }
@@ -100,11 +100,11 @@ pub struct OsuTrackerCountryDetails {
     pub country: String,
     #[serde(rename = "abbreviation")]
     pub code: CountryCode,
-    #[serde(deserialize_with = "deserialize::str_to_f32")]
+    #[serde(with = "deserialize::f32_string")]
     pub pp: f32,
-    // #[serde(deserialize_with = "deserialize::str_to_f32")]
+    // #[serde(with = "deserialize::f32_string")]
     // pub range: f32,
-    #[serde(deserialize_with = "deserialize::inflate_acc")]
+    #[serde(with = "deserialize::adjust_acc")]
     pub acc: f32,
     pub farm: f32,
     #[serde(rename = "averageLength")]
@@ -124,18 +124,18 @@ pub struct OsuTrackerCountryContributor {
 #[derive(Debug, Deserialize)]
 pub struct OsuTrackerCountryScore {
     pub name: String,
-    #[serde(rename = "id", deserialize_with = "deserialize::str_to_u32")]
+    #[serde(rename = "id", with = "deserialize::u32_string")]
     pub map_id: u32,
-    #[serde(rename = "setId", deserialize_with = "deserialize::str_to_u32")]
+    #[serde(rename = "setId", with = "deserialize::u32_string")]
     pub mapset_id: u32,
     pub mods: GameMods,
-    #[serde(deserialize_with = "deserialize::str_to_f32")]
+    #[serde(with = "deserialize::f32_string")]
     pub pp: f32,
-    #[serde(rename = "missCount", deserialize_with = "deserialize::str_to_u32")]
+    #[serde(rename = "missCount", with = "deserialize::u32_string")]
     pub n_misses: u32,
-    #[serde(deserialize_with = "deserialize::inflate_acc")]
+    #[serde(with = "deserialize::adjust_acc")]
     pub acc: f32,
-    #[serde(rename = "length", deserialize_with = "deserialize::str_to_u32")]
+    #[serde(rename = "length", with = "deserialize::u32_string")]
     pub seconds_total: u32,
     pub mapper: Username,
     #[serde(rename = "time", with = "deserialize::offset_datetime")]

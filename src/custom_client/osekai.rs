@@ -121,7 +121,7 @@ pub struct OsekaiMap {
     pub title: String,
     #[serde(rename = "DifficultyName")]
     pub version: String,
-    #[serde(rename = "VoteSum", deserialize_with = "deserialize::str_to_u32")]
+    #[serde(rename = "VoteSum", with = "deserialize::u32_string")]
     pub vote_sum: u32,
 }
 
@@ -140,7 +140,7 @@ pub struct OsekaiComment {
     pub user_id: u32,
     #[serde(rename = "Username")]
     pub username: String,
-    #[serde(rename = "VoteSum", deserialize_with = "deserialize::str_to_u32")]
+    #[serde(rename = "VoteSum", with = "deserialize::u32_string")]
     pub vote_sum: u32,
 }
 
@@ -148,27 +148,28 @@ pub(super) struct OsekaiMedals(pub(super) Vec<OsekaiMedal>);
 
 impl<'de> Deserialize<'de> for OsekaiMedals {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        Ok(Self(d.deserialize_map(OsekaiGroupingVisitor)?))
-    }
-}
+        struct OsekaiGroupingVisitor;
 
-struct OsekaiGroupingVisitor;
+        impl<'de> Visitor<'de> for OsekaiGroupingVisitor {
+            type Value = Vec<OsekaiMedal>;
 
-impl<'de> Visitor<'de> for OsekaiGroupingVisitor {
-    type Value = Vec<OsekaiMedal>;
+            #[inline]
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an object containing fields mapping to a list of osekai medals")
+            }
 
-    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("an object containing fields mapping to a list of osekai medals")
-    }
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut medals = Vec::with_capacity(256);
 
-    fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
-        let mut medals = Vec::with_capacity(256);
+                while let Some((_, mut medals_)) = map.next_entry::<&str, Vec<OsekaiMedal>>()? {
+                    medals.append(&mut medals_);
+                }
 
-        while let Some((_, mut medals_)) = map.next_entry::<&str, Vec<OsekaiMedal>>()? {
-            medals.append(&mut medals_);
+                Ok(medals)
+            }
         }
 
-        Ok(medals)
+        Ok(Self(d.deserialize_map(OsekaiGroupingVisitor)?))
     }
 }
 
@@ -272,41 +273,9 @@ impl MedalGroup {
 }
 
 impl fmt::Display for MedalGroup {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
-    }
-}
-
-struct MedalGroupVisitor;
-
-impl<'de> Visitor<'de> for MedalGroupVisitor {
-    type Value = MedalGroup;
-
-    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("a valid medal group")
-    }
-
-    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
-    where
-        E: Error,
-    {
-        let group = match v {
-            0 => MedalGroup::Skill,
-            1 => MedalGroup::Dedication,
-            2 => MedalGroup::HushHush,
-            3 => MedalGroup::BeatmapPacks,
-            4 => MedalGroup::BeatmapChallengePacks,
-            5 => MedalGroup::SeasonalSpotlights,
-            6 => MedalGroup::BeatmapSpotlights,
-            7 => MedalGroup::ModIntroduction,
-            _ => return Err(Error::invalid_type(Unexpected::Unsigned(v), &self)),
-        };
-
-        Ok(group)
-    }
-
-    fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-        MedalGroup::from_str(v).ok_or_else(|| Error::invalid_type(Unexpected::Str(v), &self))
     }
 }
 
@@ -326,6 +295,7 @@ impl OsekaiMedal {
 }
 
 impl PartialEq for OsekaiMedal {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.medal_id == other.medal_id
     }
@@ -334,12 +304,14 @@ impl PartialEq for OsekaiMedal {
 impl Eq for OsekaiMedal {}
 
 impl PartialOrd for OsekaiMedal {
+    #[inline]
     fn partial_cmp(&self, other: &OsekaiMedal) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl Ord for OsekaiMedal {
+    #[inline]
     fn cmp(&self, other: &OsekaiMedal) -> Ordering {
         self.grouping_order()
             .cmp(&other.grouping_order())
@@ -348,106 +320,122 @@ impl Ord for OsekaiMedal {
 }
 
 fn osekai_mode<'de, D: Deserializer<'de>>(d: D) -> Result<Option<GameMode>, D::Error> {
+    struct OsekaiModeVisitor;
+
+    impl<'de> Visitor<'de> for OsekaiModeVisitor {
+        type Value = Option<GameMode>;
+
+        #[inline]
+        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            formatter.write_str("a u8 or a string")
+        }
+
+        fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+            let mode = match v {
+                "NULL" => return Ok(None),
+                "0" | "osu" | "osu!" => GameMode::Osu,
+                "1" | "taiko" | "tko" => GameMode::Taiko,
+                "2" | "catch" | "ctb" | "fruits" => GameMode::Catch,
+                "3" | "mania" | "mna" => GameMode::Mania,
+                _ => {
+                    return Err(Error::invalid_value(
+                        Unexpected::Str(v),
+                        &r#""NULL", "0", "osu", "osu!", "1", "taiko", "tko", "2", "catch", "ctb", "fruits", "3", "mania", or "mna""#,
+                    ))
+                }
+            };
+
+            Ok(Some(mode))
+        }
+
+        fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
+            match v {
+                0 => Ok(Some(GameMode::Osu)),
+                1 => Ok(Some(GameMode::Taiko)),
+                2 => Ok(Some(GameMode::Catch)),
+                3 => Ok(Some(GameMode::Mania)),
+                _ => Err(Error::invalid_value(
+                    Unexpected::Unsigned(v),
+                    &"0, 1, 2, or 3",
+                )),
+            }
+        }
+
+        #[inline]
+        fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
+            d.deserialize_any(self)
+        }
+
+        #[inline]
+        fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
+            self.visit_unit()
+        }
+
+        #[inline]
+        fn visit_unit<E: Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+    }
+
     d.deserialize_option(OsekaiModeVisitor)
 }
 
-struct OsekaiModeVisitor;
-
-impl<'de> Visitor<'de> for OsekaiModeVisitor {
-    type Value = Option<GameMode>;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("a u8 or a string")
-    }
-
-    fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-        let mode = match v {
-            "NULL" => return Ok(None),
-            "0" | "osu" | "osu!" => GameMode::Osu,
-            "1" | "taiko" | "tko" => GameMode::Taiko,
-            "2" | "catch" | "ctb" | "fruits" => GameMode::Catch,
-            "3" | "mania" | "mna" => GameMode::Mania,
-            _ => {
-                return Err(Error::invalid_value(
-                    Unexpected::Str(v),
-                    &r#""NULL", "0", "osu", "osu!", "1", "taiko", "tko", "2", "catch", "ctb", "fruits", "3", "mania", or "mna""#,
-                ))
-            }
-        };
-
-        Ok(Some(mode))
-    }
-
-    fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
-        match v {
-            0 => Ok(Some(GameMode::Osu)),
-            1 => Ok(Some(GameMode::Taiko)),
-            2 => Ok(Some(GameMode::Catch)),
-            3 => Ok(Some(GameMode::Mania)),
-            _ => Err(Error::invalid_value(
-                Unexpected::Unsigned(v),
-                &"0, 1, 2, or 3",
-            )),
-        }
-    }
-
-    fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
-        d.deserialize_any(self)
-    }
-
-    fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
-        Ok(None)
-    }
-}
-
 fn osekai_mods<'de, D: Deserializer<'de>>(d: D) -> Result<Option<GameMods>, D::Error> {
-    d.deserialize_option(OsekaiModsVisitor)
-}
+    struct OsekaiModsVisitor;
 
-struct OsekaiModsVisitor;
+    impl<'de> Visitor<'de> for OsekaiModsVisitor {
+        type Value = Option<GameMods>;
 
-impl<'de> Visitor<'de> for OsekaiModsVisitor {
-    type Value = Option<GameMods>;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("a u8 or a string")
-    }
-
-    fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-        let mut mods = GameMods::default();
-
-        for mod_ in v.split(',').map(str::trim) {
-            if let Ok(mod_) = mod_.parse() {
-                mods |= mod_;
-            } else {
-                return Err(Error::invalid_value(
-                    Unexpected::Str(mod_),
-                    &r#"a valid mod abbreviation"#,
-                ));
-            }
+        #[inline]
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("a u8 or a string")
         }
 
-        Ok(Some(mods))
+        fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+            let mut mods = GameMods::default();
+
+            for mod_ in v.split(',').map(str::trim) {
+                if let Ok(mod_) = mod_.parse() {
+                    mods |= mod_;
+                } else {
+                    return Err(Error::invalid_value(
+                        Unexpected::Str(mod_),
+                        &r#"a valid mod abbreviation"#,
+                    ));
+                }
+            }
+
+            Ok(Some(mods))
+        }
+
+        fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
+            let bits = v.try_into().map_err(|_| {
+                Error::invalid_value(
+                    Unexpected::Unsigned(v),
+                    &"a valid u32 representing a mod combination",
+                )
+            })?;
+
+            Ok(GameMods::from_bits(bits))
+        }
+
+        #[inline]
+        fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
+            d.deserialize_any(self)
+        }
+
+        #[inline]
+        fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
+            self.visit_unit()
+        }
+
+        #[inline]
+        fn visit_unit<E: Error>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
     }
 
-    fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
-        let bits = v.try_into().map_err(|_| {
-            Error::invalid_value(
-                Unexpected::Unsigned(v),
-                &"a valid u32 representing a mod combination",
-            )
-        })?;
-
-        Ok(GameMods::from_bits(bits))
-    }
-
-    fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
-        d.deserialize_any(self)
-    }
-
-    fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
-        Ok(None)
-    }
+    d.deserialize_option(OsekaiModsVisitor)
 }
 
 #[derive(Archive, Debug, RkyvDeserialize, Serialize)]
@@ -492,12 +480,14 @@ where
 pub struct ValueWrapper<T>(T);
 
 impl<T: fmt::Debug> fmt::Debug for ValueWrapper<T> {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self.0)
     }
 }
 
 impl<T: fmt::Display> fmt::Display for ValueWrapper<T> {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
@@ -516,110 +506,111 @@ impl<'de, T: Deserialize<'de> + FromStr> Deserialize<'de> for ValueWrapper<T> {
 }
 
 impl<'de, T: Deserialize<'de> + FromStr + Archive> Deserialize<'de> for OsekaiRankingEntry<T> {
+    #[inline]
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        d.deserialize_map(OsekaiRankingEntryVisitor::new())
-    }
-}
+        struct OsekaiRankingEntryVisitor<T> {
+            data: PhantomData<T>,
+        }
 
-struct OsekaiRankingEntryVisitor<T> {
-    data: PhantomData<T>,
-}
-
-impl<T> OsekaiRankingEntryVisitor<T> {
-    fn new() -> Self {
-        Self { data: PhantomData }
-    }
-}
-
-impl<'de, T: Deserialize<'de> + FromStr + Archive> Visitor<'de> for OsekaiRankingEntryVisitor<T> {
-    type Value = OsekaiRankingEntry<T>;
-
-    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("an osekai ranking entry")
-    }
-
-    fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
-        let mut rank: Option<&str> = None;
-        let mut country_code = None;
-        let mut country = None;
-        let mut username = None;
-        let mut user_id: Option<&str> = None;
-        let mut value = None;
-
-        while let Some(key) = map.next_key()? {
-            match key {
-                "rank" => rank = Some(map.next_value()?),
-                "countrycode" => country_code = Some(map.next_value()?),
-                "country" => country = Some(map.next_value()?),
-                "username" => username = Some(map.next_value()?),
-                "userid" => user_id = Some(map.next_value()?),
-                _ => value = Some(map.next_value()?),
+        impl<T> OsekaiRankingEntryVisitor<T> {
+            fn new() -> Self {
+                Self { data: PhantomData }
             }
         }
 
-        let rank: &str = rank.ok_or_else(|| Error::missing_field("rank"))?;
-        let rank = rank.parse().map_err(|_| {
-            Error::invalid_value(Unexpected::Str(rank), &"a string containing a u32")
-        })?;
+        impl<'de, T: Deserialize<'de> + FromStr + Archive> Visitor<'de> for OsekaiRankingEntryVisitor<T> {
+            type Value = OsekaiRankingEntry<T>;
 
-        let country_code = country_code.ok_or_else(|| Error::missing_field("countrycode"))?;
-        let country = country.ok_or_else(|| Error::missing_field("country"))?;
-        let username = username.ok_or_else(|| Error::missing_field("username"))?;
+            #[inline]
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an osekai ranking entry")
+            }
 
-        let user_id: &str = user_id.ok_or_else(|| Error::missing_field("userid"))?;
-        let user_id = user_id.parse().map_err(|_| {
-            Error::invalid_value(Unexpected::Str(user_id), &"a string containing a u32")
-        })?;
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut rank: Option<&str> = None;
+                let mut country_code = None;
+                let mut country = None;
+                let mut username = None;
+                let mut user_id: Option<&str> = None;
+                let mut value = None;
 
-        let value = value.ok_or_else(|| Error::custom("missing field for ranking value"))?;
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        "rank" => rank = Some(map.next_value()?),
+                        "countrycode" => country_code = Some(map.next_value()?),
+                        "country" => country = Some(map.next_value()?),
+                        "username" => username = Some(map.next_value()?),
+                        "userid" => user_id = Some(map.next_value()?),
+                        _ => value = Some(map.next_value()?),
+                    }
+                }
 
-        Ok(Self::Value {
-            rank,
-            country_code,
-            country,
-            username,
-            user_id,
-            value,
-        })
+                let rank: &str = rank.ok_or_else(|| Error::missing_field("rank"))?;
+                let rank = rank.parse().map_err(|_| {
+                    Error::invalid_value(Unexpected::Str(rank), &"a string containing a u32")
+                })?;
+
+                let country_code =
+                    country_code.ok_or_else(|| Error::missing_field("countrycode"))?;
+                let country = country.ok_or_else(|| Error::missing_field("country"))?;
+                let username = username.ok_or_else(|| Error::missing_field("username"))?;
+
+                let user_id: &str = user_id.ok_or_else(|| Error::missing_field("userid"))?;
+                let user_id = user_id.parse().map_err(|_| {
+                    Error::invalid_value(Unexpected::Str(user_id), &"a string containing a u32")
+                })?;
+
+                let value =
+                    value.ok_or_else(|| Error::custom("missing field for ranking value"))?;
+
+                Ok(Self::Value {
+                    rank,
+                    country_code,
+                    country,
+                    username,
+                    user_id,
+                    value,
+                })
+            }
+        }
+
+        d.deserialize_map(OsekaiRankingEntryVisitor::new())
     }
 }
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, Serialize)]
 pub struct OsekaiUserEntry {
-    #[serde(deserialize_with = "deserialize::str_to_u32")]
+    #[serde(with = "deserialize::u32_string")]
     pub rank: u32,
     #[serde(rename = "countrycode")]
     pub country_code: CountryCode,
     pub country: String,
     #[with(UsernameWrapper)]
     pub username: Username,
-    #[serde(rename = "medalCount", deserialize_with = "deserialize::str_to_u32")]
+    #[serde(rename = "medalCount", with = "deserialize::u32_string")]
     pub medal_count: u32,
     #[serde(rename = "rarestmedal")]
     pub rarest_medal: String,
     #[serde(rename = "link")]
     pub rarest_icon_url: String,
-    #[serde(rename = "userid", deserialize_with = "deserialize::str_to_u32")]
+    #[serde(rename = "userid", with = "deserialize::u32_string")]
     pub user_id: u32,
-    #[serde(deserialize_with = "deserialize::str_to_f32")]
+    #[serde(with = "deserialize::f32_string")]
     pub completion: f32,
 }
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, Serialize)]
 pub struct OsekaiRarityEntry {
-    #[serde(deserialize_with = "deserialize::str_to_u32")]
+    #[serde(with = "deserialize::u32_string")]
     pub rank: u32,
     #[serde(rename = "link")]
     pub icon_url: String,
     #[serde(rename = "medalname")]
     pub medal_name: String,
-    #[serde(rename = "medalid", deserialize_with = "deserialize::str_to_u32")]
+    #[serde(rename = "medalid", with = "deserialize::u32_string")]
     pub medal_id: u32,
     pub description: String,
-    #[serde(
-        rename = "possessionRate",
-        deserialize_with = "deserialize::str_to_f32"
-    )]
+    #[serde(rename = "possessionRate", with = "deserialize::f32_string")]
     pub possession_percent: f32,
     #[serde(rename = "gameMode", deserialize_with = "osekai_mode")]
     pub mode: Option<GameMode>,
@@ -631,7 +622,7 @@ pub struct OsekaiBadge {
     #[with(DateWrapper)]
     pub awarded_at: Date,
     pub description: String,
-    #[serde(rename = "id", deserialize_with = "deserialize::str_to_u32")]
+    #[serde(rename = "id", with = "deserialize::u32_string")]
     pub badge_id: u32,
     pub image_url: String,
     pub name: String,

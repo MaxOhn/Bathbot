@@ -46,7 +46,7 @@ impl<'de> Deserialize<'de> for ScraperScore {
         struct Outer {
             id: u64,
             user_id: u32,
-            #[serde(deserialize_with = "adjust_acc")]
+            #[serde(with = "deserialize::adjust_acc")]
             accuracy: f32,
             mods: GameMods,
             #[serde(rename = "total_score")]
@@ -112,6 +112,7 @@ impl<'de> Deserialize<'de> for ScraperScore {
 }
 
 impl From<&ScraperScore> for ScoreState {
+    #[inline]
     fn from(score: &ScraperScore) -> Self {
         ScoreState {
             max_combo: score.max_combo as usize,
@@ -157,10 +158,4 @@ pub struct ScraperBeatmap {
     #[serde(with = "deserialize::offset_datetime")]
     pub last_updated: OffsetDateTime,
     pub ranked: RankStatus,
-}
-
-fn adjust_acc<'de, D: Deserializer<'de>>(d: D) -> Result<f32, D::Error> {
-    let f: f32 = Deserialize::deserialize(d)?;
-
-    Ok(f * 100.0)
 }

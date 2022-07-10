@@ -12,7 +12,13 @@ use serde::{
     de::{Deserializer, Error, IgnoredAny, MapAccess, Unexpected, Visitor},
     Deserialize,
 };
-use time::{Date, OffsetDateTime, PrimitiveDateTime};
+use time::{
+    format_description::{
+        modifier::{Day, Month, Padding, Year},
+        Component, FormatItem,
+    },
+    Date, OffsetDateTime, PrimitiveDateTime,
+};
 
 use crate::{
     commands::osu::SnipePlayerListOrder,
@@ -104,7 +110,7 @@ pub struct SnipePlayer {
     pub user_id: u32,
     #[serde(rename = "average_pp")]
     pub avg_pp: f32,
-    #[serde(rename = "average_accuracy", deserialize_with = "deserialize_acc")]
+    #[serde(rename = "average_accuracy", with = "deserialize::adjust_acc")]
     pub avg_acc: f32,
     #[serde(rename = "average_sr")]
     pub avg_stars: f32,
@@ -116,11 +122,7 @@ pub struct SnipePlayer {
     pub count_ranked: u32,
     #[serde(rename = "total_top_national_difference", default)]
     pub difference: i32,
-    #[serde(
-        rename = "mods_count",
-        deserialize_with = "deserialize_mod_count",
-        default
-    )]
+    #[serde(rename = "mods_count", with = "mod_count", default)]
     pub count_mods: Option<Vec<(GameMods, u32)>>,
     #[serde(rename = "history_total_top_national", with = "history", default)]
     pub count_first_history: BTreeMap<Date, u32>,
@@ -147,10 +149,7 @@ pub struct SnipeCountryPlayer {
 
 #[derive(Debug, Deserialize)]
 pub struct SnipePlayerOldest {
-    #[serde(
-        rename = "map_id",
-        deserialize_with = "deserialize::expect_negative_u32"
-    )]
+    #[serde(rename = "map_id", with = "deserialize::negative_u32")]
     pub beatmap_id: u32,
     pub map: String,
     #[serde(with = "option_datetime")]
@@ -285,40 +284,25 @@ impl<'de> Deserialize<'de> for SnipeRecent {
 #[derive(Debug)]
 pub struct SnipeScore {
     pub accuracy: f32,
-    // pub artist: String,
     pub beatmap_id: u32,
     pub beatmapset_id: u32,
-    // pub bpm: f32,
     pub count_100: u32,
     pub count_50: u32,
     pub count_miss: u32,
-    // pub diff_ar: f32,
-    // pub diff_cs: f32,
-    // pub diff_hp: f32,
-    // pub diff_od: f32,
-    // pub map_approved_date: DateTime<Utc>,
-    // pub map_max_combo: u32,
     pub mods: GameMods,
     pub pp: Option<f32>,
     pub score: u32,
     pub score_date: OffsetDateTime,
-    // pub seconds_total: u32,
     pub stars: f32,
-    // pub tie: bool,
-    // pub title: String,
     pub user_id: u32,
-    // pub username: String,
-    // pub version: String,
 }
 
 #[derive(Deserialize)]
 struct InnerScore<'s> {
     player_id: u32,
-    // player: String,
     score: u32,
     pp: Option<f32>,
     mods: GameMods,
-    // tie: bool,
     accuracy: f32,
     count_100: u32,
     count_50: u32,
@@ -334,6 +318,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
         impl<'de> Visitor<'de> for SnipeScoreVisitor {
             type Value = SnipeScore;
 
+            #[inline]
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("struct SnipeScore")
             }
@@ -347,41 +332,12 @@ impl<'de> Deserialize<'de> for SnipeScore {
                 let mut mapset_id = None;
                 // Don't parse mods just yet since it might be unnecessary
                 let mut star_ratings: Option<HashMap<&str, Option<f32>>> = None;
-                // let mut artist = None;
-                // let mut title = None;
-                // let mut diff_name = None;
-                // let mut max_combo = None;
-                // let mut bpm = None;
-                // let mut ar = None;
-                // let mut cs = None;
-                // let mut hp = None;
-                // let mut od = None;
-                // let mut date_ranked = None;
-                // let mut length = None;
 
                 while let Some(key) = map.next_key()? {
                     match key {
                         "map_id" => map_id = Some(map.next_value()?),
                         "set_id" => mapset_id = Some(map.next_value()?),
                         "new_star_ratings" => star_ratings = Some(map.next_value()?),
-                        // "artist" => artist = Some(map.next_value()?),
-                        // "date_ranked" => {
-                        //     let date: &str = map.next_value()?;
-                        //     let date = Utc.datetime_from_str(date, "%F %T").unwrap_or_else(|err| {
-                        //         warn!("Couldn't parse date `{}`: {}", date, err);
-                        //         Utc::now()
-                        //     });
-                        //     date_ranked = Some(date);
-                        // }
-                        // "title" => title = Some(map.next_value()?),
-                        // "diff_name" => diff_name = Some(map.next_value()?),
-                        // "max_combo" => max_combo = Some(map.next_value()?),
-                        // "bpm" => bpm = Some(map.next_value()?),
-                        // "ar" => ar = Some(map.next_value()?),
-                        // "cs" => cs = Some(map.next_value()?),
-                        // "hp" => hp = Some(map.next_value()?),
-                        // "od" => od = Some(map.next_value()?),
-                        // "length" => length = Some(map.next_value()?),
                         other if inner_score.is_none() && other.starts_with("top_") => {
                             inner_score = Some(map.next_value()?)
                         }
@@ -394,18 +350,6 @@ impl<'de> Deserialize<'de> for SnipeScore {
                 let inner_score = inner_score.ok_or_else(|| Error::missing_field("inner_score"))?;
                 let map_id = map_id.ok_or_else(|| Error::missing_field("map_id"))?;
                 let mapset_id = mapset_id.ok_or_else(|| Error::missing_field("mapset_id"))?;
-                // let artist = artist.ok_or_else(|| Error::missing_field("artist"))?;
-                // let title = title.ok_or_else(|| Error::missing_field("title"))?;
-                // let diff_name = diff_name.ok_or_else(|| Error::missing_field("diff_name"))?;
-                // let max_combo = max_combo.ok_or_else(|| Error::missing_field("max_combo"))?;
-                // let bpm = bpm.ok_or_else(|| Error::missing_field("bpm"))?;
-                // let ar = ar.ok_or_else(|| Error::missing_field("ar"))?;
-                // let cs = cs.ok_or_else(|| Error::missing_field("cs"))?;
-                // let hp = hp.ok_or_else(|| Error::missing_field("hp"))?;
-                // let od = od.ok_or_else(|| Error::missing_field("od"))?;
-                // let length = length.ok_or_else(|| Error::missing_field("length"))?;
-                // let map_approved_date =
-                //     date_ranked.ok_or_else(|| Error::missing_field("date_ranked"))?;
 
                 let mods = inner_score.mods;
 
@@ -429,30 +373,17 @@ impl<'de> Deserialize<'de> for SnipeScore {
 
                 let score = SnipeScore {
                     accuracy: inner_score.accuracy * 100.0,
-                    // artist,
                     beatmap_id: map_id,
                     beatmapset_id: mapset_id,
-                    // bpm,
                     count_100: inner_score.count_100,
                     count_50: inner_score.count_50,
                     count_miss: inner_score.count_miss,
-                    // diff_ar: ar,
-                    // diff_cs: cs,
-                    // diff_hp: hp,
-                    // diff_od: od,
                     mods,
-                    // map_approved_date,
-                    // map_max_combo: max_combo,
                     pp: inner_score.pp,
                     score: inner_score.score,
                     score_date: date,
                     stars,
-                    // seconds_total: length,
-                    // tie: inner_score.tie,
-                    // title,
                     user_id: inner_score.player_id,
-                    // username: inner_score.player,
-                    // version: diff_name,
                 };
 
                 Ok(score)
@@ -462,79 +393,73 @@ impl<'de> Deserialize<'de> for SnipeScore {
         const FIELDS: &[&str] = &[
             "beatmap_id",
             "beatmapset_id",
-            // "artist",
-            // "title",
-            // "version",
             "user_id",
-            // USERNAME,
             "score",
             "pp",
             "mods",
-            // "tie",
             "accuracy",
             "count_100",
             "count_50",
             "count_miss",
             "score_date",
             "stars",
-            // "max_combo",
-            // "bpm",
-            // "diff_ar",
-            // "diff_cs",
-            // "diff_hp",
-            // "diff_od",
-            // "seconds_total",
         ];
 
         d.deserialize_struct("SnipeScore", FIELDS, SnipeScoreVisitor)
     }
 }
 
-pub fn deserialize_acc<'de, D: Deserializer<'de>>(d: D) -> Result<f32, D::Error> {
-    Deserialize::deserialize(d).map(|n: f32| 100.0 * n)
-}
+mod mod_count {
+    use super::*;
 
-#[allow(clippy::unnecessary_wraps)]
-fn deserialize_mod_count<'de, D>(d: D) -> Result<Option<Vec<(GameMods, u32)>>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    Ok(d.deserialize_map(SnipePlayerModVisitor).ok())
-}
-
-struct SnipePlayerModVisitor;
-
-impl<'de> Visitor<'de> for SnipePlayerModVisitor {
-    type Value = Vec<(GameMods, u32)>;
-
-    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("a map")
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        d: D,
+    ) -> Result<Option<Vec<(GameMods, u32)>>, D::Error> {
+        d.deserialize_map(SnipePlayerModVisitor).map(Some)
     }
 
-    fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
-    where
-        V: MapAccess<'de>,
-    {
-        let mut mod_count = Vec::new();
+    struct SnipePlayerModVisitor;
 
-        while let Some((mods, num)) = map.next_entry()? {
-            mod_count.push((mods, num));
+    impl<'de> Visitor<'de> for SnipePlayerModVisitor {
+        type Value = Vec<(GameMods, u32)>;
+
+        #[inline]
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("a map")
         }
 
-        Ok(mod_count)
+        fn visit_map<V: MapAccess<'de>>(self, mut map: V) -> Result<Self::Value, V::Error> {
+            let mut mod_count = Vec::with_capacity(map.size_hint().unwrap_or(0));
+
+            while let Some((mods, num)) = map.next_entry()? {
+                mod_count.push((mods, num));
+            }
+
+            Ok(mod_count)
+        }
     }
 }
 
 mod history {
-    use std::{collections::BTreeMap, fmt};
+    use super::*;
 
-    use serde::{
-        de::{Error, MapAccess, Unexpected, Visitor},
-        Deserializer,
-    };
-    use time::Date;
+    const DATE_FORMAT: &[FormatItem<'_>] = &[
+        FormatItem::Component(Component::Year(Year::default())),
+        FormatItem::Literal(b"-"),
+        FormatItem::Component(Component::Month({
+            let mut month = Month::default();
+            month.padding = Padding::None;
 
-    use crate::util::datetime::DATE_FORMAT;
+            month
+        })),
+        FormatItem::Literal(b"-"),
+        FormatItem::Component(Component::Day({
+            let mut day = Day::default();
+            day.padding = Padding::None;
+
+            day
+        })),
+    ];
 
     pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<BTreeMap<Date, u32>, D::Error> {
         d.deserialize_map(SnipePlayerHistoryVisitor)
@@ -555,7 +480,7 @@ mod history {
 
             while let Some(key) = map.next_key()? {
                 let date = Date::parse(key, DATE_FORMAT).map_err(|_| {
-                    Error::invalid_value(Unexpected::Str(key), &"a date of  the form `%F`")
+                    Error::invalid_value(Unexpected::Str(key), &"a date of the form `%F`")
                 })?;
 
                 history.insert(date, map.next_value()?);
@@ -568,15 +493,7 @@ mod history {
 
 // Differs from `deserialize::option_datetime` in that failed string deserialization still returns `Ok(None)`
 mod option_datetime {
-    use std::fmt;
-
-    use serde::{
-        de::{Error, Visitor},
-        Deserializer,
-    };
-    use time::{OffsetDateTime, PrimitiveDateTime};
-
-    use crate::util::datetime::DATETIME_FORMAT;
+    use super::*;
 
     pub fn deserialize<'de, D: Deserializer<'de>>(
         d: D,
@@ -591,7 +508,7 @@ mod option_datetime {
 
         #[inline]
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.write_str("a string, preferably in `OffsetDateTIme` format")
+            f.write_str("a string, preferably in `OffsetDateTime` format")
         }
 
         #[inline]

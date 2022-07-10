@@ -55,7 +55,7 @@ pub struct OsuStatsScore {
     pub score: u32,
     #[serde(rename = "maxCombo")]
     pub max_combo: u32,
-    #[serde(deserialize_with = "deserialize::str_to_f32")]
+    #[serde(with = "deserialize::f32_string")]
     pub accuracy: f32,
     pub count300: u32,
     pub count100: u32,
@@ -66,7 +66,7 @@ pub struct OsuStatsScore {
     pub count_geki: u32,
     #[serde(rename = "countMiss")]
     pub count_miss: u32,
-    #[serde(rename = "enabledMods", deserialize_with = "deserialize::adjust_mods")]
+    #[serde(rename = "enabledMods", with = "deserialize::mods_string")]
     pub enabled_mods: GameMods,
     #[serde(rename = "playDate", with = "deserialize::datetime")]
     pub date: OffsetDateTime,
@@ -99,30 +99,29 @@ pub struct OsuStatsMap {
     pub creator: Username,
     pub bpm: f32,
     pub source: String,
-    #[serde(
-        rename = "diffRating",
-        deserialize_with = "deserialize::str_to_maybe_f32"
-    )]
+    #[serde(rename = "diffRating", with = "deserialize::option_f32_string")]
     pub stars: Option<f32>,
-    #[serde(rename = "diffSize", deserialize_with = "deserialize::str_to_f32")]
+    #[serde(rename = "diffSize", with = "deserialize::f32_string")]
     pub diff_cs: f32,
-    #[serde(rename = "diffOverall", deserialize_with = "deserialize::str_to_f32")]
+    #[serde(rename = "diffOverall", with = "deserialize::f32_string")]
     pub diff_od: f32,
-    #[serde(rename = "diffApproach", deserialize_with = "deserialize::str_to_f32")]
+    #[serde(rename = "diffApproach", with = "deserialize::f32_string")]
     pub diff_ar: f32,
-    #[serde(rename = "diffDrain", deserialize_with = "deserialize::str_to_f32")]
+    #[serde(rename = "diffDrain", with = "deserialize::f32_string")]
     pub diff_hp: f32,
     #[serde(rename = "maxCombo")]
     pub max_combo: Option<u32>,
 }
 
 impl Default for OsuStatsScoresOrder {
+    #[inline]
     fn default() -> Self {
         Self::Date
     }
 }
 
 impl fmt::Display for OsuStatsScoresOrder {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self)
     }
