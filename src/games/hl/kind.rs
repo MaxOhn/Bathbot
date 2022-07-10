@@ -1,7 +1,7 @@
 use std::{fmt::Write, mem, sync::Arc};
 
 use eyre::Report;
-use image::{png::PngEncoder, ColorType};
+use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use rosu_v2::prelude::GameMode;
 use tokio::sync::oneshot::{self, Receiver};
 use twilight_model::channel::embed::{Embed, EmbedField};
@@ -327,7 +327,7 @@ impl GameStateKind {
         // Encode the combined images
         let mut png_bytes: Vec<u8> = Vec::with_capacity((W * H * 4) as usize);
         let png_encoder = PngEncoder::new(&mut png_bytes);
-        png_encoder.encode(img, W, H, ColorType::Rgba8)?;
+        png_encoder.write_image(&img, W, H, ColorType::Rgba8)?;
 
         // Send image into discord channel
         let builder = MessageBuilder::new()

@@ -2,7 +2,7 @@ use std::{fmt::Write, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
 use eyre::Report;
-use image::{png::PngEncoder, ColorType, ImageEncoder};
+use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::{
     prelude::{
         AreaSeries, BitMapBackend, ChartBuilder, Circle, EmptyElement, IntoDrawingArea,
