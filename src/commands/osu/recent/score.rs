@@ -2,8 +2,9 @@ use std::{borrow::Cow, fmt::Write, mem, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
 use eyre::Report;
+use rosu_pp::{beatmap::Break, Mods};
 use rosu_v2::prelude::{
-    Beatmap, GameMode, GameMods, Grade, OsuError,
+    Beatmap, GameMode, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
     Score,
 };
@@ -27,7 +28,9 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        matcher, ApplicationCommandExt, ChannelExt, CowUtils, MessageExt,
+        matcher,
+        osu::prepare_beatmap_file,
+        ApplicationCommandExt, ChannelExt, CowUtils, MessageExt,
     },
     BotResult, Context,
 };
@@ -544,28 +547,60 @@ async fn retrieve_vod(
 ) -> Option<TwitchVideo> {
     match ctx.client().get_last_twitch_vod(user_id).await {
         Ok(Some(mut vod)) => {
+            // Parse map to get data about breaks
+            let parsed_map = match prepare_beatmap_file(ctx, map.map_id).await {
+                Ok(path) => match rosu_pp::Beatmap::from_path(path).await {
+                    Ok(map) => Some(map),
+                    Err(err) => {
+                        warn!("{:?}", Report::new(err));
+
+                        None
+                    }
+                },
+                Err(err) => {
+                    warn!("{:?}", Report::new(err));
+
+                    None
+                }
+            };
+
             let vod_start = vod.created_at.unix_timestamp();
             let vod_end = vod_start + vod.duration as i64;
-
-            // Adjust map length with mods
-            let mut map_length = if score.mods.contains(GameMods::DoubleTime) {
-                map.seconds_drain as f32 * 2.0 / 3.0
-            } else if score.mods.contains(GameMods::HalfTime) {
-                map.seconds_drain as f32 * 4.0 / 3.0
-            } else {
-                map.seconds_drain as f32
-            };
+            let mut map_len = map.seconds_drain as f64;
 
             // Adjust map length with passed objects in case of fail
             if score.grade == Grade::F {
-                let passed = score.total_hits() as f32;
-                let total = map.count_objects() as f32;
+                let passed = score.total_hits() as f64;
 
-                map_length *= passed / total;
+                // Get time of the last hitobject that was hit
+                // and then accumulate break time of all breaks
+                // up to that time
+                if let Some(map) = parsed_map {
+                    let obj = &map.hit_objects[passed as usize - 1];
+
+                    let break_time: f64 = map
+                        .breaks
+                        .iter()
+                        .take_while(|b| b.end_time < obj.start_time)
+                        .map(Break::duration)
+                        .sum();
+
+                    map_len = obj.start_time + (break_time / 1000.0);
+                } else {
+                    let total = map.count_objects() as f64;
+                    map_len *= passed / total;
+
+                    map_len += 2.0;
+                }
+            } else if let Some(map) = parsed_map {
+                map_len += map.total_break_time() / 1000.0;
+            } else {
+                map_len += 2.0;
             }
 
-            // 5 seconds early to offset potential breaks mid-song
-            let map_start = score.ended_at.unix_timestamp() - map_length as i64 - 5;
+            map_len /= score.mods.bits().clock_rate();
+
+            let map_start = score.ended_at.unix_timestamp() - map_len as i64 - 3;
 
             if vod_start > map_start || vod_end < map_start {
                 return None;
