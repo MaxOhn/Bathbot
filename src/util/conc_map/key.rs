@@ -8,6 +8,7 @@ macro_rules! impl_separator {
     ($($ty:ty),*) => {
         $(
             impl MultMapKey for $ty {
+                #[inline]
                 fn index<const N: usize>(self) -> usize {
                     self as usize % N
                 }

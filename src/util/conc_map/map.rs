@@ -13,8 +13,10 @@ use tokio::sync::{
 };
 
 use super::{
-    guard::Guard, iter::SyncRwLockMapIter, key::MultMapKey, AsyncMutex, AsyncRwLock, MapLock,
-    SyncMutex, SyncMutexMapIter, SyncRwLock,
+    guard::Guard,
+    iter::{AsyncMutexMapIter, AsyncRwLockMapIter, SyncRwLockMapIter},
+    key::MultMapKey,
+    AsyncMutex, AsyncRwLock, MapLock, SyncMutex, SyncMutexMapIter, SyncRwLock,
 };
 
 /// [`MultMap`] that operates on the std library's [`RwLock`](std::sync::RwLock).
@@ -35,7 +37,7 @@ pub type AsyncMutexMap<K, V, const N: usize = 10> = MultMap<K, V, AsyncMutex, N>
 /// and can also be locked through any locks like a sync RwLock or an async Mutex.
 ///
 /// Access to the map is generally abstracted through a [`Guard`] which you get
-/// from either `MultMapKey::read` or `MultMapKey::write`.
+/// from either `MultMap::read` or `MultMap::write`.
 ///
 /// # DEADLOCKS
 ///
@@ -159,6 +161,15 @@ impl<K: MultMapKey, V, const N: usize> AsyncRwLockMap<K, V, N> {
 
         true
     }
+
+    /// Returns a stream to iterate over all elements of all shards.
+    ///
+    /// # DEADLOCKS
+    ///
+    /// While iterating, be sure there is no write-guard around or it will deadlock.
+    pub async fn iter(&self) -> AsyncRwLockMapIter<'_, K, V, N> {
+        AsyncRwLockMapIter::new(self).await
+    }
 }
 
 impl<K: MultMapKey, V, const N: usize> AsyncMutexMap<K, V, N> {
@@ -177,7 +188,7 @@ impl<K: MultMapKey, V, const N: usize> AsyncMutexMap<K, V, N> {
     /// # DEADLOCKS
     ///
     /// This method will acquire read access to the shards so be sure you don't
-    /// have a write-guard lying around unless you intend to deadlock yourself.
+    /// have a guard lying around unless you intend to deadlock yourself.
     pub async fn is_empty(&self) -> bool {
         for map in self.inner.iter() {
             if !map.lock().await.is_empty() {
@@ -187,9 +198,19 @@ impl<K: MultMapKey, V, const N: usize> AsyncMutexMap<K, V, N> {
 
         true
     }
+
+    /// Returns a stream to iterate over all elements of all shards.
+    ///
+    /// # DEADLOCKS
+    ///
+    /// While iterating, be sure there is no guard around or it will deadlock.
+    pub async fn iter(&self) -> AsyncMutexMapIter<'_, K, V, N> {
+        AsyncMutexMapIter::new(self).await
+    }
 }
 
 impl<K, V, const N: usize> Default for SyncRwLockMap<K, V, N> {
+    #[inline]
     fn default() -> Self {
         let inner = [(); N].map(|_| StdRwLock::new(HashMap::default()));
 
@@ -198,6 +219,7 @@ impl<K, V, const N: usize> Default for SyncRwLockMap<K, V, N> {
 }
 
 impl<K, V, const N: usize> Default for SyncMutexMap<K, V, N> {
+    #[inline]
     fn default() -> Self {
         let inner = [(); N].map(|_| StdMutex::new(HashMap::default()));
 
@@ -206,6 +228,7 @@ impl<K, V, const N: usize> Default for SyncMutexMap<K, V, N> {
 }
 
 impl<K, V, const N: usize> Default for AsyncRwLockMap<K, V, N> {
+    #[inline]
     fn default() -> Self {
         let inner = [(); N].map(|_| TokioRwLock::new(HashMap::default()));
 
@@ -214,6 +237,7 @@ impl<K, V, const N: usize> Default for AsyncRwLockMap<K, V, N> {
 }
 
 impl<K, V, const N: usize> Default for AsyncMutexMap<K, V, N> {
+    #[inline]
     fn default() -> Self {
         let inner = [(); N].map(|_| TokioMutex::new(HashMap::default()));
 
@@ -228,9 +252,16 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         if f.alternate() {
-            for inner in self.inner.iter() {
+            let mut iter = self.inner.iter();
+
+            if let Some(inner) = iter.next() {
                 let locked = inner.read().unwrap();
                 writeln!(f, "{locked:?}")?;
+
+                for inner in iter {
+                    let locked = inner.read().unwrap();
+                    writeln!(f, "{locked:?}")?;
+                }
             }
 
             Ok(())
@@ -254,9 +285,16 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         if f.alternate() {
-            for inner in self.inner.iter() {
+            let mut iter = self.inner.iter();
+
+            if let Some(inner) = iter.next() {
                 let locked = inner.lock().unwrap();
                 writeln!(f, "{locked:?}")?;
+
+                for inner in iter {
+                    let locked = inner.lock().unwrap();
+                    writeln!(f, "{locked:?}")?;
+                }
             }
 
             Ok(())
@@ -280,10 +318,19 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         if f.alternate() {
-            for inner in self.inner.iter() {
+            let mut iter = self.inner.iter();
+
+            if let Some(inner) = iter.next() {
                 match inner.try_read() {
-                    Ok(locked) => writeln!(f, "{locked:?}")?,
-                    Err(_) => writeln!(f, "<locked>")?,
+                    Ok(locked) => write!(f, "{locked:?}")?,
+                    Err(_) => write!(f, "<locked>")?,
+                }
+
+                for inner in iter {
+                    match inner.try_read() {
+                        Ok(locked) => write!(f, "\n{locked:?}")?,
+                        Err(_) => write!(f, "\n<locked>")?,
+                    }
                 }
             }
 
@@ -319,10 +366,19 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         if f.alternate() {
-            for inner in self.inner.iter() {
+            let mut iter = self.inner.iter();
+
+            if let Some(inner) = iter.next() {
                 match inner.try_lock() {
-                    Ok(locked) => writeln!(f, "{locked:?}")?,
-                    Err(_) => writeln!(f, "<locked>")?,
+                    Ok(locked) => write!(f, "{locked:?}")?,
+                    Err(_) => write!(f, "<locked>")?,
+                }
+
+                for inner in iter {
+                    match inner.try_lock() {
+                        Ok(locked) => write!(f, "\n{locked:?}")?,
+                        Err(_) => write!(f, "\n<locked>")?,
+                    }
                 }
             }
 
