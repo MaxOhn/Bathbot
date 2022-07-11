@@ -1039,7 +1039,7 @@ async fn top_graph_time(
     let min_adj = (min - 5.0).max(0.0);
 
     for score in scores.iter_mut() {
-        score.ended_at = score.ended_at.replace_offset(tz);
+        score.ended_at = score.ended_at.to_offset(tz);
         hours[score.ended_at.hour() as usize] += 1;
     }
 
