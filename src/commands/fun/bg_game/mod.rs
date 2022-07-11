@@ -215,7 +215,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> Bo
         }
     }
 
-    if let Some(GameState::Running { game }) = ctx.bg_games().write().await.remove(&channel) {
+    if let Some(GameState::Running { game }) = ctx.bg_games().write(channel).await.remove() {
         if let Err(err) = game.stop() {
             let report = Report::new(err).wrap_err("failed to stop game");
             warn!("{report:?}");
@@ -293,7 +293,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> Bo
         }
     };
 
-    ctx.bg_games().write().await.insert(channel, state);
+    ctx.bg_games().write(channel).await.insert(state);
 
     Ok(())
 }

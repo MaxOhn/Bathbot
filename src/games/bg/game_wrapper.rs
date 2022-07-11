@@ -136,7 +136,7 @@ impl GameWrapper {
                 *game_clone.write().await = game;
             }
 
-            ctx.bg_games().write().await.remove(&channel);
+            ctx.bg_games().write(channel).await.remove();
         });
 
         Self { game, tx }

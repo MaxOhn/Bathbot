@@ -6,7 +6,7 @@ use hashbrown::{HashMap, HashSet};
 use parking_lot::Mutex;
 use rosu_v2::Osu;
 use smallvec::SmallVec;
-use tokio::sync::{mpsc::UnboundedSender, Mutex as TokioMutex, RwLock};
+use tokio::sync::{mpsc::UnboundedSender, Mutex as TokioMutex};
 use twilight_gateway::{cluster::Events, Cluster};
 use twilight_http::{client::InteractionClient, Client};
 use twilight_model::{
@@ -31,7 +31,7 @@ use crate::{
     server::AuthenticationStandby,
     tracking::OsuTracking,
     util::{
-        conc_map::{AsyncMutexMap, SyncMutexMap},
+        conc_map::{AsyncMutexMap, AsyncRwLockMap, SyncMutexMap},
         CountryCode,
     },
     BotResult,
@@ -245,6 +245,6 @@ struct Games {
     hl_retries: HlRetries,
 }
 
-type BgGames = RwLock<HashMap<Id<ChannelMarker>, BgGameState>>;
+type BgGames = AsyncRwLockMap<Id<ChannelMarker>, BgGameState>;
 type HlGames = TokioMutex<HashMap<Id<UserMarker>, HlGameState>>;
 type HlRetries = SyncMutexMap<Id<MessageMarker>, RetryState, 4>;

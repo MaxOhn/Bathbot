@@ -21,7 +21,7 @@ pub async fn hint(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
         return Ok(());
     }
 
-    match ctx.bg_games().read().await.get(&msg.channel_id) {
+    match ctx.bg_games().read(msg.channel_id).await.get() {
         Some(GameState::Running { game }) => match game.hint().await {
             Ok(hint) => {
                 let builder = MessageBuilder::new().content(hint);

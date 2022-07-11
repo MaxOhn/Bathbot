@@ -1,4 +1,4 @@
-use twilight_model::id::{marker::MessageMarker, Id};
+use twilight_model::id::Id;
 
 pub trait MultMapKey: Copy {
     fn index<const N: usize>(self) -> usize;
@@ -19,7 +19,8 @@ macro_rules! impl_separator {
 
 impl_separator!(u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
 
-impl MultMapKey for Id<MessageMarker> {
+impl<T> MultMapKey for Id<T> {
+    #[inline]
     fn index<const N: usize>(self) -> usize {
         self.get() as usize % N
     }
