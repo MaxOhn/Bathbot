@@ -31,7 +31,7 @@ use crate::{
     server::AuthenticationStandby,
     tracking::OsuTracking,
     util::{
-        conc_map::{AsyncMutexMap, AsyncRwLockMap, SyncMutexMap},
+        mult_map::{AsyncMutexMap, AsyncRwLockMap, SyncMutexMap},
         CountryCode,
     },
     BotResult,

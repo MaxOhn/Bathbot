@@ -10,15 +10,15 @@ use crate::{BotResult, Context};
 
 pub use self::{
     bitflags::*, boyer_moore::*, country_code::CountryCode, cow::CowUtils, emote::Emote, ext::*,
-    matrix::Matrix, monthly::Monthly
+    matrix::Matrix, monthly::Monthly,
 };
 
 pub mod builder;
-pub mod conc_map;
 pub mod constants;
 pub mod datetime;
 pub mod matcher;
 pub mod matrix;
+pub mod mult_map;
 pub mod numbers;
 pub mod osu;
 pub mod query;

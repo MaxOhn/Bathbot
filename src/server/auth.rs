@@ -12,7 +12,7 @@ use tokio::{
     time::{self, Timeout},
 };
 
-use crate::{custom_client::TwitchUser, util::conc_map::SyncMutexMap};
+use crate::{custom_client::TwitchUser, util::mult_map::SyncMutexMap};
 
 const DEADLINE: Duration = Duration::from_secs(120);
 
