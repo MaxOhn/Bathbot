@@ -1,13 +1,9 @@
 use futures::future::FutureExt;
-use hashbrown::HashMap;
 use rosu_v2::prelude::User;
 use std::{
     future::Future,
     pin::Pin,
-    sync::{
-        atomic::{AtomicU8, Ordering},
-        Mutex,
-    },
+    sync::atomic::{AtomicU8, Ordering},
     task::{Context, Poll},
     time::Duration,
 };
@@ -16,7 +12,7 @@ use tokio::{
     time::{self, Timeout},
 };
 
-use crate::custom_client::TwitchUser;
+use crate::{custom_client::TwitchUser, util::conc_map::SyncMutexMap};
 
 const DEADLINE: Duration = Duration::from_secs(120);
 
@@ -29,8 +25,8 @@ pub enum AuthenticationStandbyError {
 pub struct AuthenticationStandby {
     // u8 is sufficient for 256 concurrent authorization awaitings within two minutes
     current_state: AtomicU8,
-    osu: Mutex<HashMap<u8, Sender<User>>>,
-    twitch: Mutex<HashMap<u8, Sender<TwitchUser>>>,
+    osu: SyncMutexMap<u8, Sender<User>, 4>,
+    twitch: SyncMutexMap<u8, Sender<TwitchUser>, 4>,
 }
 
 impl AuthenticationStandby {
@@ -39,13 +35,13 @@ impl AuthenticationStandby {
         let (tx, rx) = oneshot::channel();
         let state = self.generate_state();
         let fut = Box::pin(time::timeout(DEADLINE, rx));
-        self.osu.lock().unwrap().insert(state, tx);
+        self.osu.lock(state).insert(tx);
 
         WaitForOsuAuth { state, fut }
     }
 
     pub fn is_osu_empty(&self) -> bool {
-        self.osu.lock().unwrap().is_empty()
+        self.osu.is_empty()
     }
 
     /// Wait for a twitch channel name to be authenticated.
@@ -53,13 +49,13 @@ impl AuthenticationStandby {
         let (tx, rx) = oneshot::channel();
         let state = self.generate_state();
         let fut = Box::pin(time::timeout(DEADLINE, rx));
-        self.twitch.lock().unwrap().insert(state, tx);
+        self.twitch.lock(state).insert(tx);
 
         WaitForTwitchAuth { state, fut }
     }
 
     pub fn is_twitch_empty(&self) -> bool {
-        self.twitch.lock().unwrap().is_empty()
+        self.twitch.is_empty()
     }
 
     fn generate_state(&self) -> u8 {
@@ -67,13 +63,13 @@ impl AuthenticationStandby {
     }
 
     pub(super) fn process_osu(&self, user: User, id: u8) {
-        if let Some(tx) = self.osu.lock().unwrap().remove(&id) {
+        if let Some(tx) = self.osu.lock(id).remove() {
             let _ = tx.send(user);
         }
     }
 
     pub(super) fn process_twitch(&self, user: TwitchUser, id: u8) {
-        if let Some(tx) = self.twitch.lock().unwrap().remove(&id) {
+        if let Some(tx) = self.twitch.lock(id).remove() {
             let _ = tx.send(user);
         }
     }
