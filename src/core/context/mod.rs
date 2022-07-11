@@ -2,11 +2,11 @@ use std::{num::NonZeroU32, sync::Arc};
 
 use bb8_redis::{bb8::Pool, RedisConnectionManager};
 use flurry::HashMap as FlurryMap;
-use hashbrown::{HashMap, HashSet};
+use hashbrown::HashSet;
 use parking_lot::Mutex;
 use rosu_v2::Osu;
 use smallvec::SmallVec;
-use tokio::sync::{mpsc::UnboundedSender, Mutex as TokioMutex};
+use tokio::sync::mpsc::UnboundedSender;
 use twilight_gateway::{cluster::Events, Cluster};
 use twilight_http::{client::InteractionClient, Client};
 use twilight_model::{
@@ -246,5 +246,5 @@ struct Games {
 }
 
 type BgGames = AsyncRwLockMap<Id<ChannelMarker>, BgGameState>;
-type HlGames = TokioMutex<HashMap<Id<UserMarker>, HlGameState>>;
+type HlGames = AsyncMutexMap<Id<UserMarker>, HlGameState>;
 type HlRetries = SyncMutexMap<Id<MessageMarker>, RetryState, 4>;
