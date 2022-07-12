@@ -9,9 +9,12 @@ use std::{
 use bb8_redis::redis::AsyncCommands;
 use futures::{future::Either, stream::FuturesUnordered, StreamExt};
 use rkyv::{
-    ser::{serializers::AllocSerializer, Serializer},
+    ser::{
+        serializers::{AlignedSerializer, AllocSerializer},
+        Serializer,
+    },
     vec::ArchivedVec,
-    AlignedVec, Archive, Archived, ScratchVec, Serialize,
+    Archive, ScratchVec, Serialize,
 };
 use twilight_cache_inmemory::iter::ResourceIter;
 
@@ -134,6 +137,8 @@ impl Cache {
         let mut idx = 0;
 
         const CHANNELS_CHUNK_SIZE: usize = 80_000;
+        const SERIALIZER_SIZE: usize = 16_777_216;
+        let mut serializer = AllocSerializer::<SERIALIZER_SIZE>::default();
 
         while channels_count > 0 {
             let count = CHANNELS_CHUNK_SIZE.min(channels_count);
@@ -141,12 +146,19 @@ impl Cache {
             let iter = (&mut channels).take(count);
 
             // ~170 bytes/channel
-            let bytes = Self::serialize_content::<_, _, 16_777_216>(iter, count)?;
+            Self::serialize_content::<_, _, SERIALIZER_SIZE>(iter, count, &mut serializer)?;
+
+            let (serializer_, scratch, shared) = serializer.into_components();
+            let mut bytes = serializer_.into_inner();
 
             trace!("Channel bytes: {} [{idx}]", bytes.len());
             let key = format!("{CHANNEL_KEY_PREFIX}_{idx}");
             Self::store_bytes(&key, &bytes, redis).await?;
             idx += 1;
+
+            bytes.clear();
+            let serializer_ = AlignedSerializer::new(bytes);
+            serializer = AllocSerializer::new(serializer_, scratch, shared);
         }
 
         Ok(idx)
@@ -169,6 +181,8 @@ impl Cache {
         let mut idx = 0;
 
         const ROLES_CHUNK_SIZE: usize = 150_000;
+        const SERIALIZER_SIZE: usize = 8_388_608;
+        let mut serializer = AllocSerializer::<SERIALIZER_SIZE>::default();
 
         while roles_count > 0 {
             let count = ROLES_CHUNK_SIZE.min(roles_count);
@@ -176,12 +190,19 @@ impl Cache {
             let iter = (&mut roles).take(count);
 
             // ~49 bytes/role
-            let bytes = Self::serialize_content::<_, _, 8_388_608>(iter, count)?;
+            Self::serialize_content::<_, _, 8_388_608>(iter, count, &mut serializer)?;
+
+            let (serializer_, scratch, shared) = serializer.into_components();
+            let mut bytes = serializer_.into_inner();
 
             trace!("Role bytes: {} [{idx}]", bytes.len());
             let key = format!("{ROLE_KEY_PREFIX}_{idx}");
             Self::store_bytes(&key, &bytes, redis).await?;
             idx += 1;
+
+            bytes.clear();
+            let serializer_ = AlignedSerializer::new(bytes);
+            serializer = AllocSerializer::new(serializer_, scratch, shared);
         }
 
         Ok(idx)
@@ -204,6 +225,8 @@ impl Cache {
         let mut idx = 0;
 
         const MEMBERS_CHUNK_SIZE: usize = 150_000;
+        const SERIALIZER_SIZE: usize = 16_777_216;
+        let mut serializer = AllocSerializer::<SERIALIZER_SIZE>::default();
 
         while members_count > 0 {
             let count = MEMBERS_CHUNK_SIZE.min(members_count);
@@ -211,12 +234,19 @@ impl Cache {
             let iter = (&mut members).take(count);
 
             // ~91 bytes/member
-            let bytes = Self::serialize_content::<_, _, 16_777_216>(iter, count)?;
+            Self::serialize_content::<_, _, 16_777_216>(iter, count, &mut serializer)?;
+
+            let (serializer_, scratch, shared) = serializer.into_components();
+            let mut bytes = serializer_.into_inner();
 
             trace!("Member bytes: {} [{idx}]", bytes.len());
             let key = format!("{MEMBER_KEY_PREFIX}_{idx}");
             Self::store_bytes(&key, &bytes, redis).await?;
             idx += 1;
+
+            bytes.clear();
+            let serializer_ = AlignedSerializer::new(bytes);
+            serializer = AllocSerializer::new(serializer_, scratch, shared);
         }
 
         Ok(idx)
@@ -239,6 +269,8 @@ impl Cache {
         let mut idx = 0;
 
         const USERS_CHUNK_SIZE: usize = 175_000;
+        const SERIALIZER_SIZE: usize = 8_388_608;
+        let mut serializer = AllocSerializer::<SERIALIZER_SIZE>::default();
 
         while users_count > 0 {
             let count = USERS_CHUNK_SIZE.min(users_count);
@@ -246,12 +278,19 @@ impl Cache {
             let iter = (&mut users).take(count);
 
             // ~45 bytes/user
-            let bytes = Self::serialize_content::<_, _, 8_388_608>(iter, count)?;
+            Self::serialize_content::<_, _, 8_388_608>(iter, count, &mut serializer)?;
+
+            let (serializer_, scratch, shared) = serializer.into_components();
+            let mut bytes = serializer_.into_inner();
 
             trace!("User bytes: {} [{idx}]", bytes.len());
             let key = format!("{USER_KEY_PREFIX}_{idx}");
             Self::store_bytes(&key, &bytes, redis).await?;
             idx += 1;
+
+            bytes.clear();
+            let serializer_ = AlignedSerializer::new(bytes);
+            serializer = AllocSerializer::new(serializer_, scratch, shared);
         }
 
         Ok(idx)
@@ -274,6 +313,8 @@ impl Cache {
         let mut idx = 0;
 
         const GUILDS_CHUNK_SIZE: usize = 100_000;
+        const SERIALIZER_SIZE: usize = 8_388_608;
+        let mut serializer = AllocSerializer::<SERIALIZER_SIZE>::default();
 
         while guilds_count > 0 {
             let count = GUILDS_CHUNK_SIZE.min(guilds_count);
@@ -281,12 +322,19 @@ impl Cache {
             let iter = (&mut guilds).take(count);
 
             // ~78 bytes/guild
-            let bytes = Self::serialize_content::<_, _, 8_388_608>(iter, count)?;
+            Self::serialize_content::<_, _, 8_388_608>(iter, count, &mut serializer)?;
+
+            let (serializer_, scratch, shared) = serializer.into_components();
+            let mut bytes = serializer_.into_inner();
 
             trace!("Guild bytes: {} [{idx}]", bytes.len());
             let key = format!("{GUILD_KEY_PREFIX}_{idx}");
             Self::store_bytes(&key, &bytes, redis).await?;
             idx += 1;
+
+            bytes.clear();
+            let serializer_ = AlignedSerializer::new(bytes);
+            serializer = AllocSerializer::new(serializer_, scratch, shared);
         }
 
         Ok(idx)
@@ -295,16 +343,16 @@ impl Cache {
     fn serialize_content<K, V, const N: usize>(
         iter: Take<&'_ mut ResourceIter<'_, K, V>>,
         len: usize,
-    ) -> Result<AlignedVec, FreezeInnerError>
+        serializer: &mut AllocSerializer<N>,
+    ) -> Result<(), FreezeInnerError>
     where
         K: Eq + Hash,
         V: Archive + Serialize<AllocSerializer<N>>,
     {
-        let mut serializer = AllocSerializer::<N>::default();
-        let mut resolvers = unsafe { ScratchVec::new(&mut serializer, len) }?;
+        let mut resolvers = unsafe { ScratchVec::new(serializer, len) }?;
 
         for elem in iter {
-            let resolver = elem.value().serialize(&mut serializer)?;
+            let resolver = elem.value().serialize(serializer)?;
             resolvers.push((elem, resolver));
         }
 
@@ -315,12 +363,12 @@ impl Cache {
                 serializer.resolve_aligned(elem.value(), resolver)?;
             }
 
-            resolvers.free(&mut serializer)?;
+            resolvers.free(serializer)?;
 
             mem::transmute(pos)
         };
 
-        let mut resolved = MaybeUninit::<Archived<Vec<V>>>::uninit();
+        let mut resolved = MaybeUninit::<ArchivedVec<V>>::uninit();
 
         unsafe {
             resolved.as_mut_ptr().write_bytes(0, 1);
@@ -328,11 +376,10 @@ impl Cache {
         }
 
         let data = resolved.as_ptr().cast::<u8>();
-        let len = mem::size_of::<Archived<Vec<V>>>();
+        let len = mem::size_of::<ArchivedVec<V>>();
         unsafe { serializer.write(slice::from_raw_parts(data, len))? };
-        let bytes = serializer.into_serializer().into_inner();
 
-        Ok(bytes)
+        Ok(())
     }
 
     async fn store_bytes(key: &str, bytes: &[u8], redis: &Redis) -> Result<(), FreezeInnerError> {
