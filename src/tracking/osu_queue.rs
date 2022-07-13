@@ -18,7 +18,7 @@ use crate::{database::TrackingUser, BotResult, Database};
 
 pub use super::{osu_tracking_loop, process_osu_tracking};
 
-static OSU_TRACKING_INTERVAL: OnceCell<Duration> = OnceCell::with_value(Duration::minutes(120));
+static OSU_TRACKING_INTERVAL: OnceCell<Duration> = OnceCell::with_value(Duration::minutes(150));
 
 pub fn default_tracking_interval() -> Duration {
     unsafe { *OSU_TRACKING_INTERVAL.get_unchecked() }

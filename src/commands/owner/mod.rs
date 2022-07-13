@@ -76,7 +76,7 @@ pub enum OwnerTracking {
 #[command(name = "interval")]
 /// Adjust the tracking interval
 pub struct OwnerTrackingInterval {
-    /// Specify the interval in seconds, defaults to 7200
+    /// Specify the interval in seconds, defaults to 9000
     number: Option<i64>,
 }
 
