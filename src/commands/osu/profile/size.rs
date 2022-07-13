@@ -32,6 +32,7 @@ impl Default for ProfileSize {
 }
 
 impl Serialize for ProfileSize {
+    #[inline]
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         match self {
             ProfileSize::Compact => s.serialize_u8(0),
@@ -42,6 +43,7 @@ impl Serialize for ProfileSize {
 }
 
 impl<'de> Deserialize<'de> for ProfileSize {
+    #[inline]
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         match <u8 as Deserialize>::deserialize(d) {
             Ok(0) => Ok(Self::Compact),
@@ -55,6 +57,7 @@ impl<'de> Deserialize<'de> for ProfileSize {
 }
 
 impl From<i16> for ProfileSize {
+    #[inline]
     fn from(size: i16) -> Self {
         match size {
             0 => Self::Compact,

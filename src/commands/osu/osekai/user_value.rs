@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use eyre::Report;
-use rkyv::{with::DeserializeWith, Deserialize, Infallible};
+use rkyv::{with::DeserializeWith, Archived, Deserialize, Infallible};
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
@@ -36,30 +36,7 @@ where
         }
     };
 
-    let users: BTreeMap<_, _> = ranking
-        .get()
-        .iter()
-        .enumerate()
-        .map(|(i, entry)| {
-            let value = entry.value() as u64;
-            let country = entry.country_code.deserialize(&mut Infallible).unwrap();
-
-            let name = <UsernameWrapper as DeserializeWith<_, _, _>>::deserialize_with(
-                &entry.username,
-                &mut Infallible,
-            )
-            .unwrap();
-
-            let entry = RankingEntry {
-                value: UserValue::Amount(value),
-                name,
-                country: Some(country),
-            };
-
-            (i, entry)
-        })
-        .collect();
-
+    let users = prepare_amount_users(ranking.get());
     let data = <R as OsekaiRanking>::RANKING;
 
     send_response(ctx, command, users, data, osu_result).await
@@ -85,8 +62,42 @@ where
         }
     };
 
-    let users: BTreeMap<_, _> = ranking
-        .get()
+    let users = prepare_pp_users(ranking.get());
+    let data = <R as OsekaiRanking>::RANKING;
+
+    send_response(ctx, command, users, data, osu_result).await
+}
+
+fn prepare_amount_users(
+    ranking: &Archived<Vec<OsekaiRankingEntry<usize>>>,
+) -> BTreeMap<usize, RankingEntry> {
+    ranking
+        .iter()
+        .enumerate()
+        .map(|(i, entry)| {
+            let value = entry.value() as u64;
+            let country = entry.country_code.deserialize(&mut Infallible).unwrap();
+
+            let name = <UsernameWrapper as DeserializeWith<_, _, _>>::deserialize_with(
+                &entry.username,
+                &mut Infallible,
+            );
+
+            let entry = RankingEntry {
+                value: UserValue::Amount(value),
+                name: name.unwrap(),
+                country: Some(country),
+            };
+
+            (i, entry)
+        })
+        .collect()
+}
+
+fn prepare_pp_users(
+    ranking: &Archived<Vec<OsekaiRankingEntry<u32>>>,
+) -> BTreeMap<usize, RankingEntry> {
+    ranking
         .iter()
         .enumerate()
         .map(|(i, entry)| {
@@ -96,22 +107,17 @@ where
             let name = <UsernameWrapper as DeserializeWith<_, _, _>>::deserialize_with(
                 &entry.username,
                 &mut Infallible,
-            )
-            .unwrap();
+            );
 
             let entry = RankingEntry {
                 value: UserValue::PpU32(value),
-                name,
+                name: name.unwrap(),
                 country: Some(country),
             };
 
             (i, entry)
         })
-        .collect();
-
-    let data = <R as OsekaiRanking>::RANKING;
-
-    send_response(ctx, command, users, data, osu_result).await
+        .collect()
 }
 
 async fn send_response(

@@ -134,6 +134,7 @@ impl TimeValue for OffsetDateTime {
 pub struct RangedDate<T>(T, T);
 
 impl<T> From<Range<T>> for RangedDate<T> {
+    #[inline]
     fn from(range: Range<T>) -> Self {
         Self(range.start, range.end)
     }
@@ -165,6 +166,7 @@ where
             for day_idx in 0..=total_days {
                 ret.push(self.0 + Duration::days(day_idx));
             }
+
             return ret;
         }
 
@@ -172,12 +174,14 @@ where
             for day_idx in 0..=total_weeks {
                 ret.push(self.0 + Duration::weeks(day_idx));
             }
+
             return ret;
         }
 
         // When all data is in the same week, just plot properly.
         if total_weeks == 0 {
             ret.push(self.0);
+
             return ret;
         }
 
@@ -315,6 +319,7 @@ where
 
             return coord.key_points(hint.max_num_points());
         }
+
         self.bold_key_points(&hint)
     }
 }
@@ -329,10 +334,12 @@ where
             let ceil = self.0.start.date_ceil();
             (ceil.year(), ceil.month())
         };
+
         let (end_year, end_month) = {
             let floor = self.0.end.date_floor();
             (floor.year(), floor.month())
         };
+
         ((end_year - start_year).max(0) * 12
             + (1 - start_month as i32)
             + (end_month as i32 - 1)
@@ -350,9 +357,11 @@ where
         let ret = (this_year - start_year).max(0) * 12
             + (1 - start_month as i32)
             + (this_month as i32 - 1);
+
         if ret >= 0 {
             return Some(ret as usize);
         }
+
         None
     }
 
@@ -360,9 +369,11 @@ where
         if index == 0 {
             return Some(T::earliest_after_date(self.0.start.date_ceil()));
         }
+
         let index_from_start_year = index + (self.0.start.date_ceil().month() as u8 - 1) as usize;
         let year = self.0.start.date_ceil().year() + index_from_start_year as i32 / 12;
         let month = (index_from_start_year % 12) as u8 + 1;
+
         Some(T::earliest_after_date(T::ymd(
             year,
             Month::try_from(month).unwrap(),
@@ -392,6 +403,7 @@ fn generate_yearly_keypoints<T: TimeValue>(
 
     for try_freq in &[1, 2, 5, 10] {
         freq = *try_freq * exp10;
+
         if (end_year - start_year + 1) as usize / (exp10 * *try_freq) <= max_points {
             break;
         }
@@ -405,6 +417,7 @@ fn generate_yearly_keypoints<T: TimeValue>(
             Month::try_from(start_month).unwrap(),
             1,
         )));
+
         start_year += freq as i32;
     }
 

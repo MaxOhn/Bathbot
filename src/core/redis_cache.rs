@@ -510,6 +510,7 @@ enum Bytes {
 impl Deref for Bytes {
     type Target = [u8];
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         match self {
             Bytes::AlignedVec(v) => v.as_slice(),
@@ -519,12 +520,14 @@ impl Deref for Bytes {
 }
 
 impl From<AlignedVec> for Bytes {
+    #[inline]
     fn from(vec: AlignedVec) -> Self {
         Self::AlignedVec(vec)
     }
 }
 
 impl From<Vec<u8>> for Bytes {
+    #[inline]
     fn from(vec: Vec<u8>) -> Self {
         Self::Vec(vec)
     }
