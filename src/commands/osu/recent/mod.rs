@@ -44,8 +44,6 @@ pub enum Recent<'a> {
     List(RecentList<'a>),
     #[command(name = "fix")]
     Fix(RecentFix),
-    #[command(name = "simulate")]
-    Simulate(RecentSimulate<'a>),
 }
 
 #[derive(CommandModel, CreateCommand, HasName)]
@@ -584,7 +582,6 @@ async fn slash_recent(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -
         },
         Recent::Leaderboard(args) => leaderboard(ctx, command.into(), args).await,
         Recent::List(args) => list(ctx, command.into(), args).await,
-        Recent::Simulate(args) => simulate(ctx, command.into(), args).await,
         Recent::Fix(args) => fix(ctx, command.into(), args).await,
     }
 }
