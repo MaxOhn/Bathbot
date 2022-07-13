@@ -26,17 +26,7 @@ pub async fn trackingstats(ctx: Arc<Context>, command: Box<ApplicationCommand>) 
             inline: true,
         },
         EmbedField {
-            name: "Minimal cooldown".to_owned(),
-            value: format!("{}ms", stats.cooldown),
-            inline: true,
-        },
-        EmbedField {
-            name: "Current delay".to_owned(),
-            value: format!("{}ms", stats.delay),
-            inline: true,
-        },
-        EmbedField {
-            name: "Wait interval".to_owned(),
+            name: "Min interval".to_owned(),
             value: format!("{}s", stats.wait_interval),
             inline: true,
         },
@@ -48,11 +38,6 @@ pub async fn trackingstats(ctx: Arc<Context>, command: Box<ApplicationCommand>) 
         EmbedField {
             name: "Next pop".to_owned(),
             value: format!("{} | {}", entry.user_id, entry.mode),
-            inline: true,
-        },
-        EmbedField {
-            name: "Next pop amount".to_owned(),
-            value: stats.amount.to_string(),
             inline: true,
         },
     ];

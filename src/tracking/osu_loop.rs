@@ -33,12 +33,10 @@ pub async fn osu_tracking_loop(ctx: Arc<Context>) {
         return;
     }
 
-    let mut entries = Vec::new();
-
     loop {
-        ctx.tracking().pop(&mut entries).await;
+        if let Some((entry, amount)) = ctx.tracking().pop().await {
+            let TrackingEntry { user_id, mode } = entry;
 
-        for (TrackingEntry { user_id, mode }, amount) in entries.drain(..) {
             let scores_fut = ctx
                 .osu()
                 .user_scores(user_id)

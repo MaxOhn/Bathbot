@@ -7,7 +7,7 @@ use ::time::{Duration, OffsetDateTime};
 use dashmap::DashMap;
 use hashbrown::hash_map::{DefaultHashBuilder, HashMap};
 use once_cell::sync::OnceCell;
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use priority_queue::PriorityQueue;
 use rosu_v2::model::GameMode;
 use smallvec::SmallVec;
@@ -18,8 +18,6 @@ use crate::{database::TrackingUser, BotResult, Database};
 
 pub use super::{osu_tracking_loop, process_osu_tracking};
 
-pub const OSU_TRACKING_COOLDOWN: f32 = 5000.0; // ms
-
 static OSU_TRACKING_INTERVAL: OnceCell<Duration> = OnceCell::with_value(Duration::minutes(120));
 
 pub fn default_tracking_interval() -> Duration {
@@ -27,7 +25,7 @@ pub fn default_tracking_interval() -> Duration {
 }
 
 type TrackingQueue =
-    RwLock<PriorityQueue<TrackingEntry, Reverse<OffsetDateTime>, DefaultHashBuilder>>;
+    Mutex<PriorityQueue<TrackingEntry, Reverse<OffsetDateTime>, DefaultHashBuilder>>;
 
 type Channels = HashMap<Id<ChannelMarker>, usize>;
 
@@ -37,12 +35,9 @@ pub struct TrackingStats {
     pub queue: usize,
     pub last_pop: OffsetDateTime,
     pub interval: i64,
-    pub cooldown: i64,
     pub tracking: bool,
     pub wait_interval: i64,
     pub ms_per_track: i64,
-    pub amount: usize,
-    pub delay: u64,
 }
 
 #[derive(Copy, Clone, Eq, Hash, PartialEq)]
@@ -63,8 +58,7 @@ impl From<&TrackingUser> for TrackingEntry {
 pub struct OsuTracking {
     queue: TrackingQueue,
     users: DashMap<TrackingEntry, TrackingUser>,
-    last_date: RwLock<OffsetDateTime>,
-    cooldown: RwLock<f32>,
+    last_date: Mutex<OffsetDateTime>,
     pub interval: RwLock<Duration>,
     pub stop_tracking: AtomicBool,
 }
@@ -80,28 +74,24 @@ impl OsuTracking {
             .collect();
 
         Ok(Self {
-            queue: RwLock::new(queue),
+            queue: Mutex::new(queue),
             users,
-            last_date: RwLock::new(OffsetDateTime::now_utc()),
-            cooldown: RwLock::new(OSU_TRACKING_COOLDOWN),
+            last_date: Mutex::new(OffsetDateTime::now_utc()),
             interval: RwLock::new(default_tracking_interval()),
             stop_tracking: AtomicBool::new(false),
         })
     }
 
     pub fn stats(&self) -> TrackingStats {
-        let next_pop = self.queue.read().peek().map(|(&key, _)| key).unwrap();
+        let next_pop = self.queue.lock().peek().map(|(&key, _)| key).unwrap();
         let users = self.users.len();
-        let queue = self.queue.read().len();
-        let last_pop = *self.last_date.read();
+        let queue = self.queue.lock().len();
+        let last_pop = *self.last_date.lock();
         let interval = *self.interval.read();
-        let cooldown = *self.cooldown.read();
         let tracking = !self.stop_tracking.load(Ordering::Acquire);
 
-        let wait_interval = (last_pop + interval - OffsetDateTime::now_utc()).whole_milliseconds();
+        let wait_interval = (last_pop + interval - OffsetDateTime::now_utc()).whole_seconds();
         let ms_per_track = wait_interval as f32 / queue as f32;
-        let amount = (cooldown / ms_per_track).max(1.0);
-        let delay = (ms_per_track * amount) as u64;
 
         TrackingStats {
             next_pop,
@@ -109,29 +99,17 @@ impl OsuTracking {
             queue,
             last_pop,
             interval: interval.whole_seconds(),
-            cooldown: cooldown as i64,
             tracking,
-            wait_interval: (wait_interval / 1000) as i64,
+            wait_interval,
             ms_per_track: ms_per_track as i64,
-            amount: amount as usize,
-            delay,
         }
-    }
-
-    // ms
-    pub fn set_cooldown(&self, new_cooldown: f32) -> f32 {
-        let mut cooldown = self.cooldown.write();
-        let result = *cooldown;
-        *cooldown = new_cooldown;
-
-        result
     }
 
     pub fn reset(&self, user_id: u32, mode: GameMode) {
         let now = OffsetDateTime::now_utc();
-        *self.last_date.write() = now;
+        *self.last_date.lock() = now;
         let entry = TrackingEntry { user_id, mode };
-        self.queue.write().push_decrease(entry, Reverse(now));
+        self.queue.lock().push_decrease(entry, Reverse(now));
     }
 
     pub async fn update_last_date(
@@ -168,36 +146,29 @@ impl OsuTracking {
             .map(|user| (user.last_top_score, user.channels.to_owned()))
     }
 
-    pub async fn pop(&self, entries: &mut Vec<(TrackingEntry, usize)>) {
-        let len = self.queue.read().len();
+    pub async fn pop(&self) -> Option<(TrackingEntry, usize)> {
+        let len = self.queue.lock().len();
 
         if len == 0 || self.stop_tracking.load(Ordering::Acquire) {
             time::sleep(time::Duration::from_secs(5)).await;
 
-            return;
+            return None;
         }
 
-        let last_date = *self.last_date.read();
-
-        // Calculate how many users need to be popped for this iteration
-        // so that _all_ users will be popped within the next INTERVAL
+        let last_date = *self.last_date.lock();
         let interval = last_date + *self.interval.read() - OffsetDateTime::now_utc();
         let ms_per_track = interval.whole_milliseconds() as f32 / len as f32;
-        let amount = (*self.cooldown.read() / ms_per_track).max(1.0);
-        let delay = (ms_per_track * amount) as u64;
-        time::sleep(time::Duration::from_millis(delay)).await;
+        time::sleep(time::Duration::from_millis(ms_per_track as u64)).await;
 
-        // Pop users and return them
-        let mut queue = self.queue.write();
+        // Pop user and return them
+        let mut queue = self.queue.lock();
 
-        for _ in 0..amount as usize {
-            if let Some(entry) = queue.pop().map(|(entry, _)| entry) {
-                let guard = self.users.get(&entry);
+        loop {
+            let entry = queue.pop().map(|(entry, _)| entry)?;
+            let guard = self.users.get(&entry);
 
-                if let Some(amount) = guard.and_then(|g| g.value().channels.values().max().copied())
-                {
-                    entries.push((entry, amount));
-                }
+            if let Some(amount) = guard.and_then(|g| g.value().channels.values().max().copied()) {
+                return Some((entry, amount));
             }
         }
     }
@@ -214,7 +185,7 @@ impl OsuTracking {
             let entry = TrackingEntry { user_id, mode };
 
             psql.remove_osu_tracking(user_id, mode).await?;
-            self.queue.write().remove(&entry);
+            self.queue.lock().remove(&entry);
             self.users.remove(&entry);
         }
 
@@ -251,7 +222,7 @@ impl OsuTracking {
             match entry.map(|guard| guard.value().channels.is_empty()) {
                 Some(true) => {
                     psql.remove_osu_tracking(user_id, mode).await?;
-                    self.queue.write().remove(&key);
+                    self.queue.lock().remove(&key);
                     self.users.remove(&key);
                 }
                 Some(false) => {
@@ -301,7 +272,7 @@ impl OsuTracking {
             if is_empty {
                 // tracking_debug!("Removing {:?} from tracking (all)", key);
                 psql.remove_osu_tracking(key.user_id, key.mode).await?;
-                self.queue.write().remove(&key);
+                self.queue.lock().remove(&key);
                 self.users.remove(&key);
             } else {
                 let guard = match self.users.get(&key) {
@@ -367,9 +338,9 @@ impl OsuTracking {
 
                 self.users.insert(key, tracking_user);
                 let now = OffsetDateTime::now_utc();
-                *self.last_date.write() = now;
+                *self.last_date.lock() = now;
                 let entry = TrackingEntry { user_id, mode };
-                self.queue.write().push(entry, Reverse(now));
+                self.queue.lock().push(entry, Reverse(now));
             }
         }
 

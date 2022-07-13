@@ -5,22 +5,18 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{application::interaction::ApplicationCommand, channel::Attachment};
 
 use crate::{
-    tracking::{default_tracking_interval, OSU_TRACKING_COOLDOWN},
+    tracking::default_tracking_interval,
     util::{builder::MessageBuilder, ApplicationCommandExt},
     BotResult, Context,
 };
 
-use self::{
-    add_bg::*, add_country::*, cache::*, tracking_cooldown::*, tracking_interval::*,
-    tracking_stats::*,
-};
+use self::{add_bg::*, add_country::*, cache::*, tracking_interval::*, tracking_stats::*};
 
 use super::GameModeOption;
 
 mod add_bg;
 mod add_country;
 mod cache;
-mod tracking_cooldown;
 mod tracking_interval;
 mod tracking_stats;
 
@@ -68,22 +64,12 @@ pub struct OwnerCache;
 #[command(name = "tracking")]
 /// Stuff about osu!tracking
 pub enum OwnerTracking {
-    #[command(name = "cooldown")]
-    Cooldown(OwnerTrackingCooldown),
     #[command(name = "interval")]
     Interval(OwnerTrackingInterval),
     #[command(name = "stats")]
     Stats(OwnerTrackingStats),
     #[command(name = "toggle")]
     Toggle(OwnerTrackingToggle),
-}
-
-#[derive(CommandModel, CreateCommand)]
-#[command(name = "cooldown")]
-/// Adjust the tracking cooldown
-pub struct OwnerTrackingCooldown {
-    /// Specify the cooldown in milliseconds, defaults to 5000.0
-    number: Option<f64>,
 }
 
 #[derive(CommandModel, CreateCommand)]
@@ -109,11 +95,6 @@ async fn slash_owner(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) ->
         Owner::AddBg(bg) => addbg(ctx, command, bg).await,
         Owner::AddCountry(country) => addcountry(ctx, command, country).await,
         Owner::Cache(_) => cache(ctx, command).await,
-        Owner::Tracking(OwnerTracking::Cooldown(cooldown)) => {
-            let ms = cooldown.number.map_or(OSU_TRACKING_COOLDOWN, |n| n as f32);
-
-            trackingcooldown(ctx, command, ms).await
-        }
         Owner::Tracking(OwnerTracking::Interval(interval)) => {
             let secs = interval
                 .number
