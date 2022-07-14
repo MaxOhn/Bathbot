@@ -236,7 +236,7 @@ pub fn graphs(
                 .configure_mesh()
                 .disable_x_mesh()
                 .x_labels(8)
-                .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month()))
+                .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month() as u8))
                 .label_style(("sans-serif", 15, &WHITE))
                 .bold_line_style(&WHITE.mix(0.3))
                 .axis_style(RGBColor(7, 18, 14))
