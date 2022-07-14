@@ -162,37 +162,47 @@ const W: u32 = 1350;
 const H: u32 = 350;
 
 fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>, GraphError> {
-    static LEN: usize = W as usize * H as usize;
+    static LEN: usize = (W * H) as usize * 3;
+
     let mut pp: Vec<_> = players
         .iter()
         .map(|player| (&player.username, player.pp))
         .collect();
+
     pp.sort_unstable_by(|(_, pp1), (_, pp2)| pp2.partial_cmp(pp1).unwrap_or(Equal));
     pp.truncate(11);
+
     let mut count: Vec<_> = players
         .iter()
         .map(|player| (&player.username, player.count_first as i32))
         .collect();
+
     count.sort_unstable_by(|(_, c1), (_, c2)| c2.cmp(c1));
     count.truncate(11);
+
     let pp_max = pp
         .iter()
         .map(|(_, n)| *n)
         .fold(0.0_f32, |max, curr| max.max(curr));
+
     let count_max = count
         .iter()
         .map(|(_, n)| *n)
         .fold(0, |max, curr| max.max(curr));
-    let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3
+
+    let mut buf = vec![0; LEN];
+
     {
         let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
-        root.fill(&WHITE)?;
+        let background = RGBColor(19, 43, 33);
+        root.fill(&background)?;
         let (left, right) = root.split_horizontally(W / 2);
+
         let mut chart = ChartBuilder::on(&left)
             .x_label_area_size(30)
             .y_label_area_size(60)
             .margin_right(15)
-            .caption("Weighted pp from #1s", ("sans-serif", 30))
+            .caption("Weighted pp from #1s", ("sans-serif", 30, &WHITE))
             .build_cartesian_2d(0..pp.len() - 1, 0.0..pp_max)?;
 
         // Mesh and labels
@@ -200,7 +210,7 @@ fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>, GraphError> {
             .configure_mesh()
             .disable_x_mesh()
             .x_label_offset(30)
-            .x_label_style(("sans-serif", 10))
+            .label_style(("sans-serif", 12, &WHITE))
             .x_label_formatter(&|idx| {
                 if *idx < 10 {
                     pp[*idx].0.to_string()
@@ -211,23 +221,22 @@ fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>, GraphError> {
             .draw()?;
 
         // Histogram bars
-        chart.draw_series(
-            Histogram::vertical(&chart)
-                .style(BLUE.mix(0.5).filled())
-                .data(
-                    pp.iter()
-                        .take(10)
-                        .enumerate()
-                        .map(|(idx, (_, n))| (idx, *n)),
-                ),
-        )?;
+        let area_style = RGBColor(2, 186, 213).mix(0.7).filled();
+
+        let iter = pp
+            .iter()
+            .take(10)
+            .enumerate()
+            .map(|(idx, (_, n))| (idx, *n));
+
+        chart.draw_series(Histogram::vertical(&chart).style(area_style).data(iter))?;
 
         // Count graph
         let mut chart = ChartBuilder::on(&right)
             .x_label_area_size(30)
             .y_label_area_size(35)
             .margin_right(15)
-            .caption("#1 Count", ("sans-serif", 30))
+            .caption("#1 Count", ("sans-serif", 30, &WHITE))
             .build_cartesian_2d(0..count.len() - 1, 0..count_max)?;
 
         // Mesh and labels
@@ -235,7 +244,7 @@ fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>, GraphError> {
             .configure_mesh()
             .disable_x_mesh()
             .x_label_offset(30)
-            .x_label_style(("sans-serif", 10))
+            .label_style(("sans-serif", 12, &WHITE))
             .x_label_formatter(&|idx| {
                 if *idx < 10 {
                     count[*idx].0.to_string()
@@ -246,17 +255,13 @@ fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>, GraphError> {
             .draw()?;
 
         // Histogram bars
-        chart.draw_series(
-            Histogram::vertical(&chart)
-                .style(RED.mix(0.5).filled())
-                .data(
-                    count
-                        .iter()
-                        .take(10)
-                        .enumerate()
-                        .map(|(idx, (_, n))| (idx, *n)),
-                ),
-        )?;
+        let iter = count
+            .iter()
+            .take(10)
+            .enumerate()
+            .map(|(idx, (_, n))| (idx, *n));
+
+        chart.draw_series(Histogram::vertical(&chart).style(area_style).data(iter))?;
     }
 
     // Encode buf to png
