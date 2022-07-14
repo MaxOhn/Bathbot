@@ -327,7 +327,7 @@ impl GameStateKind {
         // Encode the combined images
         let mut png_bytes: Vec<u8> = Vec::with_capacity((W * H * 4) as usize);
         let png_encoder = PngEncoder::new(&mut png_bytes);
-        png_encoder.write_image(&img, W, H, ColorType::Rgba8)?;
+        png_encoder.write_image(img, W, H, ColorType::Rgba8)?;
 
         // Send image into discord channel
         let builder = MessageBuilder::new()

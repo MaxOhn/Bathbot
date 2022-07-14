@@ -1,9 +1,6 @@
 use std::{borrow::Cow, fmt::Write};
 
-use rosu_pp::{
-    Beatmap as Map, BeatmapExt, CatchPP, DifficultyAttributes, GameMode as Mode, ManiaPP, OsuPP,
-    PerformanceAttributes, TaikoPP,
-};
+use rosu_pp::{Beatmap as Map, BeatmapExt, DifficultyAttributes};
 use rosu_v2::prelude::{
     Beatmap, BeatmapsetCompact, GameMode, GameMods, Grade, Score, ScoreStatistics,
 };
@@ -241,13 +238,25 @@ impl SimulateEmbed {
 
         let stars = round(attributes.stars() as f32);
 
-        let attributes = if is_some {
-            simulate_score(&mut unchoked_score, map, args, attributes)
+        if is_some {
+            simulate_score(&mut unchoked_score, map, args, &attributes);
         } else {
-            unchoke_score(&mut unchoked_score, map, attributes)
-        };
+            unchoke_score(&mut unchoked_score, map, &attributes);
+        }
 
-        let pp = calculate_pp(&unchoked_score, &rosu_map, attributes).pp() as f32;
+        let pp = rosu_map
+            .pp()
+            .attributes(attributes)
+            .mods(unchoked_score.mods.bits())
+            .combo(unchoked_score.max_combo as usize)
+            .n300(unchoked_score.statistics.count_300 as usize)
+            .n100(unchoked_score.statistics.count_100 as usize)
+            .n50(unchoked_score.statistics.count_50 as usize)
+            .n_katu(unchoked_score.statistics.count_katu as usize)
+            .misses(unchoked_score.statistics.count_miss as usize)
+            .score(unchoked_score.score)
+            .calculate()
+            .pp() as f32;
 
         let grade_completion_mods = grade_completion_mods(&unchoked_score, map);
         let pp = osu::get_pp(Some(pp), Some(max_pp));
@@ -407,8 +416,8 @@ fn simulate_score(
     score: &mut Score,
     map: &Beatmap,
     args: SimulateArgs,
-    mut attributes: DifficultyAttributes,
-) -> DifficultyAttributes {
+    attributes: &DifficultyAttributes,
+) {
     match attributes {
         DifficultyAttributes::Osu(attrs) => {
             let acc = args.acc.map_or(1.0, |a| a / 100.0);
@@ -476,10 +485,8 @@ fn simulate_score(
             score.max_combo = combo as u32;
             score.accuracy = score.accuracy();
             score.grade = score.grade(None);
-
-            attributes = DifficultyAttributes::Osu(attrs);
         }
-        DifficultyAttributes::Mania(attrs) => {
+        DifficultyAttributes::Mania(_) => {
             let mut max_score = 1_000_000;
 
             let mods = score.mods;
@@ -518,10 +525,8 @@ fn simulate_score(
             } else {
                 Grade::S
             };
-
-            attributes = DifficultyAttributes::Mania(attrs);
         }
-        DifficultyAttributes::Taiko(attrs) => {
+        DifficultyAttributes::Taiko(_) => {
             let n100 = args.n100.unwrap_or(0);
             let n300 = args.n300.unwrap_or(0);
             let miss = args.misses.unwrap_or(0);
@@ -565,8 +570,6 @@ fn simulate_score(
             score.mode = GameMode::Taiko;
             score.accuracy = acc * 100.0;
             score.grade = score.grade(Some(score.accuracy));
-
-            attributes = DifficultyAttributes::Taiko(attrs);
         }
         DifficultyAttributes::Catch(attrs) => {
             let n_tiny_droplets;
@@ -631,21 +634,13 @@ fn simulate_score(
 
             score.accuracy = score.accuracy();
             score.grade = score.grade(Some(score.accuracy));
-
-            attributes = DifficultyAttributes::Catch(attrs);
         }
     }
-
-    attributes
 }
 
-fn unchoke_score(
-    score: &mut Score,
-    map: &Beatmap,
-    attributes: DifficultyAttributes,
-) -> DifficultyAttributes {
+fn unchoke_score(score: &mut Score, map: &Beatmap, attributes: &DifficultyAttributes) {
     match attributes {
-        DifficultyAttributes::Osu(ref attrs)
+        DifficultyAttributes::Osu(attrs)
             if score.statistics.count_miss > 0
                 || score.max_combo < map.max_combo.unwrap_or(attrs.max_combo as u32) - 5 =>
         {
@@ -690,9 +685,9 @@ fn unchoke_score(
                 Grade::X
             };
 
-            return attributes;
+            return;
         }
-        DifficultyAttributes::Catch(ref attrs)
+        DifficultyAttributes::Catch(attrs)
             if score.max_combo != map.max_combo.unwrap_or_else(|| attrs.max_combo() as u32) =>
         {
             let total_objects = attrs.max_combo();
@@ -736,58 +731,12 @@ fn unchoke_score(
             score.statistics.count_300 = count300 as u32;
             score.statistics.count_100 = count100 as u32;
         }
-        _ => return attributes,
+        _ => return,
     }
 
     score.statistics.count_miss = 0;
     score.grade = score.grade(None);
     score.accuracy = score.accuracy();
-
-    attributes
-}
-
-fn calculate_pp(
-    score: &Score,
-    map: &Map,
-    attributes: DifficultyAttributes,
-) -> PerformanceAttributes {
-    let mods = score.mods.bits();
-
-    match map.mode {
-        Mode::Osu => OsuPP::new(map)
-            .attributes(attributes)
-            .mods(mods)
-            .combo(score.max_combo as usize)
-            .n300(score.statistics.count_300 as usize)
-            .n100(score.statistics.count_100 as usize)
-            .n50(score.statistics.count_50 as usize)
-            .misses(score.statistics.count_miss as usize)
-            .calculate()
-            .into(),
-        Mode::Mania => ManiaPP::new(map)
-            .attributes(attributes)
-            .mods(mods)
-            .score(score.score)
-            .calculate()
-            .into(),
-        Mode::Catch => CatchPP::new(map)
-            .attributes(attributes)
-            .mods(mods)
-            .combo(score.max_combo as usize)
-            .fruits(score.statistics.count_300 as usize)
-            .droplets(score.statistics.count_100 as usize)
-            .misses(score.statistics.count_miss as usize)
-            .accuracy(score.accuracy as f64)
-            .calculate()
-            .into(),
-        Mode::Taiko => TaikoPP::new(map)
-            .attributes(attributes)
-            .combo(score.max_combo as usize)
-            .mods(mods)
-            .accuracy(score.accuracy as f64)
-            .calculate()
-            .into(),
-    }
 }
 
 fn default_score() -> Score {
