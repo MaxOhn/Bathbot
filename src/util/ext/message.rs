@@ -19,18 +19,24 @@ pub trait MessageExt {
 
 impl MessageExt for (Id<MessageMarker>, Id<ChannelMarker>) {
     fn update(&self, ctx: &Context, builder: &MessageBuilder<'_>) -> ResponseFuture<Message> {
-        let mut req = ctx
-            .http
-            .update_message(self.1, self.0)
-            .content(builder.content.as_deref())
-            .expect("invalid content")
-            .components(builder.components.as_deref())
-            .expect("invalid components");
+        let mut req = ctx.http.update_message(self.1, self.0);
+
+        if let Some(ref content) = builder.content {
+            req = req
+                .content(Some(content.as_ref()))
+                .expect("invalid content");
+        }
 
         if let Some(ref embed) = builder.embed {
             req = req
                 .embeds(Some(slice::from_ref(embed)))
                 .expect("invalid embed");
+        }
+
+        if let Some(ref components) = builder.components {
+            req = req
+                .components(Some(components))
+                .expect("invalid components");
         }
 
         req.exec()

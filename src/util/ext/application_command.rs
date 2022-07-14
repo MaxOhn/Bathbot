@@ -112,14 +112,25 @@ impl ApplicationCommandExt for ApplicationCommand {
     ) -> ResponseFuture<Message> {
         let client = ctx.interaction();
 
-        let mut req = client
-            .update_response(&self.token)
-            .content(builder.content.as_ref().map(Cow::as_ref))
-            .expect("invalid content")
-            .embeds(builder.embed.as_ref().map(slice::from_ref))
-            .expect("invalid embed")
-            .components(builder.components.as_deref())
-            .expect("invalid components");
+        let mut req = client.update_response(&self.token);
+
+        if let Some(ref content) = builder.content {
+            req = req
+                .content(Some(content.as_ref()))
+                .expect("invalid content");
+        }
+
+        if let Some(ref embed) = builder.embed {
+            req = req
+                .embeds(Some(slice::from_ref(embed)))
+                .expect("invalid embed");
+        }
+
+        if let Some(ref components) = builder.components {
+            req = req
+                .components(Some(components))
+                .expect("invalid components");
+        }
 
         if let Some(ref attachment) = builder.attachment {
             req = req.attachments(slice::from_ref(attachment)).unwrap();
