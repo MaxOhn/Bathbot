@@ -542,7 +542,7 @@ fn countries() -> &'static HashMap<&'static str, SmallString<[u8; 2]>> {
         map.insert("uzbekistan", "UZ".into());
         map.insert("vanuatu", "VU".into());
         map.insert("venezuela ", "VE".into());
-        map.insert("viet nam", "VN".into());
+        map.insert("vietnam", "VN".into());
         map.insert("virgin islands (british)", "VG".into());
         map.insert("virgin islands (u.s.)", "VI".into());
         map.insert("wallis and futuna", "WF".into());
