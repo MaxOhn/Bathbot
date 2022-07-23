@@ -138,7 +138,7 @@ pub struct OsuTrackerCountryScore {
     #[serde(rename = "length", with = "deserialize::u32_string")]
     pub seconds_total: u32,
     pub mapper: Username,
-    #[serde(rename = "time", with = "deserialize::offset_datetime")]
+    #[serde(rename = "time", with = "deserialize::datetime_maybe_offset")]
     pub ended_at: OffsetDateTime,
     pub player: Username,
 }

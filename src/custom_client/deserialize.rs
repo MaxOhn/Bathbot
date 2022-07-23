@@ -207,6 +207,40 @@ pub(super) mod adjust_acc {
     }
 }
 
+pub(super) mod datetime_maybe_offset {
+    use time::error::{Parse, ParseFromDescription};
+
+    use super::*;
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<OffsetDateTime, D::Error> {
+        d.deserialize_str(DateTimeVisitor)
+    }
+
+    struct DateTimeVisitor;
+
+    impl<'de> Visitor<'de> for DateTimeVisitor {
+        type Value = OffsetDateTime;
+
+        #[inline]
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("an `OffsetDateTime`")
+        }
+
+        #[inline]
+        fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+            match OffsetDateTime::parse(v, OFFSET_DATETIME_FORMAT) {
+                Ok(datetime) => Ok(datetime),
+                Err(
+                    err @ Parse::ParseFromDescription(ParseFromDescription::InvalidComponent(_)),
+                ) => Err(Error::custom(err)),
+                Err(_) => PrimitiveDateTime::parse(v, DATETIME_FORMAT)
+                    .map(PrimitiveDateTime::assume_utc)
+                    .map_err(Error::custom),
+            }
+        }
+    }
+}
+
 pub(super) mod datetime {
     use super::*;
 
