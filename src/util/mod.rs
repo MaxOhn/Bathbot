@@ -16,6 +16,7 @@ pub use self::{
 pub mod builder;
 pub mod constants;
 pub mod datetime;
+pub mod hasher;
 pub mod matcher;
 pub mod matrix;
 pub mod numbers;
