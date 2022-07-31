@@ -29,6 +29,7 @@ bitflags::bitflags! {
     }
 }
 
+#[derive(Clone)]
 pub enum GameState {
     Running {
         game: GameWrapper,

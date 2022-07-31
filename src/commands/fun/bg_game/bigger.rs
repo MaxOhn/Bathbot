@@ -24,7 +24,7 @@ pub async fn bigger(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 
     let _ = ctx.http.create_typing_trigger(msg.channel_id).exec().await;
 
-    match ctx.bg_games().read(msg.channel_id).await.get() {
+    match ctx.bg_games().read(&msg.channel_id).await.get() {
         Some(GameState::Running { game }) => match game.sub_image().await {
             Ok(bytes) => {
                 let builder = MessageBuilder::new().attachment("bg_img.png", bytes);

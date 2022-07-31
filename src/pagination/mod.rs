@@ -208,7 +208,7 @@ impl Pagination {
             tx,
         };
 
-        ctx.paginations.lock(msg).await.insert(pagination);
+        ctx.paginations.own(msg).await.insert(pagination);
 
         Ok(())
     }
@@ -251,7 +251,7 @@ impl Pagination {
                         return
                     },
                     _ = sleep(MINUTE) => {
-                        let pagination_active = ctx.paginations.lock(msg).await.remove().is_some();
+                        let pagination_active = ctx.paginations.lock(&msg).await.remove().is_some();
                         let msg_available = ctx.remove_msg(msg);
 
                         if pagination_active && msg_available {

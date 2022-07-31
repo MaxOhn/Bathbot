@@ -33,7 +33,7 @@ async fn prefix_tracklist(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 
 pub async fn tracklist(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> BotResult<()> {
     let channel_id = orig.channel_id();
-    let tracked = ctx.tracking().list(channel_id);
+    let tracked = ctx.tracking().list(channel_id).await;
 
     let mut users = match get_users(&ctx, orig.channel_id(), tracked).await {
         Ok(entries) => entries,

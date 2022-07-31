@@ -1,4 +1,4 @@
-use std::sync::{atomic::Ordering, Arc};
+use std::sync::Arc;
 
 use command_macros::SlashCommand;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -104,11 +104,8 @@ async fn slash_owner(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) ->
         }
         Owner::Tracking(OwnerTracking::Stats(_)) => trackingstats(ctx, command).await,
         Owner::Tracking(OwnerTracking::Toggle(_)) => {
-            ctx.tracking()
-                .stop_tracking
-                .fetch_nand(true, Ordering::SeqCst);
-
-            let current = ctx.tracking().stop_tracking.load(Ordering::Acquire);
+            ctx.tracking().toggle_tracking();
+            let current = ctx.tracking().stop_tracking();
             let content = format!("Tracking toggle: {current} -> {}", !current);
             let builder = MessageBuilder::new().embed(content);
             command.callback(&ctx, builder, false).await?;

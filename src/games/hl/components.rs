@@ -45,7 +45,7 @@ async fn handle_higherlower(
 ) -> BotResult<()> {
     let user = component.user_id()?;
 
-    let is_correct = if let Some(game) = ctx.hl_games().lock(user).await.get() {
+    let is_correct = if let Some(game) = ctx.hl_games().lock(&user).await.get() {
         if game.msg != component.message.id {
             return Ok(());
         }
@@ -74,7 +74,7 @@ pub async fn handle_next_higherlower(
     let embed = {
         // let mut hl_games = ctx.hl_games().lock().await;
 
-        if let Some(game) = ctx.hl_games().lock(user).await.get_mut() {
+        if let Some(game) = ctx.hl_games().lock(&user).await.get_mut() {
             let components = HlComponents::disabled();
             let builder = MessageBuilder::new().components(components);
 
@@ -108,7 +108,7 @@ pub async fn handle_try_again(
     let msg = component.message.id;
 
     let available_game = {
-        let guard = ctx.hl_retries().lock(msg);
+        let guard = ctx.hl_retries().lock(&msg);
 
         guard.get().filter(|game| user == game.user).is_some()
     };
@@ -119,7 +119,7 @@ pub async fn handle_try_again(
 
     let mut embeds = mem::take(&mut component.message.embeds);
 
-    let game_fut = if let Some(retry) = ctx.hl_retries().lock(msg).remove() {
+    let game_fut = if let Some(retry) = ctx.hl_retries().lock(&msg).remove() {
         let _ = retry.tx.send(());
 
         retry.game.restart(&ctx, &*component)
@@ -154,7 +154,7 @@ pub async fn handle_try_again(
 
     let response = component.update(&ctx, &builder).await?.model().await?;
     game.msg = response.id;
-    ctx.hl_games().lock(user).await.insert(game);
+    ctx.hl_games().own(user).await.insert(game);
 
     Ok(())
 }
@@ -168,7 +168,7 @@ async fn correct_guess(
     let components = HlComponents::disabled();
     let ctx_clone = Arc::clone(&ctx);
 
-    let embed = if let Some(mut game) = ctx.hl_games().lock(user).await.get_mut() {
+    let embed = if let Some(mut game) = ctx.hl_games().lock(&user).await.get_mut() {
         // Callback with disabled components so nothing happens while the game is updated
         let builder = MessageBuilder::new().components(components);
         component.callback(&ctx, builder).await?;
@@ -211,7 +211,7 @@ async fn game_over(
 ) -> BotResult<()> {
     let user = component.user_id()?;
 
-    let game = if let Some(game) = ctx.hl_games().lock(user).await.remove() {
+    let game = if let Some(game) = ctx.hl_games().lock(&user).await.remove() {
         game
     } else {
         return Ok(());
@@ -249,7 +249,7 @@ async fn game_over(
     let msg = game.msg;
     let channel = game.channel;
     let retry = RetryState::new(game, user, tx);
-    ctx.hl_retries().lock(msg).insert(retry);
+    ctx.hl_retries().own(msg).insert(retry);
     tokio::spawn(await_retry(ctx, msg, channel, rx));
 
     Ok(())

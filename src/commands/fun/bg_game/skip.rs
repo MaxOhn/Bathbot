@@ -27,7 +27,7 @@ pub async fn skip(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 
     let _ = ctx.http.create_typing_trigger(msg.channel_id).exec().await;
 
-    match ctx.bg_games().read(msg.channel_id).await.get() {
+    match ctx.bg_games().read(&msg.channel_id).await.get() {
         Some(GameState::Running { game }) => match game.restart() {
             Ok(_) => {}
             Err(err) => {

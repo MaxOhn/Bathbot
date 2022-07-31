@@ -19,10 +19,7 @@ mod server;
 mod tracking;
 mod util;
 
-use std::{
-    sync::{atomic::Ordering, Arc},
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
 use eyre::{Report, Result, WrapErr};
 use tokio::{
@@ -179,7 +176,7 @@ async fn async_main() -> Result<()> {
     }
 
     // Disable tracking while preparing shutdown
-    ctx.tracking().stop_tracking.store(true, Ordering::SeqCst);
+    ctx.tracking().set_tracking(true);
 
     // Prevent non-minimized msgs from getting minimized
     ctx.clear_msgs_to_process();

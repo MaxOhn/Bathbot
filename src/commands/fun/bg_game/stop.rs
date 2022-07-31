@@ -7,7 +7,7 @@ use crate::{util::ChannelExt, BotResult, Context};
 use super::GameState;
 
 pub async fn stop(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
-    match ctx.bg_games().read(msg.channel_id).await.get() {
+    match ctx.bg_games().read(&msg.channel_id).await.get() {
         Some(GameState::Running { game }) => match game.stop() {
             Ok(_) => {}
             Err(err) => {

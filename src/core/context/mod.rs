@@ -1,6 +1,10 @@
 use std::{num::NonZeroU32, sync::Arc};
 
 use bb8_redis::{bb8::Pool, RedisConnectionManager};
+use flexmap::{
+    std::StdMutexMap,
+    tokio::{TokioMutexMap, TokioRwLockMap},
+};
 use flurry::HashMap as FlurryMap;
 use hashbrown::HashSet;
 use parking_lot::Mutex;
@@ -30,10 +34,7 @@ use crate::{
     pagination::Pagination,
     server::AuthenticationStandby,
     tracking::OsuTracking,
-    util::{
-        mult_map::{AsyncMutexMap, AsyncRwLockMap, SyncMutexMap},
-        CountryCode,
-    },
+    util::CountryCode,
     BotResult,
 };
 
@@ -60,7 +61,7 @@ pub struct Context {
     pub cluster: Cluster,
     pub http: Arc<Client>,
     pub member_requests: MemberRequests,
-    pub paginations: Arc<AsyncMutexMap<Id<MessageMarker>, Pagination, 16>>,
+    pub paginations: Arc<TokioMutexMap<Id<MessageMarker>, Pagination>>,
     pub standby: Standby,
     pub stats: Arc<BotStats>,
     // private to avoid deadlocks by messing up references
@@ -166,10 +167,10 @@ impl Context {
             cluster,
             data,
             standby: Standby::new(),
-            auth_standby: AuthenticationStandby::default(),
+            auth_standby: AuthenticationStandby::new(),
             buckets: Buckets::new(),
             member_requests: MemberRequests::new(tx),
-            paginations: Arc::new(AsyncMutexMap::default()),
+            paginations: Arc::new(TokioMutexMap::with_shard_amount(16)),
         };
 
         Ok((ctx, events))
@@ -225,7 +226,7 @@ impl ContextData {
     async fn new(psql: &Database, application_id: Id<ApplicationMarker>) -> BotResult<Self> {
         Ok(Self {
             application_id,
-            games: Games::default(),
+            games: Games::new(),
             guilds: psql.get_guilds().await?,
             map_garbage_collection: Mutex::new(HashSet::new()),
             matchlive: MatchLiveChannels::new(),
@@ -238,13 +239,22 @@ impl ContextData {
     }
 }
 
-#[derive(Default)]
 struct Games {
     bg: BgGames,
     hl: HlGames,
     hl_retries: HlRetries,
 }
 
-type BgGames = AsyncRwLockMap<Id<ChannelMarker>, BgGameState>;
-type HlGames = AsyncMutexMap<Id<UserMarker>, HlGameState>;
-type HlRetries = SyncMutexMap<Id<MessageMarker>, RetryState, 4>;
+impl Games {
+    fn new() -> Self {
+        Self {
+            bg: BgGames::with_shard_amount(16),
+            hl: HlGames::with_shard_amount(16),
+            hl_retries: HlRetries::with_shard_amount(4),
+        }
+    }
+}
+
+type BgGames = TokioRwLockMap<Id<ChannelMarker>, BgGameState>;
+type HlGames = TokioMutexMap<Id<UserMarker>, HlGameState>;
+type HlRetries = StdMutexMap<Id<MessageMarker>, RetryState>;

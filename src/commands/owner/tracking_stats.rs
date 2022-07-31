@@ -11,7 +11,7 @@ use crate::{
 };
 
 pub async fn trackingstats(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotResult<()> {
-    let stats = ctx.tracking().stats();
+    let stats = ctx.tracking().stats().await;
     let entry = stats.next_pop;
 
     let fields = vec![

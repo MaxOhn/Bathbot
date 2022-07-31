@@ -68,7 +68,7 @@ pub async fn osu_tracking_loop(ctx: Arc<Context>) {
                     );
                     let report = Report::new(err).wrap_err(wrap);
                     warn!("{report:?}");
-                    ctx.tracking().reset(user_id, mode);
+                    ctx.tracking().reset(user_id, mode).await;
                 }
             }
         }
@@ -83,7 +83,7 @@ pub async fn process_osu_tracking(ctx: &Context, scores: &mut [Score], user: Opt
     };
 
     // Make sure the user is being tracked in general
-    let (last, channels) = match ctx.tracking().get_tracked(user_id, mode) {
+    let (last, channels) = match ctx.tracking().get_tracked(user_id, mode).await {
         Some(tuple) => tuple,
         None => return,
     };
@@ -106,7 +106,7 @@ pub async fn process_osu_tracking(ctx: &Context, scores: &mut [Score], user: Opt
         }
     }
 
-    ctx.tracking().reset(user_id, mode);
+    ctx.tracking().reset(user_id, mode).await;
 
     let mut user = TrackUser::new(user_id, mode, user);
 
@@ -123,7 +123,7 @@ pub async fn process_osu_tracking(ctx: &Context, scores: &mut [Score], user: Opt
         Err(err) => {
             let report = Report::new(err).wrap_err("osu!api error while tracking");
             warn!("{report:?}");
-            ctx.tracking().reset(user_id, mode);
+            ctx.tracking().reset(user_id, mode).await;
         }
     }
 }

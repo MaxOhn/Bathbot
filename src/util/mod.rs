@@ -18,7 +18,6 @@ pub mod constants;
 pub mod datetime;
 pub mod matcher;
 pub mod matrix;
-pub mod mult_map;
 pub mod numbers;
 pub mod osu;
 pub mod query;

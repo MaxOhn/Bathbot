@@ -27,9 +27,11 @@ pub async fn handle_bg_start_include(
     ctx: &Context,
     mut component: Box<MessageComponentInteraction>,
 ) -> BotResult<()> {
+    let channel = component.channel_id;
+
     if let Some(GameState::Setup {
         author, included, ..
-    }) = ctx.bg_games().write(component.channel_id).await.get_mut()
+    }) = ctx.bg_games().write(&channel).await.get_mut()
     {
         if *author != component.user_id()? {
             return Ok(());
@@ -49,9 +51,11 @@ pub async fn handle_bg_start_exclude(
     ctx: &Context,
     mut component: Box<MessageComponentInteraction>,
 ) -> BotResult<()> {
+    let channel = component.channel_id;
+
     if let Some(GameState::Setup {
         author, excluded, ..
-    }) = ctx.bg_games().write(component.channel_id).await.get_mut()
+    }) = ctx.bg_games().write(&channel).await.get_mut()
     {
         if *author != component.user_id()? {
             return Ok(());
@@ -73,7 +77,7 @@ pub async fn handle_bg_start_button(
 ) -> BotResult<()> {
     let channel = component.channel_id;
 
-    match ctx.bg_games().write(channel).await.entry() {
+    match ctx.bg_games().own(channel).await.entry() {
         Entry::Occupied(mut entry) => match entry.get() {
             GameState::Setup {
                 author,
@@ -155,7 +159,7 @@ pub async fn handle_bg_start_cancel(
     ctx: &Context,
     component: Box<MessageComponentInteraction>,
 ) -> BotResult<()> {
-    match ctx.bg_games().write(component.channel_id).await.entry() {
+    match ctx.bg_games().own(component.channel_id).await.entry() {
         Entry::Occupied(entry) => match entry.get() {
             GameState::Setup { author, .. } => {
                 if *author != component.user_id()? {
@@ -195,7 +199,7 @@ pub async fn handle_bg_start_effects(
 ) -> BotResult<()> {
     if let Some(GameState::Setup {
         author, effects, ..
-    }) = ctx.bg_games().write(component.channel_id).await.get_mut()
+    }) = ctx.bg_games().write(&component.channel_id).await.get_mut()
     {
         if *author != component.user_id()? {
             return Ok(());

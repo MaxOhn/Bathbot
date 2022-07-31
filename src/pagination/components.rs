@@ -35,7 +35,7 @@ pub async fn handle_pagination_component(
     page_fn: fn(&mut Pages),
 ) -> BotResult<()> {
     let (builder, defer_components) = {
-        let mut guard = ctx.paginations.lock(component.message.id).await;
+        let mut guard = ctx.paginations.lock(&component.message.id).await;
 
         if let Some(pagination) = guard.get_mut() {
             if !pagination.is_author(component.user_id()?) {
@@ -107,7 +107,7 @@ pub async fn handle_pagination_custom(
     component: Box<MessageComponentInteraction>,
 ) -> BotResult<()> {
     let max_page = {
-        let guard = ctx.paginations.lock(component.message.id).await;
+        let guard = ctx.paginations.lock(&component.message.id).await;
 
         if let Some(pagination) = guard.get() {
             if !pagination.is_author(component.user_id()?) {
@@ -158,7 +158,7 @@ pub async fn handle_pagination_modal(
     };
 
     let (builder, defer_components) = if let Some(ref msg) = modal.message {
-        let mut guard = ctx.paginations.lock(msg.id).await;
+        let mut guard = ctx.paginations.lock(&msg.id).await;
 
         if let Some(pagination) = guard.get_mut() {
             if !pagination.is_author(modal.user_id()?) {

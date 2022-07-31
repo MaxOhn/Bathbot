@@ -76,7 +76,7 @@ async fn slash_higherlower(
 
     let user = command.user_id()?;
 
-    if let Some(game) = ctx.hl_games().lock(user).await.remove() {
+    if let Some(game) = ctx.hl_games().lock(&user).await.remove() {
         let components = HlComponents::disabled();
         let builder = MessageBuilder::new().components(components);
         (game.msg, game.channel).update(&ctx, &builder).await?;
@@ -111,7 +111,7 @@ async fn slash_higherlower(
     let response = command.update(&ctx, &builder).await?.model().await?;
 
     game.msg = response.id;
-    ctx.hl_games().lock(user).await.insert(game);
+    ctx.hl_games().own(user).await.insert(game);
 
     Ok(())
 }

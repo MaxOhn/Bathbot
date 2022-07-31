@@ -1,4 +1,3 @@
-use dashmap::DashMap;
 use futures::stream::StreamExt;
 use hashbrown::HashMap;
 use rosu_v2::model::GameMode;
@@ -10,9 +9,9 @@ use crate::{database::TrackingUser, tracking::TrackingEntry, BotResult, Database
 
 impl Database {
     #[cold]
-    pub async fn get_osu_trackings(&self) -> BotResult<DashMap<TrackingEntry, TrackingUser>> {
+    pub async fn get_osu_trackings(&self) -> BotResult<Vec<(TrackingEntry, TrackingUser)>> {
         let mut stream = sqlx::query!("SELECT * FROM osu_trackings").fetch(&self.pool);
-        let tracks = DashMap::with_capacity(5000);
+        let mut tracks = Vec::with_capacity(10_000);
 
         while let Some(entry) = stream.next().await.transpose()? {
             let user_id = entry.user_id as u32;
@@ -27,7 +26,7 @@ impl Database {
                 channels: serde_json::from_value(channels)?,
             };
 
-            tracks.insert(TrackingEntry { user_id, mode }, user);
+            tracks.push((TrackingEntry { user_id, mode }, user));
         }
 
         Ok(tracks)

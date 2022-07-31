@@ -1,18 +1,20 @@
 use eyre::Report;
-use tokio_stream::StreamExt;
+use futures::stream::StreamExt;
 
 use crate::{games::bg::GameState, util::ChannelExt, Context};
 
 impl Context {
     #[cold]
     pub async fn stop_all_games(&self) -> usize {
-        let active_games: Vec<_> = self
-            .bg_games()
-            .iter()
-            .await
-            .map(|(id, state)| (*id, state.to_owned()))
-            .collect()
-            .await;
+        let mut active_games = Vec::new();
+        let mut stream = self.bg_games().iter();
+
+        while let Some(guard) = stream.next().await {
+            let key = *guard.key();
+            let value: GameState = guard.value().clone();
+
+            active_games.push((key, value));
+        }
 
         if active_games.is_empty() {
             return 0;

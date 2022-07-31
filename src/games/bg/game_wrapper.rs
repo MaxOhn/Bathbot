@@ -27,6 +27,7 @@ use super::{
 
 const GAME_LEN: Duration = Duration::from_secs(180);
 
+#[derive(Clone)]
 pub struct GameWrapper {
     game: Arc<RwLock<Game>>,
     tx: UnboundedSender<LoopResult>,
@@ -136,7 +137,7 @@ impl GameWrapper {
                 *game_clone.write().await = game;
             }
 
-            ctx.bg_games().write(channel).await.remove();
+            ctx.bg_games().write(&channel).await.remove();
         });
 
         Self { game, tx }

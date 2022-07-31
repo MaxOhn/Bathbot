@@ -14,8 +14,8 @@ pub async fn trackinginterval(
     seconds: i64,
 ) -> BotResult<()> {
     let interval = Duration::seconds(seconds);
-    let previous = ctx.tracking().interval.read().whole_seconds();
-    *ctx.tracking().interval.write() = interval;
+    let previous = ctx.tracking().interval().whole_seconds();
+    ctx.tracking().set_interval(interval);
 
     let content = format!(
         "Tracking interval: {previous}s -> {}s",
