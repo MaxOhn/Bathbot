@@ -85,17 +85,20 @@ impl ClaimNameEmbed {
             );
 
             available_at_field(value)
-        } else if let Some(time) = time_to_wait(user) {
-            let date = OffsetDateTime::now_utc() + time;
-            let days = time.whole_days();
+        } else if let Some(duration) = time_to_wait(user) {
+            let date = OffsetDateTime::now_utc() + duration;
 
-            let name = if days < 0 {
+            let name = if duration.is_negative() {
                 "Name available since"
             } else {
                 "Name available at"
             };
 
-            let value = format!("{}{}", date.format(DATE_FORMAT).unwrap(), TimeUntil(days));
+            let value = format!(
+                "{}{}",
+                date.format(DATE_FORMAT).unwrap(),
+                TimeUntil(duration),
+            );
 
             EmbedField {
                 inline: false,
@@ -148,42 +151,66 @@ fn time_to_wait(user: &User) -> Option<Duration> {
 }
 
 #[derive(Copy, Clone)]
-struct TimeUntil(i64);
+struct TimeUntil(Duration);
 
 impl fmt::Display for TimeUntil {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self(mut days) = *self;
+        let mut minutes = self.0.whole_minutes();
 
-        if days < 0 {
+        if minutes < 0 {
             return Ok(());
+        } else if minutes < 60 {
+            return f.write_str(" (any minute now)");
         }
 
         f.write_str(" (")?;
 
-        let years = days / 365;
-        days -= years * 365;
+        let years = minutes / (60 * 24 * 365);
+        minutes -= years * (60 * 24 * 365);
 
-        let months = days / 30;
-        days -= months * 30;
+        let months = minutes / (60 * 24 * 30);
+        minutes -= months * (60 * 24 * 30);
 
-        if years > 0 {
-            write!(f, "{years}y")?;
-        }
+        let days = minutes / (60 * 24);
+        minutes -= days * (60 * 24);
 
-        if months > 0 {
+        if years + months + days > 0 {
             if years > 0 {
-                f.write_str(" ")?;
+                write!(f, "{years}y")?;
             }
 
-            write!(f, "{months}m")?;
-        }
+            if months > 0 {
+                if years > 0 {
+                    f.write_str(" ")?;
+                }
 
-        if days > 0 {
-            if years + months > 0 {
-                f.write_str(" ")?;
+                write!(f, "{months}m")?;
             }
 
-            write!(f, "{days}d")?;
+            if days > 0 {
+                if years + months > 0 {
+                    f.write_str(" ")?;
+                }
+
+                write!(f, "{days}d")?;
+            }
+        } else {
+            let hours = minutes / 60;
+            minutes -= hours * 60;
+
+            f.write_str("~")?;
+
+            if hours > 0 {
+                write!(f, "{hours}h")?;
+            }
+
+            if minutes > 0 {
+                if hours > 0 {
+                    f.write_str(" ")?;
+                }
+
+                write!(f, "{minutes}m")?;
+            }
         }
 
         f.write_str(")")
