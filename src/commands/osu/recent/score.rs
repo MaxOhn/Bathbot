@@ -572,10 +572,13 @@ async fn retrieve_vod(
             if score.grade == Grade::F {
                 let passed = score.total_hits() as f64;
 
-                // Get time of the last hitobject that was hit
-                // and then accumulate break time of all breaks
-                // up to that time
-                if let Some(map) = parsed_map {
+                if map.mode == GameMode::Catch {
+                    // amount objects in .osu file != amount of hitobjects for catch
+                    map_len += 2.0;
+                } else if let Some(map) = parsed_map {
+                    // Get time of the last hitobject that was hit
+                    // and then accumulate break time of all breaks
+                    // up to that time
                     let obj = &map.hit_objects[passed as usize - 1];
 
                     let break_time: f64 = map
