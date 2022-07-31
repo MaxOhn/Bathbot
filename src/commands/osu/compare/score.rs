@@ -164,14 +164,15 @@ impl_try_from!(CompareScore, Cs);
 #[command]
 #[desc("Compare a player's score on a map")]
 #[help(
-    "Display a user's top score on a given map. \n\
+    "Display a user's top scores on a given map for all mods.\n\
+     If mods are specified, only the score with those mods will be shown.\n\
      If no map is given, I will choose the last map \
      I can find in the embeds of this channel."
 )]
-#[usage("[username] [map url / map id]")]
+#[usage("[username] [map url / map id] [+mods]")]
 #[examples(
     "badewanne3",
-    "badewanne3 2240404",
+    "badewanne3 2240404 +eznc",
     "badewanne3 https://osu.ppy.sh/beatmapsets/902425#osu/2240404"
 )]
 #[aliases("c", "score", "scores")]
