@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use command_macros::EmbedData;
-use rosu_pp::Mods;
+use rosu_pp::beatmap::BeatmapAttributesBuilder;
 use rosu_v2::prelude::GameMods;
 use twilight_model::channel::embed::EmbedField;
 
@@ -15,7 +15,16 @@ pub struct AttributesEmbed {
 
 impl AttributesEmbed {
     pub fn new(kind: AttributeKind, value: f32, mods: GameMods) -> Self {
-        let adjusted = kind.apply(value, mods);
+        let mut builder = BeatmapAttributesBuilder::default();
+
+        match kind {
+            AttributeKind::Ar => builder.ar(value as f64),
+            AttributeKind::Cs => builder.cs(value as f64),
+            AttributeKind::Hp => builder.hp(value as f64),
+            AttributeKind::Od => builder.od(value as f64),
+        };
+
+        builder.mods(mods.bits());
 
         let title = format!(
             "Adjusting {}",
@@ -33,18 +42,24 @@ impl AttributesEmbed {
             value: round(value).to_string(),
         };
 
+        let attrs = builder.build();
+
+        let adjusted = match kind {
+            AttributeKind::Ar => attrs.ar,
+            AttributeKind::Cs => attrs.cs,
+            AttributeKind::Hp => attrs.hp,
+            AttributeKind::Od => attrs.od,
+        };
+
         let mut mods_field = EmbedField {
             inline: true,
             name: mods.to_string(),
-            value: round(adjusted).to_string(),
+            value: round(adjusted as f32).to_string(),
         };
 
         if let AttributeKind::Ar = kind {
-            let mods = mods.bits();
-            let value = value * mods.od_ar_hp_multiplier() as f32;
-            let ms = AttributeKind::ar_ms(value, mods.clock_rate() as f32);
-
-            let _ = write!(mods_field.value, " ({ms}ms)");
+            let ms = attrs.hit_windows.ar;
+            let _ = write!(mods_field.value, " ({}ms)", round(ms as f32));
         }
 
         let fields = vec![nm_field, mods_field];

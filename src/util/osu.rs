@@ -5,7 +5,6 @@ use std::{
     slice::Iter,
 };
 
-use rosu_pp::Mods;
 use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, Score, UserStatistics};
 use time::OffsetDateTime;
 use tokio::{fs::File, io::AsyncWriteExt};
@@ -693,74 +692,10 @@ impl SortableScore for (OsuTrackerCountryScore, usize) {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum AttributeKind {
     Ar,
     Cs,
     Hp,
     Od,
-}
-
-impl AttributeKind {
-    const AR_MIN: f32 = 1800.0;
-    const AR_MID: f32 = 1200.0;
-    const AR_MAX: f32 = 450.0;
-
-    const OD_MIN: f32 = 80.0;
-    const OD_MID: f32 = 50.0;
-    const OD_MAX: f32 = 20.0;
-
-    pub fn apply(self, value: f32, mods: GameMods) -> f32 {
-        let mods = mods.bits();
-        let clock_rate = mods.clock_rate() as f32;
-        let mult = mods.od_ar_hp_multiplier() as f32;
-
-        match self {
-            Self::Ar => Self::apply_ar((value * mult).min(10.0), clock_rate),
-            Self::Od => Self::apply_od((value * mult).min(10.0), clock_rate),
-            Self::Hp => (value * mult).min(10.0),
-            Self::Cs => {
-                if mods.hr() {
-                    (value * 1.3).min(10.0)
-                } else if mods.ez() {
-                    value * 0.5
-                } else {
-                    value
-                }
-            }
-        }
-    }
-
-    /// Returns the milliseconds for approach rate.
-    ///
-    /// **Note**: The given `ar` must already be adjusted w.r.t. the mod multiplier.
-    pub fn ar_ms(ar: f32, clock_rate: f32) -> f32 {
-        Self::difficulty_range(ar, Self::AR_MIN, Self::AR_MID, Self::AR_MAX) / clock_rate
-    }
-
-    fn apply_ar(ar: f32, clock_rate: f32) -> f32 {
-        let ms = Self::ar_ms(ar, clock_rate);
-
-        if ms > Self::AR_MID {
-            (Self::AR_MIN - ms) / (Self::AR_MIN - Self::AR_MID) * 5.0
-        } else {
-            (Self::AR_MID - ms) / (Self::AR_MID - Self::AR_MAX) * 5.0 + 5.0
-        }
-    }
-
-    fn apply_od(od: f32, clock_rate: f32) -> f32 {
-        let ms = Self::difficulty_range(od, Self::OD_MIN, Self::OD_MID, Self::OD_MAX) / clock_rate;
-
-        (Self::OD_MIN - ms) / (Self::OD_MIN - Self::OD_MID) * 5.0
-    }
-
-    fn difficulty_range(difficulty: f32, min: f32, mid: f32, max: f32) -> f32 {
-        if difficulty > 5.0 {
-            mid + (max - mid) * (difficulty - 5.0) / 5.0
-        } else if difficulty < 5.0 {
-            mid - (mid - min) * (5.0 - difficulty) / 5.0
-        } else {
-            mid
-        }
-    }
 }

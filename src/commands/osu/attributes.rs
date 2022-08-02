@@ -36,7 +36,7 @@ pub enum Attributes {
 #[command(name = "ar")]
 /// Check how mods influence the approach rate attribute
 pub struct AttributesAr {
-    #[command(rename = "value", min_value = 0.0, max_value = 10.0)]
+    #[command(rename = "value", min_value = 0.0, max_value = 20.0)]
     /// Specify an AR value
     number: f32,
     #[command(
@@ -51,7 +51,7 @@ pub struct AttributesAr {
 #[command(name = "cs")]
 /// Check how mods influence the circle size attribute
 pub struct AttributesCs {
-    #[command(rename = "value", min_value = 0.0, max_value = 10.0)]
+    #[command(rename = "value", min_value = 0.0, max_value = 20.0)]
     /// Specify a CS value
     number: f32,
     #[command(
@@ -66,7 +66,7 @@ pub struct AttributesCs {
 #[command(name = "hp")]
 /// Check how mods influence the drain rate attribute
 pub struct AttributesHp {
-    #[command(rename = "value", min_value = 0.0, max_value = 10.0)]
+    #[command(rename = "value", min_value = 0.0, max_value = 20.0)]
     /// Specify an HP value
     number: f32,
     #[command(
@@ -81,7 +81,7 @@ pub struct AttributesHp {
 #[command(name = "od")]
 /// Check how mods influence the overall difficulty attribute
 pub struct AttributesOd {
-    #[command(rename = "value", min_value = 0.0, max_value = 10.0)]
+    #[command(rename = "value", min_value = 0.0, max_value = 20.0)]
     /// Specify an OD value
     number: f32,
     #[command(
