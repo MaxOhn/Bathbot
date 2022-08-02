@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use command_macros::EmbedData;
 use rosu_pp::{
-    AnyPP, Beatmap as Map, BeatmapExt, GameMode as Mode, ManiaPP, Mods, PerformanceAttributes,
+    AnyPP, Beatmap as Map, BeatmapExt, GameMode as Mode, ManiaPP, PerformanceAttributes,
 };
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods};
 use time::OffsetDateTime;
@@ -23,8 +23,6 @@ use crate::{
     },
     BotResult,
 };
-
-use super::{calculate_ar, calculate_od};
 
 #[derive(EmbedData)]
 pub struct MapEmbed {
@@ -112,20 +110,7 @@ impl MapEmbed {
             rosu_map.od = od_ as f32;
         }
 
-        let attributes = rosu_map.attributes().mods(mod_bits);
-        let hp = attributes.hp;
-        let cs = attributes.cs;
-
-        let (ar, od) = if map.mode == GameMode::Mania {
-            (rosu_map.ar as f64, rosu_map.od)
-        } else {
-            let mult = mod_bits.od_ar_hp_multiplier() as f32;
-
-            (
-                calculate_ar((rosu_map.ar * mult).min(10.0), attributes.clock_rate as f32) as f64,
-                calculate_od((rosu_map.od * mult).min(10.0), attributes.clock_rate as f32),
-            )
-        };
+        let map_attributes = rosu_map.attributes().mods(mod_bits).build();
 
         let mut attributes = rosu_map.stars().mods(mod_bits).calculate();
         let stars = attributes.stars();
@@ -212,10 +197,10 @@ impl MapEmbed {
             "BPM: `{}` Objects: `{}`\nCS: `{}` AR: `{}` OD: `{}` HP: `{}` Spinners: `{}`",
             round(bpm),
             map.count_objects(),
-            round(cs as f32),
-            round(ar as f32),
-            round(od),
-            round(hp as f32),
+            round(map_attributes.cs as f32),
+            round(map_attributes.ar as f32),
+            round(map_attributes.od as f32),
+            round(map_attributes.hp as f32),
             map.count_spinners,
         );
 
