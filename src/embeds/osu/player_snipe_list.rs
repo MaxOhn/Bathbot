@@ -15,6 +15,7 @@ use crate::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
         datetime::how_long_ago_dynamic,
+        hasher::SimpleBuildHasher,
         numbers::{round, with_comma_int},
         CowUtils,
     },
@@ -32,7 +33,7 @@ impl PlayerSnipeListEmbed {
     pub async fn new(
         user: &User,
         scores: &BTreeMap<usize, SnipeScore>,
-        maps: &HashMap<u32, Beatmap>,
+        maps: &HashMap<u32, Beatmap, SimpleBuildHasher>,
         total: usize,
         ctx: &Context,
         pages: &Pages,

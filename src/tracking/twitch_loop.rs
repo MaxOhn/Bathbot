@@ -13,7 +13,7 @@ use twilight_model::id::{marker::ChannelMarker, Id};
 use crate::{
     custom_client::TwitchStream,
     embeds::{EmbedData, TwitchNotifEmbed},
-    util::constants::UNKNOWN_CHANNEL,
+    util::{constants::UNKNOWN_CHANNEL, hasher::SimpleBuildHasher},
     Context,
 };
 
@@ -25,7 +25,7 @@ pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
         return;
     }
 
-    let mut online_streams = HashSet::new();
+    let mut online_streams = HashSet::with_hasher(SimpleBuildHasher);
     let mut interval = interval(Duration::from_secs(10 * 60));
     interval.tick().await;
 
@@ -48,7 +48,8 @@ pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
 
         // Filter streams whether they're live
         streams.retain(TwitchStream::is_live);
-        let now_online: HashSet<_> = streams.iter().map(|stream| stream.user_id).collect();
+        let now_online: HashSet<_, SimpleBuildHasher> =
+            streams.iter().map(|stream| stream.user_id).collect();
 
         // If there was no activity change since last time, don't do anything
         if now_online == online_streams {

@@ -1,4 +1,3 @@
-
 use std::collections::HashMap;
 
 use command_macros::EmbedData;
@@ -96,3 +95,4 @@ impl SnipedEmbed {
         }
     }
 }
+

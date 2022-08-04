@@ -14,6 +14,7 @@ use thiserror::Error;
 
 use crate::{
     database::{DBBeatmap, DBBeatmapset},
+    util::hasher::SimpleBuildHasher,
     BotResult, Database,
 };
 
@@ -139,8 +140,8 @@ impl Database {
     pub async fn get_beatmaps_combo(
         &self,
         map_ids: &[i32],
-    ) -> BotResult<HashMap<u32, Option<u32>>> {
-        let mut combos = HashMap::with_capacity(map_ids.len());
+    ) -> BotResult<HashMap<u32, Option<u32>, SimpleBuildHasher>> {
+        let mut combos = HashMap::with_capacity_and_hasher(map_ids.len(), SimpleBuildHasher);
 
         let query = sqlx::query!(
             "SELECT map_id,max_combo FROM maps WHERE map_id=ANY($1)",
@@ -160,9 +161,9 @@ impl Database {
         &self,
         map_ids: &[i32],
         with_mapset: bool,
-    ) -> BotResult<HashMap<u32, Beatmap>> {
+    ) -> BotResult<HashMap<u32, Beatmap, SimpleBuildHasher>> {
         if map_ids.is_empty() {
-            return Ok(HashMap::new());
+            return Ok(HashMap::default());
         }
 
         let mut conn = self.pool.acquire().await?;
@@ -178,7 +179,7 @@ impl Database {
             .map_ok(Beatmap::from)
             .map_ok(|m| (m.map_id, m));
 
-        let mut beatmaps = HashMap::with_capacity(map_ids.len());
+        let mut beatmaps = HashMap::with_capacity_and_hasher(map_ids.len(), SimpleBuildHasher);
 
         while let Some((id, mut map)) = stream.next().await.transpose()? {
             if with_mapset {

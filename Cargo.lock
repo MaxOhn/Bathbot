@@ -556,7 +556,7 @@ dependencies = [
 [[package]]
 name = "flexmap"
 version = "0.1.0"
-source = "git+https://github.com/MaxOhn/flexmap#c3a8b595d40a7936be181fc556f3f68a7c10088a"
+source = "git+https://github.com/MaxOhn/flexmap#a42723d35667968b7a7f82a6f59185558c5581c9"
 dependencies = [
  "futures",
  "hashbrown",

@@ -4,6 +4,8 @@ use hashbrown::HashMap;
 use parking_lot::Mutex;
 use time::OffsetDateTime;
 
+use crate::util::hasher::SimpleBuildHasher;
+
 pub struct Buckets([Mutex<Bucket>; 7]);
 
 impl Buckets {
@@ -56,14 +58,14 @@ pub struct MemberRatelimit {
 
 pub struct Bucket {
     pub ratelimit: Ratelimit,
-    pub users: HashMap<u64, MemberRatelimit>,
+    pub users: HashMap<u64, MemberRatelimit, SimpleBuildHasher>,
 }
 
 impl Bucket {
     fn new(ratelimit: Ratelimit) -> Self {
         Self {
             ratelimit,
-            users: HashMap::new(),
+            users: HashMap::default(),
         }
     }
 

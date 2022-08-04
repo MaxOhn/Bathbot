@@ -81,7 +81,7 @@ async fn get_users(
             let report = Report::new(err).wrap_err("failed to get names by ids");
             warn!("{report:?}",);
 
-            HashMap::new()
+            HashMap::default()
         }
     };
 

@@ -16,12 +16,13 @@ use crate::{
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
+        hasher::SimpleBuildHasher,
         numbers::{round, with_comma_int},
         CowUtils, Emote, ScoreExt,
     },
 };
 
-type Farm = HashMap<u32, (OsuTrackerMapsetEntry, bool)>;
+type Farm = HashMap<u32, (OsuTrackerMapsetEntry, bool), SimpleBuildHasher>;
 
 #[derive(EmbedData)]
 pub struct TopEmbed {
@@ -420,7 +421,7 @@ pub struct OrderAppendix<'a> {
     map: &'a Beatmap,
     ranked_date: Option<OffsetDateTime>,
     score: &'a Score,
-    farm: &'a HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
+    farm: &'a Farm,
 }
 
 impl<'a> OrderAppendix<'a> {

@@ -18,6 +18,7 @@ use crate::{
     tracking::process_osu_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        hasher::SimpleBuildHasher,
         matcher, ApplicationCommandExt, ChannelExt, CowUtils,
     },
     BotResult, Context,
@@ -399,7 +400,7 @@ impl ProfileEmbed {
                             let result = if let Some(result) = profile_result {
                                 result
                             } else {
-                                return HashMap::new();
+                                return HashMap::with_hasher(SimpleBuildHasher);
                             };
 
                             let ids: Vec<_> =
@@ -411,7 +412,7 @@ impl ProfileEmbed {
                                     let report = Report::new(err).wrap_err("failed to get names");
                                     warn!("{report:?}");
 
-                                    return HashMap::new();
+                                    return HashMap::default();
                                 }
                             };
 

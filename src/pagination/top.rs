@@ -8,6 +8,7 @@ use crate::{
     core::Context,
     custom_client::OsuTrackerMapsetEntry,
     embeds::{CondensedTopEmbed, EmbedData, TopEmbed},
+    util::hasher::SimpleBuildHasher,
 };
 
 use super::Pages;
@@ -17,7 +18,7 @@ pub struct TopPagination {
     user: User,
     scores: Vec<(usize, Score)>,
     sort_by: TopScoreOrder,
-    farm: HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
+    farm: HashMap<u32, (OsuTrackerMapsetEntry, bool), SimpleBuildHasher>,
 }
 
 impl TopPagination {
@@ -35,7 +36,7 @@ pub struct TopCondensedPagination {
     user: User,
     scores: Vec<(usize, Score)>,
     sort_by: TopScoreOrder,
-    farm: HashMap<u32, (OsuTrackerMapsetEntry, bool)>,
+    farm: HashMap<u32, (OsuTrackerMapsetEntry, bool), SimpleBuildHasher>,
 }
 
 impl TopCondensedPagination {

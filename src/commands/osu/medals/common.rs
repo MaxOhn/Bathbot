@@ -17,7 +17,9 @@ use crate::{
     pagination::MedalsCommonPagination,
     util::{
         constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
-        get_combined_thumbnail, matcher,
+        get_combined_thumbnail,
+        hasher::SimpleBuildHasher,
+        matcher,
     },
     BotResult, Context,
 };
@@ -303,12 +305,12 @@ pub struct MedalEntryCommon {
     pub achieved2: Option<OffsetDateTime>,
 }
 
-fn extract_medals(user: &User) -> HashMap<u32, OffsetDateTime> {
+fn extract_medals(user: &User) -> HashMap<u32, OffsetDateTime, SimpleBuildHasher> {
     match user.medals.as_ref() {
         Some(medals) => medals
             .iter()
             .map(|medal| (medal.medal_id, medal.achieved_at))
             .collect(),
-        None => HashMap::new(),
+        None => HashMap::default(),
     }
 }

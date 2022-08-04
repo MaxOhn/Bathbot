@@ -1,5 +1,6 @@
 use std::hash::{BuildHasher, Hasher};
 
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct SimpleBuildHasher;
 
 impl BuildHasher for SimpleBuildHasher {
@@ -11,6 +12,7 @@ impl BuildHasher for SimpleBuildHasher {
     }
 }
 
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct SimpleHasher(u64);
 
 #[rustfmt::skip]

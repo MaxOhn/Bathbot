@@ -34,6 +34,7 @@ use crate::{
             TWITCH_VIDEOS_ENDPOINT,
         },
         datetime::{DATE_FORMAT, TIME_FORMAT},
+        hasher::SimpleBuildHasher,
         numbers::round,
         osu::ModSelection,
         ExponentialBackoff,
@@ -733,7 +734,7 @@ impl CustomClient {
             let mut new_scores = self._get_leaderboard(map_id, mods).await?;
             scores.append(&mut new_scores);
             scores.sort_unstable_by(|a, b| b.score.cmp(&a.score));
-            let mut uniques = HashSet::with_capacity(50);
+            let mut uniques = HashSet::with_capacity_and_hasher(50, SimpleBuildHasher);
             scores.retain(|s| uniques.insert(s.user_id));
             scores.truncate(50);
         }
@@ -758,7 +759,7 @@ impl CustomClient {
             let mut new_scores = self._get_leaderboard(map_id, mods).await?;
             scores.append(&mut new_scores);
             scores.sort_unstable_by(|a, b| b.score.cmp(&a.score));
-            let mut uniques = HashSet::with_capacity(50);
+            let mut uniques = HashSet::with_capacity_and_hasher(50, SimpleBuildHasher);
             scores.retain(|s| uniques.insert(s.user_id));
             scores.truncate(50);
         }

@@ -12,14 +12,17 @@ use crate::{
         models::{EmbedsSize, ListSize, OsuData},
         GuildConfig, MinimizedPp, UserConfig,
     },
+    util::hasher::SimpleBuildHasher,
     BotResult, Database,
 };
 
 impl Database {
     #[cold]
-    pub async fn get_guilds(&self) -> BotResult<FlurryMap<Id<GuildMarker>, GuildConfig>> {
+    pub async fn get_guilds(
+        &self,
+    ) -> BotResult<FlurryMap<Id<GuildMarker>, GuildConfig, SimpleBuildHasher>> {
         let mut stream = sqlx::query!("SELECT * FROM guild_configs").fetch(&self.pool);
-        let guilds = FlurryMap::with_capacity(10_000);
+        let guilds = FlurryMap::with_capacity_and_hasher(20_000, SimpleBuildHasher);
 
         {
             let gref = guilds.pin();

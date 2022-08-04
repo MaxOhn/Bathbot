@@ -1,11 +1,11 @@
 use std::iter;
 
-use crate::{BotResult, Database};
+use crate::{util::hasher::SimpleBuildHasher, BotResult, Database};
 
 use flurry::HashMap as FlurryMap;
 use futures::stream::StreamExt;
 
-type TrackedStreams = FlurryMap<u64, Vec<u64>>;
+type TrackedStreams = FlurryMap<u64, Vec<u64>, SimpleBuildHasher>;
 
 impl Database {
     pub async fn add_stream_track(&self, channel: u64, user: u64) -> BotResult<bool> {
@@ -23,7 +23,7 @@ impl Database {
     #[cold]
     pub async fn get_stream_tracks(&self) -> BotResult<TrackedStreams> {
         let mut stream = sqlx::query!("SELECT * FROM stream_tracks").fetch(&self.pool);
-        let tracks = TrackedStreams::with_capacity(1000);
+        let tracks = TrackedStreams::with_capacity_and_hasher(1000, SimpleBuildHasher);
 
         {
             let guard = tracks.guard();

@@ -16,6 +16,7 @@ use crate::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
         datetime::how_long_ago_dynamic,
+        hasher::SimpleBuildHasher,
         numbers::round,
         osu::prepare_beatmap_file,
         CowUtils,
@@ -38,7 +39,7 @@ impl SnipedDiffEmbed {
         diff: Difference,
         scores: &[SnipeRecent],
         pages: &Pages,
-        maps: &mut HashMap<u32, Beatmap>,
+        maps: &mut HashMap<u32, Beatmap, SimpleBuildHasher>,
         ctx: &Context,
     ) -> BotResult<Self> {
         let mut description = String::with_capacity(512);

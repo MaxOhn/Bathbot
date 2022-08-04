@@ -5,6 +5,7 @@ use crate::{
     commands::osu::OsuStatsPlayersArgs,
     custom_client::OsuStatsPlayer,
     embeds::{EmbedData, OsuStatsListEmbed},
+    util::hasher::SimpleBuildHasher,
     BotResult, Context,
 };
 
@@ -12,14 +13,14 @@ use super::{Pages, PaginationBuilder, PaginationKind};
 
 // Not using #[pagination(...)] since it requires special initialization
 pub struct OsuStatsListPagination {
-    players: HashMap<usize, Vec<OsuStatsPlayer>>,
+    players: HashMap<usize, Vec<OsuStatsPlayer>, SimpleBuildHasher>,
     params: OsuStatsPlayersArgs,
     first_place_id: u32,
 }
 
 impl OsuStatsListPagination {
     pub fn builder(
-        players: HashMap<usize, Vec<OsuStatsPlayer>>,
+        players: HashMap<usize, Vec<OsuStatsPlayer>, SimpleBuildHasher>,
         params: OsuStatsPlayersArgs,
         first_place_id: u32,
         amount: usize,

@@ -9,6 +9,7 @@ use crate::{
     core::Context,
     custom_client::SnipeRecent,
     embeds::{EmbedData, SnipedDiffEmbed},
+    util::hasher::SimpleBuildHasher,
     BotResult,
 };
 
@@ -19,7 +20,7 @@ pub struct SnipedDiffPagination {
     user: User,
     diff: Difference,
     scores: Vec<SnipeRecent>,
-    maps: HashMap<u32, Beatmap>,
+    maps: HashMap<u32, Beatmap, SimpleBuildHasher>,
 }
 
 impl SnipedDiffPagination {

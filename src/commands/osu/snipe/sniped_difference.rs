@@ -12,6 +12,7 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
+        hasher::SimpleBuildHasher,
         matcher,
     },
     BotResult, Context,
@@ -188,7 +189,7 @@ async fn sniped_diff(
     }
 
     scores.sort_unstable_by_key(|s| Reverse(s.date));
-    let maps = HashMap::new();
+    let maps = HashMap::with_hasher(SimpleBuildHasher);
 
     SnipedDiffPagination::builder(user, diff, scores, maps)
         .start_by_update()

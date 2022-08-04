@@ -19,7 +19,7 @@ use twilight_model::{
 use crate::{
     commands::osu::prepare_score,
     embeds::{EmbedData, TrackNotificationEmbed},
-    util::constants::UNKNOWN_CHANNEL,
+    util::{constants::UNKNOWN_CHANNEL, hasher::SimpleBuildHasher},
     Context,
 };
 
@@ -134,7 +134,7 @@ async fn score_loop(
     max: usize,
     last: OffsetDateTime,
     scores: &mut [Score],
-    channels: &HashMap<Id<ChannelMarker>, usize>,
+    channels: &HashMap<Id<ChannelMarker>, usize, SimpleBuildHasher>,
 ) -> OsuResult<()> {
     for (idx, score) in (1..).zip(scores.iter_mut()).take(max) {
         // Skip if its an older score

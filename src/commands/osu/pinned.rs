@@ -24,6 +24,7 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        hasher::SimpleBuildHasher,
         osu::ModSelection,
         query::{FilterCriteria, Searchable},
         ApplicationCommandExt, MessageExt,
@@ -338,7 +339,7 @@ async fn paginated_embed(
 ) -> BotResult<()> {
     let scores: Vec<_> = scores.into_iter().enumerate().collect();
 
-    let farm = HashMap::new();
+    let farm = HashMap::with_hasher(SimpleBuildHasher);
     let sort_by = sort_by.into();
 
     TopCondensedPagination::builder(user, scores, sort_by, farm)

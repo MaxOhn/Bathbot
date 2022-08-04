@@ -16,6 +16,7 @@ use crate::{
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         datetime::how_long_ago_dynamic,
+        hasher::SimpleBuildHasher,
         osu::{grade_completion_mods, prepare_beatmap_file},
         CowUtils, ScoreExt,
     },
@@ -42,7 +43,7 @@ impl RecentListEmbed {
         let idx = (page - 1) * 10 + 1;
 
         let mut mod_map = HashMap::new();
-        let mut rosu_maps = HashMap::new();
+        let mut rosu_maps = HashMap::with_hasher(SimpleBuildHasher);
 
         let mut description = String::with_capacity(512);
 

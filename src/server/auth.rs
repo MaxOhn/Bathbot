@@ -14,7 +14,7 @@ use tokio::{
     time::{self, Timeout},
 };
 
-use crate::custom_client::TwitchUser;
+use crate::{custom_client::TwitchUser, util::hasher::SimpleBuildHasher};
 
 const DEADLINE: Duration = Duration::from_secs(120);
 
@@ -26,8 +26,8 @@ pub enum AuthenticationStandbyError {
 pub struct AuthenticationStandby {
     // u8 is sufficient for 256 concurrent authorization awaitings within two minutes
     current_state: AtomicU8,
-    osu: StdMutexMap<u8, Sender<User>>,
-    twitch: StdMutexMap<u8, Sender<TwitchUser>>,
+    osu: StdMutexMap<u8, Sender<User>, SimpleBuildHasher>,
+    twitch: StdMutexMap<u8, Sender<TwitchUser>, SimpleBuildHasher>,
 }
 
 impl Default for AuthenticationStandby {
@@ -35,8 +35,8 @@ impl Default for AuthenticationStandby {
     fn default() -> Self {
         Self {
             current_state: AtomicU8::default(),
-            osu: StdMutexMap::with_shard_amount(4),
-            twitch: StdMutexMap::with_shard_amount(4),
+            osu: StdMutexMap::with_shard_amount_and_hasher(4, SimpleBuildHasher),
+            twitch: StdMutexMap::with_shard_amount_and_hasher(4, SimpleBuildHasher),
         }
     }
 }

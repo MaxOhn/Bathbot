@@ -15,7 +15,7 @@ use rosu_v2::model::GameMode;
 use tokio::{sync::Mutex, time};
 use twilight_model::id::{marker::ChannelMarker, Id};
 
-use crate::{database::TrackingUser, BotResult, Database};
+use crate::{database::TrackingUser, util::hasher::SimpleBuildHasher, BotResult, Database};
 
 pub use super::{osu_tracking_loop, process_osu_tracking};
 
@@ -30,7 +30,7 @@ pub fn default_tracking_interval() -> Duration {
 type TrackingQueue =
     Mutex<PriorityQueue<TrackingEntry, Reverse<OffsetDateTime>, DefaultHashBuilder>>;
 
-type Channels = HashMap<Id<ChannelMarker>, usize>;
+type Channels = HashMap<Id<ChannelMarker>, usize, SimpleBuildHasher>;
 
 pub struct TrackingStats {
     pub next_pop: TrackingEntry,

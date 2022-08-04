@@ -14,6 +14,7 @@ use crate::{
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         datetime::{how_long_ago_text, sec_to_minsec, DATETIME_FORMAT},
+        hasher::SimpleBuildHasher,
         numbers::{round, with_comma_int},
         osu::grade_emote,
         CowUtils, Emote,
@@ -88,7 +89,7 @@ impl ProfileEmbed {
         globals_count: &BTreeMap<usize, Cow<'static, str>>,
         own_top_scores: usize,
         discord_id: Option<Id<UserMarker>>,
-        mapper_names: &HashMap<u32, Username>,
+        mapper_names: &HashMap<u32, Username, SimpleBuildHasher>,
     ) -> Self {
         let mode = Emote::from(user.mode).text();
 

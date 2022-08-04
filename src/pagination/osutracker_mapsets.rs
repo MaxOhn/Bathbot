@@ -10,6 +10,7 @@ use crate::{
     core::Context,
     custom_client::OsuTrackerMapsetEntry,
     embeds::{EmbedData, OsuTrackerMapsetsEmbed},
+    util::hasher::SimpleBuildHasher,
     BotResult,
 };
 
@@ -18,7 +19,7 @@ use super::Pages;
 #[pagination(per_page = 10, entries = "entries")]
 pub struct OsuTrackerMapsetsPagination {
     entries: Vec<OsuTrackerMapsetEntry>,
-    mapsets: HashMap<u32, MapsetEntry>,
+    mapsets: HashMap<u32, MapsetEntry, SimpleBuildHasher>,
 }
 
 impl OsuTrackerMapsetsPagination {

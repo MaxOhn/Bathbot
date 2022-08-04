@@ -34,7 +34,7 @@ use crate::{
     pagination::Pagination,
     server::AuthenticationStandby,
     tracking::OsuTracking,
-    util::CountryCode,
+    util::{hasher::SimpleBuildHasher, CountryCode},
     BotResult,
 };
 
@@ -61,7 +61,7 @@ pub struct Context {
     pub cluster: Cluster,
     pub http: Arc<Client>,
     pub member_requests: MemberRequests,
-    pub paginations: Arc<TokioMutexMap<Id<MessageMarker>, Pagination>>,
+    pub paginations: Arc<TokioMutexMap<Id<MessageMarker>, Pagination, SimpleBuildHasher>>,
     pub standby: Standby,
     pub stats: Arc<BotStats>,
     // private to avoid deadlocks by messing up references
@@ -170,7 +170,10 @@ impl Context {
             auth_standby: AuthenticationStandby::new(),
             buckets: Buckets::new(),
             member_requests: MemberRequests::new(tx),
-            paginations: Arc::new(TokioMutexMap::with_shard_amount(16)),
+            paginations: Arc::new(TokioMutexMap::with_shard_amount_and_hasher(
+                16,
+                SimpleBuildHasher,
+            )),
         };
 
         Ok((ctx, events))
@@ -179,14 +182,14 @@ impl Context {
 
 pub struct MemberRequests {
     pub tx: UnboundedSender<(Id<GuildMarker>, u64)>,
-    pub todo_guilds: Mutex<HashSet<Id<GuildMarker>>>,
+    pub todo_guilds: Mutex<HashSet<Id<GuildMarker>, SimpleBuildHasher>>,
 }
 
 impl MemberRequests {
     fn new(tx: UnboundedSender<(Id<GuildMarker>, u64)>) -> Self {
         Self {
             tx,
-            todo_guilds: Mutex::new(HashSet::new()),
+            todo_guilds: Mutex::new(HashSet::default()),
         }
     }
 }
@@ -212,14 +215,14 @@ impl Clients {
 struct ContextData {
     application_id: Id<ApplicationMarker>,
     games: Games,
-    guilds: FlurryMap<Id<GuildMarker>, GuildConfig>, // read-heavy
-    map_garbage_collection: Mutex<HashSet<NonZeroU32>>,
+    guilds: FlurryMap<Id<GuildMarker>, GuildConfig, SimpleBuildHasher>, // read-heavy
+    map_garbage_collection: Mutex<HashSet<NonZeroU32, SimpleBuildHasher>>,
     matchlive: MatchLiveChannels,
-    msgs_to_process: Mutex<HashSet<Id<MessageMarker>>>,
+    msgs_to_process: Mutex<HashSet<Id<MessageMarker>, SimpleBuildHasher>>,
     osu_tracking: OsuTracking,
     role_assigns: FlurryMap<(u64, u64), AssignRoles>, // read-heavy
     snipe_countries: FlurryMap<CountryCode, String>,  // read-heavy
-    tracked_streams: FlurryMap<u64, Vec<u64>>,        // read-heavy
+    tracked_streams: FlurryMap<u64, Vec<u64>, SimpleBuildHasher>, // read-heavy
 }
 
 impl ContextData {
@@ -228,9 +231,9 @@ impl ContextData {
             application_id,
             games: Games::new(),
             guilds: psql.get_guilds().await?,
-            map_garbage_collection: Mutex::new(HashSet::new()),
+            map_garbage_collection: Mutex::new(HashSet::default()),
             matchlive: MatchLiveChannels::new(),
-            msgs_to_process: Mutex::new(HashSet::new()),
+            msgs_to_process: Mutex::new(HashSet::default()),
             osu_tracking: OsuTracking::new(psql).await?,
             role_assigns: psql.get_role_assigns().await?,
             snipe_countries: psql.get_snipe_countries().await?,
@@ -248,13 +251,13 @@ struct Games {
 impl Games {
     fn new() -> Self {
         Self {
-            bg: BgGames::with_shard_amount(16),
-            hl: HlGames::with_shard_amount(16),
-            hl_retries: HlRetries::with_shard_amount(4),
+            bg: BgGames::with_shard_amount_and_hasher(16, SimpleBuildHasher),
+            hl: HlGames::with_shard_amount_and_hasher(16, SimpleBuildHasher),
+            hl_retries: HlRetries::with_shard_amount_and_hasher(4, SimpleBuildHasher),
         }
     }
 }
 
-type BgGames = TokioRwLockMap<Id<ChannelMarker>, BgGameState>;
-type HlGames = TokioMutexMap<Id<UserMarker>, HlGameState>;
-type HlRetries = StdMutexMap<Id<MessageMarker>, RetryState>;
+type BgGames = TokioRwLockMap<Id<ChannelMarker>, BgGameState, SimpleBuildHasher>;
+type HlGames = TokioMutexMap<Id<UserMarker>, HlGameState, SimpleBuildHasher>;
+type HlRetries = StdMutexMap<Id<MessageMarker>, RetryState, SimpleBuildHasher>;

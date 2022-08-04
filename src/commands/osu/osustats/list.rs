@@ -11,6 +11,7 @@ use crate::{
     pagination::OsuStatsListPagination,
     util::{
         constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE},
+        hasher::SimpleBuildHasher,
         ChannelExt, CountryCode, CowUtils,
     },
     BotResult, Context,
@@ -130,8 +131,11 @@ pub(super) async fn players(
 async fn prepare_players(
     ctx: &Context,
     params: &mut OsuStatsPlayersArgs,
-) -> BotResult<(usize, HashMap<usize, Vec<OsuStatsPlayer>>)> {
-    let mut players = HashMap::with_capacity(2);
+) -> BotResult<(
+    usize,
+    HashMap<usize, Vec<OsuStatsPlayer>, SimpleBuildHasher>,
+)> {
+    let mut players = HashMap::with_capacity_and_hasher(2, SimpleBuildHasher);
 
     // Retrieve page one
     let page = ctx.client().get_country_globals(params).await?;
@@ -223,7 +227,7 @@ async fn prepare_players(
 }
 
 fn insert(
-    map: &mut HashMap<usize, Vec<OsuStatsPlayer>>,
+    map: &mut HashMap<usize, Vec<OsuStatsPlayer>, SimpleBuildHasher>,
     page: usize,
     players: Vec<OsuStatsPlayer>,
 ) {

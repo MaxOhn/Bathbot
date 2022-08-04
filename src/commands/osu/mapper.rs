@@ -17,7 +17,10 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     pagination::TopPagination,
     tracking::process_osu_tracking,
-    util::{constants::OSU_API_ISSUE, matcher, ApplicationCommandExt, ChannelExt, CowUtils},
+    util::{
+        constants::OSU_API_ISSUE, hasher::SimpleBuildHasher, matcher, ApplicationCommandExt,
+        ChannelExt, CowUtils,
+    },
     BotResult, Context,
 };
 
@@ -287,7 +290,7 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
     };
 
     let sort_by = TopScoreOrder::Pp;
-    let farm = HashMap::new();
+    let farm = HashMap::with_hasher(SimpleBuildHasher);
 
     TopPagination::builder(user, scores, sort_by, farm)
         .content(content)

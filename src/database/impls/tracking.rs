@@ -5,7 +5,10 @@ use serde_json::Value;
 use time::OffsetDateTime;
 use twilight_model::id::{marker::ChannelMarker, Id};
 
-use crate::{database::TrackingUser, tracking::TrackingEntry, BotResult, Database};
+use crate::{
+    database::TrackingUser, tracking::TrackingEntry, util::hasher::SimpleBuildHasher, BotResult,
+    Database,
+};
 
 impl Database {
     #[cold]
@@ -54,7 +57,7 @@ impl Database {
         user_id: u32,
         mode: GameMode,
         last_top_score: OffsetDateTime,
-        channels: &HashMap<Id<ChannelMarker>, usize>,
+        channels: &HashMap<Id<ChannelMarker>, usize, SimpleBuildHasher>,
     ) -> BotResult<()> {
         sqlx::query!(
             "UPDATE osu_trackings \
@@ -91,7 +94,7 @@ impl Database {
         channel: Id<ChannelMarker>,
         limit: usize,
     ) -> BotResult<()> {
-        let mut set = HashMap::new();
+        let mut set = HashMap::with_hasher(SimpleBuildHasher);
         set.insert(channel, limit);
 
         let row = sqlx::query!(
@@ -109,7 +112,8 @@ impl Database {
         .fetch_one(&self.pool)
         .await?;
 
-        let mut channels: HashMap<Id<ChannelMarker>, usize> = serde_json::from_value(row.channels)?;
+        let mut channels: HashMap<Id<ChannelMarker>, usize, SimpleBuildHasher> =
+            serde_json::from_value(row.channels)?;
 
         if channels.insert(channel, limit).is_none() {
             sqlx::query!(

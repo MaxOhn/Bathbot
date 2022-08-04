@@ -30,6 +30,7 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSUTRACKER_ISSUE, OSU_API_ISSUE},
+        hasher::SimpleBuildHasher,
         matcher, numbers,
         osu::{ModSelection, SortableScore},
         query::{FilterCriteria, Searchable},
@@ -834,7 +835,7 @@ pub(super) async fn top(
 
             return Err(err.into());
         }
-        None => HashMap::new(),
+        None => HashMap::default(),
     };
 
     // Overwrite default mode
@@ -1123,7 +1124,7 @@ async fn single_embed(
     Ok(())
 }
 
-type Farm = HashMap<u32, (OsuTrackerMapsetEntry, bool)>;
+type Farm = HashMap<u32, (OsuTrackerMapsetEntry, bool), SimpleBuildHasher>;
 
 async fn paginated_embed(
     ctx: Arc<Context>,

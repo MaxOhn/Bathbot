@@ -8,12 +8,14 @@ use sqlx::{types::Json, ColumnIndex, Decode, Error, FromRow, Row, Type};
 use time::OffsetDateTime;
 use twilight_model::id::{marker::ChannelMarker, Id};
 
+use crate::util::hasher::SimpleBuildHasher;
+
 #[derive(Debug)]
 pub struct TrackingUser {
     pub user_id: u32,
     pub mode: GameMode,
     pub last_top_score: OffsetDateTime,
-    pub channels: HashMap<Id<ChannelMarker>, usize>,
+    pub channels: HashMap<Id<ChannelMarker>, usize, SimpleBuildHasher>,
 }
 
 impl TrackingUser {
@@ -24,7 +26,7 @@ impl TrackingUser {
         channel: Id<ChannelMarker>,
         limit: usize,
     ) -> Self {
-        let mut channels = HashMap::new();
+        let mut channels = HashMap::default();
         channels.insert(channel, limit);
 
         Self {
@@ -70,7 +72,7 @@ where
                 let report = Report::new(err).wrap_err(wrap);
                 warn!("{:?}", report);
 
-                HashMap::new()
+                HashMap::default()
             }
         };
 

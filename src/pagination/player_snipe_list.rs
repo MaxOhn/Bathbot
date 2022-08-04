@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, iter::Extend, };
+use std::{collections::BTreeMap, iter::Extend};
 
 use command_macros::pagination;
 use eyre::Report;
@@ -9,6 +9,7 @@ use twilight_model::channel::embed::Embed;
 use crate::{
     custom_client::{SnipeScore, SnipeScoreParams},
     embeds::{EmbedData, PlayerSnipeListEmbed},
+    util::hasher::SimpleBuildHasher,
     BotResult, Context,
 };
 
@@ -18,7 +19,7 @@ use super::Pages;
 pub struct PlayerSnipeListPagination {
     user: User,
     scores: BTreeMap<usize, SnipeScore>,
-    maps: HashMap<u32, Beatmap>,
+    maps: HashMap<u32, Beatmap, SimpleBuildHasher>,
     total: usize,
     params: SnipeScoreParams,
 }

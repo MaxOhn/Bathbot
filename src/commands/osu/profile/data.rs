@@ -8,7 +8,10 @@ use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, GameMods, Score, User, UserStatistics};
 use twilight_model::id::{marker::UserMarker, Id};
 
-use crate::{commands::osu::MinMaxAvg, util::osu::BonusPP};
+use crate::{
+    commands::osu::MinMaxAvg,
+    util::{hasher::SimpleBuildHasher, osu::BonusPP},
+};
 
 use super::ProfileEmbedMap;
 
@@ -78,7 +81,7 @@ impl ProfileResult {
         let mut combo = MinMaxAvg::new();
         let mut map_len = MinMaxAvg::new();
         let mut map_combo = 0;
-        let mut mapper_count = HashMap::with_capacity(10);
+        let mut mapper_count = HashMap::with_capacity_and_hasher(10, SimpleBuildHasher);
         let len = scores.len() as f32;
         let mut mod_combs = HashMap::with_capacity(5);
         let mut mods = HashMap::with_capacity(5);

@@ -10,6 +10,7 @@ use crate::{
     commands::osu::UserValue,
     database::{Database, UserStatsColumn, UserValueRaw},
     embeds::RankingEntry,
+    util::hasher::SimpleBuildHasher,
     BotResult,
 };
 
@@ -42,14 +43,17 @@ impl Database {
         Ok(())
     }
 
-    pub async fn get_names_by_ids(&self, ids: &[i32]) -> BotResult<HashMap<u32, Username>> {
+    pub async fn get_names_by_ids(
+        &self,
+        ids: &[i32],
+    ) -> BotResult<HashMap<u32, Username, SimpleBuildHasher>> {
         let query = sqlx::query!(
             "SELECT user_id,username from osu_user_names WHERE user_id=ANY($1)",
             ids
         );
 
         let mut stream = query.fetch(&self.pool);
-        let mut map = HashMap::with_capacity(ids.len());
+        let mut map = HashMap::with_capacity_and_hasher(ids.len(), SimpleBuildHasher);
 
         while let Some(row) = stream.next().await.transpose()? {
             map.insert(row.user_id as u32, row.username.into());
