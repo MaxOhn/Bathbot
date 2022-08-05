@@ -20,8 +20,8 @@ use rosu_pp::{
     Beatmap as Map, BeatmapExt, CatchPP, DifficultyAttributes, ManiaPP, OsuPP,
     PerformanceAttributes, TaikoPP,
 };
-use rosu_v2::prelude::{BeatmapUserScore, GameMode, Grade, Score, User};
-use std::{borrow::Cow, fmt::Write};
+use rosu_v2::prelude::{BeatmapUserScore, GameMode, Grade, RankStatus, Score, User};
+use std::{borrow::Cow, cmp::Ordering, fmt::Write};
 use time::OffsetDateTime;
 use twilight_model::channel::embed::Embed;
 
@@ -83,6 +83,7 @@ impl RecentEmbed {
         } else if score.grade == Grade::F {
             let hits = score.total_hits() as usize;
 
+            // TODO: simplify
             match map.mode {
                 GameMode::Osu => {
                     OsuPP::new(&rosu_map)
@@ -127,6 +128,7 @@ impl RecentEmbed {
                 }
             }
         } else {
+            // TODO: simplify
             let pp_result: PerformanceAttributes = match map.mode {
                 GameMode::Osu => OsuPP::new(&rosu_map)
                     .attributes(attributes)
@@ -221,7 +223,27 @@ impl RecentEmbed {
         ))
         .icon_url(format!("{AVATAR_URL}{}", mapset.creator_id));
 
-        let personal_idx = personal.and_then(|personal| personal.iter().position(|s| s == score));
+        let personal_idx = personal
+            .filter(|_| matches!(map.status, RankStatus::Ranked))
+            .filter(|personal| {
+                personal
+                    .last()
+                    .map_or(true, |last| last.pp < score.pp || personal.len() < 100)
+            })
+            .and_then(|personal| {
+                personal
+                    .iter()
+                    .position(|s| s == score)
+                    .or_else(|| {
+                        personal
+                            .binary_search_by(|probe| {
+                                score.pp.partial_cmp(&probe.pp).unwrap_or(Ordering::Equal)
+                            })
+                            .map_or_else(Some, Some)
+                            .filter(|&idx| idx < 100)
+                    })
+                    .map(|idx| idx + 1)
+            });
 
         let global_idx = map_score
             .and_then(|s| (&s.score == score).then(|| s.pos))
@@ -232,7 +254,7 @@ impl RecentEmbed {
             description.push_str("__**");
 
             if let Some(idx) = personal_idx {
-                let _ = write!(description, "Personal Best #{}", idx + 1);
+                let _ = write!(description, "Personal Best #{idx}");
 
                 if global_idx.is_some() {
                     description.reserve(19);
