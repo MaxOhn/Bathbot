@@ -62,6 +62,7 @@ impl Database {
         Ok(map)
     }
 
+    /// Be sure wildcards (_, %) are escaped as required!
     pub async fn get_ids_by_names(&self, names: &[String]) -> BotResult<HashMap<Username, u32>> {
         let query = sqlx::query!(
             "SELECT user_id,username from osu_user_names WHERE username ILIKE ANY($1)",

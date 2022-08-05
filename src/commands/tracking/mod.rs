@@ -118,7 +118,18 @@ async fn get_names<'n>(
     names: &'n [String],
     mode: GameMode,
 ) -> Result<HashMap<Username, u32>, (OsuError, Cow<'n, str>)> {
-    let mut entries = match ctx.psql().get_ids_by_names(names).await {
+    let escaped_names = if names.iter().any(|name| name.contains('_')) {
+        let names: Vec<_> = names
+            .iter()
+            .map(|name| name.replace('_', "\\_"))
+            .collect();
+
+        Cow::Owned(names)
+    } else {
+        Cow::Borrowed(names)
+    };
+
+    let mut entries = match ctx.psql().get_ids_by_names(escaped_names.as_ref()).await {
         Ok(names) => names,
         Err(err) => {
             let report = Report::new(err).wrap_err("failed to get names by names");
