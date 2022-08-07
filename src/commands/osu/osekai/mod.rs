@@ -55,12 +55,18 @@ pub enum Osekai {
 #[derive(CommandModel, CreateCommand)]
 #[command(name = "badges")]
 /// Who has the most profile badges?
-pub struct OsekaiBadges;
+pub struct OsekaiBadges {
+    /// If specified, only show users of this country
+    country: Option<String>,
+}
 
 #[derive(CommandModel, CreateCommand)]
 #[command(name = "loved_mapsets")]
 /// Who created the most loved mapsets?
-pub struct OsekaiLovedMapsets;
+pub struct OsekaiLovedMapsets {
+    /// If specified, only show users of this country
+    country: Option<String>,
+}
 
 #[derive(CommandModel, CreateCommand)]
 #[command(name = "medal_count")]
@@ -73,7 +79,10 @@ pub struct OsekaiMedalCount {
 #[derive(CommandModel, CreateCommand)]
 #[command(name = "ranked_mapsets")]
 /// Who created the most ranked mapsets?
-pub struct OsekaiRankedMapsets;
+pub struct OsekaiRankedMapsets {
+    /// If specified, only show users of this country
+    country: Option<String>,
+}
 
 #[derive(CommandModel, CreateCommand)]
 #[command(name = "rarity")]
@@ -83,7 +92,10 @@ pub struct OsekaiRarity;
 #[derive(CommandModel, CreateCommand)]
 #[command(name = "replays")]
 /// Who has the most replays watched?
-pub struct OsekaiReplays;
+pub struct OsekaiReplays {
+    /// If specified, only show users of this country
+    country: Option<String>,
+}
 
 #[derive(CommandModel, CreateCommand)]
 #[command(
@@ -92,28 +104,39 @@ pub struct OsekaiReplays;
     [standard deviation](https://en.wikipedia.org/wiki/Standard_deviation) across all modes?"
 )]
 /// Who has the highest pp standard deviation across all modes?
-pub struct OsekaiStandardDeviation;
+pub struct OsekaiStandardDeviation {
+    /// If specified, only show users of this country
+    country: Option<String>,
+}
 
 #[derive(CommandModel, CreateCommand)]
 #[command(name = "subscribers")]
 /// Which mapper has the most subscribers?
-pub struct OsekaiSubscribers;
+pub struct OsekaiSubscribers {
+    /// If specified, only show users of this country
+    country: Option<String>,
+}
 
 #[derive(CommandModel, CreateCommand)]
 #[command(name = "total_pp")]
 /// Who has the highest total pp in all modes combined?
-pub struct OsekaiTotalPp;
+pub struct OsekaiTotalPp {
+    /// If specified, only show users of this country
+    country: Option<String>,
+}
 
 async fn slash_osekai(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
     match Osekai::from_interaction(command.input_data())? {
-        Osekai::Badges(_) => count::<Badges>(ctx, command).await,
-        Osekai::LovedMapsets(_) => count::<LovedMapsets>(ctx, command).await,
+        Osekai::Badges(args) => count::<Badges>(ctx, command, args.country).await,
+        Osekai::LovedMapsets(args) => count::<LovedMapsets>(ctx, command, args.country).await,
         Osekai::MedalCount(args) => medal_count(ctx, command, args).await,
-        Osekai::RankedMapsets(_) => count::<RankedMapsets>(ctx, command).await,
+        Osekai::RankedMapsets(args) => count::<RankedMapsets>(ctx, command, args.country).await,
         Osekai::Rarity(_) => rarity(ctx, command).await,
-        Osekai::Replays(_) => count::<Replays>(ctx, command).await,
-        Osekai::StandardDeviation(_) => pp::<StandardDeviation>(ctx, command).await,
-        Osekai::Subscribers(_) => count::<Subscribers>(ctx, command).await,
-        Osekai::TotalPp(_) => pp::<TotalPp>(ctx, command).await,
+        Osekai::Replays(args) => count::<Replays>(ctx, command, args.country).await,
+        Osekai::StandardDeviation(args) => {
+            pp::<StandardDeviation>(ctx, command, args.country).await
+        }
+        Osekai::Subscribers(args) => count::<Subscribers>(ctx, command, args.country).await,
+        Osekai::TotalPp(args) => pp::<TotalPp>(ctx, command, args.country).await,
     }
 }

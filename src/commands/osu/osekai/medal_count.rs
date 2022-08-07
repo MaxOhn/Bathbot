@@ -68,7 +68,7 @@ pub(super) async fn medal_count(
         .and_then(|name| ranking.iter().position(|e| e.username.as_str() == name));
 
     MedalCountPagination::builder(ranking, author_idx)
-    .start_by_update()
+        .start_by_update()
         .start(ctx, CommandOrigin::Interaction { command })
         .await
 }
