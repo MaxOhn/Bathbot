@@ -479,8 +479,8 @@ impl OsuTrackingQueue {
         let interval = *self.interval.read();
         let tracking = !self.stop_tracking.load(Ordering::Acquire);
 
-        let wait_interval = (last_pop + interval - OffsetDateTime::now_utc()).whole_seconds();
-        let ms_per_track = wait_interval as f32 / queue as f32;
+        let wait_interval = last_pop + interval - OffsetDateTime::now_utc();
+        let ms_per_track = wait_interval.whole_milliseconds() as f32 / queue as f32;
 
         TrackingStats {
             next_pop,
@@ -489,7 +489,7 @@ impl OsuTrackingQueue {
             last_pop,
             interval: interval.whole_seconds(),
             tracking,
-            wait_interval,
+            wait_interval: wait_interval.whole_seconds(),
             ms_per_track: ms_per_track as i64,
         }
     }
