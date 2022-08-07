@@ -630,7 +630,7 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
 
     let post_pp = user.statistics.as_ref().map_or(0.0, |stats| stats.pp);
 
-    TopIfPagination::builder(user, scores_data, mode, adjusted_pp, post_pp, None)
+    TopIfPagination::builder(user, scores_data, mode, post_pp, adjusted_pp, None)
         .content(content)
         .start_by_update()
         .defer_components()
