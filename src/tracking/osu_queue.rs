@@ -19,8 +19,6 @@ use crate::{database::TrackingUser, util::hasher::SimpleBuildHasher, BotResult, 
 
 pub use super::{osu_tracking_loop, process_osu_tracking};
 
-const SECOND: StdDuration = StdDuration::from_secs(1);
-
 static OSU_TRACKING_INTERVAL: OnceCell<Duration> = OnceCell::with_value(Duration::minutes(150));
 
 pub fn default_tracking_interval() -> Duration {
@@ -309,20 +307,9 @@ impl OsuTrackingQueue {
         time::sleep(StdDuration::from_millis(ms_per_track as u64)).await;
 
         // Pop user and return them
-        let mut queue = self.queue.lock().await;
-
         loop {
-            let entry = queue.pop().map(|(entry, _)| entry)?;
-
-            let guard = match time::timeout(SECOND, self.users.lock(&entry)).await {
-                Ok(guard) => guard,
-                Err(_) => {
-                    warn!("Timed out while trying to pop user");
-                    queue.push(entry, Reverse(OffsetDateTime::now_utc()));
-
-                    continue;
-                }
-            };
+            let entry = self.queue.lock().await.pop().map(|(entry, _)| entry)?;
+            let guard = self.users.lock(&entry).await;
 
             if let Some(amount) = guard.get().and_then(|u| u.channels.values().max().copied()) {
                 return Some((entry, amount));
