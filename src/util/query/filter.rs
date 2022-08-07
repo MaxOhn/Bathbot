@@ -56,16 +56,14 @@ impl<'q> FilterCriteria<'q> {
             .search_text
             .char_indices()
             .rev()
-            .find(|(_, c)| !c.is_whitespace())
-            .map(|(i, _)| i + 1)
+            .find_map(|(i, c)| (!c.is_whitespace()).then(|| i + c.len_utf8()))
             .unwrap_or(0);
 
         // Index of the first non-whitespace char
         let start = criteria
             .search_text
             .char_indices()
-            .find(|(_, c)| !c.is_whitespace())
-            .map(|(i, _)| i)
+            .find_map(|(i, c)| (!c.is_whitespace()).then_some(i))
             .filter(|&i| i > 0);
 
         // If there is whitespace at the front, rotate to the left until
