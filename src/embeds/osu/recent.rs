@@ -11,7 +11,7 @@ use crate::{
         matcher::highlight_funny_numeral,
         numbers::{round, with_comma_int},
         osu::{grade_completion_mods, prepare_beatmap_file},
-        Emote, ScoreExt,
+        CowUtils, Emote, ScoreExt,
     },
     BotResult,
 };
@@ -191,17 +191,23 @@ impl RecentEmbed {
             let title = format!(
                 "{} {} - {} [{}]",
                 osu::get_keys(score.mods, map),
-                mapset.artist,
-                mapset.title,
-                map.version
+                mapset.artist.cow_escape_markdown(),
+                mapset.title.cow_escape_markdown(),
+                map.version.cow_escape_markdown(),
             );
 
             (combo, title)
         } else {
-            (
-                osu::get_combo(score, map),
-                format!("{} - {} [{}]", mapset.artist, mapset.title, map.version),
-            )
+            let combo = osu::get_combo(score, map);
+
+            let title = format!(
+                "{} - {} [{}]",
+                mapset.artist.cow_escape_markdown(),
+                mapset.title.cow_escape_markdown(),
+                map.version.cow_escape_markdown(),
+            );
+
+            (combo, title)
         };
 
         let if_fc = if_fc.map(|if_fc| {

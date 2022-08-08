@@ -64,7 +64,7 @@ impl MapEmbed {
             [No Video]({OSU_BASE}d/{mapset_id}n)\n\
             [Beatconnect](https://beatconnect.io/b/{mapset_id})",
             url = CONFIG.get().unwrap().server.external_url,
-            mapset_id = map.mapset_id
+            mapset_id = map.mapset_id,
         );
 
         let mut seconds_total = map.seconds_total;

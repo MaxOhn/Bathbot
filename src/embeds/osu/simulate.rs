@@ -21,7 +21,7 @@ use crate::{
         constants::{AVATAR_URL, MAP_THUMB_URL},
         numbers::{round, with_comma_int},
         osu::{grade_completion_mods, prepare_beatmap_file, ModSelection},
-        ScoreExt,
+        CowUtils, ScoreExt,
     },
     BotResult,
 };
@@ -196,12 +196,17 @@ impl SimulateEmbed {
             format!(
                 "{} {} - {} [{}]",
                 osu::get_keys(GameMods::default(), map),
-                mapset.artist,
-                mapset.title,
-                map.version
+                mapset.artist.cow_escape_markdown(),
+                mapset.title.cow_escape_markdown(),
+                map.version.cow_escape_markdown(),
             )
         } else {
-            format!("{} - {} [{}]", mapset.artist, mapset.title, map.version)
+            format!(
+                "{} - {} [{}]",
+                mapset.artist.cow_escape_markdown(),
+                mapset.title.cow_escape_markdown(),
+                map.version.cow_escape_markdown(),
+            )
         };
 
         let (prev_pp, prev_combo, prev_hits, misses) = if let Some(ref s) = score {
