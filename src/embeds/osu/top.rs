@@ -214,7 +214,7 @@ impl CondensedTopEmbed {
             let _ = writeln!(
                 description,
                 "**{idx}. [{map}]({OSU_BASE}b/{map_id})** [{stars}★]\n\
-                {grade} *{pp}pp* ({acc}%) [**{combo}x**/{max_combo}x] {miss}**+{mods}** {appendix}",
+                {grade} **{pp}pp** ({acc}%) [**{combo}x**/{max_combo}x] {miss}**+{mods}** {appendix}",
                 idx = idx + 1,
                 map = MapFormat { map, mapset },
                 map_id = map.map_id,
@@ -271,7 +271,7 @@ impl CondensedTopEmbed {
             let _ = writeln!(
                 description,
                 "**{idx}. [{map}]({OSU_BASE}b/{map_id}) +{mods}**\n\
-                {grade} *{pp}pp* ({acc}%) `{score}` {{{n320}/{n300}/.../{miss}}} {appendix}",
+                {grade} **{pp}pp** ({acc}%) `{score}` {{{n320}/{n300}/.../{miss}}} {appendix}",
                 idx = idx + 1,
                 map = MapFormat { map, mapset },
                 map_id = map.map_id,
