@@ -644,11 +644,16 @@ fn simulate_score(
 }
 
 fn unchoke_score(score: &mut Score, map: &Beatmap, attributes: &DifficultyAttributes) {
+    let max_combo = map
+        .max_combo
+        .unwrap_or_else(|| attributes.max_combo().map_or(0, |combo| combo as u32));
+
+    if score.is_fc(map.mode, max_combo) {
+        return;
+    }
+
     match attributes {
-        DifficultyAttributes::Osu(attrs)
-            if score.statistics.count_miss > 0
-                || score.max_combo < map.max_combo.unwrap_or(attrs.max_combo as u32) - 5 =>
-        {
+        DifficultyAttributes::Osu(attrs) => {
             let total_objects = map.count_objects() as usize;
             let passed_objects = score.total_hits() as usize;
 
@@ -692,9 +697,7 @@ fn unchoke_score(score: &mut Score, map: &Beatmap, attributes: &DifficultyAttrib
 
             return;
         }
-        DifficultyAttributes::Catch(attrs)
-            if score.max_combo != map.max_combo.unwrap_or_else(|| attrs.max_combo() as u32) =>
-        {
+        DifficultyAttributes::Catch(attrs) => {
             let total_objects = attrs.max_combo();
             let passed_objects = score.total_hits() as usize;
 
@@ -717,9 +720,7 @@ fn unchoke_score(score: &mut Score, map: &Beatmap, attributes: &DifficultyAttrib
             score.statistics.count_50 = n_tiny_droplets as u32;
             score.max_combo = total_objects as u32;
         }
-        DifficultyAttributes::Taiko(_)
-            if score.grade == Grade::F || score.statistics.count_miss > 0 =>
-        {
+        DifficultyAttributes::Taiko(_) => {
             let total_objects = map.count_circles as usize;
             let passed_objects = score.total_hits() as usize;
 
@@ -736,7 +737,6 @@ fn unchoke_score(score: &mut Score, map: &Beatmap, attributes: &DifficultyAttrib
             score.statistics.count_300 = count300 as u32;
             score.statistics.count_100 = count100 as u32;
         }
-        _ => return,
     }
 
     score.statistics.count_miss = 0;

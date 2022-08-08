@@ -22,7 +22,7 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher,
         osu::{prepare_beatmap_file, MapIdType, ModSelection},
-        ApplicationCommandExt,
+        ApplicationCommandExt, ScoreExt,
     },
     BotResult, Context,
 };
@@ -653,13 +653,5 @@ pub(super) async fn unchoke_pp(
 }
 
 fn needs_unchoking(score: &Score, map: &Beatmap) -> bool {
-    match map.mode {
-        GameMode::Osu => {
-            score.statistics.count_miss > 0
-                || score.max_combo < map.max_combo.map_or(0, |c| c.saturating_sub(5))
-        }
-        GameMode::Taiko => score.statistics.count_miss > 0,
-        GameMode::Catch => score.max_combo != map.max_combo.unwrap_or(0),
-        GameMode::Mania => panic!("can not unchoke mania scores"),
-    }
+    !score.is_fc(map.mode, map.max_combo.unwrap_or(0))
 }

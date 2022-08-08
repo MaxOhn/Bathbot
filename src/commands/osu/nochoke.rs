@@ -21,7 +21,7 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher,
         osu::prepare_beatmap_file,
-        ApplicationCommandExt,
+        ApplicationCommandExt, ScoreExt,
     },
     BotResult, Context,
 };
@@ -346,123 +346,120 @@ async fn unchoke_scores(
         let mods = score.mods.bits();
         let max_combo = map.max_combo.unwrap_or(0);
 
-        match map.mode {
-            GameMode::Osu
-                if score.statistics.count_miss > 0
-                    || score.max_combo
-                        // Allowing one missed sliderend per 500 combo
-                        < (max_combo - (max_combo / 500).max(5)) as u32 =>
-            {
-                let total_objects = map.count_objects() as usize;
+        if !score.is_fc(map.mode, max_combo) {
+            match map.mode {
+                GameMode::Osu => {
+                    let total_objects = map.count_objects() as usize;
 
-                let mut count300 = score.statistics.count_300 as usize;
+                    let mut count300 = score.statistics.count_300 as usize;
 
-                let count_hits = total_objects - score.statistics.count_miss as usize;
-                let ratio = 1.0 - (count300 as f32 / count_hits as f32);
-                let new100s = (ratio * score.statistics.count_miss as f32).ceil() as u32;
+                    let count_hits = total_objects - score.statistics.count_miss as usize;
+                    let ratio = 1.0 - (count300 as f32 / count_hits as f32);
+                    let new100s = (ratio * score.statistics.count_miss as f32).ceil() as u32;
 
-                count300 += score.statistics.count_miss.saturating_sub(new100s) as usize;
-                let count100 = (score.statistics.count_100 + new100s) as usize;
-                let count50 = score.statistics.count_50 as usize;
+                    count300 += score.statistics.count_miss.saturating_sub(new100s) as usize;
+                    let count100 = (score.statistics.count_100 + new100s) as usize;
+                    let count50 = score.statistics.count_50 as usize;
 
-                let pp_result = OsuPP::new(&rosu_map)
-                    .mods(mods)
-                    .n300(count300)
-                    .n100(count100)
-                    .n50(count50)
-                    .calculate();
+                    let pp_result = OsuPP::new(&rosu_map)
+                        .mods(mods)
+                        .n300(count300)
+                        .n100(count100)
+                        .n50(count50)
+                        .calculate();
 
-                unchoked.statistics.count_300 = count300 as u32;
-                unchoked.statistics.count_100 = count100 as u32;
-                unchoked.max_combo = max_combo;
-                unchoked.statistics.count_miss = 0;
-                unchoked.pp = Some(pp_result.pp as f32);
-                unchoked.grade = unchoked.grade(None);
-                unchoked.accuracy = unchoked.accuracy();
-                unchoked.score = 0; // distinguishing from original
+                    unchoked.statistics.count_300 = count300 as u32;
+                    unchoked.statistics.count_100 = count100 as u32;
+                    unchoked.max_combo = max_combo;
+                    unchoked.statistics.count_miss = 0;
+                    unchoked.pp = Some(pp_result.pp as f32);
+                    unchoked.grade = unchoked.grade(None);
+                    unchoked.accuracy = unchoked.accuracy();
+                    unchoked.score = 0; // distinguishing from original
+                }
+                GameMode::Catch => {
+                    let attributes = CatchStars::new(&rosu_map).mods(mods).calculate();
+
+                    let total_objects = attributes.max_combo();
+                    let passed_objects = (score.statistics.count_300
+                        + score.statistics.count_100
+                        + score.statistics.count_miss)
+                        as usize;
+
+                    let missing = total_objects.saturating_sub(passed_objects);
+                    let missing_fruits = missing.saturating_sub(
+                        attributes
+                            .n_droplets
+                            .saturating_sub(score.statistics.count_100 as usize),
+                    );
+                    let missing_droplets = missing - missing_fruits;
+
+                    let n_fruits = score.statistics.count_300 as usize + missing_fruits;
+                    let n_droplets = score.statistics.count_100 as usize + missing_droplets;
+                    let n_tiny_droplet_misses = score.statistics.count_katu as usize;
+                    let n_tiny_droplets = score.statistics.count_50 as usize;
+
+                    let pp_result = CatchPP::new(&rosu_map)
+                        .attributes(attributes)
+                        .mods(mods)
+                        .fruits(n_fruits)
+                        .droplets(n_droplets)
+                        .tiny_droplets(n_tiny_droplets)
+                        .tiny_droplet_misses(n_tiny_droplet_misses)
+                        .calculate();
+
+                    let hits = n_fruits + n_droplets + n_tiny_droplets;
+                    let total = hits + n_tiny_droplet_misses;
+
+                    let acc = if total == 0 {
+                        0.0
+                    } else {
+                        100.0 * hits as f32 / total as f32
+                    };
+
+                    unchoked.statistics.count_300 = n_fruits as u32;
+                    unchoked.statistics.count_katu = n_tiny_droplet_misses as u32;
+                    unchoked.statistics.count_100 = n_droplets as u32;
+                    unchoked.statistics.count_50 = n_tiny_droplets as u32;
+                    unchoked.max_combo = total_objects as u32;
+                    unchoked.statistics.count_miss = 0;
+                    unchoked.pp = Some(pp_result.pp as f32);
+                    unchoked.grade = unchoked.grade(Some(acc));
+                    unchoked.accuracy = unchoked.accuracy();
+                    unchoked.score = 0; // distinguishing from original
+                }
+                GameMode::Taiko => {
+                    let total_objects = map.count_circles as usize;
+                    let passed_objects = score.total_hits() as usize;
+
+                    let mut count300 = score.statistics.count_300 as usize
+                        + total_objects.saturating_sub(passed_objects);
+
+                    let count_hits = total_objects - score.statistics.count_miss as usize;
+                    let ratio = 1.0 - (count300 as f32 / count_hits as f32);
+                    let new100s = (ratio * score.statistics.count_miss as f32).ceil() as u32;
+
+                    count300 += score.statistics.count_miss.saturating_sub(new100s) as usize;
+                    let count100 = (score.statistics.count_100 + new100s) as usize;
+
+                    let acc = 100.0 * (2 * count300 + count100) as f32 / (2 * total_objects) as f32;
+
+                    let pp_result = TaikoPP::new(&rosu_map)
+                        .mods(mods)
+                        .accuracy(acc as f64)
+                        .calculate();
+
+                    unchoked.statistics.count_300 = count300 as u32;
+                    unchoked.statistics.count_100 = count100 as u32;
+                    unchoked.statistics.count_miss = 0;
+                    unchoked.max_combo = map.count_circles;
+                    unchoked.pp = Some(pp_result.pp as f32);
+                    unchoked.grade = unchoked.grade(Some(acc));
+                    unchoked.accuracy = unchoked.accuracy();
+                    unchoked.score = 0; // distinguishing from original
+                }
+                GameMode::Mania => panic!("can not unchoke mania scores"),
             }
-            GameMode::Catch if score.max_combo != max_combo => {
-                let attributes = CatchStars::new(&rosu_map).mods(mods).calculate();
-
-                let total_objects = attributes.max_combo();
-                let passed_objects = (score.statistics.count_300
-                    + score.statistics.count_100
-                    + score.statistics.count_miss) as usize;
-
-                let missing = total_objects.saturating_sub(passed_objects);
-                let missing_fruits = missing.saturating_sub(
-                    attributes
-                        .n_droplets
-                        .saturating_sub(score.statistics.count_100 as usize),
-                );
-                let missing_droplets = missing - missing_fruits;
-
-                let n_fruits = score.statistics.count_300 as usize + missing_fruits;
-                let n_droplets = score.statistics.count_100 as usize + missing_droplets;
-                let n_tiny_droplet_misses = score.statistics.count_katu as usize;
-                let n_tiny_droplets = score.statistics.count_50 as usize;
-
-                let pp_result = CatchPP::new(&rosu_map)
-                    .attributes(attributes)
-                    .mods(mods)
-                    .fruits(n_fruits)
-                    .droplets(n_droplets)
-                    .tiny_droplets(n_tiny_droplets)
-                    .tiny_droplet_misses(n_tiny_droplet_misses)
-                    .calculate();
-
-                let hits = n_fruits + n_droplets + n_tiny_droplets;
-                let total = hits + n_tiny_droplet_misses;
-
-                let acc = if total == 0 {
-                    0.0
-                } else {
-                    100.0 * hits as f32 / total as f32
-                };
-
-                unchoked.statistics.count_300 = n_fruits as u32;
-                unchoked.statistics.count_katu = n_tiny_droplet_misses as u32;
-                unchoked.statistics.count_100 = n_droplets as u32;
-                unchoked.statistics.count_50 = n_tiny_droplets as u32;
-                unchoked.max_combo = total_objects as u32;
-                unchoked.statistics.count_miss = 0;
-                unchoked.pp = Some(pp_result.pp as f32);
-                unchoked.grade = unchoked.grade(Some(acc));
-                unchoked.accuracy = unchoked.accuracy();
-                unchoked.score = 0; // distinguishing from original
-            }
-            GameMode::Taiko if score.statistics.count_miss > 0 => {
-                let total_objects = map.count_circles as usize;
-                let passed_objects = score.total_hits() as usize;
-
-                let mut count300 = score.statistics.count_300 as usize
-                    + total_objects.saturating_sub(passed_objects);
-
-                let count_hits = total_objects - score.statistics.count_miss as usize;
-                let ratio = 1.0 - (count300 as f32 / count_hits as f32);
-                let new100s = (ratio * score.statistics.count_miss as f32).ceil() as u32;
-
-                count300 += score.statistics.count_miss.saturating_sub(new100s) as usize;
-                let count100 = (score.statistics.count_100 + new100s) as usize;
-
-                let acc = 100.0 * (2 * count300 + count100) as f32 / (2 * total_objects) as f32;
-
-                let pp_result = TaikoPP::new(&rosu_map)
-                    .mods(mods)
-                    .accuracy(acc as f64)
-                    .calculate();
-
-                unchoked.statistics.count_300 = count300 as u32;
-                unchoked.statistics.count_100 = count100 as u32;
-                unchoked.statistics.count_miss = 0;
-                unchoked.max_combo = map.count_circles;
-                unchoked.pp = Some(pp_result.pp as f32);
-                unchoked.grade = unchoked.grade(Some(acc));
-                unchoked.accuracy = unchoked.accuracy();
-                unchoked.score = 0; // distinguishing from original
-            }
-            GameMode::Mania => bail!("can not unchoke mania scores"),
-            _ => {} // Nothing to unchoke
         }
 
         scores_data.push((i, score, unchoked));

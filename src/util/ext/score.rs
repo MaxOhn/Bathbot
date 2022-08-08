@@ -47,6 +47,15 @@ pub trait ScoreExt: Send + Sync {
 
         amount
     }
+    fn is_fc(&self, mode: GameMode, max_combo: u32) -> bool {
+        match mode {
+            _ if self.count_miss() > 0 || self.grade(mode) == Grade::F => false,
+            // Allow 1 missed sliderend per 500 combo
+            GameMode::Osu => self.max_combo() >= (max_combo - (max_combo / 500).max(4)),
+            GameMode::Taiko | GameMode::Mania => true,
+            GameMode::Catch => self.max_combo() == max_combo,
+        }
+    }
 
     // Processing to strings
     fn grade_emote(&self, mode: GameMode) -> &'static str {

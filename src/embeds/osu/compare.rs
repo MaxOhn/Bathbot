@@ -1,7 +1,7 @@
 use std::{borrow::Cow, fmt::Write};
 
 use command_macros::EmbedData;
-use rosu_pp::{Beatmap as Map, BeatmapExt, CatchPP, ManiaPP, OsuPP, TaikoPP};
+use rosu_pp::{Beatmap as Map, BeatmapExt};
 use rosu_v2::prelude::{Beatmap, GameMode, Grade, Score, User};
 use time::OffsetDateTime;
 use twilight_model::channel::embed::Embed;
@@ -23,7 +23,7 @@ use crate::{
     BotResult,
 };
 
-use super::recent::if_fc_struct;
+use super::IfFC;
 
 const GLOBAL_IDX_THRESHOLD: usize = 500;
 
@@ -72,7 +72,7 @@ impl CompareEmbed {
         let max_pp = attrs.pp();
         let stars = round(attrs.stars() as f32);
 
-        let (if_fc, attrs) = if_fc_struct(score, &rosu_map, attrs.difficulty_attributes(), mods);
+        let (if_fc, attrs) = IfFC::new(score, &rosu_map, attrs.difficulty_attributes(), mods);
 
         let if_fc = if_fc.map(|if_fc| {
             let mut hits = String::from("{");
@@ -88,92 +88,35 @@ impl CompareEmbed {
         });
 
         let pp = if score.grade == Grade::F {
-            match map.mode {
-                GameMode::Osu => {
-                    OsuPP::new(&rosu_map)
-                        .mods(mods)
-                        .combo(score.max_combo as usize)
-                        .n300(score.statistics.count_300 as usize)
-                        .n100(score.statistics.count_100 as usize)
-                        .n50(score.statistics.count_50 as usize)
-                        .misses(score.statistics.count_miss as usize)
-                        .calculate()
-                        .pp as f32
-                }
-                GameMode::Mania => {
-                    ManiaPP::new(&rosu_map)
-                        .mods(mods)
-                        .score(score.score)
-                        .calculate()
-                        .pp as f32
-                }
-                GameMode::Catch => {
-                    CatchPP::new(&rosu_map)
-                        .mods(mods)
-                        .combo(score.max_combo as usize)
-                        .fruits(score.statistics.count_300 as usize)
-                        .droplets(score.statistics.count_100 as usize)
-                        .misses(score.statistics.count_miss as usize)
-                        .accuracy(score.accuracy as f64)
-                        .calculate()
-                        .pp as f32
-                }
-                GameMode::Taiko => {
-                    TaikoPP::new(&rosu_map)
-                        .combo(score.max_combo as usize)
-                        .mods(mods)
-                        .accuracy(score.accuracy as f64)
-                        .calculate()
-                        .pp as f32
-                }
-            }
+            rosu_map
+                .pp()
+                .mods(mods)
+                .combo(score.max_combo as usize)
+                .n300(score.statistics.count_300 as usize)
+                .n_katu(score.statistics.count_katu as usize)
+                .n100(score.statistics.count_100 as usize)
+                .n50(score.statistics.count_50 as usize)
+                .misses(score.statistics.count_miss as usize)
+                .score(score.score)
+                .passed_objects(score.total_hits() as usize)
+                .calculate()
+                .pp() as f32
         } else if let Some(pp) = score.pp {
             pp
         } else {
-            match map.mode {
-                GameMode::Osu => {
-                    OsuPP::new(&rosu_map)
-                        .attributes(attrs)
-                        .mods(mods)
-                        .combo(score.max_combo as usize)
-                        .n300(score.statistics.count_300 as usize)
-                        .n100(score.statistics.count_100 as usize)
-                        .n50(score.statistics.count_50 as usize)
-                        .misses(score.statistics.count_miss as usize)
-                        .calculate()
-                        .pp as f32
-                }
-                GameMode::Mania => {
-                    ManiaPP::new(&rosu_map)
-                        .attributes(attrs)
-                        .mods(mods)
-                        .score(score.score)
-                        .calculate()
-                        .pp as f32
-                }
-                GameMode::Catch => {
-                    CatchPP::new(&rosu_map)
-                        .attributes(attrs)
-                        .mods(mods)
-                        .combo(score.max_combo as usize)
-                        .fruits(score.statistics.count_300 as usize)
-                        .droplets(score.statistics.count_100 as usize)
-                        .misses(score.statistics.count_miss as usize)
-                        .accuracy(score.accuracy as f64)
-                        .calculate()
-                        .pp as f32
-                }
-                GameMode::Taiko => {
-                    TaikoPP::new(&rosu_map)
-                        .attributes(attrs)
-                        .combo(score.max_combo as usize)
-                        .mods(mods)
-                        .misses(score.statistics.count_miss as usize)
-                        .accuracy(score.accuracy as f64)
-                        .calculate()
-                        .pp as f32
-                }
-            }
+            rosu_map
+                .pp()
+                .attributes(attrs)
+                .mods(mods)
+                .combo(score.max_combo as usize)
+                .n300(score.statistics.count_300 as usize)
+                .n_katu(score.statistics.count_katu as usize)
+                .n100(score.statistics.count_100 as usize)
+                .n50(score.statistics.count_50 as usize)
+                .misses(score.statistics.count_miss as usize)
+                .score(score.score)
+                .calculate()
+                .pp() as f32
         };
 
         let pp = Some(pp);

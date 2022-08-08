@@ -72,7 +72,7 @@ impl TopSingleEmbed {
 
         let stars = round(attributes.stars() as f32);
 
-        let if_fc = if_fc_struct(score, &rosu_map, attributes, mods);
+        let if_fc = IfFC::new(score, &rosu_map, attributes, mods);
 
         let pp = score.pp;
         let hits = score.hits_string(score.mode);
@@ -281,133 +281,129 @@ struct IfFC {
     acc: f32,
 }
 
-fn if_fc_struct(
-    score: &Score,
-    map: &Map,
-    attributes: DifficultyAttributes,
-    mods: u32,
-) -> Option<IfFC> {
-    match attributes {
-        DifficultyAttributes::Osu(attributes)
-            if score.statistics.count_miss > 0
-                || score.max_combo < attributes.max_combo as u32 - 5 =>
-        {
-            let total_objects = (map.n_circles + map.n_sliders + map.n_spinners) as usize;
-            let passed_objects = (score.statistics.count_300
-                + score.statistics.count_100
-                + score.statistics.count_50
-                + score.statistics.count_miss) as usize;
-
-            let mut count300 =
-                score.statistics.count_300 as usize + total_objects.saturating_sub(passed_objects);
-
-            let count_hits = total_objects - score.statistics.count_miss as usize;
-            let ratio = 1.0 - (count300 as f32 / count_hits as f32);
-            let new100s = (ratio * score.statistics.count_miss as f32).ceil() as u32;
-
-            count300 += score.statistics.count_miss.saturating_sub(new100s) as usize;
-            let count100 = (score.statistics.count_100 + new100s) as usize;
-            let count50 = score.statistics.count_50 as usize;
-
-            let pp_result = OsuPP::new(map)
-                .attributes(attributes)
-                .mods(mods)
-                .n300(count300)
-                .n100(count100)
-                .n50(count50)
-                .calculate();
-
-            let acc =
-                100.0 * (6 * count300 + 2 * count100 + count50) as f32 / (6 * total_objects) as f32;
-
-            Some(IfFC {
-                n300: count300,
-                n100: count100,
-                n50: Some(count50),
-                pp: pp_result.pp as f32,
-                acc,
-            })
+impl IfFC {
+    fn new(score: &Score, map: &Map, attributes: DifficultyAttributes, mods: u32) -> Option<Self> {
+        if score.is_fc(score.mode, attributes.max_combo().unwrap_or(0) as u32) {
+            return None;
         }
-        DifficultyAttributes::Catch(attributes)
-            if score.max_combo != attributes.max_combo() as u32 =>
-        {
-            let total_objects = attributes.max_combo();
-            let passed_objects = (score.statistics.count_300
-                + score.statistics.count_100
-                + score.statistics.count_miss) as usize;
 
-            let missing = total_objects - passed_objects;
-            let missing_fruits = missing.saturating_sub(
-                attributes
-                    .n_droplets
-                    .saturating_sub(score.statistics.count_100 as usize),
-            );
+        match attributes {
+            DifficultyAttributes::Osu(attributes) => {
+                let total_objects = (map.n_circles + map.n_sliders + map.n_spinners) as usize;
+                let passed_objects = (score.statistics.count_300
+                    + score.statistics.count_100
+                    + score.statistics.count_50
+                    + score.statistics.count_miss) as usize;
 
-            let missing_droplets = missing - missing_fruits;
+                let mut count300 = score.statistics.count_300 as usize
+                    + total_objects.saturating_sub(passed_objects);
 
-            let n_fruits = score.statistics.count_300 as usize + missing_fruits;
-            let n_droplets = score.statistics.count_100 as usize + missing_droplets;
-            let n_tiny_droplet_misses = score.statistics.count_katu as usize;
-            let n_tiny_droplets = attributes
-                .n_tiny_droplets
-                .saturating_sub(n_tiny_droplet_misses);
+                let count_hits = total_objects - score.statistics.count_miss as usize;
+                let ratio = 1.0 - (count300 as f32 / count_hits as f32);
+                let new100s = (ratio * score.statistics.count_miss as f32).ceil() as u32;
 
-            let pp_result = CatchPP::new(map)
-                .attributes(attributes)
-                .mods(mods)
-                .fruits(n_fruits)
-                .droplets(n_droplets)
-                .tiny_droplets(n_tiny_droplets)
-                .tiny_droplet_misses(n_tiny_droplet_misses)
-                .calculate();
+                count300 += score.statistics.count_miss.saturating_sub(new100s) as usize;
+                let count100 = (score.statistics.count_100 + new100s) as usize;
+                let count50 = score.statistics.count_50 as usize;
 
-            let hits = n_fruits + n_droplets + n_tiny_droplets;
-            let total = hits + n_tiny_droplet_misses;
+                let pp_result = OsuPP::new(map)
+                    .attributes(attributes)
+                    .mods(mods)
+                    .n300(count300)
+                    .n100(count100)
+                    .n50(count50)
+                    .calculate();
 
-            let acc = if total == 0 {
-                0.0
-            } else {
-                100.0 * hits as f32 / total as f32
-            };
+                let acc = 100.0 * (6 * count300 + 2 * count100 + count50) as f32
+                    / (6 * total_objects) as f32;
 
-            Some(IfFC {
-                n300: n_fruits,
-                n100: n_droplets,
-                n50: Some(n_tiny_droplets),
-                pp: pp_result.pp as f32,
-                acc,
-            })
+                Some(IfFC {
+                    n300: count300,
+                    n100: count100,
+                    n50: Some(count50),
+                    pp: pp_result.pp as f32,
+                    acc,
+                })
+            }
+            DifficultyAttributes::Catch(attributes) => {
+                let total_objects = attributes.max_combo();
+                let passed_objects = (score.statistics.count_300
+                    + score.statistics.count_100
+                    + score.statistics.count_miss) as usize;
+
+                let missing = total_objects - passed_objects;
+                let missing_fruits = missing.saturating_sub(
+                    attributes
+                        .n_droplets
+                        .saturating_sub(score.statistics.count_100 as usize),
+                );
+
+                let missing_droplets = missing - missing_fruits;
+
+                let n_fruits = score.statistics.count_300 as usize + missing_fruits;
+                let n_droplets = score.statistics.count_100 as usize + missing_droplets;
+                let n_tiny_droplet_misses = score.statistics.count_katu as usize;
+                let n_tiny_droplets = attributes
+                    .n_tiny_droplets
+                    .saturating_sub(n_tiny_droplet_misses);
+
+                let pp_result = CatchPP::new(map)
+                    .attributes(attributes)
+                    .mods(mods)
+                    .fruits(n_fruits)
+                    .droplets(n_droplets)
+                    .tiny_droplets(n_tiny_droplets)
+                    .tiny_droplet_misses(n_tiny_droplet_misses)
+                    .calculate();
+
+                let hits = n_fruits + n_droplets + n_tiny_droplets;
+                let total = hits + n_tiny_droplet_misses;
+
+                let acc = if total == 0 {
+                    0.0
+                } else {
+                    100.0 * hits as f32 / total as f32
+                };
+
+                Some(IfFC {
+                    n300: n_fruits,
+                    n100: n_droplets,
+                    n50: Some(n_tiny_droplets),
+                    pp: pp_result.pp as f32,
+                    acc,
+                })
+            }
+            DifficultyAttributes::Taiko(attributes) => {
+                let total_objects = map.n_circles as usize;
+                let passed_objects = score.total_hits() as usize;
+
+                let mut count300 = score.statistics.count_300 as usize
+                    + total_objects.saturating_sub(passed_objects);
+
+                let count_hits = total_objects - score.statistics.count_miss as usize;
+                let ratio = 1.0 - (count300 as f32 / count_hits as f32);
+                let new100s = (ratio * score.statistics.count_miss as f32).ceil() as u32;
+
+                count300 += score.statistics.count_miss.saturating_sub(new100s) as usize;
+                let count100 = (score.statistics.count_100 + new100s) as usize;
+
+                let acc = 100.0 * (2 * count300 + count100) as f32 / (2 * total_objects) as f32;
+
+                let pp_result = TaikoPP::new(map)
+                    .attributes(attributes)
+                    .mods(mods)
+                    .accuracy(acc as f64)
+                    .calculate();
+
+                Some(IfFC {
+                    n300: count300,
+                    n100: count100,
+                    n50: None,
+                    pp: pp_result.pp as f32,
+                    acc,
+                })
+            }
+            DifficultyAttributes::Mania(_) => None,
         }
-        DifficultyAttributes::Taiko(attributes) if score.statistics.count_miss > 0 => {
-            let total_objects = map.n_circles as usize;
-            let passed_objects = score.total_hits() as usize;
-
-            let mut count300 =
-                score.statistics.count_300 as usize + total_objects.saturating_sub(passed_objects);
-
-            let count_hits = total_objects - score.statistics.count_miss as usize;
-            let ratio = 1.0 - (count300 as f32 / count_hits as f32);
-            let new100s = (ratio * score.statistics.count_miss as f32).ceil() as u32;
-
-            count300 += score.statistics.count_miss.saturating_sub(new100s) as usize;
-            let count100 = (score.statistics.count_100 + new100s) as usize;
-
-            let acc = 100.0 * (2 * count300 + count100) as f32 / (2 * total_objects) as f32;
-
-            let pp_result = TaikoPP::new(map)
-                .attributes(attributes)
-                .mods(mods)
-                .accuracy(acc as f64)
-                .calculate();
-
-            Some(IfFC {
-                n300: count300,
-                n100: count100,
-                n50: None,
-                pp: pp_result.pp as f32,
-                acc,
-            })
-        }
-        _ => None,
     }
 }
