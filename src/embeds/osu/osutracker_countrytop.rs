@@ -32,7 +32,12 @@ impl OsuTrackerCountryTopEmbed {
         sort_by: ScoreOrder,
         pages: &Pages,
     ) -> Self {
-        let url = format!("https://osutracker.com/country/{}", details.code);
+        let national = !details.code.is_empty();
+
+        let url = format!(
+            "https://osutracker.com/country/{code}",
+            code = national.then(|| details.code.as_str()).unwrap_or("Global")
+        );
 
         let page = pages.curr_page();
         let pages = pages.last_page();
@@ -62,10 +67,14 @@ impl OsuTrackerCountryTopEmbed {
             );
         }
 
+        let thumbnail = national
+            .then(|| flag_url(details.code.as_str()))
+            .unwrap_or_default();
+
         Self {
             description,
             footer,
-            thumbnail: flag_url(details.code.as_str()),
+            thumbnail,
             title,
             url,
         }

@@ -355,9 +355,13 @@ impl CustomClient {
 
     pub async fn get_osutracker_country_details(
         &self,
-        country_code: &str,
+        country_code: Option<&str>,
     ) -> ClientResult<OsuTrackerCountryDetails> {
-        let url = format!("https://osutracker.com/api/countries/{country_code}/details");
+        let url = format!(
+            "https://osutracker.com/api/countries/{code}/details",
+            code = country_code.unwrap_or("Global"),
+        );
+
         let bytes = self.make_get_request(url, Site::OsuTracker).await?;
 
         serde_json::from_slice(&bytes)

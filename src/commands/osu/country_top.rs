@@ -1,10 +1,8 @@
 use std::{fmt::Write, sync::Arc};
 
 use command_macros::{HasMods, HasName, SlashCommand};
-use rosu_v2::{
-    prelude::{GameMode, GameMods, OsuError, Username},
-    OsuResult,
-};
+use rosu_v2::prelude::{GameMods, Username};
+use smallstr::SmallString;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
     application::interaction::ApplicationCommand,
@@ -14,20 +12,17 @@ use twilight_model::{
 use crate::{
     core::{commands::CommandOrigin, Context},
     custom_client::{OsuTrackerCountryDetails, OsuTrackerCountryScore},
-    database::OsuData,
     pagination::OsuTrackerCountryTopPagination,
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::GENERAL_ISSUE,
         osu::ModSelection,
         query::{FilterCriteria, Searchable},
-        ApplicationCommandExt, Authored, CountryCode, CowUtils,
+        ApplicationCommandExt, CountryCode, CowUtils,
     },
     BotResult,
 };
 
-use super::{
-    HasMods, HasName, ModsResult, ScoreOrder, UserArgs, UsernameFutureResult, UsernameResult,
-};
+use super::{HasMods, HasName, ModsResult, ScoreOrder, UsernameFutureResult, UsernameResult};
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName, SlashCommand)]
 #[command(name = "countrytop")]
@@ -134,86 +129,43 @@ async fn slash_countrytop(
         },
     };
 
-    let author = command.user_id()?;
+    let country_code = match args.country.take() {
+        Some(country) => match CountryCode::from_name(&country) {
+            Some(code) => Some(code),
+            None if country.len() == 2 => Some(CountryCode::from(country)),
+            None => {
+                let lowercase = country.cow_to_ascii_lowercase();
 
-    let country_code = if let Some(ref name) = name {
-        match user_country(&ctx, name).await {
-            Ok(code) => code,
-            Err(OsuError::NotFound) => {
-                let content = format!("User `{name}` was not found");
-                command.error(&ctx, content).await?;
+                if matches!(lowercase.as_ref(), "global" | "world") {
+                    None
+                } else {
+                    let content = format!(
+                        "Looks like `{country}` is neither a country name nor a country code"
+                    );
 
-                return Ok(());
-            }
-            Err(err) => {
-                let _ = command.error(&ctx, OSU_API_ISSUE).await;
-
-                return Err(err.into());
-            }
-        }
-    } else {
-        match args.country.take() {
-            Some(country) => match CountryCode::from_name(&country) {
-                Some(code) => code,
-                None => {
-                    if country.len() == 2 {
-                        CountryCode::from(country)
-                    } else {
-                        let content = format!(
-                            "Looks like `{country}` is neither a country name nor a country code"
-                        );
-
-                        command.error(&ctx, content).await?;
-
-                        return Ok(());
-                    }
-                }
-            },
-            None => match ctx
-                .psql()
-                .get_user_osu(author)
-                .await
-                .map(|osu| osu.map(OsuData::into_username))
-            {
-                Ok(Some(name)) => match user_country(&ctx, &name).await {
-                    Ok(code) => code,
-                    Err(OsuError::NotFound) => {
-                        let content = format!("User `{name}` was not found");
-                        command.error(&ctx, content).await?;
-
-                        return Ok(());
-                    }
-                    Err(err) => {
-                        let _ = command.error(&ctx, OSU_API_ISSUE).await;
-
-                        return Err(err.into());
-                    }
-                },
-                Ok(None) => {
-                    let content = "Since you're not linked, you must specify a country (code)";
                     command.error(&ctx, content).await?;
 
                     return Ok(());
                 }
-                Err(err) => {
-                    let _ = command.error(&ctx, GENERAL_ISSUE).await;
-
-                    return Err(err);
-                }
-            },
-        }
+            }
+        },
+        None => None,
     };
 
     let details_fut = ctx
         .client()
-        .get_osutracker_country_details(country_code.as_str());
+        .get_osutracker_country_details(country_code.as_deref().map(SmallString::as_str));
 
     let mut details = match details_fut.await {
         Ok(details) => details,
         Err(err) => {
             let content = format!(
-                "Either the country code `{country_code}` is not supported \
-                or the osutracker api has an issue."
+                "Either the country code `{code}` is not supported \
+                or the osutracker api has an issue.",
+                code = country_code
+                    .as_deref()
+                    .map(SmallString::as_str)
+                    .unwrap_or("Global"),
             );
 
             let _ = command.error(&ctx, content).await;
@@ -393,11 +345,4 @@ fn content_with_condition(
     let _ = write!(content, "\nFound {amount} matching top score{plural}:");
 
     content
-}
-
-async fn user_country(ctx: &Context, name: &str) -> OsuResult<CountryCode> {
-    let user_args = UserArgs::new(name, GameMode::Osu);
-    let user = ctx.redis().osu_user(&user_args).await?;
-
-    Ok(user.country_code.into())
 }

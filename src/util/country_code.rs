@@ -1,4 +1,8 @@
-use crate::{util::CowUtils, Context};
+use std::{
+    borrow::{Borrow, Cow},
+    fmt,
+    ops::Deref,
+};
 
 use hashbrown::HashMap;
 use once_cell::sync::OnceCell;
@@ -8,12 +12,9 @@ use rkyv::{
 };
 use serde::Deserialize;
 use smallstr::SmallString;
-use std::{
-    borrow::{Borrow, Cow},
-    fmt,
-    ops::Deref,
-};
 use time::UtcOffset;
+
+use crate::{util::CowUtils, Context};
 
 static TIMEZONES: OnceCell<HashMap<&'static str, i32>> = OnceCell::new();
 
