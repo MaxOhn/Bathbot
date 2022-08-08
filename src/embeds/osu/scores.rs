@@ -1,4 +1,4 @@
-use std::fmt::{self, Write};
+use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use command_macros::EmbedData;
 use eyre::Report;
@@ -63,6 +63,8 @@ impl ScoresEmbed {
         let pp_idx = (page == pp_idx / 10 + 1).then(|| pp_idx % 10);
         let mut args = WriteArgs::new(&mut description, pinned, personal, global, pp_idx);
 
+        let max_combo_ = map.max_combo.unwrap_or(0);
+
         if page == 1 {
             if let Some(score) = scores.next() {
                 let personal = personal_idx(score, args.personal);
@@ -119,14 +121,14 @@ impl ScoresEmbed {
                     args.description
                         .push_str("\n__Other scores on the beatmap:__\n");
                     let (pp, _, stars) = get_attrs(&pp_map, score);
-                    write_compact_score(&mut args, 1, score, stars, pp.unwrap_or(0.0));
+                    write_compact_score(&mut args, 1, score, stars, pp.unwrap_or(0.0), max_combo_);
                 }
             }
         }
 
         for (score, i) in scores.zip(2..) {
             let (pp, _, stars) = get_attrs(&pp_map, score);
-            write_compact_score(&mut args, i, score, stars, pp.unwrap_or(0.0));
+            write_compact_score(&mut args, i, score, stars, pp.unwrap_or(0.0), max_combo_);
         }
 
         if args.description.is_empty() {
@@ -252,20 +254,26 @@ fn personal_idx(score: &Score, scores: &[Score]) -> Option<usize> {
         .map(|i| i + 1)
 }
 
-fn write_compact_score(args: &mut WriteArgs<'_>, i: usize, score: &Score, stars: f32, pp: f32) {
+fn write_compact_score(
+    args: &mut WriteArgs<'_>,
+    i: usize,
+    score: &Score,
+    stars: f32,
+    pp: f32,
+    max_combo: u32,
+) {
     let config = CONFIG.get().unwrap();
 
     let _ = write!(
         args.description,
         "{grade} **+{mods}** [{stars:.2}★] {pp_format}{pp:.2}pp{pp_format} \
-        ({acc}%) {combo}x • {miss}{miss_emote} {timestamp}",
+        ({acc}%) {combo}x • {miss} {timestamp}",
         grade = config.grade(score.grade),
         mods = score.mods,
         pp_format = if args.pp_idx == Some(i) { "**" } else { "~~" },
         acc = round(score.accuracy),
         combo = score.max_combo,
-        miss = score.statistics.count_miss,
-        miss_emote = Emote::Miss.text(),
+        miss = MissFormat::new(score, max_combo),
         timestamp = how_long_ago_dynamic(&score.ended_at),
     );
 
@@ -308,11 +316,34 @@ impl<T> OptionFormat<T> {
     }
 }
 
-impl<T: fmt::Display> fmt::Display for OptionFormat<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl<T: Display> Display for OptionFormat<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self.value {
             Some(ref value) => write!(f, "{value:.2}"),
             None => f.write_str("-"),
+        }
+    }
+}
+
+struct MissFormat<'s> {
+    score: &'s Score,
+    max_combo: u32,
+}
+
+impl<'s> MissFormat<'s> {
+    fn new(score: &'s Score, max_combo: u32) -> Self {
+        Self { score, max_combo }
+    }
+}
+
+impl Display for MissFormat<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let miss = self.score.statistics.count_miss;
+
+        if miss > 0 || !self.score.is_fc(self.score.mode, self.max_combo) {
+            write!(f, "{miss}{}", Emote::Miss.text())
+        } else {
+            f.write_str("**FC**")
         }
     }
 }
