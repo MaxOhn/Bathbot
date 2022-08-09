@@ -108,7 +108,7 @@ impl TopEmbed {
                 score = with_comma_int(score.score),
                 combo = osu::get_combo(score, map),
                 hits = score.hits_string(score.mode),
-                appendix = OrderAppendix::new(sort_by, map, mapset_opt, score, farm),
+                appendix = OrderAppendix::new(sort_by, map, mapset_opt, score, farm, false),
             );
         }
 
@@ -226,7 +226,7 @@ impl CondensedTopEmbed {
                 max_combo = map.max_combo.unwrap_or(0),
                 miss = MissFormat(score.statistics.count_miss),
                 mods = score.mods,
-                appendix = OrderAppendix::new(sort_by, map, mapset_opt, score, farm),
+                appendix = OrderAppendix::new(sort_by, map, mapset_opt, score, farm, true),
             );
         }
 
@@ -283,7 +283,7 @@ impl CondensedTopEmbed {
                 n320 = stats.count_geki,
                 n300 = stats.count_300,
                 miss = stats.count_miss,
-                appendix = OrderAppendix::new(sort_by, map, mapset_opt, score, farm),
+                appendix = OrderAppendix::new(sort_by, map, mapset_opt, score, farm, true),
             );
         }
 
@@ -422,6 +422,7 @@ pub struct OrderAppendix<'a> {
     ranked_date: Option<OffsetDateTime>,
     score: &'a Score,
     farm: &'a Farm,
+    condensed: bool,
 }
 
 impl<'a> OrderAppendix<'a> {
@@ -431,6 +432,7 @@ impl<'a> OrderAppendix<'a> {
         mapset: Option<Beatmapset>,
         score: &'a Score,
         farm: &'a Farm,
+        condensed: bool,
     ) -> Self {
         let ranked_date = mapset.and_then(|mapset| mapset.ranked_date);
 
@@ -440,6 +442,7 @@ impl<'a> OrderAppendix<'a> {
             ranked_date,
             score,
             farm,
+            condensed,
         }
     }
 }
@@ -488,6 +491,17 @@ impl Display for OrderAppendix<'_> {
                 Some(date) => write!(f, "<t:{}:d>", date.unix_timestamp()),
                 None => Ok(()),
             },
+            TopScoreOrder::Score if self.condensed && self.map.mode != GameMode::Mania => {
+                let score = self.score.score;
+
+                if score > 1_000_000_000 {
+                    write!(f, "`{:.2}bn`", score as f32 / 1_000_000_000.0)
+                } else if score > 1_000_000 {
+                    write!(f, "`{:.2}m`", score as f32 / 1_000_000.0)
+                } else {
+                    write!(f, "`{}`", with_comma_int(score))
+                }
+            }
             _ => write!(f, "<t:{}:R>", self.score.ended_at.unix_timestamp()),
         }
     }
