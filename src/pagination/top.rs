@@ -7,8 +7,10 @@ use crate::{
     commands::osu::TopScoreOrder,
     core::Context,
     custom_client::OsuTrackerMapsetEntry,
-    embeds::{CondensedTopEmbed, EmbedData, TopEmbed},
+    database::MinimizedPp,
+    embeds::{CondensedTopEmbed, EmbedData, TopEmbed, TopSingleEmbed},
     util::hasher::SimpleBuildHasher,
+    BotResult,
 };
 
 use super::Pages;
@@ -47,5 +49,23 @@ impl TopCondensedPagination {
             CondensedTopEmbed::new(&self.user, scores, ctx, self.sort_by, &self.farm, pages);
 
         embed_fut.await.build()
+    }
+}
+
+#[pagination(per_page = 1, entries = "scores")]
+pub struct TopSinglePagination {
+    user: User,
+    scores: Vec<(usize, Score)>,
+    minimized_pp: MinimizedPp,
+}
+
+impl TopSinglePagination {
+    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> BotResult<Embed> {
+        let (idx, score) = self.scores.get(pages.index).unwrap();
+
+        let embed_fut =
+            TopSingleEmbed::new(&self.user, score, Some(*idx), None, self.minimized_pp, ctx);
+
+        Ok(embed_fut.await?.into_minimized())
     }
 }

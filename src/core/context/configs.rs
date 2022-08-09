@@ -7,7 +7,9 @@ use twilight_model::id::{
 use crate::{
     commands::osu::ProfileSize,
     core::commands::prefix::Stream,
-    database::{Authorities, EmbedsSize, GuildConfig, MinimizedPp, Prefix, Prefixes, UserConfig},
+    database::{
+        Authorities, EmbedsSize, GuildConfig, ListSize, MinimizedPp, Prefix, Prefixes, UserConfig,
+    },
     BotResult, Context,
 };
 
@@ -107,6 +109,10 @@ impl Context {
     pub async fn guild_minimized_pp(&self, guild_id: Id<GuildMarker>) -> MinimizedPp {
         self.guild_config_(guild_id, GuildConfig::minimized_pp)
             .await
+    }
+
+    pub async fn guild_list_size(&self, guild_id: Id<GuildMarker>) -> ListSize {
+        self.guild_config_(guild_id, GuildConfig::list_size).await
     }
 
     pub async fn guild_config(&self, guild_id: Id<GuildMarker>) -> GuildConfig {

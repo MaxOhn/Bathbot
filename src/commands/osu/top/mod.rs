@@ -23,9 +23,9 @@ use crate::{
     },
     core::commands::{prefix::Args, CommandOrigin},
     custom_client::OsuTrackerMapsetEntry,
-    database::{EmbedsSize, MinimizedPp},
+    database::{EmbedsSize, ListSize, MinimizedPp},
     embeds::TopSingleEmbed,
-    pagination::{TopCondensedPagination, TopPagination},
+    pagination::{TopCondensedPagination, TopPagination, TopSinglePagination},
     tracking::process_osu_tracking,
     util::{
         builder::MessageBuilder,
@@ -98,8 +98,11 @@ pub struct Top {
     farm: Option<FarmFilter>,
     /// Filter out all scores that don't have a perfect combo
     perfect_combo: Option<bool>,
-    /// Condenses the embed
-    condensed: Option<bool>,
+    #[command(help = "Size of the embed.\n\
+      `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1.\n\
+      The default can be set with the `/config` command.")]
+    /// Size of the embed
+    size: Option<ListSize>,
 }
 
 #[derive(Copy, Clone, CommandOption, CreateOption, Eq, PartialEq)]
@@ -501,7 +504,7 @@ pub struct TopArgs<'a> {
     pub index: Option<usize>,
     pub query: Option<String>,
     pub farm: Option<FarmFilter>,
-    pub condensed: Option<bool>,
+    pub size: Option<ListSize>,
     pub has_dash_r: bool,
     pub has_dash_p_or_i: bool,
 }
@@ -673,7 +676,7 @@ impl<'m> TopArgs<'m> {
             index: num.map(|n| n as usize),
             query: None,
             farm: None,
-            condensed: None,
+            size: None,
             has_dash_r: has_dash_r.unwrap_or(false),
             has_dash_p_or_i: has_dash_p_or_i.unwrap_or(false),
         };
@@ -708,7 +711,7 @@ impl TryFrom<Top> for TopArgs<'static> {
             index: args.index.map(|n| n as usize),
             query: args.query,
             farm: args.farm,
-            condensed: args.condensed,
+            size: args.size,
             has_dash_r: false,
             has_dash_p_or_i: false,
         })
@@ -871,6 +874,7 @@ pub(super) async fn top(
             };
 
             let num = num.saturating_sub(1);
+
             single_embed(
                 ctx,
                 orig,
@@ -897,6 +901,7 @@ pub(super) async fn top(
             };
 
             let content = write_content(&name, &args, 1);
+
             single_embed(
                 ctx,
                 orig,
@@ -911,11 +916,47 @@ pub(super) async fn top(
         }
         (None, _) => {
             let content = write_content(&name, &args, scores.len());
-            if args.condensed.unwrap_or(false) {
-                condensed_paginated_embed(ctx, orig, user, scores, args.sort_by, content, farm)
-                    .await?;
-            } else {
-                paginated_embed(ctx, orig, user, scores, args.sort_by, content, farm).await?;
+
+            let list_size = match args.size {
+                Some(size) => size,
+                None => match (config.list_size, orig.guild_id()) {
+                    (Some(size), _) => size,
+                    (None, Some(guild)) => ctx.guild_list_size(guild).await,
+                    (None, None) => ListSize::default(),
+                },
+            };
+
+            match list_size {
+                ListSize::Condensed => {
+                    TopCondensedPagination::builder(user, scores, args.sort_by, farm)
+                        .content(content.unwrap_or_default())
+                        .start_by_update()
+                        .defer_components()
+                        .start(ctx, orig)
+                        .await?;
+                }
+                ListSize::Detailed => {
+                    TopPagination::builder(user, scores, args.sort_by, farm)
+                        .content(content.unwrap_or_default())
+                        .start_by_update()
+                        .defer_components()
+                        .start(ctx, orig)
+                        .await?;
+                }
+                ListSize::Single => {
+                    let minimized_pp = match (config.minimized_pp, orig.guild_id()) {
+                        (Some(pp), _) => pp,
+                        (None, Some(guild)) => ctx.guild_minimized_pp(guild).await,
+                        (None, None) => MinimizedPp::default(),
+                    };
+
+                    TopSinglePagination::builder(user, scores, minimized_pp)
+                        .content(content.unwrap_or_default())
+                        .start_by_update()
+                        .defer_components()
+                        .start(ctx, orig)
+                        .await?;
+                }
             }
         }
     }
@@ -1126,40 +1167,6 @@ async fn single_embed(
 
 type Farm = HashMap<u32, (OsuTrackerMapsetEntry, bool), SimpleBuildHasher>;
 
-async fn paginated_embed(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    user: User,
-    scores: Vec<(usize, Score)>,
-    sort_by: TopScoreOrder,
-    content: Option<String>,
-    farm: Farm,
-) -> BotResult<()> {
-    TopPagination::builder(user, scores, sort_by, farm)
-        .content(content.unwrap_or_default())
-        .start_by_update()
-        .defer_components()
-        .start(ctx, orig)
-        .await
-}
-
-async fn condensed_paginated_embed(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    user: User,
-    scores: Vec<(usize, Score)>,
-    sort_by: TopScoreOrder,
-    content: Option<String>,
-    farm: Farm,
-) -> BotResult<()> {
-    TopCondensedPagination::builder(user, scores, sort_by, farm)
-        .content(content.unwrap_or_default())
-        .start_by_update()
-        .defer_components()
-        .start(ctx, orig)
-        .await
-}
-
 fn write_content(name: &str, args: &TopArgs<'_>, amount: usize) -> Option<String> {
     let condition = args.min_acc.is_some()
         || args.max_acc.is_some()
@@ -1176,52 +1183,47 @@ fn write_content(name: &str, args: &TopArgs<'_>, amount: usize) -> Option<String
     } else {
         let genitive = if name.ends_with('s') { "" } else { "s" };
         let reverse = if args.reverse { "reversed " } else { "" };
-        let condensed = if args.condensed.unwrap_or(false) {
-            "condensed "
-        } else {
-            ""
-        };
 
         let content = match args.sort_by {
             TopScoreOrder::Farm if args.reverse => {
-                format!("`{name}`'{genitive} {condensed}top100 sorted by least popular farm:")
+                format!("`{name}`'{genitive} top100 sorted by least popular farm:")
             }
             TopScoreOrder::Farm => {
-                format!("`{name}`'{genitive} {condensed}top100 sorted by most popular farm:")
+                format!("`{name}`'{genitive} top100 sorted by most popular farm:")
             }
             TopScoreOrder::Acc => {
-                format!("`{name}`'{genitive} {condensed}top100 sorted by {reverse}accuracy:")
+                format!("`{name}`'{genitive} top100 sorted by {reverse}accuracy:")
             }
             TopScoreOrder::Bpm => {
-                format!("`{name}`'{genitive} {condensed}top100 sorted by {reverse}BPM:")
+                format!("`{name}`'{genitive} top100 sorted by {reverse}BPM:")
             }
             TopScoreOrder::Combo => {
-                format!("`{name}`'{genitive} {condensed}top100 sorted by {reverse}combo:")
+                format!("`{name}`'{genitive} top100 sorted by {reverse}combo:")
             }
             TopScoreOrder::Date if args.reverse => {
-                format!("Oldest {condensed}scores in `{name}`'{genitive} top100:")
+                format!("Oldest scores in `{name}`'{genitive} top100:")
             }
             TopScoreOrder::Date => {
-                format!("Most recent {condensed}scores in `{name}`'{genitive} top100:")
+                format!("Most recent scores in `{name}`'{genitive} top100:")
             }
             TopScoreOrder::Length => {
-                format!("`{name}`'{genitive} {condensed}top100 sorted by {reverse}length:")
+                format!("`{name}`'{genitive} top100 sorted by {reverse}length:")
             }
             TopScoreOrder::Misses => {
-                format!("`{name}`'{genitive} {condensed}top100 sorted by {reverse}miss count:")
+                format!("`{name}`'{genitive} top100 sorted by {reverse}miss count:")
             }
             TopScoreOrder::Pp if !args.reverse => return None,
             TopScoreOrder::Pp => {
-                format!("`{name}`'{genitive} {condensed}top100 sorted by reversed pp:")
+                format!("`{name}`'{genitive} top100 sorted by reversed pp:")
             }
             TopScoreOrder::RankedDate => {
-                format!("`{name}`'{genitive} {condensed}top100 sorted by {reverse}ranked date:")
+                format!("`{name}`'{genitive} top100 sorted by {reverse}ranked date:")
             }
             TopScoreOrder::Score => {
-                format!("`{name}`'{genitive} {condensed}top100 sorted by {reverse}score:")
+                format!("`{name}`'{genitive} top100 sorted by {reverse}score:")
             }
             TopScoreOrder::Stars => {
-                format!("`{name}`'{genitive} {condensed}top100 sorted by {reverse}stars:")
+                format!("`{name}`'{genitive} top100 sorted by {reverse}stars:")
             }
         };
 

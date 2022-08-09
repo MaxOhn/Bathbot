@@ -2,7 +2,7 @@ use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
 use hashbrown::HashMap;
-use rosu_v2::prelude::OsuError;
+use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     application::interaction::ApplicationCommand,
@@ -15,16 +15,18 @@ use crate::{
         GameModeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
-    pagination::TopPagination,
+    database::{ListSize, MinimizedPp},
+    pagination::{TopCondensedPagination, TopPagination, TopSinglePagination},
     tracking::process_osu_tracking,
     util::{
-        constants::OSU_API_ISSUE, hasher::SimpleBuildHasher, matcher, ApplicationCommandExt,
-        ChannelExt, CowUtils,
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        hasher::SimpleBuildHasher,
+        matcher, ApplicationCommandExt, ChannelExt, CowUtils,
     },
     BotResult, Context,
 };
 
-use super::{get_user, TopScoreOrder};
+use super::{get_user, require_link, TopScoreOrder};
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
 #[command(
@@ -51,6 +53,11 @@ pub struct Mapper<'a> {
     )]
     /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
+    #[command(help = "Size of the embed.\n\
+      `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1.\n\
+      The default can be set with the `/config` command.")]
+    /// Size of the embed
+    size: Option<ListSize>,
 }
 
 impl<'m> Mapper<'m> {
@@ -84,6 +91,7 @@ impl<'m> Mapper<'m> {
             mode,
             name,
             discord,
+            size: None,
         })
     }
 }
@@ -194,7 +202,28 @@ async fn slash_mapper(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -
 }
 
 async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) -> BotResult<()> {
-    let (user, mode) = name_mode!(ctx, orig, args);
+    let mut config = match ctx.user_config(orig.user_id()?).await {
+        Ok(config) => config,
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err);
+        }
+    };
+
+    let mode = args
+        .mode
+        .map(GameMode::from)
+        .or(config.mode)
+        .unwrap_or(GameMode::Osu);
+
+    let user = match username!(ctx, orig, args) {
+        Some(name) => name,
+        None => match config.osu.take() {
+            Some(osu) => osu.into_username(),
+            None => return require_link(&ctx, &orig).await,
+        },
+    };
 
     let mapper = args.mapper.cow_to_ascii_lowercase();
     let mapper_args = UserArgs::new(mapper.as_ref(), mode);
@@ -291,10 +320,45 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
     let sort_by = TopScoreOrder::Pp;
     let farm = HashMap::with_hasher(SimpleBuildHasher);
 
-    TopPagination::builder(user, scores, sort_by, farm)
-        .content(content)
-        .start_by_update()
-        .defer_components()
-        .start(ctx, orig)
-        .await
+    let list_size = match args.size {
+        Some(size) => size,
+        None => match (config.list_size, orig.guild_id()) {
+            (Some(size), _) => size,
+            (None, Some(guild)) => ctx.guild_list_size(guild).await,
+            (None, None) => ListSize::default(),
+        },
+    };
+
+    match list_size {
+        ListSize::Condensed => {
+            TopCondensedPagination::builder(user, scores, sort_by, farm)
+                .content(content)
+                .start_by_update()
+                .defer_components()
+                .start(ctx, orig)
+                .await
+        }
+        ListSize::Detailed => {
+            TopPagination::builder(user, scores, sort_by, farm)
+                .content(content)
+                .start_by_update()
+                .defer_components()
+                .start(ctx, orig)
+                .await
+        }
+        ListSize::Single => {
+            let minimized_pp = match (config.minimized_pp, orig.guild_id()) {
+                (Some(pp), _) => pp,
+                (None, Some(guild)) => ctx.guild_minimized_pp(guild).await,
+                (None, None) => MinimizedPp::default(),
+            };
+
+            TopSinglePagination::builder(user, scores, minimized_pp)
+                .content(content)
+                .start_by_update()
+                .defer_components()
+                .start(ctx, orig)
+                .await
+        }
+    }
 }

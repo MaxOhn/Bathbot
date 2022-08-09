@@ -3,6 +3,7 @@ use crate::commands::osu::ProfileSize;
 use rosu_v2::prelude::{GameMode, Username};
 use smallstr::SmallString;
 use smallvec::SmallVec;
+use twilight_interactions::command::{CommandOption, CreateOption};
 
 pub type Prefix = SmallString<[u8; 2]>;
 pub type Prefixes = SmallVec<[Prefix; 5]>;
@@ -54,17 +55,22 @@ impl Default for MinimizedPp {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, CommandOption, CreateOption, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum ListSize {
+    #[option(name = "Condensed", value = "condensed")]
     Condensed = 0,
+    #[option(name = "Detailed", value = "detailed")]
     Detailed = 1,
+    #[option(name = "Single", value = "single")]
+    Single = 2,
 }
 
 impl From<i16> for ListSize {
     fn from(value: i16) -> Self {
         match value {
             1 => Self::Detailed,
+            2 => Self::Single,
             _ => Self::Condensed,
         }
     }

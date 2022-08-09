@@ -4,7 +4,7 @@ use command_macros::{HasMods, HasName, SlashCommand};
 use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{
-    GameMods, OsuError,
+    GameMode, GameMods, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
     Score, User,
 };
@@ -18,9 +18,9 @@ use twilight_model::{
 use crate::{
     commands::{osu::UserArgs, GameModeOption},
     core::commands::CommandOrigin,
-    database::{EmbedsSize, MinimizedPp},
+    database::{EmbedsSize, ListSize, MinimizedPp},
     embeds::TopSingleEmbed,
-    pagination::TopCondensedPagination,
+    pagination::{TopCondensedPagination, TopPagination, TopSinglePagination},
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -32,7 +32,7 @@ use crate::{
     BotResult, Context,
 };
 
-use super::{prepare_scores, HasMods, ModsResult, ScoreOrder};
+use super::{prepare_scores, require_link, HasMods, ModsResult, ScoreOrder};
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName, SlashCommand)]
 #[command(name = "pinned")]
@@ -69,6 +69,11 @@ pub struct Pinned {
     )]
     /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
+    #[command(help = "Size of the embed.\n\
+      `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1.\n\
+      The default can be set with the `/config` command.")]
+    /// Size of the embed
+    size: Option<ListSize>,
 }
 
 async fn slash_pinned(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
@@ -91,7 +96,28 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Bot
         }
     };
 
-    let (name, mode) = name_mode!(ctx, orig, args);
+    let mut config = match ctx.user_config(orig.user_id()?).await {
+        Ok(config) => config,
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err);
+        }
+    };
+
+    let mode = args
+        .mode
+        .map(GameMode::from)
+        .or(config.mode)
+        .unwrap_or(GameMode::Osu);
+
+    let name = match username!(ctx, orig, args) {
+        Some(name) => name,
+        None => match config.osu.take() {
+            Some(osu) => osu.into_username(),
+            None => return require_link(&ctx, &orig).await,
+        },
+    };
 
     // Retrieve the user and their top scores
     let mut user_args = UserArgs::new(&name, mode);
@@ -156,18 +182,8 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Bot
     // Overwrite default mode
     user.mode = mode;
 
-    // Filter scores according to query & gather config
-    let filter_fut = filter_scores(&ctx, &mut scores, &args, mods);
-    let config_fut = ctx.user_config(orig.user_id()?);
-
-    let config = match tokio::join!(filter_fut, config_fut) {
-        (_, Ok(config)) => config,
-        (_, Err(err)) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(err);
-        }
-    };
+    // Filter scores according to query
+    filter_scores(&ctx, &mut scores, &args, mods).await;
 
     if let [score] = &scores[..] {
         let embeds_size = match (config.embeds_size, orig.guild_id()) {
@@ -185,9 +201,52 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Bot
         let content = write_content(&name, &args, 1, mods);
         single_embed(ctx, orig, user, score, embeds_size, minimized_pp, content).await?;
     } else {
+        let list_size = match args.size {
+            Some(size) => size,
+            None => match (config.list_size, orig.guild_id()) {
+                (Some(size), _) => size,
+                (None, Some(guild)) => ctx.guild_list_size(guild).await,
+                (None, None) => ListSize::default(),
+            },
+        };
+
         let content = write_content(&name, &args, scores.len(), mods);
-        let sort_by = args.sort.unwrap_or(ScoreOrder::Pp); // TopOrder::Pp does not show anything
-        paginated_embed(ctx, orig, user, scores, sort_by, content).await?;
+        let sort_by = args.sort.unwrap_or(ScoreOrder::Pp).into(); // TopOrder::Pp does not show anything
+        let scores: Vec<_> = scores.into_iter().enumerate().collect();
+        let farm = HashMap::with_hasher(SimpleBuildHasher);
+
+        match list_size {
+            ListSize::Condensed => {
+                TopCondensedPagination::builder(user, scores, sort_by, farm)
+                    .content(content.unwrap_or_default())
+                    .start_by_update()
+                    .defer_components()
+                    .start(ctx, orig)
+                    .await?;
+            }
+            ListSize::Detailed => {
+                TopPagination::builder(user, scores, sort_by, farm)
+                    .content(content.unwrap_or_default())
+                    .start_by_update()
+                    .defer_components()
+                    .start(ctx, orig)
+                    .await?;
+            }
+            ListSize::Single => {
+                let minimized_pp = match (config.minimized_pp, orig.guild_id()) {
+                    (Some(pp), _) => pp,
+                    (None, Some(guild)) => ctx.guild_minimized_pp(guild).await,
+                    (None, None) => MinimizedPp::default(),
+                };
+
+                TopSinglePagination::builder(user, scores, minimized_pp)
+                    .content(content.unwrap_or_default())
+                    .start_by_update()
+                    .defer_components()
+                    .start(ctx, orig)
+                    .await?;
+            }
+        }
     }
 
     Ok(())
@@ -327,27 +386,6 @@ async fn single_embed(
     }
 
     Ok(())
-}
-
-async fn paginated_embed(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    user: User,
-    scores: Vec<Score>,
-    sort_by: ScoreOrder,
-    content: Option<String>,
-) -> BotResult<()> {
-    let scores: Vec<_> = scores.into_iter().enumerate().collect();
-
-    let farm = HashMap::with_hasher(SimpleBuildHasher);
-    let sort_by = sort_by.into();
-
-    TopCondensedPagination::builder(user, scores, sort_by, farm)
-        .content(content.unwrap_or_default())
-        .start_by_update()
-        .defer_components()
-        .start(ctx, orig)
-        .await
 }
 
 fn write_content(

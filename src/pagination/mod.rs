@@ -101,6 +101,7 @@ pub enum PaginationKind {
     Top(Box<TopPagination>),
     TopCondensed(Box<TopCondensedPagination>),
     TopIf(Box<TopIfPagination>),
+    TopSingle(Box<TopSinglePagination>),
 }
 
 impl PaginationKind {
@@ -140,6 +141,7 @@ impl PaginationKind {
             Self::Top(kind) => Ok(kind.build_page(ctx, pages).await),
             Self::TopCondensed(kind) => Ok(kind.build_page(ctx, pages).await),
             Self::TopIf(kind) => Ok(kind.build_page(pages).await),
+            Self::TopSingle(kind) => kind.build_page(ctx, pages).await,
         }
     }
 }
@@ -295,7 +297,7 @@ impl PaginationBuilder {
     }
 
     /// Start the pagination
-    pub async fn start(self, ctx: Arc<Context>, orig: CommandOrigin<'_>) -> crate::BotResult<()> {
+    pub async fn start(self, ctx: Arc<Context>, orig: CommandOrigin<'_>) -> BotResult<()> {
         Pagination::start(ctx, orig, self).await
     }
 

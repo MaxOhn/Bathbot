@@ -1,4 +1,4 @@
-use std::{borrow::Cow, mem, sync::Arc};
+use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{HasMods, HasName, SlashCommand};
 use rosu_v2::prelude::{GameMode, Grade};
@@ -10,6 +10,7 @@ use twilight_model::{
 
 use crate::{
     commands::{osu::top, GameModeOption, GradeOption},
+    database::ListSize,
     util::ApplicationCommandExt,
     BotResult, Context,
 };
@@ -140,8 +141,11 @@ pub struct RecentBest {
     farm: Option<FarmFilter>,
     /// Filter out all scores that don't have a perfect combo
     perfect_combo: Option<bool>,
+    #[command(help = "Size of the embed.\n\
+      `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1.\n\
+      The default can be set with the `/config` command.")]
     /// Condense top plays
-    condensed: Option<bool>,
+    size: Option<ListSize>,
 }
 
 impl<'a> TryFrom<RecentBest> for TopArgs<'a> {
@@ -170,7 +174,7 @@ impl<'a> TryFrom<RecentBest> for TopArgs<'a> {
             index: args.index.map(|n| n as usize),
             query: args.query,
             farm: args.farm,
-            condensed: args.condensed,
+            size: args.size,
             has_dash_r: false,
             has_dash_p_or_i: false,
         })
@@ -288,6 +292,7 @@ pub enum RecentFixGameMode {
 }
 
 impl From<RecentFixGameMode> for GameMode {
+    #[inline]
     fn from(mode: RecentFixGameMode) -> Self {
         match mode {
             RecentFixGameMode::Osu => Self::Osu,
@@ -561,11 +566,29 @@ pub struct Rb {
     farm: Option<FarmFilter>,
     /// Filter out all scores that don't have a perfect combo
     perfect_combo: Option<bool>,
+    #[command(help = "Size of the embed.\n\
+      `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1.\n\
+      The default can be set with the `/config` command.")]
+    /// Condense top plays
+    size: Option<ListSize>,
 }
 
 impl From<Rb> for RecentBest {
+    #[inline]
     fn from(args: Rb) -> Self {
-        unsafe { mem::transmute(args) }
+        Self {
+            mode: args.mode,
+            name: args.name,
+            mods: args.mods,
+            index: args.index,
+            discord: args.discord,
+            reverse: args.reverse,
+            query: args.query,
+            grade: args.grade,
+            farm: args.farm,
+            perfect_combo: args.perfect_combo,
+            size: args.size,
+        }
     }
 }
 
