@@ -1,19 +1,19 @@
-use std::fmt::Write;
+use std::fmt::{Display, Write};
 
 use command_macros::EmbedData;
 use rosu_v2::prelude::GameMode;
-use twilight_model::user::User;
+use twilight_model::{channel::embed::EmbedField, user::User};
 
 use crate::{
     commands::osu::ProfileSize,
-    database::{EmbedsSize, MinimizedPp, UserConfig},
+    database::{EmbedsSize, ListSize, MinimizedPp, UserConfig},
     util::builder::AuthorBuilder,
 };
 
 #[derive(EmbedData)]
 pub struct ConfigEmbed {
     author: AuthorBuilder,
-    description: String,
+    fields: Vec<EmbedField>,
     title: &'static str,
 }
 
@@ -37,155 +37,104 @@ impl ConfigEmbed {
         let author = AuthorBuilder::new(&author.name).icon_url(author_img);
         let title = "Current user configuration:";
 
-        let mut description = String::with_capacity(256);
+        let account_value = format!(
+            "```\n\
+            osu!: {}\n\
+            Twitch: {}\n\
+            ```",
+            if let Some(name) = config.username() {
+                name as &dyn Display
+            } else {
+                &"-" as &dyn Display
+            },
+            if let Some(name) = twitch.as_ref() {
+                name as &dyn Display
+            } else {
+                &"-" as &dyn Display
+            }
+        );
 
-        description.push_str("```\nosu!: ");
-
-        if let Some(name) = config.username() {
-            let _ = writeln!(description, "{name}");
-        } else {
-            description.push_str("-\n");
-        }
-
-        description.push_str("Twitch: ");
-
-        if let Some(name) = twitch {
-            let _ = writeln!(description, "{name}");
-        } else {
-            description.push_str("-\n");
-        }
-
-        let profile = config.profile_size.unwrap_or_default();
-        description.push_str("\nMode:  | Profile: | Embeds:\n");
-
-        if config.mode.is_none() {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("none  | ");
-
-        if profile == ProfileSize::Compact {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("compact | ");
-
-        let embeds = config.embeds_size();
-
-        if embeds == EmbedsSize::AlwaysMinimized {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("always minimized\n");
-
-        if config.mode == Some(GameMode::Osu) {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("osu   | ");
-
-        if profile == ProfileSize::Medium {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("medium  | ");
-
-        if embeds == EmbedsSize::AlwaysMaximized {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("always maximized\n");
-
-        if config.mode == Some(GameMode::Taiko) {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("taiko | ");
-
-        if profile == ProfileSize::Full {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("full    | ");
-
-        if embeds == EmbedsSize::InitialMaximized {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("initial maximized\n");
-
-        if config.mode == Some(GameMode::Catch) {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("ctb   |----------+-------------------\n");
-
-        if config.mode == Some(GameMode::Mania) {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("mania | Retries: | Minimized PP:\n       | ");
-
-        if config.show_retries.unwrap_or(true) {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("show    | ");
-
-        let minimized_pp = config.minimized_pp();
-
-        if minimized_pp == MinimizedPp::Max {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("max pp\n       | ");
-
-        if config.show_retries.unwrap_or(true) {
-            description.push(' ');
-        } else {
-            description.push('>');
-        }
-
-        description.push_str("hide    | ");
-
-        if minimized_pp == MinimizedPp::IfFc {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("if FC\n```");
+        let fields = vec![
+            EmbedField {
+                inline: true,
+                name: "Accounts".to_owned(),
+                value: account_value,
+            },
+            create_field(
+                "Retries",
+                config.show_retries.unwrap_or(true),
+                &[(true, "show"), (false, "hide")],
+            ),
+            create_field(
+                "Minimized PP",
+                config.minimized_pp(),
+                &[(MinimizedPp::Max, "max pp"), (MinimizedPp::IfFc, "if FC")],
+            ),
+            create_field(
+                "Score embeds",
+                config.embeds_size(),
+                &[
+                    (EmbedsSize::AlwaysMinimized, "always minimized"),
+                    (EmbedsSize::AlwaysMaximized, "always maximized"),
+                    (EmbedsSize::InitialMaximized, "initial maximized"),
+                ],
+            ),
+            create_field(
+                "List embeds",
+                config.list_size(),
+                &[
+                    (ListSize::Condensed, "condensed"),
+                    (ListSize::Detailed, "detailed"),
+                    (ListSize::Single, "single"),
+                ],
+            ),
+            create_field(
+                "Profile",
+                config.profile_size.unwrap_or_default(),
+                &[
+                    (ProfileSize::Compact, "compact"),
+                    (ProfileSize::Medium, "medium"),
+                    (ProfileSize::Full, "full"),
+                ],
+            ),
+            create_field(
+                "Mode",
+                config.mode,
+                &[
+                    (None, "none"),
+                    (Some(GameMode::Osu), "osu"),
+                    (Some(GameMode::Taiko), "taiko"),
+                    (Some(GameMode::Catch), "catch"),
+                    (Some(GameMode::Mania), "mania"),
+                ],
+            ),
+        ];
 
         Self {
             author,
-            description,
+            fields,
             title,
         }
+    }
+}
+
+fn create_field<T: Eq>(name: &'static str, val: T, options: &[(T, &'static str)]) -> EmbedField {
+    let longest = options.iter().fold(0, |len, (_, text)| len.max(text.len()));
+    let capacity = 3 + 1 + options.len() * (longest + 2) + 3;
+    let mut value = String::with_capacity(capacity);
+
+    value.push_str("```\n");
+
+    for (option, text) in options {
+        let symbol = if &val == option { '>' } else { ' ' };
+        let _ = writeln!(value, "{symbol}{text:<longest$}");
+    }
+
+    value.push_str("```");
+
+    EmbedField {
+        inline: true,
+        name: name.to_owned(),
+        value,
     }
 }
