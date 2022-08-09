@@ -231,7 +231,7 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
     let mapset: BeatmapsetCompact = map.mapset.take().unwrap().into();
 
     let embeds_size = match config_result {
-        Ok(config) => config.embeds_size,
+        Ok(config) => config.score_size,
         Err(err) => {
             let report = Report::new(err).wrap_err("failed to get user config");
             warn!("{report:?}");

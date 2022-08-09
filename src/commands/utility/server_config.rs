@@ -14,7 +14,7 @@ use twilight_model::{
 
 use crate::{
     commands::{osu::ProfileSize, EnableDisable, ShowHideOption},
-    database::GuildConfig,
+    database::{GuildConfig, ListSize},
     embeds::{EmbedData, ServerConfigEmbed},
     util::{constants::GENERAL_ISSUE, ApplicationCommandExt},
     BotResult, Context,
@@ -29,6 +29,7 @@ pub struct GuildData {
 }
 
 impl From<&CachedGuild> for GuildData {
+    #[inline]
     fn from(guild: &CachedGuild) -> Self {
         Self {
             icon: guild.icon().map(ImageHash::to_owned),
@@ -69,6 +70,7 @@ pub enum ServerConfigAuthorities {
 }
 
 impl From<ServerConfigAuthorities> for AuthorityCommandKind {
+    #[inline]
     fn from(args: ServerConfigAuthorities) -> Self {
         match args {
             ServerConfigAuthorities::Add(args) => Self::Add(args.role.get()),
@@ -123,7 +125,14 @@ pub struct ServerConfigEdit {
         and any command showing top scores when the `index` option is specified.\n\
         Applies only if the member has not specified a config for themselves.")]
     /// What size should the recent, compare, simulate, ... commands be?
-    embeds: Option<ConfigEmbeds>,
+    score_embeds: Option<ConfigEmbeds>,
+    #[command(
+        help = "Adjust the amount of scores shown per page in top, rb, pinned, and mapper.\n\
+        `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1.\n\
+        Applies only if the member has not specified a config for themselves."
+    )]
+    /// Adjust the amount of scores shown per page in top, rb, pinned, ...
+    list_embeds: Option<ListSize>,
     #[command(
         help = "Should the amount of retries be shown for the `recent` command?\n\
         Applies only if the member has not specified a config for themselves."
@@ -146,7 +155,8 @@ impl ServerConfigEdit {
     fn any(&self) -> bool {
         self.song_commands.is_some()
             || self.profile.is_some()
-            || self.embeds.is_some()
+            || self.score_embeds.is_some()
+            || self.list_embeds.is_some()
             || self.retries.is_some()
             || self.track_limit.is_some()
             || self.minimized_pp.is_some()
@@ -180,7 +190,8 @@ async fn slash_serverconfig(
     if args.any() {
         let f = |config: &mut GuildConfig| {
             let ServerConfigEdit {
-                embeds,
+                score_embeds,
+                list_embeds,
                 minimized_pp,
                 profile,
                 retries,
@@ -188,8 +199,12 @@ async fn slash_serverconfig(
                 track_limit,
             } = args;
 
-            if let Some(embeds) = embeds {
-                config.embeds_size = Some(embeds.into());
+            if let Some(score_embeds) = score_embeds {
+                config.embeds_size = Some(score_embeds.into());
+            }
+
+            if let Some(list_embeds) = list_embeds {
+                config.list_size = Some(list_embeds);
             }
 
             if let Some(pp) = minimized_pp {

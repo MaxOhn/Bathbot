@@ -861,7 +861,7 @@ pub(super) async fn top(
 
     match (args.index, scores.len()) {
         (Some(num), _) => {
-            let embeds_size = match (config.embeds_size, orig.guild_id()) {
+            let embeds_size = match (config.score_size, orig.guild_id()) {
                 (Some(size), _) => size,
                 (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
                 (None, None) => EmbedsSize::default(),
@@ -888,7 +888,7 @@ pub(super) async fn top(
             .await?;
         }
         (_, 1) => {
-            let embeds_size = match (config.embeds_size, orig.guild_id()) {
+            let embeds_size = match (config.score_size, orig.guild_id()) {
                 (Some(size), _) => size,
                 (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
                 (None, None) => EmbedsSize::default(),

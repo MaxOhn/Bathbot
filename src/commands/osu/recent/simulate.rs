@@ -263,7 +263,7 @@ pub(super) async fn simulate(
     let map = score.map.take().unwrap();
     let mapset = score.mapset.take().unwrap();
 
-    let embeds_size = match (config.embeds_size, orig.guild_id()) {
+    let embeds_size = match (config.score_size, orig.guild_id()) {
         (Some(size), _) => size,
         (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
         (None, None) => EmbedsSize::default(),

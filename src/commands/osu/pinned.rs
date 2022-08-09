@@ -186,7 +186,7 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Bot
     filter_scores(&ctx, &mut scores, &args, mods).await;
 
     if let [score] = &scores[..] {
-        let embeds_size = match (config.embeds_size, orig.guild_id()) {
+        let embeds_size = match (config.score_size, orig.guild_id()) {
             (Some(size), _) => size,
             (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
             (None, None) => EmbedsSize::default(),

@@ -137,7 +137,7 @@ impl Database {
                 };
 
                 let config = UserConfig {
-                    embeds_size: entry.embeds_size.map(EmbedsSize::from),
+                    score_size: entry.embeds_size.map(EmbedsSize::from),
                     list_size: entry.list_size.map(ListSize::from),
                     minimized_pp: entry.minimized_pp.map(MinimizedPp::from),
                     mode: entry.mode.map(|mode| mode as u8).map(GameMode::from),
@@ -172,7 +172,7 @@ impl Database {
                 };
 
                 let config = UserConfig {
-                    embeds_size: entry.embeds_size.map(EmbedsSize::from),
+                    score_size: entry.embeds_size.map(EmbedsSize::from),
                     list_size: entry.list_size.map(ListSize::from),
                     minimized_pp: entry.minimized_pp.map(MinimizedPp::from),
                     mode: entry.mode.map(|mode| mode as u8).map(GameMode::from),
@@ -220,7 +220,7 @@ impl Database {
                 show_retries=$8,\
                 twitch_id=$9",
             user_id.get() as i64,
-            config.embeds_size.map(|size| size as u8 as i16),
+            config.score_size.map(|size| size as u8 as i16),
             config.list_size.map(|size| size as u8 as i16),
             config.minimized_pp.map(|pp| pp as u8 as i16),
             config.mode.map(|m| m as i16),

@@ -465,7 +465,7 @@ pub(super) async fn score(
 
     let content = show_retries.then(|| format!("Try #{tries}"));
 
-    let embeds_size = match (config.embeds_size, guild_id) {
+    let embeds_size = match (config.score_size, guild_id) {
         (Some(size), _) => size,
         (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
         (None, None) => EmbedsSize::default(),

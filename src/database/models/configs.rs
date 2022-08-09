@@ -184,7 +184,7 @@ impl From<String> for OsuData {
 
 #[derive(Clone, Debug, Default)]
 pub struct UserConfig {
-    pub embeds_size: Option<EmbedsSize>,
+    pub score_size: Option<EmbedsSize>,
     pub list_size: Option<ListSize>,
     pub minimized_pp: Option<MinimizedPp>,
     pub mode: Option<GameMode>,
@@ -204,7 +204,7 @@ impl UserConfig {
     }
 
     pub fn embeds_size(&self) -> EmbedsSize {
-        self.embeds_size.unwrap_or_default()
+        self.score_size.unwrap_or_default()
     }
 
     pub fn list_size(&self) -> ListSize {

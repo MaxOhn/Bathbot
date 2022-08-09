@@ -231,9 +231,9 @@ pub(super) async fn score(
 
     let (name, embeds_size, minimized_pp) = match ctx.user_config(owner).await {
         Ok(config) => match username!(ctx, orig, args) {
-            Some(name) => (name, config.embeds_size, config.minimized_pp),
+            Some(name) => (name, config.score_size, config.minimized_pp),
             None => match config.osu {
-                Some(osu) => (osu.into_username(), config.embeds_size, config.minimized_pp),
+                Some(osu) => (osu.into_username(), config.score_size, config.minimized_pp),
                 None => return require_link(&ctx, &orig).await,
             },
         },

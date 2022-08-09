@@ -8,7 +8,7 @@ use twilight_model::application::interaction::ApplicationCommand;
 use crate::{
     commands::{osu::ProfileSize, ShowHideOption},
     core::CONFIG,
-    database::{EmbedsSize, MinimizedPp, OsuData, UserConfig},
+    database::{EmbedsSize, ListSize, MinimizedPp, OsuData, UserConfig},
     embeds::{ConfigEmbed, EmbedData},
     server::AuthenticationStandbyError,
     util::{
@@ -52,7 +52,13 @@ pub struct Config {
     Affected commands are: `compare score`, `recent score`, `recent simulate`, \
     and any command showing top scores when the `index` option is specified.")]
     /// What size should the recent, compare, simulate, ... commands be?
-    embeds: Option<ConfigEmbeds>,
+    score_embeds: Option<ConfigEmbeds>,
+    #[command(
+        help = "Adjust the amount of scores shown per page in top, rb, pinned, and mapper.\n\
+      `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1."
+    )]
+    /// Adjust the amount of scores shown per page in top, rb, pinned, ...
+    list_embeds: Option<ListSize>,
     /// Should the amount of retries be shown for the recent command?
     retries: Option<ShowHideOption>,
     /// Specify whether the recent command should show max or if-fc pp when minimized
@@ -146,7 +152,8 @@ pub async fn config(
         twitch,
         mode,
         profile,
-        embeds,
+        score_embeds,
+        list_embeds,
         retries,
         minimized_pp,
     } = config;
@@ -180,8 +187,12 @@ pub async fn config(
         config.profile_size = Some(size);
     }
 
-    if let Some(maximize) = embeds {
-        config.embeds_size = Some(maximize.into());
+    if let Some(score_embeds) = score_embeds {
+        config.score_size = Some(score_embeds.into());
+    }
+
+    if let Some(list_embeds) = list_embeds {
+        config.list_size = Some(list_embeds);
     }
 
     if let Some(retries) = retries {
