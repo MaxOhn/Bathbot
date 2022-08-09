@@ -247,7 +247,7 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
 
     // Accumulate all necessary data
     let content = match mapper.as_str() {
-        "sotarks" => {
+        "Sotarks" => {
             let amount = scores.len();
 
             let mut content = format!(
@@ -267,8 +267,7 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
                 36..=49 => "that's a serious problem...",
                 50 => "that's half. HALF.",
                 51..=79 => "how do you sleep at night...",
-                80..=89 => "so close to ultimate disaster...",
-                90..=99 => "i'm not even mad, that's just impressive",
+                80..=99 => "i'm not even mad, that's just impressive",
                 100 => "you did it. \"Congrats\".",
                 _ => "wait how did you do that",
             };
