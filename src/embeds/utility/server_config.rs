@@ -1,17 +1,21 @@
 use std::fmt::Write;
 
 use command_macros::EmbedData;
+use twilight_model::channel::embed::EmbedField;
 
 use crate::{
     commands::{osu::ProfileSize, utility::GuildData},
-    database::{EmbedsSize, GuildConfig, MinimizedPp},
+    database::{EmbedsSize, GuildConfig, ListSize, MinimizedPp},
     util::builder::AuthorBuilder,
 };
+
+use super::config::create_field;
 
 #[derive(EmbedData)]
 pub struct ServerConfigEmbed {
     author: AuthorBuilder,
     description: String,
+    fields: Vec<EmbedField>,
     footer: &'static str,
     title: &'static str,
 }
@@ -59,126 +63,59 @@ impl ServerConfigEmbed {
             }
         }
 
-        description.push_str("\n\nSong commands: | Retries*: | Minimized PP*:\n");
-
-        let songs = config.with_lyrics();
-
-        if songs {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("enabled       | ");
-
-        let retries = config.show_retries();
-
-        if retries {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("show     | ");
-
-        let minimized_pp = config.minimized_pp();
-
-        if minimized_pp == MinimizedPp::Max {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("max pp\n");
-
-        if songs {
-            description.push(' ');
-        } else {
-            description.push('>');
-        }
-
-        description.push_str("disabled      | ");
-
-        if retries {
-            description.push(' ');
-        } else {
-            description.push('>');
-        }
-
-        description.push_str("hide     | ");
-
-        if minimized_pp == MinimizedPp::IfFc {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str(
-            "if FC\n-------------------------------------------\n\
-            Embeds*:           | Profile*:\n",
-        );
-
-        let embeds = config.embeds_size();
-
-        if embeds == EmbedsSize::AlwaysMinimized {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("always minimized  | ");
-
-        let profile = config.profile_size.unwrap_or_default();
-
-        if profile == ProfileSize::Compact {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("compact\n");
-
-        if embeds == EmbedsSize::AlwaysMaximized {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("always maximized  | ");
-
-        if profile == ProfileSize::Medium {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("medium\n");
-
-        if embeds == EmbedsSize::InitialMaximized {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("initial maximized | ");
-
-        if profile == ProfileSize::Full {
-            description.push('>');
-        } else {
-            description.push(' ');
-        }
-
-        description.push_str("full\n-------------------------------------------\n");
-
         let track_limit = config.track_limit();
-        let _ = writeln!(description, "Default track limit: {track_limit}");
+        let _ = writeln!(description, "\nDefault track limit: {track_limit}\n```");
 
-        description.push_str("```");
+        let fields = vec![
+            create_field(
+                "Song commands",
+                config.with_lyrics(),
+                &[(true, "enabled"), (false, "disabled")],
+            ),
+            create_field(
+                "Retries*",
+                config.show_retries(),
+                &[(true, "show"), (false, "hide")],
+            ),
+            create_field(
+                "Minimized PP*",
+                config.minimized_pp(),
+                &[(MinimizedPp::Max, "max pp"), (MinimizedPp::IfFc, "if FC")],
+            ),
+            create_field(
+                "Score embeds*",
+                config.embeds_size(),
+                &[
+                    (EmbedsSize::AlwaysMinimized, "always minimized"),
+                    (EmbedsSize::AlwaysMaximized, "always maximized"),
+                    (EmbedsSize::InitialMaximized, "initial maximized"),
+                ],
+            ),
+            create_field(
+                "List embeds*",
+                config.list_size(),
+                &[
+                    (ListSize::Condensed, "condensed"),
+                    (ListSize::Detailed, "detailed"),
+                    (ListSize::Single, "single"),
+                ],
+            ),
+            create_field(
+                "Profile*",
+                config.profile_size.unwrap_or_default(),
+                &[
+                    (ProfileSize::Compact, "compact"),
+                    (ProfileSize::Medium, "medium"),
+                    (ProfileSize::Full, "full"),
+                ],
+            ),
+        ];
 
         Self {
             author,
             description,
-            footer: "*: Only applies if not set in member's user config",
+            fields,
+            footer: "*: Only applies if not set in the member's user config",
             title,
         }
     }

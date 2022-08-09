@@ -118,7 +118,11 @@ impl ConfigEmbed {
     }
 }
 
-fn create_field<T: Eq>(name: &'static str, val: T, options: &[(T, &'static str)]) -> EmbedField {
+pub(super) fn create_field<T: Eq>(
+    name: &'static str,
+    val: T,
+    options: &[(T, &'static str)],
+) -> EmbedField {
     let longest = options.iter().fold(0, |len, (_, text)| len.max(text.len()));
     let capacity = 3 + 1 + options.len() * (longest + 2) + 3;
     let mut value = String::with_capacity(capacity);
