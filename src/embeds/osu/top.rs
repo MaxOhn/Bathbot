@@ -85,7 +85,6 @@ impl TopEmbed {
                 }
             };
 
-            let stars = osu::get_stars(stars);
             let pp = osu::get_pp(pp, max_pp);
 
             let mapset_opt = if let TopScoreOrder::RankedDate = sort_by {
@@ -96,7 +95,7 @@ impl TopEmbed {
 
             let _ = writeln!(
                 description,
-                "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars}]\n\
+                "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars:.2}★]\n\
                 {grade} {pp} • {acc}% • {score}\n[ {combo} ] • {hits} • {appendix}",
                 idx = idx + 1,
                 title = mapset.title.cow_escape_markdown(),

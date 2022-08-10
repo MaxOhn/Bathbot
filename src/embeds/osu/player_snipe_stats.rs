@@ -98,13 +98,12 @@ impl PlayerSnipeStatsEmbed {
                     }
                 };
 
-                let stars = osu::get_stars(stars);
                 let pp = osu::get_pp(pp, max_pp);
 
                 // TODO: update formatting
                 let value = format!(
                     "**[{map}]({OSU_BASE}b/{id})**\t\
-                    {grade}\t[{stars}]\t{score}\t({acc}%)\t[{combo}]\t\
+                    {grade}\t[{stars:.2}★]\t{score}\t({acc}%)\t[{combo}]\t\
                     [{pp}]\t {hits}\t{ago}",
                     map = player.oldest_first.unwrap().map.cow_escape_markdown(),
                     id = map.map_id,

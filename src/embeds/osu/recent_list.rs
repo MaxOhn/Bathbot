@@ -220,7 +220,7 @@ fn get_pp_stars(
     mod_map.insert(key, (attributes, max_pp));
 
     let pp = format!("**{:.2}**/{:.2}PP", pp, max_pp.max(pp));
-    let stars = osu::get_stars(stars as f32);
+    let stars = format!("{stars:.2}★");
 
     (pp, stars)
 }

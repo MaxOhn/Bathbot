@@ -73,10 +73,6 @@ pub use self::{
     sniped_difference::*, top::*, top_if::*, top_single::*, whatif::*,
 };
 
-pub fn get_stars(stars: f32) -> String {
-    format!("{:.2}★", stars)
-}
-
 pub fn get_mods(mods: GameMods) -> String {
     if mods.is_empty() {
         String::new()

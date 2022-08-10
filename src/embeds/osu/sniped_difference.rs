@@ -67,12 +67,11 @@ impl SnipedDiffEmbed {
 
             let _ = write!(
                 description,
-                "**{idx}. [{map}]({OSU_BASE}b/{id}) {mods}**\n[{stars}] ~ ({acc}%) ~ ",
+                "**{idx}. [{map}]({OSU_BASE}b/{id}) {mods}**\n[{stars:.2}★] ~ ({acc}%) ~ ",
                 idx = idx + 1,
                 map = score.map.cow_escape_markdown(),
                 id = score.beatmap_id,
                 mods = osu::get_mods(score.mods),
-                stars = osu::get_stars(stars), // TODO: remove function
                 acc = round(100.0 * score.accuracy),
             );
 

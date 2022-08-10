@@ -62,12 +62,10 @@ impl NoChokeEmbed {
                 }
             };
 
-            let stars = osu::get_stars(stars);
-
             // TODO: use miss emote
             let _ = writeln!(
                 description,
-                "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars}]\n\
+                "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars:.2}★]\n\
                 {grade} {old_pp:.2} → **{new_pp:.2}pp**/{max_pp:.2}PP ~ ({old_acc:.2} → **{new_acc:.2}%**)\n\
                 [ {old_combo} → **{new_combo}x**/{max_combo} ] ~ *Removed {misses} miss{plural}*",
                 title = mapset.title.cow_escape_markdown(),

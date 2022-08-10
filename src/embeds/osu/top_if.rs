@@ -44,8 +44,6 @@ impl TopIfEmbed {
             let map = score.map.as_ref().unwrap();
             let mapset = score.mapset.as_ref().unwrap();
 
-            let stars = osu::get_stars(map.stars);
-
             let pp = match max_pp {
                 Some(max_pp) => osu::get_pp(score.pp, Some(*max_pp)),
                 None => osu::get_pp(None, None),
@@ -53,12 +51,13 @@ impl TopIfEmbed {
 
             let _ = writeln!(
                 description,
-                "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars}]\n\
+                "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars:.2}★]\n\
                 {grade} {pp} ~ {acc}% ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
                 title = mapset.title.cow_escape_markdown(),
                 version = map.version.cow_escape_markdown(),
                 id = map.map_id,
                 mods = osu::get_mods(score.mods),
+                stars = map.stars,
                 grade = score.grade_emote(mode),
                 acc = score.acc(mode),
                 score = with_comma_int(score.score),

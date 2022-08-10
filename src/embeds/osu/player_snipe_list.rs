@@ -79,13 +79,13 @@ impl PlayerSnipeListEmbed {
 
             let _ = writeln!(
                 description,
-                "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars}]\n\
+                "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars:.2}★]\n\
                 {pp} ~ ({acc}%) ~ {score}\n{{{n300}/{n100}/{n50}/{nmiss}}} ~ {ago}",
                 idx = idx + 1,
                 version = map.version.as_str().cow_escape_markdown(),
                 id = score.beatmap_id,
                 mods = osu::get_mods(score.mods),
-                stars = osu::get_stars(score.stars), // TODO: remove function
+                stars = score.stars,
                 acc = round(score.accuracy),
                 score = with_comma_int(score.score),
                 n100 = score.count_100,

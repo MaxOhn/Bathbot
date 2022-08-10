@@ -72,7 +72,6 @@ impl OsuStatsGlobalsEmbed {
                 }
             };
 
-            let stars = osu::get_stars(stars);
             let pp = osu::get_pp(pp, max_pp);
             let mut combo = format!("**{}x**/", score.max_combo);
 
@@ -86,7 +85,7 @@ impl OsuStatsGlobalsEmbed {
 
             let _ = writeln!(
                 description,
-                "**[#{rank}] [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars}]\n\
+                "**[#{rank}] [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars:.2}★]\n\
                 {grade} {pp} ~ ({acc}%) ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
                 rank = score.position,
                 title = score.map.title.cow_escape_markdown(),
