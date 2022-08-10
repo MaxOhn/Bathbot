@@ -58,7 +58,7 @@ impl PlayerSnipeListEmbed {
             let map = maps.get(&score.beatmap_id).expect("missing map");
 
             let max_pp = match PpCalculator::new(ctx, map.map_id).await {
-                Ok(mut calc) => Some(calc.mods(score.mods).max_pp() as f32),
+                Ok(calc) => Some(calc.mods(score.mods).max_pp() as f32),
                 Err(err) => {
                     warn!("{:?}", Report::new(err));
 

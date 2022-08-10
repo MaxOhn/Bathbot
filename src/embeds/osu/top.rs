@@ -65,8 +65,8 @@ impl TopEmbed {
             let mapset = score.mapset.as_ref().unwrap();
 
             let (pp, max_pp, stars) = match PpCalculator::new(ctx, map.map_id).await {
-                Ok(mut calc) => {
-                    calc.score(score);
+                Ok(base_calc) => {
+                    let mut calc = base_calc.score(score);
 
                     let stars = calc.stars();
                     let max_pp = calc.max_pp();
@@ -187,8 +187,8 @@ impl CondensedTopEmbed {
             let mapset = score.mapset.as_ref().unwrap();
 
             let (pp, stars) = match PpCalculator::new(ctx, map.map_id).await {
-                Ok(mut calc) => {
-                    calc.score(score);
+                Ok(base_calc) => {
+                    let mut calc = base_calc.score(score);
                     let stars = calc.stars();
 
                     let pp = match score.pp {
@@ -251,7 +251,7 @@ impl CondensedTopEmbed {
             let pp = match score.pp {
                 Some(pp) => pp,
                 None => match PpCalculator::new(ctx, map.map_id).await {
-                    Ok(mut calc) => calc.pp() as f32,
+                    Ok(calc) => calc.score(score).pp() as f32,
                     Err(err) => {
                         warn!("{:?}", Report::new(err));
 

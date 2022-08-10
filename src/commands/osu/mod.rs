@@ -786,7 +786,7 @@ impl ScoreOrder {
                     }
 
                     let stars_ = match PpCalculator::new(ctx, map_id).await {
-                        Ok(mut calc) => calc.mods(score.mods()).stars() as f32,
+                        Ok(calc) => calc.mods(score.mods()).stars() as f32,
                         Err(err) => {
                             warn!("{:?}", Report::new(err));
 

@@ -279,7 +279,7 @@ pub(super) async fn leaderboard(
 
     if let Some(m) = mods {
         match PpCalculator::new(&ctx, map_id).await {
-            Ok(mut calc) => map.stars = calc.mods(m).stars() as f32,
+            Ok(calc) => map.stars = calc.mods(m).stars() as f32,
             Err(err) => warn!("{:?}", Report::new(err)),
         }
     }

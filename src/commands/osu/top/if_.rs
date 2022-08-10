@@ -355,8 +355,8 @@ async fn modify_scores(
             score.grade = score.grade(Some(score.accuracy));
         }
 
-        let mut calc = PpCalculator::new(ctx, map.map_id).await?;
-        calc.score(&score);
+        let base_calc = PpCalculator::new(ctx, map.map_id).await?;
+        let mut calc = base_calc.score(&score);
 
         let stars = calc.stars() as f32;
         let max_pp = calc.max_pp() as f32;
