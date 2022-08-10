@@ -3,6 +3,7 @@ use crate::{
     util::{numbers::round, osu::grade_emote},
 };
 
+use rosu_pp::ScoreState;
 use rosu_v2::prelude::{GameMode, GameMods, Grade, MatchScore, Score};
 use std::fmt::Write;
 
@@ -47,6 +48,8 @@ pub trait ScoreExt: Send + Sync {
 
         amount
     }
+
+    #[inline]
     fn is_fc(&self, mode: GameMode, max_combo: u32) -> bool {
         match mode {
             _ if self.count_miss() > 0 || self.grade(mode) == Grade::F => false,
@@ -57,7 +60,21 @@ pub trait ScoreExt: Send + Sync {
         }
     }
 
+    #[inline]
+    fn state(&self) -> ScoreState {
+        ScoreState {
+            max_combo: self.max_combo() as usize,
+            misses: self.count_miss() as usize,
+            n300: self.count_300() as usize,
+            n_katu: self.count_katu() as usize,
+            n100: self.count_100() as usize,
+            n50: self.count_50() as usize,
+            score: self.score(),
+        }
+    }
+
     // Processing to strings
+    #[inline]
     fn grade_emote(&self, mode: GameMode) -> &'static str {
         grade_emote(self.grade(mode))
     }
@@ -210,66 +227,86 @@ pub trait ScoreExt: Send + Sync {
 // #####################
 
 impl ScoreExt for Score {
+    #[inline]
     fn count_miss(&self) -> u32 {
         self.statistics.count_miss
     }
+    #[inline]
     fn count_50(&self) -> u32 {
         self.statistics.count_50
     }
+    #[inline]
     fn count_100(&self) -> u32 {
         self.statistics.count_100
     }
+    #[inline]
     fn count_300(&self) -> u32 {
         self.statistics.count_300
     }
+    #[inline]
     fn count_geki(&self) -> u32 {
         self.statistics.count_geki
     }
+    #[inline]
     fn count_katu(&self) -> u32 {
         self.statistics.count_katu
     }
+    #[inline]
     fn max_combo(&self) -> u32 {
         self.max_combo
     }
+    #[inline]
     fn mods(&self) -> GameMods {
         self.mods
     }
+    #[inline]
     fn grade(&self, _mode: GameMode) -> Grade {
         self.grade
     }
+    #[inline]
     fn score(&self) -> u32 {
         self.score
     }
+    #[inline]
     fn pp(&self) -> Option<f32> {
         self.pp
     }
+    #[inline]
     fn acc(&self, _: GameMode) -> f32 {
         round(self.accuracy)
     }
 }
 
 impl ScoreExt for OsuStatsScore {
+    #[inline]
     fn count_miss(&self) -> u32 {
         self.count_miss
     }
+    #[inline]
     fn count_50(&self) -> u32 {
         self.count50
     }
+    #[inline]
     fn count_100(&self) -> u32 {
         self.count100
     }
+    #[inline]
     fn count_300(&self) -> u32 {
         self.count300
     }
+    #[inline]
     fn count_geki(&self) -> u32 {
         self.count_geki
     }
+    #[inline]
     fn count_katu(&self) -> u32 {
         self.count_katu
     }
+    #[inline]
     fn max_combo(&self) -> u32 {
         self.max_combo
     }
+    #[inline]
     fn mods(&self) -> GameMods {
         self.enabled_mods
     }
@@ -288,100 +325,127 @@ impl ScoreExt for OsuStatsScore {
 
         amount
     }
+    #[inline]
     fn grade(&self, _: GameMode) -> Grade {
         self.grade
     }
+    #[inline]
     fn score(&self) -> u32 {
         self.score
     }
+    #[inline]
     fn pp(&self) -> Option<f32> {
         self.pp
     }
+    #[inline]
     fn acc(&self, _: GameMode) -> f32 {
         self.accuracy
     }
 }
 
 impl ScoreExt for ScraperScore {
+    #[inline]
     fn count_miss(&self) -> u32 {
         self.count_miss
     }
+    #[inline]
     fn count_50(&self) -> u32 {
         self.count50
     }
+    #[inline]
     fn count_100(&self) -> u32 {
         self.count100
     }
+    #[inline]
     fn count_300(&self) -> u32 {
         self.count300
     }
+    #[inline]
     fn count_geki(&self) -> u32 {
         self.count_geki
     }
+    #[inline]
     fn count_katu(&self) -> u32 {
         self.count_katu
     }
+    #[inline]
     fn max_combo(&self) -> u32 {
         self.max_combo
     }
+    #[inline]
     fn mods(&self) -> GameMods {
         self.mods
     }
+    #[inline]
     fn grade(&self, _: GameMode) -> Grade {
         self.grade
     }
+    #[inline]
     fn score(&self) -> u32 {
         self.score
     }
+    #[inline]
     fn pp(&self) -> Option<f32> {
         self.pp
     }
+    #[inline]
     fn acc(&self, _: GameMode) -> f32 {
         self.accuracy
     }
 }
 
 impl ScoreExt for MatchScore {
+    #[inline]
     fn count_miss(&self) -> u32 {
         self.statistics.count_miss
     }
 
+    #[inline]
     fn count_50(&self) -> u32 {
         self.statistics.count_50
     }
 
+    #[inline]
     fn count_100(&self) -> u32 {
         self.statistics.count_100
     }
 
+    #[inline]
     fn count_300(&self) -> u32 {
         self.statistics.count_300
     }
 
+    #[inline]
     fn count_geki(&self) -> u32 {
         self.statistics.count_geki
     }
 
+    #[inline]
     fn count_katu(&self) -> u32 {
         self.statistics.count_katu
     }
 
+    #[inline]
     fn max_combo(&self) -> u32 {
         self.max_combo
     }
 
+    #[inline]
     fn mods(&self) -> GameMods {
         self.mods
     }
 
+    #[inline]
     fn score(&self) -> u32 {
         self.score
     }
 
+    #[inline]
     fn pp(&self) -> Option<f32> {
         None
     }
 
+    #[inline]
     fn acc(&self, _: GameMode) -> f32 {
         self.accuracy
     }
