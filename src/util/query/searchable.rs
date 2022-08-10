@@ -1,13 +1,9 @@
 use std::borrow::Cow;
 
-use rosu_pp::Mods;
+use rosu_pp::{beatmap::BeatmapAttributesBuilder, Mods};
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods, Score};
 
-use crate::{
-    custom_client::OsuTrackerCountryScore,
-    embeds::{calculate_ar, calculate_od},
-    util::CowUtils,
-};
+use crate::{custom_client::OsuTrackerCountryScore, util::CowUtils};
 
 use super::FilterCriteria;
 
@@ -88,38 +84,31 @@ impl Searchable for Score {
         let mut version = Cow::default();
 
         if let Some(ref map) = self.map {
-            let mods = self.mods.bits();
-            let clock_rate = mods.clock_rate() as f32;
+            let mode = match map.mode {
+                GameMode::Osu => rosu_pp::GameMode::Osu,
+                GameMode::Taiko => rosu_pp::GameMode::Taiko,
+                GameMode::Catch => rosu_pp::GameMode::Catch,
+                GameMode::Mania => rosu_pp::GameMode::Mania,
+            };
 
-            let mut ar = map.ar;
-            let mut cs = map.cs;
-            let mut hp = map.hp;
-            let mut od = map.od;
+            let attrs = BeatmapAttributesBuilder::default()
+                .mode(mode)
+                .ar(map.ar as f64)
+                .cs(map.cs as f64)
+                .hp(map.hp as f64)
+                .od(map.od as f64)
+                .mods(self.mods.bits())
+                .converted(map.convert)
+                .build();
 
-            if mods.hr() {
-                ar *= 1.4;
-                cs *= 1.3;
-                hp *= 1.4;
-                od *= 1.4;
-            } else if mods.ez() {
-                ar *= 0.5;
-                cs *= 0.5;
-                hp *= 0.5;
-                od *= 0.5;
-            }
-
-            ar = ar.min(10.0);
-            cs = cs.min(10.0);
-            hp = hp.min(10.0);
-            od = od.min(10.0);
-
+            let clock_rate = attrs.clock_rate as f32;
             let len = map.seconds_drain as f32 / clock_rate;
 
             matches &= criteria.stars.contains(map.stars);
-            matches &= criteria.ar.contains(calculate_ar(ar, clock_rate));
-            matches &= criteria.cs.contains(cs);
-            matches &= criteria.hp.contains(hp);
-            matches &= criteria.od.contains(calculate_od(od, clock_rate));
+            matches &= criteria.ar.contains(attrs.ar as f32);
+            matches &= criteria.cs.contains(attrs.cs as f32);
+            matches &= criteria.hp.contains(attrs.hp as f32);
+            matches &= criteria.od.contains(attrs.od as f32);
             matches &= criteria.length.contains(len);
             matches &= criteria.bpm.contains(map.bpm * clock_rate);
 

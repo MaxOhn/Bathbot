@@ -55,7 +55,7 @@ mod whatif;
 
 use std::fmt::Write;
 
-use rosu_pp::Mods;
+use rosu_pp::beatmap::BeatmapAttributesBuilder;
 use rosu_v2::prelude::{Beatmap, GameMode, GameMods};
 
 use crate::util::{datetime::sec_to_minsec, numbers::round, BeatmapExt, ScoreExt};
@@ -129,64 +129,29 @@ pub fn get_keys(mods: GameMods, map: &Beatmap) -> String {
     }
 }
 
-// TODO: remove these, use AttributeKind instead
-pub fn calculate_od(od: f32, clock_rate: f32) -> f32 {
-    let ms = difficulty_range(od, OD_MIN, OD_MID, OD_MAX) / clock_rate;
-
-    (OD_MIN - ms) / (OD_MIN - OD_MID) * 5.0
-}
-
-const OD_MIN: f32 = 80.0;
-const OD_MID: f32 = 50.0;
-const OD_MAX: f32 = 20.0;
-
-pub fn calculate_ar(ar: f32, clock_rate: f32) -> f32 {
-    let ms = difficulty_range(ar, AR_MIN, AR_MID, AR_MAX) / clock_rate;
-
-    if ms > AR_MID {
-        (AR_MIN - ms) / (AR_MIN - AR_MID) * 5.0
-    } else {
-        (AR_MID - ms) / (AR_MID - AR_MAX) * 5.0 + 5.0
-    }
-}
-
-const AR_MIN: f32 = 1800.0;
-const AR_MID: f32 = 1200.0;
-const AR_MAX: f32 = 450.0;
-
-fn difficulty_range(difficulty: f32, min: f32, mid: f32, max: f32) -> f32 {
-    if difficulty > 5.0 {
-        mid + (max - mid) * (difficulty - 5.0) / 5.0
-    } else if difficulty < 5.0 {
-        mid - (mid - min) * (5.0 - difficulty) / 5.0
-    } else {
-        mid
-    }
-}
-
 /// The stars argument must already be adjusted for mods
 pub fn get_map_info(map: &Beatmap, mods: GameMods, stars: f32) -> String {
-    let clock_rate = mods.bits().clock_rate();
+    let mode = match map.mode {
+        GameMode::Osu => rosu_pp::GameMode::Osu,
+        GameMode::Taiko => rosu_pp::GameMode::Taiko,
+        GameMode::Catch => rosu_pp::GameMode::Catch,
+        GameMode::Mania => rosu_pp::GameMode::Mania,
+    };
 
+    let attrs = BeatmapAttributesBuilder::default()
+        .mode(mode)
+        .ar(map.ar as f64)
+        .cs(map.cs as f64)
+        .hp(map.hp as f64)
+        .od(map.od as f64)
+        .mods(mods.bits())
+        .converted(map.convert)
+        .build();
+
+    let clock_rate = attrs.clock_rate;
     let mut sec_total = map.seconds_total;
     let mut sec_drain = map.seconds_drain;
     let mut bpm = map.bpm;
-    let mut cs = map.cs;
-    let mut ar = map.ar;
-    let mut od = map.od;
-    let mut hp = map.hp;
-
-    if mods.contains(GameMods::HardRock) {
-        hp = (hp * 1.4).min(10.0);
-        od = (od * 1.4).min(10.0);
-        ar = (ar * 1.4).min(10.0);
-        cs = (cs * 1.3).min(10.0);
-    } else if mods.contains(GameMods::Easy) {
-        hp *= 0.5;
-        od *= 0.5;
-        ar *= 0.5;
-        cs *= 0.5;
-    }
 
     if (clock_rate - 1.0).abs() > f64::EPSILON {
         let clock_rate = clock_rate as f32;
@@ -194,14 +159,6 @@ pub fn get_map_info(map: &Beatmap, mods: GameMods, stars: f32) -> String {
         bpm *= clock_rate;
         sec_total = (sec_total as f32 / clock_rate) as u32;
         sec_drain = (sec_drain as f32 / clock_rate) as u32;
-
-        od = calculate_od(od, clock_rate);
-        ar = calculate_ar(ar, clock_rate);
-    }
-
-    if map.mode == GameMode::Mania {
-        ar = map.ar;
-        od = map.od;
     }
 
     let mut map_info = String::with_capacity(128);
@@ -218,11 +175,11 @@ pub fn get_map_info(map: &Beatmap, mods: GameMods, stars: f32) -> String {
         CS: `{}` AR: `{}` OD: `{}` HP: `{}` Stars: `{}`",
         round(bpm),
         map.count_objects(),
-        round(cs),
-        round(ar),
-        round(od),
-        round(hp),
-        round(stars)
+        round(attrs.cs as f32),
+        round(attrs.ar as f32),
+        round(attrs.od as f32),
+        round(attrs.hp as f32),
+        round(stars),
     );
 
     map_info
