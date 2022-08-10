@@ -145,7 +145,13 @@ impl CompareScoreOrder {
                     }
                 };
 
-                let f = |score: &mut Score| calc.score(score).pp() as f32;
+                let f = |score: &mut Score| {
+                    let pp = calc.score(score).pp() as f32;
+                    let _ = score.pp.get_or_insert(pp);
+
+                    pp
+                };
+
                 sort_by_cached_key(scores, f);
             }
             Self::Score => scores.sort_unstable_by_key(|s| Reverse(s.score)),
