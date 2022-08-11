@@ -21,15 +21,16 @@ impl ClaimNameEmbed {
     pub fn new(user: &User, name: &str) -> Self {
         let mut fields = Vec::with_capacity(3);
 
-        if let Some(last_visit) = user.last_visit {
-            let field = EmbedField {
-                inline: true,
-                name: "Last active".to_owned(),
-                value: last_visit.format(DATE_FORMAT).unwrap(),
-            };
+        let last_visit = EmbedField {
+            inline: true,
+            name: "Last active".to_owned(),
+            value: user.last_visit.map_or_else(
+                || "Date not available :(".to_owned(),
+                |last_visit| last_visit.format(DATE_FORMAT).unwrap(),
+            ),
+        };
 
-            fields.push(field);
-        }
+        fields.push(last_visit);
 
         if let Some(ref stats) = user.statistics {
             let field = EmbedField {
@@ -85,7 +86,8 @@ impl ClaimNameEmbed {
             );
 
             available_at_field(value)
-        } else if let Some(duration) = time_to_wait(user) {
+        } else {
+            let duration = time_to_wait(user);
             let date = OffsetDateTime::now_utc() + duration;
 
             let name = if duration.is_negative() {
@@ -95,9 +97,14 @@ impl ClaimNameEmbed {
             };
 
             let value = format!(
-                "{}{}",
-                date.format(DATE_FORMAT).unwrap(),
-                TimeUntil(duration),
+                "{preamble}{date}{remaining}",
+                preamble = if user.last_visit.is_none() {
+                    "Assuming the user is inactive from now on:\n"
+                } else {
+                    ""
+                },
+                date = date.format(DATE_FORMAT).unwrap(),
+                remaining = TimeUntil(duration),
             );
 
             EmbedField {
@@ -105,8 +112,6 @@ impl ClaimNameEmbed {
                 name: name.to_owned(),
                 value,
             }
-        } else {
-            available_at_field("Last visit date unavailable, cannot calculate :(")
         };
 
         fields.push(field);
@@ -131,13 +136,14 @@ fn available_at_field(value: impl Into<String>) -> EmbedField {
     }
 }
 
-fn time_to_wait(user: &User) -> Option<Duration> {
-    let last_seen = user.last_visit?;
-    let inactive_time = OffsetDateTime::now_utc() - last_seen;
+fn time_to_wait(user: &User) -> Duration {
+    let inactive_time = user.last_visit.map_or(Duration::ZERO, |last_seen| {
+        OffsetDateTime::now_utc() - last_seen
+    });
 
     let x = match user.statistics {
         Some(ref stats) if stats.playcount > 0 => stats.playcount as f32,
-        _ => return Some(Duration::days(6 * 30) - inactive_time),
+        _ => return Duration::days(6 * 30) - inactive_time,
     };
 
     const I: f32 = 180.0;
@@ -147,7 +153,7 @@ fn time_to_wait(user: &User) -> Option<Duration> {
 
     let extra_days = H * (1.0 - (-x / S).exp()) + I + B * x / S;
 
-    Some(Duration::days(extra_days as i64) - inactive_time)
+    Duration::days(extra_days as i64) - inactive_time
 }
 
 #[derive(Copy, Clone)]
