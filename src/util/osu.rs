@@ -11,11 +11,10 @@ use tokio::{fs::File, io::AsyncWriteExt};
 use twilight_model::channel::{embed::Embed, Message};
 
 use crate::{
-    core::Context,
+    core::{BotConfig, Context},
     custom_client::OsuTrackerCountryScore,
     error::MapFileError,
     util::{constants::OSU_BASE, matcher, numbers::round, BeatmapExt, Emote, ScoreExt},
-    CONFIG,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -129,7 +128,7 @@ pub fn flag_url_svg(country_code: &str) -> String {
 }
 
 pub fn grade_emote(grade: Grade) -> &'static str {
-    CONFIG.get().unwrap().grade(grade)
+    BotConfig::get().grade(grade)
 }
 
 pub fn mode_emote(mode: GameMode) -> &'static str {
@@ -145,7 +144,7 @@ pub fn mode_emote(mode: GameMode) -> &'static str {
 
 pub fn grade_completion_mods(score: &dyn ScoreExt, map: &Beatmap) -> Cow<'static, str> {
     let mode = map.mode();
-    let grade = CONFIG.get().unwrap().grade(score.grade(mode));
+    let grade = BotConfig::get().grade(score.grade(mode));
     let mods = score.mods();
 
     match (
@@ -167,7 +166,7 @@ fn completion(score: &dyn ScoreExt, map: &Beatmap) -> u32 {
 }
 
 pub async fn prepare_beatmap_file(ctx: &Context, map_id: u32) -> Result<PathBuf, MapFileError> {
-    let mut map_path = CONFIG.get().unwrap().paths.maps.clone();
+    let mut map_path = BotConfig::get().paths.maps.clone();
     map_path.push(format!("{map_id}.osu"));
 
     if !map_path.exists() {

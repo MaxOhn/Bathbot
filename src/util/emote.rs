@@ -4,7 +4,7 @@ use rosu_v2::prelude::GameMode;
 use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::{channel::ReactionType, id::Id};
 
-use crate::CONFIG;
+use crate::core::BotConfig;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub enum Emote {
@@ -28,11 +28,12 @@ pub enum Emote {
 
 impl Emote {
     pub fn text(self) -> &'static str {
-        CONFIG.get().unwrap().emotes.get(&self).unwrap().as_str()
+        BotConfig::get().emotes.get(&self).unwrap().as_str()
     }
 
+    #[allow(dead_code)]
     pub fn request_reaction_type(&self) -> RequestReactionType<'_> {
-        let emote = CONFIG.get().unwrap().emotes.get(self);
+        let emote = BotConfig::get().emotes.get(self);
 
         let (id, name) = emote
             .unwrap_or_else(|| panic!("No {self:?} emote in config"))
@@ -45,7 +46,7 @@ impl Emote {
     }
 
     pub fn reaction_type(&self) -> ReactionType {
-        let emote = CONFIG.get().unwrap().emotes.get(self);
+        let emote = BotConfig::get().emotes.get(self);
 
         let (id, name) = emote
             .unwrap_or_else(|| panic!("No {self:?} emote in config"))

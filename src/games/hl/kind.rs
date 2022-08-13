@@ -7,7 +7,7 @@ use tokio::sync::oneshot::{self, Receiver};
 use twilight_model::channel::embed::{Embed, EmbedField};
 
 use crate::{
-    core::{Context, CONFIG},
+    core::{Context, BotConfig},
     error::InvalidGameState,
     games::hl::score_pp::ScorePp,
     util::{
@@ -334,9 +334,7 @@ impl GameStateKind {
             .attachment("higherlower.png", png_bytes)
             .content(content);
 
-        let mut message = CONFIG
-            .get()
-            .unwrap()
+        let mut message = BotConfig::get()
             .hl_channel
             .create_message(ctx, &builder)
             .await?

@@ -10,7 +10,7 @@ use tokio::{
     time::{self, Duration},
 };
 
-use crate::{Context, CONFIG};
+use crate::{Context, core::BotConfig};
 
 impl Context {
     pub fn map_garbage_collector(&self, map: &Beatmap) -> GarbageCollectMap {
@@ -28,7 +28,7 @@ impl Context {
             mem::take(&mut *garbage_collection)
         };
 
-        let config = CONFIG.get().unwrap();
+        let config = BotConfig::get();
         let total = maps_to_delete.len();
         let five_seconds = Duration::from_secs(5);
         let mut success = 0;

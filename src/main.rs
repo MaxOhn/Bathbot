@@ -31,7 +31,7 @@ use tokio::{
 use twilight_model::gateway::payload::outgoing::RequestGuildMembers;
 
 use crate::{
-    core::{commands::slash::SlashCommands, event_loop, logging, Context, CONFIG},
+    core::{commands::slash::SlashCommands, event_loop, logging, BotConfig, Context},
     database::Database,
     error::Error,
 };
@@ -80,7 +80,7 @@ async fn async_main() -> Result<()> {
 
         let _received = ctx
             .interaction()
-            .set_guild_commands(CONFIG.get().unwrap().dev_guild, &slash_commands)
+            .set_guild_commands(BotConfig::get().dev_guild, &slash_commands)
             .exec()
             .await
             .context("failed to set guild commands")?;

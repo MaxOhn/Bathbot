@@ -10,7 +10,7 @@ use twilight_model::id::{
 
 use crate::{util::Emote, BotResult, Error};
 
-pub static CONFIG: OnceCell<BotConfig> = OnceCell::new();
+static CONFIG: OnceCell<BotConfig> = OnceCell::new();
 
 #[derive(Debug)]
 pub struct BotConfig {
@@ -53,6 +53,10 @@ pub struct Tokens {
 }
 
 impl BotConfig {
+    pub fn get() -> &'static Self {
+        CONFIG.get().expect("`BotConfig::init` must be called first")
+    }
+
     pub fn init() -> BotResult<()> {
         let mut grades = [
             MaybeUninit::uninit(),
