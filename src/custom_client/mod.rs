@@ -80,6 +80,7 @@ const APPLICATION_URLENCODED: &str = "application/x-www-form-urlencoded";
 #[derive(Copy, Clone, Eq, Hash, PartialEq)]
 #[repr(u8)]
 enum Site {
+    Cards,
     DiscordAttachment,
     Huismetbenen,
     Osekai,
@@ -103,7 +104,7 @@ pub struct CustomClient {
     osu_session: &'static str,
     #[cfg(not(debug_assertions))]
     twitch: TwitchData,
-    ratelimiters: [LeakyBucket; 12 + !cfg!(debug_assertions) as usize],
+    ratelimiters: [LeakyBucket; 13 + !cfg!(debug_assertions) as usize],
 }
 
 #[cfg(not(debug_assertions))]
@@ -140,6 +141,7 @@ impl CustomClient {
         };
 
         let ratelimiters = [
+            ratelimiter(5),  // Cards
             ratelimiter(2),  // DiscordAttachment
             ratelimiter(2),  // Huismetbenen
             ratelimiter(2),  // Osekai
@@ -320,6 +322,14 @@ impl CustomClient {
         }
     }
 
+    /// Turn the provided html into a .png image
+    pub async fn html_to_png(&self, html: &str) -> ClientResult<Bytes> {
+        let url = "http://localhost:7227";
+        let form = &[("html", html)];
+
+        self.make_post_request(url, Site::Cards, form).await
+    }
+
     pub async fn get_discord_attachment(&self, attachment: &Attachment) -> ClientResult<Bytes> {
         self.make_get_request(&attachment.url, Site::DiscordAttachment)
             .await
@@ -410,7 +420,6 @@ impl CustomClient {
         badge_id: u32,
     ) -> ClientResult<Vec<OsekaiBadgeOwner>> {
         let url = format!("https://osekai.net/badges/api/getUsers.php?badge_id={badge_id}");
-
         let bytes = self.make_get_request(url, Site::Osekai).await?;
 
         serde_json::from_slice(&bytes)
@@ -421,7 +430,6 @@ impl CustomClient {
     pub async fn get_osekai_medals(&self) -> ClientResult<Vec<OsekaiMedal>> {
         let url = "https://osekai.net/medals/api/medals.php";
         let form = &[("strSearch", "")];
-
         let bytes = self.make_post_request(url, Site::Osekai, form).await?;
 
         let medals: OsekaiMedals = serde_json::from_slice(&bytes)
