@@ -39,7 +39,6 @@ use crate::{
         osu::ModSelection,
         ExponentialBackoff,
     },
-    CONFIG,
 };
 
 #[cfg(not(debug_assertions))]
@@ -114,13 +113,14 @@ struct TwitchData {
 }
 
 impl CustomClient {
-    pub async fn new(config: &'static BotConfig) -> ClientResult<Self> {
+    pub async fn new() -> ClientResult<Self> {
         let connector = HttpsConnectorBuilder::new()
             .with_webpki_roots()
             .https_or_http()
             .enable_http1()
             .build();
 
+        let config = BotConfig::get();
         let client = HyperClient::builder().build(connector);
 
         #[cfg(not(debug_assertions))]
@@ -840,8 +840,11 @@ impl CustomClient {
     }
 
     pub async fn get_rank_data(&self, mode: GameMode, param: RankParam) -> ClientResult<RankPP> {
-        let key = &CONFIG.get().unwrap().tokens.osu_daily;
-        let mut url = format!("{OSU_DAILY_API}pp.php?k={key}&m={}&", mode as u8);
+        let mut url = format!(
+            "{OSU_DAILY_API}pp.php?k={key}&m={}&",
+            mode as u8,
+            key = BotConfig::get().tokens.osu_daily
+        );
 
         let _ = match param {
             RankParam::Rank(rank) => write!(url, "t=rank&v={rank}"),

@@ -7,7 +7,7 @@ use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     commands::{osu::ProfileSize, ShowHideOption},
-    core::CONFIG,
+    core::BotConfig,
     database::{EmbedsSize, ListSize, MinimizedPp, OsuData, UserConfig},
     embeds::{ConfigEmbed, EmbedData},
     server::AuthenticationStandbyError,
@@ -220,7 +220,7 @@ pub async fn config(
 const MSG_BADE: &str = "Contact Badewanne3 if you encounter issues with the website";
 
 fn osu_content(state: u8) -> String {
-    let config = CONFIG.get().unwrap();
+    let config = BotConfig::get();
 
     format!(
         "{emote} [Click here](https://osu.ppy.sh/oauth/authorize?client_id={client_id}&\
@@ -233,7 +233,7 @@ fn osu_content(state: u8) -> String {
 }
 
 fn twitch_content(state: u8) -> String {
-    let config = CONFIG.get().unwrap();
+    let config = BotConfig::get();
 
     format!(
         "{emote} [Click here](https://id.twitch.tv/oauth2/authorize?client_id={client_id}\

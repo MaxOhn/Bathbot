@@ -15,11 +15,12 @@ use twilight_standby::future::WaitForMessageStream;
 
 use crate::{
     commands::fun::GameDifficulty,
+    core::BotConfig,
     database::MapsetTagWrapper,
     error::BgGameError,
     games::bg::{hints::Hints, img_reveal::ImageReveal, GameMapset},
     util::{constants::OSU_BASE, ChannelExt, CowUtils},
-    Context, CONFIG,
+    Context,
 };
 
 use super::{util, Effects, GameResult};
@@ -71,7 +72,7 @@ impl Game {
         effects: Effects,
         difficulty: GameDifficulty,
     ) -> GameResult<Self> {
-        let mut path = CONFIG.get().unwrap().paths.backgrounds.clone();
+        let mut path = BotConfig::get().paths.backgrounds.clone();
 
         match mapsets[0].mode {
             GameMode::Osu => path.push("osu"),

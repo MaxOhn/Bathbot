@@ -9,12 +9,13 @@ use tokio::{
 use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
+    core::BotConfig,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE},
         ApplicationCommandExt,
     },
-    BotResult, Context, CONFIG,
+    BotResult, Context,
 };
 
 use super::OwnerAddBg;
@@ -57,7 +58,7 @@ pub async fn addbg(
     // Download attachement
     let path = match ctx.client().get_discord_attachment(&image).await {
         Ok(content) => {
-            let mut path = CONFIG.get().unwrap().paths.backgrounds.clone();
+            let mut path = BotConfig::get().paths.backgrounds.clone();
 
             match mode {
                 GameMode::Osu => path.push("osu"),

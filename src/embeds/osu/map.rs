@@ -9,7 +9,7 @@ use time::OffsetDateTime;
 
 use crate::{
     commands::osu::CustomAttrs,
-    core::{Context, CONFIG},
+    core::{Context, BotConfig},
     embeds::{attachment, EmbedFields},
     error::PpError,
     pagination::Pages,
@@ -63,7 +63,7 @@ impl MapEmbed {
             [Mapset]({OSU_BASE}d/{mapset_id})\n\
             [No Video]({OSU_BASE}d/{mapset_id}n)\n\
             [Beatconnect](https://beatconnect.io/b/{mapset_id})",
-            url = CONFIG.get().unwrap().server.external_url,
+            url = BotConfig::get().server.external_url,
             mapset_id = map.mapset_id,
         );
 

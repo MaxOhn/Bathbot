@@ -23,7 +23,7 @@ use twilight_model::{
 use twilight_standby::Standby;
 
 use crate::{
-    core::CONFIG,
+    core::BotConfig,
     custom_client::CustomClient,
     database::{Database, GuildConfig},
     games::{
@@ -102,7 +102,7 @@ impl Context {
     }
 
     pub async fn new(tx: UnboundedSender<(Id<GuildMarker>, u64)>) -> BotResult<(Self, Events)> {
-        let config = CONFIG.get().unwrap();
+        let config = BotConfig::get();
         let discord_token = &config.tokens.discord;
 
         let mentions = AllowedMentionsBuilder::new()
@@ -145,7 +145,7 @@ impl Context {
         let osu = Osu::new(osu_client_id, osu_client_secret).await?;
 
         // Log custom client into osu!
-        let custom = CustomClient::new(config).await?;
+        let custom = CustomClient::new().await?;
 
         let data = ContextData::new(&psql, application_id).await?;
         let (cache, resume_data) = Cache::new(&redis).await;

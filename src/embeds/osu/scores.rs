@@ -6,7 +6,7 @@ use rosu_pp::{Beatmap as Map, BeatmapExt};
 use rosu_v2::prelude::{Beatmap, GameMode, Score, User};
 
 use crate::{
-    core::{Context, CONFIG},
+    core::{Context, BotConfig},
     error::PpError,
     pagination::Pages,
     util::{
@@ -104,7 +104,7 @@ impl ScoresEmbed {
                     "{grade} **+{mods}** [{stars:.2}★] • {score} • {acc}%\n\
                     {pp_format}**{pp}**{pp_format}/{max_pp}PP • **{combo}x**/{max_combo}x\n\
                     {hits} {timestamp}",
-                    grade = CONFIG.get().unwrap().grade(score.grade),
+                    grade = BotConfig::get().grade(score.grade),
                     mods = score.mods,
                     score = with_comma_int(score.score),
                     acc = round(score.accuracy),
@@ -262,7 +262,7 @@ fn write_compact_score(
     pp: f32,
     max_combo: u32,
 ) {
-    let config = CONFIG.get().unwrap();
+    let config = BotConfig::get();
 
     let _ = write!(
         args.description,

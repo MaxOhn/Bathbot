@@ -7,7 +7,7 @@ use twilight_model::{
     },
 };
 
-use crate::core::CONFIG;
+use crate::core::BotConfig;
 
 use super::Cache;
 
@@ -17,7 +17,7 @@ impl Cache {
         user: Id<UserMarker>,
         guild: Id<GuildMarker>,
     ) -> (Permissions, RolesLookup) {
-        if user == CONFIG.get().unwrap().owner {
+        if user == BotConfig::get().owner {
             return (Permissions::all(), RolesLookup::NotChecked);
         }
 

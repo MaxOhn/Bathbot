@@ -1,6 +1,6 @@
 pub use self::{
     cache::{Cache, CacheMiss},
-    config::{BotConfig, CONFIG},
+    config::BotConfig,
     context::{AssignRoles, Context, Redis},
     events::event_loop,
     redis_cache::{ArchivedBytes, ArchivedResult, RedisCache},

@@ -16,9 +16,10 @@ use serde_json::json;
 use tokio::{fs::File, io::AsyncReadExt, sync::oneshot};
 
 use crate::{
+    core::BotConfig,
     custom_client::{CustomClientError, ErrorKind, TwitchDataList, TwitchOAuthToken, TwitchUser},
     util::constants::{GENERAL_ISSUE, TWITCH_OAUTH, TWITCH_USERS_ENDPOINT},
-    Context, CONFIG,
+    Context,
 };
 
 pub use self::{
@@ -36,8 +37,8 @@ pub async fn run_server(ctx: Arc<Context>, shutdown_rx: oneshot::Receiver<()>) {
         return;
     }
 
-    let ip = CONFIG.get().unwrap().server.internal_ip;
-    let port = CONFIG.get().unwrap().server.internal_port;
+    let ip = BotConfig::get().server.internal_ip;
+    let port = BotConfig::get().server.internal_port;
     let addr = SocketAddr::from((ip, port));
     let router = router(ctx);
 
@@ -77,7 +78,7 @@ fn router(ctx: Arc<Context>) -> Router<Body, ServerError> {
         .build();
 
     let client = HyperClient::builder().build(connector);
-    let config = CONFIG.get().unwrap();
+    let config = BotConfig::get();
 
     let osu_client_id = config.tokens.osu_client_id;
     let osu_client_secret = config.tokens.osu_client_secret.to_owned();
@@ -351,7 +352,7 @@ async fn auth_twitch_handler_(req: &Request<Body>) -> HandlerResult {
 }
 
 async fn auth_css_handler(_: Request<Body>) -> HandlerResult {
-    let mut path = CONFIG.get().unwrap().paths.website.to_owned();
+    let mut path = BotConfig::get().paths.website.to_owned();
     path.push("auth.css");
     let mut buf = Vec::with_capacity(1824);
     File::open(path).await?.read_to_end(&mut buf).await?;
@@ -360,7 +361,7 @@ async fn auth_css_handler(_: Request<Body>) -> HandlerResult {
 }
 
 async fn auth_icon_handler(_: Request<Body>) -> HandlerResult {
-    let mut path = CONFIG.get().unwrap().paths.website.to_owned();
+    let mut path = BotConfig::get().paths.website.to_owned();
     path.push("icon.svg");
     let mut buf = Vec::with_capacity(11_198);
     File::open(path).await?.read_to_end(&mut buf).await?;
