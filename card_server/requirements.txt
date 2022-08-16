@@ -56,11 +56,12 @@ pyrsistent==0.15.5
 pyserial==3.4
 python-apt==2.0.0+ubuntu0.20.4.7
 python-debian===0.1.36ubuntu1
+python-dotenv==0.20.0
 pytz==2019.3
 PyYAML==5.3.1
 requests==2.22.0
 requests-unixsocket==0.2.0
-rosu-pp-py==0.7.2
+rosu-pp-py==0.8.0
 SecretStorage==2.3.1
 service-identity==18.1.0
 simplejson==3.16.0

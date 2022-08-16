@@ -1,8 +1,11 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{HasName, SlashCommand};
+use handlebars::Handlebars;
+use once_cell::sync::Lazy;
 use rosu_pp::{osu::OsuScoreState, Beatmap, OsuPP};
 use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score};
+use serde_json::json;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     application::interaction::ApplicationCommand,
@@ -11,11 +14,12 @@ use twilight_model::{
 
 use crate::{
     commands::GameModeOption,
-    core::{commands::CommandOrigin, Context},
+    core::{commands::CommandOrigin, BotConfig, Context},
     error::PpError,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        numbers::round,
         osu::prepare_beatmap_file,
         ApplicationCommandExt,
     },
@@ -23,6 +27,18 @@ use crate::{
 };
 
 use super::{get_user_and_scores, ScoreArgs, UserArgs};
+
+static HTML_TEMPLATE: Lazy<Handlebars<'static>> = Lazy::new(|| {
+    let mut handlebars = Handlebars::new();
+    let mut path = BotConfig::get().paths.website.to_owned();
+    path.push("card.hbs");
+
+    handlebars
+        .register_template_file("card", path)
+        .expect("failed to register card template to handlebars");
+
+    handlebars
+});
 
 #[derive(CommandModel, CreateCommand, SlashCommand, HasName)]
 #[command(name = "card")]
@@ -87,19 +103,23 @@ async fn slash_card(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> 
         _ => todo!(),
     };
 
-    let html = format!(
-        "<h1>{name}</h1>\n\
-        <p>Level: {level}</p>\n\
-        <p>Acc: {acc:.2}</p>\n\
-        <p>Aim: {aim:.2}</p>\n\
-        <p>Speed: {speed:.2}</p>\n\
-        <p>{title}</p>",
-        name = user.username,
-        level = user
-            .statistics
-            .map(|stats| stats.level.float())
-            .unwrap_or(0.0),
-    );
+    let render_data = json!({
+        "name": user.username,
+        "level": user.statistics.map(|stats| round(stats.level.float())).unwrap_or(0.0),
+        "acc": round(acc as f32),
+        "aim": round(aim as f32),
+        "speed": round(speed as f32),
+        "title": title,
+    });
+
+    let html = match HTML_TEMPLATE.render("card", &render_data) {
+        Ok(rendered) => rendered,
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err.into());
+        }
+    };
 
     let bytes = match ctx.client().html_to_png(&html).await {
         Ok(bytes) => bytes.to_vec(),

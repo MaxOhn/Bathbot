@@ -7,3 +7,5 @@ logs
 /.vscode
 /resume_data
 /docker-volume
+/card_server/__pycache__
+/card_server/out*

@@ -1,6 +1,13 @@
 import imgkit
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from cgi import FieldStorage
+from dotenv import load_dotenv
+import os
+
+load_dotenv("../.env")
+path = os.getenv("WEBSITE_PATH")
+assert path != None
+css = f"{path}/card.css"
 
 class HtmlToImgServer(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -12,7 +19,7 @@ class HtmlToImgServer(BaseHTTPRequestHandler):
 
         data = form.getvalue("html")
         options = { "format": "png", "quiet": "" }
-        img = imgkit.from_string(data, False, options)
+        img = imgkit.from_string(data, False, options, css=css)
 
         self.send_response(200)
         self.send_header("Content-Type", "image/png")
