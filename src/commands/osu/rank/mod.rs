@@ -28,9 +28,9 @@ pub enum Rank<'a> {
 #[command(name = "pp")]
 /// How many pp are missing to reach the given rank?
 pub struct RankPp<'a> {
-    #[command(min_value = 1)]
+    #[command(min_value = 1, max_value = 4_294_967_295)]
     /// Specify the target rank
-    rank: usize,
+    rank: u32,
     /// Specify a gamemode
     mode: Option<GameModeOption>,
     /// Specify a username

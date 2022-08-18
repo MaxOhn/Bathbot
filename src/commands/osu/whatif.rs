@@ -12,7 +12,6 @@ use twilight_model::{
 use crate::{
     commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
-    custom_client::RankParam,
     embeds::{EmbedData, WhatIfEmbed},
     tracking::process_osu_tracking,
     util::{
@@ -233,10 +232,8 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
             .take(count)
             .fold(0.0, |sum, (pp, i)| sum + pp * 0.95_f32.powi(i));
 
-        let rank_result = ctx.client().get_rank_data(mode, RankParam::Pp(pp)).await;
-
-        let rank = match rank_result {
-            Ok(rank_pp) => Some(rank_pp.rank),
+        let rank = match ctx.psql().approx_rank_from_pp(pp, mode).await {
+            Ok(rank) => Some(rank),
             Err(err) => {
                 let report = Report::new(err).wrap_err("error while getting rank pp");
                 warn!("{report:?}");
@@ -266,12 +263,10 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
         let new_pp = pps.accum_weighted();
         let max_pp = pps.first().copied().unwrap_or(0.0);
 
-        let rank_fut = ctx
-            .client()
-            .get_rank_data(mode, RankParam::Pp(new_pp + bonus_pp));
+        let rank_fut = ctx.psql().approx_rank_from_pp(new_pp + bonus_pp, mode);
 
         let rank = match rank_fut.await {
-            Ok(rank_pp) => Some(rank_pp.rank),
+            Ok(rank) => Some(rank),
             Err(err) => {
                 let report = Report::new(err).wrap_err("error while getting rank pp");
                 warn!("{report:?}");

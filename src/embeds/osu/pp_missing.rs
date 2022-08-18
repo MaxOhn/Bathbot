@@ -26,7 +26,7 @@ impl PPMissingEmbed {
         user: User,
         scores: &mut [Score],
         goal_pp: f32,
-        rank: Option<usize>,
+        rank: Option<u32>,
         each: Option<f32>,
     ) -> Self {
         let stats_pp = user.statistics.as_ref().unwrap().pp;
@@ -176,7 +176,7 @@ impl PPMissingEmbed {
 
         let footer = rank.map(|rank| {
             FooterBuilder::new(format!(
-                "The current rank for {pp}pp is #{rank}",
+                "The current rank for {pp}pp is approx. #{rank}",
                 pp = with_comma_float(goal_pp),
                 rank = with_comma_int(rank),
             ))

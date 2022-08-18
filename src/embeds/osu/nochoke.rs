@@ -31,7 +31,7 @@ impl NoChokeEmbed {
         user: &User,
         scores_data: S,
         unchoked_pp: f32,
-        rank: Option<usize>,
+        rank: Option<u32>,
         ctx: &Context,
         pages: &Pages,
     ) -> Self

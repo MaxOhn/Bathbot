@@ -30,12 +30,11 @@ use crate::{
     core::BotConfig,
     util::{
         constants::{
-            HUISMETBENEN, OSU_BASE, OSU_DAILY_API, TWITCH_STREAM_ENDPOINT, TWITCH_USERS_ENDPOINT,
+            HUISMETBENEN, OSU_BASE, TWITCH_STREAM_ENDPOINT, TWITCH_USERS_ENDPOINT,
             TWITCH_VIDEOS_ENDPOINT,
         },
         datetime::{DATE_FORMAT, TIME_FORMAT},
         hasher::SimpleBuildHasher,
-        numbers::round,
         osu::ModSelection,
         ExponentialBackoff,
     },
@@ -51,8 +50,8 @@ use hyper::header::HeaderValue;
 use crate::util::constants::TWITCH_OAUTH;
 
 pub use self::{
-    error::*, osekai::*, osu_daily::*, osu_stats::*, osu_tracker::*, respektive::*,
-    rkyv_impls::UsernameWrapper, score::*, snipe::*, twitch::*,
+    error::*, osekai::*, osu_stats::*, osu_tracker::*, respektive::*, rkyv_impls::UsernameWrapper,
+    score::*, snipe::*, twitch::*,
 };
 
 use self::{rkyv_impls::*, score::ScraperScores};
@@ -60,7 +59,6 @@ use self::{rkyv_impls::*, score::ScraperScores};
 mod deserialize;
 mod error;
 mod osekai;
-mod osu_daily;
 mod osu_stats;
 mod osu_tracker;
 mod respektive;
@@ -84,7 +82,6 @@ enum Site {
     Osekai,
     OsuAvatar,
     OsuBadge,
-    OsuDaily,
     OsuHiddenApi,
     OsuMapFile,
     OsuMapsetCover,
@@ -102,7 +99,7 @@ pub struct CustomClient {
     osu_session: &'static str,
     #[cfg(not(debug_assertions))]
     twitch: TwitchData,
-    ratelimiters: [LeakyBucket; 12 + !cfg!(debug_assertions) as usize],
+    ratelimiters: [LeakyBucket; 11 + !cfg!(debug_assertions) as usize],
 }
 
 #[cfg(not(debug_assertions))]
@@ -145,7 +142,6 @@ impl CustomClient {
             ratelimiter(2),  // Osekai
             ratelimiter(10), // OsuAvatar
             ratelimiter(10), // OsuBadge
-            ratelimiter(2),  // OsuDaily
             ratelimiter(2),  // OsuHiddenApi
             ratelimiter(5),  // OsuMapFile
             ratelimiter(10), // OsuMapsetCover
@@ -831,35 +827,6 @@ impl CustomClient {
         Err(CustomClientError::MapFileRetryLimit(map_id))
     }
 
-    pub async fn get_rank_data(&self, mode: GameMode, param: RankParam) -> ClientResult<RankPP> {
-        let mut url = format!(
-            "{OSU_DAILY_API}pp.php?k={key}&m={}&",
-            mode as u8,
-            key = BotConfig::get().tokens.osu_daily
-        );
-
-        let _ = match param {
-            RankParam::Rank(rank) => write!(url, "t=rank&v={rank}"),
-            RankParam::Pp(pp) => write!(url, "t=pp&v={}", round(pp)),
-        };
-
-        let bytes = loop {
-            match self.make_get_request(&url, Site::OsuDaily).await {
-                Ok(bytes) => break bytes,
-                Err(CustomClientError::Status { status, .. })
-                    if status == StatusCode::TOO_MANY_REQUESTS =>
-                {
-                    debug!("Ratelimited by osudaily, wait a second");
-                    sleep(Duration::from_secs(1)).await;
-                }
-                Err(err) => return Err(err),
-            }
-        };
-
-        serde_json::from_slice(&bytes)
-            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::RankData))
-    }
-
     pub async fn get_twitch_user(&self, name: &str) -> ClientResult<Option<TwitchUser>> {
         let data = [("login", name)];
 
@@ -943,9 +910,4 @@ impl CustomClient {
 
         Ok(videos.data.pop())
     }
-}
-
-pub enum RankParam {
-    Rank(usize),
-    Pp(f32),
 }

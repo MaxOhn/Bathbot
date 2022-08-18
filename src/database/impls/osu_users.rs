@@ -19,12 +19,199 @@ const COUNTRY_CODE: &str = "country_code";
 type StatsValueResult<T> = BotResult<Vec<UserValueRaw<T>>>;
 
 impl Database {
+    pub async fn approx_rank_from_pp(&self, pp: f32, mode: GameMode) -> BotResult<u32> {
+        let query = sqlx::query!(
+            "\
+WITH stats AS (\
+    SELECT \
+        global_rank,\
+        pp,\
+        last_update \
+    FROM \
+        osu_user_stats_mode \
+    WHERE \
+        mode = $1 \
+        AND now() - last_update < interval '2 days'\
+)\
+SELECT \
+    * \
+FROM ((\
+        SELECT \
+            global_rank,\
+            pp \
+        FROM (\
+            SELECT \
+                * \
+            FROM \
+                stats \
+            WHERE \
+                pp >= $2 \
+            ORDER BY \
+                pp ASC \
+            LIMIT 2) AS innerTable \
+    ORDER BY \
+        last_update DESC \
+    LIMIT 1)\
+UNION ALL (\
+    SELECT \
+        global_rank,\
+        pp \
+    FROM (\
+        SELECT \
+            * \
+        FROM \
+            stats \
+        WHERE \
+            pp <= $2 \
+        ORDER BY \
+            pp DESC \
+        LIMIT 2) AS innerTable \
+ORDER BY \
+    last_update DESC \
+LIMIT 1)) AS neighbors",
+            mode as i16,
+            pp,
+        );
+
+        let mut stream = query.fetch(&self.pool);
+
+        let (higher_rank, higher_pp) = match stream.next().await.transpose()? {
+            Some(entry) => (
+                entry.global_rank.unwrap_or(0) as u32,
+                entry.pp.unwrap_or(0.0) as f32,
+            ),
+            None => return Ok(0),
+        };
+
+        let lower = stream.next().await.transpose()?.map(|entry| {
+            let rank = entry.global_rank.unwrap_or(0) as u32;
+            let pp = entry.pp.unwrap_or(0.0) as f32;
+
+            (rank, pp)
+        });
+
+        trace!("PP={pp} => high: ({higher_rank}, {higher_pp}) | low: {lower:?}");
+
+        if let Some((lower_rank, lower_pp)) = lower {
+            assert!((lower_pp..=higher_pp).contains(&pp));
+
+            if (higher_pp - lower_pp).abs() <= f32::EPSILON {
+                Ok(lower_rank.min(higher_rank).saturating_sub(1))
+            } else {
+                let percent = (higher_pp - pp) / (higher_pp - lower_pp);
+                let rank = percent * lower_rank.saturating_sub(higher_rank) as f32;
+
+                Ok(lower_rank + rank as u32)
+            }
+        } else if higher_pp < pp {
+            Ok(higher_rank)
+        } else if higher_pp > pp || higher_rank > 0 {
+            Ok(higher_rank + 1)
+        } else {
+            Ok(0)
+        }
+    }
+
+    pub async fn approx_pp_from_rank(&self, rank: u32, mode: GameMode) -> BotResult<f32> {
+        let query = sqlx::query!(
+            "\
+WITH stats AS (\
+    SELECT \
+        global_rank,\
+        pp,\
+        last_update \
+    FROM \
+        osu_user_stats_mode \
+    WHERE \
+        mode = $1 \
+        AND now() - last_update < interval '2 days'\
+)\
+SELECT \
+    * \
+FROM ((\
+        SELECT \
+            global_rank,\
+            pp \
+        FROM (\
+            SELECT \
+                * \
+            FROM \
+                stats \
+            WHERE \
+                global_rank > 0 \
+                AND global_rank <= $2 \
+            ORDER BY \
+                pp ASC \
+            LIMIT 2) AS innerTable \
+    ORDER BY \
+        last_update DESC \
+    LIMIT 1)\
+UNION ALL (\
+    SELECT \
+        global_rank,\
+        pp \
+    FROM (\
+        SELECT \
+            * \
+        FROM \
+            stats \
+        WHERE \
+            global_rank >= $2 \
+        ORDER BY \
+            pp DESC \
+        LIMIT 2) AS innerTable \
+ORDER BY \
+    last_update DESC \
+LIMIT 1)) AS neighbors",
+            mode as i16,
+            rank as i32,
+        );
+
+        let mut stream = query.fetch(&self.pool);
+
+        let (higher_rank, higher_pp) = match stream.next().await.transpose()? {
+            Some(entry) => (
+                entry.global_rank.unwrap_or(0) as u32,
+                entry.pp.unwrap_or(0.0) as f32,
+            ),
+            None => return Ok(0.0),
+        };
+
+        let lower = stream.next().await.transpose()?.map(|entry| {
+            let rank = entry.global_rank.unwrap_or(0) as u32;
+            let pp = entry.pp.unwrap_or(0.0) as f32;
+
+            (rank, pp)
+        });
+
+        trace!("Rank {rank} => high: ({higher_rank}, {higher_pp}) | low: {lower:?}");
+
+        if let Some((lower_rank, lower_pp)) = lower {
+            assert!((higher_rank..=lower_rank).contains(&rank));
+
+            if lower_rank == higher_rank {
+                Ok(lower_pp.max(higher_pp) + 0.01)
+            } else {
+                let percent = (lower_rank - rank) as f32 / (lower_rank - higher_rank) as f32;
+                let pp = percent * (higher_pp - lower_pp).max(0.0);
+
+                Ok(higher_pp + pp)
+            }
+        } else if higher_rank > rank {
+            Ok(higher_pp + 0.01)
+        } else if higher_rank < rank || higher_pp > 0.0 {
+            Ok(higher_pp - 0.01)
+        } else {
+            Ok(0.0)
+        }
+    }
+
     pub async fn remove_osu_user_stats(&self, user: &str) -> BotResult<()> {
         let query = sqlx::query!(
             "DELETE \
             FROM osu_user_stats S USING osu_user_names N \
             WHERE N.username ILIKE $1 \
-              AND S.user_id=N.user_id",
+                AND S.user_id=N.user_id",
             user
         );
 

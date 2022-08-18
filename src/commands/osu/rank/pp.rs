@@ -10,12 +10,11 @@ use crate::{
         GameModeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
-    custom_client::RankParam,
     embeds::{EmbedData, RankEmbed},
     tracking::process_osu_tracking,
     util::{
         builder::MessageBuilder,
-        constants::{OSU_API_ISSUE, OSU_DAILY_ISSUE},
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher, ChannelExt, CountryCode,
     },
     BotResult, Context,
@@ -65,12 +64,11 @@ pub(super) async fn pp(
 
     let rank_data = if rank <= 10_000 {
         // Retrieve the user and the user thats holding the given rank
-        let page = (rank / 50) + (rank % 50 != 0) as usize;
+        let page = (rank / 50) + (rank % 50 != 0) as u32;
 
         let redis = ctx.redis();
 
-        let rank_holder_fut =
-            redis.pp_ranking(mode, page as u32, country.as_ref().map(|c| c.as_str()));
+        let rank_holder_fut = redis.pp_ranking(mode, page, country.as_ref().map(|c| c.as_str()));
 
         let user_args = UserArgs::new(name.as_str(), mode);
         let user_fut = get_user(&ctx, &user_args);
@@ -79,7 +77,7 @@ pub(super) async fn pp(
             Ok((user, rankings)) => {
                 let idx = (args.rank + 49) % 50;
 
-                let rank_holder = rankings.get().ranking[idx]
+                let rank_holder = rankings.get().ranking[idx as usize]
                     .deserialize(&mut Infallible)
                     .unwrap();
 
@@ -107,18 +105,18 @@ pub(super) async fn pp(
             rank_holder: Box::new(rank_holder),
         }
     } else {
-        let pp_fut = ctx.client().get_rank_data(mode, RankParam::Rank(rank));
+        let pp_fut = ctx.psql().approx_pp_from_rank(rank, mode);
 
         let user_args = UserArgs::new(name.as_str(), mode);
         let user_fut = get_user(&ctx, &user_args);
         let (pp_result, user_result) = tokio::join!(pp_fut, user_fut);
 
         let required_pp = match pp_result {
-            Ok(rank_pp) => rank_pp.pp,
+            Ok(pp) => pp,
             Err(err) => {
-                let _ = orig.error(&ctx, OSU_DAILY_ISSUE).await;
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.into());
+                return Err(err);
             }
         };
 
@@ -186,7 +184,7 @@ pub(super) async fn pp(
 #[desc("How many pp is a player missing to reach the given rank?")]
 #[help(
     "How many pp is a player missing to reach the given rank?\n\
-    For ranks over 10,000 the data is provided by [osudaily](https://osudaily.net/)."
+    For ranks over 10,000 the value is an approximation based on cached user data."
 )]
 #[usage("[username] [[country]number]")]
 #[examples("badewanne3 be50", "badewanne3 123")]
@@ -207,7 +205,7 @@ async fn prefix_rank(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotRes
 #[desc("How many pp is a player missing to reach the given rank?")]
 #[help(
     "How many pp is a player missing to reach the given rank?\n\
-    For ranks over 10,000 the data is provided by [osudaily](https://osudaily.net/)."
+    For ranks over 10,000 the value is an approximation based on cached user data."
 )]
 #[usage("[username] [[country]number]")]
 #[examples("badewanne3 be50", "badewanne3 123")]
@@ -228,7 +226,7 @@ async fn prefix_rankmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> B
 #[desc("How many pp is a player missing to reach the given rank?")]
 #[help(
     "How many pp is a player missing to reach the given rank?\n\
-    For ranks over 10,000 the data is provided by [osudaily](https://osudaily.net/)."
+    For ranks over 10,000 the value is an approximation based on cached user data."
 )]
 #[usage("[username] [[country]number]")]
 #[examples("badewanne3 be50", "badewanne3 123")]
@@ -249,7 +247,7 @@ async fn prefix_ranktaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> B
 #[desc("How many pp is a player missing to reach the given rank?")]
 #[help(
     "How many pp is a player missing to reach the given rank?\n\
-    For ranks over 10,000 the data is provided by [osudaily](https://osudaily.net/)."
+    For ranks over 10,000 the value is an approximation based on cached user data."
 )]
 #[usage("[username] [[country]number]")]
 #[examples("badewanne3 be50", "badewanne3 123")]
@@ -269,13 +267,13 @@ async fn prefix_rankctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Bot
 pub enum RankData {
     Sub10k {
         user: User,
-        rank: usize,
+        rank: u32,
         country: Option<CountryCode>,
         rank_holder: Box<UserCompact>,
     },
     Over10k {
         user: User,
-        rank: usize,
+        rank: u32,
         required_pp: f32,
     },
 }

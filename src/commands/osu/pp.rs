@@ -15,7 +15,6 @@ use crate::{
         GameModeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
-    custom_client::RankParam,
     embeds::{EmbedData, PPMissingEmbed},
     tracking::process_osu_tracking,
     util::{
@@ -177,7 +176,7 @@ async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> BotResu
     let user_args = UserArgs::new(name.as_str(), mode);
     let score_args = ScoreArgs::top(100);
     let user_scores_fut = get_user_and_scores(&ctx, user_args, &score_args);
-    let rank_fut = ctx.client().get_rank_data(mode, RankParam::Pp(pp));
+    let rank_fut = ctx.psql().approx_rank_from_pp(pp, mode);
 
     let (user_scores_result, rank_result) = tokio::join!(user_scores_fut, rank_fut);
 
@@ -199,7 +198,7 @@ async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> BotResu
     user.mode = mode;
 
     let rank = match rank_result {
-        Ok(rank_pp) => Some(rank_pp.rank as usize),
+        Ok(rank_pp) => Some(rank_pp),
         Err(err) => {
             let report = Report::new(err).wrap_err("failed to get rank pp");
             warn!("{report:?}");

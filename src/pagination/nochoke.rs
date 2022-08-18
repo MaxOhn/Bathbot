@@ -14,7 +14,7 @@ pub struct NoChokePagination {
     user: User,
     scores: Vec<(usize, Score, Score)>,
     unchoked_pp: f32,
-    rank: Option<usize>,
+    rank: Option<u32>,
 }
 
 impl NoChokePagination {

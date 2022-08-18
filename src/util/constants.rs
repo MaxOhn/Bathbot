@@ -11,7 +11,6 @@ pub const OSU_BASE: &str = "https://osu.ppy.sh/";
 pub const MAP_THUMB_URL: &str = "https://b.ppy.sh/thumb/";
 pub const AVATAR_URL: &str = "https://a.ppy.sh/";
 pub const HUISMETBENEN: &str = "https://api.huismetbenen.nl/";
-pub const OSU_DAILY_API: &str = "https://osudaily.net/api/";
 
 // twitch
 pub const TWITCH_BASE: &str = "https://www.twitch.tv/";
@@ -26,7 +25,6 @@ pub const OSU_API_ISSUE: &str = "Some issue with the osu api, blame bade";
 pub const OSU_WEB_ISSUE: &str = "Some issue with the osu website, DDoS protection?";
 pub const OSEKAI_ISSUE: &str = "Some issue with the osekai api, blame bade";
 pub const HUISMETBENEN_ISSUE: &str = "Some issue with the huismetbenen api, blame bade";
-pub const OSU_DAILY_ISSUE: &str = "Some issue with the osudaily api, blame bade";
 pub const OSUSTATS_API_ISSUE: &str = "Some issue with the osustats api, blame bade";
 pub const OSUTRACKER_ISSUE: &str = "Some issue with the osutracker api, blame bade";
 pub const TWITCH_API_ISSUE: &str = "Some issue with the twitch api, blame bade";

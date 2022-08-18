@@ -13,7 +13,6 @@ use twilight_model::{
 use crate::{
     commands::osu::{get_user_and_scores, ScoreArgs, UserArgs},
     core::commands::{prefix::Args, CommandOrigin},
-    custom_client::RankParam,
     error::PpError,
     pagination::NoChokePagination,
     tracking::process_osu_tracking,
@@ -278,10 +277,8 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
         None => {}
     }
 
-    let rank_fut = ctx.client().get_rank_data(mode, RankParam::Pp(unchoked_pp));
-
-    let rank = match rank_fut.await {
-        Ok(rank) => Some(rank.rank as usize),
+    let rank = match ctx.psql().approx_rank_from_pp(unchoked_pp, mode).await {
+        Ok(rank) => Some(rank),
         Err(err) => {
             let report = Report::new(err).wrap_err("failed to get rank pp");
             warn!("{report:?}");

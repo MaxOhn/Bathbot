@@ -15,7 +15,6 @@ use crate::{
         GameModeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
-    custom_client::RankParam,
     pagination::TopIfPagination,
     pp::PpCalculator,
     tracking::process_osu_tracking,
@@ -260,10 +259,8 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> B
 
     let adjusted_pp = numbers::round(bonus_pp + adjusted_pp);
 
-    let rank_fut = ctx.client().get_rank_data(mode, RankParam::Pp(adjusted_pp));
-
-    let rank = match rank_fut.await {
-        Ok(rank) => Some(rank.rank as usize),
+    let rank = match ctx.psql().approx_rank_from_pp(adjusted_pp, mode).await {
+        Ok(rank) => Some(rank as usize),
         Err(err) => {
             let report = Report::new(err).wrap_err("failed to get rank pp");
             warn!("{report:?}");
@@ -366,8 +363,6 @@ async fn modify_scores(
         } else {
             calc.pp() as f32
         };
-
-        drop(calc);
 
         score.map.as_mut().unwrap().stars = stars;
         score.pp = Some(pp);
