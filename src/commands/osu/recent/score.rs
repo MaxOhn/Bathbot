@@ -315,37 +315,40 @@ pub(super) async fn score(
     }
 
     let num = index.unwrap_or(1).saturating_sub(1);
-    let mut iter = scores.iter_mut().skip(num);
 
-    let (score, tries) = match iter.next() {
-        Some(score) => match prepare_score(&ctx, score).await {
-            Ok(_) => {
-                let mods = score.mods;
-                let map_id = map_id!(score).unwrap();
+    let (score, tries) = {
+        let mut iter = scores.iter_mut().skip(num);
 
-                let tries = 1 + iter
-                    .take_while(|s| map_id!(s).unwrap() == map_id && s.mods == mods)
-                    .count();
+        match iter.next() {
+            Some(score) => match prepare_score(&ctx, score).await {
+                Ok(_) => {
+                    let mods = score.mods;
+                    let map_id = map_id!(score).unwrap();
 
-                (score, tries)
+                    let tries = 1 + iter
+                        .take_while(|s| map_id!(s).unwrap() == map_id && s.mods == mods)
+                        .count();
+
+                    (score, tries)
+                }
+                Err(err) => {
+                    let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+
+                    return Err(err.into());
+                }
+            },
+            None => {
+                let content = format!(
+                    "There {verb} only {num} score{plural} in `{name}`'{genitive} recent history.",
+                    verb = if scores.len() != 1 { "are" } else { "is" },
+                    num = scores.len(),
+                    plural = if scores.len() != 1 { "s" } else { "" },
+                    name = name,
+                    genitive = if name.ends_with('s') { "" } else { "s" }
+                );
+
+                return orig.error(&ctx, content).await;
             }
-            Err(err) => {
-                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-
-                return Err(err.into());
-            }
-        },
-        None => {
-            let content = format!(
-                "There {verb} only {num} score{plural} in `{name}`'{genitive} recent history.",
-                verb = if scores.len() != 1 { "are" } else { "is" },
-                num = scores.len(),
-                plural = if scores.len() != 1 { "s" } else { "" },
-                name = name,
-                genitive = if name.ends_with('s') { "" } else { "s" }
-            );
-
-            return orig.error(&ctx, content).await;
         }
     };
 

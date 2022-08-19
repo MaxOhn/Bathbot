@@ -75,29 +75,29 @@ impl RecentEmbed {
 
         let stars = round(attributes.stars() as f32);
 
-        let pp = if let Some(pp) = score.pp {
-            pp
-        } else if score.grade == Grade::F {
-            rosu_map
-                .pp()
-                .mods(mods)
-                .state(score.state())
-                .passed_objects(score.total_hits() as usize)
-                .calculate()
-                .pp() as f32
-        } else {
-            let pp_result = rosu_map
-                .pp()
-                .attributes(attributes)
-                .mods(mods)
-                .state(score.state())
-                .calculate();
+        let pp = *score.pp.get_or_insert_with(|| {
+            if score.grade == Grade::F {
+                rosu_map
+                    .pp()
+                    .mods(mods)
+                    .state(score.state())
+                    .passed_objects(score.total_hits() as usize)
+                    .calculate()
+                    .pp() as f32
+            } else {
+                let pp_result = rosu_map
+                    .pp()
+                    .attributes(attributes)
+                    .mods(mods)
+                    .state(score.state())
+                    .calculate();
 
-            let pp = pp_result.pp();
-            attributes = pp_result.into();
+                let pp = pp_result.pp();
+                attributes = pp_result.into();
 
-            pp as f32
-        };
+                pp as f32
+            }
+        });
 
         let (if_fc, _) = IfFC::new(score, &rosu_map, attributes, mods);
 
@@ -168,12 +168,23 @@ impl RecentEmbed {
                     .iter()
                     .position(|s| s == score)
                     .or_else(|| {
+                        // Previously calculated if not available already
+                        let pp = score.pp.unwrap_or(0.0);
+
                         personal
                             .binary_search_by(|probe| {
-                                score.pp.partial_cmp(&probe.pp).unwrap_or(Ordering::Equal)
+                                probe
+                                    .pp
+                                    .and_then(|pp_| pp.partial_cmp(&pp_))
+                                    .unwrap_or(Ordering::Less)
                             })
                             .map_or_else(Some, Some)
                             .filter(|&idx| idx < 100)
+                            .filter(|&idx| {
+                                personal[..idx].iter().all(|s| {
+                                    s.map.as_ref().map_or(true, |m| m.map_id != map.map_id)
+                                })
+                            })
                     })
                     .map(|idx| idx + 1)
             });
