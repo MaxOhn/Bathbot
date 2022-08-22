@@ -46,6 +46,8 @@ pub enum Error {
     Database(#[from] sqlx::Error),
     #[error("fmt error")]
     Fmt(#[from] std::fmt::Error),
+    #[error("failed to convert html to png")]
+    HtmlToPng(#[from] crate::util::HtmlToPngError),
     #[error("image error")]
     Image(#[from] image::ImageError),
     #[error("invalid bg state")]
@@ -58,6 +60,8 @@ pub enum Error {
     InvalidModal(#[from] InvalidModal),
     #[error("io error")]
     Io(#[from] tokio::io::Error),
+    #[error("serde json error")]
+    Json(#[from] serde_json::Error),
     #[error("error while preparing beatmap file")]
     MapFile(#[from] MapFileError),
     #[error("failed to validate message")]
@@ -80,8 +84,8 @@ pub enum Error {
     Pp(#[from] PpError),
     #[error("error while communicating with redis")]
     Redis(#[from] bb8_redis::redis::RedisError),
-    #[error("serde json error")]
-    Json(#[from] serde_json::Error),
+    #[error("failed to render with handlebars")]
+    Render(#[from] handlebars::RenderError),
     #[error("shard command error")]
     ShardCommand(#[from] twilight_gateway::shard::CommandError),
     #[error("twilight failed to deserialize response")]

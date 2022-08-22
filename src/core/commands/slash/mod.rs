@@ -43,6 +43,7 @@ impl SlashCommands {
                 Badges => BADGES_SLASH,
                 Bg => BG_SLASH,
                 Bws => BWS_SLASH,
+                Card => CARD_SLASH,
                 ClaimName => CLAIMNAME_SLASH,
                 Commands => COMMANDS_SLASH,
                 Compare => COMPARE_SLASH,

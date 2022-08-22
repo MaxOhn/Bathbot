@@ -75,33 +75,32 @@ impl RecentEmbed {
 
         let stars = round(attributes.stars() as f32);
 
-        let pp = *score.pp.get_or_insert_with(|| {
-            if score.grade == Grade::F {
-                rosu_map
-                    .pp()
-                    .mods(mods)
-                    .state(score.state())
-                    .passed_objects(score.total_hits() as usize)
-                    .calculate()
-                    .pp() as f32
-            } else {
-                let pp_result = rosu_map
-                    .pp()
-                    .attributes(attributes)
-                    .mods(mods)
-                    .state(score.state())
-                    .calculate();
+        let pp = if let Some(pp) = score.pp {
+            pp
+        } else if score.grade == Grade::F {
+            rosu_map
+                .pp()
+                .mods(mods)
+                .state(score.state())
+                .passed_objects(score.total_hits() as usize)
+                .calculate()
+                .pp() as f32
+        } else {
+            let pp_result = rosu_map
+                .pp()
+                .attributes(attributes)
+                .mods(mods)
+                .state(score.state())
+                .calculate();
 
-                let pp = pp_result.pp();
-                attributes = pp_result.into();
+            let pp = pp_result.pp();
+            attributes = pp_result.into();
 
-                pp as f32
-            }
-        });
+            pp as f32
+        };
 
         let (if_fc, _) = IfFC::new(score, &rosu_map, attributes, mods);
 
-        let pp = Some(pp);
         let max_pp = Some(max_pp);
         let hits = score.hits_string(map.mode);
         let grade_completion_mods = grade_completion_mods(score, map);
@@ -168,9 +167,6 @@ impl RecentEmbed {
                     .iter()
                     .position(|s| s == score)
                     .or_else(|| {
-                        // Previously calculated if not available already
-                        let pp = score.pp.unwrap_or(0.0);
-
                         personal
                             .binary_search_by(|probe| {
                                 probe
@@ -188,6 +184,8 @@ impl RecentEmbed {
                     })
                     .map(|idx| idx + 1)
             });
+
+        let pp = Some(pp);
 
         let global_idx = map_score
             .and_then(|s| (&s.score == score).then(|| s.pos))

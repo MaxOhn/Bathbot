@@ -30,6 +30,7 @@ pub struct BotConfig {
 #[derive(Debug)]
 pub struct Paths {
     pub backgrounds: PathBuf,
+    pub cards: PathBuf,
     pub maps: PathBuf,
     pub website: PathBuf,
 }
@@ -121,6 +122,7 @@ impl BotConfig {
             },
             paths: Paths {
                 backgrounds: env_var("BG_PATH")?,
+                cards: env_var("CARDS_REPO_PATH")?,
                 maps: env_var("MAP_PATH")?,
                 website: env_var("WEBSITE_PATH")?,
             },
