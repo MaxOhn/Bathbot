@@ -103,11 +103,10 @@ impl ModSelection {
 }
 
 pub fn flag_url(country_code: &str) -> String {
-    // format!("{}/images/flags/{}.png", OSU_BASE, country_code) // from osu itself but outdated
+    // format!("{OSU_BASE}/images/flags/{country_code}.png") // from osu itself but outdated
     format!("https://osuflags.omkserver.nl/{country_code}-256.png") // kelderman
 }
 
-#[allow(dead_code)]
 pub fn flag_url_svg(country_code: &str) -> String {
     assert_eq!(
         country_code.len(),

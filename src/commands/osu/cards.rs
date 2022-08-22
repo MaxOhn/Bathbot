@@ -1,11 +1,16 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{
+    fmt::{Debug, Display, Formatter, Result as FmtResult},
+    sync::Arc,
+};
 
 use command_macros::{HasName, SlashCommand};
 use handlebars::Handlebars;
 use once_cell::sync::Lazy;
 use rosu_pp::{osu::OsuScoreState, Beatmap, OsuPP};
 use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score};
+use serde::{Serialize, Serializer};
 use serde_json::json;
+use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     application::interaction::ApplicationCommand,
@@ -15,13 +20,14 @@ use twilight_model::{
 use crate::{
     commands::GameModeOption,
     core::{commands::CommandOrigin, BotConfig, Context},
+    embeds::{CardEmbed, EmbedData},
     error::PpError,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        numbers::round,
-        osu::prepare_beatmap_file,
-        ApplicationCommandExt,
+        datetime::DATE_FORMAT,
+        osu::{flag_url_svg, prepare_beatmap_file},
+        ApplicationCommandExt, HtmlToPng,
     },
     BotResult,
 };
@@ -30,8 +36,8 @@ use super::{get_user_and_scores, ScoreArgs, UserArgs};
 
 static HTML_TEMPLATE: Lazy<Handlebars<'static>> = Lazy::new(|| {
     let mut handlebars = Handlebars::new();
-    let mut path = BotConfig::get().paths.website.to_owned();
-    path.push("card.hbs");
+    let mut path = BotConfig::get().paths.cards.clone();
+    path.push("template/template.tmpl");
 
     handlebars
         .register_template_file("card", path)
@@ -73,7 +79,7 @@ async fn slash_card(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> 
     let user_args = UserArgs::new(&name, mode);
     let scores_args = ScoreArgs::top(100);
 
-    let (user, scores) = match get_user_and_scores(&ctx, user_args, &scores_args).await {
+    let (mut user, scores) = match get_user_and_scores(&ctx, user_args, &scores_args).await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
             let content = format!("User `{name}` was not found");
@@ -86,6 +92,9 @@ async fn slash_card(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> 
             return Err(err.into());
         }
     };
+
+    user.mode = mode;
+    let stats = user.statistics.as_ref().expect("missing user stats");
 
     let skills = match Skills::calculate(&ctx, &scores).await {
         Ok(skills) => skills,
@@ -104,12 +113,38 @@ async fn slash_card(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> 
     };
 
     let render_data = json!({
-        "name": user.username,
-        "level": user.statistics.map(|stats| round(stats.level.float())).unwrap_or(0.0),
-        "acc": round(acc as f32),
-        "aim": round(aim as f32),
-        "speed": round(speed as f32),
+        "path": BotConfig::get().paths.cards,
+        "gamemode": match user.mode {
+            GameMode::Osu => "mode_standard",
+            GameMode::Taiko => "mode_taiko",
+            GameMode::Catch => "mode_catch",
+            GameMode::Mania => "mode_mania",
+        },
         "title": title,
+        "username": user.username,
+        "flag": flag_url_svg(&user.country_code),
+        "gamemode_icon": match user.mode {
+            GameMode::Osu => "img/gamemodes/Standard.svg",
+            GameMode::Taiko => "img/gamemodes/Taiko.svg",
+            GameMode::Catch => "img/gamemodes/Catch.svg",
+            GameMode::Mania => "img/gamemodes/Mania.svg",
+        },
+        "user_pfp": user.avatar_url,
+        "accuracy_enabled": "show",
+        "accuracy": acc.trunc(),
+        "accuracy_decimal": (acc.fract() * 100.0).round() as u32,
+        "aim_enabled": "show",
+        "aim": aim.trunc(),
+        "aim_decimal": (aim.fract() * 100.0).round() as u32,
+        "speed_enabled": "show",
+        "speed": speed.trunc(),
+        "speed_decimal": (speed.fract() * 100.0).round() as u32,
+        "global_rank": stats.global_rank.unwrap_or(0),
+        "country_rank": stats.country_rank.unwrap_or(0),
+        "level": stats.level.current,
+        "level_percentage": stats.level.progress,
+        "date": OffsetDateTime::now_utc().format(&DATE_FORMAT).unwrap(),
+        "background_image": format!("img/backgrounds/{}.png", title.prefix.background()),
     });
 
     let html = match HTML_TEMPLATE.render("card", &render_data) {
@@ -121,8 +156,8 @@ async fn slash_card(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> 
         }
     };
 
-    let bytes = match ctx.client().html_to_png(&html).await {
-        Ok(bytes) => bytes.to_vec(),
+    let bytes = match HtmlToPng::convert(&html) {
+        Ok(bytes) => bytes,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
@@ -130,18 +165,29 @@ async fn slash_card(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> 
         }
     };
 
-    let builder = MessageBuilder::new().attachment("card.png", bytes);
+    let embed = CardEmbed::new(&user).build();
+
+    let builder = MessageBuilder::new()
+        .attachment("card.png", bytes)
+        .embed(embed);
+
     orig.create_message(&ctx, &builder).await?;
 
     Ok(())
 }
 
-#[allow(dead_code)]
 #[derive(Copy, Clone)]
 enum Skills {
-    Osu { acc: f64, aim: f64, speed: f64 },
+    Osu {
+        acc: f64,
+        aim: f64,
+        speed: f64,
+    },
+    #[allow(dead_code)]
     Taiko {},
+    #[allow(dead_code)]
     Catch {},
+    #[allow(dead_code)]
     Mania {},
 }
 
@@ -154,6 +200,7 @@ impl Skills {
         let mut speed = 0.0;
         let mut weight_sum = 0.0;
 
+        const ACC_NERF: f64 = 1.3;
         const AIM_NERF: f64 = 2.6;
         const SPEED_NERF: f64 = 2.4;
 
@@ -175,7 +222,7 @@ impl Skills {
                 .state(state)
                 .calculate();
 
-            let acc_val = attrs.pp_acc;
+            let acc_val = attrs.pp_acc / ACC_NERF;
             let aim_val = attrs.pp_aim / AIM_NERF;
             let speed_val = attrs.pp_speed / SPEED_NERF;
             let weight = 0.95_f64.powi(i as i32);
@@ -200,54 +247,130 @@ impl Skills {
         Ok(Self::Osu { acc, aim, speed })
     }
 
-    fn evaluate_title(self, scores: &[Score]) -> String {
-        let mod_adjective = self.process_mods(scores);
-
+    fn evaluate_title(self, scores: &[Score]) -> Title {
         let (acc, aim, speed) = match self {
             Self::Osu { acc, aim, speed } => (acc, aim, speed),
             _ => todo!(),
         };
 
         let max = acc.max(aim).max(speed);
+        let prefix = TitlePrefix::new(max);
+        let mods = ModDescriptions::new(scores);
+        let main = TitleMain::new(acc, aim, speed, max);
 
-        const THRESHOLD: f64 = 0.91;
+        Title { prefix, mods, main }
+    }
+}
 
-        let skills = [
-            acc / max > THRESHOLD,
-            aim / max > THRESHOLD,
-            speed / max > THRESHOLD,
-        ];
+struct Title {
+    prefix: TitlePrefix,
+    mods: ModDescriptions,
+    main: TitleMain,
+}
 
-        let skill_title = match skills {
-            [true, true, true] => "All-Rounder",
-            [true, true, false] => "Sniper",
-            [true, false, true] => "Ninja",
-            [true, false, false] => "Rhythm Enjoyer",
-            [false, true, true] => "Gunslinger",
-            [false, true, false] => "Whack-A-Mole",
-            [false, false, true] => "Masher",
-            [false, false, false] => unreachable!(),
-        };
+impl Display for Title {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{} {} {}", self.prefix, self.mods, self.main)
+    }
+}
 
-        let title_prefix = match max {
-            _ if max < 10.0 => "Newbie",
-            _ if max < 20.0 => "Novice",
-            _ if max < 30.0 => "Rookie",
-            _ if max < 40.0 => "Apprentice",
-            _ if max < 50.0 => "Advanced",
-            _ if max < 60.0 => "Outstanding",
-            _ if max < 70.0 => "Seasoned",
-            _ if max < 80.0 => "Professional",
-            _ if max < 85.0 => "Expert",
-            _ if max < 90.0 => "Master",
-            _ if max < 95.0 => "Legendary",
-            _ => "God",
-        };
+impl Serialize for Title {
+    #[inline]
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(&self.to_string())
+    }
+}
 
-        format!("{title_prefix} {mod_adjective} {skill_title}")
+#[derive(Debug)]
+#[repr(u8)]
+enum TitlePrefix {
+    Newbie,
+    Novice,
+    Rookie,
+    Apprentice,
+    Advanced,
+    Outstanding,
+    Seasoned,
+    Professional,
+    Expert,
+    Master,
+    Legendary,
+    God,
+}
+
+impl TitlePrefix {
+    fn new(value: f64) -> Self {
+        match value {
+            _ if value < 10.0 => Self::Newbie,
+            _ if value < 20.0 => Self::Novice,
+            _ if value < 30.0 => Self::Rookie,
+            _ if value < 40.0 => Self::Apprentice,
+            _ if value < 50.0 => Self::Advanced,
+            _ if value < 60.0 => Self::Outstanding,
+            _ if value < 70.0 => Self::Seasoned,
+            _ if value < 80.0 => Self::Professional,
+            _ if value < 85.0 => Self::Expert,
+            _ if value < 90.0 => Self::Master,
+            _ if value < 95.0 => Self::Legendary,
+            _ => Self::God,
+        }
     }
 
-    fn process_mods(&self, scores: &[Score]) -> Cow<'static, str> {
+    fn background(&self) -> &'static str {
+        match self {
+            TitlePrefix::Newbie => "newbie",
+            TitlePrefix::Novice => "novice",
+            TitlePrefix::Rookie => "rookie",
+            TitlePrefix::Apprentice => "apprentice",
+            TitlePrefix::Advanced => "advanced",
+            TitlePrefix::Outstanding => "outstanding",
+            TitlePrefix::Seasoned => "seasoned",
+            TitlePrefix::Professional => "professional",
+            TitlePrefix::Expert => "expert",
+            TitlePrefix::Master => "master",
+            TitlePrefix::Legendary => "legendary",
+            TitlePrefix::God => "god",
+        }
+    }
+}
+
+impl Display for TitlePrefix {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        <Self as Debug>::fmt(self, f)
+    }
+}
+
+enum ModDescription {
+    ModHating,
+    Speedy,
+    AntClicking,
+    HdAbusing,
+    ModLoving,
+    Versatile,
+}
+
+impl Display for ModDescription {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let desc = match self {
+            ModDescription::ModHating => "mod-hating",
+            ModDescription::Speedy => "speedy",
+            ModDescription::AntClicking => "ant-clicking",
+            ModDescription::HdAbusing => "HD-abusing",
+            ModDescription::ModLoving => "mod-loving",
+            ModDescription::Versatile => "versatile",
+        };
+
+        f.write_str(desc)
+    }
+}
+
+struct ModDescriptions(Vec<ModDescription>);
+
+impl ModDescriptions {
+    fn new(scores: &[Score]) -> Self {
         let mut nomod = 0;
         let mut hidden = 0;
         let mut doubletime = 0;
@@ -265,37 +388,106 @@ impl Skills {
         }
 
         if nomod > 70 {
-            return "mod-hating".into();
+            return ModDescription::ModHating.into();
         }
 
-        let mut res = String::new();
+        let mut mods = Self(Vec::new());
 
         if doubletime > 70 {
-            res.push_str("speedy");
+            mods.push(ModDescription::Speedy);
         }
 
         if hardrock > 70 {
-            if !res.is_empty() {
-                res.push(' ');
-            }
-
-            res.push_str("ant-clicking");
+            mods.push(ModDescription::AntClicking);
         }
 
         if hidden > 70 {
-            if !res.is_empty() {
-                res.push(' ');
-            }
-
-            res.push_str("HD-abusing");
+            mods.push(ModDescription::HdAbusing);
         }
 
-        if !res.is_empty() {
-            res.into()
+        if !mods.is_empty() {
+            mods
         } else if nomod < 10 {
-            "mod-loving".into()
+            ModDescription::ModLoving.into()
         } else {
-            "versatile".into()
+            ModDescription::Versatile.into()
         }
+    }
+
+    fn push(&mut self, desc: ModDescription) {
+        self.0.push(desc);
+    }
+
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl From<ModDescription> for ModDescriptions {
+    #[inline]
+    fn from(desc: ModDescription) -> Self {
+        Self(vec![desc])
+    }
+}
+
+impl Display for ModDescriptions {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let mut iter = self.0.iter();
+
+        if let Some(desc) = iter.next() {
+            write!(f, "{desc}")?;
+
+            for desc in iter {
+                write!(f, " {desc}")?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+enum TitleMain {
+    AllRounder,
+    Sniper,
+    Ninja,
+    RhythmEnjoyer,
+    Gunslinger,
+    WhackAMole,
+    Masher,
+}
+
+impl TitleMain {
+    fn new(acc: f64, aim: f64, speed: f64, max: f64) -> Self {
+        const THRESHOLD: f64 = 0.91;
+        let map = |val| val / max > THRESHOLD;
+
+        match (map(acc), map(aim), map(speed)) {
+            (true, true, true) => Self::AllRounder,
+            (true, true, false) => Self::Sniper,
+            (true, false, true) => Self::Ninja,
+            (true, false, false) => Self::RhythmEnjoyer,
+            (false, true, true) => Self::Gunslinger,
+            (false, true, false) => Self::WhackAMole,
+            (false, false, true) => Self::Masher,
+            (false, false, false) => unreachable!(),
+        }
+    }
+}
+
+impl Display for TitleMain {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let main = match self {
+            TitleMain::AllRounder => "All-Rounder",
+            TitleMain::Sniper => "Sniper",
+            TitleMain::Ninja => "Ninja",
+            TitleMain::RhythmEnjoyer => "Rhythm Enjoyer",
+            TitleMain::Gunslinger => "Gunslinger",
+            TitleMain::WhackAMole => "Whack-A-Mole",
+            TitleMain::Masher => "Masher",
+        };
+
+        f.write_str(main)
     }
 }

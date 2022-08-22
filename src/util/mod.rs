@@ -10,7 +10,7 @@ use crate::{BotResult, Context};
 
 pub use self::{
     bitflags::*, boyer_moore::*, country_code::CountryCode, cow::CowUtils, emote::Emote, ext::*,
-    matrix::Matrix, monthly::Monthly,
+    html_to_png::*, matrix::Matrix, monthly::Monthly,
 };
 
 pub mod builder;
@@ -29,6 +29,7 @@ mod country_code;
 mod cow;
 mod emote;
 mod ext;
+mod html_to_png;
 mod monthly;
 
 macro_rules! get {

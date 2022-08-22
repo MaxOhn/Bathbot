@@ -46,6 +46,8 @@ pub enum Error {
     Database(#[from] sqlx::Error),
     #[error("fmt error")]
     Fmt(#[from] std::fmt::Error),
+    #[error("failed to convert html to png")]
+    HtmlToPng(#[from] crate::util::HtmlToPngError),
     #[error("image error")]
     Image(#[from] image::ImageError),
     #[error("invalid bg state")]
