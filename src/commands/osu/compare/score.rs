@@ -380,7 +380,7 @@ pub(super) async fn score(
                 }
             };
 
-            let map_id = match MapIdType::map_from_msgs(&msgs, idx) {
+            match MapIdType::map_from_msgs(&msgs, idx) {
                 Some(id) => id,
                 None if idx == 0 => {
                     let content =
@@ -399,9 +399,7 @@ pub(super) async fn score(
 
                     return orig.error(&ctx, content).await;
                 }
-            };
-
-            map_id
+            }
         }
     };
 

@@ -148,7 +148,7 @@ impl MatchLiveEmbed {
                         }
                     }
 
-                    let (description, image, footer) = game_content(lobby, &*game);
+                    let (description, image, footer) = game_content(lobby, game);
                     state = Some(next_state);
 
                     let embed = Self {
@@ -277,7 +277,7 @@ impl MatchLiveEmbed {
                             continue;
                         }
 
-                        let (description, image, footer) = game_content(lobby, &*game);
+                        let (description, image, footer) = game_content(lobby, game);
 
                         // Previous game not yet finished but next one already there => override
                         if !state.finished {
@@ -367,7 +367,7 @@ impl MatchLiveEmbed {
                         embed.description.push_str("• **Lobby was closed**")
                     }
                     MatchEvent::Game { game, .. } => {
-                        let (description, image, footer) = game_content(lobby, &*game);
+                        let (description, image, footer) = game_content(lobby, game);
 
                         let state = GameState {
                             game_id: game.game_id,

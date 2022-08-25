@@ -161,7 +161,7 @@ pub async fn handle_autocomplete(
     name: String,
 ) -> BotResult<()> {
     let name = if name.is_empty() {
-        command.autocomplete(&ctx, Vec::new()).await?;
+        command.autocomplete(ctx, Vec::new()).await?;
 
         return Ok(());
     } else {
@@ -183,7 +183,7 @@ pub async fn handle_autocomplete(
         }
     }
 
-    command.autocomplete(&ctx, choices).await?;
+    command.autocomplete(ctx, choices).await?;
 
     Ok(())
 }
