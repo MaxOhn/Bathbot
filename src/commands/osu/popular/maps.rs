@@ -1,13 +1,12 @@
 use std::sync::Arc;
 
 use rkyv::{Deserialize, Infallible};
-use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
-    core::{commands::CommandOrigin, Context},
+    core::Context,
     custom_client::OsuTrackerPpEntry,
     pagination::OsuTrackerMapsPagination,
-    util::{constants::OSUTRACKER_ISSUE, ApplicationCommandExt},
+    util::{constants::OSUTRACKER_ISSUE, interaction::InteractionCommand, InteractionCommandExt},
     BotResult,
 };
 
@@ -15,7 +14,7 @@ use super::PopularMapsPp;
 
 pub(super) async fn maps(
     ctx: Arc<Context>,
-    command: Box<ApplicationCommand>,
+    mut command: InteractionCommand,
     args: PopularMapsPp,
 ) -> BotResult<()> {
     let pp = args.pp();
@@ -30,8 +29,8 @@ pub(super) async fn maps(
     };
 
     OsuTrackerMapsPagination::builder(pp, entries)
-    .start_by_update()
-        .start(ctx, CommandOrigin::Interaction { command })
+        .start_by_update()
+        .start(ctx, (&mut command).into())
         .await
 }
 

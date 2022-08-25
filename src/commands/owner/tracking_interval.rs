@@ -1,16 +1,15 @@
 use std::sync::Arc;
 
 use time::Duration;
-use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
-    util::{builder::MessageBuilder, ApplicationCommandExt},
+    util::{builder::MessageBuilder, interaction::InteractionCommand, InteractionCommandExt},
     BotResult, Context,
 };
 
 pub async fn trackinginterval(
     ctx: Arc<Context>,
-    command: Box<ApplicationCommand>,
+    command: InteractionCommand,
     seconds: i64,
 ) -> BotResult<()> {
     let interval = Duration::seconds(seconds);

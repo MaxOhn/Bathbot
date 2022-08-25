@@ -4,20 +4,18 @@ use command_macros::{HasMods, HasName, SlashCommand};
 use rosu_v2::prelude::{GameMods, Username};
 use smallstr::SmallString;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    core::{commands::CommandOrigin, Context},
+    core::Context,
     custom_client::{OsuTrackerCountryDetails, OsuTrackerCountryScore},
     pagination::OsuTrackerCountryTopPagination,
     util::{
         constants::GENERAL_ISSUE,
+        interaction::InteractionCommand,
         osu::ModSelection,
         query::{FilterCriteria, Searchable},
-        ApplicationCommandExt, CountryCode, CowUtils,
+        CountryCode, CowUtils, InteractionCommandExt,
     },
     BotResult,
 };
@@ -89,10 +87,7 @@ impl From<CountryTopOrder> for ScoreOrder {
     }
 }
 
-async fn slash_countrytop(
-    ctx: Arc<Context>,
-    mut command: Box<ApplicationCommand>,
-) -> BotResult<()> {
+async fn slash_countrytop(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let mut args = CountryTop::from_interaction(command.input_data())?;
 
     let mods = match args.mods() {
@@ -185,7 +180,7 @@ async fn slash_countrytop(
     OsuTrackerCountryTopPagination::builder(details, scores, sort)
         .content(content)
         .start_by_update()
-        .start(ctx, CommandOrigin::Interaction { command })
+        .start(ctx, (&mut command).into())
         .await
 }
 

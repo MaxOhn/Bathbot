@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use command_macros::SlashCommand;
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     core::Context,
@@ -10,9 +9,10 @@ use crate::{
     embeds::EmbedData,
     util::{
         builder::MessageBuilder,
+        interaction::InteractionCommand,
         matcher,
         osu::{AttributeKind, ModSelection},
-        ApplicationCommandExt,
+        InteractionCommandExt,
     },
     BotResult,
 };
@@ -92,10 +92,7 @@ pub struct AttributesOd {
     mods: String,
 }
 
-async fn slash_attributes(
-    ctx: Arc<Context>,
-    mut command: Box<ApplicationCommand>,
-) -> BotResult<()> {
+async fn slash_attributes(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let attrs = Attributes::from_interaction(command.input_data())?;
 
     let (kind, value, mods) = match attrs {

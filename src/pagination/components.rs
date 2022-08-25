@@ -1,14 +1,11 @@
 use std::sync::Arc;
 
-use twilight_model::application::interaction::{
-    modal::ModalSubmitInteraction, MessageComponentInteraction,
-};
-
 use crate::{
     core::Context,
     error::InvalidModal,
     util::{
         builder::{MessageBuilder, ModalBuilder},
+        interaction::{InteractionComponent, InteractionModal},
         Authored, ComponentExt, ModalExt,
     },
     BotResult,
@@ -18,7 +15,7 @@ use super::Pages;
 
 pub(super) async fn remove_components(
     ctx: &Context,
-    component: &MessageComponentInteraction,
+    component: &InteractionComponent,
 ) -> BotResult<()> {
     let builder = MessageBuilder::new()
         .components(Vec::new())
@@ -31,7 +28,7 @@ pub(super) async fn remove_components(
 
 pub async fn handle_pagination_component(
     ctx: Arc<Context>,
-    component: Box<MessageComponentInteraction>,
+    component: InteractionComponent,
     page_fn: fn(&mut Pages),
 ) -> BotResult<()> {
     let (builder, defer_components) = {
@@ -68,7 +65,7 @@ pub async fn handle_pagination_component(
 
 pub async fn handle_pagination_start(
     ctx: Arc<Context>,
-    component: Box<MessageComponentInteraction>,
+    component: InteractionComponent,
 ) -> BotResult<()> {
     let f = |pages: &mut Pages| pages.index = 0;
 
@@ -77,7 +74,7 @@ pub async fn handle_pagination_start(
 
 pub async fn handle_pagination_back(
     ctx: Arc<Context>,
-    component: Box<MessageComponentInteraction>,
+    component: InteractionComponent,
 ) -> BotResult<()> {
     let f = |pages: &mut Pages| pages.index -= pages.per_page;
 
@@ -86,7 +83,7 @@ pub async fn handle_pagination_back(
 
 pub async fn handle_pagination_step(
     ctx: Arc<Context>,
-    component: Box<MessageComponentInteraction>,
+    component: InteractionComponent,
 ) -> BotResult<()> {
     let f = |pages: &mut Pages| pages.index += pages.per_page;
 
@@ -95,7 +92,7 @@ pub async fn handle_pagination_step(
 
 pub async fn handle_pagination_end(
     ctx: Arc<Context>,
-    component: Box<MessageComponentInteraction>,
+    component: InteractionComponent,
 ) -> BotResult<()> {
     let f = |pages: &mut Pages| pages.index = pages.last_index;
 
@@ -104,7 +101,7 @@ pub async fn handle_pagination_end(
 
 pub async fn handle_pagination_custom(
     ctx: Arc<Context>,
-    component: Box<MessageComponentInteraction>,
+    component: InteractionComponent,
 ) -> BotResult<()> {
     let max_page = {
         let guard = ctx.paginations.lock(&component.message.id).await;
@@ -136,10 +133,7 @@ pub async fn handle_pagination_custom(
     Ok(())
 }
 
-pub async fn handle_pagination_modal(
-    ctx: Arc<Context>,
-    modal: Box<ModalSubmitInteraction>,
-) -> BotResult<()> {
+pub async fn handle_pagination_modal(ctx: Arc<Context>, modal: InteractionModal) -> BotResult<()> {
     let input = modal
         .data
         .components
@@ -149,10 +143,10 @@ pub async fn handle_pagination_modal(
         .first()
         .ok_or(InvalidModal::MissingPageInput)?;
 
-    let page: usize = if let Ok(n) = input.value.parse() {
+    let page: usize = if let Some(Ok(n)) = input.value.as_deref().map(str::parse) {
         n
     } else {
-        debug!("failed to parse page input `{}` as usize", input.value);
+        debug!("failed to parse page input `{:?}` as usize", input.value);
 
         return Ok(());
     };
@@ -206,7 +200,7 @@ pub async fn handle_pagination_modal(
 
 pub async fn handle_profile_compact(
     ctx: Arc<Context>,
-    component: Box<MessageComponentInteraction>,
+    component: InteractionComponent,
 ) -> BotResult<()> {
     let f = |pages: &mut Pages| pages.index = 0;
 
@@ -215,7 +209,7 @@ pub async fn handle_profile_compact(
 
 pub async fn handle_profile_medium(
     ctx: Arc<Context>,
-    component: Box<MessageComponentInteraction>,
+    component: InteractionComponent,
 ) -> BotResult<()> {
     let f = |pages: &mut Pages| pages.index = 1;
 
@@ -224,7 +218,7 @@ pub async fn handle_profile_medium(
 
 pub async fn handle_profile_full(
     ctx: Arc<Context>,
-    component: Box<MessageComponentInteraction>,
+    component: InteractionComponent,
 ) -> BotResult<()> {
     let f = |pages: &mut Pages| pages.index = 2;
 

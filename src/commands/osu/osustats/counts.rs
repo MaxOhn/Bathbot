@@ -3,10 +3,7 @@ use std::{borrow::Cow, sync::Arc};
 use command_macros::{command, HasName, SlashCommand};
 use rosu_v2::prelude::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::{
@@ -18,7 +15,8 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{OSUSTATS_API_ISSUE, OSU_API_ISSUE},
-        matcher, ApplicationCommandExt,
+        interaction::InteractionCommand,
+        matcher, InteractionCommandExt,
     },
     BotResult, Context,
 };
@@ -159,10 +157,10 @@ async fn prefix_osustatscountctb(
     count(ctx, msg.into(), args).await
 }
 
-async fn slash_osc(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_osc(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Osc::from_interaction(command.input_data())?;
 
-    count(ctx, command.into(), args.into()).await
+    count(ctx, (&mut command).into(), args.into()).await
 }
 
 pub(super) async fn count(

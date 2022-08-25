@@ -2,12 +2,13 @@ use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{HasMods, HasName, SlashCommand};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
-use crate::{commands::GameModeOption, util::ApplicationCommandExt, BotResult, Context};
+use crate::{
+    commands::GameModeOption,
+    util::{interaction::InteractionCommand, InteractionCommandExt},
+    BotResult, Context,
+};
 
 pub use self::{counts::*, globals::*, list::*};
 
@@ -126,10 +127,10 @@ pub enum OsuStatsScoresOrder {
     Score = 5,
 }
 
-async fn slash_osustats(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_osustats(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     match OsuStats::from_interaction(command.input_data())? {
-        OsuStats::Count(args) => count(ctx, command.into(), args).await,
-        OsuStats::Players(args) => players(ctx, command.into(), args).await,
-        OsuStats::Scores(args) => scores(ctx, command.into(), args).await,
+        OsuStats::Count(args) => count(ctx, (&mut command).into(), args).await,
+        OsuStats::Players(args) => players(ctx, (&mut command).into(), args).await,
+        OsuStats::Scores(args) => scores(ctx, (&mut command).into(), args).await,
     }
 }

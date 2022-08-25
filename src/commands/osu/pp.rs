@@ -4,10 +4,7 @@ use command_macros::{command, HasName, SlashCommand};
 use eyre::Report;
 use rosu_v2::prelude::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::{
@@ -18,8 +15,8 @@ use crate::{
     embeds::{EmbedData, PPMissingEmbed},
     tracking::process_osu_tracking,
     util::{
-        builder::MessageBuilder, constants::OSU_API_ISSUE, matcher, ApplicationCommandExt,
-        ChannelExt,
+        builder::MessageBuilder, constants::OSU_API_ISSUE, matcher, ChannelExt,
+        InteractionCommandExt, interaction::InteractionCommand,
     },
     BotResult, Context,
 };
@@ -72,10 +69,10 @@ impl<'m> Pp<'m> {
     }
 }
 
-async fn slash_pp(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_pp(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Pp::from_interaction(command.input_data())?;
 
-    pp(ctx, command.into(), args).await
+    pp(ctx, (&mut command).into(), args).await
 }
 
 #[command]

@@ -2,12 +2,13 @@ use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{HasName, SlashCommand};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
-use crate::{commands::GameModeOption, util::ApplicationCommandExt, BotResult, Context};
+use crate::{
+    commands::GameModeOption,
+    util::{interaction::InteractionCommand, InteractionCommandExt},
+    BotResult, Context,
+};
 
 pub use self::{pp::*, score::*};
 
@@ -69,9 +70,9 @@ pub struct RankScore<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-async fn slash_rank(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_rank(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     match Rank::from_interaction(command.input_data())? {
-        Rank::Pp(args) => pp(ctx, command.into(), args).await,
-        Rank::Score(args) => score(ctx, command.into(), args).await,
+        Rank::Pp(args) => pp(ctx, (&mut command).into(), args).await,
+        Rank::Score(args) => score(ctx, (&mut command).into(), args).await,
     }
 }

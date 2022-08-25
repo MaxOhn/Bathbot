@@ -3,10 +3,7 @@ use std::{borrow::Cow, sync::Arc};
 use command_macros::{command, SlashCommand};
 use twilight_http::{api_error::ApiError, error::ErrorType};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    channel::{thread::AutoArchiveDuration, ChannelType},
-};
+use twilight_model::channel::{thread::AutoArchiveDuration, ChannelType};
 
 use crate::{
     commands::ThreadChannel,
@@ -18,7 +15,8 @@ use crate::{
             GENERAL_ISSUE, INVALID_ACTION_FOR_CHANNEL_TYPE, OSU_API_ISSUE, OSU_BASE,
             THREADS_UNAVAILABLE,
         },
-        matcher, ApplicationCommandExt, ChannelExt,
+        interaction::InteractionCommand,
+        matcher, ChannelExt, InteractionCommandExt,
     },
     BotResult, Context,
 };
@@ -56,10 +54,10 @@ pub struct MatchliveRemove<'a> {
     match_url: Cow<'a, str>,
 }
 
-async fn slash_matchlive(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_matchlive(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     match Matchlive::from_interaction(command.input_data())? {
-        Matchlive::Add(args) => matchlive(ctx, command.into(), args).await,
-        Matchlive::Remove(args) => matchliveremove(ctx, command.into(), Some(args)).await,
+        Matchlive::Add(args) => matchlive(ctx, (&mut command).into(), args).await,
+        Matchlive::Remove(args) => matchliveremove(ctx, (&mut command).into(), Some(args)).await,
     }
 }
 

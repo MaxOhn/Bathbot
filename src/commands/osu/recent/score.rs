@@ -10,10 +10,7 @@ use rosu_v2::prelude::{
 };
 use tokio::time::{sleep, Duration};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::{
@@ -28,9 +25,10 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        interaction::InteractionCommand,
         matcher,
         osu::prepare_beatmap_file,
-        ApplicationCommandExt, ChannelExt, CowUtils, MessageExt,
+        ChannelExt, CowUtils, InteractionCommandExt, MessageExt,
     },
     BotResult, Context,
 };
@@ -688,8 +686,8 @@ impl<'a> From<Rs<'a>> for RecentScore<'a> {
     }
 }
 
-async fn slash_rs(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_rs(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Rs::from_interaction(command.input_data())?;
 
-    score(ctx, command.into(), args.into()).await
+    score(ctx, (&mut command).into(), args.into()).await
 }

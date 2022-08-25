@@ -1,13 +1,16 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{HasName, SlashCommand};
-use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
+use twilight_interactions::command::{
+    AutocompleteValue, CommandModel, CommandOption, CreateCommand, CreateOption,
 };
+use twilight_model::id::{marker::UserMarker, Id};
 
-use crate::{custom_client::MedalGroup, util::ApplicationCommandExt, BotResult, Context};
+use crate::{
+    custom_client::MedalGroup,
+    util::{interaction::InteractionCommand, InteractionCommandExt},
+    BotResult, Context,
+};
 
 pub use self::{
     common::*, list::*, medal::handle_autocomplete as handle_medal_autocomplete, medal::*,
@@ -22,18 +25,35 @@ mod recent;
 
 pub mod stats;
 
-#[derive(CommandModel, CreateCommand, SlashCommand)]
+#[derive(CreateCommand, SlashCommand)]
 #[command(
     name = "medal",
     help = "Info about a medal or users' medal progress.\n\
     Check out [osekai](https://osekai.net/) for more info on medals."
 )]
+#[allow(dead_code)]
 /// Info about a medal or users' medal progress
 pub enum Medal<'a> {
     #[command(name = "common")]
     Common(MedalCommon<'a>),
     #[command(name = "info")]
-    Info(MedalInfo<'a>),
+    Info(MedalInfo),
+    #[command(name = "list")]
+    List(MedalList<'a>),
+    #[command(name = "missing")]
+    Missing(MedalMissing<'a>),
+    #[command(name = "recent")]
+    Recent(MedalRecent<'a>),
+    #[command(name = "stats")]
+    Stats(MedalStats<'a>),
+}
+
+#[derive(CommandModel)]
+enum Medal_<'a> {
+    #[command(name = "common")]
+    Common(MedalCommon<'a>),
+    #[command(name = "info")]
+    Info(MedalInfo_<'a>),
     #[command(name = "list")]
     List(MedalList<'a>),
     #[command(name = "missing")]
@@ -105,21 +125,28 @@ pub enum MedalCommonFilter {
     ModIntroduction,
 }
 
-#[derive(CommandModel, CreateCommand)]
+#[derive(CreateCommand)]
 #[command(
     name = "info",
     help = "Display info about an osu! medal.\n\
         The solution, beatmaps, and comments are provided by [osekai](https://osekai.net/)."
 )]
+#[allow(dead_code)]
 /// Display info about an osu! medal
-pub struct MedalInfo<'a> {
+pub struct MedalInfo {
     #[command(
         autocomplete = true,
         help = "Specify the name of a medal.\n\
         Upper- and lowercase does not matter but punctuation is important."
     )]
     /// Specify the name of a medal
-    name: Cow<'a, str>,
+    name: String,
+}
+
+#[derive(CommandModel)]
+#[command(autocomplete = true)]
+struct MedalInfo_<'a> {
+    name: AutocompleteValue<Cow<'a, str>>,
 }
 
 #[derive(CommandModel, CreateCommand, HasName)]
@@ -213,13 +240,13 @@ pub struct MedalStats<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-async fn slash_medal(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
-    match Medal::from_interaction(command.input_data())? {
-        Medal::Common(args) => common(ctx, command.into(), args).await,
-        Medal::Info(args) => info(ctx, command.into(), args).await,
-        Medal::List(args) => list(ctx, command.into(), args).await,
-        Medal::Missing(args) => missing(ctx, command.into(), args).await,
-        Medal::Recent(args) => recent(ctx, command.into(), args).await,
-        Medal::Stats(args) => stats(ctx, command.into(), args).await,
+pub async fn slash_medal(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+    match Medal_::from_interaction(command.input_data())? {
+        Medal_::Common(args) => common(ctx, (&mut command).into(), args).await,
+        Medal_::Info(args) => info(ctx, (&mut command).into(), args).await,
+        Medal_::List(args) => list(ctx, (&mut command).into(), args).await,
+        Medal_::Missing(args) => missing(ctx, (&mut command).into(), args).await,
+        Medal_::Recent(args) => recent(ctx, (&mut command).into(), args).await,
+        Medal_::Stats(args) => stats(ctx, (&mut command).into(), args).await,
     }
 }

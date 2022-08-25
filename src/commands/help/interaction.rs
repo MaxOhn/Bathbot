@@ -2,17 +2,10 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use command_macros::SlashCommand;
 use prometheus::core::Collector;
-use twilight_interactions::{
-    command::{ApplicationCommandData, CommandModel, CreateCommand},
-    error::{ParseError, ParseOptionError, ParseOptionErrorType},
+use twilight_interactions::command::{
+    ApplicationCommandData, AutocompleteValue, CommandModel, CreateCommand,
 };
-use twilight_model::{
-    application::{
-        command::CommandOptionChoice,
-        interaction::{ApplicationCommand, ApplicationCommandAutocomplete},
-    },
-    channel::embed::EmbedField,
-};
+use twilight_model::{application::command::CommandOptionChoice, channel::embed::EmbedField};
 
 use crate::{
     core::{
@@ -23,63 +16,20 @@ use crate::{
         builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
         constants::{BATHBOT_GITHUB, BATHBOT_WORKSHOP, INVITE_LINK, KOFI},
         datetime::how_long_ago_dynamic,
+        interaction::InteractionCommand,
         levenshtein_distance,
         numbers::with_comma_int,
-        ApplicationCommandExt, AutocompleteExt, CowUtils,
+        CowUtils, InteractionCommandExt,
     },
     BotResult,
 };
 
 use super::{failed_message_content, option_fields, parse_select_menu, AUTHORITY_STATUS};
 
-pub async fn handle_help_autocomplete(
-    ctx: Arc<Context>,
-    command: Box<ApplicationCommandAutocomplete>,
-) -> BotResult<()> {
-    let mut cmd_name = None;
-
-    if let Some(option) = command.data.options.first() {
-        match option.value {
-            Some(ref value) if option.name == "command" => cmd_name = Some(value),
-            _ => {
-                let err = ParseOptionError {
-                    field: option.name.clone(),
-                    kind: ParseOptionErrorType::RequiredField,
-                };
-
-                return Err(ParseError::Option(err).into());
-            }
-        }
-    }
-
-    let name = cmd_name.map(|name| name.cow_to_ascii_lowercase());
-
-    let choices = match name {
-        Some(name) => {
-            let arg = name.trim();
-
-            match (arg, SlashCommands::get().descendants(arg)) {
-                ("", _) | (_, None) => Vec::new(),
-                (_, Some(cmds)) => cmds
-                    .map(|cmd| CommandOptionChoice::String {
-                        name: cmd.to_owned(),
-                        name_localizations: None,
-                        value: cmd.to_owned(),
-                    })
-                    .collect(),
-            }
-        }
-        _ => Vec::new(),
-    };
-
-    command.callback(&ctx, choices).await?;
-
-    Ok(())
-}
-
-#[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(name = "help")]
+#[derive(CreateCommand, SlashCommand)]
 #[flags(SKIP_DEFER)]
+#[command(name = "help")]
+#[allow(dead_code)]
 /// Display general help or help for a specific command
 pub struct Help {
     #[command(autocomplete = true)]
@@ -87,11 +37,18 @@ pub struct Help {
     command: Option<String>,
 }
 
-async fn slash_help(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
-    let args = Help::from_interaction(command.input_data())?;
+#[derive(CommandModel)]
+#[command(autocomplete = true)]
+struct Help_ {
+    command: AutocompleteValue<String>,
+}
+
+pub async fn slash_help(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+    let args = Help_::from_interaction(command.input_data())?;
 
     match args.command {
-        Some(name) => match SlashCommands::get().command(&name) {
+        AutocompleteValue::None => help_slash_basic(ctx, command).await,
+        AutocompleteValue::Completed(name) => match SlashCommands::get().command(&name) {
             Some(cmd) => help_slash_command(&ctx, command, cmd).await,
             None => {
                 let dists: BTreeMap<_, _> = SlashCommands::get()
@@ -106,11 +63,29 @@ async fn slash_help(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> 
                 Ok(())
             }
         },
-        None => help_slash_basic(ctx, command).await,
+        AutocompleteValue::Focused(name) => {
+            let name = name.cow_to_ascii_lowercase();
+            let arg = name.trim();
+
+            let choices = match (arg, SlashCommands::get().descendants(arg)) {
+                ("", _) | (_, None) => Vec::new(),
+                (_, Some(cmds)) => cmds
+                    .map(|cmd| CommandOptionChoice::String {
+                        name: cmd.to_owned(),
+                        name_localizations: None,
+                        value: cmd.to_owned(),
+                    })
+                    .collect(),
+            };
+
+            command.autocomplete(&ctx, choices).await?;
+
+            Ok(())
+        }
     }
 }
 
-async fn help_slash_basic(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> BotResult<()> {
     let id = ctx
         .cache
         .current_user(|user| user.id)
@@ -216,7 +191,7 @@ async fn help_slash_basic(ctx: Arc<Context>, command: Box<ApplicationCommand>) -
 
 async fn help_slash_command(
     ctx: &Context,
-    command: Box<ApplicationCommand>,
+    command: InteractionCommand,
     cmd: &SlashCommand,
 ) -> BotResult<()> {
     let ApplicationCommandData {

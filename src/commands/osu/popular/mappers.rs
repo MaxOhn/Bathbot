@@ -1,17 +1,16 @@
 use std::{alloc, mem, sync::Arc};
 
 use rkyv::{DeserializeUnsized, Infallible};
-use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
-    core::{commands::CommandOrigin, Context},
+    core::Context,
     custom_client::OsuTrackerMapperEntry,
     pagination::OsuTrackerMappersPagination,
-    util::{constants::OSUTRACKER_ISSUE, ApplicationCommandExt},
+    util::{constants::OSUTRACKER_ISSUE, interaction::InteractionCommand, InteractionCommandExt},
     BotResult,
 };
 
-pub(super) async fn mappers(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotResult<()> {
+pub(super) async fn mappers(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     const LIMIT: usize = 500;
 
     let counts: Vec<OsuTrackerMapperEntry> = match ctx.redis().osutracker_stats().await {
@@ -47,6 +46,6 @@ pub(super) async fn mappers(ctx: Arc<Context>, command: Box<ApplicationCommand>)
 
     OsuTrackerMappersPagination::builder(counts)
         .start_by_update()
-        .start(ctx, CommandOrigin::Interaction { command })
+        .start(ctx, (&mut command).into())
         .await
 }

@@ -2,9 +2,12 @@ use std::sync::Arc;
 
 use command_macros::SlashCommand;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::application::interaction::ApplicationCommand;
 
-use crate::{core::Context, util::ApplicationCommandExt, BotResult};
+use crate::{
+    core::Context,
+    util::{interaction::InteractionCommand, InteractionCommandExt},
+    BotResult,
+};
 
 pub use self::mapsets::MapsetEntry;
 
@@ -83,7 +86,7 @@ pub struct PopularMods;
 /// What mappers' mapsets appear the most in people's top100?
 pub struct PopularMappers;
 
-async fn slash_popular(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_popular(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     match Popular::from_interaction(command.input_data())? {
         Popular::Maps(args) => maps(ctx, command, args.pp).await,
         Popular::Mapsets(_) => mapsets(ctx, command).await,

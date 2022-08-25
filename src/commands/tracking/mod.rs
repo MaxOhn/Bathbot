@@ -5,11 +5,10 @@ use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError, Username};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     core::commands::prefix::Args,
-    util::{ApplicationCommandExt, CowUtils},
+    util::{interaction::InteractionCommand, CowUtils, InteractionCommandExt},
     BotResult, Context,
 };
 
@@ -102,14 +101,16 @@ pub struct TrackRemoveAll {
 /// List all players that are tracked in this channel
 pub struct TrackList;
 
-async fn slash_track(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_track(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     match Track::from_interaction(command.input_data())? {
-        Track::Add(add) => track(ctx, command.into(), add.into()).await,
-        Track::Remove(TrackRemove::User(user)) => untrack(ctx, command.into(), user.into()).await,
-        Track::Remove(TrackRemove::All(all)) => {
-            untrackall(ctx, command.into(), all.mode.map(GameMode::from)).await
+        Track::Add(add) => track(ctx, (&mut command).into(), add.into()).await,
+        Track::Remove(TrackRemove::User(user)) => {
+            untrack(ctx, (&mut command).into(), user.into()).await
         }
-        Track::List(_) => tracklist(ctx, command.into()).await,
+        Track::Remove(TrackRemove::All(all)) => {
+            untrackall(ctx, (&mut command).into(), all.mode.map(GameMode::from)).await
+        }
+        Track::List(_) => tracklist(ctx, (&mut command).into()).await,
     }
 }
 
@@ -119,10 +120,7 @@ async fn get_names<'n>(
     mode: GameMode,
 ) -> Result<HashMap<Username, u32>, (OsuError, Cow<'n, str>)> {
     let escaped_names = if names.iter().any(|name| name.contains('_')) {
-        let names: Vec<_> = names
-            .iter()
-            .map(|name| name.replace('_', "\\_"))
-            .collect();
+        let names: Vec<_> = names.iter().map(|name| name.replace('_', "\\_")).collect();
 
         Cow::Owned(names)
     } else {

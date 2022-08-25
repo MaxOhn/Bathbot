@@ -10,10 +10,7 @@ use rosu_v2::prelude::{
 };
 use tokio::time::{sleep, Duration};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::{osu::UserArgs, GameModeOption},
@@ -25,9 +22,10 @@ use crate::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         hasher::SimpleBuildHasher,
+        interaction::InteractionCommand,
         osu::ModSelection,
         query::{FilterCriteria, Searchable},
-        ApplicationCommandExt, MessageExt,
+        InteractionCommandExt, MessageExt,
     },
     BotResult, Context,
 };
@@ -76,10 +74,10 @@ pub struct Pinned {
     size: Option<ListSize>,
 }
 
-async fn slash_pinned(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_pinned(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Pinned::from_interaction(command.input_data())?;
 
-    pinned(ctx, command.into(), args).await
+    pinned(ctx, (&mut command).into(), args).await
 }
 
 async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> BotResult<()> {

@@ -1,7 +1,6 @@
 use std::{mem, sync::Arc};
 
 use eyre::Report;
-use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     core::{
@@ -13,13 +12,13 @@ use crate::{
         BotConfig, Context,
     },
     error::Error,
-    util::{ApplicationCommandExt, Authored},
+    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     BotResult,
 };
 
-pub async fn handle_command(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) {
+pub async fn handle_command(ctx: Arc<Context>, mut command: InteractionCommand) {
     let name = mem::take(&mut command.data.name);
-    log_command(&ctx, &*command, &name);
+    log_command(&ctx, &command, &name);
     ctx.stats.increment_slash_command(&name);
 
     let slash = match SlashCommands::get().command(&name) {
@@ -39,7 +38,7 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: Box<ApplicationComma
 
 async fn process_command(
     ctx: Arc<Context>,
-    command: Box<ApplicationCommand>,
+    command: InteractionCommand,
     slash: &SlashCommand,
 ) -> BotResult<ProcessResult> {
     match pre_process_command(&ctx, &command, slash).await? {
@@ -58,7 +57,7 @@ async fn process_command(
 
 async fn pre_process_command(
     ctx: &Context,
-    command: &ApplicationCommand,
+    command: &InteractionCommand,
     slash: &SlashCommand,
 ) -> BotResult<Option<ProcessResult>> {
     let guild_id = command.guild_id;

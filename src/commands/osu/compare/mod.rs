@@ -8,13 +8,13 @@ use command_macros::SlashCommand;
 use eyre::Report;
 use rosu_v2::prelude::Score;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    commands::GameModeOption, pp::PpCalculator, util::ApplicationCommandExt, BotResult, Context,
+    commands::GameModeOption,
+    pp::PpCalculator,
+    util::{interaction::InteractionCommand, InteractionCommandExt},
+    BotResult, Context,
 };
 
 pub use self::{common::*, most_played::*, profile::*, score::*};
@@ -271,18 +271,18 @@ pub struct CompareMostPlayed<'a> {
     discord2: Option<Id<UserMarker>>,
 }
 
-async fn slash_compare(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_compare(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     match Compare::from_interaction(command.input_data())? {
         Compare::Score(args) => match CompareScoreArgs::try_from(args) {
-            Ok(args) => score(ctx, command.into(), args).await,
+            Ok(args) => score(ctx, (&mut command).into(), args).await,
             Err(content) => {
                 command.error(&ctx, content).await?;
 
                 Ok(())
             }
         },
-        Compare::Profile(args) => profile(ctx, command.into(), args).await,
-        Compare::Top(args) => top(ctx, command.into(), args).await,
-        Compare::MostPlayed(args) => mostplayed(ctx, command.into(), args).await,
+        Compare::Profile(args) => profile(ctx, (&mut command).into(), args).await,
+        Compare::Top(args) => top(ctx, (&mut command).into(), args).await,
+        Compare::MostPlayed(args) => mostplayed(ctx, (&mut command).into(), args).await,
     }
 }

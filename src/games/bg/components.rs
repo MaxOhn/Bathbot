@@ -3,10 +3,7 @@ use std::sync::Arc;
 use eyre::Report;
 use hashbrown::hash_map::Entry;
 use rosu_v2::prelude::GameMode;
-use twilight_model::{
-    application::interaction::MessageComponentInteraction,
-    channel::embed::{Embed, EmbedField},
-};
+use twilight_model::channel::embed::{Embed, EmbedField};
 
 use crate::{
     core::Context,
@@ -16,6 +13,7 @@ use crate::{
     util::{
         builder::{EmbedBuilder, MessageBuilder},
         constants::{GENERAL_ISSUE, RED},
+        interaction::InteractionComponent,
         Authored, ComponentExt,
     },
     BotResult,
@@ -25,7 +23,7 @@ use super::{Effects, GameState, MapsetTags};
 
 pub async fn handle_bg_start_include(
     ctx: &Context,
-    mut component: Box<MessageComponentInteraction>,
+    mut component: InteractionComponent,
 ) -> BotResult<()> {
     let channel = component.channel_id;
 
@@ -49,7 +47,7 @@ pub async fn handle_bg_start_include(
 
 pub async fn handle_bg_start_exclude(
     ctx: &Context,
-    mut component: Box<MessageComponentInteraction>,
+    mut component: InteractionComponent,
 ) -> BotResult<()> {
     let channel = component.channel_id;
 
@@ -73,7 +71,7 @@ pub async fn handle_bg_start_exclude(
 
 pub async fn handle_bg_start_button(
     ctx: Arc<Context>,
-    component: Box<MessageComponentInteraction>,
+    component: InteractionComponent,
 ) -> BotResult<()> {
     let channel = component.channel_id;
 
@@ -157,7 +155,7 @@ pub async fn handle_bg_start_button(
 
 pub async fn handle_bg_start_cancel(
     ctx: &Context,
-    component: Box<MessageComponentInteraction>,
+    component: InteractionComponent,
 ) -> BotResult<()> {
     match ctx.bg_games().own(component.channel_id).await.entry() {
         Entry::Occupied(entry) => match entry.get() {
@@ -195,7 +193,7 @@ pub async fn handle_bg_start_cancel(
 
 pub async fn handle_bg_start_effects(
     ctx: &Context,
-    mut component: Box<MessageComponentInteraction>,
+    mut component: InteractionComponent,
 ) -> BotResult<()> {
     if let Some(GameState::Setup {
         author, effects, ..
@@ -261,7 +259,7 @@ pub async fn handle_bg_start_effects(
 
 async fn update_field(
     ctx: &Context,
-    component: &mut MessageComponentInteraction,
+    component: &mut InteractionComponent,
     tags: MapsetTags,
     name: &str,
 ) -> BotResult<()> {
@@ -293,7 +291,7 @@ async fn update_field(
 
 async fn remove_components(
     ctx: &Context,
-    component: &MessageComponentInteraction,
+    component: &InteractionComponent,
     embed: Option<Embed>,
 ) -> BotResult<()> {
     let mut builder = MessageBuilder::new().components(Vec::new());
@@ -307,7 +305,7 @@ async fn remove_components(
     Ok(())
 }
 
-fn parse_component_tags(component: &MessageComponentInteraction) -> MapsetTags {
+fn parse_component_tags(component: &InteractionComponent) -> MapsetTags {
     component
         .data
         .values

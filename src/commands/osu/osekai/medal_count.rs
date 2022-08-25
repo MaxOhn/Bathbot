@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
 use eyre::Report;
-use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
-    core::commands::CommandOrigin,
     custom_client::MedalCount,
     database::OsuData,
     pagination::MedalCountPagination,
-    util::{constants::OSEKAI_ISSUE, ApplicationCommandExt, Authored, CountryCode},
+    util::{
+        constants::OSEKAI_ISSUE, interaction::InteractionCommand, Authored, CountryCode,
+        InteractionCommandExt,
+    },
     BotResult, Context,
 };
 
@@ -16,7 +17,7 @@ use super::OsekaiMedalCount;
 
 pub(super) async fn medal_count(
     ctx: Arc<Context>,
-    command: Box<ApplicationCommand>,
+    mut command: InteractionCommand,
     args: OsekaiMedalCount,
 ) -> BotResult<()> {
     let country_code = match args.country {
@@ -69,6 +70,6 @@ pub(super) async fn medal_count(
 
     MedalCountPagination::builder(ranking, author_idx)
         .start_by_update()
-        .start(ctx, CommandOrigin::Interaction { command })
+        .start(ctx, (&mut command).into())
         .await
 }

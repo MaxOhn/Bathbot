@@ -3,15 +3,12 @@ use std::{borrow::Cow, sync::Arc};
 use command_macros::{HasMods, HasName, SlashCommand};
 use rosu_v2::prelude::{GameMode, Grade};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::{osu::top, GameModeOption, GradeOption},
     database::ListSize,
-    util::ApplicationCommandExt,
+    util::{interaction::InteractionCommand, InteractionCommandExt},
     BotResult, Context,
 };
 
@@ -592,28 +589,28 @@ impl From<Rb> for RecentBest {
     }
 }
 
-async fn slash_recent(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_recent(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     match Recent::from_interaction(command.input_data())? {
-        Recent::Score(args) => score(ctx, command.into(), args).await,
+        Recent::Score(args) => score(ctx, (&mut command).into(), args).await,
         Recent::Best(args) => match TopArgs::try_from(args) {
-            Ok(args) => top(ctx, command.into(), args).await,
+            Ok(args) => top(ctx, (&mut command).into(), args).await,
             Err(content) => {
                 command.error(&ctx, content).await?;
 
                 Ok(())
             }
         },
-        Recent::Leaderboard(args) => leaderboard(ctx, command.into(), args).await,
-        Recent::List(args) => list(ctx, command.into(), args).await,
-        Recent::Fix(args) => fix(ctx, command.into(), args).await,
+        Recent::Leaderboard(args) => leaderboard(ctx, (&mut command).into(), args).await,
+        Recent::List(args) => list(ctx, (&mut command).into(), args).await,
+        Recent::Fix(args) => fix(ctx, (&mut command).into(), args).await,
     }
 }
 
-async fn slash_rb(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_rb(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Rb::from_interaction(command.input_data())?;
 
     match TopArgs::try_from(RecentBest::from(args)) {
-        Ok(args) => top(ctx, command.into(), args).await,
+        Ok(args) => top(ctx, (&mut command).into(), args).await,
         Err(content) => {
             command.error(&ctx, content).await?;
 

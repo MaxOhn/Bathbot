@@ -5,10 +5,7 @@ use eyre::Report;
 use rosu_v2::prelude::{BeatmapsetCompact, OsuError};
 use tokio::time::{sleep, Duration};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    channel::{message::MessageType, Message},
-};
+use twilight_model::channel::{message::MessageType, Message};
 
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
@@ -17,9 +14,10 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        interaction::InteractionCommand,
         matcher,
         osu::{MapIdType, ModSelection},
-        ApplicationCommandExt, ChannelExt, CowUtils, MessageExt,
+        ChannelExt, CowUtils, InteractionCommandExt, MessageExt,
     },
     BotResult, Context,
 };
@@ -152,11 +150,11 @@ async fn prefix_simulate(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Bo
     }
 }
 
-async fn slash_simulate(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_simulate(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Simulate::from_interaction(command.input_data())?;
 
     match SimulateArgs::try_from(args) {
-        Ok(args) => simulate(ctx, command.into(), args).await,
+        Ok(args) => simulate(ctx, (&mut command).into(), args).await,
         Err(content) => {
             command.error(&ctx, content).await?;
 

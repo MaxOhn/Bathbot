@@ -6,14 +6,14 @@ use tokio::{
     fs::{remove_file, File},
     io::AsyncWriteExt,
 };
-use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     core::BotConfig,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE},
-        ApplicationCommandExt,
+        interaction::InteractionCommand,
+        InteractionCommandExt,
     },
     BotResult, Context,
 };
@@ -22,7 +22,7 @@ use super::OwnerAddBg;
 
 pub async fn addbg(
     ctx: Arc<Context>,
-    command: Box<ApplicationCommand>,
+    command: InteractionCommand,
     bg: OwnerAddBg,
 ) -> BotResult<()> {
     let OwnerAddBg { image, mode } = bg;

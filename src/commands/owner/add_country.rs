@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
-use twilight_model::application::interaction::ApplicationCommand;
-
 use crate::{
-    util::{builder::MessageBuilder, constants::GENERAL_ISSUE, ApplicationCommandExt},
+    util::{
+        builder::MessageBuilder, constants::GENERAL_ISSUE, interaction::InteractionCommand,
+        InteractionCommandExt,
+    },
     BotResult, Context,
 };
 
@@ -11,7 +12,7 @@ use super::OwnerAddCountry;
 
 pub async fn addcountry(
     ctx: Arc<Context>,
-    command: Box<ApplicationCommand>,
+    command: InteractionCommand,
     country: OwnerAddCountry,
 ) -> BotResult<()> {
     let OwnerAddCountry { mut code, name } = country;

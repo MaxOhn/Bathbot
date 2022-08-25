@@ -3,11 +3,10 @@ use std::sync::Arc;
 use command_macros::{command, SlashCommand};
 use rand::Rng;
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     core::{commands::CommandOrigin, Context},
-    util::{builder::MessageBuilder, ApplicationCommandExt},
+    util::{builder::MessageBuilder, interaction::InteractionCommand, InteractionCommandExt},
     BotResult,
 };
 
@@ -23,11 +22,11 @@ pub struct Roll {
     limit: Option<i64>,
 }
 
-async fn slash_roll(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_roll(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Roll::from_interaction(command.input_data())?;
     let limit = args.limit.map_or(DEFAULT_LIMIT, |l| l as u64);
 
-    roll(ctx, command.into(), limit).await
+    roll(ctx, (&mut command).into(), limit).await
 }
 
 #[command]

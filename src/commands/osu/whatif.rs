@@ -4,10 +4,7 @@ use command_macros::{command, HasName, SlashCommand};
 use eyre::Report;
 use rosu_v2::prelude::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::GameModeOption,
@@ -17,9 +14,10 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::OSU_API_ISSUE,
+        interaction::InteractionCommand,
         matcher,
         osu::{approx_more_pp, ExtractablePp, PpListUtil},
-        ApplicationCommandExt, ChannelExt,
+        ChannelExt, InteractionCommandExt,
     },
     BotResult, Context,
 };
@@ -185,10 +183,10 @@ pub async fn prefix_whatifctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) 
     }
 }
 
-async fn slash_whatif(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_whatif(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = WhatIf::from_interaction(command.input_data())?;
 
-    whatif(ctx, command.into(), args).await
+    whatif(ctx, (&mut command).into(), args).await
 }
 
 async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) -> BotResult<()> {

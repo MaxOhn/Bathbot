@@ -2,9 +2,12 @@ use std::{borrow::Cow, sync::Arc};
 
 use command_macros::SlashCommand;
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::application::interaction::ApplicationCommand;
 
-use crate::{commands::GameModeOption, util::ApplicationCommandExt, BotResult, Context};
+use crate::{
+    commands::GameModeOption,
+    util::{interaction::InteractionCommand, InteractionCommandExt},
+    BotResult, Context,
+};
 
 pub use self::{countries::*, players::*};
 
@@ -67,10 +70,10 @@ impl From<Option<GameModeOption>> for RankingCountry {
     }
 }
 
-async fn slash_ranking(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_ranking(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     match Ranking::from_interaction(command.input_data())? {
-        Ranking::Pp(args) => pp(ctx, command.into(), args).await,
-        Ranking::Score(args) => score(ctx, command.into(), args).await,
-        Ranking::Country(args) => country(ctx, command.into(), args).await,
+        Ranking::Pp(args) => pp(ctx, (&mut command).into(), args).await,
+        Ranking::Score(args) => score(ctx, (&mut command).into(), args).await,
+        Ranking::Country(args) => country(ctx, (&mut command).into(), args).await,
     }
 }

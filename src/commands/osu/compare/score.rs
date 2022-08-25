@@ -10,7 +10,6 @@ use rosu_v2::prelude::{
 use tokio::time::{sleep, Duration};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
-    application::interaction::ApplicationCommand,
     channel::message::MessageType,
     id::{marker::UserMarker, Id},
 };
@@ -25,9 +24,10 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        interaction::InteractionCommand,
         matcher,
         osu::{MapIdType, ModSelection},
-        ApplicationCommandExt, MessageExt,
+        InteractionCommandExt, MessageExt,
     },
     BotResult, Context,
 };
@@ -196,11 +196,11 @@ async fn prefix_compare(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Bot
     score(ctx, msg.into(), args).await
 }
 
-async fn slash_cs(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_cs(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Cs::from_interaction(command.input_data())?;
 
     match CompareScoreArgs::try_from(args) {
-        Ok(args) => score(ctx, command.into(), args).await,
+        Ok(args) => score(ctx, (&mut command).into(), args).await,
         Err(content) => {
             command.error(&ctx, content).await?;
 

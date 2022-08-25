@@ -1,6 +1,5 @@
 use twilight_http::{Error as HttpError, Response};
 use twilight_model::{
-    application::interaction::ApplicationCommand,
     channel::Message,
     id::{
         marker::{ChannelMarker, GuildMarker, UserMarker},
@@ -11,15 +10,18 @@ use twilight_model::{
 use crate::{
     core::Context,
     error::Error,
-    util::{builder::MessageBuilder, ApplicationCommandExt, Authored, ChannelExt, MessageExt},
+    util::{
+        builder::MessageBuilder, interaction::InteractionCommand, Authored, ChannelExt,
+        InteractionCommandExt, MessageExt,
+    },
     BotResult,
 };
 
 type HttpResult<T> = Result<T, HttpError>;
 
-pub enum CommandOrigin<'m> {
-    Message { msg: &'m Message },
-    Interaction { command: Box<ApplicationCommand> },
+pub enum CommandOrigin<'d> {
+    Message { msg: &'d Message },
+    Interaction { command: &'d mut InteractionCommand },
 }
 
 impl CommandOrigin<'_> {
@@ -165,16 +167,16 @@ impl CommandOrigin<'_> {
     }
 }
 
-impl From<Box<ApplicationCommand>> for CommandOrigin<'_> {
+impl<'d> From<&'d mut InteractionCommand> for CommandOrigin<'d> {
     #[inline]
-    fn from(command: Box<ApplicationCommand>) -> Self {
+    fn from(command: &'d mut InteractionCommand) -> Self {
         Self::Interaction { command }
     }
 }
 
-impl<'m> From<&'m Message> for CommandOrigin<'m> {
+impl<'d> From<&'d Message> for CommandOrigin<'d> {
     #[inline]
-    fn from(msg: &'m Message) -> Self {
+    fn from(msg: &'d Message) -> Self {
         Self::Message { msg }
     }
 }

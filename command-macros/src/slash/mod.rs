@@ -29,7 +29,7 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
 
         pub fn #exec(
             ctx: std::sync::Arc<crate::core::Context>,
-            command: Box<twilight_model::application::interaction::ApplicationCommand>,
+            command: crate::util::interaction::InteractionCommand,
         ) -> crate::core::commands::slash::CommandResult {
             Box::pin(#slash_cmd(ctx, command))
         }

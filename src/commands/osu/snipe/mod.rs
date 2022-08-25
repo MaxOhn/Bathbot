@@ -2,12 +2,12 @@ use std::{borrow::Cow, fmt, sync::Arc};
 
 use command_macros::{HasMods, HasName, SlashCommand};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
-use crate::{util::ApplicationCommandExt, BotResult, Context};
+use crate::{
+    util::{interaction::InteractionCommand, InteractionCommandExt},
+    BotResult, Context,
+};
 
 pub use self::{
     country_snipe_list::*, country_snipe_stats::*, player_snipe_list::*, player_snipe_stats::*,
@@ -241,23 +241,37 @@ pub struct SnipePlayerSniped<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-async fn slash_snipe(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_snipe(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     match Snipe::from_interaction(command.input_data())? {
-        Snipe::Country(SnipeCountry::List(args)) => country_list(ctx, command.into(), args).await,
-        Snipe::Country(SnipeCountry::Stats(args)) => country_stats(ctx, command.into(), args).await,
-        Snipe::Player(SnipePlayer::Gain(args)) => player_gain(ctx, command.into(), args).await,
-        Snipe::Player(SnipePlayer::List(args)) => player_list(ctx, command.into(), args).await,
-        Snipe::Player(SnipePlayer::Loss(args)) => player_loss(ctx, command.into(), args).await,
-        Snipe::Player(SnipePlayer::Stats(args)) => player_stats(ctx, command.into(), args).await,
-        Snipe::Player(SnipePlayer::Sniped(args)) => player_sniped(ctx, command.into(), args).await,
+        Snipe::Country(SnipeCountry::List(args)) => {
+            country_list(ctx, (&mut command).into(), args).await
+        }
+        Snipe::Country(SnipeCountry::Stats(args)) => {
+            country_stats(ctx, (&mut command).into(), args).await
+        }
+        Snipe::Player(SnipePlayer::Gain(args)) => {
+            player_gain(ctx, (&mut command).into(), args).await
+        }
+        Snipe::Player(SnipePlayer::List(args)) => {
+            player_list(ctx, (&mut command).into(), args).await
+        }
+        Snipe::Player(SnipePlayer::Loss(args)) => {
+            player_loss(ctx, (&mut command).into(), args).await
+        }
+        Snipe::Player(SnipePlayer::Stats(args)) => {
+            player_stats(ctx, (&mut command).into(), args).await
+        }
+        Snipe::Player(SnipePlayer::Sniped(args)) => {
+            player_sniped(ctx, (&mut command).into(), args).await
+        }
     }
 }
 
 async fn slash_snipeplayersniped(
     ctx: Arc<Context>,
-    mut command: Box<ApplicationCommand>,
+    mut command: InteractionCommand,
 ) -> BotResult<()> {
     let args = SnipePlayerSniped::from_interaction(command.input_data())?;
 
-    player_sniped(ctx, command.into(), args).await
+    player_sniped(ctx, (&mut command).into(), args).await
 }

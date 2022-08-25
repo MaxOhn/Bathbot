@@ -5,10 +5,7 @@ use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::GameModeOption,
@@ -19,7 +16,8 @@ use crate::{
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         hasher::SimpleBuildHasher,
-        matcher, ApplicationCommandExt, ChannelExt, CowUtils,
+        interaction::InteractionCommand,
+        matcher, ChannelExt, CowUtils, InteractionCommandExt,
     },
     BotResult, Context,
 };
@@ -215,10 +213,10 @@ async fn prefix_ctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResu
     }
 }
 
-async fn slash_profile(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_profile(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Profile::from_interaction(command.input_data())?;
 
-    profile(ctx, command.into(), args).await
+    profile(ctx, (&mut command).into(), args).await
 }
 
 async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) -> BotResult<()> {

@@ -4,13 +4,15 @@ use command_macros::SlashCommand;
 use futures::{stream::FuturesUnordered, TryStreamExt};
 use rosu_v2::prelude::{GameMode, OsuError, User};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     core::Context,
     embeds::ClaimNameEmbed,
     embeds::EmbedData,
-    util::{self, builder::MessageBuilder, constants::OSU_API_ISSUE, ApplicationCommandExt},
+    util::{
+        self, builder::MessageBuilder, constants::OSU_API_ISSUE, interaction::InteractionCommand,
+        InteractionCommandExt,
+    },
     BotResult,
 };
 
@@ -32,7 +34,7 @@ pub struct ClaimName {
     name: String,
 }
 
-async fn slash_claimname(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let ClaimName { name } = ClaimName::from_interaction(command.input_data())?;
 
     let content = if name.chars().count() > 15 {

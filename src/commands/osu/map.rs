@@ -14,10 +14,7 @@ use plotters_backend::{BackendColor, BackendCoord, BackendStyle, DrawingErrorKin
 use rosu_pp::{Beatmap, BeatmapExt, Strains};
 use rosu_v2::prelude::{GameMode, GameMods, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    channel::{message::MessageType, Message},
-};
+use twilight_model::channel::{message::MessageType, Message};
 
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
@@ -25,9 +22,10 @@ use crate::{
     pagination::MapPagination,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        interaction::InteractionCommand,
         matcher,
         osu::{prepare_beatmap_file, MapIdType},
-        ApplicationCommandExt, ChannelExt,
+        ChannelExt, InteractionCommandExt,
     },
     BotResult, Context, Error,
 };
@@ -224,11 +222,11 @@ async fn prefix_map(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResu
     }
 }
 
-async fn slash_map(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_map(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Map::from_interaction(command.input_data())?;
 
     match MapArgs::try_from(args) {
-        Ok(args) => map(ctx, command.into(), args).await,
+        Ok(args) => map(ctx, (&mut command).into(), args).await,
         Err(content) => {
             command.error(&ctx, content).await?;
 

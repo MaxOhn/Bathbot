@@ -4,10 +4,7 @@ use command_macros::{command, HasName, SlashCommand};
 use eyre::Report;
 use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::{
@@ -20,10 +17,11 @@ use crate::{
     tracking::process_osu_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        interaction::InteractionCommand,
         matcher, numbers,
         osu::ModSelection,
         query::{FilterCriteria, Searchable},
-        ApplicationCommandExt, ChannelExt,
+        ChannelExt, InteractionCommandExt,
     },
     BotResult, Context,
 };
@@ -63,10 +61,10 @@ pub struct TopIf<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-async fn slash_topif(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_topif(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = TopIf::from_interaction(command.input_data())?;
 
-    topif(ctx, command.into(), args).await
+    topif(ctx, (&mut command).into(), args).await
 }
 
 impl<'m> TopIf<'m> {

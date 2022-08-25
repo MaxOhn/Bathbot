@@ -1,28 +1,25 @@
 use std::{mem, sync::Arc};
 
 use eyre::Report;
-use twilight_model::application::interaction::ApplicationCommandAutocomplete;
 
 use crate::{
     commands::{
-        help::handle_help_autocomplete,
-        osu::{handle_badge_autocomplete, handle_medal_autocomplete},
+        help::slash_help,
+        osu::{slash_badges, slash_medal},
     },
     core::{events::log_command, Context},
+    util::interaction::InteractionCommand,
 };
 
-pub async fn handle_autocomplete(
-    ctx: Arc<Context>,
-    mut command: Box<ApplicationCommandAutocomplete>,
-) {
+pub async fn handle_autocomplete(ctx: Arc<Context>, mut command: InteractionCommand) {
     let name = mem::take(&mut command.data.name);
-    log_command(&ctx, &*command, &name);
+    log_command(&ctx, &command, &name);
     ctx.stats.increment_autocomplete(&name);
 
     let res = match name.as_str() {
-        "help" => handle_help_autocomplete(ctx, command).await,
-        "badges" => handle_badge_autocomplete(ctx, command).await,
-        "medal" => handle_medal_autocomplete(ctx, command).await,
+        "help" => slash_help(ctx, command).await,
+        "badges" => slash_badges(ctx, command).await,
+        "medal" => slash_medal(ctx, command).await,
         _ => return error!("unknown autocomplete command `{name}`"),
     };
 

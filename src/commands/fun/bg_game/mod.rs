@@ -6,12 +6,9 @@ use rosu_v2::prelude::GameMode;
 use twilight_http::{api_error::ApiError, error::ErrorType};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
-    application::{
-        component::{
-            button::ButtonStyle, select_menu::SelectMenuOption, ActionRow, Button, Component,
-            SelectMenu,
-        },
-        interaction::ApplicationCommand,
+    application::component::{
+        button::ButtonStyle, select_menu::SelectMenuOption, ActionRow, Button, Component,
+        SelectMenu,
     },
     channel::{thread::AutoArchiveDuration, ChannelType},
 };
@@ -22,7 +19,8 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, INVALID_ACTION_FOR_CHANNEL_TYPE, THREADS_UNAVAILABLE},
-        ApplicationCommandExt, Authored, ChannelExt, CowUtils,
+        interaction::InteractionCommand,
+        Authored, ChannelExt, CowUtils, InteractionCommandExt,
     },
     BotResult, Context,
 };
@@ -157,7 +155,7 @@ impl Default for GameDifficulty {
     }
 }
 
-async fn slash_bg(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let Bg {
         difficulty,
         mode,

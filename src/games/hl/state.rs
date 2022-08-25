@@ -4,7 +4,6 @@ use eyre::Report;
 use rosu_v2::prelude::GameMode;
 use tokio::sync::oneshot::Receiver;
 use twilight_model::{
-    application::interaction::MessageComponentInteraction,
     channel::embed::Embed,
     id::{
         marker::{ChannelMarker, GuildMarker, MessageMarker, UserMarker},
@@ -12,7 +11,12 @@ use twilight_model::{
     },
 };
 
-use crate::{core::Context, error::InvalidGameState, util::Authored, BotResult};
+use crate::{
+    core::Context,
+    error::InvalidGameState,
+    util::{interaction::InteractionComponent, Authored},
+    BotResult,
+};
 
 use super::{kind::GameStateKind, HlGuess, HlVersion};
 
@@ -141,7 +145,7 @@ impl GameState {
         format!("Current score: {current_score} • Highscore: {highscore}")
     }
 
-    pub fn reveal(&self, component: &mut MessageComponentInteraction) -> BotResult<Embed> {
+    pub fn reveal(&self, component: &mut InteractionComponent) -> BotResult<Embed> {
         let mut embeds = mem::take(&mut component.message.embeds);
         let mut embed = embeds.pop().ok_or(InvalidGameState::MissingEmbed)?;
         self.kind.reveal(&mut embed);

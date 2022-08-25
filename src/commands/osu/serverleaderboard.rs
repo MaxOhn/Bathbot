@@ -4,14 +4,14 @@ use command_macros::SlashCommand;
 use eyre::Report;
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
-    core::commands::CommandOrigin,
     database::UserStatsColumn,
     embeds::RankingKindData,
     pagination::RankingPagination,
-    util::{constants::GENERAL_ISSUE, ApplicationCommandExt, Authored},
+    util::{
+        constants::GENERAL_ISSUE, interaction::InteractionCommand, Authored, InteractionCommandExt,
+    },
     BotResult, Context,
 };
 
@@ -212,7 +212,7 @@ impl ServerLeaderboardModeKind {
 
 async fn slash_serverleaderboard(
     ctx: Arc<Context>,
-    mut command: Box<ApplicationCommand>,
+    mut command: InteractionCommand,
 ) -> BotResult<()> {
     let args = ServerLeaderboard::from_interaction(command.input_data())?;
 
@@ -282,6 +282,6 @@ async fn slash_serverleaderboard(
 
     builder
         .start_by_update()
-        .start(ctx, CommandOrigin::Interaction { command })
+        .start(ctx, (&mut command).into())
         .await
 }

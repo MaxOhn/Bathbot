@@ -8,15 +8,15 @@ use rosu_v2::prelude::{
 };
 use tokio::time::interval;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::{application::interaction::ApplicationCommand, channel::embed::Embed};
+use twilight_model::channel::embed::Embed;
 
 use crate::{
-    core::{commands::CommandOrigin, Context},
+    core::Context,
     embeds::{EmbedData, MatchCompareMapEmbed, MatchCompareSummaryEmbed},
     pagination::MatchComparePagination,
     util::{
-        builder::MessageBuilder, constants::OSU_API_ISSUE, matcher, ApplicationCommandExt,
-        ChannelExt, CowUtils, ScoreExt,
+        builder::MessageBuilder, constants::OSU_API_ISSUE, interaction::InteractionCommand,
+        matcher, ChannelExt, CowUtils, InteractionCommandExt, ScoreExt,
     },
     BotResult,
 };
@@ -68,10 +68,7 @@ impl Default for MatchCompareComparison {
     }
 }
 
-async fn slash_matchcompare(
-    ctx: Arc<Context>,
-    mut command: Box<ApplicationCommand>,
-) -> BotResult<()> {
+async fn slash_matchcompare(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = MatchCompare::from_interaction(command.input_data())?;
 
     matchcompare(ctx, command, args).await
@@ -79,7 +76,7 @@ async fn slash_matchcompare(
 
 async fn matchcompare(
     ctx: Arc<Context>,
-    command: Box<ApplicationCommand>,
+    mut command: InteractionCommand,
     args: MatchCompare,
 ) -> BotResult<()> {
     let MatchCompare {
@@ -179,8 +176,8 @@ async fn matchcompare(
         }
         MatchCompareOutput::Paginated => {
             return MatchComparePagination::builder(embeds)
-            .start_by_update()
-                .start(ctx, CommandOrigin::Interaction { command })
+                .start_by_update()
+                .start(ctx, (&mut command).into())
                 .await
         }
     }

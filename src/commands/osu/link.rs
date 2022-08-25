@@ -2,11 +2,10 @@ use std::sync::Arc;
 
 use command_macros::{command, SlashCommand};
 use twilight_interactions::command::CreateCommand;
-use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     commands::utility::{config, Config, ConfigLink},
-    util::{constants::INVITE_LINK, ChannelExt},
+    util::{constants::INVITE_LINK, interaction::InteractionCommand, ChannelExt},
     BotResult, Context,
 };
 
@@ -21,7 +20,7 @@ use crate::{
 /// Link your discord to an osu! profile
 pub struct Link;
 
-async fn slash_link(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_link(ctx: Arc<Context>, command: InteractionCommand) -> BotResult<()> {
     let mut args = Config::default();
     args.osu = Some(ConfigLink::Link);
 

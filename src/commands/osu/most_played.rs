@@ -3,17 +3,15 @@ use std::{borrow::Cow, sync::Arc};
 use command_macros::{command, HasName, SlashCommand};
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     core::commands::CommandOrigin,
     pagination::MostPlayedPagination,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        matcher, ApplicationCommandExt,
+        interaction::InteractionCommand,
+        matcher, InteractionCommandExt,
     },
     BotResult, Context,
 };
@@ -35,13 +33,10 @@ pub struct MostPlayed<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-async fn slash_mostplayed(
-    ctx: Arc<Context>,
-    mut command: Box<ApplicationCommand>,
-) -> BotResult<()> {
+async fn slash_mostplayed(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = MostPlayed::from_interaction(command.input_data())?;
 
-    mostplayed(ctx, command.into(), args).await
+    mostplayed(ctx, (&mut command).into(), args).await
 }
 
 #[command]

@@ -5,21 +5,21 @@ use hashbrown::HashMap;
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{Beatmapset, Username};
 use time::OffsetDateTime;
-use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
-    core::{commands::CommandOrigin, Context},
+    core::Context,
     custom_client::OsuTrackerMapsetEntry,
     pagination::OsuTrackerMapsetsPagination,
     util::{
         constants::{OSUTRACKER_ISSUE, OSU_API_ISSUE},
         hasher::SimpleBuildHasher,
-        ApplicationCommandExt,
+        interaction::InteractionCommand,
+        InteractionCommandExt,
     },
     BotResult,
 };
 
-pub(super) async fn mapsets(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotResult<()> {
+pub(super) async fn mapsets(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let mut counts: Vec<OsuTrackerMapsetEntry> = match ctx.redis().osutracker_stats().await {
         Ok(stats) => stats
             .get()
@@ -72,7 +72,7 @@ pub(super) async fn mapsets(ctx: Arc<Context>, command: Box<ApplicationCommand>)
     OsuTrackerMapsetsPagination::builder(counts, mapsets)
         .start_by_update()
         .defer_components()
-        .start(ctx, CommandOrigin::Interaction { command })
+        .start(ctx, (&mut command).into())
         .await
 }
 

@@ -1,17 +1,16 @@
 use std::sync::Arc;
 
-use twilight_model::application::interaction::ApplicationCommand;
-
 use crate::{
     util::{
         builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
+        interaction::InteractionCommand,
         numbers::with_comma_int,
-        ApplicationCommandExt,
+        InteractionCommandExt,
     },
     BotResult, Context,
 };
 
-pub async fn cache(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotResult<()> {
+pub async fn cache(ctx: Arc<Context>, command: InteractionCommand) -> BotResult<()> {
     let stats = ctx.cache.stats();
 
     let description = format!(

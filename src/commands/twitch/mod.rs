@@ -2,9 +2,11 @@ use std::sync::Arc;
 
 use command_macros::SlashCommand;
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::application::interaction::ApplicationCommand;
 
-use crate::{util::ApplicationCommandExt, BotResult, Context};
+use crate::{
+    util::{interaction::InteractionCommand, InteractionCommandExt},
+    BotResult, Context,
+};
 
 pub use self::{addstream::*, removestream::*, tracked::*};
 
@@ -56,13 +58,13 @@ pub struct TrackStreamList;
 
 pub async fn slash_trackstream(
     ctx: Arc<Context>,
-    mut command: Box<ApplicationCommand>,
+    mut command: InteractionCommand,
 ) -> BotResult<()> {
     match TrackStream::from_interaction(command.input_data())? {
-        TrackStream::Add(add) => addstream(ctx, command.into(), add.name.as_ref()).await,
+        TrackStream::Add(add) => addstream(ctx, (&mut command).into(), add.name.as_ref()).await,
         TrackStream::Remove(remove) => {
-            removestream(ctx, command.into(), remove.name.as_ref()).await
+            removestream(ctx, (&mut command).into(), remove.name.as_ref()).await
         }
-        TrackStream::List(_) => tracked(ctx, command.into()).await,
+        TrackStream::List(_) => tracked(ctx, (&mut command).into()).await,
     }
 }

@@ -3,10 +3,9 @@ use std::sync::Arc;
 use command_macros::{command, SlashCommand};
 use prometheus::core::Collector;
 use twilight_interactions::command::CreateCommand;
-use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
-    core::commands::CommandOrigin, pagination::CommandCountPagination, BotResult, Context,
+    core::commands::CommandOrigin, pagination::CommandCountPagination, BotResult, Context, util::interaction::InteractionCommand,
 };
 
 #[derive(CreateCommand, SlashCommand)]
@@ -15,8 +14,8 @@ use crate::{
 /// Display a list of popular commands
 pub struct Commands;
 
-pub async fn slash_commands(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotResult<()> {
-    commands(ctx, command.into()).await
+pub async fn slash_commands(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+    commands(ctx, (&mut command).into()).await
 }
 
 #[command]

@@ -1,11 +1,13 @@
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
 use twilight_model::{
-    application::interaction::modal::ModalSubmitInteraction,
     channel::Message,
     http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
 };
 
-use crate::{core::Context, util::builder::MessageBuilder};
+use crate::{
+    core::Context,
+    util::{builder::MessageBuilder, interaction::InteractionModal},
+};
 
 use super::MessageExt;
 
@@ -24,7 +26,7 @@ pub trait ModalExt {
     fn update(&self, ctx: &Context, builder: &MessageBuilder<'_>) -> ResponseFuture<Message>;
 }
 
-impl ModalExt for ModalSubmitInteraction {
+impl ModalExt for InteractionModal {
     #[inline]
     fn callback(&self, ctx: &Context, builder: MessageBuilder<'_>) -> ResponseFuture<EmptyBody> {
         let data = InteractionResponseData {

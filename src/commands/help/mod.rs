@@ -8,7 +8,7 @@ use twilight_model::{
 
 pub use self::{
     components::handle_help_component,
-    interaction::{handle_help_autocomplete, Help, HELP_SLASH},
+    interaction::{slash_help, Help, HELP_SLASH},
     message::HELP_PREFIX,
 };
 

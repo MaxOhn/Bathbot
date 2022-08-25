@@ -3,16 +3,16 @@ use std::{borrow::Cow, sync::Arc};
 use command_macros::{command, HasName, SlashCommand};
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     core::commands::CommandOrigin,
     embeds::{EmbedData, RatioEmbed},
     tracking::process_osu_tracking,
-    util::{builder::MessageBuilder, constants::OSU_API_ISSUE, matcher, ApplicationCommandExt},
+    util::{
+        builder::MessageBuilder, constants::OSU_API_ISSUE, interaction::InteractionCommand,
+        matcher, InteractionCommandExt,
+    },
     BotResult, Context,
 };
 
@@ -73,10 +73,10 @@ async fn prefix_ratios(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> 
     ratios(ctx, msg.into(), args).await
 }
 
-async fn slash_ratios(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_ratios(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Ratios::from_interaction(command.input_data())?;
 
-    ratios(ctx, command.into(), args).await
+    ratios(ctx, (&mut command).into(), args).await
 }
 
 async fn ratios(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Ratios<'_>) -> BotResult<()> {

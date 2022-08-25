@@ -1,10 +1,7 @@
 use std::{fmt::Write, mem};
 
 use twilight_interactions::command::{CommandOptionExt, CommandOptionExtInner};
-use twilight_model::application::{
-    component::{button::ButtonStyle, ActionRow, Button, Component},
-    interaction::MessageComponentInteraction,
-};
+use twilight_model::application::component::{button::ButtonStyle, ActionRow, Button, Component};
 
 use crate::{
     core::{
@@ -14,6 +11,7 @@ use crate::{
     error::InvalidHelpState,
     util::{
         builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
+        interaction::InteractionComponent,
         ComponentExt,
     },
     BotResult,
@@ -139,7 +137,7 @@ impl CommandIter {
 
 pub async fn handle_help_component(
     ctx: &Context,
-    mut component: Box<MessageComponentInteraction>,
+    mut component: InteractionComponent,
 ) -> BotResult<()> {
     let mut title = component
         .message

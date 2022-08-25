@@ -1,23 +1,26 @@
 use std::{cmp::Reverse, sync::Arc};
 
 use command_macros::{HasName, SlashCommand};
-use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
+use twilight_interactions::command::{
+    AutocompleteValue, CommandModel, CommandOption, CreateCommand, CreateOption,
 };
+use twilight_model::id::{marker::UserMarker, Id};
 
-use crate::{core::Context, custom_client::OsekaiBadge, util::ApplicationCommandExt, BotResult};
-
-pub use query::handle_autocomplete as handle_badge_autocomplete;
+use crate::{
+    core::Context,
+    custom_client::OsekaiBadge,
+    util::{interaction::InteractionCommand, InteractionCommandExt},
+    BotResult,
+};
 
 use self::{query::*, user::*};
 
 mod query;
 mod user;
 
-#[derive(CommandModel, CreateCommand, SlashCommand)]
+#[derive(CreateCommand, SlashCommand)]
 #[command(name = "badges")]
+#[allow(dead_code)]
 /// Display info about badges
 pub enum Badges {
     #[command(name = "query")]
@@ -26,14 +29,30 @@ pub enum Badges {
     User(BadgesUser),
 }
 
-#[derive(CommandModel, CreateCommand)]
+#[derive(CommandModel)]
+enum Badges_ {
+    #[command(name = "query")]
+    Query(BadgesQuery_),
+    #[command(name = "user")]
+    User(BadgesUser),
+}
+
+#[derive(CreateCommand)]
 #[command(name = "query")]
+#[allow(dead_code)]
 /// Display all badges matching the query
 pub struct BadgesQuery {
     #[command(autocomplete = true)]
     /// Specify the badge name or acronym
     name: String,
     /// Choose how the badges should be ordered
+    sort: Option<BadgesOrder>,
+}
+
+#[derive(CommandModel)]
+#[command(autocomplete = true)]
+struct BadgesQuery_ {
+    name: AutocompleteValue<String>,
     sort: Option<BadgesOrder>,
 }
 
@@ -80,9 +99,9 @@ impl Default for BadgesOrder {
     }
 }
 
-async fn slash_badges(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
-    match Badges::from_interaction(command.input_data())? {
-        Badges::Query(args) => query(ctx, command, args).await,
-        Badges::User(args) => user(ctx, command.into(), args).await,
+pub async fn slash_badges(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+    match Badges_::from_interaction(command.input_data())? {
+        Badges_::Query(args) => query(ctx, command, args).await,
+        Badges_::User(args) => user(ctx, (&mut command).into(), args).await,
     }
 }

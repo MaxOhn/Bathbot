@@ -2,13 +2,12 @@ use std::sync::Arc;
 
 use command_macros::SlashCommand;
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     custom_client::{
         Badges, LovedMapsets, RankedMapsets, Replays, StandardDeviation, Subscribers, TotalPp,
     },
-    util::ApplicationCommandExt,
+    util::{interaction::InteractionCommand, InteractionCommandExt},
     BotResult, Context,
 };
 
@@ -125,7 +124,7 @@ pub struct OsekaiTotalPp {
     country: Option<String>,
 }
 
-async fn slash_osekai(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_osekai(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     match Osekai::from_interaction(command.input_data())? {
         Osekai::Badges(args) => count::<Badges>(ctx, command, args.country).await,
         Osekai::LovedMapsets(args) => count::<LovedMapsets>(ctx, command, args.country).await,

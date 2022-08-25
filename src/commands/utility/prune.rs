@@ -3,7 +3,8 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, MESSAGE_TOO_OLD_TO_BULK_DELETE},
-        ApplicationCommandExt, ChannelExt, MessageExt,
+        interaction::InteractionCommand,
+        ChannelExt, InteractionCommandExt, MessageExt,
     },
     BotResult, Context,
 };
@@ -13,7 +14,6 @@ use std::{str::FromStr, sync::Arc};
 use tokio::time::{self, Duration};
 use twilight_http::{api_error::ApiError, error::ErrorType};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::application::interaction::ApplicationCommand;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
@@ -28,10 +28,10 @@ pub struct Prune {
     /// Choose the amount of messages to delete
     amount: i64,
 }
-async fn slash_prune(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_prune(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Prune::from_interaction(command.input_data())?;
 
-    prune(ctx, command.into(), args.amount as u64).await
+    prune(ctx, (&mut command).into(), args.amount as u64).await
 }
 
 #[command]

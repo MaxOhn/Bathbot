@@ -4,7 +4,6 @@ use command_macros::{command, SlashCommand};
 use twilight_cache_inmemory::model::CachedGuild;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
-    application::interaction::ApplicationCommand,
     id::{
         marker::{GuildMarker, RoleMarker},
         Id,
@@ -16,7 +15,7 @@ use crate::{
     commands::{osu::ProfileSize, EnableDisable, ShowHideOption},
     database::{GuildConfig, ListSize},
     embeds::{EmbedData, ServerConfigEmbed},
-    util::{constants::GENERAL_ISSUE, ApplicationCommandExt},
+    util::{constants::GENERAL_ISSUE, interaction::InteractionCommand, InteractionCommandExt},
     BotResult, Context,
 };
 
@@ -163,10 +162,7 @@ impl ServerConfigEdit {
     }
 }
 
-async fn slash_serverconfig(
-    ctx: Arc<Context>,
-    mut command: Box<ApplicationCommand>,
-) -> BotResult<()> {
+async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = ServerConfig::from_interaction(command.input_data())?;
 
     let guild_id = command.guild_id.unwrap();
@@ -182,7 +178,7 @@ async fn slash_serverconfig(
 
     let args = match args {
         ServerConfig::Authorities(args) => {
-            return super::authorities(ctx, command.into(), args.into()).await
+            return super::authorities(ctx, (&mut command).into(), args.into()).await
         }
         ServerConfig::Edit(edit) => edit,
     };

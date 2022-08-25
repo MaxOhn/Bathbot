@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use command_macros::SlashCommand;
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{application::interaction::ApplicationCommand, channel::Attachment};
+use twilight_model::channel::Attachment;
 
 use crate::{
     tracking::default_tracking_interval,
-    util::{builder::MessageBuilder, ApplicationCommandExt},
+    util::{builder::MessageBuilder, interaction::InteractionCommand, InteractionCommandExt},
     BotResult, Context,
 };
 
@@ -90,7 +90,7 @@ pub struct OwnerTrackingStats;
 /// Enable or disable tracking
 pub struct OwnerTrackingToggle;
 
-async fn slash_owner(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_owner(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     match Owner::from_interaction(command.input_data())? {
         Owner::AddBg(bg) => addbg(ctx, command, bg).await,
         Owner::AddCountry(country) => addcountry(ctx, command, country).await,

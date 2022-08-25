@@ -52,6 +52,7 @@ pub enum Error {
     Image(#[from] image::ImageError),
     #[error("invalid bg state")]
     InvalidBgState(#[from] InvalidGameState),
+    // TODO: remove?
     #[error("received invalid options for command")]
     InvalidCommandOptions,
     #[error("invalid help state")]

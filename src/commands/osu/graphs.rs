@@ -14,10 +14,7 @@ use plotters_backend::FontStyle;
 use rosu_v2::prelude::{GameMode, OsuError, Score, User};
 use time::{Duration, OffsetDateTime, UtcOffset};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::{
@@ -30,8 +27,9 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
+        interaction::InteractionCommand,
         numbers::with_comma_int,
-        ApplicationCommandExt, CountryCode, Monthly,
+        CountryCode, InteractionCommandExt, Monthly,
     },
     BotResult,
 };
@@ -265,13 +263,13 @@ impl From<GraphTopTimezone> for UtcOffset {
     }
 }
 
-async fn slash_graph(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_graph(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Graph::from_interaction(command.input_data())?;
 
-    graph(ctx, command.into(), args).await
+    graph(ctx, (&mut command).into(), args).await
 }
 
-// Takes a `CommandOrigin` since `require_link` does not take `ApplicationCommand`
+// Takes a `CommandOrigin` since `require_link` does not take `InteractionCommand`
 async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> BotResult<()> {
     let tuple_option = match args {
         Graph::Medals(args) => {

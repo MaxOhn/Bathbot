@@ -3,10 +3,7 @@ use std::{borrow::Cow, mem, sync::Arc};
 use command_macros::{command, HasName, SlashCommand};
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
@@ -14,7 +11,8 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        matcher, ApplicationCommandExt, ChannelExt,
+        interaction::InteractionCommand,
+        matcher, ChannelExt, InteractionCommandExt,
     },
     BotResult, Context,
 };
@@ -111,10 +109,10 @@ impl<'m> Bws<'m> {
     }
 }
 
-async fn slash_bws(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_bws(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Bws::from_interaction(command.input_data())?;
 
-    bws(ctx, command.into(), args).await
+    bws(ctx, (&mut command).into(), args).await
 }
 
 #[command]

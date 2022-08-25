@@ -4,10 +4,7 @@ use command_macros::{command, HasMods, SlashCommand};
 use eyre::Report;
 use rosu_v2::error::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    channel::{message::MessageType, Message},
-};
+use twilight_model::channel::{message::MessageType, Message};
 
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
@@ -16,9 +13,10 @@ use crate::{
     pp::PpCalculator,
     util::{
         constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE},
+        interaction::InteractionCommand,
         matcher,
         osu::{MapIdType, ModSelection},
-        ApplicationCommandExt, ChannelExt,
+        ChannelExt, InteractionCommandExt,
     },
     BotResult, Context,
 };
@@ -134,14 +132,11 @@ async fn prefix_leaderboard(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
     }
 }
 
-async fn slash_leaderboard(
-    ctx: Arc<Context>,
-    mut command: Box<ApplicationCommand>,
-) -> BotResult<()> {
+async fn slash_leaderboard(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Leaderboard::from_interaction(command.input_data())?;
 
     match LeaderboardArgs::try_from(args) {
-        Ok(args) => leaderboard(ctx, command.into(), args).await,
+        Ok(args) => leaderboard(ctx, (&mut command).into(), args).await,
         Err(content) => {
             command.error(&ctx, content).await?;
 

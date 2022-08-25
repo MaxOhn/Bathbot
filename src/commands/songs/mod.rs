@@ -21,11 +21,12 @@ use std::{fmt::Write, sync::Arc};
 use command_macros::SlashCommand;
 use tokio::time::{interval, Duration};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     core::{buckets::BucketName, commands::CommandOrigin},
-    util::{builder::MessageBuilder, ApplicationCommandExt, MessageExt},
+    util::{
+        builder::MessageBuilder, interaction::InteractionCommand, InteractionCommandExt, MessageExt,
+    },
     BotResult, Context,
 };
 
@@ -177,9 +178,9 @@ impl SongTitle {
     }
 }
 
-pub async fn slash_song(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+pub async fn slash_song(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Song::from_interaction(command.input_data())?;
     let (lyrics, delay) = args.title.get();
 
-    song(lyrics, delay, ctx, command.into()).await
+    song(lyrics, delay, ctx, (&mut command).into()).await
 }

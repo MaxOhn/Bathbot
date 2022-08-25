@@ -6,14 +6,16 @@ use std::{
 use command_macros::{command, SlashCommand};
 use rand::RngCore;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     core::{
         commands::{prefix::Args, CommandOrigin},
         Context,
     },
-    util::{builder::MessageBuilder, ApplicationCommandExt, ChannelExt, CowUtils, Matrix},
+    util::{
+        builder::MessageBuilder, interaction::InteractionCommand, ChannelExt, CowUtils,
+        InteractionCommandExt, Matrix,
+    },
     BotResult,
 };
 
@@ -44,11 +46,11 @@ enum Difficulty {
 
 pub async fn slash_minesweeper(
     ctx: Arc<Context>,
-    mut command: Box<ApplicationCommand>,
+    mut command: InteractionCommand,
 ) -> BotResult<()> {
     let args = Minesweeper::from_interaction(command.input_data())?;
 
-    minesweeper(ctx, command.into(), args.difficulty).await
+    minesweeper(ctx, (&mut command).into(), args.difficulty).await
 }
 
 #[command]

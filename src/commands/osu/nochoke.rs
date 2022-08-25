@@ -5,10 +5,7 @@ use eyre::Report;
 use rosu_pp::{Beatmap as Map, CatchPP, CatchStars, OsuPP, TaikoPP};
 use rosu_v2::prelude::{GameMode, OsuError, Score};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::osu::{get_user_and_scores, ScoreArgs, UserArgs},
@@ -18,9 +15,10 @@ use crate::{
     tracking::process_osu_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        interaction::InteractionCommand,
         matcher,
         osu::prepare_beatmap_file,
-        ApplicationCommandExt, ScoreExt,
+        InteractionCommandExt, ScoreExt,
     },
     BotResult, Context,
 };
@@ -193,10 +191,10 @@ async fn prefix_nochokesctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
     nochoke(ctx, msg.into(), args).await
 }
 
-async fn slash_nochoke(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_nochoke(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Nochoke::from_interaction(command.input_data())?;
 
-    nochoke(ctx, command.into(), args).await
+    nochoke(ctx, (&mut command).into(), args).await
 }
 
 async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) -> BotResult<()> {

@@ -4,7 +4,6 @@ use command_macros::{command, SlashCommand};
 use eyre::Report;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
-    application::interaction::ApplicationCommand,
     channel::Message,
     id::{
         marker::{ChannelMarker, GuildMarker, MessageMarker, RoleMarker},
@@ -18,8 +17,8 @@ use crate::{
         CacheMiss,
     },
     util::{
-        builder::MessageBuilder, constants::GENERAL_ISSUE, matcher, ApplicationCommandExt,
-        ChannelExt,
+        builder::MessageBuilder, constants::GENERAL_ISSUE, interaction::InteractionCommand,
+        matcher, ChannelExt, InteractionCommandExt,
     },
     BotResult, Context,
 };
@@ -138,13 +137,10 @@ async fn prefix_roleassign(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>)
     }
 }
 
-pub async fn slash_roleassign(
-    ctx: Arc<Context>,
-    mut command: Box<ApplicationCommand>,
-) -> BotResult<()> {
+pub async fn slash_roleassign(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = RoleAssign::from_interaction(command.input_data())?;
 
-    roleassign(ctx, command.into(), args).await
+    roleassign(ctx, (&mut command).into(), args).await
 }
 
 async fn roleassign(

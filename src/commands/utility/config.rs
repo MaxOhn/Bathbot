@@ -3,7 +3,6 @@ use std::{future::Future, sync::Arc};
 use command_macros::{command, SlashCommand};
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     commands::{osu::ProfileSize, ShowHideOption},
@@ -14,7 +13,8 @@ use crate::{
     util::{
         builder::{EmbedBuilder, MessageBuilder},
         constants::{GENERAL_ISSUE, TWITCH_API_ISSUE},
-        ApplicationCommandExt, Authored, Emote,
+        interaction::InteractionCommand,
+        Authored, Emote, InteractionCommandExt,
     },
     BotResult, Context,
 };
@@ -136,7 +136,7 @@ impl From<ConfigMinimizedPp> for MinimizedPp {
     }
 }
 
-async fn slash_config(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_config(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Config::from_interaction(command.input_data())?;
 
     config(ctx, command, args).await
@@ -144,7 +144,7 @@ async fn slash_config(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -
 
 pub async fn config(
     ctx: Arc<Context>,
-    command: Box<ApplicationCommand>,
+    command: InteractionCommand,
     config: Config,
 ) -> BotResult<()> {
     let Config {
@@ -247,7 +247,7 @@ fn twitch_content(state: u8) -> String {
 
 async fn handle_both_links(
     ctx: &Context,
-    command: Box<ApplicationCommand>,
+    command: InteractionCommand,
     mut config: UserConfig,
 ) -> BotResult<()> {
     let osu_fut = ctx.auth_standby.wait_for_osu();
@@ -295,7 +295,7 @@ async fn handle_both_links(
 
 async fn handle_twitch_link(
     ctx: &Context,
-    command: Box<ApplicationCommand>,
+    command: InteractionCommand,
     mut config: UserConfig,
 ) -> BotResult<()> {
     let fut = ctx.auth_standby.wait_for_twitch();
@@ -333,7 +333,7 @@ async fn handle_twitch_link(
 
 async fn handle_osu_link(
     ctx: &Context,
-    command: Box<ApplicationCommand>,
+    command: InteractionCommand,
     mut config: UserConfig,
 ) -> BotResult<()> {
     let fut = ctx.auth_standby.wait_for_osu();
@@ -386,7 +386,7 @@ async fn handle_osu_link(
 
 async fn handle_ephemeral<T>(
     ctx: &Context,
-    command: &ApplicationCommand,
+    command: &InteractionCommand,
     builder: MessageBuilder<'_>,
     fut: impl Future<Output = Result<T, AuthenticationStandbyError>>,
 ) -> Option<BotResult<T>> {
@@ -409,7 +409,7 @@ async fn handle_ephemeral<T>(
 
 async fn handle_no_links(
     ctx: &Context,
-    command: Box<ApplicationCommand>,
+    command: InteractionCommand,
     mut config: UserConfig,
 ) -> BotResult<()> {
     let author = command.user()?;

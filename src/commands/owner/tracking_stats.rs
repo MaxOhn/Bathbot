@@ -1,16 +1,17 @@
 use std::sync::Arc;
 
-use twilight_model::{application::interaction::ApplicationCommand, channel::embed::EmbedField};
+use twilight_model::channel::embed::EmbedField;
 
 use crate::{
     util::{
         builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
-        ApplicationCommandExt,
+        interaction::InteractionCommand,
+        InteractionCommandExt,
     },
     BotResult, Context,
 };
 
-pub async fn trackingstats(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotResult<()> {
+pub async fn trackingstats(ctx: Arc<Context>, command: InteractionCommand) -> BotResult<()> {
     let stats = ctx.tracking().stats().await;
     let entry = stats.next_pop;
 

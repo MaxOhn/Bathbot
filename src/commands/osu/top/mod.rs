@@ -11,10 +11,7 @@ use rosu_v2::prelude::{
 };
 use tokio::time::{sleep, Duration};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::{
@@ -31,10 +28,11 @@ use crate::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSUTRACKER_ISSUE, OSU_API_ISSUE},
         hasher::SimpleBuildHasher,
+        interaction::InteractionCommand,
         matcher, numbers,
         osu::{ModSelection, SortableScore},
         query::{FilterCriteria, Searchable},
-        ApplicationCommandExt, ChannelExt, CowUtils, MessageExt,
+        ChannelExt, CowUtils, InteractionCommandExt, MessageExt,
     },
     BotResult, Context,
 };
@@ -474,11 +472,11 @@ async fn prefix_recentbestctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) 
     }
 }
 
-async fn slash_top(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_top(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Top::from_interaction(command.input_data())?;
 
     match TopArgs::try_from(args) {
-        Ok(args) => top(ctx, command.into(), args).await,
+        Ok(args) => top(ctx, (&mut command).into(), args).await,
         Err(content) => {
             command.error(&ctx, content).await?;
 

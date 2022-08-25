@@ -1,9 +1,7 @@
 use std::{fmt::Write, mem, sync::Arc};
 
 use tokio::sync::oneshot;
-use twilight_model::{
-    application::interaction::MessageComponentInteraction, channel::embed::EmbedField,
-};
+use twilight_model::channel::embed::EmbedField;
 
 use crate::{
     core::Context,
@@ -12,6 +10,7 @@ use crate::{
     util::{
         builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
         constants::{GENERAL_ISSUE, RED},
+        interaction::InteractionComponent,
         Authored, ComponentExt,
     },
     BotResult,
@@ -23,24 +22,18 @@ use super::{
 };
 
 /// Higher Button
-pub async fn handle_higher(
-    ctx: Arc<Context>,
-    component: Box<MessageComponentInteraction>,
-) -> BotResult<()> {
+pub async fn handle_higher(ctx: Arc<Context>, component: InteractionComponent) -> BotResult<()> {
     handle_higherlower(ctx, component, HlGuess::Higher).await
 }
 
 /// Lower Button
-pub async fn handle_lower(
-    ctx: Arc<Context>,
-    component: Box<MessageComponentInteraction>,
-) -> BotResult<()> {
+pub async fn handle_lower(ctx: Arc<Context>, component: InteractionComponent) -> BotResult<()> {
     handle_higherlower(ctx, component, HlGuess::Lower).await
 }
 
 async fn handle_higherlower(
     ctx: Arc<Context>,
-    component: Box<MessageComponentInteraction>,
+    component: InteractionComponent,
     guess: HlGuess,
 ) -> BotResult<()> {
     let user = component.user_id()?;
@@ -67,7 +60,7 @@ async fn handle_higherlower(
 /// Next Button
 pub async fn handle_next_higherlower(
     ctx: Arc<Context>,
-    component: Box<MessageComponentInteraction>,
+    component: InteractionComponent,
 ) -> BotResult<()> {
     let user = component.user_id()?;
 
@@ -102,7 +95,7 @@ pub async fn handle_next_higherlower(
 /// Try again Button
 pub async fn handle_try_again(
     ctx: Arc<Context>,
-    mut component: Box<MessageComponentInteraction>,
+    mut component: InteractionComponent,
 ) -> BotResult<()> {
     let user = component.user_id()?;
     let msg = component.message.id;
@@ -122,7 +115,7 @@ pub async fn handle_try_again(
     let game_fut = if let Some(retry) = ctx.hl_retries().lock(&msg).remove() {
         let _ = retry.tx.send(());
 
-        retry.game.restart(&ctx, &*component)
+        retry.game.restart(&ctx, &component)
     } else {
         return Ok(());
     };
@@ -161,7 +154,7 @@ pub async fn handle_try_again(
 
 async fn correct_guess(
     ctx: Arc<Context>,
-    mut component: Box<MessageComponentInteraction>,
+    mut component: InteractionComponent,
     guess: HlGuess,
 ) -> BotResult<()> {
     let user = component.user_id()?;
@@ -206,7 +199,7 @@ async fn correct_guess(
 
 async fn game_over(
     ctx: Arc<Context>,
-    mut component: Box<MessageComponentInteraction>,
+    mut component: InteractionComponent,
     guess: HlGuess,
 ) -> BotResult<()> {
     let user = component.user_id()?;

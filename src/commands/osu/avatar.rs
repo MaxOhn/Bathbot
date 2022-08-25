@@ -3,19 +3,17 @@ use std::{borrow::Cow, sync::Arc};
 use command_macros::{command, HasName, SlashCommand};
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     util::{
         builder::{AuthorBuilder, EmbedBuilder, MessageBuilder},
         constants::{GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE},
+        interaction::InteractionCommand,
         matcher,
         osu::flag_url,
-        ApplicationCommandExt,
+        InteractionCommandExt,
     },
     BotResult, Context,
 };
@@ -37,13 +35,10 @@ pub struct Avatar<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-pub async fn slash_avatar(
-    ctx: Arc<Context>,
-    mut command: Box<ApplicationCommand>,
-) -> BotResult<()> {
+pub async fn slash_avatar(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Avatar::from_interaction(command.input_data())?;
 
-    avatar(ctx, command.into(), args).await
+    avatar(ctx, (&mut command).into(), args).await
 }
 
 #[command]

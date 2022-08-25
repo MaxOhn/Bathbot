@@ -7,31 +7,34 @@ use std::{
 
 use eyre::Report;
 use rkyv::{Deserialize, Infallible};
-use twilight_model::application::{
-    command::CommandOptionChoice,
-    interaction::{ApplicationCommand, ApplicationCommandAutocomplete},
-};
+use twilight_interactions::command::AutocompleteValue;
+use twilight_model::application::command::CommandOptionChoice;
 
 use crate::{
     core::Context,
     custom_client::OsekaiBadge,
-    error::Error,
     pagination::BadgePagination,
     util::{
-        constants::OSEKAI_ISSUE, get_combined_thumbnail, levenshtein_similarity,
-        ApplicationCommandExt, AutocompleteExt, CowUtils,
+        constants::OSEKAI_ISSUE, get_combined_thumbnail, interaction::InteractionCommand,
+        levenshtein_similarity, CowUtils, InteractionCommandExt,
     },
     BotResult,
 };
 
-use super::BadgesQuery;
+use super::BadgesQuery_;
 
 pub(super) async fn query(
     ctx: Arc<Context>,
-    command: Box<ApplicationCommand>,
-    args: BadgesQuery,
+    mut command: InteractionCommand,
+    args: BadgesQuery_,
 ) -> BotResult<()> {
-    let BadgesQuery { name, sort } = args;
+    let BadgesQuery_ { name, sort } = args;
+
+    let name = match name {
+        AutocompleteValue::None => return handle_autocomplete(&ctx, &command, String::new()).await,
+        AutocompleteValue::Focused(name) => return handle_autocomplete(&ctx, &command, name).await,
+        AutocompleteValue::Completed(name) => name,
+    };
 
     let badges = match ctx.redis().badges().await {
         Ok(badges) => badges,
@@ -121,11 +124,11 @@ pub(super) async fn query(
     builder
         .start_by_update()
         .defer_components()
-        .start(ctx, command.into())
+        .start(ctx, (&mut command).into())
         .await
 }
 
-async fn no_badge_found(ctx: &Context, command: &ApplicationCommand, name: &str) -> BotResult<()> {
+async fn no_badge_found(ctx: &Context, command: &InteractionCommand, name: &str) -> BotResult<()> {
     let badges = match ctx.redis().badges().await {
         Ok(badges) => badges,
         Err(err) => {
@@ -167,24 +170,16 @@ async fn no_badge_found(ctx: &Context, command: &ApplicationCommand, name: &str)
 }
 
 pub async fn handle_autocomplete(
-    ctx: Arc<Context>,
-    command: Box<ApplicationCommandAutocomplete>,
+    ctx: &Context,
+    command: &InteractionCommand,
+    name: String,
 ) -> BotResult<()> {
-    let value_opt = command
-        .data
-        .options
-        .first()
-        .and_then(|opt| opt.options.first())
-        .and_then(|opt| opt.value.as_ref());
+    let name = if name.is_empty() {
+        command.autocomplete(ctx, Vec::new()).await?;
 
-    let name = match value_opt {
-        Some(value) if !value.is_empty() => value.cow_to_ascii_lowercase(),
-        Some(_) => {
-            command.callback(&ctx, Vec::new()).await?;
-
-            return Ok(());
-        }
-        None => return Err(Error::InvalidCommandOptions),
+        return Ok(());
+    } else {
+        name.cow_to_ascii_lowercase()
     };
 
     let name = name.as_ref();
@@ -208,7 +203,7 @@ pub async fn handle_autocomplete(
         }
     }
 
-    command.callback(&ctx, choices).await?;
+    command.autocomplete(ctx, choices).await?;
 
     Ok(())
 }

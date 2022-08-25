@@ -85,6 +85,10 @@ pub async fn event_loop(ctx: Arc<Context>, mut events: Events) {
 
 async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResult<()> {
     match event {
+        Event::AutoModerationActionExecution(_) => {}
+        Event::AutoModerationRuleCreate(_) => {}
+        Event::AutoModerationRuleDelete(_) => {}
+        Event::AutoModerationRuleUpdate(_) => {}
         Event::BanAdd(_) => {}
         Event::BanRemove(_) => {}
         Event::ChannelCreate(_) => ctx.stats.event_counts.channel_create.inc(),

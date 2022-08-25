@@ -5,7 +5,7 @@ use eyre::Report;
 use hashbrown::HashSet;
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{application::interaction::ApplicationCommand, id::Id};
+use twilight_model::id::Id;
 
 use crate::{
     commands::{osu::UserValue, GameModeOption},
@@ -13,8 +13,8 @@ use crate::{
     games::hl::{GameState, HlComponents, HlVersion},
     pagination::RankingPagination,
     util::{
-        builder::MessageBuilder, constants::GENERAL_ISSUE, ApplicationCommandExt, Authored,
-        MessageExt,
+        builder::MessageBuilder, constants::GENERAL_ISSUE, interaction::InteractionCommand,
+        Authored, InteractionCommandExt, MessageExt,
     },
     BotResult, Context,
 };
@@ -64,10 +64,7 @@ pub struct HigherLowerLeaderboard {
     version: HlVersion,
 }
 
-async fn slash_higherlower(
-    ctx: Arc<Context>,
-    mut command: Box<ApplicationCommand>,
-) -> BotResult<()> {
+async fn slash_higherlower(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = HigherLower::from_interaction(command.input_data())?;
 
     if let HigherLower::Leaderboard(ref args) = args {
@@ -89,9 +86,9 @@ async fn slash_higherlower(
                 None => ctx.user_config(user).await?.mode.unwrap_or(GameMode::Osu),
             };
 
-            GameState::score_pp(&ctx, &*command, mode).await
+            GameState::score_pp(&ctx, &command, mode).await
         }
-        HigherLower::FarmMaps(_) => GameState::farm_maps(&ctx, &*command).await,
+        HigherLower::FarmMaps(_) => GameState::farm_maps(&ctx, &command).await,
         HigherLower::Leaderboard(_) => unreachable!(),
     };
 
@@ -118,7 +115,7 @@ async fn slash_higherlower(
 
 async fn higherlower_leaderboard(
     ctx: Arc<Context>,
-    command: Box<ApplicationCommand>,
+    mut command: InteractionCommand,
     version: HlVersion,
 ) -> BotResult<()> {
     let guild = match command.guild_id {
@@ -186,6 +183,6 @@ async fn higherlower_leaderboard(
 
     RankingPagination::builder(users, total, author_idx, data)
         .start_by_update()
-        .start(ctx, command.into())
+        .start(ctx, (&mut command).into())
         .await
 }

@@ -3,6 +3,7 @@ use crate::{
     util::{
         builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
         constants::{BATHBOT_WORKSHOP, INVITE_LINK},
+        interaction::InteractionCommand,
     },
     BotResult, Context,
 };
@@ -10,7 +11,6 @@ use crate::{
 use command_macros::{command, SlashCommand};
 use std::sync::Arc;
 use twilight_interactions::command::CreateCommand;
-use twilight_model::application::interaction::ApplicationCommand;
 
 #[derive(CreateCommand, SlashCommand)]
 #[command(name = "invite")]
@@ -27,8 +27,8 @@ async fn prefix_invite(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     invite(ctx, msg.into()).await
 }
 
-pub async fn slash_invite(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotResult<()> {
-    invite(ctx, command.into()).await
+pub async fn slash_invite(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+    invite(ctx, (&mut command).into()).await
 }
 
 async fn invite(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> BotResult<()> {

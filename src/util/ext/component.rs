@@ -2,14 +2,16 @@ use std::borrow::Cow;
 
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
 use twilight_model::{
-    application::interaction::MessageComponentInteraction,
     channel::Message,
     http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
 };
 
 use crate::{
     core::Context,
-    util::builder::{MessageBuilder, ModalBuilder},
+    util::{
+        builder::{MessageBuilder, ModalBuilder},
+        interaction::InteractionComponent,
+    },
 };
 
 use super::MessageExt;
@@ -30,7 +32,7 @@ pub trait ComponentExt {
     fn modal(&self, ctx: &Context, modal: ModalBuilder) -> ResponseFuture<EmptyBody>;
 }
 
-impl ComponentExt for MessageComponentInteraction {
+impl ComponentExt for InteractionComponent {
     #[inline]
     fn callback(&self, ctx: &Context, builder: MessageBuilder<'_>) -> ResponseFuture<EmptyBody> {
         let data = InteractionResponseData {

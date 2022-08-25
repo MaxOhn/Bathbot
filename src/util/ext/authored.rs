@@ -1,8 +1,4 @@
 use twilight_model::{
-    application::interaction::{
-        modal::ModalSubmitInteraction, ApplicationCommand, ApplicationCommandAutocomplete,
-        MessageComponentInteraction,
-    },
     channel::Message,
     id::{
         marker::{ChannelMarker, GuildMarker, UserMarker},
@@ -11,7 +7,7 @@ use twilight_model::{
     user::User,
 };
 
-use crate::{error::Error, BotResult};
+use crate::BotResult;
 
 pub trait Authored {
     /// Channel id of the event
@@ -33,27 +29,6 @@ pub trait Authored {
     #[inline]
     fn username(&self) -> BotResult<&str> {
         self.user().map(|user| user.name.as_str())
-    }
-}
-
-impl Authored for ApplicationCommand {
-    #[inline]
-    fn channel_id(&self) -> Id<ChannelMarker> {
-        self.channel_id
-    }
-
-    #[inline]
-    fn guild_id(&self) -> Option<Id<GuildMarker>> {
-        self.guild_id
-    }
-
-    #[inline]
-    fn user(&self) -> BotResult<&User> {
-        self.member
-            .as_ref()
-            .and_then(|member| member.user.as_ref())
-            .or(self.user.as_ref())
-            .ok_or(Error::MissingAuthor)
     }
 }
 
@@ -81,68 +56,5 @@ impl Authored for Message {
     #[inline]
     fn username(&self) -> BotResult<&str> {
         Ok(self.author.name.as_str())
-    }
-}
-
-impl Authored for MessageComponentInteraction {
-    #[inline]
-    fn channel_id(&self) -> Id<ChannelMarker> {
-        self.channel_id
-    }
-
-    #[inline]
-    fn guild_id(&self) -> Option<Id<GuildMarker>> {
-        self.guild_id
-    }
-
-    #[inline]
-    fn user(&self) -> BotResult<&User> {
-        self.member
-            .as_ref()
-            .and_then(|member| member.user.as_ref())
-            .or(self.user.as_ref())
-            .ok_or(Error::MissingAuthor)
-    }
-}
-
-impl Authored for ApplicationCommandAutocomplete {
-    #[inline]
-    fn channel_id(&self) -> Id<ChannelMarker> {
-        self.channel_id
-    }
-
-    #[inline]
-    fn guild_id(&self) -> Option<Id<GuildMarker>> {
-        self.guild_id
-    }
-
-    #[inline]
-    fn user(&self) -> BotResult<&User> {
-        self.member
-            .as_ref()
-            .and_then(|member| member.user.as_ref())
-            .or(self.user.as_ref())
-            .ok_or(Error::MissingAuthor)
-    }
-}
-
-impl Authored for ModalSubmitInteraction {
-    #[inline]
-    fn channel_id(&self) -> Id<ChannelMarker> {
-        self.channel_id
-    }
-
-    #[inline]
-    fn guild_id(&self) -> Option<Id<GuildMarker>> {
-        self.guild_id
-    }
-
-    #[inline]
-    fn user(&self) -> BotResult<&User> {
-        self.member
-            .as_ref()
-            .and_then(|member| member.user.as_ref())
-            .or(self.user.as_ref())
-            .ok_or(Error::MissingAuthor)
     }
 }

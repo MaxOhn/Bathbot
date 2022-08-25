@@ -1,16 +1,13 @@
 use std::sync::Arc;
 
-use twilight_model::application::interaction::ApplicationCommand;
-
 use crate::{
-    core::commands::CommandOrigin,
     custom_client::Rarity,
     pagination::MedalRarityPagination,
-    util::{constants::OSEKAI_ISSUE, ApplicationCommandExt},
+    util::{constants::OSEKAI_ISSUE, interaction::InteractionCommand, InteractionCommandExt},
     BotResult, Context,
 };
 
-pub(super) async fn rarity(ctx: Arc<Context>, command: Box<ApplicationCommand>) -> BotResult<()> {
+pub(super) async fn rarity(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let ranking = match ctx.redis().osekai_ranking::<Rarity>().await {
         Ok(ranking) => ranking.to_inner(),
         Err(err) => {
@@ -21,7 +18,7 @@ pub(super) async fn rarity(ctx: Arc<Context>, command: Box<ApplicationCommand>) 
     };
 
     MedalRarityPagination::builder(ranking)
-    .start_by_update()
-        .start(ctx, CommandOrigin::Interaction { command })
+        .start_by_update()
+        .start(ctx, (&mut command).into())
         .await
 }

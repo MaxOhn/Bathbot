@@ -6,10 +6,7 @@ use rosu_pp_older::*;
 use rosu_v2::prelude::{GameMode, OsuError, Score};
 use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::osu::{get_user_and_scores, require_link, ScoreArgs, ScoreOrder, UserArgs},
@@ -19,9 +16,10 @@ use crate::{
     tracking::process_osu_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        interaction::InteractionCommand,
         matcher, numbers,
         osu::prepare_beatmap_file,
-        ApplicationCommandExt, ChannelExt,
+        ChannelExt, InteractionCommandExt,
     },
     BotResult, Context,
 };
@@ -244,13 +242,10 @@ impl TryFrom<i32> for TopOldManiaVersion {
     }
 }
 
-pub async fn slash_topold(
-    ctx: Arc<Context>,
-    mut command: Box<ApplicationCommand>,
-) -> BotResult<()> {
+pub async fn slash_topold(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = TopOld::from_interaction(command.input_data())?;
 
-    topold(ctx, command.into(), args).await
+    topold(ctx, (&mut command).into(), args).await
 }
 
 #[command]

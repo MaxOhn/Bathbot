@@ -2,16 +2,17 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use eyre::Report;
 use rkyv::{with::DeserializeWith, Archived, Deserialize, Infallible};
-use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
-    core::commands::CommandOrigin,
     custom_client::UsernameWrapper,
     custom_client::{ArchivedOsekaiRankingEntry, OsekaiRanking, OsekaiRankingEntry},
     database::OsuData,
     embeds::{RankingEntry, RankingKindData},
     pagination::RankingPagination,
-    util::{constants::OSEKAI_ISSUE, ApplicationCommandExt, Authored, CountryCode},
+    util::{
+        constants::OSEKAI_ISSUE, interaction::InteractionCommand, Authored, CountryCode,
+        InteractionCommandExt,
+    },
     BotResult, Context,
 };
 
@@ -19,7 +20,7 @@ use super::UserValue;
 
 pub(super) async fn count<R>(
     ctx: Arc<Context>,
-    command: Box<ApplicationCommand>,
+    command: InteractionCommand,
     country: Option<String>,
 ) -> BotResult<()>
 where
@@ -74,7 +75,7 @@ where
 
 pub(super) async fn pp<R>(
     ctx: Arc<Context>,
-    command: Box<ApplicationCommand>,
+    command: InteractionCommand,
     country: Option<String>,
 ) -> BotResult<()>
 where
@@ -186,7 +187,7 @@ fn prepare_pp_users(
 
 async fn send_response(
     ctx: Arc<Context>,
-    command: Box<ApplicationCommand>,
+    mut command: InteractionCommand,
     users: BTreeMap<usize, RankingEntry>,
     data: RankingKindData,
     osu_result: BotResult<Option<OsuData>>,
@@ -211,6 +212,6 @@ async fn send_response(
 
     builder
         .start_by_update()
-        .start(ctx, CommandOrigin::Interaction { command })
+        .start(ctx, (&mut command).into())
         .await
 }

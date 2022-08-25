@@ -3,7 +3,7 @@ use std::{borrow::Cow, mem, slice};
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
 use twilight_interactions::command::CommandInputData;
 use twilight_model::{
-    application::interaction::ApplicationCommand,
+    application::command::CommandOptionChoice,
     channel::{message::MessageFlags, Message},
     http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
 };
@@ -13,10 +13,11 @@ use crate::{
     util::{
         builder::{EmbedBuilder, MessageBuilder},
         constants::RED,
+        interaction::InteractionCommand,
     },
 };
 
-pub trait ApplicationCommandExt {
+pub trait InteractionCommandExt {
     /// Extract input data containing options and resolved values
     fn input_data(&mut self) -> CommandInputData<'static>;
 
@@ -51,9 +52,16 @@ pub trait ApplicationCommandExt {
         ctx: &Context,
         content: impl Into<String>,
     ) -> ResponseFuture<EmptyBody>;
+
+    /// Callback to an autocomplete action.
+    fn autocomplete(
+        &self,
+        ctx: &Context,
+        choices: Vec<CommandOptionChoice>,
+    ) -> ResponseFuture<EmptyBody>;
 }
 
-impl ApplicationCommandExt for ApplicationCommand {
+impl InteractionCommandExt for InteractionCommand {
     #[inline]
     fn input_data(&mut self) -> CommandInputData<'static> {
         CommandInputData {
@@ -165,6 +173,27 @@ impl ApplicationCommandExt for ApplicationCommand {
 
         let response = InteractionResponse {
             kind: InteractionResponseType::ChannelMessageWithSource,
+            data: Some(data),
+        };
+
+        ctx.interaction()
+            .create_response(self.id, &self.token, &response)
+            .exec()
+    }
+
+    #[inline]
+    fn autocomplete(
+        &self,
+        ctx: &Context,
+        choices: Vec<CommandOptionChoice>,
+    ) -> ResponseFuture<EmptyBody> {
+        let data = InteractionResponseData {
+            choices: Some(choices),
+            ..Default::default()
+        };
+
+        let response = InteractionResponse {
+            kind: InteractionResponseType::ApplicationCommandAutocompleteResult,
             data: Some(data),
         };
 

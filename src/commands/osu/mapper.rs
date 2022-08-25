@@ -4,10 +4,7 @@ use command_macros::{command, HasName, SlashCommand};
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{
-    application::interaction::ApplicationCommand,
-    id::{marker::UserMarker, Id},
-};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::{
@@ -21,7 +18,8 @@ use crate::{
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         hasher::SimpleBuildHasher,
-        matcher, ApplicationCommandExt, ChannelExt, CowUtils,
+        interaction::InteractionCommand,
+        matcher, ChannelExt, CowUtils, InteractionCommandExt,
     },
     BotResult, Context,
 };
@@ -195,10 +193,10 @@ pub async fn prefix_sotarks(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
     }
 }
 
-async fn slash_mapper(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_mapper(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Mapper::from_interaction(command.input_data())?;
 
-    mapper(ctx, command.into(), args).await
+    mapper(ctx, (&mut command).into(), args).await
 }
 
 async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) -> BotResult<()> {

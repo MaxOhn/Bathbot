@@ -17,6 +17,7 @@ pub mod builder;
 pub mod constants;
 pub mod datetime;
 pub mod hasher;
+pub mod interaction;
 pub mod matcher;
 pub mod matrix;
 pub mod numbers;

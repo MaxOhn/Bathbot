@@ -8,7 +8,6 @@ use rosu_pp::{
 use rosu_v2::prelude::{Beatmap, GameMode, GameMods, OsuError, Score, User};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
-    application::interaction::ApplicationCommand,
     channel::{message::MessageType, Message},
     id::{marker::UserMarker, Id},
 };
@@ -20,9 +19,10 @@ use crate::{
     tracking::process_osu_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        interaction::InteractionCommand,
         matcher,
         osu::{prepare_beatmap_file, MapIdType, ModSelection},
-        ApplicationCommandExt, ScoreExt,
+        InteractionCommandExt, ScoreExt,
     },
     BotResult, Context,
 };
@@ -145,11 +145,11 @@ impl<'a> TryFrom<Fix<'a>> for FixArgs<'a> {
     }
 }
 
-async fn slash_fix(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_fix(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Fix::from_interaction(command.input_data())?;
 
     match FixArgs::try_from(args) {
-        Ok(args) => fix(ctx, command.into(), args).await,
+        Ok(args) => fix(ctx, (&mut command).into(), args).await,
         Err(content) => {
             command.error(&ctx, content).await?;
 

@@ -1,10 +1,10 @@
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
 use twilight_model::{
-    application::{command::CommandOptionChoice, interaction::ApplicationCommandAutocomplete},
+    application::command::CommandOptionChoice,
     http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
 };
 
-use crate::core::Context;
+use crate::{core::Context, util::interaction::InteractionAutoComplete};
 
 pub trait AutocompleteExt {
     /// Ackowledge the autocomplete and respond immediatly.
@@ -15,7 +15,7 @@ pub trait AutocompleteExt {
     ) -> ResponseFuture<EmptyBody>;
 }
 
-impl AutocompleteExt for ApplicationCommandAutocomplete {
+impl AutocompleteExt for InteractionAutoComplete {
     #[inline]
     fn callback(
         &self,

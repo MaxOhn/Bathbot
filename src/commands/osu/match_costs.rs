@@ -8,14 +8,13 @@ use rosu_v2::prelude::{
     GameMods, MatchGame, Osu, OsuError, OsuMatch, OsuResult, Team, TeamType, UserCompact,
 };
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, MatchCostEmbed},
     util::{
-        builder::MessageBuilder, constants::OSU_API_ISSUE, hasher::SimpleBuildHasher, matcher,
-        ApplicationCommandExt, ChannelExt,
+        builder::MessageBuilder, constants::OSU_API_ISSUE, hasher::SimpleBuildHasher,
+        interaction::InteractionCommand, matcher, ChannelExt, InteractionCommandExt,
     },
     BotResult, Context,
 };
@@ -111,10 +110,10 @@ async fn prefix_matchcosts(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> 
     }
 }
 
-async fn slash_matchcost(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_matchcost(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = MatchCost::from_interaction(command.input_data())?;
 
-    matchcosts(ctx, command.into(), args).await
+    matchcosts(ctx, (&mut command).into(), args).await
 }
 
 const USER_LIMIT: usize = 50;

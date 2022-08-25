@@ -6,13 +6,15 @@ use rosu_v2::prelude::{
     RankStatus,
 };
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::application::interaction::ApplicationCommand;
 
 use crate::{
     commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
     pagination::MapSearchPagination,
-    util::{constants::OSU_API_ISSUE, ApplicationCommandExt, ChannelExt},
+    util::{
+        constants::OSU_API_ISSUE, interaction::InteractionCommand, ChannelExt,
+        InteractionCommandExt,
+    },
     BotResult, Context,
 };
 
@@ -577,10 +579,10 @@ impl Search {
     }
 }
 
-async fn slash_search(ctx: Arc<Context>, mut command: Box<ApplicationCommand>) -> BotResult<()> {
+async fn slash_search(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
     let args = Search::from_interaction(command.input_data())?;
 
-    search(ctx, command.into(), args).await
+    search(ctx, (&mut command).into(), args).await
 }
 
 #[command]
