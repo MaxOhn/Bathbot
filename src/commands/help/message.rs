@@ -1,26 +1,25 @@
-use std::{collections::BTreeMap, fmt::Write, sync::Arc, time::Duration};
+use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 
 use command_macros::command;
 use eyre::Report;
 use hashbrown::HashSet;
-use tokio::time::{interval, MissedTickBehavior};
 use twilight_model::{
-    channel::{embed::EmbedField, Message},
+    application::component::{select_menu::SelectMenuOption, ActionRow, Component, SelectMenu},
+    channel::{embed::EmbedField, Message, ReactionType},
     id::{marker::GuildMarker, Id},
 };
 
 use crate::{
     core::{
-        commands::{
-            checks::check_authority,
-            prefix::{PrefixCommand, PrefixCommandGroup, PrefixCommands},
-        },
+        commands::prefix::{PrefixCommand, PrefixCommandGroup, PrefixCommands},
         Context,
     },
+    error::InvalidHelpState,
     util::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder},
-        constants::{BATHBOT_WORKSHOP, DESCRIPTION_SIZE},
-        levenshtein_distance, ChannelExt,
+        constants::BATHBOT_WORKSHOP,
+        interaction::InteractionComponent,
+        levenshtein_distance, ChannelExt, ComponentExt, Emote,
     },
     BotResult,
 };
@@ -232,38 +231,13 @@ async fn description(ctx: &Context, guild_id: Option<Id<GuildMarker>>) -> String
         `+hdhr`: scores that include at least HD and HR\n\
         `+hd!`: only HD scores\n\
         `-nm!`: scores that are not NoMod\n\
-        `-nfsohdez!`: scores that have neither NF, SO, HD, or EZ\n\
-        \n__**All commands:**__\n")
-}
-
-macro_rules! send_chunk {
-    ($ctx:ident, $msg:ident, $content:ident, $interval:ident) => {
-        let embed = EmbedBuilder::new().description($content).build();
-        let builder = MessageBuilder::new().embed(embed);
-        $interval.tick().await;
-
-        if let Err(err) = $msg.create_message(&$ctx, &builder).await {
-            let report = Report::new(err).wrap_err("error while sending help chunk");
-            warn!("{report:?}");
-            let content = "Could not DM you, perhaps you disabled it?";
-            $msg.error(&$ctx, content).await?;
-
-            return Ok(());
-        }
-    };
+        `-nfsohdez!`: scores that have neither NF, SO, HD, or EZ")
 }
 
 async fn dm_help(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     let owner = msg.author.id;
 
-    let authority_fut = check_authority(&ctx, owner, msg.guild_id);
-    let channel_fut = ctx.http.create_private_channel(owner).exec();
-
-    let (authority_result, channel_result) = tokio::join!(authority_fut, channel_fut);
-
-    let is_authority = matches!(authority_result, Ok(None));
-
-    let channel = match channel_result {
+    let channel = match ctx.http.create_private_channel(owner).exec().await {
         Ok(channel_res) => channel_res.model().await?.id,
         Err(err) => {
             let content = "Your DMs seem blocked :(\n\
@@ -282,79 +256,194 @@ async fn dm_help(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
         let _ = msg.create_message(&ctx, &builder).await;
     }
 
-    let mut buf = description(&ctx, msg.guild_id).await;
+    let desc = description(&ctx, msg.guild_id).await;
+    let embed = EmbedBuilder::new().description(desc).build();
+    let components = help_select_menu(None);
+    let builder = MessageBuilder::new().embed(embed).components(components);
 
-    let mut curr_group = PrefixCommandGroup::AllModes;
-
-    let _ = writeln!(
-        buf,
-        "\n{} __**{}**__",
-        curr_group.emote(),
-        curr_group.name(),
-    );
-
-    let mut size = buf.len();
-    let mut next_size;
-
-    debug_assert!(
-        size < DESCRIPTION_SIZE,
-        "description size {size} > {DESCRIPTION_SIZE}",
-    );
-
-    let mut cmds: Vec<_> = PrefixCommands::get().iter().collect();
-
-    cmds.sort_unstable_by(|a, b| a.group.cmp(&b.group).then_with(|| a.name().cmp(b.name())));
-    cmds.dedup_by_key(|cmd| cmd.name());
-
-    let mut interval = interval(Duration::from_millis(100));
-    interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
-
-    for cmd in cmds {
-        // Next group
-        if cmd.group != curr_group {
-            curr_group = cmd.group;
-            let emote = cmd.group.emote();
-            let name = cmd.group.name();
-
-            next_size = emote.len() + name.len() + 11;
-
-            if size + next_size > DESCRIPTION_SIZE {
-                send_chunk!(ctx, channel, buf, interval);
-                buf = String::with_capacity(DESCRIPTION_SIZE);
-                size = 0;
-            }
-
-            size += next_size;
-            let _ = writeln!(buf, "\n{emote} __**{name}**__");
-        }
-
-        let name = cmd.name();
-
-        next_size = (cmd.flags.authority()) as usize * 4 + 5 + name.len() + cmd.desc.len();
-
-        if size + next_size > DESCRIPTION_SIZE {
-            send_chunk!(ctx, channel, buf, interval);
-            buf = String::with_capacity(DESCRIPTION_SIZE);
-            size = 0;
-        }
-
-        size += next_size;
-
-        let _ = writeln!(
-            buf,
-            "{strikethrough}`{name}`{strikethrough}: {}",
-            cmd.desc,
-            strikethrough = if cmd.flags.authority() && !is_authority {
-                "~~"
-            } else {
-                ""
-            }
-        );
-    }
-
-    if !buf.is_empty() {
-        send_chunk!(ctx, channel, buf, interval);
+    if let Err(err) = channel.create_message(&ctx, &builder).await {
+        let report = Report::new(err).wrap_err("error while sending help chunk");
+        warn!("{report:?}");
+        let content = "Could not DM you, perhaps you disabled it?";
+        msg.error(&ctx, content).await?;
     }
 
     Ok(())
+}
+
+pub async fn handle_help_category(
+    ctx: &Context,
+    mut component: InteractionComponent,
+) -> BotResult<()> {
+    let value = component
+        .data
+        .values
+        .pop()
+        .ok_or(InvalidHelpState::MissingValue)?;
+
+    let group = match value.as_str() {
+        "general" => {
+            let desc = description(ctx, None).await;
+            let embed = EmbedBuilder::new().description(desc).build();
+            let components = help_select_menu(None);
+            let builder = MessageBuilder::new().embed(embed).components(components);
+
+            component.callback(ctx, builder).await?;
+
+            return Ok(());
+        }
+        "osu" => PrefixCommandGroup::Osu,
+        "taiko" => PrefixCommandGroup::Taiko,
+        "ctb" => PrefixCommandGroup::Catch,
+        "mania" => PrefixCommandGroup::Mania,
+        "all_modes" => PrefixCommandGroup::AllModes,
+        "tracking" => PrefixCommandGroup::Tracking,
+        "twitch" => PrefixCommandGroup::Twitch,
+        "games" => PrefixCommandGroup::Games,
+        "utility" => PrefixCommandGroup::Utility,
+        "songs" => PrefixCommandGroup::Songs,
+        _ => return Err(InvalidHelpState::UnknownValue(value).into()),
+    };
+
+    let mut cmds: Vec<_> = {
+        let mut dedups = HashSet::new();
+
+        PrefixCommands::get()
+            .iter()
+            .filter(|cmd| cmd.group == group)
+            .filter(|cmd| dedups.insert(cmd.name()))
+            .collect()
+    };
+
+    cmds.sort_unstable_by_key(|cmd| cmd.name());
+
+    let mut desc = String::with_capacity(64);
+
+    let emote = group.emote();
+    let name = group.name();
+    let _ = writeln!(desc, "{emote} __**{name}**__");
+
+    for cmd in cmds {
+        let name = cmd.name();
+        let authority = if cmd.flags.authority() { "**\\***" } else { "" };
+        let _ = writeln!(desc, "`{name}`{authority}: {}", cmd.desc);
+    }
+
+    let footer = FooterBuilder::new(
+        "*: Either can't be used in DMs or \
+        require authority status in the server",
+    );
+
+    let embed = EmbedBuilder::new().description(desc).footer(footer).build();
+    let components = help_select_menu(Some(group));
+    let builder = MessageBuilder::new().embed(embed).components(components);
+
+    component.callback(ctx, builder).await?;
+
+    Ok(())
+}
+
+fn help_select_menu(default: Option<PrefixCommandGroup>) -> Vec<Component> {
+    let options = vec![
+        SelectMenuOption {
+            default: matches!(default, None),
+            description: None,
+            emoji: Some(ReactionType::Unicode {
+                name: "🛁".to_owned(),
+            }),
+            label: "General".to_owned(),
+            value: "general".to_owned(),
+        },
+        SelectMenuOption {
+            default: matches!(default, Some(PrefixCommandGroup::Osu)),
+            description: None,
+            emoji: Some(Emote::Std.reaction_type()),
+            label: "osu!".to_owned(),
+            value: "osu".to_owned(),
+        },
+        SelectMenuOption {
+            default: matches!(default, Some(PrefixCommandGroup::Taiko)),
+            description: None,
+            emoji: Some(Emote::Tko.reaction_type()),
+            label: "Taiko".to_owned(),
+            value: "taiko".to_owned(),
+        },
+        SelectMenuOption {
+            default: matches!(default, Some(PrefixCommandGroup::Catch)),
+            description: None,
+            emoji: Some(Emote::Ctb.reaction_type()),
+            label: "Catch".to_owned(),
+            value: "ctb".to_owned(),
+        },
+        SelectMenuOption {
+            default: matches!(default, Some(PrefixCommandGroup::Mania)),
+            description: None,
+            emoji: Some(Emote::Mna.reaction_type()),
+            label: "Mania".to_owned(),
+            value: "mania".to_owned(),
+        },
+        SelectMenuOption {
+            default: matches!(default, Some(PrefixCommandGroup::AllModes)),
+            description: None,
+            emoji: Some(Emote::Osu.reaction_type()),
+            label: "All Modes".to_owned(),
+            value: "all_modes".to_owned(),
+        },
+        SelectMenuOption {
+            default: matches!(default, Some(PrefixCommandGroup::Tracking)),
+            description: None,
+            emoji: Some(Emote::Tracking.reaction_type()),
+            label: "Tracking".to_owned(),
+            value: "tracking".to_owned(),
+        },
+        SelectMenuOption {
+            default: matches!(default, Some(PrefixCommandGroup::Twitch)),
+            description: None,
+            emoji: Some(Emote::Twitch.reaction_type()),
+            label: "Twitch".to_owned(),
+            value: "twitch".to_owned(),
+        },
+        SelectMenuOption {
+            default: matches!(default, Some(PrefixCommandGroup::Games)),
+            description: None,
+            emoji: Some(ReactionType::Unicode {
+                name: "🎮".to_owned(),
+            }),
+            label: "Games".to_owned(),
+            value: "games".to_owned(),
+        },
+        SelectMenuOption {
+            default: matches!(default, Some(PrefixCommandGroup::Utility)),
+            description: None,
+            emoji: Some(ReactionType::Unicode {
+                name: "🛠️".to_owned(),
+            }),
+            label: "Utility".to_owned(),
+            value: "utility".to_owned(),
+        },
+        SelectMenuOption {
+            default: matches!(default, Some(PrefixCommandGroup::Songs)),
+            description: None,
+            emoji: Some(ReactionType::Unicode {
+                name: "🎵".to_owned(),
+            }),
+            label: "Songs".to_owned(),
+            value: "songs".to_owned(),
+        },
+    ];
+
+    let category = SelectMenu {
+        custom_id: "help_category".to_owned(),
+        disabled: false,
+        max_values: Some(1),
+        min_values: Some(1),
+        options,
+        placeholder: None,
+    };
+
+    let category_row = ActionRow {
+        components: vec![Component::SelectMenu(category)],
+    };
+
+    vec![Component::ActionRow(category_row)]
 }

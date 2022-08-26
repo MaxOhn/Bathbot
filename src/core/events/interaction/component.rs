@@ -3,7 +3,7 @@ use std::{mem, sync::Arc};
 use eyre::Report;
 
 use crate::{
-    commands::help::handle_help_component,
+    commands::help::{handle_help_category, handle_help_component},
     core::{events::log_command, Context},
     games::{bg::components::*, hl::components::*},
     pagination::components::*,
@@ -22,6 +22,7 @@ pub async fn handle_component(ctx: Arc<Context>, mut component: InteractionCompo
         "bg_start_effects" => handle_bg_start_effects(&ctx, component).await,
         "bg_start_button" => handle_bg_start_button(ctx, component).await,
         "bg_start_cancel" => handle_bg_start_cancel(&ctx, component).await,
+        "help_category" => handle_help_category(&ctx, component).await,
         "higher_button" => handle_higher(ctx, component).await,
         "lower_button" => handle_lower(ctx, component).await,
         "try_again_button" => handle_try_again(ctx, component).await,

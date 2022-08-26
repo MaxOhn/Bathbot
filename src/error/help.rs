@@ -6,4 +6,8 @@ pub enum InvalidHelpState {
     MissingEmbed,
     #[error("missing embed title")]
     MissingTitle,
+    #[error("missing menu value")]
+    MissingValue,
+    #[error("got unexpected value `{0}`")]
+    UnknownValue(String),
 }

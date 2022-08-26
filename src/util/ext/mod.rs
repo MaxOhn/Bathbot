@@ -1,11 +1,10 @@
 pub use self::{
-    authored::Authored, autocomplete::AutocompleteExt, channel::ChannelExt,
+    authored::Authored, channel::ChannelExt,
     component::ComponentExt, interaction_command::InteractionCommandExt, map::BeatmapExt,
     message::MessageExt, modal::*, score::ScoreExt,
 };
 
 mod authored;
-mod autocomplete;
 mod channel;
 mod component;
 mod interaction_command;

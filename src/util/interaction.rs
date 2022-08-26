@@ -17,18 +17,6 @@ use crate::{BotResult, Error};
 use super::Authored;
 
 #[derive(Debug)]
-pub struct InteractionAutoComplete {
-    pub permissions: Option<Permissions>,
-    pub channel_id: Id<ChannelMarker>,
-    pub data: Box<CommandData>,
-    pub guild_id: Option<Id<GuildMarker>>,
-    pub id: Id<InteractionMarker>,
-    pub member: Option<PartialMember>,
-    pub token: String,
-    pub user: Option<User>,
-}
-
-#[derive(Debug)]
 pub struct InteractionCommand {
     pub permissions: Option<Permissions>,
     pub channel_id: Id<ChannelMarker>,
@@ -91,7 +79,6 @@ macro_rules! impl_authored {
 }
 
 impl_authored! {
-    InteractionAutoComplete,
     InteractionCommand,
     InteractionComponent,
     InteractionModal,
