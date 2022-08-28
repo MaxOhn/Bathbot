@@ -299,7 +299,7 @@ async fn prefix_toptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Bo
     "vaxei -dt! combo=1234 sort=length",
     "peppy combo=200..500 grade=B reverse=true"
 )]
-#[alias("topc")]
+#[alias("topc", "topcatch", "topcatchthebeat")]
 #[group(Catch)]
 async fn prefix_topctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match TopArgs::args(Some(GameMode::Catch), args) {
