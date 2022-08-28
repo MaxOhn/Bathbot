@@ -14,7 +14,7 @@ use crate::{
     },
     util::{
         builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
-        constants::{BATHBOT_GITHUB, BATHBOT_WORKSHOP, INVITE_LINK, KOFI},
+        constants::{BATHBOT_GITHUB, BATHBOT_ROADMAP, BATHBOT_WORKSHOP, INVITE_LINK, KOFI},
         datetime::how_long_ago_dynamic,
         interaction::InteractionCommand,
         levenshtein_distance,
@@ -100,7 +100,10 @@ async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Bot
     let join_server = EmbedField {
         inline: false,
         name: "Got a question, suggestion, bug, or are interested in the development?".to_owned(),
-        value: format!("Feel free to join the [discord server]({BATHBOT_WORKSHOP})"),
+        value: format!(
+            "Feel free to join the [discord server]({BATHBOT_WORKSHOP}).\n\
+            [This roadmap]({BATHBOT_ROADMAP}) shows already suggested features and known bugs.",
+        ),
     };
 
     let command_help = EmbedField {

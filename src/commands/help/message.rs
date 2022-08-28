@@ -17,7 +17,7 @@ use crate::{
     error::InvalidHelpState,
     util::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder},
-        constants::BATHBOT_WORKSHOP,
+        constants::{BATHBOT_ROADMAP, BATHBOT_WORKSHOP},
         interaction::InteractionComponent,
         levenshtein_distance, ChannelExt, ComponentExt, Emote,
     },
@@ -213,25 +213,27 @@ async fn description(ctx: &Context, guild_id: Option<Id<GuildMarker>>) -> String
         |p| format!("Server prefix: {p}\nDM prefix: `<` or none at all"),
     );
 
-    format!(":fire: **Slash commands now supported!** Type `/` to check them out :fire:\n\n\
+    format!(
+        ":fire: **Slash commands now supported!** Type `/` to check them out :fire:\n\n\
         {prefix_desc}\n\
         __**General**__\n\
-        - To find out more about a command like what arguments you can give or which shorter aliases it has, \
-        use __**`{first_prefix}help [command]`**__, e.g. `{first_prefix}help simulate`.
+        - To find out more about a command like what arguments you can give or which shorter aliases \
+        it has,  use __**`{first_prefix}help [command]`**__, e.g. `{first_prefix}help simulate`.
         - If you want to specify an argument, e.g. a username, that contains \
         spaces, you must encapsulate it with `\"` i.e. `\"nathan on osu\"`.\n\
-        - If you've used the `/link` command to connect to an osu! account, you can omit the username for any command that needs one.\n\
-        - ~~`Strikethrough`~~ commands indicate that either you can't use them in DMs or \
-        you lack authority status in the server.\n\
+        - If you've used the `/link` command to connect to an osu! account, \
+        you can omit the username for any command that needs one.\n\
         - If you have questions, complains, or suggestions for the bot, feel free to join its \
         [discord server]({BATHBOT_WORKSHOP}) and let Badewanne3 know.\n\
+        [This roadmap]({BATHBOT_ROADMAP}) shows already suggested features and known bugs.\n\
         __**Mods for osu!**__
         Many commands allow you to specify mods. You can do so with `+mods` \
         for included mods, `+mods!` for exact mods, or `-mods!` for excluded mods. For example:\n\
         `+hdhr`: scores that include at least HD and HR\n\
         `+hd!`: only HD scores\n\
         `-nm!`: scores that are not NoMod\n\
-        `-nfsohdez!`: scores that have neither NF, SO, HD, or EZ")
+        `-nfsohdez!`: scores that have neither NF, SO, HD, or EZ"
+    )
 }
 
 async fn dm_help(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
@@ -330,8 +332,7 @@ pub async fn handle_help_category(
     }
 
     let footer = FooterBuilder::new(
-        "*: Either can't be used in DMs or \
-        require authority status in the server",
+        "*: Either can't be used in DMs or requires authority status in the server",
     );
 
     let embed = EmbedBuilder::new().description(desc).footer(footer).build();
