@@ -1,7 +1,7 @@
 use std::{borrow::Cow, fmt::Write, sync::Arc};
 
 use command_macros::command;
-use rosu_v2::prelude::{GameMode, Grade, OsuError};
+use rosu_v2::prelude::{GameMode, GameMods, Grade, OsuError};
 
 use crate::{
     commands::{
@@ -264,8 +264,14 @@ pub(super) async fn list(
     }
 
     match mods {
+        Some(ModSelection::Include(GameMods::NoMod)) => {
+            scores.retain(|score| score.mods.is_empty())
+        }
         Some(ModSelection::Include(mods)) => scores.retain(|score| score.mods.contains(mods)),
         Some(ModSelection::Exact(mods)) => scores.retain(|score| score.mods == mods),
+        Some(ModSelection::Exclude(GameMods::NoMod)) => {
+            scores.retain(|score| !score.mods.is_empty())
+        }
         Some(ModSelection::Exclude(mods)) => {
             scores.retain(|score| score.mods.intersection(mods).is_empty())
         }
