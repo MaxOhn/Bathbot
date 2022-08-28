@@ -51,7 +51,13 @@ static HTML_TEMPLATE: Lazy<Handlebars<'static>> = Lazy::new(|| {
 });
 
 #[derive(CommandModel, CreateCommand, SlashCommand, HasName)]
-#[command(name = "card")]
+#[command(
+    name = "card",
+    help = "Create a visual user card containing various fun values about the user.\n\
+    The titles are based on the user's skill set, skill level, and favourite mods.\n\
+    The background is based on the skill level.\n\
+    Note that only the user's top100 is considered while calculating the values."
+)]
 /// Create a user card
 pub struct Card {
     /// Specify a gamemode
