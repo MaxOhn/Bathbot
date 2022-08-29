@@ -185,7 +185,7 @@ pub enum FarmFilter {
     "vaxei -dt! combo=1234 sort=length",
     "peppy combo=200..500 grade=B reverse=true"
 )]
-#[aliases("topscores", "osutop")]
+#[aliases("topscores", "toposu", "topstd", "topstandard", "topo", "tops")]
 #[group(Osu)]
 async fn prefix_top(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match TopArgs::args(None, args) {
@@ -335,7 +335,14 @@ async fn prefix_topctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotR
     "vaxei -dt! combo=1234",
     "peppy combo=200..500 grade=B reverse=true"
 )]
-#[alias("rb")]
+#[alias(
+    "rb",
+    "rbo",
+    "rbs",
+    "recentbestosu",
+    "recentbeststd",
+    "recentbeststandard"
+)]
 #[group(Osu)]
 async fn prefix_recentbest(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     match TopArgs::args(None, args) {
