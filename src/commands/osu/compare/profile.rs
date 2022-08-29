@@ -183,9 +183,9 @@ pub(super) async fn profile(
 )]
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
-#[aliases("oc", "compareosu", "co")]
+#[aliases("pc", "profilecompareosu", "pco")]
 #[group(Osu)]
-async fn prefix_osucompare(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_profilecompare(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
     let args = CompareProfile::args(None, args);
 
     profile(ctx, msg.into(), args).await
@@ -201,9 +201,13 @@ async fn prefix_osucompare(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> 
 )]
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
-#[alias("ocm")]
+#[alias("pcm")]
 #[group(Mania)]
-async fn prefix_osucomparemania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_profilecomparemania(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+) -> BotResult<()> {
     let args = CompareProfile::args(Some(GameModeOption::Mania), args);
 
     profile(ctx, msg.into(), args).await
@@ -219,9 +223,13 @@ async fn prefix_osucomparemania(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 )]
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
-#[alias("oct")]
+#[alias("pct")]
 #[group(Taiko)]
-async fn prefix_osucomparetaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_profilecomparetaiko(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+) -> BotResult<()> {
     let args = CompareProfile::args(Some(GameModeOption::Taiko), args);
 
     profile(ctx, msg.into(), args).await
@@ -237,9 +245,13 @@ async fn prefix_osucomparetaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 )]
 #[usage("[username1] [username2]")]
 #[example("badewanne3 5joshi")]
-#[aliases("occ", "osucomparecatch")]
+#[aliases("pcc", "profilecomparecatch")]
 #[group(Catch)]
-async fn prefix_osucomparectb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_profilecomparectb(
+    ctx: Arc<Context>,
+    msg: &Message,
+    args: Args<'_>,
+) -> BotResult<()> {
     let args = CompareProfile::args(Some(GameModeOption::Catch), args);
 
     profile(ctx, msg.into(), args).await
