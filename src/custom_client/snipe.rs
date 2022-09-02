@@ -1,8 +1,4 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    fmt,
-    str::FromStr,
-};
+use std::{collections::BTreeMap, fmt};
 
 use rosu_v2::{
     model::{GameMode, GameMods},
@@ -156,136 +152,55 @@ pub struct SnipePlayerOldest {
     pub date: Option<OffsetDateTime>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub struct SnipeRecent {
     pub sniped: Option<Username>,
     pub sniped_id: Option<u32>,
     pub sniper: Username,
     pub sniper_id: u32,
     pub mods: GameMods,
-    pub beatmap_id: u32,
+    pub map_id: u32,
     pub map: String,
+    #[serde(with = "deserialize::datetime")]
     pub date: OffsetDateTime,
+    #[serde(with = "deserialize::adjust_acc")]
     pub accuracy: f32,
+    #[serde(rename = "sr", deserialize_with = "deserialize_stars")]
     pub stars: Option<f32>,
 }
 
-impl<'de> Deserialize<'de> for SnipeRecent {
-    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        struct SnipeRecentVisitor;
+pub fn deserialize_stars<'de, D: Deserializer<'de>>(d: D) -> Result<Option<f32>, D::Error> {
+    d.deserialize_any(StarsVisitor)
+}
 
-        impl<'de> Visitor<'de> for SnipeRecentVisitor {
-            type Value = SnipeRecent;
+struct StarsVisitor;
 
-            #[inline]
-            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("struct SnipeRecent")
-            }
+impl<'de> Visitor<'de> for StarsVisitor {
+    type Value = Option<f32>;
 
-            fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
-            where
-                V: MapAccess<'de>,
-            {
-                let mut sniped: Option<Option<&str>> = None;
-                let mut sniped_id = None;
-                let mut sniper: Option<&str> = None;
-                let mut sniper_id = None;
-                let mut mods: Option<GameMods> = None;
-                let mut beatmap_id = None;
-                let mut beatmap = None;
-                let mut date: Option<String> = None;
-                let mut accuracy = None;
-                let mut sr_map: Option<HashMap<GameMods, Option<f32>>> = None;
+    #[inline]
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("a stringified f32 or -1")
+    }
 
-                while let Some(key) = map.next_key()? {
-                    match key {
-                        "date" => date = Some(map.next_value()?),
-                        "map_id" => beatmap_id = Some(map.next_value()?),
-                        "sniped" => sniped = Some(map.next_value()?),
-                        "sniped_id" => sniped_id = Some(map.next_value()?),
-                        "sniper" => sniper = Some(map.next_value()?),
-                        "sniper_id" => sniper_id = Some(map.next_value()?),
-                        "mods" => mods = Some(map.next_value()?),
-                        "accuracy" => accuracy = Some(map.next_value()?),
-                        "map" => beatmap = Some(map.next_value()?),
-                        "sr" => sr_map = Some(map.next_value()?),
-                        _ => {
-                            let _ = map.next_value::<IgnoredAny>();
-                        }
-                    }
-                }
+    #[inline]
+    fn visit_i64<E: Error>(self, _: i64) -> Result<Self::Value, E> {
+        Ok(None)
+    }
 
-                let mods = mods.ok_or_else(|| Error::missing_field("mods"))?;
-                let stars = sr_map.ok_or_else(|| Error::missing_field("sr"))?;
-
-                let (_, stars) =
-                    stars
-                        .into_iter()
-                        .fold((0, None), |(max_len, mod_sr), (curr_mods, sr)| {
-                            let len = (mods & curr_mods).len();
-
-                            if max_len < len && curr_mods.len() == len {
-                                (len, sr)
-                            } else {
-                                (max_len, mod_sr)
-                            }
-                        });
-
-                let sniped = sniped.flatten().map(Username::from);
-                let sniped_id = sniped_id.flatten();
-                let sniper = sniper.ok_or_else(|| Error::missing_field("sniper"))?;
-                let sniper_id = sniper_id.ok_or_else(|| Error::missing_field("sniper_id"))?;
-                let beatmap_id = beatmap_id.ok_or_else(|| Error::missing_field("beatmap_id"))?;
-                let date = date.ok_or_else(|| Error::missing_field("date"))?;
-
-                let date = PrimitiveDateTime::parse(&date, DATETIME_FORMAT)
-                    .map(PrimitiveDateTime::assume_utc)
-                    .map_err(|_| {
-                        Error::invalid_value(Unexpected::Str(&date), &"a date of the form `%F %T`")
-                    })?;
-
-                let accuracy = accuracy.ok_or_else(|| Error::missing_field("accuracy"))?;
-                let beatmap = beatmap.ok_or_else(|| Error::missing_field("map"))?;
-
-                let snipe = SnipeRecent {
-                    sniped,
-                    sniped_id,
-                    sniper: sniper.into(),
-                    sniper_id,
-                    mods,
-                    beatmap_id,
-                    map: beatmap,
-                    date,
-                    accuracy,
-                    stars,
-                };
-
-                Ok(snipe)
-            }
-        }
-
-        const FIELDS: &[&str] = &[
-            "sniped",
-            "sniped_id",
-            "sniper",
-            "sniper_id",
-            "mods",
-            "beatmap_id",
-            "map",
-            "date",
-            "accuracy",
-            "stars",
-        ];
-
-        d.deserialize_struct("SnipeRecent", FIELDS, SnipeRecentVisitor)
+    #[inline]
+    fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+        v.parse()
+            .map(Some)
+            .map_err(|_| Error::invalid_value(Unexpected::Str(v), &self))
     }
 }
 
 #[derive(Debug)]
 pub struct SnipeScore {
     pub accuracy: f32,
-    pub beatmap_id: u32,
-    pub beatmapset_id: u32,
+    pub map_id: u32,
+    pub mapset_id: u32,
     pub count_100: u32,
     pub count_50: u32,
     pub count_miss: u32,
@@ -308,6 +223,7 @@ struct InnerScore<'s> {
     count_50: u32,
     count_miss: u32,
     date_set: &'s str,
+    #[serde(default)]
     sr: Option<f32>,
 }
 
@@ -330,14 +246,11 @@ impl<'de> Deserialize<'de> for SnipeScore {
                 let mut inner_score: Option<InnerScore<'_>> = None;
                 let mut map_id = None;
                 let mut mapset_id = None;
-                // Don't parse mods just yet since it might be unnecessary
-                let mut star_ratings: Option<HashMap<&str, Option<f32>>> = None;
 
                 while let Some(key) = map.next_key()? {
                     match key {
                         "map_id" => map_id = Some(map.next_value()?),
                         "set_id" => mapset_id = Some(map.next_value()?),
-                        "new_star_ratings" => star_ratings = Some(map.next_value()?),
                         other if inner_score.is_none() && other.starts_with("top_") => {
                             inner_score = Some(map.next_value()?)
                         }
@@ -351,8 +264,6 @@ impl<'de> Deserialize<'de> for SnipeScore {
                 let map_id = map_id.ok_or_else(|| Error::missing_field("map_id"))?;
                 let mapset_id = mapset_id.ok_or_else(|| Error::missing_field("mapset_id"))?;
 
-                let mods = inner_score.mods;
-
                 let date = PrimitiveDateTime::parse(inner_score.date_set, DATETIME_FORMAT)
                     .map(PrimitiveDateTime::assume_utc)
                     .unwrap_or_else(|err| {
@@ -361,28 +272,18 @@ impl<'de> Deserialize<'de> for SnipeScore {
                         OffsetDateTime::now_utc()
                     });
 
-                let stars = inner_score.sr.unwrap_or_else(|| {
-                    star_ratings
-                        .and_then(|srs| {
-                            srs.into_iter()
-                                .find(|(m, _)| GameMods::from_str(m).map_or(false, |m| m == mods))
-                        })
-                        .and_then(|(_, sr)| sr)
-                        .unwrap_or(0.0)
-                });
-
                 let score = SnipeScore {
                     accuracy: inner_score.accuracy * 100.0,
-                    beatmap_id: map_id,
-                    beatmapset_id: mapset_id,
+                    map_id,
+                    mapset_id,
                     count_100: inner_score.count_100,
                     count_50: inner_score.count_50,
                     count_miss: inner_score.count_miss,
-                    mods,
+                    mods: inner_score.mods,
                     pp: inner_score.pp,
                     score: inner_score.score,
                     score_date: date,
-                    stars,
+                    stars: inner_score.sr.unwrap_or(0.0),
                     user_id: inner_score.player_id,
                 };
 

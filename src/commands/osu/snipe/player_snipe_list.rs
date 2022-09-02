@@ -142,7 +142,7 @@ pub(super) async fn player_list(
     let map_ids: Vec<_> = scores
         .values()
         .take(5)
-        .map(|score| score.beatmap_id as i32)
+        .map(|score| score.map_id as i32)
         .collect();
 
     let mut maps = match ctx.psql().get_beatmaps(&map_ids, true).await {

@@ -51,7 +51,7 @@ impl PlayerSnipeListPagination {
         let map_ids: Vec<_> = self
             .scores
             .range(pages.index..pages.index + pages.per_page)
-            .map(|(_, score)| score.beatmap_id)
+            .map(|(_, score)| score.map_id)
             .filter(|map_id| !self.maps.contains_key(map_id))
             .map(|id| id as i32)
             .collect();

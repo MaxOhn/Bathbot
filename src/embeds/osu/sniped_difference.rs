@@ -52,14 +52,14 @@ impl SnipedDiffEmbed {
                 Some(stars) => stars,
                 None => {
                     #[allow(clippy::map_entry)]
-                    if !maps.contains_key(&score.beatmap_id) {
-                        let map_path = prepare_beatmap_file(ctx, score.beatmap_id).await?;
+                    if !maps.contains_key(&score.map_id) {
+                        let map_path = prepare_beatmap_file(ctx, score.map_id).await?;
                         let map = Beatmap::from_path(map_path).await.map_err(PpError::from)?;
 
-                        maps.insert(score.beatmap_id, map);
+                        maps.insert(score.map_id, map);
                     }
 
-                    let map = maps.get(&score.beatmap_id).unwrap();
+                    let map = maps.get(&score.map_id).unwrap();
 
                     map.stars().mods(score.mods.bits()).calculate().stars() as f32
                 }
@@ -70,9 +70,9 @@ impl SnipedDiffEmbed {
                 "**{idx}. [{map}]({OSU_BASE}b/{id}) {mods}**\n[{stars:.2}★] ~ ({acc}%) ~ ",
                 idx = idx + 1,
                 map = score.map.cow_escape_markdown(),
-                id = score.beatmap_id,
+                id = score.map_id,
                 mods = osu::get_mods(score.mods),
-                acc = round(100.0 * score.accuracy),
+                acc = round(score.accuracy),
             );
 
             let _ = match diff {
