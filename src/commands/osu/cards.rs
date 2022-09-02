@@ -15,7 +15,7 @@ use rosu_pp::{
 };
 use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score, User};
 use serde::{Serialize, Serializer};
-use serde_json::{json, Value};
+use serde_json::{Map, Value};
 use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
@@ -27,7 +27,7 @@ use crate::{
     error::PpError,
     util::{
         builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
         datetime::DATE_FORMAT,
         interaction::InteractionCommand,
         osu::{flag_url_svg, prepare_beatmap_file},
@@ -84,16 +84,27 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> BotRe
 
     let user_args = UserArgs::new(&name, mode);
     let scores_args = ScoreArgs::top(100);
+    let redis = ctx.redis();
 
-    let (mut user, scores) = match get_user_and_scores(&ctx, user_args, &scores_args).await {
-        Ok((user, scores)) => (user, scores),
-        Err(OsuError::NotFound) => {
+    let res = tokio::join!(
+        get_user_and_scores(&ctx, user_args, &scores_args),
+        redis.medals()
+    );
+
+    let (mut user, scores, medals_overall) = match res {
+        (Ok((user, scores)), Ok(medals)) => (user, scores, medals.get().len()),
+        (Err(OsuError::NotFound), _) => {
             let content = format!("User `{name}` was not found");
 
             return orig.error(&ctx, content).await;
         }
-        Err(err) => {
+        (Err(err), _) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+
+            return Err(err.into());
+        }
+        (_, Err(err)) => {
+            let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
             return Err(err.into());
         }
@@ -102,7 +113,7 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> BotRe
     user.mode = mode;
 
     let render_data = match Skills::calculate(&ctx, mode, &scores).await {
-        Ok(skills) => skills.render_data(&user, &scores),
+        Ok(skills) => skills.render_data(&user, &scores, medals_overall),
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
@@ -373,24 +384,53 @@ impl Skills {
         Title { prefix, mods, main }
     }
 
-    fn render_data(&self, user: &User, scores: &[Score]) -> Value {
+    fn render_data(&self, user: &User, scores: &[Score], medals_overall: usize) -> Value {
         let stats = user.statistics.as_ref().expect("missing user statistics");
+
         let title = self.evaluate_title(user.mode, scores);
-        let path = &BotConfig::get().paths.cards;
-        let flag = flag_url_svg(&user.country_code);
-        let now = OffsetDateTime::now_utc().format(&DATE_FORMAT).unwrap();
-        let background = format!("img/backgrounds/{}.png", title.prefix.background());
+        let medal_count = user.medals.as_ref().map_or(0, Vec::len);
+        let medal_percentage = 100 * medal_count / medals_overall;
+
+        let medal_club = match medal_percentage {
+            _ if medal_percentage < 40 => "colnoclub",
+            _ if medal_percentage < 60 => "col40club",
+            _ if medal_percentage < 80 => "col60club",
+            _ if medal_percentage < 90 => "col80club",
+            _ if medal_percentage < 95 => "col90club",
+            _ => "col95club",
+        };
+
+        let mut map = Map::new();
+
+        macro_rules! insert_map {
+            ($($key:literal:$value:expr,)*) => {
+                $( map.insert($key.to_owned(), serde_json::to_value(&$value).unwrap()); )*
+            }
+        }
+
+        insert_map! {
+            "path": BotConfig::get().paths.cards,
+            "title": title,
+            "username": user.username,
+            "flag": flag_url_svg(&user.country_code),
+            "user_pfp": user.avatar_url,
+            "global_rank": stats.global_rank.unwrap_or(0),
+            "country_rank": stats.country_rank.unwrap_or(0),
+            "level": stats.level.current,
+            "level_percentage": stats.level.progress,
+            "date": OffsetDateTime::now_utc().format(&DATE_FORMAT).unwrap(),
+            "medal_count": medal_count,
+            "medal_percentage": medal_percentage,
+            "medals_overall": medals_overall,
+            "medal_club": medal_club,
+            "background_image": format!("img/backgrounds/{}.png", title.prefix.background()),
+        };
 
         match self {
             Skills::Osu { acc, aim, speed } => {
-                json!({
-                    "path": path,
+                insert_map! {
                     "gamemode": "mode_standard",
-                    "title": title,
-                    "username": user.username,
-                    "flag": flag,
                     "gamemode_icon": "img/gamemodes/Standard.svg",
-                    "user_pfp": user.avatar_url,
                     "accuracy_enabled": "show",
                     "accuracy": acc.trunc(),
                     "accuracy_decimal": (acc.fract() * 100.0).round() as u32,
@@ -406,23 +446,12 @@ impl Skills {
                     "movement_enabled": "hidden",
                     "movement": 0.0,
                     "movement_decimal": 0.0,
-                    "global_rank": stats.global_rank.unwrap_or(0),
-                    "country_rank": stats.country_rank.unwrap_or(0),
-                    "level": stats.level.current,
-                    "level_percentage": stats.level.progress,
-                    "date": now,
-                    "background_image": background,
-                })
+                }
             }
             Skills::Taiko { acc, strain } => {
-                json!({
-                    "path": path,
+                insert_map! {
                     "gamemode": "mode_taiko",
-                    "title": title,
-                    "username": user.username,
-                    "flag": flag,
                     "gamemode_icon": "img/gamemodes/Taiko.svg",
-                    "user_pfp": user.avatar_url,
                     "accuracy_enabled": "show",
                     "accuracy": acc.trunc(),
                     "accuracy_decimal": (acc.fract() * 100.0).round() as u32,
@@ -438,23 +467,12 @@ impl Skills {
                     "movement_enabled": "hidden",
                     "movement": 0.0,
                     "movement_decimal": 0.0,
-                    "global_rank": stats.global_rank.unwrap_or(0),
-                    "country_rank": stats.country_rank.unwrap_or(0),
-                    "level": stats.level.current,
-                    "level_percentage": stats.level.progress,
-                    "date": now,
-                    "background_image": background,
-                })
+                }
             }
             Skills::Catch { acc, movement } => {
-                json!({
-                    "path": path,
+                insert_map! {
                     "gamemode": "mode_catch",
-                    "title": title,
-                    "username": user.username,
-                    "flag": flag,
                     "gamemode_icon": "img/gamemodes/Catch.svg",
-                    "user_pfp": user.avatar_url,
                     "accuracy_enabled": "show",
                     "accuracy": acc.trunc(),
                     "accuracy_decimal": (acc.fract() * 100.0).round() as u32,
@@ -470,23 +488,12 @@ impl Skills {
                     "movement_enabled": "show",
                     "movement": movement.trunc(),
                     "movement_decimal": (movement.fract() * 100.0).round() as u32,
-                    "global_rank": stats.global_rank.unwrap_or(0),
-                    "country_rank": stats.country_rank.unwrap_or(0),
-                    "level": stats.level.current,
-                    "level_percentage": stats.level.progress,
-                    "date": now,
-                    "background_image": background,
-                })
+                }
             }
             Skills::Mania { acc, strain } => {
-                json!({
-                    "path": path,
+                insert_map! {
                     "gamemode": "mode_mania",
-                    "title": title,
-                    "username": user.username,
-                    "flag": flag,
                     "gamemode_icon": "img/gamemodes/Mania.svg",
-                    "user_pfp": user.avatar_url,
                     "accuracy_enabled": "show",
                     "accuracy": acc.trunc(),
                     "accuracy_decimal": (acc.fract() * 100.0).round() as u32,
@@ -502,15 +509,11 @@ impl Skills {
                     "movement_enabled": "hidden",
                     "movement": 0.0,
                     "movement_decimal": 0.0,
-                    "global_rank": stats.global_rank.unwrap_or(0),
-                    "country_rank": stats.country_rank.unwrap_or(0),
-                    "level": stats.level.current,
-                    "level_percentage": stats.level.progress,
-                    "date": now,
-                    "background_image": background,
-                })
+                }
             }
-        }
+        };
+
+        Value::Object(map)
     }
 }
 
