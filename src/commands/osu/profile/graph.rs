@@ -299,13 +299,16 @@ fn draw_both(
     let (right_first, right_last, right_max) = first_last_max(replays);
     let right_label_area = replay_label_area(right_max);
 
+    let x_min = left_first.min(right_first);
+    let x_max = left_last.max(right_last);
+
     let mut chart = ChartBuilder::on(canvas)
         .margin(9_i32)
         .x_label_area_size(20_i32)
         .y_label_area_size(75_i32)
         .right_y_label_area_size(right_label_area)
-        .build_cartesian_2d(Monthly(left_first..left_last), 0..left_max)?
-        .set_secondary_coord(Monthly(right_first..right_last), 0..right_max);
+        .build_cartesian_2d(Monthly(x_min..x_max), 0..left_max)?
+        .set_secondary_coord(Monthly(x_min..x_max), 0..right_max);
 
     // Mesh and labels
     chart
