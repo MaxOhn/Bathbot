@@ -487,6 +487,7 @@ fn prepare_monthly_counts(
 }
 
 fn spoof_monthly_counts(counts: &mut Vec<MonthlyCount>) {
+    // Fill in months inbetween entries
     let (mut year, mut month) = match counts.as_slice() {
         [] | [_] => return,
         [first, ..] => (first.start_date.year(), first.start_date.month()),
@@ -509,5 +510,30 @@ fn spoof_monthly_counts(counts: &mut Vec<MonthlyCount>) {
         }
 
         i += 1;
+    }
+
+    // Pad months at the end
+    let now = OffsetDateTime::now_utc().date();
+    let mut next = counts[counts.len() - 1].start_date;
+
+    next = next.replace_month(next.month().next()).unwrap();
+
+    if next.month() == Month::January {
+        next = next.replace_year(next.year() + 1).unwrap();
+    }
+
+    while next < now {
+        let count = MonthlyCount {
+            start_date: next,
+            count: 0,
+        };
+
+        counts.push(count);
+
+        next = next.replace_month(next.month().next()).unwrap();
+
+        if next.month() == Month::January {
+            next = next.replace_year(next.year() + 1).unwrap();
+        }
     }
 }
