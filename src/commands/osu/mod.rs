@@ -661,25 +661,23 @@ impl ScoreOrder {
 
         match self {
             Self::Acc => {
-                scores.sort_unstable_by(|a, b| {
-                    b.acc().partial_cmp(&a.acc()).unwrap_or(Ordering::Equal)
-                });
+                scores.sort_by(|a, b| b.acc().partial_cmp(&a.acc()).unwrap_or(Ordering::Equal));
             }
-            Self::Bpm => scores.sort_unstable_by(|a, b| {
+            Self::Bpm => scores.sort_by(|a, b| {
                 let a_bpm = a.bpm() * clock_rate(a.mods());
                 let b_bpm = b.bpm() * clock_rate(b.mods());
 
                 b_bpm.partial_cmp(&a_bpm).unwrap_or(Ordering::Equal)
             }),
-            Self::Combo => scores.sort_unstable_by_key(|s| Reverse(s.max_combo())),
-            Self::Date => scores.sort_unstable_by_key(|s| Reverse(s.ended_at())),
-            Self::Length => scores.sort_unstable_by(|a, b| {
+            Self::Combo => scores.sort_by_key(|s| Reverse(s.max_combo())),
+            Self::Date => scores.sort_by_key(|s| Reverse(s.ended_at())),
+            Self::Length => scores.sort_by(|a, b| {
                 let a_len = a.seconds_drain() as f32 / clock_rate(a.mods());
                 let b_len = b.seconds_drain() as f32 / clock_rate(b.mods());
 
                 b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
             }),
-            Self::Misses => scores.sort_unstable_by(|a, b| {
+            Self::Misses => scores.sort_by(|a, b| {
                 b.n_misses().cmp(&a.n_misses()).then_with(|| {
                     let hits_a = a.total_hits_sort();
                     let hits_b = b.total_hits_sort();
@@ -693,8 +691,9 @@ impl ScoreOrder {
                         .then_with(|| hits_b.cmp(&hits_a))
                 })
             }),
-            Self::Pp => scores
-                .sort_unstable_by(|a, b| b.pp().partial_cmp(&a.pp()).unwrap_or(Ordering::Equal)),
+            Self::Pp => {
+                scores.sort_by(|a, b| b.pp().partial_cmp(&a.pp()).unwrap_or(Ordering::Equal))
+            }
             Self::RankedDate => {
                 let mut mapsets = HashMap::with_hasher(SimpleBuildHasher);
                 let mut new_mapsets = HashMap::with_hasher(SimpleBuildHasher);
@@ -756,7 +755,7 @@ impl ScoreOrder {
                     mapsets.extend(iter);
                 }
 
-                scores.sort_unstable_by(|a, b| {
+                scores.sort_by(|a, b| {
                     let mapset_a = a.mapset_id();
                     let mapset_b = b.mapset_id();
 
@@ -772,7 +771,7 @@ impl ScoreOrder {
                     date_a.cmp(&date_b)
                 })
             }
-            Self::Score => scores.sort_unstable_by_key(|score| Reverse(score.score())),
+            Self::Score => scores.sort_by_key(|score| Reverse(score.score())),
             Self::Stars => {
                 let mut stars = HashMap::with_hasher(SimpleBuildHasher);
 
@@ -798,7 +797,7 @@ impl ScoreOrder {
                     stars.insert(score_id, stars_);
                 }
 
-                scores.sort_unstable_by(|a, b| {
+                scores.sort_by(|a, b| {
                     let stars_a = stars.get(&a.score_id()).unwrap_or(&0.0);
                     let stars_b = stars.get(&b.score_id()).unwrap_or(&0.0);
 
