@@ -462,6 +462,10 @@ impl Skills {
             "background_image": format!("img/backgrounds/{}.png", title.prefix.background()),
         };
 
+        fn fract(f: &f64) -> String {
+            format!("{:02}", (f.fract() * 100.0).round())
+        }
+
         match self {
             Skills::Osu { acc, aim, speed } => {
                 insert_map! {
@@ -469,13 +473,13 @@ impl Skills {
                     "gamemode_icon": "img/gamemodes/Standard.svg",
                     "accuracy_enabled": "show",
                     "accuracy": acc.trunc(),
-                    "accuracy_decimal": (acc.fract() * 100.0).round() as u32,
+                    "accuracy_decimal": fract(acc),
                     "aim_enabled": "show",
                     "aim": aim.trunc(),
-                    "aim_decimal": (aim.fract() * 100.0).round() as u32,
+                    "aim_decimal": fract(aim),
                     "speed_enabled": "show",
                     "speed": speed.trunc(),
-                    "speed_decimal": (speed.fract() * 100.0).round() as u32,
+                    "speed_decimal": fract(speed),
                     "strain_enabled": "hidden",
                     "strain": 0.0,
                     "strain_decimal": 0.0,
@@ -490,7 +494,7 @@ impl Skills {
                     "gamemode_icon": "img/gamemodes/Taiko.svg",
                     "accuracy_enabled": "show",
                     "accuracy": acc.trunc(),
-                    "accuracy_decimal": (acc.fract() * 100.0).round() as u32,
+                    "accuracy_decimal": fract(acc),
                     "aim_enabled": "hidden",
                     "aim": 0.0,
                     "aim_decimal": 0.0,
@@ -499,7 +503,7 @@ impl Skills {
                     "speed_decimal": 0.0,
                     "strain_enabled": "show",
                     "strain": strain.trunc(),
-                    "strain_decimal": (strain.fract() * 100.0).round() as u32,
+                    "strain_decimal": fract(strain),
                     "movement_enabled": "hidden",
                     "movement": 0.0,
                     "movement_decimal": 0.0,
@@ -511,7 +515,7 @@ impl Skills {
                     "gamemode_icon": "img/gamemodes/Catch.svg",
                     "accuracy_enabled": "show",
                     "accuracy": acc.trunc(),
-                    "accuracy_decimal": (acc.fract() * 100.0).round() as u32,
+                    "accuracy_decimal": fract(acc),
                     "aim_enabled": "hidden",
                     "aim": 0.0,
                     "aim_decimal": 0.0,
@@ -523,7 +527,7 @@ impl Skills {
                     "strain_decimal": 0.0,
                     "movement_enabled": "show",
                     "movement": movement.trunc(),
-                    "movement_decimal": (movement.fract() * 100.0).round() as u32,
+                    "movement_decimal": fract(movement),
                 }
             }
             Skills::Mania { acc, strain } => {
@@ -532,7 +536,7 @@ impl Skills {
                     "gamemode_icon": "img/gamemodes/Mania.svg",
                     "accuracy_enabled": "show",
                     "accuracy": acc.trunc(),
-                    "accuracy_decimal": (acc.fract() * 100.0).round() as u32,
+                    "accuracy_decimal": fract(acc),
                     "aim_enabled": "hidden",
                     "aim": 0.0,
                     "aim_decimal": 0.0,
@@ -541,7 +545,7 @@ impl Skills {
                     "speed_decimal": 0.0,
                     "strain_enabled": "show",
                     "strain": strain.trunc(),
-                    "strain_decimal": (strain.fract() * 100.0).round() as u32,
+                    "strain_decimal": fract(strain),
                     "movement_enabled": "hidden",
                     "movement": 0.0,
                     "movement_decimal": 0.0,
