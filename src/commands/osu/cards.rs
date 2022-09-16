@@ -12,7 +12,7 @@ use rosu_pp::{
     catch::{CatchPerformanceAttributes, CatchScoreState},
     osu::OsuScoreState,
     taiko::TaikoScoreState,
-    Beatmap, CatchPP, ManiaPP, OsuPP, TaikoPP,
+    AnyPP, Beatmap, BeatmapExt, GameMode as Mode, OsuPP,
 };
 use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score, User};
 use serde::{Serialize, Serializer};
@@ -109,6 +109,13 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
             return Err(err.wrap_err("failed to get cached medals"));
         }
     };
+
+    if scores.is_empty() {
+        let content = "Looks like they don't have any scores on that mode";
+        orig.error(&ctx, content).await?;
+
+        return Ok(());
+    }
 
     user.mode = mode;
 
@@ -246,10 +253,10 @@ impl Skills {
                         misses: score.statistics.count_miss as usize,
                     };
 
-                    let attrs = TaikoPP::new(&map)
-                        .mods(score.mods.bits())
-                        .state(state)
-                        .calculate();
+                    let attrs = match map.pp().mode(Mode::Taiko) {
+                        AnyPP::Taiko(calc) => calc.mods(score.mods.bits()).state(state).calculate(),
+                        _ => unreachable!(),
+                    };
 
                     let acc_val = attrs.pp_acc / ACC_NERF;
                     let strain_val = attrs.pp_strain / STRAIN_NERF;
@@ -293,10 +300,12 @@ impl Skills {
                         misses: score.statistics.count_miss as usize,
                     };
 
-                    let CatchPerformanceAttributes { difficulty, pp } = CatchPP::new(&map)
-                        .mods(score.mods.bits())
-                        .state(state)
-                        .calculate();
+                    let attrs = match map.pp().mode(Mode::Catch) {
+                        AnyPP::Catch(calc) => calc.mods(score.mods.bits()).state(state).calculate(),
+                        _ => unreachable!(),
+                    };
+
+                    let CatchPerformanceAttributes { difficulty, pp } = attrs;
 
                     let acc_ = score.accuracy as f64;
                     let od = map.od as f64;
@@ -346,10 +355,12 @@ impl Skills {
                         .await
                         .wrap_err("failed to parse map")?;
 
-                    let attrs = ManiaPP::new(&map)
-                        .mods(score.mods.bits())
-                        .score(score.score)
-                        .calculate();
+                    let attrs = match map.pp().mode(Mode::Mania) {
+                        AnyPP::Mania(calc) => {
+                            calc.mods(score.mods.bits()).score(score.score).calculate()
+                        }
+                        _ => unreachable!(),
+                    };
 
                     let acc_ = score.accuracy as f64;
                     let od = score.map.as_ref().unwrap().od as f64;
