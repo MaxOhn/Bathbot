@@ -1,5 +1,6 @@
 use std::pin::Pin;
 
+use eyre::Result;
 use futures::Future;
 use once_cell::sync::OnceCell;
 use radix_trie::{Trie, TrieCommon};
@@ -7,7 +8,6 @@ use radix_trie::{Trie, TrieCommon};
 use crate::{
     commands::{fun::*, help::HELP_PREFIX, osu::*, songs::*, tracking::*, twitch::*, utility::*},
     util::Emote,
-    BotResult,
 };
 
 pub use self::{args::Args, command::PrefixCommand, stream::Stream};
@@ -34,7 +34,7 @@ macro_rules! prefix_trie {
 
 static PREFIX_COMMANDS: OnceCell<PrefixCommands> = OnceCell::new();
 
-pub type CommandResult<'fut> = Pin<Box<dyn Future<Output = BotResult<()>> + 'fut + Send>>;
+pub type CommandResult<'fut> = Pin<Box<dyn Future<Output = Result<()>> + 'fut + Send>>;
 
 type PrefixTrie = Trie<&'static str, &'static PrefixCommand>;
 

@@ -1,4 +1,3 @@
-use eyre::Report;
 use futures::stream::StreamExt;
 
 use crate::{games::bg::GameState, util::ChannelExt, Context};
@@ -34,8 +33,7 @@ impl Context {
                     }
                     Err(err) => {
                         let wrap = format!("error while stopping game in channel {channel}");
-                        let report = Report::new(err).wrap_err(wrap);
-                        warn!("{report:?}");
+                        warn!("{:?}", err.wrap_err(wrap));
                     }
                 },
                 GameState::Setup { .. } => {

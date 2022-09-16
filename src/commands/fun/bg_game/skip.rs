@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use eyre::Result;
 use twilight_model::channel::Message;
 
 use crate::{
@@ -9,10 +10,10 @@ use crate::{
         constants::{GENERAL_ISSUE, INVITE_LINK},
         ChannelExt,
     },
-    BotResult, Context,
+    Context,
 };
 
-pub async fn skip(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn skip(ctx: Arc<Context>, msg: &Message) -> Result<()> {
     if let Some(cooldown) = check_ratelimit(&ctx, msg.author.id, BucketName::BgSkip).await {
         trace!(
             "Ratelimiting user {} on bucket `BgSkip` for {cooldown} seconds",
@@ -33,7 +34,7 @@ pub async fn skip(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
             Err(err) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.into());
+                return Err(err.wrap_err("failed to restart game"));
             }
         },
         Some(GameState::Setup { author, .. }) => {

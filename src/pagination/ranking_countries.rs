@@ -1,11 +1,12 @@
 use command_macros::pagination;
+use eyre::{Result, WrapErr};
 use rosu_v2::prelude::{CountryRanking, GameMode};
-use std::{collections::BTreeMap, };
+use std::collections::BTreeMap;
 use twilight_model::channel::embed::Embed;
 
 use crate::{
     embeds::{EmbedData, RankingCountriesEmbed},
-    BotResult, Context,
+    Context,
 };
 
 use super::Pages;
@@ -18,7 +19,7 @@ pub struct RankingCountriesPagination {
 }
 
 impl RankingCountriesPagination {
-    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> BotResult<Embed> {
+    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
         let count = self
             .countries
             .range(pages.index..pages.index + pages.per_page)
@@ -35,7 +36,7 @@ impl RankingCountriesPagination {
                 195 if !self.countries.contains_key(&195) => 4, // when going back to front
                 195 | 225 => 5,
                 240 => 5, // technically 6 but there are currently <250 countries so there is no page 6
-                _ => unreachable!("unexpected page index {}", pages.index),
+                _ => bail!("unexpected page index {}", pages.index),
             };
 
             let offset = page - 1;
@@ -44,7 +45,8 @@ impl RankingCountriesPagination {
                 .osu()
                 .country_rankings(self.mode)
                 .page(page as u32)
-                .await?;
+                .await
+                .wrap_err("failed to get country rankings")?;
 
             let iter = ranking
                 .ranking

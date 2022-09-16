@@ -1,9 +1,10 @@
+use eyre::Result;
 use tokio_stream::StreamExt;
 
-use crate::{games::hl::HlVersion, BotResult, Database};
+use crate::{games::hl::HlVersion, Database};
 
 impl Database {
-    pub async fn get_higherlower_scores(&self, version: HlVersion) -> BotResult<Vec<(u64, u32)>> {
+    pub async fn get_higherlower_scores(&self, version: HlVersion) -> Result<Vec<(u64, u32)>> {
         let query = sqlx::query!(
             "SELECT discord_id,highscore \
             FROM higherlower_scores \
@@ -20,11 +21,7 @@ impl Database {
         Ok(scores)
     }
 
-    pub async fn get_higherlower_highscore(
-        &self,
-        user_id: u64,
-        version: HlVersion,
-    ) -> BotResult<u32> {
+    pub async fn get_higherlower_highscore(&self, user_id: u64, version: HlVersion) -> Result<u32> {
         let query = sqlx::query!(
             "SELECT highscore FROM higherlower_scores \
             WHERE discord_id=$1 AND version=$2",
@@ -45,7 +42,7 @@ impl Database {
         version: HlVersion,
         score: u32,
         highscore: u32,
-    ) -> BotResult<bool> {
+    ) -> Result<bool> {
         if score <= highscore {
             return Ok(false);
         }

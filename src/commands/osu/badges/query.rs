@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use eyre::Report;
+use eyre::{Result, WrapErr};
 use rkyv::{Deserialize, Infallible};
 use twilight_interactions::command::AutocompleteValue;
 use twilight_model::application::command::CommandOptionChoice;
@@ -18,7 +18,6 @@ use crate::{
         constants::OSEKAI_ISSUE, get_combined_thumbnail, interaction::InteractionCommand,
         levenshtein_similarity, CowUtils, InteractionCommandExt,
     },
-    BotResult,
 };
 
 use super::BadgesQuery_;
@@ -27,7 +26,7 @@ pub(super) async fn query(
     ctx: Arc<Context>,
     mut command: InteractionCommand,
     args: BadgesQuery_,
-) -> BotResult<()> {
+) -> Result<()> {
     let BadgesQuery_ { name, sort } = args;
 
     let name = match name {
@@ -41,7 +40,7 @@ pub(super) async fn query(
         Err(err) => {
             let _ = command.error(&ctx, OSEKAI_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get cached badges"));
         }
     };
 
@@ -89,7 +88,7 @@ pub(super) async fn query(
             Err(err) => {
                 let _ = command.error(&ctx, OSEKAI_ISSUE).await;
 
-                return Err(err.into());
+                return Err(err.wrap_err("failed to get badge owners"));
             }
         }
     } else {
@@ -102,8 +101,7 @@ pub(super) async fn query(
         match get_combined_thumbnail(&ctx, urls, owners.len() as u32, Some(1024)).await {
             Ok(bytes) => Some(bytes),
             Err(err) => {
-                let report = Report::new(err).wrap_err("failed to combine avatars");
-                warn!("{report:?}");
+                warn!("{:?}", err.wrap_err("Failed to combine avatars"));
 
                 None
             }
@@ -128,13 +126,13 @@ pub(super) async fn query(
         .await
 }
 
-async fn no_badge_found(ctx: &Context, command: &InteractionCommand, name: &str) -> BotResult<()> {
+async fn no_badge_found(ctx: &Context, command: &InteractionCommand, name: &str) -> Result<()> {
     let badges = match ctx.redis().badges().await {
         Ok(badges) => badges,
         Err(err) => {
             let _ = command.error(ctx, OSEKAI_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get cached badges"));
         }
     };
 
@@ -173,7 +171,7 @@ pub async fn handle_autocomplete(
     ctx: &Context,
     command: &InteractionCommand,
     name: String,
-) -> BotResult<()> {
+) -> Result<()> {
     let name = if name.is_empty() {
         command.autocomplete(ctx, Vec::new()).await?;
 
@@ -183,7 +181,13 @@ pub async fn handle_autocomplete(
     };
 
     let name = name.as_ref();
-    let badges = ctx.redis().badges().await?;
+
+    let badges = ctx
+        .redis()
+        .badges()
+        .await
+        .wrap_err("failed to get cached badges")?;
+
     let archived_badges = badges.get();
     let mut choices = Vec::with_capacity(25);
 

@@ -1,7 +1,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, HasMods, HasName, SlashCommand};
-use eyre::Report;
+use eyre::{Report, Result, WrapErr};
 use rosu_pp::{
     Beatmap as Map, CatchPP, CatchStars, ManiaPP, OsuPP, PerformanceAttributes, TaikoPP,
 };
@@ -15,7 +15,6 @@ use twilight_model::{
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, FixScoreEmbed},
-    error::{Error, PpError},
     tracking::process_osu_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -24,7 +23,7 @@ use crate::{
         osu::{prepare_beatmap_file, MapIdType, ModSelection},
         InteractionCommandExt, ScoreExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::{get_beatmap_user_score, get_user, require_link, HasMods, ModsResult, UserArgs};
@@ -145,7 +144,7 @@ impl<'a> TryFrom<Fix<'a>> for FixArgs<'a> {
     }
 }
 
-async fn slash_fix(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_fix(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Fix::from_interaction(command.input_data())?;
 
     match FixArgs::try_from(args) {
@@ -175,13 +174,13 @@ async fn slash_fix(ctx: Arc<Context>, mut command: InteractionCommand) -> BotRes
     "https://osu.ppy.sh/beatmapsets/902425#osu/2240404"
 )]
 #[group(AllModes)]
-async fn prefix_fix(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_fix(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let args = FixArgs::args(msg, args);
 
     fix(ctx, msg.into(), args).await
 }
 
-async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> BotResult<()> {
+async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> Result<()> {
     let name = match username!(ctx, orig, args) {
         Some(name) => name,
         None => match ctx.psql().get_user_osu(orig.user_id()?).await {
@@ -269,7 +268,7 @@ async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> B
                     Err(err) => {
                         let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                        return Err(err);
+                        return Err(err.wrap_err("failed to unchoke pp"));
                     }
                 }
             }
@@ -298,7 +297,7 @@ async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> B
 enum ScoreResult {
     Data(ScoreData),
     Done,
-    Error(Error),
+    Error(Report),
 }
 
 struct ScoreData {
@@ -336,8 +335,9 @@ async fn request_by_map(
                 let (user, best) = match tokio::join!(mapset_fut, user_fut, best_fut) {
                     (_, Err(err), _) | (_, _, Err(err)) => {
                         let _ = orig.error(ctx, OSU_API_ISSUE).await;
+                        let report = Report::new(err).wrap_err("failed to get user");
 
-                        return ScoreResult::Error(err.into());
+                        return ScoreResult::Error(report);
                     }
                     (Ok(mapset), Ok(user), Ok(best)) => {
                         map.mapset = Some(mapset);
@@ -349,8 +349,9 @@ async fn request_by_map(
                             Ok(mapset) => mapset,
                             Err(err) => {
                                 let _ = orig.error(ctx, OSU_API_ISSUE).await;
+                                let report = Report::new(err).wrap_err("failed to get beatmapset");
 
-                                return ScoreResult::Error(err.into());
+                                return ScoreResult::Error(report);
                             }
                         };
 
@@ -370,8 +371,9 @@ async fn request_by_map(
             }
             Err(err) => {
                 let _ = orig.error(ctx, OSU_API_ISSUE).await;
+                let report = Report::new(err).wrap_err("failed to prepare score");
 
-                ScoreResult::Error(err.into())
+                ScoreResult::Error(report)
             }
         },
         // Either the user, map, or user score on the map don't exist
@@ -381,7 +383,7 @@ async fn request_by_map(
                 Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
                     Ok(map) => {
                         if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-                            warn!("{:?}", Report::new(err));
+                            warn!("{:?}", err.wrap_err("Failed to insert map in database"));
                         }
 
                         map
@@ -396,8 +398,9 @@ async fn request_by_map(
                     }
                     Err(err) => {
                         let _ = orig.error(ctx, OSU_API_ISSUE).await;
+                        let report = Report::new(err).wrap_err("failed to get beatmap");
 
-                        return ScoreResult::Error(err.into());
+                        return ScoreResult::Error(report);
                     }
                 },
             };
@@ -416,8 +419,9 @@ async fn request_by_map(
                 }
                 Err(err) => {
                     let _ = orig.error(ctx, OSU_API_ISSUE).await;
+                    let report = Report::new(err).wrap_err("failed to get user");
 
-                    return ScoreResult::Error(err.into());
+                    return ScoreResult::Error(report);
                 }
             };
 
@@ -431,8 +435,9 @@ async fn request_by_map(
         }
         Err(err) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user or scores");
 
-            ScoreResult::Error(err.into())
+            ScoreResult::Error(report)
         }
     }
 }
@@ -451,8 +456,9 @@ async fn request_by_score(
         Ok((user, score)) => (user, score),
         Err(err) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user or scores");
 
-            return ScoreResult::Error(err.into());
+            return ScoreResult::Error(report);
         }
     };
 
@@ -471,8 +477,9 @@ async fn request_by_score(
     let best = match tokio::join!(mapset_fut, best_fut) {
         (_, Err(err)) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get top scores");
 
-            return ScoreResult::Error(err.into());
+            return ScoreResult::Error(report);
         }
         (Ok(mapset), Ok(best)) => {
             map.mapset = Some(mapset);
@@ -484,8 +491,9 @@ async fn request_by_score(
                 Ok(mapset) => mapset,
                 Err(err) => {
                     let _ = orig.error(ctx, OSU_API_ISSUE).await;
+                    let report = Report::new(err).wrap_err("failed to get beatmapset");
 
-                    return ScoreResult::Error(err.into());
+                    return ScoreResult::Error(report);
                 }
             };
 
@@ -509,9 +517,15 @@ pub(super) async fn unchoke_pp(
     ctx: &Context,
     score: &mut Score,
     map: &Beatmap,
-) -> BotResult<Option<f32>> {
-    let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
-    let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
+) -> Result<Option<f32>> {
+    let map_path = prepare_beatmap_file(ctx, map.map_id)
+        .await
+        .wrap_err("failed to prepare map")?;
+
+    let rosu_map = Map::from_path(map_path)
+        .await
+        .wrap_err("failed to parse map")?;
+
     let mods = score.mods.bits();
 
     let attributes = if score.pp.is_some() {

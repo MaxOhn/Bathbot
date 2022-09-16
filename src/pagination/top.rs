@@ -1,4 +1,5 @@
 use command_macros::pagination;
+use eyre::{Result, WrapErr};
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Score, User};
 use twilight_model::channel::embed::Embed;
@@ -10,7 +11,6 @@ use crate::{
     database::MinimizedPp,
     embeds::{CondensedTopEmbed, EmbedData, TopEmbed, TopSingleEmbed},
     util::hasher::SimpleBuildHasher,
-    BotResult,
 };
 
 use super::Pages;
@@ -60,12 +60,12 @@ pub struct TopSinglePagination {
 }
 
 impl TopSinglePagination {
-    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> BotResult<Embed> {
+    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
         let (idx, score) = self.scores.get(pages.index).unwrap();
 
-        let embed_fut =
-            TopSingleEmbed::new(&self.user, score, Some(*idx), None, self.minimized_pp, ctx);
-
-        Ok(embed_fut.await?.into_minimized())
+        TopSingleEmbed::new(&self.user, score, Some(*idx), None, self.minimized_pp, ctx)
+            .await
+            .map(TopSingleEmbed::into_minimized)
+            .wrap_err("failed to create embed data")
     }
 }

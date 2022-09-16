@@ -1,7 +1,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::SlashCommand;
-use eyre::Report;
+use eyre::Result;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError, Username};
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -9,7 +9,7 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 use crate::{
     core::commands::prefix::Args,
     util::{interaction::InteractionCommand, CowUtils, InteractionCommandExt},
-    BotResult, Context,
+    Context,
 };
 
 pub use self::{track::*, track_list::*, untrack::*, untrack_all::*};
@@ -101,7 +101,7 @@ pub struct TrackRemoveAll {
 /// List all players that are tracked in this channel
 pub struct TrackList;
 
-async fn slash_track(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_track(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     match Track::from_interaction(command.input_data())? {
         Track::Add(add) => track(ctx, (&mut command).into(), add.into()).await,
         Track::Remove(TrackRemove::User(user)) => {
@@ -130,8 +130,7 @@ async fn get_names<'n>(
     let mut entries = match ctx.psql().get_ids_by_names(escaped_names.as_ref()).await {
         Ok(names) => names,
         Err(err) => {
-            let report = Report::new(err).wrap_err("failed to get names by names");
-            warn!("{report:?}");
+            warn!("{:?}", err.wrap_err("Failed to get user ids by names"));
 
             HashMap::new()
         }

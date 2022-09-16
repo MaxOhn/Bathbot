@@ -1,6 +1,11 @@
-use std::{fmt, net::SocketAddr, sync::Arc};
+use std::{
+    error::Error as StdError,
+    fmt::{Display, Formatter, Result as FmtResult},
+    net::SocketAddr,
+    sync::Arc,
+};
 
-use eyre::Report;
+use eyre::{ContextCompat, Report, Result, WrapErr};
 use handlebars::Handlebars;
 use hyper::{
     client::{connect::dns::GaiResolver, HttpConnector},
@@ -13,24 +18,22 @@ use prometheus::{Encoder, TextEncoder};
 use rosu_v2::Osu;
 use routerify::{ext::RequestExt, RouteError, Router, RouterService};
 use serde_json::json;
-use tokio::{fs::File, io::AsyncReadExt, sync::oneshot};
+use tokio::{fs, sync::oneshot::Receiver};
 
 use crate::{
     core::BotConfig,
-    custom_client::{CustomClientError, ErrorKind, TwitchDataList, TwitchOAuthToken, TwitchUser},
+    custom_client::{TwitchDataList, TwitchOAuthToken, TwitchUser},
     util::constants::{GENERAL_ISSUE, TWITCH_OAUTH, TWITCH_USERS_ENDPOINT},
     Context,
 };
 
-pub use self::{
-    auth::{AuthenticationStandby, AuthenticationStandbyError, WaitForOsuAuth, WaitForTwitchAuth},
-    error::ServerError,
+pub use self::auth::{
+    AuthenticationStandby, AuthenticationStandbyError, WaitForOsuAuth, WaitForTwitchAuth,
 };
 
 mod auth;
-mod error;
 
-pub async fn run_server(ctx: Arc<Context>, shutdown_rx: oneshot::Receiver<()>) {
+pub async fn run_server(ctx: Arc<Context>, shutdown_rx: Receiver<()>) {
     if cfg!(debug_assertions) {
         info!("Skip server on debug");
 
@@ -70,7 +73,7 @@ struct TwitchClientId(String);
 struct TwitchClientSecret(String);
 struct TwitchRedirect(String);
 
-fn router(ctx: Arc<Context>) -> Router<Body, ServerError> {
+fn router(ctx: Arc<Context>) -> Router<Body, Report> {
     let connector = HttpsConnectorBuilder::new()
         .with_webpki_roots()
         .https_or_http()
@@ -125,20 +128,20 @@ fn router(ctx: Arc<Context>) -> Router<Body, ServerError> {
 #[derive(Debug)]
 struct ErrorWrapper(RouteError);
 
-impl std::error::Error for ErrorWrapper {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+impl StdError for ErrorWrapper {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
         self.0.source()
     }
 }
 
-impl fmt::Display for ErrorWrapper {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for ErrorWrapper {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{}", self.0)
     }
 }
 
 async fn error_handler(err: RouteError) -> Response<Body> {
-    let report = Report::new(ErrorWrapper(err)).wrap_err("error while handling server request");
+    let report = Report::new(ErrorWrapper(err)).wrap_err("Failed to handle server request");
     error!("{report:?}");
 
     Response::builder()
@@ -147,7 +150,7 @@ async fn error_handler(err: RouteError) -> Response<Body> {
         .unwrap()
 }
 
-type HandlerResult = Result<Response<Body>, ServerError>;
+type HandlerResult = Result<Response<Body>>;
 
 async fn handle_404(_req: Request<Body>) -> HandlerResult {
     let response = Response::builder()
@@ -179,7 +182,7 @@ async fn auth_osu_handler(req: Request<Body>) -> HandlerResult {
     match auth_osu_handler_(&req).await {
         Ok(response) => Ok(response),
         Err(err) => {
-            warn!("{:?}", Report::new(err).wrap_err("osu! auth failed"));
+            warn!("{:?}", err.wrap_err("osu! auth failed"));
 
             let render_data = json!({
                 "body_id": "error",
@@ -187,7 +190,10 @@ async fn auth_osu_handler(req: Request<Body>) -> HandlerResult {
             });
 
             let Handlebars_(handlebars) = req.data().unwrap();
-            let page = handlebars.render("auth", &render_data)?;
+
+            let page = handlebars
+                .render("auth", &render_data)
+                .wrap_err("failed to render osu error page")?;
 
             let response = Response::builder()
                 .status(StatusCode::INTERNAL_SERVER_ERROR)
@@ -232,7 +238,8 @@ async fn auth_osu_handler_(req: &Request<Body>) -> HandlerResult {
         .client_secret(client_secret)
         .with_authorization(code, redirect)
         .build()
-        .await?;
+        .await
+        .wrap_err("failed to build authenticated osu client")?;
 
     let user = osu.own_data().await?;
 
@@ -243,7 +250,10 @@ async fn auth_osu_handler_(req: &Request<Body>) -> HandlerResult {
     });
 
     let Handlebars_(handlebars) = req.data().unwrap();
-    let page = handlebars.render("auth", &render_data)?;
+
+    let page = handlebars
+        .render("auth", &render_data)
+        .wrap_err("failed to render osu page")?;
 
     info!("Successful osu! authorization for `{}`", user.username);
 
@@ -256,7 +266,7 @@ async fn auth_twitch_handler(req: Request<Body>) -> HandlerResult {
     match auth_twitch_handler_(&req).await {
         Ok(response) => Ok(response),
         Err(err) => {
-            warn!("{:?}", Report::new(err).wrap_err("twitch auth failed"));
+            warn!("{:?}", err.wrap_err("twitch auth failed"));
 
             let render_data = json!({
                 "body_id": "error",
@@ -264,7 +274,10 @@ async fn auth_twitch_handler(req: Request<Body>) -> HandlerResult {
             });
 
             let Handlebars_(handlebars) = req.data().unwrap();
-            let page = handlebars.render("auth", &render_data)?;
+
+            let page = handlebars
+                .render("auth", &render_data)
+                .wrap_err("failed to render twitch error page")?;
 
             let response = Response::builder()
                 .status(StatusCode::INTERNAL_SERVER_ERROR)
@@ -311,12 +324,23 @@ async fn auth_twitch_handler_(req: &Request<Body>) -> HandlerResult {
     );
 
     let token_req = Request::post(req_uri).body(Body::empty())?;
-    let response = client.request(token_req).await?;
-    let bytes = hyper::body::to_bytes(response.into_body()).await?;
+
+    let response = client
+        .request(token_req)
+        .await
+        .wrap_err("failed to send twitch token request")?;
+
+    let bytes = hyper::body::to_bytes(response.into_body())
+        .await
+        .wrap_err("failed to await response for twitch token")?;
 
     let token = serde_json::from_slice::<TwitchOAuthToken>(&bytes)
-        .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::TwitchToken))
-        .map(|token| format!("Bearer {token}"))?;
+        .map(|token| format!("Bearer {token}"))
+        .wrap_err_with(|| {
+            let body = String::from_utf8_lossy(&bytes);
+
+            format!("failed to deserialize twitch token: {body}")
+        })?;
 
     let user_req = Request::get(TWITCH_USERS_ENDPOINT)
         .header(AUTHORIZATION, token)
@@ -328,9 +352,13 @@ async fn auth_twitch_handler_(req: &Request<Body>) -> HandlerResult {
     let bytes = hyper::body::to_bytes(response.into_body()).await?;
 
     let user = serde_json::from_slice::<TwitchDataList<TwitchUser>>(&bytes)
-        .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::TwitchUserId))
-        .map(|mut data| data.data.pop())?
-        .ok_or(ServerError::NoTwitchUser)?;
+        .map(|mut data| data.data.pop())
+        .wrap_err_with(|| {
+            let body = String::from_utf8_lossy(&bytes);
+
+            format!("failed to deserialize twitch user: {body}")
+        })?
+        .wrap_err("no twitch user provided by api after authorization")?;
 
     let render_data = json!({
         "body_id": "success",
@@ -339,7 +367,10 @@ async fn auth_twitch_handler_(req: &Request<Body>) -> HandlerResult {
     });
 
     let Handlebars_(handlebars) = req.data().unwrap();
-    let page = handlebars.render("auth", &render_data)?;
+
+    let page = handlebars
+        .render("auth", &render_data)
+        .wrap_err("failed to render twitch page")?;
 
     info!(
         "Successful twitch authorization for `{}`",
@@ -354,8 +385,7 @@ async fn auth_twitch_handler_(req: &Request<Body>) -> HandlerResult {
 async fn auth_css_handler(_: Request<Body>) -> HandlerResult {
     let mut path = BotConfig::get().paths.website.to_owned();
     path.push("auth.css");
-    let mut buf = Vec::with_capacity(1824);
-    File::open(path).await?.read_to_end(&mut buf).await?;
+    let buf = fs::read(path).await.wrap_err("failed to read css file")?;
 
     Ok(Response::new(Body::from(buf)))
 }
@@ -363,8 +393,7 @@ async fn auth_css_handler(_: Request<Body>) -> HandlerResult {
 async fn auth_icon_handler(_: Request<Body>) -> HandlerResult {
     let mut path = BotConfig::get().paths.website.to_owned();
     path.push("icon.svg");
-    let mut buf = Vec::with_capacity(11_198);
-    File::open(path).await?.read_to_end(&mut buf).await?;
+    let buf = fs::read(path).await.wrap_err("failed to read icon file")?;
 
     let response = Response::builder()
         .header(CONTENT_TYPE, "image/svg+xml")
@@ -404,7 +433,10 @@ fn invalid_auth_query(req: &Request<Body>) -> HandlerResult {
     });
 
     let Handlebars_(handlebars) = req.data().unwrap();
-    let page = handlebars.render("auth", &render_data)?;
+
+    let page = handlebars
+        .render("auth", &render_data)
+        .wrap_err("failed to render invalid page")?;
 
     let response = Response::builder()
         .status(StatusCode::BAD_REQUEST)
@@ -420,7 +452,10 @@ fn unexpected_auth(req: &Request<Body>) -> HandlerResult {
     });
 
     let Handlebars_(handlebars) = req.data().unwrap();
-    let page = handlebars.render("auth", &render_data)?;
+
+    let page = handlebars
+        .render("auth", &render_data)
+        .wrap_err("failed to render unexpected page")?;
 
     let response = Response::builder()
         .status(StatusCode::PRECONDITION_FAILED)

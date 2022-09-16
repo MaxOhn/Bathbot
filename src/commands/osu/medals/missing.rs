@@ -1,6 +1,7 @@
 use std::{borrow::Cow, cmp::Ordering, sync::Arc};
 
 use command_macros::command;
+use eyre::{Report, Result};
 use hashbrown::HashSet;
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{GameMode, OsuError};
@@ -14,7 +15,7 @@ use crate::{
         constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
         matcher,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::MedalMissing;
@@ -25,11 +26,7 @@ use super::MedalMissing;
 #[example("badewanne3")]
 #[aliases("mm", "missingmedals")]
 #[group(AllModes)]
-async fn prefix_medalsmissing(
-    ctx: Arc<Context>,
-    msg: &Message,
-    mut args: Args<'_>,
-) -> BotResult<()> {
+async fn prefix_medalsmissing(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
     let args = match args.next() {
         Some(arg) => match matcher::get_mention_user(arg) {
             Some(id) => MedalMissing {
@@ -51,7 +48,7 @@ pub(super) async fn missing(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: MedalMissing<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let owner = orig.user_id()?;
 
     let name = match username!(ctx, orig, args) {
@@ -62,7 +59,7 @@ pub(super) async fn missing(
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to get username"));
             }
         },
     };
@@ -81,12 +78,13 @@ pub(super) async fn missing(
         (_, Err(err)) => {
             let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get cached medals"));
         }
         (Err(err), _) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 

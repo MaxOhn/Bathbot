@@ -1,4 +1,5 @@
-use twilight_http::{Error as HttpError, Response};
+use eyre::{Result, WrapErr};
+use twilight_http::Response;
 use twilight_model::{
     channel::Message,
     id::{
@@ -9,15 +10,11 @@ use twilight_model::{
 
 use crate::{
     core::Context,
-    error::Error,
     util::{
         builder::MessageBuilder, interaction::InteractionCommand, Authored, ChannelExt,
         InteractionCommandExt, MessageExt,
     },
-    BotResult,
 };
-
-type HttpResult<T> = Result<T, HttpError>;
 
 pub enum CommandOrigin<'d> {
     Message { msg: &'d Message },
@@ -25,7 +22,7 @@ pub enum CommandOrigin<'d> {
 }
 
 impl CommandOrigin<'_> {
-    pub fn user_id(&self) -> BotResult<Id<UserMarker>> {
+    pub fn user_id(&self) -> Result<Id<UserMarker>> {
         match self {
             CommandOrigin::Message { msg } => Ok(msg.author.id),
             CommandOrigin::Interaction { command } => command.user_id(),
@@ -51,12 +48,18 @@ impl CommandOrigin<'_> {
     /// In case of a message, discard the response message created.
     ///
     /// In case of an interaction, the response will **not** be ephemeral.
-    pub async fn callback(&self, ctx: &Context, builder: MessageBuilder<'_>) -> HttpResult<()> {
+    pub async fn callback(&self, ctx: &Context, builder: MessageBuilder<'_>) -> Result<()> {
         match self {
-            Self::Message { msg } => msg.create_message(ctx, &builder).await.map(|_| ()),
-            Self::Interaction { command } => {
-                command.callback(ctx, builder, false).await.map(|_| ())
-            }
+            Self::Message { msg } => msg
+                .create_message(ctx, &builder)
+                .await
+                .map(|_| ())
+                .wrap_err("failed to create message to callback"),
+            Self::Interaction { command } => command
+                .callback(ctx, builder, false)
+                .await
+                .map(|_| ())
+                .wrap_err("failed to callback"),
         }
     }
 
@@ -67,13 +70,23 @@ impl CommandOrigin<'_> {
         &self,
         ctx: &Context,
         builder: MessageBuilder<'_>,
-    ) -> HttpResult<Response<Message>> {
+    ) -> Result<Response<Message>> {
         match self {
-            Self::Message { msg } => msg.create_message(ctx, &builder).await,
+            Self::Message { msg } => msg
+                .create_message(ctx, &builder)
+                .await
+                .wrap_err("failed to create message for response callback"),
             Self::Interaction { command } => {
-                command.callback(ctx, builder, false).await?;
+                command
+                    .callback(ctx, builder, false)
+                    .await
+                    .wrap_err("failed to callback for response")?;
 
-                ctx.interaction().response(&command.token).exec().await
+                ctx.interaction()
+                    .response(&command.token)
+                    .exec()
+                    .await
+                    .wrap_err("failed to get response message")
             }
         }
     }
@@ -87,12 +100,18 @@ impl CommandOrigin<'_> {
         ctx: &Context,
         builder: MessageBuilder<'_>,
         ephemeral: bool,
-    ) -> HttpResult<()> {
+    ) -> Result<()> {
         match self {
-            Self::Message { msg } => msg.create_message(ctx, &builder).await.map(|_| ()),
-            Self::Interaction { command } => {
-                command.callback(ctx, builder, ephemeral).await.map(|_| ())
-            }
+            Self::Message { msg } => msg
+                .create_message(ctx, &builder)
+                .await
+                .map(|_| ())
+                .wrap_err("failed to create message for flagged callback"),
+            Self::Interaction { command } => command
+                .callback(ctx, builder, ephemeral)
+                .await
+                .map(|_| ())
+                .wrap_err("failed to callback with flags"),
         }
     }
 
@@ -106,10 +125,16 @@ impl CommandOrigin<'_> {
         &self,
         ctx: &Context,
         builder: &MessageBuilder<'_>,
-    ) -> HttpResult<Response<Message>> {
+    ) -> Result<Response<Message>> {
         match self {
-            Self::Message { msg } => msg.create_message(ctx, builder).await,
-            Self::Interaction { command } => command.update(ctx, builder).await,
+            Self::Message { msg } => msg
+                .create_message(ctx, builder)
+                .await
+                .wrap_err("failed to create message as response"),
+            Self::Interaction { command } => command
+                .update(ctx, builder)
+                .await
+                .wrap_err("failed to update as response"),
         }
     }
 
@@ -122,28 +147,34 @@ impl CommandOrigin<'_> {
         &self,
         ctx: &Context,
         builder: &MessageBuilder<'_>,
-    ) -> HttpResult<Response<Message>> {
+    ) -> Result<Response<Message>> {
         match self {
-            Self::Message { msg } => msg.update(ctx, builder).await,
-            Self::Interaction { command } => command.update(ctx, builder).await,
+            Self::Message { msg } => msg
+                .update(ctx, builder)
+                .await
+                .wrap_err("failed to update message"),
+            Self::Interaction { command } => command
+                .update(ctx, builder)
+                .await
+                .wrap_err("failed to update interaction message"),
         }
     }
 
     /// Respond with a red embed.
     ///
     /// In case of an interaction, be sure you already called back beforehand.
-    pub async fn error(&self, ctx: &Context, content: impl Into<String>) -> BotResult<()> {
+    pub async fn error(&self, ctx: &Context, content: impl Into<String>) -> Result<()> {
         match self {
             Self::Message { msg } => msg
                 .error(ctx, content)
                 .await
                 .map(|_| ())
-                .map_err(Error::from),
+                .wrap_err("failed to respond with error"),
             Self::Interaction { command } => command
                 .error(ctx, content)
                 .await
                 .map(|_| ())
-                .map_err(Error::from),
+                .wrap_err("failed to respond with error"),
         }
     }
 
@@ -151,18 +182,18 @@ impl CommandOrigin<'_> {
     ///
     /// In case of an interaction, be sure this is the first and only time you call this.
     /// The response will not be ephemeral.
-    pub async fn error_callback(&self, ctx: &Context, content: impl Into<String>) -> BotResult<()> {
+    pub async fn error_callback(&self, ctx: &Context, content: impl Into<String>) -> Result<()> {
         match self {
             CommandOrigin::Message { msg } => msg
                 .error(ctx, content)
                 .await
                 .map(|_| ())
-                .map_err(Error::from),
+                .wrap_err("failed to callback with error"),
             CommandOrigin::Interaction { command } => command
                 .error_callback(ctx, content)
                 .await
                 .map(|_| ())
-                .map_err(Error::from),
+                .wrap_err("failed to callback with error"),
         }
     }
 }

@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use command_macros::{command, SlashCommand};
+use eyre::{Report, Result};
 use rosu_v2::prelude::{
     Beatmapset, BeatmapsetSearchResult, BeatmapsetSearchSort, Genre, Language, Osu, OsuResult,
     RankStatus,
@@ -15,7 +16,7 @@ use crate::{
         constants::OSU_API_ISSUE, interaction::InteractionCommand, ChannelExt,
         InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
@@ -579,7 +580,7 @@ impl Search {
     }
 }
 
-async fn slash_search(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_search(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Search::from_interaction(command.input_data())?;
 
     search(ctx, (&mut command).into(), args).await
@@ -615,7 +616,7 @@ async fn slash_search(ctx: Arc<Context>, mut command: InteractionCommand) -> Bot
     "artist=camellia length<240 stars>8 genre=electronic"
 )]
 #[group(AllModes)]
-async fn prefix_search(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_search(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match Search::args(args) {
         Ok(args) => search(ctx, msg.into(), args).await,
         Err(content) => {
@@ -626,13 +627,14 @@ async fn prefix_search(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotR
     }
 }
 
-async fn search(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Search) -> BotResult<()> {
+async fn search(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Search) -> Result<()> {
     let mut search_result = match args.request(ctx.osu()).await {
         Ok(response) => response,
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE);
+            let report = Report::new(err).wrap_err("failed to get search results");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 

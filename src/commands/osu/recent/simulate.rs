@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use command_macros::command;
-use eyre::Report;
+use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, GameMods, OsuError};
 use tokio::time::{sleep, Duration};
 
@@ -18,7 +18,7 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher, ChannelExt, CowUtils, MessageExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::{
@@ -39,7 +39,7 @@ use super::{
 #[example("badewanne3 +hr acc=99.3 n300=1422 misses=1")]
 #[alias("sr")]
 #[group(Osu)]
-async fn prefix_simulaterecent(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_simulaterecent(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentSimulate::args(GameModeOption::Osu, args) {
         Ok(args) => simulate(ctx, msg.into(), args).await,
         Err(content) => {
@@ -65,7 +65,7 @@ async fn prefix_simulaterecentmania(
     ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     match RecentSimulate::args(GameModeOption::Mania, args) {
         Ok(args) => simulate(ctx, msg.into(), args).await,
         Err(content) => {
@@ -93,7 +93,7 @@ async fn prefix_simulaterecenttaiko(
     ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     match RecentSimulate::args(GameModeOption::Taiko, args) {
         Ok(args) => simulate(ctx, msg.into(), args).await,
         Err(content) => {
@@ -118,11 +118,7 @@ async fn prefix_simulaterecenttaiko(
 #[example("badewanne3 +hr acc=99.3 n300=1422 misses=1")]
 #[aliases("src", "simulaterecentcatch")]
 #[group(Catch)]
-async fn prefix_simulaterecentctb(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
+async fn prefix_simulaterecentctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentSimulate::args(GameModeOption::Catch, args) {
         Ok(args) => simulate(ctx, msg.into(), args).await,
         Err(content) => {
@@ -137,7 +133,7 @@ pub(super) async fn simulate(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: RecentSimulate<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let owner = orig.user_id()?;
 
     let (name, index, args, mode) = match args {
@@ -189,7 +185,7 @@ pub(super) async fn simulate(
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err);
+            return Err(err.wrap_err("failed to get user config"));
         }
     };
 
@@ -255,8 +251,9 @@ pub(super) async fn simulate(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get scores");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -275,7 +272,7 @@ pub(super) async fn simulate(
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err);
+            return Err(err.wrap_err("failed to create embed"));
         }
     };
 
@@ -308,7 +305,7 @@ pub(super) async fn simulate(
                 let builder = MessageBuilder::new().content(content).embed(embed);
 
                 if let Err(err) = response.update(&ctx, &builder).await {
-                    let report = Report::new(err).wrap_err("failed to minimize message");
+                    let report = Report::new(err).wrap_err("Failed to minimize embed");
                     warn!("{report:?}");
                 }
             });

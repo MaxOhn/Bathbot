@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use eyre::Report;
+use eyre::{ContextCompat, Result, WrapErr};
 use hashbrown::hash_map::Entry;
 use rosu_v2::prelude::GameMode;
 use twilight_model::channel::embed::{Embed, EmbedField};
@@ -8,7 +8,6 @@ use twilight_model::channel::embed::{Embed, EmbedField};
 use crate::{
     core::Context,
     embeds::{BGTagsEmbed, EmbedData},
-    error::InvalidGameState,
     games::bg::GameWrapper,
     util::{
         builder::{EmbedBuilder, MessageBuilder},
@@ -16,7 +15,6 @@ use crate::{
         interaction::InteractionComponent,
         Authored, ComponentExt,
     },
-    BotResult,
 };
 
 use super::{Effects, GameState, MapsetTags};
@@ -24,7 +22,7 @@ use super::{Effects, GameState, MapsetTags};
 pub async fn handle_bg_start_include(
     ctx: &Context,
     mut component: InteractionComponent,
-) -> BotResult<()> {
+) -> Result<()> {
     let channel = component.channel_id;
 
     if let Some(GameState::Setup {
@@ -36,10 +34,12 @@ pub async fn handle_bg_start_include(
         }
 
         *included = parse_component_tags(&component);
-        update_field(ctx, &mut component, *included, "Included tags").await?;
+
+        update_field(ctx, &mut component, *included, "Included tags")
+            .await
+            .wrap_err("failed to update field")?;
     } else if let Err(err) = remove_components(ctx, &component, None).await {
-        let report = Report::new(err).wrap_err("failed to remove components");
-        warn!("{report:?}");
+        warn!("{err:?}");
     }
 
     Ok(())
@@ -48,7 +48,7 @@ pub async fn handle_bg_start_include(
 pub async fn handle_bg_start_exclude(
     ctx: &Context,
     mut component: InteractionComponent,
-) -> BotResult<()> {
+) -> Result<()> {
     let channel = component.channel_id;
 
     if let Some(GameState::Setup {
@@ -60,10 +60,12 @@ pub async fn handle_bg_start_exclude(
         }
 
         *excluded = parse_component_tags(&component);
-        update_field(ctx, &mut component, *excluded, "Excluded tags").await?;
+
+        update_field(ctx, &mut component, *excluded, "Excluded tags")
+            .await
+            .wrap_err("failed to update field")?;
     } else if let Err(err) = remove_components(ctx, &component, None).await {
-        let report = Report::new(err).wrap_err("failed to remove components");
-        warn!("{report:?}");
+        warn!("{err:?}");
     }
 
     Ok(())
@@ -72,7 +74,7 @@ pub async fn handle_bg_start_exclude(
 pub async fn handle_bg_start_button(
     ctx: Arc<Context>,
     component: InteractionComponent,
-) -> BotResult<()> {
+) -> Result<()> {
     let channel = component.channel_id;
 
     match ctx.bg_games().own(channel).await.entry() {
@@ -101,8 +103,7 @@ pub async fn handle_bg_start_button(
                             .build();
 
                         if let Err(err) = remove_components(&ctx, &component, Some(embed)).await {
-                            let report = Report::new(err).wrap_err("failed to remove components");
-                            warn!("{report:?}");
+                            warn!("{err:?}");
                         }
 
                         return Err(err);
@@ -114,8 +115,7 @@ pub async fn handle_bg_start_button(
                         .build();
 
                 if let Err(err) = remove_components(&ctx, &component, Some(embed)).await {
-                    let report = Report::new(err).wrap_err("failed to remove components");
-                    warn!("{report:?}");
+                    warn!("{err:?}");
                 }
 
                 if mapsets.is_empty() {
@@ -137,15 +137,13 @@ pub async fn handle_bg_start_button(
             }
             GameState::Running { .. } => {
                 if let Err(err) = remove_components(&ctx, &component, None).await {
-                    let report = Report::new(err).wrap_err("failed to remove components");
-                    warn!("{report:?}");
+                    warn!("{err:?}");
                 }
             }
         },
         Entry::Vacant(_) => {
             if let Err(err) = remove_components(&ctx, &component, None).await {
-                let report = Report::new(err).wrap_err("failed to remove components");
-                warn!("{report:?}");
+                warn!("{err:?}");
             }
         }
     }
@@ -153,10 +151,7 @@ pub async fn handle_bg_start_button(
     Ok(())
 }
 
-pub async fn handle_bg_start_cancel(
-    ctx: &Context,
-    component: InteractionComponent,
-) -> BotResult<()> {
+pub async fn handle_bg_start_cancel(ctx: &Context, component: InteractionComponent) -> Result<()> {
     match ctx.bg_games().own(component.channel_id).await.entry() {
         Entry::Occupied(entry) => match entry.get() {
             GameState::Setup { author, .. } => {
@@ -173,8 +168,7 @@ pub async fn handle_bg_start_cancel(
             }
             GameState::Running { .. } => {
                 if let Err(err) = remove_components(ctx, &component, None).await {
-                    let report = Report::new(err).wrap_err("failed to remove components");
-                    warn!("{report:?}");
+                    warn!("{err:?}");
                 }
 
                 return Ok(());
@@ -182,8 +176,7 @@ pub async fn handle_bg_start_cancel(
         },
         Entry::Vacant(_) => {
             if let Err(err) = remove_components(ctx, &component, None).await {
-                let report = Report::new(err).wrap_err("failed to remove components");
-                warn!("{report:?}");
+                warn!("{err:?}");
             }
         }
     }
@@ -194,7 +187,7 @@ pub async fn handle_bg_start_cancel(
 pub async fn handle_bg_start_effects(
     ctx: &Context,
     mut component: InteractionComponent,
-) -> BotResult<()> {
+) -> Result<()> {
     if let Some(GameState::Setup {
         author, effects, ..
     }) = ctx.bg_games().write(&component.channel_id).await.get_mut()
@@ -224,11 +217,7 @@ pub async fn handle_bg_start_effects(
                     }
             });
 
-        let mut embed = component
-            .message
-            .embeds
-            .pop()
-            .ok_or(InvalidGameState::MissingEmbed)?;
+        let mut embed = component.message.embeds.pop().wrap_err("missing embed")?;
 
         let field_opt = embed
             .fields
@@ -248,10 +237,12 @@ pub async fn handle_bg_start_effects(
         }
 
         let builder = MessageBuilder::new().embed(embed);
-        component.callback(ctx, builder).await?;
+        component
+            .callback(ctx, builder)
+            .await
+            .wrap_err("failed to callback")?;
     } else if let Err(err) = remove_components(ctx, &component, None).await {
-        let report = Report::new(err).wrap_err("failed to remove components");
-        warn!("{report:?}");
+        warn!("{err:?}");
     }
 
     Ok(())
@@ -262,12 +253,8 @@ async fn update_field(
     component: &mut InteractionComponent,
     tags: MapsetTags,
     name: &str,
-) -> BotResult<()> {
-    let mut embed = component
-        .message
-        .embeds
-        .pop()
-        .ok_or(InvalidGameState::MissingEmbed)?;
+) -> Result<()> {
+    let mut embed = component.message.embeds.pop().wrap_err("missing embed")?;
 
     let field_opt = embed.fields.iter_mut().find(|field| field.name == name);
 
@@ -284,7 +271,10 @@ async fn update_field(
     }
 
     let builder = MessageBuilder::new().embed(embed);
-    component.callback(ctx, builder).await?;
+    component
+        .callback(ctx, builder)
+        .await
+        .wrap_err("failed to callback")?;
 
     Ok(())
 }
@@ -293,14 +283,17 @@ async fn remove_components(
     ctx: &Context,
     component: &InteractionComponent,
     embed: Option<Embed>,
-) -> BotResult<()> {
+) -> Result<()> {
     let mut builder = MessageBuilder::new().components(Vec::new());
 
     if let Some(embed) = embed {
         builder = builder.embed(embed);
     }
 
-    component.callback(ctx, builder).await?;
+    component
+        .callback(ctx, builder)
+        .await
+        .wrap_err("failed to callback to remove components")?;
 
     Ok(())
 }

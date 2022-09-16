@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 
 use command_macros::command;
-use eyre::Report;
+use eyre::{ContextCompat, Report, Result};
 use hashbrown::HashSet;
 use twilight_model::{
     application::component::{select_menu::SelectMenuOption, ActionRow, Component, SelectMenu},
@@ -14,14 +14,12 @@ use crate::{
         commands::prefix::{PrefixCommand, PrefixCommandGroup, PrefixCommands},
         Context,
     },
-    error::InvalidHelpState,
     util::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder},
         constants::{BATHBOT_ROADMAP, BATHBOT_WORKSHOP},
         interaction::InteractionComponent,
         levenshtein_distance, ChannelExt, ComponentExt, Emote,
     },
-    BotResult,
 };
 
 use super::failed_message_content;
@@ -32,7 +30,7 @@ use super::failed_message_content;
 #[alias("h")]
 #[usage("[command]")]
 #[example("", "recent", "osg")]
-async fn prefix_help(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+async fn prefix_help(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
     match args.next() {
         Some(arg) => match PrefixCommands::get().command(arg) {
             Some(cmd) => command_help(ctx, msg, cmd).await,
@@ -42,7 +40,7 @@ async fn prefix_help(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Bo
     }
 }
 
-async fn failed_help(ctx: Arc<Context>, msg: &Message, name: &str) -> BotResult<()> {
+async fn failed_help(ctx: Arc<Context>, msg: &Message, name: &str) -> Result<()> {
     let mut seen = HashSet::new();
 
     let dists: BTreeMap<_, _> = PrefixCommands::get()
@@ -59,7 +57,7 @@ async fn failed_help(ctx: Arc<Context>, msg: &Message, name: &str) -> BotResult<
     Ok(())
 }
 
-async fn command_help(ctx: Arc<Context>, msg: &Message, cmd: &PrefixCommand) -> BotResult<()> {
+async fn command_help(ctx: Arc<Context>, msg: &Message, cmd: &PrefixCommand) -> Result<()> {
     let name = cmd.name();
     let prefix = ctx.guild_first_prefix(msg.guild_id).await;
     let mut fields = Vec::new();
@@ -236,7 +234,7 @@ async fn description(ctx: &Context, guild_id: Option<Id<GuildMarker>>) -> String
     )
 }
 
-async fn dm_help(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+async fn dm_help(ctx: Arc<Context>, msg: &Message) -> Result<()> {
     let owner = msg.author.id;
 
     let channel = match ctx.http.create_private_channel(owner).exec().await {
@@ -244,7 +242,7 @@ async fn dm_help(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
         Err(err) => {
             let content = "Your DMs seem blocked :(\n\
             Perhaps you disabled incoming messages from other server members?";
-            let report = Report::new(err).wrap_err("error while creating DM channel");
+            let report = Report::new(err).wrap_err("Failed to create DM channel");
             warn!("{report:?}");
             msg.error(&ctx, content).await?;
 
@@ -264,7 +262,7 @@ async fn dm_help(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
     let builder = MessageBuilder::new().embed(embed).components(components);
 
     if let Err(err) = channel.create_message(&ctx, &builder).await {
-        let report = Report::new(err).wrap_err("error while sending help chunk");
+        let report = Report::new(err).wrap_err("Failed to send help chunk");
         warn!("{report:?}");
         let content = "Could not DM you, perhaps you disabled it?";
         msg.error(&ctx, content).await?;
@@ -276,12 +274,8 @@ async fn dm_help(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
 pub async fn handle_help_category(
     ctx: &Context,
     mut component: InteractionComponent,
-) -> BotResult<()> {
-    let value = component
-        .data
-        .values
-        .pop()
-        .ok_or(InvalidHelpState::MissingValue)?;
+) -> Result<()> {
+    let value = component.data.values.pop().wrap_err("missing menu value")?;
 
     let group = match value.as_str() {
         "general" => {
@@ -304,7 +298,7 @@ pub async fn handle_help_category(
         "games" => PrefixCommandGroup::Games,
         "utility" => PrefixCommandGroup::Utility,
         "songs" => PrefixCommandGroup::Songs,
-        _ => return Err(InvalidHelpState::UnknownValue(value).into()),
+        _ => bail!("got unexpected value `{value}`"),
     };
 
     let mut cmds: Vec<_> = {

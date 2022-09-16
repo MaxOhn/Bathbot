@@ -95,7 +95,7 @@ use std::{
     pin::Pin,
 };
 
-use eyre::Report;
+use eyre::{Report, Result, WrapErr};
 use futures::{future::FutureExt, stream::FuturesUnordered, TryFutureExt, TryStreamExt};
 use hashbrown::HashMap;
 use rosu_v2::{
@@ -120,7 +120,7 @@ use crate::{
         osu::{ModSelection, SortableScore},
         CowUtils,
     },
-    BotResult, Context, Error,
+    Context,
 };
 
 pub use self::{
@@ -191,16 +191,16 @@ pub enum UsernameResult<'ctx> {
 pub enum UsernameFutureResult {
     Name(Username),
     NotLinked(Id<UserMarker>),
-    Err(Error),
+    Err(Report),
 }
 
 enum ErrorType {
-    Bot(Error),
+    Bot(Report),
     Osu(OsuError),
 }
 
-impl From<Error> for ErrorType {
-    fn from(e: Error) -> Self {
+impl From<Report> for ErrorType {
+    fn from(e: Report) -> Self {
         Self::Bot(e)
     }
 }
@@ -314,8 +314,8 @@ async fn get_scores<'c>(
     if let Err(OsuError::NotFound) = &result {
         // Remove stats of unknown/restricted users so they don't appear in the leaderboard
         if let Err(err) = ctx.psql().remove_osu_user_stats(user.name).await {
-            let report = Report::new(err).wrap_err("failed to remove stats of unknown user");
-            warn!("{report:?}");
+            let wrap = "Failed to remove stats of unknown user";
+            warn!("{:?}", err.wrap_err(wrap));
         }
     }
 
@@ -401,7 +401,7 @@ pub async fn prepare_score(ctx: &Context, score: &mut Score) -> OsuResult<()> {
             let beatmap = ctx.osu().beatmap().map_id(map.map_id).await?;
 
             if let Err(err) = ctx.psql().insert_beatmap(&beatmap).await {
-                warn!("{:?}", Report::new(err));
+                warn!("{:?}", err.wrap_err("failed to insert map in database"));
             }
 
             map.max_combo = beatmap.max_combo;
@@ -437,8 +437,7 @@ where
         let combos = match ctx.psql().get_beatmaps_combo(&map_ids).await {
             Ok(map) => map,
             Err(err) => {
-                let report = Report::new(err).wrap_err("failed to get map combos");
-                warn!("{report:?}");
+                warn!("{:?}", err.wrap_err("Failed to get map combos"));
 
                 HashMap::default()
             }
@@ -481,8 +480,7 @@ where
                         map.max_combo = Some(combo);
 
                         if let Err(err) = ctx.psql().insert_beatmap(map).await {
-                            let report = Report::new(err).wrap_err("failed to insert map into DB");
-                            warn!("{report:?}");
+                            warn!("{:?}", err.wrap_err("Failed to insert map in database"));
                         }
                     }
                 }
@@ -493,17 +491,19 @@ where
     })
 }
 
-pub async fn require_link(ctx: &Context, orig: &CommandOrigin<'_>) -> BotResult<()> {
+pub async fn require_link(ctx: &Context, orig: &CommandOrigin<'_>) -> Result<()> {
     let content = "Either specify an osu! username or link yourself to an osu! profile via `/link`";
 
-    orig.error(ctx, content).await.map_err(Error::from)
+    orig.error(ctx, content)
+        .await
+        .wrap_err("failed to send require-link message")
 }
 
 async fn get_globals_count(
     ctx: &Context,
     user: &User,
     mode: GameMode,
-) -> BotResult<BTreeMap<usize, Cow<'static, str>>> {
+) -> Result<BTreeMap<usize, Cow<'static, str>>> {
     let mut counts = BTreeMap::new();
     let mut params = OsuStatsParams::new(user.username.as_str()).mode(mode);
     let mut get_amount = true;
@@ -516,7 +516,12 @@ async fn get_globals_count(
         }
 
         params.max_rank = rank;
-        let (_, count) = ctx.client().get_global_scores(&params).await?;
+        let (_, count) = ctx
+            .client()
+            .get_global_scores(&params)
+            .await
+            .wrap_err("failed to get global scores count")?;
+
         counts.insert(rank, Cow::Owned(with_comma_int(count).to_string()));
 
         if count == 0 {
@@ -528,7 +533,11 @@ async fn get_globals_count(
         Cow::Owned(with_comma_int(firsts).to_string())
     } else if get_amount {
         params.max_rank = 1;
-        let (_, count) = ctx.client().get_global_scores(&params).await?;
+        let (_, count) = ctx
+            .client()
+            .get_global_scores(&params)
+            .await
+            .wrap_err("failed to get global scores count")?;
 
         Cow::Owned(with_comma_int(count).to_string())
     } else {
@@ -714,16 +723,14 @@ impl ScoreOrder {
                             continue;
                         }
                         Err(err) => {
-                            let report = Report::new(err).wrap_err("failed to get mapset");
-                            warn!("{report:?}");
+                            warn!("{:?}", err.wrap_err("Failed to get mapset from database"));
 
                             match ctx.osu().beatmapset(mapset_id).await {
                                 Ok(mapset) => {
                                     new_mapsets.insert(mapset_id, mapset);
                                 }
                                 Err(err) => {
-                                    let report =
-                                        Report::new(err).wrap_err("failed to request mapset");
+                                    let report = Report::new(err).wrap_err("Failed to get mapset");
                                     warn!("{report:?}");
 
                                     continue;
@@ -742,8 +749,7 @@ impl ScoreOrder {
                         .await;
 
                     if let Err(err) = result {
-                        let report = Report::new(err).wrap_err("failed to insert mapsets");
-                        warn!("{report:?}");
+                        warn!("{:?}", err.wrap_err("Failed to insert mapsets"));
                     } else {
                         info!("Inserted {} mapsets into the DB", new_mapsets.len());
                     }
@@ -788,7 +794,7 @@ impl ScoreOrder {
                     let stars_ = match PpCalculator::new(ctx, map_id).await {
                         Ok(calc) => calc.mods(score.mods()).stars() as f32,
                         Err(err) => {
-                            warn!("{:?}", Report::new(err));
+                            warn!("{:?}", err.wrap_err("Failed to get pp calculator"));
 
                             continue;
                         }
@@ -810,7 +816,7 @@ impl ScoreOrder {
 
 enum NameExtraction {
     Name(Username),
-    Err(Error),
+    Err(Report),
     Content(String),
     None,
 }

@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
 use command_macros::SlashCommand;
+use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
     util::{interaction::InteractionCommand, InteractionCommandExt},
-    BotResult, Context,
+    Context,
 };
 
 pub use self::{addstream::*, removestream::*, tracked::*};
@@ -56,10 +57,7 @@ pub struct TrackStreamRemove {
 /// List all tracked twitch streams in this channel
 pub struct TrackStreamList;
 
-pub async fn slash_trackstream(
-    ctx: Arc<Context>,
-    mut command: InteractionCommand,
-) -> BotResult<()> {
+pub async fn slash_trackstream(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     match TrackStream::from_interaction(command.input_data())? {
         TrackStream::Add(add) => addstream(ctx, (&mut command).into(), add.name.as_ref()).await,
         TrackStream::Remove(remove) => {

@@ -1,11 +1,12 @@
+use eyre::Result;
+use rosu_v2::model::GameMode;
+use tokio_stream::StreamExt;
+
 use crate::{
     database::{util::CustomSQL, MapsetTagWrapper, TagRow},
     games::bg::MapsetTags,
-    BotResult, Database,
+    Database,
 };
-
-use rosu_v2::model::GameMode;
-use tokio_stream::StreamExt;
 
 struct StatsEntry {
     discord_id: i64,
@@ -13,7 +14,7 @@ struct StatsEntry {
 }
 
 impl Database {
-    pub async fn increment_bggame_score(&self, user_id: u64, amount: i32) -> BotResult<()> {
+    pub async fn increment_bggame_score(&self, user_id: u64, amount: i32) -> Result<()> {
         sqlx::query!(
             "INSERT INTO bggame_scores \
             VALUES ($1,$2) ON CONFLICT (discord_id) DO \
@@ -28,7 +29,7 @@ impl Database {
         Ok(())
     }
 
-    pub async fn all_bggame_scores(&self) -> BotResult<Vec<(u64, u32)>> {
+    pub async fn all_bggame_scores(&self) -> Result<Vec<(u64, u32)>> {
         let scores = sqlx::query_as!(StatsEntry, "SELECT * FROM bggame_scores")
             .fetch(&self.pool)
             .map(|res| res.map(|entry| (entry.discord_id as u64, entry.score as u32)))
@@ -43,7 +44,7 @@ impl Database {
         mapset_id: u32,
         filename: &str,
         mode: GameMode,
-    ) -> BotResult<()> {
+    ) -> Result<()> {
         sqlx::query!(
             "INSERT INTO map_tags (mapset_id,filename,mode) VALUES ($1,$2,$3)",
             mapset_id as i32,
@@ -56,7 +57,7 @@ impl Database {
         Ok(())
     }
 
-    // pub async fn add_tags_mapset(&self, mapset_id: u32, tags: MapsetTags) -> BotResult<()> {
+    // pub async fn add_tags_mapset(&self, mapset_id: u32, tags: MapsetTags) -> Result<()> {
     //     sqlx::query!(
     //         "UPDATE map_tags SET \
     //         farm=map_tags.farm OR $1,\
@@ -94,7 +95,7 @@ impl Database {
     //     Ok(())
     // }
 
-    // pub async fn remove_tags_mapset(&self, mapset_id: u32, tags: MapsetTags) -> BotResult<()> {
+    // pub async fn remove_tags_mapset(&self, mapset_id: u32, tags: MapsetTags) -> Result<()> {
     //     sqlx::query!(
     //         "UPDATE map_tags SET \
     //         farm=map_tags.farm AND $1,\
@@ -132,7 +133,7 @@ impl Database {
     //     Ok(())
     // }
 
-    // pub async fn get_tags_mapset(&self, mapset_id: u32) -> BotResult<MapsetTagWrapper> {
+    // pub async fn get_tags_mapset(&self, mapset_id: u32) -> Result<MapsetTagWrapper> {
     //     let tags = sqlx::query_as!(
     //         TagRow,
     //         "SELECT * FROM map_tags WHERE mapset_id=$1 LIMIT 1",
@@ -144,7 +145,7 @@ impl Database {
     //     Ok(tags.into())
     // }
 
-    pub async fn get_all_tags_mapset(&self, mode: GameMode) -> BotResult<Vec<MapsetTagWrapper>> {
+    pub async fn get_all_tags_mapset(&self, mode: GameMode) -> Result<Vec<MapsetTagWrapper>> {
         let tags = sqlx::query_as!(TagRow, "SELECT * FROM map_tags WHERE mode=$1", mode as i16)
             .fetch(&self.pool)
             .map(|res| res.map(|row| row.into()))
@@ -154,7 +155,7 @@ impl Database {
         Ok(tags)
     }
 
-    // pub async fn get_random_tags_mapset(&self, mode: GameMode) -> BotResult<MapsetTagWrapper> {
+    // pub async fn get_random_tags_mapset(&self, mode: GameMode) -> Result<MapsetTagWrapper> {
     //     let tags = sqlx::query_as!(
     //         TagRow,
     //         "SELECT * FROM map_tags WHERE mode=$1 ORDER BY RANDOM() LIMIT 1",
@@ -171,7 +172,7 @@ impl Database {
         mode: GameMode,
         included: MapsetTags,
         excluded: MapsetTags,
-    ) -> BotResult<Vec<MapsetTagWrapper>> {
+    ) -> Result<Vec<MapsetTagWrapper>> {
         if included.is_empty() && excluded.is_empty() {
             return self.get_all_tags_mapset(mode).await;
         }

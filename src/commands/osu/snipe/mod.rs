@@ -1,12 +1,13 @@
 use std::{borrow::Cow, fmt, sync::Arc};
 
 use command_macros::{HasMods, HasName, SlashCommand};
+use eyre::Result;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     util::{interaction::InteractionCommand, InteractionCommandExt},
-    BotResult, Context,
+    Context,
 };
 
 pub use self::{
@@ -241,7 +242,7 @@ pub struct SnipePlayerSniped<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-async fn slash_snipe(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_snipe(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     match Snipe::from_interaction(command.input_data())? {
         Snipe::Country(SnipeCountry::List(args)) => {
             country_list(ctx, (&mut command).into(), args).await
@@ -267,10 +268,7 @@ async fn slash_snipe(ctx: Arc<Context>, mut command: InteractionCommand) -> BotR
     }
 }
 
-async fn slash_snipeplayersniped(
-    ctx: Arc<Context>,
-    mut command: InteractionCommand,
-) -> BotResult<()> {
+async fn slash_snipeplayersniped(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = SnipePlayerSniped::from_interaction(command.input_data())?;
 
     player_sniped(ctx, (&mut command).into(), args).await

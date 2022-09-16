@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use eyre::Report;
+use eyre::Result;
 use twilight_model::{channel::Message, guild::Permissions};
 
 use crate::{
@@ -12,9 +12,7 @@ use crate::{
         },
         Context,
     },
-    error::Error,
     util::ChannelExt,
-    BotResult,
 };
 
 use self::parse::*;
@@ -58,8 +56,8 @@ pub async fn handle_message(ctx: Arc<Context>, msg: Message) {
         Ok(ProcessResult::Success) => info!("Processed command `{name}`"),
         Ok(result) => info!("Command `{name}` was not processed: {result:?}"),
         Err(err) => {
-            let wrap = format!("failed to process prefix command `{name}`");
-            error!("{:?}", Report::new(err).wrap_err(wrap));
+            let wrap = format!("Failed to process prefix command `{name}`");
+            error!("{:?}", err.wrap_err(wrap));
         }
     }
 }
@@ -70,7 +68,7 @@ async fn process_command(
     msg: &Message,
     stream: Stream<'_>,
     num: Option<u64>,
-) -> BotResult<ProcessResult> {
+) -> Result<ProcessResult> {
     // Only in guilds?
     if (cmd.flags.authority() || cmd.flags.only_guilds()) && msg.guild_id.is_none() {
         let content = "That command is only available in servers";
@@ -137,7 +135,7 @@ async fn process_command(
                 let content = "Error while checking authority status";
                 let _ = msg.error(&ctx, content).await;
 
-                return Err(Error::Authority(Box::new(err)));
+                return Err(err.wrap_err("failed to check authority status"));
             }
         }
     }

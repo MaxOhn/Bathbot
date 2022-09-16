@@ -1,9 +1,3 @@
-mod beatmap;
-mod configs;
-mod map_tags;
-mod osu_users;
-mod tracking;
-
 pub use self::{
     beatmap::{DBBeatmap, DBBeatmapset},
     configs::{
@@ -14,3 +8,9 @@ pub use self::{
     osu_users::{UserStatsColumn, UserValueRaw},
     tracking::TrackingUser,
 };
+
+mod beatmap;
+mod configs;
+mod map_tags;
+mod osu_users;
+mod tracking;

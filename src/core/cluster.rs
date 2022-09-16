@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
+use eyre::{Result, WrapErr};
 use twilight_gateway::{cluster::Events, shard::ResumeSession, Cluster, EventTypeFlags, Intents};
 use twilight_http::Client;
 use twilight_model::gateway::{
@@ -7,13 +8,11 @@ use twilight_model::gateway::{
     presence::{ActivityType, MinimalActivity, Status},
 };
 
-use crate::BotResult;
-
 pub async fn build_cluster(
     token: &str,
     http: Arc<Client>,
     resume_data: HashMap<u64, ResumeSession>,
-) -> BotResult<(Cluster, Events)> {
+) -> Result<(Cluster, Events)> {
     let intents = Intents::GUILDS
         | Intents::GUILD_MEMBERS
         | Intents::GUILD_MESSAGES
@@ -58,7 +57,8 @@ pub async fn build_cluster(
         .resume_sessions(resume_data)
         .presence(presence)
         .build()
-        .await?;
+        .await
+        .wrap_err("failed to build cluster")?;
 
     Ok(tuple)
 }

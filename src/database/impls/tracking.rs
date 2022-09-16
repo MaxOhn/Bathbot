@@ -1,3 +1,4 @@
+use eyre::{Result, WrapErr};
 use futures::stream::StreamExt;
 use hashbrown::HashMap;
 use rosu_v2::model::GameMode;
@@ -6,13 +7,12 @@ use time::OffsetDateTime;
 use twilight_model::id::{marker::ChannelMarker, Id};
 
 use crate::{
-    database::TrackingUser, tracking::TrackingEntry, util::hasher::SimpleBuildHasher, BotResult,
-    Database,
+    database::TrackingUser, tracking::TrackingEntry, util::hasher::SimpleBuildHasher, Database,
 };
 
 impl Database {
     #[cold]
-    pub async fn get_osu_trackings(&self) -> BotResult<Vec<(TrackingEntry, TrackingUser)>> {
+    pub async fn get_osu_trackings(&self) -> Result<Vec<(TrackingEntry, TrackingUser)>> {
         let mut stream = sqlx::query!("SELECT * FROM osu_trackings").fetch(&self.pool);
         let mut tracks = Vec::with_capacity(10_000);
 
@@ -39,7 +39,7 @@ impl Database {
         &self,
         entry: &TrackingEntry,
         last_top_score: OffsetDateTime,
-    ) -> BotResult<()> {
+    ) -> Result<()> {
         sqlx::query!(
             "UPDATE osu_trackings SET last_top_score=$3 WHERE user_id=$1 AND mode=$2",
             entry.user_id as i32,
@@ -58,7 +58,7 @@ impl Database {
         mode: GameMode,
         last_top_score: OffsetDateTime,
         channels: &HashMap<Id<ChannelMarker>, usize, SimpleBuildHasher>,
-    ) -> BotResult<()> {
+    ) -> Result<()> {
         sqlx::query!(
             "UPDATE osu_trackings \
             SET last_top_score=$3,channels=$4 \
@@ -74,7 +74,7 @@ impl Database {
         Ok(())
     }
 
-    pub async fn remove_osu_tracking(&self, user_id: u32, mode: GameMode) -> BotResult<()> {
+    pub async fn remove_osu_tracking(&self, user_id: u32, mode: GameMode) -> Result<()> {
         sqlx::query!(
             "DELETE FROM osu_trackings WHERE user_id=$1 AND mode=$2",
             user_id as i32,
@@ -93,7 +93,7 @@ impl Database {
         last_top_score: OffsetDateTime,
         channel: Id<ChannelMarker>,
         limit: usize,
-    ) -> BotResult<()> {
+    ) -> Result<()> {
         let mut set = HashMap::with_hasher(SimpleBuildHasher);
         set.insert(channel, limit);
 
@@ -110,7 +110,8 @@ impl Database {
             serde_json::to_value(&set)?,
         )
         .fetch_one(&self.pool)
-        .await?;
+        .await
+        .wrap_err("failed to insert entry")?;
 
         let mut channels: HashMap<Id<ChannelMarker>, usize, SimpleBuildHasher> =
             serde_json::from_value(row.channels)?;
@@ -123,7 +124,8 @@ impl Database {
                 serde_json::to_value(&channels)?
             )
             .execute(&self.pool)
-            .await?;
+            .await
+            .wrap_err("failed to update entry")?;
         }
 
         Ok(())

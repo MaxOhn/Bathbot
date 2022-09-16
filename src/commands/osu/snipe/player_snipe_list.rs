@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write, sync::Arc};
 
 use command_macros::command;
-use eyre::Report;
+use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError};
 
@@ -16,7 +16,7 @@ use crate::{
         osu::ModSelection,
         ChannelExt, CowUtils,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::{SnipePlayerList, SnipePlayerListOrder};
@@ -42,7 +42,7 @@ use super::{SnipePlayerList, SnipePlayerListOrder};
 #[examples("badewanne3 +dt sort=acc reverse=true", "+hdhr sort=scoredate")]
 #[alias("psl")]
 #[group(Osu)]
-async fn prefix_playersnipelist(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_playersnipelist(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match SnipePlayerList::args(args) {
         Ok(args) => player_list(ctx, msg.into(), args).await,
         Err(content) => {
@@ -57,7 +57,7 @@ pub(super) async fn player_list(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: SnipePlayerList<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let mods = match args.mods() {
         ModsResult::Mods(mods) => Some(mods),
         ModsResult::None => None,
@@ -77,7 +77,7 @@ pub(super) async fn player_list(
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to get username"));
             }
         },
     };
@@ -93,8 +93,9 @@ pub(super) async fn player_list(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -134,7 +135,7 @@ pub(super) async fn player_list(
         Err(err) => {
             let _ = orig.error(&ctx, HUISMETBENEN_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get scores or counts"));
         }
     };
 
@@ -148,8 +149,7 @@ pub(super) async fn player_list(
     let mut maps = match ctx.psql().get_beatmaps(&map_ids, true).await {
         Ok(maps) => maps,
         Err(err) => {
-            let report = Report::new(err).wrap_err("failed to get maps from DB");
-            warn!("{:?}", report);
+            warn!("{:?}", err.wrap_err("Failed to get maps from database"));
 
             HashMap::default()
         }
@@ -166,8 +166,9 @@ pub(super) async fn player_list(
                 }
                 Err(err) => {
                     let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                    let report = Report::new(err).wrap_err("failed to get beatmap");
 
-                    return Err(err.into());
+                    return Err(report);
                 }
             }
         }

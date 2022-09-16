@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use command_macros::command;
-use eyre::Report;
+use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, OsuError, Score};
 
 use crate::{
@@ -17,7 +17,7 @@ use crate::{
         matcher,
         osu::ModSelection,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::RecentLeaderboard;
@@ -34,11 +34,7 @@ use super::RecentLeaderboard;
 #[example("badewanne3 +hdhr")]
 #[aliases("rlb", "rglb", "recentgloballeaderboard")]
 #[group(Osu)]
-async fn prefix_recentleaderboard(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
+async fn prefix_recentleaderboard(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let args = RecentLeaderboard::args(None, args);
 
     leaderboard(ctx, msg.into(), args).await
@@ -60,7 +56,7 @@ async fn prefix_recentmanialeaderboard(
     ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let args = RecentLeaderboard::args(Some(GameModeOption::Mania), args);
 
     leaderboard(ctx, msg.into(), args).await
@@ -82,7 +78,7 @@ async fn prefix_recenttaikoleaderboard(
     ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let args = RecentLeaderboard::args(Some(GameModeOption::Taiko), args);
 
     leaderboard(ctx, msg.into(), args).await
@@ -109,7 +105,7 @@ async fn prefix_recentctbleaderboard(
     ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let args = RecentLeaderboard::args(Some(GameModeOption::Catch), args);
 
     leaderboard(ctx, msg.into(), args).await
@@ -146,7 +142,7 @@ pub(super) async fn leaderboard(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: RecentLeaderboard<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let mods = match args.mods() {
         ModsResult::Mods(mods) => Some(mods),
         ModsResult::None => None,
@@ -177,8 +173,7 @@ pub(super) async fn leaderboard(
         match ctx.user_config(owner).await {
             Ok(config) => config.into_username(),
             Err(err) => {
-                let report = Report::new(err).wrap_err("failed to get user config");
-                warn!("{report:?}");
+                warn!("{:?}", err.wrap_err("Failed to get user config"));
 
                 None
             }
@@ -231,8 +226,9 @@ pub(super) async fn leaderboard(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get scores");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -254,7 +250,7 @@ pub(super) async fn leaderboard(
             Ok(map) => {
                 // Add map to database if its not in already
                 if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-                    warn!("{:?}", Report::new(err));
+                    warn!("{:?}", err.wrap_err("Failed to insert map in database"));
                 }
 
                 ctx.map_garbage_collector(&map).execute(&ctx);
@@ -271,8 +267,9 @@ pub(super) async fn leaderboard(
             }
             Err(err) => {
                 let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                let report = Report::new(err).wrap_err("failed to get beatmap");
 
-                return Err(err.into());
+                return Err(report);
             }
         },
     };
@@ -280,7 +277,7 @@ pub(super) async fn leaderboard(
     if let Some(m) = mods {
         match PpCalculator::new(&ctx, map_id).await {
             Ok(calc) => map.stars = calc.mods(m).stars() as f32,
-            Err(err) => warn!("{:?}", Report::new(err)),
+            Err(err) => warn!("{:?}", err.wrap_err("Failed to get pp calculator")),
         }
     }
 
@@ -289,7 +286,7 @@ pub(super) async fn leaderboard(
         Err(err) => {
             let _ = orig.error(&ctx, OSU_WEB_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get scores"));
         }
     };
 

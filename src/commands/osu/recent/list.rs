@@ -1,6 +1,7 @@
 use std::{borrow::Cow, fmt::Write, sync::Arc};
 
 use command_macros::command;
+use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, GameMods, Grade, OsuError};
 
 use crate::{
@@ -17,7 +18,7 @@ use crate::{
         query::{FilterCriteria, Searchable},
         ChannelExt, CowUtils,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::RecentList;
@@ -34,7 +35,7 @@ use super::RecentList;
 #[example("badewanne3")]
 #[alias("rl")]
 #[group(Osu)]
-async fn prefix_recentlist(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_recentlist(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentList::args(None, args) {
         Ok(args) => list(ctx, msg.into(), args).await,
         Err(content) => {
@@ -57,7 +58,7 @@ async fn prefix_recentlist(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> 
 #[example("badewanne3")]
 #[alias("rlm")]
 #[group(Mania)]
-async fn prefix_recentlistmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_recentlistmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentList::args(Some(GameModeOption::Mania), args) {
         Ok(args) => list(ctx, msg.into(), args).await,
         Err(content) => {
@@ -80,7 +81,7 @@ async fn prefix_recentlistmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[example("badewanne3")]
 #[alias("rlt")]
 #[group(Taiko)]
-async fn prefix_recentlisttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_recentlisttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentList::args(Some(GameModeOption::Taiko), args) {
         Ok(args) => list(ctx, msg.into(), args).await,
         Err(content) => {
@@ -103,7 +104,7 @@ async fn prefix_recentlisttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[example("badewanne3")]
 #[aliases("rlc", "recentlistcatch")]
 #[group(Catch)]
-async fn prefix_recentlistctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_recentlistctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentList::args(Some(GameModeOption::Catch), args) {
         Ok(args) => list(ctx, msg.into(), args).await,
         Err(content) => {
@@ -187,7 +188,7 @@ pub(super) async fn list(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: RecentList<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let mods = match args.mods() {
         ModsResult::Mods(mods) => Some(mods),
         ModsResult::None => None,
@@ -247,8 +248,9 @@ pub(super) async fn list(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user or scores");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 

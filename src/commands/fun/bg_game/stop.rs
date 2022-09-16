@@ -1,19 +1,20 @@
 use std::sync::Arc;
 
+use eyre::Result;
 use twilight_model::channel::Message;
 
-use crate::{util::ChannelExt, BotResult, Context};
+use crate::{util::ChannelExt, Context};
 
 use super::GameState;
 
-pub async fn stop(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn stop(ctx: Arc<Context>, msg: &Message) -> Result<()> {
     match ctx.bg_games().read(&msg.channel_id).await.get() {
         Some(GameState::Running { game }) => match game.stop() {
             Ok(_) => {}
             Err(err) => {
                 let _ = msg.error(&ctx, "Error while stopping game \\:(").await;
 
-                return Err(err.into());
+                return Err(err.wrap_err("failed to stop game"));
             }
         },
         Some(GameState::Setup { author, .. }) => {

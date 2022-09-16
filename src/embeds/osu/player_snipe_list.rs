@@ -1,7 +1,6 @@
 use std::{collections::BTreeMap, fmt::Write};
 
 use command_macros::EmbedData;
-use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmap, User};
 
@@ -60,7 +59,7 @@ impl PlayerSnipeListEmbed {
             let max_pp = match PpCalculator::new(ctx, map.map_id).await {
                 Ok(calc) => Some(calc.mods(score.mods).max_pp() as f32),
                 Err(err) => {
-                    warn!("{:?}", Report::new(err));
+                    warn!("{:?}", err.wrap_err("Failed to get pp calculator"));
 
                     None
                 }

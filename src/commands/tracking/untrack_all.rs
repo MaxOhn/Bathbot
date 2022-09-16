@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
 use command_macros::command;
+use eyre::Result;
 use rosu_v2::model::GameMode;
 
 use crate::{
     core::commands::CommandOrigin,
     util::{builder::MessageBuilder, constants::GENERAL_ISSUE, ChannelExt},
-    BotResult, Context,
+    Context,
 };
 
 #[command]
@@ -20,7 +21,7 @@ use crate::{
 #[example("", "mania")]
 #[flags(AUTHORITY, ONLY_GUILDS, SKIP_DEFER)]
 #[group(Tracking)]
-async fn prefix_untrackall(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+async fn prefix_untrackall(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
     let mode = match args.next() {
         Some("osu") | Some("o") | Some("standard") | Some("s") => Some(GameMode::Osu),
         Some("mania") | Some("m") => Some(GameMode::Mania),
@@ -44,7 +45,7 @@ pub async fn untrackall(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     mode: Option<GameMode>,
-) -> BotResult<()> {
+) -> Result<()> {
     let channel_id = orig.channel_id();
     let remove_fut = ctx.tracking().remove_channel(channel_id, mode, ctx.psql());
 
@@ -59,7 +60,7 @@ pub async fn untrackall(
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            Err(err)
+            Err(err.wrap_err("failed to remove channel from osu tracking"))
         }
     }
 }

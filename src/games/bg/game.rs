@@ -1,7 +1,6 @@
 use std::{collections::VecDeque, sync::Arc};
 
-use eyre::Report;
-use futures::future::TryFutureExt;
+use eyre::{Report, Result, WrapErr};
 use image::{
     imageops::{self, colorops},
     GenericImageView,
@@ -17,13 +16,12 @@ use crate::{
     commands::fun::GameDifficulty,
     core::BotConfig,
     database::MapsetTagWrapper,
-    error::BgGameError,
     games::bg::{hints::Hints, img_reveal::ImageReveal, GameMapset},
     util::{constants::OSU_BASE, ChannelExt, CowUtils},
     Context,
 };
 
-use super::{util, Effects, GameResult};
+use super::{util, Effects};
 
 pub struct Game {
     pub mapset: GameMapset,
@@ -52,14 +50,12 @@ impl Game {
                                 "failed to create initial bg image for id {}",
                                 game.mapset.mapset_id
                             );
-                            let report = Report::new(err).wrap_err(wrap);
-                            warn!("{report:?}");
+                            warn!("{:?}", err.wrap_err(wrap));
                         }
                     }
                 }
                 Err(err) => {
-                    let report = Report::new(err).wrap_err("error while creating bg game");
-                    warn!("{report:?}");
+                    warn!("{:?}", err.wrap_err("error while creating bg game"));
                 }
             }
         }
@@ -71,13 +67,13 @@ impl Game {
         previous_ids: &mut VecDeque<u32>,
         effects: Effects,
         difficulty: GameDifficulty,
-    ) -> GameResult<Self> {
+    ) -> Result<Self> {
         let mut path = BotConfig::get().paths.backgrounds.clone();
 
         match mapsets[0].mode {
             GameMode::Osu => path.push("osu"),
             GameMode::Mania => path.push("mania"),
-            _ => return Err(BgGameError::Mode(mapsets[0].mode)),
+            _ => bail!("background game not available for {}", mapsets[0].mode),
         }
 
         let mapset = util::get_random_mapset(mapsets, previous_ids);
@@ -87,10 +83,11 @@ impl Game {
 
         let img_fut = async {
             let bytes = fs::read(path)
-                .map_err(|source| BgGameError::Io { source, mapset_id })
-                .await?;
+                .await
+                .wrap_err_with(|| format!("failed to read bg image for mapset {mapset_id}"))?;
 
-            let mut img = image::load_from_memory(&bytes).map_err(BgGameError::Image)?;
+            let mut img =
+                image::load_from_memory(&bytes).wrap_err("failed to load image from memory")?;
 
             let (w, h) = img.dimensions();
 
@@ -136,7 +133,7 @@ impl Game {
         })
     }
 
-    pub fn sub_image(&self) -> GameResult<Vec<u8>> {
+    pub fn sub_image(&self) -> Result<Vec<u8>> {
         let mut reveal = self.reveal.write();
         reveal.increase_radius();
 

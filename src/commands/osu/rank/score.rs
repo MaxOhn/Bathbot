@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use command_macros::command;
-use eyre::Report;
+use eyre::{Report, Result};
 use rosu_v2::prelude::OsuError;
 
 use crate::{
@@ -12,7 +12,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, RankRankedScoreEmbed},
     util::{builder::MessageBuilder, constants::OSU_API_ISSUE, matcher, ChannelExt},
-    BotResult, Context,
+    Context,
 };
 
 use super::RankScore;
@@ -27,7 +27,7 @@ use super::RankScore;
 #[example("badewanne3 123")]
 #[alias("rrs")]
 #[group(Osu)]
-async fn prefix_rankrankedscore(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_rankrankedscore(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RankScore::args(None, args) {
         Ok(args) => score(ctx, msg.into(), args).await,
         Err(content) => {
@@ -52,7 +52,7 @@ async fn prefix_rankrankedscoremania(
     ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     match RankScore::args(Some(GameModeOption::Mania), args) {
         Ok(args) => score(ctx, msg.into(), args).await,
         Err(content) => {
@@ -77,7 +77,7 @@ async fn prefix_rankrankedscoretaiko(
     ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     match RankScore::args(Some(GameModeOption::Taiko), args) {
         Ok(args) => score(ctx, msg.into(), args).await,
         Err(content) => {
@@ -98,11 +98,7 @@ async fn prefix_rankrankedscoretaiko(
 #[example("badewanne3 123")]
 #[aliases("rrsc", "rankrankedscorecatch")]
 #[group(Catch)]
-async fn prefix_rankrankedscorectb(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
+async fn prefix_rankrankedscorectb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RankScore::args(Some(GameModeOption::Catch), args) {
         Ok(args) => score(ctx, msg.into(), args).await,
         Err(content) => {
@@ -148,7 +144,7 @@ pub(super) async fn score(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: RankScore<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let rank = args.rank;
     let (name, mode) = name_mode!(ctx, orig, args);
 
@@ -182,16 +178,16 @@ pub(super) async fn score(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
     let respektive_user = match ctx.client().get_respektive_user(user.user_id, mode).await {
         Ok(user) => user,
         Err(err) => {
-            let report = Report::new(err).wrap_err("failed to get respektive user");
-            warn!("{report:?}");
+            warn!("{:?}", err.wrap_err("failed to get respektive user"));
 
             None
         }

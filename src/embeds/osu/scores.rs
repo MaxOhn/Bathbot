@@ -1,13 +1,12 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use command_macros::EmbedData;
-use eyre::Report;
+use eyre::{Result, WrapErr};
 use rosu_pp::{Beatmap as Map, BeatmapExt};
 use rosu_v2::prelude::{Beatmap, GameMode, Score, User};
 
 use crate::{
-    core::{Context, BotConfig},
-    error::PpError,
+    core::{BotConfig, Context},
     pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
@@ -17,7 +16,6 @@ use crate::{
         osu::prepare_beatmap_file,
         CowUtils, Emote, ScoreExt,
     },
-    BotResult,
 };
 
 #[derive(EmbedData)]
@@ -49,8 +47,7 @@ impl ScoresEmbed {
         let pp_map = match get_map(ctx, map.map_id).await {
             Ok(map) => Some(map),
             Err(err) => {
-                let report = Report::new(err).wrap_err("failed to prepare map for pp calculation");
-                warn!("{report:?}");
+                warn!("{err:?}");
 
                 None
             }
@@ -179,9 +176,14 @@ impl ScoresEmbed {
     }
 }
 
-async fn get_map(ctx: &Context, map_id: u32) -> BotResult<Map> {
-    let map_path = prepare_beatmap_file(ctx, map_id).await?;
-    let map = Map::from_path(map_path).await.map_err(PpError::from)?;
+async fn get_map(ctx: &Context, map_id: u32) -> Result<Map> {
+    let map_path = prepare_beatmap_file(ctx, map_id)
+        .await
+        .wrap_err("failed to prepare map")?;
+
+    let map = Map::from_path(map_path)
+        .await
+        .wrap_err("failed to parse map")?;
 
     Ok(map)
 }

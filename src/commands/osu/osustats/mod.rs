@@ -1,13 +1,14 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{HasMods, HasName, SlashCommand};
+use eyre::Result;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::GameModeOption,
     util::{interaction::InteractionCommand, InteractionCommandExt},
-    BotResult, Context,
+    Context,
 };
 
 pub use self::{counts::*, globals::*, list::*};
@@ -127,7 +128,7 @@ pub enum OsuStatsScoresOrder {
     Score = 5,
 }
 
-async fn slash_osustats(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_osustats(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     match OsuStats::from_interaction(command.input_data())? {
         OsuStats::Count(args) => count(ctx, (&mut command).into(), args).await,
         OsuStats::Players(args) => players(ctx, (&mut command).into(), args).await,

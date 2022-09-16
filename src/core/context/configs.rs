@@ -1,4 +1,4 @@
-use eyre::Report;
+use eyre::{Result, WrapErr};
 use twilight_model::id::{
     marker::{GuildMarker, UserMarker},
     Id,
@@ -10,16 +10,22 @@ use crate::{
     database::{
         Authorities, EmbedsSize, GuildConfig, ListSize, MinimizedPp, Prefix, Prefixes, UserConfig,
     },
-    BotResult, Context,
+    Context,
 };
 
 impl Context {
-    pub async fn user_config(&self, user_id: Id<UserMarker>) -> BotResult<UserConfig> {
-        match self.psql().get_user_config(user_id).await? {
+    pub async fn user_config(&self, user_id: Id<UserMarker>) -> Result<UserConfig> {
+        let config_fut = self.psql().get_user_config(user_id);
+
+        match config_fut.await.wrap_err("failed to get user config")? {
             Some(config) => Ok(config),
             None => {
                 let config = UserConfig::default();
-                self.psql().insert_user_config(user_id, &config).await?;
+
+                self.psql()
+                    .insert_user_config(user_id, &config)
+                    .await
+                    .wrap_err("failed to insert default user config")?;
 
                 Ok(config)
             }
@@ -38,8 +44,7 @@ impl Context {
 
         if let Err(err) = self.psql().upsert_guild_config(guild_id, &config).await {
             let wrap = format!("failed to insert guild {guild_id}");
-            let report = Report::new(err).wrap_err(wrap);
-            warn!("{report:?}");
+            warn!("{:?}", err.wrap_err(wrap));
         }
 
         let res = f(&config);
@@ -119,7 +124,7 @@ impl Context {
         self.guild_config_(guild_id, GuildConfig::to_owned).await
     }
 
-    pub async fn update_guild_config<F>(&self, guild_id: Id<GuildMarker>, f: F) -> BotResult<()>
+    pub async fn update_guild_config<F>(&self, guild_id: Id<GuildMarker>, f: F) -> Result<()>
     where
         F: FnOnce(&mut GuildConfig),
     {
@@ -132,7 +137,12 @@ impl Context {
             .unwrap_or_default();
 
         f(&mut config);
-        self.psql().upsert_guild_config(guild_id, &config).await?;
+
+        self.psql()
+            .upsert_guild_config(guild_id, &config)
+            .await
+            .wrap_err("failed to upsert guild config")?;
+
         guilds.pin().insert(guild_id, config);
 
         Ok(())

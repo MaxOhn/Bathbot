@@ -1,6 +1,7 @@
 use std::{cmp::Reverse, sync::Arc};
 
 use command_macros::command;
+use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError, Username};
 use time::{Duration, OffsetDateTime};
@@ -15,7 +16,7 @@ use crate::{
         hasher::SimpleBuildHasher,
         matcher,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::{SnipePlayerGain, SnipePlayerLoss};
@@ -31,7 +32,7 @@ use super::{SnipePlayerGain, SnipePlayerLoss};
 #[example("badewanne3")]
 #[aliases("sg", "snipegain", "snipesgain")]
 #[group(Osu)]
-async fn prefix_snipedgain(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+async fn prefix_snipedgain(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
     let args = match args.next() {
         Some(arg) => match matcher::get_mention_user(arg) {
             Some(id) => SnipePlayerGain {
@@ -67,7 +68,7 @@ async fn prefix_snipedgain(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>)
     "snipeslost"
 )]
 #[group(Osu)]
-async fn prefix_snipedloss(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+async fn prefix_snipedloss(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
     let args = match args.next() {
         Some(arg) => match matcher::get_mention_user(arg) {
             Some(id) => SnipePlayerLoss {
@@ -89,7 +90,7 @@ pub(super) async fn player_gain(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: SnipePlayerGain<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let name = username!(ctx, orig, args);
 
     sniped_diff(ctx, orig, Difference::Gain, name).await
@@ -99,7 +100,7 @@ pub(super) async fn player_loss(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: SnipePlayerLoss<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let name = username!(ctx, orig, args);
 
     sniped_diff(ctx, orig, Difference::Loss, name).await
@@ -110,7 +111,7 @@ async fn sniped_diff(
     orig: CommandOrigin<'_>,
     diff: Difference,
     name: Option<Username>,
-) -> BotResult<()> {
+) -> Result<()> {
     let name = match name {
         Some(name) => name,
         None => match ctx.psql().get_user_osu(orig.user_id()?).await {
@@ -119,7 +120,7 @@ async fn sniped_diff(
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to get username"));
             }
         },
     };
@@ -136,8 +137,9 @@ async fn sniped_diff(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -168,7 +170,7 @@ async fn sniped_diff(
         Err(err) => {
             let _ = orig.error(&ctx, HUISMETBENEN_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get snipes"));
         }
     };
 

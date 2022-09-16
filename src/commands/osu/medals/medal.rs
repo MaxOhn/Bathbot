@@ -5,6 +5,7 @@ use std::{
 };
 
 use command_macros::command;
+use eyre::{Result, WrapErr};
 use rkyv::{Deserialize, Infallible};
 use twilight_interactions::command::AutocompleteValue;
 use twilight_model::application::command::CommandOptionChoice;
@@ -17,7 +18,7 @@ use crate::{
         builder::MessageBuilder, constants::OSEKAI_ISSUE, interaction::InteractionCommand,
         levenshtein_similarity, ChannelExt, CowUtils, InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::MedalInfo_;
@@ -33,7 +34,7 @@ use super::MedalInfo_;
 #[usage("[medal name]")]
 #[examples(r#""50,000 plays""#, "any%")]
 #[group(AllModes)]
-async fn prefix_medal(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_medal(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let name = args.rest().trim_matches('"');
 
     if name.is_empty() {
@@ -53,7 +54,7 @@ pub(super) async fn info(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: MedalInfo_<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let MedalInfo_ { name } = args;
 
     let medals = match ctx.redis().medals().await {
@@ -61,7 +62,7 @@ pub(super) async fn info(
         Err(err) => {
             let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get cached medals"));
         }
     };
 
@@ -95,7 +96,7 @@ pub(super) async fn info(
         Err(err) => {
             let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get osekai map or comments"));
         }
     };
 
@@ -122,7 +123,7 @@ async fn no_medal(
     orig: &CommandOrigin<'_>,
     name: &str,
     medals: ArchivedBytes<Vec<OsekaiMedal>>,
-) -> BotResult<()> {
+) -> Result<()> {
     let mut medals: Vec<_> = medals
         .get()
         .iter()
@@ -159,7 +160,7 @@ pub async fn handle_autocomplete(
     ctx: &Context,
     command: &InteractionCommand,
     name: String,
-) -> BotResult<()> {
+) -> Result<()> {
     let name = if name.is_empty() {
         command.autocomplete(ctx, Vec::new()).await?;
 
@@ -169,7 +170,13 @@ pub async fn handle_autocomplete(
     };
 
     let name = name.as_ref();
-    let medals = ctx.redis().medals().await?;
+
+    let medals = ctx
+        .redis()
+        .medals()
+        .await
+        .wrap_err("failed to get cached medals")?;
+
     let archived_medals = medals.get();
     let mut choices = Vec::with_capacity(25);
 

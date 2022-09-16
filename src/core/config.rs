@@ -1,5 +1,6 @@
 use std::{env, mem::MaybeUninit, path::PathBuf};
 
+use eyre::Result;
 use hashbrown::HashMap;
 use once_cell::sync::OnceCell;
 use rosu_v2::model::Grade;
@@ -8,7 +9,7 @@ use twilight_model::id::{
     Id,
 };
 
-use crate::{util::Emote, BotResult, Error};
+use crate::util::Emote;
 
 static CONFIG: OnceCell<BotConfig> = OnceCell::new();
 
@@ -59,7 +60,7 @@ impl BotConfig {
             .expect("`BotConfig::init` must be called first")
     }
 
-    pub fn init() -> BotResult<()> {
+    pub fn init() -> Result<()> {
         let mut grades = [
             MaybeUninit::uninit(),
             MaybeUninit::uninit(),
@@ -108,7 +109,7 @@ impl BotConfig {
 
                 Ok((key, value))
             })
-            .collect::<BotResult<_>>()?;
+            .collect::<Result<_>>()?;
 
         let config = BotConfig {
             database_url: env_var("DATABASE_URL")?,
@@ -198,12 +199,13 @@ env_kind! {
     },
 }
 
-fn env_var<T: EnvKind>(name: &'static str) -> BotResult<T> {
-    let value = env::var(name).map_err(|_| Error::MissingEnvVariable(name))?;
+fn env_var<T: EnvKind>(name: &'static str) -> Result<T> {
+    let value = env::var(name).map_err(|_| eyre!("missing env variable `{name}`"))?;
 
-    T::from_str(&value).ok_or(Error::ParsingEnvVariable {
-        name,
-        value,
-        expected: T::EXPECTED,
+    T::from_str(&value).ok_or_else(|| {
+        eyre!(
+            "failed to parse env variable `{name}={value}`; expected {expected}",
+            expected = T::EXPECTED
+        )
     })
 }

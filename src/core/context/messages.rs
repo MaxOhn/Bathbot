@@ -1,3 +1,4 @@
+use eyre::{Result, WrapErr};
 use twilight_model::{
     channel::Message,
     id::{
@@ -6,22 +7,23 @@ use twilight_model::{
     },
 };
 
-use crate::{BotResult, Context, Error};
+use crate::Context;
 
 impl Context {
     pub async fn retrieve_channel_history(
         &self,
         channel_id: Id<ChannelMarker>,
-    ) -> BotResult<Vec<Message>> {
+    ) -> Result<Vec<Message>> {
         self.http
             .channel_messages(channel_id)
             .limit(50)
             .unwrap()
             .exec()
-            .await?
+            .await
+            .wrap_err("failed to request channel messages")?
             .models()
             .await
-            .map_err(Error::from)
+            .wrap_err("failed to deserialize channel messages")
     }
 
     /// Store a message id to register whether the message is not yet

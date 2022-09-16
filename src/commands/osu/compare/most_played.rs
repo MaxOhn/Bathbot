@@ -1,6 +1,7 @@
 use std::{cmp::Reverse, fmt::Write, sync::Arc};
 
 use command_macros::command;
+use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rosu_v2::{
     prelude::{GameMode, MostPlayedMap, OsuError},
@@ -16,7 +17,7 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::{CompareMostPlayed, AT_LEAST_ONE};
@@ -31,11 +32,7 @@ use super::{CompareMostPlayed, AT_LEAST_ONE};
 #[example("badewanne3 \"nathan on osu\"")]
 #[aliases("commonmostplayed", "mpc")]
 #[group(AllModes)]
-async fn prefix_mostplayedcommon(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
+async fn prefix_mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let mut args_ = CompareMostPlayed::default();
 
     for arg in args.take(2) {
@@ -64,7 +61,7 @@ async fn extract_name(ctx: &Context, args: &mut CompareMostPlayed<'_>) -> NameEx
             Ok(None) => {
                 NameExtraction::Content(format!("<@{discord}> is not linked to an osu!profile"))
             }
-            Err(err) => NameExtraction::Err(err),
+            Err(err) => NameExtraction::Err(err.wrap_err("failed to get username")),
         }
     } else {
         NameExtraction::None
@@ -75,7 +72,7 @@ pub(super) async fn mostplayed(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     mut args: CompareMostPlayed<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let owner = orig.user_id()?;
 
     let name1 = match extract_name(&ctx, &mut args).await {
@@ -108,7 +105,7 @@ pub(super) async fn mostplayed(
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to get username"));
             }
         },
     };
@@ -130,8 +127,9 @@ pub(super) async fn mostplayed(
         }
         (Err(err), _) | (_, Err(err)) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get scores");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 

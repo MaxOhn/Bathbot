@@ -1,5 +1,6 @@
 use std::{alloc, mem, sync::Arc};
 
+use eyre::Result;
 use rkyv::{DeserializeUnsized, Infallible};
 
 use crate::{
@@ -7,10 +8,9 @@ use crate::{
     custom_client::OsuTrackerMapperEntry,
     pagination::OsuTrackerMappersPagination,
     util::{constants::OSUTRACKER_ISSUE, interaction::InteractionCommand, InteractionCommandExt},
-    BotResult,
 };
 
-pub(super) async fn mappers(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+pub(super) async fn mappers(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     const LIMIT: usize = 500;
 
     let counts: Vec<OsuTrackerMapperEntry> = match ctx.redis().osutracker_stats().await {
@@ -40,7 +40,7 @@ pub(super) async fn mappers(ctx: Arc<Context>, mut command: InteractionCommand) 
         Err(err) => {
             let _ = command.error(&ctx, OSUTRACKER_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get cached osutracker stats"));
         }
     };
 

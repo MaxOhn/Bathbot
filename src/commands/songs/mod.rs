@@ -19,6 +19,7 @@ mod zenzenzense;
 use std::{fmt::Write, sync::Arc};
 
 use command_macros::SlashCommand;
+use eyre::Result;
 use tokio::time::{interval, Duration};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
@@ -27,7 +28,7 @@ use crate::{
     util::{
         builder::MessageBuilder, interaction::InteractionCommand, InteractionCommandExt, MessageExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 pub use self::{
@@ -41,7 +42,7 @@ async fn song(
     delay: u64,
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     debug_assert!(lyrics.len() > 1);
 
     let (id, allow) = match orig.guild_id() {
@@ -178,7 +179,7 @@ impl SongTitle {
     }
 }
 
-pub async fn slash_song(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+pub async fn slash_song(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Song::from_interaction(command.input_data())?;
     let (lyrics, delay) = args.title.get();
 

@@ -1,7 +1,7 @@
 use std::{borrow::Cow, fmt::Write, mem, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
-use eyre::Report;
+use eyre::{Report, Result};
 use rosu_pp::{beatmap::Break, Mods};
 use rosu_v2::prelude::{
     Beatmap, GameMode, Grade, OsuError,
@@ -30,7 +30,7 @@ use crate::{
         osu::prepare_beatmap_file,
         ChannelExt, CowUtils, InteractionCommandExt, MessageExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::RecentScore;
@@ -51,7 +51,7 @@ use super::RecentScore;
 #[examples("badewanne3 pass=true", "grade=a", "whitecat grade=B")]
 #[aliases("r", "rs")]
 #[group(Osu)]
-async fn prefix_recent(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_recent(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentScore::args(None, args) {
         Ok(args) => score(ctx, msg.into(), args).await,
         Err(content) => {
@@ -78,7 +78,7 @@ async fn prefix_recent(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotR
 #[examples("badewanne3 pass=true", "grade=a", "whitecat grade=B")]
 #[aliases("rm")]
 #[group(Mania)]
-async fn prefix_recentmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_recentmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentScore::args(Some(GameModeOption::Mania), args) {
         Ok(args) => score(ctx, msg.into(), args).await,
         Err(content) => {
@@ -105,7 +105,7 @@ async fn prefix_recentmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[examples("badewanne3 pass=true", "grade=a", "whitecat grade=B")]
 #[alias("rt")]
 #[group(Taiko)]
-async fn prefix_recenttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_recenttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentScore::args(Some(GameModeOption::Taiko), args) {
         Ok(args) => score(ctx, msg.into(), args).await,
         Err(content) => {
@@ -132,7 +132,7 @@ async fn prefix_recenttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[examples("badewanne3 pass=true", "grade=a", "whitecat grade=B")]
 #[alias("rc", "recentcatch")]
 #[group(Catch)]
-async fn prefix_recentctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_recentctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RecentScore::args(Some(GameModeOption::Catch), args) {
         Ok(args) => score(ctx, msg.into(), args).await,
         Err(content) => {
@@ -216,7 +216,7 @@ pub(super) async fn score(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: RecentScore<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let author = orig.user_id()?;
 
     let config = match ctx.user_config(author).await {
@@ -224,7 +224,7 @@ pub(super) async fn score(
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err);
+            return Err(err.wrap_err("failed to get user config"));
         }
     };
 
@@ -296,8 +296,9 @@ pub(super) async fn score(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user or scores");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -331,8 +332,9 @@ pub(super) async fn score(
                 }
                 Err(err) => {
                     let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                    let report = Report::new(err).wrap_err("failed to prepare score");
 
-                    return Err(err.into());
+                    return Err(report);
                 }
             },
             None => {
@@ -389,8 +391,7 @@ pub(super) async fn score(
                 Ok(Some(config)) => config.twitch_id,
                 Ok(None) => None,
                 Err(err) => {
-                    let report = Report::new(err).wrap_err("failed to get config of input name");
-                    warn!("{report:?}");
+                    warn!("{:?}", err.wrap_err("Failed to get config of input name"));
 
                     None
                 }
@@ -412,7 +413,7 @@ pub(super) async fn score(
         None | Some(Err(OsuError::NotFound)) => None,
         Some(Ok(score)) => Some(score),
         Some(Err(err)) => {
-            let report = Report::new(err).wrap_err("failed to get global scores");
+            let report = Report::new(err).wrap_err("Failed to get global scores");
             warn!("{report:?}");
 
             None
@@ -423,7 +424,7 @@ pub(super) async fn score(
         None => None,
         Some(Ok(scores)) => Some(scores),
         Some(Err(err)) => {
-            let report = Report::new(err).wrap_err("failed to get top scores");
+            let report = Report::new(err).wrap_err("Failed to get top scores");
             warn!("{report:?}");
 
             None
@@ -453,7 +454,7 @@ pub(super) async fn score(
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err);
+            return Err(err.wrap_err("failed to create embed"));
         }
     };
 
@@ -512,7 +513,7 @@ pub(super) async fn score(
                 }
 
                 if let Err(err) = response.update(&ctx, &builder).await {
-                    let report = Report::new(err).wrap_err("failed to minimize message");
+                    let report = Report::new(err).wrap_err("Failed to minimize embed");
                     warn!("{report:?}");
                 }
             });
@@ -553,13 +554,14 @@ async fn retrieve_vod(
                 Ok(path) => match rosu_pp::Beatmap::from_path(path).await {
                     Ok(map) => Some(map),
                     Err(err) => {
-                        warn!("{:?}", Report::new(err));
+                        let report = Report::new(err).wrap_err("Failed to parse map");
+                        warn!("{report:?}");
 
                         None
                     }
                 },
                 Err(err) => {
-                    warn!("{:?}", Report::new(err));
+                    warn!("{:?}", err.wrap_err("Failed to prepare map"));
 
                     None
                 }
@@ -633,8 +635,7 @@ async fn retrieve_vod(
         }
         Ok(None) => None,
         Err(err) => {
-            let report = Report::new(err).wrap_err("failed to get twitch vod");
-            warn!("{:?}", report);
+            warn!("{:?}", err.wrap_err("Failed to get twitch vod"));
 
             None
         }
@@ -686,7 +687,7 @@ impl<'a> From<Rs<'a>> for RecentScore<'a> {
     }
 }
 
-async fn slash_rs(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_rs(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Rs::from_interaction(command.input_data())?;
 
     score(ctx, (&mut command).into(), args.into()).await

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use eyre::Report;
+use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{Beatmapset, Username};
@@ -16,10 +16,9 @@ use crate::{
         interaction::InteractionCommand,
         InteractionCommandExt,
     },
-    BotResult,
 };
 
-pub(super) async fn mapsets(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+pub(super) async fn mapsets(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let mut counts: Vec<OsuTrackerMapsetEntry> = match ctx.redis().osutracker_stats().await {
         Ok(stats) => stats
             .get()
@@ -29,7 +28,7 @@ pub(super) async fn mapsets(ctx: Arc<Context>, mut command: InteractionCommand) 
         Err(err) => {
             let _ = command.error(&ctx, OSUTRACKER_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get cached osutracker stats"));
         }
     };
 
@@ -45,15 +44,16 @@ pub(super) async fn mapsets(ctx: Arc<Context>, mut command: InteractionCommand) 
             Err(_) => match ctx.osu().beatmapset(mapset_id).await {
                 Ok(mapset) => {
                     if let Err(err) = ctx.psql().insert_beatmapset(&mapset).await {
-                        warn!("{:?}", Report::new(err));
+                        warn!("{:?}", err.wrap_err("Failed to insert mapset in database"));
                     }
 
                     mapset
                 }
                 Err(err) => {
                     let _ = command.error(&ctx, OSU_API_ISSUE).await;
+                    let report = Report::new(err).wrap_err("failed to get beatmapset");
 
-                    return Err(err.into());
+                    return Err(report);
                 }
             },
         };

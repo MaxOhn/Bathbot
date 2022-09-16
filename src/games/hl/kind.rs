@@ -1,14 +1,13 @@
 use std::{fmt::Write, mem, sync::Arc};
 
-use eyre::Report;
+use eyre::{ContextCompat, Result, WrapErr};
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use rosu_v2::prelude::GameMode;
 use tokio::sync::oneshot::{self, Receiver};
 use twilight_model::channel::embed::{Embed, EmbedField};
 
 use crate::{
-    core::{Context, BotConfig},
-    error::InvalidGameState,
+    core::{BotConfig, Context},
     games::hl::score_pp::ScorePp,
     util::{
         builder::{EmbedBuilder, MessageBuilder},
@@ -16,7 +15,6 @@ use crate::{
         numbers::round,
         ChannelExt,
     },
-    BotResult,
 };
 
 use super::{
@@ -51,18 +49,14 @@ impl GameStateKind {
         }
     }
 
-    pub async fn restart(self, ctx: &Context) -> BotResult<(Self, Receiver<String>)> {
+    pub async fn restart(self, ctx: &Context) -> Result<(Self, Receiver<String>)> {
         match self {
             Self::ScorePp { mode, .. } => Self::score_pp(ctx, mode).await,
             Self::FarmMaps { entries, .. } => Self::farm_maps(ctx, entries).await,
         }
     }
 
-    pub async fn next(
-        &mut self,
-        ctx: Arc<Context>,
-        curr_score: u32,
-    ) -> BotResult<Receiver<String>> {
+    pub async fn next(&mut self, ctx: Arc<Context>, curr_score: u32) -> Result<Receiver<String>> {
         let rx = match self {
             Self::ScorePp {
                 mode,
@@ -72,10 +66,14 @@ impl GameStateKind {
                 let mode = *mode;
                 mem::swap(previous, next);
 
-                *next = ScorePp::random(&ctx, mode, previous.pp, curr_score).await?;
+                *next = ScorePp::random(&ctx, mode, previous.pp, curr_score)
+                    .await
+                    .wrap_err("failed to create score pp entry")?;
 
                 while previous == next {
-                    *next = ScorePp::random(&ctx, mode, previous.pp, curr_score).await?;
+                    *next = ScorePp::random(&ctx, mode, previous.pp, curr_score)
+                        .await
+                        .wrap_err("failed to create score pp entry")?;
                 }
 
                 debug!("{}pp vs {}pp", previous.pp, next.pp);
@@ -95,8 +93,7 @@ impl GameStateKind {
                     let url = match ScorePp::image(&ctx, &pfp1, &pfp2, mapset1, mapset2).await {
                         Ok(url) => url,
                         Err(err) => {
-                            let report = Report::new(err).wrap_err("failed to create image");
-                            warn!("{report:?}");
+                            warn!("{:?}", err.wrap_err("failed to create image"));
 
                             String::new()
                         }
@@ -113,7 +110,9 @@ impl GameStateKind {
                 next,
             } => {
                 mem::swap(previous, next);
-                *next = FarmMap::random(&ctx, entries, Some(previous.farm), curr_score).await?;
+                *next = FarmMap::random(&ctx, entries, Some(previous.farm), curr_score)
+                    .await
+                    .wrap_err("failed to create farm map entry")?;
 
                 debug!("farm: {} vs {}", previous.farm, next.farm);
 
@@ -127,8 +126,7 @@ impl GameStateKind {
                     let url = match FarmMap::image(&ctx, mapset1, mapset2).await {
                         Ok(url) => url,
                         Err(err) => {
-                            let report = Report::new(err).wrap_err("failed to create image");
-                            warn!("{report:?}");
+                            warn!("{:?}", err.wrap_err("failed to create image"));
 
                             String::new()
                         }
@@ -147,9 +145,14 @@ impl GameStateKind {
     pub async fn farm_maps(
         ctx: &Context,
         entries: FarmEntries,
-    ) -> BotResult<(Self, Receiver<String>)> {
-        let previous = FarmMap::random(ctx, &entries, None, 0).await?;
-        let next = FarmMap::random(ctx, &entries, Some(previous.farm), 0).await?;
+    ) -> Result<(Self, Receiver<String>)> {
+        let previous = FarmMap::random(ctx, &entries, None, 0)
+            .await
+            .wrap_err("failed to create farm map entry")?;
+
+        let next = FarmMap::random(ctx, &entries, Some(previous.farm), 0)
+            .await
+            .wrap_err("failed to create farm map entry")?;
 
         debug!("farm: {} vs {}", previous.farm, next.farm);
 
@@ -161,8 +164,7 @@ impl GameStateKind {
         let url = match FarmMap::image(ctx, mapset1, mapset2).await {
             Ok(url) => url,
             Err(err) => {
-                let report = Report::new(err).wrap_err("failed to create image");
-                warn!("{report:?}");
+                warn!("{:?}", err.wrap_err("failed to create image"));
 
                 String::new()
             }
@@ -179,14 +181,17 @@ impl GameStateKind {
         Ok((inner, rx))
     }
 
-    pub async fn score_pp(ctx: &Context, mode: GameMode) -> BotResult<(Self, Receiver<String>)> {
+    pub async fn score_pp(ctx: &Context, mode: GameMode) -> Result<(Self, Receiver<String>)> {
         let (previous, mut next) = tokio::try_join!(
             ScorePp::random(ctx, mode, 0.0, 0),
             ScorePp::random(ctx, mode, 0.0, 0)
-        )?;
+        )
+        .wrap_err("failed to create score pp entry")?;
 
         while next == previous {
-            next = ScorePp::random(ctx, mode, 0.0, 0).await?;
+            next = ScorePp::random(ctx, mode, 0.0, 0)
+                .await
+                .wrap_err("failed to create score pp entry")?;
         }
 
         debug!("{}pp vs {}pp", previous.pp, next.pp);
@@ -202,8 +207,7 @@ impl GameStateKind {
         let url = match ScorePp::image(ctx, pfp1, pfp2, mapset1, mapset2).await {
             Ok(url) => url,
             Err(err) => {
-                let report = Report::new(err).wrap_err("failed to create image");
-                warn!("{report:?}");
+                warn!("{:?}", err.wrap_err("failed to create image"));
 
                 String::new()
             }
@@ -323,11 +327,14 @@ impl GameStateKind {
         }
     }
 
-    pub async fn upload_image(ctx: &Context, img: &[u8], content: String) -> BotResult<String> {
+    pub async fn upload_image(ctx: &Context, img: &[u8], content: String) -> Result<String> {
         // Encode the combined images
         let mut png_bytes: Vec<u8> = Vec::with_capacity((W * H * 4) as usize);
         let png_encoder = PngEncoder::new(&mut png_bytes);
-        png_encoder.write_image(img, W, H, ColorType::Rgba8)?;
+
+        png_encoder
+            .write_image(img, W, H, ColorType::Rgba8)
+            .wrap_err("failed to encode image")?;
 
         // Send image into discord channel
         let builder = MessageBuilder::new()
@@ -339,13 +346,11 @@ impl GameStateKind {
             .create_message(ctx, &builder)
             .await?
             .model()
-            .await?;
+            .await
+            .wrap_err("failed to create message")?;
 
         // Return the url to the message's image
-        let attachment = message
-            .attachments
-            .pop()
-            .ok_or(InvalidGameState::MissingAttachment)?;
+        let attachment = message.attachments.pop().wrap_err("missing attachment")?;
 
         Ok(attachment.url)
     }

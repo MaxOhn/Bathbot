@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use eyre::Result;
 use twilight_model::channel::embed::EmbedField;
 
 use crate::{
@@ -8,10 +9,10 @@ use crate::{
         interaction::InteractionCommand,
         InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
-pub async fn trackingstats(ctx: Arc<Context>, command: InteractionCommand) -> BotResult<()> {
+pub async fn trackingstats(ctx: Arc<Context>, command: InteractionCommand) -> Result<()> {
     let stats = ctx.tracking().stats().await;
     let entry = stats.next_pop;
 

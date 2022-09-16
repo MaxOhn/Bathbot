@@ -1,14 +1,14 @@
 use std::collections::{btree_map::Entry, BTreeMap};
 
 use command_macros::pagination;
-use eyre::Report;
+use eyre::{Result, WrapErr};
 use rosu_v2::prelude::Rankings;
 use twilight_model::{channel::embed::Embed, id::Id};
 
 use crate::{
     commands::osu::UserValue,
     embeds::{EmbedData, RankingEmbed, RankingEntry, RankingKindData},
-    BotResult, Context,
+    Context,
 };
 
 use super::Pages;
@@ -24,7 +24,7 @@ pub struct RankingPagination {
 }
 
 impl RankingPagination {
-    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> BotResult<Embed> {
+    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
         let idx = pages.index.saturating_sub(1);
         let mut page = ((idx - idx % 50) + 50) / 50;
         page += self.users.contains_key(&idx) as usize;
@@ -68,7 +68,7 @@ impl RankingPagination {
         ctx: &Context,
         pages: &Pages,
         page: usize,
-    ) -> BotResult<()> {
+    ) -> Result<()> {
         let count = self
             .users
             .range(pages.index..pages.index + pages.per_page)
@@ -95,9 +95,7 @@ impl RankingPagination {
                                     .unwrap_or_else(|_| "Unknown user".to_owned())
                                     .into(),
                                 Err(err) => {
-                                    let report =
-                                        Report::new(err).wrap_err("failed to get osu user");
-                                    warn!("{report:?}");
+                                    warn!("{:?}", err.wrap_err("Failed to get osu user"));
 
                                     ctx.cache
                                         .user(id, |user| user.name.clone())
@@ -124,17 +122,29 @@ impl RankingPagination {
                         .performance_rankings(*mode)
                         .country(country.as_str())
                         .page(page)
-                        .await?;
+                        .await
+                        .wrap_err("failed to get ranking page")?;
 
                     self.extend_from_ranking(ranking, offset);
                 }
                 RankingKindData::PpGlobal { mode } => {
-                    let ranking = ctx.osu().performance_rankings(*mode).page(page).await?;
+                    let ranking = ctx
+                        .osu()
+                        .performance_rankings(*mode)
+                        .page(page)
+                        .await
+                        .wrap_err("failed to get ranking page")?;
 
                     self.extend_from_ranking(ranking, offset);
                 }
                 RankingKindData::RankedScore { mode } => {
-                    let ranking = ctx.osu().score_rankings(*mode).page(page).await?;
+                    let ranking = ctx
+                        .osu()
+                        .score_rankings(*mode)
+                        .page(page)
+                        .await
+                        .wrap_err("failed to get ranking page")?;
+
                     self.extend_from_ranking(ranking, offset);
                 }
                 _ => {} // other data does not come paginated

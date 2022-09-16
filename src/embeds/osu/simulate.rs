@@ -1,5 +1,6 @@
 use std::{borrow::Cow, fmt::Write};
 
+use eyre::{Result, WrapErr};
 use rosu_pp::{Beatmap as Map, BeatmapExt, DifficultyAttributes};
 use rosu_v2::prelude::{
     Beatmap, BeatmapsetCompact, GameMode, GameMods, Grade, Score, ScoreStatistics,
@@ -14,7 +15,6 @@ use crate::{
     },
     core::Context,
     embeds::osu,
-    error::PpError,
     pp::PpCalculator,
     util::{
         builder::{EmbedBuilder, FooterBuilder},
@@ -23,7 +23,6 @@ use crate::{
         osu::{grade_completion_mods, prepare_beatmap_file, ModSelection},
         CowUtils, ScoreExt,
     },
-    BotResult,
 };
 
 pub struct SimulateArgs {
@@ -189,7 +188,7 @@ impl SimulateEmbed {
         mapset: &BeatmapsetCompact,
         args: SimulateArgs,
         ctx: &Context,
-    ) -> BotResult<Self> {
+    ) -> Result<Self> {
         let is_some = args.is_some();
 
         let title = if map.mode == GameMode::Mania {
@@ -230,8 +229,14 @@ impl SimulateEmbed {
         };
 
         let mut unchoked_score = score.unwrap_or_else(default_score);
-        let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
-        let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
+
+        let map_path = prepare_beatmap_file(ctx, map.map_id)
+            .await
+            .wrap_err("failed to prepare map")?;
+
+        let rosu_map = Map::from_path(map_path)
+            .await
+            .wrap_err("failed to parse map")?;
 
         if let Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) = args.mods {
             unchoked_score.mods = mods;

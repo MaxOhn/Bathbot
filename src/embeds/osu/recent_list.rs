@@ -1,6 +1,7 @@
 use std::fmt::Write;
 
 use command_macros::EmbedData;
+use eyre::{Result, WrapErr};
 use hashbrown::{hash_map::Entry, HashMap};
 use rosu_pp::{
     Beatmap as Map, BeatmapExt, CatchPP, DifficultyAttributes, GameMode as Mode, ManiaPP, OsuPP,
@@ -11,7 +12,6 @@ use rosu_v2::prelude::{GameMode, Grade, Score, User};
 use crate::{
     core::Context,
     embeds::osu,
-    error::PpError,
     pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
@@ -20,7 +20,6 @@ use crate::{
         osu::{grade_completion_mods, prepare_beatmap_file},
         CowUtils, ScoreExt,
     },
-    BotResult,
 };
 
 #[derive(EmbedData)]
@@ -33,7 +32,7 @@ pub struct RecentListEmbed {
 }
 
 impl RecentListEmbed {
-    pub async fn new<'i, S>(user: &User, scores: S, ctx: &Context, pages: &Pages) -> BotResult<Self>
+    pub async fn new<'i, S>(user: &User, scores: S, ctx: &Context, pages: &Pages) -> Result<Self>
     where
         S: Iterator<Item = &'i Score>,
     {
@@ -56,7 +55,10 @@ impl RecentListEmbed {
                 Entry::Vacant(e) => {
                     let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
                     ctx.map_garbage_collector(map).execute(ctx);
-                    let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
+
+                    let rosu_map = Map::from_path(map_path)
+                        .await
+                        .wrap_err("failed to parse map")?;
 
                     e.insert(rosu_map)
                 }

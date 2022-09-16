@@ -1,7 +1,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, HasMods, SlashCommand};
-use eyre::Report;
+use eyre::{Report, Result};
 use rosu_v2::error::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::channel::{message::MessageType, Message};
@@ -18,7 +18,7 @@ use crate::{
         osu::{MapIdType, ModSelection},
         ChannelExt, InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::{HasMods, ModsResult};
@@ -121,7 +121,7 @@ impl<'a> TryFrom<Leaderboard<'a>> for LeaderboardArgs<'a> {
 #[example("2240404", "https://osu.ppy.sh/beatmapsets/902425#osu/2240404")]
 #[alias("lb")]
 #[group(AllModes)]
-async fn prefix_leaderboard(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_leaderboard(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match LeaderboardArgs::args(msg, args) {
         Ok(args) => leaderboard(ctx, msg.into(), args).await,
         Err(content) => {
@@ -132,7 +132,7 @@ async fn prefix_leaderboard(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
     }
 }
 
-async fn slash_leaderboard(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_leaderboard(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Leaderboard::from_interaction(command.input_data())?;
 
     match LeaderboardArgs::try_from(args) {
@@ -149,7 +149,7 @@ async fn leaderboard(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: LeaderboardArgs<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let mods = match args.mods() {
         ModsResult::Mods(mods) => Some(mods),
         ModsResult::None => None,
@@ -197,8 +197,7 @@ async fn leaderboard(
     let author_name = match ctx.psql().get_user_osu(owner).await {
         Ok(osu) => osu.map(OsuData::into_username),
         Err(err) => {
-            let report = Report::new(err).wrap_err("failed to get user config");
-            warn!("{report:?}");
+            warn!("{:?}", err.wrap_err("failed to get username"));
 
             None
         }
@@ -211,7 +210,7 @@ async fn leaderboard(
             Ok(map) => {
                 // Add map to database if its not in already
                 if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-                    warn!("{:?}", Report::new(err));
+                    warn!("{:?}", err.wrap_err("Failed to insert map in database"));
                 }
 
                 ctx.map_garbage_collector(&map).execute(&ctx);
@@ -228,8 +227,9 @@ async fn leaderboard(
             }
             Err(err) => {
                 let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                let report = Report::new(err).wrap_err("failed to get beatmap");
 
-                return Err(err.into());
+                return Err(report);
             }
         },
     };
@@ -237,7 +237,7 @@ async fn leaderboard(
     if let Some(ModSelection::Include(m) | ModSelection::Exact(m)) = mods {
         match PpCalculator::new(&ctx, map_id).await {
             Ok(calc) => map.stars = calc.mods(m).stars() as f32,
-            Err(err) => warn!("{:?}", Report::new(err)),
+            Err(err) => warn!("{:?}", err.wrap_err("Failed to get pp calculator")),
         }
     }
 
@@ -254,7 +254,7 @@ async fn leaderboard(
         Err(err) => {
             let _ = orig.error(&ctx, OSU_WEB_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get leaderboard"));
         }
     };
 

@@ -1,5 +1,6 @@
 use std::{fmt::Write, mem};
 
+use eyre::{ContextCompat, Result};
 use twilight_interactions::command::{CommandOptionExt, CommandOptionExtInner};
 use twilight_model::application::component::{button::ButtonStyle, ActionRow, Button, Component};
 
@@ -8,18 +9,16 @@ use crate::{
         commands::slash::{SlashCommand, SlashCommands},
         Context,
     },
-    error::InvalidHelpState,
     util::{
         builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
         interaction::InteractionComponent,
         ComponentExt,
     },
-    BotResult,
 };
 
 use super::{option_fields, parse_select_menu, AUTHORITY_STATUS};
 
-type PartResult = Result<(Parts, bool), InvalidHelpState>;
+type PartResult = Result<(Parts, bool)>;
 
 struct Parts {
     name: String,
@@ -138,14 +137,14 @@ impl CommandIter {
 pub async fn handle_help_component(
     ctx: &Context,
     mut component: InteractionComponent,
-) -> BotResult<()> {
+) -> Result<()> {
     let mut title = component
         .message
         .embeds
         .pop()
-        .ok_or(InvalidHelpState::MissingEmbed)?
+        .wrap_err("missing embed")?
         .title
-        .ok_or(InvalidHelpState::MissingTitle)?;
+        .wrap_err("missing embed title")?;
 
     // If value is None, back button was pressed; otherwise subcommand was picked
     let (command, authority) = match component.data.values.pop() {
@@ -183,23 +182,23 @@ pub async fn handle_help_component(
 
 fn continue_subcommand(title: &mut String, name: &str) -> PartResult {
     let mut names = title.split(' ');
-    let base = names.next().ok_or(InvalidHelpState::MissingTitle)?;
+    let base = names.next().wrap_err("missing embed title")?;
 
     let command = SlashCommands::get()
         .command(base)
-        .ok_or(InvalidHelpState::UnknownCommand)?;
+        .wrap_err("unknown command")?;
 
     let authority = command.flags.authority();
     let mut iter = CommandIter::from(command);
 
     for name in names {
         if iter.next(name) {
-            return Err(InvalidHelpState::UnknownCommand);
+            bail!("unknown command");
         }
     }
 
     if iter.next(name) {
-        return Err(InvalidHelpState::UnknownCommand);
+        bail!("unknown command");
     }
 
     let command = Parts::from(iter);
@@ -211,11 +210,11 @@ fn continue_subcommand(title: &mut String, name: &str) -> PartResult {
 fn backtrack_subcommand(title: &mut String) -> PartResult {
     let index = title.chars().filter(char::is_ascii_whitespace).count();
     let mut names = title.split(' ').take(index);
-    let base = names.next().ok_or(InvalidHelpState::MissingTitle)?;
+    let base = names.next().wrap_err("missing embed title")?;
 
     let command = SlashCommands::get()
         .command(base)
-        .ok_or(InvalidHelpState::UnknownCommand)?;
+        .wrap_err("unknown command")?;
 
     let authority = command.flags.authority();
 
@@ -223,7 +222,7 @@ fn backtrack_subcommand(title: &mut String) -> PartResult {
 
     for name in names {
         if iter.next(name) {
-            return Err(InvalidHelpState::UnknownCommand);
+            bail!("unknown command");
         }
     }
 

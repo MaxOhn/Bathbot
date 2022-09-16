@@ -1,7 +1,7 @@
 use std::{fmt::Write, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
-use eyre::Report;
+use eyre::{Report, Result, WrapErr};
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::{
     prelude::{
@@ -23,7 +23,6 @@ use crate::{
     },
     core::{commands::CommandOrigin, Context},
     embeds::{EmbedData, GraphEmbed},
-    error::GraphError,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
@@ -31,7 +30,6 @@ use crate::{
         numbers::with_comma_int,
         CountryCode, InteractionCommandExt, Monthly,
     },
-    BotResult,
 };
 
 use super::{player_snipe_stats, profile, require_link, sniped, ProfileGraphParams};
@@ -263,14 +261,14 @@ impl From<GraphTopTimezone> for UtcOffset {
     }
 }
 
-async fn slash_graph(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_graph(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Graph::from_interaction(command.input_data())?;
 
     graph(ctx, (&mut command).into(), args).await
 }
 
 // Takes a `CommandOrigin` since `require_link` does not take `InteractionCommand`
-async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> BotResult<()> {
+async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Result<()> {
     let tuple_option = match args {
         Graph::Medals(args) => {
             let name = match username!(ctx, orig, args) {
@@ -281,12 +279,14 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> BotRe
                     Err(err) => {
                         let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                        return Err(err);
+                        return Err(err.wrap_err("failed to get username"));
                     }
                 },
             };
 
-            medals_graph(&ctx, &orig, &name).await?
+            medals_graph(&ctx, &orig, &name)
+                .await
+                .wrap_err("failed to create medals graph")?
         }
         Graph::PlaycountReplays(args) => {
             let name = match username!(ctx, orig, args) {
@@ -297,7 +297,7 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> BotRe
                     Err(err) => {
                         let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                        return Err(err);
+                        return Err(err.wrap_err("failed to get username"));
                     }
                 },
             };
@@ -320,13 +320,17 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> BotRe
                 return orig.error(&ctx, ":clown:").await;
             }
 
-            playcount_replays_graph(&ctx, &orig, &name, flags).await?
+            playcount_replays_graph(&ctx, &orig, &name, flags)
+                .await
+                .wrap_err("failed to create profile graph")?
         }
         Graph::Rank(args) => {
             let (name, mode) = name_mode!(ctx, orig, args);
             let user_args = UserArgs::new(name.as_str(), mode);
 
-            rank_graph(&ctx, &orig, &name, &user_args).await?
+            rank_graph(&ctx, &orig, &name, &user_args)
+                .await
+                .wrap_err("failed to create rank graph")?
         }
         Graph::Sniped(args) => {
             let name = match username!(ctx, orig, args) {
@@ -337,12 +341,14 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> BotRe
                     Err(err) => {
                         let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                        return Err(err);
+                        return Err(err.wrap_err("failed to get username"));
                     }
                 },
             };
 
-            sniped_graph(&ctx, &orig, &name).await?
+            sniped_graph(&ctx, &orig, &name)
+                .await
+                .wrap_err("failed to create snipe graph")?
         }
         Graph::SnipeCount(args) => {
             let name = match username!(ctx, orig, args) {
@@ -353,19 +359,23 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> BotRe
                     Err(err) => {
                         let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                        return Err(err);
+                        return Err(err.wrap_err("failed to get username"));
                     }
                 },
             };
 
-            snipe_count_graph(&ctx, &orig, &name).await?
+            snipe_count_graph(&ctx, &orig, &name)
+                .await
+                .wrap_err("failed to create snipe count graph")?
         }
         Graph::Top(args) => {
             let (name, mode) = name_mode!(ctx, orig, args);
             let user_args = UserArgs::new(name.as_str(), mode);
             let tz = args.timezone.map(UtcOffset::from);
 
-            top_graph(&ctx, &orig, &name, user_args, args.order, tz).await?
+            top_graph(&ctx, &orig, &name, user_args, args.order, tz)
+                .await
+                .wrap_err("failed to create top graph")?
         }
     };
 
@@ -375,9 +385,11 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> BotRe
     };
 
     let embed = GraphEmbed::new(&user).build();
+
     let builder = MessageBuilder::new()
         .embed(embed)
         .attachment("graph.png", graph);
+
     orig.create_message(&ctx, &builder).await?;
 
     Ok(())
@@ -391,7 +403,7 @@ async fn medals_graph(
     ctx: &Context,
     orig: &CommandOrigin<'_>,
     name: &str,
-) -> BotResult<Option<(User, Vec<u8>)>> {
+) -> Result<Option<(User, Vec<u8>)>> {
     let user_args = UserArgs::new(name, GameMode::Osu);
 
     let mut user = match get_user(ctx, &user_args).await {
@@ -404,8 +416,9 @@ async fn medals_graph(
         }
         Err(err) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -424,7 +437,7 @@ async fn medals_graph(
         }
         Err(err) => {
             let _ = orig.error(ctx, GENERAL_ISSUE).await;
-            warn!("{:?}", Report::new(err));
+            warn!("{:?}", err.wrap_err("Failed to create medals graph"));
 
             return Ok(None);
         }
@@ -438,7 +451,7 @@ async fn playcount_replays_graph(
     orig: &CommandOrigin<'_>,
     name: &str,
     flags: ProfileGraphFlags,
-) -> BotResult<Option<(User, Vec<u8>)>> {
+) -> Result<Option<(User, Vec<u8>)>> {
     let user_args = UserArgs::new(name, GameMode::Osu);
 
     let mut user = match get_user(ctx, &user_args).await {
@@ -451,8 +464,9 @@ async fn playcount_replays_graph(
         }
         Err(err) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -472,7 +486,7 @@ async fn playcount_replays_graph(
         }
         Err(err) => {
             let _ = orig.error(ctx, GENERAL_ISSUE).await;
-            warn!("{:?}", Report::new(err));
+            warn!("{:?}", err.wrap_err("Failed to create profile graph"));
 
             return Ok(None);
         }
@@ -486,7 +500,7 @@ async fn rank_graph(
     orig: &CommandOrigin<'_>,
     name: &str,
     user_args: &UserArgs<'_>,
-) -> BotResult<Option<(User, Vec<u8>)>> {
+) -> Result<Option<(User, Vec<u8>)>> {
     let user = match get_user(ctx, user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
@@ -497,12 +511,13 @@ async fn rank_graph(
         }
         Err(err) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
-    fn draw_graph(user: &User) -> Result<Option<Vec<u8>>, GraphError> {
+    fn draw_graph(user: &User) -> Result<Option<Vec<u8>>> {
         let mut buf = vec![0; LEN * 3];
 
         let history = match user.rank_history {
@@ -549,7 +564,8 @@ async fn rank_graph(
         {
             let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
             let background = RGBColor(19, 43, 33);
-            root.fill(&background)?;
+            root.fill(&background)
+                .wrap_err("failed to fill background")?;
 
             let style: fn(RGBColor) -> ShapeStyle = |color| ShapeStyle {
                 color: color.to_rgba(),
@@ -562,7 +578,8 @@ async fn rank_graph(
                 .y_label_area_size(y_label_area_size)
                 .margin(10)
                 .margin_left(6)
-                .build_cartesian_2d(0_u32..history_len.saturating_sub(1) as u32, min..max)?;
+                .build_cartesian_2d(0_u32..history_len.saturating_sub(1) as u32, min..max)
+                .wrap_err("failed to build chart")?;
 
             chart
                 .configure_mesh()
@@ -576,20 +593,22 @@ async fn rank_graph(
                 .bold_line_style(&WHITE.mix(0.3))
                 .axis_style(RGBColor(7, 18, 14))
                 .axis_desc_style(("sans-serif", 16, FontStyle::Bold, &WHITE))
-                .draw()?;
+                .draw()
+                .wrap_err("failed to draw mesh")?;
 
             let data = (0..).zip(history.iter().map(|rank| -(*rank as i32)));
 
             let area_style = RGBColor(2, 186, 213).mix(0.7).filled();
             let border_style = style(RGBColor(0, 208, 138)).stroke_width(3);
             let series = AreaSeries::new(data, min, area_style).border_style(border_style);
-            chart.draw_series(series)?;
+            chart.draw_series(series).wrap_err("failed to draw area")?;
 
             let max_coords = (min_idx as u32, max);
             let circle = Circle::new(max_coords, 9_u32, style(GREEN));
 
             chart
-                .draw_series(std::iter::once(circle))?
+                .draw_series(std::iter::once(circle))
+                .wrap_err("failed to draw max circle")?
                 .label(format!("Peak: #{}", with_comma_int(-max)))
                 .legend(|(x, y)| Circle::new((x, y), 5_u32, style(GREEN)));
 
@@ -597,7 +616,8 @@ async fn rank_graph(
             let circle = Circle::new(min_coords, 9_u32, style(RED));
 
             chart
-                .draw_series(std::iter::once(circle))?
+                .draw_series(std::iter::once(circle))
+                .wrap_err("failed to draw min circle")?
                 .label(format!("Worst: #{}", with_comma_int(-min)))
                 .legend(|(x, y)| Circle::new((x, y), 5_u32, style(RED)));
 
@@ -616,13 +636,17 @@ async fn rank_graph(
                 .position(position)
                 .legend_area_size(13)
                 .label_font(("sans-serif", 15, FontStyle::Bold))
-                .draw()?;
+                .draw()
+                .wrap_err("failed to draw legend")?;
         }
 
         // Encode buf to png
         let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
         let png_encoder = PngEncoder::new(&mut png_bytes);
-        png_encoder.write_image(&buf, W, H, ColorType::Rgb8)?;
+
+        png_encoder
+            .write_image(&buf, W, H, ColorType::Rgb8)
+            .wrap_err("failed to encode image")?;
 
         Ok(Some(png_bytes))
     }
@@ -637,7 +661,7 @@ async fn rank_graph(
         }
         Err(err) => {
             let _ = orig.error(ctx, GENERAL_ISSUE).await;
-            warn!("{:?}", Report::new(err));
+            warn!("{:?}", err.wrap_err("Failed to draw rank graph"));
 
             return Ok(None);
         }
@@ -650,7 +674,7 @@ async fn sniped_graph(
     ctx: &Context,
     orig: &CommandOrigin<'_>,
     name: &str,
-) -> BotResult<Option<(User, Vec<u8>)>> {
+) -> Result<Option<(User, Vec<u8>)>> {
     let user_args = UserArgs::new(name, GameMode::Osu);
 
     let user = match get_user(ctx, &user_args).await {
@@ -663,8 +687,9 @@ async fn sniped_graph(
         }
         Err(err) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -686,7 +711,7 @@ async fn sniped_graph(
             Err(err) => {
                 let _ = orig.error(ctx, HUISMETBENEN_ISSUE).await;
 
-                return Err(err.into());
+                return Err(err.wrap_err("failed to get sniper or snipee"));
             }
         }
     } else {
@@ -712,7 +737,7 @@ async fn sniped_graph(
         }
         Err(err) => {
             let _ = orig.error(ctx, GENERAL_ISSUE).await;
-            warn!("{:?}", Report::new(err));
+            warn!("{:?}", err.wrap_err("Failed to create sniped graph"));
 
             return Ok(None);
         }
@@ -725,7 +750,7 @@ async fn snipe_count_graph(
     ctx: &Context,
     orig: &CommandOrigin<'_>,
     name: &str,
-) -> BotResult<Option<(User, Vec<u8>)>> {
+) -> Result<Option<(User, Vec<u8>)>> {
     let user_args = UserArgs::new(name, GameMode::Osu);
 
     let user = match get_user(ctx, &user_args).await {
@@ -738,8 +763,9 @@ async fn snipe_count_graph(
         }
         Err(err) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -751,8 +777,7 @@ async fn snipe_count_graph(
         match player_fut.await {
             Ok(counts) => counts,
             Err(err) => {
-                let report = Report::new(err).wrap_err("failed to retrieve snipe player");
-                warn!("{report:?}");
+                warn!("{:?}", err.wrap_err("Failed to get snipe player"));
                 let content = format!("`{name}` has never had any national #1s");
                 let builder = MessageBuilder::new().embed(content);
                 orig.create_message(ctx, &builder).await?;
@@ -778,7 +803,7 @@ async fn snipe_count_graph(
         Ok(graph) => graph,
         Err(err) => {
             let _ = orig.error(ctx, GENERAL_ISSUE).await;
-            warn!("{:?}", Report::new(err));
+            warn!("{:?}", err.wrap_err("Failed to create snipe count graph"));
 
             return Ok(None);
         }
@@ -794,7 +819,7 @@ async fn top_graph(
     user_args: UserArgs<'_>,
     order: GraphTopOrder,
     tz: Option<UtcOffset>,
-) -> BotResult<Option<(User, Vec<u8>)>> {
+) -> Result<Option<(User, Vec<u8>)>> {
     let mode = user_args.mode;
     let score_args = ScoreArgs::top(100);
 
@@ -808,8 +833,9 @@ async fn top_graph(
         }
         Err(err) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user or scores");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -839,16 +865,22 @@ async fn top_graph(
     let tz = tz.unwrap_or_else(|| CountryCode::from(user.country_code.clone()).timezone());
 
     let graph_result = match order {
-        GraphTopOrder::Date => top_graph_date(caption, &mut scores).await,
-        GraphTopOrder::Index => top_graph_index(caption, &scores).await,
-        GraphTopOrder::Time => top_graph_time(caption, &mut scores, tz).await,
+        GraphTopOrder::Date => top_graph_date(caption, &mut scores)
+            .await
+            .wrap_err("Failed to create top date graph"),
+        GraphTopOrder::Index => top_graph_index(caption, &scores)
+            .await
+            .wrap_err("Failed to create top index graph"),
+        GraphTopOrder::Time => top_graph_time(caption, &mut scores, tz)
+            .await
+            .wrap_err("Failed to create top time graph"),
     };
 
     let bytes = match graph_result {
         Ok(graph) => graph,
         Err(err) => {
             let _ = orig.error(ctx, GENERAL_ISSUE).await;
-            warn!("{:?}", Report::new(err));
+            warn!("{err:?}");
 
             return Ok(None);
         }
@@ -857,7 +889,7 @@ async fn top_graph(
     Ok(Some((user, bytes)))
 }
 
-async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec<u8>, GraphError> {
+async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec<u8>> {
     let max = scores.first().and_then(|s| s.pp).unwrap_or(0.0);
     let max_adj = max + 5.0;
 
@@ -876,7 +908,8 @@ async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec<u8>
     {
         let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
         let background = RGBColor(19, 43, 33);
-        root.fill(&background)?;
+        root.fill(&background)
+            .wrap_err("failed to fill background")?;
 
         let caption_style = ("sans-serif", 25_i32, FontStyle::Bold, &WHITE);
 
@@ -886,7 +919,8 @@ async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec<u8>
             .margin_top(5_i32)
             .margin_right(15_i32)
             .caption(caption, caption_style)
-            .build_cartesian_2d(Monthly(first..last), min_adj..max_adj)?;
+            .build_cartesian_2d(Monthly(first..last), min_adj..max_adj)
+            .wrap_err("failed to build chart")?;
 
         chart
             .configure_mesh()
@@ -897,7 +931,8 @@ async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec<u8>
             .bold_line_style(&WHITE.mix(0.3))
             .axis_style(RGBColor(7, 18, 14))
             .axis_desc_style(("sans-serif", 16_i32, FontStyle::Bold, &WHITE))
-            .draw()?;
+            .draw()
+            .wrap_err("failed to draw mesh")?;
 
         let point_style = RGBColor(2, 186, 213).mix(0.7).filled();
         // let border_style = RGBColor(30, 248, 178).mix(0.9).filled();
@@ -910,7 +945,8 @@ async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec<u8>
         });
 
         chart
-            .draw_series(series)?
+            .draw_series(series)
+            .wrap_err("failed to draw main points")?
             .label(format!("Max: {max}pp"))
             .legend(EmptyElement::at);
 
@@ -921,7 +957,8 @@ async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec<u8>
         });
 
         chart
-            .draw_series(series)?
+            .draw_series(series)
+            .wrap_err("failed to draw point borders")?
             .label(format!("Min: {min}pp"))
             .legend(EmptyElement::at);
 
@@ -932,7 +969,8 @@ async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec<u8>
             .position(SeriesLabelPosition::MiddleLeft)
             .legend_area_size(0_i32)
             .label_font(("sans-serif", 16_i32, FontStyle::Bold, &WHITE))
-            .draw()?;
+            .draw()
+            .wrap_err("failed to draw legend")?;
     }
 
     // Encode buf to png
@@ -943,7 +981,7 @@ async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec<u8>
     Ok(png_bytes)
 }
 
-async fn top_graph_index(caption: String, scores: &[Score]) -> Result<Vec<u8>, GraphError> {
+async fn top_graph_index(caption: String, scores: &[Score]) -> Result<Vec<u8>> {
     let max = scores.first().and_then(|s| s.pp).unwrap_or(0.0);
     let max_adj = max + 5.0;
 
@@ -956,7 +994,8 @@ async fn top_graph_index(caption: String, scores: &[Score]) -> Result<Vec<u8>, G
     {
         let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
         let background = RGBColor(19, 43, 33);
-        root.fill(&background)?;
+        root.fill(&background)
+            .wrap_err("failed to fill background")?;
 
         let caption_style = ("sans-serif", 25_i32, FontStyle::Bold, &WHITE);
 
@@ -966,7 +1005,8 @@ async fn top_graph_index(caption: String, scores: &[Score]) -> Result<Vec<u8>, G
             .margin_top(5_i32)
             .margin_right(15_i32)
             .caption(caption, caption_style)
-            .build_cartesian_2d(1..scores.len(), min_adj..max_adj)?;
+            .build_cartesian_2d(1..scores.len(), min_adj..max_adj)
+            .wrap_err("failed to build chart")?;
 
         chart
             .configure_mesh()
@@ -975,7 +1015,8 @@ async fn top_graph_index(caption: String, scores: &[Score]) -> Result<Vec<u8>, G
             .bold_line_style(&WHITE.mix(0.3))
             .axis_style(RGBColor(7, 18, 14))
             .axis_desc_style(("sans-serif", 16_i32, FontStyle::Bold, &WHITE))
-            .draw()?;
+            .draw()
+            .wrap_err("failed to draw mesh")?;
 
         let area_style = RGBColor(2, 186, 213).mix(0.7).filled();
         let border_style = RGBColor(0, 208, 138).stroke_width(3);
@@ -983,10 +1024,12 @@ async fn top_graph_index(caption: String, scores: &[Score]) -> Result<Vec<u8>, G
         let series = AreaSeries::new(iter, 0.0, area_style).border_style(border_style);
 
         chart
-            .draw_series(series)?
+            .draw_series(series)
+            .wrap_err("failed to draw area")?
             .label(format!("Max: {max}pp"))
             .legend(EmptyElement::at);
 
+        // TODO: remove?
         let iter = (1..)
             .zip(scores)
             .filter_map(|(i, s)| Some((i, s.pp?)))
@@ -995,7 +1038,8 @@ async fn top_graph_index(caption: String, scores: &[Score]) -> Result<Vec<u8>, G
         let series = AreaSeries::new(iter, 0.0, &WHITE).border_style(&WHITE);
 
         chart
-            .draw_series(series)?
+            .draw_series(series)
+            .wrap_err("failed to draw second area")?
             .label(format!("Min: {min}pp"))
             .legend(EmptyElement::at);
 
@@ -1006,13 +1050,17 @@ async fn top_graph_index(caption: String, scores: &[Score]) -> Result<Vec<u8>, G
             .position(SeriesLabelPosition::UpperRight)
             .legend_area_size(0_i32)
             .label_font(("sans-serif", 16_i32, FontStyle::Bold, &WHITE))
-            .draw()?;
+            .draw()
+            .wrap_err("failed to draw legend")?;
     }
 
     // Encode buf to png
     let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
     let png_encoder = PngEncoder::new(&mut png_bytes);
-    png_encoder.write_image(&buf, W, H, ColorType::Rgb8)?;
+
+    png_encoder
+        .write_image(&buf, W, H, ColorType::Rgb8)
+        .wrap_err("failed to encode image")?;
 
     Ok(png_bytes)
 }
@@ -1021,7 +1069,7 @@ async fn top_graph_time(
     mut caption: String,
     scores: &mut [Score],
     tz: UtcOffset,
-) -> Result<Vec<u8>, GraphError> {
+) -> Result<Vec<u8>> {
     fn date_to_value(date: OffsetDateTime) -> u32 {
         date.hour() as u32 * 60 + date.minute() as u32
     }
@@ -1051,7 +1099,8 @@ async fn top_graph_time(
     {
         let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
         let background = RGBColor(19, 43, 33);
-        root.fill(&background)?;
+        root.fill(&background)
+            .wrap_err("failed to fill background")?;
 
         let caption_style = ("sans-serif", 25_i32, FontStyle::Bold, &WHITE);
 
@@ -1071,7 +1120,8 @@ async fn top_graph_time(
             .margin_top(margin_top)
             .margin_right(margin_right)
             .caption(caption, caption_style)
-            .build_cartesian_2d((0_u32..23_u32).into_segmented(), 0_u32..max_hours)?
+            .build_cartesian_2d((0_u32..23_u32).into_segmented(), 0_u32..max_hours)
+            .wrap_err("failed to build bar chart")?
             .set_secondary_coord((0_u32..23_u32).into_segmented(), 0_u32..max_hours);
 
         chart
@@ -1084,7 +1134,8 @@ async fn top_graph_time(
             .label_style(("sans-serif", 16_i32, &WHITE))
             .axis_style(RGBColor(7, 18, 14))
             .axis_desc_style(("sans-serif", 16_i32, FontStyle::Bold, &WHITE))
-            .draw()?;
+            .draw()
+            .wrap_err("failed to draw primary bar mesh")?;
 
         chart
             .configure_secondary_axes()
@@ -1092,10 +1143,13 @@ async fn top_graph_time(
             .label_style(("sans-serif", 16_i32, &WHITE))
             .axis_style(RGBColor(7, 18, 14))
             .axis_desc_style(("sans-serif", 16_i32, FontStyle::Bold, &WHITE))
-            .draw()?;
+            .draw()
+            .wrap_err("failed to draw secondary mesh")?;
 
         let counts = ScoreHourCounts::new(hours);
-        chart.draw_secondary_series(counts)?;
+        chart
+            .draw_secondary_series(counts)
+            .wrap_err("failed to draw bars")?;
 
         // Draw points
         let mut chart = ChartBuilder::on(&root)
@@ -1106,7 +1160,8 @@ async fn top_graph_time(
             .margin_top(margin_top)
             .margin_right(margin_right)
             .caption("", caption_style)
-            .build_cartesian_2d(0_u32..24 * 60, min_adj..max_adj)?
+            .build_cartesian_2d(0_u32..24 * 60, min_adj..max_adj)
+            .wrap_err("failed to build point chart")?
             .set_secondary_coord(0_u32..24 * 60, min_adj..max_adj);
 
         chart
@@ -1119,7 +1174,8 @@ async fn top_graph_time(
             .bold_line_style(&WHITE.mix(0.3))
             .axis_style(RGBColor(7, 18, 14))
             .axis_desc_style(("sans-serif", 16_i32, FontStyle::Bold, &WHITE))
-            .draw()?;
+            .draw()
+            .wrap_err("failed to draw point mesh")?;
 
         // Draw secondary axis just to hide its values so that
         // the left hand values aren't displayed instead
@@ -1127,7 +1183,8 @@ async fn top_graph_time(
             .configure_secondary_axes()
             .label_style(("", 16_i32, &WHITE.mix(0.0)))
             .axis_style(WHITE.mix(0.0))
-            .draw()?;
+            .draw()
+            .wrap_err("failed to draw secondary points")?;
 
         let point_style = RGBColor(2, 186, 213).mix(0.7).filled();
         let border_style = WHITE.mix(0.9).stroke_width(1);
@@ -1141,7 +1198,8 @@ async fn top_graph_time(
         });
 
         chart
-            .draw_series(series)?
+            .draw_series(series)
+            .wrap_err("failed to draw primary points")?
             .label(format!("Max: {max}pp"))
             .legend(EmptyElement::at);
 
@@ -1154,7 +1212,8 @@ async fn top_graph_time(
         });
 
         chart
-            .draw_series(series)?
+            .draw_series(series)
+            .wrap_err("failed to draw primary points borders")?
             .label(format!("Min: {min}pp"))
             .legend(EmptyElement::at);
 
@@ -1165,13 +1224,17 @@ async fn top_graph_time(
             .position(SeriesLabelPosition::Coordinate((W as f32 / 4.5) as i32, 10))
             .legend_area_size(0_i32)
             .label_font(("sans-serif", 16_i32, FontStyle::Bold, &WHITE))
-            .draw()?;
+            .draw()
+            .wrap_err("failed to draw legend")?;
     }
 
     // Encode buf to png
     let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
     let png_encoder = PngEncoder::new(&mut png_bytes);
-    png_encoder.write_image(&buf, W, H, ColorType::Rgb8)?;
+
+    png_encoder
+        .write_image(&buf, W, H, ColorType::Rgb8)
+        .wrap_err("failed to encode image")?;
 
     Ok(png_bytes)
 }

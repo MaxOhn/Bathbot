@@ -1,6 +1,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
+use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
@@ -15,7 +16,7 @@ use crate::{
         osu::flag_url,
         InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::{get_user, require_link, UserArgs};
@@ -35,7 +36,7 @@ pub struct Avatar<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-pub async fn slash_avatar(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+pub async fn slash_avatar(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Avatar::from_interaction(command.input_data())?;
 
     avatar(ctx, (&mut command).into(), args).await
@@ -47,7 +48,7 @@ pub async fn slash_avatar(ctx: Arc<Context>, mut command: InteractionCommand) ->
 #[usage("[username]")]
 #[example("Badewanne3")]
 #[group(AllModes)]
-async fn prefix_avatar(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_avatar(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     avatar(ctx, msg.into(), Avatar::args(args)).await
 }
 
@@ -67,7 +68,7 @@ impl<'m> Avatar<'m> {
     }
 }
 
-async fn avatar(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Avatar<'_>) -> BotResult<()> {
+async fn avatar(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Avatar<'_>) -> Result<()> {
     let name = match username!(ctx, orig, args) {
         Some(name) => name,
         None => match ctx.psql().get_user_osu(orig.user_id()?).await {
@@ -76,7 +77,7 @@ async fn avatar(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Avatar<'_>) ->
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to get username"));
             }
         },
     };
@@ -92,8 +93,9 @@ async fn avatar(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Avatar<'_>) ->
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 

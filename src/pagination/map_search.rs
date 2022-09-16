@@ -1,11 +1,12 @@
+use eyre::Result;
 use rosu_v2::prelude::{Beatmapset, BeatmapsetSearchResult};
-use std::{collections::BTreeMap, iter::Extend, };
+use std::{collections::BTreeMap, iter::Extend};
 use twilight_model::channel::embed::Embed;
 
 use crate::{
     commands::osu::Search,
     embeds::{EmbedData, MapSearchEmbed},
-    BotResult, Context,
+    Context,
 };
 
 use super::{Pages, PaginationBuilder, PaginationKind};
@@ -36,7 +37,7 @@ impl MapSearchPagination {
         PaginationBuilder::new(kind, pages)
     }
 
-    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> BotResult<Embed> {
+    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
         let count = self
             .maps
             .range(pages.index..pages.index + pages.per_page)

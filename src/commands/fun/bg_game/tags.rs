@@ -18,7 +18,7 @@ use crate::{
         },
         send_reaction, CowUtils, Emote,
     },
-    BotResult, Context, CONFIG,
+    Context, Result, CONFIG,
 };
 
 #[command]
@@ -35,7 +35,7 @@ use crate::{
 #[example("21662 r hard farm streams alternate hardname tech weeb bluesky")]
 #[aliases("bgtm", "bgtagmanual")]
 #[owner()]
-async fn bgtagsmanual(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+async fn bgtagsmanual(ctx: Arc<Context>, data: CommandData) -> Result<()> {
     let (msg, mut args) = match data {
         CommandData::Message { msg, args, .. } => (msg, args),
         CommandData::Interaction { .. } => unreachable!(),
@@ -145,7 +145,7 @@ async fn bgtagsmanual(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
 // #[usage("[std / mna]")]
 // #[aliases("bgt", "bgtag")]
 // #[owner()]
-async fn bgtags(ctx: Arc<Context>, data: CommandData) -> BotResult<()> {
+async fn bgtags(ctx: Arc<Context>, data: CommandData) -> Result<()> {
     let (msg, mut args) = match data {
         CommandData::Message { msg, args, .. } => (msg, args),
         CommandData::Interaction { .. } => unreachable!(),

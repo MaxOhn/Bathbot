@@ -1,15 +1,16 @@
 use std::sync::Arc;
 
+use eyre::Result;
 use twilight_model::channel::Message;
 
 use crate::{
     core::{buckets::BucketName, commands::checks::check_ratelimit},
     games::bg::GameState,
     util::{builder::MessageBuilder, constants::GENERAL_ISSUE, ChannelExt},
-    BotResult, Context,
+    Context,
 };
 
-pub async fn hint(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn hint(ctx: Arc<Context>, msg: &Message) -> Result<()> {
     let ratelimit = check_ratelimit(&ctx, msg.author.id, BucketName::BgHint).await;
 
     if let Some(cooldown) = ratelimit {
@@ -30,7 +31,7 @@ pub async fn hint(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
             Err(err) => {
                 let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.into());
+                return Err(err.wrap_err("failed to get hint"));
             }
         },
         Some(GameState::Setup { author, .. }) => {

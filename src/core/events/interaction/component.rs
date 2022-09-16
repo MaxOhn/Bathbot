@@ -1,7 +1,5 @@
 use std::{mem, sync::Arc};
 
-use eyre::Report;
-
 use crate::{
     commands::help::{handle_help_category, handle_help_component},
     core::{events::log_command, Context},
@@ -35,11 +33,11 @@ pub async fn handle_component(ctx: Arc<Context>, mut component: InteractionCompo
         "profile_compact" => handle_profile_compact(ctx, component).await,
         "profile_medium" => handle_profile_medium(ctx, component).await,
         "profile_full" => handle_profile_full(ctx, component).await,
-        _ => return error!("unknown message component `{name}`"),
+        _ => return error!("Unknown message component `{name}`"),
     };
 
     if let Err(err) = res {
-        let wrap = format!("failed to process component `{name}`");
-        error!("{:?}", Report::new(err).wrap_err(wrap));
+        let wrap = format!("Failed to process component `{name}`");
+        error!("{:?}", err.wrap_err(wrap));
     }
 }

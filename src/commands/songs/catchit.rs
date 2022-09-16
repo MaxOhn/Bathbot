@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
 use command_macros::command;
+use eyre::Result;
 
-use crate::{core::Context, BotResult};
+use crate::core::Context;
 
 #[command]
 #[desc("https://youtu.be/BjFWk0ncr70?t=12")]
 #[group(Songs)]
 #[flags(SKIP_DEFER)]
-async fn prefix_catchit(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+async fn prefix_catchit(ctx: Arc<Context>, msg: &Message) -> Result<()> {
     let (lyrics, delay) = catchit_();
 
     super::song(lyrics, delay, ctx, msg.into()).await

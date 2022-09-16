@@ -1,9 +1,10 @@
 use command_macros::command;
+use eyre::Result;
 
 use crate::{
     database::Prefix,
     util::{builder::MessageBuilder, constants::GENERAL_ISSUE, matcher, ChannelExt},
-    BotResult, Context,
+    Context,
 };
 
 use std::{cmp::Ordering, fmt::Write, sync::Arc};
@@ -24,7 +25,7 @@ use std::{cmp::Ordering, fmt::Write, sync::Arc};
 #[alias("prefixes")]
 #[flags(AUTHORITY, ONLY_GUILDS, SKIP_DEFER)]
 #[group(Utility)]
-async fn prefix_prefix(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+async fn prefix_prefix(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
     let guild_id = msg.guild_id.unwrap();
 
     let action = match args.next() {
@@ -100,7 +101,7 @@ async fn prefix_prefix(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> 
     if let Err(err) = update_fut.await {
         let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-        return Err(err);
+        return Err(err.wrap_err("failed to update guild config"));
     }
 
     let mut content = "Prefixes updated!\n".to_owned();

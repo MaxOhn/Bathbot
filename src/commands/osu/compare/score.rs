@@ -1,7 +1,7 @@
 use std::{borrow::Cow, cmp::Ordering, sync::Arc};
 
 use command_macros::{command, HasMods, HasName, SlashCommand};
-use eyre::Report;
+use eyre::{Report, Result};
 use rosu_v2::prelude::{
     GameMode, OsuError,
     RankStatus::{self, Approved, Loved, Ranked},
@@ -29,7 +29,7 @@ use crate::{
         osu::{MapIdType, ModSelection},
         InteractionCommandExt, MessageExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::{CompareScore, CompareScoreOrder};
@@ -177,7 +177,7 @@ impl_try_from!(CompareScore, Cs);
 )]
 #[aliases("c", "score", "scores")]
 #[group(AllModes)]
-async fn prefix_compare(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_compare(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let mut args = CompareScoreArgs::args(args);
 
     let reply = msg
@@ -196,7 +196,7 @@ async fn prefix_compare(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Bot
     score(ctx, msg.into(), args).await
 }
 
-async fn slash_cs(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_cs(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Cs::from_interaction(command.input_data())?;
 
     match CompareScoreArgs::try_from(args) {
@@ -213,7 +213,7 @@ pub(super) async fn score(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: CompareScoreArgs<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let owner = orig.user_id()?;
 
     let mods = match args.mods() {
@@ -240,7 +240,7 @@ pub(super) async fn score(
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err);
+            return Err(err.wrap_err("failed to get user config"));
         }
     };
 
@@ -272,8 +272,9 @@ pub(super) async fn score(
                 Ok(score) => score,
                 Err(err) => {
                     let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                    let report = Report::new(err).wrap_err("failed to get score");
 
-                    return Err(err.into());
+                    return Err(report);
                 }
             };
 
@@ -292,15 +293,16 @@ pub(super) async fn score(
                 Ok(user) => score.user = Some(user.into()),
                 Err(err) => {
                     let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                    let report = Report::new(err).wrap_err("failed to get user");
 
-                    return Err(err.into());
+                    return Err(report);
                 }
             }
 
             let pinned = match pinned_result {
                 Ok(scores) => scores.contains(&score),
                 Err(err) => {
-                    let report = Report::new(err).wrap_err("failed to retrieve pinned scores");
+                    let report = Report::new(err).wrap_err("Failed to get pinned scores");
                     warn!("{report:?}");
 
                     false
@@ -313,7 +315,7 @@ pub(super) async fn score(
                 match ctx.osu().beatmap_scores(map.map_id).mode(mode).await {
                     Ok(scores) => scores.iter().position(|s| s == &score),
                     Err(err) => {
-                        let report = Report::new(err).wrap_err("failed to get global scores");
+                        let report = Report::new(err).wrap_err("Failed to get global scores");
                         warn!("{report:?}");
 
                         None
@@ -337,7 +339,7 @@ pub(super) async fn score(
                 match fut.await {
                     Ok(scores) => Some(scores),
                     Err(err) => {
-                        let report = Report::new(err).wrap_err("failed to get top scores");
+                        let report = Report::new(err).wrap_err("Failed to get top scores");
                         warn!("{report:?}");
 
                         None
@@ -376,7 +378,7 @@ pub(super) async fn score(
                 Err(err) => {
                     let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                    return Err(err);
+                    return Err(err.wrap_err("failed to retrieve channel history"));
                 }
             };
 
@@ -410,15 +412,16 @@ pub(super) async fn score(
             Ok(map) => {
                 // Store map in DB
                 if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-                    warn!("{:?}", Report::new(err));
+                    warn!("{:?}", err.wrap_err("Failed to insert map in database"));
                 }
 
                 map
             }
             Err(err) => {
                 let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                let report = Report::new(err).wrap_err("failed to get beatmap");
 
-                return Err(err.into());
+                return Err(report);
             }
         },
     };
@@ -442,8 +445,9 @@ pub(super) async fn score(
                     }
                     Err(err) => {
                         let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                        let report = Report::new(err).wrap_err("failed to get user score");
 
-                        return Err(err.into());
+                        return Err(report);
                     }
                 }
             }
@@ -469,16 +473,18 @@ pub(super) async fn score(
                     }
                     (Err(err), _) | (_, Err(err)) => {
                         let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                        let report = Report::new(err).wrap_err("failed to get user or scores");
 
-                        return Err(err.into());
+                        return Err(report);
                     }
                     (Ok(user), Ok(scores)) => (user, scores),
                 }
             }
             Err(err) => {
                 let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                let report = Report::new(err).wrap_err("failed to get user");
 
-                return Err(err.into());
+                return Err(report);
             }
         }
     } else {
@@ -502,8 +508,9 @@ pub(super) async fn score(
             }
             (Err(err), _) | (_, Err(err)) => {
                 let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                let report = Report::new(err).wrap_err("failed to get user or scores");
 
-                return Err(err.into());
+                return Err(report);
             }
             (Ok(user), Ok(scores)) => (user, scores),
         }
@@ -570,7 +577,7 @@ pub(super) async fn score(
     let pinned = match pinned_result {
         Ok(scores) => scores,
         Err(err) => {
-            let report = Report::new(err).wrap_err("failed to get pinned scores");
+            let report = Report::new(err).wrap_err("Failed to get pinned scores");
             warn!("{report:?}");
 
             Vec::new()
@@ -594,7 +601,7 @@ pub(super) async fn score(
                     .map(|pos| (i, pos + 1))
             }),
         Some(Err(err)) => {
-            let report = Report::new(err).wrap_err("failed to get map leaderboard");
+            let report = Report::new(err).wrap_err("Failed to get map leaderboard");
             warn!("{report:?}");
 
             None
@@ -605,7 +612,7 @@ pub(super) async fn score(
     let mut personal = match personal_result {
         Some(Ok(scores)) => scores,
         Some(Err(err)) => {
-            let report = Report::new(err).wrap_err("failed to get top100");
+            let report = Report::new(err).wrap_err("Failed to get top scores");
             warn!("{report:?}");
 
             Vec::new()
@@ -662,7 +669,7 @@ async fn single_score(
     pinned: bool,
     embeds_size: EmbedsSize,
     minimized_pp: MinimizedPp,
-) -> BotResult<()> {
+) -> Result<()> {
     // Accumulate all necessary data
     let embed_fut = CompareEmbed::new(
         best.as_deref(),
@@ -678,7 +685,7 @@ async fn single_score(
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err);
+            return Err(err.wrap_err("failed to create embed"));
         }
     };
 
@@ -706,7 +713,7 @@ async fn single_score(
                 let builder = embed_data.into_minimized().into();
 
                 if let Err(err) = response.update(&ctx, &builder).await {
-                    let report = Report::new(err).wrap_err("failed to minimize message");
+                    let report = Report::new(err).wrap_err("Failed to minimize message");
                     warn!("{report:?}");
                 }
             });
@@ -731,13 +738,13 @@ async fn no_scores(
     name: &str,
     map_id: u32,
     mods: Option<ModSelection>,
-) -> BotResult<()> {
+) -> Result<()> {
     let map = match ctx.psql().get_beatmap(map_id, true).await {
         Ok(map) => map,
         Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
             Ok(map) => {
                 if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-                    warn!("{:?}", Report::new(err));
+                    warn!("{:?}", err.wrap_err("Failed to insert map in database"));
                 }
 
                 map
@@ -749,8 +756,9 @@ async fn no_scores(
             }
             Err(err) => {
                 let _ = orig.error(ctx, OSU_API_ISSUE).await;
+                let report = Report::new(err).wrap_err("failed to get beatmap");
 
-                return Err(err.into());
+                return Err(report);
             }
         },
     };
@@ -766,8 +774,9 @@ async fn no_scores(
         }
         Err(err) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 

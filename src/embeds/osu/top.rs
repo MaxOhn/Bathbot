@@ -1,7 +1,6 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use command_macros::EmbedData;
-use eyre::Report;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmap, Beatmapset, BeatmapsetCompact, GameMode, GameMods, Score, User};
 use time::OffsetDateTime;
@@ -79,7 +78,7 @@ impl TopEmbed {
                     (Some(pp), Some(max_pp as f32), stars as f32)
                 }
                 Err(err) => {
-                    warn!("{:?}", Report::new(err));
+                    warn!("{:?}", err.wrap_err("Failed to get pp calculator"));
 
                     (None, None, 0.0)
                 }
@@ -198,7 +197,7 @@ impl CondensedTopEmbed {
                     (pp, stars as f32)
                 }
                 Err(err) => {
-                    warn!("{:?}", Report::new(err));
+                    warn!("{:?}", err.wrap_err("Failed to get pp calculator"));
 
                     (0.0, 0.0)
                 }
@@ -252,7 +251,7 @@ impl CondensedTopEmbed {
                 None => match PpCalculator::new(ctx, map.map_id).await {
                     Ok(calc) => calc.score(score).pp() as f32,
                     Err(err) => {
-                        warn!("{:?}", Report::new(err));
+                        warn!("{:?}", err.wrap_err("Failed to get pp calculator"));
 
                         0.0
                     }
@@ -512,15 +511,14 @@ async fn retrieve_mapset(ctx: &Context, mapset_id: u32) -> Option<Beatmapset> {
     match mapset_fut.await {
         Ok(mapset) => {
             if let Err(err) = ctx.psql().insert_beatmapset(&mapset).await {
-                let report = Report::new(err).wrap_err("failed to insert mapset into DB");
-                warn!("{report:?}");
+                let wrap = "Failed to insert mapset into database";
+                warn!("{:?}", err.wrap_err(wrap));
             }
 
             Some(mapset)
         }
         Err(err) => {
-            let report = Report::new(err).wrap_err("failed to get mapset");
-            warn!("{report:?}");
+            warn!("{:?}", err.wrap_err("Failed to get mapset"));
 
             None
         }

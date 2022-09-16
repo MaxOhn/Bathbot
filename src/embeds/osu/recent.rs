@@ -1,9 +1,16 @@
+use std::{borrow::Cow, cmp::Ordering, fmt::Write};
+
+use eyre::{Result, WrapErr};
+use rosu_pp::{Beatmap as Map, BeatmapExt, CatchPP, DifficultyAttributes, OsuPP, TaikoPP};
+use rosu_v2::prelude::{BeatmapUserScore, GameMode, Grade, RankStatus, Score, User};
+use time::OffsetDateTime;
+use twilight_model::channel::embed::Embed;
+
 use crate::{
     core::Context,
     custom_client::TwitchVideo,
     database::MinimizedPp,
     embeds::osu,
-    error::PpError,
     util::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
         constants::{AVATAR_URL, TWITCH_BASE},
@@ -13,14 +20,7 @@ use crate::{
         osu::{grade_completion_mods, prepare_beatmap_file},
         CowUtils, Emote, ScoreExt,
     },
-    BotResult,
 };
-
-use rosu_pp::{Beatmap as Map, BeatmapExt, CatchPP, DifficultyAttributes, OsuPP, TaikoPP};
-use rosu_v2::prelude::{BeatmapUserScore, GameMode, Grade, RankStatus, Score, User};
-use std::{borrow::Cow, cmp::Ordering, fmt::Write};
-use time::OffsetDateTime;
-use twilight_model::channel::embed::Embed;
 
 pub struct RecentEmbed {
     description: String,
@@ -56,12 +56,18 @@ impl RecentEmbed {
         twitch_vod: Option<TwitchVideo>,
         minimized_pp: MinimizedPp,
         ctx: &Context,
-    ) -> BotResult<Self> {
+    ) -> Result<Self> {
         let map = score.map.as_ref().unwrap();
         let mapset = score.mapset.as_ref().unwrap();
 
-        let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
-        let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
+        let map_path = prepare_beatmap_file(ctx, map.map_id)
+            .await
+            .wrap_err("failed to prepare map")?;
+
+        let rosu_map = Map::from_path(map_path)
+            .await
+            .wrap_err("failed to parse map")?;
+
         let mods = score.mods.bits();
         let max_result = rosu_map.max_pp(mods);
         let mut attributes = max_result.difficulty_attributes();

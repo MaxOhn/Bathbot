@@ -2,7 +2,7 @@
 
 use twilight_model::id::{marker::UserMarker, Id};
 
-use crate::{commands::fun::GameDifficulty, error::BgGameError};
+use crate::commands::fun::GameDifficulty;
 
 pub use self::{game_wrapper::GameWrapper, mapset::GameMapset, tags::MapsetTags};
 
@@ -15,8 +15,6 @@ mod tags;
 mod util;
 
 pub mod components;
-
-type GameResult<T> = Result<T, BgGameError>;
 
 bitflags::bitflags! {
     pub struct Effects: u8 {

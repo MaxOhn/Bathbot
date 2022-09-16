@@ -1,5 +1,4 @@
 use command_macros::EmbedData;
-use eyre::Report;
 use rosu_v2::prelude::{GameMode, Score, User};
 use time::OffsetDateTime;
 
@@ -46,7 +45,7 @@ impl TrackNotificationEmbed {
                 (Some(max_pp as f32), round(stars as f32))
             }
             Err(err) => {
-                warn!("{:?}", Report::new(err));
+                warn!("{:?}", err.wrap_err("Failed to get pp calculator"));
 
                 (None, 0.0)
             }

@@ -1,6 +1,7 @@
 use std::{borrow::Cow, mem, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
+use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
@@ -14,7 +15,7 @@ use crate::{
         interaction::InteractionCommand,
         matcher, ChannelExt, InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::{get_user, require_link, UserArgs};
@@ -109,7 +110,7 @@ impl<'m> Bws<'m> {
     }
 }
 
-async fn slash_bws(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_bws(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Bws::from_interaction(command.input_data())?;
 
     bws(ctx, (&mut command).into(), args).await
@@ -128,7 +129,7 @@ async fn slash_bws(ctx: Arc<Context>, mut command: InteractionCommand) -> BotRes
 #[usage("[username] [rank=integer] [badges=integer]")]
 #[examples("badewanne3", "badewanne3 rank=1234 badges=10", "badewanne3 badges=3")]
 #[group(Osu)]
-async fn prefix_bws(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_bws(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match Bws::args(args) {
         Ok(args) => bws(ctx, msg.into(), args).await,
         Err(content) => {
@@ -141,7 +142,7 @@ async fn prefix_bws(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResu
 
 const MIN_BADGES_OFFSET: usize = 2;
 
-async fn bws(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Bws<'_>) -> BotResult<()> {
+async fn bws(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Bws<'_>) -> Result<()> {
     let name = match username!(ctx, orig, args) {
         Some(name) => name,
         None => match ctx.psql().get_user_osu(orig.user_id()?).await {
@@ -150,7 +151,7 @@ async fn bws(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Bws<'_>) -> BotRe
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to get username"));
             }
         },
     };
@@ -168,8 +169,9 @@ async fn bws(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Bws<'_>) -> BotRe
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 

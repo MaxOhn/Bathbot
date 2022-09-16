@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+use eyre::Result;
 use twilight_model::{
     guild::Permissions,
     id::{
@@ -8,10 +9,7 @@ use twilight_model::{
     },
 };
 
-use crate::{
-    core::{buckets::BucketName, cache::RolesLookup, Context},
-    BotResult,
-};
+use crate::core::{buckets::BucketName, cache::RolesLookup, Context};
 
 /// Is authority -> Ok(None)
 /// No authority -> Ok(Some(message to user))
@@ -20,7 +18,7 @@ pub async fn check_authority(
     ctx: &Context,
     author: Id<UserMarker>,
     guild: Option<Id<GuildMarker>>,
-) -> BotResult<Option<String>> {
+) -> Result<Option<String>> {
     let (guild_id, (permissions, roles)) = match guild {
         Some(guild) => (guild, ctx.cache.get_guild_permissions(author, guild)),
         None => return Ok(None),

@@ -5,6 +5,7 @@ use std::{
 };
 
 use ::time::{Duration, OffsetDateTime};
+use eyre::{Result, WrapErr};
 use flexmap::tokio::TokioMutexMap;
 use futures::StreamExt;
 use hashbrown::hash_map::{DefaultHashBuilder, Entry, HashMap};
@@ -15,7 +16,7 @@ use rosu_v2::model::GameMode;
 use tokio::{sync::Mutex, time};
 use twilight_model::id::{marker::ChannelMarker, Id};
 
-use crate::{database::TrackingUser, util::hasher::SimpleBuildHasher, BotResult, Database};
+use crate::{database::TrackingUser, util::hasher::SimpleBuildHasher, Database};
 
 pub use super::{osu_tracking_loop, process_osu_tracking};
 
@@ -63,7 +64,7 @@ pub struct OsuTracking {
 
 impl OsuTracking {
     #[cold]
-    pub async fn new(psql: &Database) -> BotResult<Self> {
+    pub async fn new(psql: &Database) -> Result<Self> {
         OsuTrackingQueue::new(psql)
             .await
             .map(|queue| Self { queue })
@@ -99,10 +100,12 @@ impl OsuTracking {
         mode: GameMode,
         new_date: OffsetDateTime,
         psql: &Database,
-    ) -> BotResult<()> {
+    ) -> Result<()> {
         if self.queue.update_last_date(user_id, mode, new_date).await {
             let entry = TrackingEntry { user_id, mode };
-            psql.update_osu_tracking_date(&entry, new_date).await?;
+            psql.update_osu_tracking_date(&entry, new_date)
+                .await
+                .wrap_err("failed to update database entry")?;
         }
 
         Ok(())
@@ -120,9 +123,11 @@ impl OsuTracking {
         self.queue.pop().await
     }
 
-    pub async fn remove_user_all(&self, user_id: u32, psql: &Database) -> BotResult<()> {
+    pub async fn remove_user_all(&self, user_id: u32, psql: &Database) -> Result<()> {
         for mode in self.queue.remove_user_all(user_id).await {
-            psql.remove_osu_tracking(user_id, mode).await?;
+            psql.remove_osu_tracking(user_id, mode)
+                .await
+                .wrap_err("failed to remove entry from database")?;
         }
 
         Ok(())
@@ -134,7 +139,7 @@ impl OsuTracking {
         mode: Option<GameMode>,
         channel: Id<ChannelMarker>,
         psql: &Database,
-    ) -> BotResult<()> {
+    ) -> Result<()> {
         let remove_entries = self.queue.remove_user(user_id, mode, channel).await;
         self.remove(remove_entries, psql).await?;
 
@@ -146,7 +151,7 @@ impl OsuTracking {
         channel: Id<ChannelMarker>,
         mode: Option<GameMode>,
         psql: &Database,
-    ) -> BotResult<usize> {
+    ) -> Result<usize> {
         let remove_entries = self.queue.remove_channel(channel, mode).await;
         let len = remove_entries.len();
         self.remove(remove_entries, psql).await?;
@@ -154,7 +159,7 @@ impl OsuTracking {
         Ok(len)
     }
 
-    async fn remove(&self, remove: Vec<RemoveEntry>, psql: &Database) -> BotResult<()> {
+    async fn remove(&self, remove: Vec<RemoveEntry>, psql: &Database) -> Result<()> {
         for remove_entry in remove {
             let TrackingEntry { user_id, mode } = remove_entry.entry;
 
@@ -181,7 +186,7 @@ impl OsuTracking {
         channel: Id<ChannelMarker>,
         limit: usize,
         psql: &Database,
-    ) -> BotResult<bool> {
+    ) -> Result<bool> {
         let added = self
             .queue
             .add(user_id, mode, last_top_score, channel, limit)
@@ -190,7 +195,8 @@ impl OsuTracking {
         match added {
             AddEntry::AddedNew => {
                 psql.insert_osu_tracking(user_id, mode, last_top_score, channel, limit)
-                    .await?;
+                    .await
+                    .wrap_err("failed to insert entry")?;
             }
             AddEntry::NotAdded => return Ok(false),
             AddEntry::Added | AddEntry::UpdatedLimit => {
@@ -228,8 +234,11 @@ pub struct OsuTrackingQueue {
 
 impl OsuTrackingQueue {
     #[cold]
-    async fn new(psql: &Database) -> BotResult<Self> {
-        let users = psql.get_osu_trackings().await?;
+    async fn new(psql: &Database) -> Result<Self> {
+        let users = psql
+            .get_osu_trackings()
+            .await
+            .wrap_err("failed to get tracking entries from database")?;
 
         let now = OffsetDateTime::now_utc();
 

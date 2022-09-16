@@ -1,6 +1,7 @@
-use std::{borrow::Cow, fmt::Write, sync::Arc};
+use std::{fmt::Write, sync::Arc};
 
 use command_macros::command;
+use eyre::{Report, Result};
 use twilight_model::{
     guild::Permissions,
     id::{marker::RoleMarker, Id},
@@ -12,7 +13,6 @@ use crate::{
         BotConfig, Context,
     },
     util::{builder::MessageBuilder, constants::GENERAL_ISSUE, matcher, ChannelExt},
-    BotResult,
 };
 
 #[command]
@@ -30,7 +30,7 @@ use crate::{
 #[alias("authority")]
 #[flags(AUTHORITY, ONLY_GUILDS, SKIP_DEFER)]
 #[group(Utility)]
-async fn prefix_authorities(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+async fn prefix_authorities(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
     match AuthorityCommandKind::args(&mut args) {
         Ok(args) => authorities(ctx, msg.into(), args).await,
         Err(content) => {
@@ -45,7 +45,7 @@ pub async fn authorities(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: AuthorityCommandKind,
-) -> BotResult<()> {
+) -> Result<()> {
     let guild_id = orig.guild_id().unwrap();
 
     let mut content = match args {
@@ -67,7 +67,7 @@ pub async fn authorities(
             if let Err(err) = update_fut.await {
                 let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to update guild config"));
             }
 
             "Successfully added authority role. Authority roles now are: ".to_owned()
@@ -120,7 +120,7 @@ pub async fn authorities(
                     Err(err) => {
                         let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
 
-                        return Err(err.into());
+                        return Err(Report::new(err));
                     }
                 }
             }
@@ -132,7 +132,7 @@ pub async fn authorities(
             if let Err(err) = update_fut.await {
                 let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to update guild config"));
             }
 
             "Successfully removed authority role. Authority roles now are: ".to_owned()
@@ -173,7 +173,7 @@ pub async fn authorities(
                     Err(err) => {
                         let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
 
-                        return Err(err.into());
+                        return Err(Report::new(err));
                     }
                 }
             }
@@ -185,7 +185,7 @@ pub async fn authorities(
             if let Err(err) = update_fut.await {
                 let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to update guild config"));
             }
 
             "Successfully changed the authority roles to: ".to_owned()
@@ -223,9 +223,9 @@ pub enum AuthorityCommandKind {
     Replace(Vec<Id<RoleMarker>>),
 }
 
-fn parse_role(arg: &str) -> Result<Id<RoleMarker>, Cow<'static, str>> {
+fn parse_role(arg: &str) -> Result<Id<RoleMarker>, String> {
     matcher::get_mention_role(arg)
-        .ok_or_else(|| format!("Expected role mention or role id, got `{arg}`").into())
+        .ok_or_else(|| format!("Expected role mention or role id, got `{arg}`"))
 }
 
 impl AuthorityCommandKind {

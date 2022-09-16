@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use command_macros::{command, HasMods, SlashCommand};
-use eyre::Report;
+use eyre::{Report, Result};
 use rosu_v2::prelude::{BeatmapsetCompact, OsuError};
 use tokio::time::{sleep, Duration};
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -19,7 +19,7 @@ use crate::{
         osu::{MapIdType, ModSelection},
         ChannelExt, CowUtils, InteractionCommandExt, MessageExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::{HasMods, ModsResult};
@@ -139,7 +139,7 @@ impl TryFrom<Simulate> for SimulateArgs {
 )]
 #[alias("s")]
 #[group(AllModes)]
-async fn prefix_simulate(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_simulate(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match SimulateArgs::args(msg, args) {
         Ok(args) => simulate(ctx, msg.into(), args).await,
         Err(content) => {
@@ -150,7 +150,7 @@ async fn prefix_simulate(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Bo
     }
 }
 
-async fn slash_simulate(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_simulate(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Simulate::from_interaction(command.input_data())?;
 
     match SimulateArgs::try_from(args) {
@@ -163,7 +163,7 @@ async fn slash_simulate(ctx: Arc<Context>, mut command: InteractionCommand) -> B
     }
 }
 
-async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs) -> BotResult<()> {
+async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs) -> Result<()> {
     let map_id = match args.map {
         Some(MapIdType::Map(id)) => id,
         Some(MapIdType::Set(_)) => {
@@ -177,7 +177,7 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
                 Err(err) => {
                     let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                    return Err(err);
+                    return Err(err.wrap_err("failed to retrieve channel history"));
                 }
             };
 
@@ -205,7 +205,7 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
             Ok(map) => {
                 // Store map in DB
                 if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-                    warn!("{:?}", Report::new(err));
+                    warn!("{:?}", err.wrap_err("Failed to insert map in database"));
                 }
 
                 map
@@ -220,8 +220,9 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
             }
             Err(err) => {
                 let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                let report = Report::new(err).wrap_err("failed to get beatmap");
 
-                return Err(err.into());
+                return Err(report);
             }
         },
     };
@@ -231,8 +232,7 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
     let embeds_size = match config_result {
         Ok(config) => config.score_size,
         Err(err) => {
-            let report = Report::new(err).wrap_err("failed to get user config");
-            warn!("{report:?}");
+            warn!("{:?}", err.wrap_err("Failed to get user config"));
 
             None
         }
@@ -250,7 +250,7 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err);
+            return Err(err.wrap_err("failed to creat embed"));
         }
     };
 
@@ -283,7 +283,7 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
                 let builder = MessageBuilder::new().content(content).embed(embed);
 
                 if let Err(err) = response.update(&ctx, &builder).await {
-                    let report = Report::new(err).wrap_err("failed to minimize message");
+                    let report = Report::new(err).wrap_err("Failed to minimize message");
                     warn!("{report:?}");
                 }
             });

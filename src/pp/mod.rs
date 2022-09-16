@@ -1,9 +1,9 @@
+use eyre::{Result, WrapErr};
 use rosu_pp::{Beatmap, BeatmapExt as rosu_v2BeatmapExt, DifficultyAttributes, ScoreState};
 use rosu_v2::model::GameMods;
 
 use crate::{
     core::Context,
-    error::PpError,
     util::{osu::prepare_beatmap_file, ScoreExt},
 };
 
@@ -47,9 +47,14 @@ pub struct PpCalculatorPrepared<'m, 's> {
 }
 
 impl PpCalculator {
-    pub async fn new(ctx: &Context, map_id: u32) -> Result<PpCalculator, PpError> {
-        let map_path = prepare_beatmap_file(ctx, map_id).await?;
-        let map = Beatmap::from_path(map_path).await?;
+    pub async fn new(ctx: &Context, map_id: u32) -> Result<PpCalculator> {
+        let map_path = prepare_beatmap_file(ctx, map_id)
+            .await
+            .wrap_err("failed to prepare map")?;
+
+        let map = Beatmap::from_path(map_path)
+            .await
+            .wrap_err("failed to parse map")?;
 
         Ok(Self { map })
     }

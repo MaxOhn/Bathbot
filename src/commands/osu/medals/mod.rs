@@ -1,6 +1,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{HasName, SlashCommand};
+use eyre::Result;
 use twilight_interactions::command::{
     AutocompleteValue, CommandModel, CommandOption, CreateCommand, CreateOption,
 };
@@ -9,7 +10,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 use crate::{
     custom_client::MedalGroup,
     util::{interaction::InteractionCommand, InteractionCommandExt},
-    BotResult, Context,
+    Context,
 };
 
 pub use self::{
@@ -240,7 +241,7 @@ pub struct MedalStats<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-pub async fn slash_medal(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+pub async fn slash_medal(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     match Medal_::from_interaction(command.input_data())? {
         Medal_::Common(args) => common(ctx, (&mut command).into(), args).await,
         Medal_::Info(args) => info(ctx, (&mut command).into(), args).await,

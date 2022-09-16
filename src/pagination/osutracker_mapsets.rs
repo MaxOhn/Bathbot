@@ -1,5 +1,5 @@
 use command_macros::pagination;
-use eyre::Report;
+use eyre::{Result, WrapErr};
 use hashbrown::HashMap;
 use rosu_v2::prelude::Beatmapset;
 use time::OffsetDateTime;
@@ -11,7 +11,6 @@ use crate::{
     custom_client::OsuTrackerMapsetEntry,
     embeds::{EmbedData, OsuTrackerMapsetsEmbed},
     util::hasher::SimpleBuildHasher,
-    BotResult,
 };
 
 use super::Pages;
@@ -23,7 +22,7 @@ pub struct OsuTrackerMapsetsPagination {
 }
 
 impl OsuTrackerMapsetsPagination {
-    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> BotResult<Embed> {
+    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
         let idx = pages.index;
         let entries = &self.entries[idx..self.entries.len().min(idx + pages.per_page)];
 
@@ -39,10 +38,14 @@ impl OsuTrackerMapsetsPagination {
             let mapset = match mapset_fut.await {
                 Ok(mapset) => mapset,
                 Err(_) => {
-                    let mapset = ctx.osu().beatmapset(mapset_id).await?;
+                    let mapset = ctx
+                        .osu()
+                        .beatmapset(mapset_id)
+                        .await
+                        .wrap_err("failed to request beatmapset")?;
 
                     if let Err(err) = ctx.psql().insert_beatmapset(&mapset).await {
-                        warn!("{:?}", Report::new(err));
+                        warn!("{:?}", err.wrap_err("Failed to insert mapset"));
                     }
 
                     mapset

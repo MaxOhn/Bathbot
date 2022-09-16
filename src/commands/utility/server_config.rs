@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use command_macros::{command, SlashCommand};
+use eyre::{Report, Result};
 use twilight_cache_inmemory::model::CachedGuild;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
@@ -16,7 +17,7 @@ use crate::{
     database::{GuildConfig, ListSize},
     embeds::{EmbedData, ServerConfigEmbed},
     util::{constants::GENERAL_ISSUE, interaction::InteractionCommand, InteractionCommandExt},
-    BotResult, Context,
+    Context,
 };
 
 use super::{AuthorityCommandKind, ConfigEmbeds, ConfigMinimizedPp};
@@ -162,7 +163,7 @@ impl ServerConfigEdit {
     }
 }
 
-async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = ServerConfig::from_interaction(command.input_data())?;
 
     let guild_id = command.guild_id.unwrap();
@@ -172,7 +173,7 @@ async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) 
         Err(err) => {
             let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err.into());
+            return Err(Report::new(err));
         }
     };
 
@@ -227,7 +228,7 @@ async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) 
         if let Err(err) = ctx.update_guild_config(guild_id, f).await {
             let _ = command.error_callback(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err);
+            return Err(err.wrap_err("failed to update guild config"));
         }
     }
 

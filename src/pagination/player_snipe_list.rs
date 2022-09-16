@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, iter::Extend};
 
 use command_macros::pagination;
-use eyre::Report;
+use eyre::{Result, WrapErr};
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Beatmap, User};
 use twilight_model::channel::embed::Embed;
@@ -10,7 +10,7 @@ use crate::{
     custom_client::{SnipeScore, SnipeScoreParams},
     embeds::{EmbedData, PlayerSnipeListEmbed},
     util::hasher::SimpleBuildHasher,
-    BotResult, Context,
+    Context,
 };
 
 use super::Pages;
@@ -25,7 +25,7 @@ pub struct PlayerSnipeListPagination {
 }
 
 impl PlayerSnipeListPagination {
-    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> BotResult<Embed> {
+    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
         let count = self
             .scores
             .range(pages.index..pages.index + pages.per_page)
@@ -36,7 +36,11 @@ impl PlayerSnipeListPagination {
             self.params.page(huismetbenen_page as u8);
 
             // Get scores
-            let scores = ctx.client().get_national_firsts(&self.params).await?;
+            let scores = ctx
+                .client()
+                .get_national_firsts(&self.params)
+                .await
+                .wrap_err("failed to get national firsts")?;
 
             // Store scores in BTreeMap
             let iter = scores
@@ -60,8 +64,7 @@ impl PlayerSnipeListPagination {
             let mut maps = match ctx.psql().get_beatmaps(&map_ids, true).await {
                 Ok(maps) => maps,
                 Err(err) => {
-                    let report = Report::new(err).wrap_err("error while getting maps from DB");
-                    warn!("{report:?}");
+                    warn!("{:?}", err.wrap_err("Failed to get maps from database"));
 
                     HashMap::default()
                 }

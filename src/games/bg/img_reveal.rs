@@ -1,7 +1,6 @@
 use std::io::Cursor;
 
-use super::GameResult;
-
+use eyre::{Result, WrapErr};
 use image::{DynamicImage, GenericImageView, ImageOutputFormat::Png};
 use rand::RngCore;
 
@@ -34,7 +33,7 @@ impl ImageReveal {
         self.radius += 75;
     }
 
-    pub fn sub_image(&self) -> GameResult<Vec<u8>> {
+    pub fn sub_image(&self) -> Result<Vec<u8>> {
         let cx = self.x.saturating_sub(self.radius);
         let cy = self.y.saturating_sub(self.radius);
         let (w, h) = self.dim;
@@ -44,7 +43,9 @@ impl ImageReveal {
         let png_bytes: Vec<u8> = Vec::with_capacity((w * h) as usize);
 
         let mut cursor = Cursor::new(png_bytes);
-        sub_image.write_to(&mut cursor, Png)?;
+        sub_image
+            .write_to(&mut cursor, Png)
+            .wrap_err("failed to encode image")?;
 
         Ok(cursor.into_inner())
     }

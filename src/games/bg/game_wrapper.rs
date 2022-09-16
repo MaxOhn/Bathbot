@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, mem, sync::Arc};
 
-use eyre::Report;
+use eyre::{Report, Result};
 use hashbrown::HashMap;
 use tokio::sync::RwLock;
 use tokio::{
@@ -16,14 +16,13 @@ use crate::util::hasher::SimpleBuildHasher;
 use crate::{
     commands::fun::GameDifficulty,
     database::MapsetTagWrapper,
-    error::BgGameError,
     util::{builder::MessageBuilder, constants::OSU_BASE, ChannelExt},
     Context,
 };
 
 use super::{
     game::{game_loop, Game, LoopResult},
-    Effects, GameResult,
+    Effects,
 };
 
 const GAME_LEN: Duration = Duration::from_secs(180);
@@ -64,8 +63,7 @@ impl GameWrapper {
                     .attachment("bg_img.png", mem::take(&mut img));
 
                 if let Err(err) = channel.create_message(&ctx, &builder).await {
-                    let report =
-                        Report::new(err).wrap_err("error while sending initial bg game msg");
+                    let report = Report::new(err).wrap_err("Failed to send initial bg game msg");
                     warn!("{report:?}");
                 }
 
@@ -91,7 +89,7 @@ impl GameWrapper {
 
                         if let Err(err) = channel.plain_message(&ctx, &content).await {
                             let report = Report::new(err)
-                                .wrap_err("error while showing resolve for bg game restart");
+                                .wrap_err("Failed to show resolve for bg game restart");
                             warn!("{report:?}");
                         }
                     }
@@ -107,16 +105,14 @@ impl GameWrapper {
 
                         if let Err(err) = channel.plain_message(&ctx, &content).await {
                             let report = Report::new(err)
-                                .wrap_err("error while showing resolve for bg game stop");
+                                .wrap_err("Failed to show resolve for bg game stop");
                             warn!("{report:?}");
                         }
 
                         // Store score for winners
                         for (user, score) in scores {
                             if let Err(err) = ctx.psql().increment_bggame_score(user, score).await {
-                                let report = Report::new(err)
-                                    .wrap_err("error while incrementing bg game score");
-                                warn!("{report:?}");
+                                warn!("{:?}", err.wrap_err("Failed to increment bg game score"));
                             }
                         }
 
@@ -144,26 +140,28 @@ impl GameWrapper {
         Self { game, tx }
     }
 
-    pub fn stop(&self) -> GameResult<()> {
+    pub fn stop(&self) -> Result<()> {
         self.tx
             .send(LoopResult::Stop)
-            .map_err(|_| BgGameError::StopToken)
+            .map_err(|_| eyre!("Failed to send stop token"))
     }
 
-    pub fn restart(&self) -> GameResult<()> {
+    pub fn restart(&self) -> Result<()> {
         self.tx
             .send(LoopResult::Restart)
-            .map_err(|_| BgGameError::RestartToken)
+            .map_err(|_| eyre!("Failed to send restart token"))
     }
 
-    pub async fn sub_image(&self) -> GameResult<Vec<u8>> {
+    pub async fn sub_image(&self) -> Result<Vec<u8>> {
         timeout(Duration::from_secs(1), self.game.read())
             .await?
             .sub_image()
     }
 
-    pub async fn hint(&self) -> GameResult<String> {
-        let game = timeout(Duration::from_secs(1), self.game.read()).await?;
+    pub async fn hint(&self) -> Result<String> {
+        let game = timeout(Duration::from_secs(1), self.game.read())
+            .await
+            .map_err(|_| eyre!("timeout while waiting for write"))?;
 
         Ok(game.hint())
     }

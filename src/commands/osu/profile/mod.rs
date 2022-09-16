@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::BTreeMap, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
-use eyre::Report;
+use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
@@ -19,7 +19,7 @@ use crate::{
         interaction::InteractionCommand,
         matcher, ChannelExt, CowUtils, InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 pub use self::{
@@ -126,7 +126,7 @@ impl<'m> Profile<'m> {
 #[examples("badewanne3", "peppy size=full", "size=compact \"freddie benson\"")]
 #[alias("profile")]
 #[group(Osu)]
-async fn prefix_osu(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_osu(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match Profile::args(GameModeOption::Osu, args) {
         Ok(args) => profile(ctx, msg.into(), args).await,
         Err(content) => {
@@ -149,7 +149,7 @@ async fn prefix_osu(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResu
 #[examples("badewanne3", "peppy size=full", "size=compact \"freddie benson\"")]
 #[aliases("profilemania", "maniaprofile", "profilem")]
 #[group(Mania)]
-async fn prefix_mania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_mania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match Profile::args(GameModeOption::Mania, args) {
         Ok(args) => profile(ctx, msg.into(), args).await,
         Err(content) => {
@@ -172,7 +172,7 @@ async fn prefix_mania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotRe
 #[examples("badewanne3", "peppy size=full", "size=compact \"freddie benson\"")]
 #[aliases("profiletaiko", "taikoprofile", "profilet")]
 #[group(Taiko)]
-async fn prefix_taiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_taiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match Profile::args(GameModeOption::Taiko, args) {
         Ok(args) => profile(ctx, msg.into(), args).await,
         Err(content) => {
@@ -202,7 +202,7 @@ async fn prefix_taiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotRe
     "catch"
 )]
 #[group(Catch)]
-async fn prefix_ctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_ctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match Profile::args(GameModeOption::Catch, args) {
         Ok(args) => profile(ctx, msg.into(), args).await,
         Err(content) => {
@@ -213,13 +213,13 @@ async fn prefix_ctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResu
     }
 }
 
-async fn slash_profile(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_profile(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Profile::from_interaction(command.input_data())?;
 
     profile(ctx, (&mut command).into(), args).await
 }
 
-async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) -> BotResult<()> {
+async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) -> Result<()> {
     let owner = orig.user_id()?;
 
     let config = match ctx.user_config(owner).await {
@@ -227,7 +227,7 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err);
+            return Err(err.wrap_err("failed to get user config"));
         }
     };
 
@@ -271,8 +271,9 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user or scores");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -288,8 +289,10 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
             .filter(|&(guild, user)| ctx.cache.member(guild, user, |_| ()).is_ok())
             .map(|(_, user)| user),
         (Err(err), _) => {
-            let report = Report::new(err).wrap_err("failed to get discord id from osu! user id");
-            warn!("{report:?}");
+            warn!(
+                "{:?}",
+                err.wrap_err("Failed to get discord id from osu user id")
+            );
 
             None
         }
@@ -303,7 +306,7 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
     let graph = match graphs(params).await {
         Ok(graph_option) => graph_option,
         Err(err) => {
-            warn!("{:?}", Report::new(err));
+            warn!("{:?}", err.wrap_err("Failed to create profile graph"));
 
             None
         }
@@ -384,9 +387,8 @@ impl ProfileEmbed {
                             match super::get_globals_count(ctx, user, mode).await {
                                 Ok(globals_count) => Some(globals_count),
                                 Err(err) => {
-                                    let report = Report::new(err)
-                                        .wrap_err("failed to request globals count");
-                                    warn!("{report:?}");
+                                    let wrap = "Failed to get globals count";
+                                    warn!("{:?}", err.wrap_err(wrap));
 
                                     Some(BTreeMap::new())
                                 }
@@ -407,8 +409,7 @@ impl ProfileEmbed {
                             let mut names = match ctx.psql().get_names_by_ids(&ids).await {
                                 Ok(names) => names,
                                 Err(err) => {
-                                    let report = Report::new(err).wrap_err("failed to get names");
-                                    warn!("{report:?}");
+                                    warn!("{:?}", err.wrap_err("Failed to get names"));
 
                                     return HashMap::default();
                                 }
@@ -427,7 +428,7 @@ impl ProfileEmbed {
                                     Ok(user) => user,
                                     Err(err) => {
                                         let report =
-                                            Report::new(err).wrap_err("failed to get user");
+                                            Report::new(err).wrap_err("Failed to get user");
                                         warn!("{report:?}");
 
                                         continue;
@@ -437,8 +438,7 @@ impl ProfileEmbed {
                                 let upsert_fut = ctx.psql().upsert_osu_user(&user_, mode);
 
                                 if let Err(err) = upsert_fut.await {
-                                    let report = Report::new(err).wrap_err("failed to upsert user");
-                                    warn!("{report:?}");
+                                    warn!("{:?}", err.wrap_err("Failed to upsert user"));
                                 }
 
                                 names.insert(user_.user_id, user_.username);

@@ -1,6 +1,6 @@
 use std::{mem, sync::Arc};
 
-use eyre::Report;
+use eyre::{ContextCompat, Report, Result, WrapErr};
 use rosu_v2::prelude::GameMode;
 use tokio::sync::oneshot::Receiver;
 use twilight_model::{
@@ -13,9 +13,7 @@ use twilight_model::{
 
 use crate::{
     core::Context,
-    error::InvalidGameState,
     util::{interaction::InteractionComponent, Authored},
-    BotResult,
 };
 
 use super::{kind::GameStateKind, HlGuess, HlVersion};
@@ -35,7 +33,7 @@ impl GameState {
         ctx: &Context,
         origin: &(dyn Authored + Sync),
         mode: GameMode,
-    ) -> BotResult<Self> {
+    ) -> Result<Self> {
         let user = origin.user_id()?.get();
         let game_fut = GameStateKind::score_pp(ctx, mode);
 
@@ -56,7 +54,7 @@ impl GameState {
         })
     }
 
-    pub async fn farm_maps(ctx: &Context, origin: &(dyn Authored + Sync)) -> BotResult<Self> {
+    pub async fn farm_maps(ctx: &Context, origin: &(dyn Authored + Sync)) -> Result<Self> {
         let user = origin.user_id()?.get();
         let redis = ctx.redis();
 
@@ -67,8 +65,11 @@ impl GameState {
             .get_higherlower_highscore(user, HlVersion::FarmMaps);
 
         let (entries_res, highscore_res) = tokio::join!(entries_fut, highscore_fut);
-        let highscore = highscore_res?;
-        let (kind, rx) = GameStateKind::farm_maps(ctx, entries_res?).await?;
+        let highscore = highscore_res.wrap_err("failed to get highscore from database")?;
+
+        let (kind, rx) = GameStateKind::farm_maps(ctx, entries_res?)
+            .await
+            .wrap_err("failed to create farm maps game state")?;
 
         Ok(Self {
             kind,
@@ -81,7 +82,7 @@ impl GameState {
         })
     }
 
-    pub async fn restart(self, ctx: &Context, origin: &(dyn Authored + Sync)) -> BotResult<Self> {
+    pub async fn restart(self, ctx: &Context, origin: &(dyn Authored + Sync)) -> Result<Self> {
         let user = origin.user_id()?.get();
         let version = self.kind.version();
 
@@ -102,8 +103,13 @@ impl GameState {
     }
 
     /// Set `next` to `previous` and get a new state info for `next`
-    pub async fn next(&mut self, ctx: Arc<Context>) -> BotResult<()> {
-        let rx = self.kind.next(ctx, self.current_score).await?;
+    pub async fn next(&mut self, ctx: Arc<Context>) -> Result<()> {
+        let rx = self
+            .kind
+            .next(ctx, self.current_score)
+            .await
+            .wrap_err("failed to get next game")?;
+
         self.img_url_rx = Some(rx);
 
         Ok(())
@@ -145,20 +151,21 @@ impl GameState {
         format!("Current score: {current_score} • Highscore: {highscore}")
     }
 
-    pub fn reveal(&self, component: &mut InteractionComponent) -> BotResult<Embed> {
+    pub fn reveal(&self, component: &mut InteractionComponent) -> Result<Embed> {
         let mut embeds = mem::take(&mut component.message.embeds);
-        let mut embed = embeds.pop().ok_or(InvalidGameState::MissingEmbed)?;
+        let mut embed = embeds.pop().wrap_err("missing embed")?;
         self.kind.reveal(&mut embed);
 
         Ok(embed)
     }
 
-    pub async fn new_highscore(&self, ctx: &Context, user: Id<UserMarker>) -> BotResult<bool> {
+    pub async fn new_highscore(&self, ctx: &Context, user: Id<UserMarker>) -> Result<bool> {
         let user = user.get();
         let version = self.kind.version();
 
         ctx.psql()
             .upsert_higherlower_highscore(user, version, self.current_score, self.highscore)
             .await
+            .wrap_err("failed to upsert highlower score")
     }
 }

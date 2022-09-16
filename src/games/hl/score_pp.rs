@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt::Display};
 
-use eyre::Report;
+use eyre::{Report, Result, WrapErr};
 use image::{GenericImageView, ImageBuffer};
 use rand::Rng;
 use rosu_v2::{
@@ -17,7 +17,6 @@ use crate::{
         osu::grade_emote,
         Emote,
     },
-    BotResult,
 };
 
 use super::{kind::GameStateKind, H, W};
@@ -47,7 +46,7 @@ impl ScorePp {
         mode: GameMode,
         prev_pp: f32,
         curr_score: u32,
-    ) -> BotResult<Self> {
+    ) -> Result<Self> {
         let max_play = 25 - curr_score.min(24);
         let min_play = 24 - 2 * curr_score.min(12);
         let max_rank = 5000 - (mode != GameMode::Osu) as u32 * 1000;
@@ -64,7 +63,12 @@ impl ScorePp {
         let page = ((rank - 1) / 50) + 1;
         let idx = (rank - 1) % 50;
 
-        let ranking = ctx.redis().pp_ranking(mode, page, None).await?;
+        let ranking = ctx
+            .redis()
+            .pp_ranking(mode, page, None)
+            .await
+            .wrap_err("failed to get cached pp ranking")?;
+
         let player = UserCompact::from(&ranking.get().ranking[idx as usize]);
 
         let mut plays = ctx
@@ -73,7 +77,8 @@ impl ScorePp {
             .limit(100)
             .mode(mode)
             .best()
-            .await?;
+            .await
+            .wrap_err("failed to get user scores")?;
 
         plays.sort_unstable_by(|a, b| {
             let a_pp = (a.pp.unwrap_or(0.0) - prev_pp).abs();
@@ -91,12 +96,12 @@ impl ScorePp {
                 Ok(map) => {
                     // Store map in DB
                     if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-                        warn!("{:?}", Report::new(err));
+                        warn!("{:?}", err.wrap_err("Failed to insert map into database"));
                     }
 
                     map
                 }
-                Err(err) => return Err(err.into()),
+                Err(err) => return Err(Report::new(err).wrap_err("failed to request beatmap")),
             },
         };
 
@@ -109,7 +114,7 @@ impl ScorePp {
         pfp2: &str,
         mapset1: u32,
         mapset2: u32,
-    ) -> BotResult<String> {
+    ) -> Result<String> {
         let cover1 = mapset_cover(mapset1);
         let cover2 = mapset_cover(mapset2);
 
@@ -121,12 +126,22 @@ impl ScorePp {
             client.get_avatar(pfp2),
             client.get_mapset_cover(&cover1),
             client.get_mapset_cover(&cover2),
-        )?;
+        )
+        .wrap_err("failed to retrieve some image")?;
 
-        let pfp_left = image::load_from_memory(&pfp_left)?.thumbnail(128, 128);
-        let pfp_right = image::load_from_memory(&pfp_right)?.thumbnail(128, 128);
-        let bg_left = image::load_from_memory(&bg_left)?;
-        let bg_right = image::load_from_memory(&bg_right)?;
+        let pfp_left = image::load_from_memory(&pfp_left)
+            .wrap_err("failed to load pfp1 from memory")?
+            .thumbnail(128, 128);
+
+        let pfp_right = image::load_from_memory(&pfp_right)
+            .wrap_err("failed to load pfp2 from memory")?
+            .thumbnail(128, 128);
+
+        let bg_left =
+            image::load_from_memory(&bg_left).wrap_err("failed to load left bg from memory")?;
+
+        let bg_right =
+            image::load_from_memory(&bg_right).wrap_err("failed to load right bg from memory")?;
 
         // Combine the images
         let mut blipped = ImageBuffer::new(W, H);

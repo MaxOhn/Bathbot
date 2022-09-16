@@ -1,11 +1,11 @@
 use std::{fmt::Write, mem, sync::Arc};
 
+use eyre::{ContextCompat, Result, WrapErr};
 use tokio::sync::oneshot;
 use twilight_model::channel::embed::EmbedField;
 
 use crate::{
     core::Context,
-    error::InvalidGameState,
     games::hl::GameState,
     util::{
         builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
@@ -13,7 +13,6 @@ use crate::{
         interaction::InteractionComponent,
         Authored, ComponentExt,
     },
-    BotResult,
 };
 
 use super::{
@@ -22,12 +21,12 @@ use super::{
 };
 
 /// Higher Button
-pub async fn handle_higher(ctx: Arc<Context>, component: InteractionComponent) -> BotResult<()> {
+pub async fn handle_higher(ctx: Arc<Context>, component: InteractionComponent) -> Result<()> {
     handle_higherlower(ctx, component, HlGuess::Higher).await
 }
 
 /// Lower Button
-pub async fn handle_lower(ctx: Arc<Context>, component: InteractionComponent) -> BotResult<()> {
+pub async fn handle_lower(ctx: Arc<Context>, component: InteractionComponent) -> Result<()> {
     handle_higherlower(ctx, component, HlGuess::Lower).await
 }
 
@@ -35,7 +34,7 @@ async fn handle_higherlower(
     ctx: Arc<Context>,
     component: InteractionComponent,
     guess: HlGuess,
-) -> BotResult<()> {
+) -> Result<()> {
     let user = component.user_id()?;
 
     let is_correct = if let Some(game) = ctx.hl_games().lock(&user).await.get() {
@@ -61,7 +60,7 @@ async fn handle_higherlower(
 pub async fn handle_next_higherlower(
     ctx: Arc<Context>,
     component: InteractionComponent,
-) -> BotResult<()> {
+) -> Result<()> {
     let user = component.user_id()?;
 
     let embed = {
@@ -75,7 +74,7 @@ pub async fn handle_next_higherlower(
             let embed_fut = game.make_embed();
 
             let (callback_res, embed) = tokio::join!(callback_fut, embed_fut);
-            callback_res?;
+            callback_res.wrap_err("failed to callback")?;
 
             Some(embed)
         } else {
@@ -86,7 +85,10 @@ pub async fn handle_next_higherlower(
     if let Some(embed) = embed {
         let components = HlComponents::higherlower();
         let builder = MessageBuilder::new().embed(embed).components(components);
-        component.update(&ctx, &builder).await?;
+        component
+            .update(&ctx, &builder)
+            .await
+            .wrap_err("failed to update")?;
     }
 
     Ok(())
@@ -96,7 +98,7 @@ pub async fn handle_next_higherlower(
 pub async fn handle_try_again(
     ctx: Arc<Context>,
     mut component: InteractionComponent,
-) -> BotResult<()> {
+) -> Result<()> {
     let user = component.user_id()?;
     let msg = component.message.id;
 
@@ -120,14 +122,17 @@ pub async fn handle_try_again(
         return Ok(());
     };
 
-    let mut embed = embeds.pop().ok_or(InvalidGameState::MissingEmbed)?;
+    let mut embed = embeds.pop().wrap_err("missing embed")?;
     let footer = FooterBuilder::new("Preparing game, give me a moment...");
     embed.footer = Some(footer.build());
 
     let components = HlComponents::disabled();
     let builder = MessageBuilder::new().embed(embed).components(components);
 
-    component.callback(&ctx, builder).await?;
+    component
+        .callback(&ctx, builder)
+        .await
+        .wrap_err("failed to callback")?;
 
     let mut game = match game_fut.await {
         Ok(game) => game,
@@ -137,7 +142,7 @@ pub async fn handle_try_again(
             let builder = MessageBuilder::new().embed(embed);
             let _ = component.update(&ctx, &builder).await;
 
-            return Err(err);
+            return Err(err.wrap_err("failed to restart game"));
         }
     };
 
@@ -145,7 +150,14 @@ pub async fn handle_try_again(
     let components = HlComponents::higherlower();
     let builder = MessageBuilder::new().embed(embed).components(components);
 
-    let response = component.update(&ctx, &builder).await?.model().await?;
+    let response = component
+        .update(&ctx, &builder)
+        .await
+        .wrap_err("failed to update")?
+        .model()
+        .await
+        .wrap_err("failed to deserialize response")?;
+
     game.msg = response.id;
     ctx.hl_games().own(user).await.insert(game);
 
@@ -156,7 +168,7 @@ async fn correct_guess(
     ctx: Arc<Context>,
     mut component: InteractionComponent,
     guess: HlGuess,
-) -> BotResult<()> {
+) -> Result<()> {
     let user = component.user_id()?;
     let components = HlComponents::disabled();
     let ctx_clone = Arc::clone(&ctx);
@@ -164,10 +176,13 @@ async fn correct_guess(
     let embed = if let Some(mut game) = ctx.hl_games().lock(&user).await.get_mut() {
         // Callback with disabled components so nothing happens while the game is updated
         let builder = MessageBuilder::new().components(components);
-        component.callback(&ctx, builder).await?;
+        component
+            .callback(&ctx, builder)
+            .await
+            .wrap_err("failed to callback")?;
 
         // Update current score in embed
-        let mut embed = game.reveal(&mut component)?;
+        let mut embed = game.reveal(&mut component).wrap_err("failed to reveal")?;
 
         game.current_score += 1;
         let mut footer = game.footer();
@@ -178,7 +193,9 @@ async fn correct_guess(
         }
 
         // Updated the game
-        game.next(ctx_clone).await?;
+        game.next(ctx_clone)
+            .await
+            .wrap_err("failed to get next game")?;
 
         Some(embed)
     } else {
@@ -191,7 +208,10 @@ async fn correct_guess(
             .embed(embed)
             .components(HlComponents::next());
 
-        component.update(&ctx, &builder).await?;
+        component
+            .update(&ctx, &builder)
+            .await
+            .wrap_err("failed to update")?;
     }
 
     Ok(())
@@ -201,7 +221,7 @@ async fn game_over(
     ctx: Arc<Context>,
     mut component: InteractionComponent,
     guess: HlGuess,
-) -> BotResult<()> {
+) -> Result<()> {
     let user = component.user_id()?;
 
     let game = if let Some(game) = ctx.hl_games().lock(&user).await.remove() {
@@ -223,7 +243,7 @@ async fn game_over(
     };
 
     let name = format!("Game Over - {guess} was incorrect");
-    let mut embed = game.reveal(&mut component)?;
+    let mut embed = game.reveal(&mut component).wrap_err("failed to reveal")?;
     embed.footer.take();
 
     let field = EmbedField {
@@ -236,7 +256,10 @@ async fn game_over(
     let components = HlComponents::restart();
     let builder = MessageBuilder::new().embed(embed).components(components);
 
-    component.callback(&ctx, builder).await?;
+    component
+        .callback(&ctx, builder)
+        .await
+        .wrap_err("failed to callback")?;
 
     let (tx, rx) = oneshot::channel();
     let msg = game.msg;

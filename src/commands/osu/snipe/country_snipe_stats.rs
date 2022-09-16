@@ -1,7 +1,7 @@
 use std::{borrow::Cow, cmp::Ordering::Equal, sync::Arc};
 
 use command_macros::command;
-use eyre::Report;
+use eyre::{Report, Result, WrapErr};
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::prelude::*;
 use rosu_v2::prelude::{GameMode, OsuError};
@@ -12,13 +12,12 @@ use crate::{
     custom_client::SnipeCountryPlayer,
     database::OsuData,
     embeds::{CountrySnipeStatsEmbed, EmbedData},
-    error::GraphError,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         CountryCode,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::SnipeCountryStats;
@@ -40,7 +39,7 @@ async fn prefix_countrysnipestats(
     ctx: Arc<Context>,
     msg: &Message,
     mut args: Args<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let args = SnipeCountryStats {
         country: args.next().map(Cow::from),
     };
@@ -52,7 +51,7 @@ pub(super) async fn country_stats(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: SnipeCountryStats<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let author_id = orig.user_id()?;
 
     let country_code = match args.country {
@@ -88,8 +87,9 @@ pub(super) async fn country_stats(
                     }
                     Err(err) => {
                         let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                        let report = Report::new(err).wrap_err("failed to get user");
 
-                        return Err(err.into());
+                        return Err(report);
                     }
                 };
 
@@ -103,7 +103,7 @@ pub(super) async fn country_stats(
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("faield to get username"));
             }
         },
     };
@@ -126,7 +126,7 @@ pub(super) async fn country_stats(
             Err(err) => {
                 let _ = orig.error(&ctx, HUISMETBENEN_ISSUE).await;
 
-                return Err(err.into());
+                return Err(err.wrap_err("failed to get country data"));
             }
         }
     };
@@ -134,7 +134,7 @@ pub(super) async fn country_stats(
     let graph = match graphs(&players) {
         Ok(graph_option) => Some(graph_option),
         Err(err) => {
-            warn!("{:?}", Report::new(err));
+            warn!("{:?}", err.wrap_err("Failed to create graph"));
 
             None
         }
@@ -143,6 +143,7 @@ pub(super) async fn country_stats(
     let country = ctx
         .get_country(country_code.as_ref())
         .map(|name| (name, country_code));
+
     let embed_data = CountrySnipeStatsEmbed::new(country, statistics);
 
     // Sending the embed
@@ -161,7 +162,7 @@ pub(super) async fn country_stats(
 const W: u32 = 1350;
 const H: u32 = 350;
 
-fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>, GraphError> {
+fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>> {
     static LEN: usize = (W * H) as usize * 3;
 
     let mut pp: Vec<_> = players
@@ -195,7 +196,8 @@ fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>, GraphError> {
     {
         let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
         let background = RGBColor(19, 43, 33);
-        root.fill(&background)?;
+        root.fill(&background)
+            .wrap_err("failed to fill background")?;
         let (left, right) = root.split_horizontally(W / 2);
 
         let mut chart = ChartBuilder::on(&left)
@@ -203,7 +205,8 @@ fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>, GraphError> {
             .y_label_area_size(60)
             .margin_right(15)
             .caption("Weighted pp from #1s", ("sans-serif", 30, &WHITE))
-            .build_cartesian_2d(0..pp.len() - 1, 0.0..pp_max)?;
+            .build_cartesian_2d(0..pp.len() - 1, 0.0..pp_max)
+            .wrap_err("failed to build left chart")?;
 
         // Mesh and labels
         chart
@@ -218,7 +221,8 @@ fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>, GraphError> {
                     String::new()
                 }
             })
-            .draw()?;
+            .draw()
+            .wrap_err("failed to draw left mesh")?;
 
         // Histogram bars
         let area_style = RGBColor(2, 186, 213).mix(0.7).filled();
@@ -229,7 +233,9 @@ fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>, GraphError> {
             .enumerate()
             .map(|(idx, (_, n))| (idx, *n));
 
-        chart.draw_series(Histogram::vertical(&chart).style(area_style).data(iter))?;
+        chart
+            .draw_series(Histogram::vertical(&chart).style(area_style).data(iter))
+            .wrap_err("failed to draw left series")?;
 
         // Count graph
         let mut chart = ChartBuilder::on(&right)
@@ -237,7 +243,8 @@ fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>, GraphError> {
             .y_label_area_size(35)
             .margin_right(15)
             .caption("#1 Count", ("sans-serif", 30, &WHITE))
-            .build_cartesian_2d(0..count.len() - 1, 0..count_max)?;
+            .build_cartesian_2d(0..count.len() - 1, 0..count_max)
+            .wrap_err("failed to build right chart")?;
 
         // Mesh and labels
         chart
@@ -252,7 +259,8 @@ fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>, GraphError> {
                     String::new()
                 }
             })
-            .draw()?;
+            .draw()
+            .wrap_err("failed to draw right mesh")?;
 
         // Histogram bars
         let iter = count
@@ -261,13 +269,18 @@ fn graphs(players: &[SnipeCountryPlayer]) -> Result<Vec<u8>, GraphError> {
             .enumerate()
             .map(|(idx, (_, n))| (idx, *n));
 
-        chart.draw_series(Histogram::vertical(&chart).style(area_style).data(iter))?;
+        chart
+            .draw_series(Histogram::vertical(&chart).style(area_style).data(iter))
+            .wrap_err("failed to draw right series")?;
     }
 
     // Encode buf to png
     let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
     let png_encoder = PngEncoder::new(&mut png_bytes);
-    png_encoder.write_image(&buf, W, H, ColorType::Rgb8)?;
+
+    png_encoder
+        .write_image(&buf, W, H, ColorType::Rgb8)
+        .wrap_err("failed to encode image")?;
 
     Ok(png_bytes)
 }

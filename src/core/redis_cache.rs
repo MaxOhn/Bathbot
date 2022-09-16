@@ -17,14 +17,14 @@ use rosu_v2::{
 use crate::{
     commands::osu::UserArgs,
     custom_client::{
-        CustomClientError, OsekaiBadge, OsekaiMedal, OsekaiRanking, OsuTrackerIdCount,
-        OsuTrackerPpGroup, OsuTrackerStats,
+        OsekaiBadge, OsekaiMedal, OsekaiRanking, OsuTrackerIdCount, OsuTrackerPpGroup,
+        OsuTrackerStats,
     },
 };
 
 use super::Context;
 
-pub type ArchivedResult<T, E> = Result<ArchivedBytes<T>, E>;
+pub type ArchivedResult<T, E = Report> = Result<ArchivedBytes<T>, E>;
 
 type Serializer<const N: usize> = CompositeSerializer<
     AlignedSerializer<AlignedVec>,
@@ -51,7 +51,7 @@ impl<'c> RedisCache<'c> {
         Self { ctx }
     }
 
-    pub async fn badges(&self) -> ArchivedResult<Vec<OsekaiBadge>, CustomClientError> {
+    pub async fn badges(&self) -> ArchivedResult<Vec<OsekaiBadge>> {
         let key = "osekai_badges";
 
         let mut conn = match self.ctx.redis_client().get().await {
@@ -68,10 +68,11 @@ impl<'c> RedisCache<'c> {
                 conn
             }
             Err(err) => {
-                let report = Report::new(err).wrap_err("failed to get redis connection");
+                let report = Report::new(err).wrap_err("Failed to get redis connection");
                 warn!("{report:?}");
 
                 let badges = self.ctx.client().get_osekai_badges().await?;
+
                 let bytes =
                     rkyv::to_bytes::<_, 200_000>(&badges).expect("failed to serialize badges");
 
@@ -84,14 +85,14 @@ impl<'c> RedisCache<'c> {
         let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), Self::BADGES_SECONDS);
 
         if let Err(err) = set_fut.await {
-            let report = Report::new(err).wrap_err("failed to insert bytes into cache");
+            let report = Report::new(err).wrap_err("Failed to insert bytes into cache");
             warn!("{report:?}");
         }
 
         Ok(ArchivedBytes::new(bytes))
     }
 
-    pub async fn medals(&self) -> ArchivedResult<Vec<OsekaiMedal>, CustomClientError> {
+    pub async fn medals(&self) -> ArchivedResult<Vec<OsekaiMedal>> {
         let key = "osekai_medals";
 
         let mut conn = match self.ctx.redis_client().get().await {
@@ -108,7 +109,7 @@ impl<'c> RedisCache<'c> {
                 conn
             }
             Err(err) => {
-                let report = Report::new(err).wrap_err("failed to get redis connection");
+                let report = Report::new(err).wrap_err("Failed to get redis connection");
                 warn!("{report:?}");
 
                 let medals = self.ctx.client().get_osekai_medals().await?;
@@ -124,14 +125,14 @@ impl<'c> RedisCache<'c> {
         let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), Self::MEDALS_SECONDS);
 
         if let Err(err) = set_fut.await {
-            let report = Report::new(err).wrap_err("failed to insert bytes into cache");
+            let report = Report::new(err).wrap_err("Failed to insert bytes into cache");
             warn!("{report:?}");
         }
 
         Ok(ArchivedBytes::new(bytes))
     }
 
-    pub async fn osekai_ranking<R>(&self) -> ArchivedResult<Vec<R::Entry>, CustomClientError>
+    pub async fn osekai_ranking<R>(&self) -> ArchivedResult<Vec<R::Entry>>
     where
         R: OsekaiRanking,
         <R as OsekaiRanking>::Entry: Serialize<Serializer<70_000>>,
@@ -152,7 +153,7 @@ impl<'c> RedisCache<'c> {
                 conn
             }
             Err(err) => {
-                let report = Report::new(err).wrap_err("failed to get redis connection");
+                let report = Report::new(err).wrap_err("Failed to get redis connection");
                 warn!("{report:?}");
 
                 let ranking = self.ctx.client().get_osekai_ranking::<R>().await?;
@@ -169,17 +170,14 @@ impl<'c> RedisCache<'c> {
         let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), Self::OSEKAI_RANKING);
 
         if let Err(err) = set_fut.await {
-            let report = Report::new(err).wrap_err("failed to insert bytes into cache");
+            let report = Report::new(err).wrap_err("Failed to insert bytes into cache");
             warn!("{report:?}");
         }
 
         Ok(ArchivedBytes::new(bytes))
     }
 
-    pub async fn osutracker_pp_group(
-        &self,
-        pp: u32,
-    ) -> ArchivedResult<OsuTrackerPpGroup, CustomClientError> {
+    pub async fn osutracker_pp_group(&self, pp: u32) -> ArchivedResult<OsuTrackerPpGroup> {
         let key = format!("osutracker_pp_group_{pp}");
 
         let mut conn = match self.ctx.redis_client().get().await {
@@ -196,7 +194,7 @@ impl<'c> RedisCache<'c> {
                 conn
             }
             Err(err) => {
-                let report = Report::new(err).wrap_err("failed to get redis connection");
+                let report = Report::new(err).wrap_err("Failed to get redis connection");
                 warn!("{report:?}");
 
                 let group = self.ctx.client().get_osutracker_pp_group(pp).await?;
@@ -215,14 +213,14 @@ impl<'c> RedisCache<'c> {
             conn.set_ex::<_, _, ()>(key, bytes.as_slice(), Self::OSUTRACKER_PP_GROUP_SECONDS);
 
         if let Err(err) = set_fut.await {
-            let report = Report::new(err).wrap_err("failed to insert bytes into cache");
+            let report = Report::new(err).wrap_err("Failed to insert bytes into cache");
             warn!("{report:?}");
         }
 
         Ok(ArchivedBytes::new(bytes))
     }
 
-    pub async fn osutracker_stats(&self) -> ArchivedResult<OsuTrackerStats, CustomClientError> {
+    pub async fn osutracker_stats(&self) -> ArchivedResult<OsuTrackerStats> {
         let key = "osutracker_stats";
 
         let mut conn = match self.ctx.redis_client().get().await {
@@ -239,7 +237,7 @@ impl<'c> RedisCache<'c> {
                 conn
             }
             Err(err) => {
-                let report = Report::new(err).wrap_err("failed to get redis connection");
+                let report = Report::new(err).wrap_err("Failed to get redis connection");
                 warn!("{report:?}");
 
                 let stats = self.ctx.client().get_osutracker_stats().await?;
@@ -257,16 +255,14 @@ impl<'c> RedisCache<'c> {
             conn.set_ex::<_, _, ()>(key, bytes.as_slice(), Self::OSUTRACKER_STATS_SECONDS);
 
         if let Err(err) = set_fut.await {
-            let report = Report::new(err).wrap_err("failed to insert bytes into cache");
+            let report = Report::new(err).wrap_err("Failed to insert bytes into cache");
             warn!("{report:?}");
         }
 
         Ok(ArchivedBytes::new(bytes))
     }
 
-    pub async fn osutracker_counts(
-        &self,
-    ) -> ArchivedResult<Vec<OsuTrackerIdCount>, CustomClientError> {
+    pub async fn osutracker_counts(&self) -> ArchivedResult<Vec<OsuTrackerIdCount>> {
         let key = "osutracker_id_counts";
 
         let mut conn = match self.ctx.redis_client().get().await {
@@ -286,7 +282,7 @@ impl<'c> RedisCache<'c> {
                 conn
             }
             Err(err) => {
-                let report = Report::new(err).wrap_err("failed to get redis connection");
+                let report = Report::new(err).wrap_err("Failed to get redis connection");
                 warn!("{report:?}");
 
                 let counts = self.ctx.client().get_osutracker_counts().await?;
@@ -305,7 +301,7 @@ impl<'c> RedisCache<'c> {
             conn.set_ex::<_, _, ()>(key, bytes.as_slice(), Self::OSUTRACKER_COUNTS_SECONDS);
 
         if let Err(err) = set_fut.await {
-            let report = Report::new(err).wrap_err("failed to insert bytes into cache");
+            let report = Report::new(err).wrap_err("Failed to insert bytes into cache");
             warn!("{report:?}");
         }
 
@@ -338,7 +334,7 @@ impl<'c> RedisCache<'c> {
                 conn
             }
             Err(err) => {
-                let report = Report::new(err).wrap_err("failed to get redis connection");
+                let report = Report::new(err).wrap_err("Failed to get redis connection");
                 warn!("{report:?}");
 
                 let ranking_fut = self.ctx.osu().performance_rankings(mode).page(page);
@@ -368,7 +364,7 @@ impl<'c> RedisCache<'c> {
         let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), Self::PP_RANKING_SECONDS);
 
         if let Err(err) = set_fut.await {
-            let report = Report::new(err).wrap_err("failed to insert bytes into cache");
+            let report = Report::new(err).wrap_err("Failed to insert bytes into cache");
             warn!("{report:?}");
         }
 
@@ -399,7 +395,7 @@ impl<'c> RedisCache<'c> {
                 conn
             }
             Err(err) => {
-                let report = Report::new(err).wrap_err("failed to get redis connection");
+                let report = Report::new(err).wrap_err("Failed to get redis connection");
                 warn!("{report:?}");
 
                 let user = match self.ctx.osu().user(args.name).mode(args.mode).await {
@@ -407,9 +403,10 @@ impl<'c> RedisCache<'c> {
                     Err(OsuError::NotFound) => {
                         // Remove stats of unknown/restricted users so they don't appear in the leaderboard
                         if let Err(err) = self.ctx.psql().remove_osu_user_stats(args.name).await {
-                            let report =
-                                Report::new(err).wrap_err("failed to remove stats of unknown user");
-                            warn!("{report:?}");
+                            warn!(
+                                "{:?}",
+                                err.wrap_err("failed to remove stats of unknown user")
+                            );
                         }
 
                         return Err(OsuError::NotFound);
@@ -418,8 +415,7 @@ impl<'c> RedisCache<'c> {
                 };
 
                 if let Err(err) = self.ctx.psql().upsert_osu_user(&user, args.mode).await {
-                    let report = Report::new(err).wrap_err("failed to upsert osu user");
-                    warn!("{report:?}");
+                    warn!("{:?}", err.wrap_err("failed to upsert osu user"));
                 }
 
                 return Ok(user);
@@ -431,9 +427,10 @@ impl<'c> RedisCache<'c> {
             Err(OsuError::NotFound) => {
                 // Remove stats of unknown/restricted users so they don't appear in the leaderboard
                 if let Err(err) = self.ctx.psql().remove_osu_user_stats(args.name).await {
-                    let report =
-                        Report::new(err).wrap_err("failed to remove stats of unknown user");
-                    warn!("{report:?}");
+                    warn!(
+                        "{:?}",
+                        err.wrap_err("failed to remove stats of unknown user")
+                    );
                 }
 
                 return Err(OsuError::NotFound);
@@ -442,8 +439,7 @@ impl<'c> RedisCache<'c> {
         };
 
         if let Err(err) = self.ctx.psql().upsert_osu_user(&user, args.mode).await {
-            let report = Report::new(err).wrap_err("failed to upsert osu user");
-            warn!("{report:?}");
+            warn!("{:?}", err.wrap_err("Failed to upsert osu user"));
         }
 
         // Remove html user page to reduce overhead
@@ -466,8 +462,7 @@ impl<'c> RedisCache<'c> {
         }
 
         if let Err(err) = name_update_result {
-            let report = Report::new(err).wrap_err("failed to update osu! username");
-            warn!("{report:?}");
+            warn!("{:?}", err.wrap_err("failed to update osu username"));
         }
 
         Ok(user)

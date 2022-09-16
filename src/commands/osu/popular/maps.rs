@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use eyre::Result;
 use rkyv::{Deserialize, Infallible};
 
 use crate::{
@@ -7,7 +8,6 @@ use crate::{
     custom_client::OsuTrackerPpEntry,
     pagination::OsuTrackerMapsPagination,
     util::{constants::OSUTRACKER_ISSUE, interaction::InteractionCommand, InteractionCommandExt},
-    BotResult,
 };
 
 use super::PopularMapsPp;
@@ -16,7 +16,7 @@ pub(super) async fn maps(
     ctx: Arc<Context>,
     mut command: InteractionCommand,
     args: PopularMapsPp,
-) -> BotResult<()> {
+) -> Result<()> {
     let pp = args.pp();
 
     let entries: Vec<OsuTrackerPpEntry> = match ctx.redis().osutracker_pp_group(pp).await {
@@ -24,7 +24,7 @@ pub(super) async fn maps(
         Err(err) => {
             let _ = command.error(&ctx, OSUTRACKER_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get cached osutracker pp groups"));
         }
     };
 

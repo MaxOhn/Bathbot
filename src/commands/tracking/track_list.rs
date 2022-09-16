@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use command_macros::command;
-use eyre::Report;
+use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rosu_v2::{
     prelude::{GameMode, OsuError, Username},
@@ -13,7 +13,7 @@ use crate::{
     core::commands::CommandOrigin,
     embeds::{EmbedData, TrackListEmbed},
     util::{builder::MessageBuilder, constants::OSU_API_ISSUE},
-    BotResult, Context,
+    Context,
 };
 
 pub struct TracklistUserEntry {
@@ -27,11 +27,11 @@ pub struct TracklistUserEntry {
 #[alias("tl")]
 #[group(Tracking)]
 #[flags(AUTHORITY, ONLY_GUILDS)]
-async fn prefix_tracklist(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+async fn prefix_tracklist(ctx: Arc<Context>, msg: &Message) -> Result<()> {
     tracklist(ctx, msg.into()).await
 }
 
-pub async fn tracklist(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> BotResult<()> {
+pub async fn tracklist(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
     let channel_id = orig.channel_id();
     let tracked = ctx.tracking().list(channel_id).await;
 
@@ -40,7 +40,7 @@ pub async fn tracklist(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> BotResult<
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-            return Err(err.into());
+            return Err(Report::new(err).wrap_err("failed to get users"));
         }
     };
 
@@ -78,8 +78,7 @@ async fn get_users(
     let stored_names = match ctx.psql().get_names_by_ids(&user_ids).await {
         Ok(map) => map,
         Err(err) => {
-            let report = Report::new(err).wrap_err("failed to get names by ids");
-            warn!("{report:?}",);
+            warn!("{:?}", err.wrap_err("Failed to get names by user ids"));
 
             HashMap::default()
         }
@@ -98,8 +97,7 @@ async fn get_users(
             None => match ctx.osu().user(user_id).mode(mode).await {
                 Ok(user) => {
                     if let Err(err) = ctx.psql().upsert_osu_user(&user, mode).await {
-                        let report = Report::new(err).wrap_err("failed to upsert user");
-                        warn!("{report:?}");
+                        warn!("{:?}", err.wrap_err("Failed to upsert user"));
                     }
 
                     TracklistUserEntry {
@@ -114,7 +112,11 @@ async fn get_users(
                         .remove_user(user_id, None, channel, ctx.psql());
 
                     if let Err(err) = remove_fut.await {
-                        warn!("Error while removing unknown user {user_id} from tracking: {err}");
+                        let report = err.wrap_err(format!(
+                            "Failed to remove unknown user {user_id} from tracking"
+                        ));
+
+                        warn!("{report:?}");
                     }
 
                     continue;

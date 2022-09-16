@@ -2,7 +2,7 @@ use std::{borrow::Cow, cmp::Ordering, fmt::Write, iter, sync::Arc, time::Duratio
 
 use command_macros::{command, HasMods, SlashCommand};
 use enterpolation::{linear::Linear, Curve};
-use eyre::Report;
+use eyre::{Report, Result, WrapErr};
 use image::{
     codecs::png::PngEncoder, ColorType, DynamicImage, GenericImageView, ImageEncoder, Luma, Pixel,
 };
@@ -18,7 +18,6 @@ use twilight_model::channel::{message::MessageType, Message};
 
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
-    error::{GraphError, PpError},
     pagination::MapPagination,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -27,7 +26,7 @@ use crate::{
         osu::{prepare_beatmap_file, MapIdType},
         ChannelExt, InteractionCommandExt,
     },
-    BotResult, Context, Error,
+    Context,
 };
 
 use super::{HasMods, ModsResult};
@@ -211,7 +210,7 @@ impl<'a> TryFrom<Map<'a>> for MapArgs<'a> {
 #[examples("2240404 +hddt", "https://osu.ppy.sh/beatmapsets/902425 +hr")]
 #[aliases("m", "beatmap", "maps", "beatmaps", "mapinfo")]
 #[group(AllModes)]
-async fn prefix_map(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_map(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match MapArgs::args(msg, args) {
         Ok(args) => map(ctx, msg.into(), args).await,
         Err(content) => {
@@ -222,7 +221,7 @@ async fn prefix_map(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResu
     }
 }
 
-async fn slash_map(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_map(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Map::from_interaction(command.input_data())?;
 
     match MapArgs::try_from(args) {
@@ -238,7 +237,7 @@ async fn slash_map(ctx: Arc<Context>, mut command: InteractionCommand) -> BotRes
 const W: u32 = 590;
 const H: u32 = 150;
 
-async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> BotResult<()> {
+async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> Result<()> {
     let mods = match args.mods() {
         ModsResult::Mods(mods) => Some(mods),
         ModsResult::None => None,
@@ -260,7 +259,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to retrieve channel history"));
             }
         };
 
@@ -294,7 +293,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
                         Ok(map) => {
                             // Store map in DB
                             if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-                                warn!("{:?}", Report::new(err));
+                                warn!("{:?}", err.wrap_err("Failed to insert map in database"));
                             }
 
                             (map.mapset_id, Some(id))
@@ -302,8 +301,9 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
                         Err(OsuError::NotFound) => (id, None),
                         Err(err) => {
                             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                            let report = Report::new(err).wrap_err("failed to get beatmap");
 
-                            return Err(err.into());
+                            return Err(report);
                         }
                     }
                 }
@@ -318,7 +318,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
     let (mapset, maps) = match ctx.osu().beatmapset(mapset_id).await {
         Ok(mut mapset) => {
             if let Err(err) = ctx.psql().insert_beatmapset(&mapset).await {
-                warn!("{:?}", Report::new(err));
+                warn!("{:?}", err.wrap_err("Failed to insert mapset in database"));
             }
 
             let mut maps = mapset.maps.take().unwrap_or_default();
@@ -352,8 +352,9 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get beatmapset");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -371,27 +372,28 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
     let bg_fut = async {
         let bytes = ctx.client().get_mapset_cover(&mapset.covers.cover).await?;
 
-        Ok::<_, Error>(image::load_from_memory(&bytes)?.thumbnail_exact(W, H))
+        let cover =
+            image::load_from_memory(&bytes).wrap_err("failed to load mapset cover from memory")?;
+
+        Ok::<_, Report>(cover.thumbnail_exact(W, H))
     };
 
     let graph = match tokio::join!(strain_values(&ctx, map.map_id, mods), bg_fut) {
         (Ok(strain_values), Ok(img)) => match graph(strain_values, img) {
             Ok(graph) => Some(graph),
             Err(err) => {
-                warn!("{:?}", Report::new(err));
+                warn!("{:?}", err.wrap_err("Failed to create graph"));
 
                 None
             }
         },
         (Err(err), _) => {
-            let report = Report::new(err).wrap_err("failed to create oppai values");
-            warn!("{report:?}");
+            warn!("{:?}", err.wrap_err("Failed to calculate strain values"));
 
             None
         }
         (_, Err(err)) => {
-            let report = Report::new(err).wrap_err("failed to retrieve graph background");
-            warn!("{report:?}");
+            warn!("{:?}", err.wrap_err("Failed to get graph background"));
 
             None
         }
@@ -416,9 +418,15 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> B
         .await
 }
 
-async fn strain_values(ctx: &Context, map_id: u32, mods: GameMods) -> BotResult<Vec<(f64, f64)>> {
-    let map_path = prepare_beatmap_file(ctx, map_id).await?;
-    let map = Beatmap::from_path(map_path).await.map_err(PpError::from)?;
+async fn strain_values(ctx: &Context, map_id: u32, mods: GameMods) -> Result<Vec<(f64, f64)>> {
+    let map_path = prepare_beatmap_file(ctx, map_id)
+        .await
+        .wrap_err("failed to prepare map")?;
+
+    let map = Beatmap::from_path(map_path)
+        .await
+        .wrap_err("failed to parse map")?;
+
     let strains = map.strains(mods.bits());
     let section_len = strains.section_len();
 
@@ -478,7 +486,7 @@ async fn strain_values(ctx: &Context, map_id: u32, mods: GameMods) -> BotResult<
     Ok(strains)
 }
 
-fn graph(strains: Vec<(f64, f64)>, background: DynamicImage) -> Result<Vec<u8>, GraphError> {
+fn graph(strains: Vec<(f64, f64)>, background: DynamicImage) -> Result<Vec<u8>> {
     const LEN: usize = W as usize * H as usize;
     const STEPS: usize = 128;
 
@@ -505,18 +513,19 @@ fn graph(strains: Vec<(f64, f64)>, background: DynamicImage) -> Result<Vec<u8>, 
         });
 
     if max_strain <= std::f64::EPSILON {
-        return Err(GraphError::InvalidStrainPoints);
+        bail!("no non-zero strain point");
     }
 
     let mut buf = vec![0; LEN * 3]; // PIXEL_SIZE = 3
 
     {
         let root = BitMapBackend::with_buffer(&mut buf, (W, H)).into_drawing_area();
-        root.fill(&WHITE)?;
+        root.fill(&WHITE).wrap_err("failed to fill background")?;
 
         let mut chart = ChartBuilder::on(&root)
             .x_label_area_size(17_i32)
-            .build_cartesian_2d(first_strain..last_strain, min_strain..max_strain)?;
+            .build_cartesian_2d(first_strain..last_strain, min_strain..max_strain)
+            .wrap_err("failed to build chart")?;
 
         // Get grayscale value to determine color for x axis
         let (width, height) = background.dimensions();
@@ -535,7 +544,9 @@ fn graph(strains: Vec<(f64, f64)>, background: DynamicImage) -> Result<Vec<u8>, 
         // Add background
         let background = background.blur(2.0).brighten(-20);
         let elem: BitMapElement<'_, _> = ((0.0_f64, max_strain), background).into();
-        chart.draw_series(iter::once(elem))?;
+        chart
+            .draw_series(iter::once(elem))
+            .wrap_err("failed to draw background")?;
 
         // Mesh and labels
         let text_style = FontDesc::new(FontFamily::Serif, 14.0, FontStyle::Bold).color(axis_color);
@@ -560,17 +571,23 @@ fn graph(strains: Vec<(f64, f64)>, background: DynamicImage) -> Result<Vec<u8>, 
 
                 format!("{minutes}:{seconds:0>2}")
             })
-            .draw()?;
+            .draw()
+            .wrap_err("failed to draw mesh")?;
 
         // Draw line
         let glowing = GlowingPath::new(strains, Line);
-        chart.draw_series(iter::once(glowing))?;
+        chart
+            .draw_series(iter::once(glowing))
+            .wrap_err("failed to draw path")?;
     }
 
     // Encode buf to png
     let mut png_bytes: Vec<u8> = Vec::with_capacity(LEN);
     let png_encoder = PngEncoder::new(&mut png_bytes);
-    png_encoder.write_image(&buf, W, H, ColorType::Rgb8)?;
+
+    png_encoder
+        .write_image(&buf, W, H, ColorType::Rgb8)
+        .wrap_err("failed to encode image")?;
 
     Ok(png_bytes)
 }

@@ -1,7 +1,7 @@
 use std::{borrow::Cow, cmp::Ordering, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
-use eyre::Report;
+use eyre::{Report, Result, WrapErr};
 use rosu_pp::{Beatmap as Map, CatchPP, CatchStars, OsuPP, TaikoPP};
 use rosu_v2::prelude::{GameMode, OsuError, Score};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
@@ -10,7 +10,6 @@ use twilight_model::id::{marker::UserMarker, Id};
 use crate::{
     commands::osu::{get_user_and_scores, ScoreArgs, UserArgs},
     core::commands::{prefix::Args, CommandOrigin},
-    error::PpError,
     pagination::NoChokePagination,
     tracking::process_osu_tracking,
     util::{
@@ -20,7 +19,7 @@ use crate::{
         osu::prepare_beatmap_file,
         InteractionCommandExt, ScoreExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
@@ -96,7 +95,7 @@ impl NochokeVersion {
         ctx: &Context,
         scores: Vec<Score>,
         miss_limit: Option<u32>,
-    ) -> BotResult<Vec<(usize, Score, Score)>> {
+    ) -> Result<Vec<(usize, Score, Score)>> {
         match self {
             NochokeVersion::Perfect => perfect_scores(ctx, scores, miss_limit).await,
             NochokeVersion::Unchoke => unchoke_scores(ctx, scores, miss_limit).await,
@@ -149,7 +148,7 @@ impl<'m> Nochoke<'m> {
 #[examples("badewanne3", "vaxei 5")]
 #[aliases("nc", "nochoke")]
 #[group(Osu)]
-async fn prefix_nochokes(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_nochokes(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let args = Nochoke::args(None, args);
 
     nochoke(ctx, msg.into(), args).await
@@ -167,7 +166,7 @@ async fn prefix_nochokes(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Bo
 #[examples("badewanne3", "vaxei 5")]
 #[alias("nct", "nochoketaiko")]
 #[group(Taiko)]
-async fn prefix_nochokestaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_nochokestaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let args = Nochoke::args(Some(NochokeGameMode::Taiko), args);
 
     nochoke(ctx, msg.into(), args).await
@@ -185,19 +184,19 @@ async fn prefix_nochokestaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) 
 #[examples("badewanne3", "vaxei 5")]
 #[alias("ncc", "nochokectb", "nochokecatch", "nochokescatch")]
 #[group(Catch)]
-async fn prefix_nochokesctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_nochokesctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let args = Nochoke::args(Some(NochokeGameMode::Catch), args);
 
     nochoke(ctx, msg.into(), args).await
 }
 
-async fn slash_nochoke(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_nochoke(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Nochoke::from_interaction(command.input_data())?;
 
     nochoke(ctx, (&mut command).into(), args).await
 }
 
-async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) -> BotResult<()> {
+async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) -> Result<()> {
     let (name, mut mode) = name_mode!(ctx, orig, args);
 
     if mode == GameMode::Mania {
@@ -224,8 +223,9 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user or scores");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -242,7 +242,7 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err);
+            return Err(err.wrap_err("failed to calculate version"));
         }
     };
 
@@ -278,8 +278,7 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
     let rank = match ctx.psql().approx_rank_from_pp(unchoked_pp, mode).await {
         Ok(rank) => Some(rank),
         Err(err) => {
-            let report = Report::new(err).wrap_err("failed to get rank pp");
-            warn!("{report:?}");
+            warn!("{:?}", err.wrap_err("Failed to get rank pp"));
 
             None
         }
@@ -319,7 +318,7 @@ async fn unchoke_scores(
     ctx: &Context,
     scores: Vec<Score>,
     miss_limit: Option<u32>,
-) -> BotResult<Vec<(usize, Score, Score)>> {
+) -> Result<Vec<(usize, Score, Score)>> {
     let mut scores_data = Vec::with_capacity(scores.len());
 
     for (score, i) in scores.into_iter().zip(1..) {
@@ -336,8 +335,14 @@ async fn unchoke_scores(
             continue;
         }
 
-        let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
-        let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
+        let map_path = prepare_beatmap_file(ctx, map.map_id)
+            .await
+            .wrap_err("failed to prepare map")?;
+
+        let rosu_map = Map::from_path(map_path)
+            .await
+            .wrap_err("failed to parse map")?;
+
         let mods = score.mods.bits();
         let max_combo = map.max_combo.unwrap_or(0);
 
@@ -467,7 +472,7 @@ async fn perfect_scores(
     ctx: &Context,
     scores: Vec<Score>,
     miss_limit: Option<u32>,
-) -> BotResult<Vec<(usize, Score, Score)>> {
+) -> Result<Vec<(usize, Score, Score)>> {
     let mut scores_data = Vec::with_capacity(scores.len());
 
     for (score, i) in scores.into_iter().zip(1..) {
@@ -484,8 +489,14 @@ async fn perfect_scores(
             continue;
         }
 
-        let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
-        let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
+        let map_path = prepare_beatmap_file(ctx, map.map_id)
+            .await
+            .wrap_err("failed to prepare map")?;
+
+        let rosu_map = Map::from_path(map_path)
+            .await
+            .wrap_err("failed to parse map")?;
+
         let mods = score.mods.bits();
         let total_hits = score.total_hits();
 

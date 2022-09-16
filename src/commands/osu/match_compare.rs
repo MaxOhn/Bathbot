@@ -1,6 +1,7 @@
 use std::{borrow::Cow, fmt::Write, mem, sync::Arc, time::Duration};
 
 use command_macros::SlashCommand;
+use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rosu_v2::prelude::{
     BeatmapCompact, GameMode, GameMods, Grade, MatchEvent, MatchGame, MatchScore, OsuError,
@@ -18,7 +19,6 @@ use crate::{
         builder::MessageBuilder, constants::OSU_API_ISSUE, interaction::InteractionCommand,
         matcher, ChannelExt, CowUtils, InteractionCommandExt, ScoreExt,
     },
-    BotResult,
 };
 
 use super::retrieve_previous;
@@ -68,7 +68,7 @@ impl Default for MatchCompareComparison {
     }
 }
 
-async fn slash_matchcompare(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_matchcompare(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = MatchCompare::from_interaction(command.input_data())?;
 
     matchcompare(ctx, command, args).await
@@ -78,7 +78,7 @@ async fn matchcompare(
     ctx: Arc<Context>,
     mut command: InteractionCommand,
     args: MatchCompare,
-) -> BotResult<()> {
+) -> Result<()> {
     let MatchCompare {
         match_url_1,
         match_url_2,
@@ -128,8 +128,10 @@ async fn matchcompare(
 
             if let Err(err) = tokio::try_join!(previous_fut_1, previous_fut_2) {
                 let _ = command.error(&ctx, OSU_API_ISSUE).await;
+                let report = Report::new(err)
+                    .wrap_err("failed to get history of at least one of the matches");
 
-                return Err(err.into());
+                return Err(report);
             }
 
             MatchComparison::new(&mut match_1, &mut match_2).into_embeds(comparison)
@@ -149,8 +151,9 @@ async fn matchcompare(
         }
         Err(err) => {
             let _ = command.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get at least one of the matches");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 

@@ -3,12 +3,12 @@ use std::{
     sync::Arc,
 };
 
-use eyre::Context as EyreContext;
+use eyre::Result;
 use futures::StreamExt;
 use twilight_gateway::{cluster::Events, Event};
 use twilight_model::id::Id;
 
-use crate::{util::Authored, BotResult};
+use crate::util::Authored;
 
 use self::{interaction::handle_interaction, message::handle_message};
 
@@ -76,14 +76,14 @@ pub async fn event_loop(ctx: Arc<Context>, mut events: Events) {
         tokio::spawn(async move {
             let handle_fut = handle_event(ctx, event, shard_id);
 
-            if let Err(report) = handle_fut.await.wrap_err("error while handling event") {
-                error!("{report:?}");
+            if let Err(err) = handle_fut.await {
+                error!("{:?}", err.wrap_err("Failed to handle event"));
             }
         });
     }
 }
 
-async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> BotResult<()> {
+async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<()> {
     match event {
         Event::AutoModerationActionExecution(_) => {}
         Event::AutoModerationRuleCreate(_) => {}

@@ -4,7 +4,7 @@
 extern crate tracing;
 
 #[macro_use]
-mod error;
+extern crate eyre;
 
 mod commands;
 mod core;
@@ -33,10 +33,7 @@ use twilight_model::gateway::payload::outgoing::RequestGuildMembers;
 use crate::{
     core::{commands::slash::SlashCommands, event_loop, logging, BotConfig, Context},
     database::Database,
-    error::Error,
 };
-
-type BotResult<T> = std::result::Result<T, Error>;
 
 fn main() {
     let runtime = RuntimeBuilder::new_multi_thread()
@@ -45,17 +42,21 @@ fn main() {
         .build()
         .expect("Could not build runtime");
 
+    dotenv::dotenv().expect(
+        "Failed to parse .env file. \
+        Be sure there is one in the same folder as this executable.",
+    );
+
     if let Err(report) = runtime.block_on(async_main()) {
-        error!("{:?}", report.wrap_err("critical error in main"));
+        error!("{:?}", report.wrap_err("Critical error in main"));
     }
 }
 
 async fn async_main() -> Result<()> {
-    dotenv::dotenv()?;
     let _log_worker_guard = logging::initialize();
 
     // Load config file
-    core::BotConfig::init().context("failed to initialize config")?;
+    BotConfig::init().context("failed to initialize config")?;
 
     let (member_tx, mut member_rx) = mpsc::unbounded_channel();
 
@@ -164,11 +165,13 @@ async fn async_main() -> Result<()> {
 
     tokio::select! {
         _ = event_loop(event_ctx, events) => error!("Event loop ended"),
-        res = signal::ctrl_c() => if let Err(report) = res.wrap_err("error while awaiting ctrl+c") {
-            error!("{report:?}");
-        } else {
-            info!("Received Ctrl+C");
-        },
+        res = signal::ctrl_c() => match res {
+            Ok(_) => info!("Received Ctrl+C"),
+            Err(err) => {
+                let report = Report::new(err).wrap_err("Failed to await Ctrl+C");
+                error!("{report:?}");
+            }
+        }
     }
 
     if tx.send(()).is_err() {
@@ -190,7 +193,7 @@ async fn async_main() -> Result<()> {
     let resume_data = ctx.cluster.down_resumable();
 
     if let Err(err) = ctx.cache.freeze(ctx.redis_client(), resume_data).await {
-        let report = Report::new(err).wrap_err("failed to freeze cache");
+        let report = Report::new(err).wrap_err("Failed to freeze cache");
         error!("{report:?}");
     }
 

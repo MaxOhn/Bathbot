@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use command_macros::EmbedData;
+use eyre::{Result, WrapErr};
 use hashbrown::{hash_map::Entry, HashMap};
 use rosu_pp::{Beatmap as Map, BeatmapExt, DifficultyAttributes};
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode};
@@ -8,7 +9,6 @@ use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode};
 use crate::{
     core::Context,
     custom_client::ScraperScore,
-    error::PpError,
     pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
@@ -18,7 +18,6 @@ use crate::{
         osu::prepare_beatmap_file,
         CowUtils, Emote, ScoreExt,
     },
-    BotResult,
 };
 
 #[derive(EmbedData)]
@@ -38,7 +37,7 @@ impl LeaderboardEmbed {
         author_icon: &Option<String>,
         ctx: &Context,
         pages: &Pages,
-    ) -> BotResult<Self>
+    ) -> Result<Self>
     where
         S: Iterator<Item = &'i ScraperScore>,
     {
@@ -66,8 +65,13 @@ impl LeaderboardEmbed {
         );
 
         let description = if let Some(scores) = scores {
-            let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
-            let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
+            let map_path = prepare_beatmap_file(ctx, map.map_id)
+                .await
+                .wrap_err("failed to prepare map")?;
+
+            let rosu_map = Map::from_path(map_path)
+                .await
+                .wrap_err("failed to parse map")?;
 
             let mut mod_map = HashMap::new();
             let mut description = String::with_capacity(256);

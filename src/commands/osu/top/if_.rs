@@ -1,7 +1,7 @@
 use std::{borrow::Cow, fmt::Write, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
-use eyre::Report;
+use eyre::{Report, Result, WrapErr};
 use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
@@ -23,7 +23,7 @@ use crate::{
         query::{FilterCriteria, Searchable},
         ChannelExt, InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
@@ -61,7 +61,7 @@ pub struct TopIf<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-async fn slash_topif(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_topif(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = TopIf::from_interaction(command.input_data())?;
 
     topif(ctx, (&mut command).into(), args).await
@@ -111,7 +111,7 @@ impl<'m> TopIf<'m> {
 #[examples("badewanne3 -hd!", "+hdhr!", "whitecat +hddt")]
 #[alias("ti")]
 #[group(Osu)]
-async fn prefix_topif(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_topif(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match TopIf::args(None, args) {
         Ok(args) => topif(ctx, msg.into(), args).await,
         Err(content) => {
@@ -135,7 +135,7 @@ async fn prefix_topif(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotRe
 #[examples("badewanne3 -hd!", "+hdhr!", "whitecat +hddt")]
 #[alias("tit")]
 #[group(Taiko)]
-async fn prefix_topiftaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_topiftaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match TopIf::args(Some(GameModeOption::Taiko), args) {
         Ok(args) => topif(ctx, msg.into(), args).await,
         Err(content) => {
@@ -159,7 +159,7 @@ async fn prefix_topiftaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> 
 #[examples("badewanne3 -hd!", "+hdhr!", "whitecat +hddt")]
 #[aliases("tic", "topifcatch")]
 #[group(Catch)]
-async fn prefix_topifctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_topifctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match TopIf::args(Some(GameModeOption::Catch), args) {
         Ok(args) => topif(ctx, msg.into(), args).await,
         Err(content) => {
@@ -179,7 +179,7 @@ const HR: GameMods = GameMods::HardRock;
 const PF: GameMods = GameMods::Perfect;
 const SD: GameMods = GameMods::SuddenDeath;
 
-async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> BotResult<()> {
+async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> Result<()> {
     let mods = match matcher::get_mods(&args.mods) {
         Some(mods) => mods,
         None => return orig.error(&ctx, TopIf::ERR_PARSE_MODS).await,
@@ -208,8 +208,9 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> B
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user or scores");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -236,7 +237,7 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> B
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err);
+            return Err(err.wrap_err("failed to modify scores"));
         }
     };
 
@@ -260,8 +261,7 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> B
     let rank = match ctx.psql().approx_rank_from_pp(adjusted_pp, mode).await {
         Ok(rank) => Some(rank as usize),
         Err(err) => {
-            let report = Report::new(err).wrap_err("failed to get rank pp");
-            warn!("{report:?}");
+            warn!("{:?}", err.wrap_err("failed to get rank from pp"));
 
             None
         }
@@ -283,7 +283,7 @@ async fn modify_scores(
     ctx: &Context,
     scores: Vec<Score>,
     arg_mods: ModSelection,
-) -> BotResult<Vec<(usize, Score, Option<f32>)>> {
+) -> Result<Vec<(usize, Score, Option<f32>)>> {
     let mut scores_data = Vec::with_capacity(scores.len());
 
     for (mut score, i) in scores.into_iter().zip(1..) {
@@ -350,7 +350,10 @@ async fn modify_scores(
             score.grade = score.grade(Some(score.accuracy));
         }
 
-        let base_calc = PpCalculator::new(ctx, map.map_id).await?;
+        let base_calc = PpCalculator::new(ctx, map.map_id)
+            .await
+            .wrap_err("failed to get pp calculator")?;
+
         let mut calc = base_calc.score(&score);
 
         let stars = calc.stars() as f32;

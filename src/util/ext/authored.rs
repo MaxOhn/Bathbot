@@ -1,3 +1,4 @@
+use eyre::Result;
 use twilight_model::{
     channel::Message,
     id::{
@@ -7,8 +8,6 @@ use twilight_model::{
     user::User,
 };
 
-use crate::BotResult;
-
 pub trait Authored {
     /// Channel id of the event
     fn channel_id(&self) -> Id<ChannelMarker>;
@@ -17,17 +16,17 @@ pub trait Authored {
     fn guild_id(&self) -> Option<Id<GuildMarker>>;
 
     /// Author of the event
-    fn user(&self) -> BotResult<&User>;
+    fn user(&self) -> Result<&User>;
 
     /// Author's user id
     #[inline]
-    fn user_id(&self) -> BotResult<Id<UserMarker>> {
+    fn user_id(&self) -> Result<Id<UserMarker>> {
         self.user().map(|user| user.id)
     }
 
     /// Author's username
     #[inline]
-    fn username(&self) -> BotResult<&str> {
+    fn username(&self) -> Result<&str> {
         self.user().map(|user| user.name.as_str())
     }
 }
@@ -44,17 +43,17 @@ impl Authored for Message {
     }
 
     #[inline]
-    fn user(&self) -> BotResult<&User> {
+    fn user(&self) -> Result<&User> {
         Ok(&self.author)
     }
 
     #[inline]
-    fn user_id(&self) -> BotResult<Id<UserMarker>> {
+    fn user_id(&self) -> Result<Id<UserMarker>> {
         Ok(self.author.id)
     }
 
     #[inline]
-    fn username(&self) -> BotResult<&str> {
+    fn username(&self) -> Result<&str> {
         Ok(self.author.name.as_str())
     }
 }

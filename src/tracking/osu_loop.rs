@@ -57,9 +57,8 @@ pub async fn osu_tracking_loop(ctx: Arc<Context>) {
                     );
 
                     if let Err(err) = ctx.tracking().remove_user_all(user_id, ctx.psql()).await {
-                        let report = Report::new(err)
-                            .wrap_err("failed to remove unknown user from tracking");
-                        warn!("{report:?}");
+                        let wrap = "Failed to remove unknown user from tracking";
+                        warn!("{:?}", err.wrap_err(wrap));
                     }
                 }
                 Err(err) => {
@@ -101,8 +100,8 @@ pub async fn process_osu_tracking(ctx: &Context, scores: &mut [Score], user: Opt
             .update_last_date(user_id, mode, new_last, ctx.psql());
 
         if let Err(err) = update_fut.await {
-            let wrap = format!("error while updating tracking date for user ({user_id},{mode})");
-            warn!("{:?}", Report::new(err).wrap_err(wrap));
+            let wrap = format!("Failed to update tracking date for user ({user_id},{mode})");
+            warn!("{:?}", err.wrap_err(wrap));
         }
     }
 
@@ -115,9 +114,8 @@ pub async fn process_osu_tracking(ctx: &Context, scores: &mut [Score], user: Opt
         Ok(_) => {}
         Err(OsuError::NotFound) => {
             if let Err(err) = ctx.tracking().remove_user_all(user_id, ctx.psql()).await {
-                let report =
-                    Report::new(err).wrap_err("failed to remove unknow user from tracking");
-                warn!("{report:?}");
+                let wrap = "Failed to remove unknow user from tracking";
+                warn!("{:?}", err.wrap_err(wrap));
             }
         }
         Err(err) => {
@@ -184,10 +182,10 @@ async fn score_loop(
 
                                 if let Err(err) = remove_fut.await {
                                     let wrap = format!(
-                                        "failed to remove osu tracks from unknown channel {channel}",
+                                        "Failed to remove osu tracks from unknown channel {channel}",
                                     );
-                                    let report = Report::new(err).wrap_err(wrap);
-                                    warn!("{report:?}");
+
+                                    warn!("{:?}", err.wrap_err(wrap));
                                 }
                             } else {
                                 warn!(

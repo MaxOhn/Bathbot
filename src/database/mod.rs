@@ -2,9 +2,8 @@ mod impls;
 mod models;
 mod util;
 
+use eyre::Result;
 use sqlx::postgres::{PgPool, PgPoolOptions};
-
-use crate::BotResult;
 
 pub use self::models::{
     Authorities, DBBeatmap, DBBeatmapset, EmbedsSize, GuildConfig, ListSize, MapsetTagWrapper,
@@ -18,7 +17,7 @@ pub struct Database {
 
 impl Database {
     #[cold]
-    pub fn new(uri: &str) -> BotResult<Self> {
+    pub fn new(uri: &str) -> Result<Self> {
         let pool = PgPoolOptions::new().connect_lazy(uri)?;
 
         Ok(Self { pool })

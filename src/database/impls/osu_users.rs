@@ -1,5 +1,6 @@
 use std::{cmp::Ordering, collections::BTreeMap};
 
+use eyre::{Result, WrapErr};
 use futures::stream::StreamExt;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, User, Username};
@@ -11,15 +12,14 @@ use crate::{
     database::{Database, UserStatsColumn, UserValueRaw},
     embeds::RankingEntry,
     util::hasher::SimpleBuildHasher,
-    BotResult,
 };
 
 const COUNTRY_CODE: &str = "country_code";
 
-type StatsValueResult<T> = BotResult<Vec<UserValueRaw<T>>>;
+type StatsValueResult<T> = Result<Vec<UserValueRaw<T>>>;
 
 impl Database {
-    pub async fn approx_rank_from_pp(&self, pp: f32, mode: GameMode) -> BotResult<u32> {
+    pub async fn approx_rank_from_pp(&self, pp: f32, mode: GameMode) -> Result<u32> {
         let query = sqlx::query!(
             "\
 WITH stats AS (\
@@ -75,25 +75,36 @@ LIMIT 1)) AS neighbors",
 
         let mut stream = query.fetch(&self.pool);
 
-        let (higher_rank, higher_pp) = match stream.next().await.transpose()? {
-            Some(entry) => (
-                entry.global_rank.unwrap_or(0) as u32,
-                entry.pp.unwrap_or(0.0) as f32,
-            ),
+        let (higher_rank, higher_pp) = match stream.next().await {
+            Some(entry) => {
+                let entry = entry.wrap_err("failed to get higher")?;
+                let rank = entry.global_rank.unwrap_or(0) as u32;
+                let pp = entry.pp.unwrap_or(0.0) as f32;
+
+                (rank, pp)
+            }
             None => return Ok(0),
         };
 
-        let lower = stream.next().await.transpose()?.map(|entry| {
-            let rank = entry.global_rank.unwrap_or(0) as u32;
-            let pp = entry.pp.unwrap_or(0.0) as f32;
+        let lower = stream
+            .next()
+            .await
+            .transpose()
+            .wrap_err("failed to get lower")?
+            .map(|entry| {
+                let rank = entry.global_rank.unwrap_or(0) as u32;
+                let pp = entry.pp.unwrap_or(0.0) as f32;
 
-            (rank, pp)
-        });
+                (rank, pp)
+            });
 
         trace!("PP={pp} => high: ({higher_rank}, {higher_pp}) | low: {lower:?}");
 
         if let Some((lower_rank, lower_pp)) = lower {
-            assert!((lower_pp..=higher_pp).contains(&pp));
+            ensure!(
+                (lower_pp..=higher_pp).contains(&pp),
+                "{pp}pp is not between {lower_pp} and {higher_pp}"
+            );
 
             if (higher_pp - lower_pp).abs() <= f32::EPSILON {
                 Ok(lower_rank.min(higher_rank).saturating_sub(1))
@@ -112,7 +123,7 @@ LIMIT 1)) AS neighbors",
         }
     }
 
-    pub async fn approx_pp_from_rank(&self, rank: u32, mode: GameMode) -> BotResult<f32> {
+    pub async fn approx_pp_from_rank(&self, rank: u32, mode: GameMode) -> Result<f32> {
         let query = sqlx::query!(
             "\
 WITH stats AS (\
@@ -169,25 +180,36 @@ LIMIT 1)) AS neighbors",
 
         let mut stream = query.fetch(&self.pool);
 
-        let (higher_rank, higher_pp) = match stream.next().await.transpose()? {
-            Some(entry) => (
-                entry.global_rank.unwrap_or(0) as u32,
-                entry.pp.unwrap_or(0.0) as f32,
-            ),
+        let (higher_rank, higher_pp) = match stream.next().await {
+            Some(entry) => {
+                let entry = entry.wrap_err("failed to get higher")?;
+                let rank = entry.global_rank.unwrap_or(0) as u32;
+                let pp = entry.pp.unwrap_or(0.0) as f32;
+
+                (rank, pp)
+            }
             None => return Ok(0.0),
         };
 
-        let lower = stream.next().await.transpose()?.map(|entry| {
-            let rank = entry.global_rank.unwrap_or(0) as u32;
-            let pp = entry.pp.unwrap_or(0.0) as f32;
+        let lower = stream
+            .next()
+            .await
+            .transpose()
+            .wrap_err("failed to get lower")?
+            .map(|entry| {
+                let rank = entry.global_rank.unwrap_or(0) as u32;
+                let pp = entry.pp.unwrap_or(0.0) as f32;
 
-            (rank, pp)
-        });
+                (rank, pp)
+            });
 
         trace!("Rank {rank} => high: ({higher_rank}, {higher_pp}) | low: {lower:?}");
 
         if let Some((lower_rank, lower_pp)) = lower {
-            assert!((higher_rank..=lower_rank).contains(&rank));
+            ensure!(
+                (higher_rank..=lower_rank).contains(&rank),
+                "rank {rank} is not between {higher_rank} and {lower_rank}"
+            );
 
             if lower_rank == higher_rank {
                 Ok(lower_pp.max(higher_pp) + 0.01)
@@ -206,7 +228,7 @@ LIMIT 1)) AS neighbors",
         }
     }
 
-    pub async fn remove_osu_user_stats(&self, user: &str) -> BotResult<()> {
+    pub async fn remove_osu_user_stats(&self, user: &str) -> Result<()> {
         let query = sqlx::query!(
             "DELETE \
             FROM osu_user_stats S USING osu_user_names N \
@@ -215,7 +237,10 @@ LIMIT 1)) AS neighbors",
             user
         );
 
-        query.execute(&self.pool).await?;
+        query
+            .execute(&self.pool)
+            .await
+            .wrap_err("failed to delete stats entry")?;
 
         let query = sqlx::query!(
             "DELETE \
@@ -225,7 +250,10 @@ LIMIT 1)) AS neighbors",
             user
         );
 
-        query.execute(&self.pool).await?;
+        query
+            .execute(&self.pool)
+            .await
+            .wrap_err("failed to delete mode stats entry")?;
 
         Ok(())
     }
@@ -233,7 +261,7 @@ LIMIT 1)) AS neighbors",
     pub async fn get_names_by_ids(
         &self,
         ids: &[i32],
-    ) -> BotResult<HashMap<u32, Username, SimpleBuildHasher>> {
+    ) -> Result<HashMap<u32, Username, SimpleBuildHasher>> {
         let query = sqlx::query!(
             "SELECT user_id,username from osu_user_names WHERE user_id=ANY($1)",
             ids
@@ -250,7 +278,7 @@ LIMIT 1)) AS neighbors",
     }
 
     /// Be sure wildcards (_, %) are escaped as required!
-    pub async fn get_ids_by_names(&self, names: &[String]) -> BotResult<HashMap<Username, u32>> {
+    pub async fn get_ids_by_names(&self, names: &[String]) -> Result<HashMap<Username, u32>> {
         let query = sqlx::query!(
             "SELECT user_id,username from osu_user_names WHERE username ILIKE ANY($1)",
             names
@@ -266,7 +294,7 @@ LIMIT 1)) AS neighbors",
         Ok(map)
     }
 
-    pub async fn upsert_osu_user(&self, user: &User, mode: GameMode) -> BotResult<()> {
+    pub async fn upsert_osu_user(&self, user: &User, mode: GameMode) -> Result<()> {
         let mut tx = self.pool.begin().await?;
 
         let name_query = sqlx::query!(
@@ -278,7 +306,10 @@ LIMIT 1)) AS neighbors",
             user.username.as_str(),
         );
 
-        name_query.execute(&mut tx).await?;
+        name_query
+            .execute(&mut tx)
+            .await
+            .wrap_err("failed to insert name entry")?;
 
         let stats_query = sqlx::query!(
             "INSERT INTO osu_user_stats (\
@@ -332,7 +363,10 @@ LIMIT 1)) AS neighbors",
                 user.medals.as_ref().map_or(0, Vec::len) as i32,
                 );
 
-        stats_query.execute(&mut tx).await?;
+        stats_query
+            .execute(&mut tx)
+            .await
+            .wrap_err("failed to insert stats entry")?;
 
         if let Some(ref stats) = user.statistics {
             let mode_stats_query = sqlx::query!(
@@ -400,7 +434,10 @@ LIMIT 1)) AS neighbors",
                     user.scores_first_count.unwrap_or(0) as i32,
                     );
 
-            mode_stats_query.execute(&mut tx).await?;
+            mode_stats_query
+                .execute(&mut tx)
+                .await
+                .wrap_err("failed to insert mode stats entry")?;
         }
 
         Ok(tx.commit().await?)
@@ -410,7 +447,7 @@ LIMIT 1)) AS neighbors",
         &self,
         column: UserStatsColumn,
         discord_ids: &[i64],
-    ) -> BotResult<BTreeMap<usize, RankingEntry>> {
+    ) -> Result<BTreeMap<usize, RankingEntry>> {
         let column_str = column.as_str();
 
         match column {

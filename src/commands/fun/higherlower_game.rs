@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use command_macros::SlashCommand;
-use eyre::Report;
+use eyre::{Result, WrapErr};
 use hashbrown::HashSet;
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -16,7 +16,7 @@ use crate::{
         builder::MessageBuilder, constants::GENERAL_ISSUE, interaction::InteractionCommand,
         Authored, InteractionCommandExt, MessageExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
@@ -64,7 +64,7 @@ pub struct HigherLowerLeaderboard {
     version: HlVersion,
 }
 
-async fn slash_higherlower(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_higherlower(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = HigherLower::from_interaction(command.input_data())?;
 
     if let HigherLower::Leaderboard(ref args) = args {
@@ -76,7 +76,11 @@ async fn slash_higherlower(ctx: Arc<Context>, mut command: InteractionCommand) -
     if let Some(game) = ctx.hl_games().lock(&user).await.remove() {
         let components = HlComponents::disabled();
         let builder = MessageBuilder::new().components(components);
-        (game.msg, game.channel).update(&ctx, &builder).await?;
+
+        (game.msg, game.channel)
+            .update(&ctx, &builder)
+            .await
+            .wrap_err("failed to remove components of previous game")?;
     }
 
     let game_res = match args {
@@ -117,7 +121,7 @@ async fn higherlower_leaderboard(
     ctx: Arc<Context>,
     mut command: InteractionCommand,
     version: HlVersion,
-) -> BotResult<()> {
+) -> Result<()> {
     let guild = match command.guild_id {
         Some(guild) => guild,
         None => {
@@ -159,8 +163,7 @@ async fn higherlower_leaderboard(
                 .unwrap_or_else(|_| "Unknown user".to_owned())
                 .into(),
             Err(err) => {
-                let report = Report::new(err).wrap_err("failed to get osu user");
-                warn!("{report:?}");
+                warn!("{:?}", err.wrap_err("Failed to get osu user"));
 
                 ctx.cache
                     .user(id, |user| user.name.clone())

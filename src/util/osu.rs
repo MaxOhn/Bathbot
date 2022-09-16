@@ -5,15 +5,15 @@ use std::{
     slice::Iter,
 };
 
+use eyre::{Result, WrapErr};
 use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, Score, UserStatistics};
 use time::OffsetDateTime;
-use tokio::{fs::File, io::AsyncWriteExt};
+use tokio::fs;
 use twilight_model::channel::{embed::Embed, Message};
 
 use crate::{
     core::{BotConfig, Context},
     custom_client::OsuTrackerCountryScore,
-    error::MapFileError,
     util::{constants::OSU_BASE, matcher, numbers::round, BeatmapExt, Emote, ScoreExt},
 };
 
@@ -164,14 +164,21 @@ fn completion(score: &dyn ScoreExt, map: &Beatmap) -> u32 {
     100 * passed / total
 }
 
-pub async fn prepare_beatmap_file(ctx: &Context, map_id: u32) -> Result<PathBuf, MapFileError> {
+pub async fn prepare_beatmap_file(ctx: &Context, map_id: u32) -> Result<PathBuf> {
     let mut map_path = BotConfig::get().paths.maps.clone();
     map_path.push(format!("{map_id}.osu"));
 
     if !map_path.exists() {
-        let bytes = ctx.client().get_map_file(map_id).await?;
-        let mut file = File::create(&map_path).await?;
-        file.write_all(&bytes).await?;
+        let bytes = ctx
+            .client()
+            .get_map_file(map_id)
+            .await
+            .wrap_err("failed to download map")?;
+
+        fs::write(&map_path, &bytes)
+            .await
+            .wrap_err("failed writing to file")?;
+
         info!("Downloaded {map_id}.osu successfully");
     }
 

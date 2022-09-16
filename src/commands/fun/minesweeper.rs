@@ -1,9 +1,10 @@
 use std::{
-    fmt::{self, Write},
+    fmt::{Display, Formatter, Result as FmtResult, Write},
     sync::Arc,
 };
 
 use command_macros::{command, SlashCommand};
+use eyre::Result;
 use rand::RngCore;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
@@ -16,7 +17,6 @@ use crate::{
         builder::MessageBuilder, interaction::InteractionCommand, ChannelExt, CowUtils,
         InteractionCommandExt, Matrix,
     },
-    BotResult,
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
@@ -44,10 +44,7 @@ enum Difficulty {
     // Expert,
 }
 
-pub async fn slash_minesweeper(
-    ctx: Arc<Context>,
-    mut command: InteractionCommand,
-) -> BotResult<()> {
+pub async fn slash_minesweeper(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Minesweeper::from_interaction(command.input_data())?;
 
     minesweeper(ctx, (&mut command).into(), args.difficulty).await
@@ -65,7 +62,7 @@ pub async fn slash_minesweeper(
 #[usage("[easy / medium / hard]")]
 #[flags(SKIP_DEFER)]
 #[group(Games)]
-async fn prefix_minesweeper(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+async fn prefix_minesweeper(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
     let difficulty = match Difficulty::args(&mut args) {
         Ok(difficulty) => difficulty,
         Err(content) => {
@@ -82,7 +79,7 @@ async fn minesweeper(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     difficulty: Difficulty,
-) -> BotResult<()> {
+) -> Result<()> {
     let game = difficulty.create();
     let (w, h) = game.dim();
     let mut field = String::with_capacity(w * h * 9);
@@ -177,8 +174,8 @@ enum Cell {
     None,
 }
 
-impl fmt::Display for Cell {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Cell {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
             Self::Num(0) => f.write_str("zero"),
             Self::Num(1) => f.write_str("one"),

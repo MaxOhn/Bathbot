@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use eyre::{Report, Result};
 use rosu_v2::prelude::{Beatmap, GameMode, OsuError, Score};
 
 use crate::{
@@ -11,16 +12,11 @@ use crate::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
     },
-    BotResult,
 };
 
 use super::RecentFix;
 
-pub(super) async fn fix(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: RecentFix,
-) -> BotResult<()> {
+pub(super) async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RecentFix) -> Result<()> {
     let (name, mode) = name_mode!(ctx, orig, args);
 
     if mode == GameMode::Mania {
@@ -53,8 +49,9 @@ pub(super) async fn fix(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user or scores");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -83,8 +80,9 @@ pub(super) async fn fix(
             match tokio::join!(mapset_fut, score_fut, user_fut, best_fut) {
                 (_, Err(err), ..) | (.., Err(err), _) | (.., Err(err)) => {
                     let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                    let report = Report::new(err).wrap_err("failed to get osu data");
 
-                    return Err(err.into());
+                    return Err(report);
                 }
                 (Ok(mapset), Ok(_), Ok(user), Ok(best)) => {
                     let mut map = score.map.take().unwrap();
@@ -99,8 +97,9 @@ pub(super) async fn fix(
                         Ok(mapset) => mapset,
                         Err(err) => {
                             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                            let report = Report::new(err).wrap_err("failed to get beatmapset");
 
-                            return Err(err.into());
+                            return Err(report);
                         }
                     };
 
@@ -132,7 +131,7 @@ pub(super) async fn fix(
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to unchoke pp"));
             }
         }
     };

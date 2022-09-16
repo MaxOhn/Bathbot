@@ -2,11 +2,9 @@ use std::iter;
 
 use bitflags::bitflags;
 use bytes::Bytes;
+use eyre::{Result, WrapErr};
 use futures::stream::{FuturesUnordered, TryStreamExt};
-use image::{
-    codecs::png::PngEncoder, imageops::FilterType::Lanczos3, load_from_memory, ColorType,
-    ImageEncoder,
-};
+use image::{codecs::png::PngEncoder, imageops::FilterType::Lanczos3, ColorType, ImageEncoder};
 use plotters::{
     coord::{types::RangedCoordi32, Shift},
     prelude::*,
@@ -14,7 +12,7 @@ use plotters::{
 use rosu_v2::prelude::{MonthlyCount, User};
 use time::{Date, Month, OffsetDateTime};
 
-use crate::{core::Context, error::GraphError, util::Monthly};
+use crate::{core::Context, util::Monthly};
 
 bitflags! {
     pub struct ProfileGraphFlags: u8 {
@@ -86,12 +84,11 @@ impl<'l> ProfileGraphParams<'l> {
     }
 }
 
-type GraphResult<T> = Result<T, GraphError>;
 type Area<'b> = DrawingArea<BitMapBackend<'b>, Shift>;
 type Chart<'a, 'b> =
     ChartContext<'a, BitMapBackend<'b>, Cartesian2d<Monthly<Date>, RangedCoordi32>>;
 
-pub async fn graphs(params: ProfileGraphParams<'_>) -> GraphResult<Option<Vec<u8>>> {
+pub async fn graphs(params: ProfileGraphParams<'_>) -> Result<Option<Vec<u8>>> {
     let w = params.w;
     let h = params.h;
 
@@ -110,7 +107,7 @@ pub async fn graphs(params: ProfileGraphParams<'_>) -> GraphResult<Option<Vec<u8
     Ok(Some(png_bytes))
 }
 
-async fn draw(buf: &mut [u8], params: ProfileGraphParams<'_>) -> GraphResult<bool> {
+async fn draw(buf: &mut [u8], params: ProfileGraphParams<'_>) -> Result<bool> {
     let ProfileGraphParams {
         ctx,
         user,
@@ -155,15 +152,16 @@ async fn draw(buf: &mut [u8], params: ProfileGraphParams<'_>) -> GraphResult<boo
     Ok(true)
 }
 
-fn create_root(buf: &mut [u8], w: u32, h: u32) -> GraphResult<Area<'_>> {
+fn create_root(buf: &mut [u8], w: u32, h: u32) -> Result<Area<'_>> {
     let root = BitMapBackend::with_buffer(buf, (w, h)).into_drawing_area();
     let background = RGBColor(19, 43, 33);
-    root.fill(&background)?;
+    root.fill(&background)
+        .wrap_err("failed to fill background")?;
 
     Ok(root)
 }
 
-fn draw_badges<'a>(badges: &[Bytes], area: Area<'a>, w: u32, h: u32) -> GraphResult<Area<'a>> {
+fn draw_badges<'a>(badges: &[Bytes], area: Area<'a>, w: u32, h: u32) -> Result<Area<'a>> {
     let max_badges_per_row = 10;
     let margin = 5;
     let inner_margin = 3;
@@ -193,7 +191,8 @@ fn draw_badges<'a>(badges: &[Bytes], area: Area<'a>, w: u32, h: u32) -> GraphRes
 
         let mut chart_row = ChartBuilder::on(&rows[row])
             .margin(margin)
-            .build_cartesian_2d(0..w, 0..badge_height)?;
+            .build_cartesian_2d(0..w, 0..badge_height)
+            .wrap_err("failed to build badge chart")?;
 
         chart_row
             .configure_mesh()
@@ -201,16 +200,21 @@ fn draw_badges<'a>(badges: &[Bytes], area: Area<'a>, w: u32, h: u32) -> GraphRes
             .disable_y_axis()
             .disable_x_mesh()
             .disable_y_mesh()
-            .draw()?;
+            .draw()
+            .wrap_err("failed to draw badge mesh")?;
 
         for (idx, badge) in chunk.iter().enumerate() {
-            let badge_img =
-                load_from_memory(badge)?.resize_exact(badge_width, badge_height, Lanczos3);
+            let badge_img = image::load_from_memory(badge)
+                .wrap_err("failed to get badge from memory")?
+                .resize_exact(badge_width, badge_height, Lanczos3);
 
             let x = x_offset + idx as u32 * badge_width + idx as u32 * inner_margin;
             let y = badge_height;
             let elem: BitMapElement<'_, _> = ((x, y), badge_img).into();
-            chart_row.draw_series(iter::once(elem))?;
+
+            chart_row
+                .draw_series(iter::once(elem))
+                .wrap_err("failed to draw badge")?;
         }
     }
 
@@ -220,14 +224,15 @@ fn draw_badges<'a>(badges: &[Bytes], area: Area<'a>, w: u32, h: u32) -> GraphRes
 const PLAYCOUNTS_AREA_COLOR: RGBColor = RGBColor(0, 116, 193);
 const PLAYCOUNTS_BORDER_COLOR: RGBColor = RGBColor(102, 174, 222);
 
-fn draw_playcounts(playcounts: &[MonthlyCount], canvas: &Area<'_>) -> GraphResult<()> {
+fn draw_playcounts(playcounts: &[MonthlyCount], canvas: &Area<'_>) -> Result<()> {
     let (first, last, max) = first_last_max(playcounts);
 
     let mut chart = ChartBuilder::on(canvas)
         .margin(9_i32)
         .x_label_area_size(20_i32)
         .y_label_area_size(75_i32)
-        .build_cartesian_2d(Monthly(first..last), 0..max)?;
+        .build_cartesian_2d(Monthly(first..last), 0..max)
+        .wrap_err("failed to build playcounts chart")?;
 
     chart
         .configure_mesh()
@@ -240,7 +245,8 @@ fn draw_playcounts(playcounts: &[MonthlyCount], canvas: &Area<'_>) -> GraphResul
         .bold_line_style(&WHITE.mix(0.3))
         .axis_style(RGBColor(7, 18, 14))
         .axis_desc_style(("sans-serif", 20_i32, FontStyle::Bold, &WHITE))
-        .draw()?;
+        .draw()
+        .wrap_err("failed to draw playcounts mesh")?;
 
     draw_area(
         &mut chart,
@@ -251,12 +257,13 @@ fn draw_playcounts(playcounts: &[MonthlyCount], canvas: &Area<'_>) -> GraphResul
         playcounts,
         "Monthly playcount",
     )
+    .wrap_err("failed to draw playcount area")
 }
 
 const REPLAYS_AREA_COLOR: RGBColor = RGBColor(0, 246, 193);
 const REPLAYS_BORDER_COLOR: RGBColor = RGBColor(40, 246, 205);
 
-fn draw_replays(replays: &[MonthlyCount], canvas: &Area<'_>) -> GraphResult<()> {
+fn draw_replays(replays: &[MonthlyCount], canvas: &Area<'_>) -> Result<()> {
     let (first, last, max) = first_last_max(replays);
     let label_area = replay_label_area(max);
 
@@ -264,7 +271,8 @@ fn draw_replays(replays: &[MonthlyCount], canvas: &Area<'_>) -> GraphResult<()> 
         .margin(9_i32)
         .x_label_area_size(20_i32)
         .y_label_area_size(label_area)
-        .build_cartesian_2d(Monthly(first..last), 0..max)?;
+        .build_cartesian_2d(Monthly(first..last), 0..max)
+        .wrap_err("failed to build replay chart")?;
 
     chart
         .configure_mesh()
@@ -277,7 +285,8 @@ fn draw_replays(replays: &[MonthlyCount], canvas: &Area<'_>) -> GraphResult<()> 
         .bold_line_style(&WHITE.mix(0.3))
         .axis_style(RGBColor(7, 18, 14))
         .axis_desc_style(("sans-serif", 20_i32, FontStyle::Bold, &WHITE))
-        .draw()?;
+        .draw()
+        .wrap_err("failed to draw replay mesh")?;
 
     draw_area(
         &mut chart,
@@ -288,13 +297,14 @@ fn draw_replays(replays: &[MonthlyCount], canvas: &Area<'_>) -> GraphResult<()> 
         replays,
         "Replays watched",
     )
+    .wrap_err("failed to draw replay area")
 }
 
 fn draw_both(
     playcounts: &[MonthlyCount],
     replays: &[MonthlyCount],
     canvas: &Area<'_>,
-) -> GraphResult<()> {
+) -> Result<()> {
     let (left_first, left_last, left_max) = first_last_max(playcounts);
     let (right_first, right_last, right_max) = first_last_max(replays);
     let right_label_area = replay_label_area(right_max);
@@ -307,7 +317,8 @@ fn draw_both(
         .x_label_area_size(20_i32)
         .y_label_area_size(75_i32)
         .right_y_label_area_size(right_label_area)
-        .build_cartesian_2d(Monthly(x_min..x_max), 0..left_max)?
+        .build_cartesian_2d(Monthly(x_min..x_max), 0..left_max)
+        .wrap_err("failed to build dual chart")?
         .set_secondary_coord(Monthly(x_min..x_max), 0..right_max);
 
     // Mesh and labels
@@ -322,7 +333,8 @@ fn draw_both(
         .bold_line_style(&WHITE.mix(0.3))
         .axis_style(RGBColor(7, 18, 14))
         .axis_desc_style(("sans-serif", 20_i32, FontStyle::Bold, &WHITE))
-        .draw()?;
+        .draw()
+        .wrap_err("failed to draw primary mesh")?;
 
     chart
         .configure_secondary_axes()
@@ -330,7 +342,8 @@ fn draw_both(
         .label_style(("sans-serif", 20_i32, &WHITE))
         .axis_style(RGBColor(7, 18, 14))
         .axis_desc_style(("sans-serif", 20_i32, FontStyle::Bold, &WHITE))
-        .draw()?;
+        .draw()
+        .wrap_err("failed to draw secondary mesh")?;
 
     draw_area(
         &mut chart,
@@ -340,7 +353,8 @@ fn draw_both(
         0.6,
         playcounts,
         "Monthly playcount",
-    )?;
+    )
+    .wrap_err("failed to draw playcounts area")?;
 
     // Draw replay watched area
     // Can't use `draw_area` since it's for the secondary y-axis
@@ -353,7 +367,8 @@ fn draw_both(
     let series = AreaSeries::new(iter, 0, area_color.mix(0.2).filled());
 
     chart
-        .draw_secondary_series(series.border_style(border_color.stroke_width(1)))?
+        .draw_secondary_series(series.border_style(border_color.stroke_width(1)))
+        .wrap_err("failed to draw replays area")?
         .label("Replays watched")
         .legend(move |(x, y)| {
             PathElement::new(vec![(x, y), (x + 20, y)], border_color.stroke_width(2))
@@ -366,7 +381,9 @@ fn draw_both(
         Circle::new((*start_date, *count), 2_i32, style)
     });
 
-    chart.draw_secondary_series(circles)?;
+    chart
+        .draw_secondary_series(circles)
+        .wrap_err("failed to draw replays circles")?;
 
     // Legend
     chart
@@ -375,7 +392,8 @@ fn draw_both(
         .position(SeriesLabelPosition::UpperLeft)
         .legend_area_size(45_i32)
         .label_font(("sans-serif", 20_i32, &WHITE))
-        .draw()?;
+        .draw()
+        .wrap_err("failed to draw legend")?;
 
     Ok(())
 }
@@ -388,7 +406,7 @@ fn draw_area(
     border_mix: f64,
     monthly_counts: &[MonthlyCount],
     label: &str,
-) -> GraphResult<()> {
+) -> Result<()> {
     // Draw area
     let iter = monthly_counts
         .iter()
@@ -397,7 +415,8 @@ fn draw_area(
     let series = AreaSeries::new(iter, 0, area_color.mix(area_mix).filled());
 
     chart
-        .draw_series(series.border_style(border_color.stroke_width(1)))?
+        .draw_series(series.border_style(border_color.stroke_width(1)))
+        .wrap_err("failed to draw area")?
         .label(label)
         .legend(move |(x, y)| {
             PathElement::new(vec![(x, y), (x + 20, y)], area_color.stroke_width(2))
@@ -412,7 +431,9 @@ fn draw_area(
             Circle::new((*start_date, *count), 2_i32, style)
         });
 
-    chart.draw_series(circles)?;
+    chart
+        .draw_series(circles)
+        .wrap_err("failed to draw circles")?;
 
     Ok(())
 }

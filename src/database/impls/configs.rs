@@ -1,3 +1,4 @@
+use eyre::Result;
 use flurry::HashMap as FlurryMap;
 use futures::stream::StreamExt;
 use rosu_v2::prelude::GameMode;
@@ -13,14 +14,14 @@ use crate::{
         GuildConfig, MinimizedPp, UserConfig,
     },
     util::hasher::SimpleBuildHasher,
-    BotResult, Database,
+    Database,
 };
 
 impl Database {
     #[cold]
     pub async fn get_guilds(
         &self,
-    ) -> BotResult<FlurryMap<Id<GuildMarker>, GuildConfig, SimpleBuildHasher>> {
+    ) -> Result<FlurryMap<Id<GuildMarker>, GuildConfig, SimpleBuildHasher>> {
         let mut stream = sqlx::query!("SELECT * FROM guild_configs").fetch(&self.pool);
         let guilds = FlurryMap::with_capacity_and_hasher(20_000, SimpleBuildHasher);
 
@@ -51,7 +52,7 @@ impl Database {
         &self,
         guild_id: Id<GuildMarker>,
         config: &GuildConfig,
-    ) -> BotResult<()> {
+    ) -> Result<()> {
         let query = sqlx::query!(
             "INSERT INTO guild_configs (\
                 guild_id,\
@@ -94,7 +95,7 @@ impl Database {
         Ok(())
     }
 
-    pub async fn get_user_osu(&self, user_id: Id<UserMarker>) -> BotResult<Option<OsuData>> {
+    pub async fn get_user_osu(&self, user_id: Id<UserMarker>) -> Result<Option<OsuData>> {
         let query = sqlx::query!(
             "SELECT user_id,username \
             FROM\
@@ -118,7 +119,7 @@ impl Database {
         }
     }
 
-    pub async fn get_user_config(&self, user_id: Id<UserMarker>) -> BotResult<Option<UserConfig>> {
+    pub async fn get_user_config(&self, user_id: Id<UserMarker>) -> Result<Option<UserConfig>> {
         let query = sqlx::query!(
             "SELECT * \
             FROM\
@@ -153,7 +154,7 @@ impl Database {
         }
     }
 
-    pub async fn get_user_config_by_osu(&self, username: &str) -> BotResult<Option<UserConfig>> {
+    pub async fn get_user_config_by_osu(&self, username: &str) -> Result<Option<UserConfig>> {
         let query = sqlx::query!(
             "SELECT * \
             FROM\
@@ -192,7 +193,7 @@ impl Database {
         &self,
         user_id: Id<UserMarker>,
         config: &UserConfig,
-    ) -> BotResult<()> {
+    ) -> Result<()> {
         if let Some(OsuData::User { user_id, username }) = &config.osu {
             self.upsert_osu_name(*user_id, username).await?;
         }
@@ -240,7 +241,7 @@ impl Database {
         Ok(())
     }
 
-    pub async fn upsert_osu_name(&self, user_id: u32, username: &str) -> BotResult<()> {
+    pub async fn upsert_osu_name(&self, user_id: u32, username: &str) -> Result<()> {
         let query = sqlx::query!(
             "INSERT INTO osu_user_names (user_id,username)\
             VALUES ($1,$2) ON CONFLICT (user_id) DO \
@@ -255,7 +256,7 @@ impl Database {
         Ok(())
     }
 
-    pub async fn get_discord_from_osu_id(&self, user_id: u32) -> BotResult<Option<Id<UserMarker>>> {
+    pub async fn get_discord_from_osu_id(&self, user_id: u32) -> Result<Option<Id<UserMarker>>> {
         let query = sqlx::query!(
             "SELECT discord_id FROM user_configs WHERE osu_id=$1",
             user_id as i32

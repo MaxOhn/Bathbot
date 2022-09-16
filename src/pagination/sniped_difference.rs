@@ -1,4 +1,5 @@
 use command_macros::pagination;
+use eyre::{Result, WrapErr};
 use hashbrown::HashMap;
 use rosu_pp::Beatmap;
 use rosu_v2::model::user::User;
@@ -10,7 +11,6 @@ use crate::{
     custom_client::SnipeRecent,
     embeds::{EmbedData, SnipedDiffEmbed},
     util::hasher::SimpleBuildHasher,
-    BotResult,
 };
 
 use super::Pages;
@@ -24,16 +24,12 @@ pub struct SnipedDiffPagination {
 }
 
 impl SnipedDiffPagination {
-    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> BotResult<Embed> {
-        let embed_fut = SnipedDiffEmbed::new(
-            &self.user,
-            self.diff,
-            &self.scores,
-            pages,
-            &mut self.maps,
-            ctx,
-        );
+    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
+        let maps = &mut self.maps;
 
-        embed_fut.await.map(EmbedData::build)
+        SnipedDiffEmbed::new(&self.user, self.diff, &self.scores, pages, maps, ctx)
+            .await
+            .map(EmbedData::build)
+            .wrap_err("failed to create embed data")
     }
 }

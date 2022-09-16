@@ -1,3 +1,4 @@
+use eyre::{Result, WrapErr};
 use hashbrown::{hash_map::Entry, HashMap};
 use twilight_model::channel::embed::Embed;
 
@@ -6,7 +7,7 @@ use crate::{
     custom_client::OsuStatsPlayer,
     embeds::{EmbedData, OsuStatsListEmbed},
     util::hasher::SimpleBuildHasher,
-    BotResult, Context,
+    Context,
 };
 
 use super::{Pages, PaginationBuilder, PaginationKind};
@@ -37,14 +38,19 @@ impl OsuStatsListPagination {
         PaginationBuilder::new(kind, pages)
     }
 
-    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> BotResult<Embed> {
+    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
         let page = pages.curr_page();
 
         let players = match self.players.entry(page) {
             Entry::Occupied(e) => e.into_mut(),
             Entry::Vacant(e) => {
                 self.params.page = page;
-                let players = ctx.client().get_country_globals(&self.params).await?;
+
+                let players = ctx
+                    .client()
+                    .get_country_globals(&self.params)
+                    .await
+                    .wrap_err("failed to get country globals")?;
 
                 e.insert(players)
             }

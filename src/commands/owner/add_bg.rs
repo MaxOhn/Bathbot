@@ -1,6 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use eyre::Report;
+use eyre::{Report, Result};
 use rosu_v2::prelude::{BeatmapsetCompact, GameMode, OsuError};
 use tokio::{
     fs::{remove_file, File},
@@ -15,16 +15,12 @@ use crate::{
         interaction::InteractionCommand,
         InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::OwnerAddBg;
 
-pub async fn addbg(
-    ctx: Arc<Context>,
-    command: InteractionCommand,
-    bg: OwnerAddBg,
-) -> BotResult<()> {
+pub async fn addbg(ctx: Arc<Context>, command: InteractionCommand, bg: OwnerAddBg) -> Result<()> {
     let OwnerAddBg { image, mode } = bg;
 
     let mode = mode.map_or(GameMode::Osu, GameMode::from);
@@ -73,23 +69,25 @@ pub async fn addbg(
                 Ok(file) => file,
                 Err(err) => {
                     let _ = command.error(&ctx, GENERAL_ISSUE).await;
+                    let report = Report::new(err).wrap_err("failed to create file for new bg");
 
-                    return Err(err.into());
+                    return Err(report);
                 }
             };
 
             // Store in file
             if let Err(err) = file.write_all(&content).await {
                 let _ = command.error(&ctx, GENERAL_ISSUE).await;
+                let report = Report::new(err).wrap_err("failed writing to bg file");
 
-                return Err(err.into());
+                return Err(report);
             }
             path
         }
         Err(err) => {
             let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get discord attachment"));
         }
     };
 
@@ -129,7 +127,10 @@ async fn prepare_mapset(
         Err(_) => match ctx.osu().beatmapset(mapset_id).await {
             Ok(mapset) => {
                 if let Err(err) = ctx.psql().insert_beatmapset(&mapset).await {
-                    warn!("{:?}", Report::new(err));
+                    warn!(
+                        "{:?}",
+                        err.wrap_err("Failed to insert mapset into database")
+                    );
                 }
 
                 mapset.into()
@@ -138,8 +139,8 @@ async fn prepare_mapset(
                 return Err("No mapset found with the name of the given file as id")
             }
             Err(err) => {
-                let report = Report::new(err).wrap_err("failed to request mapset");
-                error!("{:?}", report);
+                let report = Report::new(err).wrap_err("Failed to request mapset");
+                error!("{report:?}");
 
                 return Err(OSU_API_ISSUE);
             }
@@ -147,8 +148,8 @@ async fn prepare_mapset(
     };
 
     if let Err(err) = ctx.psql().add_tag_mapset(mapset_id, filename, mode).await {
-        let report = Report::new(err).wrap_err("error while adding mapset to tags table");
-        warn!("{:?}", report);
+        let wrap = "Failed to add mapset to tags table";
+        warn!("{:?}", err.wrap_err(wrap));
 
         return Err("There is already an entry with this mapset id");
     }

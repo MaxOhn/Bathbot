@@ -1,10 +1,10 @@
+use eyre::{Result, WrapErr};
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMods};
 use twilight_model::channel::embed::Embed;
 
 use crate::{
     commands::osu::CustomAttrs,
     embeds::{EmbedData, MapEmbed},
-    BotResult,
 };
 
 use super::{Context, Pages, PaginationBuilder, PaginationKind};
@@ -40,16 +40,12 @@ impl MapPagination {
         PaginationBuilder::new(kind, pages)
     }
 
-    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> BotResult<Embed> {
-        let embed_fut = MapEmbed::new(
-            &self.maps[pages.index],
-            &self.mapset,
-            self.mods,
-            &self.attrs,
-            ctx,
-            pages,
-        );
+    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
+        let map = &self.maps[pages.index];
 
-        embed_fut.await.map(EmbedData::build)
+        MapEmbed::new(map, &self.mapset, self.mods, &self.attrs, ctx, pages)
+            .await
+            .map(EmbedData::build)
+            .wrap_err("failed to create embed data")
     }
 }

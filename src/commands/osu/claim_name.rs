@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use command_macros::SlashCommand;
+use eyre::{Report, Result};
 use futures::{stream::FuturesUnordered, TryStreamExt};
 use rosu_v2::prelude::{GameMode, OsuError, User};
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -13,7 +14,6 @@ use crate::{
         self, builder::MessageBuilder, constants::OSU_API_ISSUE, interaction::InteractionCommand,
         InteractionCommandExt,
     },
-    BotResult,
 };
 
 use super::UserArgs;
@@ -34,7 +34,7 @@ pub struct ClaimName {
     name: String,
 }
 
-async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let ClaimName { name } = ClaimName::from_interaction(command.input_data())?;
 
     let content = if name.chars().count() > 15 {
@@ -116,8 +116,9 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> 
         }
         Err(err) => {
             let _ = command.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 

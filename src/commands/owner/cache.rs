@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use eyre::Result;
+
 use crate::{
     util::{
         builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
@@ -7,10 +9,10 @@ use crate::{
         numbers::with_comma_int,
         InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
-pub async fn cache(ctx: Arc<Context>, command: InteractionCommand) -> BotResult<()> {
+pub async fn cache(ctx: Arc<Context>, command: InteractionCommand) -> Result<()> {
     let stats = ctx.cache.stats();
 
     let description = format!(

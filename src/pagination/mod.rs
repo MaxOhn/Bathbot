@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use eyre::Report;
+use eyre::{Report, Result, WrapErr};
 use tokio::{
     sync::watch::{self, Receiver, Sender},
     time::sleep,
@@ -17,7 +17,6 @@ use twilight_model::{
 use crate::{
     core::{commands::CommandOrigin, Context},
     util::{builder::MessageBuilder, numbers::last_multiple, Emote, MessageExt},
-    BotResult,
 };
 
 pub use self::{
@@ -105,7 +104,7 @@ pub enum PaginationKind {
 }
 
 impl PaginationKind {
-    async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> BotResult<Embed> {
+    async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
         match self {
             Self::Badge(kind) => kind.build_page(ctx, pages).await,
             Self::CommandCount(kind) => Ok(kind.build_page(pages)),
@@ -160,7 +159,7 @@ impl Pagination {
         ctx: Arc<Context>,
         orig: CommandOrigin<'_>,
         builder: PaginationBuilder,
-    ) -> BotResult<()> {
+    ) -> Result<()> {
         let PaginationBuilder {
             mut kind,
             pages,
@@ -171,7 +170,11 @@ impl Pagination {
             component_kind,
         } = builder;
 
-        let embed = kind.build_page(&ctx, &pages).await?;
+        let embed = kind
+            .build_page(&ctx, &pages)
+            .await
+            .wrap_err("failed to build page")?;
+
         let components = pages.components(component_kind);
 
         let mut builder = MessageBuilder::new().embed(embed).components(components);
@@ -194,7 +197,11 @@ impl Pagination {
             return Ok(());
         }
 
-        let response = response_raw.model().await?;
+        let response = response_raw
+            .model()
+            .await
+            .wrap_err("failed to deserialize response")?;
+
         let channel = response.channel_id;
         let msg = response.id;
 
@@ -223,14 +230,18 @@ impl Pagination {
         let _ = self.tx.send(());
     }
 
-    async fn build(&mut self, ctx: &Context) -> BotResult<MessageBuilder<'static>> {
-        let embed = self.build_page(ctx).await?;
+    async fn build(&mut self, ctx: &Context) -> Result<MessageBuilder<'static>> {
+        let embed = self
+            .build_page(ctx)
+            .await
+            .wrap_err("failed to build page")?;
+
         let components = self.pages.components(self.component_kind);
 
         Ok(MessageBuilder::new().embed(embed).components(components))
     }
 
-    async fn build_page(&mut self, ctx: &Context) -> BotResult<Embed> {
+    async fn build_page(&mut self, ctx: &Context) -> Result<Embed> {
         self.kind.build_page(ctx, &self.pages).await
     }
 
@@ -297,7 +308,7 @@ impl PaginationBuilder {
     }
 
     /// Start the pagination
-    pub async fn start(self, ctx: Arc<Context>, orig: CommandOrigin<'_>) -> BotResult<()> {
+    pub async fn start(self, ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
         Pagination::start(ctx, orig, self).await
     }
 

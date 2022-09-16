@@ -1,6 +1,7 @@
 use std::fmt::Write;
 
 use command_macros::EmbedData;
+use eyre::{Result, WrapErr};
 use rosu_pp::{
     AnyPP, Beatmap as Map, BeatmapExt, GameMode as Mode, ManiaPP, PerformanceAttributes,
 };
@@ -9,9 +10,8 @@ use time::OffsetDateTime;
 
 use crate::{
     commands::osu::CustomAttrs,
-    core::{Context, BotConfig},
+    core::{BotConfig, Context},
     embeds::{attachment, EmbedFields},
-    error::PpError,
     pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
@@ -21,7 +21,6 @@ use crate::{
         osu::{mode_emote, prepare_beatmap_file},
         CowUtils,
     },
-    BotResult,
 };
 
 #[derive(EmbedData)]
@@ -44,7 +43,7 @@ impl MapEmbed {
         attrs: &CustomAttrs,
         ctx: &Context,
         pages: &Pages,
-    ) -> BotResult<Self> {
+    ) -> Result<Self> {
         let mut title = String::with_capacity(32);
 
         if map.mode == GameMode::Mania {
@@ -84,8 +83,14 @@ impl MapEmbed {
         let mut info_value = String::with_capacity(128);
         let mut fields = Vec::with_capacity(3);
 
-        let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
-        let mut rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
+        let map_path = prepare_beatmap_file(ctx, map.map_id)
+            .await
+            .wrap_err("failed to prepare map")?;
+
+        let mut rosu_map = Map::from_path(map_path)
+            .await
+            .wrap_err("failed to parse map")?;
+
         let mod_bits = mods.bits();
 
         let mod_mult = 0.5_f32.powi(

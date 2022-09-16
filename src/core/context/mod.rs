@@ -1,6 +1,7 @@
 use std::{num::NonZeroU32, sync::Arc};
 
 use bb8_redis::{bb8::Pool, RedisConnectionManager};
+use eyre::{Result, WrapErr};
 use flexmap::{
     std::StdMutexMap,
     tokio::{TokioMutexMap, TokioRwLockMap},
@@ -35,7 +36,6 @@ use crate::{
     server::AuthenticationStandby,
     tracking::OsuTracking,
     util::{hasher::SimpleBuildHasher, CountryCode},
-    BotResult,
 };
 
 use super::{buckets::Buckets, cluster::build_cluster, BotStats, Cache, RedisCache};
@@ -101,7 +101,7 @@ impl Context {
         &self.data.osu_tracking
     }
 
-    pub async fn new(tx: UnboundedSender<(Id<GuildMarker>, u64)>) -> BotResult<(Self, Events)> {
+    pub async fn new(tx: UnboundedSender<(Id<GuildMarker>, u64)>) -> Result<(Self, Events)> {
         let config = BotConfig::get();
         let discord_token = &config.tokens.discord;
 
@@ -120,7 +120,15 @@ impl Context {
 
         let http = Arc::new(http);
 
-        let current_user = http.current_user().exec().await?.model().await?;
+        let current_user = http
+            .current_user()
+            .exec()
+            .await
+            .wrap_err("failed to get current user")?
+            .model()
+            .await
+            .wrap_err("failed to deserialize current user")?;
+
         let application_id = current_user.id.cast();
 
         info!(
@@ -129,25 +137,39 @@ impl Context {
         );
 
         // Connect to psql database
-        let psql = Database::new(&config.database_url)?;
+        let psql =
+            Database::new(&config.database_url).wrap_err("failed to create database client")?;
 
         // Connect to redis
         let redis_host = &config.redis_host;
         let redis_port = config.redis_port;
         let redis_uri = format!("redis://{redis_host}:{redis_port}");
 
-        let redis_manager = RedisConnectionManager::new(redis_uri)?;
-        let redis = Pool::builder().max_size(8).build(redis_manager).await?;
+        let redis_manager =
+            RedisConnectionManager::new(redis_uri).wrap_err("failed to create redis manager")?;
+
+        let redis = Pool::builder()
+            .max_size(8)
+            .build(redis_manager)
+            .await
+            .wrap_err("failed to create redis pool")?;
 
         // Connect to osu! API
         let osu_client_id = config.tokens.osu_client_id;
         let osu_client_secret = &config.tokens.osu_client_secret;
-        let osu = Osu::new(osu_client_id, osu_client_secret).await?;
+        let osu = Osu::new(osu_client_id, osu_client_secret)
+            .await
+            .wrap_err("failed to create osu client")?;
 
         // Log custom client into osu!
-        let custom = CustomClient::new().await?;
+        let custom = CustomClient::new()
+            .await
+            .wrap_err("failed to create custom client")?;
 
-        let data = ContextData::new(&psql, application_id).await?;
+        let data = ContextData::new(&psql, application_id)
+            .await
+            .wrap_err("failed to create context data")?;
+
         let (cache, resume_data) = Cache::new(&redis).await;
         let stats = Arc::new(BotStats::new(osu.metrics()));
 
@@ -156,8 +178,10 @@ impl Context {
         }
 
         let clients = Clients::new(psql, redis, osu, custom);
-        let (cluster, events) =
-            build_cluster(discord_token, Arc::clone(&http), resume_data).await?;
+
+        let (cluster, events) = build_cluster(discord_token, Arc::clone(&http), resume_data)
+            .await
+            .wrap_err("failed to build cluster")?;
 
         let ctx = Self {
             cache,
@@ -226,7 +250,7 @@ struct ContextData {
 }
 
 impl ContextData {
-    async fn new(psql: &Database, application_id: Id<ApplicationMarker>) -> BotResult<Self> {
+    async fn new(psql: &Database, application_id: Id<ApplicationMarker>) -> Result<Self> {
         Ok(Self {
             application_id,
             games: Games::new(),
@@ -234,10 +258,21 @@ impl ContextData {
             map_garbage_collection: Mutex::new(HashSet::default()),
             matchlive: MatchLiveChannels::new(),
             msgs_to_process: Mutex::new(HashSet::default()),
-            osu_tracking: OsuTracking::new(psql).await?,
-            role_assigns: psql.get_role_assigns().await?,
-            snipe_countries: psql.get_snipe_countries().await?,
-            tracked_streams: psql.get_stream_tracks().await?,
+            osu_tracking: OsuTracking::new(psql)
+                .await
+                .wrap_err("failed to create osu tracking")?,
+            role_assigns: psql
+                .get_role_assigns()
+                .await
+                .wrap_err("failed to get role assigns")?,
+            snipe_countries: psql
+                .get_snipe_countries()
+                .await
+                .wrap_err("failed to get snipe countries")?,
+            tracked_streams: psql
+                .get_stream_tracks()
+                .await
+                .wrap_err("failed to get stream tracks")?,
         })
     }
 }

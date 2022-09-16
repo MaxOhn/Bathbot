@@ -1,12 +1,12 @@
 use std::{sync::Arc, time::Instant};
 
 use command_macros::{command, SlashCommand};
+use eyre::Result;
 use twilight_interactions::command::CreateCommand;
 
 use crate::{
     core::{commands::CommandOrigin, Context},
     util::{builder::MessageBuilder, interaction::InteractionCommand, MessageExt},
-    BotResult,
 };
 
 #[derive(CreateCommand, SlashCommand)]
@@ -20,7 +20,7 @@ use crate::{
 /// Check if the bot is online
 pub struct Ping;
 
-async fn slash_ping(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_ping(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     ping(ctx, (&mut command).into()).await
 }
 
@@ -34,11 +34,11 @@ async fn slash_ping(ctx: Arc<Context>, mut command: InteractionCommand) -> BotRe
 #[alias("p")]
 #[flags(SKIP_DEFER)]
 #[group(Utility)]
-async fn prefix_ping(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+async fn prefix_ping(ctx: Arc<Context>, msg: &Message) -> Result<()> {
     ping(ctx, msg.into()).await
 }
 
-async fn ping(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> BotResult<()> {
+async fn ping(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
     let builder = MessageBuilder::new().content("Pong");
     let start = Instant::now();
     let response_raw = orig.callback_with_response(&ctx, builder).await?;

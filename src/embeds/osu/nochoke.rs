@@ -1,7 +1,6 @@
 use std::{borrow::Cow, fmt::Write};
 
 use command_macros::EmbedData;
-use eyre::Report;
 use rosu_v2::prelude::{Score, User};
 
 use crate::{
@@ -56,7 +55,7 @@ impl NoChokeEmbed {
                     (max_pp, stars as f32)
                 }
                 Err(err) => {
-                    warn!("{:?}", Report::new(err));
+                    warn!("{:?}", err.wrap_err("Failed to get pp calculator"));
 
                     (0.0, 0.0)
                 }

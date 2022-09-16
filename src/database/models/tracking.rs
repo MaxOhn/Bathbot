@@ -69,8 +69,7 @@ where
             Err(err) => {
                 let wrap =
                     format!("failed to deserialize tracking channels value for ({user_id},{mode})");
-                let report = Report::new(err).wrap_err(wrap);
-                warn!("{:?}", report);
+                warn!("{:?}", Report::new(err).wrap_err(wrap));
 
                 HashMap::default()
             }

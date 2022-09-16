@@ -1,7 +1,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, SlashCommand};
-use eyre::Report;
+use eyre::{Report, Result};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     channel::Message,
@@ -20,7 +20,7 @@ use crate::{
         builder::MessageBuilder, constants::GENERAL_ISSUE, interaction::InteractionCommand,
         matcher, ChannelExt, InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
@@ -126,7 +126,7 @@ impl<'m> RoleAssign<'m> {
 #[example("#general 681871156168753193 @Meetup")]
 #[flags(AUTHORITY, ONLY_GUILDS)]
 #[group(Utility)]
-async fn prefix_roleassign(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+async fn prefix_roleassign(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
     match RoleAssign::args(&mut args) {
         Ok(args) => roleassign(ctx, msg.into(), args).await,
         Err(content) => {
@@ -137,7 +137,7 @@ async fn prefix_roleassign(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>)
     }
 }
 
-pub async fn slash_roleassign(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+pub async fn slash_roleassign(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = RoleAssign::from_interaction(command.input_data())?;
 
     roleassign(ctx, (&mut command).into(), args).await
@@ -147,7 +147,7 @@ async fn roleassign(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: RoleAssign<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     match args {
         RoleAssign::Add(add) => {
             let msg = match parse_msg_id(add.message) {
@@ -194,7 +194,7 @@ async fn roleassign(
                 Err(err) => {
                     let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                    return Err(err);
+                    return Err(err.wrap_err("failed to insert role assign in database"));
                 }
             }
 
@@ -294,7 +294,7 @@ async fn roleassign(
                 Err(err) => {
                     let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                    return Err(err);
+                    return Err(err.wrap_err("failed to remove role assign from database"));
                 }
             }
         }
@@ -315,7 +315,7 @@ async fn retrieve_data(
     channel: Id<ChannelMarker>,
     msg: Id<MessageMarker>,
     role: Id<RoleMarker>,
-) -> BotResult<Result<(i64, Message), &'static str>> {
+) -> Result<Result<(i64, Message), &'static str>> {
     let role_pos = match ctx.cache.role(role, |role| role.position) {
         Ok(pos) => pos,
         Err(_) => return Ok(Err("Role not found in this guild")),
@@ -325,8 +325,7 @@ async fn retrieve_data(
         Ok(msg_res) => msg_res.model().await?,
         Err(err) => {
             let wrap = format!("(Channel,Message) ({channel},{msg}) for roleassign was not found");
-            let report = Report::new(err).wrap_err(wrap);
-            warn!("{:?}", report);
+            warn!("{:?}", Report::new(err).wrap_err(wrap));
 
             return Ok(Err("No message found with this id"));
         }

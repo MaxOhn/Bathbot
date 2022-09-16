@@ -1,3 +1,9 @@
+use std::sync::Arc;
+
+use command_macros::{command, SlashCommand};
+use eyre::Result;
+use twilight_interactions::command::CreateCommand;
+
 use crate::{
     core::commands::CommandOrigin,
     util::{
@@ -5,12 +11,8 @@ use crate::{
         constants::{BATHBOT_WORKSHOP, INVITE_LINK},
         interaction::InteractionCommand,
     },
-    BotResult, Context,
+    Context,
 };
-
-use command_macros::{command, SlashCommand};
-use std::sync::Arc;
-use twilight_interactions::command::CreateCommand;
 
 #[derive(CreateCommand, SlashCommand)]
 #[command(name = "invite")]
@@ -23,15 +25,15 @@ pub struct Invite;
 #[alias("inv")]
 #[flags(SKIP_DEFER)]
 #[group(Utility)]
-async fn prefix_invite(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+async fn prefix_invite(ctx: Arc<Context>, msg: &Message) -> Result<()> {
     invite(ctx, msg.into()).await
 }
 
-pub async fn slash_invite(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+pub async fn slash_invite(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     invite(ctx, (&mut command).into()).await
 }
 
-async fn invite(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> BotResult<()> {
+async fn invite(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
     let embed = EmbedBuilder::new()
         .description(INVITE_LINK)
         .footer(FooterBuilder::new("The initial prefix will be <"))

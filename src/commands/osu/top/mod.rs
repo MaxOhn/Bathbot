@@ -1,7 +1,7 @@
 use std::{borrow::Cow, fmt::Write, mem, sync::Arc};
 
 use command_macros::{command, HasMods, HasName, SlashCommand};
-use eyre::Report;
+use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{
@@ -34,7 +34,7 @@ use crate::{
         query::{FilterCriteria, Searchable},
         ChannelExt, CowUtils, InteractionCommandExt, MessageExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 pub use self::{if_::*, old::*};
@@ -187,7 +187,7 @@ pub enum FarmFilter {
 )]
 #[aliases("topscores", "toposu", "topstd", "topstandard", "topo", "tops")]
 #[group(Osu)]
-async fn prefix_top(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_top(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match TopArgs::args(None, args) {
         Ok(args) => top(ctx, msg.into(), args).await,
         Err(content) => {
@@ -225,7 +225,7 @@ async fn prefix_top(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResu
 )]
 #[alias("topm")]
 #[group(Mania)]
-async fn prefix_topmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_topmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match TopArgs::args(Some(GameMode::Mania), args) {
         Ok(args) => top(ctx, msg.into(), args).await,
         Err(content) => {
@@ -263,7 +263,7 @@ async fn prefix_topmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Bo
 )]
 #[alias("topt")]
 #[group(Taiko)]
-async fn prefix_toptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_toptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match TopArgs::args(Some(GameMode::Taiko), args) {
         Ok(args) => top(ctx, msg.into(), args).await,
         Err(content) => {
@@ -301,7 +301,7 @@ async fn prefix_toptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Bo
 )]
 #[alias("topc", "topcatch", "topcatchthebeat")]
 #[group(Catch)]
-async fn prefix_topctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_topctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match TopArgs::args(Some(GameMode::Catch), args) {
         Ok(args) => top(ctx, msg.into(), args).await,
         Err(content) => {
@@ -344,7 +344,7 @@ async fn prefix_topctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotR
     "recentbeststandard"
 )]
 #[group(Osu)]
-async fn prefix_recentbest(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_recentbest(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match TopArgs::args(None, args) {
         Ok(mut args) => {
             args.sort_by = TopScoreOrder::Date;
@@ -384,7 +384,7 @@ async fn prefix_recentbest(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> 
 )]
 #[alias("rbm")]
 #[group(Mania)]
-async fn prefix_recentbestmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_recentbestmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match TopArgs::args(Some(GameMode::Mania), args) {
         Ok(mut args) => {
             args.sort_by = TopScoreOrder::Date;
@@ -424,7 +424,7 @@ async fn prefix_recentbestmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 )]
 #[alias("rbt")]
 #[group(Taiko)]
-async fn prefix_recentbesttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_recentbesttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match TopArgs::args(Some(GameMode::Taiko), args) {
         Ok(mut args) => {
             args.sort_by = TopScoreOrder::Date;
@@ -464,7 +464,7 @@ async fn prefix_recentbesttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 )]
 #[alias("rbc")]
 #[group(Catch)]
-async fn prefix_recentbestctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_recentbestctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match TopArgs::args(Some(GameMode::Catch), args) {
         Ok(mut args) => {
             args.sort_by = TopScoreOrder::Date;
@@ -479,7 +479,7 @@ async fn prefix_recentbestctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) 
     }
 }
 
-async fn slash_top(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_top(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Top::from_interaction(command.input_data())?;
 
     match TopArgs::try_from(args) {
@@ -729,7 +729,7 @@ pub(super) async fn top(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: TopArgs<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     if args.index.filter(|n| *n > 100).is_some() {
         let content = "Can't have more than 100 top scores.";
 
@@ -741,7 +741,7 @@ pub(super) async fn top(
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err);
+            return Err(err.wrap_err("failed to get user config"));
         }
     };
 
@@ -831,8 +831,9 @@ pub(super) async fn top(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user or scores");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -841,7 +842,7 @@ pub(super) async fn top(
         Some(Err(err)) => {
             let _ = orig.error(&ctx, OSUTRACKER_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get farm"));
         }
         None => HashMap::default(),
     };
@@ -1090,7 +1091,7 @@ async fn single_embed(
     embeds_size: EmbedsSize,
     minimized_pp: MinimizedPp,
     content: Option<String>,
-) -> BotResult<()> {
+) -> Result<()> {
     let (idx, score) = scores.get(idx).unwrap();
     let map = score.map.as_ref().unwrap();
 
@@ -1101,7 +1102,7 @@ async fn single_embed(
             match ctx.osu().beatmap_scores(map.map_id).await {
                 Ok(scores) => scores.iter().position(|s| s == score),
                 Err(err) => {
-                    let report = Report::new(err).wrap_err("failed to get global scores");
+                    let report = Report::new(err).wrap_err("Failed to get global scores");
                     warn!("{report:?}");
 
                     None
@@ -1151,7 +1152,7 @@ async fn single_embed(
                 }
 
                 if let Err(err) = response.update(&ctx, &builder).await {
-                    let report = Report::new(err).wrap_err("failed to minimize top message");
+                    let report = Report::new(err).wrap_err("Failed to minimize embed");
                     warn!("{report:?}");
                 }
             });

@@ -3,6 +3,7 @@ use std::{
 };
 
 use command_macros::{command, SlashCommand};
+use eyre::{Report, Result};
 use hashbrown::{HashMap, HashSet};
 use rosu_v2::prelude::{
     GameMods, MatchGame, Osu, OsuError, OsuMatch, OsuResult, Team, TeamType, UserCompact,
@@ -16,7 +17,7 @@ use crate::{
         builder::MessageBuilder, constants::OSU_API_ISSUE, hasher::SimpleBuildHasher,
         interaction::InteractionCommand, matcher, ChannelExt, InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
@@ -99,7 +100,7 @@ impl<'m> MatchCost<'m> {
 #[examples("58320988 1", "https://osu.ppy.sh/community/matches/58320988")]
 #[aliases("mc", "matchcost")]
 #[group(AllModes)]
-async fn prefix_matchcosts(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_matchcosts(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match MatchCost::args(args) {
         Ok(args) => matchcosts(ctx, msg.into(), args).await,
         Err(content) => {
@@ -110,7 +111,7 @@ async fn prefix_matchcosts(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> 
     }
 }
 
-async fn slash_matchcost(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_matchcost(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = MatchCost::from_interaction(command.input_data())?;
 
     matchcosts(ctx, (&mut command).into(), args).await
@@ -119,11 +120,7 @@ async fn slash_matchcost(ctx: Arc<Context>, mut command: InteractionCommand) -> 
 const USER_LIMIT: usize = 50;
 const TOO_MANY_PLAYERS_TEXT: &str = "Too many players, cannot display message :(";
 
-async fn matchcosts(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: MatchCost<'_>,
-) -> BotResult<()> {
+async fn matchcosts(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MatchCost<'_>) -> Result<()> {
     let MatchCost {
         match_url,
         warmups,
@@ -185,8 +182,9 @@ async fn matchcosts(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get match");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -219,6 +217,7 @@ async fn matchcosts(
     };
 
     // Accumulate all necessary data
+    // TODO: pagination(?)
     let embed_data = match MatchCostEmbed::new(&mut osu_match, description, match_result) {
         Some(data) => data,
         None => return orig.error(&ctx, TOO_MANY_PLAYERS_TEXT).await,

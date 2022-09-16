@@ -1,6 +1,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
+use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
@@ -13,7 +14,7 @@ use crate::{
         interaction::InteractionCommand,
         matcher, InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::{require_link, UserArgs};
@@ -33,7 +34,7 @@ pub struct MostPlayed<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-async fn slash_mostplayed(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_mostplayed(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = MostPlayed::from_interaction(command.input_data())?;
 
     mostplayed(ctx, (&mut command).into(), args).await
@@ -45,7 +46,7 @@ async fn slash_mostplayed(ctx: Arc<Context>, mut command: InteractionCommand) ->
 #[example("badewanne3")]
 #[alias("mp")]
 #[group(AllModes)]
-async fn prefix_mostplayed(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+async fn prefix_mostplayed(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
     let args = match args.next() {
         Some(arg) => match matcher::get_mention_user(arg) {
             Some(id) => MostPlayed {
@@ -67,7 +68,7 @@ async fn mostplayed(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: MostPlayed<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let owner = orig.user_id()?;
 
     let name = match username!(ctx, orig, args) {
@@ -78,7 +79,7 @@ async fn mostplayed(
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to get username"));
             }
         },
     };
@@ -121,8 +122,9 @@ async fn mostplayed(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user or maps");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 

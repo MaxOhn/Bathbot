@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use command_macros::command;
+use eyre::{Report, Result};
 use hashbrown::HashSet;
 use rosu_v2::prelude::{GameMode, OsuError, Username};
 
@@ -8,7 +9,7 @@ use crate::{
     core::commands::CommandOrigin,
     embeds::{EmbedData, UntrackEmbed},
     util::{builder::MessageBuilder, constants::OSU_API_ISSUE, ChannelExt},
-    BotResult, Context,
+    Context,
 };
 
 use super::TrackArgs;
@@ -24,7 +25,7 @@ use super::TrackArgs;
 #[example("badewanne3 cookiezi \"freddie benson\" peppy")]
 #[flags(AUTHORITY, ONLY_GUILDS)]
 #[group(Tracking)]
-async fn prefix_untrack(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_untrack(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match TrackArgs::args(None, args).await {
         Ok(args) => untrack(ctx, msg.into(), args).await,
         Err(content) => {
@@ -39,7 +40,7 @@ pub(super) async fn untrack(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: TrackArgs,
-) -> BotResult<()> {
+) -> Result<()> {
     let TrackArgs {
         name,
         mode,
@@ -64,8 +65,9 @@ pub(super) async fn untrack(
         }
         Err((err, _)) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get names");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -80,7 +82,7 @@ pub(super) async fn untrack(
         match remove_fut.await {
             Ok(_) => success.insert(username),
             Err(err) => {
-                warn!("Error while adding tracked entry: {err}");
+                warn!("{:?}", err.wrap_err("Failed to remove tracked entry"));
 
                 return send_message(&ctx, orig, Some(&username), success).await;
             }
@@ -97,7 +99,7 @@ async fn send_message(
     orig: CommandOrigin<'_>,
     name: Option<&Username>,
     success: HashSet<Username>,
-) -> BotResult<()> {
+) -> Result<()> {
     let success = success.into_iter().collect();
     let embed = UntrackEmbed::new(success, name).build();
     let builder = MessageBuilder::new().embed(embed);

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use command_macros::SlashCommand;
+use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
@@ -8,7 +9,7 @@ use crate::{
         Badges, LovedMapsets, RankedMapsets, Replays, StandardDeviation, Subscribers, TotalPp,
     },
     util::{interaction::InteractionCommand, InteractionCommandExt},
-    BotResult, Context,
+    Context,
 };
 
 use self::{
@@ -124,7 +125,7 @@ pub struct OsekaiTotalPp {
     country: Option<String>,
 }
 
-async fn slash_osekai(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_osekai(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     match Osekai::from_interaction(command.input_data())? {
         Osekai::Badges(args) => count::<Badges>(ctx, command, args.country).await,
         Osekai::LovedMapsets(args) => count::<LovedMapsets>(ctx, command, args.country).await,

@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use command_macros::command;
-use eyre::Report;
+use eyre::{Report, Result, WrapErr};
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::prelude::*;
 use rosu_v2::prelude::{GameMode, OsuError};
@@ -11,13 +11,12 @@ use crate::{
     commands::osu::{get_user, require_link, UserArgs},
     core::commands::CommandOrigin,
     embeds::{EmbedData, PlayerSnipeStatsEmbed},
-    error::GraphError,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher, Monthly,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::SnipePlayerStats;
@@ -37,7 +36,7 @@ async fn prefix_playersnipestats(
     ctx: Arc<Context>,
     msg: &Message,
     mut args: Args<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let args = match args.next() {
         Some(arg) => match matcher::get_mention_user(arg) {
             Some(id) => SnipePlayerStats {
@@ -59,7 +58,7 @@ pub(super) async fn player_stats(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: SnipePlayerStats<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let name = match username!(ctx, orig, args) {
         Some(name) => name,
         None => match ctx.psql().get_user_osu(orig.user_id()?).await {
@@ -68,7 +67,7 @@ pub(super) async fn player_stats(
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to get username"));
             }
         },
     };
@@ -84,8 +83,9 @@ pub(super) async fn player_stats(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -107,8 +107,7 @@ pub(super) async fn player_stats(
     let player = match player_fut.await {
         Ok(counts) => counts,
         Err(err) => {
-            let report = Report::new(err).wrap_err("failed to retrieve snipe player");
-            warn!("{report:?}");
+            warn!("{:?}", err.wrap_err("Failed to get snipe player"));
             let content = format!("`{name}` has never had any national #1s");
             let builder = MessageBuilder::new().embed(content);
             orig.create_message(&ctx, &builder).await?;
@@ -117,6 +116,7 @@ pub(super) async fn player_stats(
         }
     };
 
+    // TODO: dont do this async
     let graph_fut = async { graphs(&player.count_first_history, &player.count_sr_spread, W, H) };
 
     let oldest_fut = async {
@@ -137,7 +137,7 @@ pub(super) async fn player_stats(
                     Err(err) => Err(err),
                 },
                 Err(err) => {
-                    let report = Report::new(err).wrap_err("faield to retrieve oldest data");
+                    let report = Report::new(err).wrap_err("Failed to get oldest data");
                     warn!("{report:?}");
 
                     Ok(None)
@@ -153,7 +153,7 @@ pub(super) async fn player_stats(
     let graph = match graph_result {
         Ok(graph) => Some(graph),
         Err(err) => {
-            warn!("{:?}", Report::new(err));
+            warn!("{:?}", err.wrap_err("Failed to create graph"));
 
             None
         }
@@ -163,15 +163,16 @@ pub(super) async fn player_stats(
         Ok(score) => score,
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user score");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
-    let embed_data = PlayerSnipeStatsEmbed::new(user, player, first_score, &ctx).await;
+    let embed = PlayerSnipeStatsEmbed::new(user, player, first_score, &ctx)
+        .await
+        .build();
 
-    // Sending the embed
-    let embed = embed_data.build();
     let mut builder = MessageBuilder::new().embed(embed);
 
     if let Some(bytes) = graph {
@@ -191,7 +192,7 @@ pub fn graphs(
     stars: &BTreeMap<u8, u32>,
     w: u32,
     h: u32,
-) -> Result<Vec<u8>, GraphError> {
+) -> Result<Vec<u8>> {
     let len = (w * h * 3) as usize; // PIXEL_SIZE = 3
     let mut buf = vec![0; len];
 
@@ -204,7 +205,8 @@ pub fn graphs(
     {
         let root = BitMapBackend::with_buffer(&mut buf, (w, h)).into_drawing_area();
         let background = RGBColor(19, 43, 33);
-        root.fill(&background)?;
+        root.fill(&background)
+            .wrap_err("failed to fill background")?;
 
         let star_canvas = if history.len() > 1 {
             let (left, right) = root.split_horizontally(3 * w / 5);
@@ -229,7 +231,8 @@ pub fn graphs(
                 .caption("National #1 Count History", ("sans-serif", 30, &WHITE))
                 .x_label_area_size(20)
                 .y_label_area_size(40)
-                .build_cartesian_2d(Monthly(first..last), min..max + 1)?;
+                .build_cartesian_2d(Monthly(first..last), min..max + 1)
+                .wrap_err("failed to build left chart")?;
 
             // Mesh and labels
             chart
@@ -241,14 +244,17 @@ pub fn graphs(
                 .bold_line_style(&WHITE.mix(0.3))
                 .axis_style(RGBColor(7, 18, 14))
                 .axis_desc_style(("sans-serif", 16, FontStyle::Bold, &WHITE))
-                .draw()?;
+                .draw()
+                .wrap_err("failed to draw left mesh")?;
 
             // Draw area
             let iter = history.iter().map(|(date, n)| (*date, *n));
             let area_style = RGBColor(2, 186, 213).mix(0.7).filled();
             let border_style = style(RGBColor(0, 208, 138)).stroke_width(3);
             let series = AreaSeries::new(iter, 0, area_style).border_style(border_style);
-            chart.draw_series(series)?;
+            chart
+                .draw_series(series)
+                .wrap_err("failed to draw left series")?;
 
             right
         } else {
@@ -269,7 +275,8 @@ pub fn graphs(
             .y_label_area_size(40)
             .margin_right(15)
             .caption("Star rating spread", ("sans-serif", 30, &WHITE))
-            .build_cartesian_2d((first..last).into_segmented(), 0..max + 1)?;
+            .build_cartesian_2d((first..last).into_segmented(), 0..max + 1)
+            .wrap_err("failed to build right chart")?;
 
         // Mesh and labels
         chart
@@ -280,7 +287,8 @@ pub fn graphs(
             .bold_line_style(&WHITE.mix(0.3))
             .axis_style(RGBColor(7, 18, 14))
             .axis_desc_style(("sans-serif", 16, FontStyle::Bold, &WHITE))
-            .draw()?;
+            .draw()
+            .wrap_err("failed to draw right mesh")?;
 
         // Histogram bars
         let area_style = RGBColor(2, 186, 213).mix(0.7).filled();
@@ -291,13 +299,18 @@ pub fn graphs(
             .data(iter)
             .margin(3);
 
-        chart.draw_series(series)?;
+        chart
+            .draw_series(series)
+            .wrap_err("failed to draw right series")?;
     }
 
     // Encode buf to png
     let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
     let png_encoder = PngEncoder::new(&mut png_bytes);
-    png_encoder.write_image(&buf, w, h, ColorType::Rgb8)?;
+
+    png_encoder
+        .write_image(&buf, w, h, ColorType::Rgb8)
+        .wrap_err("failed to encode image")?;
 
     Ok(png_bytes)
 }

@@ -39,8 +39,7 @@ pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
         let mut streams = match ctx.client().get_twitch_streams(&user_ids).await {
             Ok(streams) => streams,
             Err(err) => {
-                let report = Report::new(err);
-                warn!("{:?}", report.wrap_err("error while retrieving streams"));
+                warn!("{:?}", err.wrap_err("Failed to retrieve streams"));
 
                 continue;
             }
@@ -72,8 +71,7 @@ pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
         let users: HashMap<_, _> = match ctx.client().get_twitch_users(&ids).await {
             Ok(users) => users.into_iter().map(|u| (u.user_id, u)).collect(),
             Err(err) => {
-                let report = Report::new(err).wrap_err("error while retrieving twitch users");
-                warn!("{report:?}");
+                warn!("{:?}", err.wrap_err("Failed to retrieve twitch users"));
 
                 continue;
             }
@@ -127,11 +125,10 @@ async fn send_notif(ctx: &Context, data: &TwitchNotifEmbed, channel: Id<ChannelM
                             if let Err(err) = ctx.psql().remove_channel_tracks(channel.get()).await
                             {
                                 let wrap = format!(
-                                    "could not remove stream tracks from unknown channel {channel}"
+                                    "Failed to remove stream tracks from unknown channel {channel}"
                                 );
 
-                                let report = Report::new(err).wrap_err(wrap);
-                                warn!("{report:?}");
+                                warn!("{:?}", err.wrap_err(wrap));
                             } else {
                                 debug!("Removed twitch tracking of unknown channel {channel}");
                             }

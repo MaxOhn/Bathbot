@@ -1,9 +1,9 @@
-use crate::commands::osu::ProfileSize;
-
 use rosu_v2::prelude::{GameMode, Username};
 use smallstr::SmallString;
 use smallvec::SmallVec;
 use twilight_interactions::command::{CommandOption, CreateOption};
+
+use crate::commands::osu::ProfileSize;
 
 pub type Prefix = SmallString<[u8; 2]>;
 pub type Prefixes = SmallVec<[Prefix; 5]>;

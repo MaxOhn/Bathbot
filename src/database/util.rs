@@ -1,14 +1,16 @@
-use crate::{games::bg::MapsetTags, BotResult};
-
 use std::fmt::Write;
+
+use eyre::Result;
+
+use crate::games::bg::MapsetTags;
 
 pub trait CustomSQL: Sized + Write {
     /// Adds a delim b delim c delim... without whitespaces to self
-    fn set_tags(self, delim: &str, tags: MapsetTags, value: bool) -> BotResult<Self>;
+    fn set_tags(self, delim: &str, tags: MapsetTags, value: bool) -> Result<Self>;
 }
 
 impl CustomSQL for String {
-    fn set_tags(mut self, delim: &str, tags: MapsetTags, value: bool) -> BotResult<Self> {
+    fn set_tags(mut self, delim: &str, tags: MapsetTags, value: bool) -> Result<Self> {
         let size = tags.bits().count_ones() as usize;
         let mut tags = tags.into_iter();
 

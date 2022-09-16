@@ -1,6 +1,7 @@
 use std::{cmp::Reverse, sync::Arc};
 
 use command_macros::{HasName, SlashCommand};
+use eyre::Result;
 use twilight_interactions::command::{
     AutocompleteValue, CommandModel, CommandOption, CreateCommand, CreateOption,
 };
@@ -10,7 +11,6 @@ use crate::{
     core::Context,
     custom_client::OsekaiBadge,
     util::{interaction::InteractionCommand, InteractionCommandExt},
-    BotResult,
 };
 
 use self::{query::*, user::*};
@@ -99,7 +99,7 @@ impl Default for BadgesOrder {
     }
 }
 
-pub async fn slash_badges(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+pub async fn slash_badges(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     match Badges_::from_interaction(command.input_data())? {
         Badges_::Query(args) => query(ctx, command, args).await,
         Badges_::User(args) => user(ctx, (&mut command).into(), args).await,

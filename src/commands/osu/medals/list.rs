@@ -4,6 +4,7 @@ use std::{
     sync::Arc,
 };
 
+use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError};
 use time::OffsetDateTime;
@@ -14,7 +15,7 @@ use crate::{
     custom_client::{OsekaiMedal, Rarity},
     pagination::MedalsListPagination,
     util::constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
-    BotResult, Context,
+    Context,
 };
 
 use super::{MedalList, MedalListOrder};
@@ -23,7 +24,7 @@ pub(super) async fn list(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: MedalList<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let name = match username!(ctx, orig, args) {
         Some(name) => name,
         None => match ctx.psql().get_user_osu(orig.user_id()?).await {
@@ -32,7 +33,7 @@ pub(super) async fn list(
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to get username"));
             }
         },
     };
@@ -58,13 +59,14 @@ pub(super) async fn list(
             }
             (Err(err), ..) => {
                 let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                let report = Report::new(err).wrap_err("failed to get user");
 
-                return Err(err.into());
+                return Err(report);
             }
             (_, Err(err), _) | (.., Err(err)) => {
                 let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
-                return Err(err.into());
+                return Err(err.wrap_err("failed to get cached rarity ranking"));
             }
         };
 

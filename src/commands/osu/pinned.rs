@@ -1,7 +1,7 @@
 use std::{fmt::Write, sync::Arc};
 
 use command_macros::{HasMods, HasName, SlashCommand};
-use eyre::Report;
+use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rosu_v2::prelude::{
     GameMode, GameMods, OsuError,
@@ -27,7 +27,7 @@ use crate::{
         query::{FilterCriteria, Searchable},
         InteractionCommandExt, MessageExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::{prepare_scores, require_link, HasMods, ModsResult, ScoreOrder};
@@ -74,13 +74,13 @@ pub struct Pinned {
     size: Option<ListSize>,
 }
 
-async fn slash_pinned(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_pinned(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Pinned::from_interaction(command.input_data())?;
 
     pinned(ctx, (&mut command).into(), args).await
 }
 
-async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> BotResult<()> {
+async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Result<()> {
     let mods = match args.mods() {
         ModsResult::Mods(mods) => Some(mods),
         ModsResult::None => None,
@@ -99,7 +99,7 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Bot
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err);
+            return Err(err.wrap_err("failed to get user config"));
         }
     };
 
@@ -139,6 +139,7 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Bot
                 let redis = ctx.redis();
 
                 let user_fut = redis.osu_user(&user_args);
+
                 let scores_fut = ctx
                     .osu()
                     .user_scores(user_args.name)
@@ -153,6 +154,7 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Bot
     } else {
         let redis = ctx.redis();
         let user_fut = redis.osu_user(&user_args);
+
         let scores_fut = ctx
             .osu()
             .user_scores(user_args.name)
@@ -172,8 +174,9 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Bot
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user or prepare scores");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -292,7 +295,7 @@ async fn single_embed(
     embeds_size: EmbedsSize,
     minimized_pp: MinimizedPp,
     content: Option<String>,
-) -> BotResult<()> {
+) -> Result<()> {
     let map = score.map.as_ref().unwrap();
 
     // Get indices of score in user top100 and map top50
@@ -310,8 +313,8 @@ async fn single_embed(
             let personal_idx = match best_result {
                 Ok(scores) => scores.iter().position(|s| s == score),
                 Err(err) => {
-                    let report = Report::new(err).wrap_err("failed to get best scores");
-                    warn!("{:?}", report);
+                    let report = Report::new(err).wrap_err("Failed to get top scores");
+                    warn!("{report:?}");
 
                     None
                 }
@@ -320,8 +323,8 @@ async fn single_embed(
             let global_idx = match global_result {
                 Ok(scores) => scores.iter().position(|s| s == score),
                 Err(err) => {
-                    let report = Report::new(err).wrap_err("failed to get global scores");
-                    warn!("{:?}", report);
+                    let report = Report::new(err).wrap_err("Failed to get global scores");
+                    warn!("{report:?}");
 
                     None
                 }
@@ -367,7 +370,7 @@ async fn single_embed(
                 let builder = embed_data.into_minimized().into();
 
                 if let Err(err) = response.update(&ctx, &builder).await {
-                    let report = Report::new(err).wrap_err("failed to minimize pinned message");
+                    let report = Report::new(err).wrap_err("Failed to minimize embed");
                     warn!("{report:?}");
                 }
             });

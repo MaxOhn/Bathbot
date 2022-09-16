@@ -1,7 +1,6 @@
 use std::fmt::Write;
 
 use command_macros::EmbedData;
-use eyre::Report;
 use rosu_v2::prelude::{GameMode, Score, User};
 
 use crate::{
@@ -92,7 +91,7 @@ impl PlayerSnipeStatsEmbed {
                         (Some(pp), Some(max_pp as f32), stars as f32)
                     }
                     Err(err) => {
-                        warn!("{:?}", Report::new(err));
+                        warn!("{:?}", err.wrap_err("Failed to get pp calculator"));
 
                         (None, None, 0.0)
                     }

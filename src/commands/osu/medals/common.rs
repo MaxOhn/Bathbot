@@ -4,7 +4,7 @@ use std::{
 };
 
 use command_macros::command;
-use eyre::Report;
+use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, User};
 use time::OffsetDateTime;
@@ -21,7 +21,7 @@ use crate::{
         hasher::SimpleBuildHasher,
         matcher,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::{MedalCommon, MedalCommonFilter, MedalCommonOrder};
@@ -32,11 +32,7 @@ use super::{MedalCommon, MedalCommonFilter, MedalCommonOrder};
 #[example("badewanne3 5joshi")]
 #[alias("medalcommon")]
 #[group(AllModes)]
-pub async fn prefix_medalscommon(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
+pub async fn prefix_medalscommon(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let mut args_ = MedalCommon::default();
 
     for arg in args.take(2) {
@@ -65,7 +61,7 @@ async fn extract_name<'a>(ctx: &Context, args: &mut MedalCommon<'a>) -> NameExtr
             Ok(None) => {
                 NameExtraction::Content(format!("<@{discord}> is not linked to an osu!profile"))
             }
-            Err(err) => NameExtraction::Err(err),
+            Err(err) => NameExtraction::Err(err.wrap_err("failed to get username")),
         }
     } else {
         NameExtraction::None
@@ -76,7 +72,7 @@ pub(super) async fn common(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     mut args: MedalCommon<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let name1 = match extract_name(&ctx, &mut args).await {
         NameExtraction::Name(name) => name,
         NameExtraction::Err(err) => {
@@ -135,13 +131,14 @@ pub(super) async fn common(
         (Ok(user1), Ok(user2), Ok(medals)) => (user1, user2, medals.to_inner()),
         (Err(err), ..) | (_, Err(err), _) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user");
 
-            return Err(err.into());
+            return Err(report);
         }
         (.., Err(err)) => {
             let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get cached medals"));
         }
     };
 
@@ -252,7 +249,7 @@ pub(super) async fn common(
                     Err(err) => {
                         let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
-                        return Err(err.into());
+                        return Err(err.wrap_err("failed to get cached rarity ranking"));
                     }
                 }
             }
@@ -280,8 +277,7 @@ pub(super) async fn common(
     let thumbnail = match get_combined_thumbnail(&ctx, urls, 2, None).await {
         Ok(thumbnail) => Some(thumbnail),
         Err(err) => {
-            let report = Report::new(err).wrap_err("failed to combine avatars");
-            warn!("{report:?}");
+            warn!("{:?}", err.wrap_err("Failed to combine avatars"));
 
             None
         }

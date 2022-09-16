@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
+use eyre::Result;
+
 use crate::{
     util::{
         builder::MessageBuilder, constants::GENERAL_ISSUE, interaction::InteractionCommand,
         InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::OwnerAddCountry;
@@ -14,7 +16,7 @@ pub async fn addcountry(
     ctx: Arc<Context>,
     command: InteractionCommand,
     country: OwnerAddCountry,
-) -> BotResult<()> {
+) -> Result<()> {
     let OwnerAddCountry { mut code, name } = country;
 
     code.make_ascii_uppercase();
@@ -46,7 +48,7 @@ pub async fn addcountry(
     if let Err(err) = insert_fut.await {
         let _ = command.error_callback(&ctx, GENERAL_ISSUE).await;
 
-        return Err(err);
+        return Err(err.wrap_err("failed to insert snipe country"));
     }
 
     let content = format!("Successfuly added country `{name}` (`{code}`)");

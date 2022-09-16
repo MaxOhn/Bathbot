@@ -1,12 +1,10 @@
-use eyre::Report;
+use eyre::{Result, WrapErr};
 use rosu_v2::prelude::BeatmapsetCompact;
 
 use crate::{
     core::Context,
     util::{gestalt_pattern_matching, levenshtein_similarity},
 };
-
-use super::GameResult;
 
 pub struct GameMapset {
     pub mapset_id: u32,
@@ -16,17 +14,22 @@ pub struct GameMapset {
 }
 
 impl GameMapset {
-    pub async fn new(ctx: &Context, mapset_id: u32) -> GameResult<Self> {
+    pub async fn new(ctx: &Context, mapset_id: u32) -> Result<Self> {
         let (title, artist) = {
             let mapset_fut = ctx.psql().get_beatmapset::<BeatmapsetCompact>(mapset_id);
 
             if let Ok(mapset) = mapset_fut.await {
                 (mapset.title.to_lowercase(), mapset.artist.to_lowercase())
             } else {
-                let mapset = ctx.osu().beatmapset(mapset_id).await?;
+                let mapset = ctx
+                    .osu()
+                    .beatmapset(mapset_id)
+                    .await
+                    .wrap_err("failed to request mapset")?;
 
                 if let Err(err) = ctx.psql().insert_beatmapset(&mapset).await {
-                    warn!("{:?}", Report::new(err));
+                    let wrap = "Failed to insert mapset into database";
+                    warn!("{:?}", err.wrap_err(wrap));
                 }
 
                 (mapset.title.to_lowercase(), mapset.artist.to_lowercase())

@@ -1,6 +1,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
+use eyre::{Report, Result, WrapErr};
 use rosu_pp::{Beatmap, BeatmapExt, PerformanceAttributes};
 use rosu_pp_older::*;
 use rosu_v2::prelude::{GameMode, OsuError, Score};
@@ -11,7 +12,6 @@ use twilight_model::id::{marker::UserMarker, Id};
 use crate::{
     commands::osu::{get_user_and_scores, require_link, ScoreArgs, ScoreOrder, UserArgs},
     core::commands::{prefix::Args, CommandOrigin},
-    error::PpError,
     pagination::TopIfPagination,
     tracking::process_osu_tracking,
     util::{
@@ -21,7 +21,7 @@ use crate::{
         osu::prepare_beatmap_file,
         ChannelExt, InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
@@ -242,7 +242,7 @@ impl TryFrom<i32> for TopOldManiaVersion {
     }
 }
 
-pub async fn slash_topold(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+pub async fn slash_topold(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = TopOld::from_interaction(command.input_data())?;
 
     topold(ctx, (&mut command).into(), args).await
@@ -268,7 +268,7 @@ pub async fn slash_topold(ctx: Arc<Context>, mut command: InteractionCommand) ->
 #[example("\"freddie benson\" 2015")]
 #[alias("to")]
 #[group(Osu)]
-async fn prefix_topold(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_topold(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match TopOld::args(GameMode::Osu, args) {
         Ok(args) => topold(ctx, msg.into(), args).await,
         Err(content) => {
@@ -293,7 +293,7 @@ async fn prefix_topold(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotR
 #[example("\"freddie benson\" 2015")]
 #[alias("tom")]
 #[group(Mania)]
-async fn prefix_topoldmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_topoldmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match TopOld::args(GameMode::Mania, args) {
         Ok(args) => topold(ctx, msg.into(), args).await,
         Err(content) => {
@@ -318,7 +318,7 @@ async fn prefix_topoldmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[example("\"freddie benson\" 2015")]
 #[alias("tot")]
 #[group(Taiko)]
-async fn prefix_topoldtaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_topoldtaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match TopOld::args(GameMode::Taiko, args) {
         Ok(args) => topold(ctx, msg.into(), args).await,
         Err(content) => {
@@ -343,7 +343,7 @@ async fn prefix_topoldtaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[example("\"freddie benson\" 2019")]
 #[aliases("toc", "topoldcatch")]
 #[group(Catch)]
-async fn prefix_topoldctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_topoldctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match TopOld::args(GameMode::Catch, args) {
         Ok(args) => topold(ctx, msg.into(), args).await,
         Err(content) => {
@@ -537,7 +537,7 @@ macro_rules! pp_tko {
     }};
 }
 
-async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) -> BotResult<()> {
+async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) -> Result<()> {
     let (name, mode) = match &args {
         TopOld::Osu(o) => (username_ref!(ctx, orig, o), GameMode::Osu),
         TopOld::Taiko(t) => (username_ref!(ctx, orig, t), GameMode::Taiko),
@@ -553,7 +553,7 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to get username"));
             }
         },
     };
@@ -571,8 +571,9 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user or scores");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -599,7 +600,7 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err);
+            return Err(err.wrap_err("failed to modify scores"));
         }
     };
 
@@ -637,7 +638,7 @@ async fn modify_scores(
     ctx: &Context,
     scores: Vec<Score>,
     args: &TopOld<'_>,
-) -> BotResult<Vec<(usize, Score, Option<f32>)>> {
+) -> Result<Vec<(usize, Score, Option<f32>)>> {
     let mut scores_data = Vec::with_capacity(scores.len());
 
     for (mut score, i) in scores.into_iter().zip(1..) {
@@ -648,8 +649,14 @@ async fn modify_scores(
             continue;
         }
 
-        let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
-        let rosu_map = Beatmap::from_path(map_path).await.map_err(PpError::from)?;
+        let map_path = prepare_beatmap_file(ctx, map.map_id)
+            .await
+            .wrap_err("failed to prepare map")?;
+
+        let rosu_map = Beatmap::from_path(map_path)
+            .await
+            .wrap_err("failed to parse map")?;
+
         let mods = score.mods.bits();
 
         let max_pp = match args {

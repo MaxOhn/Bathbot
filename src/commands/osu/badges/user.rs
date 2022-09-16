@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, sync::Arc};
 
-use eyre::Report;
+use eyre::{Report, Result};
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{GameMode, OsuError};
 
@@ -14,7 +14,6 @@ use crate::{
         constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
         get_combined_thumbnail,
     },
-    BotResult,
 };
 
 use super::BadgesUser;
@@ -23,7 +22,7 @@ pub(super) async fn user(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: BadgesUser,
-) -> BotResult<()> {
+) -> Result<()> {
     let owner = orig.user_id()?;
 
     let name = match username!(ctx, orig, args) {
@@ -34,7 +33,7 @@ pub(super) async fn user(
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to get username"));
             }
         },
     };
@@ -52,8 +51,9 @@ pub(super) async fn user(
             }
             Err(err) => {
                 let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                let report = Report::new(err).wrap_err("failed to get osu user");
 
-                return Err(err.into());
+                return Err(report);
             }
         }
     } else {
@@ -69,8 +69,9 @@ pub(super) async fn user(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get osu user");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -79,7 +80,7 @@ pub(super) async fn user(
         Err(err) => {
             let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get cached badges"));
         }
     };
 
@@ -100,7 +101,7 @@ pub(super) async fn user(
             Err(err) => {
                 let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
-                return Err(err.into());
+                return Err(err.wrap_err("failed to get badge owners"));
             }
         }
     } else {
@@ -117,8 +118,7 @@ pub(super) async fn user(
         match get_combined_thumbnail(&ctx, urls, owners.len() as u32, Some(1024)).await {
             Ok(bytes) => Some(bytes),
             Err(err) => {
-                let report = Report::new(err).wrap_err("failed to combine avatars");
-                warn!("{report:?}");
+                warn!("{:?}", err.wrap_err("Failed to combine avatars"));
 
                 None
             }

@@ -1,7 +1,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::command;
-use eyre::Report;
+use eyre::{Report, Result, WrapErr};
 use hashbrown::HashMap;
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::prelude::*;
@@ -14,13 +14,12 @@ use crate::{
     core::commands::CommandOrigin,
     custom_client::Rarity,
     embeds::{EmbedData, MedalStatsEmbed},
-    error::GraphError,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
         matcher, Monthly,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::MedalStats;
@@ -31,7 +30,7 @@ use super::MedalStats;
 #[examples("badewanne3", r#""im a fancy lad""#)]
 #[alias("ms")]
 #[group(AllModes)]
-async fn prefix_medalstats(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+async fn prefix_medalstats(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
     let args = match args.next() {
         Some(arg) => match matcher::get_mention_user(arg) {
             Some(id) => MedalStats {
@@ -53,7 +52,7 @@ pub(super) async fn stats(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: MedalStats<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let name = match username!(ctx, orig, args) {
         Some(name) => name,
         None => match ctx.psql().get_user_osu(orig.user_id()?).await {
@@ -62,7 +61,7 @@ pub(super) async fn stats(
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to get username"));
             }
         },
     };
@@ -83,16 +82,16 @@ pub(super) async fn stats(
         (_, Err(err), _) => {
             let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get cached medals"));
         }
         (Err(err), ..) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user");
 
-            return Err(err.into());
+            return Err(report);
         }
         (Ok(user), Ok(medals), Err(err)) => {
-            let report = Report::new(err).wrap_err("failed to get rarity ranking");
-            warn!("{report:?}");
+            warn!("{:?}", err.wrap_err("Failed to get cached rarity ranking"));
 
             (user, medals, None)
         }
@@ -105,7 +104,7 @@ pub(super) async fn stats(
     let graph = match graph(user.medals.as_ref().unwrap(), W, H) {
         Ok(bytes_option) => bytes_option,
         Err(err) => {
-            warn!("{:?}", Report::new(err));
+            warn!("{:?}", err.wrap_err("failed to create graph"));
 
             None
         }
@@ -143,7 +142,6 @@ pub(super) async fn stats(
     };
 
     let embed = MedalStatsEmbed::new(user, &all_medals, rarest, graph.is_some()).build();
-
     let mut builder = MessageBuilder::new().embed(embed);
 
     if let Some(graph) = graph {
@@ -158,14 +156,15 @@ pub(super) async fn stats(
 const W: u32 = 1350;
 const H: u32 = 350;
 
-pub fn graph(medals: &[MedalCompact], w: u32, h: u32) -> Result<Option<Vec<u8>>, GraphError> {
+pub fn graph(medals: &[MedalCompact], w: u32, h: u32) -> Result<Option<Vec<u8>>> {
     let len = (w * h) as usize;
     let mut buf = vec![0; len * 3]; // PIXEL_SIZE = 3
 
     {
         let root = BitMapBackend::with_buffer(&mut buf, (w, h)).into_drawing_area();
         let background = RGBColor(19, 43, 33);
-        root.fill(&background)?;
+        root.fill(&background)
+            .wrap_err("failed to fill background")?;
 
         if medals.is_empty() {
             return Ok(None);
@@ -185,7 +184,8 @@ pub fn graph(medals: &[MedalCompact], w: u32, h: u32) -> Result<Option<Vec<u8>>,
             .caption("Medal history", ("sans-serif", 30, &WHITE))
             .x_label_area_size(30)
             .y_label_area_size(45)
-            .build_cartesian_2d(Monthly(first..last), 0..medals.len())?;
+            .build_cartesian_2d(Monthly(first..last), 0..medals.len())
+            .wrap_err("failed to build chart")?;
 
         // Mesh and labels
         chart
@@ -197,20 +197,24 @@ pub fn graph(medals: &[MedalCompact], w: u32, h: u32) -> Result<Option<Vec<u8>>,
             .bold_line_style(&WHITE.mix(0.3))
             .axis_style(RGBColor(7, 18, 14))
             .axis_desc_style(("sans-serif", 16, FontStyle::Bold, &WHITE))
-            .draw()?;
+            .draw()
+            .wrap_err("failed to draw mesh and labels")?;
 
         // Draw area
         let area_style = RGBColor(2, 186, 213).mix(0.7).filled();
         let border_style = style(RGBColor(0, 208, 138)).stroke_width(3);
         let counter = MedalCounter::new(medals);
         let series = AreaSeries::new(counter, 0, area_style).border_style(border_style);
-        chart.draw_series(series)?;
+        chart.draw_series(series).wrap_err("failed to draw area")?;
     }
 
     // Encode buf to png
     let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
     let png_encoder = PngEncoder::new(&mut png_bytes);
-    png_encoder.write_image(&buf, w, h, ColorType::Rgb8)?;
+
+    png_encoder
+        .write_image(&buf, w, h, ColorType::Rgb8)
+        .wrap_err("failed to encode image")?;
 
     Ok(Some(png_bytes))
 }

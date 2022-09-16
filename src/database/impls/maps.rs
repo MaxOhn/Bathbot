@@ -1,5 +1,4 @@
-use std::{error::Error as StdError, fmt};
-
+use eyre::{Result, WrapErr};
 use futures::{
     future::{BoxFuture, FutureExt},
     stream::{StreamExt, TryStreamExt},
@@ -9,13 +8,12 @@ use rosu_v2::prelude::{
     Beatmap, Beatmapset, GameMode,
     RankStatus::{Approved, Loved, Ranked},
 };
-use sqlx::{Error as SqlxError, PgConnection};
-use thiserror::Error;
+use sqlx::PgConnection;
 
 use crate::{
     database::{DBBeatmap, DBBeatmapset},
     util::hasher::SimpleBuildHasher,
-    BotResult, Database,
+    Database,
 };
 
 macro_rules! invalid_status {
@@ -24,73 +22,12 @@ macro_rules! invalid_status {
     };
 }
 
-type InsertMapResult<T> = Result<T, InsertMapOrMapsetError>;
-
-#[derive(Debug)]
-pub enum InsertMapOrMapsetError {
-    Map(InsertMapError),
-    Mapset(InsertMapsetError),
-    Sqlx(SqlxError),
-}
-
-impl From<InsertMapError> for InsertMapOrMapsetError {
-    fn from(err: InsertMapError) -> Self {
-        Self::Map(err)
-    }
-}
-
-impl From<InsertMapsetError> for InsertMapOrMapsetError {
-    fn from(err: InsertMapsetError) -> Self {
-        Self::Mapset(err)
-    }
-}
-
-impl From<SqlxError> for InsertMapOrMapsetError {
-    fn from(err: SqlxError) -> Self {
-        Self::Sqlx(err)
-    }
-}
-
-impl StdError for InsertMapOrMapsetError {
-    fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        match self {
-            Self::Map(err) => err.source(),
-            Self::Mapset(err) => err.source(),
-            Self::Sqlx(err) => Some(err),
-        }
-    }
-}
-
-impl fmt::Display for InsertMapOrMapsetError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Map(err) => write!(f, "{err}"),
-            Self::Mapset(err) => write!(f, "{err}"),
-            Self::Sqlx(_) => f.write_str("sqlx error"),
-        }
-    }
-}
-
-#[derive(Debug, Error)]
-pub enum InsertMapError {
-    #[error("cannot add {0:?} map to DB without combo")]
-    MissingCombo(GameMode),
-    #[error("failed to add map to DB")]
-    Sqlx(#[from] SqlxError),
-}
-
-#[derive(Debug, Error)]
-pub enum InsertMapsetError {
-    #[error("failed to add mapset to DB")]
-    Sqlx(#[from] SqlxError),
-}
-
 fn should_not_be_stored(map: &Beatmap) -> bool {
     invalid_status!(map) || map.convert || (map.mode != GameMode::Mania && map.max_combo.is_none())
 }
 
 impl Database {
-    pub async fn get_beatmap(&self, map_id: u32, with_mapset: bool) -> BotResult<Beatmap> {
+    pub async fn get_beatmap(&self, map_id: u32, with_mapset: bool) -> Result<Beatmap> {
         let mut conn = self.pool.acquire().await?;
 
         let query = sqlx::query_as!(
@@ -99,7 +36,11 @@ impl Database {
             map_id as i32
         );
 
-        let row = query.fetch_one(&mut conn).await?;
+        let row = query
+            .fetch_one(&mut conn)
+            .await
+            .wrap_err("failed to get map")?;
+
         let mut map = Beatmap::from(row);
 
         if with_mapset {
@@ -109,7 +50,10 @@ impl Database {
                 map.mapset_id as i32
             );
 
-            let mapset = query.fetch_one(&mut conn).await?;
+            let mapset = query
+                .fetch_one(&mut conn)
+                .await
+                .wrap_err("failed to get mapset")?;
 
             map.mapset.replace(mapset.into());
         }
@@ -117,7 +61,7 @@ impl Database {
         Ok(map)
     }
 
-    pub async fn get_beatmapset<T: From<DBBeatmapset>>(&self, mapset_id: u32) -> BotResult<T> {
+    pub async fn get_beatmapset<T: From<DBBeatmapset>>(&self, mapset_id: u32) -> Result<T> {
         let query = sqlx::query_as!(
             DBBeatmapset,
             "SELECT * FROM mapsets WHERE mapset_id=$1",
@@ -129,7 +73,7 @@ impl Database {
         Ok(row.into())
     }
 
-    pub async fn get_beatmap_combo(&self, map_id: u32) -> BotResult<Option<u32>> {
+    pub async fn get_beatmap_combo(&self, map_id: u32) -> Result<Option<u32>> {
         let row = sqlx::query!("SELECT max_combo FROM maps WHERE map_id=$1", map_id as i32)
             .fetch_one(&self.pool)
             .await?;
@@ -140,7 +84,7 @@ impl Database {
     pub async fn get_beatmaps_combo(
         &self,
         map_ids: &[i32],
-    ) -> BotResult<HashMap<u32, Option<u32>, SimpleBuildHasher>> {
+    ) -> Result<HashMap<u32, Option<u32>, SimpleBuildHasher>> {
         let mut combos = HashMap::with_capacity_and_hasher(map_ids.len(), SimpleBuildHasher);
 
         let query = sqlx::query!(
@@ -161,12 +105,16 @@ impl Database {
         &self,
         map_ids: &[i32],
         with_mapset: bool,
-    ) -> BotResult<HashMap<u32, Beatmap, SimpleBuildHasher>> {
+    ) -> Result<HashMap<u32, Beatmap, SimpleBuildHasher>> {
         if map_ids.is_empty() {
             return Ok(HashMap::default());
         }
 
-        let mut conn = self.pool.acquire().await?;
+        let mut conn = self
+            .pool
+            .acquire()
+            .await
+            .wrap_err("failed to acquire connection")?;
 
         let query = sqlx::query_as!(
             DBBeatmap,
@@ -199,31 +147,41 @@ impl Database {
         Ok(beatmaps)
     }
 
-    pub async fn insert_beatmapset(&self, mapset: &Beatmapset) -> InsertMapResult<bool> {
+    pub async fn insert_beatmapset(&self, mapset: &Beatmapset) -> Result<bool> {
         if invalid_status!(mapset) {
             return Ok(false);
         }
 
-        let mut conn = self.pool.acquire().await?;
+        let mut conn = self
+            .pool
+            .acquire()
+            .await
+            .wrap_err("failed to acquire connection")?;
 
         insert_mapset_(&mut conn, mapset).await.map(|_| true)
     }
 
-    pub async fn insert_beatmap(&self, map: &Beatmap) -> InsertMapResult<bool> {
+    pub async fn insert_beatmap(&self, map: &Beatmap) -> Result<bool> {
         if should_not_be_stored(map) {
             return Ok(false);
         }
 
-        let mut conn = self.pool.acquire().await?;
+        let mut conn = self
+            .pool
+            .acquire()
+            .await
+            .wrap_err("failed to acquire connection")?;
 
         insert_map_(&mut conn, map).await.map(|_| true)
     }
 
-    pub async fn insert_beatmaps(
-        &self,
-        maps: impl Iterator<Item = &Beatmap>,
-    ) -> InsertMapResult<usize> {
-        let mut conn = self.pool.acquire().await?;
+    pub async fn insert_beatmaps(&self, maps: impl Iterator<Item = &Beatmap>) -> Result<usize> {
+        let mut conn = self
+            .pool
+            .acquire()
+            .await
+            .wrap_err("failed to acquire connection")?;
+
         let mut count = 0;
 
         for map in maps {
@@ -239,13 +197,13 @@ impl Database {
     }
 }
 
-async fn insert_map_(conn: &mut PgConnection, map: &Beatmap) -> InsertMapResult<()> {
+async fn insert_map_(conn: &mut PgConnection, map: &Beatmap) -> Result<()> {
     let max_combo = if map.mode == GameMode::Mania {
         None
     } else if let Some(combo) = map.max_combo {
         Some(combo as i32)
     } else {
-        return Err(InsertMapError::MissingCombo(map.mode).into());
+        bail!("cannot insert {:?} map without combo", map.mode);
     };
 
     let query = sqlx::query!(
@@ -299,10 +257,12 @@ async fn insert_map_(conn: &mut PgConnection, map: &Beatmap) -> InsertMapResult<
     query
         .execute(&mut *conn)
         .await
-        .map_err(InsertMapError::from)?;
+        .wrap_err("failed to insert map")?;
 
     if let Some(ref mapset) = map.mapset {
-        insert_mapset_(conn, mapset).await?;
+        insert_mapset_(conn, mapset)
+            .await
+            .wrap_err("failed to insert mapset")?;
     }
 
     Ok(())
@@ -311,7 +271,7 @@ async fn insert_map_(conn: &mut PgConnection, map: &Beatmap) -> InsertMapResult<
 fn insert_mapset_<'a>(
     conn: &'a mut PgConnection,
     mapset: &'a Beatmapset,
-) -> BoxFuture<'a, InsertMapResult<()>> {
+) -> BoxFuture<'a, Result<()>> {
     let fut = async move {
         let query = sqlx::query!(
             "INSERT INTO mapsets (\
@@ -340,11 +300,13 @@ fn insert_mapset_<'a>(
         query
             .execute(&mut *conn)
             .await
-            .map_err(InsertMapsetError::from)?;
+            .wrap_err("failed to insert mapset")?;
 
         if let Some(ref maps) = mapset.maps {
             for map in maps {
-                insert_map_(conn, map).await?;
+                insert_map_(conn, map)
+                    .await
+                    .wrap_err("failed to insert map")?;
             }
         }
 

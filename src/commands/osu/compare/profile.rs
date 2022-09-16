@@ -1,7 +1,7 @@
 use std::{io::Cursor, sync::Arc};
 
 use command_macros::command;
-use eyre::Report;
+use eyre::{Report, Result, WrapErr};
 use image::{
     imageops::{overlay, FilterType},
     DynamicImage, ImageBuffer,
@@ -24,7 +24,7 @@ use crate::{
         matcher,
         osu::BonusPP,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::{CompareProfile, AT_LEAST_ONE};
@@ -38,7 +38,7 @@ async fn extract_name(ctx: &Context, args: &mut CompareProfile<'_>) -> NameExtra
             Ok(None) => {
                 NameExtraction::Content(format!("<@{discord}> is not linked to an osu!profile"))
             }
-            Err(err) => NameExtraction::Err(err),
+            Err(err) => NameExtraction::Err(err.wrap_err("failed to get username")),
         }
     } else {
         NameExtraction::None
@@ -49,7 +49,7 @@ pub(super) async fn profile(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     mut args: CompareProfile<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let name1 = match extract_name(&ctx, &mut args).await {
         NameExtraction::Name(name) => name,
         NameExtraction::Err(err) => {
@@ -96,7 +96,7 @@ pub(super) async fn profile(
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to get user config"));
             }
         },
     };
@@ -118,8 +118,9 @@ pub(super) async fn profile(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user and scores");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -152,8 +153,7 @@ pub(super) async fn profile(
     let thumbnail = match get_combined_thumbnail(&ctx, &user1.avatar_url, &user2.avatar_url).await {
         Ok(thumbnail) => Some(thumbnail),
         Err(err) => {
-            let report = Report::new(err).wrap_err("failed to combine avatars");
-            warn!("{report:?}");
+            warn!("{:?}", err.wrap_err("Failed to combine avatars"));
 
             None
         }
@@ -185,7 +185,7 @@ pub(super) async fn profile(
 #[example("badewanne3 5joshi")]
 #[aliases("pc", "profilecompareosu", "pco")]
 #[group(Osu)]
-async fn prefix_profilecompare(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_profilecompare(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let args = CompareProfile::args(None, args);
 
     profile(ctx, msg.into(), args).await
@@ -207,7 +207,7 @@ async fn prefix_profilecomparemania(
     ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let args = CompareProfile::args(Some(GameModeOption::Mania), args);
 
     profile(ctx, msg.into(), args).await
@@ -229,7 +229,7 @@ async fn prefix_profilecomparetaiko(
     ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let args = CompareProfile::args(Some(GameModeOption::Taiko), args);
 
     profile(ctx, msg.into(), args).await
@@ -247,11 +247,7 @@ async fn prefix_profilecomparetaiko(
 #[example("badewanne3 5joshi")]
 #[aliases("pcc", "profilecomparecatch")]
 #[group(Catch)]
-async fn prefix_profilecomparectb(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
+async fn prefix_profilecomparectb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let args = CompareProfile::args(Some(GameModeOption::Catch), args);
 
     profile(ctx, msg.into(), args).await
@@ -304,22 +300,30 @@ async fn get_combined_thumbnail(
     ctx: &Context,
     user1_url: &str,
     user2_url: &str,
-) -> BotResult<Vec<u8>> {
+) -> Result<Vec<u8>> {
     let mut img = DynamicImage::ImageRgba8(ImageBuffer::from_pixel(720, 128, Rgba([0, 0, 0, 0])));
 
     let (pfp1, pfp2) = tokio::try_join!(
         ctx.client().get_avatar(user1_url),
         ctx.client().get_avatar(user2_url),
-    )?;
+    )
+    .wrap_err("failed to get avatar")?;
 
-    let pfp1 = image::load_from_memory(&pfp1)?.resize_exact(128, 128, FilterType::Lanczos3);
-    let pfp2 = image::load_from_memory(&pfp2)?.resize_exact(128, 128, FilterType::Lanczos3);
+    let pfp1 = image::load_from_memory(&pfp1)
+        .wrap_err("failed to load pfp1 from memory")?
+        .resize_exact(128, 128, FilterType::Lanczos3);
+
+    let pfp2 = image::load_from_memory(&pfp2)
+        .wrap_err("failed to load pfp2 from memory")?
+        .resize_exact(128, 128, FilterType::Lanczos3);
+
     overlay(&mut img, &pfp1, 10, 0);
     overlay(&mut img, &pfp2, 582, 0);
     let png_bytes: Vec<u8> = Vec::with_capacity(92_160); // 720x128
 
     let mut cursor = Cursor::new(png_bytes);
-    img.write_to(&mut cursor, Png)?;
+    img.write_to(&mut cursor, Png)
+        .wrap_err("failed to encode image")?;
 
     Ok(cursor.into_inner())
 }

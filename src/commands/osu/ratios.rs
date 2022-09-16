@@ -1,6 +1,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
+use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
@@ -13,7 +14,7 @@ use crate::{
         builder::MessageBuilder, constants::OSU_API_ISSUE, interaction::InteractionCommand,
         matcher, InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::{require_link, ScoreArgs, UserArgs};
@@ -55,7 +56,7 @@ pub struct Ratios<'a> {
 #[example("badewanne3")]
 #[alias("ratio")]
 #[group(Mania)]
-async fn prefix_ratios(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+async fn prefix_ratios(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
     let args = match args.next() {
         Some(arg) => match matcher::get_mention_user(arg) {
             Some(id) => Ratios {
@@ -73,13 +74,13 @@ async fn prefix_ratios(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> 
     ratios(ctx, msg.into(), args).await
 }
 
-async fn slash_ratios(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_ratios(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Ratios::from_interaction(command.input_data())?;
 
     ratios(ctx, (&mut command).into(), args).await
 }
 
-async fn ratios(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Ratios<'_>) -> BotResult<()> {
+async fn ratios(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Ratios<'_>) -> Result<()> {
     let name = match username!(ctx, orig, args) {
         Some(name) => name,
         None => match ctx.user_config(orig.user_id()?).await?.into_username() {
@@ -102,8 +103,9 @@ async fn ratios(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Ratios<'_>) ->
             }
             Err(err) => {
                 let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                let report = Report::new(err).wrap_err("failed to get user or scores");
 
-                return Err(err.into());
+                return Err(report);
             }
         };
 

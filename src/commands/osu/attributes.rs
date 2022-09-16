@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use command_macros::SlashCommand;
+use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
@@ -14,7 +15,6 @@ use crate::{
         osu::{AttributeKind, ModSelection},
         InteractionCommandExt,
     },
-    BotResult,
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
@@ -92,7 +92,7 @@ pub struct AttributesOd {
     mods: String,
 }
 
-async fn slash_attributes(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_attributes(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let attrs = Attributes::from_interaction(command.input_data())?;
 
     let (kind, value, mods) = match attrs {

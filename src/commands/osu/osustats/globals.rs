@@ -1,6 +1,7 @@
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write, sync::Arc};
 
 use command_macros::command;
+use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, OsuError, Username};
 
 use crate::{
@@ -17,7 +18,7 @@ use crate::{
         osu::ModSelection,
         ChannelExt, CowUtils,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::{OsuStatsScores, OsuStatsScoresOrder};
@@ -45,7 +46,7 @@ use super::{OsuStatsScores, OsuStatsScoresOrder};
 )]
 #[aliases("osg", "osustatsglobal")]
 #[group(Osu)]
-async fn prefix_osustatsglobals(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_osustatsglobals(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match OsuStatsScores::args(None, args) {
         Ok(args) => scores(ctx, msg.into(), args).await,
         Err(content) => {
@@ -83,7 +84,7 @@ async fn prefix_osustatsglobalsmania(
     ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     match OsuStatsScores::args(Some(GameModeOption::Mania), args) {
         Ok(args) => scores(ctx, msg.into(), args).await,
         Err(content) => {
@@ -121,7 +122,7 @@ async fn prefix_osustatsglobalstaiko(
     ctx: Arc<Context>,
     msg: &Message,
     args: Args<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     match OsuStatsScores::args(Some(GameModeOption::Taiko), args) {
         Ok(args) => scores(ctx, msg.into(), args).await,
         Err(content) => {
@@ -155,11 +156,7 @@ async fn prefix_osustatsglobalstaiko(
 )]
 #[aliases("osgc", "osustatsglobalctb", "osustatsglobalscatch")]
 #[group(Catch)]
-async fn prefix_osustatsglobalsctb(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
+async fn prefix_osustatsglobalsctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match OsuStatsScores::args(Some(GameModeOption::Catch), args) {
         Ok(args) => scores(ctx, msg.into(), args).await,
         Err(content) => {
@@ -174,7 +171,7 @@ pub(super) async fn scores(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: OsuStatsScores<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let mods = match args.mods() {
         ModsResult::Mods(mods) => Some(mods),
         ModsResult::None => None,
@@ -194,8 +191,9 @@ pub(super) async fn scores(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -216,7 +214,7 @@ pub(super) async fn scores(
         Err(err) => {
             let _ = orig.error(&ctx, OSUSTATS_API_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get global scores"));
         }
     };
 

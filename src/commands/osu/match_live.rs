@@ -1,6 +1,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, SlashCommand};
+use eyre::{Report, Result, WrapErr};
 use twilight_http::{api_error::ApiError, error::ErrorType};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::channel::{thread::AutoArchiveDuration, ChannelType};
@@ -18,7 +19,7 @@ use crate::{
         interaction::InteractionCommand,
         matcher, ChannelExt, InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
@@ -54,7 +55,7 @@ pub struct MatchliveRemove<'a> {
     match_url: Cow<'a, str>,
 }
 
-async fn slash_matchlive(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_matchlive(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     match Matchlive::from_interaction(command.input_data())? {
         Matchlive::Add(args) => matchlive(ctx, (&mut command).into(), args).await,
         Matchlive::Remove(args) => matchliveremove(ctx, (&mut command).into(), Some(args)).await,
@@ -75,7 +76,7 @@ async fn slash_matchlive(ctx: Arc<Context>, mut command: InteractionCommand) -> 
 #[bucket(MatchLive)]
 #[flags(AUTHORITY)]
 #[group(AllModes)]
-async fn prefix_matchlive(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+async fn prefix_matchlive(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
     match args.next() {
         Some(arg) => {
             let args = MatchliveAdd {
@@ -110,7 +111,7 @@ async fn prefix_matchliveremove(
     ctx: Arc<Context>,
     msg: &Message,
     mut args: Args<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let args = match args.next() {
         Some(arg) => match parse_match_id(arg) {
             Ok(_) => Some(MatchliveRemove {
@@ -144,7 +145,7 @@ async fn matchlive(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: MatchliveAdd<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let MatchliveAdd { match_url, thread } = args;
 
     let match_id = match parse_match_id(&match_url) {
@@ -188,8 +189,9 @@ async fn matchlive(
                     Some(content) => return orig.error(&ctx, content).await,
                     None => {
                         let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                        let report = Report::new(err).wrap_err("failed to create thread");
 
-                        return Err(err.into());
+                        return Err(report);
                     }
                 }
             }
@@ -203,7 +205,8 @@ async fn matchlive(
                 ctx.interaction()
                     .delete_response(&command.token)
                     .exec()
-                    .await?;
+                    .await
+                    .wrap_err("failed to delete response")?;
 
                 return Ok(());
             }
@@ -222,7 +225,7 @@ async fn matchliveremove(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: Option<MatchliveRemove<'_>>,
-) -> BotResult<()> {
+) -> Result<()> {
     let channel = orig.channel_id();
 
     let match_id = match args.map(|args| parse_match_id(&args.match_url)) {

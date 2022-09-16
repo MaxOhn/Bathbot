@@ -1,6 +1,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
+use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -21,7 +22,7 @@ use crate::{
         interaction::InteractionCommand,
         matcher, ChannelExt, CowUtils, InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::{get_user, require_link, TopScoreOrder};
@@ -103,7 +104,7 @@ impl<'m> Mapper<'m> {
 #[usage("[mapper] [user]")]
 #[example("\"Hishiro Chizuru\" badewanne3", "monstrata monstrata")]
 #[group(Osu)]
-async fn prefix_mapper(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_mapper(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match Mapper::args(None, args, None) {
         Ok(args) => mapper(ctx, msg.into(), args).await,
         Err(content) => {
@@ -124,7 +125,7 @@ async fn prefix_mapper(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotR
 #[example("\"Hishiro Chizuru\" badewanne3", "monstrata monstrata")]
 #[alias("mapperm")]
 #[group(Mania)]
-pub async fn prefix_mappermania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+pub async fn prefix_mappermania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match Mapper::args(Some(GameModeOption::Mania), args, None) {
         Ok(args) => mapper(ctx, msg.into(), args).await,
         Err(content) => {
@@ -145,7 +146,7 @@ pub async fn prefix_mappermania(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[example("\"Hishiro Chizuru\" badewanne3", "monstrata monstrata")]
 #[alias("mappert")]
 #[group(Taiko)]
-pub async fn prefix_mappertaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+pub async fn prefix_mappertaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match Mapper::args(Some(GameModeOption::Taiko), args, None) {
         Ok(args) => mapper(ctx, msg.into(), args).await,
         Err(content) => {
@@ -166,7 +167,7 @@ pub async fn prefix_mappertaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>
 #[example("\"Hishiro Chizuru\" badewanne3", "monstrata monstrata")]
 #[aliases("mapperc", "mappercatch")]
 #[group(Catch)]
-async fn prefix_mapperctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_mapperctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match Mapper::args(Some(GameModeOption::Catch), args, None) {
         Ok(args) => mapper(ctx, msg.into(), args).await,
         Err(content) => {
@@ -182,7 +183,7 @@ async fn prefix_mapperctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> B
 #[usage("[username]")]
 #[example("badewanne3")]
 #[group(Osu)]
-pub async fn prefix_sotarks(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+pub async fn prefix_sotarks(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match Mapper::args(Some(GameModeOption::Osu), args, Some("sotarks")) {
         Ok(args) => mapper(ctx, msg.into(), args).await,
         Err(content) => {
@@ -193,19 +194,19 @@ pub async fn prefix_sotarks(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
     }
 }
 
-async fn slash_mapper(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_mapper(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Mapper::from_interaction(command.input_data())?;
 
     mapper(ctx, (&mut command).into(), args).await
 }
 
-async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) -> BotResult<()> {
+async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) -> Result<()> {
     let mut config = match ctx.user_config(orig.user_id()?).await {
         Ok(config) => config,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err);
+            return Err(err.wrap_err("failed to get user config"));
         }
     };
 
@@ -247,8 +248,9 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
         }
         (Err(err), _) | (_, Err(err)) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get mapper, user, or scores");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 

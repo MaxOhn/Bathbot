@@ -1,14 +1,16 @@
+use std::{collections::BTreeMap, sync::Arc};
+
+use command_macros::command;
+use eyre::{Report, Result};
+use rosu_v2::prelude::GameMode;
+
 use crate::{
     commands::GameModeOption,
     core::commands::CommandOrigin,
     pagination::RankingCountriesPagination,
     util::constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-    BotResult, Context,
+    Context,
 };
-
-use command_macros::command;
-use rosu_v2::prelude::GameMode;
-use std::{collections::BTreeMap, sync::Arc};
 
 use super::RankingCountry;
 
@@ -16,7 +18,7 @@ use super::RankingCountry;
 #[desc("Display the osu! rankings for countries")]
 #[aliases("cr")]
 #[group(Osu)]
-pub async fn prefix_countryranking(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn prefix_countryranking(ctx: Arc<Context>, msg: &Message) -> Result<()> {
     country(ctx, msg.into(), None.into()).await
 }
 
@@ -24,7 +26,7 @@ pub async fn prefix_countryranking(ctx: Arc<Context>, msg: &Message) -> BotResul
 #[desc("Display the osu!mania rankings for countries")]
 #[aliases("crm")]
 #[group(Mania)]
-pub async fn prefix_countryrankingmania(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn prefix_countryrankingmania(ctx: Arc<Context>, msg: &Message) -> Result<()> {
     country(ctx, msg.into(), Some(GameModeOption::Mania).into()).await
 }
 
@@ -32,7 +34,7 @@ pub async fn prefix_countryrankingmania(ctx: Arc<Context>, msg: &Message) -> Bot
 #[desc("Display the osu!taiko rankings for countries")]
 #[aliases("crt")]
 #[group(Taiko)]
-pub async fn prefix_countryrankingtaiko(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn prefix_countryrankingtaiko(ctx: Arc<Context>, msg: &Message) -> Result<()> {
     country(ctx, msg.into(), Some(GameModeOption::Taiko).into()).await
 }
 
@@ -40,7 +42,7 @@ pub async fn prefix_countryrankingtaiko(ctx: Arc<Context>, msg: &Message) -> Bot
 #[desc("Display the osu!ctb rankings for countries")]
 #[aliases("crc", "countryrankingcatch")]
 #[group(Catch)]
-pub async fn prefix_countryrankingctb(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn prefix_countryrankingctb(ctx: Arc<Context>, msg: &Message) -> Result<()> {
     country(ctx, msg.into(), Some(GameModeOption::Catch).into()).await
 }
 
@@ -48,7 +50,7 @@ pub(super) async fn country(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: RankingCountry,
-) -> BotResult<()> {
+) -> Result<()> {
     let owner = orig.user_id()?;
 
     let mode = match args.mode {
@@ -58,7 +60,7 @@ pub(super) async fn country(
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to get user config"));
             }
         },
     };
@@ -67,8 +69,9 @@ pub(super) async fn country(
         Ok(ranking) => ranking,
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get country ranking");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 

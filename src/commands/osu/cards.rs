@@ -5,6 +5,7 @@ use std::{
 };
 
 use command_macros::{HasName, SlashCommand};
+use eyre::{Report, Result, WrapErr};
 use handlebars::Handlebars;
 use once_cell::sync::Lazy;
 use rosu_pp::{
@@ -24,7 +25,6 @@ use crate::{
     commands::GameModeOption,
     core::{commands::CommandOrigin, BotConfig, Context},
     embeds::{CardEmbed, EmbedData},
-    error::PpError,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
@@ -33,7 +33,6 @@ use crate::{
         osu::{flag_url_svg, prepare_beatmap_file},
         HtmlToPng, InteractionCommandExt,
     },
-    BotResult,
 };
 
 use super::{get_user_and_scores, ScoreArgs, UserArgs};
@@ -73,7 +72,7 @@ pub struct Card {
     discord: Option<Id<UserMarker>>,
 }
 
-async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Card::from_interaction(command.input_data())?;
 
     let orig = CommandOrigin::Interaction {
@@ -100,13 +99,14 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> BotRe
         }
         (Err(err), _) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user");
 
-            return Err(err.into());
+            return Err(report);
         }
         (_, Err(err)) => {
             let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get cached medals"));
         }
     };
 
@@ -117,7 +117,7 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> BotRe
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to calculate skills"));
         }
     };
 
@@ -125,8 +125,9 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> BotRe
         Ok(rendered) => rendered,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to render card template");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -135,7 +136,7 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> BotRe
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to convert html"));
         }
     };
 
@@ -159,7 +160,7 @@ enum Skills {
 }
 
 impl Skills {
-    async fn calculate(ctx: &Context, mode: GameMode, scores: &[Score]) -> Result<Self, PpError> {
+    async fn calculate(ctx: &Context, mode: GameMode, scores: &[Score]) -> Result<Self> {
         // https://www.desmos.com/calculator/gqnhbpa0d3
         let map = |val: f64| {
             let factor = (8.0 / (val / 72.0 + 8.0)).powi(10);
@@ -180,8 +181,14 @@ impl Skills {
 
                 for (i, score) in scores.iter().enumerate() {
                     let map = score.map.as_ref().unwrap();
-                    let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
-                    let map = Beatmap::from_path(map_path).await?;
+
+                    let map_path = prepare_beatmap_file(ctx, map.map_id)
+                        .await
+                        .wrap_err("failed to prepare map")?;
+
+                    let map = Beatmap::from_path(map_path)
+                        .await
+                        .wrap_err("failed to parse map")?;
 
                     let state = OsuScoreState {
                         max_combo: score.max_combo as usize,
@@ -223,8 +230,14 @@ impl Skills {
 
                 for (i, score) in scores.iter().enumerate() {
                     let map = score.map.as_ref().unwrap();
-                    let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
-                    let map = Beatmap::from_path(map_path).await?;
+
+                    let map_path = prepare_beatmap_file(ctx, map.map_id)
+                        .await
+                        .wrap_err("failed to prepare map")?;
+
+                    let map = Beatmap::from_path(map_path)
+                        .await
+                        .wrap_err("failed to parse map")?;
 
                     let state = TaikoScoreState {
                         max_combo: score.max_combo as usize,
@@ -262,8 +275,14 @@ impl Skills {
 
                 for (i, score) in scores.iter().enumerate() {
                     let map = score.map.as_ref().unwrap();
-                    let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
-                    let map = Beatmap::from_path(map_path).await?;
+
+                    let map_path = prepare_beatmap_file(ctx, map.map_id)
+                        .await
+                        .wrap_err("failed to prepare map")?;
+
+                    let map = Beatmap::from_path(map_path)
+                        .await
+                        .wrap_err("failed to parse map")?;
 
                     let state = CatchScoreState {
                         max_combo: score.max_combo as usize,
@@ -318,8 +337,14 @@ impl Skills {
 
                 for (i, score) in scores.iter().enumerate() {
                     let map = score.map.as_ref().unwrap();
-                    let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
-                    let map = Beatmap::from_path(map_path).await?;
+
+                    let map_path = prepare_beatmap_file(ctx, map.map_id)
+                        .await
+                        .wrap_err("failed to prepare map")?;
+
+                    let map = Beatmap::from_path(map_path)
+                        .await
+                        .wrap_err("failed to parse map")?;
 
                     let attrs = ManiaPP::new(&map)
                         .mods(score.mods.bits())

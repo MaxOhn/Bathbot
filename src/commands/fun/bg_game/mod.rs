@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use command_macros::{command, SlashCommand};
-use eyre::Report;
+use eyre::{Report, Result};
 use rosu_v2::prelude::GameMode;
 use twilight_http::{api_error::ApiError, error::ErrorType};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
@@ -22,7 +22,7 @@ use crate::{
         interaction::InteractionCommand,
         Authored, ChannelExt, CowUtils, InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 use self::{bigger::*, hint::*, rankings::*, skip::*, stop::*};
@@ -39,11 +39,7 @@ mod stop;
 #[alias("bg")]
 #[flags(SKIP_DEFER)] // defer manually on specific subcommands
 #[group(Games)]
-pub async fn prefix_backgroundgame(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
+pub async fn prefix_backgroundgame(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let mut args = args.map(|arg| arg.cow_to_ascii_lowercase());
     let arg = args.next();
 
@@ -155,12 +151,13 @@ impl Default for GameDifficulty {
     }
 }
 
-async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let Bg {
         difficulty,
         mode,
         thread,
     } = Bg::from_interaction(command.input_data())?;
+
     let mut channel = command.channel_id;
     let author_user = command.user()?;
     let author = author_user.id;
@@ -206,7 +203,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResu
                     None => {
                         let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
-                        return Err(err.into());
+                        return Err(Report::new(err).wrap_err("failed to create thread"));
                     }
                 }
             }
@@ -215,8 +212,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResu
 
     if let Some(GameState::Running { game }) = ctx.bg_games().write(&channel).await.remove() {
         if let Err(err) = game.stop() {
-            let report = Report::new(err).wrap_err("failed to stop game");
-            warn!("{report:?}");
+            warn!("{:?}", err.wrap_err("failed to stop game"));
         }
     }
 
@@ -257,7 +253,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResu
                 Err(err) => {
                     let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
-                    return Err(err);
+                    return Err(err.wrap_err("failed to get all tagged mania mapsets"));
                 }
             };
 

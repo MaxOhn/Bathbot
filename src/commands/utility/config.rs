@@ -1,6 +1,7 @@
 use std::{future::Future, sync::Arc};
 
 use command_macros::{command, SlashCommand};
+use eyre::{Report, Result, WrapErr};
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
@@ -16,7 +17,7 @@ use crate::{
         interaction::InteractionCommand,
         Authored, Emote, InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 #[derive(CommandModel, CreateCommand, Default, SlashCommand)]
@@ -136,17 +137,13 @@ impl From<ConfigMinimizedPp> for MinimizedPp {
     }
 }
 
-async fn slash_config(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_config(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Config::from_interaction(command.input_data())?;
 
     config(ctx, command, args).await
 }
 
-pub async fn config(
-    ctx: Arc<Context>,
-    command: InteractionCommand,
-    config: Config,
-) -> BotResult<()> {
+pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Config) -> Result<()> {
     let Config {
         osu,
         twitch,
@@ -166,7 +163,7 @@ pub async fn config(
         Err(err) => {
             let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err);
+            return Err(err.wrap_err("failed to get user config"));
         }
     };
 
@@ -209,11 +206,19 @@ pub async fn config(
 
     match (osu, twitch) {
         (Some(ConfigLink::Link), Some(ConfigLink::Link)) => {
-            handle_both_links(&ctx, command, config).await
+            handle_both_links(&ctx, command, config)
+                .await
+                .wrap_err("failed to handle both links")
         }
-        (Some(ConfigLink::Link), _) => handle_osu_link(&ctx, command, config).await,
-        (_, Some(ConfigLink::Link)) => handle_twitch_link(&ctx, command, config).await,
-        (_, _) => handle_no_links(&ctx, command, config).await,
+        (Some(ConfigLink::Link), _) => handle_osu_link(&ctx, command, config)
+            .await
+            .wrap_err("failed to handle osu link"),
+        (_, Some(ConfigLink::Link)) => handle_twitch_link(&ctx, command, config)
+            .await
+            .wrap_err("failed to handle twitch link"),
+        (_, _) => handle_no_links(&ctx, command, config)
+            .await
+            .wrap_err("failed to handle no links"),
     }
 }
 
@@ -249,7 +254,7 @@ async fn handle_both_links(
     ctx: &Context,
     command: InteractionCommand,
     mut config: UserConfig,
-) -> BotResult<()> {
+) -> Result<()> {
     let osu_fut = ctx.auth_standby.wait_for_osu();
     let twitch_fut = ctx.auth_standby.wait_for_twitch();
 
@@ -283,7 +288,7 @@ async fn handle_both_links(
     if let Err(err) = ctx.psql().insert_user_config(author.id, &config).await {
         let _ = command.error(ctx, GENERAL_ISSUE).await;
 
-        return Err(err);
+        return Err(err.wrap_err("failed to insert user config in database"));
     }
 
     let embed_data = ConfigEmbed::new(author, config, twitch_name);
@@ -297,7 +302,7 @@ async fn handle_twitch_link(
     ctx: &Context,
     command: InteractionCommand,
     mut config: UserConfig,
-) -> BotResult<()> {
+) -> Result<()> {
     let fut = ctx.auth_standby.wait_for_twitch();
 
     let embed = EmbedBuilder::new()
@@ -321,7 +326,7 @@ async fn handle_twitch_link(
     if let Err(err) = ctx.psql().insert_user_config(author.id, &config).await {
         let _ = command.error(ctx, GENERAL_ISSUE).await;
 
-        return Err(err);
+        return Err(err.wrap_err("failed to insert user config in database"));
     }
 
     let embed_data = ConfigEmbed::new(author, config, twitch_name);
@@ -335,7 +340,7 @@ async fn handle_osu_link(
     ctx: &Context,
     command: InteractionCommand,
     mut config: UserConfig,
-) -> BotResult<()> {
+) -> Result<()> {
     let fut = ctx.auth_standby.wait_for_osu();
 
     let embed = EmbedBuilder::new()
@@ -366,7 +371,7 @@ async fn handle_osu_link(
             Err(err) => {
                 let _ = command.error(ctx, TWITCH_API_ISSUE).await;
 
-                return Err(err.into());
+                return Err(err.wrap_err("failed to get twitch user by id"));
             }
         }
     }
@@ -374,7 +379,7 @@ async fn handle_osu_link(
     if let Err(err) = ctx.psql().insert_user_config(author.id, &config).await {
         let _ = command.error(ctx, GENERAL_ISSUE).await;
 
-        return Err(err);
+        return Err(err.wrap_err("failed to insert user config in database"));
     }
 
     let embed_data = ConfigEmbed::new(author, config, twitch_name);
@@ -389,9 +394,9 @@ async fn handle_ephemeral<T>(
     command: &InteractionCommand,
     builder: MessageBuilder<'_>,
     fut: impl Future<Output = Result<T, AuthenticationStandbyError>>,
-) -> Option<BotResult<T>> {
+) -> Option<Result<T>> {
     if let Err(err) = command.update(ctx, &builder).await {
-        return Some(Err(err.into()));
+        return Some(Err(Report::new(err)));
     }
 
     let content = match fut.await {
@@ -411,7 +416,7 @@ async fn handle_no_links(
     ctx: &Context,
     command: InteractionCommand,
     mut config: UserConfig,
-) -> BotResult<()> {
+) -> Result<()> {
     let author = command.user()?;
     let mut twitch_name = None;
 
@@ -425,7 +430,7 @@ async fn handle_no_links(
             Err(err) => {
                 let _ = command.error(ctx, TWITCH_API_ISSUE).await;
 
-                return Err(err.into());
+                return Err(err.wrap_err("failed to get twitch user by id"));
             }
         }
     }
@@ -433,7 +438,7 @@ async fn handle_no_links(
     if let Err(err) = ctx.psql().insert_user_config(author.id, &config).await {
         let _ = command.error(ctx, GENERAL_ISSUE).await;
 
-        return Err(err);
+        return Err(err.wrap_err("failed to insert usre config in database"));
     }
 
     let embed_data = ConfigEmbed::new(author, config, twitch_name);

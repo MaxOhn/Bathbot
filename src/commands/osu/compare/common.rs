@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, fmt::Write, iter, sync::Arc};
 
 use command_macros::command;
-use eyre::Report;
+use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rosu_v2::{
     prelude::{GameMode, OsuError, Score, Username},
@@ -21,7 +21,7 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         get_combined_thumbnail, matcher,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::{CompareTop, AT_LEAST_ONE};
@@ -32,7 +32,7 @@ use super::{CompareTop, AT_LEAST_ONE};
 #[usage("[name1] [name2]")]
 #[example("badewanne3 \"nathan on osu\"")]
 #[group(Osu)]
-async fn prefix_common(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_common(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let args = CompareTop::args(None, args);
 
     top(ctx, msg.into(), args).await
@@ -45,7 +45,7 @@ async fn prefix_common(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotR
 #[example("badewanne3 \"nathan on osu\"")]
 #[alias("commonm")]
 #[group(Mania)]
-async fn prefix_commonmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_commonmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let args = CompareTop::args(Some(GameModeOption::Mania), args);
 
     top(ctx, msg.into(), args).await
@@ -58,7 +58,7 @@ async fn prefix_commonmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[example("badewanne3 \"nathan on osu\"")]
 #[alias("commont")]
 #[group(Taiko)]
-async fn prefix_commontaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_commontaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let args = CompareTop::args(Some(GameModeOption::Taiko), args);
 
     top(ctx, msg.into(), args).await
@@ -71,7 +71,7 @@ async fn prefix_commontaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[example("badewanne3 \"nathan on osu\"")]
 #[aliases("commonc", "commoncatch")]
 #[group(Catch)]
-async fn prefix_commonctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_commonctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let args = CompareTop::args(Some(GameModeOption::Catch), args);
 
     top(ctx, msg.into(), args).await
@@ -86,7 +86,7 @@ async fn extract_name(ctx: &Context, args: &mut CompareTop<'_>) -> NameExtractio
             Ok(None) => {
                 NameExtraction::Content(format!("<@{discord}> is not linked to an osu!profile"))
             }
-            Err(err) => NameExtraction::Err(err),
+            Err(err) => NameExtraction::Err(err.wrap_err("failed to get username")),
         }
     } else {
         NameExtraction::None
@@ -97,7 +97,7 @@ pub(super) async fn top(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     mut args: CompareTop<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let mut name1 = match extract_name(&ctx, &mut args).await {
         NameExtraction::Name(name) => name,
         NameExtraction::Err(err) => {
@@ -144,7 +144,7 @@ pub(super) async fn top(
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to get user config"));
             }
         },
     };
@@ -166,8 +166,9 @@ pub(super) async fn top(
         }
         (Err(err), _) | (_, Err(err)) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get scores");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -266,8 +267,7 @@ pub(super) async fn top(
     let thumbnail = match thumbnail_result {
         Ok(thumbnail) => Some(thumbnail),
         Err(err) => {
-            let report = Report::new(err).wrap_err("failed to combine avatars");
-            warn!("{:?}", report);
+            warn!("{:?}", err.wrap_err("Failed to combine avatars"));
 
             None
         }

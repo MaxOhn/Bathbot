@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
 use command_macros::command;
+use eyre::Result;
 
-use crate::{BotResult, Context};
+use crate::Context;
 
 #[command]
 #[desc("https://youtu.be/xpkkakkDhN4?t=65")]
 #[group(Songs)]
 #[flags(SKIP_DEFER)]
-pub async fn prefix_bombsaway(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+pub async fn prefix_bombsaway(ctx: Arc<Context>, msg: &Message) -> Result<()> {
     let (lyrics, delay) = bombsaway_();
 
     super::song(lyrics, delay, ctx, msg.into()).await

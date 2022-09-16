@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use eyre::Result;
 use rkyv::{Deserialize, Infallible};
 
 use crate::{
@@ -7,10 +8,9 @@ use crate::{
     custom_client::OsuTrackerModsEntry,
     pagination::OsuTrackerModsPagination,
     util::{constants::OSUTRACKER_ISSUE, interaction::InteractionCommand, InteractionCommandExt},
-    BotResult,
 };
 
-pub(super) async fn mods(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+pub(super) async fn mods(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let counts: Vec<OsuTrackerModsEntry> = match ctx.redis().osutracker_stats().await {
         Ok(stats) => stats
             .get()
@@ -21,7 +21,7 @@ pub(super) async fn mods(ctx: Arc<Context>, mut command: InteractionCommand) -> 
         Err(err) => {
             let _ = command.error(&ctx, OSUTRACKER_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get cached osutracker stats"));
         }
     };
 

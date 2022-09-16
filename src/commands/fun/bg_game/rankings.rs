@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, sync::Arc};
 
-use eyre::Report;
+use eyre::Result;
 use hashbrown::HashSet;
 use twilight_model::{channel::Message, id::Id};
 
@@ -9,16 +9,16 @@ use crate::{
     embeds::{RankingEntry, RankingKindData},
     pagination::RankingPagination,
     util::{constants::GENERAL_ISSUE, ChannelExt},
-    BotResult, Context,
+    Context,
 };
 
-pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, global: bool) -> BotResult<()> {
+pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, global: bool) -> Result<()> {
     let mut scores = match ctx.psql().all_bggame_scores().await {
         Ok(scores) => scores,
         Err(err) => {
             let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err);
+            return Err(err.wrap_err("failed to get bggame scores"));
         }
     };
 
@@ -48,8 +48,7 @@ pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, global: bool) -> BotR
                 .unwrap_or_else(|_| "Unknown user".to_owned())
                 .into(),
             Err(err) => {
-                let report = Report::new(err).wrap_err("failed to get osu user");
-                warn!("{report:?}");
+                warn!("{:?}", err.wrap_err("Failed to get osu user"));
 
                 ctx.cache
                     .user(id, |user| user.name.clone())

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use command_macros::command;
+use eyre::{Report, Result};
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{OsuError, User, UserCompact};
 
@@ -17,16 +18,12 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         matcher, ChannelExt, CountryCode,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::RankPp;
 
-pub(super) async fn pp(
-    ctx: Arc<Context>,
-    orig: CommandOrigin<'_>,
-    args: RankPp<'_>,
-) -> BotResult<()> {
+pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> {
     let (name, mode) = name_mode!(ctx, orig, args);
 
     let RankPp {
@@ -90,8 +87,9 @@ pub(super) async fn pp(
             }
             Err(err) => {
                 let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                let report = Report::new(err).wrap_err("failed to get user");
 
-                return Err(err.into());
+                return Err(report);
             }
         };
 
@@ -116,7 +114,7 @@ pub(super) async fn pp(
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to get pp from rank"));
             }
         };
 
@@ -129,8 +127,9 @@ pub(super) async fn pp(
             }
             Err(err) => {
                 let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                let report = Report::new(err).wrap_err("failed to get user");
 
-                return Err(err.into());
+                return Err(report);
             }
         };
 
@@ -159,8 +158,9 @@ pub(super) async fn pp(
             Ok(scores) => (!scores.is_empty()).then(|| scores),
             Err(err) => {
                 let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                let report = Report::new(err).wrap_err("failed to get scores");
 
-                return Err(err.into());
+                return Err(report);
             }
         }
     } else {
@@ -190,7 +190,7 @@ pub(super) async fn pp(
 #[examples("badewanne3 be50", "badewanne3 123")]
 #[alias("reach")]
 #[group(Osu)]
-async fn prefix_rank(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_rank(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RankPp::args(None, args) {
         Ok(args) => pp(ctx, msg.into(), args).await,
         Err(content) => {
@@ -211,7 +211,7 @@ async fn prefix_rank(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotRes
 #[examples("badewanne3 be50", "badewanne3 123")]
 #[alias("rankm", "reachmania", "reachm")]
 #[group(Mania)]
-async fn prefix_rankmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_rankmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RankPp::args(Some(GameModeOption::Mania), args) {
         Ok(args) => pp(ctx, msg.into(), args).await,
         Err(content) => {
@@ -232,7 +232,7 @@ async fn prefix_rankmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> B
 #[examples("badewanne3 be50", "badewanne3 123")]
 #[alias("rankt", "reachtaiko", "reacht")]
 #[group(Taiko)]
-async fn prefix_ranktaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_ranktaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RankPp::args(Some(GameModeOption::Taiko), args) {
         Ok(args) => pp(ctx, msg.into(), args).await,
         Err(content) => {
@@ -253,7 +253,7 @@ async fn prefix_ranktaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> B
 #[examples("badewanne3 be50", "badewanne3 123")]
 #[alias("rankc", "reachctb", "reachc", "rankcatch", "reachcatch")]
 #[group(Catch)]
-async fn prefix_rankctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_rankctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match RankPp::args(Some(GameModeOption::Catch), args) {
         Ok(args) => pp(ctx, msg.into(), args).await,
         Err(content) => {

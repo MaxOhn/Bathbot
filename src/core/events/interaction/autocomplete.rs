@@ -1,7 +1,5 @@
 use std::{mem, sync::Arc};
 
-use eyre::Report;
-
 use crate::{
     commands::{
         help::slash_help,
@@ -20,11 +18,11 @@ pub async fn handle_autocomplete(ctx: Arc<Context>, mut command: InteractionComm
         "help" => slash_help(ctx, command).await,
         "badges" => slash_badges(ctx, command).await,
         "medal" => slash_medal(ctx, command).await,
-        _ => return error!("unknown autocomplete command `{name}`"),
+        _ => return error!("Unknown autocomplete command `{name}`"),
     };
 
     if let Err(err) = res {
-        let wrap = format!("failed to process autocomplete `{name}`");
-        error!("{:?}", Report::new(err).wrap_err(wrap));
+        let wrap = format!("Failed to process autocomplete `{name}`");
+        error!("{:?}", err.wrap_err(wrap));
     }
 }

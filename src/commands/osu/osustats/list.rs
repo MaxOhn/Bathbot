@@ -1,6 +1,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::command;
+use eyre::Result;
 use hashbrown::HashMap;
 use rosu_v2::model::GameMode;
 
@@ -14,7 +15,7 @@ use crate::{
         hasher::SimpleBuildHasher,
         ChannelExt, CountryCode, CowUtils,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::OsuStatsPlayers;
@@ -43,7 +44,7 @@ pub(super) async fn players(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     mut args: OsuStatsPlayers<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let owner = orig.user_id()?;
 
     if matches!(args.mode, None) {
@@ -52,7 +53,7 @@ pub(super) async fn players(
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to get user config"));
             }
         };
     }
@@ -80,7 +81,7 @@ pub(super) async fn players(
         Err(err) => {
             let _ = orig.error(&ctx, OSUSTATS_API_ISSUE).await;
 
-            return Err(err);
+            return Err(err.wrap_err("failed to prepare players"));
         }
     };
 
@@ -131,7 +132,7 @@ pub(super) async fn players(
 async fn prepare_players(
     ctx: &Context,
     params: &mut OsuStatsPlayersArgs,
-) -> BotResult<(
+) -> Result<(
     usize,
     HashMap<usize, Vec<OsuStatsPlayer>, SimpleBuildHasher>,
 )> {
@@ -139,6 +140,7 @@ async fn prepare_players(
 
     // Retrieve page one
     let page = ctx.client().get_country_globals(params).await?;
+
     let len = page.len();
 
     insert(&mut players, 1, page);
@@ -252,7 +254,7 @@ fn insert(
 #[examples("rankr=42 be", "rank=1..5", "fr")]
 #[aliases("osl")]
 #[group(Osu)]
-async fn prefix_osustatslist(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_osustatslist(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match OsuStatsPlayers::args(None, args) {
         Ok(args) => players(ctx, msg.into(), args).await,
         Err(content) => {
@@ -279,11 +281,7 @@ async fn prefix_osustatslist(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -
 #[examples("rankr=42 be", "rank=1..5", "fr")]
 #[aliases("oslm")]
 #[group(Mania)]
-async fn prefix_osustatslistmania(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
+async fn prefix_osustatslistmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match OsuStatsPlayers::args(Some(GameModeOption::Mania), args) {
         Ok(args) => players(ctx, msg.into(), args).await,
         Err(content) => {
@@ -310,11 +308,7 @@ async fn prefix_osustatslistmania(
 #[examples("rankr=42 be", "rank=1..5", "fr")]
 #[aliases("oslt")]
 #[group(Taiko)]
-async fn prefix_osustatslisttaiko(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
+async fn prefix_osustatslisttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match OsuStatsPlayers::args(Some(GameModeOption::Taiko), args) {
         Ok(args) => players(ctx, msg.into(), args).await,
         Err(content) => {
@@ -341,7 +335,7 @@ async fn prefix_osustatslisttaiko(
 #[examples("rankr=42 be", "rank=1..5", "fr")]
 #[aliases("oslc", "osustatslistcatch")]
 #[group(Catch)]
-async fn prefix_osustatslistctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_osustatslistctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match OsuStatsPlayers::args(Some(GameModeOption::Catch), args) {
         Ok(args) => players(ctx, msg.into(), args).await,
         Err(content) => {

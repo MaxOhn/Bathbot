@@ -1,6 +1,6 @@
 use std::{mem, sync::Arc};
 
-use eyre::Report;
+use eyre::Result;
 
 use crate::{
     core::{
@@ -11,9 +11,7 @@ use crate::{
         events::{log_command, ProcessResult},
         BotConfig, Context,
     },
-    error::Error,
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
-    BotResult,
 };
 
 pub async fn handle_command(ctx: Arc<Context>, mut command: InteractionCommand) {
@@ -30,8 +28,8 @@ pub async fn handle_command(ctx: Arc<Context>, mut command: InteractionCommand) 
         Ok(ProcessResult::Success) => info!("Processed slash command `{name}`"),
         Ok(res) => info!("Command `/{name}` was not processed: {res:?}"),
         Err(err) => {
-            let wrap = format!("failed to process slash command `{name}`");
-            error!("{:?}", Report::new(err).wrap_err(wrap));
+            let wrap = format!("Failed to process slash command `{name}`");
+            error!("{:?}", err.wrap_err(wrap));
         }
     }
 }
@@ -40,7 +38,7 @@ async fn process_command(
     ctx: Arc<Context>,
     command: InteractionCommand,
     slash: &SlashCommand,
-) -> BotResult<ProcessResult> {
+) -> Result<ProcessResult> {
     match pre_process_command(&ctx, &command, slash).await? {
         Some(result) => Ok(result),
         None => {
@@ -59,7 +57,7 @@ async fn pre_process_command(
     ctx: &Context,
     command: &InteractionCommand,
     slash: &SlashCommand,
-) -> BotResult<Option<ProcessResult>> {
+) -> Result<Option<ProcessResult>> {
     let guild_id = command.guild_id;
 
     // Only in guilds?
@@ -105,7 +103,7 @@ async fn pre_process_command(
                 let content = "Error while checking authority status";
                 let _ = command.error_callback(ctx, content).await;
 
-                return Err(Error::Authority(Box::new(err)));
+                return Err(err.wrap_err("failed to check authority status"));
             }
         }
     }

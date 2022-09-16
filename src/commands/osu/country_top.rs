@@ -1,6 +1,7 @@
 use std::{fmt::Write, sync::Arc};
 
 use command_macros::{HasMods, HasName, SlashCommand};
+use eyre::Result;
 use rosu_v2::prelude::{GameMods, Username};
 use smallstr::SmallString;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
@@ -17,7 +18,6 @@ use crate::{
         query::{FilterCriteria, Searchable},
         CountryCode, CowUtils, InteractionCommandExt,
     },
-    BotResult,
 };
 
 use super::{HasMods, HasName, ModsResult, ScoreOrder, UsernameFutureResult, UsernameResult};
@@ -87,7 +87,7 @@ impl From<CountryTopOrder> for ScoreOrder {
     }
 }
 
-async fn slash_countrytop(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_countrytop(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let mut args = CountryTop::from_interaction(command.input_data())?;
 
     let mods = match args.mods() {
@@ -119,7 +119,7 @@ async fn slash_countrytop(ctx: Arc<Context>, mut command: InteractionCommand) ->
             UsernameFutureResult::Err(err) => {
                 let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to get username"));
             }
         },
     };
@@ -165,7 +165,7 @@ async fn slash_countrytop(ctx: Arc<Context>, mut command: InteractionCommand) ->
 
             let _ = command.error(&ctx, content).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get osutracker country details"));
         }
     };
 

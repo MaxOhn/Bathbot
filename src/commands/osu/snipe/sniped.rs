@@ -5,7 +5,7 @@ use std::{
 };
 
 use command_macros::command;
-use eyre::Report;
+use eyre::{Report, Result, WrapErr};
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use itertools::Itertools;
 use plotters::{
@@ -24,14 +24,13 @@ use crate::{
     core::commands::CommandOrigin,
     custom_client::SnipeRecent,
     embeds::{EmbedData, SnipedEmbed},
-    error::GraphError,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         datetime::DATE_FORMAT,
         matcher,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::SnipePlayerSniped;
@@ -47,7 +46,7 @@ use super::SnipePlayerSniped;
 #[example("badewanne3")]
 #[alias("snipes")]
 #[group(Osu)]
-async fn prefix_sniped(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+async fn prefix_sniped(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
     let args = match args.next() {
         Some(arg) => match matcher::get_mention_user(arg) {
             Some(id) => SnipePlayerSniped {
@@ -69,7 +68,7 @@ pub(super) async fn player_sniped(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: SnipePlayerSniped<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let name = match username!(ctx, orig, args) {
         Some(name) => name,
         None => match ctx.psql().get_user_osu(orig.user_id()?).await {
@@ -78,7 +77,7 @@ pub(super) async fn player_sniped(
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to get username"));
             }
         },
     };
@@ -94,8 +93,9 @@ pub(super) async fn player_sniped(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -118,7 +118,7 @@ pub(super) async fn player_sniped(
             Err(err) => {
                 let _ = orig.error(&ctx, HUISMETBENEN_ISSUE).await;
 
-                return Err(err.into());
+                return Err(err.wrap_err("failed to get sniper or snipee"));
             }
         }
     } else {
@@ -133,16 +133,13 @@ pub(super) async fn player_sniped(
     let graph = match graphs(user.username.as_str(), &sniper, &snipee, W, H) {
         Ok(graph_option) => graph_option,
         Err(err) => {
-            warn!("{:?}", Report::new(err));
+            warn!("{:?}", err.wrap_err("Failed to create graph"));
 
             None
         }
     };
 
-    let embed_data = SnipedEmbed::new(user, sniper, snipee);
-
-    // Sending the embed
-    let embed = embed_data.build();
+    let embed = SnipedEmbed::new(user, sniper, snipee).build();
     let mut builder = MessageBuilder::new().embed(embed);
 
     if let Some(bytes) = graph {
@@ -163,7 +160,7 @@ pub fn graphs(
     snipee: &[SnipeRecent],
     w: u32,
     h: u32,
-) -> Result<Option<Vec<u8>>, GraphError> {
+) -> Result<Option<Vec<u8>>> {
     if sniper.is_empty() && snipee.is_empty() {
         return Ok(None);
     }
@@ -174,15 +171,16 @@ pub fn graphs(
     {
         let root = BitMapBackend::with_buffer(&mut buf, (w, h)).into_drawing_area();
         let background = RGBColor(19, 43, 33);
-        root.fill(&background)?;
+        root.fill(&background)
+            .wrap_err("failed to fill background")?;
 
         match (sniper.is_empty(), snipee.is_empty()) {
-            (false, true) => draw_sniper(&root, name, sniper)?,
-            (true, false) => draw_snipee(&root, name, snipee)?,
+            (false, true) => draw_sniper(&root, name, sniper).wrap_err("failed to draw sniper")?,
+            (true, false) => draw_snipee(&root, name, snipee).wrap_err("failed to draw snipee")?,
             (false, false) => {
                 let (left, right) = root.split_horizontally(w / 2);
-                draw_sniper(&left, name, sniper)?;
-                draw_snipee(&right, name, snipee)?
+                draw_sniper(&left, name, sniper).wrap_err("failed to draw sniper")?;
+                draw_snipee(&right, name, snipee).wrap_err("failed to draw snipee")?
             }
             (true, true) => unreachable!(),
         }
@@ -191,20 +189,22 @@ pub fn graphs(
     // Encode buf to png
     let mut png_bytes: Vec<u8> = Vec::with_capacity(len);
     let png_encoder = PngEncoder::new(&mut png_bytes);
-    png_encoder.write_image(&buf, w, h, ColorType::Rgb8)?;
+
+    png_encoder
+        .write_image(&buf, w, h, ColorType::Rgb8)
+        .wrap_err("failed to encode image")?;
 
     Ok(Some(png_bytes))
 }
 
 type ContextType<'a> = Cartesian2d<SegmentedCoord<RangedSlice<'a, Date>>, RangedCoordusize>;
-type DrawingError<DB> = Result<(), DrawingAreaErrorKind<<DB as DrawingBackend>::ErrorType>>;
 type PrepareResult<'a> = (Vec<Date>, Vec<(&'a str, Vec<usize>)>);
 
 fn draw_sniper<DB: DrawingBackend>(
     root: &DrawingArea<DB, Shift>,
     name: &str,
     sniper: &[SnipeRecent],
-) -> DrawingError<DB> {
+) -> Result<()> {
     let (dates, sniper) = prepare_sniper(sniper);
 
     let max = sniper
@@ -219,12 +219,15 @@ fn draw_sniper<DB: DrawingBackend>(
         .y_label_area_size(35)
         .margin_right(5)
         .caption(format!("Sniped by {name}"), ("sans-serif", 25, &WHITE))
-        .build_cartesian_2d((&dates[..]).into_segmented(), 0..max + 1)?;
+        .build_cartesian_2d((&dates[..]).into_segmented(), 0..max + 1)
+        .map_err(|e| Report::msg(e.to_string()))
+        .wrap_err("failed to build chart")?;
 
     draw_mesh(&mut chart)?;
 
     for (i, (name, values)) in sniper.into_iter().enumerate() {
-        draw_histogram_block(i, name, &values, &dates, &mut chart)?;
+        draw_histogram_block(i, name, &values, &dates, &mut chart)
+            .wrap_err("failed to draw histogram block")?;
     }
 
     draw_legend(&mut chart)?;
@@ -236,7 +239,7 @@ fn draw_snipee<DB: DrawingBackend>(
     root: &DrawingArea<DB, Shift>,
     name: &str,
     snipee: &[SnipeRecent],
-) -> DrawingError<DB> {
+) -> Result<()> {
     let (dates, snipee) = prepare_snipee(snipee);
 
     let max = snipee
@@ -251,12 +254,15 @@ fn draw_snipee<DB: DrawingBackend>(
         .y_label_area_size(35)
         .margin_right(5)
         .caption(format!("Sniped {name}"), ("sans-serif", 25, &WHITE))
-        .build_cartesian_2d((&dates[..]).into_segmented(), 0..max + 1)?;
+        .build_cartesian_2d((&dates[..]).into_segmented(), 0..max + 1)
+        .map_err(|e| Report::msg(e.to_string()))
+        .wrap_err("failed to build chart")?;
 
     draw_mesh(&mut chart)?;
 
     for (i, (name, values)) in snipee.into_iter().enumerate() {
-        draw_histogram_block(i, name, &values, &dates, &mut chart)?;
+        draw_histogram_block(i, name, &values, &dates, &mut chart)
+            .wrap_err("failed to draw histogram block")?;
     }
 
     draw_legend(&mut chart)?;
@@ -264,9 +270,7 @@ fn draw_snipee<DB: DrawingBackend>(
     Ok(())
 }
 
-fn draw_mesh<DB: DrawingBackend>(
-    chart: &mut ChartContext<'_, DB, ContextType<'_>>,
-) -> DrawingError<DB> {
+fn draw_mesh<DB: DrawingBackend>(chart: &mut ChartContext<'_, DB, ContextType<'_>>) -> Result<()> {
     chart
         .configure_mesh()
         .disable_x_mesh()
@@ -281,6 +285,8 @@ fn draw_mesh<DB: DrawingBackend>(
         .axis_style(RGBColor(7, 18, 14))
         .axis_desc_style(("sans-serif", 20_i32, FontStyle::Bold, &WHITE))
         .draw()
+        .map_err(|e| Report::msg(e.to_string()))
+        .wrap_err("failed to draw mesh")
 }
 
 fn draw_histogram_block<'a, DB: DrawingBackend + 'a>(
@@ -289,7 +295,7 @@ fn draw_histogram_block<'a, DB: DrawingBackend + 'a>(
     values: &[usize],
     dates: &'a [Date],
     chart: &mut ChartContext<'a, DB, ContextType<'a>>,
-) -> DrawingError<DB> {
+) -> Result<()> {
     // Draw block
     let data = values
         .iter()
@@ -303,7 +309,9 @@ fn draw_histogram_block<'a, DB: DrawingBackend + 'a>(
         .style(color.mix(0.75).filled());
 
     chart
-        .draw_series(series)?
+        .draw_series(series)
+        .map_err(|e| Report::msg(e.to_string()))
+        .wrap_err("failed to draw block")?
         .label(name)
         .legend(move |(x, y)| Circle::new((x, y), 4, color.filled()));
 
@@ -315,14 +323,17 @@ fn draw_histogram_block<'a, DB: DrawingBackend + 'a>(
 
     let color = HSLColor(i as f64 * 0.1, 0.5, 0.3);
     let series = Histogram::vertical(chart).data(data).style(color);
-    chart.draw_series(series)?;
+    chart
+        .draw_series(series)
+        .map_err(|e| Report::msg(e.to_string()))
+        .wrap_err("failed to draw border")?;
 
     Ok(())
 }
 
 fn draw_legend<'a, DB: DrawingBackend + 'a>(
     chart: &mut ChartContext<'a, DB, ContextType<'_>>,
-) -> DrawingError<DB> {
+) -> Result<()> {
     chart
         .configure_series_labels()
         .border_style(WHITE.mix(0.6).stroke_width(1))
@@ -330,9 +341,9 @@ fn draw_legend<'a, DB: DrawingBackend + 'a>(
         .position(SeriesLabelPosition::UpperLeft)
         .legend_area_size(13)
         .label_font(("sans-serif", 15, FontStyle::Bold, &WHITE))
-        .draw()?;
-
-    Ok(())
+        .draw()
+        .map_err(|e| Report::msg(e.to_string()))
+        .wrap_err("failed to draw legend")
 }
 
 fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult<'_> {

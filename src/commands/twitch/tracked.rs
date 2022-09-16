@@ -1,22 +1,23 @@
 use std::{fmt::Write, sync::Arc};
 
 use command_macros::command;
+use eyre::Result;
 
 use crate::{
     core::commands::CommandOrigin,
     util::{builder::MessageBuilder, constants::GENERAL_ISSUE},
-    BotResult, Context,
+    Context,
 };
 
 #[command]
 #[desc("List all streams that are tracked in a channel")]
 #[alias("tracked")]
 #[group(Twitch)]
-async fn prefix_trackedstreams(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+async fn prefix_trackedstreams(ctx: Arc<Context>, msg: &Message) -> Result<()> {
     tracked(ctx, msg.into()).await
 }
 
-pub async fn tracked(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> BotResult<()> {
+pub async fn tracked(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
     let twitch_ids = ctx.tracked_users_in(orig.channel_id());
 
     let mut twitch_users: Vec<_> = match ctx.client().get_twitch_users(&twitch_ids).await {
@@ -24,7 +25,7 @@ pub async fn tracked(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> BotResult<()
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get twitch users"));
         }
     };
 

@@ -1,12 +1,13 @@
 use std::{io::Cursor, mem};
 
+use eyre::Result;
 use futures::stream::{FuturesOrdered, StreamExt};
 use image::{
     imageops::FilterType, DynamicImage, GenericImage, GenericImageView, ImageOutputFormat::Png,
 };
 use tokio::time::Duration;
 
-use crate::{BotResult, Context};
+use crate::Context;
 
 pub use self::{
     bitflags::*, boyer_moore::*, country_code::CountryCode, cow::CowUtils, emote::Emote, ext::*,
@@ -230,7 +231,7 @@ pub async fn get_combined_thumbnail<'s>(
     avatar_urls: impl IntoIterator<Item = &'s str>,
     amount: u32,
     width: Option<u32>,
-) -> BotResult<Vec<u8>> {
+) -> Result<Vec<u8>> {
     let width = width.map_or(128, |w| w.max(128));
     let mut combined = DynamicImage::new_rgba8(width, 128);
     let w = (width / amount).min(128);

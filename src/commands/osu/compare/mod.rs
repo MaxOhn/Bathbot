@@ -5,7 +5,7 @@ use std::{
 };
 
 use command_macros::SlashCommand;
-use eyre::Report;
+use eyre::Result;
 use rosu_v2::prelude::Score;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
@@ -14,7 +14,7 @@ use crate::{
     commands::GameModeOption,
     pp::PpCalculator,
     util::{interaction::InteractionCommand, InteractionCommandExt},
-    BotResult, Context,
+    Context,
 };
 
 pub use self::{common::*, most_played::*, profile::*, score::*};
@@ -139,7 +139,7 @@ impl CompareScoreOrder {
                 let calc = match PpCalculator::new(ctx, map_id).await {
                     Ok(calc) => calc,
                     Err(err) => {
-                        warn!("{:?}", Report::new(err));
+                        warn!("{:?}", err.wrap_err("Failed to get pp calculator"));
 
                         return;
                     }
@@ -159,7 +159,7 @@ impl CompareScoreOrder {
                 let calc = match PpCalculator::new(ctx, map_id).await {
                     Ok(calc) => calc,
                     Err(err) => {
-                        warn!("{:?}", Report::new(err));
+                        warn!("{:?}", err.wrap_err("Failed to get pp calculator"));
 
                         return;
                     }
@@ -271,7 +271,7 @@ pub struct CompareMostPlayed<'a> {
     discord2: Option<Id<UserMarker>>,
 }
 
-async fn slash_compare(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_compare(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     match Compare::from_interaction(command.input_data())? {
         Compare::Score(args) => match CompareScoreArgs::try_from(args) {
             Ok(args) => score(ctx, (&mut command).into(), args).await,

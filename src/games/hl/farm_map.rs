@@ -1,6 +1,6 @@
 use std::f32::consts::SQRT_2;
 
-use eyre::Report;
+use eyre::{Report, Result, WrapErr};
 use image::{GenericImageView, ImageBuffer};
 use rand::{prelude::SliceRandom, Rng};
 use time::OffsetDateTime;
@@ -8,7 +8,6 @@ use time::OffsetDateTime;
 use crate::{
     core::{ArchivedBytes, Context},
     custom_client::OsuTrackerIdCount,
-    BotResult,
 };
 
 use super::{kind::GameStateKind, mapset_cover, H, W};
@@ -61,7 +60,7 @@ impl FarmMap {
         entries: &FarmEntries,
         prev_farm: Option<u32>,
         curr_score: u32,
-    ) -> BotResult<Self> {
+    ) -> Result<Self> {
         let archived = entries.get();
 
         let (prev_farm, rng_res) = {
@@ -99,7 +98,7 @@ impl FarmMap {
         Self::new(ctx, map_id, count).await
     }
 
-    pub async fn image(ctx: &Context, mapset1: u32, mapset2: u32) -> BotResult<String> {
+    pub async fn image(ctx: &Context, mapset1: u32, mapset2: u32) -> Result<String> {
         let cover1 = mapset_cover(mapset1);
         let cover2 = mapset_cover(mapset2);
 
@@ -109,10 +108,14 @@ impl FarmMap {
         let (bg_left, bg_right) = tokio::try_join!(
             client.get_mapset_cover(&cover1),
             client.get_mapset_cover(&cover2),
-        )?;
+        )
+        .wrap_err("failed to get mapset cover")?;
 
-        let bg_left = image::load_from_memory(&bg_left)?;
-        let bg_right = image::load_from_memory(&bg_right)?;
+        let bg_left =
+            image::load_from_memory(&bg_left).wrap_err("failed to load left bg from memory")?;
+
+        let bg_right =
+            image::load_from_memory(&bg_right).wrap_err("failed to load right bg from memory")?;
 
         // Combine the images
         let mut blipped = ImageBuffer::new(W, H);
@@ -126,20 +129,24 @@ impl FarmMap {
             *pixel = if x <= W / 2 { left } else { right };
         }
 
-        let content = format!("{mapset1} ~ {mapset2}",);
+        let content = format!("{mapset1} ~ {mapset2}");
 
         GameStateKind::upload_image(ctx, blipped.as_raw(), content).await
     }
 
-    async fn new(ctx: &Context, map_id: u32, farm: u32) -> BotResult<Self> {
+    async fn new(ctx: &Context, map_id: u32, farm: u32) -> Result<Self> {
         let map = match ctx.psql().get_beatmap(map_id, true).await {
             Ok(map) => map,
             Err(_) => {
-                let map = ctx.osu().beatmap().map_id(map_id).await?;
+                let map = ctx
+                    .osu()
+                    .beatmap()
+                    .map_id(map_id)
+                    .await
+                    .wrap_err("failed to request beatmap")?;
 
                 if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-                    let report = Report::new(err).wrap_err("failed to insert map into DB");
-                    warn!("{report:?}");
+                    warn!("{:?}", err.wrap_err("Failed to insert map into database"));
                 }
 
                 map

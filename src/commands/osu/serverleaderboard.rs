@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use command_macros::SlashCommand;
-use eyre::Report;
+use eyre::Result;
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
@@ -12,7 +12,7 @@ use crate::{
     util::{
         constants::GENERAL_ISSUE, interaction::InteractionCommand, Authored, InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
@@ -210,10 +210,7 @@ impl ServerLeaderboardModeKind {
     }
 }
 
-async fn slash_serverleaderboard(
-    ctx: Arc<Context>,
-    mut command: InteractionCommand,
-) -> BotResult<()> {
+async fn slash_serverleaderboard(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = ServerLeaderboard::from_interaction(command.input_data())?;
 
     let kind = match args {
@@ -239,8 +236,7 @@ async fn slash_serverleaderboard(
     let name = match ctx.user_config(owner).await {
         Ok(config) => config.into_username(),
         Err(err) => {
-            let report = Report::new(err).wrap_err("failed to retrieve user config");
-            warn!("{report:?}");
+            warn!("{:?}", err.wrap_err("Failed to get user config"));
 
             None
         }
@@ -251,7 +247,7 @@ async fn slash_serverleaderboard(
         Err(err) => {
             let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err);
+            return Err(err.wrap_err("failed to get osu users stats"));
         }
     };
 

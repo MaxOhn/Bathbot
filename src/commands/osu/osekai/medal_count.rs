@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use eyre::Report;
+use eyre::Result;
 
 use crate::{
     custom_client::MedalCount,
@@ -10,7 +10,7 @@ use crate::{
         constants::OSEKAI_ISSUE, interaction::InteractionCommand, Authored, CountryCode,
         InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::OsekaiMedalCount;
@@ -19,7 +19,7 @@ pub(super) async fn medal_count(
     ctx: Arc<Context>,
     mut command: InteractionCommand,
     args: OsekaiMedalCount,
-) -> BotResult<()> {
+) -> Result<()> {
     let country_code = match args.country {
         Some(country) => {
             if country.len() == 2 {
@@ -46,15 +46,14 @@ pub(super) async fn medal_count(
     let (mut ranking, author_name) = match tokio::join!(osekai_fut, osu_fut) {
         (Ok(ranking), Ok(osu)) => (ranking.to_inner(), osu.map(OsuData::into_username)),
         (Ok(ranking), Err(err)) => {
-            let report = Report::new(err).wrap_err("failed to retrieve user config");
-            warn!("{:?}", report);
+            warn!("{:?}", err.wrap_err("Failed to get username"));
 
             (ranking.to_inner(), None)
         }
         (Err(err), _) => {
             let _ = command.error(&ctx, OSEKAI_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get cached medal count ranking"));
         }
     };
 

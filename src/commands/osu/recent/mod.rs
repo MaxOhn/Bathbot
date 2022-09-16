@@ -1,6 +1,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{HasMods, HasName, SlashCommand};
+use eyre::Result;
 use rosu_v2::prelude::{GameMode, Grade};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
@@ -9,7 +10,7 @@ use crate::{
     commands::{osu::top, GameModeOption, GradeOption},
     database::ListSize,
     util::{interaction::InteractionCommand, InteractionCommandExt},
-    BotResult, Context,
+    Context,
 };
 
 pub use self::{leaderboard::*, list::*, score::*, simulate::*};
@@ -589,7 +590,7 @@ impl From<Rb> for RecentBest {
     }
 }
 
-async fn slash_recent(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_recent(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     match Recent::from_interaction(command.input_data())? {
         Recent::Score(args) => score(ctx, (&mut command).into(), args).await,
         Recent::Best(args) => match TopArgs::try_from(args) {
@@ -606,7 +607,7 @@ async fn slash_recent(ctx: Arc<Context>, mut command: InteractionCommand) -> Bot
     }
 }
 
-async fn slash_rb(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_rb(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Rb::from_interaction(command.input_data())?;
 
     match TopArgs::try_from(RecentBest::from(args)) {

@@ -1,6 +1,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
+use eyre::{Report, Result};
 use rosu_v2::prelude::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
@@ -18,7 +19,7 @@ use crate::{
         interaction::InteractionCommand,
         matcher, InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::OsuStatsCount;
@@ -85,7 +86,7 @@ impl<'m> OsuStatsCount<'m> {
 #[example("badewanne3")]
 #[aliases("osc", "osustatscounts")]
 #[group(Osu)]
-async fn prefix_osustatscount(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+async fn prefix_osustatscount(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let args = OsuStatsCount::args(None, args);
 
     count(ctx, msg.into(), args).await
@@ -103,11 +104,7 @@ async fn prefix_osustatscount(ctx: Arc<Context>, msg: &Message, args: Args<'_>) 
 #[example("badewanne3")]
 #[aliases("oscm", "osustatscountsmania")]
 #[group(Mania)]
-async fn prefix_osustatscountmania(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
+async fn prefix_osustatscountmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let args = OsuStatsCount::args(Some(GameModeOption::Mania), args);
 
     count(ctx, msg.into(), args).await
@@ -125,11 +122,7 @@ async fn prefix_osustatscountmania(
 #[example("badewanne3")]
 #[aliases("osct", "osustatscountstaiko")]
 #[group(Taiko)]
-async fn prefix_osustatscounttaiko(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
+async fn prefix_osustatscounttaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let args = OsuStatsCount::args(Some(GameModeOption::Taiko), args);
 
     count(ctx, msg.into(), args).await
@@ -147,17 +140,13 @@ async fn prefix_osustatscounttaiko(
 #[example("badewanne3")]
 #[aliases("oscc", "osustatscountsctb", "osustatscountcatch")]
 #[group(Catch)]
-async fn prefix_osustatscountctb(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
+async fn prefix_osustatscountctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let args = OsuStatsCount::args(Some(GameModeOption::Catch), args);
 
     count(ctx, msg.into(), args).await
 }
 
-async fn slash_osc(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_osc(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Osc::from_interaction(command.input_data())?;
 
     count(ctx, (&mut command).into(), args.into()).await
@@ -167,7 +156,7 @@ pub(super) async fn count(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: OsuStatsCount<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let (name, mode) = name_mode!(ctx, orig, args);
 
     let user_args = UserArgs::new(name.as_str(), mode);
@@ -181,8 +170,9 @@ pub(super) async fn count(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -194,7 +184,7 @@ pub(super) async fn count(
         Err(err) => {
             let _ = orig.error(&ctx, OSUSTATS_API_ISSUE).await;
 
-            return Err(err);
+            return Err(err.wrap_err("failed to get globals count"));
         }
     };
 

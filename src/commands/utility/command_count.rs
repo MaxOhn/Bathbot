@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
 use command_macros::{command, SlashCommand};
+use eyre::Result;
 use prometheus::core::Collector;
 use twilight_interactions::command::CreateCommand;
 
 use crate::{
-    core::commands::CommandOrigin, pagination::CommandCountPagination, BotResult, Context, util::interaction::InteractionCommand,
+    core::commands::CommandOrigin, pagination::CommandCountPagination,
+    util::interaction::InteractionCommand, Context,
 };
 
 #[derive(CreateCommand, SlashCommand)]
@@ -14,7 +16,7 @@ use crate::{
 /// Display a list of popular commands
 pub struct Commands;
 
-pub async fn slash_commands(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+pub async fn slash_commands(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     commands(ctx, (&mut command).into()).await
 }
 
@@ -22,11 +24,11 @@ pub async fn slash_commands(ctx: Arc<Context>, mut command: InteractionCommand) 
 #[desc("List of popular commands")]
 #[group(Utility)]
 #[flags(SKIP_DEFER)]
-async fn prefix_commands(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+async fn prefix_commands(ctx: Arc<Context>, msg: &Message) -> Result<()> {
     commands(ctx, msg.into()).await
 }
 
-async fn commands(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> BotResult<()> {
+async fn commands(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
     let mut cmds: Vec<_> = ctx.stats.command_counts.message_commands.collect()[0]
         .get_metric()
         .iter()

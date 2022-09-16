@@ -50,25 +50,20 @@ impl Parse for CommandFun {
                 .collect::<Result<Vec<_>>>()?
         };
 
-        // -> BotResult<()>
+        // -> Result<()>
         let ret = match input.parse::<ReturnType>()? {
-            ReturnType::Type(_, t) if t == parse_quote! { BotResult<()> } => t,
+            ReturnType::Type(_, t) if t == parse_quote! { Result<()> } => t,
             ReturnType::Type(_, t) => {
-                return Err(Error::new(t.span(), "expected return type `BotResult<()>`"))
+                return Err(Error::new(t.span(), "expected return type `Result<()>`"))
             }
-            _ => {
-                return Err(Error::new(
-                    name.span(),
-                    "expected return type `BotResult<()>`",
-                ))
-            }
+            _ => return Err(Error::new(name.span(), "expected return type `Result<()>`")),
         };
 
         // { ... }
         let block = input.parse::<Block>()?;
 
         if block.stmts.is_empty() {
-            let message = "block must return `BotResult<()>`";
+            let message = "block must return `Result<()>`";
 
             return Err(Error::new(block.span(), message));
         }

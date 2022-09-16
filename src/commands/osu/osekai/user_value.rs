@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, sync::Arc};
 
-use eyre::Report;
+use eyre::Result;
 use rkyv::{with::DeserializeWith, Archived, Deserialize, Infallible};
 
 use crate::{
@@ -13,7 +13,7 @@ use crate::{
         constants::OSEKAI_ISSUE, interaction::InteractionCommand, Authored, CountryCode,
         InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::UserValue;
@@ -22,7 +22,7 @@ pub(super) async fn count<R>(
     ctx: Arc<Context>,
     command: InteractionCommand,
     country: Option<String>,
-) -> BotResult<()>
+) -> Result<()>
 where
     R: OsekaiRanking<Entry = OsekaiRankingEntry<usize>>,
 {
@@ -55,7 +55,7 @@ where
         Err(err) => {
             let _ = command.error(&ctx, OSEKAI_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get cached osekai ranking"));
         }
     };
 
@@ -77,7 +77,7 @@ pub(super) async fn pp<R>(
     ctx: Arc<Context>,
     command: InteractionCommand,
     country: Option<String>,
-) -> BotResult<()>
+) -> Result<()>
 where
     R: OsekaiRanking<Entry = OsekaiRankingEntry<u32>>,
 {
@@ -111,7 +111,7 @@ where
         Err(err) => {
             let _ = command.error(&ctx, OSEKAI_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get cached osekai ranking"));
         }
     };
 
@@ -190,13 +190,12 @@ async fn send_response(
     mut command: InteractionCommand,
     users: BTreeMap<usize, RankingEntry>,
     data: RankingKindData,
-    osu_result: BotResult<Option<OsuData>>,
-) -> BotResult<()> {
+    osu_result: Result<Option<OsuData>>,
+) -> Result<()> {
     let username = match osu_result {
         Ok(osu) => osu.map(OsuData::into_username),
         Err(err) => {
-            let report = Report::new(err).wrap_err("failed to retrieve user config");
-            warn!("{:?}", report);
+            warn!("{:?}", err.wrap_err("Failed to get username"));
 
             None
         }

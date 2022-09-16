@@ -1,6 +1,7 @@
 use std::fmt::Write;
 
 use command_macros::EmbedData;
+use eyre::{Result, WrapErr};
 use hashbrown::HashMap;
 use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_v2::model::user::User;
@@ -10,7 +11,6 @@ use crate::{
     core::Context,
     custom_client::SnipeRecent,
     embeds::osu,
-    error::PpError,
     pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
@@ -21,7 +21,6 @@ use crate::{
         osu::prepare_beatmap_file,
         CowUtils,
     },
-    BotResult,
 };
 
 #[derive(EmbedData)]
@@ -41,7 +40,7 @@ impl SnipedDiffEmbed {
         pages: &Pages,
         maps: &mut HashMap<u32, Beatmap, SimpleBuildHasher>,
         ctx: &Context,
-    ) -> BotResult<Self> {
+    ) -> Result<Self> {
         let mut description = String::with_capacity(512);
 
         #[allow(clippy::needless_range_loop)]
@@ -53,8 +52,13 @@ impl SnipedDiffEmbed {
                 None => {
                     #[allow(clippy::map_entry)]
                     if !maps.contains_key(&score.map_id) {
-                        let map_path = prepare_beatmap_file(ctx, score.map_id).await?;
-                        let map = Beatmap::from_path(map_path).await.map_err(PpError::from)?;
+                        let map_path = prepare_beatmap_file(ctx, score.map_id)
+                            .await
+                            .wrap_err("failed to prepare map")?;
+
+                        let map = Beatmap::from_path(map_path)
+                            .await
+                            .wrap_err("failed to parse map")?;
 
                         maps.insert(score.map_id, map);
                     }

@@ -1,4 +1,5 @@
 use command_macros::pagination;
+use eyre::Result;
 use rosu_v2::{model::beatmap::Beatmap, prelude::Username};
 use twilight_model::channel::embed::Embed;
 
@@ -6,7 +7,6 @@ use crate::{
     core::Context,
     custom_client::ScraperScore,
     embeds::{EmbedData, LeaderboardEmbed},
-    BotResult,
 };
 
 use super::Pages;
@@ -20,7 +20,7 @@ pub struct LeaderboardPagination {
 }
 
 impl LeaderboardPagination {
-    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> BotResult<Embed> {
+    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
         let scores = self.scores.iter().skip(pages.index).take(pages.per_page);
 
         let embed_fut = LeaderboardEmbed::new(

@@ -1,6 +1,7 @@
 use std::{cmp::Reverse, sync::Arc};
 
 use command_macros::command;
+use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, MedalCompact, OsuError, User};
 use time::OffsetDateTime;
 
@@ -14,7 +15,7 @@ use crate::{
         constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
         matcher,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::MedalRecent;
@@ -29,7 +30,7 @@ use super::MedalRecent;
 #[examples("badewanne3", r#""im a fancy lad""#)]
 #[aliases("mr", "recentmedal")]
 #[group(AllModes)]
-async fn prefix_medalrecent(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> BotResult<()> {
+async fn prefix_medalrecent(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
     let mut args_ = MedalRecent {
         index: args.num.map(|n| n as usize),
         ..Default::default()
@@ -50,7 +51,7 @@ pub(super) async fn recent(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: MedalRecent<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let owner = orig.user_id()?;
 
     let name = match username!(ctx, orig, args) {
@@ -61,7 +62,7 @@ pub(super) async fn recent(
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err);
+                return Err(err.wrap_err("failed to get username"));
             }
         },
     };
@@ -79,13 +80,14 @@ pub(super) async fn recent(
         }
         (Err(err), _) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user");
 
-            return Err(err.into());
+            return Err(report);
         }
         (_, Err(err)) => {
             let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get cached medals"));
         }
     };
 

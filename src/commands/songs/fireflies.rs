@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
 use command_macros::command;
+use eyre::Result;
 
-use crate::{BotResult, Context};
+use crate::Context;
 
 #[command]
 #[desc("https://youtu.be/psuRGfAaju4?t=25")]
 #[group(Songs)]
 #[flags(SKIP_DEFER)]
-async fn prefix_fireflies(ctx: Arc<Context>, msg: &Message) -> BotResult<()> {
+async fn prefix_fireflies(ctx: Arc<Context>, msg: &Message) -> Result<()> {
     let (lyrics, delay) = fireflies_();
 
     super::song(lyrics, delay, ctx, msg.into()).await

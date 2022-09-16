@@ -1,13 +1,14 @@
-use crate::{core::AssignRoles, BotResult, Database};
-
+use eyre::Result;
 use flurry::HashMap as FlurryMap;
 use futures::stream::StreamExt;
+
+use crate::{core::AssignRoles, Database};
 
 type AssignRolesMap = FlurryMap<(u64, u64), AssignRoles>;
 
 impl Database {
     #[cold]
-    pub async fn get_role_assigns(&self) -> BotResult<AssignRolesMap> {
+    pub async fn get_role_assigns(&self) -> Result<AssignRolesMap> {
         let mut stream = sqlx::query!("SELECT * FROM role_assigns").fetch(&self.pool);
         let assigns = AssignRolesMap::with_capacity(200);
 
@@ -35,7 +36,7 @@ impl Database {
         Ok(assigns)
     }
 
-    pub async fn add_role_assign(&self, channel: u64, message: u64, role: u64) -> BotResult<()> {
+    pub async fn add_role_assign(&self, channel: u64, message: u64, role: u64) -> Result<()> {
         sqlx::query!(
             "INSERT INTO role_assigns \
             VALUES ($1,$2,$3)\
@@ -50,12 +51,7 @@ impl Database {
         Ok(())
     }
 
-    pub async fn remove_role_assign(
-        &self,
-        channel: u64,
-        message: u64,
-        role: u64,
-    ) -> BotResult<bool> {
+    pub async fn remove_role_assign(&self, channel: u64, message: u64, role: u64) -> Result<bool> {
         let result = sqlx::query!(
             "DELETE FROM role_assigns WHERE channel_id=$1 AND message_id=$2 AND role_id=$3",
             channel as i64,

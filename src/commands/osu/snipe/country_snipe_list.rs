@@ -1,7 +1,7 @@
 use std::{borrow::Cow, cmp::Ordering::Equal, sync::Arc};
 
 use command_macros::command;
-use eyre::Report;
+use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, OsuError};
 
 use crate::{
@@ -13,7 +13,7 @@ use crate::{
         constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         ChannelExt, CountryCode, CowUtils,
     },
-    BotResult, Context,
+    Context,
 };
 
 use super::{SnipeCountryList, SnipeCountryListOrder};
@@ -38,11 +38,7 @@ use super::{SnipeCountryList, SnipeCountryListOrder};
 #[example("global sort=stars", "fr sort=weighted", "sort=pp")]
 #[aliases("csl", "countrysnipeleaderboard", "cslb")]
 #[group(Osu)]
-async fn prefix_countrysnipelist(
-    ctx: Arc<Context>,
-    msg: &Message,
-    args: Args<'_>,
-) -> BotResult<()> {
+async fn prefix_countrysnipelist(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match SnipeCountryList::args(args) {
         Ok(args) => country_list(ctx, msg.into(), args).await,
         Err(content) => {
@@ -57,7 +53,7 @@ pub(super) async fn country_list(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     args: SnipeCountryList<'_>,
-) -> BotResult<()> {
+) -> Result<()> {
     let author_id = orig.user_id()?;
 
     // Retrieve author's osu user to check if they're in the list
@@ -75,15 +71,15 @@ pub(super) async fn country_list(
                 }
                 Err(err) => {
                     let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                    let report = Report::new(err).wrap_err("failed to get user");
 
-                    return Err(err.into());
+                    return Err(report);
                 }
             }
         }
         Ok(None) => None,
         Err(err) => {
-            let wrap = "failed to get UserConfig for user {author_id}";
-            warn!("{:?}", Report::new(err).wrap_err(wrap));
+            warn!("{:?}", err.wrap_err("Failed to get username"));
 
             None
         }
@@ -129,7 +125,7 @@ pub(super) async fn country_list(
         Err(err) => {
             let _ = orig.error(&ctx, HUISMETBENEN_ISSUE).await;
 
-            return Err(err.into());
+            return Err(err.wrap_err("failed to get snipe country"));
         }
     };
 

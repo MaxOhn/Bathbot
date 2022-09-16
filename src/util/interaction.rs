@@ -1,3 +1,4 @@
+use eyre::{ContextCompat, Result};
 use twilight_model::{
     application::interaction::{
         application_command::CommandData, message_component::MessageComponentInteractionData,
@@ -11,8 +12,6 @@ use twilight_model::{
     },
     user::User,
 };
-
-use crate::{BotResult, Error};
 
 use super::Authored;
 
@@ -66,12 +65,12 @@ macro_rules! impl_authored {
                     self.guild_id
                 }
 
-                fn user(&self) -> BotResult<&User> {
+                fn user(&self) -> Result<&User> {
                     self.member
                         .as_ref()
                         .and_then(|member| member.user.as_ref())
                         .or(self.user.as_ref())
-                        .ok_or(Error::MissingAuthor)
+                        .wrap_err("expected to member or user")
                 }
             }
         )*

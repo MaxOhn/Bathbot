@@ -1,7 +1,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
-use eyre::Report;
+use eyre::{Report, Result};
 use rosu_v2::prelude::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
@@ -15,10 +15,10 @@ use crate::{
     embeds::{EmbedData, PPMissingEmbed},
     tracking::process_osu_tracking,
     util::{
-        builder::MessageBuilder, constants::OSU_API_ISSUE, matcher, ChannelExt,
-        InteractionCommandExt, interaction::InteractionCommand,
+        builder::MessageBuilder, constants::OSU_API_ISSUE, interaction::InteractionCommand,
+        matcher, ChannelExt, InteractionCommandExt,
     },
-    BotResult, Context,
+    Context,
 };
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
@@ -69,7 +69,7 @@ impl<'m> Pp<'m> {
     }
 }
 
-async fn slash_pp(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResult<()> {
+async fn slash_pp(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Pp::from_interaction(command.input_data())?;
 
     pp(ctx, (&mut command).into(), args).await
@@ -84,7 +84,7 @@ async fn slash_pp(ctx: Arc<Context>, mut command: InteractionCommand) -> BotResu
 #[usage("[username] [number]")]
 #[example("badewanne3 8000")]
 #[group(Osu)]
-pub async fn prefix_pp(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+pub async fn prefix_pp(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match Pp::args(None, args) {
         Ok(args) => pp(ctx, msg.into(), args).await,
         Err(content) => {
@@ -105,7 +105,7 @@ pub async fn prefix_pp(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotR
 #[example("badewanne3 8000")]
 #[alias("ppm")]
 #[group(Mania)]
-pub async fn prefix_ppmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+pub async fn prefix_ppmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match Pp::args(Some(GameModeOption::Mania), args) {
         Ok(args) => pp(ctx, msg.into(), args).await,
         Err(content) => {
@@ -126,7 +126,7 @@ pub async fn prefix_ppmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[example("badewanne3 8000")]
 #[alias("ppt")]
 #[group(Taiko)]
-pub async fn prefix_pptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+pub async fn prefix_pptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match Pp::args(Some(GameModeOption::Taiko), args) {
         Ok(args) => pp(ctx, msg.into(), args).await,
         Err(content) => {
@@ -147,7 +147,7 @@ pub async fn prefix_pptaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 #[example("badewanne3 8000")]
 #[aliases("ppc", "ppcatch")]
 #[group(Catch)]
-pub async fn prefix_ppctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> BotResult<()> {
+pub async fn prefix_ppctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     match Pp::args(Some(GameModeOption::Catch), args) {
         Ok(args) => pp(ctx, msg.into(), args).await,
         Err(content) => {
@@ -158,7 +158,7 @@ pub async fn prefix_ppctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> B
     }
 }
 
-async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> BotResult<()> {
+async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<()> {
     let (name, mode) = name_mode!(ctx, orig, args);
 
     let Pp { pp, each, .. } = args;
@@ -186,8 +186,9 @@ async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> BotResu
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let report = Report::new(err).wrap_err("failed to get user or scores");
 
-            return Err(err.into());
+            return Err(report);
         }
     };
 
@@ -197,8 +198,7 @@ async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> BotResu
     let rank = match rank_result {
         Ok(rank_pp) => Some(rank_pp),
         Err(err) => {
-            let report = Report::new(err).wrap_err("failed to get rank pp");
-            warn!("{report:?}");
+            warn!("{:?}", err.wrap_err("Failed to get rank pp"));
 
             None
         }

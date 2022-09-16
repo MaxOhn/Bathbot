@@ -1,6 +1,7 @@
 use std::{borrow::Cow, fmt::Write};
 
 use command_macros::EmbedData;
+use eyre::{Result, WrapErr};
 use rosu_pp::{Beatmap as Map, BeatmapExt};
 use rosu_v2::prelude::{Beatmap, GameMode, Grade, Score, User};
 use time::OffsetDateTime;
@@ -10,7 +11,6 @@ use crate::{
     core::Context,
     database::MinimizedPp,
     embeds::osu,
-    error::PpError,
     util::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
@@ -20,7 +20,6 @@ use crate::{
         osu::{flag_url, grade_completion_mods, prepare_beatmap_file, ModSelection},
         CowUtils, ScoreExt,
     },
-    BotResult,
 };
 
 use super::IfFC;
@@ -59,13 +58,19 @@ impl CompareEmbed {
         pinned: bool,
         minimized_pp: MinimizedPp,
         ctx: &Context,
-    ) -> BotResult<Self> {
+    ) -> Result<Self> {
         let user = score.user.as_ref().unwrap();
         let map = score.map.as_ref().unwrap();
         let mapset = score.mapset.as_ref().unwrap();
 
-        let map_path = prepare_beatmap_file(ctx, map.map_id).await?;
-        let rosu_map = Map::from_path(map_path).await.map_err(PpError::from)?;
+        let map_path = prepare_beatmap_file(ctx, map.map_id)
+            .await
+            .wrap_err("failed to prepare map")?;
+
+        let rosu_map = Map::from_path(map_path)
+            .await
+            .wrap_err("failed to parse map")?;
+
         let mods = score.mods.bits();
         let attrs = rosu_map.max_pp(mods);
 
