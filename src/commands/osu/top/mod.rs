@@ -1241,7 +1241,7 @@ fn content_with_condition(args: &TopArgs<'_>, amount: usize) -> String {
     let mut content = String::with_capacity(64);
 
     match args.sort_by {
-        TopScoreOrder::Farm => content.push_str("`Order: Farm`"),
+        TopScoreOrder::Farm => content.push_str("`Order: Farm"),
         TopScoreOrder::Acc => content.push_str("`Order: Accuracy"),
         TopScoreOrder::Bpm => content.push_str("`Order: BPM"),
         TopScoreOrder::Combo => content.push_str("`Order: Combo"),
