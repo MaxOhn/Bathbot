@@ -1,11 +1,10 @@
 use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::embed::{Embed, EmbedField};
 
 use crate::{
     commands::osu::MedalAchieved,
     custom_client::{OsekaiComment, OsekaiMap, OsekaiMedal},
-    embeds::EmbedFields,
     util::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
         constants::{FIELD_VALUE_SIZE, OSU_BASE},
@@ -17,7 +16,7 @@ use crate::{
 #[derive(Clone)]
 pub struct MedalEmbed {
     achieved: Option<(AuthorBuilder, FooterBuilder, OffsetDateTime)>,
-    fields: EmbedFields,
+    fields: Vec<EmbedField>,
     thumbnail: String,
     title: String,
     url: String,
@@ -39,15 +38,18 @@ impl MedalEmbed {
             .map_or_else(|| "Any".to_owned(), |mods| mods.to_string());
 
         let mut fields = Vec::with_capacity(7);
-        fields.push(field!("Description", medal.description, false));
+
+        fields![fields { "Description", medal.description, false }];
 
         if let Some(solution) = medal.solution {
-            fields.push(field!("Solution", solution, false));
+            fields![fields { "Solution", solution, false }];
         }
 
-        fields.push(field!("Mode", mode, true));
-        fields.push(field!("Mods", mods, true));
-        fields.push(field!("Group", medal.grouping.to_string(), true));
+        fields![fields {
+            "Mode", mode, true;
+            "Mods", mods, true;
+            "Group", medal.grouping.to_string(), true;
+        }];
 
         if !maps.is_empty() {
             let len = maps.len();
@@ -78,7 +80,8 @@ impl MedalEmbed {
             }
 
             map_value.pop();
-            fields.push(field!(format!("Beatmaps: {len}"), map_value, false));
+
+            fields![fields { format!("Beatmaps: {len}"), map_value, false }];
         }
 
         if let Some(comment) = comment {
@@ -97,7 +100,7 @@ impl MedalEmbed {
                 content = content.trim(),
             );
 
-            fields.push(field!("Top comment", value, false));
+            fields![fields { "Top comment", value, false }];
         }
 
         let title = medal.name;

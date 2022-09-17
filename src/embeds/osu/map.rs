@@ -7,11 +7,12 @@ use rosu_pp::{
 };
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods};
 use time::OffsetDateTime;
+use twilight_model::channel::embed::EmbedField;
 
 use crate::{
     commands::osu::CustomAttrs,
     core::{BotConfig, Context},
-    embeds::{attachment, EmbedFields},
+    embeds::attachment,
     pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
@@ -32,7 +33,7 @@ pub struct MapEmbed {
     author: AuthorBuilder,
     image: String,
     timestamp: OffsetDateTime,
-    fields: EmbedFields,
+    fields: Vec<EmbedField>,
 }
 
 impl MapEmbed {
@@ -219,8 +220,10 @@ impl MapEmbed {
             let _ = write!(info_name, " +{mods}");
         }
 
-        fields.push(field!(info_name, info_value, true));
-        fields.push(field!("Download", download_value, true));
+        fields![fields {
+            info_name, info_value, true;
+            "Download", download_value, true;
+        }];
 
         let mut field_name = format!(
             ":heart: {}  :play_pause: {}  | {:?}, {:?}",
@@ -234,7 +237,7 @@ impl MapEmbed {
             field_name.push_str(" :underage: NSFW");
         }
 
-        fields.push(field!(field_name, pp_values, false));
+        fields![fields { field_name, pp_values, false }];
 
         let (date_text, timestamp) = if let Some(ranked_date) = mapset.ranked_date {
             (format!("{:?}", map.status), ranked_date)

@@ -3,12 +3,12 @@ use std::{borrow::Cow, cmp::Reverse, fmt::Write};
 use command_macros::EmbedData;
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Grade, Team, Username};
+use twilight_model::channel::embed::EmbedField;
 
 use crate::{
     commands::osu::{
         CommonMap, MatchCompareComparison, MatchCompareScore, ProcessedMatch, UniqueMap,
     },
-    embeds::EmbedFields,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
@@ -24,7 +24,7 @@ pub struct MatchCompareMapEmbed {
     footer: FooterBuilder,
     title: String,
     url: String,
-    fields: EmbedFields,
+    fields: Vec<EmbedField>,
 }
 
 impl MatchCompareMapEmbed {
@@ -53,40 +53,24 @@ impl MatchCompareMapEmbed {
             MatchCompareComparison::Both => {
                 let team_scores = team_scores(&map, &match_1, &match_2);
 
-                vec![
-                    field!(
-                        match_1,
-                        prepare_scores(&map.match_1, map.match_1_scores, users, false),
-                        false
-                    ),
-                    field!(
-                        match_2,
-                        prepare_scores(&map.match_2, map.match_2_scores, users, false),
-                        false
-                    ),
-                    field!("Total team scores", team_scores, false),
+                fields![
+                    match_1, prepare_scores(&map.match_1, map.match_1_scores, users, false), false;
+                    match_2, prepare_scores(&map.match_2, map.match_2_scores, users, false), false;
+                    "Total team scores", team_scores, false;
                 ]
             }
             MatchCompareComparison::Players => {
-                vec![
-                    field!(
-                        match_1,
-                        prepare_scores(&map.match_1, map.match_1_scores, users, true),
-                        false
-                    ),
-                    field!(
-                        match_2,
-                        prepare_scores(&map.match_2, map.match_2_scores, users, true),
-                        false
-                    ),
+                fields![
+                    match_1, prepare_scores(&map.match_1, map.match_1_scores, users, true), false;
+                    match_2, prepare_scores(&map.match_2, map.match_2_scores, users, true), false;
                 ]
             }
             MatchCompareComparison::Teams => {
-                vec![field!(
+                fields![
                     "Total team scores",
                     team_scores(&map, &match_1, &match_2),
                     false
-                )]
+                ]
             }
         };
 

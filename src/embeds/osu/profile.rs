@@ -10,7 +10,7 @@ use twilight_model::{
 
 use crate::{
     commands::osu::ProfileResult,
-    embeds::{attachment, EmbedFields},
+    embeds::attachment,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         datetime::{how_long_ago_text, sec_to_minsec, DATETIME_FORMAT},
@@ -25,7 +25,7 @@ use crate::{
 pub struct ProfileEmbed {
     author: AuthorBuilder,
     description: String,
-    fields: EmbedFields,
+    fields: Vec<EmbedField>,
     footer: FooterBuilder,
     image: String,
     thumbnail: String,
@@ -155,7 +155,7 @@ impl ProfileEmbed {
             }
 
             let _ = write!(combo, " [{} - {}]", values.combo.min(), values.combo.max());
-            fields.push(field!("Averages of top 100 scores", avg_string, false));
+            fields![fields { "Averages of top 100 scores", avg_string, false }];
 
             let mult_mods = values.mod_combs_count.is_some();
 
@@ -170,7 +170,7 @@ impl ProfileEmbed {
                     let _ = write!(value, " > `{mods} {count}%`");
                 }
 
-                fields.push(field!("Favourite mod combinations", value, false));
+                fields![fields  { "Favourite mod combinations", value, false }];
             }
 
             fields.reserve_exact(5);
@@ -184,7 +184,7 @@ impl ProfileEmbed {
                 let _ = write!(value, " > `{mods} {count}%`");
             }
 
-            fields.push(field!("Favourite mods", value, false));
+            fields![fields { "Favourite mods", value, false }];
             let len = values.mod_combs_pp.len();
             let mut value = String::with_capacity(len * 15);
             let mut iter = values.mod_combs_pp.iter();
@@ -201,7 +201,7 @@ impl ProfileEmbed {
                 "PP earned with mod"
             };
 
-            fields.push(field!(name, value, false));
+            fields![fields { name, value, false }];
 
             let ranked_count = user.ranked_mapset_count.unwrap()
                 + user.loved_mapset_count.unwrap()
@@ -225,7 +225,7 @@ impl ProfileEmbed {
                     let _ = writeln!(mapper_stats, "Own maps in top scores: {own_top_scores}");
                 }
 
-                fields.push(field!("Mapsets from player", mapper_stats, false));
+                fields![fields { "Mapsets from player", mapper_stats, false }];
             }
 
             let len = mapper_names.values().map(|name| name.len() + 12).sum();
@@ -245,7 +245,7 @@ impl ProfileEmbed {
                 let _ = writeln!(value, "{name}: {pp:.2}pp ({count})");
             }
 
-            fields.push(field!("Mappers in top 100", value, true));
+            fields![fields { "Mappers in top 100", value, true }];
 
             let count_len = globals_count
                 .iter()
@@ -259,7 +259,7 @@ impl ProfileEmbed {
             }
 
             count_str.push_str("```");
-            fields.push(field!("Global leaderboards", count_str, true));
+            fields![fields { "Global leaderboards", count_str, true }];
         } else {
             description.push_str("\n\n No Top scores");
         }
@@ -286,70 +286,38 @@ fn footer_text(user: &User) -> String {
 fn main_fields(user: &User, stats: &UserStatistics, bonus_pp: f32) -> Vec<EmbedField> {
     let level = stats.level.float();
 
-    vec![
-        field!(
-            "Ranked score",
-            with_comma_int(stats.ranked_score).to_string(),
-            true
-        ),
-        field!("Accuracy", format!("{:.2}%", stats.accuracy), true),
-        field!(
-            "Max combo",
-            with_comma_int(stats.max_combo).to_string(),
-            true
-        ),
-        field!(
-            "Total score",
-            with_comma_int(stats.total_score).to_string(),
-            true
-        ),
-        field!("Level", format!("{:.2}", level), true),
-        field!(
-            "Medals",
-            format!("{}", user.medals.as_ref().unwrap().len()),
-            true
-        ),
-        field!(
-            "Total hits",
-            with_comma_int(stats.total_hits).to_string(),
-            true
-        ),
-        field!("Bonus PP", format!("{bonus_pp}pp"), true),
-        field!(
-            "Followers",
-            with_comma_int(user.follower_count.unwrap_or(0)).to_string(),
-            true
-        ),
-        field!(
-            "Grades",
-            format!(
-                "{}{} {}{} {}{} {}{} {}{}",
-                grade_emote(Grade::XH),
-                stats.grade_counts.ssh,
-                grade_emote(Grade::X),
-                stats.grade_counts.ss,
-                grade_emote(Grade::SH),
-                stats.grade_counts.sh,
-                grade_emote(Grade::S),
-                stats.grade_counts.s,
-                grade_emote(Grade::A),
-                stats.grade_counts.a,
-            ),
-            false
-        ),
-        field!(
-            "Play count / time",
-            format!(
-                "{} / {} hrs",
-                with_comma_int(stats.playcount),
-                stats.playtime / 60 / 60
-            ),
-            true
-        ),
-        field!(
-            "Replays watched",
-            with_comma_int(stats.replays_watched).to_string(),
-            true
-        ),
+    let grades_value = format!(
+        "{}{} {}{} {}{} {}{} {}{}",
+        grade_emote(Grade::XH),
+        stats.grade_counts.ssh,
+        grade_emote(Grade::X),
+        stats.grade_counts.ss,
+        grade_emote(Grade::SH),
+        stats.grade_counts.sh,
+        grade_emote(Grade::S),
+        stats.grade_counts.s,
+        grade_emote(Grade::A),
+        stats.grade_counts.a,
+    );
+
+    let playcount_value = format!(
+        "{} / {} hrs",
+        with_comma_int(stats.playcount),
+        stats.playtime / 60 / 60
+    );
+
+    fields![
+        "Ranked score", with_comma_int(stats.ranked_score).to_string(), true;
+        "Accuracy", format!("{:.2}%", stats.accuracy), true;
+        "Max combo", with_comma_int(stats.max_combo).to_string(), true;
+        "Total score", with_comma_int(stats.total_score).to_string(), true;
+        "Level", format!("{:.2}", level), true;
+        "Medals", format!("{}", user.medals.as_ref().unwrap().len()), true;
+        "Total hits", with_comma_int(stats.total_hits).to_string(), true;
+        "Bonus PP", format!("{bonus_pp}pp"), true;
+        "Followers", with_comma_int(user.follower_count.unwrap_or(0)).to_string(), true;
+        "Grades", grades_value, false;
+        "Play count / time", playcount_value, true;
+        "Replays watched", with_comma_int(stats.replays_watched).to_string(), true;
     ]
 }

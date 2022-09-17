@@ -1,22 +1,19 @@
-
-
 use std::{collections::HashSet, fmt::Write};
 
 use command_macros::EmbedData;
 use rosu_v2::prelude::Username;
-
-use crate::embeds::EmbedFields;
+use twilight_model::channel::embed::EmbedField;
 
 #[derive(EmbedData)]
 pub struct UntrackEmbed {
-    fields: EmbedFields,
+    fields: Vec<EmbedField>,
     title: &'static str,
 }
 
 impl UntrackEmbed {
     pub fn new(success: HashSet<Username>, failed: Option<&Username>) -> Self {
         let title = "Top score tracking";
-        let mut fields = EmbedFields::new();
+        let mut fields = Vec::with_capacity(2);
         let mut iter = success.iter();
 
         if let Some(first) = iter.next() {
@@ -28,11 +25,11 @@ impl UntrackEmbed {
                 let _ = write!(value, ", `{}`", name);
             }
 
-            fields.push(field!("No longer tracking:", value, false));
+            fields![fields { "No longer tracking:", value, false }];
         }
 
         if let Some(failed) = failed {
-            fields.push(field!("Failed to untrack:", format!("`{}`", failed), false));
+            fields![fields { "Failed to untrack:", format!("`{}`", failed), false }];
         }
 
         Self { fields, title }

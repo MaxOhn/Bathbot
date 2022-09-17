@@ -1,8 +1,9 @@
 use command_macros::EmbedData;
+use twilight_model::channel::embed::EmbedField;
 
 use crate::{
     custom_client::SnipeCountryStatistics,
-    embeds::{attachment, EmbedFields},
+    embeds::attachment,
     util::{
         builder::FooterBuilder,
         numbers::{round, with_comma_int},
@@ -17,35 +18,31 @@ pub struct CountrySnipeStatsEmbed {
     title: String,
     footer: FooterBuilder,
     image: String,
-    fields: EmbedFields,
+    fields: Vec<EmbedField>,
 }
 
 impl CountrySnipeStatsEmbed {
     pub fn new(country: Option<(String, CountryCode)>, statistics: SnipeCountryStatistics) -> Self {
-        let mut fields = EmbedFields::with_capacity(2);
+        let mut fields = Vec::with_capacity(2);
 
         if let Some(top_gain) = statistics.top_gain {
-            fields.push(field!(
-                "Most gained",
-                format!(
-                    "{} ({:+})",
-                    top_gain.username.cow_escape_markdown(),
-                    top_gain.difference
-                ),
-                true
-            ));
+            let value = format!(
+                "{} ({:+})",
+                top_gain.username.cow_escape_markdown(),
+                top_gain.difference
+            );
+
+            fields![fields { "Most gained", value, true }];
         }
 
         if let Some(top_loss) = statistics.top_loss {
-            fields.push(field!(
-                "Most losses",
-                format!(
-                    "{} ({:+})",
-                    top_loss.username.cow_escape_markdown(),
-                    top_loss.difference
-                ),
-                true
-            ));
+            let value = format!(
+                "{} ({:+})",
+                top_loss.username.cow_escape_markdown(),
+                top_loss.difference
+            );
+
+            fields![fields { "Most losses", value, true }];
         }
 
         let percent = round(100.0 * statistics.unplayed_maps as f32 / statistics.total_maps as f32);

@@ -2,18 +2,15 @@ use std::collections::HashMap;
 
 use command_macros::EmbedData;
 use rosu_v2::model::user::User;
+use twilight_model::channel::embed::EmbedField;
 
-use crate::{
-    custom_client::SnipeRecent,
-    embeds::{attachment, EmbedFields},
-    util::builder::AuthorBuilder,
-};
+use crate::{custom_client::SnipeRecent, embeds::attachment, util::builder::AuthorBuilder};
 
 #[derive(EmbedData)]
 pub struct SnipedEmbed {
     author: AuthorBuilder,
     description: String,
-    fields: EmbedFields,
+    fields: Vec<EmbedField>,
     image: String,
     thumbnail: String,
     title: &'static str,
@@ -41,7 +38,7 @@ impl SnipedEmbed {
             };
         }
 
-        let mut fields = EmbedFields::with_capacity(2);
+        let mut fields = Vec::with_capacity(2);
 
         if !sniper.is_empty() {
             let mut victims = HashMap::new();
@@ -61,7 +58,7 @@ impl SnipedEmbed {
                 victims.len(),
             );
 
-            fields.push(field!(name, value, false));
+            fields![fields { name, value, false }];
         }
 
         if !snipee.is_empty() {
@@ -82,7 +79,7 @@ impl SnipedEmbed {
                 snipers.len(),
             );
 
-            fields.push(field!(name, value, false));
+            fields![fields { name, value, false }];
         }
 
         Self {
@@ -95,4 +92,3 @@ impl SnipedEmbed {
         }
     }
 }
-

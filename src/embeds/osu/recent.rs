@@ -253,15 +253,11 @@ impl RecentEmbed {
         let pp = osu::get_pp(self.pp, self.max_pp);
         let pp = highlight_funny_numeral(&pp).into_owned();
 
-        let mut fields = vec![
-            field!(
-                "Grade",
-                self.grade_completion_mods.as_ref().to_owned(),
-                true
-            ),
-            field!("Score", score, true),
-            field!("Acc", acc, true),
-            field!("PP", pp, true),
+        let mut fields = fields![
+            "Grade",self.grade_completion_mods.as_ref().to_owned(), true;
+            "Score", score, true;
+            "Acc", acc, true;
+            "PP", pp, true;
         ];
 
         fields.reserve(
@@ -275,17 +271,22 @@ impl RecentEmbed {
 
         let name = if mania { "Combo / Ratio" } else { "Combo" };
 
-        fields.push(field!(name, combo, true));
-        fields.push(field!("Hits", hits, true));
+        fields![fields {
+            name, combo, true;
+            "Hits", hits, true;
+        }];
 
         if let Some((pp, acc, hits)) = &self.if_fc {
             let pp = osu::get_pp(Some(*pp), self.max_pp);
-            fields.push(field!("**If FC**: PP", pp, true));
-            fields.push(field!("Acc", format!("{acc}%"), true));
-            fields.push(field!("Hits", hits.clone(), true));
+
+            fields![fields {
+                "**If FC**: PP", pp, true;
+                "Acc", format!("{acc}%"), true;
+                "Hits", hits.clone(), true;
+            }];
         }
 
-        fields.push(field!("Map Info".to_owned(), self.map_info.clone(), false));
+        fields![fields { "Map Info".to_owned(), self.map_info.clone(), false }];
 
         if let Some(ref vod) = self.twitch_vod {
             let twitch_channel = format!(
@@ -294,10 +295,12 @@ impl RecentEmbed {
                 name = vod.username
             );
 
-            fields.push(field!("Live on twitch", twitch_channel, true));
-
             let vod_hyperlink = format!("[**VOD**]({})", vod.url);
-            fields.push(field!("Liveplay of this score", vod_hyperlink, true));
+
+            fields![fields {
+                "Live on twitch", twitch_channel, true;
+                "Liveplay of this score", vod_hyperlink, true;
+            }];
         }
 
         EmbedBuilder::new()
@@ -354,7 +357,7 @@ impl RecentEmbed {
         let mut title = self.title;
         let _ = write!(title, " [{}★]", self.stars);
 
-        let fields = vec![field!(name, value, false)];
+        let fields = fields![name, value, false];
 
         if let Some(ref vod) = self.twitch_vod {
             let _ = write!(

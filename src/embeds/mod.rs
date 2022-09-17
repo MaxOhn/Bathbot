@@ -24,13 +24,43 @@ macro_rules! author {
     }};
 }
 
-macro_rules! field {
-    ($name:expr, $value:expr, $inline:expr) => {
-        twilight_model::channel::embed::EmbedField {
-            name: $name.into(),
-            value: $value,
-            inline: $inline,
-        }
+macro_rules! fields {
+    // Push fields to a vec
+    ($fields:ident {
+        $($name:expr, $value:expr, $inline:expr);+
+    }) => {
+        fields![$fields { $($name, $value, $inline;)+ }]
+    };
+
+    ($fields:ident {
+        $($name:expr, $value:expr, $inline:expr;)+
+    }) => {
+        $(
+            $fields.push(
+                twilight_model::channel::embed::EmbedField {
+                    name: $name.into(),
+                    value: $value,
+                    inline: $inline,
+                }
+            );
+        )+
+    };
+
+    // Create a new vec of fields
+    ($($name:expr, $value:expr, $inline:expr);+) => {
+        fields![$($name, $value, $inline;)+]
+    };
+
+    ($($name:expr, $value:expr, $inline:expr;)+) => {
+        vec![
+            $(
+                twilight_model::channel::embed::EmbedField {
+                    name: $name.into(),
+                    value: $value,
+                    inline: $inline,
+                },
+            )+
+        ]
     };
 }
 
@@ -40,11 +70,9 @@ mod tracking;
 mod twitch;
 mod utility;
 
-use twilight_model::channel::embed::{Embed, EmbedField};
+use twilight_model::channel::embed::Embed;
 
 pub use self::{fun::*, osu::*, tracking::*, twitch::*, utility::*};
-
-type EmbedFields = Vec<EmbedField>;
 
 pub trait EmbedData {
     fn build(self) -> Embed;

@@ -1,15 +1,12 @@
-
 use std::fmt::Write;
 
 use command_macros::EmbedData;
 use rosu_v2::{model::GameMode, prelude::Username};
-
-use crate::embeds::EmbedFields;
-
+use twilight_model::channel::embed::EmbedField;
 
 #[derive(EmbedData)]
 pub struct TrackEmbed {
-    fields: EmbedFields,
+    fields: Vec<EmbedField>,
     title: String,
 }
 
@@ -22,7 +19,7 @@ impl TrackEmbed {
         limit: usize,
     ) -> Self {
         let title = format!("Top score tracking | mode={} | limit={}", mode, limit);
-        let mut fields = EmbedFields::new();
+        let mut fields = Vec::with_capacity(3);
         let mut iter = success.iter();
 
         if let Some(first) = iter.next() {
@@ -34,7 +31,7 @@ impl TrackEmbed {
                 let _ = write!(value, ", `{}`", name);
             }
 
-            fields.push(field!("Now tracking:".to_owned(), value, false));
+            fields![fields { "Now tracking:".to_owned(), value, false }];
         }
 
         let mut iter = failure.iter();
@@ -48,15 +45,11 @@ impl TrackEmbed {
                 let _ = write!(value, ", `{}`", name);
             }
 
-            fields.push(field!("Already tracked:".to_owned(), value, false));
+            fields![fields { "Already tracked:".to_owned(), value, false }];
         }
 
         if let Some(failed) = failed {
-            fields.push(field!(
-                "Failed to track:".to_owned(),
-                format!("`{}`", failed),
-                false
-            ));
+            fields![fields { "Failed to track:".to_owned(), format!("`{}`", failed), false }];
         }
 
         Self { fields, title }

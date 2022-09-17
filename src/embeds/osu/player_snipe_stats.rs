@@ -2,11 +2,12 @@ use std::fmt::Write;
 
 use command_macros::EmbedData;
 use rosu_v2::prelude::{GameMode, Score, User};
+use twilight_model::channel::embed::EmbedField;
 
 use crate::{
     core::Context,
     custom_client::SnipePlayer,
-    embeds::{attachment, osu, EmbedFields},
+    embeds::{attachment, osu},
     pp::PpCalculator,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
@@ -27,7 +28,7 @@ pub struct PlayerSnipeStatsEmbed {
     author: AuthorBuilder,
     footer: FooterBuilder,
     image: String,
-    fields: EmbedFields,
+    fields: Vec<EmbedField>,
 }
 
 impl PlayerSnipeStatsEmbed {
@@ -46,7 +47,7 @@ impl PlayerSnipeStatsEmbed {
         let (description, fields) = if player.count_first == 0 {
             ("No national #1s :(".to_owned(), Vec::new())
         } else {
-            let mut fields = EmbedFields::with_capacity(7);
+            let mut fields = Vec::with_capacity(7);
             let mut description = String::with_capacity(256);
 
             let _ = writeln!(
@@ -55,23 +56,11 @@ impl PlayerSnipeStatsEmbed {
                 player.count_first, player.count_ranked, player.count_loved
             );
 
-            fields.push(field!(
-                "Average PP:",
-                with_comma_float(player.avg_pp).to_string(),
-                true
-            ));
-
-            fields.push(field!(
-                "Average acc:",
-                format!("{:.2}%", player.avg_acc),
-                true
-            ));
-
-            fields.push(field!(
-                "Average stars:",
-                format!("{:.2}★", player.avg_stars),
-                true
-            ));
+            fields![fields {
+                "Average PP:", with_comma_float(player.avg_pp).to_string(), true;
+                "Average acc:", format!("{:.2}%", player.avg_acc), true;
+                "Average stars:", format!("{:.2}★", player.avg_stars), true;
+            }];
 
             if let Some(score) = first_score {
                 let map = score.map.as_ref().unwrap();
@@ -114,7 +103,7 @@ impl PlayerSnipeStatsEmbed {
                     ago = how_long_ago_dynamic(&score.ended_at)
                 );
 
-                fields.push(field!("Oldest national #1:", value, false));
+                fields![fields { "Oldest national #1:", value, false }];
             }
 
             let mut count_mods = player.count_mods.unwrap();
@@ -140,7 +129,7 @@ impl PlayerSnipeStatsEmbed {
                 }
             }
 
-            fields.push(field!("Most used mods:", value, false));
+            fields![fields { "Most used mods:", value, false }];
 
             (description, fields)
         };

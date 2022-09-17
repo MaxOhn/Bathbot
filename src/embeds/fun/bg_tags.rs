@@ -1,8 +1,8 @@
 use command_macros::EmbedData;
+use twilight_model::channel::embed::EmbedField;
 
 use crate::{
     commands::fun::GameDifficulty,
-    embeds::EmbedFields,
     games::bg::{Effects, MapsetTags},
     util::builder::FooterBuilder,
 };
@@ -10,7 +10,7 @@ use crate::{
 #[derive(EmbedData)]
 pub struct BGTagsEmbed {
     description: &'static str,
-    fields: EmbedFields,
+    fields: Vec<EmbedField>,
     footer: FooterBuilder,
     title: String,
 }
@@ -43,10 +43,10 @@ impl BGTagsEmbed {
             "None".to_owned()
         };
 
-        let fields = vec![
-            field!("Included", include_value, true),
-            field!("Excluded", excluded_value, true),
-            field!("Effects", effects_value, true),
+        let fields = fields![
+            "Included", include_value, true;
+            "Excluded", excluded_value, true;
+            "Effects", effects_value, true;
         ];
 
         let description = (amount == 0)

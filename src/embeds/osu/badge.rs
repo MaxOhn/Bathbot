@@ -1,17 +1,18 @@
 use std::fmt::Write;
 
 use command_macros::EmbedData;
+use twilight_model::channel::embed::EmbedField;
 
 use crate::{
     custom_client::{OsekaiBadge, OsekaiBadgeOwner},
-    embeds::{attachment, EmbedFields},
+    embeds::attachment,
     pagination::Pages,
     util::{builder::FooterBuilder, constants::OSU_BASE, datetime::DATE_FORMAT, CowUtils},
 };
 
 #[derive(EmbedData)]
 pub struct BadgeEmbed {
-    fields: EmbedFields,
+    fields: Vec<EmbedField>,
     footer: FooterBuilder,
     image: String,
     thumbnail: String,
@@ -39,10 +40,10 @@ impl BadgeEmbed {
 
         let awarded_at = badge.awarded_at.format(DATE_FORMAT).unwrap();
 
-        let fields = vec![
-            field!("Owners", owners_str, false),
-            field!("Awarded at", awarded_at, true),
-            field!("Name", badge.name.clone(), true),
+        let fields = fields![
+            "Owners", owners_str, false;
+            "Awarded at", awarded_at, true;
+            "Name", badge.name.clone(), true;
         ];
 
         let page = pages.curr_page();

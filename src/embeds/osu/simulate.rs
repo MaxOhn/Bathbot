@@ -334,14 +334,10 @@ impl SimulateEmbed {
             self.combo.to_owned()
         };
 
-        let mut fields = vec![
-            field!(
-                "Grade",
-                self.grade_completion_mods.as_ref().to_owned(),
-                true
-            ),
-            field!("Acc", format!("{}%", self.acc), true),
-            field!("Combo", combo, true),
+        let mut fields = fields![
+            "Grade", self.grade_completion_mods.as_ref().to_owned(), true;
+            "Acc", format!("{}%", self.acc), true;
+            "Combo", combo, true;
         ];
 
         let pp = if let Some(prev_pp) = self.prev_pp {
@@ -350,14 +346,10 @@ impl SimulateEmbed {
             self.pp.to_owned()
         };
 
-        fields.push(field!("PP", pp, true));
+        fields![fields { "PP", pp, true }];
 
         if self.mode == GameMode::Mania {
-            fields.push(field!(
-                "Score",
-                with_comma_int(self.score).to_string(),
-                true
-            ));
+            fields![fields { "Score", with_comma_int(self.score).to_string(), true }];
         } else {
             let hits = if let Some(ref prev_hits) = self.prev_hits {
                 format!("{prev_hits} → {}", &self.hits)
@@ -365,10 +357,10 @@ impl SimulateEmbed {
                 self.hits.to_owned()
             };
 
-            fields.push(field!("Hits", hits, true));
+            fields![fields { "Hits", hits, true }];
         }
 
-        fields.push(field!("Map Info", self.map_info.clone(), false));
+        fields![fields { "Map Info", self.map_info.clone(), false }];
 
         EmbedBuilder::new()
             .fields(fields)
@@ -414,7 +406,7 @@ impl SimulateEmbed {
         let _ = write!(title, " [{}★]", self.stars);
 
         EmbedBuilder::new()
-            .fields(vec![field!(name, value, false)])
+            .fields(fields![name, value, false])
             .thumbnail(self.thumbnail)
             .title(title)
             .url(self.url)

@@ -7,7 +7,7 @@ use twilight_model::channel::embed::EmbedField;
 
 use crate::{
     custom_client::{MedalGroup, MEDAL_GROUPS},
-    embeds::{attachment, EmbedFields},
+    embeds::attachment,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
@@ -20,7 +20,7 @@ use crate::{
 #[derive(EmbedData)]
 pub struct MedalStatsEmbed {
     author: AuthorBuilder,
-    fields: EmbedFields,
+    fields: Vec<EmbedField>,
     footer: FooterBuilder,
     image: String,
     thumbnail: String,
@@ -35,15 +35,12 @@ impl MedalStatsEmbed {
     ) -> Self {
         let mut fields = Vec::with_capacity(5);
         let owned = user.medals.as_ref().unwrap();
-
-        fields.push(field!(
-            "Medals",
-            format!("{} / {}", owned.len(), medals.len()),
-            true
-        ));
-
         let completion = round(100.0 * owned.len() as f32 / medals.len() as f32);
-        fields.push(field!("Completion", format!("{completion}%"), true));
+
+        fields![
+            "Medals", format!("{} / {}", owned.len(), medals.len()), true;
+            "Completion", format!("{completion}%"), true;
+        ];
 
         let oldest = owned.first();
         let newest = owned.last();
@@ -84,13 +81,7 @@ impl MedalStatsEmbed {
                 );
             }
 
-            let field = EmbedField {
-                name: "Corner stone medals".to_owned(),
-                value,
-                inline: false,
-            };
-
-            fields.push(field);
+            fields![fields { "Corner stone medals", value, false }];
         }
 
         if !owned.is_empty() {
@@ -119,11 +110,8 @@ impl MedalStatsEmbed {
                 .map(|group| group.as_str())
                 .for_each(|group| {
                     if let Some((total, owned)) = counts.get(group) {
-                        fields.push(field!(
-                            group.to_string(),
-                            format!("{owned} / {total}"),
-                            true
-                        ));
+                        let value = format!("{owned} / {total}");
+                        fields![fields { group.to_string(), value, true }];
                     }
                 });
         }

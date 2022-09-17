@@ -295,7 +295,7 @@ impl CompareEmbed {
         EmbedBuilder::new()
             .author(self.author)
             .description(self.description)
-            .fields(vec![field![name, value, false]])
+            .fields(fields![name, value, false])
             .thumbnail(self.thumbnail)
             .title(title)
             .url(self.url)
@@ -309,15 +309,11 @@ impl CompareEmbed {
         let pp = osu::get_pp(self.pp, self.max_pp);
         let pp = highlight_funny_numeral(&pp).into_owned();
 
-        let mut fields = vec![
-            field!(
-                "Grade",
-                self.grade_completion_mods.as_ref().to_owned(),
-                true
-            ),
-            field!("Score", score, true),
-            field!("Acc", acc, true),
-            field!("PP", pp, true),
+        let mut fields = fields![
+            "Grade", self.grade_completion_mods.as_ref().to_owned(), true;
+            "Score", score, true;
+            "Acc", acc, true;
+            "PP", pp, true;
         ];
 
         fields.reserve(3);
@@ -327,22 +323,22 @@ impl CompareEmbed {
         let combo = highlight_funny_numeral(&self.combo).into_owned();
         let hits = highlight_funny_numeral(&self.hits).into_owned();
 
-        fields.push(field!(
-            if mania { "Combo / Ratio" } else { "Combo" },
-            combo,
-            true
-        ));
-
-        fields.push(field!("Hits", hits, true));
+        fields![fields {
+            if mania { "Combo / Ratio" } else { "Combo" }, combo, true;
+            "Hits", hits, true;
+        }];
 
         if let Some((pp, acc, hits)) = &self.if_fc {
             let pp = osu::get_pp(Some(*pp), self.max_pp);
-            fields.push(field!("**If FC**: PP", pp, true));
-            fields.push(field!("Acc", format!("{acc}%"), true));
-            fields.push(field!("Hits", hits.clone(), true));
+
+            fields![fields {
+                "**If FC**: PP", pp, true;
+                "Acc", format!("{acc}%"), true;
+                "Hits", hits.clone(), true;
+            }];
         }
 
-        fields.push(field!("Map Info", self.map_info.clone(), false));
+        fields![fields { "Map Info", self.map_info.clone(), false }];
 
         let image = format!(
             "https://assets.ppy.sh/beatmaps/{}/covers/cover.jpg",

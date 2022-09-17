@@ -1,10 +1,11 @@
 use command_macros::EmbedData;
 use rosu_v2::prelude::{GameMode, Score, User};
 use time::OffsetDateTime;
+use twilight_model::channel::embed::EmbedField;
 
 use crate::{
     core::Context,
-    embeds::{osu, EmbedFields},
+    embeds::osu,
     pp::PpCalculator,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
@@ -18,14 +19,14 @@ use crate::{
 
 #[derive(EmbedData)]
 pub struct TrackNotificationEmbed {
-    fields: EmbedFields,
-    description: String,
     author: AuthorBuilder,
-    title: String,
-    url: String,
-    thumbnail: String,
+    description: String,
+    fields: Vec<EmbedField>,
     footer: FooterBuilder,
     timestamp: OffsetDateTime,
+    title: String,
+    thumbnail: String,
+    url: String,
 }
 
 impl TrackNotificationEmbed {
@@ -102,7 +103,7 @@ impl TrackNotificationEmbed {
         Self {
             author,
             description,
-            fields: vec![field!(name, value, false)],
+            fields: fields![name, value, false],
             footer,
             thumbnail: format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id),
             timestamp: score.ended_at,

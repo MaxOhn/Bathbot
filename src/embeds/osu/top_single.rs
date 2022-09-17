@@ -184,35 +184,32 @@ impl TopSingleEmbed {
     pub fn as_maximized(&self) -> Embed {
         let pp = osu::get_pp(self.pp, self.max_pp);
 
-        let mut fields = vec![
-            field!(
-                "Grade",
-                self.grade_completion_mods.as_ref().to_owned(),
-                true
-            ),
-            field!("Score", self.score.clone(), true),
-            field!("Acc", format!("{}%", self.acc), true),
-            field!("PP", pp, true),
+        let mut fields = fields![
+            "Grade", self.grade_completion_mods.as_ref().to_owned(), true;
+            "Score", self.score.clone(), true;
+            "Acc", format!("{}%", self.acc), true;
+            "PP", pp, true;
         ];
 
         let mania = self.hits.chars().filter(|&c| c == '/').count() == 5;
+        let combo_name = if mania { "Combo / Ratio" } else { "Combo" };
 
-        fields.push(field!(
-            if mania { "Combo / Ratio" } else { "Combo" },
-            self.combo.clone(),
-            true
-        ));
-
-        fields.push(field!("Hits", self.hits.clone(), true));
+        fields![fields {
+            combo_name, self.combo.clone(), true;
+            "Hits", self.hits.clone(), true;
+        }];
 
         if let Some((pp, acc, hits)) = &self.if_fc {
             let pp = osu::get_pp(Some(*pp), self.max_pp);
-            fields.push(field!("**If FC**: PP", pp, true));
-            fields.push(field!("Acc", format!("{acc}%"), true));
-            fields.push(field!("Hits", hits.clone(), true));
+
+            fields![fields {
+                "**If FC**: PP", pp, true;
+                "Acc", format!("{acc}%"), true;
+                "Hits", hits.clone(), true;
+            }];
         }
 
-        fields.push(field!("Map Info", self.map_info.clone(), false));
+        fields![fields { "Map Info", self.map_info.clone(), false }];
 
         EmbedBuilder::new()
             .author(&self.author)
@@ -271,7 +268,7 @@ impl TopSingleEmbed {
         EmbedBuilder::new()
             .author(self.author)
             .description(self.description)
-            .fields(vec![field!(name, value, false)])
+            .fields(fields![name, value, false])
             .thumbnail(self.thumbnail)
             .title(title)
             .url(self.url)
