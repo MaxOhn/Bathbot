@@ -41,7 +41,7 @@ impl MedalEmbed {
 
         fields![fields { "Description", medal.description, false }];
 
-        if let Some(solution) = medal.solution {
+        if let Some(solution) = medal.solution.filter(|s| !s.is_empty()) {
             fields![fields { "Solution", solution, false }];
         }
 
