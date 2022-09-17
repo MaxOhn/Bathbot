@@ -683,10 +683,10 @@ struct ModDescriptions(Vec<ModDescription>);
 
 impl ModDescriptions {
     fn mania(scores: &[Score]) -> Self {
-        let mut key_counts = [0_u8; 11];
+        let mut key_counts = [0.0; 11];
         let mut doubletime = 0;
 
-        for score in scores {
+        for (score, i) in scores.iter().zip(0..) {
             doubletime += score.mods.contains(GameMods::DoubleTime) as usize;
 
             let idx = match score.mods.has_key_mod() {
@@ -702,7 +702,7 @@ impl ModDescriptions {
                 _ => score.map.as_ref().unwrap().cs.round() as usize,
             };
 
-            key_counts[idx] += 1;
+            key_counts[idx] += 0.95_f32.powi(i);
         }
 
         let mut mods = Self::default();
@@ -712,7 +712,7 @@ impl ModDescriptions {
         }
 
         let (max, second_max, max_idx) = key_counts.into_iter().enumerate().skip(1).fold(
-            (0, 0, 0),
+            (0.0, 0.0, 0),
             |(mut max, mut second_max, mut max_idx), (i, mut next)| {
                 if next > max {
                     mem::swap(&mut max, &mut next);
@@ -727,7 +727,7 @@ impl ModDescriptions {
             },
         );
 
-        if max as f32 * 0.8 > second_max as f32 {
+        if max * 0.8 > second_max {
             mods.push(ModDescription::Key(max_idx));
         } else {
             mods.push(ModDescription::MultiKey);
