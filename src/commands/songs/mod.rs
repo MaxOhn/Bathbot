@@ -5,6 +5,7 @@ mod ding;
 mod fireandflames;
 mod fireflies;
 mod flamingo;
+mod harumachi;
 mod mylove;
 mod padoru;
 mod pretender;
@@ -33,7 +34,7 @@ use crate::{
 
 pub use self::{
     bombsaway::*, catchit::*, chicago::*, ding::*, fireandflames::*, fireflies::*, flamingo::*,
-    mylove::*, padoru::*, pretender::*, rockefeller::*, saygoodbye::*, startagain::*,
+    harumachi::*, mylove::*, padoru::*, pretender::*, rockefeller::*, saygoodbye::*, startagain::*,
     tijdmachine::*, time_traveler::*, wordsneversaid::*, zenzenzense::*,
 };
 
@@ -102,6 +103,7 @@ pub struct Song {
     [Ding](https://youtu.be/_yWU0lFghxU?t=54), \
     [Fireflies](https://youtu.be/psuRGfAaju4?t=25), \
     [Flamingo](https://youtu.be/la9C0n7jSsI), \
+    [Harumachi Clover](https://youtu.be/H0VkjWBXS2U?t=55), \
     [My Love](https://www.youtube.com/watch?v=V3OPDTwH9os&t=53s), \
     [Padoru](https://youtu.be/u3kRzdSnsTA), \
     [Pretender](https://youtu.be/SBjQ9tuuTJQ?t=83), \
@@ -131,6 +133,8 @@ pub enum SongTitle {
     Fireflies,
     #[option(name = "Flamingo", value = "flamingo")]
     Flamingo,
+    #[option(name = "Harumachi Clover", value = "harumachi")]
+    Harumachi,
     #[option(name = "My Love", value = "mylove")]
     MyLove,
     #[option(name = "Padoru", value = "padoru")]
@@ -164,6 +168,7 @@ impl SongTitle {
             Self::Ding => ding_(),
             Self::Fireflies => fireflies_(),
             Self::Flamingo => flamingo_(),
+            Self::Harumachi => harumachi_(),
             Self::MyLove => mylove_(),
             Self::Padoru => padoru_(),
             Self::Pretender => pretender_(),
