@@ -1,11 +1,7 @@
-/proc_macros/target
-/proc_macros/Cargo.lock
 /target
-config.toml
 .env
-logs
+/logs
 /.vscode
 /resume_data
 /docker-volume
-/card_server/__pycache__
-/card_server/out*
+/backgrounds
