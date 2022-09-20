@@ -317,7 +317,7 @@ impl RankEmbed {
                                     format!(
                                         "Rank #{rank} currently requires **{required_pp}pp**, \
                                         so {name} is missing **{missing}** raw pp.\n\
-                                        Filling up {name}'{genitiv} top100 with {amount} new \
+                                        Filling up {name}'{genitiv} top scores with {amount} new \
                                         {each}pp score{plural} would only lead to {approx}**{top}pp** which \
                                         is still less than {required_pp}pp.",
                                         required_pp = with_comma_float(*required_pp),
