@@ -1029,7 +1029,7 @@ async fn top_graph_index(caption: String, scores: &[Score]) -> Result<Vec<u8>> {
             .label(format!("Max: {max}pp"))
             .legend(EmptyElement::at);
 
-        // TODO: remove?
+        // Draw empty series for additional label
         let iter = (1..)
             .zip(scores)
             .filter_map(|(i, s)| Some((i, s.pp?)))
@@ -1039,7 +1039,7 @@ async fn top_graph_index(caption: String, scores: &[Score]) -> Result<Vec<u8>> {
 
         chart
             .draw_series(series)
-            .wrap_err("failed to draw second area")?
+            .wrap_err("failed to draw empty series")?
             .label(format!("Min: {min}pp"))
             .legend(EmptyElement::at);
 
