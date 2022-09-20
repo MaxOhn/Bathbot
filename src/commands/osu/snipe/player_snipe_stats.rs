@@ -116,10 +116,16 @@ pub(super) async fn player_stats(
         }
     };
 
-    // TODO: dont do this async
-    let graph_fut = async { graphs(&player.count_first_history, &player.count_sr_spread, W, H) };
+    let graph = match graphs(&player.count_first_history, &player.count_sr_spread, W, H) {
+        Ok(graph) => Some(graph),
+        Err(err) => {
+            warn!("{:?}", err.wrap_err("Failed to create graph"));
 
-    let oldest_fut = async {
+            None
+        }
+    };
+
+    let first_score = {
         let valid_oldest = player
             .oldest_first
             .as_ref()
@@ -133,39 +139,23 @@ pub(super) async fn player_stats(
 
             match score_fut.await {
                 Ok(mut score) => match super::prepare_score(&ctx, &mut score.score).await {
-                    Ok(_) => Ok(Some(score.score)),
-                    Err(err) => Err(err),
+                    Ok(_) => Some(score.score),
+                    Err(err) => {
+                        let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+                        let report = Report::new(err).wrap_err("Failed to prepare score");
+
+                        return Err(report);
+                    }
                 },
                 Err(err) => {
                     let report = Report::new(err).wrap_err("Failed to get oldest data");
                     warn!("{report:?}");
 
-                    Ok(None)
+                    None
                 }
             }
         } else {
-            Ok(None)
-        }
-    };
-
-    let (graph_result, first_score_result) = tokio::join!(graph_fut, oldest_fut);
-
-    let graph = match graph_result {
-        Ok(graph) => Some(graph),
-        Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to create graph"));
-
             None
-        }
-    };
-
-    let first_score = match first_score_result {
-        Ok(score) => score,
-        Err(err) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user score");
-
-            return Err(report);
         }
     };
 
