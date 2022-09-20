@@ -145,7 +145,7 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
 
     // Retrieve the user's top scores if required
     let mut scores = if rank_data.with_scores() {
-        let user = rank_data.user_borrow();
+        let user = rank_data.borrow_user();
 
         let scores_fut = ctx
             .osu()
@@ -169,7 +169,7 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
 
     if let Some(ref mut scores) = scores {
         // Process user and their top scores for tracking
-        process_osu_tracking(&ctx, scores, Some(rank_data.user_borrow())).await;
+        process_osu_tracking(&ctx, scores, Some(rank_data.borrow_user())).await;
     }
 
     // Creating the embed
@@ -290,14 +290,7 @@ impl RankData {
         }
     }
 
-    pub fn user_borrow(&self) -> &User {
-        match self {
-            Self::Sub10k { user, .. } => user,
-            Self::Over10k { user, .. } => user,
-        }
-    }
-
-    pub fn user(self) -> User {
+    pub fn borrow_user(&self) -> &User {
         match self {
             Self::Sub10k { user, .. } => user,
             Self::Over10k { user, .. } => user,
