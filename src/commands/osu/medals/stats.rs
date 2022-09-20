@@ -192,7 +192,7 @@ pub fn graph(medals: &[MedalCompact], w: u32, h: u32) -> Result<Option<Vec<u8>>>
             .configure_mesh()
             .disable_x_mesh()
             .x_labels(10)
-            .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month()))
+            .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month() as u8))
             .label_style(("sans-serif", 20, &WHITE))
             .bold_line_style(&WHITE.mix(0.3))
             .axis_style(RGBColor(7, 18, 14))
