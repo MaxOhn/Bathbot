@@ -2,7 +2,7 @@ use std::{mem, sync::Arc};
 
 use crate::{
     commands::help::{handle_help_category, handle_help_component},
-    core::{events::log_command, Context},
+    core::{events::EventKind, Context},
     games::{bg::components::*, hl::components::*},
     pagination::components::*,
     util::interaction::InteractionComponent,
@@ -10,7 +10,7 @@ use crate::{
 
 pub async fn handle_component(ctx: Arc<Context>, mut component: InteractionComponent) {
     let name = mem::take(&mut component.data.custom_id);
-    log_command(&ctx, &component, &name);
+    EventKind::Component.log(&ctx, &component, &name);
     ctx.stats.increment_component(&name);
 
     let res = match name.as_str() {

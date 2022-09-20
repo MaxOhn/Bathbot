@@ -1,5 +1,5 @@
 use std::{
-    fmt::{Display, Error, Formatter},
+    fmt::{Display, Formatter, Result as FmtResult},
     sync::Arc,
 };
 
@@ -27,31 +27,56 @@ enum ProcessResult {
     NoAuthority,
 }
 
-fn log_command(ctx: &Context, cmd: &dyn Authored, name: &str) {
-    let username = cmd
-        .user()
-        .map(|u| u.name.as_str())
-        .unwrap_or("<unknown user>");
-
-    let location = CommandLocation { ctx, cmd };
-    info!("[{location}] {username} invoked `{name}`");
+enum EventKind {
+    Autocomplete,
+    Component,
+    Modal,
+    PrefixCommand,
+    SlashCommand,
 }
 
-struct CommandLocation<'a> {
+impl EventKind {
+    fn log(self, ctx: &Context, orig: &dyn Authored, name: &str) {
+        let location = EventLocation { ctx, orig };
+
+        let username = orig
+            .user()
+            .map(|u| u.name.as_str())
+            .unwrap_or("<unknown user>");
+
+        info!("[{location}] {username} {self} `{name}`");
+    }
+}
+
+impl Display for EventKind {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self {
+            Self::Autocomplete => f.write_str("autocompleted"),
+            Self::Component => f.write_str("used component"),
+            Self::Modal => f.write_str("used modal"),
+            Self::PrefixCommand => f.write_str("used prefix command"),
+            Self::SlashCommand => f.write_str("used slash command"),
+        }
+    }
+}
+
+struct EventLocation<'a> {
     ctx: &'a Context,
-    cmd: &'a dyn Authored,
+    orig: &'a dyn Authored,
 }
 
-impl Display for CommandLocation<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        let guild = match self.cmd.guild_id() {
+impl Display for EventLocation<'_> {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let guild = match self.orig.guild_id() {
             Some(id) => id,
             None => return f.write_str("Private"),
         };
 
         match self.ctx.cache.guild(guild, |g| write!(f, "{}:", g.name())) {
             Ok(Ok(_)) => {
-                let channel_res = self.ctx.cache.channel(self.cmd.channel_id(), |c| {
+                let channel_res = self.ctx.cache.channel(self.orig.channel_id(), |c| {
                     f.write_str(c.name.as_deref().unwrap_or("<uncached channel>"))
                 });
 

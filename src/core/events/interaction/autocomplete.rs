@@ -5,13 +5,13 @@ use crate::{
         help::slash_help,
         osu::{slash_badges, slash_medal},
     },
-    core::{events::log_command, Context},
+    core::{events::EventKind, Context},
     util::interaction::InteractionCommand,
 };
 
 pub async fn handle_autocomplete(ctx: Arc<Context>, mut command: InteractionCommand) {
     let name = mem::take(&mut command.data.name);
-    log_command(&ctx, &command, &name);
+    EventKind::Autocomplete.log(&ctx, &command, &name);
     ctx.stats.increment_autocomplete(&name);
 
     let res = match name.as_str() {

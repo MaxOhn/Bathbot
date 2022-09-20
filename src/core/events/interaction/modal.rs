@@ -1,14 +1,14 @@
 use std::{mem, sync::Arc};
 
 use crate::{
-    core::{events::log_command, Context},
+    core::{events::EventKind, Context},
     pagination::components::handle_pagination_modal,
     util::interaction::InteractionModal,
 };
 
 pub async fn handle_modal(ctx: Arc<Context>, mut modal: InteractionModal) {
     let name = mem::take(&mut modal.data.custom_id);
-    log_command(&ctx, &modal, &name);
+    EventKind::Modal.log(&ctx, &modal, &name);
     ctx.stats.increment_modal(&name);
 
     let res = match name.as_str() {

@@ -17,7 +17,7 @@ use crate::{
 
 use self::parse::*;
 
-use super::{log_command, ProcessResult};
+use super::{EventKind, ProcessResult};
 
 mod parse;
 
@@ -49,7 +49,7 @@ pub async fn handle_message(ctx: Arc<Context>, msg: Message) {
     };
 
     let name = cmd.name();
-    log_command(&ctx, &msg, name);
+    EventKind::PrefixCommand.log(&ctx, &msg, name);
     ctx.stats.increment_message_command(name);
 
     match process_command(ctx, cmd, &msg, stream, num).await {

@@ -8,7 +8,7 @@ use crate::{
             checks::{check_authority, check_ratelimit},
             slash::{SlashCommand, SlashCommands},
         },
-        events::{log_command, ProcessResult},
+        events::{EventKind, ProcessResult},
         BotConfig, Context,
     },
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
@@ -16,7 +16,7 @@ use crate::{
 
 pub async fn handle_command(ctx: Arc<Context>, mut command: InteractionCommand) {
     let name = mem::take(&mut command.data.name);
-    log_command(&ctx, &command, &name);
+    EventKind::SlashCommand.log(&ctx, &command, &name);
     ctx.stats.increment_slash_command(&name);
 
     let slash = match SlashCommands::get().command(&name) {
