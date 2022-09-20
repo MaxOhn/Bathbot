@@ -53,9 +53,43 @@ static HTML_TEMPLATE: Lazy<Handlebars<'static>> = Lazy::new(|| {
 #[command(
     name = "card",
     help = "Create a visual user card containing various fun values about the user.\n\
-    The titles are based on the user's skill set, skill level, and favourite mods.\n\
-    The background is based on the skill level.\n\
-    Note that only the user's top100 is considered while calculating the values."
+    Most skill values are based on the strain value of the official pp calculation. \
+    Only the accuracy values for [catch](https://www.desmos.com/calculator/cg59pywpry) \
+    and [mania](https://www.desmos.com/calculator/b30p1awwft) come from custom formulas \
+    that are based on score accuracy, map OD, object count, and star rating.\n\
+    Note that only the user's top100 is considered while calculating card values.\n\
+    Titles consist of three parts: **prefix**, **mod descriptions**, and **suffix**.\n\n\
+    • The **prefix** is determined by checking the highest skill value \
+    for these thresholds:\n\
+    ```\n\
+    - <10: Newbie      | - <70: Seasoned\n\
+    - <20: Novice      | - <80: Professional\n\
+    - <30: Rookie      | - <85: Expert\n\
+    - <40: Apprentice  | - <90: Master\n\
+    - <50: Advanced    | - <95: Legendary\n\
+    - <60: Outstanding | - otherwise: God\n\
+    ```\n\
+    • The **mod descriptions** are determined by counting mod occurrences in top scores:\n\
+    ```\n\
+    - >70 NM: Mod-Hating | >70 DT / NC: Speedy\n\
+    - <10 NM: Mod-Loving | >70 HD: HD-Abusing / Ghost-Fruits\n\
+    - >70 HR: Ant-Clicking / Zooming / Pea-Catching\n\
+    - otherwise: Versatile\n\
+    ```\n\
+    • The **suffix** is determined by checking how close the skill \
+    values are to each other:\n\
+    __osu!:__\n\
+    - All skills are roughly the same: `All-Rounder`\n\
+    - High accuracy and aim but low speed: `Sniper`\n\
+    - High accuracy and speed but low aim: `Ninja`\n\
+    - High aim and speed but low accuracy: `Gunslinger`\n\
+    - Only high accuracy: `Rhythm Enjoyer`\n\
+    - Only high aim: `Whack-A-Mole`\n\
+    - Only high speed: `Masher`\n\
+    __taiko, catch, and mania:__\n\
+    - All skills are roughly the same: `Gamer`\n\
+    - High accuracy but low strain: `Rhythm Enjoyer`\n\
+    - High strain but low accuracy: `Masher` / `Droplet Dodger`"
 )]
 /// Create a user card
 pub struct Card {
@@ -682,60 +716,6 @@ impl Display for ModDescription {
 struct ModDescriptions(Vec<ModDescription>);
 
 impl ModDescriptions {
-    fn mania(scores: &[Score]) -> Self {
-        let mut key_counts = [0.0; 11];
-        let mut doubletime = 0;
-
-        for (score, i) in scores.iter().zip(0..) {
-            doubletime += score.mods.contains(GameMods::DoubleTime) as usize;
-
-            let idx = match score.mods.has_key_mod() {
-                Some(GameMods::Key1) => 1,
-                Some(GameMods::Key2) => 2,
-                Some(GameMods::Key3) => 3,
-                Some(GameMods::Key4) => 4,
-                Some(GameMods::Key5) => 5,
-                Some(GameMods::Key6) => 6,
-                Some(GameMods::Key7) => 7,
-                Some(GameMods::Key8) => 8,
-                Some(GameMods::Key9) => 9,
-                _ => score.map.as_ref().unwrap().cs.round() as usize,
-            };
-
-            key_counts[idx] += 0.95_f32.powi(i);
-        }
-
-        let mut mods = Self::default();
-
-        if doubletime > 70 {
-            mods.push(ModDescription::Speedy);
-        }
-
-        let (max, second_max, max_idx) = key_counts.into_iter().enumerate().skip(1).fold(
-            (0.0, 0.0, 0),
-            |(mut max, mut second_max, mut max_idx), (i, mut next)| {
-                if next > max {
-                    mem::swap(&mut max, &mut next);
-                    max_idx = i;
-                }
-
-                if next > second_max {
-                    mem::swap(&mut second_max, &mut next);
-                }
-
-                (max, second_max, max_idx)
-            },
-        );
-
-        if max * 0.8 > second_max {
-            mods.push(ModDescription::Key(max_idx));
-        } else {
-            mods.push(ModDescription::MultiKey);
-        }
-
-        mods
-    }
-
     fn new(mode: GameMode, scores: &[Score]) -> Self {
         if mode == GameMode::Mania {
             return Self::mania(scores);
@@ -795,6 +775,60 @@ impl ModDescriptions {
         } else {
             ModDescription::Versatile.into()
         }
+    }
+
+    fn mania(scores: &[Score]) -> Self {
+        let mut key_counts = [0.0; 11];
+        let mut doubletime = 0;
+
+        for (score, i) in scores.iter().zip(0..) {
+            doubletime += score.mods.contains(GameMods::DoubleTime) as usize;
+
+            let idx = match score.mods.has_key_mod() {
+                Some(GameMods::Key1) => 1,
+                Some(GameMods::Key2) => 2,
+                Some(GameMods::Key3) => 3,
+                Some(GameMods::Key4) => 4,
+                Some(GameMods::Key5) => 5,
+                Some(GameMods::Key6) => 6,
+                Some(GameMods::Key7) => 7,
+                Some(GameMods::Key8) => 8,
+                Some(GameMods::Key9) => 9,
+                _ => score.map.as_ref().unwrap().cs.round() as usize,
+            };
+
+            key_counts[idx] += 0.95_f32.powi(i);
+        }
+
+        let mut mods = Self::default();
+
+        if doubletime > 70 {
+            mods.push(ModDescription::Speedy);
+        }
+
+        let (max, second_max, max_idx) = key_counts.into_iter().enumerate().skip(1).fold(
+            (0.0, 0.0, 0),
+            |(mut max, mut second_max, mut max_idx), (i, mut next)| {
+                if next > max {
+                    mem::swap(&mut max, &mut next);
+                    max_idx = i;
+                }
+
+                if next > second_max {
+                    mem::swap(&mut second_max, &mut next);
+                }
+
+                (max, second_max, max_idx)
+            },
+        );
+
+        if max * 0.8 > second_max {
+            mods.push(ModDescription::Key(max_idx));
+        } else {
+            mods.push(ModDescription::MultiKey);
+        }
+
+        mods
     }
 
     fn push(&mut self, desc: ModDescription) {
