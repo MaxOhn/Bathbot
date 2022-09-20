@@ -112,7 +112,7 @@ LIMIT 1)) AS neighbors",
                 let percent = (higher_pp - pp) / (higher_pp - lower_pp);
                 let rank = percent * lower_rank.saturating_sub(higher_rank) as f32;
 
-                Ok(lower_rank + rank as u32)
+                Ok(higher_rank + rank as u32)
             }
         } else if higher_pp < pp {
             Ok(higher_rank)
@@ -217,7 +217,7 @@ LIMIT 1)) AS neighbors",
                 let percent = (lower_rank - rank) as f32 / (lower_rank - higher_rank) as f32;
                 let pp = percent * (higher_pp - lower_pp).max(0.0);
 
-                Ok(higher_pp + pp)
+                Ok(lower_pp + pp)
             }
         } else if higher_rank > rank {
             Ok(higher_pp + 0.01)

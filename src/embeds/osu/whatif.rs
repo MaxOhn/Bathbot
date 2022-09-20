@@ -66,10 +66,13 @@ impl WhatIfEmbed {
                 };
 
                 if let Some(rank) = rank {
+                    let curr_global = stats.global_rank.unwrap_or(0);
+
                     let _ = write!(
                         d,
-                        "\nand they would reach approx. rank #{}.",
-                        with_comma_int(rank.min(stats.global_rank.unwrap_or(0)))
+                        "\nand they would reach approx. rank #{} (+{}).",
+                        with_comma_int(rank.min(curr_global)),
+                        with_comma_int(curr_global.saturating_sub(rank)),
                     );
                 } else {
                     d.push('.');
