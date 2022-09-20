@@ -48,7 +48,7 @@ smallstr = { version = "0.2", features = ["serde"] }
 smallvec = { version = "1.0", features = ["serde"] }
 sqlx = { version = "0.6", default-features = false, features = ["json", "macros", "migrate", "postgres", "runtime-tokio-rustls", "time"] }
 thiserror = { version = "1.0" }
-time = { version = "0.3", features = ["macros", "parsing"] }
+time = { version = "0.3", features = ["parsing"] }
 tokio = { version = "1.20", default-features = false, features = ["fs", "io-util", "macros", "parking_lot", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-stream = { version = "0.1", default-features = false }
 tracing = { version = "0.1" }

@@ -1,6 +1,6 @@
 use std::fmt;
 
-use time::{format_description::FormatItem, macros::format_description};
+use time::format_description::FormatItem;
 use tracing::{Event, Subscriber};
 use tracing_appender::{
     non_blocking::{NonBlocking, WorkerGuard},
@@ -17,20 +17,20 @@ use tracing_subscriber::{
     EnvFilter, FmtSubscriber,
 };
 
-pub fn initialize() -> WorkerGuard {
-    let formatter = format_description!("[year]-[month]-[day] [hour]:[minute]:[second]");
+use crate::util::datetime::DATETIME_FORMAT;
 
+pub fn initialize() -> WorkerGuard {
     let file_appender = rolling::daily("./logs", "bathbot.log");
     let (file_writer, guard) = NonBlocking::new(file_appender);
 
     let file_layer = Layer::default()
-        .event_format(FileEventFormat::new(formatter))
+        .event_format(FileEventFormat::new(DATETIME_FORMAT))
         .with_writer(file_writer);
 
     let subscriber = FmtSubscriber::builder()
         .with_env_filter(EnvFilter::from_default_env())
         .with_target(false)
-        .with_timer(UtcTime::new(formatter))
+        .with_timer(UtcTime::new(DATETIME_FORMAT))
         .finish()
         .with(file_layer);
 
