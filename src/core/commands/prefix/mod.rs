@@ -6,9 +6,12 @@ use once_cell::sync::OnceCell;
 use radix_trie::{Trie, TrieCommon};
 
 use crate::{
-    commands::{fun::*, help::HELP_PREFIX, osu::*, songs::*, tracking::*, twitch::*, utility::*},
+    commands::{fun::*, help::HELP_PREFIX, osu::*, songs::*, twitch::*, utility::*},
     util::Emote,
 };
+
+#[cfg(feature = "osutracking")]
+use crate::commands::tracking::*;
 
 pub use self::{args::Args, command::PrefixCommand, stream::Stream};
 
@@ -17,10 +20,11 @@ mod command;
 mod stream;
 
 macro_rules! prefix_trie {
-    ($($cmd:ident,)*) => {
+    ( $( $( #[ $meta:meta ] )? $cmd:ident ,)* ) => {
         let mut trie = Trie::new();
 
         $(
+            $( #[$meta] )?
             for &name in $cmd.names {
                 if trie.insert(name, &$cmd).is_some() {
                     panic!("duplicate prefix command `{name}`");
@@ -228,13 +232,20 @@ impl PrefixCommands {
                 TOPOLDCTB_PREFIX,
                 TOPOLDMANIA_PREFIX,
                 TOPOLDTAIKO_PREFIX,
+                #[cfg(feature = "osutracking")]
                 TRACK_PREFIX,
+                #[cfg(feature = "osutracking")]
                 TRACKCTB_PREFIX,
+                #[cfg(feature = "osutracking")]
                 TRACKMANIA_PREFIX,
+                #[cfg(feature = "osutracking")]
                 TRACKTAIKO_PREFIX,
                 TRACKEDSTREAMS_PREFIX,
+                #[cfg(feature = "osutracking")]
                 TRACKLIST_PREFIX,
+                #[cfg(feature = "osutracking")]
                 UNTRACK_PREFIX,
+                #[cfg(feature = "osutracking")]
                 UNTRACKALL_PREFIX,
                 WHATIF_PREFIX,
                 WHATIFCTB_PREFIX,

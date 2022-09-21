@@ -9,7 +9,6 @@ use twilight_model::id::{marker::UserMarker, Id};
 use crate::{
     core::commands::CommandOrigin,
     embeds::{EmbedData, RatioEmbed},
-    tracking::process_osu_tracking,
     util::{
         builder::MessageBuilder, constants::OSU_API_ISSUE, interaction::InteractionCommand,
         matcher, InteractionCommandExt,
@@ -93,6 +92,7 @@ async fn ratios(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Ratios<'_>) ->
     let user_args = UserArgs::new(name.as_str(), GameMode::Mania);
     let score_args = ScoreArgs::top(100);
 
+    #[allow(unused_mut)]
     let (mut user, mut scores) =
         match super::get_user_and_scores(&ctx, user_args, &score_args).await {
             Ok((user, scores)) => (user, scores),
@@ -113,7 +113,8 @@ async fn ratios(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Ratios<'_>) ->
     user.mode = GameMode::Mania;
 
     // Process user and their top scores for tracking
-    process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
+    #[cfg(feature = "osutracking")]
+    crate::tracking::process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
     // Accumulate all necessary data
     let embed_data = RatioEmbed::new(user, scores);

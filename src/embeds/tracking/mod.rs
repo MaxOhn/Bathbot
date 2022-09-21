@@ -1,3 +1,5 @@
+#![cfg(feature = "osutracking")]
+
 mod list;
 mod notification;
 mod track;

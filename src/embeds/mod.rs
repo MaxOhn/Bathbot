@@ -64,15 +64,23 @@ macro_rules! fields {
     };
 }
 
+use twilight_model::channel::embed::Embed;
+
+pub use self::{fun::*, osu::*, utility::*};
+
+#[cfg(feature = "osutracking")]
+pub use self::tracking::*;
+
+#[cfg(feature = "twitchtracking")]
+pub use self::twitch::*;
+
 mod fun;
 mod osu;
-mod tracking;
 mod twitch;
 mod utility;
 
-use twilight_model::channel::embed::Embed;
-
-pub use self::{fun::*, osu::*, tracking::*, twitch::*, utility::*};
+#[cfg(feature = "osutracking")]
+mod tracking;
 
 pub trait EmbedData {
     fn build(self) -> Embed;

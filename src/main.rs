@@ -113,13 +113,19 @@ async fn async_main() -> Result<()> {
     let (tx, rx) = oneshot::channel();
     tokio::spawn(server::run_server(server_ctx, rx));
 
-    // Spawn twitch worker
-    let twitch_ctx = Arc::clone(&ctx);
-    tokio::spawn(tracking::twitch_tracking_loop(twitch_ctx));
+    #[cfg(feature = "twitchtracking")]
+    {
+        // Spawn twitch worker
+        let twitch_ctx = Arc::clone(&ctx);
+        tokio::spawn(tracking::twitch_tracking_loop(twitch_ctx));
+    }
 
-    // Spawn osu tracking worker
-    let osu_tracking_ctx = Arc::clone(&ctx);
-    tokio::spawn(tracking::osu_tracking_loop(osu_tracking_ctx));
+    #[cfg(feature = "osutracking")]
+    {
+        // Spawn osu tracking worker
+        let osu_tracking_ctx = Arc::clone(&ctx);
+        tokio::spawn(tracking::osu_tracking_loop(osu_tracking_ctx));
+    }
 
     // Spawn background loop worker
     let background_ctx = Arc::clone(&ctx);
@@ -191,6 +197,7 @@ async fn async_main() -> Result<()> {
     }
 
     // Disable tracking while preparing shutdown
+    #[cfg(feature = "osutracking")]
     ctx.tracking().set_tracking(true);
 
     // Prevent non-minimized msgs from getting minimized

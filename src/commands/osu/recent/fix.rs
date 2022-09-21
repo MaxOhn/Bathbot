@@ -7,7 +7,6 @@ use crate::{
     commands::osu::{get_user_and_scores, prepare_score, unchoke_pp, ScoreArgs, UserArgs},
     core::{commands::CommandOrigin, Context},
     embeds::{EmbedData, FixScoreEmbed},
-    tracking::process_osu_tracking,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -61,6 +60,7 @@ pub(super) async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Recent
     let num = args.index.unwrap_or(1).saturating_sub(1);
     let scores_len = scores.len();
 
+    #[allow(unused_mut)]
     let (mut score, map, user, mut scores) = match scores.into_iter().nth(num) {
         Some(mut score) => {
             let mapset_fut = ctx
@@ -137,7 +137,8 @@ pub(super) async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Recent
     };
 
     // Process tracking
-    process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
+    #[cfg(feature = "osutracking")]
+    crate::tracking::process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
     let gb = ctx.map_garbage_collector(&map);
 

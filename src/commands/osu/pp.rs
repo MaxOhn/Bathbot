@@ -13,7 +13,6 @@ use crate::{
     },
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, PPMissingEmbed},
-    tracking::process_osu_tracking,
     util::{
         builder::MessageBuilder, constants::OSU_API_ISSUE, interaction::InteractionCommand,
         matcher, ChannelExt, InteractionCommandExt,
@@ -205,7 +204,8 @@ async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<
     };
 
     // Process user and their top scores for tracking
-    process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
+    #[cfg(feature = "osutracking")]
+    crate::tracking::process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
     // Accumulate all necessary data
     let embed_data = PPMissingEmbed::new(user, &mut scores, pp, rank, each);

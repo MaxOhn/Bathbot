@@ -6,11 +6,15 @@ pub use self::{
     },
     map_tags::{MapsetTagWrapper, TagRow},
     osu_users::{UserStatsColumn, UserValueRaw},
-    tracking::TrackingUser,
 };
+
+#[cfg(feature = "osutracking")]
+pub use self::tracking::TrackingUser;
 
 mod beatmap;
 mod configs;
 mod map_tags;
 mod osu_users;
+
+#[cfg(feature = "osutracking")]
 mod tracking;

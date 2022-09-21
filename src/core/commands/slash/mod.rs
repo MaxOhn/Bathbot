@@ -6,21 +6,25 @@ use once_cell::sync::OnceCell;
 use radix_trie::{iter::Keys, Trie, TrieCommon};
 use twilight_model::application::command::Command;
 
-use crate::commands::{
-    fun::*, help::*, osu::*, owner::*, songs::*, tracking::*, twitch::*, utility::*,
-};
+use crate::commands::{fun::*, help::*, osu::*, owner::*, songs::*, twitch::*, utility::*};
+
+#[cfg(feature = "osutracking")]
+use crate::commands::tracking::*;
 
 pub use self::command::SlashCommand;
 
 mod command;
 
 macro_rules! slash_trie {
-    ($($cmd:ident => $fun:ident,)*) => {
+    ( $( $( #[$meta:meta] )? $cmd:ident => $fun:ident ,)* ) => {
         use twilight_interactions::command::CreateCommand;
 
         let mut trie = Trie::new();
 
-        $(trie.insert($cmd::NAME, &$fun);)*
+        $(
+            $( #[$meta] )?
+            trie.insert($cmd::NAME, &$fun);
+        )*
 
         SlashCommands(trie)
     }
@@ -94,6 +98,7 @@ impl SlashCommands {
                 Top => TOP_SLASH,
                 TopIf => TOPIF_SLASH,
                 TopOld => TOPOLD_SLASH,
+                #[cfg(feature = "osutracking")]
                 Track => TRACK_SLASH,
                 TrackStream => TRACKSTREAM_SLASH,
                 WhatIf => WHATIF_SLASH,

@@ -293,6 +293,7 @@ impl CustomClient {
         let url = url.as_ref();
         trace!("POST request of url {url}");
 
+        // TODO: use multipart
         let form_body = serde_urlencoded::to_string(form).wrap_err("failed to url encode")?;
 
         let req = Request::builder()

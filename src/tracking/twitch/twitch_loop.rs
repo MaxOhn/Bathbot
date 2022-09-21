@@ -19,12 +19,6 @@ use crate::{
 
 #[cold]
 pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
-    if cfg!(debug_assertions) {
-        info!("Skip twitch tracking on debug");
-
-        return;
-    }
-
     let mut online_streams = HashSet::with_hasher(IntHasher);
     let mut interval = interval(Duration::from_secs(10 * 60));
     interval.tick().await;
@@ -68,6 +62,7 @@ pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
 
         let ids: Vec<_> = streams.iter().map(|s| s.user_id).collect();
 
+        // TODO: IntHasher
         let users: HashMap<_, _> = match ctx.client().get_twitch_users(&ids).await {
             Ok(users) => users.into_iter().map(|u| (u.user_id, u)).collect(),
             Err(err) => {

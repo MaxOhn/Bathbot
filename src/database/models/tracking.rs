@@ -1,3 +1,5 @@
+#![cfg(feature = "osutracking")]
+
 use std::collections::HashMap as StdHashMap;
 
 use eyre::Report;

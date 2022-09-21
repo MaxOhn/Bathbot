@@ -12,7 +12,6 @@ use crate::{
     },
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, RankEmbed},
-    tracking::process_osu_tracking,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -144,6 +143,7 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
     };
 
     // Retrieve the user's top scores if required
+    #[allow(unused_mut)]
     let mut scores = if rank_data.with_scores() {
         let user = rank_data.borrow_user();
 
@@ -167,9 +167,10 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
         None
     };
 
+    #[cfg(feature = "osutracking")]
     if let Some(ref mut scores) = scores {
         // Process user and their top scores for tracking
-        process_osu_tracking(&ctx, scores, Some(rank_data.borrow_user())).await;
+        crate::tracking::process_osu_tracking(&ctx, scores, Some(rank_data.borrow_user())).await;
     }
 
     // Creating the embed

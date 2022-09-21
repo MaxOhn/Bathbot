@@ -34,7 +34,6 @@ use crate::{
     matchlive::MatchLiveChannels,
     pagination::Pagination,
     server::AuthenticationStandby,
-    tracking::OsuTracking,
     util::{hasher::IntHasher, CountryCode},
 };
 
@@ -97,7 +96,8 @@ impl Context {
         RedisCache::new(self)
     }
 
-    pub fn tracking(&self) -> &OsuTracking {
+    #[cfg(feature = "osutracking")]
+    pub fn tracking(&self) -> &crate::tracking::OsuTracking {
         &self.data.osu_tracking
     }
 
@@ -240,7 +240,8 @@ struct ContextData {
     map_garbage_collection: Mutex<HashSet<NonZeroU32, IntHasher>>,
     matchlive: MatchLiveChannels,
     msgs_to_process: Mutex<HashSet<Id<MessageMarker>, IntHasher>>,
-    osu_tracking: OsuTracking,
+    #[cfg(feature = "osutracking")]
+    osu_tracking: crate::tracking::OsuTracking,
     role_assigns: FlurryMap<(u64, u64), AssignRoles>, // read-heavy
     snipe_countries: FlurryMap<CountryCode, String>,  // read-heavy
     tracked_streams: FlurryMap<u64, Vec<u64>, IntHasher>, // read-heavy
@@ -255,7 +256,8 @@ impl ContextData {
             map_garbage_collection: Mutex::new(HashSet::default()),
             matchlive: MatchLiveChannels::new(),
             msgs_to_process: Mutex::new(HashSet::default()),
-            osu_tracking: OsuTracking::new(psql)
+            #[cfg(feature = "osutracking")]
+            osu_tracking: crate::tracking::OsuTracking::new(psql)
                 .await
                 .wrap_err("failed to create osu tracking")?,
             role_assigns: psql

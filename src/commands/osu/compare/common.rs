@@ -16,7 +16,6 @@ use crate::{
     },
     core::commands::{prefix::Args, CommandOrigin},
     pagination::CommonPagination,
-    tracking::process_osu_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         get_combined_thumbnail, matcher,
@@ -152,6 +151,7 @@ pub(super) async fn top(
     let fut1 = get_scores_(&ctx, &name1, mode);
     let fut2 = get_scores_(&ctx, &name2, mode);
 
+    #[allow(unused_mut)]
     let (mut scores1, mut scores2) = match tokio::join!(fut1, fut2) {
         (Ok(scores1), Ok(scores2)) => (scores1, scores2),
         (Err(OsuError::NotFound), _) => {
@@ -204,9 +204,11 @@ pub(super) async fn top(
     }
 
     // Process users and their top scores for tracking
-    let tracking_fut1 = process_osu_tracking(&ctx, &mut scores1, None);
-    let tracking_fut2 = process_osu_tracking(&ctx, &mut scores2, None);
-    tokio::join!(tracking_fut1, tracking_fut2);
+    #[cfg(feature = "osutracking")]
+    tokio::join! {
+        crate::tracking::process_osu_tracking(&ctx, &mut scores1, None),
+        crate::tracking::process_osu_tracking(&ctx, &mut scores2, None),
+    };
 
     let indices: HashMap<_, _> = scores2
         .iter()

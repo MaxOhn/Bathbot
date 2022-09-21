@@ -11,7 +11,6 @@ use crate::{
     commands::osu::{get_user_and_scores, ScoreArgs, UserArgs},
     core::commands::{prefix::Args, CommandOrigin},
     pagination::NoChokePagination,
-    tracking::process_osu_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         interaction::InteractionCommand,
@@ -214,6 +213,7 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
     let user_args = UserArgs::new(name.as_str(), mode);
     let score_args = ScoreArgs::top(100).with_combo();
 
+    #[allow(unused_mut)]
     let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
@@ -233,7 +233,8 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
     user.mode = mode;
 
     // Process user and their top scores for tracking
-    process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
+    #[cfg(feature = "osutracking")]
+    crate::tracking::process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
     let version = version.unwrap_or_default();
 

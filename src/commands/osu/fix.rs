@@ -15,7 +15,6 @@ use twilight_model::{
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, FixScoreEmbed},
-    tracking::process_osu_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         interaction::InteractionCommand,
@@ -277,8 +276,9 @@ async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> R
     };
 
     // Process tracking
+    #[cfg(feature = "osutracking")]
     if let Some((_, best)) = scores.as_mut() {
-        process_osu_tracking(&ctx, best, Some(&user)).await;
+        crate::tracking::process_osu_tracking(&ctx, best, Some(&user)).await;
     }
 
     let gb = ctx.map_garbage_collector(&map);

@@ -1,3 +1,5 @@
+#![cfg(feature = "osutracking")]
+
 use eyre::{Result, WrapErr};
 use futures::stream::StreamExt;
 use hashbrown::HashMap;

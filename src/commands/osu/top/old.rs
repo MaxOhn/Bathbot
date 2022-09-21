@@ -13,7 +13,6 @@ use crate::{
     commands::osu::{get_user_and_scores, require_link, ScoreArgs, ScoreOrder, UserArgs},
     core::commands::{prefix::Args, CommandOrigin},
     pagination::TopIfPagination,
-    tracking::process_osu_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         interaction::InteractionCommand,
@@ -562,6 +561,7 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
     let user_args = UserArgs::new(name.as_str(), mode);
     let score_args = ScoreArgs::top(100).with_combo();
 
+    #[allow(unused_mut)]
     let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
@@ -581,7 +581,8 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
     user.mode = mode;
 
     // Process user and their top scores for tracking
-    process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
+    #[cfg(feature = "osutracking")]
+    crate::tracking::process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
     // Calculate bonus pp
     let actual_pp: f32 = scores

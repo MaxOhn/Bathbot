@@ -21,7 +21,6 @@ use crate::{
     custom_client::TwitchVideo,
     database::{EmbedsSize, MinimizedPp},
     embeds::RecentEmbed,
-    tracking::process_osu_tracking,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -420,6 +419,7 @@ pub(super) async fn score(
         }
     };
 
+    #[allow(unused_mut)]
     let mut best = match best_result {
         None => None,
         Some(Ok(scores)) => Some(scores),
@@ -534,8 +534,9 @@ pub(super) async fn score(
     ctx.map_garbage_collector(map).execute(&ctx);
 
     // Process user and their top scores for tracking
+    #[cfg(feature = "osutracking")]
     if let Some(ref mut scores) = best {
-        process_osu_tracking(&ctx, scores, Some(&user)).await;
+        crate::tracking::process_osu_tracking(&ctx, scores, Some(&user)).await;
     }
 
     Ok(())

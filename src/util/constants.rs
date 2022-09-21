@@ -33,6 +33,8 @@ pub const THREADS_UNAVAILABLE: &str = "Cannot start new thread from here";
 // Discord error codes
 pub const INVALID_ACTION_FOR_CHANNEL_TYPE: u64 = 50024;
 pub const MESSAGE_TOO_OLD_TO_BULK_DELETE: u64 = 50034;
+
+#[cfg(any(feature = "osutracking", feature = "twitchtracking"))]
 pub const UNKNOWN_CHANNEL: u64 = 10003;
 
 // Misc

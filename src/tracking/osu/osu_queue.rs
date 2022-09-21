@@ -18,8 +18,6 @@ use twilight_model::id::{marker::ChannelMarker, Id};
 
 use crate::{database::TrackingUser, util::hasher::IntHasher, Database};
 
-pub use super::{osu_tracking_loop, process_osu_tracking};
-
 static OSU_TRACKING_INTERVAL: OnceCell<Duration> = OnceCell::with_value(Duration::minutes(150));
 
 pub fn default_tracking_interval() -> Duration {

@@ -10,7 +10,6 @@ use crate::{
     commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, WhatIfEmbed},
-    tracking::process_osu_tracking,
     util::{
         builder::MessageBuilder,
         constants::OSU_API_ISSUE,
@@ -204,6 +203,7 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
     let user_args = UserArgs::new(name.as_str(), mode);
     let score_args = ScoreArgs::top(100);
 
+    #[allow(unused_mut)]
     let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
@@ -223,7 +223,8 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
     user.mode = mode;
 
     // Process user and their top scores for tracking
-    process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
+    #[cfg(feature = "osutracking")]
+    crate::tracking::process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
     let whatif_data = if scores.is_empty() {
         let pp = iter::repeat(pp)

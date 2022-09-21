@@ -15,7 +15,6 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     database::{ListSize, MinimizedPp},
     pagination::{TopCondensedPagination, TopPagination, TopSinglePagination},
-    tracking::process_osu_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         hasher::IntHasher,
@@ -234,6 +233,7 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
 
     let user_scores_fut = get_user_and_scores(&ctx, user_args, &score_args);
 
+    #[allow(unused_mut)]
     let (mapper, mut user, mut scores) = match tokio::join!(mapper_fut, user_scores_fut) {
         (Ok(mapper), Ok((user, scores))) => (mapper, user, scores),
         (Err(OsuError::NotFound), _) => {
@@ -258,7 +258,8 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
     user.mode = mode;
 
     // Process user and their top scores for tracking
-    process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
+    #[cfg(feature = "osutracking")]
+    crate::tracking::process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
     let scores: Vec<_> = scores
         .into_iter()

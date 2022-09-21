@@ -23,16 +23,10 @@ use crate::{
     Context,
 };
 
-use super::TrackingEntry;
+use super::osu_queue::TrackingEntry;
 
 #[cold]
 pub async fn osu_tracking_loop(ctx: Arc<Context>) {
-    if cfg!(debug_assertions) {
-        info!("Skip osu! tracking on debug");
-
-        return;
-    }
-
     loop {
         if let Some((entry, amount)) = ctx.tracking().pop().await {
             let TrackingEntry { user_id, mode } = entry;

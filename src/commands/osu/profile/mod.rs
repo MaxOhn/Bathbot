@@ -12,7 +12,6 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::ProfileEmbed,
     pagination::ProfilePagination,
-    tracking::process_osu_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         hasher::IntHasher,
@@ -258,6 +257,7 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
     let user_args = UserArgs::new(name.as_str(), mode);
     let score_args = ScoreArgs::top(100);
 
+    #[allow(unused_mut)]
     let (user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
         Ok((mut user, scores)) => {
             user.mode = mode;
@@ -278,7 +278,11 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
     };
 
     // Process user and their top scores for tracking
-    let tracking_fut = process_osu_tracking(&ctx, &mut scores, Some(&user));
+    #[cfg(feature = "osutracking")]
+    let tracking_fut = crate::tracking::process_osu_tracking(&ctx, &mut scores, Some(&user));
+
+    #[cfg(not(feature = "osutracking"))]
+    let tracking_fut = async {};
 
     // Try to get the user discord id that is linked to the osu!user
     let discord_id_fut = ctx.psql().get_discord_from_osu_id(user.user_id);

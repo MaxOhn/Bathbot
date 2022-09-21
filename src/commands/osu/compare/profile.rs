@@ -17,7 +17,6 @@ use crate::{
     },
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, ProfileCompareEmbed},
-    tracking::process_osu_tracking,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -109,6 +108,7 @@ pub(super) async fn profile(
     let fut1 = get_user_and_scores(&ctx, user_args1, &score_args);
     let fut2 = get_user_and_scores(&ctx, user_args2, &score_args);
 
+    #[allow(unused_mut)]
     let (user1, user2, mut scores1, mut scores2) = match tokio::try_join!(fut1, fut2) {
         Ok(((user1, scores1), (user2, scores2))) => (user1, user2, scores1, scores2),
         Err(OsuError::NotFound) => {
@@ -143,8 +143,11 @@ pub(super) async fn profile(
     }
 
     // Process user and their top scores for tracking
-    process_osu_tracking(&ctx, &mut scores1, Some(&user1)).await;
-    process_osu_tracking(&ctx, &mut scores2, Some(&user2)).await;
+    #[cfg(feature = "osutracking")]
+    tokio::join! {
+        crate::tracking::process_osu_tracking(&ctx, &mut scores1, Some(&user1)),
+        crate::tracking::process_osu_tracking(&ctx, &mut scores2, Some(&user2)),
+    };
 
     let profile_result1 = CompareResult::calc(mode, &scores1, user1.statistics.as_ref().unwrap());
     let profile_result2 = CompareResult::calc(mode, &scores2, user2.statistics.as_ref().unwrap());

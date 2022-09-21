@@ -20,7 +20,6 @@ use crate::{
     database::{EmbedsSize, MinimizedPp},
     embeds::{CompareEmbed, EmbedData, NoScoresEmbed},
     pagination::ScoresPagination,
-    tracking::process_osu_tracking,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -725,8 +724,9 @@ async fn single_score(
     }
 
     // Process user and their top scores for tracking
+    #[cfg(feature = "osutracking")]
     if let Some(scores) = best {
-        process_osu_tracking(&ctx, scores, None).await;
+        crate::tracking::process_osu_tracking(&ctx, scores, None).await;
     }
 
     Ok(())

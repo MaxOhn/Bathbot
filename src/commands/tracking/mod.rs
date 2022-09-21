@@ -1,3 +1,5 @@
+#![cfg(feature = "osutracking")]
+
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::SlashCommand;

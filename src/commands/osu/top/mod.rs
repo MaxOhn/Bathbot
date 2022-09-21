@@ -23,7 +23,6 @@ use crate::{
     database::{EmbedsSize, ListSize, MinimizedPp},
     embeds::TopSingleEmbed,
     pagination::{TopCondensedPagination, TopPagination, TopSinglePagination},
-    tracking::process_osu_tracking,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSUTRACKER_ISSUE, OSU_API_ISSUE},
@@ -822,6 +821,7 @@ pub(super) async fn top(
     let (user_score_result, farm_result) =
         tokio::join!(get_user_and_scores(&ctx, user_args, &score_args), farm_fut);
 
+    #[allow(unused_mut)]
     let (mut user, mut scores) = match user_score_result {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
@@ -851,7 +851,8 @@ pub(super) async fn top(
     user.mode = mode;
 
     // Process user and their top scores for tracking
-    process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
+    #[cfg(feature = "osutracking")]
+    crate::tracking::process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
     // Filter scores according to mods, combo, acc, and grade
     let scores = filter_scores(&ctx, scores, &args, &farm).await;
