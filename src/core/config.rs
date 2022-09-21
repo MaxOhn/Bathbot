@@ -34,6 +34,7 @@ pub struct Paths {
     pub backgrounds: PathBuf,
     pub cards: PathBuf,
     pub maps: PathBuf,
+    #[cfg(feature = "server")]
     pub website: PathBuf,
 }
 
@@ -51,7 +52,9 @@ pub struct Tokens {
     pub osu_client_id: u64,
     pub osu_client_secret: String,
     pub osu_session: String,
+    #[cfg(feature = "twitch")]
     pub twitch_client_id: String,
+    #[cfg(feature = "twitch")]
     pub twitch_token: String,
 }
 
@@ -120,13 +123,16 @@ impl BotConfig {
                 osu_client_id: env_var("OSU_CLIENT_ID")?,
                 osu_client_secret: env_var("OSU_CLIENT_SECRET")?,
                 osu_session: env_var("OSU_SESSION")?,
+                #[cfg(feature = "twitch")]
                 twitch_client_id: env_var("TWITCH_CLIENT_ID")?,
+                #[cfg(feature = "twitch")]
                 twitch_token: env_var("TWITCH_TOKEN")?,
             },
             paths: Paths {
                 backgrounds: env_var("BG_PATH")?,
                 cards: env_var("CARDS_REPO_PATH")?,
                 maps: env_var("MAP_PATH")?,
+                #[cfg(feature = "server")]
                 website: env_var("WEBSITE_PATH")?,
             },
             #[cfg(feature = "server")]

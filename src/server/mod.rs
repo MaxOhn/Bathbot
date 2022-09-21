@@ -36,12 +36,6 @@ pub use self::auth::{
 mod auth;
 
 pub async fn run_server(ctx: Arc<Context>, shutdown_rx: Receiver<()>) {
-    if cfg!(debug_assertions) {
-        info!("Skip server on debug");
-
-        return;
-    }
-
     let ip = BotConfig::get().server.internal_ip;
     let port = BotConfig::get().server.internal_port;
     let addr = SocketAddr::from((ip, port));

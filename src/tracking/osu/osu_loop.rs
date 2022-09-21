@@ -147,12 +147,6 @@ async fn score_loop(
             }
         }
 
-        if cfg!(debug_assertions) {
-            debug!("New top score but skip sending notifs on debug");
-
-            continue;
-        }
-
         // Send the embed to each tracking channel
         for (&channel, &limit) in channels.iter() {
             if idx > limit {

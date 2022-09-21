@@ -81,8 +81,9 @@ strip = "debuginfo"
 
 [features]
 default = []
-full = ["matchlive", "osutracking", "server", "twitch", "twitchtracking"]
+full = ["global_slash", "matchlive", "osutracking", "server", "twitch", "twitchtracking"]
 
+global_slash = []
 matchlive = []
 osutracking = ["priority-queue"]
 server = ["routerify", "twitch"]

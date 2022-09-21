@@ -9,12 +9,6 @@ impl Context {
     //   - Deleting .osu files of unranked maps
     #[cold]
     pub async fn background_loop(ctx: Arc<Context>) {
-        if cfg!(debug_assertions) {
-            info!("Skip background loop on debug");
-
-            return;
-        }
-
         // Once per day
         let mut interval = time::interval(Duration::from_secs(60 * 60 * 24));
         interval.tick().await;

@@ -73,25 +73,8 @@ async fn async_main() -> Result<()> {
     info!("Setting {} slash commands...", slash_commands.len());
     let interaction_client = ctx.interaction();
 
-    // info!("Defining: {slash_commands:#?}");
-
-    if cfg!(debug_assertions) {
-        let _received = interaction_client
-            .set_guild_commands(BotConfig::get().dev_guild, &slash_commands)
-            .exec()
-            .await
-            .context("failed to set guild commands")?;
-
-        // let commands = _received.models().await?;
-        // info!("Received: {commands:#?}");
-
-        let global_command_fut = interaction_client.set_global_commands(&[]).exec();
-
-        if let Err(err) = global_command_fut.await {
-            let wrap = "Failed to remove global commands";
-            warn!("{:?}", Report::new(err).wrap_err(wrap));
-        }
-    } else {
+    #[cfg(feature = "global_slash")]
+    {
         interaction_client
             .set_global_commands(&slash_commands)
             .exec()
@@ -104,6 +87,22 @@ async fn async_main() -> Result<()> {
 
         if let Err(err) = guild_command_fut.await {
             let wrap = "Failed to remove guild commands";
+            warn!("{:?}", Report::new(err).wrap_err(wrap));
+        }
+    }
+
+    #[cfg(not(feature = "global_slash"))]
+    {
+        interaction_client
+            .set_guild_commands(BotConfig::get().dev_guild, &slash_commands)
+            .exec()
+            .await
+            .context("failed to set guild commands")?;
+
+        let global_command_fut = interaction_client.set_global_commands(&[]).exec();
+
+        if let Err(err) = global_command_fut.await {
+            let wrap = "Failed to remove global commands";
             warn!("{:?}", Report::new(err).wrap_err(wrap));
         }
     }
