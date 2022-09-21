@@ -25,7 +25,7 @@ use eyre::{Report, Result, WrapErr};
 use tokio::{
     runtime::Builder as RuntimeBuilder,
     signal,
-    sync::{mpsc, oneshot},
+    sync::mpsc,
     time::{self, MissedTickBehavior},
 };
 use twilight_model::gateway::payload::outgoing::RequestGuildMembers;
@@ -108,10 +108,15 @@ async fn async_main() -> Result<()> {
         }
     }
 
-    // Spawn server worker
-    let server_ctx = Arc::clone(&ctx);
-    let (tx, rx) = oneshot::channel();
-    tokio::spawn(server::run_server(server_ctx, rx));
+    #[cfg(feature = "server")]
+    let tx = {
+        // Spawn server worker
+        let server_ctx = Arc::clone(&ctx);
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        tokio::spawn(server::run_server(server_ctx, rx));
+
+        tx
+    };
 
     #[cfg(feature = "twitchtracking")]
     {
@@ -195,6 +200,7 @@ async fn async_main() -> Result<()> {
         }
     }
 
+    #[cfg(feature = "server")]
     if tx.send(()).is_err() {
         error!("Failed to send shutdown message to server");
     }

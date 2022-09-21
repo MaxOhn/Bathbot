@@ -11,7 +11,7 @@ use twilight_model::channel::embed::EmbedField;
 
 use crate::{
     commands::osu::CustomAttrs,
-    core::{BotConfig, Context},
+    core::Context,
     embeds::attachment,
     pagination::Pages,
     util::{
@@ -58,12 +58,16 @@ impl MapEmbed {
             mapset.title.cow_escape_markdown()
         );
 
+        #[cfg(feature = "server")]
+        let url = &crate::core::BotConfig::get().server.external_url;
+        #[cfg(not(feature = "server"))]
+        let url = "";
+
         let download_value = format!(
             "[osu!direct]({url}/osudirect/{mapset_id})\n\
             [Mapset]({OSU_BASE}d/{mapset_id})\n\
             [No Video]({OSU_BASE}d/{mapset_id}n)\n\
             [Beatconnect](https://beatconnect.io/b/{mapset_id})",
-            url = BotConfig::get().server.external_url,
             mapset_id = map.mapset_id,
         );
 

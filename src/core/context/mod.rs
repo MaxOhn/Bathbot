@@ -32,7 +32,6 @@ use crate::{
         hl::{retry::RetryState, GameState as HlGameState},
     },
     pagination::Pagination,
-    server::AuthenticationStandby,
     util::{hasher::IntHasher, CountryCode},
 };
 
@@ -53,7 +52,8 @@ pub type Redis = Pool<RedisConnectionManager>;
 pub type AssignRoles = SmallVec<[u64; 1]>;
 
 pub struct Context {
-    pub auth_standby: AuthenticationStandby,
+    #[cfg(feature = "server")]
+    pub auth_standby: crate::server::AuthenticationStandby,
     pub buckets: Buckets,
     pub cache: Cache,
     pub cluster: Cluster,
@@ -190,7 +190,8 @@ impl Context {
             cluster,
             data,
             standby: Standby::new(),
-            auth_standby: AuthenticationStandby::new(),
+            #[cfg(feature = "server")]
+            auth_standby: crate::server::AuthenticationStandby::new(),
             buckets: Buckets::new(),
             member_requests: MemberRequests::new(tx),
             paginations: Arc::new(TokioMutexMap::with_shard_amount_and_hasher(16, IntHasher)),

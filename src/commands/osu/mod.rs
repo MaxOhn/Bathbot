@@ -125,7 +125,7 @@ use crate::{
 
 pub use self::{
     attributes::*, avatar::*, badges::*, bws::*, cards::*, claim_name::*, compare::*,
-    country_top::*, fix::*, graphs::*, leaderboard::*, link::*, map::*, map_search::*, mapper::*,
+    country_top::*, fix::*, graphs::*, leaderboard::*, map::*, map_search::*, mapper::*,
     match_compare::*, match_costs::*, medals::*, most_played::*, nochoke::*, osekai::*,
     osustats::*, pinned::*, popular::*, pp::*, profile::*, rank::*, ranking::*, ratios::*,
     recent::*, serverleaderboard::*, simulate::*, snipe::*, top::*, whatif::*,
@@ -133,6 +133,9 @@ pub use self::{
 
 #[cfg(feature = "matchlive")]
 pub use self::match_live::*;
+
+#[cfg(feature = "server")]
+pub use self::link::*;
 
 mod attributes;
 mod avatar;

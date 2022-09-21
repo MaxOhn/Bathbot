@@ -1,25 +1,34 @@
-use std::{future::Future, sync::Arc};
+use std::sync::Arc;
 
 use command_macros::{command, SlashCommand};
-use eyre::{Report, Result, WrapErr};
+use eyre::{Result, WrapErr};
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
 use crate::{
     commands::{osu::ProfileSize, ShowHideOption},
-    core::BotConfig,
-    database::{EmbedsSize, ListSize, MinimizedPp, OsuData, UserConfig},
+    database::{EmbedsSize, ListSize, MinimizedPp, UserConfig},
     embeds::{ConfigEmbed, EmbedData},
-    server::AuthenticationStandbyError,
     util::{
-        builder::{EmbedBuilder, MessageBuilder},
         constants::{GENERAL_ISSUE, TWITCH_API_ISSUE},
         interaction::InteractionCommand,
-        Authored, Emote, InteractionCommandExt,
+        Authored, InteractionCommandExt,
     },
     Context,
 };
 
+#[cfg(feature = "server")]
+use crate::{
+    core::BotConfig,
+    database::OsuData,
+    server::AuthenticationStandbyError,
+    util::{
+        builder::{EmbedBuilder, MessageBuilder},
+        Emote,
+    },
+};
+
+#[cfg(feature = "server")]
 #[derive(CommandModel, CreateCommand, Default, SlashCommand)]
 #[command(name = "config")]
 #[flags(EPHEMERAL)]
@@ -41,6 +50,37 @@ pub struct Config {
     If `Unlink` is selected, you will be unlinked from the twitch channel.")]
     /// Specify whether you want to link to a twitch profile
     twitch: Option<ConfigLink>,
+    #[command(help = "Always having to specify the `mode` option for any non-std \
+    command can be pretty tedious.\nTo get around that, you can configure a mode here so \
+    that when the `mode` option is not specified in commands, it will choose your config mode.")]
+    /// Specify a gamemode (NOTE: Only use for non-std modes if you NEVER use std commands)
+    mode: Option<ConfigGameMode>,
+    /// What initial size should the profile command be?
+    profile: Option<ProfileSize>,
+    #[command(help = "Some embeds are pretty chunky and show too much data.\n\
+    With this option you can make those embeds minimized by default.\n\
+    Affected commands are: `compare score`, `recent score`, `recent simulate`, \
+    and any command showing top scores when the `index` option is specified.")]
+    /// What size should the recent, compare, simulate, ... commands be?
+    score_embeds: Option<ConfigEmbeds>,
+    #[command(
+        help = "Adjust the amount of scores shown per page in top, rb, pinned, and mapper.\n\
+      `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1."
+    )]
+    /// Adjust the amount of scores shown per page in top, rb, pinned, ...
+    list_embeds: Option<ListSize>,
+    /// Should the amount of retries be shown for the recent command?
+    retries: Option<ShowHideOption>,
+    /// Specify whether the recent command should show max or if-fc pp when minimized
+    minimized_pp: Option<ConfigMinimizedPp>,
+}
+
+#[cfg(not(feature = "server"))]
+#[derive(CommandModel, CreateCommand, Default, SlashCommand)]
+#[command(name = "config")]
+#[flags(EPHEMERAL)]
+/// Adjust your default configuration for commands
+pub struct Config {
     #[command(help = "Always having to specify the `mode` option for any non-std \
     command can be pretty tedious.\nTo get around that, you can configure a mode here so \
     that when the `mode` option is not specified in commands, it will choose your config mode.")]
@@ -145,7 +185,9 @@ async fn slash_config(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
 
 pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Config) -> Result<()> {
     let Config {
+        #[cfg(feature = "server")]
         osu,
+        #[cfg(feature = "server")]
         twitch,
         mode,
         profile,
@@ -196,34 +238,48 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
         config.show_retries = Some(matches!(retries, ShowHideOption::Show));
     }
 
+    #[cfg(feature = "server")]
     if let Some(ConfigLink::Unlink) = osu {
         config.osu.take();
     }
 
+    #[cfg(feature = "server")]
     if let Some(ConfigLink::Unlink) = twitch {
         config.twitch_id.take();
     }
 
-    match (osu, twitch) {
-        (Some(ConfigLink::Link), Some(ConfigLink::Link)) => {
-            handle_both_links(&ctx, command, config)
+    #[cfg(feature = "server")]
+    {
+        match (osu, twitch) {
+            (Some(ConfigLink::Link), Some(ConfigLink::Link)) => {
+                handle_both_links(&ctx, command, config)
+                    .await
+                    .wrap_err("failed to handle both links")
+            }
+            (Some(ConfigLink::Link), _) => handle_osu_link(&ctx, command, config)
                 .await
-                .wrap_err("failed to handle both links")
+                .wrap_err("failed to handle osu link"),
+            (_, Some(ConfigLink::Link)) => handle_twitch_link(&ctx, command, config)
+                .await
+                .wrap_err("failed to handle twitch link"),
+            (_, _) => handle_no_links(&ctx, command, config)
+                .await
+                .wrap_err("failed to handle no links"),
         }
-        (Some(ConfigLink::Link), _) => handle_osu_link(&ctx, command, config)
+    }
+
+    #[cfg(not(feature = "server"))]
+    {
+        handle_no_links(&ctx, command, config)
             .await
-            .wrap_err("failed to handle osu link"),
-        (_, Some(ConfigLink::Link)) => handle_twitch_link(&ctx, command, config)
-            .await
-            .wrap_err("failed to handle twitch link"),
-        (_, _) => handle_no_links(&ctx, command, config)
-            .await
-            .wrap_err("failed to handle no links"),
+            .wrap_err("failed to handle no links")
     }
 }
 
+#[cfg(feature = "server")]
 const MSG_BADE: &str = "Contact Badewanne3 if you encounter issues with the website";
 
+#[cfg(feature = "server")]
 fn osu_content(state: u8) -> String {
     let config = BotConfig::get();
 
@@ -237,6 +293,7 @@ fn osu_content(state: u8) -> String {
     )
 }
 
+#[cfg(feature = "server")]
 fn twitch_content(state: u8) -> String {
     let config = BotConfig::get();
 
@@ -250,6 +307,7 @@ fn twitch_content(state: u8) -> String {
     )
 }
 
+#[cfg(feature = "server")]
 async fn handle_both_links(
     ctx: &Context,
     command: InteractionCommand,
@@ -298,6 +356,7 @@ async fn handle_both_links(
     Ok(())
 }
 
+#[cfg(feature = "server")]
 async fn handle_twitch_link(
     ctx: &Context,
     command: InteractionCommand,
@@ -336,6 +395,7 @@ async fn handle_twitch_link(
     Ok(())
 }
 
+#[cfg(feature = "server")]
 async fn handle_osu_link(
     ctx: &Context,
     command: InteractionCommand,
@@ -389,14 +449,15 @@ async fn handle_osu_link(
     Ok(())
 }
 
+#[cfg(feature = "server")]
 async fn handle_ephemeral<T>(
     ctx: &Context,
     command: &InteractionCommand,
     builder: MessageBuilder<'_>,
-    fut: impl Future<Output = Result<T, AuthenticationStandbyError>>,
+    fut: impl std::future::Future<Output = Result<T, AuthenticationStandbyError>>,
 ) -> Option<Result<T>> {
     if let Err(err) = command.update(ctx, &builder).await {
-        return Some(Err(Report::new(err)));
+        return Some(Err(eyre::Report::new(err)));
     }
 
     let content = match fut.await {

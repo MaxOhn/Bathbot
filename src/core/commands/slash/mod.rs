@@ -60,6 +60,7 @@ impl SlashCommands {
                 HigherLower => HIGHERLOWER_SLASH,
                 Invite => INVITE_SLASH,
                 Leaderboard => LEADERBOARD_SLASH,
+                #[cfg(feature = "server")]
                 Link => LINK_SLASH,
                 Map => MAP_SLASH,
                 Mapper => MAPPER_SLASH,

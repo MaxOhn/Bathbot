@@ -122,6 +122,7 @@ impl PrefixCommands {
                 INVITE_PREFIX,
                 HELP_PREFIX,
                 LEADERBOARD_PREFIX,
+                #[cfg(feature = "server")]
                 LINK_PREFIX,
                 MANIA_PREFIX,
                 MAP_PREFIX,

@@ -14,10 +14,12 @@ pub const HUISMETBENEN: &str = "https://api.huismetbenen.nl/";
 
 // twitch
 pub const TWITCH_BASE: &str = "https://www.twitch.tv/";
-pub const TWITCH_OAUTH: &str = "https://id.twitch.tv/oauth2/token";
 pub const TWITCH_STREAM_ENDPOINT: &str = "https://api.twitch.tv/helix/streams";
 pub const TWITCH_USERS_ENDPOINT: &str = "https://api.twitch.tv/helix/users";
 pub const TWITCH_VIDEOS_ENDPOINT: &str = "https://api.twitch.tv/helix/videos";
+
+#[cfg(feature = "server")]
+pub const TWITCH_OAUTH: &str = "https://id.twitch.tv/oauth2/token";
 
 // Error messages
 pub const GENERAL_ISSUE: &str = "Something went wrong, blame bade";

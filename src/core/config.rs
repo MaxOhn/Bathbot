@@ -18,6 +18,7 @@ pub struct BotConfig {
     pub database_url: String,
     pub tokens: Tokens,
     pub paths: Paths,
+    #[cfg(feature = "server")]
     pub server: Server,
     grades: [String; 9],
     pub emotes: HashMap<Emote, String>,
@@ -36,6 +37,7 @@ pub struct Paths {
     pub website: PathBuf,
 }
 
+#[cfg(feature = "server")]
 #[derive(Debug)]
 pub struct Server {
     pub internal_ip: [u8; 4],
@@ -127,6 +129,7 @@ impl BotConfig {
                 maps: env_var("MAP_PATH")?,
                 website: env_var("WEBSITE_PATH")?,
             },
+            #[cfg(feature = "server")]
             server: Server {
                 internal_ip: env_var("INTERNAL_IP")?,
                 internal_port: env_var("INTERNAL_PORT")?,

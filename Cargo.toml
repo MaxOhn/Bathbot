@@ -39,7 +39,7 @@ rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp", branch = "next", features
 # rosu-pp = { path = "../rosu-pp" }
 rosu-pp-older = { git = "https://github.com/MaxOhn/rosu-pp-older.git", branch = "main" }
 # rosu-pp-older = { path = "../rosu-pp-older" }
-routerify = { version = "3.0" }
+routerify = { version = "3.0", optional = true }
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_cbor = { version = "0.11", default-features = false, features = ["std"] }
 serde_json = { version = "1.0" }
@@ -81,7 +81,9 @@ strip = "debuginfo"
 
 [features]
 default = []
-full = ["matchlive", "osutracking", "twitchtracking"]
+full = ["matchlive", "osutracking", "server", "twitchtracking"]
+
 matchlive = []
 osutracking = ["priority-queue"]
+server = ["routerify"]
 twitchtracking = []
