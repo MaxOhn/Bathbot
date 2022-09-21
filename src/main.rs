@@ -42,10 +42,12 @@ fn main() {
         .build()
         .expect("Could not build runtime");
 
-    dotenv::dotenv().expect(
-        "Failed to parse .env file. \
-        Be sure there is one in the same folder as this executable.",
-    );
+    if dotenv::dotenv().is_err() {
+        panic!(
+            "Failed to parse .env file. \
+            Be sure there is one in the same folder as this executable."
+        );
+    }
 
     if let Err(report) = runtime.block_on(async_main()) {
         error!("{:?}", report.wrap_err("Critical error in main"));
@@ -53,7 +55,7 @@ fn main() {
 }
 
 async fn async_main() -> Result<()> {
-    let _log_worker_guard = logging::initialize();
+    let _log_worker_guard = logging::init();
 
     // Load config file
     BotConfig::init().context("failed to initialize config")?;
