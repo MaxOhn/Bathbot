@@ -10,9 +10,7 @@ use crate::{
     database::{EmbedsSize, ListSize, MinimizedPp, UserConfig},
     embeds::{ConfigEmbed, EmbedData},
     util::{
-        constants::{GENERAL_ISSUE, TWITCH_API_ISSUE},
-        interaction::InteractionCommand,
-        Authored, InteractionCommandExt,
+        constants::GENERAL_ISSUE, interaction::InteractionCommand, Authored, InteractionCommandExt,
     },
     Context,
 };
@@ -429,7 +427,9 @@ async fn handle_osu_link(
                 config.twitch_id.take();
             }
             Err(err) => {
-                let _ = command.error(ctx, TWITCH_API_ISSUE).await;
+                let _ = command
+                    .error(ctx, crate::util::constants::TWITCH_API_ISSUE)
+                    .await;
 
                 return Err(err.wrap_err("failed to get twitch user by id"));
             }
@@ -476,23 +476,31 @@ async fn handle_ephemeral<T>(
 async fn handle_no_links(
     ctx: &Context,
     command: InteractionCommand,
-    mut config: UserConfig,
+    #[allow(unused_mut)] mut config: UserConfig,
 ) -> Result<()> {
     let author = command.user()?;
     let mut twitch_name = None;
 
-    if let Some(user_id) = config.twitch_id {
-        match ctx.client().get_twitch_user_by_id(user_id).await {
+    if let Some(_user_id) = config.twitch_id {
+        #[cfg(feature = "twitch")]
+        match ctx.client().get_twitch_user_by_id(_user_id).await {
             Ok(Some(user)) => twitch_name = Some(user.display_name),
             Ok(None) => {
                 debug!("No twitch user found for given id, remove from config");
                 config.twitch_id.take();
             }
             Err(err) => {
-                let _ = command.error(ctx, TWITCH_API_ISSUE).await;
+                let _ = command
+                    .error(ctx, crate::util::constants::TWITCH_API_ISSUE)
+                    .await;
 
                 return Err(err.wrap_err("failed to get twitch user by id"));
             }
+        }
+
+        #[cfg(not(feature = "twitch"))]
+        {
+            twitch_name = Some("?".to_owned());
         }
     }
 

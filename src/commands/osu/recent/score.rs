@@ -1,12 +1,10 @@
-use std::{borrow::Cow, fmt::Write, mem, sync::Arc};
+use std::{borrow::Cow, mem, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
 use eyre::{Report, Result};
-use rosu_pp::{beatmap::Break, Mods};
 use rosu_v2::prelude::{
-    Beatmap, GameMode, Grade, OsuError,
+    GameMode, Grade, OsuError,
     RankStatus::{Approved, Loved, Qualified, Ranked},
-    Score,
 };
 use tokio::time::{sleep, Duration};
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -18,16 +16,13 @@ use crate::{
         GameModeOption, GradeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
-    custom_client::TwitchVideo,
     database::{EmbedsSize, MinimizedPp},
     embeds::RecentEmbed,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         interaction::InteractionCommand,
-        matcher,
-        osu::prepare_beatmap_file,
-        ChannelExt, CowUtils, InteractionCommandExt, MessageExt,
+        matcher, ChannelExt, CowUtils, InteractionCommandExt, MessageExt,
     },
     Context,
 };
@@ -249,17 +244,17 @@ pub(super) async fn score(
     } = args;
 
     let grade = grade.map(Grade::from);
-    let mut twitch_id = None;
 
     // TODO: show twitch of given name if available
-    if let Some(config_name) = config.username() {
+    #[cfg(feature = "twitch")]
+    let twitch_id = if let Some(config_name) = config.username() {
         let config_name = config_name.cow_to_ascii_lowercase();
         let name = name.cow_to_ascii_lowercase();
 
-        if config_name == name {
-            twitch_id = Some(config.twitch_id);
-        }
-    }
+        (config_name == name).then_some(config.twitch_id)
+    } else {
+        None
+    };
 
     // Retrieve the user and their recent scores
     let user_args = UserArgs::new(&name, mode);
@@ -382,6 +377,7 @@ pub(super) async fn score(
         }
     };
 
+    #[cfg(feature = "twitch")]
     let twitch_fut = async {
         let twitch_id = if let Some(id) = twitch_id {
             id
@@ -405,8 +401,11 @@ pub(super) async fn score(
     };
 
     // Retrieve and parse response
+    #[cfg(feature = "twitch")]
     let (map_score_result, best_result, twitch_vod) =
         tokio::join!(map_score_fut, best_fut, twitch_fut);
+    #[cfg(not(feature = "twitch"))]
+    let (map_score_result, best_result) = tokio::join!(map_score_fut, best_fut);
 
     let map_score = match map_score_result {
         None | Some(Err(OsuError::NotFound)) => None,
@@ -439,12 +438,23 @@ pub(super) async fn score(
         (None, None) => MinimizedPp::default(),
     };
 
+    #[cfg(feature = "twitch")]
     let data_fut = RecentEmbed::new(
         &user,
         score,
         best.as_deref(),
         map_score.as_ref(),
         twitch_vod,
+        minimized_pp,
+        &ctx,
+    );
+
+    #[cfg(not(feature = "twitch"))]
+    let data_fut = RecentEmbed::new(
+        &user,
+        score,
+        best.as_deref(),
+        map_score.as_ref(),
         minimized_pp,
         &ctx,
     );
@@ -542,12 +552,19 @@ pub(super) async fn score(
     Ok(())
 }
 
+#[cfg(feature = "twitch")]
 async fn retrieve_vod(
     ctx: &Context,
     user_id: u64,
-    score: &Score,
-    map: &Beatmap,
-) -> Option<TwitchVideo> {
+    score: &rosu_v2::prelude::Score,
+    map: &rosu_v2::prelude::Beatmap,
+) -> Option<crate::custom_client::TwitchVideo> {
+    use std::fmt::Write;
+
+    use rosu_pp::{beatmap::Break, Mods};
+
+    use crate::util::osu::prepare_beatmap_file;
+
     match ctx.client().get_last_twitch_vod(user_id).await {
         Ok(Some(mut vod)) => {
             // Parse map to get data about breaks

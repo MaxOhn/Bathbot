@@ -1,8 +1,4 @@
-use std::{
-    borrow::Cow,
-    fmt::{Display, Write},
-    hash::Hash,
-};
+use std::{fmt::Write, hash::Hash};
 
 use bytes::Bytes;
 use eyre::{Result, WrapErr};
@@ -23,17 +19,14 @@ use rosu_v2::prelude::{GameMode, GameMods, User};
 use serde::Serialize;
 use serde_json::{Map, Value};
 use time::{format_description::FormatItem, OffsetDateTime};
-use tokio::time::{interval, sleep, timeout, Duration};
+use tokio::time::{sleep, timeout, Duration};
 use twilight_model::channel::Attachment;
 
 use crate::{
     commands::osu::OsuStatsPlayersArgs,
     core::BotConfig,
     util::{
-        constants::{
-            HUISMETBENEN, OSU_BASE, TWITCH_STREAM_ENDPOINT, TWITCH_USERS_ENDPOINT,
-            TWITCH_VIDEOS_ENDPOINT,
-        },
+        constants::{HUISMETBENEN, OSU_BASE},
         datetime::{DATE_FORMAT, TIME_FORMAT},
         hasher::IntHasher,
         osu::ModSelection,
@@ -41,19 +34,13 @@ use crate::{
     },
 };
 
-#[cfg(not(debug_assertions))]
-use http::header::AUTHORIZATION;
-
-#[cfg(not(debug_assertions))]
-use hyper::header::HeaderValue;
-
-#[cfg(not(debug_assertions))]
-use crate::util::constants::TWITCH_OAUTH;
-
 pub use self::{
     osekai::*, osu_stats::*, osu_tracker::*, respektive::*, rkyv_impls::UsernameWrapper, score::*,
-    snipe::*, twitch::*,
+    snipe::*,
 };
+
+#[cfg(feature = "twitch")]
+pub use self::twitch::*;
 
 use self::{rkyv_impls::*, score::ScraperScores};
 
@@ -87,7 +74,7 @@ enum Site {
     OsuStats,
     OsuTracker,
     Respektive,
-    #[cfg(not(debug_assertions))]
+    #[cfg(feature = "twitch")]
     Twitch,
 }
 
@@ -96,15 +83,9 @@ type Client = HyperClient<HttpsConnector<HttpConnector<GaiResolver>>, Body>;
 pub struct CustomClient {
     client: Client,
     osu_session: &'static str,
-    #[cfg(not(debug_assertions))]
+    #[cfg(feature = "twitch")]
     twitch: TwitchData,
-    ratelimiters: [LeakyBucket; 12 + !cfg!(debug_assertions) as usize],
-}
-
-#[cfg(not(debug_assertions))]
-struct TwitchData {
-    client_id: HeaderValue,
-    oauth_token: TwitchOAuthToken,
+    ratelimiters: [LeakyBucket; 12 + cfg!(feature = "twitch") as usize],
 }
 
 impl CustomClient {
@@ -118,7 +99,7 @@ impl CustomClient {
         let config = BotConfig::get();
         let client = HyperClient::builder().build(connector);
 
-        #[cfg(not(debug_assertions))]
+        #[cfg(feature = "twitch")]
         let twitch = {
             let twitch_client_id = &config.tokens.twitch_client_id;
             let twitch_token = &config.tokens.twitch_token;
@@ -150,25 +131,23 @@ impl CustomClient {
             ratelimiter(2),  // OsuStats
             ratelimiter(2),  // OsuTracker
             ratelimiter(1),  // Respektive
-            #[cfg(not(debug_assertions))]
+            #[cfg(feature = "twitch")]
             ratelimiter(5), // Twitch
         ];
 
         Ok(Self {
             client,
             osu_session: &config.tokens.osu_session,
-            #[cfg(not(debug_assertions))]
+            #[cfg(feature = "twitch")]
             twitch,
             ratelimiters,
         })
     }
 
-    #[cfg(not(debug_assertions))]
-    async fn get_twitch_token(
-        client: &Client,
-        client_id: &str,
-        token: &str,
-    ) -> ClientResult<TwitchData> {
+    #[cfg(feature = "twitch")]
+    async fn get_twitch_token(client: &Client, client_id: &str, token: &str) -> Result<TwitchData> {
+        use crate::util::constants::TWITCH_OAUTH;
+
         let form = &[
             ("grant_type", "client_credentials"),
             ("client_id", client_id),
@@ -176,7 +155,7 @@ impl CustomClient {
         ];
 
         let form_body = serde_urlencoded::to_string(form)?;
-        let client_id = HeaderValue::from_str(client_id)?;
+        let client_id = http::HeaderValue::from_str(client_id)?;
 
         let req = Request::builder()
             .method(Method::POST)
@@ -189,8 +168,11 @@ impl CustomClient {
         let response = client.request(req).await?;
         let bytes = Self::error_for_status(response, TWITCH_OAUTH).await?;
 
-        let oauth_token = serde_json::from_slice(&bytes)
-            .map_err(|e| CustomClientError::parsing(e, &bytes, ErrorKind::TwitchToken))?;
+        let oauth_token = serde_json::from_slice(&bytes).wrap_err_with(|| {
+            let body = String::from_utf8_lossy(&bytes);
+
+            format!("failed to deserialize twitch token: {body}")
+        })?;
 
         Ok(TwitchData {
             client_id,
@@ -219,22 +201,12 @@ impl CustomClient {
         Self::error_for_status(response, url).await
     }
 
-    #[cfg(debug_assertions)]
-    async fn make_twitch_get_request<I, U, V>(&self, _: impl AsRef<str>, _: I) -> Result<Bytes>
-    where
-        I: IntoIterator<Item = (U, V)>,
-        U: Display,
-        V: Display,
-    {
-        bail!("don't use twitch on debug")
-    }
-
-    #[cfg(not(debug_assertions))]
+    #[cfg(feature = "twitch")]
     async fn make_twitch_get_request<I, U, V>(&self, url: impl AsRef<str>, data: I) -> Result<Bytes>
     where
         I: IntoIterator<Item = (U, V)>,
-        U: Display,
-        V: Display,
+        U: std::fmt::Display,
+        V: std::fmt::Display,
     {
         let url = url.as_ref();
         trace!("GET request of url {url}");
@@ -273,10 +245,13 @@ impl CustomClient {
 
         match site {
             Site::OsuHiddenApi => req.header(COOKIE, format!("osu_session={}", self.osu_session)),
-            #[cfg(not(debug_assertions))]
+            #[cfg(feature = "twitch")]
             Site::Twitch => req
                 .header("Client-ID", self.twitch.client_id.clone())
-                .header(AUTHORIZATION, format!("Bearer {}", self.twitch.oauth_token)),
+                .header(
+                    http::header::AUTHORIZATION,
+                    format!("Bearer {}", self.twitch.oauth_token),
+                ),
             _ => req,
         }
     }
@@ -896,108 +871,124 @@ impl CustomClient {
 
         bail!("reached retry limit and still failed to download {map_id}.osu")
     }
+}
 
-    pub async fn get_twitch_user(&self, name: &str) -> Result<Option<TwitchUser>> {
-        let data = [("login", name)];
+#[cfg(feature = "twitch")]
+mod twitch_impls {
+    use std::{borrow::Cow, time::Duration};
 
-        let bytes = self
-            .make_twitch_get_request(TWITCH_USERS_ENDPOINT, data)
-            .await?;
+    use eyre::{Result, WrapErr};
+    use tokio::time::interval;
 
-        let mut users: TwitchDataList<TwitchUser> =
-            serde_json::from_slice(&bytes).wrap_err_with(|| {
-                let body = String::from_utf8_lossy(&bytes);
+    use crate::util::constants::{
+        TWITCH_STREAM_ENDPOINT, TWITCH_USERS_ENDPOINT, TWITCH_VIDEOS_ENDPOINT,
+    };
 
-                format!("failed to deserialize twitch username: {body}")
-            })?;
+    use super::{CustomClient, TwitchDataList, TwitchStream, TwitchUser, TwitchVideo};
 
-        Ok(users.data.pop())
-    }
-
-    pub async fn get_twitch_user_by_id(&self, user_id: u64) -> Result<Option<TwitchUser>> {
-        let data = [("id", user_id)];
-
-        let bytes = self
-            .make_twitch_get_request(TWITCH_USERS_ENDPOINT, data)
-            .await?;
-
-        let mut users: TwitchDataList<TwitchUser> =
-            serde_json::from_slice(&bytes).wrap_err_with(|| {
-                let body = String::from_utf8_lossy(&bytes);
-
-                format!("failed to deserialize twitch user id: {body}")
-            })?;
-
-        Ok(users.data.pop())
-    }
-
-    pub async fn get_twitch_users(&self, user_ids: &[u64]) -> Result<Vec<TwitchUser>> {
-        let mut users = Vec::with_capacity(user_ids.len());
-
-        for chunk in user_ids.chunks(100) {
-            let data: Vec<_> = chunk.iter().map(|&id| ("id", id)).collect();
+    impl CustomClient {
+        pub async fn get_twitch_user(&self, name: &str) -> Result<Option<TwitchUser>> {
+            let data = [("login", name)];
 
             let bytes = self
                 .make_twitch_get_request(TWITCH_USERS_ENDPOINT, data)
                 .await?;
 
-            let parsed_response: TwitchDataList<TwitchUser> = serde_json::from_slice(&bytes)
+            let mut users: TwitchDataList<TwitchUser> = serde_json::from_slice(&bytes)
                 .wrap_err_with(|| {
                     let body = String::from_utf8_lossy(&bytes);
 
-                    format!("failed to deserialize twitch users: {body}")
+                    format!("failed to deserialize twitch username: {body}")
                 })?;
 
-            users.extend(parsed_response.data);
+            Ok(users.data.pop())
         }
 
-        Ok(users)
-    }
-
-    pub async fn get_twitch_streams(&self, user_ids: &[u64]) -> Result<Vec<TwitchStream>> {
-        let mut streams = Vec::with_capacity(user_ids.len());
-        let mut interval = interval(Duration::from_millis(1000));
-
-        for chunk in user_ids.chunks(100) {
-            interval.tick().await;
-            let mut data: Vec<_> = chunk.iter().map(|&id| ("user_id", id)).collect();
-            data.push(("first", chunk.len() as u64));
+        pub async fn get_twitch_user_by_id(&self, user_id: u64) -> Result<Option<TwitchUser>> {
+            let data = [("id", user_id)];
 
             let bytes = self
-                .make_twitch_get_request(TWITCH_STREAM_ENDPOINT, data)
+                .make_twitch_get_request(TWITCH_USERS_ENDPOINT, data)
                 .await?;
 
-            let parsed_response: TwitchDataList<TwitchStream> = serde_json::from_slice(&bytes)
+            let mut users: TwitchDataList<TwitchUser> = serde_json::from_slice(&bytes)
                 .wrap_err_with(|| {
                     let body = String::from_utf8_lossy(&bytes);
 
-                    format!("failed to deserialize twitch streams: {body}")
+                    format!("failed to deserialize twitch user id: {body}")
                 })?;
 
-            streams.extend(parsed_response.data);
+            Ok(users.data.pop())
         }
 
-        Ok(streams)
-    }
+        pub async fn get_twitch_users(&self, user_ids: &[u64]) -> Result<Vec<TwitchUser>> {
+            let mut users = Vec::with_capacity(user_ids.len());
 
-    pub async fn get_last_twitch_vod(&self, user_id: u64) -> Result<Option<TwitchVideo>> {
-        let data = [
-            ("user_id", Cow::Owned(user_id.to_string())),
-            ("first", "1".into()),
-            ("sort", "time".into()),
-        ];
+            for chunk in user_ids.chunks(100) {
+                let data: Vec<_> = chunk.iter().map(|&id| ("id", id)).collect();
 
-        let bytes = self
-            .make_twitch_get_request(TWITCH_VIDEOS_ENDPOINT, data)
-            .await?;
+                let bytes = self
+                    .make_twitch_get_request(TWITCH_USERS_ENDPOINT, data)
+                    .await?;
 
-        let mut videos: TwitchDataList<TwitchVideo> = serde_json::from_slice(&bytes)
-            .wrap_err_with(|| {
-                let body = String::from_utf8_lossy(&bytes);
+                let parsed_response: TwitchDataList<TwitchUser> = serde_json::from_slice(&bytes)
+                    .wrap_err_with(|| {
+                        let body = String::from_utf8_lossy(&bytes);
 
-                format!("failed to deserialize twitch videos: {body}")
-            })?;
+                        format!("failed to deserialize twitch users: {body}")
+                    })?;
 
-        Ok(videos.data.pop())
+                users.extend(parsed_response.data);
+            }
+
+            Ok(users)
+        }
+
+        pub async fn get_twitch_streams(&self, user_ids: &[u64]) -> Result<Vec<TwitchStream>> {
+            let mut streams = Vec::with_capacity(user_ids.len());
+            let mut interval = interval(Duration::from_millis(1000));
+
+            for chunk in user_ids.chunks(100) {
+                interval.tick().await;
+                let mut data: Vec<_> = chunk.iter().map(|&id| ("user_id", id)).collect();
+                data.push(("first", chunk.len() as u64));
+
+                let bytes = self
+                    .make_twitch_get_request(TWITCH_STREAM_ENDPOINT, data)
+                    .await?;
+
+                let parsed_response: TwitchDataList<TwitchStream> = serde_json::from_slice(&bytes)
+                    .wrap_err_with(|| {
+                        let body = String::from_utf8_lossy(&bytes);
+
+                        format!("failed to deserialize twitch streams: {body}")
+                    })?;
+
+                streams.extend(parsed_response.data);
+            }
+
+            Ok(streams)
+        }
+
+        pub async fn get_last_twitch_vod(&self, user_id: u64) -> Result<Option<TwitchVideo>> {
+            let data = [
+                ("user_id", Cow::Owned(user_id.to_string())),
+                ("first", "1".into()),
+                ("sort", "time".into()),
+            ];
+
+            let bytes = self
+                .make_twitch_get_request(TWITCH_VIDEOS_ENDPOINT, data)
+                .await?;
+
+            let mut videos: TwitchDataList<TwitchVideo> = serde_json::from_slice(&bytes)
+                .wrap_err_with(|| {
+                    let body = String::from_utf8_lossy(&bytes);
+
+                    format!("failed to deserialize twitch videos: {body}")
+                })?;
+
+            Ok(videos.data.pop())
+        }
     }
 }

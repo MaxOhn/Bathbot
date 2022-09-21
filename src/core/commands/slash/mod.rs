@@ -6,10 +6,13 @@ use once_cell::sync::OnceCell;
 use radix_trie::{iter::Keys, Trie, TrieCommon};
 use twilight_model::application::command::Command;
 
-use crate::commands::{fun::*, help::*, osu::*, owner::*, songs::*, twitch::*, utility::*};
+use crate::commands::{fun::*, help::*, osu::*, owner::*, songs::*, utility::*};
 
 #[cfg(feature = "osutracking")]
 use crate::commands::tracking::*;
+
+#[cfg(feature = "twitch")]
+use crate::commands::twitch::*;
 
 pub use self::command::SlashCommand;
 
@@ -102,6 +105,7 @@ impl SlashCommands {
                 TopOld => TOPOLD_SLASH,
                 #[cfg(feature = "osutracking")]
                 Track => TRACK_SLASH,
+                #[cfg(feature = "twitch")]
                 TrackStream => TRACKSTREAM_SLASH,
                 WhatIf => WHATIF_SLASH,
             }

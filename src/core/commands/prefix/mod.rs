@@ -6,12 +6,15 @@ use once_cell::sync::OnceCell;
 use radix_trie::{Trie, TrieCommon};
 
 use crate::{
-    commands::{fun::*, help::HELP_PREFIX, osu::*, songs::*, twitch::*, utility::*},
+    commands::{fun::*, help::HELP_PREFIX, osu::*, songs::*, utility::*},
     util::Emote,
 };
 
 #[cfg(feature = "osutracking")]
 use crate::commands::tracking::*;
+
+#[cfg(feature = "twitch")]
+use crate::commands::twitch::*;
 
 pub use self::{args::Args, command::PrefixCommand, stream::Stream};
 
@@ -94,6 +97,7 @@ impl PrefixCommands {
     pub fn get() -> &'static Self {
         PREFIX_COMMANDS.get_or_init(|| {
             prefix_trie! {
+                #[cfg(feature = "twitch")]
                 ADDSTREAM_PREFIX,
                 AUTHORITIES_PREFIX,
                 AVATAR_PREFIX,
@@ -206,6 +210,7 @@ impl PrefixCommands {
                 RECENTLISTCTB_PREFIX,
                 RECENTLISTMANIA_PREFIX,
                 RECENTLISTTAIKO_PREFIX,
+                #[cfg(feature = "twitch")]
                 REMOVESTREAM_PREFIX,
                 ROCKEFELLER_PREFIX,
                 ROLEASSIGN_PREFIX,
@@ -243,6 +248,7 @@ impl PrefixCommands {
                 TRACKMANIA_PREFIX,
                 #[cfg(feature = "osutracking")]
                 TRACKTAIKO_PREFIX,
+                #[cfg(feature = "twitch")]
                 TRACKEDSTREAMS_PREFIX,
                 #[cfg(feature = "osutracking")]
                 TRACKLIST_PREFIX,

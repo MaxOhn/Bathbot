@@ -8,19 +8,21 @@ use twilight_model::channel::embed::Embed;
 
 use crate::{
     core::Context,
-    custom_client::TwitchVideo,
     database::MinimizedPp,
     embeds::osu,
     util::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
-        constants::{AVATAR_URL, TWITCH_BASE},
+        constants::AVATAR_URL,
         datetime::{how_long_ago_dynamic, HowLongAgoFormatterDynamic},
         matcher::highlight_funny_numeral,
         numbers::{round, with_comma_int},
         osu::{grade_completion_mods, prepare_beatmap_file},
-        CowUtils, Emote, ScoreExt,
+        CowUtils, ScoreExt,
     },
 };
+
+#[cfg(feature = "twitch")]
+use crate::custom_client::TwitchVideo;
 
 pub struct RecentEmbed {
     description: String,
@@ -43,6 +45,7 @@ pub struct RecentEmbed {
     if_fc: Option<(f32, f32, String)>,
     map_info: String,
     mapset_cover: String,
+    #[cfg(feature = "twitch")]
     twitch_vod: Option<TwitchVideo>,
     minimized_pp: MinimizedPp,
 }
@@ -53,7 +56,7 @@ impl RecentEmbed {
         score: &Score,
         personal: Option<&[Score]>,
         map_score: Option<&BeatmapUserScore>,
-        twitch_vod: Option<TwitchVideo>,
+        #[cfg(feature = "twitch")] twitch_vod: Option<TwitchVideo>,
         minimized_pp: MinimizedPp,
         ctx: &Context,
     ) -> Result<Self> {
@@ -241,8 +244,9 @@ impl RecentEmbed {
             map_info: osu::get_map_info(map, score.mods, stars),
             if_fc,
             mapset_cover: mapset.covers.cover.to_owned(),
-            twitch_vod,
             minimized_pp,
+            #[cfg(feature = "twitch")]
+            twitch_vod,
         })
     }
 
@@ -260,9 +264,7 @@ impl RecentEmbed {
             "PP", pp, true;
         ];
 
-        fields.reserve(
-            3 + (self.if_fc.is_some() as usize) * 3 + (self.twitch_vod.is_some()) as usize * 2,
-        );
+        fields.reserve(3 + (self.if_fc.is_some() as usize) * 3);
 
         let mania = self.hits.chars().filter(|&c| c == '/').count() == 5;
 
@@ -288,10 +290,11 @@ impl RecentEmbed {
 
         fields![fields { "Map Info".to_owned(), self.map_info.clone(), false }];
 
+        #[cfg(feature = "twitch")]
         if let Some(ref vod) = self.twitch_vod {
             let twitch_channel = format!(
                 "[**{name}**]({base}{name})",
-                base = TWITCH_BASE,
+                base = crate::util::constants::TWITCH_BASE,
                 name = vod.username
             );
 
@@ -315,7 +318,7 @@ impl RecentEmbed {
             .build()
     }
 
-    pub fn into_minimized(mut self) -> Embed {
+    pub fn into_minimized(#[allow(unused_mut)] mut self) -> Embed {
         let name = format!(
             "{}\t{}\t({}%)\t{}",
             self.grade_completion_mods, self.score, self.acc, self.ago
@@ -359,11 +362,12 @@ impl RecentEmbed {
 
         let fields = fields![name, value, false];
 
+        #[cfg(feature = "twitch")]
         if let Some(ref vod) = self.twitch_vod {
             let _ = write!(
                 self.description,
                 " {} [Liveplay on twitch]({})",
-                Emote::Twitch.text(),
+                crate::util::Emote::Twitch.text(),
                 vod.url
             );
         }

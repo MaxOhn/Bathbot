@@ -1,3 +1,5 @@
+#![cfg(feature = "twitch")]
+
 use std::sync::Arc;
 
 use command_macros::SlashCommand;

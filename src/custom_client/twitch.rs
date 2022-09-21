@@ -1,5 +1,8 @@
+#![cfg(feature = "twitch")]
+
 use std::fmt;
 
+use http::HeaderValue;
 use serde::{de::Error, Deserialize, Deserializer};
 use time::OffsetDateTime;
 
@@ -17,6 +20,11 @@ fn str_to_maybe_u64<'de, D: Deserializer<'de>>(d: D) -> Result<Option<u64>, D::E
     } else {
         s.parse().map(Some).map_err(Error::custom)
     }
+}
+
+pub struct TwitchData {
+    pub client_id: HeaderValue,
+    pub oauth_token: TwitchOAuthToken,
 }
 
 #[derive(Default, Deserialize)]
