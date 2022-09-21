@@ -21,6 +21,7 @@ pub async fn build_cluster(
         | Intents::DIRECT_MESSAGE_REACTIONS
         | Intents::MESSAGE_CONTENT;
 
+    // TODO: dont negate flags
     let ignore_flags = EventTypeFlags::BAN_ADD
         | EventTypeFlags::BAN_REMOVE
         | EventTypeFlags::CHANNEL_PINS_UPDATE

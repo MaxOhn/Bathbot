@@ -156,7 +156,7 @@ impl BotConfig {
 trait EnvKind: Sized {
     const EXPECTED: &'static str;
 
-    fn from_str(s: &str) -> Option<Self>;
+    fn from_str(s: String) -> Result<Self, String>;
 }
 
 macro_rules! env_kind {
@@ -165,7 +165,7 @@ macro_rules! env_kind {
             impl EnvKind for $ty {
                 const EXPECTED: &'static str = stringify!($ty);
 
-                fn from_str($arg: &str) -> Option<Self> {
+                fn from_str($arg: String) -> Result<Self, String> {
                     $impl
                 }
             }
@@ -174,35 +174,41 @@ macro_rules! env_kind {
 }
 
 env_kind! {
-    u16: s => { s.parse().ok() },
-    u64: s => { s.parse().ok() },
-    PathBuf: s => { s.parse().ok() },
-    String: s => { Some(s.to_owned()) },
-    Id<UserMarker>: s => { s.parse().ok().map(Id::new) },
-    Id<GuildMarker>: s => { s.parse().ok().map(Id::new) },
-    Id<ChannelMarker>: s => { s.parse().ok().map(Id::new) },
+    String: s => { Ok(s) },
+    u16: s => { s.parse().map_err(|_| s) },
+    u64: s => { s.parse().map_err(|_| s) },
+    PathBuf: s => { s.parse().map_err(|_| s) },
+    Id<UserMarker>: s => { s.parse().map(Id::new).map_err(|_| s) },
+    Id<GuildMarker>: s => { s.parse().map(Id::new).map_err(|_| s) },
+    Id<ChannelMarker>: s => { s.parse().map(Id::new).map_err(|_| s) },
     [u8; 4]: s => {
         if !(s.starts_with('[') && s.ends_with(']')) {
-            return None
+            return Err(s);
         }
 
-        let mut values = s[1..s.len() - 1].split(',');
+        let mut values = s[1..s.len() - 1]
+            .split(',')
+            .map(str::trim)
+            .flat_map(str::parse);
 
-        let array = [
-            values.next()?.trim().parse().ok()?,
-            values.next()?.trim().parse().ok()?,
-            values.next()?.trim().parse().ok()?,
-            values.next()?.trim().parse().ok()?,
-        ];
+        let mut array = [0; 4];
 
-        Some(array)
+        for idx in array.iter_mut() {
+            *idx = if let Some(n) = values.next() {
+                n
+            } else {
+                return Err(s);
+            };
+        }
+
+        Ok(array)
     },
 }
 
 fn env_var<T: EnvKind>(name: &'static str) -> Result<T> {
     let value = env::var(name).map_err(|_| eyre!("missing env variable `{name}`"))?;
 
-    T::from_str(&value).ok_or_else(|| {
+    T::from_str(value).map_err(|value| {
         eyre!(
             "failed to parse env variable `{name}={value}`; expected {expected}",
             expected = T::EXPECTED
