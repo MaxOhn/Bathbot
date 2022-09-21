@@ -47,7 +47,7 @@ jobs:
       run: sqlx migrate run --database-url $DATABASE_URL
         
     - name: Build
-      run: cargo build --verbose --release
+      run: cargo build --release --features full
       
     - name: Deploy
       uses: appleboy/scp-action@master
