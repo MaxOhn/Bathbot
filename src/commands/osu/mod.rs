@@ -126,10 +126,13 @@ use crate::{
 pub use self::{
     attributes::*, avatar::*, badges::*, bws::*, cards::*, claim_name::*, compare::*,
     country_top::*, fix::*, graphs::*, leaderboard::*, link::*, map::*, map_search::*, mapper::*,
-    match_compare::*, match_costs::*, match_live::*, medals::*, most_played::*, nochoke::*,
-    osekai::*, osustats::*, pinned::*, popular::*, pp::*, profile::*, rank::*, ranking::*,
-    ratios::*, recent::*, serverleaderboard::*, simulate::*, snipe::*, top::*, whatif::*,
+    match_compare::*, match_costs::*, medals::*, most_played::*, nochoke::*, osekai::*,
+    osustats::*, pinned::*, popular::*, pp::*, profile::*, rank::*, ranking::*, ratios::*,
+    recent::*, serverleaderboard::*, simulate::*, snipe::*, top::*, whatif::*,
 };
+
+#[cfg(feature = "matchlive")]
+pub use self::match_live::*;
 
 mod attributes;
 mod avatar;

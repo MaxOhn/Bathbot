@@ -65,6 +65,7 @@ impl SlashCommands {
                 Mapper => MAPPER_SLASH,
                 MatchCompare => MATCHCOMPARE_SLASH,
                 MatchCost => MATCHCOST_SLASH,
+                #[cfg(feature = "matchlive")]
                 Matchlive => MATCHLIVE_SLASH,
                 Medal => MEDAL_SLASH,
                 Minesweeper => MINESWEEPER_SLASH,

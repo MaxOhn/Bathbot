@@ -1,3 +1,5 @@
+#![cfg(feature = "matchlive")]
+
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, SlashCommand};

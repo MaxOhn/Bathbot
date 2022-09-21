@@ -1,3 +1,5 @@
+#![cfg(feature = "matchlive")]
+
 use std::{slice, time::Duration};
 
 use eyre::{Context as EyreContext, Report, Result};

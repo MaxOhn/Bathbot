@@ -130,7 +130,9 @@ impl PrefixCommands {
                 MAPPERMANIA_PREFIX,
                 MAPPERTAIKO_PREFIX,
                 MATCHCOSTS_PREFIX,
+                #[cfg(feature = "matchlive")]
                 MATCHLIVE_PREFIX,
+                #[cfg(feature = "matchlive")]
                 MATCHLIVEREMOVE_PREFIX,
                 MEDAL_PREFIX,
                 MEDALRECENT_PREFIX,

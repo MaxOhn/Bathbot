@@ -64,15 +64,18 @@ use crate::util::{datetime::sec_to_minsec, numbers::round, BeatmapExt, ScoreExt}
 pub use self::{
     attributes::*, badge::*, bws::*, card::*, claim_name::*, common::*, compare::*,
     country_snipe_list::*, country_snipe_stats::*, fix_score::*, graph::*, leaderboard::*, map::*,
-    map_search::*, match_compare::*, match_costs::*, match_live::*, medal::*, medal_stats::*,
-    medals_common::*, medals_list::*, medals_missing::*, most_played::*, most_played_common::*,
-    nochoke::*, osekai_medal_count::*, osekai_medal_rarity::*, osustats_counts::*,
-    osustats_globals::*, osustats_list::*, osutracker_countrytop::*, osutracker_mappers::*,
-    osutracker_maps::*, osutracker_mapsets::*, osutracker_mods::*, player_snipe_list::*,
-    player_snipe_stats::*, pp_missing::*, profile::*, profile_compare::*, rank::*, rank_score::*,
-    ranking::*, ranking_countries::*, ratio::*, recent::*, recent_list::*, scores::*, simulate::*,
-    sniped::*, sniped_difference::*, top::*, top_if::*, top_single::*, whatif::*,
+    map_search::*, match_compare::*, match_costs::*, medal::*, medal_stats::*, medals_common::*,
+    medals_list::*, medals_missing::*, most_played::*, most_played_common::*, nochoke::*,
+    osekai_medal_count::*, osekai_medal_rarity::*, osustats_counts::*, osustats_globals::*,
+    osustats_list::*, osutracker_countrytop::*, osutracker_mappers::*, osutracker_maps::*,
+    osutracker_mapsets::*, osutracker_mods::*, player_snipe_list::*, player_snipe_stats::*,
+    pp_missing::*, profile::*, profile_compare::*, rank::*, rank_score::*, ranking::*,
+    ranking_countries::*, ratio::*, recent::*, recent_list::*, scores::*, simulate::*, sniped::*,
+    sniped_difference::*, top::*, top_if::*, top_single::*, whatif::*,
 };
+
+#[cfg(feature = "matchlive")]
+pub use self::match_live::*;
 
 pub fn get_mods(mods: GameMods) -> String {
     if mods.is_empty() {

@@ -81,6 +81,7 @@ strip = "debuginfo"
 
 [features]
 default = []
-full = ["osutracking", "twitchtracking"]
+full = ["matchlive", "osutracking", "twitchtracking"]
+matchlive = []
 osutracking = ["priority-queue"]
 twitchtracking = []

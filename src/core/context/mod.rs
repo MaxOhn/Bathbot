@@ -31,7 +31,6 @@ use crate::{
         bg::GameState as BgGameState,
         hl::{retry::RetryState, GameState as HlGameState},
     },
-    matchlive::MatchLiveChannels,
     pagination::Pagination,
     server::AuthenticationStandby,
     util::{hasher::IntHasher, CountryCode},
@@ -238,7 +237,8 @@ struct ContextData {
     games: Games,
     guilds: FlurryMap<Id<GuildMarker>, GuildConfig, IntHasher>, // read-heavy
     map_garbage_collection: Mutex<HashSet<NonZeroU32, IntHasher>>,
-    matchlive: MatchLiveChannels,
+    #[cfg(feature = "matchlive")]
+    matchlive: crate::matchlive::MatchLiveChannels,
     msgs_to_process: Mutex<HashSet<Id<MessageMarker>, IntHasher>>,
     #[cfg(feature = "osutracking")]
     osu_tracking: crate::tracking::OsuTracking,
@@ -254,7 +254,8 @@ impl ContextData {
             games: Games::new(),
             guilds: psql.get_guilds().await?,
             map_garbage_collection: Mutex::new(HashSet::default()),
-            matchlive: MatchLiveChannels::new(),
+            #[cfg(feature = "matchlive")]
+            matchlive: crate::matchlive::MatchLiveChannels::new(),
             msgs_to_process: Mutex::new(HashSet::default()),
             #[cfg(feature = "osutracking")]
             osu_tracking: crate::tracking::OsuTracking::new(psql)

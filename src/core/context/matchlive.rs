@@ -1,3 +1,5 @@
+#![cfg(feature = "matchlive")]
+
 use std::{slice, sync::Arc};
 
 use eyre::Report;
@@ -164,12 +166,6 @@ impl Context {
     }
 
     pub async fn match_live_loop(ctx: Arc<Context>) {
-        if cfg!(debug_assertions) {
-            info!("Skip match live tracking on debug");
-
-            return;
-        }
-
         // Update all matches every 10 seconds
         let mut interval = interval(Duration::from_secs(10));
         interval.tick().await;

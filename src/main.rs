@@ -131,9 +131,12 @@ async fn async_main() -> Result<()> {
     let background_ctx = Arc::clone(&ctx);
     tokio::spawn(Context::background_loop(background_ctx));
 
-    // Spawn osu match ticker worker
-    let match_live_ctx = Arc::clone(&ctx);
-    tokio::spawn(Context::match_live_loop(match_live_ctx));
+    #[cfg(feature = "matchlive")]
+    {
+        // Spawn osu match ticker worker
+        let match_live_ctx = Arc::clone(&ctx);
+        tokio::spawn(Context::match_live_loop(match_live_ctx));
+    }
 
     // Request members
     let member_ctx = Arc::clone(&ctx);
@@ -206,8 +209,11 @@ async fn async_main() -> Result<()> {
     let count = ctx.stop_all_games().await;
     info!("Stopped {count} bg games");
 
-    let count = ctx.notify_match_live_shutdown().await;
-    info!("Stopped match tracking in {count} channels");
+    #[cfg(feature = "matchlive")]
+    {
+        let count = ctx.notify_match_live_shutdown().await;
+        info!("Stopped match tracking in {count} channels");
+    }
 
     let resume_data = ctx.cluster.down_resumable();
 
