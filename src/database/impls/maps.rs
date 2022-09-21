@@ -12,7 +12,7 @@ use sqlx::PgConnection;
 
 use crate::{
     database::{DBBeatmap, DBBeatmapset},
-    util::hasher::SimpleBuildHasher,
+    util::hasher::IntHasher,
     Database,
 };
 
@@ -84,8 +84,8 @@ impl Database {
     pub async fn get_beatmaps_combo(
         &self,
         map_ids: &[i32],
-    ) -> Result<HashMap<u32, Option<u32>, SimpleBuildHasher>> {
-        let mut combos = HashMap::with_capacity_and_hasher(map_ids.len(), SimpleBuildHasher);
+    ) -> Result<HashMap<u32, Option<u32>, IntHasher>> {
+        let mut combos = HashMap::with_capacity_and_hasher(map_ids.len(), IntHasher);
 
         let query = sqlx::query!(
             "SELECT map_id,max_combo FROM maps WHERE map_id=ANY($1)",
@@ -105,7 +105,7 @@ impl Database {
         &self,
         map_ids: &[i32],
         with_mapset: bool,
-    ) -> Result<HashMap<u32, Beatmap, SimpleBuildHasher>> {
+    ) -> Result<HashMap<u32, Beatmap, IntHasher>> {
         if map_ids.is_empty() {
             return Ok(HashMap::default());
         }
@@ -127,7 +127,7 @@ impl Database {
             .map_ok(Beatmap::from)
             .map_ok(|m| (m.map_id, m));
 
-        let mut beatmaps = HashMap::with_capacity_and_hasher(map_ids.len(), SimpleBuildHasher);
+        let mut beatmaps = HashMap::with_capacity_and_hasher(map_ids.len(), IntHasher);
 
         while let Some((id, mut map)) = stream.next().await.transpose()? {
             if with_mapset {

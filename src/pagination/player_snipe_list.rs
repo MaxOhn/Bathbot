@@ -9,7 +9,7 @@ use twilight_model::channel::embed::Embed;
 use crate::{
     custom_client::{SnipeScore, SnipeScoreParams},
     embeds::{EmbedData, PlayerSnipeListEmbed},
-    util::hasher::SimpleBuildHasher,
+    util::hasher::IntHasher,
     Context,
 };
 
@@ -19,7 +19,7 @@ use super::Pages;
 pub struct PlayerSnipeListPagination {
     user: User,
     scores: BTreeMap<usize, SnipeScore>,
-    maps: HashMap<u32, Beatmap, SimpleBuildHasher>,
+    maps: HashMap<u32, Beatmap, IntHasher>,
     total: usize,
     params: SnipeScoreParams,
 }

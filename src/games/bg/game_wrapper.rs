@@ -12,7 +12,7 @@ use twilight_model::{
     id::{marker::ChannelMarker, Id},
 };
 
-use crate::util::hasher::SimpleBuildHasher;
+use crate::util::hasher::IntHasher;
 use crate::{
     commands::fun::GameDifficulty,
     database::MapsetTagWrapper,
@@ -48,7 +48,7 @@ impl GameWrapper {
             .wait_for_message_stream(channel, |event: &MessageCreate| !event.author.bot);
 
         let mut previous_ids = VecDeque::with_capacity(50);
-        let mut scores = HashMap::with_hasher(SimpleBuildHasher);
+        let mut scores = HashMap::with_hasher(IntHasher);
 
         // Initialize game
         let (game, mut img) =

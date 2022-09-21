@@ -14,7 +14,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, MatchCostEmbed},
     util::{
-        builder::MessageBuilder, constants::OSU_API_ISSUE, hasher::SimpleBuildHasher,
+        builder::MessageBuilder, constants::OSU_API_ISSUE, hasher::IntHasher,
         interaction::InteractionCommand, matcher, ChannelExt, InteractionCommandExt,
     },
     Context,
@@ -319,9 +319,9 @@ pub fn process_match(
     finished: bool,
     users: &StdHashMap<u32, UserCompact>,
 ) -> MatchResult {
-    let mut teams = HashMap::with_hasher(SimpleBuildHasher);
-    let mut point_costs = HashMap::with_hasher(SimpleBuildHasher);
-    let mut mods = HashMap::with_hasher(SimpleBuildHasher);
+    let mut teams = HashMap::with_hasher(IntHasher);
+    let mut point_costs = HashMap::with_hasher(IntHasher);
+    let mut mods = HashMap::with_hasher(IntHasher);
     let team_vs = games[0].team_type == TeamType::TeamVS;
     let mut match_scores = MatchScores(0, 0);
 

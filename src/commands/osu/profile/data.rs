@@ -10,7 +10,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::osu::MinMaxAvg,
-    util::{hasher::SimpleBuildHasher, osu::BonusPP},
+    util::{hasher::IntHasher, osu::BonusPP},
 };
 
 use super::ProfileEmbedMap;
@@ -81,7 +81,7 @@ impl ProfileResult {
         let mut combo = MinMaxAvg::new();
         let mut map_len = MinMaxAvg::new();
         let mut map_combo = 0;
-        let mut mapper_count = HashMap::with_capacity_and_hasher(10, SimpleBuildHasher);
+        let mut mapper_count = HashMap::with_capacity_and_hasher(10, IntHasher);
         let len = scores.len() as f32;
         let mut mod_combs = HashMap::with_capacity(5);
         let mut mods = HashMap::with_capacity(5);

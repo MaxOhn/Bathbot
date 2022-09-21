@@ -11,7 +11,7 @@ use crate::{
     commands::osu::UserValue,
     database::{Database, UserStatsColumn, UserValueRaw},
     embeds::RankingEntry,
-    util::hasher::SimpleBuildHasher,
+    util::hasher::IntHasher,
 };
 
 const COUNTRY_CODE: &str = "country_code";
@@ -258,17 +258,14 @@ LIMIT 1)) AS neighbors",
         Ok(())
     }
 
-    pub async fn get_names_by_ids(
-        &self,
-        ids: &[i32],
-    ) -> Result<HashMap<u32, Username, SimpleBuildHasher>> {
+    pub async fn get_names_by_ids(&self, ids: &[i32]) -> Result<HashMap<u32, Username, IntHasher>> {
         let query = sqlx::query!(
             "SELECT user_id,username from osu_user_names WHERE user_id=ANY($1)",
             ids
         );
 
         let mut stream = query.fetch(&self.pool);
-        let mut map = HashMap::with_capacity_and_hasher(ids.len(), SimpleBuildHasher);
+        let mut map = HashMap::with_capacity_and_hasher(ids.len(), IntHasher);
 
         while let Some(row) = stream.next().await.transpose()? {
             map.insert(row.user_id as u32, row.username.into());

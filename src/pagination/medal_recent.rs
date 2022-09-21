@@ -4,7 +4,7 @@ use twilight_model::channel::embed::Embed;
 
 use crate::{
     commands::osu::MedalAchieved, custom_client::OsekaiMedal, embeds::MedalEmbed,
-    util::hasher::SimpleBuildHasher,
+    util::hasher::IntHasher,
 };
 
 use super::{Pages, PaginationBuilder, PaginationKind};
@@ -12,9 +12,9 @@ use super::{Pages, PaginationBuilder, PaginationKind};
 // Not using #[pagination(...)] since it requires special initialization
 pub struct MedalRecentPagination {
     user: User,
-    cached_medals: HashMap<u32, OsekaiMedal, SimpleBuildHasher>,
+    cached_medals: HashMap<u32, OsekaiMedal, IntHasher>,
     achieved_medals: Vec<MedalCompact>,
-    embeds: HashMap<usize, MedalEmbed, SimpleBuildHasher>,
+    embeds: HashMap<usize, MedalEmbed, IntHasher>,
     medals: Vec<OsekaiMedal>,
 }
 

@@ -12,7 +12,7 @@ use crate::{
     pagination::OsuTrackerMapsetsPagination,
     util::{
         constants::{OSUTRACKER_ISSUE, OSU_API_ISSUE},
-        hasher::SimpleBuildHasher,
+        hasher::IntHasher,
         interaction::InteractionCommand,
         InteractionCommandExt,
     },
@@ -34,7 +34,7 @@ pub(super) async fn mapsets(ctx: Arc<Context>, mut command: InteractionCommand) 
 
     counts.truncate(727);
 
-    let mut mapsets = HashMap::with_hasher(SimpleBuildHasher);
+    let mut mapsets = HashMap::with_hasher(IntHasher);
 
     for entry in counts.iter().take(10) {
         let mapset_id = entry.mapset_id;

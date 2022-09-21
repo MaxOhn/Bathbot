@@ -18,7 +18,7 @@ use crate::{
     util::{
         constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
         get_combined_thumbnail,
-        hasher::SimpleBuildHasher,
+        hasher::IntHasher,
         matcher,
     },
     Context,
@@ -301,7 +301,7 @@ pub struct MedalEntryCommon {
     pub achieved2: Option<OffsetDateTime>,
 }
 
-fn extract_medals(user: &User) -> HashMap<u32, OffsetDateTime, SimpleBuildHasher> {
+fn extract_medals(user: &User) -> HashMap<u32, OffsetDateTime, IntHasher> {
     match user.medals.as_ref() {
         Some(medals) => medals
             .iter()

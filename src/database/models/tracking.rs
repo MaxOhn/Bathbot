@@ -8,14 +8,14 @@ use sqlx::{types::Json, ColumnIndex, Decode, Error, FromRow, Row, Type};
 use time::OffsetDateTime;
 use twilight_model::id::{marker::ChannelMarker, Id};
 
-use crate::util::hasher::SimpleBuildHasher;
+use crate::util::hasher::IntHasher;
 
 #[derive(Debug)]
 pub struct TrackingUser {
     pub user_id: u32,
     pub mode: GameMode,
     pub last_top_score: OffsetDateTime,
-    pub channels: HashMap<Id<ChannelMarker>, usize, SimpleBuildHasher>,
+    pub channels: HashMap<Id<ChannelMarker>, usize, IntHasher>,
 }
 
 impl TrackingUser {

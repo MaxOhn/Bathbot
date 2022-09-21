@@ -15,7 +15,7 @@ use crate::{
     tracking::process_osu_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        hasher::SimpleBuildHasher,
+        hasher::IntHasher,
         interaction::InteractionCommand,
         matcher, ChannelExt, CowUtils, InteractionCommandExt,
     },
@@ -400,7 +400,7 @@ impl ProfileEmbed {
                             let result = if let Some(result) = profile_result {
                                 result
                             } else {
-                                return HashMap::with_hasher(SimpleBuildHasher);
+                                return HashMap::with_hasher(IntHasher);
                             };
 
                             let ids: Vec<_> =

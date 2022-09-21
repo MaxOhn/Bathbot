@@ -10,7 +10,7 @@ use crate::{
     core::Context,
     custom_client::SnipeRecent,
     embeds::{EmbedData, SnipedDiffEmbed},
-    util::hasher::SimpleBuildHasher,
+    util::hasher::IntHasher,
 };
 
 use super::Pages;
@@ -20,7 +20,7 @@ pub struct SnipedDiffPagination {
     user: User,
     diff: Difference,
     scores: Vec<SnipeRecent>,
-    maps: HashMap<u32, Beatmap, SimpleBuildHasher>,
+    maps: HashMap<u32, Beatmap, IntHasher>,
 }
 
 impl SnipedDiffPagination {

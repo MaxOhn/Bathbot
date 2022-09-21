@@ -1,22 +1,22 @@
 use std::hash::{BuildHasher, Hasher};
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
-pub struct SimpleBuildHasher;
+pub struct IntHasher;
 
-impl BuildHasher for SimpleBuildHasher {
-    type Hasher = SimpleHasher;
+impl BuildHasher for IntHasher {
+    type Hasher = IntHash;
 
     #[inline]
     fn build_hasher(&self) -> Self::Hasher {
-        SimpleHasher(0)
+        IntHash(0)
     }
 }
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
-pub struct SimpleHasher(u64);
+pub struct IntHash(u64);
 
 #[rustfmt::skip]
-impl Hasher for SimpleHasher {
+impl Hasher for IntHash {
     fn write(&mut self, _: &[u8]) { panic!("don't use this"); }
     fn write_u128(&mut self, _: u128) { panic!("don't use this"); }
     fn write_i128(&mut self, _: i128) { panic!("don't use this"); }

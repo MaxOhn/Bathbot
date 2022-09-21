@@ -115,7 +115,7 @@ use crate::{
     custom_client::OsuStatsParams,
     pp::PpCalculator,
     util::{
-        hasher::SimpleBuildHasher,
+        hasher::IntHasher,
         numbers::with_comma_int,
         osu::{ModSelection, SortableScore},
         CowUtils,
@@ -704,8 +704,8 @@ impl ScoreOrder {
                 scores.sort_by(|a, b| b.pp().partial_cmp(&a.pp()).unwrap_or(Ordering::Equal))
             }
             Self::RankedDate => {
-                let mut mapsets = HashMap::with_hasher(SimpleBuildHasher);
-                let mut new_mapsets = HashMap::with_hasher(SimpleBuildHasher);
+                let mut mapsets = HashMap::with_hasher(IntHasher);
+                let mut new_mapsets = HashMap::with_hasher(IntHasher);
 
                 for score in scores.iter() {
                     let mapset_id = score.mapset_id();
@@ -779,7 +779,7 @@ impl ScoreOrder {
             }
             Self::Score => scores.sort_by_key(|score| Reverse(score.score())),
             Self::Stars => {
-                let mut stars = HashMap::with_hasher(SimpleBuildHasher);
+                let mut stars = HashMap::with_hasher(IntHasher);
 
                 for score in scores.iter() {
                     let score_id = score.score_id();

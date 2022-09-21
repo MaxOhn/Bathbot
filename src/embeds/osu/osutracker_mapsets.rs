@@ -10,7 +10,7 @@ use crate::{
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
-        hasher::SimpleBuildHasher,
+        hasher::IntHasher,
         numbers::with_comma_int,
         CowUtils,
     },
@@ -26,7 +26,7 @@ pub struct OsuTrackerMapsetsEmbed {
 impl OsuTrackerMapsetsEmbed {
     pub fn new(
         entries: &[OsuTrackerMapsetEntry],
-        mapsets: &HashMap<u32, MapsetEntry, SimpleBuildHasher>,
+        mapsets: &HashMap<u32, MapsetEntry, IntHasher>,
         pages: &Pages,
     ) -> Self {
         let author = AuthorBuilder::new("Most common mapsets in top plays")

@@ -18,7 +18,7 @@ use crate::{
     tracking::process_osu_tracking,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        hasher::SimpleBuildHasher,
+        hasher::IntHasher,
         interaction::InteractionCommand,
         matcher, ChannelExt, CowUtils, InteractionCommandExt,
     },
@@ -318,7 +318,7 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
     };
 
     let sort_by = TopScoreOrder::Pp;
-    let farm = HashMap::with_hasher(SimpleBuildHasher);
+    let farm = HashMap::with_hasher(IntHasher);
 
     let list_size = match args.size {
         Some(size) => size,

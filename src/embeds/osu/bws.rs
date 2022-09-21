@@ -4,7 +4,7 @@ use command_macros::EmbedData;
 use hashbrown::HashSet;
 use rosu_v2::model::user::User;
 
-use crate::util::{builder::AuthorBuilder, hasher::SimpleBuildHasher, numbers::with_comma_int};
+use crate::util::{builder::AuthorBuilder, hasher::IntHasher, numbers::with_comma_int};
 
 #[derive(EmbedData)]
 pub struct BWSEmbed {
@@ -52,7 +52,7 @@ impl BWSEmbed {
                 let step_rank = 3;
 
                 let bwss: BTreeMap<_, _> = {
-                    let mut values = HashSet::with_hasher(SimpleBuildHasher);
+                    let mut values = HashSet::with_hasher(IntHasher);
 
                     (min..max)
                         .step_by((dist_rank / step_rank).max(1))

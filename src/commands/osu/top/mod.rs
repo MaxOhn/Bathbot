@@ -27,7 +27,7 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSUTRACKER_ISSUE, OSU_API_ISSUE},
-        hasher::SimpleBuildHasher,
+        hasher::IntHasher,
         interaction::InteractionCommand,
         matcher, numbers,
         osu::{ModSelection, SortableScore},
@@ -1171,7 +1171,7 @@ async fn single_embed(
     Ok(())
 }
 
-type Farm = HashMap<u32, (OsuTrackerMapsetEntry, bool), SimpleBuildHasher>;
+type Farm = HashMap<u32, (OsuTrackerMapsetEntry, bool), IntHasher>;
 
 fn write_content(name: &str, args: &TopArgs<'_>, amount: usize) -> Option<String> {
     let condition = args.min_acc.is_some()

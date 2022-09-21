@@ -15,13 +15,13 @@ use crate::{
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
-        hasher::SimpleBuildHasher,
+        hasher::IntHasher,
         numbers::{round, with_comma_int},
         CowUtils, Emote, ScoreExt,
     },
 };
 
-type Farm = HashMap<u32, (OsuTrackerMapsetEntry, bool), SimpleBuildHasher>;
+type Farm = HashMap<u32, (OsuTrackerMapsetEntry, bool), IntHasher>;
 
 #[derive(EmbedData)]
 pub struct TopEmbed {

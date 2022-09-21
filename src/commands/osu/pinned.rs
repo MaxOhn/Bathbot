@@ -21,7 +21,7 @@ use crate::{
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        hasher::SimpleBuildHasher,
+        hasher::IntHasher,
         interaction::InteractionCommand,
         osu::ModSelection,
         query::{FilterCriteria, Searchable},
@@ -214,7 +214,7 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
         let content = write_content(&name, &args, scores.len(), mods);
         let sort_by = args.sort.unwrap_or(ScoreOrder::Pp).into(); // TopOrder::Pp does not show anything
         let scores: Vec<_> = scores.into_iter().enumerate().collect();
-        let farm = HashMap::with_hasher(SimpleBuildHasher);
+        let farm = HashMap::with_hasher(IntHasher);
 
         match list_size {
             ListSize::Condensed => {

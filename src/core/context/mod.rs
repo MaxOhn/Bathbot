@@ -35,7 +35,7 @@ use crate::{
     pagination::Pagination,
     server::AuthenticationStandby,
     tracking::OsuTracking,
-    util::{hasher::SimpleBuildHasher, CountryCode},
+    util::{hasher::IntHasher, CountryCode},
 };
 
 use super::{buckets::Buckets, cluster::build_cluster, BotStats, Cache, RedisCache};
@@ -61,7 +61,7 @@ pub struct Context {
     pub cluster: Cluster,
     pub http: Arc<Client>,
     pub member_requests: MemberRequests,
-    pub paginations: Arc<TokioMutexMap<Id<MessageMarker>, Pagination, SimpleBuildHasher>>,
+    pub paginations: Arc<TokioMutexMap<Id<MessageMarker>, Pagination, IntHasher>>,
     pub standby: Standby,
     pub stats: Arc<BotStats>,
     // private to avoid deadlocks by messing up references
@@ -194,10 +194,7 @@ impl Context {
             auth_standby: AuthenticationStandby::new(),
             buckets: Buckets::new(),
             member_requests: MemberRequests::new(tx),
-            paginations: Arc::new(TokioMutexMap::with_shard_amount_and_hasher(
-                16,
-                SimpleBuildHasher,
-            )),
+            paginations: Arc::new(TokioMutexMap::with_shard_amount_and_hasher(16, IntHasher)),
         };
 
         Ok((ctx, events))
@@ -206,7 +203,7 @@ impl Context {
 
 pub struct MemberRequests {
     pub tx: UnboundedSender<(Id<GuildMarker>, u64)>,
-    pub todo_guilds: Mutex<HashSet<Id<GuildMarker>, SimpleBuildHasher>>,
+    pub todo_guilds: Mutex<HashSet<Id<GuildMarker>, IntHasher>>,
 }
 
 impl MemberRequests {
@@ -239,14 +236,14 @@ impl Clients {
 struct ContextData {
     application_id: Id<ApplicationMarker>,
     games: Games,
-    guilds: FlurryMap<Id<GuildMarker>, GuildConfig, SimpleBuildHasher>, // read-heavy
-    map_garbage_collection: Mutex<HashSet<NonZeroU32, SimpleBuildHasher>>,
+    guilds: FlurryMap<Id<GuildMarker>, GuildConfig, IntHasher>, // read-heavy
+    map_garbage_collection: Mutex<HashSet<NonZeroU32, IntHasher>>,
     matchlive: MatchLiveChannels,
-    msgs_to_process: Mutex<HashSet<Id<MessageMarker>, SimpleBuildHasher>>,
+    msgs_to_process: Mutex<HashSet<Id<MessageMarker>, IntHasher>>,
     osu_tracking: OsuTracking,
     role_assigns: FlurryMap<(u64, u64), AssignRoles>, // read-heavy
     snipe_countries: FlurryMap<CountryCode, String>,  // read-heavy
-    tracked_streams: FlurryMap<u64, Vec<u64>, SimpleBuildHasher>, // read-heavy
+    tracked_streams: FlurryMap<u64, Vec<u64>, IntHasher>, // read-heavy
 }
 
 impl ContextData {
@@ -286,13 +283,13 @@ struct Games {
 impl Games {
     fn new() -> Self {
         Self {
-            bg: BgGames::with_shard_amount_and_hasher(16, SimpleBuildHasher),
-            hl: HlGames::with_shard_amount_and_hasher(16, SimpleBuildHasher),
-            hl_retries: HlRetries::with_shard_amount_and_hasher(4, SimpleBuildHasher),
+            bg: BgGames::with_shard_amount_and_hasher(16, IntHasher),
+            hl: HlGames::with_shard_amount_and_hasher(16, IntHasher),
+            hl_retries: HlRetries::with_shard_amount_and_hasher(4, IntHasher),
         }
     }
 }
 
-type BgGames = TokioRwLockMap<Id<ChannelMarker>, BgGameState, SimpleBuildHasher>;
-type HlGames = TokioMutexMap<Id<UserMarker>, HlGameState, SimpleBuildHasher>;
-type HlRetries = StdMutexMap<Id<MessageMarker>, RetryState, SimpleBuildHasher>;
+type BgGames = TokioRwLockMap<Id<ChannelMarker>, BgGameState, IntHasher>;
+type HlGames = TokioMutexMap<Id<UserMarker>, HlGameState, IntHasher>;
+type HlRetries = StdMutexMap<Id<MessageMarker>, RetryState, IntHasher>;
