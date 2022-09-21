@@ -93,15 +93,17 @@ impl EmbedData for Embed {
 }
 
 pub fn attachment(filename: impl AsRef<str>) -> String {
-    #[cfg(debug_assert)]
-    match filename.rfind('.') {
-        Some(idx) => {
-            if filename.get(idx + 1..).map(str::is_empty).is_none() {
-                panic!("expected non-empty extension for attachment");
-            }
-        }
-        None => panic!("expected extension for attachment"),
+    let filename = filename.as_ref();
+
+    #[cfg(debug_assertions)]
+    if filename
+        .rsplit('.')
+        .next()
+        .filter(|ext| !ext.is_empty())
+        .is_none()
+    {
+        panic!("expected non-empty extension for attachment");
     }
 
-    format!("attachment://{}", filename.as_ref())
+    format!("attachment://{filename}")
 }
