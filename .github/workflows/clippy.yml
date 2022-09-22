@@ -32,5 +32,5 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v1
 
-      - name: Run clippy on {{ matrix.kind }}
-        run: cargo clippy {{ matrix.features }}
+      - name: Run clippy on ${{ matrix.kind }}
+        run: cargo clippy ${{ matrix.features }}
