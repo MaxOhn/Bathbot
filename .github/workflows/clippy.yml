@@ -1,0 +1,36 @@
+name: Run Clippy
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  clippy:
+    strategy:
+      matrix:
+        include:
+          - kind: no features
+            features: --no-default-features
+          - kind: full features
+            features: --features full
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v3
+
+    - name: Install rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v1
+
+      - name: Run clippy on {{ matrix.kind }}
+        run: cargo clippy {{ matrix.features }}
