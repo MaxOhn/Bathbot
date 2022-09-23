@@ -6,9 +6,6 @@ on:
       - main
   pull_request:
 
-env:
-  SQLX_OFFLINE: true
-
 jobs:
   clippy:
     strategy:
@@ -36,4 +33,4 @@ jobs:
         uses: Swatinem/rust-cache@v1
 
       - name: Run clippy on ${{ matrix.kind }}
-        run: cargo clippy --features ${{ matrix.features }}
+        run: SQLX_OFFLINE=TRUE cargo clippy --features ${{ matrix.features }}
