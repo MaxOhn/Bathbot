@@ -6,15 +6,18 @@ on:
       - main
   pull_request:
 
+env:
+  SQLX_OFFLINE: true
+
 jobs:
   clippy:
     strategy:
       matrix:
         include:
           - kind: no features
-            features: --features offline
+            features: offline
           - kind: full features
-            features: --features full,offline
+            features: full,offline
 
     runs-on: ubuntu-latest
 
@@ -33,4 +36,4 @@ jobs:
         uses: Swatinem/rust-cache@v1
 
       - name: Run clippy on ${{ matrix.kind }}
-        run: cargo clippy ${{ matrix.features }}
+        run: cargo clippy --features ${{ matrix.features }}

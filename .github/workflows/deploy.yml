@@ -9,6 +9,7 @@ env:
   CARGO_INCREMENTAL: 0
   CARGO_NET_RETRY: 10
   RUSTFLAGS: -Cdebuginfo=1 -Dwarnings
+  SQLX_OFFLINE: true
 
 jobs:
   build:
