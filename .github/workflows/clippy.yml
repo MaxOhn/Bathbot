@@ -12,9 +12,9 @@ jobs:
       matrix:
         include:
           - kind: no features
-            features: --no-default-features
+            features: --features offline
           - kind: full features
-            features: --features full
+            features: --features full,offline
 
     runs-on: ubuntu-latest
 

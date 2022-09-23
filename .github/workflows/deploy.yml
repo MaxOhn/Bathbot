@@ -9,51 +9,34 @@ env:
   CARGO_INCREMENTAL: 0
   CARGO_NET_RETRY: 10
   RUSTFLAGS: -Cdebuginfo=1 -Dwarnings
-  DATABASE_URL: postgres://gh_action:gh_action@127.0.0.1:5432/bathbot
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout project
-      uses: actions/checkout@v3
-    
-    - name: Install postgres
-      uses: harmon758/postgresql-action@v1
-      with:
-        postgresql version: '14-alpine'
-        postgresql db: 'bathbot'
-        postgresql user: 'gh_action'
-        postgresql password: 'gh_action'
-    
-    - name: Install rust toolchain
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        profile: minimal
-        override: true
+      - name: Checkout project
+        uses: actions/checkout@v3
 
-    - name: Cache dependencies
-      uses: Swatinem/rust-cache@v1
-        
-    - name: Install sqlx-cli
-      uses: baptiste0928/cargo-install@v1
-      with:
-        crate: sqlx-cli
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
 
-    - name: Migrate DB
-      run: sqlx migrate run --database-url $DATABASE_URL
-        
-    - name: Build
-      run: cargo build --release --features full
-      
-    - name: Deploy
-      uses: appleboy/scp-action@master
-      with:
-        host: ${{ secrets.SCP_HOST }}
-        username: ${{ secrets.SCP_USERNAME }}
-        password: ${{ secrets.SCP_PASSWORD }}
-        source: target/release/bathbot-twilight
-        target: ${{ secrets.SCP_TARGET }}
-        strip_components: 2
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v1
+
+      - name: Build
+        run: cargo build --release --features full,offline
+
+      - name: Deploy
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SCP_HOST }}
+          username: ${{ secrets.SCP_USERNAME }}
+          password: ${{ secrets.SCP_PASSWORD }}
+          source: target/release/bathbot-twilight
+          target: ${{ secrets.SCP_TARGET }}
+          strip_components: 2

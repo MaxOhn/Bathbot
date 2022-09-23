@@ -80,11 +80,12 @@ codegen-units = 1
 strip = "debuginfo"
 
 [features]
-default = []
+default = ["offline"]
 full = ["global_slash", "matchlive", "osutracking", "server", "twitch", "twitchtracking"]
 
 global_slash = []
 matchlive = []
+offline = ["sqlx/offline"]
 osutracking = ["priority-queue"]
 server = ["routerify", "twitch"]
 twitch = []
