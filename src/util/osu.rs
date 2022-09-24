@@ -209,7 +209,7 @@ pub fn approx_more_pp(pps: &mut Vec<f32>, more: usize) {
     let extension = iter::successors(pps.last().copied(), |pp| {
         let pp = pp - diff;
 
-        (pp > 0.0).then(|| pp)
+        (pp > 0.0).then_some(pp)
     });
 
     pps.extend(extension.take(more));

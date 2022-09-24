@@ -519,7 +519,7 @@ impl Search {
             query.replace_range(..preceeding_whitespace, "");
         }
 
-        let query = (!query.is_empty()).then(|| query);
+        let query = (!query.is_empty()).then_some(query);
 
         Ok(Self {
             query,

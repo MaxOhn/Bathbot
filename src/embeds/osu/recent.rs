@@ -197,7 +197,7 @@ impl RecentEmbed {
         let pp = Some(pp);
 
         let global_idx = map_score
-            .and_then(|s| (&s.score == score).then(|| s.pos))
+            .and_then(|s| (&s.score == score).then_some(s.pos))
             .filter(|&p| p <= 50);
 
         let description = if personal_idx.is_some() || global_idx.is_some() {

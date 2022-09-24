@@ -81,7 +81,7 @@ impl InteractionCommandExt for InteractionCommand {
             components: builder.components,
             content: builder.content.map(|c| c.into_owned()),
             embeds: builder.embed.map(|e| vec![e]),
-            flags: ephemeral.then(|| MessageFlags::EPHEMERAL),
+            flags: ephemeral.then_some(MessageFlags::EPHEMERAL),
             ..Default::default()
         };
 
@@ -98,7 +98,7 @@ impl InteractionCommandExt for InteractionCommand {
     #[inline]
     fn defer(&self, ctx: &Context, ephemeral: bool) -> ResponseFuture<EmptyBody> {
         let data = InteractionResponseData {
-            flags: ephemeral.then(|| MessageFlags::EPHEMERAL),
+            flags: ephemeral.then_some(MessageFlags::EPHEMERAL),
             ..Default::default()
         };
 

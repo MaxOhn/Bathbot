@@ -328,5 +328,5 @@ fn message_content(
         let _ = write!(content, "`Query: {query}`");
     }
 
-    (!content.is_empty()).then(|| content)
+    (!content.is_empty()).then_some(content)
 }
