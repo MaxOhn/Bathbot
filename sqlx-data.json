@@ -293,6 +293,29 @@
     },
     "query": "DELETE FROM role_assigns WHERE channel_id=$1 AND message_id=$2 AND role_id=$3"
   },
+  "347376969f17b666dd1211bb1c9c3932f3cc786f9c5e88a91e04871ace0d1c53": {
+    "describe": {
+      "columns": [
+        {
+          "name": "channels",
+          "ordinal": 0,
+          "type_info": "Json"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int2",
+          "Timestamptz",
+          "Json"
+        ]
+      }
+    },
+    "query": "INSERT INTO osu_trackings VALUES ($1,$2,$3,$4)ON CONFLICT (user_id,mode) DO UPDATE SET last_top_score=$3 RETURNING channels"
+  },
   "37ec15cc4be4cb5bce0dab7fd9dcffc16904d06f059b7ec8913ae7e468970368": {
     "describe": {
       "columns": [],
@@ -349,6 +372,20 @@
       }
     },
     "query": "SELECT * FROM bggame_scores"
+  },
+  "3e7622c789cbdd048054cee4d8951acef177c7c3f3b1fd01cde8116ed9eea962": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int2",
+          "Timestamptz"
+        ]
+      }
+    },
+    "query": "UPDATE osu_trackings SET last_top_score=$3 WHERE user_id=$1 AND mode=$2"
   },
   "4552cc466a20937704ccec93a7a502874ea39e27e56838d64d4964297926e7cb": {
     "describe": {
@@ -819,6 +856,21 @@
     },
     "query": "INSERT INTO stream_tracks VALUES ($1,$2) ON CONFLICT DO NOTHING"
   },
+  "736465bcca7c101227b738177306aa19549205acb89eb3e478704cb38da28206": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int2",
+          "Timestamptz",
+          "Json"
+        ]
+      }
+    },
+    "query": "UPDATE osu_trackings SET last_top_score=$3,channels=$4 WHERE user_id=$1 AND mode=$2"
+  },
   "75e65e78a9e800956e14f624f37465cec1f81c78e2760a2ecd45a0ad19839926": {
     "describe": {
       "columns": [
@@ -902,6 +954,42 @@
       }
     },
     "query": "DELETE FROM osu_user_stats_mode S USING osu_user_names N WHERE N.username ILIKE $1 AND S.user_id=N.user_id"
+  },
+  "815f16f110c3270638b95e2801cea549f07b1a26a9a71210423e85f9c59fa037": {
+    "describe": {
+      "columns": [
+        {
+          "name": "user_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "mode",
+          "ordinal": 1,
+          "type_info": "Int2"
+        },
+        {
+          "name": "last_top_score",
+          "ordinal": 2,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "channels",
+          "ordinal": 3,
+          "type_info": "Json"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "SELECT * FROM osu_trackings"
   },
   "830aa92def9ae1ff2455cf8ed950a62b30042fe1ec014bfe66acc8dfdb9e6f01": {
     "describe": {
@@ -1035,6 +1123,20 @@
       }
     },
     "query": "INSERT INTO snipe_countries VALUES ($1,$2)"
+  },
+  "92590965e4b34fcfbed87adecdb5ebe71ef219939ab80d8a707171b875d9932e": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int2",
+          "Json"
+        ]
+      }
+    },
+    "query": "UPDATE osu_trackings SET channels=$3 WHERE user_id=$1 AND mode=$2"
   },
   "9f1e9eef50180f1d00d0e5f6ec7dc107464b38188f0141cd90d58d46d1ea0ae1": {
     "describe": {
@@ -1398,6 +1500,19 @@
       }
     },
     "query": "SELECT highscore FROM higherlower_scores WHERE discord_id=$1 AND version=$2"
+  },
+  "d4c455b06269c71db843c3a2204c409d6ddc028ac5d3ba226a41a9f41d905397": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int2"
+        ]
+      }
+    },
+    "query": "DELETE FROM osu_trackings WHERE user_id=$1 AND mode=$2"
   },
   "f2866365d004e8792d0f6cd21645d5e5d19ab529adad33a7319875f8f9e813a5": {
     "describe": {
