@@ -2,35 +2,57 @@ name: Run Clippy
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
   pull_request:
+
+env:
+  SQLX_OFFLINE: true
 
 jobs:
   clippy:
+    runs-on: ubuntu-latest
+
     strategy:
       matrix:
         include:
-          - kind: no features
+          - kind: no-features
             features: offline
-          - kind: full features
+          - kind: full-features
             features: full,offline
 
-    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
 
     steps:
       - name: Checkout project
         uses: actions/checkout@v3
 
-      - name: Install rust toolchain
+      - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
           profile: minimal
+          toolchain: stable
+          components: clippy
           override: true
 
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v1
 
-      - name: Run clippy on ${{ matrix.kind }}
-        run: SQLX_OFFLINE=TRUE cargo clippy --features ${{ matrix.features }}
+      - name: Install SARIF
+        run: cargo install clippy-sarif sarif-fmt
+
+      - name: Run clippy
+        run: >
+          cargo clippy --features ${{ matrix.features }} --message-format=json
+          | clippy-sarif
+          | tee ${{ matrix.kind }}-clippy-results.sarif
+          | sarif-fmt
+        continue-on-error: true
+
+      - name: Upload results to GitHub
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: ${{ matrix.kind }}-clippy-results.sarif
+          wait-for-processing: true
