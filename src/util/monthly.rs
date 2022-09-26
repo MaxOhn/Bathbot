@@ -140,7 +140,7 @@ impl<T> From<Range<T>> for RangedDate<T> {
     }
 }
 
-impl<T: TimeValue> Ranged for RangedDate<T>
+impl<T> Ranged for RangedDate<T>
 where
     T: TimeValue + Add<Duration, Output = T> + Sub<T, Output = Duration>,
 {
@@ -195,7 +195,7 @@ where
     }
 }
 
-impl<T: TimeValue> DiscreteRanged for RangedDate<T>
+impl<T> DiscreteRanged for RangedDate<T>
 where
     T: TimeValue + Sub<T, Output = Duration> + Add<Duration, Output = T>,
 {
@@ -298,8 +298,9 @@ impl<T: TimeValue> Monthly<T> {
     }
 }
 
-impl<T: TimeValue> Ranged for Monthly<T>
+impl<T> Ranged for Monthly<T>
 where
+    T: TimeValue,
     RangedDate<T>: Ranged<ValueType = T>,
 {
     type FormatOption = NoDefaultFormatting;

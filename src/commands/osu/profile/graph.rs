@@ -327,7 +327,7 @@ fn draw_both(
         .light_line_style(&BLACK.mix(0.0))
         .disable_x_mesh()
         .x_labels(10)
-        .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month() as u8 + 1))
+        .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month() as u8))
         .y_desc("Monthly playcount")
         .label_style(("sans-serif", 20_i32, &WHITE))
         .bold_line_style(&WHITE.mix(0.3))
