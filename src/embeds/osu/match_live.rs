@@ -273,7 +273,7 @@ impl MatchLiveEmbed {
                             });
 
                             if last_game {
-                                return (false, (!embeds.is_empty()).then(|| embeds));
+                                return (false, (!embeds.is_empty()).then_some(embeds));
                             }
 
                             continue;
@@ -430,7 +430,7 @@ impl MatchLiveEmbed {
 
         (
             update.unwrap_or(false),
-            (!embeds.is_empty()).then(|| embeds),
+            (!embeds.is_empty()).then_some(embeds),
         )
     }
 

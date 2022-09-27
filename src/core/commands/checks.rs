@@ -82,5 +82,5 @@ pub async fn check_ratelimit(
 ) -> Option<i64> {
     let ratelimit = ctx.buckets.get(bucket).lock().take(user.get());
 
-    (ratelimit > 0).then(|| ratelimit)
+    (ratelimit > 0).then_some(ratelimit)
 }

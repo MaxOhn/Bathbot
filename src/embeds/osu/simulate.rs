@@ -215,7 +215,7 @@ impl SimulateEmbed {
                 PpCalculator::new(ctx, map.map_id).await?.score(s).pp() as f32
             };
 
-            let prev_combo = (map.mode == GameMode::Osu).then(|| s.max_combo);
+            let prev_combo = (map.mode == GameMode::Osu).then_some(s.max_combo);
             let prev_hits = Some(s.hits_string(map.mode));
 
             (

@@ -56,7 +56,7 @@ impl Context {
             .tracked_streams
             .pin()
             .iter()
-            .filter_map(|(user, channels)| channels.contains(&channel).then(|| *user))
+            .filter_map(|(user, channels)| channels.contains(&channel).then_some(*user))
             .collect()
     }
 }

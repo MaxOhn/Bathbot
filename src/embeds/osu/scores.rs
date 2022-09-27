@@ -57,7 +57,7 @@ impl ScoresEmbed {
         let pages = pages.last_page();
 
         let mut description = String::with_capacity(512);
-        let pp_idx = (page == pp_idx / 10 + 1).then(|| pp_idx % 10);
+        let pp_idx = (page == pp_idx / 10 + 1).then_some(pp_idx % 10);
         let mut args = WriteArgs::new(&mut description, pinned, personal, global, pp_idx);
 
         let max_combo_ = map.max_combo.unwrap_or(0);

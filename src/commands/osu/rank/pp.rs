@@ -155,7 +155,7 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
             .mode(mode);
 
         match scores_fut.await {
-            Ok(scores) => (!scores.is_empty()).then(|| scores),
+            Ok(scores) => (!scores.is_empty()).then_some(scores),
             Err(err) => {
                 let _ = orig.error(&ctx, OSU_API_ISSUE).await;
                 let report = Report::new(err).wrap_err("failed to get scores");

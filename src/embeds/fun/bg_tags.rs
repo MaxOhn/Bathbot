@@ -50,7 +50,7 @@ impl BGTagsEmbed {
         ];
 
         let description = (amount == 0)
-            .then(|| "No stored backgrounds match these tags, try different ones")
+            .then_some("No stored backgrounds match these tags, try different ones")
             .unwrap_or_default();
 
         let footer = FooterBuilder::new(format!("Difficulty: {difficulty:?}"));
