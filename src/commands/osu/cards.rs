@@ -71,8 +71,8 @@ static HTML_TEMPLATE: Lazy<Handlebars<'static>> = Lazy::new(|| {
     ```\n\
     • The **mod descriptions** are determined by counting mod occurrences in top scores:\n\
     ```\n\
-    - >70 NM: Mod-Hating | >70 DT / NC: Speedy\n\
-    - <10 NM: Mod-Loving | >70 HD: HD-Abusing / Ghost-Fruits\n\
+    - >70 NM: Mod-Hating | - >70 DT / NC: Speedy\n\
+    - <10 NM: Mod-Loving | - >70 HD: HD-Abusing / Ghost-Fruits\n\
     - >70 HR: Ant-Clicking / Zooming / Pea-Catching\n\
     - otherwise: Versatile\n\
     ```\n\
