@@ -5,6 +5,7 @@ mod ding;
 mod fireandflames;
 mod fireflies;
 mod flamingo;
+mod glorydays;
 mod harumachi;
 mod hitorigoto;
 mod lionheart;
@@ -36,9 +37,9 @@ use crate::{
 
 pub use self::{
     bombsaway::*, catchit::*, chicago::*, ding::*, fireandflames::*, fireflies::*, flamingo::*,
-    harumachi::*, hitorigoto::*, lionheart::*, mylove::*, padoru::*, pretender::*, rockefeller::*,
-    saygoodbye::*, startagain::*, tijdmachine::*, time_traveler::*, wordsneversaid::*,
-    zenzenzense::*,
+    glorydays::*, harumachi::*, hitorigoto::*, lionheart::*, mylove::*, padoru::*, pretender::*,
+    rockefeller::*, saygoodbye::*, startagain::*, tijdmachine::*, time_traveler::*,
+    wordsneversaid::*, zenzenzense::*,
 };
 
 async fn song(
@@ -106,6 +107,7 @@ pub struct Song {
     [Ding](https://youtu.be/_yWU0lFghxU?t=54), \
     [Fireflies](https://youtu.be/psuRGfAaju4?t=25), \
     [Flamingo](https://youtu.be/la9C0n7jSsI), \
+    [Glory Days](https://youtu.be/eOSW95OsiaY?t=77), \
     [Harumachi Clover](https://youtu.be/H0VkjWBXS2U?t=55), \
     [Hitorigoto](https://youtu.be/Ji5XVPntZY0?t=54), \
     [Lionheart](https://youtu.be/XIl0cY4X10I?t=53), \
@@ -138,6 +140,8 @@ pub enum SongTitle {
     Fireflies,
     #[option(name = "Flamingo", value = "flamingo")]
     Flamingo,
+    #[option(name = "Glory Days", value = "glorydays")]
+    GloryDays,
     #[option(name = "Harumachi Clover", value = "harumachi")]
     Harumachi,
     #[option(name = "Hitorigoto", value = "hitorigoto")]
@@ -177,6 +181,7 @@ impl SongTitle {
             Self::Ding => ding_(),
             Self::Fireflies => fireflies_(),
             Self::Flamingo => flamingo_(),
+            Self::GloryDays => glorydays_(),
             Self::Harumachi => harumachi_(),
             Self::Hitorigoto => hitorigoto_(),
             Self::Lionheart => lionheart_(),
