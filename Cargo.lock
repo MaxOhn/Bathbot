@@ -1678,7 +1678,7 @@ dependencies = [
 [[package]]
 name = "rosu-v2"
 version = "0.4.0"
-source = "git+https://github.com/MaxOhn/rosu-v2?branch=next#1e81880cb1c60e541e26436c0a9604aeaef53fb3"
+source = "git+https://github.com/MaxOhn/rosu-v2?branch=next#cd2d0f914e6c6ffe5aa800fde21fcb9bdf31761a"
 dependencies = [
  "bitflags",
  "bytes",
@@ -1686,6 +1686,7 @@ dependencies = [
  "futures",
  "hyper",
  "hyper-rustls",
+ "leaky-bucket-lite",
  "log",
  "prometheus",
  "rkyv",

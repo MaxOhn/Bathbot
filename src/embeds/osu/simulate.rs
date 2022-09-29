@@ -757,7 +757,7 @@ fn default_score() -> Score {
         rank_global: None,
         replay: None,
         score: 0,
-        score_id: 0,
+        score_id: None,
         statistics: ScoreStatistics {
             count_geki: 0,
             count_300: 0,

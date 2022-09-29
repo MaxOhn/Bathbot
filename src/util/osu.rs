@@ -550,7 +550,7 @@ impl SortableScore for Score {
     }
 
     fn score_id(&self) -> u64 {
-        self.score_id
+        self.score_id.unwrap_or(0)
     }
 
     fn seconds_drain(&self) -> u32 {
