@@ -33,11 +33,10 @@ impl MedalStatsEmbed {
         rarest: Option<MedalCompact>,
         with_graph: bool,
     ) -> Self {
-        let mut fields = Vec::with_capacity(5);
         let owned = user.medals.as_ref().unwrap();
         let completion = round(100.0 * owned.len() as f32 / medals.len() as f32);
 
-        fields![
+        let mut fields = fields![
             "Medals", format!("{} / {}", owned.len(), medals.len()), true;
             "Completion", format!("{completion}%"), true;
         ];
