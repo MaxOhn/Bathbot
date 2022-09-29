@@ -164,7 +164,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
 
     if let Some(ThreadChannel::Thread) = thread {
         if command.guild_id.is_none() {
-            command.error(&ctx, THREADS_UNAVAILABLE).await?;
+            command.error_callback(&ctx, THREADS_UNAVAILABLE).await?;
 
             return Ok(());
         }
@@ -196,12 +196,12 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
 
                 match content {
                     Some(content) => {
-                        command.error(&ctx, content).await?;
+                        command.error_callback(&ctx, content).await?;
 
                         return Ok(());
                     }
                     None => {
-                        let _ = command.error(&ctx, GENERAL_ISSUE).await;
+                        let _ = command.error_callback(&ctx, GENERAL_ISSUE).await;
 
                         return Err(Report::new(err).wrap_err("failed to create thread"));
                     }
