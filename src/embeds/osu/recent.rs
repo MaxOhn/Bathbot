@@ -398,7 +398,7 @@ impl IfFC {
         attributes: DifficultyAttributes,
         mods: u32,
     ) -> (Option<Self>, DifficultyAttributes) {
-        if score.is_fc(score.mode, attributes.max_combo().unwrap_or(0) as u32) {
+        if score.is_fc(score.mode, attributes.max_combo() as u32) {
             return (None, attributes);
         }
 

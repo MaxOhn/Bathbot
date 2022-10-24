@@ -208,9 +208,9 @@ fn get_attrs(map: &Option<Map>, score: &Score) -> (Option<f32>, Option<f32>, f32
                         .n100(score.statistics.count_100 as usize)
                         .n50(score.statistics.count_50 as usize)
                         .n_katu(score.statistics.count_katu as usize)
-                        .score(score.score)
+                        .n_geki(score.statistics.count_geki as usize)
                         .combo(score.max_combo as usize)
-                        .misses(score.statistics.count_miss as usize)
+                        .n_misses(score.statistics.count_miss as usize)
                         .calculate();
 
                     performance.pp() as f32

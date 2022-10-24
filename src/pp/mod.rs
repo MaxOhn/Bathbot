@@ -25,12 +25,12 @@ impl ScoreKind<'_> {
             Self::Mods(_) => ScoreState::default(),
             Self::Score(score) => ScoreState {
                 max_combo: score.max_combo() as usize,
+                n_geki: score.count_geki() as usize,
                 n_katu: score.count_katu() as usize,
                 n300: score.count_300() as usize,
                 n100: score.count_100() as usize,
                 n50: score.count_50() as usize,
-                misses: score.count_miss() as usize,
-                score: score.score(),
+                n_misses: score.count_miss() as usize,
             },
         }
     }

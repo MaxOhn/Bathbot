@@ -286,7 +286,7 @@ struct IfFC {
 
 impl IfFC {
     fn new(score: &Score, map: &Map, attributes: DifficultyAttributes, mods: u32) -> Option<Self> {
-        if score.is_fc(score.mode, attributes.max_combo().unwrap_or(0) as u32) {
+        if score.is_fc(score.mode, attributes.max_combo() as u32) {
             return None;
         }
 

@@ -259,12 +259,13 @@ impl SimulateEmbed {
             .attributes(attributes)
             .mods(unchoked_score.mods.bits())
             .combo(unchoked_score.max_combo as usize)
+            .n_geki(unchoked_score.statistics.count_geki as usize)
             .n300(unchoked_score.statistics.count_300 as usize)
+            .n_katu(unchoked_score.statistics.count_katu as usize)
             .n100(unchoked_score.statistics.count_100 as usize)
             .n50(unchoked_score.statistics.count_50 as usize)
             .n_katu(unchoked_score.statistics.count_katu as usize)
-            .misses(unchoked_score.statistics.count_miss as usize)
-            .score(unchoked_score.score)
+            .n_misses(unchoked_score.statistics.count_miss as usize)
             .calculate()
             .pp() as f32;
 
@@ -643,7 +644,7 @@ fn simulate_score(
 fn unchoke_score(score: &mut Score, map: &Beatmap, attributes: &DifficultyAttributes) {
     let max_combo = map
         .max_combo
-        .unwrap_or_else(|| attributes.max_combo().map_or(0, |combo| combo as u32));
+        .unwrap_or_else(|| attributes.max_combo() as u32);
 
     if score.is_fc(map.mode, max_combo) {
         return;

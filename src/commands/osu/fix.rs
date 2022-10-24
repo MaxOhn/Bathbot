@@ -538,12 +538,17 @@ pub(super) async fn unchoke_pp(
                 .n300(score.statistics.count_300 as usize)
                 .n100(score.statistics.count_100 as usize)
                 .n50(score.statistics.count_50 as usize)
-                .misses(score.statistics.count_miss as usize)
+                .n_misses(score.statistics.count_miss as usize)
                 .calculate()
                 .into(),
             GameMode::Mania => ManiaPP::new(&rosu_map)
                 .mods(mods)
-                .score(score.score)
+                .n320(score.statistics.count_geki as usize)
+                .n300(score.statistics.count_300 as usize)
+                .n200(score.statistics.count_katu as usize)
+                .n100(score.statistics.count_100 as usize)
+                .n50(score.statistics.count_50 as usize)
+                .n_misses(score.statistics.count_miss as usize)
                 .calculate()
                 .into(),
             GameMode::Catch => CatchPP::new(&rosu_map)
@@ -558,7 +563,7 @@ pub(super) async fn unchoke_pp(
             GameMode::Taiko => TaikoPP::new(&rosu_map)
                 .combo(score.max_combo as usize)
                 .mods(mods)
-                .misses(score.statistics.count_miss as usize)
+                .n_misses(score.statistics.count_miss as usize)
                 .accuracy(score.accuracy as f64)
                 .calculate()
                 .into(),

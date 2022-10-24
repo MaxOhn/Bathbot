@@ -93,10 +93,10 @@ impl Searchable for Score {
 
             let attrs = BeatmapAttributesBuilder::default()
                 .mode(mode)
-                .ar(map.ar as f64)
-                .cs(map.cs as f64)
-                .hp(map.hp as f64)
-                .od(map.od as f64)
+                .ar(map.ar)
+                .cs(map.cs)
+                .hp(map.hp)
+                .od(map.od)
                 .mods(self.mods.bits())
                 .converted(map.convert)
                 .build();

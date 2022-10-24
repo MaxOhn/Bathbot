@@ -472,9 +472,8 @@ async fn strain_values(ctx: &Context, map_id: u32, mods: GameMods) -> Result<Vec
             .color
             .into_iter()
             .zip(strains.rhythm)
-            .zip(strains.stamina_left)
-            .zip(strains.stamina_right)
-            .map(|(((a, b), c), d)| (a + b + c + d) / 4.0)
+            .zip(strains.stamina)
+            .map(|((a, b), c)| (a + b + c) / 3.0)
             .scan(0.0, |time, strain| {
                 *time += section_len;
 

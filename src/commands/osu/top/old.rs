@@ -451,12 +451,12 @@ macro_rules! pp_std {
     ($version:ident, $rosu_map:ident, $score:ident, $mods:ident) => {{
         let max_pp_result = $version::OsuPP::new(&$rosu_map).mods($mods).calculate();
 
-        let max_pp = max_pp_result.pp();
-        $score.map.as_mut().unwrap().stars = max_pp_result.stars() as f32;
+        let max_pp = max_pp_result.pp;
+        $score.map.as_mut().unwrap().stars = max_pp_result.difficulty.stars as f32;
 
         let pp_result = $version::OsuPP::new(&$rosu_map)
             .mods($mods)
-            .attributes(PerformanceAttributes::from(max_pp_result))
+            .attributes(max_pp_result)
             .n300($score.statistics.count_300 as usize)
             .n100($score.statistics.count_100 as usize)
             .n50($score.statistics.count_50 as usize)
@@ -464,7 +464,7 @@ macro_rules! pp_std {
             .combo($score.max_combo as usize)
             .calculate();
 
-        $score.pp.replace(pp_result.pp() as f32);
+        $score.pp.replace(pp_result.pp as f32);
 
         max_pp
     }};
@@ -474,17 +474,17 @@ macro_rules! pp_mna {
     ($version:ident, $rosu_map:ident, $score:ident, $mods:ident) => {{
         let max_pp_result = $version::ManiaPP::new(&$rosu_map).mods($mods).calculate();
 
-        let max_pp = max_pp_result.pp();
-        $score.map.as_mut().unwrap().stars = max_pp_result.stars() as f32;
+        let max_pp = max_pp_result.pp;
+        $score.map.as_mut().unwrap().stars = max_pp_result.difficulty.stars as f32;
 
         let pp_result = $version::ManiaPP::new(&$rosu_map)
             .mods($mods)
-            .attributes(PerformanceAttributes::from(max_pp_result))
+            .attributes(max_pp_result)
             .score($score.score)
             .accuracy($score.accuracy)
             .calculate();
 
-        $score.pp.replace(pp_result.pp() as f32);
+        $score.pp.replace(pp_result.pp as f32);
 
         max_pp
     }};
@@ -494,12 +494,12 @@ macro_rules! pp_ctb {
     ($version:ident, $rosu_map:ident, $score:ident, $mods:ident) => {{
         let max_pp_result = $version::FruitsPP::new(&$rosu_map).mods($mods).calculate();
 
-        let max_pp = max_pp_result.pp();
-        $score.map.as_mut().unwrap().stars = max_pp_result.stars() as f32;
+        let max_pp = max_pp_result.pp;
+        $score.map.as_mut().unwrap().stars = max_pp_result.difficulty.stars as f32;
 
         let pp_result = $version::FruitsPP::new(&$rosu_map)
             .mods($mods)
-            .attributes(PerformanceAttributes::from(max_pp_result))
+            .attributes(max_pp_result)
             .fruits($score.statistics.count_300 as usize)
             .droplets($score.statistics.count_100 as usize)
             .tiny_droplets($score.statistics.count_50 as usize)
@@ -508,7 +508,7 @@ macro_rules! pp_ctb {
             .combo($score.max_combo as usize)
             .calculate();
 
-        $score.pp.replace(pp_result.pp() as f32);
+        $score.pp.replace(pp_result.pp as f32);
 
         max_pp
     }};
@@ -518,19 +518,19 @@ macro_rules! pp_tko {
     ($version:ident, $rosu_map:ident, $score:ident, $mods:ident) => {{
         let max_pp_result = $version::TaikoPP::new(&$rosu_map).mods($mods).calculate();
 
-        let max_pp = max_pp_result.pp();
-        $score.map.as_mut().unwrap().stars = max_pp_result.stars() as f32;
+        let max_pp = max_pp_result.pp;
+        $score.map.as_mut().unwrap().stars = max_pp_result.difficulty.stars as f32;
 
         let pp_result = $version::TaikoPP::new(&$rosu_map)
             .mods($mods)
-            .attributes(PerformanceAttributes::from(max_pp_result))
+            .attributes(max_pp_result)
             .n300($score.statistics.count_300 as usize)
             .n100($score.statistics.count_100 as usize)
             .misses($score.statistics.count_miss as usize)
             .combo($score.max_combo as usize)
             .calculate();
 
-        $score.pp.replace(pp_result.pp() as f32);
+        $score.pp.replace(pp_result.pp as f32);
 
         max_pp
     }};

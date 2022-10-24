@@ -236,7 +236,7 @@ impl Skills {
                         n300: score.statistics.count_300 as usize,
                         n100: score.statistics.count_100 as usize,
                         n50: score.statistics.count_50 as usize,
-                        misses: score.statistics.count_miss as usize,
+                        n_misses: score.statistics.count_miss as usize,
                     };
 
                     let attrs = OsuPP::new(&map)
@@ -267,7 +267,7 @@ impl Skills {
                 let mut weight_sum = 0.0;
 
                 const ACC_NERF: f64 = 1.15;
-                const STRAIN_NERF: f64 = 1.6;
+                const DIFFICULTY_NERF: f64 = 2.8;
 
                 for (i, score) in scores.iter().enumerate() {
                     let map = score.map.as_ref().unwrap();
@@ -284,7 +284,7 @@ impl Skills {
                         max_combo: score.max_combo as usize,
                         n300: score.statistics.count_300 as usize,
                         n100: score.statistics.count_100 as usize,
-                        misses: score.statistics.count_miss as usize,
+                        n_misses: score.statistics.count_miss as usize,
                     };
 
                     let attrs = match map.pp().mode(Mode::Taiko) {
@@ -293,11 +293,11 @@ impl Skills {
                     };
 
                     let acc_val = attrs.pp_acc / ACC_NERF;
-                    let strain_val = attrs.pp_strain / STRAIN_NERF;
+                    let difficulty_val = attrs.pp_difficulty / DIFFICULTY_NERF;
                     let weight = 0.95_f64.powi(i as i32);
 
                     acc += acc_val * weight;
-                    strain += strain_val * weight;
+                    strain += difficulty_val * weight;
                     weight_sum += weight;
                 }
 
@@ -331,7 +331,7 @@ impl Skills {
                         n_droplets: score.statistics.count_100 as usize,
                         n_tiny_droplets: score.statistics.count_50 as usize,
                         n_tiny_droplet_misses: score.statistics.count_katu as usize,
-                        misses: score.statistics.count_miss as usize,
+                        n_misses: score.statistics.count_miss as usize,
                     };
 
                     let attrs = match map.pp().mode(Mode::Catch) {
@@ -376,7 +376,7 @@ impl Skills {
                 let mut weight_sum = 0.0;
 
                 const ACC_BUFF: f64 = 2.1;
-                const STRAIN_NERF: f64 = 6.4;
+                const DIFFICULTY_NERF: f64 = 0.6;
 
                 for (i, score) in scores.iter().enumerate() {
                     let map = score.map.as_ref().unwrap();
@@ -390,9 +390,15 @@ impl Skills {
                         .wrap_err("failed to parse map")?;
 
                     let attrs = match map.pp().mode(Mode::Mania) {
-                        AnyPP::Mania(calc) => {
-                            calc.mods(score.mods.bits()).score(score.score).calculate()
-                        }
+                        AnyPP::Mania(calc) => calc
+                            .mods(score.mods.bits())
+                            .n320(score.statistics.count_geki as usize)
+                            .n300(score.statistics.count_300 as usize)
+                            .n200(score.statistics.count_katu as usize)
+                            .n100(score.statistics.count_100 as usize)
+                            .n50(score.statistics.count_50 as usize)
+                            .n_misses(score.statistics.count_miss as usize)
+                            .calculate(),
                         _ => unreachable!(),
                     };
 
@@ -408,11 +414,11 @@ impl Skills {
                         * (n_objects / 2000.0).powf(0.15)
                         * ACC_BUFF;
 
-                    let strain_val = attrs.pp_strain / STRAIN_NERF;
+                    let difficulty_val = attrs.pp_difficulty / DIFFICULTY_NERF;
                     let weight = 0.95_f64.powi(i as i32);
 
                     acc += acc_val * weight;
-                    strain += strain_val * weight;
+                    strain += difficulty_val * weight;
                     weight_sum += weight;
                 }
 

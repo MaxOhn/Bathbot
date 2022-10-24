@@ -128,19 +128,11 @@ impl MapEmbed {
         let mut pps = Vec::with_capacity(ACCS.len());
 
         for &acc in ACCS.iter() {
-            let pp_result: PerformanceAttributes = match rosu_map.mode {
-                Mode::Mania => ManiaPP::new(&rosu_map)
-                    .mods(mod_bits)
-                    .attributes(attributes)
-                    .score(acc_to_score(mod_mult, acc) as u32)
-                    .calculate()
-                    .into(),
-                _ => AnyPP::new(&rosu_map)
-                    .mods(mod_bits)
-                    .attributes(attributes)
-                    .accuracy(acc as f64)
-                    .calculate(),
-            };
+            let pp_result = AnyPP::new(&rosu_map)
+                .mods(mod_bits)
+                .attributes(attributes)
+                .accuracy(acc as f64)
+                .calculate();
 
             let pp = pp_result.pp();
 
@@ -157,24 +149,13 @@ impl MapEmbed {
         let mut pp_values = String::with_capacity(128);
         let mut lens = Vec::with_capacity(ACCS.len());
 
-        if rosu_map.mode == Mode::Mania {
-            pp_values.push_str("```\n    ");
+        pp_values.push_str("```\nAcc ");
 
-            for (pp, &acc) in pps.iter().zip(&ACCS) {
-                let score = with_comma_int(acc_to_score(mod_mult, acc)).to_string();
-                let len = pp.len().max(score.len()) + 2;
-                let _ = write!(pp_values, "|{score:^len$}");
-                lens.push(len);
-            }
-        } else {
-            pp_values.push_str("```\nAcc ");
-
-            for (pp, &acc) in pps.iter().zip(&ACCS) {
-                let acc = acc.to_string() + "%";
-                let len = pp.len().max(acc.len()) + 2;
-                let _ = write!(pp_values, "|{acc:^len$}");
-                lens.push(len);
-            }
+        for (pp, &acc) in pps.iter().zip(&ACCS) {
+            let acc = acc.to_string() + "%";
+            let len = pp.len().max(acc.len()) + 2;
+            let _ = write!(pp_values, "|{acc:^len$}");
+            lens.push(len);
         }
 
         pp_values.push_str("\n----");

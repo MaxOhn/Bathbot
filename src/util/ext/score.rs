@@ -64,12 +64,12 @@ pub trait ScoreExt: Send + Sync {
     fn state(&self) -> ScoreState {
         ScoreState {
             max_combo: self.max_combo() as usize,
-            misses: self.count_miss() as usize,
+            n_misses: self.count_miss() as usize,
+            n_geki: self.count_geki() as usize,
             n300: self.count_300() as usize,
             n_katu: self.count_katu() as usize,
             n100: self.count_100() as usize,
             n50: self.count_50() as usize,
-            score: self.score(),
         }
     }
 

@@ -18,10 +18,10 @@ impl AttributesEmbed {
         let mut builder = BeatmapAttributesBuilder::default();
 
         match kind {
-            AttributeKind::Ar => builder.ar(value as f64),
-            AttributeKind::Cs => builder.cs(value as f64),
-            AttributeKind::Hp => builder.hp(value as f64),
-            AttributeKind::Od => builder.od(value as f64),
+            AttributeKind::Ar => builder.ar(value),
+            AttributeKind::Cs => builder.cs(value),
+            AttributeKind::Hp => builder.hp(value),
+            AttributeKind::Od => builder.od(value),
         };
 
         builder.mods(mods.bits());
