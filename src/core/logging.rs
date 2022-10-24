@@ -21,7 +21,7 @@ use tracing_subscriber::{
 use crate::util::datetime::DATETIME_FORMAT;
 
 pub fn init() -> WorkerGuard {
-    let stdout_filter: EnvFilter = "bathbot=debug,info".parse().unwrap();
+    let stdout_filter: EnvFilter = "bathbot=debug,sqlx=warn,info".parse().unwrap();
 
     let stdout_layer = Layer::default()
         .event_format(StdoutEventFormat::default())
