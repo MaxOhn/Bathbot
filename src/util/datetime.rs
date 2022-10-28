@@ -108,23 +108,22 @@ pub const TIME_FORMAT: &[FormatItem<'_>] = &[
     FormatItem::Component(Component::Second(<Second>::default())),
 ];
 
-pub const UTC_OFFSET_FORMAT: &[FormatItem<'_>] = &[
+pub const OFFSET_FORMAT: &[FormatItem<'_>] = &[
     FormatItem::Component(Component::OffsetHour(OffsetHour::default())),
     FormatItem::Literal(b":"),
     FormatItem::Component(Component::OffsetMinute(OffsetMinute::default())),
 ];
 
-pub const DATETIME_FORMAT: &[FormatItem<'_>] = &[
+pub const PRIMITIVE_FORMAT: &[FormatItem<'_>] = &[
     FormatItem::Compound(DATE_FORMAT),
     FormatItem::Literal(b" "),
     FormatItem::Compound(TIME_FORMAT),
 ];
 
-pub const OFFSET_DATETIME_FORMAT: &[FormatItem<'_>] = &[
+pub const DATETIME_FORMAT: &[FormatItem<'_>] = &[
     FormatItem::Compound(DATE_FORMAT),
     FormatItem::Literal(b"T"),
     FormatItem::Compound(TIME_FORMAT),
-    FormatItem::Compound(UTC_OFFSET_FORMAT),
 ];
 
 #[cfg(test)]

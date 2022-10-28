@@ -7,7 +7,7 @@ use serde::{
 };
 use time::{Date, OffsetDateTime, PrimitiveDateTime};
 
-use crate::util::datetime::{DATETIME_FORMAT, DATE_FORMAT, OFFSET_DATETIME_FORMAT};
+use crate::util::datetime::{DATETIME_FORMAT, DATE_FORMAT, PRIMITIVE_FORMAT};
 
 pub(super) mod option_f32_string {
     use super::{f32_string::F32String, *};
@@ -228,12 +228,12 @@ pub(super) mod datetime_maybe_offset {
 
         #[inline]
         fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-            match OffsetDateTime::parse(v, OFFSET_DATETIME_FORMAT) {
+            match OffsetDateTime::parse(v, DATETIME_FORMAT) {
                 Ok(datetime) => Ok(datetime),
                 Err(
                     err @ Parse::ParseFromDescription(ParseFromDescription::InvalidComponent(_)),
                 ) => Err(Error::custom(err)),
-                Err(_) => PrimitiveDateTime::parse(v, DATETIME_FORMAT)
+                Err(_) => PrimitiveDateTime::parse(v, PRIMITIVE_FORMAT)
                     .map(PrimitiveDateTime::assume_utc)
                     .map_err(Error::custom),
             }
@@ -260,7 +260,7 @@ pub(super) mod datetime {
 
         #[inline]
         fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-            PrimitiveDateTime::parse(v, DATETIME_FORMAT)
+            PrimitiveDateTime::parse(v, PRIMITIVE_FORMAT)
                 .map(PrimitiveDateTime::assume_utc)
                 .map_err(Error::custom)
         }
@@ -304,6 +304,10 @@ pub(super) mod option_datetime {
 }
 
 pub(super) mod offset_datetime {
+    use time::UtcOffset;
+
+    use crate::util::datetime::OFFSET_FORMAT;
+
     use super::*;
 
     pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<OffsetDateTime, D::Error> {
@@ -322,7 +326,24 @@ pub(super) mod offset_datetime {
 
         #[inline]
         fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-            OffsetDateTime::parse(v, OFFSET_DATETIME_FORMAT).map_err(Error::custom)
+            if v.len() < 19 {
+                return Err(Error::custom(format!(
+                    "string too short for a datetime: `{v}`"
+                )));
+            }
+
+            let (prefix, suffix) = v.split_at(19);
+
+            let primitive =
+                PrimitiveDateTime::parse(prefix, DATETIME_FORMAT).map_err(Error::custom)?;
+
+            let offset = if suffix == "Z" {
+                UtcOffset::UTC
+            } else {
+                UtcOffset::parse(suffix, OFFSET_FORMAT).map_err(Error::custom)?
+            };
+
+            Ok(primitive.assume_offset(offset))
         }
     }
 }
