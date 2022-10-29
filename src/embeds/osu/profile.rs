@@ -13,7 +13,7 @@ use crate::{
     embeds::attachment,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
-        datetime::{how_long_ago_text, sec_to_minsec, DATETIME_FORMAT},
+        datetime::{how_long_ago_text, sec_to_minsec, PRIMITIVE_FORMAT},
         hasher::IntHasher,
         numbers::{round, with_comma_int},
         osu::grade_emote,
@@ -278,7 +278,7 @@ impl ProfileEmbed {
 fn footer_text(user: &User) -> String {
     format!(
         "Joined osu! {} ({})",
-        user.join_date.format(DATETIME_FORMAT).unwrap(),
+        user.join_date.format(PRIMITIVE_FORMAT).unwrap(),
         how_long_ago_text(&user.join_date),
     )
 }

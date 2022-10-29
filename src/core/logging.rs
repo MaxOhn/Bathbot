@@ -18,7 +18,7 @@ use tracing_subscriber::{
     EnvFilter, Layer as _,
 };
 
-use crate::util::datetime::DATETIME_FORMAT;
+use crate::util::datetime::PRIMITIVE_FORMAT;
 
 pub fn init() -> WorkerGuard {
     let stdout_filter: EnvFilter = "bathbot=debug,sqlx=warn,info".parse().unwrap();
@@ -55,7 +55,7 @@ struct StdoutEventFormat {
 impl Default for StdoutEventFormat {
     fn default() -> Self {
         Self {
-            timer: UtcTime::new(DATETIME_FORMAT),
+            timer: UtcTime::new(PRIMITIVE_FORMAT),
         }
     }
 }
@@ -89,7 +89,7 @@ struct FileEventFormat {
 impl Default for FileEventFormat {
     fn default() -> Self {
         Self {
-            timer: UtcTime::new(DATETIME_FORMAT),
+            timer: UtcTime::new(PRIMITIVE_FORMAT),
         }
     }
 }
