@@ -5,7 +5,7 @@ use time::OffsetDateTime;
 
 use crate::util::CountryCode;
 
-use super::deserialize;
+use super::deser;
 
 #[derive(Deserialize)]
 pub struct ScraperScores {
@@ -46,7 +46,7 @@ impl<'de> Deserialize<'de> for ScraperScore {
         struct Outer {
             id: u64,
             user_id: u32,
-            #[serde(with = "deserialize::adjust_acc")]
+            #[serde(with = "deser::adjust_acc")]
             accuracy: f32,
             mods: GameMods,
             #[serde(rename = "total_score")]
@@ -57,7 +57,7 @@ impl<'de> Deserialize<'de> for ScraperScore {
             statistics: ScraperScoreStatistics,
             pp: Option<f32>,
             rank: Grade,
-            #[serde(with = "deserialize::datetime")]
+            #[serde(with = "deser::datetime")]
             ended_at: OffsetDateTime,
             replay: bool,
             user: ScraperUser,
@@ -155,7 +155,7 @@ pub struct ScraperBeatmap {
     pub count_spinner: u32,
     #[serde(default)]
     pub count_total: u32,
-    #[serde(with = "deserialize::datetime")]
+    #[serde(with = "deser::datetime")]
     pub last_updated: OffsetDateTime,
     pub ranked: RankStatus,
 }

@@ -21,7 +21,7 @@ use crate::{
     util::{datetime::NAIVE_DATETIME_FORMAT, osu::ModSelection, CountryCode},
 };
 
-use super::deserialize;
+use super::deser;
 
 #[derive(Debug)]
 pub struct SnipeScoreParams {
@@ -106,7 +106,7 @@ pub struct SnipePlayer {
     pub user_id: u32,
     #[serde(rename = "average_pp")]
     pub avg_pp: f32,
-    #[serde(rename = "average_accuracy", with = "deserialize::adjust_acc")]
+    #[serde(rename = "average_accuracy", with = "deser::adjust_acc")]
     pub avg_acc: f32,
     #[serde(rename = "average_sr")]
     pub avg_stars: f32,
@@ -145,7 +145,7 @@ pub struct SnipeCountryPlayer {
 
 #[derive(Debug, Deserialize)]
 pub struct SnipePlayerOldest {
-    #[serde(rename = "map_id", with = "deserialize::negative_u32")]
+    #[serde(rename = "map_id", with = "deser::negative_u32")]
     pub beatmap_id: u32,
     pub map: String,
     #[serde(with = "option_datetime")]
@@ -161,9 +161,9 @@ pub struct SnipeRecent {
     pub mods: GameMods,
     pub map_id: u32,
     pub map: String,
-    #[serde(with = "deserialize::naive_datetime")]
+    #[serde(with = "deser::naive_datetime")]
     pub date: OffsetDateTime,
-    #[serde(with = "deserialize::adjust_acc")]
+    #[serde(with = "deser::adjust_acc")]
     pub accuracy: f32,
     #[serde(rename = "sr", deserialize_with = "deserialize_stars")]
     pub stars: Option<f32>,
@@ -392,7 +392,7 @@ mod history {
     }
 }
 
-// Differs from `deserialize::option_datetime` in that failed string deserialization still returns `Ok(None)`
+// Differs from `deser::option_datetime` in that failed string deserialization still returns `Ok(None)`
 mod option_datetime {
     use super::*;
 

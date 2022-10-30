@@ -14,7 +14,7 @@ use twilight_interactions::command::{CommandOption, CreateOption};
 
 use crate::{embeds::RankingKindData, util::CountryCode};
 
-use super::{deserialize, DateWrapper, UsernameWrapper};
+use super::{deser, DateWrapper, UsernameWrapper};
 
 pub trait OsekaiRanking {
     const FORM: &'static str;
@@ -121,7 +121,7 @@ pub struct OsekaiMap {
     pub title: String,
     #[serde(rename = "DifficultyName")]
     pub version: String,
-    #[serde(rename = "VoteSum", with = "deserialize::u32_string")]
+    #[serde(rename = "VoteSum", with = "deser::u32_string")]
     pub vote_sum: u32,
 }
 
@@ -140,7 +140,7 @@ pub struct OsekaiComment {
     pub user_id: u32,
     #[serde(rename = "Username")]
     pub username: String,
-    #[serde(rename = "VoteSum", with = "deserialize::u32_string")]
+    #[serde(rename = "VoteSum", with = "deser::u32_string")]
     pub vote_sum: u32,
 }
 
@@ -580,37 +580,37 @@ impl<'de, T: Deserialize<'de> + FromStr + Archive> Deserialize<'de> for OsekaiRa
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, Serialize)]
 pub struct OsekaiUserEntry {
-    #[serde(with = "deserialize::u32_string")]
+    #[serde(with = "deser::u32_string")]
     pub rank: u32,
     #[serde(rename = "countrycode")]
     pub country_code: CountryCode,
     pub country: String,
     #[with(UsernameWrapper)]
     pub username: Username,
-    #[serde(rename = "medalCount", with = "deserialize::u32_string")]
+    #[serde(rename = "medalCount", with = "deser::u32_string")]
     pub medal_count: u32,
     #[serde(rename = "rarestmedal")]
     pub rarest_medal: String,
     #[serde(rename = "link")]
     pub rarest_icon_url: String,
-    #[serde(rename = "userid", with = "deserialize::u32_string")]
+    #[serde(rename = "userid", with = "deser::u32_string")]
     pub user_id: u32,
-    #[serde(with = "deserialize::f32_string")]
+    #[serde(with = "deser::f32_string")]
     pub completion: f32,
 }
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, Serialize)]
 pub struct OsekaiRarityEntry {
-    #[serde(with = "deserialize::u32_string")]
+    #[serde(with = "deser::u32_string")]
     pub rank: u32,
     #[serde(rename = "link")]
     pub icon_url: String,
     #[serde(rename = "medalname")]
     pub medal_name: String,
-    #[serde(rename = "medalid", with = "deserialize::u32_string")]
+    #[serde(rename = "medalid", with = "deser::u32_string")]
     pub medal_id: u32,
     pub description: String,
-    #[serde(rename = "possessionRate", with = "deserialize::f32_string")]
+    #[serde(rename = "possessionRate", with = "deser::f32_string")]
     pub possession_percent: f32,
     #[serde(rename = "gameMode", deserialize_with = "osekai_mode")]
     pub mode: Option<GameMode>,
@@ -618,11 +618,11 @@ pub struct OsekaiRarityEntry {
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, Serialize)]
 pub struct OsekaiBadge {
-    #[serde(with = "deserialize::date")]
+    #[serde(with = "deser::date")]
     #[with(DateWrapper)]
     pub awarded_at: Date,
     pub description: String,
-    #[serde(rename = "id", with = "deserialize::u32_string")]
+    #[serde(rename = "id", with = "deser::u32_string")]
     pub badge_id: u32,
     pub image_url: String,
     pub name: String,

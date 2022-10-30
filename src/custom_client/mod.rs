@@ -44,7 +44,7 @@ pub use self::twitch::*;
 
 use self::{rkyv_impls::*, score::ScraperScores};
 
-mod deserialize;
+mod deser;
 mod osekai;
 mod osu_stats;
 mod osu_tracker;

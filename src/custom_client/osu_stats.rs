@@ -4,7 +4,7 @@ use rosu_v2::prelude::{GameMode, GameMods, Grade, RankStatus, Username};
 use serde::{de::Error, Deserialize, Deserializer};
 use time::OffsetDateTime;
 
-use super::deserialize;
+use super::deser;
 
 use crate::{
     commands::osu::OsuStatsScoresOrder,
@@ -55,7 +55,7 @@ pub struct OsuStatsScore {
     pub score: u32,
     #[serde(rename = "maxCombo")]
     pub max_combo: u32,
-    #[serde(with = "deserialize::f32_string")]
+    #[serde(with = "deser::f32_string")]
     pub accuracy: f32,
     pub count300: u32,
     pub count100: u32,
@@ -66,9 +66,9 @@ pub struct OsuStatsScore {
     pub count_geki: u32,
     #[serde(rename = "countMiss")]
     pub count_miss: u32,
-    #[serde(rename = "enabledMods", with = "deserialize::mods_string")]
+    #[serde(rename = "enabledMods", with = "deser::mods_string")]
     pub enabled_mods: GameMods,
-    #[serde(rename = "playDate", with = "deserialize::naive_datetime")]
+    #[serde(rename = "playDate", with = "deser::naive_datetime")]
     pub date: OffsetDateTime,
     #[serde(rename = "ppValue")]
     pub pp: Option<f32>,
@@ -84,9 +84,9 @@ pub struct OsuStatsMap {
     pub beatmapset_id: u32,
     #[serde(rename = "approved")]
     pub approval_status: RankStatus,
-    #[serde(rename = "lastUpdated", with = "deserialize::naive_datetime")]
+    #[serde(rename = "lastUpdated", with = "deser::naive_datetime")]
     pub last_updated: OffsetDateTime,
-    #[serde(rename = "approvedDate", with = "deserialize::option_naive_datetime")]
+    #[serde(rename = "approvedDate", with = "deser::option_naive_datetime")]
     pub approved_date: Option<OffsetDateTime>,
     #[serde(rename = "hitLength")]
     pub seconds_drain: u32,
@@ -99,15 +99,15 @@ pub struct OsuStatsMap {
     pub creator: Username,
     pub bpm: f32,
     pub source: String,
-    #[serde(rename = "diffRating", with = "deserialize::option_f32_string")]
+    #[serde(rename = "diffRating", with = "deser::option_f32_string")]
     pub stars: Option<f32>,
-    #[serde(rename = "diffSize", with = "deserialize::f32_string")]
+    #[serde(rename = "diffSize", with = "deser::f32_string")]
     pub diff_cs: f32,
-    #[serde(rename = "diffOverall", with = "deserialize::f32_string")]
+    #[serde(rename = "diffOverall", with = "deser::f32_string")]
     pub diff_od: f32,
-    #[serde(rename = "diffApproach", with = "deserialize::f32_string")]
+    #[serde(rename = "diffApproach", with = "deser::f32_string")]
     pub diff_ar: f32,
-    #[serde(rename = "diffDrain", with = "deserialize::f32_string")]
+    #[serde(rename = "diffDrain", with = "deser::f32_string")]
     pub diff_hp: f32,
     #[serde(rename = "maxCombo")]
     pub max_combo: Option<u32>,
