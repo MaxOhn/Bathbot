@@ -150,9 +150,9 @@ pub(super) mod maybe_naive_datetime {
         de::{Error, Visitor},
         Deserializer,
     };
-    use time::{Date, OffsetDateTime, PrimitiveDateTime, Time, UtcOffset};
+    use time::{Date, OffsetDateTime, PrimitiveDateTime, Time};
 
-    use crate::util::datetime::{DATETIME_FORMAT, DATE_FORMAT, OFFSET_FORMAT, TIME_FORMAT};
+    use crate::util::datetime::{DATE_FORMAT, TIME_FORMAT};
 
     pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<OffsetDateTime, D::Error> {
         d.deserialize_str(DateTimeVisitor)

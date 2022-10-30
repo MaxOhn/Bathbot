@@ -2,9 +2,7 @@ use std::fmt::Write;
 
 use command_macros::EmbedData;
 use eyre::{Result, WrapErr};
-use rosu_pp::{
-    AnyPP, Beatmap as Map, BeatmapExt, GameMode as Mode, ManiaPP, PerformanceAttributes,
-};
+use rosu_pp::{AnyPP, Beatmap as Map, BeatmapExt};
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods};
 use time::OffsetDateTime;
 use twilight_model::channel::embed::EmbedField;
@@ -97,12 +95,6 @@ impl MapEmbed {
             .wrap_err("failed to parse map")?;
 
         let mod_bits = mods.bits();
-
-        let mod_mult = 0.5_f32.powi(
-            mods.contains(GameMods::Easy) as i32
-                + mods.contains(GameMods::NoFail) as i32
-                + mods.contains(GameMods::HalfTime) as i32,
-        );
 
         if let Some(ar_) = attrs.ar {
             rosu_map.ar = ar_ as f32;
@@ -272,8 +264,4 @@ impl MapEmbed {
             url: map.url.to_owned(),
         })
     }
-}
-
-fn acc_to_score(mod_mult: f32, acc: f32) -> u64 {
-    (mod_mult * (acc * 10_000.0 - (100.0 - acc) * 50_000.0)).round() as u64
 }

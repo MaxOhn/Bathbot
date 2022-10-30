@@ -1,8 +1,4 @@
-use std::{
-    borrow::Cow,
-    cmp::{Ordering::Equal, PartialOrd},
-    collections::BTreeMap,
-};
+use std::cmp::{Ordering::Equal, PartialOrd};
 
 use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, GameMods, Score, User, UserStatistics};
@@ -10,7 +6,10 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::osu::MinMaxAvg,
-    util::{hasher::IntHasher, osu::BonusPP},
+    util::{
+        hasher::IntHasher,
+        osu::{BonusPP, TopCounts},
+    },
 };
 
 use super::ProfileEmbedMap;
@@ -21,7 +20,7 @@ pub struct ProfileData {
     pub embeds: ProfileEmbedMap,
     pub discord_id: Option<Id<UserMarker>>,
     pub profile_result: Option<ProfileResult>,
-    pub globals_count: Option<BTreeMap<usize, Cow<'static, str>>>,
+    pub globals_count: Option<Option<TopCounts>>,
 }
 
 impl ProfileData {

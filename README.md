@@ -53,7 +53,7 @@ You can also join its [discord server](https://discord.gg/n9fFstG) to keep up wi
 - [mulraf](https://osu.ppy.sh/users/1309242), [Hubz](https://osu.ppy.sh/users/10379965), and the rest of the [osekai](https://osekai.net/) team for providing medal data
 - [nzbasic](https://osu.ppy.sh/users/9008211) and his website [osutracker](https://osutracker.com/) for providing global data and country top scores
 - [OMKelderman](https://osu.ppy.sh/users/2756335) and his [flag conversion](https://osuflags.omkserver.nl/) service
-- [respektive](https://osu.ppy.sh/users/1023489) for his [score rank api](https://github.com/respektive/osu-profile#score-rank-api)
+- [respektive](https://osu.ppy.sh/users/1023489) for his [score rank api](https://github.com/respektive/osu-profile#score-rank-api) and [osustats api](https://github.com/respektive/osustats)
 
 ## Internals
 

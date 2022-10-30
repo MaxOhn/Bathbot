@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
+use std::fmt::Write;
 
 use command_macros::EmbedData;
 use hashbrown::HashMap;
@@ -16,7 +16,7 @@ use crate::{
         datetime::{how_long_ago_text, sec_to_minsec, NAIVE_DATETIME_FORMAT},
         hasher::IntHasher,
         numbers::{round, with_comma_int},
-        osu::grade_emote,
+        osu::{grade_emote, TopCount, TopCounts},
         CowUtils, Emote,
     },
 };
@@ -86,7 +86,7 @@ impl ProfileEmbed {
     pub fn full(
         user: &User,
         profile_result: Option<&ProfileResult>,
-        globals_count: &BTreeMap<usize, Cow<'static, str>>,
+        globals_count: &Option<TopCounts>,
         own_top_scores: usize,
         discord_id: Option<Id<UserMarker>>,
         mapper_names: &HashMap<u32, Username, IntHasher>,
@@ -247,19 +247,27 @@ impl ProfileEmbed {
 
             fields![fields { "Mappers in top 100", value, true }];
 
-            let count_len = globals_count
-                .iter()
-                .fold(0, |max, (_, count)| max.max(count.len()));
+            if let Some(counts) = globals_count {
+                let count_len = counts.count_len();
 
-            let mut count_str = String::with_capacity(64);
-            count_str.push_str("```\n");
+                let mut count_str = String::with_capacity(64);
+                count_str.push_str("```\n");
 
-            for (rank, count) in globals_count {
-                let _ = writeln!(count_str, "Top {rank:<2}: {count:>count_len$}",);
+                for TopCount { top_n, count, rank } in counts {
+                    // TODO: add rank after reformat
+                    let _ = writeln!(count_str, "Top {top_n:<2}: {count:>count_len$}");
+                    let _ = rank;
+
+                    // if let Some(rank) = rank {
+                    //     let _ = writeln!(count_str, "    #{rank}");
+                    // } else {
+                    //     count_str.push('\n');
+                    // }
+                }
+
+                count_str.push_str("```");
+                fields![fields { "Global leaderboards", count_str, true }];
             }
-
-            count_str.push_str("```");
-            fields![fields { "Global leaderboards", count_str, true }];
         } else {
             description.push_str("\n\n No Top scores");
         }

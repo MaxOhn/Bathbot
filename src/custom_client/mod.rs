@@ -315,6 +315,49 @@ impl CustomClient {
             .await
     }
 
+    pub async fn get_respektive_osustats_counts(
+        &self,
+        user_id: u32,
+    ) -> Result<Option<RespektiveTopCount>> {
+        let url = format!("https://osustats.respektive.pw/counts/{user_id}");
+
+        // Manual request so the potential 404 error is not wrapped in a Report
+        let req = self
+            .make_get_request_(&url, Site::Respektive)
+            .body(Body::empty())?;
+
+        self.ratelimit(Site::Respektive).await;
+
+        let response = self
+            .client
+            .request(req)
+            .await
+            .wrap_err("failed to receive GET response")?;
+
+        let status = response.status();
+
+        if status == StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+
+        ensure!(
+            status.is_success(),
+            "failed with status code {status} when requesting url {url}"
+        );
+
+        let bytes = hyper::body::to_bytes(response.into_body())
+            .await
+            .wrap_err("failed to extract response bytes")?;
+
+        serde_json::from_slice(&bytes)
+            .wrap_err_with(|| {
+                let body = String::from_utf8_lossy(&bytes);
+
+                format!("failed to deserialize respektive top count: {body}")
+            })
+            .map(Some)
+    }
+
     pub async fn get_respektive_user(
         &self,
         user_id: u32,

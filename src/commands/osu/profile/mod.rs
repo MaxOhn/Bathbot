@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::BTreeMap, sync::Arc};
+use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
 use eyre::{Report, Result};
@@ -16,7 +16,9 @@ use crate::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         hasher::IntHasher,
         interaction::InteractionCommand,
-        matcher, ChannelExt, CowUtils, InteractionCommandExt,
+        matcher,
+        osu::TopCounts,
+        ChannelExt, CowUtils, InteractionCommandExt,
     },
     Context,
 };
@@ -388,13 +390,13 @@ impl ProfileEmbed {
                                 return None;
                             }
 
-                            match super::get_globals_count(ctx, user, mode).await {
-                                Ok(globals_count) => Some(globals_count),
+                            match TopCounts::request(ctx, user, mode).await {
+                                Ok(counts) => Some(Some(counts)),
                                 Err(err) => {
-                                    let wrap = "Failed to get globals count";
+                                    let wrap = "Failed to get top counts";
                                     warn!("{:?}", err.wrap_err(wrap));
 
-                                    Some(BTreeMap::new())
+                                    Some(None)
                                 }
                             }
                         };
@@ -456,7 +458,7 @@ impl ProfileEmbed {
 
                         let globals_count = match globals_count {
                             Some(count) => profile_data.globals_count.insert(count),
-                            None => profile_data.globals_count.get_or_insert_with(BTreeMap::new),
+                            None => profile_data.globals_count.get_or_insert(None),
                         };
 
                         ProfileEmbed::full(

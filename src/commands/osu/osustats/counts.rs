@@ -8,7 +8,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::{
-        osu::{get_globals_count, get_user, UserArgs},
+        osu::{get_user, UserArgs},
         GameModeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
@@ -17,7 +17,9 @@ use crate::{
         builder::MessageBuilder,
         constants::{OSUSTATS_API_ISSUE, OSU_API_ISSUE},
         interaction::InteractionCommand,
-        matcher, InteractionCommandExt,
+        matcher,
+        osu::TopCounts,
+        InteractionCommandExt,
     },
     Context,
 };
@@ -179,12 +181,12 @@ pub(super) async fn count(
     // Overwrite default mode
     user.mode = mode;
 
-    let counts = match get_globals_count(&ctx, &user, mode).await {
+    let counts = match TopCounts::request(&ctx, &user, mode).await {
         Ok(counts) => counts,
         Err(err) => {
             let _ = orig.error(&ctx, OSUSTATS_API_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get globals count"));
+            return Err(err.wrap_err("failed to get top counts"));
         }
     };
 

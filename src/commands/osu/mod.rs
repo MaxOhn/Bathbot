@@ -89,7 +89,6 @@ macro_rules! name_mode {
 use std::{
     borrow::Cow,
     cmp::{Ordering, PartialOrd, Reverse},
-    collections::BTreeMap,
     future::Future,
     ops::{AddAssign, Div},
     pin::Pin,
@@ -112,11 +111,9 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     core::commands::CommandOrigin,
-    custom_client::OsuStatsParams,
     pp::PpCalculator,
     util::{
         hasher::IntHasher,
-        numbers::with_comma_int,
         osu::{ModSelection, SortableScore},
         CowUtils,
     },
@@ -503,56 +500,6 @@ pub async fn require_link(ctx: &Context, orig: &CommandOrigin<'_>) -> Result<()>
     orig.error(ctx, content)
         .await
         .wrap_err("failed to send require-link message")
-}
-
-async fn get_globals_count(
-    ctx: &Context,
-    user: &User,
-    mode: GameMode,
-) -> Result<BTreeMap<usize, Cow<'static, str>>> {
-    let mut counts = BTreeMap::new();
-    let mut params = OsuStatsParams::new(user.username.as_str()).mode(mode);
-    let mut get_amount = true;
-
-    for rank in [50, 25, 15, 8] {
-        if !get_amount {
-            counts.insert(rank, Cow::Borrowed("0"));
-
-            continue;
-        }
-
-        params.max_rank = rank;
-        let (_, count) = ctx
-            .client()
-            .get_global_scores(&params)
-            .await
-            .wrap_err("failed to get global scores count")?;
-
-        counts.insert(rank, Cow::Owned(with_comma_int(count).to_string()));
-
-        if count == 0 {
-            get_amount = false;
-        }
-    }
-
-    let firsts = if let Some(firsts) = user.scores_first_count {
-        Cow::Owned(with_comma_int(firsts).to_string())
-    } else if get_amount {
-        params.max_rank = 1;
-        let (_, count) = ctx
-            .client()
-            .get_global_scores(&params)
-            .await
-            .wrap_err("failed to get global scores count")?;
-
-        Cow::Owned(with_comma_int(count).to_string())
-    } else {
-        Cow::Borrowed("0")
-    };
-
-    counts.insert(1, firsts);
-
-    Ok(counts)
 }
 
 pub trait Number: AddAssign + Copy + Div<Output = Self> + PartialOrd {

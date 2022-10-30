@@ -1,21 +1,25 @@
 use std::{
+    array::IntoIter,
     borrow::Cow,
     iter::{self, Copied, Map},
+    mem::MaybeUninit,
     path::PathBuf,
     slice::Iter,
 };
 
 use eyre::{Result, WrapErr};
-use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, Score, UserStatistics};
+use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, Score, User, UserStatistics};
 use time::OffsetDateTime;
 use tokio::fs;
 use twilight_model::channel::{embed::Embed, Message};
 
 use crate::{
     core::{BotConfig, Context},
-    custom_client::OsuTrackerCountryScore,
+    custom_client::{OsuStatsParams, OsuTrackerCountryScore, RespektiveTopCount},
     util::{constants::OSU_BASE, matcher, numbers::round, BeatmapExt, Emote, ScoreExt},
 };
+
+use super::numbers::with_comma_int;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ModSelection {
@@ -703,4 +707,290 @@ pub enum AttributeKind {
     Cs,
     Hp,
     Od,
+}
+
+pub struct TopCounts {
+    pub top1s: Cow<'static, str>,
+    pub top1s_rank: Option<String>,
+    pub top8s: Cow<'static, str>,
+    pub top8s_rank: Option<String>,
+    pub top15s: Cow<'static, str>,
+    pub top15s_rank: Option<String>,
+    pub top25s: Cow<'static, str>,
+    pub top25s_rank: Option<String>,
+    pub top50s: Cow<'static, str>,
+    pub top50s_rank: Option<String>,
+}
+
+impl TopCounts {
+    pub fn count_len(&self) -> usize {
+        self.top1s
+            .len()
+            .max(self.top8s.len())
+            .max(self.top15s.len())
+            .max(self.top25s.len())
+            .max(self.top50s.len())
+    }
+
+    pub async fn request(ctx: &Context, user: &User, mode: GameMode) -> Result<Self> {
+        if mode == GameMode::Osu {
+            Self::request_respektive(ctx, user, mode).await
+        } else {
+            Self::request_osustats(ctx, user, mode).await
+        }
+    }
+
+    async fn request_respektive(ctx: &Context, user: &User, mode: GameMode) -> Result<Self> {
+        let counts_fut = ctx.client().get_respektive_osustats_counts(user.user_id);
+
+        match counts_fut.await {
+            Ok(Some(counts)) => match user.scores_first_count {
+                Some(top1s) => Ok(Self {
+                    top1s: with_comma_int(top1s).to_string().into(),
+                    ..Self::from(counts)
+                }),
+                None => Ok(Self::from(counts)),
+            },
+            Ok(None) => Ok(Self {
+                top1s: "0".into(),
+                top1s_rank: None,
+                top8s: "0".into(),
+                top8s_rank: None,
+                top15s: "0".into(),
+                top15s_rank: None,
+                top25s: "0".into(),
+                top25s_rank: None,
+                top50s: "0".into(),
+                top50s_rank: None,
+            }),
+            Err(err) => {
+                let wrap = "Failed to get respektive top counts";
+                warn!("{:?}", err.wrap_err(wrap));
+
+                Self::request_osustats(ctx, user, mode).await
+            }
+        }
+    }
+
+    async fn request_osustats(ctx: &Context, user: &User, mode: GameMode) -> Result<Self> {
+        let mut counts = [
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+            MaybeUninit::uninit(),
+        ];
+
+        let mut params = OsuStatsParams::new(user.username.as_str()).mode(mode);
+        let mut get_amount = true;
+
+        for (rank, count) in [50, 25, 15, 8].into_iter().zip(counts.iter_mut()) {
+            if !get_amount {
+                count.write("0".into());
+
+                continue;
+            }
+
+            params.max_rank = rank;
+            let (_, count_) = ctx
+                .client()
+                .get_global_scores(&params)
+                .await
+                .wrap_err("failed to get global scores count")?;
+
+            count.write(with_comma_int(count_).to_string().into());
+
+            if count_ == 0 {
+                get_amount = false;
+            }
+        }
+
+        let top1s = if let Some(firsts) = user.scores_first_count {
+            with_comma_int(firsts).to_string().into()
+        } else if get_amount {
+            params.max_rank = 1;
+
+            let (_, count) = ctx
+                .client()
+                .get_global_scores(&params)
+                .await
+                .wrap_err("failed to get global scores count")?;
+
+            with_comma_int(count).to_string().into()
+        } else {
+            "0".into()
+        };
+
+        let [top50s, top25s, top15s, top8s] = counts;
+
+        // SAFETY: All counts were initialized in the loop
+        let this = unsafe {
+            Self {
+                top1s,
+                top1s_rank: None,
+                top8s: top8s.assume_init(),
+                top8s_rank: None,
+                top15s: top15s.assume_init(),
+                top15s_rank: None,
+                top25s: top25s.assume_init(),
+                top25s_rank: None,
+                top50s: top50s.assume_init(),
+                top50s_rank: None,
+            }
+        };
+
+        Ok(this)
+    }
+}
+
+impl From<RespektiveTopCount> for TopCounts {
+    #[inline]
+    fn from(top_count: RespektiveTopCount) -> Self {
+        let format_rank = |rank| with_comma_int(rank).to_string();
+
+        Self {
+            top1s: with_comma_int(top_count.top1s).to_string().into(),
+            top1s_rank: top_count.top1s_rank.map(format_rank),
+            top8s: with_comma_int(top_count.top8s).to_string().into(),
+            top8s_rank: top_count.top8s_rank.map(format_rank),
+            top15s: with_comma_int(top_count.top15s).to_string().into(),
+            top15s_rank: top_count.top15s_rank.map(format_rank),
+            top25s: with_comma_int(top_count.top25s).to_string().into(),
+            top25s_rank: top_count.top25s_rank.map(format_rank),
+            top50s: with_comma_int(top_count.top50s).to_string().into(),
+            top50s_rank: top_count.top50s_rank.map(format_rank),
+        }
+    }
+}
+
+pub struct TopCount<'a> {
+    pub top_n: u8,
+    pub count: Cow<'a, str>,
+    pub rank: Option<Cow<'a, str>>,
+}
+
+pub struct TopCountsIntoIter {
+    top_n: IntoIter<u8, 5>,
+    counts: IntoIter<Cow<'static, str>, 5>,
+    ranks: IntoIter<Option<String>, 5>,
+}
+
+impl Iterator for TopCountsIntoIter {
+    type Item = TopCount<'static>;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        let count = TopCount {
+            top_n: self.top_n.next()?,
+            count: self.counts.next()?,
+            rank: self.ranks.next()?.map(Cow::Owned),
+        };
+
+        Some(count)
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.top_n.size_hint()
+    }
+}
+
+impl IntoIterator for TopCounts {
+    type Item = TopCount<'static>;
+    type IntoIter = TopCountsIntoIter;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        let Self {
+            top1s,
+            top1s_rank,
+            top8s,
+            top8s_rank,
+            top15s,
+            top15s_rank,
+            top25s,
+            top25s_rank,
+            top50s,
+            top50s_rank,
+        } = self;
+
+        TopCountsIntoIter {
+            top_n: [1, 8, 15, 25, 50].into_iter(),
+            counts: [top1s, top8s, top15s, top25s, top50s].into_iter(),
+            ranks: [
+                top1s_rank,
+                top8s_rank,
+                top15s_rank,
+                top25s_rank,
+                top50s_rank,
+            ]
+            .into_iter(),
+        }
+    }
+}
+
+pub struct TopCountsIter<'a> {
+    top_n: IntoIter<u8, 5>,
+    counts: IntoIter<&'a str, 5>,
+    ranks: IntoIter<Option<&'a str>, 5>,
+}
+
+impl<'a> Iterator for TopCountsIter<'a> {
+    type Item = TopCount<'a>;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        let count = TopCount {
+            top_n: self.top_n.next()?,
+            count: self.counts.next().map(Cow::Borrowed)?,
+            rank: self.ranks.next()?.map(Cow::Borrowed),
+        };
+
+        Some(count)
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.top_n.size_hint()
+    }
+}
+
+impl<'a> IntoIterator for &'a TopCounts {
+    type Item = TopCount<'a>;
+    type IntoIter = TopCountsIter<'a>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        let TopCounts {
+            top1s,
+            top1s_rank,
+            top8s,
+            top8s_rank,
+            top15s,
+            top15s_rank,
+            top25s,
+            top25s_rank,
+            top50s,
+            top50s_rank,
+        } = self;
+
+        TopCountsIter {
+            top_n: [1, 8, 15, 25, 50].into_iter(),
+            counts: [
+                top1s.as_ref(),
+                top8s.as_ref(),
+                top15s.as_ref(),
+                top25s.as_ref(),
+                top50s.as_ref(),
+            ]
+            .into_iter(),
+            ranks: [
+                top1s_rank.as_deref(),
+                top8s_rank.as_deref(),
+                top15s_rank.as_deref(),
+                top25s_rank.as_deref(),
+                top50s_rank.as_deref(),
+            ]
+            .into_iter(),
+        }
+    }
 }

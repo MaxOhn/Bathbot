@@ -2,7 +2,7 @@ use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
 use eyre::{Report, Result, WrapErr};
-use rosu_pp::{Beatmap, BeatmapExt, PerformanceAttributes};
+use rosu_pp::{Beatmap, BeatmapExt};
 use rosu_pp_older::*;
 use rosu_v2::prelude::{GameMode, OsuError, Score};
 use time::OffsetDateTime;

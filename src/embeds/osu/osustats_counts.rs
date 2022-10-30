@@ -1,9 +1,13 @@
-use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
+use std::fmt::Write;
 
 use command_macros::EmbedData;
 use rosu_v2::prelude::{GameMode, User};
 
-use crate::util::{builder::AuthorBuilder, CowUtils};
+use crate::util::{
+    builder::AuthorBuilder,
+    osu::{TopCount, TopCounts},
+    CowUtils,
+};
 
 #[derive(EmbedData)]
 pub struct OsuStatsCountsEmbed {
@@ -14,17 +18,23 @@ pub struct OsuStatsCountsEmbed {
 }
 
 impl OsuStatsCountsEmbed {
-    pub fn new(user: User, mode: GameMode, counts: BTreeMap<usize, Cow<'static, str>>) -> Self {
-        let count_len = counts
-            .iter()
-            .fold(0, |max, (_, count)| max.max(count.len()));
+    pub fn new(user: User, mode: GameMode, counts: TopCounts) -> Self {
+        let count_len = counts.count_len();
 
         let mut description = String::with_capacity(64);
         description.push_str("```\n");
 
-        for (rank, count) in counts {
-            let _ = writeln!(description, "Top {rank:<2}: {count:>count_len$}",);
+        for TopCount { top_n, count, rank } in counts {
+            let _ = write!(description, "Top {top_n:<2}:  {count:>count_len$}");
+
+            if let Some(rank) = rank {
+                let _ = writeln!(description, "   #{rank}");
+            } else {
+                description.push('\n');
+            }
         }
+
+        description.push_str("```");
 
         let mode = match mode {
             GameMode::Osu => "",
@@ -32,8 +42,6 @@ impl OsuStatsCountsEmbed {
             GameMode::Taiko => "taiko ",
             GameMode::Catch => "ctb ",
         };
-
-        description.push_str("```");
 
         Self {
             description,
