@@ -114,7 +114,7 @@ pub const OFFSET_FORMAT: &[FormatItem<'_>] = &[
     FormatItem::Component(Component::OffsetMinute(OffsetMinute::default())),
 ];
 
-pub const PRIMITIVE_FORMAT: &[FormatItem<'_>] = &[
+pub const NAIVE_DATETIME_FORMAT: &[FormatItem<'_>] = &[
     FormatItem::Compound(DATE_FORMAT),
     FormatItem::Literal(b" "),
     FormatItem::Compound(TIME_FORMAT),

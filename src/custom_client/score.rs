@@ -57,7 +57,7 @@ impl<'de> Deserialize<'de> for ScraperScore {
             statistics: ScraperScoreStatistics,
             pp: Option<f32>,
             rank: Grade,
-            #[serde(with = "deserialize::offset_datetime")]
+            #[serde(with = "deserialize::datetime")]
             ended_at: OffsetDateTime,
             replay: bool,
             user: ScraperUser,
@@ -155,7 +155,7 @@ pub struct ScraperBeatmap {
     pub count_spinner: u32,
     #[serde(default)]
     pub count_total: u32,
-    #[serde(with = "deserialize::offset_datetime")]
+    #[serde(with = "deserialize::datetime")]
     pub last_updated: OffsetDateTime,
     pub ranked: RankStatus,
 }

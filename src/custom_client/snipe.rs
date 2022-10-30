@@ -18,7 +18,7 @@ use time::{
 
 use crate::{
     commands::osu::SnipePlayerListOrder,
-    util::{datetime::PRIMITIVE_FORMAT, osu::ModSelection, CountryCode},
+    util::{datetime::NAIVE_DATETIME_FORMAT, osu::ModSelection, CountryCode},
 };
 
 use super::deserialize;
@@ -161,7 +161,7 @@ pub struct SnipeRecent {
     pub mods: GameMods,
     pub map_id: u32,
     pub map: String,
-    #[serde(with = "deserialize::datetime")]
+    #[serde(with = "deserialize::naive_datetime")]
     pub date: OffsetDateTime,
     #[serde(with = "deserialize::adjust_acc")]
     pub accuracy: f32,
@@ -264,7 +264,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
                 let map_id = map_id.ok_or_else(|| Error::missing_field("map_id"))?;
                 let mapset_id = mapset_id.ok_or_else(|| Error::missing_field("mapset_id"))?;
 
-                let date = PrimitiveDateTime::parse(inner_score.date_set, PRIMITIVE_FORMAT)
+                let date = PrimitiveDateTime::parse(inner_score.date_set, NAIVE_DATETIME_FORMAT)
                     .map(PrimitiveDateTime::assume_utc)
                     .unwrap_or_else(|err| {
                         warn!("Couldn't parse date `{}`: {err}", inner_score.date_set);
@@ -414,7 +414,7 @@ mod option_datetime {
 
         #[inline]
         fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-            PrimitiveDateTime::parse(v, PRIMITIVE_FORMAT)
+            PrimitiveDateTime::parse(v, NAIVE_DATETIME_FORMAT)
                 .ok()
                 .map(PrimitiveDateTime::assume_utc)
                 .map(Ok)

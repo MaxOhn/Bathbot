@@ -138,7 +138,56 @@ pub struct OsuTrackerCountryScore {
     #[serde(rename = "length", with = "deserialize::u32_string")]
     pub seconds_total: u32,
     pub mapper: Username,
-    #[serde(rename = "time", with = "deserialize::datetime_maybe_offset")]
+    #[serde(rename = "time", with = "maybe_naive_datetime")]
     pub ended_at: OffsetDateTime,
     pub player: Username,
+}
+
+pub(super) mod maybe_naive_datetime {
+    use std::fmt::{Formatter, Result as FmtResult};
+
+    use serde::{
+        de::{Error, Visitor},
+        Deserializer,
+    };
+    use time::{Date, OffsetDateTime, PrimitiveDateTime, Time, UtcOffset};
+
+    use crate::util::datetime::{DATETIME_FORMAT, DATE_FORMAT, OFFSET_FORMAT, TIME_FORMAT};
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<OffsetDateTime, D::Error> {
+        d.deserialize_str(DateTimeVisitor)
+    }
+
+    pub(super) struct DateTimeVisitor;
+
+    impl<'de> Visitor<'de> for DateTimeVisitor {
+        type Value = OffsetDateTime;
+
+        fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
+            f.write_str("a datetime string")
+        }
+
+        fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+            if v.len() < 10 {
+                return Err(Error::custom(format!("string too short for a date: `{v}`")));
+            }
+
+            let (prefix, suffix) = v.split_at(10);
+
+            let date = Date::parse(prefix, DATE_FORMAT).map_err(Error::custom)?;
+
+            let time_bytes = match suffix.as_bytes() {
+                [] => return Err(Error::custom(format!("string too short for a time: `{v}`"))),
+                [b'T', infix @ .., b'Z'] => infix,
+                [b' ', suffix @ ..] => suffix,
+                _ => return Err(Error::custom(format!("invalid time format: `{v}`"))),
+            };
+
+            // SAFETY: The slice originates from a str in the first place
+            let time_str = unsafe { std::str::from_utf8_unchecked(time_bytes) };
+            let time = Time::parse(time_str, TIME_FORMAT).map_err(Error::custom)?;
+
+            Ok(PrimitiveDateTime::new(date, time).assume_utc())
+        }
+    }
 }

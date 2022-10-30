@@ -7,7 +7,7 @@ use serde::{
 };
 use time::{Date, OffsetDateTime, PrimitiveDateTime};
 
-use crate::util::datetime::{DATETIME_FORMAT, DATE_FORMAT, PRIMITIVE_FORMAT};
+use crate::util::datetime::{DATETIME_FORMAT, DATE_FORMAT, NAIVE_DATETIME_FORMAT};
 
 pub(super) mod option_f32_string {
     use super::{f32_string::F32String, *};
@@ -21,7 +21,6 @@ pub(super) mod option_f32_string {
     impl<'de> Visitor<'de> for MaybeF32String {
         type Value = Option<f32>;
 
-        #[inline]
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             f.write_str("an optional string containing an f32")
         }
@@ -55,7 +54,6 @@ pub(super) mod f32_string {
     impl<'de> Visitor<'de> for F32String {
         type Value = f32;
 
-        #[inline]
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             f.write_str("a string containing an f32")
         }
@@ -76,9 +74,8 @@ pub(super) mod option_u32_string {
     impl<'de> Visitor<'de> for MaybeU32String {
         type Value = Option<u32>;
 
-        #[inline]
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.write_str("an optional string containing an u32")
+            f.write_str("an optional string containing a u32")
         }
 
         #[inline]
@@ -110,9 +107,8 @@ pub(super) mod u32_string {
     impl<'de> Visitor<'de> for U32String {
         type Value = u32;
 
-        #[inline]
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.write_str("a string containing an u32")
+            f.write_str("a string containing a u32")
         }
 
         #[inline]
@@ -131,7 +127,6 @@ pub(super) mod option_mods_string {
     impl<'de> Visitor<'de> for MaybeModsString {
         type Value = Option<GameMods>;
 
-        #[inline]
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             f.write_str("an optional string containing gamemods")
         }
@@ -165,7 +160,6 @@ pub(super) mod mods_string {
     impl<'de> Visitor<'de> for ModsString {
         type Value = GameMods;
 
-        #[inline]
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             f.write_str("a string containing gamemods")
         }
@@ -207,68 +201,33 @@ pub(super) mod adjust_acc {
     }
 }
 
-pub(super) mod datetime_maybe_offset {
-    use time::error::{Parse, ParseFromDescription};
-
+pub(super) mod naive_datetime {
     use super::*;
 
     pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<OffsetDateTime, D::Error> {
-        d.deserialize_str(DateTimeVisitor)
+        d.deserialize_str(NaiveDateTimeVisitor)
     }
 
-    struct DateTimeVisitor;
+    pub(super) struct NaiveDateTimeVisitor;
 
-    impl<'de> Visitor<'de> for DateTimeVisitor {
+    impl<'de> Visitor<'de> for NaiveDateTimeVisitor {
         type Value = OffsetDateTime;
 
-        #[inline]
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.write_str("an `OffsetDateTime`")
+            f.write_str("a datetime string")
         }
 
         #[inline]
         fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-            match OffsetDateTime::parse(v, DATETIME_FORMAT) {
-                Ok(datetime) => Ok(datetime),
-                Err(
-                    err @ Parse::ParseFromDescription(ParseFromDescription::InvalidComponent(_)),
-                ) => Err(Error::custom(err)),
-                Err(_) => PrimitiveDateTime::parse(v, PRIMITIVE_FORMAT)
-                    .map(PrimitiveDateTime::assume_utc)
-                    .map_err(Error::custom),
-            }
-        }
-    }
-}
-
-pub(super) mod datetime {
-    use super::*;
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<OffsetDateTime, D::Error> {
-        d.deserialize_str(DateTimeVisitor)
-    }
-
-    pub(super) struct DateTimeVisitor;
-
-    impl<'de> Visitor<'de> for DateTimeVisitor {
-        type Value = OffsetDateTime;
-
-        #[inline]
-        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.write_str("an `OffsetDateTime`")
-        }
-
-        #[inline]
-        fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-            PrimitiveDateTime::parse(v, PRIMITIVE_FORMAT)
+            PrimitiveDateTime::parse(v, NAIVE_DATETIME_FORMAT)
                 .map(PrimitiveDateTime::assume_utc)
                 .map_err(Error::custom)
         }
     }
 }
 
-pub(super) mod option_datetime {
-    use super::{datetime::DateTimeVisitor, *};
+pub(super) mod option_naive_datetime {
+    use super::{naive_datetime::NaiveDateTimeVisitor, *};
 
     pub fn deserialize<'de, D: Deserializer<'de>>(
         d: D,
@@ -281,14 +240,13 @@ pub(super) mod option_datetime {
     impl<'de> Visitor<'de> for OptionDateTimeVisitor {
         type Value = Option<OffsetDateTime>;
 
-        #[inline]
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.write_str("an optional `OffsetDateTime`")
+            f.write_str("an optional datetime string")
         }
 
         #[inline]
         fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
-            d.deserialize_str(DateTimeVisitor).map(Some)
+            d.deserialize_str(NaiveDateTimeVisitor).map(Some)
         }
 
         #[inline]
@@ -303,7 +261,7 @@ pub(super) mod option_datetime {
     }
 }
 
-pub(super) mod offset_datetime {
+pub(super) mod datetime {
     use time::UtcOffset;
 
     use crate::util::datetime::OFFSET_FORMAT;
@@ -319,9 +277,8 @@ pub(super) mod offset_datetime {
     impl<'de> Visitor<'de> for DateTimeVisitor {
         type Value = OffsetDateTime;
 
-        #[inline]
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.write_str("an `OffsetDateTime`")
+            f.write_str("a datetime string")
         }
 
         #[inline]
@@ -360,9 +317,8 @@ pub(super) mod date {
     impl<'de> Visitor<'de> for DateVisitor {
         type Value = Date;
 
-        #[inline]
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.write_str("a `Date`")
+            f.write_str("a date string")
         }
 
         #[inline]

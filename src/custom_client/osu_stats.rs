@@ -68,7 +68,7 @@ pub struct OsuStatsScore {
     pub count_miss: u32,
     #[serde(rename = "enabledMods", with = "deserialize::mods_string")]
     pub enabled_mods: GameMods,
-    #[serde(rename = "playDate", with = "deserialize::datetime")]
+    #[serde(rename = "playDate", with = "deserialize::naive_datetime")]
     pub date: OffsetDateTime,
     #[serde(rename = "ppValue")]
     pub pp: Option<f32>,
@@ -84,9 +84,9 @@ pub struct OsuStatsMap {
     pub beatmapset_id: u32,
     #[serde(rename = "approved")]
     pub approval_status: RankStatus,
-    #[serde(rename = "lastUpdated", with = "deserialize::datetime")]
+    #[serde(rename = "lastUpdated", with = "deserialize::naive_datetime")]
     pub last_updated: OffsetDateTime,
-    #[serde(rename = "approvedDate", with = "deserialize::option_datetime")]
+    #[serde(rename = "approvedDate", with = "deserialize::option_naive_datetime")]
     pub approved_date: Option<OffsetDateTime>,
     #[serde(rename = "hitLength")]
     pub seconds_drain: u32,
