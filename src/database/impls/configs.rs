@@ -20,6 +20,8 @@ use crate::{
 impl Database {
     #[cold]
     pub async fn get_guilds(&self) -> Result<FlurryMap<Id<GuildMarker>, GuildConfig, IntHasher>> {
+        info!("Fetching guild configs...");
+
         let mut stream = sqlx::query!("SELECT * FROM guild_configs").fetch(&self.pool);
         let guilds = FlurryMap::with_capacity_and_hasher(20_000, IntHasher);
 

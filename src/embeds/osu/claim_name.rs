@@ -1,13 +1,11 @@
-use std::fmt;
-
 use command_macros::EmbedData;
 use rosu_v2::model::user::User;
 use time::{Duration, OffsetDateTime};
 use twilight_model::channel::embed::EmbedField;
 
 use crate::util::{
-    self, builder::AuthorBuilder, constants::OSU_BASE, datetime::DATE_FORMAT,
-    numbers::with_comma_int, osu::flag_url, CowUtils,
+    self, builder::AuthorBuilder, constants::OSU_BASE, numbers::with_comma_int, osu::flag_url,
+    CowUtils,
 };
 
 #[derive(EmbedData)]
@@ -26,7 +24,7 @@ impl ClaimNameEmbed {
             name: "Last active".to_owned(),
             value: user.last_visit.map_or_else(
                 || "Date not available :(".to_owned(),
-                |last_visit| last_visit.format(DATE_FORMAT).unwrap(),
+                |datetime| format!("<t:{}:d>", datetime.unix_timestamp()),
             ),
         };
 
@@ -97,14 +95,13 @@ impl ClaimNameEmbed {
             };
 
             let value = format!(
-                "{preamble}{date}{remaining}",
+                "{preamble}<t:{timestamp}:d> (<t:{timestamp}:R>)",
                 preamble = if user.last_visit.is_none() {
                     "Assuming the user is inactive from now on:\n"
                 } else {
                     ""
                 },
-                date = date.format(DATE_FORMAT).unwrap(),
-                remaining = TimeUntil(duration),
+                timestamp = date.unix_timestamp(),
             );
 
             EmbedField {
@@ -154,71 +151,4 @@ fn time_to_wait(user: &User) -> Duration {
     let extra_days = H * (1.0 - (-x / S).exp()) + I + B * x / S;
 
     Duration::days(extra_days as i64) - inactive_time
-}
-
-#[derive(Copy, Clone)]
-struct TimeUntil(Duration);
-
-impl fmt::Display for TimeUntil {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut minutes = self.0.whole_minutes();
-
-        if minutes < 0 {
-            return Ok(());
-        } else if minutes < 60 {
-            return f.write_str(" (any minute now)");
-        }
-
-        f.write_str(" (")?;
-
-        let years = minutes / (60 * 24 * 365);
-        minutes -= years * (60 * 24 * 365);
-
-        let months = minutes / (60 * 24 * 30);
-        minutes -= months * (60 * 24 * 30);
-
-        let days = minutes / (60 * 24);
-        minutes -= days * (60 * 24);
-
-        if years + months + days > 0 {
-            if years > 0 {
-                write!(f, "{years}y")?;
-            }
-
-            if months > 0 {
-                if years > 0 {
-                    f.write_str(" ")?;
-                }
-
-                write!(f, "{months}m")?;
-            }
-
-            if days > 0 {
-                if years + months > 0 {
-                    f.write_str(" ")?;
-                }
-
-                write!(f, "{days}d")?;
-            }
-        } else {
-            let hours = minutes / 60;
-            minutes -= hours * 60;
-
-            f.write_str("~")?;
-
-            if hours > 0 {
-                write!(f, "{hours}h")?;
-            }
-
-            if minutes > 0 {
-                if hours > 0 {
-                    f.write_str(" ")?;
-                }
-
-                write!(f, "{minutes}m")?;
-            }
-        }
-
-        f.write_str(")")
-    }
 }
