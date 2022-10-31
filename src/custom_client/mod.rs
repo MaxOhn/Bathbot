@@ -524,11 +524,13 @@ impl CustomClient {
 
         let bytes = self.make_post_request(url, Site::Osekai, form).await?;
 
-        serde_json::from_slice(&bytes).wrap_err_with(|| {
-            let body = String::from_utf8_lossy(&bytes);
+        serde_json::from_slice::<OsekaiRankingEntries<R>>(&bytes)
+            .map(Vec::from)
+            .wrap_err_with(|| {
+                let body = String::from_utf8_lossy(&bytes);
 
-            format!("failed to deserialize {}: {body}", R::REQUEST)
-        })
+                format!("failed to deserialize Osekai {}: {body}", R::FORM)
+            })
     }
 
     pub async fn get_snipe_player(&self, country: &str, user_id: u32) -> Result<SnipePlayer> {

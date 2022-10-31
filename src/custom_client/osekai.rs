@@ -1,4 +1,9 @@
-use std::{cmp::Ordering, fmt, marker::PhantomData, str::FromStr};
+use std::{
+    cmp::Ordering,
+    fmt::{Debug, Display, Formatter, Result as FmtResult},
+    marker::PhantomData,
+    str::FromStr,
+};
 
 use rkyv::{with::ArchiveWith, Archive, Deserialize as RkyvDeserialize, Serialize};
 use rosu_v2::{
@@ -6,7 +11,7 @@ use rosu_v2::{
     prelude::Username,
 };
 use serde::{
-    de::{Error, MapAccess, Unexpected, Visitor},
+    de::{Error, IgnoredAny, MapAccess, SeqAccess, Unexpected, Visitor},
     Deserialize, Deserializer,
 };
 use time::Date;
@@ -18,82 +23,124 @@ use super::{deser, DateWrapper, UsernameWrapper};
 
 pub trait OsekaiRanking {
     const FORM: &'static str;
-    const REQUEST: &'static str;
     const RANKING: RankingKindData;
-    type Entry: for<'de> Deserialize<'de>;
+
+    type Deser: for<'de> Deserialize<'de>;
+    type Entry: From<Self::Deser>;
 }
 
-pub struct Rarity;
-pub struct MedalCount;
-pub struct Replays;
-pub struct TotalPp;
-pub struct StandardDeviation;
-pub struct Badges;
-pub struct RankedMapsets;
-pub struct LovedMapsets;
-pub struct Subscribers;
+macro_rules! define_ranking {
+    ($struct:ident, $form:literal, $ranking:ident, $deser:ident, $entry:ident $( <$ty:ty>, $field:literal )? ) => {
+        pub struct $struct;
 
-impl OsekaiRanking for Rarity {
-    const FORM: &'static str = "Rarity";
-    const REQUEST: &'static str = "osekai rarity";
-    const RANKING: RankingKindData = RankingKindData::OsekaiRarity;
-    type Entry = OsekaiRarityEntry;
+        impl OsekaiRanking for $struct {
+            const FORM: &'static str = $form;
+            const RANKING: RankingKindData = RankingKindData::$ranking;
+
+            type Deser = $deser;
+            type Entry = $entry $( <$ty> )?;
+        }
+
+        $(
+            pub struct $deser {
+                inner: OsekaiRankingEntry<$ty>,
+            }
+
+            impl From<$deser> for OsekaiRankingEntry<$ty> {
+                #[inline]
+                fn from(entry: $deser) -> Self {
+                    entry.inner
+                }
+            }
+
+            impl<'de> Deserialize<'de> for $deser {
+                #[inline]
+                fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+                    d.deserialize_map(OsekaiRankingEntryVisitor::new($field))
+                        .map(|inner| Self { inner })
+                }
+            }
+        )?
+    };
 }
 
-impl OsekaiRanking for MedalCount {
-    const FORM: &'static str = "Users";
-    const REQUEST: &'static str = "osekai users";
-    const RANKING: RankingKindData = RankingKindData::OsekaiMedalCount;
-    type Entry = OsekaiUserEntry;
+define_ranking! {
+    Rarity,
+    "Rarity",
+    OsekaiRarity,
+    OsekaiRarityEntry,
+    OsekaiRarityEntry
 }
 
-impl OsekaiRanking for Replays {
-    const FORM: &'static str = "Replays";
-    const REQUEST: &'static str = "osekai replays";
-    const RANKING: RankingKindData = RankingKindData::OsekaiReplays;
-    type Entry = OsekaiRankingEntry<usize>;
+define_ranking! {
+    MedalCount,
+    "Users",
+    OsekaiMedalCount,
+    OsekaiUserEntry,
+    OsekaiUserEntry
 }
 
-impl OsekaiRanking for TotalPp {
-    const FORM: &'static str = "Total pp";
-    const REQUEST: &'static str = "osekai total pp";
-    const RANKING: RankingKindData = RankingKindData::OsekaiTotalPp;
-    type Entry = OsekaiRankingEntry<u32>;
+define_ranking! {
+    Replays,
+    "Replays",
+    OsekaiReplays,
+    OsekaiRankingReplaysEntry,
+    OsekaiRankingEntry<usize>,
+    "replays"
 }
 
-impl OsekaiRanking for StandardDeviation {
-    const FORM: &'static str = "Standard Deviation";
-    const REQUEST: &'static str = "osekai standard deviation";
-    const RANKING: RankingKindData = RankingKindData::OsekaiStandardDeviation;
-    type Entry = OsekaiRankingEntry<u32>;
+define_ranking! {
+    TotalPp,
+    "Total pp",
+    OsekaiTotalPp,
+    OsekaiRankingTotalPpEntry,
+    OsekaiRankingEntry<u32>,
+    "tpp"
 }
 
-impl OsekaiRanking for Badges {
-    const FORM: &'static str = "Badges";
-    const REQUEST: &'static str = "osekai badges";
-    const RANKING: RankingKindData = RankingKindData::OsekaiBadges;
-    type Entry = OsekaiRankingEntry<usize>;
+define_ranking! {
+    StandardDeviation,
+    "Standard Deviation",
+    OsekaiStandardDeviation,
+    OsekaiRankingStandardDeviationEntry,
+    OsekaiRankingEntry<u32>,
+    "spp"
 }
 
-impl OsekaiRanking for RankedMapsets {
-    const FORM: &'static str = "Ranked Mapsets";
-    const REQUEST: &'static str = "osekai ranked mapsets";
-    const RANKING: RankingKindData = RankingKindData::OsekaiRankedMapsets;
-    type Entry = OsekaiRankingEntry<usize>;
+define_ranking! {
+    Badges,
+    "Badges",
+    OsekaiBadges,
+    OsekaiRankingBadgesEntry,
+    OsekaiRankingEntry<usize>,
+    "badges"
 }
 
-impl OsekaiRanking for LovedMapsets {
-    const FORM: &'static str = "Loved Mapsets";
-    const REQUEST: &'static str = "osekai loved mapsets";
-    const RANKING: RankingKindData = RankingKindData::OsekaiLovedMapsets;
-    type Entry = OsekaiRankingEntry<usize>;
+define_ranking! {
+    RankedMapsets,
+    "Ranked Mapsets",
+    OsekaiRankedMapsets,
+    OsekaiRankingRankedMapsetsEntry,
+    OsekaiRankingEntry<usize>,
+    "ranked"
 }
 
-impl OsekaiRanking for Subscribers {
-    const FORM: &'static str = "Subscribers";
-    const REQUEST: &'static str = "osekai subscribers";
-    const RANKING: RankingKindData = RankingKindData::OsekaiSubscribers;
-    type Entry = OsekaiRankingEntry<usize>;
+define_ranking! {
+    LovedMapsets,
+    "Loved Mapsets",
+    OsekaiLovedMapsets,
+    OsekaiRankingLovedMapsetsEntry,
+    OsekaiRankingEntry<usize>,
+    "loved"
+}
+
+define_ranking! {
+    Subscribers,
+    "Subscribers",
+    OsekaiSubscribers,
+    OsekaiRankingSubscribersEntry,
+    OsekaiRankingEntry<usize>,
+    "subscribers"
 }
 
 #[derive(Deserialize)]
@@ -153,8 +200,7 @@ impl<'de> Deserialize<'de> for OsekaiMedals {
         impl<'de> Visitor<'de> for OsekaiGroupingVisitor {
             type Value = Vec<OsekaiMedal>;
 
-            #[inline]
-            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
                 f.write_str("an object containing fields mapping to a list of osekai medals")
             }
 
@@ -272,9 +318,9 @@ impl MedalGroup {
     }
 }
 
-impl fmt::Display for MedalGroup {
+impl Display for MedalGroup {
     #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.write_str(self.as_str())
     }
 }
@@ -326,7 +372,7 @@ fn osekai_mode<'de, D: Deserializer<'de>>(d: D) -> Result<Option<GameMode>, D::E
         type Value = Option<GameMode>;
 
         #[inline]
-        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fn expecting(&self, formatter: &mut Formatter<'_>) -> FmtResult {
             formatter.write_str("a u8 or a string")
         }
 
@@ -386,8 +432,7 @@ fn osekai_mods<'de, D: Deserializer<'de>>(d: D) -> Result<Option<GameMods>, D::E
     impl<'de> Visitor<'de> for OsekaiModsVisitor {
         type Value = Option<GameMods>;
 
-        #[inline]
-        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
             f.write_str("a u8 or a string")
         }
 
@@ -479,16 +524,16 @@ where
 #[archive(as = "ValueWrapper<T::Archived>")]
 pub struct ValueWrapper<T>(T);
 
-impl<T: fmt::Debug> fmt::Debug for ValueWrapper<T> {
+impl<T: Debug> Debug for ValueWrapper<T> {
     #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{:?}", self.0)
     }
 }
 
-impl<T: fmt::Display> fmt::Display for ValueWrapper<T> {
+impl<T: Display> Display for ValueWrapper<T> {
     #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{}", self.0)
     }
 }
@@ -505,76 +550,121 @@ impl<'de, T: Deserialize<'de> + FromStr> Deserialize<'de> for ValueWrapper<T> {
     }
 }
 
-impl<'de, T: Deserialize<'de> + FromStr + Archive> Deserialize<'de> for OsekaiRankingEntry<T> {
+struct OsekaiRankingEntryVisitor<T> {
+    api_field: &'static str,
+    phantom: PhantomData<T>,
+}
+
+impl<T> OsekaiRankingEntryVisitor<T> {
+    fn new(api_field: &'static str) -> Self {
+        Self {
+            api_field,
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<'de, T> Visitor<'de> for OsekaiRankingEntryVisitor<T>
+where
+    T: Deserialize<'de> + FromStr + Archive,
+{
+    type Value = OsekaiRankingEntry<T>;
+
+    fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str("an osekai ranking entry")
+    }
+
+    fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+        let mut rank: Option<&str> = None;
+        let mut country_code = None;
+        let mut country = None;
+        let mut username = None;
+        let mut user_id: Option<&str> = None;
+        let mut value = None;
+
+        while let Some(key) = map.next_key()? {
+            match key {
+                "rank" => rank = Some(map.next_value()?),
+                "countrycode" => country_code = Some(map.next_value()?),
+                "country" => country = Some(map.next_value()?),
+                "username" => username = Some(map.next_value()?),
+                "userid" => user_id = Some(map.next_value()?),
+                _ if key == self.api_field => value = Some(map.next_value()?),
+                _ => {
+                    let _ = map.next_value::<IgnoredAny>()?;
+                }
+            }
+        }
+
+        let rank: &str = rank.ok_or_else(|| Error::missing_field("rank"))?;
+        let rank = rank.parse().map_err(|_| {
+            Error::invalid_value(Unexpected::Str(rank), &"a string containing a u32")
+        })?;
+
+        let country_code = country_code.ok_or_else(|| Error::missing_field("countrycode"))?;
+        let country = country.ok_or_else(|| Error::missing_field("country"))?;
+        let username = username.ok_or_else(|| Error::missing_field("username"))?;
+
+        let user_id: &str = user_id.ok_or_else(|| Error::missing_field("userid"))?;
+        let user_id = user_id.parse().map_err(|_| {
+            Error::invalid_value(Unexpected::Str(user_id), &"a string containing a u32")
+        })?;
+
+        let value = value.ok_or_else(|| Error::missing_field(self.api_field))?;
+
+        Ok(Self::Value {
+            rank,
+            country_code,
+            country,
+            username,
+            user_id,
+            value,
+        })
+    }
+}
+
+pub struct OsekaiRankingEntries<R: OsekaiRanking> {
+    inner: Vec<R::Entry>,
+}
+
+impl<'de, R: OsekaiRanking> Deserialize<'de> for OsekaiRankingEntries<R> {
     #[inline]
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        struct OsekaiRankingEntryVisitor<T> {
-            data: PhantomData<T>,
+        struct OsekaiRankingEntriesVisitor<R> {
+            phantom: PhantomData<R>,
         }
 
-        impl<T> OsekaiRankingEntryVisitor<T> {
-            fn new() -> Self {
-                Self { data: PhantomData }
+        impl<'de, R: OsekaiRanking> Visitor<'de> for OsekaiRankingEntriesVisitor<R> {
+            type Value = OsekaiRankingEntries<R>;
+
+            fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
+                f.write_str("a list of osekai ranking entries")
             }
-        }
-
-        impl<'de, T: Deserialize<'de> + FromStr + Archive> Visitor<'de> for OsekaiRankingEntryVisitor<T> {
-            type Value = OsekaiRankingEntry<T>;
 
             #[inline]
-            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("an osekai ranking entry")
-            }
+            fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+                let mut entries = Vec::with_capacity(seq.size_hint().unwrap_or(4));
 
-            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
-                let mut rank: Option<&str> = None;
-                let mut country_code = None;
-                let mut country = None;
-                let mut username = None;
-                let mut user_id: Option<&str> = None;
-                let mut value = None;
-
-                while let Some(key) = map.next_key()? {
-                    match key {
-                        "rank" => rank = Some(map.next_value()?),
-                        "countrycode" => country_code = Some(map.next_value()?),
-                        "country" => country = Some(map.next_value()?),
-                        "username" => username = Some(map.next_value()?),
-                        "userid" => user_id = Some(map.next_value()?),
-                        _ => value = Some(map.next_value()?),
-                    }
+                while let Some(elem) = seq.next_element::<R::Deser>()? {
+                    entries.push(elem.into());
                 }
 
-                let rank: &str = rank.ok_or_else(|| Error::missing_field("rank"))?;
-                let rank = rank.parse().map_err(|_| {
-                    Error::invalid_value(Unexpected::Str(rank), &"a string containing a u32")
-                })?;
-
-                let country_code =
-                    country_code.ok_or_else(|| Error::missing_field("countrycode"))?;
-                let country = country.ok_or_else(|| Error::missing_field("country"))?;
-                let username = username.ok_or_else(|| Error::missing_field("username"))?;
-
-                let user_id: &str = user_id.ok_or_else(|| Error::missing_field("userid"))?;
-                let user_id = user_id.parse().map_err(|_| {
-                    Error::invalid_value(Unexpected::Str(user_id), &"a string containing a u32")
-                })?;
-
-                let value =
-                    value.ok_or_else(|| Error::custom("missing field for ranking value"))?;
-
-                Ok(Self::Value {
-                    rank,
-                    country_code,
-                    country,
-                    username,
-                    user_id,
-                    value,
-                })
+                Ok(OsekaiRankingEntries { inner: entries })
             }
         }
 
-        d.deserialize_map(OsekaiRankingEntryVisitor::new())
+        let visitor = OsekaiRankingEntriesVisitor {
+            phantom: PhantomData,
+        };
+
+        d.deserialize_seq(visitor)
+    }
+}
+
+impl<R: OsekaiRanking> From<OsekaiRankingEntries<R>> for Vec<R::Entry> {
+    #[inline]
+    fn from(entries: OsekaiRankingEntries<R>) -> Self {
+        entries.inner
     }
 }
 
