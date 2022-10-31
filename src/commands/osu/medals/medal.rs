@@ -106,6 +106,10 @@ pub(super) async fn info(
         .max_by_key(|comment| comment.vote_sum)
         .filter(|comment| comment.vote_sum > 0);
 
+    // Remove all dups
+    maps.sort_unstable_by_key(|map| Reverse(map.map_id));
+    maps.dedup_by_key(|map| map.map_id);
+
     maps.sort_unstable_by_key(|map| Reverse(map.vote_sum));
 
     let embed_data = MedalEmbed::new(medal, None, maps, top_comment);
