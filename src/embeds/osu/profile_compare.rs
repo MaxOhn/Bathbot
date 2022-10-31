@@ -70,8 +70,22 @@ impl ProfileCompareEmbed {
             "Rank",
             left.rank,
             right.rank,
-            Reverse(stats1.global_rank),
-            Reverse(stats2.global_rank),
+            Reverse(stats1.global_rank.unwrap_or(u32::MAX)),
+            Reverse(stats2.global_rank.unwrap_or(u32::MAX)),
+            max_left,
+            max_right,
+        );
+
+        let left_peak = user1.highest_rank.map(|peak| peak.rank);
+        let right_peak = user2.highest_rank.map(|peak| peak.rank);
+
+        write_line(
+            &mut d,
+            "Peak rank",
+            left_peak.map_or_else(|| "-".into(), |rank| format!("#{}", with_comma_int(rank))),
+            right_peak.map_or_else(|| "-".into(), |rank| format!("#{}", with_comma_int(rank))),
+            Reverse(left_peak.unwrap_or(u32::MAX)),
+            Reverse(right_peak.unwrap_or(u32::MAX)),
             max_left,
             max_right,
         );
@@ -398,7 +412,9 @@ impl CompareStrings {
 
         Self {
             pp: with_comma_float(stats.pp).to_string() + "pp",
-            rank: format!("#{}", with_comma_int(stats.global_rank.unwrap_or(0))),
+            rank: stats
+                .global_rank
+                .map_or_else(|| "-".into(), |rank| format!("#{}", with_comma_int(rank))),
             ranked_score: with_comma_int(stats.ranked_score).to_string(),
             total_score: with_comma_int(stats.total_score).to_string(),
             total_hits: with_comma_int(stats.total_hits).to_string(),
