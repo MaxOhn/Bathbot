@@ -225,8 +225,7 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
     let actual_pp: f32 = scores
         .iter()
         .filter_map(|s| s.weight)
-        .map(|weight| weight.pp)
-        .sum();
+        .fold(0.0, |sum, weight| sum + weight.pp);
 
     let bonus_pp = user
         .statistics
@@ -248,8 +247,10 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
     // Calculate adjusted pp
     let adjusted_pp: f32 = scores_data
         .iter()
-        .map(|(i, Score { pp, .. }, _)| pp.unwrap_or(0.0) * 0.95_f32.powi(*i as i32 - 1))
-        .sum();
+        .zip(0..)
+        .fold(0.0, |sum, ((_, Score { pp, .. }, _), i)| {
+            sum + pp.unwrap_or(0.0) * 0.95_f32.powi(i)
+        });
 
     if let Some(query) = args.query.as_deref() {
         let criteria = FilterCriteria::new(query);
@@ -257,9 +258,9 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
         scores_data.retain(|(_, score, _)| score.matches(&criteria));
     }
 
-    let adjusted_pp = numbers::round(bonus_pp + adjusted_pp);
+    let final_pp = numbers::round(bonus_pp + adjusted_pp);
 
-    let rank = match ctx.psql().approx_rank_from_pp(adjusted_pp, mode).await {
+    let rank = match ctx.psql().approx_rank_from_pp(final_pp, mode).await {
         Ok(rank) => Some(rank as usize),
         Err(err) => {
             warn!("{:?}", err.wrap_err("failed to get rank from pp"));
@@ -272,7 +273,7 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
     let pre_pp = user.statistics.as_ref().map_or(0.0, |stats| stats.pp);
     let content = get_content(user.username.as_str(), mode, mods, args.query.as_deref());
 
-    TopIfPagination::builder(user, scores_data, mode, pre_pp, adjusted_pp, rank)
+    TopIfPagination::builder(user, scores_data, mode, pre_pp, final_pp, rank)
         .content(content)
         .start_by_update()
         .defer_components()
