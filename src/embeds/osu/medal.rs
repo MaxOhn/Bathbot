@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
 use twilight_model::channel::embed::{Embed, EmbedField};
@@ -42,6 +44,11 @@ impl MedalEmbed {
         fields![fields { "Description", medal.description, false }];
 
         if let Some(solution) = medal.solution.filter(|s| !s.is_empty()) {
+            let solution = match solution.cow_replace("<br>", "") {
+                Cow::Owned(s) => s,
+                Cow::Borrowed(_) => solution,
+            };
+
             fields![fields { "Solution", solution, false }];
         }
 
