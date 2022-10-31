@@ -503,7 +503,7 @@ impl Skills {
         };
 
         fn fract(f: &f64) -> String {
-            format!("{:02}", (f.fract() * 100.0).round())
+            format!("{:02}", (f.fract() * 100.0).floor())
         }
 
         match self {
