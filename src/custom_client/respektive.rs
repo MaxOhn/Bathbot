@@ -1,4 +1,3 @@
-use rosu_v2::prelude::{CountryCode, Username};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
@@ -11,10 +10,10 @@ pub struct RespektiveUser {
 
 #[derive(Deserialize)]
 pub struct RespektiveTopCount {
-    pub beatmaps_amount: usize,
+    // pub beatmaps_amount: usize,
     pub user_id: u32,
-    pub username: Username,
-    pub country: CountryCode,
+    // pub username: Option<Username>,
+    // pub country: Option<CountryCode>,
     pub top1s: usize,
     pub top1s_rank: Option<u32>,
     pub top8s: usize,
