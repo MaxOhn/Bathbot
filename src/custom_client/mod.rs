@@ -318,8 +318,10 @@ impl CustomClient {
     pub async fn get_respektive_osustats_counts(
         &self,
         user_id: u32,
+        mode: GameMode,
     ) -> Result<Option<RespektiveTopCount>> {
-        let url = format!("https://osustats.respektive.pw/counts/{user_id}");
+        let mode = mode as u8;
+        let url = format!("https://osustats.respektive.pw/counts/{user_id}?mode={mode}");
 
         // Manual request so the potential 404 error is not wrapped in a Report
         let req = self

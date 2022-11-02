@@ -733,15 +733,13 @@ impl TopCounts {
     }
 
     pub async fn request(ctx: &Context, user: &User, mode: GameMode) -> Result<Self> {
-        if mode == GameMode::Osu {
-            Self::request_respektive(ctx, user, mode).await
-        } else {
-            Self::request_osustats(ctx, user, mode).await
-        }
+        Self::request_respektive(ctx, user, mode).await
     }
 
     async fn request_respektive(ctx: &Context, user: &User, mode: GameMode) -> Result<Self> {
-        let counts_fut = ctx.client().get_respektive_osustats_counts(user.user_id);
+        let counts_fut = ctx
+            .client()
+            .get_respektive_osustats_counts(user.user_id, mode);
 
         match counts_fut.await {
             Ok(Some(counts)) => match user.scores_first_count {
