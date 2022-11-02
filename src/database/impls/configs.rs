@@ -8,7 +8,6 @@ use twilight_model::id::{
 };
 
 use crate::{
-    commands::osu::ProfileSize,
     database::{
         models::{EmbedsSize, ListSize, OsuData},
         GuildConfig, MinimizedPp, UserConfig,
@@ -35,7 +34,6 @@ impl Database {
                     list_size: entry.list_size.map(ListSize::from),
                     minimized_pp: entry.minimized_pp.map(MinimizedPp::from),
                     prefixes: serde_cbor::from_slice(&entry.prefixes)?,
-                    profile_size: entry.profile_size.map(ProfileSize::from),
                     show_retries: entry.show_retries,
                     track_limit: entry.track_limit.map(|limit| limit as u8),
                     with_lyrics: entry.with_lyrics,
@@ -66,24 +64,23 @@ impl Database {
                 track_limit,\
                 with_lyrics\
             )\
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (guild_id) DO \
+            VALUES ($1,$2,$3,$4,$5,$6,0,$7,$8,$9) ON CONFLICT (guild_id) DO \
             UPDATE \
             SET authorities=$2,\
                 embeds_size=$3,\
                 list_size=$4,\
                 minimized_pp=$5,\
                 prefixes=$6,\
-                profile_size=$7,\
-                show_retries=$8,\
-                track_limit=$9,\
-                with_lyrics=$10",
+                profile_size=0,\
+                show_retries=$7,\
+                track_limit=$8,\
+                with_lyrics=$9",
             guild_id.get() as i64,
             serde_cbor::to_vec(&config.authorities)?,
             config.embeds_size.map(|size| size as u8 as i16),
             config.list_size.map(|size| size as u8 as i16),
             config.minimized_pp.map(|pp| pp as u8 as i16),
             serde_cbor::to_vec(&config.prefixes)?,
-            config.profile_size.map(|size| size as i16),
             config.show_retries,
             config.track_limit.map(|limit| limit as i16),
             config.with_lyrics,
@@ -143,7 +140,6 @@ impl Database {
                     minimized_pp: entry.minimized_pp.map(MinimizedPp::from),
                     mode: entry.mode.map(|mode| mode as u8).map(GameMode::from),
                     osu: Some(osu),
-                    profile_size: entry.profile_size.map(ProfileSize::from),
                     show_retries: entry.show_retries,
                     twitch_id: entry.twitch_id.map(|id| id as u64),
                 };
@@ -178,7 +174,6 @@ impl Database {
                     minimized_pp: entry.minimized_pp.map(MinimizedPp::from),
                     mode: entry.mode.map(|mode| mode as u8).map(GameMode::from),
                     osu: Some(osu),
-                    profile_size: entry.profile_size.map(ProfileSize::from),
                     show_retries: entry.show_retries,
                     twitch_id: entry.twitch_id.map(|id| id as u64),
                 };
@@ -210,16 +205,16 @@ impl Database {
                 show_retries,\
                 twitch_id\
             )\
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (discord_id) DO \
+            VALUES ($1,$2,$3,$4,$5,$6,0,$7,$8) ON CONFLICT (discord_id) DO \
             UPDATE \
             SET embeds_size=$2,\
                 list_size=$3,\
                 minimized_pp=$4,\
                 mode=$5,\
                 osu_id=$6,\
-                profile_size=$7,\
-                show_retries=$8,\
-                twitch_id=$9",
+                profile_size=0,\
+                show_retries=$7,\
+                twitch_id=$8",
             user_id.get() as i64,
             config.score_size.map(|size| size as u8 as i16),
             config.list_size.map(|size| size as u8 as i16),
@@ -230,7 +225,6 @@ impl Database {
                 .as_ref()
                 .and_then(OsuData::user_id)
                 .map(|id| id as i32),
-            config.profile_size.map(|size| size as i16),
             config.show_retries,
             config.twitch_id.map(|id| id as i64)
         );

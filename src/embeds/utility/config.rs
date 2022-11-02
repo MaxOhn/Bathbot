@@ -5,7 +5,6 @@ use rosu_v2::prelude::GameMode;
 use twilight_model::{channel::embed::EmbedField, user::User};
 
 use crate::{
-    commands::osu::ProfileSize,
     database::{EmbedsSize, ListSize, MinimizedPp, UserConfig},
     util::builder::AuthorBuilder,
 };
@@ -86,15 +85,6 @@ impl ConfigEmbed {
                     (ListSize::Condensed, "condensed"),
                     (ListSize::Detailed, "detailed"),
                     (ListSize::Single, "single"),
-                ],
-            ),
-            create_field(
-                "Profile",
-                config.profile_size.unwrap_or_default(),
-                &[
-                    (ProfileSize::Compact, "compact"),
-                    (ProfileSize::Medium, "medium"),
-                    (ProfileSize::Full, "full"),
                 ],
             ),
             create_field(

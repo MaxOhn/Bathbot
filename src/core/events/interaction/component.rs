@@ -30,9 +30,7 @@ pub async fn handle_component(ctx: Arc<Context>, mut component: InteractionCompo
         "pagination_custom" => handle_pagination_custom(ctx, component).await,
         "pagination_step" => handle_pagination_step(ctx, component).await,
         "pagination_end" => handle_pagination_end(ctx, component).await,
-        "profile_compact" => handle_profile_compact(ctx, component).await,
-        "profile_medium" => handle_profile_medium(ctx, component).await,
-        "profile_full" => handle_profile_full(ctx, component).await,
+        "profile_menu" => handle_profile_menu(ctx, component).await,
         _ => return error!("Unknown message component `{name}`"),
     };
 

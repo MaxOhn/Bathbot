@@ -4,7 +4,7 @@ use command_macros::EmbedData;
 use twilight_model::channel::embed::EmbedField;
 
 use crate::{
-    commands::{osu::ProfileSize, utility::GuildData},
+    commands::utility::GuildData,
     database::{EmbedsSize, GuildConfig, ListSize, MinimizedPp},
     util::builder::AuthorBuilder,
 };
@@ -98,15 +98,6 @@ impl ServerConfigEmbed {
                     (ListSize::Condensed, "condensed"),
                     (ListSize::Detailed, "detailed"),
                     (ListSize::Single, "single"),
-                ],
-            ),
-            create_field(
-                "Profile*",
-                config.profile_size.unwrap_or_default(),
-                &[
-                    (ProfileSize::Compact, "compact"),
-                    (ProfileSize::Medium, "medium"),
-                    (ProfileSize::Full, "full"),
                 ],
             ),
         ];

@@ -509,21 +509,20 @@ pub trait Number: AddAssign + Copy + Div<Output = Self> + PartialOrd {
     fn inc(&mut self);
 }
 
-#[rustfmt::skip]
-impl Number for f32 {
-    fn zero() -> Self { 0.0 }
-    fn max() -> Self { f32::MAX }
-    fn min() -> Self { f32::MIN }
-    fn inc(&mut self) { *self += 1.0 }
+macro_rules! impl_number {
+    ( $( $ty:ident: $one:literal ),* ) => {
+        $(
+           impl Number for $ty {
+                fn zero() -> Self { $ty::default() }
+                fn max() -> Self { $ty::MAX }
+                fn min() -> Self { $ty::MIN }
+                fn inc(&mut self) { *self += $one }
+            }
+        )*
+    }
 }
 
-#[rustfmt::skip]
-impl Number for u32 {
-    fn zero() -> Self { 0 }
-    fn max() -> Self { u32::MAX }
-    fn min() -> Self { u32::MIN }
-    fn inc(&mut self) { *self += 1 }
-}
+impl_number!(u32: 1, f32: 1.0, f64: 1.0);
 
 pub struct MinMaxAvg<N> {
     min: N,
@@ -555,16 +554,47 @@ impl<N: Number> MinMaxAvg<N> {
         self.len.inc();
     }
 
-    pub fn avg(&self) -> N {
-        self.sum / self.len
-    }
-
     pub fn min(&self) -> N {
         self.min
     }
 
     pub fn max(&self) -> N {
         self.max
+    }
+
+    pub fn avg(&self) -> N {
+        self.sum / self.len
+    }
+}
+
+pub trait AsFloat {
+    fn into_f32(self) -> f32;
+    fn into_f64(self) -> f64;
+}
+
+macro_rules! impl_as_float {
+    ( $( $ty:ident ),* ) => {
+        $(
+            impl AsFloat for $ty {
+                #[inline]
+                fn into_f32(self) -> f32 {
+                    self as f32
+                }
+
+                #[inline]
+                fn into_f64(self) -> f64 {
+                    self as f64
+                }
+            }
+        )*
+    }
+}
+
+impl_as_float!(u32);
+
+impl<N: Number + AsFloat> MinMaxAvg<N> {
+    pub fn avg_float(&self) -> f32 {
+        self.sum.into_f32() / self.len.into_f32()
     }
 }
 

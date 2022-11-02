@@ -13,7 +13,7 @@ use twilight_model::{
 };
 
 use crate::{
-    commands::{osu::ProfileSize, EnableDisable, ShowHideOption},
+    commands::{EnableDisable, ShowHideOption},
     database::{GuildConfig, ListSize},
     embeds::{EmbedData, ServerConfigEmbed},
     util::{constants::GENERAL_ISSUE, interaction::InteractionCommand, InteractionCommandExt},
@@ -115,10 +115,6 @@ pub struct ServerConfigAuthoritiesList;
 pub struct ServerConfigEdit {
     /// Choose whether song commands can be used or not
     song_commands: Option<EnableDisable>,
-    #[command(help = "What initial size should the profile command be?\n\
-        Applies only if the member has not specified a config for themselves.")]
-    /// What initial size should the profile command be?
-    profile: Option<ProfileSize>,
     #[command(help = "Some embeds are pretty chunky and show too much data.\n\
         With this option you can make those embeds minimized by default.\n\
         Affected commands are: `compare score`, `recent score`, `recent simulate`, \
@@ -154,7 +150,6 @@ pub struct ServerConfigEdit {
 impl ServerConfigEdit {
     fn any(&self) -> bool {
         self.song_commands.is_some()
-            || self.profile.is_some()
             || self.score_embeds.is_some()
             || self.list_embeds.is_some()
             || self.retries.is_some()
@@ -190,7 +185,6 @@ async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) 
                 score_embeds,
                 list_embeds,
                 minimized_pp,
-                profile,
                 retries,
                 song_commands,
                 track_limit,
@@ -206,10 +200,6 @@ async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) 
 
             if let Some(pp) = minimized_pp {
                 config.minimized_pp = Some(pp.into());
-            }
-
-            if let Some(profile) = profile {
-                config.profile_size = Some(profile);
             }
 
             if let Some(retries) = retries {

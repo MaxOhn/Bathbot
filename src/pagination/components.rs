@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use eyre::{ContextCompat, Result, WrapErr};
+use eyre::{ContextCompat, Report, Result, WrapErr};
 
 use crate::{
     core::Context,
@@ -26,11 +26,14 @@ pub(super) async fn remove_components(
     Ok(())
 }
 
-pub async fn handle_pagination_component(
+pub async fn handle_pagination_component<F>(
     ctx: Arc<Context>,
     component: InteractionComponent,
-    page_fn: fn(&mut Pages),
-) -> Result<()> {
+    page_fn: F,
+) -> Result<()>
+where
+    F: FnOnce(&mut Pages),
+{
     let (builder, defer_components) = {
         let mut guard = ctx.paginations.lock(&component.message.id).await;
 
@@ -211,26 +214,31 @@ pub async fn handle_pagination_modal(ctx: Arc<Context>, modal: InteractionModal)
     Ok(())
 }
 
-pub async fn handle_profile_compact(
+pub async fn handle_profile_menu(
     ctx: Arc<Context>,
-    component: InteractionComponent,
+    mut component: InteractionComponent,
 ) -> Result<()> {
-    let f = |pages: &mut Pages| pages.index = 0;
+    let value = component
+        .data
+        .values
+        .pop()
+        .wrap_err("missing value for profile menu")?;
 
-    handle_pagination_component(ctx, component, f).await
-}
+    let idx = match value.as_str() {
+        "compact" => 0,
+        "user_stats" => 1,
+        "top100_stats" => 2,
+        "top100_mods" => 3,
+        "top100_mappers" => 4,
+        "mapper_stats" => 5,
+        _ => {
+            return Err(Report::msg(format!(
+                "unknown profile menu option `{value}`"
+            )))
+        }
+    };
 
-pub async fn handle_profile_medium(
-    ctx: Arc<Context>,
-    component: InteractionComponent,
-) -> Result<()> {
-    let f = |pages: &mut Pages| pages.index = 1;
-
-    handle_pagination_component(ctx, component, f).await
-}
-
-pub async fn handle_profile_full(ctx: Arc<Context>, component: InteractionComponent) -> Result<()> {
-    let f = |pages: &mut Pages| pages.index = 2;
+    let f = |pages: &mut Pages| pages.index = idx;
 
     handle_pagination_component(ctx, component, f).await
 }

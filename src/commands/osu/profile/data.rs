@@ -1,201 +1,400 @@
-use std::cmp::{Ordering::Equal, PartialOrd};
+use std::{
+    cmp::{Ordering, Reverse},
+    hint,
+};
 
+use eyre::Report;
 use hashbrown::HashMap;
-use rosu_v2::prelude::{GameMode, GameMods, Score, User, UserStatistics};
+use rosu_v2::prelude::{GameMods, Score, User, Username};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    commands::osu::MinMaxAvg,
-    util::{
-        hasher::IntHasher,
-        osu::{BonusPP, TopCounts},
-    },
+    commands::osu::{get_scores, MinMaxAvg, ScoreArgs, UserArgs},
+    core::Context,
+    pp::PpCalculator,
+    util::{hasher::IntHasher, osu::BonusPP},
 };
-
-use super::ProfileEmbedMap;
 
 pub struct ProfileData {
     pub user: User,
-    pub scores: Vec<Score>,
-    pub embeds: ProfileEmbedMap,
-    pub discord_id: Option<Id<UserMarker>>,
-    pub profile_result: Option<ProfileResult>,
-    pub globals_count: Option<Option<TopCounts>>,
+    pub author_id: Option<Id<UserMarker>>,
+    scores: Availability<Vec<Score>>,
+    score_rank: Availability<u32>,
+    top100stats: Option<Top100Stats>,
+    mapper_names: Availability<HashMap<u32, Username, IntHasher>>,
 }
 
 impl ProfileData {
-    pub(super) fn new(user: User, scores: Vec<Score>, discord_id: Option<Id<UserMarker>>) -> Self {
+    pub(crate) fn new(user: User, author_id: Option<Id<UserMarker>>) -> Self {
         Self {
             user,
-            scores,
-            embeds: ProfileEmbedMap::default(),
-            discord_id,
-            profile_result: None,
-            globals_count: None,
+            author_id,
+            scores: Availability::NotRequested,
+            score_rank: Availability::NotRequested,
+            top100stats: None,
+            mapper_names: Availability::NotRequested,
         }
     }
 
-    /// Check how many of a user's top scores are on their own maps
-    pub fn own_top_scores(&self) -> usize {
-        let ranked_maps_count =
-            self.user.ranked_mapset_count.unwrap_or(0) + self.user.guest_mapset_count.unwrap_or(0);
+    pub(crate) async fn score_rank(&mut self, ctx: &Context) -> Option<u32> {
+        match self.score_rank {
+            Availability::Received(rank) => return Some(rank),
+            Availability::Errored => return None,
+            Availability::NotRequested => {}
+        }
 
-        if ranked_maps_count > 0 {
-            self.scores
-                .iter()
-                .filter(|score| {
-                    score
-                        .map
-                        .as_ref()
-                        .map(|map| map.creator_id == self.user.user_id)
-                        .unwrap_or(false)
-                })
-                .count()
-        } else {
-            0
+        let user_fut = ctx
+            .client()
+            .get_respektive_user(self.user.user_id, self.user.mode);
+
+        match user_fut.await {
+            Ok(Some(user)) => Some(*self.score_rank.insert(user.rank)),
+            Ok(None) => {
+                self.score_rank = Availability::Errored;
+
+                None
+            }
+            Err(err) => {
+                warn!("{}", err.wrap_err("Failed to get respektive user"));
+                self.score_rank = Availability::Errored;
+
+                None
+            }
         }
     }
-}
 
-pub struct ProfileResult {
-    pub mode: GameMode,
+    pub(crate) async fn bonus_pp(&mut self, ctx: &Context) -> Option<f32> {
+        let scores = self.get_scores(ctx).await?;
 
-    pub acc: MinMaxAvg<f32>,
-    pub pp: MinMaxAvg<f32>,
-    pub bonus_pp: f32,
-    pub map_combo: u32,
-    pub combo: MinMaxAvg<u32>,
-    pub map_len: MinMaxAvg<u32>,
-
-    pub mappers: Vec<(u32, usize, f32)>,
-    pub mod_combs_count: Option<Vec<(GameMods, u32)>>,
-    pub mod_combs_pp: Vec<(GameMods, f32)>,
-    pub mods_count: Vec<(GameMods, u32)>,
-}
-
-impl ProfileResult {
-    pub(super) fn calc(mode: GameMode, scores: &[Score], stats: &UserStatistics) -> Self {
-        let mut acc = MinMaxAvg::new();
-        let mut pp = MinMaxAvg::new();
-        let mut combo = MinMaxAvg::new();
-        let mut map_len = MinMaxAvg::new();
-        let mut map_combo = 0;
-        let mut mapper_count = HashMap::with_capacity_and_hasher(10, IntHasher);
-        let len = scores.len() as f32;
-        let mut mod_combs = HashMap::with_capacity(5);
-        let mut mods = HashMap::with_capacity(5);
-        let mut mult_mods = false;
         let mut bonus_pp = BonusPP::new();
 
         for (i, score) in scores.iter().enumerate() {
-            let map = score.map.as_ref().unwrap();
-
-            acc.add(score.accuracy);
-
-            if let Some(score_pp) = score.pp {
-                pp.add(score_pp);
+            if let Some(weight) = score.weight {
+                bonus_pp.update(weight.pp, i);
             }
+        }
 
-            if let Some(weighted_pp) = score.weight.map(|w| w.pp) {
-                bonus_pp.update(weighted_pp, i);
+        self.user
+            .statistics
+            .as_ref()
+            .map(|stats| bonus_pp.calculate(stats))
+    }
 
-                let (count, pp) = mapper_count.entry(map.creator_id).or_insert((0, 0.0));
-                *count += 1;
-                *pp += weighted_pp;
+    pub(crate) async fn top100stats(&mut self, ctx: &Context) -> Option<&Top100Stats> {
+        if let Some(ref stats) = self.top100stats {
+            return Some(stats);
+        }
 
-                let mut mod_comb = mod_combs.entry(score.mods).or_insert((0, 0.0));
-                mod_comb.0 += 1;
-                mod_comb.1 += weighted_pp;
-            }
+        let scores = self.get_scores(ctx).await?;
+        let stats = Top100Stats::new(ctx, scores).await;
 
-            combo.add(score.max_combo);
+        Some(self.top100stats.insert(stats))
+    }
 
-            if let Some(combo) = map.max_combo {
-                map_combo += combo;
-            }
+    pub(crate) async fn top100mods(&mut self, ctx: &Context) -> Option<Top100Mods> {
+        self.get_scores(ctx).await.map(Top100Mods::new)
+    }
 
-            let seconds_drain = if score.mods.contains(GameMods::DoubleTime) {
-                map.seconds_drain as f32 / 1.5
-            } else if score.mods.contains(GameMods::HalfTime) {
-                map.seconds_drain as f32 * 1.5
-            } else {
-                map.seconds_drain as f32
-            };
+    pub(crate) async fn top100mappers<'s>(
+        &'s mut self,
+        ctx: &Context,
+    ) -> Option<Vec<MapperEntry<'s>>> {
+        let mut entries: Vec<_> = {
+            let scores = self.get_scores(ctx).await?;
+            let mut entries = HashMap::with_capacity_and_hasher(32, IntHasher);
 
-            map_len.add(seconds_drain);
+            for score in scores {
+                if let Some(ref map) = score.map {
+                    let (count, pp) = entries.entry(map.creator_id).or_insert((0, 0.0));
 
-            if score.mods.is_empty() {
-                *mods.entry(GameMods::NoMod).or_insert(0) += 1;
-            } else {
-                mult_mods |= score.mods.len() > 1;
+                    *count += 1;
 
-                for m in score.mods {
-                    *mods.entry(m).or_insert(0) += 1;
+                    if let Some(weight) = score.weight {
+                        *pp += weight.pp;
+                    }
                 }
             }
-        }
 
-        map_combo /= len as u32;
+            entries.into_iter().collect()
+        };
 
-        mod_combs
-            .values_mut()
-            .for_each(|(count, _)| *count = (*count as f32 * 100.0 / len) as u32);
-
-        mods.values_mut()
-            .for_each(|count| *count = (*count as f32 * 100.0 / len) as u32);
-
-        let mut mappers: Vec<_> = mapper_count
-            .into_iter()
-            .map(|(id, (count, pp))| (id, count, pp))
-            .collect();
-
-        mappers.sort_unstable_by(|(_, count_a, pp_a), (_, count_b, pp_b)| {
+        entries.sort_unstable_by(|(_, (count_a, pp_a)), (_, (count_b, pp_b))| {
             count_b
                 .cmp(count_a)
-                .then_with(|| pp_b.partial_cmp(pp_a).unwrap_or(Equal))
+                .then_with(|| pp_b.partial_cmp(pp_a).unwrap_or(Ordering::Equal))
         });
 
-        mappers.truncate(5);
+        entries.truncate(10);
 
-        let mod_combs_count = if mult_mods {
-            let mut mod_combs_count: Vec<_> = mod_combs
-                .iter()
-                .map(|(name, (count, _))| (*name, *count))
-                .collect();
+        let mapper_names = match self.mapper_names {
+            Availability::Received(ref names) => names,
+            Availability::Errored => return None,
+            Availability::NotRequested => {
+                let ids: Vec<_> = entries.iter().map(|(id, _)| *id as i32).collect();
 
-            mod_combs_count.sort_unstable_by(|(_, a), (_, b)| b.cmp(a));
+                let mut names = match ctx.psql().get_names_by_ids(&ids).await {
+                    Ok(names) => names,
+                    Err(err) => {
+                        warn!("{:?}", err.wrap_err("Failed to get mapper names"));
 
-            Some(mod_combs_count)
-        } else {
-            None
+                        HashMap::default()
+                    }
+                };
+
+                if names.len() != ids.len() {
+                    for (id, _) in entries.iter() {
+                        if names.contains_key(id) {
+                            continue;
+                        }
+
+                        let user = match ctx.osu().user(*id).mode(self.user.mode).await {
+                            Ok(user) => user,
+                            Err(err) => {
+                                let err = Report::new(err).wrap_err("Failed to get user");
+                                warn!("{err:?}");
+
+                                continue;
+                            }
+                        };
+
+                        let upsert_fut = ctx.psql().upsert_osu_user(&user, self.user.mode);
+
+                        if let Err(err) = upsert_fut.await {
+                            warn!("{:?}", err.wrap_err("Failed to upsert user"));
+                        }
+
+                        names.insert(user.user_id, user.username);
+                    }
+                }
+
+                self.mapper_names.insert(names)
+            }
         };
 
-        let mod_combs_pp = {
-            let mut mod_combs_pp: Vec<_> = mod_combs
-                .into_iter()
-                .map(|(name, (_, avg))| (name, avg))
-                .collect();
+        let mappers = entries
+            .into_iter()
+            .map(|(id, (count, pp))| MapperEntry {
+                name: mapper_names
+                    .get(&id)
+                    .map_or("<unknown name>", Username::as_str),
+                pp,
+                count,
+            })
+            .collect();
 
-            mod_combs_pp.sort_unstable_by(|(_, a), (_, b)| b.partial_cmp(a).unwrap_or(Equal));
+        Some(mappers)
+    }
 
-            mod_combs_pp
-        };
+    pub async fn own_maps_in_top100(&mut self, ctx: &Context) -> Option<usize> {
+        let user_id = self.user.user_id;
+        let scores = self.get_scores(ctx).await?;
 
-        let mut mods_count: Vec<_> = mods.into_iter().collect();
-        mods_count.sort_unstable_by(|a, b| b.1.cmp(&a.1));
+        let count = scores.iter().fold(0, |count, score| {
+            let self_mapped = score
+                .map
+                .as_ref()
+                .map_or(0, |map| (map.creator_id == user_id) as usize);
 
-        Self {
-            mode,
-            acc,
-            pp,
-            bonus_pp: bonus_pp.calculate(stats),
-            combo,
-            map_combo,
-            map_len: map_len.into(),
-            mappers,
-            mod_combs_count,
-            mod_combs_pp,
-            mods_count,
+            count + self_mapped
+        });
+
+        Some(count)
+    }
+
+    async fn get_scores(&mut self, ctx: &Context) -> Option<&[Score]> {
+        match self.scores {
+            Availability::Received(ref scores) => return Some(scores),
+            Availability::Errored => return None,
+            Availability::NotRequested => {}
+        }
+
+        let user_args = UserArgs::new(&self.user.username, self.user.mode);
+        let score_args = ScoreArgs::top(100);
+
+        match get_scores(ctx, &user_args, &score_args).await {
+            #[allow(unused_mut)]
+            Ok(mut scores) => {
+                #[cfg(feature = "osutracking")]
+                crate::tracking::process_osu_tracking(ctx, &mut scores, Some(&self.user)).await;
+
+                Some(self.scores.insert(scores))
+            }
+            Err(err) => {
+                let err = Report::new(err).wrap_err("Failed to get top scores");
+                warn!("{err:?}");
+                self.scores = Availability::Errored;
+
+                None
+            }
         }
     }
+}
+
+#[derive(Copy, Clone)]
+pub enum Availability<T> {
+    Received(T),
+    Errored,
+    NotRequested,
+}
+
+impl<T> Availability<T> {
+    fn insert(&mut self, value: T) -> &mut T {
+        *self = Self::Received(value);
+
+        match self {
+            Availability::Received(val) => val,
+            // SAFETY: the code above just filled in a value
+            _ => unsafe { hint::unreachable_unchecked() },
+        }
+    }
+}
+
+pub struct Top100Stats {
+    pub acc: MinMaxAvg<f32>,
+    pub combo: MinMaxAvg<u32>,
+    pub misses: MinMaxAvg<u32>,
+    pub pp: MinMaxAvg<f32>,
+    pub stars: MinMaxAvg<f64>,
+    pub ar: MinMaxAvg<f64>,
+    pub cs: MinMaxAvg<f64>,
+    pub hp: MinMaxAvg<f64>,
+    pub od: MinMaxAvg<f64>,
+    pub bpm: MinMaxAvg<f32>,
+    pub len: MinMaxAvg<u32>,
+}
+
+impl Top100Stats {
+    pub async fn new(ctx: &Context, scores: &[Score]) -> Self {
+        let mut this = Self {
+            acc: MinMaxAvg::new(),
+            combo: MinMaxAvg::new(),
+            misses: MinMaxAvg::new(),
+            pp: MinMaxAvg::new(),
+            stars: MinMaxAvg::new(),
+            ar: MinMaxAvg::new(),
+            cs: MinMaxAvg::new(),
+            hp: MinMaxAvg::new(),
+            od: MinMaxAvg::new(),
+            bpm: MinMaxAvg::new(),
+            len: MinMaxAvg::new(),
+        };
+
+        let mut missing_pp = 0;
+        let mut missing_map = 0;
+
+        for score in scores {
+            this.acc.add(score.accuracy);
+            this.combo.add(score.max_combo);
+            this.misses.add(score.statistics.count_miss);
+
+            if let Some(pp) = score.pp {
+                this.pp.add(pp);
+            } else {
+                missing_pp += 1;
+            }
+
+            if let Some(ref map) = score.map {
+                this.len.add(map.seconds_drain);
+
+                let diff_mods: GameMods = GameMods::HardRock
+                    | GameMods::Easy
+                    | GameMods::DoubleTime
+                    | GameMods::HalfTime
+                    | GameMods::Flashlight;
+
+                if !score.mods.intersects(diff_mods) {
+                    this.stars.add(map.stars as f64);
+                    this.ar.add(map.ar as f64);
+                    this.cs.add(map.cs as f64);
+                    this.hp.add(map.hp as f64);
+                    this.od.add(map.od as f64);
+                    this.bpm.add(map.bpm);
+                } else {
+                    let calc = match PpCalculator::new(ctx, map.map_id).await {
+                        Ok(calc) => calc,
+                        Err(err) => {
+                            warn!("{:?}", err.wrap_err("Failed to get pp calculator"));
+
+                            continue;
+                        }
+                    };
+
+                    let mut prepared = calc.score(score);
+                    this.stars.add(prepared.stars());
+
+                    let map_attrs = prepared
+                        .map()
+                        .attributes()
+                        .mods(score.mods.bits())
+                        .converted(map.convert)
+                        .build();
+
+                    this.ar.add(map_attrs.ar);
+                    this.cs.add(map_attrs.cs);
+                    this.hp.add(map_attrs.hp);
+                    this.od.add(map_attrs.od);
+                    this.bpm.add(map.bpm * map_attrs.clock_rate as f32);
+                }
+            } else {
+                missing_map += 1;
+            }
+        }
+
+        if missing_pp > 0 {
+            warn!("Missing {missing_pp} pp values in top scores");
+        }
+
+        if missing_map > 0 {
+            warn!("Missing {missing_map} maps in top scores");
+        }
+
+        this
+    }
+}
+
+pub struct Top100Mods {
+    pub percent_mods: Vec<(GameMods, u8)>,
+    pub percent_mod_comps: Vec<(GameMods, u8)>,
+    pub pp_mod_comps: Vec<(GameMods, f32)>,
+}
+
+impl Top100Mods {
+    fn new(scores: &[Score]) -> Self {
+        let mut percent_mods = HashMap::with_hasher(IntHasher);
+        let mut percent_mod_comps = HashMap::with_hasher(IntHasher);
+        let mut pp_mod_comps = HashMap::<_, f32, _>::with_hasher(IntHasher);
+
+        for score in scores {
+            *percent_mod_comps.entry(score.mods).or_default() += 1;
+
+            if let Some(weight) = score.weight {
+                *pp_mod_comps.entry(score.mods).or_default() += weight.pp;
+            }
+
+            for m in score.mods {
+                *percent_mods.entry(m).or_default() += 1;
+            }
+        }
+
+        let mut percent_mods: Vec<_> = percent_mods.into_iter().collect();
+        percent_mods.sort_unstable_by_key(|(_, percent)| Reverse(*percent));
+
+        let mut percent_mod_comps: Vec<_> = percent_mod_comps.into_iter().collect();
+        percent_mod_comps.sort_unstable_by_key(|(_, percent)| Reverse(*percent));
+
+        let mut pp_mod_comps: Vec<_> = pp_mod_comps.into_iter().collect();
+        pp_mod_comps.sort_unstable_by(|(_, a), (_, b)| b.partial_cmp(a).unwrap_or(Ordering::Equal));
+
+        Self {
+            percent_mods,
+            percent_mod_comps,
+            pp_mod_comps,
+        }
+    }
+}
+
+pub struct MapperEntry<'n> {
+    pub name: &'n str,
+    pub pp: f32,
+    pub count: u8,
 }

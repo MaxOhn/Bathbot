@@ -77,6 +77,10 @@ impl PpCalculator {
 }
 
 impl<'m, 's> PpCalculatorPrepared<'m, 's> {
+    pub fn map(&self) -> &'m Beatmap {
+        self.map
+    }
+
     pub fn stars(&mut self) -> f64 {
         let mods = self.score.mods();
 

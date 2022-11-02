@@ -5,7 +5,6 @@ use twilight_model::id::{
 };
 
 use crate::{
-    commands::osu::ProfileSize,
     core::commands::prefix::Stream,
     database::{
         Authorities, EmbedsSize, GuildConfig, ListSize, MinimizedPp, Prefix, Prefixes, UserConfig,
@@ -91,11 +90,6 @@ impl Context {
 
     pub async fn guild_with_lyrics(&self, guild_id: Id<GuildMarker>) -> bool {
         self.guild_config_(guild_id, GuildConfig::with_lyrics).await
-    }
-
-    pub async fn guild_profile_size(&self, guild_id: Id<GuildMarker>) -> ProfileSize {
-        self.guild_config_(guild_id, GuildConfig::profile_size)
-            .await
     }
 
     pub async fn guild_show_retries(&self, guild_id: Id<GuildMarker>) -> bool {

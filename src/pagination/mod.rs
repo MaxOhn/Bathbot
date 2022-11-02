@@ -6,7 +6,10 @@ use tokio::{
     time::sleep,
 };
 use twilight_model::{
-    application::component::{button::ButtonStyle, ActionRow, Button, Component},
+    application::component::{
+        button::ButtonStyle, select_menu::SelectMenuOption, ActionRow, Button, Component,
+        SelectMenu,
+    },
     channel::embed::Embed,
     id::{
         marker::{ChannelMarker, MessageMarker, UserMarker},
@@ -464,38 +467,61 @@ impl Pages {
     }
 
     fn profile_components(&self) -> Vec<Component> {
-        let compact = Button {
-            custom_id: Some("profile_compact".to_owned()),
-            disabled: self.index == 0,
-            emoji: None,
-            label: Some("Compact".to_owned()),
-            style: ButtonStyle::Success,
-            url: None,
-        };
-
-        let medium = Button {
-            custom_id: Some("profile_medium".to_owned()),
-            disabled: self.index == 1,
-            emoji: None,
-            label: Some("Medium".to_owned()),
-            style: ButtonStyle::Success,
-            url: None,
-        };
-
-        let full = Button {
-            custom_id: Some("profile_full".to_owned()),
-            disabled: self.index == 2,
-            emoji: None,
-            label: Some("Full".to_owned()),
-            style: ButtonStyle::Success,
-            url: None,
-        };
-
-        let components = vec![
-            Component::Button(compact),
-            Component::Button(medium),
-            Component::Button(full),
+        let options = vec![
+            SelectMenuOption {
+                default: self.index == 0,
+                description: Some("Compact user statistics".to_owned()),
+                emoji: None,
+                label: "Compact".to_owned(),
+                value: "compact".to_owned(),
+            },
+            SelectMenuOption {
+                default: self.index == 1,
+                description: Some("Extended user statistics".to_owned()),
+                emoji: None,
+                label: "User Statistics".to_owned(),
+                value: "user_stats".to_owned(),
+            },
+            SelectMenuOption {
+                default: self.index == 2,
+                description: Some("Min-Avg-Max values for top100 scores".to_owned()),
+                emoji: None,
+                label: "Top100 Statistics".to_owned(),
+                value: "top100_stats".to_owned(),
+            },
+            SelectMenuOption {
+                default: self.index == 3,
+                description: Some("Favourite mods in top100 scores".to_owned()),
+                emoji: None,
+                label: "Top100 Mods".to_owned(),
+                value: "top100_mods".to_owned(),
+            },
+            SelectMenuOption {
+                default: self.index == 4,
+                description: Some("Mapper appearances in top100 scores".to_owned()),
+                emoji: None,
+                label: "Top100 Mappers".to_owned(),
+                value: "top100_mappers".to_owned(),
+            },
+            SelectMenuOption {
+                default: self.index == 5,
+                description: Some("Mapping statistics & Kudosu".to_owned()),
+                emoji: None,
+                label: "Mapper Statistics".to_owned(),
+                value: "mapper_stats".to_owned(),
+            },
         ];
+
+        let menu = SelectMenu {
+            custom_id: "profile_menu".to_owned(),
+            disabled: false,
+            max_values: None,
+            min_values: None,
+            options,
+            placeholder: None,
+        };
+
+        let components = vec![Component::SelectMenu(menu)];
 
         vec![Component::ActionRow(ActionRow { components })]
     }

@@ -3,8 +3,6 @@ use smallstr::SmallString;
 use smallvec::SmallVec;
 use twilight_interactions::command::{CommandOption, CreateOption};
 
-use crate::commands::osu::ProfileSize;
-
 pub type Prefix = SmallString<[u8; 2]>;
 pub type Prefixes = SmallVec<[Prefix; 5]>;
 pub type Authorities = SmallVec<[u64; 4]>;
@@ -89,7 +87,6 @@ pub struct GuildConfig {
     pub list_size: Option<ListSize>,
     pub minimized_pp: Option<MinimizedPp>,
     pub prefixes: Prefixes,
-    pub profile_size: Option<ProfileSize>,
     pub show_retries: Option<bool>,
     pub track_limit: Option<u8>,
     pub with_lyrics: Option<bool>,
@@ -112,10 +109,6 @@ impl GuildConfig {
         self.minimized_pp.unwrap_or_default()
     }
 
-    pub fn profile_size(&self) -> ProfileSize {
-        self.profile_size.unwrap_or_default()
-    }
-
     pub fn show_retries(&self) -> bool {
         self.show_retries.unwrap_or(true)
     }
@@ -133,7 +126,6 @@ impl Default for GuildConfig {
             list_size: None,
             minimized_pp: None,
             prefixes: smallvec::smallvec!["<".into()],
-            profile_size: None,
             show_retries: None,
             track_limit: None,
             with_lyrics: None,
@@ -189,7 +181,6 @@ pub struct UserConfig {
     pub minimized_pp: Option<MinimizedPp>,
     pub mode: Option<GameMode>,
     pub osu: Option<OsuData>,
-    pub profile_size: Option<ProfileSize>,
     pub show_retries: Option<bool>,
     pub twitch_id: Option<u64>,
 }

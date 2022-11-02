@@ -6,7 +6,7 @@ use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
 use crate::{
-    commands::{osu::ProfileSize, ShowHideOption},
+    commands::ShowHideOption,
     database::{EmbedsSize, ListSize, MinimizedPp, UserConfig},
     embeds::{ConfigEmbed, EmbedData},
     util::{
@@ -53,8 +53,6 @@ pub struct Config {
     that when the `mode` option is not specified in commands, it will choose your config mode.")]
     /// Specify a gamemode (NOTE: Only use for non-std modes if you NEVER use std commands)
     mode: Option<ConfigGameMode>,
-    /// What initial size should the profile command be?
-    profile: Option<ProfileSize>,
     #[command(help = "Some embeds are pretty chunky and show too much data.\n\
     With this option you can make those embeds minimized by default.\n\
     Affected commands are: `compare score`, `recent score`, `recent simulate`, \
@@ -84,8 +82,6 @@ pub struct Config {
     that when the `mode` option is not specified in commands, it will choose your config mode.")]
     /// Specify a gamemode (NOTE: Only use for non-std modes if you NEVER use std commands)
     mode: Option<ConfigGameMode>,
-    /// What initial size should the profile command be?
-    profile: Option<ProfileSize>,
     #[command(help = "Some embeds are pretty chunky and show too much data.\n\
     With this option you can make those embeds minimized by default.\n\
     Affected commands are: `compare score`, `recent score`, `recent simulate`, \
@@ -188,7 +184,6 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
         #[cfg(feature = "server")]
         twitch,
         mode,
-        profile,
         score_embeds,
         list_embeds,
         retries,
@@ -218,10 +213,6 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
         Some(ConfigGameMode::Taiko) => config.mode = Some(GameMode::Taiko),
         Some(ConfigGameMode::Catch) => config.mode = Some(GameMode::Catch),
         Some(ConfigGameMode::Mania) => config.mode = Some(GameMode::Mania),
-    }
-
-    if let Some(size) = profile {
-        config.profile_size = Some(size);
     }
 
     if let Some(score_embeds) = score_embeds {
