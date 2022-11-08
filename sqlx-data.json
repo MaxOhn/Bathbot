@@ -226,6 +226,25 @@
     },
     "query": "INSERT INTO bggame_scores VALUES ($1,$2) ON CONFLICT (discord_id) DO UPDATE SET score=bggame_scores.score+$2"
   },
+  "249dffa010503a7d47dbf47e6135eb2081187158bd5581993d1002b8396450ea": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int2",
+          "Int2",
+          "Int2",
+          "Int2",
+          "Int4",
+          "Bool",
+          "Int8"
+        ]
+      }
+    },
+    "query": "INSERT INTO user_configs (discord_id,embeds_size,list_size,minimized_pp,mode,osu_id,profile_size,show_retries,twitch_id)VALUES ($1,$2,$3,$4,$5,$6,0,$7,$8) ON CONFLICT (discord_id) DO UPDATE SET embeds_size=$2,list_size=$3,minimized_pp=$4,mode=$5,osu_id=$6,profile_size=0,show_retries=$7,twitch_id=$8"
+  },
   "25610ebb55d4a0e4e771554124e6bd77bd1a099c7b5d67b74209b9c001301ad9": {
     "describe": {
       "columns": [],
@@ -327,27 +346,6 @@
       }
     },
     "query": "DELETE FROM osu_user_stats S USING osu_user_names N WHERE N.username ILIKE $1 AND S.user_id=N.user_id"
-  },
-  "3812485dfb8728a1f4b026bbc3f7ecfa35077be1234220bff64cce564ebde6aa": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Left": [
-          "Int8",
-          "Bytea",
-          "Int2",
-          "Int2",
-          "Int2",
-          "Bytea",
-          "Int2",
-          "Bool",
-          "Int2",
-          "Bool"
-        ]
-      }
-    },
-    "query": "INSERT INTO guild_configs (guild_id,authorities,embeds_size,list_size,minimized_pp,prefixes,profile_size,show_retries,track_limit,with_lyrics)VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (guild_id) DO UPDATE SET authorities=$2,embeds_size=$3,list_size=$4,minimized_pp=$5,prefixes=$6,profile_size=$7,show_retries=$8,track_limit=$9,with_lyrics=$10"
   },
   "3a38de3a9959309f00728237563846e760d0213427e0c5239ab83f7b2ea8ca5e": {
     "describe": {
@@ -1200,26 +1198,6 @@
     },
     "query": "SELECT * FROM mapsets WHERE mapset_id=$1"
   },
-  "a4a164ba720a99604ebdfbf30ab4f674724ada9c47f9c306921d740c2b9b47fe": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Left": [
-          "Int8",
-          "Int2",
-          "Int2",
-          "Int2",
-          "Int2",
-          "Int4",
-          "Int2",
-          "Bool",
-          "Int8"
-        ]
-      }
-    },
-    "query": "INSERT INTO user_configs (discord_id,embeds_size,list_size,minimized_pp,mode,osu_id,profile_size,show_retries,twitch_id)VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (discord_id) DO UPDATE SET embeds_size=$2,list_size=$3,minimized_pp=$4,mode=$5,osu_id=$6,profile_size=$7,show_retries=$8,twitch_id=$9"
-  },
   "a6904041119d493a7ad35f91665648d65154e4e4555104aefde5dfc9420c6ecd": {
     "describe": {
       "columns": [],
@@ -1379,6 +1357,26 @@
       }
     },
     "query": "INSERT INTO mapsets (mapset_id,user_id,artist,title,creator,status,ranked_date,bpm)VALUES($1,$2,$3,$4,$5,$6,$7,$8)ON CONFLICT (mapset_id) DO NOTHING"
+  },
+  "c1c296cbd3932b2bf8989537d39f061c95d8a5b28fdba2518fd3513fee50c0ab": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Bytea",
+          "Int2",
+          "Int2",
+          "Int2",
+          "Bytea",
+          "Bool",
+          "Int2",
+          "Bool"
+        ]
+      }
+    },
+    "query": "INSERT INTO guild_configs (guild_id,authorities,embeds_size,list_size,minimized_pp,prefixes,profile_size,show_retries,track_limit,with_lyrics)VALUES ($1,$2,$3,$4,$5,$6,0,$7,$8,$9) ON CONFLICT (guild_id) DO UPDATE SET authorities=$2,embeds_size=$3,list_size=$4,minimized_pp=$5,prefixes=$6,profile_size=0,show_retries=$7,track_limit=$8,with_lyrics=$9"
   },
   "c407cf7a69508559d1ca41e02ce754e3fb496e2582219d6f4a2d520c35664056": {
     "describe": {
