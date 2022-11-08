@@ -161,12 +161,57 @@ pub struct SnipeRecent {
     pub mods: GameMods,
     pub map_id: u32,
     pub map: String,
-    #[serde(with = "deser::naive_datetime")]
+    #[serde(with = "datetime_mixture")]
     pub date: OffsetDateTime,
     #[serde(with = "deser::adjust_acc")]
     pub accuracy: f32,
     #[serde(rename = "sr", deserialize_with = "deserialize_stars")]
     pub stars: Option<f32>,
+}
+
+// Format "YYYY-MM-DD hh:mm:ssZ"
+mod datetime_mixture {
+    use time::UtcOffset;
+
+    use crate::util::datetime::OFFSET_FORMAT;
+
+    use super::*;
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<OffsetDateTime, D::Error> {
+        d.deserialize_str(DateTimeVisitor)
+    }
+
+    pub(super) struct DateTimeVisitor;
+
+    impl<'de> Visitor<'de> for DateTimeVisitor {
+        type Value = OffsetDateTime;
+
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("a datetime string")
+        }
+
+        #[inline]
+        fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+            if v.len() < 19 {
+                return Err(Error::custom(format!(
+                    "string too short for a datetime: `{v}`"
+                )));
+            }
+
+            let (prefix, suffix) = v.split_at(19);
+
+            let primitive =
+                PrimitiveDateTime::parse(prefix, NAIVE_DATETIME_FORMAT).map_err(Error::custom)?;
+
+            let offset = if suffix.is_empty() || suffix == "Z" {
+                UtcOffset::UTC
+            } else {
+                UtcOffset::parse(suffix, OFFSET_FORMAT).map_err(Error::custom)?
+            };
+
+            Ok(primitive.assume_offset(offset))
+        }
+    }
 }
 
 pub fn deserialize_stars<'de, D: Deserializer<'de>>(d: D) -> Result<Option<f32>, D::Error> {
@@ -371,7 +416,6 @@ mod history {
     impl<'de> Visitor<'de> for SnipePlayerHistoryVisitor {
         type Value = BTreeMap<Date, u32>;
 
-        #[inline]
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             f.write_str("a map")
         }
