@@ -24,4 +24,6 @@ pub struct RespektiveTopCount {
     pub top25s_rank: Option<u32>,
     pub top50s: usize,
     pub top50s_rank: Option<u32>,
+    pub top100s: usize,
+    pub top100s_rank: Option<u32>,
 }

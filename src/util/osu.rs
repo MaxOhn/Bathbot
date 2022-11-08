@@ -720,16 +720,19 @@ pub struct TopCounts {
     pub top25s_rank: Option<String>,
     pub top50s: Cow<'static, str>,
     pub top50s_rank: Option<String>,
+    pub top100s: Option<Cow<'static, str>>,
+    pub top100s_rank: Option<String>,
 }
 
 impl TopCounts {
     pub fn count_len(&self) -> usize {
-        self.top1s
-            .len()
-            .max(self.top8s.len())
-            .max(self.top15s.len())
-            .max(self.top25s.len())
-            .max(self.top50s.len())
+        let len = self.top50s.len();
+
+        if let Some(ref top100s) = self.top100s {
+            len.max(top100s.len())
+        } else {
+            len
+        }
     }
 
     pub async fn request(ctx: &Context, user: &User, mode: GameMode) -> Result<Self> {
@@ -760,6 +763,8 @@ impl TopCounts {
                 top25s_rank: None,
                 top50s: "0".into(),
                 top50s_rank: None,
+                top100s: None,
+                top100s_rank: None,
             }),
             Err(err) => {
                 let wrap = "Failed to get respektive top counts";
@@ -833,6 +838,8 @@ impl TopCounts {
                 top25s_rank: None,
                 top50s: top50s.assume_init(),
                 top50s_rank: None,
+                top100s: None,
+                top100s_rank: None,
             }
         };
 
@@ -856,6 +863,8 @@ impl From<RespektiveTopCount> for TopCounts {
             top25s_rank: top_count.top25s_rank.map(format_rank),
             top50s: with_comma_int(top_count.top50s).to_string().into(),
             top50s_rank: top_count.top50s_rank.map(format_rank),
+            top100s: Some(with_comma_int(top_count.top100s).to_string().into()),
+            top100s_rank: top_count.top100s_rank.map(format_rank),
         }
     }
 }
@@ -867,9 +876,9 @@ pub struct TopCount<'a> {
 }
 
 pub struct TopCountsIntoIter {
-    top_n: IntoIter<u8, 5>,
-    counts: IntoIter<Cow<'static, str>, 5>,
-    ranks: IntoIter<Option<String>, 5>,
+    top_n: IntoIter<u8, 6>,
+    counts: IntoIter<Option<Cow<'static, str>>, 6>,
+    ranks: IntoIter<Option<String>, 6>,
 }
 
 impl Iterator for TopCountsIntoIter {
@@ -879,7 +888,7 @@ impl Iterator for TopCountsIntoIter {
     fn next(&mut self) -> Option<Self::Item> {
         let count = TopCount {
             top_n: self.top_n.next()?,
-            count: self.counts.next()?,
+            count: self.counts.next().flatten()?,
             rank: self.ranks.next()?.map(Cow::Owned),
         };
 
@@ -909,27 +918,42 @@ impl IntoIterator for TopCounts {
             top25s_rank,
             top50s,
             top50s_rank,
+            top100s,
+            top100s_rank,
         } = self;
 
+        let top_n = [1, 8, 15, 25, 50, 100];
+
+        let counts = [
+            Some(top1s),
+            Some(top8s),
+            Some(top15s),
+            Some(top25s),
+            Some(top50s),
+            top100s,
+        ];
+
+        let ranks = [
+            top1s_rank,
+            top8s_rank,
+            top15s_rank,
+            top25s_rank,
+            top50s_rank,
+            top100s_rank,
+        ];
+
         TopCountsIntoIter {
-            top_n: [1, 8, 15, 25, 50].into_iter(),
-            counts: [top1s, top8s, top15s, top25s, top50s].into_iter(),
-            ranks: [
-                top1s_rank,
-                top8s_rank,
-                top15s_rank,
-                top25s_rank,
-                top50s_rank,
-            ]
-            .into_iter(),
+            top_n: top_n.into_iter(),
+            counts: counts.into_iter(),
+            ranks: ranks.into_iter(),
         }
     }
 }
 
 pub struct TopCountsIter<'a> {
-    top_n: IntoIter<u8, 5>,
-    counts: IntoIter<&'a str, 5>,
-    ranks: IntoIter<Option<&'a str>, 5>,
+    top_n: IntoIter<u8, 6>,
+    counts: IntoIter<Option<&'a str>, 6>,
+    ranks: IntoIter<Option<&'a str>, 6>,
 }
 
 impl<'a> Iterator for TopCountsIter<'a> {
@@ -939,7 +963,7 @@ impl<'a> Iterator for TopCountsIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let count = TopCount {
             top_n: self.top_n.next()?,
-            count: self.counts.next().map(Cow::Borrowed)?,
+            count: self.counts.next().flatten().map(Cow::Borrowed)?,
             rank: self.ranks.next()?.map(Cow::Borrowed),
         };
 
@@ -969,26 +993,34 @@ impl<'a> IntoIterator for &'a TopCounts {
             top25s_rank,
             top50s,
             top50s_rank,
+            top100s,
+            top100s_rank,
         } = self;
 
+        let top_n = [1, 8, 15, 25, 50, 100];
+
+        let counts = [
+            Some(top1s.as_ref()),
+            Some(top8s.as_ref()),
+            Some(top15s.as_ref()),
+            Some(top25s.as_ref()),
+            Some(top50s.as_ref()),
+            top100s.as_deref(),
+        ];
+
+        let ranks = [
+            top1s_rank.as_deref(),
+            top8s_rank.as_deref(),
+            top15s_rank.as_deref(),
+            top25s_rank.as_deref(),
+            top50s_rank.as_deref(),
+            top100s_rank.as_deref(),
+        ];
+
         TopCountsIter {
-            top_n: [1, 8, 15, 25, 50].into_iter(),
-            counts: [
-                top1s.as_ref(),
-                top8s.as_ref(),
-                top15s.as_ref(),
-                top25s.as_ref(),
-                top50s.as_ref(),
-            ]
-            .into_iter(),
-            ranks: [
-                top1s_rank.as_deref(),
-                top8s_rank.as_deref(),
-                top15s_rank.as_deref(),
-                top25s_rank.as_deref(),
-                top50s_rank.as_deref(),
-            ]
-            .into_iter(),
+            top_n: top_n.into_iter(),
+            counts: counts.into_iter(),
+            ranks: ranks.into_iter(),
         }
     }
 }
