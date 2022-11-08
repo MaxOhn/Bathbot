@@ -1,22 +1,26 @@
 use std::{
     cmp::{Ordering, Reverse},
+    collections::HashMap,
     hint,
 };
 
 use eyre::Report;
-use hashbrown::HashMap;
-use rosu_v2::prelude::{GameMods, Score, User, Username};
+use eyre::Result;
+use rosu_v2::prelude::{GameMods, Score, Username};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    commands::osu::{get_scores, MinMaxAvg, ScoreArgs, UserArgs},
+    commands::osu::MinMaxAvg,
     core::Context,
-    pp::PpCalculator,
+    manager::redis::{
+        osu::{User, UserArgsSlim},
+        RedisData,
+    },
     util::{hasher::IntHasher, osu::BonusPP},
 };
 
 pub struct ProfileData {
-    pub user: User,
+    pub user: RedisData<User>,
     pub author_id: Option<Id<UserMarker>>,
     scores: Availability<Vec<Score>>,
     score_rank: Availability<u32>,
@@ -25,7 +29,7 @@ pub struct ProfileData {
 }
 
 impl ProfileData {
-    pub(crate) fn new(user: User, author_id: Option<Id<UserMarker>>) -> Self {
+    pub(crate) fn new(user: RedisData<User>, author_id: Option<Id<UserMarker>>) -> Self {
         Self {
             user,
             author_id,
@@ -43,9 +47,12 @@ impl ProfileData {
             Availability::NotRequested => {}
         }
 
-        let user_fut = ctx
-            .client()
-            .get_respektive_user(self.user.user_id, self.user.mode);
+        let (user_id, mode) = match &self.user {
+            RedisData::Original(user) => (user.user_id, user.mode),
+            RedisData::Archived(user) => (user.user_id, user.mode),
+        };
+
+        let user_fut = ctx.client().get_respektive_user(user_id, mode);
 
         match user_fut.await {
             Ok(Some(user)) => Some(*self.score_rank.insert(user.rank)),
@@ -55,7 +62,7 @@ impl ProfileData {
                 None
             }
             Err(err) => {
-                warn!("{}", err.wrap_err("Failed to get respektive user"));
+                warn!("{:?}", err.wrap_err("failed to get respektive user"));
                 self.score_rank = Availability::Errored;
 
                 None
@@ -74,10 +81,7 @@ impl ProfileData {
             }
         }
 
-        self.user
-            .statistics
-            .as_ref()
-            .map(|stats| bonus_pp.calculate(stats))
+        Some(self.user.peek_stats(|stats| bonus_pp.calculate(stats)))
     }
 
     pub(crate) async fn top100stats(&mut self, ctx: &Context) -> Option<&Top100Stats> {
@@ -86,9 +90,15 @@ impl ProfileData {
         }
 
         let scores = self.get_scores(ctx).await?;
-        let stats = Top100Stats::new(ctx, scores).await;
 
-        Some(self.top100stats.insert(stats))
+        match Top100Stats::new(ctx, scores).await {
+            Ok(stats) => Some(self.top100stats.insert(stats)),
+            Err(err) => {
+                warn!("{:?}", err.wrap_err("failed to calculate top100 stats"));
+
+                None
+            }
+        }
     }
 
     pub(crate) async fn top100mods(&mut self, ctx: &Context) -> Option<Top100Mods> {
@@ -132,10 +142,10 @@ impl ProfileData {
             Availability::NotRequested => {
                 let ids: Vec<_> = entries.iter().map(|(id, _)| *id as i32).collect();
 
-                let mut names = match ctx.psql().get_names_by_ids(&ids).await {
+                let mut names = match ctx.osu_user().names(&ids).await {
                     Ok(names) => names,
                     Err(err) => {
-                        warn!("{:?}", err.wrap_err("Failed to get mapper names"));
+                        warn!("{:?}", err.wrap_err("failed to get mapper names"));
 
                         HashMap::default()
                     }
@@ -147,20 +157,20 @@ impl ProfileData {
                             continue;
                         }
 
-                        let user = match ctx.osu().user(*id).mode(self.user.mode).await {
+                        let mode = self.user.mode();
+
+                        let user = match ctx.osu().user(*id).mode(mode).await {
                             Ok(user) => user,
                             Err(err) => {
-                                let err = Report::new(err).wrap_err("Failed to get user");
+                                let err = Report::new(err).wrap_err("failed to get user");
                                 warn!("{err:?}");
 
                                 continue;
                             }
                         };
 
-                        let upsert_fut = ctx.psql().upsert_osu_user(&user, self.user.mode);
-
-                        if let Err(err) = upsert_fut.await {
-                            warn!("{:?}", err.wrap_err("Failed to upsert user"));
+                        if let Err(err) = ctx.osu_user().store_user(&user, mode).await {
+                            warn!("{:?}", err.wrap_err("failed to upsert user"));
                         }
 
                         names.insert(user.user_id, user.username);
@@ -186,7 +196,7 @@ impl ProfileData {
     }
 
     pub async fn own_maps_in_top100(&mut self, ctx: &Context) -> Option<usize> {
-        let user_id = self.user.user_id;
+        let user_id = self.user.user_id();
         let scores = self.get_scores(ctx).await?;
 
         let count = scores.iter().fold(0, |count, score| {
@@ -208,20 +218,18 @@ impl ProfileData {
             Availability::NotRequested => {}
         }
 
-        let user_args = UserArgs::new(&self.user.username, self.user.mode);
-        let score_args = ScoreArgs::top(100);
+        let (user_id, mode) = match &self.user {
+            RedisData::Original(user) => (user.user_id, user.mode),
+            RedisData::Archived(user) => (user.user_id, user.mode),
+        };
 
-        match get_scores(ctx, &user_args, &score_args).await {
-            #[allow(unused_mut)]
-            Ok(mut scores) => {
-                #[cfg(feature = "osutracking")]
-                crate::tracking::process_osu_tracking(ctx, &mut scores, Some(&self.user)).await;
+        let user_args = UserArgsSlim::user_id(user_id).mode(mode);
 
-                Some(self.scores.insert(scores))
-            }
+        match ctx.osu_scores().top().exec(user_args).await {
+            Ok(scores) => Some(self.scores.insert(scores)),
             Err(err) => {
-                let err = Report::new(err).wrap_err("Failed to get top scores");
-                warn!("{err:?}");
+                let wrap = "failed to get top scores";
+                warn!("{:?}", Report::new(err).wrap_err(wrap));
                 self.scores = Availability::Errored;
 
                 None
@@ -264,7 +272,15 @@ pub struct Top100Stats {
 }
 
 impl Top100Stats {
-    pub async fn new(ctx: &Context, scores: &[Score]) -> Self {
+    pub async fn new(ctx: &Context, scores: &[Score]) -> Result<Self> {
+        let maps_id_checksum = scores
+            .iter()
+            .filter_map(|score| score.map.as_ref())
+            .map(|map| (map.map_id as i32, map.checksum.as_deref()))
+            .collect();
+
+        let maps = ctx.osu_map().maps(&maps_id_checksum).await?;
+
         let mut this = Self {
             acc: MinMaxAvg::new(),
             combo: MinMaxAvg::new(),
@@ -279,76 +295,46 @@ impl Top100Stats {
             len: MinMaxAvg::new(),
         };
 
-        let mut missing_pp = 0;
-        let mut missing_map = 0;
-
         for score in scores {
             this.acc.add(score.accuracy);
             this.combo.add(score.max_combo);
             this.misses.add(score.statistics.count_miss);
 
-            if let Some(pp) = score.pp {
-                this.pp.add(pp);
-            } else {
-                missing_pp += 1;
-            }
+            let map = score
+                .map
+                .as_ref()
+                .and_then(|map| maps.get(&map.map_id))
+                .expect("missing map");
 
-            if let Some(ref map) = score.map {
-                this.len.add(map.seconds_drain);
+            this.len.add(map.seconds_drain());
 
-                let diff_mods: GameMods = GameMods::HardRock
-                    | GameMods::Easy
-                    | GameMods::DoubleTime
-                    | GameMods::HalfTime
-                    | GameMods::Flashlight;
+            let mut calc = ctx.pp(map).mode(score.mode).mods(score.mods);
 
-                if !score.mods.intersects(diff_mods) {
-                    this.stars.add(map.stars as f64);
-                    this.ar.add(map.ar as f64);
-                    this.cs.add(map.cs as f64);
-                    this.hp.add(map.hp as f64);
-                    this.od.add(map.od as f64);
-                    this.bpm.add(map.bpm);
-                } else {
-                    let calc = match PpCalculator::new(ctx, map.map_id).await {
-                        Ok(calc) => calc,
-                        Err(err) => {
-                            warn!("{:?}", err.wrap_err("Failed to get pp calculator"));
+            let stars = calc.difficulty().await.stars();
+            this.stars.add(stars);
 
-                            continue;
-                        }
-                    };
+            let pp = match score.pp {
+                Some(pp) => pp,
+                None => calc.score(score).performance().await.pp() as f32,
+            };
 
-                    let mut prepared = calc.score(score);
-                    this.stars.add(prepared.stars());
+            this.pp.add(pp);
 
-                    let map_attrs = prepared
-                        .map()
-                        .attributes()
-                        .mods(score.mods.bits())
-                        .converted(map.convert)
-                        .build();
+            let map_attrs = map
+                .pp_map
+                .attributes()
+                .mods(score.mods.bits())
+                .converted(map.mode() != score.mode)
+                .build();
 
-                    this.ar.add(map_attrs.ar);
-                    this.cs.add(map_attrs.cs);
-                    this.hp.add(map_attrs.hp);
-                    this.od.add(map_attrs.od);
-                    this.bpm.add(map.bpm * map_attrs.clock_rate as f32);
-                }
-            } else {
-                missing_map += 1;
-            }
+            this.ar.add(map_attrs.ar);
+            this.cs.add(map_attrs.cs);
+            this.hp.add(map_attrs.hp);
+            this.od.add(map_attrs.od);
+            this.bpm.add(map.bpm() * map_attrs.clock_rate as f32);
         }
 
-        if missing_pp > 0 {
-            warn!("Missing {missing_pp} pp values in top scores");
-        }
-
-        if missing_map > 0 {
-            warn!("Missing {missing_map} maps in top scores");
-        }
-
-        this
+        Ok(this)
     }
 }
 

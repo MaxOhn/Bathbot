@@ -7,12 +7,10 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    commands::{
-        osu::{get_user, UserArgs},
-        GameModeOption,
-    },
+    commands::{osu::user_not_found, GameModeOption},
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, OsuStatsCountsEmbed},
+    manager::redis::osu::UserArgs,
     util::{
         builder::MessageBuilder,
         constants::{OSUSTATS_API_ISSUE, OSU_API_ISSUE},
@@ -159,27 +157,23 @@ pub(super) async fn count(
     orig: CommandOrigin<'_>,
     args: OsuStatsCount<'_>,
 ) -> Result<()> {
-    let (name, mode) = name_mode!(ctx, orig, args);
+    let (user_id, mode) = user_id_mode!(ctx, orig, args);
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
 
-    let user_args = UserArgs::new(name.as_str(), mode);
-
-    let mut user = match get_user(&ctx, &user_args).await {
+    let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = format!("User `{name}` was not found");
+            let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user");
+            let err = Report::new(err).wrap_err("failed to get user");
 
-            return Err(report);
+            return Err(err);
         }
     };
-
-    // Overwrite default mode
-    user.mode = mode;
 
     let counts = match TopCounts::request(&ctx, &user, mode).await {
         Ok(counts) => counts,
@@ -190,7 +184,7 @@ pub(super) async fn count(
         }
     };
 
-    let embed_data = OsuStatsCountsEmbed::new(user, mode, counts);
+    let embed_data = OsuStatsCountsEmbed::new(&user, mode, counts);
     let embed = embed_data.build();
     let builder = MessageBuilder::new().embed(embed);
     orig.create_message(&ctx, &builder).await?;

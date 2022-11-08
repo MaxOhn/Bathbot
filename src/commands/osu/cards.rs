@@ -14,7 +14,7 @@ use rosu_pp::{
     taiko::TaikoScoreState,
     AnyPP, Beatmap, BeatmapExt, GameMode as Mode, OsuPP,
 };
-use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score, User};
+use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score};
 use serde::{Serialize, Serializer};
 use serde_json::{Map, Value};
 use time::OffsetDateTime;
@@ -24,9 +24,13 @@ use twilight_model::id::{marker::UserMarker, Id};
 use crate::{
     commands::GameModeOption,
     core::{commands::CommandOrigin, BotConfig, Context},
-    embeds::{CardEmbed, EmbedData},
+    embeds::attachment,
+    manager::redis::{
+        osu::{User, UserArgs},
+        RedisData,
+    },
     util::{
-        builder::MessageBuilder,
+        builder::{EmbedBuilder, MessageBuilder},
         constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
         datetime::DATE_FORMAT,
         interaction::InteractionCommand,
@@ -35,7 +39,7 @@ use crate::{
     },
 };
 
-use super::{get_user_and_scores, ScoreArgs, UserArgs};
+use super::user_not_found;
 
 static HTML_TEMPLATE: Lazy<Handlebars<'static>> = Lazy::new(|| {
     let mut handlebars = Handlebars::new();
@@ -113,29 +117,31 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
         command: &mut command,
     };
 
-    let (name, mode) = name_mode!(ctx, orig, args);
+    let (user_id, mode) = user_id_mode!(ctx, orig, args);
 
-    let user_args = UserArgs::new(&name, mode);
-    let scores_args = ScoreArgs::top(100);
-    let redis = ctx.redis();
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let scores_fut = ctx.osu_scores().top().limit(100).exec_with_user(user_args);
+    let medals_fut = ctx.redis().medals();
 
-    let res = tokio::join!(
-        get_user_and_scores(&ctx, user_args, &scores_args),
-        redis.medals()
-    );
+    let (user, scores, medals_overall) = match tokio::join!(scores_fut, medals_fut) {
+        (Ok((user, scores)), Ok(medals)) => {
+            let medals_len = match medals {
+                RedisData::Original(medals) => medals.len(),
+                RedisData::Archived(medals) => medals.len(),
+            };
 
-    let (mut user, scores, medals_overall) = match res {
-        (Ok((user, scores)), Ok(medals)) => (user, scores, medals.get().len()),
+            (user, scores, medals_len)
+        }
         (Err(OsuError::NotFound), _) => {
-            let content = format!("User `{name}` was not found");
+            let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
         (Err(err), _) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user");
+            let err = Report::new(err).wrap_err("failed to get user");
 
-            return Err(report);
+            return Err(err);
         }
         (_, Err(err)) => {
             let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
@@ -150,8 +156,6 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
 
         return Ok(());
     }
-
-    user.mode = mode;
 
     let render_data = match Skills::calculate(&ctx, mode, &scores).await {
         Ok(skills) => skills.render_data(&user, &scores, medals_overall),
@@ -181,7 +185,10 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
         }
     };
 
-    let embed = CardEmbed::new(&user).build();
+    let embed = EmbedBuilder::new()
+        .author(user.author_builder())
+        .image(attachment("card.png"))
+        .build();
 
     let builder = MessageBuilder::new()
         .attachment("card.png", bytes)
@@ -460,11 +467,76 @@ impl Skills {
         Title { prefix, mods, main }
     }
 
-    fn render_data(&self, user: &User, scores: &[Score], medals_overall: usize) -> Value {
-        let stats = user.statistics.as_ref().expect("missing user statistics");
+    fn render_data(
+        &self,
+        user: &RedisData<User>,
+        scores: &[Score],
+        medals_overall: usize,
+    ) -> Value {
+        let (
+            global_rank,
+            country_rank,
+            level_curr,
+            level_progress,
+            avatar_url,
+            medal_count,
+            mode,
+            username,
+            country_code,
+        ) = match user {
+            RedisData::Original(user) => {
+                let stats = user.statistics.as_ref().expect("missing statistics");
 
-        let title = self.evaluate_title(user.mode, scores);
-        let medal_count = user.medals.as_ref().map_or(0, Vec::len);
+                let global_rank = stats.global_rank;
+                let country_rank = stats.country_rank;
+                let level_curr = stats.level.current;
+                let level_progress = stats.level.progress;
+                let avatar_url = user.avatar_url.as_str();
+                let medal_count = user.medals.len();
+                let mode = user.mode;
+                let username = user.username.as_str();
+                let country_code = user.country_code.as_str();
+
+                (
+                    global_rank,
+                    country_rank,
+                    level_curr,
+                    level_progress,
+                    avatar_url,
+                    medal_count,
+                    mode,
+                    username,
+                    country_code,
+                )
+            }
+            RedisData::Archived(user) => {
+                let stats = user.statistics.as_ref().expect("missing statistics");
+
+                let global_rank = stats.global_rank.as_ref().copied();
+                let country_rank = stats.country_rank.as_ref().copied();
+                let level_curr = stats.level.current;
+                let level_progress = stats.level.progress;
+                let avatar_url = user.avatar_url.as_str();
+                let medal_count = user.medals.len();
+                let mode = user.mode;
+                let username = user.username.as_str();
+                let country_code = user.country_code.as_str();
+
+                (
+                    global_rank,
+                    country_rank,
+                    level_curr,
+                    level_progress,
+                    avatar_url,
+                    medal_count,
+                    mode,
+                    username,
+                    country_code,
+                )
+            }
+        };
+
+        let title = self.evaluate_title(mode, scores);
         let medal_percentage = 100 * medal_count / medals_overall;
 
         let medal_club = match medal_percentage {
@@ -487,13 +559,13 @@ impl Skills {
         insert_map! {
             "path": BotConfig::get().paths.cards,
             "title": title,
-            "username": user.username,
-            "flag": flag_url_svg(&user.country_code),
-            "user_pfp": user.avatar_url,
-            "global_rank": stats.global_rank.unwrap_or(0),
-            "country_rank": stats.country_rank.unwrap_or(0),
-            "level": stats.level.current,
-            "level_percentage": stats.level.progress,
+            "username": username,
+            "flag": flag_url_svg(country_code),
+            "user_pfp": avatar_url,
+            "global_rank": global_rank.unwrap_or(0),
+            "country_rank": country_rank.unwrap_or(0),
+            "level": level_curr,
+            "level_percentage": level_progress,
             "date": OffsetDateTime::now_utc().format(&DATE_FORMAT).unwrap(),
             "medal_count": medal_count,
             "medal_percentage": medal_percentage,

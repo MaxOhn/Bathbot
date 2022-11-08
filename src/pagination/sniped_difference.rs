@@ -2,7 +2,6 @@ use command_macros::pagination;
 use eyre::{Result, WrapErr};
 use hashbrown::HashMap;
 use rosu_pp::Beatmap;
-use rosu_v2::model::user::User;
 use twilight_model::channel::embed::Embed;
 
 use crate::{
@@ -10,6 +9,7 @@ use crate::{
     core::Context,
     custom_client::SnipeRecent,
     embeds::{EmbedData, SnipedDiffEmbed},
+    manager::redis::{osu::User, RedisData},
     util::hasher::IntHasher,
 };
 
@@ -17,7 +17,7 @@ use super::Pages;
 
 #[pagination(per_page = 5, entries = "scores")]
 pub struct SnipedDiffPagination {
-    user: User,
+    user: RedisData<User>,
     diff: Difference,
     scores: Vec<SnipeRecent>,
     maps: HashMap<u32, Beatmap, IntHasher>,

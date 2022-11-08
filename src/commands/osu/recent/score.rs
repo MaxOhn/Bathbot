@@ -1,10 +1,15 @@
 use std::{borrow::Cow, mem, sync::Arc};
 
+use bathbot_psql::model::configs::{GuildConfig, ScoreSize};
 use command_macros::{command, HasName, SlashCommand};
 use eyre::{Report, Result};
-use rosu_v2::prelude::{
-    GameMode, Grade, OsuError,
-    RankStatus::{Approved, Loved, Qualified, Ranked},
+use rosu_v2::{
+    prelude::{
+        GameMode, Grade, OsuError,
+        RankStatus::{Approved, Loved, Qualified, Ranked},
+        Score,
+    },
+    request::UserId,
 };
 use tokio::time::{sleep, Duration};
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -12,17 +17,22 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::{
-        osu::{get_user_and_scores, prepare_score, require_link, ScoreArgs, UserArgs},
+        osu::{require_link, user_not_found},
         GameModeOption, GradeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
-    database::{EmbedsSize, MinimizedPp},
     embeds::RecentEmbed,
+    manager::{
+        redis::osu::{UserArgs, UserArgsSlim},
+        OsuMap,
+    },
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         interaction::InteractionCommand,
-        matcher, ChannelExt, CowUtils, InteractionCommandExt, MessageExt,
+        matcher,
+        osu::ScoreSlim,
+        ChannelExt, CowUtils, InteractionCommandExt, MessageExt,
     },
     Context,
 };
@@ -213,7 +223,7 @@ pub(super) async fn score(
 ) -> Result<()> {
     let author = orig.user_id()?;
 
-    let config = match ctx.user_config(author).await {
+    let config = match ctx.user_config().with_osu_id(author).await {
         Ok(config) => config,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -228,10 +238,10 @@ pub(super) async fn score(
         .or(config.mode)
         .unwrap_or(GameMode::Osu);
 
-    let name = match username!(ctx, orig, args) {
-        Some(name) => name,
-        None => match config.username() {
-            Some(name) => name.to_owned(),
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
+        None => match config.osu {
+            Some(user_id) => UserId::Id(user_id),
             None => return require_link(&ctx, &orig).await,
         },
     };
@@ -245,19 +255,8 @@ pub(super) async fn score(
 
     let grade = grade.map(Grade::from);
 
-    // TODO: show twitch of given name if available
-    #[cfg(feature = "twitch")]
-    let twitch_id = if let Some(config_name) = config.username() {
-        let config_name = config_name.cow_to_ascii_lowercase();
-        let name = name.cow_to_ascii_lowercase();
-
-        (config_name == name).then_some(config.twitch_id)
-    } else {
-        None
-    };
-
     // Retrieve the user and their recent scores
-    let user_args = UserArgs::new(&name, mode);
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
 
     let include_fails = match (grade, passes) {
         (_, Some(passes)) => !passes,
@@ -265,12 +264,26 @@ pub(super) async fn score(
         _ => false,
     };
 
-    let score_args = ScoreArgs::recent(100).include_fails(include_fails);
+    let scores_fut = ctx
+        .osu_scores()
+        .recent()
+        .limit(100)
+        .include_fails(include_fails)
+        .exec_with_user(user_args);
 
-    let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
-        Ok((_, scores)) if scores.is_empty() => {
+    #[cfg(feature = "twitch")]
+    let twitch_fut = ctx.twitch().id_from_osu(&user_id);
+
+    #[cfg(not(feature = "twitch"))]
+    let twitch_fut = future::ready(Ok::<Option<u64>, Report>(None));
+
+    let (scores_res, twitch_res) = tokio::join!(scores_fut, twitch_fut);
+
+    let (user, mut scores) = match scores_res {
+        Ok((user, scores)) if scores.is_empty() => {
+            let username = user.username();
             let content = format!(
-                "No recent {}plays found for user `{name}`",
+                "No recent {}plays found for user `{username}`",
                 match mode {
                     GameMode::Osu => "",
                     GameMode::Taiko => "taiko ",
@@ -283,21 +296,26 @@ pub(super) async fn score(
         }
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = format!("User `{name}` was not found");
-            orig.error(&ctx, content).await?;
+            let content = user_not_found(&ctx, user_id).await;
 
-            return Ok(());
+            return orig.error(&ctx, content).await;
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user or scores");
+            let err = Report::new(err).wrap_err("failed to get user or scores");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
-    // Overwrite default mode
-    user.mode = mode;
+    let twitch_id = match twitch_res {
+        Ok(id) => id,
+        Err(err) => {
+            warn!("{err:?}");
+
+            None
+        }
+    };
 
     if let Some(grade) = grade {
         scores.retain(|score| score.grade.eq_letter(grade));
@@ -309,52 +327,55 @@ pub(super) async fn score(
 
     let num = index.unwrap_or(1).saturating_sub(1);
 
-    let (score, tries) = {
-        let mut iter = scores.iter_mut().skip(num);
+    let (score, map, tries) = {
+        let len = scores.len();
+        let mut iter = scores.into_iter().skip(num);
 
-        match iter.next() {
-            Some(score) => match prepare_score(&ctx, score).await {
-                Ok(_) => {
-                    let mods = score.mods;
-                    let map_id = map_id!(score).unwrap();
+        let Some(score) = iter.next() else {
+            let username = user.username();
 
-                    let tries = 1 + iter
-                        .take_while(|s| map_id!(s).unwrap() == map_id && s.mods == mods)
-                        .count();
+            let content = format!(
+                "There {verb} only {len} score{plural} in `{username}`'{genitive} recent history.",
+                verb = if len != 1 { "are" } else { "is" },
+                plural = if len != 1 { "s" } else { "" },
+                genitive = if username.ends_with('s') { "" } else { "s" }
+            );
 
-                    (score, tries)
-                }
-                Err(err) => {
-                    let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-                    let report = Report::new(err).wrap_err("failed to prepare score");
+            return orig.error(&ctx, content).await;
+        };
 
-                    return Err(report);
-                }
-            },
-            None => {
-                let content = format!(
-                    "There {verb} only {num} score{plural} in `{name}`'{genitive} recent history.",
-                    verb = if scores.len() != 1 { "are" } else { "is" },
-                    num = scores.len(),
-                    plural = if scores.len() != 1 { "s" } else { "" },
-                    name = name,
-                    genitive = if name.ends_with('s') { "" } else { "s" }
-                );
+        let map = score.map.as_ref().expect("missing map");
+        let map_id = map.map_id;
 
-                return orig.error(&ctx, content).await;
+        let map = match ctx.osu_map().map(map_id, map.checksum.as_deref()).await {
+            Ok(map) => map.convert(mode),
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(Report::new(err));
             }
-        }
+        };
+
+        let mods = score.mods;
+
+        let tries = 1 + iter
+            .take_while(|s| {
+                s.mods == mods && s.map.as_ref().map_or(false, |map| map.map_id == map_id)
+            })
+            .count();
+
+        (score, map, tries)
     };
 
-    let map = score.map.as_ref().unwrap();
+    let map_id = map.map_id();
+    let user_id = user.user_id();
+    let grade = score.grade;
+    let status = map.status();
 
     // Prepare retrieval of the the user's top 50 and score position on the map
     let map_score_fut = async {
-        if score.grade != Grade::F && matches!(map.status, Ranked | Loved | Qualified | Approved) {
-            let fut = ctx
-                .osu()
-                .beatmap_user_score(map.map_id, user.user_id)
-                .mode(mode);
+        if grade != Grade::F && matches!(status, Ranked | Loved | Qualified | Approved) {
+            let fut = ctx.osu().beatmap_user_score(map_id, user_id).mode(mode);
 
             Some(fut.await)
         } else {
@@ -363,15 +384,10 @@ pub(super) async fn score(
     };
 
     let best_fut = async {
-        if score.grade != Grade::F && map.status == Ranked {
-            let fut = ctx
-                .osu()
-                .user_scores(user.user_id)
-                .best()
-                .limit(100)
-                .mode(mode);
+        if grade != Grade::F && status == Ranked {
+            let user_args = UserArgsSlim::user_id(user_id).mode(mode);
 
-            Some(fut.await)
+            Some(ctx.osu_scores().top().limit(100).exec(user_args).await)
         } else {
             None
         }
@@ -379,22 +395,8 @@ pub(super) async fn score(
 
     #[cfg(feature = "twitch")]
     let twitch_fut = async {
-        let twitch_id = if let Some(id) = twitch_id {
-            id
-        } else {
-            match ctx.psql().get_user_config_by_osu(&user.username).await {
-                Ok(Some(config)) => config.twitch_id,
-                Ok(None) => None,
-                Err(err) => {
-                    warn!("{:?}", err.wrap_err("Failed to get config of input name"));
-
-                    None
-                }
-            }
-        };
-
         if let Some(user_id) = twitch_id {
-            retrieve_vod(&ctx, user_id, &*score, map).await
+            retrieve_vod(&ctx, user_id, &score, &map).await
         } else {
             None
         }
@@ -402,90 +404,73 @@ pub(super) async fn score(
 
     // Retrieve and parse response
     #[cfg(feature = "twitch")]
-    let (map_score_result, best_result, twitch_vod) =
-        tokio::join!(map_score_fut, best_fut, twitch_fut);
+    let (map_score_res, best_res, twitch_vod) = tokio::join!(map_score_fut, best_fut, twitch_fut);
     #[cfg(not(feature = "twitch"))]
-    let (map_score_result, best_result) = tokio::join!(map_score_fut, best_fut);
+    let (map_score_res, best_res) = tokio::join!(map_score_fut, best_fut);
 
-    let map_score = match map_score_result {
+    let map_score = match map_score_res {
         None | Some(Err(OsuError::NotFound)) => None,
         Some(Ok(score)) => Some(score),
         Some(Err(err)) => {
-            let report = Report::new(err).wrap_err("Failed to get global scores");
-            warn!("{report:?}");
+            let err = Report::new(err).wrap_err("failed to get global scores");
+            warn!("{err:?}");
 
             None
         }
     };
 
     #[allow(unused_mut)]
-    let mut best = match best_result {
+    let mut best = match best_res {
         None => None,
         Some(Ok(scores)) => Some(scores),
         Some(Err(err)) => {
-            let report = Report::new(err).wrap_err("Failed to get top scores");
-            warn!("{report:?}");
+            let err = Report::new(err).wrap_err("failed to get top scores");
+            warn!("{err:?}");
 
             None
         }
     };
 
-    let guild_id = orig.guild_id();
+    let (guild_minimized_pp, guild_show_retries, guild_score_size) = match orig.guild_id() {
+        Some(guild_id) => {
+            let f = |config: &GuildConfig| {
+                (config.minimized_pp, config.show_retries, config.score_size)
+            };
 
-    let minimized_pp = match (config.minimized_pp, guild_id) {
-        (Some(pp), _) => pp,
-        (None, Some(guild)) => ctx.guild_minimized_pp(guild).await,
-        (None, None) => MinimizedPp::default(),
+            ctx.guild_config().peek(guild_id, f).await
+        }
+        None => (None, None, None),
     };
 
-    #[cfg(feature = "twitch")]
+    let minimized_pp = config
+        .minimized_pp
+        .or(guild_minimized_pp)
+        .unwrap_or_default();
+
+    let entry = RecentEntry::new(&ctx, score, map).await;
+
     let data_fut = RecentEmbed::new(
         &user,
-        score,
+        &entry,
         best.as_deref(),
         map_score.as_ref(),
+        #[cfg(feature = "twitch")]
         twitch_vod,
         minimized_pp,
         &ctx,
     );
 
-    #[cfg(not(feature = "twitch"))]
-    let data_fut = RecentEmbed::new(
-        &user,
-        score,
-        best.as_deref(),
-        map_score.as_ref(),
-        minimized_pp,
-        &ctx,
-    );
-
-    let embed_data = match data_fut.await {
-        Ok(data) => data,
-        Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(err.wrap_err("failed to create embed"));
-        }
-    };
+    let embed_data = data_fut.await;
 
     // Creating the embed
-    let show_retries = match (config.show_retries, guild_id) {
-        (Some(show_retries), _) => show_retries,
-        (None, Some(guild)) => ctx.guild_show_retries(guild).await,
-        (None, None) => true,
-    };
+    let show_retries = config.show_retries.or(guild_show_retries).unwrap_or(true);
+    let score_size = config.score_size.or(guild_score_size).unwrap_or_default();
 
     let content = show_retries.then(|| format!("Try #{tries}"));
 
-    let embeds_size = match (config.score_size, guild_id) {
-        (Some(size), _) => size,
-        (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
-        (None, None) => EmbedsSize::default(),
-    };
-
     // Only maximize if config allows it
-    match embeds_size {
-        EmbedsSize::AlwaysMinimized => {
+    match score_size {
+        ScoreSize::AlwaysMinimized => {
             let embed = embed_data.into_minimized();
             let mut builder = MessageBuilder::new().embed(embed);
 
@@ -495,7 +480,7 @@ pub(super) async fn score(
 
             orig.create_message(&ctx, &builder).await?;
         }
-        EmbedsSize::InitialMaximized => {
+        ScoreSize::InitialMaximized => {
             let embed = embed_data.as_maximized();
             let mut builder = MessageBuilder::new().embed(embed);
 
@@ -528,7 +513,7 @@ pub(super) async fn score(
                 }
             });
         }
-        EmbedsSize::AlwaysMaximized => {
+        ScoreSize::AlwaysMaximized => {
             let embed = embed_data.as_maximized();
             let mut builder = MessageBuilder::new().embed(embed);
 
@@ -540,15 +525,6 @@ pub(super) async fn score(
         }
     }
 
-    // Set map on garbage collection list if unranked
-    ctx.map_garbage_collector(map).execute(&ctx);
-
-    // Process user and their top scores for tracking
-    #[cfg(feature = "osutracking")]
-    if let Some(ref mut scores) = best {
-        crate::tracking::process_osu_tracking(&ctx, scores, Some(&user)).await;
-    }
-
     Ok(())
 }
 
@@ -557,52 +533,32 @@ async fn retrieve_vod(
     ctx: &Context,
     user_id: u64,
     score: &rosu_v2::prelude::Score,
-    map: &rosu_v2::prelude::Beatmap,
+    map: &crate::manager::OsuMap,
 ) -> Option<crate::custom_client::TwitchVideo> {
     use std::fmt::Write;
 
     use rosu_pp::{beatmap::Break, Mods};
 
-    use crate::util::osu::prepare_beatmap_file;
-
     match ctx.client().get_last_twitch_vod(user_id).await {
         Ok(Some(mut vod)) => {
-            // Parse map to get data about breaks
-            let parsed_map = match prepare_beatmap_file(ctx, map.map_id).await {
-                Ok(path) => match rosu_pp::Beatmap::from_path(path).await {
-                    Ok(map) => Some(map),
-                    Err(err) => {
-                        let report = Report::new(err).wrap_err("Failed to parse map");
-                        warn!("{report:?}");
-
-                        None
-                    }
-                },
-                Err(err) => {
-                    warn!("{:?}", err.wrap_err("Failed to prepare map"));
-
-                    None
-                }
-            };
+            let parsed_map = &map.pp_map;
 
             let vod_start = vod.created_at.unix_timestamp();
             let vod_end = vod_start + vod.duration as i64;
-            let mut map_len = map.seconds_drain as f64;
+            let mut map_len = map.seconds_drain() as f64;
 
             // Adjust map length with passed objects in case of fail
             if score.grade == Grade::F {
                 let passed = score.total_hits() as f64;
 
-                if map.mode == GameMode::Catch {
+                if map.mode() == GameMode::Catch {
                     // amount objects in .osu file != amount of hitobjects for catch
                     map_len += 2.0;
-                } else if let Some(map) = parsed_map {
+                } else if let Some(obj) = parsed_map.hit_objects.get(passed as usize - 1) {
                     // Get time of the last hitobject that was hit
                     // and then accumulate break time of all breaks
                     // up to that time
-                    let obj = &map.hit_objects[passed as usize - 1];
-
-                    let break_time: f64 = map
+                    let break_time: f64 = parsed_map
                         .breaks
                         .iter()
                         .take_while(|b| b.end_time < obj.start_time)
@@ -611,15 +567,13 @@ async fn retrieve_vod(
 
                     map_len = obj.start_time + (break_time / 1000.0);
                 } else {
-                    let total = map.count_objects() as f64;
+                    let total = map.n_objects() as f64;
                     map_len *= passed / total;
 
                     map_len += 2.0;
                 }
-            } else if let Some(map) = parsed_map {
-                map_len += map.total_break_time() / 1000.0;
             } else {
-                map_len += 2.0;
+                map_len += parsed_map.total_break_time() / 1000.0;
             }
 
             map_len /= score.mods.bits().clock_rate();
@@ -700,6 +654,7 @@ pub struct Rs<'a> {
 }
 
 impl<'a> From<Rs<'a>> for RecentScore<'a> {
+    #[inline]
     fn from(args: Rs<'a>) -> Self {
         unsafe { mem::transmute(args) }
     }
@@ -709,4 +664,35 @@ async fn slash_rs(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
     let args = Rs::from_interaction(command.input_data())?;
 
     score(ctx, (&mut command).into(), args.into()).await
+}
+
+pub struct RecentEntry {
+    pub score: ScoreSlim,
+    pub map: OsuMap,
+    pub max_pp: f32,
+    pub stars: f32,
+}
+
+impl RecentEntry {
+    async fn new(ctx: &Context, score: Score, map: OsuMap) -> Self {
+        let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
+        let attrs = calc.performance().await;
+
+        let max_pp = score
+            .pp
+            .filter(|_| score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania)
+            .unwrap_or(attrs.pp() as f32);
+
+        let pp = match score.pp {
+            Some(pp) => pp,
+            None => calc.score(&score).performance().await.pp() as f32,
+        };
+
+        Self {
+            score: ScoreSlim::new(score, pp),
+            map,
+            stars: attrs.stars() as f32,
+            max_pp,
+        }
+    }
 }

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use bathbot_psql::model::configs::{GuildConfig, DEFAULT_PREFIX};
 use eyre::Result;
 use twilight_model::{channel::Message, guild::Permissions};
 
@@ -31,15 +32,24 @@ pub async fn handle_message(ctx: Arc<Context>, msg: Message) {
     let mut stream = Stream::new(&msg.content);
     stream.take_while_char(char::is_whitespace);
 
-    let prefix = match msg.guild_id {
-        Some(guild_id) => ctx.guild_prefixes_find(guild_id, &stream).await,
-        None => stream.starts_with("<").then(|| "<".into()),
-    };
+    if let Some(guild_id) = msg.guild_id {
+        let f = |config: &GuildConfig| {
+            if let Some(prefix) = config.prefixes.iter().find(|p| stream.starts_with(p)) {
+                stream.increment(prefix.len());
 
-    if let Some(prefix) = prefix {
-        stream.increment(prefix.len());
-    } else if msg.guild_id.is_some() {
-        return;
+                true
+            } else {
+                false
+            }
+        };
+
+        let found_prefix = ctx.guild_config().peek(guild_id, f).await;
+
+        if !found_prefix {
+            return;
+        }
+    } else if stream.starts_with(DEFAULT_PREFIX) {
+        stream.increment(DEFAULT_PREFIX.len());
     }
 
     // Parse msg content for commands

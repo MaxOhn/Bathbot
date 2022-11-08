@@ -1,14 +1,19 @@
-use std::{borrow::Cow, collections::BTreeMap, fmt::Write, sync::Arc};
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, HashMap},
+    fmt::Write,
+    sync::Arc,
+};
 
 use command_macros::command;
 use eyre::{Report, Result};
-use hashbrown::HashMap;
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::{prelude::OsuError, request::UserId};
 
 use crate::{
-    commands::osu::{get_user, require_link, HasMods, ModsResult, UserArgs},
+    commands::osu::{require_link, HasMods, ModsResult},
     core::commands::{prefix::Args, CommandOrigin},
     custom_client::SnipeScoreParams,
+    manager::redis::{osu::UserArgs, RedisData},
     pagination::PlayerSnipeListPagination,
     util::{
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
@@ -67,25 +72,28 @@ pub(super) async fn player_list(
         }
     };
 
-    let name = match username!(ctx, orig, args) {
-        Some(name) => name,
-        None => match ctx.psql().get_user_osu(orig.user_id()?).await {
-            Ok(Some(osu)) => osu.into_username(),
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
+        None => match ctx.user_config().osu_id(orig.user_id()?).await {
+            Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => return require_link(&ctx, &orig).await,
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get username"));
+                return Err(err);
             }
         },
     };
 
-    let user_args = UserArgs::new(name.as_str(), GameMode::Osu);
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await;
 
-    let mut user = match get_user(&ctx, &user_args).await {
+    let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = format!("User `{name}` was not found");
+            let content = match user_id {
+                UserId::Id(user_id) => format!("User with id {user_id} was not found"),
+                UserId::Name(name) => format!("User `{name}` was not found"),
+            };
 
             return orig.error(&ctx, content).await;
         }
@@ -97,21 +105,32 @@ pub(super) async fn player_list(
         }
     };
 
-    // Overwrite default mode
-    user.mode = GameMode::Osu;
+    let (country_code, username, user_id) = match &user {
+        RedisData::Original(user) => {
+            let country_code = user.country_code.as_str();
+            let username = user.username.as_str();
+            let user_id = user.user_id;
 
-    let country = if ctx.contains_country(user.country_code.as_str()) {
-        user.country_code.to_owned()
+            (country_code, username, user_id)
+        }
+        RedisData::Archived(user) => {
+            let country_code = user.country_code.as_str();
+            let username = user.username.as_str();
+            let user_id = user.user_id;
+
+            (country_code, username, user_id)
+        }
+    };
+
+    let country = if ctx.huismetbenen().is_supported(country_code).await {
+        country_code.to_owned()
     } else {
-        let content = format!(
-            "`{}`'s country {} is not supported :(",
-            user.username, user.country_code
-        );
+        let content = format!("`{username}`'s country {country_code} is not supported :(");
 
         return orig.error(&ctx, content).await;
     };
 
-    let params = SnipeScoreParams::new(user.user_id, country)
+    let params = SnipeScoreParams::new(user_id, country)
         .order(args.sort.unwrap_or_default())
         .descending(args.reverse.map_or(true, |b| !b))
         .mods(mods);
@@ -133,39 +152,23 @@ pub(super) async fn player_list(
     };
 
     // Get the first five maps from the database
-    let map_ids: Vec<_> = scores
+    let map_ids = scores
         .values()
         .take(5)
-        .map(|score| score.map.map_id as i32)
+        .map(|score| (score.map.map_id as i32, None))
         .collect();
 
-    let mut maps = match ctx.psql().get_beatmaps(&map_ids, true).await {
+    let maps = match ctx.osu_map().maps(&map_ids).await {
         Ok(maps) => maps,
         Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to get maps from database"));
+            warn!(
+                "{:?}",
+                Report::new(err).wrap_err("failed to get maps from database")
+            );
 
             HashMap::default()
         }
     };
-
-    // Retrieving all missing beatmaps
-    for map_id in map_ids {
-        let map_id = map_id as u32;
-
-        if !maps.contains_key(&map_id) {
-            match ctx.osu().beatmap().map_id(map_id).await {
-                Ok(map) => {
-                    maps.insert(map_id, map);
-                }
-                Err(err) => {
-                    let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-                    let report = Report::new(err).wrap_err("failed to get beatmap");
-
-                    return Err(report);
-                }
-            }
-        }
-    }
 
     let mut content = format!(
         "`Order: {order:?} {descending}`",

@@ -5,6 +5,7 @@ use hashbrown::HashMap;
 use rosu_v2::prelude::MostPlayedMap;
 
 use crate::{
+    manager::redis::{osu::User, RedisData},
     pagination::Pages,
     util::{constants::OSU_BASE, CowUtils},
 };
@@ -16,13 +17,16 @@ pub struct MostPlayedCommonEmbed {
 
 impl MostPlayedCommonEmbed {
     pub fn new(
-        name1: &str,
-        name2: &str,
+        user1: &RedisData<User>,
+        user2: &RedisData<User>,
         map_counts: &[(u32, usize)],
         maps: &HashMap<u32, ([usize; 2], MostPlayedMap)>,
         pages: &Pages,
     ) -> Self {
         let mut description = String::with_capacity(512);
+
+        let name1 = user1.username();
+        let name2 = user2.username();
 
         for ((map_id, _), i) in map_counts.iter().zip(pages.index + 1..) {
             let ([count1, count2], map) = &maps[map_id];

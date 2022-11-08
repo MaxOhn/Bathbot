@@ -1,9 +1,4 @@
-use std::{
-    cmp::Ordering,
-    collections::{BTreeMap, BinaryHeap},
-    fmt::Write,
-    sync::Arc,
-};
+use std::{cmp::Ordering, collections::BTreeMap, fmt::Write, sync::Arc};
 
 use eyre::{Result, WrapErr};
 use rkyv::{Deserialize, Infallible};
@@ -13,6 +8,7 @@ use twilight_model::application::command::CommandOptionChoice;
 use crate::{
     core::Context,
     custom_client::OsekaiBadge,
+    manager::redis::RedisData,
     pagination::BadgePagination,
     util::{
         constants::OSEKAI_ISSUE, get_combined_thumbnail, interaction::InteractionCommand,
@@ -48,29 +44,52 @@ pub(super) async fn query(
     let name = name_.as_ref();
     let mut found_exact = false;
 
-    let mut badges: Vec<OsekaiBadge> = badges
-        .get()
-        .iter()
-        .scan(&mut found_exact, |found_exact, badge| {
-            if **found_exact {
-                None
-            } else {
-                let lowercase_name = badge.name.cow_to_ascii_lowercase();
-                let lowercase_desc = badge.description.to_ascii_lowercase();
-
-                if lowercase_name == name || lowercase_desc == name {
-                    **found_exact = true;
-
-                    Some(Some(badge))
-                } else if lowercase_name.contains(name) || lowercase_desc.contains(name) {
-                    Some(Some(badge))
+    let mut badges: Vec<OsekaiBadge> = match badges {
+        RedisData::Original(badges) => badges
+            .into_iter()
+            .scan(&mut found_exact, |found_exact, badge| {
+                if **found_exact {
+                    None
                 } else {
-                    Some(None)
+                    let lowercase_name = badge.name.cow_to_ascii_lowercase();
+                    let lowercase_desc = badge.description.to_ascii_lowercase();
+
+                    if lowercase_name == name || lowercase_desc == name {
+                        **found_exact = true;
+
+                        Some(Some(badge))
+                    } else if lowercase_name.contains(name) || lowercase_desc.contains(name) {
+                        Some(Some(badge))
+                    } else {
+                        Some(None)
+                    }
                 }
-            }
-        })
-        .filter_map(|badge| badge?.deserialize(&mut Infallible).ok())
-        .collect();
+            })
+            .flatten()
+            .collect(),
+        RedisData::Archived(badges) => badges
+            .iter()
+            .scan(&mut found_exact, |found_exact, badge| {
+                if **found_exact {
+                    None
+                } else {
+                    let lowercase_name = badge.name.cow_to_ascii_lowercase();
+                    let lowercase_desc = badge.description.to_ascii_lowercase();
+
+                    if lowercase_name == name || lowercase_desc == name {
+                        **found_exact = true;
+
+                        Some(Some(badge))
+                    } else if lowercase_name.contains(name) || lowercase_desc.contains(name) {
+                        Some(Some(badge))
+                    } else {
+                        Some(None)
+                    }
+                }
+            })
+            .filter_map(|badge| badge?.deserialize(&mut Infallible).ok())
+            .collect(),
+    };
 
     if found_exact && badges.len() > 1 {
         let len = badges.len();
@@ -136,21 +155,39 @@ async fn no_badge_found(ctx: &Context, command: &InteractionCommand, name: &str)
         }
     };
 
-    let archived_badges = badges.get();
-    let mut heap = BinaryHeap::with_capacity(2 * archived_badges.len());
+    let mut list = match &badges {
+        RedisData::Original(badges) => {
+            let mut list = Vec::with_capacity(2 * badges.len());
 
-    for badge in archived_badges.iter() {
-        heap.push(MatchingString::new_with_cow(name, &badge.name));
-        heap.push(MatchingString::new(name, &badge.description));
-    }
+            for badge in badges.iter() {
+                list.push(MatchingString::new_with_cow(name, &badge.name));
+                list.push(MatchingString::new(name, &badge.description));
+            }
+
+            list
+        }
+        RedisData::Archived(badges) => {
+            let mut list = Vec::with_capacity(2 * badges.len());
+
+            for badge in badges.iter() {
+                list.push(MatchingString::new_with_cow(name, &badge.name));
+                list.push(MatchingString::new(name, &badge.description));
+            }
+
+            list
+        }
+    };
+
+    list.sort_unstable_by(|a, b| b.cmp(a));
 
     let mut content = format!("No badge found that matches `{name}`.");
+    let mut list = list.into_iter();
 
-    if let Some(matching) = heap.pop().filter(|m| m.similarity > 0.0) {
+    if let Some(matching) = list.next().filter(|m| m.similarity > 0.0) {
         let _ = write!(content, " Did you mean `{}`", matching.value);
         let mut i = 1;
 
-        while let Some(matching) = heap.pop().filter(|m| m.similarity > 0.0) {
+        for matching in list.filter(|m| m.similarity > 0.0) {
             let _ = write!(content, ", `{}`", matching.value);
             i += 1;
 
@@ -188,22 +225,42 @@ pub async fn handle_autocomplete(
         .await
         .wrap_err("failed to get cached badges")?;
 
-    let archived_badges = badges.get();
     let mut choices = Vec::with_capacity(25);
 
-    for badge in archived_badges.iter() {
-        if badge.name.cow_to_ascii_lowercase().starts_with(name) {
-            choices.push(new_choice(&badge.name));
+    match badges {
+        RedisData::Original(badges) => {
+            for badge in badges.iter() {
+                if badge.name.cow_to_ascii_lowercase().starts_with(name) {
+                    choices.push(new_choice(&badge.name));
+                }
+
+                if badge.description.to_ascii_lowercase().starts_with(name) {
+                    choices.push(new_choice(&badge.description));
+                }
+
+                if choices.len() >= 25 {
+                    choices.truncate(25);
+
+                    break;
+                }
+            }
         }
+        RedisData::Archived(badges) => {
+            for badge in badges.iter() {
+                if badge.name.cow_to_ascii_lowercase().starts_with(name) {
+                    choices.push(new_choice(&badge.name));
+                }
 
-        if badge.description.to_ascii_lowercase().starts_with(name) {
-            choices.push(new_choice(&badge.description));
-        }
+                if badge.description.to_ascii_lowercase().starts_with(name) {
+                    choices.push(new_choice(&badge.description));
+                }
 
-        if choices.len() >= 25 {
-            choices.truncate(25);
+                if choices.len() >= 25 {
+                    choices.truncate(25);
 
-            break;
+                    break;
+                }
+            }
         }
     }
 
@@ -247,6 +304,7 @@ impl<'s> MatchingString<'s> {
 }
 
 impl PartialEq for MatchingString<'_> {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.similarity == other.similarity
     }
@@ -255,12 +313,14 @@ impl PartialEq for MatchingString<'_> {
 impl Eq for MatchingString<'_> {}
 
 impl PartialOrd for MatchingString<'_> {
+    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.similarity.partial_cmp(&other.similarity)
     }
 }
 
 impl Ord for MatchingString<'_> {
+    #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
         self.partial_cmp(other).unwrap_or(Ordering::Equal)
     }

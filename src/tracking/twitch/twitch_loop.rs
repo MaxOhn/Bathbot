@@ -33,7 +33,7 @@ pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
         let mut streams = match ctx.client().get_twitch_streams(&user_ids).await {
             Ok(streams) => streams,
             Err(err) => {
-                warn!("{:?}", err.wrap_err("Failed to retrieve streams"));
+                warn!("{:?}", err.wrap_err("failed to retrieve streams"));
 
                 continue;
             }
@@ -62,11 +62,10 @@ pub async fn twitch_tracking_loop(ctx: Arc<Context>) {
 
         let ids: Vec<_> = streams.iter().map(|s| s.user_id).collect();
 
-        // TODO: IntHasher
-        let users: HashMap<_, _> = match ctx.client().get_twitch_users(&ids).await {
+        let users: HashMap<_, _, IntHasher> = match ctx.client().get_twitch_users(&ids).await {
             Ok(users) => users.into_iter().map(|u| (u.user_id, u)).collect(),
             Err(err) => {
-                warn!("{:?}", err.wrap_err("Failed to retrieve twitch users"));
+                warn!("{:?}", err.wrap_err("failed to retrieve twitch users"));
 
                 continue;
             }
@@ -117,10 +116,9 @@ async fn send_notif(ctx: &Context, data: &TwitchNotifEmbed, channel: Id<ChannelM
                             code: UNKNOWN_CHANNEL,
                             ..
                         }) => {
-                            if let Err(err) = ctx.psql().remove_channel_tracks(channel.get()).await
-                            {
+                            if let Err(err) = ctx.twitch().untrack_all(channel).await {
                                 let wrap = format!(
-                                    "Failed to remove stream tracks from unknown channel {channel}"
+                                    "failed to remove stream tracks from unknown channel {channel}"
                                 );
 
                                 warn!("{:?}", err.wrap_err(wrap));
@@ -134,14 +132,14 @@ async fn send_notif(ctx: &Context, data: &TwitchNotifEmbed, channel: Id<ChannelM
                     }
                 } else {
                     let wrap = format!("error while sending twitch notif (channel {channel})");
-                    let report = Report::new(err).wrap_err(wrap);
-                    warn!("{report:?}");
+                    let err = Report::new(err).wrap_err(wrap);
+                    warn!("{err:?}");
                 }
             }
         }
         Err(err) => {
-            let report = Report::new(err).wrap_err("invalid embed for twitch notif");
-            warn!("{report:?}");
+            let err = Report::new(err).wrap_err("invalid embed for twitch notif");
+            warn!("{err:?}");
         }
     }
 }

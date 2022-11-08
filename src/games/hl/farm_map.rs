@@ -6,13 +6,13 @@ use rand::{prelude::SliceRandom, Rng};
 use time::OffsetDateTime;
 
 use crate::{
-    core::{ArchivedBytes, Context},
-    custom_client::OsuTrackerIdCount,
+    core::Context, custom_client::OsuTrackerIdCount, manager::redis::RedisData,
+    util::constants::OSU_BASE,
 };
 
 use super::{kind::GameStateKind, mapset_cover, H, W};
 
-pub type FarmEntries = ArchivedBytes<Vec<OsuTrackerIdCount>>;
+pub type FarmEntries = RedisData<Vec<OsuTrackerIdCount>>;
 
 pub(super) struct FarmMap {
     pub map_string: String,
@@ -61,37 +61,58 @@ impl FarmMap {
         prev_farm: Option<u32>,
         curr_score: u32,
     ) -> Result<Self> {
-        let archived = entries.get();
-
         let (prev_farm, rng_res) = {
             let mut rng = rand::thread_rng();
-            let max = archived[0].count as f32;
+
+            let max = match entries {
+                RedisData::Original(entries) => entries[0].count as u32,
+                RedisData::Archived(entries) => entries[0].count,
+            };
 
             let prev_farm = match prev_farm {
                 Some(farm) => farm,
-                None => rng.gen_range(1..=archived[0].count),
+                None => rng.gen_range(1..=max),
             };
 
-            let rng_res = archived.choose_weighted(&mut rng, |entry| {
-                weight(prev_farm, entry.count, max, curr_score)
-            });
+            let max = max as f32;
+
+            let rng_res = match entries {
+                RedisData::Original(entries) => entries
+                    .choose_weighted(&mut rng, |entry| {
+                        weight(prev_farm, entry.count as u32, max, curr_score)
+                    })
+                    .map(|id_count| (id_count.map_id, id_count.count as u32)),
+                RedisData::Archived(entries) => entries
+                    .choose_weighted(&mut rng, |entry| {
+                        weight(prev_farm, entry.count, max, curr_score)
+                    })
+                    .map(|id_count| (id_count.map_id, id_count.count)),
+            };
 
             (prev_farm, rng_res)
         };
 
         let (map_id, count) = match rng_res {
-            Ok(id_count) => (id_count.map_id, id_count.count),
+            Ok(tuple) => tuple,
             Err(err) => {
+                let (len, map_id, count) = match entries {
+                    RedisData::Original(entries) => {
+                        (entries.len(), entries[0].map_id, entries[0].count as u32)
+                    }
+                    RedisData::Archived(entries) => {
+                        (entries.len(), entries[0].map_id, entries[0].count)
+                    }
+                };
+
                 let wrap = format!(
                     "failed to choose random entry \
-                    (prev={prev_farm} | score={curr_score} | len={})",
-                    archived.len()
+                    (prev={prev_farm} | score={curr_score} | len={len})",
                 );
 
                 let report = Report::new(err).wrap_err(wrap);
                 error!("{report:?}");
 
-                (archived[0].map_id, archived[0].count)
+                (map_id, count)
             }
         };
 
@@ -135,43 +156,30 @@ impl FarmMap {
     }
 
     async fn new(ctx: &Context, map_id: u32, farm: u32) -> Result<Self> {
-        let map = match ctx.psql().get_beatmap(map_id, true).await {
+        let map = match ctx.osu_map().map(map_id, None).await {
             Ok(map) => map,
-            Err(_) => {
-                let map = ctx
-                    .osu()
-                    .beatmap()
-                    .map_id(map_id)
-                    .await
-                    .wrap_err("failed to request beatmap")?;
-
-                if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-                    warn!("{:?}", err.wrap_err("Failed to insert map into database"));
-                }
-
-                map
-            }
+            Err(err) => return Err(Report::new(err).wrap_err("failed to get beatmap")),
         };
 
-        let mapset = map.mapset.as_ref().unwrap();
+        let stars = ctx.pp(&map).difficulty().await.stars() as f32;
 
         Ok(Self {
             map_string: format!(
                 "{artist} - {title} [{version}]",
-                artist = mapset.artist,
-                title = mapset.title,
-                version = map.version
+                artist = map.artist(),
+                title = map.title(),
+                version = map.version(),
             ),
-            map_url: map.url,
-            mapset_id: map.mapset_id,
-            stars: map.stars,
-            seconds_drain: map.seconds_drain,
-            combo: map.max_combo.unwrap_or(0),
-            ranked: mapset.ranked_date.unwrap_or_else(OffsetDateTime::now_utc),
-            cs: map.cs,
-            ar: map.ar,
-            od: map.od,
-            hp: map.hp,
+            map_url: format!("{OSU_BASE}b/{}", map.map_id()),
+            mapset_id: map.mapset_id(),
+            stars,
+            seconds_drain: map.seconds_drain(),
+            combo: map.max_combo().unwrap_or(0),
+            ranked: map.ranked_date().unwrap_or_else(OffsetDateTime::now_utc),
+            cs: map.cs(),
+            ar: map.ar(),
+            od: map.od(),
+            hp: map.hp(),
             farm,
         })
     }

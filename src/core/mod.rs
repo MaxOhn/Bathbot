@@ -1,9 +1,8 @@
 pub use self::{
     cache::{Cache, CacheMiss},
     config::BotConfig,
-    context::{AssignRoles, Context, Redis},
+    context::{Context, Redis},
     events::event_loop,
-    redis_cache::{ArchivedBytes, ArchivedResult, RedisCache},
     stats::BotStats,
 };
 
@@ -12,7 +11,6 @@ mod cluster;
 mod config;
 mod context;
 mod events;
-mod redis_cache;
 mod stats;
 
 pub mod buckets;

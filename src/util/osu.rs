@@ -8,18 +8,24 @@ use std::{
 };
 
 use eyre::{Result, WrapErr};
-use rosu_v2::prelude::{Beatmap, GameMode, GameMods, Grade, Score, User, UserStatistics};
+use rosu_pp::{CatchPP, DifficultyAttributes, OsuPP, TaikoPP};
+use rosu_v2::prelude::{GameMode, GameMods, Grade, Score, ScoreStatistics, UserStatistics};
 use time::OffsetDateTime;
 use tokio::fs;
 use twilight_model::channel::{embed::Embed, Message};
 
 use crate::{
     core::{BotConfig, Context},
-    custom_client::{OsuStatsParams, OsuTrackerCountryScore, RespektiveTopCount},
-    util::{constants::OSU_BASE, matcher, numbers::round, BeatmapExt, Emote, ScoreExt},
+    custom_client::{OsuStatsParams, RespektiveTopCount},
+    embeds::HitResultFormatter,
+    manager::{
+        redis::{osu::User, RedisData},
+        OsuMap,
+    },
+    util::{constants::OSU_BASE, matcher, numbers::round, Emote},
 };
 
-use super::numbers::with_comma_int;
+use super::{numbers::WithComma, ScoreExt};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ModSelection {
@@ -145,27 +151,30 @@ pub fn mode_emote(mode: GameMode) -> &'static str {
     emote.text()
 }
 
-pub fn grade_completion_mods(score: &dyn ScoreExt, map: &Beatmap) -> Cow<'static, str> {
+pub fn grade_completion_mods(
+    mods: GameMods,
+    grade: Grade,
+    score_hits: u32,
+    map: &OsuMap,
+) -> Cow<'static, str> {
     let mode = map.mode();
-    let grade = BotConfig::get().grade(score.grade(mode));
-    let mods = score.mods();
+    let grade_str = BotConfig::get().grade(grade);
 
     match (
         mods.is_empty(),
-        score.grade(mode) == Grade::F && mode != GameMode::Catch,
+        grade == Grade::F && mode != GameMode::Catch,
     ) {
-        (true, true) => format!("{grade} ({}%)", completion(score, map)).into(),
-        (false, true) => format!("{grade} ({}%) +{mods}", completion(score, map)).into(),
-        (true, false) => grade.into(),
-        (false, false) => format!("{grade} +{mods}").into(),
+        (true, true) => format!("{grade_str} ({}%)", completion(score_hits, map)).into(),
+        (false, true) => format!("{grade_str} ({}%) +{mods}", completion(score_hits, map)).into(),
+        (true, false) => grade_str.into(),
+        (false, false) => format!("{grade_str} +{mods}").into(),
     }
 }
 
-fn completion(score: &dyn ScoreExt, map: &Beatmap) -> u32 {
-    let passed = score.hits(map.mode() as u8);
-    let total = map.count_objects();
+fn completion(score_hits: u32, map: &OsuMap) -> u32 {
+    let total_hits = map.n_objects() as u32;
 
-    100 * passed / total
+    100 * score_hits / total_hits
 }
 
 pub async fn prepare_beatmap_file(ctx: &Context, map_id: u32) -> Result<PathBuf> {
@@ -490,217 +499,6 @@ impl BonusPP {
     }
 }
 
-pub trait SortableScore {
-    fn acc(&self) -> f32;
-    fn bpm(&self) -> f32;
-    fn ended_at(&self) -> OffsetDateTime;
-    fn map_id(&self) -> u32;
-    fn mapset_id(&self) -> u32;
-    fn max_combo(&self) -> u32;
-    fn mode(&self) -> GameMode;
-    fn mods(&self) -> GameMods;
-    fn n_misses(&self) -> u32;
-    fn pp(&self) -> Option<f32>;
-    fn score(&self) -> u32;
-    fn score_id(&self) -> u64;
-    fn seconds_drain(&self) -> u32;
-    fn stars(&self) -> f32;
-    fn total_hits_sort(&self) -> u32;
-}
-
-impl SortableScore for Score {
-    fn acc(&self) -> f32 {
-        self.accuracy
-    }
-
-    fn bpm(&self) -> f32 {
-        self.map.as_ref().map_or(0.0, |map| map.bpm)
-    }
-
-    fn ended_at(&self) -> OffsetDateTime {
-        self.ended_at
-    }
-
-    fn map_id(&self) -> u32 {
-        self.map.as_ref().map_or(0, |map| map.map_id)
-    }
-
-    fn mapset_id(&self) -> u32 {
-        self.mapset.as_ref().map_or(0, |mapset| mapset.mapset_id)
-    }
-
-    fn max_combo(&self) -> u32 {
-        self.max_combo
-    }
-
-    fn mode(&self) -> GameMode {
-        self.mode
-    }
-
-    fn mods(&self) -> GameMods {
-        self.mods
-    }
-
-    fn n_misses(&self) -> u32 {
-        self.statistics.count_miss
-    }
-
-    fn pp(&self) -> Option<f32> {
-        self.pp
-    }
-
-    fn score(&self) -> u32 {
-        self.score
-    }
-
-    fn score_id(&self) -> u64 {
-        self.score_id.unwrap_or(0)
-    }
-
-    fn seconds_drain(&self) -> u32 {
-        self.map.as_ref().map_or(0, |map| map.seconds_drain)
-    }
-
-    fn stars(&self) -> f32 {
-        self.map.as_ref().map_or(0.0, |map| map.stars)
-    }
-
-    fn total_hits_sort(&self) -> u32 {
-        self.total_hits()
-    }
-}
-
-macro_rules! impl_sortable_score_tuple {
-    (($($ty:ty),*) => $idx:tt) => {
-        impl SortableScore for ($($ty),*) {
-            fn acc(&self) -> f32 {
-                SortableScore::acc(&self.$idx)
-            }
-
-            fn bpm(&self) -> f32 {
-                SortableScore::bpm(&self.$idx)
-            }
-
-            fn ended_at(&self) -> OffsetDateTime {
-                SortableScore::ended_at(&self.$idx)
-            }
-
-            fn map_id(&self) -> u32 {
-                SortableScore::map_id(&self.$idx)
-            }
-
-            fn mapset_id(&self) -> u32 {
-                SortableScore::mapset_id(&self.$idx)
-            }
-
-            fn max_combo(&self) -> u32 {
-                SortableScore::max_combo(&self.$idx)
-            }
-
-            fn mode(&self) -> GameMode {
-                SortableScore::mode(&self.$idx)
-            }
-
-            fn mods(&self) -> GameMods {
-                SortableScore::mods(&self.$idx)
-            }
-
-            fn n_misses(&self) -> u32 {
-                SortableScore::n_misses(&self.$idx)
-            }
-
-            fn pp(&self) -> Option<f32> {
-                SortableScore::pp(&self.$idx)
-            }
-
-            fn score(&self) -> u32 {
-                SortableScore::score(&self.$idx)
-            }
-
-            fn score_id(&self) -> u64 {
-                SortableScore::score_id(&self.$idx)
-            }
-
-            fn seconds_drain(&self) -> u32 {
-                SortableScore::seconds_drain(&self.$idx)
-            }
-
-            fn stars(&self) -> f32 {
-                SortableScore::stars(&self.1)
-            }
-
-            fn total_hits_sort(&self) -> u32 {
-                SortableScore::total_hits_sort(&self.$idx)
-            }
-        }
-    };
-}
-
-impl_sortable_score_tuple!((usize, Score) => 1);
-impl_sortable_score_tuple!((usize, Score, Option<f32>) => 1);
-
-impl SortableScore for (OsuTrackerCountryScore, usize) {
-    fn acc(&self) -> f32 {
-        self.0.acc
-    }
-
-    fn bpm(&self) -> f32 {
-        panic!("can't sort by bpm")
-    }
-
-    fn ended_at(&self) -> OffsetDateTime {
-        self.0.ended_at
-    }
-
-    fn map_id(&self) -> u32 {
-        self.0.map_id
-    }
-
-    fn mapset_id(&self) -> u32 {
-        self.0.mapset_id
-    }
-
-    fn max_combo(&self) -> u32 {
-        panic!("can't sort by combo")
-    }
-
-    fn mode(&self) -> GameMode {
-        GameMode::Osu
-    }
-
-    fn mods(&self) -> GameMods {
-        self.0.mods
-    }
-
-    fn n_misses(&self) -> u32 {
-        self.0.n_misses
-    }
-
-    fn pp(&self) -> Option<f32> {
-        Some(self.0.pp)
-    }
-
-    fn score(&self) -> u32 {
-        panic!("can't sort by score")
-    }
-
-    fn score_id(&self) -> u64 {
-        panic!("can't sort with score id")
-    }
-
-    fn seconds_drain(&self) -> u32 {
-        self.0.seconds_total
-    }
-
-    fn stars(&self) -> f32 {
-        panic!("can't sort by stars")
-    }
-
-    fn total_hits_sort(&self) -> u32 {
-        self.0.n_misses + 1
-    }
-}
-
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum AttributeKind {
     Ar,
@@ -735,23 +533,31 @@ impl TopCounts {
         }
     }
 
-    pub async fn request(ctx: &Context, user: &User, mode: GameMode) -> Result<Self> {
+    pub async fn request(ctx: &Context, user: &RedisData<User>, mode: GameMode) -> Result<Self> {
         Self::request_respektive(ctx, user, mode).await
     }
 
-    async fn request_respektive(ctx: &Context, user: &User, mode: GameMode) -> Result<Self> {
+    async fn request_respektive(
+        ctx: &Context,
+        user: &RedisData<User>,
+        mode: GameMode,
+    ) -> Result<Self> {
         let counts_fut = ctx
             .client()
-            .get_respektive_osustats_counts(user.user_id, mode);
+            .get_respektive_osustats_counts(user.user_id(), mode);
 
         match counts_fut.await {
-            Ok(Some(counts)) => match user.scores_first_count {
-                Some(top1s) => Ok(Self {
-                    top1s: with_comma_int(top1s).to_string().into(),
+            Ok(Some(counts)) => {
+                let top1s = match user {
+                    RedisData::Original(user) => user.scores_first_count,
+                    RedisData::Archived(user) => user.scores_first_count,
+                };
+
+                Ok(Self {
+                    top1s: WithComma::new(top1s).to_string().into(),
                     ..Self::from(counts)
-                }),
-                None => Ok(Self::from(counts)),
-            },
+                })
+            }
             Ok(None) => Ok(Self {
                 top1s: "0".into(),
                 top1s_rank: None,
@@ -767,15 +573,18 @@ impl TopCounts {
                 top100s_rank: None,
             }),
             Err(err) => {
-                let wrap = "Failed to get respektive top counts";
-                warn!("{:?}", err.wrap_err(wrap));
+                warn!("{:?}", err.wrap_err("failed to get respektive top counts"));
 
                 Self::request_osustats(ctx, user, mode).await
             }
         }
     }
 
-    async fn request_osustats(ctx: &Context, user: &User, mode: GameMode) -> Result<Self> {
+    async fn request_osustats(
+        ctx: &Context,
+        user: &RedisData<User>,
+        mode: GameMode,
+    ) -> Result<Self> {
         let mut counts = [
             MaybeUninit::uninit(),
             MaybeUninit::uninit(),
@@ -783,7 +592,7 @@ impl TopCounts {
             MaybeUninit::uninit(),
         ];
 
-        let mut params = OsuStatsParams::new(user.username.as_str()).mode(mode);
+        let mut params = OsuStatsParams::new(user.username()).mode(mode);
         let mut get_amount = true;
 
         for (rank, count) in [50, 25, 15, 8].into_iter().zip(counts.iter_mut()) {
@@ -800,28 +609,19 @@ impl TopCounts {
                 .await
                 .wrap_err("failed to get global scores count")?;
 
-            count.write(with_comma_int(count_).to_string().into());
+            count.write(WithComma::new(count_).to_string().into());
 
             if count_ == 0 {
                 get_amount = false;
             }
         }
 
-        let top1s = if let Some(firsts) = user.scores_first_count {
-            with_comma_int(firsts).to_string().into()
-        } else if get_amount {
-            params.max_rank = 1;
-
-            let (_, count) = ctx
-                .client()
-                .get_global_scores(&params)
-                .await
-                .wrap_err("failed to get global scores count")?;
-
-            with_comma_int(count).to_string().into()
-        } else {
-            "0".into()
+        let top1s = match user {
+            RedisData::Original(user) => user.scores_first_count,
+            RedisData::Archived(user) => user.scores_first_count,
         };
+
+        let top1s = WithComma::new(top1s).to_string().into();
 
         let [top50s, top25s, top15s, top8s] = counts;
 
@@ -850,20 +650,20 @@ impl TopCounts {
 impl From<RespektiveTopCount> for TopCounts {
     #[inline]
     fn from(top_count: RespektiveTopCount) -> Self {
-        let format_rank = |rank| with_comma_int(rank).to_string();
+        let format_rank = |rank| WithComma::new(rank).to_string();
 
         Self {
-            top1s: with_comma_int(top_count.top1s).to_string().into(),
+            top1s: WithComma::new(top_count.top1s).to_string().into(),
             top1s_rank: top_count.top1s_rank.map(format_rank),
-            top8s: with_comma_int(top_count.top8s).to_string().into(),
+            top8s: WithComma::new(top_count.top8s).to_string().into(),
             top8s_rank: top_count.top8s_rank.map(format_rank),
-            top15s: with_comma_int(top_count.top15s).to_string().into(),
+            top15s: WithComma::new(top_count.top15s).to_string().into(),
             top15s_rank: top_count.top15s_rank.map(format_rank),
-            top25s: with_comma_int(top_count.top25s).to_string().into(),
+            top25s: WithComma::new(top_count.top25s).to_string().into(),
             top25s_rank: top_count.top25s_rank.map(format_rank),
-            top50s: with_comma_int(top_count.top50s).to_string().into(),
+            top50s: WithComma::new(top_count.top50s).to_string().into(),
             top50s_rank: top_count.top50s_rank.map(format_rank),
-            top100s: Some(with_comma_int(top_count.top100s).to_string().into()),
+            top100s: Some(WithComma::new(top_count.top100s).to_string().into()),
             top100s_rank: top_count.top100s_rank.map(format_rank),
         }
     }
@@ -1022,5 +822,318 @@ impl<'a> IntoIterator for &'a TopCounts {
             counts: counts.into_iter(),
             ranks: ranks.into_iter(),
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct ScoreSlim {
+    pub accuracy: f32,
+    pub ended_at: OffsetDateTime,
+    pub grade: Grade,
+    pub max_combo: u32,
+    pub mode: GameMode,
+    pub mods: GameMods,
+    pub pp: f32,
+    pub score: u32,
+    pub score_id: Option<u64>,
+    pub statistics: ScoreStatistics,
+}
+
+impl ScoreSlim {
+    pub fn new(score: Score, pp: f32) -> Self {
+        Self {
+            accuracy: score.accuracy,
+            ended_at: score.ended_at,
+            grade: score.grade,
+            max_combo: score.max_combo,
+            mode: score.mode,
+            mods: score.mods,
+            pp,
+            score: score.score,
+            score_id: score.score_id,
+            statistics: score.statistics,
+        }
+    }
+
+    pub fn total_hits(&self) -> u32 {
+        self.statistics.total_hits(self.mode)
+    }
+}
+
+#[derive(Clone)]
+pub struct IfFc {
+    mode: GameMode,
+    pub statistics: ScoreStatistics,
+    pub pp: f32,
+}
+
+impl IfFc {
+    pub async fn new(ctx: &Context, score: &ScoreSlim, map: &OsuMap) -> Option<Self> {
+        let mode = score.mode;
+        let mut calc = ctx.pp(map).mods(score.mods).mode(score.mode);
+        let attrs = calc.difficulty().await;
+
+        if score.is_fc(mode, attrs.max_combo() as u32) {
+            return None;
+        }
+
+        let mods = score.mods.bits();
+        let statistics = &score.statistics;
+
+        let (pp, statistics, mode) = match attrs {
+            DifficultyAttributes::Osu(attrs) => {
+                let total_objects = map.n_objects();
+                let passed_objects = (statistics.count_300
+                    + statistics.count_100
+                    + statistics.count_50
+                    + statistics.count_miss) as usize;
+
+                let mut n300 =
+                    statistics.count_300 as usize + total_objects.saturating_sub(passed_objects);
+
+                let count_hits = total_objects - statistics.count_miss as usize;
+                let ratio = 1.0 - (n300 as f32 / count_hits as f32);
+                let new100s = (ratio * statistics.count_miss as f32).ceil() as u32;
+
+                n300 += statistics.count_miss.saturating_sub(new100s) as usize;
+                let n100 = (statistics.count_100 + new100s) as usize;
+                let n50 = statistics.count_50 as usize;
+
+                let attrs = OsuPP::new(&map.pp_map)
+                    .attributes(attrs.to_owned())
+                    .mods(mods)
+                    .n300(n300)
+                    .n100(n100)
+                    .n50(n50)
+                    .calculate();
+
+                let statistics = ScoreStatistics {
+                    count_300: n300 as u32,
+                    count_100: n100 as u32,
+                    count_50: n50 as u32,
+                    count_geki: statistics.count_geki,
+                    count_katu: statistics.count_katu,
+                    count_miss: statistics.count_miss,
+                };
+
+                (attrs.pp as f32, statistics, GameMode::Osu)
+            }
+            DifficultyAttributes::Taiko(attrs) => {
+                let total_objects = map.n_circles();
+                let passed_objects =
+                    (statistics.count_300 + statistics.count_100 + statistics.count_miss) as usize;
+
+                let mut n300 =
+                    statistics.count_300 as usize + total_objects.saturating_sub(passed_objects);
+
+                let count_hits = total_objects - statistics.count_miss as usize;
+                let ratio = 1.0 - (n300 as f32 / count_hits as f32);
+                let new100s = (ratio * statistics.count_miss as f32).ceil() as u32;
+
+                n300 += statistics.count_miss.saturating_sub(new100s) as usize;
+                let n100 = (statistics.count_100 + new100s) as usize;
+
+                let acc = 100.0 * (2 * n300 + n100) as f32 / (2 * total_objects) as f32;
+
+                let attrs = TaikoPP::new(&map.pp_map)
+                    .attributes(attrs.to_owned())
+                    .mods(mods)
+                    .accuracy(acc as f64)
+                    .calculate();
+
+                let statistics = ScoreStatistics {
+                    count_300: n300 as u32,
+                    count_100: n100 as u32,
+                    count_geki: statistics.count_geki,
+                    count_katu: statistics.count_katu,
+                    count_50: statistics.count_50,
+                    count_miss: statistics.count_miss,
+                };
+
+                (attrs.pp as f32, statistics, GameMode::Taiko)
+            }
+            DifficultyAttributes::Catch(attrs) => {
+                let total_objects = attrs.max_combo();
+                let passed_objects =
+                    (statistics.count_300 + statistics.count_100 + statistics.count_miss) as usize;
+
+                let missing = total_objects - passed_objects;
+                let missing_fruits = missing.saturating_sub(
+                    attrs
+                        .n_droplets
+                        .saturating_sub(statistics.count_100 as usize),
+                );
+
+                let missing_droplets = missing - missing_fruits;
+
+                let n_fruits = statistics.count_300 as usize + missing_fruits;
+                let n_droplets = statistics.count_100 as usize + missing_droplets;
+                let n_tiny_droplet_misses = statistics.count_katu as usize;
+                let n_tiny_droplets = attrs.n_tiny_droplets.saturating_sub(n_tiny_droplet_misses);
+
+                let attrs = CatchPP::new(&map.pp_map)
+                    .attributes(attrs.to_owned())
+                    .mods(mods)
+                    .fruits(n_fruits)
+                    .droplets(n_droplets)
+                    .tiny_droplets(n_tiny_droplets)
+                    .tiny_droplet_misses(n_tiny_droplet_misses)
+                    .calculate();
+
+                let statistics = ScoreStatistics {
+                    count_300: n_fruits as u32,
+                    count_100: n_droplets as u32,
+                    count_50: n_tiny_droplets as u32,
+                    count_geki: statistics.count_geki,
+                    count_katu: statistics.count_katu,
+                    count_miss: statistics.count_miss,
+                };
+
+                (attrs.pp as f32, statistics, GameMode::Catch)
+            }
+            DifficultyAttributes::Mania(_) => return None,
+        };
+
+        Some(Self {
+            mode,
+            statistics,
+            pp,
+        })
+    }
+
+    pub fn accuracy(&self) -> f32 {
+        self.statistics.accuracy(self.mode)
+    }
+
+    pub fn hitresults(&self) -> HitResultFormatter {
+        HitResultFormatter::new(self.mode, self.statistics.clone())
+    }
+}
+
+pub fn calculate_grade(mode: GameMode, mods: GameMods, stats: &ScoreStatistics) -> Grade {
+    match mode {
+        GameMode::Osu => osu_grade(mods, stats),
+        GameMode::Taiko => taiko_grade(mods, stats),
+        GameMode::Catch => catch_grade(mods, stats),
+        GameMode::Mania => mania_grade(mods, stats),
+    }
+}
+
+fn osu_grade(mods: GameMods, stats: &ScoreStatistics) -> Grade {
+    let passed_objects = stats.total_hits(GameMode::Osu);
+
+    if stats.count_300 == passed_objects {
+        return if mods.contains(GameMods::Hidden) || mods.contains(GameMods::Flashlight) {
+            Grade::XH
+        } else {
+            Grade::X
+        };
+    }
+
+    let ratio300 = stats.count_300 as f32 / passed_objects as f32;
+    let ratio50 = stats.count_50 as f32 / passed_objects as f32;
+
+    if ratio300 > 0.9 && ratio50 < 0.01 && stats.count_miss == 0 {
+        if mods.intersects(GameMods::Hidden | GameMods::Flashlight) {
+            Grade::SH
+        } else {
+            Grade::S
+        }
+    } else if ratio300 > 0.9 || (ratio300 > 0.8 && stats.count_miss == 0) {
+        Grade::A
+    } else if ratio300 > 0.8 || (ratio300 > 0.7 && stats.count_miss == 0) {
+        Grade::B
+    } else if ratio300 > 0.6 {
+        Grade::C
+    } else {
+        Grade::D
+    }
+}
+
+fn taiko_grade(mods: GameMods, stats: &ScoreStatistics) -> Grade {
+    let passed_objects = stats.total_hits(GameMode::Taiko);
+    let count_300 = stats.count_300;
+
+    if count_300 == passed_objects {
+        return if mods.intersects(GameMods::Hidden | GameMods::Flashlight) {
+            Grade::XH
+        } else {
+            Grade::X
+        };
+    }
+
+    let ratio300 = count_300 as f32 / passed_objects as f32;
+    let count_miss = stats.count_miss;
+
+    if ratio300 > 0.9 && count_miss == 0 {
+        if mods.intersects(GameMods::Hidden | GameMods::Flashlight) {
+            Grade::SH
+        } else {
+            Grade::S
+        }
+    } else if ratio300 > 0.9 || (ratio300 > 0.8 && count_miss == 0) {
+        Grade::A
+    } else if ratio300 > 0.8 || (ratio300 > 0.7 && count_miss == 0) {
+        Grade::B
+    } else if ratio300 > 0.6 {
+        Grade::C
+    } else {
+        Grade::D
+    }
+}
+
+fn catch_grade(mods: GameMods, stats: &ScoreStatistics) -> Grade {
+    let acc = stats.accuracy(GameMode::Catch);
+
+    if (100.0 - acc).abs() <= std::f32::EPSILON {
+        if mods.intersects(GameMods::Hidden | GameMods::Flashlight) {
+            Grade::XH
+        } else {
+            Grade::X
+        }
+    } else if acc > 98.0 {
+        if mods.intersects(GameMods::Hidden | GameMods::Flashlight) {
+            Grade::SH
+        } else {
+            Grade::S
+        }
+    } else if acc > 94.0 {
+        Grade::A
+    } else if acc > 90.0 {
+        Grade::B
+    } else if acc > 85.0 {
+        Grade::C
+    } else {
+        Grade::D
+    }
+}
+
+fn mania_grade(mods: GameMods, stats: &ScoreStatistics) -> Grade {
+    let passed_objects = stats.total_hits(GameMode::Mania);
+
+    if stats.count_geki == passed_objects {
+        return if mods.intersects(GameMods::Hidden | GameMods::Flashlight) {
+            Grade::XH
+        } else {
+            Grade::X
+        };
+    }
+
+    let acc = stats.accuracy(GameMode::Mania);
+
+    if acc > 95.0 {
+        if mods.intersects(GameMods::Hidden | GameMods::Flashlight) {
+            Grade::SH
+        } else {
+            Grade::S
+        }
+    } else if acc > 90.0 {
+        Grade::A
+    } else if acc > 80.0 {
+        Grade::B
+    } else if acc > 70.0 {
+        Grade::C
+    } else {
+        Grade::D
     }
 }

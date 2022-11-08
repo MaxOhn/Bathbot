@@ -1,39 +1,7 @@
-macro_rules! author {
-    ($user:ident) => {{
-        let stats = $user.statistics.as_ref().expect("no statistics on user");
-
-        let text = format!(
-            "{name}: {pp}pp (#{global} {country}{national})",
-            name = $user.username,
-            pp = crate::util::numbers::with_comma_float(stats.pp),
-            global = crate::util::numbers::with_comma_int(stats.global_rank.unwrap_or(0)),
-            country = $user.country_code,
-            national = stats.country_rank.unwrap_or(0)
-        );
-
-        let url = format!(
-            "{}users/{}/{}",
-            crate::util::constants::OSU_BASE,
-            $user.user_id,
-            $user.mode,
-        );
-
-        let icon = crate::util::osu::flag_url($user.country_code.as_str());
-
-        AuthorBuilder::new(text).url(url).icon_url(icon)
-    }};
-}
-
 macro_rules! fields {
     // Push fields to a vec
     ($fields:ident {
-        $($name:expr, $value:expr, $inline:expr);+
-    }) => {
-        fields![$fields { $($name, $value, $inline;)+ }]
-    };
-
-    ($fields:ident {
-        $($name:expr, $value:expr, $inline:expr;)+
+        $($name:expr, $value:expr, $inline:expr $(;)? )+
     }) => {
         $(
             $fields.push(

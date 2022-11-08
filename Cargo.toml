@@ -5,6 +5,7 @@ authors = ["MaxOhn <ohn.m@hotmail.de>"]
 edition = "2021"
 
 [dependencies]
+bathbot-psql = { path = "../bathbot-psql" }
 bb8-redis = { version = "0.11" }
 bitflags = { version = "1.0" }
 bytes = { version = "1.0" }
@@ -41,12 +42,9 @@ rosu-pp-older = { git = "https://github.com/MaxOhn/rosu-pp-older.git", branch = 
 # rosu-pp-older = { path = "../rosu-pp-older" }
 routerify = { version = "3.0", optional = true }
 serde = { version = "1.0", features = ["derive", "rc"] }
-serde_cbor = { version = "0.11", default-features = false, features = ["std"] }
 serde_json = { version = "1.0" }
-serde_urlencoded = { version = "0.7" }
 smallstr = { version = "0.2", features = ["serde"] }
 smallvec = { version = "1.0", features = ["serde"] }
-sqlx = { version = "0.6", default-features = false, features = ["json", "macros", "migrate", "postgres", "runtime-tokio-rustls", "time"] }
 thiserror = { version = "1.0" }
 time = { version = "0.3", features = ["parsing"] }
 tokio = { version = "1.20", default-features = false, features = ["fs", "io-util", "macros", "parking_lot", "rt-multi-thread", "signal", "sync", "time"] }
@@ -71,21 +69,18 @@ twilight-model = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-13
 twilight-standby = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-13", default-features = false }
 twilight-validate = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-13" }
 
-[profile.dev.package.sqlx-macros]
-opt-level = 3
-
 [profile.release]
 lto = "thin"
 codegen-units = 1
 strip = "debuginfo"
 
 [features]
-default = ["offline"]
+default = ["offline", "full"] # TODO: remove full
 full = ["global_slash", "matchlive", "osutracking", "server", "twitch", "twitchtracking"]
 
 global_slash = []
 matchlive = []
-offline = ["sqlx/offline"]
+offline = ["bathbot-psql/offline"]
 osutracking = ["priority-queue"]
 server = ["routerify", "twitch"]
 twitch = []

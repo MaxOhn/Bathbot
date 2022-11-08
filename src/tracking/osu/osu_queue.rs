@@ -1,14 +1,16 @@
 use std::{
     cmp::Reverse,
+    collections::HashMap as StdHashMap,
     sync::atomic::{AtomicBool, Ordering},
     time::Duration as StdDuration,
 };
 
 use ::time::{Duration, OffsetDateTime};
-use eyre::{Result, WrapErr};
+use bathbot_psql::model::osu::{TrackedOsuUserKey, TrackedOsuUserValue};
+use eyre::Result;
 use flexmap::tokio::TokioMutexMap;
-use futures::StreamExt;
-use hashbrown::hash_map::{DefaultHashBuilder, Entry, HashMap};
+use futures::{future, StreamExt};
+use hashbrown::hash_map::{DefaultHashBuilder, Entry};
 use once_cell::sync::OnceCell;
 use parking_lot::RwLock;
 use priority_queue::PriorityQueue;
@@ -16,7 +18,7 @@ use rosu_v2::model::GameMode;
 use tokio::{sync::Mutex, time};
 use twilight_model::id::{marker::ChannelMarker, Id};
 
-use crate::{database::TrackingUser, util::hasher::IntHasher, Database};
+use crate::{manager::OsuTrackingManager, util::hasher::IntHasher};
 
 static OSU_TRACKING_INTERVAL: OnceCell<Duration> = OnceCell::with_value(Duration::minutes(150));
 
@@ -25,12 +27,10 @@ pub fn default_tracking_interval() -> Duration {
 }
 
 type TrackingQueue =
-    Mutex<PriorityQueue<TrackingEntry, Reverse<OffsetDateTime>, DefaultHashBuilder>>;
-
-type Channels = HashMap<Id<ChannelMarker>, usize, IntHasher>;
+    Mutex<PriorityQueue<TrackedOsuUserKey, Reverse<OffsetDateTime>, DefaultHashBuilder>>;
 
 pub struct TrackingStats {
-    pub next_pop: TrackingEntry,
+    pub next_pop: TrackedOsuUserKey,
     pub users: usize,
     pub queue: usize,
     pub last_pop: OffsetDateTime,
@@ -40,30 +40,14 @@ pub struct TrackingStats {
     pub ms_per_track: i64,
 }
 
-#[derive(Copy, Clone, Eq, Hash, PartialEq)]
-pub struct TrackingEntry {
-    pub user_id: u32,
-    pub mode: GameMode,
-}
-
-impl From<&TrackingUser> for TrackingEntry {
-    #[inline]
-    fn from(user: &TrackingUser) -> Self {
-        Self {
-            user_id: user.user_id,
-            mode: user.mode,
-        }
-    }
-}
-
 pub struct OsuTracking {
     queue: OsuTrackingQueue,
 }
 
 impl OsuTracking {
     #[cold]
-    pub async fn new(psql: &Database) -> Result<Self> {
-        OsuTrackingQueue::new(psql)
+    pub async fn new(manager: OsuTrackingManager<'_>) -> Result<Self> {
+        OsuTrackingQueue::new(manager)
             .await
             .map(|queue| Self { queue })
     }
@@ -88,22 +72,18 @@ impl OsuTracking {
         *self.queue.interval.read()
     }
 
-    pub async fn reset(&self, user_id: u32, mode: GameMode) {
-        self.queue.reset(user_id, mode).await;
+    pub async fn reset(&self, key: TrackedOsuUserKey) {
+        self.queue.reset(key).await;
     }
 
     pub async fn update_last_date(
         &self,
-        user_id: u32,
-        mode: GameMode,
+        key: TrackedOsuUserKey,
         new_date: OffsetDateTime,
-        psql: &Database,
+        manager: OsuTrackingManager<'_>,
     ) -> Result<()> {
-        if self.queue.update_last_date(user_id, mode, new_date).await {
-            let entry = TrackingEntry { user_id, mode };
-            psql.update_osu_tracking_date(&entry, new_date)
-                .await
-                .wrap_err("failed to update database entry")?;
+        if self.queue.update_last_date(key, new_date).await {
+            manager.update_date(key).await?;
         }
 
         Ok(())
@@ -111,21 +91,23 @@ impl OsuTracking {
 
     pub async fn get_tracked(
         &self,
-        user_id: u32,
-        mode: GameMode,
-    ) -> Option<(OffsetDateTime, Channels)> {
-        self.queue.get_tracked(user_id, mode).await
+        key: TrackedOsuUserKey,
+    ) -> Option<TrackedOsuUserValue<IntHasher>> {
+        self.queue.get_tracked(key).await
     }
 
-    pub async fn pop(&self) -> Option<(TrackingEntry, usize)> {
+    pub async fn pop(&self) -> Option<(TrackedOsuUserKey, u8)> {
         self.queue.pop().await
     }
 
-    pub async fn remove_user_all(&self, user_id: u32, psql: &Database) -> Result<()> {
+    pub async fn remove_user_all(
+        &self,
+        user_id: u32,
+        manager: OsuTrackingManager<'_>,
+    ) -> Result<()> {
         for mode in self.queue.remove_user_all(user_id).await {
-            psql.remove_osu_tracking(user_id, mode)
-                .await
-                .wrap_err("failed to remove entry from database")?;
+            let key = TrackedOsuUserKey { user_id, mode };
+            manager.remove_user(key).await?;
         }
 
         Ok(())
@@ -136,10 +118,10 @@ impl OsuTracking {
         user_id: u32,
         mode: Option<GameMode>,
         channel: Id<ChannelMarker>,
-        psql: &Database,
+        manager: OsuTrackingManager<'_>,
     ) -> Result<()> {
         let remove_entries = self.queue.remove_user(user_id, mode, channel).await;
-        self.remove(remove_entries, psql).await?;
+        self.remove(remove_entries, manager).await?;
 
         Ok(())
     }
@@ -148,26 +130,29 @@ impl OsuTracking {
         &self,
         channel: Id<ChannelMarker>,
         mode: Option<GameMode>,
-        psql: &Database,
+        manager: OsuTrackingManager<'_>,
     ) -> Result<usize> {
         let remove_entries = self.queue.remove_channel(channel, mode).await;
         let len = remove_entries.len();
-        self.remove(remove_entries, psql).await?;
+        self.remove(remove_entries, manager).await?;
 
         Ok(len)
     }
 
-    async fn remove(&self, remove: Vec<RemoveEntry>, psql: &Database) -> Result<()> {
+    async fn remove(
+        &self,
+        remove: Vec<RemoveEntry>,
+        manager: OsuTrackingManager<'_>,
+    ) -> Result<()> {
         for remove_entry in remove {
-            let TrackingEntry { user_id, mode } = remove_entry.entry;
-
             if remove_entry.no_longer_tracked {
-                psql.remove_osu_tracking(user_id, mode).await?;
+                manager.remove_user(remove_entry.key).await?;
             } else {
-                let guard = self.queue.users.lock(&remove_entry.entry).await;
+                let guard = self.queue.users.lock(&remove_entry.key).await;
 
                 if let Some(user) = guard.get() {
-                    psql.update_osu_tracking(user_id, mode, user.last_top_score, &user.channels)
+                    manager
+                        .update_channels(remove_entry.key, &user.channels)
                         .await?;
                 }
             }
@@ -182,28 +167,20 @@ impl OsuTracking {
         mode: GameMode,
         last_top_score: OffsetDateTime,
         channel: Id<ChannelMarker>,
-        limit: usize,
-        psql: &Database,
+        limit: u8,
+        manager: OsuTrackingManager<'_>,
     ) -> Result<bool> {
-        let added = self
-            .queue
-            .add(user_id, mode, last_top_score, channel, limit)
-            .await;
+        let key = TrackedOsuUserKey { user_id, mode };
+        let added = self.queue.add(key, last_top_score, channel, limit).await;
 
         match added {
-            AddEntry::AddedNew => {
-                psql.insert_osu_tracking(user_id, mode, last_top_score, channel, limit)
-                    .await
-                    .wrap_err("failed to insert entry")?;
-            }
+            AddEntry::AddedNew => manager.insert_user(key, channel, limit).await?,
             AddEntry::NotAdded => return Ok(false),
             AddEntry::Added | AddEntry::UpdatedLimit => {
-                let entry = TrackingEntry { user_id, mode };
-                let guard = self.queue.users.lock(&entry).await;
+                let guard = self.queue.users.lock(&key).await;
 
                 if let Some(user) = guard.get() {
-                    psql.update_osu_tracking(user_id, mode, user.last_top_score, &user.channels)
-                        .await?;
+                    manager.update_channels(key, &user.channels).await?;
                 } else {
                     return Ok(false);
                 }
@@ -213,7 +190,7 @@ impl OsuTracking {
         Ok(true)
     }
 
-    pub async fn list(&self, channel: Id<ChannelMarker>) -> Vec<(u32, GameMode, usize)> {
+    pub async fn list(&self, channel: Id<ChannelMarker>) -> Vec<(TrackedOsuUserKey, u8)> {
         self.queue.list(channel).await
     }
 
@@ -224,7 +201,7 @@ impl OsuTracking {
 
 pub struct OsuTrackingQueue {
     queue: TrackingQueue,
-    users: TokioMutexMap<TrackingEntry, TrackingUser>,
+    users: TokioMutexMap<TrackedOsuUserKey, TrackedOsuUserValue<IntHasher>>,
     last_date: Mutex<OffsetDateTime>,
     pub interval: RwLock<Duration>,
     pub stop_tracking: AtomicBool,
@@ -232,12 +209,8 @@ pub struct OsuTrackingQueue {
 
 impl OsuTrackingQueue {
     #[cold]
-    async fn new(psql: &Database) -> Result<Self> {
-        let users = psql
-            .get_osu_trackings()
-            .await
-            .wrap_err("failed to get tracking entries from database")?;
-
+    async fn new(manager: OsuTrackingManager<'_>) -> Result<Self> {
+        let users = manager.get_users().await?;
         let now = OffsetDateTime::now_utc();
 
         let queue = users
@@ -257,28 +230,22 @@ impl OsuTrackingQueue {
     }
 
     /// Put the entry at the end of the queue
-    async fn reset(&self, user_id: u32, mode: GameMode) {
+    async fn reset(&self, key: TrackedOsuUserKey) {
         let now = OffsetDateTime::now_utc();
         *self.last_date.lock().await = now;
-        let entry = TrackingEntry { user_id, mode };
-        self.queue.lock().await.push_decrease(entry, Reverse(now));
+        self.queue.lock().await.push_decrease(key, Reverse(now));
     }
 
     /// Returns whether the entry was updated
     /// i.e. if `new_date` comes after the latest top play of the user
-    async fn update_last_date(
-        &self,
-        user_id: u32,
-        mode: GameMode,
-        new_date: OffsetDateTime,
-    ) -> bool {
+    async fn update_last_date(&self, key: TrackedOsuUserKey, new_date: OffsetDateTime) -> bool {
         self.users
-            .lock(&TrackingEntry { user_id, mode })
+            .lock(&key)
             .await
             .get_mut()
-            .filter(|user| new_date > user.last_top_score)
-            .map_or(false, |mut user| {
-                user.last_top_score = new_date;
+            .filter(|value| new_date > value.last_update)
+            .map_or(false, |mut value| {
+                value.last_update = new_date;
 
                 true
             })
@@ -286,20 +253,16 @@ impl OsuTrackingQueue {
 
     /// Returns all channels in which a user is tracked for a mode
     /// and also the date time of the user's last top score
-    async fn get_tracked(
-        &self,
-        user_id: u32,
-        mode: GameMode,
-    ) -> Option<(OffsetDateTime, Channels)> {
+    async fn get_tracked(&self, key: TrackedOsuUserKey) -> Option<TrackedOsuUserValue<IntHasher>> {
         self.users
-            .lock(&TrackingEntry { user_id, mode })
+            .lock(&key)
             .await
             .get()
-            .map(|user| (user.last_top_score, user.channels.to_owned()))
+            .map(TrackedOsuUserValue::to_owned)
     }
 
     /// Pop a user from the queue to be checked for tracking
-    async fn pop(&self) -> Option<(TrackingEntry, usize)> {
+    async fn pop(&self) -> Option<(TrackedOsuUserKey, u8)> {
         let len = self.queue.lock().await.len();
 
         if len == 0 || self.stop_tracking.load(Ordering::Acquire) {
@@ -315,11 +278,11 @@ impl OsuTrackingQueue {
 
         // Pop user and return them
         loop {
-            let entry = self.queue.lock().await.pop().map(|(entry, _)| entry)?;
-            let guard = self.users.lock(&entry).await;
+            let key = self.queue.lock().await.pop().map(|(key, _)| key)?;
+            let guard = self.users.lock(&key).await;
 
             if let Some(amount) = guard.get().and_then(|u| u.channels.values().max().copied()) {
-                return Some((entry, amount));
+                return Some((key, amount));
             }
         }
     }
@@ -336,10 +299,10 @@ impl OsuTrackingQueue {
         }
 
         for &mode in to_remove.iter() {
-            let entry = TrackingEntry { user_id, mode };
+            let key = TrackedOsuUserKey { user_id, mode };
 
-            self.queue.lock().await.remove(&entry);
-            self.users.lock(&entry).await.remove();
+            self.queue.lock().await.remove(&key);
+            self.users.lock(&key).await.remove();
         }
 
         to_remove
@@ -358,20 +321,20 @@ impl OsuTrackingQueue {
         while let Some(mut guard) = stream.next().await {
             if guard.key().user_id == user_id
                 && mode.map_or(true, |m| guard.key().mode == m)
-                && guard.value_mut().remove_channel(channel)
+                && guard.value_mut().channels.remove(&channel).is_some()
             {
                 removed.push(RemoveEntry::from(guard.key()));
             }
         }
 
         for user_remove in removed.iter_mut() {
-            let mut guard = self.users.own(user_remove.entry).await;
+            let mut guard = self.users.own(user_remove.key).await;
 
             if let Entry::Occupied(entry) = guard.entry() {
                 if entry.get().channels.is_empty() {
                     user_remove.no_longer_tracked = true;
                     entry.remove();
-                    self.queue.lock().await.remove(&user_remove.entry);
+                    self.queue.lock().await.remove(&user_remove.key);
                 }
             }
         }
@@ -391,20 +354,20 @@ impl OsuTrackingQueue {
 
         while let Some(mut guard) = stream.next().await {
             if mode.map_or(true, |m| guard.key().mode == m)
-                && guard.value_mut().remove_channel(channel)
+                && guard.value_mut().channels.remove(&channel).is_some()
             {
                 removed.push(RemoveEntry::from(guard.key()));
             }
         }
 
         for channel_remove in removed.iter_mut() {
-            let mut guard = self.users.own(channel_remove.entry).await;
+            let mut guard = self.users.own(channel_remove.key).await;
 
             if let Entry::Occupied(entry) = guard.entry() {
                 if entry.get().channels.is_empty() {
                     channel_remove.no_longer_tracked = true;
                     entry.remove();
-                    self.queue.lock().await.remove(&channel_remove.entry);
+                    self.queue.lock().await.remove(&channel_remove.key);
                 }
             }
         }
@@ -415,13 +378,11 @@ impl OsuTrackingQueue {
     /// Returns whether the entry has been newly added, updated, or not added at all
     async fn add(
         &self,
-        user_id: u32,
-        mode: GameMode,
+        key: TrackedOsuUserKey,
         last_top_score: OffsetDateTime,
         channel: Id<ChannelMarker>,
-        limit: usize,
+        limit: u8,
     ) -> AddEntry {
-        let key = TrackingEntry { user_id, mode };
         let mut guard = self.users.own(key).await;
 
         match guard.entry() {
@@ -441,15 +402,19 @@ impl OsuTrackingQueue {
                 }
             },
             Entry::Vacant(entry) => {
-                let tracking_user =
-                    TrackingUser::new(user_id, mode, last_top_score, channel, limit);
+                let mut channels = StdHashMap::default();
+                channels.insert(channel, limit);
 
-                entry.insert(tracking_user);
+                let value = TrackedOsuUserValue {
+                    channels,
+                    last_update: last_top_score,
+                };
+
+                entry.insert(value);
 
                 let now = OffsetDateTime::now_utc();
                 *self.last_date.lock().await = now;
-                let entry = TrackingEntry { user_id, mode };
-                self.queue.lock().await.push(entry, Reverse(now));
+                self.queue.lock().await.push(key, Reverse(now));
 
                 AddEntry::AddedNew
             }
@@ -457,18 +422,12 @@ impl OsuTrackingQueue {
     }
 
     /// Returns all entries that are tracked in the channel
-    async fn list(&self, channel: Id<ChannelMarker>) -> Vec<(u32, GameMode, usize)> {
+    async fn list(&self, channel: Id<ChannelMarker>) -> Vec<(TrackedOsuUserKey, u8)> {
         self.users
             .iter()
-            .filter_map(|guard| {
-                let limit = match guard.value().channels.get(&channel) {
-                    Some(limit) => *limit,
-                    None => return futures::future::ready(None),
-                };
-
-                let TrackingEntry { user_id, mode } = guard.key();
-
-                futures::future::ready(Some((*user_id, *mode, limit)))
+            .filter_map(|guard| match guard.value().channels.get(&channel) {
+                Some(limit) => future::ready(Some((*guard.key(), *limit))),
+                None => future::ready(None),
             })
             .collect()
             .await
@@ -503,15 +462,15 @@ impl OsuTrackingQueue {
 }
 
 pub struct RemoveEntry {
-    entry: TrackingEntry,
+    key: TrackedOsuUserKey,
     no_longer_tracked: bool,
 }
 
-impl From<&TrackingEntry> for RemoveEntry {
+impl From<&TrackedOsuUserKey> for RemoveEntry {
     #[inline]
-    fn from(entry: &TrackingEntry) -> Self {
+    fn from(key: &TrackedOsuUserKey) -> Self {
         Self {
-            entry: *entry,
+            key: *key,
             no_longer_tracked: false,
         }
     }

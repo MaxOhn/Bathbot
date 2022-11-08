@@ -6,7 +6,6 @@ use std::{
 use eyre::Result;
 use futures::StreamExt;
 use twilight_gateway::{cluster::Events, Event};
-use twilight_model::id::Id;
 
 use crate::util::Authored;
 
@@ -102,7 +101,7 @@ pub async fn event_loop(ctx: Arc<Context>, mut events: Events) {
             let handle_fut = handle_event(ctx, event, shard_id);
 
             if let Err(err) = handle_fut.await {
-                error!("{:?}", err.wrap_err("Failed to handle event"));
+                error!("{:?}", err.wrap_err("failed to handle event"));
             }
         });
     }
@@ -211,7 +210,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<
 
             if !msg.author.bot {
                 ctx.stats.message_counts.user_messages.inc()
-            } else if ctx.cache.is_own(&*msg).await {
+            } else if ctx.cache.is_own(&msg).await {
                 ctx.stats.message_counts.own_messages.inc()
             } else {
                 ctx.stats.message_counts.other_bot_messages.inc()
@@ -233,46 +232,8 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<
         Event::MessageUpdate(_) => ctx.stats.event_counts.message_update.inc(),
         Event::PresenceUpdate(_) => {}
         Event::PresencesReplace => {}
-        Event::ReactionAdd(reaction_add) => {
-            ctx.stats.event_counts.reaction_add.inc();
-            let reaction = &reaction_add.0;
-
-            if let Some(guild_id) = reaction.guild_id {
-                if let Some(roles) = ctx.get_role_assigns(reaction) {
-                    for role_id in roles.into_iter().map(Id::new) {
-                        let add_role_fut =
-                            ctx.http
-                                .add_guild_member_role(guild_id, reaction.user_id, role_id);
-
-                        match add_role_fut.exec().await {
-                            Ok(_) => debug!("Assigned react-role to user"),
-                            Err(err) => error!("Error while assigning react-role to user: {err}"),
-                        }
-                    }
-                }
-            }
-        }
-        Event::ReactionRemove(reaction_remove) => {
-            ctx.stats.event_counts.reaction_remove.inc();
-            let reaction = &reaction_remove.0;
-
-            if let Some(guild_id) = reaction.guild_id {
-                if let Some(roles) = ctx.get_role_assigns(reaction) {
-                    for role_id in roles.into_iter().map(Id::new) {
-                        let remove_role_fut =
-                            ctx.http
-                                .remove_guild_member_role(guild_id, reaction.user_id, role_id);
-
-                        match remove_role_fut.exec().await {
-                            Ok(_) => debug!("Removed react-role from user"),
-                            Err(err) => {
-                                error!("Error while removing react-role from user: {err}")
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        Event::ReactionAdd(_) => ctx.stats.event_counts.reaction_add.inc(),
+        Event::ReactionRemove(_) => ctx.stats.event_counts.reaction_remove.inc(),
         Event::ReactionRemoveAll(_) => ctx.stats.event_counts.reaction_remove_all.inc(),
         Event::ReactionRemoveEmoji(_) => ctx.stats.event_counts.reaction_remove_emoji.inc(),
         Event::Ready(_) => {

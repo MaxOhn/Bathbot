@@ -1,23 +1,22 @@
 use std::{collections::BTreeMap, fmt::Write};
 
 use command_macros::EmbedData;
-use rosu_v2::model::user::User;
 
 use crate::{
-    core::Context,
-    custom_client::OsuStatsScore,
-    embeds::osu,
+    commands::osu::OsuStatsEntry,
+    manager::redis::{osu::User, RedisData},
     pagination::Pages,
-    pp::PpCalculator,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
-        datetime::how_long_ago_dynamic,
-        numbers::with_comma_int,
+        datetime::HowLongAgoDynamic,
+        numbers::{round, WithComma},
         osu::grade_emote,
-        CowUtils, ScoreExt,
+        CowUtils,
     },
 };
+
+use super::{ComboFormatter, HitResultFormatter, ModsFormatter, PpFormatter};
 
 #[derive(EmbedData)]
 pub struct OsuStatsGlobalsEmbed {
@@ -28,17 +27,16 @@ pub struct OsuStatsGlobalsEmbed {
 }
 
 impl OsuStatsGlobalsEmbed {
-    pub async fn new(
-        user: &User,
-        scores: &BTreeMap<usize, OsuStatsScore>,
+    pub fn new(
+        user: &RedisData<User>,
+        entries: &BTreeMap<usize, OsuStatsEntry>,
         total: usize,
-        ctx: &Context,
         pages: &Pages,
     ) -> Self {
-        if scores.is_empty() {
+        if entries.is_empty() {
             return Self {
-                author: author!(user),
-                thumbnail: user.avatar_url.to_owned(),
+                author: user.author_builder(),
+                thumbnail: user.avatar_url().to_owned(),
                 footer: FooterBuilder::new("Page 1/1 ~ Total scores: 0"),
                 description: "No scores with these parameters were found".to_owned(),
             };
@@ -48,63 +46,44 @@ impl OsuStatsGlobalsEmbed {
         let pages = pages.last_page();
         let index = (page - 1) * 5;
 
-        let entries = scores.range(index..index + 5);
+        let entries = entries.range(index..index + 5);
         let mut description = String::with_capacity(1024);
 
-        for (_, score) in entries {
+        for (_, entry) in entries {
+            let OsuStatsEntry {
+                score,
+                map,
+                rank,
+                stars,
+                max_pp,
+            } = entry;
+
             let grade = grade_emote(score.grade);
-
-            let (pp, max_pp, stars) = match PpCalculator::new(ctx, score.map.beatmap_id).await {
-                Ok(base_calc) => {
-                    let mut calc = base_calc.score(score);
-
-                    let stars = calc.stars();
-                    let max_pp = calc.max_pp();
-                    let pp = calc.pp();
-
-                    (Some(pp as f32), Some(max_pp as f32), stars as f32)
-                }
-                Err(err) => {
-                    warn!("{:?}", err.wrap_err("Failed to get pp calculator"));
-
-                    (None, None, 0.0)
-                }
-            };
-
-            let pp = osu::get_pp(pp, max_pp);
-            let mut combo = format!("**{}x**/", score.max_combo);
-
-            match score.map.max_combo {
-                Some(amount) => {
-                    let _ = write!(combo, "{amount}x");
-                }
-
-                None => combo.push('-'),
-            }
 
             let _ = writeln!(
                 description,
-                "**[#{rank}] [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars:.2}★]\n\
+                "**[#{rank}] [{title} [{version}]]({OSU_BASE}b/{map_id}) {mods}** [{stars:.2}★]\n\
                 {grade} {pp} ~ ({acc}%) ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
-                rank = score.position,
-                title = score.map.title.cow_escape_markdown(),
-                version = score.map.version.cow_escape_markdown(),
-                id = score.map.beatmap_id,
-                mods = osu::get_mods(score.enabled_mods),
-                acc = score.accuracy,
-                score = with_comma_int(score.score),
-                hits = score.hits_string(score.map.mode),
-                ago = how_long_ago_dynamic(&score.date)
+                title = map.title().cow_escape_markdown(),
+                version = map.version().cow_escape_markdown(),
+                map_id = map.map_id(),
+                mods = ModsFormatter::new(score.mods),
+                pp = PpFormatter::new(Some(score.pp), Some(*max_pp)),
+                acc = round(score.accuracy),
+                score = WithComma::new(score.score),
+                combo = ComboFormatter::new(score.max_combo, map.max_combo()),
+                hits = HitResultFormatter::new(score.mode, score.statistics.clone()),
+                ago = HowLongAgoDynamic::new(&score.ended_at),
             );
         }
 
         let footer = FooterBuilder::new(format!("Page {page}/{pages} ~ Total scores: {total}"));
 
         Self {
-            author: author!(user),
+            author: user.author_builder(),
             description,
             footer,
-            thumbnail: user.avatar_url.to_owned(),
+            thumbnail: user.avatar_url().to_owned(),
         }
     }
 }

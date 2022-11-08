@@ -1,7 +1,8 @@
 use std::{str::FromStr, sync::Arc};
 
+use bathbot_psql::model::osu::ArtistTitle;
 use eyre::{Report, Result};
-use rosu_v2::prelude::{BeatmapsetCompact, GameMode, OsuError};
+use rosu_v2::prelude::GameMode;
 use tokio::{
     fs::{remove_file, File},
     io::AsyncWriteExt,
@@ -11,7 +12,7 @@ use crate::{
     core::BotConfig,
     util::{
         builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE},
+        constants::{GENERAL_ISSUE, OSU_BASE},
         interaction::InteractionCommand,
         InteractionCommandExt,
     },
@@ -69,18 +70,18 @@ pub async fn addbg(ctx: Arc<Context>, command: InteractionCommand, bg: OwnerAddB
                 Ok(file) => file,
                 Err(err) => {
                     let _ = command.error(&ctx, GENERAL_ISSUE).await;
-                    let report = Report::new(err).wrap_err("failed to create file for new bg");
+                    let err = Report::new(err).wrap_err("failed to create file for new bg");
 
-                    return Err(report);
+                    return Err(err);
                 }
             };
 
             // Store in file
             if let Err(err) = file.write_all(&content).await {
                 let _ = command.error(&ctx, GENERAL_ISSUE).await;
-                let report = Report::new(err).wrap_err("failed writing to bg file");
+                let err = Report::new(err).wrap_err("failed writing to bg file");
 
-                return Err(report);
+                return Err(err);
             }
             path
         }
@@ -93,13 +94,8 @@ pub async fn addbg(ctx: Arc<Context>, command: InteractionCommand, bg: OwnerAddB
 
     // Check if valid mapset id
     let content = match prepare_mapset(&ctx, mapset_id, &image.filename, mode).await {
-        Ok(mapset) => format!(
-            "Background for [{artist} - {title}]({base}s/{id}) successfully added ({mode})",
-            artist = mapset.artist,
-            title = mapset.title,
-            base = OSU_BASE,
-            id = mapset_id,
-            mode = mode
+        Ok(ArtistTitle { artist, title }) => format!(
+            "Background for [{artist} - {title}]({OSU_BASE}s/{mapset_id}) successfully added ({mode})",
         ),
         Err(err_msg) => {
             let _ = remove_file(path).await;
@@ -119,40 +115,23 @@ async fn prepare_mapset(
     mapset_id: u32,
     filename: &str,
     mode: GameMode,
-) -> Result<BeatmapsetCompact, &'static str> {
-    let db_fut = ctx.psql().get_beatmapset::<BeatmapsetCompact>(mapset_id);
+) -> Result<ArtistTitle, &'static str> {
+    let artist_title = match ctx.osu_map().artist_title(mapset_id).await {
+        Ok(artist_title) => artist_title,
+        Err(err) => {
+            warn!("{err:?}");
 
-    let mapset = match db_fut.await {
-        Ok(mapset) => mapset,
-        Err(_) => match ctx.osu().beatmapset(mapset_id).await {
-            Ok(mapset) => {
-                if let Err(err) = ctx.psql().insert_beatmapset(&mapset).await {
-                    warn!(
-                        "{:?}",
-                        err.wrap_err("Failed to insert mapset into database")
-                    );
-                }
-
-                mapset.into()
-            }
-            Err(OsuError::NotFound) => {
-                return Err("No mapset found with the name of the given file as id")
-            }
-            Err(err) => {
-                let report = Report::new(err).wrap_err("Failed to request mapset");
-                error!("{report:?}");
-
-                return Err(OSU_API_ISSUE);
-            }
-        },
+            return Err(GENERAL_ISSUE);
+        }
     };
 
-    if let Err(err) = ctx.psql().add_tag_mapset(mapset_id, filename, mode).await {
-        let wrap = "Failed to add mapset to tags table";
-        warn!("{:?}", err.wrap_err(wrap));
+    let upsert_fut = ctx.games().bggame_upsert_mapset(mapset_id, filename, mode);
+
+    if let Err(err) = upsert_fut.await {
+        warn!("{err:?}");
 
         return Err("There is already an entry with this mapset id");
     }
 
-    Ok(mapset)
+    Ok(artist_title)
 }

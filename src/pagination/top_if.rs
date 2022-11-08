@@ -1,28 +1,33 @@
 use command_macros::pagination;
-use rosu_v2::prelude::{GameMode, Score, User};
+use rosu_v2::prelude::GameMode;
 use twilight_model::channel::embed::Embed;
 
-use crate::embeds::{EmbedData, TopIfEmbed};
+use crate::{
+    commands::osu::TopIfEntry,
+    embeds::{EmbedData, TopIfEmbed},
+    manager::redis::{osu::User, RedisData},
+};
 
 use super::Pages;
 
-#[pagination(per_page = 5, entries = "scores")]
+#[pagination(per_page = 5, entries = "entries")]
 pub struct TopIfPagination {
-    user: User,
-    scores: Vec<(usize, Score, Option<f32>)>,
+    user: RedisData<User>,
+    entries: Vec<TopIfEntry>,
     mode: GameMode,
     pre_pp: f32,
     post_pp: f32,
-    rank: Option<usize>,
+    rank: Option<u32>,
 }
 
 impl TopIfPagination {
     pub async fn build_page(&mut self, pages: &Pages) -> Embed {
-        let scores = self.scores.iter().skip(pages.index).take(pages.per_page);
+        let end_idx = self.entries.len().min(pages.index + pages.per_page);
+        let entries = &self.entries[pages.index..end_idx];
 
         let embed_fut = TopIfEmbed::new(
             &self.user,
-            scores,
+            entries,
             self.mode,
             self.pre_pp,
             self.post_pp,

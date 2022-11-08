@@ -4,13 +4,18 @@ use command_macros::command;
 use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rosu_v2::{
-    prelude::{GameMode, MostPlayedMap, OsuError},
+    prelude::{MostPlayedMap, OsuError},
+    request::UserId,
     OsuResult,
 };
 
 use crate::{
-    commands::osu::{NameExtraction, UserArgs},
+    commands::osu::{user_not_found, UserExtraction},
     core::commands::CommandOrigin,
+    manager::redis::{
+        osu::{User, UserArgs},
+        RedisData,
+    },
     pagination::MostPlayedCommonPagination,
     util::{
         builder::MessageBuilder,
@@ -52,19 +57,19 @@ async fn prefix_mostplayedcommon(ctx: Arc<Context>, msg: &Message, args: Args<'_
     mostplayed(ctx, msg.into(), args_).await
 }
 
-async fn extract_name(ctx: &Context, args: &mut CompareMostPlayed<'_>) -> NameExtraction {
+async fn extract_user_id(ctx: &Context, args: &mut CompareMostPlayed<'_>) -> UserExtraction {
     if let Some(name) = args.name1.take().or_else(|| args.name2.take()) {
-        NameExtraction::Name(name.as_ref().into())
+        UserExtraction::Id(UserId::Name(name.as_ref().into()))
     } else if let Some(discord) = args.discord1.take().or_else(|| args.discord2.take()) {
-        match ctx.psql().get_user_osu(discord).await {
-            Ok(Some(osu)) => NameExtraction::Name(osu.into_username()),
+        match ctx.user_config().osu_id(discord).await {
+            Ok(Some(user_id)) => UserExtraction::Id(UserId::Id(user_id)),
             Ok(None) => {
-                NameExtraction::Content(format!("<@{discord}> is not linked to an osu!profile"))
+                UserExtraction::Content(format!("<@{discord}> is not linked to an osu!profile"))
             }
-            Err(err) => NameExtraction::Err(err.wrap_err("failed to get username")),
+            Err(err) => UserExtraction::Err(err),
         }
     } else {
-        NameExtraction::None
+        UserExtraction::None
     }
 }
 
@@ -75,27 +80,27 @@ pub(super) async fn mostplayed(
 ) -> Result<()> {
     let owner = orig.user_id()?;
 
-    let name1 = match extract_name(&ctx, &mut args).await {
-        NameExtraction::Name(name) => name,
-        NameExtraction::Err(err) => {
+    let user_id1 = match extract_user_id(&ctx, &mut args).await {
+        UserExtraction::Id(user_id) => user_id,
+        UserExtraction::Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(err);
         }
-        NameExtraction::Content(content) => return orig.error(&ctx, content).await,
-        NameExtraction::None => return orig.error(&ctx, AT_LEAST_ONE).await,
+        UserExtraction::Content(content) => return orig.error(&ctx, content).await,
+        UserExtraction::None => return orig.error(&ctx, AT_LEAST_ONE).await,
     };
 
-    let name2 = match extract_name(&ctx, &mut args).await {
-        NameExtraction::Name(name) => name,
-        NameExtraction::Err(err) => {
+    let user_id2 = match extract_user_id(&ctx, &mut args).await {
+        UserExtraction::Id(user_id) => user_id,
+        UserExtraction::Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(err);
         }
-        NameExtraction::Content(content) => return orig.error(&ctx, content).await,
-        NameExtraction::None => match ctx.psql().get_user_osu(owner).await {
-            Ok(Some(osu)) => osu.into_username(),
+        UserExtraction::Content(content) => return orig.error(&ctx, content).await,
+        UserExtraction::None => match ctx.user_config().osu_id(owner).await {
+            Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => {
                 let content =
                     "Since you're not linked with the `/link` command, you must specify two names.";
@@ -105,31 +110,31 @@ pub(super) async fn mostplayed(
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get username"));
+                return Err(err);
             }
         },
     };
 
-    let fut1 = get_scores_(&ctx, &name1);
-    let fut2 = get_scores_(&ctx, &name2);
+    let fut1 = get_user_and_scores(&ctx, &user_id1);
+    let fut2 = get_user_and_scores(&ctx, &user_id2);
 
-    let (maps1, maps2) = match tokio::join!(fut1, fut2) {
-        (Ok(maps1), Ok(maps2)) => (maps1, maps2),
+    let (user1, maps1, user2, maps2) = match tokio::join!(fut1, fut2) {
+        (Ok((user1, maps1)), Ok((user2, maps2))) => (user1, maps1, user2, maps2),
         (Err(OsuError::NotFound), _) => {
-            let content = format!("User `{name1}` was not found");
+            let content = user_not_found(&ctx, user_id1).await;
 
             return orig.error(&ctx, content).await;
         }
         (_, Err(OsuError::NotFound)) => {
-            let content = format!("User `{name2}` was not found");
+            let content = user_not_found(&ctx, user_id2).await;
 
             return orig.error(&ctx, content).await;
         }
         (Err(err), _) | (_, Err(err)) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get scores");
+            let err = Report::new(err).wrap_err("failed to get scores");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
@@ -158,7 +163,7 @@ pub(super) async fn mostplayed(
     let amount_common = maps.len();
 
     // Accumulate all necessary data
-    let mut content = format!("`{name1}` and `{name2}`");
+    let mut content = format!("`{}` and `{}`", user1.username(), user2.username());
 
     if amount_common == 0 {
         content.push_str(" don't share any maps in their 100 most played maps");
@@ -174,29 +179,30 @@ pub(super) async fn mostplayed(
         if amount_common > 1 { "s" } else { "" }
     );
 
-    MostPlayedCommonPagination::builder(name1, name2, maps, map_counts)
+    MostPlayedCommonPagination::builder(user1, user2, maps, map_counts)
         .start_by_update()
         .content(content)
         .start(ctx, orig)
         .await
 }
 
-async fn get_scores_(ctx: &Context, name: &str) -> OsuResult<Vec<MostPlayedMap>> {
-    let user_args = UserArgs::new(name, GameMode::Osu);
-    let scores_fut = ctx.osu().user_most_played(name).limit(100);
+async fn get_user_and_scores(
+    ctx: &Context,
+    user_id: &UserId,
+) -> OsuResult<(RedisData<User>, Vec<MostPlayedMap>)> {
+    match UserArgs::rosu_id(ctx, user_id).await {
+        UserArgs::Args(args) => {
+            let score_fut = ctx.osu().user_most_played(args.user_id).limit(100);
+            let user_fut = ctx.redis().osu_user_from_args(args);
 
-    if let Some(alt_name) = user_args.whitespaced_name() {
-        match scores_fut.await {
-            Ok(maps) => Ok(maps),
-            Err(OsuError::NotFound) => {
-                ctx.osu()
-                    .user_most_played(alt_name.as_str())
-                    .limit(100)
-                    .await
-            }
-            Err(err) => Err(err),
+            tokio::try_join!(user_fut, score_fut)
         }
-    } else {
-        scores_fut.await
+        UserArgs::User { user, .. } => ctx
+            .osu()
+            .user_most_played(user.user_id)
+            .limit(100)
+            .await
+            .map(|scores| (RedisData::Original(*user), scores)),
+        UserArgs::Err(err) => Err(err),
     }
 }

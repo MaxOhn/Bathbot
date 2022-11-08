@@ -2,13 +2,17 @@ use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
 use eyre::{Report, Result};
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::{
+    prelude::{GameMode, OsuError},
+    request::UserId,
+};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
+    manager::redis::osu::UserArgs,
     pagination::ProfilePagination,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -24,7 +28,7 @@ pub use self::{
     graph::{ProfileGraphFlags, ProfileGraphParams},
 };
 
-use super::{get_user, require_link, UserArgs};
+use super::{require_link, user_not_found};
 
 mod data;
 mod graph;
@@ -177,7 +181,7 @@ async fn slash_profile(ctx: Arc<Context>, mut command: InteractionCommand) -> Re
 async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) -> Result<()> {
     let owner = orig.user_id()?;
 
-    let config = match ctx.user_config(owner).await {
+    let config = match ctx.user_config().with_osu_id(owner).await {
         Ok(config) => config,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -195,47 +199,41 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
     let kind = args.embed.unwrap_or_default();
     let guild = orig.guild_id();
 
-    let name = match username!(ctx, orig, args) {
-        Some(name) => name,
-        None => match config.into_username() {
-            Some(name) => name,
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
+        None => match config.osu {
+            Some(user_id) => UserId::Id(user_id),
             None => return require_link(&ctx, &orig).await,
         },
     };
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::new(name.as_str(), mode);
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
 
-    let mut user = match get_user(&ctx, &user_args).await {
+    let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = format!("User `{name}` was not found");
+            let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user");
+            let err = Report::new(err).wrap_err("failed to get user");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
-    user.mode = mode;
-
-    // Try to get the user discord id that is linked to the osu!user
-    let discord_id_fut = ctx.psql().get_discord_from_osu_id(user.user_id);
-
-    let discord_id = match discord_id_fut.await {
+    // Try to get the discord user id that is linked to the osu!user
+    let discord_id = match ctx.user_config().discord_from_osu_id(user.user_id()).await {
         Ok(user) => guild
             .zip(user)
             .filter(|&(guild, user)| ctx.cache.member(guild, user, |_| ()).is_ok())
             .map(|(_, user)| user),
         Err(err) => {
-            warn!(
-                "{:?}",
-                err.wrap_err("Failed to get discord id from osu user id")
-            );
+            let wrap = "failed to get discord id from osu user id";
+            warn!("{:?}", err.wrap_err(wrap));
 
             None
         }

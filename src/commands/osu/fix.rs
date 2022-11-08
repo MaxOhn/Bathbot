@@ -1,11 +1,11 @@
 use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, HasMods, HasName, SlashCommand};
-use eyre::{Report, Result, WrapErr};
-use rosu_pp::{
-    Beatmap as Map, CatchPP, CatchStars, ManiaPP, OsuPP, PerformanceAttributes, TaikoPP,
+use eyre::{Report, Result};
+use rosu_v2::{
+    prelude::{GameMode, GameMods, OsuError, Score},
+    request::UserId,
 };
-use rosu_v2::prelude::{Beatmap, GameMode, GameMods, OsuError, Score, User};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     channel::{message::MessageType, Message},
@@ -15,17 +15,24 @@ use twilight_model::{
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, FixScoreEmbed},
+    manager::{
+        redis::{
+            osu::{User, UserArgs, UserArgsSlim},
+            RedisData,
+        },
+        MapError, OsuMap,
+    },
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         interaction::InteractionCommand,
         matcher,
-        osu::{prepare_beatmap_file, MapIdType, ModSelection},
-        InteractionCommandExt, ScoreExt,
+        osu::{IfFc, MapIdType, ModSelection, ScoreSlim},
+        InteractionCommandExt,
     },
     Context,
 };
 
-use super::{get_beatmap_user_score, get_user, require_link, HasMods, ModsResult, UserArgs};
+use super::{require_link, user_not_found, HasMods, ModsResult};
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(name = "fix")]
@@ -180,10 +187,10 @@ async fn prefix_fix(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<
 }
 
 async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> Result<()> {
-    let name = match username!(ctx, orig, args) {
-        Some(name) => name,
-        None => match ctx.psql().get_user_osu(orig.user_id()?).await {
-            Ok(Some(osu)) => osu.into_username(),
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
+        None => match ctx.user_config().osu_id(orig.user_id()?).await {
+            Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => return require_link(&ctx, &orig).await,
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -211,10 +218,10 @@ async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> R
 
     let data_result = match args.id {
         Some(MapOrScore::Score { id, mode }) => {
-            request_by_score(&ctx, &orig, id, mode, name.as_str()).await
+            request_by_score(&ctx, &orig, id, mode, user_id).await
         }
         Some(MapOrScore::Map(MapIdType::Map(id))) => {
-            request_by_map(&ctx, &orig, id, name.as_str(), mods).await
+            request_by_map(&ctx, &orig, id, user_id, mods).await
         }
         Some(MapOrScore::Map(MapIdType::Set(_))) => {
             let content = "Looks like you gave me a mapset id, I need a map id though";
@@ -232,7 +239,7 @@ async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> R
             };
 
             match MapIdType::map_from_msgs(&msgs, 0) {
-                Some(id) => request_by_map(&ctx, &orig, id, name.as_str(), mods).await,
+                Some(id) => request_by_map(&ctx, &orig, id, user_id, mods).await,
                 None => {
                     let content = "No beatmap specified and none found in recent channel history. \
                     Try specifying a map either by url to the map, or just by map id.";
@@ -243,67 +250,37 @@ async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: FixArgs<'_>) -> R
         }
     };
 
-    let ScoreData {
-        user,
-        map,
-        mut scores,
-    } = match data_result {
-        ScoreResult::Data(data) => data,
+    let entry = match data_result {
+        ScoreResult::Entry(entry) => entry,
         ScoreResult::Done => return Ok(()),
         ScoreResult::Error(err) => return Err(err),
     };
 
-    if map.mode == GameMode::Mania {
-        return orig.error(&ctx, "Can't fix mania scores \\:(").await;
-    }
-
-    let unchoked_pp = match scores {
-        Some((ref mut score, _)) => {
-            if score.pp.is_some() && !needs_unchoking(score, &map) {
-                None
-            } else {
-                match unchoke_pp(&ctx, score, &map).await {
-                    Ok(pp) => pp,
-                    Err(err) => {
-                        let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-                        return Err(err.wrap_err("failed to unchoke pp"));
-                    }
-                }
-            }
-        }
-        None => None,
-    };
-
-    // Process tracking
-    #[cfg(feature = "osutracking")]
-    if let Some((_, best)) = scores.as_mut() {
-        crate::tracking::process_osu_tracking(&ctx, best, Some(&user)).await;
-    }
-
-    let gb = ctx.map_garbage_collector(&map);
-
-    let embed_data = FixScoreEmbed::new(user, map, scores, unchoked_pp, mods);
+    let embed_data = FixScoreEmbed::new(&entry, mods);
     let builder = embed_data.build().into();
     orig.create_message(&ctx, &builder).await?;
-
-    // Set map on garbage collection list if unranked
-    gb.execute(&ctx);
 
     Ok(())
 }
 
+// Allow the large variant since it's the most common one
 #[allow(clippy::large_enum_variant)]
 enum ScoreResult {
-    Data(ScoreData),
+    Entry(FixEntry),
     Done,
     Error(Report),
 }
 
-struct ScoreData {
-    user: User,
-    map: Beatmap,
-    scores: Option<(Score, Vec<Score>)>,
+pub struct FixEntry {
+    pub user: RedisData<User>,
+    pub map: OsuMap,
+    pub score: Option<FixScore>,
+}
+
+pub struct FixScore {
+    pub score: ScoreSlim,
+    pub top: Vec<Score>,
+    pub if_fc: Option<IfFc>,
 }
 
 // Retrieve user's score on the map, the user itself, and the map including mapset
@@ -311,135 +288,113 @@ async fn request_by_map(
     ctx: &Context,
     orig: &CommandOrigin<'_>,
     map_id: u32,
-    name: &str,
+    user_id: UserId,
     mods: Option<GameMods>,
 ) -> ScoreResult {
-    let user_args = UserArgs::new(name, GameMode::Osu);
+    let map = match ctx.osu_map().map(map_id, None).await {
+        Ok(map) => map,
+        Err(MapError::NotFound) => {
+            let content = format!(
+                "Could not find beatmap with id `{map_id}`. \
+                Did you give me a mapset id instead of a map id?"
+            );
 
-    match get_beatmap_user_score(ctx.osu(), map_id, &user_args, mods).await {
-        Ok(mut score) => match super::prepare_score(ctx, &mut score.score).await {
-            Ok(_) => {
-                let mut map = score.score.map.take().unwrap();
+            return match orig.error(ctx, content).await {
+                Ok(_) => ScoreResult::Done,
+                Err(err) => ScoreResult::Error(err),
+            };
+        }
+        Err(MapError::Report(err)) => {
+            let _ = orig.error(ctx, GENERAL_ISSUE).await;
 
-                // First try to just get the mapset from the DB
-                let mapset_fut = ctx.psql().get_beatmapset(map.mapset_id);
-                let user_fut = ctx.osu().user(score.score.user_id).mode(score.score.mode);
+            return ScoreResult::Error(err);
+        }
+    };
 
-                let best_fut = ctx
-                    .osu()
-                    .user_scores(score.score.user_id)
-                    .mode(score.score.mode)
-                    .limit(100)
-                    .best();
+    let (user_res, scores_res) = match UserArgs::rosu_id(ctx, &user_id).await.mode(map.mode()) {
+        UserArgs::Args(args) => {
+            let user_fut = ctx.redis().osu_user_from_args(args);
+            let scores_fut = ctx.osu_scores().user_on_map(map_id).exec(args);
 
-                let (user, best) = match tokio::join!(mapset_fut, user_fut, best_fut) {
-                    (_, Err(err), _) | (_, _, Err(err)) => {
-                        let _ = orig.error(ctx, OSU_API_ISSUE).await;
-                        let report = Report::new(err).wrap_err("failed to get user");
+            tokio::join!(user_fut, scores_fut)
+        }
+        UserArgs::User { user, .. } => {
+            let args = UserArgsSlim::user_id(user.user_id).mode(map.mode());
+            let scores_res = ctx.osu_scores().user_on_map(map_id).exec(args).await;
 
-                        return ScoreResult::Error(report);
-                    }
-                    (Ok(mapset), Ok(user), Ok(best)) => {
-                        map.mapset = Some(mapset);
+            (Ok(RedisData::Original(*user)), scores_res)
+        }
+        UserArgs::Err(err) => (Err(err), Ok(Vec::new())),
+    };
 
-                        (user, best)
-                    }
-                    (Err(_), Ok(user), Ok(best)) => {
-                        let mapset = match ctx.osu().beatmapset(map.mapset_id).await {
-                            Ok(mapset) => mapset,
-                            Err(err) => {
-                                let _ = orig.error(ctx, OSU_API_ISSUE).await;
-                                let report = Report::new(err).wrap_err("failed to get beatmapset");
-
-                                return ScoreResult::Error(report);
-                            }
-                        };
-
-                        map.mapset = Some(mapset);
-
-                        (user, best)
-                    }
-                };
-
-                let data = ScoreData {
-                    user,
-                    map,
-                    scores: Some((score.score, best)),
-                };
-
-                ScoreResult::Data(data)
-            }
-            Err(err) => {
-                let _ = orig.error(ctx, OSU_API_ISSUE).await;
-                let report = Report::new(err).wrap_err("failed to prepare score");
-
-                ScoreResult::Error(report)
-            }
-        },
-        // Either the user, map, or user score on the map don't exist
+    let user = match user_res {
+        Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let map = match ctx.psql().get_beatmap(map_id, true).await {
-                Ok(map) => map,
-                Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
-                    Ok(map) => {
-                        if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-                            warn!("{:?}", err.wrap_err("Failed to insert map in database"));
-                        }
+            let content = user_not_found(ctx, user_id).await;
 
-                        map
-                    }
-                    Err(OsuError::NotFound) => {
-                        let content = format!("There is no map with id {map_id}");
-
-                        return match orig.error(ctx, content).await {
-                            Ok(_) => ScoreResult::Done,
-                            Err(err) => ScoreResult::Error(err),
-                        };
-                    }
-                    Err(err) => {
-                        let _ = orig.error(ctx, OSU_API_ISSUE).await;
-                        let report = Report::new(err).wrap_err("failed to get beatmap");
-
-                        return ScoreResult::Error(report);
-                    }
-                },
+            return match orig.error(ctx, content).await {
+                Ok(_) => ScoreResult::Done,
+                Err(err) => ScoreResult::Error(err),
             };
-
-            let user_args = UserArgs::new(name, map.mode);
-
-            let user = match get_user(ctx, &user_args).await {
-                Ok(user) => user,
-                Err(OsuError::NotFound) => {
-                    let content = format!("Could not find user `{name}`");
-
-                    return match orig.error(ctx, content).await {
-                        Ok(_) => ScoreResult::Done,
-                        Err(err) => ScoreResult::Error(err),
-                    };
-                }
-                Err(err) => {
-                    let _ = orig.error(ctx, OSU_API_ISSUE).await;
-                    let report = Report::new(err).wrap_err("failed to get user");
-
-                    return ScoreResult::Error(report);
-                }
-            };
-
-            let data = ScoreData {
-                user,
-                map,
-                scores: None,
-            };
-
-            ScoreResult::Data(data)
         }
         Err(err) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user or scores");
+            let wrap = "failed to get user";
 
-            ScoreResult::Error(report)
+            return ScoreResult::Error(Report::new(err).wrap_err(wrap));
         }
-    }
+    };
+
+    let score_opt = match scores_res {
+        Ok(scores) => match mods {
+            Some(mods) => scores.into_iter().find(|score| score.mods == mods),
+            None => scores.into_iter().next(),
+        },
+        Err(err) => {
+            let _ = orig.error(ctx, OSU_API_ISSUE).await;
+            let wrap = "failed to get scores";
+
+            return ScoreResult::Error(Report::new(err).wrap_err(wrap));
+        }
+    };
+
+    let score = match score_opt {
+        Some(score) => {
+            let user_args = UserArgsSlim::user_id(user.user_id()).mode(score.mode);
+
+            let top_fut = ctx.osu_scores().top().limit(100).exec(user_args);
+
+            let pp_fut = async {
+                match score.pp {
+                    Some(pp) => pp,
+                    None => ctx.pp(&map).score(&score).performance().await.pp() as f32,
+                }
+            };
+
+            let (top_res, pp) = tokio::join!(top_fut, pp_fut);
+
+            let top = match top_res {
+                Ok(scores) => scores,
+                Err(err) => {
+                    let _ = orig.error(ctx, OSU_API_ISSUE).await;
+                    let wrap = "failed to get top scores";
+
+                    return ScoreResult::Error(Report::new(err).wrap_err(wrap));
+                }
+            };
+
+            let score = ScoreSlim::new(score, pp);
+
+            // Not being done concurrently with the previous two because
+            // then the map retrieval might happen twice
+            let if_fc = IfFc::new(ctx, &score, &map).await;
+
+            Some(FixScore { score, top, if_fc })
+        }
+        None => None,
+    };
+
+    ScoreResult::Entry(FixEntry { user, map, score })
 }
 
 async fn request_by_score(
@@ -447,230 +402,81 @@ async fn request_by_score(
     orig: &CommandOrigin<'_>,
     score_id: u64,
     mode: GameMode,
-    name: &str,
+    user_id: UserId,
 ) -> ScoreResult {
     let score_fut = ctx.osu().score(score_id, mode);
-    let user_fut = ctx.osu().user(name).mode(mode);
+    let user_args = UserArgs::rosu_id(ctx, &user_id).await.mode(mode);
+    let user_fut = ctx.redis().osu_user(user_args);
 
-    let (user, mut score) = match tokio::try_join!(user_fut, score_fut) {
-        Ok((user, score)) => (user, score),
-        Err(err) => {
+    let (user, score) = match tokio::join!(user_fut, score_fut) {
+        (Ok(user), Ok(score)) => (user, score),
+        (Err(OsuError::NotFound), _) => {
+            let content = user_not_found(ctx, user_id).await;
+
+            return match orig.error(ctx, content).await {
+                Ok(_) => ScoreResult::Done,
+                Err(err) => ScoreResult::Error(err),
+            };
+        }
+        (_, Err(OsuError::NotFound)) => {
+            let content = format!("A score with id {score_id} does not exists");
+
+            return match orig.error(ctx, content).await {
+                Ok(_) => ScoreResult::Done,
+                Err(err) => ScoreResult::Error(err),
+            };
+        }
+        (Err(err), _) | (_, Err(err)) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user or scores");
+            let err = Report::new(err).wrap_err("failed to get user or scores");
 
-            return ScoreResult::Error(report);
+            return ScoreResult::Error(err);
         }
     };
 
-    let mut map = score.map.take().unwrap();
+    let map = score.map.as_ref().expect("missing map");
+    let map_id = map.map_id;
 
-    // First try to just get the mapset from the DB
-    let mapset_fut = ctx.psql().get_beatmapset(map.mapset_id);
+    let map_fut = ctx.osu_map().map(map_id, map.checksum.as_deref());
+    let user_args = UserArgsSlim::user_id(score.user_id).mode(score.mode);
+    let best_fut = ctx.osu_scores().top().limit(100).exec(user_args);
 
-    let best_fut = ctx
-        .osu()
-        .user_scores(score.user_id)
-        .mode(score.mode)
-        .limit(100)
-        .best();
+    let (map, top) = match tokio::join!(map_fut, best_fut) {
+        (Ok(map), Ok(best)) => (map, best),
+        (Err(MapError::NotFound), _) => {
+            let content = format!("There is no map with id {map_id}");
 
-    let best = match tokio::join!(mapset_fut, best_fut) {
+            return match orig.error(ctx, content).await {
+                Ok(_) => ScoreResult::Done,
+                Err(err) => ScoreResult::Error(err),
+            };
+        }
+        (Err(MapError::Report(err)), _) => {
+            let _ = orig.error(ctx, GENERAL_ISSUE).await;
+
+            return ScoreResult::Error(err);
+        }
         (_, Err(err)) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get top scores");
+            let err = Report::new(err).wrap_err("failed to get top scores");
 
-            return ScoreResult::Error(report);
-        }
-        (Ok(mapset), Ok(best)) => {
-            map.mapset = Some(mapset);
-
-            best
-        }
-        (Err(_), Ok(best)) => {
-            let mapset = match ctx.osu().beatmapset(map.mapset_id).await {
-                Ok(mapset) => mapset,
-                Err(err) => {
-                    let _ = orig.error(ctx, OSU_API_ISSUE).await;
-                    let report = Report::new(err).wrap_err("failed to get beatmapset");
-
-                    return ScoreResult::Error(report);
-                }
-            };
-
-            map.mapset = Some(mapset);
-
-            best
+            return ScoreResult::Error(err);
         }
     };
 
-    let data = ScoreData {
+    let pp = match score.pp {
+        Some(pp) => pp,
+        None => ctx.pp(&map).score(&score).performance().await.pp() as f32,
+    };
+
+    let score = ScoreSlim::new(score, pp);
+    let if_fc = IfFc::new(ctx, &score, &map).await;
+
+    let data = FixEntry {
         user,
         map,
-        scores: Some((score, best)),
+        score: Some(FixScore { score, top, if_fc }),
     };
 
-    ScoreResult::Data(data)
-}
-
-/// Returns unchoked pp and sets score pp if not available already
-pub(super) async fn unchoke_pp(
-    ctx: &Context,
-    score: &mut Score,
-    map: &Beatmap,
-) -> Result<Option<f32>> {
-    let map_path = prepare_beatmap_file(ctx, map.map_id)
-        .await
-        .wrap_err("failed to prepare map")?;
-
-    let rosu_map = Map::from_path(map_path)
-        .await
-        .wrap_err("failed to parse map")?;
-
-    let mods = score.mods.bits();
-
-    let attributes = if score.pp.is_some() {
-        None
-    } else {
-        let pp_result: PerformanceAttributes = match map.mode {
-            GameMode::Osu => OsuPP::new(&rosu_map)
-                .mods(mods)
-                .combo(score.max_combo as usize)
-                .n300(score.statistics.count_300 as usize)
-                .n100(score.statistics.count_100 as usize)
-                .n50(score.statistics.count_50 as usize)
-                .n_misses(score.statistics.count_miss as usize)
-                .calculate()
-                .into(),
-            GameMode::Mania => ManiaPP::new(&rosu_map)
-                .mods(mods)
-                .n320(score.statistics.count_geki as usize)
-                .n300(score.statistics.count_300 as usize)
-                .n200(score.statistics.count_katu as usize)
-                .n100(score.statistics.count_100 as usize)
-                .n50(score.statistics.count_50 as usize)
-                .n_misses(score.statistics.count_miss as usize)
-                .calculate()
-                .into(),
-            GameMode::Catch => CatchPP::new(&rosu_map)
-                .mods(mods)
-                .combo(score.max_combo as usize)
-                .fruits(score.statistics.count_300 as usize)
-                .droplets(score.statistics.count_100 as usize)
-                .misses(score.statistics.count_miss as usize)
-                .accuracy(score.accuracy as f64)
-                .calculate()
-                .into(),
-            GameMode::Taiko => TaikoPP::new(&rosu_map)
-                .combo(score.max_combo as usize)
-                .mods(mods)
-                .n_misses(score.statistics.count_miss as usize)
-                .accuracy(score.accuracy as f64)
-                .calculate()
-                .into(),
-        };
-
-        score.pp.replace(pp_result.pp() as f32);
-
-        if !needs_unchoking(score, map) {
-            return Ok(None);
-        }
-
-        Some(pp_result)
-    };
-
-    let unchoked_pp = match map.mode {
-        GameMode::Osu => {
-            let total_objects = map.count_objects() as usize;
-
-            let mut count300 = score.statistics.count_300 as usize;
-
-            let count_hits = total_objects - score.statistics.count_miss as usize;
-            let ratio = 1.0 - (count300 as f32 / count_hits as f32);
-            let new100s = (ratio * score.statistics.count_miss as f32).ceil() as u32;
-
-            count300 += score.statistics.count_miss.saturating_sub(new100s) as usize;
-            let count100 = (score.statistics.count_100 + new100s) as usize;
-            let count50 = score.statistics.count_50 as usize;
-
-            let mut calculator = OsuPP::new(&rosu_map);
-
-            if let Some(attributes) = attributes {
-                calculator = calculator.attributes(attributes);
-            }
-
-            calculator
-                .mods(mods)
-                .n300(count300)
-                .n100(count100)
-                .n50(count50)
-                .calculate()
-                .pp
-        }
-        GameMode::Catch => {
-            let attributes = match attributes {
-                Some(PerformanceAttributes::Catch(attrs)) => attrs.difficulty,
-                Some(_) => panic!("no ctb attributes after calculating stars for ctb map"),
-                None => CatchStars::new(&rosu_map).mods(mods).calculate(),
-            };
-
-            let total_objects = attributes.max_combo();
-            let passed_objects = (score.statistics.count_300
-                + score.statistics.count_100
-                + score.statistics.count_miss) as usize;
-
-            let missing = total_objects.saturating_sub(passed_objects);
-            let missing_fruits = missing.saturating_sub(
-                attributes
-                    .n_droplets
-                    .saturating_sub(score.statistics.count_100 as usize),
-            );
-            let missing_droplets = missing - missing_fruits;
-
-            let n_fruits = score.statistics.count_300 as usize + missing_fruits;
-            let n_droplets = score.statistics.count_100 as usize + missing_droplets;
-            let n_tiny_droplet_misses = score.statistics.count_katu as usize;
-            let n_tiny_droplets = score.statistics.count_50 as usize;
-
-            CatchPP::new(&rosu_map)
-                .attributes(attributes)
-                .mods(mods)
-                .fruits(n_fruits)
-                .droplets(n_droplets)
-                .tiny_droplets(n_tiny_droplets)
-                .tiny_droplet_misses(n_tiny_droplet_misses)
-                .calculate()
-                .pp
-        }
-        GameMode::Taiko => {
-            let total_objects = map.count_circles as usize;
-            let passed_objects = score.total_hits() as usize;
-
-            let mut count300 =
-                score.statistics.count_300 as usize + total_objects.saturating_sub(passed_objects);
-
-            let count_hits = total_objects - score.statistics.count_miss as usize;
-            let ratio = 1.0 - (count300 as f32 / count_hits as f32);
-            let new100s = (ratio * score.statistics.count_miss as f32).ceil() as u32;
-
-            count300 += score.statistics.count_miss.saturating_sub(new100s) as usize;
-            let count100 = (score.statistics.count_100 + new100s) as usize;
-
-            let acc = 100.0 * (2 * count300 + count100) as f32 / (2 * total_objects) as f32;
-
-            let mut calculator = TaikoPP::new(&rosu_map);
-
-            if let Some(attributes) = attributes {
-                calculator = calculator.attributes(attributes);
-            }
-
-            calculator.mods(mods).accuracy(acc as f64).calculate().pp
-        }
-        GameMode::Mania => panic!("can not unchoke mania scores"),
-    };
-
-    Ok(Some(unchoked_pp as f32))
-}
-
-fn needs_unchoking(score: &Score, map: &Beatmap) -> bool {
-    !score.is_fc(map.mode, map.max_combo.unwrap_or(0))
+    ScoreResult::Entry(data)
 }

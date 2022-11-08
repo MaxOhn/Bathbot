@@ -1,19 +1,23 @@
 use command_macros::pagination;
-use rosu_v2::prelude::{Beatmap, Score, User};
+use rosu_v2::prelude::Score;
 use twilight_model::channel::embed::Embed;
 
 use crate::{
-    core::Context,
+    commands::osu::CompareEntry,
     embeds::{EmbedData, ScoresEmbed},
+    manager::{
+        redis::{osu::User, RedisData},
+        OsuMap,
+    },
 };
 
 use super::Pages;
 
-#[pagination(per_page = 10, entries = "scores")]
+#[pagination(per_page = 10, entries = "entries")]
 pub struct ScoresPagination {
-    user: User,
-    map: Beatmap,
-    scores: Vec<Score>,
+    user: RedisData<User>,
+    map: OsuMap,
+    entries: Vec<CompareEntry>,
     pinned: Vec<Score>,
     personal: Vec<Score>,
     global_idx: Option<(usize, usize)>,
@@ -21,8 +25,9 @@ pub struct ScoresPagination {
 }
 
 impl ScoresPagination {
-    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Embed {
-        let scores = self.scores.iter().skip(pages.index).take(pages.per_page);
+    pub fn build_page(&mut self, pages: &Pages) -> Embed {
+        let end_idx = self.entries.len().min(pages.index + pages.per_page);
+        let entries = &self.entries[pages.index..end_idx];
 
         let global_idx = self
             .global_idx
@@ -34,18 +39,17 @@ impl ScoresPagination {
                 (new_idx, map_idx)
             });
 
-        let embed_fut = ScoresEmbed::new(
+        let embed = ScoresEmbed::new(
             &self.user,
             &self.map,
-            scores,
+            entries,
             &self.pinned,
             &self.personal,
             global_idx,
             self.pp_idx,
             pages,
-            ctx,
         );
 
-        embed_fut.await.build()
+        embed.build()
     }
 }

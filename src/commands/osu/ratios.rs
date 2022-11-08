@@ -2,21 +2,27 @@ use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
 use eyre::{Report, Result};
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::{
+    prelude::{GameMode, OsuError},
+    request::UserId,
+};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     core::commands::CommandOrigin,
     embeds::{EmbedData, RatioEmbed},
+    manager::redis::osu::UserArgs,
     util::{
-        builder::MessageBuilder, constants::OSU_API_ISSUE, interaction::InteractionCommand,
+        builder::MessageBuilder,
+        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        interaction::InteractionCommand,
         matcher, InteractionCommandExt,
     },
     Context,
 };
 
-use super::{require_link, ScoreArgs, UserArgs};
+use super::{require_link, user_not_found};
 
 #[derive(CommandModel, CreateCommand, Default, HasName, SlashCommand)]
 #[command(
@@ -80,45 +86,48 @@ async fn slash_ratios(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
 }
 
 async fn ratios(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Ratios<'_>) -> Result<()> {
-    let name = match username!(ctx, orig, args) {
-        Some(name) => name,
-        None => match ctx.user_config(orig.user_id()?).await?.into_username() {
-            Some(name) => name,
-            None => return require_link(&ctx, &orig).await,
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
+        None => match ctx.user_config().osu_id(orig.user_id()?).await {
+            Ok(Some(user_id)) => UserId::Id(user_id),
+            Ok(None) => return require_link(&ctx, &orig).await,
+            Err(err) => {
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                return Err(err);
+            }
         },
     };
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::new(name.as_str(), GameMode::Mania);
-    let score_args = ScoreArgs::top(100);
+    let user_args = UserArgs::rosu_id(&ctx, &user_id)
+        .await
+        .mode(GameMode::Mania);
 
-    #[allow(unused_mut)]
-    let (mut user, mut scores) =
-        match super::get_user_and_scores(&ctx, user_args, &score_args).await {
-            Ok((user, scores)) => (user, scores),
-            Err(OsuError::NotFound) => {
-                let content = format!("User `{name}` was not found");
+    let scores_fut = ctx.osu_scores().top().limit(100).exec_with_user(user_args);
 
-                return orig.error(&ctx, content).await;
-            }
-            Err(err) => {
-                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-                let report = Report::new(err).wrap_err("failed to get user or scores");
+    let (user, scores) = match scores_fut.await {
+        Ok((user, scores)) => (user, scores),
+        Err(OsuError::NotFound) => {
+            let content = user_not_found(&ctx, user_id).await;
 
-                return Err(report);
-            }
-        };
+            return orig.error(&ctx, content).await;
+        }
+        Err(err) => {
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            let err = Report::new(err).wrap_err("failed to get user or scores");
 
-    // Overwrite default mode
-    user.mode = GameMode::Mania;
-
-    // Process user and their top scores for tracking
-    #[cfg(feature = "osutracking")]
-    crate::tracking::process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
+            return Err(err);
+        }
+    };
 
     // Accumulate all necessary data
-    let embed_data = RatioEmbed::new(user, scores);
-    let content = format!("Average ratios of `{name}`'s top 100 in mania:");
+    let embed_data = RatioEmbed::new(&user, scores);
+
+    let content = format!(
+        "Average ratios of `{}`'s top 100 in mania:",
+        user.username()
+    );
 
     // Creating the embed
     let embed = embed_data.build();

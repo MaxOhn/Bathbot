@@ -48,12 +48,12 @@ pub(super) async fn players(
     let owner = orig.user_id()?;
 
     if matches!(args.mode, None) {
-        args.mode = match ctx.user_config(owner).await {
-            Ok(config) => config.mode.map(GameModeOption::from),
+        args.mode = match ctx.user_config().mode(owner).await {
+            Ok(mode) => mode.map(GameModeOption::from),
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get user config"));
+                return Err(err);
             }
         };
     }
@@ -370,7 +370,7 @@ impl<'m> OsuStatsPlayers<'m> {
                             let min = if bot.is_empty() {
                                 Self::MIN_RANK
                             } else if let Ok(num) = bot.parse::<u32>() {
-                                num.max(Self::MIN_RANK).min(Self::MAX_RANK)
+                                num.clamp(Self::MIN_RANK, Self::MAX_RANK)
                             } else {
                                 return Err(Self::ERR_PARSE_RANK.into());
                             };
@@ -378,7 +378,7 @@ impl<'m> OsuStatsPlayers<'m> {
                             let max = if top.is_empty() {
                                 Self::MAX_RANK
                             } else if let Ok(num) = top.parse::<u32>() {
-                                num.max(Self::MIN_RANK).min(Self::MAX_RANK)
+                                num.clamp(Self::MIN_RANK, Self::MAX_RANK)
                             } else {
                                 return Err(Self::ERR_PARSE_RANK.into());
                             };

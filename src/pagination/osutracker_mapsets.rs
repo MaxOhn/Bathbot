@@ -1,7 +1,6 @@
 use command_macros::pagination;
-use eyre::{Result, WrapErr};
+use eyre::Result;
 use hashbrown::HashMap;
-use rosu_v2::prelude::Beatmapset;
 use time::OffsetDateTime;
 use twilight_model::channel::embed::Embed;
 
@@ -33,31 +32,14 @@ impl OsuTrackerMapsetsPagination {
                 continue;
             }
 
-            let mapset_fut = ctx.psql().get_beatmapset::<Beatmapset>(mapset_id);
-
-            let mapset = match mapset_fut.await {
-                Ok(mapset) => mapset,
-                Err(_) => {
-                    let mapset = ctx
-                        .osu()
-                        .beatmapset(mapset_id)
-                        .await
-                        .wrap_err("failed to request beatmapset")?;
-
-                    if let Err(err) = ctx.psql().insert_beatmapset(&mapset).await {
-                        warn!("{:?}", err.wrap_err("Failed to insert mapset"));
-                    }
-
-                    mapset
-                }
-            };
+            let mapset = ctx.osu_map().mapset(mapset_id).await?;
 
             let entry = MapsetEntry {
-                creator: mapset.creator_name,
+                creator: mapset.creator.into(),
                 name: format!("{} - {}", mapset.artist, mapset.title),
                 mapset_id,
                 ranked_date: mapset.ranked_date.unwrap_or_else(OffsetDateTime::now_utc),
-                user_id: mapset.creator_id,
+                user_id: mapset.user_id as u32,
             };
 
             self.mapsets.insert(mapset_id, entry);

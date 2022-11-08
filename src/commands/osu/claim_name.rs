@@ -2,21 +2,20 @@ use std::sync::Arc;
 
 use command_macros::SlashCommand;
 use eyre::{Report, Result};
-use futures::{stream::FuturesUnordered, TryStreamExt};
-use rosu_v2::prelude::{GameMode, OsuError, User};
+use futures::{future, stream::FuturesUnordered, TryStreamExt};
+use rosu_v2::prelude::{GameMode, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
     core::Context,
     embeds::ClaimNameEmbed,
     embeds::EmbedData,
+    manager::redis::osu::{User, UserArgs},
     util::{
         self, builder::MessageBuilder, constants::OSU_API_ISSUE, interaction::InteractionCommand,
         InteractionCommandExt,
     },
 };
-
-use super::UserArgs;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
@@ -70,39 +69,10 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> 
         return Ok(());
     }
 
-    let args = [
-        GameMode::Osu,
-        GameMode::Taiko,
-        GameMode::Catch,
-        GameMode::Mania,
-    ]
-    .map(|mode| UserArgs::new(&name, mode));
-
-    let redis = ctx.redis();
-
-    let user_fut = args
-        .iter()
-        .map(|args| redis.osu_user(args))
-        .collect::<FuturesUnordered<_>>()
-        .try_fold(None, |mut user: Option<User>, next| {
-            match user.as_mut() {
-                Some(user) => {
-                    if let Some(next) = next.statistics {
-                        match user.statistics {
-                            Some(ref mut accum) => accum.playcount += next.playcount,
-                            None => user.statistics = Some(next),
-                        }
-                    }
-                }
-                None => user = Some(next),
-            }
-
-            futures::future::ready(Ok(user))
-        });
-
-    let user = match user_fut.await {
-        Ok(user) => user.unwrap(),
-        Err(OsuError::NotFound) => {
+    let user_id = match UserArgs::username(&ctx, &name).await {
+        UserArgs::Args(args) => args.user_id,
+        UserArgs::User { user, .. } => user.user_id,
+        UserArgs::Err(OsuError::NotFound) => {
             let content = if util::contains_disallowed_infix(&name) {
                 format!("`{name}` does not seem to be taken but it likely won't be accepted")
             } else {
@@ -114,11 +84,45 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> 
 
             return Ok(());
         }
+        UserArgs::Err(err) => {
+            let _ = command.error(&ctx, OSU_API_ISSUE).await;
+            let err = Report::new(err).wrap_err("failed to get user");
+
+            return Err(err);
+        }
+    };
+
+    let args = [
+        GameMode::Osu,
+        GameMode::Taiko,
+        GameMode::Catch,
+        GameMode::Mania,
+    ]
+    .map(|mode| UserArgs::user_id(user_id).mode(mode));
+
+    let user_fut = args
+        .into_iter()
+        .map(|args| ctx.redis().osu_user(args))
+        .collect::<FuturesUnordered<_>>()
+        .try_fold(None, |user: Option<User>, next| match user {
+            Some(mut user) => {
+                next.peek_stats(|stats| match user.statistics {
+                    Some(ref mut accum) => accum.playcount += stats.playcount,
+                    None => user.statistics = Some(stats.to_owned()),
+                });
+
+                future::ready(Ok(Some(user)))
+            }
+            None => future::ready(Ok(Some(next.into_original()))),
+        });
+
+    let user = match user_fut.await {
+        Ok(user) => user.unwrap(),
         Err(err) => {
             let _ = command.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user");
+            let err = Report::new(err).wrap_err("failed to get user");
 
-            return Err(report);
+            return Err(err);
         }
     };
 

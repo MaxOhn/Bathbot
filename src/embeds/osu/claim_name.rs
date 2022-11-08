@@ -1,11 +1,13 @@
 use command_macros::EmbedData;
-use rosu_v2::model::user::User;
 use time::{Duration, OffsetDateTime};
 use twilight_model::channel::embed::EmbedField;
 
-use crate::util::{
-    self, builder::AuthorBuilder, constants::OSU_BASE, numbers::with_comma_int, osu::flag_url,
-    CowUtils,
+use crate::{
+    manager::redis::osu::User,
+    util::{
+        self, builder::AuthorBuilder, constants::OSU_BASE, numbers::WithComma, osu::flag_url,
+        CowUtils,
+    },
 };
 
 #[derive(EmbedData)]
@@ -34,7 +36,7 @@ impl ClaimNameEmbed {
             let field = EmbedField {
                 inline: true,
                 name: "Total playcount".to_owned(),
-                value: with_comma_int(stats.playcount).to_string(),
+                value: WithComma::new(stats.playcount).to_string(),
             };
 
             fields.push(field);
@@ -43,7 +45,7 @@ impl ClaimNameEmbed {
         let name = name.cow_to_ascii_lowercase();
         let is_prev_name = user.username.cow_to_ascii_lowercase() != name;
 
-        let field = if user.badges.as_ref().map_or(0, Vec::len) > 0 {
+        let field = if !user.badges.is_empty() {
             let value = if is_prev_name {
                 format!(
                     "{} has a different name now but they have badges \
@@ -58,7 +60,7 @@ impl ClaimNameEmbed {
             };
 
             available_at_field(value)
-        } else if user.ranked_mapset_count.unwrap_or(0) > 0 {
+        } else if user.ranked_mapset_count > 0 {
             let value = if is_prev_name {
                 format!(
                     "{} has a different name now but they have ranked maps \

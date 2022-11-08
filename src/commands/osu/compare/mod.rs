@@ -1,18 +1,12 @@
-use std::{
-    borrow::Cow,
-    cmp::{Ordering, Reverse},
-    sync::Arc,
-};
+use std::{borrow::Cow, sync::Arc};
 
 use command_macros::SlashCommand;
 use eyre::Result;
-use rosu_v2::prelude::Score;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::GameModeOption,
-    pp::PpCalculator,
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
@@ -57,7 +51,7 @@ pub struct CompareScore<'a> {
     /// Specify a map url or map id
     map: Option<Cow<'a, str>>,
     /// Choose how the scores should be ordered
-    sort: Option<CompareScoreOrder>,
+    sort: Option<ScoreOrder>,
     #[command(help = "Filter out scores based on mods.\n\
         Mods must be given as `+mods` to require these mods to be included, \
         `+mods!` to require exactly these mods, \
@@ -78,8 +72,8 @@ pub struct CompareScore<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-#[derive(CommandOption, CreateOption)]
-pub enum CompareScoreOrder {
+#[derive(Copy, Clone, CommandOption, CreateOption)]
+pub enum ScoreOrder {
     #[option(name = "Accuracy", value = "acc")]
     Acc,
     #[option(name = "Combo", value = "combo")]
@@ -96,105 +90,10 @@ pub enum CompareScoreOrder {
     Stars,
 }
 
-impl Default for CompareScoreOrder {
+impl Default for ScoreOrder {
+    #[inline]
     fn default() -> Self {
         Self::Pp
-    }
-}
-
-impl CompareScoreOrder {
-    pub async fn apply(self, ctx: &Context, scores: &mut [Score], map_id: u32) {
-        if scores.len() <= 1 {
-            return;
-        }
-
-        match self {
-            Self::Acc => {
-                scores.sort_unstable_by(|a, b| {
-                    b.accuracy
-                        .partial_cmp(&a.accuracy)
-                        .unwrap_or(Ordering::Equal)
-                });
-            }
-            Self::Combo => scores.sort_unstable_by_key(|s| Reverse(s.max_combo)),
-            Self::Date => scores.sort_unstable_by_key(|s| Reverse(s.ended_at)),
-            Self::Misses => scores.sort_unstable_by(|a, b| {
-                b.statistics
-                    .count_miss
-                    .cmp(&a.statistics.count_miss)
-                    .then_with(|| {
-                        let hits_a = a.total_hits();
-                        let hits_b = b.total_hits();
-
-                        let ratio_a = a.statistics.count_miss as f32 / hits_a as f32;
-                        let ratio_b = b.statistics.count_miss as f32 / hits_b as f32;
-
-                        ratio_b
-                            .partial_cmp(&ratio_a)
-                            .unwrap_or(Ordering::Equal)
-                            .then_with(|| hits_b.cmp(&hits_a))
-                    })
-            }),
-            Self::Pp => {
-                let calc = match PpCalculator::new(ctx, map_id).await {
-                    Ok(calc) => calc,
-                    Err(err) => {
-                        warn!("{:?}", err.wrap_err("Failed to get pp calculator"));
-
-                        return;
-                    }
-                };
-
-                let f = |score: &mut Score| {
-                    let pp = calc.score(score).pp() as f32;
-                    let _ = score.pp.get_or_insert(pp);
-
-                    pp
-                };
-
-                sort_by_cached_key(scores, f);
-            }
-            Self::Score => scores.sort_unstable_by_key(|s| Reverse(s.score)),
-            Self::Stars => {
-                let calc = match PpCalculator::new(ctx, map_id).await {
-                    Ok(calc) => calc,
-                    Err(err) => {
-                        warn!("{:?}", err.wrap_err("Failed to get pp calculator"));
-
-                        return;
-                    }
-                };
-
-                let f = |score: &mut Score| calc.score(&*score).stars() as f32;
-                sort_by_cached_key(scores, f);
-            }
-        }
-    }
-}
-
-/// Modified `slice::sort_by_cached_key`
-fn sort_by_cached_key<F>(slice: &mut [Score], f: F)
-where
-    F: FnMut(&mut Score) -> f32,
-{
-    let mut indices: Vec<_> = slice
-        .iter_mut()
-        .map(f)
-        .enumerate()
-        .map(|(i, v)| (v, i as u32))
-        .collect();
-
-    indices.sort_unstable_by(|(a, _), (b, _)| b.partial_cmp(a).unwrap_or(Ordering::Equal));
-
-    for i in 0..slice.len() {
-        let mut idx = indices[i].1;
-
-        while (idx as usize) < i {
-            idx = indices[idx as usize].1;
-        }
-
-        indices[i].1 = idx;
-        slice.swap(i, idx as usize);
     }
 }
 

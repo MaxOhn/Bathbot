@@ -2,12 +2,12 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use eyre::{Report, Result};
 use rkyv::{Deserialize, Infallible};
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::{prelude::OsuError, request::UserId};
 
 use crate::{
-    commands::osu::{require_link, UserArgs},
+    commands::osu::{require_link, user_not_found},
     core::{commands::CommandOrigin, Context},
-    custom_client::OsekaiBadge,
+    manager::redis::{osu::UserArgs, RedisData},
     pagination::BadgePagination,
     util::{
         builder::MessageBuilder,
@@ -25,71 +25,61 @@ pub(super) async fn user(
 ) -> Result<()> {
     let owner = orig.user_id()?;
 
-    let name = match username!(ctx, orig, args) {
-        Some(name) => name,
-        None => match ctx.psql().get_user_osu(owner).await {
-            Ok(Some(osu)) => osu.into_username(),
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
+        None => match ctx.user_config().osu_id(owner).await {
+            Ok(Some(id)) => UserId::Id(id),
             Ok(None) => return require_link(&ctx, &orig).await,
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get username"));
+                return Err(err.wrap_err("failed to get user id"));
             }
         },
     };
 
-    let mut user = UserArgs::new(name.as_str(), GameMode::Osu);
-    let redis = ctx.redis();
+    let user_args_fut = UserArgs::rosu_id(&ctx, &user_id);
+    let badges_fut = ctx.redis().badges();
 
-    let (user_result, badges_result) = if let Some(alt_name) = user.whitespaced_name() {
-        match redis.osu_user(&user).await {
-            Ok(u) => (Ok(u), redis.badges().await),
-            Err(OsuError::NotFound) => {
-                user.name = &alt_name;
+    let (user_args_res, badges_res) = tokio::join!(user_args_fut, badges_fut);
 
-                tokio::join!(redis.osu_user(&user), redis.badges())
-            }
-            Err(err) => {
-                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-                let report = Report::new(err).wrap_err("failed to get osu user");
-
-                return Err(report);
-            }
-        }
-    } else {
-        tokio::join!(redis.osu_user(&user), redis.badges())
-    };
-
-    let user = match user_result {
-        Ok(user) => user,
-        Err(OsuError::NotFound) => {
-            let content = format!("User `{name}` was not found");
+    let (user_id_raw, user_id) = match user_args_res {
+        UserArgs::Args(args) => (args.user_id, user_id),
+        UserArgs::User { user, .. } => (user.user_id, UserId::Name(user.username)),
+        UserArgs::Err(OsuError::NotFound) => {
+            let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
-        Err(err) => {
+        UserArgs::Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get osu user");
+            let err = Report::new(err).wrap_err("failed to get user");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
-    let badges = match badges_result {
+    let badges = match badges_res {
         Ok(badges) => badges,
         Err(err) => {
             let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get cached badges"));
+            return Err(err.wrap_err("failed to get badges"));
         }
     };
 
-    let mut badges: Vec<OsekaiBadge> = badges
-        .get()
-        .iter()
-        .filter(|badge| badge.users.contains(&user.user_id))
-        .map(|badge| badge.deserialize(&mut Infallible).unwrap())
-        .collect();
+    let mut badges = match badges {
+        RedisData::Original(mut badges) => {
+            badges.retain(|badge| badge.users.contains(&user_id_raw));
+
+            badges
+        }
+        RedisData::Archived(badges) => badges
+            .iter()
+            .filter(|badge| badge.users.contains(&user_id_raw))
+            .map(|badge| badge.deserialize(&mut Infallible).unwrap())
+            .collect(),
+    };
 
     args.sort.unwrap_or_default().apply(&mut badges);
 
@@ -105,7 +95,24 @@ pub(super) async fn user(
             }
         }
     } else {
-        let content = format!("User `{name}` has no badges \\:(");
+        let user_id = match user_id {
+            UserId::Id(user_id) => match ctx.osu_user().name(user_id).await {
+                Ok(Some(name)) => UserId::Name(name),
+                Ok(None) => UserId::Id(user_id),
+                Err(err) => {
+                    warn!("{err:?}");
+
+                    UserId::Id(user_id)
+                }
+            },
+            user_id @ UserId::Name(_) => user_id,
+        };
+
+        let content = match user_id {
+            UserId::Id(user_id) => format!("User with id {user_id} has no badges :("),
+            UserId::Name(name) => format!("User `{name}` has no badges :("),
+        };
+
         let builder = MessageBuilder::new().embed(content);
         orig.create_message(&ctx, &builder).await?;
 

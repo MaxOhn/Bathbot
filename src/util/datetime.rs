@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use time::{
     format_description::{
@@ -8,31 +8,46 @@ use time::{
     OffsetDateTime,
 };
 
-pub fn sec_to_minsec(secs: u32) -> SecToMinSecFormatter {
-    SecToMinSecFormatter { secs }
-}
-
-pub struct SecToMinSecFormatter {
+pub struct SecToMinSec {
     secs: u32,
 }
 
-impl fmt::Display for SecToMinSecFormatter {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl SecToMinSec {
+    pub fn new(secs: u32) -> Self {
+        Self { secs }
+    }
+}
+
+impl Display for SecToMinSec {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{}:{:02}", self.secs / 60, self.secs % 60)
     }
 }
 
-// thx saki :)
-pub fn how_long_ago_text(date: &OffsetDateTime) -> HowLongAgoFormatterText<'_> {
-    HowLongAgoFormatterText(date)
+pub struct HowLongAgoText {
+    secs: i64,
+    year: i32,
+    month: u32,
 }
 
-pub struct HowLongAgoFormatterText<'a>(&'a OffsetDateTime);
+impl HowLongAgoText {
+    pub fn new(datetime: &OffsetDateTime) -> Self {
+        let date = datetime.date();
 
-impl<'a> fmt::Display for HowLongAgoFormatterText<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Self {
+            secs: datetime.unix_timestamp(),
+            year: date.year(),
+            month: date.month() as u32,
+        }
+    }
+}
+
+// thx saki :)
+impl Display for HowLongAgoText {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let now = OffsetDateTime::now_utc();
-        let diff_sec = now.unix_timestamp() - self.0.unix_timestamp();
+        let diff_sec = now.unix_timestamp() - self.secs;
         debug_assert!(diff_sec >= 0);
 
         let one_day = 24 * 3600;
@@ -50,8 +65,8 @@ impl<'a> fmt::Display for HowLongAgoFormatterText<'a> {
             } else if diff_sec < 4 * one_week {
                 (diff_sec / one_week, "week")
             } else {
-                let diff_month = (12 * (now.year() - self.0.year()) as u32 + now.month() as u32
-                    - self.0.month() as u32) as i64;
+                let diff_month =
+                    (12 * (now.year() - self.year) as u32 + now.month() as u32 - self.month) as i64;
 
                 if diff_month < 1 {
                     (diff_sec / one_week, "week")
@@ -73,22 +88,29 @@ impl<'a> fmt::Display for HowLongAgoFormatterText<'a> {
     }
 }
 
-/// Instead of writing the whole string like `how_long_ago_text`,
+/// Instead of writing the whole string like `HowLongAgoText`,
 /// this just writes discord's syntax for dynamic timestamps and lets
 /// discord handle the rest.
 ///
 /// Note: Doesn't work in embed footers
-pub fn how_long_ago_dynamic(date: &OffsetDateTime) -> HowLongAgoFormatterDynamic {
-    HowLongAgoFormatterDynamic(date.unix_timestamp())
+#[derive(Copy, Clone)]
+pub struct HowLongAgoDynamic {
+    secs: i64,
 }
 
-#[derive(Copy, Clone)]
-pub struct HowLongAgoFormatterDynamic(i64);
+impl HowLongAgoDynamic {
+    pub fn new(datetime: &OffsetDateTime) -> Self {
+        Self {
+            secs: datetime.unix_timestamp(),
+        }
+    }
+}
 
-impl fmt::Display for HowLongAgoFormatterDynamic {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for HowLongAgoDynamic {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         // https://discord.com/developers/docs/reference#message-formatting-timestamp-styles
-        write!(f, "<t:{}:R>", self.0)
+        write!(f, "<t:{}:R>", self.secs)
     }
 }
 
@@ -132,7 +154,7 @@ mod tests {
 
     #[test]
     fn test_sec_to_minsec() {
-        assert_eq!(sec_to_minsec(92).to_string(), String::from("1:32"));
-        assert_eq!(sec_to_minsec(3605).to_string(), String::from("60:05"));
+        assert_eq!(SecToMinSec::new(92).to_string(), String::from("1:32"));
+        assert_eq!(SecToMinSec::new(3605).to_string(), String::from("60:05"));
     }
 }

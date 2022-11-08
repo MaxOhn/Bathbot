@@ -9,12 +9,11 @@ extern crate eyre;
 mod commands;
 mod core;
 mod custom_client;
-mod database;
 mod embeds;
 mod games;
+mod manager;
 mod matchlive;
 mod pagination;
-mod pp;
 mod server;
 mod tracking;
 mod util;
@@ -30,10 +29,7 @@ use tokio::{
 };
 use twilight_model::gateway::payload::outgoing::RequestGuildMembers;
 
-use crate::{
-    core::{commands::slash::SlashCommands, event_loop, logging, BotConfig, Context},
-    database::Database,
-};
+use crate::core::{commands::slash::SlashCommands, event_loop, logging, BotConfig, Context};
 
 fn main() {
     let runtime = RuntimeBuilder::new_multi_thread()
@@ -131,10 +127,6 @@ async fn async_main() -> Result<()> {
         tokio::spawn(tracking::osu_tracking_loop(osu_tracking_ctx));
     }
 
-    // Spawn background loop worker
-    let background_ctx = Arc::clone(&ctx);
-    tokio::spawn(Context::background_loop(background_ctx));
-
     #[cfg(feature = "matchlive")]
     {
         // Spawn osu match ticker worker
@@ -193,8 +185,8 @@ async fn async_main() -> Result<()> {
         res = signal::ctrl_c() => match res {
             Ok(_) => info!("Received Ctrl+C"),
             Err(err) => {
-                let report = Report::new(err).wrap_err("Failed to await Ctrl+C");
-                error!("{report:?}");
+                let err = Report::new(err).wrap_err("Failed to await Ctrl+C");
+                error!("{err:?}");
             }
         }
     }
@@ -222,13 +214,10 @@ async fn async_main() -> Result<()> {
 
     let resume_data = ctx.cluster.down_resumable();
 
-    if let Err(err) = ctx.cache.freeze(ctx.redis_client(), resume_data).await {
+    if let Err(err) = ctx.cache.freeze(&ctx, resume_data).await {
         let report = Report::new(err).wrap_err("Failed to freeze cache");
         error!("{report:?}");
     }
-
-    let (count, total) = ctx.garbage_collect_all_maps().await;
-    info!("Garbage collected {count}/{total} maps");
 
     info!("Shutting down");
 

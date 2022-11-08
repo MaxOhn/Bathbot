@@ -1,19 +1,22 @@
 use command_macros::EmbedData;
-use rosu_v2::prelude::{GameMode, Score, User};
+use osu::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter};
+use rosu_v2::prelude::{GameMode, Score};
 use time::OffsetDateTime;
 use twilight_model::channel::embed::EmbedField;
 
 use crate::{
     core::Context,
     embeds::osu,
-    pp::PpCalculator,
+    manager::{
+        redis::{osu::User, RedisData},
+        OsuMap,
+    },
     util::{
-        builder::{AuthorBuilder, FooterBuilder},
-        constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
-        datetime::how_long_ago_text,
-        numbers::{round, with_comma_int},
+        builder::AuthorBuilder,
+        constants::OSU_BASE,
+        numbers::{round, WithComma},
         osu::{grade_completion_mods, mode_emote},
-        ScoreExt,
+        CowUtils,
     },
 };
 
@@ -22,7 +25,6 @@ pub struct TrackNotificationEmbed {
     author: AuthorBuilder,
     description: String,
     fields: Vec<EmbedField>,
-    footer: FooterBuilder,
     timestamp: OffsetDateTime,
     title: String,
     thumbnail: String,
@@ -30,54 +32,53 @@ pub struct TrackNotificationEmbed {
 }
 
 impl TrackNotificationEmbed {
-    pub async fn new(user: &User, score: &Score, idx: usize, ctx: &Context) -> Self {
-        let map = score.map.as_ref().unwrap();
-        let mapset = score.mapset.as_ref().unwrap();
+    pub async fn new(
+        user: &RedisData<User>,
+        score: &Score,
+        map: &OsuMap,
+        idx: u8,
+        ctx: &Context,
+    ) -> Self {
+        let description = format!("{} __**Personal Best #{idx}**__", mode_emote(score.mode));
 
-        let description = format!("{} __**Personal Best #{idx}**__", mode_emote(map.mode));
+        let attrs = ctx
+            .pp(map)
+            .mode(score.mode)
+            .mods(score.mods)
+            .performance()
+            .await;
 
-        let (max_pp, stars) = match PpCalculator::new(ctx, map.map_id).await {
-            Ok(base_calc) => {
-                let mut calc = base_calc.score(score);
+        let stars = attrs.stars();
+        let max_pp = attrs.pp() as f32;
 
-                let stars = calc.stars();
-                let max_pp = calc.max_pp();
-
-                (Some(max_pp as f32), round(stars as f32))
-            }
-            Err(err) => {
-                warn!("{:?}", err.wrap_err("Failed to get pp calculator"));
-
-                (None, 0.0)
-            }
-        };
-
-        let title = if map.mode == GameMode::Mania {
+        let title = if score.mode == GameMode::Mania {
             format!(
-                "{} {} - {} [{}] [{stars}★]",
-                osu::get_keys(score.mods, map),
-                mapset.artist,
-                mapset.title,
-                map.version,
+                "{} {} - {} [{}] [{stars:.2}★]",
+                KeyFormatter::new(score.mods, map),
+                map.artist().cow_escape_markdown(),
+                map.title().cow_escape_markdown(),
+                map.version().cow_escape_markdown(),
             )
         } else {
             format!(
-                "{} - {} [{}] [{stars}★]",
-                mapset.artist, mapset.title, map.version
+                "{} - {} [{}] [{stars:.2}★]",
+                map.artist().cow_escape_markdown(),
+                map.title().cow_escape_markdown(),
+                map.version().cow_escape_markdown(),
             )
         };
 
         let name = format!(
-            "{}\t{}\t({}%)",
-            grade_completion_mods(score, map),
-            with_comma_int(score.score),
-            round(score.accuracy)
+            "{}\t{score}\t({acc}%)",
+            grade_completion_mods(score.mods, score.grade, score.total_hits(), map),
+            score = WithComma::new(score.score),
+            acc = round(score.accuracy)
         );
 
         let value = format!(
-            "{} [ {} ] {}",
-            osu::get_pp(score.pp, max_pp),
-            if map.mode == GameMode::Mania {
+            "{pp} [ {combo} ] {hitresults}",
+            pp = PpFormatter::new(score.pp, Some(max_pp)),
+            combo = if score.mode == GameMode::Mania {
                 let mut ratio = score.statistics.count_geki as f32;
 
                 if score.statistics.count_300 > 0 {
@@ -86,29 +87,19 @@ impl TrackNotificationEmbed {
 
                 format!("**{}x** / {}", &score.max_combo, round(ratio))
             } else {
-                osu::get_combo(score, map)
+                ComboFormatter::new(score.max_combo, map.max_combo()).to_string()
             },
-            score.hits_string(map.mode),
+            hitresults = HitResultFormatter::new(score.mode, score.statistics.clone()),
         );
 
-        let footer = FooterBuilder::new(format!(
-            "Mapped by {}, played {}",
-            mapset.creator_name,
-            how_long_ago_text(&score.ended_at)
-        ))
-        .icon_url(format!("{AVATAR_URL}{}", mapset.creator_id));
-
-        let author = author!(user).icon_url(user.avatar_url.to_owned());
-
         Self {
-            author,
+            author: user.author_builder(),
             description,
             fields: fields![name, value, false],
-            footer,
-            thumbnail: format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id),
+            thumbnail: map.thumbnail().to_owned(),
             timestamp: score.ended_at,
             title,
-            url: format!("{OSU_BASE}b/{}", map.map_id),
+            url: format!("{OSU_BASE}b/{}", map.map_id()),
         }
     }
 }

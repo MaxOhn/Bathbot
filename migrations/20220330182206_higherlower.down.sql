@@ -1,1 +1,0 @@
-DROP TABLE higherlower_scores;

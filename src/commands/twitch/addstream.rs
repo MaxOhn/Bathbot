@@ -49,10 +49,10 @@ pub async fn addstream(ctx: Arc<Context>, orig: CommandOrigin<'_>, name: &'_ str
         }
     };
 
-    let channel = orig.channel_id().get();
+    let channel = orig.channel_id();
     ctx.add_tracking(twitch_id, channel);
 
-    match ctx.psql().add_stream_track(channel, twitch_id).await {
+    match ctx.twitch().track(channel, twitch_id).await {
         Ok(true) => {
             let content = format!("I'm now tracking `{name}`'s twitch stream in this channel");
             let builder = MessageBuilder::new().content(content);

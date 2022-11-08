@@ -12,7 +12,7 @@ use crate::{
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
-        numbers::{round, with_comma_int},
+        numbers::{round, WithComma},
         osu::grade_emote,
         CowUtils,
     },
@@ -120,7 +120,7 @@ fn team_scores(map: &CommonMap, match_1: &str, match_2: &str) -> String {
         let _ = writeln!(
             value,
             "**{i}.** `{score}` :{team}_circle:\n> {name}",
-            score = with_comma_int(score.score),
+            score = WithComma::new(score.score),
             team = if score.team == Team::Blue {
                 "blue"
             } else {
@@ -160,8 +160,8 @@ fn prepare_scores(
             None => format!("`User id {}`", score.user_id).into(),
         };
 
-        let score_str = with_comma_int(score.score).to_string();
-        let combo = with_comma_int(score.combo).to_string();
+        let score_str = WithComma::new(score.score).to_string();
+        let combo = WithComma::new(score.combo).to_string();
         let mods = score.mods.to_string();
 
         sizes.name = sizes.name.max(name.len());
@@ -190,8 +190,8 @@ fn prepare_scores(
             value,
             "**Total**: :blue_circle: {blue_won}{blue_score}{blue_won} \
             - {red_won}{red_score}{red_won} :red_circle:",
-            blue_score = with_comma_int(totals[1]),
-            red_score = with_comma_int(totals[2]),
+            blue_score = WithComma::new(totals[1]),
+            red_score = WithComma::new(totals[2]),
             blue_won = if totals[1] > totals[2] { "**" } else { "" },
             red_won = if totals[2] > totals[1] { "**" } else { "" },
         );

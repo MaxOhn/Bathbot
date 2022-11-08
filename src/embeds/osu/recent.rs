@@ -1,28 +1,31 @@
 use std::{borrow::Cow, cmp::Ordering, fmt::Write};
 
-use eyre::{Result, WrapErr};
-use rosu_pp::{Beatmap as Map, BeatmapExt, CatchPP, DifficultyAttributes, OsuPP, TaikoPP};
-use rosu_v2::prelude::{BeatmapUserScore, GameMode, Grade, RankStatus, Score, User};
+use bathbot_psql::model::configs::MinimizedPp;
+use osu::PpFormatter;
+use rosu_v2::prelude::{BeatmapUserScore, GameMode, RankStatus, Score};
 use time::OffsetDateTime;
 use twilight_model::channel::embed::Embed;
 
 use crate::{
+    commands::osu::RecentEntry,
     core::Context,
-    database::MinimizedPp,
     embeds::osu,
+    manager::redis::{osu::User, RedisData},
     util::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
-        constants::AVATAR_URL,
-        datetime::{how_long_ago_dynamic, HowLongAgoFormatterDynamic},
+        constants::{AVATAR_URL, OSU_BASE},
+        datetime::HowLongAgoDynamic,
         matcher::highlight_funny_numeral,
-        numbers::{round, with_comma_int},
-        osu::{grade_completion_mods, prepare_beatmap_file},
-        CowUtils, ScoreExt,
+        numbers::{round, WithComma},
+        osu::{grade_completion_mods, IfFc},
+        CowUtils,
     },
 };
 
 #[cfg(feature = "twitch")]
 use crate::custom_client::TwitchVideo;
+
+use super::{ComboFormatter, HitResultFormatter, KeyFormatter};
 
 pub struct RecentEmbed {
     description: String,
@@ -34,15 +37,16 @@ pub struct RecentEmbed {
     thumbnail: String,
 
     stars: f32,
+    mode: GameMode,
     grade_completion_mods: Cow<'static, str>,
     score: String,
     acc: f32,
-    ago: HowLongAgoFormatterDynamic,
+    ago: HowLongAgoDynamic,
     pp: Option<f32>,
     max_pp: Option<f32>,
     combo: String,
-    hits: String,
-    if_fc: Option<(f32, f32, String)>,
+    hits: HitResultFormatter,
+    if_fc: Option<IfFc>,
     map_info: String,
     mapset_cover: String,
     #[cfg(feature = "twitch")]
@@ -52,69 +56,28 @@ pub struct RecentEmbed {
 
 impl RecentEmbed {
     pub async fn new(
-        user: &User,
-        score: &Score,
+        user: &RedisData<User>,
+        entry: &RecentEntry,
         personal: Option<&[Score]>,
         map_score: Option<&BeatmapUserScore>,
         #[cfg(feature = "twitch")] twitch_vod: Option<TwitchVideo>,
         minimized_pp: MinimizedPp,
+        // creator: Creator,
         ctx: &Context,
-    ) -> Result<Self> {
-        let map = score.map.as_ref().unwrap();
-        let mapset = score.mapset.as_ref().unwrap();
+    ) -> Self {
+        let RecentEntry {
+            score,
+            map,
+            max_pp,
+            stars,
+        } = entry;
 
-        let map_path = prepare_beatmap_file(ctx, map.map_id)
-            .await
-            .wrap_err("failed to prepare map")?;
+        let if_fc = IfFc::new(ctx, score, map).await;
+        let hits = HitResultFormatter::new(score.mode, score.statistics.clone());
+        let grade_completion_mods =
+            grade_completion_mods(score.mods, score.grade, score.total_hits(), map);
 
-        let rosu_map = Map::from_path(map_path)
-            .await
-            .wrap_err("failed to parse map")?;
-
-        let mods = score.mods.bits();
-        let max_result = rosu_map.max_pp(mods);
-        let mut attributes = max_result.difficulty_attributes();
-
-        let max_pp = score
-            .pp
-            .filter(|pp| {
-                score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania && *pp > 0.0
-            })
-            .unwrap_or(max_result.pp() as f32);
-
-        let stars = round(attributes.stars() as f32);
-
-        let pp = if let Some(pp) = score.pp {
-            pp
-        } else if score.grade == Grade::F {
-            rosu_map
-                .pp()
-                .mods(mods)
-                .state(score.state())
-                .passed_objects(score.total_hits() as usize)
-                .calculate()
-                .pp() as f32
-        } else {
-            let pp_result = rosu_map
-                .pp()
-                .attributes(attributes)
-                .mods(mods)
-                .state(score.state())
-                .calculate();
-
-            let pp = pp_result.pp();
-            attributes = pp_result.into();
-
-            pp as f32
-        };
-
-        let (if_fc, _) = IfFC::new(score, &rosu_map, attributes, mods);
-
-        let max_pp = Some(max_pp);
-        let hits = score.hits_string(map.mode);
-        let grade_completion_mods = grade_completion_mods(score, map);
-
-        let (combo, title) = if map.mode == GameMode::Mania {
+        let (combo, title) = if map.mode() == GameMode::Mania {
             let mut ratio = score.statistics.count_geki as f32;
 
             if score.statistics.count_300 > 0 {
@@ -125,79 +88,66 @@ impl RecentEmbed {
 
             let title = format!(
                 "{} {} - {} [{}]",
-                osu::get_keys(score.mods, map),
-                mapset.artist.cow_escape_markdown(),
-                mapset.title.cow_escape_markdown(),
-                map.version.cow_escape_markdown(),
+                KeyFormatter::new(score.mods, map),
+                map.artist().cow_escape_markdown(),
+                map.title().cow_escape_markdown(),
+                map.version().cow_escape_markdown(),
             );
 
             (combo, title)
         } else {
-            let combo = osu::get_combo(score, map);
+            let combo = ComboFormatter::new(score.max_combo, map.max_combo()).to_string();
 
             let title = format!(
                 "{} - {} [{}]",
-                mapset.artist.cow_escape_markdown(),
-                mapset.title.cow_escape_markdown(),
-                map.version.cow_escape_markdown(),
+                map.artist().cow_escape_markdown(),
+                map.title().cow_escape_markdown(),
+                map.version().cow_escape_markdown(),
             );
 
             (combo, title)
         };
 
-        let if_fc = if_fc.map(|if_fc| {
-            let mut hits = String::from("{");
-            let _ = write!(hits, "{}/{}/", if_fc.n300, if_fc.n100);
-
-            if let Some(n50) = if_fc.n50 {
-                let _ = write!(hits, "{n50}/");
-            }
-
-            let _ = write!(hits, "0}}");
-
-            (if_fc.pp, round(if_fc.acc), hits)
-        });
-
-        let footer = FooterBuilder::new(format!(
-            "{:?} map by {} | played",
-            map.status, mapset.creator_name
-        ))
-        .icon_url(format!("{AVATAR_URL}{}", mapset.creator_id));
+        let footer = FooterBuilder::new(format!("{:?} map", map.status()))
+            .icon_url(format!("{AVATAR_URL}{}", map.creator_id()));
 
         let personal_idx = personal
-            .filter(|_| matches!(map.status, RankStatus::Ranked))
+            .filter(|_| matches!(map.status(), RankStatus::Ranked))
             .filter(|personal| {
-                personal
-                    .last()
-                    .map_or(true, |last| last.pp < score.pp || personal.len() < 100)
+                personal.last().map_or(true, |last| {
+                    last.pp < Some(score.pp) || personal.len() < 100
+                })
             })
             .and_then(|personal| {
                 personal
                     .iter()
-                    .position(|s| s == score)
+                    .position(|s| {
+                        (s.ended_at.unix_timestamp() - score.ended_at.unix_timestamp()).abs() <= 2
+                    })
                     .or_else(|| {
                         personal
                             .binary_search_by(|probe| {
                                 probe
                                     .pp
-                                    .and_then(|pp_| pp.partial_cmp(&pp_))
+                                    .and_then(|pp_| score.pp.partial_cmp(&pp_))
                                     .unwrap_or(Ordering::Less)
                             })
                             .map_or_else(Some, Some)
                             .filter(|&idx| idx < 100)
                             .filter(|&idx| {
                                 personal[..idx].iter().all(|s| {
-                                    s.map.as_ref().map_or(true, |m| m.map_id != map.map_id)
+                                    s.map.as_ref().map_or(true, |m| m.map_id != map.map_id())
                                 })
                             })
                     })
                     .map(|idx| idx + 1)
             });
 
-        let pp = Some(pp);
-
         let global_idx = map_score
-            .and_then(|s| (&s.score == score).then_some(s.pos))
+            .and_then(|s| {
+                ((s.score.ended_at.unix_timestamp() - score.ended_at.unix_timestamp()).abs() <= 2)
+                    .then_some(s.pos)
+            })
             .filter(|&p| p <= 50);
 
         let description = if personal_idx.is_some() || global_idx.is_some() {
@@ -224,37 +174,38 @@ impl RecentEmbed {
             String::new()
         };
 
-        Ok(Self {
+        Self {
             description,
             title,
-            url: map.url.to_owned(),
-            author: author!(user),
+            url: format!("{OSU_BASE}b/{}", map.map_id()),
+            author: user.author_builder(),
             footer,
             timestamp: score.ended_at,
-            thumbnail: mapset.covers.list.to_owned(),
+            thumbnail: map.thumbnail().to_owned(),
             grade_completion_mods,
-            stars,
-            score: with_comma_int(score.score).to_string(),
+            stars: *stars,
+            mode: score.mode,
+            score: WithComma::new(score.score).to_string(),
             acc: round(score.accuracy),
-            ago: how_long_ago_dynamic(&score.ended_at),
-            pp,
-            max_pp,
+            ago: HowLongAgoDynamic::new(&score.ended_at),
+            pp: Some(score.pp),
+            max_pp: Some(*max_pp),
             combo,
             hits,
-            map_info: osu::get_map_info(map, score.mods, stars),
+            map_info: osu::get_map_info(map, score.mods, *stars),
             if_fc,
-            mapset_cover: mapset.covers.cover.to_owned(),
+            mapset_cover: map.cover().to_owned(),
             minimized_pp,
             #[cfg(feature = "twitch")]
             twitch_vod,
-        })
+        }
     }
 
     pub fn as_maximized(&self) -> Embed {
         let score = highlight_funny_numeral(&self.score).into_owned();
         let acc = highlight_funny_numeral(&format!("{}%", self.acc)).into_owned();
 
-        let pp = osu::get_pp(self.pp, self.max_pp);
+        let pp = PpFormatter::new(self.pp, self.max_pp).to_string();
         let pp = highlight_funny_numeral(&pp).into_owned();
 
         let mut fields = fields![
@@ -266,11 +217,11 @@ impl RecentEmbed {
 
         fields.reserve(3 + (self.if_fc.is_some() as usize) * 3);
 
-        let mania = self.hits.chars().filter(|&c| c == '/').count() == 5;
-
         let combo = highlight_funny_numeral(&self.combo).into_owned();
-        let hits = highlight_funny_numeral(&self.hits).into_owned();
+        let hits = self.hits.to_string();
+        let hits = highlight_funny_numeral(&hits).into_owned();
 
+        let mania = self.mode == GameMode::Mania;
         let name = if mania { "Combo / Ratio" } else { "Combo" };
 
         fields![fields {
@@ -278,13 +229,11 @@ impl RecentEmbed {
             "Hits", hits, true;
         }];
 
-        if let Some((pp, acc, hits)) = &self.if_fc {
-            let pp = osu::get_pp(Some(*pp), self.max_pp);
-
+        if let Some(ref if_fc) = &self.if_fc {
             fields![fields {
-                "**If FC**: PP", pp, true;
-                "Acc", format!("{acc}%"), true;
-                "Hits", hits.clone(), true;
+                "**If FC**: PP", PpFormatter::new(Some(if_fc.pp), self.max_pp).to_string(), true;
+                "Acc", format!("{}%", round(if_fc.accuracy())), true;
+                "Hits", if_fc.hitresults().to_string(), true;
             }];
         }
 
@@ -330,19 +279,19 @@ impl RecentEmbed {
                 result.push_str("**");
 
                 if let Some(pp) = self.pp {
-                    let _ = write!(result, "{:.2}", pp);
+                    let _ = write!(result, "{pp:.2}");
                 } else {
                     result.push('-');
                 }
 
-                if let Some((if_fc, ..)) = self.if_fc {
-                    let _ = write!(result, "pp** ~~({if_fc:.2}pp)~~");
+                if let Some(ref if_fc) = self.if_fc {
+                    let _ = write!(result, "pp** ~~({:.2}pp)~~", if_fc.pp);
                 } else {
                     result.push_str("**/");
 
                     if let Some(max) = self.max_pp {
                         let pp = self.pp.map(|pp| pp.max(max)).unwrap_or(max);
-                        let _ = write!(result, "{:.2}", pp);
+                        let _ = write!(result, "{pp:.2}");
                     } else {
                         result.push('-');
                     }
@@ -352,7 +301,7 @@ impl RecentEmbed {
 
                 result
             }
-            MinimizedPp::Max => osu::get_pp(self.pp, self.max_pp),
+            MinimizedPp::MaxPp => PpFormatter::new(self.pp, self.max_pp).to_string(),
         };
 
         let value = format!("{pp} [ {} ] {}", self.combo, self.hits);
@@ -380,151 +329,5 @@ impl RecentEmbed {
             .title(title)
             .url(self.url)
             .build()
-    }
-}
-
-pub struct IfFC {
-    pub n300: usize,
-    pub n100: usize,
-    pub n50: Option<usize>,
-    pub pp: f32,
-    pub acc: f32,
-}
-
-impl IfFC {
-    pub fn new(
-        score: &Score,
-        map: &Map,
-        attributes: DifficultyAttributes,
-        mods: u32,
-    ) -> (Option<Self>, DifficultyAttributes) {
-        if score.is_fc(score.mode, attributes.max_combo() as u32) {
-            return (None, attributes);
-        }
-
-        match attributes {
-            DifficultyAttributes::Osu(attributes) => {
-                let total_objects = (map.n_circles + map.n_sliders + map.n_spinners) as usize;
-                let passed_objects = (score.statistics.count_300
-                    + score.statistics.count_100
-                    + score.statistics.count_50
-                    + score.statistics.count_miss) as usize;
-
-                let mut count300 = score.statistics.count_300 as usize
-                    + total_objects.saturating_sub(passed_objects);
-
-                let count_hits = total_objects - score.statistics.count_miss as usize;
-                let ratio = 1.0 - (count300 as f32 / count_hits as f32);
-                let new100s = (ratio * score.statistics.count_miss as f32).ceil() as u32;
-
-                count300 += score.statistics.count_miss.saturating_sub(new100s) as usize;
-                let count100 = (score.statistics.count_100 + new100s) as usize;
-                let count50 = score.statistics.count_50 as usize;
-
-                let pp_result = OsuPP::new(map)
-                    .attributes(attributes)
-                    .mods(mods)
-                    .n300(count300)
-                    .n100(count100)
-                    .n50(count50)
-                    .calculate();
-
-                let acc = 100.0 * (6 * count300 + 2 * count100 + count50) as f32
-                    / (6 * total_objects) as f32;
-
-                let if_fc = Self {
-                    n300: count300,
-                    n100: count100,
-                    n50: Some(count50),
-                    pp: pp_result.pp as f32,
-                    acc,
-                };
-
-                (Some(if_fc), pp_result.difficulty.into())
-            }
-            DifficultyAttributes::Catch(attributes) => {
-                let total_objects = attributes.max_combo();
-                let passed_objects = (score.statistics.count_300
-                    + score.statistics.count_100
-                    + score.statistics.count_miss) as usize;
-
-                let missing = total_objects - passed_objects;
-                let missing_fruits = missing.saturating_sub(
-                    attributes
-                        .n_droplets
-                        .saturating_sub(score.statistics.count_100 as usize),
-                );
-
-                let missing_droplets = missing - missing_fruits;
-
-                let n_fruits = score.statistics.count_300 as usize + missing_fruits;
-                let n_droplets = score.statistics.count_100 as usize + missing_droplets;
-                let n_tiny_droplet_misses = score.statistics.count_katu as usize;
-                let n_tiny_droplets = attributes
-                    .n_tiny_droplets
-                    .saturating_sub(n_tiny_droplet_misses);
-
-                let pp_result = CatchPP::new(map)
-                    .attributes(attributes)
-                    .mods(mods)
-                    .fruits(n_fruits)
-                    .droplets(n_droplets)
-                    .tiny_droplets(n_tiny_droplets)
-                    .tiny_droplet_misses(n_tiny_droplet_misses)
-                    .calculate();
-
-                let hits = n_fruits + n_droplets + n_tiny_droplets;
-                let total = hits + n_tiny_droplet_misses;
-
-                let acc = if total == 0 {
-                    0.0
-                } else {
-                    100.0 * hits as f32 / total as f32
-                };
-
-                let if_fc = Self {
-                    n300: n_fruits,
-                    n100: n_droplets,
-                    n50: Some(n_tiny_droplets),
-                    pp: pp_result.pp as f32,
-                    acc,
-                };
-
-                (Some(if_fc), pp_result.difficulty.into())
-            }
-            DifficultyAttributes::Taiko(attributes) => {
-                let total_objects = map.n_circles as usize;
-                let passed_objects = score.total_hits() as usize;
-
-                let mut count300 = score.statistics.count_300 as usize
-                    + total_objects.saturating_sub(passed_objects);
-
-                let count_hits = total_objects - score.statistics.count_miss as usize;
-                let ratio = 1.0 - (count300 as f32 / count_hits as f32);
-                let new100s = (ratio * score.statistics.count_miss as f32).ceil() as u32;
-
-                count300 += score.statistics.count_miss.saturating_sub(new100s) as usize;
-                let count100 = (score.statistics.count_100 + new100s) as usize;
-
-                let acc = 100.0 * (2 * count300 + count100) as f32 / (2 * total_objects) as f32;
-
-                let pp_result = TaikoPP::new(map)
-                    .attributes(attributes)
-                    .mods(mods)
-                    .accuracy(acc as f64)
-                    .calculate();
-
-                let if_fc = Self {
-                    n300: count300,
-                    n100: count100,
-                    n50: None,
-                    pp: pp_result.pp as f32,
-                    acc,
-                };
-
-                (Some(if_fc), pp_result.difficulty.into())
-            }
-            DifficultyAttributes::Mania(_) => (None, attributes),
-        }
     }
 }

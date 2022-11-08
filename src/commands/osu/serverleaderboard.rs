@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
+use bathbot_psql::model::osu::{UserModeStatsColumn, UserStatsColumn};
 use command_macros::SlashCommand;
 use eyre::Result;
 use rosu_v2::prelude::GameMode;
-use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
+use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
-    database::UserStatsColumn,
-    embeds::RankingKindData,
+    embeds::{RankingKind, UserStatsKind},
     pagination::RankingPagination,
     util::{
         constants::GENERAL_ISSUE, interaction::InteractionCommand, Authored, InteractionCommandExt,
@@ -54,54 +54,7 @@ pub struct ServerLeaderboardAllModes {
     - `Comments`: Considers comments on things like osu! articles or mapsets\n\
     - `Played maps`: Only maps with leaderboards count i.e. ranked, loved, or approved maps")]
     /// Specify what kind of leaderboard to show
-    kind: ServerLeaderboardAllModesKind,
-}
-
-#[derive(CommandOption, CreateOption)]
-pub enum ServerLeaderboardAllModesKind {
-    #[option(name = "Badges", value = "badges")]
-    Badges,
-    #[option(name = "Comments", value = "comments")]
-    Comments,
-    #[option(name = "Followers", value = "followers")]
-    Followers,
-    #[option(name = "Forum posts", value = "forum_posts")]
-    ForumPosts,
-    #[option(name = "Graveyard mapsets", value = "graveyard_mapsets")]
-    GraveyardMapsets,
-    #[option(name = "Join date", value = "join_date")]
-    JoinDate,
-    #[option(name = "Loved mapsets", value = "loved_mapsets")]
-    LovedMapsets,
-    #[option(name = "Mapping followers", value = "mapping_followers")]
-    MappingFollowers,
-    #[option(name = "Medals", value = "medals")]
-    Medals,
-    #[option(name = "Namechanges", value = "namechanges")]
-    Namechanges,
-    #[option(name = "Played maps", value = "played_maps")]
-    PlayedMaps,
-    #[option(name = "Ranked mapsets", value = "ranked_mapsets")]
-    RankedMapsets,
-}
-
-impl From<ServerLeaderboardAllModesKind> for UserStatsColumn {
-    fn from(kind: ServerLeaderboardAllModesKind) -> Self {
-        match kind {
-            ServerLeaderboardAllModesKind::Badges => Self::Badges,
-            ServerLeaderboardAllModesKind::Comments => Self::Comments,
-            ServerLeaderboardAllModesKind::Followers => Self::Followers,
-            ServerLeaderboardAllModesKind::ForumPosts => Self::ForumPosts,
-            ServerLeaderboardAllModesKind::GraveyardMapsets => Self::GraveyardMapsets,
-            ServerLeaderboardAllModesKind::JoinDate => Self::JoinDate,
-            ServerLeaderboardAllModesKind::LovedMapsets => Self::LovedMapsets,
-            ServerLeaderboardAllModesKind::MappingFollowers => Self::MappingFollowers,
-            ServerLeaderboardAllModesKind::Medals => Self::Medals,
-            ServerLeaderboardAllModesKind::Namechanges => Self::Usernames,
-            ServerLeaderboardAllModesKind::PlayedMaps => Self::PlayedMaps,
-            ServerLeaderboardAllModesKind::RankedMapsets => Self::RankedMapsets,
-        }
-    }
+    kind: UserStatsColumn,
 }
 
 #[derive(CommandModel, CreateCommand)]
@@ -109,7 +62,7 @@ impl From<ServerLeaderboardAllModesKind> for UserStatsColumn {
 /// Various osu!standard leaderboards for linked server members
 pub struct ServerLeaderboardOsu {
     /// Specify what kind of leaderboard to show
-    kind: ServerLeaderboardModeKind,
+    kind: UserModeStatsColumn,
 }
 
 #[derive(CommandModel, CreateCommand)]
@@ -117,7 +70,7 @@ pub struct ServerLeaderboardOsu {
 /// Various osu!taiko leaderboards for linked server members
 pub struct ServerLeaderboardTaiko {
     /// Specify what kind of leaderboard to show
-    kind: ServerLeaderboardModeKind,
+    kind: UserModeStatsColumn,
 }
 
 #[derive(CommandModel, CreateCommand)]
@@ -125,7 +78,7 @@ pub struct ServerLeaderboardTaiko {
 /// Various osu!ctb leaderboards for linked server members
 pub struct ServerLeaderboardCatch {
     /// Specify what kind of leaderboard to show
-    kind: ServerLeaderboardModeKind,
+    kind: UserModeStatsColumn,
 }
 
 #[derive(CommandModel, CreateCommand)]
@@ -133,93 +86,11 @@ pub struct ServerLeaderboardCatch {
 /// Various osu!mania leaderboards for linked server members
 pub struct ServerLeaderboardMania {
     /// Specify what kind of leaderboard to show
-    kind: ServerLeaderboardModeKind,
-}
-
-#[derive(CommandOption, CreateOption)]
-pub enum ServerLeaderboardModeKind {
-    #[option(name = "Accuracy", value = "acc")]
-    Acc,
-    #[option(name = "Average hits per play", value = "avg_hits")]
-    AvgHits,
-    #[option(name = "Count SSH", value = "count_ssh")]
-    CountSsh,
-    #[option(name = "Count SS", value = "count_ss")]
-    CountSs,
-    #[option(name = "Total SS", value = "total_ss")]
-    TotalSs,
-    #[option(name = "Count SH", value = "count_sh")]
-    CountSh,
-    #[option(name = "Count S", value = "count_s")]
-    CountS,
-    #[option(name = "Total S", value = "total_s")]
-    TotalS,
-    #[option(name = "Count A", value = "count_a")]
-    CountA,
-    #[option(name = "Country rank", value = "country_rank")]
-    CountryRank,
-    #[option(name = "Global number 1s", value = "global_firsts")]
-    GlobalFirsts,
-    #[option(name = "Global rank", value = "global_rank")]
-    GlobalRank,
-    #[option(name = "Level", value = "level")]
-    Level,
-    #[option(name = "Max combo", value = "max_combo")]
-    MaxCombo,
-    #[option(name = "Playcount", value = "playcount")]
-    Playcount,
-    #[option(name = "Playtime", value = "playtime")]
-    Playtime,
-    #[option(name = "PP", value = "pp")]
-    Pp,
-    #[option(name = "Ranked score", value = "ranked_score")]
-    RankedScore,
-    #[option(name = "Replays watched", value = "replays")]
-    ReplaysWatched,
-    #[option(name = "Total hits", value = "total_hits")]
-    TotalHits,
-    #[option(name = "Total score", value = "total_score")]
-    TotalScore,
-}
-
-impl ServerLeaderboardModeKind {
-    fn column(self, mode: GameMode) -> UserStatsColumn {
-        match self {
-            Self::Acc => UserStatsColumn::Accuracy { mode },
-            Self::AvgHits => UserStatsColumn::AverageHits { mode },
-            Self::CountSsh => UserStatsColumn::CountSsh { mode },
-            Self::CountSs => UserStatsColumn::CountSs { mode },
-            Self::TotalSs => UserStatsColumn::TotalSs { mode },
-            Self::CountSh => UserStatsColumn::CountSh { mode },
-            Self::CountS => UserStatsColumn::CountS { mode },
-            Self::TotalS => UserStatsColumn::TotalS { mode },
-            Self::CountA => UserStatsColumn::CountA { mode },
-            Self::CountryRank => UserStatsColumn::RankCountry { mode },
-            Self::GlobalFirsts => UserStatsColumn::ScoresFirst { mode },
-            Self::GlobalRank => UserStatsColumn::RankGlobal { mode },
-            Self::Level => UserStatsColumn::Level { mode },
-            Self::MaxCombo => UserStatsColumn::MaxCombo { mode },
-            Self::Playcount => UserStatsColumn::Playcount { mode },
-            Self::Playtime => UserStatsColumn::Playtime { mode },
-            Self::Pp => UserStatsColumn::Pp { mode },
-            Self::RankedScore => UserStatsColumn::ScoreRanked { mode },
-            Self::ReplaysWatched => UserStatsColumn::Replays { mode },
-            Self::TotalHits => UserStatsColumn::TotalHits { mode },
-            Self::TotalScore => UserStatsColumn::ScoreTotal { mode },
-        }
-    }
+    kind: UserModeStatsColumn,
 }
 
 async fn slash_serverleaderboard(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = ServerLeaderboard::from_interaction(command.input_data())?;
-
-    let kind = match args {
-        ServerLeaderboard::AllModes(args) => args.kind.into(),
-        ServerLeaderboard::Osu(args) => args.kind.column(GameMode::Osu),
-        ServerLeaderboard::Taiko(args) => args.kind.column(GameMode::Taiko),
-        ServerLeaderboard::Catch(args) => args.kind.column(GameMode::Catch),
-        ServerLeaderboard::Mania(args) => args.kind.column(GameMode::Mania),
-    };
 
     let owner = command.user_id()?;
     let guild_id = command.guild_id.unwrap(); // command is only processed in guilds
@@ -233,32 +104,100 @@ async fn slash_serverleaderboard(ctx: Arc<Context>, mut command: InteractionComm
         .flatten()
         .map(|icon| (guild_id, icon));
 
-    let name = match ctx.user_config(owner).await {
-        Ok(config) => config.into_username(),
+    let author_name_fut = ctx.user_config().osu_name(owner);
+
+    let ((author_name_res, entries_res), kind) = match args {
+        ServerLeaderboard::AllModes(args) => {
+            let entries_fut = ctx.osu_user().stats(&members, args.kind);
+
+            let kind = RankingKind::UserStats {
+                guild_icon,
+                kind: UserStatsKind::AllModes { column: args.kind },
+            };
+
+            (tokio::join!(author_name_fut, entries_fut), kind)
+        }
+        ServerLeaderboard::Osu(args) => {
+            let entries_fut = ctx
+                .osu_user()
+                .stats_mode(&members, GameMode::Osu, args.kind);
+
+            let kind = RankingKind::UserStats {
+                guild_icon,
+                kind: UserStatsKind::Mode {
+                    mode: GameMode::Osu,
+                    column: args.kind,
+                },
+            };
+
+            (tokio::join!(author_name_fut, entries_fut), kind)
+        }
+        ServerLeaderboard::Taiko(args) => {
+            let entries_fut = ctx
+                .osu_user()
+                .stats_mode(&members, GameMode::Taiko, args.kind);
+
+            let kind = RankingKind::UserStats {
+                guild_icon,
+                kind: UserStatsKind::Mode {
+                    mode: GameMode::Taiko,
+                    column: args.kind,
+                },
+            };
+
+            (tokio::join!(author_name_fut, entries_fut), kind)
+        }
+        ServerLeaderboard::Catch(args) => {
+            let entries_fut = ctx
+                .osu_user()
+                .stats_mode(&members, GameMode::Catch, args.kind);
+
+            let kind = RankingKind::UserStats {
+                guild_icon,
+                kind: UserStatsKind::Mode {
+                    mode: GameMode::Catch,
+                    column: args.kind,
+                },
+            };
+
+            (tokio::join!(author_name_fut, entries_fut), kind)
+        }
+        ServerLeaderboard::Mania(args) => {
+            let entries_fut = ctx
+                .osu_user()
+                .stats_mode(&members, GameMode::Mania, args.kind);
+
+            let kind = RankingKind::UserStats {
+                guild_icon,
+                kind: UserStatsKind::Mode {
+                    mode: GameMode::Mania,
+                    column: args.kind,
+                },
+            };
+
+            (tokio::join!(author_name_fut, entries_fut), kind)
+        }
+    };
+
+    let entries = match entries_res {
+        Ok(entries) => entries,
         Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to get user config"));
+            let _ = command.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err);
+        }
+    };
+
+    let author_name = match author_name_res {
+        Ok(name_opt) => name_opt,
+        Err(err) => {
+            warn!("{err:?}");
 
             None
         }
     };
 
-    let leaderboard = match ctx.psql().get_osu_users_stats(kind, &members).await {
-        Ok(values) => values,
-        Err(err) => {
-            let _ = command.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(err.wrap_err("failed to get osu users stats"));
-        }
-    };
-
-    let author_idx = name.and_then(|name| {
-        leaderboard
-            .iter()
-            .find(|(_, entry)| entry.name == name)
-            .map(|(idx, _)| *idx)
-    });
-
-    if leaderboard.is_empty() {
+    if entries.is_empty() {
         let content = "No user data found for members of this server :(\n\
             There could be three reasons:\n\
             - Members of this server are not linked through the `/link` command\n\
@@ -271,10 +210,9 @@ async fn slash_serverleaderboard(ctx: Arc<Context>, mut command: InteractionComm
         return Ok(());
     }
 
-    let data = RankingKindData::UserStats { guild_icon, kind };
-    let total = leaderboard.len();
-
-    let builder = RankingPagination::builder(leaderboard, total, author_idx, data);
+    let author_idx = author_name.and_then(|name| entries.name_pos(&name));
+    let total = entries.len();
+    let builder = RankingPagination::builder(entries, total, author_idx, kind);
 
     builder
         .start_by_update()

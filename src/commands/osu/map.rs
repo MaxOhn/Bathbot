@@ -12,7 +12,7 @@ use plotters::{
 };
 use plotters_backend::{BackendColor, BackendCoord, BackendStyle, DrawingErrorKind};
 use rosu_pp::{Beatmap, BeatmapExt, Strains};
-use rosu_v2::prelude::{GameMode, GameMods, OsuError};
+use rosu_v2::prelude::{GameMode, GameMods};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::channel::{message::MessageType, Message};
 
@@ -280,93 +280,50 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
         None => GameMods::NoMod,
     };
 
-    // Retrieving the beatmaps
-    let (mapset_id, map_id) = match map_id {
-        // If its given as map id, try to convert into mapset id
-        MapIdType::Map(id) => {
-            // Check if map is in DB
-            match ctx.psql().get_beatmap(id, false).await {
-                Ok(map) => (map.mapset_id, Some(id)),
-                Err(_) => {
-                    // If not in DB, request through API
-                    match ctx.osu().beatmap().map_id(id).await {
-                        Ok(map) => {
-                            // Store map in DB
-                            if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-                                warn!("{:?}", err.wrap_err("Failed to insert map in database"));
-                            }
-
-                            (map.mapset_id, Some(id))
-                        }
-                        Err(OsuError::NotFound) => (id, None),
-                        Err(err) => {
-                            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-                            let report = Report::new(err).wrap_err("failed to get beatmap");
-
-                            return Err(report);
-                        }
-                    }
-                }
-            }
-        }
-
-        // If its already given as mapset id, do nothing
-        MapIdType::Set(id) => (id, None),
+    let mapset_res = match map_id {
+        MapIdType::Map(id) => ctx.osu().beatmapset_from_map_id(id).await,
+        MapIdType::Set(id) => ctx.osu().beatmapset(id).await,
     };
 
-    // Request mapset through API for all maps + genre & language
-    let (mapset, maps) = match ctx.osu().beatmapset(mapset_id).await {
-        Ok(mut mapset) => {
-            if let Err(err) = ctx.psql().insert_beatmapset(&mapset).await {
-                warn!("{:?}", err.wrap_err("Failed to insert mapset in database"));
-            }
-
-            let mut maps = mapset.maps.take().unwrap_or_default();
-
-            // Set maps on garbage collection list if unranked
-            for map in maps.iter() {
-                ctx.map_garbage_collector(map).execute(&ctx);
-            }
-
-            maps.sort_unstable_by(|m1, m2| {
-                (m1.mode as u8)
-                    .cmp(&(m2.mode as u8))
-                    .then_with(|| match m1.mode {
-                        // For mania sort first by mania key, then star rating
-                        GameMode::Mania => m1
-                            .cs
-                            .partial_cmp(&m2.cs)
-                            .unwrap_or(Ordering::Equal)
-                            .then(m1.stars.partial_cmp(&m2.stars).unwrap_or(Ordering::Equal)),
-                        // For other mods just sort by star rating
-                        _ => m1.stars.partial_cmp(&m2.stars).unwrap_or(Ordering::Equal),
-                    })
-            });
-
-            (mapset, maps)
-        }
-        Err(OsuError::NotFound) => {
-            let content = format!("Could find neither map nor mapset with id {mapset_id}");
-
-            return orig.error(&ctx, content).await;
-        }
+    let mut mapset = match mapset_res {
+        Ok(mapset) => mapset,
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get beatmapset");
 
-            return Err(report);
+            return Err(Report::new(err).wrap_err("failed to get mapset"));
         }
     };
 
-    let map_idx = if maps.is_empty() {
+    if let Err(err) = ctx.osu_map().store(&mapset).await {
+        warn!("{err:?}");
+    }
+
+    let Some(mut maps) = mapset.maps.take().filter(|maps| !maps.is_empty()) else {
         return orig.error(&ctx, "The mapset has no maps").await;
-    } else {
-        map_id
-            .and_then(|map_id| maps.iter().position(|map| map.map_id == map_id))
-            .unwrap_or(0)
     };
 
-    let map = &maps[map_idx];
+    maps.sort_unstable_by(|m1, m2| {
+        m1.mode.cmp(&m2.mode).then_with(|| match m1.mode {
+            // For mania sort first by mania key, then star rating
+            GameMode::Mania => m1
+                .cs
+                .partial_cmp(&m2.cs)
+                .unwrap_or(Ordering::Equal)
+                .then(m1.stars.partial_cmp(&m2.stars).unwrap_or(Ordering::Equal)),
+            // For other mods just sort by star rating
+            _ => m1.stars.partial_cmp(&m2.stars).unwrap_or(Ordering::Equal),
+        })
+    });
+
+    let map_idx = match map_id {
+        MapIdType::Map(map_id) => maps
+            .iter()
+            .position(|map| map.map_id == map_id)
+            .unwrap_or(0),
+        MapIdType::Set(_) => 0,
+    };
+
+    let map_id = maps[map_idx].map_id;
 
     // Try creating the strain graph for the map
     let bg_fut = async {
@@ -378,7 +335,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
         Ok::<_, Report>(cover.thumbnail_exact(W, H))
     };
 
-    let graph = match tokio::join!(strain_values(&ctx, map.map_id, mods), bg_fut) {
+    let graph = match tokio::join!(strain_values(&ctx, map_id, mods), bg_fut) {
         (Ok(strain_values), Ok(img)) => match graph(strain_values, img) {
             Ok(graph) => Some(graph),
             Err(err) => {

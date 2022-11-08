@@ -8,7 +8,7 @@ use crate::{
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
-        numbers::with_comma_int,
+        numbers::WithComma,
         CowUtils,
     },
 };
@@ -33,7 +33,7 @@ impl OsuTrackerMapsEmbed {
 
             sizes.count = sizes
                 .count
-                .max(with_comma_int(entry.count).to_string().len());
+                .max(WithComma::new(entry.count).to_string().len());
         }
 
         let mut description = String::with_capacity(entries.len() * 100);
@@ -44,7 +44,7 @@ impl OsuTrackerMapsEmbed {
                 description,
                 "`{i:>i_len$}.` `{count:>c_len$}` [{name}]({OSU_BASE}b/{map_id})",
                 i_len = sizes.idx,
-                count = with_comma_int(entry.count).to_string(),
+                count = WithComma::new(entry.count).to_string(),
                 c_len = sizes.count,
                 name = entry.name.cow_escape_markdown(),
                 map_id = entry.map_id,

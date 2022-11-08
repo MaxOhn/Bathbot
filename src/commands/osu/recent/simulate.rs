@@ -1,22 +1,28 @@
-use std::sync::Arc;
+use std::{fmt::Write, sync::Arc};
 
+use bathbot_psql::model::configs::ScoreSize;
 use command_macros::command;
 use eyre::{Report, Result};
-use rosu_v2::prelude::{GameMode, GameMods, OsuError};
+use rosu_v2::{
+    prelude::{GameMode, GameMods, Grade, OsuError},
+    request::UserId,
+};
 use tokio::time::{sleep, Duration};
 
 use crate::{
     commands::{
-        osu::{prepare_score, require_link},
+        osu::{require_link, user_not_found, SimulateEntry},
         GameModeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
-    database::EmbedsSize,
     embeds::{SimulateArgs, SimulateEmbed},
+    manager::redis::osu::{UserArgs, UserArgsSlim},
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        matcher, ChannelExt, CowUtils, MessageExt,
+        matcher,
+        osu::{IfFc, ScoreSlim},
+        ChannelExt, CowUtils, MessageExt,
     },
     Context,
 };
@@ -136,34 +142,34 @@ pub(super) async fn simulate(
 ) -> Result<()> {
     let owner = orig.user_id()?;
 
-    let (name, index, args, mode) = match args {
+    let (user_id, index, args, mode) = match args {
         RecentSimulate::Osu(args) => {
-            let name = username!(ctx, orig, args);
+            let user_id = user_id!(ctx, orig, args);
             let index = args.index;
             let args = SimulateArgs::try_from(args);
 
-            (name, index, args, GameMode::Osu)
+            (user_id, index, args, GameMode::Osu)
         }
         RecentSimulate::Taiko(args) => {
-            let name = username!(ctx, orig, args);
+            let user_id = user_id!(ctx, orig, args);
             let index = args.index;
             let args = SimulateArgs::try_from(args);
 
-            (name, index, args, GameMode::Taiko)
+            (user_id, index, args, GameMode::Taiko)
         }
         RecentSimulate::Catch(args) => {
-            let name = username!(ctx, orig, args);
+            let user_id = user_id!(ctx, orig, args);
             let index = args.index;
             let args = SimulateArgs::try_from(args);
 
-            (name, index, args, GameMode::Catch)
+            (user_id, index, args, GameMode::Catch)
         }
         RecentSimulate::Mania(args) => {
-            let name = username!(ctx, orig, args);
+            let user_id = user_id!(ctx, orig, args);
             let index = args.index;
             let args = SimulateArgs::try_from(args);
 
-            (name, index, args, GameMode::Mania)
+            (user_id, index, args, GameMode::Mania)
         }
     };
 
@@ -180,36 +186,54 @@ pub(super) async fn simulate(
         return orig.error(&ctx, content).await;
     }
 
-    let config = match ctx.user_config(owner).await {
+    let config = match ctx.user_config().with_osu_id(owner).await {
         Ok(config) => config,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get user config"));
+            return Err(err);
         }
     };
 
-    let name = match name {
-        Some(name) => name,
-        None => match config.username() {
-            Some(name) => name.to_owned(),
+    let user_id = match user_id {
+        Some(user_id) => user_id,
+        None => match config.osu {
+            Some(user_id) => UserId::Id(user_id),
             None => return require_link(&ctx, &orig).await,
         },
     };
 
     // Retrieve the recent score
-    let scores_fut = ctx
-        .osu()
-        .user_scores(name.as_str())
-        .recent()
-        .mode(mode)
-        .include_fails(true)
-        .limit(limit);
+    let (user_args, user_id) = match UserArgs::rosu_id(&ctx, &user_id).await.mode(mode) {
+        UserArgs::Args(args) => (args, user_id),
+        UserArgs::User { user, mode } => {
+            let args = UserArgsSlim::user_id(user.user_id).mode(mode);
 
-    let mut score = match scores_fut.await {
+            (args, UserId::Name(user.username))
+        }
+        UserArgs::Err(OsuError::NotFound) => {
+            let content = user_not_found(&ctx, user_id).await;
+
+            return orig.error(&ctx, content).await;
+        }
+        UserArgs::Err(err) => {
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+
+            return Err(Report::new(err).wrap_err("failed to get user"));
+        }
+    };
+
+    let scores_fut = ctx
+        .osu_scores()
+        .recent()
+        .limit(limit)
+        .include_fails(true)
+        .exec(user_args);
+
+    let (score, map) = match scores_fut.await {
         Ok(scores) if scores.is_empty() => {
-            let content = format!(
-                "No recent {}plays found for user `{name}`",
+            let mut content = format!(
+                "No recent {}plays found for ",
                 match mode {
                     GameMode::Osu => "",
                     GameMode::Taiko => "taiko ",
@@ -218,74 +242,122 @@ pub(super) async fn simulate(
                 }
             );
 
+            match user_id {
+                UserId::Id(_) => content.push_str("that user"),
+                UserId::Name(name) => {
+                    let _ = write!(content, "user `{name}`");
+                }
+            };
+
             return orig.error(&ctx, content).await;
         }
         Ok(scores) if scores.len() < limit => {
-            let content = format!(
-                "There are only {} many scores in `{name}`'{} recent history.",
-                scores.len(),
-                if name.ends_with('s') { "" } else { "s" }
-            );
+            let mut content = format!("There are only {} many scores in ", scores.len());
+
+            match user_id {
+                UserId::Id(_) => content.push_str("that user's recent history"),
+                UserId::Name(name) => {
+                    let _ = write!(
+                        content,
+                        "`{name}`'{genitive} recent history",
+                        genitive = if name.ends_with('s') { "" } else { "s" }
+                    );
+                }
+            }
 
             return orig.error(&ctx, content).await;
         }
         Ok(mut scores) => match scores.pop() {
-            Some(mut score) => match prepare_score(&ctx, &mut score).await {
-                Ok(_) => score,
-                Err(err) => {
-                    let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+            Some(score) => {
+                let map = score.map.as_ref().expect("missing map");
+                let map_id = map.map_id;
 
-                    return Err(err.into());
-                }
-            },
+                let map = match ctx.osu_map().map(map_id, map.checksum.as_deref()).await {
+                    Ok(map) => map,
+                    Err(err) => {
+                        let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                        return Err(Report::new(err));
+                    }
+                };
+
+                (score, map)
+            }
             None => {
-                let content = format!("No recent plays found for user `{name}`");
+                let mut content = "No recent plays found for ".to_owned();
+
+                match user_id {
+                    UserId::Id(_) => content.push_str("that user"),
+                    UserId::Name(name) => {
+                        let _ = write!(content, "user `{name}`");
+                    }
+                }
 
                 return orig.error(&ctx, content).await;
             }
         },
         Err(OsuError::NotFound) => {
-            let content = format!("User `{name}` was not found");
+            let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get scores");
+            let err = Report::new(err).wrap_err("failed to get user or scores");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
-    let map = score.map.take().unwrap();
-    let mapset = score.mapset.take().unwrap();
+    let score_size = match config.score_size {
+        Some(size) => size,
+        None => match orig.guild_id() {
+            Some(guild_id) => ctx
+                .guild_config()
+                .peek(guild_id, |config| config.score_size)
+                .await
+                .unwrap_or_default(),
+            None => ScoreSize::default(),
+        },
+    };
 
-    let embeds_size = match (config.score_size, orig.guild_id()) {
-        (Some(size), _) => size,
-        (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
-        (None, None) => EmbedsSize::default(),
+    let mut calc = ctx.pp(&map).mode(mode).mods(score.mods);
+    let attrs = calc.performance().await;
+
+    let pp = match score.pp {
+        Some(pp) => pp,
+        None => calc.score(&score).performance().await.pp() as f32,
+    };
+
+    let max_pp = if score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania {
+        pp
+    } else {
+        attrs.pp() as f32
+    };
+
+    let score = ScoreSlim::new(score, pp);
+    let if_fc = IfFc::new(&ctx, &score, &map).await;
+
+    let entry = SimulateEntry {
+        original_score: Some(score),
+        if_fc,
+        map,
+        stars: attrs.stars() as f32,
+        max_pp,
     };
 
     // Accumulate all necessary data
-    let embed_data = match SimulateEmbed::new(Some(score), &map, &mapset, args, &ctx).await {
-        Ok(data) => data,
-        Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(err.wrap_err("failed to create embed"));
-        }
-    };
-
+    let embed_data = SimulateEmbed::new(&entry, args, &ctx).await;
     let content = "Simulated score:";
 
     // Only maximize if config allows it
-    match embeds_size {
-        EmbedsSize::AlwaysMinimized => {
+    match score_size {
+        ScoreSize::AlwaysMinimized => {
             let embed = embed_data.into_minimized();
             let builder = MessageBuilder::new().content(content).embed(embed);
             orig.create_message(&ctx, &builder).await?;
         }
-        EmbedsSize::InitialMaximized => {
+        ScoreSize::InitialMaximized => {
             let embed = embed_data.as_maximized();
             let builder = MessageBuilder::new().content(content).embed(embed);
             let response = orig.create_message(&ctx, &builder).await?.model().await?;
@@ -310,15 +382,12 @@ pub(super) async fn simulate(
                 }
             });
         }
-        EmbedsSize::AlwaysMaximized => {
+        ScoreSize::AlwaysMaximized => {
             let embed = embed_data.as_maximized();
             let builder = MessageBuilder::new().content(content).embed(embed);
             orig.create_message(&ctx, &builder).await?;
         }
     }
-
-    // Set map on garbage collection list if unranked
-    ctx.map_garbage_collector(&map).execute(&ctx);
 
     Ok(())
 }

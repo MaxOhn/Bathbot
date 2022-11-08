@@ -11,7 +11,7 @@ use crate::{
 
 pub(super) async fn rarity(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let ranking = match ctx.redis().osekai_ranking::<Rarity>().await {
-        Ok(ranking) => ranking.to_inner(),
+        Ok(ranking) => ranking.into_original(),
         Err(err) => {
             let _ = command.error(&ctx, OSEKAI_ISSUE).await;
 

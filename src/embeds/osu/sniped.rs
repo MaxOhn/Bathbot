@@ -1,10 +1,14 @@
 use std::collections::HashMap;
 
 use command_macros::EmbedData;
-use rosu_v2::model::user::User;
 use twilight_model::channel::embed::EmbedField;
 
-use crate::{custom_client::SnipeRecent, embeds::attachment, util::builder::AuthorBuilder};
+use crate::{
+    custom_client::SnipeRecent,
+    embeds::attachment,
+    manager::redis::{osu::User, RedisData},
+    util::builder::AuthorBuilder,
+};
 
 #[derive(EmbedData)]
 pub struct SnipedEmbed {
@@ -17,16 +21,14 @@ pub struct SnipedEmbed {
 }
 
 impl SnipedEmbed {
-    pub fn new(user: User, sniper: Vec<SnipeRecent>, snipee: Vec<SnipeRecent>) -> Self {
-        let thumbnail = user.avatar_url;
-        let author = author!(user);
+    pub fn new(user: &RedisData<User>, sniper: Vec<SnipeRecent>, snipee: Vec<SnipeRecent>) -> Self {
+        let thumbnail = user.avatar_url().to_owned();
+        let author = user.author_builder();
         let title = "National snipe scores of the last 8 weeks";
+        let username = user.username();
 
         if sniper.is_empty() && snipee.is_empty() {
-            let description = format!(
-                "`{}` was neither sniped nor sniped other people",
-                user.username
-            );
+            let description = format!("`{username}` was neither sniped nor sniped other people");
 
             return Self {
                 author,
@@ -51,7 +53,7 @@ impl SnipedEmbed {
             }
 
             let (most_name, most_count) = victims.iter().max_by_key(|(_, count)| *count).unwrap();
-            let name = format!("Sniped by {}:", user.username);
+            let name = format!("Sniped by {username}:");
 
             let value = format!(
                 "Total count: {}\n\
@@ -74,7 +76,7 @@ impl SnipedEmbed {
             }
 
             let (most_name, most_count) = snipers.iter().max_by_key(|(_, count)| *count).unwrap();
-            let name = format!("Sniped {}:", user.username);
+            let name = format!("Sniped {username}:");
 
             let value = format!(
                 "Total count: {}\n\

@@ -2,13 +2,14 @@ use std::{borrow::Cow, mem, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
 use eyre::{Report, Result};
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::{prelude::OsuError, request::UserId};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{BWSEmbed, EmbedData},
+    manager::redis::{osu::UserArgs, RedisData},
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -18,7 +19,7 @@ use crate::{
     Context,
 };
 
-use super::{get_user, require_link, UserArgs};
+use super::{require_link, user_not_found};
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
 #[command(
@@ -143,44 +144,50 @@ async fn prefix_bws(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<
 const MIN_BADGES_OFFSET: usize = 2;
 
 async fn bws(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Bws<'_>) -> Result<()> {
-    let name = match username!(ctx, orig, args) {
-        Some(name) => name,
-        None => match ctx.psql().get_user_osu(orig.user_id()?).await {
-            Ok(Some(osu)) => osu.into_username(),
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
+        None => match ctx.user_config().osu_id(orig.user_id()?).await {
+            Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => return require_link(&ctx, &orig).await,
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get username"));
+                return Err(err);
             }
         },
     };
 
     let Bws { rank, badges, .. } = args;
 
-    let user_args = UserArgs::new(name.as_str(), GameMode::Osu);
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await;
 
-    let user = match get_user(&ctx, &user_args).await {
+    let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = format!("User `{name}` was not found");
+            let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user");
+            let err = Report::new(err).wrap_err("failed to get user");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
-    let badges_curr = user.badges.as_ref().map_or(0, |badges| {
-        badges
+    let badges_curr = match &user {
+        RedisData::Original(user) => user
+            .badges
+            .iter()
+            .filter(|badge| matcher::tourney_badge(&badge.description))
+            .count(),
+        RedisData::Archived(user) => user
+            .badges
             .iter()
             .filter(|badge| matcher::tourney_badge(badge.description.as_str()))
-            .count()
-    });
+            .count(),
+    };
 
     let (badges_min, badges_max) = match badges {
         Some(num) => {
@@ -198,7 +205,7 @@ async fn bws(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Bws<'_>) -> Resul
         None => (badges_curr, badges_curr + MIN_BADGES_OFFSET),
     };
 
-    let embed_data = BWSEmbed::new(user, badges_curr, badges_min, badges_max, rank);
+    let embed_data = BWSEmbed::new(&user, badges_curr, badges_min, badges_max, rank);
     let embed = embed_data.build();
     let builder = MessageBuilder::new().embed(embed);
     orig.create_message(&ctx, &builder).await?;

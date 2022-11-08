@@ -1,22 +1,22 @@
 #![cfg(feature = "osutracking")]
 
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use command_macros::SlashCommand;
 use eyre::Result;
-use hashbrown::HashMap;
 use rosu_v2::prelude::{GameMode, OsuError, Username};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
     core::commands::prefix::Args,
+    manager::redis::osu::UserArgs,
     util::{interaction::InteractionCommand, CowUtils, InteractionCommandExt},
     Context,
 };
 
 pub use self::{track::*, track_list::*, untrack::*, untrack_all::*};
 
-use super::{osu::UserArgs, GameModeOption};
+use super::GameModeOption;
 
 mod track;
 mod track_list;
@@ -56,7 +56,7 @@ pub struct TrackAdd {
         the top scores.\nThe value must be between 1 and 100."
     )]
     /// Between 1-100, default 50, notify on updates of the user's top X scores
-    limit: Option<i64>,
+    limit: Option<u8>,
     /// Specify a second username
     name2: Option<String>,
     /// Specify a third username
@@ -121,18 +121,10 @@ async fn get_names<'n>(
     names: &'n [String],
     mode: GameMode,
 ) -> Result<HashMap<Username, u32>, (OsuError, Cow<'n, str>)> {
-    let escaped_names = if names.iter().any(|name| name.contains('_')) {
-        let names: Vec<_> = names.iter().map(|name| name.replace('_', "\\_")).collect();
-
-        Cow::Owned(names)
-    } else {
-        Cow::Borrowed(names)
-    };
-
-    let mut entries = match ctx.psql().get_ids_by_names(escaped_names.as_ref()).await {
+    let mut entries = match ctx.osu_user().ids(names).await {
         Ok(names) => names,
         Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to get user ids by names"));
+            warn!("{:?}", err.wrap_err("failed to get user ids by names"));
 
             HashMap::new()
         }
@@ -143,10 +135,10 @@ async fn get_names<'n>(
             let name = name.cow_to_ascii_lowercase();
 
             if entries.keys().all(|n| name != n.cow_to_ascii_lowercase()) {
-                let user = UserArgs::new(name.as_ref(), mode);
+                let args = UserArgs::username(ctx, name.as_ref()).await.mode(mode);
 
-                match ctx.redis().osu_user(&user).await {
-                    Ok(user) => entries.insert(user.username, user.user_id),
+                match ctx.redis().osu_user(args).await {
+                    Ok(user) => entries.insert(user.username().into(), user.user_id()),
                     Err(err) => return Err((err, name)),
                 };
             }
@@ -159,7 +151,7 @@ async fn get_names<'n>(
 struct TrackArgs {
     mode: Option<GameMode>,
     name: String,
-    limit: Option<u64>,
+    limit: Option<u8>,
     more_names: Vec<String>,
 }
 
@@ -167,7 +159,7 @@ impl TrackArgs {
     async fn args(mode: Option<GameMode>, args: Args<'_>) -> Result<Self, Cow<'static, str>> {
         let mut name = None;
         let mut more_names = Vec::new();
-        let mut limit = args.num;
+        let mut limit = args.num.map(|n| n.min(100) as u8);
 
         for arg in args.map(CowUtils::cow_to_ascii_lowercase) {
             if let Some(idx) = arg.find('=').filter(|&i| i > 0) {
@@ -247,7 +239,7 @@ impl From<TrackAdd> for TrackArgs {
         Self {
             mode: Some(mode.into()),
             name,
-            limit: limit.map(|l| l as u64),
+            limit,
             more_names,
         }
     }

@@ -1,29 +1,29 @@
 use std::{borrow::Cow, fmt::Write};
 
-use eyre::{Result, WrapErr};
-use rosu_pp::{Beatmap as Map, BeatmapExt, DifficultyAttributes};
-use rosu_v2::prelude::{
-    Beatmap, BeatmapsetCompact, GameMode, GameMods, Grade, Score, ScoreStatistics,
-};
+use eyre::Result;
+use rosu_pp::DifficultyAttributes;
+use rosu_v2::prelude::{GameMode, GameMods, Grade, ScoreStatistics};
 use time::OffsetDateTime;
 use twilight_model::channel::embed::Embed;
 
 use crate::{
     commands::osu::{
         HasMods, ModsResult, RecentSimulateCatch, RecentSimulateMania, RecentSimulateOsu,
-        RecentSimulateTaiko,
+        RecentSimulateTaiko, SimulateEntry,
     },
     core::Context,
     embeds::osu,
-    pp::PpCalculator,
+    manager::OsuMap,
     util::{
         builder::{EmbedBuilder, FooterBuilder},
-        constants::{AVATAR_URL, MAP_THUMB_URL},
-        numbers::{round, with_comma_int},
-        osu::{grade_completion_mods, prepare_beatmap_file, ModSelection},
+        constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
+        numbers::{round, WithComma},
+        osu::{calculate_grade, grade_completion_mods, ModSelection, ScoreSlim},
         CowUtils, ScoreExt,
     },
 };
+
+use super::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter};
 
 pub struct SimulateArgs {
     mods: Option<ModSelection>,
@@ -37,7 +37,7 @@ pub struct SimulateArgs {
 }
 
 impl SimulateArgs {
-    fn is_some(&self) -> bool {
+    fn any_args(&self) -> bool {
         self.mods.is_some()
             || self.n300.is_some()
             || self.n100.is_some()
@@ -165,162 +165,137 @@ pub struct SimulateEmbed {
     footer: FooterBuilder,
     thumbnail: String,
 
-    mode: GameMode,
     stars: f32,
+    mode: GameMode,
     grade_completion_mods: Cow<'static, str>,
     acc: f32,
     prev_pp: Option<f32>,
-    pp: String,
+    pp: PpFormatter,
     prev_combo: Option<u32>,
     score: u64,
     combo: String,
-    prev_hits: Option<String>,
-    hits: String,
+    prev_hits: Option<HitResultFormatter>,
+    hits: HitResultFormatter,
     removed_misses: Option<u32>,
     map_info: String,
     mapset_id: u32,
 }
 
 impl SimulateEmbed {
-    pub async fn new(
-        score: Option<Score>,
-        map: &Beatmap,
-        mapset: &BeatmapsetCompact,
-        args: SimulateArgs,
-        ctx: &Context,
-    ) -> Result<Self> {
-        let is_some = args.is_some();
+    pub async fn new(entry: &SimulateEntry, args: SimulateArgs, ctx: &Context) -> Self {
+        let SimulateEntry {
+            original_score,
+            if_fc,
+            map,
+            stars,
+            max_pp,
+        } = entry;
 
-        let title = if map.mode == GameMode::Mania {
-            format!(
-                "{} {} - {} [{}]",
-                osu::get_keys(GameMods::default(), map),
-                mapset.artist.cow_escape_markdown(),
-                mapset.title.cow_escape_markdown(),
-                map.version.cow_escape_markdown(),
-            )
-        } else {
-            format!(
-                "{} - {} [{}]",
-                mapset.artist.cow_escape_markdown(),
-                mapset.title.cow_escape_markdown(),
-                map.version.cow_escape_markdown(),
-            )
-        };
+        let mut title = format!(
+            "{} - {} [{}]",
+            map.artist().cow_escape_markdown(),
+            map.title().cow_escape_markdown(),
+            map.version().cow_escape_markdown(),
+        );
 
-        let (prev_pp, prev_combo, prev_hits, misses) = if let Some(ref s) = score {
-            let pp = if let Some(pp) = s.pp {
-                pp
-            } else {
-                PpCalculator::new(ctx, map.map_id).await?.score(s).pp() as f32
-            };
+        if map.mode() == GameMode::Mania {
+            let _ = write!(title, " [{}]", KeyFormatter::new(GameMods::NoMod, map));
+        }
 
-            let prev_combo = (map.mode == GameMode::Osu).then_some(s.max_combo);
-            let prev_hits = Some(s.hits_string(map.mode));
+        let (prev_pp, prev_combo, prev_hits, misses) = if let Some(score) = original_score {
+            let prev_combo = (score.mode == GameMode::Osu).then_some(score.max_combo);
+            let prev_hits = Some(HitResultFormatter::new(
+                score.mode,
+                score.statistics.clone(),
+            ));
 
             (
-                Some(round(pp)),
+                Some(round(score.pp)),
                 prev_combo,
                 prev_hits,
-                Some(s.statistics.count_miss),
+                Some(score.statistics.count_miss),
             )
         } else {
             (None, None, None, None)
         };
 
-        let mut unchoked_score = score.unwrap_or_else(default_score);
-
-        let map_path = prepare_beatmap_file(ctx, map.map_id)
-            .await
-            .wrap_err("failed to prepare map")?;
-
-        let rosu_map = Map::from_path(map_path)
-            .await
-            .wrap_err("failed to parse map")?;
+        let mut unchoked_score = original_score.as_ref().map_or(
+            ScoreSlim {
+                accuracy: 100.0,
+                ended_at: OffsetDateTime::now_utc(),
+                grade: Grade::F,
+                max_combo: 0,
+                mode: map.mode(),
+                mods: GameMods::NoMod,
+                pp: 0.0,
+                score: 0,
+                score_id: None,
+                statistics: ScoreStatistics {
+                    count_geki: 0,
+                    count_300: 0,
+                    count_katu: 0,
+                    count_100: 0,
+                    count_50: 0,
+                    count_miss: 0,
+                },
+            },
+            ScoreSlim::clone,
+        );
 
         if let Some(ModSelection::Exact(mods)) | Some(ModSelection::Include(mods)) = args.mods {
             unchoked_score.mods = mods;
         }
 
-        let performance_attributes = rosu_map.max_pp(unchoked_score.mods.bits());
-        let attributes = performance_attributes.difficulty_attributes();
-        let max_pp = performance_attributes.pp() as f32;
+        if args.any_args() {
+            simulate_score(ctx, &mut unchoked_score, map, args).await;
+        } else if let Some(if_fc) = if_fc {
+            unchoked_score.grade =
+                calculate_grade(unchoked_score.mode, unchoked_score.mods, &if_fc.statistics);
 
-        let stars = round(attributes.stars() as f32);
-
-        if is_some {
-            simulate_score(&mut unchoked_score, map, args, &attributes);
+            unchoked_score.accuracy = if_fc.accuracy();
+            unchoked_score.pp = if_fc.pp;
+            unchoked_score.statistics = if_fc.statistics.clone();
+            unchoked_score.max_combo = map.max_combo().unwrap_or(0);
         } else {
-            unchoke_score(&mut unchoked_score, map, &attributes);
+            perfect_score(ctx, &mut unchoked_score, map, *max_pp).await;
         }
 
-        let pp = rosu_map
-            .pp()
-            .attributes(attributes)
-            .mods(unchoked_score.mods.bits())
-            .combo(unchoked_score.max_combo as usize)
-            .n_geki(unchoked_score.statistics.count_geki as usize)
-            .n300(unchoked_score.statistics.count_300 as usize)
-            .n_katu(unchoked_score.statistics.count_katu as usize)
-            .n100(unchoked_score.statistics.count_100 as usize)
-            .n50(unchoked_score.statistics.count_50 as usize)
-            .n_katu(unchoked_score.statistics.count_katu as usize)
-            .n_misses(unchoked_score.statistics.count_miss as usize)
-            .calculate()
-            .pp() as f32;
+        let grade_completion_mods = grade_completion_mods(
+            unchoked_score.mods,
+            unchoked_score.grade,
+            unchoked_score.total_hits(),
+            map,
+        );
 
-        let grade_completion_mods = grade_completion_mods(&unchoked_score, map);
-        let pp = osu::get_pp(Some(pp), Some(max_pp));
-        let hits = unchoked_score.hits_string(map.mode);
+        let mode = map.mode();
+        let pp = PpFormatter::new(Some(unchoked_score.pp), Some(*max_pp));
+        let hits = HitResultFormatter::new(mode, unchoked_score.statistics.clone());
+        let acc = round(unchoked_score.accuracy);
+        let combo = ComboFormatter::new(unchoked_score.max_combo, map.max_combo()).to_string();
 
-        let (combo, acc) = match map.mode {
-            GameMode::Osu | GameMode::Catch => (
-                osu::get_combo(&unchoked_score, map),
-                round(unchoked_score.accuracy),
-            ),
-            GameMode::Mania => (String::from("**-**/-"), 100.0),
-            GameMode::Taiko => {
-                let acc = round(unchoked_score.accuracy);
+        let footer = FooterBuilder::new(format!("{:?} map", map.status()))
+            .icon_url(format!("{AVATAR_URL}{}", map.creator_id()));
 
-                let combo = if is_some {
-                    if unchoked_score.max_combo == 0 {
-                        "**-**/-".to_owned()
-                    } else {
-                        format!("**{}x**/-", unchoked_score.max_combo)
-                    }
-                } else if let Some(combo) = map.max_combo {
-                    format!("**{combo}x**/{combo}")
-                } else {
-                    "**-**/-".to_string()
-                };
-
-                (combo, acc)
-            }
-        };
-
-        let footer = FooterBuilder::new(format!("{:?} map by {}", map.status, mapset.creator_name))
-            .icon_url(format!("{AVATAR_URL}{}", mapset.creator_id));
-
-        Ok(Self {
+        Self {
             title,
-            url: map.url.to_owned(),
+            url: format!("{OSU_BASE}b/{}", map.map_id()),
             footer,
-            thumbnail: format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id), // mapset.covers is empty :(
+            thumbnail: format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id()),
             grade_completion_mods,
-            stars,
+            stars: *stars,
             score: unchoked_score.score as u64,
-            mode: map.mode,
+            mode: map.mode(),
             acc,
             pp,
             combo,
             hits,
-            map_info: osu::get_map_info(map, unchoked_score.mods, stars),
+            map_info: osu::get_map_info(map, unchoked_score.mods, *stars),
             removed_misses: misses,
             prev_hits,
             prev_combo,
             prev_pp,
-            mapset_id: mapset.mapset_id,
-        })
+            mapset_id: map.mapset_id(),
+        }
     }
 
     pub fn as_maximized(&self) -> Embed {
@@ -344,18 +319,18 @@ impl SimulateEmbed {
         let pp = if let Some(prev_pp) = self.prev_pp {
             format!("{prev_pp} → {}", self.pp)
         } else {
-            self.pp.to_owned()
+            self.pp.to_string()
         };
 
         fields![fields { "PP", pp, true }];
 
         if self.mode == GameMode::Mania {
-            fields![fields { "Score", with_comma_int(self.score).to_string(), true }];
+            fields![fields { "Score", WithComma::new(self.score).to_string(), true }];
         } else {
             let hits = if let Some(ref prev_hits) = self.prev_hits {
                 format!("{prev_hits} → {}", &self.hits)
             } else {
-                self.hits.to_owned()
+                self.hits.to_string()
             };
 
             fields![fields { "Hits", hits, true }];
@@ -376,7 +351,7 @@ impl SimulateEmbed {
         let mut value = if let Some(prev_pp) = self.prev_pp {
             format!("{prev_pp} → {}", self.pp)
         } else {
-            self.pp
+            self.pp.to_string()
         };
 
         if self.mode != GameMode::Mania {
@@ -391,7 +366,7 @@ impl SimulateEmbed {
         let _ = write!(name, "{} ", self.grade_completion_mods);
 
         if self.mode == GameMode::Mania {
-            let _ = write!(name, "{} ", with_comma_int(self.score));
+            let _ = write!(name, "{} ", WithComma::new(self.score));
             let _ = write!(name, "({}%)", self.acc);
         } else {
             let _ = write!(name, "({}%)", self.acc);
@@ -415,19 +390,17 @@ impl SimulateEmbed {
     }
 }
 
-fn simulate_score(
-    score: &mut Score,
-    map: &Beatmap,
-    args: SimulateArgs,
-    attributes: &DifficultyAttributes,
-) {
-    match attributes {
+async fn simulate_score(ctx: &Context, score: &mut ScoreSlim, map: &OsuMap, args: SimulateArgs) {
+    let mut calc = ctx.pp(map).mods(score.mods).mode(score.mode);
+    let attrs = calc.difficulty().await;
+
+    match attrs {
         DifficultyAttributes::Osu(attrs) => {
             let acc = args.acc.map_or(1.0, |a| a / 100.0);
             let mut n50 = args.n50.unwrap_or(0);
             let mut n100 = args.n100.unwrap_or(0);
             let mut miss = args.misses.unwrap_or(0);
-            let n_objects = map.count_objects() as usize;
+            let n_objects = map.n_objects();
 
             let combo = args
                 .combo
@@ -487,7 +460,6 @@ fn simulate_score(
             score.statistics.count_miss = miss as u32;
             score.max_combo = combo as u32;
             score.accuracy = score.accuracy();
-            score.grade = score.grade(None);
         }
         DifficultyAttributes::Mania(_) => {
             let mut max_score = 1_000_000;
@@ -509,31 +481,19 @@ fn simulate_score(
             score.mode = GameMode::Mania;
             score.max_combo = 0;
             score.score = args.score.map_or(max_score, |s| s.min(max_score));
-            score.statistics.count_geki = map.count_objects();
+            score.statistics.count_geki = map.n_objects() as u32;
             score.statistics.count_300 = 0;
             score.statistics.count_katu = 0;
             score.statistics.count_100 = 0;
             score.statistics.count_50 = 0;
             score.statistics.count_miss = 0;
             score.accuracy = 100.0;
-
-            score.grade = if mods.intersects(GameMods::Flashlight | GameMods::Hidden) {
-                if score.score == max_score {
-                    Grade::XH
-                } else {
-                    Grade::SH
-                }
-            } else if score.score == max_score {
-                Grade::X
-            } else {
-                Grade::S
-            };
         }
         DifficultyAttributes::Taiko(_) => {
             let n100 = args.n100.unwrap_or(0);
             let n300 = args.n300.unwrap_or(0);
             let miss = args.misses.unwrap_or(0);
-            let n_objects = map.count_circles as usize;
+            let n_objects = map.n_circles();
             let missing = n_objects - (n300 + n100 + miss);
 
             match args.acc {
@@ -566,13 +526,12 @@ fn simulate_score(
             score.max_combo = args
                 .combo
                 .map(|c| c as u32)
-                .or(map.max_combo)
+                .or_else(|| map.max_combo())
                 .unwrap_or(0)
                 .min(n_objects.saturating_sub(miss) as u32);
 
             score.mode = GameMode::Taiko;
             score.accuracy = acc * 100.0;
-            score.grade = score.grade(Some(score.accuracy));
         }
         DifficultyAttributes::Catch(attrs) => {
             let n_tiny_droplets;
@@ -604,8 +563,8 @@ fn simulate_score(
                     n_tiny_droplet_misses = attrs.n_tiny_droplets.saturating_sub(n_tiny_droplets);
                 }
                 None => {
-                    n_droplets = attrs.n_droplets.min(args.n100.unwrap_or(0) as usize);
-                    n_fruits = attrs.n_fruits.min(args.n300.unwrap_or(0) as usize);
+                    n_droplets = attrs.n_droplets.min(args.n100.unwrap_or(0));
+                    n_fruits = attrs.n_fruits.min(args.n300.unwrap_or(0));
 
                     let missing_fruits = attrs.n_fruits.saturating_sub(n_fruits);
                     let missing_droplets = attrs.n_droplets.saturating_sub(n_droplets);
@@ -615,7 +574,7 @@ fn simulate_score(
                         missing_fruits.saturating_sub(miss.saturating_sub(missing_droplets));
 
                     n_tiny_droplets = match args.n50 {
-                        Some(n50) => attrs.n_tiny_droplets.min(n50 as usize),
+                        Some(n50) => attrs.n_tiny_droplets.min(n50),
                         None => attrs.n_tiny_droplets,
                     };
 
@@ -636,139 +595,41 @@ fn simulate_score(
                 .min(attrs.max_combo() - miss) as u32;
 
             score.accuracy = score.accuracy();
-            score.grade = score.grade(Some(score.accuracy));
         }
     }
+
+    score.grade = calculate_grade(score.mode, score.mods, &score.statistics);
+    let pp = calc.score(&*score).performance().await.pp();
+    score.pp = pp as f32;
 }
 
-fn unchoke_score(score: &mut Score, map: &Beatmap, attributes: &DifficultyAttributes) {
-    let max_combo = map
-        .max_combo
-        .unwrap_or_else(|| attributes.max_combo() as u32);
+async fn perfect_score(ctx: &Context, score: &mut ScoreSlim, map: &OsuMap, max_pp: f32) {
+    let calc = ctx.pp(map);
 
-    if score.is_fc(map.mode, max_combo) {
-        return;
-    }
-
-    match attributes {
+    match calc.mods(score.mods).mode(score.mode).difficulty().await {
         DifficultyAttributes::Osu(attrs) => {
-            let total_objects = map.count_objects() as usize;
-            let passed_objects = score.total_hits() as usize;
-
-            let mut count300 =
-                score.statistics.count_300 as usize + total_objects.saturating_sub(passed_objects);
-
-            let count_hits = total_objects - score.statistics.count_miss as usize;
-            let ratio = 1.0 - (count300 as f32 / count_hits as f32);
-            let new100s = (ratio * score.statistics.count_miss as f32).ceil() as u32;
-
-            count300 += score.statistics.count_miss.saturating_sub(new100s) as usize;
-            let count100 = (score.statistics.count_100 + new100s) as usize;
-
-            score.statistics.count_300 = count300 as u32;
-            score.statistics.count_100 = count100 as u32;
-            score.max_combo = map.max_combo.unwrap_or(attrs.max_combo as u32);
+            score.statistics.count_300 = map.n_objects() as u32;
+            score.max_combo = attrs.max_combo() as u32;
+            score.pp = max_pp;
+            score.grade = calculate_grade(GameMode::Osu, score.mods, &score.statistics);
         }
-        DifficultyAttributes::Mania(_) => {
-            score.score = 1_000_000;
-            let mods = score.mods;
-
-            if mods.contains(GameMods::Easy) {
-                score.score /= 2;
-            }
-
-            if mods.contains(GameMods::NoFail) {
-                score.score /= 2;
-            }
-
-            if mods.contains(GameMods::HalfTime) {
-                score.score /= 2;
-            }
-
-            let hdfl = GameMods::Flashlight | GameMods::Hidden;
-
-            score.grade = if score.mods.intersects(hdfl) {
-                Grade::XH
-            } else {
-                Grade::X
-            };
-
-            return;
+        DifficultyAttributes::Taiko(attrs) => {
+            score.statistics.count_300 = map.n_circles() as u32;
+            score.max_combo = attrs.max_combo() as u32;
+            score.pp = max_pp;
+            score.grade = calculate_grade(GameMode::Taiko, score.mods, &score.statistics);
         }
         DifficultyAttributes::Catch(attrs) => {
-            let total_objects = attrs.max_combo();
-            let passed_objects = score.total_hits() as usize;
-
-            let missing = total_objects - passed_objects;
-            let missing_fruits = missing.saturating_sub(
-                attrs
-                    .n_droplets
-                    .saturating_sub(score.statistics.count_100 as usize),
-            );
-            let missing_droplets = missing - missing_fruits;
-
-            let n_fruits = score.statistics.count_300 as usize + missing_fruits;
-            let n_droplets = score.statistics.count_100 as usize + missing_droplets;
-            let n_tiny_droplet_misses = score.statistics.count_katu as usize;
-            let n_tiny_droplets = attrs.n_tiny_droplets.saturating_sub(n_tiny_droplet_misses);
-
-            score.statistics.count_300 = n_fruits as u32;
-            score.statistics.count_100 = n_droplets as u32;
-            score.statistics.count_katu = n_tiny_droplet_misses as u32;
-            score.statistics.count_50 = n_tiny_droplets as u32;
-            score.max_combo = total_objects as u32;
+            score.statistics.count_300 = attrs.max_combo() as u32;
+            score.max_combo = attrs.max_combo() as u32;
+            score.pp = max_pp;
+            score.grade = calculate_grade(GameMode::Catch, score.mods, &score.statistics);
         }
-        DifficultyAttributes::Taiko(_) => {
-            let total_objects = map.count_circles as usize;
-            let passed_objects = score.total_hits() as usize;
-
-            let mut count300 =
-                score.statistics.count_300 as usize + total_objects.saturating_sub(passed_objects);
-
-            let count_hits = total_objects - score.statistics.count_miss as usize;
-            let ratio = 1.0 - (count300 as f32 / count_hits as f32);
-            let new100s = (ratio * score.statistics.count_miss as f32).ceil() as u32;
-
-            count300 += score.statistics.count_miss.saturating_sub(new100s) as usize;
-            let count100 = (score.statistics.count_100 + new100s) as usize;
-
-            score.statistics.count_300 = count300 as u32;
-            score.statistics.count_100 = count100 as u32;
+        DifficultyAttributes::Mania(attrs) => {
+            score.statistics.count_geki = map.n_objects() as u32;
+            score.max_combo = attrs.max_combo() as u32;
+            score.pp = max_pp;
+            score.grade = calculate_grade(GameMode::Mania, score.mods, &score.statistics);
         }
-    }
-
-    score.statistics.count_miss = 0;
-    score.grade = score.grade(None);
-    score.accuracy = score.accuracy();
-}
-
-fn default_score() -> Score {
-    Score {
-        accuracy: 100.0,
-        ended_at: OffsetDateTime::now_utc(),
-        grade: Grade::D,
-        max_combo: 0,
-        map: None,
-        mapset: None,
-        mode: GameMode::default(),
-        mods: GameMods::default(),
-        perfect: false,
-        pp: None,
-        rank_country: None,
-        rank_global: None,
-        replay: None,
-        score: 0,
-        score_id: None,
-        statistics: ScoreStatistics {
-            count_geki: 0,
-            count_300: 0,
-            count_katu: 0,
-            count_100: 0,
-            count_50: 0,
-            count_miss: 0,
-        },
-        user: None,
-        user_id: 0,
-        weight: None,
     }
 }

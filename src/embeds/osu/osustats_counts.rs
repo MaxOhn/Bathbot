@@ -1,12 +1,15 @@
 use std::fmt::Write;
 
 use command_macros::EmbedData;
-use rosu_v2::prelude::{GameMode, User};
+use rosu_v2::prelude::GameMode;
 
-use crate::util::{
-    builder::AuthorBuilder,
-    osu::{TopCount, TopCounts},
-    CowUtils,
+use crate::{
+    manager::redis::{osu::User, RedisData},
+    util::{
+        builder::AuthorBuilder,
+        osu::{TopCount, TopCounts},
+        CowUtils,
+    },
 };
 
 #[derive(EmbedData)]
@@ -18,7 +21,7 @@ pub struct OsuStatsCountsEmbed {
 }
 
 impl OsuStatsCountsEmbed {
-    pub fn new(user: User, mode: GameMode, counts: TopCounts) -> Self {
+    pub fn new(user: &RedisData<User>, mode: GameMode, counts: TopCounts) -> Self {
         let count_len = counts.count_len();
 
         let mut description = String::with_capacity(64);
@@ -48,11 +51,11 @@ impl OsuStatsCountsEmbed {
 
         Self {
             description,
-            author: author!(user),
-            thumbnail: user.avatar_url,
+            author: user.author_builder(),
+            thumbnail: user.avatar_url().to_owned(),
             title: format!(
                 "In how many top X {mode}map leaderboards is {}?",
-                user.username.cow_escape_markdown()
+                user.username().cow_escape_markdown()
             ),
         }
     }

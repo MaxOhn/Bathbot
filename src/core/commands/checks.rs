@@ -28,7 +28,10 @@ pub async fn check_authority(
         return Ok(None);
     }
 
-    let auth_roles = ctx.guild_authorities(guild_id).await;
+    let auth_roles = ctx
+        .guild_config()
+        .peek(guild_id, |config| config.authorities.clone())
+        .await;
 
     if auth_roles.is_empty() {
         let content = "You need admin permissions to use this command.\n\
@@ -47,17 +50,14 @@ pub async fn check_authority(
         }
     };
 
-    if !member_roles
-        .iter()
-        .any(|role| auth_roles.contains(&role.get()))
-    {
+    if !member_roles.iter().any(|role| auth_roles.contains(role)) {
         let mut content = String::from(
             "You need either admin permissions or \
             any of these roles to use this command:\n",
         );
 
         content.reserve(auth_roles.len() * 5);
-        let mut roles = auth_roles.into_iter();
+        let mut roles = auth_roles.iter();
 
         if let Some(first) = roles.next() {
             let _ = write!(content, "<@&{first}>");

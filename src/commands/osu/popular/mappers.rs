@@ -6,6 +6,7 @@ use rkyv::{DeserializeUnsized, Infallible};
 use crate::{
     core::Context,
     custom_client::OsuTrackerMapperEntry,
+    manager::redis::RedisData,
     pagination::OsuTrackerMappersPagination,
     util::{constants::OSUTRACKER_ISSUE, interaction::InteractionCommand, InteractionCommandExt},
 };
@@ -14,8 +15,14 @@ pub(super) async fn mappers(ctx: Arc<Context>, mut command: InteractionCommand) 
     const LIMIT: usize = 500;
 
     let counts: Vec<OsuTrackerMapperEntry> = match ctx.redis().osutracker_stats().await {
-        Ok(stats) => {
-            let counts = &stats.get().mapper_count;
+        Ok(RedisData::Original(stats)) => {
+            let mut counts = stats.mapper_count;
+            counts.truncate(LIMIT);
+
+            counts
+        }
+        Ok(RedisData::Archived(stats)) => {
+            let counts = &stats.mapper_count;
             let slice = &counts[..counts.len().min(LIMIT)];
 
             unsafe {

@@ -5,7 +5,7 @@ use crate::Context;
 use twilight_model::id::{marker::ChannelMarker, Id};
 
 impl Context {
-    pub fn add_tracking(&self, twitch_id: u64, channel_id: u64) {
+    pub fn add_tracking(&self, twitch_id: u64, channel_id: Id<ChannelMarker>) {
         let streams = &self.data.tracked_streams;
         let guard = streams.guard();
 
@@ -46,12 +46,10 @@ impl Context {
             .tracked_streams
             .pin()
             .get(&twitch_id)
-            .map(|channels| channels.iter().copied().map(Id::new).collect())
+            .map(|channels| channels.to_vec())
     }
 
     pub fn tracked_users_in(&self, channel: Id<ChannelMarker>) -> Vec<u64> {
-        let channel = channel.get();
-
         self.data
             .tracked_streams
             .pin()

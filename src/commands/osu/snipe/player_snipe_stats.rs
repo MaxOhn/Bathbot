@@ -4,13 +4,17 @@ use command_macros::command;
 use eyre::{Report, Result, WrapErr};
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::prelude::*;
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::{
+    prelude::{GameMode, OsuError},
+    request::UserId,
+};
 use time::Date;
 
 use crate::{
-    commands::osu::{get_user, require_link, UserArgs},
+    commands::osu::require_link,
     core::commands::CommandOrigin,
     embeds::{EmbedData, PlayerSnipeStatsEmbed},
+    manager::redis::{osu::UserArgs, RedisData},
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -59,25 +63,28 @@ pub(super) async fn player_stats(
     orig: CommandOrigin<'_>,
     args: SnipePlayerStats<'_>,
 ) -> Result<()> {
-    let name = match username!(ctx, orig, args) {
-        Some(name) => name,
-        None => match ctx.psql().get_user_osu(orig.user_id()?).await {
-            Ok(Some(osu)) => osu.into_username(),
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
+        None => match ctx.user_config().osu_id(orig.user_id()?).await {
+            Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => return require_link(&ctx, &orig).await,
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get username"));
+                return Err(err);
             }
         },
     };
 
-    let user_args = UserArgs::new(name.as_str(), GameMode::Osu);
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await;
 
-    let mut user = match get_user(&ctx, &user_args).await {
+    let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = format!("User `{name}` was not found");
+            let content = match user_id {
+                UserId::Id(user_id) => format!("User with id {user_id} was not found"),
+                UserId::Name(name) => format!("User `{name}` was not found"),
+            };
 
             return orig.error(&ctx, content).await;
         }
@@ -89,17 +96,27 @@ pub(super) async fn player_stats(
         }
     };
 
-    // Overwrite default mode
-    user.mode = GameMode::Osu;
+    let (country_code, username, user_id) = match &user {
+        RedisData::Original(user) => {
+            let country_code = user.country_code.as_str();
+            let username = user.username.as_str();
+            let user_id = user.user_id;
 
-    let player_fut = if ctx.contains_country(user.country_code.as_str()) {
-        ctx.client()
-            .get_snipe_player(&user.country_code, user.user_id)
+            (country_code, username, user_id)
+        }
+        RedisData::Archived(user) => {
+            let country_code = user.country_code.as_str();
+            let username = user.username.as_str();
+            let user_id = user.user_id;
+
+            (country_code, username, user_id)
+        }
+    };
+
+    let player_fut = if ctx.huismetbenen().is_supported(country_code).await {
+        ctx.client().get_snipe_player(country_code, user_id)
     } else {
-        let content = format!(
-            "`{}`'s country {} is not supported :(",
-            user.username, user.country_code
-        );
+        let content = format!("`{username}`'s country {country_code} is not supported :(");
 
         return orig.error(&ctx, content).await;
     };
@@ -108,7 +125,7 @@ pub(super) async fn player_stats(
         Ok(counts) => counts,
         Err(err) => {
             warn!("{:?}", err.wrap_err("Failed to get snipe player"));
-            let content = format!("`{name}` has never had any national #1s");
+            let content = format!("`{username}` has never had any national #1s");
             let builder = MessageBuilder::new().embed(content);
             orig.create_message(&ctx, &builder).await?;
 
@@ -125,41 +142,38 @@ pub(super) async fn player_stats(
         }
     };
 
-    let first_score = {
-        let valid_oldest = player
-            .oldest_first
-            .as_ref()
-            .filter(|map| map.date.is_some());
+    let first = if let Some(oldest) = player
+        .oldest_first
+        .as_ref()
+        .filter(|map| map.date.is_some())
+    {
+        let score_fut = ctx
+            .osu()
+            .beatmap_user_score(oldest.beatmap_id, player.user_id)
+            .mode(GameMode::Osu);
 
-        if let Some(oldest) = valid_oldest {
-            let score_fut = ctx
-                .osu()
-                .beatmap_user_score(oldest.beatmap_id, player.user_id)
-                .mode(GameMode::Osu);
+        let map_fut = ctx.osu_map().map(oldest.beatmap_id, None);
 
-            match score_fut.await {
-                Ok(mut score) => match super::prepare_score(&ctx, &mut score.score).await {
-                    Ok(_) => Some(score.score),
-                    Err(err) => {
-                        let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-                        let report = Report::new(err).wrap_err("Failed to prepare score");
+        match tokio::join!(score_fut, map_fut) {
+            (Ok(score), Ok(map)) => Some((score.score, map)),
+            (Err(err), _) => {
+                let err = Report::new(err).wrap_err("failed to get oldest score");
+                warn!("{err:?}");
 
-                        return Err(report);
-                    }
-                },
-                Err(err) => {
-                    let report = Report::new(err).wrap_err("Failed to get oldest data");
-                    warn!("{report:?}");
-
-                    None
-                }
+                None
             }
-        } else {
-            None
+            (_, Err(err)) => {
+                let wrap = "failed to get oldest map";
+                warn!("{:?}", Report::new(err).wrap_err(wrap));
+
+                None
+            }
         }
+    } else {
+        None
     };
 
-    let embed = PlayerSnipeStatsEmbed::new(user, player, first_score, &ctx)
+    let embed = PlayerSnipeStatsEmbed::new(&user, player, &first, &ctx)
         .await
         .build();
 
@@ -231,7 +245,7 @@ pub fn graphs(
                 .x_labels(8)
                 .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month() as u8))
                 .label_style(("sans-serif", 15, &WHITE))
-                .bold_line_style(&WHITE.mix(0.3))
+                .bold_line_style(WHITE.mix(0.3))
                 .axis_style(RGBColor(7, 18, 14))
                 .axis_desc_style(("sans-serif", 16, FontStyle::Bold, &WHITE))
                 .draw()
@@ -275,7 +289,7 @@ pub fn graphs(
             .disable_x_mesh()
             .x_labels(15)
             .label_style(("sans-serif", 15, &WHITE))
-            .bold_line_style(&WHITE.mix(0.3))
+            .bold_line_style(WHITE.mix(0.3))
             .axis_style(RGBColor(7, 18, 14))
             .axis_desc_style(("sans-serif", 16, FontStyle::Bold, &WHITE))
             .draw()

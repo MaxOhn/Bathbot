@@ -1,20 +1,22 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashSet},
+    sync::Arc,
+};
 
 use command_macros::SlashCommand;
 use eyre::{Result, WrapErr};
-use hashbrown::HashSet;
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::Id;
 
 use crate::{
-    commands::{osu::UserValue, GameModeOption},
-    embeds::{RankingEntry, RankingKindData},
+    commands::GameModeOption,
+    embeds::{RankingEntries, RankingEntry, RankingKind},
     games::hl::{GameState, HlComponents, HlVersion},
     pagination::RankingPagination,
     util::{
-        builder::MessageBuilder, constants::GENERAL_ISSUE, interaction::InteractionCommand,
-        Authored, InteractionCommandExt, MessageExt,
+        builder::MessageBuilder, constants::GENERAL_ISSUE, hasher::IntHasher,
+        interaction::InteractionCommand, Authored, InteractionCommandExt, MessageExt,
     },
     Context,
 };
@@ -87,7 +89,7 @@ async fn slash_higherlower(ctx: Arc<Context>, mut command: InteractionCommand) -
         HigherLower::ScorePp(args) => {
             let mode = match args.mode.map(GameMode::from) {
                 Some(mode) => mode,
-                None => ctx.user_config(user).await?.mode.unwrap_or(GameMode::Osu),
+                None => ctx.user_config().mode(user).await?.unwrap_or(GameMode::Osu),
             };
 
             GameState::score_pp(&ctx, &command, mode).await
@@ -132,7 +134,7 @@ async fn higherlower_leaderboard(
         }
     };
 
-    let mut scores = match ctx.psql().get_higherlower_scores(version).await {
+    let mut scores = match ctx.games().higherlower_leaderboard(version).await {
         Ok(scores) => scores,
         Err(err) => {
             let _ = command.error(&ctx, GENERAL_ISSUE).await;
@@ -141,50 +143,47 @@ async fn higherlower_leaderboard(
         }
     };
 
-    let members: HashSet<_> = ctx.cache.members(guild, |id| id.get());
-    scores.retain(|(id, _)| members.contains(id));
+    let members: HashSet<_, IntHasher> = ctx.cache.members(guild, |id| id.get() as i64);
+    scores.retain(|row| members.contains(&row.discord_id));
 
-    let author = command.user_id()?;
+    let author = command.user_id()?.get() as i64;
 
-    scores.sort_unstable_by(|(_, a), (_, b)| b.cmp(a));
-    let author_idx = scores.iter().position(|(user, _)| *user == author);
+    scores.sort_unstable_by(|a, b| b.highscore.cmp(&a.highscore));
+    let author_idx = scores.iter().position(|row| row.discord_id == author);
 
     // Gather usernames for initial page
-    let mut users = BTreeMap::new();
+    let mut entries = BTreeMap::new();
 
-    for (i, (id, score)) in scores.iter().enumerate().take(20) {
-        let id = Id::new(*id);
+    for (i, row) in scores.iter().enumerate().take(20) {
+        let id = Id::new(row.discord_id as u64);
 
-        let name = match ctx.psql().get_user_osu(id).await {
-            Ok(Some(osu)) => osu.into_username(),
+        let name = match ctx.user_config().osu_name(id).await {
+            Ok(Some(name)) => name,
             Ok(None) => ctx
                 .cache
-                .user(id, |user| user.name.clone())
-                .unwrap_or_else(|_| "Unknown user".to_owned())
-                .into(),
+                .user(id, |user| user.name.as_str().into())
+                .unwrap_or_else(|_| "<unknown user>".into()),
             Err(err) => {
-                warn!("{:?}", err.wrap_err("Failed to get osu user"));
+                warn!("{err:?}");
 
-                ctx.cache
-                    .user(id, |user| user.name.clone())
-                    .unwrap_or_else(|_| "Unknown user".to_owned())
-                    .into()
+                "<unknown user>".into()
             }
         };
 
         let entry = RankingEntry {
-            value: UserValue::Amount(*score as u64),
-            name,
             country: None,
+            name,
+            value: row.highscore as u64,
         };
 
-        users.insert(i, entry);
+        entries.insert(i, entry);
     }
 
+    let entries = RankingEntries::Amount(entries);
     let total = scores.len();
-    let data = RankingKindData::HlScores { scores, version };
+    let data = RankingKind::HlScores { scores, version };
 
-    RankingPagination::builder(users, total, author_idx, data)
+    RankingPagination::builder(entries, total, author_idx, data)
         .start_by_update()
         .start(ctx, (&mut command).into())
         .await

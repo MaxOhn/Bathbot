@@ -2,12 +2,16 @@ use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
 use eyre::{Report, Result};
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::{
+    prelude::{OsuError},
+    request::UserId,
+};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
+    manager::redis::{osu::UserArgs, RedisData},
     util::{
         builder::{AuthorBuilder, EmbedBuilder, MessageBuilder},
         constants::{GENERAL_ISSUE, OSU_API_ISSUE, OSU_BASE},
@@ -19,7 +23,7 @@ use crate::{
     Context,
 };
 
-use super::{get_user, require_link, UserArgs};
+use super::{require_link, user_not_found};
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
 #[command(name = "avatar")]
@@ -69,44 +73,58 @@ impl<'m> Avatar<'m> {
 }
 
 async fn avatar(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Avatar<'_>) -> Result<()> {
-    let name = match username!(ctx, orig, args) {
-        Some(name) => name,
-        None => match ctx.psql().get_user_osu(orig.user_id()?).await {
-            Ok(Some(osu)) => osu.into_username(),
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
+        None => match ctx.user_config().osu_id(orig.user_id()?).await {
+            Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => return require_link(&ctx, &orig).await,
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get username"));
+                return Err(err);
             }
         },
     };
 
-    let user_args = UserArgs::new(name.as_str(), GameMode::Osu);
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await;
 
-    let user = match get_user(&ctx, &user_args).await {
+    let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = format!("User `{name}` was not found");
+            let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user");
+            let err = Report::new(err).wrap_err("failed to get user");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
-    let author = AuthorBuilder::new(user.username.into_string())
-        .url(format!("{OSU_BASE}u/{}", user.user_id))
-        .icon_url(flag_url(user.country_code.as_str()));
+    let embed = match user {
+        RedisData::Original(user) => {
+            let author = AuthorBuilder::new(user.username.into_string())
+                .url(format!("{OSU_BASE}u/{}", user.user_id))
+                .icon_url(flag_url(&user.country_code));
 
-    let embed = EmbedBuilder::new()
-        .author(author)
-        .image(user.avatar_url)
-        .build();
+            EmbedBuilder::new()
+                .author(author)
+                .image(user.avatar_url)
+                .build()
+        }
+        RedisData::Archived(user) => {
+            let author = AuthorBuilder::new(user.username.as_str())
+                .url(format!("{OSU_BASE}u/{}", user.user_id))
+                .icon_url(flag_url(user.country_code.as_str()));
+
+            EmbedBuilder::new()
+                .author(author)
+                .image(user.avatar_url.as_str())
+                .build()
+        }
+    };
 
     let builder = MessageBuilder::new().embed(embed);
     orig.create_message(&ctx, &builder).await?;

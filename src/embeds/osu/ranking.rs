@@ -1,30 +1,204 @@
 use std::{
     collections::{btree_map::Range, BTreeMap},
-    fmt::{self, Write},
+    fmt::{Display, Formatter, Result as FmtResult, Write},
+    ops::RangeBounds,
 };
 
+use bathbot_psql::model::{
+    games::{DbBgGameScore, DbHlGameScore},
+    osu::{UserModeStatsColumn, UserStatsColumn, UserStatsEntries, UserStatsEntry},
+};
 use rosu_v2::prelude::{GameMode, Username};
+use time::OffsetDateTime;
 use twilight_model::{
+    channel::embed::Embed,
     id::{marker::GuildMarker, Id},
     util::ImageHash,
 };
 
 use crate::{
-    commands::osu::UserValue,
-    database::UserStatsColumn,
     embeds::EmbedData,
     games::hl::HlVersion,
     pagination::Pages,
     util::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
+        numbers::{round, WithComma},
+        rkyv_impls::ArchivedCountryCode,
         CountryCode,
     },
 };
 
-pub struct RankingEntry {
-    pub value: UserValue,
-    pub name: Username,
+pub struct RankingEntry<V> {
     pub country: Option<CountryCode>,
+    pub name: Username,
+    pub value: V,
+}
+
+impl<V> From<UserStatsEntry<V>> for RankingEntry<V> {
+    #[inline]
+    fn from(entry: UserStatsEntry<V>) -> Self {
+        Self {
+            country: Some(ArchivedCountryCode::new(entry.country).as_str().into()),
+            name: entry.name.into(),
+            value: entry.value,
+        }
+    }
+}
+
+pub enum RankingEntries {
+    Accuracy(BTreeMap<usize, RankingEntry<f32>>),
+    Amount(BTreeMap<usize, RankingEntry<u64>>),
+    AmountWithNegative(BTreeMap<usize, RankingEntry<i64>>),
+    Date(BTreeMap<usize, RankingEntry<OffsetDateTime>>),
+    Float(BTreeMap<usize, RankingEntry<f32>>),
+    Playtime(BTreeMap<usize, RankingEntry<u32>>),
+    PpF32(BTreeMap<usize, RankingEntry<f32>>),
+    PpU32(BTreeMap<usize, RankingEntry<u32>>),
+    Rank(BTreeMap<usize, RankingEntry<u32>>),
+}
+
+impl RankingEntries {
+    pub fn contains_key(&self, key: usize) -> bool {
+        match self {
+            RankingEntries::Accuracy(entries) => entries.contains_key(&key),
+            RankingEntries::Amount(entries) => entries.contains_key(&key),
+            RankingEntries::AmountWithNegative(entries) => entries.contains_key(&key),
+            RankingEntries::Date(entries) => entries.contains_key(&key),
+            RankingEntries::Float(entries) => entries.contains_key(&key),
+            RankingEntries::Playtime(entries) => entries.contains_key(&key),
+            RankingEntries::PpF32(entries) => entries.contains_key(&key),
+            RankingEntries::PpU32(entries) => entries.contains_key(&key),
+            RankingEntries::Rank(entries) => entries.contains_key(&key),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        match self {
+            RankingEntries::Accuracy(entries) => entries.is_empty(),
+            RankingEntries::Amount(entries) => entries.is_empty(),
+            RankingEntries::AmountWithNegative(entries) => entries.is_empty(),
+            RankingEntries::Date(entries) => entries.is_empty(),
+            RankingEntries::Float(entries) => entries.is_empty(),
+            RankingEntries::Playtime(entries) => entries.is_empty(),
+            RankingEntries::PpF32(entries) => entries.is_empty(),
+            RankingEntries::PpU32(entries) => entries.is_empty(),
+            RankingEntries::Rank(entries) => entries.is_empty(),
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        match self {
+            RankingEntries::Accuracy(entries) => entries.len(),
+            RankingEntries::Amount(entries) => entries.len(),
+            RankingEntries::AmountWithNegative(entries) => entries.len(),
+            RankingEntries::Date(entries) => entries.len(),
+            RankingEntries::Float(entries) => entries.len(),
+            RankingEntries::Playtime(entries) => entries.len(),
+            RankingEntries::PpF32(entries) => entries.len(),
+            RankingEntries::PpU32(entries) => entries.len(),
+            RankingEntries::Rank(entries) => entries.len(),
+        }
+    }
+
+    pub fn entry_count<R: RangeBounds<usize>>(&self, range: R) -> usize {
+        match self {
+            RankingEntries::Accuracy(entries) => entries.range(range).count(),
+            RankingEntries::Amount(entries) => entries.range(range).count(),
+            RankingEntries::AmountWithNegative(entries) => entries.range(range).count(),
+            RankingEntries::Date(entries) => entries.range(range).count(),
+            RankingEntries::Float(entries) => entries.range(range).count(),
+            RankingEntries::Playtime(entries) => entries.range(range).count(),
+            RankingEntries::PpF32(entries) => entries.range(range).count(),
+            RankingEntries::PpU32(entries) => entries.range(range).count(),
+            RankingEntries::Rank(entries) => entries.range(range).count(),
+        }
+    }
+
+    pub fn name_pos(&self, name: &str) -> Option<usize> {
+        match self {
+            RankingEntries::Accuracy(entries) => {
+                entries.values().position(|entry| entry.name == name)
+            }
+            RankingEntries::Amount(entries) => {
+                entries.values().position(|entry| entry.name == name)
+            }
+            RankingEntries::AmountWithNegative(entries) => {
+                entries.values().position(|entry| entry.name == name)
+            }
+            RankingEntries::Date(entries) => entries.values().position(|entry| entry.name == name),
+            RankingEntries::Float(entries) => entries.values().position(|entry| entry.name == name),
+            RankingEntries::Playtime(entries) => {
+                entries.values().position(|entry| entry.name == name)
+            }
+            RankingEntries::PpF32(entries) => entries.values().position(|entry| entry.name == name),
+            RankingEntries::PpU32(entries) => entries.values().position(|entry| entry.name == name),
+            RankingEntries::Rank(entries) => entries.values().position(|entry| entry.name == name),
+        }
+    }
+}
+
+impl From<UserStatsEntries> for RankingEntries {
+    #[inline]
+    fn from(entries: UserStatsEntries) -> Self {
+        match entries {
+            UserStatsEntries::Accuracy(entries) => Self::Accuracy(
+                entries
+                    .into_iter()
+                    .map(RankingEntry::from)
+                    .enumerate()
+                    .collect(),
+            ),
+            UserStatsEntries::Amount(entries) => Self::Amount(
+                entries
+                    .into_iter()
+                    .map(RankingEntry::from)
+                    .enumerate()
+                    .collect(),
+            ),
+            UserStatsEntries::AmountWithNegative(entries) => Self::AmountWithNegative(
+                entries
+                    .into_iter()
+                    .map(RankingEntry::from)
+                    .enumerate()
+                    .collect(),
+            ),
+            UserStatsEntries::Date(entries) => Self::Date(
+                entries
+                    .into_iter()
+                    .map(RankingEntry::from)
+                    .enumerate()
+                    .collect(),
+            ),
+            UserStatsEntries::Float(entries) => Self::Float(
+                entries
+                    .into_iter()
+                    .map(RankingEntry::from)
+                    .enumerate()
+                    .collect(),
+            ),
+            UserStatsEntries::Playtime(entries) => Self::Playtime(
+                entries
+                    .into_iter()
+                    .map(RankingEntry::from)
+                    .enumerate()
+                    .collect(),
+            ),
+            UserStatsEntries::PpF32(entries) => Self::PpF32(
+                entries
+                    .into_iter()
+                    .map(RankingEntry::from)
+                    .enumerate()
+                    .collect(),
+            ),
+            UserStatsEntries::Rank(entries) => Self::Rank(
+                entries
+                    .into_iter()
+                    .map(RankingEntry::from)
+                    .enumerate()
+                    .collect(),
+            ),
+        }
+    }
 }
 
 enum EmbedHeader {
@@ -41,13 +215,13 @@ impl EmbedHeader {
     }
 }
 
-pub enum RankingKindData {
+pub enum RankingKind {
     BgScores {
         global: bool,
-        scores: Vec<(u64, u32)>,
+        scores: Vec<DbBgGameScore>,
     },
     HlScores {
-        scores: Vec<(u64, u32)>,
+        scores: Vec<DbHlGameScore>,
         version: HlVersion,
     },
     OsekaiRarity,
@@ -72,11 +246,21 @@ pub enum RankingKindData {
     },
     UserStats {
         guild_icon: Option<(Id<GuildMarker>, ImageHash)>,
-        kind: UserStatsColumn,
+        kind: UserStatsKind,
     },
 }
 
-impl RankingKindData {
+pub enum UserStatsKind {
+    AllModes {
+        column: UserStatsColumn,
+    },
+    Mode {
+        mode: GameMode,
+        column: UserModeStatsColumn,
+    },
+}
+
+impl RankingKind {
     fn embed_header(&self) -> EmbedHeader {
         match self {
             Self::BgScores { global, .. } => {
@@ -184,54 +368,55 @@ impl RankingKindData {
                 EmbedHeader::title(text, url)
             }
             Self::UserStats { guild_icon, kind } => {
-                let mode = kind.mode();
-
-                let kind = match kind {
-                    UserStatsColumn::Badges => "Badges",
-                    UserStatsColumn::Comments => "Comments",
-                    UserStatsColumn::Followers => "Followers",
-                    UserStatsColumn::ForumPosts => "Forum posts",
-                    UserStatsColumn::GraveyardMapsets => "Graveyard mapsets",
-                    UserStatsColumn::JoinDate => "Join date",
-                    UserStatsColumn::KudosuAvailable => "Kudosu available",
-                    UserStatsColumn::KudosuTotal => "Kudosu total",
-                    UserStatsColumn::LovedMapsets => "Loved mapsets",
-                    UserStatsColumn::MappingFollowers => "Mapping followers",
-                    UserStatsColumn::Medals => "Medals",
-                    UserStatsColumn::PlayedMaps => "Played maps",
-                    UserStatsColumn::RankedMapsets => "Ranked mapsets",
-                    UserStatsColumn::Usernames => "Namechange count",
-                    UserStatsColumn::Accuracy { .. } => "Accuracy",
-                    UserStatsColumn::AverageHits { .. } => "Average hits per play",
-                    UserStatsColumn::CountSsh { .. } => "Count SSH",
-                    UserStatsColumn::CountSs { .. } => "Count SS",
-                    UserStatsColumn::TotalSs { .. } => "Total SS",
-                    UserStatsColumn::CountSh { .. } => "Count SH",
-                    UserStatsColumn::CountS { .. } => "Count S",
-                    UserStatsColumn::TotalS { .. } => "Total S",
-                    UserStatsColumn::CountA { .. } => "Count A",
-                    UserStatsColumn::Level { .. } => "Level",
-                    UserStatsColumn::MaxCombo { .. } => "Max combo",
-                    UserStatsColumn::Playcount { .. } => "Playcount",
-                    UserStatsColumn::Playtime { .. } => "Playtime",
-                    UserStatsColumn::Pp { .. } => "PP",
-                    UserStatsColumn::RankCountry { .. } => "Country rank",
-                    UserStatsColumn::RankGlobal { .. } => "Global rank",
-                    UserStatsColumn::Replays { .. } => "Replays watched",
-                    UserStatsColumn::ScoreRanked { .. } => "Ranked score",
-                    UserStatsColumn::ScoreTotal { .. } => "Total score",
-                    UserStatsColumn::ScoresFirst { .. } => "Global #1s",
-                    UserStatsColumn::TotalHits { .. } => "Total hits",
-                };
-
                 let mut author_text = "Server leaderboard".to_owned();
 
-                if let Some(mode) = mode {
-                    let _ = write!(author_text, " for osu!{mode}", mode = mode_str(mode));
+                if let UserStatsKind::Mode { mode, .. } = kind {
+                    let _ = write!(author_text, " for osu!{mode}", mode = mode_str(*mode));
                 }
 
-                let _ = write!(author_text, ": {kind}");
+                let stats_kind = match kind {
+                    UserStatsKind::AllModes { column } => match column {
+                        UserStatsColumn::Badges => "Badges",
+                        UserStatsColumn::Comments => "Comments",
+                        UserStatsColumn::Followers => "Followers",
+                        UserStatsColumn::ForumPosts => "Forum posts",
+                        UserStatsColumn::GraveyardMapsets => "Graveyard mapsets",
+                        UserStatsColumn::JoinDate => "Join date",
+                        UserStatsColumn::KudosuAvailable => "Kudosu available",
+                        UserStatsColumn::KudosuTotal => "Kudosu total",
+                        UserStatsColumn::LovedMapsets => "Loved mapsets",
+                        UserStatsColumn::Subscribers => "Mapping followers",
+                        UserStatsColumn::Medals => "Medals",
+                        UserStatsColumn::Namechanges => "Namechange count",
+                        UserStatsColumn::PlayedMaps => "Played maps",
+                        UserStatsColumn::RankedMapsets => "Ranked mapsets",
+                    },
+                    UserStatsKind::Mode { column, .. } => match column {
+                        UserModeStatsColumn::Accuracy => "Accuracy",
+                        UserModeStatsColumn::AverageHits => "Average hits per play",
+                        UserModeStatsColumn::CountSsh => "Count SSH",
+                        UserModeStatsColumn::CountSs => "Count SS",
+                        UserModeStatsColumn::TotalSs => "Total SS",
+                        UserModeStatsColumn::CountSh => "Count SH",
+                        UserModeStatsColumn::CountS => "Count S",
+                        UserModeStatsColumn::TotalS => "Total S",
+                        UserModeStatsColumn::CountA => "Count A",
+                        UserModeStatsColumn::Level => "Level",
+                        UserModeStatsColumn::MaxCombo => "Max combo",
+                        UserModeStatsColumn::Playcount => "Playcount",
+                        UserModeStatsColumn::Playtime => "Playtime",
+                        UserModeStatsColumn::Pp => "PP",
+                        UserModeStatsColumn::RankCountry => "Country rank",
+                        UserModeStatsColumn::RankGlobal => "Global rank",
+                        UserModeStatsColumn::ReplaysWatched => "Replays watched",
+                        UserModeStatsColumn::ScoreRanked => "Ranked score",
+                        UserModeStatsColumn::ScoreTotal => "Total score",
+                        UserModeStatsColumn::ScoresFirst => "Global #1s",
+                        UserModeStatsColumn::TotalHits => "Total hits",
+                    },
+                };
 
+                let _ = write!(author_text, ": {stats_kind}");
                 let mut author = AuthorBuilder::new(author_text);
 
                 if let Some((id, icon)) = guild_icon {
@@ -258,15 +443,15 @@ impl RankingKindData {
         }
 
         match self {
-            RankingKindData::OsekaiRarity
-            | RankingKindData::OsekaiMedalCount
-            | RankingKindData::OsekaiReplays
-            | RankingKindData::OsekaiTotalPp
-            | RankingKindData::OsekaiStandardDeviation
-            | RankingKindData::OsekaiBadges
-            | RankingKindData::OsekaiRankedMapsets
-            | RankingKindData::OsekaiLovedMapsets
-            | RankingKindData::OsekaiSubscribers => {
+            RankingKind::OsekaiRarity
+            | RankingKind::OsekaiMedalCount
+            | RankingKind::OsekaiReplays
+            | RankingKind::OsekaiTotalPp
+            | RankingKind::OsekaiStandardDeviation
+            | RankingKind::OsekaiBadges
+            | RankingKind::OsekaiRankedMapsets
+            | RankingKind::OsekaiLovedMapsets
+            | RankingKind::OsekaiSubscribers => {
                 text.push_str(" • Check out osekai.net for more info")
             }
             _ => {}
@@ -282,37 +467,94 @@ pub struct RankingEmbed {
     header: EmbedHeader,
 }
 
-type RankingMap = BTreeMap<usize, RankingEntry>;
-
 impl RankingEmbed {
     pub fn new(
-        users: &RankingMap,
-        data: &RankingKindData,
+        entries: &RankingEntries,
+        kind: &RankingKind,
         author_idx: Option<usize>,
         pages: &Pages,
     ) -> Self {
         let page = pages.curr_page();
         let pages = pages.last_page();
-
-        let index = (page - 1) * 20;
-
+        let idx = (page - 1) * 20;
         let mut buf = String::new();
+        let description = String::with_capacity(1024);
+        let footer = kind.footer(page, pages, author_idx);
+        let header = kind.embed_header();
 
-        let left_lengths = Lengths::new(&mut buf, users.range(index..index + 10));
-        let right_lengths = Lengths::new(&mut buf, users.range(index + 10..index + 20));
+        match entries {
+            RankingEntries::Accuracy(entries) => Self::finalize::<_, Accuracy<'_>>(
+                &mut buf,
+                description,
+                entries,
+                idx,
+                footer,
+                header,
+            ),
+            RankingEntries::Amount(entries) => {
+                Self::finalize::<_, Amount<'_>>(&mut buf, description, entries, idx, footer, header)
+            }
+            RankingEntries::AmountWithNegative(entries) => {
+                Self::finalize::<_, AmountWithNegative<'_>>(
+                    &mut buf,
+                    description,
+                    entries,
+                    idx,
+                    footer,
+                    header,
+                )
+            }
+            RankingEntries::Date(entries) => {
+                Self::finalize::<_, Date<'_>>(&mut buf, description, entries, idx, footer, header)
+            }
+            RankingEntries::Float(entries) => {
+                Self::finalize::<_, Float<'_>>(&mut buf, description, entries, idx, footer, header)
+            }
+            RankingEntries::Playtime(entries) => Self::finalize::<_, Playtime<'_>>(
+                &mut buf,
+                description,
+                entries,
+                idx,
+                footer,
+                header,
+            ),
+            RankingEntries::PpF32(entries) => {
+                Self::finalize::<_, PpF32<'_>>(&mut buf, description, entries, idx, footer, header)
+            }
+            RankingEntries::PpU32(entries) => {
+                Self::finalize::<_, PpU32<'_>>(&mut buf, description, entries, idx, footer, header)
+            }
+            RankingEntries::Rank(entries) => {
+                Self::finalize::<_, Rank<'_>>(&mut buf, description, entries, idx, footer, header)
+            }
+        }
+    }
 
-        let mut description = String::with_capacity(1024);
+    fn finalize<'v, V, F>(
+        buf: &mut String,
+        mut description: String,
+        entries: &'v BTreeMap<usize, RankingEntry<V>>,
+        idx: usize,
+        footer: FooterBuilder,
+        header: EmbedHeader,
+    ) -> Self
+    where
+        F: From<&'v V> + Display,
+        V: 'v,
+    {
+        let left_lengths = Lengths::new::<V, F>(buf, entries.range(idx..idx + 10));
+        let right_lengths = Lengths::new::<V, F>(buf, entries.range(idx + 10..idx + 20));
 
         // Ensuring the right side has ten elements for the zip
-        let user_iter = users
-            .range(index..index + 10)
-            .zip((10..20).map(|i| users.get(&(index + i))));
+        let user_iter = entries
+            .range(idx..idx + 10)
+            .zip((10..20).map(|i| entries.get(&(idx + i))));
 
         for ((i, left_entry), right) in user_iter {
             let idx = i + 1;
 
             buf.clear();
-            let _ = write!(buf, "{}", left_entry.value);
+            let _ = write!(buf, "{}", F::from(&left_entry.value));
 
             let _ = write!(
                 description,
@@ -326,7 +568,7 @@ impl RankingEmbed {
 
             if let Some(right_entry) = right {
                 buf.clear();
-                let _ = write!(buf, "{}", right_entry.value);
+                let _ = write!(buf, "{}", F::from(&right_entry.value));
 
                 let _ = write!(
                     description,
@@ -345,14 +587,14 @@ impl RankingEmbed {
 
         Self {
             description,
-            footer: data.footer(page, pages, author_idx),
-            header: data.embed_header(),
+            footer,
+            header,
         }
     }
 }
 
 impl EmbedData for RankingEmbed {
-    fn build(self) -> twilight_model::channel::embed::Embed {
+    fn build(self) -> Embed {
         let builder = EmbedBuilder::new()
             .description(self.description)
             .footer(self.footer);
@@ -380,7 +622,11 @@ struct Lengths {
 }
 
 impl Lengths {
-    fn new(buf: &mut String, iter: Range<'_, usize, RankingEntry>) -> Self {
+    fn new<'v, V, F>(buf: &mut String, iter: Range<'v, usize, RankingEntry<V>>) -> Self
+    where
+        F: From<&'v V> + Display,
+        V: 'v,
+    {
         let mut idx_len = 0;
         let mut name_len = 0;
         let mut value_len = 0;
@@ -398,7 +644,7 @@ impl Lengths {
             name_len = name_len.max(entry.name.chars().count());
 
             buf.clear();
-            let _ = write!(buf, "{}", entry.value);
+            let _ = write!(buf, "{}", F::from(&entry.value));
             value_len = value_len.max(buf.len());
         }
 
@@ -410,22 +656,121 @@ impl Lengths {
     }
 }
 
-struct CountryFormatter<'e> {
-    entry: &'e RankingEntry,
+struct CountryFormatter<'e, V> {
+    entry: &'e RankingEntry<V>,
 }
 
-impl<'e> CountryFormatter<'e> {
-    fn new(entry: &'e RankingEntry) -> Self {
+impl<'e, V> CountryFormatter<'e, V> {
+    fn new(entry: &'e RankingEntry<V>) -> Self {
         Self { entry }
     }
 }
 
-impl fmt::Display for CountryFormatter<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl<V> Display for CountryFormatter<'_, V> {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         if let Some(ref country) = self.entry.country {
             write!(f, ":flag_{}:", country.to_ascii_lowercase())
         } else {
             f.write_str(" ")
         }
+    }
+}
+
+macro_rules! formatter {
+    ( $( $name:ident<$ty:ident> ,)* ) => {
+        $(
+            struct $name<'i> {
+                inner: &'i $ty,
+            }
+
+            impl<'i> From<&'i $ty> for $name<'i> {
+                #[inline]
+                fn from(value: &'i $ty) -> Self {
+                    Self { inner: value }
+                }
+            }
+        )*
+    };
+}
+
+formatter! {
+    Accuracy<f32>,
+    Amount<u64>,
+    AmountWithNegative<i64>,
+    Date<OffsetDateTime>,
+    Float<f32>,
+    Playtime<u32>,
+    PpF32<f32>,
+    PpU32<u32>,
+    Rank<u32>,
+}
+
+impl Display for Accuracy<'_> {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{:.2}%", self.inner)
+    }
+}
+
+impl Display for Amount<'_> {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{}", AmountWithNegative::from(&(*self.inner as i64)))
+    }
+}
+
+impl Display for AmountWithNegative<'_> {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        if self.inner.abs() < 1_000_000_000 {
+            write!(f, "{}", WithComma::new(*self.inner))
+        } else {
+            let score = (self.inner / 10_000_000) as f32 / 100.0;
+
+            write!(f, "{score:.2} bn")
+        }
+    }
+}
+
+impl Display for Date<'_> {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{}", self.inner.date())
+    }
+}
+
+impl Display for Float<'_> {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{:.2}", self.inner)
+    }
+}
+
+impl Display for Playtime<'_> {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{} hrs", WithComma::new(self.inner / 60 / 60))
+    }
+}
+
+impl Display for PpF32<'_> {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{}pp", WithComma::new(round(*self.inner)))
+    }
+}
+
+impl Display for PpU32<'_> {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{}pp", WithComma::new(*self.inner))
+    }
+}
+
+impl Display for Rank<'_> {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "#{}", WithComma::new(*self.inner))
     }
 }

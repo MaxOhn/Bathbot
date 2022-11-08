@@ -5,12 +5,10 @@ use eyre::{Report, Result};
 use rosu_v2::prelude::OsuError;
 
 use crate::{
-    commands::{
-        osu::{get_user, UserArgs},
-        GameModeOption,
-    },
+    commands::{osu::user_not_found, GameModeOption},
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, RankRankedScoreEmbed},
+    manager::redis::osu::UserArgs,
     util::{builder::MessageBuilder, constants::OSU_API_ISSUE, matcher, ChannelExt},
     Context,
 };
@@ -146,7 +144,7 @@ pub(super) async fn score(
     args: RankScore<'_>,
 ) -> Result<()> {
     let rank = args.rank;
-    let (name, mode) = name_mode!(ctx, orig, args);
+    let (user_id, mode) = user_id_mode!(ctx, orig, args);
 
     if rank == 0 {
         let content = "Rank number must be between 1 and 10,000";
@@ -161,10 +159,11 @@ pub(super) async fn score(
     // Retrieve the user and the user thats holding the given rank
     let page = (rank / 50) + (rank % 50 != 0) as usize;
     let rank_holder_fut = ctx.osu().score_rankings(mode).page(page as u32);
-    let user_args = UserArgs::new(name.as_str(), mode);
-    let user_fut = get_user(&ctx, &user_args);
 
-    let (mut user, rank_holder) = match tokio::try_join!(user_fut, rank_holder_fut) {
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let user_fut = ctx.redis().osu_user(user_args);
+
+    let (user, rank_holder) = match tokio::try_join!(user_fut, rank_holder_fut) {
         Ok((user, mut rankings)) => {
             let idx = (rank + 49) % 50;
             let rank_holder = rankings.ranking.swap_remove(idx);
@@ -172,19 +171,19 @@ pub(super) async fn score(
             (user, rank_holder)
         }
         Err(OsuError::NotFound) => {
-            let content = format!("User `{name}` was not found");
+            let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user");
+            let err = Report::new(err).wrap_err("failed to get user");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
-    let respektive_user = match ctx.client().get_respektive_user(user.user_id, mode).await {
+    let respektive_user = match ctx.client().get_respektive_user(user.user_id(), mode).await {
         Ok(user) => user,
         Err(err) => {
             warn!("{:?}", err.wrap_err("failed to get respektive user"));
@@ -193,11 +192,8 @@ pub(super) async fn score(
         }
     };
 
-    // Overwrite default mode
-    user.mode = mode;
-
     // Accumulate all necessary data
-    let embed_data = RankRankedScoreEmbed::new(user, rank, rank_holder, respektive_user);
+    let embed_data = RankRankedScoreEmbed::new(&user, rank, rank_holder, respektive_user);
 
     // Creating the embed
     let embed = embed_data.build();

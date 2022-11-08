@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, ScoreSize};
 use command_macros::{command, SlashCommand};
 use eyre::{Report, Result};
 use twilight_cache_inmemory::model::CachedGuild;
@@ -14,13 +15,12 @@ use twilight_model::{
 
 use crate::{
     commands::{EnableDisable, ShowHideOption},
-    database::{GuildConfig, ListSize},
     embeds::{EmbedData, ServerConfigEmbed},
     util::{constants::GENERAL_ISSUE, interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
 
-use super::{AuthorityCommandKind, ConfigEmbeds, ConfigMinimizedPp};
+use super::AuthorityCommandKind;
 
 pub struct GuildData {
     pub icon: Option<ImageHash>,
@@ -73,8 +73,8 @@ impl From<ServerConfigAuthorities> for AuthorityCommandKind {
     #[inline]
     fn from(args: ServerConfigAuthorities) -> Self {
         match args {
-            ServerConfigAuthorities::Add(args) => Self::Add(args.role.get()),
-            ServerConfigAuthorities::Remove(args) => Self::Remove(args.role.get()),
+            ServerConfigAuthorities::Add(args) => Self::Add(args.role),
+            ServerConfigAuthorities::Remove(args) => Self::Remove(args.role),
             ServerConfigAuthorities::List(_) => Self::List,
         }
     }
@@ -121,7 +121,7 @@ pub struct ServerConfigEdit {
         and any command showing top scores when the `index` option is specified.\n\
         Applies only if the member has not specified a config for themselves.")]
     /// What size should the recent, compare, simulate, ... commands be?
-    score_embeds: Option<ConfigEmbeds>,
+    score_embeds: Option<ScoreSize>,
     #[command(
         help = "Adjust the amount of scores shown per page in top, rb, pinned, and mapper.\n\
         `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1.\n\
@@ -144,7 +144,7 @@ pub struct ServerConfigEdit {
     /// Specify the default track limit for osu! top scores
     track_limit: Option<i64>,
     /// Specify whether the recent command should show max or if-fc pp when minimized
-    minimized_pp: Option<ConfigMinimizedPp>,
+    minimized_pp: Option<MinimizedPp>,
 }
 
 impl ServerConfigEdit {
@@ -191,7 +191,7 @@ async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) 
             } = args;
 
             if let Some(score_embeds) = score_embeds {
-                config.embeds_size = Some(score_embeds.into());
+                config.score_size = Some(score_embeds);
             }
 
             if let Some(list_embeds) = list_embeds {
@@ -199,7 +199,7 @@ async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) 
             }
 
             if let Some(pp) = minimized_pp {
-                config.minimized_pp = Some(pp.into());
+                config.minimized_pp = Some(pp);
             }
 
             if let Some(retries) = retries {
@@ -211,24 +211,26 @@ async fn slash_serverconfig(ctx: Arc<Context>, mut command: InteractionCommand) 
             }
 
             if let Some(with_lyrics) = song_commands {
-                config.with_lyrics = Some(with_lyrics == EnableDisable::Enable);
+                config.allow_songs = Some(with_lyrics == EnableDisable::Enable);
             }
         };
 
-        if let Err(err) = ctx.update_guild_config(guild_id, f).await {
+        if let Err(err) = ctx.guild_config().update(guild_id, f).await {
             let _ = command.error_callback(&ctx, GENERAL_ISSUE).await;
 
             return Err(err.wrap_err("failed to update guild config"));
         }
     }
 
-    let config = ctx.guild_config(guild_id).await;
+    let config = ctx
+        .guild_config()
+        .peek(guild_id, GuildConfig::to_owned)
+        .await;
+
     let mut authorities = Vec::with_capacity(config.authorities.len());
 
-    for &auth in &config.authorities {
-        if let Some(Ok(name)) =
-            Id::new_checked(auth).map(|role| ctx.cache.role(role, |role| role.name.to_owned()))
-        {
+    for &role in config.authorities.iter() {
+        if let Ok(name) = ctx.cache.role(role, |role| role.name.to_owned()) {
             authorities.push(name);
         }
     }

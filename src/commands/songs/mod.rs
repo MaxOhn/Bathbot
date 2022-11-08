@@ -51,7 +51,14 @@ async fn song(
     debug_assert!(lyrics.len() > 1);
 
     let (id, allow) = match orig.guild_id() {
-        Some(guild) => (guild.get(), ctx.guild_with_lyrics(guild).await),
+        Some(guild) => {
+            let allow = ctx
+                .guild_config()
+                .peek(guild, |config| config.allow_songs.unwrap_or(true))
+                .await;
+
+            (guild.get(), allow)
+        }
         None => (orig.user_id()?.get(), true),
     };
 

@@ -11,9 +11,10 @@ use twilight_interactions::command::AutocompleteValue;
 use twilight_model::application::command::CommandOptionChoice;
 
 use crate::{
-    core::{commands::CommandOrigin, ArchivedBytes},
+    core::commands::CommandOrigin,
     custom_client::OsekaiMedal,
     embeds::MedalEmbed,
+    manager::redis::RedisData,
     util::{
         builder::MessageBuilder, constants::OSEKAI_ISSUE, interaction::InteractionCommand,
         levenshtein_similarity, ChannelExt, CowUtils, InteractionCommandExt,
@@ -57,7 +58,7 @@ pub(super) async fn info(
 ) -> Result<()> {
     let MedalInfo_ { name } = args;
 
-    let medals = match ctx.redis().medals().await {
+    let mut medals = match ctx.redis().medals().await {
         Ok(medals) => medals,
         Err(err) => {
             let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
@@ -78,14 +79,24 @@ pub(super) async fn info(
     };
 
     let name = name.cow_to_ascii_lowercase();
-    let archived_medals = medals.get();
 
-    let medal: OsekaiMedal = match archived_medals
-        .iter()
-        .position(|m| m.name.to_ascii_lowercase() == name)
-    {
-        Some(idx) => archived_medals[idx].deserialize(&mut Infallible).unwrap(),
-        None => return no_medal(&ctx, &orig, name.as_ref(), medals).await,
+    let medal = match medals {
+        RedisData::Original(ref mut original) => match original
+            .iter()
+            .position(|m| m.name.to_ascii_lowercase() == name)
+        {
+            Some(idx) => original.swap_remove(idx),
+            None => return no_medal(&ctx, &orig, name.as_ref(), medals).await,
+        },
+        RedisData::Archived(ref archived) => {
+            match archived
+                .iter()
+                .position(|m| m.name.to_ascii_lowercase() == name)
+            {
+                Some(idx) => archived[idx].deserialize(&mut Infallible).unwrap(),
+                None => return no_medal(&ctx, &orig, name.as_ref(), medals).await,
+            }
+        }
     };
 
     let map_fut = ctx.client().get_osekai_beatmaps(&medal.name);
@@ -126,17 +137,26 @@ async fn no_medal(
     ctx: &Context,
     orig: &CommandOrigin<'_>,
     name: &str,
-    medals: ArchivedBytes<Vec<OsekaiMedal>>,
+    medals: RedisData<Vec<OsekaiMedal>>,
 ) -> Result<()> {
-    let mut medals: Vec<_> = medals
-        .get()
-        .iter()
-        .map(|medal| {
-            let medal = medal.name.to_ascii_lowercase();
+    let mut medals: Vec<_> = match medals {
+        RedisData::Original(original) => original
+            .iter()
+            .map(|medal| {
+                let medal = medal.name.to_ascii_lowercase();
 
-            (levenshtein_similarity(name, &medal), medal)
-        })
-        .collect();
+                (levenshtein_similarity(name, &medal), medal)
+            })
+            .collect(),
+        RedisData::Archived(archived) => archived
+            .iter()
+            .map(|medal| {
+                let medal = medal.name.to_ascii_lowercase();
+
+                (levenshtein_similarity(name, &medal), medal)
+            })
+            .collect(),
+    };
 
     medals.sort_unstable_by(|(a, _), (b, _)| b.partial_cmp(a).unwrap_or(Ordering::Equal));
 
@@ -181,15 +201,29 @@ pub async fn handle_autocomplete(
         .await
         .wrap_err("failed to get cached medals")?;
 
-    let archived_medals = medals.get();
     let mut choices = Vec::with_capacity(25);
 
-    for medal in archived_medals.iter() {
-        if medal.name.to_ascii_lowercase().starts_with(name) {
-            choices.push(new_choice(&medal.name));
+    match medals {
+        RedisData::Original(original) => {
+            for medal in original.iter() {
+                if medal.name.to_ascii_lowercase().starts_with(name) {
+                    choices.push(new_choice(&medal.name));
 
-            if choices.len() == 25 {
-                break;
+                    if choices.len() == 25 {
+                        break;
+                    }
+                }
+            }
+        }
+        RedisData::Archived(archived) => {
+            for medal in archived.iter() {
+                if medal.name.to_ascii_lowercase().starts_with(name) {
+                    choices.push(new_choice(&medal.name));
+
+                    if choices.len() == 25 {
+                        break;
+                    }
+                }
             }
         }
     }

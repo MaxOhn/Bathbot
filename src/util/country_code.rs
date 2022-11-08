@@ -14,7 +14,7 @@ use serde::Deserialize;
 use smallstr::SmallString;
 use time::UtcOffset;
 
-use crate::{util::CowUtils, Context};
+use crate::util::CowUtils;
 
 static TIMEZONES: OnceCell<HashMap<&'static str, i32>> = OnceCell::new();
 
@@ -565,10 +565,6 @@ impl CountryCode {
             .get(name.cow_to_ascii_lowercase().as_ref())
             .cloned()
             .map(Self)
-    }
-
-    pub fn snipe_supported(&self, ctx: &Context) -> bool {
-        ctx.contains_country(self.0.as_str())
     }
 
     pub fn timezone(&self) -> UtcOffset {

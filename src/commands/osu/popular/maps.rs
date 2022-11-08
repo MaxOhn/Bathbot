@@ -6,6 +6,7 @@ use rkyv::{Deserialize, Infallible};
 use crate::{
     core::Context,
     custom_client::OsuTrackerPpEntry,
+    manager::redis::RedisData,
     pagination::OsuTrackerMapsPagination,
     util::{constants::OSUTRACKER_ISSUE, interaction::InteractionCommand, InteractionCommandExt},
 };
@@ -20,7 +21,8 @@ pub(super) async fn maps(
     let pp = args.pp();
 
     let entries: Vec<OsuTrackerPpEntry> = match ctx.redis().osutracker_pp_group(pp).await {
-        Ok(group) => group.get().list.deserialize(&mut Infallible).unwrap(),
+        Ok(RedisData::Original(group)) => group.list,
+        Ok(RedisData::Archived(group)) => group.list.deserialize(&mut Infallible).unwrap(),
         Err(err) => {
             let _ = command.error(&ctx, OSUTRACKER_ISSUE).await;
 

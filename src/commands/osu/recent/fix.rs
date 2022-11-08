@@ -1,166 +1,124 @@
 use std::sync::Arc;
 
 use eyre::{Report, Result};
-use rosu_v2::prelude::{Beatmap, GameMode, OsuError, Score};
+use rosu_v2::prelude::{GameMode, OsuError};
 
 use crate::{
-    commands::osu::{get_user_and_scores, prepare_score, unchoke_pp, ScoreArgs, UserArgs},
+    commands::osu::{user_not_found, FixEntry, FixScore},
     core::{commands::CommandOrigin, Context},
     embeds::{EmbedData, FixScoreEmbed},
+    manager::redis::osu::{UserArgs, UserArgsSlim},
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        osu::{IfFc, ScoreSlim},
     },
 };
 
 use super::RecentFix;
 
 pub(super) async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RecentFix) -> Result<()> {
-    let (name, mode) = name_mode!(ctx, orig, args);
+    let (user_id, mode) = user_id_mode!(ctx, orig, args);
 
     if mode == GameMode::Mania {
         return orig.error(&ctx, "Can't fix mania scores \\:(").await;
     }
 
     // Retrieve the user and their recent scores
-    let user_args = UserArgs::new(name.as_str(), mode);
-    let score_args = ScoreArgs::recent(100).include_fails(true);
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
 
-    let (mut user, scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
-        Ok((_, scores)) if scores.is_empty() => {
+    let scores_fut = ctx
+        .osu_scores()
+        .recent()
+        .limit(100)
+        .include_fails(true)
+        .exec_with_user(user_args);
+
+    let (user, scores) = match scores_fut.await {
+        Ok((user, scores)) if scores.is_empty() => {
             let content = format!(
-                "No recent {}plays found for user `{name}`",
+                "No recent {}plays found for user `{}`",
                 match mode {
                     GameMode::Osu => "",
                     GameMode::Taiko => "taiko ",
                     GameMode::Catch => "ctb ",
                     GameMode::Mania => "mania ",
                 },
+                user.username(),
             );
 
             return orig.error(&ctx, content).await;
         }
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = format!("User `{name}` was not found");
+            let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user or scores");
+            let err = Report::new(err).wrap_err("failed to get user or scores");
 
-            return Err(report);
+            return Err(err);
         }
     };
-
-    // Overwrite default mode
-    user.mode = mode;
 
     let num = args.index.unwrap_or(1).saturating_sub(1);
     let scores_len = scores.len();
 
-    #[allow(unused_mut)]
-    let (mut score, map, user, mut scores) = match scores.into_iter().nth(num) {
-        Some(mut score) => {
-            let mapset_fut = ctx
-                .psql()
-                .get_beatmapset(score.map.as_ref().unwrap().mapset_id);
+    let (score, map, top) = match scores.into_iter().nth(num) {
+        Some(score) => {
+            let map = score.map.as_ref().expect("missing map");
+            let map_id = map.map_id;
 
-            let best_fut = ctx
-                .osu()
-                .user_scores(score.user_id)
-                .mode(mode)
-                .limit(100)
-                .best();
+            let map_fut = ctx.osu_map().map(map_id, map.checksum.as_deref());
 
-            let user_fut = ctx.osu().user(score.user_id).mode(mode);
-            let score_fut = prepare_score(&ctx, &mut score);
+            let user_args = UserArgsSlim::user_id(user.user_id()).mode(score.mode);
+            let best_fut = ctx.osu_scores().top().limit(100).exec(user_args);
 
-            match tokio::join!(mapset_fut, score_fut, user_fut, best_fut) {
-                (_, Err(err), ..) | (.., Err(err), _) | (.., Err(err)) => {
+            match tokio::join!(map_fut, best_fut) {
+                (Ok(map), Ok(best)) => (score, map, best),
+                (Err(err), _) => {
+                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                    return Err(Report::new(err));
+                }
+                (_, Err(err)) => {
                     let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-                    let report = Report::new(err).wrap_err("failed to get osu data");
+                    let err = Report::new(err).wrap_err("failed to get top scores");
 
-                    return Err(report);
-                }
-                (Ok(mapset), Ok(_), Ok(user), Ok(best)) => {
-                    let mut map = score.map.take().unwrap();
-                    map.mapset = Some(mapset);
-
-                    (score, map, user, best)
-                }
-                (Err(_), Ok(_), Ok(user), Ok(best)) => {
-                    let mut map = score.map.take().unwrap();
-
-                    let mapset = match ctx.osu().beatmapset(map.mapset_id).await {
-                        Ok(mapset) => mapset,
-                        Err(err) => {
-                            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-                            let report = Report::new(err).wrap_err("failed to get beatmapset");
-
-                            return Err(report);
-                        }
-                    };
-
-                    map.mapset = Some(mapset);
-
-                    (score, map, user, best)
+                    return Err(err);
                 }
             }
         }
         None => {
+            let username = user.username();
+
             let content = format!(
-                "There {verb} only {num} score{plural} in `{name}`'{genitive} recent history.",
+                "There {verb} only {num} score{plural} in `{username}`'{genitive} recent history.",
                 verb = if scores_len != 1 { "are" } else { "is" },
                 num = scores_len,
                 plural = if scores_len != 1 { "s" } else { "" },
-                name = name,
-                genitive = if name.ends_with('s') { "" } else { "s" }
+                genitive = if username.ends_with('s') { "" } else { "s" }
             );
 
             return orig.error(&ctx, content).await;
         }
     };
 
-    let unchoked_pp = if score.pp.is_some() && !needs_unchoking(&score, &map) {
-        None
-    } else {
-        match unchoke_pp(&ctx, &mut score, &map).await {
-            Ok(pp) => pp,
-            Err(err) => {
-                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-                return Err(err.wrap_err("failed to unchoke pp"));
-            }
-        }
+    let pp = match score.pp {
+        Some(pp) => pp,
+        None => ctx.pp(&map).score(&score).performance().await.pp() as f32,
     };
 
-    // Process tracking
-    #[cfg(feature = "osutracking")]
-    crate::tracking::process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
+    let score = ScoreSlim::new(score, pp);
+    let if_fc = IfFc::new(&ctx, &score, &map).await;
+    let score = Some(FixScore { score, top, if_fc });
+    let entry = FixEntry { user, map, score };
 
-    let gb = ctx.map_garbage_collector(&map);
-
-    let embed_data = FixScoreEmbed::new(user, map, Some((score, scores)), unchoked_pp, None);
-    let embed = embed_data.build();
+    let embed = FixScoreEmbed::new(&entry, None).build();
     let builder = MessageBuilder::new().embed(embed);
     orig.create_message(&ctx, &builder).await?;
 
-    // Set map on garbage collection list if unranked
-    gb.execute(&ctx);
-
     Ok(())
-}
-
-fn needs_unchoking(score: &Score, map: &Beatmap) -> bool {
-    match map.mode {
-        GameMode::Osu => {
-            score.statistics.count_miss > 0
-                || score.max_combo < map.max_combo.map_or(0, |c| c.saturating_sub(5))
-        }
-        GameMode::Taiko => score.statistics.count_miss > 0,
-        GameMode::Catch => score.max_combo != map.max_combo.unwrap_or(0),
-        GameMode::Mania => panic!("can not unchoke mania scores"),
-    }
 }

@@ -1,5 +1,5 @@
-use eyre::{Result, WrapErr};
-use rosu_v2::prelude::BeatmapsetCompact;
+use bathbot_psql::model::osu::ArtistTitle;
+use eyre::{Report, Result};
 
 use crate::{
     core::Context,
@@ -15,25 +15,14 @@ pub struct GameMapset {
 
 impl GameMapset {
     pub async fn new(ctx: &Context, mapset_id: u32) -> Result<Self> {
-        let (title, artist) = {
-            let mapset_fut = ctx.psql().get_beatmapset::<BeatmapsetCompact>(mapset_id);
+        let ArtistTitle { artist, title } = match ctx.osu_map().artist_title(mapset_id).await {
+            Ok(mut artist_title) => {
+                artist_title.title.make_ascii_lowercase();
+                artist_title.artist.make_ascii_lowercase();
 
-            if let Ok(mapset) = mapset_fut.await {
-                (mapset.title.to_lowercase(), mapset.artist.to_lowercase())
-            } else {
-                let mapset = ctx
-                    .osu()
-                    .beatmapset(mapset_id)
-                    .await
-                    .wrap_err("failed to request mapset")?;
-
-                if let Err(err) = ctx.psql().insert_beatmapset(&mapset).await {
-                    let wrap = "Failed to insert mapset into database";
-                    warn!("{:?}", err.wrap_err(wrap));
-                }
-
-                (mapset.title.to_lowercase(), mapset.artist.to_lowercase())
+                artist_title
             }
+            Err(err) => return Err(Report::new(err).wrap_err("failed to get artist and title")),
         };
 
         let title_adjusted = if let (Some(open), Some(close)) = (title.find('('), title.rfind(')'))

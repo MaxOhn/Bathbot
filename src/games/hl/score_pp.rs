@@ -5,15 +5,19 @@ use image::{GenericImageView, ImageBuffer};
 use rand::Rng;
 use rosu_v2::{
     model::rkyv::ArchivedUserCompact,
-    prelude::{Beatmap, Beatmapset, CountryCode, GameMode, GameMods, Grade, Score, Username},
+    prelude::{
+        CountryCode, GameMode, GameMods, Grade, Score, UserCompact as UserCompactRosu, Username,
+    },
 };
 
 use crate::{
     core::Context,
-    embeds::get_mods,
+    embeds::ModsFormatter,
     games::hl::mapset_cover,
+    manager::{redis::RedisData, OsuMapSlim},
     util::{
-        numbers::{round, with_comma_int},
+        constants::OSU_BASE,
+        numbers::{round, WithComma},
         osu::grade_emote,
         Emote,
     },
@@ -61,7 +65,7 @@ impl ScorePp {
         };
 
         let page = ((rank - 1) / 50) + 1;
-        let idx = (rank - 1) % 50;
+        let idx = ((rank - 1) % 50) as usize;
 
         let ranking = ctx
             .redis()
@@ -69,7 +73,10 @@ impl ScorePp {
             .await
             .wrap_err("failed to get cached pp ranking")?;
 
-        let player = UserCompact::from(&ranking.get().ranking[idx as usize]);
+        let player = match ranking {
+            RedisData::Original(mut ranking) => UserCompact::from(ranking.ranking.swap_remove(idx)),
+            RedisData::Archived(ranking) => UserCompact::from(&ranking.ranking[idx]),
+        };
 
         let mut plays = ctx
             .osu()
@@ -90,22 +97,10 @@ impl ScorePp {
         let play = plays.swap_remove(play as usize);
         let map_id = play.map.as_ref().unwrap().map_id;
 
-        let map = match ctx.psql().get_beatmap(map_id, true).await {
-            Ok(map) => map,
-            Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
-                Ok(map) => {
-                    // Store map in DB
-                    if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-                        warn!("{:?}", err.wrap_err("Failed to insert map into database"));
-                    }
-
-                    map
-                }
-                Err(err) => return Err(Report::new(err).wrap_err("failed to request beatmap")),
-            },
-        };
-
-        Ok(Self::new(player, map, play))
+        match ctx.osu_map().map_slim(map_id).await {
+            Ok(map) => Ok(Self::new(player, map, play)),
+            Err(err) => Err(Report::new(err).wrap_err("failed to get beatmap")),
+        }
     }
 
     pub async fn image(
@@ -190,9 +185,9 @@ impl ScorePp {
         format!(
             "**{map} {mods}**\n{grade} {score} • **{acc}%** • **{combo}x**{max_combo} {miss}• **{pp}pp**",
             map = self.map_string,
-            mods = get_mods(self.mods),
+            mods = ModsFormatter::new(self.mods),
             grade = grade_emote(self.grade),
-            score = with_comma_int(self.score),
+            score = WithComma::new(self.score),
             acc = self.acc,
             combo = self.combo,
             max_combo = match self.max_combo {
@@ -212,14 +207,7 @@ impl ScorePp {
         )
     }
 
-    fn new(user: UserCompact, map: Beatmap, score: Score) -> Self {
-        let Beatmapset {
-            mapset_id,
-            artist,
-            title,
-            ..
-        } = map.mapset.unwrap();
-
+    fn new(user: UserCompact, map: OsuMapSlim, score: Score) -> Self {
         let UserCompact {
             avatar_url,
             country_code,
@@ -233,14 +221,20 @@ impl ScorePp {
         Self {
             user_id,
             avatar_url,
-            map_id: map.map_id,
-            mapset_id,
+            map_id: map.map_id(),
+            mapset_id: map.mapset_id(),
             player_string: format!(":flag_{country_code}: {username} (#{global_rank})"),
-            map_string: format!("[{artist} - {title} [{}]]({})", map.version, map.url),
+            map_string: format!(
+                "[{artist} - {title} [{version}]]({OSU_BASE}b/{map_id})",
+                artist = map.artist(),
+                title = map.title(),
+                version = map.version(),
+                map_id = map.map_id(),
+            ),
             mods: score.mods,
             pp: round(score.pp.unwrap_or(0.0)),
             combo: score.max_combo,
-            max_combo: map.max_combo,
+            max_combo: map.max_combo(),
             score: score.score,
             acc: round(score.accuracy),
             miss_count: score.statistics.count_miss,
@@ -250,6 +244,7 @@ impl ScorePp {
 }
 
 impl PartialEq for ScorePp {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.user_id == other.user_id && self.map_id == other.map_id
     }
@@ -263,7 +258,24 @@ struct UserCompact {
     username: Username,
 }
 
+impl From<UserCompactRosu> for UserCompact {
+    #[inline]
+    fn from(user: UserCompactRosu) -> Self {
+        Self {
+            avatar_url: user.avatar_url,
+            country_code: user.country_code,
+            global_rank: user
+                .statistics
+                .and_then(|stats| stats.global_rank)
+                .unwrap_or(0),
+            user_id: user.user_id,
+            username: user.username,
+        }
+    }
+}
+
 impl From<&ArchivedUserCompact> for UserCompact {
+    #[inline]
     fn from(user: &ArchivedUserCompact) -> Self {
         Self {
             avatar_url: user.avatar_url.as_str().to_owned(),

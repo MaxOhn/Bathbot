@@ -40,7 +40,7 @@ async fn slash_roll(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
 #[group(Utility)]
 async fn prefix_roll(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
     let limit = match args.num {
-        Some(n) => n as u64,
+        Some(n) => n,
         None => match args.next().map(|arg| arg.parse()) {
             Some(Ok(n)) => n,
             None | Some(Err(_)) => DEFAULT_LIMIT,

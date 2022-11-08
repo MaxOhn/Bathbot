@@ -1,21 +1,25 @@
 use std::fmt::Write;
 
 use command_macros::EmbedData;
-use rosu_v2::prelude::{GameMode, Score, User};
+use osu::{ComboFormatter, HitResultFormatter, PpFormatter};
+use rosu_v2::prelude::{GameMode, Score};
 use twilight_model::channel::embed::EmbedField;
 
 use crate::{
     core::Context,
     custom_client::SnipePlayer,
     embeds::{attachment, osu},
-    pp::PpCalculator,
+    manager::{
+        redis::{osu::User, RedisData},
+        OsuMap,
+    },
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
-        datetime::how_long_ago_dynamic,
-        numbers::{with_comma_float, with_comma_int},
+        datetime::HowLongAgoDynamic,
+        numbers::WithComma,
         osu::grade_completion_mods,
-        CowUtils, ScoreExt,
+        CowUtils,
     },
 };
 
@@ -33,9 +37,9 @@ pub struct PlayerSnipeStatsEmbed {
 
 impl PlayerSnipeStatsEmbed {
     pub async fn new(
-        user: User,
+        user: &RedisData<User>,
         player: SnipePlayer,
-        first_score: Option<Score>,
+        first: &Option<(Score, OsuMap)>,
         ctx: &Context,
     ) -> Self {
         let footer_text = format!(
@@ -57,36 +61,22 @@ impl PlayerSnipeStatsEmbed {
             );
 
             fields![fields {
-                "Average PP:", with_comma_float(player.avg_pp).to_string(), true;
+                "Average PP:", WithComma::new(player.avg_pp).to_string(), true;
                 "Average acc:", format!("{:.2}%", player.avg_acc), true;
                 "Average stars:", format!("{:.2}★", player.avg_stars), true;
             }];
 
-            if let Some(score) = first_score {
-                let map = score.map.as_ref().unwrap();
+            if let Some((score, map)) = first {
+                let mut calc = ctx.pp(map).mods(score.mods);
 
-                let (pp, max_pp, stars) = match PpCalculator::new(ctx, map.map_id).await {
-                    Ok(base_calc) => {
-                        let mut calc = base_calc.score(&score);
+                let attrs = calc.performance().await;
+                let stars = attrs.stars() as f32;
+                let max_pp = attrs.pp() as f32;
 
-                        let stars = calc.stars();
-                        let max_pp = calc.max_pp();
-
-                        let pp = match score.pp {
-                            Some(pp) => pp,
-                            None => calc.pp() as f32,
-                        };
-
-                        (Some(pp), Some(max_pp as f32), stars as f32)
-                    }
-                    Err(err) => {
-                        warn!("{:?}", err.wrap_err("Failed to get pp calculator"));
-
-                        (None, None, 0.0)
-                    }
+                let pp = match score.pp {
+                    Some(pp) => pp,
+                    None => calc.score(score).performance().await.pp() as f32,
                 };
-
-                let pp = osu::get_pp(pp, max_pp);
 
                 // TODO: update formatting
                 let value = format!(
@@ -94,13 +84,14 @@ impl PlayerSnipeStatsEmbed {
                     {grade}\t[{stars:.2}★]\t{score}\t({acc}%)\t[{combo}]\t\
                     [{pp}]\t {hits}\t{ago}",
                     map = player.oldest_first.unwrap().map.cow_escape_markdown(),
-                    id = map.map_id,
-                    grade = grade_completion_mods(&score, map),
-                    score = with_comma_int(score.score),
-                    acc = score.acc(GameMode::Osu),
-                    combo = osu::get_combo(&score, map),
-                    hits = score.hits_string(GameMode::Osu),
-                    ago = how_long_ago_dynamic(&score.ended_at)
+                    id = map.map_id(),
+                    grade = grade_completion_mods(score.mods, score.grade, score.total_hits(), map),
+                    score = WithComma::new(score.score),
+                    acc = score.accuracy,
+                    combo = ComboFormatter::new(score.max_combo, map.max_combo()),
+                    pp = PpFormatter::new(Some(pp), Some(max_pp)),
+                    hits = HitResultFormatter::new(GameMode::Osu, score.statistics.clone()),
+                    ago = HowLongAgoDynamic::new(&score.ended_at)
                 );
 
                 fields![fields { "Oldest national #1:", value, false }];
@@ -134,10 +125,26 @@ impl PlayerSnipeStatsEmbed {
             (description, fields)
         };
 
+        let (user_id, country_code, avatar_url) = match user {
+            RedisData::Original(user) => {
+                let user_id = user.user_id;
+                let country_code = user.country_code.as_str();
+                let avatar_url = user.avatar_url.as_str();
+
+                (user_id, country_code, avatar_url)
+            }
+            RedisData::Archived(user) => {
+                let user_id = user.user_id;
+                let country_code = user.country_code.as_str();
+                let avatar_url = user.avatar_url.as_str();
+
+                (user_id, country_code, avatar_url)
+            }
+        };
+
         let url = format!(
             "https://snipe.huismetbenen.nl/player/{code}/osu/{user_id}",
-            code = user.country_code.to_lowercase(),
-            user_id = user.user_id,
+            code = country_code.to_lowercase(),
         );
 
         Self {
@@ -145,10 +152,10 @@ impl PlayerSnipeStatsEmbed {
             fields,
             description,
             footer: FooterBuilder::new(footer_text),
-            author: author!(user),
+            author: user.author_builder(),
             title: "National #1 statistics",
             image: attachment("stats_graph.png"),
-            thumbnail: user.avatar_url,
+            thumbnail: avatar_url.to_owned(),
         }
     }
 }

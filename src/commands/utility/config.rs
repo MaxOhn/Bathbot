@@ -1,13 +1,16 @@
 use std::sync::Arc;
 
+use bathbot_psql::model::configs::{
+    ListSize, MinimizedPp, OsuUserId, OsuUsername, ScoreSize, UserConfig,
+};
 use command_macros::{command, SlashCommand};
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
+use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::ShowHideOption,
-    database::{EmbedsSize, ListSize, MinimizedPp, UserConfig},
     embeds::{ConfigEmbed, EmbedData},
     util::{
         constants::GENERAL_ISSUE, interaction::InteractionCommand, Authored, InteractionCommandExt,
@@ -18,7 +21,6 @@ use crate::{
 #[cfg(feature = "server")]
 use crate::{
     core::BotConfig,
-    database::OsuData,
     server::AuthenticationStandbyError,
     util::{
         builder::{EmbedBuilder, MessageBuilder},
@@ -58,7 +60,7 @@ pub struct Config {
     Affected commands are: `compare score`, `recent score`, `recent simulate`, \
     and any command showing top scores when the `index` option is specified.")]
     /// What size should the recent, compare, simulate, ... commands be?
-    score_embeds: Option<ConfigEmbeds>,
+    score_embeds: Option<ScoreSize>,
     #[command(
         help = "Adjust the amount of scores shown per page in top, rb, pinned, and mapper.\n\
       `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1."
@@ -68,7 +70,7 @@ pub struct Config {
     /// Should the amount of retries be shown for the recent command?
     retries: Option<ShowHideOption>,
     /// Specify whether the recent command should show max or if-fc pp when minimized
-    minimized_pp: Option<ConfigMinimizedPp>,
+    minimized_pp: Option<MinimizedPp>,
 }
 
 #[cfg(not(feature = "server"))]
@@ -87,7 +89,7 @@ pub struct Config {
     Affected commands are: `compare score`, `recent score`, `recent simulate`, \
     and any command showing top scores when the `index` option is specified.")]
     /// What size should the recent, compare, simulate, ... commands be?
-    score_embeds: Option<ConfigEmbeds>,
+    score_embeds: Option<ScoreSize>,
     #[command(
         help = "Adjust the amount of scores shown per page in top, rb, pinned, and mapper.\n\
       `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1."
@@ -97,7 +99,7 @@ pub struct Config {
     /// Should the amount of retries be shown for the recent command?
     retries: Option<ShowHideOption>,
     /// Specify whether the recent command should show max or if-fc pp when minimized
-    minimized_pp: Option<ConfigMinimizedPp>,
+    minimized_pp: Option<MinimizedPp>,
 }
 
 #[derive(CommandOption, CreateOption)]
@@ -134,43 +136,6 @@ impl From<ConfigGameMode> for Option<GameMode> {
     }
 }
 
-#[derive(CommandOption, CreateOption)]
-pub enum ConfigEmbeds {
-    #[option(name = "Initial maximized", value = "initial_max")]
-    InitialMax,
-    #[option(name = "Always maximized", value = "max")]
-    AlwaysMax,
-    #[option(name = "Always minimized", value = "min")]
-    AlwaysMin,
-}
-
-impl From<ConfigEmbeds> for EmbedsSize {
-    fn from(size: ConfigEmbeds) -> Self {
-        match size {
-            ConfigEmbeds::InitialMax => Self::InitialMaximized,
-            ConfigEmbeds::AlwaysMax => Self::AlwaysMaximized,
-            ConfigEmbeds::AlwaysMin => Self::AlwaysMinimized,
-        }
-    }
-}
-
-#[derive(CommandOption, CreateOption)]
-pub enum ConfigMinimizedPp {
-    #[option(name = "Max PP", value = "max")]
-    MaxPp,
-    #[option(name = "If FC", value = "if_fc")]
-    IfFc,
-}
-
-impl From<ConfigMinimizedPp> for MinimizedPp {
-    fn from(pp: ConfigMinimizedPp) -> Self {
-        match pp {
-            ConfigMinimizedPp::MaxPp => Self::Max,
-            ConfigMinimizedPp::IfFc => Self::IfFc,
-        }
-    }
-}
-
 async fn slash_config(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Config::from_interaction(command.input_data())?;
 
@@ -192,18 +157,17 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
 
     let author = command.user_id()?;
 
-    let mut config = match ctx.psql().get_user_config(author).await {
-        Ok(Some(config)) => config,
-        Ok(None) => UserConfig::default(),
+    let mut config = match ctx.user_config().with_osu_id(author).await {
+        Ok(config) => config,
         Err(err) => {
             let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get user config"));
+            return Err(err);
         }
     };
 
     if let Some(pp) = minimized_pp {
-        config.minimized_pp = Some(pp.into());
+        config.minimized_pp = Some(pp);
     }
 
     match mode {
@@ -216,7 +180,7 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
     }
 
     if let Some(score_embeds) = score_embeds {
-        config.score_size = Some(score_embeds.into());
+        config.score_size = Some(score_embeds);
     }
 
     if let Some(list_embeds) = list_embeds {
@@ -300,7 +264,7 @@ fn twitch_content(state: u8) -> String {
 async fn handle_both_links(
     ctx: &Context,
     command: InteractionCommand,
-    mut config: UserConfig,
+    mut config: UserConfig<OsuUserId>,
 ) -> Result<()> {
     let osu_fut = ctx.auth_standby.wait_for_osu();
     let twitch_fut = ctx.auth_standby.wait_for_twitch();
@@ -318,10 +282,8 @@ async fn handle_both_links(
 
     match handle_ephemeral(ctx, &command, builder, fut).await {
         Some(Ok((osu, twitch))) => {
-            config.osu = Some(OsuData::User {
-                user_id: osu.user_id,
-                username: osu.username,
-            });
+            // TODO: upsert user_id,username in DB
+            config.osu = Some(osu.user_id);
 
             config.twitch_id = Some(twitch.user_id);
             twitch_name = Some(twitch.display_name);
@@ -332,12 +294,13 @@ async fn handle_both_links(
 
     let author = command.user()?;
 
-    if let Err(err) = ctx.psql().insert_user_config(author.id, &config).await {
+    if let Err(err) = ctx.user_config().store(author.id, &config).await {
         let _ = command.error(ctx, GENERAL_ISSUE).await;
 
-        return Err(err.wrap_err("failed to insert user config in database"));
+        return Err(err);
     }
 
+    let config = convert_config(ctx, config, author.id).await;
     let embed_data = ConfigEmbed::new(author, config, twitch_name);
     let builder = embed_data.build().into();
     command.update(ctx, &builder).await?;
@@ -349,7 +312,7 @@ async fn handle_both_links(
 async fn handle_twitch_link(
     ctx: &Context,
     command: InteractionCommand,
-    mut config: UserConfig,
+    mut config: UserConfig<OsuUserId>,
 ) -> Result<()> {
     let fut = ctx.auth_standby.wait_for_twitch();
 
@@ -371,12 +334,13 @@ async fn handle_twitch_link(
 
     let author = command.user()?;
 
-    if let Err(err) = ctx.psql().insert_user_config(author.id, &config).await {
+    if let Err(err) = ctx.user_config().store(author.id, &config).await {
         let _ = command.error(ctx, GENERAL_ISSUE).await;
 
-        return Err(err.wrap_err("failed to insert user config in database"));
+        return Err(err);
     }
 
+    let config = convert_config(ctx, config, author.id).await;
     let embed_data = ConfigEmbed::new(author, config, twitch_name);
     let builder = embed_data.build().into();
     command.update(ctx, &builder).await?;
@@ -388,7 +352,7 @@ async fn handle_twitch_link(
 async fn handle_osu_link(
     ctx: &Context,
     command: InteractionCommand,
-    mut config: UserConfig,
+    mut config: UserConfig<OsuUserId>,
 ) -> Result<()> {
     let fut = ctx.auth_standby.wait_for_osu();
 
@@ -399,10 +363,7 @@ async fn handle_osu_link(
     let builder = MessageBuilder::new().embed(embed);
 
     config.osu = match handle_ephemeral(ctx, &command, builder, fut).await {
-        Some(Ok(user)) => Some(OsuData::User {
-            user_id: user.user_id,
-            username: user.username,
-        }),
+        Some(Ok(user)) => Some(user.user_id), // TODO: upsert user_id,username in DB
         Some(Err(err)) => return Err(err),
         None => return Ok(()),
     };
@@ -427,12 +388,13 @@ async fn handle_osu_link(
         }
     }
 
-    if let Err(err) = ctx.psql().insert_user_config(author.id, &config).await {
+    if let Err(err) = ctx.user_config().store(author.id, &config).await {
         let _ = command.error(ctx, GENERAL_ISSUE).await;
 
-        return Err(err.wrap_err("failed to insert user config in database"));
+        return Err(err);
     }
 
+    let config = convert_config(ctx, config, author.id).await;
     let embed_data = ConfigEmbed::new(author, config, twitch_name);
     let builder = embed_data.build().into();
     command.update(ctx, &builder).await?;
@@ -467,7 +429,7 @@ async fn handle_ephemeral<T>(
 async fn handle_no_links(
     ctx: &Context,
     command: InteractionCommand,
-    #[allow(unused_mut)] mut config: UserConfig,
+    #[allow(unused_mut)] mut config: UserConfig<OsuUserId>,
 ) -> Result<()> {
     let author = command.user()?;
     let mut twitch_name = None;
@@ -495,15 +457,58 @@ async fn handle_no_links(
         }
     }
 
-    if let Err(err) = ctx.psql().insert_user_config(author.id, &config).await {
+    if let Err(err) = ctx.user_config().store(author.id, &config).await {
         let _ = command.error(ctx, GENERAL_ISSUE).await;
 
-        return Err(err.wrap_err("failed to insert usre config in database"));
+        return Err(err);
     }
 
+    let config = convert_config(ctx, config, author.id).await;
     let embed_data = ConfigEmbed::new(author, config, twitch_name);
     let builder = embed_data.build().into();
     command.update(ctx, &builder).await?;
 
     Ok(())
+}
+
+async fn convert_config(
+    ctx: &Context,
+    config: UserConfig<OsuUserId>,
+    user_id: Id<UserMarker>,
+) -> UserConfig<OsuUsername> {
+    let username = match ctx.user_config().osu_name(user_id).await {
+        Ok(Some(name)) => name,
+        Ok(None) => {
+            warn!("Missing name for user config");
+
+            "<failed to get name>".into()
+        }
+        Err(err) => {
+            warn!("{err:?}");
+
+            "<failed to get name>".into()
+        }
+    };
+
+    let UserConfig {
+        score_size,
+        list_size,
+        minimized_pp,
+        mode,
+        osu: _,
+        show_retries,
+        twitch_id,
+        timezone,
+    } = config;
+
+    UserConfig {
+        score_size,
+        list_size,
+        minimized_pp,
+        mode,
+        osu: Some(username),
+        show_retries,
+        twitch_id,
+        timezone,
+    }
 }

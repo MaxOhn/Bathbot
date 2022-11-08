@@ -55,12 +55,12 @@ pub(super) async fn country(
 
     let mode = match args.mode {
         Some(mode) => mode.into(),
-        None => match ctx.user_config(owner).await {
-            Ok(config) => config.mode.unwrap_or(GameMode::Osu),
+        None => match ctx.user_config().mode(owner).await {
+            Ok(mode) => mode.unwrap_or(GameMode::Osu),
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get user config"));
+                return Err(err);
             }
         },
     };

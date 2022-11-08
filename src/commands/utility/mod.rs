@@ -5,11 +5,10 @@ mod invite;
 mod ping;
 mod prefix;
 mod prune;
-mod role_assign;
 mod roll;
 mod server_config;
 
 pub use self::{
-    authorities::*, command_count::*, config::*, invite::*, ping::*, prefix::*, prune::*,
-    role_assign::*, roll::*, server_config::*,
+    authorities::*, command_count::*, config::*, invite::*, ping::*, prefix::*, prune::*, roll::*,
+    server_config::*,
 };

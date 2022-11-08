@@ -1,13 +1,12 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use eyre::Result;
-use rkyv::{with::DeserializeWith, Archived, Deserialize, Infallible};
+use rosu_v2::prelude::Username;
 
 use crate::{
-    custom_client::UsernameWrapper,
     custom_client::{ArchivedOsekaiRankingEntry, OsekaiRanking, OsekaiRankingEntry},
-    database::OsuData,
-    embeds::{RankingEntry, RankingKindData},
+    embeds::{RankingEntries, RankingEntry, RankingKind},
+    manager::redis::RedisData,
     pagination::RankingPagination,
     util::{
         constants::OSEKAI_ISSUE, interaction::InteractionCommand, Authored, CountryCode,
@@ -15,8 +14,6 @@ use crate::{
     },
     Context,
 };
-
-use super::UserValue;
 
 pub(super) async fn count<R>(
     ctx: Arc<Context>,
@@ -44,13 +41,13 @@ where
         None => None,
     };
 
-    let redis = ctx.redis();
-    let osekai_fut = redis.osekai_ranking::<R>();
-    let osu_fut = ctx.psql().get_user_osu(command.user_id()?);
+    let owner = command.user_id()?;
+    let ranking_fut = ctx.redis().osekai_ranking::<R>();
+    let name_fut = ctx.user_config().osu_name(owner);
 
-    let (osekai_result, osu_result) = tokio::join!(osekai_fut, osu_fut);
+    let (osekai_res, name_res) = tokio::join!(ranking_fut, name_fut);
 
-    let ranking = match osekai_result {
+    let ranking = match osekai_res {
         Ok(ranking) => ranking,
         Err(err) => {
             let _ = command.error(&ctx, OSEKAI_ISSUE).await;
@@ -59,18 +56,21 @@ where
         }
     };
 
-    let users = if let Some(code) = country_code {
+    let entries = if let Some(code) = country_code {
         let code = code.to_ascii_uppercase();
-        let filter = |entry: &&ArchivedOsekaiRankingEntry<usize>| entry.country_code == code;
+        let original_filter = |entry: &&OsekaiRankingEntry<usize>| entry.country_code == code;
+        let archived_filter =
+            |entry: &&ArchivedOsekaiRankingEntry<usize>| entry.country_code == code;
 
-        prepare_amount_users(ranking.get(), filter)
+        prepare_amount_users(&ranking, original_filter, archived_filter)
     } else {
-        prepare_amount_users(ranking.get(), |_| true)
+        prepare_amount_users(&ranking, |_| true, |_| true)
     };
 
+    let entries = RankingEntries::Amount(entries);
     let data = <R as OsekaiRanking>::RANKING;
 
-    send_response(ctx, command, users, data, osu_result).await
+    send_response(ctx, command, entries, data, name_res).await
 }
 
 pub(super) async fn pp<R>(
@@ -100,13 +100,12 @@ where
     };
 
     let owner = command.user_id()?;
-    let redis = ctx.redis();
-    let osekai_fut = redis.osekai_ranking::<R>();
-    let osu_fut = ctx.psql().get_user_osu(owner);
+    let ranking_fut = ctx.redis().osekai_ranking::<R>();
+    let name_fut = ctx.user_config().osu_name(owner);
 
-    let (osekai_result, osu_result) = tokio::join!(osekai_fut, osu_fut);
+    let (osekai_res, name_res) = tokio::join!(ranking_fut, name_fut);
 
-    let ranking = match osekai_result {
+    let ranking = match osekai_res {
         Ok(ranking) => ranking,
         Err(err) => {
             let _ = command.error(&ctx, OSEKAI_ISSUE).await;
@@ -115,99 +114,98 @@ where
         }
     };
 
-    let users = if let Some(code) = country_code {
+    let entries = if let Some(code) = country_code {
         let code = code.to_ascii_uppercase();
-        let filter = |entry: &&ArchivedOsekaiRankingEntry<u32>| entry.country_code == code;
+        let original_filter = |entry: &&OsekaiRankingEntry<u32>| entry.country_code == code;
+        let archived_filter = |entry: &&ArchivedOsekaiRankingEntry<u32>| entry.country_code == code;
 
-        prepare_pp_users(ranking.get(), filter)
+        prepare_pp_users(&ranking, original_filter, archived_filter)
     } else {
-        prepare_pp_users(ranking.get(), |_| true)
+        prepare_pp_users(&ranking, |_| true, |_| true)
     };
 
+    let entries = RankingEntries::PpU32(entries);
     let data = <R as OsekaiRanking>::RANKING;
 
-    send_response(ctx, command, users, data, osu_result).await
+    send_response(ctx, command, entries, data, name_res).await
 }
 
 fn prepare_amount_users(
-    ranking: &Archived<Vec<OsekaiRankingEntry<usize>>>,
-    filter: impl Fn(&&ArchivedOsekaiRankingEntry<usize>) -> bool,
-) -> BTreeMap<usize, RankingEntry> {
-    ranking
-        .iter()
-        .filter(filter)
-        .enumerate()
-        .map(|(i, entry)| {
-            let value = entry.value() as u64;
-            let country = entry.country_code.deserialize(&mut Infallible).unwrap();
-
-            let name = <UsernameWrapper as DeserializeWith<_, _, _>>::deserialize_with(
-                &entry.username,
-                &mut Infallible,
-            );
-
-            let entry = RankingEntry {
-                value: UserValue::Amount(value),
-                name: name.unwrap(),
-                country: Some(country),
-            };
-
-            (i, entry)
-        })
-        .collect()
+    ranking: &RedisData<Vec<OsekaiRankingEntry<usize>>>,
+    original_filter: impl Fn(&&OsekaiRankingEntry<usize>) -> bool,
+    archived_filter: impl Fn(&&ArchivedOsekaiRankingEntry<usize>) -> bool,
+) -> BTreeMap<usize, RankingEntry<u64>> {
+    match ranking {
+        RedisData::Original(ranking) => ranking
+            .iter()
+            .filter(original_filter)
+            .map(|entry| RankingEntry {
+                value: entry.value() as u64,
+                name: entry.username.clone(),
+                country: Some(entry.country_code.clone()),
+            })
+            .enumerate()
+            .collect(),
+        RedisData::Archived(ranking) => ranking
+            .iter()
+            .filter(archived_filter)
+            .map(|entry| RankingEntry {
+                value: entry.value() as u64,
+                name: entry.username.as_str().into(),
+                country: Some(entry.country_code.as_str().into()),
+            })
+            .enumerate()
+            .collect(),
+    }
 }
 
 fn prepare_pp_users(
-    ranking: &Archived<Vec<OsekaiRankingEntry<u32>>>,
-    filter: impl Fn(&&ArchivedOsekaiRankingEntry<u32>) -> bool,
-) -> BTreeMap<usize, RankingEntry> {
-    ranking
-        .iter()
-        .filter(filter)
-        .enumerate()
-        .map(|(i, entry)| {
-            let value = entry.value();
-            let country = entry.country_code.deserialize(&mut Infallible).unwrap();
-
-            let name = <UsernameWrapper as DeserializeWith<_, _, _>>::deserialize_with(
-                &entry.username,
-                &mut Infallible,
-            );
-
-            let entry = RankingEntry {
-                value: UserValue::PpU32(value),
-                name: name.unwrap(),
-                country: Some(country),
-            };
-
-            (i, entry)
-        })
-        .collect()
+    ranking: &RedisData<Vec<OsekaiRankingEntry<u32>>>,
+    original_filter: impl Fn(&&OsekaiRankingEntry<u32>) -> bool,
+    archived_filter: impl Fn(&&ArchivedOsekaiRankingEntry<u32>) -> bool,
+) -> BTreeMap<usize, RankingEntry<u32>> {
+    match ranking {
+        RedisData::Original(ranking) => ranking
+            .iter()
+            .filter(original_filter)
+            .map(|entry| RankingEntry {
+                value: entry.value(),
+                name: entry.username.clone(),
+                country: Some(entry.country_code.clone()),
+            })
+            .enumerate()
+            .collect(),
+        RedisData::Archived(ranking) => ranking
+            .iter()
+            .filter(archived_filter)
+            .map(|entry| RankingEntry {
+                value: entry.value(),
+                name: entry.username.as_str().into(),
+                country: Some(entry.country_code.as_str().into()),
+            })
+            .enumerate()
+            .collect(),
+    }
 }
 
 async fn send_response(
     ctx: Arc<Context>,
     mut command: InteractionCommand,
-    users: BTreeMap<usize, RankingEntry>,
-    data: RankingKindData,
-    osu_result: Result<Option<OsuData>>,
+    entries: RankingEntries,
+    data: RankingKind,
+    name_res: Result<Option<Username>>,
 ) -> Result<()> {
-    let username = match osu_result {
-        Ok(osu) => osu.map(OsuData::into_username),
-        Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to get username"));
+    let username = name_res.unwrap_or_else(|err| {
+        warn!("{:?}", err.wrap_err("failed to get username"));
 
-            None
-        }
-    };
+        None
+    });
 
-    let author_idx = username
-        .as_deref()
-        .and_then(|name| users.values().position(|entry| entry.name == name));
+    let author_idx = username.as_deref().and_then(|name| entries.name_pos(name));
 
-    let total = users.len();
+    let total = entries.len();
 
-    let builder = RankingPagination::builder(users, total, author_idx, data);
+    let builder = RankingPagination::builder(entries, total, author_idx, data);
 
     builder
         .start_by_update()

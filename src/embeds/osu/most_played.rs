@@ -1,9 +1,10 @@
 use std::fmt::Write;
 
 use command_macros::EmbedData;
-use rosu_v2::prelude::{MostPlayedMap, User};
+use rosu_v2::prelude::MostPlayedMap;
 
 use crate::{
+    manager::redis::{osu::User, RedisData},
     pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
@@ -22,11 +23,7 @@ pub struct MostPlayedEmbed {
 }
 
 impl MostPlayedEmbed {
-    pub fn new<'m, M>(user: &User, maps: M, pages: &Pages) -> Self
-    where
-        M: Iterator<Item = &'m MostPlayedMap>,
-    {
-        let thumbnail = user.avatar_url.to_owned();
+    pub fn new(user: &RedisData<User>, maps: &[MostPlayedMap], pages: &Pages) -> Self {
         let mut description = String::with_capacity(10 * 70);
 
         for most_played in maps {
@@ -49,11 +46,11 @@ impl MostPlayedEmbed {
         let pages = pages.last_page();
 
         Self {
-            thumbnail,
+            author: user.author_builder(),
             description,
-            title: "Most played maps:",
-            author: author!(user),
             footer: FooterBuilder::new(format!("Page {page}/{pages}")),
+            thumbnail: user.avatar_url().to_owned(),
+            title: "Most played maps:",
         }
     }
 }

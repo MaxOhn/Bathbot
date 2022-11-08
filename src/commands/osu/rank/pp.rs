@@ -3,15 +3,16 @@ use std::sync::Arc;
 use command_macros::command;
 use eyre::{Report, Result};
 use rkyv::{Deserialize, Infallible};
-use rosu_v2::prelude::{OsuError, User, UserCompact};
+use rosu_v2::prelude::{OsuError, UserCompact};
 
 use crate::{
-    commands::{
-        osu::{get_user, UserArgs},
-        GameModeOption,
-    },
+    commands::{osu::user_not_found, GameModeOption},
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, RankEmbed},
+    manager::redis::{
+        osu::{User, UserArgs},
+        RedisData,
+    },
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -23,7 +24,7 @@ use crate::{
 use super::RankPp;
 
 pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<'_>) -> Result<()> {
-    let (name, mode) = name_mode!(ctx, orig, args);
+    let (user_id, mode) = user_id_mode!(ctx, orig, args);
 
     let RankPp {
         country,
@@ -62,38 +63,38 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
         // Retrieve the user and the user thats holding the given rank
         let page = (rank / 50) + (rank % 50 != 0) as u32;
 
-        let redis = ctx.redis();
+        let rank_holder_fut =
+            ctx.redis()
+                .pp_ranking(mode, page, country.as_ref().map(|c| c.as_str()));
 
-        let rank_holder_fut = redis.pp_ranking(mode, page, country.as_ref().map(|c| c.as_str()));
+        let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+        let user_fut = ctx.redis().osu_user(user_args);
 
-        let user_args = UserArgs::new(name.as_str(), mode);
-        let user_fut = get_user(&ctx, &user_args);
-
-        let (mut user, rank_holder) = match tokio::try_join!(user_fut, rank_holder_fut) {
+        let (user, rank_holder) = match tokio::try_join!(user_fut, rank_holder_fut) {
             Ok((user, rankings)) => {
-                let idx = (args.rank + 49) % 50;
+                let idx = ((args.rank + 49) % 50) as usize;
 
-                let rank_holder = rankings.get().ranking[idx as usize]
-                    .deserialize(&mut Infallible)
-                    .unwrap();
+                let rank_holder = match rankings {
+                    RedisData::Original(mut rankings) => rankings.ranking.swap_remove(idx),
+                    RedisData::Archived(rankings) => {
+                        rankings.ranking[idx].deserialize(&mut Infallible).unwrap()
+                    }
+                };
 
                 (user, rank_holder)
             }
             Err(OsuError::NotFound) => {
-                let content = format!("User `{name}` was not found");
+                let content = user_not_found(&ctx, user_id).await;
 
                 return orig.error(&ctx, content).await;
             }
             Err(err) => {
                 let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-                let report = Report::new(err).wrap_err("failed to get user");
+                let err = Report::new(err).wrap_err("failed to get user");
 
-                return Err(report);
+                return Err(err);
             }
         };
-
-        // Overwrite default mode
-        user.mode = mode;
 
         RankData::Sub10k {
             user,
@@ -102,38 +103,36 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
             rank_holder: Box::new(rank_holder),
         }
     } else {
-        let pp_fut = ctx.psql().approx_pp_from_rank(rank, mode);
+        let pp_fut = ctx.approx().pp(rank, mode);
 
-        let user_args = UserArgs::new(name.as_str(), mode);
-        let user_fut = get_user(&ctx, &user_args);
-        let (pp_result, user_result) = tokio::join!(pp_fut, user_fut);
+        let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+        let user_fut = ctx.redis().osu_user(user_args);
 
-        let required_pp = match pp_result {
+        let (pp_res, user_res) = tokio::join!(pp_fut, user_fut);
+
+        let required_pp = match pp_res {
             Ok(pp) => pp,
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get pp from rank"));
+                return Err(err);
             }
         };
 
-        let mut user = match user_result {
+        let user = match user_res {
             Ok(user) => user,
             Err(OsuError::NotFound) => {
-                let content = format!("User `{name}` was not found");
+                let content = user_not_found(&ctx, user_id).await;
 
                 return orig.error(&ctx, content).await;
             }
             Err(err) => {
-                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-                let report = Report::new(err).wrap_err("failed to get user");
+                let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+                let err = Report::new(err).wrap_err("failed to get user");
 
-                return Err(report);
+                return Err(err);
             }
         };
-
-        // Overwrite default mode
-        user.mode = mode;
 
         RankData::Over10k {
             user,
@@ -143,13 +142,12 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
     };
 
     // Retrieve the user's top scores if required
-    #[allow(unused_mut)]
-    let mut scores = if rank_data.with_scores() {
-        let user = rank_data.borrow_user();
+    let scores = if rank_data.with_scores() {
+        let user = rank_data.user();
 
         let scores_fut = ctx
             .osu()
-            .user_scores(user.user_id)
+            .user_scores(user.user_id())
             .limit(100)
             .best()
             .mode(mode);
@@ -166,12 +164,6 @@ pub(super) async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: RankPp<
     } else {
         None
     };
-
-    #[cfg(feature = "osutracking")]
-    if let Some(ref mut scores) = scores {
-        // Process user and their top scores for tracking
-        crate::tracking::process_osu_tracking(&ctx, scores, Some(rank_data.borrow_user())).await;
-    }
 
     // Creating the embed
     let embed = RankEmbed::new(rank_data, scores, each).build();
@@ -267,13 +259,13 @@ async fn prefix_rankctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Res
 
 pub enum RankData {
     Sub10k {
-        user: User,
+        user: RedisData<User>,
         rank: u32,
         country: Option<CountryCode>,
         rank_holder: Box<UserCompact>,
     },
     Over10k {
-        user: User,
+        user: RedisData<User>,
         rank: u32,
         required_pp: f32,
     },
@@ -284,14 +276,14 @@ impl RankData {
         match self {
             Self::Sub10k {
                 user, rank_holder, ..
-            } => user.statistics.as_ref().unwrap().pp < rank_holder.statistics.as_ref().unwrap().pp,
+            } => user.peek_stats(|stats| stats.pp < rank_holder.statistics.as_ref().unwrap().pp),
             Self::Over10k {
                 user, required_pp, ..
-            } => user.statistics.as_ref().unwrap().pp < *required_pp,
+            } => user.peek_stats(|stats| stats.pp < *required_pp),
         }
     }
 
-    pub fn borrow_user(&self) -> &User {
+    pub fn user(&self) -> &RedisData<User> {
         match self {
             Self::Sub10k { user, .. } => user,
             Self::Over10k { user, .. } => user,

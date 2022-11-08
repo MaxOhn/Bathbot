@@ -6,18 +6,17 @@ use rkyv::{Deserialize, Infallible};
 use crate::{
     core::Context,
     custom_client::OsuTrackerModsEntry,
+    manager::redis::RedisData,
     pagination::OsuTrackerModsPagination,
     util::{constants::OSUTRACKER_ISSUE, interaction::InteractionCommand, InteractionCommandExt},
 };
 
 pub(super) async fn mods(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let counts: Vec<OsuTrackerModsEntry> = match ctx.redis().osutracker_stats().await {
-        Ok(stats) => stats
-            .get()
-            .user
-            .mods_count
-            .deserialize(&mut Infallible)
-            .unwrap(),
+        Ok(RedisData::Original(stats)) => stats.user.mods_count,
+        Ok(RedisData::Archived(stats)) => {
+            stats.user.mods_count.deserialize(&mut Infallible).unwrap()
+        }
         Err(err) => {
             let _ = command.error(&ctx, OSUTRACKER_ISSUE).await;
 

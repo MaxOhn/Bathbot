@@ -3,12 +3,13 @@ use std::{cmp::Reverse, sync::Arc};
 use command_macros::command;
 use eyre::{Report, Result};
 use hashbrown::HashMap;
-use rosu_v2::prelude::{GameMode, OsuError, Username};
+use rosu_v2::{prelude::OsuError, request::UserId};
 use time::{Duration, OffsetDateTime};
 
 use crate::{
-    commands::osu::{get_user, require_link, UserArgs},
+    commands::osu::require_link,
     core::commands::CommandOrigin,
+    manager::redis::{osu::UserArgs, RedisData},
     pagination::SnipedDiffPagination,
     util::{
         builder::MessageBuilder,
@@ -91,9 +92,9 @@ pub(super) async fn player_gain(
     orig: CommandOrigin<'_>,
     args: SnipePlayerGain<'_>,
 ) -> Result<()> {
-    let name = username!(ctx, orig, args);
+    let user_id = user_id!(ctx, orig, args);
 
-    sniped_diff(ctx, orig, Difference::Gain, name).await
+    sniped_diff(ctx, orig, Difference::Gain, user_id).await
 }
 
 pub(super) async fn player_loss(
@@ -101,37 +102,40 @@ pub(super) async fn player_loss(
     orig: CommandOrigin<'_>,
     args: SnipePlayerLoss<'_>,
 ) -> Result<()> {
-    let name = username!(ctx, orig, args);
+    let user_id = user_id!(ctx, orig, args);
 
-    sniped_diff(ctx, orig, Difference::Loss, name).await
+    sniped_diff(ctx, orig, Difference::Loss, user_id).await
 }
 
 async fn sniped_diff(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
     diff: Difference,
-    name: Option<Username>,
+    user_id: Option<UserId>,
 ) -> Result<()> {
-    let name = match name {
-        Some(name) => name,
-        None => match ctx.psql().get_user_osu(orig.user_id()?).await {
-            Ok(Some(osu)) => osu.into_username(),
+    let user_id = match user_id {
+        Some(user_id) => user_id,
+        None => match ctx.user_config().osu_id(orig.user_id()?).await {
+            Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => return require_link(&ctx, &orig).await,
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get username"));
+                return Err(err);
             }
         },
     };
 
     // Request the user
-    let user_args = UserArgs::new(name.as_str(), GameMode::Osu);
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await;
 
-    let mut user = match get_user(&ctx, &user_args).await {
+    let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = format!("Could not find user `{name}`");
+            let content = match user_id {
+                UserId::Id(user_id) => format!("User with id {user_id} was not found"),
+                UserId::Name(name) => format!("User `{name}` was not found"),
+            };
 
             return orig.error(&ctx, content).await;
         }
@@ -143,14 +147,25 @@ async fn sniped_diff(
         }
     };
 
-    // Overwrite default mode
-    user.mode = GameMode::Osu;
+    let (country_code, username, user_id) = match &user {
+        RedisData::Original(user) => {
+            let country_code = user.country_code.as_str();
+            let username = user.username.as_str();
+            let user_id = user.user_id;
 
-    if !ctx.contains_country(user.country_code.as_str()) {
-        let content = format!(
-            "`{}`'s country {} is not supported :(",
-            user.username, user.country_code
-        );
+            (country_code, username, user_id)
+        }
+        RedisData::Archived(user) => {
+            let country_code = user.country_code.as_str();
+            let username = user.username.as_str();
+            let user_id = user.user_id;
+
+            (country_code, username, user_id)
+        }
+    };
+
+    if !ctx.huismetbenen().is_supported(country_code).await {
+        let content = format!("`{username}`'s country {country_code} is not supported :(");
 
         return orig.error(&ctx, content).await;
     }
@@ -161,8 +176,8 @@ async fn sniped_diff(
 
     // Request the scores
     let scores_fut = match diff {
-        Difference::Gain => client.get_national_snipes(&user, true, week_ago, now),
-        Difference::Loss => client.get_national_snipes(&user, false, week_ago, now),
+        Difference::Gain => client.get_national_snipes(user_id, true, week_ago, now),
+        Difference::Loss => client.get_national_snipes(user_id, false, week_ago, now),
     };
 
     let mut scores = match scores_fut.await {
@@ -176,8 +191,7 @@ async fn sniped_diff(
 
     if scores.is_empty() {
         let content = format!(
-            "`{name}` didn't {diff} national #1s in the last week.",
-            name = user.username,
+            "`{username}` didn't {diff} national #1s in the last week.",
             diff = match diff {
                 Difference::Gain => "gain any new",
                 Difference::Loss => "lose any",

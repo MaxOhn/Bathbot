@@ -1,8 +1,8 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
+use bathbot_psql::model::osu::TrackedOsuUserKey;
 use command_macros::command;
 use eyre::{Report, Result};
-use hashbrown::HashMap;
 use rosu_v2::{
     prelude::{GameMode, OsuError, Username},
     OsuResult,
@@ -12,6 +12,7 @@ use twilight_model::id::{marker::ChannelMarker, Id};
 use crate::{
     core::commands::CommandOrigin,
     embeds::{EmbedData, TrackListEmbed},
+    manager::redis::osu::UserArgs,
     util::{builder::MessageBuilder, constants::OSU_API_ISSUE},
     Context,
 };
@@ -19,7 +20,7 @@ use crate::{
 pub struct TracklistUserEntry {
     pub name: Username,
     pub mode: GameMode,
-    pub limit: usize,
+    pub limit: u8,
 }
 
 #[command]
@@ -70,15 +71,15 @@ pub async fn tracklist(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()>
 async fn get_users(
     ctx: &Context,
     channel: Id<ChannelMarker>,
-    tracked: Vec<(u32, GameMode, usize)>,
+    tracked: Vec<(TrackedOsuUserKey, u8)>,
 ) -> OsuResult<Vec<TracklistUserEntry>> {
-    let user_ids: Vec<_> = tracked.iter().map(|(id, ..)| *id as i32).collect();
+    let user_ids: Vec<_> = tracked.iter().map(|(key, ..)| key.user_id as i32).collect();
 
     // Get all names that are stored in the DB
-    let stored_names = match ctx.psql().get_names_by_ids(&user_ids).await {
+    let stored_names = match ctx.osu_user().names(&user_ids).await {
         Ok(map) => map,
         Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to get names by user ids"));
+            warn!("{:?}", err.wrap_err("failed to get names by user ids"));
 
             HashMap::default()
         }
@@ -87,42 +88,38 @@ async fn get_users(
     let mut users = Vec::with_capacity(tracked.len());
 
     // Get all missing names from the api
-    for (user_id, mode, limit) in tracked {
+    for (TrackedOsuUserKey { user_id, mode }, limit) in tracked {
         let entry = match stored_names.get(&user_id) {
             Some(name) => TracklistUserEntry {
                 name: name.to_owned(),
                 mode,
                 limit,
             },
-            None => match ctx.osu().user(user_id).mode(mode).await {
-                Ok(user) => {
-                    if let Err(err) = ctx.psql().upsert_osu_user(&user, mode).await {
-                        warn!("{:?}", err.wrap_err("Failed to upsert user"));
-                    }
+            None => {
+                let user_args = UserArgs::user_id(user_id).mode(mode);
 
-                    TracklistUserEntry {
-                        name: user.username,
+                match ctx.redis().osu_user(user_args).await {
+                    Ok(user) => TracklistUserEntry {
+                        name: user.username().into(),
                         mode,
                         limit,
+                    },
+                    Err(OsuError::NotFound) => {
+                        let remove_fut =
+                            ctx.tracking()
+                                .remove_user(user_id, None, channel, ctx.osu_tracking());
+
+                        if let Err(err) = remove_fut.await {
+                            let wrap =
+                                format!("failed to remove unknown user {user_id} from tracking");
+                            warn!("{:?}", err.wrap_err(wrap));
+                        }
+
+                        continue;
                     }
+                    Err(err) => return Err(err),
                 }
-                Err(OsuError::NotFound) => {
-                    let remove_fut = ctx
-                        .tracking()
-                        .remove_user(user_id, None, channel, ctx.psql());
-
-                    if let Err(err) = remove_fut.await {
-                        let report = err.wrap_err(format!(
-                            "Failed to remove unknown user {user_id} from tracking"
-                        ));
-
-                        warn!("{report:?}");
-                    }
-
-                    continue;
-                }
-                Err(err) => return Err(err),
-            },
+            }
         };
 
         users.push(entry);

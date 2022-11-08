@@ -7,6 +7,7 @@ use twilight_model::channel::embed::{Embed, EmbedField};
 use crate::{
     commands::osu::MedalAchieved,
     custom_client::{OsekaiComment, OsekaiMap, OsekaiMedal},
+    manager::redis::RedisData,
     util::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
         constants::{FIELD_VALUE_SIZE, OSU_BASE},
@@ -121,7 +122,24 @@ impl MedalEmbed {
         let achieved = achieved.map(|achieved| {
             let user = achieved.user;
 
-            let mut author_url = format!("{OSU_BASE}users/{}", user.user_id);
+            let (country_code, username, user_id) = match &user {
+                RedisData::Original(user) => {
+                    let country_code = user.country_code.as_str();
+                    let username = user.username.as_str();
+                    let user_id = user.user_id;
+
+                    (country_code, username, user_id)
+                }
+                RedisData::Archived(user) => {
+                    let country_code = user.country_code.as_str();
+                    let username = user.username.as_str();
+                    let user_id = user.user_id;
+
+                    (country_code, username, user_id)
+                }
+            };
+
+            let mut author_url = format!("{OSU_BASE}users/{user_id}");
 
             match medal.restriction {
                 None => {}
@@ -131,9 +149,9 @@ impl MedalEmbed {
                 Some(GameMode::Mania) => author_url.push_str("/mania"),
             }
 
-            let author = AuthorBuilder::new(user.username.as_str())
+            let author = AuthorBuilder::new(username)
                 .url(author_url)
-                .icon_url(flag_url(user.country_code.as_str()));
+                .icon_url(flag_url(country_code));
 
             let footer = FooterBuilder::new(format!(
                 "Medal {}/{} | Achieved",

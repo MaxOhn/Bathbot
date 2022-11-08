@@ -1,13 +1,17 @@
 use std::fmt::Write;
 
 use command_macros::EmbedData;
-use rosu_v2::prelude::{Beatmap, GameMods, RankStatus, Score, User};
+use rosu_v2::prelude::{GameMods, RankStatus, Score};
 
-use crate::util::{
-    builder::AuthorBuilder,
-    constants::MAP_THUMB_URL,
-    numbers::{round, with_comma_float},
-    CowUtils,
+use crate::{
+    commands::osu::{FixEntry, FixScore},
+    manager::redis::{osu::User, RedisData},
+    util::{
+        builder::AuthorBuilder,
+        constants::{MAP_THUMB_URL, OSU_BASE},
+        numbers::{round, WithComma},
+        CowUtils,
+    },
 };
 
 #[derive(EmbedData)]
@@ -20,129 +24,130 @@ pub struct FixScoreEmbed {
 }
 
 impl FixScoreEmbed {
-    pub fn new(
-        user: User,
-        map: Beatmap,
-        scores: Option<(Score, Vec<Score>)>,
-        unchoked_pp: Option<f32>,
-        mods: Option<GameMods>,
-    ) -> Self {
-        let author = author!(user);
-        let url = map.url;
-        let thumbnail = format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id);
+    pub fn new(entry: &FixEntry, mods: Option<GameMods>) -> Self {
+        let FixEntry { user, map, score } = entry;
 
-        let mapset = map.mapset.as_ref().unwrap();
+        let author = user.author_builder();
+        let url = format!("{OSU_BASE}b/{}", map.map_id());
+        let thumbnail = format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id());
 
         let title = format!(
             "{} - {} [{}]",
-            mapset.artist.cow_escape_markdown(),
-            mapset.title.cow_escape_markdown(),
-            map.version.cow_escape_markdown()
+            map.artist().cow_escape_markdown(),
+            map.title().cow_escape_markdown(),
+            map.version().cow_escape_markdown()
         );
 
-        // The score can be unchoked
-        let description = if let Some(pp) = unchoked_pp {
-            let (score, mut best) = scores.unwrap();
+        // The user has a score on the map
+        let description = if let Some(fix_score) = score {
+            let FixScore { score, top, if_fc } = fix_score;
 
-            let mut description = format!(
-                "An FC would have improved the score from {} to **{}pp**. ",
-                score.pp.map_or(0.0, round),
-                round(pp),
-            );
+            // The score can be unchoked
+            if let Some(if_fc) = if_fc {
+                let mut description = format!(
+                    "An FC would have improved the score from {} to **{}pp**. ",
+                    round(score.pp),
+                    round(if_fc.pp),
+                );
 
-            let in_best = best.iter().any(|s| s.pp.unwrap_or(0.0) < pp);
+                let in_top = top.iter().any(|s| s.pp.unwrap_or(0.0) < if_fc.pp);
 
-            // Map is ranked
-            let _ = if matches!(map.status, RankStatus::Ranked | RankStatus::Approved) {
-                if in_best || best.len() < 100 {
-                    let mut old_idx = None;
-                    let mut actual_offset = 0.0;
+                // Map is ranked
+                let _ = if matches!(map.status(), RankStatus::Ranked | RankStatus::Approved) {
+                    if in_top || top.len() < 100 {
+                        let mut old_idx = None;
+                        let mut actual_offset = 0.0;
 
-                    if let Some(idx) = best.iter().position(|s| s == &score) {
-                        actual_offset = best.remove(idx).weight.unwrap().pp;
-                        old_idx.replace(idx + 1);
-                    }
+                        if let Some(idx) = top.iter().position(|s| {
+                            (s.ended_at.unix_timestamp() - score.ended_at.unix_timestamp()).abs()
+                                <= 2
+                        }) {
+                            actual_offset = top.get(idx).unwrap().weight.unwrap().pp;
+                            old_idx = Some(idx + 1);
+                        }
 
-                    let (new_idx, new_pp) = new_pp(pp, &user, &best, actual_offset);
+                        let (new_idx, new_pp) = new_pp(if_fc.pp, user, top, actual_offset);
 
-                    if let Some(old_idx) = old_idx {
-                        write!(
-                            description,
-                            "The score would have moved from personal #{old_idx} to #{new_idx}, \
-                            pushing their total pp to **{}pp**.",
-                            with_comma_float(new_pp)
-                        )
+                        if let Some(old_idx) = old_idx {
+                            write!(
+                                description,
+                                "The score would have moved from personal #{old_idx} to #{new_idx}, \
+                                pushing their total pp to **{}pp**.",
+                                WithComma::new(new_pp),
+                            )
+                        } else {
+                            write!(
+                                description,
+                                "It would have been a personal top #{new_idx}, \
+                                pushing their total pp to **{}pp**.",
+                                WithComma::new(new_pp),
+                            )
+                        }
                     } else {
+                        let lowest_pp_required =
+                            top.last().and_then(|score| score.pp).map_or(0.0, round);
+
                         write!(
                             description,
-                            "It would have been a personal top #{new_idx}, \
-                            pushing their total pp to **{}pp**.",
-                            with_comma_float(new_pp),
+                            "A new top100 score requires {lowest_pp_required}pp."
                         )
                     }
-                } else {
-                    let lowest_pp_required =
-                        best.last().and_then(|score| score.pp).map_or(0.0, round);
+                // Map not ranked but in top100
+                } else if in_top || top.len() < 100 {
+                    let (idx, new_pp) = new_pp(if_fc.pp, user, top, 0.0);
 
                     write!(
                         description,
-                        "A new top100 score requires {lowest_pp_required}pp."
+                        "If the map wasn't {status:?}, an FC would have \
+                        been a personal #{idx}, pushing their total pp to **{pp}pp**.",
+                        status = map.status(),
+                        pp = WithComma::new(new_pp),
                     )
-                }
-            // Map not ranked but in top100
-            } else if in_best || best.len() < 100 {
-                let (idx, new_pp) = new_pp(pp, &user, &best, 0.0);
-
-                write!(
-                    description,
-                    "If the map wasn't {:?}, an FC would have \
-                    been a personal #{idx}, pushing their total pp to **{}pp**.",
-                    map.status,
-                    with_comma_float(new_pp)
-                )
-            // Map not ranked and not in top100
-            } else {
-                let lowest_pp_required = best.last().and_then(|score| score.pp).map_or(0.0, round);
-
-                write!(
-                    description,
-                    "A top100 score requires {lowest_pp_required}pp but the map is {:?} anyway.",
-                    map.status
-                )
-            };
-
-            description
-        // The score is already an FC
-        } else if let Some((score, best)) = scores {
-            let mut description = format!("Already got a {}pp FC", score.pp.map_or(0.0, round));
-
-            // Map is not ranked
-            if !matches!(map.status, RankStatus::Ranked | RankStatus::Approved) {
-                if best.iter().any(|s| s.pp < score.pp) || best.len() < 100 {
-                    let (idx, new_pp) = new_pp(score.pp.unwrap_or(0.0), &user, &best, 0.0);
-
-                    let _ = write!(
-                        description,
-                        ". If the map wasn't {:?} the score would have \
-                        been a personal #{idx}, pushing their total pp to **{}pp**.",
-                        map.status,
-                        with_comma_float(new_pp)
-                    );
+                // Map not ranked and not in top100
                 } else {
                     let lowest_pp_required =
-                        best.last().and_then(|score| score.pp).map_or(0.0, round);
+                        top.last().and_then(|score| score.pp).map_or(0.0, round);
 
-                    let _ = write!(
+                    write!(
                         description,
-                        ". A top100 score would have required {lowest_pp_required}pp but the map is {:?} anyway.",
-                        map.status
-                    );
-                }
-            }
+                        "A top100 score requires {lowest_pp_required}pp but the map is {status:?} anyway.",
+                        status = map.status(),
+                    )
+                };
 
-            description
-        // The user has no score on the map
+                description
+            } else {
+                // The score is already an FC
+                let mut description = format!("Already got a {}pp FC", round(score.pp));
+
+                // Map is not ranked
+                if !matches!(map.status(), RankStatus::Ranked | RankStatus::Approved) {
+                    if top.iter().any(|s| s.pp < Some(score.pp)) || top.len() < 100 {
+                        let (idx, new_pp) = new_pp(score.pp, user, top, 0.0);
+
+                        let _ = write!(
+                            description,
+                            ". If the map wasn't {status:?} the score would have \
+                            been a personal #{idx}, pushing their total pp to **{pp}pp**.",
+                            status = map.status(),
+                            pp = WithComma::new(new_pp),
+                        );
+                    } else {
+                        let lowest_pp_required =
+                            top.last().and_then(|score| score.pp).map_or(0.0, round);
+
+                        let _ = write!(
+                            description,
+                            ". A top100 score would have required {lowest_pp_required}pp but the map is {status:?} anyway.",
+                            status = map.status(),
+                        );
+                    }
+                }
+
+                description
+            }
         } else {
+            // The user has no score on the map
             match mods {
                 Some(mods) => format!("No {mods} score on the map"),
                 None => "No score on the map".to_owned(),
@@ -159,13 +164,13 @@ impl FixScoreEmbed {
     }
 }
 
-fn new_pp(pp: f32, user: &User, scores: &[Score], actual_offset: f32) -> (usize, f32) {
+fn new_pp(pp: f32, user: &RedisData<User>, scores: &[Score], actual_offset: f32) -> (usize, f32) {
     let actual: f32 = scores
         .iter()
         .filter_map(|s| s.weight)
         .fold(0.0, |sum, weight| sum + weight.pp);
 
-    let total = user.statistics.as_ref().map_or(0.0, |stats| stats.pp);
+    let total = user.peek_stats(|stats| stats.pp);
     let bonus_pp = total - (actual + actual_offset);
     let mut new_pp = 0.0;
     let mut used = false;

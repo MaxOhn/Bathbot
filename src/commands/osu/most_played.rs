@@ -2,12 +2,13 @@ use std::{borrow::Cow, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
 use eyre::{Report, Result};
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::{prelude::OsuError, request::UserId};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     core::commands::CommandOrigin,
+    manager::redis::osu::UserArgs,
     pagination::MostPlayedPagination,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -17,7 +18,7 @@ use crate::{
     Context,
 };
 
-use super::{require_link, UserArgs};
+use super::{require_link, user_not_found};
 
 #[derive(CommandModel, CreateCommand, Default, HasName, SlashCommand)]
 #[command(name = "mostplayed")]
@@ -71,60 +72,36 @@ async fn mostplayed(
 ) -> Result<()> {
     let owner = orig.user_id()?;
 
-    let name = match username!(ctx, orig, args) {
-        Some(name) => name,
-        None => match ctx.psql().get_user_osu(owner).await {
-            Ok(Some(osu)) => osu.into_username(),
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
+        None => match ctx.user_config().osu_id(owner).await {
+            Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => return require_link(&ctx, &orig).await,
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get username"));
+                return Err(err);
             }
         },
     };
 
     // Retrieve the user and their most played maps
-    let mut user_args = UserArgs::new(name.as_str(), GameMode::Osu);
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await;
+    let user_fut = ctx.redis().osu_user(user_args);
+    let maps_fut = ctx.osu().user_most_played(user_id.clone()).limit(100);
 
-    let result = if let Some(alt_name) = user_args.whitespaced_name() {
-        match ctx.redis().osu_user(&user_args).await {
-            Ok(user) => ctx
-                .osu()
-                .user_most_played(user_args.name)
-                .limit(100)
-                .await
-                .map(|maps| (user, maps)),
-            Err(OsuError::NotFound) => {
-                user_args.name = &alt_name;
-                let redis = ctx.redis();
-
-                let user_fut = redis.osu_user(&user_args);
-                let maps_fut = ctx.osu().user_most_played(user_args.name).limit(100);
-
-                tokio::try_join!(user_fut, maps_fut)
-            }
-            Err(err) => Err(err),
-        }
-    } else {
-        let redis = ctx.redis();
-        let maps_fut = ctx.osu().user_most_played(user_args.name).limit(100);
-
-        tokio::try_join!(redis.osu_user(&user_args), maps_fut)
-    };
-
-    let (user, maps) = match result {
+    let (user, maps) = match tokio::try_join!(user_fut, maps_fut) {
         Ok((user, maps)) => (user, maps),
         Err(OsuError::NotFound) => {
-            let content = format!("User `{name}` was not found");
+            let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user or maps");
+            let err = Report::new(err).wrap_err("failed to get user or maps");
 
-            return Err(report);
+            return Err(err);
         }
     };
 

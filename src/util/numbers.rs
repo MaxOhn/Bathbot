@@ -1,118 +1,129 @@
-use std::fmt;
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 /// Round with two decimal positions
 pub fn round(n: f32) -> f32 {
     (100.0 * n).round() / 100.0
 }
 
-pub fn with_comma_float(n: f32) -> FormatF32 {
-    FormatF32(n)
+pub struct WithComma<N> {
+    num: N,
 }
 
-pub struct FormatF32(f32);
-
-impl fmt::Display for FormatF32 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let n = if self.0 < 0.0 {
-            f.write_str("-")?;
-
-            -self.0
-        } else {
-            self.0
-        };
-
-        let mut int = n.trunc() as i64;
-        let mut rev = 0;
-        let mut triples = 0;
-
-        while int > 0 {
-            rev = rev * 1000 + int % 1000;
-            int /= 1000;
-            triples += 1;
-        }
-
-        write!(f, "{}", rev % 1000)?;
-
-        for _ in 0..triples - 1 {
-            rev /= 1000;
-            write!(f, ",{:0>3}", rev % 1000)?;
-        }
-
-        let mut dec = (100.0 * n.fract()).round() as u32;
-
-        if dec > 0 {
-            if dec % 10 == 0 {
-                dec /= 10;
-            }
-
-            write!(f, ".{dec}")?;
-        }
-
-        Ok(())
+impl<N> WithComma<N> {
+    pub fn new(num: N) -> Self {
+        Self { num }
     }
 }
 
-pub fn with_comma_int<T: Int>(n: T) -> FormatInt {
-    FormatInt(n.into_i64())
-}
+macro_rules! impl_with_comma {
+    (@FLOAT: $( $ty:ty ),* ) => {
+        $(
+            impl Display for WithComma<$ty> {
+                fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+                    let n = if self.num < 0.0 {
+                        f.write_str("-")?;
 
-pub struct FormatInt(i64);
+                        -self.num
+                    } else {
+                        self.num
+                    };
 
-impl fmt::Display for FormatInt {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut n = if self.0 < 0 {
-            f.write_str("-")?;
+                    let mut int = n.trunc() as i64;
+                    let mut rev = 0;
+                    let mut triples = 0;
 
-            -self.0
-        } else {
-            self.0
-        };
+                    while int > 0 {
+                        rev = rev * 1000 + int % 1000;
+                        int /= 1000;
+                        triples += 1;
+                    }
 
-        let mut rev = 0;
-        let mut triples = 0;
+                    write!(f, "{}", rev % 1000)?;
 
-        while n > 0 {
-            rev = rev * 1000 + n % 1000;
-            n /= 1000;
-            triples += 1;
-        }
+                    for _ in 0..triples - 1 {
+                        rev /= 1000;
+                        write!(f, ",{:0>3}", rev % 1000)?;
+                    }
 
-        write!(f, "{}", rev % 1000)?;
+                    let mut dec = (100.0 * n.fract()).round() as u32;
 
-        for _ in 0..triples - 1 {
-            rev /= 1000;
-            write!(f, ",{:0>3}", rev % 1000)?;
-        }
+                    if dec > 0 {
+                        if dec % 10 == 0 {
+                            dec /= 10;
+                        }
 
-        Ok(())
-    }
-}
+                        write!(f, ".{dec}")?;
+                    }
 
-pub trait Int {
-    fn into_i64(self) -> i64;
-}
-
-macro_rules! into_int {
-    ($ty:ty) => {
-        impl Int for $ty {
-            fn into_i64(self) -> i64 {
-                self as i64
+                    Ok(())
+                }
             }
-        }
+        )*
+    };
+    (@INT: $( $ty:ty ),* ) => {
+        $(
+            impl Display for WithComma<$ty> {
+                fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+                    let mut n = if self.num < 0 {
+                        f.write_str("-")?;
+
+                        -self.num
+                    } else {
+                        self.num
+                    };
+
+                    let mut rev = 0;
+                    let mut triples = 0;
+
+                    while n > 0 {
+                        rev = rev * 1000 + n % 1000;
+                        n /= 1000;
+                        triples += 1;
+                    }
+
+                    write!(f, "{}", rev % 1000)?;
+
+                    for _ in 0..triples - 1 {
+                        rev /= 1000;
+                        write!(f, ",{:0>3}", rev % 1000)?;
+                    }
+
+                    Ok(())
+                }
+            }
+        )*
+    };
+    (@UINT: $( $ty:ty ),* ) => {
+        $(
+            impl Display for WithComma<$ty> {
+                fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+                    let mut n = self.num;
+                    let mut rev = 0;
+                    let mut triples = 0;
+
+                    while n > 0 {
+                        rev = rev * 1000 + n % 1000;
+                        n /= 1000;
+                        triples += 1;
+                    }
+
+                    write!(f, "{}", rev % 1000)?;
+
+                    for _ in 0..triples - 1 {
+                        rev /= 1000;
+                        write!(f, ",{:0>3}", rev % 1000)?;
+                    }
+
+                    Ok(())
+                }
+            }
+        )*
     };
 }
 
-into_int!(u8);
-into_int!(u16);
-into_int!(u32);
-into_int!(u64);
-into_int!(usize);
-
-into_int!(i8);
-into_int!(i16);
-into_int!(i32);
-into_int!(i64);
-into_int!(isize);
+impl_with_comma!(@FLOAT: f32, f64);
+impl_with_comma!(@INT: i16, i32, i64, isize);
+impl_with_comma!(@UINT: u16, u32, u64, usize);
 
 pub fn last_multiple(per_page: usize, total: usize) -> usize {
     if per_page <= total && total % per_page == 0 {
@@ -139,7 +150,7 @@ mod tests {
     #[test]
     fn test_with_comma_int() {
         assert_eq!(
-            with_comma_int(31_415_926_u32).to_string(),
+            WithComma::new(31_415_926_u32).to_string(),
             "31,415,926".to_owned()
         );
     }
@@ -147,7 +158,7 @@ mod tests {
     #[test]
     fn test_with_comma_f32() {
         assert_eq!(
-            with_comma_float(31_925.53).to_string(),
+            WithComma::new(31_925.53_f32).to_string(),
             "31,925.53".to_owned()
         );
     }

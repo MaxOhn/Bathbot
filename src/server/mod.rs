@@ -25,6 +25,7 @@ use tokio::{fs, sync::oneshot::Receiver};
 use crate::{
     core::BotConfig,
     custom_client::{TwitchDataList, TwitchOAuthToken, TwitchUser},
+    manager::redis::osu::User,
     util::constants::{GENERAL_ISSUE, TWITCH_OAUTH, TWITCH_USERS_ENDPOINT},
     Context,
 };
@@ -237,7 +238,7 @@ async fn auth_osu_handler_(req: &Request<Body>) -> HandlerResult {
         .await
         .wrap_err("failed to build authenticated osu client")?;
 
-    let user = osu.own_data().await?;
+    let user = User::from(osu.own_data().await?);
 
     let render_data = json!({
         "body_id": "success",

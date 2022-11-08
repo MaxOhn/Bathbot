@@ -4,24 +4,25 @@ use command_macros::EmbedData;
 use eyre::{Result, WrapErr};
 use hashbrown::HashMap;
 use rosu_pp::{Beatmap, BeatmapExt};
-use rosu_v2::model::user::User;
 
 use crate::{
     commands::osu::Difference,
     core::Context,
     custom_client::SnipeRecent,
-    embeds::osu,
+    manager::redis::{osu::User, RedisData},
     pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
-        datetime::how_long_ago_dynamic,
+        datetime::HowLongAgoDynamic,
         hasher::IntHasher,
         numbers::round,
         osu::prepare_beatmap_file,
         CowUtils,
     },
 };
+
+use super::ModsFormatter;
 
 #[derive(EmbedData)]
 pub struct SnipedDiffEmbed {
@@ -34,7 +35,7 @@ pub struct SnipedDiffEmbed {
 
 impl SnipedDiffEmbed {
     pub async fn new(
-        user: &User,
+        user: &RedisData<User>,
         diff: Difference,
         scores: &[SnipeRecent],
         pages: &Pages,
@@ -74,13 +75,13 @@ impl SnipedDiffEmbed {
 
             let _ = write!(
                 description,
-                "**{idx}. [{artist} - {title} [{version}]]({OSU_BASE}b/{id}) {mods}**\n[{stars:.2}★] ~ ({acc}%) ~ ",
+                "**{idx}. [{artist} - {title} [{version}]]({OSU_BASE}b/{id}) {mods}**\n[{stars:.2}★] ~ ({acc}%)",
                 idx = idx + 1,
                 artist = score.artist.cow_escape_markdown(),
                 title = score.title.cow_escape_markdown(),
                 version = score.version.cow_escape_markdown(),
                 id = score.map_id,
-                mods = osu::get_mods(score.mods.unwrap_or_default()),
+                mods = ModsFormatter::new(score.mods.unwrap_or_default()),
                 acc = round(score.accuracy),
             );
 
@@ -110,8 +111,10 @@ impl SnipedDiffEmbed {
             };
 
             if let Some(ref date) = score.date {
-                let _ = writeln!(description, "{}", how_long_ago_dynamic(date));
+                let _ = write!(description, " ~ {}", HowLongAgoDynamic::new(date));
             }
+
+            description.push('\n');
         }
 
         description.pop();
@@ -131,8 +134,8 @@ impl SnipedDiffEmbed {
         Ok(Self {
             title,
             description,
-            author: author!(user),
-            thumbnail: user.avatar_url.to_owned(),
+            author: user.author_builder(),
+            thumbnail: user.avatar_url().to_owned(),
             footer,
         })
     }

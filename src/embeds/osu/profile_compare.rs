@@ -1,18 +1,22 @@
 use std::{
+    borrow::Cow,
     cmp::Reverse,
     fmt::{Display, Write},
 };
 
 use command_macros::EmbedData;
-use rosu_v2::prelude::{GameMode, User, UserStatistics};
+use rkyv::{with::DeserializeWith, Deserialize, Infallible};
+use rosu_v2::prelude::{GameMode, UserStatistics};
 use time::OffsetDateTime;
 
 use crate::{
     commands::osu::CompareResult,
     embeds::attachment,
+    manager::redis::{osu::User, RedisData},
     util::{
-        datetime::{sec_to_minsec, DATE_FORMAT},
-        numbers::{with_comma_float, with_comma_int},
+        datetime::{SecToMinSec, DATE_FORMAT},
+        numbers::WithComma,
+        rkyv_impls::DateTimeWrapper,
     },
 };
 
@@ -25,32 +29,32 @@ pub struct ProfileCompareEmbed {
 impl ProfileCompareEmbed {
     pub fn new(
         mode: GameMode,
-        user1: User,
-        user2: User,
+        user1: &RedisData<User>,
+        user2: &RedisData<User>,
         result1: CompareResult,
         result2: CompareResult,
     ) -> Self {
-        let stats1 = user1.statistics.as_ref().unwrap();
-        let stats2 = user2.statistics.as_ref().unwrap();
+        let data1 = UserData::new(user1);
+        let data2 = UserData::new(user2);
 
-        let left = CompareStrings::new(stats1, user1.join_date, &result1);
-        let max_left = left.max().max(user1.username.chars().count());
-        let right = CompareStrings::new(stats2, user2.join_date, &result2);
-        let max_right = right.max().max(user2.username.chars().count());
+        let left = CompareStrings::new(data1.stats.as_ref(), data1.join_date, &result1);
+        let max_left = left.max().max(data1.username.chars().count());
+        let right = CompareStrings::new(data2.stats.as_ref(), data2.join_date, &result2);
+        let max_right = right.max().max(data2.username.chars().count());
         let mut d = String::with_capacity(512);
         d.push_str("```\n");
 
         let _ = writeln!(
             d,
             "{:>max_left$}  | {:^12} |  {:<max_right$}",
-            user1.username,
+            data1.username,
             match mode {
                 GameMode::Osu => "osu!",
                 GameMode::Mania => "Mania",
                 GameMode::Taiko => "Taiko",
                 GameMode::Catch => "CtB",
             },
-            user2.username,
+            data2.username,
             max_left = max_left,
             max_right = max_right
         );
@@ -70,20 +74,20 @@ impl ProfileCompareEmbed {
             "Rank",
             left.rank,
             right.rank,
-            Reverse(stats1.global_rank.unwrap_or(u32::MAX)),
-            Reverse(stats2.global_rank.unwrap_or(u32::MAX)),
+            Reverse(data1.stats.global_rank.unwrap_or(u32::MAX)),
+            Reverse(data2.stats.global_rank.unwrap_or(u32::MAX)),
             max_left,
             max_right,
         );
 
-        let left_peak = user1.highest_rank.map(|peak| peak.rank);
-        let right_peak = user2.highest_rank.map(|peak| peak.rank);
+        let left_peak = data1.highest_rank;
+        let right_peak = data2.highest_rank;
 
         write_line(
             &mut d,
             "Peak rank",
-            left_peak.map_or_else(|| "-".into(), |rank| format!("#{}", with_comma_int(rank))),
-            right_peak.map_or_else(|| "-".into(), |rank| format!("#{}", with_comma_int(rank))),
+            left_peak.map_or_else(|| "-".into(), |rank| format!("#{}", WithComma::new(rank))),
+            right_peak.map_or_else(|| "-".into(), |rank| format!("#{}", WithComma::new(rank))),
             Reverse(left_peak.unwrap_or(u32::MAX)),
             Reverse(right_peak.unwrap_or(u32::MAX)),
             max_left,
@@ -91,7 +95,14 @@ impl ProfileCompareEmbed {
         );
 
         write_line(
-            &mut d, "PP", left.pp, right.pp, stats1.pp, stats2.pp, max_left, max_right,
+            &mut d,
+            "PP",
+            left.pp,
+            right.pp,
+            data1.stats.pp,
+            data2.stats.pp,
+            max_left,
+            max_right,
         );
 
         write_line(
@@ -99,14 +110,14 @@ impl ProfileCompareEmbed {
             "Accuracy",
             left.accuracy,
             right.accuracy,
-            stats1.accuracy,
-            stats2.accuracy,
+            data1.stats.accuracy,
+            data2.stats.accuracy,
             max_left,
             max_right,
         );
 
-        let level_left = stats1.level.float();
-        let level_right = stats2.level.float();
+        let level_left = data1.stats.level.float();
+        let level_right = data2.stats.level.float();
 
         write_line(
             &mut d,
@@ -124,8 +135,8 @@ impl ProfileCompareEmbed {
             "Playtime",
             left.play_time,
             right.play_time,
-            stats1.playtime,
-            stats2.playtime,
+            data1.stats.playtime,
+            data2.stats.playtime,
             max_left,
             max_right,
         );
@@ -135,33 +146,20 @@ impl ProfileCompareEmbed {
             "Playcount",
             left.play_count,
             right.play_count,
-            stats1.playcount,
-            stats2.playcount,
+            data1.stats.playcount,
+            data2.stats.playcount,
             max_left,
             max_right,
         );
 
-        let left_peak = user1
-            .monthly_playcounts
-            .unwrap()
-            .iter()
-            .map(|date_count| date_count.count as u64)
-            .max()
-            .unwrap_or(0);
-
-        let right_peak = user2
-            .monthly_playcounts
-            .unwrap()
-            .iter()
-            .map(|date_count| date_count.count as u64)
-            .max()
-            .unwrap_or(0);
+        let left_peak = data1.monthly_playcounts_peak;
+        let right_peak = data2.monthly_playcounts_peak;
 
         write_line(
             &mut d,
             "PC peak",
-            with_comma_int(left_peak).to_string(),
-            with_comma_int(right_peak).to_string(),
+            WithComma::new(left_peak),
+            WithComma::new(right_peak),
             left_peak,
             right_peak,
             max_left,
@@ -173,8 +171,8 @@ impl ProfileCompareEmbed {
             "Ranked score",
             left.ranked_score,
             right.ranked_score,
-            stats1.ranked_score,
-            stats2.ranked_score,
+            data1.stats.ranked_score,
+            data2.stats.ranked_score,
             max_left,
             max_right,
         );
@@ -184,8 +182,8 @@ impl ProfileCompareEmbed {
             "Total score",
             left.total_score,
             right.total_score,
-            stats1.total_score,
-            stats2.total_score,
+            data1.stats.total_score,
+            data2.stats.total_score,
             max_left,
             max_right,
         );
@@ -195,8 +193,8 @@ impl ProfileCompareEmbed {
             "Total hits",
             left.total_hits,
             right.total_hits,
-            stats1.total_hits,
-            stats2.total_hits,
+            data1.stats.total_hits,
+            data2.stats.total_hits,
             max_left,
             max_right,
         );
@@ -206,8 +204,8 @@ impl ProfileCompareEmbed {
             "SS count",
             left.count_ss,
             right.count_ss,
-            stats1.grade_counts.ss + stats1.grade_counts.ssh,
-            stats2.grade_counts.ss + stats2.grade_counts.ssh,
+            data1.stats.grade_counts.ss + data1.stats.grade_counts.ssh,
+            data2.stats.grade_counts.ss + data2.stats.grade_counts.ssh,
             max_left,
             max_right,
         );
@@ -217,8 +215,8 @@ impl ProfileCompareEmbed {
             "S count",
             left.count_s,
             right.count_s,
-            stats1.grade_counts.s + stats1.grade_counts.sh,
-            stats2.grade_counts.s + stats2.grade_counts.sh,
+            data1.stats.grade_counts.s + data1.stats.grade_counts.sh,
+            data2.stats.grade_counts.s + data2.stats.grade_counts.sh,
             max_left,
             max_right,
         );
@@ -228,8 +226,8 @@ impl ProfileCompareEmbed {
             "A count",
             left.count_a,
             right.count_a,
-            stats1.grade_counts.a + stats1.grade_counts.a,
-            stats2.grade_counts.a + stats2.grade_counts.a,
+            data1.stats.grade_counts.a,
+            data2.stats.grade_counts.a,
             max_left,
             max_right,
         );
@@ -237,10 +235,10 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Max Combo",
-            with_comma_int(stats1.max_combo).to_string(),
-            with_comma_int(stats2.max_combo).to_string(),
-            stats1.max_combo,
-            stats2.max_combo,
+            WithComma::new(data1.stats.max_combo),
+            WithComma::new(data2.stats.max_combo),
+            data1.stats.max_combo,
+            data2.stats.max_combo,
             max_left,
             max_right,
         );
@@ -292,10 +290,10 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Join date",
-            user1.join_date.format(DATE_FORMAT).unwrap(),
-            user2.join_date.format(DATE_FORMAT).unwrap(),
-            Reverse(user1.join_date),
-            Reverse(user2.join_date),
+            data1.join_date.format(DATE_FORMAT).unwrap(),
+            data2.join_date.format(DATE_FORMAT).unwrap(),
+            Reverse(data1.join_date),
+            Reverse(data2.join_date),
             max_left,
             max_right,
         );
@@ -311,15 +309,15 @@ impl ProfileCompareEmbed {
             max_right,
         );
 
-        let medal1 = user1.medals.unwrap().len();
-        let medal2 = user2.medals.unwrap().len();
+        let medal1 = data1.medals;
+        let medal2 = data2.medals;
 
         write_line(
             &mut d, "Medals", medal1, medal2, medal1, medal2, max_left, max_right,
         );
 
-        let badges1 = user1.badges.unwrap().len();
-        let badges2 = user2.badges.unwrap().len();
+        let badges1 = data1.badges;
+        let badges2 = data2.badges;
 
         write_line(
             &mut d, "Badges", badges1, badges2, badges1, badges2, max_left, max_right,
@@ -328,10 +326,10 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Followers",
-            with_comma_int(user1.follower_count.unwrap_or(0)).to_string(),
-            with_comma_int(user2.follower_count.unwrap_or(0)).to_string(),
-            user1.follower_count.unwrap(),
-            user2.follower_count.unwrap(),
+            WithComma::new(data1.follower_count),
+            WithComma::new(data2.follower_count),
+            data1.follower_count,
+            data2.follower_count,
             max_left,
             max_right,
         );
@@ -339,10 +337,10 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Replays seen",
-            with_comma_int(stats1.replays_watched).to_string(),
-            with_comma_int(stats2.replays_watched).to_string(),
-            stats1.replays_watched,
-            stats2.replays_watched,
+            WithComma::new(data1.stats.replays_watched),
+            WithComma::new(data2.stats.replays_watched),
+            data1.stats.replays_watched,
+            data2.stats.replays_watched,
             max_left,
             max_right,
         );
@@ -411,19 +409,19 @@ impl CompareStrings {
         let pp_per_month_num = 30.67 * stats.pp / days;
 
         Self {
-            pp: with_comma_float(stats.pp).to_string() + "pp",
+            pp: WithComma::new(stats.pp).to_string() + "pp",
             rank: stats
                 .global_rank
-                .map_or_else(|| "-".into(), |rank| format!("#{}", with_comma_int(rank))),
-            ranked_score: with_comma_int(stats.ranked_score).to_string(),
-            total_score: with_comma_int(stats.total_score).to_string(),
-            total_hits: with_comma_int(stats.total_hits).to_string(),
-            play_count: with_comma_int(stats.playcount).to_string(),
-            play_time: with_comma_int(stats.playtime / 3600).to_string() + "hrs",
+                .map_or_else(|| "-".into(), |rank| format!("#{}", WithComma::new(rank))),
+            ranked_score: WithComma::new(stats.ranked_score).to_string(),
+            total_score: WithComma::new(stats.total_score).to_string(),
+            total_hits: WithComma::new(stats.total_hits).to_string(),
+            play_count: WithComma::new(stats.playcount).to_string(),
+            play_time: WithComma::new(stats.playtime / 3600).to_string() + "hrs",
             level: format!("{:.2}", stats.level.float()),
             bonus_pp: format!("{:.2}pp", result.bonus_pp),
             bonus_pp_num: result.bonus_pp,
-            avg_map_len: sec_to_minsec(result.map_len.avg()).to_string(),
+            avg_map_len: SecToMinSec::new(result.map_len.avg()).to_string(),
             accuracy: format!("{:.2}%", stats.accuracy),
             pp_per_month: format!("{:.2}pp", pp_per_month_num),
             pp_per_month_num,
@@ -455,5 +453,67 @@ impl CompareStrings {
             .max(self.avg_pp.len())
             .max(self.pp_spread.len())
             .max(10) // join date yyyy-mm-dd
+    }
+}
+
+struct UserData<'u> {
+    stats: Cow<'u, UserStatistics>,
+    username: &'u str,
+    join_date: OffsetDateTime,
+    follower_count: u32,
+    highest_rank: Option<u32>,
+    monthly_playcounts_peak: i32,
+    medals: usize,
+    badges: usize,
+}
+
+impl<'u> UserData<'u> {
+    fn new(user: &'u RedisData<User>) -> Self {
+        match user {
+            RedisData::Original(user) => Self {
+                stats: user
+                    .statistics
+                    .as_ref()
+                    .map(Cow::Borrowed)
+                    .expect("missing statistics"),
+                username: user.username.as_str(),
+                join_date: user.join_date,
+                follower_count: user.follower_count,
+                highest_rank: user.highest_rank.as_ref().map(|peak| peak.rank),
+                monthly_playcounts_peak: user
+                    .monthly_playcounts
+                    .iter()
+                    .map(|date_count| date_count.count)
+                    .max()
+                    .unwrap_or(0),
+                medals: user.medals.len(),
+                badges: user.badges.len(),
+            },
+            RedisData::Archived(user) => {
+                let stats: UserStatistics = user
+                    .statistics
+                    .as_ref()
+                    .expect("missing statistics")
+                    .deserialize(&mut Infallible)
+                    .unwrap();
+
+                Self {
+                    stats: Cow::Owned(stats),
+                    username: user.username.as_str(),
+                    join_date: DateTimeWrapper::deserialize_with(&user.join_date, &mut Infallible)
+                        .unwrap(),
+                    follower_count: user.follower_count,
+                    highest_rank: user.highest_rank.as_ref().map(|peak| peak.rank),
+                    monthly_playcounts_peak: user
+                        .monthly_playcounts
+                        .iter()
+                        .map(|date_count| date_count.count)
+                        .max()
+                        .unwrap_or(0),
+                    medals: user.medals.len(),
+                    badges: user.badges.len(),
+                }
+            }
+        }
     }
 }

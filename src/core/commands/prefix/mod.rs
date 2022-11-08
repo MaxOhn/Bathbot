@@ -213,7 +213,6 @@ impl PrefixCommands {
                 #[cfg(feature = "twitch")]
                 REMOVESTREAM_PREFIX,
                 ROCKEFELLER_PREFIX,
-                ROLEASSIGN_PREFIX,
                 ROLL_PREFIX,
                 SAYGOODBYE_PREFIX,
                 SEARCH_PREFIX,

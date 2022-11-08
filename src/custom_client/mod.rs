@@ -1,12 +1,12 @@
 use std::{fmt::Write, hash::Hash};
 
 use bytes::Bytes;
-use eyre::{Result, WrapErr};
+use eyre::{Report, Result, WrapErr};
 use hashbrown::HashSet;
 use http::{
     header::{CONTENT_LENGTH, COOKIE},
     request::Builder as RequestBuilder,
-    Response, StatusCode,
+    Response,
 };
 use hyper::{
     client::{connect::dns::GaiResolver, Client as HyperClient, HttpConnector},
@@ -15,11 +15,11 @@ use hyper::{
 };
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use leaky_bucket_lite::LeakyBucket;
-use rosu_v2::prelude::{GameMode, GameMods, User};
-use serde::Serialize;
-use serde_json::{Map, Value};
+use rosu_v2::prelude::{GameMode, GameMods};
+use serde_json::Value;
+use thiserror::Error;
 use time::{format_description::FormatItem, OffsetDateTime};
-use tokio::time::{sleep, timeout, Duration};
+use tokio::time::{timeout, Duration};
 use twilight_model::channel::Attachment;
 
 use crate::{
@@ -30,7 +30,6 @@ use crate::{
         datetime::{DATE_FORMAT, TIME_FORMAT},
         hasher::IntHasher,
         osu::ModSelection,
-        ExponentialBackoff,
     },
 };
 
@@ -42,9 +41,10 @@ pub use self::{
 #[cfg(feature = "twitch")]
 pub use self::twitch::*;
 
-use self::{rkyv_impls::*, score::ScraperScores};
+use self::{multipart::Multipart, rkyv_impls::*, score::ScraperScores};
 
 mod deser;
+mod multipart;
 mod osekai;
 mod osu_stats;
 mod osu_tracker;
@@ -56,13 +56,9 @@ mod twitch;
 
 static MY_USER_AGENT: &str = env!("CARGO_PKG_NAME");
 
-const APPLICATION_JSON: &str = "application/json";
-const APPLICATION_URLENCODED: &str = "application/x-www-form-urlencoded";
-
 #[derive(Copy, Clone, Eq, Hash, PartialEq)]
 #[repr(u8)]
 enum Site {
-    Cards,
     DiscordAttachment,
     Huismetbenen,
     Osekai,
@@ -85,7 +81,7 @@ pub struct CustomClient {
     osu_session: &'static str,
     #[cfg(feature = "twitch")]
     twitch: TwitchData,
-    ratelimiters: [LeakyBucket; 12 + cfg!(feature = "twitch") as usize],
+    ratelimiters: [LeakyBucket; 11 + cfg!(feature = "twitch") as usize],
 }
 
 impl CustomClient {
@@ -119,14 +115,13 @@ impl CustomClient {
         };
 
         let ratelimiters = [
-            ratelimiter(5),  // Cards
             ratelimiter(2),  // DiscordAttachment
             ratelimiter(2),  // Huismetbenen
             ratelimiter(2),  // Osekai
             ratelimiter(10), // OsuAvatar
             ratelimiter(10), // OsuBadge
             ratelimiter(2),  // OsuHiddenApi
-            ratelimiter(5),  // OsuMapFile
+            ratelimiter(3),  // OsuMapFile
             ratelimiter(10), // OsuMapsetCover
             ratelimiter(2),  // OsuStats
             ratelimiter(2),  // OsuTracker
@@ -148,22 +143,24 @@ impl CustomClient {
     async fn get_twitch_token(client: &Client, client_id: &str, token: &str) -> Result<TwitchData> {
         use crate::util::constants::TWITCH_OAUTH;
 
-        let form = &[
-            ("grant_type", "client_credentials"),
-            ("client_id", client_id),
-            ("client_secret", token),
-        ];
+        let form = Multipart::new()
+            .push_text("grant_type", "client_credentials")
+            .push_text("client_id", client_id)
+            .push_text("client_secret", token);
 
-        let form_body = serde_urlencoded::to_string(form)?;
         let client_id = http::HeaderValue::from_str(client_id)?;
+        let content_type = format!("multipart/form-data; boundary={}", form.boundary());
+        let form = form.finish();
 
         let req = Request::builder()
             .method(Method::POST)
             .uri(TWITCH_OAUTH)
-            .header("Client-ID", client_id.clone())
             .header(USER_AGENT, MY_USER_AGENT)
-            .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
-            .body(Body::from(form_body))?;
+            .header("Client-ID", client_id.clone())
+            .header(CONTENT_TYPE, content_type)
+            .header(CONTENT_LENGTH, form.len())
+            .body(Body::from(form))
+            .wrap_err("failed to build POST request")?;
 
         let response = client.request(req).await?;
         let bytes = Self::error_for_status(response, TWITCH_OAUTH).await?;
@@ -184,11 +181,18 @@ impl CustomClient {
         self.ratelimiters[site as usize].acquire_one().await
     }
 
-    async fn make_get_request(&self, url: impl AsRef<str>, site: Site) -> Result<Bytes> {
+    async fn make_get_request(
+        &self,
+        url: impl AsRef<str>,
+        site: Site,
+    ) -> Result<Bytes, ClientError> {
         let url = url.as_ref();
         trace!("GET request of url {url}");
 
-        let req = self.make_get_request_(url, site).body(Body::empty())?;
+        let req = self
+            .make_get_request_(url, site)
+            .body(Body::empty())
+            .wrap_err("failed to build GET request")?;
 
         self.ratelimit(site).await;
 
@@ -202,7 +206,11 @@ impl CustomClient {
     }
 
     #[cfg(feature = "twitch")]
-    async fn make_twitch_get_request<I, U, V>(&self, url: impl AsRef<str>, data: I) -> Result<Bytes>
+    async fn make_twitch_get_request<I, U, V>(
+        &self,
+        url: impl AsRef<str>,
+        data: I,
+    ) -> Result<Bytes, ClientError>
     where
         I: IntoIterator<Item = (U, V)>,
         U: std::fmt::Display,
@@ -224,7 +232,8 @@ impl CustomClient {
 
         let req = self
             .make_get_request_(uri, Site::Twitch)
-            .body(Body::empty())?;
+            .body(Body::empty())
+            .wrap_err("failed to build twitch GET request")?;
 
         self.ratelimit(Site::Twitch).await;
 
@@ -256,27 +265,26 @@ impl CustomClient {
         }
     }
 
-    async fn make_post_request<F>(
+    async fn make_post_request(
         &self,
         url: impl AsRef<str>,
         site: Site,
-        form: &F,
-    ) -> Result<Bytes>
-    where
-        F: Serialize,
-    {
+        form: Multipart,
+    ) -> Result<Bytes, ClientError> {
         let url = url.as_ref();
         trace!("POST request of url {url}");
 
-        // TODO: use multipart
-        let form_body = serde_urlencoded::to_string(form).wrap_err("failed to url encode")?;
+        let content_type = format!("multipart/form-data; boundary={}", form.boundary());
+        let form = form.finish();
 
         let req = Request::builder()
             .method(Method::POST)
             .uri(url)
             .header(USER_AGENT, MY_USER_AGENT)
-            .header(CONTENT_TYPE, APPLICATION_URLENCODED)
-            .body(Body::from(form_body))?;
+            .header(CONTENT_TYPE, content_type)
+            .header(CONTENT_LENGTH, form.len())
+            .body(Body::from(form))
+            .wrap_err("failed to build POST request")?;
 
         self.ratelimit(site).await;
 
@@ -289,30 +297,25 @@ impl CustomClient {
         Self::error_for_status(response, url).await
     }
 
-    async fn error_for_status(response: Response<Body>, url: &str) -> Result<Bytes> {
+    async fn error_for_status(response: Response<Body>, url: &str) -> Result<Bytes, ClientError> {
         let status = response.status();
 
-        ensure!(
-            status.is_success(),
-            "failed with status code {status} when requesting url {url}"
-        );
-
-        hyper::body::to_bytes(response.into_body())
-            .await
-            .wrap_err("failed to extract response bytes")
-    }
-
-    /// Turn the provided html into a .png image
-    pub async fn html_to_png(&self, html: &str) -> Result<Bytes> {
-        let url = "http://localhost:7227";
-        let form = &[("html", html)];
-
-        self.make_post_request(url, Site::Cards, form).await
+        match status.as_u16() {
+            _code @ 200..=299 => hyper::body::to_bytes(response.into_body())
+                .await
+                .wrap_err("failed to extract response bytes")
+                .map_err(ClientError::Report),
+            400 => Err(ClientError::BadRequest),
+            404 => Err(ClientError::NotFound),
+            429 => Err(ClientError::Ratelimited),
+            _ => Err(eyre!("failed with status code {status} when requesting url {url}").into()),
+        }
     }
 
     pub async fn get_discord_attachment(&self, attachment: &Attachment) -> Result<Bytes> {
         self.make_get_request(&attachment.url, Site::DiscordAttachment)
             .await
+            .map_err(Report::new)
     }
 
     pub async fn get_respektive_osustats_counts(
@@ -323,33 +326,11 @@ impl CustomClient {
         let mode = mode as u8;
         let url = format!("https://osustats.respektive.pw/counts/{user_id}?mode={mode}");
 
-        // Manual request so the potential 404 error is not wrapped in a Report
-        let req = self
-            .make_get_request_(&url, Site::Respektive)
-            .body(Body::empty())?;
-
-        self.ratelimit(Site::Respektive).await;
-
-        let response = self
-            .client
-            .request(req)
-            .await
-            .wrap_err("failed to receive GET response")?;
-
-        let status = response.status();
-
-        if status == StatusCode::NOT_FOUND {
-            return Ok(None);
-        }
-
-        ensure!(
-            status.is_success(),
-            "failed with status code {status} when requesting url {url}"
-        );
-
-        let bytes = hyper::body::to_bytes(response.into_body())
-            .await
-            .wrap_err("failed to extract response bytes")?;
+        let bytes = match self.make_get_request(url, Site::Respektive).await {
+            Ok(bytes) => bytes,
+            Err(ClientError::NotFound) => return Ok(None),
+            Err(err) => return Err(Report::new(err)),
+        };
 
         serde_json::from_slice(&bytes)
             .wrap_err_with(|| {
@@ -477,7 +458,8 @@ impl CustomClient {
     /// Don't use this; use [`RedisCache::medals`](crate::core::RedisCache::medals) instead.
     pub async fn get_osekai_medals(&self) -> Result<Vec<OsekaiMedal>> {
         let url = "https://osekai.net/medals/api/medals.php";
-        let form = &[("strSearch", "")];
+        let form = Multipart::new().push_text("strSearch", "");
+
         let bytes = self.make_post_request(url, Site::Osekai, form).await?;
 
         let medals: OsekaiMedals = serde_json::from_slice(&bytes).wrap_err_with(|| {
@@ -491,7 +473,7 @@ impl CustomClient {
 
     pub async fn get_osekai_beatmaps(&self, medal_name: &str) -> Result<Vec<OsekaiMap>> {
         let url = "https://osekai.net/medals/api/beatmaps.php";
-        let form = &[("strSearch", medal_name)];
+        let form = Multipart::new().push_text("strSearch", medal_name);
 
         let bytes = self.make_post_request(url, Site::Osekai, form).await?;
 
@@ -506,7 +488,10 @@ impl CustomClient {
 
     pub async fn get_osekai_comments(&self, medal_name: &str) -> Result<Vec<OsekaiComment>> {
         let url = "https://osekai.net/global/api/comment_system.php";
-        let form = &[("strMedalName", medal_name), ("bGetComments", "true")];
+
+        let form = Multipart::new()
+            .push_text("strMedalName", medal_name)
+            .push_text("bGetComments", "true");
 
         let bytes = self.make_post_request(url, Site::Osekai, form).await?;
 
@@ -522,7 +507,7 @@ impl CustomClient {
     /// Don't use this; use [`RedisCache::osekai_ranking`](crate::core::RedisCache::osekai_ranking) instead.
     pub async fn get_osekai_ranking<R: OsekaiRanking>(&self) -> Result<Vec<R::Entry>> {
         let url = "https://osekai.net/rankings/api/api.php";
-        let form = &[("App", R::FORM)];
+        let form = Multipart::new().push_text("App", R::FORM);
 
         let bytes = self.make_post_request(url, Site::Osekai, form).await?;
 
@@ -580,7 +565,7 @@ impl CustomClient {
 
     pub async fn get_national_snipes(
         &self,
-        user: &User,
+        user_id: u32,
         sniper: bool,
         from: OffsetDateTime,
         until: OffsetDateTime,
@@ -593,8 +578,7 @@ impl CustomClient {
         ];
 
         let url = format!(
-            "{HUISMETBENEN}changes/{version}/{user}?since={since}&until={until}",
-            user = user.user_id,
+            "{HUISMETBENEN}changes/{version}/{user_id}?since={since}&until={until}",
             version = if sniper { "new" } else { "old" },
             since = from.format(DATETIME_FORMAT).unwrap(),
             until = until.format(DATETIME_FORMAT).unwrap()
@@ -668,36 +652,24 @@ impl CustomClient {
         &self,
         params: &OsuStatsPlayersArgs,
     ) -> Result<Vec<OsuStatsPlayer>> {
-        let mut map = Map::new();
-
-        map.insert("rankMin".to_owned(), params.min_rank.into());
-        map.insert("rankMax".to_owned(), params.max_rank.into());
-        map.insert("gamemode".to_owned(), (params.mode as u8).into());
-        map.insert("page".to_owned(), params.page.into());
+        let mut form = Multipart::new()
+            .push_text("rankMin", params.min_rank)
+            .push_text("rankMax", params.max_rank)
+            .push_text("gamemode", params.mode as u8)
+            .push_text("page", params.page);
 
         if let Some(ref country) = params.country {
-            map.insert("country".to_owned(), country.to_string().into());
+            form = form.push_text("country", country);
         }
 
-        let json = serde_json::to_vec(&map).wrap_err("failed to serialize")?;
         let url = "https://osustats.ppy.sh/api/getScoreRanking";
-        trace!("Requesting POST from url {url} [page {}]", params.page);
+        let post_fut = self.make_post_request(url, Site::OsuStats, form);
 
-        let req = Request::builder()
-            .method(Method::POST)
-            .uri(url)
-            .header(USER_AGENT, MY_USER_AGENT)
-            .header(CONTENT_TYPE, APPLICATION_JSON)
-            .header(CONTENT_LENGTH, json.len())
-            .body(Body::from(json))?;
-
-        self.ratelimit(Site::OsuStats).await;
-
-        let response = timeout(Duration::from_secs(4), self.client.request(req))
-            .await
-            .map_err(|_| eyre!("timeout while waiting for osustats"))??;
-
-        let bytes = Self::error_for_status(response, url).await?;
+        let bytes = match timeout(Duration::from_secs(4), post_fut).await {
+            Ok(Ok(bytes)) => bytes,
+            Ok(Err(err)) => return Err(Report::new(err)),
+            Err(_) => bail!("timeout while waiting for osustats"),
+        };
 
         serde_json::from_slice(&bytes).wrap_err_with(|| {
             let body = String::from_utf8_lossy(&bytes);
@@ -711,20 +683,16 @@ impl CustomClient {
         &self,
         params: &OsuStatsParams,
     ) -> Result<(Vec<OsuStatsScore>, usize)> {
-        let mut map = Map::new();
-
-        map.insert("accMin".to_owned(), params.min_acc.into());
-        map.insert("accMax".to_owned(), params.max_acc.into());
-        map.insert("rankMin".to_owned(), params.min_rank.into());
-        map.insert("rankMax".to_owned(), params.max_rank.into());
-        map.insert("gamemode".to_owned(), (params.mode as u8).into());
-        map.insert("sortBy".to_owned(), (params.order as u8).into());
-        map.insert(
-            "sortOrder".to_owned(),
-            (!params.descending as u8).to_string().into(), // required as string
-        );
-        map.insert("page".to_owned(), params.page.into());
-        map.insert("u1".to_owned(), params.username.to_string().into());
+        let mut form = Multipart::new()
+            .push_text("accMin", params.min_acc)
+            .push_text("accMax", params.max_acc)
+            .push_text("rankMin", params.min_rank)
+            .push_text("rankMax", params.max_rank)
+            .push_text("gamemode", params.mode as u8)
+            .push_text("sortBy", params.order as u8)
+            .push_text("sortOrder", !params.descending as u8)
+            .push_text("page", params.page)
+            .push_text("u1", &params.username);
 
         if let Some(selection) = params.mods {
             let mod_str = match selection {
@@ -733,39 +701,17 @@ impl CustomClient {
                 ModSelection::Exact(mods) => format!("!{mods}"),
             };
 
-            map.insert("mods".to_owned(), mod_str.into());
+            form = form.push_text("mods", mod_str);
         }
 
-        let json = serde_json::to_vec(&map).wrap_err("failed to serialize")?;
         let url = "https://osustats.ppy.sh/api/getScores";
-        trace!("Requesting POST from url {url}");
+        let post_fut = self.make_post_request(url, Site::OsuStats, form);
 
-        let req = Request::builder()
-            .method(Method::POST)
-            .uri(url)
-            .header(USER_AGENT, MY_USER_AGENT)
-            .header(CONTENT_TYPE, APPLICATION_JSON)
-            .header(CONTENT_LENGTH, json.len())
-            .body(Body::from(json))?;
-
-        self.ratelimit(Site::OsuStats).await;
-
-        let response = timeout(Duration::from_secs(4), self.client.request(req))
-            .await
-            .map_err(|_| eyre!("timeout while waiting for osustats"))??;
-
-        let status = response.status();
-
-        // Don't use Self::error_for_status since osustats returns a 400
-        // if the user has no scores for the given parameters
-        let bytes = if (status.is_client_error() && status != StatusCode::BAD_REQUEST)
-            || status.is_server_error()
-        {
-            bail!("failed with status code {status} when requesting url {url}")
-        } else {
-            hyper::body::to_bytes(response.into_body())
-                .await
-                .wrap_err("failed to extract response bytes")?
+        let bytes = match timeout(Duration::from_secs(4), post_fut).await {
+            Ok(Ok(bytes)) => bytes,
+            Ok(Err(ClientError::BadRequest)) => return Ok((Vec::new(), 0)),
+            Ok(Err(err)) => return Err(Report::new(err)),
+            Err(_) => bail!("timeout while waiting for osustats"),
         };
 
         let result: Value = serde_json::from_slice(&bytes).wrap_err_with(|| {
@@ -886,35 +832,28 @@ impl CustomClient {
     }
 
     pub async fn get_avatar(&self, url: &str) -> Result<Bytes> {
-        self.make_get_request(url, Site::OsuAvatar).await
+        self.make_get_request(url, Site::OsuAvatar)
+            .await
+            .map_err(Report::new)
     }
 
     pub async fn get_badge(&self, url: &str) -> Result<Bytes> {
-        self.make_get_request(url, Site::OsuBadge).await
+        self.make_get_request(url, Site::OsuBadge)
+            .await
+            .map_err(Report::new)
     }
 
     /// Make sure you provide a valid url to a mapset cover
     pub async fn get_mapset_cover(&self, cover: &str) -> Result<Bytes> {
-        self.make_get_request(&cover, Site::OsuMapsetCover).await
+        self.make_get_request(&cover, Site::OsuMapsetCover)
+            .await
+            .map_err(Report::new)
     }
 
-    pub async fn get_map_file(&self, map_id: u32) -> Result<Bytes> {
+    pub async fn get_map_file(&self, map_id: u32) -> Result<Bytes, ClientError> {
         let url = format!("{OSU_BASE}osu/{map_id}");
-        let backoff = ExponentialBackoff::new(2).factor(500).max_delay(10_000);
-        const ATTEMPTS: usize = 10;
 
-        for (duration, i) in backoff.take(ATTEMPTS).zip(1..) {
-            let result = self.make_get_request(&url, Site::OsuMapFile).await;
-
-            if matches!(&result, Ok(bytes) if bytes.starts_with(b"<html>")) {
-                debug!("Request beatmap retry attempt #{i} | Backoff {duration:?}");
-                sleep(duration).await;
-            } else {
-                return result;
-            }
-        }
-
-        bail!("reached retry limit and still failed to download {map_id}.osu")
+        self.make_get_request(&url, Site::OsuMapFile).await
     }
 }
 
@@ -1036,4 +975,16 @@ mod twitch_impls {
             Ok(videos.data.pop())
         }
     }
+}
+
+#[derive(Debug, Error)]
+pub enum ClientError {
+    #[error("status code 400 - bad request")]
+    BadRequest,
+    #[error("status code 404 - not found")]
+    NotFound,
+    #[error("status code 429 - ratelimited")]
+    Ratelimited,
+    #[error(transparent)]
+    Report(#[from] Report),
 }

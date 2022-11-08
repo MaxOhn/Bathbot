@@ -35,16 +35,19 @@ pub(super) async fn track(
     }
 
     let limit = match limit {
-        Some(limit) if limit == 0 || limit > 100 => {
+        Some(limit @ 1..=100) => limit,
+        Some(_) => {
             let content = "The given limit must be between 1 and 100";
 
             return orig.error(&ctx, content).await;
         }
-        Some(limit) => limit as usize,
         None => {
             let guild = orig.guild_id().unwrap();
 
-            ctx.guild_track_limit(guild).await as usize
+            ctx.guild_config()
+                .peek(guild, |config| config.track_limit)
+                .await
+                .unwrap_or(50)
         }
     };
 
@@ -59,9 +62,9 @@ pub(super) async fn track(
         }
         Err((err, _)) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get names");
+            let err = Report::new(err).wrap_err("failed to get names");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
@@ -76,7 +79,7 @@ pub(super) async fn track(
             OffsetDateTime::now_utc(),
             channel,
             limit,
-            ctx.psql(),
+            ctx.osu_tracking(),
         );
 
         match add_fut.await {

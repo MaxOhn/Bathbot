@@ -8,15 +8,19 @@ use image::{
     ImageOutputFormat::Png,
     Rgba,
 };
-use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score, UserStatistics};
+use rosu_v2::{
+    prelude::{GameMode, GameMods, OsuError, Score, UserStatistics},
+    request::UserId,
+};
 
 use crate::{
     commands::{
-        osu::{get_user_and_scores, MinMaxAvg, NameExtraction, ScoreArgs, UserArgs},
+        osu::{MinMaxAvg, UserExtraction},
         GameModeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, ProfileCompareEmbed},
+    manager::redis::osu::UserArgs,
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -28,19 +32,19 @@ use crate::{
 
 use super::{CompareProfile, AT_LEAST_ONE};
 
-async fn extract_name(ctx: &Context, args: &mut CompareProfile<'_>) -> NameExtraction {
+async fn extract_user_id(ctx: &Context, args: &mut CompareProfile<'_>) -> UserExtraction {
     if let Some(name) = args.name1.take().or_else(|| args.name2.take()) {
-        NameExtraction::Name(name.as_ref().into())
+        UserExtraction::Id(UserId::Name(name.as_ref().into()))
     } else if let Some(discord) = args.discord1.take().or_else(|| args.discord2.take()) {
-        match ctx.psql().get_user_osu(discord).await {
-            Ok(Some(osu)) => NameExtraction::Name(osu.into_username()),
+        match ctx.user_config().osu_id(discord).await {
+            Ok(Some(user_id)) => UserExtraction::Id(UserId::Id(user_id)),
             Ok(None) => {
-                NameExtraction::Content(format!("<@{discord}> is not linked to an osu!profile"))
+                UserExtraction::Content(format!("<@{discord}> is not linked to an osu!profile"))
             }
-            Err(err) => NameExtraction::Err(err.wrap_err("failed to get username")),
+            Err(err) => UserExtraction::Err(err),
         }
     } else {
-        NameExtraction::None
+        UserExtraction::None
     }
 }
 
@@ -49,27 +53,27 @@ pub(super) async fn profile(
     orig: CommandOrigin<'_>,
     mut args: CompareProfile<'_>,
 ) -> Result<()> {
-    let name1 = match extract_name(&ctx, &mut args).await {
-        NameExtraction::Name(name) => name,
-        NameExtraction::Err(err) => {
+    let user_id1 = match extract_user_id(&ctx, &mut args).await {
+        UserExtraction::Id(user_id) => user_id,
+        UserExtraction::Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(err);
         }
-        NameExtraction::Content(content) => return orig.error(&ctx, content).await,
-        NameExtraction::None => return orig.error(&ctx, AT_LEAST_ONE).await,
+        UserExtraction::Content(content) => return orig.error(&ctx, content).await,
+        UserExtraction::None => return orig.error(&ctx, AT_LEAST_ONE).await,
     };
 
-    let name2 = match extract_name(&ctx, &mut args).await {
-        NameExtraction::Name(name) => name,
-        NameExtraction::Err(err) => {
+    let user_id2 = match extract_user_id(&ctx, &mut args).await {
+        UserExtraction::Id(user_id) => user_id,
+        UserExtraction::Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(err);
         }
-        NameExtraction::Content(content) => return orig.error(&ctx, content).await,
-        NameExtraction::None => match ctx.psql().get_user_osu(orig.user_id()?).await {
-            Ok(Some(osu)) => osu.into_username(),
+        UserExtraction::Content(content) => return orig.error(&ctx, content).await,
+        UserExtraction::None => match ctx.user_config().osu_id(orig.user_id()?).await {
+            Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => {
                 let content =
                     "Since you're not linked with the `/link` command, you must specify two names.";
@@ -84,32 +88,31 @@ pub(super) async fn profile(
         },
     };
 
-    if name1 == name2 {
+    if user_id1 == user_id2 {
         return orig.error(&ctx, "Give two different names").await;
     }
 
     let mode = match args.mode {
         Some(mode) => mode.into(),
-        None => match ctx.user_config(orig.user_id()?).await {
-            Ok(config) => config.mode.unwrap_or(GameMode::Osu),
+        None => match ctx.user_config().mode(orig.user_id()?).await {
+            Ok(mode) => mode.unwrap_or(GameMode::Osu),
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get user config"));
+                return Err(err);
             }
         },
     };
 
     // Retrieve all users and their scores
-    let user_args1 = UserArgs::new(name1.as_ref(), mode);
-    let user_args2 = UserArgs::new(name2.as_ref(), mode);
-    let score_args = ScoreArgs::top(100);
+    let user_args1 = UserArgs::rosu_id(&ctx, &user_id1).await.mode(mode);
+    let user_args2 = UserArgs::rosu_id(&ctx, &user_id2).await.mode(mode);
+    let score_args = ctx.osu_scores().top().limit(100);
 
-    let fut1 = get_user_and_scores(&ctx, user_args1, &score_args);
-    let fut2 = get_user_and_scores(&ctx, user_args2, &score_args);
+    let fut1 = score_args.exec_with_user(user_args1);
+    let fut2 = score_args.exec_with_user(user_args2);
 
-    #[allow(unused_mut)]
-    let (user1, user2, mut scores1, mut scores2) = match tokio::try_join!(fut1, fut2) {
+    let (user1, user2, scores1, scores2) = match tokio::try_join!(fut1, fut2) {
         Ok(((user1, scores1), (user2, scores2))) => (user1, user2, scores1, scores2),
         Err(OsuError::NotFound) => {
             let content = "At least one of the players was not found";
@@ -118,22 +121,22 @@ pub(super) async fn profile(
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user and scores");
+            let err = Report::new(err).wrap_err("failed to get user and scores");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
-    if user1.user_id == user2.user_id {
+    if user1.user_id() == user2.user_id() {
         let content = "Give two different users";
 
         return orig.error(&ctx, content).await;
     }
 
     let content = if scores1.is_empty() {
-        Some(format!("No scores data for user `{name1}`"))
+        Some(format!("No scores data for user `{}`", user1.username()))
     } else if scores2.is_empty() {
-        Some(format!("No scores data for user `{name2}`"))
+        Some(format!("No scores data for user `{}`", user2.username()))
     } else {
         None
     };
@@ -142,18 +145,12 @@ pub(super) async fn profile(
         return orig.error(&ctx, content).await;
     }
 
-    // Process user and their top scores for tracking
-    #[cfg(feature = "osutracking")]
-    tokio::join! {
-        crate::tracking::process_osu_tracking(&ctx, &mut scores1, Some(&user1)),
-        crate::tracking::process_osu_tracking(&ctx, &mut scores2, Some(&user2)),
-    };
-
-    let profile_result1 = CompareResult::calc(mode, &scores1, user1.statistics.as_ref().unwrap());
-    let profile_result2 = CompareResult::calc(mode, &scores2, user2.statistics.as_ref().unwrap());
+    let profile_result1 = user1.peek_stats(|stats| CompareResult::calc(mode, &scores1, stats));
+    let profile_result2 = user2.peek_stats(|stats| CompareResult::calc(mode, &scores2, stats));
 
     // Create the thumbnail
-    let thumbnail = match get_combined_thumbnail(&ctx, &user1.avatar_url, &user2.avatar_url).await {
+    let thumbnail = match get_combined_thumbnail(&ctx, user1.avatar_url(), user2.avatar_url()).await
+    {
         Ok(thumbnail) => Some(thumbnail),
         Err(err) => {
             warn!("{:?}", err.wrap_err("Failed to combine avatars"));
@@ -163,7 +160,8 @@ pub(super) async fn profile(
     };
 
     // Creating the embed
-    let embed_data = ProfileCompareEmbed::new(mode, user1, user2, profile_result1, profile_result2);
+    let embed_data =
+        ProfileCompareEmbed::new(mode, &user1, &user2, profile_result1, profile_result2);
     let embed = embed_data.build();
     let mut builder = MessageBuilder::new().embed(embed);
 

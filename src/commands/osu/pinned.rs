@@ -1,36 +1,47 @@
-use std::{fmt::Write, sync::Arc};
+use std::{
+    cmp::{Ordering, Reverse},
+    collections::HashMap,
+    fmt::Write,
+    sync::Arc,
+};
 
+use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, ScoreSize};
 use command_macros::{HasMods, HasName, SlashCommand};
 use eyre::{Report, Result};
-use hashbrown::HashMap;
-use rosu_v2::prelude::{
-    GameMode, GameMods, OsuError,
-    RankStatus::{Approved, Loved, Qualified, Ranked},
-    Score, User,
+use rosu_v2::{
+    prelude::{
+        GameMode, GameMods, Grade, OsuError,
+        RankStatus::{Approved, Loved, Qualified, Ranked},
+        Score,
+    },
+    request::UserId,
 };
 use tokio::time::{sleep, Duration};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    commands::{osu::UserArgs, GameModeOption},
+    commands::GameModeOption,
     core::commands::CommandOrigin,
-    database::{EmbedsSize, ListSize, MinimizedPp},
     embeds::TopSingleEmbed,
+    manager::redis::{
+        osu::{User, UserArgs, UserArgsSlim},
+        RedisData,
+    },
     pagination::{TopCondensedPagination, TopPagination, TopSinglePagination},
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         hasher::IntHasher,
         interaction::InteractionCommand,
-        osu::ModSelection,
+        osu::{ModSelection, ScoreSlim},
         query::{FilterCriteria, Searchable},
         InteractionCommandExt, MessageExt,
     },
     Context,
 };
 
-use super::{prepare_scores, require_link, HasMods, ModsResult, ScoreOrder};
+use super::{require_link, user_not_found, HasMods, ModsResult, ScoreOrder, TopEntry};
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName, SlashCommand)]
 #[command(name = "pinned")]
@@ -94,12 +105,12 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
         }
     };
 
-    let mut config = match ctx.user_config(orig.user_id()?).await {
+    let mut config = match ctx.user_config().with_osu_id(orig.user_id()?).await {
         Ok(config) => config,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get user config"));
+            return Err(err);
         }
     };
 
@@ -109,116 +120,82 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
         .or(config.mode)
         .unwrap_or(GameMode::Osu);
 
-    let name = match username!(ctx, orig, args) {
-        Some(name) => name,
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
         None => match config.osu.take() {
-            Some(osu) => osu.into_username(),
+            Some(user_id) => UserId::Id(user_id),
             None => return require_link(&ctx, &orig).await,
         },
     };
 
     // Retrieve the user and their top scores
-    let mut user_args = UserArgs::new(&name, mode);
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let scores_fut = ctx
+        .osu_scores()
+        .pinned()
+        .limit(100)
+        .exec_with_user(user_args);
 
-    let result = if let Some(alt_name) = user_args.whitespaced_name() {
-        match ctx.redis().osu_user(&user_args).await {
-            Ok(user) => {
-                let scores_fut = ctx
-                    .osu()
-                    .user_scores(user_args.name)
-                    .pinned()
-                    .mode(mode)
-                    .limit(100);
-
-                prepare_scores(&ctx, scores_fut)
-                    .await
-                    .map(|scores| (user, scores))
-            }
-            Err(OsuError::NotFound) => {
-                user_args.name = &alt_name;
-                let redis = ctx.redis();
-
-                let user_fut = redis.osu_user(&user_args);
-
-                let scores_fut = ctx
-                    .osu()
-                    .user_scores(user_args.name)
-                    .pinned()
-                    .mode(mode)
-                    .limit(100);
-
-                tokio::try_join!(user_fut, prepare_scores(&ctx, scores_fut))
-            }
-            Err(err) => Err(err),
-        }
-    } else {
-        let redis = ctx.redis();
-        let user_fut = redis.osu_user(&user_args);
-
-        let scores_fut = ctx
-            .osu()
-            .user_scores(user_args.name)
-            .pinned()
-            .mode(mode)
-            .limit(100);
-
-        tokio::try_join!(user_fut, prepare_scores(&ctx, scores_fut))
-    };
-
-    let (mut user, mut scores) = match result {
+    let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = format!("User `{name}` was not found");
+            let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user or prepare scores");
+            let err = Report::new(err).wrap_err("failed to get user or prepare scores");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
-    // Overwrite default mode
-    user.mode = mode;
+    let mut entries = match process_scores(&ctx, scores, &args, mods).await {
+        Ok(entries) => entries,
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-    // Filter scores according to query
-    filter_scores(&ctx, &mut scores, &args, mods).await;
+            return Err(err.wrap_err("failed to process scores"));
+        }
+    };
 
-    if let [score] = &scores[..] {
-        let embeds_size = match (config.score_size, orig.guild_id()) {
-            (Some(size), _) => size,
-            (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
-            (None, None) => EmbedsSize::default(),
-        };
+    let (guild_score_size, guild_list_size, guild_minimized_pp) = match orig.guild_id() {
+        Some(guild_id) => {
+            let f =
+                |config: &GuildConfig| (config.score_size, config.list_size, config.minimized_pp);
 
-        let minimized_pp = match (config.minimized_pp, orig.guild_id()) {
-            (Some(pp), _) => pp,
-            (None, Some(guild)) => ctx.guild_minimized_pp(guild).await,
-            (None, None) => MinimizedPp::default(),
-        };
+            ctx.guild_config().peek(guild_id, f).await
+        }
+        None => (None, None, None),
+    };
 
-        let content = write_content(&name, &args, 1, mods);
-        single_embed(ctx, orig, user, score, embeds_size, minimized_pp, content).await?;
+    let username = user.username();
+
+    if let [score] = &mut entries[..] {
+        let score_size = config.score_size.or(guild_score_size).unwrap_or_default();
+
+        let minimized_pp = config
+            .minimized_pp
+            .or(guild_minimized_pp)
+            .unwrap_or_default();
+
+        let content = write_content(username, &args, 1, mods);
+        single_embed(ctx, orig, user, score, score_size, minimized_pp, content).await?;
     } else {
-        let list_size = match args.size {
-            Some(size) => size,
-            None => match (config.list_size, orig.guild_id()) {
-                (Some(size), _) => size,
-                (None, Some(guild)) => ctx.guild_list_size(guild).await,
-                (None, None) => ListSize::default(),
-            },
-        };
+        let list_size = args
+            .size
+            .or(config.list_size)
+            .or(guild_list_size)
+            .unwrap_or_default();
 
-        let content = write_content(&name, &args, scores.len(), mods);
+        let content = write_content(username, &args, entries.len(), mods);
         let sort_by = args.sort.unwrap_or(ScoreOrder::Pp).into(); // TopOrder::Pp does not show anything
-        let scores: Vec<_> = scores.into_iter().enumerate().collect();
         let farm = HashMap::with_hasher(IntHasher);
 
         match list_size {
             ListSize::Condensed => {
-                TopCondensedPagination::builder(user, scores, sort_by, farm)
+                TopCondensedPagination::builder(user, entries, sort_by, farm)
                     .content(content.unwrap_or_default())
                     .start_by_update()
                     .defer_components()
@@ -226,7 +203,7 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
                     .await?;
             }
             ListSize::Detailed => {
-                TopPagination::builder(user, scores, sort_by, farm)
+                TopPagination::builder(user, entries, sort_by, farm)
                     .content(content.unwrap_or_default())
                     .start_by_update()
                     .defer_components()
@@ -234,13 +211,12 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
                     .await?;
             }
             ListSize::Single => {
-                let minimized_pp = match (config.minimized_pp, orig.guild_id()) {
-                    (Some(pp), _) => pp,
-                    (None, Some(guild)) => ctx.guild_minimized_pp(guild).await,
-                    (None, None) => MinimizedPp::default(),
-                };
+                let minimized_pp = config
+                    .minimized_pp
+                    .or(guild_minimized_pp)
+                    .unwrap_or_default();
 
-                TopSinglePagination::builder(user, scores, minimized_pp)
+                TopSinglePagination::builder(user, entries, minimized_pp)
                     .content(content.unwrap_or_default())
                     .start_by_update()
                     .defer_components()
@@ -253,78 +229,168 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
     Ok(())
 }
 
-async fn filter_scores(
+async fn process_scores(
     ctx: &Context,
-    scores: &mut Vec<Score>,
+    scores: Vec<Score>,
     args: &Pinned,
     mods: Option<ModSelection>,
-) {
-    if let Some(query) = args.query.as_deref() {
-        let criteria = FilterCriteria::new(query);
+) -> Result<Vec<TopEntry>> {
+    let filter_criteria = args.query.as_deref().map(FilterCriteria::new);
 
-        scores.retain(|score| score.matches(&criteria));
+    let mut entries = Vec::new();
+
+    let maps_id_checksum = scores
+        .iter()
+        .filter(|score| match filter_criteria {
+            Some(ref criteria) => score.matches(criteria),
+            None => true,
+        })
+        .filter(|score| match mods {
+            None => true,
+            Some(ModSelection::Include(mods @ GameMods::NoMod) | ModSelection::Exact(mods)) => {
+                score.mods == mods
+            }
+            Some(ModSelection::Include(mods)) => score.mods.intersection(mods) == mods,
+            Some(ModSelection::Exclude(GameMods::NoMod)) => !score.mods.is_empty(),
+            Some(ModSelection::Exclude(mods)) => !score.mods.intersects(mods),
+        })
+        .filter_map(|score| score.map.as_ref())
+        .map(|map| (map.map_id as i32, map.checksum.as_deref()))
+        .collect();
+
+    let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
+
+    for (i, score) in scores.into_iter().enumerate() {
+        let map_opt = score.map.as_ref().and_then(|map| maps.remove(&map.map_id));
+        let Some(map) = map_opt else { continue };
+
+        let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
+        let stars = calc.difficulty().await.stars() as f32;
+
+        let max_pp = match score
+            .pp
+            .filter(|_| score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania)
+        {
+            Some(pp) => pp,
+            None => calc.performance().await.pp() as f32,
+        };
+
+        let pp = match score.pp {
+            Some(pp) => pp,
+            None => calc.score(&score).performance().await.pp() as f32,
+        };
+
+        let entry = TopEntry {
+            original_idx: i,
+            score: ScoreSlim::new(score, pp),
+            map,
+            max_pp,
+            stars,
+        };
+
+        entries.push(entry);
     }
 
-    match mods {
-        Some(ModSelection::Include(GameMods::NoMod)) => {
-            scores.retain(|score| score.mods.is_empty())
+    match args.sort.unwrap_or_default() {
+        ScoreOrder::Acc => entries.sort_by(|a, b| {
+            b.score
+                .accuracy
+                .partial_cmp(&a.score.accuracy)
+                .unwrap_or(Ordering::Equal)
+        }),
+        ScoreOrder::Bpm => entries.sort_by(|a, b| {
+            b.map
+                .bpm()
+                .partial_cmp(&a.map.bpm())
+                .unwrap_or(Ordering::Equal)
+        }),
+        ScoreOrder::Combo => entries.sort_by_key(|entry| Reverse(entry.score.max_combo)),
+        ScoreOrder::Date => entries.sort_by_key(|entry| Reverse(entry.score.ended_at)),
+        ScoreOrder::Length => {
+            entries.sort_by(|a, b| {
+                let a_len = a.map.seconds_drain() as f32 / a.score.mods.clock_rate();
+                let b_len = b.map.seconds_drain() as f32 / b.score.mods.clock_rate();
+
+                b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
+            });
         }
-        Some(ModSelection::Include(mods)) => {
-            scores.retain(|score| score.mods.intersection(mods) == mods)
+        ScoreOrder::Misses => entries.sort_by(|a, b| {
+            b.score
+                .statistics
+                .count_miss
+                .cmp(&a.score.statistics.count_miss)
+                .then_with(|| {
+                    let hits_a = a.score.total_hits();
+                    let hits_b = b.score.total_hits();
+
+                    let ratio_a = a.score.statistics.count_miss as f32 / hits_a as f32;
+                    let ratio_b = b.score.statistics.count_miss as f32 / hits_b as f32;
+
+                    ratio_b
+                        .partial_cmp(&ratio_a)
+                        .unwrap_or(Ordering::Equal)
+                        .then_with(|| hits_b.cmp(&hits_a))
+                })
+        }),
+        ScoreOrder::Pp => entries.sort_by(|a, b| {
+            b.score
+                .pp
+                .partial_cmp(&a.score.pp)
+                .unwrap_or(Ordering::Equal)
+        }),
+        ScoreOrder::RankedDate => entries.sort_by_key(|entry| Reverse(entry.map.ranked_date())),
+        ScoreOrder::Score => entries.sort_by_key(|entry| Reverse(entry.score.score)),
+        ScoreOrder::Stars => {
+            entries.sort_by(|a, b| b.stars.partial_cmp(&a.stars).unwrap_or(Ordering::Equal))
         }
-        Some(ModSelection::Exact(mods)) => scores.retain(|score| score.mods == mods),
-        Some(ModSelection::Exclude(GameMods::NoMod)) => {
-            scores.retain(|score| !score.mods.is_empty())
-        }
-        Some(ModSelection::Exclude(mods)) => {
-            scores.retain(|score| score.mods.intersection(mods).is_empty())
-        }
-        None => {}
     }
 
-    if let Some(sort_by) = args.sort {
-        sort_by.apply(ctx, scores).await;
-    }
+    Ok(entries)
 }
 
 async fn single_embed(
     ctx: Arc<Context>,
     orig: CommandOrigin<'_>,
-    user: User,
-    score: &Score,
-    embeds_size: EmbedsSize,
+    user: RedisData<User>,
+    entry: &mut TopEntry,
+    score_size: ScoreSize,
     minimized_pp: MinimizedPp,
     content: Option<String>,
 ) -> Result<()> {
-    let map = score.map.as_ref().unwrap();
+    let user_id = user.user_id();
 
     // Get indices of score in user top100 and map top50
-    let (personal_idx, global_idx) = match map.status {
+    let (personal_idx, global_idx) = match entry.map.status() {
         Ranked | Loved | Qualified | Approved => {
-            let best_fut = ctx
-                .osu()
-                .user_scores(user.user_id)
-                .mode(score.mode)
-                .limit(100);
+            let user_args = UserArgsSlim::user_id(user_id).mode(entry.score.mode);
+            let best_fut = ctx.osu_scores().top().limit(100).exec(user_args);
 
-            let global_fut = ctx.osu().beatmap_scores(map.map_id); // TODO: Add .limit(50) when supported by osu!api
-            let (best_result, global_result) = tokio::join!(best_fut, global_fut);
+            // TODO: Add .limit(50) when supported by osu!api
+            let global_fut = ctx.osu().beatmap_scores(entry.map.map_id());
+            let (best_res, global_res) = tokio::join!(best_fut, global_fut);
 
-            let personal_idx = match best_result {
-                Ok(scores) => scores.iter().position(|s| s == score),
+            let personal_idx = match best_res {
+                Ok(scores) => scores.iter().position(|s| {
+                    (entry.score.ended_at.unix_timestamp() - s.ended_at.unix_timestamp()).abs() <= 2
+                }),
                 Err(err) => {
-                    let report = Report::new(err).wrap_err("Failed to get top scores");
-                    warn!("{report:?}");
+                    let err = Report::new(err).wrap_err("failed to get top scores");
+                    warn!("{err:?}");
 
                     None
                 }
             };
 
-            let global_idx = match global_result {
-                Ok(scores) => scores.iter().position(|s| s == score),
+            let global_idx = match global_res {
+                Ok(scores) => scores.iter().position(|s| {
+                    s.user_id == user_id
+                        && (entry.score.ended_at.unix_timestamp() - s.ended_at.unix_timestamp())
+                            .abs()
+                            <= 2
+                }),
                 Err(err) => {
-                    let report = Report::new(err).wrap_err("Failed to get global scores");
-                    warn!("{report:?}");
+                    let err = Report::new(err).wrap_err("failed to get global scores");
+                    warn!("{err:?}");
 
                     None
                 }
@@ -335,13 +401,14 @@ async fn single_embed(
         _ => (None, None),
     };
 
-    let embed_data =
-        TopSingleEmbed::new(&user, score, personal_idx, global_idx, minimized_pp, &ctx).await?;
+    let embed_fut = TopSingleEmbed::new(&user, entry, personal_idx, global_idx, minimized_pp, &ctx);
+
+    let embed = embed_fut.await;
 
     // Only maximize if config allows it
-    match embeds_size {
-        EmbedsSize::AlwaysMinimized => {
-            let mut builder = MessageBuilder::new().embed(embed_data.into_minimized());
+    match score_size {
+        ScoreSize::AlwaysMinimized => {
+            let mut builder = MessageBuilder::new().embed(embed.into_minimized());
 
             if let Some(content) = content {
                 builder = builder.content(content);
@@ -349,8 +416,8 @@ async fn single_embed(
 
             orig.create_message(&ctx, &builder).await?;
         }
-        EmbedsSize::InitialMaximized => {
-            let mut builder = MessageBuilder::new().embed(embed_data.as_maximized());
+        ScoreSize::InitialMaximized => {
+            let mut builder = MessageBuilder::new().embed(embed.as_maximized());
 
             if let Some(content) = content {
                 builder = builder.content(content);
@@ -367,16 +434,16 @@ async fn single_embed(
                     return;
                 }
 
-                let builder = embed_data.into_minimized().into();
+                let builder = embed.into_minimized().into();
 
                 if let Err(err) = response.update(&ctx, &builder).await {
-                    let report = Report::new(err).wrap_err("Failed to minimize embed");
-                    warn!("{report:?}");
+                    let err = Report::new(err).wrap_err("failed to minimize embed");
+                    warn!("{err:?}");
                 }
             });
         }
-        EmbedsSize::AlwaysMaximized => {
-            let mut builder = MessageBuilder::new().embed(embed_data.as_maximized());
+        ScoreSize::AlwaysMaximized => {
+            let mut builder = MessageBuilder::new().embed(embed.as_maximized());
 
             if let Some(content) = content {
                 builder = builder.content(content);

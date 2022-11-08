@@ -17,13 +17,13 @@ use serde::{
 use time::Date;
 use twilight_interactions::command::{CommandOption, CreateOption};
 
-use crate::{embeds::RankingKindData, util::CountryCode};
+use crate::{embeds::RankingKind, util::CountryCode};
 
 use super::{deser, DateWrapper, UsernameWrapper};
 
 pub trait OsekaiRanking {
     const FORM: &'static str;
-    const RANKING: RankingKindData;
+    const RANKING: RankingKind;
 
     type Deser: for<'de> Deserialize<'de>;
     type Entry: From<Self::Deser>;
@@ -35,7 +35,7 @@ macro_rules! define_ranking {
 
         impl OsekaiRanking for $struct {
             const FORM: &'static str = $form;
-            const RANKING: RankingKindData = RankingKindData::$ranking;
+            const RANKING: RankingKind = RankingKind::$ranking;
 
             type Deser = $deser;
             type Entry = $entry $( <$ty> )?;

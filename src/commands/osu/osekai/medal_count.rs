@@ -4,7 +4,6 @@ use eyre::Result;
 
 use crate::{
     custom_client::MedalCount,
-    database::OsuData,
     pagination::MedalCountPagination,
     util::{
         constants::OSEKAI_ISSUE, interaction::InteractionCommand, Authored, CountryCode,
@@ -39,21 +38,26 @@ pub(super) async fn medal_count(
     };
 
     let owner = command.user_id()?;
-    let osu_fut = ctx.psql().get_user_osu(owner);
-    let redis = ctx.redis();
-    let osekai_fut = redis.osekai_ranking::<MedalCount>();
+    let ranking_fut = ctx.redis().osekai_ranking::<MedalCount>();
+    let config_fut = ctx.user_config().osu_name(owner);
 
-    let (mut ranking, author_name) = match tokio::join!(osekai_fut, osu_fut) {
-        (Ok(ranking), Ok(osu)) => (ranking.to_inner(), osu.map(OsuData::into_username)),
-        (Ok(ranking), Err(err)) => {
-            warn!("{:?}", err.wrap_err("Failed to get username"));
+    let (osekai_res, name_res) = tokio::join!(ranking_fut, config_fut);
 
-            (ranking.to_inner(), None)
-        }
-        (Err(err), _) => {
+    let mut ranking = match osekai_res {
+        Ok(ranking) => ranking.into_original(),
+        Err(err) => {
             let _ = command.error(&ctx, OSEKAI_ISSUE).await;
 
             return Err(err.wrap_err("failed to get cached medal count ranking"));
+        }
+    };
+
+    let author_name = match name_res {
+        Ok(name_opt) => name_opt,
+        Err(err) => {
+            warn!("{:?}", err.wrap_err("Failed to get username"));
+
+            None
         }
     };
 

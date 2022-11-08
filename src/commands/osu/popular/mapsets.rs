@@ -1,30 +1,56 @@
-use std::sync::Arc;
+use std::{alloc, mem, sync::Arc};
 
 use eyre::{Report, Result};
 use hashbrown::HashMap;
-use rkyv::{Deserialize, Infallible};
-use rosu_v2::prelude::{Beatmapset, Username};
+use rkyv::{DeserializeUnsized, Infallible};
+use rosu_v2::prelude::Username;
 use time::OffsetDateTime;
 
 use crate::{
     core::Context,
     custom_client::OsuTrackerMapsetEntry,
+    manager::redis::RedisData,
     pagination::OsuTrackerMapsetsPagination,
     util::{
-        constants::{OSUTRACKER_ISSUE, OSU_API_ISSUE},
+        constants::{GENERAL_ISSUE, OSUTRACKER_ISSUE},
         hasher::IntHasher,
         interaction::InteractionCommand,
         InteractionCommandExt,
     },
 };
 
+const COUNTS_LEN: usize = 727;
+
 pub(super) async fn mapsets(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
-    let mut counts: Vec<OsuTrackerMapsetEntry> = match ctx.redis().osutracker_stats().await {
-        Ok(stats) => stats
-            .get()
-            .mapset_count
-            .deserialize(&mut Infallible)
-            .unwrap(),
+    let counts: Vec<OsuTrackerMapsetEntry> = match ctx.redis().osutracker_stats().await {
+        Ok(RedisData::Original(mut stats)) => {
+            stats.mapset_count.truncate(COUNTS_LEN);
+
+            stats.mapset_count
+        }
+        Ok(RedisData::Archived(stats)) => {
+            let counts = &stats.mapset_count;
+            let slice = &counts[..counts.len().min(COUNTS_LEN)];
+
+            unsafe {
+                // Deserialize to some location and get a pointer to it as *const ()
+                // i.e. a thin 8 byte pointer
+                let ptr =
+                    <[_] as DeserializeUnsized<[OsuTrackerMapsetEntry], _>>::deserialize_unsized(
+                        slice,
+                        &mut Infallible,
+                        |layout| alloc::alloc(layout),
+                    )
+                    .unwrap();
+
+                // Transmute into a wide 16 byte pointer by appending the slice's metadata
+                // i.e. its length
+                let ptr = mem::transmute::<_, *mut [_]>((ptr, slice.len()));
+
+                // Construct a vec from the pointer
+                Box::<[_]>::from_raw(ptr).into()
+            }
+        }
         Err(err) => {
             let _ = command.error(&ctx, OSUTRACKER_ISSUE).await;
 
@@ -32,38 +58,26 @@ pub(super) async fn mapsets(ctx: Arc<Context>, mut command: InteractionCommand) 
         }
     };
 
-    counts.truncate(727);
-
     let mut mapsets = HashMap::with_hasher(IntHasher);
 
     for entry in counts.iter().take(10) {
         let mapset_id = entry.mapset_id;
 
-        let mapset = match ctx.psql().get_beatmapset::<Beatmapset>(mapset_id).await {
+        let mapset = match ctx.osu_map().mapset(mapset_id).await {
             Ok(mapset) => mapset,
-            Err(_) => match ctx.osu().beatmapset(mapset_id).await {
-                Ok(mapset) => {
-                    if let Err(err) = ctx.psql().insert_beatmapset(&mapset).await {
-                        warn!("{:?}", err.wrap_err("Failed to insert mapset in database"));
-                    }
+            Err(err) => {
+                let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
-                    mapset
-                }
-                Err(err) => {
-                    let _ = command.error(&ctx, OSU_API_ISSUE).await;
-                    let report = Report::new(err).wrap_err("failed to get beatmapset");
-
-                    return Err(report);
-                }
-            },
+                return Err(Report::new(err));
+            }
         };
 
         let entry = MapsetEntry {
-            creator: mapset.creator_name,
+            creator: mapset.creator.into(),
             name: format!("{} - {}", mapset.artist, mapset.title),
             mapset_id,
             ranked_date: mapset.ranked_date.unwrap_or_else(OffsetDateTime::now_utc),
-            user_id: mapset.creator_id,
+            user_id: mapset.user_id as u32,
         };
 
         mapsets.insert(mapset_id, entry);

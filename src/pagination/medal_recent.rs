@@ -1,9 +1,12 @@
 use hashbrown::{hash_map::Entry, HashMap};
-use rosu_v2::prelude::{MedalCompact, User};
+use rosu_v2::prelude::MedalCompact;
 use twilight_model::channel::embed::Embed;
 
 use crate::{
-    commands::osu::MedalAchieved, custom_client::OsekaiMedal, embeds::MedalEmbed,
+    commands::osu::MedalAchieved,
+    custom_client::OsekaiMedal,
+    embeds::MedalEmbed,
+    manager::redis::{osu::User, RedisData},
     util::hasher::IntHasher,
 };
 
@@ -11,7 +14,7 @@ use super::{Pages, PaginationBuilder, PaginationKind};
 
 // Not using #[pagination(...)] since it requires special initialization
 pub struct MedalRecentPagination {
-    user: User,
+    user: RedisData<User>,
     cached_medals: HashMap<u32, OsekaiMedal, IntHasher>,
     achieved_medals: Vec<MedalCompact>,
     embeds: HashMap<usize, MedalEmbed, IntHasher>,
@@ -20,7 +23,7 @@ pub struct MedalRecentPagination {
 
 impl MedalRecentPagination {
     pub fn builder(
-        user: User,
+        user: RedisData<User>,
         initial_medal: OsekaiMedal,
         achieved_medals: Vec<MedalCompact>,
         index: usize,

@@ -1,25 +1,27 @@
 use std::{borrow::Cow, cmp::Ordering, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
-use eyre::{Report, Result, WrapErr};
-use rosu_pp::{Beatmap as Map, CatchPP, CatchStars, OsuPP, TaikoPP};
-use rosu_v2::prelude::{GameMode, OsuError, Score};
+use eyre::{Report, Result};
+use rosu_pp::{BeatmapExt, DifficultyAttributes, GameMode as Mode};
+use rosu_v2::prelude::{GameMode, GameMods, Grade, OsuError, Score, ScoreStatistics};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    commands::osu::{get_user_and_scores, ScoreArgs, UserArgs},
     core::commands::{prefix::Args, CommandOrigin},
+    manager::{redis::osu::UserArgs, OsuMap},
     pagination::NoChokePagination,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         interaction::InteractionCommand,
         matcher,
-        osu::prepare_beatmap_file,
-        InteractionCommandExt, ScoreExt,
+        osu::{calculate_grade, IfFc, ScoreSlim},
+        InteractionCommandExt,
     },
     Context,
 };
+
+use super::user_not_found;
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
 #[command(
@@ -65,6 +67,7 @@ pub enum NochokeGameMode {
 }
 
 impl From<NochokeGameMode> for GameMode {
+    #[inline]
     fn from(mode: NochokeGameMode) -> Self {
         match mode {
             NochokeGameMode::Osu => Self::Osu,
@@ -83,22 +86,9 @@ pub enum NochokeVersion {
 }
 
 impl Default for NochokeVersion {
+    #[inline]
     fn default() -> Self {
         Self::Unchoke
-    }
-}
-
-impl NochokeVersion {
-    async fn calculate(
-        self,
-        ctx: &Context,
-        scores: Vec<Score>,
-        miss_limit: Option<u32>,
-    ) -> Result<Vec<(usize, Score, Score)>> {
-        match self {
-            NochokeVersion::Perfect => perfect_scores(ctx, scores, miss_limit).await,
-            NochokeVersion::Unchoke => unchoke_scores(ctx, scores, miss_limit).await,
-        }
     }
 }
 
@@ -196,7 +186,7 @@ async fn slash_nochoke(ctx: Arc<Context>, mut command: InteractionCommand) -> Re
 }
 
 async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) -> Result<()> {
-    let (name, mut mode) = name_mode!(ctx, orig, args);
+    let (user_id, mut mode) = user_id_mode!(ctx, orig, args);
 
     if mode == GameMode::Mania {
         mode = GameMode::Osu;
@@ -210,76 +200,70 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
     } = args;
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::new(name.as_str(), mode);
-    let score_args = ScoreArgs::top(100).with_combo();
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let scores_fut = ctx.osu_scores().top().limit(100).exec_with_user(user_args);
 
-    #[allow(unused_mut)]
-    let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
+    let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = format!("User `{name}` was not found");
+            let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user or scores");
+            let err = Report::new(err).wrap_err("failed to get user or scores");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
-    // Overwrite default mode
-    user.mode = mode;
-
-    // Process user and their top scores for tracking
-    #[cfg(feature = "osutracking")]
-    crate::tracking::process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
-
     let version = version.unwrap_or_default();
 
-    let mut scores_data = match version.calculate(&ctx, scores, miss_limit).await {
-        Ok(scores_data) => scores_data,
+    let mut entries = match process_scores(&ctx, scores, miss_limit, version).await {
+        Ok(entries) => entries,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("failed to calculate version"));
+            return Err(err.wrap_err("failed to process scores"));
         }
     };
 
     // Calculate bonus pp
-    let actual_pp: f32 = scores_data
+    let actual_pp: f32 = entries
         .iter()
-        .filter_map(|(_, s, ..)| s.weight)
-        .fold(0.0, |sum, weight| sum + weight.pp);
+        .map(|entry| entry.original_score.pp)
+        .zip(0..)
+        .fold(0.0, |sum, (pp, i)| sum + pp * 0.95_f32.powi(i));
 
-    let bonus_pp = user.statistics.as_ref().unwrap().pp - actual_pp;
+    let bonus_pp = user.peek_stats(|stats| stats.pp - actual_pp);
 
     // Sort by unchoked pp
-    scores_data.sort_unstable_by(|(_, _, s1), (_, _, s2)| {
-        s2.pp.partial_cmp(&s1.pp).unwrap_or(Ordering::Equal)
+    entries.sort_unstable_by(|a, b| {
+        b.unchoked_pp()
+            .partial_cmp(&a.unchoked_pp())
+            .unwrap_or(Ordering::Equal)
     });
 
     // Calculate total user pp without chokes
-    let mut unchoked_pp: f32 = scores_data
+    let mut unchoked_pp: f32 = entries
         .iter()
+        .map(NochokeEntry::unchoked_pp)
         .zip(0..)
-        .fold(0.0, |sum, ((_, _, s), i)| {
-            sum + s.pp.unwrap_or(0.0) * 0.95_f32.powi(i)
-        });
+        .fold(0.0, |sum, (pp, i)| sum + pp * 0.95_f32.powi(i));
 
     unchoked_pp = (100.0 * (unchoked_pp + bonus_pp)).round() / 100.0;
 
     match filter {
-        Some(NochokeFilter::OnlyChokes) => scores_data.retain(|(_, a, b)| a != b),
-        Some(NochokeFilter::RemoveChokes) => scores_data.retain(|(_, a, b)| a == b),
+        Some(NochokeFilter::OnlyChokes) => entries.retain(|entry| entry.unchoked.is_some()),
+        Some(NochokeFilter::RemoveChokes) => entries.retain(|entry| entry.unchoked.is_none()),
         None => {}
     }
 
-    let rank = match ctx.psql().approx_rank_from_pp(unchoked_pp, mode).await {
+    let rank = match ctx.approx().rank(unchoked_pp, mode).await {
         Ok(rank) => Some(rank),
         Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to get rank pp"));
+            warn!("{:?}", err.wrap_err("failed to get rank pp"));
 
             None
         }
@@ -295,8 +279,9 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
             GameMode::Osu => "",
             GameMode::Taiko => "taiko ",
             GameMode::Catch => "ctb ",
-            GameMode::Mania => panic!("can not unchoke mania scores"),
+            GameMode::Mania => "mania ",
         },
+        name = user.username(),
     );
 
     match filter {
@@ -307,7 +292,7 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
 
     content.push(':');
 
-    NoChokePagination::builder(user, scores_data, unchoked_pp, rank)
+    NoChokePagination::builder(user, entries, unchoked_pp, rank)
         .content(content)
         .start_by_update()
         .defer_components()
@@ -315,242 +300,222 @@ async fn nochoke(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Nochoke<'_>) 
         .await
 }
 
-async fn unchoke_scores(
-    ctx: &Context,
-    scores: Vec<Score>,
-    miss_limit: Option<u32>,
-) -> Result<Vec<(usize, Score, Score)>> {
-    let mut scores_data = Vec::with_capacity(scores.len());
-
-    for (score, i) in scores.into_iter().zip(1..) {
-        let map = score.map.as_ref().unwrap();
-        let mut unchoked = score.clone();
-
-        let many_misses = miss_limit
-            .filter(|&limit| score.statistics.count_miss > limit)
-            .is_some();
-
-        // Skip unchoking because it has too many misses or because its a convert
-        if many_misses || map.convert {
-            scores_data.push((i, score, unchoked));
-            continue;
-        }
-
-        let map_path = prepare_beatmap_file(ctx, map.map_id)
-            .await
-            .wrap_err("failed to prepare map")?;
-
-        let rosu_map = Map::from_path(map_path)
-            .await
-            .wrap_err("failed to parse map")?;
-
-        let mods = score.mods.bits();
-        let max_combo = map.max_combo.unwrap_or(0);
-
-        if !score.is_fc(map.mode, max_combo) {
-            match map.mode {
-                GameMode::Osu => {
-                    let total_objects = map.count_objects() as usize;
-
-                    let mut count300 = score.statistics.count_300 as usize;
-
-                    let count_hits = total_objects - score.statistics.count_miss as usize;
-                    let ratio = 1.0 - (count300 as f32 / count_hits as f32);
-                    let new100s = (ratio * score.statistics.count_miss as f32).ceil() as u32;
-
-                    count300 += score.statistics.count_miss.saturating_sub(new100s) as usize;
-                    let count100 = (score.statistics.count_100 + new100s) as usize;
-                    let count50 = score.statistics.count_50 as usize;
-
-                    let pp_result = OsuPP::new(&rosu_map)
-                        .mods(mods)
-                        .n300(count300)
-                        .n100(count100)
-                        .n50(count50)
-                        .calculate();
-
-                    unchoked.statistics.count_300 = count300 as u32;
-                    unchoked.statistics.count_100 = count100 as u32;
-                    unchoked.max_combo = max_combo;
-                    unchoked.statistics.count_miss = 0;
-                    unchoked.pp = Some(pp_result.pp as f32);
-                    unchoked.grade = unchoked.grade(None);
-                    unchoked.accuracy = unchoked.accuracy();
-                    unchoked.score = 0; // distinguishing from original
-                }
-                GameMode::Catch => {
-                    let attributes = CatchStars::new(&rosu_map).mods(mods).calculate();
-
-                    let total_objects = attributes.max_combo();
-                    let passed_objects = (score.statistics.count_300
-                        + score.statistics.count_100
-                        + score.statistics.count_miss)
-                        as usize;
-
-                    let missing = total_objects.saturating_sub(passed_objects);
-                    let missing_fruits = missing.saturating_sub(
-                        attributes
-                            .n_droplets
-                            .saturating_sub(score.statistics.count_100 as usize),
-                    );
-                    let missing_droplets = missing - missing_fruits;
-
-                    let n_fruits = score.statistics.count_300 as usize + missing_fruits;
-                    let n_droplets = score.statistics.count_100 as usize + missing_droplets;
-                    let n_tiny_droplet_misses = score.statistics.count_katu as usize;
-                    let n_tiny_droplets = score.statistics.count_50 as usize;
-
-                    let pp_result = CatchPP::new(&rosu_map)
-                        .attributes(attributes)
-                        .mods(mods)
-                        .fruits(n_fruits)
-                        .droplets(n_droplets)
-                        .tiny_droplets(n_tiny_droplets)
-                        .tiny_droplet_misses(n_tiny_droplet_misses)
-                        .calculate();
-
-                    let hits = n_fruits + n_droplets + n_tiny_droplets;
-                    let total = hits + n_tiny_droplet_misses;
-
-                    let acc = if total == 0 {
-                        0.0
-                    } else {
-                        100.0 * hits as f32 / total as f32
-                    };
-
-                    unchoked.statistics.count_300 = n_fruits as u32;
-                    unchoked.statistics.count_katu = n_tiny_droplet_misses as u32;
-                    unchoked.statistics.count_100 = n_droplets as u32;
-                    unchoked.statistics.count_50 = n_tiny_droplets as u32;
-                    unchoked.max_combo = total_objects as u32;
-                    unchoked.statistics.count_miss = 0;
-                    unchoked.pp = Some(pp_result.pp as f32);
-                    unchoked.grade = unchoked.grade(Some(acc));
-                    unchoked.accuracy = unchoked.accuracy();
-                    unchoked.score = 0; // distinguishing from original
-                }
-                GameMode::Taiko => {
-                    let total_objects = map.count_circles as usize;
-                    let passed_objects = score.total_hits() as usize;
-
-                    let mut count300 = score.statistics.count_300 as usize
-                        + total_objects.saturating_sub(passed_objects);
-
-                    let count_hits = total_objects - score.statistics.count_miss as usize;
-                    let ratio = 1.0 - (count300 as f32 / count_hits as f32);
-                    let new100s = (ratio * score.statistics.count_miss as f32).ceil() as u32;
-
-                    count300 += score.statistics.count_miss.saturating_sub(new100s) as usize;
-                    let count100 = (score.statistics.count_100 + new100s) as usize;
-
-                    let acc = 100.0 * (2 * count300 + count100) as f32 / (2 * total_objects) as f32;
-
-                    let pp_result = TaikoPP::new(&rosu_map)
-                        .mods(mods)
-                        .accuracy(acc as f64)
-                        .calculate();
-
-                    unchoked.statistics.count_300 = count300 as u32;
-                    unchoked.statistics.count_100 = count100 as u32;
-                    unchoked.statistics.count_miss = 0;
-                    unchoked.max_combo = map.count_circles;
-                    unchoked.pp = Some(pp_result.pp as f32);
-                    unchoked.grade = unchoked.grade(Some(acc));
-                    unchoked.accuracy = unchoked.accuracy();
-                    unchoked.score = 0; // distinguishing from original
-                }
-                GameMode::Mania => panic!("can not unchoke mania scores"),
-            }
-        }
-
-        scores_data.push((i, score, unchoked));
-    }
-
-    Ok(scores_data)
+pub struct NochokeEntry {
+    pub original_idx: usize,
+    pub original_score: ScoreSlim,
+    pub unchoked: Option<Unchoked>,
+    pub map: OsuMap,
+    pub max_pp: f32,
+    pub stars: f32,
 }
 
-async fn perfect_scores(
+impl NochokeEntry {
+    pub fn unchoked_pp(&self) -> f32 {
+        self.unchoked
+            .as_ref()
+            .map_or(self.original_score.pp, |unchoked| unchoked.pp)
+    }
+
+    pub fn unchoked_grade(&self) -> Grade {
+        self.unchoked
+            .as_ref()
+            .map_or(self.original_score.grade, |unchoked| unchoked.grade)
+    }
+
+    pub fn unchoked_max_combo(&self) -> u32 {
+        if self.unchoked.is_some() {
+            self.map.max_combo().unwrap_or(0)
+        } else {
+            self.original_score.max_combo
+        }
+    }
+
+    pub fn unchoked_statistics(&self) -> &ScoreStatistics {
+        self.unchoked
+            .as_ref()
+            .map_or(&self.original_score.statistics, |unchoked| {
+                &unchoked.statistics
+            })
+    }
+
+    pub fn unchoked_accuracy(&self) -> f32 {
+        self.unchoked
+            .as_ref()
+            .map_or(self.original_score.accuracy, |unchoked| {
+                unchoked.statistics.accuracy(self.original_score.mode)
+            })
+    }
+}
+
+pub struct Unchoked {
+    pub grade: Grade,
+    pub pp: f32,
+    pub statistics: ScoreStatistics,
+}
+
+impl Unchoked {
+    fn new(if_fc: IfFc, mods: GameMods, mode: GameMode) -> Self {
+        let grade = calculate_grade(mode, mods, &if_fc.statistics);
+
+        Self {
+            grade,
+            pp: if_fc.pp,
+            statistics: if_fc.statistics,
+        }
+    }
+}
+
+async fn process_scores(
     ctx: &Context,
     scores: Vec<Score>,
     miss_limit: Option<u32>,
-) -> Result<Vec<(usize, Score, Score)>> {
-    let mut scores_data = Vec::with_capacity(scores.len());
+    version: NochokeVersion,
+) -> Result<Vec<NochokeEntry>> {
+    let mut entries = Vec::with_capacity(scores.len());
 
-    for (score, i) in scores.into_iter().zip(1..) {
-        let map = score.map.as_ref().unwrap();
-        let mut unchoked = score.clone();
+    let maps_id_checksum = scores
+        .iter()
+        .filter_map(|score| score.map.as_ref())
+        .map(|map| (map.map_id as i32, map.checksum.as_deref()))
+        .collect();
+
+    let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
+
+    for (i, score) in scores.into_iter().enumerate() {
+        let map_opt = score.map.as_ref().and_then(|map| maps.remove(&map.map_id));
+        let Some(map) = map_opt else { continue };
+
+        let attrs = ctx
+            .pp(&map)
+            .mode(score.mode)
+            .mods(score.mods)
+            .performance()
+            .await;
+
+        let pp = score.pp.expect("missing pp");
+
+        let max_pp = if score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania && pp > 0.0
+        {
+            pp
+        } else {
+            attrs.pp() as f32
+        };
+
+        let score = ScoreSlim::new(score, pp);
 
         let many_misses = miss_limit
             .filter(|&limit| score.statistics.count_miss > limit)
             .is_some();
 
-        // Skip unchoking because it has too many misses or because its a convert
-        if many_misses || map.convert {
-            scores_data.push((i, score, unchoked));
-            continue;
-        }
-
-        let map_path = prepare_beatmap_file(ctx, map.map_id)
-            .await
-            .wrap_err("failed to prepare map")?;
-
-        let rosu_map = Map::from_path(map_path)
-            .await
-            .wrap_err("failed to parse map")?;
-
-        let mods = score.mods.bits();
-        let total_hits = score.total_hits();
-
-        match map.mode {
-            GameMode::Osu if score.statistics.count_300 != total_hits => {
-                unchoked.statistics.count_300 = total_hits;
-                unchoked.statistics.count_100 = 0;
-                unchoked.statistics.count_50 = 0;
-                unchoked.statistics.count_miss = 0;
-
-                let pp_result = OsuPP::new(&rosu_map).mods(mods).calculate();
-
-                unchoked.max_combo = map
-                    .max_combo
-                    .unwrap_or_else(|| pp_result.max_combo() as u32);
-
-                unchoked.pp = Some(pp_result.pp as f32);
-                unchoked.grade = unchoked.grade(Some(100.0));
-                unchoked.accuracy = 100.0;
-                unchoked.score = 0; // distinguishing from original
+        let unchoked = match version {
+            NochokeVersion::Unchoke => {
+                // Skip unchoking because it has too many misses or because its a convert
+                if many_misses || score.mode == GameMode::Mania {
+                    IfFc::new(ctx, &score, &map)
+                        .await
+                        .map(|if_fc| Unchoked::new(if_fc, score.mods, score.mode))
+                } else {
+                    None
+                }
             }
-            GameMode::Catch if (100.0 - score.accuracy).abs() > f32::EPSILON => {
-                let pp_result = CatchPP::new(&rosu_map).mods(mods).calculate();
-
-                unchoked.statistics.count_300 = pp_result.difficulty.n_fruits as u32;
-                unchoked.statistics.count_katu = 0;
-                unchoked.statistics.count_100 = pp_result.difficulty.n_droplets as u32;
-                unchoked.statistics.count_50 = pp_result.difficulty.n_tiny_droplets as u32;
-                unchoked.max_combo = pp_result.max_combo() as u32;
-                unchoked.statistics.count_miss = 0;
-                unchoked.pp = Some(pp_result.pp as f32);
-                unchoked.grade = unchoked.grade(Some(100.0));
-                unchoked.accuracy = 100.0;
-                unchoked.score = 0; // distinguishing from original
+            NochokeVersion::Perfect => {
+                if many_misses {
+                    Some(perfect_score(ctx, &score, &map).await)
+                } else {
+                    None
+                }
             }
-            GameMode::Taiko if score.statistics.count_miss > 0 => {
-                let pp_result = TaikoPP::new(&rosu_map).mods(mods).calculate();
+        };
 
-                unchoked.statistics.count_300 = map.count_circles;
-                unchoked.statistics.count_100 = 0;
-                unchoked.statistics.count_miss = 0;
-                unchoked.max_combo = map.count_circles;
-                unchoked.pp = Some(pp_result.pp as f32);
-                unchoked.grade = unchoked.grade(Some(100.0));
-                unchoked.accuracy = 100.0;
-                unchoked.score = 0; // distinguishing from original
-            }
-            GameMode::Mania => bail!("can not unchoke mania scores"),
-            _ => {} // Nothing to unchoke
-        }
+        let entry = NochokeEntry {
+            original_idx: i,
+            original_score: score,
+            unchoked,
+            map,
+            max_pp,
+            stars: attrs.stars() as f32,
+        };
 
-        scores_data.push((i, score, unchoked));
+        entries.push(entry);
     }
 
-    Ok(scores_data)
+    Ok(entries)
+}
+
+async fn perfect_score(ctx: &Context, score: &ScoreSlim, map: &OsuMap) -> Unchoked {
+    let total_hits = score.total_hits();
+    let mut calc = ctx.pp(map).mode(score.mode).mods(score.mods);
+    let attrs = calc.difficulty().await;
+
+    let stats = match attrs {
+        DifficultyAttributes::Osu(_) if score.statistics.count_300 != total_hits => {
+            ScoreStatistics {
+                count_geki: 0,
+                count_300: total_hits,
+                count_katu: 0,
+                count_100: 0,
+                count_50: 0,
+                count_miss: 0,
+            }
+        }
+        DifficultyAttributes::Taiko(_) if score.statistics.count_miss > 0 => ScoreStatistics {
+            count_geki: 0,
+            count_300: map.n_circles() as u32,
+            count_katu: 0,
+            count_100: 0,
+            count_50: 0,
+            count_miss: 0,
+        },
+        DifficultyAttributes::Catch(attrs) if (100.0 - score.accuracy).abs() > f32::EPSILON => {
+            ScoreStatistics {
+                count_geki: 0,
+                count_300: attrs.n_fruits as u32,
+                count_katu: 0,
+                count_100: attrs.n_droplets as u32,
+                count_50: attrs.n_tiny_droplets as u32,
+                count_miss: 0,
+            }
+        }
+        DifficultyAttributes::Mania(_) if score.statistics.count_geki != total_hits => {
+            ScoreStatistics {
+                count_geki: total_hits,
+                count_300: 0,
+                count_katu: 0,
+                count_100: 0,
+                count_50: 0,
+                count_miss: 0,
+            }
+        }
+        _ => score.statistics.clone(), // Nothing to unchoke
+    };
+
+    let grade = calculate_grade(score.mode, score.mods, &stats);
+
+    let mode = match score.mode {
+        GameMode::Osu => Mode::Osu,
+        GameMode::Taiko => Mode::Taiko,
+        GameMode::Catch => Mode::Catch,
+        GameMode::Mania => Mode::Mania,
+    };
+
+    let pp = map
+        .pp_map
+        .pp()
+        .attributes(attrs.to_owned())
+        .mods(score.mods.bits())
+        .mode(mode)
+        .n_geki(stats.count_geki as usize)
+        .n300(stats.count_300 as usize)
+        .n_katu(stats.count_katu as usize)
+        .n100(stats.count_100 as usize)
+        .n50(stats.count_50 as usize)
+        .n_misses(0)
+        .calculate()
+        .pp() as f32;
+
+    Unchoked {
+        grade,
+        pp,
+        statistics: stats,
+    }
 }

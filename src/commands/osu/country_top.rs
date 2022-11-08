@@ -1,18 +1,24 @@
-use std::{fmt::Write, sync::Arc};
+use std::{
+    cmp::{Ordering, Reverse},
+    fmt::Write,
+    sync::Arc,
+};
 
 use command_macros::{HasMods, HasName, SlashCommand};
 use eyre::Result;
-use rosu_v2::prelude::{GameMods, Username};
+use rosu_v2::{
+    prelude::{GameMods, Username},
+    request::UserId,
+};
 use smallstr::SmallString;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    core::Context,
+    core::{commands::CommandOrigin, Context},
     custom_client::{OsuTrackerCountryDetails, OsuTrackerCountryScore},
     pagination::OsuTrackerCountryTopPagination,
     util::{
-        constants::GENERAL_ISSUE,
         interaction::InteractionCommand,
         osu::ModSelection,
         query::{FilterCriteria, Searchable},
@@ -20,7 +26,7 @@ use crate::{
     },
 };
 
-use super::{HasMods, HasName, ModsResult, ScoreOrder, UsernameFutureResult, UsernameResult};
+use super::{HasMods, ModsResult, ScoreOrder};
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName, SlashCommand)]
 #[command(name = "countrytop")]
@@ -70,12 +76,14 @@ pub enum CountryTopOrder {
 }
 
 impl Default for CountryTopOrder {
+    #[inline]
     fn default() -> Self {
         Self::Pp
     }
 }
 
 impl From<CountryTopOrder> for ScoreOrder {
+    #[inline]
     fn from(sort: CountryTopOrder) -> Self {
         match sort {
             CountryTopOrder::Acc => Self::Acc,
@@ -105,23 +113,12 @@ async fn slash_countrytop(ctx: Arc<Context>, mut command: InteractionCommand) ->
         }
     };
 
-    let name = match args.username(&ctx) {
-        UsernameResult::Name(name) => Some(name),
-        UsernameResult::None => None,
-        UsernameResult::Future(fut) => match fut.await {
-            UsernameFutureResult::Name(name) => Some(name),
-            UsernameFutureResult::NotLinked(user_id) => {
-                let content = format!("<@{user_id}> is not linked to an osu!profile");
-                command.error(&ctx, content).await?;
+    let user_id = {
+        let orig = CommandOrigin::Interaction {
+            command: &mut command,
+        };
 
-                return Ok(());
-            }
-            UsernameFutureResult::Err(err) => {
-                let _ = command.error(&ctx, GENERAL_ISSUE).await;
-
-                return Err(err.wrap_err("failed to get username"));
-            }
-        },
+        user_id!(ctx, orig, args)
     };
 
     let country_code = match args.country.take() {
@@ -151,7 +148,17 @@ async fn slash_countrytop(ctx: Arc<Context>, mut command: InteractionCommand) ->
         .client()
         .get_osutracker_country_details(country_code.as_deref().map(SmallString::as_str));
 
-    let mut details = match details_fut.await {
+    let name_fut = async {
+        match user_id {
+            Some(UserId::Id(user_id)) => ctx.osu_user().name(user_id).await,
+            Some(UserId::Name(name)) => Ok(Some(name)),
+            None => Ok(None),
+        }
+    };
+
+    let (details_res, name_res) = tokio::join!(details_fut, name_fut);
+
+    let mut details = match details_res {
         Ok(details) => details,
         Err(err) => {
             let content = format!(
@@ -169,10 +176,19 @@ async fn slash_countrytop(ctx: Arc<Context>, mut command: InteractionCommand) ->
         }
     };
 
+    let name = match name_res {
+        Ok(name_opt) => name_opt,
+        Err(err) => {
+            warn!("{err:?}");
+
+            None
+        }
+    };
+
     let mut scores = details.scores.drain(..).zip(1..).collect();
     let details = OsuTrackerCountryDetailsCompact::from(details);
 
-    filter_scores(&ctx, &mut scores, &args, mods, name.as_deref()).await;
+    filter_scores(&mut scores, &args, mods, name.as_deref()).await;
 
     let content = write_content(&details.country, &args, mods, scores.len(), name);
     let sort = args.sort.unwrap_or_default().into();
@@ -185,7 +201,6 @@ async fn slash_countrytop(ctx: Arc<Context>, mut command: InteractionCommand) ->
 }
 
 async fn filter_scores(
-    ctx: &Context,
     scores: &mut Vec<(OsuTrackerCountryScore, usize)>,
     args: &CountryTop,
     mods: Option<ModSelection>,
@@ -220,8 +235,24 @@ async fn filter_scores(
         scores.retain(|(score, _)| score.player.cow_to_ascii_lowercase() == username);
     }
 
-    let sort = args.sort.unwrap_or_default();
-    ScoreOrder::from(sort).apply(ctx, scores).await;
+    match args.sort.unwrap_or_default() {
+        CountryTopOrder::Acc => {
+            scores.sort_by(|(a, _), (b, _)| b.acc.partial_cmp(&a.acc).unwrap_or(Ordering::Equal))
+        }
+        CountryTopOrder::Date => scores.sort_by_key(|(score, _)| Reverse(score.ended_at)),
+        CountryTopOrder::Length => {
+            scores.sort_by(|(a, _), (b, _)| {
+                let a_len = a.seconds_total as f32 / a.mods.clock_rate();
+                let b_len = b.seconds_total as f32 / b.mods.clock_rate();
+
+                b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
+            });
+        }
+        CountryTopOrder::Misses => scores.sort_by_key(|(score, _)| score.n_misses),
+        CountryTopOrder::Pp => {
+            scores.sort_by(|(a, _), (b, _)| b.pp.partial_cmp(&a.pp).unwrap_or(Ordering::Equal))
+        }
+    }
 
     if args.reverse == Some(true) {
         scores.reverse();

@@ -18,8 +18,6 @@ use self::{
     user_value::{count, pp},
 };
 
-use super::UserValue;
-
 mod medal_count;
 mod rarity;
 mod user_value;

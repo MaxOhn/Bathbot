@@ -21,7 +21,7 @@ pub async fn addcountry(
 
     code.make_ascii_uppercase();
 
-    if let Some(name) = ctx.get_country(&code) {
+    if let Some(name) = ctx.huismetbenen().get_country(&code).await {
         let content = format!("The country code `{code}` is already available for `{name}`.");
         command.error_callback(&ctx, content).await?;
 
@@ -43,16 +43,13 @@ pub async fn addcountry(
         return Ok(());
     }
 
-    let insert_fut = ctx.psql().insert_snipe_country(&name, code.as_str());
-
-    if let Err(err) = insert_fut.await {
+    if let Err(err) = ctx.huismetbenen().add_country(&code, &name).await {
         let _ = command.error_callback(&ctx, GENERAL_ISSUE).await;
 
-        return Err(err.wrap_err("failed to insert snipe country"));
+        return Err(err.wrap_err("failed to insert huismetbenen country"));
     }
 
     let content = format!("Successfuly added country `{name}` (`{code}`)");
-    ctx.add_country(name, code.into());
     let builder = MessageBuilder::new().embed(content);
     command.callback(&ctx, builder, false).await?;
 

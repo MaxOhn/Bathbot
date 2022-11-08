@@ -2,15 +2,17 @@ use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use command_macros::EmbedData;
 use hashbrown::HashMap;
-use rosu_v2::{model::user::User, prelude::MedalCompact};
+use rosu_v2::prelude::MedalCompact;
 use twilight_model::channel::embed::EmbedField;
 
 use crate::{
     custom_client::{MedalGroup, MEDAL_GROUPS},
     embeds::attachment,
+    manager::redis::{osu::User, RedisData},
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
+        hasher::IntHasher,
         numbers::round,
         osu::flag_url,
         CowUtils,
@@ -28,21 +30,21 @@ pub struct MedalStatsEmbed {
 
 impl MedalStatsEmbed {
     pub fn new(
-        user: User,
-        medals: &HashMap<u32, (String, MedalGroup)>,
+        user: &RedisData<User>,
+        user_medals: &[MedalCompact],
+        medals: &HashMap<u32, (String, MedalGroup), IntHasher>,
         rarest: Option<MedalCompact>,
         with_graph: bool,
     ) -> Self {
-        let owned = user.medals.as_ref().unwrap();
-        let completion = round(100.0 * owned.len() as f32 / medals.len() as f32);
+        let completion = round(100.0 * user_medals.len() as f32 / medals.len() as f32);
 
         let mut fields = fields![
-            "Medals", format!("{} / {}", owned.len(), medals.len()), true;
+            "Medals", format!("{} / {}", user_medals.len(), medals.len()), true;
             "Completion", format!("{completion}%"), true;
         ];
 
-        let oldest = owned.first();
-        let newest = owned.last();
+        let oldest = user_medals.first();
+        let newest = user_medals.last();
 
         if oldest.or(newest).or(rarest.as_ref()).is_some() {
             let mut value = String::with_capacity(128);
@@ -83,7 +85,7 @@ impl MedalStatsEmbed {
             fields![fields { "Corner stone medals", value, false }];
         }
 
-        if !owned.is_empty() {
+        if !user_medals.is_empty() {
             let mut counts = HashMap::new();
 
             // Count groups for all medals
@@ -93,7 +95,7 @@ impl MedalStatsEmbed {
             }
 
             // Count groups for owned medals
-            for medal in owned.iter() {
+            for medal in user_medals.iter() {
                 let entry = medals
                     .get(&medal.medal_id)
                     .and_then(|(_, grouping)| counts.get_mut(grouping.as_str()));
@@ -115,9 +117,26 @@ impl MedalStatsEmbed {
                 });
         }
 
-        let author = AuthorBuilder::new(user.username.into_string())
-            .url(format!("{OSU_BASE}u/{}", user.user_id))
-            .icon_url(flag_url(user.country_code.as_str()));
+        let (country_code, username, user_id) = match user {
+            RedisData::Original(user) => {
+                let country_code = user.country_code.as_str();
+                let username = user.username.as_str();
+                let user_id = user.user_id;
+
+                (country_code, username, user_id)
+            }
+            RedisData::Archived(user) => {
+                let country_code = user.country_code.as_str();
+                let username = user.username.as_str();
+                let user_id = user.user_id;
+
+                (country_code, username, user_id)
+            }
+        };
+
+        let author = AuthorBuilder::new(username)
+            .url(format!("{OSU_BASE}u/{user_id}"))
+            .icon_url(flag_url(country_code));
 
         let footer = FooterBuilder::new("Check osekai.net for more info");
 
@@ -130,7 +149,7 @@ impl MedalStatsEmbed {
             author,
             fields,
             footer,
-            thumbnail: user.avatar_url,
+            thumbnail: user.avatar_url().to_owned(),
         }
     }
 }

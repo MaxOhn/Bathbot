@@ -1,14 +1,22 @@
-use std::{cmp::Reverse, sync::Arc};
+use std::{cmp::Reverse, mem, sync::Arc};
 
 use command_macros::command;
 use eyre::{Report, Result};
-use rosu_v2::prelude::{GameMode, MedalCompact, OsuError, User};
+use rkyv::{Deserialize, Infallible};
+use rosu_v2::{
+    prelude::{MedalCompact, OsuError},
+    request::UserId,
+};
 use time::OffsetDateTime;
 
 use crate::{
-    commands::osu::{get_user, require_link, UserArgs},
+    commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
     embeds::MedalEmbed,
+    manager::redis::{
+        osu::{User, UserArgs},
+        RedisData,
+    },
     pagination::MedalRecentPagination,
     util::{
         builder::MessageBuilder,
@@ -54,27 +62,27 @@ pub(super) async fn recent(
 ) -> Result<()> {
     let owner = orig.user_id()?;
 
-    let name = match username!(ctx, orig, args) {
-        Some(name) => name,
-        None => match ctx.psql().get_user_osu(owner).await {
-            Ok(Some(osu)) => osu.into_username(),
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
+        None => match ctx.user_config().osu_id(owner).await {
+            Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => return require_link(&ctx, &orig).await,
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get username"));
+                return Err(err);
             }
         },
     };
 
-    let user_args = UserArgs::new(name.as_str(), GameMode::Osu);
-    let user_fut = get_user(&ctx, &user_args);
-    let redis = ctx.redis();
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await;
+    let user_fut = ctx.redis().osu_user(user_args);
+    let medals_fut = ctx.redis().medals();
 
-    let (mut user, mut all_medals) = match tokio::join!(user_fut, redis.medals()) {
-        (Ok(user), Ok(medals)) => (user, medals.to_inner()),
+    let (mut user, mut all_medals) = match tokio::join!(user_fut, medals_fut) {
+        (Ok(user), Ok(medals)) => (user, medals.into_original()),
         (Err(OsuError::NotFound), _) => {
-            let content = format!("User `{name}` was not found");
+            let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
@@ -91,20 +99,23 @@ pub(super) async fn recent(
         }
     };
 
-    let mut achieved_medals = user.medals.take().unwrap_or_default();
+    let mut user_medals = match user {
+        RedisData::Original(ref mut user) => mem::take(&mut user.medals),
+        RedisData::Archived(ref user) => user.medals.deserialize(&mut Infallible).unwrap(),
+    };
 
-    if achieved_medals.is_empty() {
-        let content = format!("`{}` has not achieved any medals yet :(", user.username);
+    if user_medals.is_empty() {
+        let content = format!("`{}` has not achieved any medals yet :(", user.username());
         let builder = MessageBuilder::new().embed(content);
         orig.create_message(&ctx, &builder).await?;
 
         return Ok(());
     }
 
-    achieved_medals.sort_unstable_by_key(|medal| Reverse(medal.achieved_at));
+    user_medals.sort_unstable_by_key(|medal| Reverse(medal.achieved_at));
     let index = args.index.unwrap_or(1);
 
-    let (medal_id, achieved_at) = match achieved_medals.get(index - 1) {
+    let (medal_id, achieved_at) = match user_medals.get(index - 1) {
         Some(MedalCompact {
             medal_id,
             achieved_at,
@@ -112,8 +123,8 @@ pub(super) async fn recent(
         None => {
             let content = format!(
                 "`{}` only has {} medals, cannot show medal #{index}",
-                user.username,
-                achieved_medals.len(),
+                user.username(),
+                user_medals.len(),
             );
 
             return orig.error(&ctx, content).await;
@@ -135,13 +146,13 @@ pub(super) async fn recent(
         user: &user,
         achieved_at,
         index,
-        medal_count: achieved_medals.len(),
+        medal_count: user_medals.len(),
     };
 
     let embed_data = MedalEmbed::new(medal.clone(), Some(achieved), Vec::new(), None);
 
     let builder =
-        MedalRecentPagination::builder(user, medal, achieved_medals, index, embed_data, all_medals);
+        MedalRecentPagination::builder(user, medal, user_medals, index, embed_data, all_medals);
 
     builder
         .start_by_update()
@@ -151,7 +162,7 @@ pub(super) async fn recent(
 }
 
 pub struct MedalAchieved<'u> {
-    pub user: &'u User,
+    pub user: &'u RedisData<User>,
     pub achieved_at: OffsetDateTime,
     pub index: usize,
     pub medal_count: usize,

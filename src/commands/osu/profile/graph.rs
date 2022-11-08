@@ -1,4 +1,4 @@
-use std::iter;
+use std::{iter, mem};
 
 use bitflags::bitflags;
 use bytes::Bytes;
@@ -9,10 +9,15 @@ use plotters::{
     coord::{types::RangedCoordi32, Shift},
     prelude::*,
 };
-use rosu_v2::prelude::{MonthlyCount, User};
+use rkyv::{Deserialize, Infallible};
+use rosu_v2::prelude::MonthlyCount;
 use time::{Date, Month, OffsetDateTime};
 
-use crate::{core::Context, util::Monthly};
+use crate::{
+    core::Context,
+    manager::redis::{osu::User, RedisData},
+    util::Monthly,
+};
 
 bitflags! {
     pub struct ProfileGraphFlags: u8 {
@@ -45,7 +50,7 @@ impl Default for ProfileGraphFlags {
 
 pub struct ProfileGraphParams<'l> {
     ctx: &'l Context,
-    user: &'l mut User,
+    user: &'l mut RedisData<User>,
     w: u32,
     h: u32,
     flags: ProfileGraphFlags,
@@ -55,7 +60,7 @@ impl<'l> ProfileGraphParams<'l> {
     const W: u32 = 1350;
     const H: u32 = 350;
 
-    pub fn new(ctx: &'l Context, user: &'l mut User) -> Self {
+    pub fn new(ctx: &'l Context, user: &'l mut RedisData<User>) -> Self {
         Self {
             ctx,
             user,
@@ -122,7 +127,10 @@ async fn draw(buf: &mut [u8], params: ProfileGraphParams<'_>) -> Result<bool> {
         return Ok(false);
     }
 
-    let badges = user.badges.take().unwrap_or_default();
+    let badges = match user {
+        RedisData::Original(user) => mem::take(&mut user.badges),
+        RedisData::Archived(user) => user.badges.deserialize(&mut Infallible).unwrap(),
+    };
 
     let canvas = if flags.badges() && !badges.is_empty() {
         // Request all badge images
@@ -236,13 +244,13 @@ fn draw_playcounts(playcounts: &[MonthlyCount], canvas: &Area<'_>) -> Result<()>
 
     chart
         .configure_mesh()
-        .light_line_style(&BLACK.mix(0.0))
+        .light_line_style(BLACK.mix(0.0))
         .disable_x_mesh()
         .x_labels(10)
         .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month() as u8 + 1))
         .y_desc("Monthly playcount")
         .label_style(("sans-serif", 20_i32, &WHITE))
-        .bold_line_style(&WHITE.mix(0.3))
+        .bold_line_style(WHITE.mix(0.3))
         .axis_style(RGBColor(7, 18, 14))
         .axis_desc_style(("sans-serif", 20_i32, FontStyle::Bold, &WHITE))
         .draw()
@@ -276,13 +284,13 @@ fn draw_replays(replays: &[MonthlyCount], canvas: &Area<'_>) -> Result<()> {
 
     chart
         .configure_mesh()
-        .light_line_style(&BLACK.mix(0.0))
+        .light_line_style(BLACK.mix(0.0))
         .disable_x_mesh()
         .x_labels(10)
         .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month() as u8 + 1))
         .y_desc("Replays watched")
         .label_style(("sans-serif", 20_i32, &WHITE))
-        .bold_line_style(&WHITE.mix(0.3))
+        .bold_line_style(WHITE.mix(0.3))
         .axis_style(RGBColor(7, 18, 14))
         .axis_desc_style(("sans-serif", 20_i32, FontStyle::Bold, &WHITE))
         .draw()
@@ -324,13 +332,13 @@ fn draw_both(
     // Mesh and labels
     chart
         .configure_mesh()
-        .light_line_style(&BLACK.mix(0.0))
+        .light_line_style(BLACK.mix(0.0))
         .disable_x_mesh()
         .x_labels(10)
         .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month() as u8))
         .y_desc("Monthly playcount")
         .label_style(("sans-serif", 20_i32, &WHITE))
-        .bold_line_style(&WHITE.mix(0.3))
+        .bold_line_style(WHITE.mix(0.3))
         .axis_style(RGBColor(7, 18, 14))
         .axis_desc_style(("sans-serif", 20_i32, FontStyle::Bold, &WHITE))
         .draw()
@@ -388,7 +396,7 @@ fn draw_both(
     // Legend
     chart
         .configure_series_labels()
-        .background_style(&RGBColor(7, 23, 17))
+        .background_style(RGBColor(7, 23, 17))
         .position(SeriesLabelPosition::UpperLeft)
         .legend_area_size(45_i32)
         .label_font(("sans-serif", 20_i32, &WHITE))
@@ -458,11 +466,24 @@ fn first_last_max(counts: &[MonthlyCount]) -> (Date, Date, i32) {
 }
 
 fn prepare_monthly_counts(
-    user: &mut User,
+    user: &mut RedisData<User>,
     flags: ProfileGraphFlags,
 ) -> (Vec<MonthlyCount>, Vec<MonthlyCount>) {
-    let mut playcounts = user.monthly_playcounts.take().unwrap_or_default();
-    let mut replays = user.replays_watched_counts.take().unwrap_or_default();
+    let mut playcounts = match user {
+        RedisData::Original(user) => mem::take(&mut user.monthly_playcounts),
+        RedisData::Archived(user) => user
+            .monthly_playcounts
+            .deserialize(&mut Infallible)
+            .unwrap(),
+    };
+
+    let mut replays = match user {
+        RedisData::Original(user) => mem::take(&mut user.replays_watched_counts),
+        RedisData::Archived(user) => user
+            .replays_watched_counts
+            .deserialize(&mut Infallible)
+            .unwrap(),
+    };
 
     // Spoof missing months
     if flags.playcount() {

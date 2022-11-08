@@ -1,4 +1,4 @@
-use std::{fmt::Write, sync::Arc};
+use std::{fmt::Write, mem, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
 use eyre::{Report, Result, WrapErr};
@@ -11,28 +11,35 @@ use plotters::{
     style::{Color, RGBColor, ShapeStyle, BLACK, GREEN, RED, WHITE},
 };
 use plotters_backend::FontStyle;
-use rosu_v2::prelude::{GameMode, OsuError, Score, User};
+use rkyv::{Deserialize, Infallible};
+use rosu_v2::{
+    prelude::{GameMode, OsuError, Score},
+    request::UserId,
+};
 use time::{Duration, OffsetDateTime, UtcOffset};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    commands::{
-        osu::{get_user, get_user_and_scores, ProfileGraphFlags, ScoreArgs, UserArgs},
-        GameModeOption, ShowHideOption,
-    },
+    commands::{osu::ProfileGraphFlags, GameModeOption, ShowHideOption},
     core::{commands::CommandOrigin, Context},
-    embeds::{EmbedData, GraphEmbed},
+    embeds::attachment,
+    manager::redis::{
+        osu::{User, UserArgs},
+        RedisData,
+    },
     util::{
-        builder::MessageBuilder,
+        builder::{EmbedBuilder, MessageBuilder},
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         interaction::InteractionCommand,
-        numbers::with_comma_int,
+        numbers::WithComma,
         CountryCode, InteractionCommandExt, Monthly,
     },
 };
 
-use super::{player_snipe_stats, profile, require_link, sniped, ProfileGraphParams};
+use super::{
+    player_snipe_stats, profile, require_link, sniped, user_not_found, ProfileGraphParams,
+};
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(name = "graph")]
@@ -271,33 +278,33 @@ async fn slash_graph(ctx: Arc<Context>, mut command: InteractionCommand) -> Resu
 async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Result<()> {
     let tuple_option = match args {
         Graph::Medals(args) => {
-            let name = match username!(ctx, orig, args) {
-                Some(name) => name,
-                None => match ctx.psql().get_user_osu(orig.user_id()?).await {
-                    Ok(Some(osu)) => osu.into_username(),
+            let user_id = match user_id!(ctx, orig, args) {
+                Some(user_id) => user_id,
+                None => match ctx.user_config().osu_id(orig.user_id()?).await {
+                    Ok(Some(user_id)) => UserId::Id(user_id),
                     Ok(None) => return require_link(&ctx, &orig).await,
                     Err(err) => {
                         let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                        return Err(err.wrap_err("failed to get username"));
+                        return Err(err);
                     }
                 },
             };
 
-            medals_graph(&ctx, &orig, &name)
+            medals_graph(&ctx, &orig, user_id)
                 .await
                 .wrap_err("failed to create medals graph")?
         }
         Graph::PlaycountReplays(args) => {
-            let name = match username!(ctx, orig, args) {
-                Some(name) => name,
-                None => match ctx.psql().get_user_osu(orig.user_id()?).await {
-                    Ok(Some(osu)) => osu.into_username(),
+            let user_id = match user_id!(ctx, orig, args) {
+                Some(user_id) => user_id,
+                None => match ctx.user_config().osu_id(orig.user_id()?).await {
+                    Ok(Some(user_id)) => UserId::Id(user_id),
                     Ok(None) => return require_link(&ctx, &orig).await,
                     Err(err) => {
                         let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                        return Err(err.wrap_err("failed to get username"));
+                        return Err(err);
                     }
                 },
             };
@@ -320,60 +327,60 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
                 return orig.error(&ctx, ":clown:").await;
             }
 
-            playcount_replays_graph(&ctx, &orig, &name, flags)
+            playcount_replays_graph(&ctx, &orig, user_id, flags)
                 .await
                 .wrap_err("failed to create profile graph")?
         }
         Graph::Rank(args) => {
-            let (name, mode) = name_mode!(ctx, orig, args);
-            let user_args = UserArgs::new(name.as_str(), mode);
+            let (user_id, mode) = user_id_mode!(ctx, orig, args);
+            let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
 
-            rank_graph(&ctx, &orig, &name, &user_args)
+            rank_graph(&ctx, &orig, user_id, user_args)
                 .await
                 .wrap_err("failed to create rank graph")?
         }
         Graph::Sniped(args) => {
-            let name = match username!(ctx, orig, args) {
-                Some(name) => name,
-                None => match ctx.psql().get_user_osu(orig.user_id()?).await {
-                    Ok(Some(osu)) => osu.into_username(),
+            let user_id = match user_id!(ctx, orig, args) {
+                Some(user_id) => user_id,
+                None => match ctx.user_config().osu_id(orig.user_id()?).await {
+                    Ok(Some(user_id)) => UserId::Id(user_id),
                     Ok(None) => return require_link(&ctx, &orig).await,
                     Err(err) => {
                         let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                        return Err(err.wrap_err("failed to get username"));
+                        return Err(err);
                     }
                 },
             };
 
-            sniped_graph(&ctx, &orig, &name)
+            sniped_graph(&ctx, &orig, user_id)
                 .await
                 .wrap_err("failed to create snipe graph")?
         }
         Graph::SnipeCount(args) => {
-            let name = match username!(ctx, orig, args) {
-                Some(name) => name,
-                None => match ctx.psql().get_user_osu(orig.user_id()?).await {
-                    Ok(Some(osu)) => osu.into_username(),
+            let user_id = match user_id!(ctx, orig, args) {
+                Some(user_id) => user_id,
+                None => match ctx.user_config().osu_id(orig.user_id()?).await {
+                    Ok(Some(user_id)) => UserId::Id(user_id),
                     Ok(None) => return require_link(&ctx, &orig).await,
                     Err(err) => {
                         let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                        return Err(err.wrap_err("failed to get username"));
+                        return Err(err);
                     }
                 },
             };
 
-            snipe_count_graph(&ctx, &orig, &name)
+            snipe_count_graph(&ctx, &orig, user_id)
                 .await
                 .wrap_err("failed to create snipe count graph")?
         }
         Graph::Top(args) => {
-            let (name, mode) = name_mode!(ctx, orig, args);
-            let user_args = UserArgs::new(name.as_str(), mode);
+            let (user_id, mode) = user_id_mode!(ctx, orig, args);
+            let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
             let tz = args.timezone.map(UtcOffset::from);
 
-            top_graph(&ctx, &orig, &name, user_args, args.order, tz)
+            top_graph(&ctx, &orig, user_id, user_args, args.order, tz)
                 .await
                 .wrap_err("failed to create top graph")?
         }
@@ -384,7 +391,10 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
         None => return Ok(()),
     };
 
-    let embed = GraphEmbed::new(&user).build();
+    let embed = EmbedBuilder::new()
+        .author(user.author_builder())
+        .image(attachment("graph.png"))
+        .build();
 
     let builder = MessageBuilder::new()
         .embed(embed)
@@ -402,14 +412,14 @@ const LEN: usize = (W * H) as usize;
 async fn medals_graph(
     ctx: &Context,
     orig: &CommandOrigin<'_>,
-    name: &str,
-) -> Result<Option<(User, Vec<u8>)>> {
-    let user_args = UserArgs::new(name, GameMode::Osu);
+    user_id: UserId,
+) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
+    let user_args = UserArgs::rosu_id(ctx, &user_id).await;
 
-    let mut user = match get_user(ctx, &user_args).await {
+    let mut user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = format!("Could not find user `{name}`");
+            let content = user_not_found(ctx, user_id).await;
             orig.error(ctx, content).await?;
 
             return Ok(None);
@@ -422,14 +432,17 @@ async fn medals_graph(
         }
     };
 
-    if let Some(ref mut medals) = user.medals {
-        medals.sort_unstable_by_key(|medal| medal.achieved_at);
-    }
+    let mut medals = match user {
+        RedisData::Original(ref mut user) => mem::take(&mut user.medals),
+        RedisData::Archived(ref user) => user.medals.deserialize(&mut Infallible).unwrap(),
+    };
 
-    let bytes = match super::medals::stats::graph(user.medals.as_ref().unwrap(), W, H) {
+    medals.sort_unstable_by_key(|medal| medal.achieved_at);
+
+    let bytes = match super::medals::stats::graph(&medals, W, H) {
         Ok(Some(graph)) => graph,
         Ok(None) => {
-            let content = format!("`{name}` does not have any medals");
+            let content = format!("`{}` does not have any medals", user.username());
             let builder = MessageBuilder::new().embed(content);
             orig.create_message(ctx, &builder).await?;
 
@@ -449,24 +462,24 @@ async fn medals_graph(
 async fn playcount_replays_graph(
     ctx: &Context,
     orig: &CommandOrigin<'_>,
-    name: &str,
+    user_id: UserId,
     flags: ProfileGraphFlags,
-) -> Result<Option<(User, Vec<u8>)>> {
-    let user_args = UserArgs::new(name, GameMode::Osu);
+) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
+    let user_args = UserArgs::rosu_id(ctx, &user_id).await;
 
-    let mut user = match get_user(ctx, &user_args).await {
+    let mut user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = format!("Could not find user `{name}`");
+            let content = user_not_found(ctx, user_id).await;
             orig.error(ctx, content).await?;
 
             return Ok(None);
         }
         Err(err) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user");
+            let err = Report::new(err).wrap_err("failed to get user");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
@@ -478,7 +491,11 @@ async fn playcount_replays_graph(
     let bytes = match profile::graphs(params).await {
         Ok(Some(graph)) => graph,
         Ok(None) => {
-            let content = format!("`{name}` does not have enough playcount data points");
+            let content = format!(
+                "`{name}` does not have enough playcount data points",
+                name = user.username()
+            );
+
             let builder = &MessageBuilder::new().embed(content);
             orig.create_message(ctx, builder).await?;
 
@@ -498,32 +515,33 @@ async fn playcount_replays_graph(
 async fn rank_graph(
     ctx: &Context,
     orig: &CommandOrigin<'_>,
-    name: &str,
-    user_args: &UserArgs<'_>,
-) -> Result<Option<(User, Vec<u8>)>> {
-    let user = match get_user(ctx, user_args).await {
+    user_id: UserId,
+    user_args: UserArgs,
+) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
+    let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = format!("Could not find user `{name}`");
+            let content = user_not_found(ctx, user_id).await;
             orig.error(ctx, content).await?;
 
             return Ok(None);
         }
         Err(err) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user");
+            let err = Report::new(err).wrap_err("failed to get user");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
-    fn draw_graph(user: &User) -> Result<Option<Vec<u8>>> {
+    fn draw_graph(user: &RedisData<User>) -> Result<Option<Vec<u8>>> {
         let mut buf = vec![0; LEN * 3];
 
-        let history = match user.rank_history {
-            Some(ref history) if history.is_empty() => return Ok(None),
-            Some(ref history) => history,
-            None => return Ok(None),
+        let history = match user {
+            RedisData::Original(user) if user.rank_history.is_empty() => return Ok(None),
+            RedisData::Original(user) => user.rank_history.as_slice(),
+            RedisData::Archived(user) if user.rank_history.is_empty() => return Ok(None),
+            RedisData::Archived(user) => user.rank_history.as_slice(),
         };
 
         let history_len = history.len();
@@ -590,7 +608,7 @@ async fn rank_graph(
                 .y_label_formatter(&|y| format!("{}", -*y))
                 .y_desc("Rank")
                 .label_style(("sans-serif", 15, &WHITE))
-                .bold_line_style(&WHITE.mix(0.3))
+                .bold_line_style(WHITE.mix(0.3))
                 .axis_style(RGBColor(7, 18, 14))
                 .axis_desc_style(("sans-serif", 16, FontStyle::Bold, &WHITE))
                 .draw()
@@ -609,7 +627,7 @@ async fn rank_graph(
             chart
                 .draw_series(std::iter::once(circle))
                 .wrap_err("failed to draw max circle")?
-                .label(format!("Peak: #{}", with_comma_int(-max)))
+                .label(format!("Peak: #{}", WithComma::new(-max)))
                 .legend(|(x, y)| Circle::new((x, y), 5_u32, style(GREEN)));
 
             let min_coords = (max_idx as u32, min);
@@ -618,7 +636,7 @@ async fn rank_graph(
             chart
                 .draw_series(std::iter::once(circle))
                 .wrap_err("failed to draw min circle")?
-                .label(format!("Worst: #{}", with_comma_int(-min)))
+                .label(format!("Worst: #{}", WithComma::new(-min)))
                 .legend(|(x, y)| Circle::new((x, y), 5_u32, style(RED)));
 
             let position = if min_idx <= 70 {
@@ -632,7 +650,7 @@ async fn rank_graph(
             chart
                 .configure_series_labels()
                 .border_style(BLACK.stroke_width(2))
-                .background_style(&RGBColor(192, 192, 192))
+                .background_style(RGBColor(192, 192, 192))
                 .position(position)
                 .legend_area_size(13)
                 .label_font(("sans-serif", 15, FontStyle::Bold))
@@ -654,14 +672,18 @@ async fn rank_graph(
     let bytes = match draw_graph(&user) {
         Ok(Some(graph)) => graph,
         Ok(None) => {
-            let content = format!("`{name}` has no available rank data :(");
+            let content = format!(
+                "`{name}` has no available rank data :(",
+                name = user.username()
+            );
+
             orig.error(ctx, content).await?;
 
             return Ok(None);
         }
         Err(err) => {
             let _ = orig.error(ctx, GENERAL_ISSUE).await;
-            warn!("{:?}", err.wrap_err("Failed to draw rank graph"));
+            warn!("{:?}", err.wrap_err("failed to draw rank graph"));
 
             return Ok(None);
         }
@@ -673,34 +695,51 @@ async fn rank_graph(
 async fn sniped_graph(
     ctx: &Context,
     orig: &CommandOrigin<'_>,
-    name: &str,
-) -> Result<Option<(User, Vec<u8>)>> {
-    let user_args = UserArgs::new(name, GameMode::Osu);
+    user_id: UserId,
+) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
+    let user_args = UserArgs::rosu_id(ctx, &user_id).await;
 
-    let user = match get_user(ctx, &user_args).await {
+    let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = format!("Could not find user `{name}`");
+            let content = user_not_found(ctx, user_id).await;
             orig.error(ctx, content).await?;
 
             return Ok(None);
         }
         Err(err) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user");
+            let err = Report::new(err).wrap_err("failed to get user");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
-    let (sniper, snipee) = if ctx.contains_country(user.country_code.as_str()) {
+    let (country_code, username, user_id) = match &user {
+        RedisData::Original(user) => {
+            let country_code = user.country_code.as_str();
+            let username = user.username.as_str();
+            let user_id = user.user_id;
+
+            (country_code, username, user_id)
+        }
+        RedisData::Archived(user) => {
+            let country_code = user.country_code.as_str();
+            let username = user.username.as_str();
+            let user_id = user.user_id;
+
+            (country_code, username, user_id)
+        }
+    };
+
+    let (sniper, snipee) = if ctx.huismetbenen().is_supported(country_code).await {
         let now = OffsetDateTime::now_utc();
         let sniper_fut =
             ctx.client()
-                .get_national_snipes(&user, true, now - Duration::weeks(8), now);
+                .get_national_snipes(user_id, true, now - Duration::weeks(8), now);
         let snipee_fut =
             ctx.client()
-                .get_national_snipes(&user, false, now - Duration::weeks(8), now);
+                .get_national_snipes(user_id, false, now - Duration::weeks(8), now);
 
         match tokio::try_join!(sniper_fut, snipee_fut) {
             Ok((mut sniper, snipee)) => {
@@ -715,21 +754,18 @@ async fn sniped_graph(
             }
         }
     } else {
-        let content = format!(
-            "`{}`'s country {} is not supported :(",
-            user.username, user.country_code
-        );
-
+        let content = format!("`{username}`'s country {country_code} is not supported :(");
         orig.error(ctx, content).await?;
 
         return Ok(None);
     };
 
-    let bytes = match sniped::graphs(user.username.as_str(), &sniper, &snipee, W, H) {
+    let bytes = match sniped::graphs(username, &sniper, &snipee, W, H) {
         Ok(Some(graph)) => graph,
         Ok(None) => {
-            let content =
-                format!("`{name}` was neither sniped nor sniped other people in the last 8 weeks");
+            let content = format!(
+                "`{username}` was neither sniped nor sniped other people in the last 8 weeks"
+            );
             let builder = MessageBuilder::new().embed(content);
             orig.create_message(ctx, &builder).await?;
 
@@ -749,36 +785,51 @@ async fn sniped_graph(
 async fn snipe_count_graph(
     ctx: &Context,
     orig: &CommandOrigin<'_>,
-    name: &str,
-) -> Result<Option<(User, Vec<u8>)>> {
-    let user_args = UserArgs::new(name, GameMode::Osu);
+    user_id: UserId,
+) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
+    let user_args = UserArgs::rosu_id(ctx, &user_id).await;
 
-    let user = match get_user(ctx, &user_args).await {
+    let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = format!("Could not find user `{name}`");
+            let content = user_not_found(ctx, user_id).await;
             orig.error(ctx, content).await?;
 
             return Ok(None);
         }
         Err(err) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user");
+            let err = Report::new(err).wrap_err("failed to get user");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
-    let player = if ctx.contains_country(user.country_code.as_str()) {
-        let player_fut = ctx
-            .client()
-            .get_snipe_player(&user.country_code, user.user_id);
+    let (country_code, username, user_id) = match &user {
+        RedisData::Original(user) => {
+            let country_code = user.country_code.as_str();
+            let username = user.username.as_str();
+            let user_id = user.user_id;
+
+            (country_code, username, user_id)
+        }
+        RedisData::Archived(user) => {
+            let country_code = user.country_code.as_str();
+            let username = user.username.as_str();
+            let user_id = user.user_id;
+
+            (country_code, username, user_id)
+        }
+    };
+
+    let player = if ctx.huismetbenen().is_supported(country_code).await {
+        let player_fut = ctx.client().get_snipe_player(country_code, user_id);
 
         match player_fut.await {
             Ok(counts) => counts,
             Err(err) => {
-                warn!("{:?}", err.wrap_err("Failed to get snipe player"));
-                let content = format!("`{name}` has never had any national #1s");
+                warn!("{:?}", err.wrap_err("failed to get snipe player"));
+                let content = format!("`{username}` has never had any national #1s");
                 let builder = MessageBuilder::new().embed(content);
                 orig.create_message(ctx, &builder).await?;
 
@@ -786,10 +837,7 @@ async fn snipe_count_graph(
             }
         }
     } else {
-        let content = format!(
-            "`{}`'s country {} is not supported :(",
-            user.username, user.country_code
-        );
+        let content = format!("`{username}`'s country {country_code} is not supported :(");
 
         orig.error(ctx, content).await?;
 
@@ -803,7 +851,7 @@ async fn snipe_count_graph(
         Ok(graph) => graph,
         Err(err) => {
             let _ = orig.error(ctx, GENERAL_ISSUE).await;
-            warn!("{:?}", err.wrap_err("Failed to create snipe count graph"));
+            warn!("{:?}", err.wrap_err("failed to create snipe count graph"));
 
             return Ok(None);
         }
@@ -815,27 +863,26 @@ async fn snipe_count_graph(
 async fn top_graph(
     ctx: &Context,
     orig: &CommandOrigin<'_>,
-    name: &str,
-    user_args: UserArgs<'_>,
+    user_id: UserId,
+    user_args: UserArgs,
     order: GraphTopOrder,
     tz: Option<UtcOffset>,
-) -> Result<Option<(User, Vec<u8>)>> {
-    let mode = user_args.mode;
-    let score_args = ScoreArgs::top(100);
+) -> Result<Option<(RedisData<User>, Vec<u8>)>> {
+    let scores_fut = ctx.osu_scores().top().limit(100).exec_with_user(user_args);
 
-    let (user, mut scores) = match get_user_and_scores(ctx, user_args, &score_args).await {
+    let (user, mut scores) = match scores_fut.await {
         Ok(tuple) => tuple,
         Err(OsuError::NotFound) => {
-            let content = format!("Could not find user `{name}`");
+            let content = user_not_found(ctx, user_id).await;
             orig.error(ctx, content).await?;
 
             return Ok(None);
         }
         Err(err) => {
             let _ = orig.error(ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user or scores");
+            let err = Report::new(err).wrap_err("failed to get user or scores");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
@@ -846,14 +893,26 @@ async fn top_graph(
         return Ok(None);
     }
 
+    let (username, country_code, mode) = match &user {
+        RedisData::Original(user) => {
+            let username = user.username.as_str();
+            let country_code = user.country_code.as_str();
+            let mode = user.mode;
+
+            (username, country_code, mode)
+        }
+        RedisData::Archived(user) => {
+            let username = user.username.as_str();
+            let country_code = user.country_code.as_str();
+            let mode = user.mode;
+
+            (username, country_code, mode)
+        }
+    };
+
     let caption = format!(
-        "{name}'{genitive} top {mode}scores",
-        name = user.username,
-        genitive = if user.username.ends_with('s') {
-            ""
-        } else {
-            "s"
-        },
+        "{username}'{genitive} top {mode}scores",
+        genitive = if username.ends_with('s') { "" } else { "s" },
         mode = match mode {
             GameMode::Osu => "",
             GameMode::Taiko => "taiko ",
@@ -862,7 +921,7 @@ async fn top_graph(
         }
     );
 
-    let tz = tz.unwrap_or_else(|| CountryCode::from(user.country_code.clone()).timezone());
+    let tz = tz.unwrap_or_else(|| CountryCode::from(country_code).timezone());
 
     let graph_result = match order {
         GraphTopOrder::Date => top_graph_date(caption, &mut scores)
@@ -928,14 +987,13 @@ async fn top_graph_date(caption: String, scores: &mut [Score]) -> Result<Vec<u8>
             .y_label_formatter(&|pp| format!("{pp:.0}pp"))
             .x_label_formatter(&|datetime| datetime.date().to_string())
             .label_style(("sans-serif", 16_i32, &WHITE))
-            .bold_line_style(&WHITE.mix(0.3))
+            .bold_line_style(WHITE.mix(0.3))
             .axis_style(RGBColor(7, 18, 14))
             .axis_desc_style(("sans-serif", 16_i32, FontStyle::Bold, &WHITE))
             .draw()
             .wrap_err("failed to draw mesh")?;
 
         let point_style = RGBColor(2, 186, 213).mix(0.7).filled();
-        // let border_style = RGBColor(30, 248, 178).mix(0.9).filled();
         let border_style = WHITE.mix(0.9).stroke_width(1);
 
         let iter = scores.iter().filter_map(|s| Some((s.ended_at, s.pp?)));
@@ -1012,7 +1070,7 @@ async fn top_graph_index(caption: String, scores: &[Score]) -> Result<Vec<u8>> {
             .configure_mesh()
             .y_label_formatter(&|pp| format!("{pp:.0}pp"))
             .label_style(("sans-serif", 16_i32, &WHITE))
-            .bold_line_style(&WHITE.mix(0.3))
+            .bold_line_style(WHITE.mix(0.3))
             .axis_style(RGBColor(7, 18, 14))
             .axis_desc_style(("sans-serif", 16_i32, FontStyle::Bold, &WHITE))
             .draw()
@@ -1035,7 +1093,7 @@ async fn top_graph_index(caption: String, scores: &[Score]) -> Result<Vec<u8>> {
             .filter_map(|(i, s)| Some((i, s.pp?)))
             .take(0);
 
-        let series = AreaSeries::new(iter, 0.0, &WHITE).border_style(&WHITE);
+        let series = AreaSeries::new(iter, 0.0, WHITE).border_style(WHITE);
 
         chart
             .draw_series(series)
@@ -1076,7 +1134,7 @@ async fn top_graph_time(
 
     let _ = write!(caption, " (UTC{tz})");
 
-    let mut hours = [0_u32; 24];
+    let mut hours = [0_u8; 24];
 
     let max = scores.first().and_then(|s| s.pp).unwrap_or(0.0);
     let max_adj = max + 5.0;
@@ -1091,7 +1149,7 @@ async fn top_graph_time(
 
     scores.sort_unstable_by_key(|s| s.ended_at.time());
 
-    let max_hours = hours.iter().max().copied().unwrap_or(0);
+    let max_hours = hours.iter().max().map_or(0, |count| *count as u32);
 
     let len = (W * H) as usize;
     let mut buf = vec![0; len * 3];
@@ -1171,7 +1229,7 @@ async fn top_graph_time(
             .y_label_formatter(&|pp| format!("{pp:.0}pp"))
             .x_label_formatter(&|value| format!("{}:{:0>2}", value / 60, value % 60))
             .label_style(("sans-serif", 16_i32, &WHITE))
-            .bold_line_style(&WHITE.mix(0.3))
+            .bold_line_style(WHITE.mix(0.3))
             .axis_style(RGBColor(7, 18, 14))
             .axis_desc_style(("sans-serif", 16_i32, FontStyle::Bold, &WHITE))
             .draw()
@@ -1240,12 +1298,12 @@ async fn top_graph_time(
 }
 
 struct ScoreHourCounts {
-    hours: [u32; 24],
+    hours: [u8; 24],
     idx: usize,
 }
 
 impl ScoreHourCounts {
-    fn new(hours: [u32; 24]) -> Self {
+    fn new(hours: [u8; 24]) -> Self {
         Self { hours, idx: 0 }
     }
 }
@@ -1258,7 +1316,7 @@ impl Iterator for ScoreHourCounts {
         let hour = self.idx as u32;
         self.idx += 1;
 
-        let top_left = (SegmentValue::Exact(hour), count);
+        let top_left = (SegmentValue::Exact(hour), count as u32);
         let bot_right = (SegmentValue::Exact(hour + 1), 0);
 
         let mix = if count > 0 { 0.5 } else { 0.0 };

@@ -1,24 +1,22 @@
-use std::{borrow::Cow, fmt::Write, sync::Arc};
+use std::{borrow::Cow, cmp::Ordering, fmt::Write, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
-use eyre::{Report, Result, WrapErr};
+use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    commands::{
-        osu::{get_user_and_scores, ScoreArgs, ScoreOrder, UserArgs},
-        GameModeOption,
-    },
+    commands::{osu::user_not_found, GameModeOption},
     core::commands::{prefix::Args, CommandOrigin},
+    manager::{redis::osu::UserArgs, OsuMap},
     pagination::TopIfPagination,
-    pp::PpCalculator,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         interaction::InteractionCommand,
-        matcher, numbers,
-        osu::ModSelection,
+        matcher,
+        numbers::round,
+        osu::{ModSelection, ScoreSlim},
         query::{FilterCriteria, Searchable},
         ChannelExt, InteractionCommandExt,
     },
@@ -184,7 +182,7 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
         None => return orig.error(&ctx, TopIf::ERR_PARSE_MODS).await,
     };
 
-    let (name, mut mode) = name_mode!(ctx, orig, args);
+    let (user_id, mut mode) = user_id_mode!(ctx, orig, args);
 
     if mode == GameMode::Mania {
         mode = GameMode::Osu;
@@ -195,31 +193,23 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
     }
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::new(&name, mode);
-    let score_args = ScoreArgs::top(100).with_combo();
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let scores_fut = ctx.osu_scores().top().limit(100).exec_with_user(user_args);
 
-    #[allow(unused_mut)]
-    let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
+    let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = format!("User `{name}` was not found");
+            let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user or scores");
+            let err = Report::new(err).wrap_err("failed to get user or scores");
 
-            return Err(report);
+            return Err(err);
         }
     };
-
-    // Overwrite default mode
-    user.mode = mode;
-
-    // Process user and their top scores for tracking
-    #[cfg(feature = "osutracking")]
-    crate::tracking::process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
     // Calculate bonus pp
     let actual_pp: f32 = scores
@@ -227,12 +217,9 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
         .filter_map(|s| s.weight)
         .fold(0.0, |sum, weight| sum + weight.pp);
 
-    let bonus_pp = user
-        .statistics
-        .as_ref()
-        .map_or(0.0, |stats| stats.pp - actual_pp);
+    let bonus_pp = user.peek_stats(|stats| stats.pp - actual_pp);
 
-    let mut scores_data: Vec<_> = match modify_scores(&ctx, scores, mods).await {
+    let mut entries = match process_scores(&ctx, scores, mods).await {
         Ok(scores) => scores,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -242,26 +229,28 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
     };
 
     // Sort by adjusted pp
-    ScoreOrder::Pp.apply(&ctx, &mut scores_data).await;
+    entries.sort_unstable_by(|a, b| {
+        b.score
+            .pp
+            .partial_cmp(&a.score.pp)
+            .unwrap_or(Ordering::Equal)
+    });
 
     // Calculate adjusted pp
-    let adjusted_pp: f32 = scores_data
-        .iter()
-        .zip(0..)
-        .fold(0.0, |sum, ((_, Score { pp, .. }, _), i)| {
-            sum + pp.unwrap_or(0.0) * 0.95_f32.powi(i)
-        });
+    let adjusted_pp: f32 = entries.iter().zip(0..).fold(0.0, |sum, (entry, i)| {
+        sum + entry.score.pp * 0.95_f32.powi(i)
+    });
 
     if let Some(query) = args.query.as_deref() {
         let criteria = FilterCriteria::new(query);
 
-        scores_data.retain(|(_, score, _)| score.matches(&criteria));
+        entries.retain(|entry| entry.matches(&criteria));
     }
 
-    let final_pp = numbers::round(bonus_pp + adjusted_pp);
+    let final_pp = round(bonus_pp + adjusted_pp);
 
-    let rank = match ctx.psql().approx_rank_from_pp(final_pp, mode).await {
-        Ok(rank) => Some(rank as usize),
+    let rank = match ctx.approx().rank(final_pp, mode).await {
+        Ok(rank) => Some(rank),
         Err(err) => {
             warn!("{:?}", err.wrap_err("failed to get rank from pp"));
 
@@ -270,10 +259,10 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
     };
 
     // Accumulate all necessary data
-    let pre_pp = user.statistics.as_ref().map_or(0.0, |stats| stats.pp);
-    let content = get_content(user.username.as_str(), mode, mods, args.query.as_deref());
+    let pre_pp = user.peek_stats(|stats| stats.pp);
+    let content = get_content(user.username(), mode, mods, args.query.as_deref());
 
-    TopIfPagination::builder(user, scores_data, mode, pre_pp, final_pp, rank)
+    TopIfPagination::builder(user, entries, mode, pre_pp, final_pp, rank)
         .content(content)
         .start_by_update()
         .defer_components()
@@ -281,20 +270,35 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
         .await
 }
 
-async fn modify_scores(
+pub struct TopIfEntry {
+    pub original_idx: usize,
+    pub score: ScoreSlim,
+    pub map: OsuMap,
+    pub stars: f32,
+    pub max_pp: f32,
+}
+
+async fn process_scores(
     ctx: &Context,
     scores: Vec<Score>,
     arg_mods: ModSelection,
-) -> Result<Vec<(usize, Score, Option<f32>)>> {
-    let mut scores_data = Vec::with_capacity(scores.len());
+) -> Result<Vec<TopIfEntry>> {
+    let mut entries = Vec::with_capacity(scores.len());
+
+    let maps_id_checksum = scores
+        .iter()
+        .filter_map(|score| score.map.as_ref())
+        .map(|map| (map.map_id as i32, map.checksum.as_deref()))
+        .collect();
+
+    let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
 
     for (mut score, i) in scores.into_iter().zip(1..) {
-        let map = score.map.as_ref().unwrap();
-
-        if map.convert {
-            scores_data.push((i, score, None));
-            continue;
-        }
+        let map = score
+            .map
+            .as_ref()
+            .and_then(|map| maps.remove(&map.map_id))
+            .expect("missing map");
 
         let changed = match arg_mods {
             ModSelection::Exact(mods) => {
@@ -352,28 +356,27 @@ async fn modify_scores(
             score.grade = score.grade(Some(score.accuracy));
         }
 
-        let base_calc = PpCalculator::new(ctx, map.map_id)
-            .await
-            .wrap_err("failed to get pp calculator")?;
-
-        let mut calc = base_calc.score(&score);
-
-        let stars = calc.stars() as f32;
-        let max_pp = calc.max_pp() as f32;
+        let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
+        let attrs = calc.performance().await;
 
         let pp = if let Some(pp) = score.pp.filter(|_| !changed) {
             pp
         } else {
-            calc.pp() as f32
+            calc.score(&score).performance().await.pp() as f32
         };
 
-        score.map.as_mut().unwrap().stars = stars;
-        score.pp = Some(pp);
+        let entry = TopIfEntry {
+            original_idx: i,
+            score: ScoreSlim::new(score, pp),
+            map,
+            stars: attrs.stars() as f32,
+            max_pp: attrs.pp() as f32,
+        };
 
-        scores_data.push((i, score, Some(max_pp)));
+        entries.push(entry);
     }
 
-    Ok(scores_data)
+    Ok(entries)
 }
 
 fn get_content(name: &str, mode: GameMode, mods: ModSelection, query: Option<&str>) -> String {

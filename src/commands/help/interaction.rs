@@ -16,10 +16,10 @@ use crate::{
     util::{
         builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
         constants::{BATHBOT_GITHUB, BATHBOT_ROADMAP, BATHBOT_WORKSHOP, INVITE_LINK, KOFI},
-        datetime::how_long_ago_dynamic,
+        datetime::HowLongAgoDynamic,
         interaction::InteractionCommand,
         levenshtein_distance,
-        numbers::with_comma_int,
+        numbers::WithComma,
         CowUtils, InteractionCommandExt,
     },
 };
@@ -122,7 +122,7 @@ async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Res
     let servers = EmbedField {
         inline: true,
         name: "Servers".to_owned(),
-        value: with_comma_int(ctx.cache.stats().guilds()).to_string(),
+        value: WithComma::new(ctx.cache.stats().guilds()).to_string(),
     };
 
     let boot_time = ctx.stats.start_time;
@@ -130,7 +130,7 @@ async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Res
     let boot_up = EmbedField {
         inline: true,
         name: "Boot-up".to_owned(),
-        value: how_long_ago_dynamic(&boot_time).to_string(),
+        value: HowLongAgoDynamic::new(&boot_time).to_string(),
     };
 
     let github = EmbedField {
@@ -148,7 +148,7 @@ async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Res
     let commands_used = EmbedField {
         inline: true,
         name: "Commands used".to_owned(),
-        value: with_comma_int(commands_used).to_string(),
+        value: WithComma::new(commands_used).to_string(),
     };
 
     let osu_requests: usize = ctx.stats.osu_metrics.rosu.collect()[0]
@@ -160,7 +160,7 @@ async fn help_slash_basic(ctx: Arc<Context>, command: InteractionCommand) -> Res
     let osu_requests = EmbedField {
         inline: true,
         name: "osu!api requests".to_owned(),
-        value: with_comma_int(osu_requests).to_string(),
+        value: WithComma::new(osu_requests).to_string(),
     };
 
     let kofi = EmbedField {

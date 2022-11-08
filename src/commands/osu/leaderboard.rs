@@ -1,18 +1,16 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use command_macros::{command, HasMods, SlashCommand};
-use eyre::{Report, Result};
-use rosu_v2::error::OsuError;
+use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::channel::{message::MessageType, Message};
 
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
-    database::OsuData,
+    manager::MapError,
     pagination::LeaderboardPagination,
-    pp::PpCalculator,
     util::{
-        constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE},
+        constants::{AVATAR_URL, GENERAL_ISSUE, OSU_WEB_ISSUE},
         interaction::InteractionCommand,
         matcher,
         osu::{MapIdType, ModSelection},
@@ -194,64 +192,46 @@ async fn leaderboard(
         }
     };
 
-    let author_name = match ctx.psql().get_user_osu(owner).await {
-        Ok(osu) => osu.map(OsuData::into_username),
+    let author_name = match ctx.user_config().osu_name(owner).await {
+        Ok(name_opt) => name_opt,
         Err(err) => {
-            warn!("{:?}", err.wrap_err("failed to get username"));
+            warn!("{:?}", err.wrap_err("Failed to get username"));
 
             None
         }
     };
 
     // Retrieving the beatmap
-    let mut map = match ctx.psql().get_beatmap(map_id, true).await {
+    let map = match ctx.osu_map().map(map_id, None).await {
         Ok(map) => map,
-        Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
-            Ok(map) => {
-                // Add map to database if its not in already
-                if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-                    warn!("{:?}", err.wrap_err("Failed to insert map in database"));
-                }
+        Err(MapError::NotFound) => {
+            let content = format!(
+                "Could not find beatmap with id `{map_id}`. \
+                Did you give me a mapset id instead of a map id?",
+            );
 
-                ctx.map_garbage_collector(&map).execute(&ctx);
-
-                map
-            }
-            Err(OsuError::NotFound) => {
-                let content = format!(
-                    "Could not find beatmap with id `{map_id}`. \
-                    Did you give me a mapset id instead of a map id?",
-                );
-
-                return orig.error(&ctx, content).await;
-            }
-            Err(err) => {
-                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-                let report = Report::new(err).wrap_err("failed to get beatmap");
-
-                return Err(report);
-            }
-        },
-    };
-
-    if let Some(ModSelection::Include(m) | ModSelection::Exact(m)) = mods {
-        match PpCalculator::new(&ctx, map_id).await {
-            Ok(calc) => map.stars = calc.mods(m).stars() as f32,
-            Err(err) => warn!("{:?}", err.wrap_err("Failed to get pp calculator")),
+            return orig.error(&ctx, content).await;
         }
-    }
+        Err(MapError::Report(err)) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err);
+        }
+    };
 
     let mods = match mods {
+        Some(ModSelection::Include(mods) | ModSelection::Exact(mods)) => Some(mods),
         Some(ModSelection::Exclude(_)) | None => None,
-        Some(ModSelection::Include(m)) | Some(ModSelection::Exact(m)) => Some(m),
     };
 
-    // Retrieve the map's leaderboard
-    let scores_future = ctx.client().get_leaderboard(map_id, mods, map.mode);
+    let mut calc = ctx.pp(&map).mode(map.mode()).mods(mods.unwrap_or_default());
+    let attrs_fut = calc.performance();
 
-    let scores = match scores_future.await {
-        Ok(scores) => scores,
-        Err(err) => {
+    let scores_fut = ctx.client().get_leaderboard(map_id, mods, map.mode());
+
+    let (scores, attrs) = match tokio::join!(scores_fut, attrs_fut) {
+        (Ok(scores), attrs) => (scores, attrs),
+        (Err(err), _) => {
             let _ = orig.error(&ctx, OSU_WEB_ISSUE).await;
 
             return Err(err.wrap_err("failed to get leaderboard"));
@@ -267,7 +247,12 @@ async fn leaderboard(
     let content =
         format!("I found {amount} scores with the specified mods on the map's leaderboard");
 
-    LeaderboardPagination::builder(map, scores, author_name, first_place_icon)
+    let mut attr_map = HashMap::default();
+    let stars = attrs.stars() as f32;
+    let max_pp = attrs.pp() as f32;
+    attr_map.insert(mods.unwrap_or_default().bits(), (attrs.into(), max_pp));
+
+    LeaderboardPagination::builder(map, scores, stars, attr_map, author_name, first_place_icon)
         .start_by_update()
         .content(content)
         .start(ctx, orig)

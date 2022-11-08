@@ -15,8 +15,8 @@ use crate::{
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::{AVATAR_URL, OSU_BASE},
-        datetime::sec_to_minsec,
-        numbers::{round, with_comma_int},
+        datetime::SecToMinSec,
+        numbers::{round, WithComma},
         osu::{mode_emote, prepare_beatmap_file},
         CowUtils,
     },
@@ -52,8 +52,8 @@ impl MapEmbed {
         let _ = write!(
             title,
             "{} - {}",
-            mapset.artist.cow_escape_markdown(),
-            mapset.title.cow_escape_markdown()
+            mapset.artist.as_str().cow_escape_markdown(),
+            mapset.title.as_str().cow_escape_markdown()
         );
 
         #[cfg(feature = "server")]
@@ -169,17 +169,17 @@ impl MapEmbed {
         }
 
         let _ = writeln!(info_value, " Stars: `{stars:.2}★`");
-        let _ = write!(info_value, "Length: `{}` ", sec_to_minsec(seconds_total));
+        let _ = write!(info_value, "Length: `{}` ", SecToMinSec::new(seconds_total));
 
         if seconds_drain != seconds_total {
-            let _ = write!(info_value, "(`{}`) ", sec_to_minsec(seconds_drain));
+            let _ = write!(info_value, "(`{}`) ", SecToMinSec::new(seconds_drain));
         }
 
         let _ = write!(
             info_value,
             "BPM: `{}` Objects: `{}`\nCS: `{}` AR: `{}` OD: `{}` HP: `{}` Spinners: `{}`",
             round(bpm),
-            map.count_objects(),
+            map.count_circles + map.count_sliders + map.count_spinners,
             round(map_attributes.cs as f32),
             round(map_attributes.ar as f32),
             round(map_attributes.od as f32),
@@ -190,7 +190,7 @@ impl MapEmbed {
         let mut info_name = format!(
             "{mode} __[{version}]__",
             mode = mode_emote(map.mode),
-            version = map.version.cow_escape_markdown()
+            version = map.version.as_str().cow_escape_markdown()
         );
 
         if !mods.is_empty() {
@@ -204,8 +204,8 @@ impl MapEmbed {
 
         let mut field_name = format!(
             ":heart: {}  :play_pause: {}  | {:?}, {:?}",
-            with_comma_int(mapset.favourite_count),
-            with_comma_int(mapset.playcount),
+            WithComma::new(mapset.favourite_count),
+            WithComma::new(mapset.playcount),
             mapset.language.expect("no language in mapset"),
             mapset.genre.expect("no genre in mapset"),
         );

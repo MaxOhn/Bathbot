@@ -45,7 +45,7 @@ impl BeatmapExt for OsuStatsMap {
         self.max_combo
     }
     fn map_id(&self) -> u32 {
-        self.beatmap_id
+        self.map_id
     }
     fn mode(&self) -> GameMode {
         self.mode
@@ -54,7 +54,7 @@ impl BeatmapExt for OsuStatsMap {
         self.stars
     }
     fn rank_status(&self) -> RankStatus {
-        self.approval_status
+        self.status
     }
     fn n_objects(&self) -> Option<u32> {
         None

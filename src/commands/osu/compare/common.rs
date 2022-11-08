@@ -3,18 +3,24 @@ use std::{cmp::Ordering, fmt::Write, iter, sync::Arc};
 use command_macros::command;
 use eyre::{Report, Result};
 use hashbrown::HashMap;
+use rkyv::{Deserialize, Infallible};
 use rosu_v2::{
     prelude::{GameMode, OsuError, Score, Username},
+    request::UserId,
     OsuResult,
 };
 use time::OffsetDateTime;
 
 use crate::{
     commands::{
-        osu::{get_scores, NameExtraction, ScoreArgs, UserArgs},
+        osu::{user_not_found, UserExtraction},
         GameModeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
+    manager::redis::{
+        osu::{User, UserArgs},
+        RedisData,
+    },
     pagination::CommonPagination,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
@@ -76,19 +82,19 @@ async fn prefix_commonctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> R
     top(ctx, msg.into(), args).await
 }
 
-async fn extract_name(ctx: &Context, args: &mut CompareTop<'_>) -> NameExtraction {
+async fn extract_user_id(ctx: &Context, args: &mut CompareTop<'_>) -> UserExtraction {
     if let Some(name) = args.name1.take().or_else(|| args.name2.take()) {
-        NameExtraction::Name(name.as_ref().into())
+        UserExtraction::Id(UserId::Name(name.as_ref().into()))
     } else if let Some(discord) = args.discord1.take().or_else(|| args.discord2.take()) {
-        match ctx.psql().get_user_osu(discord).await {
-            Ok(Some(osu)) => NameExtraction::Name(osu.into_username()),
+        match ctx.user_config().osu_id(discord).await {
+            Ok(Some(user_id)) => UserExtraction::Id(UserId::Id(user_id)),
             Ok(None) => {
-                NameExtraction::Content(format!("<@{discord}> is not linked to an osu!profile"))
+                UserExtraction::Content(format!("<@{discord}> is not linked to an osu!profile"))
             }
-            Err(err) => NameExtraction::Err(err.wrap_err("failed to get username")),
+            Err(err) => UserExtraction::Err(err),
         }
     } else {
-        NameExtraction::None
+        UserExtraction::None
     }
 }
 
@@ -97,27 +103,27 @@ pub(super) async fn top(
     orig: CommandOrigin<'_>,
     mut args: CompareTop<'_>,
 ) -> Result<()> {
-    let mut name1 = match extract_name(&ctx, &mut args).await {
-        NameExtraction::Name(name) => name,
-        NameExtraction::Err(err) => {
+    let user_id1 = match extract_user_id(&ctx, &mut args).await {
+        UserExtraction::Id(user_id) => user_id,
+        UserExtraction::Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(err);
         }
-        NameExtraction::Content(content) => return orig.error(&ctx, content).await,
-        NameExtraction::None => return orig.error(&ctx, AT_LEAST_ONE).await,
+        UserExtraction::Content(content) => return orig.error(&ctx, content).await,
+        UserExtraction::None => return orig.error(&ctx, AT_LEAST_ONE).await,
     };
 
-    let mut name2 = match extract_name(&ctx, &mut args).await {
-        NameExtraction::Name(name) => name,
-        NameExtraction::Err(err) => {
+    let user_id2 = match extract_user_id(&ctx, &mut args).await {
+        UserExtraction::Id(user_id) => user_id,
+        UserExtraction::Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(err);
         }
-        NameExtraction::Content(content) => return orig.error(&ctx, content).await,
-        NameExtraction::None => match ctx.psql().get_user_osu(orig.user_id()?).await {
-            Ok(Some(osu)) => osu.into_username(),
+        UserExtraction::Content(content) => return orig.error(&ctx, content).await,
+        UserExtraction::None => match ctx.user_config().osu_id(orig.user_id()?).await {
+            Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => {
                 let content =
                     "Since you're not linked with the `/link` command, you must specify two names.";
@@ -132,69 +138,59 @@ pub(super) async fn top(
         },
     };
 
-    if name1 == name2 {
+    if user_id1 == user_id2 {
         return orig.error(&ctx, "Give two different names").await;
     }
 
     let mode = match args.mode {
         Some(mode) => mode.into(),
-        None => match ctx.user_config(orig.user_id()?).await {
-            Ok(config) => config.mode.unwrap_or(GameMode::Osu),
+        None => match ctx.user_config().mode(orig.user_id()?).await {
+            Ok(mode) => mode.unwrap_or(GameMode::Osu),
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get user config"));
+                return Err(err);
             }
         },
     };
 
-    let fut1 = get_scores_(&ctx, &name1, mode);
-    let fut2 = get_scores_(&ctx, &name2, mode);
+    let fut1 = get_user_and_scores(&ctx, &user_id1, mode);
+    let fut2 = get_user_and_scores(&ctx, &user_id2, mode);
 
-    #[allow(unused_mut)]
-    let (mut scores1, mut scores2) = match tokio::join!(fut1, fut2) {
-        (Ok(scores1), Ok(scores2)) => (scores1, scores2),
+    let (user1, scores1, user2, scores2) = match tokio::join!(fut1, fut2) {
+        (Ok((user1, scores1)), Ok((user2, scores2))) => (user1, scores1, user2, scores2),
         (Err(OsuError::NotFound), _) => {
-            let content = format!("User `{name1}` was not found");
+            let content = user_not_found(&ctx, user_id1).await;
 
             return orig.error(&ctx, content).await;
         }
         (_, Err(OsuError::NotFound)) => {
-            let content = format!("User `{name2}` was not found");
+            let content = user_not_found(&ctx, user_id2).await;
 
             return orig.error(&ctx, content).await;
         }
         (Err(err), _) | (_, Err(err)) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get scores");
+            let err = Report::new(err).wrap_err("failed to get scores");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
-    let user1 = if let Some(score) = scores1.first() {
-        let user_id = score.user_id;
-        let avatar_url = score.user.as_ref().unwrap().avatar_url.clone();
-        name1.make_ascii_lowercase();
+    let user1 = CommonUser::new(user1);
+    let user2 = CommonUser::new(user2);
 
-        CommonUser::new(name1, avatar_url, user_id)
+    let content = if scores1.is_empty() {
+        Some(format!("No scores data for user `{}`", user1.name))
+    } else if scores2.is_empty() {
+        Some(format!("No scores data for user `{}`", user2.name))
     } else {
-        let content = format!("User `{name1}` has no {mode} top scores");
-
-        return orig.error(&ctx, content).await;
+        None
     };
 
-    let user2 = if let Some(score) = scores2.first() {
-        let user_id = score.user_id;
-        let avatar_url = score.user.as_ref().unwrap().avatar_url.clone();
-        name2.make_ascii_lowercase();
-
-        CommonUser::new(name2, avatar_url, user_id)
-    } else {
-        let content = format!("User `{name2}` has no {mode} top scores");
-
+    if let Some(content) = content {
         return orig.error(&ctx, content).await;
-    };
+    }
 
     // Check if different names that both belong to the same user were given
     if user1.id() == user2.id() {
@@ -202,13 +198,6 @@ pub(super) async fn top(
 
         return orig.error(&ctx, content).await;
     }
-
-    // Process users and their top scores for tracking
-    #[cfg(feature = "osutracking")]
-    tokio::join! {
-        crate::tracking::process_osu_tracking(&ctx, &mut scores1, None),
-        crate::tracking::process_osu_tracking(&ctx, &mut scores2, None),
-    };
 
     let indices: HashMap<_, _> = scores2
         .iter()
@@ -284,24 +273,14 @@ pub(super) async fn top(
     builder.start_by_update().start(ctx, orig).await
 }
 
-async fn get_scores_(ctx: &Context, name: &str, mode: GameMode) -> OsuResult<Vec<Score>> {
-    let mut user_args = UserArgs::new(name, mode);
-    let score_args = ScoreArgs::top(100);
-    let scores_fut = get_scores(ctx, &user_args, &score_args);
+async fn get_user_and_scores(
+    ctx: &Context,
+    user_id: &UserId,
+    mode: GameMode,
+) -> OsuResult<(RedisData<User>, Vec<Score>)> {
+    let args = UserArgs::rosu_id(ctx, user_id).await.mode(mode);
 
-    if let Some(alt_name) = user_args.whitespaced_name() {
-        match scores_fut.await {
-            Ok(scores) => Ok(scores),
-            Err(OsuError::NotFound) => {
-                user_args.name = &alt_name;
-
-                get_scores(ctx, &user_args, &score_args).await
-            }
-            Err(err) => Err(err),
-        }
-    } else {
-        scores_fut.await
-    }
+    ctx.osu_scores().top().limit(100).exec_with_user(args).await
 }
 
 #[derive(PartialEq)]
@@ -347,15 +326,24 @@ pub struct CommonUser {
 }
 
 impl CommonUser {
-    fn new(name: Username, avatar_url: String, user_id: u32) -> Self {
-        Self {
-            name,
-            avatar_url,
-            user_id,
-            first_count: 0,
+    fn new(user: RedisData<User>) -> Self {
+        match user {
+            RedisData::Original(user) => Self {
+                name: user.username,
+                avatar_url: user.avatar_url,
+                user_id: user.user_id,
+                first_count: 0,
+            },
+            RedisData::Archived(user) => Self {
+                name: user.username.as_str().into(),
+                avatar_url: user.avatar_url.deserialize(&mut Infallible).unwrap(),
+                user_id: user.user_id,
+                first_count: 0,
+            },
         }
     }
 }
+
 impl CommonUser {
     pub fn id(&self) -> u32 {
         self.user_id

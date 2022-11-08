@@ -4,7 +4,11 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::commands::fun::GameDifficulty;
 
-pub use self::{game_wrapper::GameWrapper, mapset::GameMapset, tags::MapsetTags};
+pub use self::{
+    game_wrapper::GameWrapper,
+    mapset::GameMapset,
+    tags::{MapsetTags, MapsetTagsEntries},
+};
 
 mod game;
 mod game_wrapper;

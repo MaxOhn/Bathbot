@@ -1,10 +1,10 @@
 use std::fmt::Write;
 
 use command_macros::EmbedData;
-use rosu_v2::model::user::User;
 
 use crate::{
     commands::osu::MedalType,
+    manager::redis::{osu::User, RedisData},
     pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
@@ -25,7 +25,7 @@ pub struct MedalsMissingEmbed {
 
 impl MedalsMissingEmbed {
     pub fn new(
-        user: &User,
+        user: &RedisData<User>,
         medals: &[MedalType],
         medal_count: (usize, usize),
         includes_last: bool,
@@ -63,15 +63,34 @@ impl MedalsMissingEmbed {
             medal_count.0, medal_count.1
         ));
 
-        let author = AuthorBuilder::new(user.username.as_str())
-            .url(format!("{OSU_BASE}u/{}", user.user_id))
-            .icon_url(flag_url(user.country_code.as_str()));
+        let (country_code, username, user_id, avatar_url) = match user {
+            RedisData::Original(user) => {
+                let country_code = user.country_code.as_str();
+                let username = user.username.as_str();
+                let user_id = user.user_id;
+                let avatar_url = user.avatar_url.as_str();
+
+                (country_code, username, user_id, avatar_url)
+            }
+            RedisData::Archived(user) => {
+                let country_code = user.country_code.as_str();
+                let username = user.username.as_str();
+                let user_id = user.user_id;
+                let avatar_url = user.avatar_url.as_str();
+
+                (country_code, username, user_id, avatar_url)
+            }
+        };
+
+        let author = AuthorBuilder::new(username)
+            .url(format!("{OSU_BASE}u/{user_id}"))
+            .icon_url(flag_url(country_code));
 
         Self {
             author,
             description,
             footer,
-            thumbnail: user.avatar_url.to_owned(),
+            thumbnail: avatar_url.to_owned(),
             title: "Missing medals",
         }
     }

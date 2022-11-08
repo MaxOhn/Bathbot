@@ -1,8 +1,8 @@
+use bathbot_psql::model::configs::{GuildConfig, Prefix, DEFAULT_PREFIX};
 use command_macros::command;
 use eyre::Result;
 
 use crate::{
-    database::Prefix,
     util::{builder::MessageBuilder, constants::GENERAL_ISSUE, matcher, ChannelExt},
     Context,
 };
@@ -42,9 +42,11 @@ async fn prefix_prefix(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> 
             return Ok(());
         }
         None => {
-            let prefixes = ctx.guild_prefixes(guild_id).await;
             let mut content = String::new();
-            current_prefixes(&mut content, &prefixes);
+
+            let f = |config: &GuildConfig| current_prefixes(&mut content, &config.prefixes);
+            ctx.guild_config().peek(guild_id, f).await;
+
             let builder = MessageBuilder::new().embed(content);
             msg.create_message(&ctx, &builder).await?;
 
@@ -59,7 +61,7 @@ async fn prefix_prefix(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> 
         return Ok(());
     }
 
-    let args: Vec<Prefix> = args.take(5).map(|arg| arg.into()).collect();
+    let mut args: Vec<Prefix> = args.take(5).map(|arg| arg.into()).collect();
 
     if args.iter().any(|arg| matcher::is_custom_emote(arg)) {
         let content = "Does not work with custom emotes unfortunately \\:(";
@@ -68,45 +70,54 @@ async fn prefix_prefix(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> 
         return Ok(());
     }
 
-    let update_fut = ctx.update_guild_config(guild_id, |config| match action {
-        Action::Add => {
-            config.prefixes.extend(args);
+    let update_res = ctx
+        .guild_config()
+        .update(guild_id, |config| match action {
+            Action::Add => {
+                let remaining_len = config.prefixes.remaining_capacity();
 
-            config.prefixes.sort_unstable_by(|a, b| {
-                if a == "<" {
-                    Ordering::Less
-                } else if b == "<" {
-                    Ordering::Greater
-                } else {
-                    a.cmp(b)
+                if remaining_len == 0 {
+                    return;
                 }
-            });
 
-            config.prefixes.dedup();
-            config.prefixes.truncate(5);
-        }
-        Action::Remove => {
-            for arg in args {
-                config.prefixes.retain(|p| p != &arg);
+                args.truncate(remaining_len);
+                config.prefixes.extend(args);
+
+                config.prefixes.sort_unstable_by(|a, b| {
+                    if a.eq(&DEFAULT_PREFIX) {
+                        Ordering::Less
+                    } else if b.eq(&DEFAULT_PREFIX) {
+                        Ordering::Greater
+                    } else {
+                        a.cmp(b)
+                    }
+                });
+
+                config.prefixes.dedup();
+            }
+            Action::Remove => {
+                for arg in args {
+                    config.prefixes.retain(|p| p != &arg);
+                }
 
                 if config.prefixes.is_empty() {
-                    config.prefixes.push(arg);
-
-                    break;
+                    let _ = config.prefixes.try_push(DEFAULT_PREFIX.into());
                 }
             }
-        }
-    });
+        })
+        .await;
 
-    if let Err(err) = update_fut.await {
+    if let Err(err) = update_res {
         let _ = msg.error(&ctx, GENERAL_ISSUE).await;
 
         return Err(err.wrap_err("failed to update guild config"));
     }
 
     let mut content = "Prefixes updated!\n".to_owned();
-    let prefixes = ctx.guild_prefixes(guild_id).await;
-    current_prefixes(&mut content, &prefixes);
+
+    let f = |config: &GuildConfig| current_prefixes(&mut content, &config.prefixes);
+    ctx.guild_config().peek(guild_id, f).await;
+
     let builder = MessageBuilder::new().embed(content);
     msg.create_message(&ctx, &builder).await?;
 

@@ -1,24 +1,30 @@
-use std::{collections::BTreeMap, fmt::Write};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt::Write,
+};
 
 use command_macros::EmbedData;
-use hashbrown::HashMap;
-use rosu_v2::prelude::{Beatmap, User};
+use eyre::Result;
 
 use crate::{
     core::Context,
     custom_client::SnipeScore,
-    embeds::osu,
+    manager::{
+        redis::{osu::User, RedisData},
+        OsuMap,
+    },
     pagination::Pages,
-    pp::PpCalculator,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
-        datetime::how_long_ago_dynamic,
+        datetime::HowLongAgoDynamic,
         hasher::IntHasher,
-        numbers::{round, with_comma_int},
+        numbers::{round, WithComma},
         CowUtils,
     },
 };
+
+use super::{ModsFormatter, PpFormatter};
 
 #[derive(EmbedData)]
 pub struct PlayerSnipeListEmbed {
@@ -30,20 +36,20 @@ pub struct PlayerSnipeListEmbed {
 
 impl PlayerSnipeListEmbed {
     pub async fn new(
-        user: &User,
+        user: &RedisData<User>,
         scores: &BTreeMap<usize, SnipeScore>,
-        maps: &HashMap<u32, Beatmap, IntHasher>,
+        maps: &HashMap<u32, OsuMap, IntHasher>,
         total: usize,
         ctx: &Context,
         pages: &Pages,
-    ) -> Self {
+    ) -> Result<Self> {
         if scores.is_empty() {
-            return Self {
-                author: author!(user),
-                thumbnail: user.avatar_url.to_owned(),
+            return Ok(Self {
+                author: user.author_builder(),
+                thumbnail: user.avatar_url().to_owned(),
                 footer: FooterBuilder::new("Page 1/1 ~ Total #1 scores: 0"),
                 description: "No scores were found".to_owned(),
-            };
+            });
         }
 
         let page = pages.curr_page();
@@ -55,48 +61,30 @@ impl PlayerSnipeListEmbed {
         // TODO: update formatting
         for (idx, score) in entries {
             let map = maps.get(&score.map.map_id).expect("missing map");
+            let mods = score.mods.unwrap_or_default();
+            let max_pp = ctx.pp(map).mods(mods).performance().await.pp() as f32;
 
-            let max_pp = match PpCalculator::new(ctx, map.map_id).await {
-                Ok(calc) => Some(calc.mods(score.mods.unwrap_or_default()).max_pp() as f32),
-                Err(err) => {
-                    warn!("{:?}", err.wrap_err("Failed to get pp calculator"));
-
-                    None
-                }
-            };
-
-            let pp = osu::get_pp(score.pp, max_pp);
-            let n300 = map.count_objects()
-                - score.count_100.unwrap_or(0)
-                - score.count_50.unwrap_or(0)
-                - score.count_miss.unwrap_or(0);
-
-            let title = map
-                .mapset
-                .as_ref()
-                .unwrap()
-                .title
-                .as_str()
-                .cow_escape_markdown();
-
-            let _ = write!(
+            let _ = writeln!(
                 description,
                 "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars:.2}★]\n\
                 {pp} ~ ({acc}%) ~ {score}\n{{{n300}/{n100}/{n50}/{nmiss}}}",
                 idx = idx + 1,
-                version = map.version.as_str().cow_escape_markdown(),
+                title = map.title().cow_escape_markdown(),
+                version = map.version().cow_escape_markdown(),
                 id = score.map.map_id,
-                mods = osu::get_mods(score.mods.unwrap_or_default()),
+                mods = ModsFormatter::new(score.mods.unwrap_or_default()),
                 stars = score.stars,
+                pp = PpFormatter::new(score.pp, Some(max_pp)),
                 acc = round(score.accuracy),
-                score = with_comma_int(score.score),
+                score = WithComma::new(score.score),
+                n300 = score.count_300.unwrap_or(0),
                 n100 = score.count_100.unwrap_or(0),
                 n50 = score.count_50.unwrap_or(0),
                 nmiss = score.count_miss.unwrap_or(0),
             );
 
             if let Some(ref date) = score.date_set {
-                let _ = write!(description, " ~ {ago}", ago = how_long_ago_dynamic(date));
+                let _ = write!(description, " ~ {ago}", ago = HowLongAgoDynamic::new(date));
             }
 
             description.push('\n');
@@ -104,11 +92,11 @@ impl PlayerSnipeListEmbed {
 
         let footer = FooterBuilder::new(format!("Page {page}/{pages} ~ Total scores: {total}"));
 
-        Self {
-            author: author!(user),
+        Ok(Self {
+            author: user.author_builder(),
             description,
             footer,
-            thumbnail: user.avatar_url.to_owned(),
-        }
+            thumbnail: user.avatar_url().to_owned(),
+        })
     }
 }

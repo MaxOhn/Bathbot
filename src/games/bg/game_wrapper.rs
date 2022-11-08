@@ -1,7 +1,10 @@
-use std::{collections::VecDeque, mem, sync::Arc};
+use std::{
+    collections::{HashMap, VecDeque},
+    mem,
+    sync::Arc,
+};
 
 use eyre::{Report, Result};
-use hashbrown::HashMap;
 use tokio::sync::RwLock;
 use tokio::{
     sync::mpsc::{self, UnboundedSender},
@@ -15,13 +18,13 @@ use twilight_model::{
 use crate::util::hasher::IntHasher;
 use crate::{
     commands::fun::GameDifficulty,
-    database::MapsetTagWrapper,
     util::{builder::MessageBuilder, constants::OSU_BASE, ChannelExt},
     Context,
 };
 
 use super::{
     game::{game_loop, Game, LoopResult},
+    tags::MapsetTagsEntries,
     Effects,
 };
 
@@ -37,7 +40,7 @@ impl GameWrapper {
     pub async fn new(
         ctx: Arc<Context>,
         channel: Id<ChannelMarker>,
-        mapsets: Vec<MapsetTagWrapper>,
+        entries: MapsetTagsEntries,
         effects: Effects,
         difficulty: GameDifficulty,
     ) -> Self {
@@ -52,7 +55,7 @@ impl GameWrapper {
 
         // Initialize game
         let (game, mut img) =
-            Game::new(&ctx, &mapsets, &mut previous_ids, effects, difficulty).await;
+            Game::new(&ctx, &entries, &mut previous_ids, effects, difficulty).await;
         let game = Arc::new(RwLock::new(game));
         let game_clone = Arc::clone(&game);
 
@@ -111,8 +114,9 @@ impl GameWrapper {
 
                         // Store score for winners
                         for (user, score) in scores {
-                            if let Err(err) = ctx.psql().increment_bggame_score(user, score).await {
-                                warn!("{:?}", err.wrap_err("Failed to increment bg game score"));
+                            if let Err(err) = ctx.games().bggame_increment_score(user, score).await
+                            {
+                                warn!("{err:?}");
                             }
                         }
 
@@ -121,7 +125,7 @@ impl GameWrapper {
                         break;
                     }
                     LoopResult::Winner(user_id) => {
-                        if mapsets.len() >= 20 {
+                        if entries.tags.len() >= 20 {
                             *scores.entry(user_id).or_insert(0) += 1;
                         }
                     }
@@ -129,7 +133,7 @@ impl GameWrapper {
 
                 // Initialize next game
                 let (game, img_) =
-                    Game::new(&ctx, &mapsets, &mut previous_ids, effects, difficulty).await;
+                    Game::new(&ctx, &entries, &mut previous_ids, effects, difficulty).await;
                 img = img_;
                 *game_clone.write().await = game;
             }

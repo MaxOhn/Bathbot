@@ -1,13 +1,11 @@
 use std::fmt::{Display, Write};
 
+use bathbot_psql::model::configs::{ListSize, MinimizedPp, OsuUsername, ScoreSize, UserConfig};
 use command_macros::EmbedData;
 use rosu_v2::prelude::GameMode;
 use twilight_model::{channel::embed::EmbedField, user::User};
 
-use crate::{
-    database::{EmbedsSize, ListSize, MinimizedPp, UserConfig},
-    util::builder::AuthorBuilder,
-};
+use crate::util::builder::AuthorBuilder;
 
 #[derive(EmbedData)]
 pub struct ConfigEmbed {
@@ -17,7 +15,7 @@ pub struct ConfigEmbed {
 }
 
 impl ConfigEmbed {
-    pub fn new(author: &User, config: UserConfig, twitch: Option<String>) -> Self {
+    pub fn new(author: &User, config: UserConfig<OsuUsername>, twitch: Option<String>) -> Self {
         let author_img = match author.avatar {
             Some(ref hash) if hash.is_animated() => format!(
                 "https://cdn.discordapp.com/avatars/{}/{hash}.gif",
@@ -41,7 +39,7 @@ impl ConfigEmbed {
             osu!: {}\n\
             Twitch: {}\n\
             ```",
-            if let Some(name) = config.username() {
+            if let Some(ref name) = config.osu {
                 name as &dyn Display
             } else {
                 &"-" as &dyn Display
@@ -66,21 +64,21 @@ impl ConfigEmbed {
             ),
             create_field(
                 "Minimized PP",
-                config.minimized_pp(),
-                &[(MinimizedPp::Max, "max pp"), (MinimizedPp::IfFc, "if FC")],
+                config.minimized_pp.unwrap_or_default(),
+                &[(MinimizedPp::MaxPp, "max pp"), (MinimizedPp::IfFc, "if FC")],
             ),
             create_field(
                 "Score embeds",
-                config.embeds_size(),
+                config.score_size.unwrap_or_default(),
                 &[
-                    (EmbedsSize::AlwaysMinimized, "always minimized"),
-                    (EmbedsSize::AlwaysMaximized, "always maximized"),
-                    (EmbedsSize::InitialMaximized, "initial maximized"),
+                    (ScoreSize::AlwaysMinimized, "always minimized"),
+                    (ScoreSize::AlwaysMaximized, "always maximized"),
+                    (ScoreSize::InitialMaximized, "initial maximized"),
                 ],
             ),
             create_field(
                 "List embeds",
-                config.list_size(),
+                config.list_size.unwrap_or_default(),
                 &[
                     (ListSize::Condensed, "condensed"),
                     (ListSize::Detailed, "detailed"),

@@ -4,14 +4,14 @@ use command_macros::command;
 use eyre::{Report, Result, WrapErr};
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::prelude::*;
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::{prelude::OsuError, request::UserId};
 
 use crate::{
-    commands::osu::UserArgs,
+    commands::osu::user_not_found,
     core::commands::CommandOrigin,
     custom_client::SnipeCountryPlayer,
-    database::OsuData,
     embeds::{CountrySnipeStatsEmbed, EmbedData},
+    manager::redis::{osu::UserArgs, RedisData},
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
@@ -69,31 +69,29 @@ pub(super) async fn country_stats(
                 }
             }
         },
-        None => match ctx
-            .psql()
-            .get_user_osu(author_id)
-            .await
-            .map(|osu| osu.map(OsuData::into_username))
-        {
-            Ok(Some(name)) => {
-                let user_args = UserArgs::new(name.as_str(), GameMode::Osu);
+        None => match ctx.user_config().osu_id(author_id).await {
+            Ok(Some(user_id)) => {
+                let user_args = UserArgs::user_id(user_id);
 
-                let user = match ctx.redis().osu_user(&user_args).await {
+                let user = match ctx.redis().osu_user(user_args).await {
                     Ok(user) => user,
                     Err(OsuError::NotFound) => {
-                        let content = format!("User `{name}` was not found");
+                        let content = user_not_found(&ctx, UserId::Id(user_id)).await;
 
                         return orig.error(&ctx, content).await;
                     }
                     Err(err) => {
                         let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-                        let report = Report::new(err).wrap_err("failed to get user");
+                        let err = Report::new(err).wrap_err("failed to get user");
 
-                        return Err(report);
+                        return Err(err);
                     }
                 };
 
-                user.country_code.as_str().into()
+                match &user {
+                    RedisData::Original(user) => user.country_code.as_str().into(),
+                    RedisData::Archived(user) => user.country_code.as_str().into(),
+                }
             }
             Ok(None) => {
                 let content = "Since you're not linked, you must specify a country (code)";
@@ -103,13 +101,13 @@ pub(super) async fn country_stats(
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("faield to get username"));
+                return Err(err.wrap_err("failed to get username"));
             }
         },
     };
 
     // Check if huisemetbenen supports the country
-    if !country_code.snipe_supported(&ctx) {
+    if !ctx.huismetbenen().is_supported(country_code.as_str()).await {
         let content = format!("The country code `{country_code}` is not supported :(",);
 
         return orig.error(&ctx, content).await;
@@ -141,7 +139,9 @@ pub(super) async fn country_stats(
     };
 
     let country = ctx
+        .huismetbenen()
         .get_country(country_code.as_ref())
+        .await
         .map(|name| (name, country_code));
 
     let embed_data = CountrySnipeStatsEmbed::new(country, statistics);

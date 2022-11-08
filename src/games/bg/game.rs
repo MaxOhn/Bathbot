@@ -9,19 +9,21 @@ use parking_lot::RwLock;
 use rosu_v2::model::GameMode;
 use tokio::{fs, sync::RwLock as TokioRwLock};
 use tokio_stream::StreamExt;
-use twilight_model::id::{marker::ChannelMarker, Id};
+use twilight_model::id::{
+    marker::{ChannelMarker, UserMarker},
+    Id,
+};
 use twilight_standby::future::WaitForMessageStream;
 
 use crate::{
     commands::fun::GameDifficulty,
     core::BotConfig,
-    database::MapsetTagWrapper,
     games::bg::{hints::Hints, img_reveal::ImageReveal, GameMapset},
     util::{constants::OSU_BASE, ChannelExt, CowUtils},
     Context,
 };
 
-use super::{util, Effects};
+use super::{tags::MapsetTagsEntries, util, Effects};
 
 pub struct Game {
     pub mapset: GameMapset,
@@ -33,13 +35,13 @@ pub struct Game {
 impl Game {
     pub async fn new(
         ctx: &Context,
-        mapsets: &[MapsetTagWrapper],
-        previous_ids: &mut VecDeque<u32>,
+        entries: &MapsetTagsEntries,
+        previous_ids: &mut VecDeque<i32>,
         effects: Effects,
         difficulty: GameDifficulty,
     ) -> (Self, Vec<u8>) {
         loop {
-            match Game::new_(ctx, mapsets, previous_ids, effects, difficulty).await {
+            match Game::new_(ctx, entries, previous_ids, effects, difficulty).await {
                 Ok(game) => {
                     let sub_image_result = { game.reveal.read().sub_image() };
 
@@ -63,23 +65,23 @@ impl Game {
 
     async fn new_(
         ctx: &Context,
-        mapsets: &[MapsetTagWrapper],
-        previous_ids: &mut VecDeque<u32>,
+        entries: &MapsetTagsEntries,
+        previous_ids: &mut VecDeque<i32>,
         effects: Effects,
         difficulty: GameDifficulty,
     ) -> Result<Self> {
         let mut path = BotConfig::get().paths.backgrounds.clone();
 
-        match mapsets[0].mode {
+        match entries.mode {
             GameMode::Osu => path.push("osu"),
             GameMode::Mania => path.push("mania"),
-            _ => bail!("background game not available for {}", mapsets[0].mode),
+            _ => bail!("background game not available for {}", entries.mode),
         }
 
-        let mapset = util::get_random_mapset(mapsets, previous_ids);
+        let mapset = util::get_random_mapset(entries, previous_ids);
         let mapset_id = mapset.mapset_id;
         debug!("Next BG mapset id: {mapset_id}");
-        path.push(&mapset.filename);
+        path.push(&mapset.image_filename);
 
         let img_fut = async {
             let bytes = fs::read(path)
@@ -123,10 +125,11 @@ impl Game {
             Ok(img)
         };
 
-        let (mapset_, img) = tokio::try_join!(GameMapset::new(ctx, mapset.mapset_id), img_fut)?;
+        let (mapset_, img) =
+            tokio::try_join!(GameMapset::new(ctx, mapset.mapset_id as u32), img_fut)?;
 
         Ok(Self {
-            hints: Arc::new(RwLock::new(Hints::new(mapset_.title(), mapset.tags))),
+            hints: Arc::new(RwLock::new(Hints::new(mapset_.title()))),
             difficulty: difficulty.factor(),
             mapset: mapset_,
             reveal: Arc::new(RwLock::new(ImageReveal::new(img))),
@@ -171,7 +174,7 @@ impl Game {
 
 #[derive(Clone, Copy)]
 pub enum LoopResult {
-    Winner(u64),
+    Winner(Id<UserMarker>),
     Restart,
     Stop,
 }
@@ -204,11 +207,11 @@ pub async fn game_loop(
 
                 // Send message
                 if let Err(err) = channel.plain_message(ctx, &content).await {
-                    let report = Report::new(err).wrap_err("error while sending msg for winner");
-                    warn!("{report:?}");
+                    let err = Report::new(err).wrap_err("error while sending msg for winner");
+                    warn!("{err:?}");
                 }
 
-                return LoopResult::Winner(msg.author.id.get());
+                return LoopResult::Winner(msg.author.id);
             }
             // Artist correct?
             ContentResult::Artist(exact) => {

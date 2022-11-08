@@ -8,13 +8,12 @@ use std::{
 
 use flexmap::std::StdMutexMap;
 use futures::future::FutureExt;
-use rosu_v2::prelude::User;
 use tokio::{
     sync::oneshot::{self, Receiver, Sender},
     time::{self, Timeout},
 };
 
-use crate::{custom_client::TwitchUser, util::hasher::IntHasher};
+use crate::{custom_client::TwitchUser, manager::redis::osu::User, util::hasher::IntHasher};
 
 const DEADLINE: Duration = Duration::from_secs(120);
 

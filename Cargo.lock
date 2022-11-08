@@ -35,6 +35,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "arrayvec"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
+
+[[package]]
 name = "assert_float_eq"
 version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -73,9 +79,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
+name = "bathbot-psql"
+version = "0.1.0"
+dependencies = [
+ "arrayvec",
+ "compact_str",
+ "eyre",
+ "futures",
+ "ptr_meta",
+ "rkyv",
+ "rosu-pp",
+ "rosu-v2",
+ "smallvec",
+ "sqlx",
+ "time",
+ "tokio",
+ "tracing",
+ "twilight-interactions",
+ "twilight-model",
+]
+
+[[package]]
 name = "bathbot-twilight"
 version = "2.4.10"
 dependencies = [
+ "bathbot-psql",
  "bb8-redis",
  "bitflags",
  "bytes",
@@ -109,12 +137,9 @@ dependencies = [
  "rosu-v2",
  "routerify",
  "serde",
- "serde_cbor",
  "serde_json",
- "serde_urlencoded",
  "smallstr",
  "smallvec",
- "sqlx",
  "thiserror",
  "time",
  "tokio",
@@ -216,6 +241,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec8a7b6a70fde80372154c65702f00a0f56f3e1c36abbc6c440484be248856db"
 
 [[package]]
+name = "castaway"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a17ed5635fc8536268e5d4de1e22e81ac34419e5f052d4d51f4e01dcc263fcc"
+dependencies = [
+ "rustversion",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.73"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -263,6 +297,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "compact_str"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5138945395949e7dfba09646dc9e766b548ff48e23deb5246890e6b64ae9e1b9"
+dependencies = [
+ "castaway",
+ "itoa 1.0.3",
+ "rkyv",
+ "ryu",
 ]
 
 [[package]]
@@ -332,21 +378,6 @@ checksum = "59a6001667ab124aebae2a495118e11d30984c3a653e99d86d58971708cf5e4b"
 dependencies = [
  "libc",
 ]
-
-[[package]]
-name = "crc"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53757d12b596c16c78b83458d732a5d1a17ab3f53f2f7412f6fb57cc8a140ab3"
-dependencies = [
- "crc-catalog",
-]
-
-[[package]]
-name = "crc-catalog"
-version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d0165d2900ae6778e36e80bbc4da3b5eefccee9ba939761f9c2882a5d9af3ff"
 
 [[package]]
 name = "crc32fast"
@@ -793,12 +824,6 @@ dependencies = [
  "tokio-util 0.7.3",
  "tracing",
 ]
-
-[[package]]
-name = "half"
-version = "1.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eabb4a44450da02c90444cf74558da904edde8fb4e9035a9a6a4e15445af0bd7"
 
 [[package]]
 name = "handlebars"
@@ -1661,8 +1686,8 @@ dependencies = [
 
 [[package]]
 name = "rosu-pp"
-version = "0.9.1"
-source = "git+https://github.com/MaxOhn/rosu-pp?branch=next#7ded74b54e58d163ac8fa06a76ec6e888e1b6e58"
+version = "0.9.2"
+source = "git+https://github.com/MaxOhn/rosu-pp?branch=next#07ea95a6c035c6cfa79e39a05db27a51a083ebd6"
 dependencies = [
  "tokio",
 ]
@@ -1678,7 +1703,7 @@ dependencies = [
 [[package]]
 name = "rosu-v2"
 version = "0.6.2"
-source = "git+https://github.com/MaxOhn/rosu-v2?branch=next#10a59caf704bf025850c8fd1642213bdacdd2ce8"
+source = "git+https://github.com/MaxOhn/rosu-v2?branch=next#1cea30f41d5828879449752a9c6736cd3954d635"
 dependencies = [
  "bitflags",
  "bytes",
@@ -1752,6 +1777,12 @@ checksum = "0864aeff53f8c05aa08d86e5ef839d3dfcf07aeba2db32f12db0ef716e87bd55"
 dependencies = [
  "base64",
 ]
+
+[[package]]
+name = "rustversion"
+version = "1.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97477e48b4cf8603ad5f7aaf897467cf42ab4218a38ef76fb14c2d6773a6d6a8"
 
 [[package]]
 name = "ryu"
@@ -1871,16 +1902,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_cbor"
-version = "0.11.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bef2ebfde456fb76bbcf9f59315333decc4fda0b2b44b420243c11e0f5ec1f5"
-dependencies = [
- "half",
- "serde",
-]
-
-[[package]]
 name = "serde_derive"
 version = "1.0.142"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1911,18 +1932,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "serde_urlencoded"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3491c14715ca2294c4d6a88f15e84739788c1d030eed8c110436aafdaa2f3fd"
-dependencies = [
- "form_urlencoded",
- "itoa 1.0.3",
- "ryu",
- "serde",
 ]
 
 [[package]]
@@ -1997,9 +2006,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.9.0"
+version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fd0db749597d91ff862fd1d55ea87f7855a744a8425a64695b6fca237d1dad1"
+checksum = "a507befe795404456341dfab10cef66ead4c041f62b8b11bbb92bffe5d0953e0"
 dependencies = [
  "serde",
 ]
@@ -2053,7 +2062,6 @@ dependencies = [
  "bitflags",
  "byteorder",
  "bytes",
- "crc",
  "crossbeam-queue",
  "dirs",
  "dotenvy",
@@ -2440,7 +2448,7 @@ dependencies = [
 [[package]]
 name = "twilight-cache-inmemory"
 version = "0.13.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#5d18f7b9a4f3c88d5aad243486e8ae152d47f495"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#97844fb0a247343b5020be7d5838c7d43d769559"
 dependencies = [
  "bitflags",
  "dashmap",
@@ -2452,7 +2460,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway"
 version = "0.13.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#5d18f7b9a4f3c88d5aad243486e8ae152d47f495"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#97844fb0a247343b5020be7d5838c7d43d769559"
 dependencies = [
  "bitflags",
  "flate2",
@@ -2475,7 +2483,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway-queue"
 version = "0.13.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#5d18f7b9a4f3c88d5aad243486e8ae152d47f495"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#97844fb0a247343b5020be7d5838c7d43d769559"
 dependencies = [
  "tokio",
  "tracing",
@@ -2485,7 +2493,7 @@ dependencies = [
 [[package]]
 name = "twilight-http"
 version = "0.13.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#5d18f7b9a4f3c88d5aad243486e8ae152d47f495"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#97844fb0a247343b5020be7d5838c7d43d769559"
 dependencies = [
  "hyper",
  "hyper-rustls",
@@ -2503,7 +2511,7 @@ dependencies = [
 [[package]]
 name = "twilight-http-ratelimiting"
 version = "0.13.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#5d18f7b9a4f3c88d5aad243486e8ae152d47f495"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#97844fb0a247343b5020be7d5838c7d43d769559"
 dependencies = [
  "futures-util",
  "http",
@@ -2533,7 +2541,7 @@ dependencies = [
 [[package]]
 name = "twilight-model"
 version = "0.13.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#5d18f7b9a4f3c88d5aad243486e8ae152d47f495"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#97844fb0a247343b5020be7d5838c7d43d769559"
 dependencies = [
  "bitflags",
  "rkyv",
@@ -2547,7 +2555,7 @@ dependencies = [
 [[package]]
 name = "twilight-standby"
 version = "0.13.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#5d18f7b9a4f3c88d5aad243486e8ae152d47f495"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#97844fb0a247343b5020be7d5838c7d43d769559"
 dependencies = [
  "dashmap",
  "futures-util",
@@ -2559,7 +2567,7 @@ dependencies = [
 [[package]]
 name = "twilight-validate"
 version = "0.13.0"
-source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#5d18f7b9a4f3c88d5aad243486e8ae152d47f495"
+source = "git+https://github.com/MaxOhn/twilight?branch=rkyv-13#97844fb0a247343b5020be7d5838c7d43d769559"
 dependencies = [
  "twilight-model",
 ]

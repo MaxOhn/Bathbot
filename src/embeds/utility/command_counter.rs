@@ -8,7 +8,7 @@ use crate::{
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::SYMBOLS,
-        datetime::how_long_ago_text,
+        datetime::HowLongAgoText,
     },
 };
 
@@ -43,7 +43,7 @@ impl CommandCounterEmbed {
 
         let footer_text = format!(
             "Page {page}/{pages} ~ Started counting {}",
-            how_long_ago_text(booted_up)
+            HowLongAgoText::new(booted_up)
         );
 
         Self {

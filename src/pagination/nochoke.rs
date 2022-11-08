@@ -1,28 +1,28 @@
 use command_macros::pagination;
-use rosu_v2::prelude::{Score, User};
 use twilight_model::channel::embed::Embed;
 
 use crate::{
-    core::Context,
+    commands::osu::NochokeEntry,
     embeds::{EmbedData, NoChokeEmbed},
+    manager::redis::{osu::User, RedisData},
 };
 
 use super::Pages;
 
-#[pagination(per_page = 5, entries = "scores")]
+#[pagination(per_page = 5, entries = "entries")]
 pub struct NoChokePagination {
-    user: User,
-    scores: Vec<(usize, Score, Score)>,
+    user: RedisData<User>,
+    entries: Vec<NochokeEntry>,
     unchoked_pp: f32,
     rank: Option<u32>,
 }
 
 impl NoChokePagination {
-    pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Embed {
-        let scores = self.scores.iter().skip(pages.index).take(pages.per_page);
+    pub async fn build_page(&mut self, pages: &Pages) -> Embed {
+        let end_idx = self.entries.len().min(pages.index + pages.per_page);
+        let entries = &self.entries[pages.index..end_idx];
 
-        let embed_fut =
-            NoChokeEmbed::new(&self.user, scores, self.unchoked_pp, self.rank, ctx, pages);
+        let embed_fut = NoChokeEmbed::new(&self.user, entries, self.unchoked_pp, self.rank, pages);
 
         embed_fut.await.build()
     }

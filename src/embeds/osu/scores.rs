@@ -1,22 +1,27 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use command_macros::EmbedData;
-use eyre::{Result, WrapErr};
-use rosu_pp::{Beatmap as Map, BeatmapExt};
-use rosu_v2::prelude::{Beatmap, GameMode, Score, User};
+use rosu_v2::prelude::{GameMode, Score};
 
 use crate::{
-    core::{BotConfig, Context},
+    commands::osu::CompareEntry,
+    core::BotConfig,
+    manager::{
+        redis::{osu::User, RedisData},
+        OsuMap,
+    },
     pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
-        datetime::how_long_ago_dynamic,
-        numbers::{round, with_comma_int},
-        osu::prepare_beatmap_file,
+        datetime::HowLongAgoDynamic,
+        numbers::{round, WithComma},
+        osu::ScoreSlim,
         CowUtils, Emote, ScoreExt,
     },
 };
+
+use super::HitResultFormatter;
 
 #[derive(EmbedData)]
 pub struct ScoresEmbed {
@@ -30,29 +35,16 @@ pub struct ScoresEmbed {
 
 impl ScoresEmbed {
     #[allow(clippy::too_many_arguments)]
-    pub async fn new<'i, S>(
-        user: &User,
-        map: &Beatmap,
-        mut scores: S,
+    pub fn new(
+        user: &RedisData<User>,
+        map: &OsuMap,
+        entries: &[CompareEntry],
         pinned: &[Score],
         personal: &[Score],
         global: Option<(usize, usize)>,
         pp_idx: usize,
         pages: &Pages,
-        ctx: &Context,
-    ) -> Self
-    where
-        S: Iterator<Item = &'i Score>,
-    {
-        let pp_map = match get_map(ctx, map.map_id).await {
-            Ok(map) => Some(map),
-            Err(err) => {
-                warn!("{err:?}");
-
-                None
-            }
-        };
-
+    ) -> Self {
         let page = pages.curr_page();
         let pages = pages.last_page();
 
@@ -60,11 +52,12 @@ impl ScoresEmbed {
         let pp_idx = (page == pp_idx / 10 + 1).then_some(pp_idx % 10);
         let mut args = WriteArgs::new(&mut description, pinned, personal, global, pp_idx);
 
-        let max_combo_ = map.max_combo.unwrap_or(0);
+        let max_combo_ = map.max_combo().unwrap_or(0);
+        let mut entries = entries.iter();
 
         if page == 1 {
-            if let Some(score) = scores.next() {
-                let personal = personal_idx(score, args.personal);
+            if let Some(entry) = entries.next() {
+                let personal = personal_idx(entry, args.personal);
 
                 if personal.is_some() || matches!(args.global, Some((0, _))) {
                     args.description.push_str("__**");
@@ -86,7 +79,8 @@ impl ScoresEmbed {
 
                 let mut pinned = args.pinned.iter();
 
-                if pinned.any(|s| s.score_id == score.score_id && s.mods == score.mods) {
+                if pinned.any(|s| s.score_id == entry.score.score_id && s.mods == entry.score.mods)
+                {
                     args.description.push_str(" 📌");
                 }
 
@@ -94,132 +88,72 @@ impl ScoresEmbed {
                     args.description.push('\n');
                 }
 
-                let (pp, max_pp, stars) = get_attrs(&pp_map, score);
-
                 let _ = writeln!(
                     args.description,
                     "{grade} **+{mods}** [{stars:.2}★] • {score} • {acc}%\n\
                     {pp_format}**{pp}**{pp_format}/{max_pp}PP • **{combo}x**/{max_combo}x\n\
                     {hits} {timestamp}",
-                    grade = BotConfig::get().grade(score.grade),
-                    mods = score.mods,
-                    score = with_comma_int(score.score),
-                    acc = round(score.accuracy),
+                    grade = BotConfig::get().grade(entry.score.grade),
+                    mods = entry.score.mods,
+                    stars = entry.stars,
+                    score = WithComma::new(entry.score.score),
+                    acc = round(entry.score.accuracy),
                     pp_format = if pp_idx == Some(0) { "" } else { "~~" },
-                    pp = pp.map_or(0.0, round),
-                    max_pp = OptionFormat::new(pp.zip(max_pp).map(|(pp, max)| pp.max(max))),
-                    combo = score.max_combo,
-                    max_combo = OptionFormat::new(map.max_combo),
-                    hits = score.hits_string(score.mode),
-                    timestamp = how_long_ago_dynamic(&score.ended_at)
+                    pp = round(entry.score.pp),
+                    max_pp = round(entry.score.pp.max(entry.max_pp)),
+                    combo = entry.score.max_combo,
+                    max_combo = OptionFormat::new(map.max_combo()),
+                    hits =
+                        HitResultFormatter::new(entry.score.mode, entry.score.statistics.clone()),
+                    timestamp = HowLongAgoDynamic::new(&entry.score.ended_at)
                 );
 
-                if let Some(score) = scores.next() {
+                if let Some(entry) = entries.next() {
                     args.description
                         .push_str("\n__Other scores on the beatmap:__\n");
-                    let (pp, _, stars) = get_attrs(&pp_map, score);
-                    write_compact_score(&mut args, 1, score, stars, pp.unwrap_or(0.0), max_combo_);
+                    write_compact_entry(&mut args, 1, entry, max_combo_);
                 }
             }
         }
 
-        for (score, i) in scores.zip(2..) {
-            let (pp, _, stars) = get_attrs(&pp_map, score);
-            write_compact_score(&mut args, i, score, stars, pp.unwrap_or(0.0), max_combo_);
+        for (entry, i) in entries.zip(2..) {
+            write_compact_entry(&mut args, i, entry, max_combo_);
         }
 
         if args.description.is_empty() {
             args.description.push_str("No scores found");
         }
 
-        let (artist, title, creator_name, creator_id, status) = {
-            let ms = map
-                .mapset
-                .as_ref()
-                .expect("mapset neither in map nor in option");
+        let footer_text = format!(
+            "Page {page}/{pages} • {status:?} map",
+            status = map.status(),
+        );
 
-            (
-                &ms.artist,
-                &ms.title,
-                &ms.creator_name,
-                ms.creator_id,
-                ms.status,
-            )
-        };
-
-        let footer_text = format!("Page {page}/{pages} • {status:?} map by {creator_name}");
-        let footer =
-            FooterBuilder::new(footer_text).icon_url(format!("{AVATAR_URL}{}", creator_id));
+        let footer_icon = format!("{AVATAR_URL}{creator_id}", creator_id = map.creator_id());
+        let footer = FooterBuilder::new(footer_text).icon_url(footer_icon);
 
         let mut title_text = String::with_capacity(32);
 
         let _ = write!(
             title_text,
             "{artist} - {title} [{version}]",
-            artist = artist.cow_escape_markdown(),
-            title = title.cow_escape_markdown(),
-            version = map.version.cow_escape_markdown()
+            artist = map.artist().cow_escape_markdown(),
+            title = map.title().cow_escape_markdown(),
+            version = map.version().cow_escape_markdown()
         );
 
-        if map.mode == GameMode::Mania {
-            let _ = write!(title_text, "[{}K] ", map.cs as u32);
+        if map.mode() == GameMode::Mania {
+            let _ = write!(title_text, "[{}K] ", map.cs() as u32);
         }
 
         Self {
             description,
             footer,
-            thumbnail: format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id),
+            thumbnail: format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id()),
             title: title_text,
-            url: format!("{OSU_BASE}b/{}", map.map_id),
-            author: author!(user),
+            url: format!("{OSU_BASE}b/{}", map.map_id()),
+            author: user.author_builder(),
         }
-    }
-}
-
-async fn get_map(ctx: &Context, map_id: u32) -> Result<Map> {
-    let map_path = prepare_beatmap_file(ctx, map_id)
-        .await
-        .wrap_err("failed to prepare map")?;
-
-    let map = Map::from_path(map_path)
-        .await
-        .wrap_err("failed to parse map")?;
-
-    Ok(map)
-}
-
-fn get_attrs(map: &Option<Map>, score: &Score) -> (Option<f32>, Option<f32>, f32) {
-    match map {
-        Some(ref map) => {
-            let mods = score.mods.bits();
-            let performance = map.pp().mods(mods).calculate();
-
-            let max_pp = performance.pp() as f32;
-            let stars = performance.stars() as f32;
-
-            let pp = match score.pp {
-                Some(pp) => pp,
-                None => {
-                    let performance = map
-                        .pp()
-                        .attributes(performance)
-                        .mods(mods)
-                        .n300(score.statistics.count_300 as usize)
-                        .n100(score.statistics.count_100 as usize)
-                        .n50(score.statistics.count_50 as usize)
-                        .n_katu(score.statistics.count_katu as usize)
-                        .n_geki(score.statistics.count_geki as usize)
-                        .combo(score.max_combo as usize)
-                        .n_misses(score.statistics.count_miss as usize)
-                        .calculate();
-
-                    performance.pp() as f32
-                }
-            };
-
-            (Some(pp), Some(max_pp), stars)
-        }
-        None => (score.pp, None, 0.0),
     }
 }
 
@@ -249,43 +183,40 @@ impl<'c> WriteArgs<'c> {
     }
 }
 
-fn personal_idx(score: &Score, scores: &[Score]) -> Option<usize> {
+fn personal_idx(entry: &CompareEntry, scores: &[Score]) -> Option<usize> {
     scores
         .iter()
-        .position(|s| s.ended_at == score.ended_at)
+        .position(|s| {
+            (s.ended_at.unix_timestamp() - entry.score.ended_at.unix_timestamp()).abs() <= 2
+        })
         .map(|i| i + 1)
 }
 
-fn write_compact_score(
-    args: &mut WriteArgs<'_>,
-    i: usize,
-    score: &Score,
-    stars: f32,
-    pp: f32,
-    max_combo: u32,
-) {
+fn write_compact_entry(args: &mut WriteArgs<'_>, i: usize, entry: &CompareEntry, max_combo: u32) {
     let config = BotConfig::get();
 
     let _ = write!(
         args.description,
         "{grade} **+{mods}** [{stars:.2}★] {pp_format}{pp:.2}pp{pp_format} \
         ({acc}%) {combo}x • {miss} {timestamp}",
-        grade = config.grade(score.grade),
-        mods = score.mods,
+        grade = config.grade(entry.score.grade),
+        mods = entry.score.mods,
+        stars = entry.stars,
         pp_format = if args.pp_idx == Some(i) { "**" } else { "~~" },
-        acc = round(score.accuracy),
-        combo = score.max_combo,
-        miss = MissFormat::new(score, max_combo),
-        timestamp = how_long_ago_dynamic(&score.ended_at),
+        pp = entry.score.pp,
+        acc = round(entry.score.accuracy),
+        combo = entry.score.max_combo,
+        miss = MissFormat::new(&entry.score, max_combo),
+        timestamp = HowLongAgoDynamic::new(&entry.score.ended_at),
     );
 
     let mut pinned = args.pinned.iter();
 
-    if pinned.any(|s| s.score_id == score.score_id && s.mods == score.mods) {
+    if pinned.any(|s| s.score_id == entry.score.score_id && s.mods == entry.score.mods) {
         args.description.push_str(" 📌");
     }
 
-    let personal = personal_idx(score, args.personal);
+    let personal = personal_idx(entry, args.personal);
 
     if personal.is_some() || matches!(args.global, Some((n, _)) if n == i) {
         args.description.push_str(" **(");
@@ -319,6 +250,7 @@ impl<T> OptionFormat<T> {
 }
 
 impl<T: Display> Display for OptionFormat<T> {
+    #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self.value {
             Some(ref value) => write!(f, "{value:.2}"),
@@ -328,21 +260,27 @@ impl<T: Display> Display for OptionFormat<T> {
 }
 
 struct MissFormat<'s> {
-    score: &'s Score,
+    mode: GameMode,
+    score: &'s dyn ScoreExt,
     max_combo: u32,
 }
 
 impl<'s> MissFormat<'s> {
-    fn new(score: &'s Score, max_combo: u32) -> Self {
-        Self { score, max_combo }
+    fn new(score: &'s ScoreSlim, max_combo: u32) -> Self {
+        Self {
+            mode: score.mode,
+            score,
+            max_combo,
+        }
     }
 }
 
 impl Display for MissFormat<'_> {
+    #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        let miss = self.score.statistics.count_miss;
+        let miss = self.score.count_miss();
 
-        if miss > 0 || !self.score.is_fc(self.score.mode, self.max_combo) {
+        if miss > 0 || !self.score.is_fc(self.mode, self.max_combo) {
             write!(f, "{miss}{}", Emote::Miss.text())
         } else {
             f.write_str("**FC**")

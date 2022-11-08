@@ -1,14 +1,19 @@
-use std::{collections::BTreeMap, iter::Extend};
+use std::{
+    collections::{BTreeMap, HashMap},
+    iter::Extend,
+};
 
 use command_macros::pagination;
-use eyre::{Result, WrapErr};
-use hashbrown::HashMap;
-use rosu_v2::prelude::{Beatmap, User};
+use eyre::{Report, Result, WrapErr};
 use twilight_model::channel::embed::Embed;
 
 use crate::{
     custom_client::{SnipeScore, SnipeScoreParams},
     embeds::{EmbedData, PlayerSnipeListEmbed},
+    manager::{
+        redis::{osu::User, RedisData},
+        OsuMap,
+    },
     util::hasher::IntHasher,
     Context,
 };
@@ -17,9 +22,9 @@ use super::Pages;
 
 #[pagination(per_page = 5, total = "total")]
 pub struct PlayerSnipeListPagination {
-    user: User,
+    user: RedisData<User>,
     scores: BTreeMap<usize, SnipeScore>,
-    maps: HashMap<u32, Beatmap, IntHasher>,
+    maps: HashMap<u32, OsuMap, IntHasher>,
     total: usize,
     params: SnipeScoreParams,
 }
@@ -52,44 +57,37 @@ impl PlayerSnipeListPagination {
         }
 
         // Get maps from DB
-        let map_ids: Vec<_> = self
+        let map_ids: HashMap<_, _, _> = self
             .scores
             .range(pages.index..pages.index + pages.per_page)
-            .map(|(_, score)| score.map.map_id)
-            .filter(|map_id| !self.maps.contains_key(map_id))
-            .map(|id| id as i32)
+            .filter_map(|(_, score)| {
+                if self.maps.contains_key(&score.map.map_id) {
+                    None
+                } else {
+                    Some((score.map.map_id as i32, None))
+                }
+            })
             .collect();
 
         if !map_ids.is_empty() {
-            let mut maps = match ctx.psql().get_beatmaps(&map_ids, true).await {
+            let new_maps = match ctx.osu_map().maps(&map_ids).await {
                 Ok(maps) => maps,
                 Err(err) => {
-                    warn!("{:?}", err.wrap_err("Failed to get maps from database"));
+                    warn!(
+                        "{:?}",
+                        Report::new(err).wrap_err("Failed to get maps from database")
+                    );
 
                     HashMap::default()
                 }
             };
 
-            // Get missing maps from API
-            for map_id in map_ids {
-                let map_id = map_id as u32;
-
-                if !maps.contains_key(&map_id) {
-                    match ctx.osu().beatmap().map_id(map_id).await {
-                        Ok(map) => {
-                            maps.insert(map_id, map);
-                        }
-                        Err(err) => return Err(err.into()),
-                    }
-                }
-            }
-
-            self.maps.extend(maps);
+            self.maps.extend(new_maps);
         }
 
-        let embed_fut =
-            PlayerSnipeListEmbed::new(&self.user, &self.scores, &self.maps, self.total, ctx, pages);
-
-        Ok(embed_fut.await.build())
+        PlayerSnipeListEmbed::new(&self.user, &self.scores, &self.maps, self.total, ctx, pages)
+            .await
+            .map(EmbedData::build)
+            .wrap_err("failed to build snipe list embed")
     }
 }

@@ -1,21 +1,18 @@
-use std::{collections::BTreeMap, fmt, mem, ops::Deref, sync::Arc};
+use std::{mem, ops::Deref, sync::Arc};
 
 use command_macros::command;
 use eyre::{Report, Result};
-use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{GameMode, OsuResult, Rankings};
-use time::OffsetDateTime;
-use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    commands::{osu::UserArgs, GameModeOption},
+    commands::GameModeOption,
     core::commands::CommandOrigin,
-    database::OsuData,
-    embeds::{RankingEntry, RankingKindData},
+    embeds::{RankingEntries, RankingEntry, RankingKind},
+    manager::redis::{osu::UserArgs, RedisData},
     pagination::RankingPagination,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        numbers, ChannelExt, CountryCode,
+        ChannelExt, CountryCode,
     },
     Context,
 };
@@ -41,9 +38,16 @@ pub(super) async fn pp(
     let RankingPp { country, mode } = args;
     let author_id = orig.user_id()?;
 
-    let (mode, osu_data) = match mode {
-        Some(mode) => (mode.into(), None),
-        None => match ctx.user_config(author_id).await {
+    let (mode, author_id) = match mode {
+        Some(mode) => match ctx.user_config().osu_id(author_id).await {
+            Ok(user_id) => (mode.into(), user_id),
+            Err(err) => {
+                warn!("{:?}", err.wrap_err("failed to get author id"));
+
+                (mode.into(), None)
+            }
+        },
+        None => match ctx.user_config().with_osu_id(author_id).await {
             Ok(config) => (config.mode.unwrap_or(GameMode::Osu), config.osu),
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -79,46 +83,39 @@ pub(super) async fn pp(
             None => ctx.redis().pp_ranking(mode, 1, None).await,
         };
 
-        ranking_result.map(|bytes| bytes.get().deserialize(&mut Infallible).unwrap())
+        ranking_result.map(|ranking| match ranking {
+            RedisData::Original(ranking) => ranking,
+            RedisData::Archived(ranking) => ranking.deserialize(),
+        })
     };
 
-    let author_idx_fut = pp_author_idx(&ctx, author_id, osu_data, mode, country.as_ref());
+    let author_idx_fut = pp_author_idx(&ctx, author_id, mode, country.as_ref());
 
-    let (ranking_result, author_idx) = tokio::join!(ranking_fut, author_idx_fut);
-    let kind = RankingKind::Performance;
+    let (ranking_res, author_idx) = tokio::join!(ranking_fut, author_idx_fut);
+    let kind = OsuRankingKind::Performance;
 
-    ranking(ctx, orig, mode, country, kind, author_idx, ranking_result).await
+    ranking(ctx, orig, mode, country, kind, author_idx, ranking_res).await
 }
 
 async fn pp_author_idx(
     ctx: &Context,
-    author_id: Id<UserMarker>,
-    osu: Option<OsuData>,
+    author_id: Option<u32>,
     mode: GameMode,
     country: Option<&CountryCode>,
 ) -> Option<usize> {
-    let osu = match osu {
-        Some(osu) => osu,
-        None => match ctx.psql().get_user_osu(author_id).await {
-            Ok(osu) => osu?,
-            Err(err) => {
-                warn!("{:?}", err.wrap_err("Failed to get user data"));
+    let user_args = UserArgs::user_id(author_id?).mode(mode);
 
-                return None;
-            }
-        },
-    };
-
-    let user_args = UserArgs::new(osu.username().as_str(), mode);
-
-    match ctx.redis().osu_user(&user_args).await {
+    match ctx.redis().osu_user(user_args).await {
         Ok(user) => {
             let idx = match country {
-                Some(code) => user
-                    .statistics
-                    .filter(|_| user.country_code.as_str() == code.as_str())
-                    .and_then(|stats| stats.country_rank),
-                None => user.statistics.and_then(|stats| stats.global_rank),
+                Some(code) => {
+                    if user.country_code() == code.as_str() {
+                        user.peek_stats(|stats| stats.country_rank)
+                    } else {
+                        None
+                    }
+                }
+                None => user.peek_stats(|stats| stats.global_rank),
             };
 
             idx.filter(|n| (1..=10_000).contains(n))
@@ -140,14 +137,21 @@ pub(super) async fn score(
 ) -> Result<()> {
     let author_id = orig.user_id()?;
 
-    let mode = match args.mode {
-        Some(mode) => mode.into(),
-        None => match ctx.user_config(author_id).await {
-            Ok(config) => config.mode.unwrap_or(GameMode::Osu),
+    let (mode, osu_id) = match args.mode.map(GameMode::from) {
+        Some(mode) => match ctx.user_config().osu_id(author_id).await {
+            Ok(user_id) => (mode, user_id),
+            Err(err) => {
+                warn!("{err:?}");
+
+                (mode, None)
+            }
+        },
+        None => match ctx.user_config().with_osu_id(author_id).await {
+            Ok(config) => (config.mode.unwrap_or(GameMode::Osu), config.osu),
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get user configs"));
+                return Err(err.wrap_err("failed to get user config"));
             }
         },
     };
@@ -155,39 +159,24 @@ pub(super) async fn score(
     let ranking_fut = ctx.osu().score_rankings(mode);
 
     let author_idx_fut = async {
-        match ctx.psql().get_user_osu(author_id).await {
-            Ok(Some(OsuData::User { user_id, .. })) => {
-                match ctx.client().get_respektive_user(user_id, mode).await {
-                    Ok(Some(user)) => Some(user.rank as usize - 1),
-                    Ok(None) => None,
-                    Err(err) => {
-                        warn!("{:?}", err.wrap_err("Failed to get respektive user"));
+        match osu_id {
+            Some(user_id) => match ctx.client().get_respektive_user(user_id, mode).await {
+                Ok(Some(user)) => Some(user.rank as usize - 1),
+                Ok(None) => None,
+                Err(err) => {
+                    warn!("{:?}", err.wrap_err("failed to get respektive user"));
 
-                        None
-                    }
+                    None
                 }
-            }
-            Ok(_) => None,
-            Err(err) => {
-                warn!("{:?}", err.wrap_err("Failed to get user id"));
-
-                None
-            }
+            },
+            None => None,
         }
     };
 
     let (ranking_result, author_idx) = tokio::join!(ranking_fut, author_idx_fut);
+    let kind = OsuRankingKind::Score;
 
-    ranking(
-        ctx,
-        orig,
-        mode,
-        None,
-        RankingKind::Score,
-        author_idx,
-        ranking_result,
-    )
-    .await
+    ranking(ctx, orig, mode, None, kind, author_idx, ranking_result).await
 }
 
 async fn ranking(
@@ -195,7 +184,7 @@ async fn ranking(
     orig: CommandOrigin<'_>,
     mode: GameMode,
     country: Option<CountryCode>,
-    kind: RankingKind,
+    kind: OsuRankingKind,
     author_idx: Option<usize>,
     result: OsuResult<Rankings>,
 ) -> Result<()> {
@@ -203,9 +192,8 @@ async fn ranking(
         Ok(ranking) => ranking,
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get ranking");
 
-            return Err(report);
+            return Err(Report::new(err).wrap_err("failed to get ranking"));
         }
     };
 
@@ -221,39 +209,54 @@ async fn ranking(
 
     let total = ranking.total as usize;
 
-    let users: BTreeMap<_, _> = ranking
-        .ranking
-        .into_iter()
-        .map(|user| {
-            let stats = user.statistics.as_ref().unwrap();
+    let entries = match kind {
+        OsuRankingKind::Performance => {
+            let entries = ranking
+                .ranking
+                .into_iter()
+                .map(|user| RankingEntry {
+                    country: Some(user.country_code.into()),
+                    name: user.username,
+                    value: user.statistics.as_ref().expect("missing stats").pp.round() as u32,
+                })
+                .enumerate()
+                .collect();
 
-            let value = match kind {
-                RankingKind::Performance => UserValue::PpU32(stats.pp.round() as u32),
-                RankingKind::Score => UserValue::Amount(stats.ranked_score),
-            };
+            RankingEntries::PpU32(entries)
+        }
+        OsuRankingKind::Score => {
+            let entries = ranking
+                .ranking
+                .into_iter()
+                .map(|user| RankingEntry {
+                    country: Some(user.country_code.into()),
+                    name: user.username,
+                    value: user
+                        .statistics
+                        .as_ref()
+                        .expect("missing stats")
+                        .ranked_score,
+                })
+                .enumerate()
+                .collect();
 
-            RankingEntry {
-                value,
-                name: user.username,
-                country: Some(user.country_code.into()),
-            }
-        })
-        .enumerate()
-        .collect();
+            RankingEntries::Amount(entries)
+        }
+    };
 
-    let ranking_kind_data = if let Some((name, code)) = country {
-        RankingKindData::PpCountry {
+    let ranking_kind = if let Some((name, code)) = country {
+        RankingKind::PpCountry {
             mode,
             country_code: code,
             country: name,
         }
-    } else if kind == RankingKind::Performance {
-        RankingKindData::PpGlobal { mode }
+    } else if kind == OsuRankingKind::Performance {
+        RankingKind::PpGlobal { mode }
     } else {
-        RankingKindData::RankedScore { mode }
+        RankingKind::RankedScore { mode }
     };
 
-    let builder = RankingPagination::builder(users, total, author_idx, ranking_kind_data);
+    let builder = RankingPagination::builder(entries, total, author_idx, ranking_kind);
 
     builder
         .start_by_update()
@@ -427,46 +430,7 @@ pub async fn prefix_rankedscorerankingctb(ctx: Arc<Context>, msg: &Message) -> R
 }
 
 #[derive(Eq, PartialEq)]
-pub enum RankingKind {
+pub enum OsuRankingKind {
     Performance,
     Score,
-}
-
-#[derive(Copy, Clone)]
-pub enum UserValue {
-    Accuracy(f32),
-    Amount(u64),
-    AmountWithNegative(i64),
-    Date(OffsetDateTime),
-    Float(f32),
-    Playtime(u32),
-    PpF32(f32),
-    PpU32(u32),
-    Rank(u32),
-}
-
-impl fmt::Display for UserValue {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            Self::Accuracy(acc) => write!(f, "{:.2}%", numbers::round(acc)),
-            Self::Amount(amount) => write!(f, "{}", Self::AmountWithNegative(amount as i64)),
-            Self::AmountWithNegative(amount) => {
-                if amount.abs() < 1_000_000_000 {
-                    write!(f, "{}", numbers::with_comma_int(amount))
-                } else {
-                    let score = (amount / 10_000_000) as f32 / 100.0;
-
-                    write!(f, "{score:.2} bn")
-                }
-            }
-            Self::Date(datetime) => write!(f, "{}", datetime.date()),
-            Self::Float(v) => write!(f, "{:.2}", numbers::round(v)),
-            Self::Playtime(seconds) => {
-                write!(f, "{} hrs", numbers::with_comma_int(seconds / 60 / 60))
-            }
-            Self::PpF32(pp) => write!(f, "{}pp", numbers::with_comma_float(numbers::round(pp))),
-            Self::PpU32(pp) => write!(f, "{}pp", numbers::with_comma_int(pp)),
-            Self::Rank(rank) => write!(f, "#{}", numbers::with_comma_int(rank)),
-        }
-    }
 }

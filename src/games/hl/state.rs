@@ -34,12 +34,10 @@ impl GameState {
         origin: &(dyn Authored + Sync),
         mode: GameMode,
     ) -> Result<Self> {
-        let user = origin.user_id()?.get();
-        let game_fut = GameStateKind::score_pp(ctx, mode);
+        let user = origin.user_id()?;
 
-        let highscore_fut = ctx
-            .psql()
-            .get_higherlower_highscore(user, HlVersion::ScorePp);
+        let game_fut = GameStateKind::score_pp(ctx, mode);
+        let highscore_fut = ctx.games().higherlower_highscore(user, HlVersion::ScorePp);
 
         let ((kind, rx), highscore) = tokio::try_join!(game_fut, highscore_fut)?;
 
@@ -55,14 +53,10 @@ impl GameState {
     }
 
     pub async fn farm_maps(ctx: &Context, origin: &(dyn Authored + Sync)) -> Result<Self> {
-        let user = origin.user_id()?.get();
-        let redis = ctx.redis();
+        let user = origin.user_id()?;
 
-        let entries_fut = redis.osutracker_counts();
-
-        let highscore_fut = ctx
-            .psql()
-            .get_higherlower_highscore(user, HlVersion::FarmMaps);
+        let entries_fut = ctx.redis().osutracker_counts();
+        let highscore_fut = ctx.games().higherlower_highscore(user, HlVersion::FarmMaps);
 
         let (entries_res, highscore_res) = tokio::join!(entries_fut, highscore_fut);
         let highscore = highscore_res.wrap_err("failed to get highscore from database")?;
@@ -83,11 +77,11 @@ impl GameState {
     }
 
     pub async fn restart(self, ctx: &Context, origin: &(dyn Authored + Sync)) -> Result<Self> {
-        let user = origin.user_id()?.get();
+        let user = origin.user_id()?;
         let version = self.kind.version();
 
         let game_fut = self.kind.restart(ctx);
-        let highscore_fut = ctx.psql().get_higherlower_highscore(user, version);
+        let highscore_fut = ctx.games().higherlower_highscore(user, version);
 
         let ((kind, rx), highscore) = tokio::try_join!(game_fut, highscore_fut)?;
 
@@ -160,12 +154,9 @@ impl GameState {
     }
 
     pub async fn new_highscore(&self, ctx: &Context, user: Id<UserMarker>) -> Result<bool> {
-        let user = user.get();
-        let version = self.kind.version();
-
-        ctx.psql()
-            .upsert_higherlower_highscore(user, version, self.current_score, self.highscore)
+        ctx.games()
+            .upsert_higherlower_score(user, self.kind.version(), self.current_score)
             .await
-            .wrap_err("failed to upsert highlower score")
+            .wrap_err("failed to upsert higherlower score")
     }
 }

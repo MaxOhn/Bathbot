@@ -1,30 +1,31 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
+use bathbot_psql::model::configs::{ListSize, MinimizedPp};
 use command_macros::{command, HasName, SlashCommand};
 use eyre::{Report, Result};
-use hashbrown::HashMap;
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::{
+    prelude::{GameMode, Grade, OsuError, Score},
+    request::UserId,
+};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    commands::{
-        osu::{get_user_and_scores, ScoreArgs, UserArgs},
-        GameModeOption,
-    },
+    commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
-    database::{ListSize, MinimizedPp},
+    manager::redis::{osu::UserArgs, RedisData},
     pagination::{TopCondensedPagination, TopPagination, TopSinglePagination},
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        hasher::IntHasher,
         interaction::InteractionCommand,
-        matcher, ChannelExt, CowUtils, InteractionCommandExt,
+        matcher,
+        osu::ScoreSlim,
+        ChannelExt, CowUtils, InteractionCommandExt,
     },
     Context,
 };
 
-use super::{get_user, require_link, TopScoreOrder};
+use super::{require_link, user_not_found, TopEntry, TopScoreOrder};
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
 #[command(
@@ -200,12 +201,12 @@ async fn slash_mapper(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
 }
 
 async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) -> Result<()> {
-    let mut config = match ctx.user_config(orig.user_id()?).await {
+    let mut config = match ctx.user_config().with_osu_id(orig.user_id()?).await {
         Ok(config) => config,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("failed to get user config"));
+            return Err(err);
         }
     };
 
@@ -215,26 +216,23 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
         .or(config.mode)
         .unwrap_or(GameMode::Osu);
 
-    let user = match username!(ctx, orig, args) {
-        Some(name) => name,
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
         None => match config.osu.take() {
-            Some(osu) => osu.into_username(),
+            Some(user_id) => UserId::Id(user_id),
             None => return require_link(&ctx, &orig).await,
         },
     };
 
     let mapper = args.mapper.cow_to_ascii_lowercase();
-    let mapper_args = UserArgs::new(mapper.as_ref(), mode);
-    let mapper_fut = get_user(&ctx, &mapper_args);
+    let mapper_args = UserArgs::username(&ctx, mapper.as_ref()).await.mode(mode);
+    let mapper_fut = ctx.redis().osu_user(mapper_args);
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::new(user.as_str(), mode);
-    let score_args = ScoreArgs::top(100).with_combo();
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let scores_fut = ctx.osu_scores().top().limit(100).exec_with_user(user_args);
 
-    let user_scores_fut = get_user_and_scores(&ctx, user_args, &score_args);
-
-    #[allow(unused_mut)]
-    let (mapper, mut user, mut scores) = match tokio::join!(mapper_fut, user_scores_fut) {
+    let (mapper, user, scores) = match tokio::join!(mapper_fut, scores_fut) {
         (Ok(mapper), Ok((user, scores))) => (mapper, user, scores),
         (Err(OsuError::NotFound), _) => {
             let content = format!("Mapper with username `{mapper}` was not found");
@@ -242,49 +240,43 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
             return orig.error(&ctx, content).await;
         }
         (_, Err(OsuError::NotFound)) => {
-            let content = format!("User `{user}` was not found");
+            let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
         (Err(err), _) | (_, Err(err)) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get mapper, user, or scores");
+            let err = Report::new(err).wrap_err("failed to get mapper, user, or scores");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
-    // Overwrite default mode
-    user.mode = mode;
+    let (mapper_name, mapper_id) = match &mapper {
+        RedisData::Original(mapper) => (mapper.username.as_str(), mapper.user_id),
+        RedisData::Archived(mapper) => (mapper.username.as_str(), mapper.user_id),
+    };
 
-    // Process user and their top scores for tracking
-    #[cfg(feature = "osutracking")]
-    crate::tracking::process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
+    let username = user.username();
 
-    let scores: Vec<_> = scores
-        .into_iter()
-        .enumerate()
-        .filter(|(_, score)| {
-            score
-                .map
-                .as_ref()
-                .map(|map| map.creator_id == mapper.user_id)
-                .unwrap_or(false)
-        })
-        .collect();
+    let entries = match process_scores(&ctx, scores, mapper_id).await {
+        Ok(entries) => entries,
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-    let mapper = mapper.username;
+            return Err(err.wrap_err("failed to process scores"));
+        }
+    };
 
     // Accumulate all necessary data
-    let content = match mapper.as_str() {
+    let content = match mapper_name {
         "Sotarks" => {
-            let amount = scores.len();
+            let amount = entries.len();
 
             let mut content = format!(
-                "I found {amount} Sotarks map{plural} in `{name}`'s top100, ",
+                "I found {amount} Sotarks map{plural} in `{username}`'s top100, ",
                 amount = amount,
                 plural = if amount != 1 { "s" } else { "" },
-                name = user.username,
             );
 
             let to_push = match amount {
@@ -307,32 +299,30 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
             content
         }
         _ => format!(
-            "{} of `{}`'{} top score maps were mapped by `{mapper}`",
-            scores.len(),
-            user.username,
-            if user.username.ends_with('s') {
-                ""
-            } else {
-                "s"
-            },
+            "{count} of `{username}`'{genitive} top score maps were mapped by `{mapper_name}`",
+            count = entries.len(),
+            genitive = if username.ends_with('s') { "" } else { "s" },
         ),
     };
 
     let sort_by = TopScoreOrder::Pp;
-    let farm = HashMap::with_hasher(IntHasher);
+    let farm = HashMap::default();
 
-    let list_size = match args.size {
+    let list_size = match args.size.or(config.list_size) {
         Some(size) => size,
-        None => match (config.list_size, orig.guild_id()) {
-            (Some(size), _) => size,
-            (None, Some(guild)) => ctx.guild_list_size(guild).await,
-            (None, None) => ListSize::default(),
+        None => match orig.guild_id() {
+            Some(guild_id) => ctx
+                .guild_config()
+                .peek(guild_id, |config| config.list_size)
+                .await
+                .unwrap_or_default(),
+            None => ListSize::default(),
         },
     };
 
     match list_size {
         ListSize::Condensed => {
-            TopCondensedPagination::builder(user, scores, sort_by, farm)
+            TopCondensedPagination::builder(user, entries, sort_by, farm)
                 .content(content)
                 .start_by_update()
                 .defer_components()
@@ -340,7 +330,7 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
                 .await
         }
         ListSize::Detailed => {
-            TopPagination::builder(user, scores, sort_by, farm)
+            TopPagination::builder(user, entries, sort_by, farm)
                 .content(content)
                 .start_by_update()
                 .defer_components()
@@ -348,13 +338,19 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
                 .await
         }
         ListSize::Single => {
-            let minimized_pp = match (config.minimized_pp, orig.guild_id()) {
-                (Some(pp), _) => pp,
-                (None, Some(guild)) => ctx.guild_minimized_pp(guild).await,
-                (None, None) => MinimizedPp::default(),
+            let minimized_pp = match config.minimized_pp {
+                Some(minimized_pp) => minimized_pp,
+                None => match orig.guild_id() {
+                    Some(guild_id) => ctx
+                        .guild_config()
+                        .peek(guild_id, |config| config.minimized_pp)
+                        .await
+                        .unwrap_or_default(),
+                    None => MinimizedPp::default(),
+                },
             };
 
-            TopSinglePagination::builder(user, scores, minimized_pp)
+            TopSinglePagination::builder(user, entries, minimized_pp)
                 .content(content)
                 .start_by_update()
                 .defer_components()
@@ -362,4 +358,51 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
                 .await
         }
     }
+}
+
+async fn process_scores(
+    ctx: &Context,
+    scores: Vec<Score>,
+    mapper_id: u32,
+) -> Result<Vec<TopEntry>> {
+    let mut entries = Vec::new();
+
+    let maps_id_checksum = scores
+        .iter()
+        .filter_map(|score| score.map.as_ref())
+        .filter(|map| map.creator_id == mapper_id)
+        .map(|map| (map.map_id as i32, map.checksum.as_deref()))
+        .collect();
+
+    let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
+
+    for (i, score) in scores.into_iter().enumerate() {
+        let map_opt = score.map.as_ref().and_then(|map| maps.remove(&map.map_id));
+        let Some(map) = map_opt else { continue };
+
+        let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
+        let stars = calc.difficulty().await.stars() as f32;
+
+        let pp = score.pp.expect("missing pp");
+
+        let max_pp = match score
+            .pp
+            .filter(|_| score.grade.eq_letter(Grade::X) && score.mode != GameMode::Mania)
+        {
+            Some(pp) => pp,
+            None => calc.performance().await.pp() as f32,
+        };
+
+        let entry = TopEntry {
+            original_idx: i,
+            score: ScoreSlim::new(score, pp),
+            map,
+            max_pp,
+            stars,
+        };
+
+        entries.push(entry);
+    }
+
+    Ok(entries)
 }

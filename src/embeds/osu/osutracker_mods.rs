@@ -7,7 +7,7 @@ use crate::{
     pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
-        numbers::with_comma_int,
+        numbers::WithComma,
     },
 };
 
@@ -32,7 +32,7 @@ impl OsuTrackerModsEmbed {
 
             sizes.count_left = sizes
                 .count_left
-                .max(with_comma_int(entry.count).to_string().len());
+                .max(WithComma::new(entry.count).to_string().len());
         }
 
         for (entry, i) in entries.iter().skip(10).zip(idx + 10..) {
@@ -41,7 +41,7 @@ impl OsuTrackerModsEmbed {
 
             sizes.count_right = sizes
                 .count_right
-                .max(with_comma_int(entry.count).to_string().len());
+                .max(WithComma::new(entry.count).to_string().len());
         }
 
         let mut description = String::with_capacity(entries.len() * 30);
@@ -54,7 +54,7 @@ impl OsuTrackerModsEmbed {
                 i_len = sizes.idx_left,
                 mods = entry.mods,
                 pad = " ".repeat(2 * (sizes.mods_left - entry.mods.iter().count())),
-                count = with_comma_int(entry.count).to_string(),
+                count = WithComma::new(entry.count).to_string(),
                 c_len = sizes.count_left,
             );
 
@@ -67,7 +67,7 @@ impl OsuTrackerModsEmbed {
                     i_len = sizes.idx_right,
                     mods = entry.mods,
                     pad = " ".repeat(2 * (sizes.mods_right - entry.mods.iter().count())),
-                    count = with_comma_int(entry.count).to_string(),
+                    count = WithComma::new(entry.count).to_string(),
                     c_len = sizes.count_right,
                 );
             }

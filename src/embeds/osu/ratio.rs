@@ -1,10 +1,12 @@
-
 use std::{collections::BTreeMap, fmt::Write};
 
 use command_macros::EmbedData;
-use rosu_v2::prelude::{Grade, Score, User};
+use rosu_v2::prelude::{Grade, Score};
 
-use crate::util::builder::AuthorBuilder;
+use crate::{
+    manager::redis::{osu::User, RedisData},
+    util::builder::AuthorBuilder,
+};
 
 #[derive(EmbedData)]
 pub struct RatioEmbed {
@@ -14,7 +16,7 @@ pub struct RatioEmbed {
 }
 
 impl RatioEmbed {
-    pub fn new(user: User, scores: Vec<Score>) -> Self {
+    pub fn new(user: &RedisData<User>, scores: Vec<Score>) -> Self {
         let accs = [0, 90, 95, 97, 99];
         let mut categories: BTreeMap<u8, RatioCategory> = BTreeMap::new();
 
@@ -38,7 +40,7 @@ impl RatioEmbed {
             }
         }
 
-        let thumbnail = user.avatar_url;
+        let thumbnail = user.avatar_url().to_owned();
         let mut description = String::with_capacity(256);
 
         let _ = writeln!(
@@ -75,7 +77,7 @@ impl RatioEmbed {
         Self {
             description,
             thumbnail,
-            author: author!(user),
+            author: user.author_builder(),
         }
     }
 }

@@ -10,7 +10,7 @@ use crate::{
     util::{
         builder::FooterBuilder,
         constants::OSU_BASE,
-        numbers::{round, with_comma_float},
+        numbers::{round, WithComma},
         osu::flag_url,
         CowUtils,
     },
@@ -46,7 +46,7 @@ impl OsuTrackerCountryTopEmbed {
             format!("Page {page}/{pages} • Data originates from https://osutracker.com");
         let footer = FooterBuilder::new(footer_text);
 
-        let title = format!("Total PP: {}pp", with_comma_float(details.pp));
+        let title = format!("Total PP: {}pp", WithComma::new(details.pp));
 
         let mut description = String::with_capacity(scores.len() * 160);
 

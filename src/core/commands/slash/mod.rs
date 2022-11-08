@@ -91,7 +91,6 @@ impl SlashCommands {
                 Rb => RB_SLASH,
                 Rs => RS_SLASH,
                 Recent => RECENT_SLASH,
-                RoleAssign => ROLEASSIGN_SLASH,
                 Roll => ROLL_SLASH,
                 Search => SEARCH_SLASH,
                 ServerConfig => SERVERCONFIG_SLASH,

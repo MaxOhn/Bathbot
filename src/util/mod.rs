@@ -24,6 +24,7 @@ pub mod matrix;
 pub mod numbers;
 pub mod osu;
 pub mod query;
+pub mod rkyv_impls;
 
 mod bitflags;
 mod boyer_moore;

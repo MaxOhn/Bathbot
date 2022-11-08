@@ -3,7 +3,7 @@ use std::{borrow::Cow, str::FromStr};
 use once_cell::sync::OnceCell;
 use rosu_v2::prelude::{GameMode, GameMods, UserId as OsuUserId};
 use twilight_model::id::{
-    marker::{ChannelMarker, RoleMarker, UserMarker},
+    marker::{RoleMarker, UserMarker},
     Id,
 };
 
@@ -14,13 +14,8 @@ pub fn is_custom_emote(msg: &str) -> bool {
 }
 
 enum MentionType {
-    Channel,
     Role,
     User,
-}
-
-pub fn get_mention_channel(msg: &str) -> Option<Id<ChannelMarker>> {
-    get_mention(MentionType::Channel, msg).and_then(Id::new_checked)
 }
 
 pub fn get_mention_role(msg: &str) -> Option<Id<RoleMarker>> {
@@ -41,7 +36,6 @@ fn get_mention(mention_type: MentionType, msg: &str) -> Option<u64> {
     }
 
     let captures = match mention_type {
-        MentionType::Channel => CHANNEL_ID_MATCHER.get().captures(msg),
         MentionType::Role => ROLE_ID_MATCHER.get().captures(msg),
         MentionType::User => MENTION_MATCHER.get().captures(msg),
     };
@@ -191,7 +185,6 @@ macro_rules! define_regex {
 
 define_regex! {
     ROLE_ID_MATCHER: r"<@&(\d+)>";
-    CHANNEL_ID_MATCHER: r"<#(\d+)>";
     MENTION_MATCHER: r"<@!?(\d+)>";
 
     OSU_URL_USER_MATCHER: r"^https://osu.ppy.sh/u(?:sers)?/(?:(\d+)|(\w+))$";

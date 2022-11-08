@@ -1,9 +1,15 @@
 use std::borrow::Cow;
 
-use rosu_pp::{beatmap::BeatmapAttributesBuilder, Mods};
+use bathbot_psql::model::osu::{DbBeatmap, DbBeatmapset};
+use rosu_pp::{beatmap::BeatmapAttributesBuilder, Beatmap as Map, GameMode as Mode, Mods};
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods, Score};
 
-use crate::{custom_client::OsuTrackerCountryScore, util::CowUtils};
+use crate::{
+    commands::osu::{TopEntry, TopIfEntry},
+    custom_client::OsuTrackerCountryScore,
+    manager::OsuMap,
+    util::{osu::ScoreSlim, CowUtils},
+};
 
 use super::FilterCriteria;
 
@@ -30,6 +36,24 @@ impl Searchable for Beatmap {
 
         if matches && criteria.has_search_terms() {
             let version = self.version.cow_to_ascii_lowercase();
+
+            matches &= criteria.search_terms().any(|term| version.contains(term));
+        }
+
+        matches
+    }
+}
+
+impl Searchable for DbBeatmap {
+    #[inline]
+    fn matches(&self, criteria: &FilterCriteria<'_>) -> bool {
+        let mut matches = true;
+
+        matches &= criteria.length.contains(self.seconds_drain as f32);
+        matches &= criteria.bpm.contains(self.bpm);
+
+        if matches && criteria.has_search_terms() {
+            let version = self.map_version.cow_to_ascii_lowercase();
 
             matches &= criteria.search_terms().any(|term| version.contains(term));
         }
@@ -74,6 +98,45 @@ impl Searchable for Beatmapset {
     }
 }
 
+impl Searchable for DbBeatmapset {
+    #[inline]
+    fn matches(&self, criteria: &FilterCriteria<'_>) -> bool {
+        let mut matches = true;
+
+        let artist = self.artist.cow_to_ascii_lowercase();
+        let creator = self.creator.cow_to_ascii_lowercase();
+        let title = self.title.cow_to_ascii_lowercase();
+
+        matches &= criteria.artist.matches(artist.as_ref());
+        matches &= criteria.creator.matches(creator.as_ref());
+        matches &= criteria.title.matches(title.as_ref());
+
+        if matches && criteria.has_search_terms() {
+            let terms = [artist, creator, title];
+
+            matches &= criteria
+                .search_terms()
+                .all(|term| terms.iter().any(|searchable| searchable.contains(term)));
+        }
+
+        matches
+    }
+}
+
+impl Searchable for Map {
+    #[inline]
+    fn matches(&self, criteria: &FilterCriteria<'_>) -> bool {
+        let mut matches = true;
+
+        matches &= criteria.ar.contains(self.ar);
+        matches &= criteria.cs.contains(self.cs);
+        matches &= criteria.hp.contains(self.hp);
+        matches &= criteria.od.contains(self.od);
+
+        matches
+    }
+}
+
 impl Searchable for Score {
     fn matches(&self, criteria: &FilterCriteria<'_>) -> bool {
         let mut matches = true;
@@ -85,10 +148,10 @@ impl Searchable for Score {
 
         if let Some(ref map) = self.map {
             let mode = match map.mode {
-                GameMode::Osu => rosu_pp::GameMode::Osu,
-                GameMode::Taiko => rosu_pp::GameMode::Taiko,
-                GameMode::Catch => rosu_pp::GameMode::Catch,
-                GameMode::Mania => rosu_pp::GameMode::Mania,
+                GameMode::Osu => Mode::Osu,
+                GameMode::Taiko => Mode::Taiko,
+                GameMode::Catch => Mode::Catch,
+                GameMode::Mania => Mode::Mania,
             };
 
             let attrs = BeatmapAttributesBuilder::default()
@@ -164,7 +227,107 @@ impl Searchable for OsuTrackerCountryScore {
         matches &= criteria.creator.matches(creator.as_ref());
 
         if matches && criteria.has_search_terms() {
-            let terms = [self.name.cow_to_ascii_lowercase(), creator];
+            let name = self.name.cow_to_ascii_lowercase();
+
+            matches &= criteria
+                .search_terms()
+                .all(|term| name.contains(term) || creator.contains(term));
+        }
+
+        matches
+    }
+}
+
+impl Searchable for TopIfEntry {
+    #[inline]
+    fn matches(&self, criteria: &FilterCriteria<'_>) -> bool {
+        let Self {
+            score, map, stars, ..
+        } = self;
+
+        let mut matches = true;
+
+        matches &= criteria.stars.contains(*stars);
+        matches &= (score, map).matches(criteria);
+
+        matches
+    }
+}
+
+impl Searchable for TopEntry {
+    #[inline]
+    fn matches(&self, criteria: &FilterCriteria<'_>) -> bool {
+        let Self {
+            score, map, stars, ..
+        } = self;
+
+        let mut matches = true;
+
+        matches &= criteria.stars.contains(*stars);
+        matches &= (score, map).matches(criteria);
+
+        matches
+    }
+}
+
+impl Searchable for (&'_ ScoreSlim, &'_ OsuMap) {
+    fn matches(&self, criteria: &FilterCriteria<'_>) -> bool {
+        let (score, map) = *self;
+
+        let mut matches = true;
+
+        let mode = match score.mode {
+            GameMode::Osu => Mode::Osu,
+            GameMode::Taiko => Mode::Taiko,
+            GameMode::Catch => Mode::Catch,
+            GameMode::Mania => Mode::Mania,
+        };
+
+        let attrs = map
+            .pp_map
+            .attributes()
+            .mode(mode)
+            .mods(score.mods.bits())
+            .converted(score.mode != map.mode())
+            .build();
+
+        let clock_rate = attrs.clock_rate as f32;
+        let len = map.seconds_drain() as f32 / clock_rate;
+
+        matches &= criteria.ar.contains(attrs.ar as f32);
+        matches &= criteria.cs.contains(attrs.cs as f32);
+        matches &= criteria.hp.contains(attrs.hp as f32);
+        matches &= criteria.od.contains(attrs.od as f32);
+        matches &= criteria.length.contains(len);
+        matches &= criteria.bpm.contains(map.bpm() * clock_rate);
+
+        let keys = match score.mods.has_key_mod() {
+            Some(GameMods::Key1) => 1.0,
+            Some(GameMods::Key2) => 2.0,
+            Some(GameMods::Key3) => 3.0,
+            Some(GameMods::Key4) => 4.0,
+            Some(GameMods::Key5) => 5.0,
+            Some(GameMods::Key6) => 6.0,
+            Some(GameMods::Key7) => 7.0,
+            Some(GameMods::Key8) => 8.0,
+            Some(GameMods::Key9) => 9.0,
+            None => map.cs(),
+            _ => unreachable!(),
+        };
+
+        matches &= score.mode != GameMode::Mania || criteria.keys.contains(keys);
+
+        if matches && criteria.has_search_terms() {
+            let artist = map.artist().cow_to_ascii_lowercase();
+            let creator = map.creator().cow_to_ascii_lowercase();
+            let title = map.title().cow_to_ascii_lowercase();
+            let version = map.version().cow_to_ascii_lowercase();
+
+            matches &= criteria.artist.matches(artist.as_ref());
+            matches &= criteria.creator.matches(creator.as_ref());
+            matches &= criteria.title.matches(title.as_ref());
+
+            let terms = [artist, creator, title, version];
 
             matches &= criteria
                 .search_terms()

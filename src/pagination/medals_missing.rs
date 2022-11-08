@@ -1,17 +1,17 @@
 use command_macros::pagination;
-use rosu_v2::model::user::User;
 use twilight_model::channel::embed::Embed;
 
 use crate::{
     commands::osu::MedalType,
     embeds::{EmbedData, MedalsMissingEmbed},
+    manager::redis::{osu::User, RedisData},
 };
 
 use super::Pages;
 
 #[pagination(per_page = 15, entries = "medals")]
 pub struct MedalsMissingPagination {
-    user: User,
+    user: RedisData<User>,
     medals: Vec<MedalType>,
     medal_count: (usize, usize),
 }

@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, mem, sync::Arc};
 
 use command_macros::command;
 use eyre::{Report, Result, WrapErr};
@@ -6,17 +6,22 @@ use hashbrown::HashMap;
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::prelude::*;
 use rkyv::{Deserialize, Infallible};
-use rosu_v2::prelude::{GameMode, MedalCompact, OsuError};
+use rosu_v2::{
+    prelude::{MedalCompact, OsuError},
+    request::UserId,
+};
 use time::OffsetDateTime;
 
 use crate::{
-    commands::osu::{get_user, require_link, UserArgs},
+    commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
     custom_client::Rarity,
     embeds::{EmbedData, MedalStatsEmbed},
+    manager::redis::{osu::UserArgs, RedisData},
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
+        hasher::IntHasher,
         matcher, Monthly,
     },
     Context,
@@ -53,29 +58,28 @@ pub(super) async fn stats(
     orig: CommandOrigin<'_>,
     args: MedalStats<'_>,
 ) -> Result<()> {
-    let name = match username!(ctx, orig, args) {
-        Some(name) => name,
-        None => match ctx.psql().get_user_osu(orig.user_id()?).await {
-            Ok(Some(osu)) => osu.into_username(),
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
+        None => match ctx.user_config().osu_id(orig.user_id()?).await {
+            Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => return require_link(&ctx, &orig).await,
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get username"));
+                return Err(err);
             }
         },
     };
 
-    let user_args = UserArgs::new(name.as_str(), GameMode::Osu);
-    let user_fut = get_user(&ctx, &user_args);
-    let redis = ctx.redis();
-    let ranking_fut = redis.osekai_ranking::<Rarity>();
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await;
+    let user_fut = ctx.redis().osu_user(user_args);
+    let medals_fut = ctx.redis().medals();
+    let ranking_fut = ctx.redis().osekai_ranking::<Rarity>();
 
-    let (mut user, all_medals, ranking) = match tokio::join!(user_fut, redis.medals(), ranking_fut)
-    {
+    let (mut user, all_medals, ranking) = match tokio::join!(user_fut, medals_fut, ranking_fut) {
         (Ok(user), Ok(medals), Ok(ranking)) => (user, medals, Some(ranking)),
         (Err(OsuError::NotFound), ..) => {
-            let content = format!("User `{name}` was not found");
+            let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
@@ -97,11 +101,14 @@ pub(super) async fn stats(
         }
     };
 
-    if let Some(ref mut medals) = user.medals {
-        medals.sort_unstable_by_key(|medal| medal.achieved_at);
-    }
+    let mut medals = match user {
+        RedisData::Original(ref mut user) => mem::take(&mut user.medals),
+        RedisData::Archived(ref user) => user.medals.deserialize(&mut Infallible).unwrap(),
+    };
 
-    let graph = match graph(user.medals.as_ref().unwrap(), W, H) {
+    medals.sort_unstable_by_key(|medal| medal.achieved_at);
+
+    let graph = match graph(&medals, W, H) {
         Ok(bytes_option) => bytes_option,
         Err(err) => {
             warn!("{:?}", err.wrap_err("failed to create graph"));
@@ -110,38 +117,45 @@ pub(super) async fn stats(
         }
     };
 
-    let all_medals: HashMap<_, _> = all_medals
-        .get()
-        .iter()
-        .map(|entry| {
-            let name = entry.name.deserialize(&mut Infallible).unwrap();
-            let grouping = entry.grouping.deserialize(&mut Infallible).unwrap();
+    let all_medals: HashMap<_, _, IntHasher> = match all_medals {
+        RedisData::Original(all_medals) => all_medals
+            .into_iter()
+            .map(|entry| (entry.medal_id, (entry.name, entry.grouping)))
+            .collect(),
+        RedisData::Archived(all_medals) => all_medals
+            .iter()
+            .map(|entry| {
+                let name = entry.name.deserialize(&mut Infallible).unwrap();
+                let grouping = entry.grouping.deserialize(&mut Infallible).unwrap();
 
-            (entry.medal_id, (name, grouping))
-        })
-        .collect();
-
-    let rarest = match (user.medals.as_ref(), ranking) {
-        (Some(medals), Some(ranking)) => {
-            let ranking: HashMap<_, _> = ranking
-                .get()
-                .iter()
-                .map(|entry| (entry.medal_id, entry.possession_percent))
-                .collect();
-
-            medals
-                .iter()
-                .min_by_key(|medal| {
-                    ranking
-                        .get(&medal.medal_id)
-                        .map_or(i32::MAX, |&perc| (perc * 10_000.0) as i32)
-                })
-                .copied()
-        }
-        _ => None,
+                (entry.medal_id, (name, grouping))
+            })
+            .collect(),
     };
 
-    let embed = MedalStatsEmbed::new(user, &all_medals, rarest, graph.is_some()).build();
+    let rarest = ranking.and_then(|ranking| {
+        let ranking: HashMap<_, _, IntHasher> = match ranking {
+            RedisData::Original(ranking) => ranking
+                .iter()
+                .map(|entry| (entry.medal_id, entry.possession_percent))
+                .collect(),
+            RedisData::Archived(ranking) => ranking
+                .iter()
+                .map(|entry| (entry.medal_id, entry.possession_percent))
+                .collect(),
+        };
+
+        medals
+            .iter()
+            .min_by_key(|medal| {
+                ranking
+                    .get(&medal.medal_id)
+                    .map_or(i32::MAX, |&perc| (perc * 10_000.0) as i32)
+            })
+            .copied()
+    });
+
+    let embed = MedalStatsEmbed::new(&user, &medals, &all_medals, rarest, graph.is_some()).build();
     let mut builder = MessageBuilder::new().embed(embed);
 
     if let Some(graph) = graph {
@@ -194,7 +208,7 @@ pub fn graph(medals: &[MedalCompact], w: u32, h: u32) -> Result<Option<Vec<u8>>>
             .x_labels(10)
             .x_label_formatter(&|d| format!("{}-{}", d.year(), d.month() as u8))
             .label_style(("sans-serif", 20, &WHITE))
-            .bold_line_style(&WHITE.mix(0.3))
+            .bold_line_style(WHITE.mix(0.3))
             .axis_style(RGBColor(7, 18, 14))
             .axis_desc_style(("sans-serif", 16, FontStyle::Bold, &WHITE))
             .draw()

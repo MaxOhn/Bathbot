@@ -16,7 +16,7 @@ impl TrackEmbed {
         success: Vec<Username>,
         failure: Vec<Username>,
         failed: Option<Username>,
-        limit: usize,
+        limit: u8,
     ) -> Self {
         let title = format!("Top score tracking | mode={} | limit={}", mode, limit);
         let mut fields = Vec::with_capacity(3);

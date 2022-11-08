@@ -24,6 +24,7 @@ pub struct ScraperScore {
     pub username: String,
     pub country_code: CountryCode,
     pub accuracy: f32,
+    pub mode: GameMode,
     pub mods: GameMods,
     pub score: u32,
     pub max_combo: u32,
@@ -51,6 +52,8 @@ impl<'de> Deserialize<'de> for ScraperScore {
             mods: GameMods,
             #[serde(rename = "total_score")]
             score: u32,
+            #[serde(rename = "ruleset_id")]
+            mode: GameMode,
             max_combo: u32,
             // #[serde(rename = "legacy_perfect")]
             // perfect: bool,
@@ -93,6 +96,7 @@ impl<'de> Deserialize<'de> for ScraperScore {
             username: helper.user.username,
             country_code: helper.user.country_code,
             accuracy: helper.accuracy,
+            mode: helper.mode,
             mods: helper.mods,
             score: helper.score,
             max_combo: helper.max_combo,

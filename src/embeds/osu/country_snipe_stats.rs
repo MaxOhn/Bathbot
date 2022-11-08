@@ -6,7 +6,7 @@ use crate::{
     embeds::attachment,
     util::{
         builder::FooterBuilder,
-        numbers::{round, with_comma_int},
+        numbers::{round, WithComma},
         osu::flag_url,
         CountryCode, CowUtils,
     },
@@ -63,8 +63,8 @@ impl CountrySnipeStatsEmbed {
 
         let footer = FooterBuilder::new(format!(
             "Unplayed maps: {}/{} ({percent}%)",
-            with_comma_int(statistics.unplayed_maps),
-            with_comma_int(statistics.total_maps),
+            WithComma::new(statistics.unplayed_maps),
+            WithComma::new(statistics.total_maps),
         ));
 
         Self {

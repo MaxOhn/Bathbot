@@ -67,9 +67,9 @@ pub struct OsuStatsScore {
     #[serde(rename = "countMiss")]
     pub count_miss: u32,
     #[serde(rename = "enabledMods", with = "deser::mods_string")]
-    pub enabled_mods: GameMods,
+    pub mods: GameMods,
     #[serde(rename = "playDate", with = "deser::naive_datetime")]
-    pub date: OffsetDateTime,
+    pub ended_at: OffsetDateTime,
     #[serde(rename = "ppValue")]
     pub pp: Option<f32>,
     #[serde(rename = "beatmap")]
@@ -79,11 +79,11 @@ pub struct OsuStatsScore {
 #[derive(Debug, Deserialize)]
 pub struct OsuStatsMap {
     #[serde(rename = "beatmapId")]
-    pub beatmap_id: u32,
+    pub map_id: u32,
     #[serde(rename = "beatmapSetId")]
-    pub beatmapset_id: u32,
+    pub mapset_id: u32,
     #[serde(rename = "approved")]
-    pub approval_status: RankStatus,
+    pub status: RankStatus,
     #[serde(rename = "lastUpdated", with = "deser::naive_datetime")]
     pub last_updated: OffsetDateTime,
     #[serde(rename = "approvedDate", with = "deser::option_naive_datetime")]

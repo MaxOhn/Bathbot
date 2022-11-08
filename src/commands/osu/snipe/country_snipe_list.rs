@@ -2,12 +2,13 @@ use std::{borrow::Cow, cmp::Ordering::Equal, sync::Arc};
 
 use command_macros::command;
 use eyre::{Report, Result};
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::{prelude::OsuError, request::UserId};
 
 use crate::{
-    commands::osu::UserArgs,
+    commands::osu::user_not_found,
     core::commands::{prefix::Args, CommandOrigin},
     custom_client::SnipeCountryPlayer as SCP,
+    manager::redis::{osu::UserArgs, RedisData},
     pagination::CountrySnipeListPagination,
     util::{
         constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
@@ -57,29 +58,28 @@ pub(super) async fn country_list(
     let author_id = orig.user_id()?;
 
     // Retrieve author's osu user to check if they're in the list
-    let osu_user = match ctx.psql().get_user_osu(author_id).await {
-        Ok(Some(osu)) => {
-            let name = osu.into_username();
-            let user_args = UserArgs::new(name.as_str(), GameMode::Osu);
+    let osu_user = match ctx.user_config().osu_id(author_id).await {
+        Ok(Some(user_id)) => {
+            let user_args = UserArgs::user_id(user_id);
 
-            match ctx.redis().osu_user(&user_args).await {
+            match ctx.redis().osu_user(user_args).await {
                 Ok(user) => Some(user),
                 Err(OsuError::NotFound) => {
-                    let content = format!("User `{name}` was not found");
+                    let content = user_not_found(&ctx, UserId::Id(user_id)).await;
 
                     return orig.error(&ctx, content).await;
                 }
                 Err(err) => {
                     let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-                    let report = Report::new(err).wrap_err("failed to get user");
+                    let err = Report::new(err).wrap_err("failed to get user");
 
-                    return Err(report);
+                    return Err(err);
                 }
             }
         }
         Ok(None) => None,
         Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to get username"));
+            warn!("{err:?}");
 
             None
         }
@@ -102,8 +102,9 @@ pub(super) async fn country_list(
                 }
             }
         },
-        None => match osu_user {
-            Some(ref user) => user.country_code.as_str().into(),
+        None => match &osu_user {
+            Some(RedisData::Original(user)) => user.country_code.as_str().into(),
+            Some(RedisData::Archived(user)) => user.country_code.as_str().into(),
             None => {
                 let content = "Since you're not linked, you must specify a country (code)";
 
@@ -113,7 +114,7 @@ pub(super) async fn country_list(
     };
 
     // Check if huisemetbenen supports the country
-    if !country_code.snipe_supported(&ctx) {
+    if !ctx.huismetbenen().is_supported(country_code.as_str()).await {
         let content = format!("The country code `{country_code}` is not supported :(",);
 
         return orig.error(&ctx, content).await;
@@ -149,9 +150,11 @@ pub(super) async fn country_list(
 
     // Try to find author in list
     let author_idx = osu_user.as_ref().and_then(|user| {
+        let author_name = user.username();
+
         players
             .iter()
-            .position(|player| player.username == user.username)
+            .position(|player| player.username == author_name)
     });
 
     // Enumerate players
@@ -162,7 +165,9 @@ pub(super) async fn country_list(
         .collect();
 
     let country = ctx
+        .huismetbenen()
         .get_country(country_code.as_ref())
+        .await
         .map(|name| (name, country_code.as_ref().into()));
 
     CountrySnipeListPagination::builder(players, country, sort, author_idx)

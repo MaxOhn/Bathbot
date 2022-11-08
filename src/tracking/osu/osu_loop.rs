@@ -1,9 +1,9 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, slice, sync::Arc};
 
+use bathbot_psql::model::osu::{TrackedOsuUserKey, TrackedOsuUserValue};
 use eyre::Report;
-use hashbrown::HashMap;
 use rosu_v2::{
-    prelude::{GameMode, OsuError, Score, User},
+    prelude::{OsuError, Score},
     OsuResult,
 };
 use time::OffsetDateTime;
@@ -17,32 +17,36 @@ use twilight_model::{
 };
 
 use crate::{
-    commands::osu::prepare_score,
     embeds::{EmbedData, TrackNotificationEmbed},
+    manager::{
+        redis::{
+            osu::{User, UserArgs},
+            RedisData,
+        },
+        OsuMap,
+    },
     util::{constants::UNKNOWN_CHANNEL, hasher::IntHasher},
     Context,
 };
 
-use super::osu_queue::TrackingEntry;
-
 #[cold]
 pub async fn osu_tracking_loop(ctx: Arc<Context>) {
     loop {
-        if let Some((entry, amount)) = ctx.tracking().pop().await {
-            let TrackingEntry { user_id, mode } = entry;
+        if let Some((key, amount)) = ctx.tracking().pop().await {
+            let TrackedOsuUserKey { user_id, mode } = key;
 
             let scores_fut = ctx
                 .osu()
                 .user_scores(user_id)
                 .best()
                 .mode(mode)
-                .limit(amount);
+                .limit(amount as usize);
 
             match scores_fut.await {
-                Ok(mut scores) => {
+                Ok(scores) => {
                     // * Note: If scores are empty, (user_id, mode) will not be reset into the tracking queue
                     if !scores.is_empty() {
-                        process_osu_tracking(&ctx, &mut scores, None).await
+                        process_osu_tracking(&ctx, &scores, None).await
                     }
                 }
                 Err(OsuError::NotFound) => {
@@ -50,7 +54,11 @@ pub async fn osu_tracking_loop(ctx: Arc<Context>) {
                         "got 404 while retrieving scores for ({user_id},{mode}), don't reset entry",
                     );
 
-                    if let Err(err) = ctx.tracking().remove_user_all(user_id, ctx.psql()).await {
+                    if let Err(err) = ctx
+                        .tracking()
+                        .remove_user_all(user_id, ctx.osu_tracking())
+                        .await
+                    {
                         let wrap = "Failed to remove unknown user from tracking";
                         warn!("{:?}", err.wrap_err(wrap));
                     }
@@ -59,25 +67,35 @@ pub async fn osu_tracking_loop(ctx: Arc<Context>) {
                     let wrap = format!(
                         "osu!api issue while retrieving user ({user_id},{mode}) for tracking",
                     );
-                    let report = Report::new(err).wrap_err(wrap);
-                    warn!("{report:?}");
-                    ctx.tracking().reset(user_id, mode).await;
+                    let err = Report::new(err).wrap_err(wrap);
+                    warn!("{err:?}");
+                    ctx.tracking().reset(key).await;
                 }
             }
         }
     }
 }
 
-pub async fn process_osu_tracking(ctx: &Context, scores: &mut [Score], user: Option<&User>) {
+pub async fn process_osu_tracking(ctx: &Context, scores: &[Score], user: Option<&RedisData<User>>) {
     // Make sure scores is not empty
-    let (user_id, mode, new_last) = match scores.iter().max_by_key(|s| s.ended_at) {
-        Some(score) => (score.user_id, score.mode, score.ended_at),
+    let (key, new_last) = match scores.iter().max_by_key(|s| s.ended_at) {
+        Some(score) => {
+            let key = TrackedOsuUserKey {
+                user_id: score.user_id,
+                mode: score.mode,
+            };
+
+            (key, score.ended_at)
+        }
         None => return,
     };
 
     // Make sure the user is being tracked in general
-    let (last, channels) = match ctx.tracking().get_tracked(user_id, mode).await {
-        Some(tuple) => tuple,
+    let (channels, last) = match ctx.tracking().get_tracked(key).await {
+        Some(TrackedOsuUserValue {
+            channels,
+            last_update,
+        }) => (channels, last_update),
         None => return,
     };
 
@@ -91,31 +109,35 @@ pub async fn process_osu_tracking(ctx: &Context, scores: &mut [Score], user: Opt
     if new_last > last {
         let update_fut = ctx
             .tracking()
-            .update_last_date(user_id, mode, new_last, ctx.psql());
+            .update_last_date(key, new_last, ctx.osu_tracking());
 
         if let Err(err) = update_fut.await {
-            let wrap = format!("Failed to update tracking date for user ({user_id},{mode})");
+            let wrap = "failed to update tracking date for user";
             warn!("{:?}", err.wrap_err(wrap));
         }
     }
 
-    ctx.tracking().reset(user_id, mode).await;
+    ctx.tracking().reset(key).await;
 
-    let mut user = TrackUser::new(user_id, mode, user);
+    let mut user = TrackUser::new(key, user);
 
     // Process scores
     match score_loop(ctx, &mut user, max, last, scores, &channels).await {
         Ok(_) => {}
         Err(OsuError::NotFound) => {
-            if let Err(err) = ctx.tracking().remove_user_all(user_id, ctx.psql()).await {
-                let wrap = "Failed to remove unknow user from tracking";
+            if let Err(err) = ctx
+                .tracking()
+                .remove_user_all(key.user_id, ctx.osu_tracking())
+                .await
+            {
+                let wrap = "failed to remove unknow user from tracking";
                 warn!("{:?}", err.wrap_err(wrap));
             }
         }
         Err(err) => {
-            let report = Report::new(err).wrap_err("osu!api error while tracking");
-            warn!("{report:?}");
-            ctx.tracking().reset(user_id, mode).await;
+            let err = Report::new(err).wrap_err("osu!api error while tracking");
+            warn!("{err:?}");
+            ctx.tracking().reset(key).await;
         }
     }
 }
@@ -123,29 +145,29 @@ pub async fn process_osu_tracking(ctx: &Context, scores: &mut [Score], user: Opt
 async fn score_loop(
     ctx: &Context,
     user: &mut TrackUser<'_>,
-    max: usize,
+    max: u8,
     last: OffsetDateTime,
-    scores: &mut [Score],
-    channels: &HashMap<Id<ChannelMarker>, usize, IntHasher>,
+    scores: &[Score],
+    channels: &HashMap<Id<ChannelMarker>, u8, IntHasher>,
 ) -> OsuResult<()> {
-    for (idx, score) in (1..).zip(scores.iter_mut()).take(max) {
+    for (idx, score) in (1..).zip(scores.iter()).take(max as usize) {
         // Skip if its an older score
         if score.ended_at <= last {
             continue;
         }
 
-        let requires_combo = score.map.as_ref().map_or(false, |m| {
-            matches!(m.mode, GameMode::Osu | GameMode::Catch) && m.max_combo.is_none()
-        });
+        let map = score.map.as_ref().expect("missing map");
 
-        if requires_combo {
-            if let Err(err) = prepare_score(ctx, score).await {
-                let report = Report::new(err).wrap_err("failed to fill in max combo for tracking");
-                warn!("{report:?}");
+        let map = match ctx.osu_map().map(map.map_id, map.checksum.as_deref()).await {
+            Ok(map) => map,
+            Err(err) => {
+                warn!("{err:?}");
 
                 continue;
             }
-        }
+        };
+
+        let embed = user.embed(ctx, score, &map, idx).await?;
 
         // Send the embed to each tracking channel
         for (&channel, &limit) in channels.iter() {
@@ -153,10 +175,10 @@ async fn score_loop(
                 continue;
             }
 
-            let embed = user.embed(ctx, score, idx).await?;
+            let embeds = slice::from_ref(&embed);
 
             // Try to build and send the message
-            match ctx.http.create_message(channel).embeds(&[embed]) {
+            match ctx.http.create_message(channel).embeds(embeds) {
                 Ok(msg_fut) => {
                     if let Err(err) = msg_fut.exec().await {
                         if let TwilightErrorType::Response { error, .. } = err.kind() {
@@ -165,12 +187,15 @@ async fn score_loop(
                                 ..
                             }) = error
                             {
-                                let remove_fut =
-                                    ctx.tracking().remove_channel(channel, None, ctx.psql());
+                                let remove_fut = ctx.tracking().remove_channel(
+                                    channel,
+                                    None,
+                                    ctx.osu_tracking(),
+                                );
 
                                 if let Err(err) = remove_fut.await {
                                     let wrap = format!(
-                                        "Failed to remove osu tracks from unknown channel {channel}",
+                                        "failed to remove osu tracks from unknown channel {channel}",
                                     );
 
                                     warn!("{:?}", err.wrap_err(wrap));
@@ -182,15 +207,15 @@ async fn score_loop(
                             }
                         } else {
                             let wrap = format!("error while sending osu notif (channel {channel})");
-                            let report = Report::new(err).wrap_err(wrap);
-                            warn!("{report:?}");
+                            let err = Report::new(err).wrap_err(wrap);
+                            warn!("{err:?}");
                         }
                     }
                 }
                 Err(err) => {
-                    let report =
+                    let err =
                         Report::new(err).wrap_err("invalid embed for osu!tracking notification");
-                    warn!("{report:?}");
+                    warn!("{err:?}");
                 }
             }
         }
@@ -200,29 +225,35 @@ async fn score_loop(
 }
 
 struct TrackUser<'u> {
-    user_id: u32,
-    mode: GameMode,
-    user: Option<Cow<'u, User>>,
+    key: TrackedOsuUserKey,
+    user: Option<Cow<'u, RedisData<User>>>,
 }
 
 impl<'u> TrackUser<'u> {
     #[inline]
-    fn new(user_id: u32, mode: GameMode, user: Option<&'u User>) -> Self {
+    fn new(key: TrackedOsuUserKey, user: Option<&'u RedisData<User>>) -> Self {
         Self {
-            user_id,
-            mode,
+            key,
             user: user.map(Cow::Borrowed),
         }
     }
 
-    async fn embed(&mut self, ctx: &Context, score: &Score, idx: usize) -> OsuResult<Embed> {
+    async fn embed(
+        &mut self,
+        ctx: &Context,
+        score: &Score,
+        map: &OsuMap,
+        idx: u8,
+    ) -> OsuResult<Embed> {
         let data = if let Some(user) = self.user.as_deref() {
-            TrackNotificationEmbed::new(user, score, idx, ctx).await
+            TrackNotificationEmbed::new(user, score, map, idx, ctx).await
         } else {
-            let user = ctx.osu().user(self.user_id).mode(self.mode).await?;
+            let TrackedOsuUserKey { user_id, mode } = self.key;
+            let args = UserArgs::user_id(user_id).mode(mode);
+            let user = ctx.redis().osu_user(args).await?;
             let user = self.user.get_or_insert(Cow::Owned(user));
 
-            TrackNotificationEmbed::new(user.as_ref(), score, idx, ctx).await
+            TrackNotificationEmbed::new(user.as_ref(), score, map, idx, ctx).await
         };
 
         Ok(data.build())

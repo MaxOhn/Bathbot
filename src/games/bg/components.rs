@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use bathbot_psql::model::games::DbMapTagsParams;
 use eyre::{ContextCompat, Result, WrapErr};
 use hashbrown::hash_map::Entry;
 use rosu_v2::prelude::GameMode;
@@ -90,12 +91,13 @@ pub async fn handle_bg_start_button(
                     return Ok(());
                 }
 
-                let mapset_fut =
-                    ctx.psql()
-                        .get_specific_tags_mapset(GameMode::Osu, *included, *excluded);
+                let mut params = DbMapTagsParams::new(GameMode::Osu);
 
-                let mapsets = match mapset_fut.await {
-                    Ok(mapsets) => mapsets,
+                included.as_include(&mut params);
+                excluded.as_exclude(&mut params);
+
+                let entries = match ctx.games().bggame_tags(params).await {
+                    Ok(entries) => entries,
                     Err(err) => {
                         let embed = EmbedBuilder::new()
                             .color(RED)
@@ -110,15 +112,19 @@ pub async fn handle_bg_start_button(
                     }
                 };
 
-                let embed =
-                    BGTagsEmbed::new(*included, *excluded, mapsets.len(), *effects, *difficulty)
-                        .build();
+                let embed = BGTagsEmbed::new(
+                    *included,
+                    *excluded,
+                    entries.tags.len(),
+                    *effects,
+                    *difficulty,
+                );
 
-                if let Err(err) = remove_components(&ctx, &component, Some(embed)).await {
+                if let Err(err) = remove_components(&ctx, &component, Some(embed.build())).await {
                     warn!("{err:?}");
                 }
 
-                if mapsets.is_empty() {
+                if entries.tags.is_empty() {
                     entry.remove();
 
                     return Ok(());
@@ -131,7 +137,7 @@ pub async fn handle_bg_start_button(
                 );
 
                 let ctx = Arc::clone(&ctx);
-                let game = GameWrapper::new(ctx, channel, mapsets, *effects, *difficulty).await;
+                let game = GameWrapper::new(ctx, channel, entries, *effects, *difficulty).await;
 
                 entry.insert(GameState::Running { game });
             }

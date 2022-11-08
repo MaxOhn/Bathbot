@@ -2,9 +2,11 @@ use std::{collections::BTreeMap, fmt::Write, iter, mem};
 
 use command_macros::EmbedData;
 use hashbrown::HashSet;
-use rosu_v2::model::user::User;
 
-use crate::util::{builder::AuthorBuilder, hasher::IntHasher, numbers::with_comma_int};
+use crate::{
+    manager::redis::{osu::User, RedisData},
+    util::{builder::AuthorBuilder, hasher::IntHasher, numbers::WithComma},
+};
 
 #[derive(EmbedData)]
 pub struct BWSEmbed {
@@ -16,13 +18,13 @@ pub struct BWSEmbed {
 
 impl BWSEmbed {
     pub fn new(
-        user: User,
+        user: &RedisData<User>,
         badges_curr: usize,
         badges_min: usize,
         badges_max: usize,
         rank: Option<u32>,
     ) -> Self {
-        let stats = user.statistics.as_ref().unwrap();
+        let global_rank = user.peek_stats(|stats| stats.global_rank);
 
         let dist_badges = badges_max - badges_min;
         let step_dist = 2;
@@ -31,17 +33,13 @@ impl BWSEmbed {
             .step_by(dist_badges / step_dist)
             .take(step_dist)
             .chain(iter::once(badges_max))
-            .map(|badges| (badges, with_comma_int(badges).to_string().len()))
+            .map(|badges| (badges, WithComma::new(badges).to_string().len()))
             .collect();
 
         let description = match rank {
             Some(rank_arg) => {
                 let mut min = rank_arg;
-                let mut max = user
-                    .statistics
-                    .as_ref()
-                    .and_then(|stats| stats.global_rank)
-                    .unwrap_or(0);
+                let mut max = global_rank.unwrap_or(0);
 
                 if min > max {
                     mem::swap(&mut min, &mut max);
@@ -63,7 +61,7 @@ impl BWSEmbed {
                             let bwss: Vec<_> = badges
                                 .iter()
                                 .map(move |(badges, _)| {
-                                    with_comma_int(bws(Some(rank), *badges)).to_string()
+                                    WithComma::new(bws(Some(rank), *badges)).to_string()
                                 })
                                 .collect();
 
@@ -132,9 +130,9 @@ impl BWSEmbed {
                 content
             }
             None => {
-                let bws1 = with_comma_int(bws(stats.global_rank, badges[0].0)).to_string();
-                let bws2 = with_comma_int(bws(stats.global_rank, badges[1].0)).to_string();
-                let bws3 = with_comma_int(bws(stats.global_rank, badges[2].0)).to_string();
+                let bws1 = WithComma::new(bws(global_rank, badges[0].0)).to_string();
+                let bws2 = WithComma::new(bws(global_rank, badges[1].0)).to_string();
+                let bws3 = WithComma::new(bws(global_rank, badges[2].0)).to_string();
                 let len1 = bws1.len().max(2).max(badges[0].1);
                 let len2 = bws2.len().max(2).max(badges[1].1);
                 let len3 = bws3.len().max(2).max(badges[2].1);
@@ -183,14 +181,14 @@ impl BWSEmbed {
         let title = format!(
             "Current BWS for {badges_curr} badge{}: {}",
             if badges_curr == 1 { "" } else { "s" },
-            with_comma_int(bws(stats.global_rank, badges_curr))
+            WithComma::new(bws(global_rank, badges_curr))
         );
 
         Self {
             title,
             description,
-            author: author!(user),
-            thumbnail: user.avatar_url,
+            author: user.author_builder(),
+            thumbnail: user.avatar_url().to_owned(),
         }
     }
 }

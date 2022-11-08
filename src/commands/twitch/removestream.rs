@@ -50,10 +50,10 @@ pub async fn removestream(ctx: Arc<Context>, orig: CommandOrigin<'_>, name: &'_ 
         }
     };
 
-    let channel = orig.channel_id().get();
-    ctx.remove_tracking(twitch_id, channel);
+    let channel = orig.channel_id();
+    ctx.remove_tracking(twitch_id, channel.get());
 
-    match ctx.psql().remove_stream_track(channel, twitch_id).await {
+    match ctx.twitch().untrack(channel, twitch_id).await {
         Ok(true) => {
             trace!("No longer tracking {name}'s twitch for channel {channel}");
 

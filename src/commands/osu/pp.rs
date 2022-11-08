@@ -7,18 +7,18 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    commands::{
-        osu::{get_user_and_scores, ScoreArgs, UserArgs},
-        GameModeOption,
-    },
+    commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
-    embeds::{EmbedData, PPMissingEmbed},
+    embeds::{EmbedData, PpMissingEmbed},
+    manager::redis::osu::UserArgs,
     util::{
         builder::MessageBuilder, constants::OSU_API_ISSUE, interaction::InteractionCommand,
         matcher, ChannelExt, InteractionCommandExt,
     },
     Context,
 };
+
+use super::user_not_found;
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
 #[command(name = "pp")]
@@ -158,7 +158,7 @@ pub async fn prefix_ppctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> R
 }
 
 async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<()> {
-    let (name, mode) = name_mode!(ctx, orig, args);
+    let (user_id, mode) = user_id_mode!(ctx, orig, args);
 
     let Pp { pp, each, .. } = args;
 
@@ -169,46 +169,38 @@ async fn pp(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pp<'_>) -> Result<
     }
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::new(name.as_str(), mode);
-    let score_args = ScoreArgs::top(100);
-    let user_scores_fut = get_user_and_scores(&ctx, user_args, &score_args);
-    let rank_fut = ctx.psql().approx_rank_from_pp(pp, mode);
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let scores_fut = ctx.osu_scores().top().limit(100).exec_with_user(user_args);
+    let rank_fut = ctx.approx().rank(pp, mode);
 
-    let (user_scores_result, rank_result) = tokio::join!(user_scores_fut, rank_fut);
+    let (user_scores_res, rank_res) = tokio::join!(scores_fut, rank_fut);
 
-    let (mut user, mut scores) = match user_scores_result {
+    let (user, scores) = match user_scores_res {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = format!("User `{name}` was not found");
+            let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user or scores");
+            let err = Report::new(err).wrap_err("failed to get user or scores");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
-    // Overwrite default mode
-    user.mode = mode;
-
-    let rank = match rank_result {
+    let rank = match rank_res {
         Ok(rank_pp) => Some(rank_pp),
         Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to get rank pp"));
+            warn!("{:?}", err.wrap_err("failed to get rank pp"));
 
             None
         }
     };
 
-    // Process user and their top scores for tracking
-    #[cfg(feature = "osutracking")]
-    crate::tracking::process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
-
     // Accumulate all necessary data
-    let embed_data = PPMissingEmbed::new(user, &mut scores, pp, rank, each);
+    let embed_data = PpMissingEmbed::new(&user, &scores, pp, rank, each);
 
     // Creating the embed
     let embed = embed_data.build();

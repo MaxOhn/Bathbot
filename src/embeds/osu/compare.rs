@@ -1,28 +1,30 @@
 use std::{borrow::Cow, fmt::Write};
 
+use bathbot_psql::model::configs::MinimizedPp;
 use command_macros::EmbedData;
-use eyre::{Result, WrapErr};
-use rosu_pp::{Beatmap as Map, BeatmapExt};
-use rosu_v2::prelude::{Beatmap, GameMode, Grade, Score, User};
+use rosu_v2::prelude::{GameMode, Score};
 use time::OffsetDateTime;
 use twilight_model::channel::embed::Embed;
 
 use crate::{
-    core::Context,
-    database::MinimizedPp,
+    commands::osu::CompareEntry,
     embeds::osu,
+    manager::{
+        redis::{osu::User, RedisData},
+        OsuMap,
+    },
     util::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
-        datetime::{how_long_ago_dynamic, HowLongAgoFormatterDynamic},
+        datetime::HowLongAgoDynamic,
         matcher::highlight_funny_numeral,
-        numbers::{self, round, with_comma_float, with_comma_int},
-        osu::{flag_url, grade_completion_mods, prepare_beatmap_file, ModSelection},
-        CowUtils, ScoreExt,
+        numbers::{round, WithComma},
+        osu::{grade_completion_mods, IfFc, ModSelection},
+        CowUtils,
     },
 };
 
-use super::IfFC;
+use super::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter};
 
 const GLOBAL_IDX_THRESHOLD: usize = 500;
 
@@ -36,136 +38,81 @@ pub struct CompareEmbed {
     url: String,
 
     mapset_id: u32,
+    mode: GameMode,
     stars: f32,
     grade_completion_mods: Cow<'static, str>,
     score: String,
     acc: f32,
-    ago: HowLongAgoFormatterDynamic,
+    ago: HowLongAgoDynamic,
     pp: Option<f32>,
     max_pp: Option<f32>,
     combo: String,
-    hits: String,
-    if_fc: Option<(f32, f32, String)>,
+    hits: HitResultFormatter,
+    if_fc: Option<IfFc>,
     map_info: String,
     minimized_pp: MinimizedPp,
 }
 
 impl CompareEmbed {
-    pub async fn new(
+    pub fn new(
         personal: Option<&[Score]>,
-        score: &Score,
+        entry: &CompareEntry,
+        user: &RedisData<User>,
+        map: &OsuMap,
         global_idx: usize,
         pinned: bool,
         minimized_pp: MinimizedPp,
-        ctx: &Context,
-    ) -> Result<Self> {
-        let user = score.user.as_ref().unwrap();
-        let map = score.map.as_ref().unwrap();
-        let mapset = score.mapset.as_ref().unwrap();
+    ) -> Self {
+        let CompareEntry {
+            score,
+            stars,
+            max_pp,
+            if_fc,
+        } = entry;
 
-        let map_path = prepare_beatmap_file(ctx, map.map_id)
-            .await
-            .wrap_err("failed to prepare map")?;
+        let hits = HitResultFormatter::new(score.mode, score.statistics.clone());
+        let grade_completion_mods =
+            grade_completion_mods(score.mods, score.grade, score.total_hits(), map);
 
-        let rosu_map = Map::from_path(map_path)
-            .await
-            .wrap_err("failed to parse map")?;
-
-        let mods = score.mods.bits();
-        let attrs = rosu_map.max_pp(mods);
-
-        let max_pp = attrs.pp();
-        let stars = round(attrs.stars() as f32);
-
-        let (if_fc, attrs) = IfFC::new(score, &rosu_map, attrs.difficulty_attributes(), mods);
-
-        let if_fc = if_fc.map(|if_fc| {
-            let mut hits = String::from("{");
-            let _ = write!(hits, "{}/{}/", if_fc.n300, if_fc.n100);
-
-            if let Some(n50) = if_fc.n50 {
-                let _ = write!(hits, "{n50}/");
-            }
-
-            let _ = write!(hits, "0}}");
-
-            (if_fc.pp, round(if_fc.acc), hits)
-        });
-
-        let pp = if score.grade == Grade::F {
-            rosu_map
-                .pp()
-                .mods(mods)
-                .combo(score.max_combo as usize)
-                .n_geki(score.statistics.count_geki as usize)
-                .n300(score.statistics.count_300 as usize)
-                .n_katu(score.statistics.count_katu as usize)
-                .n100(score.statistics.count_100 as usize)
-                .n50(score.statistics.count_50 as usize)
-                .n_misses(score.statistics.count_miss as usize)
-                .passed_objects(score.total_hits() as usize)
-                .calculate()
-                .pp() as f32
-        } else if let Some(pp) = score.pp {
-            pp
-        } else {
-            rosu_map
-                .pp()
-                .attributes(attrs)
-                .mods(mods)
-                .combo(score.max_combo as usize)
-                .n_geki(score.statistics.count_geki as usize)
-                .n300(score.statistics.count_300 as usize)
-                .n_katu(score.statistics.count_katu as usize)
-                .n100(score.statistics.count_100 as usize)
-                .n50(score.statistics.count_50 as usize)
-                .n_misses(score.statistics.count_miss as usize)
-                .calculate()
-                .pp() as f32
-        };
-
-        let pp = Some(pp);
-        let max_pp = Some(max_pp as f32);
-        let hits = score.hits_string(map.mode);
-        let grade_completion_mods = grade_completion_mods(score, map);
-
-        let (combo, title) = if map.mode == GameMode::Mania {
+        let (combo, title) = if map.mode() == GameMode::Mania {
             let mut ratio = score.statistics.count_geki as f32;
 
-            if score.statistics.count_300 > 0 {
+            if entry.score.statistics.count_300 > 0 {
                 ratio /= score.statistics.count_300 as f32
             }
 
-            let combo = format!("**{}x** / {ratio:.2}", &score.max_combo);
+            let combo = format!("**{}x** / {ratio:.2}", score.max_combo);
 
             let title = format!(
                 "{} {} - {} [{}]",
-                osu::get_keys(score.mods, map),
-                mapset.artist.cow_escape_markdown(),
-                mapset.title.cow_escape_markdown(),
-                map.version.cow_escape_markdown(),
+                KeyFormatter::new(score.mods, map),
+                map.artist().cow_escape_markdown(),
+                map.title().cow_escape_markdown(),
+                map.version().cow_escape_markdown(),
             );
 
             (combo, title)
         } else {
-            (
-                osu::get_combo(score, map),
-                format!(
-                    "{} - {} [{}]",
-                    mapset.artist.cow_escape_markdown(),
-                    mapset.title.cow_escape_markdown(),
-                    map.version.cow_escape_markdown()
-                ),
-            )
+            let combo = ComboFormatter::new(score.max_combo, map.max_combo()).to_string();
+
+            let title = format!(
+                "{} - {} [{}]",
+                map.artist().cow_escape_markdown(),
+                map.title().cow_escape_markdown(),
+                map.version().cow_escape_markdown()
+            );
+
+            (combo, title)
         };
 
-        let footer = FooterBuilder::new(format!(
-            "{:?} map by {} | played",
-            map.status, mapset.creator_name
-        ))
-        .icon_url(format!("{AVATAR_URL}{}", mapset.creator_id));
+        let footer = FooterBuilder::new(format!("{:?} map", map.status()))
+            .icon_url(format!("{AVATAR_URL}{}", map.creator_id()));
 
-        let personal_idx = personal.and_then(|personal| personal.iter().position(|s| s == score));
+        let personal_idx = personal.and_then(|personal| {
+            personal.iter().position(|s| {
+                (s.ended_at.unix_timestamp() - entry.score.ended_at.unix_timestamp()).abs() <= 2
+            })
+        });
 
         let mut description = String::new();
 
@@ -202,52 +149,36 @@ impl CompareEmbed {
             }
         }
 
-        let author = {
-            let stats = user.statistics.as_ref().expect("no statistics on user");
+        let author = user.author_builder();
+        let acc = round(entry.score.accuracy);
+        let ago = HowLongAgoDynamic::new(&entry.score.ended_at);
+        let timestamp = entry.score.ended_at;
+        let mods = entry.score.mods;
+        let score = WithComma::new(entry.score.score).to_string();
 
-            let text = format!(
-                "{name}: {pp}pp (#{global} {country}{national})",
-                name = user.username,
-                pp = numbers::with_comma_float(stats.pp),
-                global = numbers::with_comma_int(stats.global_rank.unwrap_or(0)),
-                country = user.country_code,
-                national = stats.country_rank.unwrap_or(0)
-            );
-
-            let url = format!("{OSU_BASE}users/{}/{}", user.user_id, score.mode);
-            let icon = flag_url(user.country_code.as_str());
-
-            AuthorBuilder::new(text).url(url).icon_url(icon)
-        };
-
-        let acc = round(score.accuracy);
-        let ago = how_long_ago_dynamic(&score.ended_at);
-        let timestamp = score.ended_at;
-        let mods = score.mods;
-        let score = with_comma_int(score.score).to_string();
-
-        Ok(Self {
+        Self {
             description,
             title,
-            url: map.url.to_owned(),
+            url: format!("{OSU_BASE}b/{}", map.map_id()),
             author,
             footer,
             timestamp,
-            thumbnail: format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id), // mapset.covers is empty :(
+            thumbnail: format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id()),
             grade_completion_mods,
-            stars,
+            stars: entry.stars,
+            mode: entry.score.mode,
             score,
             acc,
             ago,
-            pp,
-            max_pp,
+            pp: Some(entry.score.pp),
+            max_pp: Some(*max_pp),
             combo,
             hits,
-            mapset_id: mapset.mapset_id,
-            if_fc,
-            map_info: osu::get_map_info(map, mods, stars),
+            mapset_id: map.mapset_id(),
+            if_fc: if_fc.clone(),
+            map_info: osu::get_map_info(map, mods, *stars),
             minimized_pp,
-        })
+        }
     }
 
     pub fn into_minimized(self) -> Embed {
@@ -267,14 +198,14 @@ impl CompareEmbed {
                     result.push('-');
                 }
 
-                if let Some((if_fc, ..)) = self.if_fc {
-                    let _ = write!(result, "pp** ~~({if_fc:.2}pp)~~");
+                if let Some(if_fc) = self.if_fc {
+                    let _ = write!(result, "pp** ~~({:.2}pp)~~", if_fc.pp);
                 } else {
                     result.push_str("**/");
 
                     if let Some(max) = self.max_pp {
                         let pp = self.pp.map(|pp| pp.max(max)).unwrap_or(max);
-                        let _ = write!(result, "{:.2}", pp);
+                        let _ = write!(result, "{pp:.2}");
                     } else {
                         result.push('-');
                     }
@@ -284,7 +215,7 @@ impl CompareEmbed {
 
                 result
             }
-            MinimizedPp::Max => osu::get_pp(self.pp, self.max_pp),
+            MinimizedPp::MaxPp => PpFormatter::new(self.pp, self.max_pp).to_string(),
         };
 
         let value = format!("{pp} [ {} ] {}", self.combo, self.hits);
@@ -306,7 +237,7 @@ impl CompareEmbed {
         let score = highlight_funny_numeral(&self.score).into_owned();
         let acc = highlight_funny_numeral(&format!("{}%", self.acc)).into_owned();
 
-        let pp = osu::get_pp(self.pp, self.max_pp);
+        let pp = PpFormatter::new(self.pp, self.max_pp).to_string();
         let pp = highlight_funny_numeral(&pp).into_owned();
 
         let mut fields = fields![
@@ -318,23 +249,20 @@ impl CompareEmbed {
 
         fields.reserve(3);
 
-        let mania = self.hits.chars().filter(|&c| c == '/').count() == 5;
-
         let combo = highlight_funny_numeral(&self.combo).into_owned();
-        let hits = highlight_funny_numeral(&self.hits).into_owned();
+        let hits = self.hits.to_string();
+        let hits = highlight_funny_numeral(&hits).into_owned();
 
         fields![fields {
-            if mania { "Combo / Ratio" } else { "Combo" }, combo, true;
+            if self.mode == GameMode::Mania { "Combo / Ratio" } else { "Combo" }, combo, true;
             "Hits", hits, true;
         }];
 
-        if let Some((pp, acc, hits)) = &self.if_fc {
-            let pp = osu::get_pp(Some(*pp), self.max_pp);
-
+        if let Some(ref if_fc) = self.if_fc {
             fields![fields {
-                "**If FC**: PP", pp, true;
-                "Acc", format!("{acc}%"), true;
-                "Hits", hits.clone(), true;
+                "**If FC**: PP", PpFormatter::new(Some(if_fc.pp), self.max_pp).to_string(), true;
+                "Acc", format!("{}%", round(if_fc.accuracy())), true;
+                "Hits", if_fc.hitresults().to_string(), true;
             }];
         }
 
@@ -369,31 +297,15 @@ pub struct NoScoresEmbed {
 }
 
 impl NoScoresEmbed {
-    pub fn new(user: User, map: Beatmap, mods: Option<ModSelection>) -> Self {
-        let stats = user.statistics.as_ref().unwrap();
-        let mapset = map.mapset.as_ref().unwrap();
-
-        let footer = FooterBuilder::new(format!("{:?} map by {}", map.status, mapset.creator_name))
-            .icon_url(format!("{AVATAR_URL}{}", mapset.creator_id));
-
-        let author_text = format!(
-            "{name}: {pp}pp (#{global} {country}{national})",
-            name = user.username,
-            pp = with_comma_float(stats.pp),
-            global = with_comma_int(stats.global_rank.unwrap_or(0)),
-            country = user.country_code,
-            national = stats.country_rank.unwrap_or(0),
-        );
-
-        let author = AuthorBuilder::new(author_text)
-            .url(format!("{OSU_BASE}u/{}", user.user_id))
-            .icon_url(user.avatar_url);
+    pub fn new(user: &RedisData<User>, map: &OsuMap, mods: Option<ModSelection>) -> Self {
+        let footer = FooterBuilder::new(format!("{:?} map by {}", map.status(), map.creator()))
+            .icon_url(format!("{AVATAR_URL}{}", map.creator_id()));
 
         let title = format!(
             "{} - {} [{}]",
-            mapset.artist.cow_escape_markdown(),
-            mapset.title.cow_escape_markdown(),
-            map.version.cow_escape_markdown()
+            map.artist().cow_escape_markdown(),
+            map.title().cow_escape_markdown(),
+            map.version().cow_escape_markdown()
         );
 
         let description = if mods.is_some() {
@@ -403,12 +315,12 @@ impl NoScoresEmbed {
         };
 
         Self {
-            author,
+            author: user.author_builder(),
             description,
             footer,
-            thumbnail: format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id),
+            thumbnail: format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id()),
             title,
-            url: map.url,
+            url: format!("{OSU_BASE}b/{}", map.map_id()),
         }
     }
 }

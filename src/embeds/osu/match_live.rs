@@ -18,8 +18,8 @@ use twilight_model::channel::embed::Embed;
 use crate::util::{
     builder::{EmbedBuilder, FooterBuilder},
     constants::{DESCRIPTION_SIZE, OSU_BASE},
-    datetime::sec_to_minsec,
-    numbers::{round, with_comma_int},
+    datetime::SecToMinSec,
+    numbers::{round, WithComma},
     osu::grade_emote,
     CowUtils, Emote, ScoreExt,
 };
@@ -73,7 +73,7 @@ macro_rules! team {
             $buf.push_str(":blue_circle: **Blue Team** :blue_circle:");
 
             if let Some((score, _)) = $scores {
-                let _ = write!($buf, " | {}", with_comma_int(score));
+                let _ = write!($buf, " | {}", WithComma::new(score));
             }
 
             $buf.push('\n');
@@ -81,7 +81,7 @@ macro_rules! team {
             $buf.push_str(":red_circle: **Red Team** :red_circle:");
 
             if let Some((_, score)) = $scores {
-                let _ = write!($buf, " | {}", with_comma_int(score));
+                let _ = write!($buf, " | {}", WithComma::new(score));
             }
 
             $buf.push('\n');
@@ -543,10 +543,10 @@ fn game_content(
 
                 let footer = match blue.cmp(&red) {
                     Ordering::Greater => {
-                        format!("Blue Team wins by {}", with_comma_int(difference as u64))
+                        format!("Blue Team wins by {}", WithComma::new(difference as u64))
                     }
                     Ordering::Less => {
-                        format!("Red Team wins by {}", with_comma_int(difference as u64))
+                        format!("Red Team wins by {}", WithComma::new(difference as u64))
                     }
                     Ordering::Equal => "Team scores are tied".to_owned(),
                 };
@@ -577,7 +577,7 @@ fn game_content(
                     let _ = write!(
                         description,
                         "**\nLength: `{}`",
-                        sec_to_minsec(map.seconds_total)
+                        SecToMinSec::new(map.seconds_total)
                     );
 
                     Some(image!(mapset))
@@ -678,8 +678,8 @@ fn prepare_scores(
             None => format!("`User id {}`", score.user_id).into(),
         };
 
-        let score_str = with_comma_int(score.score).to_string();
-        let combo = with_comma_int(score.max_combo).to_string();
+        let score_str = WithComma::new(score.score).to_string();
+        let combo = WithComma::new(score.max_combo).to_string();
         let mods = score.mods.to_string();
         let team = score.team as usize;
         let grade = score.grade(mode);

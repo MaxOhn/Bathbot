@@ -1,27 +1,33 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, cmp::Ordering, sync::Arc};
 
 use command_macros::{command, HasName, SlashCommand};
-use eyre::{Report, Result, WrapErr};
-use rosu_pp::{Beatmap, BeatmapExt};
+use eyre::{Report, Result};
 use rosu_pp_older::*;
-use rosu_v2::prelude::{GameMode, OsuError, Score};
+use rosu_v2::{
+    prelude::{GameMode, OsuError, Score},
+    request::UserId,
+};
 use time::OffsetDateTime;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    commands::osu::{get_user_and_scores, require_link, ScoreArgs, ScoreOrder, UserArgs},
+    commands::osu::{require_link, user_not_found},
     core::commands::{prefix::Args, CommandOrigin},
+    manager::{redis::osu::UserArgs, OsuMap},
     pagination::TopIfPagination,
     util::{
         constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         interaction::InteractionCommand,
-        matcher, numbers,
-        osu::prepare_beatmap_file,
+        matcher,
+        numbers::round,
+        osu::ScoreSlim,
         ChannelExt, InteractionCommandExt,
     },
     Context,
 };
+
+use super::TopIfEntry;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
@@ -449,14 +455,14 @@ impl<'m> TopOld<'m> {
 
 macro_rules! pp_std {
     ($version:ident, $rosu_map:ident, $score:ident, $mods:ident) => {{
-        let max_pp_result = $version::OsuPP::new(&$rosu_map).mods($mods).calculate();
+        let max_pp_res = $version::OsuPP::new($rosu_map).mods($mods).calculate();
 
-        let max_pp = max_pp_result.pp;
-        $score.map.as_mut().unwrap().stars = max_pp_result.difficulty.stars as f32;
+        let max_pp = max_pp_res.pp as f32;
+        let stars = max_pp_res.difficulty.stars as f32;
 
-        let pp_result = $version::OsuPP::new(&$rosu_map)
+        let attrs = $version::OsuPP::new($rosu_map)
             .mods($mods)
-            .attributes(max_pp_result)
+            .attributes(max_pp_res)
             .n300($score.statistics.count_300 as usize)
             .n100($score.statistics.count_100 as usize)
             .n50($score.statistics.count_50 as usize)
@@ -464,42 +470,42 @@ macro_rules! pp_std {
             .combo($score.max_combo as usize)
             .calculate();
 
-        $score.pp.replace(pp_result.pp as f32);
+        let pp = attrs.pp as f32;
 
-        max_pp
+        (pp, max_pp, stars)
     }};
 }
 
 macro_rules! pp_mna {
     ($version:ident, $rosu_map:ident, $score:ident, $mods:ident) => {{
-        let max_pp_result = $version::ManiaPP::new(&$rosu_map).mods($mods).calculate();
+        let max_pp_res = $version::ManiaPP::new($rosu_map).mods($mods).calculate();
 
-        let max_pp = max_pp_result.pp;
-        $score.map.as_mut().unwrap().stars = max_pp_result.difficulty.stars as f32;
+        let max_pp = max_pp_res.pp as f32;
+        let stars = max_pp_res.difficulty.stars as f32;
 
-        let pp_result = $version::ManiaPP::new(&$rosu_map)
+        let attrs = $version::ManiaPP::new($rosu_map)
             .mods($mods)
-            .attributes(max_pp_result)
+            .attributes(max_pp_res)
             .score($score.score)
             .accuracy($score.accuracy)
             .calculate();
 
-        $score.pp.replace(pp_result.pp as f32);
+        let pp = attrs.pp as f32;
 
-        max_pp
+        (pp, max_pp, stars)
     }};
 }
 
 macro_rules! pp_ctb {
     ($version:ident, $rosu_map:ident, $score:ident, $mods:ident) => {{
-        let max_pp_result = $version::FruitsPP::new(&$rosu_map).mods($mods).calculate();
+        let max_pp_res = $version::FruitsPP::new($rosu_map).mods($mods).calculate();
 
-        let max_pp = max_pp_result.pp;
-        $score.map.as_mut().unwrap().stars = max_pp_result.difficulty.stars as f32;
+        let max_pp = max_pp_res.pp as f32;
+        let stars = max_pp_res.difficulty.stars as f32;
 
-        let pp_result = $version::FruitsPP::new(&$rosu_map)
+        let attrs = $version::FruitsPP::new($rosu_map)
             .mods($mods)
-            .attributes(max_pp_result)
+            .attributes(max_pp_res)
             .fruits($score.statistics.count_300 as usize)
             .droplets($score.statistics.count_100 as usize)
             .tiny_droplets($score.statistics.count_50 as usize)
@@ -508,81 +514,97 @@ macro_rules! pp_ctb {
             .combo($score.max_combo as usize)
             .calculate();
 
-        $score.pp.replace(pp_result.pp as f32);
+        let pp = attrs.pp as f32;
 
-        max_pp
+        (pp, max_pp, stars)
     }};
 }
 
 macro_rules! pp_tko {
     ($version:ident, $rosu_map:ident, $score:ident, $mods:ident) => {{
-        let max_pp_result = $version::TaikoPP::new(&$rosu_map).mods($mods).calculate();
+        let max_pp_res = $version::TaikoPP::new($rosu_map).mods($mods).calculate();
 
-        let max_pp = max_pp_result.pp;
-        $score.map.as_mut().unwrap().stars = max_pp_result.difficulty.stars as f32;
+        let max_pp = max_pp_res.pp as f32;
+        let stars = max_pp_res.difficulty.stars as f32;
 
-        let pp_result = $version::TaikoPP::new(&$rosu_map)
+        let attrs = $version::TaikoPP::new($rosu_map)
             .mods($mods)
-            .attributes(max_pp_result)
+            .attributes(max_pp_res)
             .n300($score.statistics.count_300 as usize)
             .n100($score.statistics.count_100 as usize)
             .misses($score.statistics.count_miss as usize)
             .combo($score.max_combo as usize)
             .calculate();
 
-        $score.pp.replace(pp_result.pp as f32);
+        let pp = attrs.pp as f32;
 
-        max_pp
+        (pp, max_pp, stars)
     }};
 }
 
+/// Same as `user_id!` but the args aren't passed by reference
+macro_rules! user_id_ref {
+    ($ctx:ident, $orig:ident, $args:ident) => {
+        match crate::commands::osu::HasName::user_id($args, &$ctx) {
+            crate::commands::osu::UserIdResult::Id(user_id) => Some(user_id),
+            crate::commands::osu::UserIdResult::None => None,
+            crate::commands::osu::UserIdResult::Future(fut) => match fut.await {
+                crate::commands::osu::UserIdFutureResult::Id(user_id) => Some(user_id),
+                crate::commands::osu::UserIdFutureResult::NotLinked(user_id) => {
+                    let content = format!("<@{user_id}> is not linked to an osu!profile");
+
+                    return $orig.error(&$ctx, content).await;
+                }
+                crate::commands::osu::UserIdFutureResult::Err(err) => {
+                    let content = crate::util::constants::GENERAL_ISSUE;
+                    let _ = $orig.error(&$ctx, content).await;
+
+                    return Err(err);
+                }
+            },
+        }
+    };
+}
+
 async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) -> Result<()> {
-    let (name, mode) = match &args {
-        TopOld::Osu(o) => (username_ref!(ctx, orig, o), GameMode::Osu),
-        TopOld::Taiko(t) => (username_ref!(ctx, orig, t), GameMode::Taiko),
-        TopOld::Catch(c) => (username_ref!(ctx, orig, c), GameMode::Catch),
-        TopOld::Mania(m) => (username_ref!(ctx, orig, m), GameMode::Mania),
+    let (user_id, mode) = match &args {
+        TopOld::Osu(o) => (user_id_ref!(ctx, orig, o), GameMode::Osu),
+        TopOld::Taiko(t) => (user_id_ref!(ctx, orig, t), GameMode::Taiko),
+        TopOld::Catch(c) => (user_id_ref!(ctx, orig, c), GameMode::Catch),
+        TopOld::Mania(m) => (user_id_ref!(ctx, orig, m), GameMode::Mania),
     };
 
-    let name = match name {
-        Some(name) => name,
-        None => match ctx.psql().get_user_osu(orig.user_id()?).await {
-            Ok(Some(osu)) => osu.into_username(),
+    let user_id = match user_id {
+        Some(user_id) => user_id,
+        None => match ctx.user_config().osu_id(orig.user_id()?).await {
+            Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => return require_link(&ctx, &orig).await,
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get username"));
+                return Err(err);
             }
         },
     };
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::new(name.as_str(), mode);
-    let score_args = ScoreArgs::top(100).with_combo();
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let scores_fut = ctx.osu_scores().top().limit(100).exec_with_user(user_args);
 
-    #[allow(unused_mut)]
-    let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
+    let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = format!("User `{name}` was not found");
+            let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user or scores");
+            let err = Report::new(err).wrap_err("failed to get user or scores");
 
-            return Err(report);
+            return Err(err);
         }
     };
-
-    // Overwrite default mode
-    user.mode = mode;
-
-    // Process user and their top scores for tracking
-    #[cfg(feature = "osutracking")]
-    crate::tracking::process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
     // Calculate bonus pp
     let actual_pp: f32 = scores
@@ -591,43 +613,42 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
         .map(|weight| weight.pp)
         .sum();
 
-    let bonus_pp = user
-        .statistics
-        .as_ref()
-        .map_or(0.0, |stats| stats.pp - actual_pp);
+    let (bonus_pp, post_pp) = user.peek_stats(|stats| (stats.pp - actual_pp, stats.pp));
 
-    let mut scores_data = match modify_scores(&ctx, scores, &args).await {
+    let mut entries = match process_scores(&ctx, scores, &args).await {
         Ok(scores) => scores,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            return Err(err.wrap_err("failed to modify scores"));
+            return Err(err.wrap_err("failed to process scores"));
         }
     };
 
     // Sort by adjusted pp
-    ScoreOrder::Pp.apply(&ctx, &mut scores_data).await;
+    entries.sort_unstable_by(|a, b| {
+        b.score
+            .pp
+            .partial_cmp(&a.score.pp)
+            .unwrap_or(Ordering::Equal)
+    });
 
     // Calculate adjusted pp
-    let adjusted_pp: f32 = scores_data
-        .iter()
-        .map(|(i, Score { pp, .. }, ..)| pp.unwrap_or(0.0) * 0.95_f32.powi(*i as i32 - 1))
-        .sum();
+    let adjusted_pp: f32 = entries.iter().zip(0..).fold(0.0, |sum, (entry, i)| {
+        sum + entry.score.pp * 0.95_f32.powi(i)
+    });
 
-    let adjusted_pp = numbers::round(bonus_pp + adjusted_pp);
+    let adjusted_pp = round(bonus_pp + adjusted_pp);
+    let username = user.username();
 
     // Accumulate all necessary data
     let content = format!(
-        "`{name}`{plural} {mode}top100 {version}:",
-        name = user.username,
-        plural = plural(user.username.as_str()),
+        "`{username}`{plural} {mode}top100 {version}:",
+        plural = plural(username),
         mode = mode_str(mode),
         version = args.date_range(),
     );
 
-    let post_pp = user.statistics.as_ref().map_or(0.0, |stats| stats.pp);
-
-    TopIfPagination::builder(user, scores_data, mode, post_pp, adjusted_pp, None)
+    TopIfPagination::builder(user, entries, mode, post_pp, adjusted_pp, None)
         .content(content)
         .start_by_update()
         .defer_components()
@@ -635,32 +656,47 @@ async fn topold(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopOld<'_>) ->
         .await
 }
 
-async fn modify_scores(
+async fn process_scores(
     ctx: &Context,
     scores: Vec<Score>,
     args: &TopOld<'_>,
-) -> Result<Vec<(usize, Score, Option<f32>)>> {
-    let mut scores_data = Vec::with_capacity(scores.len());
+) -> Result<Vec<TopIfEntry>> {
+    let mut entries = Vec::with_capacity(scores.len());
 
-    for (mut score, i) in scores.into_iter().zip(1..) {
-        let map = score.map.as_ref().unwrap();
+    let maps_id_checksum = scores
+        .iter()
+        .filter_map(|score| score.map.as_ref())
+        .map(|map| (map.map_id as i32, map.checksum.as_deref()))
+        .collect();
 
-        if map.convert {
-            scores_data.push((i, score, None));
-            continue;
+    let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
+
+    for (score, i) in scores.into_iter().zip(1..) {
+        let map = score
+            .map
+            .as_ref()
+            .and_then(|map| maps.remove(&map.map_id))
+            .expect("missing map");
+
+        async fn use_current_system(ctx: &Context, score: &Score, map: &OsuMap) -> (f32, f32, f32) {
+            let attrs = ctx
+                .pp(map)
+                .mode(score.mode)
+                .mods(score.mods)
+                .performance()
+                .await;
+
+            let pp = score.pp.expect("missing pp");
+            let max_pp = attrs.pp() as f32;
+            let stars = attrs.stars() as f32;
+
+            (pp, max_pp, stars)
         }
 
-        let map_path = prepare_beatmap_file(ctx, map.map_id)
-            .await
-            .wrap_err("failed to prepare map")?;
-
-        let rosu_map = Beatmap::from_path(map_path)
-            .await
-            .wrap_err("failed to parse map")?;
-
         let mods = score.mods.bits();
+        let rosu_map = &map.pp_map;
 
-        let max_pp = match args {
+        let (pp, max_pp, stars) = match args {
             TopOld::Osu(o) => match o.version {
                 TopOldOsuVersion::April15May18 => pp_std!(osu_2015, rosu_map, score, mods),
                 TopOldOsuVersion::May18February19 => pp_std!(osu_2018, rosu_map, score, mods),
@@ -669,40 +705,36 @@ async fn modify_scores(
                     pp_std!(osu_2021_january, rosu_map, score, mods)
                 }
                 TopOldOsuVersion::July21November21 => pp_std!(osu_2021_july, rosu_map, score, mods),
-                TopOldOsuVersion::November21Now => {
-                    scores_data.push((i, score, Some(rosu_map.max_pp(mods).pp() as f32)));
-                    continue;
-                }
+                TopOldOsuVersion::November21Now => use_current_system(ctx, &score, &map).await,
             },
             TopOld::Taiko(t) => match t.version {
                 TopOldTaikoVersion::March14September20 => {
                     pp_tko!(taiko_ppv1, rosu_map, score, mods)
                 }
-                TopOldTaikoVersion::September20Now => {
-                    scores_data.push((i, score, Some(rosu_map.max_pp(mods).pp() as f32)));
-                    continue;
-                }
+                TopOldTaikoVersion::September20Now => use_current_system(ctx, &score, &map).await,
             },
             TopOld::Catch(c) => match c.version {
                 TopOldCatchVersion::March14May20 => pp_ctb!(fruits_ppv1, rosu_map, score, mods),
-                TopOldCatchVersion::May20Now => {
-                    scores_data.push((i, score, Some(rosu_map.max_pp(mods).pp() as f32)));
-                    continue;
-                }
+                TopOldCatchVersion::May20Now => use_current_system(ctx, &score, &map).await,
             },
             TopOld::Mania(m) => match m.version {
                 TopOldManiaVersion::March14May18 => pp_mna!(mania_ppv1, rosu_map, score, mods),
-                TopOldManiaVersion::May18Now => {
-                    scores_data.push((i, score, Some(rosu_map.max_pp(mods).pp() as f32)));
-                    continue;
-                }
+                TopOldManiaVersion::May18Now => use_current_system(ctx, &score, &map).await,
             },
         };
 
-        scores_data.push((i, score, Some(max_pp as f32)));
+        let entry = TopIfEntry {
+            original_idx: i,
+            score: ScoreSlim::new(score, pp),
+            map,
+            stars,
+            max_pp,
+        };
+
+        entries.push(entry);
     }
 
-    Ok(scores_data)
+    Ok(entries)
 }
 
 fn plural(name: &str) -> &'static str {

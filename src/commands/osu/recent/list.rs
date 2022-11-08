@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fmt::Write, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, fmt::Write, sync::Arc};
 
 use command_macros::command;
 use eyre::{Report, Result};
@@ -6,10 +6,11 @@ use rosu_v2::prelude::{GameMode, GameMods, Grade, OsuError};
 
 use crate::{
     commands::{
-        osu::{get_user_and_scores, HasMods, ModsResult, ScoreArgs, UserArgs},
+        osu::{user_not_found, HasMods, ModsResult},
         GameModeOption, GradeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
+    manager::redis::osu::UserArgs,
     pagination::RecentListPagination,
     util::{
         constants::OSU_API_ISSUE,
@@ -202,7 +203,7 @@ pub(super) async fn list(
         }
     };
 
-    let (name, mode) = name_mode!(ctx, orig, args);
+    let (user_id, mode) = user_id_mode!(ctx, orig, args);
 
     let RecentList {
         query,
@@ -214,7 +215,7 @@ pub(super) async fn list(
     let grade = grade.map(Grade::from);
 
     // Retrieve the user and their recent scores
-    let user_args = UserArgs::new(name.as_str(), mode);
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
 
     let include_fails = match (grade, passes) {
         (_, Some(passes)) => !passes,
@@ -222,14 +223,19 @@ pub(super) async fn list(
         _ => false,
     };
 
-    let score_args = ScoreArgs::recent(100)
+    let scores_fut = ctx
+        .osu_scores()
+        .recent()
+        .limit(100)
         .include_fails(include_fails)
-        .with_combo();
+        .exec_with_user(user_args);
 
-    let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
-        Ok((_, scores)) if scores.is_empty() => {
+    let (user, mut scores) = match scores_fut.await {
+        Ok((user, scores)) if scores.is_empty() => {
+            let username = user.username();
+
             let content = format!(
-                "No recent {}plays found for user `{name}`",
+                "No recent {}plays found for user `{username}`",
                 match mode {
                     GameMode::Osu => "",
                     GameMode::Taiko => "taiko ",
@@ -242,20 +248,17 @@ pub(super) async fn list(
         }
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = format!("User `{name}` was not found");
+            let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user or scores");
+            let err = Report::new(err).wrap_err("failed to get user or scores");
 
-            return Err(report);
+            return Err(err);
         }
     };
-
-    // Overwrite default mode
-    user.mode = mode;
 
     if let Some(grade) = grade {
         scores.retain(|score| score.grade.eq_letter(grade));
@@ -286,8 +289,10 @@ pub(super) async fn list(
     }
 
     let content = message_content(grade, mods, query);
+    let maps = HashMap::default();
+    let attr_map = HashMap::default();
 
-    RecentListPagination::builder(user, scores)
+    RecentListPagination::builder(user, scores, maps, attr_map)
         .content(content.unwrap_or_default())
         .start_by_update()
         .defer_components()

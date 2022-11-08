@@ -2,20 +2,21 @@ use std::{borrow::Cow, collections::BTreeMap, fmt::Write, sync::Arc};
 
 use command_macros::command;
 use eyre::{Report, Result};
-use rosu_v2::prelude::{GameMode, OsuError, Username};
+use rosu_v2::prelude::{GameMode, Grade, OsuError, ScoreStatistics, Username};
 
 use crate::{
     commands::{
-        osu::{get_user, HasMods, ModsResult, UserArgs},
+        osu::{user_not_found, HasMods, ModsResult},
         GameModeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
     custom_client::{OsuStatsParams, OsuStatsScore},
+    manager::{redis::osu::UserArgs, OsuMap},
     pagination::OsuStatsGlobalsPagination,
     util::{
-        constants::{OSUSTATS_API_ISSUE, OSU_API_ISSUE},
+        constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE, OSU_API_ISSUE},
         matcher,
-        osu::ModSelection,
+        osu::{ModSelection, ScoreSlim},
         ChannelExt, CowUtils,
     },
     Context,
@@ -178,14 +179,14 @@ pub(super) async fn scores(
         ModsResult::Invalid => return orig.error(&ctx, OsuStatsScores::ERR_PARSE_MODS).await,
     };
 
-    let (name, mode) = name_mode!(ctx, orig, args);
-    let user_args = UserArgs::new(&name, mode);
+    let (user_id, mode) = user_id_mode!(ctx, orig, args);
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
 
     // Retrieve user
-    let mut user = match get_user(&ctx, &user_args).await {
+    let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = format!("User `{name}` was not found");
+            let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
@@ -197,24 +198,24 @@ pub(super) async fn scores(
         }
     };
 
-    // Overwrite default mode
-    user.mode = mode;
-
-    let params = args.into_params(user.username.as_str().into(), mode, mods);
+    let params = args.into_params(user.username().into(), mode, mods);
 
     // Retrieve their top global scores
     let (scores, amount) = match ctx.client().get_global_scores(&params).await {
-        Ok((scores, amount)) => (
-            scores
-                .into_iter()
-                .enumerate()
-                .collect::<BTreeMap<usize, OsuStatsScore>>(),
-            amount,
-        ),
+        Ok(tuple) => tuple,
         Err(err) => {
             let _ = orig.error(&ctx, OSUSTATS_API_ISSUE).await;
 
             return Err(err.wrap_err("failed to get global scores"));
+        }
+    };
+
+    let entries = match process_scores(&ctx, scores, mode).await {
+        Ok(entries) => entries,
+        Err(err) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err.wrap_err("failed to process scores"));
         }
     };
 
@@ -242,7 +243,7 @@ pub(super) async fn scores(
         );
     }
 
-    OsuStatsGlobalsPagination::builder(user, scores, amount, params)
+    OsuStatsGlobalsPagination::builder(user, entries, amount, params)
         .content(content)
         .start_by_update()
         .defer_components()
@@ -422,4 +423,80 @@ impl<'m> OsuStatsScores<'m> {
             discord,
         })
     }
+}
+
+pub struct OsuStatsEntry {
+    pub score: ScoreSlim,
+    pub map: OsuMap,
+    pub rank: u32,
+    pub stars: f32,
+    pub max_pp: f32,
+}
+
+async fn process_scores(
+    ctx: &Context,
+    scores: Vec<OsuStatsScore>,
+    mode: GameMode,
+) -> Result<BTreeMap<usize, OsuStatsEntry>> {
+    let mut entries = BTreeMap::new();
+
+    let maps_id_checksum = scores
+        .iter()
+        .map(|score| (score.map.map_id as i32, None))
+        .collect();
+
+    let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
+
+    for (i, score) in scores.into_iter().enumerate() {
+        let map_opt = maps.remove(&score.map.map_id);
+        let Some(map) = map_opt else { continue };
+
+        let mut calc = ctx.pp(&map).mode(mode).mods(score.mods);
+        let attrs = calc.performance().await;
+
+        let pp = match score.pp {
+            Some(pp) => pp,
+            None => calc.score(&score).performance().await.pp() as f32,
+        };
+
+        let max_pp = if score.grade.eq_letter(Grade::X) && mode != GameMode::Mania && pp > 0.0 {
+            pp
+        } else {
+            attrs.pp() as f32
+        };
+
+        let rank = score.position;
+
+        let score = ScoreSlim {
+            accuracy: score.accuracy,
+            ended_at: score.ended_at,
+            grade: score.grade,
+            max_combo: score.max_combo,
+            mode,
+            mods: score.mods,
+            pp,
+            score: score.score,
+            score_id: None,
+            statistics: ScoreStatistics {
+                count_geki: score.count_geki,
+                count_300: score.count300,
+                count_katu: score.count_katu,
+                count_100: score.count100,
+                count_50: score.count50,
+                count_miss: score.count_miss,
+            },
+        };
+
+        let entry = OsuStatsEntry {
+            score,
+            map,
+            rank,
+            max_pp,
+            stars: attrs.stars() as f32,
+        };
+
+        entries.insert(i, entry);
+    }
+
+    Ok(entries)
 }

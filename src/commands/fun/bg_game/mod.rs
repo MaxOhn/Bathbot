@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use bathbot_psql::model::games::DbMapTagsParams;
 use command_macros::{command, SlashCommand};
 use eyre::{Report, Result};
 use rosu_v2::prelude::GameMode;
@@ -76,7 +77,7 @@ pub async fn prefix_backgroundgame(ctx: Arc<Context>, msg: &Message, args: Args<
             }
         }
         _ => {
-            let prefix = ctx.guild_first_prefix(msg.guild_id).await;
+            let prefix = ctx.guild_config().first_prefix(msg.guild_id).await;
 
             let content =
                 format!("That's not a valid subcommand. Check `{prefix}bg` for more help.");
@@ -248,8 +249,10 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
             }
         }
         Some(BgGameMode::Mania) => {
-            let mapsets = match ctx.psql().get_all_tags_mapset(GameMode::Mania).await {
-                Ok(mapsets) => mapsets,
+            let params = DbMapTagsParams::new(GameMode::Mania);
+
+            let entries = match ctx.games().bggame_tags(params).await {
+                Ok(entries) => entries,
                 Err(err) => {
                     let _ = command.error(&ctx, GENERAL_ISSUE).await;
 
@@ -259,7 +262,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
 
             let content = format!(
                 "Starting mania background guessing game with {} different backgrounds",
-                mapsets.len()
+                entries.tags.len()
             );
 
             let builder = MessageBuilder::new().embed(content);
@@ -276,7 +279,7 @@ async fn slash_bg(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
             let game_fut = GameWrapper::new(
                 Arc::clone(&ctx),
                 channel,
-                mapsets,
+                entries,
                 Effects::empty(),
                 difficulty,
             );

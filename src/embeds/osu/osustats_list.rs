@@ -8,7 +8,7 @@ use crate::{
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::{AVATAR_URL, OSU_BASE},
-        numbers::with_comma_int,
+        numbers::WithComma,
         osu::flag_url,
         CountryCode, CowUtils,
     },
@@ -43,7 +43,7 @@ impl OsuStatsListEmbed {
                 "**{i}. [{}]({OSU_BASE}users/{})**: {}",
                 player.username.cow_escape_markdown(),
                 player.user_id,
-                with_comma_int(player.count)
+                WithComma::new(player.count)
             );
         }
 

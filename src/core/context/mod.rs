@@ -1,5 +1,6 @@
-use std::{num::NonZeroU32, sync::Arc};
+use std::sync::Arc;
 
+use bathbot_psql::{model::configs::GuildConfig, Database};
 use bb8_redis::{bb8::Pool, RedisConnectionManager};
 use eyre::{Result, WrapErr};
 use flexmap::{
@@ -10,7 +11,6 @@ use flurry::HashMap as FlurryMap;
 use hashbrown::HashSet;
 use parking_lot::Mutex;
 use rosu_v2::Osu;
-use smallvec::SmallVec;
 use tokio::sync::mpsc::UnboundedSender;
 use twilight_gateway::{cluster::Events, Cluster};
 use twilight_http::{client::InteractionClient, Client};
@@ -26,30 +26,28 @@ use twilight_standby::Standby;
 use crate::{
     core::BotConfig,
     custom_client::CustomClient,
-    database::{Database, GuildConfig},
     games::{
         bg::GameState as BgGameState,
         hl::{retry::RetryState, GameState as HlGameState},
     },
+    manager::OsuTrackingManager,
     pagination::Pagination,
-    util::{hasher::IntHasher, CountryCode},
+    util::hasher::IntHasher,
 };
 
-use super::{buckets::Buckets, cluster::build_cluster, BotStats, Cache, RedisCache};
+use super::{buckets::Buckets, cluster::build_cluster, BotStats, Cache};
 
-mod background_loop;
-mod configs;
-mod countries;
 mod games;
-mod map_collect;
+mod manager;
 mod matchlive;
 mod messages;
-mod role_assign;
 mod shutdown;
 mod twitch;
 
 pub type Redis = Pool<RedisConnectionManager>;
-pub type AssignRoles = SmallVec<[u64; 1]>;
+
+type GuildConfigs = FlurryMap<Id<GuildMarker>, GuildConfig, IntHasher>;
+type TrackedStreams = FlurryMap<u64, Vec<Id<ChannelMarker>>, IntHasher>;
 
 pub struct Context {
     #[cfg(feature = "server")]
@@ -62,7 +60,6 @@ pub struct Context {
     pub paginations: Arc<TokioMutexMap<Id<MessageMarker>, Pagination, IntHasher>>,
     pub standby: Standby,
     pub stats: Arc<BotStats>,
-    // private to avoid deadlocks by messing up references
     data: ContextData,
     clients: Clients,
 }
@@ -76,23 +73,9 @@ impl Context {
         &self.clients.osu
     }
 
-    pub fn psql(&self) -> &Database {
-        &self.clients.psql
-    }
-
     /// Returns the custom client
     pub fn client(&self) -> &CustomClient {
         &self.clients.custom
-    }
-
-    /// Return the plain redis connection pool
-    pub fn redis_client(&self) -> &Redis {
-        &self.clients.redis
-    }
-
-    /// Return a redis wrapper with a specific interface
-    pub fn redis(&self) -> RedisCache<'_> {
-        RedisCache::new(self)
     }
 
     #[cfg(feature = "osutracking")]
@@ -236,16 +219,13 @@ impl Clients {
 struct ContextData {
     application_id: Id<ApplicationMarker>,
     games: Games,
-    guilds: FlurryMap<Id<GuildMarker>, GuildConfig, IntHasher>, // read-heavy
-    map_garbage_collection: Mutex<HashSet<NonZeroU32, IntHasher>>,
+    msgs_to_process: Mutex<HashSet<Id<MessageMarker>, IntHasher>>,
     #[cfg(feature = "matchlive")]
     matchlive: crate::matchlive::MatchLiveChannels,
-    msgs_to_process: Mutex<HashSet<Id<MessageMarker>, IntHasher>>,
     #[cfg(feature = "osutracking")]
     osu_tracking: crate::tracking::OsuTracking,
-    role_assigns: FlurryMap<(u64, u64), AssignRoles>, // read-heavy
-    snipe_countries: FlurryMap<CountryCode, String>,  // read-heavy
-    tracked_streams: FlurryMap<u64, Vec<u64>, IntHasher>, // read-heavy
+    guild_configs: GuildConfigs,     // read-heavy
+    tracked_streams: TrackedStreams, // read-heavy
 }
 
 impl ContextData {
@@ -253,27 +233,25 @@ impl ContextData {
         Ok(Self {
             application_id,
             games: Games::new(),
-            guilds: psql.get_guilds().await?,
-            map_garbage_collection: Mutex::new(HashSet::default()),
+            guild_configs: psql
+                .select_guild_configs::<IntHasher>()
+                .await
+                .wrap_err("failed to get guild configs")?
+                .into_iter()
+                .collect(),
             #[cfg(feature = "matchlive")]
             matchlive: crate::matchlive::MatchLiveChannels::new(),
             msgs_to_process: Mutex::new(HashSet::default()),
             #[cfg(feature = "osutracking")]
-            osu_tracking: crate::tracking::OsuTracking::new(psql)
+            osu_tracking: crate::tracking::OsuTracking::new(OsuTrackingManager::new(psql))
                 .await
                 .wrap_err("failed to create osu tracking")?,
-            role_assigns: psql
-                .get_role_assigns()
-                .await
-                .wrap_err("failed to get role assigns")?,
-            snipe_countries: psql
-                .get_snipe_countries()
-                .await
-                .wrap_err("failed to get snipe countries")?,
             tracked_streams: psql
-                .get_stream_tracks()
+                .select_tracked_twitch_streams::<IntHasher>()
                 .await
-                .wrap_err("failed to get stream tracks")?,
+                .wrap_err("failed to get tracked streams")?
+                .into_iter()
+                .collect(),
         })
     }
 }

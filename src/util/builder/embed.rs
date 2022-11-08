@@ -91,7 +91,7 @@ impl EmbedBuilder {
     }
 
     pub fn timestamp(mut self, timestamp: OffsetDateTime) -> Self {
-        self.0.timestamp = Timestamp::from_secs(timestamp.unix_timestamp() as i64).ok();
+        self.0.timestamp = Timestamp::from_secs(timestamp.unix_timestamp()).ok();
 
         self
     }

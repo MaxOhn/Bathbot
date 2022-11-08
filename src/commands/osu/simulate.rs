@@ -1,22 +1,23 @@
 use std::sync::Arc;
 
+use bathbot_psql::model::configs::ScoreSize;
 use command_macros::{command, HasMods, SlashCommand};
 use eyre::{Report, Result};
-use rosu_v2::prelude::{BeatmapsetCompact, OsuError};
+use rosu_v2::prelude::GameMods;
 use tokio::time::{sleep, Duration};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::channel::{message::MessageType, Message};
 
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
-    database::EmbedsSize,
     embeds::SimulateEmbed,
+    manager::{MapError, OsuMap},
     util::{
         builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::GENERAL_ISSUE,
         interaction::InteractionCommand,
         matcher,
-        osu::{MapIdType, ModSelection},
+        osu::{IfFc, MapIdType, ModSelection, ScoreSlim},
         ChannelExt, CowUtils, InteractionCommandExt, MessageExt,
     },
     Context,
@@ -193,77 +194,72 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
         }
     };
 
-    let map_fut = ctx.psql().get_beatmap(map_id, true);
-    let config_fut = ctx.user_config(orig.user_id()?);
+    let map_fut = ctx.osu_map().map(map_id, None);
+    let score_size_fut = ctx.user_config().score_size(orig.user_id()?);
 
-    let (map_result, config_result) = tokio::join!(map_fut, config_fut);
+    let (map_res, score_size_res) = tokio::join!(map_fut, score_size_fut);
 
-    // Retrieving the beatmap
-    let mut map = match map_result {
+    let map = match map_res {
         Ok(map) => map,
-        Err(_) => match ctx.osu().beatmap().map_id(map_id).await {
-            Ok(map) => {
-                // Store map in DB
-                if let Err(err) = ctx.psql().insert_beatmap(&map).await {
-                    warn!("{:?}", err.wrap_err("Failed to insert map in database"));
-                }
+        Err(MapError::NotFound) => {
+            let content = format!(
+                "Could not find beatmap with id `{map_id}`. \
+                Did you give me a mapset id instead of a map id?"
+            );
 
-                map
-            }
-            Err(OsuError::NotFound) => {
-                let content = format!(
-                    "Could not find beatmap with id `{map_id}`. \
-                    Did you give me a mapset id instead of a map id?"
-                );
+            return orig.error(&ctx, content).await;
+        }
+        Err(MapError::Report(err)) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return orig.error(&ctx, content).await;
-            }
-            Err(err) => {
-                let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-                let report = Report::new(err).wrap_err("failed to get beatmap");
-
-                return Err(report);
-            }
-        },
-    };
-
-    let mapset: BeatmapsetCompact = map.mapset.take().unwrap().into();
-
-    let embeds_size = match config_result {
-        Ok(config) => config.score_size,
-        Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to get user config"));
-
-            None
+            return Err(err);
         }
     };
 
-    let embeds_size = match (embeds_size, orig.guild_id()) {
-        (Some(size), _) => size,
-        (None, Some(guild)) => ctx.guild_embeds_maximized(guild).await,
-        (None, None) => EmbedsSize::default(),
+    let mods = match args.mods {
+        Some(ModSelection::Exact(mods) | ModSelection::Include(mods)) => mods,
+        _ => GameMods::NoMod,
+    };
+
+    let attrs = ctx.pp(&map).mods(mods).mode(map.mode()).performance().await;
+
+    let entry = SimulateEntry {
+        original_score: None,
+        if_fc: None,
+        map,
+        stars: attrs.stars() as f32,
+        max_pp: attrs.pp() as f32,
+    };
+
+    let score_size = match score_size_res {
+        Ok(Some(score_size)) => score_size,
+        Ok(None) => match orig.guild_id() {
+            Some(guild_id) => ctx
+                .guild_config()
+                .peek(guild_id, |config| config.score_size)
+                .await
+                .unwrap_or_default(),
+            None => ScoreSize::default(),
+        },
+        Err(err) => {
+            warn!("{:?}", err.wrap_err("failed to get user score size"));
+
+            ScoreSize::default()
+        }
     };
 
     // Accumulate all necessary data
-    let embed_data = match SimulateEmbed::new(None, &map, &mapset, args.into(), &ctx).await {
-        Ok(data) => data,
-        Err(err) => {
-            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
-
-            return Err(err.wrap_err("failed to creat embed"));
-        }
-    };
-
+    let embed_data = SimulateEmbed::new(&entry, args.into(), &ctx).await;
     let content = "Simulated score:";
 
     // Only maximize if config allows it
-    match embeds_size {
-        EmbedsSize::AlwaysMinimized => {
+    match score_size {
+        ScoreSize::AlwaysMinimized => {
             let embed = embed_data.into_minimized();
             let builder = MessageBuilder::new().content(content).embed(embed);
             orig.create_message(&ctx, &builder).await?;
         }
-        EmbedsSize::InitialMaximized => {
+        ScoreSize::InitialMaximized => {
             let embed = embed_data.as_maximized();
             let builder = MessageBuilder::new().content(content).embed(embed);
             let response = orig.create_message(&ctx, &builder).await?.model().await?;
@@ -283,20 +279,17 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs
                 let builder = MessageBuilder::new().content(content).embed(embed);
 
                 if let Err(err) = response.update(&ctx, &builder).await {
-                    let report = Report::new(err).wrap_err("Failed to minimize message");
-                    warn!("{report:?}");
+                    let err = Report::new(err).wrap_err("failed to minimize message");
+                    warn!("{err:?}");
                 }
             });
         }
-        EmbedsSize::AlwaysMaximized => {
+        ScoreSize::AlwaysMaximized => {
             let embed = embed_data.as_maximized();
             let builder = MessageBuilder::new().content(content).embed(embed);
             orig.create_message(&ctx, &builder).await?;
         }
     }
-
-    // Set map on garbage collection list if unranked
-    ctx.map_garbage_collector(&map).execute(&ctx);
 
     Ok(())
 }
@@ -421,4 +414,12 @@ impl SimulateArgs {
             score,
         })
     }
+}
+
+pub struct SimulateEntry {
+    pub original_score: Option<ScoreSlim>,
+    pub if_fc: Option<IfFc>,
+    pub map: OsuMap,
+    pub stars: f32,
+    pub max_pp: f32,
 }

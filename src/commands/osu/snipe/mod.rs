@@ -19,8 +19,6 @@ pub use self::{
     sniped::*, sniped_difference::*,
 };
 
-use super::prepare_score;
-
 mod country_snipe_list;
 mod country_snipe_stats;
 mod player_snipe_list;

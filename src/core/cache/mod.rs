@@ -1,17 +1,14 @@
-mod defrost;
 mod error;
-mod freeze;
 mod permissions;
 
-use std::{collections::HashMap, iter::FromIterator};
+use std::iter::FromIterator;
 
 use eyre::Report;
-use rkyv::{Archive, Deserialize, Serialize};
 use twilight_cache_inmemory::{
     model::{CachedGuild, CachedMember},
     GuildResource, InMemoryCache, InMemoryCacheStats, ResourceType,
 };
-use twilight_gateway::{shard::ResumeSession, Event};
+use twilight_gateway::Event;
 use twilight_model::{
     channel::{Channel, Message},
     guild::Role,
@@ -22,26 +19,16 @@ use twilight_model::{
     user::{CurrentUser, User},
 };
 
-pub use self::{
-    error::{CacheMiss, FreezeError},
-    permissions::RolesLookup,
+use crate::manager::redis::{
+    cache::{FreezeError, ResumeData},
+    RedisManager,
 };
 
-use self::error::{ColdResumeErrorKind, DefrostError, DefrostInnerError, FreezeInnerError};
+pub use self::{error::CacheMiss, permissions::RolesLookup};
 
-use super::Redis;
+use super::{Context, Redis};
 
 type CacheResult<T> = Result<T, CacheMiss>;
-
-const STORE_DURATION: usize = 240; // seconds
-
-const DATA_KEY: &str = "data";
-const GUILD_KEY_PREFIX: &str = "guild_chunk";
-const USER_KEY_PREFIX: &str = "user_chunk";
-const MEMBER_KEY_PREFIX: &str = "member_chunk";
-const CHANNEL_KEY_PREFIX: &str = "channel_chunk";
-const ROLE_KEY_PREFIX: &str = "role_chunk";
-const CURRENT_USER_KEY: &str = "current_user";
 
 pub struct Cache {
     inner: InMemoryCache,
@@ -60,9 +47,7 @@ impl Cache {
             .resource_types(resource_types)
             .build();
 
-        let cache = Self { inner };
-
-        let resume_data = match cache.defrost(redis).await {
+        let resume_data = match RedisManager::defrost_cache(redis, &inner).await {
             Ok(resume_data) => resume_data,
             Err(err) => {
                 let report = Report::new(err).wrap_err("failed to defrost cache");
@@ -71,6 +56,8 @@ impl Cache {
                 ResumeData::default()
             }
         };
+
+        let cache = Self { inner };
 
         (cache, resume_data)
     }
@@ -162,18 +149,11 @@ impl Cache {
     }
 
     pub async fn is_own(&self, other: &Message) -> bool {
-        self.current_user(|user| user.id == other.author.id).unwrap_or(false)
+        self.current_user(|user| user.id == other.author.id)
+            .unwrap_or(false)
     }
-}
 
-type ResumeData = HashMap<u64, ResumeSession>;
-
-#[derive(Archive, Deserialize, Serialize)]
-struct ColdResumeData {
-    resume_data: ResumeData,
-    guild_chunks: usize,
-    user_chunks: usize,
-    member_chunks: usize,
-    channel_chunks: usize,
-    role_chunks: usize,
+    pub async fn freeze(&self, ctx: &Context, resume_data: ResumeData) -> Result<(), FreezeError> {
+        ctx.redis().freeze_cache(&self.inner, resume_data).await
+    }
 }

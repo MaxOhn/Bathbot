@@ -1,5 +1,6 @@
 use std::{fmt::Write, sync::Arc};
 
+use bathbot_psql::model::configs::{Authorities, GuildConfig};
 use command_macros::command;
 use eyre::{Report, Result};
 use twilight_model::{
@@ -50,7 +51,10 @@ pub async fn authorities(
 
     let mut content = match args {
         AuthorityCommandKind::Add(role_id) => {
-            let roles = ctx.guild_authorities(guild_id).await;
+            let roles = ctx
+                .guild_config()
+                .peek(guild_id, |config| config.authorities.clone())
+                .await;
 
             if roles.len() >= 10 {
                 let content = "You can have at most 10 roles per server setup as authorities.";
@@ -58,13 +62,13 @@ pub async fn authorities(
                 return orig.error_callback(&ctx, content).await;
             }
 
-            let update_fut = ctx.update_guild_config(guild_id, move |config| {
+            let f = |config: &mut GuildConfig| {
                 if !config.authorities.contains(&role_id) {
                     config.authorities.push(role_id);
                 }
-            });
+            };
 
-            if let Err(err) = update_fut.await {
+            if let Err(err) = ctx.guild_config().update(guild_id, f).await {
                 let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
 
                 return Err(err.wrap_err("failed to update guild config"));
@@ -75,7 +79,10 @@ pub async fn authorities(
         AuthorityCommandKind::List => "Current authority roles for this server: ".to_owned(),
         AuthorityCommandKind::Remove(role_id) => {
             let author_id = orig.user_id()?;
-            let roles = ctx.guild_authorities(guild_id).await;
+            let roles = ctx
+                .guild_config()
+                .peek(guild_id, |config| config.authorities.clone())
+                .await;
 
             if roles.iter().all(|&id| id != role_id) {
                 let content = "The role was no authority role anyway";
@@ -125,11 +132,9 @@ pub async fn authorities(
                 }
             }
 
-            let update_fut = ctx.update_guild_config(guild_id, move |config| {
-                config.authorities.retain(|id| *id != role_id);
-            });
+            let f = |config: &mut GuildConfig| config.authorities.retain(|id| *id != role_id);
 
-            if let Err(err) = update_fut.await {
+            if let Err(err) = ctx.guild_config().update(guild_id, f).await {
                 let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
 
                 return Err(err.wrap_err("failed to update guild config"));
@@ -178,11 +183,9 @@ pub async fn authorities(
                 }
             }
 
-            let update_fut = ctx.update_guild_config(guild_id, move |config| {
-                config.authorities = roles.into_iter().map(|role| role.get()).collect();
-            });
+            let f = |config: &mut GuildConfig| config.authorities = roles.into_iter().collect();
 
-            if let Err(err) = update_fut.await {
+            if let Err(err) = ctx.guild_config().update(guild_id, f).await {
                 let _ = orig.error_callback(&ctx, GENERAL_ISSUE).await;
 
                 return Err(err.wrap_err("failed to update guild config"));
@@ -193,7 +196,10 @@ pub async fn authorities(
     };
 
     // Send the message
-    let roles = ctx.guild_authorities(guild_id).await;
+    let roles = ctx
+        .guild_config()
+        .peek(guild_id, |config| config.authorities.clone())
+        .await;
     role_string(&roles, &mut content);
     let builder = MessageBuilder::new().embed(content);
     orig.callback(&ctx, builder).await?;
@@ -201,7 +207,7 @@ pub async fn authorities(
     Ok(())
 }
 
-fn role_string(roles: &[u64], content: &mut String) {
+fn role_string(roles: &Authorities, content: &mut String) {
     let mut iter = roles.iter();
 
     if let Some(first) = iter.next() {
@@ -217,9 +223,9 @@ fn role_string(roles: &[u64], content: &mut String) {
 }
 
 pub enum AuthorityCommandKind {
-    Add(u64),
+    Add(Id<RoleMarker>),
     List,
-    Remove(u64),
+    Remove(Id<RoleMarker>),
     Replace(Vec<Id<RoleMarker>>),
 }
 

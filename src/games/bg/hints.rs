@@ -1,5 +1,3 @@
-use super::MapsetTags;
-
 use rand::seq::SliceRandom;
 
 pub struct Hints {
@@ -7,11 +5,10 @@ pub struct Hints {
     hint_level: u8,
     title_mask: Vec<bool>,
     indices: Vec<usize>,
-    _tags: MapsetTags,
 }
 
 impl Hints {
-    pub fn new(title: &str, tags: MapsetTags) -> Self {
+    pub fn new(title: &str) -> Self {
         // Indices of chars that still need to be revealed
         let mut indices: Vec<_> = title
             .chars()
@@ -35,7 +32,6 @@ impl Hints {
             hint_level: 0,
             title_mask,
             indices,
-            _tags: tags,
         }
     }
 
@@ -61,14 +57,6 @@ impl Hints {
             }
 
             format!("Here's my second hint: The artist looks like `{artist_hint}`")
-        // } else if !self.tags.is_empty()
-        //     && ((self.hint_level == 2 && self.artist_guessed) || self.hint_level == 3)
-        // {
-        //     self.hint_level = self.hint_level.saturating_add(1);
-        //     format!(
-        //         "Another hint: The map's tags are `{}`",
-        //         self.tags.join(", ")
-        //     )
         } else if let Some(i) = self.indices.pop() {
             self.title_mask[i] = true;
 

@@ -16,14 +16,15 @@ use plotters::{
     },
     prelude::*,
 };
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::{prelude::OsuError, request::UserId};
 use time::{Date, Duration, OffsetDateTime};
 
 use crate::{
-    commands::osu::{get_user, require_link, UserArgs},
+    commands::osu::require_link,
     core::commands::CommandOrigin,
     custom_client::SnipeRecent,
     embeds::{EmbedData, SnipedEmbed},
+    manager::redis::{osu::UserArgs, RedisData},
     util::{
         builder::MessageBuilder,
         constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
@@ -69,45 +70,58 @@ pub(super) async fn player_sniped(
     orig: CommandOrigin<'_>,
     args: SnipePlayerSniped<'_>,
 ) -> Result<()> {
-    let name = match username!(ctx, orig, args) {
-        Some(name) => name,
-        None => match ctx.psql().get_user_osu(orig.user_id()?).await {
-            Ok(Some(osu)) => osu.into_username(),
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
+        None => match ctx.user_config().osu_id(orig.user_id()?).await {
+            Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => return require_link(&ctx, &orig).await,
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get username"));
+                return Err(err);
             }
         },
     };
 
-    let user_args = UserArgs::new(name.as_str(), GameMode::Osu);
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await;
 
-    let mut user = match get_user(&ctx, &user_args).await {
+    let user = match ctx.redis().osu_user(user_args).await {
         Ok(user) => user,
         Err(OsuError::NotFound) => {
-            let content = format!("Could not find user `{name}`");
+            let content = match user_id {
+                UserId::Id(user_id) => format!("User with id {user_id} was not found"),
+                UserId::Name(name) => format!("User `{name}` was not found"),
+            };
 
             return orig.error(&ctx, content).await;
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user");
+            let err = Report::new(err).wrap_err("failed to get user");
 
-            return Err(report);
+            return Err(err);
         }
     };
-
-    // Overwrite default mode
-    user.mode = GameMode::Osu;
 
     let client = &ctx.client();
     let now = OffsetDateTime::now_utc();
 
-    let (sniper, snipee) = if ctx.contains_country(user.country_code.as_str()) {
-        let sniper_fut = client.get_national_snipes(&user, true, now - Duration::weeks(8), now);
-        let snipee_fut = client.get_national_snipes(&user, false, now - Duration::weeks(8), now);
+    let (user_id, username, country_code) = match &user {
+        RedisData::Original(user) => (
+            user.user_id,
+            user.username.as_str(),
+            user.country_code.as_str(),
+        ),
+        RedisData::Archived(user) => (
+            user.user_id,
+            user.username.as_str(),
+            user.country_code.as_str(),
+        ),
+    };
+
+    let (sniper, snipee) = if ctx.huismetbenen().is_supported(country_code).await {
+        let sniper_fut = client.get_national_snipes(user_id, true, now - Duration::weeks(8), now);
+        let snipee_fut = client.get_national_snipes(user_id, false, now - Duration::weeks(8), now);
 
         match tokio::try_join!(sniper_fut, snipee_fut) {
             Ok((mut sniper, snipee)) => {
@@ -122,15 +136,12 @@ pub(super) async fn player_sniped(
             }
         }
     } else {
-        let content = format!(
-            "`{}`'s country {} is not supported :(",
-            user.username, user.country_code
-        );
+        let content = format!("`{username}`'s country {country_code} is not supported :(");
 
         return orig.error(&ctx, content).await;
     };
 
-    let graph = match graphs(user.username.as_str(), &sniper, &snipee, W, H) {
+    let graph = match graphs(username, &sniper, &snipee, W, H) {
         Ok(graph_option) => graph_option,
         Err(err) => {
             warn!("{:?}", err.wrap_err("Failed to create graph"));
@@ -139,7 +150,7 @@ pub(super) async fn player_sniped(
         }
     };
 
-    let embed = SnipedEmbed::new(user, sniper, snipee).build();
+    let embed = SnipedEmbed::new(&user, sniper, snipee).build();
     let mut builder = MessageBuilder::new().embed(embed);
 
     if let Some(bytes) = graph {
@@ -281,7 +292,7 @@ fn draw_mesh<DB: DrawingBackend>(chart: &mut ChartContext<'_, DB, ContextType<'_
             _ => unreachable!(),
         })
         .label_style(("sans-serif", 15, &WHITE))
-        .bold_line_style(&WHITE.mix(0.3))
+        .bold_line_style(WHITE.mix(0.3))
         .axis_style(RGBColor(7, 18, 14))
         .axis_desc_style(("sans-serif", 20_i32, FontStyle::Bold, &WHITE))
         .draw()

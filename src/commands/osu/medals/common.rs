@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     cmp::{Ordering, Reverse},
     sync::Arc,
 };
@@ -6,20 +7,26 @@ use std::{
 use command_macros::command;
 use eyre::{Report, Result};
 use hashbrown::HashMap;
-use rosu_v2::prelude::{GameMode, User};
+use rkyv::{with::DeserializeWith, Infallible};
+use rosu_v2::{prelude::OsuError, request::UserId};
 use time::OffsetDateTime;
 
 use crate::{
-    commands::osu::{get_user, NameExtraction, UserArgs},
+    commands::osu::UserExtraction,
     core::commands::CommandOrigin,
     custom_client::{MedalGroup, OsekaiMedal, Rarity},
     embeds::MedalsCommonUser,
+    manager::redis::{
+        osu::{User, UserArgs},
+        RedisData,
+    },
     pagination::MedalsCommonPagination,
     util::{
         constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
         get_combined_thumbnail,
         hasher::IntHasher,
         matcher,
+        rkyv_impls::DateTimeWrapper,
     },
     Context,
 };
@@ -52,19 +59,24 @@ pub async fn prefix_medalscommon(ctx: Arc<Context>, msg: &Message, args: Args<'_
     common(ctx, msg.into(), args_).await
 }
 
-async fn extract_name<'a>(ctx: &Context, args: &mut MedalCommon<'a>) -> NameExtraction {
+async fn extract_user_id<'a>(ctx: &Context, args: &mut MedalCommon<'a>) -> UserExtraction {
     if let Some(name) = args.name1.take().or_else(|| args.name2.take()) {
-        NameExtraction::Name(name.as_ref().into())
+        let name = match name {
+            Cow::Borrowed(name) => name.into(),
+            Cow::Owned(name) => name.into(),
+        };
+
+        UserExtraction::Id(UserId::Name(name))
     } else if let Some(discord) = args.discord1.take().or_else(|| args.discord2.take()) {
-        match ctx.psql().get_user_osu(discord).await {
-            Ok(Some(osu)) => NameExtraction::Name(osu.into_username()),
+        match ctx.user_config().osu_id(discord).await {
+            Ok(Some(user_id)) => UserExtraction::Id(UserId::Id(user_id)),
             Ok(None) => {
-                NameExtraction::Content(format!("<@{discord}> is not linked to an osu!profile"))
+                UserExtraction::Content(format!("<@{discord}> is not linked to an osu!profile"))
             }
-            Err(err) => NameExtraction::Err(err.wrap_err("failed to get username")),
+            Err(err) => UserExtraction::Err(err),
         }
     } else {
-        NameExtraction::None
+        UserExtraction::None
     }
 }
 
@@ -73,15 +85,15 @@ pub(super) async fn common(
     orig: CommandOrigin<'_>,
     mut args: MedalCommon<'_>,
 ) -> Result<()> {
-    let name1 = match extract_name(&ctx, &mut args).await {
-        NameExtraction::Name(name) => name,
-        NameExtraction::Err(err) => {
+    let user_id1 = match extract_user_id(&ctx, &mut args).await {
+        UserExtraction::Id(user_id) => user_id,
+        UserExtraction::Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(err);
         }
-        NameExtraction::Content(content) => return orig.error(&ctx, content).await,
-        NameExtraction::None => {
+        UserExtraction::Content(content) => return orig.error(&ctx, content).await,
+        UserExtraction::None => {
             let content = "You need to specify at least one osu username. \
             If you're not linked, you must specify two names.";
 
@@ -89,16 +101,16 @@ pub(super) async fn common(
         }
     };
 
-    let name2 = match extract_name(&ctx, &mut args).await {
-        NameExtraction::Name(name) => name,
-        NameExtraction::Err(err) => {
+    let user_id2 = match extract_user_id(&ctx, &mut args).await {
+        UserExtraction::Id(user_id) => user_id,
+        UserExtraction::Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
             return Err(err);
         }
-        NameExtraction::Content(content) => return orig.error(&ctx, content).await,
-        NameExtraction::None => match ctx.psql().get_user_osu(orig.user_id()?).await {
-            Ok(Some(osu)) => osu.into_username(),
+        UserExtraction::Content(content) => return orig.error(&ctx, content).await,
+        UserExtraction::None => match ctx.user_config().osu_id(orig.user_id()?).await {
+            Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => {
                 let content =
                     "Since you're not linked with the `/link` command, you must specify two names.";
@@ -113,36 +125,47 @@ pub(super) async fn common(
         },
     };
 
-    if name1 == name2 {
+    if user_id1 == user_id2 {
         return orig.error(&ctx, "Give two different names").await;
     }
 
     let MedalCommon { sort, filter, .. } = args;
 
     // Retrieve all users and their scores
-    let user_args1 = UserArgs::new(name1.as_ref(), GameMode::Osu);
-    let user_fut1 = get_user(&ctx, &user_args1);
+    let user_args = UserArgs::rosu_id(&ctx, &user_id1).await;
+    let user_fut1 = ctx.redis().osu_user(user_args);
 
-    let user_args2 = UserArgs::new(name2.as_ref(), GameMode::Osu);
-    let user_fut2 = get_user(&ctx, &user_args2);
-    let redis = ctx.redis();
+    let user_args = UserArgs::rosu_id(&ctx, &user_id2).await;
+    let user_fut2 = ctx.redis().osu_user(user_args);
 
-    let (user1, user2, mut all_medals) = match tokio::join!(user_fut1, user_fut2, redis.medals()) {
-        (Ok(user1), Ok(user2), Ok(medals)) => (user1, user2, medals.to_inner()),
-        (Err(err), ..) | (_, Err(err), _) => {
-            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user");
+    let medals_fut = ctx.redis().medals();
 
-            return Err(report);
+    let (user_res1, user_res2, all_medals_res) = tokio::join!(user_fut1, user_fut2, medals_fut);
+
+    let (user1, user2) = match (user_res1, user_res2) {
+        (Ok(user1), Ok(user2)) => (user1, user2),
+        (Err(OsuError::NotFound), _) | (_, Err(OsuError::NotFound)) => {
+            let content = "At least one of the users was not found";
+
+            return orig.error(&ctx, content).await;
         }
-        (.., Err(err)) => {
+        (Err(err), _) | (_, Err(err)) => {
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
+
+            return Err(Report::new(err).wrap_err("failed to get user"));
+        }
+    };
+
+    let mut all_medals = match all_medals_res {
+        Ok(medals) => medals.into_original(),
+        Err(err) => {
             let _ = orig.error(&ctx, OSEKAI_ISSUE).await;
 
             return Err(err.wrap_err("failed to get cached medals"));
         }
     };
 
-    if user1.user_id == user2.user_id {
+    if user1.user_id() == user2.user_id() {
         let content = "Give two different users";
 
         return orig.error(&ctx, content).await;
@@ -233,11 +256,16 @@ pub(super) async fn common(
             if !medals.is_empty() {
                 match ctx.redis().osekai_ranking::<Rarity>().await {
                     Ok(rarities) => {
-                        let rarities: HashMap<_, _> = rarities
-                            .get()
-                            .iter()
-                            .map(|entry| (entry.medal_id, entry.possession_percent))
-                            .collect();
+                        let rarities: HashMap<_, _, IntHasher> = match rarities {
+                            RedisData::Original(rarities) => rarities
+                                .into_iter()
+                                .map(|entry| (entry.medal_id, entry.possession_percent))
+                                .collect(),
+                            RedisData::Archived(rarities) => rarities
+                                .iter()
+                                .map(|entry| (entry.medal_id, entry.possession_percent))
+                                .collect(),
+                        };
 
                         medals.sort_unstable_by(|a, b| {
                             let rarity1 = rarities.get(&a.medal.medal_id).copied().unwrap_or(100.0);
@@ -271,8 +299,7 @@ pub(super) async fn common(
         }
     }
 
-    // Create the thumbnail
-    let urls = [user1.avatar_url.as_str(), user2.avatar_url.as_str()];
+    let urls = [user1.avatar_url(), user2.avatar_url()];
 
     let thumbnail = match get_combined_thumbnail(&ctx, urls, 2, None).await {
         Ok(thumbnail) => Some(thumbnail),
@@ -283,8 +310,18 @@ pub(super) async fn common(
         }
     };
 
-    let user1 = MedalsCommonUser::new(user1.username, winner1);
-    let user2 = MedalsCommonUser::new(user2.username, winner2);
+    let username1 = match user1 {
+        RedisData::Original(user) => user.username,
+        RedisData::Archived(user) => user.username.as_str().into(),
+    };
+
+    let username2 = match user2 {
+        RedisData::Original(user) => user.username,
+        RedisData::Archived(user) => user.username.as_str().into(),
+    };
+
+    let user1 = MedalsCommonUser::new(username1, winner1);
+    let user2 = MedalsCommonUser::new(username2, winner2);
 
     let mut builder = MedalsCommonPagination::builder(user1, user2, medals);
 
@@ -301,12 +338,22 @@ pub struct MedalEntryCommon {
     pub achieved2: Option<OffsetDateTime>,
 }
 
-fn extract_medals(user: &User) -> HashMap<u32, OffsetDateTime, IntHasher> {
-    match user.medals.as_ref() {
-        Some(medals) => medals
+fn extract_medals(user: &RedisData<User>) -> HashMap<u32, OffsetDateTime, IntHasher> {
+    match user {
+        RedisData::Original(user) => user
+            .medals
             .iter()
             .map(|medal| (medal.medal_id, medal.achieved_at))
             .collect(),
-        None => HashMap::default(),
+        RedisData::Archived(user) => user
+            .medals
+            .iter()
+            .map(|medal| {
+                let achieved_at =
+                    DateTimeWrapper::deserialize_with(&medal.achieved_at, &mut Infallible).unwrap();
+
+                (medal.medal_id, achieved_at)
+            })
+            .collect(),
     }
 }

@@ -10,6 +10,7 @@ use crate::{
     commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, WhatIfEmbed},
+    manager::redis::osu::UserArgs,
     util::{
         builder::MessageBuilder,
         constants::OSU_API_ISSUE,
@@ -21,7 +22,7 @@ use crate::{
     Context,
 };
 
-use super::{get_user_and_scores, ScoreArgs, UserArgs};
+use super::user_not_found;
 
 pub enum WhatIfData {
     NonTop100,
@@ -189,7 +190,7 @@ async fn slash_whatif(ctx: Arc<Context>, mut command: InteractionCommand) -> Res
 }
 
 async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) -> Result<()> {
-    let (name, mode) = name_mode!(ctx, orig, args);
+    let (user_id, mode) = user_id_mode!(ctx, orig, args);
     let count = args.count.unwrap_or(1);
     let pp = args.pp;
 
@@ -200,31 +201,23 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
     }
 
     // Retrieve the user and their top scores
-    let user_args = UserArgs::new(name.as_str(), mode);
-    let score_args = ScoreArgs::top(100);
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
+    let scores_fut = ctx.osu_scores().top().limit(100).exec_with_user(user_args);
 
-    #[allow(unused_mut)]
-    let (mut user, mut scores) = match get_user_and_scores(&ctx, user_args, &score_args).await {
+    let (user, scores) = match scores_fut.await {
         Ok((user, scores)) => (user, scores),
         Err(OsuError::NotFound) => {
-            let content = format!("User `{name}` was not found");
+            let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get user or scores");
+            let err = Report::new(err).wrap_err("failed to get user or scores");
 
-            return Err(report);
+            return Err(err);
         }
     };
-
-    // Overwrite default mode
-    user.mode = mode;
-
-    // Process user and their top scores for tracking
-    #[cfg(feature = "osutracking")]
-    crate::tracking::process_osu_tracking(&ctx, &mut scores, Some(&user)).await;
 
     let whatif_data = if scores.is_empty() {
         let pp = iter::repeat(pp)
@@ -232,10 +225,10 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
             .take(count)
             .fold(0.0, |sum, (pp, i)| sum + pp * 0.95_f32.powi(i));
 
-        let rank = match ctx.psql().approx_rank_from_pp(pp, mode).await {
+        let rank = match ctx.approx().rank(pp, mode).await {
             Ok(rank) => Some(rank),
             Err(err) => {
-                warn!("{:?}", err.wrap_err("Failed to get rank pp"));
+                warn!("{:?}", err.wrap_err("failed to get rank pp"));
 
                 None
             }
@@ -248,7 +241,7 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
         let mut pps = scores.extract_pp();
         approx_more_pp(&mut pps, 50);
         let actual = pps.accum_weighted();
-        let total = user.statistics.as_ref().map_or(0.0, |stats| stats.pp);
+        let total = user.peek_stats(|stats| stats.pp);
         let bonus_pp = total - actual;
 
         let idx = pps
@@ -262,12 +255,10 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
         let new_pp = pps.accum_weighted();
         let max_pp = pps.first().copied().unwrap_or(0.0);
 
-        let rank_fut = ctx.psql().approx_rank_from_pp(new_pp + bonus_pp, mode);
-
-        let rank = match rank_fut.await {
+        let rank = match ctx.approx().rank(new_pp + bonus_pp, mode).await {
             Ok(rank) => Some(rank),
             Err(err) => {
-                warn!("{:?}", err.wrap_err("Failed to get rank pp"));
+                warn!("{:?}", err.wrap_err("failed to get rank pp"));
 
                 None
             }
@@ -284,7 +275,7 @@ async fn whatif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: WhatIf<'_>) ->
     };
 
     // Sending the embed
-    let embed = WhatIfEmbed::new(user, pp, whatif_data);
+    let embed = WhatIfEmbed::new(&user, pp, whatif_data);
     let builder = MessageBuilder::new().embed(embed.build());
     orig.create_message(&ctx, &builder).await?;
 

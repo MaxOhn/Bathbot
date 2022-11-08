@@ -1,20 +1,24 @@
 use command_macros::pagination;
-use rosu_v2::prelude::{MostPlayedMap, User};
+use rosu_v2::prelude::MostPlayedMap;
 use twilight_model::channel::embed::Embed;
 
-use crate::embeds::{EmbedData, MostPlayedEmbed};
+use crate::{
+    embeds::{EmbedData, MostPlayedEmbed},
+    manager::redis::{osu::User, RedisData},
+};
 
 use super::Pages;
 
 #[pagination(per_page = 10, entries = "maps")]
 pub struct MostPlayedPagination {
-    user: User,
+    user: RedisData<User>,
     maps: Vec<MostPlayedMap>,
 }
 
 impl MostPlayedPagination {
     pub fn build_page(&mut self, pages: &Pages) -> Embed {
-        let maps = self.maps.iter().skip(pages.index).take(pages.per_page);
+        let end_idx = self.maps.len().min(pages.index + pages.per_page);
+        let maps = &self.maps[pages.index..end_idx];
 
         MostPlayedEmbed::new(&self.user, maps, pages).build()
     }

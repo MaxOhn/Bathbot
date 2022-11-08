@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 
+use bathbot_psql::model::configs::{GuildConfig, DEFAULT_PREFIX};
 use command_macros::command;
 use eyre::{ContextCompat, Report, Result};
 use hashbrown::HashSet;
@@ -59,7 +60,21 @@ async fn failed_help(ctx: Arc<Context>, msg: &Message, name: &str) -> Result<()>
 
 async fn command_help(ctx: Arc<Context>, msg: &Message, cmd: &PrefixCommand) -> Result<()> {
     let name = cmd.name();
-    let prefix = ctx.guild_first_prefix(msg.guild_id).await;
+
+    let guild_config = match msg.guild_id {
+        Some(guild_id) => Some(
+            ctx.guild_config()
+                .peek(guild_id, GuildConfig::to_owned)
+                .await,
+        ),
+        None => None,
+    };
+
+    let prefix = guild_config
+        .as_ref()
+        .and_then(|config| config.prefixes.first().cloned())
+        .unwrap_or_else(|| DEFAULT_PREFIX.into());
+
     let mut fields = Vec::new();
 
     let mut eb = EmbedBuilder::new()
@@ -129,8 +144,9 @@ async fn command_help(ctx: Arc<Context>, msg: &Message, cmd: &PrefixCommand) -> 
     }
 
     if cmd.flags.authority() {
-        let value = if let Some(guild_id) = msg.guild_id {
-            let authorities = ctx.guild_authorities(guild_id).await;
+        let value = if let Some(config) = guild_config {
+            let authorities = config.authorities;
+
             let mut value = "You need admin permission".to_owned();
             let mut iter = authorities.iter();
 
@@ -181,34 +197,38 @@ async fn command_help(ctx: Arc<Context>, msg: &Message, cmd: &PrefixCommand) -> 
 
 async fn description(ctx: &Context, guild_id: Option<Id<GuildMarker>>) -> String {
     let (custom_prefix, first_prefix) = if let Some(guild_id) = guild_id {
-        let mut prefixes = ctx.guild_prefixes(guild_id).await;
+        let f = |config: &GuildConfig| {
+            let prefixes = &config.prefixes;
 
-        if !prefixes.is_empty() {
-            let prefix = prefixes.swap_remove(0);
+            if !prefixes.is_empty() {
+                let prefix = prefixes[0].clone();
 
-            if prefix == "<" && prefixes.len() == 1 {
-                (None, prefix)
-            } else {
-                let prefix_iter = prefixes.iter();
-                let mut prefixes_str = String::with_capacity(9);
-                let _ = write!(prefixes_str, "`{prefix}`");
+                if prefix == DEFAULT_PREFIX && prefixes.len() == 1 {
+                    (None, prefix)
+                } else {
+                    let prefix_iter = prefixes.iter();
+                    let mut prefixes_str = String::with_capacity(9);
+                    let _ = write!(prefixes_str, "`{prefix}`");
 
-                for prefix in prefix_iter {
-                    let _ = write!(prefixes_str, ", `{prefix}`");
+                    for prefix in prefix_iter {
+                        let _ = write!(prefixes_str, ", `{prefix}`");
+                    }
+
+                    (Some(prefixes_str), prefix)
                 }
-
-                (Some(prefixes_str), prefix)
+            } else {
+                (None, DEFAULT_PREFIX.into())
             }
-        } else {
-            (None, "<".into())
-        }
+        };
+
+        ctx.guild_config().peek(guild_id, f).await
     } else {
-        (None, "<".into())
+        (None, DEFAULT_PREFIX.into())
     };
 
     let prefix_desc = custom_prefix.map_or_else(
-        || String::from("Prefix: `<` (none required in DMs)"),
-        |p| format!("Server prefix: {p}\nDM prefix: `<` or none at all"),
+        || format!("Prefix: `{DEFAULT_PREFIX}` (none required in DMs)"),
+        |p| format!("Server prefix: {p}\nDM prefix: `{DEFAULT_PREFIX}` or none at all"),
     );
 
     format!(

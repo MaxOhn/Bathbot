@@ -4,15 +4,17 @@ use command_macros::command;
 use eyre::{Report, Result};
 use hashbrown::HashSet;
 use rkyv::{Deserialize, Infallible};
-use rosu_v2::prelude::{GameMode, OsuError};
+use rosu_v2::{prelude::OsuError, request::UserId};
 
 use crate::{
-    commands::osu::{get_user, require_link, UserArgs},
+    commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
     custom_client::{MedalGroup, OsekaiMedal, MEDAL_GROUPS},
+    manager::redis::{osu::UserArgs, RedisData},
     pagination::MedalsMissingPagination,
     util::{
         constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
+        hasher::IntHasher,
         matcher,
     },
     Context,
@@ -51,27 +53,27 @@ pub(super) async fn missing(
 ) -> Result<()> {
     let owner = orig.user_id()?;
 
-    let name = match username!(ctx, orig, args) {
-        Some(name) => name,
-        None => match ctx.psql().get_user_osu(owner).await {
-            Ok(Some(osu)) => osu.into_username(),
+    let user_id = match user_id!(ctx, orig, args) {
+        Some(user_id) => user_id,
+        None => match ctx.user_config().osu_id(owner).await {
+            Ok(Some(user_id)) => UserId::Id(user_id),
             Ok(None) => return require_link(&ctx, &orig).await,
             Err(err) => {
                 let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-                return Err(err.wrap_err("failed to get username"));
+                return Err(err);
             }
         },
     };
 
-    let user_args = UserArgs::new(name.as_str(), GameMode::Osu);
-    let user_fut = get_user(&ctx, &user_args);
-    let redis = ctx.redis();
+    let user_args = UserArgs::rosu_id(&ctx, &user_id).await;
+    let user_fut = ctx.redis().osu_user(user_args);
+    let medals_fut = ctx.redis().medals();
 
-    let (user, all_medals) = match tokio::join!(user_fut, redis.medals()) {
+    let (user, all_medals) = match tokio::join!(user_fut, medals_fut) {
         (Ok(user), Ok(medals)) => (user, medals),
         (Err(OsuError::NotFound), _) => {
-            let content = format!("User `{name}` was not found");
+            let content = user_not_found(&ctx, user_id).await;
 
             return orig.error(&ctx, content).await;
         }
@@ -88,20 +90,44 @@ pub(super) async fn missing(
         }
     };
 
-    let medals = user.medals.as_ref().unwrap();
-    let archived_all_medals = all_medals.get();
-    let medal_count = (
-        archived_all_medals.len() - medals.len(),
-        archived_all_medals.len(),
-    );
-    let owned: HashSet<_> = medals.iter().map(|medal| medal.medal_id).collect();
+    let (user_medals_count, owned): (_, HashSet<_, IntHasher>) = match &user {
+        RedisData::Original(user) => {
+            let owned = user.medals.iter().map(|medal| medal.medal_id).collect();
 
-    let mut medals: Vec<_> = archived_all_medals
-        .iter()
-        .filter(|medal| !owned.contains(&medal.medal_id))
-        .map(|entry| entry.deserialize(&mut Infallible).unwrap())
-        .map(MedalType::Medal)
-        .collect();
+            (user.medals.len(), owned)
+        }
+        RedisData::Archived(user) => {
+            let owned = user.medals.iter().map(|medal| medal.medal_id).collect();
+
+            (user.medals.len(), owned)
+        }
+    };
+
+    let (medal_count, mut medals): (_, Vec<_>) = match all_medals {
+        RedisData::Original(all_medals) => {
+            let medal_count = (all_medals.len() - user_medals_count, all_medals.len());
+
+            let medals = all_medals
+                .into_iter()
+                .filter(|medal| !owned.contains(&medal.medal_id))
+                .map(MedalType::Medal)
+                .collect();
+
+            (medal_count, medals)
+        }
+        RedisData::Archived(all_medals) => {
+            let medal_count = (all_medals.len() - user_medals_count, all_medals.len());
+
+            let medals = all_medals
+                .iter()
+                .filter(|medal| !owned.contains(&medal.medal_id))
+                .map(|entry| entry.deserialize(&mut Infallible).unwrap())
+                .map(MedalType::Medal)
+                .collect();
+
+            (medal_count, medals)
+        }
+    };
 
     medals.extend(MEDAL_GROUPS.iter().copied().map(MedalType::Group));
     medals.sort_unstable();

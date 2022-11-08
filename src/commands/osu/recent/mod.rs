@@ -1,5 +1,6 @@
 use std::{borrow::Cow, sync::Arc};
 
+use bathbot_psql::model::configs::ListSize;
 use command_macros::{HasMods, HasName, SlashCommand};
 use eyre::Result;
 use rosu_v2::prelude::{GameMode, Grade};
@@ -8,7 +9,6 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     commands::{osu::top, GameModeOption, GradeOption},
-    database::ListSize,
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };

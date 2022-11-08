@@ -1,19 +1,20 @@
 use std::{cmp::Ordering, iter};
 
-use rosu_v2::prelude::{Score, User};
+use rosu_v2::prelude::Score;
 use twilight_model::channel::embed::Embed;
 
 use crate::{
     embeds::EmbedData,
+    manager::redis::{osu::User, RedisData},
     util::{
         builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
-        numbers::{with_comma_float, with_comma_int},
+        numbers::WithComma,
         osu::{approx_more_pp, pp_missing, ExtractablePp, PpListUtil},
         CowUtils,
     },
 };
 
-pub struct PPMissingEmbed {
+pub struct PpMissingEmbed {
     author: AuthorBuilder,
     description: String,
     footer: Option<FooterBuilder>,
@@ -21,20 +22,22 @@ pub struct PPMissingEmbed {
     title: String,
 }
 
-impl PPMissingEmbed {
+impl PpMissingEmbed {
     pub fn new(
-        user: User,
-        scores: &mut [Score],
+        user: &RedisData<User>,
+        scores: &[Score],
         goal_pp: f32,
         rank: Option<u32>,
         each: Option<f32>,
     ) -> Self {
-        let stats_pp = user.statistics.as_ref().unwrap().pp;
+        let stats_pp = user.peek_stats(|stats| stats.pp);
+
+        let username = user.username();
 
         let title = format!(
             "What scores is {name} missing to reach {goal_pp}pp?",
-            name = user.username.cow_escape_markdown(),
-            goal_pp = with_comma_float(goal_pp),
+            name = username.cow_escape_markdown(),
+            goal_pp = WithComma::new(goal_pp),
         );
 
         let description = match (scores.last().and_then(|s| s.pp), each) {
@@ -43,9 +46,9 @@ impl PPMissingEmbed {
             // Total pp already above goal
             _ if stats_pp > goal_pp => format!(
                 "{name} has {pp_raw}pp which is already more than {pp_given}pp.",
-                name = user.username.cow_escape_markdown(),
-                pp_raw = with_comma_float(stats_pp),
-                pp_given = with_comma_float(goal_pp),
+                name = username.cow_escape_markdown(),
+                pp_raw = WithComma::new(stats_pp),
+                pp_given = WithComma::new(goal_pp),
             ),
             // Reach goal with only one score
             (Some(_), None) => {
@@ -55,15 +58,15 @@ impl PPMissingEmbed {
 
                     pp_missing(stats_pp, goal_pp, pps.as_slice())
                 } else {
-                    pp_missing(stats_pp, goal_pp, &*scores)
+                    pp_missing(stats_pp, goal_pp, scores)
                 };
 
                 format!(
                     "To reach {pp}pp with one additional score, {user} needs to perform \
                     a **{required}pp** score which would be the top {approx}#{idx}",
-                    pp = with_comma_float(goal_pp),
-                    user = user.username.cow_escape_markdown(),
-                    required = with_comma_float(required),
+                    pp = WithComma::new(goal_pp),
+                    user = username.cow_escape_markdown(),
+                    required = WithComma::new(required),
                     approx = if idx >= 100 { "~" } else { "" },
                     idx = idx + 1,
                 )
@@ -73,10 +76,10 @@ impl PPMissingEmbed {
                 format!(
                     "New top100 scores require at least **{last_pp}pp** for {user} \
                     so {pp} total pp can't be reached with {each}pp scores.",
-                    pp = with_comma_float(goal_pp),
-                    last_pp = with_comma_float(last_pp),
-                    each = with_comma_float(each),
-                    user = user.username.cow_escape_markdown(),
+                    pp = WithComma::new(goal_pp),
+                    last_pp = WithComma::new(last_pp),
+                    each = WithComma::new(each),
+                    user = username.cow_escape_markdown(),
                 )
             }
             // Given score pp would be in top 100
@@ -88,16 +91,16 @@ impl PPMissingEmbed {
 
                     pp_missing(stats_pp, goal_pp, pps.as_slice())
                 } else {
-                    pp_missing(stats_pp, goal_pp, &*scores)
+                    pp_missing(stats_pp, goal_pp, scores)
                 };
 
                 if required < each {
                     format!(
                         "To reach {pp}pp with one additional score, {user} needs to perform \
                         a **{required}pp** score which would be the top {approx}#{idx}",
-                        pp = with_comma_float(goal_pp),
-                        user = user.username.cow_escape_markdown(),
-                        required = with_comma_float(required),
+                        pp = WithComma::new(goal_pp),
+                        user = username.cow_escape_markdown(),
+                        required = WithComma::new(required),
                         approx = if idx >= 100 { "~" } else { "" },
                         idx = idx + 1,
                     )
@@ -142,13 +145,13 @@ impl PPMissingEmbed {
                             "Filling up {user}'{genitiv} top scores with {amount} new {each}pp score{plural} \
                             would only lead to {approx}**{top}pp** which is still less than {pp}pp.",
                             amount = len - idx,
-                            each = with_comma_float(each),
+                            each = WithComma::new(each),
                             plural = if len - idx != 1 { "s" } else { "" },
                             genitiv = if idx != 1 { "s" } else { "" },
-                            pp = with_comma_float(goal_pp),
+                            pp = WithComma::new(goal_pp),
                             approx = if idx >= 100 { "roughly " } else { "" },
-                            top = with_comma_float(top),
-                            user = user.username.cow_escape_markdown(),
+                            top = WithComma::new(top),
+                            user = username.cow_escape_markdown(),
                         )
                     } else {
                         pps.extend(iter::repeat(each).take(n_each));
@@ -163,11 +166,11 @@ impl PPMissingEmbed {
                         format!(
                             "To reach {pp}pp, {user} needs to perform **{n_each}** more \
                             {each}pp score{plural} and one **{required}pp** score.",
-                            each = with_comma_float(each),
+                            each = WithComma::new(each),
                             plural = if n_each != 1 { "s" } else { "" },
-                            pp = with_comma_float(goal_pp),
-                            user = user.username.cow_escape_markdown(),
-                            required = with_comma_float(required),
+                            pp = WithComma::new(goal_pp),
+                            user = username.cow_escape_markdown(),
+                            required = WithComma::new(required),
                         )
                     }
                 }
@@ -177,22 +180,22 @@ impl PPMissingEmbed {
         let footer = rank.map(|rank| {
             FooterBuilder::new(format!(
                 "The current rank for {pp}pp is approx. #{rank}",
-                pp = with_comma_float(goal_pp),
-                rank = with_comma_int(rank),
+                pp = WithComma::new(goal_pp),
+                rank = WithComma::new(rank),
             ))
         });
 
         Self {
-            author: author!(user),
+            author: user.author_builder(),
             description,
             footer,
-            thumbnail: user.avatar_url,
+            thumbnail: user.avatar_url().to_owned(),
             title,
         }
     }
 }
 
-impl EmbedData for PPMissingEmbed {
+impl EmbedData for PpMissingEmbed {
     fn build(self) -> Embed {
         let builder = EmbedBuilder::new()
             .author(self.author)

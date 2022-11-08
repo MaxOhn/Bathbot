@@ -6,7 +6,7 @@ use crate::{
     util::{
         builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
         interaction::InteractionCommand,
-        numbers::with_comma_int,
+        numbers::WithComma,
         InteractionCommandExt,
     },
     Context,
@@ -21,11 +21,11 @@ pub async fn cache(ctx: Arc<Context>, command: InteractionCommand) -> Result<()>
         Users: {users}\n\
         Roles: {roles}\n\
         Channels: {channels}",
-        guilds = with_comma_int(stats.guilds()),
-        members = with_comma_int(stats.members()),
-        users = with_comma_int(stats.users()),
-        roles = with_comma_int(stats.roles()),
-        channels = with_comma_int(stats.channels_total()),
+        guilds = WithComma::new(stats.guilds()),
+        members = WithComma::new(stats.members()),
+        users = WithComma::new(stats.users()),
+        roles = WithComma::new(stats.roles()),
+        channels = WithComma::new(stats.channels_total()),
     );
 
     let embed = EmbedBuilder::new()

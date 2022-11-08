@@ -7,10 +7,7 @@ use crate::{
     custom_client::SnipeCountryPlayer,
     pagination::Pages,
     util::{
-        builder::FooterBuilder,
-        constants::OSU_BASE,
-        numbers::{with_comma_float, with_comma_int},
-        osu::flag_url,
+        builder::FooterBuilder, constants::OSU_BASE, numbers::WithComma, osu::flag_url,
         CountryCode, CowUtils,
     },
 };
@@ -87,10 +84,10 @@ impl CountrySnipeListEmbed {
                 } else {
                     ""
                 },
-                count = with_comma_int(player.count_first),
-                pp = with_comma_float(player.avg_pp),
+                count = WithComma::new(player.count_first),
+                pp = WithComma::new(player.avg_pp),
                 stars = player.avg_sr,
-                weighted = with_comma_float(player.pp),
+                weighted = WithComma::new(player.pp),
             );
         }
 

@@ -65,19 +65,19 @@ pub(super) async fn untrack(
         }
         Err((err, _)) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
-            let report = Report::new(err).wrap_err("failed to get names");
+            let err = Report::new(err).wrap_err("failed to get names");
 
-            return Err(report);
+            return Err(err);
         }
     };
 
     let channel = orig.channel_id();
     let mut success = HashSet::with_capacity(users.len());
 
-    for (username, user_id) in users.into_iter() {
+    for (username, user_id) in users {
         let remove_fut = ctx
             .tracking()
-            .remove_user(user_id, mode, channel, ctx.psql());
+            .remove_user(user_id, mode, channel, ctx.osu_tracking());
 
         match remove_fut.await {
             Ok(_) => success.insert(username),

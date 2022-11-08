@@ -1,24 +1,31 @@
-use std::fmt::{Display, Formatter, Result as FmtResult, Write};
+use std::{
+    collections::hash_map::{Entry, HashMap},
+    fmt::{Display, Formatter, Result as FmtResult, Write},
+};
 
 use command_macros::EmbedData;
-use eyre::{Result, WrapErr};
-use hashbrown::{hash_map::Entry, HashMap};
-use rosu_pp::{Beatmap as Map, BeatmapExt, DifficultyAttributes};
-use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode};
+use rosu_pp::{BeatmapExt, DifficultyAttributes};
+use rosu_v2::prelude::GameMode;
 
 use crate::{
     core::Context,
     custom_client::ScraperScore,
+    manager::{OsuMap, PpManager},
     pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
-        datetime::how_long_ago_dynamic,
-        numbers::with_comma_int,
-        osu::prepare_beatmap_file,
-        CowUtils, Emote, ScoreExt,
+        datetime::HowLongAgoDynamic,
+        hasher::IntHasher,
+        numbers::WithComma,
+        osu::grade_emote,
+        CowUtils, Emote,
     },
 };
+
+use super::PpFormatter;
+
+type AttrMap = HashMap<u32, (DifficultyAttributes, f32), IntHasher>;
 
 #[derive(EmbedData)]
 pub struct LeaderboardEmbed {
@@ -30,56 +37,36 @@ pub struct LeaderboardEmbed {
 
 impl LeaderboardEmbed {
     #[allow(clippy::too_many_arguments)]
-    pub async fn new<'i, S>(
+    pub async fn new(
         author_name: Option<&str>,
-        map: &Beatmap,
-        scores: Option<S>,
+        map: &OsuMap,
+        stars: f32,
+        attr_map: &mut AttrMap,
+        scores: Option<&[ScraperScore]>,
         author_icon: &Option<String>,
-        ctx: &Context,
         pages: &Pages,
-    ) -> Result<Self>
-    where
-        S: Iterator<Item = &'i ScraperScore>,
-    {
-        let Beatmapset {
-            artist,
-            title,
-            creator_name,
-            creator_id,
-            ..
-        } = map.mapset.as_ref().unwrap();
-
+        ctx: &Context,
+    ) -> Self {
         let mut author_text = String::with_capacity(32);
 
-        if map.mode == GameMode::Mania {
-            let _ = write!(author_text, "[{}K] ", map.cs as u32);
+        if map.mode() == GameMode::Mania {
+            let _ = write!(author_text, "[{}K] ", map.cs() as u32);
         }
 
         let _ = write!(
             author_text,
             "{artist} - {title} [{version}] [{stars:.2}★]",
-            artist = artist.cow_escape_markdown(),
-            title = title.cow_escape_markdown(),
-            version = map.version.cow_escape_markdown(),
-            stars = map.stars
+            artist = map.artist().cow_escape_markdown(),
+            title = map.title().cow_escape_markdown(),
+            version = map.version().cow_escape_markdown(),
         );
 
         let description = if let Some(scores) = scores {
-            let map_path = prepare_beatmap_file(ctx, map.map_id)
-                .await
-                .wrap_err("failed to prepare map")?;
-
-            let rosu_map = Map::from_path(map_path)
-                .await
-                .wrap_err("failed to parse map")?;
-
-            let mut mod_map = HashMap::new();
             let mut description = String::with_capacity(256);
-            let author_name = author_name.unwrap_or_default();
             let mut username = String::with_capacity(32);
 
-            for (score, i) in scores.zip(pages.index + 1..) {
-                let found_author = author_name == score.username;
+            for (score, i) in scores.iter().zip(pages.index + 1..) {
+                let found_author = author_name == Some(score.username.as_str());
                 username.clear();
 
                 if found_author {
@@ -101,14 +88,14 @@ impl LeaderboardEmbed {
                     description,
                     "**{i}.** {grade} **{username}**: {score} [ {combo} ] **+{mods}**\n\
                     - {pp} • {acc:.2}% • {miss}{ago}",
-                    grade = score.grade_emote(map.mode),
-                    score = with_comma_int(score.score),
+                    grade = grade_emote(score.grade),
+                    score = WithComma::new(score.score),
                     combo = ComboFormatter::new(score, map),
                     mods = score.mods,
-                    pp = get_pp(&mut mod_map, score, &rosu_map).await,
+                    pp = pp_format(ctx, attr_map, score, map).await,
                     acc = score.accuracy,
                     miss = MissFormat(score.count_miss),
-                    ago = how_long_ago_dynamic(&score.date),
+                    ago = HowLongAgoDynamic::new(&score.date),
                 );
             }
 
@@ -117,7 +104,8 @@ impl LeaderboardEmbed {
             "No scores found".to_string()
         };
 
-        let mut author = AuthorBuilder::new(author_text).url(format!("{OSU_BASE}b/{}", map.map_id));
+        let mut author =
+            AuthorBuilder::new(author_text).url(format!("{OSU_BASE}b/{}", map.map_id()));
 
         if let Some(ref author_icon) = author_icon {
             author = author.icon_url(author_icon.to_owned());
@@ -125,79 +113,77 @@ impl LeaderboardEmbed {
 
         let page = pages.curr_page();
         let pages = pages.last_page();
+
         let footer_text = format!(
-            "{:?} map by {creator_name} • Page {page}/{pages}",
-            map.status
+            "Page {page}/{pages} • {status:?} map",
+            status = map.status(),
         );
 
-        let footer = FooterBuilder::new(footer_text).icon_url(format!("{AVATAR_URL}{creator_id}"));
+        let footer_icon = format!("{AVATAR_URL}{creator_id}", creator_id = map.creator_id());
+        let footer = FooterBuilder::new(footer_text).icon_url(footer_icon);
 
-        Ok(Self {
+        Self {
             author,
             description,
             footer,
-            thumbnail: format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id),
-        })
+            thumbnail: format!("{MAP_THUMB_URL}{}l.jpg", map.mapset_id()),
+        }
     }
 }
 
-async fn get_pp(
-    mod_map: &mut HashMap<u32, (DifficultyAttributes, f32)>,
+async fn pp_format(
+    ctx: &Context,
+    attr_map: &mut AttrMap,
     score: &ScraperScore,
-    map: &Map,
-) -> PPFormatter {
-    let bits = score.mods.bits();
+    map: &OsuMap,
+) -> PpFormatter {
+    let mods = score.mods;
 
-    let (attrs, max_pp) = match mod_map.entry(bits) {
+    match attr_map.entry(mods.bits()) {
         Entry::Occupied(entry) => {
             let (attrs, max_pp) = entry.get();
 
-            (attrs.to_owned(), *max_pp)
+            let pp = map
+                .pp_map
+                .pp()
+                .attributes(attrs.to_owned())
+                .mode(PpManager::mode_conversion(score.mode))
+                .mods(mods.bits())
+                .state(score.into())
+                .calculate()
+                .pp() as f32;
+
+            PpFormatter::new(Some(pp), Some(*max_pp))
         }
         Entry::Vacant(entry) => {
-            let attrs = map.max_pp(bits);
+            let mut calc = ctx.pp(map).mode(score.mode).mods(mods);
+            let attrs = calc.performance().await;
             let max_pp = attrs.pp() as f32;
-            let (attrs, max_pp) = entry.insert((attrs.into(), max_pp));
+            let pp = calc.score(score).performance().await.pp() as f32;
+            entry.insert((attrs.into(), max_pp));
 
-            (attrs.to_owned(), *max_pp)
+            PpFormatter::new(Some(pp), Some(max_pp))
         }
-    };
-
-    let pp = map
-        .pp()
-        .attributes(attrs)
-        .mods(score.mods.bits())
-        .state(score.into())
-        .calculate()
-        .pp() as f32;
-
-    PPFormatter(pp, max_pp)
-}
-
-struct PPFormatter(f32, f32);
-
-impl Display for PPFormatter {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "**{:.2}**/{:.2}PP", self.0, self.1)
     }
 }
 
 struct ComboFormatter<'a> {
     score: &'a ScraperScore,
-    map: &'a Beatmap,
+    map: &'a OsuMap,
 }
 
 impl<'a> ComboFormatter<'a> {
-    fn new(score: &'a ScraperScore, map: &'a Beatmap) -> Self {
+    fn new(score: &'a ScraperScore, map: &'a OsuMap) -> Self {
         Self { score, map }
     }
 }
 
 impl<'a> Display for ComboFormatter<'a> {
+    #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "**{}x**", self.score.max_combo)?;
 
-        if let Some(combo) = self.map.max_combo {
+        if let Some(combo) = self.map.max_combo() {
             write!(f, "/{combo}x")
         } else {
             let mut ratio = self.score.count_geki as f32;
@@ -214,6 +200,7 @@ impl<'a> Display for ComboFormatter<'a> {
 struct MissFormat(u32);
 
 impl Display for MissFormat {
+    #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         if self.0 == 0 {
             return Ok(());

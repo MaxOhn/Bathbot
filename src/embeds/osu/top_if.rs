@@ -1,19 +1,23 @@
 use std::fmt::Write;
 
 use command_macros::EmbedData;
-use rosu_v2::prelude::{GameMode, Score, User};
+use rosu_v2::prelude::GameMode;
 
 use crate::{
-    embeds::osu,
+    commands::osu::TopIfEntry,
+    manager::redis::{osu::User, RedisData},
     pagination::Pages,
     util::{
         builder::{AuthorBuilder, FooterBuilder},
         constants::OSU_BASE,
-        datetime::how_long_ago_dynamic,
-        numbers::{with_comma_float, with_comma_int},
-        CowUtils, ScoreExt,
+        datetime::HowLongAgoDynamic,
+        numbers::{round, WithComma},
+        osu::grade_emote,
+        CowUtils,
     },
 };
+
+use super::{ComboFormatter, HitResultFormatter, ModsFormatter, PpFormatter};
 
 #[derive(EmbedData)]
 pub struct TopIfEmbed {
@@ -25,45 +29,42 @@ pub struct TopIfEmbed {
 }
 
 impl TopIfEmbed {
-    pub async fn new<'i, S>(
-        user: &User,
-        scores_data: S,
+    pub async fn new(
+        user: &RedisData<User>,
+        entries: &[TopIfEntry],
         mode: GameMode,
         pre_pp: f32,
         post_pp: f32,
-        rank: Option<usize>,
+        rank: Option<u32>,
         pages: &Pages,
-    ) -> Self
-    where
-        S: Iterator<Item = &'i (usize, Score, Option<f32>)>,
-    {
+    ) -> Self {
         let pp_diff = (100.0 * (post_pp - pre_pp)).round() / 100.0;
         let mut description = String::with_capacity(512);
 
-        for (idx, score, max_pp) in scores_data {
-            let map = score.map.as_ref().unwrap();
-            let mapset = score.mapset.as_ref().unwrap();
-
-            let pp = match max_pp {
-                Some(max_pp) => osu::get_pp(score.pp, Some(*max_pp)),
-                None => osu::get_pp(None, None),
-            };
+        for entry in entries {
+            let TopIfEntry {
+                original_idx,
+                score,
+                map,
+                stars,
+                max_pp,
+            } = entry;
 
             let _ = writeln!(
                 description,
-                "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars:.2}★]\n\
+                "**{original_idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars:.2}★]\n\
                 {grade} {pp} ~ {acc}% ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
-                title = mapset.title.cow_escape_markdown(),
-                version = map.version.cow_escape_markdown(),
-                id = map.map_id,
-                mods = osu::get_mods(score.mods),
-                stars = map.stars,
-                grade = score.grade_emote(mode),
-                acc = score.acc(mode),
-                score = with_comma_int(score.score),
-                combo = osu::get_combo(score, map),
-                hits = score.hits_string(mode),
-                ago = how_long_ago_dynamic(&score.ended_at)
+                title = map.title().cow_escape_markdown(),
+                version = map.version().cow_escape_markdown(),
+                id = map.map_id(),
+                mods = ModsFormatter::new(score.mods),
+                grade = grade_emote(score.grade),
+                pp = PpFormatter::new(Some(score.pp), Some(*max_pp)),
+                acc = round(score.accuracy),
+                score = WithComma::new(score.score),
+                combo = ComboFormatter::new(score.max_combo, map.max_combo()),
+                hits = HitResultFormatter::new(mode, score.statistics.clone()),
+                ago = HowLongAgoDynamic::new(&score.ended_at)
             );
         }
 
@@ -75,16 +76,16 @@ impl TopIfEmbed {
             let _ = write!(
                 footer_text,
                 " • The current rank for {pp}pp is #{rank}",
-                pp = with_comma_float(post_pp),
-                rank = with_comma_int(rank)
+                pp = WithComma::new(post_pp),
+                rank = WithComma::new(rank)
             );
         }
 
         Self {
-            author: author!(user),
+            author: user.author_builder(),
             description,
             footer: FooterBuilder::new(footer_text),
-            thumbnail: user.avatar_url.to_owned(),
+            thumbnail: user.avatar_url().to_owned(),
             title: format!("Total pp: {pre_pp} → **{post_pp}pp** ({pp_diff:+})"),
         }
     }

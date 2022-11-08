@@ -1,13 +1,10 @@
 use std::fmt::Write;
 
+use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, ScoreSize};
 use command_macros::EmbedData;
 use twilight_model::channel::embed::EmbedField;
 
-use crate::{
-    commands::utility::GuildData,
-    database::{EmbedsSize, GuildConfig, ListSize, MinimizedPp},
-    util::builder::AuthorBuilder,
-};
+use crate::{commands::utility::GuildData, util::builder::AuthorBuilder};
 
 use super::config::create_field;
 
@@ -63,37 +60,37 @@ impl ServerConfigEmbed {
             }
         }
 
-        let track_limit = config.track_limit();
+        let track_limit = config.track_limit.unwrap_or(50);
         let _ = writeln!(description, "\nDefault track limit: {track_limit}\n```");
 
         let fields = vec![
             create_field(
                 "Song commands",
-                config.with_lyrics(),
+                config.allow_songs.unwrap_or(true),
                 &[(true, "enabled"), (false, "disabled")],
             ),
             create_field(
                 "Retries*",
-                config.show_retries(),
+                config.show_retries.unwrap_or(true),
                 &[(true, "show"), (false, "hide")],
             ),
             create_field(
                 "Minimized PP*",
-                config.minimized_pp(),
-                &[(MinimizedPp::Max, "max pp"), (MinimizedPp::IfFc, "if FC")],
+                config.minimized_pp.unwrap_or_default(),
+                &[(MinimizedPp::MaxPp, "max pp"), (MinimizedPp::IfFc, "if FC")],
             ),
             create_field(
                 "Score embeds*",
-                config.embeds_size(),
+                config.score_size.unwrap_or_default(),
                 &[
-                    (EmbedsSize::AlwaysMinimized, "always minimized"),
-                    (EmbedsSize::AlwaysMaximized, "always maximized"),
-                    (EmbedsSize::InitialMaximized, "initial maximized"),
+                    (ScoreSize::AlwaysMinimized, "always minimized"),
+                    (ScoreSize::AlwaysMaximized, "always maximized"),
+                    (ScoreSize::InitialMaximized, "initial maximized"),
                 ],
             ),
             create_field(
                 "List embeds*",
-                config.list_size(),
+                config.list_size.unwrap_or_default(),
                 &[
                     (ListSize::Condensed, "condensed"),
                     (ListSize::Detailed, "detailed"),

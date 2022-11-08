@@ -47,7 +47,10 @@ pub async fn untrackall(
     mode: Option<GameMode>,
 ) -> Result<()> {
     let channel_id = orig.channel_id();
-    let remove_fut = ctx.tracking().remove_channel(channel_id, mode, ctx.psql());
+
+    let remove_fut = ctx
+        .tracking()
+        .remove_channel(channel_id, mode, ctx.osu_tracking());
 
     match remove_fut.await {
         Ok(amount) => {
