@@ -537,8 +537,8 @@ impl CustomClient {
 
     pub async fn get_snipe_player(&self, country: &str, user_id: u32) -> Result<SnipePlayer> {
         let url = format!(
-            "{HUISMETBENEN}player/{}/{user_id}?type=id",
-            country.to_lowercase(),
+            "{HUISMETBENEN}player/{country}/{user_id}?type=id",
+            country = country.to_lowercase(),
         );
 
         let bytes = self.make_get_request(url, Site::Huismetbenen).await?;
@@ -552,8 +552,8 @@ impl CustomClient {
 
     pub async fn get_snipe_country(&self, country: &str) -> Result<Vec<SnipeCountryPlayer>> {
         let url = format!(
-            "{HUISMETBENEN}rankings/{}/pp/weighted",
-            country.to_lowercase()
+            "{HUISMETBENEN}rankings/{country}/pp/weighted",
+            country = country.to_lowercase()
         );
 
         let bytes = self.make_get_request(url, Site::Huismetbenen).await?;
@@ -593,11 +593,11 @@ impl CustomClient {
         ];
 
         let url = format!(
-            "{HUISMETBENEN}snipes/{}/{}?since={}&until={}",
-            user.user_id,
-            if sniper { "new" } else { "old" },
-            from.format(DATETIME_FORMAT).unwrap(),
-            until.format(DATETIME_FORMAT).unwrap()
+            "{HUISMETBENEN}changes/{version}/{user}?since={since}&until={until}",
+            user = user.user_id,
+            version = if sniper { "new" } else { "old" },
+            since = from.format(DATETIME_FORMAT).unwrap(),
+            until = until.format(DATETIME_FORMAT).unwrap()
         );
 
         let bytes = self.make_get_request(url, Site::Huismetbenen).await?;

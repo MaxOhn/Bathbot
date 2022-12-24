@@ -145,21 +145,42 @@ pub struct SnipePlayerOldest {
     pub date: Option<OffsetDateTime>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct SnipeRecent {
-    pub sniped: Option<Username>,
-    pub sniped_id: Option<u32>,
-    pub sniper: Username,
-    pub sniper_id: u32,
-    pub mods: GameMods,
+    pub uid: u32,
+    #[serde(rename = "osu_score_id")]
+    pub score_id: u64,
     pub map_id: u32,
-    pub map: String,
-    #[serde(with = "datetime_mixture")]
-    pub date: OffsetDateTime,
+    #[serde(rename = "player_id")]
+    pub user_id: u32,
+    pub country: rosu_v2::prelude::CountryCode,
+    pub score: u32,
+    pub pp: f32,
+    #[serde(rename = "sr")]
+    pub stars: Option<f32>,
     #[serde(with = "deser::adjust_acc")]
     pub accuracy: f32,
-    #[serde(rename = "sr", deserialize_with = "deserialize_stars")]
-    pub stars: Option<f32>,
+    pub count_300: u32,
+    pub count_100: u32,
+    pub count_50: u32,
+    pub count_miss: u32,
+    #[serde(rename = "date_set", with = "datetime_mixture")]
+    pub date: OffsetDateTime,
+    pub mods: GameMods,
+    pub max_combo: u32,
+    pub ar: f32,
+    pub cs: f32,
+    pub od: f32,
+    pub hp: f32,
+    pub bpm: f32,
+    pub artist: String,
+    pub title: String,
+    #[serde(rename = "diff_name")]
+    pub version: String,
+    #[serde(default, rename = "sniped_name")]
+    pub sniped: Option<String>,
+    #[serde(default, rename = "sniper_name")]
+    pub sniper: String,
 }
 
 // Format "YYYY-MM-DD hh:mm:ssZ"
@@ -204,33 +225,6 @@ mod datetime_mixture {
 
             Ok(primitive.assume_offset(offset))
         }
-    }
-}
-
-pub fn deserialize_stars<'de, D: Deserializer<'de>>(d: D) -> Result<Option<f32>, D::Error> {
-    d.deserialize_any(StarsVisitor)
-}
-
-struct StarsVisitor;
-
-impl<'de> Visitor<'de> for StarsVisitor {
-    type Value = Option<f32>;
-
-    #[inline]
-    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("a stringified f32 or -1")
-    }
-
-    #[inline]
-    fn visit_i64<E: Error>(self, _: i64) -> Result<Self::Value, E> {
-        Ok(None)
-    }
-
-    #[inline]
-    fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-        v.parse()
-            .map(Some)
-            .map_err(|_| Error::invalid_value(Unexpected::Str(v), &self))
     }
 }
 

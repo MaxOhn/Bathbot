@@ -71,9 +71,11 @@ impl SnipedDiffEmbed {
 
             let _ = write!(
                 description,
-                "**{idx}. [{map}]({OSU_BASE}b/{id}) {mods}**\n[{stars:.2}★] ~ ({acc}%) ~ ",
+                "**{idx}. [{artist} - {title} [{version}]]({OSU_BASE}b/{id}) {mods}**\n[{stars:.2}★] ~ ({acc}%) ~ ",
                 idx = idx + 1,
-                map = score.map.cow_escape_markdown(),
+                artist = score.artist.cow_escape_markdown(),
+                title = score.title.cow_escape_markdown(),
+                version = score.version.cow_escape_markdown(),
                 id = score.map_id,
                 mods = osu::get_mods(score.mods),
                 acc = round(score.accuracy),
@@ -83,17 +85,17 @@ impl SnipedDiffEmbed {
                 Difference::Gain => match score.sniped {
                     Some(ref name) => write!(
                         description,
-                        "Sniped [{name}]({OSU_BASE}u/{id}) ",
+                        "Sniped [{name}]({OSU_BASE}u/{url_name}) ",
                         name = name.cow_escape_markdown(),
-                        id = score.sniped_id.unwrap_or(2),
+                        url_name = name,
                     ),
                     None => write!(description, "Unclaimed until "),
                 },
                 Difference::Loss => write!(
                     description,
-                    "Sniped by [{name}]({OSU_BASE}u/{id}) ",
+                    "Sniped by [{name}]({OSU_BASE}u/{url_name}) ",
                     name = score.sniper.cow_escape_markdown(),
-                    id = score.sniper_id,
+                    url_name = score.sniper,
                 ),
             };
 
