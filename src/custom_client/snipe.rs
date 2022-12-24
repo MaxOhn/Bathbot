@@ -154,20 +154,19 @@ pub struct SnipeRecent {
     #[serde(rename = "player_id")]
     pub user_id: u32,
     pub country: rosu_v2::prelude::CountryCode,
-    pub score: u32,
-    pub pp: f32,
+    pub pp: Option<f32>,
     #[serde(rename = "sr")]
     pub stars: Option<f32>,
     #[serde(with = "deser::adjust_acc")]
     pub accuracy: f32,
-    pub count_300: u32,
-    pub count_100: u32,
-    pub count_50: u32,
-    pub count_miss: u32,
-    #[serde(rename = "date_set", with = "datetime_mixture")]
-    pub date: OffsetDateTime,
-    pub mods: GameMods,
-    pub max_combo: u32,
+    pub count_300: Option<u32>,
+    pub count_100: Option<u32>,
+    pub count_50: Option<u32>,
+    pub count_miss: Option<u32>,
+    #[serde(rename = "date_set", with = "deser::option_naive_datetime")]
+    pub date: Option<OffsetDateTime>,
+    pub mods: Option<GameMods>,
+    pub max_combo: Option<u32>,
     pub ar: f32,
     pub cs: f32,
     pub od: f32,
@@ -180,52 +179,7 @@ pub struct SnipeRecent {
     #[serde(default, rename = "sniped_name")]
     pub sniped: Option<String>,
     #[serde(default, rename = "sniper_name")]
-    pub sniper: String,
-}
-
-// Format "YYYY-MM-DD hh:mm:ssZ"
-mod datetime_mixture {
-    use time::UtcOffset;
-
-    use crate::util::datetime::OFFSET_FORMAT;
-
-    use super::*;
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<OffsetDateTime, D::Error> {
-        d.deserialize_str(DateTimeVisitor)
-    }
-
-    pub(super) struct DateTimeVisitor;
-
-    impl<'de> Visitor<'de> for DateTimeVisitor {
-        type Value = OffsetDateTime;
-
-        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.write_str("a datetime string")
-        }
-
-        #[inline]
-        fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-            if v.len() < 19 {
-                return Err(Error::custom(format!(
-                    "string too short for a datetime: `{v}`"
-                )));
-            }
-
-            let (prefix, suffix) = v.split_at(19);
-
-            let primitive =
-                PrimitiveDateTime::parse(prefix, NAIVE_DATETIME_FORMAT).map_err(Error::custom)?;
-
-            let offset = if suffix.is_empty() || suffix == "Z" {
-                UtcOffset::UTC
-            } else {
-                UtcOffset::parse(suffix, OFFSET_FORMAT).map_err(Error::custom)?
-            };
-
-            Ok(primitive.assume_offset(offset))
-        }
-    }
+    pub sniper: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -238,19 +192,19 @@ pub struct SnipeScore {
     pub username: Username,
     pub country: rosu_v2::prelude::CountryCode,
     pub score: u32,
-    pub pp: f32,
+    pub pp: Option<f32>,
     #[serde(rename = "sr")]
     pub stars: f32,
     #[serde(with = "deser::adjust_acc")]
     pub accuracy: f32,
-    pub count_300: u32,
-    pub count_100: u32,
-    pub count_50: u32,
-    pub count_miss: u32,
-    #[serde(with = "deser::naive_datetime")]
-    pub date_set: OffsetDateTime,
-    pub mods: GameMods,
-    pub max_combo: u32,
+    pub count_300: Option<u32>,
+    pub count_100: Option<u32>,
+    pub count_50: Option<u32>,
+    pub count_miss: Option<u32>,
+    #[serde(with = "deser::option_naive_datetime")]
+    pub date_set: Option<OffsetDateTime>,
+    pub mods: Option<GameMods>,
+    pub max_combo: Option<u32>,
     pub ar: f32,
     pub hp: f32,
     pub cs: f32,

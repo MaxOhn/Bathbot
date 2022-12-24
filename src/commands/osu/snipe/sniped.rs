@@ -350,7 +350,9 @@ fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult<'_> {
     let mut total = HashMap::new();
 
     for score in scores {
-        *total.entry(score.sniper.as_str()).or_insert(0) += 1;
+        if let Some(name) = score.sniper.as_deref() {
+            *total.entry(name).or_insert(0) += 1;
+        }
     }
 
     let mut final_order: Vec<_> = total.into_iter().collect();
@@ -361,20 +363,25 @@ fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult<'_> {
 
     let categorized: Vec<_> = scores
         .iter()
+        .rev()
         .scan(
             OffsetDateTime::now_utc() - Duration::weeks(7),
             |state, score| {
-                if !names.contains(score.sniper.as_str()) {
+                let Some(sniper) = score.sniper.as_deref() else { return Some(None) };
+
+                if !names.contains(sniper) {
                     return Some(None);
                 }
 
-                if score.date > *state {
-                    while score.date > *state {
+                let Some(date) = score.date else { return Some(None) };
+
+                if date > *state {
+                    while date > *state {
                         *state += Duration::weeks(1);
                     }
                 }
 
-                Some(Some((score.sniper.as_str(), *state)))
+                Some(Some((sniper, *state)))
             },
         )
         .flatten()
@@ -398,6 +405,7 @@ fn prepare_sniper(scores: &[SnipeRecent]) -> PrepareResult<'_> {
 
     let categorized: Vec<_> = scores
         .iter()
+        .rev()
         .filter(|score| score.sniped.is_some())
         .scan(
             OffsetDateTime::now_utc() - Duration::weeks(7),
@@ -406,8 +414,10 @@ fn prepare_sniper(scores: &[SnipeRecent]) -> PrepareResult<'_> {
                     return Some(None);
                 }
 
-                if score.date > *state {
-                    while score.date > *state {
+                let Some(date) = score.date else { return Some(None) };
+
+                if date > *state {
+                    while date > *state {
                         *state += Duration::weeks(1);
                     }
                 }

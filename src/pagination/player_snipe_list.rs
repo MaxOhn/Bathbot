@@ -46,7 +46,7 @@ impl PlayerSnipeListPagination {
             let iter = scores
                 .into_iter()
                 .enumerate()
-                .map(|(i, s)| (huismetbenen_page * 50 + i, s));
+                .map(|(i, s)| ((huismetbenen_page - 1) * 50 + i, s));
 
             self.scores.extend(iter);
         }

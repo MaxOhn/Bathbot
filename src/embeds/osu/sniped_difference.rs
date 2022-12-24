@@ -65,7 +65,10 @@ impl SnipedDiffEmbed {
 
                     let map = maps.get(&score.map_id).unwrap();
 
-                    map.stars().mods(score.mods.bits()).calculate().stars() as f32
+                    map.stars()
+                        .mods(score.mods.unwrap_or_default().bits())
+                        .calculate()
+                        .stars() as f32
                 }
             };
 
@@ -77,7 +80,7 @@ impl SnipedDiffEmbed {
                 title = score.title.cow_escape_markdown(),
                 version = score.version.cow_escape_markdown(),
                 id = score.map_id,
-                mods = osu::get_mods(score.mods),
+                mods = osu::get_mods(score.mods.unwrap_or_default()),
                 acc = round(score.accuracy),
             );
 
@@ -91,15 +94,24 @@ impl SnipedDiffEmbed {
                     ),
                     None => write!(description, "Unclaimed until "),
                 },
-                Difference::Loss => write!(
-                    description,
-                    "Sniped by [{name}]({OSU_BASE}u/{url_name}) ",
-                    name = score.sniper.cow_escape_markdown(),
-                    url_name = score.sniper,
-                ),
+                Difference::Loss => {
+                    let url_name = score
+                        .sniper
+                        .as_deref()
+                        .or(score.sniped.as_deref())
+                        .unwrap_or("<unknown sniper>");
+
+                    write!(
+                        description,
+                        "Sniped by [{name}]({OSU_BASE}u/{url_name}) ",
+                        name = url_name.cow_escape_markdown(),
+                    )
+                }
             };
 
-            let _ = writeln!(description, "{}", how_long_ago_dynamic(&score.date));
+            if let Some(ref date) = score.date {
+                let _ = writeln!(description, "{}", how_long_ago_dynamic(date));
+            }
         }
 
         description.pop();

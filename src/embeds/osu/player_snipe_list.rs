@@ -57,7 +57,7 @@ impl PlayerSnipeListEmbed {
             let map = maps.get(&score.map.map_id).expect("missing map");
 
             let max_pp = match PpCalculator::new(ctx, map.map_id).await {
-                Ok(calc) => Some(calc.mods(score.mods).max_pp() as f32),
+                Ok(calc) => Some(calc.mods(score.mods.unwrap_or_default()).max_pp() as f32),
                 Err(err) => {
                     warn!("{:?}", err.wrap_err("Failed to get pp calculator"));
 
@@ -65,8 +65,11 @@ impl PlayerSnipeListEmbed {
                 }
             };
 
-            let pp = osu::get_pp(Some(score.pp), max_pp);
-            let n300 = map.count_objects() - score.count_100 - score.count_50 - score.count_miss;
+            let pp = osu::get_pp(score.pp, max_pp);
+            let n300 = map.count_objects()
+                - score.count_100.unwrap_or(0)
+                - score.count_50.unwrap_or(0)
+                - score.count_miss.unwrap_or(0);
 
             let title = map
                 .mapset
@@ -76,22 +79,27 @@ impl PlayerSnipeListEmbed {
                 .as_str()
                 .cow_escape_markdown();
 
-            let _ = writeln!(
+            let _ = write!(
                 description,
                 "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars:.2}★]\n\
-                {pp} ~ ({acc}%) ~ {score}\n{{{n300}/{n100}/{n50}/{nmiss}}} ~ {ago}",
+                {pp} ~ ({acc}%) ~ {score}\n{{{n300}/{n100}/{n50}/{nmiss}}}",
                 idx = idx + 1,
                 version = map.version.as_str().cow_escape_markdown(),
                 id = score.map.map_id,
-                mods = osu::get_mods(score.mods),
+                mods = osu::get_mods(score.mods.unwrap_or_default()),
                 stars = score.stars,
                 acc = round(score.accuracy),
                 score = with_comma_int(score.score),
-                n100 = score.count_100,
-                n50 = score.count_50,
-                nmiss = score.count_miss,
-                ago = how_long_ago_dynamic(&score.date_set)
+                n100 = score.count_100.unwrap_or(0),
+                n50 = score.count_50.unwrap_or(0),
+                nmiss = score.count_miss.unwrap_or(0),
             );
+
+            if let Some(ref date) = score.date_set {
+                let _ = write!(description, " ~ {ago}", ago = how_long_ago_dynamic(date));
+            }
+
+            description.push('\n');
         }
 
         let footer = FooterBuilder::new(format!("Page {page}/{pages} ~ Total scores: {total}"));

@@ -44,7 +44,10 @@ impl SnipedEmbed {
             let mut victims = HashMap::new();
 
             for score in sniper.iter() {
-                *victims.entry(score.sniped.as_deref().unwrap()).or_insert(0) += 1;
+                // should always be available
+                if let Some(name) = score.sniped.as_deref() {
+                    *victims.entry(name).or_insert(0) += 1;
+                }
             }
 
             let (most_name, most_count) = victims.iter().max_by_key(|(_, count)| *count).unwrap();
@@ -65,7 +68,9 @@ impl SnipedEmbed {
             let mut snipers = HashMap::new();
 
             for score in snipee.iter() {
-                *snipers.entry(score.sniper.as_str()).or_insert(0) += 1;
+                if let Some(name) = score.sniper.as_deref() {
+                    *snipers.entry(name).or_insert(0) += 1;
+                }
             }
 
             let (most_name, most_count) = snipers.iter().max_by_key(|(_, count)| *count).unwrap();

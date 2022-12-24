@@ -120,13 +120,8 @@ pub(super) async fn player_list(
     let count_fut = ctx.client().get_national_firsts_count(&params);
 
     let (scores, count) = match tokio::try_join!(scores_fut, count_fut) {
-        Ok((scores, mut count)) => {
+        Ok((scores, count)) => {
             let scores: BTreeMap<_, _> = scores.into_iter().enumerate().collect();
-
-            // TODO: Remove this when it's fixed on huismetbenen
-            if params.order != SnipePlayerListOrder::Pp {
-                count = count.min(1000);
-            }
 
             (scores, count)
         }
