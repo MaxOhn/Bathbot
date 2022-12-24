@@ -1,4 +1,8 @@
-use std::{borrow::Cow, fmt, sync::Arc};
+use std::{
+    borrow::Cow,
+    fmt::{Display, Formatter, Result as FmtResult},
+    sync::Arc,
+};
 
 use command_macros::{HasMods, HasName, SlashCommand};
 use eyre::Result;
@@ -157,10 +161,6 @@ pub enum SnipePlayerListOrder {
     Acc = 0,
     #[option(name = "Date", value = "date")]
     Date = 5,
-    #[option(name = "Length", value = "len")]
-    Length = 1,
-    #[option(name = "Map approval date", value = "map_date")]
-    MapDate = 2,
     #[option(name = "Misses", value = "misses")]
     Misses = 3,
     #[option(name = "PP", value = "pp")]
@@ -170,20 +170,19 @@ pub enum SnipePlayerListOrder {
 }
 
 impl Default for SnipePlayerListOrder {
+    #[inline]
     fn default() -> Self {
-        Self::Date
+        Self::Pp
     }
 }
 
-impl fmt::Display for SnipePlayerListOrder {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for SnipePlayerListOrder {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let name = match self {
             Self::Acc => "accuracy",
-            Self::Length => "length",
-            Self::MapDate => "date_ranked",
             Self::Misses => "count_miss",
             Self::Pp => "pp",
-            Self::Date => "date_set",
+            Self::Date => "date_set_new",
             Self::Stars => "sr",
         };
 

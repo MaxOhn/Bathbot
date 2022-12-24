@@ -1,11 +1,13 @@
+// TODO: rename module
+
 use std::{collections::BTreeMap, fmt};
 
 use rosu_v2::{
-    model::{GameMode, GameMods},
-    prelude::Username,
+    model::GameMods,
+    prelude::{RankStatus, Username},
 };
 use serde::{
-    de::{Deserializer, Error, IgnoredAny, MapAccess, Unexpected, Visitor},
+    de::{Deserializer, Error, MapAccess, Unexpected, Visitor},
     Deserialize,
 };
 use time::{
@@ -28,7 +30,6 @@ pub struct SnipeScoreParams {
     pub user_id: u32,
     pub country: CountryCode,
     pub page: u8,
-    pub mode: GameMode,
     pub order: SnipePlayerListOrder,
     pub mods: Option<ModSelection>,
     pub descending: bool,
@@ -39,19 +40,11 @@ impl SnipeScoreParams {
         Self {
             user_id,
             country: country_code.as_ref().to_ascii_lowercase().into(),
-            page: 0,
-            mode: GameMode::Osu,
+            page: 1,
             order: SnipePlayerListOrder::Pp,
             mods: None,
             descending: true,
         }
-    }
-
-    #[allow(dead_code)]
-    pub fn mode(mut self, mode: GameMode) -> Self {
-        self.mode = mode;
-
-        self
     }
 
     pub fn order(mut self, order: SnipePlayerListOrder) -> Self {
@@ -241,118 +234,65 @@ impl<'de> Visitor<'de> for StarsVisitor {
     }
 }
 
-#[derive(Debug)]
+#[derive(Deserialize)]
 pub struct SnipeScore {
+    pub uid: u32,
+    #[serde(rename = "osu_score_id")]
+    pub score_id: u64,
+    #[serde(rename = "player_id")]
+    pub user_id: u32,
+    pub username: Username,
+    pub country: rosu_v2::prelude::CountryCode,
+    pub score: u32,
+    pub pp: f32,
+    #[serde(rename = "sr")]
+    pub stars: f32,
+    #[serde(with = "deser::adjust_acc")]
     pub accuracy: f32,
-    pub map_id: u32,
-    pub mapset_id: u32,
+    pub count_300: u32,
     pub count_100: u32,
     pub count_50: u32,
     pub count_miss: u32,
+    #[serde(with = "deser::naive_datetime")]
+    pub date_set: OffsetDateTime,
     pub mods: GameMods,
-    pub pp: Option<f32>,
-    pub score: u32,
-    pub score_date: OffsetDateTime,
-    pub stars: f32,
-    pub user_id: u32,
+    pub max_combo: u32,
+    pub ar: f32,
+    pub hp: f32,
+    pub cs: f32,
+    pub od: f32,
+    pub bpm: f32,
+    pub is_global: bool,
+    #[serde(rename = "beatmap")]
+    pub map: SnipeBeatmap,
 }
 
 #[derive(Deserialize)]
-struct InnerScore<'s> {
-    player_id: u32,
-    score: u32,
-    pp: Option<f32>,
-    mods: GameMods,
-    accuracy: f32,
-    count_100: u32,
-    count_50: u32,
-    count_miss: u32,
-    date_set: &'s str,
-    #[serde(default)]
-    sr: Option<f32>,
-}
-
-impl<'de> Deserialize<'de> for SnipeScore {
-    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        struct SnipeScoreVisitor;
-
-        impl<'de> Visitor<'de> for SnipeScoreVisitor {
-            type Value = SnipeScore;
-
-            #[inline]
-            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("struct SnipeScore")
-            }
-
-            fn visit_map<V>(self, mut map: V) -> Result<SnipeScore, V::Error>
-            where
-                V: MapAccess<'de>,
-            {
-                let mut inner_score: Option<InnerScore<'_>> = None;
-                let mut map_id = None;
-                let mut mapset_id = None;
-
-                while let Some(key) = map.next_key()? {
-                    match key {
-                        "map_id" => map_id = Some(map.next_value()?),
-                        "set_id" => mapset_id = Some(map.next_value()?),
-                        other if inner_score.is_none() && other.starts_with("top_") => {
-                            inner_score = Some(map.next_value()?)
-                        }
-                        _ => {
-                            let _ = map.next_value::<IgnoredAny>();
-                        }
-                    }
-                }
-
-                let inner_score = inner_score.ok_or_else(|| Error::missing_field("inner_score"))?;
-                let map_id = map_id.ok_or_else(|| Error::missing_field("map_id"))?;
-                let mapset_id = mapset_id.ok_or_else(|| Error::missing_field("mapset_id"))?;
-
-                let date = PrimitiveDateTime::parse(inner_score.date_set, NAIVE_DATETIME_FORMAT)
-                    .map(PrimitiveDateTime::assume_utc)
-                    .unwrap_or_else(|err| {
-                        warn!("Couldn't parse date `{}`: {err}", inner_score.date_set);
-
-                        OffsetDateTime::now_utc()
-                    });
-
-                let score = SnipeScore {
-                    accuracy: inner_score.accuracy * 100.0,
-                    map_id,
-                    mapset_id,
-                    count_100: inner_score.count_100,
-                    count_50: inner_score.count_50,
-                    count_miss: inner_score.count_miss,
-                    mods: inner_score.mods,
-                    pp: inner_score.pp,
-                    score: inner_score.score,
-                    score_date: date,
-                    stars: inner_score.sr.unwrap_or(0.0),
-                    user_id: inner_score.player_id,
-                };
-
-                Ok(score)
-            }
-        }
-
-        const FIELDS: &[&str] = &[
-            "beatmap_id",
-            "beatmapset_id",
-            "user_id",
-            "score",
-            "pp",
-            "mods",
-            "accuracy",
-            "count_100",
-            "count_50",
-            "count_miss",
-            "score_date",
-            "stars",
-        ];
-
-        d.deserialize_struct("SnipeScore", FIELDS, SnipeScoreVisitor)
-    }
+pub struct SnipeBeatmap {
+    pub map_id: u32,
+    #[serde(rename = "set_id")]
+    pub mapset_id: u32,
+    pub artist: String,
+    pub title: String,
+    #[serde(rename = "diff_name")]
+    pub version: String,
+    #[serde(rename = "total_length")]
+    pub seconds_total: u32,
+    #[serde(with = "deser::naive_datetime")]
+    pub date_ranked: OffsetDateTime,
+    #[serde(rename = "count_normal")]
+    pub count_circles: u32,
+    #[serde(rename = "count_slider")]
+    pub count_sliders: u32,
+    #[serde(rename = "count_spinner")]
+    pub count_spinners: u32,
+    pub ranked_status: RankStatus,
+    pub ar: f32,
+    pub cs: f32,
+    pub od: f32,
+    pub hp: f32,
+    pub bpm: f32,
+    pub max_combo: u32,
 }
 
 mod mod_count {

@@ -54,7 +54,7 @@ impl PlayerSnipeListEmbed {
 
         // TODO: update formatting
         for (idx, score) in entries {
-            let map = maps.get(&score.map_id).expect("missing map");
+            let map = maps.get(&score.map.map_id).expect("missing map");
 
             let max_pp = match PpCalculator::new(ctx, map.map_id).await {
                 Ok(calc) => Some(calc.mods(score.mods).max_pp() as f32),
@@ -65,7 +65,7 @@ impl PlayerSnipeListEmbed {
                 }
             };
 
-            let pp = osu::get_pp(score.pp, max_pp);
+            let pp = osu::get_pp(Some(score.pp), max_pp);
             let n300 = map.count_objects() - score.count_100 - score.count_50 - score.count_miss;
 
             let title = map
@@ -82,7 +82,7 @@ impl PlayerSnipeListEmbed {
                 {pp} ~ ({acc}%) ~ {score}\n{{{n300}/{n100}/{n50}/{nmiss}}} ~ {ago}",
                 idx = idx + 1,
                 version = map.version.as_str().cow_escape_markdown(),
-                id = score.map_id,
+                id = score.map.map_id,
                 mods = osu::get_mods(score.mods),
                 stars = score.stars,
                 acc = round(score.accuracy),
@@ -90,7 +90,7 @@ impl PlayerSnipeListEmbed {
                 n100 = score.count_100,
                 n50 = score.count_50,
                 nmiss = score.count_miss,
-                ago = how_long_ago_dynamic(&score.score_date)
+                ago = how_long_ago_dynamic(&score.date_set)
             );
         }
 

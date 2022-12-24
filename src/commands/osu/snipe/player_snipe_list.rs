@@ -29,16 +29,14 @@ use super::{SnipePlayerList, SnipePlayerListOrder};
     - `acc`: Sort by accuracy\n \
     - `stars`: Sort by the map's stars\n \
     - `misses`: Sort by amount of misses\n \
-    - `length`: Sort by the map's length\n \
     - `scoredate`: Sort by the date when the score was set\n \
-    - `mapdate`: Sort by the map's ranked/loved date\n \
     By default the scores will be sorted by pp.\n\
     To reverse the resulting list you can specify `reverse=true`\n\
     Mods can also be specified.\n\
     All data originates from [Mr Helix](https://osu.ppy.sh/users/2330619)'s \
     website [huismetbenen](https://snipe.huismetbenen.nl/)."
 )]
-#[usage("[username] [+mods] [sort=acc/stars/misses/length/scoredate/mapdate] [reverse=true/false]")]
+#[usage("[username] [+mods] [sort=acc/stars/misses/scoredate] [reverse=true/false]")]
 #[examples("badewanne3 +dt sort=acc reverse=true", "+hdhr sort=scoredate")]
 #[alias("psl")]
 #[group(Osu)]
@@ -143,7 +141,7 @@ pub(super) async fn player_list(
     let map_ids: Vec<_> = scores
         .values()
         .take(5)
-        .map(|score| score.map_id as i32)
+        .map(|score| score.map.map_id as i32)
         .collect();
 
     let mut maps = match ctx.psql().get_beatmaps(&map_ids, true).await {
@@ -209,14 +207,12 @@ impl<'m> SnipePlayerList<'m> {
                     "sort" | "s" => {
                         sort = match value {
                             "acc" | "accuracy" | "a" => Some(SnipePlayerListOrder::Acc),
-                            "mapdate" | "md" => Some(SnipePlayerListOrder::MapDate),
                             "misses" | "miss" | "m" => Some(SnipePlayerListOrder::Misses),
                             "scoredate" | "sd" => Some(SnipePlayerListOrder::Date),
                             "stars" | "s" => Some(SnipePlayerListOrder::Stars),
-                            "length" | "len" | "l" => Some(SnipePlayerListOrder::Length),
                             _ => {
                                 let content = "Failed to parse `sort`. \
-                                Must be either `acc`, `length`, `mapdate`, `misses`, `scoredate`, or `stars`.";
+                                Must be either `acc`, `misses`, `scoredate`, or `stars`.";
 
                                 return Err(content.into());
                             }

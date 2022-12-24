@@ -611,11 +611,10 @@ impl CustomClient {
 
     pub async fn get_national_firsts(&self, params: &SnipeScoreParams) -> Result<Vec<SnipeScore>> {
         let mut url = format!(
-            "{HUISMETBENEN}player/{country}/{user}/topranks?page={page}&mode={mode}&sort={sort}&order={order}",
+            "{HUISMETBENEN}player/{country}/{user}/topranks?sort={sort}&order={order}&page={page}",
             country = params.country,
             user = params.user_id,
             page = params.page,
-            mode = params.mode,
             sort = params.order,
             order = if params.descending { "desc" } else { "asc" },
         );
@@ -641,10 +640,9 @@ impl CustomClient {
 
     pub async fn get_national_firsts_count(&self, params: &SnipeScoreParams) -> Result<usize> {
         let mut url = format!(
-            "{HUISMETBENEN}player/{country}/{user}/topranks/count?mode={mode}",
+            "{HUISMETBENEN}player/{country}/{user}/topranks/count",
             country = params.country,
             user = params.user_id,
-            mode = params.mode,
         );
 
         if let Some(mods) = params.mods {
