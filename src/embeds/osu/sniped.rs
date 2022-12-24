@@ -40,7 +40,7 @@ impl SnipedEmbed {
 
         let mut fields = Vec::with_capacity(2);
 
-        if !sniper.is_empty() {
+        if sniper.iter().any(|score| score.sniped.is_some()) {
             let mut victims = HashMap::new();
 
             for score in sniper.iter() {
@@ -64,7 +64,7 @@ impl SnipedEmbed {
             fields![fields { name, value, false }];
         }
 
-        if !snipee.is_empty() {
+        if snipee.iter().any(|score| score.sniper.is_some()) {
             let mut snipers = HashMap::new();
 
             for score in snipee.iter() {
