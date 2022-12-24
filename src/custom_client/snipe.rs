@@ -116,7 +116,7 @@ pub struct SnipePlayer {
     #[serde(rename = "history_total_top_national", with = "history", default)]
     pub count_first_history: BTreeMap<Date, u32>,
     #[serde(rename = "sr_spread")]
-    pub count_sr_spread: BTreeMap<u8, u32>,
+    pub count_sr_spread: BTreeMap<i8, Option<u32>>,
     #[serde(rename = "oldest_date")]
     pub oldest_first: Option<SnipePlayerOldest>,
 }

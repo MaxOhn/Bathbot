@@ -179,7 +179,7 @@ const H: u32 = 350;
 
 pub fn graphs(
     history: &BTreeMap<Date, u32>,
-    stars: &BTreeMap<u8, u32>,
+    stars: &BTreeMap<i8, Option<u32>>,
     w: u32,
     h: u32,
 ) -> Result<Vec<u8>> {
@@ -254,11 +254,12 @@ pub fn graphs(
         // Star spread graph
         let max = stars
             .iter()
-            .map(|(_, n)| *n)
+            .filter(|(sr, _)| **sr >= 0)
+            .map(|(_, n)| n.unwrap_or(0))
             .fold(0, |max, curr| max.max(curr));
 
-        let first = *stars.keys().next().unwrap() as u32;
-        let last = *stars.keys().last().unwrap() as u32;
+        let first = *stars.keys().filter(|sr| **sr >= 0).next().unwrap() as u32;
+        let last = *stars.keys().filter(|sr| **sr >= 0).last().unwrap() as u32;
 
         let mut chart = ChartBuilder::on(&star_canvas)
             .x_label_area_size(30)
@@ -282,7 +283,11 @@ pub fn graphs(
 
         // Histogram bars
         let area_style = RGBColor(2, 186, 213).mix(0.7).filled();
-        let iter = stars.iter().map(|(stars, n)| (*stars as u32, *n));
+
+        let iter = stars
+            .iter()
+            .filter(|(sr, _)| **sr >= 0)
+            .map(|(stars, n)| (*stars as u32, n.unwrap_or(0)));
 
         let series = Histogram::vertical(&chart)
             .style(area_style)
