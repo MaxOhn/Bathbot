@@ -68,10 +68,8 @@ pub(super) async fn fix(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Recent
 
     let (score, map, top) = match scores.into_iter().nth(num) {
         Some(score) => {
-            let map = score.map.as_ref().expect("missing map");
-            let map_id = map.map_id;
-
-            let map_fut = ctx.osu_map().map(map_id, map.checksum.as_deref());
+            let checksum = score.map.as_ref().and_then(|map| map.checksum.as_deref());
+            let map_fut = ctx.osu_map().map(score.map_id, checksum);
 
             let user_args = UserArgsSlim::user_id(user.user_id()).mode(score.mode);
             let best_fut = ctx.osu_scores().top().limit(100).exec(user_args);

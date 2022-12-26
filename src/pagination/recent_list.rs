@@ -33,9 +33,13 @@ impl RecentListPagination {
 
         let missing_maps: HashMap<_, _, _> = scores
             .iter()
-            .filter_map(|score| score.map.as_ref())
-            .filter(|map| !self.maps.contains_key(&map.map_id))
-            .map(|map| (map.map_id as i32, map.checksum.as_deref()))
+            .filter(|score| !self.maps.contains_key(&score.map_id))
+            .map(|score| {
+                (
+                    score.map_id as i32,
+                    score.map.as_ref().and_then(|map| map.checksum.as_deref()),
+                )
+            })
             .collect();
 
         if !missing_maps.is_empty() {

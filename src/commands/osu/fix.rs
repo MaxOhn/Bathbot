@@ -435,7 +435,7 @@ async fn request_by_score(
     };
 
     let map = score.map.as_ref().expect("missing map");
-    let map_id = map.map_id;
+    let map_id = score.map_id;
 
     let map_fut = ctx.osu_map().map(map_id, map.checksum.as_deref());
     let user_args = UserArgsSlim::user_id(score.user_id).mode(score.mode);

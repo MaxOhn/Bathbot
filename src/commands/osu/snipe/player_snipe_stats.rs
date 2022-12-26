@@ -272,7 +272,7 @@ pub fn graphs(
             .map(|(_, n)| n.unwrap_or(0))
             .fold(0, |max, curr| max.max(curr));
 
-        let first = *stars.keys().filter(|sr| **sr >= 0).next().unwrap() as u32;
+        let first = *stars.keys().find(|sr| **sr >= 0).unwrap() as u32;
         let last = *stars.keys().filter(|sr| **sr >= 0).last().unwrap() as u32;
 
         let mut chart = ChartBuilder::on(&star_canvas)

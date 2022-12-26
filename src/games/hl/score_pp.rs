@@ -95,9 +95,8 @@ impl ScorePp {
         });
 
         let play = plays.swap_remove(play as usize);
-        let map_id = play.map.as_ref().unwrap().map_id;
 
-        match ctx.osu_map().map_slim(map_id).await {
+        match ctx.osu_map().map_slim(play.map_id).await {
             Ok(map) => Ok(Self::new(player, map, play)),
             Err(err) => Err(Report::new(err).wrap_err("failed to get beatmap")),
         }

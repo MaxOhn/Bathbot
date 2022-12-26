@@ -228,9 +228,7 @@ impl Skills {
                 const SPEED_NERF: f64 = 2.4;
 
                 for (i, score) in scores.iter().enumerate() {
-                    let map = score.map.as_ref().unwrap();
-
-                    let map_path = prepare_beatmap_file(ctx, map.map_id)
+                    let map_path = prepare_beatmap_file(ctx, score.map_id)
                         .await
                         .wrap_err("failed to prepare map")?;
 
@@ -277,9 +275,7 @@ impl Skills {
                 const DIFFICULTY_NERF: f64 = 2.8;
 
                 for (i, score) in scores.iter().enumerate() {
-                    let map = score.map.as_ref().unwrap();
-
-                    let map_path = prepare_beatmap_file(ctx, map.map_id)
+                    let map_path = prepare_beatmap_file(ctx, score.map_id)
                         .await
                         .wrap_err("failed to prepare map")?;
 
@@ -322,9 +318,7 @@ impl Skills {
                 const MOVEMENT_NERF: f64 = 4.7;
 
                 for (i, score) in scores.iter().enumerate() {
-                    let map = score.map.as_ref().unwrap();
-
-                    let map_path = prepare_beatmap_file(ctx, map.map_id)
+                    let map_path = prepare_beatmap_file(ctx, score.map_id)
                         .await
                         .wrap_err("failed to prepare map")?;
 
@@ -386,9 +380,7 @@ impl Skills {
                 const DIFFICULTY_NERF: f64 = 0.6;
 
                 for (i, score) in scores.iter().enumerate() {
-                    let map = score.map.as_ref().unwrap();
-
-                    let map_path = prepare_beatmap_file(ctx, map.map_id)
+                    let map_path = prepare_beatmap_file(ctx, score.map_id)
                         .await
                         .wrap_err("failed to prepare map")?;
 

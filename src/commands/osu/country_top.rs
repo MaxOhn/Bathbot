@@ -218,7 +218,7 @@ async fn filter_scores(
             scores.retain(|(score, _)| !score.mods.is_empty())
         }
         Some(ModSelection::Exclude(mods)) => {
-            scores.retain(|(score, _)| score.mods.intersection(mods).is_empty())
+            scores.retain(|(score, _)| !score.mods.intersects(mods))
         }
         None => {}
     }

@@ -261,8 +261,7 @@ async fn process_scores(
     let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
 
     for (i, score) in scores.into_iter().enumerate() {
-        let map_opt = score.map.as_ref().and_then(|map| maps.remove(&map.map_id));
-        let Some(map) = map_opt else { continue };
+        let Some(map) = maps.remove(&score.map_id) else { continue };
 
         let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
         let stars = calc.difficulty().await.stars() as f32;

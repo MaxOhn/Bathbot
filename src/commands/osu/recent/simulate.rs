@@ -269,10 +269,10 @@ pub(super) async fn simulate(
         }
         Ok(mut scores) => match scores.pop() {
             Some(score) => {
-                let map = score.map.as_ref().expect("missing map");
-                let map_id = map.map_id;
+                let map_id = score.map_id;
+                let checksum = score.map.as_ref().and_then(|map| map.checksum.as_deref());
 
-                let map = match ctx.osu_map().map(map_id, map.checksum.as_deref()).await {
+                let map = match ctx.osu_map().map(map_id, checksum).await {
                     Ok(map) => map,
                     Err(err) => {
                         let _ = orig.error(&ctx, GENERAL_ISSUE).await;

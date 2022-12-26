@@ -156,9 +156,9 @@ async fn score_loop(
             continue;
         }
 
-        let map = score.map.as_ref().expect("missing map");
+        let checksum = score.map.as_ref().and_then(|map| map.checksum.as_deref());
 
-        let map = match ctx.osu_map().map(map.map_id, map.checksum.as_deref()).await {
+        let map = match ctx.osu_map().map(score.map_id, checksum).await {
             Ok(map) => map,
             Err(err) => {
                 warn!("{err:?}");

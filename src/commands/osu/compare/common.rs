@@ -202,7 +202,7 @@ pub(super) async fn top(
     let indices: HashMap<_, _> = scores2
         .iter()
         .enumerate()
-        .map(|(i, score)| (score.map.as_ref().unwrap().map_id, i))
+        .map(|(i, score)| (score.map_id, i))
         .collect();
 
     let mut wins = [0, 0];

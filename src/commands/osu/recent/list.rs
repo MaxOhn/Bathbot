@@ -277,9 +277,7 @@ pub(super) async fn list(
         Some(ModSelection::Exclude(GameMods::NoMod)) => {
             scores.retain(|score| !score.mods.is_empty())
         }
-        Some(ModSelection::Exclude(mods)) => {
-            scores.retain(|score| score.mods.intersection(mods).is_empty())
-        }
+        Some(ModSelection::Exclude(mods)) => scores.retain(|score| !score.mods.intersects(mods)),
         None => {}
     }
 

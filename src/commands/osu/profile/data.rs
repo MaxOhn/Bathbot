@@ -275,8 +275,12 @@ impl Top100Stats {
     pub async fn new(ctx: &Context, scores: &[Score]) -> Result<Self> {
         let maps_id_checksum = scores
             .iter()
-            .filter_map(|score| score.map.as_ref())
-            .map(|map| (map.map_id as i32, map.checksum.as_deref()))
+            .map(|score| {
+                (
+                    score.map_id as i32,
+                    score.map.as_ref().and_then(|map| map.checksum.as_deref()),
+                )
+            })
             .collect();
 
         let maps = ctx.osu_map().maps(&maps_id_checksum).await?;

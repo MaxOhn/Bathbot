@@ -517,7 +517,7 @@ pub(super) async fn score(
         }
     };
 
-    let entries = match process_scores(&ctx, scores, mods, sort.unwrap_or_default()).await {
+    let entries = match process_scores(&ctx, map_id, scores, mods, sort.unwrap_or_default()).await {
         Ok(entries) => entries,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
@@ -726,33 +726,27 @@ pub struct CompareEntry {
 
 async fn process_scores(
     ctx: &Context,
-    scores: Vec<Score>,
+    map_id: u32,
+    mut scores: Vec<Score>,
     mods: Option<ModSelection>,
     sort: ScoreOrder,
 ) -> Result<Vec<CompareEntry>> {
     let mut entries = Vec::with_capacity(scores.len());
+    let map = ctx.osu_map().map(map_id, None).await?;
 
-    let maps_id_checksum = scores
-        .iter()
-        .filter(|score| match mods {
-            None => true,
-            Some(ModSelection::Include(mods @ GameMods::NoMod) | ModSelection::Exact(mods)) => {
-                score.mods == mods
-            }
-            Some(ModSelection::Include(mods)) => score.mods.contains(mods),
-            Some(ModSelection::Exclude(GameMods::NoMod)) => !score.mods.is_empty(),
-            Some(ModSelection::Exclude(mods)) => score.mods.intersects(mods),
-        })
-        .filter_map(|score| score.map.as_ref())
-        .map(|map| (map.map_id as i32, map.checksum.as_deref()))
-        .collect();
-
-    let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
+    match mods {
+        None => {}
+        Some(ModSelection::Include(mods @ GameMods::NoMod) | ModSelection::Exact(mods)) => {
+            scores.retain(|score| score.mods == mods);
+        }
+        Some(ModSelection::Include(mods)) => scores.retain(|score| score.mods.contains(mods)),
+        Some(ModSelection::Exclude(GameMods::NoMod)) => {
+            scores.retain(|score| !score.mods.is_empty())
+        }
+        Some(ModSelection::Exclude(mods)) => scores.retain(|score| !score.mods.intersects(mods)),
+    }
 
     for score in scores {
-        let map_opt = score.map.as_ref().and_then(|map| maps.remove(&map.map_id));
-        let Some(map) = map_opt else { continue };
-
         let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
         let attrs = calc.performance().await;
         let stars = attrs.stars() as f32;

@@ -1023,17 +1023,27 @@ async fn process_scores(
             }
             Some(ModSelection::Include(mods)) => score.mods.contains(mods),
             Some(ModSelection::Exclude(GameMods::NoMod)) => !score.mods.is_empty(),
-            Some(ModSelection::Exclude(mods)) => score.mods.intersects(mods),
+            Some(ModSelection::Exclude(mods)) => !score.mods.intersects(mods),
         })
         .filter(|score| match args.farm {
             None => true,
             Some(FarmFilter::OnlyFarm) => {
-                let mapset_id = score.map.as_ref().expect("missing map").mapset_id;
+                let mapset_id = score
+                    .map
+                    .as_ref()
+                    .map(|map| map.mapset_id)
+                    .or_else(|| score.mapset.as_ref().map(|mapset| mapset.mapset_id))
+                    .expect("neither map nor mapset available");
 
                 farm.get(&mapset_id).map_or(true, |(_, farm)| *farm)
             }
             Some(FarmFilter::NoFarm) => {
-                let mapset_id = score.map.as_ref().expect("missing map").mapset_id;
+                let mapset_id = score
+                    .map
+                    .as_ref()
+                    .map(|map| map.mapset_id)
+                    .or_else(|| score.mapset.as_ref().map(|mapset| mapset.mapset_id))
+                    .expect("neither map nor mapset available");
 
                 farm.get(&mapset_id).map_or(true, |(_, farm)| !*farm)
             }
@@ -1053,15 +1063,18 @@ async fn process_scores(
                 None => true,
             }
         })
-        .filter_map(|score| score.map.as_ref())
-        .map(|map| (map.map_id as i32, map.checksum.as_deref()))
+        .map(|score| {
+            (
+                score.map_id as i32,
+                score.map.as_ref().and_then(|map| map.checksum.as_deref()),
+            )
+        })
         .collect();
 
     let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
 
     for (i, score) in scores.into_iter().enumerate() {
-        let map_opt = score.map.as_ref().and_then(|map| maps.remove(&map.map_id));
-        let Some(map) = map_opt else { continue };
+        let Some(map) = maps.remove(&score.map_id) else { continue };
 
         let attrs = ctx
             .pp(&map)
