@@ -17,7 +17,7 @@ use crate::{
     manager::redis::{osu::UserArgs, RedisData},
     util::{
         builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+        constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
         matcher, Monthly,
     },
     Context,
@@ -122,14 +122,18 @@ pub(super) async fn player_stats(
     };
 
     let player = match player_fut.await {
-        Ok(counts) => counts,
-        Err(err) => {
-            warn!("{:?}", err.wrap_err("Failed to get snipe player"));
+        Ok(Some(player)) => player,
+        Ok(None) => {
             let content = format!("`{username}` has never had any national #1s");
             let builder = MessageBuilder::new().embed(content);
             orig.create_message(&ctx, &builder).await?;
 
             return Ok(());
+        }
+        Err(err) => {
+            let _ = orig.error(&ctx, HUISMETBENEN_ISSUE).await;
+
+            return Err(err);
         }
     };
 
@@ -142,38 +146,28 @@ pub(super) async fn player_stats(
         }
     };
 
-    let first = if let Some(oldest) = player
-        .oldest_first
-        .as_ref()
-        .filter(|map| map.date.is_some())
-    {
-        let score_fut = ctx
-            .osu()
-            .beatmap_user_score(oldest.beatmap_id, player.user_id)
-            .mode(GameMode::Osu);
+    let score_fut = ctx
+        .osu()
+        .beatmap_user_score(player.oldest_first.map_id, player.user_id)
+        .mode(GameMode::Osu);
 
-        let map_fut = ctx.osu_map().map(oldest.beatmap_id, None);
+    let map_fut = ctx.osu_map().map(player.oldest_first.map_id, None);
 
-        match tokio::join!(score_fut, map_fut) {
-            (Ok(score), Ok(map)) => Some((score.score, map)),
-            (Err(err), _) => {
-                let err = Report::new(err).wrap_err("failed to get oldest score");
-                warn!("{err:?}");
+    let (oldest_score, oldest_map) = match tokio::join!(score_fut, map_fut) {
+        (Ok(score), Ok(map)) => (score.score, map),
+        (Err(err), _) => {
+            let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
-                None
-            }
-            (_, Err(err)) => {
-                let wrap = "failed to get oldest map";
-                warn!("{:?}", Report::new(err).wrap_err(wrap));
-
-                None
-            }
+            return Err(Report::new(err).wrap_err("failed to get oldest score"));
         }
-    } else {
-        None
+        (_, Err(err)) => {
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(Report::new(err).wrap_err("failed to get map of oldest score"));
+        }
     };
 
-    let embed = PlayerSnipeStatsEmbed::new(&user, player, &first, &ctx)
+    let embed = PlayerSnipeStatsEmbed::new(&user, player, &oldest_score, &oldest_map, &ctx)
         .await
         .build();
 

@@ -118,7 +118,7 @@ pub struct SnipePlayer {
     #[serde(rename = "sr_spread")]
     pub count_sr_spread: BTreeMap<i8, Option<u32>>,
     #[serde(rename = "oldest_date")]
-    pub oldest_first: Option<SnipePlayerOldest>,
+    pub oldest_first: SnipePlayerOldest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -138,11 +138,11 @@ pub struct SnipeCountryPlayer {
 
 #[derive(Debug, Deserialize)]
 pub struct SnipePlayerOldest {
-    #[serde(rename = "map_id", with = "deser::negative_u32")]
-    pub beatmap_id: u32,
+    #[serde(with = "deser::negative_u32")]
+    pub map_id: u32,
     pub map: String,
-    #[serde(with = "option_datetime")]
-    pub date: Option<OffsetDateTime>,
+    #[serde(with = "datetime_mixture")]
+    pub date: OffsetDateTime,
 }
 
 #[derive(Deserialize)]
@@ -324,48 +324,47 @@ mod history {
     }
 }
 
-// Differs from `deser::option_datetime` in that failed string deserialization still returns `Ok(None)`
-mod option_datetime {
+// Tries to deserialize various datetime formats
+mod datetime_mixture {
+    use time::UtcOffset;
+
+    use crate::util::datetime::OFFSET_FORMAT;
+
     use super::*;
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(
-        d: D,
-    ) -> Result<Option<OffsetDateTime>, D::Error> {
-        d.deserialize_option(OptionDateTimeVisitor)
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<OffsetDateTime, D::Error> {
+        d.deserialize_str(DateTimeVisitor)
     }
 
-    struct OptionDateTimeVisitor;
+    pub(super) struct DateTimeVisitor;
 
-    impl<'de> Visitor<'de> for OptionDateTimeVisitor {
-        type Value = Option<OffsetDateTime>;
+    impl<'de> Visitor<'de> for DateTimeVisitor {
+        type Value = OffsetDateTime;
 
-        #[inline]
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.write_str("a string, preferably in `OffsetDateTime` format")
+            f.write_str("a datetime string")
         }
 
         #[inline]
         fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-            PrimitiveDateTime::parse(v, NAIVE_DATETIME_FORMAT)
-                .ok()
-                .map(PrimitiveDateTime::assume_utc)
-                .map(Ok)
-                .transpose()
-        }
+            if v.len() < 19 {
+                return Err(Error::custom(format!(
+                    "string too short for a datetime: `{v}`"
+                )));
+            }
 
-        #[inline]
-        fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
-            d.deserialize_str(self)
-        }
+            let (prefix, suffix) = v.split_at(19);
 
-        #[inline]
-        fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
-            self.visit_unit()
-        }
+            let primitive =
+                PrimitiveDateTime::parse(prefix, NAIVE_DATETIME_FORMAT).map_err(Error::custom)?;
 
-        #[inline]
-        fn visit_unit<E: Error>(self) -> Result<Self::Value, E> {
-            Ok(None)
+            let offset = if suffix.is_empty() || suffix == "Z" {
+                UtcOffset::UTC
+            } else {
+                UtcOffset::parse(suffix, OFFSET_FORMAT).map_err(Error::custom)?
+            };
+
+            Ok(primitive.assume_offset(offset))
         }
     }
 }

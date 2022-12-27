@@ -520,7 +520,11 @@ impl CustomClient {
             })
     }
 
-    pub async fn get_snipe_player(&self, country: &str, user_id: u32) -> Result<SnipePlayer> {
+    pub async fn get_snipe_player(
+        &self,
+        country: &str,
+        user_id: u32,
+    ) -> Result<Option<SnipePlayer>> {
         let url = format!(
             "{HUISMETBENEN}player/{country}/{user_id}?type=id",
             country = country.to_lowercase(),
@@ -528,11 +532,17 @@ impl CustomClient {
 
         let bytes = self.make_get_request(url, Site::Huismetbenen).await?;
 
-        serde_json::from_slice(&bytes).wrap_err_with(|| {
-            let body = String::from_utf8_lossy(&bytes);
+        if bytes.as_ref() == b"{}" {
+            return Ok(None);
+        }
 
-            format!("failed to deserialize snipe player: {body}")
-        })
+        serde_json::from_slice(&bytes)
+            .wrap_err_with(|| {
+                let body = String::from_utf8_lossy(&bytes);
+
+                format!("failed to deserialize snipe player: {body}")
+            })
+            .map(Some)
     }
 
     pub async fn get_snipe_country(&self, country: &str) -> Result<Vec<SnipeCountryPlayer>> {

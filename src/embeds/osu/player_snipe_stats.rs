@@ -39,7 +39,8 @@ impl PlayerSnipeStatsEmbed {
     pub async fn new(
         user: &RedisData<User>,
         player: SnipePlayer,
-        first: &Option<(Score, OsuMap)>,
+        oldest_score: &Score,
+        oldest_map: &OsuMap,
         ctx: &Context,
     ) -> Self {
         let footer_text = format!(
@@ -66,36 +67,39 @@ impl PlayerSnipeStatsEmbed {
                 "Average stars:", format!("{:.2}★", player.avg_stars), true;
             }];
 
-            if let Some((score, map)) = first {
-                let mut calc = ctx.pp(map).mods(score.mods);
+            let mut calc = ctx.pp(oldest_map).mods(oldest_score.mods);
 
-                let attrs = calc.performance().await;
-                let stars = attrs.stars() as f32;
-                let max_pp = attrs.pp() as f32;
+            let attrs = calc.performance().await;
+            let stars = attrs.stars() as f32;
+            let max_pp = attrs.pp() as f32;
 
-                let pp = match score.pp {
-                    Some(pp) => pp,
-                    None => calc.score(score).performance().await.pp() as f32,
-                };
+            let pp = match oldest_score.pp {
+                Some(pp) => pp,
+                None => calc.score(oldest_score).performance().await.pp() as f32,
+            };
 
-                // TODO: update formatting
-                let value = format!(
-                    "**[{map}]({OSU_BASE}b/{id})**\t\
+            // TODO: update formatting
+            let value = format!(
+                "**[{map}]({OSU_BASE}b/{id})**\t\
                     {grade}\t[{stars:.2}★]\t{score}\t({acc}%)\t[{combo}]\t\
                     [{pp}]\t {hits}\t{ago}",
-                    map = player.oldest_first.unwrap().map.cow_escape_markdown(),
-                    id = map.map_id(),
-                    grade = grade_completion_mods(score.mods, score.grade, score.total_hits(), map),
-                    score = WithComma::new(score.score),
-                    acc = score.accuracy,
-                    combo = ComboFormatter::new(score.max_combo, map.max_combo()),
-                    pp = PpFormatter::new(Some(pp), Some(max_pp)),
-                    hits = HitResultFormatter::new(GameMode::Osu, score.statistics.clone()),
-                    ago = HowLongAgoDynamic::new(&score.ended_at)
-                );
+                map = player.oldest_first.map.cow_escape_markdown(),
+                id = oldest_map.map_id(),
+                grade = grade_completion_mods(
+                    oldest_score.mods,
+                    oldest_score.grade,
+                    oldest_score.total_hits(),
+                    oldest_map
+                ),
+                score = WithComma::new(oldest_score.score),
+                acc = oldest_score.accuracy,
+                combo = ComboFormatter::new(oldest_score.max_combo, oldest_map.max_combo()),
+                pp = PpFormatter::new(Some(pp), Some(max_pp)),
+                hits = HitResultFormatter::new(GameMode::Osu, oldest_score.statistics.clone()),
+                ago = HowLongAgoDynamic::new(&oldest_score.ended_at)
+            );
 
-                fields![fields { "Oldest national #1:", value, false }];
-            }
+            fields![fields { "Oldest national #1:", value, false }];
 
             let mut count_mods = player.count_mods.unwrap();
             let mut value = String::with_capacity(count_mods.len() * 7);

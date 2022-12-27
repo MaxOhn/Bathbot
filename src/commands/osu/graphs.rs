@@ -826,14 +826,18 @@ async fn snipe_count_graph(
         let player_fut = ctx.client().get_snipe_player(country_code, user_id);
 
         match player_fut.await {
-            Ok(counts) => counts,
-            Err(err) => {
-                warn!("{:?}", err.wrap_err("failed to get snipe player"));
+            Ok(Some(player)) => player,
+            Ok(None) => {
                 let content = format!("`{username}` has never had any national #1s");
                 let builder = MessageBuilder::new().embed(content);
                 orig.create_message(ctx, &builder).await?;
 
                 return Ok(None);
+            }
+            Err(err) => {
+                let _ = orig.error(ctx, HUISMETBENEN_ISSUE).await;
+
+                return Err(err);
             }
         }
     } else {
