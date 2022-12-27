@@ -486,11 +486,11 @@ impl CustomClient {
         Ok(maps.0.unwrap_or_default())
     }
 
-    pub async fn get_osekai_comments(&self, medal_name: &str) -> Result<Vec<OsekaiComment>> {
+    pub async fn get_osekai_comments(&self, medal_id: u32) -> Result<Vec<OsekaiComment>> {
         let url = "https://osekai.net/global/api/comment_system.php";
 
         let form = Multipart::new()
-            .push_text("strMedalName", medal_name)
+            .push_text("strMedalID", medal_id)
             .push_text("bGetComments", "true");
 
         let bytes = self.make_post_request(url, Site::Osekai, form).await?;

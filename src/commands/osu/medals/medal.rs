@@ -100,7 +100,7 @@ pub(super) async fn info(
     };
 
     let map_fut = ctx.client().get_osekai_beatmaps(&medal.name);
-    let comment_fut = ctx.client().get_osekai_comments(&medal.name);
+    let comment_fut = ctx.client().get_osekai_comments(medal.medal_id);
 
     let (mut maps, comments) = match tokio::try_join!(map_fut, comment_fut) {
         Ok((maps, comments)) => (maps, comments),
