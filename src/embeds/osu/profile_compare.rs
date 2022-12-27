@@ -37,9 +37,9 @@ impl ProfileCompareEmbed {
         let data1 = UserData::new(user1);
         let data2 = UserData::new(user2);
 
-        let left = CompareStrings::new(data1.stats.as_ref(), data1.join_date, &result1);
+        let left = CompareStrings::new(&data1, &result1);
         let max_left = left.max().max(data1.username.chars().count());
-        let right = CompareStrings::new(data2.stats.as_ref(), data2.join_date, &result2);
+        let right = CompareStrings::new(&data2, &result2);
         let max_right = right.max().max(data2.username.chars().count());
         let mut d = String::with_capacity(512);
         d.push_str("```\n");
@@ -152,16 +152,13 @@ impl ProfileCompareEmbed {
             max_right,
         );
 
-        let left_peak = data1.monthly_playcounts_peak;
-        let right_peak = data2.monthly_playcounts_peak;
-
         write_line(
             &mut d,
             "PC peak",
-            WithComma::new(left_peak),
-            WithComma::new(right_peak),
-            left_peak,
-            right_peak,
+            left.pc_peak,
+            right.pc_peak,
+            data1.monthly_playcounts_peak,
+            data2.monthly_playcounts_peak,
             max_left,
             max_right,
         );
@@ -235,8 +232,8 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Max Combo",
-            WithComma::new(data1.stats.max_combo),
-            WithComma::new(data2.stats.max_combo),
+            left.max_combo,
+            right.max_combo,
             data1.stats.max_combo,
             data2.stats.max_combo,
             max_left,
@@ -326,8 +323,8 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Followers",
-            WithComma::new(data1.follower_count),
-            WithComma::new(data2.follower_count),
+            left.followers,
+            right.followers,
             data1.follower_count,
             data2.follower_count,
             max_left,
@@ -337,8 +334,8 @@ impl ProfileCompareEmbed {
         write_line(
             &mut d,
             "Replays seen",
-            WithComma::new(data1.stats.replays_watched),
-            WithComma::new(data2.stats.replays_watched),
+            left.replays_seen,
+            right.replays_seen,
             data1.stats.replays_watched,
             data2.stats.replays_watched,
             max_left,
@@ -389,6 +386,7 @@ struct CompareStrings {
     total_hits: String,
     play_count: String,
     play_time: String,
+    pc_peak: String,
     level: String,
     bonus_pp: String,
     bonus_pp_num: f32,
@@ -401,11 +399,16 @@ struct CompareStrings {
     count_a: String,
     avg_pp: String,
     pp_spread: String,
+    max_combo: String,
+    followers: String,
+    replays_seen: String,
 }
 
 impl CompareStrings {
-    fn new(stats: &UserStatistics, join_date: OffsetDateTime, result: &CompareResult) -> Self {
-        let days = (OffsetDateTime::now_utc() - join_date).whole_days() as f32;
+    fn new(data: &UserData<'_>, result: &CompareResult) -> Self {
+        let UserData { stats, .. } = data;
+
+        let days = (OffsetDateTime::now_utc() - data.join_date).whole_days() as f32;
         let pp_per_month_num = 30.67 * stats.pp / days;
 
         Self {
@@ -430,6 +433,10 @@ impl CompareStrings {
             count_a: (stats.grade_counts.a).to_string(),
             avg_pp: format!("{:.2}pp", result.pp.avg()),
             pp_spread: format!("{:.2}pp", result.pp.max() - result.pp.min()),
+            pc_peak: WithComma::new(data.monthly_playcounts_peak).to_string(),
+            max_combo: WithComma::new(stats.max_combo).to_string(),
+            followers: WithComma::new(data.follower_count).to_string(),
+            replays_seen: WithComma::new(stats.replays_watched).to_string(),
         }
     }
 
@@ -453,6 +460,10 @@ impl CompareStrings {
             .max(self.avg_pp.len())
             .max(self.pp_spread.len())
             .max(10) // join date yyyy-mm-dd
+            .max(self.pc_peak.len())
+            .max(self.max_combo.len())
+            .max(self.followers.len())
+            .max(self.replays_seen.len())
     }
 }
 

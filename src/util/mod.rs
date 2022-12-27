@@ -252,7 +252,7 @@ pub async fn get_combined_thumbnail<'s>(
         let img = img.resize_exact(128, 128, FilterType::Lanczos3);
 
         let dst_offset = total_offset + i * w;
-        let src_offset = (w < 128) as u32 * i * (128 - w) / amount;
+        let src_offset = (w < 128) as u32 * i * (128 - w) / (amount - 1);
 
         for i in 0..w {
             for j in 0..128 {
