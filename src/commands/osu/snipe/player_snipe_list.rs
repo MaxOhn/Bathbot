@@ -62,6 +62,11 @@ pub(super) async fn player_list(
     args: SnipePlayerList<'_>,
 ) -> Result<()> {
     let mods = match args.mods() {
+        ModsResult::Mods(ModSelection::Exclude(_)) => {
+            let content = "The huismetbenen api unfortunately does not support excluded mods :(";
+
+            return orig.error(&ctx, content).await;
+        }
         ModsResult::Mods(mods) => Some(mods),
         ModsResult::None => None,
         ModsResult::Invalid => {
