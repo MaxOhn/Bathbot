@@ -1,8 +1,4 @@
-use std::{
-    cmp::Reverse,
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{cmp::Reverse, collections::HashMap, sync::Arc};
 
 use command_macros::command;
 use eyre::{Report, Result, WrapErr};
@@ -361,9 +357,7 @@ fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult<'_> {
     let mut total = HashMap::new();
 
     for score in scores {
-        if let Some(name) = score.sniper.as_deref() {
-            *total.entry(name).or_insert(0) += 1;
-        }
+        *total.entry(score.sniper.as_str()).or_insert(0) += 1;
     }
 
     let mut final_order: Vec<_> = total.into_iter().collect();
@@ -378,27 +372,20 @@ fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult<'_> {
     let categorized: Vec<_> = scores
         .iter()
         .rev()
+        .filter(|score| names.contains_key(score.sniper.as_str()))
+        .filter_map(|score| score.date.map(|date| (score.sniper.as_str(), date)))
         .scan(
             OffsetDateTime::now_utc() - Duration::weeks(7),
-            |state, score| {
-                let Some(sniper) = score.sniper.as_deref() else { return Some(None) };
-
-                if !names.contains_key(sniper) {
-                    return Some(None);
-                }
-
-                let Some(date) = score.date else { return Some(None) };
-
+            |state, (sniper, date)| {
                 if date > *state {
                     while date > *state {
                         *state += Duration::weeks(1);
                     }
                 }
 
-                Some(Some((sniper, *state)))
+                Some((sniper, *state))
             },
         )
-        .flatten()
         .collect();
 
     finish_preparing(names, categorized)
@@ -423,26 +410,20 @@ fn prepare_sniper(scores: &[SnipeRecent]) -> PrepareResult<'_> {
     let categorized: Vec<_> = scores
         .iter()
         .rev()
-        .filter(|score| score.sniped.is_some())
+        .filter_map(|score| score.sniped.as_deref().zip(score.date))
+        .filter(|(sniped, _)| names.contains_key(sniped))
         .scan(
             OffsetDateTime::now_utc() - Duration::weeks(7),
-            |state, score| {
-                if !names.contains_key(score.sniped.as_deref().unwrap()) {
-                    return Some(None);
-                }
-
-                let Some(date) = score.date else { return Some(None) };
-
+            |state, (sniped, date)| {
                 if date > *state {
                     while date > *state {
                         *state += Duration::weeks(1);
                     }
                 }
 
-                Some(Some((score.sniped.as_deref().unwrap(), *state)))
+                Some((sniped, *state))
             },
         )
-        .flatten()
         .collect();
 
     finish_preparing(names, categorized)

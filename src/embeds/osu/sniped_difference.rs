@@ -75,7 +75,7 @@ impl SnipedDiffEmbed {
 
             let _ = write!(
                 description,
-                "**{idx}. [{artist} - {title} [{version}]]({OSU_BASE}b/{id}) {mods}**\n[{stars:.2}★] ~ ({acc}%)",
+                "**{idx}. [{artist} - {title} [{version}]]({OSU_BASE}b/{id}) {mods}**\n[{stars:.2}★] ~ ({acc}%) ~ ",
                 idx = idx + 1,
                 artist = score.artist.cow_escape_markdown(),
                 title = score.title.cow_escape_markdown(),
@@ -86,32 +86,28 @@ impl SnipedDiffEmbed {
             );
 
             let _ = match diff {
-                Difference::Gain => match score.sniped {
-                    Some(ref name) => write!(
+                Difference::Gain => match score.sniped.as_deref().zip(score.sniped_id) {
+                    Some((name, user_id)) => write!(
                         description,
-                        "Sniped [{name}]({OSU_BASE}u/{url_name}) ",
+                        "Sniped [{name}]({OSU_BASE}u/{user_id}) ",
                         name = name.cow_escape_markdown(),
-                        url_name = name,
                     ),
                     None => write!(description, "Unclaimed until "),
                 },
                 Difference::Loss => {
-                    let url_name = score
-                        .sniper
-                        .as_deref()
-                        .or(score.sniped.as_deref())
-                        .unwrap_or("<unknown sniper>");
-
                     write!(
                         description,
-                        "Sniped by [{name}]({OSU_BASE}u/{url_name}) ",
-                        name = url_name.cow_escape_markdown(),
+                        "Sniped by [{name}]({OSU_BASE}u/{user_id}) ",
+                        name = score.sniper.as_str().cow_escape_markdown(),
+                        user_id = score.sniper_id,
                     )
                 }
             };
 
             if let Some(ref date) = score.date {
-                let _ = write!(description, " ~ {}", HowLongAgoDynamic::new(date));
+                let _ = write!(description, "{}", HowLongAgoDynamic::new(date));
+            } else {
+                description.push_str("<unknown date>");
             }
 
             description.push('\n');

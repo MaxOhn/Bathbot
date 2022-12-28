@@ -42,11 +42,10 @@ impl SnipedEmbed {
 
         let mut fields = Vec::with_capacity(2);
 
-        if sniper.iter().any(|score| score.sniped.is_some()) {
+        if !sniper.is_empty() {
             let mut victims = HashMap::new();
 
             for score in sniper.iter() {
-                // should always be available
                 if let Some(name) = score.sniped.as_deref() {
                     *victims.entry(name).or_insert(0) += 1;
                 }
@@ -66,13 +65,11 @@ impl SnipedEmbed {
             fields![fields { name, value, false }];
         }
 
-        if snipee.iter().any(|score| score.sniper.is_some()) {
+        if !snipee.is_empty() {
             let mut snipers = HashMap::new();
 
             for score in snipee.iter() {
-                if let Some(name) = score.sniper.as_deref() {
-                    *snipers.entry(name).or_insert(0) += 1;
-                }
+                *snipers.entry(score.sniper.as_str()).or_insert(0) += 1;
             }
 
             let (most_name, most_count) = snipers.iter().max_by_key(|(_, count)| *count).unwrap();
