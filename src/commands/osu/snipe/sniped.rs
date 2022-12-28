@@ -370,7 +370,10 @@ fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult<'_> {
     final_order.sort_unstable_by_key(|(_, c)| Reverse(*c));
     final_order.truncate(10);
 
-    let names: HashSet<_> = final_order.iter().map(|(name, _)| *name).collect();
+    let names: HashMap<_, _> = final_order
+        .iter()
+        .map(|(name, _)| (*name, Vec::new()))
+        .collect();
 
     let categorized: Vec<_> = scores
         .iter()
@@ -380,7 +383,7 @@ fn prepare_snipee(scores: &[SnipeRecent]) -> PrepareResult<'_> {
             |state, score| {
                 let Some(sniper) = score.sniper.as_deref() else { return Some(None) };
 
-                if !names.contains(sniper) {
+                if !names.contains_key(sniper) {
                     return Some(None);
                 }
 
@@ -412,7 +415,10 @@ fn prepare_sniper(scores: &[SnipeRecent]) -> PrepareResult<'_> {
     final_order.sort_unstable_by_key(|(_, c)| Reverse(*c));
     final_order.truncate(10);
 
-    let names: HashSet<_> = final_order.iter().map(|(name, _)| *name).collect();
+    let names: HashMap<_, _> = final_order
+        .iter()
+        .map(|(name, _)| (*name, Vec::new()))
+        .collect();
 
     let categorized: Vec<_> = scores
         .iter()
@@ -421,7 +427,7 @@ fn prepare_sniper(scores: &[SnipeRecent]) -> PrepareResult<'_> {
         .scan(
             OffsetDateTime::now_utc() - Duration::weeks(7),
             |state, score| {
-                if !names.contains(score.sniped.as_deref().unwrap()) {
+                if !names.contains_key(score.sniped.as_deref().unwrap()) {
                     return Some(None);
                 }
 
@@ -443,9 +449,11 @@ fn prepare_sniper(scores: &[SnipeRecent]) -> PrepareResult<'_> {
 }
 
 fn finish_preparing<'a>(
-    names: HashSet<&'a str>,
+    mut names_total: HashMap<&'a str, Vec<usize>>,
     categorized: Vec<(&'a str, OffsetDateTime)>,
 ) -> PrepareResult<'a> {
+    // List of dates, and list of date-separated maps
+    // containing counts for each name its the date-section
     let (dates, counts): (Vec<_>, Vec<_>) = categorized
         .into_iter()
         .group_by(|(_, date)| *date)
@@ -461,21 +469,21 @@ fn finish_preparing<'a>(
         })
         .unzip();
 
-    let mut total: HashMap<_, _> = names.into_iter().map(|name| (name, Vec::new())).collect();
-
+    // Combining counts per name across all dates
     for counts in counts {
-        for (name, values) in total.iter_mut() {
+        for (name, values) in names_total.iter_mut() {
             values.push(counts.get(name).copied().unwrap_or(0));
         }
     }
 
-    for values in total.values_mut() {
+    // For each name, the count can only increase
+    for values in names_total.values_mut() {
         for i in 1..values.len() {
             values[i] += values[i - 1];
         }
     }
 
-    let mut total: Vec<_> = total.into_iter().collect();
+    let mut total: Vec<_> = names_total.into_iter().collect();
     total.sort_unstable_by_key(|(_, values)| Reverse(values.last().copied()));
 
     for (i, j) in (1..total.len()).zip(0..total.len() - 1).rev() {

@@ -588,7 +588,7 @@ impl CustomClient {
         ];
 
         let url = format!(
-            "{HUISMETBENEN}changes/{version}/{user_id}?since={since}&until={until}",
+            "{HUISMETBENEN}changes/{version}/{user_id}?since={since}&until={until}&includeOwnSnipes=false",
             version = if sniper { "new" } else { "old" },
             since = from.format(DATETIME_FORMAT).unwrap(),
             until = until.format(DATETIME_FORMAT).unwrap()

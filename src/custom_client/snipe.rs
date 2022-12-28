@@ -145,7 +145,7 @@ pub struct SnipePlayerOldest {
     pub date: OffsetDateTime,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct SnipeRecent {
     pub uid: u32,
     #[serde(rename = "osu_score_id")]
