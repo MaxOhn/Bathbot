@@ -64,7 +64,7 @@ impl PlayerSnipeListEmbed {
             let mods = score.mods.unwrap_or_default();
             let max_pp = ctx.pp(map).mods(mods).performance().await.pp() as f32;
 
-            let _ = writeln!(
+            let _ = write!(
                 description,
                 "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars:.2}★]\n\
                 {pp} ~ ({acc}%) ~ {score}\n{{{n300}/{n100}/{n50}/{nmiss}}}",

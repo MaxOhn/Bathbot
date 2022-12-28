@@ -247,6 +247,8 @@ impl<'d> MapManager<'d> {
                 Ok((map, Some(map_slim)))
             }
             DbMapPath::Missing => {
+                info!("Missing map {map_id}, downloading...");
+
                 let map = self
                     .download_map_file(map_id)
                     .await

@@ -642,9 +642,9 @@ impl CustomClient {
         if let Some(mods) = params.mods {
             if let ModSelection::Include(mods) | ModSelection::Exact(mods) = mods {
                 if mods == GameMods::NoMod {
-                    url.push_str("&mods=nomod");
+                    url.push_str("?mods=nomod");
                 } else {
-                    let _ = write!(url, "&mods={mods}");
+                    let _ = write!(url, "?mods={mods}");
                 }
             }
         }
