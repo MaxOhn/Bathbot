@@ -14,9 +14,8 @@ use crate::{
 
 pub async fn trackingstats(ctx: Arc<Context>, command: InteractionCommand) -> Result<()> {
     let stats = ctx.tracking().stats().await;
-    let entry = stats.next_pop;
 
-    let fields = vec![
+    let mut fields = vec![
         EmbedField {
             name: "Currently tracking".to_owned(),
             value: stats.tracking.to_string(),
@@ -37,12 +36,15 @@ pub async fn trackingstats(ctx: Arc<Context>, command: InteractionCommand) -> Re
             value: format!("{}ms", stats.ms_per_track),
             inline: true,
         },
-        EmbedField {
+    ];
+
+    if let Some(entry) = stats.next_pop {
+        fields.push(EmbedField {
             name: "Next pop".to_owned(),
             value: format!("{} | {}", entry.user_id, entry.mode),
             inline: true,
-        },
-    ];
+        });
+    }
 
     let title = format!("Tracked users: {} | queue: {}", stats.users, stats.queue);
 

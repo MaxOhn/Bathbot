@@ -305,7 +305,7 @@ async fn process_scores(
             .expect("missing map");
 
         let changed = match arg_mods {
-            ModSelection::Exact(mods) => {
+            ModSelection::Exact(mods) | ModSelection::Include(mods @ GameMods::NoMod) => {
                 let changed = score.mods != mods;
                 score.mods = mods;
 
@@ -325,7 +325,7 @@ async fn process_scores(
 
                 changed
             }
-            ModSelection::Include(mods) if mods != NM => {
+            ModSelection::Include(mods) => {
                 let mut changed = false;
 
                 if mods.contains(DT) && score.mods.contains(HT) {

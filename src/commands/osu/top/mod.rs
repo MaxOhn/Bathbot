@@ -1110,10 +1110,10 @@ async fn process_scores(
                 .unwrap_or(Ordering::Equal)
         }),
         TopScoreOrder::Bpm => entries.sort_by(|a, b| {
-            b.map
-                .bpm()
-                .partial_cmp(&a.map.bpm())
-                .unwrap_or(Ordering::Equal)
+            let a_bpm = a.map.bpm() * a.score.mods.clock_rate();
+            let b_bpm = b.map.bpm() * b.score.mods.clock_rate();
+
+            b_bpm.partial_cmp(&a_bpm).unwrap_or(Ordering::Equal)
         }),
         TopScoreOrder::Combo => entries.sort_by_key(|entry| Reverse(entry.score.max_combo)),
         TopScoreOrder::Date => entries.sort_by_key(|entry| Reverse(entry.score.ended_at)),

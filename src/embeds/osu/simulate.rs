@@ -19,7 +19,7 @@ use crate::{
         constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
         numbers::{round, WithComma},
         osu::{calculate_grade, grade_completion_mods, ModSelection, ScoreSlim},
-        CowUtils, ScoreExt,
+        CowUtils,
     },
 };
 
@@ -379,7 +379,7 @@ impl SimulateEmbed {
         }
 
         let mut title = self.title;
-        let _ = write!(title, " [{}★]", self.stars);
+        let _ = write!(title, " [{:.2}★]", self.stars);
 
         EmbedBuilder::new()
             .fields(fields![name, value, false])
@@ -459,35 +459,7 @@ async fn simulate_score(ctx: &Context, score: &mut ScoreSlim, map: &OsuMap, args
             score.mode = GameMode::Osu;
             score.statistics.count_miss = miss as u32;
             score.max_combo = combo as u32;
-            score.accuracy = score.accuracy();
-        }
-        DifficultyAttributes::Mania(_) => {
-            let mut max_score = 1_000_000;
-
-            let mods = score.mods;
-
-            if mods.contains(GameMods::Easy) {
-                max_score /= 2;
-            }
-
-            if mods.contains(GameMods::NoFail) {
-                max_score /= 2;
-            }
-
-            if mods.contains(GameMods::HalfTime) {
-                max_score /= 2;
-            }
-
-            score.mode = GameMode::Mania;
-            score.max_combo = 0;
-            score.score = args.score.map_or(max_score, |s| s.min(max_score));
-            score.statistics.count_geki = map.n_objects() as u32;
-            score.statistics.count_300 = 0;
-            score.statistics.count_katu = 0;
-            score.statistics.count_100 = 0;
-            score.statistics.count_50 = 0;
-            score.statistics.count_miss = 0;
-            score.accuracy = 100.0;
+            score.accuracy = score.statistics.accuracy(GameMode::Osu);
         }
         DifficultyAttributes::Taiko(_) => {
             let n100 = args.n100.unwrap_or(0);
@@ -594,7 +566,35 @@ async fn simulate_score(ctx: &Context, score: &mut ScoreSlim, map: &OsuMap, args
                 .unwrap_or_else(|| attrs.max_combo())
                 .min(attrs.max_combo() - miss) as u32;
 
-            score.accuracy = score.accuracy();
+            score.accuracy = score.statistics.accuracy(GameMode::Osu);
+        }
+        DifficultyAttributes::Mania(_) => {
+            let mut max_score = 1_000_000;
+
+            let mods = score.mods;
+
+            if mods.contains(GameMods::Easy) {
+                max_score /= 2;
+            }
+
+            if mods.contains(GameMods::NoFail) {
+                max_score /= 2;
+            }
+
+            if mods.contains(GameMods::HalfTime) {
+                max_score /= 2;
+            }
+
+            score.mode = GameMode::Mania;
+            score.max_combo = 0;
+            score.score = args.score.map_or(max_score, |s| s.min(max_score));
+            score.statistics.count_geki = map.n_objects() as u32;
+            score.statistics.count_300 = 0;
+            score.statistics.count_katu = 0;
+            score.statistics.count_100 = 0;
+            score.statistics.count_50 = 0;
+            score.statistics.count_miss = 0;
+            score.accuracy = 100.0;
         }
     }
 

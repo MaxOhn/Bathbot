@@ -62,7 +62,7 @@ pub struct Config {
     /// What size should the recent, compare, simulate, ... commands be?
     score_embeds: Option<ScoreSize>,
     #[command(
-        help = "Adjust the amount of scores shown per page in top, rb, pinned, and mapper.\n\
+        help = "Adjust the amount of scores shown per page in `/top`, `/rb`, `/pinned`, and `/mapper`.\n\
       `Condensed` shows 10 scores, `Detailed` shows 5, and `Single` shows 1."
     )]
     /// Adjust the amount of scores shown per page in top, rb, pinned, ...

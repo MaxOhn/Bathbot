@@ -75,7 +75,7 @@ impl TopIfEmbed {
         if let Some(rank) = rank {
             let _ = write!(
                 footer_text,
-                " • The current rank for {pp}pp is #{rank}",
+                " • The current rank for {pp}pp is approx. #{rank}",
                 pp = WithComma::new(post_pp),
                 rank = WithComma::new(rank)
             );

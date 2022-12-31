@@ -1136,7 +1136,12 @@ async fn top_graph_time(
         date.hour() as u32 * 60 + date.minute() as u32
     }
 
-    let _ = write!(caption, " (UTC{tz})");
+    let (h, m, _) = tz.as_hms();
+    let _ = write!(caption, " (UTC{h:+})");
+
+    if m != 0 {
+        let _ = write!(caption, ":{}", m.abs());
+    }
 
     let mut hours = [0_u8; 24];
 

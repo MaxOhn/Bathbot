@@ -446,7 +446,7 @@ fn bg_components() -> Vec<Component> {
             default: false,
             description: Some("Blur the image".to_owned()),
             emoji: None,
-            label: "blur".to_owned(),
+            label: "Blur".to_owned(),
             value: "blur".to_owned(),
         },
         SelectMenuOption {

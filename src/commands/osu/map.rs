@@ -295,7 +295,7 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
     };
 
     if let Err(err) = ctx.osu_map().store(&mapset).await {
-        warn!("{err:?}");
+        warn!("{:?}", Report::new(err));
     }
 
     let Some(mut maps) = mapset.maps.take().filter(|maps| !maps.is_empty()) else {

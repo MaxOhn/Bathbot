@@ -30,7 +30,7 @@ type TrackingQueue =
     Mutex<PriorityQueue<TrackedOsuUserKey, Reverse<OffsetDateTime>, DefaultHashBuilder>>;
 
 pub struct TrackingStats {
-    pub next_pop: TrackedOsuUserKey,
+    pub next_pop: Option<TrackedOsuUserKey>,
     pub users: usize,
     pub queue: usize,
     pub last_pop: OffsetDateTime,
@@ -437,7 +437,7 @@ impl OsuTrackingQueue {
         let (next_pop, queue) = {
             let guard = self.queue.lock().await;
 
-            (guard.peek().map(|(&key, _)| key).unwrap(), guard.len())
+            (guard.peek().map(|(&key, _)| key), guard.len())
         };
 
         let users = self.users.len().await;

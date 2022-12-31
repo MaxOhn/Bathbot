@@ -55,7 +55,7 @@ pub async fn tracklist(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()>
 
     if embeds.is_empty() {
         let content = "No tracked users in this channel";
-        let builder = MessageBuilder::new().content(content);
+        let builder = MessageBuilder::new().embed(content);
         orig.create_message(&ctx, &builder).await?;
     } else {
         for embed_data in embeds {

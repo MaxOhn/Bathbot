@@ -55,7 +55,7 @@ pub async fn untrackall(
     match remove_fut.await {
         Ok(amount) => {
             let content = format!("Untracked {amount} users in this channel");
-            let builder = MessageBuilder::new().content(content);
+            let builder = MessageBuilder::new().embed(content);
             orig.create_message(&ctx, &builder).await?;
 
             Ok(())

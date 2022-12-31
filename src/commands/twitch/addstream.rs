@@ -55,7 +55,7 @@ pub async fn addstream(ctx: Arc<Context>, orig: CommandOrigin<'_>, name: &'_ str
     match ctx.twitch().track(channel, twitch_id).await {
         Ok(true) => {
             let content = format!("I'm now tracking `{name}`'s twitch stream in this channel");
-            let builder = MessageBuilder::new().content(content);
+            let builder = MessageBuilder::new().embed(content);
 
             trace!("Now tracking twitch stream {name} for channel {channel}");
 

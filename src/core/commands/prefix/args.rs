@@ -44,7 +44,8 @@ impl<'m> Args<'m> {
         let stream = &mut self.stream;
         let start = stream.offset();
 
-        if stream.next()? == b'"' {
+        if stream.current_char()? == '"' {
+            stream.increment(1);
             stream.take_until(|b| b == b'"');
             let is_quote = stream.next().map_or(false, |b| b == b'"');
             let end = stream.offset();

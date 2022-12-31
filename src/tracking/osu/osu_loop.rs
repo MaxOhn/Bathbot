@@ -161,7 +161,7 @@ async fn score_loop(
         let map = match ctx.osu_map().map(score.map_id, checksum).await {
             Ok(map) => map,
             Err(err) => {
-                warn!("{err:?}");
+                warn!("{:?}", Report::new(err));
 
                 continue;
             }

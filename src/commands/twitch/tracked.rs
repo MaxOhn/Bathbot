@@ -43,7 +43,7 @@ pub async fn tracked(ctx: Arc<Context>, orig: CommandOrigin<'_>) -> Result<()> {
         content.push_str("None");
     }
 
-    let builder = MessageBuilder::new().content(content);
+    let builder = MessageBuilder::new().embed(content);
     orig.create_message(&ctx, &builder).await?;
 
     Ok(())

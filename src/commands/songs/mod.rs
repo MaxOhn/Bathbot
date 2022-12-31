@@ -67,7 +67,7 @@ async fn song(
     if cooldown > 0 {
         let content = format!("Command on cooldown, try again in {cooldown} seconds");
 
-        return orig.error(&ctx, content).await;
+        return orig.error_callback(&ctx, content).await;
     }
 
     if allow {
@@ -77,6 +77,7 @@ async fn song(
 
         let _ = writeln!(content, "♫ {} ♫", lyrics[0]);
         let builder = MessageBuilder::new().content(&content);
+
         interval.tick().await;
 
         let mut response = orig
@@ -93,7 +94,7 @@ async fn song(
             response = response.update(&ctx, &builder).await?.model().await?;
         }
     } else {
-        let content = "The server's big boys disabled song commands. \
+        let content = "The server's higher-ups have disabled song commands. \
             Server authorities can re-enable them with the `/serverconfig` command";
 
         orig.error(&ctx, content).await?;

@@ -180,7 +180,7 @@ impl Display for SnipePlayerListOrder {
             Self::Acc => "accuracy",
             Self::Misses => "count_miss",
             Self::Pp => "pp",
-            Self::Date => "date_set_new",
+            Self::Date => "date_set",
             Self::Stars => "sr",
         };
 

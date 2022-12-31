@@ -119,7 +119,7 @@ async fn prepare_mapset(
     let artist_title = match ctx.osu_map().artist_title(mapset_id).await {
         Ok(artist_title) => artist_title,
         Err(err) => {
-            warn!("{err:?}");
+            warn!("{:?}", Report::new(err));
 
             return Err(GENERAL_ISSUE);
         }

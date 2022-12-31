@@ -78,7 +78,7 @@ impl TopEmbed {
                 mods = ModsFormatter::new(score.mods),
                 grade = grade_emote(score.grade),
                 pp = PpFormatter::new(Some(score.pp), Some(*max_pp)),
-                acc = score.accuracy,
+                acc = round(score.accuracy),
                 score = WithComma::new(score.score),
                 combo = ComboFormatter::new(score.max_combo, map.max_combo()),
                 hits = HitResultFormatter::new(score.mode, score.statistics.clone()),
@@ -226,22 +226,27 @@ impl<'m> MapFormat<'m> {
 
 impl Display for MapFormat<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        const DASH_SPACE_SQUARE_BRACKETS: usize = 6;
+        const SPACE_SQUARE_BRACKETS: usize = 3;
+        const TRIPLE_DOTS: usize = 3;
+        const MIN_LEN: usize = 15;
+        const LIMIT: usize = 42;
+        const MIN_LEN_WITH_DOTS: usize = MIN_LEN + TRIPLE_DOTS;
+
         let artist = self.map.artist().len();
         let title = self.map.title().len();
         let version = self.map.version().len();
 
-        const LIMIT: usize = 46;
-
         // if the dots wouldn't save space, might as well not replace the content
         let tuple = |pre, post| {
-            if pre <= post + 3 {
+            if pre <= post + TRIPLE_DOTS {
                 (pre, "")
             } else {
                 (post, "...")
             }
         };
 
-        if artist + title + version + 6 <= LIMIT {
+        if artist + title + version + DASH_SPACE_SQUARE_BRACKETS <= LIMIT {
             // short enough to display artist, title, and version
             write!(
                 f,
@@ -250,7 +255,7 @@ impl Display for MapFormat<'_> {
                 self.map.title().cow_escape_markdown(),
                 self.map.version().cow_escape_markdown(),
             )
-        } else if title + version + 3 <= LIMIT {
+        } else if title + version + SPACE_SQUARE_BRACKETS <= LIMIT {
             // show title and version without truncating
             write!(
                 f,
@@ -258,9 +263,9 @@ impl Display for MapFormat<'_> {
                 self.map.title().cow_escape_markdown(),
                 self.map.version().cow_escape_markdown()
             )
-        } else if version < 15 {
+        } else if version <= MIN_LEN_WITH_DOTS {
             // keep the version but truncate title
-            let (end, suffix) = tuple(title, 50 - version - 3 - 3);
+            let (end, suffix) = tuple(title, LIMIT - version - SPACE_SQUARE_BRACKETS - TRIPLE_DOTS);
 
             write!(
                 f,
@@ -268,9 +273,9 @@ impl Display for MapFormat<'_> {
                 self.map.title()[..end].cow_escape_markdown(),
                 self.map.version().cow_escape_markdown(),
             )
-        } else if title < 15 {
+        } else if title <= MIN_LEN_WITH_DOTS {
             // keep the title but truncate version
-            let (end, suffix) = tuple(version, 50 - title - 3 - 3);
+            let (end, suffix) = tuple(version, LIMIT - title - SPACE_SQUARE_BRACKETS - TRIPLE_DOTS);
 
             write!(
                 f,
@@ -280,21 +285,52 @@ impl Display for MapFormat<'_> {
             )
         } else {
             // truncate title and version evenly
-            let cut = (title + version + 3 + 6 - LIMIT) / 2;
+            let total_cut = title + version + SPACE_SQUARE_BRACKETS - LIMIT;
+            let mut cut = total_cut / 2;
 
-            let mut title_ = title.saturating_sub(cut).max(15);
-            let mut version_ = version.saturating_sub(cut).max(15);
+            let mut title_cut = match title.checked_sub(cut) {
+                Some(len @ ..=MIN_LEN) => {
+                    cut += MIN_LEN - len;
 
-            if title_ + version_ + 3 > LIMIT - 6 {
-                if title_ == 15 {
-                    version_ = LIMIT - title_ - 3 - 6;
-                } else if version_ == 15 {
-                    title_ = LIMIT - version_ - 3 - 6;
+                    MIN_LEN
                 }
-            }
+                Some(len @ ..=MIN_LEN_WITH_DOTS) => {
+                    cut += MIN_LEN_WITH_DOTS - len;
 
-            let (title_end, title_suffix) = tuple(title, title_);
-            let (version_end, version_suffix) = tuple(version, version_);
+                    MIN_LEN
+                }
+                Some(len) => len - TRIPLE_DOTS,
+                None => {
+                    cut += cut - MIN_LEN;
+
+                    MIN_LEN
+                }
+            };
+
+            // if cut was off, increment by one
+            cut += total_cut % 2;
+
+            let version_cut = match version.checked_sub(cut) {
+                Some(len @ ..=MIN_LEN) => {
+                    title_cut -= MIN_LEN - len;
+
+                    MIN_LEN
+                }
+                Some(len @ ..=MIN_LEN_WITH_DOTS) => {
+                    title_cut -= MIN_LEN_WITH_DOTS - len;
+
+                    MIN_LEN
+                }
+                Some(len) => len - TRIPLE_DOTS,
+                None => {
+                    title_cut -= cut - MIN_LEN;
+
+                    MIN_LEN
+                }
+            };
+
+            let (title_end, title_suffix) = tuple(title, title_cut);
+            let (version_end, version_suffix) = tuple(version, version_cut);
 
             write!(
                 f,

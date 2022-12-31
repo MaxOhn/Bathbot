@@ -166,10 +166,8 @@ pub(super) async fn player_list(
     let maps = match ctx.osu_map().maps(&map_ids).await {
         Ok(maps) => maps,
         Err(err) => {
-            warn!(
-                "{:?}",
-                Report::new(err).wrap_err("failed to get maps from database")
-            );
+            let wrap = "failed to get maps from database";
+            warn!("{:?}", Report::new(err).wrap_err(wrap));
 
             HashMap::default()
         }

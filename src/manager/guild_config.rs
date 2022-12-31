@@ -24,6 +24,7 @@ impl<'d> GuildConfigManager<'d> {
         }
     }
 
+    /// Get a reference to the [`GuildConfig`] for a guild and execute a function on it.
     pub async fn peek<F, O>(self, guild_id: Id<GuildMarker>, f: F) -> O
     where
         F: FnOnce(&GuildConfig) -> O,
@@ -42,7 +43,7 @@ impl<'d> GuildConfigManager<'d> {
         res
     }
 
-    pub async fn first_prefix(&self, guild_id: Option<Id<GuildMarker>>) -> Prefix {
+    pub async fn first_prefix(self, guild_id: Option<Id<GuildMarker>>) -> Prefix {
         let prefix_opt = match guild_id {
             Some(guild_id) => {
                 self.peek(guild_id, |config| config.prefixes.first().cloned())
@@ -54,18 +55,19 @@ impl<'d> GuildConfigManager<'d> {
         prefix_opt.unwrap_or_else(|| DEFAULT_PREFIX.into())
     }
 
-    pub async fn update<F>(&self, guild_id: Id<GuildMarker>, f: F) -> Result<()>
+    pub async fn update<F, O>(self, guild_id: Id<GuildMarker>, f: F) -> Result<O>
     where
-        F: FnOnce(&mut GuildConfig),
+        F: FnOnce(&mut GuildConfig) -> O,
     {
         let mut config = match self.guild_configs.pin().get(&guild_id) {
             Some(config) => config.to_owned(),
             None => GuildConfig::default(),
         };
 
-        f(&mut config);
+        let res = f(&mut config);
+        self.store(guild_id, config).await?;
 
-        self.store(guild_id, config).await
+        Ok(res)
     }
 }
 

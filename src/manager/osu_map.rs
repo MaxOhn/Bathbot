@@ -176,7 +176,7 @@ impl<'d> MapManager<'d> {
         match self.ctx.osu().beatmapset_from_map_id(map_id).await {
             Ok(mapset) => {
                 if let Err(err) = self.store(&mapset).await {
-                    warn!("{err:?}");
+                    warn!("{:?}", Report::new(err));
                 }
 
                 OsuMapSlim::try_from_mapset(mapset, map_id)
@@ -193,7 +193,7 @@ impl<'d> MapManager<'d> {
         match self.ctx.osu().beatmapset(mapset_id).await {
             Ok(mapset) => {
                 if let Err(err) = self.store(&mapset).await {
-                    warn!("{err:?}");
+                    warn!("{:?}", Report::new(err));
                 }
 
                 Ok(mapset)
@@ -511,6 +511,6 @@ impl Searchable for OsuMap {
 pub enum MapError {
     #[error("map(set) not found")]
     NotFound,
-    #[error(transparent)]
+    #[error("map error")]
     Report(#[from] Report),
 }
