@@ -9,7 +9,7 @@ pub fn parse_bucket(attrs: &[Attribute]) -> Result<AsOption<Bucket>> {
         .iter()
         .find(|attr| match attr.path.get_ident() {
             Some(ident) => ident == "bucket",
-            None => return false,
+            None => false,
         })
         .map(|a| a.parse_args())
         .transpose()

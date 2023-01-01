@@ -28,7 +28,7 @@ impl Flags {
 pub fn parse_flags(attrs: &[Attribute]) -> Result<Flags> {
     let attr_opt = attrs.iter().find(|attr| match attr.path.get_ident() {
         Some(ident) => ident == "flags",
-        None => return false,
+        None => false,
     });
 
     match attr_opt {
@@ -70,8 +70,8 @@ impl Parse for Flags {
 }
 
 fn accept_as_flag(ident: &Ident) -> bool {
-    match ident.to_string().as_str() {
-        "AUTHORITY" | "EPHEMERAL" | "ONLY_GUILDS" | "ONLY_OWNER" | "SKIP_DEFER" => true,
-        _ => false,
-    }
+    matches!(
+        ident.to_string().as_str(),
+        "AUTHORITY" | "EPHEMERAL" | "ONLY_GUILDS" | "ONLY_OWNER" | "SKIP_DEFER"
+    )
 }

@@ -78,7 +78,7 @@ FROM
         let (higher_rank, higher_pp) = match rows.next().await {
             Some(Ok(row)) => {
                 let rank = row.global_rank.unwrap_or(0) as u32;
-                let pp = row.pp.unwrap_or(0.0) as f32;
+                let pp = row.pp.unwrap_or(0.0);
 
                 (rank, pp)
             }
@@ -93,7 +93,7 @@ FROM
             .wrap_err("failed to get lower")?
             .map(|row| {
                 let rank = row.global_rank.unwrap_or(0) as u32;
-                let pp = row.pp.unwrap_or(0.0) as f32;
+                let pp = row.pp.unwrap_or(0.0);
 
                 (rank, pp)
             });
@@ -197,7 +197,7 @@ FROM
         let (higher_rank, higher_pp) = match rows.next().await {
             Some(Ok(row)) => {
                 let rank = row.global_rank.unwrap_or(0) as u32;
-                let pp = row.pp.unwrap_or(0.0) as f32;
+                let pp = row.pp.unwrap_or(0.0);
 
                 (rank, pp)
             }
@@ -212,7 +212,7 @@ FROM
             .wrap_err("failed to get lower")?
             .map(|row| {
                 let rank = row.global_rank.unwrap_or(0) as u32;
-                let pp = row.pp.unwrap_or(0.0) as f32;
+                let pp = row.pp.unwrap_or(0.0);
 
                 (rank, pp)
             });
