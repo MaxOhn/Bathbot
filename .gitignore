@@ -1,9 +1,10 @@
-/target
-.env
+/*/target
+/*/.env
 /logs
-/.vscode
-/resume_data
+/*/.vscode
 /docker-volume
+/target
 /backgrounds
 /maps
-output.*
+/*/output.*
+.env
