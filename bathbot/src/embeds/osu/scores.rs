@@ -91,7 +91,7 @@ impl ScoresEmbed {
                 let _ = writeln!(
                     args.description,
                     "{grade} **+{mods}** [{stars:.2}★] • {score} • {acc}%\n\
-                    {pp_format}**{pp}**{pp_format}/{max_pp}PP • **{combo}x**/{max_combo}x\n\
+                    {pp_format}**{pp:.2}**{pp_format}/{max_pp}PP • **{combo}x**/{max_combo}x\n\
                     {hits} {timestamp}",
                     grade = BotConfig::get().grade(entry.score.grade),
                     mods = entry.score.mods,
@@ -99,7 +99,7 @@ impl ScoresEmbed {
                     score = WithComma::new(entry.score.score),
                     acc = round(entry.score.accuracy),
                     pp_format = if pp_idx == Some(0) { "" } else { "~~" },
-                    pp = round(entry.score.pp),
+                    pp = entry.score.pp,
                     max_pp = round(entry.score.pp.max(entry.max_pp)),
                     combo = entry.score.max_combo,
                     max_combo = OptionFormat::new(map.max_combo()),
