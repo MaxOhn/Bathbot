@@ -194,7 +194,7 @@ pub(super) async fn top(
 
     // Check if different names that both belong to the same user were given
     if user1.id() == user2.id() {
-        let content = "You must two different users";
+        let content = "You must specify two different users";
 
         return orig.error(&ctx, content).await;
     }
