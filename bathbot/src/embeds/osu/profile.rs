@@ -279,7 +279,8 @@ impl ProfileEmbed {
             let (hp_min, hp_avg, hp_max) = min_avg_max(hp, |v| format!("{v:.2}"));
             let (od_min, od_avg, od_max) = min_avg_max(od, |v| format!("{v:.2}"));
             let (bpm_min, bpm_avg, bpm_max) = min_avg_max(bpm, |v| format!("{v:.2}"));
-            let (len_min, len_avg, len_max) = min_avg_max(len, |v| SecToMinSec::new(v).to_string());
+            let (len_min, len_avg, len_max) =
+                min_avg_max(len, |v| SecToMinSec::new(v as u32).to_string());
 
             let min_w = "Minimum"
                 .len()

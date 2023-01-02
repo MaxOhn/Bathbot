@@ -290,7 +290,7 @@ pub struct Top100Stats {
     pub hp: MinMaxAvg<f64>,
     pub od: MinMaxAvg<f64>,
     pub bpm: MinMaxAvg<f32>,
-    pub len: MinMaxAvg<u32>,
+    pub len: MinMaxAvg<f32>,
 }
 
 impl Top100Stats {
@@ -332,8 +332,6 @@ impl Top100Stats {
                 .and_then(|map| maps.get(&map.map_id))
                 .expect("missing map");
 
-            this.len.add(map.seconds_drain());
-
             let mut calc = ctx.pp(map).mode(score.mode).mods(score.mods);
 
             let stars = calc.difficulty().await.stars();
@@ -358,6 +356,8 @@ impl Top100Stats {
             this.hp.add(map_attrs.hp);
             this.od.add(map_attrs.od);
             this.bpm.add(map.bpm() * map_attrs.clock_rate as f32);
+            this.len
+                .add(map.seconds_drain() as f32 / map_attrs.clock_rate as f32);
         }
 
         Ok(this)
