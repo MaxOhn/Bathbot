@@ -4,7 +4,7 @@ use bathbot_macros::{command, SlashCommand};
 use bathbot_psql::model::configs::{
     ListSize, MinimizedPp, OsuUserId, OsuUsername, ScoreSize, UserConfig,
 };
-use eyre::{Result, WrapErr};
+use eyre::{Report, Result};
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
@@ -27,6 +27,8 @@ use crate::{
         Emote,
     },
 };
+
+use super::{SkinValidation, ValidationStatus};
 
 #[cfg(feature = "server")]
 #[derive(CommandModel, CreateCommand, Default, SlashCommand)]
@@ -71,6 +73,15 @@ pub struct Config {
     retries: Option<ShowHideOption>,
     /// Specify whether the recent command should show max or if-fc pp when minimized
     minimized_pp: Option<MinimizedPp>,
+    #[command(help = "Specify a download link for your skin.\n\
+    Must be a URL to a direct-download of an .osk file or one of these approved sites:\n\
+    - `https://drive.google.com`\n\
+    - `https://www.dropbox.com`\n\
+    - `https://mega.nz`\n\
+    - `https://www.mediafire.com`\n\
+    If you want to suggest another site let Badewanne3 know.")]
+    /// Specify a download link for your skin
+    skin_url: Option<String>,
 }
 
 #[cfg(not(feature = "server"))]
@@ -100,6 +111,15 @@ pub struct Config {
     retries: Option<ShowHideOption>,
     /// Specify whether the recent command should show max or if-fc pp when minimized
     minimized_pp: Option<MinimizedPp>,
+    #[command(help = "Specify a download link for your skin.\n\
+    Must be a URL to a direct-download of an .osk file or one of these approved sites:\n\
+    - `https://drive.google.com`\n\
+    - `https://www.dropbox.com`\n\
+    - `https://mega.nz`\n\
+    - `https://www.mediafire.com`\n\
+    If you want to suggest another site let Badewanne3 know.")]
+    /// Specify a download link for your skin
+    skin_url: Option<String>,
 }
 
 #[derive(CommandOption, CreateOption)]
@@ -153,11 +173,19 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
         list_embeds,
         retries,
         minimized_pp,
+        mut skin_url,
     } = config;
 
-    let author = command.user_id()?;
+    if let Some(ref skin_url) = skin_url {
+        match SkinValidation::check(&ctx, &command, skin_url).await? {
+            ValidationStatus::Continue => {}
+            ValidationStatus::Handled => return Ok(()),
+        }
+    }
 
-    let mut config = match ctx.user_config().with_osu_id(author).await {
+    let author = command.user()?;
+
+    let mut config = match ctx.user_config().with_osu_id(author.id).await {
         Ok(config) => config,
         Err(err) => {
             let _ = command.error(&ctx, GENERAL_ISSUE).await;
@@ -202,30 +230,53 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
     }
 
     #[cfg(feature = "server")]
-    {
+    let res = {
         match (osu, twitch) {
             (Some(ConfigLink::Link), Some(ConfigLink::Link)) => {
-                handle_both_links(&ctx, command, config)
-                    .await
-                    .wrap_err("failed to handle both links")
+                handle_both_links(&ctx, &command, &mut config).await
             }
-            (Some(ConfigLink::Link), _) => handle_osu_link(&ctx, command, config)
-                .await
-                .wrap_err("failed to handle osu link"),
-            (_, Some(ConfigLink::Link)) => handle_twitch_link(&ctx, command, config)
-                .await
-                .wrap_err("failed to handle twitch link"),
-            (_, _) => handle_no_links(&ctx, command, config)
-                .await
-                .wrap_err("failed to handle no links"),
+            (Some(ConfigLink::Link), _) => handle_osu_link(&ctx, &command, &mut config).await,
+            (_, Some(ConfigLink::Link)) => handle_twitch_link(&ctx, &command, &mut config).await,
+            (_, _) => handle_no_links(&ctx, &command, &mut config).await,
         }
-    }
+    };
 
     #[cfg(not(feature = "server"))]
-    {
-        handle_no_links(&ctx, command, config)
-            .await
-            .wrap_err("failed to handle no links")
+    let res = handle_no_links(&ctx, &command, &mut config).await;
+
+    match res {
+        HandleResult::TwitchName(twitch_name) => {
+            let config = if let Some(ref skin_url) = skin_url {
+                let update_fut = ctx.user_config().update_skin(author.id, Some(skin_url));
+
+                if let Err(err) = update_fut.await {
+                    command.error(&ctx, GENERAL_ISSUE).await?;
+
+                    return Err(err);
+                }
+
+                convert_config(&ctx, config, author.id).await
+            } else {
+                let config_fut = convert_config(&ctx, config, author.id);
+                let skin_fut = ctx.user_config().skin(author.id);
+                let (config, skin_res) = tokio::join!(config_fut, skin_fut);
+
+                match skin_res {
+                    Ok(skin_) => skin_url = skin_,
+                    Err(err) => error!("{err:?}"),
+                }
+
+                config
+            };
+
+            let embed_data = ConfigEmbed::new(author, config, twitch_name, skin_url);
+            let builder = embed_data.build().into();
+            command.update(&ctx, &builder).await?;
+
+            Ok(())
+        }
+        HandleResult::Done => Ok(()),
+        HandleResult::Err(err) => Err(err.wrap_err("failed to handle config update")),
     }
 }
 
@@ -263,9 +314,9 @@ fn twitch_content(state: u8) -> String {
 #[cfg(feature = "server")]
 async fn handle_both_links(
     ctx: &Context,
-    command: InteractionCommand,
-    mut config: UserConfig<OsuUserId>,
-) -> Result<()> {
+    command: &InteractionCommand,
+    config: &mut UserConfig<OsuUserId>,
+) -> HandleResult {
     let osu_fut = ctx.auth_standby.wait_for_osu();
     let twitch_fut = ctx.auth_standby.wait_for_twitch();
 
@@ -278,42 +329,39 @@ async fn handle_both_links(
     let embed = EmbedBuilder::new().description(content).footer(MSG_BADE);
     let builder = MessageBuilder::new().embed(embed);
     let fut = async { tokio::try_join!(osu_fut, twitch_fut) };
-    let twitch_name;
 
-    match handle_ephemeral(ctx, &command, builder, fut).await {
+    let twitch_name = match handle_ephemeral(ctx, command, builder, fut).await {
         Some(Ok((osu, twitch))) => {
             // TODO: upsert user_id,username in DB
             config.osu = Some(osu.user_id);
-
             config.twitch_id = Some(twitch.user_id);
-            twitch_name = Some(twitch.display_name);
+
+            Some(twitch.display_name)
         }
-        Some(Err(err)) => return Err(err),
-        None => return Ok(()),
-    }
+        Some(Err(err)) => return HandleResult::Err(err),
+        None => return HandleResult::Done,
+    };
 
-    let author = command.user()?;
+    let author = match command.user() {
+        Ok(author) => author,
+        Err(err) => return HandleResult::Err(err),
+    };
 
-    if let Err(err) = ctx.user_config().store(author.id, &config).await {
+    if let Err(err) = ctx.user_config().store(author.id, config).await {
         let _ = command.error(ctx, GENERAL_ISSUE).await;
 
-        return Err(err);
+        return HandleResult::Err(err);
     }
 
-    let config = convert_config(ctx, config, author.id).await;
-    let embed_data = ConfigEmbed::new(author, config, twitch_name);
-    let builder = embed_data.build().into();
-    command.update(ctx, &builder).await?;
-
-    Ok(())
+    HandleResult::TwitchName(twitch_name)
 }
 
 #[cfg(feature = "server")]
 async fn handle_twitch_link(
     ctx: &Context,
-    command: InteractionCommand,
-    mut config: UserConfig<OsuUserId>,
-) -> Result<()> {
+    command: &InteractionCommand,
+    config: &mut UserConfig<OsuUserId>,
+) -> HandleResult {
     let fut = ctx.auth_standby.wait_for_twitch();
 
     let embed = EmbedBuilder::new()
@@ -322,38 +370,36 @@ async fn handle_twitch_link(
 
     let builder = MessageBuilder::new().embed(embed);
 
-    let twitch_name = match handle_ephemeral(ctx, &command, builder, fut).await {
+    let twitch_name = match handle_ephemeral(ctx, command, builder, fut).await {
         Some(Ok(user)) => {
             config.twitch_id = Some(user.user_id);
 
             Some(user.display_name)
         }
-        Some(Err(err)) => return Err(err),
-        None => return Ok(()),
+        Some(Err(err)) => return HandleResult::Err(err),
+        None => return HandleResult::Done,
     };
 
-    let author = command.user()?;
+    let author = match command.user() {
+        Ok(author) => author,
+        Err(err) => return HandleResult::Err(err),
+    };
 
-    if let Err(err) = ctx.user_config().store(author.id, &config).await {
+    if let Err(err) = ctx.user_config().store(author.id, config).await {
         let _ = command.error(ctx, GENERAL_ISSUE).await;
 
-        return Err(err);
+        return HandleResult::Err(err);
     }
 
-    let config = convert_config(ctx, config, author.id).await;
-    let embed_data = ConfigEmbed::new(author, config, twitch_name);
-    let builder = embed_data.build().into();
-    command.update(ctx, &builder).await?;
-
-    Ok(())
+    HandleResult::TwitchName(twitch_name)
 }
 
 #[cfg(feature = "server")]
 async fn handle_osu_link(
     ctx: &Context,
-    command: InteractionCommand,
-    mut config: UserConfig<OsuUserId>,
-) -> Result<()> {
+    command: &InteractionCommand,
+    config: &mut UserConfig<OsuUserId>,
+) -> HandleResult {
     let fut = ctx.auth_standby.wait_for_osu();
 
     let embed = EmbedBuilder::new()
@@ -362,13 +408,17 @@ async fn handle_osu_link(
 
     let builder = MessageBuilder::new().embed(embed);
 
-    config.osu = match handle_ephemeral(ctx, &command, builder, fut).await {
+    config.osu = match handle_ephemeral(ctx, command, builder, fut).await {
         Some(Ok(user)) => Some(user.user_id), // TODO: upsert user_id,username in DB
-        Some(Err(err)) => return Err(err),
-        None => return Ok(()),
+        Some(Err(err)) => return HandleResult::Err(err),
+        None => return HandleResult::Done,
     };
 
-    let author = command.user()?;
+    let author = match command.user() {
+        Ok(author) => author,
+        Err(err) => return HandleResult::Err(err),
+    };
+
     let mut twitch_name = None;
 
     if let Some(user_id) = config.twitch_id {
@@ -383,23 +433,18 @@ async fn handle_osu_link(
                     .error(ctx, crate::util::constants::TWITCH_API_ISSUE)
                     .await;
 
-                return Err(err.wrap_err("failed to get twitch user by id"));
+                return HandleResult::Err(err.wrap_err("failed to get twitch user by id"));
             }
         }
     }
 
-    if let Err(err) = ctx.user_config().store(author.id, &config).await {
+    if let Err(err) = ctx.user_config().store(author.id, config).await {
         let _ = command.error(ctx, GENERAL_ISSUE).await;
 
-        return Err(err);
+        return HandleResult::Err(err);
     }
 
-    let config = convert_config(ctx, config, author.id).await;
-    let embed_data = ConfigEmbed::new(author, config, twitch_name);
-    let builder = embed_data.build().into();
-    command.update(ctx, &builder).await?;
-
-    Ok(())
+    HandleResult::TwitchName(twitch_name)
 }
 
 #[cfg(feature = "server")]
@@ -428,10 +473,14 @@ async fn handle_ephemeral<T>(
 
 async fn handle_no_links(
     ctx: &Context,
-    command: InteractionCommand,
-    #[allow(unused_mut)] mut config: UserConfig<OsuUserId>,
-) -> Result<()> {
-    let author = command.user()?;
+    command: &InteractionCommand,
+    config: &mut UserConfig<OsuUserId>,
+) -> HandleResult {
+    let author = match command.user() {
+        Ok(author) => author,
+        Err(err) => return HandleResult::Err(err),
+    };
+
     let mut twitch_name = None;
 
     if let Some(_user_id) = config.twitch_id {
@@ -447,7 +496,7 @@ async fn handle_no_links(
                     .error(ctx, crate::util::constants::TWITCH_API_ISSUE)
                     .await;
 
-                return Err(err.wrap_err("failed to get twitch user by id"));
+                return HandleResult::Err(err.wrap_err("failed to get twitch user by id"));
             }
         }
 
@@ -457,18 +506,13 @@ async fn handle_no_links(
         }
     }
 
-    if let Err(err) = ctx.user_config().store(author.id, &config).await {
+    if let Err(err) = ctx.user_config().store(author.id, config).await {
         let _ = command.error(ctx, GENERAL_ISSUE).await;
 
-        return Err(err);
+        return HandleResult::Err(err);
     }
 
-    let config = convert_config(ctx, config, author.id).await;
-    let embed_data = ConfigEmbed::new(author, config, twitch_name);
-    let builder = embed_data.build().into();
-    command.update(ctx, &builder).await?;
-
-    Ok(())
+    HandleResult::TwitchName(twitch_name)
 }
 
 async fn convert_config(
@@ -511,4 +555,10 @@ async fn convert_config(
         twitch_id,
         timezone,
     }
+}
+
+enum HandleResult {
+    TwitchName(Option<String>),
+    Done,
+    Err(Report),
 }

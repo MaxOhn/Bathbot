@@ -22,6 +22,7 @@ use crate::{
 pub struct ProfileData {
     pub user: RedisData<User>,
     pub author_id: Option<Id<UserMarker>>,
+    pub skin_url: Availability<Option<String>>,
     scores: Availability<Vec<Score>>,
     score_rank: Availability<u32>,
     top100stats: Option<Top100Stats>,
@@ -33,10 +34,31 @@ impl ProfileData {
         Self {
             user,
             author_id,
+            skin_url: Availability::NotRequested,
             scores: Availability::NotRequested,
             score_rank: Availability::NotRequested,
             top100stats: None,
             mapper_names: Availability::NotRequested,
+        }
+    }
+
+    pub(crate) async fn skin_url(&mut self, ctx: &Context) -> Option<String> {
+        match self.skin_url {
+            Availability::Received(ref skin_url) => return skin_url.to_owned(),
+            Availability::Errored => return None,
+            Availability::NotRequested => {}
+        }
+
+        let skin_fut = ctx.user_config().skin_from_osu_id(self.user.user_id());
+
+        match skin_fut.await {
+            Ok(skin_url) => self.skin_url.insert(skin_url).to_owned(),
+            Err(err) => {
+                warn!("{err:?}");
+                self.skin_url = Availability::Errored;
+
+                None
+            }
         }
     }
 

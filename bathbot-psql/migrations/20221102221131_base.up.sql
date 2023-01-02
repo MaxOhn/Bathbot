@@ -191,6 +191,7 @@ CREATE TABLE IF NOT EXISTS user_configs (
     minimized_pp     INT2,
     list_size        INT2,
     timezone_seconds INT4,
+    skin_url         VARCHAR(256),
     PRIMARY KEY (discord_id)
 );
 

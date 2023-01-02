@@ -312,6 +312,31 @@ impl CustomClient {
         }
     }
 
+    pub async fn check_skin_url(&self, url: &str) -> Result<Response<Body>, ClientError> {
+        trace!("HEAD request of url {url}");
+
+        let req = Request::builder()
+            .uri(url)
+            .method(Method::HEAD)
+            .header(USER_AGENT, MY_USER_AGENT)
+            .body(Body::empty())
+            .wrap_err("failed to build HEAD request")?;
+
+        let response = self
+            .client
+            .request(req)
+            .await
+            .wrap_err("failed to receive HEAD response")?;
+
+        let status = response.status();
+
+        if (200..=299).contains(&status.as_u16()) {
+            Ok(response)
+        } else {
+            Err(eyre!("failed with status code {status} when requesting url {url}").into())
+        }
+    }
+
     pub async fn get_discord_attachment(&self, attachment: &Attachment) -> Result<Bytes> {
         self.make_get_request(&attachment.url, Site::DiscordAttachment)
             .await

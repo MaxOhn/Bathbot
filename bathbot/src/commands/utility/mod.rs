@@ -7,8 +7,9 @@ mod prefix;
 mod prune;
 mod roll;
 mod server_config;
+mod skin;
 
 pub use self::{
     authorities::*, command_count::*, config::*, invite::*, ping::*, prefix::*, prune::*, roll::*,
-    server_config::*,
+    server_config::*, skin::*,
 };

@@ -119,6 +119,70 @@ WHERE
         Ok(osu_id.map(|id| id as u32))
     }
 
+    pub async fn select_skin_url(&self, user_id: Id<UserMarker>) -> Result<Option<String>> {
+        let query = sqlx::query!(
+            r#"
+SELECT 
+  skin_url 
+FROM 
+  user_configs 
+WHERE 
+  discord_id = $1"#,
+            user_id.get() as i64
+        );
+
+        query
+            .fetch_optional(self)
+            .await
+            .map(|row| row.and_then(|row| row.skin_url))
+            .wrap_err("failed to fetch optional")
+    }
+
+    pub async fn select_skin_url_by_osu_id(&self, user_id: u32) -> Result<Option<String>> {
+        let query = sqlx::query!(
+            r#"
+SELECT 
+  skin_url 
+FROM 
+  user_configs 
+WHERE 
+  osu_id = $1"#,
+            user_id as i32
+        );
+
+        query
+            .fetch_optional(self)
+            .await
+            .map(|row| row.and_then(|row| row.skin_url))
+            .wrap_err("failed to fetch optional")
+    }
+
+    pub async fn select_skin_url_by_osu_name(&self, username: &str) -> Result<Option<String>> {
+        let query = sqlx::query!(
+            r#"
+SELECT 
+  skin_url 
+FROM 
+  user_configs 
+WHERE 
+  osu_id = (
+    SELECT 
+      user_id 
+    FROM 
+      osu_user_names 
+    WHERE 
+      username ILIKE $1
+  )"#,
+            username
+        );
+
+        query
+            .fetch_optional(self)
+            .await
+            .map(|row| row.and_then(|row| row.skin_url))
+            .wrap_err("failed to fetch optional")
+    }
+
     pub async fn select_twitch_id_by_osu_id(&self, user_id: u32) -> Result<Option<u64>> {
         let query = sqlx::query!(
             r#"
@@ -207,6 +271,31 @@ SET
             .wrap_err("failed to execute query")?;
 
         debug!("Inserted UserConfig for user {user_id} into DB");
+
+        Ok(())
+    }
+
+    pub async fn update_skin_url(
+        &self,
+        user_id: Id<UserMarker>,
+        skin_url: Option<&str>,
+    ) -> Result<()> {
+        let query = sqlx::query!(
+            r#"
+UPDATE 
+  user_configs 
+SET 
+  skin_url = $2 
+WHERE 
+  discord_id = $1"#,
+            user_id.get() as i64,
+            skin_url
+        );
+
+        query
+            .execute(self)
+            .await
+            .wrap_err("failed to execute query")?;
 
         Ok(())
     }

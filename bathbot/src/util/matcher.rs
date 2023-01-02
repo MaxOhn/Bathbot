@@ -9,6 +9,10 @@ use twilight_model::id::{
 
 use super::{constants::OSU_BASE, osu::ModSelection};
 
+pub fn is_approved_skin_site(url: &str) -> bool {
+    APPROVED_SKIN_SITE.get().is_match(url)
+}
+
 pub fn is_custom_emote(msg: &str) -> bool {
     EMOJI_MATCHER.get().is_match(msg)
 }
@@ -207,6 +211,8 @@ define_regex! {
     SEVEN_TWO_SEVEN: "(?P<num>7[.,]?2[.,]?7)";
 
     OSU_SCORE_URL_MATCHER: r"https://osu.ppy.sh/scores/(osu|taiko|mania|fruits)/(\d+)";
+
+    APPROVED_SKIN_SITE: r"^https://(?:www\.)?(?:drive\.google\.com|dropbox\.com|mega\.nz|mediafire\.com)/.*$";
 }
 
 pub static QUERY_SYNTAX_REGEX: Regex =

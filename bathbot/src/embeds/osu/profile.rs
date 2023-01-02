@@ -40,11 +40,7 @@ impl ProfileEmbed {
     }
 
     async fn compact(ctx: &Context, data: &mut ProfileData) -> Self {
-        let bonus_pp = match data.bonus_pp(ctx).await {
-            Some(pp) => format!("{pp:.2}pp"),
-            None => "-".to_string(),
-        };
-
+        let skin_url = data.skin_url(ctx).await;
         let ProfileData { user, .. } = data;
 
         let (level, playtime, playcount, acc) = user.peek_stats(|stats| {
@@ -77,11 +73,15 @@ impl ProfileEmbed {
 
         let mut description = format!(
             "Accuracy: `{acc:.2}%` • Level: `{level:.2}`\n\
-            Playcount: `{playcount}` (`{playtime} hrs`) • {mode}\n\
-            Bonus PP: `{bonus_pp}` • Medals: `{medals}`",
+            Playcount: `{playcount}` (`{playtime} hrs`)\n\
+            {mode} • Medals: `{medals}`",
             playcount = WithComma::new(playcount),
             mode = Emote::from(mode).text(),
         );
+
+        if let Some(skin_url) = skin_url {
+            let _ = write!(description, " • [**Link to skin**]({skin_url})");
+        }
 
         if let Some(peak) = highest_rank {
             let _ = write!(

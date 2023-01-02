@@ -86,6 +86,34 @@ impl<'d> UserConfigManager<'d> {
             .wrap_err("failed to get user score size from DB")
     }
 
+    pub async fn skin(self, user_id: Id<UserMarker>) -> Result<Option<String>> {
+        self.psql
+            .select_skin_url(user_id)
+            .await
+            .wrap_err("failed to get skin url")
+    }
+
+    pub async fn skin_from_osu_id(self, user_id: u32) -> Result<Option<String>> {
+        self.psql
+            .select_skin_url_by_osu_id(user_id)
+            .await
+            .wrap_err("failed to get skin url by user id")
+    }
+
+    pub async fn skin_from_osu_name(self, username: &str) -> Result<Option<String>> {
+        self.psql
+            .select_skin_url_by_osu_name(username)
+            .await
+            .wrap_err("failed to get skin url by username")
+    }
+
+    pub async fn update_skin(self, user_id: Id<UserMarker>, skin_url: Option<&str>) -> Result<()> {
+        self.psql
+            .update_skin_url(user_id, skin_url)
+            .await
+            .wrap_err("failed to update skin")
+    }
+
     pub async fn store(
         self,
         user_id: Id<UserMarker>,

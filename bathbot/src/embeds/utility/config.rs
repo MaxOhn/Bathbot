@@ -15,7 +15,12 @@ pub struct ConfigEmbed {
 }
 
 impl ConfigEmbed {
-    pub fn new(author: &User, config: UserConfig<OsuUsername>, twitch: Option<String>) -> Self {
+    pub fn new(
+        author: &User,
+        config: UserConfig<OsuUsername>,
+        twitch: Option<String>,
+        skin_url: Option<String>,
+    ) -> Self {
         let author_img = match author.avatar {
             Some(ref hash) if hash.is_animated() => format!(
                 "https://cdn.discordapp.com/avatars/{}/{hash}.gif",
@@ -44,14 +49,14 @@ impl ConfigEmbed {
             } else {
                 &"-" as &dyn Display
             },
-            if let Some(name) = twitch.as_ref() {
+            if let Some(ref name) = twitch {
                 name as &dyn Display
             } else {
                 &"-" as &dyn Display
-            }
+            },
         );
 
-        let fields = vec![
+        let mut fields = vec![
             EmbedField {
                 inline: true,
                 name: "Accounts".to_owned(),
@@ -97,6 +102,14 @@ impl ConfigEmbed {
                 ],
             ),
         ];
+
+        if let Some(skin_url) = skin_url {
+            fields.push(EmbedField {
+                inline: false,
+                name: "Skin".to_owned(),
+                value: skin_url,
+            });
+        }
 
         Self {
             author,
