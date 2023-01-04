@@ -121,7 +121,7 @@ impl CustomClient {
             ratelimiter(10), // OsuAvatar
             ratelimiter(10), // OsuBadge
             ratelimiter(2),  // OsuHiddenApi
-            ratelimiter(3),  // OsuMapFile
+            ratelimiter(2),  // OsuMapFile
             ratelimiter(10), // OsuMapsetCover
             ratelimiter(2),  // OsuStats
             ratelimiter(2),  // OsuTracker
