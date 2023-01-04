@@ -30,10 +30,12 @@ use crate::{
         bg::GameState as BgGameState,
         hl::{retry::RetryState, GameState as HlGameState},
     },
-    manager::OsuTrackingManager,
     pagination::Pagination,
     util::hasher::IntHasher,
 };
+
+#[cfg(feature = "osutracking")]
+use crate::manager::OsuTrackingManager;
 
 use super::{buckets::Buckets, cluster::build_cluster, BotStats, Cache};
 

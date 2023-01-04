@@ -272,12 +272,10 @@ pub(super) async fn score(
         .exec_with_user(user_args);
 
     #[cfg(feature = "twitch")]
-    let twitch_fut = ctx.twitch().id_from_osu(&user_id);
+    let (scores_res, twitch_res) = tokio::join!(scores_fut, ctx.twitch().id_from_osu(&user_id));
 
     #[cfg(not(feature = "twitch"))]
-    let twitch_fut = future::ready(Ok::<Option<u64>, Report>(None));
-
-    let (scores_res, twitch_res) = tokio::join!(scores_fut, twitch_fut);
+    let scores_res = scores_fut.await;
 
     let (user, mut scores) = match scores_res {
         Ok((user, scores)) if scores.is_empty() => {
@@ -308,6 +306,7 @@ pub(super) async fn score(
         }
     };
 
+    #[cfg(feature = "twitch")]
     let twitch_id = match twitch_res {
         Ok(id) => id,
         Err(err) => {

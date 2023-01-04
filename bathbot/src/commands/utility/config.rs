@@ -559,6 +559,7 @@ async fn convert_config(
 
 enum HandleResult {
     TwitchName(Option<String>),
+    #[allow(unused)]
     Done,
     Err(Report),
 }
