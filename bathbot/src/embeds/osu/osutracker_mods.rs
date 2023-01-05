@@ -1,15 +1,10 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
+use bathbot_model::OsuTrackerModsEntry;
+use bathbot_util::{numbers::WithComma, AuthorBuilder, FooterBuilder};
 
-use crate::{
-    custom_client::OsuTrackerModsEntry,
-    pagination::Pages,
-    util::{
-        builder::{AuthorBuilder, FooterBuilder},
-        numbers::WithComma,
-    },
-};
+use crate::pagination::Pages;
 
 #[derive(EmbedData)]
 pub struct OsuTrackerModsEmbed {

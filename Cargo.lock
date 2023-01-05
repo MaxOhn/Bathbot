@@ -73,12 +73,58 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
+name = "bathbot-client"
+version = "0.1.0"
+dependencies = [
+ "bathbot-model",
+ "bathbot-util",
+ "bytes",
+ "eyre",
+ "http",
+ "hyper",
+ "hyper-rustls",
+ "leaky-bucket-lite",
+ "rand",
+ "rkyv",
+ "rosu-v2",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "time",
+ "tokio",
+ "tracing",
+ "twilight-interactions",
+ "twilight-model",
+]
+
+[[package]]
 name = "bathbot-macros"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "bathbot-model"
+version = "0.1.0"
+dependencies = [
+ "bathbot-psql",
+ "bathbot-util",
+ "bitflags",
+ "eyre",
+ "http",
+ "leaky-bucket-lite",
+ "once_cell",
+ "rkyv",
+ "rosu-v2",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "time",
+ "twilight-interactions",
+ "twilight-model",
 ]
 
 [[package]]
@@ -107,8 +153,11 @@ dependencies = [
 name = "bathbot-twilight"
 version = "2.4.10"
 dependencies = [
+ "bathbot-client",
  "bathbot-macros",
+ "bathbot-model",
  "bathbot-psql",
+ "bathbot-util",
  "bb8-redis",
  "bitflags",
  "bytes",
@@ -134,7 +183,6 @@ dependencies = [
  "prometheus",
  "radix_trie",
  "rand",
- "regex",
  "rkyv",
  "rosu-pp",
  "rosu-pp-older",
@@ -158,6 +206,18 @@ dependencies = [
  "twilight-model",
  "twilight-standby",
  "twilight-validate",
+]
+
+[[package]]
+name = "bathbot-util"
+version = "0.1.0"
+dependencies = [
+ "eyre",
+ "once_cell",
+ "regex",
+ "rosu-v2",
+ "time",
+ "twilight-model",
 ]
 
 [[package]]

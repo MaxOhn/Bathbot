@@ -1,16 +1,12 @@
 use std::{borrow::Cow, mem};
 
+use bathbot_model::{OsuStatsScore, ScoreSlim, ScraperScore};
 use bathbot_psql::Database;
 use eyre::Result;
 use rosu_pp::{
     Beatmap, BeatmapExt, DifficultyAttributes, GameMode as Mode, PerformanceAttributes, ScoreState,
 };
 use rosu_v2::prelude::{GameMode, GameMods, Grade, Score};
-
-use crate::{
-    custom_client::{OsuStatsScore, ScraperScore},
-    util::osu::ScoreSlim,
-};
 
 use super::OsuMap;
 

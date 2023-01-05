@@ -1,9 +1,8 @@
 use std::borrow::Cow;
 
-use crate::{
-    core::commands::prefix::{PrefixCommand, PrefixCommands, Stream},
-    util::CowUtils,
-};
+use bathbot_util::CowUtils;
+
+use crate::core::commands::prefix::{PrefixCommand, PrefixCommands, Stream};
 
 pub enum Invoke {
     Command {

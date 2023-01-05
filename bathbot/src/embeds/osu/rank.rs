@@ -5,18 +5,14 @@ use std::{
 };
 
 use bathbot_macros::EmbedData;
+use bathbot_util::{
+    numbers::WithComma,
+    osu::{approx_more_pp, pp_missing, ExtractablePp, PpListUtil},
+    AuthorBuilder, CowUtils,
+};
 use rosu_v2::{model::score::Score, prelude::UserCompact};
 
-use crate::{
-    commands::osu::RankData,
-    manager::redis::RedisData,
-    util::{
-        builder::AuthorBuilder,
-        numbers::WithComma,
-        osu::{approx_more_pp, pp_missing, ExtractablePp, PpListUtil},
-        CowUtils,
-    },
-};
+use crate::{commands::osu::RankData, manager::redis::RedisData};
 
 #[derive(EmbedData)]
 pub struct RankEmbed {

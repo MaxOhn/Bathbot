@@ -1,16 +1,16 @@
 use std::collections::HashMap;
 
 use bathbot_macros::pagination;
+use bathbot_model::ScraperScore;
+use bathbot_util::IntHasher;
 use rosu_pp::DifficultyAttributes;
 use rosu_v2::prelude::Username;
 use twilight_model::channel::embed::Embed;
 
 use crate::{
     core::Context,
-    custom_client::ScraperScore,
     embeds::{EmbedData, LeaderboardEmbed},
     manager::OsuMap,
-    util::hasher::IntHasher,
 };
 
 use super::Pages;

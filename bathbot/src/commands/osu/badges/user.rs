@@ -1,5 +1,9 @@
 use std::{collections::BTreeMap, sync::Arc};
 
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
+    MessageBuilder,
+};
 use eyre::{Report, Result};
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::{prelude::OsuError, request::UserId};
@@ -9,11 +13,7 @@ use crate::{
     core::{commands::CommandOrigin, Context},
     manager::redis::{osu::UserArgs, RedisData},
     pagination::BadgePagination,
-    util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
-        get_combined_thumbnail,
-    },
+    util::osu::get_combined_thumbnail,
 };
 
 use super::BadgesUser;

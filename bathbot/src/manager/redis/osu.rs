@@ -1,5 +1,9 @@
 use std::borrow::Cow;
 
+use bathbot_model::rkyv_impls::{CountryCodeWrapper, DateTimeWrapper, UsernameWrapper};
+use bathbot_util::{
+    constants::OSU_BASE, numbers::WithComma, osu::flag_url, AuthorBuilder, CowUtils,
+};
 use bb8_redis::redis::AsyncCommands;
 use eyre::Report;
 use rkyv::{
@@ -15,18 +19,7 @@ use rosu_v2::{
 };
 use time::OffsetDateTime;
 
-use crate::{
-    core::Context,
-    custom_client::UsernameWrapper,
-    util::{
-        builder::AuthorBuilder,
-        constants::OSU_BASE,
-        numbers::WithComma,
-        osu::flag_url,
-        rkyv_impls::{CountryCodeWrapper, DateTimeWrapper},
-        CowUtils,
-    },
-};
+use crate::core::Context;
 
 use super::{RedisData, RedisManager, RedisResult};
 

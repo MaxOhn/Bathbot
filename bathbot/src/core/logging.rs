@@ -1,5 +1,6 @@
 use std::fmt::Result as FmtResult;
 
+use bathbot_util::datetime::NAIVE_DATETIME_FORMAT;
 use time::format_description::FormatItem;
 use tracing::{Event, Subscriber};
 use tracing_appender::{
@@ -17,8 +18,6 @@ use tracing_subscriber::{
     util::SubscriberInitExt,
     EnvFilter, Layer as _,
 };
-
-use crate::util::datetime::NAIVE_DATETIME_FORMAT;
 
 pub fn init() -> WorkerGuard {
     let stdout_filter: EnvFilter = "bathbot=debug,sqlx=warn,info".parse().unwrap();

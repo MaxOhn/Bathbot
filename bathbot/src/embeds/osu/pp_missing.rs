@@ -1,17 +1,16 @@
 use std::{cmp::Ordering, iter};
 
+use bathbot_util::{
+    numbers::WithComma,
+    osu::{approx_more_pp, pp_missing, ExtractablePp, PpListUtil},
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder,
+};
 use rosu_v2::prelude::Score;
 use twilight_model::channel::embed::Embed;
 
 use crate::{
     embeds::EmbedData,
     manager::redis::{osu::User, RedisData},
-    util::{
-        builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
-        numbers::WithComma,
-        osu::{approx_more_pp, pp_missing, ExtractablePp, PpListUtil},
-        CowUtils,
-    },
 };
 
 pub struct PpMissingEmbed {

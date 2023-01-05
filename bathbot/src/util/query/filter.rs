@@ -1,6 +1,6 @@
 use std::{borrow::Cow, cmp::Ordering, fmt};
 
-use crate::util::{matcher::QUERY_SYNTAX_REGEX, CowUtils};
+use bathbot_util::{matcher::QUERY_SYNTAX_REGEX, CowUtils};
 
 #[derive(Debug, Default)]
 pub struct FilterCriteria<'q> {

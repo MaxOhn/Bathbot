@@ -1,6 +1,13 @@
 use std::{borrow::Cow, cmp::Ordering, fmt::Write};
 
 use bathbot_psql::model::configs::MinimizedPp;
+use bathbot_util::{
+    constants::{AVATAR_URL, OSU_BASE},
+    datetime::HowLongAgoDynamic,
+    matcher::highlight_funny_numeral,
+    numbers::{round, WithComma},
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder,
+};
 use osu::PpFormatter;
 use rosu_v2::prelude::{BeatmapUserScore, GameMode, RankStatus, Score};
 use time::OffsetDateTime;
@@ -11,15 +18,7 @@ use crate::{
     core::Context,
     embeds::osu,
     manager::redis::{osu::User, RedisData},
-    util::{
-        builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
-        constants::{AVATAR_URL, OSU_BASE},
-        datetime::HowLongAgoDynamic,
-        matcher::highlight_funny_numeral,
-        numbers::{round, WithComma},
-        osu::{grade_completion_mods, IfFc},
-        CowUtils,
-    },
+    util::osu::{grade_completion_mods, IfFc},
 };
 
 #[cfg(feature = "twitch")]

@@ -1,12 +1,13 @@
 use std::{sync::Arc, time::Instant};
 
 use bathbot_macros::{command, SlashCommand};
+use bathbot_util::MessageBuilder;
 use eyre::Result;
 use twilight_interactions::command::CreateCommand;
 
 use crate::{
     core::{commands::CommandOrigin, Context},
-    util::{builder::MessageBuilder, interaction::InteractionCommand, MessageExt},
+    util::{interaction::InteractionCommand, MessageExt},
 };
 
 #[derive(CreateCommand, SlashCommand)]

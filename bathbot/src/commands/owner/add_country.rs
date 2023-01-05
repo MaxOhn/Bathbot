@@ -1,12 +1,10 @@
 use std::sync::Arc;
 
+use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder};
 use eyre::Result;
 
 use crate::{
-    util::{
-        builder::MessageBuilder, constants::GENERAL_ISSUE, interaction::InteractionCommand,
-        InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
 

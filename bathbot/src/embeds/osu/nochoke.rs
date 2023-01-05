@@ -1,18 +1,15 @@
 use std::{borrow::Cow, fmt::Write};
 
 use bathbot_macros::EmbedData;
+use bathbot_util::{
+    constants::OSU_BASE, numbers::WithComma, AuthorBuilder, CowUtils, FooterBuilder,
+};
 
 use crate::{
     commands::osu::NochokeEntry,
     manager::redis::{osu::User, RedisData},
     pagination::Pages,
-    util::{
-        builder::{AuthorBuilder, FooterBuilder},
-        constants::OSU_BASE,
-        numbers::WithComma,
-        osu::grade_emote,
-        CowUtils,
-    },
+    util::osu::grade_emote,
 };
 
 use super::ModsFormatter;

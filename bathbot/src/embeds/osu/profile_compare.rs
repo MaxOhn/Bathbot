@@ -5,6 +5,11 @@ use std::{
 };
 
 use bathbot_macros::EmbedData;
+use bathbot_model::rkyv_impls::DateTimeWrapper;
+use bathbot_util::{
+    datetime::{SecToMinSec, DATE_FORMAT},
+    numbers::WithComma,
+};
 use rkyv::{with::DeserializeWith, Deserialize, Infallible};
 use rosu_v2::prelude::{GameMode, UserStatistics};
 use time::OffsetDateTime;
@@ -13,11 +18,6 @@ use crate::{
     commands::osu::CompareResult,
     embeds::attachment,
     manager::redis::{osu::User, RedisData},
-    util::{
-        datetime::{SecToMinSec, DATE_FORMAT},
-        numbers::WithComma,
-        rkyv_impls::DateTimeWrapper,
-    },
 };
 
 #[derive(EmbedData)]

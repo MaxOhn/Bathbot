@@ -1,14 +1,12 @@
 use std::sync::Arc;
 
+use bathbot_model::{CountryCode, MedalCount};
+use bathbot_util::constants::OSEKAI_ISSUE;
 use eyre::Result;
 
 use crate::{
-    custom_client::MedalCount,
     pagination::MedalCountPagination,
-    util::{
-        constants::OSEKAI_ISSUE, interaction::InteractionCommand, Authored, CountryCode,
-        InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
 };
 

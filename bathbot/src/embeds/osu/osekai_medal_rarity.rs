@@ -1,12 +1,10 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
+use bathbot_model::OsekaiRarityEntry;
+use bathbot_util::{numbers::round, CowUtils, FooterBuilder};
 
-use crate::{
-    custom_client::OsekaiRarityEntry,
-    pagination::Pages,
-    util::{builder::FooterBuilder, numbers::round, CowUtils},
-};
+use crate::pagination::Pages;
 
 #[derive(EmbedData)]
 pub struct MedalRarityEmbed {

@@ -1,6 +1,11 @@
 use std::{borrow::Cow, cmp::Ordering, fmt::Write, iter, sync::Arc, time::Duration};
 
 use bathbot_macros::{command, HasMods, SlashCommand};
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    matcher,
+    osu::MapIdType,
+};
 use enterpolation::{linear::Linear, Curve};
 use eyre::{Report, Result, WrapErr};
 use image::{
@@ -20,11 +25,8 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     pagination::MapPagination,
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        interaction::InteractionCommand,
-        matcher,
-        osu::{prepare_beatmap_file, MapIdType},
-        ChannelExt, InteractionCommandExt,
+        interaction::InteractionCommand, osu::prepare_beatmap_file, ChannelExt,
+        InteractionCommandExt,
     },
     Context,
 };

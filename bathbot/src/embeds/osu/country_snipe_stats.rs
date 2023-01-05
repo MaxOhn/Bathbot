@@ -1,16 +1,13 @@
 use bathbot_macros::EmbedData;
+use bathbot_model::{CountryCode, SnipeCountryStatistics};
+use bathbot_util::{
+    numbers::{round, WithComma},
+    osu::flag_url,
+    CowUtils, FooterBuilder,
+};
 use twilight_model::channel::embed::EmbedField;
 
-use crate::{
-    custom_client::SnipeCountryStatistics,
-    embeds::attachment,
-    util::{
-        builder::FooterBuilder,
-        numbers::{round, WithComma},
-        osu::flag_url,
-        CountryCode, CowUtils,
-    },
-};
+use crate::embeds::attachment;
 
 #[derive(EmbedData)]
 pub struct CountrySnipeStatsEmbed {

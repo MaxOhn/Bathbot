@@ -1,9 +1,11 @@
 use std::{borrow::Cow, collections::HashMap, fmt::Debug, ops::Deref};
 
+use bathbot_client::ClientError;
 use bathbot_psql::{
     model::osu::{ArtistTitle, DbBeatmap, DbBeatmapset, DbMapPath},
     Database,
 };
+use bathbot_util::{ExponentialBackoff, IntHasher};
 use eyre::{ContextCompat, Report, WrapErr};
 use futures::{stream::FuturesUnordered, TryStreamExt};
 use rosu_pp::{Beatmap, GameMode as Mode, ParseError};
@@ -14,12 +16,7 @@ use tokio::{fs, time::sleep};
 
 use crate::{
     core::{BotConfig, Context},
-    custom_client::ClientError,
-    util::{
-        hasher::IntHasher,
-        query::{FilterCriteria, Searchable},
-        ExponentialBackoff,
-    },
+    util::query::{FilterCriteria, Searchable},
 };
 
 type Result<T> = eyre::Result<T, MapError>;

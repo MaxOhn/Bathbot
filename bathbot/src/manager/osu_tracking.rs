@@ -4,10 +4,9 @@ use bathbot_psql::{
     model::osu::{TrackedOsuUserKey, TrackedOsuUserValue},
     Database,
 };
+use bathbot_util::IntHasher;
 use eyre::{Result, WrapErr};
 use twilight_model::id::{marker::ChannelMarker, Id};
-
-use crate::util::hasher::IntHasher;
 
 #[derive(Copy, Clone)]
 pub struct OsuTrackingManager<'d> {

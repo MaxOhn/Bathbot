@@ -1,6 +1,13 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use bathbot_macros::SlashCommand;
+use bathbot_util::{
+    constants::{BATHBOT_GITHUB, BATHBOT_ROADMAP, BATHBOT_WORKSHOP, INVITE_LINK, KOFI},
+    datetime::HowLongAgoDynamic,
+    numbers::WithComma,
+    string_cmp::levenshtein_distance,
+    CowUtils, EmbedBuilder, FooterBuilder, MessageBuilder,
+};
 use eyre::Result;
 use prometheus::core::Collector;
 use twilight_interactions::command::{
@@ -13,15 +20,7 @@ use crate::{
         commands::slash::{SlashCommand, SlashCommands},
         Context,
     },
-    util::{
-        builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
-        constants::{BATHBOT_GITHUB, BATHBOT_ROADMAP, BATHBOT_WORKSHOP, INVITE_LINK, KOFI},
-        datetime::HowLongAgoDynamic,
-        interaction::InteractionCommand,
-        levenshtein_distance,
-        numbers::WithComma,
-        CowUtils, InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 
 use super::{failed_message_content, option_fields, parse_select_menu, AUTHORITY_STATUS};

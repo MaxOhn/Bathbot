@@ -6,21 +6,22 @@ use std::{
 };
 
 use bathbot_macros::command;
+use bathbot_model::SnipeScoreParams;
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
+    matcher,
+    osu::ModSelection,
+    CowUtils,
+};
 use eyre::{Report, Result};
 use rosu_v2::{prelude::OsuError, request::UserId};
 
 use crate::{
     commands::osu::{require_link, HasMods, ModsResult},
     core::commands::{prefix::Args, CommandOrigin},
-    custom_client::SnipeScoreParams,
     manager::redis::{osu::UserArgs, RedisData},
     pagination::PlayerSnipeListPagination,
-    util::{
-        constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
-        matcher,
-        osu::ModSelection,
-        ChannelExt, CowUtils,
-    },
+    util::ChannelExt,
     Context,
 };
 

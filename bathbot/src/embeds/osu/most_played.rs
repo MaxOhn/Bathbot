@@ -1,16 +1,12 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
+use bathbot_util::{constants::OSU_BASE, AuthorBuilder, CowUtils, FooterBuilder};
 use rosu_v2::prelude::MostPlayedMap;
 
 use crate::{
     manager::redis::{osu::User, RedisData},
     pagination::Pages,
-    util::{
-        builder::{AuthorBuilder, FooterBuilder},
-        constants::OSU_BASE,
-        CowUtils,
-    },
 };
 
 #[derive(EmbedData)]

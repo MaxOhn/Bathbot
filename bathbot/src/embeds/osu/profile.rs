@@ -1,5 +1,11 @@
 use std::{borrow::Cow, fmt::Write};
 
+use bathbot_model::rkyv_impls::DateTimeWrapper;
+use bathbot_util::{
+    datetime::{HowLongAgoText, SecToMinSec, NAIVE_DATETIME_FORMAT},
+    numbers::WithComma,
+    AuthorBuilder, EmbedBuilder, FooterBuilder,
+};
 use rkyv::{with::DeserializeWith, Deserialize, Infallible};
 use rosu_v2::prelude::{GameMods, Grade, UserHighestRank, UserStatistics};
 use twilight_model::channel::embed::{Embed, EmbedField};
@@ -9,14 +15,7 @@ use crate::{
     core::Context,
     embeds::EmbedData,
     manager::redis::{osu::User, RedisData},
-    util::{
-        builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
-        datetime::{HowLongAgoText, SecToMinSec, NAIVE_DATETIME_FORMAT},
-        numbers::WithComma,
-        osu::grade_emote,
-        rkyv_impls::DateTimeWrapper,
-        Emote,
-    },
+    util::{osu::grade_emote, Emote},
 };
 
 pub struct ProfileEmbed {

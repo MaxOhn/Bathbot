@@ -7,8 +7,6 @@ use serde::{
 };
 use time::{Date, OffsetDateTime, PrimitiveDateTime};
 
-use crate::util::datetime::{DATETIME_FORMAT, DATE_FORMAT, NAIVE_DATETIME_FORMAT};
-
 pub(super) mod option_f32_string {
     use super::{f32_string::F32String, *};
 
@@ -202,6 +200,9 @@ pub(super) mod adjust_acc {
 }
 
 pub(super) mod naive_datetime {
+
+    use bathbot_util::datetime::NAIVE_DATETIME_FORMAT;
+
     use super::*;
 
     pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<OffsetDateTime, D::Error> {
@@ -262,9 +263,8 @@ pub(super) mod option_naive_datetime {
 }
 
 pub(super) mod datetime {
+    use bathbot_util::datetime::{DATETIME_FORMAT, OFFSET_FORMAT};
     use time::UtcOffset;
-
-    use crate::util::datetime::OFFSET_FORMAT;
 
     use super::*;
 
@@ -306,6 +306,8 @@ pub(super) mod datetime {
 }
 
 pub(super) mod date {
+    use bathbot_util::datetime::DATE_FORMAT;
+
     use super::*;
 
     pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Date, D::Error> {

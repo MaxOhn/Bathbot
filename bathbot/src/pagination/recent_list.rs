@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use bathbot_macros::pagination;
+use bathbot_util::IntHasher;
 use eyre::{Result, WrapErr};
 use rosu_pp::DifficultyAttributes;
 use rosu_v2::prelude::Score;
@@ -12,7 +13,6 @@ use crate::{
         redis::{osu::User, RedisData},
         OsuMap,
     },
-    util::hasher::IntHasher,
     Context,
 };
 

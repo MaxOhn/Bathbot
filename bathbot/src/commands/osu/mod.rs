@@ -12,7 +12,7 @@ macro_rules! user_id {
                     return $orig.error(&$ctx, content).await;
                 }
                 crate::commands::osu::UserIdFutureResult::Err(err) => {
-                    let content = crate::util::constants::GENERAL_ISSUE;
+                    let content = bathbot_util::constants::GENERAL_ISSUE;
                     let _ = $orig.error(&$ctx, content).await;
 
                     return Err(err);
@@ -67,12 +67,13 @@ use std::{
     pin::Pin,
 };
 
+use bathbot_util::osu::ModSelection;
 use eyre::{Report, Result, WrapErr};
 use rosu_v2::request::UserId;
 use twilight_interactions::command::{CommandOption, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
-use crate::{core::commands::CommandOrigin, util::osu::ModSelection, Context};
+use crate::{core::commands::CommandOrigin, Context};
 
 pub use self::{
     attributes::*, avatar::*, badges::*, bws::*, cards::*, claim_name::*, compare::*,

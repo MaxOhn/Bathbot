@@ -1,6 +1,10 @@
 use std::{cmp::Reverse, fmt::Write, sync::Arc};
 
 use bathbot_macros::command;
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    matcher, MessageBuilder,
+};
 use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rosu_v2::{
@@ -17,11 +21,6 @@ use crate::{
         RedisData,
     },
     pagination::MostPlayedCommonPagination,
-    util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        matcher,
-    },
     Context,
 };
 

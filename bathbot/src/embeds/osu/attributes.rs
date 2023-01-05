@@ -1,11 +1,10 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
+use bathbot_util::{numbers::round, osu::AttributeKind};
 use rosu_pp::beatmap::BeatmapAttributesBuilder;
 use rosu_v2::prelude::GameMods;
 use twilight_model::channel::embed::EmbedField;
-
-use crate::util::{numbers::round, osu::AttributeKind};
 
 #[derive(EmbedData)]
 pub struct AttributesEmbed {

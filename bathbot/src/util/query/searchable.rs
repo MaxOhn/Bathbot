@@ -1,14 +1,14 @@
 use std::borrow::Cow;
 
+use bathbot_model::{OsuTrackerCountryScore, ScoreSlim};
 use bathbot_psql::model::osu::{DbBeatmap, DbBeatmapset};
+use bathbot_util::CowUtils;
 use rosu_pp::{beatmap::BeatmapAttributesBuilder, Beatmap as Map, GameMode as Mode, Mods};
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods, Score};
 
 use crate::{
     commands::osu::{TopEntry, TopIfEntry},
-    custom_client::OsuTrackerCountryScore,
     manager::OsuMap,
-    util::{osu::ScoreSlim, CowUtils},
 };
 
 use super::FilterCriteria;

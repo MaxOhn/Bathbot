@@ -79,10 +79,10 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
                 };
 
                 if let Ok(mods) = mods.parse() {
-                    return #result ::Mods(crate::util::osu::ModSelection::Exact(mods));
+                    return #result ::Mods(bathbot_util::osu::ModSelection::Exact(mods));
                 }
 
-                match crate::util::matcher::get_mods(mods) {
+                match bathbot_util::matcher::get_mods(mods) {
                     Some(mods) => #result ::Mods(mods),
                     None => #result ::Invalid
                 }

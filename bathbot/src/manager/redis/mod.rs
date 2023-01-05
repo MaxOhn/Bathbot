@@ -1,17 +1,14 @@
 use std::fmt::Write;
 
+use bathbot_model::{
+    OsekaiBadge, OsekaiMedal, OsekaiRanking, OsuTrackerIdCount, OsuTrackerPpGroup, OsuTrackerStats,
+};
 use bb8_redis::redis::AsyncCommands;
 use eyre::{Report, Result};
 use rkyv::{ser::serializers::AllocSerializer, Serialize};
 use rosu_v2::prelude::{GameMode, OsuError, Rankings};
 
-use crate::{
-    core::{Context, Redis},
-    custom_client::{
-        OsekaiBadge, OsekaiMedal, OsekaiRanking, OsuTrackerIdCount, OsuTrackerPpGroup,
-        OsuTrackerStats,
-    },
-};
+use crate::core::{Context, Redis};
 
 pub use self::data::{ArchivedBytes, RedisData};
 

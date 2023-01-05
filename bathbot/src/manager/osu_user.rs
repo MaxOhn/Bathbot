@@ -1,13 +1,13 @@
 use std::{borrow::Cow, collections::HashMap};
 
+use bathbot_model::RankingEntries;
 use bathbot_psql::{
     model::osu::{UserModeStatsColumn, UserStatsColumn},
     Database,
 };
+use bathbot_util::IntHasher;
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::{GameMode, User, Username};
-
-use crate::{embeds::RankingEntries, util::hasher::IntHasher};
 
 #[derive(Copy, Clone)]
 pub struct OsuUserManager<'d> {

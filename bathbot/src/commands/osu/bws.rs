@@ -1,6 +1,10 @@
 use std::{borrow::Cow, mem, sync::Arc};
 
 use bathbot_macros::{command, HasName, SlashCommand};
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    matcher, MessageBuilder,
+};
 use eyre::{Report, Result};
 use rosu_v2::{prelude::OsuError, request::UserId};
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -10,12 +14,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{BWSEmbed, EmbedData},
     manager::redis::{osu::UserArgs, RedisData},
-    util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        interaction::InteractionCommand,
-        matcher, ChannelExt, InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
 

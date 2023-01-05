@@ -1,5 +1,9 @@
 use std::{cmp::Ordering, fmt::Display};
 
+use bathbot_util::{
+    constants::OSU_BASE,
+    numbers::{round, WithComma},
+};
 use eyre::{Report, Result, WrapErr};
 use image::{GenericImageView, ImageBuffer};
 use rand::Rng;
@@ -15,12 +19,7 @@ use crate::{
     embeds::ModsFormatter,
     games::hl::mapset_cover,
     manager::{redis::RedisData, OsuMapSlim},
-    util::{
-        constants::OSU_BASE,
-        numbers::{round, WithComma},
-        osu::grade_emote,
-        Emote,
-    },
+    util::{osu::grade_emote, Emote},
 };
 
 use super::{kind::GameStateKind, H, W};

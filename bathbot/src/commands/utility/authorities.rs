@@ -2,6 +2,7 @@ use std::{fmt::Write, sync::Arc};
 
 use bathbot_macros::command;
 use bathbot_psql::model::configs::{Authorities, GuildConfig};
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, MessageBuilder};
 use eyre::{Report, Result};
 use twilight_model::{
     guild::Permissions,
@@ -13,7 +14,7 @@ use crate::{
         commands::{prefix::Args, CommandOrigin},
         BotConfig, Context,
     },
-    util::{builder::MessageBuilder, constants::GENERAL_ISSUE, matcher, ChannelExt},
+    util::ChannelExt,
 };
 
 #[command]

@@ -1,35 +1,18 @@
-#![allow(non_upper_case_globals)]
-
+use bathbot_model::{Effects, MapsetTags};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::commands::fun::GameDifficulty;
 
-pub use self::{
-    game_wrapper::GameWrapper,
-    mapset::GameMapset,
-    tags::{MapsetTags, MapsetTagsEntries},
-};
+pub use self::{game_wrapper::GameWrapper, mapset::GameMapset};
 
 mod game;
 mod game_wrapper;
 mod hints;
 mod img_reveal;
 mod mapset;
-mod tags;
 mod util;
 
 pub mod components;
-
-bitflags::bitflags! {
-    pub struct Effects: u8 {
-        const Blur           = 1 << 0;
-        const Contrast       = 1 << 1;
-        const FlipHorizontal = 1 << 2;
-        const FlipVertical   = 1 << 3;
-        const Grayscale      = 1 << 4;
-        const Invert         = 1 << 5;
-    }
-}
 
 #[derive(Clone)]
 pub enum GameState {

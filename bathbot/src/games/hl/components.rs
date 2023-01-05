@@ -1,5 +1,9 @@
 use std::{fmt::Write, mem, sync::Arc};
 
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, RED},
+    EmbedBuilder, FooterBuilder, MessageBuilder,
+};
 use eyre::{ContextCompat, Result, WrapErr};
 use tokio::sync::oneshot;
 use twilight_model::channel::embed::EmbedField;
@@ -7,12 +11,7 @@ use twilight_model::channel::embed::EmbedField;
 use crate::{
     core::Context,
     games::hl::GameState,
-    util::{
-        builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
-        constants::{GENERAL_ISSUE, RED},
-        interaction::InteractionComponent,
-        Authored, ComponentExt,
-    },
+    util::{interaction::InteractionComponent, Authored, ComponentExt},
 };
 
 use super::{

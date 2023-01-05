@@ -1,5 +1,6 @@
 use std::{borrow::Cow, mem, slice};
 
+use bathbot_util::{constants::RED, EmbedBuilder, MessageBuilder};
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
 use twilight_interactions::command::CommandInputData;
 use twilight_model::{
@@ -8,14 +9,7 @@ use twilight_model::{
     http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
 };
 
-use crate::{
-    core::Context,
-    util::{
-        builder::{EmbedBuilder, MessageBuilder},
-        constants::RED,
-        interaction::InteractionCommand,
-    },
-};
+use crate::{core::Context, util::interaction::InteractionCommand};
 
 pub trait InteractionCommandExt {
     /// Extract input data containing options and resolved values

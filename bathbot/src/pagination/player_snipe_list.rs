@@ -4,17 +4,17 @@ use std::{
 };
 
 use bathbot_macros::pagination;
+use bathbot_model::{SnipeScore, SnipeScoreParams};
+use bathbot_util::IntHasher;
 use eyre::{Report, Result, WrapErr};
 use twilight_model::channel::embed::Embed;
 
 use crate::{
-    custom_client::{SnipeScore, SnipeScoreParams},
     embeds::{EmbedData, PlayerSnipeListEmbed},
     manager::{
         redis::{osu::User, RedisData},
         OsuMap,
     },
-    util::hasher::IntHasher,
     Context,
 };
 

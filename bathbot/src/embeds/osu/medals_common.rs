@@ -1,14 +1,10 @@
 use std::{borrow::Cow, fmt::Write};
 
 use bathbot_macros::EmbedData;
+use bathbot_util::{CowUtils, FooterBuilder};
 use rosu_v2::prelude::Username;
 
-use crate::{
-    commands::osu::MedalEntryCommon,
-    embeds::attachment,
-    pagination::Pages,
-    util::{builder::FooterBuilder, CowUtils},
-};
+use crate::{commands::osu::MedalEntryCommon, embeds::attachment, pagination::Pages};
 
 pub struct MedalsCommonUser {
     name: Username,

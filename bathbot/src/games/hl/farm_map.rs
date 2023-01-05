@@ -1,14 +1,13 @@
 use std::f32::consts::SQRT_2;
 
+use bathbot_model::OsuTrackerIdCount;
+use bathbot_util::constants::OSU_BASE;
 use eyre::{Report, Result, WrapErr};
 use image::{GenericImageView, ImageBuffer};
 use rand::{prelude::SliceRandom, Rng};
 use time::OffsetDateTime;
 
-use crate::{
-    core::Context, custom_client::OsuTrackerIdCount, manager::redis::RedisData,
-    util::constants::OSU_BASE,
-};
+use crate::{core::Context, manager::redis::RedisData};
 
 use super::{kind::GameStateKind, mapset_cover, H, W};
 

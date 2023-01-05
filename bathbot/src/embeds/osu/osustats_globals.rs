@@ -1,19 +1,18 @@
 use std::{collections::BTreeMap, fmt::Write};
 
 use bathbot_macros::EmbedData;
+use bathbot_util::{
+    constants::OSU_BASE,
+    datetime::HowLongAgoDynamic,
+    numbers::{round, WithComma},
+    AuthorBuilder, CowUtils, FooterBuilder,
+};
 
 use crate::{
     commands::osu::OsuStatsEntry,
     manager::redis::{osu::User, RedisData},
     pagination::Pages,
-    util::{
-        builder::{AuthorBuilder, FooterBuilder},
-        constants::OSU_BASE,
-        datetime::HowLongAgoDynamic,
-        numbers::{round, WithComma},
-        osu::grade_emote,
-        CowUtils,
-    },
+    util::osu::grade_emote,
 };
 
 use super::{ComboFormatter, HitResultFormatter, ModsFormatter, PpFormatter};

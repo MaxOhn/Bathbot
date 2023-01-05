@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use bathbot_macros::{command, SlashCommand};
+use bathbot_util::constants::OSU_API_ISSUE;
 use eyre::{Report, Result};
 use rosu_v2::prelude::{
     Beatmapset, BeatmapsetSearchResult, BeatmapsetSearchSort, Genre, Language, Osu, OsuResult,
@@ -12,10 +13,7 @@ use crate::{
     commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
     pagination::MapSearchPagination,
-    util::{
-        constants::OSU_API_ISSUE, interaction::InteractionCommand, ChannelExt,
-        InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
 

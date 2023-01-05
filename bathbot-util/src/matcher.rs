@@ -7,7 +7,7 @@ use twilight_model::id::{
     Id,
 };
 
-use super::{constants::OSU_BASE, osu::ModSelection};
+use super::osu::ModSelection;
 
 pub fn is_approved_skin_site(url: &str) -> bool {
     APPROVED_SKIN_SITE.get().is_match(url)
@@ -64,10 +64,6 @@ pub fn get_osu_map_id(msg: &str) -> Option<u32> {
         return Some(id);
     }
 
-    if !msg.contains(OSU_BASE) {
-        return None;
-    }
-
     let matcher = if let Some(c) = OSU_URL_MAP_OLD_MATCHER.get().captures(msg) {
         c.get(1)
     } else {
@@ -83,10 +79,6 @@ pub fn get_osu_map_id(msg: &str) -> Option<u32> {
 pub fn get_osu_mapset_id(msg: &str) -> Option<u32> {
     if let Ok(id) = msg.parse() {
         return Some(id);
-    }
-
-    if !msg.contains(OSU_BASE) {
-        return None;
     }
 
     OSU_URL_MAPSET_OLD_MATCHER

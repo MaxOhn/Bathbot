@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use bathbot_macros::{command, SlashCommand};
 use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, ScoreSize};
+use bathbot_util::constants::GENERAL_ISSUE;
 use eyre::{Report, Result};
 use twilight_cache_inmemory::model::CachedGuild;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -16,7 +17,7 @@ use twilight_model::{
 use crate::{
     commands::{EnableDisable, ShowHideOption},
     embeds::{EmbedData, ServerConfigEmbed},
-    util::{constants::GENERAL_ISSUE, interaction::InteractionCommand, InteractionCommandExt},
+    util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
 

@@ -1,9 +1,8 @@
 use std::collections::VecDeque;
 
+use bathbot_model::MapsetTagsEntries;
 use bathbot_psql::model::games::DbMapTagEntry;
 use rand::Rng;
-
-use super::tags::MapsetTagsEntries;
 
 #[allow(clippy::needless_lifetimes)]
 pub fn get_random_mapset<'m>(

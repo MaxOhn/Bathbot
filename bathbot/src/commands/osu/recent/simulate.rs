@@ -1,7 +1,12 @@
 use std::{fmt::Write, sync::Arc};
 
 use bathbot_macros::command;
+use bathbot_model::ScoreSlim;
 use bathbot_psql::model::configs::ScoreSize;
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    matcher, CowUtils, MessageBuilder,
+};
 use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{GameMode, GameMods, Grade, OsuError},
@@ -17,13 +22,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{SimulateArgs, SimulateEmbed},
     manager::redis::osu::{UserArgs, UserArgsSlim},
-    util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        matcher,
-        osu::{IfFc, ScoreSlim},
-        ChannelExt, CowUtils, MessageExt,
-    },
+    util::{osu::IfFc, ChannelExt, MessageExt},
     Context,
 };
 

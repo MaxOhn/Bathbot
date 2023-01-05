@@ -4,24 +4,22 @@ use std::{
 };
 
 use bathbot_macros::EmbedData;
+use bathbot_model::SnipeScore;
+use bathbot_util::{
+    constants::OSU_BASE,
+    datetime::HowLongAgoDynamic,
+    numbers::{round, WithComma},
+    AuthorBuilder, CowUtils, FooterBuilder, IntHasher,
+};
 use eyre::Result;
 
 use crate::{
     core::Context,
-    custom_client::SnipeScore,
     manager::{
         redis::{osu::User, RedisData},
         OsuMap,
     },
     pagination::Pages,
-    util::{
-        builder::{AuthorBuilder, FooterBuilder},
-        constants::OSU_BASE,
-        datetime::HowLongAgoDynamic,
-        hasher::IntHasher,
-        numbers::{round, WithComma},
-        CowUtils,
-    },
 };
 
 use super::{ModsFormatter, PpFormatter};

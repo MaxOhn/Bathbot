@@ -1,19 +1,17 @@
 use std::{mem, ops::Deref, sync::Arc};
 
 use bathbot_macros::command;
+use bathbot_model::{CountryCode, RankingEntries, RankingEntry, RankingKind};
+use bathbot_util::constants::{GENERAL_ISSUE, OSU_API_ISSUE};
 use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, OsuResult, Rankings};
 
 use crate::{
     commands::GameModeOption,
     core::commands::CommandOrigin,
-    embeds::{RankingEntries, RankingEntry, RankingKind},
     manager::redis::{osu::UserArgs, RedisData},
     pagination::RankingPagination,
-    util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        ChannelExt, CountryCode,
-    },
+    util::ChannelExt,
     Context,
 };
 

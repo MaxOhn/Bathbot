@@ -1,6 +1,10 @@
 use std::{borrow::Cow, sync::Arc};
 
 use bathbot_macros::{command, HasName, SlashCommand};
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    matcher, CowUtils,
+};
 use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{GameMode, OsuError},
@@ -14,11 +18,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     manager::redis::osu::UserArgs,
     pagination::ProfilePagination,
-    util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        interaction::InteractionCommand,
-        matcher, ChannelExt, CowUtils, InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
 

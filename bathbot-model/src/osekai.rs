@@ -17,9 +17,12 @@ use serde::{
 use time::Date;
 use twilight_interactions::command::{CommandOption, CreateOption};
 
-use crate::{embeds::RankingKind, util::CountryCode};
+use crate::{
+    rkyv_impls::{DateWrapper, UsernameWrapper},
+    CountryCode, RankingKind,
+};
 
-use super::{deser, DateWrapper, UsernameWrapper};
+use super::deser;
 
 pub trait OsekaiRanking {
     const FORM: &'static str;
@@ -144,7 +147,7 @@ define_ranking! {
 }
 
 #[derive(Deserialize)]
-pub(super) struct OsekaiMaps(pub(super) Option<Vec<OsekaiMap>>);
+pub struct OsekaiMaps(pub Option<Vec<OsekaiMap>>);
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct OsekaiMap {
@@ -173,7 +176,7 @@ pub struct OsekaiMap {
 }
 
 #[derive(Deserialize)]
-pub(super) struct OsekaiComments(pub(super) Option<Vec<OsekaiComment>>);
+pub struct OsekaiComments(pub Option<Vec<OsekaiComment>>);
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct OsekaiComment {
@@ -191,7 +194,7 @@ pub struct OsekaiComment {
     pub vote_sum: u32,
 }
 
-pub(super) struct OsekaiMedals(pub(super) Vec<OsekaiMedal>);
+pub struct OsekaiMedals(pub Vec<OsekaiMedal>);
 
 impl<'de> Deserialize<'de> for OsekaiMedals {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
@@ -282,6 +285,26 @@ pub enum MedalGroup {
     #[option(name = "Mod Introduction", value = "mod_intro")]
     ModIntroduction,
 }
+impl FromStr for MedalGroup {
+    type Err = ();
+
+    #[inline]
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let group = match s {
+            "Skill" => MedalGroup::Skill,
+            "Dedication" => MedalGroup::Dedication,
+            "Hush-Hush" => MedalGroup::HushHush,
+            "Beatmap Packs" => MedalGroup::BeatmapPacks,
+            "Beatmap Challenge Packs" => MedalGroup::BeatmapChallengePacks,
+            "Seasonal Spotlights" => MedalGroup::SeasonalSpotlights,
+            "Beatmap Spotlights" => MedalGroup::BeatmapSpotlights,
+            "Mod Introduction" => MedalGroup::ModIntroduction,
+            _ => return Err(()),
+        };
+
+        Ok(group)
+    }
+}
 
 impl MedalGroup {
     pub fn order(self) -> u32 {
@@ -300,22 +323,6 @@ impl MedalGroup {
             MedalGroup::ModIntroduction => "Mod Introduction",
         }
     }
-
-    pub fn from_str(s: &str) -> Option<Self> {
-        let group = match s {
-            "Skill" => MedalGroup::Skill,
-            "Dedication" => MedalGroup::Dedication,
-            "Hush-Hush" => MedalGroup::HushHush,
-            "Beatmap Packs" => MedalGroup::BeatmapPacks,
-            "Beatmap Challenge Packs" => MedalGroup::BeatmapChallengePacks,
-            "Seasonal Spotlights" => MedalGroup::SeasonalSpotlights,
-            "Beatmap Spotlights" => MedalGroup::BeatmapSpotlights,
-            "Mod Introduction" => MedalGroup::ModIntroduction,
-            _ => return None,
-        };
-
-        Some(group)
-    }
 }
 
 impl Display for MedalGroup {
@@ -326,11 +333,12 @@ impl Display for MedalGroup {
 }
 
 impl<'de> Deserialize<'de> for MedalGroup {
+    #[inline]
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let s: &str = Deserialize::deserialize(d)?;
 
         Self::from_str(s)
-            .ok_or_else(|| Error::invalid_value(Unexpected::Str(s), &"a valid medal group"))
+            .map_err(|_| Error::invalid_value(Unexpected::Str(s), &"a valid medal group"))
     }
 }
 

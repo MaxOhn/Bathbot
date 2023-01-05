@@ -1,13 +1,14 @@
 use std::collections::btree_map::Entry;
 
 use bathbot_macros::pagination;
+use bathbot_model::{RankingEntries, RankingEntry, RankingKind};
 use bathbot_psql::model::games::DbBgGameScore;
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::Rankings;
 use twilight_model::{channel::embed::Embed, id::Id};
 
 use crate::{
-    embeds::{EmbedData, RankingEmbed, RankingEntries, RankingEntry, RankingKind},
+    embeds::{EmbedData, RankingEmbed},
     Context,
 };
 

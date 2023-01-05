@@ -2,11 +2,10 @@ use bathbot_psql::{
     model::configs::{GuildConfig, Prefix, DEFAULT_PREFIX},
     Database,
 };
+use bathbot_util::IntHasher;
 use eyre::{Result, WrapErr};
 use flurry::HashMap as FlurryMap;
 use twilight_model::id::{marker::GuildMarker, Id};
-
-use crate::util::hasher::IntHasher;
 
 type GuildConfigs = FlurryMap<Id<GuildMarker>, GuildConfig, IntHasher>;
 

@@ -4,7 +4,7 @@ use twilight_model::{
     util::Timestamp,
 };
 
-use crate::util::constants::DARK_GREEN;
+use crate::constants::DARK_GREEN;
 
 use super::footer::IntoEmbedFooter;
 

@@ -4,6 +4,7 @@ use bathbot_macros::{command, SlashCommand};
 use bathbot_psql::model::configs::{
     ListSize, MinimizedPp, OsuUserId, OsuUsername, ScoreSize, UserConfig,
 };
+use bathbot_util::constants::GENERAL_ISSUE;
 use eyre::{Report, Result};
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
@@ -12,9 +13,7 @@ use twilight_model::id::{marker::UserMarker, Id};
 use crate::{
     commands::ShowHideOption,
     embeds::{ConfigEmbed, EmbedData},
-    util::{
-        constants::GENERAL_ISSUE, interaction::InteractionCommand, Authored, InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
 };
 

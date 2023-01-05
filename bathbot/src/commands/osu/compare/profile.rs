@@ -1,6 +1,12 @@
 use std::{io::Cursor, sync::Arc};
 
 use bathbot_macros::command;
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    matcher,
+    osu::BonusPP,
+    MessageBuilder,
+};
 use eyre::{Report, Result, WrapErr};
 use image::{
     imageops::{overlay, FilterType},
@@ -21,12 +27,6 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, ProfileCompareEmbed},
     manager::redis::osu::UserArgs,
-    util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        matcher,
-        osu::BonusPP,
-    },
     Context,
 };
 

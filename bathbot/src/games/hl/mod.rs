@@ -1,6 +1,5 @@
-use std::fmt;
+use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 
-use twilight_interactions::command::{CommandOption, CreateOption};
 use twilight_model::{
     application::component::{button::ButtonStyle, ActionRow, Button, Component},
     channel::ReactionType,
@@ -21,23 +20,16 @@ pub mod retry;
 const W: u32 = 900;
 const H: u32 = 250;
 
-#[derive(Copy, Clone, CommandOption, CreateOption)]
-pub enum HlVersion {
-    #[option(name = "Score PP", value = "score_pp")]
-    ScorePp = 0,
-    #[option(name = "Farm", value = "farm")]
-    FarmMaps = 1,
-}
-
 #[derive(Copy, Clone, Debug)]
 enum HlGuess {
     Higher,
     Lower,
 }
 
-impl fmt::Display for HlGuess {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(self, f)
+impl Display for HlGuess {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        Debug::fmt(self, f)
     }
 }
 

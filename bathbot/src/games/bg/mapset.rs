@@ -1,10 +1,8 @@
 use bathbot_psql::model::osu::ArtistTitle;
+use bathbot_util::string_cmp::{gestalt_pattern_matching, levenshtein_similarity};
 use eyre::{Report, Result};
 
-use crate::{
-    core::Context,
-    util::{gestalt_pattern_matching, levenshtein_similarity},
-};
+use crate::core::Context;
 
 pub struct GameMapset {
     pub mapset_id: u32,

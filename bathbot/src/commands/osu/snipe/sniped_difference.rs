@@ -1,6 +1,10 @@
 use std::{cmp::Reverse, sync::Arc};
 
 use bathbot_macros::command;
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
+    matcher, IntHasher, MessageBuilder,
+};
 use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rosu_v2::{prelude::OsuError, request::UserId};
@@ -11,12 +15,6 @@ use crate::{
     core::commands::CommandOrigin,
     manager::redis::{osu::UserArgs, RedisData},
     pagination::SnipedDiffPagination,
-    util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
-        hasher::IntHasher,
-        matcher,
-    },
     Context,
 };
 

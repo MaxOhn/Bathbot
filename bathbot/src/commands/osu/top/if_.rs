@@ -1,6 +1,13 @@
 use std::{borrow::Cow, cmp::Ordering, fmt::Write, sync::Arc};
 
 use bathbot_macros::{command, HasName, SlashCommand};
+use bathbot_model::ScoreSlim;
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    matcher,
+    numbers::round,
+    osu::ModSelection,
+};
 use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score};
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -12,11 +19,7 @@ use crate::{
     manager::{redis::osu::UserArgs, OsuMap},
     pagination::TopIfPagination,
     util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
         interaction::InteractionCommand,
-        matcher,
-        numbers::round,
-        osu::{ModSelection, ScoreSlim},
         query::{FilterCriteria, Searchable},
         ChannelExt, InteractionCommandExt,
     },

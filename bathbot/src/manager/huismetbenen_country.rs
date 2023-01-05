@@ -1,7 +1,6 @@
 use bathbot_psql::Database;
+use bathbot_util::CowUtils;
 use eyre::{Result, WrapErr};
-
-use crate::util::CowUtils;
 
 #[derive(Copy, Clone)]
 pub struct HuismetbenenCountryManager<'d> {

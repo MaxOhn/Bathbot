@@ -1,6 +1,7 @@
 use std::{cmp::Reverse, sync::Arc};
 
 use bathbot_macros::{HasName, SlashCommand};
+use bathbot_model::OsekaiBadge;
 use eyre::Result;
 use twilight_interactions::command::{
     AutocompleteValue, CommandModel, CommandOption, CreateCommand, CreateOption,
@@ -9,7 +10,6 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     core::Context,
-    custom_client::OsekaiBadge,
     util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 

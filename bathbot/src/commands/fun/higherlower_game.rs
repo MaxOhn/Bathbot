@@ -4,6 +4,8 @@ use std::{
 };
 
 use bathbot_macros::SlashCommand;
+use bathbot_model::{HlVersion, RankingEntries, RankingEntry, RankingKind};
+use bathbot_util::{constants::GENERAL_ISSUE, IntHasher, MessageBuilder};
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -11,13 +13,9 @@ use twilight_model::id::Id;
 
 use crate::{
     commands::GameModeOption,
-    embeds::{RankingEntries, RankingEntry, RankingKind},
-    games::hl::{GameState, HlComponents, HlVersion},
+    games::hl::{GameState, HlComponents},
     pagination::RankingPagination,
-    util::{
-        builder::MessageBuilder, constants::GENERAL_ISSUE, hasher::IntHasher,
-        interaction::InteractionCommand, Authored, InteractionCommandExt, MessageExt,
-    },
+    util::{interaction::InteractionCommand, Authored, InteractionCommandExt, MessageExt},
     Context,
 };
 

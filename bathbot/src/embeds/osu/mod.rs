@@ -54,13 +54,11 @@ mod whatif;
 
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
+use bathbot_util::{datetime::SecToMinSec, numbers::round};
 use rosu_pp::beatmap::BeatmapAttributesBuilder;
 use rosu_v2::prelude::{GameMode, GameMods, ScoreStatistics};
 
-use crate::{
-    manager::OsuMap,
-    util::{datetime::SecToMinSec, numbers::round},
-};
+use crate::manager::OsuMap;
 
 pub use self::{
     attributes::*, badge::*, bws::*, claim_name::*, common::*, compare::*, country_snipe_list::*,

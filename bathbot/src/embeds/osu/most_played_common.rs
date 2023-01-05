@@ -1,13 +1,13 @@
 use std::{cmp::Ordering, fmt::Write};
 
 use bathbot_macros::EmbedData;
+use bathbot_util::{constants::OSU_BASE, CowUtils};
 use hashbrown::HashMap;
 use rosu_v2::prelude::MostPlayedMap;
 
 use crate::{
     manager::redis::{osu::User, RedisData},
     pagination::Pages,
-    util::{constants::OSU_BASE, CowUtils},
 };
 
 #[derive(EmbedData)]

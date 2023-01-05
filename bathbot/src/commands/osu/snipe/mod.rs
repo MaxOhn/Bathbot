@@ -1,10 +1,7 @@
-use std::{
-    borrow::Cow,
-    fmt::{Display, Formatter, Result as FmtResult},
-    sync::Arc,
-};
+use std::{borrow::Cow, sync::Arc};
 
 use bathbot_macros::{HasMods, HasName, SlashCommand};
+use bathbot_model::SnipePlayerListOrder;
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
@@ -151,41 +148,6 @@ pub struct SnipePlayerList<'a> {
     )]
     /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
-}
-
-#[derive(Copy, Clone, CommandOption, CreateOption, Debug, Eq, PartialEq)]
-pub enum SnipePlayerListOrder {
-    #[option(name = "Accuracy", value = "acc")]
-    Acc = 0,
-    #[option(name = "Date", value = "date")]
-    Date = 5,
-    #[option(name = "Misses", value = "misses")]
-    Misses = 3,
-    #[option(name = "PP", value = "pp")]
-    Pp = 4,
-    #[option(name = "Stars", value = "stars")]
-    Stars = 6,
-}
-
-impl Default for SnipePlayerListOrder {
-    #[inline]
-    fn default() -> Self {
-        Self::Pp
-    }
-}
-
-impl Display for SnipePlayerListOrder {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        let name = match self {
-            Self::Acc => "accuracy",
-            Self::Misses => "count_miss",
-            Self::Pp => "pp",
-            Self::Date => "date_set",
-            Self::Stars => "sr",
-        };
-
-        f.write_str(name)
-    }
 }
 
 #[derive(CommandModel, CreateCommand, Default, HasName)]

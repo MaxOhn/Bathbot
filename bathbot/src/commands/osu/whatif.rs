@@ -1,6 +1,12 @@
 use std::{borrow::Cow, cmp::Ordering, iter, sync::Arc};
 
 use bathbot_macros::{command, HasName, SlashCommand};
+use bathbot_util::{
+    constants::OSU_API_ISSUE,
+    matcher,
+    osu::{approx_more_pp, ExtractablePp, PpListUtil},
+    MessageBuilder,
+};
 use eyre::{Report, Result};
 use rosu_v2::prelude::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -11,14 +17,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, WhatIfEmbed},
     manager::redis::osu::UserArgs,
-    util::{
-        builder::MessageBuilder,
-        constants::OSU_API_ISSUE,
-        interaction::InteractionCommand,
-        matcher,
-        osu::{approx_more_pp, ExtractablePp, PpListUtil},
-        ChannelExt, InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
 

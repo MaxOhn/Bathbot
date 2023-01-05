@@ -1,18 +1,14 @@
 use std::sync::Arc;
 
 use bathbot_macros::{command, SlashCommand};
+use bathbot_util::{
+    constants::{BATHBOT_WORKSHOP, INVITE_LINK},
+    EmbedBuilder, FooterBuilder, MessageBuilder,
+};
 use eyre::Result;
 use twilight_interactions::command::CreateCommand;
 
-use crate::{
-    core::commands::CommandOrigin,
-    util::{
-        builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
-        constants::{BATHBOT_WORKSHOP, INVITE_LINK},
-        interaction::InteractionCommand,
-    },
-    Context,
-};
+use crate::{core::commands::CommandOrigin, util::interaction::InteractionCommand, Context};
 
 #[derive(CreateCommand, SlashCommand)]
 #[command(name = "invite")]

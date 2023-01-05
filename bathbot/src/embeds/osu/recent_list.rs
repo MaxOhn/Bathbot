@@ -4,6 +4,10 @@ use std::{
 };
 
 use bathbot_macros::EmbedData;
+use bathbot_util::{
+    constants::OSU_BASE, datetime::HowLongAgoDynamic, AuthorBuilder, CowUtils, FooterBuilder,
+    IntHasher,
+};
 use rosu_pp::{BeatmapExt, DifficultyAttributes};
 use rosu_v2::prelude::{GameMode, Grade, Score};
 
@@ -14,14 +18,7 @@ use crate::{
         OsuMap, PpManager,
     },
     pagination::Pages,
-    util::{
-        builder::{AuthorBuilder, FooterBuilder},
-        constants::OSU_BASE,
-        datetime::HowLongAgoDynamic,
-        hasher::IntHasher,
-        osu::grade_completion_mods,
-        CowUtils, ScoreExt,
-    },
+    util::{osu::grade_completion_mods, ScoreExt},
 };
 
 use super::{ComboFormatter, KeyFormatter, PpFormatter};

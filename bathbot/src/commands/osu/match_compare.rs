@@ -1,6 +1,7 @@
 use std::{borrow::Cow, fmt::Write, mem, sync::Arc, time::Duration};
 
 use bathbot_macros::SlashCommand;
+use bathbot_util::{constants::OSU_API_ISSUE, matcher, CowUtils, MessageBuilder};
 use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rosu_v2::prelude::{
@@ -15,10 +16,7 @@ use crate::{
     core::Context,
     embeds::{EmbedData, MatchCompareMapEmbed, MatchCompareSummaryEmbed},
     pagination::MatchComparePagination,
-    util::{
-        builder::MessageBuilder, constants::OSU_API_ISSUE, interaction::InteractionCommand,
-        matcher, ChannelExt, CowUtils, InteractionCommandExt, ScoreExt,
-    },
+    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt, ScoreExt},
 };
 
 use super::retrieve_previous;

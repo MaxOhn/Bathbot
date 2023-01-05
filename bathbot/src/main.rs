@@ -8,7 +8,6 @@ extern crate eyre;
 
 mod commands;
 mod core;
-mod custom_client;
 mod embeds;
 mod games;
 mod manager;

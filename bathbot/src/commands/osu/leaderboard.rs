@@ -1,6 +1,12 @@
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use bathbot_macros::{command, HasMods, SlashCommand};
+use bathbot_util::{
+    constants::{AVATAR_URL, GENERAL_ISSUE, OSU_WEB_ISSUE},
+    matcher,
+    osu::{MapIdType, ModSelection},
+    IntHasher,
+};
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::channel::{message::MessageType, Message};
@@ -9,13 +15,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     manager::MapError,
     pagination::LeaderboardPagination,
-    util::{
-        constants::{AVATAR_URL, GENERAL_ISSUE, OSU_WEB_ISSUE},
-        interaction::InteractionCommand,
-        matcher,
-        osu::{MapIdType, ModSelection},
-        ChannelExt, InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
 
@@ -227,7 +227,9 @@ async fn leaderboard(
     let mut calc = ctx.pp(&map).mode(map.mode()).mods(mods.unwrap_or_default());
     let attrs_fut = calc.performance();
 
-    let scores_fut = ctx.client().get_leaderboard(map_id, mods, map.mode());
+    let scores_fut = ctx
+        .client()
+        .get_leaderboard::<IntHasher>(map_id, mods, map.mode());
 
     let (scores, attrs) = match tokio::join!(scores_fut, attrs_fut) {
         (Ok(scores), attrs) => (scores, attrs),

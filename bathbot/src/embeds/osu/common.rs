@@ -1,15 +1,10 @@
-use std::{cmp::Ordering, fmt::Write};
+use std::{cmp::Ordering, collections::HashMap, fmt::Write};
 
 use bathbot_macros::EmbedData;
-use hashbrown::HashMap;
+use bathbot_util::{constants::OSU_BASE, FooterBuilder, IntHasher};
 use rosu_v2::prelude::{Beatmap, BeatmapsetCompact};
 
-use crate::{
-    commands::osu::CommonScore,
-    embeds::attachment,
-    pagination::Pages,
-    util::{builder::FooterBuilder, constants::OSU_BASE},
-};
+use crate::{commands::osu::CommonScore, embeds::attachment, pagination::Pages};
 
 #[derive(EmbedData)]
 pub struct CommonEmbed {
@@ -23,7 +18,7 @@ impl CommonEmbed {
         name1: &str,
         name2: &str,
         map_pps: &[(u32, f32)],
-        maps: &HashMap<u32, ([CommonScore; 2], Beatmap, BeatmapsetCompact)>,
+        maps: &HashMap<u32, ([CommonScore; 2], Beatmap, BeatmapsetCompact), IntHasher>,
         wins: [u8; 2],
         pages: &Pages,
     ) -> Self {

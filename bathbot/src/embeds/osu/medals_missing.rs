@@ -1,17 +1,12 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
+use bathbot_util::{constants::OSU_BASE, osu::flag_url, AuthorBuilder, CowUtils, FooterBuilder};
 
 use crate::{
     commands::osu::MedalType,
     manager::redis::{osu::User, RedisData},
     pagination::Pages,
-    util::{
-        builder::{AuthorBuilder, FooterBuilder},
-        constants::OSU_BASE,
-        osu::flag_url,
-        CowUtils,
-    },
 };
 
 #[derive(EmbedData)]

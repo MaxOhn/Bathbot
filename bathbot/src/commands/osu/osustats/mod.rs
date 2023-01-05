@@ -1,8 +1,9 @@
 use std::{borrow::Cow, sync::Arc};
 
 use bathbot_macros::{HasMods, HasName, SlashCommand};
+use bathbot_model::OsuStatsScoresOrder;
 use eyre::Result;
-use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
+use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
@@ -108,24 +109,6 @@ pub struct OsuStatsScores<'a> {
     )]
     /// Specify a linked discord user
     discord: Option<Id<UserMarker>>,
-}
-
-#[derive(Copy, Clone, CreateOption, CommandOption, Debug)]
-pub enum OsuStatsScoresOrder {
-    #[option(name = "Accuracy", value = "acc")]
-    Acc = 3,
-    #[option(name = "Combo", value = "combo")]
-    Combo = 4,
-    #[option(name = "Date", value = "date")]
-    Date = 0,
-    #[option(name = "Misses", value = "misses")]
-    Misses = 6,
-    #[option(name = "PP", value = "pp")]
-    Pp = 1,
-    #[option(name = "Rank", value = "rank")]
-    Rank = 2,
-    #[option(name = "Score", value = "score")]
-    Score = 5,
 }
 
 async fn slash_osustats(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {

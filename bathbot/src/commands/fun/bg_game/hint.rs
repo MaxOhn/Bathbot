@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
+use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder};
 use eyre::Result;
 use twilight_model::channel::Message;
 
 use crate::{
     core::{buckets::BucketName, commands::checks::check_ratelimit},
     games::bg::GameState,
-    util::{builder::MessageBuilder, constants::GENERAL_ISSUE, ChannelExt},
+    util::ChannelExt,
     Context,
 };
 

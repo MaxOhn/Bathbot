@@ -1,6 +1,13 @@
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write, sync::Arc};
 
 use bathbot_macros::command;
+use bathbot_model::{OsuStatsParams, OsuStatsScore, OsuStatsScoresOrder, ScoreSlim};
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE, OSU_API_ISSUE},
+    matcher,
+    osu::ModSelection,
+    CowUtils,
+};
 use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, Grade, OsuError, ScoreStatistics, Username};
 
@@ -10,19 +17,13 @@ use crate::{
         GameModeOption,
     },
     core::commands::{prefix::Args, CommandOrigin},
-    custom_client::{OsuStatsParams, OsuStatsScore},
     manager::{redis::osu::UserArgs, OsuMap},
     pagination::OsuStatsGlobalsPagination,
-    util::{
-        constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE, OSU_API_ISSUE},
-        matcher,
-        osu::{ModSelection, ScoreSlim},
-        ChannelExt, CowUtils,
-    },
+    util::ChannelExt,
     Context,
 };
 
-use super::{OsuStatsScores, OsuStatsScoresOrder};
+use super::OsuStatsScores;
 
 #[command]
 #[desc("All scores of a player that are on a map's global leaderboard")]

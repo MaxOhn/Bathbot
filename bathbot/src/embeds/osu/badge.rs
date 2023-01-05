@@ -1,14 +1,11 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
+use bathbot_model::{OsekaiBadge, OsekaiBadgeOwner};
+use bathbot_util::{constants::OSU_BASE, datetime::DATE_FORMAT, CowUtils, FooterBuilder};
 use twilight_model::channel::embed::EmbedField;
 
-use crate::{
-    custom_client::{OsekaiBadge, OsekaiBadgeOwner},
-    embeds::attachment,
-    pagination::Pages,
-    util::{builder::FooterBuilder, constants::OSU_BASE, datetime::DATE_FORMAT, CowUtils},
-};
+use crate::{embeds::attachment, pagination::Pages};
 
 #[derive(EmbedData)]
 pub struct BadgeEmbed {

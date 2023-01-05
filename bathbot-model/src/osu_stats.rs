@@ -1,15 +1,14 @@
 use std::{fmt, str::FromStr};
 
+use bathbot_util::osu::ModSelection;
 use rosu_v2::prelude::{GameMode, GameMods, Grade, RankStatus, Username};
 use serde::{de::Error, Deserialize, Deserializer};
 use time::OffsetDateTime;
+use twilight_interactions::command::{CommandOption, CreateOption};
+
+use crate::CountryCode;
 
 use super::deser;
-
-use crate::{
-    commands::osu::OsuStatsScoresOrder,
-    util::{osu::ModSelection, CountryCode},
-};
 
 #[derive(Debug)]
 pub struct OsuStatsPlayer {
@@ -171,4 +170,30 @@ pub struct OsuStatsListParams {
     pub page: usize,
     pub rank_min: usize,
     pub rank_max: usize,
+}
+
+#[derive(Copy, Clone, CreateOption, CommandOption, Debug)]
+pub enum OsuStatsScoresOrder {
+    #[option(name = "Accuracy", value = "acc")]
+    Acc = 3,
+    #[option(name = "Combo", value = "combo")]
+    Combo = 4,
+    #[option(name = "Date", value = "date")]
+    Date = 0,
+    #[option(name = "Misses", value = "misses")]
+    Misses = 6,
+    #[option(name = "PP", value = "pp")]
+    Pp = 1,
+    #[option(name = "Rank", value = "rank")]
+    Rank = 2,
+    #[option(name = "Score", value = "score")]
+    Score = 5,
+}
+
+pub struct OsuStatsPlayersArgs {
+    pub mode: GameMode,
+    pub country: Option<CountryCode>,
+    pub page: usize,
+    pub min_rank: u32,
+    pub max_rank: u32,
 }

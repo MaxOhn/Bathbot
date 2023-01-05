@@ -4,6 +4,7 @@ use std::{
     hint,
 };
 
+use bathbot_util::{osu::BonusPP, IntHasher};
 use eyre::Report;
 use eyre::Result;
 use rosu_v2::prelude::{GameMods, Score, Username};
@@ -16,7 +17,6 @@ use crate::{
         osu::{User, UserArgsSlim},
         RedisData,
     },
-    util::{hasher::IntHasher, osu::BonusPP},
 };
 
 pub struct ProfileData {

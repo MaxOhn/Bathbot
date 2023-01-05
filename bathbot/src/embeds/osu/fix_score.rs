@@ -1,17 +1,16 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
+use bathbot_util::{
+    constants::{MAP_THUMB_URL, OSU_BASE},
+    numbers::{round, WithComma},
+    AuthorBuilder, CowUtils,
+};
 use rosu_v2::prelude::{GameMods, RankStatus, Score};
 
 use crate::{
     commands::osu::{FixEntry, FixScore},
     manager::redis::{osu::User, RedisData},
-    util::{
-        builder::AuthorBuilder,
-        constants::{MAP_THUMB_URL, OSU_BASE},
-        numbers::{round, WithComma},
-        CowUtils,
-    },
 };
 
 #[derive(EmbedData)]

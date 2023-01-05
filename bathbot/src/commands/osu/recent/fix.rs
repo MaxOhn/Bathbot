@@ -1,5 +1,10 @@
 use std::sync::Arc;
 
+use bathbot_model::ScoreSlim;
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    MessageBuilder,
+};
 use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, OsuError};
 
@@ -8,11 +13,7 @@ use crate::{
     core::{commands::CommandOrigin, Context},
     embeds::{EmbedData, FixScoreEmbed},
     manager::redis::osu::{UserArgs, UserArgsSlim},
-    util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        osu::{IfFc, ScoreSlim},
-    },
+    util::osu::IfFc,
 };
 
 use super::RecentFix;

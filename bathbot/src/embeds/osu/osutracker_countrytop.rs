@@ -1,19 +1,18 @@
 use std::fmt::{self, Write};
 
 use bathbot_macros::EmbedData;
+use bathbot_model::OsuTrackerCountryScore;
+use bathbot_util::{
+    constants::OSU_BASE,
+    numbers::{round, WithComma},
+    osu::flag_url,
+    CowUtils, FooterBuilder,
+};
 use rosu_v2::prelude::GameMods;
 
 use crate::{
     commands::osu::{OsuTrackerCountryDetailsCompact, ScoreOrder},
-    custom_client::OsuTrackerCountryScore,
     pagination::Pages,
-    util::{
-        builder::FooterBuilder,
-        constants::OSU_BASE,
-        numbers::{round, WithComma},
-        osu::flag_url,
-        CowUtils,
-    },
 };
 
 #[derive(EmbedData)]

@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
+use bathbot_model::Rarity;
+use bathbot_util::constants::OSEKAI_ISSUE;
 use eyre::Result;
 
 use crate::{
-    custom_client::Rarity,
     pagination::MedalRarityPagination,
-    util::{constants::OSEKAI_ISSUE, interaction::InteractionCommand, InteractionCommandExt},
+    util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
 

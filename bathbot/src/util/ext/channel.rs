@@ -1,18 +1,13 @@
 use std::slice;
 
+use bathbot_util::{constants::RED, EmbedBuilder, MessageBuilder};
 use twilight_http::response::ResponseFuture;
 use twilight_model::{
     channel::Message,
     id::{marker::ChannelMarker, Id},
 };
 
-use crate::{
-    core::Context,
-    util::{
-        builder::{EmbedBuilder, MessageBuilder},
-        constants::RED,
-    },
-};
+use crate::core::Context;
 
 pub trait ChannelExt {
     /// Create a message inside a green embed

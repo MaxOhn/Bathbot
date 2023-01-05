@@ -1,12 +1,10 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
+use bathbot_model::OsekaiUserEntry;
+use bathbot_util::{constants::OSU_BASE, numbers::round, CowUtils, FooterBuilder};
 
-use crate::{
-    custom_client::OsekaiUserEntry,
-    pagination::Pages,
-    util::{builder::FooterBuilder, constants::OSU_BASE, numbers::round, CowUtils},
-};
+use crate::pagination::Pages;
 
 #[derive(EmbedData)]
 pub struct MedalCountEmbed {

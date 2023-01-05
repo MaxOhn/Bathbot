@@ -1,17 +1,17 @@
 use std::{collections::BTreeMap, sync::Arc};
 
+use bathbot_model::{
+    ArchivedOsekaiRankingEntry, CountryCode, OsekaiRanking, OsekaiRankingEntry, RankingEntries,
+    RankingEntry, RankingKind,
+};
+use bathbot_util::constants::OSEKAI_ISSUE;
 use eyre::Result;
 use rosu_v2::prelude::Username;
 
 use crate::{
-    custom_client::{ArchivedOsekaiRankingEntry, OsekaiRanking, OsekaiRankingEntry},
-    embeds::{RankingEntries, RankingEntry, RankingKind},
     manager::redis::RedisData,
     pagination::RankingPagination,
-    util::{
-        constants::OSEKAI_ISSUE, interaction::InteractionCommand, Authored, CountryCode,
-        InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
 };
 

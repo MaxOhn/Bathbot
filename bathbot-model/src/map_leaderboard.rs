@@ -1,9 +1,6 @@
-use rosu_pp::ScoreState;
-use rosu_v2::prelude::{GameMode, GameMods, Grade, RankStatus};
+use rosu_v2::prelude::{CountryCode, GameMode, GameMods, Grade, RankStatus};
 use serde::{Deserialize, Deserializer};
 use time::OffsetDateTime;
-
-use crate::util::CountryCode;
 
 use super::deser;
 
@@ -112,21 +109,6 @@ impl<'de> Deserialize<'de> for ScraperScore {
             count_katu: helper.statistics.count_katu,
             count_miss: helper.statistics.count_miss,
         })
-    }
-}
-
-impl From<&ScraperScore> for ScoreState {
-    #[inline]
-    fn from(score: &ScraperScore) -> Self {
-        ScoreState {
-            max_combo: score.max_combo as usize,
-            n300: score.count300 as usize,
-            n100: score.count100 as usize,
-            n50: score.count50 as usize,
-            n_katu: score.count_katu as usize,
-            n_geki: score.count_geki as usize,
-            n_misses: score.count_miss as usize,
-        }
     }
 }
 

@@ -1,7 +1,12 @@
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use bathbot_macros::{command, HasName, SlashCommand};
+use bathbot_model::ScoreSlim;
 use bathbot_psql::model::configs::{ListSize, MinimizedPp};
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    matcher, CowUtils,
+};
 use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{GameMode, Grade, OsuError, Score},
@@ -15,13 +20,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     manager::redis::{osu::UserArgs, RedisData},
     pagination::{TopCondensedPagination, TopPagination, TopSinglePagination},
-    util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        interaction::InteractionCommand,
-        matcher,
-        osu::ScoreSlim,
-        ChannelExt, CowUtils, InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
 

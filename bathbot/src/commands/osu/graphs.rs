@@ -1,6 +1,12 @@
 use std::{fmt::Write, mem, sync::Arc};
 
 use bathbot_macros::{command, HasName, SlashCommand};
+use bathbot_model::CountryCode;
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
+    numbers::WithComma,
+    EmbedBuilder, MessageBuilder,
+};
 use eyre::{Report, Result, WrapErr};
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::{
@@ -28,13 +34,7 @@ use crate::{
         osu::{User, UserArgs},
         RedisData,
     },
-    util::{
-        builder::{EmbedBuilder, MessageBuilder},
-        constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
-        interaction::InteractionCommand,
-        numbers::WithComma,
-        CountryCode, InteractionCommandExt, Monthly,
-    },
+    util::{interaction::InteractionCommand, InteractionCommandExt, Monthly},
 };
 
 use super::{

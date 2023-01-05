@@ -5,6 +5,10 @@ use std::{
 };
 
 use bathbot_macros::command;
+use bathbot_model::OsekaiMedal;
+use bathbot_util::{
+    constants::OSEKAI_ISSUE, string_cmp::levenshtein_similarity, CowUtils, MessageBuilder,
+};
 use eyre::{Result, WrapErr};
 use rkyv::{Deserialize, Infallible};
 use twilight_interactions::command::AutocompleteValue;
@@ -12,13 +16,9 @@ use twilight_model::application::command::CommandOptionChoice;
 
 use crate::{
     core::commands::CommandOrigin,
-    custom_client::OsekaiMedal,
     embeds::MedalEmbed,
     manager::redis::RedisData,
-    util::{
-        builder::MessageBuilder, constants::OSEKAI_ISSUE, interaction::InteractionCommand,
-        levenshtein_similarity, ChannelExt, CowUtils, InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
 

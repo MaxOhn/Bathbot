@@ -1,6 +1,12 @@
 use std::{borrow::Cow, sync::Arc};
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
+use bathbot_model::ScoreSlim;
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    matcher,
+    osu::{MapIdType, ModSelection},
+};
 use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{GameMode, GameMods, OsuError, Score},
@@ -22,13 +28,7 @@ use crate::{
         },
         MapError, OsuMap,
     },
-    util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        interaction::InteractionCommand,
-        matcher,
-        osu::{IfFc, MapIdType, ModSelection, ScoreSlim},
-        InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, osu::IfFc, InteractionCommandExt},
     Context,
 };
 

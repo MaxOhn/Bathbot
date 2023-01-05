@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
+use bathbot_client::Client as BathbotClient;
 use bathbot_psql::{model::configs::GuildConfig, Database};
+use bathbot_util::IntHasher;
 use bb8_redis::{bb8::Pool, RedisConnectionManager};
 use eyre::{Result, WrapErr};
 use flexmap::{
@@ -25,13 +27,11 @@ use twilight_standby::Standby;
 
 use crate::{
     core::BotConfig,
-    custom_client::CustomClient,
     games::{
         bg::GameState as BgGameState,
         hl::{retry::RetryState, GameState as HlGameState},
     },
     pagination::Pagination,
-    util::hasher::IntHasher,
 };
 
 #[cfg(feature = "osutracking")]
@@ -76,7 +76,7 @@ impl Context {
     }
 
     /// Returns the custom client
-    pub fn client(&self) -> &CustomClient {
+    pub fn client(&self) -> &BathbotClient {
         &self.clients.custom
     }
 
@@ -146,9 +146,15 @@ impl Context {
             .wrap_err("failed to create osu client")?;
 
         // Log custom client into osu!
-        let custom = CustomClient::new()
-            .await
-            .wrap_err("failed to create custom client")?;
+        let custom = BathbotClient::new(
+            &config.tokens.osu_session,
+            #[cfg(feature = "twitch")]
+            &config.tokens.twitch_id,
+            #[cfg(feature = "twitch")]
+            &config.tokens.twitch_token,
+        )
+        .await
+        .wrap_err("failed to create custom client")?;
 
         let data = ContextData::new(&psql, application_id)
             .await
@@ -201,14 +207,14 @@ impl MemberRequests {
 }
 
 struct Clients {
-    custom: CustomClient,
+    custom: BathbotClient,
     osu: Osu,
     psql: Database,
     redis: Redis,
 }
 
 impl Clients {
-    fn new(psql: Database, redis: Redis, osu: Osu, custom: CustomClient) -> Self {
+    fn new(psql: Database, redis: Redis, osu: Osu, custom: BathbotClient) -> Self {
         Self {
             psql,
             redis,

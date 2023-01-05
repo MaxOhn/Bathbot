@@ -1,6 +1,11 @@
 use std::{borrow::Cow, mem, sync::Arc};
 
 use bathbot_macros::command;
+use bathbot_model::Rarity;
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
+    matcher, IntHasher, MessageBuilder,
+};
 use eyre::{Report, Result, WrapErr};
 use hashbrown::HashMap;
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
@@ -15,15 +20,9 @@ use time::OffsetDateTime;
 use crate::{
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
-    custom_client::Rarity,
     embeds::{EmbedData, MedalStatsEmbed},
     manager::redis::{osu::UserArgs, RedisData},
-    util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
-        hasher::IntHasher,
-        matcher, Monthly,
-    },
+    util::Monthly,
     Context,
 };
 

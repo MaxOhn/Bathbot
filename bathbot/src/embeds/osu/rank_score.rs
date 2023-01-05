@@ -1,15 +1,13 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
+use bathbot_model::RespektiveUser;
+use bathbot_util::{
+    constants::OSU_BASE, numbers::WithComma, osu::flag_url, AuthorBuilder, CowUtils,
+};
 use rosu_v2::model::user::UserCompact;
 
-use crate::{
-    custom_client::RespektiveUser,
-    manager::redis::{osu::User, RedisData},
-    util::{
-        builder::AuthorBuilder, constants::OSU_BASE, numbers::WithComma, osu::flag_url, CowUtils,
-    },
-};
+use crate::manager::redis::{osu::User, RedisData};
 
 #[derive(EmbedData)]
 pub struct RankRankedScoreEmbed {

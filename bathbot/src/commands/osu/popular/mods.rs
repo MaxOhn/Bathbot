@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
+use bathbot_model::OsuTrackerModsEntry;
+use bathbot_util::constants::OSUTRACKER_ISSUE;
 use eyre::Result;
 use rkyv::{Deserialize, Infallible};
 
 use crate::{
     core::Context,
-    custom_client::OsuTrackerModsEntry,
     manager::redis::RedisData,
     pagination::OsuTrackerModsPagination,
-    util::{constants::OSUTRACKER_ISSUE, interaction::InteractionCommand, InteractionCommandExt},
+    util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 
 pub(super) async fn mods(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {

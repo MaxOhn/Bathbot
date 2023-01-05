@@ -1,12 +1,12 @@
 use std::collections::{btree_map::Entry, BTreeMap};
 
 use bathbot_macros::pagination;
+use bathbot_model::{OsekaiBadge, OsekaiBadgeOwner};
 use eyre::{Result, WrapErr};
 use twilight_model::channel::embed::Embed;
 
 use crate::{
     core::Context,
-    custom_client::{OsekaiBadge, OsekaiBadgeOwner},
     embeds::{BadgeEmbed, EmbedData},
 };
 

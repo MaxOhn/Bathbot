@@ -1,11 +1,10 @@
 use bathbot_macros::pagination;
+use bathbot_model::{CountryCode, SnipeCountryPlayer};
 use twilight_model::channel::embed::Embed;
 
 use crate::{
     commands::osu::SnipeCountryListOrder,
-    custom_client::SnipeCountryPlayer,
     embeds::{CountrySnipeListEmbed, EmbedData},
-    util::CountryCode,
 };
 
 use super::Pages;

@@ -1,9 +1,9 @@
 use bathbot_macros::pagination;
+use bathbot_model::OsuTrackerCountryScore;
 use twilight_model::channel::embed::Embed;
 
 use crate::{
     commands::osu::{OsuTrackerCountryDetailsCompact, ScoreOrder},
-    custom_client::OsuTrackerCountryScore,
     embeds::{EmbedData, OsuTrackerCountryTopEmbed},
 };
 

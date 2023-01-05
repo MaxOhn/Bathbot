@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
 use bathbot_macros::{command, SlashCommand};
+use bathbot_util::MessageBuilder;
 use eyre::Result;
 use rand::Rng;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
     core::{commands::CommandOrigin, Context},
-    util::{builder::MessageBuilder, interaction::InteractionCommand, InteractionCommandExt},
+    util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 
 const DEFAULT_LIMIT: u64 = 100;

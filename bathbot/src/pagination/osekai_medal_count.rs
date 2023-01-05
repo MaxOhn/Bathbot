@@ -1,10 +1,8 @@
 use bathbot_macros::pagination;
+use bathbot_model::OsekaiUserEntry;
 use twilight_model::channel::embed::Embed;
 
-use crate::{
-    custom_client::OsekaiUserEntry,
-    embeds::{EmbedData, MedalCountEmbed},
-};
+use crate::embeds::{EmbedData, MedalCountEmbed};
 
 use super::Pages;
 

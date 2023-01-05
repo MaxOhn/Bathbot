@@ -4,23 +4,21 @@ use std::{
 };
 
 use bathbot_macros::EmbedData;
-use rosu_pp::{BeatmapExt, DifficultyAttributes};
+use bathbot_model::ScraperScore;
+use bathbot_util::{
+    constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
+    datetime::HowLongAgoDynamic,
+    numbers::WithComma,
+    AuthorBuilder, CowUtils, FooterBuilder, IntHasher,
+};
+use rosu_pp::{BeatmapExt, DifficultyAttributes, ScoreState};
 use rosu_v2::prelude::GameMode;
 
 use crate::{
     core::Context,
-    custom_client::ScraperScore,
     manager::{OsuMap, PpManager},
     pagination::Pages,
-    util::{
-        builder::{AuthorBuilder, FooterBuilder},
-        constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
-        datetime::HowLongAgoDynamic,
-        hasher::IntHasher,
-        numbers::WithComma,
-        osu::grade_emote,
-        CowUtils, Emote,
-    },
+    util::{osu::grade_emote, Emote},
 };
 
 use super::PpFormatter;
@@ -143,13 +141,23 @@ async fn pp_format(
         Entry::Occupied(entry) => {
             let (attrs, max_pp) = entry.get();
 
+            let state = ScoreState {
+                max_combo: score.max_combo as usize,
+                n_geki: score.count_geki as usize,
+                n_katu: score.count_katu as usize,
+                n300: score.count300 as usize,
+                n100: score.count100 as usize,
+                n50: score.count50 as usize,
+                n_misses: score.count_miss as usize,
+            };
+
             let pp = map
                 .pp_map
                 .pp()
                 .attributes(attrs.to_owned())
                 .mode(PpManager::mode_conversion(score.mode))
                 .mods(mods.bits())
-                .state(score.into())
+                .state(state)
                 .calculate()
                 .pp() as f32;
 

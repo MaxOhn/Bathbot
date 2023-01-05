@@ -1,12 +1,10 @@
 use std::{collections::BTreeMap, fmt::Write};
 
 use bathbot_macros::EmbedData;
+use bathbot_util::{numbers::WithComma, FooterBuilder};
 use rosu_v2::prelude::{CountryRanking, GameMode};
 
-use crate::{
-    pagination::Pages,
-    util::{builder::FooterBuilder, numbers::WithComma},
-};
+use crate::pagination::Pages;
 
 #[derive(EmbedData)]
 pub struct RankingCountriesEmbed {

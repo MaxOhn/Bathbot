@@ -1,7 +1,12 @@
 use std::{borrow::Cow, mem, sync::Arc};
 
 use bathbot_macros::{command, HasName, SlashCommand};
+use bathbot_model::ScoreSlim;
 use bathbot_psql::model::configs::{GuildConfig, ScoreSize};
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    matcher, CowUtils, MessageBuilder,
+};
 use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{
@@ -26,14 +31,7 @@ use crate::{
         redis::osu::{UserArgs, UserArgsSlim},
         OsuMap,
     },
-    util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        interaction::InteractionCommand,
-        matcher,
-        osu::ScoreSlim,
-        ChannelExt, CowUtils, InteractionCommandExt, MessageExt,
-    },
+    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt, MessageExt},
     Context,
 };
 

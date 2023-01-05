@@ -1,12 +1,10 @@
 use std::{collections::BTreeMap, fmt::Write, iter, mem};
 
 use bathbot_macros::EmbedData;
+use bathbot_util::{numbers::WithComma, AuthorBuilder, IntHasher};
 use hashbrown::HashSet;
 
-use crate::{
-    manager::redis::{osu::User, RedisData},
-    util::{builder::AuthorBuilder, hasher::IntHasher, numbers::WithComma},
-};
+use crate::manager::redis::{osu::User, RedisData};
 
 #[derive(EmbedData)]
 pub struct BWSEmbed {

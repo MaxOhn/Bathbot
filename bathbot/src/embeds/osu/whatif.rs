@@ -1,15 +1,14 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
+use bathbot_util::{
+    numbers::{round, WithComma},
+    AuthorBuilder, CowUtils,
+};
 
 use crate::{
     commands::osu::WhatIfData,
     manager::redis::{osu::User, RedisData},
-    util::{
-        builder::AuthorBuilder,
-        numbers::{round, WithComma},
-        CowUtils,
-    },
 };
 
 #[derive(EmbedData)]

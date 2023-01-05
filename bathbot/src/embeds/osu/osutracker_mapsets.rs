@@ -1,20 +1,13 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
+use bathbot_model::OsuTrackerMapsetEntry;
+use bathbot_util::{
+    constants::OSU_BASE, numbers::WithComma, AuthorBuilder, CowUtils, FooterBuilder, IntHasher,
+};
 use hashbrown::HashMap;
 
-use crate::{
-    commands::osu::MapsetEntry,
-    custom_client::OsuTrackerMapsetEntry,
-    pagination::Pages,
-    util::{
-        builder::{AuthorBuilder, FooterBuilder},
-        constants::OSU_BASE,
-        hasher::IntHasher,
-        numbers::WithComma,
-        CowUtils,
-    },
-};
+use crate::{commands::osu::MapsetEntry, pagination::Pages};
 
 #[derive(EmbedData)]
 pub struct OsuTrackerMapsetsEmbed {

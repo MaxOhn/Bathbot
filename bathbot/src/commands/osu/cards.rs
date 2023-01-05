@@ -5,6 +5,12 @@ use std::{
 };
 
 use bathbot_macros::{HasName, SlashCommand};
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
+    datetime::DATE_FORMAT,
+    osu::flag_url_svg,
+    EmbedBuilder, HtmlToPng, MessageBuilder,
+};
 use eyre::{Report, Result, WrapErr};
 use handlebars::Handlebars;
 use once_cell::sync::Lazy;
@@ -29,14 +35,7 @@ use crate::{
         osu::{User, UserArgs},
         RedisData,
     },
-    util::{
-        builder::{EmbedBuilder, MessageBuilder},
-        constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
-        datetime::DATE_FORMAT,
-        interaction::InteractionCommand,
-        osu::{flag_url_svg, prepare_beatmap_file},
-        HtmlToPng, InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, osu::prepare_beatmap_file, InteractionCommandExt},
 };
 
 use super::user_not_found;

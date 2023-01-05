@@ -1,26 +1,23 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
+use bathbot_model::SnipePlayer;
+use bathbot_util::{
+    constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::WithComma, AuthorBuilder, CowUtils,
+    FooterBuilder,
+};
 use osu::{ComboFormatter, HitResultFormatter, PpFormatter};
 use rosu_v2::prelude::{GameMode, Score};
 use twilight_model::channel::embed::EmbedField;
 
 use crate::{
     core::Context,
-    custom_client::SnipePlayer,
     embeds::{attachment, osu},
     manager::{
         redis::{osu::User, RedisData},
         OsuMap,
     },
-    util::{
-        builder::{AuthorBuilder, FooterBuilder},
-        constants::OSU_BASE,
-        datetime::HowLongAgoDynamic,
-        numbers::WithComma,
-        osu::grade_completion_mods,
-        CowUtils,
-    },
+    util::osu::grade_completion_mods,
 };
 
 #[derive(EmbedData)]

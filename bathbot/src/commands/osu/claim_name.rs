@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
 use bathbot_macros::SlashCommand;
+use bathbot_util::{
+    boyer_moore::contains_disallowed_infix, constants::OSU_API_ISSUE, MessageBuilder,
+};
 use eyre::{Report, Result};
 use futures::{future, stream::FuturesUnordered, TryStreamExt};
 use rosu_v2::prelude::{GameMode, OsuError};
@@ -11,10 +14,7 @@ use crate::{
     embeds::ClaimNameEmbed,
     embeds::EmbedData,
     manager::redis::osu::{User, UserArgs},
-    util::{
-        self, builder::MessageBuilder, constants::OSU_API_ISSUE, interaction::InteractionCommand,
-        InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
@@ -73,7 +73,7 @@ async fn slash_claimname(ctx: Arc<Context>, mut command: InteractionCommand) -> 
         UserArgs::Args(args) => args.user_id,
         UserArgs::User { user, .. } => user.user_id,
         UserArgs::Err(OsuError::NotFound) => {
-            let content = if util::contains_disallowed_infix(&name) {
+            let content = if contains_disallowed_infix(&name) {
                 format!("`{name}` does not seem to be taken but it likely won't be accepted")
             } else {
                 format!("User `{name}` was not found, the name should be available to claim")

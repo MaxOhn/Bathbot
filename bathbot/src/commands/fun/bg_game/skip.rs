@@ -1,15 +1,13 @@
 use std::sync::Arc;
 
+use bathbot_util::constants::{GENERAL_ISSUE, INVITE_LINK};
 use eyre::Result;
 use twilight_model::channel::Message;
 
 use crate::{
     core::{buckets::BucketName, commands::checks::check_ratelimit},
     games::bg::GameState,
-    util::{
-        constants::{GENERAL_ISSUE, INVITE_LINK},
-        ChannelExt,
-    },
+    util::ChannelExt,
     Context,
 };
 

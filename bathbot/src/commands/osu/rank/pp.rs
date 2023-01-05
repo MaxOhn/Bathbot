@@ -1,6 +1,11 @@
 use std::sync::Arc;
 
 use bathbot_macros::command;
+use bathbot_model::CountryCode;
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    matcher, MessageBuilder,
+};
 use eyre::{Report, Result};
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::prelude::{OsuError, UserCompact};
@@ -13,11 +18,7 @@ use crate::{
         osu::{User, UserArgs},
         RedisData,
     },
-    util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        matcher, ChannelExt, CountryCode,
-    },
+    util::ChannelExt,
     Context,
 };
 

@@ -1,6 +1,10 @@
 use std::{cmp::Reverse, mem, sync::Arc};
 
 use bathbot_macros::command;
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
+    matcher, MessageBuilder,
+};
 use eyre::{Report, Result};
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::{
@@ -18,11 +22,6 @@ use crate::{
         RedisData,
     },
     pagination::MedalRecentPagination,
-    util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
-        matcher,
-    },
     Context,
 };
 

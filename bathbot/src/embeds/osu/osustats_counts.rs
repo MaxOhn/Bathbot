@@ -1,15 +1,12 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
+use bathbot_util::{AuthorBuilder, CowUtils};
 use rosu_v2::prelude::GameMode;
 
 use crate::{
     manager::redis::{osu::User, RedisData},
-    util::{
-        builder::AuthorBuilder,
-        osu::{TopCount, TopCounts},
-        CowUtils,
-    },
+    util::osu::{TopCount, TopCounts},
 };
 
 #[derive(EmbedData)]

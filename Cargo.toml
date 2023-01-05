@@ -1,9 +1,11 @@
 [workspace]
-
 members = [
     "bathbot",
+    "bathbot-client",
     "bathbot-macros",
+    "bathbot-model",
     "bathbot-psql",
+    "bathbot-util",
 ]
 
 [profile.dev.package.sqlx-macros]

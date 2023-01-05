@@ -1,6 +1,10 @@
 use std::sync::Arc;
 
 use bathbot_psql::model::games::DbMapTagsParams;
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, RED},
+    EmbedBuilder, MessageBuilder,
+};
 use eyre::{ContextCompat, Result, WrapErr};
 use hashbrown::hash_map::Entry;
 use rosu_v2::prelude::GameMode;
@@ -10,12 +14,7 @@ use crate::{
     core::Context,
     embeds::{BGTagsEmbed, EmbedData},
     games::bg::GameWrapper,
-    util::{
-        builder::{EmbedBuilder, MessageBuilder},
-        constants::{GENERAL_ISSUE, RED},
-        interaction::InteractionComponent,
-        Authored, ComponentExt,
-    },
+    util::{interaction::InteractionComponent, Authored, ComponentExt},
 };
 
 use super::{Effects, GameState, MapsetTags};

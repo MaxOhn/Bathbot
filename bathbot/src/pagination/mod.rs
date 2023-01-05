@@ -1,5 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
+use bathbot_util::{numbers::last_multiple, MessageBuilder};
 use eyre::{Report, Result, WrapErr};
 use tokio::{
     sync::watch::{self, Receiver, Sender},
@@ -19,7 +20,7 @@ use twilight_model::{
 
 use crate::{
     core::{commands::CommandOrigin, Context},
-    util::{builder::MessageBuilder, numbers::last_multiple, Emote, MessageExt},
+    util::{Emote, MessageExt},
 };
 
 pub use self::{

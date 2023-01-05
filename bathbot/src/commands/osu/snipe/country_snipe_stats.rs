@@ -1,6 +1,11 @@
 use std::{borrow::Cow, cmp::Ordering::Equal, sync::Arc};
 
 use bathbot_macros::command;
+use bathbot_model::{CountryCode, SnipeCountryPlayer};
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
+    MessageBuilder,
+};
 use eyre::{Report, Result, WrapErr};
 use image::{codecs::png::PngEncoder, ColorType, ImageEncoder};
 use plotters::prelude::*;
@@ -9,14 +14,8 @@ use rosu_v2::{prelude::OsuError, request::UserId};
 use crate::{
     commands::osu::user_not_found,
     core::commands::CommandOrigin,
-    custom_client::SnipeCountryPlayer,
     embeds::{CountrySnipeStatsEmbed, EmbedData},
     manager::redis::{osu::UserArgs, RedisData},
-    util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, HUISMETBENEN_ISSUE, OSU_API_ISSUE},
-        CountryCode,
-    },
     Context,
 };
 

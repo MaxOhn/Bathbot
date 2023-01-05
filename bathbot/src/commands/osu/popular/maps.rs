@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
+use bathbot_model::OsuTrackerPpEntry;
+use bathbot_util::constants::OSUTRACKER_ISSUE;
 use eyre::Result;
 use rkyv::{Deserialize, Infallible};
 
 use crate::{
     core::Context,
-    custom_client::OsuTrackerPpEntry,
     manager::redis::RedisData,
     pagination::OsuTrackerMapsPagination,
-    util::{constants::OSUTRACKER_ISSUE, interaction::InteractionCommand, InteractionCommandExt},
+    util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 
 use super::PopularMapsPp;

@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
 use bathbot_macros::EmbedData;
+use bathbot_model::SnipeRecent;
+use bathbot_util::AuthorBuilder;
 use twilight_model::channel::embed::EmbedField;
 
 use crate::{
-    custom_client::SnipeRecent,
     embeds::attachment,
     manager::redis::{osu::User, RedisData},
-    util::builder::AuthorBuilder,
 };
 
 #[derive(EmbedData)]

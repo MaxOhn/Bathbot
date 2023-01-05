@@ -1,22 +1,18 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::EmbedData;
+use bathbot_model::{MedalGroup, MEDAL_GROUPS};
+use bathbot_util::{
+    constants::OSU_BASE, numbers::round, osu::flag_url, AuthorBuilder, CowUtils, FooterBuilder,
+    IntHasher,
+};
 use hashbrown::HashMap;
 use rosu_v2::prelude::MedalCompact;
 use twilight_model::channel::embed::EmbedField;
 
 use crate::{
-    custom_client::{MedalGroup, MEDAL_GROUPS},
     embeds::attachment,
     manager::redis::{osu::User, RedisData},
-    util::{
-        builder::{AuthorBuilder, FooterBuilder},
-        constants::OSU_BASE,
-        hasher::IntHasher,
-        numbers::round,
-        osu::flag_url,
-        CowUtils,
-    },
 };
 
 #[derive(EmbedData)]

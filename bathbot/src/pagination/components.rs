@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
+use bathbot_util::{MessageBuilder, ModalBuilder};
 use eyre::{ContextCompat, Report, Result, WrapErr};
 
 use crate::{
     core::Context,
     util::{
-        builder::{MessageBuilder, ModalBuilder},
         interaction::{InteractionComponent, InteractionModal},
         Authored, ComponentExt, ModalExt,
     },

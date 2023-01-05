@@ -1,14 +1,15 @@
 use std::{alloc, mem, sync::Arc};
 
+use bathbot_model::OsuTrackerMapperEntry;
+use bathbot_util::constants::OSUTRACKER_ISSUE;
 use eyre::Result;
 use rkyv::{DeserializeUnsized, Infallible};
 
 use crate::{
     core::Context,
-    custom_client::OsuTrackerMapperEntry,
     manager::redis::RedisData,
     pagination::OsuTrackerMappersPagination,
-    util::{constants::OSUTRACKER_ISSUE, interaction::InteractionCommand, InteractionCommandExt},
+    util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 
 pub(super) async fn mappers(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {

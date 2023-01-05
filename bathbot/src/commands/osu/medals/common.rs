@@ -5,6 +5,11 @@ use std::{
 };
 
 use bathbot_macros::command;
+use bathbot_model::{rkyv_impls::DateTimeWrapper, MedalGroup, OsekaiMedal, Rarity};
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
+    matcher, IntHasher,
+};
 use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rkyv::{with::DeserializeWith, Infallible};
@@ -14,20 +19,13 @@ use time::OffsetDateTime;
 use crate::{
     commands::osu::UserExtraction,
     core::commands::CommandOrigin,
-    custom_client::{MedalGroup, OsekaiMedal, Rarity},
     embeds::MedalsCommonUser,
     manager::redis::{
         osu::{User, UserArgs},
         RedisData,
     },
     pagination::MedalsCommonPagination,
-    util::{
-        constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
-        get_combined_thumbnail,
-        hasher::IntHasher,
-        matcher,
-        rkyv_impls::DateTimeWrapper,
-    },
+    util::osu::get_combined_thumbnail,
     Context,
 };
 

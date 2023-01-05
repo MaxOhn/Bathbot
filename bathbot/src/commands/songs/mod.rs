@@ -23,15 +23,14 @@ mod zenzenzense;
 use std::{fmt::Write, sync::Arc};
 
 use bathbot_macros::SlashCommand;
+use bathbot_util::MessageBuilder;
 use eyre::Result;
 use tokio::time::{interval, Duration};
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 
 use crate::{
     core::{buckets::BucketName, commands::CommandOrigin},
-    util::{
-        builder::MessageBuilder, interaction::InteractionCommand, InteractionCommandExt, MessageExt,
-    },
+    util::{interaction::InteractionCommand, InteractionCommandExt, MessageExt},
     Context,
 };
 

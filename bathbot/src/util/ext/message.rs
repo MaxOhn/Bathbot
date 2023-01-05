@@ -1,5 +1,6 @@
 use std::slice;
 
+use bathbot_util::MessageBuilder;
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
 use twilight_model::{
     channel::Message,
@@ -9,7 +10,7 @@ use twilight_model::{
     },
 };
 
-use crate::{core::Context, util::builder::MessageBuilder};
+use crate::core::Context;
 
 pub trait MessageExt {
     fn update(&self, ctx: &Context, builder: &MessageBuilder<'_>) -> ResponseFuture<Message>;

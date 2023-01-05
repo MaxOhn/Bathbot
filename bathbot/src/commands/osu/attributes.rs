@@ -1,6 +1,11 @@
 use std::sync::Arc;
 
 use bathbot_macros::SlashCommand;
+use bathbot_util::{
+    matcher,
+    osu::{AttributeKind, ModSelection},
+    MessageBuilder,
+};
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
@@ -8,13 +13,7 @@ use crate::{
     core::Context,
     embeds::AttributesEmbed,
     embeds::EmbedData,
-    util::{
-        builder::MessageBuilder,
-        interaction::InteractionCommand,
-        matcher,
-        osu::{AttributeKind, ModSelection},
-        InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]

@@ -4,6 +4,7 @@ use std::{
 };
 
 use bathbot_macros::{command, SlashCommand};
+use bathbot_util::{CowUtils, Matrix, MessageBuilder};
 use eyre::Result;
 use rand::RngCore;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
@@ -13,10 +14,7 @@ use crate::{
         commands::{prefix::Args, CommandOrigin},
         Context,
     },
-    util::{
-        builder::MessageBuilder, interaction::InteractionCommand, ChannelExt, CowUtils,
-        InteractionCommandExt, Matrix,
-    },
+    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
 };
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]

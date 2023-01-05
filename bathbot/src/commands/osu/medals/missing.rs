@@ -1,6 +1,11 @@
 use std::{borrow::Cow, cmp::Ordering, sync::Arc};
 
 use bathbot_macros::command;
+use bathbot_model::{MedalGroup, OsekaiMedal, MEDAL_GROUPS};
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
+    matcher, IntHasher,
+};
 use eyre::{Report, Result};
 use hashbrown::HashSet;
 use rkyv::{Deserialize, Infallible};
@@ -9,14 +14,8 @@ use rosu_v2::{prelude::OsuError, request::UserId};
 use crate::{
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
-    custom_client::{MedalGroup, OsekaiMedal, MEDAL_GROUPS},
     manager::redis::{osu::UserArgs, RedisData},
     pagination::MedalsMissingPagination,
-    util::{
-        constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
-        hasher::IntHasher,
-        matcher,
-    },
     Context,
 };
 

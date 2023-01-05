@@ -1,18 +1,15 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
-
-use crate::{
-    custom_client::OsuStatsPlayer,
-    pagination::Pages,
-    util::{
-        builder::{AuthorBuilder, FooterBuilder},
-        constants::{AVATAR_URL, OSU_BASE},
-        numbers::WithComma,
-        osu::flag_url,
-        CountryCode, CowUtils,
-    },
+use bathbot_model::{CountryCode, OsuStatsPlayer};
+use bathbot_util::{
+    constants::{AVATAR_URL, OSU_BASE},
+    numbers::WithComma,
+    osu::flag_url,
+    AuthorBuilder, CowUtils, FooterBuilder,
 };
+
+use crate::pagination::Pages;
 
 #[derive(EmbedData)]
 pub struct OsuStatsListEmbed {

@@ -1,6 +1,12 @@
 use std::{collections::HashMap, sync::Arc};
 
 use bathbot_macros::command;
+use bathbot_util::{
+    constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE},
+    matcher,
+    osu::ModSelection,
+    IntHasher,
+};
 use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, OsuError, Score};
 
@@ -12,11 +18,6 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     manager::redis::osu::UserArgs,
     pagination::LeaderboardPagination,
-    util::{
-        constants::{AVATAR_URL, GENERAL_ISSUE, OSU_API_ISSUE, OSU_WEB_ISSUE},
-        matcher,
-        osu::ModSelection,
-    },
     Context,
 };
 
@@ -229,7 +230,9 @@ pub(super) async fn leaderboard(
         Some(ModSelection::Include(m)) | Some(ModSelection::Exact(m)) => Some(m),
     };
 
-    let scores_fut = ctx.client().get_leaderboard(map_id, mods, mode);
+    let scores_fut = ctx
+        .client()
+        .get_leaderboard::<IntHasher>(map_id, mods, mode);
     let map_fut = ctx.osu_map().map(map_id, checksum.as_deref());
 
     let (scores_res, map_res) = tokio::join!(scores_fut, map_fut);

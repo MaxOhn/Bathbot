@@ -1,12 +1,11 @@
+use bathbot_model::{OsuStatsPlayer, OsuStatsPlayersArgs};
+use bathbot_util::IntHasher;
 use eyre::{Result, WrapErr};
 use hashbrown::{hash_map::Entry, HashMap};
 use twilight_model::channel::embed::Embed;
 
 use crate::{
-    commands::osu::OsuStatsPlayersArgs,
-    custom_client::OsuStatsPlayer,
     embeds::{EmbedData, OsuStatsListEmbed},
-    util::hasher::IntHasher,
     Context,
 };
 

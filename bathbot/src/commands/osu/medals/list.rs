@@ -3,6 +3,11 @@ use std::{
     sync::Arc,
 };
 
+use bathbot_model::{rkyv_impls::DateTimeWrapper, OsekaiMedal, Rarity};
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
+    IntHasher,
+};
 use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rkyv::{with::DeserializeWith, Infallible};
@@ -12,14 +17,8 @@ use time::OffsetDateTime;
 use crate::{
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
-    custom_client::{OsekaiMedal, Rarity},
     manager::redis::{osu::UserArgs, RedisData},
     pagination::MedalsListPagination,
-    util::{
-        constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
-        hasher::IntHasher,
-        rkyv_impls::DateTimeWrapper,
-    },
     Context,
 };
 

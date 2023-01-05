@@ -1,6 +1,13 @@
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::EmbedData;
+use bathbot_model::ScoreSlim;
+use bathbot_util::{
+    constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
+    datetime::HowLongAgoDynamic,
+    numbers::{round, WithComma},
+    AuthorBuilder, CowUtils, FooterBuilder,
+};
 use rosu_v2::prelude::{GameMode, Score};
 
 use crate::{
@@ -11,14 +18,7 @@ use crate::{
         OsuMap,
     },
     pagination::Pages,
-    util::{
-        builder::{AuthorBuilder, FooterBuilder},
-        constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
-        datetime::HowLongAgoDynamic,
-        numbers::{round, WithComma},
-        osu::ScoreSlim,
-        CowUtils, Emote, ScoreExt,
-    },
+    util::{Emote, ScoreExt},
 };
 
 use super::HitResultFormatter;

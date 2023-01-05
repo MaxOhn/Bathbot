@@ -1,19 +1,20 @@
 use std::{borrow::Cow, cmp::Ordering::Equal, sync::Arc};
 
 use bathbot_macros::command;
+use bathbot_model::{CountryCode, SnipeCountryPlayer as SCP};
+use bathbot_util::{
+    constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
+    CowUtils,
+};
 use eyre::{Report, Result};
 use rosu_v2::{prelude::OsuError, request::UserId};
 
 use crate::{
     commands::osu::user_not_found,
     core::commands::{prefix::Args, CommandOrigin},
-    custom_client::SnipeCountryPlayer as SCP,
     manager::redis::{osu::UserArgs, RedisData},
     pagination::CountrySnipeListPagination,
-    util::{
-        constants::{HUISMETBENEN_ISSUE, OSU_API_ISSUE},
-        ChannelExt, CountryCode, CowUtils,
-    },
+    util::ChannelExt,
     Context,
 };
 

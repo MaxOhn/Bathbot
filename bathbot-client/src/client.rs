@@ -1,8 +1,24 @@
-use std::{fmt::Write, hash::Hash};
+use std::{
+    collections::HashSet,
+    fmt::Write,
+    hash::{BuildHasher, Hash},
+};
 
+use bathbot_model::{
+    OsekaiBadge, OsekaiBadgeOwner, OsekaiComment, OsekaiComments, OsekaiMap, OsekaiMaps,
+    OsekaiMedal, OsekaiMedals, OsekaiRanking, OsekaiRankingEntries, OsuStatsParams, OsuStatsPlayer,
+    OsuStatsPlayersArgs, OsuStatsScore, OsuTrackerCountryDetails, OsuTrackerIdCount,
+    OsuTrackerPpGroup, OsuTrackerStats, RespektiveTopCount, RespektiveUser, ScraperScore,
+    ScraperScores, SnipeCountryPlayer, SnipeCountryStatistics, SnipePlayer, SnipeRecent,
+    SnipeScore, SnipeScoreParams,
+};
+use bathbot_util::{
+    constants::*,
+    datetime::{DATE_FORMAT, TIME_FORMAT},
+    osu::ModSelection,
+};
 use bytes::Bytes;
 use eyre::{Report, Result, WrapErr};
-use hashbrown::HashSet;
 use http::{
     header::{CONTENT_LENGTH, COOKIE},
     request::Builder as RequestBuilder,
@@ -17,42 +33,11 @@ use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use leaky_bucket_lite::LeakyBucket;
 use rosu_v2::prelude::{GameMode, GameMods};
 use serde_json::Value;
-use thiserror::Error;
 use time::{format_description::FormatItem, OffsetDateTime};
 use tokio::time::{timeout, Duration};
 use twilight_model::channel::Attachment;
 
-use crate::{
-    commands::osu::OsuStatsPlayersArgs,
-    core::BotConfig,
-    util::{
-        constants::{HUISMETBENEN, OSU_BASE},
-        datetime::{DATE_FORMAT, TIME_FORMAT},
-        hasher::IntHasher,
-        osu::ModSelection,
-    },
-};
-
-pub use self::{
-    osekai::*, osu_stats::*, osu_tracker::*, respektive::*, rkyv_impls::UsernameWrapper, score::*,
-    snipe::*,
-};
-
-#[cfg(feature = "twitch")]
-pub use self::twitch::*;
-
-use self::{multipart::Multipart, rkyv_impls::*, score::ScraperScores};
-
-mod deser;
-mod multipart;
-mod osekai;
-mod osu_stats;
-mod osu_tracker;
-mod respektive;
-mod rkyv_impls;
-mod score;
-mod snipe;
-mod twitch;
+use crate::{multipart::Multipart, ClientError};
 
 static MY_USER_AGENT: &str = env!("CARGO_PKG_NAME");
 
@@ -74,32 +59,32 @@ enum Site {
     Twitch,
 }
 
-type Client = HyperClient<HttpsConnector<HttpConnector<GaiResolver>>, Body>;
+type InnerClient = HyperClient<HttpsConnector<HttpConnector<GaiResolver>>, Body>;
 
-pub struct CustomClient {
-    client: Client,
+pub struct Client {
+    client: InnerClient,
     osu_session: &'static str,
     #[cfg(feature = "twitch")]
     twitch: TwitchData,
     ratelimiters: [LeakyBucket; 11 + cfg!(feature = "twitch") as usize],
 }
 
-impl CustomClient {
-    pub async fn new() -> Result<Self> {
+impl Client {
+    pub async fn new(
+        osu_session: &'static str,
+        #[cfg(feature = "twitch")] twitch_client_id: &str,
+        #[cfg(feature = "twitch")] twitch_token: &str,
+    ) -> Result<Self> {
         let connector = HttpsConnectorBuilder::new()
             .with_webpki_roots()
             .https_or_http()
             .enable_http1()
             .build();
 
-        let config = BotConfig::get();
         let client = HyperClient::builder().build(connector);
 
         #[cfg(feature = "twitch")]
         let twitch = {
-            let twitch_client_id = &config.tokens.twitch_client_id;
-            let twitch_token = &config.tokens.twitch_token;
-
             Self::get_twitch_token(&client, twitch_client_id, twitch_token)
                 .await
                 .wrap_err("failed to get twitch token")?
@@ -132,15 +117,19 @@ impl CustomClient {
 
         Ok(Self {
             client,
-            osu_session: &config.tokens.osu_session,
+            osu_session,
+            ratelimiters,
             #[cfg(feature = "twitch")]
             twitch,
-            ratelimiters,
         })
     }
 
     #[cfg(feature = "twitch")]
-    async fn get_twitch_token(client: &Client, client_id: &str, token: &str) -> Result<TwitchData> {
+    async fn get_twitch_token(
+        client: &InnerClient,
+        client_id: &str,
+        token: &str,
+    ) -> Result<TwitchData> {
         use crate::util::constants::TWITCH_OAUTH;
 
         let form = Multipart::new()
@@ -420,7 +409,7 @@ impl CustomClient {
         })
     }
 
-    /// Don't use this; use [`RedisCache::osutracker_stats`](crate::core::RedisCache::osutracker_stats) instead.
+    /// Don't use this; use `RedisCache::osutracker_stats` instead.
     pub async fn get_osutracker_stats(&self) -> Result<OsuTrackerStats> {
         let url = "https://osutracker.com/api/stats";
         let bytes = self.make_get_request(url, Site::OsuTracker).await?;
@@ -432,7 +421,7 @@ impl CustomClient {
         })
     }
 
-    /// Don't use this; use [`RedisCache::osutracker_pp_group`](crate::core::RedisCache::osutracker_pp_group) instead.
+    /// Don't use this; use `RedisCache::osutracker_pp_group` instead.
     pub async fn get_osutracker_pp_group(&self, pp: u32) -> Result<OsuTrackerPpGroup> {
         let url = format!("https://osutracker.com/api/stats/ppBarrier?number={pp}");
         let bytes = self.make_get_request(url, Site::OsuTracker).await?;
@@ -444,7 +433,7 @@ impl CustomClient {
         })
     }
 
-    /// Don't use this; use [`RedisCache::osutracker_counts`](crate::core::RedisCache::osutracker_counts) instead.
+    /// Don't use this; use `RedisCache::osutracker_counts` instead.
     pub async fn get_osutracker_counts(&self) -> Result<Vec<OsuTrackerIdCount>> {
         let url = "https://osutracker.com/api/stats/idCounts";
         let bytes = self.make_get_request(url, Site::OsuTracker).await?;
@@ -456,7 +445,7 @@ impl CustomClient {
         })
     }
 
-    /// Don't use this; use [`RedisCache::badges`](crate::core::RedisCache::badges) instead.
+    /// Don't use this; use `RedisCache::badges` instead.
     pub async fn get_osekai_badges(&self) -> Result<Vec<OsekaiBadge>> {
         let url = "https://osekai.net/badges/api/getBadges.php";
 
@@ -480,7 +469,7 @@ impl CustomClient {
         })
     }
 
-    /// Don't use this; use [`RedisCache::medals`](crate::core::RedisCache::medals) instead.
+    /// Don't use this; use `RedisCache::medals` instead.
     pub async fn get_osekai_medals(&self) -> Result<Vec<OsekaiMedal>> {
         let url = "https://osekai.net/medals/api/medals.php";
         let form = Multipart::new().push_text("strSearch", "");
@@ -782,12 +771,15 @@ impl CustomClient {
     // If mods contain DT / NC, it will do another request for the opposite
     // If mods dont contain Mirror and its a mania map, it will perform the
     // same requests again but with Mirror enabled
-    pub async fn get_leaderboard(
+    pub async fn get_leaderboard<S>(
         &self,
         map_id: u32,
         mods: Option<GameMods>,
         mode: GameMode,
-    ) -> Result<Vec<ScraperScore>> {
+    ) -> Result<Vec<ScraperScore>>
+    where
+        S: BuildHasher + Default,
+    {
         let mut scores = self._get_leaderboard(map_id, mods).await?;
 
         let non_mirror = mods
@@ -804,7 +796,7 @@ impl CustomClient {
             let mut new_scores = self._get_leaderboard(map_id, mods).await?;
             scores.append(&mut new_scores);
             scores.sort_unstable_by(|a, b| b.score.cmp(&a.score));
-            let mut uniques = HashSet::with_capacity_and_hasher(50, IntHasher);
+            let mut uniques = HashSet::with_capacity_and_hasher(50, S::default());
             scores.retain(|s| uniques.insert(s.user_id));
             scores.truncate(50);
         }
@@ -829,7 +821,7 @@ impl CustomClient {
             let mut new_scores = self._get_leaderboard(map_id, mods).await?;
             scores.append(&mut new_scores);
             scores.sort_unstable_by(|a, b| b.score.cmp(&a.score));
-            let mut uniques = HashSet::with_capacity_and_hasher(50, IntHasher);
+            let mut uniques = HashSet::with_capacity_and_hasher(50, S::default());
             scores.retain(|s| uniques.insert(s.user_id));
             scores.truncate(50);
         }
@@ -905,7 +897,7 @@ mod twitch_impls {
 
     use super::{CustomClient, TwitchDataList, TwitchStream, TwitchUser, TwitchVideo};
 
-    impl CustomClient {
+    impl Client {
         pub async fn get_twitch_user(&self, name: &str) -> Result<Option<TwitchUser>> {
             let data = [("login", name)];
 
@@ -1010,16 +1002,4 @@ mod twitch_impls {
             Ok(videos.data.pop())
         }
     }
-}
-
-#[derive(Debug, Error)]
-pub enum ClientError {
-    #[error("status code 400 - bad request")]
-    BadRequest,
-    #[error("status code 404 - not found")]
-    NotFound,
-    #[error("status code 429 - ratelimited")]
-    Ratelimited,
-    #[error(transparent)]
-    Report(#[from] Report),
 }

@@ -1,5 +1,12 @@
 use std::{borrow::Cow, fmt::Write};
 
+use bathbot_model::ScoreSlim;
+use bathbot_util::{
+    constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
+    numbers::{round, WithComma},
+    osu::{calculate_grade, ModSelection},
+    CowUtils, EmbedBuilder, FooterBuilder,
+};
 use eyre::Result;
 use rosu_pp::DifficultyAttributes;
 use rosu_v2::prelude::{GameMode, GameMods, Grade, ScoreStatistics};
@@ -14,13 +21,7 @@ use crate::{
     core::Context,
     embeds::osu,
     manager::OsuMap,
-    util::{
-        builder::{EmbedBuilder, FooterBuilder},
-        constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
-        numbers::{round, WithComma},
-        osu::{calculate_grade, grade_completion_mods, ModSelection, ScoreSlim},
-        CowUtils,
-    },
+    util::osu::grade_completion_mods,
 };
 
 use super::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter};

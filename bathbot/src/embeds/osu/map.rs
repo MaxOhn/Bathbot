@@ -1,6 +1,12 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
+use bathbot_util::{
+    constants::{AVATAR_URL, OSU_BASE},
+    datetime::SecToMinSec,
+    numbers::{round, WithComma},
+    AuthorBuilder, CowUtils, FooterBuilder,
+};
 use eyre::{Result, WrapErr};
 use rosu_pp::{AnyPP, Beatmap as Map, BeatmapExt};
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods};
@@ -12,14 +18,7 @@ use crate::{
     core::Context,
     embeds::attachment,
     pagination::Pages,
-    util::{
-        builder::{AuthorBuilder, FooterBuilder},
-        constants::{AVATAR_URL, OSU_BASE},
-        datetime::SecToMinSec,
-        numbers::{round, WithComma},
-        osu::{mode_emote, prepare_beatmap_file},
-        CowUtils,
-    },
+    util::osu::{mode_emote, prepare_beatmap_file},
 };
 
 #[derive(EmbedData)]

@@ -1,6 +1,11 @@
 use std::{borrow::Cow, sync::Arc};
 
 use bathbot_macros::command;
+use bathbot_model::{CountryCode, OsuStatsPlayer, OsuStatsPlayersArgs};
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE},
+    CowUtils, IntHasher,
+};
 use eyre::Result;
 use hashbrown::HashMap;
 use rosu_v2::model::GameMode;
@@ -8,25 +13,12 @@ use rosu_v2::model::GameMode;
 use crate::{
     commands::GameModeOption,
     core::commands::{prefix::Args, CommandOrigin},
-    custom_client::OsuStatsPlayer,
     pagination::OsuStatsListPagination,
-    util::{
-        constants::{GENERAL_ISSUE, OSUSTATS_API_ISSUE},
-        hasher::IntHasher,
-        ChannelExt, CountryCode, CowUtils,
-    },
+    util::ChannelExt,
     Context,
 };
 
 use super::OsuStatsPlayers;
-
-pub struct OsuStatsPlayersArgs {
-    pub mode: GameMode,
-    pub country: Option<CountryCode>,
-    pub page: usize,
-    pub min_rank: u32,
-    pub max_rank: u32,
-}
 
 impl<'a> From<OsuStatsPlayers<'a>> for OsuStatsPlayersArgs {
     fn from(args: OsuStatsPlayers<'a>) -> Self {

@@ -1,17 +1,16 @@
 use std::sync::Arc;
 
 use bathbot_macros::SlashCommand;
+use bathbot_model::{RankingKind, UserStatsKind};
 use bathbot_psql::model::osu::{UserModeStatsColumn, UserStatsColumn};
+use bathbot_util::constants::GENERAL_ISSUE;
 use eyre::Result;
 use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
-    embeds::{RankingKind, UserStatsKind},
     pagination::RankingPagination,
-    util::{
-        constants::GENERAL_ISSUE, interaction::InteractionCommand, Authored, InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
 };
 

@@ -2,10 +2,9 @@ use std::fmt::{Display, Write};
 
 use bathbot_macros::EmbedData;
 use bathbot_psql::model::configs::{ListSize, MinimizedPp, OsuUsername, ScoreSize, UserConfig};
+use bathbot_util::AuthorBuilder;
 use rosu_v2::prelude::GameMode;
 use twilight_model::{channel::embed::EmbedField, user::User};
-
-use crate::util::builder::AuthorBuilder;
 
 #[derive(EmbedData)]
 pub struct ConfigEmbed {

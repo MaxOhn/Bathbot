@@ -1,6 +1,11 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
+use bathbot_model::SnipeRecent;
+use bathbot_util::{
+    constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::round, AuthorBuilder, CowUtils,
+    FooterBuilder, IntHasher,
+};
 use eyre::{Result, WrapErr};
 use hashbrown::HashMap;
 use rosu_pp::{Beatmap, BeatmapExt};
@@ -8,18 +13,9 @@ use rosu_pp::{Beatmap, BeatmapExt};
 use crate::{
     commands::osu::Difference,
     core::Context,
-    custom_client::SnipeRecent,
     manager::redis::{osu::User, RedisData},
     pagination::Pages,
-    util::{
-        builder::{AuthorBuilder, FooterBuilder},
-        constants::OSU_BASE,
-        datetime::HowLongAgoDynamic,
-        hasher::IntHasher,
-        numbers::round,
-        osu::prepare_beatmap_file,
-        CowUtils,
-    },
+    util::osu::prepare_beatmap_file,
 };
 
 use super::ModsFormatter;

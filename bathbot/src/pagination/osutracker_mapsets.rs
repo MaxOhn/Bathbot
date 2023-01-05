@@ -1,4 +1,6 @@
 use bathbot_macros::pagination;
+use bathbot_model::OsuTrackerMapsetEntry;
+use bathbot_util::IntHasher;
 use eyre::Result;
 use hashbrown::HashMap;
 use time::OffsetDateTime;
@@ -7,9 +9,7 @@ use twilight_model::channel::embed::Embed;
 use crate::{
     commands::osu::MapsetEntry,
     core::Context,
-    custom_client::OsuTrackerMapsetEntry,
     embeds::{EmbedData, OsuTrackerMapsetsEmbed},
-    util::hasher::IntHasher,
 };
 
 use super::Pages;

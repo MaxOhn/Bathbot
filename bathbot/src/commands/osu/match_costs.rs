@@ -3,6 +3,7 @@ use std::{
 };
 
 use bathbot_macros::{command, SlashCommand};
+use bathbot_util::{constants::OSU_API_ISSUE, matcher, IntHasher, MessageBuilder};
 use eyre::{Report, Result};
 use hashbrown::{HashMap, HashSet};
 use rosu_v2::prelude::{
@@ -13,10 +14,7 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     embeds::{EmbedData, MatchCostEmbed},
-    util::{
-        builder::MessageBuilder, constants::OSU_API_ISSUE, hasher::IntHasher,
-        interaction::InteractionCommand, matcher, ChannelExt, InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
 

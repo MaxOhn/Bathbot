@@ -1,16 +1,10 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
+use bathbot_util::{constants::SYMBOLS, datetime::HowLongAgoText, AuthorBuilder, FooterBuilder};
 use time::OffsetDateTime;
 
-use crate::{
-    pagination::Pages,
-    util::{
-        builder::{AuthorBuilder, FooterBuilder},
-        constants::SYMBOLS,
-        datetime::HowLongAgoText,
-    },
-};
+use crate::pagination::Pages;
 
 #[derive(EmbedData)]
 pub struct CommandCounterEmbed {

@@ -1,10 +1,8 @@
 use bathbot_macros::pagination;
+use bathbot_model::OsuTrackerMapperEntry;
 use twilight_model::channel::embed::Embed;
 
-use crate::{
-    custom_client::OsuTrackerMapperEntry,
-    embeds::{EmbedData, OsuTrackerMappersEmbed},
-};
+use crate::embeds::{EmbedData, OsuTrackerMappersEmbed};
 
 use super::Pages;
 

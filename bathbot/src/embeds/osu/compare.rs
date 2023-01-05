@@ -2,6 +2,14 @@ use std::{borrow::Cow, fmt::Write};
 
 use bathbot_macros::EmbedData;
 use bathbot_psql::model::configs::MinimizedPp;
+use bathbot_util::{
+    constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
+    datetime::HowLongAgoDynamic,
+    matcher::highlight_funny_numeral,
+    numbers::{round, WithComma},
+    osu::ModSelection,
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder,
+};
 use rosu_v2::prelude::{GameMode, Score};
 use time::OffsetDateTime;
 use twilight_model::channel::embed::Embed;
@@ -13,15 +21,7 @@ use crate::{
         redis::{osu::User, RedisData},
         OsuMap,
     },
-    util::{
-        builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
-        constants::{AVATAR_URL, MAP_THUMB_URL, OSU_BASE},
-        datetime::HowLongAgoDynamic,
-        matcher::highlight_funny_numeral,
-        numbers::{round, WithComma},
-        osu::{grade_completion_mods, IfFc, ModSelection},
-        CowUtils,
-    },
+    util::osu::{grade_completion_mods, IfFc},
 };
 
 use super::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter};

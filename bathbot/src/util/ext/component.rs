@@ -1,18 +1,13 @@
 use std::borrow::Cow;
 
+use bathbot_util::{MessageBuilder, ModalBuilder};
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
 use twilight_model::{
     channel::Message,
     http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
 };
 
-use crate::{
-    core::Context,
-    util::{
-        builder::{MessageBuilder, ModalBuilder},
-        interaction::InteractionComponent,
-    },
-};
+use crate::{core::Context, util::interaction::InteractionComponent};
 
 use super::MessageExt;
 

@@ -1,14 +1,10 @@
 use std::sync::Arc;
 
+use bathbot_util::{numbers::WithComma, EmbedBuilder, FooterBuilder, MessageBuilder};
 use eyre::Result;
 
 use crate::{
-    util::{
-        builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
-        interaction::InteractionCommand,
-        numbers::WithComma,
-        InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
 

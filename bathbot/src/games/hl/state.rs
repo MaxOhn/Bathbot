@@ -1,5 +1,6 @@
 use std::{mem, sync::Arc};
 
+use bathbot_model::HlVersion;
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use rosu_v2::prelude::GameMode;
 use tokio::sync::oneshot::Receiver;
@@ -16,7 +17,7 @@ use crate::{
     util::{interaction::InteractionComponent, Authored},
 };
 
-use super::{kind::GameStateKind, HlGuess, HlVersion};
+use super::{kind::GameStateKind, HlGuess};
 
 pub struct GameState {
     kind: GameStateKind,

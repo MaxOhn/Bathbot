@@ -1,6 +1,10 @@
 use std::{str::FromStr, sync::Arc};
 
 use bathbot_psql::model::osu::ArtistTitle;
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSU_BASE},
+    MessageBuilder,
+};
 use eyre::{Report, Result};
 use rosu_v2::prelude::GameMode;
 use tokio::{
@@ -10,12 +14,7 @@ use tokio::{
 
 use crate::{
     core::BotConfig,
-    util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSU_BASE},
-        interaction::InteractionCommand,
-        InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
 

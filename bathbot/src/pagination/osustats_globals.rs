@@ -1,16 +1,15 @@
 use std::collections::BTreeMap;
 
 use bathbot_macros::pagination;
+use bathbot_model::{OsuStatsParams, ScoreSlim};
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::{GameMode, Grade, ScoreStatistics};
 use twilight_model::channel::embed::Embed;
 
 use crate::{
     commands::osu::OsuStatsEntry,
-    custom_client::OsuStatsParams,
     embeds::{EmbedData, OsuStatsGlobalsEmbed},
     manager::redis::{osu::User, RedisData},
-    util::osu::ScoreSlim,
     Context,
 };
 

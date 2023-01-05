@@ -8,7 +8,15 @@ use std::{
 };
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
+use bathbot_model::{OsuTrackerMapsetEntry, ScoreSlim};
 use bathbot_psql::model::configs::{GuildConfig, ListSize, MinimizedPp, ScoreSize};
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSUTRACKER_ISSUE, OSU_API_ISSUE},
+    matcher,
+    numbers::round,
+    osu::ModSelection,
+    CowUtils, IntHasher, MessageBuilder,
+};
 use eyre::{Report, Result};
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::{
@@ -26,7 +34,6 @@ use twilight_model::id::{marker::UserMarker, Id};
 use crate::{
     commands::{GameModeOption, GradeOption},
     core::commands::{prefix::Args, CommandOrigin},
-    custom_client::OsuTrackerMapsetEntry,
     embeds::TopSingleEmbed,
     manager::{
         redis::{
@@ -37,14 +44,9 @@ use crate::{
     },
     pagination::{TopCondensedPagination, TopPagination, TopSinglePagination},
     util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSUTRACKER_ISSUE, OSU_API_ISSUE},
-        hasher::IntHasher,
         interaction::InteractionCommand,
-        matcher, numbers,
-        osu::{ModSelection, ScoreSlim},
         query::{FilterCriteria, Searchable},
-        ChannelExt, CowUtils, InteractionCommandExt, MessageExt,
+        ChannelExt, InteractionCommandExt, MessageExt,
     },
     Context,
 };
@@ -1370,18 +1372,13 @@ fn content_with_condition(args: &TopArgs<'_>, amount: usize) -> String {
     match (args.min_acc, args.max_acc) {
         (None, None) => {}
         (None, Some(max)) => {
-            let _ = write!(content, " ~ `Acc: 0% - {}%`", numbers::round(max));
+            let _ = write!(content, " ~ `Acc: 0% - {}%`", round(max));
         }
         (Some(min), None) => {
-            let _ = write!(content, " ~ `Acc: {}% - 100%`", numbers::round(min));
+            let _ = write!(content, " ~ `Acc: {}% - 100%`", round(min));
         }
         (Some(min), Some(max)) => {
-            let _ = write!(
-                content,
-                " ~ `Acc: {}% - {}%`",
-                numbers::round(min),
-                numbers::round(max)
-            );
+            let _ = write!(content, " ~ `Acc: {}% - {}%`", round(min), round(max));
         }
     }
 

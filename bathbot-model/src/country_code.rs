@@ -1,20 +1,19 @@
 use std::{
     borrow::{Borrow, Cow},
+    collections::HashMap,
     fmt,
     ops::Deref,
 };
 
-use hashbrown::HashMap;
+use bathbot_util::CowUtils;
 use once_cell::sync::OnceCell;
 use rkyv::{
     string::{ArchivedString, StringResolver},
     Archive, Deserialize as RkyvDeserialize, Fallible, Serialize, SerializeUnsized,
 };
+use rosu_v2::prelude::CountryCode as RosuCountryCode;
 use serde::Deserialize;
-use smallstr::SmallString;
 use time::UtcOffset;
-
-use crate::util::CowUtils;
 
 static TIMEZONES: OnceCell<HashMap<&'static str, i32>> = OnceCell::new();
 
@@ -280,9 +279,9 @@ fn timezones() -> &'static HashMap<&'static str, i32> {
     })
 }
 
-static COUNTRIES: OnceCell<HashMap<&'static str, SmallString<[u8; 2]>>> = OnceCell::new();
+static COUNTRIES: OnceCell<HashMap<&'static str, RosuCountryCode>> = OnceCell::new();
 
-fn countries() -> &'static HashMap<&'static str, SmallString<[u8; 2]>> {
+fn countries() -> &'static HashMap<&'static str, RosuCountryCode> {
     COUNTRIES.get_or_init(|| {
         let mut map = HashMap::with_capacity(300);
 
@@ -557,7 +556,7 @@ fn countries() -> &'static HashMap<&'static str, SmallString<[u8; 2]>> {
 }
 
 #[derive(Clone, Debug, Deserialize, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct CountryCode(rosu_v2::prelude::CountryCode);
+pub struct CountryCode(RosuCountryCode);
 
 impl CountryCode {
     pub fn from_name(name: &str) -> Option<Self> {
@@ -570,11 +569,7 @@ impl CountryCode {
     pub fn timezone(&self) -> UtcOffset {
         let offset = match timezones().get(self.0.as_str()) {
             Some(offset) => *offset,
-            None => {
-                warn!("missing timezone for country code {self}");
-
-                0
-            }
+            None => 0,
         };
 
         UtcOffset::from_whole_seconds(offset).unwrap()
@@ -582,7 +577,7 @@ impl CountryCode {
 }
 
 impl Deref for CountryCode {
-    type Target = SmallString<[u8; 2]>;
+    type Target = RosuCountryCode;
 
     #[inline]
     fn deref(&self) -> &Self::Target {
@@ -590,9 +585,9 @@ impl Deref for CountryCode {
     }
 }
 
-impl From<rosu_v2::prelude::CountryCode> for CountryCode {
+impl From<RosuCountryCode> for CountryCode {
     #[inline]
-    fn from(country_code: rosu_v2::prelude::CountryCode) -> Self {
+    fn from(country_code: RosuCountryCode) -> Self {
         Self(country_code)
     }
 }

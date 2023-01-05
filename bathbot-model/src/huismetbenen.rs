@@ -1,11 +1,10 @@
-// TODO: rename module
-
-use std::{collections::BTreeMap, fmt};
-
-use rosu_v2::{
-    model::GameMods,
-    prelude::{RankStatus, Username},
+use std::{
+    collections::BTreeMap,
+    fmt::{Display, Formatter, Result as FmtResult},
 };
+
+use bathbot_util::osu::ModSelection;
+use rosu_v2::prelude::{CountryCode, GameMods, RankStatus, Username};
 use serde::{
     de::{Deserializer, Error, MapAccess, Unexpected, Visitor},
     Deserialize,
@@ -17,11 +16,7 @@ use time::{
     },
     Date, OffsetDateTime, PrimitiveDateTime,
 };
-
-use crate::{
-    commands::osu::SnipePlayerListOrder,
-    util::{datetime::NAIVE_DATETIME_FORMAT, osu::ModSelection, CountryCode},
-};
+use twilight_interactions::command::{CommandOption, CreateOption};
 
 use super::deser;
 
@@ -67,6 +62,41 @@ impl SnipeScoreParams {
 
     pub fn page(&mut self, page: u8) {
         self.page = page;
+    }
+}
+
+#[derive(Copy, Clone, CommandOption, CreateOption, Debug, Eq, PartialEq)]
+pub enum SnipePlayerListOrder {
+    #[option(name = "Accuracy", value = "acc")]
+    Acc = 0,
+    #[option(name = "Date", value = "date")]
+    Date = 5,
+    #[option(name = "Misses", value = "misses")]
+    Misses = 3,
+    #[option(name = "PP", value = "pp")]
+    Pp = 4,
+    #[option(name = "Stars", value = "stars")]
+    Stars = 6,
+}
+
+impl Default for SnipePlayerListOrder {
+    #[inline]
+    fn default() -> Self {
+        Self::Pp
+    }
+}
+
+impl Display for SnipePlayerListOrder {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let name = match self {
+            Self::Acc => "accuracy",
+            Self::Misses => "count_miss",
+            Self::Pp => "pp",
+            Self::Date => "date_set",
+            Self::Stars => "sr",
+        };
+
+        f.write_str(name)
     }
 }
 
@@ -260,7 +290,7 @@ mod mod_count {
         type Value = Vec<(GameMods, u32)>;
 
         #[inline]
-        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
             f.write_str("a map")
         }
 
@@ -306,7 +336,7 @@ mod history {
     impl<'de> Visitor<'de> for SnipePlayerHistoryVisitor {
         type Value = BTreeMap<Date, u32>;
 
-        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
             f.write_str("a map")
         }
 
@@ -328,9 +358,8 @@ mod history {
 
 // Tries to deserialize various datetime formats
 mod datetime_mixture {
+    use bathbot_util::datetime::{NAIVE_DATETIME_FORMAT, OFFSET_FORMAT};
     use time::UtcOffset;
-
-    use crate::util::datetime::OFFSET_FORMAT;
 
     use super::*;
 
@@ -343,7 +372,7 @@ mod datetime_mixture {
     impl<'de> Visitor<'de> for DateTimeVisitor {
         type Value = OffsetDateTime;
 
-        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fn expecting(&self, f: &mut Formatter<'_>) -> FmtResult {
             f.write_str("a datetime string")
         }
 

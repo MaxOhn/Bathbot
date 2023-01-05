@@ -1,3 +1,4 @@
+use bathbot_model::{HlVersion, MapsetTagsEntries};
 use bathbot_psql::{
     model::games::{DbBgGameScore, DbHlGameScore, DbMapTagsParams},
     Database,
@@ -5,8 +6,6 @@ use bathbot_psql::{
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::GameMode;
 use twilight_model::id::{marker::UserMarker, Id};
-
-use crate::games::{bg::MapsetTagsEntries, hl::HlVersion};
 
 #[derive(Copy, Clone)]
 pub struct GameManager<'d> {

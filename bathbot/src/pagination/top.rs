@@ -1,17 +1,17 @@
 use std::collections::HashMap;
 
 use bathbot_macros::pagination;
+use bathbot_model::OsuTrackerMapsetEntry;
 use bathbot_psql::model::configs::MinimizedPp;
+use bathbot_util::IntHasher;
 use eyre::Result;
 use twilight_model::channel::embed::Embed;
 
 use crate::{
     commands::osu::{TopEntry, TopScoreOrder},
     core::Context,
-    custom_client::OsuTrackerMapsetEntry,
     embeds::{CondensedTopEmbed, EmbedData, TopEmbed, TopSingleEmbed},
     manager::redis::{osu::User, RedisData},
-    util::hasher::IntHasher,
 };
 
 use super::Pages;

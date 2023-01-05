@@ -1,5 +1,4 @@
-use crate::custom_client::OsuStatsMap;
-
+use bathbot_model::OsuStatsMap;
 use rosu_v2::prelude::{Beatmap, GameMode, RankStatus};
 
 pub trait BeatmapExt: Send + Sync {

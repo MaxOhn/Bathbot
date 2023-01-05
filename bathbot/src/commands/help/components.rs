@@ -1,5 +1,6 @@
 use std::{fmt::Write, mem};
 
+use bathbot_util::{EmbedBuilder, FooterBuilder, MessageBuilder};
 use eyre::{ContextCompat, Result};
 use twilight_interactions::command::{CommandOptionExt, CommandOptionExtInner};
 use twilight_model::application::component::{button::ButtonStyle, ActionRow, Button, Component};
@@ -9,11 +10,7 @@ use crate::{
         commands::slash::{SlashCommand, SlashCommands},
         Context,
     },
-    util::{
-        builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
-        interaction::InteractionComponent,
-        ComponentExt,
-    },
+    util::{interaction::InteractionComponent, ComponentExt},
 };
 
 use super::{option_fields, parse_select_menu, AUTHORITY_STATUS};

@@ -4,26 +4,24 @@ use std::{
 };
 
 use bathbot_macros::EmbedData;
+use bathbot_model::OsuTrackerMapsetEntry;
+use bathbot_util::{
+    constants::OSU_BASE,
+    datetime::HowLongAgoDynamic,
+    numbers::{round, WithComma},
+    AuthorBuilder, CowUtils, FooterBuilder, IntHasher,
+};
 use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
 
 use crate::{
     commands::osu::{TopEntry, TopScoreOrder},
-    custom_client::OsuTrackerMapsetEntry,
     manager::{
         redis::{osu::User, RedisData},
         OsuMap,
     },
     pagination::Pages,
-    util::{
-        builder::{AuthorBuilder, FooterBuilder},
-        constants::OSU_BASE,
-        datetime::HowLongAgoDynamic,
-        hasher::IntHasher,
-        numbers::{round, WithComma},
-        osu::grade_emote,
-        CowUtils, Emote,
-    },
+    util::{osu::grade_emote, Emote},
 };
 
 use super::{ComboFormatter, HitResultFormatter, ModsFormatter, PpFormatter};

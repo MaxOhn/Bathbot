@@ -1,4 +1,6 @@
 use bathbot_macros::pagination;
+use bathbot_model::SnipeRecent;
+use bathbot_util::IntHasher;
 use eyre::{Result, WrapErr};
 use hashbrown::HashMap;
 use rosu_pp::Beatmap;
@@ -7,10 +9,8 @@ use twilight_model::channel::embed::Embed;
 use crate::{
     commands::osu::Difference,
     core::Context,
-    custom_client::SnipeRecent,
     embeds::{EmbedData, SnipedDiffEmbed},
     manager::redis::{osu::User, RedisData},
-    util::hasher::IntHasher,
 };
 
 use super::Pages;

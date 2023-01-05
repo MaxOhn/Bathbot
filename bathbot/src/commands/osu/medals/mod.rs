@@ -1,6 +1,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use bathbot_macros::{HasName, SlashCommand};
+use bathbot_model::MedalGroup;
 use eyre::Result;
 use twilight_interactions::command::{
     AutocompleteValue, CommandModel, CommandOption, CreateCommand, CreateOption,
@@ -8,7 +9,6 @@ use twilight_interactions::command::{
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    custom_client::MedalGroup,
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };

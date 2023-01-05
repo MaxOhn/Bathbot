@@ -1,15 +1,12 @@
 use std::{collections::BTreeMap, sync::Arc};
 
+use bathbot_model::{RankingEntries, RankingEntry, RankingKind};
+use bathbot_util::{constants::GENERAL_ISSUE, IntHasher};
 use eyre::Result;
 use hashbrown::HashSet;
 use twilight_model::{channel::Message, id::Id};
 
-use crate::{
-    embeds::{RankingEntries, RankingEntry, RankingKind},
-    pagination::RankingPagination,
-    util::{constants::GENERAL_ISSUE, hasher::IntHasher, ChannelExt},
-    Context,
-};
+use crate::{pagination::RankingPagination, util::ChannelExt, Context};
 
 pub async fn leaderboard(ctx: Arc<Context>, msg: &Message, global: bool) -> Result<()> {
     let mut scores = match ctx.games().bggame_leaderboard().await {

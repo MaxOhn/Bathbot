@@ -2,6 +2,11 @@ use std::{collections::BTreeMap, fmt::Write, sync::Arc};
 
 use bathbot_macros::command;
 use bathbot_psql::model::configs::{GuildConfig, DEFAULT_PREFIX};
+use bathbot_util::{
+    constants::{BATHBOT_ROADMAP, BATHBOT_WORKSHOP},
+    string_cmp::levenshtein_distance,
+    AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder,
+};
 use eyre::{ContextCompat, Report, Result};
 use hashbrown::HashSet;
 use twilight_model::{
@@ -15,12 +20,7 @@ use crate::{
         commands::prefix::{PrefixCommand, PrefixCommandGroup, PrefixCommands},
         Context,
     },
-    util::{
-        builder::{AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder},
-        constants::{BATHBOT_ROADMAP, BATHBOT_WORKSHOP},
-        interaction::InteractionComponent,
-        levenshtein_distance, ChannelExt, ComponentExt, Emote,
-    },
+    util::{interaction::InteractionComponent, ChannelExt, ComponentExt, Emote},
 };
 
 use super::failed_message_content;

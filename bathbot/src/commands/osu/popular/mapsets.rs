@@ -1,5 +1,10 @@
 use std::{alloc, mem, sync::Arc};
 
+use bathbot_model::OsuTrackerMapsetEntry;
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSUTRACKER_ISSUE},
+    IntHasher,
+};
 use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rkyv::{DeserializeUnsized, Infallible};
@@ -8,15 +13,9 @@ use time::OffsetDateTime;
 
 use crate::{
     core::Context,
-    custom_client::OsuTrackerMapsetEntry,
     manager::redis::RedisData,
     pagination::OsuTrackerMapsetsPagination,
-    util::{
-        constants::{GENERAL_ISSUE, OSUTRACKER_ISSUE},
-        hasher::IntHasher,
-        interaction::InteractionCommand,
-        InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 
 const COUNTS_LEN: usize = 727;

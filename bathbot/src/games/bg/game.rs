@@ -1,5 +1,7 @@
 use std::{collections::VecDeque, sync::Arc};
 
+use bathbot_model::{Effects, MapsetTagsEntries};
+use bathbot_util::{constants::OSU_BASE, CowUtils};
 use eyre::{Report, Result, WrapErr};
 use image::{
     imageops::{self, colorops},
@@ -18,12 +20,10 @@ use twilight_standby::future::WaitForMessageStream;
 use crate::{
     commands::fun::GameDifficulty,
     core::BotConfig,
-    games::bg::{hints::Hints, img_reveal::ImageReveal, GameMapset},
-    util::{constants::OSU_BASE, ChannelExt, CowUtils},
+    games::bg::{hints::Hints, img_reveal::ImageReveal, util, GameMapset},
+    util::ChannelExt,
     Context,
 };
-
-use super::{tags::MapsetTagsEntries, util, Effects};
 
 pub struct Game {
     pub mapset: GameMapset,

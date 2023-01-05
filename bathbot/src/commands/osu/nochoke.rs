@@ -1,6 +1,12 @@
 use std::{borrow::Cow, cmp::Ordering, sync::Arc};
 
 use bathbot_macros::{command, HasName, SlashCommand};
+use bathbot_model::ScoreSlim;
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    matcher,
+    osu::calculate_grade,
+};
 use eyre::{Report, Result};
 use rosu_pp::{BeatmapExt, DifficultyAttributes, GameMode as Mode};
 use rosu_v2::prelude::{GameMode, GameMods, Grade, OsuError, Score, ScoreStatistics};
@@ -11,13 +17,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, OsuMap},
     pagination::NoChokePagination,
-    util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        interaction::InteractionCommand,
-        matcher,
-        osu::{calculate_grade, IfFc, ScoreSlim},
-        InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, osu::IfFc, InteractionCommandExt},
     Context,
 };
 

@@ -1,20 +1,16 @@
 use std::borrow::Cow;
 
+use bathbot_model::{OsekaiComment, OsekaiMap, OsekaiMedal};
+use bathbot_util::{
+    constants::{FIELD_VALUE_SIZE, OSU_BASE},
+    osu::flag_url,
+    AuthorBuilder, CowUtils, EmbedBuilder, FooterBuilder,
+};
 use rosu_v2::prelude::GameMode;
 use time::OffsetDateTime;
 use twilight_model::channel::embed::{Embed, EmbedField};
 
-use crate::{
-    commands::osu::MedalAchieved,
-    custom_client::{OsekaiComment, OsekaiMap, OsekaiMedal},
-    manager::redis::RedisData,
-    util::{
-        builder::{AuthorBuilder, EmbedBuilder, FooterBuilder},
-        constants::{FIELD_VALUE_SIZE, OSU_BASE},
-        osu::flag_url,
-        CowUtils,
-    },
-};
+use crate::{commands::osu::MedalAchieved, manager::redis::RedisData};
 
 #[derive(Clone)]
 pub struct MedalEmbed {

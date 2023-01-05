@@ -73,7 +73,7 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
     let tokens = quote! {
         impl crate::embeds::EmbedData for #ident {
             fn build(self) -> ::twilight_model::channel::embed::Embed {
-                crate::util::builder::EmbedBuilder::new()
+                bathbot_util::EmbedBuilder::new()
                     #author
                     #color
                     #description

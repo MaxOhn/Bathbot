@@ -3,7 +3,9 @@ use rosu_v2::prelude::{CountryCode, GameMods, Username};
 use serde::Deserialize;
 use time::OffsetDateTime;
 
-use super::{deser, UsernameWrapper};
+use crate::rkyv_impls::UsernameWrapper;
+
+use super::deser;
 
 #[derive(Archive, Debug, Deserialize, RkyvDeserialize, RkyvSerialize)]
 pub struct OsuTrackerIdCount {
@@ -146,13 +148,12 @@ pub struct OsuTrackerCountryScore {
 pub(super) mod maybe_naive_datetime {
     use std::fmt::{Formatter, Result as FmtResult};
 
+    use bathbot_util::datetime::{DATE_FORMAT, TIME_FORMAT};
     use serde::{
         de::{Error, Visitor},
         Deserializer,
     };
     use time::{Date, OffsetDateTime, PrimitiveDateTime, Time};
-
-    use crate::util::datetime::{DATE_FORMAT, TIME_FORMAT};
 
     pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<OffsetDateTime, D::Error> {
         d.deserialize_str(DateTimeVisitor)

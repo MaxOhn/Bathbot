@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use bathbot_macros::SlashCommand;
+use bathbot_model::{
+    Badges, LovedMapsets, RankedMapsets, Replays, StandardDeviation, Subscribers, TotalPp,
+};
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
-    custom_client::{
-        Badges, LovedMapsets, RankedMapsets, Replays, StandardDeviation, Subscribers, TotalPp,
-    },
     util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };

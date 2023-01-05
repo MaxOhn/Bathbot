@@ -1,6 +1,12 @@
 use std::{borrow::Cow, cmp::Ordering, sync::Arc};
 
 use bathbot_macros::{command, HasName, SlashCommand};
+use bathbot_model::ScoreSlim;
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    matcher,
+    numbers::round,
+};
 use eyre::{Report, Result};
 use rosu_pp_older::*;
 use rosu_v2::{
@@ -16,14 +22,7 @@ use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     manager::{redis::osu::UserArgs, OsuMap},
     pagination::TopIfPagination,
-    util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        interaction::InteractionCommand,
-        matcher,
-        numbers::round,
-        osu::ScoreSlim,
-        ChannelExt, InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
 
@@ -556,7 +555,7 @@ macro_rules! user_id_ref {
                     return $orig.error(&$ctx, content).await;
                 }
                 crate::commands::osu::UserIdFutureResult::Err(err) => {
-                    let content = crate::util::constants::GENERAL_ISSUE;
+                    let content = bathbot_util::constants::GENERAL_ISSUE;
                     let _ = $orig.error(&$ctx, content).await;
 
                     return Err(err);

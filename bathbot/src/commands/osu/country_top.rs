@@ -5,6 +5,8 @@ use std::{
 };
 
 use bathbot_macros::{HasMods, HasName, SlashCommand};
+use bathbot_model::{CountryCode, OsuTrackerCountryDetails, OsuTrackerCountryScore};
+use bathbot_util::{osu::ModSelection, CowUtils};
 use eyre::Result;
 use rosu_v2::{
     prelude::{GameMods, Username},
@@ -16,13 +18,11 @@ use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
     core::{commands::CommandOrigin, Context},
-    custom_client::{OsuTrackerCountryDetails, OsuTrackerCountryScore},
     pagination::OsuTrackerCountryTopPagination,
     util::{
         interaction::InteractionCommand,
-        osu::ModSelection,
         query::{FilterCriteria, Searchable},
-        CountryCode, CowUtils, InteractionCommandExt,
+        InteractionCommandExt,
     },
 };
 

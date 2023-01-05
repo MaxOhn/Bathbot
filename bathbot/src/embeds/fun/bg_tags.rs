@@ -1,11 +1,9 @@
 use bathbot_macros::EmbedData;
+use bathbot_model::{Effects, MapsetTags};
+use bathbot_util::FooterBuilder;
 use twilight_model::channel::embed::EmbedField;
 
-use crate::{
-    commands::fun::GameDifficulty,
-    games::bg::{Effects, MapsetTags},
-    util::builder::FooterBuilder,
-};
+use crate::commands::fun::GameDifficulty;
 
 #[derive(EmbedData)]
 pub struct BGTagsEmbed {

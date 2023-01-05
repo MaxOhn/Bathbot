@@ -1,10 +1,7 @@
+use bathbot_model::{OsuStatsScore, ScoreSlim, ScraperScore};
+use bathbot_util::osu::calculate_grade;
 use rosu_pp::ScoreState;
 use rosu_v2::prelude::{GameMode, GameMods, Grade, MatchScore, Score, ScoreStatistics};
-
-use crate::{
-    custom_client::{OsuStatsScore, ScraperScore},
-    util::osu::{calculate_grade, ScoreSlim},
-};
 
 pub trait ScoreExt: Send + Sync {
     // Required to implement

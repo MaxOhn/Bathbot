@@ -1,6 +1,7 @@
 use std::{borrow::Cow, collections::HashMap, fmt::Write, sync::Arc};
 
 use bathbot_macros::command;
+use bathbot_util::{constants::OSU_API_ISSUE, matcher, osu::ModSelection, CowUtils};
 use eyre::{Report, Result};
 use rosu_v2::prelude::{GameMode, GameMods, Grade, OsuError};
 
@@ -13,11 +14,8 @@ use crate::{
     manager::redis::osu::UserArgs,
     pagination::RecentListPagination,
     util::{
-        constants::OSU_API_ISSUE,
-        matcher,
-        osu::ModSelection,
         query::{FilterCriteria, Searchable},
-        ChannelExt, CowUtils,
+        ChannelExt,
     },
     Context,
 };

@@ -1,16 +1,13 @@
 use std::{fmt::Write, mem};
 
 use bathbot_macros::EmbedData;
+use bathbot_util::{
+    constants::{DESCRIPTION_SIZE, OSU_BASE},
+    CowUtils, FooterBuilder,
+};
 use rosu_v2::model::matches::OsuMatch;
 
-use crate::{
-    commands::osu::MatchResult,
-    util::{
-        builder::FooterBuilder,
-        constants::{DESCRIPTION_SIZE, OSU_BASE},
-        CowUtils,
-    },
-};
+use crate::commands::osu::MatchResult;
 
 #[derive(EmbedData)]
 pub struct MatchCostEmbed {

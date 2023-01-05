@@ -1,10 +1,8 @@
-use std::hash::Hash;
+use std::{collections::HashMap, hash::Hash};
 
-use hashbrown::HashMap;
+use bathbot_util::IntHasher;
 use parking_lot::Mutex;
 use time::OffsetDateTime;
-
-use crate::util::hasher::IntHasher;
 
 pub struct Buckets([Mutex<Bucket>; 7]);
 

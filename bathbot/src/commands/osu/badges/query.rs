@@ -1,5 +1,7 @@
 use std::{cmp::Ordering, collections::BTreeMap, fmt::Write, sync::Arc};
 
+use bathbot_model::OsekaiBadge;
+use bathbot_util::{constants::OSEKAI_ISSUE, string_cmp::levenshtein_similarity, CowUtils};
 use eyre::{Result, WrapErr};
 use rkyv::{Deserialize, Infallible};
 use twilight_interactions::command::AutocompleteValue;
@@ -7,13 +9,9 @@ use twilight_model::application::command::CommandOptionChoice;
 
 use crate::{
     core::Context,
-    custom_client::OsekaiBadge,
     manager::redis::RedisData,
     pagination::BadgePagination,
-    util::{
-        constants::OSEKAI_ISSUE, get_combined_thumbnail, interaction::InteractionCommand,
-        levenshtein_similarity, CowUtils, InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, osu::get_combined_thumbnail, InteractionCommandExt},
 };
 
 use super::BadgesQuery_;

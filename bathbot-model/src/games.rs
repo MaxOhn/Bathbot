@@ -1,19 +1,29 @@
 #![allow(non_upper_case_globals)]
 
-use std::str::FromStr;
+use std::{
+    fmt::{Display, Write},
+    str::FromStr,
+};
 
 use bathbot_psql::model::games::{DbMapTagEntry, DbMapTagsParams};
-use bitflags::bitflags;
+use bathbot_util::CowUtils;
 use rosu_v2::prelude::GameMode;
+use twilight_interactions::command::{CommandOption, CreateOption};
 
-use crate::util::CowUtils;
+#[derive(Copy, Clone, CommandOption, CreateOption)]
+pub enum HlVersion {
+    #[option(name = "Score PP", value = "score_pp")]
+    ScorePp = 0,
+    #[option(name = "Farm", value = "farm")]
+    FarmMaps = 1,
+}
 
 pub struct MapsetTagsEntries {
     pub mode: GameMode,
     pub tags: Vec<DbMapTagEntry>,
 }
 
-bitflags! {
+bitflags::bitflags! {
     pub struct MapsetTags: u32 {
         const Farm =      1 << 0;
         const Streams =   1 << 1;
@@ -121,3 +131,82 @@ impl FromStr for MapsetTags {
         Ok(result)
     }
 }
+
+bitflags::bitflags! {
+    pub struct Effects: u8 {
+        const Blur           = 1 << 0;
+        const Contrast       = 1 << 1;
+        const FlipHorizontal = 1 << 2;
+        const FlipVertical   = 1 << 3;
+        const Grayscale      = 1 << 4;
+        const Invert         = 1 << 5;
+    }
+}
+
+pub struct IntoIter<F> {
+    flags: F,
+    shift: usize,
+}
+
+macro_rules! bitflag_impls {
+    ($ty:ident, $size:literal) => {
+        impl $ty {
+            pub fn join(self, separator: impl Display) -> String {
+                let mut iter = self.into_iter();
+
+                let first_flag = match iter.next() {
+                    Some(first_flag) => first_flag,
+                    None => return "None".to_owned(),
+                };
+
+                let size = self.bits().count_ones() as usize;
+                let mut result = String::with_capacity(size * 6);
+                let _ = write!(result, "{first_flag:?}");
+
+                for element in iter {
+                    let _ = write!(result, "{separator}{element:?}");
+                }
+
+                result
+            }
+        }
+
+        impl Iterator for IntoIter<$ty> {
+            type Item = $ty;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.flags.is_empty() {
+                    None
+                } else {
+                    loop {
+                        if self.shift == $size {
+                            return None;
+                        }
+
+                        let bit = 1 << self.shift;
+                        self.shift += 1;
+
+                        if self.flags.bits() & bit != 0 {
+                            return $ty::from_bits(bit);
+                        }
+                    }
+                }
+            }
+        }
+
+        impl IntoIterator for $ty {
+            type Item = $ty;
+            type IntoIter = IntoIter<$ty>;
+
+            fn into_iter(self) -> IntoIter<$ty> {
+                IntoIter {
+                    flags: self,
+                    shift: 0,
+                }
+            }
+        }
+    };
+}
+
+bitflag_impls!(MapsetTags, 32);
+bitflag_impls!(Effects, 8);

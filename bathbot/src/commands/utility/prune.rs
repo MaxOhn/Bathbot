@@ -1,6 +1,10 @@
 use std::{str::FromStr, sync::Arc};
 
 use bathbot_macros::{command, SlashCommand};
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, MESSAGE_TOO_OLD_TO_BULK_DELETE},
+    MessageBuilder,
+};
 use eyre::{Report, Result, WrapErr};
 use tokio::time::{self, Duration};
 use twilight_http::{api_error::ApiError, error::ErrorType};
@@ -8,12 +12,7 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 
 use crate::{
     core::commands::CommandOrigin,
-    util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, MESSAGE_TOO_OLD_TO_BULK_DELETE},
-        interaction::InteractionCommand,
-        ChannelExt, InteractionCommandExt, MessageExt,
-    },
+    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt, MessageExt},
     Context,
 };
 

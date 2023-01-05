@@ -1,12 +1,12 @@
 use std::{collections::BTreeMap, fmt::Write};
 
 use bathbot_macros::EmbedData;
+use bathbot_util::{constants::OSU_BASE, numbers::round, CowUtils, FooterBuilder};
 use rosu_v2::prelude::{Beatmapset, GameMode, Genre, Language};
 
 use crate::{
     commands::osu::{Search, SearchOrder},
     pagination::Pages,
-    util::{builder::FooterBuilder, constants::OSU_BASE, numbers::round, CowUtils},
 };
 
 #[derive(EmbedData)]

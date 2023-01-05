@@ -5,7 +5,14 @@ use std::{
 };
 
 use bathbot_macros::{command, HasMods, HasName, SlashCommand};
+use bathbot_model::ScoreSlim;
 use bathbot_psql::model::configs::{GuildConfig, MinimizedPp, ScoreSize};
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    matcher,
+    osu::{MapIdType, ModSelection},
+    MessageBuilder,
+};
 use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{
@@ -34,14 +41,7 @@ use crate::{
         MapError, OsuMap,
     },
     pagination::ScoresPagination,
-    util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        interaction::InteractionCommand,
-        matcher,
-        osu::{IfFc, MapIdType, ModSelection, ScoreSlim},
-        InteractionCommandExt, MessageExt,
-    },
+    util::{interaction::InteractionCommand, osu::IfFc, InteractionCommandExt, MessageExt},
     Context,
 };
 

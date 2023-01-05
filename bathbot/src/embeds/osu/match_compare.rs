@@ -1,6 +1,11 @@
 use std::{borrow::Cow, cmp::Reverse, fmt::Write};
 
 use bathbot_macros::EmbedData;
+use bathbot_util::{
+    constants::OSU_BASE,
+    numbers::{round, WithComma},
+    AuthorBuilder, CowUtils, FooterBuilder,
+};
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Grade, Team, Username};
 use twilight_model::channel::embed::EmbedField;
@@ -9,13 +14,7 @@ use crate::{
     commands::osu::{
         CommonMap, MatchCompareComparison, MatchCompareScore, ProcessedMatch, UniqueMap,
     },
-    util::{
-        builder::{AuthorBuilder, FooterBuilder},
-        constants::OSU_BASE,
-        numbers::{round, WithComma},
-        osu::grade_emote,
-        CowUtils,
-    },
+    util::osu::grade_emote,
 };
 
 #[derive(EmbedData)]

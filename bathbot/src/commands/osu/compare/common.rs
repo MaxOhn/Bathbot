@@ -1,8 +1,11 @@
-use std::{cmp::Ordering, fmt::Write, iter, sync::Arc};
+use std::{cmp::Ordering, collections::HashMap, fmt::Write, iter, sync::Arc};
 
 use bathbot_macros::command;
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, OSU_API_ISSUE},
+    matcher, IntHasher,
+};
 use eyre::{Report, Result};
-use hashbrown::HashMap;
 use rkyv::{Deserialize, Infallible};
 use rosu_v2::{
     prelude::{GameMode, OsuError, Score, Username},
@@ -22,10 +25,7 @@ use crate::{
         RedisData,
     },
     pagination::CommonPagination,
-    util::{
-        constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-        get_combined_thumbnail, matcher,
-    },
+    util::osu::get_combined_thumbnail,
     Context,
 };
 
@@ -199,7 +199,7 @@ pub(super) async fn top(
         return orig.error(&ctx, content).await;
     }
 
-    let indices: HashMap<_, _> = scores2
+    let indices: HashMap<_, _, IntHasher> = scores2
         .iter()
         .enumerate()
         .map(|(i, score)| (score.map_id, i))
@@ -207,7 +207,7 @@ pub(super) async fn top(
 
     let mut wins = [0, 0];
 
-    let maps: HashMap<_, _> = scores1
+    let maps: HashMap<_, _, IntHasher> = scores1
         .into_iter()
         .filter_map(|mut score1| {
             let map = score1.map.take()?;

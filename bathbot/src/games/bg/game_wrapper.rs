@@ -4,6 +4,8 @@ use std::{
     sync::Arc,
 };
 
+use bathbot_model::{Effects, MapsetTagsEntries};
+use bathbot_util::{constants::OSU_BASE, IntHasher, MessageBuilder};
 use eyre::{Report, Result};
 use tokio::sync::RwLock;
 use tokio::{
@@ -15,18 +17,9 @@ use twilight_model::{
     id::{marker::ChannelMarker, Id},
 };
 
-use crate::util::hasher::IntHasher;
-use crate::{
-    commands::fun::GameDifficulty,
-    util::{builder::MessageBuilder, constants::OSU_BASE, ChannelExt},
-    Context,
-};
+use crate::{commands::fun::GameDifficulty, util::ChannelExt, Context};
 
-use super::{
-    game::{game_loop, Game, LoopResult},
-    tags::MapsetTagsEntries,
-    Effects,
-};
+use super::game::{game_loop, Game, LoopResult};
 
 const GAME_LEN: Duration = Duration::from_secs(180);
 

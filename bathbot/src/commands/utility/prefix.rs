@@ -1,11 +1,9 @@
 use bathbot_macros::command;
 use bathbot_psql::model::configs::{GuildConfig, Prefix, Prefixes, DEFAULT_PREFIX};
+use bathbot_util::{constants::GENERAL_ISSUE, matcher, MessageBuilder};
 use eyre::Result;
 
-use crate::{
-    util::{builder::MessageBuilder, constants::GENERAL_ISSUE, matcher, ChannelExt},
-    Context,
-};
+use crate::{util::ChannelExt, Context};
 
 use std::{cmp::Ordering, fmt::Write, sync::Arc};
 

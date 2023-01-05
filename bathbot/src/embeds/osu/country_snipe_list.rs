@@ -1,16 +1,12 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
-
-use crate::{
-    commands::osu::SnipeCountryListOrder,
-    custom_client::SnipeCountryPlayer,
-    pagination::Pages,
-    util::{
-        builder::FooterBuilder, constants::OSU_BASE, numbers::WithComma, osu::flag_url,
-        CountryCode, CowUtils,
-    },
+use bathbot_model::{CountryCode, SnipeCountryPlayer};
+use bathbot_util::{
+    constants::OSU_BASE, numbers::WithComma, osu::flag_url, CowUtils, FooterBuilder,
 };
+
+use crate::{commands::osu::SnipeCountryListOrder, pagination::Pages};
 
 #[derive(EmbedData)]
 pub struct CountrySnipeListEmbed {

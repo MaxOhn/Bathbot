@@ -1,17 +1,12 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
-
-use crate::{
-    custom_client::OsuTrackerPpEntry,
-    pagination::Pages,
-    util::{
-        builder::{AuthorBuilder, FooterBuilder},
-        constants::OSU_BASE,
-        numbers::WithComma,
-        CowUtils,
-    },
+use bathbot_model::OsuTrackerPpEntry;
+use bathbot_util::{
+    constants::OSU_BASE, numbers::WithComma, AuthorBuilder, CowUtils, FooterBuilder,
 };
+
+use crate::pagination::Pages;
 
 #[derive(EmbedData)]
 pub struct OsuTrackerMapsEmbed {
