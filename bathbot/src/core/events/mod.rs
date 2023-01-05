@@ -232,10 +232,10 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<
         Event::MessageUpdate(_) => ctx.stats.event_counts.message_update.inc(),
         Event::PresenceUpdate(_) => {}
         Event::PresencesReplace => {}
-        Event::ReactionAdd(_) => ctx.stats.event_counts.reaction_add.inc(),
-        Event::ReactionRemove(_) => ctx.stats.event_counts.reaction_remove.inc(),
-        Event::ReactionRemoveAll(_) => ctx.stats.event_counts.reaction_remove_all.inc(),
-        Event::ReactionRemoveEmoji(_) => ctx.stats.event_counts.reaction_remove_emoji.inc(),
+        Event::ReactionAdd(_) => {}
+        Event::ReactionRemove(_) => {}
+        Event::ReactionRemoveAll(_) => {}
+        Event::ReactionRemoveEmoji(_) => {}
         Event::Ready(_) => {
             info!("Shard {shard_id} is ready");
 

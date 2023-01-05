@@ -13,13 +13,10 @@ pub async fn build_cluster(
     http: Arc<Client>,
     resume_data: HashMap<u64, ResumeSession>,
 ) -> Result<(Cluster, Events)> {
-    // TODO: remove reactions
     let intents = Intents::GUILDS
         | Intents::GUILD_MEMBERS
         | Intents::GUILD_MESSAGES
-        | Intents::GUILD_MESSAGE_REACTIONS
         | Intents::DIRECT_MESSAGES
-        | Intents::DIRECT_MESSAGE_REACTIONS
         | Intents::MESSAGE_CONTENT;
 
     // TODO: dont negate flags
