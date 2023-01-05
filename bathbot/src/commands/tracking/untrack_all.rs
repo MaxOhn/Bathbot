@@ -1,14 +1,11 @@
 use std::sync::Arc;
 
 use bathbot_macros::command;
+use bathbot_util::{constants::GENERAL_ISSUE, MessageBuilder};
 use eyre::Result;
 use rosu_v2::model::GameMode;
 
-use crate::{
-    core::commands::CommandOrigin,
-    util::{builder::MessageBuilder, constants::GENERAL_ISSUE, ChannelExt},
-    Context,
-};
+use crate::{core::commands::CommandOrigin, util::ChannelExt, Context};
 
 #[command]
 #[desc("Untrack all users in a channel")]

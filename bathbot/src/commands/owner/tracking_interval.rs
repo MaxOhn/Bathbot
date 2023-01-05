@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
+use bathbot_util::MessageBuilder;
 use eyre::Result;
 use time::Duration;
 
 use crate::{
-    util::{builder::MessageBuilder, interaction::InteractionCommand, InteractionCommandExt},
+    util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
 

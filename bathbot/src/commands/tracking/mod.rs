@@ -3,6 +3,7 @@
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use bathbot_macros::SlashCommand;
+use bathbot_util::CowUtils;
 use eyre::Result;
 use rosu_v2::prelude::{GameMode, OsuError, Username};
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -10,7 +11,7 @@ use twilight_interactions::command::{CommandModel, CreateCommand};
 use crate::{
     core::commands::prefix::Args,
     manager::redis::osu::UserArgs,
-    util::{interaction::InteractionCommand, CowUtils, InteractionCommandExt},
+    util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
 

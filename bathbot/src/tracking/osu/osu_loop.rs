@@ -1,6 +1,7 @@
 use std::{borrow::Cow, collections::HashMap, slice, sync::Arc};
 
 use bathbot_psql::model::osu::{TrackedOsuUserKey, TrackedOsuUserValue};
+use bathbot_util::{constants::UNKNOWN_CHANNEL, IntHasher};
 use eyre::Report;
 use rosu_v2::{
     prelude::{OsuError, Score},
@@ -25,7 +26,6 @@ use crate::{
         },
         OsuMap,
     },
-    util::{constants::UNKNOWN_CHANNEL, hasher::IntHasher},
     Context,
 };
 

@@ -6,6 +6,8 @@ use std::{
     time::Duration,
 };
 
+use bathbot_model::TwitchUser;
+use bathbot_util::IntHasher;
 use flexmap::std::StdMutexMap;
 use futures::future::FutureExt;
 use tokio::{
@@ -13,7 +15,7 @@ use tokio::{
     time::{self, Timeout},
 };
 
-use crate::{custom_client::TwitchUser, manager::redis::osu::User, util::hasher::IntHasher};
+use crate::manager::redis::osu::User;
 
 const DEADLINE: Duration = Duration::from_secs(120);
 

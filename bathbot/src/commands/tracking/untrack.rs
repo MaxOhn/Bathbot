@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use bathbot_macros::command;
+use bathbot_util::{constants::OSU_API_ISSUE, MessageBuilder};
 use eyre::{Report, Result};
 use hashbrown::HashSet;
 use rosu_v2::prelude::{GameMode, OsuError, Username};
@@ -8,7 +9,7 @@ use rosu_v2::prelude::{GameMode, OsuError, Username};
 use crate::{
     core::commands::CommandOrigin,
     embeds::{EmbedData, UntrackEmbed},
-    util::{builder::MessageBuilder, constants::OSU_API_ISSUE, ChannelExt},
+    util::ChannelExt,
     Context,
 };
 

@@ -9,16 +9,11 @@ mod osu_tracker;
 mod ranking_entries;
 mod respektive;
 mod score_slim;
+mod twitch;
 
 pub mod rkyv_impls;
 
-#[cfg(feature = "twitch")]
-mod twitch;
-
 pub use self::{
     country_code::*, games::*, huismetbenen::*, map_leaderboard::*, osekai::*, osu_stats::*,
-    osu_tracker::*, ranking_entries::*, respektive::*, score_slim::*,
+    osu_tracker::*, ranking_entries::*, respektive::*, score_slim::*, twitch::*,
 };
-
-#[cfg(feature = "twitch")]
-pub use self::twitch::*;

@@ -148,10 +148,10 @@ impl Context {
         // Log custom client into osu!
         let custom = BathbotClient::new(
             &config.tokens.osu_session,
+            #[cfg(not(feature = "twitch"))]
+            None,
             #[cfg(feature = "twitch")]
-            &config.tokens.twitch_id,
-            #[cfg(feature = "twitch")]
-            &config.tokens.twitch_token,
+            Some((&config.tokens.twitch_client_id, &config.tokens.twitch_token)),
         )
         .await
         .wrap_err("failed to create custom client")?;

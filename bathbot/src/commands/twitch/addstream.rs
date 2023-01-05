@@ -1,15 +1,11 @@
 use bathbot_macros::command;
+use bathbot_util::{
+    constants::{GENERAL_ISSUE, TWITCH_API_ISSUE},
+    CowUtils, MessageBuilder,
+};
 use eyre::Result;
 
-use crate::{
-    core::commands::CommandOrigin,
-    util::{
-        builder::MessageBuilder,
-        constants::{GENERAL_ISSUE, TWITCH_API_ISSUE},
-        ChannelExt, CowUtils,
-    },
-    Context,
-};
+use crate::{core::commands::CommandOrigin, util::ChannelExt, Context};
 
 use std::sync::Arc;
 

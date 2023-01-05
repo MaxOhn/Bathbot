@@ -8,6 +8,12 @@ use std::{
     mem,
 };
 
+use bathbot_util::{
+    constants::{DESCRIPTION_SIZE, OSU_BASE},
+    datetime::SecToMinSec,
+    numbers::{round, WithComma},
+    CowUtils, EmbedBuilder, FooterBuilder,
+};
 use rosu_v2::prelude::{
     GameMode, Grade, MatchEvent, MatchGame, MatchScore, OsuMatch, ScoringType, TeamType,
     UserCompact, Username,
@@ -15,14 +21,7 @@ use rosu_v2::prelude::{
 use smallvec::SmallVec;
 use twilight_model::channel::embed::Embed;
 
-use crate::util::{
-    builder::{EmbedBuilder, FooterBuilder},
-    constants::{DESCRIPTION_SIZE, OSU_BASE},
-    datetime::SecToMinSec,
-    numbers::{round, WithComma},
-    osu::grade_emote,
-    CowUtils, Emote, ScoreExt,
-};
+use crate::util::{osu::grade_emote, Emote, ScoreExt};
 
 const DESCRIPTION_BUFFER: usize = 45;
 

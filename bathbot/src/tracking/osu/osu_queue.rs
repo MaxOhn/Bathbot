@@ -7,6 +7,7 @@ use std::{
 
 use ::time::{Duration, OffsetDateTime};
 use bathbot_psql::model::osu::{TrackedOsuUserKey, TrackedOsuUserValue};
+use bathbot_util::IntHasher;
 use eyre::Result;
 use flexmap::tokio::TokioMutexMap;
 use futures::{future, StreamExt};
@@ -18,7 +19,7 @@ use rosu_v2::model::GameMode;
 use tokio::{sync::Mutex, time};
 use twilight_model::id::{marker::ChannelMarker, Id};
 
-use crate::{manager::OsuTrackingManager, util::hasher::IntHasher};
+use crate::manager::OsuTrackingManager;
 
 static OSU_TRACKING_INTERVAL: OnceCell<Duration> = OnceCell::with_value(Duration::minutes(150));
 

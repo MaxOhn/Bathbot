@@ -1,14 +1,11 @@
 use std::sync::Arc;
 
+use bathbot_util::{EmbedBuilder, FooterBuilder, MessageBuilder};
 use eyre::Result;
 use twilight_model::channel::embed::EmbedField;
 
 use crate::{
-    util::{
-        builder::{EmbedBuilder, FooterBuilder, MessageBuilder},
-        interaction::InteractionCommand,
-        InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, InteractionCommandExt},
     Context,
 };
 

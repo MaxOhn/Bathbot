@@ -2,6 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use bathbot_macros::command;
 use bathbot_psql::model::osu::TrackedOsuUserKey;
+use bathbot_util::{constants::OSU_API_ISSUE, MessageBuilder};
 use eyre::{Report, Result};
 use rosu_v2::{
     prelude::{GameMode, OsuError, Username},
@@ -13,7 +14,6 @@ use crate::{
     core::commands::CommandOrigin,
     embeds::{EmbedData, TrackListEmbed},
     manager::redis::osu::UserArgs,
-    util::{builder::MessageBuilder, constants::OSU_API_ISSUE},
     Context,
 };
 

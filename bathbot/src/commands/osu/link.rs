@@ -3,12 +3,13 @@
 use std::sync::Arc;
 
 use bathbot_macros::{command, SlashCommand};
+use bathbot_util::constants::INVITE_LINK;
 use eyre::Result;
 use twilight_interactions::command::CreateCommand;
 
 use crate::{
     commands::utility::{config, Config, ConfigLink},
-    util::{constants::INVITE_LINK, interaction::InteractionCommand, ChannelExt},
+    util::{interaction::InteractionCommand, ChannelExt},
     Context,
 };
 

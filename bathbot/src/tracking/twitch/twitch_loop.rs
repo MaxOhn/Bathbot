@@ -1,5 +1,7 @@
 use std::{fmt::Write, sync::Arc};
 
+use bathbot_model::TwitchStream;
+use bathbot_util::{constants::UNKNOWN_CHANNEL, IntHasher};
 use eyre::Report;
 use hashbrown::{HashMap, HashSet};
 use rand::Rng;
@@ -11,9 +13,7 @@ use twilight_http::{
 use twilight_model::id::{marker::ChannelMarker, Id};
 
 use crate::{
-    custom_client::TwitchStream,
     embeds::{EmbedData, TwitchNotifEmbed},
-    util::{constants::UNKNOWN_CHANNEL, hasher::IntHasher},
     Context,
 };
 

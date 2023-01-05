@@ -77,7 +77,7 @@ full = ["global_slash", "matchlive", "osutracking", "server", "twitch", "twitcht
 
 global_slash = []
 matchlive = []
-offline = ["bathbot-psql/offline"]
+offline = ["bathbot-model/offline", "bathbot-psql/offline"]
 osutracking = ["priority-queue"]
 server = ["routerify", "twitch"]
 twitch = []

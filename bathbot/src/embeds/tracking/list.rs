@@ -1,10 +1,11 @@
 use std::fmt::Write;
 
 use bathbot_macros::EmbedData;
+use bathbot_util::constants::DESCRIPTION_SIZE;
 use itertools::Itertools;
 use rosu_v2::model::GameMode;
 
-use crate::{commands::tracking::TracklistUserEntry, util::constants::DESCRIPTION_SIZE};
+use crate::commands::tracking::TracklistUserEntry;
 
 #[derive(EmbedData)]
 pub struct TrackListEmbed {

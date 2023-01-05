@@ -529,7 +529,7 @@ async fn retrieve_vod(
     user_id: u64,
     score: &rosu_v2::prelude::Score,
     map: &crate::manager::OsuMap,
-) -> Option<crate::custom_client::TwitchVideo> {
+) -> Option<bathbot_model::TwitchVideo> {
     use std::fmt::Write;
 
     use rosu_pp::{beatmap::Break, Mods};

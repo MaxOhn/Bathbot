@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[cfg(feature = "osutracking")]
-use crate::{tracking::default_tracking_interval, util::builder::MessageBuilder};
+use crate::tracking::default_tracking_interval;
 
 use self::{add_bg::*, add_country::*, cache::*};
 
@@ -125,7 +125,7 @@ async fn slash_owner(ctx: Arc<Context>, mut command: InteractionCommand) -> Resu
             ctx.tracking().toggle_tracking();
             let current = ctx.tracking().stop_tracking();
             let content = format!("Tracking toggle: {current} -> {}", !current);
-            let builder = MessageBuilder::new().embed(content);
+            let builder = bathbot_util::MessageBuilder::new().embed(content);
             command.callback(&ctx, builder, false).await?;
 
             Ok(())

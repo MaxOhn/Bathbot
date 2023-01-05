@@ -1,5 +1,3 @@
-#![cfg(feature = "twitch")]
-
 use std::fmt;
 
 use http::HeaderValue;
@@ -135,13 +133,12 @@ fn duration_to_u32<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
 pub(super) mod datetime {
     use std::fmt;
 
+    use bathbot_util::datetime::{DATE_FORMAT, TIME_FORMAT};
     use serde::{
         de::{Error, Visitor},
         Deserializer,
     };
     use time::{format_description::FormatItem, OffsetDateTime, PrimitiveDateTime};
-
-    use crate::util::datetime::{DATE_FORMAT, TIME_FORMAT};
 
     pub const DATETIMEZ_FORMAT: &[FormatItem<'_>] = &[
         FormatItem::Compound(DATE_FORMAT),

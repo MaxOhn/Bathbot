@@ -1,9 +1,6 @@
 use bathbot_macros::EmbedData;
-
-use crate::{
-    custom_client::{TwitchStream, TwitchUser},
-    util::{builder::AuthorBuilder, constants::TWITCH_BASE},
-};
+use bathbot_model::{TwitchStream, TwitchUser};
+use bathbot_util::{constants::TWITCH_BASE, AuthorBuilder};
 
 #[derive(Clone, EmbedData)]
 pub struct TwitchNotifEmbed {

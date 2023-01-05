@@ -13,15 +13,10 @@ pub const AVATAR_URL: &str = "https://a.ppy.sh/";
 pub const HUISMETBENEN: &str = "https://api.huismetbenen.nl/";
 
 // twitch
-#[cfg(feature = "twitch")]
 pub const TWITCH_BASE: &str = "https://www.twitch.tv/";
-#[cfg(feature = "twitch")]
 pub const TWITCH_STREAM_ENDPOINT: &str = "https://api.twitch.tv/helix/streams";
-#[cfg(feature = "twitch")]
 pub const TWITCH_USERS_ENDPOINT: &str = "https://api.twitch.tv/helix/users";
-#[cfg(feature = "twitch")]
 pub const TWITCH_VIDEOS_ENDPOINT: &str = "https://api.twitch.tv/helix/videos";
-#[cfg(feature = "twitch")]
 pub const TWITCH_OAUTH: &str = "https://id.twitch.tv/oauth2/token";
 
 // Error messages
@@ -32,7 +27,6 @@ pub const OSEKAI_ISSUE: &str = "Some issue with the osekai api, blame bade";
 pub const HUISMETBENEN_ISSUE: &str = "Some issue with the huismetbenen api, blame bade";
 pub const OSUSTATS_API_ISSUE: &str = "Some issue with the osustats api, blame bade";
 pub const OSUTRACKER_ISSUE: &str = "Some issue with the osutracker api, blame bade";
-#[cfg(feature = "twitch")]
 pub const TWITCH_API_ISSUE: &str = "Some issue with the twitch api, blame bade";
 pub const THREADS_UNAVAILABLE: &str = "Cannot start new thread from here";
 
@@ -40,7 +34,6 @@ pub const THREADS_UNAVAILABLE: &str = "Cannot start new thread from here";
 pub const INVALID_ACTION_FOR_CHANNEL_TYPE: u64 = 50024;
 pub const MESSAGE_TOO_OLD_TO_BULK_DELETE: u64 = 50034;
 
-#[cfg(any(feature = "osutracking", feature = "twitchtracking"))]
 pub const UNKNOWN_CHANNEL: u64 = 10003;
 
 // Misc

@@ -22,7 +22,7 @@ use crate::{
 };
 
 #[cfg(feature = "twitch")]
-use crate::custom_client::TwitchVideo;
+use bathbot_model::TwitchVideo;
 
 use super::{ComboFormatter, HitResultFormatter, KeyFormatter};
 
@@ -238,7 +238,7 @@ impl RecentEmbed {
         if let Some(ref vod) = self.twitch_vod {
             let twitch_channel = format!(
                 "[**{name}**]({base}{name})",
-                base = crate::util::constants::TWITCH_BASE,
+                base = bathbot_util::constants::TWITCH_BASE,
                 name = vod.username
             );
 

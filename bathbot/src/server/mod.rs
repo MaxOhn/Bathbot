@@ -7,6 +7,8 @@ use std::{
     sync::Arc,
 };
 
+use bathbot_model::{TwitchDataList, TwitchOAuthToken, TwitchUser};
+use bathbot_util::constants::{GENERAL_ISSUE, TWITCH_OAUTH, TWITCH_USERS_ENDPOINT};
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use handlebars::Handlebars;
 use hyper::{
@@ -22,13 +24,7 @@ use routerify::{ext::RequestExt, RouteError, Router, RouterService};
 use serde_json::json;
 use tokio::{fs, sync::oneshot::Receiver};
 
-use crate::{
-    core::BotConfig,
-    custom_client::{TwitchDataList, TwitchOAuthToken, TwitchUser},
-    manager::redis::osu::User,
-    util::constants::{GENERAL_ISSUE, TWITCH_OAUTH, TWITCH_USERS_ENDPOINT},
-    Context,
-};
+use crate::{core::BotConfig, manager::redis::osu::User, Context};
 
 pub use self::auth::{
     AuthenticationStandby, AuthenticationStandbyError, WaitForOsuAuth, WaitForTwitchAuth,

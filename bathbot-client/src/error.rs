@@ -5,6 +5,8 @@ use thiserror::Error;
 pub enum ClientError {
     #[error("status code 400 - bad request")]
     BadRequest,
+    #[error("missing twitch authentication")]
+    MissingTwitch,
     #[error("status code 404 - not found")]
     NotFound,
     #[error("status code 429 - ratelimited")]

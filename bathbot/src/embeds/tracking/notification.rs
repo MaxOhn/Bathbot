@@ -1,4 +1,9 @@
 use bathbot_macros::EmbedData;
+use bathbot_util::{
+    constants::OSU_BASE,
+    numbers::{round, WithComma},
+    AuthorBuilder, CowUtils,
+};
 use osu::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter};
 use rosu_v2::prelude::{GameMode, Score};
 use time::OffsetDateTime;
@@ -11,13 +16,7 @@ use crate::{
         redis::{osu::User, RedisData},
         OsuMap,
     },
-    util::{
-        builder::AuthorBuilder,
-        constants::OSU_BASE,
-        numbers::{round, WithComma},
-        osu::{grade_completion_mods, mode_emote},
-        CowUtils,
-    },
+    util::osu::{grade_completion_mods, mode_emote},
 };
 
 #[derive(EmbedData)]

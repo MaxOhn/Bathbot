@@ -18,14 +18,10 @@ use crate::{
 };
 
 #[cfg(feature = "server")]
-use crate::{
-    core::BotConfig,
-    server::AuthenticationStandbyError,
-    util::{
-        builder::{EmbedBuilder, MessageBuilder},
-        Emote,
-    },
-};
+use bathbot_util::{EmbedBuilder, MessageBuilder};
+
+#[cfg(feature = "server")]
+use crate::{core::BotConfig, server::AuthenticationStandbyError, util::Emote};
 
 use super::{SkinValidation, ValidationStatus};
 
@@ -429,7 +425,7 @@ async fn handle_osu_link(
             }
             Err(err) => {
                 let _ = command
-                    .error(ctx, crate::util::constants::TWITCH_API_ISSUE)
+                    .error(ctx, bathbot_util::constants::TWITCH_API_ISSUE)
                     .await;
 
                 return HandleResult::Err(err.wrap_err("failed to get twitch user by id"));
@@ -492,7 +488,7 @@ async fn handle_no_links(
             }
             Err(err) => {
                 let _ = command
-                    .error(ctx, crate::util::constants::TWITCH_API_ISSUE)
+                    .error(ctx, bathbot_util::constants::TWITCH_API_ISSUE)
                     .await;
 
                 return HandleResult::Err(err.wrap_err("failed to get twitch user by id"));
