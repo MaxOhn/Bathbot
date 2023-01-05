@@ -19,27 +19,29 @@ pub async fn build_cluster(
         | Intents::DIRECT_MESSAGES
         | Intents::MESSAGE_CONTENT;
 
-    // TODO: dont negate flags
-    let ignore_flags = EventTypeFlags::BAN_ADD
-        | EventTypeFlags::BAN_REMOVE
-        | EventTypeFlags::CHANNEL_PINS_UPDATE
-        | EventTypeFlags::GIFT_CODE_UPDATE
-        | EventTypeFlags::GUILD_INTEGRATIONS_UPDATE
-        | EventTypeFlags::INTEGRATION_CREATE
-        | EventTypeFlags::INTEGRATION_DELETE
-        | EventTypeFlags::INTEGRATION_UPDATE
-        | EventTypeFlags::INVITE_CREATE
-        | EventTypeFlags::INVITE_DELETE
-        | EventTypeFlags::PRESENCE_UPDATE
-        | EventTypeFlags::PRESENCES_REPLACE
-        | EventTypeFlags::SHARD_PAYLOAD
-        | EventTypeFlags::STAGE_INSTANCE_CREATE
-        | EventTypeFlags::STAGE_INSTANCE_DELETE
-        | EventTypeFlags::STAGE_INSTANCE_UPDATE
-        | EventTypeFlags::TYPING_START
-        | EventTypeFlags::VOICE_SERVER_UPDATE
-        | EventTypeFlags::VOICE_STATE_UPDATE
-        | EventTypeFlags::WEBHOOKS_UPDATE;
+    let event_types = EventTypeFlags::CHANNEL_CREATE
+        | EventTypeFlags::CHANNEL_DELETE
+        | EventTypeFlags::CHANNEL_UPDATE
+        | EventTypeFlags::GUILD_CREATE
+        | EventTypeFlags::GUILD_DELETE
+        | EventTypeFlags::GUILD_UPDATE
+        | EventTypeFlags::INTERACTION_CREATE
+        | EventTypeFlags::MEMBER_ADD
+        | EventTypeFlags::MEMBER_REMOVE
+        | EventTypeFlags::MEMBER_UPDATE
+        | EventTypeFlags::MEMBER_CHUNK
+        | EventTypeFlags::MESSAGE_CREATE
+        | EventTypeFlags::MESSAGE_DELETE
+        | EventTypeFlags::MESSAGE_DELETE_BULK
+        | EventTypeFlags::READY
+        | EventTypeFlags::ROLE_CREATE
+        | EventTypeFlags::ROLE_DELETE
+        | EventTypeFlags::ROLE_UPDATE
+        | EventTypeFlags::THREAD_CREATE
+        | EventTypeFlags::THREAD_DELETE
+        | EventTypeFlags::THREAD_UPDATE
+        | EventTypeFlags::UNAVAILABLE_GUILD
+        | EventTypeFlags::USER_UPDATE;
 
     let activity = MinimalActivity {
         kind: ActivityType::Playing,
@@ -51,7 +53,7 @@ pub async fn build_cluster(
         UpdatePresencePayload::new([activity.into()], false, None, Status::Online).unwrap();
 
     let tuple = Cluster::builder(token.to_owned(), intents)
-        .event_types(EventTypeFlags::all() - ignore_flags)
+        .event_types(event_types)
         .http_client(http)
         .resume_sessions(resume_data)
         .presence(presence)
