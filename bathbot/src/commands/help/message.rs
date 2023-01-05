@@ -200,13 +200,11 @@ async fn description(ctx: &Context, guild_id: Option<Id<GuildMarker>>) -> String
         let f = |config: &GuildConfig| {
             let prefixes = &config.prefixes;
 
-            if !prefixes.is_empty() {
-                let prefix = prefixes[0].clone();
-
+            if let Some(prefix) = prefixes.first().cloned() {
                 if prefix == DEFAULT_PREFIX && prefixes.len() == 1 {
                     (None, prefix)
                 } else {
-                    let prefix_iter = prefixes.iter();
+                    let prefix_iter = prefixes.iter().skip(1);
                     let mut prefixes_str = String::with_capacity(9);
                     let _ = write!(prefixes_str, "`{prefix}`");
 
