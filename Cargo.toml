@@ -5,6 +5,7 @@ members = [
     "bathbot-macros",
     "bathbot-model",
     "bathbot-psql",
+    "bathbot-server",
     "bathbot-util",
 ]
 
