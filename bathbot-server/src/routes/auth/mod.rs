@@ -1,5 +1,8 @@
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{ser::SerializeMap, Deserialize, Serialize, Serializer};
 
+use self::error::AuthError;
+
+pub mod error;
 pub mod osu;
 pub mod twitch;
 
@@ -9,25 +12,40 @@ pub struct Params {
     code: String,
 }
 
-#[derive(Serialize)]
 struct RenderData<'n> {
-    #[serde(rename(serialize = "body_id"))]
-    status: RenderDataStatus,
+    status: RenderDataStatus<'n>,
     kind: RenderDataKind,
-    name: &'n str,
 }
 
-enum RenderDataStatus {
-    Success,
-    Error,
+impl<'n> Serialize for RenderData<'n> {
+    #[inline]
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        let mut map = s.serialize_map(Some(3))?;
+
+        map.serialize_entry("body_id", &self.status)?;
+        map.serialize_entry("kind", &self.kind)?;
+
+        match self.status {
+            RenderDataStatus::Success { name } => map.serialize_entry("name", name)?,
+            RenderDataStatus::Error { msg } => map.serialize_entry("error", msg)?,
+        }
+
+        map.end()
+    }
 }
 
-impl Serialize for RenderDataStatus {
+#[derive(Copy, Clone)]
+enum RenderDataStatus<'s> {
+    Success { name: &'s str },
+    Error { msg: &'s str },
+}
+
+impl<'n> Serialize for RenderDataStatus<'n> {
     #[inline]
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         let text = match self {
-            RenderDataStatus::Success => "success",
-            RenderDataStatus::Error => "error",
+            RenderDataStatus::Success { .. } => "success",
+            RenderDataStatus::Error { .. } => "error",
         };
 
         s.serialize_str(text)
@@ -49,12 +67,4 @@ impl Serialize for RenderDataKind {
 
         s.serialize_str(text)
     }
-}
-
-pub async fn auth_css() -> Vec<u8> {
-    todo!()
-}
-
-pub async fn auth_icon() -> Vec<u8> {
-    todo!()
 }

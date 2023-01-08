@@ -1,15 +1,11 @@
-use axum::{
-    extract::rejection::QueryRejection,
-    response::{IntoResponse, Response},
-    Json,
-};
+use axum::extract::rejection::QueryRejection;
 use handlebars::RenderError;
 use hyper::StatusCode;
 use rosu_v2::prelude::OsuError;
-use serde::Serialize;
 
 #[derive(Debug, thiserror::Error)]
-pub enum AppError {
+#[error("authentication error")]
+pub enum AuthError {
     #[error("bad auth params")]
     BadAuthParams(#[from] QueryRejection),
     #[error("failed to deserialize twitch response")]
@@ -24,8 +20,6 @@ pub enum AppError {
     OsuApi(#[source] OsuError),
     #[error("failed to build authenticated osu client")]
     OsuAuthClient(#[source] OsuError),
-    #[error("prometheus error")]
-    Prometheus(#[from] prometheus::Error),
     #[error("failed to await response bytes")]
     ResponseBytes(#[source] hyper::Error),
     #[error("failed to build twitch request")]
@@ -34,18 +28,16 @@ pub enum AppError {
     TwitchResponse(#[source] hyper::Error),
 }
 
-// TODO: use source
-impl IntoResponse for AppError {
-    #[inline]
-    fn into_response(self) -> Response {
-        let (code, msg) = match self {
+impl AuthError {
+    pub fn response(&self) -> (StatusCode, &'static str) {
+        match self {
             Self::BadAuthParams(_) => (StatusCode::BAD_REQUEST, "Insufficient query"),
             Self::DeserializeTwitch(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Unexpected response from twitch API",
             ),
             Self::Render(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
-            Self::EmptyStandby => (StatusCode::BAD_REQUEST, "Invalid query code"),
+            Self::EmptyStandby => (StatusCode::BAD_REQUEST, "Unexpected authentication attempt"),
             Self::EmptyTwitchData => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Received empty twitch response",
@@ -55,17 +47,9 @@ impl IntoResponse for AppError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to authenticate user",
             ),
-            Self::Prometheus(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
             Self::ResponseBytes(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
             Self::TwitchRequest(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
             Self::TwitchResponse(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error"),
-        };
-
-        (code, Json(ErrorMessage { error: msg })).into_response()
+        }
     }
-}
-
-#[derive(Serialize)]
-struct ErrorMessage {
-    error: &'static str,
 }
