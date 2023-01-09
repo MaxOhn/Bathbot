@@ -12,6 +12,7 @@ http = { version = "0.2" }
 hyper = { version = "0.14", default-features = false, features = ["server"] }
 hyper-rustls = { version = "0.23", default-features = false, features = ["http1", "tls12", "tokio-runtime", "webpki-tokio"] }
 leaky-bucket-lite = { version = "0.5", features = ["parking_lot"] }
+prometheus = { version = "0.13" }
 rand = { version = "0.8" }
 rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "next", features = ["cache", "metrics", "rkyv"] }
 rkyv = { version = "0.7" }

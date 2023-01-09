@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use bathbot_model::TwitchData;
 use bytes::Bytes;
 use eyre::{Result, WrapErr};
@@ -8,13 +10,16 @@ use http::{
 use hyper::{
     client::{connect::dns::GaiResolver, Client as HyperClient, HttpConnector},
     header::{CONTENT_TYPE, USER_AGENT},
-    Body, Method, Request,
+    Body, Error as HyperError, Method, Request,
 };
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use leaky_bucket_lite::LeakyBucket;
+use prometheus::Registry;
 use tokio::time::Duration;
 
-use crate::{multipart::Multipart, ClientError, Site, MY_USER_AGENT};
+use crate::{metrics::ClientMetrics, multipart::Multipart, ClientError, Site, MY_USER_AGENT};
+
+const INTERNAL_ERROR: &str = "500";
 
 pub(crate) type InnerClient = HyperClient<HttpsConnector<HttpConnector<GaiResolver>>, Body>;
 
@@ -23,6 +28,7 @@ pub struct Client {
     osu_session: &'static str,
     twitch: Option<TwitchData>,
     ratelimiters: [LeakyBucket; 12],
+    metrics: ClientMetrics,
 }
 
 impl Client {
@@ -30,7 +36,10 @@ impl Client {
     pub async fn new(
         osu_session: &'static str,
         twitch_login: Option<(&str, &str)>,
+        metrics: &Registry,
     ) -> Result<Self> {
+        let metrics = ClientMetrics::new(metrics).wrap_err("failed to create client metrics")?;
+
         let connector = HttpsConnectorBuilder::new()
             .with_webpki_roots()
             .https_or_http()
@@ -78,6 +87,7 @@ impl Client {
             osu_session,
             ratelimiters,
             twitch,
+            metrics,
         })
     }
 
@@ -113,15 +123,20 @@ impl Client {
             .body(Body::empty())
             .wrap_err("failed to build GET request")?;
 
-        self.ratelimit(site).await;
-
-        let response = self
-            .client
-            .request(req)
+        let (response, start) = self
+            .send_request(req, site)
             .await
             .wrap_err("failed to receive GET response")?;
 
-        Self::error_for_status(response, url).await
+        let bytes_res = Self::error_for_status(response, url).await;
+        let latency = start.elapsed().as_secs_f64();
+
+        self.metrics
+            .response_time
+            .with_label_values(&[site.as_str()])
+            .observe(latency);
+
+        bytes_res
     }
 
     pub(crate) async fn make_post_request(
@@ -147,13 +162,20 @@ impl Client {
 
         self.ratelimit(site).await;
 
-        let response = self
-            .client
-            .request(req)
+        let (response, start) = self
+            .send_request(req, site)
             .await
             .wrap_err("failed to receive POST response")?;
 
-        Self::error_for_status(response, url).await
+        let bytes_res = Self::error_for_status(response, url).await;
+        let latency = start.elapsed().as_secs_f64();
+
+        self.metrics
+            .response_time
+            .with_label_values(&[site.as_str()])
+            .observe(latency);
+
+        bytes_res
     }
 
     pub(crate) async fn error_for_status(
@@ -171,6 +193,33 @@ impl Client {
             404 => Err(ClientError::NotFound),
             429 => Err(ClientError::Ratelimited),
             _ => Err(eyre!("failed with status code {status} when requesting url {url}").into()),
+        }
+    }
+
+    async fn send_request(
+        &self,
+        req: Request<Body>,
+        site: Site,
+    ) -> Result<(Response<Body>, Instant), HyperError> {
+        self.ratelimit(site).await;
+
+        let start = Instant::now();
+        let response_fut = self.client.request(req);
+
+        match response_fut.await {
+            Ok(res) => {
+                let status = res.status().as_u16().to_string();
+                let labels = [site.as_str(), status.as_str()];
+                self.metrics.request_count.with_label_values(&labels).inc();
+
+                Ok((res, start))
+            }
+            Err(err) => {
+                let labels = [site.as_str(), INTERNAL_ERROR];
+                self.metrics.request_count.with_label_values(&labels).inc();
+
+                Err(err)
+            }
         }
     }
 }

@@ -63,7 +63,6 @@ pub struct CacheStats {
 }
 
 pub struct BotStats {
-    pub registry: Registry,
     pub start_time: OffsetDateTime,
     pub event_counts: EventStats,
     pub message_counts: MessageCounters,
@@ -83,7 +82,7 @@ macro_rules! metric_vec {
 }
 
 impl BotStats {
-    pub fn new(osu_metrics: IntCounterVec) -> Self {
+    pub fn new(osu_metrics: IntCounterVec) -> (Self, Registry) {
         let event_counter = metric_vec!(counter: "gateway_events", "Gateway events", "events");
         let msg_counter = metric_vec!(counter: "messages", "Received messages", "sender_type");
         let message_commands =
@@ -109,8 +108,7 @@ impl BotStats {
         registry.register(Box::new(cache_counter.clone())).unwrap();
         registry.register(Box::new(osu_metrics.clone())).unwrap();
 
-        Self {
-            registry,
+        let stats = Self {
             start_time: OffsetDateTime::now_utc(),
             event_counts: EventStats {
                 channel_create: event_counter.with_label_values(&["ChannelCreate"]),
@@ -169,7 +167,9 @@ impl BotStats {
                 pp_ranking_cached: osu_metrics.with_label_values(&["Rankings cached"]),
                 rosu: osu_metrics,
             },
-        }
+        };
+
+        (stats, registry)
     }
 
     pub fn populate(&self, cache: &Cache) {

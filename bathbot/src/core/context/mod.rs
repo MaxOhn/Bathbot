@@ -145,29 +145,31 @@ impl Context {
             .await
             .wrap_err("failed to create osu client")?;
 
-        // Log custom client into osu!
-        let custom = BathbotClient::new(
-            &config.tokens.osu_session,
-            #[cfg(not(feature = "twitch"))]
-            None,
-            #[cfg(feature = "twitch")]
-            Some((&config.tokens.twitch_client_id, &config.tokens.twitch_token)),
-        )
-        .await
-        .wrap_err("failed to create custom client")?;
-
         let data = ContextData::new(&psql, application_id)
             .await
             .wrap_err("failed to create context data")?;
 
         let (cache, resume_data) = Cache::new(&redis).await;
-        let stats = Arc::new(BotStats::new(osu.metrics()));
+        let (stats, registry) = BotStats::new(osu.metrics());
+
+        let client_fut = BathbotClient::new(
+            &config.tokens.osu_session,
+            #[cfg(not(feature = "twitch"))]
+            None,
+            #[cfg(feature = "twitch")]
+            Some((&config.tokens.twitch_client_id, &config.tokens.twitch_token)),
+            &registry,
+        );
+
+        let custom_client = client_fut
+            .await
+            .wrap_err("failed to create custom client")?;
 
         if !resume_data.is_empty() {
             stats.populate(&cache);
         }
 
-        let clients = Clients::new(psql, redis, osu, custom);
+        let clients = Clients::new(psql, redis, osu, custom_client);
 
         let (cluster, events) = build_cluster(discord_token, Arc::clone(&http), resume_data)
             .await
@@ -177,7 +179,7 @@ impl Context {
         let (auth_standby, server_tx) = {
             let builder = bathbot_server::AppStateBuilder {
                 website_path: config.paths.website.clone(),
-                metrics: stats.registry.clone(),
+                metrics: registry,
                 guild_counter: stats.cache_counts.guilds.clone(),
                 osu_client_id: config.tokens.osu_client_id,
                 osu_client_secret: config.tokens.osu_client_secret.clone(),
@@ -196,7 +198,7 @@ impl Context {
 
         let ctx = Self {
             cache,
-            stats,
+            stats: Arc::new(stats),
             http,
             clients,
             cluster,

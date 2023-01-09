@@ -72,12 +72,12 @@ impl AppStateBuilder {
                 format!("failed to register auth template at `{path:?}` to handlebars")
             })?;
 
-        let opts = opts!("requests_total", "Requests total");
+        let opts = opts!("server_requests_total", "Requests total");
         let request_count = IntCounterVec::new(opts, &["method", "path", "status"])
             .wrap_err("failed to create request count")?;
 
         let opts = histogram_opts!(
-            "response_time_seconds",
+            "server_response_time_seconds",
             "Response times",
             DEFAULT_BUCKETS.to_vec()
         );

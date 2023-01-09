@@ -147,6 +147,7 @@ dependencies = [
  "hyper",
  "hyper-rustls",
  "leaky-bucket-lite",
+ "prometheus",
  "rand",
  "rkyv",
  "rosu-v2",
