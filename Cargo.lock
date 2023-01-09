@@ -239,7 +239,7 @@ dependencies = [
 
 [[package]]
 name = "bathbot-twilight"
-version = "2.4.10"
+version = "3.0.0"
 dependencies = [
  "bathbot-client",
  "bathbot-macros",
