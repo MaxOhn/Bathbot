@@ -319,9 +319,9 @@ dependencies = [
 
 [[package]]
 name = "bb8-redis"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b081e2864000416c5a4543fed63fb8dd979c4a0806b071fddab0e548c6cd4c74"
+checksum = "8310da711a26fa0326202261abd73a414340f3ec957f63927a055511a01d7fb2"
 dependencies = [
  "async-trait",
  "bb8",
@@ -675,9 +675,9 @@ checksum = "c34f04666d835ff5d62e058c3995147c06f42fe86ff053337632bca83e42702d"
 
 [[package]]
 name = "enterpolation"
-version = "0.1.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2747bfa35c4aad856adb5d54605dcb7b3422b5a3428782c9278f8a66abe5ebbf"
+checksum = "dedc91505dc06c0969a1488e2177867119ee63be97de98bd47dcfaa07cc97813"
 dependencies = [
  "assert_float_eq",
  "num-traits",
@@ -1711,9 +1711,9 @@ dependencies = [
 
 [[package]]
 name = "redis"
-version = "0.21.7"
+version = "0.22.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "152f3863635cbb76b73bc247845781098302c6c9ad2060e1a9a7de56840346b6"
+checksum = "5c1aada340fba5deba625c84d109d0a83cc3565452d38083417992a702c2428d"
 dependencies = [
  "async-trait",
  "bytes",
