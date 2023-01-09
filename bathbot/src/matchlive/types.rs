@@ -1,3 +1,4 @@
+use bathbot_util::IntHasher;
 use hashbrown::HashMap;
 use rosu_v2::prelude::OsuMatch;
 use smallvec::SmallVec;
@@ -25,10 +26,10 @@ impl MatchLiveChannels {
 #[derive(Default)]
 pub struct MatchLiveChannelsInner {
     /// Mapping match ids to channels that track them
-    pub match_channels: HashMap<u32, MatchEntry>,
+    pub match_channels: HashMap<u32, MatchEntry, IntHasher>,
 
     /// Mapping channels to the amount of tracked matches in that channel
-    pub channel_count: HashMap<Id<ChannelMarker>, u8>,
+    pub channel_count: HashMap<Id<ChannelMarker>, u8, IntHasher>,
 }
 
 pub struct MatchEntry {

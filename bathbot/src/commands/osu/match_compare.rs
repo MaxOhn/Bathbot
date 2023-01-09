@@ -1,7 +1,7 @@
 use std::{borrow::Cow, fmt::Write, mem, sync::Arc, time::Duration};
 
 use bathbot_macros::SlashCommand;
-use bathbot_util::{constants::OSU_API_ISSUE, matcher, CowUtils, MessageBuilder};
+use bathbot_util::{constants::OSU_API_ISSUE, matcher, CowUtils, IntHasher, MessageBuilder};
 use eyre::{Report, Result};
 use hashbrown::HashMap;
 use rosu_v2::prelude::{
@@ -190,12 +190,12 @@ struct MatchComparison {
     common_maps: Vec<CommonMap>,
     match_1: ProcessedMatch,
     match_2: ProcessedMatch,
-    users: HashMap<u32, Username>,
+    users: HashMap<u32, Username, IntHasher>,
 }
 
 impl MatchComparison {
     fn new(match_1: &mut OsuMatch, match_2: &mut OsuMatch) -> Self {
-        let users: HashMap<_, _> = match_1
+        let users: HashMap<_, _, IntHasher> = match_1
             .users
             .drain()
             .chain(match_2.users.drain())

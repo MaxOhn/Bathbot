@@ -4,7 +4,7 @@ use bathbot_macros::EmbedData;
 use bathbot_util::{
     constants::OSU_BASE,
     numbers::{round, WithComma},
-    AuthorBuilder, CowUtils, FooterBuilder,
+    AuthorBuilder, CowUtils, FooterBuilder, IntHasher,
 };
 use hashbrown::HashMap;
 use rosu_v2::prelude::{Grade, Team, Username};
@@ -31,7 +31,7 @@ impl MatchCompareMapEmbed {
         map: CommonMap,
         match_1: &str,
         match_2: &str,
-        users: &HashMap<u32, Username>,
+        users: &HashMap<u32, Username, IntHasher>,
         comparison: MatchCompareComparison,
         (common_idx, common_total, maps_total): (usize, usize, usize),
     ) -> Self {
@@ -147,7 +147,7 @@ impl<'n> TeamScore<'n> {
 fn prepare_scores(
     scores: &[MatchCompareScore],
     totals: [u32; 3],
-    users: &HashMap<u32, Username>,
+    users: &HashMap<u32, Username, IntHasher>,
     with_total: bool,
 ) -> String {
     let mut embed_scores = Vec::with_capacity(scores.len());

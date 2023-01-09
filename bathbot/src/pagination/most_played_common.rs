@@ -1,4 +1,5 @@
 use bathbot_macros::pagination;
+use bathbot_util::IntHasher;
 use hashbrown::HashMap;
 use rosu_v2::prelude::MostPlayedMap;
 use twilight_model::channel::embed::Embed;
@@ -14,7 +15,7 @@ use super::Pages;
 pub struct MostPlayedCommonPagination {
     user1: RedisData<User>,
     user2: RedisData<User>,
-    maps: HashMap<u32, ([usize; 2], MostPlayedMap)>,
+    maps: HashMap<u32, ([usize; 2], MostPlayedMap), IntHasher>,
     map_counts: Vec<(u32, usize)>,
 }
 

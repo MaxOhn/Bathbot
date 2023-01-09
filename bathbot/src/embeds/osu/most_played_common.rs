@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, fmt::Write};
 
 use bathbot_macros::EmbedData;
-use bathbot_util::{constants::OSU_BASE, CowUtils};
+use bathbot_util::{constants::OSU_BASE, CowUtils, IntHasher};
 use hashbrown::HashMap;
 use rosu_v2::prelude::MostPlayedMap;
 
@@ -20,7 +20,7 @@ impl MostPlayedCommonEmbed {
         user1: &RedisData<User>,
         user2: &RedisData<User>,
         map_counts: &[(u32, usize)],
-        maps: &HashMap<u32, ([usize; 2], MostPlayedMap)>,
+        maps: &HashMap<u32, ([usize; 2], MostPlayedMap), IntHasher>,
         pages: &Pages,
     ) -> Self {
         let mut description = String::with_capacity(512);

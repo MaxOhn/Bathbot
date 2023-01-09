@@ -3,7 +3,7 @@ use std::{cmp::Reverse, fmt::Write, sync::Arc};
 use bathbot_macros::command;
 use bathbot_util::{
     constants::{GENERAL_ISSUE, OSU_API_ISSUE},
-    matcher, MessageBuilder,
+    matcher, IntHasher, MessageBuilder,
 };
 use eyre::{Report, Result};
 use hashbrown::HashMap;
@@ -138,7 +138,7 @@ pub(super) async fn mostplayed(
     };
 
     // Consider only maps that appear in each users map list
-    let mut maps: HashMap<_, _> = maps1
+    let mut maps: HashMap<_, _, IntHasher> = maps1
         .into_iter()
         .map(|map| (map.map.map_id, ([map.count, 0], map)))
         .collect();

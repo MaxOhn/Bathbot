@@ -1,11 +1,15 @@
 use std::{
-    borrow::Cow, cmp::Ordering, collections::HashMap as StdHashMap, fmt::Write, mem, sync::Arc,
+    borrow::Cow,
+    cmp::Ordering,
+    collections::{HashMap, HashSet},
+    fmt::Write,
+    mem,
+    sync::Arc,
 };
 
 use bathbot_macros::{command, SlashCommand};
 use bathbot_util::{constants::OSU_API_ISSUE, matcher, IntHasher, MessageBuilder};
 use eyre::{Report, Result};
-use hashbrown::{HashMap, HashSet};
 use rosu_v2::prelude::{
     GameMods, MatchGame, Osu, OsuError, OsuMatch, OsuResult, Team, TeamType, UserCompact,
 };
@@ -315,7 +319,7 @@ const MOD_BONUS: f32 = 0.02;
 pub fn process_match(
     games: &[MatchGame],
     finished: bool,
-    users: &StdHashMap<u32, UserCompact>,
+    users: &HashMap<u32, UserCompact>,
 ) -> MatchResult {
     let mut teams = HashMap::with_hasher(IntHasher);
     let mut point_costs = HashMap::with_hasher(IntHasher);
