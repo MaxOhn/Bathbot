@@ -9,6 +9,7 @@ bathbot-client = { path = "../bathbot-client" }
 bathbot-macros = { path = "../bathbot-macros" }
 bathbot-model = { path = "../bathbot-model" }
 bathbot-psql = { path = "../bathbot-psql" }
+bathbot-server = { path = "../bathbot-server", optional = true }
 bathbot-util = { path = "../bathbot-util" }
 bb8-redis = { version = "0.11" }
 bitflags = { version = "1.0" }
@@ -21,9 +22,6 @@ flurry = { version = "0.4" }
 futures = { version = "0.3", default-features = false }
 handlebars = { version = "4.0" }
 hashbrown = { version = "0.12", features = ["serde"] }
-http = { version = "0.2" }
-hyper = { version = "0.14", default-features = false, features = ["server"] }
-hyper-rustls = { version = "0.23", default-features = false, features = ["http1", "tls12", "tokio-runtime", "webpki-tokio"] }
 image = { version = "0.24", default-features = false, features = ["gif", "png"] }
 itertools = { version = "0.10" }
 leaky-bucket-lite = { version = "0.5", features = ["parking_lot"] }
@@ -42,10 +40,8 @@ rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp", branch = "next", features
 # rosu-pp = { path = "../rosu-pp" }
 rosu-pp-older = { git = "https://github.com/MaxOhn/rosu-pp-older.git", branch = "main" }
 # rosu-pp-older = { path = "../rosu-pp-older" }
-routerify = { version = "3.0", optional = true }
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = { version = "1.0" }
-smallstr = { version = "0.2", features = ["serde"] }
 smallvec = { version = "1.0", features = ["serde"] }
 thiserror = { version = "1.0" }
 time = { version = "0.3", features = ["parsing"] }
@@ -72,13 +68,13 @@ twilight-standby = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-
 twilight-validate = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-13" }
 
 [features]
-default = ["offline"]
+default = ["offline", "full"]
 full = ["global_slash", "matchlive", "osutracking", "server", "twitch", "twitchtracking"]
 
 global_slash = []
 matchlive = []
 offline = ["bathbot-psql/offline"]
 osutracking = ["priority-queue"]
-server = ["routerify", "twitch"]
+server = ["bathbot-server", "twitch"]
 twitch = []
 twitchtracking = ["twitch"]

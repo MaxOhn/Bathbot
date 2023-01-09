@@ -41,9 +41,8 @@ pub struct Paths {
 #[cfg(feature = "server")]
 #[derive(Debug)]
 pub struct Server {
-    pub internal_ip: [u8; 4],
-    pub internal_port: u16,
-    pub external_url: String,
+    pub port: u16,
+    pub public_url: String,
 }
 
 #[derive(Debug)]
@@ -137,9 +136,8 @@ impl BotConfig {
             },
             #[cfg(feature = "server")]
             server: Server {
-                internal_ip: env_var("INTERNAL_IP")?,
-                internal_port: env_var("INTERNAL_PORT")?,
-                external_url: env_var("EXTERNAL_URL")?,
+                port: env_var("SERVER_PORT")?,
+                public_url: env_var("PUBLIC_URL")?,
             },
             grades,
             emotes,
@@ -190,28 +188,6 @@ env_kind! {
     Id<UserMarker>: s => { s.parse().map(Id::new).map_err(|_| s) },
     Id<GuildMarker>: s => { s.parse().map(Id::new).map_err(|_| s) },
     Id<ChannelMarker>: s => { s.parse().map(Id::new).map_err(|_| s) },
-    [u8; 4]: s => {
-        if !(s.starts_with('[') && s.ends_with(']')) {
-            return Err(s);
-        }
-
-        let mut values = s[1..s.len() - 1]
-            .split(',')
-            .map(str::trim)
-            .flat_map(str::parse);
-
-        let mut array = [0; 4];
-
-        for idx in array.iter_mut() {
-            *idx = if let Some(n) = values.next() {
-                n
-            } else {
-                return Err(s);
-            };
-        }
-
-        Ok(array)
-    },
 }
 
 fn env_var<T: EnvKind>(name: &'static str) -> Result<T> {

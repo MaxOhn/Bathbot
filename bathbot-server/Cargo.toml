@@ -22,9 +22,3 @@ tokio = { version = "1.0", default-features = false, features = ["sync"] }
 tower = { version = "0.4", default-features = false }
 tower-http = { version = "0.3", features = ["fs", "trace"] }
 tracing = { version = "0.1" }
-
-dotenv = { version = "0.15" }
-tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt", "smallvec", "std", "time", "tracing-log", "ansi"] }
-
-[dev-dependencies]
-tokio = { version = "1.0", default-features = false, features = ["rt-multi-thread", "sync"] }

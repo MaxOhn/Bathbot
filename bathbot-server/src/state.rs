@@ -44,7 +44,7 @@ pub struct AppStateBuilder {
 }
 
 impl AppStateBuilder {
-    pub(crate) fn build(self, standby: Arc<AuthenticationStandby>) -> Result<AppState> {
+    pub(crate) fn build(self, standby: Arc<AuthenticationStandby>) -> Result<(AppState, PathBuf)> {
         let Self {
             website_path,
             metrics,
@@ -63,7 +63,7 @@ impl AppStateBuilder {
             .build();
 
         let mut handlebars = Handlebars::new();
-        let mut path = website_path;
+        let mut path = website_path.clone();
         path.push("assets/auth/auth.hbs");
 
         handlebars
@@ -99,7 +99,7 @@ impl AppStateBuilder {
             response_time,
         };
 
-        Ok(AppState {
+        let state = AppState {
             client: Client::builder().build(connector),
             handlebars,
             metrics,
@@ -109,6 +109,8 @@ impl AppStateBuilder {
             twitch_token,
             redirect_base,
             standby,
-        })
+        };
+
+        Ok((state, website_path))
     }
 }

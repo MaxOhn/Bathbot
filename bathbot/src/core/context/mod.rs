@@ -53,7 +53,7 @@ type TrackedStreams = FlurryMap<u64, Vec<Id<ChannelMarker>>, IntHasher>;
 
 pub struct Context {
     #[cfg(feature = "server")]
-    pub auth_standby: crate::server::AuthenticationStandby,
+    pub auth_standby: Arc<bathbot_server::AuthenticationStandby>,
     pub buckets: Buckets,
     pub cache: Cache,
     pub cluster: Cluster,
@@ -85,7 +85,7 @@ impl Context {
         &self.data.osu_tracking
     }
 
-    pub async fn new(tx: UnboundedSender<(Id<GuildMarker>, u64)>) -> Result<(Self, Events)> {
+    pub async fn new(tx: UnboundedSender<(Id<GuildMarker>, u64)>) -> Result<ContextTuple> {
         let config = BotConfig::get();
         let discord_token = &config.tokens.discord;
 
@@ -173,6 +173,27 @@ impl Context {
             .await
             .wrap_err("failed to build cluster")?;
 
+        #[cfg(feature = "server")]
+        let (auth_standby, server_tx) = {
+            let builder = bathbot_server::AppStateBuilder {
+                website_path: config.paths.website.clone(),
+                metrics: stats.registry.clone(),
+                guild_counter: stats.cache_counts.guilds.clone(),
+                osu_client_id: config.tokens.osu_client_id,
+                osu_client_secret: config.tokens.osu_client_secret.clone(),
+                twitch_client_id: config.tokens.twitch_client_id.clone(),
+                twitch_token: config.tokens.twitch_token.clone(),
+                redirect_base: config.server.public_url.clone(),
+            };
+
+            let (server, standby, tx) =
+                bathbot_server::Server::new(builder).wrap_err("failed to create server")?;
+
+            tokio::spawn(server.run(config.server.port));
+
+            (standby, tx)
+        };
+
         let ctx = Self {
             cache,
             stats,
@@ -182,15 +203,26 @@ impl Context {
             data,
             standby: Standby::new(),
             #[cfg(feature = "server")]
-            auth_standby: crate::server::AuthenticationStandby::new(),
+            auth_standby,
             buckets: Buckets::new(),
             member_requests: MemberRequests::new(tx),
             paginations: Arc::new(TokioMutexMap::with_shard_amount_and_hasher(16, IntHasher)),
         };
 
-        Ok((ctx, events))
+        Ok((
+            ctx,
+            events,
+            #[cfg(feature = "server")]
+            server_tx,
+        ))
     }
 }
+
+#[cfg(not(feature = "server"))]
+pub type ContextTuple = (Context, Events);
+
+#[cfg(feature = "server")]
+pub type ContextTuple = (Context, Events, tokio::sync::oneshot::Sender<()>);
 
 pub struct MemberRequests {
     pub tx: UnboundedSender<(Id<GuildMarker>, u64)>,

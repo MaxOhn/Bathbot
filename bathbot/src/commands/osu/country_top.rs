@@ -12,7 +12,6 @@ use rosu_v2::{
     prelude::{GameMods, Username},
     request::UserId,
 };
-use smallstr::SmallString;
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::id::{marker::UserMarker, Id};
 
@@ -146,7 +145,7 @@ async fn slash_countrytop(ctx: Arc<Context>, mut command: InteractionCommand) ->
 
     let details_fut = ctx
         .client()
-        .get_osutracker_country_details(country_code.as_deref().map(SmallString::as_str));
+        .get_osutracker_country_details(country_code.as_deref().map(|code| code.as_str()));
 
     let name_fut = async {
         match user_id {
@@ -166,7 +165,7 @@ async fn slash_countrytop(ctx: Arc<Context>, mut command: InteractionCommand) ->
                 or the osutracker api has an issue.",
                 code = country_code
                     .as_deref()
-                    .map(SmallString::as_str)
+                    .map(|code| code.as_str())
                     .unwrap_or("Global"),
             );
 

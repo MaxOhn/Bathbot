@@ -7,4 +7,8 @@ mod server;
 mod standby;
 mod state;
 
-pub use self::{server::Server, state::AppStateBuilder};
+pub use self::{
+    server::Server,
+    standby::{AuthenticationStandby, AuthenticationStandbyError},
+    state::AppStateBuilder,
+};

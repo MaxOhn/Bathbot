@@ -18,10 +18,13 @@ use crate::{
 };
 
 #[cfg(feature = "server")]
+use bathbot_server::AuthenticationStandbyError;
+
+#[cfg(feature = "server")]
 use bathbot_util::{EmbedBuilder, MessageBuilder};
 
 #[cfg(feature = "server")]
-use crate::{core::BotConfig, server::AuthenticationStandbyError, util::Emote};
+use crate::{core::BotConfig, util::Emote};
 
 use super::{SkinValidation, ValidationStatus};
 
@@ -288,7 +291,7 @@ fn osu_content(state: u8) -> String {
         to authenticate your osu! profile",
         emote = Emote::Osu.text(),
         client_id = config.tokens.osu_client_id,
-        url = config.server.external_url,
+        url = config.server.public_url,
     )
 }
 
@@ -302,7 +305,7 @@ fn twitch_content(state: u8) -> String {
         &state={state}) to authenticate your twitch channel",
         emote = Emote::Twitch.text(),
         client_id = config.tokens.twitch_client_id,
-        url = config.server.external_url,
+        url = config.server.public_url,
     )
 }
 

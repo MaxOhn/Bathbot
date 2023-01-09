@@ -13,7 +13,6 @@ mod games;
 mod manager;
 mod matchlive;
 mod pagination;
-mod server;
 mod tracking;
 mod util;
 
@@ -57,9 +56,15 @@ async fn async_main() -> Result<()> {
 
     let (member_tx, mut member_rx) = mpsc::unbounded_channel();
 
-    let (ctx, events) = Context::new(member_tx.clone())
+    let tuple = Context::new(member_tx.clone())
         .await
         .context("failed to create ctx")?;
+
+    #[cfg(not(feature = "server"))]
+    let (ctx, events) = tuple;
+
+    #[cfg(feature = "server")]
+    let (ctx, events, server_tx) = tuple;
 
     let ctx = Arc::new(ctx);
 
@@ -101,16 +106,6 @@ async fn async_main() -> Result<()> {
             warn!("{:?}", Report::new(err).wrap_err(wrap));
         }
     }
-
-    #[cfg(feature = "server")]
-    let tx = {
-        // Spawn server worker
-        let server_ctx = Arc::clone(&ctx);
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        tokio::spawn(server::run_server(server_ctx, rx));
-
-        tx
-    };
 
     #[cfg(feature = "twitchtracking")]
     {
@@ -191,7 +186,7 @@ async fn async_main() -> Result<()> {
     }
 
     #[cfg(feature = "server")]
-    if tx.send(()).is_err() {
+    if server_tx.send(()).is_err() {
         error!("Failed to send shutdown message to server");
     }
 

@@ -7,7 +7,7 @@ use axum::{
     routing::{get, get_service},
     Router,
 };
-use eyre::{Report, Result, WrapErr};
+use eyre::{Report, Result};
 use hyper::Request;
 use tokio::sync::oneshot::{channel, Receiver, Sender};
 use tower_http::{services::ServeDir, trace::TraceLayer};
@@ -27,34 +27,34 @@ use crate::{
 };
 
 pub struct Server {
-    builder: AppStateBuilder,
-    standby: Arc<AuthenticationStandby>,
+    state: AppState,
+    website_path: PathBuf,
     shutdown_rx: Receiver<()>,
 }
 
 impl Server {
-    pub fn new(builder: AppStateBuilder) -> (Self, Arc<AuthenticationStandby>, Sender<()>) {
+    pub fn new(builder: AppStateBuilder) -> Result<(Self, Arc<AuthenticationStandby>, Sender<()>)> {
         let (shutdown_tx, shutdown_rx) = channel();
         let standby = Arc::new(AuthenticationStandby::new());
+        let (state, website_path) = builder.build(Arc::clone(&standby))?;
 
         let server = Self {
-            builder,
-            standby: Arc::clone(&standby),
+            state,
+            website_path,
             shutdown_rx,
         };
 
-        (server, standby, shutdown_tx)
+        Ok((server, standby, shutdown_tx))
     }
 
-    pub async fn run(self, port: u16) -> Result<()> {
+    pub async fn run(self, port: u16) {
         let Self {
-            builder,
-            standby,
+            state,
+            website_path,
             shutdown_rx,
         } = self;
 
-        let website_path = builder.website_path.clone();
-        let state = Arc::new(builder.build(standby)?);
+        let state = Arc::new(state);
         let app = Self::bathbot_app(website_path, Arc::clone(&state));
 
         let server = axum::Server::bind(&([0, 0, 0, 0], port).into())
@@ -65,9 +65,9 @@ impl Server {
 
         info!("Running server...");
 
-        server.await.wrap_err("server failed")?;
-
-        Ok(())
+        if let Err(err) = server.await {
+            error!("{:?}", Report::new(err).wrap_err("Server failed"));
+        }
     }
 
     fn bathbot_app(website_path: PathBuf, state: Arc<AppState>) -> Router<Arc<AppState>> {

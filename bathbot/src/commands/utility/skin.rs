@@ -3,7 +3,6 @@ use std::sync::Arc;
 use bathbot_macros::{HasName, SlashCommand};
 use bathbot_util::{constants::GENERAL_ISSUE, matcher, MessageBuilder};
 use eyre::{Report, Result};
-use http::header::CONTENT_DISPOSITION;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::id::{marker::UserMarker, Id};
 
@@ -244,7 +243,7 @@ impl SkinValidation {
             Err(err) => return Self::Err(err.into()),
         };
 
-        let Some(content_disposition) = parts.headers.get(CONTENT_DISPOSITION) else {
+        let Some(content_disposition) = parts.headers.get("Content-Disposition") else {
             return Self::Invalid(Reason::MissingContentDisposition);
         };
 
