@@ -1,0 +1,1854 @@
+{
+  "db": "PostgreSQL",
+  "02cd8f792eb2c7c4c13be1d3f6c3011cb0c7de2becc2b8dab588cc95dd1c4c2f": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int4",
+          "Int4",
+          "Int2",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Int2",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Bool",
+          "Timestamptz"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO osu_scores (\n  score_id, user_id, map_id, gamemode, \n  mods, score, maxcombo, grade, count50, \n  count100, count300, countmiss, countgeki, \n  countkatu, perfect, ended_at\n) \nVALUES \n  (\n    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, \n    $11, $12, $13, $14, $15, $16\n  ) ON CONFLICT (score_id) DO NOTHING"
+  },
+  "03ae2d7b4aac277fadd085ecbf70bc5613d56e7a6779be1496e55d0c717512c8": {
+    "describe": {
+      "columns": [
+        {
+          "name": "global_rank",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "pp",
+          "ordinal": 1,
+          "type_info": "Float4"
+        }
+      ],
+      "nullable": [
+        null,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int2",
+          "Float4"
+        ]
+      }
+    },
+    "query": "\nWITH stats AS (\n  SELECT \n    global_rank, \n    pp, \n    last_update \n  FROM \n    osu_user_mode_stats \n  WHERE \n    gamemode = $1 \n    AND NOW() - last_update < interval '2 days'\n) \nSELECT \n  * \nFROM \n  (\n    (\n      SELECT \n        global_rank, \n        pp \n      FROM \n        (\n          SELECT \n            * \n          FROM \n            stats \n          WHERE \n            pp >= $2 \n          ORDER BY \n            pp ASC \n          LIMIT \n            2\n        ) AS innerTable \n      ORDER BY \n        last_update DESC \n      LIMIT \n        1\n    ) \n    UNION ALL \n      (\n        SELECT \n          global_rank, \n          pp \n        FROM \n          (\n            SELECT \n              * \n            FROM \n              stats \n            WHERE \n              pp <= $2 \n            ORDER BY \n              pp DESC \n            LIMIT \n              2\n          ) AS innerTable \n        ORDER BY \n          last_update DESC \n        LIMIT \n          1\n      )\n  ) AS neighbors"
+  },
+  "04813deb7752ed349d4e5b7748cf5b40c83ccbd2f0ee490ef6c8cc63d8aacd88": {
+    "describe": {
+      "columns": [
+        {
+          "name": "guild_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "authorities",
+          "ordinal": 1,
+          "type_info": "Bytea"
+        },
+        {
+          "name": "prefixes",
+          "ordinal": 2,
+          "type_info": "Bytea"
+        },
+        {
+          "name": "allow_songs",
+          "ordinal": 3,
+          "type_info": "Bool"
+        },
+        {
+          "name": "score_size",
+          "ordinal": 4,
+          "type_info": "Int2"
+        },
+        {
+          "name": "show_retries",
+          "ordinal": 5,
+          "type_info": "Bool"
+        },
+        {
+          "name": "osu_track_limit",
+          "ordinal": 6,
+          "type_info": "Int2"
+        },
+        {
+          "name": "minimized_pp",
+          "ordinal": 7,
+          "type_info": "Int2"
+        },
+        {
+          "name": "list_size",
+          "ordinal": 8,
+          "type_info": "Int2"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "\nSELECT \n  guild_id,\n  authorities,\n  prefixes,\n  allow_songs,\n  score_size,\n  show_retries,\n  osu_track_limit,\n  minimized_pp,\n  list_size\nFROM \n  guild_configs"
+  },
+  "057d3f9a920c8ef1d8e2bd97f0a7dd429a599506df9b65768c5e358e4b36f460": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nDELETE FROM \n  tracked_twitch_streams \nWHERE \n  channel_id = $1"
+  },
+  "0e433f1a5f1609bac4b8d161fa57557e6514d3036432ff81a1e022b23b76013d": {
+    "describe": {
+      "columns": [
+        {
+          "name": "user_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "username",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int4Array"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  user_id, \n  username \nFROM \n  osu_user_names \nWHERE \n  user_id = ANY($1)"
+  },
+  "0e8fbc5bb4ad1733919064231a804c3e16815a07fa33fd2ab9801cc0de0cc362": {
+    "describe": {
+      "columns": [
+        {
+          "name": "aim",
+          "ordinal": 0,
+          "type_info": "Float8"
+        },
+        {
+          "name": "speed",
+          "ordinal": 1,
+          "type_info": "Float8"
+        },
+        {
+          "name": "flashlight",
+          "ordinal": 2,
+          "type_info": "Float8"
+        },
+        {
+          "name": "slider_factor",
+          "ordinal": 3,
+          "type_info": "Float8"
+        },
+        {
+          "name": "speed_note_count",
+          "ordinal": 4,
+          "type_info": "Float8"
+        },
+        {
+          "name": "ar",
+          "ordinal": 5,
+          "type_info": "Float8"
+        },
+        {
+          "name": "od",
+          "ordinal": 6,
+          "type_info": "Float8"
+        },
+        {
+          "name": "hp",
+          "ordinal": 7,
+          "type_info": "Float8"
+        },
+        {
+          "name": "n_circles",
+          "ordinal": 8,
+          "type_info": "Int4"
+        },
+        {
+          "name": "n_sliders",
+          "ordinal": 9,
+          "type_info": "Int4"
+        },
+        {
+          "name": "n_spinners",
+          "ordinal": 10,
+          "type_info": "Int4"
+        },
+        {
+          "name": "stars",
+          "ordinal": 11,
+          "type_info": "Float8"
+        },
+        {
+          "name": "max_combo",
+          "ordinal": 12,
+          "type_info": "Int4"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  aim, \n  speed, \n  flashlight, \n  slider_factor, \n  speed_note_count, \n  ar, \n  od, \n  hp, \n  n_circles, \n  n_sliders, \n  n_spinners, \n  stars, \n  max_combo \nFROM \n  osu_map_difficulty \nWHERE \n  map_id = $1 \n  AND mods = $2"
+  },
+  "0ed76b123aae29a2da6d6db0107f6062650af416114e6631283dbd8a80724127": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int2",
+          "Bytea"
+        ]
+      }
+    },
+    "query": "\nUPDATE \n  tracked_osu_users \nSET \n  channels = $3 \nWHERE \n  user_id = $1 \n  AND gamemode = $2"
+  },
+  "0f21ed6d68aef2248fb1c02c54a7cb34e7886e319256404f00843934fcb4c651": {
+    "describe": {
+      "columns": [
+        {
+          "name": "channels",
+          "ordinal": 0,
+          "type_info": "Bytea"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int2",
+          "Bytea"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO tracked_osu_users (user_id, gamemode, channels) \nVALUES \n  ($1, $2, $3) ON CONFLICT (user_id, gamemode) DO \nUPDATE \nSET \n  last_update = NOW() RETURNING channels"
+  },
+  "1d359cbace668cd27222e76337e61f7fb6b5bd78d61d0b134563fba190341435": {
+    "describe": {
+      "columns": [
+        {
+          "name": "user_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Text"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  user_id \nFROM \n  osu_user_names \nWHERE \n  username ILIKE $1 OR username ILIKE $2"
+  },
+  "27fc81ceab1a9a0b3526082feb24eb6c0e7c78282aa6f493cf3c4d96ae30ec78": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Varchar",
+          "Int2"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO map_tags (\n  mapset_id, image_filename, gamemode\n) \nVALUES \n  ($1, $2, $3) ON CONFLICT (mapset_id) DO \nUPDATE \nSET \n  image_filename = $2"
+  },
+  "291b32ade35e0e86960037bbbf43bf015751fe21457239209c3d4f7d4fd8968a": {
+    "describe": {
+      "columns": [
+        {
+          "name": "score_size",
+          "ordinal": 0,
+          "type_info": "Int2"
+        },
+        {
+          "name": "list_size",
+          "ordinal": 1,
+          "type_info": "Int2"
+        },
+        {
+          "name": "minimized_pp",
+          "ordinal": 2,
+          "type_info": "Int2"
+        },
+        {
+          "name": "gamemode",
+          "ordinal": 3,
+          "type_info": "Int2"
+        },
+        {
+          "name": "username",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "show_retries",
+          "ordinal": 5,
+          "type_info": "Bool"
+        },
+        {
+          "name": "twitch_id",
+          "ordinal": 6,
+          "type_info": "Int8"
+        },
+        {
+          "name": "timezone_seconds",
+          "ordinal": 7,
+          "type_info": "Int4"
+        }
+      ],
+      "nullable": [
+        true,
+        true,
+        true,
+        true,
+        null,
+        true,
+        true,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  score_size, \n  list_size, \n  minimized_pp, \n  gamemode, \n  (\n    SELECT \n      username \n    FROM \n      osu_user_names \n    WHERE \n      user_id = osu_id\n  ), \n  show_retries, \n  twitch_id, \n  timezone_seconds \nFROM \n  user_configs \nWHERE \n  discord_id = $1"
+  },
+  "2969365f091f2408b8e9fbce514024420d26fe358dbf08afc58074515d3c1e78": {
+    "describe": {
+      "columns": [
+        {
+          "name": "highscore",
+          "ordinal": 0,
+          "type_info": "Int4"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int2",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO higherlower_scores (\n  discord_id, game_version, highscore\n) \nVALUES \n  ($1, $2, $3) ON CONFLICT (discord_id, game_version) DO \nUPDATE \nSET \n  highscore = $3 \nWHERE \n  higherlower_scores.highscore < $3 RETURNING highscore"
+  },
+  "2be23961cc81a103864714543e7934a8cc50bf2d75473e85ee3ddbb51fb5dbcc": {
+    "describe": {
+      "columns": [
+        {
+          "name": "map_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "mapset_id",
+          "ordinal": 1,
+          "type_info": "Int4"
+        },
+        {
+          "name": "user_id",
+          "ordinal": 2,
+          "type_info": "Int4"
+        },
+        {
+          "name": "checksum",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "map_version",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "seconds_drain",
+          "ordinal": 5,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count_circles",
+          "ordinal": 6,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count_sliders",
+          "ordinal": 7,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count_spinners",
+          "ordinal": 8,
+          "type_info": "Int4"
+        },
+        {
+          "name": "bpm",
+          "ordinal": 9,
+          "type_info": "Float4"
+        },
+        {
+          "name": "max_combo",
+          "ordinal": 10,
+          "type_info": "Int4"
+        },
+        {
+          "name": "artist",
+          "ordinal": 11,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "title",
+          "ordinal": 12,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "creator",
+          "ordinal": 13,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "rank_status",
+          "ordinal": 14,
+          "type_info": "Int2"
+        },
+        {
+          "name": "ranked_date",
+          "ordinal": 15,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "thumbnail",
+          "ordinal": 16,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "cover",
+          "ordinal": 17,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "map_filepath",
+          "ordinal": 18,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  map.map_id, \n  map.mapset_id, \n  map.user_id, \n  map.checksum, \n  map.map_version, \n  map.seconds_drain, \n  map.count_circles, \n  map.count_sliders, \n  map.count_spinners, \n  map.bpm, \n  map.max_combo, \n  mapset.artist, \n  mapset.title, \n  mapset.creator, \n  mapset.rank_status, \n  mapset.ranked_date, \n  mapset.thumbnail, \n  mapset.cover, \n  (\n    SELECT \n      map_filepath \n    FROM \n      osu_map_files \n    WHERE \n      map_id = $1\n  ) \nFROM \n  (\n    SELECT \n      * \n    FROM \n      osu_maps \n    WHERE \n      map_id = $1\n  ) AS map \n  JOIN (\n    SELECT \n      mapset_id, \n      artist, \n      title, \n      creator, \n      rank_status, \n      ranked_date, \n      thumbnail, \n      cover \n    FROM \n      osu_mapsets\n  ) AS mapset ON map.mapset_id = mapset.mapset_id"
+  },
+  "2c326a3c30b2f8149ae6472f194e09b005339b17c3ac580f79536f1b9f2d8312": {
+    "describe": {
+      "columns": [
+        {
+          "name": "stamina",
+          "ordinal": 0,
+          "type_info": "Float8"
+        },
+        {
+          "name": "rhythm",
+          "ordinal": 1,
+          "type_info": "Float8"
+        },
+        {
+          "name": "colour",
+          "ordinal": 2,
+          "type_info": "Float8"
+        },
+        {
+          "name": "peak",
+          "ordinal": 3,
+          "type_info": "Float8"
+        },
+        {
+          "name": "hit_window",
+          "ordinal": 4,
+          "type_info": "Float8"
+        },
+        {
+          "name": "stars",
+          "ordinal": 5,
+          "type_info": "Float8"
+        },
+        {
+          "name": "max_combo",
+          "ordinal": 6,
+          "type_info": "Int4"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  stamina, \n  rhythm, \n  colour, \n  peak, \n  hit_window, \n  stars, \n  max_combo \nFROM \n  osu_map_difficulty_taiko \nWHERE \n  map_id = $1 \n  AND mods = $2"
+  },
+  "30719710015a08503f4b1e7178b659e86ecbe928d3929da13dda045137b69d38": {
+    "describe": {
+      "columns": [
+        {
+          "name": "username",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  username \nFROM \n  osu_user_names \nWHERE \n  user_id = $1"
+  },
+  "33c5cfa0d42c3807174a46ec627a3d7a977bff8da2b71894b8fe14426c3cacd8": {
+    "describe": {
+      "columns": [
+        {
+          "name": "score_size",
+          "ordinal": 0,
+          "type_info": "Int2"
+        }
+      ],
+      "nullable": [
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  score_size \nFROM \n  user_configs \nWHERE \n  discord_id = $1"
+  },
+  "380fc3f7a232b0f145ae03ec0ec838a57bfe42db5b2bcbd5a636bbbffd2e0b5e": {
+    "describe": {
+      "columns": [
+        {
+          "name": "discord_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  discord_id \nFROM \n  user_configs \nWHERE \n  osu_id = $1"
+  },
+  "3908f87ffa05a9481f31675f1a26da370c5cb2892330f65f2a90bbdd547b39b1": {
+    "describe": {
+      "columns": [
+        {
+          "name": "stars",
+          "ordinal": 0,
+          "type_info": "Float8"
+        },
+        {
+          "name": "ar",
+          "ordinal": 1,
+          "type_info": "Float8"
+        },
+        {
+          "name": "n_fruits",
+          "ordinal": 2,
+          "type_info": "Int4"
+        },
+        {
+          "name": "n_droplets",
+          "ordinal": 3,
+          "type_info": "Int4"
+        },
+        {
+          "name": "n_tiny_droplets",
+          "ordinal": 4,
+          "type_info": "Int4"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  stars, \n  ar, \n  n_fruits, \n  n_droplets, \n  n_tiny_droplets \nFROM \n  osu_map_difficulty_catch \nWHERE \n  map_id = $1 \n  AND mods = $2"
+  },
+  "3f462bfc0b9c6a4945debc3c2f0535aa53e258cfb40f44f52f9bec5c69433b71": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Float8"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO osu_scores_performance (score_id, pp) \nVALUES \n  ($1, $2) ON CONFLICT (score_id) DO NOTHING"
+  },
+  "46f62972a9ab0535c92b020be111bb5d4aed8c8af3f2156afb2a61c2aeae6355": {
+    "describe": {
+      "columns": [
+        {
+          "name": "username",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  username \nFROM \n  osu_user_names \nWHERE \n  user_id = (\n    SELECT \n      osu_id \n    FROM \n      user_configs \n    WHERE \n      discord_id = $1\n  )"
+  },
+  "4d9d86454d838f1fd2bfc30c019680978373896c7e01f09e939a63de314137e0": {
+    "describe": {
+      "columns": [
+        {
+          "name": "artist",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "title",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  artist, \n  title \nFROM \n  osu_mapsets \nWHERE \n  mapset_id = $1"
+  },
+  "5131ec2023a6ea07d2bb0210a5614211d9a1a59b915838471a0e09c702381e4a": {
+    "describe": {
+      "columns": [
+        {
+          "name": "country_name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  country_name \nFROM \n  huismetbenen_countries \nWHERE \n  country_code = $1"
+  },
+  "5c9012746a35ed9aca1d3b21f3e3f9fb93f61f8327458fec9716696faeb5d144": {
+    "describe": {
+      "columns": [
+        {
+          "name": "osu_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        }
+      ],
+      "nullable": [
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  osu_id \nFROM \n  user_configs \nWHERE \n  discord_id = $1"
+  },
+  "5f5d3b5e331806027c5fe6c8b85dccf7af5ae8d2e8f78dc51c37cee0a381460c": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int4",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Bool",
+          "Bool",
+          "Float4",
+          "Int2",
+          "Timestamptz",
+          "Int2",
+          "Int2",
+          "Varchar",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO osu_mapsets (\n  mapset_id, user_id, artist, title, \n  creator, source, tags, video, storyboard, \n  bpm, rank_status, ranked_date, genre_id, \n  language_id, thumbnail, cover\n) \nVALUES \n  (\n    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, \n    $11, $12, $13, $14, $15, $16\n  ) ON CONFLICT (mapset_id) DO \nUPDATE \nSET \n  user_id = $2, \n  artist = $3, \n  title = $4, \n  creator = $5, \n  source = $6, \n  tags = $7, \n  video = $8, \n  storyboard = $9, \n  bpm = $10, \n  rank_status = $11, \n  ranked_date = $12, \n  genre_id = $13, \n  language_id = $14, \n  thumbnail = $15, \n  cover = $16, \n  last_update = NOW()"
+  },
+  "611d29835f9095dcf111fb1243775a51f3121fab98b6b6bc0a6f381376ed5fd1": {
+    "describe": {
+      "columns": [
+        {
+          "name": "highscore",
+          "ordinal": 0,
+          "type_info": "Int4"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int2"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  highscore \nFROM \n  higherlower_scores \nWHERE \n  discord_id = $1 \n  AND game_version = $2"
+  },
+  "61af8b78e54ed6962ccaecb83ddab3b83b4ad116c3b1f90b06d82ebdecc03ba2": {
+    "describe": {
+      "columns": [
+        {
+          "name": "user_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "username",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "TextArray"
+        ]
+      }
+    },
+    "query": "\nSELECT \nuser_id, \nusername \nfrom \nosu_user_names \nWHERE \nusername ILIKE ANY($1)"
+  },
+  "651c00259f2f5531b1b71f835e32838514a85b7a8cea21f103b60802e028ee05": {
+    "describe": {
+      "columns": [
+        {
+          "name": "skin_url",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  skin_url \nFROM \n  user_configs \nWHERE \n  osu_id = (\n    SELECT \n      user_id \n    FROM \n      osu_user_names \n    WHERE \n      username ILIKE $1\n  )"
+  },
+  "68356a75b1e66719f90cf17ddeed1a170c119343d0d4c515308f6409997f2557": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO tracked_twitch_streams (channel_id, user_id) \nVALUES \n  ($1, $2) ON CONFLICT (channel_id, user_id) DO NOTHING"
+  },
+  "6978dd238f9eff2f2fd91bd8b9cb1e40dbf34195ba1eac52d375aeff0c55f586": {
+    "describe": {
+      "columns": [
+        {
+          "name": "stars",
+          "ordinal": 0,
+          "type_info": "Float8"
+        },
+        {
+          "name": "hit_window",
+          "ordinal": 1,
+          "type_info": "Float8"
+        },
+        {
+          "name": "max_combo",
+          "ordinal": 2,
+          "type_info": "Int4"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  stars, \n  hit_window, \n  max_combo \nFROM \n  osu_map_difficulty_mania \nWHERE \n  map_id = $1 \n  AND mods = $2"
+  },
+  "6fb91a2921f874a56bed6b90fd218806f59b553b481fd527aa38c84c426550ea": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Bytea",
+          "Bytea",
+          "Bool",
+          "Int2",
+          "Bool",
+          "Int2",
+          "Int2",
+          "Int2"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO guild_configs (\n  guild_id, authorities, prefixes, allow_songs, \n  score_size, show_retries, osu_track_limit, \n  minimized_pp, list_size\n) \nVALUES \n  ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (guild_id) DO \nUPDATE \nSET \n  authorities = $2, \n  prefixes = $3, \n  allow_songs = $4, \n  score_size = $5, \n  show_retries = $6, \n  osu_track_limit = $7, \n  minimized_pp = $8, \n  list_size = $9"
+  },
+  "74ed6117f3b940209a8c16e41f94f6909c24d51bfbddc02746a9ca4400abc374": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int2",
+          "Float4",
+          "Float4",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Float4",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Int8",
+          "Int4",
+          "Int8",
+          "Int8",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO osu_user_mode_stats (\n  user_id, gamemode, accuracy, pp, country_rank, \n  global_rank, count_ss, count_ssh, \n  count_s, count_sh, count_a, user_level, \n  max_combo, playcount, playtime, ranked_score, \n  replays_watched, total_hits, total_score, \n  scores_first\n) \nVALUES \n  (\n    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, \n    $11, $12, $13, $14, $15, $16, $17, $18, \n    $19, $20\n  ) ON CONFLICT (user_id, gamemode) DO \nUPDATE \nSET \n  accuracy = $3, \n  pp = $4, \n  country_rank = $5, \n  global_rank = $6, \n  count_ss = $7, \n  count_ssh = $8, \n  count_s = $9, \n  count_sh = $10, \n  count_a = $11, \n  user_level = $12, \n  max_combo = $13, \n  playcount = $14, \n  playtime = $15, \n  ranked_score = $16, \n  replays_watched = $17, \n  total_hits = $18, \n  total_score = $19, \n  scores_first = $20,\n  last_update = NOW()"
+  },
+  "7505a1274c95cb0ae88228b90165c06231bb61eaea97850adf6287c3cbdf918c": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int2"
+        ]
+      }
+    },
+    "query": "\nUPDATE\n  tracked_osu_users\nSET\n  last_update = NOW()\nWHERE\n  user_id = $1\n  AND gamemode = $2"
+  },
+  "789ed5aef078e6abf48755e46be402db4b6a5d1a430673ddb84db58c29e9c2ba": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nDELETE FROM \n  osu_user_mode_stats \nWHERE \n  user_id = $1"
+  },
+  "7ba256172b53c52f098cdc4f5ca4d749d1f8872d95a171bf34b0210827ece85f": {
+    "describe": {
+      "columns": [
+        {
+          "name": "user_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "gamemode",
+          "ordinal": 1,
+          "type_info": "Int2"
+        },
+        {
+          "name": "channels",
+          "ordinal": 2,
+          "type_info": "Bytea"
+        },
+        {
+          "name": "last_update",
+          "ordinal": 3,
+          "type_info": "Timestamptz"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "\nSELECT \n  user_id, \n  gamemode, \n  channels, \n  last_update \nFROM \n  tracked_osu_users"
+  },
+  "81bd4c8f72a303fddc5878cafd1ed52189c8e8ef827e95e51596290d5dacc488": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nDELETE FROM \n  osu_map_difficulty_catch \nWHERE \n  map_id = $1"
+  },
+  "82332eb70e5e28b22e5ed7f3e118931d94fab08797e7f8675ddff4e858b3b27a": {
+    "describe": {
+      "columns": [
+        {
+          "name": "discord_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "score",
+          "ordinal": 1,
+          "type_info": "Int4"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "\nSELECT \n  discord_id, \n  score \nFROM \n  bggame_scores"
+  },
+  "85a26a8fa694a2393f3fb55229f8dc0386fb1271568ad2ce168bd49d80f6f58b": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Varchar",
+          "Timestamptz",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO osu_user_stats (\n  user_id, country_code, join_date, \n  comment_count, kudosu_total, kudosu_available, \n  forum_post_count, badges, played_maps, \n  followers, graveyard_mapset_count, \n  loved_mapset_count, mapping_followers, \n  previous_usernames_count, ranked_mapset_count, \n  medals\n) \nVALUES \n  (\n    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, \n    $11, $12, $13, $14, $15, $16\n  ) ON CONFLICT (user_id) DO \nUPDATE \nSET \n  country_code = $2, \n  comment_count = $4, \n  kudosu_total = $5, \n  kudosu_available = $6, \n  forum_post_count = $7, \n  badges = $8, \n  played_maps = $9, \n  followers = $10, \n  graveyard_mapset_count = $11, \n  loved_mapset_count = $12, \n  mapping_followers = $13, \n  previous_usernames_count = $14, \n  ranked_mapset_count = $15, \n  medals = $16,\n  last_update = NOW()"
+  },
+  "8673f0b3654286bd14ea585e925eef1673b4987ba4542980871e244fea933493": {
+    "describe": {
+      "columns": [
+        {
+          "name": "global_rank",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "pp",
+          "ordinal": 1,
+          "type_info": "Float4"
+        }
+      ],
+      "nullable": [
+        null,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int2",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nWITH stats AS (\n  SELECT \n    global_rank, \n    pp, \n    last_update \n  FROM \n    osu_user_mode_stats \n  WHERE \n    gamemode = $1 \n    AND NOW() - last_update < interval '2 days'\n) \nSELECT \n  * \nFROM \n  (\n    (\n      SELECT \n        global_rank, \n        pp \n      FROM \n        (\n          SELECT \n            * \n          FROM \n            stats \n          WHERE \n            global_rank > 0 \n            AND global_rank <= $2 \n          ORDER BY \n            pp ASC \n          LIMIT \n            2\n        ) AS innerTable \n      ORDER BY \n        last_update DESC \n      LIMIT \n        1\n    ) \n    UNION ALL \n      (\n        SELECT \n          global_rank, \n          pp \n        FROM \n          (\n            SELECT \n              * \n            FROM \n              stats \n            WHERE \n              global_rank >= $2 \n            ORDER BY \n              pp DESC \n            LIMIT \n              2\n          ) AS innerTable \n        ORDER BY \n          last_update DESC \n        LIMIT \n          1\n      )\n  ) AS neighbors"
+  },
+  "86fe055100160971a77546f2428ee3ee428d504c87ff0830ae4483426151df77": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nDELETE FROM \n  osu_map_difficulty \nWHERE \n  map_id = $1"
+  },
+  "8772b16b273b8a5521ceaee7b44b82c86a8ddf56c39264247c5589cd7dfb28ea": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nDELETE FROM \n  osu_map_difficulty_mania \nWHERE \n  map_id = $1"
+  },
+  "8a23e125be251ef502bce59b3890e1030ed3a8fbd270ff4933fd68ed893f8575": {
+    "describe": {
+      "columns": [
+        {
+          "name": "twitch_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  twitch_id \nFROM \n  user_configs \nWHERE \n  osu_id =(\n    SELECT \n      user_id \n    FROM \n      osu_user_names \n    WHERE \n      username ILIKE $1\n  )"
+  },
+  "8b88f6e2659ffeb87114f3c9e099c9ba96a6ce79c842fffe9a665fc1f5334822": {
+    "describe": {
+      "columns": [
+        {
+          "name": "skin_url",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  skin_url \nFROM \n  user_configs \nWHERE \n  discord_id = $1"
+  },
+  "8eaa50ace26731478da43bdb4dc00d33cf489dcd958c26ab2bf0025e87e315df": {
+    "describe": {
+      "columns": [
+        {
+          "name": "skin_url",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  skin_url \nFROM \n  user_configs \nWHERE \n  osu_id = $1"
+  },
+  "8f560c7c1634f00ce00878148ce3612e1a87cb8a81057dc6edbfa9a9ef49c56c": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nDELETE FROM \n  osu_user_stats \nWHERE \n  user_id = $1"
+  },
+  "92e28e05bc4b37285b3be6f20364bc4a84ced5ae36178e0514fdabf029f046ea": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nDELETE FROM \n  osu_map_files \nWHERE \n  map_id = $1"
+  },
+  "96aaf1ec3618bcf576fb7d8853982df4f17a2680e521293a64d3cec5be293421": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int4",
+          "Float8",
+          "Float8",
+          "Int4",
+          "Int4",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO osu_map_difficulty_catch (\n  map_id, mods, stars, ar, n_fruits, n_droplets, \n  n_tiny_droplets\n) \nVALUES \n  ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (map_id, mods) DO \nUPDATE \nSET \n  stars = $3, \n  ar = $4, \n  n_fruits = $5, \n  n_droplets = $6, \n  n_tiny_droplets = $7"
+  },
+  "972b63a9adbe4a6233ae2d21e0e1b7a1a8af18a7199907989184c715424a01b6": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int4",
+          "Int2",
+          "Int8",
+          "Int2",
+          "Bool",
+          "Int2",
+          "Int2"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO user_configs (\n  discord_id, osu_id, gamemode, twitch_id, \n  score_size, show_retries, minimized_pp, \n  list_size\n) \nVALUES \n  ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (discord_id) DO \nUPDATE \nSET \n  osu_id = $2, \n  gamemode = $3, \n  twitch_id = $4, \n  score_size = $5, \n  show_retries = $6, \n  minimized_pp = $7, \n  list_size = $8"
+  },
+  "9956ebc2544c0db0b81478c8ec7be5e3020e2db5bd6d0fd03469e63b89a52f6c": {
+    "describe": {
+      "columns": [
+        {
+          "name": "mapset_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "user_id",
+          "ordinal": 1,
+          "type_info": "Int4"
+        },
+        {
+          "name": "artist",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "title",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "creator",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "rank_status",
+          "ordinal": 5,
+          "type_info": "Int2"
+        },
+        {
+          "name": "ranked_date",
+          "ordinal": 6,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "thumbnail",
+          "ordinal": 7,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "cover",
+          "ordinal": 8,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  mapset_id, \n  user_id, \n  artist, \n  title, \n  creator, \n  rank_status, \n  ranked_date, \n  thumbnail, \n  cover \nFROM \n  osu_mapsets \nWHERE \n  mapset_id = $1"
+  },
+  "a77727b12176833d893c805b2d95adeb4b37d1ce2994a29a6228e79ff20518c6": {
+    "describe": {
+      "columns": [
+        {
+          "name": "twitch_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  twitch_id \nFROM \n  user_configs \nWHERE \n  osu_id = $1"
+  },
+  "adfe9de02db6d8af635558f7c243b4c7c13093b460943160577157b01cb2c5d4": {
+    "describe": {
+      "columns": [
+        {
+          "name": "gamemode",
+          "ordinal": 0,
+          "type_info": "Int2"
+        }
+      ],
+      "nullable": [
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  gamemode \nFROM \n  user_configs \nWHERE \n  discord_id = $1"
+  },
+  "b42895ff2c5fb37ef689292c5e798878e1ba3e491dab3c3304588a57f1e5e837": {
+    "describe": {
+      "columns": [
+        {
+          "name": "score_size",
+          "ordinal": 0,
+          "type_info": "Int2"
+        },
+        {
+          "name": "list_size",
+          "ordinal": 1,
+          "type_info": "Int2"
+        },
+        {
+          "name": "minimized_pp",
+          "ordinal": 2,
+          "type_info": "Int2"
+        },
+        {
+          "name": "gamemode",
+          "ordinal": 3,
+          "type_info": "Int2"
+        },
+        {
+          "name": "osu_id",
+          "ordinal": 4,
+          "type_info": "Int4"
+        },
+        {
+          "name": "show_retries",
+          "ordinal": 5,
+          "type_info": "Bool"
+        },
+        {
+          "name": "twitch_id",
+          "ordinal": 6,
+          "type_info": "Int8"
+        },
+        {
+          "name": "timezone_seconds",
+          "ordinal": 7,
+          "type_info": "Int4"
+        }
+      ],
+      "nullable": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  score_size, \n  list_size, \n  minimized_pp, \n  gamemode, \n  osu_id, \n  show_retries, \n  twitch_id, \n  timezone_seconds \nFROM \n  user_configs \nWHERE \n  discord_id = $1"
+  },
+  "b74e27a3bb9d5dcaf9fc099fd35d00bc5160ccf581dfb80a172d3cc904cbac89": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int4",
+          "Float8",
+          "Float8",
+          "Float8",
+          "Float8",
+          "Float8",
+          "Float8",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO osu_map_difficulty_taiko (\n  map_id, mods, stamina, rhythm, colour, \n  peak, hit_window, stars, max_combo\n) \nVALUES \n  ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (map_id, mods) DO \nUPDATE \nSET \n  stamina = $3, \n  rhythm = $4, \n  colour = $5, \n  peak = $6, \n  hit_window = $7, \n  stars = $8, \n  max_combo = $9"
+  },
+  "b92b0789f6a20d7bd18ce15bf1826832672298a2d39446f1ccaf193a59d269bb": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO bggame_scores (discord_id, score) \nVALUES \n  ($1, $2) ON CONFLICT (discord_id) DO \nUPDATE \nSET \n  score = bggame_scores.score + $2"
+  },
+  "bd05bc4d05e9e6f17893b9716972e45359c4187d6184905f0a7f1d3596181618": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int4",
+          "Float8",
+          "Float8",
+          "Float8",
+          "Float8",
+          "Float8",
+          "Float8",
+          "Float8",
+          "Float8",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Float8",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO osu_map_difficulty (\n  map_id, mods, aim, speed, flashlight, \n  slider_factor, speed_note_count, \n  ar, od, hp, n_circles, n_sliders, n_spinners, \n  stars, max_combo\n) \nVALUES \n  (\n    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, \n    $11, $12, $13, $14, $15\n  ) ON CONFLICT (map_id, mods) DO \nUPDATE \nSET \n  aim = $3, \n  speed = $4, \n  flashlight = $5, \n  slider_factor = $6, \n  speed_note_count = $7, \n  ar = $8, \n  od = $9, \n  hp = $10, \n  n_circles = $11, \n  n_sliders = $12, \n  n_spinners = $13, \n  stars = $14, \n  max_combo = $15"
+  },
+  "c4c480dc37d6046fd92a5e6139853b40282e34470c1137aaf46a423d979da95d": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int4",
+          "Float8",
+          "Float8",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO osu_map_difficulty_mania (\n  map_id, mods, stars, hit_window, max_combo\n) \nVALUES \n  ($1, $2, $3, $4, $5) ON CONFLICT (map_id, mods) DO \nUPDATE \nSET \n  stars = $3, \n  hit_window = $4, \n  max_combo = $5"
+  },
+  "d5c451eaeba2afe1551acd288ab23ff011331a58fd8a49e2a9502e6ed05a46cd": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO huismetbenen_countries (country_code, country_name) \nVAlUES \n  ($1, $2) ON CONFLICT (country_code) DO \nUPDATE \nSET \n  country_name = $2"
+  },
+  "d7ec83d0e8fdc8e1d0822a7f14b7e71e7754c14717b047fd6bb33c52e1295d46": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nDELETE FROM \n  osu_map_difficulty_taiko \nWHERE \n  map_id = $1"
+  },
+  "dba69916166bf4f5a9e9a75e71d8abb76af561fefe9aa156fd6e12d13fb585e5": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int2"
+        ]
+      }
+    },
+    "query": "\nDELETE FROM \n  tracked_osu_users \nWHERE \n  user_id = $1 \n  AND gamemode = $2"
+  },
+  "e9d50fc799698d32a6ed98d194fd50be67db575702670a04bf63396ab06f1e7c": {
+    "describe": {
+      "columns": [
+        {
+          "name": "inserted",
+          "ordinal": 0,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int4",
+          "Int4",
+          "Varchar",
+          "Varchar",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Int4",
+          "Float4",
+          "Float4",
+          "Float4",
+          "Float4",
+          "Float4",
+          "Int2",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO osu_maps (\n  map_id, mapset_id, user_id, checksum, \n  map_version, seconds_total, seconds_drain, \n  count_circles, count_sliders, count_spinners, \n  hp, cs, od, ar, bpm, gamemode, max_combo\n) \nVALUES \n  (\n    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, \n    $11, $12, $13, $14, $15, $16, $17\n  ) ON CONFLICT (map_id) DO \nUPDATE \nSET \n  mapset_id = $2, \n  user_id = $3, \n  checksum = $4, \n  map_version = $5, \n  seconds_total = $6, \n  seconds_drain = $7, \n  count_circles = $8, \n  count_sliders = $9, \n  count_spinners = $10, \n  hp = $11, \n  cs = $12, \n  od = $13, \n  ar = $14, \n  bpm = $15, \n  gamemode = $16, \n  max_combo = $17, \n  last_update = NOW() \nWHERE \n  osu_maps.checksum IS DISTINCT \nFROM \n  EXCLUDED.checksum RETURNING (xmax = 0) AS inserted"
+  },
+  "eb2d8df67e3fb80c7798600f895597a274302c0574e70723472a2959f64f5731": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO osu_user_names (user_id, username) \nVALUES \n  ($1, $2) ON CONFLICT (user_id) DO \nUPDATE \nSET \n  username = $2"
+  },
+  "ec57d9d0bd0befbb77342a69c93150100d448ba50388eea2c9167de3fd0299d9": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO osu_map_files (map_id, map_filepath) \nVALUES \n  ($1, $2) ON CONFLICT (map_id) DO \nUPDATE \nSET \n  map_filepath = $2"
+  },
+  "ec811b7568559793dd78600b2a2cda867f22087b47f74e3cd1bb0b0b7291b966": {
+    "describe": {
+      "columns": [
+        {
+          "name": "map_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "mapset_id",
+          "ordinal": 1,
+          "type_info": "Int4"
+        },
+        {
+          "name": "user_id",
+          "ordinal": 2,
+          "type_info": "Int4"
+        },
+        {
+          "name": "checksum",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "map_version",
+          "ordinal": 4,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "seconds_drain",
+          "ordinal": 5,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count_circles",
+          "ordinal": 6,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count_sliders",
+          "ordinal": 7,
+          "type_info": "Int4"
+        },
+        {
+          "name": "count_spinners",
+          "ordinal": 8,
+          "type_info": "Int4"
+        },
+        {
+          "name": "bpm",
+          "ordinal": 9,
+          "type_info": "Float4"
+        },
+        {
+          "name": "max_combo",
+          "ordinal": 10,
+          "type_info": "Int4"
+        },
+        {
+          "name": "artist",
+          "ordinal": 11,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "title",
+          "ordinal": 12,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "creator",
+          "ordinal": 13,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "rank_status",
+          "ordinal": 14,
+          "type_info": "Int2"
+        },
+        {
+          "name": "ranked_date",
+          "ordinal": 15,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "thumbnail",
+          "ordinal": 16,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "cover",
+          "ordinal": 17,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "map_filepath",
+          "ordinal": 18,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int4Array"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  map.map_id, \n  map.mapset_id, \n  map.user_id, \n  map.checksum, \n  map.map_version, \n  map.seconds_drain, \n  map.count_circles, \n  map.count_sliders, \n  map.count_spinners, \n  map.bpm, \n  map.max_combo, \n  mapset.artist, \n  mapset.title, \n  mapset.creator, \n  mapset.rank_status, \n  mapset.ranked_date, \n  mapset.thumbnail, \n  mapset.cover, \n  COALESCE(files.map_filepath) AS map_filepath \nFROM \n  (\n    SELECT \n      * \n    FROM \n      osu_maps \n    WHERE \n      map_id = ANY($1)\n  ) AS map \n  JOIN (\n    SELECT \n      mapset_id, \n      artist, \n      title, \n      creator, \n      rank_status, \n      ranked_date, \n      thumbnail, \n      cover \n    FROM \n      osu_mapsets\n  ) AS mapset ON map.mapset_id = mapset.mapset_id \n  LEFT JOIN (\n    SELECT \n      map_id, \n      map_filepath \n    FROM \n      osu_map_files\n  ) AS files ON map.map_id = files.map_id"
+  },
+  "f6e31bee48c671466ccf9972401fe4b26ed75580e7c4cb870952d2853ecb69fc": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "\nUPDATE \n  user_configs \nSET \n  skin_url = $2 \nWHERE \n  discord_id = $1"
+  },
+  "fabcfd346174afa82e766f233674abf031d026bb55c632b459f24517eaa12dc1": {
+    "describe": {
+      "columns": [
+        {
+          "name": "discord_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "highscore",
+          "ordinal": 1,
+          "type_info": "Int4"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int2"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  discord_id, \n  highscore \nFROM \n  higherlower_scores \nWHERE \n  game_version = $1"
+  },
+  "fc9c88c1f209ab21abf9fa75d61e9ad730b363cc76fe36078cde6de352157f95": {
+    "describe": {
+      "columns": [
+        {
+          "name": "exists",
+          "ordinal": 0,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  EXISTS (\n    SELECT \n    FROM \n      huismetbenen_countries \n    WHERE \n      country_code = $1\n  )"
+  },
+  "fcfc547353fe778233d3a6407bc36fb78992719918d6d3198f1bcf070f72fd00": {
+    "describe": {
+      "columns": [
+        {
+          "name": "channel_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "user_id",
+          "ordinal": 1,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "\nSELECT \n  channel_id, \n  user_id \nFROM \n  tracked_twitch_streams"
+  },
+  "ff290f1421104f7ffb98653a0bcd84cdf0b6c1aa3791775c4fbb1d97c65fe60f": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nDELETE FROM \n  tracked_twitch_streams \nWHERE \n  channel_id = $1 \n  AND user_id = $2"
+  }
+}
