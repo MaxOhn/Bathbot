@@ -24,3 +24,7 @@ tokio = { version = "1.20", default-features = false, features = ["fs", "io-util
 tracing = { version = "0.1" }
 twilight-interactions = { git = "https://github.com/MaxOhn/twilight-interactions", branch = "rkyv-13", default-features = false, features = ["derive"] }
 twilight-model = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-13", default-features = false }
+
+[features]
+default = []
+twitch = []

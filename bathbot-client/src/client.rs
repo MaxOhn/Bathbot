@@ -1,10 +1,9 @@
 use std::time::Instant;
 
-use bathbot_model::TwitchData;
 use bytes::Bytes;
 use eyre::{Result, WrapErr};
 use http::{
-    header::{AUTHORIZATION, CONTENT_LENGTH, COOKIE},
+    header::{CONTENT_LENGTH, COOKIE},
     Response,
 };
 use hyper::{
@@ -26,7 +25,8 @@ pub(crate) type InnerClient = HyperClient<HttpsConnector<HttpConnector<GaiResolv
 pub struct Client {
     pub(crate) client: InnerClient,
     osu_session: &'static str,
-    twitch: Option<TwitchData>,
+    #[cfg(feature = "twitch")]
+    twitch: bathbot_model::TwitchData,
     ratelimiters: [LeakyBucket; 12],
     metrics: ClientMetrics,
 }
@@ -35,7 +35,7 @@ impl Client {
     /// `twitch_login` consists of `(twitch client id, twitch token)`
     pub async fn new(
         osu_session: &'static str,
-        twitch_login: Option<(&str, &str)>,
+        #[cfg(feature = "twitch")] (twitch_client_id, twitch_token): (&str, &str),
         metrics: &Registry,
     ) -> Result<Self> {
         let metrics = ClientMetrics::new(metrics).wrap_err("failed to create client metrics")?;
@@ -48,15 +48,10 @@ impl Client {
 
         let client = HyperClient::builder().build(connector);
 
-        let twitch = match twitch_login {
-            Some((twitch_client_id, twitch_token)) => {
-                Self::get_twitch_token(&client, twitch_client_id, twitch_token)
-                    .await
-                    .wrap_err("failed to get twitch token")
-                    .map(Some)?
-            }
-            None => None,
-        };
+        #[cfg(feature = "twitch")]
+        let twitch = Self::get_twitch_token(&client, twitch_client_id, twitch_token)
+            .await
+            .wrap_err("failed to get twitch token")?;
 
         let ratelimiter = |per_second| {
             LeakyBucket::builder()
@@ -86,6 +81,7 @@ impl Client {
             client,
             osu_session,
             ratelimiters,
+            #[cfg(feature = "twitch")]
             twitch,
             metrics,
         })
@@ -110,12 +106,19 @@ impl Client {
 
         let req = match site {
             Site::OsuHiddenApi => req.header(COOKIE, format!("osu_session={}", self.osu_session)),
+            #[cfg(not(feature = "twitch"))]
             Site::Twitch => {
-                let twitch = self.twitch.as_ref().ok_or(ClientError::MissingTwitch)?;
-
-                req.header("Client-ID", twitch.client_id.clone())
-                    .header(AUTHORIZATION, format!("Bearer {}", twitch.oauth_token))
+                return Err(ClientError::Report(eyre::Report::msg(
+                    "twitch request without twitch feature",
+                )))
             }
+            #[cfg(feature = "twitch")]
+            Site::Twitch => req
+                .header("Client-ID", self.twitch.client_id.clone())
+                .header(
+                    http::header::AUTHORIZATION,
+                    format!("Bearer {}", self.twitch.oauth_token),
+                ),
             _ => req,
         };
 

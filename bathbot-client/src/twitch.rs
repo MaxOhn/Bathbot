@@ -4,27 +4,34 @@ use std::{
     time::Duration,
 };
 
-use bathbot_model::{TwitchData, TwitchDataList, TwitchStream, TwitchUser, TwitchVideo};
+use bathbot_model::{TwitchDataList, TwitchStream, TwitchUser, TwitchVideo};
 use bathbot_util::constants::{
-    TWITCH_OAUTH, TWITCH_STREAM_ENDPOINT, TWITCH_USERS_ENDPOINT, TWITCH_VIDEOS_ENDPOINT,
+    TWITCH_STREAM_ENDPOINT, TWITCH_USERS_ENDPOINT, TWITCH_VIDEOS_ENDPOINT,
 };
 use bytes::Bytes;
 use eyre::{Result, WrapErr};
-use http::{
-    header::{CONTENT_LENGTH, CONTENT_TYPE, USER_AGENT},
-    Method, Request,
-};
-use hyper::Body;
 use tokio::time::interval;
 
-use crate::{client::InnerClient, multipart::Multipart, Client, ClientError, Site, MY_USER_AGENT};
+use crate::{Client, ClientError, Site};
 
+#[cfg(feature = "twitch")]
 impl Client {
+    #[cfg(feature = "twitch")]
     pub(crate) async fn get_twitch_token(
-        client: &InnerClient,
+        client: &crate::client::InnerClient,
         client_id: &str,
         token: &str,
-    ) -> Result<TwitchData> {
+    ) -> Result<bathbot_model::TwitchData> {
+        use bathbot_model::TwitchData;
+        use bathbot_util::constants::TWITCH_OAUTH;
+        use http::{
+            header::{CONTENT_LENGTH, CONTENT_TYPE, USER_AGENT},
+            Method, Request,
+        };
+        use hyper::Body;
+
+        use crate::{multipart::Multipart, MY_USER_AGENT};
+
         let form = Multipart::new()
             .push_text("grant_type", "client_credentials")
             .push_text("client_id", client_id)
@@ -58,7 +65,9 @@ impl Client {
             oauth_token,
         })
     }
+}
 
+impl Client {
     async fn make_twitch_get_request<I, U, V>(
         &self,
         url: impl AsRef<str>,
