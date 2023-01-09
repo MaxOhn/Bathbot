@@ -21,7 +21,7 @@ flexmap = { git = "https://github.com/MaxOhn/flexmap" }
 flurry = { version = "0.4" }
 futures = { version = "0.3", default-features = false }
 handlebars = { version = "4.0" }
-hashbrown = { version = "0.12", features = ["serde"] }
+hashbrown = { version = "0.12" }
 image = { version = "0.24", default-features = false, features = ["gif", "png"] }
 itertools = { version = "0.10" }
 leaky-bucket-lite = { version = "0.5", features = ["parking_lot"] }
@@ -35,14 +35,14 @@ radix_trie = { version = "0.2" }
 rand = { version = "0.8" }
 rkyv = { version = "0.7" }
 rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "next", features = ["cache", "metrics", "rkyv"] }
-# rosu-v2 = { path = "../rosu-v2", features = ["cache", "metrics", "rkyv"] }
+# rosu-v2 = { path = "../../rosu-v2", features = ["cache", "metrics", "rkyv"] }
 rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp", branch = "next", features = ["async_tokio"] }
-# rosu-pp = { path = "../rosu-pp" }
+# rosu-pp = { path = "../../rosu-pp" }
 rosu-pp-older = { git = "https://github.com/MaxOhn/rosu-pp-older.git", branch = "main" }
-# rosu-pp-older = { path = "../rosu-pp-older" }
-serde = { version = "1.0", features = ["derive", "rc"] }
+# rosu-pp-older = { path = "../../rosu-pp-older" }
+serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
-smallvec = { version = "1.0", features = ["serde"] }
+smallvec = { version = "1.0" }
 thiserror = { version = "1.0" }
 time = { version = "0.3", features = ["parsing"] }
 tokio = { version = "1.20", default-features = false, features = ["fs", "io-util", "macros", "parking_lot", "rt-multi-thread", "signal", "sync", "time"] }
