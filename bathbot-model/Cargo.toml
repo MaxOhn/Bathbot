@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bathbot-psql = { path = "../bathbot-psql" }
 bathbot-util = { path = "../bathbot-util" }
 bitflags = { version = "1.0" }
 eyre = { version = "0.6" }
@@ -19,8 +18,3 @@ thiserror = { version = "1.0" }
 time = { version = "0.3", features = ["parsing"] }
 twilight-interactions = { git = "https://github.com/MaxOhn/twilight-interactions", branch = "rkyv-13", default-features = false, features = ["derive"] }
 twilight-model = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-13", default-features = false }
-
-[features]
-default = ["offline"]
-
-offline = ["bathbot-psql/offline"]

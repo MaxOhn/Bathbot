@@ -6,6 +6,7 @@ edition = "2021"
 
 [dependencies]
 arrayvec = { version = "0.7" }
+bathbot-model = { path = "../bathbot-model" }
 compact_str = { version = "0.6", default-features = false, features = ["rkyv"] }
 eyre = { version = "0.6" }
 futures = { version = "0.3", default-features = false }

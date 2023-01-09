@@ -1,3 +1,6 @@
+use std::mem;
+
+use bathbot_model::BgGameScore;
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::GameMode;
 use twilight_model::id::{marker::UserMarker, Id};
@@ -29,7 +32,7 @@ SET
         Ok(())
     }
 
-    pub async fn select_bggame_scores(&self) -> Result<Vec<DbBgGameScore>> {
+    pub async fn select_bggame_scores(&self) -> Result<Vec<BgGameScore>> {
         let query = sqlx::query_as!(
             DbBgGameScore,
             r#"
@@ -40,7 +43,13 @@ FROM
   bggame_scores"#
         );
 
-        query.fetch_all(self).await.wrap_err("failed to fetch all")
+        let scores = query
+            .fetch_all(self)
+            .await
+            .wrap_err("failed to fetch all")?;
+
+        // SAFETY: the two types have the exact same structure
+        Ok(unsafe { mem::transmute(scores) })
     }
 
     pub async fn upsert_map_tag(

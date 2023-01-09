@@ -1,8 +1,7 @@
 use std::collections::btree_map::Entry;
 
 use bathbot_macros::pagination;
-use bathbot_model::{RankingEntries, RankingEntry, RankingKind};
-use bathbot_psql::model::games::DbBgGameScore;
+use bathbot_model::{BgGameScore, RankingEntries, RankingEntry, RankingKind};
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::Rankings;
 use twilight_model::{channel::embed::Embed, id::Id};
@@ -110,7 +109,7 @@ impl RankingPagination {
                     #[allow(clippy::needless_range_loop)]
                     for i in pages.index..(pages.index + pages.per_page).min(self.total) {
                         if let Entry::Vacant(entry) = entries.entry(i) {
-                            let DbBgGameScore { discord_id, score } = scores[i];
+                            let BgGameScore { discord_id, score } = scores[i];
                             let id = Id::new(discord_id as u64);
 
                             let name = match ctx.user_config().osu_name(id).await {

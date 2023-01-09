@@ -1,14 +1,20 @@
-use std::{cmp::Ordering, collections::HashMap, hash::BuildHasher};
+use std::{cmp::Ordering, collections::HashMap, hash::BuildHasher, mem};
 
+use bathbot_model::{UserModeStatsColumn, UserStatsColumn, UserStatsEntries, UserStatsEntry};
 use eyre::{Result, WrapErr};
 use futures::StreamExt;
 use rosu_v2::prelude::{GameMode, User, Username};
 use time::OffsetDateTime;
 
 use crate::{
-    model::osu::{UserModeStatsColumn, UserStatsColumn, UserStatsEntries, UserStatsEntry},
+    model::osu::{DbUserStatsEntry, OsuUserStatsColumnName},
     Database,
 };
+
+fn convert_entries<V>(entries: Vec<DbUserStatsEntry<V>>) -> Vec<UserStatsEntry<V>> {
+    // SAFETY: the two types have the exact same structure
+    unsafe { mem::transmute(entries) }
+}
 
 impl Database {
     pub async fn select_osu_user_stats(
@@ -58,7 +64,7 @@ FROM
             | UserStatsColumn::PlayedMaps
             | UserStatsColumn::RankedMapsets
             | UserStatsColumn::Namechanges => {
-                let mut entries: Vec<UserStatsEntry<i32>> = sqlx::query_as(&query)
+                let mut entries: Vec<DbUserStatsEntry<i32>> = sqlx::query_as(&query)
                     .bind(discord_ids)
                     .fetch_all(self)
                     .await
@@ -82,7 +88,7 @@ FROM
                 Ok(UserStatsEntries::Amount(entries))
             }
             UserStatsColumn::JoinDate => {
-                let mut entries: Vec<UserStatsEntry<OffsetDateTime>> = sqlx::query_as(&query)
+                let mut entries: Vec<DbUserStatsEntry<OffsetDateTime>> = sqlx::query_as(&query)
                     .bind(discord_ids)
                     .fetch_all(self)
                     .await
@@ -94,7 +100,7 @@ FROM
 
                 entries.dedup_by(|a, b| a.name == b.name);
 
-                Ok(UserStatsEntries::Date(entries))
+                Ok(UserStatsEntries::Date(convert_entries(entries)))
             }
         }
     }
@@ -146,7 +152,7 @@ FROM
             UserModeStatsColumn::Accuracy => {
                 let query = default_query(column.column().unwrap());
 
-                let mut entries: Vec<UserStatsEntry<f32>> = sqlx::query_as(&query)
+                let mut entries: Vec<DbUserStatsEntry<f32>> = sqlx::query_as(&query)
                     .bind(discord_ids)
                     .bind(mode as i16)
                     .fetch_all(self)
@@ -162,7 +168,8 @@ FROM
 
                 entries.dedup_by(|a, b| a.name == b.name);
 
-                Ok(UserStatsEntries::Accuracy(entries))
+                // SAFETY: the two types have the exact same structure
+                Ok(UserStatsEntries::Accuracy(convert_entries(entries)))
             }
             UserModeStatsColumn::AverageHits => {
                 let query = r#"
@@ -199,7 +206,7 @@ FROM
       osu_user_stats
   ) AS country ON names.user_id = country.user_id"#;
 
-                let mut entries: Vec<UserStatsEntry<f32>> = sqlx::query_as(query)
+                let mut entries: Vec<DbUserStatsEntry<f32>> = sqlx::query_as(query)
                     .bind(discord_ids)
                     .bind(mode as i16)
                     .fetch_all(self)
@@ -215,7 +222,8 @@ FROM
 
                 entries.dedup_by(|a, b| a.name == b.name);
 
-                Ok(UserStatsEntries::Float(entries))
+                // SAFETY: the two types have the exact same structure
+                Ok(UserStatsEntries::Float(convert_entries(entries)))
             }
             UserModeStatsColumn::CountSsh
             | UserModeStatsColumn::CountSs
@@ -224,7 +232,7 @@ FROM
             | UserModeStatsColumn::CountA => {
                 let query = default_query(column.column().unwrap());
 
-                let mut entries: Vec<UserStatsEntry<i32>> = sqlx::query_as(&query)
+                let mut entries: Vec<DbUserStatsEntry<i32>> = sqlx::query_as(&query)
                     .bind(discord_ids)
                     .bind(mode as i16)
                     .fetch_all(self)
@@ -283,7 +291,7 @@ FROM
       osu_user_stats
   ) AS country ON names.user_id = country.user_id"#;
 
-                let mut entries: Vec<UserStatsEntry<i32>> = sqlx::query_as(query)
+                let mut entries: Vec<DbUserStatsEntry<i32>> = sqlx::query_as(query)
                     .bind(discord_ids)
                     .bind(mode as i16)
                     .fetch_all(self)
@@ -345,7 +353,7 @@ FROM
       osu_user_stats
   ) AS country ON names.user_id = country.user_id"#;
 
-                let mut entries: Vec<UserStatsEntry<i32>> = sqlx::query_as(query)
+                let mut entries: Vec<DbUserStatsEntry<i32>> = sqlx::query_as(query)
                     .bind(discord_ids)
                     .bind(mode as i16)
                     .fetch_all(self)
@@ -375,7 +383,7 @@ FROM
             UserModeStatsColumn::Level => {
                 let query = default_query(column.column().unwrap());
 
-                let mut entries: Vec<UserStatsEntry<f32>> = sqlx::query_as(&query)
+                let mut entries: Vec<DbUserStatsEntry<f32>> = sqlx::query_as(&query)
                     .bind(discord_ids)
                     .bind(mode as i16)
                     .fetch_all(self)
@@ -391,12 +399,13 @@ FROM
 
                 entries.dedup_by(|a, b| a.name == b.name);
 
-                Ok(UserStatsEntries::Float(entries))
+                // SAFETY: the two types have the exact same structure
+                Ok(UserStatsEntries::Float(convert_entries(entries)))
             }
             UserModeStatsColumn::Playtime => {
                 let query = default_query(column.column().unwrap());
 
-                let mut entries: Vec<UserStatsEntry<i32>> = sqlx::query_as(&query)
+                let mut entries: Vec<DbUserStatsEntry<i32>> = sqlx::query_as(&query)
                     .bind(discord_ids)
                     .bind(mode as i16)
                     .fetch_all(self)
@@ -423,7 +432,7 @@ FROM
             UserModeStatsColumn::Pp => {
                 let query = default_query(column.column().unwrap());
 
-                let mut entries: Vec<UserStatsEntry<f32>> = sqlx::query_as(&query)
+                let mut entries: Vec<DbUserStatsEntry<f32>> = sqlx::query_as(&query)
                     .bind(discord_ids)
                     .bind(mode as i16)
                     .fetch_all(self)
@@ -439,12 +448,13 @@ FROM
 
                 entries.dedup_by(|a, b| a.name == b.name);
 
-                Ok(UserStatsEntries::PpF32(entries))
+                // SAFETY: the two types have the exact same structure
+                Ok(UserStatsEntries::PpF32(convert_entries(entries)))
             }
             UserModeStatsColumn::RankCountry | UserModeStatsColumn::RankGlobal => {
                 let query = default_query(column.column().unwrap());
 
-                let mut entries: Vec<UserStatsEntry<i32>> = sqlx::query_as(&query)
+                let mut entries: Vec<DbUserStatsEntry<i32>> = sqlx::query_as(&query)
                     .bind(discord_ids)
                     .bind(mode as i16)
                     .fetch_all(self)
@@ -474,7 +484,7 @@ FROM
             | UserModeStatsColumn::ScoresFirst => {
                 let query = default_query(column.column().unwrap());
 
-                let mut entries: Vec<UserStatsEntry<i32>> = sqlx::query_as(&query)
+                let mut entries: Vec<DbUserStatsEntry<i32>> = sqlx::query_as(&query)
                     .bind(discord_ids)
                     .bind(mode as i16)
                     .fetch_all(self)
@@ -503,7 +513,7 @@ FROM
             | UserModeStatsColumn::TotalHits => {
                 let query = default_query(column.column().unwrap());
 
-                let mut entries: Vec<UserStatsEntry<i64>> = sqlx::query_as(&query)
+                let mut entries: Vec<DbUserStatsEntry<i64>> = sqlx::query_as(&query)
                     .bind(discord_ids)
                     .bind(mode as i16)
                     .fetch_all(self)

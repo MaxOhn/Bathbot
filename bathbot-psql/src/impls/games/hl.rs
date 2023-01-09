@@ -1,3 +1,6 @@
+use std::mem;
+
+use bathbot_model::HlGameScore;
 use eyre::{Result, WrapErr};
 use twilight_model::id::{marker::UserMarker, Id};
 
@@ -7,7 +10,7 @@ impl Database {
     pub async fn select_higherlower_scores_by_version(
         &self,
         version: i16,
-    ) -> Result<Vec<DbHlGameScore>> {
+    ) -> Result<Vec<HlGameScore>> {
         let query = sqlx::query_as!(
             DbHlGameScore,
             r#"
@@ -21,7 +24,13 @@ WHERE
             version as i16
         );
 
-        query.fetch_all(self).await.wrap_err("failed to fetch all")
+        let scores = query
+            .fetch_all(self)
+            .await
+            .wrap_err("failed to fetch all")?;
+
+        // SAFETY: the two types have the exact same structure
+        Ok(unsafe { mem::transmute(scores) })
     }
 
     pub async fn select_higherlower_highscore(

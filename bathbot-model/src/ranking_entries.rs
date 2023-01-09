@@ -1,9 +1,5 @@
 use std::{collections::BTreeMap, fmt::Write, ops::RangeBounds};
 
-use bathbot_psql::model::{
-    games::{DbBgGameScore, DbHlGameScore},
-    osu::{UserModeStatsColumn, UserStatsColumn, UserStatsEntries, UserStatsEntry},
-};
 use bathbot_util::{AuthorBuilder, FooterBuilder};
 use rosu_v2::prelude::{GameMode, Username};
 use time::OffsetDateTime;
@@ -12,7 +8,10 @@ use twilight_model::{
     util::ImageHash,
 };
 
-use crate::{rkyv_impls::ArchivedCountryCode, CountryCode, HlVersion};
+use crate::{
+    rkyv_impls::ArchivedCountryCode, BgGameScore, CountryCode, HlGameScore, HlVersion,
+    UserModeStatsColumn, UserStatsColumn, UserStatsEntries, UserStatsEntry,
+};
 
 pub struct RankingEntry<V> {
     pub country: Option<CountryCode>,
@@ -190,10 +189,10 @@ impl From<UserStatsEntries> for RankingEntries {
 pub enum RankingKind {
     BgScores {
         global: bool,
-        scores: Vec<DbBgGameScore>,
+        scores: Vec<BgGameScore>,
     },
     HlScores {
-        scores: Vec<DbHlGameScore>,
+        scores: Vec<HlGameScore>,
         version: HlVersion,
     },
     OsekaiRarity,

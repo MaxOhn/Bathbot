@@ -92,8 +92,8 @@ pub async fn handle_bg_start_button(
 
                 let mut params = DbMapTagsParams::new(GameMode::Osu);
 
-                included.as_include(&mut params);
-                excluded.as_exclude(&mut params);
+                params.include(*included);
+                params.exclude(*excluded);
 
                 let entries = match ctx.games().bggame_tags(params).await {
                     Ok(entries) => entries,

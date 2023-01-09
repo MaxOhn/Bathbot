@@ -7,7 +7,7 @@ use axum::{
     routing::{get, get_service},
     Router,
 };
-use eyre::{Report, Result};
+use eyre::{Report, Result, WrapErr};
 use hyper::Request;
 use tokio::sync::oneshot::{channel, Receiver, Sender};
 use tower_http::{services::ServeDir, trace::TraceLayer};
@@ -65,9 +65,7 @@ impl Server {
 
         info!("Running server...");
 
-        if let Err(err) = server.await {
-            error!("{:?}", Report::new(err).wrap_err("server failed"));
-        }
+        server.await.wrap_err("server failed")?;
 
         Ok(())
     }

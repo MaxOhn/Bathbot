@@ -10,10 +10,11 @@ mod ranking_entries;
 mod respektive;
 mod score_slim;
 mod twitch;
+mod user_stats;
 
 pub mod rkyv_impls;
 
 pub use self::{
     country_code::*, games::*, huismetbenen::*, map_leaderboard::*, osekai::*, osu_stats::*,
-    osu_tracker::*, ranking_entries::*, respektive::*, score_slim::*, twitch::*,
+    osu_tracker::*, ranking_entries::*, respektive::*, score_slim::*, twitch::*, user_stats::*,
 };

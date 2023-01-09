@@ -4,7 +4,8 @@ use std::{
     sync::Arc,
 };
 
-use bathbot_model::{Effects, MapsetTagsEntries};
+use bathbot_model::Effects;
+use bathbot_psql::model::games::MapsetTagsEntries;
 use bathbot_util::{constants::OSU_BASE, IntHasher, MessageBuilder};
 use eyre::{Report, Result};
 use tokio::sync::RwLock;

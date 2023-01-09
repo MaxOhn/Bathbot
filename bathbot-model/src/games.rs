@@ -5,10 +5,18 @@ use std::{
     str::FromStr,
 };
 
-use bathbot_psql::model::games::{DbMapTagEntry, DbMapTagsParams};
 use bathbot_util::CowUtils;
-use rosu_v2::prelude::GameMode;
 use twilight_interactions::command::{CommandOption, CreateOption};
+
+pub struct BgGameScore {
+    pub discord_id: i64,
+    pub score: i32,
+}
+
+pub struct HlGameScore {
+    pub discord_id: i64,
+    pub highscore: i32,
+}
 
 #[derive(Copy, Clone, CommandOption, CreateOption)]
 pub enum HlVersion {
@@ -16,11 +24,6 @@ pub enum HlVersion {
     ScorePp = 0,
     #[option(name = "Farm", value = "farm")]
     FarmMaps = 1,
-}
-
-pub struct MapsetTagsEntries {
-    pub mode: GameMode,
-    pub tags: Vec<DbMapTagEntry>,
 }
 
 bitflags::bitflags! {
@@ -38,64 +41,6 @@ bitflags::bitflags! {
         const BlueSky =   1 << 10;
         const English =   1 << 11;
         const Kpop =      1 << 12;
-    }
-}
-
-impl MapsetTags {
-    pub fn as_include(self, params: &mut DbMapTagsParams) {
-        macro_rules! set_params {
-            ( $( $field:ident: $variant:ident ,)* ) => {
-                $(
-                    if self.contains(Self::$variant) {
-                        params.$field = Some(true);
-                    }
-                )*
-            };
-        }
-
-        set_params! {
-            farm: Farm,
-            alternate: Alternate,
-            streams: Streams,
-            old: Old,
-            meme: Meme,
-            hardname: HardName,
-            kpop: Kpop,
-            english: English,
-            bluesky: BlueSky,
-            weeb: Weeb,
-            tech: Tech,
-            easy: Easy,
-            hard: Hard,
-        }
-    }
-
-    pub fn as_exclude(self, params: &mut DbMapTagsParams) {
-        macro_rules! set_params {
-            ( $( $field:ident: $variant:ident ,)* ) => {
-                $(
-                    if self.contains(Self::$variant) {
-                        params.$field = Some(false);
-                    }
-                )*
-            };
-        }
-
-        set_params! {
-            farm: Farm,
-            alternate: Alternate,
-            streams: Streams,
-            old: Old,
-            meme: Meme,
-            hardname: HardName,
-            kpop: Kpop,
-            english: English,
-            bluesky: BlueSky,
-            weeb: Weeb,
-            tech: Tech,
-            easy: Easy,
-            hard: Hard,
-        }
     }
 }
 

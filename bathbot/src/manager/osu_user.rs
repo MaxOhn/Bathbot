@@ -1,10 +1,7 @@
 use std::{borrow::Cow, collections::HashMap};
 
-use bathbot_model::RankingEntries;
-use bathbot_psql::{
-    model::osu::{UserModeStatsColumn, UserStatsColumn},
-    Database,
-};
+use bathbot_model::{RankingEntries, UserModeStatsColumn, UserStatsColumn};
+use bathbot_psql::Database;
 use bathbot_util::IntHasher;
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::{GameMode, User, Username};

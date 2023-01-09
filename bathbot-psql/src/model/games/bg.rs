@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+use bathbot_model::MapsetTags;
 use rosu_v2::prelude::GameMode;
 use sqlx::FromRow;
 
@@ -7,6 +8,11 @@ use sqlx::FromRow;
 pub struct DbBgGameScore {
     pub discord_id: i64,
     pub score: i32,
+}
+
+pub struct MapsetTagsEntries {
+    pub mode: GameMode,
+    pub tags: Vec<DbMapTagEntry>,
 }
 
 #[derive(FromRow)]
@@ -50,6 +56,64 @@ WHERE
             }
         }
     };
+}
+
+impl DbMapTagsParams {
+    pub fn include(&mut self, tags: MapsetTags) {
+        macro_rules! set_params {
+            ( $( $field:ident: $variant:ident ,)* ) => {
+                $(
+                    if tags.contains(MapsetTags::$variant) {
+                        self.$field = Some(true);
+                    }
+                )*
+            };
+        }
+
+        set_params! {
+            farm: Farm,
+            alternate: Alternate,
+            streams: Streams,
+            old: Old,
+            meme: Meme,
+            hardname: HardName,
+            kpop: Kpop,
+            english: English,
+            bluesky: BlueSky,
+            weeb: Weeb,
+            tech: Tech,
+            easy: Easy,
+            hard: Hard,
+        }
+    }
+
+    pub fn exclude(&mut self, tags: MapsetTags) {
+        macro_rules! set_params {
+            ( $( $field:ident: $variant:ident ,)* ) => {
+                $(
+                    if tags.contains(MapsetTags::$variant) {
+                        self.$field = Some(false);
+                    }
+                )*
+            };
+        }
+
+        set_params! {
+            farm: Farm,
+            alternate: Alternate,
+            streams: Streams,
+            old: Old,
+            meme: Meme,
+            hardname: HardName,
+            kpop: Kpop,
+            english: English,
+            bluesky: BlueSky,
+            weeb: Weeb,
+            tech: Tech,
+            easy: Easy,
+            hard: Hard,
+        }
+    }
 }
 
 define_map_tags! {

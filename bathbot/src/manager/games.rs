@@ -1,6 +1,6 @@
-use bathbot_model::{HlVersion, MapsetTagsEntries};
+use bathbot_model::{BgGameScore, HlGameScore, HlVersion};
 use bathbot_psql::{
-    model::games::{DbBgGameScore, DbHlGameScore, DbMapTagsParams},
+    model::games::{DbMapTagsParams, MapsetTagsEntries},
     Database,
 };
 use eyre::{Result, WrapErr};
@@ -19,7 +19,7 @@ impl<'d> GameManager<'d> {
 }
 
 impl GameManager<'_> {
-    pub async fn higherlower_leaderboard(self, version: HlVersion) -> Result<Vec<DbHlGameScore>> {
+    pub async fn higherlower_leaderboard(self, version: HlVersion) -> Result<Vec<HlGameScore>> {
         self.psql
             .select_higherlower_scores_by_version(version as i16)
             .await
@@ -51,7 +51,7 @@ impl GameManager<'_> {
 }
 
 impl GameManager<'_> {
-    pub async fn bggame_leaderboard(self) -> Result<Vec<DbBgGameScore>> {
+    pub async fn bggame_leaderboard(self) -> Result<Vec<BgGameScore>> {
         self.psql
             .select_bggame_scores()
             .await

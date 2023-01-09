@@ -1,7 +1,6 @@
 use std::collections::VecDeque;
 
-use bathbot_model::MapsetTagsEntries;
-use bathbot_psql::model::games::DbMapTagEntry;
+use bathbot_psql::model::games::{DbMapTagEntry, MapsetTagsEntries};
 use rand::Rng;
 
 #[allow(clippy::needless_lifetimes)]

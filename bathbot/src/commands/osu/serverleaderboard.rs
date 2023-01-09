@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
 use bathbot_macros::SlashCommand;
-use bathbot_model::{RankingKind, UserStatsKind};
-use bathbot_psql::model::osu::{UserModeStatsColumn, UserStatsColumn};
+use bathbot_model::{RankingKind, UserModeStatsColumn, UserStatsColumn, UserStatsKind};
 use bathbot_util::constants::GENERAL_ISSUE;
 use eyre::Result;
 use rosu_v2::prelude::GameMode;

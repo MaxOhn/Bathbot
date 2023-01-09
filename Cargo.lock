@@ -173,7 +173,6 @@ dependencies = [
 name = "bathbot-model"
 version = "0.1.0"
 dependencies = [
- "bathbot-psql",
  "bathbot-util",
  "bitflags",
  "eyre",
@@ -195,6 +194,7 @@ name = "bathbot-psql"
 version = "0.1.0"
 dependencies = [
  "arrayvec",
+ "bathbot-model",
  "compact_str",
  "dotenv",
  "eyre",
