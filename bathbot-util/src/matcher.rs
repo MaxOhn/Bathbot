@@ -185,7 +185,7 @@ define_regex! {
 
     OSU_URL_USER_MATCHER: r"^https://osu.ppy.sh/u(?:sers)?/(?:(\d+)|(\w+))$";
 
-    OSU_URL_MAP_NEW_MATCHER: r"https://osu.ppy.sh/beatmapsets/(\d+)(?:(?:/#(?:osu|mania|taiko|fruits)|<#\d+>)/(\d+))?";
+    OSU_URL_MAP_NEW_MATCHER: r"https://osu.ppy.sh/beatmapsets/(\d+)(?:(?:/?#(?:osu|mania|taiko|fruits)|<#\d+>)/(\d+))?";
     OSU_URL_MAP_OLD_MATCHER: r"https://osu.ppy.sh/b(?:eatmaps)?/(\d+)";
     OSU_URL_MAPSET_OLD_MATCHER: r"https://osu.ppy.sh/s/(\d+)";
 
