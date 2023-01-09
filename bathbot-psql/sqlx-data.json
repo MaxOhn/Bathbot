@@ -709,6 +709,18 @@
     },
     "query": "\nINSERT INTO osu_scores_performance (score_id, pp) \nVALUES \n  ($1, $2) ON CONFLICT (score_id) DO NOTHING"
   },
+  "457cfe8740ed9f395bcc718e3712abbe4b39af90c167cb3ad8b838d51a935eba": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nDELETE FROM \n  user_configs \nWHERE \n  discord_id = $1"
+  },
   "46f62972a9ab0535c92b020be111bb5d4aed8c8af3f2156afb2a61c2aeae6355": {
     "describe": {
       "columns": [
@@ -1527,6 +1539,18 @@
     },
     "query": "\nINSERT INTO osu_map_difficulty_mania (\n  map_id, mods, stars, hit_window, max_combo\n) \nVALUES \n  ($1, $2, $3, $4, $5) ON CONFLICT (map_id, mods) DO \nUPDATE \nSET \n  stars = $3, \n  hit_window = $4, \n  max_combo = $5"
   },
+  "c520350b82928ce52bc2c324e1e0ec22cc1bd6656ee2bc4dde64d9cd4b8917b0": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\nDELETE FROM \n  guild_configs \nWHERE \n  guild_id = $1"
+  },
   "d5c451eaeba2afe1551acd288ab23ff011331a58fd8a49e2a9502e6ed05a46cd": {
     "describe": {
       "columns": [],
@@ -1564,6 +1588,18 @@
       }
     },
     "query": "\nDELETE FROM \n  tracked_osu_users \nWHERE \n  user_id = $1 \n  AND gamemode = $2"
+  },
+  "dffdc3cb9035cbf7d8d2dfbd1dc7cf503d4af5b60fc0b3f3fa057202cbd56483": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nDELETE FROM \n  osu_user_names \nWHERE \n  user_id = $1"
   },
   "e9d50fc799698d32a6ed98d194fd50be67db575702670a04bf63396ab06f1e7c": {
     "describe": {
