@@ -36,7 +36,7 @@ fn main() {
         .build()
         .expect("Could not build runtime");
 
-    if dotenv::dotenv().is_err() {
+    if dotenvy::dotenv().is_err() {
         panic!(
             "Failed to parse .env file. \
             Be sure there is one in the same folder as this executable."

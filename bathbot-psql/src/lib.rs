@@ -19,7 +19,7 @@ pub mod tests {
     use super::database::Database;
 
     pub fn database() -> Result<Database> {
-        dotenv::dotenv().unwrap();
+        dotenvy::dotenv().unwrap();
         let uri = std::env::var("DATABASE_URL").unwrap();
 
         Database::new(&uri)

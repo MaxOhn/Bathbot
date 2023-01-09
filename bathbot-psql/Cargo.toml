@@ -23,7 +23,7 @@ twilight-model = { git = "https://github.com/MaxOhn/twilight", branch = "rkyv-13
 sqlx = { version = "0.6", default-features = false, features = ["json", "macros", "postgres", "runtime-tokio-rustls", "time"] }
 
 [dev-dependencies]
-dotenv = { version = "0.15" }
+dotenvy = { version = "0.15" }
 
 [features]
 default = ["offline"]

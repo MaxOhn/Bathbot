@@ -197,7 +197,7 @@ dependencies = [
  "arrayvec",
  "bathbot-model",
  "compact_str",
- "dotenv",
+ "dotenvy",
  "eyre",
  "futures",
  "ptr_meta",
@@ -250,7 +250,7 @@ dependencies = [
  "bb8-redis",
  "bitflags",
  "bytes",
- "dotenv",
+ "dotenvy",
  "enterpolation",
  "eyre",
  "flexmap",
@@ -639,12 +639,6 @@ checksum = "ac1b7517328c04c2aa68422fc60a41b92208182142ed04a25879c26c8f878794"
 dependencies = [
  "libloading",
 ]
-
-[[package]]
-name = "dotenv"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
 
 [[package]]
 name = "dotenvy"
