@@ -1838,8 +1838,8 @@ dependencies = [
 
 [[package]]
 name = "rosu-pp-older"
-version = "0.1.0"
-source = "git+https://github.com/MaxOhn/rosu-pp-older.git?branch=main#ff201784948ad87f01b129a9e1bb7fa1a96f0b03"
+version = "0.2.0"
+source = "git+https://github.com/MaxOhn/rosu-pp-older.git?branch=main#3e85d358c86b78e6e96d1562a8e88e462d64aefa"
 dependencies = [
  "rosu-pp",
 ]
