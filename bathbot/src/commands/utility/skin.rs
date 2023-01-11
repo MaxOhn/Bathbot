@@ -250,13 +250,20 @@ impl SkinValidation {
         let content_disposition = String::from_utf8_lossy(content_disposition.as_bytes());
         trace!("Content-Disposition: {content_disposition}");
 
-        let mut split = content_disposition.split("; ");
+        let mut split = content_disposition.split(';');
 
         if !matches!(split.next(), Some("attachment" | "inline")) {
             return Self::Invalid(Reason::NeitherAttachmentNorInline);
         };
 
-        let Some(filename) = split.find_map(|content| content.strip_prefix("filename=")) else {
+        let content_opt = split.find_map(|content| {
+            content
+                .trim_start_matches(' ')
+                .trim_start_matches("%20")
+                .strip_prefix("filename=")
+        });
+
+        let Some(filename) = content_opt else {
             return Self::Invalid(Reason::MissingFilename);
         };
 
