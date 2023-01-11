@@ -25,6 +25,7 @@ WHERE
         Ok(row_opt.map(|row| row.username.into()))
     }
 
+    /// Be sure wildcards (_, %) are escaped as required!
     pub async fn select_osu_id_by_osu_name(
         &self,
         username: &str,

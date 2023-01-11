@@ -157,6 +157,7 @@ WHERE
             .wrap_err("failed to fetch optional")
     }
 
+    /// Be sure wildcards (_, %) are escaped as required!
     pub async fn select_skin_url_by_osu_name(&self, username: &str) -> Result<Option<String>> {
         let query = sqlx::query!(
             r#"
@@ -204,6 +205,7 @@ WHERE
         Ok(twitch_id.map(|id| id as u64))
     }
 
+    /// Be sure wildcards (_, %) are escaped as required!
     pub async fn select_twitch_id_by_osu_name(&self, username: &str) -> Result<Option<u64>> {
         let query = sqlx::query!(
             r#"

@@ -2,7 +2,7 @@ use std::{borrow::Cow, collections::HashMap};
 
 use bathbot_model::{RankingEntries, UserModeStatsColumn, UserStatsColumn};
 use bathbot_psql::Database;
-use bathbot_util::IntHasher;
+use bathbot_util::{CowUtils, IntHasher};
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::{GameMode, User, Username};
 
@@ -17,8 +17,10 @@ impl<'d> OsuUserManager<'d> {
     }
 
     pub async fn user_id(self, username: &str, alt_username: Option<&str>) -> Result<Option<u32>> {
+        let username = username.cow_replace('_', r"\_");
+
         self.psql
-            .select_osu_id_by_osu_name(username, alt_username)
+            .select_osu_id_by_osu_name(username.as_ref(), alt_username)
             .await
             .wrap_err("failed to get osu id")
     }
@@ -39,7 +41,7 @@ impl<'d> OsuUserManager<'d> {
 
     pub async fn ids(&self, names: &[String]) -> Result<HashMap<Username, u32>> {
         let escaped_names = if names.iter().any(|name| name.contains('_')) {
-            let names: Vec<_> = names.iter().map(|name| name.replace('_', "\\_")).collect();
+            let names: Vec<_> = names.iter().map(|name| name.replace('_', r"\_")).collect();
 
             Cow::Owned(names)
         } else {

@@ -1,4 +1,5 @@
 use bathbot_psql::Database;
+use bathbot_util::CowUtils;
 use eyre::{Result, WrapErr};
 use rosu_v2::request::UserId;
 use twilight_model::id::{marker::ChannelMarker, Id};
@@ -20,11 +21,14 @@ impl<'d> TwitchManager<'d> {
                 .select_twitch_id_by_osu_id(*user_id)
                 .await
                 .wrap_err("failed to get twitch id by osu id"),
-            UserId::Name(username) => self
-                .psql
-                .select_twitch_id_by_osu_name(username)
-                .await
-                .wrap_err("failed to get twitch id by osu name"),
+            UserId::Name(username) => {
+                let username = username.cow_replace('_', r"\_");
+
+                self.psql
+                    .select_twitch_id_by_osu_name(username.as_ref())
+                    .await
+                    .wrap_err("failed to get twitch id by osu name")
+            }
         }
     }
 

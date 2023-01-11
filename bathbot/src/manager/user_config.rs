@@ -2,6 +2,7 @@ use bathbot_psql::{
     model::configs::{OsuUserId, OsuUsername, ScoreSize, UserConfig},
     Database,
 };
+use bathbot_util::CowUtils;
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::{GameMode, Username};
 use twilight_model::id::{marker::UserMarker, Id};
@@ -101,8 +102,10 @@ impl<'d> UserConfigManager<'d> {
     }
 
     pub async fn skin_from_osu_name(self, username: &str) -> Result<Option<String>> {
+        let username = username.cow_replace('_', r"\_");
+
         self.psql
-            .select_skin_url_by_osu_name(username)
+            .select_skin_url_by_osu_name(username.as_ref())
             .await
             .wrap_err("failed to get skin url by username")
     }
