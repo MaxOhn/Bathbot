@@ -5,8 +5,8 @@ use std::{
 
 use bathbot_macros::EmbedData;
 use bathbot_util::{
-    constants::OSU_BASE, datetime::HowLongAgoDynamic, AuthorBuilder, CowUtils, FooterBuilder,
-    IntHasher,
+    constants::OSU_BASE, datetime::HowLongAgoDynamic, numbers::round, AuthorBuilder, CowUtils,
+    FooterBuilder, IntHasher,
 };
 use rosu_pp::{BeatmapExt, DifficultyAttributes};
 use rosu_v2::prelude::{GameMode, Grade, Score};
@@ -127,7 +127,7 @@ impl RecentListEmbed {
                 "{pp}\t[ {combo} ]\t({acc}%)\t{ago}",
                 pp = PpFormatter::new(Some(pp), Some(max_pp)),
                 combo = ComboFormatter::new(score.max_combo, map.max_combo()),
-                acc = score.accuracy,
+                acc = round(score.accuracy),
                 ago = HowLongAgoDynamic::new(&score.ended_at)
             );
         }
