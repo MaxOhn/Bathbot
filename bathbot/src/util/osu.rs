@@ -457,7 +457,7 @@ impl IfFc {
                     count_50: n50 as u32,
                     count_geki: statistics.count_geki,
                     count_katu: statistics.count_katu,
-                    count_miss: statistics.count_miss,
+                    count_miss: 0,
                 };
 
                 (attrs.pp as f32, statistics, GameMode::Osu)
@@ -491,7 +491,7 @@ impl IfFc {
                     count_geki: statistics.count_geki,
                     count_katu: statistics.count_katu,
                     count_50: statistics.count_50,
-                    count_miss: statistics.count_miss,
+                    count_miss: 0,
                 };
 
                 (attrs.pp as f32, statistics, GameMode::Taiko)
@@ -530,7 +530,7 @@ impl IfFc {
                     count_50: n_tiny_droplets as u32,
                     count_geki: statistics.count_geki,
                     count_katu: statistics.count_katu,
-                    count_miss: statistics.count_miss,
+                    count_miss: 0,
                 };
 
                 (attrs.pp as f32, statistics, GameMode::Catch)
