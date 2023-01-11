@@ -176,7 +176,7 @@ FROM
 SELECT 
   username, 
   country_code, 
-  GREATEST(DIV(total_hits, playcount), 0) AS value 
+  GREATEST(DIV(total_hits, playcount), 0)::FLOAT4 AS value 
 FROM 
   (
     SELECT 
@@ -261,7 +261,7 @@ FROM
 SELECT 
   username, 
   country_code, 
-  SUM(count_ssh, count_ss) AS value 
+  COALESCE(count_ssh, 0) + COALESCE(count_ss, 0) AS value 
 FROM 
   (
     SELECT 
@@ -323,7 +323,7 @@ FROM
 SELECT 
   username, 
   country_code, 
-  SUM(count_sh, count_s) AS value 
+  COALESCE(count_sh, 0) + COALESCE(count_s, 0) AS value 
 FROM 
   (
     SELECT 
@@ -492,7 +492,7 @@ FROM
                     .wrap_err("failed to fetch all")?;
 
                 entries.sort_unstable_by(|a, b| {
-                    a.value.cmp(&b.value).then_with(|| a.name.cmp(&b.name))
+                    b.value.cmp(&a.value).then_with(|| a.name.cmp(&b.name))
                 });
 
                 entries.dedup_by(|a, b| a.name == b.name);
@@ -521,7 +521,7 @@ FROM
                     .wrap_err("failed to fetch all")?;
 
                 entries.sort_unstable_by(|a, b| {
-                    a.value.cmp(&b.value).then_with(|| a.name.cmp(&b.name))
+                    b.value.cmp(&a.value).then_with(|| a.name.cmp(&b.name))
                 });
 
                 entries.dedup_by(|a, b| a.name == b.name);
