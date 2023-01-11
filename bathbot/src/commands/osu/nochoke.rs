@@ -380,6 +380,7 @@ async fn process_scores(
         .collect();
 
     let mut maps = ctx.osu_map().maps(&maps_id_checksum).await?;
+    let miss_limit = miss_limit.unwrap_or(u32::MAX);
 
     for (i, score) in scores.into_iter().enumerate() {
         let Some(map) = maps.remove(&score.map_id) else { continue };
@@ -401,29 +402,16 @@ async fn process_scores(
         };
 
         let score = ScoreSlim::new(score, pp);
-
-        let many_misses = miss_limit
-            .filter(|&limit| score.statistics.count_miss > limit)
-            .is_some();
+        let too_many_misses = score.statistics.count_miss > miss_limit;
 
         let unchoked = match version {
-            NochokeVersion::Unchoke => {
-                // Skip unchoking because it has too many misses or because its a convert
-                if many_misses || score.mode == GameMode::Mania {
-                    IfFc::new(ctx, &score, &map)
-                        .await
-                        .map(|if_fc| Unchoked::new(if_fc, score.mods, score.mode))
-                } else {
-                    None
-                }
-            }
-            NochokeVersion::Perfect => {
-                if many_misses {
-                    Some(perfect_score(ctx, &score, &map).await)
-                } else {
-                    None
-                }
-            }
+            NochokeVersion::Unchoke if too_many_misses => None,
+            // Skip unchoking because it has too many misses or because its a convert
+            NochokeVersion::Unchoke => IfFc::new(ctx, &score, &map)
+                .await
+                .map(|if_fc| Unchoked::new(if_fc, score.mods, score.mode)),
+            NochokeVersion::Perfect if too_many_misses => None,
+            NochokeVersion::Perfect => Some(perfect_score(ctx, &score, &map).await),
         };
 
         let entry = NochokeEntry {
