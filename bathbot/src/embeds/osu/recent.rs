@@ -302,7 +302,7 @@ impl RecentEmbed {
         let value = format!("{pp} [ {} ] {}", self.combo, self.hits);
 
         let mut title = self.title;
-        let _ = write!(title, " [{:.2}★]", self.stars);
+        let _ = write!(title, " [{}★]", round(self.stars));
 
         let fields = fields![name, value, false];
 

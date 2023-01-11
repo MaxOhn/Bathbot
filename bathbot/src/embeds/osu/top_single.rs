@@ -230,7 +230,7 @@ impl TopSingleEmbed {
         let value = format!("{pp} [ {} ] {}", self.combo, self.hits);
 
         let mut title = self.title;
-        let _ = write!(title, " [{}★]", self.stars);
+        let _ = write!(title, " [{}★]", round(self.stars));
 
         EmbedBuilder::new()
             .author(self.author)

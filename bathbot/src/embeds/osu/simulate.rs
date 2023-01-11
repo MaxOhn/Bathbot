@@ -380,7 +380,7 @@ impl SimulateEmbed {
         }
 
         let mut title = self.title;
-        let _ = write!(title, " [{:.2}★]", self.stars);
+        let _ = write!(title, " [{}★]", round(self.stars));
 
         EmbedBuilder::new()
             .fields(fields![name, value, false])
