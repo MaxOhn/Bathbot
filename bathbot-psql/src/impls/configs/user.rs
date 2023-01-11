@@ -146,7 +146,8 @@ SELECT
 FROM 
   user_configs 
 WHERE 
-  osu_id = $1"#,
+  osu_id = $1 
+  AND skin_url IS NOT NULL"#,
             user_id as i32
         );
 
@@ -192,7 +193,8 @@ SELECT
 FROM 
   user_configs 
 WHERE 
-  osu_id = $1"#,
+  osu_id = $1
+  AND twitch_id IS NOT NULL"#,
             user_id as i32
         );
 

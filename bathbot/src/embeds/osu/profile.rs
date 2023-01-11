@@ -112,7 +112,7 @@ impl ProfileEmbed {
         };
 
         let ProfileData {
-            user, author_id, ..
+            user, discord_id, ..
         } = data;
 
         let stats = user.peek_stats(UserStatistics::clone);
@@ -151,7 +151,7 @@ impl ProfileEmbed {
             mode = Emote::from(mode).text(),
         );
 
-        if let Some(discord_id) = author_id {
+        if let Some(discord_id) = discord_id {
             let _ = write!(description, " for <@{discord_id}>");
         }
 
@@ -222,8 +222,6 @@ impl ProfileEmbed {
             RedisData::Archived(user) => (user.mode, user.avatar_url.as_str().to_owned()),
         };
 
-        let author_id = data.author_id;
-
         let mut description = String::with_capacity(1024);
 
         let _ = write!(
@@ -232,7 +230,7 @@ impl ProfileEmbed {
             mode = Emote::from(mode).text(),
         );
 
-        if let Some(discord_id) = author_id {
+        if let Some(discord_id) = data.discord_id {
             let _ = write!(description, " for <@{discord_id}>");
         }
 
@@ -415,7 +413,7 @@ impl ProfileEmbed {
 
         let mut description = format!("__**{mode} Top100 mods", mode = Emote::from(mode).text(),);
 
-        if let Some(discord_id) = data.author_id {
+        if let Some(discord_id) = data.discord_id {
             let _ = write!(description, " for <@{discord_id}>");
         }
 
@@ -519,7 +517,7 @@ impl ProfileEmbed {
             mode = Emote::from(data.user.mode()).text(),
         );
 
-        if let Some(discord_id) = data.author_id {
+        if let Some(discord_id) = data.discord_id {
             let _ = write!(description, " for <@{discord_id}>");
         }
 
@@ -588,7 +586,7 @@ impl ProfileEmbed {
         let own_maps_in_top100 = data.own_maps_in_top100(ctx).await;
 
         let ProfileData {
-            user, author_id, ..
+            user, discord_id, ..
         } = data;
 
         let (
@@ -655,7 +653,7 @@ impl ProfileEmbed {
             mode = Emote::from(mode).text(),
         );
 
-        if let Some(discord_id) = author_id {
+        if let Some(discord_id) = discord_id {
             let _ = write!(description, " for <@{discord_id}>");
         }
 

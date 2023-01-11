@@ -308,6 +308,26 @@
     },
     "query": "\nSELECT \n  user_id \nFROM \n  osu_user_names \nWHERE \n  username ILIKE $1 OR username ILIKE $2"
   },
+  "26b20d4e1aae8f234e4a5295d5c892ba739303b90c57992685af8a5d565885bf": {
+    "describe": {
+      "columns": [
+        {
+          "name": "twitch_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  twitch_id \nFROM \n  user_configs \nWHERE \n  osu_id = $1\n  AND twitch_id IS NOT NULL"
+  },
   "27fc81ceab1a9a0b3526082feb24eb6c0e7c78282aa6f493cf3c4d96ae30ec78": {
     "describe": {
       "columns": [],
@@ -1213,26 +1233,6 @@
     },
     "query": "\nSELECT \n  skin_url \nFROM \n  user_configs \nWHERE \n  discord_id = $1"
   },
-  "8eaa50ace26731478da43bdb4dc00d33cf489dcd958c26ab2bf0025e87e315df": {
-    "describe": {
-      "columns": [
-        {
-          "name": "skin_url",
-          "ordinal": 0,
-          "type_info": "Varchar"
-        }
-      ],
-      "nullable": [
-        true
-      ],
-      "parameters": {
-        "Left": [
-          "Int4"
-        ]
-      }
-    },
-    "query": "\nSELECT \n  skin_url \nFROM \n  user_configs \nWHERE \n  osu_id = $1"
-  },
   "8f560c7c1634f00ce00878148ce3612e1a87cb8a81057dc6edbfa9a9ef49c56c": {
     "describe": {
       "columns": [],
@@ -1361,26 +1361,6 @@
       }
     },
     "query": "\nSELECT \n  mapset_id, \n  user_id, \n  artist, \n  title, \n  creator, \n  rank_status, \n  ranked_date, \n  thumbnail, \n  cover \nFROM \n  osu_mapsets \nWHERE \n  mapset_id = $1"
-  },
-  "a77727b12176833d893c805b2d95adeb4b37d1ce2994a29a6228e79ff20518c6": {
-    "describe": {
-      "columns": [
-        {
-          "name": "twitch_id",
-          "ordinal": 0,
-          "type_info": "Int8"
-        }
-      ],
-      "nullable": [
-        true
-      ],
-      "parameters": {
-        "Left": [
-          "Int4"
-        ]
-      }
-    },
-    "query": "\nSELECT \n  twitch_id \nFROM \n  user_configs \nWHERE \n  osu_id = $1"
   },
   "adfe9de02db6d8af635558f7c243b4c7c13093b460943160577157b01cb2c5d4": {
     "describe": {
@@ -1550,6 +1530,26 @@
       }
     },
     "query": "\nDELETE FROM \n  guild_configs \nWHERE \n  guild_id = $1"
+  },
+  "c869e094800f4fcdceb1f3105e472cf1f2af9c230d3acb0ba4c073021c3d7d13": {
+    "describe": {
+      "columns": [
+        {
+          "name": "skin_url",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  skin_url \nFROM \n  user_configs \nWHERE \n  osu_id = $1 \n  AND skin_url IS NOT NULL"
   },
   "d5c451eaeba2afe1551acd288ab23ff011331a58fd8a49e2a9502e6ed05a46cd": {
     "describe": {

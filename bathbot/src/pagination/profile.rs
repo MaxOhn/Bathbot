@@ -16,6 +16,7 @@ pub struct ProfilePagination {
 
 impl ProfilePagination {
     pub fn builder(curr_kind: ProfileKind, data: ProfileData) -> PaginationBuilder {
+        // initialization doesn't really matter since the index is always set manually anyway
         let mut pages = Pages::new(1, 3);
         pages.index = curr_kind as usize;
 

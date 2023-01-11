@@ -21,7 +21,7 @@ use crate::{
 
 pub struct ProfileData {
     pub user: RedisData<User>,
-    pub author_id: Option<Id<UserMarker>>,
+    pub discord_id: Option<Id<UserMarker>>,
     pub skin_url: Availability<Option<String>>,
     scores: Availability<Vec<Score>>,
     score_rank: Availability<u32>,
@@ -30,10 +30,10 @@ pub struct ProfileData {
 }
 
 impl ProfileData {
-    pub(crate) fn new(user: RedisData<User>, author_id: Option<Id<UserMarker>>) -> Self {
+    pub(crate) fn new(user: RedisData<User>, discord_id: Option<Id<UserMarker>>) -> Self {
         Self {
             user,
-            author_id,
+            discord_id,
             skin_url: Availability::NotRequested,
             scores: Availability::NotRequested,
             score_rank: Availability::NotRequested,
