@@ -1,4 +1,7 @@
-use std::{borrow::Cow, fmt::Write};
+use std::{
+    borrow::Cow,
+    fmt::{Display, Formatter, Result as FmtResult, Write},
+};
 
 use bathbot_macros::EmbedData;
 use bathbot_util::{
@@ -9,7 +12,7 @@ use crate::{
     commands::osu::NochokeEntry,
     manager::redis::{osu::User, RedisData},
     pagination::Pages,
-    util::osu::grade_emote,
+    util::{osu::grade_emote, Emote},
 };
 
 use super::ModsFormatter;
@@ -47,12 +50,11 @@ impl NoChokeEmbed {
 
             let unchoked_stats = entry.unchoked_statistics();
 
-            // TODO: use miss emote
             let _ = writeln!(
                 description,
                 "**{idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars:.2}★]\n\
-                {grade} {old_pp:.2} → **{new_pp:.2}pp**/{max_pp:.2}PP ~ ({old_acc:.2} → **{new_acc:.2}%**)\n\
-                [ {old_combo} → **{new_combo}x**/{max_combo} ] ~ *Removed {misses} miss{plural}*",
+                {grade} {old_pp:.2} → **{new_pp:.2}pp**/{max_pp:.2}PP • ({old_acc:.2} → **{new_acc:.2}%**)\n\
+                [ {old_combo} → **{new_combo}x**/{max_combo} ]{misses}",
                 idx = original_idx + 1,
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
@@ -66,12 +68,7 @@ impl NoChokeEmbed {
                 old_combo = original_score.max_combo,
                 new_combo = entry.unchoked_max_combo(),
                 max_combo = map.max_combo().map_or_else(|| Cow::Borrowed("-"), |combo| format!("{combo}x").into()),
-                misses = original_score.statistics.count_miss - unchoked_stats.count_miss,
-                plural = if original_score.statistics.count_miss - unchoked_stats.count_miss != 1 {
-                    "es"
-                } else {
-                    ""
-                }
+                misses = MissFormat(original_score.statistics.count_miss - unchoked_stats.count_miss),
             );
         }
 
@@ -97,5 +94,23 @@ impl NoChokeEmbed {
             thumbnail: user.avatar_url().to_owned(),
             footer: FooterBuilder::new(footer_text),
         }
+    }
+}
+
+struct MissFormat(u32);
+
+impl Display for MissFormat {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        if self.0 == 0 {
+            return Ok(());
+        }
+
+        write!(
+            f,
+            " • *Removed {miss}{emote}*",
+            miss = self.0,
+            emote = Emote::Miss.text()
+        )
     }
 }
