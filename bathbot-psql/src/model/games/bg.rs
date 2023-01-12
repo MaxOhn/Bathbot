@@ -48,7 +48,7 @@ WHERE
 
                 $(
                     if let Some(boolean) = self.$column {
-                        let _ = write!(query, " {column} = {boolean}", column = stringify!($column));
+                        let _ = write!(query, " AND {column} = {boolean}", column = stringify!($column));
                     }
                 )*
 
