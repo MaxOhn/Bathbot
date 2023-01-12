@@ -20,10 +20,11 @@ pub mod tracked;
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "trackstream",
+    dm_permission = false,
     help = "Track a twitch stream in this channel.\n\
     When the stream goes online, a notification will be send to this channel within a few minutes."
 )]
-#[flags(AUTHORITY, ONLY_GUILDS)]
+#[flags(AUTHORITY)]
 /// Track a twitch stream or list all tracked streams in this channel
 pub enum TrackStream {
     #[command(name = "add")]

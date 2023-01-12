@@ -41,8 +41,8 @@ impl From<&CachedGuild> for GuildData {
 }
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(name = "serverconfig")]
-#[flags(AUTHORITY, ONLY_GUILDS, SKIP_DEFER)]
+#[command(name = "serverconfig", dm_permission = false)]
+#[flags(AUTHORITY, SKIP_DEFER)]
 /// Adjust configurations or authority roles for this server
 pub enum ServerConfig {
     #[command(name = "authorities")]

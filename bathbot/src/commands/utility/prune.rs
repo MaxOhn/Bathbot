@@ -19,10 +19,11 @@ use crate::{
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "prune",
+    dm_permission = false,
     help = "Delete the last few messages in a channel.\n\
     Messages older than two weeks __cannot__ be deleted with this command."
 )]
-#[flags(AUTHORITY, ONLY_GUILDS)]
+#[flags(AUTHORITY)]
 /// Delete the last few messages in a channel
 pub struct Prune {
     #[command(min_value = 1, max_value = 99)]

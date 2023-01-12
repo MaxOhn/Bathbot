@@ -25,8 +25,8 @@ mod untrack;
 mod untrack_all;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
-#[command(name = "track")]
-#[flags(AUTHORITY, ONLY_GUILDS)]
+#[command(name = "track", dm_permission = false)]
+#[flags(AUTHORITY)]
 /// Track top score updates for players
 pub enum Track {
     #[command(name = "add")]

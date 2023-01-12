@@ -58,16 +58,6 @@ async fn pre_process_command(
     command: &InteractionCommand,
     slash: &SlashCommand,
 ) -> Result<Option<ProcessResult>> {
-    let guild_id = command.guild_id;
-
-    // Only in guilds?
-    if slash.flags.only_guilds() && guild_id.is_none() {
-        let content = "That command is only available in servers";
-        command.error_callback(ctx, content).await?;
-
-        return Ok(Some(ProcessResult::NoDM));
-    }
-
     let user_id = command.user_id()?;
 
     // Only for owner?

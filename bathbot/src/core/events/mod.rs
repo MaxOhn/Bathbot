@@ -119,7 +119,7 @@ async fn handle_event(ctx: Arc<Context>, event: Event, shard_id: u64) -> Result<
         Event::ChannelDelete(_) => ctx.stats.event_counts.channel_delete.inc(),
         Event::ChannelPinsUpdate(_) => {}
         Event::ChannelUpdate(_) => ctx.stats.event_counts.channel_update.inc(),
-        Event::CommandPermissionsUpdate(_) => {} // TODO
+        Event::CommandPermissionsUpdate(_) => {}
         Event::GatewayHeartbeat(_) => {}
         Event::GatewayHeartbeatAck => {}
         Event::GatewayHello(_) => {}

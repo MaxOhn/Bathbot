@@ -2,7 +2,7 @@ bitflags::bitflags! {
     pub struct CommandFlags: u8 {
         const AUTHORITY   = 1 << 0;
         const EPHEMERAL   = 1 << 1;
-        const ONLY_GUILDS = 1 << 2; // TODO: replace with twilight-interaction
+        const ONLY_GUILDS = 1 << 2; // Only for prefix commands, slash commands can use dm_permission = false
         const ONLY_OWNER  = 1 << 3;
         const SKIP_DEFER  = 1 << 4;
     }

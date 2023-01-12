@@ -16,6 +16,7 @@ use crate::{
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "serverleaderboard",
+    dm_permission = false,
     help = "Various osu! leaderboards for linked server members.\n\
     Whenever any command is used that requests an osu! user, the retrieved user will be cached.\n\
     The leaderboards will contain all members of this server that are linked to an osu! username \
@@ -28,7 +29,6 @@ use crate::{
     Try using any command that retrieves the user, e.g. `/profile`, in order to cache them.\n\
     - Members of this server are not stored as such. Maybe let bade know :eyes:"
 )]
-#[flags(ONLY_GUILDS)]
 /// Various osu! leaderboards for linked server members
 pub enum ServerLeaderboard {
     #[command(name = "all_modes")]
