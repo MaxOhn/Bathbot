@@ -631,6 +631,26 @@
     },
     "query": "\nSELECT \n  username \nFROM \n  osu_user_names \nWHERE \n  user_id = $1"
   },
+  "32a5e31c8b23211b9656ea4490bddb274af9dc1afc5198a4a37f43f9bb061464": {
+    "describe": {
+      "columns": [
+        {
+          "name": "skin_url",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  skin_url \nFROM \n  (\n    SELECT \n      skin_url, \n      osu_id \n    FROM \n      user_configs \n    WHERE \n      skin_url IS NOT NULL \n      AND osu_id IS NOT NULL\n  ) AS configs \n  JOIN (\n    SELECT \n      user_id \n    FROM \n      osu_user_names \n    WHERE \n      username ILIKE $1\n  ) AS names ON configs.osu_id = names.user_id"
+  },
   "33c5cfa0d42c3807174a46ec627a3d7a977bff8da2b71894b8fe14426c3cacd8": {
     "describe": {
       "columns": [
@@ -650,6 +670,26 @@
       }
     },
     "query": "\nSELECT \n  score_size \nFROM \n  user_configs \nWHERE \n  discord_id = $1"
+  },
+  "369d3652737db22b47d3db2004a25fb210cc4857a56710f9ec5365582ab9cfe2": {
+    "describe": {
+      "columns": [
+        {
+          "name": "twitch_id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  twitch_id \nFROM \n  (\n    SELECT \n      twitch_id, \n      osu_id \n    FROM \n      user_configs \n    WHERE \n      twitch_id IS NOT NULL \n      AND osu_id IS NOT NULL\n  ) AS configs \n  JOIN (\n    SELECT \n      user_id \n    FROM \n      osu_user_names \n    WHERE \n      username ILIKE $1\n  ) AS names ON configs.osu_id = names.user_id"
   },
   "380fc3f7a232b0f145ae03ec0ec838a57bfe42db5b2bcbd5a636bbbffd2e0b5e": {
     "describe": {
@@ -900,26 +940,6 @@
       }
     },
     "query": "\nSELECT \nuser_id, \nusername \nfrom \nosu_user_names \nWHERE \nusername ILIKE ANY($1)"
-  },
-  "651c00259f2f5531b1b71f835e32838514a85b7a8cea21f103b60802e028ee05": {
-    "describe": {
-      "columns": [
-        {
-          "name": "skin_url",
-          "ordinal": 0,
-          "type_info": "Varchar"
-        }
-      ],
-      "nullable": [
-        true
-      ],
-      "parameters": {
-        "Left": [
-          "Text"
-        ]
-      }
-    },
-    "query": "\nSELECT \n  skin_url \nFROM \n  user_configs \nWHERE \n  osu_id = (\n    SELECT \n      user_id \n    FROM \n      osu_user_names \n    WHERE \n      username ILIKE $1\n  )"
   },
   "68356a75b1e66719f90cf17ddeed1a170c119343d0d4c515308f6409997f2557": {
     "describe": {
@@ -1192,26 +1212,6 @@
       }
     },
     "query": "\nDELETE FROM \n  osu_map_difficulty_mania \nWHERE \n  map_id = $1"
-  },
-  "8a23e125be251ef502bce59b3890e1030ed3a8fbd270ff4933fd68ed893f8575": {
-    "describe": {
-      "columns": [
-        {
-          "name": "twitch_id",
-          "ordinal": 0,
-          "type_info": "Int8"
-        }
-      ],
-      "nullable": [
-        true
-      ],
-      "parameters": {
-        "Left": [
-          "Text"
-        ]
-      }
-    },
-    "query": "\nSELECT \n  twitch_id \nFROM \n  user_configs \nWHERE \n  osu_id =(\n    SELECT \n      user_id \n    FROM \n      osu_user_names \n    WHERE \n      username ILIKE $1\n  )"
   },
   "8b88f6e2659ffeb87114f3c9e099c9ba96a6ce79c842fffe9a665fc1f5334822": {
     "describe": {

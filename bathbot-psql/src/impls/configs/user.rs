@@ -165,16 +165,24 @@ WHERE
 SELECT 
   skin_url 
 FROM 
-  user_configs 
-WHERE 
-  osu_id = (
+  (
+    SELECT 
+      skin_url, 
+      osu_id 
+    FROM 
+      user_configs 
+    WHERE 
+      skin_url IS NOT NULL 
+      AND osu_id IS NOT NULL
+  ) AS configs 
+  JOIN (
     SELECT 
       user_id 
     FROM 
       osu_user_names 
     WHERE 
       username ILIKE $1
-  )"#,
+  ) AS names ON configs.osu_id = names.user_id"#,
             username
         );
 
@@ -214,16 +222,24 @@ WHERE
 SELECT 
   twitch_id 
 FROM 
-  user_configs 
-WHERE 
-  osu_id =(
+  (
+    SELECT 
+      twitch_id, 
+      osu_id 
+    FROM 
+      user_configs 
+    WHERE 
+      twitch_id IS NOT NULL 
+      AND osu_id IS NOT NULL
+  ) AS configs 
+  JOIN (
     SELECT 
       user_id 
     FROM 
       osu_user_names 
     WHERE 
       username ILIKE $1
-  )"#,
+  ) AS names ON configs.osu_id = names.user_id"#,
             username
         );
 
