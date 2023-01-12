@@ -158,7 +158,8 @@ async fn prefix_taiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Resul
     "profilec",
     "profilecatch",
     "catchprofile",
-    "catch"
+    "catch",
+    "catchthebeat"
 )]
 #[group(Catch)]
 async fn prefix_ctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
