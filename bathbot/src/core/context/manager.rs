@@ -1,3 +1,6 @@
+use rosu_pp::Beatmap;
+use rosu_v2::prelude::GameMode;
+
 use crate::manager::{
     redis::RedisManager, ApproxManager, GameManager, GuildConfigManager,
     HuismetbenenCountryManager, MapManager, OsuMap, OsuTrackingManager, OsuUserManager, PpManager,
@@ -41,6 +44,15 @@ impl Context {
 
     pub fn pp<'d, 'm>(&'d self, map: &'m OsuMap) -> PpManager<'d, 'm> {
         PpManager::new(map, &self.clients.psql)
+    }
+
+    pub fn pp_parsed<'d, 'm>(
+        &'d self,
+        map: &'m Beatmap,
+        map_id: u32,
+        mode: GameMode,
+    ) -> PpManager<'d, 'm> {
+        PpManager::from_parsed(map, map_id, mode, &self.clients.psql)
     }
 
     pub fn approx(&self) -> ApproxManager<'_> {

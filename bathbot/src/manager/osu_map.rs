@@ -8,8 +8,8 @@ use bathbot_psql::{
 use bathbot_util::{ExponentialBackoff, IntHasher};
 use eyre::{ContextCompat, Report, WrapErr};
 use futures::{stream::FuturesUnordered, TryStreamExt};
-use rosu_pp::{Beatmap, GameMode as Mode, ParseError};
-use rosu_v2::prelude::{Beatmapset, GameMode, OsuError, RankStatus};
+use rosu_pp::{Beatmap, DifficultyAttributes, GameMode as Mode, ParseError};
+use rosu_v2::prelude::{Beatmapset, GameMode, GameMods, OsuError, RankStatus};
 use thiserror::Error;
 use time::OffsetDateTime;
 use tokio::{fs, time::sleep};
@@ -18,6 +18,8 @@ use crate::{
     core::{BotConfig, Context},
     util::query::{FilterCriteria, Searchable},
 };
+
+use super::PpManager;
 
 type Result<T> = eyre::Result<T, MapError>;
 
@@ -58,6 +60,47 @@ impl<'d> MapManager<'d> {
 
             Ok(OsuMap { map, pp_map })
         }
+    }
+
+    pub async fn pp_map(self, map_id: u32) -> Result<Beatmap> {
+        let filepath = self
+            .psql
+            .select_beatmap_file(map_id)
+            .await
+            .wrap_err("failed to get filepath")?
+            .map_or(DbMapPath::Missing, DbMapPath::Present);
+
+        let (pp_map, _) = self
+            .prepare_map(map_id, filepath)
+            .await
+            .wrap_err("failed to prepare map")?;
+
+        Ok(pp_map)
+    }
+
+    pub async fn difficulty(
+        self,
+        map_id: u32,
+        mode: GameMode,
+        mods: GameMods,
+    ) -> Result<DifficultyAttributes> {
+        let attrs_fut = self
+            .psql
+            .select_map_difficulty_attrs(map_id, mode, mods.bits());
+
+        if let Some(attrs) = attrs_fut.await.wrap_err("failed to get attributes")? {
+            return Ok(attrs);
+        }
+
+        let map = self.pp_map(map_id).await.wrap_err("failed to get pp map")?;
+
+        let attrs = PpManager::from_parsed(&map, map_id, mode, self.psql)
+            .mods(mods)
+            .difficulty()
+            .await
+            .to_owned();
+
+        Ok(attrs)
     }
 
     pub async fn map_slim(self, map_id: u32) -> Result<OsuMapSlim> {

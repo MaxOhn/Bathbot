@@ -8,17 +8,14 @@ use bathbot_util::{
     AuthorBuilder, CowUtils, FooterBuilder,
 };
 use eyre::{Result, WrapErr};
-use rosu_pp::{AnyPP, Beatmap as Map, BeatmapExt};
+use rosu_pp::{AnyPP, BeatmapExt};
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods};
 use time::OffsetDateTime;
 use twilight_model::channel::embed::EmbedField;
 
 use crate::{
-    commands::osu::CustomAttrs,
-    core::Context,
-    embeds::attachment,
-    pagination::Pages,
-    util::osu::{mode_emote, prepare_beatmap_file},
+    commands::osu::CustomAttrs, core::Context, embeds::attachment, pagination::Pages,
+    util::osu::mode_emote,
 };
 
 #[derive(EmbedData)]
@@ -86,13 +83,11 @@ impl MapEmbed {
         let mut info_value = String::with_capacity(128);
         let mut fields = Vec::with_capacity(3);
 
-        let map_path = prepare_beatmap_file(ctx, map.map_id)
+        let mut rosu_map = ctx
+            .osu_map()
+            .pp_map(map.map_id)
             .await
-            .wrap_err("failed to prepare map")?;
-
-        let mut rosu_map = Map::from_path(map_path)
-            .await
-            .wrap_err("failed to parse map")?;
+            .wrap_err("failed to get pp map")?;
 
         let mod_bits = mods.bits();
 

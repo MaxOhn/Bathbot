@@ -7,15 +7,14 @@ use bathbot_util::{
     FooterBuilder, IntHasher,
 };
 use eyre::{Result, WrapErr};
-use hashbrown::HashMap;
-use rosu_pp::{Beatmap, BeatmapExt};
+use hashbrown::{hash_map::Entry, HashMap};
+use rosu_v2::prelude::GameMode;
 
 use crate::{
     commands::osu::Difference,
     core::Context,
     manager::redis::{osu::User, RedisData},
     pagination::Pages,
-    util::osu::prepare_beatmap_file,
 };
 
 use super::ModsFormatter;
@@ -35,7 +34,7 @@ impl SnipedDiffEmbed {
         diff: Difference,
         scores: &[SnipeRecent],
         pages: &Pages,
-        maps: &mut HashMap<u32, Beatmap, IntHasher>,
+        star_map: &mut HashMap<u32, f32, IntHasher>,
         ctx: &Context,
     ) -> Result<Self> {
         let mut description = String::with_capacity(512);
@@ -45,28 +44,28 @@ impl SnipedDiffEmbed {
             let score = &scores[idx];
 
             let stars = match score.stars {
-                Some(stars) => stars,
-                None => {
-                    #[allow(clippy::map_entry)]
-                    if !maps.contains_key(&score.map_id) {
-                        let map_path = prepare_beatmap_file(ctx, score.map_id)
+                Some(stars) => *star_map
+                    .entry(score.map_id)
+                    .and_modify(|entry| *entry = stars)
+                    .or_insert(stars),
+                None => match star_map.entry(score.map_id) {
+                    Entry::Occupied(e) => *e.get(),
+                    Entry::Vacant(e) => {
+                        let map = ctx
+                            .osu_map()
+                            .pp_map(score.map_id)
                             .await
-                            .wrap_err("failed to prepare map")?;
+                            .wrap_err("failed to get pp map")?;
 
-                        let map = Beatmap::from_path(map_path)
+                        let stars = ctx
+                            .pp_parsed(&map, score.map_id, GameMode::Osu)
+                            .difficulty()
                             .await
-                            .wrap_err("failed to parse map")?;
+                            .stars();
 
-                        maps.insert(score.map_id, map);
+                        *e.insert(stars as f32)
                     }
-
-                    let map = maps.get(&score.map_id).unwrap();
-
-                    map.stars()
-                        .mods(score.mods.unwrap_or_default().bits())
-                        .calculate()
-                        .stars() as f32
-                }
+                },
             };
 
             let _ = write!(

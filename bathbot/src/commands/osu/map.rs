@@ -16,7 +16,7 @@ use plotters::{
     prelude::*,
 };
 use plotters_backend::{BackendColor, BackendCoord, BackendStyle, DrawingErrorKind};
-use rosu_pp::{Beatmap, BeatmapExt, Strains};
+use rosu_pp::{BeatmapExt, Strains};
 use rosu_v2::prelude::{GameMode, GameMods};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::channel::{message::MessageType, Message};
@@ -24,10 +24,7 @@ use twilight_model::channel::{message::MessageType, Message};
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
     pagination::MapPagination,
-    util::{
-        interaction::InteractionCommand, osu::prepare_beatmap_file, ChannelExt,
-        InteractionCommandExt,
-    },
+    util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
 };
 
@@ -378,13 +375,11 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
 }
 
 async fn strain_values(ctx: &Context, map_id: u32, mods: GameMods) -> Result<Vec<(f64, f64)>> {
-    let map_path = prepare_beatmap_file(ctx, map_id)
+    let map = ctx
+        .osu_map()
+        .pp_map(map_id)
         .await
-        .wrap_err("failed to prepare map")?;
-
-    let map = Beatmap::from_path(map_path)
-        .await
-        .wrap_err("failed to parse map")?;
+        .wrap_err("failed to get pp map")?;
 
     let strains = map.strains(mods.bits());
     let section_len = strains.section_len();

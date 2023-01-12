@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fmt::{Debug, Display, Formatter, Result as FmtResult},
     mem,
     sync::Arc,
@@ -9,16 +10,18 @@ use bathbot_util::{
     constants::{GENERAL_ISSUE, OSEKAI_ISSUE, OSU_API_ISSUE},
     datetime::DATE_FORMAT,
     osu::flag_url_svg,
-    EmbedBuilder, HtmlToPng, MessageBuilder,
+    EmbedBuilder, HtmlToPng, IntHasher, MessageBuilder,
 };
 use eyre::{Report, Result, WrapErr};
+use futures::{stream::FuturesUnordered, TryStreamExt};
 use handlebars::Handlebars;
 use once_cell::sync::Lazy;
 use rosu_pp::{
     catch::{CatchPerformanceAttributes, CatchScoreState},
+    mania::ManiaScoreState,
     osu::OsuScoreState,
     taiko::TaikoScoreState,
-    AnyPP, Beatmap, BeatmapExt, GameMode as Mode, OsuPP,
+    AnyPP, BeatmapExt, GameMode as Mode, OsuPP,
 };
 use rosu_v2::prelude::{GameMode, GameMods, OsuError, Score};
 use serde::{Serialize, Serializer};
@@ -35,7 +38,7 @@ use crate::{
         osu::{User, UserArgs},
         RedisData,
     },
-    util::{interaction::InteractionCommand, osu::prepare_beatmap_file, InteractionCommandExt},
+    util::{interaction::InteractionCommand, InteractionCommandExt},
 };
 
 use super::user_not_found;
@@ -215,6 +218,28 @@ impl Skills {
             -101.0 * factor + 101.0
         };
 
+        let mut maps: HashMap<_, _, IntHasher> = scores
+            .iter()
+            .map(|score| async {
+                let map = ctx
+                    .osu_map()
+                    .pp_map(score.map_id)
+                    .await
+                    .wrap_err("failed to get pp map")?;
+
+                let attrs = ctx
+                    .pp_parsed(&map, score.map_id, mode)
+                    .mods(score.mods)
+                    .difficulty()
+                    .await
+                    .to_owned();
+
+                Ok::<_, Report>((score.map_id, (map, attrs)))
+            })
+            .collect::<FuturesUnordered<_>>()
+            .try_collect()
+            .await?;
+
         match mode {
             GameMode::Osu => {
                 let mut acc = 0.0;
@@ -227,13 +252,7 @@ impl Skills {
                 const SPEED_NERF: f64 = 2.4;
 
                 for (i, score) in scores.iter().enumerate() {
-                    let map_path = prepare_beatmap_file(ctx, score.map_id)
-                        .await
-                        .wrap_err("failed to prepare map")?;
-
-                    let map = Beatmap::from_path(map_path)
-                        .await
-                        .wrap_err("failed to parse map")?;
+                    let Some((map, attrs)) = maps.remove(&score.map_id) else { continue };
 
                     let state = OsuScoreState {
                         max_combo: score.max_combo as usize,
@@ -244,6 +263,7 @@ impl Skills {
                     };
 
                     let attrs = OsuPP::new(&map)
+                        .attributes(attrs)
                         .mods(score.mods.bits())
                         .state(state)
                         .calculate();
@@ -274,13 +294,7 @@ impl Skills {
                 const DIFFICULTY_NERF: f64 = 2.8;
 
                 for (i, score) in scores.iter().enumerate() {
-                    let map_path = prepare_beatmap_file(ctx, score.map_id)
-                        .await
-                        .wrap_err("failed to prepare map")?;
-
-                    let map = Beatmap::from_path(map_path)
-                        .await
-                        .wrap_err("failed to parse map")?;
+                    let Some((map, attrs)) = maps.remove(&score.map_id) else { continue };
 
                     let state = TaikoScoreState {
                         max_combo: score.max_combo as usize,
@@ -289,10 +303,13 @@ impl Skills {
                         n_misses: score.statistics.count_miss as usize,
                     };
 
-                    let attrs = match map.pp().mode(Mode::Taiko) {
-                        AnyPP::Taiko(calc) => calc.mods(score.mods.bits()).state(state).calculate(),
-                        _ => unreachable!(),
-                    };
+                    let AnyPP::Taiko(calc) = map.pp().mode(Mode::Taiko) else { unreachable!() };
+
+                    let attrs = calc
+                        .attributes(attrs)
+                        .mods(score.mods.bits())
+                        .state(state)
+                        .calculate();
 
                     let acc_val = attrs.pp_acc / ACC_NERF;
                     let difficulty_val = attrs.pp_difficulty / DIFFICULTY_NERF;
@@ -317,13 +334,7 @@ impl Skills {
                 const MOVEMENT_NERF: f64 = 4.7;
 
                 for (i, score) in scores.iter().enumerate() {
-                    let map_path = prepare_beatmap_file(ctx, score.map_id)
-                        .await
-                        .wrap_err("failed to prepare map")?;
-
-                    let map = Beatmap::from_path(map_path)
-                        .await
-                        .wrap_err("failed to parse map")?;
+                    let Some((map, attrs)) = maps.remove(&score.map_id) else { continue };
 
                     let state = CatchScoreState {
                         max_combo: score.max_combo as usize,
@@ -334,10 +345,13 @@ impl Skills {
                         n_misses: score.statistics.count_miss as usize,
                     };
 
-                    let attrs = match map.pp().mode(Mode::Catch) {
-                        AnyPP::Catch(calc) => calc.mods(score.mods.bits()).state(state).calculate(),
-                        _ => unreachable!(),
-                    };
+                    let AnyPP::Catch(calc) = map.pp().mode(Mode::Catch) else { unreachable!() };
+
+                    let attrs = calc
+                        .attributes(attrs)
+                        .mods(score.mods.bits())
+                        .state(state)
+                        .calculate();
 
                     let CatchPerformanceAttributes { difficulty, pp } = attrs;
 
@@ -379,26 +393,24 @@ impl Skills {
                 const DIFFICULTY_NERF: f64 = 0.6;
 
                 for (i, score) in scores.iter().enumerate() {
-                    let map_path = prepare_beatmap_file(ctx, score.map_id)
-                        .await
-                        .wrap_err("failed to prepare map")?;
+                    let Some((map, attrs)) = maps.remove(&score.map_id) else { continue };
 
-                    let map = Beatmap::from_path(map_path)
-                        .await
-                        .wrap_err("failed to parse map")?;
-
-                    let attrs = match map.pp().mode(Mode::Mania) {
-                        AnyPP::Mania(calc) => calc
-                            .mods(score.mods.bits())
-                            .n320(score.statistics.count_geki as usize)
-                            .n300(score.statistics.count_300 as usize)
-                            .n200(score.statistics.count_katu as usize)
-                            .n100(score.statistics.count_100 as usize)
-                            .n50(score.statistics.count_50 as usize)
-                            .n_misses(score.statistics.count_miss as usize)
-                            .calculate(),
-                        _ => unreachable!(),
+                    let state = ManiaScoreState {
+                        n320: score.statistics.count_geki as usize,
+                        n300: score.statistics.count_300 as usize,
+                        n200: score.statistics.count_katu as usize,
+                        n100: score.statistics.count_100 as usize,
+                        n50: score.statistics.count_50 as usize,
+                        n_misses: score.statistics.count_miss as usize,
                     };
+
+                    let AnyPP::Mania(calc) = map.pp().mode(Mode::Mania) else { unreachable!() };
+
+                    let attrs = calc
+                        .attributes(attrs)
+                        .mods(score.mods.bits())
+                        .state(state)
+                        .calculate();
 
                     let acc_ = score.accuracy as f64;
                     let od = score.map.as_ref().unwrap().od as f64;

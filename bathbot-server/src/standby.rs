@@ -26,7 +26,7 @@ pub enum AuthenticationStandbyError {
 pub struct AuthenticationStandby {
     // u8 is sufficient for 256 concurrent authorization awaitings within two minutes
     current_state: AtomicU8,
-    osu: StdMutexMap<u8, Sender<User>, IntHasher>, // TODO: redis user?
+    osu: StdMutexMap<u8, Sender<User>, IntHasher>,
     twitch: StdMutexMap<u8, Sender<TwitchUser>, IntHasher>,
 }
 

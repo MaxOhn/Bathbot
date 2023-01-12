@@ -340,6 +340,25 @@ WHERE
         Ok(attrs)
     }
 
+    pub async fn select_beatmap_file(&self, map_id: u32) -> Result<Option<String>> {
+        let query = sqlx::query!(
+            r#"
+SELECT 
+  map_filepath 
+FROM 
+  osu_map_files 
+WHERE 
+  map_id = $1"#,
+            map_id as i32
+        );
+
+        query
+            .fetch_optional(self)
+            .await
+            .wrap_err("failed to fetch optional")
+            .map(|row_opt| row_opt.map(|row| row.map_filepath))
+    }
+
     pub async fn insert_beatmap_file(&self, map_id: u32, path: impl AsRef<str>) -> Result<()> {
         let query = sqlx::query!(
             r#"

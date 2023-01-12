@@ -801,6 +801,26 @@
     },
     "query": "\nSELECT \n  username \nFROM \n  osu_user_names \nWHERE \n  user_id = (\n    SELECT \n      osu_id \n    FROM \n      user_configs \n    WHERE \n      discord_id = $1\n  )"
   },
+  "4a68c5fcc41e7e8ec22b308bead494ffa1c29e8418da381ddfb340c1f0c49a0e": {
+    "describe": {
+      "columns": [
+        {
+          "name": "map_filepath",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT \n  map_filepath \nFROM \n  osu_map_files \nWHERE \n  map_id = $1"
+  },
   "4d9d86454d838f1fd2bfc30c019680978373896c7e01f09e939a63de314137e0": {
     "describe": {
       "columns": [

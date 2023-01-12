@@ -24,12 +24,16 @@ pub struct PpManager<'d, 'm> {
 
 impl<'d, 'm> PpManager<'d, 'm> {
     pub fn new(map: &'m OsuMap, psql: &'d Database) -> Self {
+        Self::from_parsed(&map.pp_map, map.map_id(), map.mode(), psql)
+    }
+
+    pub fn from_parsed(map: &'m Beatmap, map_id: u32, mode: GameMode, psql: &'d Database) -> Self {
         Self {
             psql,
-            map: Cow::Borrowed(&map.pp_map),
-            map_id: map.map_id(),
+            map: Cow::Borrowed(map),
+            map_id,
             attrs: None,
-            mode: map.mode(),
+            mode,
             mods: 0,
             state: None,
             partial: false,

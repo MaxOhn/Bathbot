@@ -1,4 +1,4 @@
-use std::{array::IntoIter, borrow::Cow, io::Cursor, mem::MaybeUninit, path::PathBuf};
+use std::{array::IntoIter, borrow::Cow, io::Cursor, mem::MaybeUninit};
 
 use bathbot_model::{OsuStatsParams, RespektiveTopCount, ScoreSlim};
 use bathbot_util::numbers::WithComma;
@@ -9,7 +9,6 @@ use image::{
 };
 use rosu_pp::{CatchPP, DifficultyAttributes, OsuPP, TaikoPP};
 use rosu_v2::prelude::{GameMode, GameMods, Grade, ScoreStatistics};
-use tokio::fs;
 
 use crate::{
     core::{BotConfig, Context},
@@ -62,28 +61,6 @@ fn completion(score_hits: u32, map: &OsuMap) -> u32 {
     let total_hits = map.n_objects() as u32;
 
     100 * score_hits / total_hits
-}
-
-// TODO: remove
-pub async fn prepare_beatmap_file(ctx: &Context, map_id: u32) -> Result<PathBuf> {
-    let mut map_path = BotConfig::get().paths.maps.clone();
-    map_path.push(format!("{map_id}.osu"));
-
-    if !map_path.exists() {
-        let bytes = ctx
-            .client()
-            .get_map_file(map_id)
-            .await
-            .wrap_err("failed to download map")?;
-
-        fs::write(&map_path, &bytes)
-            .await
-            .wrap_err("failed writing to file")?;
-
-        info!("Downloaded {map_id}.osu successfully");
-    }
-
-    Ok(map_path)
 }
 
 pub struct TopCounts {
