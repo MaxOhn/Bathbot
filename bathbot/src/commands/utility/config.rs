@@ -330,7 +330,10 @@ async fn handle_both_links(
 
     let twitch_name = match handle_ephemeral(ctx, command, builder, fut).await {
         Some(Ok((osu, twitch))) => {
-            // TODO: upsert user_id,username in DB
+            if Err(err) = ctx.osu_user().store_user(&osu, osu.mode).await {
+                warn!("{err:?}");
+            }
+
             config.osu = Some(osu.user_id);
             config.twitch_id = Some(twitch.user_id);
 
@@ -407,7 +410,13 @@ async fn handle_osu_link(
     let builder = MessageBuilder::new().embed(embed);
 
     config.osu = match handle_ephemeral(ctx, command, builder, fut).await {
-        Some(Ok(user)) => Some(user.user_id), // TODO: upsert user_id,username in DB
+        Some(Ok(user)) => {
+            if Err(err) = ctx.osu_user().store_user(&user, user.mode).await {
+                warn!("{err:?}");
+            }
+
+            Some(user.user_id)
+        }
         Some(Err(err)) => return HandleResult::Err(err),
         None => return HandleResult::Done,
     };
