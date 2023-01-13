@@ -62,10 +62,10 @@ FROM
         } = config;
 
         let authorities =
-            rkyv::to_bytes::<_, 16>(authorities).wrap_err("failed to serialize authorities")?;
+            rkyv::to_bytes::<_, 1>(authorities).wrap_err("failed to serialize authorities")?;
 
         let prefixes =
-            rkyv::to_bytes::<_, 16>(prefixes).wrap_err("failed to serialize prefixes")?;
+            rkyv::to_bytes::<_, 32>(prefixes).wrap_err("failed to serialize prefixes")?;
 
         let query = sqlx::query!(
             r#"

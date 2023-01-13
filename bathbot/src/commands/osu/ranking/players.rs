@@ -76,15 +76,17 @@ pub(super) async fn pp(
     };
 
     let ranking_fut = async {
-        let ranking_result = match country.as_deref() {
-            Some(country) => ctx.redis().pp_ranking(mode, 1, Some(country)).await,
-            None => ctx.redis().pp_ranking(mode, 1, None).await,
-        };
+        let country = country
+            .as_deref()
+            .map(rosu_v2::prelude::CountryCode::as_str);
 
-        ranking_result.map(|ranking| match ranking {
-            RedisData::Original(ranking) => ranking,
-            RedisData::Archived(ranking) => ranking.deserialize(),
-        })
+        ctx.redis()
+            .pp_ranking(mode, 1, country)
+            .await
+            .map(|ranking| match ranking {
+                RedisData::Original(ranking) => ranking,
+                RedisData::Archived(ranking) => ranking.deserialize(),
+            })
     };
 
     let author_idx_fut = pp_author_idx(&ctx, author_id, mode, country.as_ref());

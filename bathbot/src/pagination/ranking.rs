@@ -1,13 +1,16 @@
 use std::collections::btree_map::Entry;
 
 use bathbot_macros::pagination;
-use bathbot_model::{BgGameScore, RankingEntries, RankingEntry, RankingKind};
+use bathbot_model::{
+    rkyv_impls::UsernameWrapper, BgGameScore, RankingEntries, RankingEntry, RankingKind,
+};
 use eyre::{Result, WrapErr};
-use rosu_v2::prelude::Rankings;
+use rkyv::{with::DeserializeWith, Deserialize, Infallible};
 use twilight_model::{channel::embed::Embed, id::Id};
 
 use crate::{
     embeds::{EmbedData, RankingEmbed},
+    manager::redis::RedisData,
     Context,
 };
 
@@ -35,57 +38,6 @@ impl RankingPagination {
         let embed = RankingEmbed::new(&self.entries, &self.kind, self.author_idx, pages);
 
         Ok(embed.build())
-    }
-
-    fn extend_from_ranking(&mut self, ranking: Rankings, offset: usize) {
-        match self.kind {
-            RankingKind::PpCountry { .. } => {
-                let RankingEntries::PpU32(ref mut entries) = self.entries else { unreachable!() };
-
-                let iter = ranking.ranking.into_iter().enumerate().map(|(i, user)| {
-                    let entry = RankingEntry {
-                        country: Some(user.country_code.into()),
-                        name: user.username,
-                        value: user.statistics.expect("missing stats").pp.round() as u32,
-                    };
-
-                    (offset * 50 + i, entry)
-                });
-
-                entries.extend(iter);
-            }
-            RankingKind::PpGlobal { .. } => {
-                let RankingEntries::PpU32(ref mut entries) = self.entries else { unreachable!() };
-
-                let iter = ranking.ranking.into_iter().enumerate().map(|(i, user)| {
-                    let entry = RankingEntry {
-                        country: Some(user.country_code.into()),
-                        name: user.username,
-                        value: user.statistics.expect("missing stats").pp.round() as u32,
-                    };
-
-                    (offset * 50 + i, entry)
-                });
-
-                entries.extend(iter);
-            }
-            RankingKind::RankedScore { .. } => {
-                let RankingEntries::Amount(ref mut entries) = self.entries else { unreachable!() };
-
-                let iter = ranking.ranking.into_iter().enumerate().map(|(i, user)| {
-                    let entry = RankingEntry {
-                        country: Some(user.country_code.into()),
-                        name: user.username,
-                        value: user.statistics.expect("missing stats").ranked_score,
-                    };
-
-                    (offset * 50 + i, entry)
-                });
-
-                entries.extend(iter);
-            }
-            _ => unreachable!(),
-        }
     }
 
     async fn assure_present_users(
@@ -141,24 +93,109 @@ impl RankingPagination {
                     ..
                 } => {
                     let ranking = ctx
-                        .osu()
-                        .performance_rankings(*mode)
-                        .country(country.as_str())
-                        .page(page)
+                        .redis()
+                        .pp_ranking(*mode, page, Some(country.as_str()))
                         .await
                         .wrap_err("failed to get ranking page")?;
 
-                    self.extend_from_ranking(ranking, offset);
+                    let RankingEntries::PpU32(ref mut entries) = self.entries else { unreachable!() };
+
+                    match ranking {
+                        RedisData::Original(ranking) => {
+                            let iter = ranking.ranking.into_iter().enumerate().map(|(i, user)| {
+                                let entry = RankingEntry {
+                                    country: Some(user.country_code.into()),
+                                    name: user.username,
+                                    value: user.statistics.expect("missing stats").pp.round()
+                                        as u32,
+                                };
+
+                                (offset * 50 + i, entry)
+                            });
+
+                            entries.extend(iter);
+                        }
+                        RedisData::Archived(ranking) => {
+                            let iter = ranking.ranking.iter().enumerate().map(|(i, user)| {
+                                let country =
+                                    user.country_code.deserialize(&mut Infallible).unwrap();
+
+                                let name_res = UsernameWrapper::deserialize_with(
+                                    &user.username,
+                                    &mut Infallible,
+                                );
+
+                                let pp = user
+                                    .statistics
+                                    .as_ref()
+                                    .map(|stats| stats.pp.round())
+                                    .expect("missing stats");
+
+                                let entry = RankingEntry {
+                                    country: Some(country),
+                                    name: name_res.unwrap(),
+                                    value: pp as u32,
+                                };
+
+                                (offset * 50 + i, entry)
+                            });
+
+                            entries.extend(iter);
+                        }
+                    }
                 }
                 RankingKind::PpGlobal { mode } => {
                     let ranking = ctx
-                        .osu()
-                        .performance_rankings(*mode)
-                        .page(page)
+                        .redis()
+                        .pp_ranking(*mode, page, None)
                         .await
                         .wrap_err("failed to get ranking page")?;
 
-                    self.extend_from_ranking(ranking, offset);
+                    let RankingEntries::PpU32(ref mut entries) = self.entries else { unreachable!() };
+
+                    match ranking {
+                        RedisData::Original(ranking) => {
+                            let iter = ranking.ranking.into_iter().enumerate().map(|(i, user)| {
+                                let entry = RankingEntry {
+                                    country: Some(user.country_code.into()),
+                                    name: user.username,
+                                    value: user.statistics.expect("missing stats").pp.round()
+                                        as u32,
+                                };
+
+                                (offset * 50 + i, entry)
+                            });
+
+                            entries.extend(iter);
+                        }
+                        RedisData::Archived(ranking) => {
+                            let iter = ranking.ranking.iter().enumerate().map(|(i, user)| {
+                                let country =
+                                    user.country_code.deserialize(&mut Infallible).unwrap();
+
+                                let name_res = UsernameWrapper::deserialize_with(
+                                    &user.username,
+                                    &mut Infallible,
+                                );
+
+                                let pp = user
+                                    .statistics
+                                    .as_ref()
+                                    .map(|stats| stats.pp.round())
+                                    .expect("missing stats");
+
+                                let entry = RankingEntry {
+                                    country: Some(country),
+                                    name: name_res.unwrap(),
+                                    value: pp as u32,
+                                };
+
+                                (offset * 50 + i, entry)
+                            });
+
+                            entries.extend(iter);
+                        }
+                    }
                 }
                 RankingKind::RankedScore { mode } => {
                     let ranking = ctx
@@ -168,7 +205,19 @@ impl RankingPagination {
                         .await
                         .wrap_err("failed to get ranking page")?;
 
-                    self.extend_from_ranking(ranking, offset);
+                    let RankingEntries::Amount(ref mut entries) = self.entries else { unreachable!() };
+
+                    let iter = ranking.ranking.into_iter().enumerate().map(|(i, user)| {
+                        let entry = RankingEntry {
+                            country: Some(user.country_code.into()),
+                            name: user.username,
+                            value: user.statistics.expect("missing stats").ranked_score,
+                        };
+
+                        (offset * 50 + i, entry)
+                    });
+
+                    entries.extend(iter);
                 }
                 _ => {} // other data does not come paginated
             }

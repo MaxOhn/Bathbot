@@ -76,7 +76,7 @@ WHERE
         channels: &Channels<S>,
     ) -> Result<()> {
         let channels =
-            rkyv::to_bytes::<_, 32>(channels).wrap_err("failed to serialize channels")?;
+            rkyv::to_bytes::<_, 256>(channels).wrap_err("failed to serialize channels")?;
 
         let query = sqlx::query!(
             r#"

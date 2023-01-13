@@ -61,7 +61,7 @@ impl<'c> RedisManager<'c> {
         let badges = self.ctx.client().get_osekai_badges().await?;
 
         if let Some(mut conn) = conn {
-            let bytes = rkyv::to_bytes::<_, 200_000>(&badges).expect("failed to serialize badges");
+            let bytes = rkyv::to_bytes::<_, 65_536>(&badges).expect("failed to serialize badges");
             let set_fut = conn.set_ex::<_, _, ()>(KEY, bytes.as_slice(), EXPIRE_SECONDS);
 
             if let Err(err) = set_fut.await {
@@ -104,7 +104,7 @@ impl<'c> RedisManager<'c> {
         let medals = self.ctx.client().get_osekai_medals().await?;
 
         if let Some(mut conn) = conn {
-            let bytes = rkyv::to_bytes::<_, 80_000>(&medals).expect("failed to serialize medals");
+            let bytes = rkyv::to_bytes::<_, 16_384>(&medals).expect("failed to serialize medals");
             let set_fut = conn.set_ex::<_, _, ()>(KEY, bytes.as_slice(), EXPIRE_SECONDS);
 
             if let Err(err) = set_fut.await {
@@ -119,7 +119,7 @@ impl<'c> RedisManager<'c> {
     pub async fn osekai_ranking<R>(self) -> RedisResult<Vec<R::Entry>>
     where
         R: OsekaiRanking,
-        <R as OsekaiRanking>::Entry: Serialize<AllocSerializer<70_000>>,
+        <R as OsekaiRanking>::Entry: Serialize<AllocSerializer<65_536>>,
     {
         const EXPIRE_SECONDS: usize = 7200;
         let key = format!("osekai_ranking_{}", R::FORM);
@@ -152,7 +152,7 @@ impl<'c> RedisManager<'c> {
 
         if let Some(mut conn) = conn {
             let bytes =
-                rkyv::to_bytes::<_, 70_000>(&ranking).expect("failed to serialize osekai ranking");
+                rkyv::to_bytes::<_, 65_536>(&ranking).expect("failed to serialize osekai ranking");
 
             let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), EXPIRE_SECONDS);
 
@@ -196,7 +196,7 @@ impl<'c> RedisManager<'c> {
         let group = self.ctx.client().get_osutracker_pp_group(pp).await?;
 
         if let Some(mut conn) = conn {
-            let bytes = rkyv::to_bytes::<_, 7_000>(&group)
+            let bytes = rkyv::to_bytes::<_, 1_024>(&group)
                 .expect("failed to serialize osutracker pp groups");
 
             let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), EXPIRE_SECONDS);
@@ -242,7 +242,7 @@ impl<'c> RedisManager<'c> {
 
         if let Some(mut conn) = conn {
             let bytes =
-                rkyv::to_bytes::<_, 190_000>(&stats).expect("failed to serialize osutracker stats");
+                rkyv::to_bytes::<_, 32_768>(&stats).expect("failed to serialize osutracker stats");
 
             let set_fut = conn.set_ex::<_, _, ()>(KEY, bytes.as_slice(), EXPIRE_SECONDS);
 
@@ -286,8 +286,8 @@ impl<'c> RedisManager<'c> {
         let counts = self.ctx.client().get_osutracker_counts().await?;
 
         if let Some(mut conn) = conn {
-            let bytes = rkyv::to_bytes::<_, 330_000>(&counts)
-                .expect("failed to serialize osutracker counts");
+            let bytes =
+                rkyv::to_bytes::<_, 1>(&counts).expect("failed to serialize osutracker counts");
 
             let set_fut = conn.set_ex::<_, _, ()>(KEY, bytes.as_slice(), EXPIRE_SECONDS);
 
@@ -346,7 +346,7 @@ impl<'c> RedisManager<'c> {
         };
 
         if let Some(mut conn) = conn {
-            let bytes = rkyv::to_bytes::<_, 40_000>(&ranking).expect("failed to serialize ranking");
+            let bytes = rkyv::to_bytes::<_, 32_768>(&ranking).expect("failed to serialize ranking");
             let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), EXPIRE_SECONDS);
 
             if let Err(err) = set_fut.await {

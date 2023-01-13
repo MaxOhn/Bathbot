@@ -85,7 +85,7 @@ impl RedisManager<'_> {
             role_chunks,
         };
 
-        let bytes = rkyv::to_bytes::<_, 1024>(&data).map_err(|inner| FreezeError {
+        let bytes = rkyv::to_bytes::<_, 128>(&data).map_err(|inner| FreezeError {
             kind: ColdResumeErrorKind::ResumeData,
             inner: FreezeInnerError::from(inner),
         })?;
@@ -117,7 +117,7 @@ impl RedisManager<'_> {
     async fn freeze_current_user_(&self, cache: &Cache) -> Result<(), FreezeInnerError> {
         // ~56 bytes
         let bytes = cache
-            .current_user_partial(rkyv::to_bytes::<_, 64>)
+            .current_user_partial(rkyv::to_bytes::<_, 1>)
             .ok_or(FreezeInnerError::MissingCurrentUser)??;
 
         trace!("Current user bytes: {}", bytes.len());
@@ -143,8 +143,8 @@ impl RedisManager<'_> {
         let mut idx = 0;
 
         const CHANNELS_CHUNK_SIZE: usize = 80_000;
-        const SERIALIZER_SIZE: usize = 16_777_216;
-        let mut serializer = AllocSerializer::<SERIALIZER_SIZE>::default();
+        const SCRATCH_SPACE: usize = 4096;
+        let mut serializer = AllocSerializer::<SCRATCH_SPACE>::default();
 
         while channels_count > 0 {
             let count = CHANNELS_CHUNK_SIZE.min(channels_count);
@@ -152,7 +152,7 @@ impl RedisManager<'_> {
             let iter = (&mut channels).take(count);
 
             // ~170 bytes/channel
-            Self::serialize_content::<_, _, SERIALIZER_SIZE>(iter, count, &mut serializer)?;
+            Self::serialize_content::<_, _, SCRATCH_SPACE>(iter, count, &mut serializer)?;
 
             let (serializer_, scratch, shared) = serializer.into_components();
             let mut bytes = serializer_.into_inner();
@@ -187,8 +187,8 @@ impl RedisManager<'_> {
         let mut idx = 0;
 
         const ROLES_CHUNK_SIZE: usize = 150_000;
-        const SERIALIZER_SIZE: usize = 8_388_608;
-        let mut serializer = AllocSerializer::<SERIALIZER_SIZE>::default();
+        const SCRATCH_SPACE: usize = 2048;
+        let mut serializer = AllocSerializer::<SCRATCH_SPACE>::default();
 
         while roles_count > 0 {
             let count = ROLES_CHUNK_SIZE.min(roles_count);
@@ -196,7 +196,7 @@ impl RedisManager<'_> {
             let iter = (&mut roles).take(count);
 
             // ~49 bytes/role
-            Self::serialize_content::<_, _, 8_388_608>(iter, count, &mut serializer)?;
+            Self::serialize_content::<_, _, SCRATCH_SPACE>(iter, count, &mut serializer)?;
 
             let (serializer_, scratch, shared) = serializer.into_components();
             let mut bytes = serializer_.into_inner();
@@ -231,8 +231,8 @@ impl RedisManager<'_> {
         let mut idx = 0;
 
         const MEMBERS_CHUNK_SIZE: usize = 150_000;
-        const SERIALIZER_SIZE: usize = 16_777_216;
-        let mut serializer = AllocSerializer::<SERIALIZER_SIZE>::default();
+        const SCRATCH_SPACE: usize = 65_536;
+        let mut serializer = AllocSerializer::<SCRATCH_SPACE>::default();
 
         while members_count > 0 {
             let count = MEMBERS_CHUNK_SIZE.min(members_count);
@@ -240,7 +240,7 @@ impl RedisManager<'_> {
             let iter = (&mut members).take(count);
 
             // ~91 bytes/member
-            Self::serialize_content::<_, _, 16_777_216>(iter, count, &mut serializer)?;
+            Self::serialize_content::<_, _, SCRATCH_SPACE>(iter, count, &mut serializer)?;
 
             let (serializer_, scratch, shared) = serializer.into_components();
             let mut bytes = serializer_.into_inner();
@@ -275,8 +275,8 @@ impl RedisManager<'_> {
         let mut idx = 0;
 
         const USERS_CHUNK_SIZE: usize = 175_000;
-        const SERIALIZER_SIZE: usize = 8_388_608;
-        let mut serializer = AllocSerializer::<SERIALIZER_SIZE>::default();
+        const SCRATCH_SPACE: usize = 32_768;
+        let mut serializer = AllocSerializer::<SCRATCH_SPACE>::default();
 
         while users_count > 0 {
             let count = USERS_CHUNK_SIZE.min(users_count);
@@ -284,7 +284,7 @@ impl RedisManager<'_> {
             let iter = (&mut users).take(count);
 
             // ~45 bytes/user
-            Self::serialize_content::<_, _, 8_388_608>(iter, count, &mut serializer)?;
+            Self::serialize_content::<_, _, SCRATCH_SPACE>(iter, count, &mut serializer)?;
 
             let (serializer_, scratch, shared) = serializer.into_components();
             let mut bytes = serializer_.into_inner();
@@ -319,8 +319,8 @@ impl RedisManager<'_> {
         let mut idx = 0;
 
         const GUILDS_CHUNK_SIZE: usize = 100_000;
-        const SERIALIZER_SIZE: usize = 8_388_608;
-        let mut serializer = AllocSerializer::<SERIALIZER_SIZE>::default();
+        const SCRATCH_SPACE: usize = 256;
+        let mut serializer = AllocSerializer::<SCRATCH_SPACE>::default();
 
         while guilds_count > 0 {
             let count = GUILDS_CHUNK_SIZE.min(guilds_count);
@@ -328,7 +328,7 @@ impl RedisManager<'_> {
             let iter = (&mut guilds).take(count);
 
             // ~78 bytes/guild
-            Self::serialize_content::<_, _, 8_388_608>(iter, count, &mut serializer)?;
+            Self::serialize_content::<_, _, SCRATCH_SPACE>(iter, count, &mut serializer)?;
 
             let (serializer_, scratch, shared) = serializer.into_components();
             let mut bytes = serializer_.into_inner();

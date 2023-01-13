@@ -121,6 +121,7 @@ impl OsuTracking {
         channel: Id<ChannelMarker>,
         manager: OsuTrackingManager<'_>,
     ) -> Result<()> {
+        debug!("removing user...");
         let remove_entries = self.queue.remove_user(user_id, mode, channel).await;
         self.remove(remove_entries, manager).await?;
 
@@ -133,6 +134,8 @@ impl OsuTracking {
         mode: Option<GameMode>,
         manager: OsuTrackingManager<'_>,
     ) -> Result<usize> {
+        debug!("removing channel...");
+
         let remove_entries = self.queue.remove_channel(channel, mode).await;
         let len = remove_entries.len();
         self.remove(remove_entries, manager).await?;
@@ -145,13 +148,19 @@ impl OsuTracking {
         remove: Vec<RemoveEntry>,
         manager: OsuTrackingManager<'_>,
     ) -> Result<()> {
+        debug!("remove...");
+
         for remove_entry in remove {
+            debug!("no_longer_tracked: {}", remove_entry.no_longer_tracked);
+
             if remove_entry.no_longer_tracked {
                 manager.remove_user(remove_entry.key).await?;
             } else {
                 let guard = self.queue.users.lock(&remove_entry.key).await;
 
                 if let Some(user) = guard.get() {
+                    debug!("got user");
+
                     manager
                         .update_channels(remove_entry.key, &user.channels)
                         .await?;

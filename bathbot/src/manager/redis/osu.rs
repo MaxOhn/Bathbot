@@ -203,8 +203,7 @@ impl<'c> RedisManager<'c> {
         let user = User::from(user);
 
         if let Some(mut conn) = conn {
-            // TODO: experiment with scratch space size
-            let bytes = rkyv::to_bytes::<_, 10_000>(&user).expect("failed to serialize user");
+            let bytes = rkyv::to_bytes::<_, 64>(&user).expect("failed to serialize user");
             let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), EXPIRE_SECONDS);
 
             // Cache users for 10 minutes
@@ -237,8 +236,7 @@ impl<'c> RedisManager<'c> {
         user.mode = mode;
 
         if let Some(mut conn) = conn {
-            // TODO: experiment with scratch space size
-            let bytes = rkyv::to_bytes::<_, 10_000>(&user).expect("failed to serialize user");
+            let bytes = rkyv::to_bytes::<_, 64>(&user).expect("failed to serialize user");
             let set_fut = conn.set_ex::<_, _, ()>(key, bytes.as_slice(), EXPIRE_SECONDS);
 
             // Cache users for 10 minutes
