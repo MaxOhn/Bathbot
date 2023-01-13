@@ -330,7 +330,7 @@ async fn handle_both_links(
 
     let twitch_name = match handle_ephemeral(ctx, command, builder, fut).await {
         Some(Ok((osu, twitch))) => {
-            if Err(err) = ctx.osu_user().store_user(&osu, osu.mode).await {
+            if let Err(err) = ctx.osu_user().store_user(&osu, osu.mode).await {
                 warn!("{err:?}");
             }
 
@@ -411,7 +411,7 @@ async fn handle_osu_link(
 
     config.osu = match handle_ephemeral(ctx, command, builder, fut).await {
         Some(Ok(user)) => {
-            if Err(err) = ctx.osu_user().store_user(&user, user.mode).await {
+            if let Err(err) = ctx.osu_user().store_user(&user, user.mode).await {
                 warn!("{err:?}");
             }
 
