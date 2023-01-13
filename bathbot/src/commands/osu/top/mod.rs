@@ -1037,7 +1037,7 @@ async fn process_scores(
                     .or_else(|| score.mapset.as_ref().map(|mapset| mapset.mapset_id))
                     .expect("neither map nor mapset available");
 
-                farm.get(&mapset_id).map_or(true, |(_, farm)| *farm)
+                farm.get(&mapset_id).map_or(false, |(_, farm)| *farm)
             }
             Some(FarmFilter::NoFarm) => {
                 let mapset_id = score
