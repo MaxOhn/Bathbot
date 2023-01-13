@@ -718,7 +718,7 @@ async fn process_scores(
         let mods = score.mods.bits();
         let rosu_map = &map.pp_map;
 
-        let (pp, max_pp, stars) = match args {
+        let (new_pp, max_pp, stars) = match args {
             TopOld::Osu(o) => match o.version {
                 TopOldOsuVersion::May14July14 => pp_std!(osu_2014_may, rosu_map, score, mods),
                 TopOldOsuVersion::July14February15 => pp_std!(osu_2014_july, rosu_map, score, mods),
@@ -788,9 +788,12 @@ async fn process_scores(
             },
         };
 
+        let old_pp = score.pp.expect("missing pp");
+
         let entry = TopIfEntry {
             original_idx: i,
-            score: ScoreSlim::new(score, pp),
+            score: ScoreSlim::new(score, new_pp),
+            old_pp,
             map,
             stars,
             max_pp,

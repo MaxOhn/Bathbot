@@ -275,6 +275,7 @@ async fn topif(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: TopIf<'_>) -> R
 
 pub struct TopIfEntry {
     pub original_idx: usize,
+    pub old_pp: f32,
     pub score: ScoreSlim,
     pub map: OsuMap,
     pub stars: f32,
@@ -366,15 +367,18 @@ async fn process_scores(
         let mut calc = ctx.pp(&map).mode(score.mode).mods(score.mods);
         let attrs = calc.performance().await;
 
-        let pp = if let Some(pp) = score.pp.filter(|_| !changed) {
-            pp
-        } else {
+        let old_pp = score.pp.expect("missing pp");
+
+        let new_pp = if changed {
             calc.score(&score).performance().await.pp() as f32
+        } else {
+            old_pp
         };
 
         let entry = TopIfEntry {
             original_idx: i,
-            score: ScoreSlim::new(score, pp),
+            score: ScoreSlim::new(score, new_pp),
+            old_pp,
             map,
             stars: attrs.stars() as f32,
             max_pp: attrs.pp() as f32,

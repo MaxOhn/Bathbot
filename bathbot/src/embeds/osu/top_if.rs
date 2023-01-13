@@ -44,6 +44,7 @@ impl TopIfEmbed {
             let TopIfEntry {
                 original_idx,
                 score,
+                old_pp,
                 map,
                 stars,
                 max_pp,
@@ -52,7 +53,7 @@ impl TopIfEmbed {
             let _ = writeln!(
                 description,
                 "**{original_idx}. [{title} [{version}]]({OSU_BASE}b/{id}) {mods}** [{stars:.2}★]\n\
-                {grade} {pp} ~ {acc}% ~ {score}\n[ {combo} ] ~ {hits} ~ {ago}",
+                {grade} {old_pp:.2} → {pp} • {acc}% • {score}\n[ {combo} ] • {hits} • {ago}",
                 title = map.title().cow_escape_markdown(),
                 version = map.version().cow_escape_markdown(),
                 id = map.map_id(),
