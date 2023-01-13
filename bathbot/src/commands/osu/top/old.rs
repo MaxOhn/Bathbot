@@ -50,8 +50,10 @@ pub enum TopOld<'a> {
     name = "osu",
     help = "The osu!standard pp history looks roughly like this:\n\
     - 2012: ppv1 (can't be implemented)\n\
-    - 2014: ppv2 (unavailable)\n\
-    - 2015: High CS nerf(?)\n\
+    - 2014: [ppv2 introduction](https://osu.ppy.sh/home/news/2014-01-26-new-performance-ranking)\n\
+    - 2014: 1.5x star difficulty, nerf aim, buff acc, buff length\n\
+    - 2015: High CS buff, FL depends on length, \"high AR\" increased 10->10.33\n\
+    - 2015: High CS nerf\n\
     - 2018: [HD adjustment](https://osu.ppy.sh/home/news/2018-05-16-performance-updates)\n\
     - 2019: [Angles, speed, spaced streams](https://osu.ppy.sh/home/news/2019-02-05-new-changes-to-star-rating-performance-points)\n\
     - 2021: [High AR nerf, NF & SO buff, speed & acc adjustment](https://osu.ppy.sh/home/news/2021-01-14-performance-points-updates)\n\
@@ -76,6 +78,12 @@ pub struct TopOldOsu<'a> {
 
 #[derive(CommandOption, CreateOption)]
 pub enum TopOldOsuVersion {
+    #[option(name = "May 2014 - July 2014", value = "may14_july14")]
+    May14July14,
+    #[option(name = "July 2014 - February 2015", value = "july14_february15")]
+    July14February15,
+    #[option(name = "February 2015 - April 2015", value = "february15_april15")]
+    February15April15,
     #[option(name = "April 2015 - May 2018", value = "april15_may18")]
     April15May18,
     #[option(name = "May 2018 - February 2019", value = "may18_february19")]
@@ -101,20 +109,18 @@ impl TryFrom<i32> for TopOldOsuVersion {
     fn try_from(year: i32) -> Result<Self, Self::Error> {
         match year {
             i32::MIN..=2006 => Err("osu! was not a thing until september 2007.\n\
-                The first available pp system is from 2015."),
+                The first available pp system is from 2014."),
             2007..=2011 => Err("Up until april 2012, ranked score was the skill metric.\n\
-                The first available pp system is from 2015."),
+                The first available pp system is from 2014."),
             2012..=2013 => Err(
-                "April 2012 till january 2014 the ppv1 system was in place.\n\
-                The source code is not available though \\:(\n\
-                The first available pp system is from 2015.",
+                "April 2012 till january 2014 the ppv1 system was in place, \
+                which is unfortunately impossible to implement nowadays \
+                because of lacking data \\:(\n\
+                The first available pp system is from 2014.",
             ),
-            2014 => Err(
-                "ppv2 replaced ppv1 in january 2014 and lasted until april 2015.\n\
-                The source code is not available though \\:(\n\
-                The first available pp system is from 2015.",
-            ),
-            2015..=2017 => Ok(Self::April15May18),
+            2014 => Ok(Self::May14July14),
+            2015 => Ok(Self::February15April15),
+            2016..=2017 => Ok(Self::April15May18),
             2018 => Ok(Self::May18February19),
             2019..=2020 => Ok(Self::February19January21),
             2021 => Ok(Self::July21November21),
@@ -128,7 +134,7 @@ impl TryFrom<i32> for TopOldOsuVersion {
 #[command(
     name = "taiko",
     help = "The osu!taiko pp history looks roughly like this:\n\
-    - 2014: ppv1\n\
+    - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
     - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-09-15-changes-to-osutaiko-star-rating)\n\
     - 2022: [Stamina, colour, & peaks rework](https://osu.ppy.sh/home/news/2022-09-28-changes-to-osu-taiko-sr-and-pp)"
 )]
@@ -178,7 +184,7 @@ impl TryFrom<i32> for TopOldTaikoVersion {
 #[command(
     name = "ctb",
     help = "The osu!ctb pp history looks roughly like this:\n\
-    - 2014: ppv1\n\
+    - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
     - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-05-14-osucatch-scoring-updates)"
 )]
 /// How the current osu!ctb top plays would look like on a previous pp system
@@ -221,7 +227,7 @@ impl TryFrom<i32> for TopOldCatchVersion {
 #[command(
     name = "mania",
     help = "The osu!mania pp history looks roughly like this:\n\
-    - 2014: ppv1\n\
+    - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
     - 2018: [ppv2](https://osu.ppy.sh/home/news/2018-05-16-performance-updates)\n\
     - 2022: [Accuracy based PP](https://osu.ppy.sh/home/news/2022-10-09-changes-to-osu-mania-sr-and-pp)"
 )]
@@ -277,9 +283,11 @@ pub async fn slash_topold(ctx: Arc<Context>, mut command: InteractionCommand) ->
     in a previous year.\n\
     Note that the command will **not** change scores, just recalculate their pp.\n\
     The osu!standard pp history looks roughly like this:\n\
-    - 2012: ppv1 (unavailable)\n\
-    - 2014: ppv2 (unavailable)\n\
-    - 2015: High CS nerf(?)\n\
+    - 2012: ppv1 (can't be implemented)\n\
+    - 2014: [ppv2 introduction](https://osu.ppy.sh/home/news/2014-01-26-new-performance-ranking)\n\
+    - 2014: 1.5x star difficulty, nerf aim, buff acc, buff length\n\
+    - 2015: High CS buff, FL depends on length, \"high AR\" increased 10->10.33\n\
+    - 2015: High CS nerf\n\
     - 2018: [HD adjustment](https://osu.ppy.sh/home/news/2018-05-16-performance-updates)\n\
     - 2019: [Angles, speed, spaced streams](https://osu.ppy.sh/home/news/2019-02-05-new-changes-to-star-rating-performance-points)\n\
     - 2021: [High AR nerf, NF & SO buff, speed & acc adjustment](https://osu.ppy.sh/home/news/2021-01-14-performance-points-updates)\n\
@@ -309,7 +317,7 @@ async fn prefix_topold(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Resu
     in a previous year.\n\
     Note that the command will **not** change scores, just recalculate their pp.\n\
     The osu!mania pp history looks roughly like this:\n\
-    - 2014: ppv1\n\
+    - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
     - 2018: [ppv2](https://osu.ppy.sh/home/news/2018-05-16-performance-updates)\n\
     - 2022: [Accuracy based PP](https://osu.ppy.sh/home/news/2022-10-09-changes-to-osu-mania-sr-and-pp)"
 )]
@@ -335,7 +343,7 @@ async fn prefix_topoldmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
     in a previous year.\n\
     Note that the command will **not** change scores, just recalculate their pp.\n\
     The osu!taiko pp history looks roughly like this:\n\
-    - 2014: ppv1\n\
+    - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
     - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-09-15-changes-to-osutaiko-star-rating)\n\
     - 2022: [Stamina, colour, & peaks rework](https://osu.ppy.sh/home/news/2022-09-28-changes-to-osu-taiko-sr-and-pp)"
 )]
@@ -361,7 +369,7 @@ async fn prefix_topoldtaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
     in a previous year.\n\
     Note that the command will **not** change scores, just recalculate their pp.\n\
     The osu!ctb pp history looks roughly like this:\n\
-    - 2014: ppv1\n\
+    - 2014: [ppv1](https://osu.ppy.sh/home/news/2014-03-01-performance-ranking-for-all-gamemodes)\n\
     - 2020: [Revamp](https://osu.ppy.sh/home/news/2020-05-14-osucatch-scoring-updates)"
 )]
 #[usage("[username] [year]")]
@@ -450,6 +458,9 @@ impl<'m> TopOld<'m> {
     fn date_range(&self) -> &'static str {
         match self {
             TopOld::Osu(o) => match o.version {
+                TopOldOsuVersion::May14July14 => "between may 2014 and july 2014",
+                TopOldOsuVersion::July14February15 => "between july 2014 and february 2015",
+                TopOldOsuVersion::February15April15 => "between february 2015 and april 2015",
                 TopOldOsuVersion::April15May18 => "between april 2015 and may 2018",
                 TopOldOsuVersion::May18February19 => "between may 2018 and february 2019",
                 TopOldOsuVersion::February19January21 => "between february 2019 and january 2021",
@@ -709,7 +720,12 @@ async fn process_scores(
 
         let (pp, max_pp, stars) = match args {
             TopOld::Osu(o) => match o.version {
-                TopOldOsuVersion::April15May18 => pp_std!(osu_2015, rosu_map, score, mods),
+                TopOldOsuVersion::May14July14 => pp_std!(osu_2014_may, rosu_map, score, mods),
+                TopOldOsuVersion::July14February15 => pp_std!(osu_2014_july, rosu_map, score, mods),
+                TopOldOsuVersion::February15April15 => {
+                    pp_std!(osu_2015_february, rosu_map, score, mods)
+                }
+                TopOldOsuVersion::April15May18 => pp_std!(osu_2015_april, rosu_map, score, mods),
                 TopOldOsuVersion::May18February19 => pp_std!(osu_2018, rosu_map, score, mods),
                 TopOldOsuVersion::February19January21 => pp_std!(osu_2019, rosu_map, score, mods),
                 TopOldOsuVersion::January21July21 => {
