@@ -53,7 +53,7 @@ pub enum TopOld<'a> {
     - 2014: [ppv2 introduction](https://osu.ppy.sh/home/news/2014-01-26-new-performance-ranking)\n\
     - 2014: 1.5x star difficulty, nerf aim, buff acc, buff length\n\
     - 2015: High CS buff, FL depends on length, \"high AR\" increased 10->10.33\n\
-    - 2015: High CS nerf\n\
+    - 2015: Slight high CS nerf\n\
     - 2018: [HD adjustment](https://osu.ppy.sh/home/news/2018-05-16-performance-updates)\n\
     - 2019: [Angles, speed, spaced streams](https://osu.ppy.sh/home/news/2019-02-05-new-changes-to-star-rating-performance-points)\n\
     - 2021: [High AR nerf, NF & SO buff, speed & acc adjustment](https://osu.ppy.sh/home/news/2021-01-14-performance-points-updates)\n\
@@ -287,7 +287,7 @@ pub async fn slash_topold(ctx: Arc<Context>, mut command: InteractionCommand) ->
     - 2014: [ppv2 introduction](https://osu.ppy.sh/home/news/2014-01-26-new-performance-ranking)\n\
     - 2014: 1.5x star difficulty, nerf aim, buff acc, buff length\n\
     - 2015: High CS buff, FL depends on length, \"high AR\" increased 10->10.33\n\
-    - 2015: High CS nerf\n\
+    - 2015: Slight high CS nerf\n\
     - 2018: [HD adjustment](https://osu.ppy.sh/home/news/2018-05-16-performance-updates)\n\
     - 2019: [Angles, speed, spaced streams](https://osu.ppy.sh/home/news/2019-02-05-new-changes-to-star-rating-performance-points)\n\
     - 2021: [High AR nerf, NF & SO buff, speed & acc adjustment](https://osu.ppy.sh/home/news/2021-01-14-performance-points-updates)\n\
