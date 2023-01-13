@@ -1,5 +1,6 @@
 use eyre::{Result, WrapErr};
 use rosu_v2::prelude::Username;
+use sqlx::{Executor, Postgres};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::database::Database;
@@ -102,8 +103,10 @@ SET
         Ok(())
     }
 
-    #[cfg(test)]
-    pub async fn delete_osu_username(&self, user_id: u32) -> Result<()> {
+    pub async fn delete_osu_username<'c, E>(executor: E, user_id: u32) -> Result<()>
+    where
+        E: Executor<'c, Database = Postgres>,
+    {
         let query = sqlx::query!(
             r#"
 DELETE FROM 
@@ -114,7 +117,7 @@ WHERE
         );
 
         query
-            .execute(self)
+            .execute(executor)
             .await
             .wrap_err("failed to execute query")?;
 
@@ -143,7 +146,7 @@ pub(in crate::impls) mod tests {
 
         psql.upsert_osu_username(user_id, username).await?;
         fut.await?;
-        psql.delete_osu_username(user_id).await?;
+        Database::delete_osu_username(psql, user_id).await?;
 
         Ok(())
     }

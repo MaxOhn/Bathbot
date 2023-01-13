@@ -778,6 +778,6 @@ WHERE
             .await
             .wrap_err("failed to execute osu_user_mode_stats query")?;
 
-        Ok(())
+        Self::delete_osu_username(&mut conn, user_id).await
     }
 }
