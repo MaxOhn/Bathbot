@@ -292,22 +292,23 @@ async fn process_scores(
         entries.push(entry);
     }
 
-    match args.sort.unwrap_or_default() {
-        ScoreOrder::Acc => entries.sort_by(|a, b| {
+    match args.sort {
+        None => {}
+        Some(ScoreOrder::Acc) => entries.sort_by(|a, b| {
             b.score
                 .accuracy
                 .partial_cmp(&a.score.accuracy)
                 .unwrap_or(Ordering::Equal)
         }),
-        ScoreOrder::Bpm => entries.sort_by(|a, b| {
+        Some(ScoreOrder::Bpm) => entries.sort_by(|a, b| {
             b.map
                 .bpm()
                 .partial_cmp(&a.map.bpm())
                 .unwrap_or(Ordering::Equal)
         }),
-        ScoreOrder::Combo => entries.sort_by_key(|entry| Reverse(entry.score.max_combo)),
-        ScoreOrder::Date => entries.sort_by_key(|entry| Reverse(entry.score.ended_at)),
-        ScoreOrder::Length => {
+        Some(ScoreOrder::Combo) => entries.sort_by_key(|entry| Reverse(entry.score.max_combo)),
+        Some(ScoreOrder::Date) => entries.sort_by_key(|entry| Reverse(entry.score.ended_at)),
+        Some(ScoreOrder::Length) => {
             entries.sort_by(|a, b| {
                 let a_len = a.map.seconds_drain() as f32 / a.score.mods.clock_rate();
                 let b_len = b.map.seconds_drain() as f32 / b.score.mods.clock_rate();
@@ -315,7 +316,7 @@ async fn process_scores(
                 b_len.partial_cmp(&a_len).unwrap_or(Ordering::Equal)
             });
         }
-        ScoreOrder::Misses => entries.sort_by(|a, b| {
+        Some(ScoreOrder::Misses) => entries.sort_by(|a, b| {
             b.score
                 .statistics
                 .count_miss
@@ -333,15 +334,17 @@ async fn process_scores(
                         .then_with(|| hits_b.cmp(&hits_a))
                 })
         }),
-        ScoreOrder::Pp => entries.sort_by(|a, b| {
+        Some(ScoreOrder::Pp) => entries.sort_by(|a, b| {
             b.score
                 .pp
                 .partial_cmp(&a.score.pp)
                 .unwrap_or(Ordering::Equal)
         }),
-        ScoreOrder::RankedDate => entries.sort_by_key(|entry| Reverse(entry.map.ranked_date())),
-        ScoreOrder::Score => entries.sort_by_key(|entry| Reverse(entry.score.score)),
-        ScoreOrder::Stars => {
+        Some(ScoreOrder::RankedDate) => {
+            entries.sort_by_key(|entry| Reverse(entry.map.ranked_date()))
+        }
+        Some(ScoreOrder::Score) => entries.sort_by_key(|entry| Reverse(entry.score.score)),
+        Some(ScoreOrder::Stars) => {
             entries.sort_by(|a, b| b.stars.partial_cmp(&a.stars).unwrap_or(Ordering::Equal))
         }
     }
