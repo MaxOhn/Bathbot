@@ -163,6 +163,7 @@ impl MapEmbed {
             let _ = write!(info_value, "Combo: `{combo}x`");
         }
 
+        let stars = (stars * 100_000.0).floor() / 100_000.0;
         let _ = writeln!(info_value, " Stars: `{stars}★`");
         let _ = write!(info_value, "Length: `{}` ", SecToMinSec::new(seconds_total));
 
