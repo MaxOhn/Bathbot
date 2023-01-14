@@ -25,6 +25,7 @@ hashbrown = { version = "0.12" }
 image = { version = "0.24", default-features = false, features = ["gif", "png"] }
 itertools = { version = "0.10" }
 leaky-bucket-lite = { version = "0.5", features = ["parking_lot"] }
+num_cpus = { version = "1.15" }
 once_cell = { version = "1.0" }
 parking_lot = { version = "0.12", default-features = false }
 plotters = { version = "0.3", default-features = false, features = ["bitmap_backend", "image", "line_series", "area_series", "histogram", "point_series"] }
