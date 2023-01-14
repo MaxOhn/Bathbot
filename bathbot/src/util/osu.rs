@@ -9,6 +9,7 @@ use image::{
 };
 use rosu_pp::{CatchPP, DifficultyAttributes, OsuPP, TaikoPP};
 use rosu_v2::prelude::{GameMode, GameMods, Grade, ScoreStatistics};
+use time::OffsetDateTime;
 
 use crate::{
     core::{BotConfig, Context},
@@ -76,6 +77,7 @@ pub struct TopCounts {
     pub top50s_rank: Option<String>,
     pub top100s: Option<Cow<'static, str>>,
     pub top100s_rank: Option<String>,
+    pub last_update: Option<OffsetDateTime>,
 }
 
 impl TopCounts {
@@ -127,6 +129,7 @@ impl TopCounts {
                 top50s_rank: None,
                 top100s: None,
                 top100s_rank: None,
+                last_update: None,
             }),
             Err(err) => {
                 warn!("{:?}", err.wrap_err("failed to get respektive top counts"));
@@ -196,6 +199,7 @@ impl TopCounts {
                 top50s_rank: None,
                 top100s: None,
                 top100s_rank: None,
+                last_update: None,
             }
         };
 
@@ -221,6 +225,7 @@ impl From<RespektiveTopCount> for TopCounts {
             top50s_rank: top_count.top50s_rank.map(format_rank),
             top100s: Some(WithComma::new(top_count.top100s).to_string().into()),
             top100s_rank: top_count.top100s_rank.map(format_rank),
+            last_update: Some(top_count.last_update),
         }
     }
 }
@@ -276,6 +281,7 @@ impl IntoIterator for TopCounts {
             top50s_rank,
             top100s,
             top100s_rank,
+            last_update: _,
         } = self;
 
         let top_n = [1, 8, 15, 25, 50, 100];
@@ -351,6 +357,7 @@ impl<'a> IntoIterator for &'a TopCounts {
             top50s_rank,
             top100s,
             top100s_rank,
+            last_update: _,
         } = self;
 
         let top_n = [1, 8, 15, 25, 50, 100];
