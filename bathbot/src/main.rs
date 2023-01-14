@@ -44,14 +44,14 @@ fn main() {
         );
     }
 
+    let _log_worker_guard = logging::init();
+
     if let Err(report) = runtime.block_on(async_main()) {
         error!("{:?}", report.wrap_err("Critical error in main"));
     }
 }
 
 async fn async_main() -> Result<()> {
-    let _log_worker_guard = logging::init();
-
     // Load config file
     BotConfig::init().context("failed to initialize config")?;
 
