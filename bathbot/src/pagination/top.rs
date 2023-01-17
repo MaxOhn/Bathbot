@@ -5,6 +5,7 @@ use bathbot_model::OsuTrackerMapsetEntry;
 use bathbot_psql::model::configs::MinimizedPp;
 use bathbot_util::IntHasher;
 use eyre::Result;
+use rosu_v2::prelude::GameMode;
 use twilight_model::channel::embed::Embed;
 
 use crate::{
@@ -19,6 +20,7 @@ use super::Pages;
 #[pagination(per_page = 5, entries = "entries")]
 pub struct TopPagination {
     user: RedisData<User>,
+    mode: GameMode,
     entries: Vec<TopEntry>,
     sort_by: TopScoreOrder,
     farm: HashMap<u32, (OsuTrackerMapsetEntry, bool), IntHasher>,
@@ -29,13 +31,22 @@ impl TopPagination {
         let end_idx = self.entries.len().min(pages.index + pages.per_page);
         let scores = &self.entries[pages.index..end_idx];
 
-        TopEmbed::new(&self.user, scores, self.sort_by, &self.farm, pages).build()
+        TopEmbed::new(
+            &self.user,
+            scores,
+            self.sort_by,
+            &self.farm,
+            self.mode,
+            pages,
+        )
+        .build()
     }
 }
 
 #[pagination(per_page = 10, entries = "entries")]
 pub struct TopCondensedPagination {
     user: RedisData<User>,
+    mode: GameMode,
     entries: Vec<TopEntry>,
     sort_by: TopScoreOrder,
     farm: HashMap<u32, (OsuTrackerMapsetEntry, bool), IntHasher>,
@@ -46,7 +57,15 @@ impl TopCondensedPagination {
         let end_idx = self.entries.len().min(pages.index + pages.per_page);
         let scores = &self.entries[pages.index..end_idx];
 
-        CondensedTopEmbed::new(&self.user, scores, self.sort_by, &self.farm, pages).build()
+        CondensedTopEmbed::new(
+            &self.user,
+            scores,
+            self.sort_by,
+            &self.farm,
+            self.mode,
+            pages,
+        )
+        .build()
     }
 }
 

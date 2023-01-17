@@ -197,7 +197,7 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
 
         match list_size {
             ListSize::Condensed => {
-                TopCondensedPagination::builder(user, entries, sort_by, farm)
+                TopCondensedPagination::builder(user, mode, entries, sort_by, farm)
                     .content(content.unwrap_or_default())
                     .start_by_update()
                     .defer_components()
@@ -205,7 +205,7 @@ async fn pinned(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Pinned) -> Res
                     .await?;
             }
             ListSize::Detailed => {
-                TopPagination::builder(user, entries, sort_by, farm)
+                TopPagination::builder(user, mode, entries, sort_by, farm)
                     .content(content.unwrap_or_default())
                     .start_by_update()
                     .defer_components()

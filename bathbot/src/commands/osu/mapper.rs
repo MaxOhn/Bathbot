@@ -321,7 +321,7 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
 
     match list_size {
         ListSize::Condensed => {
-            TopCondensedPagination::builder(user, entries, sort_by, farm)
+            TopCondensedPagination::builder(user, mode, entries, sort_by, farm)
                 .content(content)
                 .start_by_update()
                 .defer_components()
@@ -329,7 +329,7 @@ async fn mapper(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Mapper<'_>) ->
                 .await
         }
         ListSize::Detailed => {
-            TopPagination::builder(user, entries, sort_by, farm)
+            TopPagination::builder(user, mode, entries, sort_by, farm)
                 .content(content)
                 .start_by_update()
                 .defer_components()

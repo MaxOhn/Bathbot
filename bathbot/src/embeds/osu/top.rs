@@ -42,9 +42,10 @@ impl TopEmbed {
         entries: &[TopEntry],
         sort_by: impl Into<TopScoreOrder>,
         farm: &Farm,
+        mode: GameMode,
         pages: &Pages,
     ) -> Self {
-        Self::new_(user, entries, sort_by.into(), farm, pages)
+        Self::new_(user, entries, sort_by.into(), farm, mode, pages)
     }
 
     pub fn new_(
@@ -52,6 +53,7 @@ impl TopEmbed {
         entries: &[TopEntry],
         sort_by: TopScoreOrder,
         farm: &Farm,
+        mode: GameMode,
         pages: &Pages,
     ) -> Self {
         let mut description = String::with_capacity(512);
@@ -90,7 +92,7 @@ impl TopEmbed {
             "Page {}/{} | Mode: {}",
             pages.curr_page(),
             pages.last_page(),
-            mode_str(user.mode())
+            mode_str(mode)
         );
 
         Self {
@@ -116,10 +118,9 @@ impl CondensedTopEmbed {
         entries: &[TopEntry],
         sort_by: TopScoreOrder,
         farm: &Farm,
+        mode: GameMode,
         pages: &Pages,
     ) -> Self {
-        let mode = user.mode();
-
         let description = if mode == GameMode::Mania {
             Self::description_mania(entries, sort_by, farm)
         } else {

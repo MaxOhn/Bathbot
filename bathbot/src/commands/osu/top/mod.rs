@@ -937,7 +937,7 @@ pub(super) async fn top(
 
             match list_size {
                 ListSize::Condensed => {
-                    TopCondensedPagination::builder(user, entries, args.sort_by, farm)
+                    TopCondensedPagination::builder(user, mode, entries, args.sort_by, farm)
                         .content(content.unwrap_or_default())
                         .start_by_update()
                         .defer_components()
@@ -945,7 +945,7 @@ pub(super) async fn top(
                         .await?;
                 }
                 ListSize::Detailed => {
-                    TopPagination::builder(user, entries, args.sort_by, farm)
+                    TopPagination::builder(user, mode, entries, args.sort_by, farm)
                         .content(content.unwrap_or_default())
                         .start_by_update()
                         .defer_components()
