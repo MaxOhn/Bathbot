@@ -1,13 +1,25 @@
-use std::{array::IntoIter, borrow::Cow, io::Cursor, mem::MaybeUninit};
+use std::{
+    array::IntoIter,
+    borrow::Cow,
+    fmt::{Display, Formatter, Result as FmtResult},
+    io::Cursor,
+    mem::MaybeUninit,
+};
 
 use bathbot_model::{OsuStatsParams, RespektiveTopCount, ScoreSlim};
-use bathbot_util::numbers::WithComma;
+use bathbot_util::{
+    datetime::SecToMinSec,
+    numbers::{round, WithComma},
+};
 use eyre::{Result, WrapErr};
 use futures::{stream::FuturesOrdered, StreamExt};
 use image::{
     imageops::FilterType, DynamicImage, GenericImage, GenericImageView, ImageOutputFormat,
 };
-use rosu_pp::{CatchPP, DifficultyAttributes, OsuPP, TaikoPP};
+use rosu_pp::{
+    beatmap::BeatmapAttributesBuilder, CatchPP, DifficultyAttributes, GameMode as Mode, OsuPP,
+    TaikoPP,
+};
 use rosu_v2::prelude::{GameMode, GameMods, Grade, ScoreStatistics};
 use time::OffsetDateTime;
 
@@ -588,4 +600,80 @@ pub async fn get_combined_thumbnail<'s>(
     combined.write_to(&mut cursor, ImageOutputFormat::Png)?;
 
     Ok(cursor.into_inner())
+}
+
+pub struct MapInfo<'map> {
+    map: &'map OsuMap,
+    stars: f32,
+    mods: Option<u32>,
+    clock_rate: Option<f32>,
+}
+
+impl<'map> MapInfo<'map> {
+    pub fn new(map: &'map OsuMap, stars: f32) -> Self {
+        Self {
+            map,
+            stars,
+            mods: None,
+            clock_rate: None,
+        }
+    }
+
+    pub fn mods(&mut self, mods: GameMods) -> &mut Self {
+        self.mods = Some(mods.bits());
+
+        self
+    }
+
+    pub fn clock_rate(&mut self, clock_rate: f32) -> &mut Self {
+        self.clock_rate = Some(clock_rate);
+
+        self
+    }
+}
+
+impl Display for MapInfo<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let mode = match self.map.mode() {
+            GameMode::Osu => Mode::Osu,
+            GameMode::Taiko => Mode::Taiko,
+            GameMode::Catch => Mode::Catch,
+            GameMode::Mania => Mode::Mania,
+        };
+
+        let mods = self.mods.unwrap_or(0);
+
+        let mut builder = BeatmapAttributesBuilder::new(&self.map.pp_map);
+
+        if let Some(clock_rate) = self.clock_rate {
+            builder.clock_rate(clock_rate as f64);
+        }
+
+        let attrs = builder.mode(mode).mods(mods).build();
+
+        let clock_rate = attrs.clock_rate;
+        let mut sec_drain = self.map.seconds_drain();
+        let mut bpm = self.map.bpm();
+
+        if (clock_rate - 1.0).abs() > f64::EPSILON {
+            let clock_rate = clock_rate as f32;
+
+            bpm *= clock_rate;
+            sec_drain = (sec_drain as f32 / clock_rate) as u32;
+        }
+
+        write!(
+            f,
+            "Length: `{}` BPM: `{}` Objects: `{}`\n\
+            CS: `{}` AR: `{}` OD: `{}` HP: `{}` Stars: `{}`",
+            SecToMinSec::new(sec_drain),
+            round(bpm),
+            self.map.n_objects(),
+            round(attrs.cs as f32),
+            round(attrs.ar as f32),
+            round(attrs.od as f32),
+            round(attrs.hp as f32),
+            round(self.stars),
+        )
+    }
 }

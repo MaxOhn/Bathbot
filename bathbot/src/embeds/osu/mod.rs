@@ -52,10 +52,8 @@ mod top_if;
 mod top_single;
 mod whatif;
 
-use std::fmt::{Display, Formatter, Result as FmtResult, Write};
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
-use bathbot_util::{datetime::SecToMinSec, numbers::round};
-use rosu_pp::beatmap::BeatmapAttributesBuilder;
 use rosu_v2::prelude::{GameMode, GameMods, ScoreStatistics};
 
 use crate::manager::OsuMap;
@@ -206,49 +204,4 @@ impl Display for HitResultFormatter {
 
         write!(f, "{}}}", self.stats.count_miss)
     }
-}
-
-/// The stars argument must already be adjusted for mods
-pub fn get_map_info(map: &OsuMap, mods: GameMods, stars: f32) -> String {
-    let mode = match map.mode() {
-        GameMode::Osu => rosu_pp::GameMode::Osu,
-        GameMode::Taiko => rosu_pp::GameMode::Taiko,
-        GameMode::Catch => rosu_pp::GameMode::Catch,
-        GameMode::Mania => rosu_pp::GameMode::Mania,
-    };
-
-    let attrs = BeatmapAttributesBuilder::new(&map.pp_map)
-        .mode(mode)
-        .mods(mods.bits())
-        .build();
-
-    let clock_rate = attrs.clock_rate;
-    let mut sec_drain = map.seconds_drain();
-    let mut bpm = map.bpm();
-
-    if (clock_rate - 1.0).abs() > f64::EPSILON {
-        let clock_rate = clock_rate as f32;
-
-        bpm *= clock_rate;
-        sec_drain = (sec_drain as f32 / clock_rate) as u32;
-    }
-
-    let mut map_info = String::with_capacity(128);
-
-    let _ = write!(map_info, "Length: `{}` ", SecToMinSec::new(sec_drain));
-
-    let _ = write!(
-        map_info,
-        "BPM: `{}` Objects: `{}`\n\
-        CS: `{}` AR: `{}` OD: `{}` HP: `{}` Stars: `{}`",
-        round(bpm),
-        map.n_objects(),
-        round(attrs.cs as f32),
-        round(attrs.ar as f32),
-        round(attrs.od as f32),
-        round(attrs.hp as f32),
-        round(stars),
-    );
-
-    map_info
 }

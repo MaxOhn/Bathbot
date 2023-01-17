@@ -16,12 +16,11 @@ use twilight_model::channel::embed::Embed;
 
 use crate::{
     commands::osu::CompareEntry,
-    embeds::osu,
     manager::{
         redis::{osu::User, RedisData},
         OsuMap,
     },
-    util::osu::{grade_completion_mods, IfFc},
+    util::osu::{grade_completion_mods, IfFc, MapInfo},
 };
 
 use super::{ComboFormatter, HitResultFormatter, KeyFormatter, PpFormatter};
@@ -176,7 +175,7 @@ impl CompareEmbed {
             hits,
             mapset_id: map.mapset_id(),
             if_fc: if_fc.clone(),
-            map_info: osu::get_map_info(map, mods, *stars),
+            map_info: MapInfo::new(map, *stars).mods(mods).to_string(),
             minimized_pp,
         }
     }

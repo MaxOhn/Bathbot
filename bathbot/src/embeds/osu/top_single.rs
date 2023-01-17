@@ -14,9 +14,9 @@ use twilight_model::channel::embed::Embed;
 use crate::{
     commands::osu::TopEntry,
     core::Context,
-    embeds::osu::{get_map_info, PpFormatter},
+    embeds::osu::PpFormatter,
     manager::redis::{osu::User, RedisData},
-    util::osu::{grade_completion_mods, IfFc},
+    util::osu::{grade_completion_mods, IfFc, MapInfo},
 };
 
 use super::{ComboFormatter, HitResultFormatter, KeyFormatter};
@@ -145,7 +145,7 @@ impl TopSingleEmbed {
             max_pp: Some(*max_pp),
             combo,
             hits,
-            map_info: get_map_info(map, score.mods, *stars),
+            map_info: MapInfo::new(map, *stars).mods(score.mods).to_string(),
             if_fc,
             mapset_cover: map.cover().to_owned(),
             minimized_pp,

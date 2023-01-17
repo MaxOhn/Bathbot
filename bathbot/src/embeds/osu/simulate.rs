@@ -15,9 +15,9 @@ use twilight_model::channel::embed::EmbedField;
 
 use crate::{
     commands::osu::{TopOldCatchVersion, TopOldManiaVersion, TopOldOsuVersion, TopOldTaikoVersion},
-    embeds::{get_map_info, ComboFormatter, HitResultFormatter, PpFormatter},
+    embeds::{ComboFormatter, HitResultFormatter, PpFormatter},
     manager::OsuMap,
-    util::osu::grade_completion_mods,
+    util::osu::{grade_completion_mods, MapInfo},
 };
 
 use super::KeyFormatter;
@@ -66,6 +66,7 @@ impl SimulateEmbed {
         } = data.simulate(map);
 
         let mods = data.mods.unwrap_or_default();
+        let mut map_info = MapInfo::new(map, stars);
 
         let mut grade = if mods.intersects(GameMods::Hidden | GameMods::Flashlight) {
             Grade::XH
@@ -155,6 +156,7 @@ impl SimulateEmbed {
         fields.push(pp);
 
         if let Some(clock_rate) = clock_rate {
+            map_info.clock_rate(clock_rate);
             fields![fields { "Clock rate", format!("{clock_rate:.2}"), true }];
         }
 
@@ -162,8 +164,8 @@ impl SimulateEmbed {
             fields.push(hits);
         }
 
-        let map_info = get_map_info(map, mods, stars);
-        fields![fields { "Map Info", map_info, false; }];
+        map_info.mods(mods);
+        fields![fields { "Map Info", map_info.to_string(), false; }];
 
         Self {
             fields,
