@@ -23,6 +23,7 @@ use twilight_model::channel::{message::MessageType, Message};
 
 use crate::{
     core::commands::{prefix::Args, CommandOrigin},
+    embeds::MessageOrigin,
     pagination::MapPagination,
     util::{interaction::InteractionCommand, ChannelExt, InteractionCommandExt},
     Context,
@@ -357,7 +358,8 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
 
     let content = attrs.content();
 
-    let mut builder = MapPagination::builder(mapset, maps, mods, map_idx, attrs);
+    let origin = MessageOrigin::new(orig.guild_id(), orig.channel_id());
+    let mut builder = MapPagination::builder(mapset, maps, mods, map_idx, attrs, origin);
 
     if let Some(bytes) = graph {
         builder = builder.attachment("map_graph.png", bytes);

@@ -1,4 +1,4 @@
-use std::fmt::Write;
+use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use bathbot_macros::EmbedData;
 use bathbot_util::{
@@ -11,7 +11,13 @@ use eyre::{Result, WrapErr};
 use rosu_pp::{AnyPP, BeatmapExt};
 use rosu_v2::prelude::{Beatmap, Beatmapset, GameMode, GameMods};
 use time::OffsetDateTime;
-use twilight_model::channel::embed::EmbedField;
+use twilight_model::{
+    channel::embed::EmbedField,
+    id::{
+        marker::{ChannelMarker, GuildMarker},
+        Id,
+    },
+};
 
 use crate::{
     commands::osu::CustomAttrs, core::Context, embeds::attachment, pagination::Pages,
@@ -36,6 +42,7 @@ impl MapEmbed {
         mapset: &Beatmapset,
         mods: GameMods,
         attrs: &CustomAttrs,
+        origin: MessageOrigin,
         ctx: &Context,
         pages: &Pages,
     ) -> Result<Self> {
@@ -163,11 +170,7 @@ impl MapEmbed {
             let _ = write!(info_value, "Combo: `{combo}x`");
         }
 
-        let _ = writeln!(
-            info_value,
-            " Stars: [`{stars:.2}★`]({} \"{stars}\")",
-            map.url
-        );
+        let _ = writeln!(info_value, " Stars: [`{stars:.2}★`]({origin} \"{stars}\")",);
         let _ = write!(info_value, "Length: `{}` ", SecToMinSec::new(seconds_total));
 
         if seconds_drain != seconds_total {
@@ -262,5 +265,29 @@ impl MapEmbed {
             description,
             url: map.url.to_owned(),
         })
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct MessageOrigin {
+    guild: Option<Id<GuildMarker>>,
+    channel: Id<ChannelMarker>,
+}
+
+impl MessageOrigin {
+    pub fn new(guild: Option<Id<GuildMarker>>, channel: Id<ChannelMarker>) -> Self {
+        Self { guild, channel }
+    }
+}
+
+impl Display for MessageOrigin {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let Self { guild, channel } = self;
+
+        match guild {
+            Some(guild) => write!(f, "https://discord.com/channels/{guild}/{channel}/#"),
+            None => write!(f, "https://discord.com/channels/@me/{channel}/#"),
+        }
     }
 }

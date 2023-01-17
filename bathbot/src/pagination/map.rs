@@ -4,7 +4,7 @@ use twilight_model::channel::embed::Embed;
 
 use crate::{
     commands::osu::CustomAttrs,
-    embeds::{EmbedData, MapEmbed},
+    embeds::{EmbedData, MapEmbed, MessageOrigin},
 };
 
 use super::{Context, Pages, PaginationBuilder, PaginationKind};
@@ -15,6 +15,7 @@ pub struct MapPagination {
     maps: Vec<Beatmap>,
     mods: GameMods,
     attrs: CustomAttrs,
+    origin: MessageOrigin,
 }
 
 impl MapPagination {
@@ -24,6 +25,7 @@ impl MapPagination {
         mods: GameMods,
         start_idx: usize,
         attrs: CustomAttrs,
+        origin: MessageOrigin,
     ) -> PaginationBuilder {
         let mut pages = Pages::new(1, maps.len());
         pages.index = start_idx;
@@ -33,6 +35,7 @@ impl MapPagination {
             maps,
             mods,
             attrs,
+            origin,
         };
 
         let kind = PaginationKind::Map(Box::new(pagination));
@@ -43,7 +46,17 @@ impl MapPagination {
     pub async fn build_page(&mut self, ctx: &Context, pages: &Pages) -> Result<Embed> {
         let map = &self.maps[pages.index];
 
-        MapEmbed::new(map, &self.mapset, self.mods, &self.attrs, ctx, pages)
+        let embed_fut = MapEmbed::new(
+            map,
+            &self.mapset,
+            self.mods,
+            &self.attrs,
+            self.origin,
+            ctx,
+            pages,
+        );
+
+        embed_fut
             .await
             .map(EmbedData::build)
             .wrap_err("failed to create embed data")
