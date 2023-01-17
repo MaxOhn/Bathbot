@@ -83,7 +83,7 @@ impl<'m> Simulate<'m> {
                 continue;
             }
 
-            match SimulateArg::parse(arg).map_err(ParseError::to_str)? {
+            match SimulateArg::parse(arg).map_err(ParseError::into_str)? {
                 SimulateArg::Acc(val) => simulate.acc = Some(val),
                 SimulateArg::Combo(val) => simulate.combo = Some(val),
                 SimulateArg::ClockRate(val) => simulate.clock_rate = Some(val),

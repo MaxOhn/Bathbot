@@ -294,7 +294,7 @@ pub enum ParseError<'s> {
 }
 
 impl ParseError<'_> {
-    pub fn to_str(self) -> Cow<'static, str> {
+    pub fn into_str(self) -> Cow<'static, str> {
         match self {
             Self::Acc => "Failed to parse accuracy, must be a number".into(),
             Self::Combo => "Failed to parse combo, must be an integer".into(),
