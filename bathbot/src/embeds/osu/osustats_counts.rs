@@ -6,8 +6,9 @@ use time::OffsetDateTime;
 use twilight_model::channel::embed::Embed;
 
 use crate::{
+    embeds::EmbedData,
     manager::redis::{osu::User, RedisData},
-    util::osu::{TopCount, TopCounts}, embeds::EmbedData,
+    util::osu::{TopCount, TopCounts},
 };
 
 pub struct OsuStatsCountsEmbed {
@@ -18,28 +19,13 @@ pub struct OsuStatsCountsEmbed {
     footer_timestamp: Option<(FooterBuilder, OffsetDateTime)>,
 }
 
-impl EmbedData for OsuStatsCountsEmbed {
-    fn build(self) -> Embed {
-        let mut builder = EmbedBuilder::new()
-            .description(self.description)
-            .title(self.title)
-            .thumbnail(self.thumbnail)
-            .author(self.author);
-
-        if let Some((footer, timestamp)) = self.footer_timestamp {
-            builder = builder.footer(footer).timestamp(timestamp);
-        }
-
-        builder.build()
-    }
-}
-
 impl OsuStatsCountsEmbed {
     pub fn new(user: &RedisData<User>, mode: GameMode, counts: TopCounts) -> Self {
         let count_len = counts.count_len();
 
-        let last_update = &counts.last_update;
-        let footer_timestamp = last_update.map(|datetime| (FooterBuilder::new("Last Update"), datetime));
+        let footer_timestamp = counts
+            .last_update
+            .map(|datetime| (FooterBuilder::new("Last Update"), datetime));
 
         let mut description = String::with_capacity(64);
         description.push_str("```\n");
@@ -76,5 +62,22 @@ impl OsuStatsCountsEmbed {
                 user.username().cow_escape_markdown()
             ),
         }
+    }
+}
+
+impl EmbedData for OsuStatsCountsEmbed {
+    #[inline]
+    fn build(self) -> Embed {
+        let mut builder = EmbedBuilder::new()
+            .description(self.description)
+            .title(self.title)
+            .thumbnail(self.thumbnail)
+            .author(self.author);
+
+        if let Some((footer, timestamp)) = self.footer_timestamp {
+            builder = builder.footer(footer).timestamp(timestamp);
+        }
+
+        builder.build()
     }
 }

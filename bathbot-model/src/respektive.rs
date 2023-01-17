@@ -1,6 +1,6 @@
+use super::deser;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
-use super::deser;
 
 #[derive(Deserialize, Serialize)]
 pub struct RespektiveUser {
@@ -13,8 +13,6 @@ pub struct RespektiveUser {
 #[derive(Deserialize)]
 pub struct RespektiveTopCount {
     // pub beatmaps_amount: usize,
-    #[serde(with = "deser::datetime")]
-    pub last_update: OffsetDateTime,
     pub user_id: u32,
     // pub username: Option<Username>,
     // pub country: Option<CountryCode>,
@@ -30,4 +28,6 @@ pub struct RespektiveTopCount {
     pub top50s_rank: Option<u32>,
     pub top100s: usize,
     pub top100s_rank: Option<u32>,
+    #[serde(with = "deser::datetime")]
+    pub last_update: OffsetDateTime,
 }
