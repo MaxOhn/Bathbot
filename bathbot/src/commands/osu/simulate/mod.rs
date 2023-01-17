@@ -43,6 +43,7 @@ pub struct Simulate<'m> {
     mods: Option<Cow<'m, str>>,
     /// Specify a combo
     combo: Option<u32>,
+    #[command(min_value = 0.0, max_value = 100.0)]
     /// Specify an accuracy
     acc: Option<f32>,
     /// Specify a custom clock rate that overwrites mods
@@ -84,7 +85,7 @@ impl<'m> Simulate<'m> {
             }
 
             match SimulateArg::parse(arg).map_err(ParseError::into_str)? {
-                SimulateArg::Acc(val) => simulate.acc = Some(val),
+                SimulateArg::Acc(val) => simulate.acc = Some(val.clamp(0.0, 100.0)),
                 SimulateArg::Combo(val) => simulate.combo = Some(val),
                 SimulateArg::ClockRate(val) => simulate.clock_rate = Some(val),
                 SimulateArg::N300(val) => simulate.n300 = Some(val),
@@ -114,7 +115,10 @@ pub async fn slash_simulate(ctx: Arc<Context>, mut command: InteractionCommand) 
 
 async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Simulate<'_>) -> Result<()> {
     let mods = match args.mods() {
-        ModsResult::Mods(mods) => Some(mods.mods()),
+        ModsResult::Mods(mods) => match mods.validate() {
+            Ok(_) => Some(mods.mods()),
+            Err(content) => return orig.error(&ctx, content).await,
+        },
         ModsResult::None => None,
         ModsResult::Invalid => {
             let content = "Failed to parse mods. Be sure to either specify them directly \

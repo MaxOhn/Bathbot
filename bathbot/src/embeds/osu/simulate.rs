@@ -4,7 +4,7 @@ use bathbot_macros::EmbedData;
 use bathbot_util::{
     constants::{AVATAR_URL, OSU_BASE},
     numbers::{round, WithComma},
-    osu::calculate_grade,
+    osu::{calculate_grade, ModSelection},
     CowUtils, FooterBuilder,
 };
 use rosu_pp::{
@@ -197,7 +197,39 @@ pub struct SimulateData {
     pub od: Option<f32>,
 }
 
+macro_rules! setters {
+    ( $( $fn:ident: $field:ident as $ty:ty; )* ) => {
+        $(
+            pub fn $fn(&mut self, val: $ty) {
+                self.$field = Some(val);
+            }
+        )*
+    }
+}
+
 impl SimulateData {
+    pub fn set_mods(&mut self, mods: GameMods) {
+        if ModSelection::Exact(mods).validate().is_ok() {
+            self.mods = Some(mods);
+        }
+    }
+
+    pub fn set_acc(&mut self, acc: f32) {
+        self.acc = Some(acc.clamp(0.0, 100.0));
+    }
+
+    setters! {
+        set_geki: n_geki as u32;
+        set_katu: n_katu as u32;
+        set_n300: n300 as u32;
+        set_n100: n100 as u32;
+        set_n50: n50 as u32;
+        set_miss: n_miss as u32;
+        set_combo: combo as u32;
+        set_score: score as u32;
+        set_clock_rate: clock_rate as f32;
+    }
+
     fn simulate(&self, map: &OsuMap) -> SimulateValues {
         let mods = self.mods.unwrap_or_default().bits();
 

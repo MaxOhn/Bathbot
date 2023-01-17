@@ -301,7 +301,7 @@ async fn respond_modal(
 }
 
 macro_rules! handle_sim_modals {
-    ( $( $fn:ident, $field:ident ;)* ) => {
+    ( $( $fn:ident, $setter:ident ;)* ) => {
         $(
             pub async fn $fn(ctx: Arc<Context>, modal: InteractionModal) -> Result<()> {
                 let input = parse_modal_input(&modal)?;
@@ -341,7 +341,7 @@ macro_rules! handle_sim_modals {
                         return Ok(());
                     };
 
-                    sim_pagination.simulate_data.$field = Some(value);
+                    sim_pagination.simulate_data.$setter(value);
 
                     (pagination.build(&ctx).await, defer_components)
                 };
@@ -353,17 +353,17 @@ macro_rules! handle_sim_modals {
 }
 
 handle_sim_modals! {
-    handle_sim_mods_modal, mods;
-    handle_sim_combo_modal, combo;
-    handle_sim_acc_modal, acc;
-    handle_sim_clock_rate_modal, clock_rate;
-    handle_sim_geki_modal, n_geki;
-    handle_sim_katu_modal, n_katu;
-    handle_sim_n300_modal, n300;
-    handle_sim_n100_modal, n100;
-    handle_sim_n50_modal, n50;
-    handle_sim_miss_modal, n_miss;
-    handle_sim_score_modal, score;
+    handle_sim_mods_modal, set_mods;
+    handle_sim_combo_modal, set_combo;
+    handle_sim_acc_modal, set_acc;
+    handle_sim_clock_rate_modal, set_clock_rate;
+    handle_sim_geki_modal, set_geki;
+    handle_sim_katu_modal, set_katu;
+    handle_sim_n300_modal, set_n300;
+    handle_sim_n100_modal, set_n100;
+    handle_sim_n50_modal, set_n50;
+    handle_sim_miss_modal, set_miss;
+    handle_sim_score_modal, set_score;
 }
 
 pub async fn handle_sim_attrs_modal(ctx: Arc<Context>, modal: InteractionModal) -> Result<()> {
