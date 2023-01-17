@@ -421,20 +421,24 @@ pub async fn handle_sim_attrs_modal(ctx: Arc<Context>, modal: InteractionModal) 
             return Ok(());
         };
 
-        if let Some(ar) = ar {
-            sim_pagination.simulate_data.ar = Some(ar);
-        }
+        if ar.or(cs).or(hp).or(od).is_some() {
+            if let Some(ar) = ar {
+                sim_pagination.simulate_data.attrs.ar = Some(ar);
+            }
 
-        if let Some(cs) = cs {
-            sim_pagination.simulate_data.cs = Some(cs);
-        }
+            if let Some(cs) = cs {
+                sim_pagination.simulate_data.attrs.cs = Some(cs);
+            }
 
-        if let Some(hp) = hp {
-            sim_pagination.simulate_data.hp = Some(hp);
-        }
+            if let Some(hp) = hp {
+                sim_pagination.simulate_data.attrs.hp = Some(hp);
+            }
 
-        if let Some(od) = od {
-            sim_pagination.simulate_data.od = Some(od);
+            if let Some(od) = od {
+                sim_pagination.simulate_data.attrs.od = Some(od);
+            }
+        } else {
+            sim_pagination.simulate_data.attrs = sim_pagination.simulate_data.original_attrs;
         }
 
         (pagination.build(&ctx).await, defer_components)

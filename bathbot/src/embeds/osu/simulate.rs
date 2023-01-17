@@ -191,10 +191,28 @@ pub struct SimulateData {
     pub score: Option<u32>,
     pub clock_rate: Option<f32>,
     pub version: TopOldVersion,
+    pub attrs: SimulateAttributes,
+    pub original_attrs: SimulateAttributes,
+}
+
+#[derive(Copy, Clone, Debug, Default)]
+pub struct SimulateAttributes {
     pub ar: Option<f32>,
     pub cs: Option<f32>,
     pub hp: Option<f32>,
     pub od: Option<f32>,
+}
+
+impl From<&OsuMap> for SimulateAttributes {
+    #[inline]
+    fn from(map: &OsuMap) -> Self {
+        Self {
+            ar: Some(map.ar()),
+            cs: Some(map.cs()),
+            hp: Some(map.hp()),
+            od: Some(map.od()),
+        }
+    }
 }
 
 macro_rules! setters {

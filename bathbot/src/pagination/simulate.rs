@@ -25,19 +25,19 @@ impl SimulatePagination {
     }
 
     pub fn build_page(&mut self) -> Embed {
-        if let Some(ar) = self.simulate_data.ar {
+        if let Some(ar) = self.simulate_data.attrs.ar {
             self.map.pp_map.ar = ar;
         }
 
-        if let Some(cs) = self.simulate_data.cs {
+        if let Some(cs) = self.simulate_data.attrs.cs {
             self.map.pp_map.cs = cs;
         }
 
-        if let Some(hp) = self.simulate_data.hp {
+        if let Some(hp) = self.simulate_data.attrs.hp {
             self.map.pp_map.hp = hp;
         }
 
-        if let Some(od) = self.simulate_data.od {
+        if let Some(od) = self.simulate_data.attrs.od {
             self.map.pp_map.od = od;
         }
 
