@@ -4,7 +4,7 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take},
     character::complete as ch,
-    combinator::{all_consuming, map, map_parser, map_res, opt, peek, recognize},
+    combinator::{all_consuming, map, map_parser, map_res, opt, peek, recognize, success},
     error::{Error as NomError, ErrorKind as NomErrorKind},
     multi::{length_data, many1_count},
     number::complete as num,
@@ -24,6 +24,10 @@ pub enum SimulateArg<'s> {
     Katu(u32),
     Miss(u32),
     Mods(&'s str),
+    Ar(f32),
+    Cs(f32),
+    Hp(f32),
+    Od(f32),
 }
 
 impl<'s> SimulateArg<'s> {
@@ -39,6 +43,10 @@ impl<'s> SimulateArg<'s> {
             Some("n100") => parse_n100(rest).map(SimulateArg::N100),
             Some("n50") => parse_n50(rest).map(SimulateArg::N50),
             Some("mods") => parse_mods(rest).map(SimulateArg::Mods),
+            Some("ar") => parse_ar(rest).map(SimulateArg::Ar),
+            Some("cs") => parse_cs(rest).map(SimulateArg::Cs),
+            Some("hp") => parse_hp(rest).map(SimulateArg::Hp),
+            Some("od") => parse_od(rest).map(SimulateArg::Od),
             Some(key) => {
                 let (sub_n, _) = opt::<_, _, NomError<_>, _>(ch::char('n'))(key)
                     .map_err(|_| ParseError::Nom(input))?;
@@ -64,12 +72,20 @@ fn parse_any(input: &str) -> Result<SimulateArg, ParseError> {
             Float(f32),
             Int(u32),
             Mods(&'s str),
+            Ar(f32),
+            Cs(f32),
+            Hp(f32),
+            Od(f32),
         }
 
         let float = map(map_res(recognize_float, str::parse), ParseAny::Float);
         let int = map(ch::u32, ParseAny::Int);
         let mods = map(recognize_mods, ParseAny::Mods);
-        let (rest, num) = alt((float, int, mods))(input)?;
+        let ar = map(preceded(tag("ar"), num::float), ParseAny::Ar);
+        let cs = map(preceded(tag("cs"), num::float), ParseAny::Cs);
+        let hp = map(preceded(tag("hp"), num::float), ParseAny::Hp);
+        let od = map(preceded(tag("od"), num::float), ParseAny::Od);
+        let (rest, num) = alt((float, int, mods, ar, cs, hp, od))(input)?;
 
         match num {
             ParseAny::Float(n) => {
@@ -94,6 +110,10 @@ fn parse_any(input: &str) -> Result<SimulateArg, ParseError> {
             }
             ParseAny::Mods(mods) if rest.is_empty() => Ok((rest, SimulateArg::Mods(mods))),
             ParseAny::Mods(_) => Err(NomErr::Error(NomError::new(input, NomErrorKind::Eof))),
+            ParseAny::Ar(n) => Ok((rest, SimulateArg::Ar(n))),
+            ParseAny::Cs(n) => Ok((rest, SimulateArg::Cs(n))),
+            ParseAny::Hp(n) => Ok((rest, SimulateArg::Hp(n))),
+            ParseAny::Od(n) => Ok((rest, SimulateArg::Od(n))),
         }
     }
 
@@ -143,6 +163,25 @@ parse_arg! {
     parse_miss -> u32: parse_int, recognize_miss or 'x', Miss;
     parse_geki -> u32: parse_int, recognize_geki or 'x', Geki;
     parse_katu -> u32: parse_int, recognize_katu or 'x', Katu;
+}
+
+macro_rules! parse_attr_arg {
+    ( $( $fn:ident: $err:ident; ) *) => {
+        $(
+            fn $fn(input: &str) -> Result<f32, ParseError> {
+                parse_float(input, success(()))
+                    .map(|(_, val)| val)
+                    .map_err(|_| ParseError::$err)
+            }
+        )*
+    }
+}
+
+parse_attr_arg! {
+    parse_ar: Ar;
+    parse_cs: Cs;
+    parse_hp: Hp;
+    parse_od: Od;
 }
 
 fn is_some<T>(opt: Option<T>) -> bool {
@@ -246,6 +285,10 @@ pub enum ParseError<'s> {
     Katu,
     Miss,
     Mods,
+    Ar,
+    Cs,
+    Hp,
+    Od,
     Nom(&'s str),
     Unknown(&'s str),
 }
@@ -253,22 +296,24 @@ pub enum ParseError<'s> {
 impl ParseError<'_> {
     pub fn to_str(self) -> Cow<'static, str> {
         match self {
-            ParseError::Acc => "Failed to parse accuracy, must be a number".into(),
-            ParseError::Combo => "Failed to parse combo, must be an integer".into(),
-            ParseError::ClockRate => "Failed to parse clock rate, must be a number".into(),
-            ParseError::N300 => "Failed to parse n300, must be an interger".into(),
-            ParseError::N100 => "Failed to parse n100, must be an interger".into(),
-            ParseError::N50 => "Failed to parse n50, must be an interger".into(),
-            ParseError::Geki => "Failed to parse gekis, must be an interger".into(),
-            ParseError::Katu => "Failed to parse katus, must be an interger".into(),
-            ParseError::Miss => "Failed to parse misses, must be an interger".into(),
-            ParseError::Mods => {
-                "Failed to parse mods, must be an acronym of a mod combination".into()
-            }
-            ParseError::Nom(input) => format!("Failed to parse argument `{input}`").into(),
-            ParseError::Unknown(input) => format!(
+            Self::Acc => "Failed to parse accuracy, must be a number".into(),
+            Self::Combo => "Failed to parse combo, must be an integer".into(),
+            Self::ClockRate => "Failed to parse clock rate, must be a number".into(),
+            Self::N300 => "Failed to parse n300, must be an interger".into(),
+            Self::N100 => "Failed to parse n100, must be an interger".into(),
+            Self::N50 => "Failed to parse n50, must be an interger".into(),
+            Self::Geki => "Failed to parse gekis, must be an interger".into(),
+            Self::Katu => "Failed to parse katus, must be an interger".into(),
+            Self::Miss => "Failed to parse misses, must be an interger".into(),
+            Self::Mods => "Failed to parse mods, must be an acronym of a mod combination".into(),
+            Self::Ar => "Failed to parsed AR, must be a number".into(),
+            Self::Cs => "Failed to parsed CS, must be a number".into(),
+            Self::Hp => "Failed to parsed HP, must be a number".into(),
+            Self::Od => "Failed to parsed OD, must be a number".into(),
+            Self::Nom(input) => format!("Failed to parse argument `{input}`").into(),
+            Self::Unknown(input) => format!(
                 "Unknown key `{input}`. Must be `mods`, `acc`, `combo`, `clockrate`, \
-                `n300`, `n100`, `n50`, `miss`, `geki`, or `katu`"
+                `n300`, `n100`, `n50`, `miss`, `geki`, `katu`, `ar`, `cs`, `hp`, or `od`"
             )
             .into(),
         }

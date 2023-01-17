@@ -24,6 +24,7 @@ pub async fn handle_modal(ctx: Arc<Context>, mut modal: InteractionModal) {
         "sim_n50" => handle_sim_n50_modal(ctx, modal).await,
         "sim_miss" => handle_sim_miss_modal(ctx, modal).await,
         "sim_score" => handle_sim_score_modal(ctx, modal).await,
+        "sim_attrs" => handle_sim_attrs_modal(ctx, modal).await,
         _ => return error!("Unknown modal `{name}`: {modal:#?}"),
     };
 

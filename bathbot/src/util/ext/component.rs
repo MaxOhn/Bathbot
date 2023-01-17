@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use bathbot_util::{MessageBuilder, ModalBuilder};
+use bathbot_util::{modal::ModalBuilder, MessageBuilder};
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
 use twilight_model::{
     channel::Message,

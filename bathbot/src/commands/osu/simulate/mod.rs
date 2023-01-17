@@ -59,6 +59,14 @@ pub struct Simulate<'m> {
     geki: Option<u32>,
     /// Specify katus i.e. tiny droplet misses in catch and n200 in mania
     katu: Option<u32>,
+    /// Overwrite the map's approach rate
+    ar: Option<f32>,
+    /// Overwrite the map's circle size
+    cs: Option<f32>,
+    /// Overwrite the map's drain rate
+    hp: Option<f32>,
+    /// Overwrite the map's overall difficulty
+    od: Option<f32>,
 }
 
 impl<'m> Simulate<'m> {
@@ -86,6 +94,10 @@ impl<'m> Simulate<'m> {
                 SimulateArg::Katu(val) => simulate.katu = Some(val),
                 SimulateArg::Miss(val) => simulate.misses = Some(val),
                 SimulateArg::Mods(val) => simulate.mods = Some(Cow::Borrowed(val)),
+                SimulateArg::Ar(val) => simulate.ar = Some(val),
+                SimulateArg::Cs(val) => simulate.cs = Some(val),
+                SimulateArg::Hp(val) => simulate.hp = Some(val),
+                SimulateArg::Od(val) => simulate.od = Some(val),
             }
         }
 
@@ -219,8 +231,12 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Simulate<'_>
         n50: args.n50,
         n_miss: args.misses,
         combo: args.combo,
-        score: None,
         clock_rate: args.clock_rate,
+        ar: args.ar,
+        cs: args.cs,
+        hp: args.hp,
+        od: args.od,
+        score: None,
         version,
     };
 
@@ -248,13 +264,17 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Simulate<'_>
     - misses: `miss=[integer]` or `[integer]m`\n\
     - gekis (n320): `gekis=[integer]` or `[integer]xgeki`\n\
     - katus (n200 / tiny droplet misses): `katus=[integer]` or `[integer]xkatu`\n\
-    - mods: `mods=[mod acronym]` or `+[mod acronym]`"
+    - mods: `mods=[mod acronym]` or `+[mod acronym]`\n\
+    - ar: `ar=[number]` or `ar[number]`\n\
+    - cs: `cs=[number]` or `cs[number]`\n\
+    - hp: `hp=[number]` or `hp[number]`\n\
+    - od: `od=[number]` or `od[number]`"
 )]
 #[usage(
-    "[map url / map id] [+mods] [acc**%**] [combo**x**] [clockrate*****] \
-    [n300**x300**] [n100**x100**] [n50**x50**] [misses**m**] [gekis**xgeki**] [katus**xkatus**]"
+    "[map url / map id] [+mods] [acc%] [combox] [clockrate*] \
+    [n300x300] [n100x100] [n50x50] [missesm] [gekisxgeki] [katusxkatus]"
 )]
-#[example("1980365 +hdhr 4000x 2499x300 99.1% 1.1*")]
+#[example("1980365 +hdhr 4000x 1m 2499x300 99.1% 1.05*")]
 #[alias("s", "sim")]
 #[group(Osu)]
 async fn prefix_simulate(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
@@ -279,13 +299,17 @@ async fn prefix_simulate(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Re
     - n300: `n300=[integer]` or `[integer]x300`\n\
     - n100: `n100=[interger]` or `[integer]x100`\n\
     - misses: `miss=[integer]` or `[integer]m`\n\
-    - mods: `mods=[mod acronym]` or `+[mod acronym]`"
+    - mods: `mods=[mod acronym]` or `+[mod acronym]`\n\
+    - ar: `ar=[number]` or `ar[number]`\n\
+    - cs: `cs=[number]` or `cs[number]`\n\
+    - hp: `hp=[number]` or `hp[number]`\n\
+    - od: `od=[number]` or `od[number]`"
 )]
 #[usage(
-    "[map url / map id] [+mods] [acc**%**] [combo**x**] [clockrate*****] \
-    [n300**x300**] [n100**x100**] [misses**m**]"
+    "[map url / map id] [+mods] [acc%] [combox] [clockrate*] \
+    [n300x300] [n100x100] [missesm]"
 )]
-#[example("1980365 +hdhr 4000x 2499x300 99.1% 1.1*")]
+#[example("1980365 +hdhr 4000x 1m 2499x300 99.1% 1.05*")]
 #[alias("st", "simt", "simtaiko")]
 #[group(Taiko)]
 async fn prefix_simulatetaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
@@ -312,13 +336,17 @@ async fn prefix_simulatetaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) 
     - tiny droplets: `n50=[integer]` or `[integer]x50`\n\
     - misses: `miss=[integer]` or `[integer]m`\n\
     - tiny droplet misses: `katus=[integer]` or `[integer]xkatu`\n\
-    - mods: `mods=[mod acronym]` or `+[mod acronym]`"
+    - mods: `mods=[mod acronym]` or `+[mod acronym]`\n\
+    - ar: `ar=[number]` or `ar[number]`\n\
+    - cs: `cs=[number]` or `cs[number]`\n\
+    - hp: `hp=[number]` or `hp[number]`\n\
+    - od: `od=[number]` or `od[number]`"
 )]
 #[usage(
-    "[map url / map id] [+mods] [acc**%**] [combo**x**] [clockrate*****] \
-    [n300**x300**] [n100**x100**] [n50**x50**] [misses**m**] [katus**xkatus**]"
+    "[map url / map id] [+mods] [acc%] [combox] [clockrate*] \
+    [n300x300] [n100x100] [n50x50] [missesm] [katusxkatus]"
 )]
-#[example("1980365 +hdhr 4000x 2499x300 99.1% 1.1*")]
+#[example("1980365 +hdhr 4000x 1m 2499x300 99.1% 1.05*")]
 #[alias("sc", "simc", "simctb", "simcatch", "simulatecatch")]
 #[group(Catch)]
 async fn prefix_simulatectb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
@@ -340,19 +368,23 @@ async fn prefix_simulatectb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
     - Accuracy: `acc=[number]` or `[number]%`\n\
     - Combo: `combo=[integer]` or `[integer]x`\n\
     - Clock rate: `clockrate=[number]` or `[number]*`\n\
+    - n320: `n320=[integer]` or `[integer]x320`\n\
     - n300: `n300=[integer]` or `[integer]x300`\n\
+    - n200: `n200=[integer]` or `[integer]x200`\n\
     - n100: `n100=[interger]` or `[integer]x100`\n\
     - n50: `n50=[integer]` or `[integer]x50`\n\
     - misses: `miss=[integer]` or `[integer]m`\n\
-    - n320: `n320=[integer]` or `[integer]x320`\n\
-    - n200: `n200=[integer]` or `[integer]x200`\n\
-    - mods: `mods=[mod acronym]` or `+[mod acronym]`"
+    - mods: `mods=[mod acronym]` or `+[mod acronym]`\n\
+    - ar: `ar=[number]` or `ar[number]`\n\
+    - cs: `cs=[number]` or `cs[number]`\n\
+    - hp: `hp=[number]` or `hp[number]`\n\
+    - od: `od=[number]` or `od[number]`"
 )]
 #[usage(
-    "[map url / map id] [+mods] [acc**%**] [combo**x**] [clockrate*****] \
-    [n300**x300**] [n100**x100**] [n50**x50**] [misses**m**] [n320**x320**] [n200**x200**]"
+    "[map url / map id] [+mods] [acc%] [combox] [clockrate*] \
+    [n300x300] [n100x100] [n50x50] [missesm] [n320x320] [n200x200]"
 )]
-#[example("1980365 +hdhr 4000x 2499x300 99.1% 1.1* 42x200")]
+#[example("1980365 +hdhr 1m 4000x 2499x300 99.1% 1.05* 42x200")]
 #[alias("sm", "simm", "simmania")]
 #[group(Mania)]
 async fn prefix_simulatemania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {

@@ -17,7 +17,7 @@ pub mod osu;
 pub mod string_cmp;
 
 pub use self::{
-    builder::{AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder, ModalBuilder},
+    builder::{modal, AuthorBuilder, EmbedBuilder, FooterBuilder, MessageBuilder},
     cow::CowUtils,
     exp_backoff::ExponentialBackoff,
     hasher::{IntHash, IntHasher},

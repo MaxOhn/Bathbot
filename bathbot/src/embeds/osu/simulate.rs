@@ -189,6 +189,10 @@ pub struct SimulateData {
     pub score: Option<u32>,
     pub clock_rate: Option<f32>,
     pub version: TopOldVersion,
+    pub ar: Option<f32>,
+    pub cs: Option<f32>,
+    pub hp: Option<f32>,
+    pub od: Option<f32>,
 }
 
 impl SimulateData {

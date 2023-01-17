@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use bathbot_util::{MessageBuilder, ModalBuilder};
+use bathbot_util::{
+    modal::{ModalBuilder, TextInputBuilder},
+    MessageBuilder,
+};
 use eyre::{ContextCompat, Report, Result, WrapErr};
 use twilight_model::application::interaction::modal::ModalInteractionDataComponent;
 
@@ -114,10 +117,8 @@ macro_rules! handle_sim_buttons {
     ( $( $fn:ident, $placeholder:literal, $id:literal, $label:literal, $title:literal ;)* ) => {
         $(
             pub async fn $fn(ctx: Arc<Context>, component: InteractionComponent) -> Result<()> {
-                let modal = ModalBuilder::new($id, $label)
-                    .modal_id($id)
-                    .placeholder($placeholder)
-                    .title($title);
+                let input = TextInputBuilder::new($id, $label).placeholder($placeholder);
+                let modal = ModalBuilder::new($id, $title).input(input);
 
                 component
                     .modal(&ctx, modal)
@@ -142,6 +143,40 @@ handle_sim_buttons! {
     handle_sim_n50_button, "Integer", "sim_n50", "Amount of 50s", "Specify the amount of 50s";
     handle_sim_miss_button, "Integer", "sim_miss", "Amount of misses", "Specify the amount of misses";
     handle_sim_score_button, "Integer", "sim_score", "Score", "Specify the score";
+}
+
+pub async fn handle_sim_attrs_button(
+    ctx: Arc<Context>,
+    component: InteractionComponent,
+) -> Result<()> {
+    let ar = TextInputBuilder::new("sim_ar", "AR")
+        .placeholder("Specify an approach rate")
+        .required(false);
+
+    let cs = TextInputBuilder::new("sim_cs", "CS")
+        .placeholder("Specify a circle size")
+        .required(false);
+
+    let hp = TextInputBuilder::new("sim_hp", "HP")
+        .placeholder("Specify a drain rate")
+        .required(false);
+
+    let od = TextInputBuilder::new("sim_od", "OD")
+        .placeholder("Specify an overall difficulty")
+        .required(false);
+
+    let modal = ModalBuilder::new("sim_attrs", "Attributes")
+        .input(ar)
+        .input(cs)
+        .input(hp)
+        .input(od);
+
+    component
+        .modal(&ctx, modal)
+        .await
+        .wrap_err("failed modal callback")?;
+
+    Ok(())
 }
 
 pub async fn handle_sim_version(ctx: Arc<Context>, component: InteractionComponent) -> Result<()> {
@@ -220,12 +255,12 @@ pub async fn handle_pagination_custom(
 
     let placeholder = format!("Number between 1 and {max_page}");
 
-    let modal = ModalBuilder::new("page_input", "Page number")
-        .modal_id("pagination_page")
+    let input = TextInputBuilder::new("page_input", "Page number")
         .min_len(1)
         .max_len(5)
-        .placeholder(placeholder)
-        .title("Jump to a page");
+        .placeholder(placeholder);
+
+    let modal = ModalBuilder::new("pagination_page", "Jump to a page").input(input);
 
     component
         .modal(&ctx, modal)
@@ -307,8 +342,6 @@ macro_rules! handle_sim_modals {
                     };
 
                     sim_pagination.simulate_data.$field = Some(value);
-                    let version = sim_pagination.simulate_data.version;
-                    pagination.component_kind = ComponentKind::Simulate(version);
 
                     (pagination.build(&ctx).await, defer_components)
                 };
@@ -331,6 +364,84 @@ handle_sim_modals! {
     handle_sim_n50_modal, n50;
     handle_sim_miss_modal, n_miss;
     handle_sim_score_modal, score;
+}
+
+pub async fn handle_sim_attrs_modal(ctx: Arc<Context>, modal: InteractionModal) -> Result<()> {
+    fn parse_attr(modal: &InteractionModal, component_id: &str) -> Option<f32> {
+        modal
+            .data
+            .components
+            .iter()
+            .find_map(|row| {
+                row.components.first().and_then(|component| {
+                    (component.custom_id == component_id).then(|| {
+                        component
+                            .value
+                            .as_deref()
+                            .filter(|value| !value.is_empty())
+                            .map(str::parse)
+                            .map(Result::ok)
+                            .flatten()
+                    })
+                })
+            })
+            .flatten()
+    }
+
+    let ar = parse_attr(&modal, "sim_ar");
+    let cs = parse_attr(&modal, "sim_cs");
+    let hp = parse_attr(&modal, "sim_hp");
+    let od = parse_attr(&modal, "sim_od");
+
+    let Some(ref msg) = modal.message else {
+        warn!("received modal without msg");
+
+        return Ok(());
+    };
+
+    let (builder, defer_components) = {
+        let mut guard = ctx.paginations.lock(&msg.id).await;
+
+        let Some(pagination) = guard.get_mut() else {
+            return Ok(());
+        };
+
+        if !pagination.is_author(modal.user_id()?) {
+            return Ok(());
+        }
+
+        let defer_components = pagination.defer_components;
+
+        if defer_components {
+            modal.defer(&ctx).await.wrap_err("failed to defer")?;
+        }
+
+        pagination.reset_timeout();
+
+        let PaginationKind::Simulate(sim_pagination) = &mut pagination.kind else {
+            return Ok(());
+        };
+
+        if let Some(ar) = ar {
+            sim_pagination.simulate_data.ar = Some(ar);
+        }
+
+        if let Some(cs) = cs {
+            sim_pagination.simulate_data.cs = Some(cs);
+        }
+
+        if let Some(hp) = hp {
+            sim_pagination.simulate_data.hp = Some(hp);
+        }
+
+        if let Some(od) = od {
+            sim_pagination.simulate_data.od = Some(od);
+        }
+
+        (pagination.build(&ctx).await, defer_components)
+    };
+
+    respond_modal(defer_components, &modal, &ctx, builder).await
 }
 
 pub async fn handle_pagination_modal(ctx: Arc<Context>, modal: InteractionModal) -> Result<()> {

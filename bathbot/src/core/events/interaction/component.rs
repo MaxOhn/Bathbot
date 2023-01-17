@@ -45,6 +45,7 @@ pub async fn handle_component(ctx: Arc<Context>, mut component: InteractionCompo
         "sim_osu_version" | "sim_taiko_version" | "sim_catch_version" | "sim_mania_version" => {
             handle_sim_version(ctx, component).await
         }
+        "sim_attrs" => handle_sim_attrs_button(ctx, component).await,
         _ => return error!("Unknown message component `{name}`"),
     };
 

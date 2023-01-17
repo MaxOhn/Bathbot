@@ -526,6 +526,9 @@ impl Pages {
                     upper.push(Component::Button(clock_rate));
                 }
 
+                let attrs = button!("sim_attrs", "Attributes", Primary);
+                upper.push(Component::Button(attrs));
+
                 let n300 = button!("sim_n300", "n300", Secondary);
                 let n100 = button!("sim_n100", "n100", Secondary);
                 let n50 = button!("sim_n50", "n50", Secondary);
@@ -577,6 +580,9 @@ impl Pages {
                     upper.push(Component::Button(clock_rate));
                 }
 
+                let attrs = button!("sim_attrs", "Attributes", Primary);
+                upper.push(Component::Button(attrs));
+
                 let n300 = button!("sim_n300", "n300", Secondary);
                 let n100 = button!("sim_n100", "n100", Secondary);
                 let n_miss = button!("sim_miss", "Misses", Danger);
@@ -620,6 +626,9 @@ impl Pages {
                     upper.push(Component::Button(clock_rate));
                 }
 
+                let attrs = button!("sim_attrs", "Attributes", Primary);
+                upper.push(Component::Button(attrs));
+
                 let n_fruits = button!("sim_n300", "Fruits", Secondary);
                 let n_droplets = button!("sim_n100", "Droplets", Secondary);
                 let n_tiny_droplets = button!("sim_n50", "Tiny droplets", Secondary);
@@ -655,7 +664,13 @@ impl Pages {
                     TopOldManiaVersion::March14May18 | TopOldManiaVersion::May18October22 => {
                         let mods = button!("sim_mods", "Mods", Primary);
                         let score = button!("sim_score", "Score", Primary);
-                        let upper = vec![Component::Button(mods), Component::Button(score)];
+                        let attrs = button!("sim_attrs", "Attributes", Primary);
+
+                        let upper = vec![
+                            Component::Button(mods),
+                            Component::Button(score),
+                            Component::Button(attrs),
+                        ];
 
                         (upper, None)
                     }
@@ -663,12 +678,14 @@ impl Pages {
                         let mods = button!("sim_mods", "Mods", Primary);
                         let acc = button!("sim_acc", "Accuracy", Primary);
                         let clock_rate = button!("sim_clock_rate", "Clock rate", Primary);
+                        let attrs = button!("sim_attrs", "Attributes", Primary);
                         let n_miss = button!("sim_miss", "Misses", Danger);
 
                         let upper = vec![
                             Component::Button(mods),
                             Component::Button(acc),
                             Component::Button(clock_rate),
+                            Component::Button(attrs),
                             Component::Button(n_miss),
                         ];
 

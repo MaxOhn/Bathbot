@@ -4,15 +4,54 @@ use twilight_model::{
 };
 
 pub struct ModalBuilder {
-    custom_id: Option<String>,
-    input: TextInput,
-    title: Option<String>,
+    custom_id: String,
+    inputs: Vec<TextInputBuilder>,
+    title: String,
 }
 
 impl ModalBuilder {
+    pub fn new(custom_id: impl Into<String>, title: impl Into<String>) -> Self {
+        Self {
+            custom_id: custom_id.into(),
+            inputs: Vec::new(),
+            title: title.into(),
+        }
+    }
+
+    pub fn input(mut self, input: TextInputBuilder) -> Self {
+        self.inputs.push(input);
+
+        self
+    }
+
+    pub fn build(self) -> InteractionResponseData {
+        let components = self
+            .inputs
+            .into_iter()
+            .map(TextInputBuilder::build)
+            .map(Component::TextInput)
+            .map(|component| ActionRow {
+                components: vec![component],
+            })
+            .map(Component::ActionRow)
+            .collect();
+
+        InteractionResponseData {
+            components: Some(components),
+            custom_id: Some(self.custom_id),
+            title: Some(self.title),
+            ..Default::default()
+        }
+    }
+}
+
+pub struct TextInputBuilder {
+    input: TextInput,
+}
+
+impl TextInputBuilder {
     pub fn new(component_id: impl Into<String>, label: impl Into<String>) -> Self {
         Self {
-            custom_id: None,
             input: TextInput {
                 custom_id: component_id.into(),
                 label: label.into(),
@@ -23,7 +62,6 @@ impl ModalBuilder {
                 style: TextInputStyle::Short,
                 value: None,
             },
-            title: None,
         }
     }
 
@@ -39,14 +77,8 @@ impl ModalBuilder {
         self
     }
 
-    pub fn modal_id(mut self, custom_id: impl Into<String>) -> Self {
-        self.custom_id = Some(custom_id.into());
-
-        self
-    }
-
-    pub fn placeholder(mut self, placeholder: impl Into<String>) -> Self {
-        self.input.placeholder = Some(placeholder.into());
+    pub fn required(mut self, required: bool) -> Self {
+        self.input.required = Some(required);
 
         self
     }
@@ -59,12 +91,6 @@ impl ModalBuilder {
         self
     }
 
-    pub fn title(mut self, title: impl Into<String>) -> Self {
-        self.title = Some(title.into());
-
-        self
-    }
-
     #[allow(unused)]
     /// Use this as default input. Renders the placeholder useless.
     pub fn value(mut self, value: impl Into<String>) -> Self {
@@ -73,19 +99,13 @@ impl ModalBuilder {
         self
     }
 
-    pub fn build(self) -> InteractionResponseData {
-        let custom_id = self.custom_id.expect("must use `ModalBuilder::modal_id`");
-        let title = self.title.expect("must use `ModalBuilder::title`");
+    pub fn placeholder(mut self, placeholder: impl Into<String>) -> Self {
+        self.input.placeholder = Some(placeholder.into());
 
-        let row = ActionRow {
-            components: vec![Component::TextInput(self.input)],
-        };
+        self
+    }
 
-        InteractionResponseData {
-            components: Some(vec![Component::ActionRow(row)]),
-            custom_id: Some(custom_id),
-            title: Some(title),
-            ..Default::default()
-        }
+    pub fn build(self) -> TextInput {
+        self.input
     }
 }

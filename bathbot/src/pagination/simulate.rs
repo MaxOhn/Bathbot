@@ -25,6 +25,22 @@ impl SimulatePagination {
     }
 
     pub fn build_page(&mut self) -> Embed {
+        if let Some(ar) = self.simulate_data.ar {
+            self.map.pp_map.ar = ar;
+        }
+
+        if let Some(cs) = self.simulate_data.cs {
+            self.map.pp_map.cs = cs;
+        }
+
+        if let Some(hp) = self.simulate_data.hp {
+            self.map.pp_map.hp = hp;
+        }
+
+        if let Some(od) = self.simulate_data.od {
+            self.map.pp_map.od = od;
+        }
+
         SimulateEmbed::new(&self.map, &self.simulate_data).build()
     }
 }
