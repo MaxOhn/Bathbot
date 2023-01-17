@@ -31,6 +31,20 @@ pub async fn handle_component(ctx: Arc<Context>, mut component: InteractionCompo
         "pagination_step" => handle_pagination_step(ctx, component).await,
         "pagination_end" => handle_pagination_end(ctx, component).await,
         "profile_menu" => handle_profile_menu(ctx, component).await,
+        "sim_mods" => handle_sim_mods_button(ctx, component).await,
+        "sim_combo" => handle_sim_combo_button(ctx, component).await,
+        "sim_acc" => handle_sim_acc_button(ctx, component).await,
+        "sim_clock_rate" => handle_sim_clock_rate_button(ctx, component).await,
+        "sim_geki" => handle_sim_geki_button(ctx, component).await,
+        "sim_katu" => handle_sim_katu_button(ctx, component).await,
+        "sim_n300" => handle_sim_n300_button(ctx, component).await,
+        "sim_n100" => handle_sim_n100_button(ctx, component).await,
+        "sim_n50" => handle_sim_n50_button(ctx, component).await,
+        "sim_miss" => handle_sim_miss_button(ctx, component).await,
+        "sim_score" => handle_sim_score_button(ctx, component).await,
+        "sim_osu_version" | "sim_taiko_version" | "sim_catch_version" | "sim_mania_version" => {
+            handle_sim_version(ctx, component).await
+        }
         _ => return error!("Unknown message component `{name}`"),
     };
 

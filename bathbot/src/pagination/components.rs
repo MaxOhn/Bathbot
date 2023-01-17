@@ -2,16 +2,18 @@ use std::sync::Arc;
 
 use bathbot_util::{MessageBuilder, ModalBuilder};
 use eyre::{ContextCompat, Report, Result, WrapErr};
+use twilight_model::application::interaction::modal::ModalInteractionDataComponent;
 
 use crate::{
     core::Context,
+    embeds::TopOldVersion,
     util::{
         interaction::{InteractionComponent, InteractionModal},
         Authored, ComponentExt, ModalExt,
     },
 };
 
-use super::Pages;
+use super::{ComponentKind, Pages, PaginationKind};
 
 pub(super) async fn remove_components(
     ctx: &Context,
@@ -37,24 +39,24 @@ where
     let (builder, defer_components) = {
         let mut guard = ctx.paginations.lock(&component.message.id).await;
 
-        if let Some(pagination) = guard.get_mut() {
-            if !pagination.is_author(component.user_id()?) {
-                return Ok(());
-            }
-
-            let defer_components = pagination.defer_components;
-
-            if defer_components {
-                component.defer(&ctx).await.wrap_err("failed to defer")?;
-            }
-
-            pagination.reset_timeout();
-            page_fn(&mut pagination.pages);
-
-            (pagination.build(&ctx).await, defer_components)
-        } else {
+        let Some(pagination) = guard.get_mut() else {
             return remove_components(&ctx, &component).await;
+        };
+
+        if !pagination.is_author(component.user_id()?) {
+            return Ok(());
         }
+
+        let defer_components = pagination.defer_components;
+
+        if defer_components {
+            component.defer(&ctx).await.wrap_err("failed to defer")?;
+        }
+
+        pagination.reset_timeout();
+        page_fn(&mut pagination.pages);
+
+        (pagination.build(&ctx).await, defer_components)
     };
 
     if defer_components {
@@ -108,6 +110,94 @@ pub async fn handle_pagination_end(
     handle_pagination_component(ctx, component, f).await
 }
 
+macro_rules! handle_sim_buttons {
+    ( $( $fn:ident, $placeholder:literal, $id:literal, $label:literal, $title:literal ;)* ) => {
+        $(
+            pub async fn $fn(ctx: Arc<Context>, component: InteractionComponent) -> Result<()> {
+                let modal = ModalBuilder::new($id, $label)
+                    .modal_id($id)
+                    .placeholder($placeholder)
+                    .title($title);
+
+                component
+                    .modal(&ctx, modal)
+                    .await
+                    .wrap_err("failed modal callback")?;
+
+                Ok(())
+            }
+        )*
+    };
+}
+
+handle_sim_buttons! {
+    handle_sim_mods_button, "E.g. hd or HdHRdteZ", "sim_mods", "Mods", "Specify mods";
+    handle_sim_combo_button, "Integer", "sim_combo", "Combo", "Specify combo";
+    handle_sim_acc_button, "Number", "sim_acc", "Accuracy", "Specify an accuracy";
+    handle_sim_clock_rate_button, "Number", "sim_clock_rate", "Clock rate", "Specify a clock rate";
+    handle_sim_geki_button, "Integer", "sim_geki", "Amount of gekis", "Specify the amount of gekis";
+    handle_sim_katu_button, "Integer", "sim_katu", "Amount of katus", "Specify the amount of katus";
+    handle_sim_n300_button, "Integer", "sim_n300", "Amount of 300s", "Specify the amount of 300s";
+    handle_sim_n100_button, "Integer", "sim_n100", "Amount of 100s", "Specify the amount of 100s";
+    handle_sim_n50_button, "Integer", "sim_n50", "Amount of 50s", "Specify the amount of 50s";
+    handle_sim_miss_button, "Integer", "sim_miss", "Amount of misses", "Specify the amount of misses";
+    handle_sim_score_button, "Integer", "sim_score", "Score", "Specify the score";
+}
+
+pub async fn handle_sim_version(ctx: Arc<Context>, component: InteractionComponent) -> Result<()> {
+    let version = component
+        .data
+        .values
+        .first()
+        .wrap_err("missing sim version")?;
+
+    let version = TopOldVersion::from_menu_str(version)
+        .wrap_err_with(|| format!("unknown TopOldVersion `{version}`"))?;
+
+    let (builder, defer_components) = {
+        let mut guard = ctx.paginations.lock(&component.message.id).await;
+
+        let Some(pagination) = guard.get_mut() else {
+            return Ok(());
+        };
+
+        if !pagination.is_author(component.user_id()?) {
+            return Ok(());
+        }
+
+        let defer_components = pagination.defer_components;
+
+        if defer_components {
+            component.defer(&ctx).await.wrap_err("failed to defer")?;
+        }
+
+        pagination.reset_timeout();
+
+        let PaginationKind::Simulate(sim_pagination) = &mut pagination.kind else {
+            return Ok(());
+        };
+
+        sim_pagination.simulate_data.version = version;
+        pagination.component_kind = ComponentKind::Simulate(version);
+
+        (pagination.build(&ctx).await, defer_components)
+    };
+
+    if defer_components {
+        component
+            .update(&ctx, &builder?)
+            .await
+            .wrap_err("failed to update")?;
+    } else {
+        component
+            .callback(&ctx, builder?)
+            .await
+            .wrap_err("failed to callback")?;
+    }
+
+    Ok(())
+}
+
 pub async fn handle_pagination_custom(
     ctx: Arc<Context>,
     component: InteractionComponent,
@@ -145,73 +235,151 @@ pub async fn handle_pagination_custom(
     Ok(())
 }
 
-pub async fn handle_pagination_modal(ctx: Arc<Context>, modal: InteractionModal) -> Result<()> {
-    let input = modal
+fn parse_modal_input(modal: &InteractionModal) -> Result<&ModalInteractionDataComponent> {
+    modal
         .data
         .components
         .first()
         .and_then(|row| row.components.first())
-        .wrap_err("missing page input")?;
+        .wrap_err("missing sim input")
+}
 
-    let page: usize = if let Some(Ok(n)) = input.value.as_deref().map(str::parse) {
-        n
-    } else {
-        debug!("failed to parse page input `{:?}` as usize", input.value);
-
-        return Ok(());
-    };
-
-    let (builder, defer_components) = if let Some(ref msg) = modal.message {
-        let mut guard = ctx.paginations.lock(&msg.id).await;
-
-        if let Some(pagination) = guard.get_mut() {
-            if !pagination.is_author(modal.user_id()?) {
-                return Ok(());
-            }
-
-            let max_page = pagination.pages.last_page();
-
-            if !(1..=max_page).contains(&page) {
-                debug!("page {page} is not between 1 and {max_page}");
-
-                return Ok(());
-            }
-
-            let defer_components = pagination.defer_components;
-
-            if defer_components {
-                modal.defer(&ctx).await.wrap_err("failed to defer")?;
-            }
-
-            pagination.reset_timeout();
-            pagination.pages.index = (page - 1) * pagination.pages.per_page;
-
-            (pagination.build(&ctx).await, defer_components)
-        } else {
-            return Ok(());
-        }
-    } else {
-        warn!(
-            "received unexpected modal (has msg: {})",
-            modal.message.is_some()
-        );
-
-        return Ok(());
-    };
-
-    if defer_components {
+async fn respond_modal(
+    defer: bool,
+    modal: &InteractionModal,
+    ctx: &Context,
+    builder: Result<MessageBuilder<'_>>,
+) -> Result<()> {
+    if defer {
         modal
-            .update(&ctx, &builder?)
+            .update(ctx, &builder?)
             .await
             .wrap_err("failed to update")?;
     } else {
         modal
-            .callback(&ctx, builder?)
+            .callback(ctx, builder?)
             .await
             .wrap_err("failed to callback")?;
     }
 
     Ok(())
+}
+
+macro_rules! handle_sim_modals {
+    ( $( $fn:ident, $field:ident ;)* ) => {
+        $(
+            pub async fn $fn(ctx: Arc<Context>, modal: InteractionModal) -> Result<()> {
+                let input = parse_modal_input(&modal)?;
+
+                let Some(Ok(value)) = input.value.as_deref().map(str::parse) else {
+                    debug!("failed to parse sim input `{:?}`", input.value);
+
+                    return Ok(());
+                };
+
+                let Some(ref msg) = modal.message else {
+                    warn!("received modal without message");
+
+                    return Ok(());
+                };
+
+                let (builder, defer_components) = {
+                    let mut guard = ctx.paginations.lock(&msg.id).await;
+
+                    let Some(pagination) = guard.get_mut() else {
+                        return Ok(());
+                    };
+
+                    if !pagination.is_author(modal.user_id()?) {
+                        return Ok(());
+                    }
+
+                    let defer_components = pagination.defer_components;
+
+                    if defer_components {
+                        modal.defer(&ctx).await.wrap_err("failed to defer")?;
+                    }
+
+                    pagination.reset_timeout();
+
+                    let PaginationKind::Simulate(sim_pagination) = &mut pagination.kind else {
+                        return Ok(());
+                    };
+
+                    sim_pagination.simulate_data.$field = Some(value);
+                    let version = sim_pagination.simulate_data.version;
+                    pagination.component_kind = ComponentKind::Simulate(version);
+
+                    (pagination.build(&ctx).await, defer_components)
+                };
+
+                respond_modal(defer_components, &modal, &ctx, builder).await
+            }
+        )*
+    }
+}
+
+handle_sim_modals! {
+    handle_sim_mods_modal, mods;
+    handle_sim_combo_modal, combo;
+    handle_sim_acc_modal, acc;
+    handle_sim_clock_rate_modal, clock_rate;
+    handle_sim_geki_modal, n_geki;
+    handle_sim_katu_modal, n_katu;
+    handle_sim_n300_modal, n300;
+    handle_sim_n100_modal, n100;
+    handle_sim_n50_modal, n50;
+    handle_sim_miss_modal, n_miss;
+    handle_sim_score_modal, score;
+}
+
+pub async fn handle_pagination_modal(ctx: Arc<Context>, modal: InteractionModal) -> Result<()> {
+    let input = parse_modal_input(&modal)?;
+
+    let Some(Ok(page)) = input.value.as_deref().map(str::parse) else {
+        debug!("failed to parse page input `{:?}` as usize", input.value);
+
+        return Ok(());
+    };
+
+    let Some(ref msg) = modal.message else {
+        warn!("received modal without msg");
+
+        return Ok(());
+    };
+
+    let (builder, defer_components) = {
+        let mut guard = ctx.paginations.lock(&msg.id).await;
+
+        let Some(pagination) = guard.get_mut() else {
+            return Ok(());
+        };
+
+        if !pagination.is_author(modal.user_id()?) {
+            return Ok(());
+        }
+
+        let max_page = pagination.pages.last_page();
+
+        if !(1..=max_page).contains(&page) {
+            debug!("page {page} is not between 1 and {max_page}");
+
+            return Ok(());
+        }
+
+        let defer_components = pagination.defer_components;
+
+        if defer_components {
+            modal.defer(&ctx).await.wrap_err("failed to defer")?;
+        }
+
+        pagination.reset_timeout();
+        pagination.pages.index = (page - 1) * pagination.pages.per_page;
+
+        (pagination.build(&ctx).await, defer_components)
+    };
+
+    respond_modal(defer_components, &modal, &ctx, builder).await
 }
 
 pub async fn handle_profile_menu(

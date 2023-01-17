@@ -2,7 +2,7 @@ macro_rules! fields {
     // Push fields to a vec
     ($fields:ident {
         $($name:expr, $value:expr, $inline:expr $(;)? )+
-    }) => {
+    }) => {{
         $(
             $fields.push(
                 twilight_model::channel::embed::EmbedField {
@@ -12,7 +12,7 @@ macro_rules! fields {
                 }
             );
         )+
-    };
+    }};
 
     // Create a new vec of fields
     ($($name:expr, $value:expr, $inline:expr);+) => {

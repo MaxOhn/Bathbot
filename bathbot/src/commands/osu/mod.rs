@@ -121,6 +121,7 @@ mod ranking;
 mod ratios;
 mod recent;
 mod serverleaderboard;
+// mod simulate;
 mod simulate;
 mod snipe;
 mod top;

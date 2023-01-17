@@ -76,7 +76,7 @@ pub struct TopOldOsu<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-#[derive(CommandOption, CreateOption)]
+#[derive(Copy, Clone, CommandOption, CreateOption, Debug, PartialEq)]
 pub enum TopOldOsuVersion {
     #[option(name = "May 2014 - July 2014", value = "may14_july14")]
     May14July14,
@@ -153,7 +153,7 @@ pub struct TopOldTaiko<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-#[derive(CommandOption, CreateOption)]
+#[derive(Copy, Clone, CommandOption, CreateOption, Debug, PartialEq)]
 pub enum TopOldTaikoVersion {
     #[option(name = "March 2014 - September 2020", value = "march14_september20")]
     March14September20,
@@ -202,7 +202,7 @@ pub struct TopOldCatch<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-#[derive(CommandOption, CreateOption)]
+#[derive(Copy, Clone, CommandOption, CreateOption, Debug, PartialEq)]
 pub enum TopOldCatchVersion {
     #[option(name = "March 2014 - May 2020", value = "march14_may20")]
     March14May20,
@@ -246,7 +246,7 @@ pub struct TopOldMania<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-#[derive(CommandOption, CreateOption)]
+#[derive(Copy, Clone, CommandOption, CreateOption, Debug, PartialEq)]
 pub enum TopOldManiaVersion {
     #[option(name = "March 2014 - May 2018", value = "march14_may18")]
     March14May18,
