@@ -1,6 +1,6 @@
 [package]
 name = "bathbot-twilight"
-version = "3.0.1"
+version = "3.0.2"
 authors = ["MaxOhn <ohn.m@hotmail.de>"]
 edition = "2021"
 
