@@ -31,7 +31,7 @@ pub enum SimulateArg<'s> {
 }
 
 impl<'s> SimulateArg<'s> {
-    pub fn parse(input: &'s str) -> Result<Self, ParseError> {
+    pub fn parse(input: &'s str) -> Result<Self, ParseError<'_>> {
         let (rest, key_opt) = parse_key(input).map_err(|_| ParseError::Nom(input))?;
 
         match key_opt {
@@ -66,8 +66,8 @@ fn parse_key(input: &str) -> IResult<&str, Option<&str>> {
     opt(terminated(ch::alphanumeric1, ch::char('=')))(input)
 }
 
-fn parse_any(input: &str) -> Result<SimulateArg, ParseError> {
-    fn inner(input: &str) -> IResult<&str, SimulateArg> {
+fn parse_any(input: &str) -> Result<SimulateArg<'_>, ParseError<'_>> {
+    fn inner(input: &str) -> IResult<&str, SimulateArg<'_>> {
         enum ParseAny<'s> {
             Float(f32),
             Int(u32),
@@ -139,7 +139,7 @@ where
 macro_rules! parse_arg {
     ( $( $fn:ident -> $ty:ty: $parse:ident, $recognize:ident $( or $x:literal )?, $err:ident; )* ) => {
         $(
-            fn $fn(input: &str) -> Result<$ty, ParseError> {
+            fn $fn(input: &str) -> Result<$ty, ParseError<'_>> {
                 let recognize = alt((
                     map($recognize, |_| ()),
                     $( map(ch::char($x), |_| ()) )?
@@ -168,7 +168,7 @@ parse_arg! {
 macro_rules! parse_attr_arg {
     ( $( $fn:ident: $err:ident; ) *) => {
         $(
-            fn $fn(input: &str) -> Result<f32, ParseError> {
+            fn $fn(input: &str) -> Result<f32, ParseError<'_>> {
                 parse_float(input, success(()))
                     .map(|(_, val)| val)
                     .map_err(|_| ParseError::$err)
@@ -188,7 +188,7 @@ fn is_some<T>(opt: Option<T>) -> bool {
     opt.is_some()
 }
 
-fn parse_mods(input: &str) -> Result<&str, ParseError> {
+fn parse_mods(input: &str) -> Result<&str, ParseError<'_>> {
     fn inner(input: &str) -> IResult<&str, &str> {
         let (rest, prefixed) = map(opt(ch::char('+')), is_some)(input)?;
         let (rest, mods) = parse_mods_raw(rest)?;
