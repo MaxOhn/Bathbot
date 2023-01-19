@@ -17,7 +17,7 @@ use plotters::{
 };
 use plotters_backend::{BackendColor, BackendCoord, BackendStyle, DrawingErrorKind};
 use rosu_pp::{BeatmapExt, Strains};
-use rosu_v2::prelude::{GameMode, GameMods};
+use rosu_v2::prelude::{GameMode, GameMods, OsuError};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::channel::{message::MessageType, Message};
 
@@ -287,6 +287,14 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
 
     let mut mapset = match mapset_res {
         Ok(mapset) => mapset,
+        Err(OsuError::NotFound) => {
+            let content = match map_id {
+                MapIdType::Map(id) => format!("Beatmapset of map {id} was not found"),
+                MapIdType::Set(id) => format!("Beatmapset with id {id} was not found"),
+            };
+
+            return orig.error(&ctx, content).await;
+        }
         Err(err) => {
             let _ = orig.error(&ctx, OSU_API_ISSUE).await;
 
