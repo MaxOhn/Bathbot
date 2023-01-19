@@ -246,8 +246,12 @@ async fn leaderboard(
     let first_place_icon = scores.first().map(|s| format!("{AVATAR_URL}{}", s.user_id));
 
     // Sending the embed
-    let content =
-        format!("I found {amount} scores with the specified mods on the map's leaderboard");
+    let content = match mods {
+        Some(_) => {
+            format!("I found {amount} scores with the specified mods on the map's leaderboard")
+        }
+        None => format!("I found {amount} scores on the map's leaderboard"),
+    };
 
     let mut attr_map = HashMap::default();
     let stars = attrs.stars() as f32;
