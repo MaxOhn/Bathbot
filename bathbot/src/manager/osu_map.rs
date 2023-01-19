@@ -52,11 +52,7 @@ impl<'d> MapManager<'d> {
             // Otherwise retrieve mapset and store
             let map_fut = self.retrieve_map(map_id);
             let prepare_fut = self.prepare_map(map_id, DbMapPath::Missing);
-
-            let (map_res, prepare_res) = tokio::join!(map_fut, prepare_fut);
-
-            let map = map_res.wrap_err("failed to retrieve map")?;
-            let (pp_map, _) = prepare_res.wrap_err("failed to prepare map")?;
+            let (map, (pp_map, _)) = tokio::try_join!(map_fut, prepare_fut)?;
 
             Ok(OsuMap { map, pp_map })
         }
@@ -130,10 +126,7 @@ impl<'d> MapManager<'d> {
             .map(|map_id| (*map_id as u32, db_maps.remove(map_id)))
             .map(|(map_id, map_opt)| async move {
                 let map = if let Some((map, mapset, filepath)) = map_opt {
-                    let (pp_map, map_opt) = self
-                        .prepare_map(map_id, filepath)
-                        .await
-                        .wrap_err("failed to prepare map")?;
+                    let (pp_map, map_opt) = self.prepare_map(map_id, filepath).await?;
 
                     match map_opt {
                         Some(map) => OsuMap { map, pp_map },
@@ -142,16 +135,12 @@ impl<'d> MapManager<'d> {
                 } else {
                     let map_fut = self.retrieve_map(map_id);
                     let prepare_fut = self.prepare_map(map_id, DbMapPath::Missing);
-
-                    let (map_res, prepare_res) = tokio::join!(map_fut, prepare_fut);
-
-                    let map = map_res.wrap_err("failed to retrieve map")?;
-                    let (pp_map, _) = prepare_res.wrap_err("failed to prepare map")?;
+                    let (map, (pp_map, _)) = tokio::try_join!(map_fut, prepare_fut)?;
 
                     OsuMap { map, pp_map }
                 };
 
-                Ok::<_, Report>((map_id, map))
+                Ok::<_, MapError>((map_id, map))
             })
             .collect::<FuturesUnordered<_>>()
             .try_collect()
