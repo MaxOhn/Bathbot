@@ -178,7 +178,7 @@ async fn slash_card(ctx: Arc<Context>, mut command: InteractionCommand) -> Resul
         }
     };
 
-    let bytes = match HtmlToPng::convert(&html) {
+    let bytes = match HtmlToPng::convert(&html).await {
         Ok(bytes) => bytes,
         Err(err) => {
             let _ = orig.error(&ctx, GENERAL_ISSUE).await;
