@@ -79,7 +79,7 @@ impl ProfileEmbed {
         );
 
         if let Some(skin_url) = skin_url {
-            let _ = write!(description, " • [**Link to skin**]({skin_url})");
+            let _ = write!(description, " • [**Link to skin**]({skin_url} \"{skin_url}\")");
         }
 
         if let Some(peak) = highest_rank {
