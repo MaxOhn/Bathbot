@@ -121,6 +121,7 @@ pub struct SetSkin {
     - `https://www.dropbox.com`\n\
     - `https://mega.nz`\n\
     - `https://www.mediafire.com`\n\
+    - `https://skins.osuck.net`\n\
     If you want to suggest another site let Badewanne3 know.")]
     /// Specify a download link for your skin
     url: String,
@@ -214,6 +215,7 @@ impl SkinValidation {
                     - `https://www.dropbox.com`\n\
                     - `https://mega.nz`\n\
                     - `https://www.mediafire.com`\n\
+                    - `https://skins.osuck.net`\n\
                     If you want to suggest another site let Badewanne3 know";
 
                 command.error(ctx, content).await?;
