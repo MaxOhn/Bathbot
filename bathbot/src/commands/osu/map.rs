@@ -353,9 +353,9 @@ async fn map(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: MapArgs<'_>) -> R
             }
         },
         (Err(err), _) => {
-            warn!("{:?}", err.wrap_err("Failed to calculate strain values"));
+            let _ = orig.error(&ctx, GENERAL_ISSUE).await;
 
-            None
+            return Err(err.wrap_err("Failed to calculate strain values"));
         }
         (_, Err(err)) => {
             warn!("{:?}", err.wrap_err("Failed to get graph background"));
