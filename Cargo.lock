@@ -262,7 +262,6 @@ dependencies = [
  "itertools",
  "leaky-bucket-lite",
  "nom",
- "num_cpus",
  "once_cell",
  "parking_lot 0.12.1",
  "plotters",

@@ -33,7 +33,6 @@ fn main() {
     let runtime = RuntimeBuilder::new_multi_thread()
         .enable_all()
         .thread_stack_size(3 * 1024 * 1024)
-        .worker_threads(num_cpus::get().saturating_sub(1).max(1)) // always keep one thread available for wkhtmltoimage
         .build()
         .expect("Could not build runtime");
 
