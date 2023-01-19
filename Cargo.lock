@@ -303,6 +303,7 @@ dependencies = [
  "regex",
  "rosu-v2",
  "time",
+ "tokio",
  "twilight-model",
 ]
 
