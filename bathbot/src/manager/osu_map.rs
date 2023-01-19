@@ -551,6 +551,6 @@ impl Searchable for OsuMap {
 pub enum MapError {
     #[error("map(set) not found")]
     NotFound,
-    #[error("map error")]
+    #[error(transparent)]
     Report(#[from] Report),
 }
