@@ -39,13 +39,28 @@ impl<'m> Args<'m> {
     }
 
     fn next_item(input: &'m str) -> IResult<&'m str, &'m str, ItemError<'m>> {
-        let quoted = delimited(ch::char('"'), by::take_until1("\""), ch::char('"'));
+        let quote_delimited = |start: char, end: char| {
+            delimited(
+                ch::char(start),
+                by::take_till1(move |c| c == end),
+                ch::char(end),
+            )
+        };
 
         let simple = map_opt(by::take_till(char::is_whitespace), |item: &str| {
             (!item.is_empty()).then_some(item)
         });
 
-        terminated(alt((quoted, simple)), ch::space0)(input)
+        let options = (
+            quote_delimited('"', '"'),
+            quote_delimited('\'', '\''),
+            quote_delimited('“', '“'),
+            quote_delimited('«', '»'),
+            quote_delimited('„', '“'),
+            simple,
+        );
+
+        terminated(alt(options), ch::space0)(input)
     }
 }
 
