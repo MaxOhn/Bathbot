@@ -60,7 +60,7 @@ pub fn get_osu_user_id(msg: &str) -> Option<OsuUserId> {
 }
 
 pub fn get_osu_map_id(msg: &str) -> Option<u32> {
-    if let Ok(id) = msg.parse() {
+    if let Some(id) = msg.parse().ok().filter(|_| !msg.starts_with('+')) {
         return Some(id);
     }
 
@@ -77,7 +77,7 @@ pub fn get_osu_map_id(msg: &str) -> Option<u32> {
 }
 
 pub fn get_osu_mapset_id(msg: &str) -> Option<u32> {
-    if let Ok(id) = msg.parse() {
+    if let Some(id) = msg.parse().ok().filter(|_| !msg.starts_with('+')) {
         return Some(id);
     }
 
