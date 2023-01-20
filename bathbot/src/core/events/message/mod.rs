@@ -1,16 +1,17 @@
 use std::sync::Arc;
 
-use bathbot_psql::model::configs::{GuildConfig, DEFAULT_PREFIX};
+use bathbot_psql::model::configs::{GuildConfig, Prefix, DEFAULT_PREFIX};
 use eyre::Result;
+use nom::{
+    bytes::complete as by,
+    combinator::{opt, recognize},
+};
 use twilight_model::{channel::Message, guild::Permissions};
 
 use crate::{
     core::{
         buckets::BucketName,
-        commands::{
-            checks::{check_authority, check_ratelimit},
-            prefix::{Args, PrefixCommand, Stream},
-        },
+        commands::checks::{check_authority, check_ratelimit},
         Context,
     },
     util::ChannelExt,
@@ -28,41 +29,39 @@ pub async fn handle_message(ctx: Arc<Context>, msg: Message) {
         return;
     }
 
+    let content = msg.content.as_str();
+
     // Check msg content for a prefix
-    let mut stream = Stream::new(&msg.content);
-    stream.take_while_char(char::is_whitespace);
-
-    if let Some(guild_id) = msg.guild_id {
+    let prefix_opt = if let Some(guild_id) = msg.guild_id {
         let f = |config: &GuildConfig| {
-            if let Some(prefix) = config.prefixes.iter().find(|p| stream.starts_with(p)) {
-                stream.increment(prefix.len());
-
-                true
-            } else {
-                false
-            }
+            config
+                .prefixes
+                .iter()
+                .map(Prefix::as_str)
+                .map(|p| by::tag::<_, _, ()>(p)(content))
+                .flat_map(Result::ok)
+                .max_by_key(|(_, p)| p.len())
         };
 
-        let found_prefix = ctx.guild_config().peek(guild_id, f).await;
-
-        if !found_prefix {
-            return;
-        }
-    } else if stream.starts_with(DEFAULT_PREFIX) {
-        stream.increment(DEFAULT_PREFIX.len());
-    }
-
-    // Parse msg content for commands
-    let (cmd, num) = match parse_invoke(&mut stream) {
-        Invoke::Command { cmd, num } => (cmd, num),
-        Invoke::None => return,
+        ctx.guild_config().peek(guild_id, f).await
+    } else {
+        recognize::<_, _, (), _>(opt(by::tag(DEFAULT_PREFIX)))(content).ok()
     };
 
-    let name = cmd.name();
+    let Some((content, _)) = prefix_opt else {
+        return;
+    };
+
+    // Parse msg content for commands
+    let Some(invoke) = Invoke::parse(content) else {
+        return;
+    };
+
+    let name = invoke.cmd.name();
     EventKind::PrefixCommand.log(&ctx, &msg, name);
     ctx.stats.increment_message_command(name);
 
-    match process_command(ctx, cmd, &msg, stream, num).await {
+    match process_command(ctx, invoke, &msg).await {
         Ok(ProcessResult::Success) => info!("Processed command `{name}`"),
         Ok(result) => info!("Command `{name}` was not processed: {result:?}"),
         Err(err) => {
@@ -72,13 +71,13 @@ pub async fn handle_message(ctx: Arc<Context>, msg: Message) {
     }
 }
 
-async fn process_command(
+async fn process_command<'m>(
     ctx: Arc<Context>,
-    cmd: &PrefixCommand,
-    msg: &Message,
-    stream: Stream<'_>,
-    num: Option<u64>,
+    invoke: Invoke<'m>,
+    msg: &'m Message,
 ) -> Result<ProcessResult> {
+    let Invoke { cmd, args } = invoke;
+
     // Only in guilds?
     if (cmd.flags.authority() || cmd.flags.only_guilds()) && msg.guild_id.is_none() {
         let content = "That command is only available in servers";
@@ -149,9 +148,6 @@ async fn process_command(
             }
         }
     }
-
-    // Prepare lightweight arguments
-    let args = Args::new(&msg.content, stream, num);
 
     // Broadcast typing event
     if cmd.flags.defer() {

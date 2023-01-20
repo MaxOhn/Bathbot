@@ -213,12 +213,10 @@ impl From<SearchOrder> for BeatmapsetSearchSort {
 
 impl Search {
     pub fn args(args: Args<'_>) -> Result<Self, &'static str> {
-        let mut query = String::with_capacity(args.rest().len());
-
-        // * Note: Can't use Stream since `query` is edited while being parsed
+        let args = args.rest();
+        let mut query = String::with_capacity(args.len());
 
         let chars = args
-            .rest()
             .chars()
             .skip_while(|c| c.is_whitespace())
             .map(|c| c.to_ascii_lowercase());

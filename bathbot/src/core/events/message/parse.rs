@@ -1,53 +1,42 @@
-use std::borrow::Cow;
-
 use bathbot_util::CowUtils;
+use nom::{
+    branch::alt,
+    character::complete as ch,
+    combinator::{eof, map_opt, opt, recognize},
+    sequence::{pair, terminated},
+};
 
-use crate::core::commands::prefix::{PrefixCommand, PrefixCommands, Stream};
+use crate::core::commands::prefix::{Args, PrefixCommand, PrefixCommands};
 
-pub enum Invoke {
-    Command {
-        cmd: &'static PrefixCommand,
-        num: Option<u64>,
-    },
-    None,
+pub struct Invoke<'i> {
+    pub cmd: &'static PrefixCommand,
+    pub args: Args<'i>,
 }
 
-pub fn parse_invoke(stream: &mut Stream<'_>) -> Invoke {
-    let mut name = stream
-        .take_until_char(|c| c.is_whitespace() || c.is_numeric())
-        .cow_to_ascii_lowercase();
+impl<'i> Invoke<'i> {
+    pub fn parse(input: &'i str) -> Option<Self> {
+        let mut parse = terminated::<_, _, _, (), _, _>(
+            // either
+            alt((
+                // [alphabetic][numeric?]
+                pair(
+                    map_opt(ch::alpha1, |name: &str| {
+                        PrefixCommands::get().command(name.cow_to_ascii_lowercase().as_ref())
+                    }),
+                    opt(ch::u64),
+                ),
+                // [numeric]
+                map_opt(ch::digit1, |name| {
+                    PrefixCommands::get().command(name).map(|cmd| (cmd, None))
+                }),
+            )),
+            // either followed by space or eof
+            recognize(alt((ch::space1, eof))),
+        );
 
-    let num_str = stream.take_while_char(char::is_numeric);
+        let (rest, (cmd, num)) = parse(input).ok()?;
+        let args = Args::new(rest, num);
 
-    let num = if num_str.is_empty() {
-        None
-    } else if name.is_empty() {
-        name = Cow::Borrowed(num_str);
-
-        // thing like <rb1badewanne3 don't need to be considered
-        if stream.take_while_char(char::is_whitespace).is_empty() && !stream.is_empty() {
-            return Invoke::None;
-        }
-
-        None
-    } else {
-        // Efficient integer parsing
-        let n = num_str.chars().fold(0_u64, |n, c| {
-            n.wrapping_mul(10).wrapping_add((c as u8 & 0xF) as u64)
-        });
-
-        if stream.take_while_char(char::is_whitespace).is_empty() && !stream.is_empty() {
-            return Invoke::None;
-        }
-
-        Some(n)
-    };
-
-    stream.take_while_char(char::is_whitespace);
-
-    if let Some(cmd) = PrefixCommands::get().command(name.as_ref()) {
-        Invoke::Command { cmd, num }
-    } else {
-        Invoke::None
+        Some(Self { cmd, args })
     }
 }

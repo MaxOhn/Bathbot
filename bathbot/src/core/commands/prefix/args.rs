@@ -1,76 +1,59 @@
-use super::stream::Stream;
+use nom::{
+    branch::alt,
+    bytes::complete as by,
+    character::complete as ch,
+    combinator::{iterator, map_opt, ParserIterator},
+    error::Error as NomError,
+    sequence::{delimited, terminated},
+    Err as NomErr, IResult,
+};
+
+type ItemError<'m> = NomError<&'m str>;
+type ItemFn<'m> = fn(&'m str) -> IResult<&'m str, &'m str, ItemError<'m>>;
 
 pub struct Args<'m> {
-    msg: &'m str,
-    stream: Stream<'m>,
+    iter: ParserIterator<&'m str, ItemError<'m>, ItemFn<'m>>,
     pub num: Option<u64>,
+}
+
+impl<'m> Args<'m> {
+    pub fn new(content: &'m str, num: Option<u64>) -> Self {
+        Self {
+            iter: iterator(content, Self::next_item),
+            num,
+        }
+    }
+
+    pub fn rest(self) -> &'m str {
+        match self.iter.finish() {
+            Ok((rest, _)) => rest,
+            Err(err) => {
+                error!("Error while getting rest of args: {err}");
+
+                match err {
+                    NomErr::Incomplete(_) => "",
+                    NomErr::Error(err) | NomErr::Failure(err) => err.input,
+                }
+            }
+        }
+    }
+
+    fn next_item(input: &'m str) -> IResult<&'m str, &'m str, ItemError<'m>> {
+        let quoted = delimited(ch::char('"'), by::take_until1("\""), ch::char('"'));
+
+        let simple = map_opt(by::take_till(char::is_whitespace), |item: &str| {
+            (!item.is_empty()).then_some(item)
+        });
+
+        terminated(alt((quoted, simple)), ch::space0)(input)
+    }
 }
 
 impl<'m> Iterator for Args<'m> {
     type Item = &'m str;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        let (start, end) = self.lex()?;
-
-        self.msg.get(start..end)
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let lower = match self.stream.current_char() {
-            Some(c) => !c.is_whitespace() as usize,
-            None => 0,
-        };
-
-        let upper = self.stream.rest().split_whitespace().count();
-
-        (lower, Some(upper))
-    }
-}
-
-impl<'m> Args<'m> {
-    pub fn new(msg: &'m str, stream: Stream<'m>, num: Option<u64>) -> Self {
-        Self { msg, stream, num }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.stream.is_empty()
-    }
-
-    pub fn rest(&self) -> &'m str {
-        self.stream.rest()
-    }
-
-    fn lex(&mut self) -> Option<(usize, usize)> {
-        let stream = &mut self.stream;
-        let start = stream.offset();
-
-        if stream.current_char()? == '"' {
-            stream.increment(1);
-            stream.take_until(|b| b == b'"');
-            let is_quote = stream.next().map_or(false, |b| b == b'"');
-            let end = stream.offset();
-
-            if start == end - 2 {
-                stream.take_while_char(char::is_whitespace);
-
-                return self.lex();
-            }
-
-            stream.take_while_char(char::is_whitespace);
-
-            let limits = if is_quote {
-                (start + 1, end - 1)
-            } else {
-                (start, stream.len())
-            };
-
-            return Some(limits);
-        }
-
-        stream.take_until_char(char::is_whitespace);
-        let end = stream.offset();
-        stream.take_while_char(char::is_whitespace);
-
-        Some((start, end))
+        (&mut self.iter).next()
     }
 }

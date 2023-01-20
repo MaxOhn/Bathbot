@@ -16,11 +16,10 @@ use crate::commands::tracking::*;
 #[cfg(feature = "twitch")]
 use crate::commands::twitch::*;
 
-pub use self::{args::Args, command::PrefixCommand, stream::Stream};
+pub use self::{args::Args, command::PrefixCommand};
 
 mod args;
 mod command;
-mod stream;
 
 macro_rules! prefix_trie {
     ( $( $( #[ $meta:meta ] )? $cmd:ident ,)* ) => {

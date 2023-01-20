@@ -52,14 +52,14 @@ async fn prefix_prefix(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> 
         }
     };
 
+    let mut args: Vec<Prefix> = args.take(5).map(Prefix::from).collect();
+
     if args.is_empty() {
         let content = "After the first argument you should specify some prefix(es)";
         msg.error(&ctx, content).await?;
 
         return Ok(());
     }
-
-    let mut args: Vec<Prefix> = args.take(5).map(Prefix::from).collect();
 
     if args.iter().any(|arg| matcher::is_custom_emote(arg)) {
         let content = "Does not work with custom emotes unfortunately \\:(";
