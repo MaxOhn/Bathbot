@@ -54,6 +54,7 @@ impl SlashCommands {
                 ClaimName => CLAIMNAME_SLASH,
                 Commands => COMMANDS_SLASH,
                 Compare => COMPARE_SLASH,
+                CompareScore_ => COMPARESCORE__SLASH,
                 Config => CONFIG_SLASH,
                 CountryTop => COUNTRYTOP_SLASH,
                 Cs => CS_SLASH,

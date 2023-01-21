@@ -83,6 +83,43 @@ pub struct Cs<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
+#[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
+#[command(
+    name = "score",
+    help = "Given a user and a map, display the user's scores on the map.\n\
+        Its shorter alias is the `/cs` command."
+)]
+/// Compare a score
+pub struct CompareScore_<'a> {
+    /// Specify a username
+    name: Option<Cow<'a, str>>,
+    #[command(help = "Specify a map either by map url or map id.\n\
+        If none is specified, it will search in the recent channel history \
+        and pick the first map it can find.")]
+    /// Specify a map url or map id
+    map: Option<Cow<'a, str>>,
+    /// Choose how the scores should be ordered
+    sort: Option<ScoreOrder>,
+    #[command(help = "Filter out scores based on mods.\n\
+        Mods must be given as `+mods` to require these mods to be included, \
+        `+mods!` to require exactly these mods, \
+        or `-mods!` to ignore scores containing any of these mods.\n\
+        Examples:\n\
+        - `+hd`: Remove scores that don't include `HD`\n\
+        - `+hdhr!`: Only keep the `HDHR` score\n\
+        - `+nm!`: Only keep the nomod score\n\
+        - `-ezhd!`: Remove all scores that have either `EZ` or `HD`")]
+    /// Filter out scores based on mods (`+mods` for included, `+mods!` for exact, `-mods!` for excluded)
+    mods: Option<Cow<'a, str>>,
+    #[command(
+        help = "Instead of specifying an osu! username with the `name` option, \
+        you can use this option to choose a discord user.\n\
+        Only works on users who have used the `/link` command."
+    )]
+    /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
+}
+
 enum MapOrScore {
     Map(MapIdType),
     Score { id: u64, mode: GameMode },
@@ -172,7 +209,7 @@ macro_rules! impl_try_from {
     }
 }
 
-impl_try_from!(CompareScore, Cs);
+impl_try_from!(CompareScore, Cs, CompareScore_);
 
 #[command]
 #[desc("Compare a player's score on a map")]
@@ -211,6 +248,19 @@ async fn prefix_compare(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Res
 
 async fn slash_cs(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Cs::from_interaction(command.input_data())?;
+
+    match CompareScoreArgs::try_from(args) {
+        Ok(args) => score(ctx, (&mut command).into(), args).await,
+        Err(content) => {
+            command.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+async fn slash_comparescore_(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
+    let args = CompareScore_::from_interaction(command.input_data())?;
 
     match CompareScoreArgs::try_from(args) {
         Ok(args) => score(ctx, (&mut command).into(), args).await,
