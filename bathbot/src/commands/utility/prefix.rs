@@ -3,7 +3,7 @@ use bathbot_psql::model::configs::{GuildConfig, Prefix, Prefixes, DEFAULT_PREFIX
 use bathbot_util::{constants::GENERAL_ISSUE, matcher, MessageBuilder};
 use eyre::Result;
 
-use crate::{util::ChannelExt, Context};
+use crate::{core::commands::checks::check_authority, util::ChannelExt, Context};
 
 use std::{cmp::Ordering, fmt::Write, sync::Arc};
 
@@ -21,32 +21,47 @@ use std::{cmp::Ordering, fmt::Write, sync::Arc};
 #[usage("[add / remove] [prefix]")]
 #[example("add $ 🍆 new_pref", "remove < !!")]
 #[alias("prefixes")]
-#[flags(AUTHORITY, ONLY_GUILDS, SKIP_DEFER)]
+#[flags(ONLY_GUILDS, SKIP_DEFER)] // authority check is done manually
 #[group(Utility)]
 async fn prefix_prefix(ctx: Arc<Context>, msg: &Message, mut args: Args<'_>) -> Result<()> {
     let guild_id = msg.guild_id.unwrap();
 
-    let action = match args.next() {
-        Some("add" | "a") => Action::Add,
-        Some("remove" | "r") => Action::Remove,
-        Some(other) => {
+    let Some(action) = args.next() else {
+        let mut content = String::new();
+
+        let f = |config: &GuildConfig| current_prefixes(&mut content, &config.prefixes);
+        ctx.guild_config().peek(guild_id, f).await;
+
+        let builder = MessageBuilder::new().embed(content);
+        msg.create_message(&ctx, &builder).await?;
+
+        return Ok(());
+    };
+
+    match check_authority(&ctx, msg.author.id, msg.guild_id).await {
+        Ok(None) => {}
+        Ok(Some(content)) => {
+            msg.error(&ctx, content).await?;
+
+            return Ok(());
+        }
+        Err(err) => {
+            let _ = msg.error(&ctx, GENERAL_ISSUE).await;
+
+            return Err(err.wrap_err("Failed to check authority status"));
+        }
+    }
+
+    let action = match action {
+        "add" | "a" => Action::Add,
+        "remove" | "r" => Action::Remove,
+        other => {
             let content = format!(
                 "If any arguments are provided, the first one \
                 must be either `add` or `remove`, not `{other}`"
             );
 
             msg.error(&ctx, content).await?;
-
-            return Ok(());
-        }
-        None => {
-            let mut content = String::new();
-
-            let f = |config: &GuildConfig| current_prefixes(&mut content, &config.prefixes);
-            ctx.guild_config().peek(guild_id, f).await;
-
-            let builder = MessageBuilder::new().embed(content);
-            msg.create_message(&ctx, &builder).await?;
 
             return Ok(());
         }
