@@ -28,14 +28,6 @@ impl MedalEmbed {
         maps: Vec<OsekaiMap>,
         comment: Option<OsekaiComment>,
     ) -> Self {
-        let mode = medal
-            .restriction
-            .map_or_else(|| "Any".to_owned(), |mode| mode.to_string());
-
-        let mods = medal
-            .mods
-            .map_or_else(|| "Any".to_owned(), |mods| mods.to_string());
-
         let mut fields = Vec::with_capacity(7);
 
         fields![fields { "Description", medal.description, false }];
@@ -49,9 +41,16 @@ impl MedalEmbed {
             fields![fields { "Solution", solution, false }];
         }
 
+        let mode_mods = match (medal.restriction, medal.mods) {
+            (None, None) => "Any".to_owned(),
+            (None, Some(mods)) => format!("Any • {mods}"),
+            (Some(mode), None) => format!("{mode} • Any"),
+            (Some(mode), Some(mods)) => format!("{mode} • {mods}"),
+        };
+
         fields![fields {
-            "Mode", mode, true;
-            "Mods", mods, true;
+            "Rarity", format!("{:.2}%", medal.rarity), true;
+            "Mode • Mods", mode_mods, true;
             "Group", medal.grouping.to_string(), true;
         }];
 

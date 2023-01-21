@@ -240,6 +240,8 @@ pub struct OsekaiMedal {
     #[serde(rename = "ModeOrder")]
     pub mode_order: usize,
     pub ordering: usize,
+    #[serde(rename = "Rarity")]
+    pub rarity: f32,
 }
 
 pub static MEDAL_GROUPS: [MedalGroup; 8] = [
