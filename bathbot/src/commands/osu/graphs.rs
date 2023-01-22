@@ -285,9 +285,37 @@ async fn graph(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Graph) -> Resul
                 .wrap_err("failed to create snipe count graph")?
         }
         Graph::Top(args) => {
-            let (user_id, mode) = user_id_mode!(ctx, orig, args);
+            let owner = orig.user_id()?;
+
+            let config = match ctx.user_config().with_osu_id(owner).await {
+                Ok(config) => config,
+                Err(err) => {
+                    let _ = orig.error(&ctx, GENERAL_ISSUE).await;
+
+                    return Err(err.wrap_err("failed to get user config"));
+                }
+            };
+
+            let mode = args
+                .mode
+                .map(GameMode::from)
+                .or(config.mode)
+                .unwrap_or(GameMode::Osu);
+
+            let (user_id, no_user_specified) = match user_id!(ctx, orig, args) {
+                Some(user_id) => (user_id, false),
+                None => match config.osu {
+                    Some(user_id) => (UserId::Id(user_id), true),
+                    None => return require_link(&ctx, &orig).await,
+                },
+            };
+
             let user_args = UserArgs::rosu_id(&ctx, &user_id).await.mode(mode);
-            let tz = args.timezone.map(UtcOffset::from);
+
+            let tz = args
+                .timezone
+                .map(UtcOffset::from)
+                .or_else(|| no_user_specified.then_some(config.timezone).flatten());
 
             top_graph(&ctx, &orig, user_id, user_args, args.order, tz)
                 .await
