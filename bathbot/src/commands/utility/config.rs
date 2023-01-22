@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use ::time::UtcOffset;
 use bathbot_macros::{command, SlashCommand};
 use bathbot_psql::model::configs::{
     ListSize, MinimizedPp, OsuUserId, OsuUsername, ScoreSize, UserConfig,
@@ -11,7 +12,7 @@ use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand,
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    commands::ShowHideOption,
+    commands::{ShowHideOption, TimezoneOption},
     embeds::{ConfigEmbed, EmbedData},
     util::{interaction::InteractionCommand, Authored, InteractionCommandExt},
     Context,
@@ -71,6 +72,8 @@ pub struct Config {
     retries: Option<ShowHideOption>,
     /// Specify whether the recent command should show max or if-fc pp when minimized
     minimized_pp: Option<MinimizedPp>,
+    /// Specify a timezone which will be used for commands like `/graph`
+    timezone: Option<TimezoneOption>,
     #[command(help = "Specify a download link for your skin.\n\
     Must be a URL to a direct-download of an .osk file or one of these approved sites:\n\
     - `https://drive.google.com`\n\
@@ -83,6 +86,8 @@ pub struct Config {
     skin_url: Option<String>,
 }
 
+// FIXME: Some attribute command does not register the #[cfg(feature = "")]
+// tag on fields so we need an entirely new struct for now
 #[cfg(not(feature = "server"))]
 #[derive(CommandModel, CreateCommand, Default, SlashCommand)]
 #[command(name = "config")]
@@ -110,6 +115,8 @@ pub struct Config {
     retries: Option<ShowHideOption>,
     /// Specify whether the recent command should show max or if-fc pp when minimized
     minimized_pp: Option<MinimizedPp>,
+    /// Specify a timezone which will be used for commands like `/graph`
+    timezone: Option<TimezoneOption>,
     #[command(help = "Specify a download link for your skin.\n\
     Must be a URL to a direct-download of an .osk file or one of these approved sites:\n\
     - `https://drive.google.com`\n\
@@ -173,6 +180,7 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
         list_embeds,
         retries,
         minimized_pp,
+        timezone,
         mut skin_url,
     } = config;
 
@@ -217,6 +225,10 @@ pub async fn config(ctx: Arc<Context>, command: InteractionCommand, config: Conf
 
     if let Some(retries) = retries {
         config.show_retries = Some(matches!(retries, ShowHideOption::Show));
+    }
+
+    if let Some(tz) = timezone.map(UtcOffset::from) {
+        config.timezone = Some(tz);
     }
 
     #[cfg(feature = "server")]

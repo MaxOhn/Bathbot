@@ -27,7 +27,7 @@ use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand,
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
-    commands::{osu::ProfileGraphFlags, GameModeOption, ShowHideOption},
+    commands::{osu::ProfileGraphFlags, GameModeOption, ShowHideOption, TimezoneOption},
     core::{commands::CommandOrigin, Context},
     embeds::attachment,
     manager::redis::{
@@ -157,7 +157,7 @@ pub struct GraphTop {
     /// Specify a username
     name: Option<String>,
     /// Specify a timezone (only relevant when ordered by `Time`)
-    timezone: Option<GraphTopTimezone>,
+    timezone: Option<TimezoneOption>,
     #[command(
         help = "Instead of specifying an osu! username with the `name` option, \
         you can use this option to choose a discord user.\n\
@@ -175,97 +175,6 @@ pub enum GraphTopOrder {
     Index,
     #[option(name = "Time", value = "time")]
     Time,
-}
-
-#[derive(CommandOption, CreateOption)]
-pub enum GraphTopTimezone {
-    #[option(name = "UTC-12", value = "-12")]
-    M12 = -12,
-    #[option(name = "UTC-11", value = "-11")]
-    M11 = -11,
-    #[option(name = "UTC-10", value = "-10")]
-    M10 = -10,
-    #[option(name = "UTC-9", value = "-9")]
-    M9 = -9,
-    #[option(name = "UTC-8", value = "-8")]
-    M8 = -8,
-    #[option(name = "UTC-7", value = "-7")]
-    M7 = -7,
-    #[option(name = "UTC-6", value = "-6")]
-    M6 = -6,
-    #[option(name = "UTC-5", value = "-5")]
-    M5 = -5,
-    #[option(name = "UTC-4", value = "-4")]
-    M4 = -4,
-    #[option(name = "UTC-3", value = "-3")]
-    M3 = -3,
-    #[option(name = "UTC-2", value = "-2")]
-    M2 = -2,
-    #[option(name = "UTC-1", value = "-1")]
-    M1 = -1,
-    #[option(name = "UTC+0", value = "0")]
-    P0 = 0,
-    #[option(name = "UTC+1", value = "1")]
-    P1 = 1,
-    #[option(name = "UTC+2", value = "2")]
-    P2 = 2,
-    #[option(name = "UTC+3", value = "3")]
-    P3 = 3,
-    #[option(name = "UTC+4", value = "4")]
-    P4 = 4,
-    #[option(name = "UTC+5", value = "5")]
-    P5 = 5,
-    #[option(name = "UTC+6", value = "6")]
-    P6 = 6,
-    #[option(name = "UTC+7", value = "7")]
-    P7 = 7,
-    #[option(name = "UTC+8", value = "8")]
-    P8 = 8,
-    #[option(name = "UTC+9", value = "9")]
-    P9 = 9,
-    #[option(name = "UTC+10", value = "10")]
-    P10 = 10,
-    #[option(name = "UTC+11", value = "11")]
-    P11 = 11,
-    #[option(name = "UTC+12", value = "12")]
-    P12 = 12,
-}
-
-impl From<GraphTopTimezone> for UtcOffset {
-    fn from(tz: GraphTopTimezone) -> Self {
-        let seconds = match tz {
-            GraphTopTimezone::M12 => -12 * 3600,
-            GraphTopTimezone::M11 => -11 * 3600,
-            GraphTopTimezone::M10 => -10 * 3600,
-            GraphTopTimezone::M9 => -9 * 3600,
-            GraphTopTimezone::M8 => -8 * 3600,
-            GraphTopTimezone::M7 => -7 * 3600,
-            GraphTopTimezone::M6 => -6 * 3600,
-            GraphTopTimezone::M5 => -5 * 3600,
-            GraphTopTimezone::M4 => -4 * 3600,
-            GraphTopTimezone::M3 => -3 * 3600,
-            GraphTopTimezone::M2 => -2 * 3600,
-            #[allow(clippy::neg_multiply)]
-            GraphTopTimezone::M1 => -1 * 3600,
-            #[allow(clippy::erasing_op)]
-            GraphTopTimezone::P0 => 0 * 3600,
-            #[allow(clippy::identity_op)]
-            GraphTopTimezone::P1 => 1 * 3600,
-            GraphTopTimezone::P2 => 2 * 3600,
-            GraphTopTimezone::P3 => 3 * 3600,
-            GraphTopTimezone::P4 => 4 * 3600,
-            GraphTopTimezone::P5 => 5 * 3600,
-            GraphTopTimezone::P6 => 6 * 3600,
-            GraphTopTimezone::P7 => 7 * 3600,
-            GraphTopTimezone::P8 => 8 * 3600,
-            GraphTopTimezone::P9 => 9 * 3600,
-            GraphTopTimezone::P10 => 10 * 3600,
-            GraphTopTimezone::P11 => 11 * 3600,
-            GraphTopTimezone::P12 => 12 * 3600,
-        };
-
-        Self::from_whole_seconds(seconds).unwrap()
-    }
 }
 
 async fn slash_graph(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {

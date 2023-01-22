@@ -1,15 +1,20 @@
 use std::fmt::{Display, Write};
 
-use bathbot_macros::EmbedData;
+use ::time::UtcOffset;
 use bathbot_psql::model::configs::{ListSize, MinimizedPp, OsuUsername, ScoreSize, UserConfig};
-use bathbot_util::AuthorBuilder;
+use bathbot_util::{AuthorBuilder, EmbedBuilder, FooterBuilder};
 use rosu_v2::prelude::GameMode;
-use twilight_model::{channel::embed::EmbedField, user::User};
+use twilight_model::{
+    channel::embed::{Embed, EmbedField},
+    user::User,
+};
 
-#[derive(EmbedData)]
+use crate::embeds::EmbedData;
+
 pub struct ConfigEmbed {
     author: AuthorBuilder,
     fields: Vec<EmbedField>,
+    footer: Option<FooterBuilder>,
     title: &'static str,
 }
 
@@ -110,9 +115,16 @@ impl ConfigEmbed {
             });
         }
 
+        let footer = config
+            .timezone
+            .map(UtcOffset::whole_hours)
+            .map(|tz| format!("Timezone: UTC{tz:+}"))
+            .map(FooterBuilder::new);
+
         Self {
             author,
             fields,
+            footer,
             title,
         }
     }
@@ -140,5 +152,21 @@ pub(super) fn create_field<T: Eq>(
         inline: true,
         name: name.to_owned(),
         value,
+    }
+}
+
+impl EmbedData for ConfigEmbed {
+    #[inline]
+    fn build(self) -> Embed {
+        let mut builder = EmbedBuilder::new()
+            .author(self.author)
+            .fields(self.fields)
+            .title(self.title);
+
+        if let Some(footer) = self.footer {
+            builder = builder.footer(footer);
+        }
+
+        builder.build()
     }
 }

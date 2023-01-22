@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use rosu_v2::prelude::{GameMode, Grade};
+use time::UtcOffset;
 use twilight_interactions::command::{CommandOption, CreateOption};
 
 pub mod fun;
@@ -128,4 +129,58 @@ impl FromStr for GradeOption {
 
         Ok(grade)
     }
+}
+
+macro_rules! timezone_option {
+    ( $( $variant:ident, $name:literal, $value:literal, $value_str:literal; )* ) => {
+        #[derive(CommandOption, CreateOption)]
+        pub enum TimezoneOption {
+            $(
+                #[option(name = $name, value = $value_str)]
+                $variant = $value,
+            )*
+        }
+
+        impl From<TimezoneOption> for UtcOffset {
+            #[inline]
+            fn from(tz: TimezoneOption) -> Self {
+                let seconds = match tz {
+                    $(
+                        #[allow(clippy::neg_multiply, clippy::erasing_op, clippy::identity_op)]
+                        TimezoneOption:: $variant => $value * 3600,
+                    )*
+                };
+
+                Self::from_whole_seconds(seconds).unwrap()
+            }
+        }
+    }
+}
+
+timezone_option! {
+    M12, "UTC-12", -12, "-12";
+    M11, "UTC-11", -11, "-11";
+    M10, "UTC-10", -10, "-10";
+    M9, "UTC-9", -9, "-9";
+    M8, "UTC-8", -8, "-8";
+    M7, "UTC-7", -7, "-7";
+    M6, "UTC-6", -6, "-6";
+    M5, "UTC-5", -5, "-5";
+    M4, "UTC-4", -4, "-4";
+    M3, "UTC-3", -3, "-3";
+    M2, "UTC-2", -2, "-2";
+    M1, "UTC-1", -1, "-1";
+    P0, "UTC+0", 0, "0";
+    P1, "UTC+1", 1, "1";
+    P2, "UTC+2", 2, "2";
+    P3, "UTC+3", 3, "3";
+    P4, "UTC+4", 4, "4";
+    P5, "UTC+5", 5, "5";
+    P6, "UTC+6", 6, "6";
+    P7, "UTC+7", 7, "7";
+    P8, "UTC+8", 8, "8";
+    P9, "UTC+9", 9, "9";
+    P10, "UTC+10", 10, "10";
+    P11, "UTC+11", 11, "11";
+    P12, "UTC+12", 12, "12";
 }
