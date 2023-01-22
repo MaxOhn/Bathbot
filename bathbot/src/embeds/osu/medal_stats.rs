@@ -28,7 +28,7 @@ impl MedalStatsEmbed {
     pub fn new(
         user: &RedisData<User>,
         user_medals: &[MedalCompact],
-        medals: &HashMap<u32, (String, MedalGroup), IntHasher>,
+        medals: &HashMap<u32, StatsMedal, IntHasher>,
         rarest: Option<MedalCompact>,
         with_graph: bool,
     ) -> Self {
@@ -45,35 +45,35 @@ impl MedalStatsEmbed {
         if oldest.or(newest).or(rarest.as_ref()).is_some() {
             let mut value = String::with_capacity(128);
 
-            if let Some(((name, _), date)) =
+            if let Some((StatsMedal { name, rarity, .. }, date)) =
                 oldest.and_then(|medal| Some((medals.get(&medal.medal_id)?, medal.achieved_at)))
             {
                 let _ = writeln!(
                     value,
                     "👴 `Oldest` [{name}]({url}) <t:{timestamp}:d>",
-                    url = MedalUrl { name },
+                    url = MedalUrl { name, rarity },
                     timestamp = date.unix_timestamp()
                 );
             }
 
-            if let Some(((name, _), date)) =
+            if let Some((StatsMedal { name, rarity, .. }, date)) =
                 newest.and_then(|medal| Some((medals.get(&medal.medal_id)?, medal.achieved_at)))
             {
                 let _ = writeln!(
                     value,
                     "👶 `Newest` [{name}]({url}) <t:{timestamp}:d>",
-                    url = MedalUrl { name },
+                    url = MedalUrl { name, rarity },
                     timestamp = date.unix_timestamp()
                 );
             }
 
-            if let Some(((name, _), date)) =
+            if let Some((StatsMedal { name, rarity, .. }, date)) =
                 rarest.and_then(|medal| Some((medals.get(&medal.medal_id)?, medal.achieved_at)))
             {
                 let _ = writeln!(
                     value,
                     "💎 `Rarest` [{name}]({url}) <t:{timestamp}:d>",
-                    url = MedalUrl { name },
+                    url = MedalUrl { name, rarity },
                     timestamp = date.unix_timestamp()
                 );
             }
@@ -85,8 +85,8 @@ impl MedalStatsEmbed {
             let mut counts = HashMap::new();
 
             // Count groups for all medals
-            for (_, grouping) in medals.values() {
-                let (total, _) = counts.entry(grouping.as_str()).or_insert((0, 0));
+            for medal in medals.values() {
+                let (total, _) = counts.entry(medal.group.as_str()).or_insert((0, 0));
                 *total += 1;
             }
 
@@ -94,7 +94,7 @@ impl MedalStatsEmbed {
             for medal in user_medals.iter() {
                 let entry = medals
                     .get(&medal.medal_id)
-                    .and_then(|(_, grouping)| counts.get_mut(grouping.as_str()));
+                    .and_then(|medal| counts.get_mut(medal.group.as_str()));
 
                 if let Some((_, owned)) = entry {
                     *owned += 1;
@@ -152,14 +152,22 @@ impl MedalStatsEmbed {
 
 struct MedalUrl<'n> {
     name: &'n str,
+    rarity: &'n f32,
 }
 
 impl Display for MedalUrl<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(
             f,
-            "https://osekai.net/medals/?medal={}",
-            self.name.cow_replace(' ', "+").cow_replace(',', "%2C")
+            "https://osekai.net/medals/?medal={name} \"Rarity: {rarity}%\"",
+            name = self.name.cow_replace(' ', "+").cow_replace(',', "%2C"),
+            rarity = self.rarity,
         )
     }
+}
+
+pub struct StatsMedal {
+    pub name: String,
+    pub group: MedalGroup,
+    pub rarity: f32,
 }

@@ -20,7 +20,7 @@ use time::OffsetDateTime;
 use crate::{
     commands::osu::{require_link, user_not_found},
     core::commands::CommandOrigin,
-    embeds::{EmbedData, MedalStatsEmbed},
+    embeds::{EmbedData, MedalStatsEmbed, StatsMedal},
     manager::redis::{osu::UserArgs, RedisData},
     util::Monthly,
     Context,
@@ -119,15 +119,29 @@ pub(super) async fn stats(
     let all_medals: HashMap<_, _, IntHasher> = match all_medals {
         RedisData::Original(all_medals) => all_medals
             .into_iter()
-            .map(|entry| (entry.medal_id, (entry.name, entry.grouping)))
+            .map(|medal| {
+                (
+                    medal.medal_id,
+                    StatsMedal {
+                        name: medal.name,
+                        group: medal.grouping,
+                        rarity: medal.rarity,
+                    },
+                )
+            })
             .collect(),
         RedisData::Archived(all_medals) => all_medals
             .iter()
-            .map(|entry| {
-                let name = entry.name.deserialize(&mut Infallible).unwrap();
-                let grouping = entry.grouping.deserialize(&mut Infallible).unwrap();
+            .map(|medal| {
+                let medal_id = medal.medal_id;
 
-                (entry.medal_id, (name, grouping))
+                let medal = StatsMedal {
+                    name: medal.name.deserialize(&mut Infallible).unwrap(),
+                    group: medal.grouping.deserialize(&mut Infallible).unwrap(),
+                    rarity: medal.rarity,
+                };
+
+                (medal_id, medal)
             })
             .collect(),
     };
