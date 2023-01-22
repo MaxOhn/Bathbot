@@ -1007,6 +1007,26 @@
     },
     "query": "\nSELECT \n  stars, \n  hit_window, \n  max_combo \nFROM \n  osu_map_difficulty_mania \nWHERE \n  map_id = $1 \n  AND mods = $2"
   },
+  "6e254059f52776f2643adb168e1084744c88281c47a59c919464e344572881e3": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Int4",
+          "Int2",
+          "Int8",
+          "Int2",
+          "Bool",
+          "Int2",
+          "Int2",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nINSERT INTO user_configs (\n  discord_id, osu_id, gamemode, twitch_id, \n  score_size, show_retries, minimized_pp, \n  list_size, timezone_seconds\n) \nVALUES \n  ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (discord_id) DO \nUPDATE \nSET \n  osu_id = $2, \n  gamemode = $3, \n  twitch_id = $4, \n  score_size = $5, \n  show_retries = $6, \n  minimized_pp = $7, \n  list_size = $8,\n  timezone_seconds = $9"
+  },
   "6fb91a2921f874a56bed6b90fd218806f59b553b481fd527aa38c84c426550ea": {
     "describe": {
       "columns": [],
@@ -1294,25 +1314,6 @@
       }
     },
     "query": "\nINSERT INTO osu_map_difficulty_catch (\n  map_id, mods, stars, ar, n_fruits, n_droplets, \n  n_tiny_droplets\n) \nVALUES \n  ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (map_id, mods) DO \nUPDATE \nSET \n  stars = $3, \n  ar = $4, \n  n_fruits = $5, \n  n_droplets = $6, \n  n_tiny_droplets = $7"
-  },
-  "972b63a9adbe4a6233ae2d21e0e1b7a1a8af18a7199907989184c715424a01b6": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Left": [
-          "Int8",
-          "Int4",
-          "Int2",
-          "Int8",
-          "Int2",
-          "Bool",
-          "Int2",
-          "Int2"
-        ]
-      }
-    },
-    "query": "\nINSERT INTO user_configs (\n  discord_id, osu_id, gamemode, twitch_id, \n  score_size, show_retries, minimized_pp, \n  list_size\n) \nVALUES \n  ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (discord_id) DO \nUPDATE \nSET \n  osu_id = $2, \n  gamemode = $3, \n  twitch_id = $4, \n  score_size = $5, \n  show_retries = $6, \n  minimized_pp = $7, \n  list_size = $8"
   },
   "9956ebc2544c0db0b81478c8ec7be5e3020e2db5bd6d0fd03469e63b89a52f6c": {
     "describe": {

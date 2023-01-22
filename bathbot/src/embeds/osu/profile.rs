@@ -8,6 +8,7 @@ use bathbot_util::{
 };
 use rkyv::{with::DeserializeWith, Deserialize, Infallible};
 use rosu_v2::prelude::{GameMods, Grade, UserHighestRank, UserStatistics};
+use time::UtcOffset;
 use twilight_model::channel::embed::{Embed, EmbedField};
 
 use crate::{
@@ -40,7 +41,7 @@ impl ProfileEmbed {
 
     async fn compact(ctx: &Context, data: &mut ProfileData) -> Self {
         let skin_url = data.skin_url(ctx).await;
-        let ProfileData { user, .. } = data;
+        let ProfileData { user, tz, .. } = data;
 
         let (level, playtime, playcount, acc) = user.peek_stats(|stats| {
             let level = stats.level.float();
@@ -79,7 +80,10 @@ impl ProfileEmbed {
         );
 
         if let Some(skin_url) = skin_url {
-            let _ = write!(description, " • [**Link to skin**]({skin_url} \"{skin_url}\")");
+            let _ = write!(
+                description,
+                " • [**Link to skin**]({skin_url} \"{skin_url}\")"
+            );
         }
 
         if let Some(peak) = highest_rank {
@@ -95,7 +99,7 @@ impl ProfileEmbed {
             author: user.author_builder(),
             description,
             fields: Vec::new(),
-            footer: Some(Self::footer(user)),
+            footer: Some(Self::footer(user, *tz)),
             thumbnail: user.avatar_url().to_owned(),
         }
     }
@@ -112,7 +116,10 @@ impl ProfileEmbed {
         };
 
         let ProfileData {
-            user, discord_id, ..
+            user,
+            discord_id,
+            tz,
+            ..
         } = data;
 
         let stats = user.peek_stats(UserStatistics::clone);
@@ -211,7 +218,7 @@ impl ProfileEmbed {
             description,
             fields,
             thumbnail: avatar_url.to_owned(),
-            footer: Some(Self::footer(user)),
+            footer: Some(Self::footer(user, *tz)),
             author: user.author_builder(),
         }
     }
@@ -703,13 +710,17 @@ impl ProfileEmbed {
         }
     }
 
-    fn footer(user: &RedisData<User>) -> FooterBuilder {
-        let join_date = match user {
+    fn footer(user: &RedisData<User>, tz: Option<UtcOffset>) -> FooterBuilder {
+        let mut join_date = match user {
             RedisData::Original(user) => user.join_date,
             RedisData::Archived(user) => {
                 DateTimeWrapper::deserialize_with(&user.join_date, &mut Infallible).unwrap()
             }
         };
+
+        if let Some(tz) = tz {
+            join_date = join_date.to_offset(tz);
+        }
 
         let text = format!(
             "Joined osu! {} ({})",

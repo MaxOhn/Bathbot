@@ -262,10 +262,10 @@ FROM
 INSERT INTO user_configs (
   discord_id, osu_id, gamemode, twitch_id, 
   score_size, show_retries, minimized_pp, 
-  list_size
+  list_size, timezone_seconds
 ) 
 VALUES 
-  ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (discord_id) DO 
+  ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (discord_id) DO 
 UPDATE 
 SET 
   osu_id = $2, 
@@ -274,7 +274,8 @@ SET
   score_size = $5, 
   show_retries = $6, 
   minimized_pp = $7, 
-  list_size = $8"#,
+  list_size = $8,
+  timezone_seconds = $9"#,
             user_id.get() as i64,
             config.osu.map(|id| id as i32),
             config.mode.map(|mode| mode as i16) as Option<i16>,
@@ -282,7 +283,8 @@ SET
             config.score_size.map(i16::from),
             config.show_retries,
             config.minimized_pp.map(i16::from),
-            config.list_size.map(i16::from)
+            config.list_size.map(i16::from),
+            config.timezone.map(UtcOffset::whole_seconds),
         );
 
         query

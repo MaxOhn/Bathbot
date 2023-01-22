@@ -8,6 +8,7 @@ use bathbot_util::{osu::BonusPP, IntHasher};
 use eyre::Report;
 use eyre::Result;
 use rosu_v2::prelude::{GameMods, Score, Username};
+use time::UtcOffset;
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
@@ -22,6 +23,7 @@ use crate::{
 pub struct ProfileData {
     pub user: RedisData<User>,
     pub discord_id: Option<Id<UserMarker>>,
+    pub tz: Option<UtcOffset>,
     pub skin_url: Availability<Option<String>>,
     scores: Availability<Vec<Score>>,
     score_rank: Availability<u32>,
@@ -30,10 +32,15 @@ pub struct ProfileData {
 }
 
 impl ProfileData {
-    pub(crate) fn new(user: RedisData<User>, discord_id: Option<Id<UserMarker>>) -> Self {
+    pub(crate) fn new(
+        user: RedisData<User>,
+        discord_id: Option<Id<UserMarker>>,
+        tz: Option<UtcOffset>,
+    ) -> Self {
         Self {
             user,
             discord_id,
+            tz,
             skin_url: Availability::NotRequested,
             scores: Availability::NotRequested,
             score_rank: Availability::NotRequested,

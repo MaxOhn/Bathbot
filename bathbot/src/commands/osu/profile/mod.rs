@@ -200,10 +200,10 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
     let kind = args.embed.unwrap_or_default();
     let guild = orig.guild_id();
 
-    let user_id = match user_id!(ctx, orig, args) {
-        Some(user_id) => user_id,
+    let (user_id, no_user_specified) = match user_id!(ctx, orig, args) {
+        Some(user_id) => (user_id, false),
         None => match config.osu {
-            Some(user_id) => UserId::Id(user_id),
+            Some(user_id) => (UserId::Id(user_id), true),
             None => return require_link(&ctx, &orig).await,
         },
     };
@@ -240,7 +240,8 @@ async fn profile(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Profile<'_>) 
         }
     };
 
-    let profile_data = ProfileData::new(user, discord_id);
+    let tz = no_user_specified.then_some(config.timezone).flatten();
+    let profile_data = ProfileData::new(user, discord_id, tz);
     let builder = ProfilePagination::builder(kind, profile_data);
 
     builder
