@@ -465,7 +465,7 @@ pub(super) async fn score(
         }
         None => {
             let idx = match index {
-                Some(_idx @ 51..) => {
+                Some(51..) => {
                     let content = "I can only go back 50 messages";
 
                     return orig.error(&ctx, content).await;

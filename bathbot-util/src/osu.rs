@@ -1,11 +1,13 @@
 use std::{
     iter::{self, Copied, Map},
     slice::Iter,
+    time::Duration,
 };
 
 use eyre::Result;
 use rosu_v2::prelude::{GameMode, GameMods, Grade, Score, ScoreStatistics, UserStatistics};
 
+use time::OffsetDateTime;
 use twilight_model::channel::{embed::Embed, Message};
 
 use crate::{matcher, numbers::round};
@@ -258,9 +260,17 @@ pub enum MapIdType {
 }
 
 impl MapIdType {
+    const SKIP_DELAY: Duration = Duration::from_millis(500);
+
     /// Looks for map or mapset id
     pub fn from_msgs(msgs: &[Message], idx: usize) -> Option<Self> {
-        msgs.iter().filter_map(Self::from_msg).nth(idx)
+        let now = OffsetDateTime::now_utc() - Self::SKIP_DELAY;
+        let secs = (now.unix_timestamp_nanos() / 1000) as i64;
+
+        msgs.iter()
+            .skip_while(|msg| msg.timestamp.as_micros() > secs)
+            .filter_map(Self::from_msg)
+            .nth(idx)
     }
 
     /// Looks for map or mapset id
@@ -305,7 +315,13 @@ impl MapIdType {
 
     /// Only looks for map id
     pub fn map_from_msgs(msgs: &[Message], idx: usize) -> Option<u32> {
-        msgs.iter().filter_map(Self::map_from_msg).nth(idx)
+        let now = OffsetDateTime::now_utc() - Self::SKIP_DELAY;
+        let secs = (now.unix_timestamp_nanos() / 1000) as i64;
+
+        msgs.iter()
+            .skip_while(|msg| msg.timestamp.as_micros() > secs)
+            .filter_map(Self::map_from_msg)
+            .nth(idx)
     }
 
     /// Only looks for map id
