@@ -1,7 +1,7 @@
-use std::process::Stdio;
+use std::{process::Stdio, time::Duration};
 
 use eyre::{Report, Result, WrapErr};
-use tokio::{io::AsyncWriteExt, process::Command, sync::Mutex};
+use tokio::{io::AsyncWriteExt, process::Command, sync::Mutex, time::timeout};
 
 static HTML_TO_PNG: HtmlToPng = HtmlToPng::new();
 
@@ -29,7 +29,7 @@ impl HtmlToPng {
             .arg("-f")
             .arg("png")
             .arg("--custom-header")
-            .arg("Connection Keep-Alive,Upgrade")
+            .arg("Connection Upgrade")
             .arg("--custom-header-propagation")
             .arg("--enable-local-file-access")
             .arg("-")
@@ -47,18 +47,19 @@ impl HtmlToPng {
                 .wrap_err("failed writing to stdin")?;
         }
 
-        let output = child
-            .wait_with_output()
-            .await
-            .wrap_err("failed waiting for output")?;
+        const DEADLINE: Duration = Duration::from_secs(10);
 
-        output
-            .status
-            .success()
-            .then_some(output.stdout)
-            .ok_or_else(|| {
-                String::from_utf8(output.stderr)
-                    .map_or_else(|_| eyre!("stderr did not contain valid UTF-8"), Report::msg)
-            })
+        match timeout(DEADLINE, child.wait_with_output()).await {
+            Ok(Ok(output)) => output
+                .status
+                .success()
+                .then_some(output.stdout)
+                .ok_or_else(|| {
+                    String::from_utf8(output.stderr)
+                        .map_or_else(|_| eyre!("stderr did not contain valid UTF-8"), Report::msg)
+                }),
+            Ok(Err(err)) => Err(Report::new(err).wrap_err("Failed waiting for output")),
+            Err(_) => Err(Report::msg("Timed out while waiting for child process")),
+        }
     }
 }
