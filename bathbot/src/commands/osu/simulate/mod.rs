@@ -6,8 +6,9 @@ use bathbot_macros::{command, HasMods, SlashCommand};
 use bathbot_util::{constants::GENERAL_ISSUE, matcher, osu::MapIdType};
 use eyre::Result;
 use rosu_pp::GameMode as Mode;
-use rosu_v2::prelude::GameMode;
+use rosu_v2::prelude::{GameMode, GameMods};
 use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_model::channel::{message::MessageType, Message};
 
 use crate::{
     commands::GameModeOption,
@@ -70,84 +71,18 @@ pub struct Simulate<'m> {
     od: Option<f32>,
 }
 
-impl<'m> Simulate<'m> {
-    fn from_args(mode: Option<GameMode>, args: Args<'m>) -> Result<Self, Cow<'static, str>> {
-        let mut simulate = Self {
-            mode: mode.map(GameModeOption::from),
-            ..Default::default()
-        };
-
-        for arg in args {
-            if matcher::get_osu_map_id(arg).is_some() {
-                simulate.map = Some(Cow::Borrowed(arg));
-
-                continue;
-            }
-
-            match SimulateArg::parse(arg).map_err(ParseError::into_str)? {
-                SimulateArg::Acc(val) => simulate.acc = Some(val.clamp(0.0, 100.0)),
-                SimulateArg::Combo(val) => simulate.combo = Some(val),
-                SimulateArg::ClockRate(val) => simulate.clock_rate = Some(val),
-                SimulateArg::N300(val) => simulate.n300 = Some(val),
-                SimulateArg::N100(val) => simulate.n100 = Some(val),
-                SimulateArg::N50(val) => simulate.n50 = Some(val),
-                SimulateArg::Geki(val) => simulate.geki = Some(val),
-                SimulateArg::Katu(val) => simulate.katu = Some(val),
-                SimulateArg::Miss(val) => simulate.misses = Some(val),
-                SimulateArg::Mods(val) => simulate.mods = Some(Cow::Borrowed(val)),
-                SimulateArg::Ar(val) => simulate.ar = Some(val),
-                SimulateArg::Cs(val) => simulate.cs = Some(val),
-                SimulateArg::Hp(val) => simulate.hp = Some(val),
-                SimulateArg::Od(val) => simulate.od = Some(val),
-            }
-        }
-
-        Ok(simulate)
-    }
-}
-
 pub async fn slash_simulate(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
     let args = Simulate::from_interaction(command.input_data())?;
     let orig = CommandOrigin::from(&mut command);
 
-    simulate(ctx, orig, args).await
+    match SimulateArgs::from_simulate(args) {
+        Ok(args) => simulate(ctx, orig, args).await,
+        Err(content) => orig.error(&ctx, content).await,
+    }
 }
 
-async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Simulate<'_>) -> Result<()> {
-    let mods = match args.mods() {
-        ModsResult::Mods(mods) => match mods.validate() {
-            Ok(_) => Some(mods.mods()),
-            Err(content) => return orig.error(&ctx, content).await,
-        },
-        ModsResult::None => None,
-        ModsResult::Invalid => {
-            let content = "Failed to parse mods. Be sure to either specify them directly \
-            or through the `+mods` / `+mods!` syntax e.g. `hdhr` or `+hdhr!`";
-
-            return orig.error(&ctx, content).await;
-        }
-    };
-
-    let mode = args.mode.map(GameMode::from);
-
-    let map = match args.map {
-        Some(map) => {
-            if let Some(id) = matcher::get_osu_map_id(&map)
-                .map(MapIdType::Map)
-                .or_else(|| matcher::get_osu_mapset_id(&map).map(MapIdType::Set))
-            {
-                Some(id)
-            } else {
-                let content =
-                    "Failed to parse map url. Be sure you specify a valid map id or url to a map.";
-
-                return orig.error(&ctx, content).await;
-            }
-        }
-        None => None,
-    };
-
-    let map_id = match map {
+async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: SimulateArgs) -> Result<()> {
+    let map_id = match args.map {
         Some(MapIdType::Map(id)) => id,
         Some(MapIdType::Set(_)) => {
             let content = "Looks like you gave me a mapset id, I need a map id though";
@@ -193,7 +128,7 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Simulate<'_>
         }
     };
 
-    let mode = mode.unwrap_or_else(|| map.mode());
+    let mode = args.mode.unwrap_or_else(|| map.mode());
 
     let (version, converted_mode) = match mode {
         GameMode::Osu => (
@@ -226,7 +161,7 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Simulate<'_>
     }
 
     let simulate_data = SimulateData {
-        mods,
+        mods: args.mods,
         acc: args.acc,
         n_geki: args.geki,
         n_katu: args.katu,
@@ -282,7 +217,7 @@ async fn simulate(ctx: Arc<Context>, orig: CommandOrigin<'_>, args: Simulate<'_>
 async fn prefix_simulate(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let orig = CommandOrigin::from(msg);
 
-    match Simulate::from_args(None, args) {
+    match SimulateArgs::from_args(None, msg, args) {
         Ok(args) => simulate(ctx, orig, args).await,
         Err(content) => orig.error(&ctx, content).await,
     }
@@ -317,7 +252,7 @@ async fn prefix_simulate(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Re
 async fn prefix_simulatetaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let orig = CommandOrigin::from(msg);
 
-    match Simulate::from_args(Some(GameMode::Taiko), args) {
+    match SimulateArgs::from_args(Some(GameMode::Taiko), msg, args) {
         Ok(args) => simulate(ctx, orig, args).await,
         Err(content) => orig.error(&ctx, content).await,
     }
@@ -354,7 +289,7 @@ async fn prefix_simulatetaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) 
 async fn prefix_simulatectb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let orig = CommandOrigin::from(msg);
 
-    match Simulate::from_args(Some(GameMode::Catch), args) {
+    match SimulateArgs::from_args(Some(GameMode::Catch), msg, args) {
         Ok(args) => simulate(ctx, orig, args).await,
         Err(content) => orig.error(&ctx, content).await,
     }
@@ -392,8 +327,123 @@ async fn prefix_simulatectb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) ->
 async fn prefix_simulatemania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
     let orig = CommandOrigin::from(msg);
 
-    match Simulate::from_args(Some(GameMode::Mania), args) {
+    match SimulateArgs::from_args(Some(GameMode::Mania), msg, args) {
         Ok(args) => simulate(ctx, orig, args).await,
         Err(content) => orig.error(&ctx, content).await,
+    }
+}
+
+#[derive(Default)]
+struct SimulateArgs {
+    map: Option<MapIdType>,
+    mode: Option<GameMode>,
+    mods: Option<GameMods>,
+    combo: Option<u32>,
+    acc: Option<f32>,
+    clock_rate: Option<f32>,
+    n300: Option<u32>,
+    n100: Option<u32>,
+    n50: Option<u32>,
+    misses: Option<u32>,
+    geki: Option<u32>,
+    katu: Option<u32>,
+    ar: Option<f32>,
+    cs: Option<f32>,
+    hp: Option<f32>,
+    od: Option<f32>,
+}
+
+impl SimulateArgs {
+    fn from_args(
+        mode: Option<GameMode>,
+        msg: &Message,
+        args: Args<'_>,
+    ) -> Result<Self, Cow<'static, str>> {
+        let reply = msg
+            .referenced_message
+            .as_deref()
+            .filter(|_| msg.kind == MessageType::Reply);
+
+        let mut simulate = Self {
+            mode,
+            map: reply.and_then(MapIdType::from_msg),
+            ..Default::default()
+        };
+
+        for arg in args {
+            let id_opt = matcher::get_osu_map_id(arg)
+                .map(MapIdType::Map)
+                .or_else(|| matcher::get_osu_mapset_id(arg).map(MapIdType::Set));
+
+            if let Some(id) = id_opt {
+                simulate.map = Some(id);
+
+                continue;
+            }
+
+            match SimulateArg::parse(arg).map_err(ParseError::into_str)? {
+                SimulateArg::Acc(val) => simulate.acc = Some(val.clamp(0.0, 100.0)),
+                SimulateArg::Combo(val) => simulate.combo = Some(val),
+                SimulateArg::ClockRate(val) => simulate.clock_rate = Some(val),
+                SimulateArg::N300(val) => simulate.n300 = Some(val),
+                SimulateArg::N100(val) => simulate.n100 = Some(val),
+                SimulateArg::N50(val) => simulate.n50 = Some(val),
+                SimulateArg::Geki(val) => simulate.geki = Some(val),
+                SimulateArg::Katu(val) => simulate.katu = Some(val),
+                SimulateArg::Miss(val) => simulate.misses = Some(val),
+                SimulateArg::Mods(val) => simulate.mods = Some(val),
+                SimulateArg::Ar(val) => simulate.ar = Some(val),
+                SimulateArg::Cs(val) => simulate.cs = Some(val),
+                SimulateArg::Hp(val) => simulate.hp = Some(val),
+                SimulateArg::Od(val) => simulate.od = Some(val),
+            }
+        }
+
+        Ok(simulate)
+    }
+
+    fn from_simulate(simulate: Simulate<'_>) -> Result<Self, &'static str> {
+        let mods = match simulate.mods() {
+            ModsResult::Mods(mods) => mods.validate().map(|_| Some(mods.mods()))?,
+            ModsResult::None => None,
+            ModsResult::Invalid => {
+                let content = "Failed to parse mods. Be sure to either specify them directly \
+                    or through the `+mods` / `+mods!` syntax e.g. `hdhr` or `+hdhr!`";
+
+                return Err(content);
+            }
+        };
+
+        let mode = simulate.mode.map(GameMode::from);
+
+        let map = match simulate.map {
+            Some(map) => matcher::get_osu_map_id(&map)
+                .map(MapIdType::Map)
+                .or_else(|| matcher::get_osu_mapset_id(&map).map(MapIdType::Set))
+                .ok_or(
+                    "Failed to parse map url. Be sure you specify a valid map id or url to a map.",
+                )
+                .map(Some)?,
+            None => None,
+        };
+
+        Ok(Self {
+            map,
+            mode,
+            mods,
+            combo: simulate.combo,
+            acc: simulate.acc,
+            clock_rate: simulate.clock_rate,
+            n300: simulate.n300,
+            n100: simulate.n100,
+            n50: simulate.n50,
+            misses: simulate.misses,
+            geki: simulate.geki,
+            katu: simulate.katu,
+            ar: simulate.ar,
+            cs: simulate.cs,
+            hp: simulate.hp,
+            od: simulate.od,
+        })
     }
 }

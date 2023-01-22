@@ -1,19 +1,20 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, str::FromStr};
 
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take},
+    bytes::complete as by,
     character::complete as ch,
-    combinator::{all_consuming, map, map_parser, map_res, opt, peek, recognize, success},
+    combinator::{all_consuming, map, map_parser, map_res, opt, recognize, success},
     error::{Error as NomError, ErrorKind as NomErrorKind},
-    multi::{length_data, many1_count},
+    multi::many1_count,
     number::complete as num,
-    sequence::{delimited, pair, preceded, terminated, tuple},
+    sequence::{delimited, preceded, terminated, tuple},
     Err as NomErr, IResult, Parser,
 };
+use rosu_v2::prelude::GameMods;
 
 #[derive(Debug, PartialEq)]
-pub enum SimulateArg<'s> {
+pub enum SimulateArg {
     Acc(f32),
     Combo(u32),
     ClockRate(f32),
@@ -23,15 +24,15 @@ pub enum SimulateArg<'s> {
     Geki(u32),
     Katu(u32),
     Miss(u32),
-    Mods(&'s str),
+    Mods(GameMods),
     Ar(f32),
     Cs(f32),
     Hp(f32),
     Od(f32),
 }
 
-impl<'s> SimulateArg<'s> {
-    pub fn parse(input: &'s str) -> Result<Self, ParseError<'_>> {
+impl SimulateArg {
+    pub fn parse(input: &str) -> Result<Self, ParseError<'_>> {
         let (rest, key_opt) = parse_key(input).map_err(|_| ParseError::Nom(input))?;
 
         match key_opt {
@@ -66,12 +67,12 @@ fn parse_key(input: &str) -> IResult<&str, Option<&str>> {
     opt(terminated(ch::alphanumeric1, ch::char('=')))(input)
 }
 
-fn parse_any(input: &str) -> Result<SimulateArg<'_>, ParseError<'_>> {
-    fn inner(input: &str) -> IResult<&str, SimulateArg<'_>> {
-        enum ParseAny<'s> {
+fn parse_any(input: &str) -> Result<SimulateArg, ParseError<'_>> {
+    fn inner(input: &str) -> IResult<&str, SimulateArg> {
+        enum ParseAny {
             Float(f32),
             Int(u32),
-            Mods(&'s str),
+            Mods(GameMods),
             Ar(f32),
             Cs(f32),
             Hp(f32),
@@ -80,11 +81,11 @@ fn parse_any(input: &str) -> Result<SimulateArg<'_>, ParseError<'_>> {
 
         let float = map(map_res(recognize_float, str::parse), ParseAny::Float);
         let int = map(ch::u32, ParseAny::Int);
-        let mods = map(recognize_mods, ParseAny::Mods);
-        let ar = map(preceded(tag("ar"), num::float), ParseAny::Ar);
-        let cs = map(preceded(tag("cs"), num::float), ParseAny::Cs);
-        let hp = map(preceded(tag("hp"), num::float), ParseAny::Hp);
-        let od = map(preceded(tag("od"), num::float), ParseAny::Od);
+        let mods = map(parse_mods_force_prefix, ParseAny::Mods);
+        let ar = map(preceded(by::tag("ar"), num::float), ParseAny::Ar);
+        let cs = map(preceded(by::tag("cs"), num::float), ParseAny::Cs);
+        let hp = map(preceded(by::tag("hp"), num::float), ParseAny::Hp);
+        let od = map(preceded(by::tag("od"), num::float), ParseAny::Od);
         let (rest, num) = alt((float, int, mods, ar, cs, hp, od))(input)?;
 
         match num {
@@ -108,8 +109,7 @@ fn parse_any(input: &str) -> Result<SimulateArg<'_>, ParseError<'_>> {
 
                 all_consuming(alt(options))(rest)
             }
-            ParseAny::Mods(mods) if rest.is_empty() => Ok((rest, SimulateArg::Mods(mods))),
-            ParseAny::Mods(_) => Err(NomErr::Error(NomError::new(input, NomErrorKind::Eof))),
+            ParseAny::Mods(mods) => Ok((rest, SimulateArg::Mods(mods))),
             ParseAny::Ar(n) => Ok((rest, SimulateArg::Ar(n))),
             ParseAny::Cs(n) => Ok((rest, SimulateArg::Cs(n))),
             ParseAny::Hp(n) => Ok((rest, SimulateArg::Hp(n))),
@@ -188,30 +188,35 @@ fn is_some<T>(opt: Option<T>) -> bool {
     opt.is_some()
 }
 
-fn parse_mods(input: &str) -> Result<&str, ParseError<'_>> {
-    fn inner(input: &str) -> IResult<&str, &str> {
-        let (rest, prefixed) = map(opt(ch::char('+')), is_some)(input)?;
-        let (rest, mods) = parse_mods_raw(rest)?;
-        let (rest, suffixed) = map(all_consuming(opt(ch::char('!'))), is_some)(rest)?;
+fn parse_mods_force_prefix(input: &str) -> IResult<&str, GameMods> {
+    let (rest, (prefixed, mods, _)) = parse_mods_raw(input)?;
 
-        if prefixed || !suffixed {
-            Ok((rest, mods))
-        } else {
-            Err(NomErr::Error(NomError::new(input, NomErrorKind::Verify)))
-        }
+    if prefixed {
+        Ok((rest, mods))
+    } else {
+        Err(NomErr::Error(NomError::new(input, NomErrorKind::Char)))
     }
-
-    inner(input)
-        .map(|(_, val)| val)
-        .map_err(|_| ParseError::Mods)
 }
 
-fn parse_mods_raw(input: &str) -> IResult<&str, &str> {
-    let alpha1 = map_parser(take(1_usize), ch::alpha1);
-    let alpha2 = map_parser(take(1_usize), ch::alpha1);
-    let count = many1_count(pair(alpha1, alpha2)); // take an even amount of alphabetic chars
+fn parse_mods(input: &str) -> Result<GameMods, ParseError<'_>> {
+    let (_, (prefixed, mods, suffixed)) = parse_mods_raw(input).map_err(|_| ParseError::Mods)?;
 
-    length_data(map(peek(count), |n| n * 2))(input)
+    if prefixed || !suffixed {
+        Ok(mods)
+    } else {
+        Err(ParseError::Mods)
+    }
+}
+
+fn parse_mods_raw(input: &str) -> IResult<&str, (bool, GameMods, bool)> {
+    let prefixed = map(opt(ch::char('+')), is_some);
+    let suffixed = map(opt(ch::char('!')), is_some);
+
+    let single_mod = map_parser(by::take(2_usize), all_consuming(ch::alpha1));
+    let mods_str = recognize(many1_count(single_mod));
+    let mods = map_res(mods_str, GameMods::from_str);
+
+    tuple((prefixed, mods, all_consuming(suffixed)))(input)
 }
 
 fn recognize_float(input: &str) -> IResult<&str, &str> {
@@ -233,21 +238,21 @@ fn recognize_clock_rate(input: &str) -> IResult<&str, &str> {
 }
 
 fn recognize_n300(input: &str) -> IResult<&str, &str> {
-    recognize(tag("x300"))(input)
+    recognize(by::tag("x300"))(input)
 }
 
 fn recognize_n100(input: &str) -> IResult<&str, &str> {
-    recognize(tag("x100"))(input)
+    recognize(by::tag("x100"))(input)
 }
 
 fn recognize_n50(input: &str) -> IResult<&str, &str> {
-    recognize(tag("x50"))(input)
+    recognize(by::tag("x50"))(input)
 }
 
 fn recognize_geki(input: &str) -> IResult<&str, &str> {
     let options = (
-        delimited(opt(ch::char('x')), tag("geki"), opt(ch::char('s'))),
-        tag("x320"),
+        delimited(opt(ch::char('x')), by::tag("geki"), opt(ch::char('s'))),
+        by::tag("x320"),
     );
 
     recognize(alt(options))(input)
@@ -255,8 +260,8 @@ fn recognize_geki(input: &str) -> IResult<&str, &str> {
 
 fn recognize_katu(input: &str) -> IResult<&str, &str> {
     let options = (
-        delimited(opt(ch::char('x')), tag("katu"), opt(ch::char('s'))),
-        tag("x200"),
+        delimited(opt(ch::char('x')), by::tag("katu"), opt(ch::char('s'))),
+        by::tag("x200"),
     );
 
     recognize(alt(options))(input)
@@ -265,12 +270,11 @@ fn recognize_katu(input: &str) -> IResult<&str, &str> {
 fn recognize_miss(input: &str) -> IResult<&str, &str> {
     recognize(preceded(
         opt(ch::char('x')),
-        preceded(ch::char('m'), opt(preceded(tag("iss"), opt(tag("es"))))),
+        preceded(
+            ch::char('m'),
+            opt(preceded(by::tag("iss"), opt(by::tag("es")))),
+        ),
     ))(input)
-}
-
-fn recognize_mods(input: &str) -> IResult<&str, &str> {
-    delimited(ch::char('+'), parse_mods_raw, opt(ch::char('!')))(input)
 }
 
 #[derive(Debug, PartialEq)]
@@ -469,20 +473,19 @@ mod tests {
 
     #[test]
     fn mods() {
+        let hdhr = GameMods::Hidden | GameMods::HardRock;
+
         assert_eq!(
             SimulateArg::parse("mods=+hdhr!"),
-            Ok(SimulateArg::Mods("hdhr"))
+            Ok(SimulateArg::Mods(hdhr))
         );
         assert_eq!(
             SimulateArg::parse("mods=+hdhr"),
-            Ok(SimulateArg::Mods("hdhr"))
+            Ok(SimulateArg::Mods(hdhr))
         );
-        assert_eq!(
-            SimulateArg::parse("mods=hdhr"),
-            Ok(SimulateArg::Mods("hdhr"))
-        );
-        assert_eq!(SimulateArg::parse("+hdhr!"), Ok(SimulateArg::Mods("hdhr")));
-        assert_eq!(SimulateArg::parse("+hdhr"), Ok(SimulateArg::Mods("hdhr")));
+        assert_eq!(SimulateArg::parse("mods=hdhr"), Ok(SimulateArg::Mods(hdhr)));
+        assert_eq!(SimulateArg::parse("+hdhr!"), Ok(SimulateArg::Mods(hdhr)));
+        assert_eq!(SimulateArg::parse("+hdhr"), Ok(SimulateArg::Mods(hdhr)));
 
         assert_eq!(SimulateArg::parse("mods=+hdr!"), Err(ParseError::Mods));
         assert_eq!(SimulateArg::parse("mods=-hdhr!"), Err(ParseError::Mods));
