@@ -60,10 +60,17 @@ macro_rules! impl_with_comma {
             }
         )*
     };
-    (@INT: $( $ty:ty ),* ) => {
+    (@INT: $( $ty:ident $( > $cutoff:literal -> $backup:ident )? ),* ) => {
         $(
             impl Display for WithComma<$ty> {
                 fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+                    $(
+                        // Preventing potential overflows
+                        if self.num.abs() > $cutoff {
+                            return WithComma::new(self.num as $backup).fmt(f);
+                        }
+                    )?
+
                     let mut n = if self.num < 0 {
                         f.write_str("-")?;
 
@@ -93,10 +100,17 @@ macro_rules! impl_with_comma {
             }
         )*
     };
-    (@UINT: $( $ty:ty ),* ) => {
+    (@UINT: $( $ty:ident $( > $cutoff:literal -> $backup:ident )? ),* ) => {
         $(
             impl Display for WithComma<$ty> {
                 fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+                    $(
+                        // Preventing potential overflows
+                        if self.num > $cutoff {
+                            return WithComma::new(self.num as $backup).fmt(f);
+                        }
+                    )?
+
                     let mut n = self.num;
                     let mut rev = 0;
                     let mut triples = 0;
@@ -122,8 +136,8 @@ macro_rules! impl_with_comma {
 }
 
 impl_with_comma!(@FLOAT: f32, f64);
-impl_with_comma!(@INT: i16, i32, i64, isize);
-impl_with_comma!(@UINT: u16, u32, u64, usize);
+impl_with_comma!(@INT: i16 > 1032 -> i32, i32 > 1_000_000_002 -> i64, i64, isize);
+impl_with_comma!(@UINT: u16 > 1065 -> u32, u32 > 1_000_000_004 -> u64, u64, usize);
 
 pub fn last_multiple(per_page: usize, total: usize) -> usize {
     if per_page <= total && total % per_page == 0 {
