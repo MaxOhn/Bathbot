@@ -218,22 +218,24 @@ impl From<&OsuMap> for SimulateAttributes {
 macro_rules! setters {
     ( $( $fn:ident: $field:ident as $ty:ty; )* ) => {
         $(
-            pub fn $fn(&mut self, val: $ty) {
-                self.$field = Some(val);
+            pub fn $fn(&mut self, opt: Option<$ty>) {
+                self.$field = opt;
             }
         )*
     }
 }
 
 impl SimulateData {
-    pub fn set_mods(&mut self, mods: GameMods) {
-        if ModSelection::Exact(mods).validate().is_ok() {
-            self.mods = Some(mods);
+    pub fn set_mods(&mut self, mods: Option<GameMods>) {
+        match mods.map(ModSelection::Exact).map(ModSelection::validate) {
+            Some(Ok(_)) => self.mods = mods,
+            None => self.mods = mods,
+            Some(Err(_)) => {}
         }
     }
 
-    pub fn set_acc(&mut self, acc: f32) {
-        self.acc = Some(acc.clamp(0.0, 100.0));
+    pub fn set_acc(&mut self, acc: Option<f32>) {
+        self.acc = acc.map(|acc| acc.clamp(0.0, 100.0));
     }
 
     setters! {

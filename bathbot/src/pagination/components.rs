@@ -117,7 +117,10 @@ macro_rules! handle_sim_buttons {
     ( $( $fn:ident, $placeholder:literal, $id:literal, $label:literal, $title:literal ;)* ) => {
         $(
             pub async fn $fn(ctx: Arc<Context>, component: InteractionComponent) -> Result<()> {
-                let input = TextInputBuilder::new($id, $label).placeholder($placeholder);
+                let input = TextInputBuilder::new($id, $label)
+                    .placeholder($placeholder)
+                    .required(false);
+
                 let modal = ModalBuilder::new($id, $title).input(input);
 
                 component
@@ -306,10 +309,20 @@ macro_rules! handle_sim_modals {
             pub async fn $fn(ctx: Arc<Context>, modal: InteractionModal) -> Result<()> {
                 let input = parse_modal_input(&modal)?;
 
-                let Some(Ok(value)) = input.value.as_deref().map(str::parse) else {
-                    debug!("failed to parse sim input `{:?}`", input.value);
+                let value_res = input
+                    .value
+                    .as_deref()
+                    .filter(|val| !val.is_empty())
+                    .map(str::parse);
 
-                    return Ok(());
+                let value = match value_res {
+                    Some(Ok(value)) => Some(value),
+                    Some(Err(_)) => {
+                        debug!("failed to parse sim input `{:?}`", input.value);
+
+                        return Ok(());
+                    }
+                    None => None,
                 };
 
                 let Some(ref msg) = modal.message else {
