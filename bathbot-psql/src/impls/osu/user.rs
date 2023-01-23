@@ -461,6 +461,10 @@ FROM
                     .await
                     .wrap_err("failed to fetch all")?;
 
+                // Could be handled in the query already
+                // * Filter out inactive players
+                entries.retain(|entry| entry.value != 0);
+
                 entries.sort_unstable_by(|a, b| {
                     a.value.cmp(&b.value).then_with(|| a.name.cmp(&b.name))
                 });
