@@ -144,6 +144,126 @@ async fn prefix_recentctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> R
         }
     }
 }
+#[command]
+#[desc("Display a user's most recent pass")]
+#[help(
+    "Display a user's most recent pass.\n\
+    To get a previous recent score, you can add a number right after the command,\n\
+    e.g. `rp42 badewanne3` to get the 42nd most recent pass.\n\
+    To filter specific grades, you can specify `grade=...`.\n\
+    Available grades are `SS`, `S`, `A`, `B`, `C`, `D`, or `F`.\n\n\
+    With the `config` command you can set the embed as minimized immediately, \
+    hide the retry count, and show your twitch stream and live VOD."
+)]
+#[usage("[username] [grade=grade[..grade]]")]
+#[examples("badewanne3", "grade=a", "whitecat grade=B")]
+#[aliases("rp", "rps")]
+#[group(Osu)]
+async fn prefix_recentpass(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+    match RecentScore::args(None, args) {
+        Ok(mut args) => {
+            args.passes = Some(true);
+
+            score(ctx, msg.into(), args).await
+        }
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("Display a user's most recent mania pass")]
+#[help(
+    "Display a user's most recent pass.\n\
+    To get a previous recent score, you can add a number right after the command,\n\
+    e.g. `rpm42 badewanne3` to get the 42nd most recent score.\n\
+    To filter specific grades, you can specify `grade=...`.\n\
+    Available grades are `SS`, `S`, `A`, `B`, `C`, `D`, or `F`.\n\n\
+    With the `config` command you can set the embed as minimized immediately, \
+    hide the retry count, and show your twitch stream and live VOD."
+)]
+#[usage("[username] [grade=grade[..grade]]")]
+#[examples("badewanne3", "grade=a", "whitecat grade=B")]
+#[aliases("rpm")]
+#[group(Mania)]
+async fn prefix_recentpassmania(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+    match RecentScore::args(Some(GameModeOption::Mania), args) {
+        Ok(mut args) => {
+            args.passes = Some(true);
+
+            score(ctx, msg.into(), args).await
+        }
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("Display a user's most recent taiko pass")]
+#[help(
+    "Display a user's most recent pass.\n\
+    To get a previous recent score, you can add a number right after the command,\n\
+    e.g. `rpt42 badewanne3` to get the 42nd most recent score.\n\
+    To filter specific grades, you can specify `grade=...`.\n\
+    Available grades are `SS`, `S`, `A`, `B`, `C`, `D`, or `F`.\n\n\
+    With the `config` command you can set the embed as minimized immediately, \
+    hide the retry count, and show your twitch stream and live VOD."
+)]
+#[usage("[username] [grade=grade[..grade]]")]
+#[examples("badewanne3", "grade=a", "whitecat grade=B")]
+#[alias("rpt")]
+#[group(Taiko)]
+async fn prefix_recentpasstaiko(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+    match RecentScore::args(Some(GameModeOption::Taiko), args) {
+        Ok(mut args) => {
+            args.passes = Some(true);
+
+            score(ctx, msg.into(), args).await
+        }
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
+
+#[command]
+#[desc("Display a user's most recent ctb pass")]
+#[help(
+    "Display a user's most recent pass.\n\
+    To get a previous recent score, you can add a number right after the command,\n\
+    e.g. `rpc42 badewanne3` to get the 42nd most recent score.\n\
+    To filter all fails, you can specify `pass=true`.\n\
+    To filter specific grades, you can specify `grade=...`.\n\
+    Available grades are `SS`, `S`, `A`, `B`, `C`, `D`, or `F`.\n\n\
+    With the `config` command you can set the embed as minimized immediately, \
+    hide the retry count, and show your twitch stream and live VOD."
+)]
+#[usage("[username] [grade=grade[..grade]]")]
+#[examples("badewanne3", "grade=a", "whitecat grade=B")]
+#[alias("rpc", "rpctb")]
+#[group(Catch)]
+async fn prefix_recentpassctb(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Result<()> {
+    match RecentScore::args(Some(GameModeOption::Catch), args) {
+        Ok(mut args) => {
+            args.passes = Some(true);
+
+            score(ctx, msg.into(), args).await
+        }
+        Err(content) => {
+            msg.error(&ctx, content).await?;
+
+            Ok(())
+        }
+    }
+}
 
 impl<'m> RecentScore<'m> {
     fn args(mode: Option<GameModeOption>, args: Args<'m>) -> Result<Self, Cow<'static, str>> {
