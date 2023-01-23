@@ -1,12 +1,14 @@
-use std::fmt::Write;
+use std::{cmp::Ordering, convert::identity, fmt::Write};
 
 use bathbot_macros::EmbedData;
 use bathbot_util::{
     constants::{MAP_THUMB_URL, OSU_BASE},
     numbers::{round, WithComma},
+    osu::{ExtractablePp, PpListUtil},
     AuthorBuilder, CowUtils,
 };
 use rosu_v2::prelude::{GameMods, RankStatus, Score};
+use time::OffsetDateTime;
 
 use crate::{
     commands::osu::{FixEntry, FixScore},
@@ -54,32 +56,25 @@ impl FixScoreEmbed {
                 // Map is ranked
                 let _ = if matches!(map.status(), RankStatus::Ranked | RankStatus::Approved) {
                     if in_top || top.len() < 100 {
-                        let mut old_idx = None;
-                        let mut actual_offset = 0.0;
+                        let NewPp {
+                            old_pos,
+                            new_pos,
+                            new_total,
+                        } = NewPp::new(if_fc.pp, user, top, score.ended_at);
 
-                        if let Some(idx) = top.iter().position(|s| {
-                            (s.ended_at.unix_timestamp() - score.ended_at.unix_timestamp()).abs()
-                                <= 2
-                        }) {
-                            actual_offset = top.get(idx).unwrap().weight.unwrap().pp;
-                            old_idx = Some(idx + 1);
-                        }
-
-                        let (new_idx, new_pp) = new_pp(if_fc.pp, user, top, actual_offset);
-
-                        if let Some(old_idx) = old_idx {
+                        if let Some(old_pos) = old_pos {
                             write!(
                                 description,
-                                "The score would have moved from personal #{old_idx} to #{new_idx}, \
+                                "The score would have moved from personal #{old_pos} to #{new_pos}, \
                                 pushing their total pp to **{}pp**.",
-                                WithComma::new(new_pp),
+                                WithComma::new(new_total),
                             )
                         } else {
                             write!(
                                 description,
-                                "It would have been a personal top #{new_idx}, \
+                                "It would have been a personal top #{new_pos}, \
                                 pushing their total pp to **{}pp**.",
-                                WithComma::new(new_pp),
+                                WithComma::new(new_total),
                             )
                         }
                     } else {
@@ -93,14 +88,18 @@ impl FixScoreEmbed {
                     }
                 // Map not ranked but in top100
                 } else if in_top || top.len() < 100 {
-                    let (idx, new_pp) = new_pp(if_fc.pp, user, top, 0.0);
+                    let NewPp {
+                        old_pos: _,
+                        new_pos,
+                        new_total,
+                    } = NewPp::new(if_fc.pp, user, top, score.ended_at);
 
                     write!(
                         description,
                         "If the map wasn't {status:?}, an FC would have \
-                        been a personal #{idx}, pushing their total pp to **{pp}pp**.",
+                        been a personal #{new_pos}, pushing their total pp to **{pp}pp**.",
                         status = map.status(),
-                        pp = WithComma::new(new_pp),
+                        pp = WithComma::new(new_total),
                     )
                 // Map not ranked and not in top100
                 } else {
@@ -117,33 +116,7 @@ impl FixScoreEmbed {
                 description
             } else {
                 // The score is already an FC
-                let mut description = format!("Already got a {}pp FC", round(score.pp));
-
-                // Map is not ranked
-                if !matches!(map.status(), RankStatus::Ranked | RankStatus::Approved) {
-                    if top.iter().any(|s| s.pp < Some(score.pp)) || top.len() < 100 {
-                        let (idx, new_pp) = new_pp(score.pp, user, top, 0.0);
-
-                        let _ = write!(
-                            description,
-                            ". If the map wasn't {status:?} the score would have \
-                            been a personal #{idx}, pushing their total pp to **{pp}pp**.",
-                            status = map.status(),
-                            pp = WithComma::new(new_pp),
-                        );
-                    } else {
-                        let lowest_pp_required =
-                            top.last().and_then(|score| score.pp).map_or(0.0, round);
-
-                        let _ = write!(
-                            description,
-                            ". A top100 score would have required {lowest_pp_required}pp but the map is {status:?} anyway.",
-                            status = map.status(),
-                        );
-                    }
-                }
-
-                description
+                format!("Already got a {}pp FC", round(score.pp))
             }
         } else {
             // The user has no score on the map
@@ -163,36 +136,45 @@ impl FixScoreEmbed {
     }
 }
 
-fn new_pp(pp: f32, user: &RedisData<User>, scores: &[Score], actual_offset: f32) -> (usize, f32) {
-    let actual: f32 = scores
-        .iter()
-        .filter_map(|s| s.weight)
-        .fold(0.0, |sum, weight| sum + weight.pp);
+struct NewPp {
+    old_pos: Option<usize>,
+    new_pos: usize,
+    new_total: f32,
+}
 
-    let total = user.peek_stats(|stats| stats.pp);
-    let bonus_pp = total - (actual + actual_offset);
-    let mut new_pp = 0.0;
-    let mut used = false;
-    let mut new_pos = scores.len();
-    let mut factor = 1.0;
+impl NewPp {
+    fn new(pp: f32, user: &RedisData<User>, scores: &[Score], datetime: OffsetDateTime) -> NewPp {
+        let datetime = datetime.unix_timestamp();
 
-    let pp_iter = scores.iter().take(99).filter_map(|s| s.pp).enumerate();
+        let old_idx = scores
+            .iter()
+            .position(|score| (score.ended_at.unix_timestamp() - datetime).abs() <= 2);
 
-    for (i, pp_value) in pp_iter {
-        if !used && pp_value < pp {
-            used = true;
-            new_pp += pp * factor;
-            factor *= 0.95;
-            new_pos = i + 1;
+        let mut extracted_pp = scores.extract_pp();
+        let old_weighted = extracted_pp.accum_weighted();
+
+        if let Some(old_idx) = old_idx {
+            extracted_pp.remove(old_idx);
         }
 
-        new_pp += pp_value * factor;
-        factor *= 0.95;
+        let new_idx = extracted_pp
+            .binary_search_by(|n| pp.partial_cmp(n).unwrap_or(Ordering::Equal))
+            .unwrap_or_else(identity);
+
+        if new_idx == extracted_pp.len() {
+            extracted_pp.push(pp);
+        } else {
+            extracted_pp.insert(new_idx, pp);
+        }
+
+        let new_weighted = extracted_pp.accum_weighted();
+        let total = user.peek_stats(|stats| stats.pp);
+        let new_total = total - old_weighted + new_weighted;
+
+        NewPp {
+            old_pos: old_idx.map(|i| i + 1),
+            new_pos: new_idx + 1,
+            new_total,
+        }
     }
-
-    if !used {
-        new_pp += pp * factor;
-    };
-
-    (new_pos, new_pp + bonus_pp)
 }
