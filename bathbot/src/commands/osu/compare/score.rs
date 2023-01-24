@@ -23,7 +23,7 @@ use rosu_v2::{
     request::UserId,
 };
 use tokio::time::{sleep, Duration};
-use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_interactions::command::{AutocompleteValue, CommandModel, CreateCommand};
 use twilight_model::{
     channel::message::MessageType,
     id::{marker::UserMarker, Id},
@@ -45,13 +45,14 @@ use crate::{
     Context,
 };
 
-use super::{CompareScore, ScoreOrder};
+use super::{CompareScoreAutocomplete, ScoreOrder};
 
-#[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
+#[derive(CreateCommand, SlashCommand)]
 #[command(
     name = "cs",
     help = "Given a user and a map, display the user's scores on the map"
 )]
+#[allow(dead_code)]
 /// Compare a score
 pub struct Cs<'a> {
     /// Specify a username
@@ -61,6 +62,9 @@ pub struct Cs<'a> {
         and pick the first map it can find.")]
     /// Specify a map url or map id
     map: Option<Cow<'a, str>>,
+    #[command(autocomplete = true)]
+    /// Specify a difficulty name of the map's mapset
+    difficulty: Option<String>,
     /// Choose how the scores should be ordered
     sort: Option<ScoreOrder>,
     #[command(help = "Filter out scores based on mods.\n\
@@ -83,12 +87,24 @@ pub struct Cs<'a> {
     discord: Option<Id<UserMarker>>,
 }
 
-#[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
+#[derive(CommandModel, HasName)]
+#[command(autocomplete = true)]
+pub struct CsAutocomplete<'a> {
+    name: Option<Cow<'a, str>>,
+    map: Option<Cow<'a, str>>,
+    difficulty: AutocompleteValue<String>,
+    sort: Option<ScoreOrder>,
+    mods: Option<Cow<'a, str>>,
+    discord: Option<Id<UserMarker>>,
+}
+
+#[derive(CreateCommand, SlashCommand)]
 #[command(
     name = "score",
     help = "Given a user and a map, display the user's scores on the map.\n\
         Its shorter alias is the `/cs` command."
 )]
+#[allow(dead_code)]
 /// Compare a score
 pub struct CompareScore_<'a> {
     /// Specify a username
@@ -98,6 +114,9 @@ pub struct CompareScore_<'a> {
         and pick the first map it can find.")]
     /// Specify a map url or map id
     map: Option<Cow<'a, str>>,
+    #[command(autocomplete = true)]
+    /// Specify a difficulty name of the map's mapset
+    difficulty: Option<String>,
     /// Choose how the scores should be ordered
     sort: Option<ScoreOrder>,
     #[command(help = "Filter out scores based on mods.\n\
@@ -117,6 +136,17 @@ pub struct CompareScore_<'a> {
         Only works on users who have used the `/link` command."
     )]
     /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
+}
+
+#[derive(CommandModel, HasName)]
+#[command(autocomplete = true)]
+pub struct CompareScoreAutocomplete_<'a> {
+    name: Option<Cow<'a, str>>,
+    map: Option<Cow<'a, str>>,
+    difficulty: AutocompleteValue<String>,
+    sort: Option<ScoreOrder>,
+    mods: Option<Cow<'a, str>>,
     discord: Option<Id<UserMarker>>,
 }
 
@@ -129,6 +159,7 @@ enum MapOrScore {
 pub(super) struct CompareScoreArgs<'a> {
     name: Option<Cow<'a, str>>,
     map: Option<MapOrScore>,
+    difficulty: AutocompleteValue<String>,
     sort: Option<ScoreOrder>,
     mods: Option<Cow<'a, str>>,
     discord: Option<Id<UserMarker>>,
@@ -163,6 +194,7 @@ impl<'m> CompareScoreArgs<'m> {
         Self {
             name,
             map,
+            difficulty: AutocompleteValue::Completed(String::new()),
             sort: None,
             mods,
             discord,
@@ -172,7 +204,7 @@ impl<'m> CompareScoreArgs<'m> {
 }
 
 macro_rules! impl_try_from {
-    ($($ty:ident),*) => {
+    ( $( $ty:ident ,)* ) => {
         $(
             impl<'a> TryFrom<$ty<'a>> for CompareScoreArgs<'a> {
                 type Error = &'static str;
@@ -198,6 +230,7 @@ macro_rules! impl_try_from {
                     Ok(Self {
                         name: args.name,
                         map,
+                        difficulty: args.difficulty,
                         sort: args.sort,
                         mods: args.mods,
                         discord: args.discord,
@@ -209,7 +242,11 @@ macro_rules! impl_try_from {
     }
 }
 
-impl_try_from!(CompareScore, Cs, CompareScore_);
+impl_try_from!(
+    CompareScoreAutocomplete,
+    CsAutocomplete,
+    CompareScoreAutocomplete_,
+);
 
 #[command]
 #[desc("Compare a player's score on a map")]
@@ -247,7 +284,7 @@ async fn prefix_compare(ctx: Arc<Context>, msg: &Message, args: Args<'_>) -> Res
 }
 
 async fn slash_cs(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
-    let args = Cs::from_interaction(command.input_data())?;
+    let args = CsAutocomplete::from_interaction(command.input_data())?;
 
     match CompareScoreArgs::try_from(args) {
         Ok(args) => score(ctx, (&mut command).into(), args).await,
@@ -260,7 +297,7 @@ async fn slash_cs(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<
 }
 
 async fn slash_comparescore_(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
-    let args = CompareScore_::from_interaction(command.input_data())?;
+    let args = CompareScoreAutocomplete_::from_interaction(command.input_data())?;
 
     match CompareScoreArgs::try_from(args) {
         Ok(args) => score(ctx, (&mut command).into(), args).await,

@@ -18,6 +18,7 @@ pub async fn handle_autocomplete(ctx: Arc<Context>, mut command: InteractionComm
         "help" => slash_help(ctx, command).await,
         "badges" => slash_badges(ctx, command).await,
         "medal" => slash_medal(ctx, command).await,
+        "cs" => todo!(),
         _ => return error!("Unknown autocomplete command `{name}`"),
     };
 

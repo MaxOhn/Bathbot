@@ -2,7 +2,9 @@ use std::{borrow::Cow, sync::Arc};
 
 use bathbot_macros::SlashCommand;
 use eyre::Result;
-use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
+use twilight_interactions::command::{
+    AutocompleteValue, CommandModel, CommandOption, CreateCommand, CreateOption,
+};
 use twilight_model::id::{marker::UserMarker, Id};
 
 use crate::{
@@ -21,8 +23,9 @@ mod score;
 const AT_LEAST_ONE: &str = "You need to specify at least one osu username. \
     If you're not linked, you must specify two names.";
 
-#[derive(CommandModel, CreateCommand, SlashCommand)]
+#[derive(CreateCommand, SlashCommand)]
 #[command(name = "compare")]
+#[allow(dead_code)]
 /// Compare scores or profiles
 pub enum Compare<'a> {
     #[command(name = "score")]
@@ -35,12 +38,25 @@ pub enum Compare<'a> {
     MostPlayed(CompareMostPlayed<'a>),
 }
 
-#[derive(CommandModel, CreateCommand)]
+#[derive(CommandModel)]
+pub enum CompareAutocomplete<'a> {
+    #[command(name = "score")]
+    Score(CompareScoreAutocomplete<'a>),
+    #[command(name = "profile")]
+    Profile(CompareProfile<'a>),
+    #[command(name = "top")]
+    Top(CompareTop<'a>),
+    #[command(name = "mostplayed")]
+    MostPlayed(CompareMostPlayed<'a>),
+}
+
+#[derive(CreateCommand)]
 #[command(
     name = "score",
     help = "Given a user and a map, display the user's scores on the map.\n\
         Its shorter alias is the `/cs` command."
 )]
+#[allow(dead_code)]
 /// Compare a score (same as `/cs`)
 pub struct CompareScore<'a> {
     /// Specify a username
@@ -50,6 +66,9 @@ pub struct CompareScore<'a> {
     and pick the first map it can find.")]
     /// Specify a map url or map id
     map: Option<Cow<'a, str>>,
+    #[command(autocomplete = true)]
+    /// Specify a difficulty name of the map's mapset
+    difficulty: Option<String>,
     /// Choose how the scores should be ordered
     sort: Option<ScoreOrder>,
     #[command(help = "Filter out scores based on mods.\n\
@@ -69,6 +88,17 @@ pub struct CompareScore<'a> {
         Only works on users who have used the `/link` command."
     )]
     /// Specify a linked discord user
+    discord: Option<Id<UserMarker>>,
+}
+
+#[derive(CommandModel)]
+#[command(autocomplete = true)]
+pub struct CompareScoreAutocomplete<'a> {
+    name: Option<Cow<'a, str>>,
+    map: Option<Cow<'a, str>>,
+    difficulty: AutocompleteValue<String>,
+    sort: Option<ScoreOrder>,
+    mods: Option<Cow<'a, str>>,
     discord: Option<Id<UserMarker>>,
 }
 
@@ -171,8 +201,8 @@ pub struct CompareMostPlayed<'a> {
 }
 
 async fn slash_compare(ctx: Arc<Context>, mut command: InteractionCommand) -> Result<()> {
-    match Compare::from_interaction(command.input_data())? {
-        Compare::Score(args) => match CompareScoreArgs::try_from(args) {
+    match CompareAutocomplete::from_interaction(command.input_data())? {
+        CompareAutocomplete::Score(args) => match CompareScoreArgs::try_from(args) {
             Ok(args) => score(ctx, (&mut command).into(), args).await,
             Err(content) => {
                 command.error(&ctx, content).await?;
@@ -180,8 +210,8 @@ async fn slash_compare(ctx: Arc<Context>, mut command: InteractionCommand) -> Re
                 Ok(())
             }
         },
-        Compare::Profile(args) => profile(ctx, (&mut command).into(), args).await,
-        Compare::Top(args) => top(ctx, (&mut command).into(), args).await,
-        Compare::MostPlayed(args) => mostplayed(ctx, (&mut command).into(), args).await,
+        CompareAutocomplete::Profile(args) => profile(ctx, (&mut command).into(), args).await,
+        CompareAutocomplete::Top(args) => top(ctx, (&mut command).into(), args).await,
+        CompareAutocomplete::MostPlayed(args) => mostplayed(ctx, (&mut command).into(), args).await,
     }
 }
