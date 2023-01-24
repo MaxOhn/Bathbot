@@ -1,0 +1,16 @@
+name: Create roadmap items
+
+on:
+  issues:
+    types:
+      - opened
+
+jobs:
+  add-to-project:
+    name: Add issue to project
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/add-to-project@RELEASE_VERSION
+        with:
+          project-url: https://github.com/users/MaxOhn/projects/3
+          github-token: ${{ secrets.GITHUB_TOKEN }}
