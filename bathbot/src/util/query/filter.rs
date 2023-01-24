@@ -1,4 +1,8 @@
-use std::{borrow::Cow, cmp::Ordering, fmt};
+use std::{
+    borrow::Cow,
+    cmp::Ordering,
+    fmt::{Debug, Display, Formatter, Result as FmtResult},
+};
 
 use bathbot_util::{matcher::QUERY_SYNTAX_REGEX, CowUtils};
 
@@ -30,14 +34,12 @@ impl<'q> FilterCriteria<'q> {
         let mut removed = 0;
 
         for capture in QUERY_SYNTAX_REGEX.get().captures_iter(query) {
-            let key_match = match capture.name("key") {
-                Some(key) => key,
-                None => continue,
+            let Some(key_match) = capture.name("key") else {
+                continue;
             };
 
-            let value_match = match capture.name("value") {
-                Some(value) => value,
-                None => continue,
+            let Some(value_match) = capture.name("value") else {
+                continue;
             };
 
             let key = key_match.as_str().cow_to_ascii_lowercase();
@@ -121,15 +123,15 @@ impl<'q> FilterCriteria<'q> {
         };
 
         let scale = if value.ends_with("ms") {
-            1.0
+            1.0 / 1000.0
         } else if value.ends_with('s') {
-            1000.0
+            1.0
         } else if value.ends_with('m') {
-            60_000.0
+            60.0
         } else if value.ends_with('h') {
-            3_600_000.0
+            3_600.0
         } else {
-            1000.0
+            1.0
         };
 
         self.length.try_update_(op, len * scale, scale / 2.0)
@@ -162,8 +164,8 @@ pub struct OptionalText<'q> {
     search_term: Cow<'q, str>,
 }
 
-impl fmt::Debug for OptionalText<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Debug for OptionalText<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         if self.search_term.is_empty() {
             f.write_str("None")
         } else {
@@ -209,8 +211,8 @@ pub struct OptionalRange<T> {
     is_upper_inclusive: bool,
 }
 
-impl<T: fmt::Display> fmt::Debug for OptionalRange<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl<T: Display> Debug for OptionalRange<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         if self.min.is_none()
             && self.max.is_none()
             && !self.is_lower_inclusive
