@@ -426,7 +426,7 @@ impl CompareStrings {
             bonus_pp_num: result.bonus_pp,
             avg_map_len: SecToMinSec::new(result.map_len.avg()).to_string(),
             accuracy: format!("{:.2}%", stats.accuracy),
-            pp_per_month: format!("{:.2}pp", pp_per_month_num),
+            pp_per_month: format!("{pp_per_month_num:.2}pp"),
             pp_per_month_num,
             count_ss: (stats.grade_counts.ssh + stats.grade_counts.ss).to_string(),
             count_s: (stats.grade_counts.sh + stats.grade_counts.s).to_string(),

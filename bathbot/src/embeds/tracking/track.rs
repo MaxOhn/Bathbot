@@ -18,17 +18,17 @@ impl TrackEmbed {
         failed: Option<Username>,
         limit: u8,
     ) -> Self {
-        let title = format!("Top score tracking | mode={} | limit={}", mode, limit);
+        let title = format!("Top score tracking | mode={mode} | limit={limit}");
         let mut fields = Vec::with_capacity(3);
         let mut iter = success.iter();
 
         if let Some(first) = iter.next() {
             let names_len: usize = success.iter().map(|name| name.len() + 4).sum();
             let mut value = String::with_capacity(names_len);
-            let _ = write!(value, "`{}`", first);
+            let _ = write!(value, "`{first}`");
 
             for name in iter {
-                let _ = write!(value, ", `{}`", name);
+                let _ = write!(value, ", `{name}`");
             }
 
             fields![fields { "Now tracking:".to_owned(), value, false }];
@@ -39,17 +39,17 @@ impl TrackEmbed {
         if let Some(first) = iter.next() {
             let names_len: usize = success.iter().map(|name| name.len() + 4).sum();
             let mut value = String::with_capacity(names_len);
-            let _ = write!(value, "`{}`", first);
+            let _ = write!(value, "`{first}`");
 
             for name in iter {
-                let _ = write!(value, ", `{}`", name);
+                let _ = write!(value, ", `{name}`");
             }
 
             fields![fields { "Already tracked:".to_owned(), value, false }];
         }
 
         if let Some(failed) = failed {
-            fields![fields { "Failed to track:".to_owned(), format!("`{}`", failed), false }];
+            fields![fields { "Failed to track:".to_owned(), format!("`{failed}`"), false }];
         }
 
         Self { fields, title }

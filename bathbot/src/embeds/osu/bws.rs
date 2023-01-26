@@ -161,16 +161,8 @@ impl BWSEmbed {
 
                 let _ = writeln!(
                     content,
-                    "   BWS | {:^len1$} | {:^len2$} | {:^len3$}",
-                    bws1,
-                    bws2,
-                    bws3,
-                    len1 = len1,
-                    len2 = len2,
-                    len3 = len3,
+                    "   BWS | {bws1:^len1$} | {bws2:^len2$} | {bws3:^len3$}\n```"
                 );
-
-                content.push_str("```");
 
                 content
             }

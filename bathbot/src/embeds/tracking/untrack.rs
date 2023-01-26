@@ -19,17 +19,17 @@ impl UntrackEmbed {
         if let Some(first) = iter.next() {
             let names_len: usize = success.iter().map(|name| name.len() + 4).sum();
             let mut value = String::with_capacity(names_len);
-            let _ = write!(value, "`{}`", first);
+            let _ = write!(value, "`{first}`");
 
             for name in iter {
-                let _ = write!(value, ", `{}`", name);
+                let _ = write!(value, ", `{name}`");
             }
 
             fields![fields { "No longer tracking:", value, false }];
         }
 
         if let Some(failed) = failed {
-            fields![fields { "Failed to untrack:", format!("`{}`", failed), false }];
+            fields![fields { "Failed to untrack:", format!("`{failed}`"), false }];
         }
 
         Self { fields, title }

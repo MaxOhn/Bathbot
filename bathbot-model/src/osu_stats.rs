@@ -1,4 +1,7 @@
-use std::{fmt, str::FromStr};
+use std::{
+    fmt::{Debug, Display, Formatter, Result as FmtResult},
+    str::FromStr,
+};
 
 use bathbot_util::osu::ModSelection;
 use rosu_v2::prelude::{GameMode, GameMods, Grade, RankStatus, Username};
@@ -119,10 +122,10 @@ impl Default for OsuStatsScoresOrder {
     }
 }
 
-impl fmt::Display for OsuStatsScoresOrder {
+impl Display for OsuStatsScoresOrder {
     #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self)
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        Debug::fmt(self, f)
     }
 }
 

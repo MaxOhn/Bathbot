@@ -202,7 +202,7 @@ impl TopSingleEmbed {
                 result.push_str("**");
 
                 if let Some(pp) = self.pp {
-                    let _ = write!(result, "{:.2}", pp);
+                    let _ = write!(result, "{pp:.2}");
                 } else {
                     result.push('-');
                 }
@@ -214,7 +214,7 @@ impl TopSingleEmbed {
 
                     if let Some(max) = self.max_pp {
                         let pp = self.pp.map(|pp| pp.max(max)).unwrap_or(max);
-                        let _ = write!(result, "{:.2}", pp);
+                        let _ = write!(result, "{pp:.2}");
                     } else {
                         result.push('-');
                     }
