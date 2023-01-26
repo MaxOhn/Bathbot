@@ -34,6 +34,7 @@
 - show all scores of a user that are in the top of a map's global leaderboard (`<osg` / `/osustats scores`)
 - list server members in order of some attribute in their osu! profile like pp, medal count, ... (`/serverleaderboard`)
 - notify a channel when a twitch streams comes online (`/trackstream` / `<addstream`)
+- configure various user or server settings (`/config`, `/serverconfig`)
 - ... and a ton more
 
 All osu! gamemodes are supported and commands exist as slash commands as well as prefix commands.
@@ -53,7 +54,7 @@ You can also join its [discord server](https://discord.gg/n9fFstG) to keep up wi
 - [mulraf](https://osu.ppy.sh/users/1309242), [Hubz](https://osu.ppy.sh/users/10379965), and the rest of the [osekai](https://osekai.net/) team for providing medal data
 - [nzbasic](https://osu.ppy.sh/users/9008211) and his website [osutracker](https://osutracker.com/) for providing global data and country top scores
 - [OMKelderman](https://osu.ppy.sh/users/2756335) and his [flag conversion](https://osuflags.omkserver.nl/) service
-- [respektive](https://osu.ppy.sh/users/1023489) for his [score rank api](https://github.com/respektive/osu-profile#score-rank-api) and [osustats api](https://github.com/respektive/osustats)
+- [respektive](https://osu.ppy.sh/users/1023489) for his [score rank api](https://github.com/respektive/osu-profile#score-rank-api), [osustats api](https://github.com/respektive/osustats), and various other contributions
 
 ## Internals
 
@@ -62,7 +63,7 @@ You can also join its [discord server](https://discord.gg/n9fFstG) to keep up wi
 - Discord: [twilight](https://github.com/twilight-rs/twilight)
 - Database: [sqlx](https://github.com/launchbadge/sqlx) (postgres)
 - Redis: [bb8-redis](https://github.com/djc/bb8)
-- Server: [routerify](https://github.com/routerify/routerify)
+- Server: [axum](https://github.com/tokio-rs/axum)
 
 ## Setup
 
@@ -82,15 +83,19 @@ I wouldn't necessarily recommend to try and get the bot running yourself but fee
 - If you do run through docker, you can
   - boot up the databases with `docker-compose up -d` (must be done)
   - use `docker ps` to make sure `bathbot-db` and `bathbot-redis` have the status `Up` 
-  - inspect the postgres container with `docker exec -it bathbot-db psql -U bathbot -d bathbot`
-  - inspect the redis container with `docker exec -it bathbot-redis redis-cli`
-  - shut the databases down with `docker-compose down`
+  - to inspect the postgres container, use `docker exec -it bathbot-db psql -U bathbot -d bathbot`
+  - to inspect the redis container, use `docker exec -it bathbot-redis redis-cli`
+  - to shut the databases down, use `docker-compose down`
 - Next, install `sqlx-cli` if you haven't already. You can do so with `cargo install sqlx-cli --no-default-features --features postgres,rustls`.
 - Then migrate the database with `sqlx migrate run`. This command will complain if the `DATABASE_URL` variable in `.env` is not correct.
-- And finally you can compile and run the bot with `cargo run`. Be sure you have a hobby or some other activity to do while you get to enjoy the rust compilation times™️.
+- And finally you can compile and run the bot with `cargo run`. To make compiling take longer in order for the bot to be faster, use `cargo run --release`.
 
-If the `--release` flag is set when compiling, the bot will be faster and have a few additional features such as
-- host a server on `INTERNAL_IP:INTERNAL_PORT` (`.env` variables) with endpoints related to linking osu! accounts or `/metrics` to expose metric data which you can make use of through something like [prometheus](https://prometheus.io/) and visualize with [grafana](https://grafana.com/)
-- osu! top score tracking
-- twitch stream tracking
-- matchlive tracking
+The bot also has various features that can be enabled in compilation:
+- `global_slash`: Instead of only registering slash commands in the server specified as `DEV_GUILD_ID` in the `.env`, register them globally so that they work in all servers and DMs.
+- `matchlive`: Enables the matchlive commands and a background loop that regularly checks all tracked matches for updates.
+- `osutracking`: Enables the osu tracking commands and a background loop that regularly checks all tracked users' top plays for updates.
+- `twitchtracking`: Enables the stream tracking commands and a background loop that regularly checks all tracked streams for activity.
+- `server`: Runs a server on `localhost:{SERVER_PORT}` (specified in `.env`) and enables the link command. In order for linking and its authentication to succeed, you must configure the redirect URL in your osu! (and twitch) settings and set `PUBLIC_URL` in the `.env` accordingly. E.g for osu! you go to your profile settings, check the oauth section for your own clients, edit the Application Callback URL to `http://localhost:27272/auth/osu` and in your `.env` make sure you have `SERVER_PORT=27272` and `PUBLIC_URL="http://localhost:27272"`. The server also exposes a `/metrics` endpoint providing prometheus data. If you're interested in visualizing them, you need to install [prometheus](https://prometheus.io/download/), [configure it](https://prometheus.io/docs/introduction/first_steps/), install and configure [grafana](https://grafana.com/grafana/), then create a dashboard in grafana for the bathbot metrics.
+- `full`: Enables all of the above
+
+To enable these features, use e.g. `cargo run --features global_slash,server`
