@@ -173,35 +173,45 @@ impl Display for KeyFormatter {
 pub struct HitResultFormatter {
     mode: GameMode,
     stats: ScoreStatistics,
+    wide: bool,
 }
 
 impl HitResultFormatter {
-    pub fn new(mode: GameMode, stats: ScoreStatistics) -> Self {
-        Self { mode, stats }
+    pub fn new_tight(mode: GameMode, stats: ScoreStatistics) -> Self {
+        Self::new(mode, stats, false)
+    }
+
+    pub fn new_wide(mode: GameMode, stats: ScoreStatistics) -> Self {
+        Self::new(mode, stats, true)
+    }
+
+    fn new(mode: GameMode, stats: ScoreStatistics, wide: bool) -> Self {
+        Self { mode, stats, wide }
     }
 }
 
 impl Display for HitResultFormatter {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        f.write_str("{")?;
+        let space = if self.wide { " " } else { "" };
+        write!(f, "{{{space}")?;
 
         if self.mode == GameMode::Mania {
-            write!(f, "{}/", self.stats.count_geki)?;
+            write!(f, "{}{space}/{space}", self.stats.count_geki)?;
         }
 
-        write!(f, "{}/", self.stats.count_300)?;
+        write!(f, "{}{space}/{space}", self.stats.count_300)?;
 
         if self.mode == GameMode::Mania {
-            write!(f, "{}/", self.stats.count_katu)?;
+            write!(f, "{}{space}/{space}", self.stats.count_katu)?;
         }
 
-        write!(f, "{}/", self.stats.count_100)?;
+        write!(f, "{}{space}/{space}", self.stats.count_100)?;
 
         if self.mode != GameMode::Taiko {
-            write!(f, "{}/", self.stats.count_50)?;
+            write!(f, "{}{space}/{space}", self.stats.count_50)?;
         }
 
-        write!(f, "{}}}", self.stats.count_miss)
+        write!(f, "{}{space}}}", self.stats.count_miss)
     }
 }

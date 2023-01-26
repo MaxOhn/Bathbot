@@ -63,7 +63,7 @@ impl TopIfEmbed {
                 acc = round(score.accuracy),
                 score = WithComma::new(score.score),
                 combo = ComboFormatter::new(score.max_combo, map.max_combo()),
-                hits = HitResultFormatter::new(mode, score.statistics.clone()),
+                hits = HitResultFormatter::new_tight(mode, score.statistics.clone()),
                 ago = HowLongAgoDynamic::new(&score.ended_at)
             );
         }
