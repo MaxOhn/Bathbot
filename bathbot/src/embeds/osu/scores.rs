@@ -88,11 +88,10 @@ impl ScoresEmbed {
                     args.description.push('\n');
                 }
 
-                let _ = writeln!(
+                let _ = write!(
                     args.description,
                     "{grade} **+{mods}** [{stars:.2}★] • {score} • {acc}%\n\
-                    {pp_format}**{pp:.2}**{pp_format}/{max_pp:.2}PP • **{combo}x**/{max_combo}x\n\
-                    {hits} {timestamp}",
+                    {pp_format}**{pp:.2}**{pp_format}/{max_pp:.2}PP • **{combo}x**/{max_combo}x",
                     grade = BotConfig::get().grade(entry.score.grade),
                     mods = entry.score.mods,
                     stars = entry.stars,
@@ -103,6 +102,17 @@ impl ScoresEmbed {
                     max_pp = entry.score.pp.max(entry.max_pp),
                     combo = entry.score.max_combo,
                     max_combo = OptionFormat::new(map.max_combo()),
+                );
+
+                if let Some(ref if_fc) = entry.if_fc {
+                    let _ = writeln!(args.description, " • __If FC:__ *{:.2}pp*", if_fc.pp);
+                } else {
+                    args.description.push('\n');
+                }
+
+                let _ = writeln!(
+                    args.description,
+                    "{hits} {timestamp}",
                     hits = HitResultFormatter::new_wide(
                         entry.score.mode,
                         entry.score.statistics.clone()
